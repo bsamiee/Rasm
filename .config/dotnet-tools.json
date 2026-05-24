@@ -7,6 +7,12 @@
       "commands": [
         "dotnet-stryker"
       ]
+    },
+    "sharpfuzz.commandline": {
+      "version": "2.2.0",
+      "commands": [
+        "sharpfuzz"
+      ]
     }
   }
 }

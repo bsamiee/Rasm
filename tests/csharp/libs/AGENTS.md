@@ -15,6 +15,9 @@
 - Use `Spec.Valid` and `Spec.Invalid` for `Validation<Error,T>`, `Spec.Succ` and `Spec.Fail` for `Fin<T>`, and `Spec.FailCategory`/`Spec.FailMany` for durable diagnostics.
 - Use `Gens.Context`, `Gens.Dimension`, `Gens.PositiveMagnitude`, `Gens.UnitInterval`, and edge-biased tolerances before inventing local numeric generators.
 - Use `Numeric` whenever a matrix, vector, eigen, inverse, residual, or reconstruction oracle needs to be independent from production code.
+- Use `Spec.Cases` or `Spec.SmartEnumKeysUnique` for bounded catalogs instead of repeating tiny key facts.
+- Keep model-based checks spec-local unless two source owners need the same actual-vs-model adapter.
+- Add `_testkit` surface only after the second consumer appears, or when the primitive is a cross-rail law/oracle that prevents circular tests across many future specs.
 
 ## [3][BRIDGE_BOUNDARIES]
 
@@ -28,3 +31,5 @@
 - Normal specs target 175 LOC. A spec may reach 176-200 LOC only when one source owner has multiple real concepts and the result is denser than a split.
 - Prefer one law-packed fact over several narrow facts when the same generated sample can attack closure, dispatch, unsupported outputs, and invariants together.
 - Avoid circular tests, snapshots of implementation structure, and assertions on mutable incidental ordering unless ordering is the contract.
+- Keep every snapshot, benchmark, or fuzz target outside library specs unless the artifact is the behavior under test.
+- Prefer one generated law table that varies inputs, output kinds, failure categories, and invariants over many one-assertion facts.

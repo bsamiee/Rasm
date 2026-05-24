@@ -37,38 +37,28 @@ internal static class CloudMetricGens {
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
 public sealed class VectorCloudMetricLaws {
     [Fact]
-    public void KeysAreDistinctAcrossAllCases() =>
-        Assert.Equal(
-            expected: CloudMetricGens.All.Length,
-            actual: CloudMetricGens.All.Select(static (VectorCloudMetric m) => m.Key).Distinct().Count());
+    public void MetadataCasesAreDistinctAndUseKnownOutputs() =>
+        Spec.Cases(items: CloudMetricGens.All, key: static metric => metric.Key, law: static metric =>
+            Assert.Contains(expected: metric.Output, collection: CloudMetricGens.RingFamily));
     [Fact]
-    public void OutputTypeIsRecognisedKind() =>
-        Spec.ForAll(CloudMetricGens.Metric, m =>
-            Assert.Contains(expected: m.Output, collection: CloudMetricGens.RingFamily));
-    [Fact]
-    public void ShapeMetricHasShapeOutput() =>
-        Assert.Equal(expected: typeof(VectorCloudShape), actual: VectorCloudMetric.Shape.Output);
-    [Fact]
-    public void CovarianceMetricHasSymmetricMatrixOutput() =>
-        Assert.Equal(expected: typeof(SymmetricMatrix), actual: VectorCloudMetric.Covariance.Output);
-    [Fact]
-    public void TopologicalMetricsHaveScalarOrPlanarOutput() {
-        Assert.Equal(expected: typeof(double), actual: VectorCloudMetric.Area.Output);
-        Assert.Equal(expected: typeof(double), actual: VectorCloudMetric.Perimeter.Output);
-        Assert.Equal(expected: typeof(double), actual: VectorCloudMetric.OpenLength.Output);
-        Assert.Equal(expected: typeof(Plane), actual: VectorCloudMetric.BestFitPlane.Output);
-        Assert.Equal(expected: typeof(Plane), actual: VectorCloudMetric.PrincipalFrame.Output);
-    }
-    [Fact]
-    public void SequenceMetricsHaveSeqOutput() {
-        Assert.Equal(expected: typeof(Seq<Vector3d>), actual: VectorCloudMetric.PrincipalAxes.Output);
-        Assert.Equal(expected: typeof(Seq<Plane>), actual: VectorCloudMetric.BishopFrames.Output);
-        Assert.Equal(expected: typeof(Seq<Vector3d>), actual: VectorCloudMetric.TangentFlow.Output);
-        Assert.Equal(expected: typeof(Seq<Vector3d>), actual: VectorCloudMetric.OrientedNormals.Output);
-        Assert.Equal(expected: typeof(Seq<double>), actual: VectorCloudMetric.CumulativeArcLength.Output);
-        Assert.Equal(expected: typeof(Seq<double>), actual: VectorCloudMetric.EdgeCurvatures.Output);
-        Assert.Equal(expected: typeof(Seq<double>), actual: VectorCloudMetric.Curvedness.Output);
-        Assert.Equal(expected: typeof(Seq<double>), actual: VectorCloudMetric.ShapeIndex.Output);
+    public void OutputFamiliesAreDeclaredByMetricRole() {
+        Seq<(VectorCloudMetric Metric, Type Output)> cases = Seq(
+            (VectorCloudMetric.Shape, typeof(VectorCloudShape)),
+            (VectorCloudMetric.Covariance, typeof(SymmetricMatrix)),
+            (VectorCloudMetric.Area, typeof(double)),
+            (VectorCloudMetric.Perimeter, typeof(double)),
+            (VectorCloudMetric.OpenLength, typeof(double)),
+            (VectorCloudMetric.BestFitPlane, typeof(Plane)),
+            (VectorCloudMetric.PrincipalFrame, typeof(Plane)),
+            (VectorCloudMetric.PrincipalAxes, typeof(Seq<Vector3d>)),
+            (VectorCloudMetric.BishopFrames, typeof(Seq<Plane>)),
+            (VectorCloudMetric.TangentFlow, typeof(Seq<Vector3d>)),
+            (VectorCloudMetric.OrientedNormals, typeof(Seq<Vector3d>)),
+            (VectorCloudMetric.CumulativeArcLength, typeof(Seq<double>)),
+            (VectorCloudMetric.EdgeCurvatures, typeof(Seq<double>)),
+            (VectorCloudMetric.Curvedness, typeof(Seq<double>)),
+            (VectorCloudMetric.ShapeIndex, typeof(Seq<double>)));
+        _ = cases.Iter(static c => Assert.Equal(expected: c.Output, actual: c.Metric.Output));
     }
     [Fact]
     public void ClusterMetricsAdmitProjectAndRejectUnsupportedOutputs() {

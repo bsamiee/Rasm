@@ -50,6 +50,13 @@ public sealed class SubscriptionMonoidLaws {
 
 public sealed class SubscriptionLifoLaws {
     [Fact]
+    public void GeneratedStackMatchesListModel() =>
+        Spec.ForAll(SubscriptionGens.Tag.Array[1, 16], static tags => {
+            List<int> actual = [];
+            Subscription.Composite(members: toSeq(tags.Select(tag => SubscriptionGens.Of(tag: tag, log: actual)))).Dispose();
+            Assert.Equal(expected: [.. tags.Reverse()], actual: [.. actual]);
+        });
+    [Fact]
     public void PairDisposesRightThenLeft() =>
         Spec.ForAll(SubscriptionGens.Tag.Select(SubscriptionGens.Tag), static tuple => {
             int a = tuple.Item1, b = tuple.Item2;

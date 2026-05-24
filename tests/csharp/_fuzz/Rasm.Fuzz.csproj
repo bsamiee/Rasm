@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <IsTestProject>false</IsTestProject>
+        <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="SharpFuzz" PrivateAssets="all" />
+        <ProjectReference Include="../../../libs/csharp/Rasm.Materials/Rasm.Materials.csproj" />
+    </ItemGroup>
+</Project>

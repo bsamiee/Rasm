@@ -1,71 +1,55 @@
 # [H1][STRYKER_API]
->**Dictum:** *Mutation tests the tests; it does not replace product oracles.*
+>**Dictum:** *Mutation scores the managed law suite after discovery works.*
 
 <br>
 
-[IMPORTANT] Rasm uses `dotnet-stryker 4.14.2` as an opt-in local tool through `.config/dotnet-tools.json` and `scripts/mutate-cs.sh`. No root `stryker-config.*` file exists in this pass.
+[IMPORTANT] Rasm uses `dotnet-stryker 4.14.2` through `.config/dotnet-tools.json` and `scripts/mutate-cs.sh`. Stryker is currently diagnostic, not a completion gate, because the Stryker VSTest path detects zero tests while plain VSTest discovers managed xUnit v3 tests.
 
 ---
-## [1][PACKAGE_AND_RUNNER]
->**Dictum:** *Keep mutation on the managed rail.*
+## [1][LOCAL_RAIL]
+>**Dictum:** *Mutation has one narrow owner.*
 
 <br>
 
 | [INDEX] | [FACT] | [VALUE] |
 | :-----: | ------ | ------- |
 | [1] | Tool | `dotnet-stryker 4.14.2` |
-| [2] | Install mode | Local tool manifest |
-| [3] | Script | `scripts/mutate-cs.sh` |
-| [4] | Project under mutation | `libs/csharp/Rasm/Rasm.csproj` |
-| [5] | Test project | `tests/csharp/libs/Rasm/Rasm.Tests.csproj` |
-| [6] | Runner | `vstest` |
-
-[SOURCE] NuGet package page: https://www.nuget.org/packages/dotnet-stryker/4.14.2
+| [2] | Project under mutation | `libs/csharp/Rasm/Rasm.csproj` |
+| [3] | Test project | `tests/csharp/libs/Rasm/Rasm.Tests.csproj` |
+| [4] | Default runner | `vstest` |
+| [5] | Output | `.artifacts/mutation/<slice>/<run-id>` |
 
 ---
-## [2][PROJECT_OPTIONS]
->**Dictum:** *Stryker mutates one project; be precise.*
+## [2][RUNNER_DECISION]
+>**Dictum:** *MTP is a migration, not a retry flag.*
 
 <br>
 
-| [INDEX] | [OPTION] | [USE] |
-| :-----: | -------- | ----- |
-| [1] | `--solution` | Helps dependency resolution. |
-| [2] | `--project` | Project file name, not a path, when the test project references more than one project. |
-| [3] | `--test-project` | Repeatable option for relevant test projects. |
-| [4] | `--configuration` | Rasm script uses `Release`. |
-| [5] | `--target-framework` | Rasm script uses `net10.0`. |
-| [6] | `--test-runner` | `vstest` by default; MTP is preview in Stryker docs. |
-| [7] | `--mutate` | Include/exclude globs; only project source files are considered. |
+| [INDEX] | [RUNNER] | [STATUS] | [ACTION] |
+| :-----: | -------- | -------- | -------- |
+| [1] | `vstest` | Current Rasm rail; `dotnet test` works. | Fix/diagnose Stryker zero-test discovery here first. |
+| [2] | `mtp` | Stryker preview; xUnit v3 supports it. | Requires replacing `xunit.v3.mtp-off` and proving all test projects. |
+| [3] | bridge | Runtime verification rail. | Never routed through Stryker. |
 
-[SOURCE] Stryker configuration docs: https://stryker-mutator.io/docs/stryker-net/configuration/
+[SOURCE] Stryker config docs: https://stryker-mutator.io/docs/stryker-net/configuration/
 
 ---
-## [3][CONTROL_REPORTS_THRESHOLDS]
->**Dictum:** *Thresholds start as a signal, then become a gate.*
+## [3][METRICS]
+>**Dictum:** *Survivors are classified before tests change.*
 
 <br>
 
-| [INDEX] | [OPTION] | [RASM_DEFAULT] |
-| :-----: | -------- | --------------- |
-| [1] | `--mutation-level` | `Standard`; raise to `Advanced`/`Complete` only after runtime is stable. |
-| [2] | `--reporter` | `html`, `json`, `progress`. |
-| [3] | `--output` | `.artifacts/mutation/rasm`. |
-| [4] | `--threshold-high` | `80`. |
-| [5] | `--threshold-low` | `70`. |
-| [6] | `--break-at` | `60`. |
-
-The docs define `coverage-analysis` as config-only with default `perTest`; the verified CLI help for 4.14.2 does not expose a `--coverage-analysis` flag, so the script does not pass an unsupported option.
-
-Local validation on 2026-05-24 showed `dotnet-stryker 4.14.2` using its bundled VSTest runner detected zero tests for the current `net10.0` + xUnit v3 suite while `dotnet test` discovered and ran the same tests. Treat that as runner compatibility evidence, not as a reason to weaken specs.
+- Mutation score is meaningful only after non-zero test discovery.
+- Target `95%` on the eligible managed slice after runner proof.
+- Use staged thresholds: discovery with the lowest CLI-accepted thresholds, report-only survivor taxonomy, then `high 95 / low 90 / break 85`; move `break-at` toward `95` only after equivalent/runtime-owned mutants are classified.
+- Stryker requires `threshold-low >= break-at`; use `1/1/1` for discovery diagnostics when avoiding threshold failure.
+- Classify every survivor as missing oracle, equivalent mutant, bridge-owned path, or product bug.
+- Do not mutate `libs/csharp/Rasm.Rhino`, `libs/csharp/Rasm.Grasshopper`, plugin apps, bridge tools, or `*.verify.csx`.
 
 ---
-## [4][RASM_USE]
->**Dictum:** *Survivors are questions, not automatic test edits.*
+## [4][CONFIG]
+>**Dictum:** *Add config only for config-only value.*
 
 <br>
 
-- First classify each survivor as missing oracle, equivalent mutant, bridge-owned native path, or product bug.
-- Improve existing laws before adding one-off tests.
-- Keep mutation opt-in until the static/bridge ownership split is mature enough for stable local runtime.
-- Do not mutate Rhino/GH runtime scenarios through Stryker; validate those through `scripts/rhino.sh verify` and `bridge check-source`.
+Keep script-owned settings while mutation targets one project. Add `stryker-config.*` only when config-only options such as `coverage-analysis`, executable excludes, or multi-project orchestration become necessary.

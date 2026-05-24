@@ -143,18 +143,20 @@ public sealed class StatContextLaws {
 }
 
 public sealed class ScalarMetricCases {
-    [Fact] public void MagnitudeKeyIsZero() => Assert.Equal(expected: 0, actual: ScalarMetric.Magnitude.Key);
-    [Fact] public void GaussianKeyIsOne() => Assert.Equal(expected: 1, actual: ScalarMetric.Gaussian.Key);
-    [Fact] public void MeanKeyIsTwo() => Assert.Equal(expected: 2, actual: ScalarMetric.Mean.Key);
     [Fact]
-    public void KeysAreDistinctAcrossCases() =>
-        Assert.Equal(expected: 3, actual: new[] { ScalarMetric.Magnitude.Key, ScalarMetric.Gaussian.Key, ScalarMetric.Mean.Key }.Distinct().Count());
+    public void CasesHaveDenseDistinctKeys() =>
+        Spec.Cases(
+            items: [ScalarMetric.Magnitude, ScalarMetric.Gaussian, ScalarMetric.Mean],
+            key: static metric => metric.Key,
+            law: static metric => Assert.Contains(expected: metric.Key, collection: [0, 1, 2]));
 }
 
 public sealed class ExtremumDirectionLaws {
-    [Fact] public void MaximumHasPositiveOneKey() => Assert.Equal(expected: 1, actual: ExtremumDirection.Maximum.Key);
-    [Fact] public void MinimumHasNegativeOneKey() => Assert.Equal(expected: -1, actual: ExtremumDirection.Minimum.Key);
     [Fact]
-    public void KeysSumToZeroAcrossBothCases() =>
-        Assert.Equal(expected: 0, actual: ExtremumDirection.Maximum.Key + ExtremumDirection.Minimum.Key);
+    public void CasesAreOppositeUnitDirections() {
+        ExtremumDirection[] cases = [ExtremumDirection.Maximum, ExtremumDirection.Minimum];
+        Spec.Cases(items: cases, key: static direction => direction.Key, law: static direction =>
+            Assert.Contains(expected: direction.Key, collection: [1, -1]));
+        Assert.Equal(expected: 0, actual: cases.Sum(static direction => direction.Key));
+    }
 }

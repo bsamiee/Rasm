@@ -2,8 +2,9 @@
 name: cs-testing
 description: >-
   Builds and reviews dense law-matrix C# specs for Rasm using xUnit v3, CsCheck,
-  Rasm.TestKit, coverlet, Stryker, and Rhino/GH bridge scenarios. Use when
-  creating, refactoring, or validating C# tests, testkit code, test docs, or
+  Rasm.TestKit, coverlet, Stryker, Verify, ArchUnitNET, BenchmarkDotNet,
+  SharpFuzz, and Rhino/GH bridge scenarios. Use when creating, refactoring, or
+  validating C# tests, testkit code, test docs, benchmark/fuzz harnesses, or
   bridge-owned runtime verification for Rasm.
 ---
 
@@ -12,7 +13,7 @@ description: >-
 
 <br>
 
-Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` for scripts, and `docgen` + `style-standards` for Markdown. The canonical rail is xUnit v3 stable/VSTest + CsCheck + `Rasm.TestKit`; native Rhino/GH runtime behavior belongs in `*.verify.csx` bridge scenarios.
+Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` for scripts, and `docgen` + `style-standards` for Markdown. The canonical unit rail is xUnit v3/VSTest + CsCheck + `Rasm.TestKit`; native Rhino/GH runtime behavior belongs in `*.verify.csx` bridge scenarios.
 
 ---
 ## [1][WORKFLOW]
@@ -24,7 +25,7 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 2. Classify each behavior as static-managed or bridge-owned native/runtime.
 3. Select laws from [oracles-laws.md](references/oracles-laws.md) and density axes from [density-axes.md](references/density-axes.md).
 4. Reuse `Rasm.TestKit` contracts from [testkit.md](references/testkit.md).
-5. Check raw tool API in `docs/testing-libs/xunit`, `cscheck`, `coverlet`, and `stryker` before using unfamiliar APIs.
+5. Check raw tool API in `docs/testing-libs` before using unfamiliar APIs.
 6. Write the spec from [unit-pbt.spec.template.md](templates/unit-pbt.spec.template.md).
 7. Validate with the smallest targeted build/test first, then the full C# gates.
 
@@ -40,6 +41,10 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 | [2] | Testkit | `tests/csharp/_testkit` | Universal law adapters, reusable generators, independent numeric oracles, serializers. |
 | [3] | Bridge scenario | `apps/grasshopper/Radyab/Scenarios/*.verify.csx` | RhinoCommon/GH runtime APIs, native geometry validity, UI marshaling, document/canvas behavior. |
 | [4] | Mutation | `scripts/mutate-cs.sh` | Opt-in managed survivor discovery for `libs/csharp/Rasm` and its tests. |
+| [5] | Architecture | `tests/csharp/_architecture` | Assembly dependency direction and cycle laws. |
+| [6] | Tooling snapshot | `tests/csharp/_tooling` | Stable generated/config artifacts through Verify. |
+| [7] | Benchmark | `tests/csharp/_benchmarks` | Managed hot-path measurement outside xUnit. |
+| [8] | Fuzz | `tests/csharp/_fuzz` | Pure managed parser/token harnesses outside xUnit. |
 
 [CRITICAL]:
 - Do not move native behavior into static xUnit just to improve coverage.
@@ -73,13 +78,19 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 | [2] | CsCheck | `docs/testing-libs/cscheck/api.md` | `Gen`, `Sample`, shrink/replay, model/metamorphic/parallel/perf APIs. |
 | [3] | coverlet | `docs/testing-libs/coverlet/api.md` | Opt-in managed coverage map. |
 | [4] | Stryker.NET | `docs/testing-libs/stryker/api.md` | Opt-in mutation through `scripts/mutate-cs.sh`. |
+| [5] | Verify | `docs/testing-libs/verify/api.md` | Stable artifact snapshots only. |
+| [6] | ArchUnitNET | `docs/testing-libs/archunit/api.md` | Assembly boundary laws. |
+| [7] | BenchmarkDotNet | `docs/testing-libs/benchmarkdotnet/api.md` | Benchmark console projects. |
+| [8] | SharpFuzz | `docs/testing-libs/sharpfuzz/api.md` | Fuzz harness projects. |
 
 Current local truth:
 
 - There is no root `xunit.runner.json`; `Directory.Build.props` generates per-project runner JSON under `obj`.
 - There is no user-facing `IAssemblyFixture<T>` API; use `[assembly: AssemblyFixture(...)]` plus constructor injection.
 - xUnit typed theory rows/data exist through arity 15.
+- `Spec.Metamorphic` is a path/oracle wrapper over `Spec.ForAll`, not CsCheck `SampleMetamorphic`.
 - Do not claim a `Check.Hash` cache path without inspecting the current package/source.
+- Treat Stryker as diagnostic until its runner discovers non-zero tests; the managed target is 95% after discovery proof.
 
 ---
 ## [5][VALIDATION]

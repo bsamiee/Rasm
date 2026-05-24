@@ -40,6 +40,11 @@
 | [11] | `CsCheck` | Active shared for tests/testkit | Property-based generation and shrinking. |
 | [12] | `coverlet.msbuild` | Active shared for runnable tests | Opt-in managed coverage. |
 | [13] | `dotnet-stryker` | Local tool manifest | Opt-in managed mutation testing. |
+| [14] | `Verify.XunitV3` | Active direct in tooling snapshot tests | Snapshot-worthy generated/tooling artifacts only. |
+| [15] | `TngTech.ArchUnitNET.xUnitV3` | Active direct in architecture tests | Assembly dependency boundary laws. |
+| [16] | `BenchmarkDotNet` | Active direct in benchmark project | Managed hot-path measurement outside xUnit. |
+| [17] | `SharpFuzz` | Active direct in fuzz project | Pure managed parser/token fuzz harnesses. |
+| [18] | `SharpFuzz.CommandLine` | Local tool manifest | Opt-in fuzz instrumentation. |
 
 ---
 ## [3][ADOPTION]
@@ -62,4 +67,5 @@
 - Raw xUnit, CsCheck, coverlet, and Stryker API guidance lives under `docs/testing-libs`.
 - Test project package injection lives in `Directory.Build.props`; versions live in `Directory.Packages.props`.
 - Local mutation tooling lives in `.config/dotnet-tools.json` and is invoked by `scripts/mutate-cs.sh`.
+- Verify, ArchUnitNET, BenchmarkDotNet, and SharpFuzz each keep one direct `tests/csharp/_*` rail: `_tooling`, `_architecture`, `_benchmarks`, and `_fuzz`.
 - Rejected adjacent testing packages stay out of the graph until a concrete test owner proves they add value beyond xUnit, CsCheck, coverlet, Stryker, bridge scenarios, and existing analyzers.

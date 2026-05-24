@@ -17,7 +17,18 @@
 [CRITICAL] Do not use production `Matrix.operator *`, `Matrix.Determinant`, `CloudKernel.*`, or the same projection method as the expected-value engine for the method under test.
 
 ---
-## [2][LAW_MATRIX]
+## [2][ORACLE_GRADE]
+
+| [GRADE] | [ORACLE] | [USE] |
+| ------- | -------- | ----- |
+| A | Independent closed form, smaller model, or metamorphic relation | Default target for core behavior. |
+| B | External library fact or independent scalar/reference loop | Numeric and parsing rails. |
+| C | Typed receipt/category/code invariant | Failure and unsupported-output rails. |
+| D | Structural assertion | Supplemental shape proof only. |
+| F | Implementation mirror or current-output snapshot | Reject. |
+
+---
+## [3][LAW_MATRIX]
 
 | [AXIS] | [LAW] | [BUGS_CAUGHT] |
 | ------ | ----- | ------------- |
@@ -31,7 +42,7 @@
 | Runtime | Static-vs-bridge classification, native validity, host/UI thread behavior. | Tests that pass outside the only runtime that matters. |
 
 ---
-## [3][ANTI_PATTERNS]
+## [4][ANTI_PATTERNS]
 
 - Snapshotting the current implementation output and asserting it later.
 - Using one test per branch when one generated law can traverse the axis.

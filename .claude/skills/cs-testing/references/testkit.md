@@ -17,9 +17,11 @@
 
 - Use `Spec.ForAll` instead of raw `gen.Sample` so seed/iter/time/thread precedence is consistent.
 - Use `Spec.Metamorphic` when expected values come from an independent path.
+- Treat `Spec.Metamorphic` as a path/oracle law wrapper; it is not CsCheck `SampleMetamorphic`.
 - Use `Spec.Valid` / `Spec.Invalid` for `Validation<Error,T>` and `Spec.Succ` / `Spec.Fail` for `Fin<T>`.
 - Use `Spec.EqualWithin`, `NearEqual`, and `SeqEqualWithin` for generated numeric comparisons.
 - Use `Numeric.*` for matrix expected values when testing `Matrix`.
+- Add model-based, async, snapshot, benchmark, or fuzz adapters only when two concrete consumers exist.
 
 ---
 ## [3][GENERATOR_CONTRACT]

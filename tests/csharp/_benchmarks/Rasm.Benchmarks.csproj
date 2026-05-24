@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <IsBenchmarkProject>true</IsBenchmarkProject>
+        <IsTestProject>false</IsTestProject>
+        <SkipBoundaryExemptionContracts>true</SkipBoundaryExemptionContracts>
+        <NoWarn>$(NoWarn);CA1515</NoWarn>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="BenchmarkDotNet" PrivateAssets="all" />
+        <ProjectReference Include="../../../libs/csharp/Rasm/Rasm.csproj" />
+    </ItemGroup>
+    <ItemGroup>
+        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+            <_Parameter1>RasmWorkspaceRoot</_Parameter1>
+            <_Parameter2>$(SolutionDir)</_Parameter2>
+        </AssemblyAttribute>
+    </ItemGroup>
+</Project>

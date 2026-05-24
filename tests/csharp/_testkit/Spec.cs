@@ -121,6 +121,10 @@ public static class Spec {
         Assert.Equal(
             expected: (items ?? throw new ArgumentNullException(nameof(items))).Count,
             actual: items.Select(selector: key ?? throw new ArgumentNullException(nameof(key))).Distinct().Count());
+    public static void Cases<T, TKey>(IReadOnlyList<T> items, Func<T, TKey> key, Action<T> law) where TKey : notnull {
+        SmartEnumKeysUnique(items: items, key: key);
+        _ = (items ?? throw new ArgumentNullException(nameof(items))).AsIterable().Iter(value => (law ?? throw new ArgumentNullException(nameof(law)))(value));
+    }
     public static void ValueObjectRoundtrip<TVO, TKey>(Gen<TKey> validGen, TryCreate<TKey, TVO> tryCreate, Func<TVO, TKey> read, Func<TKey, TKey, bool>? eq = null) =>
         Roundtrip(
             gen: validGen ?? throw new ArgumentNullException(nameof(validGen)),

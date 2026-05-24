@@ -6,14 +6,19 @@ IFS=$'\n\t'
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 readonly SCRIPT_DIR ROOT_DIR
+_run_id() { printf '%(%Y-%m-%dT%H-%M-%S)T' -1; }
 readonly TEST_TARGET="${TEST_TARGET:-${ROOT_DIR}/tests/csharp/libs/Rasm/Rasm.Tests.csproj}" CONFIGURATION="${CONFIGURATION:-Release}"
+readonly TEST_TARGET_NAME="${TEST_TARGET##*/}"
+readonly TEST_SLICE="${TEST_TARGET_NAME%.csproj}" TEST_RUN_ID="${TEST_RUN_ID:-$(_run_id)}"
 readonly LOCK_ROOT="${ROOT_DIR}/.artifacts/locks"
+readonly TEST_RESULTS_DIR="${TEST_RESULTS_DIR:-${ROOT_DIR}/.artifacts/test/${TEST_SLICE}/${TEST_RUN_ID}}"
 ACTIVE_LOCK=""
 _die() { printf 'test: %s\n' "$1" >&2; exit "${2:-1}"; }
 _err() { printf 'test: failed with %s at line %s: %s\n' "$1" "$3" "$2" >&2; }
 trap '_err "$?" "${BASH_COMMAND}" "${LINENO}"' ERR
 _release_lock() { local -r lock="${ACTIVE_LOCK:-}"; ACTIVE_LOCK=""; [[ -n "${lock}" ]] && rmdir -- "${lock}" 2>/dev/null || true; }
-trap '_release_lock; exit $?' EXIT
+_cleanup_exit() { local -r exit_code="$?"; _release_lock; exit "${exit_code}"; }
+trap _cleanup_exit EXIT
 _with_lock() {
     local -r lock_dir="${LOCK_ROOT}/${1}.lock" deadline=$((BASH_MONOSECONDS + 120))
     shift
@@ -26,8 +31,14 @@ _with_lock() {
     "$@"
 }
 _run() {
-    local -r filter="${1:-}"
-    local -a args=(--configuration "${CONFIGURATION}")
+    local -r mode="${1:-run}"
+    local -r filter="${2:-}"
+    local -a args=(--configuration "${CONFIGURATION}" --results-directory "${TEST_RESULTS_DIR}")
+    [[ "${mode}" == "list" ]] && args+=(--list-tests)
+    [[ "${mode}" == "coverage" ]] && args+=(/p:CollectCoverage=true)
+    [[ "${mode}" == "coverage" && -n "${COVERAGE_THRESHOLD:-}" ]] && args+=(/p:Threshold="${COVERAGE_THRESHOLD}")
+    [[ "${mode}" == "coverage" && -n "${COVERAGE_THRESHOLD_TYPE:-}" ]] && args+=(/p:ThresholdType="${COVERAGE_THRESHOLD_TYPE}")
+    [[ "${mode}" == "coverage" && -n "${COVERAGE_THRESHOLD_STAT:-}" ]] && args+=(/p:ThresholdStat="${COVERAGE_THRESHOLD_STAT}")
     [[ -z "${filter}" ]] || args+=(--filter "${filter}")
     dotnet test "${TEST_TARGET}" "${args[@]}"
 }
@@ -40,7 +51,9 @@ _self_test() {
 _main() {
     [[ "${1:-}" == "--self-test" ]] && { _self_test; printf 'test: self-test passed\n'; return 0; }
     command -v dotnet >/dev/null || _die "Missing required command: dotnet"
+    [[ "${1:-}" == "--list-tests" ]] && { shift; (($# <= 1)) || _die "Unexpected arguments: $*" 2; _with_lock test-cs _run list "${1:-}"; return 0; }
+    [[ "${1:-}" == "--coverage" ]] && { shift; (($# <= 1)) || _die "Unexpected arguments: $*" 2; _with_lock test-cs _run coverage "${1:-}"; return 0; }
     (($# <= 1)) || _die "Unexpected arguments: $*" 2
-    _with_lock test-cs _run "${1:-}"
+    _with_lock test-cs _run run "${1:-}"
 }
 _main "$@"

@@ -10,8 +10,16 @@
   - `/Users/bardiasamiee/Documents/99.Github/Rasm/docs/testing-libs/cscheck/api.md`
   - `/Users/bardiasamiee/Documents/99.Github/Rasm/docs/testing-libs/coverlet/api.md`
   - `/Users/bardiasamiee/Documents/99.Github/Rasm/docs/testing-libs/stryker/api.md`
+  - `/Users/bardiasamiee/Documents/99.Github/Rasm/docs/testing-libs/verify/api.md`
+  - `/Users/bardiasamiee/Documents/99.Github/Rasm/docs/testing-libs/archunit/api.md`
+  - `/Users/bardiasamiee/Documents/99.Github/Rasm/docs/testing-libs/benchmarkdotnet/api.md`
+  - `/Users/bardiasamiee/Documents/99.Github/Rasm/docs/testing-libs/sharpfuzz/api.md`
 - Keep specs law-matrix shaped: each test should cover a behavior family, oracle, failure rail, or metamorphic relation.
 - Static xUnit owns pure-managed behavior; native Rhino/GH behavior belongs in `*.verify.csx` bridge scenarios.
+- Architecture tests own assembly dependency direction only; code-shape rules stay in `tools/cs-analyzer`.
+- Benchmarks and fuzz harnesses are separate executable rails, not xUnit specs.
+- Verify snapshots compare stable artifacts only; never snapshot current implementation output as a domain oracle.
+- Generated reports, corpora, mutation output, benchmark output, and transient test results belong under `/Users/bardiasamiee/Documents/99.Github/Rasm/.artifacts`; do not create local scratch roots such as `.remember`.
 - If bridge execution reports `LanguageExt.*` value-type mismatch or already-loaded assembly identity failures, investigate loaded Rhino packages/assemblies before changing the scenario or static spec.
 
 ## [2][ORACLES]
@@ -20,6 +28,8 @@
 - Before changing a failing test, investigate whether product code is wrong. Tests are allowed to expose real bugs.
 - Prefer variable-driven samples through `Spec.ForAll`, `Spec.Metamorphic`, and `Spec.Regression`.
 - Use explicit seeds only to preserve a discovered regression; otherwise let `CsCheck_*` environment policy flow through `Spec`.
+- Grade every expected-value path: prefer independent closed form, smaller model, or metamorphic relation; reject implementation mirrors.
+- Treat Stryker survivors as missing oracle, equivalent mutant, bridge-owned path, or product bug before editing tests.
 
 ## [3][TESTKIT]
 
@@ -27,6 +37,7 @@
 - Use `Gens` for shared edge-biased numeric, tolerance, dimension, unit interval, positive magnitude, and context inputs.
 - Use `Numeric` for independent matrix/vector oracles; do not use production `Matrix` operators to compute expected values.
 - Extend `_testkit` only when two or more specs will consume the abstraction. Testkit files may reach 350 LOC, but must stay polymorphic and dense.
+- Do not add package versions as future intent. Every test tool package must have a concrete spec, benchmark, harness, or artifact owner.
 
 ## [4][SUPPRESSIONS_AND_GATES]
 
@@ -35,5 +46,11 @@
 - Validation ladder for test changes:
   - `dotnet build /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/libs/Rasm/Rasm.Tests.csproj --configuration Debug --no-restore`
   - `bash /Users/bardiasamiee/Documents/99.Github/Rasm/scripts/test.sh`
+  - `TEST_TARGET=/Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj bash /Users/bardiasamiee/Documents/99.Github/Rasm/scripts/test.sh` when GH2 managed specs changed.
+  - `TEST_TARGET=/Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj bash /Users/bardiasamiee/Documents/99.Github/Rasm/scripts/test.sh` when Rhino managed specs changed.
+  - `dotnet test /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_architecture/Rasm.Architecture.Tests.csproj --configuration Debug` when architecture laws changed.
+  - `dotnet test /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_tooling/Rasm.TestingTools.Tests.csproj --configuration Release` when stable testing-rail snapshots changed.
+  - `dotnet run --project /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_benchmarks/Rasm.Benchmarks.csproj --configuration Release -- --list flat` when benchmark projects or config changed.
+  - `printf 'running,1000,240,0,modular,9.525,9.525,concave' | dotnet run --project /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_fuzz/Rasm.Fuzz.csproj --configuration Release` when fuzz harnesses changed.
   - `bash /Users/bardiasamiee/Documents/99.Github/Rasm/scripts/rhino.sh verify /Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/Scenarios` when bridge scenarios changed.
   - `git diff --check`

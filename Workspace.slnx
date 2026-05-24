@@ -23,12 +23,27 @@
   <Folder Name="/tests/csharp/_testkit/">
     <Project Path="tests/csharp/_testkit/Rasm.TestKit.csproj" />
   </Folder>
+  <Folder Name="/tests/csharp/_architecture/">
+    <Project Path="tests/csharp/_architecture/Rasm.Architecture.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/csharp/_benchmarks/">
+    <Project Path="tests/csharp/_benchmarks/Rasm.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/tests/csharp/_fuzz/">
+    <Project Path="tests/csharp/_fuzz/Rasm.Fuzz.csproj" />
+  </Folder>
+  <Folder Name="/tests/csharp/_tooling/">
+    <Project Path="tests/csharp/_tooling/Rasm.TestingTools.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/csharp/libs/" />
   <Folder Name="/tests/csharp/libs/Rasm/">
     <Project Path="tests/csharp/libs/Rasm/Rasm.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/csharp/libs/Rasm.Grasshopper/">
     <Project Path="tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/csharp/libs/Rasm.Materials/">
+    <Project Path="tests/csharp/libs/Rasm.Materials/Rasm.Materials.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/csharp/libs/Rasm.Rhino/">
     <Project Path="tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj" />
