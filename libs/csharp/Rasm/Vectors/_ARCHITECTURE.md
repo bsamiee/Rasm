@@ -5,16 +5,18 @@
 ### Implementation Order
 
 1. `[implemented][session-sized]` Extraction rail truth landed for the current slice: domain admission is `SupportSpace` / `MeshSpace` / `VectorCloud`, sample policies route through `SampleKind`, native contour receipts preserve raw accepted/rejected counts, mesh scalar isolines use a local PL kernel, and Flow events expose endpoint/bracket status. Static vector tests cover managed rails; Rhino runtime bridge checks remain deferred unless explicitly reopened.
-2. `[next][session-sized]` Matrix receipts and solve ownership: fix CSparse symmetric admission, add solve/eigen receipts, and move QR least-squares from `Align.cs` / `Cloud.cs` into `Matrix.cs`.
+2. `[implemented][session-sized]` Matrix receipts and solve ownership landed: CSparse symmetric admission accepts upper-only, lower-only, and mirrored inputs with conflict rejection; dense LU/QR/Cholesky, sparse BiCGStab/MathNet QR fallback, CSparse Cholesky, dense/sparse/generalized eigen paths now expose receipts; QR least-squares ownership moved from `Align.cs` / `Cloud.cs` into `Matrix.cs`.
 3. `[next][session-sized]` Cloud, alignment, and transport diagnostics: add `CloudCorrespondenceSet`, deepen computed `SinkhornReceipt`, propagate existing weighted mass, and keep true GICP unsupported.
 4. `[next][session-sized]` Mesh and spectral receipts: add topology, feature, flatten, remesh, descriptor receipts, scalar-isoline diagnostics, and truthful raw-vs-normalized descriptor status.
 5. `[next][session-sized]` Sampling, domains, and modes: deepen sample receipts, add weighted/scalar-density/adaptive sampling, add native surface/curve frame projections with explicit policy, and keep static tests off native-only Rhino runtime behavior.
-6. `[next][session-sized]` Field, kernels, and SDFs: add kernel profiles, anisotropic kernels, non-duplicative SDF primitives, SDF receipts, and defer RBF/MLS until matrix receipts are in place.
+6. `[next][session-sized]` Field, kernels, and SDFs: add kernel profiles, anisotropic kernels, non-duplicative SDF primitives, SDF receipts, and build RBF/MLS on the landed matrix receipts.
+
+Steps 1 and 2 are now the foundation. Next session can finalize 3/4/5/6 together by threading these receipt APIs through cloud, mesh/spectral, sampling/modes, and field/SDF owners instead of adding parallel diagnostic shapes.
 
 ### Missing Categories
 
 - `[native-routed][implemented-for-current-slice][partial]` `Extraction.cs`: domain-backed glyph/grid/bundle sampling, mesh scalar isolines, surface `IsoStatus`, point-cloud section curves, and raw native contour receipt counts are implemented. Brep native contours inherit Rhino document/default tolerance because RhinoWIP exposes no context-tolerance overload; optional bridge proof should own runtime behavior if reopened.
-- `[partial]` Receipts: `StreamlineTrace` now carries explicit event kind/status metadata, `ExtractionReceipt` reports status plus raw/valid/rejected contour counts, and `SampleReceipt` is still intentionally count-only. `AlignmentReceipt`, `SinkhornReceipt`, and solver receipts remain shallow; add fields only from values kernels already compute.
+- `[partial]` Receipts: `StreamlineTrace` now carries explicit event kind/status metadata, `ExtractionReceipt` reports status plus raw/valid/rejected contour counts, `SolveReceipt` / `EigenSolveReceipt` expose solver path/stop/residual/factor facts, and `SampleReceipt` is still intentionally count-only. `AlignmentReceipt`, `SinkhornReceipt`, mesh/spectral receipts, and SDF receipts remain shallow or missing; add fields only from values kernels already compute.
 - `[missing]` Correspondences: add `CloudCorrespondence` / `CloudCorrespondenceSet` once, then feed it from ICP matching and Sinkhorn coupling. Confidence remains optional until a kernel computes it.
 - `[partial]` Weighted geometry: `WeightedCluster` exists; weighted centroid/covariance, transport, density, and sampling still need mass propagation. Do not add a second weight owner.
 - `[partial]` Extraction domains: public domain ownership collapsed to `SupportSpace`, `MeshSpace`, and `VectorCloud`; `ExtractionDomain.Of` admits raw curve/surface/Brep through `SupportSpace.Of`. Boundary domains and richer domain-owned density/admission policies remain incomplete.
@@ -42,7 +44,7 @@
 - `[native-routed][partial][threading-risk]` `Field.cs`: iso-surface routes through intent/extraction, but public `ScalarField.IsoSurface` still owns the Rhino callback. Rhino WIP evaluates the callback in parallel, so receipts must label fixed-tolerance/parallel native behavior until constrained or runtime-proven.
 - `[missing]` `KernelKind`: add a radial profile with value, first derivative, and second derivative; keep `Weight` as `Profile.Value`. Current `Weight`-only API remains insufficient for truthful kernel gradients/Laplacians.
 - `[missing]` Kernels: add anisotropic kernels through explicit metric/tensor ownership, not a parallel kernel model. This should feed facade grain, stretched influence, and tensor-guided falloff.
-- `[missing]` Reconstruction: add RBF/MLS after matrix solve receipts exist. Receipt must state interpolation vs approximation, smoothing, sample count, residual, and nonconvergence.
+- `[missing]` Reconstruction: add RBF/MLS on top of the landed matrix solve receipts. Receipt must state interpolation vs approximation, smoothing, sample count, residual, and nonconvergence.
 - `[partial]` SDF primitives: existing primitives cover several massing cases; add only half-space, slab, capped/profile extrusion, and oriented prism if composition cannot express them. Do not duplicate rounded box.
 - `[partial]` SDF outputs: `ScalarField.LipschitzBound()` exists and mesh-backed signing routes through generalized winding / boundary-source signed heat. Watertight preflight, lossy fallback, approximate preview status, and explicit SDF receipts remain missing.
 
@@ -51,7 +53,7 @@
 - `[implemented-for-current-slice][partial]` `Mesh.cs`: per-vertex scalar isolines exist as local PL mesh contours with payload-length admission, finite-level validation, Rhino quad triangulation, edge interpolation, exact-edge dedupe, plateau rejection, branch-safe stitching, and stitched candidate counts. Rich plateau/branch diagnostics and runtime bridge proofs remain future work.
 - `[partial]` Mesh features: raw dihedral/boundary edge pairs exist; ridge/valley/crease/boundary/region-boundary geometry outputs and `FeatureReceipt` are missing.
 - `[missing]` Mesh segmentation: scalar contour payload now exists, but threshold regions, region growing, watershed-like bands, and descriptor clustering remain unimplemented. Build them only after receipts expose enough factual region diagnostics.
-- `[partial]` Mesh diagnostics: `LaplacianCache` exists, but cache hit/factorization/residual/eigenpair/fallback receipts do not. Robust tufted Laplacian, flipped signpost vector heat, closed SignedHeat, runtime scalar-isoline geometry proof, and true tangent log-map remain unsupported.
+- `[partial]` Mesh diagnostics: `LaplacianCache` exists and Matrix eigen receipts now expose residual/path facts, but cache hit, factorization, descriptor, and mesh-owned diagnostic receipts do not. Robust tufted Laplacian, flipped signpost vector heat, closed SignedHeat, runtime scalar-isoline geometry proof, and true tangent log-map remain unsupported.
 - `[partial]` Spectral descriptors: raw filters exist; descriptor metadata, normalization, comparison, and ranking are missing. Genus-positive trivial connections remain unsupported until harmonic handling lands.
 - `[partial]` Remesh outputs: native remesh returns mesh only; `RemeshReceipt` with target length, reduction ratio, validity, hard-edge preservation, and topology-change summary is missing.
 
@@ -74,7 +76,7 @@
 ### Modes, Matrices, And Product Boundary
 
 - `[partial]` `Modes.cs`: curvature projection exists and `SurfaceProjection.Normal` now routes directly through native `Surface.NormalAt`, but metric, Jacobian, area scale, UV frame, and explicit curve normal/binormal policy projections are missing. Continue using native `Surface.Evaluate`, `FrameAt`, `NormalAt`, `CurvatureAt`, and `Curve.PerpendicularFrameAt` directly.
-- `[partial]` `Matrix.cs`: sparse solve metadata exists only shallowly, dense inverse now validates finite output, and dense/factorized/spectral/generalized paths still need `SolveReceipt` / `EigenSolveReceipt`. Next collapse should move duplicated QR least-squares from `Align.cs` / `Cloud.cs` into `Matrix.cs` and keep CSparse one-triangle admission covered by real off-diagonal solve tests.
+- `[implemented-for-current-slice][partial]` `Matrix.cs`: `SolveReceipt` / `EigenSolveReceipt` now cover dense LU/QR/Cholesky, sparse iterative/MathNet QR fallback, CSparse Cholesky, dense/sparse/generalized eigen paths, and QR least-squares is owned by `Matrix.cs`. Remaining matrix work is downstream adoption in mesh/spectral/cloud receipts and any future factor cache receipts; raw solve/eigen APIs remain projections over detailed receipts.
 - `[partial]` Receipts and failures: several paths still use raw values or sentinel-style fallback. Model nonconvergence, unsupported topology, invalid factorization, missing native capability, lossy fallback, and approximate output through `Fin<T>` failures or typed statuses.
 - `[implemented]` Product boundary: no UI, preview conduits, bake commands, GH2 parameter wrappers, or command receipts belong in `Rasm.Vectors`. Keep returning typed geometry, weights, coupling, correspondences, residuals, and factual diagnostics only.
 
@@ -169,13 +171,13 @@ flowchart TB
 - `Atoms.cs`: dimensions, magnitudes, axes, angles, directions, spans, frames, cones, relations, `Direction.ParallelTransport(Seq<Plane>)`.
 - `Modes.cs`: curve / surface / cone / pose projection selectors; `SurfaceProjection.ShapeOperator` projects Rhino `SurfaceCurvature` into a `SymmetricMatrix`.
 - `Space.cs`: `SupportSpace`, `SurfaceSpace`, `SupportProjection`, signed distance, containment, closest-hit projection.
-- `Field.cs`: scalar/vector/tensor field algebra (CSG blending, falloff, kernels, noise, finite difference). Mesh-aware extensions: `ScalarField` adds `Geodesic`, `MeanCurvatureFlow`, `SpectralDistance`, scalar `LogMap` routing to heat-geodesic distance, `Stripe`, and `SignedDistanceFromMesh`; `VectorField` adds `CrossField`, one `Hodge` case carrying `BoundarySense`, `VectorHeat`, and `GeodesicTangent`.
+- `Field.cs`: scalar/vector/tensor field algebra (CSG blending, falloff, kernels, noise, finite difference). Mesh-aware extensions: `ScalarField` adds `Geodesic`, `MeanCurvatureFlow`, `SpectralDistance`, `Stripe`, and `SignedDistanceFromMesh`; `VectorField` adds `CrossField`, one `Hodge` case carrying `BoundarySense`, `VectorHeat`, and `GeodesicTangent`.
 - `Flow.cs`: validated Runge-Kutta tableaus, fixed/adaptive integration, streamline state, termination predicates, and `StreamlineTrace` projection receipts.
 - `Cloud.cs`: cloud construction (Ring / Polyline / Cluster / WeightedCluster), `VectorCloudMetric` SmartEnum (PCA, oriented normals, principal curvature, curvedness, shape index), plus separate intent rails for winding, hull, and transport. `CloudKernel.Sinkhorn` uses log-domain scaling; `massRelaxation` changes KL marginal penalties over validated normalized masses.
 - `Sample.cs`: canonical `SampleKind` owner for explicit points, mesh-surface policies, support count-backed sampling, deterministic cloud candidates, and `SampleReceipt`.
 - `Align.cs`: cloud alignment -- `AlignKind` SmartEnum admits `Point`, `Plane`, `Symmetric` (Rusinkiewicz 2019 with oriented normal sum), `Robust` (MAD-scaled Welsch IRLS), and `NormalWeightedPointToPlane`.
 - `Mesh.cs`: mesh snapshots, local PL scalar isolines, `LaplacianCache` (cotangent / IDT / explicitly unsupported robust Laplacian, scalar Cholesky factor, parametric scalar-heat / vector-connection / edge-connection Cholesky caches via `Atom<HashMap>`, spectral basis, mean edge length, mesh-invariant SHM φ via `Lazy<Fin<Arr<double>>>`, and typed per-kernel `Atom<HashMap<TKey, Fin<TValue>>>` caches for geodesic / MCF / cross-field / Hodge / vector-heat with structurally-equal record keys), `MeshLaplacian` SmartEnum (`Cotangent`, `IntrinsicDelaunay`, `Robust`), `MeshDescriptor` Union (single `SpectralCase`), `IntrinsicMesh` (post-IDT-flip frozen edge index + face-edge map + face areas + first-incident-edge per vertex), topology, features, remesh kernels, Hodge, vector heat, geodesic tangent, stripe, cross-field, triangle solid-angle winding SDF, and boundary-source SignedHeat kernels.
-- `Matrix.cs`: dense and sparse matrix models, MathNet conversion, dense decompositions, BiCGStab sparse solves with MathNet direct-solve fallback, sparse Hermitian products, local LOBPCG eigensolves, and `CholeskySparse` for CSparse.NET-backed SPD-intended factorisation with typed factorisation failure.
+- `Matrix.cs`: dense and sparse matrix models, MathNet conversion, dense decompositions, dense QR least-squares, BiCGStab sparse solves with MathNet QR fallback receipts, sparse Hermitian products, local LOBPCG eigensolves without hidden dense fallback, solve/eigen receipts, and `CholeskySparse` for CSparse.NET-backed SPD-intended factorisation with typed factorisation failure.
 - `Spectral.cs`: `DiscreteCalculus` (DEC operators `d0`, `d1`, `star0` barycentric/lumped mass, `star1`, `star2`), `SpectralBasis` eigenpair values, `SpectralFilter` algebra, FEM heat scaffold, Crouzeix-Raviart connection Laplacian, `ComputeIntrinsicStar1`, and CDS 2010 holonomy distribution over intrinsic incidence operators.
 
 ## Invariants
@@ -185,18 +187,18 @@ flowchart TB
 - `Spectral.cs` owns DEC operators, spectral basis values, `SpectralFilter` dispatch + partial-monoid `Compose`, FEM heat scaffolding, the Crouzeix-Raviart edge connection Laplacian for SHM, and the CDS holonomy 1-form for trivial connections. Mesh-owned `LaplacianCache` memoises `SpectralBasisOf(k)` and downstream factors. Field and Mesh route spectral queries through this single substrate.
 - `MeshDescriptor` is a single `SpectralCase` parameterised by `SpectralFilter` and optional source set. HKS and WKS route through `Heat` and `Wave`; `Identity` exposes raw spectral signatures and is not a full ShapeDNA implementation.
 - `MeshLaplacian` admits `Cotangent`, `IntrinsicDelaunay`, and `Robust`; `Robust` currently returns typed `Unsupported` until a true Sharp-Crane tufted cover lands.
-- `LaplacianCache` exposes lazy `Cotangent`, `IntrinsicDelaunay`, `Robust`, `Cholesky` (mass-pinned SPD-intended regularisation), `IntrinsicMeshSnapshot` (post-flip frozen `IntrinsicMesh` with stable edge index), boundary-source `SignedHeat`, default and parametric spectral bases, connection/scalar/edge Cholesky caches, and typed `Atom<HashMap<TKey, Fin<TValue>>>` memoisers keyed by structurally-equal records.
+- `LaplacianCache` exposes lazy `Cotangent`, `IntrinsicDelaunay`, `Robust`, `Cholesky` (mass-pinned SPD-intended regularisation), `IntrinsicMeshSnapshot` (post-flip frozen `IntrinsicMesh` with stable edge index), boundary-source signed heat, default and parametric spectral bases, connection/scalar/edge Cholesky caches, and typed `Atom<HashMap<TKey, Fin<TValue>>>` memoisers keyed by structurally-equal records.
 - Vector heat uses cached CSparse Cholesky solves for the connection, magnitude, and indicator heat systems; recovery remains approximate and rejects flipped intrinsic meshes until signpost transport exists.
 - Constrained cross-field is available on unflipped intrinsic meshes only; flipped intrinsic edges return typed `Unsupported` until signpost transport is implemented.
 - Trivial connections (CDS 2010, closed genus-0 default) use intrinsic incidence operators and `ValidateGaussBonnet`; bounded meshes return invalid-input faults.
-- SignedHeat is boundary-source and unflipped-only. Closed/no-boundary meshes and flipped intrinsic meshes return typed failures; the exact paper-faithful closed-surface variant remains unimplemented.
+- `SdfMeshMethod.BoundarySignedHeat` is boundary-source and unflipped-only. Closed/no-boundary meshes and flipped intrinsic meshes return typed failures; the exact paper-faithful closed-surface variant remains unimplemented.
 - `Field.ScalarField` extends a continuous scalar with mesh-aware cases that delegate to `MeshKernel`. `VectorField` extends with mesh-aware Hodge decomposition, vector heat, geodesic tangent, and cross-field with constrained / cone variants.
 - `Cloud.CloudKernel.Sinkhorn` accepts `Option<PositiveMagnitude>` for unbalanced transport over normalized cluster masses and measures relaxed convergence by scaling change.
-- Greenfield renames (no shims): `IterationCap` -> `MaxIterations`, `EigenpairCount` -> `Pairs`, `TargetEdge` -> `TargetLength`, `Sigma` -> `Spread`, `Unbiased` -> `Debiased`.
+- Greenfield canonical names have no shims: `MaxIterations`, `MaxIterationsExhausted`, `RegionThresholdCrossing`, `Pairs`, `TargetLength`, `Spread`, and `Debiased`.
 - Domain owns shared Rhino geometry normalization and `ClosestHit`.
 - Vectors owns vector-specific intent, polymorphic field algebra, cloud metrics, mesh operators, sampling, alignment, and spectral substrate.
 - RhinoCommon provides native geometry, closest queries, transforms, convex hulls, mesh reduction, remeshing, mesh unwrap, normals, marching-cubes isosurface, point-in-solid, and surface-curvature principal directions via `SurfaceCurvature`.
-- MathNet owns dense decompositions, dense direct solve fallback, sparse products, BiCGStab iteration, and local LOBPCG primitives.
+- MathNet owns dense decompositions, dense LU/QR solve primitives, sparse products, BiCGStab iteration, MathNet QR fallback solve projection, and local LOBPCG primitives.
 - CSparse.NET 4.3.0 owns cached sparse Cholesky factorisation with AMD ordering and Span-based solve for SPD-intended systems.
 - Local kernels exist only where dependencies do not expose the required algorithm.
 
@@ -254,7 +256,7 @@ flowchart TB
 
 ### Geodesic Routing And Surface Distance
 
-- Compute heat geodesic, spectral distance, scalar log-map distance, and geodesic-tangent behavior over mesh surfaces; true tangent log-map coordinates remain deferred.
+- Compute heat geodesic, spectral distance, stripe distance, and geodesic-tangent behavior over mesh surfaces; true tangent log-map coordinates remain deferred.
 - Route seams, cables, wayfinding marks, projected measurements, surface traces, and on-surface paths across curved forms.
 - Create distance-to-source scalar previews for zoning, panel influence, local falloff, and surface-aware selection.
 - Convert scalar geodesic output into contour-ready bands, isoline sources, or placement weights for downstream tools.
@@ -300,7 +302,7 @@ flowchart TB
 - `Trace Streamline`: vector-field seeds to curves or polylines with fixed/adaptive integration and termination modes.
 - `Cross Field`: mesh plus hints/cones to directional panel, stripe, or tile orientation fields.
 - `SDF IsoSurface`: primitive and mesh-backed scalar fields to Rhino mesh output.
-- `Mesh Distance`: heat geodesic, spectral distance, scalar log-map distance, stripe, and signed-distance previews.
+- `Mesh Distance`: heat geodesic, spectral distance, stripe, and signed-distance previews.
 - `Align Clouds`: scan or module point sets to transforms with residual/convergence display.
 - `Transport Cloud`: remap point distributions between surfaces, options, or facade states.
 - `Mesh Prep`: topology, feature edges, remesh, reduce, unwrap, flatten, and spectral descriptor workflows.

@@ -59,7 +59,7 @@ public abstract partial record SampleKind {
                }
                select output;
     }
-    internal double MeshCandidateDensity(double area) {
+    internal Fin<double> MeshCandidateDensity(double area, Op key) {
         double safeArea = Math.Max(val1: area, val2: RhinoMath.SqrtEpsilon);
         double target = this switch {
             ExplicitCase ex => ex.Points.Count,
@@ -68,9 +68,11 @@ public abstract partial record SampleKind {
             OptimizeCase fpo => fpo.Count.Value,
             LloydCase lloyd => lloyd.Count.Value,
             CapacityCase ccvt => ccvt.Count.Value * ccvt.Limit.Value,
-            _ => 1.0,
+            _ => double.NaN,
         };
-        return Math.Max(val1: target / safeArea, val2: 1.0 / safeArea);
+        return RhinoMath.IsValidDouble(x: target)
+            ? key.AcceptValue(value: Math.Max(val1: target / safeArea, val2: 1.0 / safeArea))
+            : Fin.Fail<double>(key.Unsupported(geometryType: GetType(), outputType: typeof(SampleResult)));
     }
 }
 
@@ -137,7 +139,8 @@ internal static class SampleKernel {
         using AreaMassProperties? props = AreaMassProperties.Compute(mesh: domain.Native, area: true, firstMoments: false, secondMoments: false, productMoments: false);
         return props switch {
             null => Fin.Fail<SampleResult>(error: key.InvalidResult()),
-            _ => from candidates in EnumerateMeshSurface(mesh: domain.Native, density: kind.MeshCandidateDensity(area: props.Area), key: key)
+            _ => from density in kind.MeshCandidateDensity(area: props.Area, key: key)
+                 from candidates in EnumerateMeshSurface(mesh: domain.Native, density: density, key: key)
                  from sampled in SampleOnCandidates(kind: kind, candidates: candidates, admitsPoisson: true, context: context, key: key)
                  select sampled,
         };

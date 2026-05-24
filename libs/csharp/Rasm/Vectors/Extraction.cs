@@ -1,6 +1,4 @@
 using Foundation.CSharp.Analyzers.Contracts;
-using RhinoBrep = Rhino.Geometry.Brep;
-using RhinoMesh = Rhino.Geometry.Mesh;
 
 namespace Rasm.Vectors;
 
@@ -66,10 +64,13 @@ public abstract partial record ContourPolicy {
     }
     public static Fin<ContourPolicy> SurfaceIso(IsoStatus status, double parameter, Op? key = null) {
         Op op = key.OrDefault();
-        return status is IsoStatus.X or IsoStatus.Y or IsoStatus.North or IsoStatus.East or IsoStatus.South or IsoStatus.West
-            && RhinoMath.IsValidDouble(x: parameter)
+        return status is IsoStatus.X or IsoStatus.Y
+            ? RhinoMath.IsValidDouble(x: parameter)
             ? Fin.Succ<ContourPolicy>(new SurfaceIsoCase(Status: status, Parameter: parameter))
-            : Fin.Fail<ContourPolicy>(op.InvalidInput());
+                : Fin.Fail<ContourPolicy>(op.InvalidInput())
+            : status is IsoStatus.North or IsoStatus.East or IsoStatus.South or IsoStatus.West
+                ? Fin.Succ<ContourPolicy>(new SurfaceIsoCase(Status: status, Parameter: parameter))
+                : Fin.Fail<ContourPolicy>(op.InvalidInput());
     }
     public static Fin<ContourPolicy> MeshScalar(Arr<double> values, Seq<double> levels, Op? key = null) {
         Op op = key.OrDefault();
@@ -95,7 +96,7 @@ public abstract partial record ExtractionDomain {
         Op op = key.OrDefault();
         return Optional(value).ToFin(op.InvalidInput()).Bind(source => source switch {
             ExtractionDomain domain => Fin.Succ(domain),
-            RhinoMesh mesh => MeshSpace.Of(native: mesh, context: context, key: op).Map(Mesh),
+            Mesh mesh => MeshSpace.Of(native: mesh, context: context, key: op).Map(Mesh),
             VectorCloud cloud => Fin.Succ(Cloud(value: cloud)),
             PointCloud cloud => VectorCloud.Cluster(points: toSeq(cloud.GetPoints()), context: context, key: op).Map(Cloud),
             object candidate => SupportSpace.Of(value: candidate, key: op).Map(Support),
@@ -105,8 +106,8 @@ public abstract partial record ExtractionDomain {
         Switch(
             state: (Policy: policy, Context: context, Key: key),
             supportCase: static (state, domain) => domain.Value.Value switch {
-                RhinoBrep brep => CurvesFromBrep(brep: brep, policy: state.Policy, key: state.Key),
-                RhinoMesh mesh => CurvesFromMesh(mesh: mesh, policy: state.Policy, context: state.Context, key: state.Key),
+                Brep brep => CurvesFromBrep(brep: brep, policy: state.Policy, key: state.Key),
+                Mesh mesh => CurvesFromMesh(mesh: mesh, policy: state.Policy, context: state.Context, key: state.Key),
                 Surface surface => CurvesFromSurface(surface: surface, policy: state.Policy, key: state.Key),
                 VectorCloud.ClusterCase cloud => CurvesFromCloud(cloud: cloud, policy: state.Policy, context: state.Context, key: state.Key),
                 _ => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: domain.Value.SourceType, outputType: typeof(Seq<Curve>))),
@@ -115,21 +116,21 @@ public abstract partial record ExtractionDomain {
             cloudCase: static (state, domain) => domain.Value is VectorCloud.ClusterCase cloud
                 ? CurvesFromCloud(cloud: cloud, policy: state.Policy, context: state.Context, key: state.Key)
                 : Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: domain.Value.GetType(), outputType: typeof(Seq<Curve>))));
-    private static Fin<CurveBatch> CurvesFromBrep(RhinoBrep brep, ContourPolicy policy, Op key) =>
+    private static Fin<CurveBatch> CurvesFromBrep(Brep brep, ContourPolicy policy, Op key) =>
         key.Catch(() => policy.Switch(
             state: (Brep: brep, Key: key),
-            planeCase: static (state, p) => AcceptCurves(curves: RhinoBrep.CreateContourCurves(brepToContour: state.Brep, sectionPlane: p.Section), status: ExtractionStatus.Complete, nativeRouted: true, key: state.Key),
-            axisCase: static (state, p) => AcceptCurves(curves: RhinoBrep.CreateContourCurves(brepToContour: state.Brep, contourStart: p.Start, contourEnd: p.End, interval: p.Interval.Value), status: ExtractionStatus.Complete, nativeRouted: true, key: state.Key),
-            surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(RhinoBrep), outputType: typeof(ContourPolicy.SurfaceIsoCase))),
-            meshScalarCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(RhinoBrep), outputType: typeof(ContourPolicy.MeshScalarCase)))));
-    private static Fin<CurveBatch> CurvesFromMesh(RhinoMesh mesh, ContourPolicy policy, Context context, Op key) =>
+            planeCase: static (state, p) => AcceptCurves(curves: Brep.CreateContourCurves(brepToContour: state.Brep, sectionPlane: p.Section), status: ExtractionStatus.Complete, nativeRouted: true, key: state.Key),
+            axisCase: static (state, p) => AcceptCurves(curves: Brep.CreateContourCurves(brepToContour: state.Brep, contourStart: p.Start, contourEnd: p.End, interval: p.Interval.Value), status: ExtractionStatus.Complete, nativeRouted: true, key: state.Key),
+            surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(Brep), outputType: typeof(ContourPolicy.SurfaceIsoCase))),
+            meshScalarCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(Brep), outputType: typeof(ContourPolicy.MeshScalarCase)))));
+    private static Fin<CurveBatch> CurvesFromMesh(Mesh mesh, ContourPolicy policy, Context context, Op key) =>
         key.Catch(() => policy.Switch(
             state: (Mesh: mesh, Context: context, Key: key),
-            planeCase: static (state, p) => AcceptCurves(curves: RhinoMesh.CreateContourCurves(meshToContour: state.Mesh, sectionPlane: p.Section, tolerance: state.Context.Absolute.Value), status: ExtractionStatus.Complete, nativeRouted: true, key: state.Key),
-            axisCase: static (state, p) => AcceptCurves(curves: RhinoMesh.CreateContourCurves(meshToContour: state.Mesh, contourStart: p.Start, contourEnd: p.End, interval: p.Interval.Value, tolerance: state.Context.Absolute.Value), status: ExtractionStatus.Complete, nativeRouted: true, key: state.Key),
+            planeCase: static (state, p) => AcceptCurves(curves: Rhino.Geometry.Mesh.CreateContourCurves(meshToContour: state.Mesh, sectionPlane: p.Section, tolerance: state.Context.Absolute.Value), status: ExtractionStatus.Complete, nativeRouted: true, key: state.Key),
+            axisCase: static (state, p) => AcceptCurves(curves: Rhino.Geometry.Mesh.CreateContourCurves(meshToContour: state.Mesh, contourStart: p.Start, contourEnd: p.End, interval: p.Interval.Value, tolerance: state.Context.Absolute.Value), status: ExtractionStatus.Complete, nativeRouted: true, key: state.Key),
             meshScalarCase: static (state, p) => MeshKernel.ScalarIsolines(mesh: state.Mesh, values: p.Values, levels: p.Levels, context: state.Context, key: state.Key)
                 .Bind(result => AcceptCurves(curves: result.Curves, attempted: result.Attempted, status: ExtractionStatus.Complete, nativeRouted: false, key: state.Key)),
-            surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(RhinoMesh), outputType: typeof(ContourPolicy.SurfaceIsoCase)))));
+            surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(Mesh), outputType: typeof(ContourPolicy.SurfaceIsoCase)))));
     private static Fin<CurveBatch> CurvesFromCloud(VectorCloud.ClusterCase cloud, ContourPolicy policy, Context context, Op key) =>
         key.Catch(() => policy.Switch(
             state: (Cloud: cloud, Context: context, Key: key),
@@ -141,15 +142,28 @@ public abstract partial record ExtractionDomain {
         key.Catch(() => policy.Switch(
             state: (Surface: surface, Key: key),
             surfaceIsoCase: static (state, p) => state.Surface is BrepFace face
-                ? p.Status is IsoStatus.X or IsoStatus.Y
-                    ? AcceptCurves(curves: face.TrimAwareIsoCurve(direction: p.Status is IsoStatus.X ? 1 : 0, constantParameter: p.Parameter), status: ExtractionStatus.Complete, nativeRouted: true, key: state.Key)
-                    : Fin.Fail<CurveBatch>(state.Key.Unsupported(geometryType: typeof(BrepFace), outputType: typeof(ContourPolicy.SurfaceIsoCase)))
+                ? BrepFaceIsoCurve(face: face, status: p.Status, parameter: p.Parameter, key: state.Key)
+                    .Bind(curve => AcceptCurves(curves: curve, status: ExtractionStatus.Complete, nativeRouted: true, key: state.Key))
                 : Optional(state.Surface.IsoCurve(iso: p.Status, t: p.Parameter))
                     .ToFin(state.Key.InvalidResult())
                     .Bind(curve => AcceptCurves(curves: [curve], status: ExtractionStatus.Complete, nativeRouted: true, key: state.Key)),
             planeCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(Surface), outputType: typeof(ContourPolicy.PlaneCase))),
             axisCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(Surface), outputType: typeof(ContourPolicy.AxisCase))),
             meshScalarCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(geometryType: typeof(Surface), outputType: typeof(ContourPolicy.MeshScalarCase)))));
+    private static Fin<Curve[]> BrepFaceIsoCurve(BrepFace face, IsoStatus status, double parameter, Op key) =>
+        status switch {
+            IsoStatus.X => AcceptTrimAwareIso(face: face, direction: 1, parameter: parameter, key: key),
+            IsoStatus.Y => AcceptTrimAwareIso(face: face, direction: 0, parameter: parameter, key: key),
+            IsoStatus.West => AcceptTrimAwareIso(face: face, direction: 1, parameter: face.Domain(direction: 0).T0, key: key),
+            IsoStatus.East => AcceptTrimAwareIso(face: face, direction: 1, parameter: face.Domain(direction: 0).T1, key: key),
+            IsoStatus.South => AcceptTrimAwareIso(face: face, direction: 0, parameter: face.Domain(direction: 1).T0, key: key),
+            IsoStatus.North => AcceptTrimAwareIso(face: face, direction: 0, parameter: face.Domain(direction: 1).T1, key: key),
+            _ => Fin.Fail<Curve[]>(key.Unsupported(geometryType: typeof(BrepFace), outputType: typeof(ContourPolicy.SurfaceIsoCase))),
+        };
+    private static Fin<Curve[]> AcceptTrimAwareIso(BrepFace face, int direction, double parameter, Op key) =>
+        RhinoMath.IsValidDouble(x: parameter)
+            ? Fin.Succ(face.TrimAwareIsoCurve(direction: direction, constantParameter: parameter))
+            : Fin.Fail<Curve[]>(key.InvalidInput());
     private static Fin<CurveBatch> AcceptCurves(Curve[] curves, ExtractionStatus status, bool nativeRouted, Op key) =>
         Optional(curves).ToFin(key.InvalidResult())
             .Bind(active => AcceptCurves(curves: toSeq(active), attempted: active.Length, status: status, nativeRouted: nativeRouted, key: key));
@@ -171,11 +185,9 @@ public abstract partial record ExtractionProbe {
     public sealed record VectorCase(VectorField Source) : ExtractionProbe;
     public sealed record ScalarCase(ScalarField Source) : ExtractionProbe;
     public sealed record TensorCase(TensorField Source) : ExtractionProbe;
-    public sealed record MeshScalarCase(ScalarField Source) : ExtractionProbe;
     public static ExtractionProbe Vector(VectorField source) => new VectorCase(Source: source);
     public static ExtractionProbe Scalar(ScalarField source) => new ScalarCase(Source: source);
     public static ExtractionProbe Tensor(TensorField source) => new TensorCase(Source: source);
-    public static ExtractionProbe MeshScalar(ScalarField source) => new MeshScalarCase(Source: source);
     internal Fin<TOut> Project<TOut>(Point3d sample, Context context, Op key) =>
         Switch(
             state: (Sample: sample, Context: context, Key: key),
@@ -189,8 +201,7 @@ public abstract partial record ExtractionProbe {
                         probe.Source.PrincipalDirections(sample: state.Sample, context: state.Context, key: state.Key).Map(static p => (TOut)(object)p),
                     _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(TensorCase), outputType: typeof(TOut))),
                 }
-                select output,
-            meshScalarCase: static (state, probe) => probe.Source.Project<TOut>(sample: state.Sample, context: state.Context, key: state.Key));
+                select output);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -224,7 +235,7 @@ internal abstract partial record Extraction {
             isoSurfaceCase: static (state, extraction) =>
                 from mesh in extraction.Field.IsoSurface(bounds: extraction.Bounds, resolution: extraction.Resolution, maxRootSteps: extraction.MaxRootSteps, context: state.Context, key: state.Key)
                 from output in typeof(TOut) switch {
-                    Type t when t == typeof(RhinoMesh) => state.Key.AcceptValue(value: mesh).Map(static value => (TOut)(object)value),
+                    Type t when t.Equals(typeof(Mesh)) => state.Key.AcceptValue(value: mesh).Map(static value => (TOut)(object)value),
                     Type t when t == typeof(ExtractionReceipt) => Receipt<TOut>(status: ExtractionStatus.Complete, attempted: 1, emitted: 1, rejected: 0, nativeRouted: true, key: state.Key),
                     _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(IsoSurfaceCase), outputType: typeof(TOut))),
                 }

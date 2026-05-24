@@ -63,8 +63,8 @@ public sealed class VectorIntentShapeLaws {
         _ = Assert.IsType<VectorIntent.MirrorCase>(@object: VectorIntent.Mirror(value: Vector3d.XAxis, across: Plane.WorldYZ));
         _ = Assert.IsType<VectorIntent.RayCase>(@object: VectorIntent.Ray(origin: Point3d.Origin, direction: IntentGens.X));
         _ = Assert.IsType<VectorIntent.StreamlineCase>(@object: Spec.SuccValue(VectorIntent.Streamline(field: VectorField.Constant(value: Vector3d.XAxis), seed: Point3d.Origin, initialStep: 0.1, termination: IntentGens.Stop, key: IntentGens.Key), label: "streamline"));
-        _ = Assert.IsType<VectorIntent.ProbeCase>(@object: VectorIntent.Field(field: VectorField.Constant(value: Vector3d.XAxis), sample: Point3d.Origin));
-        _ = Assert.IsType<VectorIntent.ProbeCase>(@object: VectorIntent.Scalar(field: ScalarField.Constant(value: 1.0), sample: Point3d.Origin));
+        _ = Assert.IsType<VectorIntent.ProbeCase>(@object: VectorIntent.Probe(source: ExtractionProbe.Vector(source: VectorField.Constant(value: Vector3d.XAxis)), sample: Point3d.Origin));
+        _ = Assert.IsType<VectorIntent.ProbeCase>(@object: VectorIntent.Probe(source: ExtractionProbe.Scalar(source: ScalarField.Constant(value: 1.0)), sample: Point3d.Origin));
         _ = Assert.IsType<VectorIntent.ContourCase>(@object: VectorIntent.Contour(
             domain: IntentGens.CloudDomain,
             policy: Spec.SuccValue(ContourPolicy.Plane(section: Plane.WorldXY, key: IntentGens.Key), label: "contour plane")));
@@ -79,7 +79,7 @@ public sealed class VectorIntentShapeLaws {
         _ = Assert.IsType<VectorIntent.StreamBundleCase>(@object: VectorIntent.StreamBundle(
             field: VectorField.Constant(value: Vector3d.XAxis),
             domain: IntentGens.CloudDomain,
-            policy: new StreamBundlePolicy(Kind: IntentGens.ExplicitSamples, InitialStep: IntentGens.Step, Integrator: FieldIntegrator.RK4, Termination: IntentGens.Stop)));
+            policy: new StreamBundlePolicy(Kind: IntentGens.ExplicitSamples, InitialStep: IntentGens.Step, Integrator: new FieldIntegrator.FixedCase(Kind: IntegratorKind.RK4), Termination: IntentGens.Stop)));
     }
     [Fact]
     public void ProjectRequiresContextBeforeDispatch() {

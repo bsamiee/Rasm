@@ -62,7 +62,7 @@ public abstract partial record SpectralFilter {
     internal double Weight(double eigenvalue) => Switch(
         state: eigenvalue,
         heatCase: static (lambda, c) => Math.Exp(d: -c.Time.Value * lambda),
-        waveCase: static (lambda, c) => SpectralCore.WaveKernel(eigenvalue: lambda, energy: c.Energy.Value, bandwidth: c.Bandwidth.Value),
+        waveCase: static (lambda, c) => RawWaveWeight(eigenvalue: lambda, energy: c.Energy.Value, bandwidth: c.Bandwidth.Value),
         biharmonicCase: static (lambda, _) => lambda > RhinoMath.SqrtEpsilon ? 1.0 / (lambda * lambda) : 0.0,
         diffusionCase: static (lambda, c) => Math.Exp(d: -2.0 * c.Time.Value * lambda),
         commuteTimeCase: static (lambda, _) => lambda > RhinoMath.SqrtEpsilon ? 1.0 / lambda : 0.0,
@@ -75,15 +75,19 @@ public abstract partial record SpectralFilter {
     // (time-additive), Identity neutral. All other pairs (Wave×Wave, Biharmonic×Heat,
     // CommuteTime×*, etc.) are not algebraically closed and return None — callers cannot fake
     // closure by silently producing approximate filters.
-    public Option<SpectralFilter> Compose(SpectralFilter? other) => Optional(other).Match(
-        Some: active => (this, active) switch {
+    public Option<SpectralFilter> Compose(SpectralFilter other) =>
+        (this, other) switch {
             (HeatCase a, HeatCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => Heat(time: time)),
             (DiffusionCase a, DiffusionCase b) => Positive(value: a.Time.Value + b.Time.Value).Map(static time => Diffusion(time: time)),
-            (IdentityCase, _) => Some(active),
+            (IdentityCase, _) when other is not null => Some(other),
             (_, IdentityCase) => Some(this),
             _ => Option<SpectralFilter>.None,
-        },
-        None: static () => Option<SpectralFilter>.None);
+        };
+    private static double RawWaveWeight(double eigenvalue, double energy, double bandwidth) {
+        if (eigenvalue < RhinoMath.SqrtEpsilon) return 0.0;
+        double ratio = (Math.Log(d: energy) - Math.Log(d: eigenvalue)) / Math.Max(val1: bandwidth, val2: SpectralCore.WaveBandwidthFloor);
+        return Math.Exp(d: -0.5 * ratio * ratio);
+    }
     private static Option<PositiveMagnitude> Positive(double value) =>
         PositiveMagnitude.TryCreate(value: value, obj: out PositiveMagnitude magnitude)
             ? Some(magnitude)
@@ -92,15 +96,8 @@ public abstract partial record SpectralFilter {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class SpectralCore {
-    private const double WaveBandwidthFloor = 1e-9;
+    internal const double WaveBandwidthFloor = 1e-9;
     private const double DegenerateTriangleArea = 1e-14;
-
-    // Aubry-Schlickewei-Cremers 2011 wave kernel: log-domain Gaussian at energy E.
-    internal static double WaveKernel(double eigenvalue, double energy, double bandwidth) {
-        if (eigenvalue < RhinoMath.SqrtEpsilon) return 0.0;
-        double ratio = (Math.Log(d: energy) - Math.Log(d: eigenvalue)) / Math.Max(val1: bandwidth, val2: WaveBandwidthFloor);
-        return Math.Exp(d: -0.5 * ratio * ratio);
-    }
 
     // Unified spectral evaluation: per-vertex signature when sources = None
     //   F(v)    = sum_k weight(lambda_k) * phi_k(v)^2
@@ -325,7 +322,7 @@ internal static class SpectralCore {
     // Returns per-intrinsic-edge angle adjustment α_e such that ρ_ij ← ρ_ij + α_e produces a
     // connection with prescribed singularities at cone vertices. Algorithm: (1) build closed
     // primal 1-form u with target_v = 2π·k_v − K_v per vertex, distributed onto one incident
-    // intrinsic edge; (2) Hodge-decompose via coexact solve L_cot · β = d^T · diag(★₁) · u;
+    // intrinsic edge; (2) Hodge-decompose through the mass-pinned regularized Cholesky cache;
     // (3) α_e = −(d₀β)_e per intrinsic edge. Closed mesh only; γ harmonic term (genus > 0)
     // deferred. The intrinsic edge index space matches LaplacianCache.IntrinsicMeshSnapshot, so
     // EnumerateConnectionEntries' α-lookup hits every flipped edge (no extrinsic mismatch).
@@ -342,6 +339,10 @@ internal static class SpectralCore {
     private static Fin<Unit> ValidateGaussBonnet(Mesh mesh, MeshKernel.IntrinsicMesh imesh, Arr<double> defects, Seq<(int Vertex, double ConeIndex)> cones, Op key) {
         Polyline[]? naked = mesh.GetNakedEdges();
         if (naked is null || naked.Length > 0) return Fin.Fail<Unit>(error: key.InvalidInput());
+        if (defects.Count != imesh.VertexCount
+            || !defects.ForAll(RhinoMath.IsValidDouble)
+            || cones.Exists(c => c.Vertex < 0 || c.Vertex >= imesh.VertexCount || !RhinoMath.IsValidDouble(x: c.ConeIndex)))
+            return Fin.Fail<Unit>(error: key.InvalidInput());
         double sumK = 0.0;
         for (int v = 0; v < defects.Count; v++) sumK += defects[index: v];
         double euler = sumK / (2.0 * Math.PI);

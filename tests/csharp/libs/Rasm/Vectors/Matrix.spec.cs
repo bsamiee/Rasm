@@ -11,6 +11,10 @@ internal static class MatrixGens {
     private const int MaxDim = 6;
     private static Matrix MakeMatrix(int rows, int cols, double[] buffer) =>
         Spec.SuccValue(Matrix.Of(rows: Dimension.Create(value: rows), cols: Dimension.Create(value: cols), entries: [.. buffer.Take(count: rows * cols)], key: Key), label: "matrix gen");
+    public static SparseMatrix Sparse(int dimension, params (int Row, int Col, double Value)[] triplets) =>
+        Spec.SuccValue(SparseMatrix.FromTriplets(rows: Dimension.Create(value: dimension), cols: Dimension.Create(value: dimension), triplets: triplets, key: Key), label: "sparse");
+    public static SparseMatrix Sparse2(params (int Row, int Col, double Value)[] triplets) =>
+        Sparse(dimension: 2, triplets: triplets);
     public static readonly Gen<Matrix> TallOrSquare =
         Gen.Int[start: 2, finish: MaxDim].Select(
             Gen.Int[start: 2, finish: MaxDim], Gen.Double[start: -10.0, finish: 10.0].Array[MaxDim * MaxDim],
@@ -89,6 +93,25 @@ public sealed class MatrixCoreLaws {
             Spec.Succ(a.Rank(key: MatrixGens.Key), then: rank => Assert.Equal(expected: a.Rows.Value, actual: rank));
         });
     [Fact]
+    public void LeastSquaresDetailedUsesQrReceiptAndNormalEquationOracle() {
+        Matrix design = Spec.SuccValue(Matrix.Of(rows: Dimension.Create(value: 3), cols: Dimension.Create(value: 2), entries: [1.0, 0.0, 1.0, 1.0, 1.0, 2.0], key: MatrixGens.Key), label: "design");
+        Arr<double> rhs = [1.0, 3.0, 5.0];
+        Spec.Succ(design.LeastSquaresDetailed(rhs: rhs, key: MatrixGens.Key), then: receipt => {
+            Assert.Equal(expected: SolvePath.DenseQrLeastSquares, actual: receipt.Path);
+            Assert.Equal(expected: SolveStop.LeastSquaresSolved, actual: receipt.Stop);
+            Spec.Some(receipt.FullRank, fullRank => Assert.True(condition: fullRank));
+            Spec.EqualWithin(left: receipt.Solution[index: 0], right: 1.0, tolerance: 1.0e-10, what: "least-squares intercept");
+            Spec.EqualWithin(left: receipt.Solution[index: 1], right: 2.0, tolerance: 1.0e-10, what: "least-squares slope");
+            Spec.EqualWithin(left: receipt.Residual, right: 0.0, tolerance: 1.0e-12, what: "least-squares residual");
+            _ = toSeq(Enumerable.Range(start: 0, count: design.Cols.Value)).Iter(col => {
+                double normalResidual = toSeq(Enumerable.Range(start: 0, count: design.Rows.Value))
+                    .Fold(initialState: 0.0, f: (sum, row) => sum + (design.At(i: row, j: col) * ((design.At(i: row, j: 0) * receipt.Solution[index: 0]) + (design.At(i: row, j: 1) * receipt.Solution[index: 1]) - rhs[index: row])));
+                Spec.EqualWithin(left: normalResidual, right: 0.0, tolerance: 1.0e-10, what: $"normal residual {col}");
+            });
+        });
+        Spec.FailCategory(design.LeastSquares(rhs: [1.0, 2.0], key: MatrixGens.Key), category: "Input");
+    }
+    [Fact]
     public void NormKindsHaveDistinctKeysAndNonNegativeValues() {
         MatrixNormKind[] all = [MatrixNormKind.Frobenius, MatrixNormKind.MaxAbs, MatrixNormKind.L1, MatrixNormKind.LInf];
         Spec.SmartEnumKeysUnique(items: all, key: static k => k.Key);
@@ -107,24 +130,24 @@ public sealed class SymmetricMatrixLaws {
 }
 
 public sealed class SparseMatrixLaws {
-    private static SparseMatrix Sparse(int dimension, params (int Row, int Col, double Value)[] triplets) =>
-        Spec.SuccValue(SparseMatrix.FromTriplets(rows: Dimension.Create(value: dimension), cols: Dimension.Create(value: dimension), triplets: triplets, key: MatrixGens.Key), label: "sparse");
-    private static SparseMatrix Sparse2(params (int Row, int Col, double Value)[] triplets) =>
-        Sparse(dimension: 2, triplets: triplets);
     [Fact]
     public void SparseSolveDetailedUsesBoundedMetadata() {
-        SparseMatrix matrix = Sparse2((0, 0, 4.0), (1, 1, 2.0));
+        SparseMatrix matrix = MatrixGens.Sparse2((0, 0, 4.0), (1, 1, 2.0));
         Spec.Succ(matrix.SolveDetailed(rhs: [8.0, 6.0], key: MatrixGens.Key), then: result => {
-            Spec.SmartEnumKeysUnique(items: [SparseSolveMode.BiCgStabDiagonal, SparseSolveMode.MathNetSolveFallback], key: static s => s.Key);
-            Assert.Contains(expected: result.Mode, collection: [SparseSolveMode.BiCgStabDiagonal, SparseSolveMode.MathNetSolveFallback]);
-            Assert.Equal(expected: SparseSolveStop.ResidualConverged, actual: result.StopStatus);
+            Spec.SmartEnumKeysUnique(items: [SolvePath.DenseLu, SolvePath.DenseQrLeastSquares, SolvePath.DenseCholesky, SolvePath.SparseBiCgStabDiagonal, SolvePath.SparseMathNetQrFallback, SolvePath.SparseCholesky], key: static s => s.Key);
+            Spec.SmartEnumKeysUnique(items: [SolveStop.DirectSolved, SolveStop.LeastSquaresSolved, SolveStop.ResidualConverged], key: static s => s.Key);
+            Assert.Contains(expected: result.Path, collection: [SolvePath.SparseBiCgStabDiagonal, SolvePath.SparseMathNetQrFallback]);
+            Assert.True(condition: result.Path.IsSparse);
+            Assert.Equal(expected: SolveStop.ResidualConverged, actual: result.Stop);
+            Spec.Some(result.MaxIterations, cap => Assert.True(condition: cap >= 64));
+            Spec.Some(result.InputNonZeros, nnz => Assert.Equal(expected: matrix.NonZeros, actual: nnz));
             Spec.EqualWithin(left: result.Solution[index: 0], right: 2.0, tolerance: 1.0e-8, what: "x0");
             Spec.EqualWithin(left: result.Solution[index: 1], right: 3.0, tolerance: 1.0e-8, what: "x1");
         });
     }
     [Fact]
     public void SparseAssemblySumsDuplicatesAndKeepsRowPointersMonotone() {
-        SparseMatrix matrix = Sparse(dimension: 3, (0, 0, 1.0), (0, 0, 2.0), (1, 2, 4.0), (2, 1, -1.0));
+        SparseMatrix matrix = MatrixGens.Sparse(dimension: 3, (0, 0, 1.0), (0, 0, 2.0), (1, 2, 4.0), (2, 1, -1.0));
         Assert.True(condition: matrix.IsValid);
         Assert.True(condition: SparseMatrix.RowPointersAreMonotone(rowPtr: matrix.RowPtr));
         Matrix dense = matrix.ToDense();
@@ -134,31 +157,51 @@ public sealed class SparseMatrixLaws {
         Spec.FailCategory(SparseMatrix.FromTriplets(rows: Dimension.Create(value: 2), cols: Dimension.Create(value: 2), triplets: [(0, 2, 1.0)], key: MatrixGens.Key), category: "Input");
     }
     [Fact]
-    public void SparseCholeskyRejectsNonSymmetricAdmission() {
-        Spec.Fail(CholeskySparse.Of(symmetric: Sparse2((0, 0, 2.0), (0, 1, 1.0), (1, 1, 2.0)), key: MatrixGens.Key));
-        Spec.Fail(CholeskySparse.Of(symmetric: Sparse2((0, 0, 2.0), (0, 1, 1.0), (1, 0, 0.5), (1, 1, 2.0)), key: MatrixGens.Key));
+    public void SparseCholeskyAdmitsOneTriangleMirrorsAndRejectsConflicts() {
+        AssertCholesky2(MatrixGens.Sparse2((0, 0, 4.0), (0, 1, 1.0), (1, 1, 3.0)));
+        AssertCholesky2(MatrixGens.Sparse2((0, 0, 4.0), (1, 0, 1.0), (1, 1, 3.0)));
+        AssertCholesky2(MatrixGens.Sparse2((0, 0, 4.0), (0, 1, 1.0), (1, 0, 1.0), (1, 1, 3.0)));
+        Spec.Fail(CholeskySparse.Of(symmetric: MatrixGens.Sparse2((0, 0, 4.0), (0, 1, 1.0), (1, 0, 0.5), (1, 1, 3.0)), key: MatrixGens.Key));
     }
     [Fact]
     public void SparseCholeskyRejectsIndefiniteSymmetricMatrix() =>
-        Spec.Fail(CholeskySparse.Of(symmetric: Sparse2((0, 0, 1.0), (0, 1, 2.0), (1, 0, 2.0), (1, 1, 1.0)), key: MatrixGens.Key));
+        Spec.Fail(CholeskySparse.Of(symmetric: MatrixGens.Sparse2((0, 0, 1.0), (0, 1, 2.0), (1, 0, 2.0), (1, 1, 1.0)), key: MatrixGens.Key));
     [Fact]
     public void SparseCholeskySolvesAndRejectsRhsMismatch() {
-        CholeskySparse factor = Spec.SuccValue(CholeskySparse.Of(symmetric: Sparse2((0, 0, 4.0), (1, 1, 2.0)), key: MatrixGens.Key), label: "sparse cholesky");
-        Spec.Succ(factor.Solve(rhs: [8.0, 6.0], key: MatrixGens.Key), then: solution => {
-            Spec.EqualWithin(left: solution[index: 0], right: 2.0, tolerance: 1.0e-10, what: "chol x0");
-            Spec.EqualWithin(left: solution[index: 1], right: 3.0, tolerance: 1.0e-10, what: "chol x1");
+        CholeskySparse factor = Spec.SuccValue(CholeskySparse.Of(symmetric: MatrixGens.Sparse2((0, 0, 4.0), (1, 1, 2.0)), key: MatrixGens.Key), label: "sparse cholesky");
+        Spec.Succ(factor.SolveDetailed(rhs: [8.0, 6.0], key: MatrixGens.Key), then: receipt => {
+            Assert.Equal(expected: SolvePath.SparseCholesky, actual: receipt.Path);
+            Assert.Equal(expected: SolveStop.DirectSolved, actual: receipt.Stop);
+            Spec.EqualWithin(left: receipt.Solution[index: 0], right: 2.0, tolerance: 1.0e-10, what: "chol x0");
+            Spec.EqualWithin(left: receipt.Solution[index: 1], right: 3.0, tolerance: 1.0e-10, what: "chol x1");
+            Spec.Some(receipt.InputNonZeros, nnz => Assert.Equal(expected: factor.Source.NonZeros, actual: nnz));
+            Spec.Some(receipt.FactorNonZeros, nnz => Assert.True(condition: nnz > 0));
         });
         Spec.Fail(factor.Solve(rhs: [1.0], key: MatrixGens.Key));
     }
     [Fact]
     public void LobpcgConvergesOnDiagonalAndFailsWhenExhausted() {
-        SparseMatrix diagonal = Sparse(dimension: 3, (0, 0, 1.0), (1, 1, 3.0), (2, 2, 7.0));
-        Spec.Succ(diagonal.SmallestEigenpairs(k: 1, tolerance: 1.0e-5, maxIterations: 80, key: MatrixGens.Key), then: pairs => {
-            (double eigenvalue, Arr<double> eigenvector) = pairs[0];
+        SparseMatrix diagonal = MatrixGens.Sparse(dimension: 3, (0, 0, 1.0), (1, 1, 3.0), (2, 2, 7.0));
+        Spec.Succ(diagonal.SmallestEigenpairsDetailed(k: 1, tolerance: 1.0e-5, maxIterations: 80, key: MatrixGens.Key), then: receipt => {
+            Assert.Equal(expected: EigenSolvePath.SparseLobpcg, actual: receipt.Path);
+            Assert.Equal(expected: EigenSolveStop.ResidualConverged, actual: receipt.Stop);
+            (double eigenvalue, Arr<double> eigenvector) = receipt.Pairs[0];
             Spec.EqualWithin(left: eigenvalue, right: 1.0, tolerance: 1.0e-4, what: "smallest eigenvalue");
             Numeric.Eigenpair(matrix: diagonal.ToDense(), eigenvalue: eigenvalue, eigenvector: eigenvector, eq: Gens.Approx(relativeTolerance: 1.0e-4), label: "lobpcg");
+            Assert.True(condition: receipt.MaxResidual <= 1.0e-4);
         });
         Spec.FailCategory(diagonal.SmallestEigenpairs(k: 1, tolerance: 1.0e-12, maxIterations: 0, key: MatrixGens.Key), category: "Input");
+        SparseMatrix conflictingMirror = MatrixGens.Sparse(dimension: 3, (0, 0, 1.0), (0, 1, 2.0), (1, 0, 4.0), (1, 1, 3.0), (2, 2, 7.0));
+        Spec.FailCategory(conflictingMirror.SmallestEigenpairsDetailed(k: 1, tolerance: 1.0e-5, maxIterations: 80, key: MatrixGens.Key), category: "Input");
+    }
+    private static void AssertCholesky2(SparseMatrix matrix) {
+        CholeskySparse factor = Spec.SuccValue(CholeskySparse.Of(symmetric: matrix, key: MatrixGens.Key), label: "sparse cholesky admission");
+        Spec.Succ(factor.SolveDetailed(rhs: [1.0, 2.0], key: MatrixGens.Key), then: receipt => {
+            Assert.Equal(expected: SolvePath.SparseCholesky, actual: receipt.Path);
+            Assert.True(condition: receipt.Residual < 1.0e-10);
+            Spec.EqualWithin(left: receipt.Solution[index: 0], right: 1.0 / 11.0, tolerance: 1.0e-10, what: "admission x0");
+            Spec.EqualWithin(left: receipt.Solution[index: 1], right: 7.0 / 11.0, tolerance: 1.0e-10, what: "admission x1");
+        });
     }
 }
 
@@ -204,6 +247,22 @@ public sealed class DecompositionLaws {
             Spec.FailCategory(lu.Solve(rhs: new Arr<double>([1.0]), key: MatrixGens.Key), category: "Input");
         }));
     [Fact]
+    public void DenseSolveReceiptsReportOwnedPaths() {
+        Matrix matrix = Spec.SuccValue(Matrix.Of(rows: Dimension.Create(value: 2), cols: Dimension.Create(value: 2), entries: [4.0, 1.0, 1.0, 3.0], key: MatrixGens.Key), label: "dense solve matrix");
+        SymmetricMatrix spd = Spec.SuccValue(SymmetricMatrix.Of(dim: Dimension.Create(value: 2), upper: [4.0, 1.0, 3.0], key: MatrixGens.Key), label: "dense spd");
+        Arr<double> rhs = [1.0, 2.0];
+        Spec.Succ(matrix.SolveDetailed(rhs: rhs, key: MatrixGens.Key), then: receipt => AssertDenseSolve(receipt: receipt, path: SolvePath.DenseLu));
+        Spec.Succ(matrix.DecomposeLu(key: MatrixGens.Key).Bind(lu => lu.SolveDetailed(rhs: rhs, key: MatrixGens.Key)), then: receipt => AssertDenseSolve(receipt: receipt, path: SolvePath.DenseLu));
+        Spec.Succ(spd.DecomposeCholesky(key: MatrixGens.Key).Bind(cholesky => cholesky.SolveDetailed(rhs: rhs, key: MatrixGens.Key)), then: receipt => AssertDenseSolve(receipt: receipt, path: SolvePath.DenseCholesky));
+        static void AssertDenseSolve(SolveReceipt receipt, SolvePath path) {
+            Assert.Equal(expected: path, actual: receipt.Path);
+            Assert.Equal(expected: SolveStop.DirectSolved, actual: receipt.Stop);
+            Spec.EqualWithin(left: receipt.Solution[index: 0], right: 1.0 / 11.0, tolerance: 1.0e-10, what: $"{path.Key} x0");
+            Spec.EqualWithin(left: receipt.Solution[index: 1], right: 7.0 / 11.0, tolerance: 1.0e-10, what: $"{path.Key} x1");
+            Assert.True(condition: receipt.Residual < 1.0e-10);
+        }
+    }
+    [Fact]
     public void CholeskyReconstructsSpd() =>
         Spec.ForAll(MatrixGens.Spd, static spd => Spec.Succ(spd.DecomposeCholesky(key: MatrixGens.Key), then: chol => {
             Matrix dense = spd.ToDense();
@@ -213,9 +272,36 @@ public sealed class DecompositionLaws {
         }));
     [Fact]
     public void SymmetricEigenSatisfiesAvEqualsLambdaV() =>
-        Spec.ForAll(MatrixGens.Spd, static spd => Spec.Succ(spd.DecomposeEigen(key: MatrixGens.Key), then: eigs => {
+        Spec.ForAll(MatrixGens.Spd, static spd => Spec.Succ(spd.DecomposeEigenDetailed(key: MatrixGens.Key), then: receipt => {
             Matrix dense = spd.ToDense();
-            Assert.Equal(expected: spd.Dimension.Value, actual: eigs.Count);
-            _ = eigs.Iter(pair => Numeric.Eigenpair(matrix: dense, eigenvalue: pair.Eigenvalue, eigenvector: pair.Eigenvector, eq: MatrixGens.Approx, label: "symmetric eigen"));
+            Assert.Equal(expected: EigenSolvePath.DenseSymmetricEvd, actual: receipt.Path);
+            Assert.Equal(expected: EigenSolveStop.DirectSolved, actual: receipt.Stop);
+            Assert.Equal(expected: spd.Dimension.Value, actual: receipt.Pairs.Count);
+            Assert.True(condition: receipt.MaxResidual < 1.0e-7);
+            _ = receipt.Pairs.Iter(pair => Numeric.Eigenpair(matrix: dense, eigenvalue: pair.Eigenvalue, eigenvector: pair.Eigenvector, eq: MatrixGens.Approx, label: "symmetric eigen"));
         }));
+    [Fact]
+    public void GeneralEigenReceiptKeepsComplexPairs() {
+        Matrix rotation = Spec.SuccValue(Matrix.Of(rows: Dimension.Create(value: 2), cols: Dimension.Create(value: 2), entries: [0.0, -1.0, 1.0, 0.0], key: MatrixGens.Key), label: "rotation eigen");
+        Spec.Succ(rotation.DecomposeEigenDetailed(key: MatrixGens.Key), then: receipt => {
+            Assert.Equal(expected: EigenSolvePath.DenseGeneralEvd, actual: receipt.Path);
+            Assert.Equal(expected: EigenSolveStop.DirectSolved, actual: receipt.Stop);
+            Assert.Equal(expected: 2, actual: receipt.ReturnedPairs);
+            Assert.True(condition: receipt.MaxResidual < 1.0e-8);
+            Assert.Contains([.. receipt.Pairs.AsIterable()], static pair => Math.Abs(pair.Eigenvalue.Real) < 1.0e-10 && Math.Abs(pair.Eigenvalue.Imaginary - 1.0) < 1.0e-10);
+            Assert.Contains([.. receipt.Pairs.AsIterable()], static pair => Math.Abs(pair.Eigenvalue.Real) < 1.0e-10 && Math.Abs(pair.Eigenvalue.Imaginary + 1.0) < 1.0e-10);
+        });
+    }
+    [Fact]
+    public void GeneralizedEigenReceiptNamesCholeskyCongruencePath() {
+        SparseMatrix stiffness = MatrixGens.Sparse(dimension: 3, (0, 0, 2.0), (1, 1, 3.0), (2, 2, 5.0));
+        SparseMatrix mass = MatrixGens.Sparse(dimension: 3, (0, 0, 1.0), (1, 1, 1.0), (2, 2, 1.0));
+        Spec.Succ(MatrixKernel.GeneralizedEigenpairsDetailed(stiffness: stiffness, mass: mass, k: 1, key: MatrixGens.Key), then: receipt => {
+            Assert.Equal(expected: EigenSolvePath.SparseGeneralizedCholeskyCongruence, actual: receipt.Path);
+            Assert.Equal(expected: EigenSolveStop.DirectSolved, actual: receipt.Stop);
+            Assert.Equal(expected: 1, actual: receipt.ReturnedPairs);
+            Spec.EqualWithin(left: receipt.Pairs[0].Eigenvalue, right: 2.0, tolerance: 1.0e-10, what: "generalized eigenvalue");
+            Assert.True(condition: receipt.MaxResidual < 1.0e-10);
+        });
+    }
 }

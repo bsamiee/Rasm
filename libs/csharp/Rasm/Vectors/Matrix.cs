@@ -38,6 +38,8 @@ public readonly record struct SymmetricMatrix(Dimension Dimension, Arr<double> U
                 .Map(idx => self.At(i: idx / dim, j: idx % dim))]);
     }
     public Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> DecomposeEigen(Op? key = null) =>
+        DecomposeEigenDetailed(key: key.OrDefault()).Map(static receipt => receipt.Pairs);
+    public Fin<EigenSolveReceipt<double, Arr<double>>> DecomposeEigenDetailed(Op? key = null) =>
         MatrixKernel.SymmetricEigen(matrix: this, key: key.OrDefault());
     public Fin<CholeskyResult> DecomposeCholesky(Op? key = null) =>
         MatrixKernel.Cholesky(matrix: this, key: key.OrDefault());
@@ -74,6 +76,8 @@ public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double>
             });
     }
     public Fin<Seq<(Complex Eigenvalue, Arr<Complex> Eigenvector)>> DecomposeEigen(Op? key = null) =>
+        DecomposeEigenDetailed(key: key.OrDefault()).Map(static receipt => receipt.Pairs);
+    public Fin<EigenSolveReceipt<Complex, Arr<Complex>>> DecomposeEigenDetailed(Op? key = null) =>
         MatrixKernel.GeneralEigen(matrix: this, key: key.OrDefault());
     public Fin<SvdResult> DecomposeSvd(Op? key = null) => MatrixKernel.Svd(matrix: this, key: key.OrDefault());
     public Fin<LuResult> DecomposeLu(Op? key = null) => MatrixKernel.Lu(matrix: this, key: key.OrDefault());
@@ -92,7 +96,13 @@ public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double>
     public Fin<double> Spectral(Op? key = null) =>
         DecomposeSvd(key: key.OrDefault()).Map(static svd => svd.Sigma.IsEmpty ? 0.0 : svd.Sigma[0]);
     public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
+        SolveDetailed(rhs: rhs, key: key.OrDefault()).Map(static receipt => receipt.Solution);
+    public Fin<SolveReceipt> SolveDetailed(Arr<double> rhs, Op? key = null) =>
         MatrixKernel.Solve(matrix: this, rhs: rhs, key: key.OrDefault());
+    public Fin<Arr<double>> LeastSquares(Arr<double> rhs, Op? key = null) =>
+        LeastSquaresDetailed(rhs: rhs, key: key.OrDefault()).Map(static receipt => receipt.Solution);
+    public Fin<SolveReceipt> LeastSquaresDetailed(Arr<double> rhs, Op? key = null) =>
+        MatrixKernel.LeastSquares(matrix: this, rhs: rhs, key: key.OrDefault());
     public Fin<int> Rank(Op? key = null) =>
         DecomposeSvd(key: key.OrDefault()).Map(static svd => svd.NumericalRank());
     public Fin<Matrix> Inverse(Op? key = null) {
@@ -127,6 +137,8 @@ public readonly record struct LuResult {
     internal MathNet.Numerics.LinearAlgebra.Factorization.LU<double> Factor { get; }
     public bool IsValid => Source.IsValid && RhinoMath.IsValidDouble(x: Determinant);
     public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
+        SolveDetailed(rhs: rhs, key: key.OrDefault()).Map(static receipt => receipt.Solution);
+    public Fin<SolveReceipt> SolveDetailed(Arr<double> rhs, Op? key = null) =>
         MatrixKernel.LuSolve(lu: this, rhs: rhs, key: key.OrDefault());
 }
 
@@ -147,6 +159,8 @@ public readonly record struct CholeskyResult {
     internal MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> Factor { get; }
     public bool IsValid => L.IsValid && Source.IsValid && L.Rows.Value == L.Cols.Value && Source.Rows.Value == Source.Cols.Value;
     public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
+        SolveDetailed(rhs: rhs, key: key.OrDefault()).Map(static receipt => receipt.Solution);
+    public Fin<SolveReceipt> SolveDetailed(Arr<double> rhs, Op? key = null) =>
         MatrixKernel.CholeskySolve(cholesky: this, rhs: rhs, key: key.OrDefault());
 }
 
@@ -173,10 +187,12 @@ public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<i
     }
     public Matrix ToDense() => MatrixKernel.SparseToDense(self: this);
     public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
-        MatrixKernel.SparseSolve(matrix: this, rhs: rhs, key: key.OrDefault()).Map(static result => result.Solution);
-    public Fin<SparseSolveResult> SolveDetailed(Arr<double> rhs, Op? key = null) =>
+        SolveDetailed(rhs: rhs, key: key.OrDefault()).Map(static result => result.Solution);
+    public Fin<SolveReceipt> SolveDetailed(Arr<double> rhs, Op? key = null) =>
         MatrixKernel.SparseSolve(matrix: this, rhs: rhs, key: key.OrDefault());
     public Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> SmallestEigenpairs(int k, double tolerance, int maxIterations = 200, Op? key = null) =>
+        SmallestEigenpairsDetailed(k: k, tolerance: tolerance, maxIterations: maxIterations, key: key.OrDefault()).Map(static receipt => receipt.Pairs);
+    public Fin<EigenSolveReceipt<double, Arr<double>>> SmallestEigenpairsDetailed(int k, double tolerance, int maxIterations = 200, Op? key = null) =>
         MatrixKernel.Lobpcg(matrix: this, k: k, tolerance: tolerance, maxIterations: maxIterations, key: key.OrDefault());
     internal static bool RowPointersAreMonotone(Arr<int> rowPtr) =>
         toSeq(Enumerable.Range(start: 0, count: Math.Max(val1: 0, val2: rowPtr.Count - 1)))
@@ -189,34 +205,80 @@ public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<i
                     Prev: colInd[k])).Ok);
 }
 
-public readonly record struct SparseSolveResult(
+public readonly record struct SolveReceipt(
     Arr<double> Solution,
-    SparseSolveMode Mode,
-    SparseSolveStop StopStatus,
-    int MaxIterations,
-    double Residual);
+    SolvePath Path,
+    SolveStop Stop,
+    Dimension Rows,
+    Dimension Cols,
+    int RhsLength,
+    Option<int> Iterations,
+    Option<int> MaxIterations,
+    Option<double> Tolerance,
+    double Residual,
+    Option<bool> FullRank,
+    Option<int> InputNonZeros,
+    Option<int> FactorNonZeros);
 
 [SmartEnum<int>]
-public sealed partial class SparseSolveMode {
-    public static readonly SparseSolveMode BiCgStabDiagonal = new(key: 0, usesDiagonalPreconditioner: true);
-    public static readonly SparseSolveMode MathNetSolveFallback = new(key: 1, usesDiagonalPreconditioner: false);
+public sealed partial class SolvePath {
+    public static readonly SolvePath DenseLu = new(key: 0, isSparse: false, isFallback: false, usesDiagonalPreconditioner: false);
+    public static readonly SolvePath DenseQrLeastSquares = new(key: 1, isSparse: false, isFallback: false, usesDiagonalPreconditioner: false);
+    public static readonly SolvePath DenseCholesky = new(key: 2, isSparse: false, isFallback: false, usesDiagonalPreconditioner: false);
+    public static readonly SolvePath SparseBiCgStabDiagonal = new(key: 3, isSparse: true, isFallback: false, usesDiagonalPreconditioner: true);
+    public static readonly SolvePath SparseMathNetQrFallback = new(key: 4, isSparse: true, isFallback: true, usesDiagonalPreconditioner: false);
+    public static readonly SolvePath SparseCholesky = new(key: 5, isSparse: true, isFallback: false, usesDiagonalPreconditioner: false);
+    public bool IsSparse { get; }
+    public bool IsFallback { get; }
     public bool UsesDiagonalPreconditioner { get; }
 }
 
 [SmartEnum<int>]
-public sealed partial class SparseSolveStop {
-    public static readonly SparseSolveStop ResidualConverged = new(key: 0);
+public sealed partial class SolveStop {
+    public static readonly SolveStop DirectSolved = new(key: 0);
+    public static readonly SolveStop LeastSquaresSolved = new(key: 1);
+    public static readonly SolveStop ResidualConverged = new(key: 2);
+}
+
+public readonly record struct EigenSolveReceipt<TEigen, TVector>(
+    Seq<(TEigen Eigenvalue, TVector Eigenvector)> Pairs,
+    EigenSolvePath Path,
+    EigenSolveStop Stop,
+    int RequestedPairs,
+    int ReturnedPairs,
+    Option<int> Iterations,
+    Option<int> MaxIterations,
+    Option<double> Tolerance,
+    double MaxResidual);
+
+[SmartEnum<int>]
+public sealed partial class EigenSolvePath {
+    public static readonly EigenSolvePath DenseSymmetricEvd = new(key: 0, isSparse: false, isComplex: false);
+    public static readonly EigenSolvePath DenseGeneralEvd = new(key: 1, isSparse: false, isComplex: true);
+    public static readonly EigenSolvePath SparseLobpcg = new(key: 2, isSparse: true, isComplex: false);
+    public static readonly EigenSolvePath SparseHermitianLobpcg = new(key: 3, isSparse: true, isComplex: true);
+    public static readonly EigenSolvePath SparseGeneralizedCholeskyCongruence = new(key: 4, isSparse: true, isComplex: false);
+    public bool IsSparse { get; }
+    public bool IsComplex { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class EigenSolveStop {
+    public static readonly EigenSolveStop DirectSolved = new(key: 0);
+    public static readonly EigenSolveStop ResidualConverged = new(key: 1);
 }
 
 [BoundaryAdapter]
 public sealed record CholeskySparse {
-    private CholeskySparse(CSparse.Double.Factorization.SparseCholesky factor, Dimension order) {
+    private CholeskySparse(SparseMatrix source, CSparse.Double.Factorization.SparseCholesky factor, Dimension order) {
+        Source = source;
         Factor = factor;
         Order = order;
     }
+    public SparseMatrix Source { get; }
     internal CSparse.Double.Factorization.SparseCholesky Factor { get; }
     public Dimension Order { get; }
-    public bool IsValid => Factor.NonZerosCount > 0 && Order.Value > 0;
+    public bool IsValid => Source.IsValid && Factor.NonZerosCount > 0 && Order.Value > 0;
     public static Fin<CholeskySparse> Of(SparseMatrix symmetric, Op? key = null) {
         Op op = key.OrDefault();
         return symmetric.Rows.Value != symmetric.Cols.Value || !symmetric.IsValid
@@ -227,19 +289,36 @@ public sealed record CholeskySparse {
                       CSparse.Double.Factorization.SparseCholesky.Create(A: csc, order: CSparse.ColumnOrdering.MinimumDegreeAtPlusA);
                   return Fin.Succ(factor);
               })
-              select new CholeskySparse(factor: factor, order: symmetric.Rows);
+              select new CholeskySparse(source: symmetric, factor: factor, order: symmetric.Rows);
     }
-    public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) {
+    public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
+        SolveDetailed(rhs: rhs, key: key.OrDefault()).Map(static receipt => receipt.Solution);
+    public Fin<SolveReceipt> SolveDetailed(Arr<double> rhs, Op? key = null) {
         Op op = key.OrDefault();
-        return rhs.Count != Order.Value
-            ? Fin.Fail<Arr<double>>(error: op.InvalidInput())
+        return !IsValid || rhs.Count != Order.Value || !rhs.All(RhinoMath.IsValidDouble)
+            ? Fin.Fail<SolveReceipt>(error: op.InvalidInput())
             : op.Catch(() => {
                 double[] b = [.. rhs.AsIterable()];
                 double[] x = new double[Order.Value];
                 Factor.Solve(input: b.AsSpan(), result: x.AsSpan());
-                return x.All(RhinoMath.IsValidDouble)
-                    ? Fin.Succ(new Arr<double>(x))
-                    : Fin.Fail<Arr<double>>(error: op.InvalidResult());
+                Arr<double> solution = new(x);
+                return MatrixKernel.SparseSymmetricResidual(matrix: Source, solution: solution, rhs: rhs, key: op).Bind(residual =>
+                    x.All(RhinoMath.IsValidDouble) && RhinoMath.IsValidDouble(x: residual)
+                    ? Fin.Succ(new SolveReceipt(
+                        Solution: solution,
+                        Path: SolvePath.SparseCholesky,
+                        Stop: SolveStop.DirectSolved,
+                        Rows: Source.Rows,
+                        Cols: Source.Cols,
+                        RhsLength: rhs.Count,
+                        Iterations: Option<int>.None,
+                        MaxIterations: Option<int>.None,
+                        Tolerance: Option<double>.None,
+                        Residual: residual,
+                        FullRank: Option<bool>.None,
+                        InputNonZeros: Some(Source.NonZeros),
+                        FactorNonZeros: Some(Factor.NonZerosCount)))
+                    : Fin.Fail<SolveReceipt>(error: op.InvalidResult()));
             });
     }
 }
@@ -267,6 +346,8 @@ public readonly record struct SparseHermitian(Dimension Order, Arr<int> RowPtr, 
             : Fin.Succ(MatrixKernel.HermitianMatVec(self: this, x: vector));
     }
     public Fin<Seq<(double Eigenvalue, Arr<Complex> Eigenvector)>> SmallestEigenpairs(int k, double tolerance, int maxIterations = 200, Op? key = null) =>
+        SmallestEigenpairsDetailed(k: k, tolerance: tolerance, maxIterations: maxIterations, key: key.OrDefault()).Map(static receipt => receipt.Pairs);
+    public Fin<EigenSolveReceipt<double, Arr<Complex>>> SmallestEigenpairsDetailed(int k, double tolerance, int maxIterations = 200, Op? key = null) =>
         MatrixKernel.LobpcgHermitian(matrix: this, k: k, tolerance: tolerance, maxIterations: maxIterations, key: key.OrDefault());
     private static bool UpperColumnIndicesAreBoundedAndSorted(Arr<int> rowPtr, Arr<int> colInd, int order) =>
         toSeq(Enumerable.Range(start: 0, count: Math.Max(val1: 0, val2: rowPtr.Count - 1)))
@@ -289,40 +370,49 @@ public sealed partial class MatrixNormKind {
 internal static class MatrixKernel {
     private const int RealInitialBasisSeed = 17;
     private const int HermitianInitialBasisSeed = 19;
-    internal static Fin<CSparse.Double.SparseMatrix> ToCSparseSymmetric(SparseMatrix s, Op key) {
+    private static Fin<List<(int Row, int Col, double Value)>> NormalizeSymmetricUpperEntries(SparseMatrix s, Op key) {
+        if (!s.IsValid || s.Rows.Value != s.Cols.Value) return Fin.Fail<List<(int Row, int Col, double Value)>>(key.InvalidInput());
         int n = s.Rows.Value;
-        Dictionary<(int Row, int Col), double> entries = [];
+        Dictionary<(int Row, int Col), double> upper = [];
         for (int row = 0; row < n; row++)
-            for (int k = s.RowPtr[row]; k < s.RowPtr[row + 1]; k++)
-                entries[(row, s.ColInd[k])] = s.Values[k];
-        bool symmetric = entries.All(pair =>
-            entries.TryGetValue(key: (pair.Key.Col, pair.Key.Row), value: out double mirror)
-            && Math.Abs(pair.Value - mirror) <= RhinoMath.SqrtEpsilon * Math.Max(val1: 1.0, val2: Math.Max(val1: Math.Abs(pair.Value), val2: Math.Abs(mirror))));
-        if (!symmetric) return Fin.Fail<CSparse.Double.SparseMatrix>(key.InvalidInput());
-        List<(int Row, int Col, double Value)> ordered = [.. entries
-            .Select(static pair => (pair.Key.Row, pair.Key.Col, pair.Value))
-            .Where(static e => e.Row <= e.Col)
-            .OrderBy(static e => e.Col).ThenBy(static e => e.Row)];
-        int[] columnPointers = new int[n + 1];
-        int[] rowIndices = new int[ordered.Count];
-        double[] values = new double[ordered.Count];
-        int cursor = 0;
-        for (int col = 0; col < n; col++) {
-            columnPointers[col] = cursor;
-            while (cursor < ordered.Count && ordered[cursor].Col == col) {
-                rowIndices[cursor] = ordered[cursor].Row;
-                values[cursor] = ordered[cursor].Value;
-                cursor++;
+            for (int k = s.RowPtr[row]; k < s.RowPtr[row + 1]; k++) {
+                int col = s.ColInd[k];
+                double value = s.Values[k];
+                (int Row, int Col) normalized = (Math.Min(val1: row, val2: col), Math.Max(val1: row, val2: col));
+                if (upper.TryGetValue(key: normalized, value: out double existing)
+                    && Math.Abs(value - existing) > RhinoMath.SqrtEpsilon * Math.Max(val1: 1.0, val2: Math.Max(val1: Math.Abs(value), val2: Math.Abs(existing))))
+                    return Fin.Fail<List<(int Row, int Col, double Value)>>(key.InvalidInput());
+                upper[normalized] = value;
             }
-        }
-        columnPointers[n] = cursor;
-        return Fin.Succ(new CSparse.Double.SparseMatrix(
-            rowCount: n,
-            columnCount: n,
-            values: values,
-            rowIndices: rowIndices,
-            columnPointers: columnPointers));
+        return Fin.Succ(upper
+            .Select(static pair => (pair.Key.Row, pair.Key.Col, pair.Value))
+            .OrderBy(static e => e.Row).ThenBy(static e => e.Col)
+            .ToList());
     }
+    internal static Fin<CSparse.Double.SparseMatrix> ToCSparseSymmetric(SparseMatrix s, Op key) =>
+        NormalizeSymmetricUpperEntries(s: s, key: key).Map(upper => {
+            int n = s.Rows.Value;
+            List<(int Row, int Col, double Value)> ordered = [.. upper.OrderBy(static e => e.Col).ThenBy(static e => e.Row)];
+            int[] columnPointers = new int[n + 1];
+            int[] rowIndices = new int[ordered.Count];
+            double[] values = new double[ordered.Count];
+            int cursor = 0;
+            for (int col = 0; col < n; col++) {
+                columnPointers[col] = cursor;
+                while (cursor < ordered.Count && ordered[cursor].Col == col) {
+                    rowIndices[cursor] = ordered[cursor].Row;
+                    values[cursor] = ordered[cursor].Value;
+                    cursor++;
+                }
+            }
+            columnPointers[n] = cursor;
+            return new CSparse.Double.SparseMatrix(
+                rowCount: n,
+                columnCount: n,
+                values: values,
+                rowIndices: rowIndices,
+                columnPointers: columnPointers);
+        });
 
     internal static DenseMatrixD ToMathNet(Matrix m) =>
         (DenseMatrixD)DenseMatrixD.Build.DenseOfRowMajor(m.Rows.Value, m.Cols.Value, m.Entries.AsIterable());
@@ -331,6 +421,58 @@ internal static class MatrixKernel {
     private static DenseMatrixC ToMathNetComplex(Matrix m) =>
         (DenseMatrixC)DenseMatrixC.Build.Dense(m.Rows.Value, m.Cols.Value, (i, j) => new Complex(m.At(i: i, j: j), 0.0));
     private static Arr<double> ArrFromVector(LinearVector v) => new(v.ToArray());
+    private static Arr<Complex> ArrFromComplexVector(ComplexVector v) => new(v.ToArray());
+    private static double RelativeResidual(Matrix<double> a, LinearVector x, LinearVector b) =>
+        (b - a.Multiply(x)).L2Norm() / Math.Max(val1: 1.0, val2: b.L2Norm());
+    internal static double SparseResidual(SparseMatrix matrix, Arr<double> solution, Arr<double> rhs) =>
+        RelativeResidual(
+            a: ToMathNetSparse(s: matrix),
+            x: DenseVectorD.OfArray([.. solution.AsIterable()]),
+            b: DenseVectorD.OfArray([.. rhs.AsIterable()]));
+    internal static Fin<double> SparseSymmetricResidual(SparseMatrix matrix, Arr<double> solution, Arr<double> rhs, Op key) {
+        int n = matrix.Rows.Value;
+        double[] y = new double[n];
+        return NormalizeSymmetricUpperEntries(s: matrix, key: key).Bind(upper => {
+            foreach ((int row, int col, double value) in upper) {
+                y[row] += value * solution[index: col];
+                if (row != col) y[col] += value * solution[index: row];
+            }
+            double residual = 0.0;
+            double rhsNorm = 0.0;
+            for (int i = 0; i < n; i++) {
+                double delta = rhs[index: i] - y[i];
+                residual += delta * delta;
+                rhsNorm += rhs[index: i] * rhs[index: i];
+            }
+            return key.AcceptValue(value: Math.Sqrt(d: residual) / Math.Max(val1: 1.0, val2: Math.Sqrt(d: rhsNorm)));
+        });
+    }
+    private static double RealEigenResidual(Matrix<double> a, Seq<(double Eigenvalue, Arr<double> Eigenvector)> pairs) =>
+        pairs.Fold(initialState: 0.0, f: (max, pair) => {
+            LinearVector v = DenseVectorD.OfArray([.. pair.Eigenvector.AsIterable()]);
+            double residual = (a.Multiply(v) - (pair.Eigenvalue * v)).L2Norm() / Math.Max(val1: 1.0, val2: v.L2Norm());
+            return Math.Max(val1: max, val2: residual);
+        });
+    private static double GeneralizedEigenResidual(Matrix<double> stiffness, Matrix<double> mass, Seq<(double Eigenvalue, Arr<double> Eigenvector)> pairs) =>
+        pairs.Fold(initialState: 0.0, f: (max, pair) => {
+            LinearVector v = DenseVectorD.OfArray([.. pair.Eigenvector.AsIterable()]);
+            LinearVector lhs = stiffness.Multiply(v);
+            LinearVector rhs = mass.Multiply(v) * pair.Eigenvalue;
+            double residual = (lhs - rhs).L2Norm() / Math.Max(val1: 1.0, val2: lhs.L2Norm());
+            return Math.Max(val1: max, val2: residual);
+        });
+    private static double ComplexEigenResidual(Matrix<Complex> a, Seq<(Complex Eigenvalue, Arr<Complex> Eigenvector)> pairs) =>
+        pairs.Fold(initialState: 0.0, f: (max, pair) => {
+            ComplexVector v = DenseVectorC.OfArray([.. pair.Eigenvector.AsIterable()]);
+            double residual = (a.Multiply(v) - (v * pair.Eigenvalue)).L2Norm() / Math.Max(val1: 1.0, val2: v.L2Norm());
+            return Math.Max(val1: max, val2: residual);
+        });
+    private static double HermitianEigenResidual(Matrix<Complex> a, Seq<(double Eigenvalue, Arr<Complex> Eigenvector)> pairs) =>
+        pairs.Fold(initialState: 0.0, f: (max, pair) => {
+            ComplexVector v = DenseVectorC.OfArray([.. pair.Eigenvector.AsIterable()]);
+            double residual = (a.Multiply(v) - (v * pair.Eigenvalue)).L2Norm() / Math.Max(val1: 1.0, val2: v.L2Norm());
+            return Math.Max(val1: max, val2: residual);
+        });
 
     // --- [DENSE_DECOMPOSITIONS] -------------------------------------------------------------
     internal static Fin<SvdResult> Svd(Matrix matrix, Op key) => key.Catch(() => {
@@ -363,36 +505,102 @@ internal static class MatrixKernel {
                 source: source,
                 factor: factor));
         });
-    internal static Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> SymmetricEigen(SymmetricMatrix matrix, Op key) => key.Catch(() => {
-        MathNet.Numerics.LinearAlgebra.Factorization.Evd<double> evd = ToMathNet(matrix.ToDense()).Evd(Symmetricity.Symmetric);
+    internal static Fin<EigenSolveReceipt<double, Arr<double>>> SymmetricEigen(SymmetricMatrix matrix, Op key) => key.Catch(() => {
+        Matrix dense = matrix.ToDense();
+        Matrix<double> mathNet = ToMathNet(dense);
+        MathNet.Numerics.LinearAlgebra.Factorization.Evd<double> evd = mathNet.Evd(Symmetricity.Symmetric);
         int n = matrix.Dimension.Value;
-        return Fin.Succ(toSeq(Enumerable.Range(start: 0, count: n)
+        Seq<(double Eigenvalue, Arr<double> Eigenvector)> pairs = toSeq(Enumerable.Range(start: 0, count: n)
             .Select(i => (Eigenvalue: evd.EigenValues[i].Real, Eigenvector: ArrFromVector(evd.EigenVectors.Column(i))))
-            .OrderByDescending(static p => Math.Abs(p.Eigenvalue))));
+            .OrderByDescending(static p => Math.Abs(p.Eigenvalue)));
+        return Fin.Succ(new EigenSolveReceipt<double, Arr<double>>(
+            Pairs: pairs,
+            Path: EigenSolvePath.DenseSymmetricEvd,
+            Stop: EigenSolveStop.DirectSolved,
+            RequestedPairs: n,
+            ReturnedPairs: pairs.Count,
+            Iterations: Option<int>.None,
+            MaxIterations: Option<int>.None,
+            Tolerance: Option<double>.None,
+            MaxResidual: RealEigenResidual(a: mathNet, pairs: pairs)));
     });
-    internal static Fin<Seq<(Complex Eigenvalue, Arr<Complex> Eigenvector)>> GeneralEigen(Matrix matrix, Op key) {
+    internal static Fin<EigenSolveReceipt<Complex, Arr<Complex>>> GeneralEigen(Matrix matrix, Op key) {
         return matrix.Rows.Value != matrix.Cols.Value
-            ? Fin.Fail<Seq<(Complex, Arr<Complex>)>>(key.InvalidInput())
+            ? Fin.Fail<EigenSolveReceipt<Complex, Arr<Complex>>>(key.InvalidInput())
             : key.Catch(() => {
-                MathNet.Numerics.LinearAlgebra.Factorization.Evd<Complex> evd = ToMathNetComplex(matrix).Evd(Symmetricity.Asymmetric);
+                Matrix<Complex> mathNet = ToMathNetComplex(matrix);
+                MathNet.Numerics.LinearAlgebra.Factorization.Evd<Complex> evd = mathNet.Evd(Symmetricity.Asymmetric);
                 int n = matrix.Rows.Value;
-                return Fin.Succ(toSeq(Enumerable.Range(start: 0, count: n)
-                    .Select(i => (Eigenvalue: evd.EigenValues[i], Eigenvector: ArrFromComplexVector(evd.EigenVectors.Column(i))))));
+                Seq<(Complex Eigenvalue, Arr<Complex> Eigenvector)> pairs = toSeq(Enumerable.Range(start: 0, count: n)
+                    .Select(i => (Eigenvalue: evd.EigenValues[i], Eigenvector: ArrFromComplexVector(evd.EigenVectors.Column(i)))));
+                return Fin.Succ(new EigenSolveReceipt<Complex, Arr<Complex>>(
+                    Pairs: pairs,
+                    Path: EigenSolvePath.DenseGeneralEvd,
+                    Stop: EigenSolveStop.DirectSolved,
+                    RequestedPairs: n,
+                    ReturnedPairs: pairs.Count,
+                    Iterations: Option<int>.None,
+                    MaxIterations: Option<int>.None,
+                    Tolerance: Option<double>.None,
+                    MaxResidual: ComplexEigenResidual(a: mathNet, pairs: pairs)));
             });
     }
-    private static Arr<Complex> ArrFromComplexVector(ComplexVector v) => new(v.ToArray());
-    internal static Fin<Arr<double>> Solve(Matrix matrix, Arr<double> rhs, Op key) =>
-        rhs.Count != matrix.Rows.Value || matrix.Rows.Value != matrix.Cols.Value
-            ? Fin.Fail<Arr<double>>(error: key.InvalidInput())
-            : key.Catch(() => Fin.Succ(ArrFromVector(ToMathNet(matrix).LU().Solve(DenseVectorD.OfArray([.. rhs.AsIterable()])))));
-    internal static Fin<Arr<double>> LuSolve(LuResult lu, Arr<double> rhs, Op key) =>
-        rhs.Count != lu.Source.Rows.Value || lu.Source.Rows.Value != lu.Source.Cols.Value
-            ? Fin.Fail<Arr<double>>(key.InvalidInput())
+    internal static Fin<SolveReceipt> Solve(Matrix matrix, Arr<double> rhs, Op key) =>
+        !matrix.IsValid || rhs.Count != matrix.Rows.Value || matrix.Rows.Value != matrix.Cols.Value || !rhs.All(RhinoMath.IsValidDouble)
+            ? Fin.Fail<SolveReceipt>(error: key.InvalidInput())
+            : Lu(matrix: matrix, key: key).Bind(lu => LuSolve(lu: lu, rhs: rhs, key: key));
+    internal static Fin<SolveReceipt> LeastSquares(Matrix matrix, Arr<double> rhs, Op key) =>
+        rhs.Count != matrix.Rows.Value || !matrix.IsValid || !rhs.All(RhinoMath.IsValidDouble)
+            ? Fin.Fail<SolveReceipt>(error: key.InvalidInput())
             : key.Catch(() => {
-                Arr<double> solved = ArrFromVector(lu.Factor.Solve(DenseVectorD.OfArray([.. rhs.AsIterable()])));
-                return solved.ForAll(RhinoMath.IsValidDouble)
-                    ? Fin.Succ(solved)
-                    : Fin.Fail<Arr<double>>(key.InvalidResult());
+                Matrix<double> design = ToMathNet(matrix);
+                LinearVector b = DenseVectorD.OfArray([.. rhs.AsIterable()]);
+                MathNet.Numerics.LinearAlgebra.Factorization.QR<double> qr = design.QR(MathNet.Numerics.LinearAlgebra.Factorization.QRMethod.Full);
+                LinearVector x = qr.Solve(b);
+                double residual = RelativeResidual(a: design, x: x, b: b);
+                Arr<double> solved = ArrFromVector(x);
+                return solved.Count == matrix.Cols.Value && solved.ForAll(RhinoMath.IsValidDouble) && RhinoMath.IsValidDouble(x: residual)
+                    ? Fin.Succ(new SolveReceipt(
+                        Solution: solved,
+                        Path: SolvePath.DenseQrLeastSquares,
+                        Stop: SolveStop.LeastSquaresSolved,
+                        Rows: matrix.Rows,
+                        Cols: matrix.Cols,
+                        RhsLength: rhs.Count,
+                        Iterations: Option<int>.None,
+                        MaxIterations: Option<int>.None,
+                        Tolerance: Option<double>.None,
+                        Residual: residual,
+                        FullRank: Some(qr.IsFullRank),
+                        InputNonZeros: Option<int>.None,
+                        FactorNonZeros: Option<int>.None))
+                    : Fin.Fail<SolveReceipt>(key.InvalidResult());
+            });
+    internal static Fin<SolveReceipt> LuSolve(LuResult lu, Arr<double> rhs, Op key) =>
+        !lu.IsValid || rhs.Count != lu.Source.Rows.Value || lu.Source.Rows.Value != lu.Source.Cols.Value || !rhs.All(RhinoMath.IsValidDouble)
+            ? Fin.Fail<SolveReceipt>(key.InvalidInput())
+            : key.Catch(() => {
+                Matrix<double> a = ToMathNet(lu.Source);
+                LinearVector b = DenseVectorD.OfArray([.. rhs.AsIterable()]);
+                LinearVector x = lu.Factor.Solve(b);
+                double residual = RelativeResidual(a: a, x: x, b: b);
+                Arr<double> solved = ArrFromVector(x);
+                return solved.ForAll(RhinoMath.IsValidDouble) && RhinoMath.IsValidDouble(x: residual)
+                    ? Fin.Succ(new SolveReceipt(
+                        Solution: solved,
+                        Path: SolvePath.DenseLu,
+                        Stop: SolveStop.DirectSolved,
+                        Rows: lu.Source.Rows,
+                        Cols: lu.Source.Cols,
+                        RhsLength: rhs.Count,
+                        Iterations: Option<int>.None,
+                        MaxIterations: Option<int>.None,
+                        Tolerance: Option<double>.None,
+                        Residual: residual,
+                        FullRank: Option<bool>.None,
+                        InputNonZeros: Option<int>.None,
+                        FactorNonZeros: Option<int>.None))
+                    : Fin.Fail<SolveReceipt>(key.InvalidResult());
             });
     internal static Fin<double> Determinant(Matrix matrix, Op key) =>
         matrix.Rows.Value != matrix.Cols.Value
@@ -402,10 +610,32 @@ internal static class MatrixKernel {
         key.Catch(() => Fin.Succ(FromMathNet(m: ToMathNet(matrix).PseudoInverse(), rows: matrix.Cols, cols: matrix.Rows)));
 
     // --- [DENSE_CHOLESKY_SOLVE] -------------------------------------------------------------
-    internal static Fin<Arr<double>> CholeskySolve(CholeskyResult cholesky, Arr<double> rhs, Op key) {
-        return rhs.Count != cholesky.Source.Rows.Value || cholesky.Source.Rows.Value != cholesky.Source.Cols.Value
-            ? Fin.Fail<Arr<double>>(key.InvalidInput())
-            : key.Catch(() => Fin.Succ(ArrFromVector(cholesky.Factor.Solve(DenseVectorD.OfArray([.. rhs.AsIterable()])))));
+    internal static Fin<SolveReceipt> CholeskySolve(CholeskyResult cholesky, Arr<double> rhs, Op key) {
+        return !cholesky.IsValid || rhs.Count != cholesky.Source.Rows.Value || cholesky.Source.Rows.Value != cholesky.Source.Cols.Value || !rhs.All(RhinoMath.IsValidDouble)
+            ? Fin.Fail<SolveReceipt>(key.InvalidInput())
+            : key.Catch(() => {
+                Matrix<double> a = ToMathNet(cholesky.Source);
+                LinearVector b = DenseVectorD.OfArray([.. rhs.AsIterable()]);
+                LinearVector x = cholesky.Factor.Solve(b);
+                double residual = RelativeResidual(a: a, x: x, b: b);
+                Arr<double> solved = ArrFromVector(x);
+                return solved.ForAll(RhinoMath.IsValidDouble) && RhinoMath.IsValidDouble(x: residual)
+                    ? Fin.Succ(new SolveReceipt(
+                        Solution: solved,
+                        Path: SolvePath.DenseCholesky,
+                        Stop: SolveStop.DirectSolved,
+                        Rows: cholesky.Source.Rows,
+                        Cols: cholesky.Source.Cols,
+                        RhsLength: rhs.Count,
+                        Iterations: Option<int>.None,
+                        MaxIterations: Option<int>.None,
+                        Tolerance: Option<double>.None,
+                        Residual: residual,
+                        FullRank: Some(true),
+                        InputNonZeros: Option<int>.None,
+                        FactorNonZeros: Option<int>.None))
+                    : Fin.Fail<SolveReceipt>(key.InvalidResult());
+            });
     }
 
     // --- [SPARSE_ASSEMBLY] ------------------------------------------------------------------
@@ -480,9 +710,9 @@ internal static class MatrixKernel {
     }
     internal static Matrix SparseToDense(SparseMatrix self) =>
         FromMathNet(m: ToMathNetSparse(s: self), rows: self.Rows, cols: self.Cols);
-    internal static Fin<SparseSolveResult> SparseSolve(SparseMatrix matrix, Arr<double> rhs, Op key) =>
-        matrix.Rows.Value != matrix.Cols.Value || rhs.Count != matrix.Rows.Value
-            ? Fin.Fail<SparseSolveResult>(key.InvalidInput())
+    internal static Fin<SolveReceipt> SparseSolve(SparseMatrix matrix, Arr<double> rhs, Op key) =>
+        !matrix.IsValid || matrix.Rows.Value != matrix.Cols.Value || rhs.Count != matrix.Rows.Value || !rhs.All(RhinoMath.IsValidDouble)
+            ? Fin.Fail<SolveReceipt>(key.InvalidInput())
             : key.Catch(() => {
                 Matrix<double> A = ToMathNetSparse(s: matrix);
                 LinearVector b = DenseVectorD.OfArray([.. rhs.AsIterable()]);
@@ -501,94 +731,124 @@ internal static class MatrixKernel {
                 LinearVector x = iterativeConverged ? iterative : A.Solve(b);
                 double residual = (b - A.Multiply(x)).L2Norm() / Math.Max(val1: 1.0, val2: b.L2Norm());
                 return RhinoMath.IsValidDouble(x: residual) && residual <= Math.Sqrt(RhinoMath.SqrtEpsilon)
-                    ? Fin.Succ(new SparseSolveResult(
+                    ? Fin.Succ(new SolveReceipt(
                         Solution: ArrFromVector(x),
-                        Mode: iterativeConverged ? SparseSolveMode.BiCgStabDiagonal : SparseSolveMode.MathNetSolveFallback,
-                        StopStatus: SparseSolveStop.ResidualConverged,
-                        MaxIterations: iterationCap,
-                        Residual: residual))
-                    : Fin.Fail<SparseSolveResult>(key.InvalidResult());
+                        Path: iterativeConverged ? SolvePath.SparseBiCgStabDiagonal : SolvePath.SparseMathNetQrFallback,
+                        Stop: SolveStop.ResidualConverged,
+                        Rows: matrix.Rows,
+                        Cols: matrix.Cols,
+                        RhsLength: rhs.Count,
+                        Iterations: Option<int>.None,
+                        MaxIterations: Some(iterationCap),
+                        Tolerance: Some(RhinoMath.SqrtEpsilon),
+                        Residual: residual,
+                        FullRank: Option<bool>.None,
+                        InputNonZeros: Some(matrix.NonZeros),
+                        FactorNonZeros: Option<int>.None))
+                    : Fin.Fail<SolveReceipt>(key.InvalidResult());
             });
     internal static Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> GeneralizedEigenpairs(SparseMatrix stiffness, SparseMatrix mass, int k, Op key) =>
+        GeneralizedEigenpairsDetailed(stiffness: stiffness, mass: mass, k: k, key: key).Map(static receipt => receipt.Pairs);
+    internal static Fin<EigenSolveReceipt<double, Arr<double>>> GeneralizedEigenpairsDetailed(SparseMatrix stiffness, SparseMatrix mass, int k, Op key) =>
         stiffness.Rows.Value != stiffness.Cols.Value || mass.Rows.Value != mass.Cols.Value || stiffness.Rows.Value != mass.Rows.Value || k < 1 || k >= stiffness.Rows.Value
-            ? Fin.Fail<Seq<(double, Arr<double>)>>(key.InvalidInput())
+            ? Fin.Fail<EigenSolveReceipt<double, Arr<double>>>(key.InvalidInput())
             : key.Catch(() => {
-                (LinearVector vals, Matrix<double> vecs) = SolveGeneralised(Ahat: ToMathNetSparse(stiffness), Mhat: ToMathNetSparse(mass));
-                IEnumerable<(double Eigenvalue, Arr<double> Eigenvector)> pairs = Enumerable.Range(start: 0, count: vals.Count)
+                Matrix<double> stiffnessM = ToMathNetSparse(stiffness);
+                Matrix<double> massM = ToMathNetSparse(mass);
+                (LinearVector vals, Matrix<double> vecs) = SolveGeneralised(Ahat: stiffnessM, Mhat: massM);
+                Seq<(double Eigenvalue, Arr<double> Eigenvector)> pairs = toSeq(Enumerable.Range(start: 0, count: vals.Count)
                     .OrderBy(i => vals[i])
                     .Take(k)
-                    .Select(i => (Eigenvalue: vals[i], Eigenvector: ArrFromVector(vecs.Column(i))));
-                return Fin.Succ(toSeq(pairs));
-            });
-    private static Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> DenseSmallestEigenpairs(SparseMatrix matrix, int k, Op key) =>
-        matrix.Rows.Value > 128
-            ? Fin.Fail<Seq<(double, Arr<double>)>>(key.InvalidResult())
-            : key.Catch(() => {
-                Matrix<double> dense = DenseMatrixD.OfArray(ToMathNetSparse(s: matrix).ToArray());
-                Matrix<double> symmetric = (dense + dense.Transpose()) * 0.5;
-                MathNet.Numerics.LinearAlgebra.Factorization.Evd<double> evd = symmetric.Evd(Symmetricity.Symmetric);
-                IEnumerable<(double Eigenvalue, Arr<double> Eigenvector)> pairs = Enumerable.Range(start: 0, count: evd.EigenValues.Count)
-                    .Select(i => (Eigenvalue: evd.EigenValues[i].Real, Eigenvector: ArrFromVector(evd.EigenVectors.Column(i))))
-                    .OrderBy(static pair => pair.Eigenvalue)
-                    .Take(k);
-                return Fin.Succ(toSeq(pairs));
+                    .Select(i => (Eigenvalue: vals[i], Eigenvector: ArrFromVector(vecs.Column(i)))));
+                return Fin.Succ(new EigenSolveReceipt<double, Arr<double>>(
+                    Pairs: pairs,
+                    Path: EigenSolvePath.SparseGeneralizedCholeskyCongruence,
+                    Stop: EigenSolveStop.DirectSolved,
+                    RequestedPairs: k,
+                    ReturnedPairs: pairs.Count,
+                    Iterations: Option<int>.None,
+                    MaxIterations: Option<int>.None,
+                    Tolerance: Option<double>.None,
+                    MaxResidual: GeneralizedEigenResidual(stiffness: stiffnessM, mass: massM, pairs: pairs)));
             });
     // --- [LOBPCG] ---------------------------------------------------------------------------
     // Knyazev 2001. Subspace span([X_i, R_i, P_i]) reduced via Rayleigh-Ritz;
     // first iteration omits the zero previous-direction block to avoid rank-deficient mass.
-    internal static Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> Lobpcg(SparseMatrix matrix, int k, double tolerance, int maxIterations, Op key) {
+    internal static Fin<EigenSolveReceipt<double, Arr<double>>> Lobpcg(SparseMatrix matrix, int k, double tolerance, int maxIterations, Op key) {
         int n = matrix.Rows.Value;
-        if (matrix.Rows.Value != matrix.Cols.Value || k < 1 || k >= n || !RhinoMath.IsValidDouble(tolerance) || tolerance <= 0 || maxIterations < 1)
-            return Fin.Fail<Seq<(double, Arr<double>)>>(key.InvalidInput());
-        Matrix<double> A = ToMathNetSparse(matrix);
-        Matrix<double> X = OrthonormalRandom(rows: n, k: k, seed: RealInitialBasisSeed);
-        LinearVector jacobi = ExtractDiagonalInverse(A);
-        Matrix<double> P = DenseMatrixD.Create(n, k, 0.0);
-        return Iterate(iter: 0, X: X, P: P);
-        Fin<Seq<(double Eigenvalue, Arr<double> Eigenvector)>> Iterate(int iter, Matrix<double> X, Matrix<double> P) {
-            if (iter >= maxIterations) return Fin.Fail<Seq<(double, Arr<double>)>>(key.InvalidResult());
-            Matrix<double> AX = A * X;
-            LinearVector lambda = RayleighQuotients(X: X, AX: AX);
-            Matrix<double> R = AX - (X * DenseMatrixD.OfDiagonalVector(lambda));
-            if (MaxColumnNorm(R) < tolerance)
-                return Fin.Succ(toSeq(Enumerable.Range(start: 0, count: k)
-                    .Select(i => (Eigenvalue: lambda[i], Eigenvector: ArrFromVector(X.Column(i))))
-                    .OrderBy(static p => p.Eigenvalue)));
-            Matrix<double> W = ApplyJacobi(R: R, invDiag: jacobi);
-            bool hasPrevious = iter > 0 && MaxColumnNorm(P) > RhinoMath.SqrtEpsilon;
-            Matrix<double> S = AssembleSubspace(X: X, W: W, P: P, includePrevious: hasPrevious);
-            Matrix<double> Ahat = S.Transpose() * (A * S);
-            Matrix<double> Mhat = S.Transpose() * S;
-            Fin<(LinearVector Vals, Matrix<double> Vecs)> solved = key.Catch(() => Fin.Succ(SolveGeneralised(Ahat: Ahat, Mhat: Mhat)));
-            return solved.Match(
-                Succ: solution => {
-                    Matrix<double> Z = TakeSmallest(eigVals: solution.Vals, eigVecs: solution.Vecs, k: k);
-                    Matrix<double> Xnew = S * Z;
-                    Matrix<double> previous = hasPrevious ? P * Z.SubMatrix(2 * k, k, 0, k) : DenseMatrixD.Create(n, k, 0.0);
-                    Matrix<double> Pnew = (W * Z.SubMatrix(k, k, 0, k)) + previous;
-                    return Iterate(iter: iter + 1, X: OrthonormaliseColumns(Xnew), P: Pnew);
-                },
-                Fail: _ => DenseSmallestEigenpairs(matrix: matrix, k: k, key: key));
-        }
+        return !matrix.IsValid || matrix.Rows.Value != matrix.Cols.Value || k < 1 || k >= n || !RhinoMath.IsValidDouble(tolerance) || tolerance <= 0 || maxIterations < 1
+            ? Fin.Fail<EigenSolveReceipt<double, Arr<double>>>(key.InvalidInput())
+            : NormalizeSymmetricUpperEntries(s: matrix, key: key).Bind(_ => {
+                Matrix<double> A = ToMathNetSparse(matrix);
+                Matrix<double> X = OrthonormalRandom(rows: n, k: k, seed: RealInitialBasisSeed);
+                LinearVector jacobi = ExtractDiagonalInverse(A);
+                Matrix<double> P = DenseMatrixD.Create(n, k, 0.0);
+                return Iterate(iter: 0, X: X, P: P);
+                Fin<EigenSolveReceipt<double, Arr<double>>> Iterate(int iter, Matrix<double> X, Matrix<double> P) {
+                    if (iter >= maxIterations) return Fin.Fail<EigenSolveReceipt<double, Arr<double>>>(key.InvalidResult());
+                    Matrix<double> AX = A * X;
+                    LinearVector lambda = RayleighQuotients(X: X, AX: AX);
+                    Matrix<double> R = AX - (X * DenseMatrixD.OfDiagonalVector(lambda));
+                    if (MaxColumnNorm(R) < tolerance) {
+                        Seq<(double Eigenvalue, Arr<double> Eigenvector)> pairs = toSeq(Enumerable.Range(start: 0, count: k)
+                            .Select(i => (Eigenvalue: lambda[i], Eigenvector: ArrFromVector(X.Column(i))))
+                            .OrderBy(static p => p.Eigenvalue));
+                        return Fin.Succ(new EigenSolveReceipt<double, Arr<double>>(
+                            Pairs: pairs,
+                            Path: EigenSolvePath.SparseLobpcg,
+                            Stop: EigenSolveStop.ResidualConverged,
+                            RequestedPairs: k,
+                            ReturnedPairs: pairs.Count,
+                            Iterations: Some(iter),
+                            MaxIterations: Some(maxIterations),
+                            Tolerance: Some(tolerance),
+                            MaxResidual: RealEigenResidual(a: A, pairs: pairs)));
+                    }
+                    Matrix<double> W = ApplyJacobi(R: R, invDiag: jacobi);
+                    bool hasPrevious = iter > 0 && MaxColumnNorm(P) > RhinoMath.SqrtEpsilon;
+                    Matrix<double> S = AssembleSubspace(X: X, W: W, P: P, includePrevious: hasPrevious);
+                    Matrix<double> Ahat = S.Transpose() * (A * S);
+                    Matrix<double> Mhat = S.Transpose() * S;
+                    Fin<(LinearVector Vals, Matrix<double> Vecs)> solved = key.Catch(() => Fin.Succ(SolveGeneralised(Ahat: Ahat, Mhat: Mhat)));
+                    return solved.Bind(solution => {
+                        Matrix<double> Z = TakeSmallest(eigVals: solution.Vals, eigVecs: solution.Vecs, k: k);
+                        Matrix<double> Xnew = S * Z;
+                        Matrix<double> previous = hasPrevious ? P * Z.SubMatrix(2 * k, k, 0, k) : DenseMatrixD.Create(n, k, 0.0);
+                        Matrix<double> Pnew = (W * Z.SubMatrix(k, k, 0, k)) + previous;
+                        return Iterate(iter: iter + 1, X: OrthonormaliseColumns(Xnew), P: Pnew);
+                    });
+                }
+            });
     }
-    internal static Fin<Seq<(double Eigenvalue, Arr<Complex> Eigenvector)>> LobpcgHermitian(SparseHermitian matrix, int k, double tolerance, int maxIterations, Op key) {
+    internal static Fin<EigenSolveReceipt<double, Arr<Complex>>> LobpcgHermitian(SparseHermitian matrix, int k, double tolerance, int maxIterations, Op key) {
         int n = matrix.Order.Value;
         if (k < 1 || k >= n || !RhinoMath.IsValidDouble(tolerance) || tolerance <= 0 || maxIterations < 1)
-            return Fin.Fail<Seq<(double, Arr<Complex>)>>(key.InvalidInput());
+            return Fin.Fail<EigenSolveReceipt<double, Arr<Complex>>>(key.InvalidInput());
         Matrix<Complex> A = ToMathNetHermitian(matrix);
         Matrix<Complex> X = OrthonormalRandomComplex(rows: n, k: k, seed: HermitianInitialBasisSeed);
         ComplexVector jacobi = ExtractDiagonalInverseComplex(A);
         Matrix<Complex> P = DenseMatrixC.Create(n, k, Complex.Zero);
         return Iterate(iter: 0, X: X, P: P);
-        Fin<Seq<(double Eigenvalue, Arr<Complex> Eigenvector)>> Iterate(int iter, Matrix<Complex> X, Matrix<Complex> P) {
-            if (iter >= maxIterations) return Fin.Fail<Seq<(double, Arr<Complex>)>>(key.InvalidResult());
+        Fin<EigenSolveReceipt<double, Arr<Complex>>> Iterate(int iter, Matrix<Complex> X, Matrix<Complex> P) {
+            if (iter >= maxIterations) return Fin.Fail<EigenSolveReceipt<double, Arr<Complex>>>(key.InvalidResult());
             Matrix<Complex> AX = A * X;
             ComplexVector lambda = RayleighQuotientsComplex(X: X, AX: AX);
             Matrix<Complex> R = AX - (X * DenseMatrixC.OfDiagonalVector(lambda));
-            if (MaxColumnNormComplex(R) < tolerance)
-                return Fin.Succ(toSeq(Enumerable.Range(start: 0, count: k)
+            if (MaxColumnNormComplex(R) < tolerance) {
+                Seq<(double Eigenvalue, Arr<Complex> Eigenvector)> pairs = toSeq(Enumerable.Range(start: 0, count: k)
                     .Select(i => (Eigenvalue: lambda[i].Real, Eigenvector: ArrFromComplexVector(X.Column(i))))
-                    .OrderBy(static p => p.Eigenvalue)));
+                    .OrderBy(static p => p.Eigenvalue));
+                return Fin.Succ(new EigenSolveReceipt<double, Arr<Complex>>(
+                    Pairs: pairs,
+                    Path: EigenSolvePath.SparseHermitianLobpcg,
+                    Stop: EigenSolveStop.ResidualConverged,
+                    RequestedPairs: k,
+                    ReturnedPairs: pairs.Count,
+                    Iterations: Some(iter),
+                    MaxIterations: Some(maxIterations),
+                    Tolerance: Some(tolerance),
+                    MaxResidual: HermitianEigenResidual(a: A, pairs: pairs)));
+            }
             Matrix<Complex> W = ApplyJacobiComplex(R: R, invDiag: jacobi);
             bool hasPrevious = iter > 0 && MaxColumnNormComplex(P) > RhinoMath.SqrtEpsilon;
             Matrix<Complex> S = AssembleSubspaceComplex(X: X, W: W, P: P, includePrevious: hasPrevious);
@@ -603,7 +863,7 @@ internal static class MatrixKernel {
                     Matrix<Complex> Pnew = (W * Z.SubMatrix(k, k, 0, k)) + previous;
                     return Iterate(iter: iter + 1, X: OrthonormaliseColumnsComplex(Xnew), P: Pnew);
                 },
-                Fail: error => Fin.Fail<Seq<(double Eigenvalue, Arr<Complex> Eigenvector)>>(error));
+                Fail: Fin.Fail<EigenSolveReceipt<double, Arr<Complex>>>);
         }
     }
 

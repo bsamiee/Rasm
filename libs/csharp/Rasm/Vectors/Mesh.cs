@@ -35,14 +35,6 @@ public readonly record struct MeshSpace {
     internal LaplacianCache Cache => LaplacianCache.For(space: this);
     public Fin<SparseLaplacian> Laplacian(MeshLaplacian kind, Op? key = null) =>
         MeshKernel.LaplacianOf(space: this, kind: kind, key: key.OrDefault());
-    internal Fin<int> EulerCharacteristic(Op? key = null) =>
-        MeshKernel.EulerCharacteristicOf(space: this, key: key.OrDefault());
-    internal Fin<(int Euler, int Genus, int BoundaryComponents)> Topology(Op? key = null) =>
-        MeshKernel.TopologyOf(space: this, key: key.OrDefault());
-    internal Fin<Seq<(int A, int B)>> FeatureEdges(double dihedralRadians, Op? key = null) =>
-        MeshKernel.DetectFeatureEdgesOf(space: this, dihedralRadians: dihedralRadians, key: key.OrDefault());
-    internal Fin<double> MeanEdgeLength(Op? key = null) =>
-        key.OrDefault().AcceptValue(value: Cache.MeanEdgeLength);
 }
 
 // Typed cache keys for every kernel that memoises per-vertex / per-edge fields on a mesh. C#
@@ -399,9 +391,6 @@ internal static class MeshKernel {
     // Sharp-Soliman-Crane 2019: intrinsic edge flips on a length-only triangulation until every
     // interior edge satisfies the Delaunay condition (α + β ≤ π); cotangent weights assembled
     // on the flipped intrinsic mesh are then provably non-negative.
-    internal static Fin<SparseLaplacian> AssembleIntrinsicDelaunay(Mesh mesh, Op key) =>
-        BuildIntrinsicMesh(mesh: mesh, key: key).Bind(im => AssembleCotangentFromIntrinsic(imesh: im, key: key));
-
     // Flip an extrinsic mesh to intrinsic-Delaunay then Freeze() the result so its edge/face
     // index spaces become stable and immutable. Downstream consumers (SHM, cone holonomy, Hodge
     // decomposition) read frozen accessors only; mutating flip helpers are off-limits post-Freeze.
@@ -683,10 +672,10 @@ internal static class MeshKernel {
     // Manifold-harmonic eigenbasis: smallest k eigenpairs of L phi = lambda M phi.
     internal static Fin<SpectralBasis> ComputeSpectralBasis(MeshSpace space, int k, Op key) =>
         from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
-        from pairs in MatrixKernel.GeneralizedEigenpairs(stiffness: laplacian.Stiffness, mass: laplacian.MassConsistent, k: k, key: key)
+        from receipt in MatrixKernel.GeneralizedEigenpairsDetailed(stiffness: laplacian.Stiffness, mass: laplacian.MassConsistent, k: k, key: key)
         select new SpectralBasis(
-            Eigenvalues: new Arr<double>([.. pairs.AsIterable().Select(static p => p.Eigenvalue)]),
-            Eigenvectors: new Arr<Arr<double>>([.. pairs.AsIterable().Select(static p => p.Eigenvector)]));
+            Eigenvalues: new Arr<double>([.. receipt.Pairs.AsIterable().Select(static p => p.Eigenvalue)]),
+            Eigenvectors: new Arr<Arr<double>>([.. receipt.Pairs.AsIterable().Select(static p => p.Eigenvector)]));
 
     // --- [METRICS] --------------------------------------------------------------------------
     internal static double MeanEdgeLengthOf(Mesh mesh) {
@@ -699,8 +688,6 @@ internal static class MeshKernel {
         }
         return count > 0 ? sum / count : 0.0;
     }
-    internal static Fin<int> EulerCharacteristicOf(MeshSpace space, Op key) =>
-        key.AcceptValue(value: space.Native.TopologyVertices.Count - space.Native.TopologyEdges.Count + space.Native.Faces.Count);
     internal static Fin<(int Euler, int Genus, int BoundaryComponents)> TopologyOf(MeshSpace space, Op key) {
         Mesh mesh = space.Native;
         bool manifold = mesh.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out _);
@@ -1020,7 +1007,7 @@ internal static class MeshKernel {
         space.Cache.CrossField(probe: new CrossFieldKey(Symmetry: symmetry, Constraints: constraints, Cones: cones),
             compute: () => ComputeCrossField(space: space, symmetry: symmetry, constraints: constraints, cones: cones, key: key));
     // Knöppel-Crane-Pinkall-Schröder GODF 2013 + Crane-Desbrun-Schröder 2010 trivial connections.
-    // With hints: solve (A − λ_T·B)·u = B·q̂ at λ_T = 0 — soft alignment toward q̂. Without hints:
+    // With hints: solve the mass-shifted connection system through cached CSparse Cholesky. Without hints:
     // smallest eigenpair of A. With cones: compute per-edge α via Hodge-decomposed primal 1-form
     // and apply ρ_ij ← ρ_ij + α_e before assembly. Cone path bypasses the cache since the factor
     // depends on the cone prescription.
@@ -1409,7 +1396,7 @@ internal static class MeshKernel {
 
     // --- [SDF_FROM_MESH] ---------------------------------------------------------------------
     internal static Fin<double> SignedDistanceFromMeshAt(MeshSpace space, SdfMeshMethod method, Point3d sample, Op key) =>
-        method.Equals(SdfMeshMethod.SignedHeat)
+        method.Equals(SdfMeshMethod.BoundarySignedHeat)
             ? SignedHeatDistance(space: space, sample: sample, key: key)
             : GeneralizedWindingDistance(space: space, sample: sample, key: key);
     private static Fin<double> GeneralizedWindingDistance(MeshSpace space, Point3d sample, Op key) {

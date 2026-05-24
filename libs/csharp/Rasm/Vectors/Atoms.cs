@@ -105,7 +105,7 @@ public abstract partial record AnglePivot {
     public sealed record WorldCase : AnglePivot;
     public sealed record FrameCase(Plane Value) : AnglePivot;
     public sealed record NormalCase(Direction Value) : AnglePivot;
-    public static AnglePivot World => new WorldCase();
+    public static AnglePivot World { get; } = new WorldCase();
     public static AnglePivot Frame(Plane frame) => new FrameCase(Value: frame);
     public static AnglePivot Normal(Direction normal) => new NormalCase(Value: normal);
     internal double Compute(Vector3d a, Vector3d b) => Switch(
@@ -237,9 +237,9 @@ public readonly record struct VectorFrame {
             .Bind(planes => planes.TraverseM(p => Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: context, key: op)).As());
     }
     internal static Vector3d SeedPerpendicular(Vector3d axis) {
-        Vector3d seed = axis;
-        _ = seed.PerpendicularTo(other: axis);
-        return seed;
+        Vector3d guide = Math.Abs(value: axis * Vector3d.ZAxis) < 0.9 ? Vector3d.ZAxis : Vector3d.XAxis;
+        Vector3d seed = Vector3d.CrossProduct(a: axis, b: guide);
+        return seed.Unitize() ? seed : Vector3d.XAxis;
     }
     internal Fin<TOut> Project<TOut>(Op key) =>
         typeof(TOut) switch {
@@ -322,14 +322,4 @@ public readonly record struct VectorCone {
                        key: op)).As()
                select rays;
     }
-    internal Fin<TOut> Project<TOut>(Op key) =>
-        typeof(TOut) switch {
-            Type t when t == typeof(VectorCone) => Fin.Succ((TOut)(object)this),
-            Type t when t == typeof(VectorAngle) => HalfAngle.Project<TOut>(key: key),
-            Type t when t == typeof(double) => key.AcceptValue(value: SolidAngle).Map(static value => (TOut)(object)value),
-            Type t when t == typeof(Direction) => Axis.Project<TOut>(key: key),
-            Type t when t == typeof(Vector3d) => key.AcceptValue(value: Axis.Value).Map(static value => (TOut)(object)value),
-            Type t when t == typeof(Point3d) => key.AcceptValue(value: Apex).Map(static value => (TOut)(object)value),
-            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorCone), outputType: typeof(TOut))),
-        };
 }

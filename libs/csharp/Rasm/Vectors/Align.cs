@@ -1,8 +1,4 @@
 using Foundation.CSharp.Analyzers.Contracts;
-using MathNet.Numerics.LinearAlgebra.Factorization;
-using DenseMatrixD = MathNet.Numerics.LinearAlgebra.Double.DenseMatrix;
-using DenseVectorD = MathNet.Numerics.LinearAlgebra.Double.DenseVector;
-using LinearMatrix = MathNet.Numerics.LinearAlgebra.Matrix<double>;
 
 namespace Rasm.Vectors;
 
@@ -20,11 +16,6 @@ public sealed partial class AlignKind {
     public static readonly AlignKind NormalWeightedPointToPlane = new(key: 4,
         solveStep: static (source, target, normals, _, current, key) => AlignKernel.SolveNormalWeightedPointToPlane(source: source, target: target, targetNormals: normals, current: current, key: key));
     [UseDelegateFromConstructor] internal partial Fin<Transform> SolveStep(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, double[] residuals, Transform current, Op key);
-    internal Fin<Transform> Align(VectorCloud source, VectorCloud target, Op? key = null) =>
-        AlignKernel.AlignClouds(kind: this, source: source, target: target, key: key.OrDefault())
-            .Bind(receipt => receipt.Stop.Equals(AlignmentStopKind.Converged)
-                ? Fin.Succ(receipt.Transform)
-                : Fin.Fail<Transform>(key.OrDefault().InvalidResult()));
     internal Fin<AlignmentReceipt> AlignDetailed(VectorCloud source, VectorCloud target, Op? key = null) =>
         AlignKernel.AlignClouds(kind: this, source: source, target: target, key: key.OrDefault());
 }
@@ -32,7 +23,7 @@ public sealed partial class AlignKind {
 [SmartEnum<int>]
 public sealed partial class AlignmentStopKind {
     public static readonly AlignmentStopKind Converged = new(key: 0);
-    public static readonly AlignmentStopKind IterationCapExhausted = new(key: 1);
+    public static readonly AlignmentStopKind MaxIterationsExhausted = new(key: 1);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -47,7 +38,7 @@ internal static class AlignKernel {
 
     // --- [ALIGNMENT] ------------------------------------------------------------------------
     // Umeyama 1991 (point-to-point) | Chen-Medioni 1992 (point-to-plane) | Rusinkiewicz 2019
-    // (symmetric) | yaoyx689 2020 robust IRLS with Welsch loss. All four share the iterative
+    // (symmetric) | yaoyx689 2020 robust IRLS with Welsch loss. All modes share the iterative
     // correspondence-finding outer loop; the inner solve switches on kind.
     internal static Fin<AlignmentReceipt> AlignClouds(AlignKind kind, VectorCloud source, VectorCloud target, Op key) =>
         (source, target) switch {
@@ -56,14 +47,8 @@ internal static class AlignKernel {
             _ => Fin.Fail<AlignmentReceipt>(error: key.InvalidInput()),
         };
 
-    private static Fin<Transform> ProcrustesAlign(Seq<Point3d> source, Seq<Point3d> target, Op key) {
-        if (source.Count != target.Count || source.Count < 3) return Fin.Fail<Transform>(error: key.InvalidInput());
-        Point3d srcCentroid = CentroidOf(points: source);
-        Point3d tgtCentroid = CentroidOf(points: target);
-        return AlignViaCrossCovariance(source: source, target: target, srcCentroid: srcCentroid, tgtCentroid: tgtCentroid, weights: null, key: key);
-    }
-    // Iterative closest-point with correspondence re-association at each step; inner solve
-    // selects between point-to-plane, symmetric, and robust by AlignKind.
+    // Iterative closest-point with correspondence re-association at each step; AlignKind owns
+    // the point, plane, symmetric, robust, or normal-weighted inner solve.
     private static Fin<AlignmentReceipt> IcpAlign(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, AlignKind kind, Op key) =>
         from targetNormals in CloudKernel.EstimateNormalsViaCovariance(target: target, key: key)
         from aligned in IcpAlignWithNormals(source: source, target: target, kind: kind, targetNormals: targetNormals, key: key)
@@ -87,7 +72,7 @@ internal static class AlignKernel {
                       Stop: finalDelta < IcpConvergenceTolerance ? Some(AlignmentStopKind.Converged) : Option<AlignmentStopKind>.None)))
         select new AlignmentReceipt(
             Transform: final.Current,
-            Stop: final.Stop.IfNone(AlignmentStopKind.IterationCapExhausted),
+            Stop: final.Stop.IfNone(AlignmentStopKind.MaxIterationsExhausted),
             Iterations: final.Iterations,
             FinalDelta: final.FinalDelta,
             Count: final.Count,
@@ -118,7 +103,10 @@ internal static class AlignKernel {
     }
     internal static Fin<Transform> SolvePointToPoint(Seq<Point3d> source, Point3d[] target, Transform current, Op key) {
         Seq<Point3d> transformedSource = toSeq(source.AsIterable().Select(p => current * p));
-        return ProcrustesAlign(source: transformedSource, target: toSeq(target), key: key);
+        Seq<Point3d> targetSeq = toSeq(target);
+        return transformedSource.Count != targetSeq.Count || transformedSource.Count < 3
+            ? Fin.Fail<Transform>(error: key.InvalidInput())
+            : AlignViaCrossCovariance(source: transformedSource, target: targetSeq, srcCentroid: CentroidOf(points: transformedSource), tgtCentroid: CentroidOf(points: targetSeq), weights: null, key: key);
     }
     // Point-to-plane linearization (Chen-Medioni 1992): assume small-angle rotation R ≈ I + [ω]×,
     // minimize ||A[ω;t] − b||² where each row is [cross(p, n) | n] · [ω;t] = (q − p) · n.
@@ -153,7 +141,7 @@ internal static class AlignKernel {
         double[] aFlat = new double[n * 6]; double[] b = new double[n];
         for (int i = 0; i < n; i++) {
             (Vector3d rawNormal, double weight) = rowNormal(i, normals[i]);
-            if (!rawNormal.IsValid || rawNormal.IsTiny() || !RhinoMath.IsValidDouble(x: weight) || weight <= 0.0)
+            if (!rawNormal.IsValid || rawNormal.SquareLength <= RhinoMath.SqrtEpsilon * RhinoMath.SqrtEpsilon || !RhinoMath.IsValidDouble(x: weight) || weight <= 0.0)
                 return Fin.Fail<Transform>(key.InvalidResult());
             Point3d p = current * source[index: i]; Point3d q = target[i]; Vector3d nrm = weight * rawNormal;
             Vector3d cross = Vector3d.CrossProduct(a: (Vector3d)p, b: nrm);
@@ -161,7 +149,11 @@ internal static class AlignKernel {
             aFlat[(i * 6) + 3] = nrm.X; aFlat[(i * 6) + 4] = nrm.Y; aFlat[(i * 6) + 5] = nrm.Z;
             b[i] = (q - p) * nrm;
         }
-        return SolveLeastSquares6(aFlat: aFlat, b: b, n: n, key: key).Map(static x => ComposeRigidTransform(omega: new Vector3d(x: x[0], y: x[1], z: x[2]), translation: new Vector3d(x: x[3], y: x[4], z: x[5])));
+        return Matrix.Of(rows: Dimension.Create(value: n), cols: Dimension.Create(value: 6), entries: new Arr<double>(aFlat), key: key)
+            .Bind(design => design.LeastSquares(rhs: new Arr<double>(b), key: key))
+            .Bind(x => x.Count == 6 && x.ForAll(RhinoMath.IsValidDouble)
+                ? Fin.Succ(ComposeRigidTransform(omega: new Vector3d(x: x[0], y: x[1], z: x[2]), translation: new Vector3d(x: x[3], y: x[4], z: x[5])))
+                : Fin.Fail<Transform>(key.InvalidResult()));
     }
 
     internal static Fin<Transform> SolveRobustProcrustes(Seq<Point3d> source, Point3d[] target, double[] residuals, Transform current, Op key) {
@@ -198,7 +190,7 @@ internal static class AlignKernel {
         return from h in Matrix.Of(rows: dim3, cols: dim3, entries: new Arr<double>(cross), key: key)
                from svd in h.DecomposeSvd(key: key)
                from rotation in BuildRotation(u: svd.U, v: svd.V, key: key)
-               select PromoteToTransform(rotation: rotation, srcCentroid: srcCentroid, tgtCentroid: tgtCentroid);
+               select WithTranslation(rotation: rotation, translation: tgtCentroid - (rotation * srcCentroid));
     }
     private static Fin<Transform> BuildRotation(Matrix u, Matrix v, Op key) {
         return from vu in v.Multiply(other: u.Transpose(), key: key)
@@ -217,8 +209,6 @@ internal static class AlignKernel {
                 xform[i, j] = rotation.At(i: i, j: j);
         return xform;
     }
-    private static Transform PromoteToTransform(Transform rotation, Point3d srcCentroid, Point3d tgtCentroid) =>
-        WithTranslation(rotation: rotation, translation: tgtCentroid - (rotation * srcCentroid));
     private static Transform WithTranslation(Transform rotation, Vector3d translation) {
         Transform aligned = rotation;
         aligned[0, 3] = translation.X; aligned[1, 3] = translation.Y; aligned[2, 3] = translation.Z;
@@ -228,19 +218,7 @@ internal static class AlignKernel {
         Vector3d sum = points.Fold(initialState: Vector3d.Zero, f: static (acc, p) => acc + (Vector3d)p);
         return Point3d.Origin + (sum / points.Count);
     }
-    private static Fin<double[]> SolveLeastSquares6(double[] aFlat, double[] b, int n, Op key) =>
-        n < 6 || aFlat.Length != n * 6 || b.Length != n || !aFlat.All(RhinoMath.IsValidDouble) || !b.All(RhinoMath.IsValidDouble)
-            ? Fin.Fail<double[]>(key.InvalidInput())
-            : key.Catch(() => {
-                LinearMatrix design = DenseMatrixD.Build.Dense(rows: n, columns: 6, init: (i, j) => aFlat[(i * 6) + j]);
-                DenseVectorD rhs = DenseVectorD.OfArray(b);
-                QR<double> qr = design.QR(QRMethod.Full);
-                double[] solved = [.. qr.Solve(rhs)];
-                return solved.Length == 6 && solved.All(RhinoMath.IsValidDouble)
-                    ? Fin.Succ(solved)
-                    : Fin.Fail<double[]>(key.InvalidResult());
-            });
-    // Construct R ≈ I + [ω]× via Rodrigues approximation for small ω; combine with translation.
+    // Compose the linearized increment as an exact axis-angle rotation plus translation.
     private static Transform ComposeRigidTransform(Vector3d omega, Vector3d translation) {
         double theta = omega.Length;
         Transform rot = theta < RhinoMath.SqrtEpsilon

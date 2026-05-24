@@ -85,7 +85,7 @@ public sealed class TerminationLaws {
         Spec.Succ(Termination.LoopDetected(closureRadius: 0.2, key: FlowGens.Key),
             then: t => Spec.Succ(t.Evaluate(state: state, currentSample: Vector3d.XAxis, context: FlowGens.Model, key: FlowGens.Key),
                 then: decision => { Assert.True(condition: decision.Stop); Assert.True(condition: decision.Event.IsNone); }));
-        Spec.Succ(Termination.EnterRegion(region: ScalarField.Constant(value: 1.0), threshold: 0.5, key: FlowGens.Key),
+        Spec.Succ(Termination.RegionThreshold(region: ScalarField.Constant(value: 1.0), threshold: 0.5, key: FlowGens.Key),
             then: t => Spec.Succ(t.Evaluate(state: state, currentSample: Vector3d.XAxis, context: FlowGens.Model, key: FlowGens.Key),
                 then: decision => { Assert.False(condition: decision.Stop); Assert.True(condition: decision.Event.IsNone); }));
         Spec.Succ(SupportSpace.Of(value: Plane.WorldYZ, key: FlowGens.Key),
@@ -93,7 +93,7 @@ public sealed class TerminationLaws {
         Spec.Succ(SupportSpace.Of(value: new Point3d(x: 0.0, y: 0.0, z: 0.0), key: FlowGens.Key),
             then: s => Spec.Fail(Termination.CrossSurface(surface: s, key: FlowGens.Key)));
         Spec.Fail(Termination.LoopDetected(closureRadius: 0.0, key: FlowGens.Key));
-        Spec.Fail(Termination.EnterRegion(region: ScalarField.Constant(value: 1.0), threshold: double.NaN, key: FlowGens.Key));
+        Spec.Fail(Termination.RegionThreshold(region: ScalarField.Constant(value: 1.0), threshold: double.NaN, key: FlowGens.Key));
         Spec.Fail(Termination.CrossSurface(surface: null!, key: FlowGens.Key));
     }
 }
@@ -147,13 +147,13 @@ public sealed class FieldIntegratorLaws {
     }
     [Fact]
     public void FixedAndTraceReceiptsExposeBoundedStops() {
-        Assert.Equal(expected: 0, actual: FieldIntegrator.RK4.RejectBudget);
-        StreamlineStopKind[] stops = [StreamlineStopKind.Terminated, StreamlineStopKind.RejectBudgetExhausted, StreamlineStopKind.IterationCapExhausted];
+        Assert.Equal(expected: 0, actual: new FieldIntegrator.FixedCase(Kind: IntegratorKind.RK4).RejectBudget);
+        StreamlineStopKind[] stops = [StreamlineStopKind.Terminated, StreamlineStopKind.RejectBudgetExhausted, StreamlineStopKind.MaxIterationsExhausted];
         Spec.SmartEnumKeysUnique(items: stops, key: static s => s.Key);
         Assert.True(FlowGens.Trace(stop: StreamlineStopKind.Terminated).IsComplete);
-        Assert.False(FlowGens.Trace(stop: StreamlineStopKind.IterationCapExhausted).IsComplete);
-        Spec.Fail(FlowKernel.ProjectTrace<Curve>(trace: FlowGens.Trace(stop: StreamlineStopKind.IterationCapExhausted), key: FlowGens.Key));
-        Spec.Succ(FlowKernel.ProjectTrace<Seq<Point3d>>(trace: FlowGens.Trace(stop: StreamlineStopKind.IterationCapExhausted), key: FlowGens.Key),
+        Assert.False(FlowGens.Trace(stop: StreamlineStopKind.MaxIterationsExhausted).IsComplete);
+        Spec.Fail(FlowKernel.ProjectTrace<Curve>(trace: FlowGens.Trace(stop: StreamlineStopKind.MaxIterationsExhausted), key: FlowGens.Key));
+        Spec.Succ(FlowKernel.ProjectTrace<Seq<Point3d>>(trace: FlowGens.Trace(stop: StreamlineStopKind.MaxIterationsExhausted), key: FlowGens.Key),
             then: points => Assert.Single(collection: points));
         Spec.FailCategory(FlowKernel.ProjectTrace<double>(trace: FlowGens.Trace(stop: StreamlineStopKind.Terminated), key: FlowGens.Key), category: "Unsupported");
         Spec.FailCategory(FlowKernel.ProjectTrace<Seq<Point3d>>(trace: FlowGens.Trace(stop: StreamlineStopKind.Terminated) with { AcceptedSteps = 0 }, key: FlowGens.Key), category: "Result");
@@ -166,7 +166,7 @@ public sealed class FieldIntegratorLaws {
             source: VectorField.Constant(value: Vector3d.XAxis),
             seed: Point3d.Origin,
             initialStep: step,
-            integrator: FieldIntegrator.RK4,
+            integrator: new FieldIntegrator.FixedCase(Kind: IntegratorKind.RK4),
             termination: stop,
             context: FlowGens.Model,
             key: FlowGens.Key), then: trace => {

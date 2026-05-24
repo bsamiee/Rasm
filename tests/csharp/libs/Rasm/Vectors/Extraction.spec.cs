@@ -81,6 +81,7 @@ public sealed class ExtractionProjectionLaws {
         Spec.Succ(ContourPolicy.SurfaceIso(status: IsoStatus.East, parameter: 0.5, key: ExtractionGens.Key));
         Spec.Succ(ContourPolicy.SurfaceIso(status: IsoStatus.South, parameter: 0.5, key: ExtractionGens.Key));
         Spec.Succ(ContourPolicy.SurfaceIso(status: IsoStatus.West, parameter: 0.5, key: ExtractionGens.Key));
+        Spec.Succ(ContourPolicy.SurfaceIso(status: IsoStatus.North, parameter: double.NaN, key: ExtractionGens.Key));
         Spec.FailCategory(ContourPolicy.SurfaceIso(status: IsoStatus.None, parameter: 0.5, key: ExtractionGens.Key), category: "Input");
         Spec.FailCategory(ContourPolicy.SurfaceIso(status: IsoStatus.X, parameter: double.NaN, key: ExtractionGens.Key), category: "Input");
     }

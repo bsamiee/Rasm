@@ -648,7 +648,7 @@ internal static class CloudKernel {
         if (points.Length < 3) return Fin.Fail<(Vector3d[], int[][])>(key.InvalidInput());
         int k = Math.Min(val1: NormalEstimationNeighbors, val2: points.Length);
         int[][] neighborhoods = [.. RTree.PointCloudKNeighbors(pointcloud: target.Indexed, needlePts: points, amount: k)];
-        return EstimateNormalsFromPoints(points: points, neighborhoodOf: i => NeighborhoodOf(points: points, ids: neighborhoods.Length > i ? neighborhoods[i] : []), key: key)
+        return EstimateNormalsFromPoints(points: points, neighborhoodOf: i => NeighborhoodOf(points: points, ids: neighborhoods.Length > i ? neighborhoods[i] : [], key: key), key: key)
             .Map(normals => (Normals: normals, Neighbors: neighborhoods));
     }
     // --- [NORMAL_ORIENTATION] ---------------------------------------------------------------
@@ -690,33 +690,37 @@ internal static class CloudKernel {
             });
     }
     internal static Fin<Vector3d[]> EstimateNormalsFromPoints(Point3d[] points, Op key) =>
-        EstimateNormalsFromPoints(points: points, neighborhoodOf: BatchedNeighborhoods(points: points), key: key);
-    private static Func<int, Seq<Point3d>> BatchedNeighborhoods(Point3d[] points) {
+        EstimateNormalsFromPoints(points: points, neighborhoodOf: BatchedNeighborhoods(points: points, key: key), key: key);
+    private static Func<int, Fin<Seq<Point3d>>> BatchedNeighborhoods(Point3d[] points, Op key) {
         PointCloud cloud = [];
         cloud.AddRange(points: points);
         int k = Math.Min(val1: NormalEstimationNeighbors, val2: points.Length);
         int[][] ids = [.. RTree.PointCloudKNeighbors(pointcloud: cloud, needlePts: points, amount: k)];
-        return i => NeighborhoodOf(points: points, ids: ids.Length > i ? ids[i] : []);
+        return i => NeighborhoodOf(points: points, ids: ids.Length > i ? ids[i] : [], key: key);
     }
-    private static Seq<Point3d> NeighborhoodOf(Point3d[] points, int[] ids) =>
-        ids.Length == 0
-            ? toSeq(points.Take(Math.Min(val1: NormalEstimationNeighbors, val2: points.Length)))
-            : toSeq(ids.Where(i => i >= 0 && i < points.Length).Select(i => points[i]));
-    private static Fin<Vector3d[]> EstimateNormalsFromPoints(Point3d[] points, Func<int, Seq<Point3d>> neighborhoodOf, Op key) {
+    private static Fin<Seq<Point3d>> NeighborhoodOf(Point3d[] points, int[] ids, Op key) {
+        Seq<Point3d> neighborhood = toSeq(ids.Where(i => i >= 0 && i < points.Length).Select(i => points[i]));
+        return ids.Length == 0 || neighborhood.IsEmpty
+            ? Fin.Fail<Seq<Point3d>>(key.InvalidResult())
+            : Fin.Succ(neighborhood);
+    }
+    private static Fin<Vector3d[]> EstimateNormalsFromPoints(Point3d[] points, Func<int, Fin<Seq<Point3d>>> neighborhoodOf, Op key) {
         int n = points.Length;
-        return n < 3 ? Fin.Fail<Vector3d[]>(key.InvalidInput()) : toSeq(Enumerable.Range(start: 0, count: n)).TraverseM(i => {
-            Seq<Point3d> neighborhood = neighborhoodOf(arg: i);
-            return neighborhood.Count < 3
-                ? Fin.Fail<Vector3d>(key.InvalidInput())
-                : from stats in CovarianceOf(points: neighborhood, key: key)
-                  from eigen in stats.Cov.DecomposeEigen(key: key)
-                  from _ in eigen.Count >= 3 && eigen[index: 1].Eigenvalue > RhinoMath.SqrtEpsilon
-                      ? Fin.Succ(unit)
-                      : Fin.Fail<Unit>(key.InvalidResult())
-                  let raw = AsVector3d(v: eigen[index: 2].Eigenvector)
-                  from direction in Direction.Of(value: raw, tolerance: RhinoMath.ZeroTolerance, key: key)
-                  select direction.Value;
-        }).As().Map(static normals => normals.AsIterable().ToArray());
+        return n < 3
+            ? Fin.Fail<Vector3d[]>(key.InvalidInput())
+            : toSeq(Enumerable.Range(start: 0, count: n)).TraverseM(i =>
+                from neighborhood in neighborhoodOf(arg: i)
+                from normal in neighborhood.Count < 3
+                    ? Fin.Fail<Vector3d>(key.InvalidInput())
+                    : from stats in CovarianceOf(points: neighborhood, key: key)
+                      from eigen in stats.Cov.DecomposeEigen(key: key)
+                      from _ in eigen.Count >= 3 && eigen[index: 1].Eigenvalue > RhinoMath.SqrtEpsilon
+                          ? Fin.Succ(unit)
+                          : Fin.Fail<Unit>(key.InvalidResult())
+                      let raw = AsVector3d(v: eigen[index: 2].Eigenvector)
+                      from direction in Direction.Of(value: raw, tolerance: RhinoMath.ZeroTolerance, key: key)
+                      select direction.Value
+                select normal).As().Map(static normals => normals.AsIterable().ToArray());
     }
 
     // --- [TRANSPORT] ------------------------------------------------------------------------
@@ -870,7 +874,9 @@ internal static class CloudKernel {
         int neighborCount = Math.Min(val1: NormalEstimationNeighbors, val2: n);
         int[][] neighborhoods = [.. RTree.PointCloudKNeighbors(pointcloud: cluster.Indexed, needlePts: points, amount: neighborCount)];
         return toSeq(Enumerable.Range(start: 0, count: n)).TraverseM(i =>
-            FitPrincipalCurvature(center: points[i], neighborhood: NeighborhoodOf(points: points, ids: neighborhoods.Length > i ? neighborhoods[i] : []), key: key)).As();
+            from neighborhood in NeighborhoodOf(points: points, ids: neighborhoods.Length > i ? neighborhoods[i] : [], key: key)
+            from fit in FitPrincipalCurvature(center: points[i], neighborhood: neighborhood, key: key)
+            select fit).As();
     }
 
     private static Fin<(double K1, double K2, Direction E1, Direction E2)> FitPrincipalCurvature(Point3d center, Seq<Point3d> neighborhood, Op key) =>
@@ -911,13 +917,13 @@ internal static class CloudKernel {
             designFlat[(i * 6) + 5] = 1.0;
             rhs[i] = n;
         }
-        return key.Catch(() => {
-            MathNet.Numerics.LinearAlgebra.Matrix<double> designMtx = DenseMatrixD.Build.Dense(rows: m, columns: 6, init: (i, j) => designFlat[(i * 6) + j]);
-            DenseVectorD rhsVec = DenseVectorD.OfArray(rhs);
-            MathNet.Numerics.LinearAlgebra.Factorization.QR<double> qr = designMtx.QR(MathNet.Numerics.LinearAlgebra.Factorization.QRMethod.Full);
-            double[] coeffs = [.. qr.Solve(rhsVec)];
-            return Fin.Succ((A: coeffs[0], B: coeffs[1], C: coeffs[2]));
-        });
+        return Matrix.Of(rows: Dimension.Create(value: m), cols: Dimension.Create(value: 6), entries: new Arr<double>(designFlat), key: key)
+            .Bind(design => design.LeastSquaresDetailed(rhs: new Arr<double>(rhs), key: key))
+            .Bind(receipt => receipt.FullRank.IfNone(false)
+                && receipt.Solution.Count == 6
+                && receipt.Solution.ForAll(RhinoMath.IsValidDouble)
+                ? Fin.Succ((A: receipt.Solution[0], B: receipt.Solution[1], C: receipt.Solution[2]))
+                : Fin.Fail<(double A, double B, double C)>(key.InvalidResult()));
     }
 
     // Closed-form 2x2 symmetric eigen-decomposition. II = [[2a, b], [b, 2c]] -> (k1, k2, e1, e2)

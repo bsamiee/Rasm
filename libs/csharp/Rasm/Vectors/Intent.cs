@@ -198,8 +198,6 @@ public abstract partial record VectorIntent {
                 : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(FeaturesCase), outputType: typeof(TOut)))
             select output,
         descriptorCase: static (state, intent) => MeshKernel.DescribeShape<TOut>(space: intent.Space, kind: intent.Kind, eigenpairs: intent.Pairs.Value, key: state.Key));
-    public static VectorIntent Between(Point3d origin, SupportSpace target, BoundarySense? sense = null) =>
-        new SupportCase(Space: target, Query: origin, Projection: (sense ?? BoundarySense.Toward).Equals(BoundarySense.Toward) ? SupportProjection.Span : SupportProjection.SignedSpanAway);
     public static VectorIntent Axis(SignedAxis axis, Plane? frame = null) =>
         new AxisCase(Value: axis, Basis: Optional(frame));
     public static VectorIntent Direction(Vector3d value) =>
@@ -210,10 +208,6 @@ public abstract partial record VectorIntent {
         new AngularCase(A: a, B: b, Pivot: pivot ?? AnglePivot.World);
     public static VectorIntent Support(SupportSpace space, Point3d sample, SupportProjection projection) =>
         new SupportCase(Space: space, Query: sample, Projection: projection);
-    public static VectorIntent Field(VectorField field, Point3d sample) =>
-        new ProbeCase(Source: ExtractionProbe.Vector(source: field), Query: sample);
-    public static VectorIntent Scalar(ScalarField field, Point3d sample) =>
-        new ProbeCase(Source: ExtractionProbe.Scalar(source: field), Query: sample);
     public static VectorIntent Probe(ExtractionProbe source, Point3d sample) =>
         new ProbeCase(Source: source, Query: sample);
     public static Fin<VectorIntent> IsoSurface(ScalarField field, BoundingBox bounds, int resolution, int maxRootSteps, Op? key = null) {
@@ -268,7 +262,7 @@ public abstract partial record VectorIntent {
         return from validField in Optional(field).ToFin(op.InvalidInput())
                from validStop in Optional(termination).ToFin(op.InvalidInput())
                from h in op.AcceptValidated<PositiveMagnitude>(candidate: initialStep)
-               select (VectorIntent)new StreamlineCase(Source: validField, Seed: seed, InitialStep: h, Integrator: integrator ?? FieldIntegrator.RK4, Termination: validStop);
+               select (VectorIntent)new StreamlineCase(Source: validField, Seed: seed, InitialStep: h, Integrator: integrator ?? new FieldIntegrator.FixedCase(Kind: IntegratorKind.RK4), Termination: validStop);
     }
     public static Fin<VectorIntent> Lerp(Vector3d a, Vector3d b, double t, Op? key = null) =>
         key.OrDefault().AcceptValidated<UnitInterval>(candidate: t)
@@ -280,15 +274,9 @@ public abstract partial record VectorIntent {
         new ProjectOntoCase(Value: value, Target: target);
     public static VectorIntent Mirror(Vector3d value, Plane across) =>
         new MirrorCase(Value: value, Across: across);
-    public static VectorIntent OnSurface(SurfaceSpace space, double u, double v, SurfaceProjection mode) =>
-        new SurfaceCase(SurfaceSource: space, U: u, V: v, Mode: mode);
     public static Fin<VectorIntent> Pose(Plane from, Plane to, double t, MotionInterpolation mode, Op? key = null) =>
         key.OrDefault().AcceptValidated<UnitInterval>(candidate: t)
             .Map(unit => (VectorIntent)new PoseCase(From: from, To: to, Parameter: unit, Mode: mode));
-    public static VectorIntent Tensor(TensorField source, Point3d point) =>
-        new ProbeCase(Source: ExtractionProbe.Tensor(source: source), Query: point);
-    public static VectorIntent MeshOperator(ScalarField meshField, Point3d point) =>
-        new ProbeCase(Source: ExtractionProbe.MeshScalar(source: meshField), Query: point);
     public static VectorIntent Flatten(MeshSpace space) =>
         new FlattenCase(Space: space);
     public static VectorIntent Hull(VectorCloud source) =>

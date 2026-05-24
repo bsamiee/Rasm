@@ -9,16 +9,16 @@ public sealed partial class SupportProjection {
     public static readonly SupportProjection Direction = new(key: 1, capability: static (_, _) => true, accepts: static output => output == typeof(Direction) || output == typeof(Vector3d), projectRaw: s => DirectionOf(vector: s.Hit.Point - s.Sample, state: s));
     public static readonly SupportProjection Span = SpanOf(key: 2, sign: 1.0);
     public static readonly SupportProjection SignedSpanAway = SpanOf(key: 13, sign: -1.0);
-    public static readonly SupportProjection Normal = new(key: 3, capability: static (space, hit) => space.AdmitsNormal(hit: hit), accepts: DirectionOrHit, projectRaw: s => s.Output == typeof(ClosestHit) ? Accept(state: s, value: s.Hit) : s.Hit.Normal.ToFin(Fail: s.Key.InvalidResult()).Bind(normal => DirectionOf(vector: normal, state: s)));
-    public static readonly SupportProjection Distance = Hit(key: 4, accepts: static output => output == typeof(double) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(double) ? s.Hit.Distance.ToFin(Fail: s.Key.InvalidResult()).Bind(distance => Accept(state: s, value: distance)) : Accept(state: s, value: s.Hit), capability: static (_, hit) => hit.Distance.IsSome);
-    public static readonly SupportProjection Parameter = Hit(key: 5, accepts: static output => output == typeof(double) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(double) ? s.Hit.Parameter.ToFin(Fail: s.Key.InvalidResult()).Bind(parameter => Accept(state: s, value: parameter)) : Accept(state: s, value: s.Hit), capability: static (_, hit) => hit.Parameter.IsSome);
-    public static readonly SupportProjection Uv = Hit(key: 6, accepts: static output => output == typeof(Point2d) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(Point2d) ? s.Hit.Uv.ToFin(Fail: s.Key.InvalidResult()).Bind(uv => Accept(state: s, value: uv)) : Accept(state: s, value: s.Hit), capability: static (_, hit) => hit.Uv.IsSome);
-    public static readonly SupportProjection Component = Hit(key: 7, accepts: static output => output == typeof(ComponentIndex) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(ComponentIndex) ? s.Hit.Component.ToFin(Fail: s.Key.InvalidResult()).Bind(component => Accept(state: s, value: component)) : Accept(state: s, value: s.Hit), capability: static (_, hit) => hit.Component.IsSome);
-    public static readonly SupportProjection MeshPoint = Hit(key: 8, accepts: static output => output == typeof(MeshPoint) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(MeshPoint) ? s.Hit.MeshPoint.ToFin(Fail: s.Key.InvalidResult()).Bind(meshPoint => Accept(state: s, value: meshPoint)) : Accept(state: s, value: s.Hit), capability: static (_, hit) => hit.MeshPoint.IsSome);
+    public static readonly SupportProjection Normal = new(key: 3, capability: static (space, _) => space.CanClosestNormal, accepts: DirectionOrVector, projectRaw: s => s.Hit.Normal.ToFin(Fail: s.Key.InvalidResult()).Bind(normal => DirectionOf(vector: normal, state: s)));
+    public static readonly SupportProjection Distance = Hit(key: 4, accepts: static output => output == typeof(double), projectRaw: s => s.Hit.Distance.ToFin(Fail: s.Key.InvalidResult()).Bind(distance => Accept(state: s, value: distance)));
+    public static readonly SupportProjection Parameter = Hit(key: 5, accepts: static output => output == typeof(double), projectRaw: s => s.Hit.Parameter.ToFin(Fail: s.Key.InvalidResult()).Bind(parameter => Accept(state: s, value: parameter)));
+    public static readonly SupportProjection Uv = Hit(key: 6, accepts: static output => output == typeof(Point2d), projectRaw: s => s.Hit.Uv.ToFin(Fail: s.Key.InvalidResult()).Bind(uv => Accept(state: s, value: uv)));
+    public static readonly SupportProjection Component = Hit(key: 7, accepts: static output => output == typeof(ComponentIndex), projectRaw: s => s.Hit.Component.ToFin(Fail: s.Key.InvalidResult()).Bind(component => Accept(state: s, value: component)));
+    public static readonly SupportProjection MeshPoint = Hit(key: 8, accepts: static output => output == typeof(MeshPoint), projectRaw: s => s.Hit.MeshPoint.ToFin(Fail: s.Key.InvalidResult()).Bind(meshPoint => Accept(state: s, value: meshPoint)));
     public static readonly SupportProjection SignedDistance = new(key: 9, capability: static (space, hit) => space.AdmitsSignedDistance(hit: hit), accepts: static output => output == typeof(double), projectRaw: s => s.Space.SignedDistance(hit: s.Hit, sample: s.Sample, key: s.Key).Bind(distance => Accept(state: s, value: distance)));
     public static readonly SupportProjection ContainmentDistance = new(key: 10, capability: static (space, hit) => space.AdmitsContainmentDistance(hit: hit), accepts: static output => output == typeof(double), projectRaw: s => s.Space.ContainmentDistance(hit: s.Hit, sample: s.Sample, context: s.Context, key: s.Key).Bind(distance => Accept(state: s, value: distance)));
-    public static readonly SupportProjection Tangent = new(key: 11, capability: static (space, hit) => space.AdmitsTangent(hit: hit), accepts: DirectionOrHit, projectRaw: s => s.Output == typeof(ClosestHit) ? Accept(state: s, value: s.Hit) : s.Hit.Tangent.ToFin(Fail: s.Key.InvalidResult()).Bind(tangent => DirectionOf(vector: tangent, state: s)));
-    public static readonly SupportProjection Frame = Hit(key: 12, accepts: static output => output == typeof(Plane) || output == typeof(ClosestHit), projectRaw: s => s.Output == typeof(Plane) ? s.Hit.Frame.ToFin(Fail: s.Key.InvalidResult()).Bind(frame => Accept(state: s, value: frame)) : Accept(state: s, value: s.Hit), capability: static (space, hit) => space.AdmitsFrame(hit: hit));
+    public static readonly SupportProjection Tangent = new(key: 11, capability: static (space, _) => GeometryKernel.CanClosestTangent(type: space.SourceType), accepts: DirectionOrVector, projectRaw: s => s.Hit.Tangent.ToFin(Fail: s.Key.InvalidResult()).Bind(tangent => DirectionOf(vector: tangent, state: s)));
+    public static readonly SupportProjection Frame = Hit(key: 12, accepts: static output => output == typeof(Plane), projectRaw: s => s.Hit.Frame.ToFin(Fail: s.Key.InvalidResult()).Bind(frame => Accept(state: s, value: frame)), capability: static (space, _) => GeometryKernel.CanClosestFrame(type: space.SourceType));
     [UseDelegateFromConstructor] private partial bool Capability(SupportSpace space, ClosestHit hit);
     [UseDelegateFromConstructor] private partial bool Accepts(Type output);
     [UseDelegateFromConstructor] private partial Fin<object> ProjectRaw(SupportProjectionState state);
@@ -35,7 +35,7 @@ public sealed partial class SupportProjection {
             _ => ProjectRaw(state: new SupportProjectionState(Space: space, Hit: hit, Sample: sample, Context: context, Key: key, Output: typeof(TOut)))
                 .Bind(value => value is TOut output ? key.AcceptValue(value: output) : Fin.Fail<TOut>(error: key.InvalidResult())),
         };
-    private static bool DirectionOrHit(Type output) => output == typeof(Direction) || output == typeof(Vector3d) || output == typeof(ClosestHit);
+    private static bool DirectionOrVector(Type output) => output == typeof(Direction) || output == typeof(Vector3d);
     private static SupportProjection Hit(int key, Func<Type, bool> accepts, Func<SupportProjectionState, Fin<object>> projectRaw, Func<SupportSpace, ClosestHit, bool>? capability = null) =>
         new(key: key, capability: capability ?? ((_, _) => true), accepts: accepts, projectRaw: projectRaw);
     private static SupportProjection SpanOf(int key, double sign) =>
@@ -87,13 +87,19 @@ public sealed record SupportSpace {
     public static Fin<SupportSpace> Of(object? value, Op? key = null) {
         Op op = key.OrDefault();
         return value switch {
-            VectorCloud.ClusterCase cluster => Fin.Succ(new SupportSpace(value: cluster)),
+            VectorCloud.ClusterCase cluster => ClusterIsValid(cluster)
+                ? Fin.Succ(new SupportSpace(value: cluster))
+                : Fin.Fail<SupportSpace>(op.InvalidInput()),
             _ => from source in Optional(value).ToFin(op.InvalidInput())
                  let type = source.GetType()
                  from _ in guard(type != typeof(object) && type != typeof(GeometryBase) && GeometryKernel.CanClosest(type: type), op.Unsupported(type, typeof(ClosestHit)))
                  select new SupportSpace(value: source),
         };
     }
+    private static bool ClusterIsValid(VectorCloud.ClusterCase cluster) =>
+        cluster.Vertices.Count > 0
+        && cluster.Vertices.ForAll(static point => point.IsValid)
+        && cluster.Mass.Map(mass => mass.Count == cluster.Vertices.Count && mass.ForAll(static value => RhinoMath.IsValidDouble(x: value) && value > 0.0)).IfNone(true);
     internal Fin<ClosestHit> Closest(Point3d sample, Op key) =>
         Value switch {
             VectorCloud.ClusterCase cluster => cluster.ClosestVertex(sample: sample, key: key),

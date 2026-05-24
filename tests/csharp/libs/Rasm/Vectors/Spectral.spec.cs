@@ -76,7 +76,6 @@ public sealed class SpectralFilterLaws {
             Spec.EqualWithin(left: ((SpectralFilter.DiffusionCase)composed).Time.Value, right: 1.0, tolerance: 1.0e-12, what: "diffusion time"));
         Spec.Some(SpectralFilter.Identity.Compose(other: heatA), composed => Assert.Equal(expected: heatA, actual: composed));
         Spec.Some(heatA.Compose(other: SpectralFilter.Identity), composed => Assert.Equal(expected: heatA, actual: composed));
-        Spec.None(SpectralFilter.Identity.Compose(other: null!));
         Spec.None(SpectralFilter.Wave(energy: SpectralGens.Positive(value: 1.0), bandwidth: SpectralGens.Positive(value: 0.2)).Compose(other: heatA));
         Spec.None(SpectralFilter.Biharmonic.Compose(other: heatA));
     }

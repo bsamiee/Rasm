@@ -109,17 +109,23 @@ public sealed class SampleDensityLaws {
     public void MeshCandidateDensityMatchesIndependentFormulas() {
         double area = 4.0;
         Spec.Succ(SampleKind.PoissonDisk(radius: 2.0, key: SampleGens.Key), then: kind =>
-            Spec.EqualWithin(left: kind.MeshCandidateDensity(area: area), right: 0.25, tolerance: 1.0e-12, what: "poisson density"));
+            Spec.Succ(kind.MeshCandidateDensity(area: area, key: SampleGens.Key), then: density =>
+                Spec.EqualWithin(left: density, right: 0.25, tolerance: 1.0e-12, what: "poisson density")));
         Spec.Succ(SampleKind.Explicit(points: SampleGens.Points, key: SampleGens.Key), then: kind =>
-            Spec.EqualWithin(left: kind.MeshCandidateDensity(area: area), right: 0.75, tolerance: 1.0e-12, what: "explicit density"));
+            Spec.Succ(kind.MeshCandidateDensity(area: area, key: SampleGens.Key), then: density =>
+                Spec.EqualWithin(left: density, right: 0.75, tolerance: 1.0e-12, what: "explicit density")));
         Spec.Succ(SampleKind.Farthest(count: 8, key: SampleGens.Key), then: kind =>
-            Spec.EqualWithin(left: kind.MeshCandidateDensity(area: area), right: 2.0, tolerance: 1.0e-12, what: "farthest density"));
+            Spec.Succ(kind.MeshCandidateDensity(area: area, key: SampleGens.Key), then: density =>
+                Spec.EqualWithin(left: density, right: 2.0, tolerance: 1.0e-12, what: "farthest density")));
         Spec.Succ(SampleKind.Optimize(count: 6, iterations: 2, key: SampleGens.Key), then: kind =>
-            Spec.EqualWithin(left: kind.MeshCandidateDensity(area: area), right: 1.5, tolerance: 1.0e-12, what: "optimize density"));
+            Spec.Succ(kind.MeshCandidateDensity(area: area, key: SampleGens.Key), then: density =>
+                Spec.EqualWithin(left: density, right: 1.5, tolerance: 1.0e-12, what: "optimize density")));
         Spec.Succ(SampleKind.Lloyd(count: 4, iterations: 2, key: SampleGens.Key), then: kind =>
-            Spec.EqualWithin(left: kind.MeshCandidateDensity(area: area), right: 1.0, tolerance: 1.0e-12, what: "lloyd density"));
+            Spec.Succ(kind.MeshCandidateDensity(area: area, key: SampleGens.Key), then: density =>
+                Spec.EqualWithin(left: density, right: 1.0, tolerance: 1.0e-12, what: "lloyd density")));
         Spec.Succ(SampleKind.Capacity(count: 3, capacity: 5, key: SampleGens.Key), then: kind =>
-            Spec.EqualWithin(left: kind.MeshCandidateDensity(area: 10.0), right: 1.5, tolerance: 1.0e-12, what: "capacity density"));
+            Spec.Succ(kind.MeshCandidateDensity(area: 10.0, key: SampleGens.Key), then: density =>
+                Spec.EqualWithin(left: density, right: 1.5, tolerance: 1.0e-12, what: "capacity density")));
     }
     [Fact]
     public void ReceiptConservationIsBoundedByAttemptedCandidates() {

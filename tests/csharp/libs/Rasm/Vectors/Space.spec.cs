@@ -48,9 +48,9 @@ public sealed class SupportProjectionLaws {
                 Assert.Equal(expected: 4, actual: component.Index);
             });
         ClosestHit sparse = SpaceGens.Hit();
-        Spec.FailCategory(SupportProjection.Parameter.Project<double>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Unsupported");
-        Spec.FailCategory(SupportProjection.Uv.Project<Point2d>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Unsupported");
-        Spec.FailCategory(SupportProjection.Component.Project<ComponentIndex>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Unsupported");
+        Spec.FailCategory(SupportProjection.Parameter.Project<double>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Result");
+        Spec.FailCategory(SupportProjection.Uv.Project<Point2d>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Result");
+        Spec.FailCategory(SupportProjection.Component.Project<ComponentIndex>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Result");
     }
     [Fact]
     public void SpanOwnershipAndUnsupportedOutputAreExplicit() {

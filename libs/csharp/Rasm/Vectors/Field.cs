@@ -4,13 +4,13 @@ namespace Rasm.Vectors;
 [SmartEnum<int>]
 public sealed partial class SdfMeshMethod {
     public static readonly SdfMeshMethod GeneralizedWindingNumber = new(key: 0);
-    public static readonly SdfMeshMethod SignedHeat = new(key: 1);
+    public static readonly SdfMeshMethod BoundarySignedHeat = new(key: 1);
 }
 
 [SmartEnum<int>]
 public sealed partial class FieldBlend {
     public static readonly FieldBlend Sum = new(key: 0, scale: static _ => 1.0);
-    public static readonly FieldBlend Average = new(key: 1, scale: static count => count > 0 ? 1.0 / count : 1.0);
+    public static readonly FieldBlend Average = new(key: 1, scale: static count => 1.0 / count);
     internal Fin<Vector3d> Combine(Seq<Vector3d> vectors, Op key) =>
         CombineCore(values: vectors, zero: Vector3d.Zero, add: static (sum, v) => sum + v, scale: static (sum, factor) => sum * factor, key: key);
     internal Fin<double> CombineScalar(Seq<double> values, Op key) =>
@@ -97,7 +97,7 @@ public abstract partial record BlendKind {
 }
 
 // Quilez SDF primitives in canonical local pose (origin-centered, axis-aligned). Bounded
-// cases (ConeBound/Octahedron/Ellipsoid) over-estimate; consumers read Lipschitz to derate.
+// cases (Octahedron/Ellipsoid) over-estimate; consumers read Lipschitz to derate.
 [SmartEnum<int>]
 public sealed partial class SdfKind {
     public static readonly SdfKind Sphere = new(key: 0, lipschitz: 1.0, requiredKeys: Seq("r"),
@@ -130,9 +130,6 @@ public sealed partial class SdfKind {
             double sn = Math.Sin(a: ps["angle"]); double cs = Math.Cos(d: ps["angle"]);
             return Math.Max(val1: (qx * cs) - (p.Z * sn), val2: -p.Z - ps["h"]);
         });
-    public static readonly SdfKind ConeBound = new(key: 5, lipschitz: 1.7, requiredKeys: Seq("h", "angle"),
-        validate: static ps => ps["h"] > RhinoMath.ZeroTolerance && ps["angle"] > RhinoMath.ZeroTolerance && ps["angle"] < Math.PI,
-        compute: static (p, ps) => Math.Max(val1: (Math.Sqrt(d: (p.X * p.X) + (p.Y * p.Y)) * Math.Cos(d: ps["angle"])) - (p.Z * Math.Sin(a: ps["angle"])), val2: -p.Z - ps["h"]));
     public static readonly SdfKind CappedCone = new(key: 6, lipschitz: 1.2, requiredKeys: Seq("h", "r1", "r2"),
         validate: static ps => ps["h"] > RhinoMath.ZeroTolerance && ps["r1"] >= 0.0 && ps["r2"] >= 0.0 && (ps["r1"] > RhinoMath.ZeroTolerance || ps["r2"] > RhinoMath.ZeroTolerance),
         compute: static (p, ps) => {
@@ -164,13 +161,10 @@ public sealed partial class SdfKind {
             double dz = Math.Abs(value: p.Z) - ps["h"];
             return Math.Sqrt(d: (Math.Max(val1: overflow, val2: 0.0) * Math.Max(val1: overflow, val2: 0.0)) + (Math.Max(val1: dz, val2: 0.0) * Math.Max(val1: dz, val2: 0.0))) + Math.Min(val1: Math.Max(val1: overflow, val2: dz), val2: 0.0);
         });
-    public static readonly SdfKind Octahedron = new(key: 9, lipschitz: 1.7320508075688772, requiredKeys: Seq("s"),
-        validate: static ps => ps["s"] > RhinoMath.ZeroTolerance,
-        compute: static (p, ps) => (Math.Abs(value: p.X) + Math.Abs(value: p.Y) + Math.Abs(value: p.Z) - ps["s"]) * 0.5773502691896258);
-    public static readonly SdfKind OctahedronExact = new(key: 10, lipschitz: 1.0, requiredKeys: Seq("s"),
+    public static readonly SdfKind Octahedron = new(key: 9, lipschitz: 1.0, requiredKeys: Seq("s"),
         validate: static ps => ps["s"] > RhinoMath.ZeroTolerance,
         compute: static (p, ps) => SdfExactOctahedron(p: p, s: ps["s"]));
-    public static readonly SdfKind Ellipsoid = new(key: 11, lipschitz: 2.0, requiredKeys: Seq("x", "y", "z"),
+    public static readonly SdfKind Ellipsoid = new(key: 10, lipschitz: 2.0, requiredKeys: Seq("x", "y", "z"),
         validate: static ps => ps["x"] > RhinoMath.ZeroTolerance && ps["y"] > RhinoMath.ZeroTolerance && ps["z"] > RhinoMath.ZeroTolerance,
         compute: static (p, ps) => {
             double ax = ps["x"]; double ay = ps["y"]; double az = ps["z"];
@@ -886,9 +880,6 @@ public partial record ScalarField {
                from __ in guard(sources.IsEmpty || sources.ForAll(i => i >= 0 && i < space.Native.Vertices.Count), op.InvalidInput())
                select (ScalarField)new SpectralDistanceCase(Space: space, Filter: active, Sources: sources, Pairs: count);
     }
-    // True tangent log-map coordinates remain deferred; this factory exposes scalar heat-geodesic distance from the origin vertex.
-    public static Fin<ScalarField> LogMap(MeshSpace space, int origin, Op? key = null) =>
-        Geodesic(space: space, sources: Seq(origin), key: key);
     // Knoeppel-Crane-Pinkall-Schroeder 2015 stripe patterns: scalar function whose level sets
     // align with the supplied cross-field at the requested spatial frequency.
     public static Fin<ScalarField> Stripe(MeshSpace space, VectorField crossField, double frequency, Op? key = null) {
@@ -898,7 +889,7 @@ public partial record ScalarField {
                from freq in op.AcceptValidated<PositiveMagnitude>(candidate: frequency)
                select (ScalarField)new StripeCase(Space: space, CrossField: active, Frequency: freq);
     }
-    // Mesh SDF signing uses triangle solid-angle winding; SignedHeat is boundary-source only.
+    // Mesh SDF signing uses triangle solid-angle winding; BoundarySignedHeat is boundary-source only.
     public static Fin<ScalarField> SignedDistanceFromMesh(MeshSpace space, SdfMeshMethod method, Op? key = null) {
         Op op = key.OrDefault();
         return from _ in Optional(space.Native).ToFin(op.InvalidInput())

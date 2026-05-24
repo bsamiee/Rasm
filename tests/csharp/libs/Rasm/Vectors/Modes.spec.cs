@@ -13,8 +13,8 @@ internal static class ModeGens {
         CurveProjection.Tangent, CurveProjection.Curvature, CurveProjection.FrenetFrame, CurveProjection.BishopFrame, CurveProjection.ArcLength,
     ];
     public static readonly SurfaceProjection[] SurfaceModes = [
-        SurfaceProjection.PrincipalCurvatures, SurfaceProjection.Gaussian, SurfaceProjection.Mean, SurfaceProjection.OsculatingCircle,
-        SurfaceProjection.Normal, SurfaceProjection.ShapeOperator,
+        SurfaceProjection.PrincipalCurvatures, SurfaceProjection.Gaussian, SurfaceProjection.Mean, SurfaceProjection.MaximumOsculatingCircle,
+        SurfaceProjection.Normal, SurfaceProjection.ShapeOperator, SurfaceProjection.MinimumOsculatingCircle,
     ];
     public static readonly ConeProjection[] ConeModes = [
         ConeProjection.HalfAngle, ConeProjection.SolidAngle, ConeProjection.Axis, ConeProjection.Apex,
