@@ -13,6 +13,7 @@ public abstract partial record SampleKind {
     public sealed record LloydCase : SampleKind { internal LloydCase(Dimension count, Dimension iterations) { Count = count; Iterations = iterations; } public Dimension Count { get; } public Dimension Iterations { get; } }
     public sealed record CapacityCase : SampleKind { internal CapacityCase(Dimension count, Dimension limit) { Count = count; Limit = limit; } public Dimension Count { get; } public Dimension Limit { get; } }
     public sealed record WeightedCase : SampleKind { internal WeightedCase(Seq<(Point3d Point, double Mass)> points) => Points = points; public Seq<(Point3d Point, double Mass)> Points { get; } }
+    public sealed record SampleEliminationCase : SampleKind { internal SampleEliminationCase(Dimension count, Dimension oversampleFactor, PositiveMagnitude alpha, PositiveMagnitude beta, PositiveMagnitude gamma, int seed) { Count = count; OversampleFactor = oversampleFactor; Alpha = alpha; Beta = beta; Gamma = gamma; Seed = seed; } public Dimension Count { get; } public Dimension OversampleFactor { get; } public PositiveMagnitude Alpha { get; } public PositiveMagnitude Beta { get; } public PositiveMagnitude Gamma { get; } public int Seed { get; } }
     public sealed record ScalarDensityCase : SampleKind { internal ScalarDensityCase(ScalarField density, Dimension count) { Density = density; Count = count; } public ScalarField Density { get; } public Dimension Count { get; } }
     public sealed record AdaptiveCase : SampleKind { internal AdaptiveCase(ScalarField density, Dimension count, PositiveMagnitude minSpacing) { Density = density; Count = count; MinSpacing = minSpacing; } public ScalarField Density { get; } public Dimension Count { get; } public PositiveMagnitude MinSpacing { get; } }
     public static Fin<SampleKind> Explicit(Seq<Point3d> points, Op? key = null) =>
@@ -38,6 +39,16 @@ public abstract partial record SampleKind {
     }
     public static Fin<SampleKind> ScalarDensity(ScalarField density, int count, Op? key = null) => Optional(density).ToFin(key.OrDefault().InvalidInput()).Bind(active => key.OrDefault().AcceptValidated<Dimension>(candidate: count).Map(c => (SampleKind)new ScalarDensityCase(density: active, count: c)));
     public static Fin<SampleKind> Adaptive(ScalarField density, int count, double minSpacing, Op? key = null) => Optional(density).ToFin(key.OrDefault().InvalidInput()).Bind(active => key.OrDefault().AcceptValidated<Dimension>(candidate: count).Bind(c => key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: minSpacing).Map(spacing => (SampleKind)new AdaptiveCase(density: active, count: c, minSpacing: spacing))));
+    public static Fin<SampleKind> SampleElimination(int count, int oversampleFactor, double alpha, double beta, double gamma, int seed, Op? key = null) {
+        Op op = key.OrDefault();
+        return from c in op.AcceptValidated<Dimension>(candidate: count)
+               from oversample in op.AcceptValidated<Dimension>(candidate: oversampleFactor)
+               from a in op.AcceptValidated<PositiveMagnitude>(candidate: alpha)
+               from b in op.AcceptValidated<PositiveMagnitude>(candidate: beta)
+               from g in op.AcceptValidated<PositiveMagnitude>(candidate: gamma)
+               from _ in guard(oversample.Value > 1 && b.Value <= 1.0, op.InvalidInput())
+               select (SampleKind)new SampleEliminationCase(count: c, oversampleFactor: oversample, alpha: a, beta: b, gamma: g, seed: seed);
+    }
     internal Fin<SampleKind> Admit(Op key) => this switch {
         ExplicitCase c => Explicit(points: c.Points, key: key),
         PoissonDiskCase c => PoissonDisk(radius: c.Radius.Value, key: key),
@@ -46,6 +57,7 @@ public abstract partial record SampleKind {
         LloydCase c => Lloyd(count: c.Count.Value, iterations: c.Iterations.Value, key: key),
         CapacityCase c => Capacity(count: c.Count.Value, capacity: c.Limit.Value, key: key),
         WeightedCase c => Weighted(points: c.Points, key: key),
+        SampleEliminationCase c => SampleElimination(count: c.Count.Value, oversampleFactor: c.OversampleFactor.Value, alpha: c.Alpha.Value, beta: c.Beta.Value, gamma: c.Gamma.Value, seed: c.Seed, key: key),
         ScalarDensityCase c => ScalarDensity(density: c.Density, count: c.Count.Value, key: key),
         AdaptiveCase c => Adaptive(density: c.Density, count: c.Count.Value, minSpacing: c.MinSpacing.Value, key: key),
         _ => Fin.Fail<SampleKind>(key.InvalidInput()),
@@ -54,7 +66,7 @@ public abstract partial record SampleKind {
         Optional(value).ToFin(key.InvalidInput()).Bind(kind => kind.Admit(key: key));
     internal Fin<SampleResult> Evaluate(ExtractionDomain domain, Context context, Op key) =>
         Admit(key: key).Bind(kind => SampleKernel.Sample(kind: kind, domain: domain, context: context, key: key));
-    internal (Option<int> Count, Option<int> Iterations, double MeshScale, bool Density) Request => this switch { FarthestCase c => (Some(c.Count.Value), Option<int>.None, 1.0, false), OptimizeCase c => (Some(c.Count.Value), Some(c.Iterations.Value), 1.0, false), LloydCase c => (Some(c.Count.Value), Some(c.Iterations.Value), 1.0, false), CapacityCase c => (Some(c.Count.Value), Option<int>.None, c.Limit.Value, false), ScalarDensityCase c => (Some(c.Count.Value), Option<int>.None, 8.0, true), AdaptiveCase c => (Some(c.Count.Value), Option<int>.None, 12.0, true), _ => (Option<int>.None, Option<int>.None, 0.0, false) };
+    internal (Option<int> Count, Option<int> Iterations, double MeshScale, bool Density, SampleAlgorithmKind Algorithm) Request => this switch { ExplicitCase => (Option<int>.None, Option<int>.None, 0.0, false, SampleAlgorithmKind.Explicit), PoissonDiskCase => (Option<int>.None, Option<int>.None, 0.0, false, SampleAlgorithmKind.CandidateRadiusFilter), FarthestCase c => (Some(c.Count.Value), Option<int>.None, 1.0, false, SampleAlgorithmKind.FarthestCandidate), OptimizeCase c => (Some(c.Count.Value), Some(c.Iterations.Value), 1.0, false, SampleAlgorithmKind.FarthestOptimize), LloydCase c => (Some(c.Count.Value), Some(c.Iterations.Value), 1.0, false, SampleAlgorithmKind.LloydCandidateRelaxation), CapacityCase c => (Some(c.Count.Value), Option<int>.None, c.Limit.Value, false, SampleAlgorithmKind.CapacityCandidateRelaxation), WeightedCase => (Option<int>.None, Option<int>.None, 0.0, false, SampleAlgorithmKind.WeightedMassPropagation), SampleEliminationCase c => (Some(c.Count.Value), Option<int>.None, c.OversampleFactor.Value, false, SampleAlgorithmKind.YukselWeightedSampleElimination), ScalarDensityCase c => (Some(c.Count.Value), Option<int>.None, 8.0, true, SampleAlgorithmKind.ScalarDensityPriority), AdaptiveCase c => (Some(c.Count.Value), Option<int>.None, 12.0, true, SampleAlgorithmKind.AdaptivePriority), _ => (Option<int>.None, Option<int>.None, 0.0, false, SampleAlgorithmKind.Explicit) };
     internal Option<double> DensityError(int emitted) => Request is { Density: true, Count: Option<int> count } ? count.Map(value => Math.Abs(value: emitted - value) / Math.Max(val1: 1.0, val2: value)) : Option<double>.None;
     internal Fin<TOut> Project<TOut>(ExtractionDomain domain, Context context, Op? key = null) {
         Op op = key.OrDefault();
@@ -89,19 +101,22 @@ public abstract partial record SampleKind {
 
 [SmartEnum<int>] public sealed partial class SampleStopKind { public static readonly SampleStopKind Completed = new(key: 0), CapacityLimited = new(key: 1), AllRejected = new(key: 2), CandidateExhausted = new(key: 3); }
 [SmartEnum<int>] public sealed partial class SampleDomainStatus { public static readonly SampleDomainStatus Projected = new(key: 0), CandidateAccepted = new(key: 1), CandidateRejected = new(key: 2); }
+[SmartEnum<int>] public sealed partial class SampleAlgorithmKind { public static readonly SampleAlgorithmKind Explicit = new(key: 0), CandidateRadiusFilter = new(key: 1), FarthestCandidate = new(key: 2), FarthestOptimize = new(key: 3), LloydCandidateRelaxation = new(key: 4), CapacityCandidateRelaxation = new(key: 5), WeightedMassPropagation = new(key: 6), ScalarDensityPriority = new(key: 7), AdaptivePriority = new(key: 8), YukselWeightedSampleElimination = new(key: 9); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SampleReceipt(int Attempted, int Emitted, int Rejected, Option<int> CandidateCount, Option<double> MinSpacing, Option<double> MeanSpacing, Option<double> MaxSpacing, Option<double> DensityError, Option<int> DensityAccepted, Option<int> DensityRejected, Option<int> Iterations, SampleStopKind Stop, SampleDomainStatus DomainStatus);
+public readonly record struct SampleAlgorithmReceipt(SampleAlgorithmKind Kind, Option<int> Seed, Option<int> TargetCount, Option<int> OversampleCount, Option<int> OversampleFactor, Option<double> Alpha, Option<double> Beta, Option<double> Gamma, Option<double> Radius, Option<double> WeightLimitRadius, Option<int> Eliminated, Option<int> NeighborUpdates, bool DeterministicCandidateSource, bool EuclideanMetric, bool MaximalCoverageGuaranteed, bool OtCvtValidated, bool MeshSpectrumValidated);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SampleReceipt(int Attempted, int Emitted, int Rejected, Option<int> CandidateCount, Option<double> MinSpacing, Option<double> MeanSpacing, Option<double> MaxSpacing, Option<double> DensityError, Option<int> DensityAccepted, Option<int> DensityRejected, Option<int> Iterations, SampleStopKind Stop, SampleDomainStatus DomainStatus, Option<SampleAlgorithmReceipt> Algorithm);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal readonly record struct SampleResult(Seq<Point3d> Points, Option<Arr<double>> Mass, SampleReceipt Receipt);
 internal readonly record struct SampleCandidate(Point3d Point, Option<double> Mass);
-internal readonly record struct SampleSelection(Point3d[] Points, Option<Arr<double>> Mass, Option<int> DensityAccepted, Option<int> DensityRejected);
+internal readonly record struct SampleSelection(Point3d[] Points, Option<Arr<double>> Mass, Option<int> DensityAccepted, Option<int> DensityRejected, Option<SampleAlgorithmReceipt> Algorithm);
 
 internal static class SampleKernel {
     internal static Fin<SampleResult> Sample(SampleKind kind, ExtractionDomain domain, Context context, Op key) =>
         kind switch {
-            SampleKind.ExplicitCase explicitCase => SampleAdmitted(points: explicitCase.Points.Map(static point => new SampleCandidate(Point: point, Mass: Option<double>.None)), domain: domain, context: context, key: key),
-            SampleKind.WeightedCase weightedCase => SampleAdmitted(points: weightedCase.Points.Map(static item => new SampleCandidate(Point: item.Point, Mass: Some(item.Mass))), domain: domain, context: context, key: key),
+            SampleKind.ExplicitCase explicitCase => SampleAdmitted(points: explicitCase.Points.Map(static point => new SampleCandidate(Point: point, Mass: Option<double>.None)), domain: domain, algorithm: SampleAlgorithmKind.Explicit, context: context, key: key),
+            SampleKind.WeightedCase weightedCase => SampleAdmitted(points: weightedCase.Points.Map(static item => new SampleCandidate(Point: item.Point, Mass: Some(item.Mass))), domain: domain, algorithm: SampleAlgorithmKind.WeightedMassPropagation, context: context, key: key),
             _ => domain.Switch(
                 state: (Kind: kind, Context: context, Key: key),
                 supportCase: static (state, d) => SampleGeneratedSupport(kind: state.Kind, space: d.Value, context: state.Context, key: state.Key),
@@ -112,11 +127,12 @@ internal static class SampleKernel {
                             kind: state.Kind,
                             candidates: cluster.Vertices.Map((point, index) => new SampleCandidate(Point: point, Mass: Some(mass[index: index]))),
                             admitsPoisson: false,
+                            domainMeasure: Option<(int Dimensions, double Measure)>.None,
                             context: state.Context,
                             key: state.Key))
                     : Fin.Fail<SampleResult>(state.Key.Unsupported(geometryType: d.Value.GetType(), outputType: typeof(SampleResult)))),
         };
-    private static Fin<SampleResult> SampleAdmitted(Seq<SampleCandidate> points, ExtractionDomain domain, Context context, Op key) =>
+    private static Fin<SampleResult> SampleAdmitted(Seq<SampleCandidate> points, ExtractionDomain domain, SampleAlgorithmKind algorithm, Context context, Op key) =>
         from admitted in points.Fold(
             initialState: Fin.Succ((Accepted: (Seq<Point3d>)[], Mass: (Seq<double>)[], Weighted: false, Rejected: 0)),
             f: (state, item) => state.Bind(current =>
@@ -131,7 +147,7 @@ internal static class SampleKernel {
         select new SampleResult(
             Points: admitted.Accepted,
             Mass: mass,
-            Receipt: ReceiptOf(attempted: points.Count, emitted: admitted.Accepted, rejected: admitted.Rejected, candidates: Some(points.Count), iterations: Option<int>.None, stop: admitted.Accepted.IsEmpty ? SampleStopKind.AllRejected : SampleStopKind.Completed, status: SampleDomainStatus.Projected, densityError: Option<double>.None));
+            Receipt: ReceiptOf(attempted: points.Count, emitted: admitted.Accepted, rejected: admitted.Rejected, candidates: Some(points.Count), iterations: Option<int>.None, stop: admitted.Accepted.IsEmpty ? SampleStopKind.AllRejected : SampleStopKind.Completed, status: SampleDomainStatus.Projected, densityError: Option<double>.None, algorithm: Some(AlgorithmFacts(kind: algorithm))));
     private static Fin<Point3d> AdmitPoint(Point3d point, ExtractionDomain domain, Context context, Op key) =>
         key.AcceptValue(value: point).Bind(valid => domain.Switch(
             state: (Point: valid, Context: context, Key: key),
@@ -148,30 +164,34 @@ internal static class SampleKernel {
                 : Fin.Fail<Point3d>(state.Key.Unsupported(geometryType: d.Value.GetType(), outputType: typeof(Point3d)))));
     private static Fin<SampleResult> SampleGeneratedSupport(SampleKind kind, SupportSpace space, Context context, Op key) =>
         (kind switch {
-            SampleKind.FarthestCase or SampleKind.OptimizeCase or SampleKind.LloydCase or SampleKind.CapacityCase => kind.Request.Count.ToFin(Fail: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(SampleResult))),
+            SampleKind.FarthestCase or SampleKind.OptimizeCase or SampleKind.LloydCase or SampleKind.CapacityCase or SampleKind.SampleEliminationCase => kind.Request.Count.ToFin(Fail: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(SampleResult))),
             _ => Fin.Fail<int>(key.Unsupported(geometryType: kind.GetType(), outputType: typeof(SampleResult))),
         }).Bind(count =>
             from domain in ExtractionDomain.Support(value: space, key: key)
-            from points in GeometryKernel.SamplePoints(source: space.Value, count: count, context: context, key: key)
-            from sampled in SampleAdmitted(points: points.Map(static point => new SampleCandidate(Point: point, Mass: Option<double>.None)), domain: domain, context: context, key: key)
+            from points in GeometryKernel.SamplePoints(source: space.Value, count: (int)Math.Ceiling(a: count * Math.Max(val1: kind.Request.MeshScale, val2: 1.0)), context: context, key: key)
+            from sampled in kind is SampleKind.SampleEliminationCase
+                ? SampleOnCandidates(kind: kind, candidates: points.Map(static point => new SampleCandidate(Point: point, Mass: Option<double>.None)), admitsPoisson: false, domainMeasure: Option<(int Dimensions, double Measure)>.None, context: context, key: key)
+                : SampleAdmitted(points: points.Map(static point => new SampleCandidate(Point: point, Mass: Option<double>.None)), domain: domain, algorithm: kind.Request.Algorithm, context: context, key: key)
             select sampled);
     private static Fin<SampleResult> SampleOnMesh(SampleKind kind, MeshSpace domain, Context context, Op key) {
         using AreaMassProperties? props = AreaMassProperties.Compute(mesh: domain.Native, area: true, firstMoments: false, secondMoments: false, productMoments: false);
         return Optional(props).ToFin(key.InvalidResult()).Bind(p =>
             from density in kind.MeshCandidateDensity(area: p.Area, key: key)
             from candidates in MeshKernel.SurfaceCandidatePoints(space: domain, density: density, key: key)
-            from sampled in SampleOnCandidates(kind: kind, candidates: candidates.Map(static point => new SampleCandidate(Point: point, Mass: Option<double>.None)), admitsPoisson: true, context: context, key: key)
+            from sampled in SampleOnCandidates(kind: kind, candidates: candidates.Map(static point => new SampleCandidate(Point: point, Mass: Option<double>.None)), admitsPoisson: true, domainMeasure: Some((Dimensions: 2, Measure: p.Area)), context: context, key: key)
             select sampled);
     }
-    private static Fin<SampleResult> SampleOnCandidates(SampleKind kind, Seq<SampleCandidate> candidates, bool admitsPoisson, Context context, Op key) =>
+    private static Fin<SampleResult> SampleOnCandidates(SampleKind kind, Seq<SampleCandidate> candidates, bool admitsPoisson, Option<(int Dimensions, double Measure)> domainMeasure, Context context, Op key) =>
         from selection in kind switch {
-            SampleKind.PoissonDiskCase pd when admitsPoisson => SelectionOf(candidates: candidates, indices: PoissonDiskIndices(candidates: candidates, radius: pd.Radius.Value), key: key),
-            SampleKind.FarthestCase fp => SelectionOf(candidates: candidates, indices: FarthestIndices(candidates: candidates, count: fp.Count.Value), key: key),
-            SampleKind.OptimizeCase fpo => SelectionOf(candidates: candidates, indices: FpoSample(candidates: candidates, count: fpo.Count.Value, iterations: fpo.Iterations.Value), key: key),
-            SampleKind.LloydCase lloyd => RelaxationSample(candidates: candidates, count: lloyd.Count.Value, iterations: lloyd.Iterations.Value, capacity: Option<int>.None, key: key).Bind(indices => SelectionOf(candidates: candidates, indices: indices, key: key)),
-            SampleKind.CapacityCase ccvt => RelaxationSample(candidates: candidates, count: ccvt.Count.Value, iterations: 1, capacity: Some(ccvt.Limit.Value), key: key).Bind(indices => SelectionOf(candidates: candidates, indices: indices, key: key)),
-            SampleKind.ScalarDensityCase density => DensitySelection(candidates: candidates, density: density.Density, count: density.Count.Value, minSpacing: 0.0, context: context, key: key),
-            SampleKind.AdaptiveCase adaptive => DensitySelection(candidates: candidates, density: adaptive.Density, count: adaptive.Count.Value, minSpacing: adaptive.MinSpacing.Value, context: context, key: key),
+            SampleKind.PoissonDiskCase pd when admitsPoisson => SelectionOf(kind: kind, candidates: candidates, indices: PoissonDiskIndices(candidates: candidates, radius: pd.Radius.Value), key: key, radius: Some(pd.Radius.Value)),
+            SampleKind.FarthestCase fp => SelectionOf(kind: kind, candidates: candidates, indices: FarthestIndices(candidates: candidates, count: fp.Count.Value), key: key),
+            SampleKind.OptimizeCase fpo => SelectionOf(kind: kind, candidates: candidates, indices: FpoSample(candidates: candidates, count: fpo.Count.Value, iterations: fpo.Iterations.Value), key: key),
+            SampleKind.LloydCase lloyd => RelaxationSample(candidates: candidates, count: lloyd.Count.Value, iterations: lloyd.Iterations.Value, capacity: Option<int>.None, key: key).Bind(indices => SelectionOf(kind: kind, candidates: candidates, indices: indices, key: key)),
+            SampleKind.CapacityCase ccvt => RelaxationSample(candidates: candidates, count: ccvt.Count.Value, iterations: 1, capacity: Some(ccvt.Limit.Value), key: key).Bind(indices => SelectionOf(kind: kind, candidates: candidates, indices: indices, key: key)),
+            SampleKind.SampleEliminationCase elimination => SampleElimination(candidates: candidates, count: elimination.Count.Value, oversampleFactor: elimination.OversampleFactor.Value, alpha: elimination.Alpha.Value, beta: elimination.Beta.Value, gamma: elimination.Gamma.Value, seed: elimination.Seed, domainMeasure: domainMeasure, key: key)
+                .Bind(result => SelectionOf(candidates: candidates, indices: result.Indices, algorithm: Some(result.Algorithm), key: key)),
+            SampleKind.ScalarDensityCase density => DensitySelection(candidates: candidates, density: density.Density, count: density.Count.Value, minSpacing: 0.0, algorithm: SampleAlgorithmKind.ScalarDensityPriority, context: context, key: key),
+            SampleKind.AdaptiveCase adaptive => DensitySelection(candidates: candidates, density: adaptive.Density, count: adaptive.Count.Value, minSpacing: adaptive.MinSpacing.Value, algorithm: SampleAlgorithmKind.AdaptivePriority, context: context, key: key),
             SampleKind.PoissonDiskCase pd => Fin.Fail<SampleSelection>(error: key.Unsupported(geometryType: pd.GetType(), outputType: typeof(SampleResult))),
             _ => Fin.Fail<SampleSelection>(error: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(SampleResult))),
         }
@@ -184,25 +204,29 @@ internal static class SampleKernel {
                 attempted: candidates.Count, emitted: sampled, rejected: rejected, candidates: Some(candidates.Count), iterations: kind.Request.Iterations,
                 stop: sampled.Count <= 0 ? SampleStopKind.AllRejected : kind.Request.Count.Map(requested => sampled.Count < requested ? SampleStopKind.CandidateExhausted : SampleStopKind.Completed).IfNone(SampleStopKind.Completed),
                 status: selection.DensityRejected.Map(static rejectedCount => rejectedCount > 0 ? SampleDomainStatus.CandidateRejected : SampleDomainStatus.CandidateAccepted).IfNone(SampleDomainStatus.CandidateAccepted),
-                densityError: kind.DensityError(emitted: sampled.Count), densityAccepted: selection.DensityAccepted, densityRejected: selection.DensityRejected));
-    private static Fin<SampleSelection> SelectionOf(Seq<SampleCandidate> candidates, int[] indices, Op key) {
+                densityError: kind.DensityError(emitted: sampled.Count), densityAccepted: selection.DensityAccepted, densityRejected: selection.DensityRejected, algorithm: selection.Algorithm));
+    private static Fin<SampleSelection> SelectionOf(SampleKind kind, Seq<SampleCandidate> candidates, int[] indices, Op key, Option<double> radius = default) =>
+        SelectionOf(candidates: candidates, indices: indices, algorithm: Some(AlgorithmFacts(kind: kind.Request.Algorithm, targetCount: kind.Request.Count, radius: radius)), key: key);
+    private static Fin<SampleSelection> SelectionOf(Seq<SampleCandidate> candidates, int[] indices, Option<SampleAlgorithmReceipt> algorithm, Op key) {
         Point3d[] points = [.. indices.Select(i => candidates[index: i].Point)];
         Seq<double> mass = toSeq(indices.Select(i => candidates[index: i].Mass).Somes());
         return mass.Count == indices.Length && indices.Length > 0
-            ? NormalizeMass(mass: mass, key: key).Map(normalized => new SampleSelection(Points: points, Mass: Some(normalized), DensityAccepted: Option<int>.None, DensityRejected: Option<int>.None))
-            : Fin.Succ(new SampleSelection(Points: points, Mass: Option<Arr<double>>.None, DensityAccepted: Option<int>.None, DensityRejected: Option<int>.None));
+            ? NormalizeMass(mass: mass, key: key).Map(normalized => new SampleSelection(Points: points, Mass: Some(normalized), DensityAccepted: Option<int>.None, DensityRejected: Option<int>.None, Algorithm: algorithm))
+            : Fin.Succ(new SampleSelection(Points: points, Mass: Option<Arr<double>>.None, DensityAccepted: Option<int>.None, DensityRejected: Option<int>.None, Algorithm: algorithm));
     }
-    private static SampleReceipt ReceiptOf(int attempted, Seq<Point3d> emitted, int rejected, Option<int> candidates, Option<int> iterations, SampleStopKind stop, SampleDomainStatus status, Option<double> densityError, Option<int> densityAccepted = default, Option<int> densityRejected = default) =>
+    private static SampleReceipt ReceiptOf(int attempted, Seq<Point3d> emitted, int rejected, Option<int> candidates, Option<int> iterations, SampleStopKind stop, SampleDomainStatus status, Option<double> densityError, Option<int> densityAccepted = default, Option<int> densityRejected = default, Option<SampleAlgorithmReceipt> algorithm = default) =>
         (emitted.Count < 2
             ? (Option<double>.None, Option<double>.None, Option<double>.None)
             : toSeq(Enumerable.Range(start: 0, count: emitted.Count - 1)
                 .SelectMany(collectionSelector: i => Enumerable.Range(start: i + 1, count: emitted.Count - i - 1), resultSelector: (i, j) => emitted[index: i].DistanceTo(other: emitted[index: j])))
                 .Fold(initialState: (Min: double.PositiveInfinity, Max: 0.0, Sum: 0.0, Count: 0), f: static (acc, distance) => (Min: Math.Min(val1: acc.Min, val2: distance), Max: Math.Max(val1: acc.Max, val2: distance), Sum: acc.Sum + distance, Count: acc.Count + 1)) switch { { Count: > 0 } stats => (Some(stats.Min), Some(stats.Sum / stats.Count), Some(stats.Max)), _ => (Option<double>.None, Option<double>.None, Option<double>.None) }) switch {
-                    (Option<double> min, Option<double> mean, Option<double> max) => new SampleReceipt(Attempted: attempted, Emitted: emitted.Count, Rejected: rejected, CandidateCount: candidates, MinSpacing: min, MeanSpacing: mean, MaxSpacing: max, DensityError: densityError, DensityAccepted: densityAccepted, DensityRejected: densityRejected, Iterations: iterations, Stop: stop, DomainStatus: status),
+                    (Option<double> min, Option<double> mean, Option<double> max) => new SampleReceipt(Attempted: attempted, Emitted: emitted.Count, Rejected: rejected, CandidateCount: candidates, MinSpacing: min, MeanSpacing: mean, MaxSpacing: max, DensityError: densityError, DensityAccepted: densityAccepted, DensityRejected: densityRejected, Iterations: iterations, Stop: stop, DomainStatus: status, Algorithm: algorithm),
                 };
     private static Fin<Arr<double>> NormalizeMass(Seq<double> mass, Op key) =>
         CloudKernel.MassOf(mass: new Arr<double>([.. mass.AsIterable()]), count: mass.Count, key: key);
-    private static Fin<SampleSelection> DensitySelection(Seq<SampleCandidate> candidates, ScalarField density, int count, double minSpacing, Context context, Op key) {
+    private static SampleAlgorithmReceipt AlgorithmFacts(SampleAlgorithmKind kind, Option<int> seed = default, Option<int> targetCount = default, Option<int> oversampleCount = default, Option<int> oversampleFactor = default, Option<double> alpha = default, Option<double> beta = default, Option<double> gamma = default, Option<double> radius = default, Option<double> weightLimitRadius = default, Option<int> eliminated = default, Option<int> neighborUpdates = default) =>
+        new(Kind: kind, Seed: seed, TargetCount: targetCount, OversampleCount: oversampleCount, OversampleFactor: oversampleFactor, Alpha: alpha, Beta: beta, Gamma: gamma, Radius: radius, WeightLimitRadius: weightLimitRadius, Eliminated: eliminated, NeighborUpdates: neighborUpdates, DeterministicCandidateSource: true, EuclideanMetric: true, MaximalCoverageGuaranteed: false, OtCvtValidated: false, MeshSpectrumValidated: false);
+    private static Fin<SampleSelection> DensitySelection(Seq<SampleCandidate> candidates, ScalarField density, int count, double minSpacing, SampleAlgorithmKind algorithm, Context context, Op key) {
         double[] weights = new double[candidates.Count];
         return toSeq(Enumerable.Range(start: 0, count: candidates.Count)).Fold(
             initialState: Fin.Succ((Accepted: 0, Rejected: 0, MaxWeight: 0.0)),
@@ -210,23 +234,75 @@ internal static class SampleKernel {
                 .Bind(value => RhinoMath.IsValidDouble(x: value) && value > 0.0
                     ? key.AcceptValue(value: value * candidates[index: i].Mass.IfNone(1.0)).Map(valid => { weights[i] = valid; return (Accepted: current.Accepted + 1, current.Rejected, MaxWeight: Math.Max(val1: current.MaxWeight, val2: valid)); })
                     : Fin.Succ((current.Accepted, Rejected: current.Rejected + 1, current.MaxWeight)))))
-            .Bind(stats => stats.Accepted > 0 ? PrioritySelection(candidates: candidates, weights: weights, count: count, minSpacing: minSpacing, maxWeight: stats.MaxWeight, accepted: stats.Accepted, rejected: stats.Rejected, key: key) : Fin.Fail<SampleSelection>(key.InvalidResult()));
+            .Bind(stats => stats.Accepted > 0 ? PrioritySelection(candidates: candidates, weights: weights, count: count, minSpacing: minSpacing, maxWeight: stats.MaxWeight, accepted: stats.Accepted, rejected: stats.Rejected, algorithm: algorithm, key: key) : Fin.Fail<SampleSelection>(key.InvalidResult()));
     }
-    private static Fin<SampleSelection> PrioritySelection(Seq<SampleCandidate> candidates, double[] weights, int count, double minSpacing, double maxWeight, int accepted, int rejected, Op key) {
+    private static Fin<SampleSelection> PrioritySelection(Seq<SampleCandidate> candidates, double[] weights, int count, double minSpacing, double maxWeight, int accepted, int rejected, SampleAlgorithmKind algorithm, Op key) {
         List<Point3d> chosen = []; List<double> mass = [];
         using IEnumerator<int> ordered = Enumerable.Range(start: 0, count: candidates.Count)
             .Where(i => weights[i] > 0.0)
             .OrderBy(i => -Math.Log(d: Math.Max(val1: (CandidateOrderKey(point: candidates[index: i].Point) + 1.0) / 18446744073709551616.0, val2: RhinoMath.SqrtEpsilon)) / weights[i])
             .GetEnumerator();
-        for (; chosen.Count < count && ordered.MoveNext();) {
+        while (chosen.Count < count && ordered.MoveNext()) {
             int index = ordered.Current;
             Point3d candidate = candidates[index: index].Point;
             double local = minSpacing / Math.Sqrt(d: Math.Max(val1: weights[index] / Math.Max(val1: maxWeight, val2: RhinoMath.SqrtEpsilon), val2: RhinoMath.SqrtEpsilon)); double localSq = local * local;
             if (chosen.All(point => point.DistanceToSquared(other: candidate) >= localSq)) { chosen.Add(item: candidate); mass.Add(item: weights[index]); }
         }
         return NormalizeMass(mass: toSeq(mass), key: key)
-            .Map(normalized => new SampleSelection(Points: [.. chosen], Mass: Some(normalized), DensityAccepted: Some(accepted), DensityRejected: Some(rejected)));
+            .Map(normalized => new SampleSelection(Points: [.. chosen], Mass: Some(normalized), DensityAccepted: Some(accepted), DensityRejected: Some(rejected), Algorithm: Some(AlgorithmFacts(kind: algorithm, targetCount: Some(count)))));
     }
+    private static Fin<(int[] Indices, SampleAlgorithmReceipt Algorithm)> SampleElimination(Seq<SampleCandidate> candidates, int count, int oversampleFactor, double alpha, double beta, double gamma, int seed, Option<(int Dimensions, double Measure)> domainMeasure, Op key) {
+        SampleCandidate[] input = [.. candidates.AsIterable()];
+        (int dimensions, double measure) = domainMeasure.IfNone(BoundingMeasure(candidates: candidates));
+        double dMax = 2.0 * (dimensions == 3 ? Math.Pow(x: measure / count / (4.0 * Math.Sqrt(d: 2.0)), y: 1.0 / 3.0) : Math.Sqrt(d: measure / count / (2.0 * Math.Sqrt(d: 3.0))));
+        double dMin = dMax * (1.0 - Math.Pow(x: (double)count / input.Length, y: gamma)) * beta;
+        if (input.Length <= count || count <= 0 || !RhinoMath.IsValidDouble(x: dMax) || dMax <= 0.0 || !RhinoMath.IsValidDouble(x: dMin) || dMin < 0.0) return Fin.Fail<(int[] Indices, SampleAlgorithmReceipt Algorithm)>(key.InvalidInput());
+        bool[] active = [.. Enumerable.Repeat(element: true, count: input.Length)];
+        double[] weights = new double[input.Length];
+        double dMaxSq = dMax * dMax;
+        (int Left, int Right, double Weight)[] edges = [..
+            from i in Enumerable.Range(start: 0, count: input.Length - 1)
+            from j in Enumerable.Range(start: i + 1, count: input.Length - i - 1)
+            let distanceSq = input[i].Point.DistanceToSquared(other: input[j].Point)
+            let distance = Math.Max(val1: Math.Sqrt(d: distanceSq), val2: dMin)
+            where distanceSq <= dMaxSq
+            select (Left: i, Right: j, Weight: Math.Pow(x: Math.Max(val1: 0.0, val2: 1.0 - (distance / dMax)), y: alpha))];
+        for (int edge = 0; edge < edges.Length; edge++) { weights[edges[edge].Left] += edges[edge].Weight; weights[edges[edge].Right] += edges[edge].Weight; }
+        int neighborUpdates = 0;
+        int activeCount = input.Length;
+        int eliminated = 0;
+        while (activeCount > count) {
+            int remove = MaxWeightIndex(active: active, weights: weights, input: input, seed: seed);
+            active[remove] = false;
+            activeCount--;
+            eliminated++;
+            for (int edge = 0; edge < edges.Length; edge++) {
+                int other = edges[edge].Left == remove ? edges[edge].Right : edges[edge].Right == remove ? edges[edge].Left : -1;
+                if (other >= 0 && active[other]) {
+                    weights[other] -= edges[edge].Weight;
+                    neighborUpdates++;
+                }
+            }
+        }
+        return Fin.Succ<(int[] Indices, SampleAlgorithmReceipt Algorithm)>((
+            Indices: [.. Enumerable.Range(start: 0, count: input.Length).Where(i => active[i]).OrderBy(i => CandidateOrderKey(point: input[i].Point, seed: seed))],
+            Algorithm: AlgorithmFacts(kind: SampleAlgorithmKind.YukselWeightedSampleElimination, seed: Some(seed), targetCount: Some(count), oversampleCount: Some(input.Length), oversampleFactor: Some(oversampleFactor), alpha: Some(alpha), beta: Some(beta), gamma: Some(gamma), radius: Some(dMax), weightLimitRadius: Some(dMin), eliminated: Some(eliminated), neighborUpdates: Some(neighborUpdates))));
+    }
+    private static (int Dimensions, double Measure) BoundingMeasure(Seq<SampleCandidate> candidates) {
+        BoundingBox box = new(points: candidates.AsIterable().Select(static candidate => candidate.Point));
+        double dx = Math.Max(val1: box.Max.X - box.Min.X, val2: RhinoMath.SqrtEpsilon);
+        double dy = Math.Max(val1: box.Max.Y - box.Min.Y, val2: RhinoMath.SqrtEpsilon);
+        double dz = Math.Max(val1: box.Max.Z - box.Min.Z, val2: RhinoMath.SqrtEpsilon);
+        double volume = dx * dy * dz;
+        double area = Math.Max(val1: dx * dy, val2: Math.Max(val1: dx * dz, val2: dy * dz));
+        return volume > RhinoMath.SqrtEpsilon ? (Dimensions: 3, Measure: volume) : (Dimensions: 2, Measure: Math.Max(val1: area, val2: RhinoMath.SqrtEpsilon));
+    }
+    private static int MaxWeightIndex(bool[] active, double[] weights, SampleCandidate[] input, int seed) =>
+        Enumerable.Range(start: 0, count: input.Length)
+            .Where(i => active[i])
+            .Select(i => (Index: i, Weight: weights[i], Key: CandidateOrderKey(point: input[i].Point, seed: seed)))
+            .Aggregate((best, item) => item.Weight > best.Weight || (Math.Abs(value: item.Weight - best.Weight) <= RhinoMath.SqrtEpsilon && item.Key < best.Key) ? item : best)
+            .Index;
     private static int[] PoissonDiskIndices(Seq<SampleCandidate> candidates, double radius) {
         double r2 = radius * radius;
         List<int> chosen = []; PointCloud chosenIndex = [];
@@ -239,10 +315,12 @@ internal static class SampleKernel {
         }
         return [.. chosen];
     }
-    private static ulong CandidateOrderKey(Point3d point) {
+    private static ulong CandidateOrderKey(Point3d point, int seed = 0) {
         static ulong Bits(double value) => (ulong)BitConverter.DoubleToInt64Bits(value: value == 0.0 ? 0.0 : value);
         unchecked {
-            ulong hash = Bits(value: point.X) * 0x9E3779B185EBCA87UL;
+            ulong unsignedSeed = (uint)seed;
+            ulong hash = (unsignedSeed + 0x9E3779B97F4A7C15UL) * 0x9E3779B185EBCA87UL;
+            hash ^= Bits(value: point.X) * 0x9E3779B185EBCA87UL;
             hash ^= Bits(value: point.Y) + 0xC2B2AE3D27D4EB4FUL + (hash << 6) + (hash >> 2);
             hash ^= Bits(value: point.Z) + 0x165667B19E3779F9UL + (hash << 6) + (hash >> 2);
             return hash;

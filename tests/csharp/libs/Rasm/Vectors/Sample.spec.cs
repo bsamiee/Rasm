@@ -12,13 +12,21 @@ internal static class SampleGens {
     public static readonly Gen<int> NonPositiveInt = Gen.Int[start: -64, finish: 0];
     public static readonly Context Model = Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "sample context");
     public static readonly Seq<Point3d> Points = Gens.UnitTriangle3;
+    public static readonly Seq<Point3d> DensePoints = Seq(
+        new Point3d(x: 0.0, y: 0.0, z: 0.0),
+        new Point3d(x: 1.0, y: 0.0, z: 0.0),
+        new Point3d(x: 0.0, y: 1.0, z: 0.0),
+        new Point3d(x: 1.0, y: 1.0, z: 0.0),
+        new Point3d(x: 0.5, y: 0.5, z: 0.0));
     public static readonly Gen<(double Radius, int Count, int Iterations, int Capacity)> Payloads =
         Gens.Positive.Select(Gen.Int[start: 1, finish: 32], Gen.Int[start: 33, finish: 64], Gen.Int[start: 65, finish: 96],
             static (double radius, int count, int iterations, int capacity) => (Radius: radius, Count: count, Iterations: iterations, Capacity: capacity));
     public static VectorCloud Cloud(Option<Seq<double>> mass = default) =>
+        Cloud(points: Points, mass: mass);
+    public static VectorCloud Cloud(Seq<Point3d> points, Option<Seq<double>> mass = default) =>
         mass.Match(
-            Some: weights => Spec.SuccValue(VectorCloud.WeightedCluster(points: Points, mass: weights, context: Model, key: Key), label: "weighted sample cloud"),
-            None: () => Spec.SuccValue(VectorCloud.Cluster(points: Points, context: Model, key: Key), label: "sample cloud"));
+            Some: weights => Spec.SuccValue(VectorCloud.WeightedCluster(points: points, mass: weights, context: Model, key: Key), label: "weighted sample cloud"),
+            None: () => Spec.SuccValue(VectorCloud.Cluster(points: points, context: Model, key: Key), label: "sample cloud"));
     public static ExtractionDomain Domain(VectorCloud cloud) =>
         Spec.SuccValue(ExtractionDomain.Cloud(value: cloud, key: Key), label: "sample cloud domain");
     public static VectorIntent Intent(SampleKind kind, Option<Seq<double>> mass = default) =>
@@ -51,6 +59,10 @@ public sealed class SampleKindFactoryLaws {
                 Assert.Equal(expected: p.Count, actual: capacity.Count.Value);
                 Assert.Equal(expected: p.Capacity, actual: capacity.Limit.Value);
             });
+            Spec.Succ(SampleKind.SampleElimination(count: p.Count, oversampleFactor: 5, alpha: 8.0, beta: 0.65, gamma: 1.5, seed: 17, key: SampleGens.Key), then: kind => {
+                SampleKind.SampleEliminationCase elimination = Assert.IsType<SampleKind.SampleEliminationCase>(@object: kind);
+                Assert.Equal(expected: (p.Count, 5, 8.0, 0.65, 1.5, 17), actual: (elimination.Count.Value, elimination.OversampleFactor.Value, elimination.Alpha.Value, elimination.Beta.Value, elimination.Gamma.Value, elimination.Seed));
+            });
         });
         Spec.ForAll(SampleGens.NonPositiveInt, n => {
             Spec.FailCategory(SampleKind.Farthest(count: n, key: SampleGens.Key), category: "Tolerance");
@@ -60,9 +72,19 @@ public sealed class SampleKindFactoryLaws {
             Spec.FailCategory(SampleKind.Lloyd(count: 1, iterations: n, key: SampleGens.Key), category: "Tolerance");
             Spec.FailCategory(SampleKind.Capacity(count: n, capacity: 1, key: SampleGens.Key), category: "Tolerance");
             Spec.FailCategory(SampleKind.Capacity(count: 1, capacity: n, key: SampleGens.Key), category: "Tolerance");
+            Spec.FailCategory(SampleKind.SampleElimination(count: n, oversampleFactor: 5, alpha: 8.0, beta: 0.65, gamma: 1.5, seed: 17, key: SampleGens.Key), category: "Tolerance");
+            Spec.FailCategory(SampleKind.SampleElimination(count: 1, oversampleFactor: n, alpha: 8.0, beta: 0.65, gamma: 1.5, seed: 17, key: SampleGens.Key), category: "Tolerance");
         });
         Spec.ForAll(Gens.NonPositive, r => Spec.FailCategory(SampleKind.PoissonDisk(radius: r, key: SampleGens.Key), category: "Tolerance"));
         Spec.ForAll(Gens.NonFinite, r => Spec.FailCategory(SampleKind.PoissonDisk(radius: r, key: SampleGens.Key), category: "Tolerance"));
+        Spec.ForAll(Gens.NonFinite, x =>
+            Seq<Func<double, Fin<SampleKind>>>(
+                value => SampleKind.SampleElimination(count: 2, oversampleFactor: 5, alpha: value, beta: 0.65, gamma: 1.5, seed: 17, key: SampleGens.Key),
+                value => SampleKind.SampleElimination(count: 2, oversampleFactor: 5, alpha: 8.0, beta: value, gamma: 1.5, seed: 17, key: SampleGens.Key),
+                value => SampleKind.SampleElimination(count: 2, oversampleFactor: 5, alpha: 8.0, beta: 0.65, gamma: value, seed: 17, key: SampleGens.Key))
+                .Iter(factory => Spec.FailCategory(factory(arg: x), category: "Tolerance")));
+        Spec.FailCategory(SampleKind.SampleElimination(count: 2, oversampleFactor: 1, alpha: 8.0, beta: 0.65, gamma: 1.5, seed: 17, key: SampleGens.Key), category: "Input");
+        Spec.FailCategory(SampleKind.SampleElimination(count: 2, oversampleFactor: 5, alpha: 8.0, beta: 1.1, gamma: 1.5, seed: 17, key: SampleGens.Key), category: "Input");
         Spec.FailCategory(SampleKind.Explicit(points: Seq<Point3d>(), key: SampleGens.Key), category: "Input");
     }
     [Fact]
@@ -83,6 +105,7 @@ public sealed class SampleKindFactoryLaws {
                 Assert.Equal(expected: SampleGens.Points.Count, actual: receipt.Attempted);
                 Assert.Equal(expected: SampleGens.Points.Count, actual: receipt.Emitted);
                 Assert.Equal(expected: 0, actual: receipt.Rejected);
+                Spec.Some(receipt.Algorithm, algorithm => Assert.Equal(expected: SampleAlgorithmKind.Explicit, actual: algorithm.Kind));
             });
         Spec.FailCategory(intent.Project<SymmetricMatrix>(context: SampleGens.Model, key: SampleGens.Key), category: "Unsupported");
     }
@@ -136,6 +159,9 @@ public sealed class SampleDensityLaws {
         Spec.Succ(SampleKind.Capacity(count: 3, capacity: 5, key: SampleGens.Key), then: kind =>
             Spec.Succ(kind.MeshCandidateDensity(area: 10.0, key: SampleGens.Key), then: density =>
                 Spec.EqualWithin(left: density, right: 1.5, tolerance: 1.0e-12, what: "capacity density")));
+        Spec.Succ(SampleKind.SampleElimination(count: 3, oversampleFactor: 5, alpha: 8.0, beta: 0.65, gamma: 1.5, seed: 17, key: SampleGens.Key), then: kind =>
+            Spec.Succ(kind.MeshCandidateDensity(area: 10.0, key: SampleGens.Key), then: density =>
+                Spec.EqualWithin(left: density, right: 1.5, tolerance: 1.0e-12, what: "wse density")));
     }
     [Fact]
     public void ReceiptConservationIsBoundedByAttemptedCandidates() {
@@ -178,6 +204,10 @@ public sealed class SampleDensityLaws {
         Spec.Succ(weighted.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key), then: receipt => {
             Spec.Some(receipt.DensityAccepted, accepted => Assert.Equal(expected: SampleGens.Points.Count, actual: accepted));
             Spec.Some(receipt.DensityRejected, rejected => Assert.Equal(expected: 0, actual: rejected));
+            Spec.Some(receipt.Algorithm, algorithm => {
+                Assert.Equal(expected: SampleAlgorithmKind.ScalarDensityPriority, actual: algorithm.Kind);
+                Assert.False(condition: algorithm.MeshSpectrumValidated);
+            });
         });
     }
     [Fact]
@@ -191,6 +221,34 @@ public sealed class SampleDensityLaws {
             Spec.Some(receipt.DensityAccepted, accepted => Assert.Equal(expected: SampleGens.Points.Count, actual: accepted));
             Spec.Some(receipt.DensityRejected, rejected => Assert.Equal(expected: 0, actual: rejected));
             Assert.Equal(expected: SampleDomainStatus.CandidateAccepted, actual: receipt.DomainStatus);
+            Spec.Some(receipt.Algorithm, algorithm => Assert.Equal(expected: SampleAlgorithmKind.AdaptivePriority, actual: algorithm.Kind));
         });
+    }
+    [Fact]
+    public void WeightedSampleEliminationSelectsDeterministicSubsetWithReceiptFacts() {
+        SampleKind elimination = Spec.SuccValue(SampleKind.SampleElimination(count: 2, oversampleFactor: 2, alpha: 8.0, beta: 0.65, gamma: 1.5, seed: 23, key: SampleGens.Key), label: "wse kind");
+        VectorIntent intent = SampleGens.Intent(cloud: SampleGens.Cloud(points: SampleGens.DensePoints), kind: elimination);
+        Seq<Point3d> first = Spec.SuccValue(intent.Project<Seq<Point3d>>(context: SampleGens.Model, key: SampleGens.Key), label: "first wse sample");
+        Seq<Point3d> second = Spec.SuccValue(intent.Project<Seq<Point3d>>(context: SampleGens.Model, key: SampleGens.Key), label: "second wse sample");
+        Assert.Equal(expected: 2, actual: first.Count);
+        _ = first.Zip(second).Iter(pair => Spec.NearEqual(left: pair.Item1, right: pair.Item2, tolerance: 0.0));
+        Spec.Succ(intent.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key), then: receipt => {
+            Spec.CountsConserve(attempted: receipt.Attempted, emitted: receipt.Emitted, rejected: receipt.Rejected, label: "wse receipt");
+            Assert.Equal(expected: SampleGens.DensePoints.Count, actual: receipt.CandidateCount.IfNone(0));
+            Assert.Equal(expected: 2, actual: receipt.Emitted);
+            Assert.Equal(expected: 3, actual: receipt.Rejected);
+            Spec.Some(receipt.Algorithm, algorithm => {
+                Assert.Equal(expected: SampleAlgorithmKind.YukselWeightedSampleElimination, actual: algorithm.Kind);
+                Assert.Equal(expected: (23, 2, SampleGens.DensePoints.Count, 2, 3), actual: (algorithm.Seed.IfNone(0), algorithm.TargetCount.IfNone(0), algorithm.OversampleCount.IfNone(0), algorithm.OversampleFactor.IfNone(0), algorithm.Eliminated.IfNone(0)));
+                Assert.True(condition: algorithm.NeighborUpdates.IfNone(0) > 0);
+                Assert.Equal(expected: (true, true, false, false, false), actual: (algorithm.DeterministicCandidateSource, algorithm.EuclideanMetric, algorithm.MaximalCoverageGuaranteed, algorithm.OtCvtValidated, algorithm.MeshSpectrumValidated));
+            });
+        });
+    }
+    [Fact]
+    public void PoissonDiskOnCloudStaysUnsupportedInsteadOfClaimingBridson() {
+        SampleKind kind = Spec.SuccValue(SampleKind.PoissonDisk(radius: 0.2, key: SampleGens.Key), label: "candidate radius kind");
+        VectorIntent intent = SampleGens.Intent(kind: kind);
+        Spec.FailCategory(intent.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key), category: "Unsupported");
     }
 }

@@ -74,10 +74,10 @@ Run commands from repository root.
 | **6** | `scripts/rhino.sh bridge check-source <source.cs>` | Resolve owning project and validate source build. |
 | **7** | `scripts/rhino.sh bridge check-source <source.cs> --script <script.csx>` | Build owner and execute supplied RhinoCode script with host-filtered runtime references. |
 | **8** | `scripts/rhino.sh bridge script <script.csx>` | Execute explicit RhinoCode script in Rhino. |
-| **9** | `scripts/rhino.sh bridge load <assembly.dll>` | Load assembly into Rhino bridge session for explicit session diagnostics. |
-| **10** | `scripts/rhino.sh bridge load-smoke <assembly.dll>` | Load assembly in collectible session and unload it. |
-| **11** | `scripts/rhino.sh bridge unload <session-id>` | Unload explicit bridge load session. |
-| **12** | `scripts/rhino.sh bridge quit` | Ask Rhino to exit only when open documents have no unsaved changes. |
+| **9** | `scripts/rhino.sh bridge load <assembly.dll>` | Diagnostic-only load into a bridge session. |
+| **10** | `scripts/rhino.sh bridge load-smoke <assembly.dll>` | Diagnostic-only load in a collectible session and unload it. |
+| **11** | `scripts/rhino.sh bridge unload <session-id>` | Diagnostic-only unload for explicit bridge load sessions. |
+| **12** | `scripts/rhino.sh bridge quit` | Lifecycle-only safe Rhino exit when open documents have no unsaved changes. |
 | **13** | `scripts/rhino.sh bridge package <version>` | Build bridge `.rhp`, run Yak in staged directory, and create a local package. |
 | **14** | `scripts/rhino.sh bridge install [package.yak]` | Install staged or explicit bridge package, restart or launch RhinoWIP, then verify bridge health. |
 | **15** | `scripts/rhino.sh api doctor` | Report local RhinoWIP API XML, ILSpy, and RhinoCode metadata availability. |
@@ -171,9 +171,10 @@ Top-level fields:
 Read order:
 1. Inspect top-level `status`.
 2. Inspect top-level `fault.category` and `fault.message` when present.
-3. Inspect failed or unsupported `phases[]`.
-4. Inspect `diagnostics`, `outputs[].text`, `outputs[].truncated`, `outputs[].length`, and `outputs[].limit`.
-5. Treat `rhinoCodeCli` failure as non-authoritative when in-process `execute` succeeds.
+3. Inspect `execute.data.returnValue` when a script emits structured evidence.
+4. Inspect failed or unsupported `phases[]`.
+5. Inspect `diagnostics`, `outputs[].text`, `outputs[].truncated`, `outputs[].length`, and `outputs[].limit`.
+6. Treat `rhinoCodeCli` failure as non-authoritative when in-process `execute` succeeds.
 
 Decisive phase policy:
 - Required failures from `resolve`, `build`, `connect`, and applicable `execute` phases drive top-level `status`.
@@ -199,12 +200,24 @@ Phase expectations:
 - `connect`: named-pipe handshake with endpoint metadata.
 - `rhinoCodeCli`: supplemental external `rhinocode list --json` probe; `DOTNET_ROLL_FORWARD=Major` fallback is intentional.
 - `load`: collectible load session only for explicit load commands.
-- `execute`: RhinoCode execution report, stdout/stderr, diagnostics, and Rhino document facts.
+- `execute`: RhinoCode execution report, stdout/stderr, diagnostics, Rhino document facts, and optional script return JSON.
 - `diagnostics`: RhinoCode compile diagnostics when available.
 - `unload`: collectible session unload evidence.
 - `lifecycle`: quit/restart status.
 
 Output blocks include `source`, `text`, `truncated`, `length`, and `limit`. Treat `truncated: true` as machine-actionable loss of detail.
+
+### [4.1][SCRIPT_RETURNS]
+
+Scripts can return structured agent evidence by writing one stdout line:
+
+```csharp
+Console.WriteLine("rasm.rhino-bridge.return=" + JsonSerializer.Serialize(receipt));
+```
+
+The plugin preserves raw stdout and parses the last line with this prefix into `execute.data.returnValue`. Missing return lines are valid. Malformed return JSON fails `execute` with `fault.category = "return"`.
+
+Project smoke scripts emit `returnValue.kind = "assemblyFreshness"` with loaded/target paths, loaded/target versions, `alreadyLoaded`, `staleLocation`, `staleIdentity`, and `refreshRequired`. Stale assemblies still fail; the return value carries machine-readable evidence for the agent.
 
 ---
 ## [5][REFERENCE_POLICY]

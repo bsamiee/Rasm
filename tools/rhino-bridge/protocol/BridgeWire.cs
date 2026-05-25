@@ -6,6 +6,7 @@ namespace Rasm.RhinoBridge.Protocol;
 // --- [CONSTANTS] ------------------------------------------------------------------------
 public static class BridgeWire {
     public const string Schema = "rasm.rhino-bridge.v1";
+    public const string ReturnPrefix = "rasm.rhino-bridge.return=";
     public const string Hello = "hello";
     public const string Doctor = "doctor";
     public const string Execute = "execute";
@@ -149,7 +150,9 @@ public sealed record BridgeLoadRequest(string AssemblyPath, string WorkspaceRoot
 public sealed record BridgeExecuteRequest(string Script, string? ScriptPath, IReadOnlyList<string> References);
 public sealed record BridgeUnloadRequest(string SessionId);
 public sealed record BridgeLoadReport(string Status, string? SessionId, string? AssemblyName, string? Location, string? PdbPath, string? WorkspaceRoot, string? PackageCacheRoot, IReadOnlyList<BridgeAssemblyReport> Assemblies, BridgeFault? Fault);
-public sealed record BridgeExecuteReport(string Status, int DurationMs, bool ServerExecutionCancelable, string BridgeAssemblyName, string BridgeAssemblyVersion, string BridgeAssemblyInformationalVersion, string RhinoVersion, bool ActiveDocument, double? ModelAbsoluteTolerance, string? ActiveDocumentName, IReadOnlyList<string> References, BridgeFault? Fault);
+public sealed record BridgeDocumentReport(bool Active, uint? RuntimeSerialNumber, string? Name, string? Path, bool? Modified, double? ModelAbsoluteTolerance, string? ModelUnitSystem);
+public sealed record BridgeReturnValue(JsonElement Value, string Source);
+public sealed record BridgeExecuteReport(string Status, int DurationMs, bool ServerExecutionCancelable, string BridgeAssemblyName, string BridgeAssemblyVersion, string BridgeAssemblyInformationalVersion, string RhinoVersion, BridgeDocumentReport Document, BridgeReturnValue? ReturnValue, IReadOnlyList<string> References, BridgeFault? Fault);
 public sealed record BridgeUnloadReport(string Status, string SessionId, bool UnloadRequested, bool Unloaded, BridgeFault? Fault);
 public sealed record BridgeQuitReport(string Status, int RhinoPid, bool ActiveDocument, bool Modified, BridgeFault? Fault);
 public sealed record BridgeOutput(string Source, string Text, bool Truncated, int Length, int Limit);

@@ -2,6 +2,7 @@ namespace Rasm.RhinoBridge.Rhino;
 
 // --- [MODELS] ---------------------------------------------------------------------------
 internal sealed record BridgeRuntimeState(BridgeEndpoint? Endpoint, BridgeFault? Fault);
+internal sealed record BridgeReturnParse(BridgeReturnValue? Value, BridgeFault? Fault);
 
 // --- [SERVICES] -------------------------------------------------------------------------
 internal static class BridgeRuntime {
@@ -227,18 +228,25 @@ internal sealed class BridgeServer : IDisposable {
                 ? global::Rhino.Runtime.Code.RhinoCode.RunScript(uri: new Uri(uriString: scriptPath), context: context)
                 : global::Rhino.Runtime.Code.RhinoCode.RunScript(text: request.Script, context: context);
             timer.Stop();
-            BridgeExecuteReport report = ExecuteReport(status: BridgeWire.Ok, timer: timer, document: document, references: request.References, fault: null);
-            return BridgeWire.Reply(command: BridgeWire.Execute, status: report.Status, data: report, outputs: Output(stdout: stdout, stderr: stderr), diagnostics: Diagnostics(code: code), fault: null);
+            string stdoutText = stdout.GetContents();
+            string stderrText = stderr.GetContents();
+            BridgeReturnParse parsed = ReturnValue(stdout: stdoutText);
+            BridgeExecuteReport report = ExecuteReport(status: parsed.Fault is null ? BridgeWire.Ok : BridgeWire.Failed, timer: timer, document: document, returnValue: parsed.Value, references: request.References, fault: parsed.Fault);
+            return BridgeWire.Reply(command: BridgeWire.Execute, status: report.Status, data: report, outputs: Output(stdout: stdoutText, stderr: stderrText), diagnostics: Diagnostics(code: code), fault: report.Fault);
         } catch (Exception error) when (error is global::Rhino.Runtime.Code.Execution.CompileException or global::Rhino.Runtime.Code.Execution.ExecuteException || NonFatal(error: error)) {
             timer.Stop();
+            string stdoutText = stdout.GetContents();
+            string stderrText = stderr.GetContents();
+            BridgeReturnParse parsed = ReturnValue(stdout: stdoutText);
             BridgeDiagnostic[] diagnostics = Diagnostics(error: error, code: code);
             string category = diagnostics.Length > 0 ? "diagnostics" : "execute";
             BridgeFault executeFault = BridgeFault.FromException(category: category, error: error);
-            BridgeExecuteReport report = ExecuteReport(status: BridgeWire.Failed, timer: timer, document: document, references: request.References, fault: executeFault);
-            return BridgeWire.Reply(command: BridgeWire.Execute, status: report.Status, data: report, outputs: Output(stdout: stdout, stderr: stderr), diagnostics: diagnostics, fault: executeFault);
+            BridgeFault reportFault = parsed.Fault is null ? executeFault : parsed.Fault with { Causes = [executeFault] };
+            BridgeExecuteReport report = ExecuteReport(status: BridgeWire.Failed, timer: timer, document: document, returnValue: parsed.Value, references: request.References, fault: reportFault);
+            return BridgeWire.Reply(command: BridgeWire.Execute, status: report.Status, data: report, outputs: Output(stdout: stdoutText, stderr: stderrText), diagnostics: diagnostics, fault: reportFault);
         }
     }
-    private static BridgeExecuteReport ExecuteReport(string status, Stopwatch timer, RhinoDoc? document, IReadOnlyList<string> references, BridgeFault? fault) =>
+    private static BridgeExecuteReport ExecuteReport(string status, Stopwatch timer, RhinoDoc? document, BridgeReturnValue? returnValue, IReadOnlyList<string> references, BridgeFault? fault) =>
         new(
             Status: status,
             DurationMs: (int)timer.ElapsedMilliseconds,
@@ -247,16 +255,34 @@ internal sealed class BridgeServer : IDisposable {
             BridgeAssemblyVersion: typeof(BridgeServer).Assembly.GetName().Version?.ToString() ?? "unknown",
             BridgeAssemblyInformationalVersion: typeof(BridgeServer).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? typeof(BridgeServer).Assembly.GetName().Version?.ToString() ?? "unknown",
             RhinoVersion: RhinoApp.Version.ToString(),
-            ActiveDocument: document is not null,
-            ModelAbsoluteTolerance: document?.ModelAbsoluteTolerance,
-            ActiveDocumentName: document?.Name,
+            Document: Document(document: document),
+            ReturnValue: returnValue,
             References: references,
             Fault: fault);
-    private static BridgeOutput[] Output(global::Rhino.Runtime.Code.Execution.RunContextStream stdout, global::Rhino.Runtime.Code.Execution.RunContextStream stderr) =>
+    private static BridgeDocumentReport Document(RhinoDoc? document) =>
+        document is null
+            ? new(Active: false, RuntimeSerialNumber: null, Name: null, Path: null, Modified: null, ModelAbsoluteTolerance: null, ModelUnitSystem: null)
+            : new(Active: true, RuntimeSerialNumber: document.RuntimeSerialNumber, Name: document.Name, Path: document.Path, Modified: document.Modified, ModelAbsoluteTolerance: document.ModelAbsoluteTolerance, ModelUnitSystem: document.ModelUnitSystem.ToString());
+    private static BridgeOutput[] Output(string stdout, string stderr) =>
         [
-            BridgeWire.Capture(source: BridgeWire.OutputStdout, text: stdout.GetContents(), limit: OutputLimit),
-            BridgeWire.Capture(source: BridgeWire.OutputStderr, text: stderr.GetContents(), limit: OutputLimit),
+            BridgeWire.Capture(source: BridgeWire.OutputStdout, text: stdout, limit: OutputLimit),
+            BridgeWire.Capture(source: BridgeWire.OutputStderr, text: stderr, limit: OutputLimit),
         ];
+    private static BridgeReturnParse ReturnValue(string stdout) =>
+        stdout.Split(separator: ['\r', '\n'], options: StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(static line => line.StartsWith(value: BridgeWire.ReturnPrefix, comparisonType: StringComparison.Ordinal))
+            .Select(static line => line[BridgeWire.ReturnPrefix.Length..])
+            .LastOrDefault() is string payload
+            ? ParseReturnValue(payload: payload)
+            : new(Value: null, Fault: null);
+    private static BridgeReturnParse ParseReturnValue(string payload) {
+        try {
+            using JsonDocument document = JsonDocument.Parse(json: payload);
+            return new(Value: new(Value: document.RootElement.Clone(), Source: BridgeWire.OutputStdout), Fault: null);
+        } catch (JsonException error) {
+            return new(Value: null, Fault: BridgeFault.FromException(category: "return", error: error));
+        }
+    }
     private static BridgeDiagnostic[] Diagnostics(global::Rhino.Runtime.Code.Code? code) =>
         code?.Diagnostics.Select(Diagnostic).ToArray() ?? [];
     private static BridgeDiagnostic[] Diagnostics(Exception error, global::Rhino.Runtime.Code.Code? code) =>
