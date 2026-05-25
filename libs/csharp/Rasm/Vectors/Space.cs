@@ -81,9 +81,10 @@ public sealed record SupportSpace {
     public static Fin<SupportSpace> Of(object? value, Op? key = null) {
         Op op = key.OrDefault();
         return value switch {
-            VectorCloud.ClusterCase cluster => ClusterIsValid(cluster)
-                ? Fin.Succ(new SupportSpace(value: cluster))
-                : Fin.Fail<SupportSpace>(op.InvalidInput()),
+            VectorCloud.ClusterCase cluster =>
+                from _ in cluster.Vertices.TraverseM(point => op.AcceptValue(value: point)).As()
+                from __ in CloudKernel.MassOf(cluster: cluster, key: op)
+                select new SupportSpace(value: cluster),
             _ => from source in Optional(value).ToFin(op.InvalidInput())
                  let type = source.GetType()
                  from _ in guard(type != typeof(object) && type != typeof(GeometryBase) && GeometryKernel.CanClosest(type: type), op.Unsupported(type, typeof(ClosestHit)))
@@ -101,10 +102,6 @@ public sealed record SupportSpace {
         RhinoMath.IsValidDouble(x: point.X) && RhinoMath.IsValidDouble(x: point.Y) && RhinoMath.IsValidDouble(x: point.Z);
     private static bool VectorIsFinite(Vector3d vector) =>
         RhinoMath.IsValidDouble(x: vector.X) && RhinoMath.IsValidDouble(x: vector.Y) && RhinoMath.IsValidDouble(x: vector.Z);
-    private static bool ClusterIsValid(VectorCloud.ClusterCase cluster) =>
-        cluster.Vertices.Count > 0
-        && cluster.Vertices.ForAll(static point => point.IsValid)
-        && cluster.Mass.Map(mass => mass.Count == cluster.Vertices.Count && mass.ForAll(static value => RhinoMath.IsValidDouble(x: value) && value > 0.0)).IfNone(true);
     internal Fin<ClosestHit> Closest(Point3d sample, Op key) =>
         Value switch {
             VectorCloud.ClusterCase cluster => cluster.ClosestVertex(sample: sample, key: key),

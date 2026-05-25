@@ -137,8 +137,8 @@ public static partial class Analyze {
                 evaluator: static (state, geometry) =>
                     from context in Env.Asks
                     from space in SupportSpace.Of(value: geometry, key: state.Key).ToEff()
-                    from result in VectorIntent.Support(space: space, sample: state.Target, projection: state.Projection)
-                        .Project<TOut>(context: context, key: state.Key).Map(value => Seq(value)).ToEff()
+                    from intent in VectorIntent.Support(space: space, sample: state.Target, projection: state.Projection, key: state.Key).ToEff()
+                    from result in intent.Project<TOut>(context: context, key: state.Key).Map(value => Seq(value)).ToEff()
                     select result),
             _ => key.Unsupported<TGeometry, TOut>(),
         };

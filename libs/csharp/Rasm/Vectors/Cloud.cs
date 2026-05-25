@@ -84,9 +84,13 @@ public readonly record struct VectorCloudShape(Option<Vector3d> Normal, Option<d
 [Union]
 public abstract partial record VectorCloud {
     private VectorCloud() { }
-    public sealed record RingCase(Seq<Point3d> Vertices, Polyline Native, Context Tolerance) : VectorCloud;
-    public sealed record PolylineCase(Seq<Point3d> Vertices, Context Tolerance) : VectorCloud;
-    public sealed record ClusterCase(Seq<Point3d> Vertices, Context Tolerance, Option<Arr<double>> Mass = default) : VectorCloud {
+    public sealed record RingCase : VectorCloud { internal RingCase(Seq<Point3d> Vertices, Polyline Native, Context Tolerance) { this.Vertices = Vertices; this.Native = Native; this.Tolerance = Tolerance; } public Seq<Point3d> Vertices { get; } public Polyline Native { get; } public Context Tolerance { get; } }
+    public sealed record PolylineCase : VectorCloud { internal PolylineCase(Seq<Point3d> Vertices, Context Tolerance) { this.Vertices = Vertices; this.Tolerance = Tolerance; } public Seq<Point3d> Vertices { get; } public Context Tolerance { get; } }
+    public sealed record ClusterCase : VectorCloud {
+        internal ClusterCase(Seq<Point3d> Vertices, Context Tolerance, Option<Arr<double>> Mass = default) { this.Vertices = Vertices; this.Tolerance = Tolerance; this.Mass = Mass; }
+        public Seq<Point3d> Vertices { get; }
+        public Context Tolerance { get; }
+        public Option<Arr<double>> Mass { get; }
         private static readonly ConditionalWeakTable<ClusterCase, PointCloud> CloudCache = [];
         internal PointCloud Indexed => CloudCache.GetValue(key: this, createValueCallback: static c => {
             PointCloud pc = [];
@@ -147,9 +151,6 @@ internal static class CloudKernel {
                 Fin.Succ(new Arr<double>([.. mass.AsIterable().Select(value => value / total)])),
             _ => Fin.Fail<Arr<double>>(key.InvalidInput()),
         };
-    private static Arr<double> MassOf(VectorCloud.ClusterCase cloud) =>
-        cloud.Mass.IfNone(new Arr<double>([.. Enumerable.Repeat(element: 1.0 / cloud.Vertices.Count, count: cloud.Vertices.Count)]));
-
     // --- [COVARIANCE] -------------------------------------------------------------------
     internal static Fin<(Arr<double> Mean, SymmetricMatrix Cov)> CovarianceOf(Seq<Arr<double>> points, Dimension dimension, Op key) =>
         SampleMoment.Of(rows: points, dimension: dimension.Value, key: key)
@@ -610,8 +611,8 @@ internal static class CloudKernel {
         internal Fin<TOut> Project<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double distance, Option<double> sourceBias, Option<double> targetBias, double regularization, bool debiased, Option<PositiveMagnitude> massRelaxation, Op key) =>
             typeof(TOut) switch {
                 Type t when t == typeof(double) => key.AcceptValue(value: distance).Map(static d => (TOut)(object)d),
-                Type t when t == typeof(SinkhornReceipt) => Fin.Succ((TOut)(object)ReceiptOf(source: source, target: target, distance: distance, sourceBias: sourceBias, targetBias: targetBias, regularization: regularization, debiased: debiased, massRelaxation: massRelaxation)),
-                Type t when t == typeof(CloudCorrespondenceSet) => Fin.Succ((TOut)(object)CouplingCorrespondences(source: source, target: target, coupling: Coupling)),
+                Type t when t == typeof(SinkhornReceipt) => ReceiptOf(source: source, target: target, distance: distance, sourceBias: sourceBias, targetBias: targetBias, regularization: regularization, debiased: debiased, massRelaxation: massRelaxation, key: key).Map(static receipt => (TOut)(object)receipt),
+                Type t when t == typeof(CloudCorrespondenceSet) => CouplingCorrespondences(source: source, target: target, coupling: Coupling, key: key).Map(static correspondences => (TOut)(object)correspondences),
                 Type t when t == typeof(Matrix) => key.AcceptValue(value: MatrixKernel.FromMathNet(m: Coupling, rows: Dimension.Create(value: Coupling.RowCount), cols: Dimension.Create(value: Coupling.ColumnCount))).Map(static matrix => (TOut)(object)matrix),
                 Type t when t == typeof(VectorCloud) => toSeq(Enumerable.Range(start: 0, count: source.Vertices.Count)).TraverseM(i => Coupling.Row(i).Sum() switch {
                     double mass when mass > RhinoMath.ZeroTolerance => Fin.Succ((Point: Point3d.Origin + (toSeq(Enumerable.Range(start: 0, count: target.Vertices.Count)).Fold(initialState: Vector3d.Zero, f: (sum, j) => sum + (Coupling[i, j] * (Vector3d)target.Vertices[index: j])) / mass), Mass: mass)),
@@ -619,19 +620,19 @@ internal static class CloudKernel {
                 }).As().Bind(transported => VectorCloud.WeightedCluster(points: transported.Map(static item => item.Point), mass: transported.Map(static item => item.Mass), context: source.Tolerance, key: key).Map(static cloud => (TOut)(object)cloud)),
                 _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorCloud), outputType: typeof(TOut))),
             };
-        private SinkhornReceipt ReceiptOf(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double distance, Option<double> sourceBias, Option<double> targetBias, double regularization, bool debiased, Option<PositiveMagnitude> massRelaxation) {
+        private Fin<SinkhornReceipt> ReceiptOf(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double distance, Option<double> sourceBias, Option<double> targetBias, double regularization, bool debiased, Option<PositiveMagnitude> massRelaxation, Op key) {
             (double couplingMass, int nonZeroCouplings, double minPositiveCoupling, double maxCoupling) = Coupling.Enumerate().Aggregate(
                 seed: (Total: 0.0, Nonzero: 0, MinPositive: double.PositiveInfinity, Max: 0.0),
                 func: static (s, value) => value > RhinoMath.ZeroTolerance ? (s.Total + value, s.Nonzero + 1, Math.Min(val1: s.MinPositive, val2: value), Math.Max(val1: s.Max, val2: value)) : (s.Total + value, s.Nonzero, s.MinPositive, s.Max));
-            return new SinkhornReceipt(
+            return CouplingCorrespondences(source: source, target: target, coupling: Coupling, key: key).Map(correspondences => new SinkhornReceipt(
                 Distance: distance, RawDistance: Some(Distance), SourceBiasDistance: sourceBias, TargetBiasDistance: targetBias, Regularization: regularization, MassRelaxation: massRelaxation.Map(static value => value.Value), Debiased: debiased,
                 ResidualKind: massRelaxation.IsSome ? SinkhornResidualKind.ScalingChange : SinkhornResidualKind.MarginalMass, NumericStatus: SinkhornNumericStatus.FiniteAccepted,
-                SourceConvergenceResidual: SourceConvergenceResidual, TargetConvergenceResidual: TargetConvergenceResidual, Iterations: Iterations, Stop: Stop, CouplingMass: couplingMass, NonZeroCouplings: nonZeroCouplings, MinPositiveCoupling: nonZeroCouplings > 0 ? Some(minPositiveCoupling) : Option<double>.None, MaxCoupling: nonZeroCouplings > 0 ? Some(maxCoupling) : Option<double>.None, Correspondences: CouplingCorrespondences(source: source, target: target, coupling: Coupling));
+                SourceConvergenceResidual: SourceConvergenceResidual, TargetConvergenceResidual: TargetConvergenceResidual, Iterations: Iterations, Stop: Stop, CouplingMass: couplingMass, NonZeroCouplings: nonZeroCouplings, MinPositiveCoupling: nonZeroCouplings > 0 ? Some(minPositiveCoupling) : Option<double>.None, MaxCoupling: nonZeroCouplings > 0 ? Some(maxCoupling) : Option<double>.None, Correspondences: correspondences));
         }
     }
     private static Fin<SinkhornPlan> SinkhornOt(Seq<Point3d> source, Seq<Point3d> target, Arr<double> sourceMass, Arr<double> targetMass, double reg, int maxIter, Option<PositiveMagnitude> massRelaxation, Op key) {
         int m = source.Count; int n = target.Count;
-        if (sourceMass.Count != m || targetMass.Count != n || sourceMass.Exists(static value => !RhinoMath.IsValidDouble(x: value) || value <= 0.0) || targetMass.Exists(static value => !RhinoMath.IsValidDouble(x: value) || value <= 0.0) || !RhinoMath.IsValidDouble(x: reg) || reg <= 0.0 || maxIter < 1)
+        if (sourceMass.Count != m || targetMass.Count != n || !RhinoMath.IsValidDouble(x: reg) || reg <= 0.0 || maxIter < 1)
             return Fin.Fail<SinkhornPlan>(key.InvalidInput());
         DenseMatrixD logKernel = DenseMatrixD.OfRowArrays(source.AsIterable().Select(src => target.AsIterable().Select(tgt => -src.DistanceToSquared(other: tgt) / reg).ToArray()));
         DenseVectorD logU = DenseVectorD.Create(m, 0.0);
@@ -680,17 +681,20 @@ internal static class CloudKernel {
     private static (double Source, double Target) ScalingResiduals(double[] previousU, DenseVectorD logU, double[] previousV, DenseVectorD logV) =>
         (Source: Enumerable.Range(start: 0, count: logU.Count).Max(i => Math.Abs(value: logU[i] - previousU[i])),
             Target: Enumerable.Range(start: 0, count: logV.Count).Max(i => Math.Abs(value: logV[i] - previousV[i])));
-    internal static CloudCorrespondenceSet CouplingCorrespondences(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, DenseMatrixD coupling) =>
-        (SourceMass: MassOf(cloud: source), TargetMass: MassOf(cloud: target)) switch {
-            (Arr<double> sourceMass, Arr<double> targetMass) => CloudCorrespondenceSet.Of(items: toSeq(
+    internal static Fin<CloudCorrespondenceSet> CouplingCorrespondences(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, DenseMatrixD coupling, Op key) =>
+        from sourceMass in MassOf(cluster: source, key: key)
+        from targetMass in MassOf(cluster: target, key: key)
+        from correspondences in coupling.RowCount == source.Vertices.Count && coupling.ColumnCount == target.Vertices.Count
+            ? Fin.Succ(CloudCorrespondenceSet.Of(items: toSeq(
                 from i in Enumerable.Range(start: 0, count: source.Vertices.Count)
                 from j in Enumerable.Range(start: 0, count: target.Vertices.Count)
                 let mass = coupling[i, j]
                 where mass > RhinoMath.ZeroTolerance
                 let residual = target.Vertices[index: j] - source.Vertices[index: i]
                 let squared = residual.SquareLength
-                select new CloudCorrespondence(SourceIndex: i, TargetIndex: j, SourcePoint: source.Vertices[index: i], TargetPoint: target.Vertices[index: j], Residual: residual, Distance: Math.Sqrt(d: squared), SquaredDistance: squared, SourceMass: Some(sourceMass[index: i]), TargetMass: Some(targetMass[index: j]), CouplingMass: Some(mass), Confidence: Option<double>.None)), sourceCount: source.Vertices.Count, targetCount: target.Vertices.Count),
-        };
+                select new CloudCorrespondence(SourceIndex: i, TargetIndex: j, SourcePoint: source.Vertices[index: i], TargetPoint: target.Vertices[index: j], Residual: residual, Distance: Math.Sqrt(d: squared), SquaredDistance: squared, SourceMass: Some(sourceMass[index: i]), TargetMass: Some(targetMass[index: j]), CouplingMass: Some(mass), Confidence: Option<double>.None)), sourceCount: source.Vertices.Count, targetCount: target.Vertices.Count))
+            : Fin.Fail<CloudCorrespondenceSet>(key.InvalidResult())
+        select correspondences;
     // --- [PRINCIPAL_CURVATURE] -------------------------------------------------------------
     // Local quadric fit in PCA tangent frame; II = [[2a, b], [b, 2c]] yields signed curvatures.
     internal static Fin<Seq<(double K1, double K2, Direction E1, Direction E2)>> PrincipalCurvaturesOf(VectorCloud.ClusterCase cluster, Op key) =>

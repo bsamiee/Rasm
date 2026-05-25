@@ -29,8 +29,13 @@ public abstract partial record SampleKind {
         Counted(count: count, value: capacity, create: static (count, capacity) => new CapacityCase(Count: count, Limit: capacity), key: key);
     private static Fin<SampleKind> Counted(int count, int value, Func<Dimension, Dimension, SampleKind> create, Op? key) =>
         key.OrDefault().AcceptValidated<Dimension>(candidate: count).Bind(c => key.OrDefault().AcceptValidated<Dimension>(candidate: value).Map(v => create(arg1: c, arg2: v)));
-    public static Fin<SampleKind> Weighted(Seq<(Point3d Point, double Mass)> points, Op? key = null) =>
-        points.IsEmpty || points.Exists(static item => !item.Point.IsValid || !RhinoMath.IsValidDouble(x: item.Mass) || item.Mass <= 0.0) ? Fin.Fail<SampleKind>(key.OrDefault().InvalidInput()) : Fin.Succ<SampleKind>(new WeightedCase(Points: points));
+    public static Fin<SampleKind> Weighted(Seq<(Point3d Point, double Mass)> points, Op? key = null) {
+        Op op = key.OrDefault();
+        return points.IsEmpty
+            ? Fin.Fail<SampleKind>(op.InvalidInput())
+            : CloudKernel.MassOf(mass: new Arr<double>([.. points.AsIterable().Select(static item => item.Mass)]), count: points.Count, key: op)
+                .Map(_ => (SampleKind)new WeightedCase(Points: points));
+    }
     public static Fin<SampleKind> ScalarDensity(ScalarField density, int count, Op? key = null) => Optional(density).ToFin(key.OrDefault().InvalidInput()).Bind(active => key.OrDefault().AcceptValidated<Dimension>(candidate: count).Map(c => (SampleKind)new ScalarDensityCase(Density: active, Count: c)));
     public static Fin<SampleKind> Adaptive(ScalarField density, int count, double minSpacing, Op? key = null) => Optional(density).ToFin(key.OrDefault().InvalidInput()).Bind(active => key.OrDefault().AcceptValidated<Dimension>(candidate: count).Bind(c => key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: minSpacing).Map(spacing => (SampleKind)new AdaptiveCase(Density: active, Count: c, MinSpacing: spacing))));
     internal Fin<SampleResult> Evaluate(ExtractionDomain domain, Context context, Op key) =>
@@ -125,8 +130,10 @@ internal static class SampleKernel {
             SampleKind.FarthestCase or SampleKind.OptimizeCase or SampleKind.LloydCase or SampleKind.CapacityCase => kind.Request.Count.ToFin(Fail: key.Unsupported(geometryType: kind.GetType(), outputType: typeof(SampleResult))),
             _ => Fin.Fail<int>(key.Unsupported(geometryType: kind.GetType(), outputType: typeof(SampleResult))),
         }).Bind(count =>
-            GeometryKernel.SamplePoints(source: space.Value, count: count, context: context, key: key)
-                .Bind(points => SampleAdmitted(points: points.Map(static point => (Point: point, Mass: Option<double>.None)), domain: ExtractionDomain.Support(value: space), context: context, key: key)));
+            from domain in ExtractionDomain.Support(value: space, key: key)
+            from points in GeometryKernel.SamplePoints(source: space.Value, count: count, context: context, key: key)
+            from sampled in SampleAdmitted(points: points.Map(static point => (Point: point, Mass: Option<double>.None)), domain: domain, context: context, key: key)
+            select sampled);
     private static Fin<SampleResult> SampleOnMesh(SampleKind kind, MeshSpace domain, Context context, Op key) {
         using AreaMassProperties? props = AreaMassProperties.Compute(mesh: domain.Native, area: true, firstMoments: false, secondMoments: false, productMoments: false);
         return Optional(props).ToFin(key.InvalidResult()).Bind(p =>
@@ -167,7 +174,7 @@ internal static class SampleKernel {
                     (Option<double> min, Option<double> mean, Option<double> max) => new SampleReceipt(Attempted: attempted, Emitted: emitted.Count, Rejected: rejected, CandidateCount: candidates, MinSpacing: min, MeanSpacing: mean, MaxSpacing: max, DensityError: densityError, DensityAccepted: densityAccepted, DensityRejected: densityRejected, Iterations: iterations, Stop: stop, DomainStatus: status),
                 };
     private static Fin<Arr<double>> NormalizeMass(Seq<double> mass, Op key) =>
-        mass.Fold(initialState: 0.0, f: static (sum, value) => sum + value) switch { double total when RhinoMath.IsValidDouble(x: total) && total > 0.0 => key.AcceptValue(value: new Arr<double>([.. mass.AsIterable().Select(value => value / total)])), _ => Fin.Fail<Arr<double>>(key.InvalidResult()) };
+        CloudKernel.MassOf(mass: new Arr<double>([.. mass.AsIterable()]), count: mass.Count, key: key);
     private static Fin<SampleSelection> DensitySelection(Seq<Point3d> candidates, ScalarField density, int count, double minSpacing, Context context, Op key) {
         double[] weights = new double[candidates.Count];
         return toSeq(Enumerable.Range(start: 0, count: candidates.Count)).Fold(

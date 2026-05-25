@@ -8,7 +8,13 @@ namespace Rasm.Vectors;
 [SmartEnum<int>] public sealed partial class ToleranceSource { public static readonly ToleranceSource Context = new(key: 0), RhinoDefault = new(key: 1), NotApplicable = new(key: 2); }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct ExtractionReceipt(ExtractionStatus Status, int Attempted, int Emitted, int Rejected, bool NativeRouted, ToleranceSource ToleranceSource, Option<double> Tolerance, bool ParallelCallback) { public ExtractionRoute Route => NativeRouted ? ExtractionRoute.Native : ExtractionRoute.Local; }
+public readonly record struct ExtractionReceipt(ExtractionStatus Status, int Attempted, int Emitted, int Rejected, bool NativeRouted, ToleranceSource ToleranceSource, Option<double> Tolerance, bool ParallelCallback) {
+    public ExtractionRoute Route => NativeRouted ? ExtractionRoute.Native : ExtractionRoute.Local;
+    internal static Fin<ExtractionReceipt> Of(ExtractionStatus status, int attempted, int emitted, bool nativeRouted, ToleranceSource toleranceSource, Option<double> tolerance, bool parallelCallback, Op key) =>
+        attempted < 0 || emitted < 0 || emitted > attempted
+            ? Fin.Fail<ExtractionReceipt>(error: key.InvalidResult())
+            : Fin.Succ(new ExtractionReceipt(Status: status, Attempted: attempted, Emitted: emitted, Rejected: attempted - emitted, NativeRouted: nativeRouted, ToleranceSource: toleranceSource, Tolerance: tolerance, ParallelCallback: parallelCallback));
+}
 
 [SmartEnum<int>] public sealed partial class ScalarIsolineRoute { public static readonly ScalarIsolineRoute LocalPiecewiseLinearMesh = new(key: 0, nativeRouted: false); public bool NativeRouted { get; } }
 
@@ -22,9 +28,45 @@ public readonly record struct ScalarIsolineReceipt(ScalarIsolineRoute Route, int
 [StructLayout(LayoutKind.Auto)] internal readonly record struct ScalarIsolinePointKey(long X, long Y, long Z) { internal int Compare(ScalarIsolinePointKey other) => (X, Y, Z).CompareTo((other.X, other.Y, other.Z)); }
 internal sealed class ScalarIsolineStats { internal int RawSegments, DedupedSegments, DegenerateRejected, PlateauRejected, StitchedCandidates, BranchStops, EmittedCurves; }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct GlyphPolicy(SampleKind Kind, PositiveMagnitude Scale);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct GridPolicy(SampleKind Kind);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct StreamBundlePolicy(SampleKind Kind, PositiveMagnitude InitialStep, FieldIntegrator Integrator, Termination Termination);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct GlyphPolicy {
+    private GlyphPolicy(SampleKind kind, PositiveMagnitude scale) { Kind = kind; Scale = scale; }
+    public SampleKind Kind { get; }
+    public PositiveMagnitude Scale { get; }
+    public static Fin<GlyphPolicy> Of(SampleKind kind, double scale, Op? key = null) =>
+        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: scale)
+            .Bind(validScale => Of(kind: kind, scale: validScale, key: key));
+    public static Fin<GlyphPolicy> Of(SampleKind kind, PositiveMagnitude scale, Op? key = null) =>
+        from validKind in Optional(kind).ToFin(key.OrDefault().InvalidInput())
+        from _ in guard(scale.Value > RhinoMath.ZeroTolerance, key.OrDefault().InvalidInput())
+        select new GlyphPolicy(kind: validKind, scale: scale);
+}
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct GridPolicy {
+    private GridPolicy(SampleKind kind) => Kind = kind;
+    public SampleKind Kind { get; }
+    public static Fin<GridPolicy> Of(SampleKind kind, Op? key = null) =>
+        Optional(kind).ToFin(key.OrDefault().InvalidInput()).Map(static validKind => new GridPolicy(kind: validKind));
+}
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct StreamBundlePolicy {
+    private StreamBundlePolicy(SampleKind kind, PositiveMagnitude initialStep, FieldIntegrator integrator, Termination termination) { Kind = kind; InitialStep = initialStep; Integrator = integrator; Termination = termination; }
+    public SampleKind Kind { get; }
+    public PositiveMagnitude InitialStep { get; }
+    public FieldIntegrator Integrator { get; }
+    public Termination Termination { get; }
+    public static Fin<StreamBundlePolicy> Of(SampleKind kind, double initialStep, Termination termination, FieldIntegrator? integrator = null, Op? key = null) =>
+        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: initialStep)
+            .Bind(step => Of(kind: kind, initialStep: step, termination: termination, integrator: integrator ?? new FieldIntegrator.FixedCase(Kind: IntegratorKind.RK4), key: key));
+    public static Fin<StreamBundlePolicy> Of(SampleKind kind, PositiveMagnitude initialStep, Termination termination, FieldIntegrator integrator, Op? key = null) {
+        Op op = key.OrDefault();
+        return from validKind in Optional(kind).ToFin(op.InvalidInput())
+               from validIntegrator in Optional(integrator).ToFin(op.InvalidInput())
+               from validTermination in Optional(termination).ToFin(op.InvalidInput())
+               from _ in guard(initialStep.Value > RhinoMath.ZeroTolerance, op.InvalidInput())
+               select new StreamBundlePolicy(kind: validKind, initialStep: initialStep, integrator: validIntegrator, termination: validTermination);
+    }
+}
 
 [Union]
 public abstract partial record ContourPolicy {
@@ -69,23 +111,43 @@ public abstract partial record ContourPolicy {
             && levels.ForAll(RhinoMath.IsValidDouble)
             ? Fin.Succ<ContourPolicy>(new MeshScalarCase(Values: values, Levels: levels))
             : Fin.Fail<ContourPolicy>(key.OrDefault().InvalidInput());
+    internal Fin<ContourPolicy> Admit(Op key) =>
+        Switch(
+            state: key,
+            planeCase: static (op, policy) => Plane(section: policy.Section, key: op),
+            axisCase: static (op, policy) => Axis(start: policy.Start, end: policy.End, interval: policy.Interval.Value, key: op),
+            surfaceIsoCase: static (op, policy) => SurfaceIso(status: policy.Status, parameter: policy.Parameter, key: op),
+            meshScalarCase: static (op, policy) => MeshScalar(values: policy.Values, levels: policy.Levels, key: op));
 }
 
 [Union]
 public abstract partial record ExtractionDomain {
     private ExtractionDomain() { }
-    public sealed record SupportCase(SupportSpace Value) : ExtractionDomain; public sealed record MeshCase(MeshSpace Value) : ExtractionDomain; public sealed record CloudCase(VectorCloud Value) : ExtractionDomain;
-    public static ExtractionDomain Support(SupportSpace value) => new SupportCase(Value: value); public static ExtractionDomain Mesh(MeshSpace value) => new MeshCase(Value: value); public static ExtractionDomain Cloud(VectorCloud value) => new CloudCase(Value: value);
+    public sealed record SupportCase : ExtractionDomain { internal SupportCase(SupportSpace value) => Value = value; public SupportSpace Value { get; } }
+    public sealed record MeshCase : ExtractionDomain { internal MeshCase(MeshSpace value) => Value = value; public MeshSpace Value { get; } }
+    public sealed record CloudCase : ExtractionDomain { internal CloudCase(VectorCloud value) => Value = value; public VectorCloud Value { get; } }
+    public static Fin<ExtractionDomain> Support(SupportSpace value, Op? key = null) =>
+        Optional(value).ToFin(key.OrDefault().InvalidInput()).Map(valid => (ExtractionDomain)new SupportCase(value: valid));
+    public static Fin<ExtractionDomain> Mesh(MeshSpace value, Op? key = null) =>
+        Optional(value.Native).ToFin(key.OrDefault().InvalidInput()).Map(_ => (ExtractionDomain)new MeshCase(value: value));
+    public static Fin<ExtractionDomain> Cloud(VectorCloud value, Op? key = null) =>
+        Optional(value).ToFin(key.OrDefault().InvalidInput()).Map(valid => (ExtractionDomain)new CloudCase(value: valid));
     public static Fin<ExtractionDomain> Of(object? value, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return Optional(value).ToFin(op.InvalidInput()).Bind(source => source switch {
-            ExtractionDomain domain => Fin.Succ(domain),
-            Mesh mesh => MeshSpace.Of(native: mesh, context: context, key: op).Map(Mesh),
-            VectorCloud cloud => Fin.Succ(Cloud(value: cloud)),
-            PointCloud cloud => VectorCloud.Cluster(points: toSeq(cloud.GetPoints()), context: context, key: op).Map(Cloud),
-            object candidate => SupportSpace.Of(value: candidate, key: op).Map(Support),
+            ExtractionDomain domain => domain.Admit(key: op),
+            Mesh mesh => MeshSpace.Of(native: mesh, context: context, key: op).Bind(space => Mesh(value: space, key: op)),
+            VectorCloud cloud => Cloud(value: cloud, key: op),
+            PointCloud cloud => VectorCloud.Cluster(points: toSeq(cloud.GetPoints()), context: context, key: op).Bind(active => Cloud(value: active, key: op)),
+            object candidate => SupportSpace.Of(value: candidate, key: op).Bind(space => Support(value: space, key: op)),
         });
     }
+    internal Fin<ExtractionDomain> Admit(Op key) =>
+        Switch(
+            state: key,
+            supportCase: static (op, domain) => Support(value: domain.Value, key: op),
+            meshCase: static (op, domain) => Mesh(value: domain.Value, key: op),
+            cloudCase: static (op, domain) => Cloud(value: domain.Value, key: op));
     internal Fin<CurveBatch> Contours(ContourPolicy policy, Context context, Op key) =>
         Switch(
             state: (Policy: policy, Context: context, Key: key),
@@ -269,13 +331,9 @@ public abstract partial record ExtractionDomain {
     private static Fin<CurveBatch> AcceptCurves(Seq<Curve> curves, int attempted, ExtractionStatus status, bool nativeRouted, Op key, Option<double> tolerance = default, bool parallelCallback = false, ToleranceSource? toleranceSource = null, Option<ScalarIsolineResult> scalarIsoline = default) {
         Seq<Curve> accepted = curves.Filter(static curve => curve is not null && curve.IsValid);
         int emitted = accepted.Count;
-        int rejected = Math.Max(val1: 0, val2: attempted - emitted);
-        return emitted + rejected == attempted
-            ? Fin.Succ(new CurveBatch(Curves: accepted, ScalarIsoline: scalarIsoline, Receipt: ReceiptOf(status: status, attempted: attempted, emitted: emitted, rejected: rejected, nativeRouted: nativeRouted, toleranceSource: toleranceSource ?? (tolerance.IsSome ? ToleranceSource.Context : ToleranceSource.NotApplicable), tolerance: tolerance, parallelCallback: parallelCallback)))
-            : Fin.Fail<CurveBatch>(key.InvalidResult());
+        return ExtractionReceipt.Of(status: status, attempted: attempted, emitted: emitted, nativeRouted: nativeRouted, toleranceSource: toleranceSource ?? (tolerance.IsSome ? ToleranceSource.Context : ToleranceSource.NotApplicable), tolerance: tolerance, parallelCallback: parallelCallback, key: key)
+            .Map(receipt => new CurveBatch(Curves: accepted, ScalarIsoline: scalarIsoline, Receipt: receipt));
     }
-    internal static ExtractionReceipt ReceiptOf(ExtractionStatus status, int attempted, int emitted, int rejected, bool nativeRouted, ToleranceSource toleranceSource, Option<double> tolerance, bool parallelCallback) =>
-        new(Status: status, Attempted: attempted, Emitted: emitted, Rejected: rejected, NativeRouted: nativeRouted, ToleranceSource: toleranceSource, Tolerance: tolerance, ParallelCallback: parallelCallback);
 }
 
 internal readonly record struct CurveBatch(Seq<Curve> Curves, Option<ScalarIsolineResult> ScalarIsoline, ExtractionReceipt Receipt);
@@ -323,12 +381,41 @@ internal abstract partial record Extraction {
     public sealed record GlyphCase(VectorField Field, ExtractionDomain Domain, GlyphPolicy Policy) : Extraction;
     public sealed record SampleGridCase(ScalarField Field, ExtractionDomain Domain, GridPolicy Policy) : Extraction;
     public sealed record StreamBundleCase(VectorField Field, ExtractionDomain Domain, StreamBundlePolicy Policy) : Extraction;
-    public static Extraction Probe(ExtractionProbe source, Point3d sample) => new ProbeCase(Source: source, Sample: sample);
-    public static Extraction Contour(ExtractionDomain domain, ContourPolicy policy) => new ContourCase(Domain: domain, Policy: policy);
-    public static Extraction IsoSurface(ScalarField field, BoundingBox bounds, int resolution, int maxRootSteps) => new IsoSurfaceCase(Field: field, Bounds: bounds, Resolution: resolution, MaxRootSteps: maxRootSteps);
-    public static Extraction Glyph(VectorField field, ExtractionDomain domain, GlyphPolicy policy) => new GlyphCase(Field: field, Domain: domain, Policy: policy);
-    public static Extraction SampleGrid(ScalarField field, ExtractionDomain domain, GridPolicy policy) => new SampleGridCase(Field: field, Domain: domain, Policy: policy);
-    public static Extraction StreamBundle(VectorField field, ExtractionDomain domain, StreamBundlePolicy policy) => new StreamBundleCase(Field: field, Domain: domain, Policy: policy);
+    public static Fin<Extraction> Probe(ExtractionProbe source, Point3d sample, Op? key = null) =>
+        from validSource in Optional(source).ToFin(key.OrDefault().InvalidInput())
+        from validSample in key.OrDefault().AcceptValue(value: sample)
+        select (Extraction)new ProbeCase(Source: validSource, Sample: validSample);
+    public static Fin<Extraction> Contour(ExtractionDomain domain, ContourPolicy policy, Op? key = null) {
+        Op op = key.OrDefault();
+        return from validDomain in Optional(domain).ToFin(op.InvalidInput()).Bind(active => active.Admit(key: op))
+               from validPolicy in Optional(policy).ToFin(op.InvalidInput()).Bind(active => active.Admit(key: op))
+               select (Extraction)new ContourCase(Domain: validDomain, Policy: validPolicy);
+    }
+    public static Fin<Extraction> IsoSurface(ScalarField field, BoundingBox bounds, int resolution, int maxRootSteps, Op? key = null) {
+        Op op = key.OrDefault();
+        return Optional(field).ToFin(op.InvalidInput()).Bind(validField => ScalarField.BoundsAdmitted(bounds: bounds)
+            && resolution >= 2
+            && maxRootSteps >= 1
+            ? Fin.Succ<Extraction>(new IsoSurfaceCase(Field: validField, Bounds: bounds, Resolution: resolution, MaxRootSteps: maxRootSteps))
+            : Fin.Fail<Extraction>(op.InvalidInput()));
+    }
+    public static Fin<Extraction> Glyph(VectorField field, ExtractionDomain domain, GlyphPolicy policy, Op? key = null) =>
+        Sampled(field: field, domain: domain, policy: policy, key: key.OrDefault(),
+            admit: static (candidate, active) => GlyphPolicy.Of(kind: candidate.Kind, scale: candidate.Scale, key: active),
+            create: static (source, target, active) => new GlyphCase(Field: source, Domain: target, Policy: active));
+    public static Fin<Extraction> SampleGrid(ScalarField field, ExtractionDomain domain, GridPolicy policy, Op? key = null) =>
+        Sampled(field: field, domain: domain, policy: policy, key: key.OrDefault(),
+            admit: static (candidate, active) => GridPolicy.Of(kind: candidate.Kind, key: active),
+            create: static (source, target, active) => new SampleGridCase(Field: source, Domain: target, Policy: active));
+    public static Fin<Extraction> StreamBundle(VectorField field, ExtractionDomain domain, StreamBundlePolicy policy, Op? key = null) =>
+        Sampled(field: field, domain: domain, policy: policy, key: key.OrDefault(),
+            admit: static (candidate, active) => StreamBundlePolicy.Of(kind: candidate.Kind, initialStep: candidate.InitialStep, termination: candidate.Termination, integrator: candidate.Integrator, key: active),
+            create: static (source, target, active) => new StreamBundleCase(Field: source, Domain: target, Policy: active));
+    private static Fin<Extraction> Sampled<TField, TPolicy>(TField field, ExtractionDomain domain, TPolicy policy, Op key, Func<TPolicy, Op, Fin<TPolicy>> admit, Func<TField, ExtractionDomain, TPolicy, Extraction> create) where TField : class =>
+        from validField in Optional(field).ToFin(key.InvalidInput())
+        from validDomain in Optional(domain).ToFin(key.InvalidInput()).Bind(active => active.Admit(key: key))
+        from validPolicy in admit(policy, key)
+        select create(validField, validDomain, validPolicy);
     internal Fin<TOut> Project<TOut>(Context context, Op key) =>
         Switch(
             state: (Context: context, Key: key),
@@ -347,9 +434,25 @@ internal abstract partial record Extraction {
                     _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(IsoSurfaceCase), outputType: typeof(TOut))),
                 }
                 select output,
-            glyphCase: static (state, extraction) => ProjectGlyphs<TOut>(field: extraction.Field, domain: extraction.Domain, policy: extraction.Policy, context: state.Context, key: state.Key),
-            sampleGridCase: static (state, extraction) => ProjectGrid<TOut>(field: extraction.Field, domain: extraction.Domain, policy: extraction.Policy, context: state.Context, key: state.Key),
-            streamBundleCase: static (state, extraction) => ProjectBundle<TOut>(field: extraction.Field, domain: extraction.Domain, policy: extraction.Policy, context: state.Context, key: state.Key));
+            glyphCase: static (state, extraction) => ProjectSamples<TOut, Line, (VectorField, PositiveMagnitude)>(
+                kind: extraction.Policy.Kind, domain: extraction.Domain, context: state.Context, key: state.Key, state: (extraction.Field, extraction.Policy.Scale),
+                sample: static (sampleState, point, model, op) => ExtractionProbe.Vector(source: sampleState.Item1).Project<VectorSpan>(sample: point, context: model, key: op).Map(span => new Line(span.Anchor, span.Anchor + (sampleState.Item2.Value * span.Value))),
+                project: static (glyphs, op) => typeof(TOut) == typeof(Seq<Line>) ? op.Accept(values: glyphs.AsIterable()).Map(static value => (TOut)(object)value) : Fin.Fail<TOut>(error: op.Unsupported(geometryType: typeof(GlyphCase), outputType: typeof(TOut)))),
+            sampleGridCase: static (state, extraction) => ProjectSamples<TOut, (Point3d, double), ScalarField>(
+                kind: extraction.Policy.Kind, domain: extraction.Domain, context: state.Context, key: state.Key, state: extraction.Field,
+                sample: static (source, point, model, op) => source.SampleScalar(sample: point, context: model, key: op).Map(value => (Point: point, Value: value)),
+                project: static (samples, op) => typeof(TOut) == typeof(Seq<(Point3d Point, double Value)>)
+                    ? samples.ForAll(static sample => sample.Item1.IsValid && RhinoMath.IsValidDouble(x: sample.Item2)) ? Fin.Succ((TOut)(object)samples) : Fin.Fail<TOut>(error: op.InvalidResult())
+                    : Fin.Fail<TOut>(error: op.Unsupported(geometryType: typeof(SampleGridCase), outputType: typeof(TOut)))),
+            streamBundleCase: static (state, extraction) => ProjectSamples<TOut, StreamlineTrace, (VectorField, StreamBundlePolicy)>(
+                kind: extraction.Policy.Kind, domain: extraction.Domain, context: state.Context, key: state.Key, state: (extraction.Field, extraction.Policy),
+                sample: static (sampleState, seed, model, op) => FlowKernel.Trace<StreamlineTrace>(source: sampleState.Item1, seed: seed, initialStep: sampleState.Item2.InitialStep, integrator: sampleState.Item2.Integrator, termination: sampleState.Item2.Termination, context: model, key: op),
+                project: static (traces, op) => typeof(TOut) switch {
+                    Type t when t == typeof(Seq<StreamlineTrace>) => traces.TraverseM(trace => FlowKernel.ProjectTrace<StreamlineTrace>(trace: trace, key: op)).As().Map(static value => (TOut)(object)value),
+                    Type t when t == typeof(Seq<Polyline>) => traces.TraverseM(trace => FlowKernel.ProjectTrace<Polyline>(trace: trace, key: op)).As().Map(static value => (TOut)(object)value),
+                    Type t when t == typeof(Seq<Curve>) => traces.TraverseM(trace => FlowKernel.ProjectTrace<Curve>(trace: trace, key: op)).As().Map(static value => (TOut)(object)value),
+                    _ => Fin.Fail<TOut>(error: op.Unsupported(geometryType: typeof(StreamBundleCase), outputType: typeof(TOut))),
+                }));
     private static Fin<TOut> ProjectCurves<TOut>(CurveBatch batch, Op key) =>
         typeof(TOut) switch {
             Type t when t == typeof(Seq<Curve>) => key.Accept(values: batch.Curves.AsIterable()).Map(static value => (TOut)(object)value),
@@ -358,28 +461,6 @@ internal abstract partial record Extraction {
             Type t when t == typeof(ScalarIsolineReceipt) => batch.ScalarIsoline.ToFin(Fail: key.Unsupported(geometryType: typeof(ContourPolicy), outputType: typeof(ScalarIsolineReceipt))).Map(static value => (TOut)(object)value.Receipt),
             _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(Extraction), outputType: typeof(TOut))),
         };
-    private static Fin<TOut> ProjectGlyphs<TOut>(VectorField field, ExtractionDomain domain, GlyphPolicy policy, Context context, Op key) =>
-        ProjectSamples<TOut, Line, (VectorField Field, PositiveMagnitude Scale)>(
-            kind: policy.Kind, domain: domain, context: context, key: key, state: (field, policy.Scale),
-            sample: static (state, point, model, op) => ExtractionProbe.Vector(source: state.Field).Project<VectorSpan>(sample: point, context: model, key: op).Map(span => new Line(span.Anchor, span.Anchor + (state.Scale.Value * span.Value))),
-            project: static (glyphs, op) => typeof(TOut) == typeof(Seq<Line>) ? op.Accept(values: glyphs.AsIterable()).Map(static value => (TOut)(object)value) : Fin.Fail<TOut>(error: op.Unsupported(geometryType: typeof(GlyphCase), outputType: typeof(TOut))));
-    private static Fin<TOut> ProjectGrid<TOut>(ScalarField field, ExtractionDomain domain, GridPolicy policy, Context context, Op key) =>
-        ProjectSamples(
-            kind: policy.Kind, domain: domain, context: context, key: key, state: field,
-            sample: static (source, point, model, op) => source.SampleScalar(sample: point, context: model, key: op).Map(value => (Point: point, Value: value)),
-            project: static (samples, op) => typeof(TOut) == typeof(Seq<(Point3d Point, double Value)>)
-                ? samples.ForAll(static sample => sample.Point.IsValid && RhinoMath.IsValidDouble(x: sample.Value)) ? Fin.Succ((TOut)(object)samples) : Fin.Fail<TOut>(error: op.InvalidResult())
-                : Fin.Fail<TOut>(error: op.Unsupported(geometryType: typeof(SampleGridCase), outputType: typeof(TOut))));
-    private static Fin<TOut> ProjectBundle<TOut>(VectorField field, ExtractionDomain domain, StreamBundlePolicy policy, Context context, Op key) =>
-        ProjectSamples<TOut, StreamlineTrace, (VectorField Field, StreamBundlePolicy Policy)>(
-            kind: policy.Kind, domain: domain, context: context, key: key, state: (field, policy),
-            sample: static (state, seed, model, op) => FlowKernel.Trace<StreamlineTrace>(source: state.Field, seed: seed, initialStep: state.Policy.InitialStep, integrator: state.Policy.Integrator, termination: state.Policy.Termination, context: model, key: op),
-            project: static (traces, op) => typeof(TOut) switch {
-                Type t when t == typeof(Seq<StreamlineTrace>) => traces.TraverseM(trace => FlowKernel.ProjectTrace<StreamlineTrace>(trace: trace, key: op)).As().Map(static value => (TOut)(object)value),
-                Type t when t == typeof(Seq<Polyline>) => traces.TraverseM(trace => FlowKernel.ProjectTrace<Polyline>(trace: trace, key: op)).As().Map(static value => (TOut)(object)value),
-                Type t when t == typeof(Seq<Curve>) => traces.TraverseM(trace => FlowKernel.ProjectTrace<Curve>(trace: trace, key: op)).As().Map(static value => (TOut)(object)value),
-                _ => Fin.Fail<TOut>(error: op.Unsupported(geometryType: typeof(StreamBundleCase), outputType: typeof(TOut))),
-            });
     private static Fin<TOut> ProjectSamples<TOut, TItem, TState>(SampleKind kind, ExtractionDomain domain, Context context, Op key, TState state, Func<TState, Point3d, Context, Op, Fin<TItem>> sample, Func<Seq<TItem>, Op, Fin<TOut>> project) =>
         from samples in kind.Evaluate(domain: domain, context: context, key: key)
         from items in samples.Points.TraverseM(point => sample(state, point, context, key)).As()
@@ -390,7 +471,6 @@ internal abstract partial record Extraction {
     internal static Fin<TOut> Accept<TOut, TValue>(TValue value, Op key) =>
         key.AcceptValue(value: value).Map(static accepted => (TOut)(object)accepted!);
     private static Fin<TOut> Receipt<TOut>(int attempted, int emitted, bool nativeRouted, ToleranceSource toleranceSource, Option<double> tolerance, bool parallelCallback, Op key) =>
-        attempted < 0 || emitted < 0 || emitted > attempted
-            ? Fin.Fail<TOut>(error: key.InvalidResult())
-            : Fin.Succ((TOut)(object)ExtractionDomain.ReceiptOf(status: ExtractionStatus.Complete, attempted: attempted, emitted: emitted, rejected: attempted - emitted, nativeRouted: nativeRouted, toleranceSource: toleranceSource, tolerance: tolerance, parallelCallback: parallelCallback));
+        ExtractionReceipt.Of(status: ExtractionStatus.Complete, attempted: attempted, emitted: emitted, nativeRouted: nativeRouted, toleranceSource: toleranceSource, tolerance: tolerance, parallelCallback: parallelCallback, key: key)
+            .Map(static receipt => (TOut)(object)receipt);
 }

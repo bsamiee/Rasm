@@ -93,31 +93,32 @@ internal static class AlignKernel {
         int n = source.Count;
         Point3d[] transformed = [.. source.AsIterable().Select(point => current * point)];
         int[][] nearestIds = [.. RTree.PointCloudKNeighbors(pointcloud: target.Indexed, needlePts: transformed, amount: 1)];
-        Arr<double> targetMass = target.Mass.IfNone(new Arr<double>([.. Enumerable.Repeat(element: 1.0 / target.Vertices.Count, count: target.Vertices.Count)]));
-        Point3d[] targets = new Point3d[n]; Vector3d[] rowNormals = normals.Length == 0 ? [] : new Vector3d[n]; double[] distances = new double[n]; double[] rowMass = new double[n];
-        List<CloudCorrespondence> items = new(capacity: n);
-        for (int i = 0; i < n; i++) {
-            int nearest = nearestIds.Length > i && nearestIds[i].Length > 0 ? nearestIds[i][0] : -1;
-            if (nearest < 0 || nearest >= target.Vertices.Count || sourceMass.Count <= i || (normals.Length > 0 && nearest >= normals.Length)) return Fin.Fail<AlignmentMatch>(key.InvalidResult());
-            Point3d targetPoint = target.Indexed.PointAt(index: nearest);
-            Vector3d residual = targetPoint - transformed[i];
-            double squared = residual.SquareLength;
-            targets[i] = targetPoint; distances[i] = Math.Sqrt(d: squared); rowMass[i] = sourceMass[index: i];
-            if (normals.Length > 0) rowNormals[i] = normals[nearest];
-            items.Add(item: new CloudCorrespondence(
-                SourceIndex: i,
-                TargetIndex: nearest,
-                SourcePoint: transformed[i],
-                TargetPoint: targetPoint,
-                Residual: residual,
-                Distance: distances[i],
-                SquaredDistance: squared,
-                SourceMass: Some(sourceMass[index: i]),
-                TargetMass: Some(targetMass[index: nearest]),
-                CouplingMass: Some(sourceMass[index: i]),
-                Confidence: Option<double>.None));
-        }
-        return Fin.Succ(new AlignmentMatch(Correspondences: CloudCorrespondenceSet.Of(items: toSeq(items), sourceCount: source.Count, targetCount: target.Vertices.Count), Targets: targets, Normals: rowNormals, Distances: distances, RowMass: rowMass));
+        return CloudKernel.MassOf(cluster: target, key: key).Bind(targetMass => {
+            Point3d[] targets = new Point3d[n]; Vector3d[] rowNormals = normals.Length == 0 ? [] : new Vector3d[n]; double[] distances = new double[n]; double[] rowMass = new double[n];
+            List<CloudCorrespondence> items = new(capacity: n);
+            for (int i = 0; i < n; i++) {
+                int nearest = nearestIds.Length > i && nearestIds[i].Length > 0 ? nearestIds[i][0] : -1;
+                if (nearest < 0 || nearest >= target.Vertices.Count || sourceMass.Count <= i || (normals.Length > 0 && nearest >= normals.Length)) return Fin.Fail<AlignmentMatch>(key.InvalidResult());
+                Point3d targetPoint = target.Indexed.PointAt(index: nearest);
+                Vector3d residual = targetPoint - transformed[i];
+                double squared = residual.SquareLength;
+                targets[i] = targetPoint; distances[i] = Math.Sqrt(d: squared); rowMass[i] = sourceMass[index: i];
+                if (normals.Length > 0) rowNormals[i] = normals[nearest];
+                items.Add(item: new CloudCorrespondence(
+                    SourceIndex: i,
+                    TargetIndex: nearest,
+                    SourcePoint: transformed[i],
+                    TargetPoint: targetPoint,
+                    Residual: residual,
+                    Distance: distances[i],
+                    SquaredDistance: squared,
+                    SourceMass: Some(sourceMass[index: i]),
+                    TargetMass: Some(targetMass[index: nearest]),
+                    CouplingMass: Some(sourceMass[index: i]),
+                    Confidence: Option<double>.None));
+            }
+            return Fin.Succ(new AlignmentMatch(Correspondences: CloudCorrespondenceSet.Of(items: toSeq(items), sourceCount: source.Count, targetCount: target.Vertices.Count), Targets: targets, Normals: rowNormals, Distances: distances, RowMass: rowMass));
+        });
     }
     internal static Fin<AlignmentStep> SolvePointToPoint(Seq<Point3d> source, Point3d[] target, double[] rowMass, Transform current, Op key) =>
         SolveProcrustes(source: source, target: target, weights: rowMass, current: current, key: key)

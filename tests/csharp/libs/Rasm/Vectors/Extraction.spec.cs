@@ -23,37 +23,42 @@ public sealed class ExtractionProjectionLaws {
         Spec.Succ(ExtractionDomain.Of(value: Point3d.Origin, context: ExtractionGens.Model, key: ExtractionGens.Key),
             then: domain => Assert.IsType<ExtractionDomain.SupportCase>(@object: domain));
         Spec.FailCategory(ExtractionDomain.Of(value: null, context: ExtractionGens.Model, key: ExtractionGens.Key), category: "Input");
+        Spec.FailCategory(ExtractionDomain.Cloud(value: null!, key: ExtractionGens.Key), category: "Input");
         Spec.FailCategory(ContourPolicy.Plane(section: Plane.Unset, key: ExtractionGens.Key), category: "Input");
         Spec.Succ(ContourPolicy.Plane(section: Plane.WorldXY, key: ExtractionGens.Key));
+        SampleKind samples = Spec.SuccValue(SampleKind.Explicit(points: ExtractionGens.Samples, key: ExtractionGens.Key), label: "explicit samples");
+        Spec.Succ(GridPolicy.Of(kind: samples, key: ExtractionGens.Key));
+        Spec.FailCategory(GridPolicy.Of(kind: null!, key: ExtractionGens.Key), category: "Input");
     }
     [Fact]
     public void ProbeKeepsFieldProjectionOnIntentRail() {
         SymmetricMatrix tensor = Spec.SuccValue(SymmetricMatrix.Of(dim: Dimension.Create(value: 2), upper: [1.0, 0.25, 2.0], key: ExtractionGens.Key), label: "tensor");
         Spec.Succ(
-            VectorIntent.Probe(source: ExtractionProbe.Scalar(source: ScalarField.Constant(value: 3.0)), sample: Point3d.Origin)
+            Spec.SuccValue(VectorIntent.Probe(source: ExtractionProbe.Scalar(source: ScalarField.Constant(value: 3.0)), sample: Point3d.Origin, key: ExtractionGens.Key), label: "scalar probe")
                 .Project<double>(context: ExtractionGens.Model, key: ExtractionGens.Key),
             then: value => Spec.EqualWithin(left: value, right: 3.0, tolerance: 0.0, what: "scalar probe"));
         Spec.Succ(
-            VectorIntent.Probe(source: ExtractionProbe.Vector(source: VectorField.Constant(value: Vector3d.XAxis)), sample: Point3d.Origin)
+            Spec.SuccValue(VectorIntent.Probe(source: ExtractionProbe.Vector(source: VectorField.Constant(value: Vector3d.XAxis)), sample: Point3d.Origin, key: ExtractionGens.Key), label: "vector probe")
                 .Project<Vector3d>(context: ExtractionGens.Model, key: ExtractionGens.Key),
             then: vector => Spec.NearEqual(left: vector, right: Vector3d.XAxis, tolerance: 0.0));
         Spec.Succ(
-            VectorIntent.Probe(source: ExtractionProbe.Tensor(source: TensorField.Constant(value: tensor)), sample: Point3d.Origin)
+            Spec.SuccValue(VectorIntent.Probe(source: ExtractionProbe.Tensor(source: TensorField.Constant(value: tensor)), sample: Point3d.Origin, key: ExtractionGens.Key), label: "tensor probe")
                 .Project<SymmetricMatrix>(context: ExtractionGens.Model, key: ExtractionGens.Key),
             then: value => Assert.Equal(expected: tensor, actual: value));
         Spec.FailCategory(
-            VectorIntent.Probe(source: ExtractionProbe.Tensor(source: TensorField.Constant(value: tensor)), sample: Point3d.Origin)
+            Spec.SuccValue(VectorIntent.Probe(source: ExtractionProbe.Tensor(source: TensorField.Constant(value: tensor)), sample: Point3d.Origin, key: ExtractionGens.Key), label: "unsupported tensor probe")
                 .Project<double>(context: ExtractionGens.Model, key: ExtractionGens.Key),
             category: "Unsupported");
     }
     [Fact]
     public void GridsReturnComputedReceipts() {
-        ExtractionDomain domain = ExtractionDomain.Cloud(value: Spec.SuccValue(VectorCloud.Cluster(points: ExtractionGens.Samples, context: ExtractionGens.Model, key: ExtractionGens.Key), label: "domain cloud"));
+        ExtractionDomain domain = Spec.SuccValue(ExtractionDomain.Cloud(value: Spec.SuccValue(VectorCloud.Cluster(points: ExtractionGens.Samples, context: ExtractionGens.Model, key: ExtractionGens.Key), label: "domain cloud"), key: ExtractionGens.Key), label: "extraction domain");
         SampleKind samples = Spec.SuccValue(SampleKind.Explicit(points: ExtractionGens.Samples, key: ExtractionGens.Key), label: "explicit samples");
-        VectorIntent grid = VectorIntent.SampleGrid(
+        VectorIntent grid = Spec.SuccValue(VectorIntent.SampleGrid(
             field: ScalarField.Constant(value: 4.0),
             domain: domain,
-            policy: new GridPolicy(Kind: samples));
+            policy: Spec.SuccValue(GridPolicy.Of(kind: samples, key: ExtractionGens.Key), label: "grid policy"),
+            key: ExtractionGens.Key), label: "grid intent");
         Spec.Succ(grid.Project<Seq<(Point3d Point, double Value)>>(context: ExtractionGens.Model, key: ExtractionGens.Key),
             then: samples => {
                 Assert.Equal(expected: ExtractionGens.Samples.Count, actual: samples.Count);

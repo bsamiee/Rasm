@@ -12,7 +12,7 @@ internal static class IntentGens {
     public static readonly Gen<double> OutsideUnit = Gens.Finite.Where(static t => t is < 0.0 or > 1.0);
     public static readonly Seq<Point3d> ClusterPoints = Gens.UnitTriangle3;
     public static VectorCloud Cluster => Spec.SuccValue(VectorCloud.Cluster(points: ClusterPoints, context: Model, key: Key), label: "cluster");
-    public static ExtractionDomain CloudDomain => ExtractionDomain.Cloud(value: Cluster);
+    public static ExtractionDomain CloudDomain => Spec.SuccValue(ExtractionDomain.Cloud(value: Cluster, key: Key), label: "intent cloud domain");
     public static SampleKind ExplicitSamples => Spec.SuccValue(SampleKind.Explicit(points: ClusterPoints, key: Key), label: "intent explicit samples");
     public static PositiveMagnitude Step => Spec.SuccValue(Key.AcceptValidated<PositiveMagnitude>(candidate: 0.1), label: "step");
     public static Termination Stop => Spec.SuccValue(Termination.Steps(count: 1, key: Key), label: "stop");
@@ -63,23 +63,27 @@ public sealed class VectorIntentShapeLaws {
         _ = Assert.IsType<VectorIntent.MirrorCase>(@object: VectorIntent.Mirror(value: Vector3d.XAxis, across: Plane.WorldYZ));
         _ = Assert.IsType<VectorIntent.RayCase>(@object: VectorIntent.Ray(origin: Point3d.Origin, direction: IntentGens.X));
         _ = Assert.IsType<VectorIntent.StreamlineCase>(@object: Spec.SuccValue(VectorIntent.Streamline(field: VectorField.Constant(value: Vector3d.XAxis), seed: Point3d.Origin, initialStep: 0.1, termination: IntentGens.Stop, key: IntentGens.Key), label: "streamline"));
-        _ = Assert.IsType<VectorIntent.ProbeCase>(@object: VectorIntent.Probe(source: ExtractionProbe.Vector(source: VectorField.Constant(value: Vector3d.XAxis)), sample: Point3d.Origin));
-        _ = Assert.IsType<VectorIntent.ProbeCase>(@object: VectorIntent.Probe(source: ExtractionProbe.Scalar(source: ScalarField.Constant(value: 1.0)), sample: Point3d.Origin));
-        _ = Assert.IsType<VectorIntent.ContourCase>(@object: VectorIntent.Contour(
+        _ = Assert.IsType<VectorIntent.ExtractionCase>(@object: Spec.SuccValue(VectorIntent.Probe(source: ExtractionProbe.Vector(source: VectorField.Constant(value: Vector3d.XAxis)), sample: Point3d.Origin, key: IntentGens.Key), label: "vector probe"));
+        _ = Assert.IsType<VectorIntent.ExtractionCase>(@object: Spec.SuccValue(VectorIntent.Probe(source: ExtractionProbe.Scalar(source: ScalarField.Constant(value: 1.0)), sample: Point3d.Origin, key: IntentGens.Key), label: "scalar probe"));
+        _ = Assert.IsType<VectorIntent.ExtractionCase>(@object: Spec.SuccValue(VectorIntent.Contour(
             domain: IntentGens.CloudDomain,
-            policy: Spec.SuccValue(ContourPolicy.Plane(section: Plane.WorldXY, key: IntentGens.Key), label: "contour plane")));
-        _ = Assert.IsType<VectorIntent.GlyphCase>(@object: VectorIntent.Glyph(
+            policy: Spec.SuccValue(ContourPolicy.Plane(section: Plane.WorldXY, key: IntentGens.Key), label: "contour plane"),
+            key: IntentGens.Key), label: "contour intent"));
+        _ = Assert.IsType<VectorIntent.ExtractionCase>(@object: Spec.SuccValue(VectorIntent.Glyph(
             field: VectorField.Constant(value: Vector3d.XAxis),
             domain: IntentGens.CloudDomain,
-            policy: new GlyphPolicy(Kind: IntentGens.ExplicitSamples, Scale: IntentGens.Step)));
-        _ = Assert.IsType<VectorIntent.SampleGridCase>(@object: VectorIntent.SampleGrid(
+            policy: Spec.SuccValue(GlyphPolicy.Of(kind: IntentGens.ExplicitSamples, scale: IntentGens.Step, key: IntentGens.Key), label: "glyph policy"),
+            key: IntentGens.Key), label: "glyph intent"));
+        _ = Assert.IsType<VectorIntent.ExtractionCase>(@object: Spec.SuccValue(VectorIntent.SampleGrid(
             field: ScalarField.Constant(value: 1.0),
             domain: IntentGens.CloudDomain,
-            policy: new GridPolicy(Kind: IntentGens.ExplicitSamples)));
-        _ = Assert.IsType<VectorIntent.StreamBundleCase>(@object: VectorIntent.StreamBundle(
+            policy: Spec.SuccValue(GridPolicy.Of(kind: IntentGens.ExplicitSamples, key: IntentGens.Key), label: "grid policy"),
+            key: IntentGens.Key), label: "grid intent"));
+        _ = Assert.IsType<VectorIntent.ExtractionCase>(@object: Spec.SuccValue(VectorIntent.StreamBundle(
             field: VectorField.Constant(value: Vector3d.XAxis),
             domain: IntentGens.CloudDomain,
-            policy: new StreamBundlePolicy(Kind: IntentGens.ExplicitSamples, InitialStep: IntentGens.Step, Integrator: new FieldIntegrator.FixedCase(Kind: IntegratorKind.RK4), Termination: IntentGens.Stop)));
+            policy: Spec.SuccValue(StreamBundlePolicy.Of(kind: IntentGens.ExplicitSamples, initialStep: IntentGens.Step, integrator: new FieldIntegrator.FixedCase(Kind: IntegratorKind.RK4), termination: IntentGens.Stop, key: IntentGens.Key), label: "bundle policy"),
+            key: IntentGens.Key), label: "bundle intent"));
     }
     [Fact]
     public void ProjectRequiresContextBeforeDispatch() {
@@ -92,10 +96,13 @@ public sealed class VectorIntentShapeLaws {
         Spec.FailCategory(VectorIntent.Streamline(field: VectorField.Constant(value: Vector3d.XAxis), seed: Point3d.Origin, initialStep: 0.1, termination: null!, key: IntentGens.Key), category: "Input");
         Spec.FailCategory(VectorIntent.IsoSurface(field: null!, bounds: new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0)), resolution: 2, maxRootSteps: 1, key: IntentGens.Key), category: "Input");
         Spec.FailCategory(VectorIntent.IsoSurface(field: ScalarField.Constant(value: 0.0), bounds: BoundingBox.Empty, resolution: 1, maxRootSteps: 0, key: IntentGens.Key), category: "Input");
+        Spec.FailCategory(VectorIntent.Contour(domain: null!, policy: Spec.SuccValue(ContourPolicy.Plane(section: Plane.WorldXY, key: IntentGens.Key), label: "contour policy"), key: IntentGens.Key), category: "Input");
+        Spec.FailCategory(VectorIntent.Sample(domain: IntentGens.CloudDomain, kind: null!, key: IntentGens.Key), category: "Input");
+        Spec.FailCategory(VectorIntent.SampleGrid(field: ScalarField.Constant(value: 1.0), domain: IntentGens.CloudDomain, policy: default, key: IntentGens.Key), category: "Input");
     }
     [Fact]
     public void DispatchRailPreservesSupportedOutputAndRejectsForeignOutput() {
-        VectorIntent sample = VectorIntent.Sample(domain: IntentGens.CloudDomain, kind: IntentGens.ExplicitSamples);
+        VectorIntent sample = Spec.SuccValue(VectorIntent.Sample(domain: IntentGens.CloudDomain, kind: IntentGens.ExplicitSamples, key: IntentGens.Key), label: "sample intent");
         Spec.Succ(sample.Project<SampleReceipt>(context: IntentGens.Model, key: IntentGens.Key), then: receipt =>
             Spec.CountsConserve(attempted: receipt.Attempted, emitted: receipt.Emitted, rejected: receipt.Rejected, label: "intent sample"));
         Spec.Succ(sample.Project<VectorCloud>(context: IntentGens.Model, key: IntentGens.Key), then: cloud =>
