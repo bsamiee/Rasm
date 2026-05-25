@@ -633,7 +633,7 @@ internal sealed record ProjectBuild(string ProjectPath, string Configuration, st
         path.Contains(value: "/packs/Microsoft.NETCore.App.Ref/", comparisonType: StringComparison.Ordinal)
         || path.Contains(value: "/packs/NETStandard.Library.Ref/", comparisonType: StringComparison.Ordinal);
     private static bool IsHostReference(string path) =>
-        Path.GetFileNameWithoutExtension(path: path) is "RhinoCommon" or "Rhino.UI" or "Grasshopper" or "Grasshopper2" or "GrasshopperIO" or "Rasm.RhinoBridge.Protocol" or "Rasm.RhinoBridge.Plugin";
+        Path.GetFileNameWithoutExtension(path: path) is "RhinoCommon" or "Rhino.UI" or "Grasshopper" or "Grasshopper2" or "GrasshopperIO" or "Rasm.RhinoBridge.Protocol" or "rasm-bridge";
     private static string ReferenceIdentity(string path) {
         try {
             System.Reflection.AssemblyName name = System.Reflection.AssemblyName.GetAssemblyName(assemblyFile: path);

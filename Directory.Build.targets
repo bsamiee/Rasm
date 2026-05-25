@@ -1,6 +1,10 @@
 <Project>
     <PropertyGroup Label="Yak Packaging">
-        <YakManifestDirectory Condition="'$(YakManifestDirectory)' == '' and '$(YakPackageSlug)' != ''">$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', 'tools', 'yak', '$(YakPackageSlug)'))</YakManifestDirectory>
+        <YakManifestDirectory Condition="'$(YakManifestDirectory)' == '' and '$(YakPackageSlug)' != ''">$([MSBuild]::NormalizePath('$(YakPackagesRoot)', '$(YakPackageSlug)'))</YakManifestDirectory>
+        <IsYakPackageProject Condition="'$(IsYakPackageProject)' == '' and '$(YakPackageSlug)' != '' and ('$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true')">true</IsYakPackageProject>
+        <IsYakPackageProject Condition="'$(IsYakPackageProject)' == ''">false</IsYakPackageProject>
+        <YakPackageDirectory Condition="'$(YakPackageDirectory)' == '' and '$(YakPackageSlug)' != ''">$([MSBuild]::NormalizePath('$(YakStageRoot)', '$(YakPackageSlug)', 'package'))</YakPackageDirectory>
+        <YakPackagePattern Condition="'$(YakPackagePattern)' == '' and '$(YakPackageSlug)' != ''">*-$(Version)-rh9_*-$(YakPlatform).yak</YakPackagePattern>
     </PropertyGroup>
 
     <!--

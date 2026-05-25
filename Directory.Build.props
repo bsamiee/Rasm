@@ -8,6 +8,8 @@
         <RasmRhinoRoot>$([MSBuild]::NormalizeDirectory('$(CSharpLibsRoot)', 'Rasm.Rhino'))</RasmRhinoRoot>
         <RhinoBridgeRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'tools', 'rhino-bridge'))</RhinoBridgeRoot>
         <RhinoBridgePluginRoot>$([MSBuild]::NormalizeDirectory('$(RhinoBridgeRoot)', 'plugin'))</RhinoBridgePluginRoot>
+        <YakPackagesRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'tools', 'yak'))</YakPackagesRoot>
+        <YakStageRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '.artifacts', 'rhino'))</YakStageRoot>
         <TestsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'tests', 'csharp'))</TestsRoot>
         <TestsArchitectureRoot>$([MSBuild]::NormalizeDirectory('$(TestsRoot)', '_architecture'))</TestsArchitectureRoot>
         <TestsBenchmarksRoot>$([MSBuild]::NormalizeDirectory('$(TestsRoot)', '_benchmarks'))</TestsBenchmarksRoot>
@@ -100,6 +102,13 @@
         <GrasshopperIoReferencePath>$(RhinoWipResourcesPath)/ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll</GrasshopperIoReferencePath>
         <RhinoRuntimeCodeReferencePath>$(RhinoWipResourcesPath)/Rhino.Runtime.Code.dll</RhinoRuntimeCodeReferencePath>
         <RhinoCodePlatformReferencePath>$(RhinoWipResourcesPath)/RhinoCodePlatform.Rhino3D.dll</RhinoCodePlatformReferencePath>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Yak Packaging">
+        <YakPath Condition="'$(YakPath)' == '' and '$(RHINO_YAK_PATH)' != ''">$(RHINO_YAK_PATH)</YakPath>
+        <YakPath Condition="'$(YakPath)' == ''">$(RhinoWipAppPath)/Contents/Resources/bin/yak</YakPath>
+        <YakPlatform Condition="'$(YakPlatform)' == ''">mac</YakPlatform>
+        <YakPushSource Condition="'$(YakPushSource)' == '' and '$(YAK_SOURCE)' != ''">$(YAK_SOURCE)</YakPushSource>
     </PropertyGroup>
 
     <PropertyGroup Label="RhinoWIP Boundaries" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true'">

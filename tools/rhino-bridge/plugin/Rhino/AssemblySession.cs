@@ -165,7 +165,7 @@ internal sealed class BridgeLoadContext : AssemblyLoadContext {
         "Grasshopper2",
         "GrasshopperIO",
         "Rasm.RhinoBridge.Protocol",
-        "Rasm.RhinoBridge.Plugin",
+        "rasm-bridge",
     };
     internal BridgeLoadContext(string assemblyPath, string packageCacheRoot) : base(isCollectible: true) {
         resolver = new AssemblyDependencyResolver(assemblyPath);

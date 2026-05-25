@@ -6,22 +6,23 @@ IFS=$'\n\t'
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 readonly SCRIPT_DIR ROOT_DIR
-readonly SOLUTION_PATH="${ROOT_DIR}/Workspace.slnx"
-readonly PACKAGE_STAGE_ROOT="${ROOT_DIR}/.artifacts/rhino"
-readonly YAK_ROOT="${ROOT_DIR}/tools/yak"
-readonly YAK_PATH="${RHINO_YAK_PATH:-/Applications/RhinoWIP.app/Contents/Resources/bin/yak}"
 readonly CONFIGURATION="${CONFIGURATION:-Release}"
-readonly API_RHINO_WIP_APP_PATH="${RHINO_WIP_APP_PATH:-/Applications/RhinoWIP.app}"
-readonly API_RHINO_WIP_RESOURCES="${API_RHINO_WIP_APP_PATH}/Contents/Frameworks/RhCore.framework/Versions/A/Resources"
-readonly API_RHINO_CODE="${API_RHINO_WIP_APP_PATH}/Contents/Resources/bin/rhinocode"
+_msbuild_property() {
+    local -r project="$1" property="$2"
+    dotnet msbuild "${project}" -p:Configuration="${CONFIGURATION}" "-getProperty:${property}" -nologo
+}
+readonly SOLUTION_PATH="${ROOT_DIR}/Workspace.slnx"
 readonly BRIDGE_PROTOCOL_PROJECT="${ROOT_DIR}/tools/rhino-bridge/protocol/Rasm.RhinoBridge.Protocol.csproj"
 readonly BRIDGE_CLIENT_PROJECT="${ROOT_DIR}/tools/rhino-bridge/client/Rasm.RhinoBridge.Client.csproj"
 readonly BRIDGE_PLUGIN_PROJECT="${ROOT_DIR}/tools/rhino-bridge/plugin/Rasm.RhinoBridge.Plugin.csproj"
+PACKAGE_STAGE_ROOT="$(_msbuild_property "${BRIDGE_CLIENT_PROJECT}" YakStageRoot)"
+YAK_PATH="$(_msbuild_property "${BRIDGE_CLIENT_PROJECT}" YakPath)"
+readonly PACKAGE_STAGE_ROOT YAK_PATH
+readonly API_RHINO_WIP_APP_PATH="${RHINO_WIP_APP_PATH:-/Applications/RhinoWIP.app}"
+readonly API_RHINO_WIP_RESOURCES="${API_RHINO_WIP_APP_PATH}/Contents/Frameworks/RhCore.framework/Versions/A/Resources"
+readonly API_RHINO_CODE="${API_RHINO_WIP_APP_PATH}/Contents/Resources/bin/rhinocode"
 readonly -a DOTNET_SERIAL_BUILD_ARGS=(-maxcpucount:1 -p:BuildInParallel=false)
-declare -Ar PACKAGE_PROJECTS=(
-    [radyab]="${ROOT_DIR}/apps/grasshopper/Radyab/Radyab.csproj"
-    [rasm-bridge]="${BRIDGE_PLUGIN_PROJECT}"
-)
+readonly -a PACKAGE_PROJECT_ROOTS=("${ROOT_DIR}/apps" "${ROOT_DIR}/tools")
 declare -Ar API_REFERENCES=(
     [rhino-common]="${API_RHINO_WIP_RESOURCES}/RhinoCommon.dll|${API_RHINO_WIP_RESOURCES}/RhinoCommon.xml|${ROOT_DIR}/.cache/nuget/packages/rhinocommon/*/lib/net8.0/RhinoCommon.xml"
     [rhino-ui]="${API_RHINO_WIP_RESOURCES}/Rhino.UI.dll|${API_RHINO_WIP_RESOURCES}/Rhino.UI.xml|"
@@ -39,8 +40,8 @@ declare -Ar ROUTES=(
     [build]='_build|0|1|build [version]|'
     [verify]='_verify|1|1|verify <path-or-glob>|'
     [package]='_cmd_package|2|2|package <package> <version>|'
-    [push-test]='_push_package|2|2|push-test <package> <version>|https://test.yak.rhino3d.com'
-    [push]='_push_package|2|2|push <package> <version>|-'
+    [install]='_package_action|2|2|install <package> <version>|install'
+    [push]='_package_action|2|2|push <package> <version>|push'
     [bridge:build]='_bridge_build|0|0|bridge build|'
     [bridge:package]='_cmd_package|1|1|bridge package <version>|rasm-bridge'
     [bridge:install]='_bridge_install|1|1|bridge install <local-yak-path>|'
@@ -60,7 +61,7 @@ declare -Ar ROUTES=(
     [api:types]='_api_types|1|2|api types <api-key> [pattern]|'
     [api:decompile]='_api_decompile|2|2|api decompile <api-key> <type>|'
 )
-readonly -a ROUTE_ORDER=(--self-test build verify bridge:build bridge:package bridge:install bridge:launch bridge:restart bridge:doctor bridge:script bridge:load bridge:load-smoke bridge:check bridge:check-source bridge:unload bridge:quit api:doctor api:path api:xml api:types api:decompile package push-test push)
+readonly -a ROUTE_ORDER=(--self-test build verify bridge:build bridge:package bridge:install bridge:launch bridge:restart bridge:doctor bridge:script bridge:load bridge:load-smoke bridge:check bridge:check-source bridge:unload bridge:quit api:doctor api:path api:xml api:types api:decompile package install push)
 readonly -a BRIDGE_PROJECTS=("${BRIDGE_PROTOCOL_PROJECT}" "${BRIDGE_PLUGIN_PROJECT}" "${BRIDGE_CLIENT_PROJECT}")
 _trap_err() {
     local -r exit_code="$?"
@@ -141,9 +142,12 @@ _self_test() {
     done
     bash -n "${BASH_SOURCE[0]}"
     shellcheck "${BASH_SOURCE[0]}"
-    local -a required=("${SOLUTION_PATH}" "${BRIDGE_PROJECTS[@]}" "${PACKAGE_PROJECTS[@]}")
     local path route handler min max line preset package_slug project manifest_dir target_dir target_framework assembly_name target_ext project_dir
     declare -A ordered_routes=()
+    local -a package_projects=()
+    _package_projects package_projects
+    ((${#package_projects[@]} > 0)) || _die "No package projects found"
+    local -a required=("${SOLUTION_PATH}" "${BRIDGE_PROJECTS[@]}" "${package_projects[@]}")
     for path in "${required[@]}"; do
         [[ -e "${path}" ]] || _die "Missing required path: ${path}"
     done
@@ -163,20 +167,59 @@ _self_test() {
     declare -Ar route_contracts=(
         [bridge:package]='_cmd_package|rasm-bridge|1|1'
         [bridge:install]='_bridge_install||1|1'
+        [install]='_package_action|install|2|2'
         [bridge:quit]='_bridge_client|quit|0|0'
-        [push]='_push_package|-|2|2'
-        [push-test]='_push_package|https://test.yak.rhino3d.com|2|2'
+        [push]='_package_action|push|2|2'
     )
     for route in "${!route_contracts[@]}"; do
         _route_meta "${route}" handler min max line preset
         [[ "${handler}|${preset}|${min}|${max}" == "${route_contracts[${route}]}" ]] || _die "Route contract invalid: ${route}"
     done
-    for package_slug in "${!PACKAGE_PROJECTS[@]}"; do
-        _package_meta "${package_slug}" project manifest_dir target_dir target_framework assembly_name target_ext project_dir
+    local package_count=0
+    for project in "${package_projects[@]}"; do
+        package_slug="$(_package_slug "${project}" || true)"
+        [[ -n "${package_slug}" ]] || continue
+        ((package_count += 1))
+        local yak_path yak_platform yak_push_source package_dir package_pattern
+        _package_meta "${package_slug}" "" project manifest_dir target_dir target_framework assembly_name target_ext project_dir yak_path yak_platform yak_push_source package_dir package_pattern
         [[ -f "${manifest_dir}/manifest.yml" ]] || _die "Missing Yak manifest for ${package_slug}: ${manifest_dir}/manifest.yml"
-        [[ -d "${project_dir}" && -f "${YAK_ROOT}/${package_slug}/manifest.yml" ]] || _die "Package wiring invalid for ${package_slug}"
+        [[ -d "${project_dir}" ]] || _die "Package project directory missing for ${package_slug}: ${project_dir}"
         [[ -n "${target_dir}" && "${target_dir}" == "${ROOT_DIR}/"* && "${target_dir}" == "${project_dir}/bin/${CONFIGURATION}/${target_framework}/" ]] || _die "Package target directory unsafe for ${package_slug}: ${target_dir}"
+        [[ -n "${yak_path}" && -n "${yak_platform}" && -n "${package_dir}" && -n "${package_pattern}" ]] || _die "Package Yak metadata incomplete for ${package_slug}"
     done
+    ((package_count > 0)) || _die "No YakPackageSlug projects found"
+}
+_package_projects() {
+    local -n __projects="$1"
+    __projects=()
+    local -a roots=()
+    local root
+    for root in "${PACKAGE_PROJECT_ROOTS[@]}"; do
+        [[ -d "${root}" ]] && roots+=("${root}")
+    done
+    ((${#roots[@]} > 0)) || return 0
+    mapfile -t __projects < <(fd -H -e csproj . "${roots[@]}" | LC_ALL=C sort)
+}
+_package_slug() {
+    local -r project="$1"
+    local payload
+    payload="$(dotnet msbuild "${project}" -p:Configuration="${CONFIGURATION}" -getProperty:YakPackageSlug -nologo)"
+    [[ -n "${payload}" ]] || return 1
+    printf '%s\n' "${payload}"
+}
+_package_project() {
+    local -r package_slug="$1"
+    local -n __selected_project="$2"
+    local -a projects=()
+    _package_projects projects
+    local candidate candidate_slug
+    local -a matches=()
+    for candidate in "${projects[@]}"; do
+        candidate_slug="$(_package_slug "${candidate}" || true)"
+        [[ "${candidate_slug}" == "${package_slug}" ]] && matches+=("${candidate}")
+    done
+    ((${#matches[@]} == 1)) || _die "Expected one package project for ${package_slug}, found ${#matches[@]}"
+    __selected_project="${matches[0]}"
 }
 _build() {
     local -r version="${1:-}"
@@ -300,15 +343,13 @@ _verify_run() {
             *) ((failed += 1)); printf '[FAILED] %s rc=%s status=%s result=%s\n' "${scenario#"${ROOT_DIR}/"}" "${rc}" "${status}" "${result}" >&2 ;;
         esac
     done
-    local -a valid_results=()
     local result_file
     local -r result_stream="${report_dir}/.tmp/results.jsonl"
     : > "${result_stream}"
     for result_file in "${result_files[@]}"; do
-        jq -c . "${result_file}" >> "${result_stream}" 2>/dev/null && valid_results+=("${result_file}")
+        jq -c . "${result_file}" >> "${result_stream}" 2>/dev/null || true
     done
     local -r summary="${report_dir}/summary.json"
-    : "${valid_results[*]:-}"
     jq -n --argjson ok "${ok}" --argjson failed "${failed}" --slurpfile s "${result_stream}" '{summary:{ok:$ok,failed:$failed,total:($ok+$failed)},scenarios:$s}' > "${summary}"
     cat "${summary}"
     ((failed == 0)) || exit 1
@@ -524,20 +565,25 @@ _bridge_install() {
     readonly doctor_json
     printf '%s\n' "${doctor_json}"
     local live_version
-    live_version="$(jq -er 'first(.phases[] | select(.phase == "doctor") | .data.assemblies[] | select(.name == "Rasm.RhinoBridge.Plugin") | (.informationalVersion // .version)) // empty' <<< "${doctor_json}")" || _die "Bridge doctor did not report Rasm.RhinoBridge.Plugin"
+    live_version="$(jq -er 'first(.phases[] | select(.phase == "doctor") | .data.assemblies[] | select(.name == "rasm-bridge") | (.informationalVersion // .version)) // empty' <<< "${doctor_json}")" || _die "Bridge doctor did not report rasm-bridge"
     readonly live_version
     [[ "${live_version}" == "${expected_version}" ]] || _die "Installed bridge version mismatch: expected ${expected_version}, live ${live_version}"
 }
 _package_meta() {
     local -r package_slug="$1"
-    shift
-    local -n __project="$1" __manifest_dir="$2" __target_dir="$3" __target_framework="$4" __assembly_name="$5" __target_ext="$6" __project_dir="$7"
-    [[ -v PACKAGE_PROJECTS["${package_slug}"] ]] || _die "Unknown package: ${package_slug}"
-    __project="${PACKAGE_PROJECTS[${package_slug}]}"
+    local -r package_version="$2"
+    shift 2
+    local -n __project="$1" __manifest_dir="$2" __target_dir="$3" __target_framework="$4" __assembly_name="$5" __target_ext="$6" __project_dir="$7" __yak_path="$8" __yak_platform="$9"
+    shift 9
+    local -n __yak_push_source="$1" __package_dir="$2" __package_pattern="$3"
+    _package_project "${package_slug}" __project
+    local -a version_args=()
+    [[ -n "${package_version}" ]] && version_args=("/p:Version=${package_version}" "/p:InformationalVersion=${package_version}")
     local payload
     payload="$(
         dotnet msbuild "${__project}" \
             -p:Configuration="${CONFIGURATION}" \
+            "${version_args[@]}" \
             -getProperty:YakPackageSlug \
             -getProperty:YakManifestDirectory \
             -getProperty:TargetDir \
@@ -545,12 +591,17 @@ _package_meta() {
             -getProperty:AssemblyName \
             -getProperty:TargetExt \
             -getProperty:MSBuildProjectDirectory \
+            -getProperty:YakPath \
+            -getProperty:YakPlatform \
+            -getProperty:YakPushSource \
+            -getProperty:YakPackageDirectory \
+            -getProperty:YakPackagePattern \
             -nologo
     )"
     readonly payload
     local -a fields=()
-    mapfile -t fields < <(jq -er '.Properties | .YakPackageSlug, .YakManifestDirectory, .TargetDir, .TargetFramework, .AssemblyName, .TargetExt, .MSBuildProjectDirectory' <<< "${payload}")
-    ((${#fields[@]} == 7)) || _die "Could not evaluate package metadata for ${package_slug}"
+    mapfile -t fields < <(jq -er '.Properties | .YakPackageSlug, .YakManifestDirectory, .TargetDir, .TargetFramework, .AssemblyName, .TargetExt, .MSBuildProjectDirectory, .YakPath, .YakPlatform, (.YakPushSource // ""), .YakPackageDirectory, .YakPackagePattern' <<< "${payload}")
+    ((${#fields[@]} == 12)) || _die "Could not evaluate package metadata for ${package_slug}"
     [[ "${fields[0]}" == "${package_slug}" ]] || _die "Package slug mismatch for ${__project}: expected ${package_slug}, evaluated ${fields[0]}"
     __manifest_dir="${fields[1]}"
     __target_dir="${fields[2]}"
@@ -558,28 +609,39 @@ _package_meta() {
     __assembly_name="${fields[4]}"
     __target_ext="${fields[5]}"
     __project_dir="${fields[6]}"
+    __yak_path="${fields[7]}"
+    __yak_platform="${fields[8]}"
+    __yak_push_source="${fields[9]}"
+    __package_dir="${fields[10]}"
+    __package_pattern="${fields[11]}"
     [[ -n "${__target_framework}" && -n "${__assembly_name}" ]] || _die "Package project metadata is incomplete for ${package_slug}: ${__project}"
     [[ "${__target_ext}" == ".rhp" ]] || _die "Package project must emit .rhp for ${package_slug}: ${__project}"
+    [[ "${__yak_platform}" == "mac" && "${__package_pattern}" == *-rh9_*-mac.yak ]] || _die "Package distribution must target Rhino 9 macOS for ${package_slug}: ${__package_pattern}"
+}
+_package_find() {
+    local -r package_slug="$1" version="$2" stage_dir="$3" package_pattern="$4"
+    local -n __package_file="$5"
+    local -a package_files=()
+    mapfile -t package_files < <(fd -H -g "${package_pattern}" . "${stage_dir}" --max-depth 1)
+    ((${#package_files[@]} == 1)) || _die "Expected one Yak package for ${package_slug} ${version}, found ${#package_files[@]}"
+    __package_file="${package_files[0]}"
 }
 _cmd_package() {
-    local -r package_slug="$1"
-    local -r version="$2"
+    local -r package_slug="$1" version="$2"
     _with_lock "package:${package_slug}" _package_transaction "${package_slug}" "${version}"
 }
 _package_transaction() {
-    local -r package_slug="$1"
-    local -r version="$2"
-    [[ -x "${YAK_PATH}" ]] || _die "Yak not executable at ${YAK_PATH}"
-    local project manifest_dir target_dir target_framework assembly_name target_ext project_dir
-    _package_meta "${package_slug}" project manifest_dir target_dir target_framework assembly_name target_ext project_dir
+    local -r package_slug="$1" version="$2"
+    local project manifest_dir target_dir target_framework assembly_name target_ext project_dir yak_path yak_platform yak_push_source stage_dir package_pattern
+    _package_meta "${package_slug}" "${version}" project manifest_dir target_dir target_framework assembly_name target_ext project_dir yak_path yak_platform yak_push_source stage_dir package_pattern
+    [[ -x "${yak_path}" ]] || _die "Yak not executable at ${yak_path}"
     [[ -n "${target_dir}" && "${target_dir}" == "${ROOT_DIR}/"* && "${target_dir}" == "${project_dir}/bin/${CONFIGURATION}/${target_framework}/" ]] || _die "Refusing to clean unexpected output directory: ${target_dir}"
     rm -rf -- "${target_dir:?}"
     local -a build_args=(--configuration "${CONFIGURATION}" --no-restore "/p:Version=${version}" "/p:InformationalVersion=${version}")
     dotnet restore "${project}" --locked-mode --disable-parallel
     dotnet build "${project}" "${build_args[@]}" "${DOTNET_SERIAL_BUILD_ARGS[@]}"
     local -r primary_artifact="${target_dir}/${assembly_name}${target_ext}"
-    local -r stage_dir="${PACKAGE_STAGE_ROOT}/${package_slug}/package"
-    local -r stage_root="${PACKAGE_STAGE_ROOT}/${package_slug}"
+    local -r stage_root="${stage_dir%/package}"
     local -r previous_dir="${stage_root}/package.previous.$$"
     mkdir -p -- "${stage_root}"
     local stage_tmp
@@ -596,45 +658,43 @@ _package_transaction() {
     mapfile -t staged_plugins < <(fd -H -e rhp . "${stage_tmp}" --max-depth 1)
     ((${#staged_plugins[@]} == 1)) || _die "Expected one staged .rhp for ${package_slug}, found ${#staged_plugins[@]}"
     [[ -f "${stage_tmp}/manifest.yml" ]] || _die "Missing staged manifest for ${package_slug}"
-    (cd -- "${stage_tmp}" && "${YAK_PATH}" build --platform mac --version "${version}")
-    local -a package_files=()
-    mapfile -t package_files < <(fd -H -g "*-${version}-*-mac.yak" . "${stage_tmp}" --max-depth 1)
-    ((${#package_files[@]} == 1)) || _die "Expected one staged Yak package for ${package_slug} ${version}, found ${#package_files[@]}"
+    (cd -- "${stage_tmp}" && "${yak_path}" build --platform "${yak_platform}" --version "${version}")
+    local package_file
+    _package_find "${package_slug}" "${version}" "${stage_tmp}" "${package_pattern}" package_file
     rm -rf -- "${previous_dir}"
     [[ ! -e "${stage_dir}" ]] || mv -- "${stage_dir}" "${previous_dir}"
     mv -- "${stage_tmp}" "${stage_dir}"
     stage_tmp=""
     rm -rf -- "${previous_dir}"
 }
-_push_package() {
-    local -r source="$1"
-    local -r package_slug="$2"
-    local -r version="$3"
-    local -a source_args=()
-    [[ -n "${source}" ]] && source_args=(--source "${source}")
+_package_action() {
+    local -r action="$1" package_slug="$2" version="$3"
     _cmd_package "${package_slug}" "${version}"
-    local -r stage_dir="${PACKAGE_STAGE_ROOT}/${package_slug}/package"
-    local -a package_files=()
-    mapfile -t package_files < <(fd -H -g "*-${version}-*-mac.yak" . "${stage_dir}" --max-depth 1)
-    ((${#package_files[@]} == 1)) || _die "Expected one Yak package for ${package_slug} ${version}, found ${#package_files[@]}"
-    "${YAK_PATH}" push "${source_args[@]}" "${package_files[0]}"
+    local project manifest_dir target_dir target_framework assembly_name target_ext project_dir yak_path yak_platform yak_push_source package_dir package_pattern
+    _package_meta "${package_slug}" "${version}" project manifest_dir target_dir target_framework assembly_name target_ext project_dir yak_path yak_platform yak_push_source package_dir package_pattern
+    local package_file
+    _package_find "${package_slug}" "${version}" "${package_dir}" "${package_pattern}" package_file
+    local -a source_args=()
+    [[ -n "${yak_push_source}" ]] && source_args=(--source "${yak_push_source}")
+    [[ -x "${yak_path}" ]] || _die "Yak not executable at ${yak_path}"
+    case "${action}" in
+        install) "${yak_path}" install "${package_file}" ;;
+        push) "${yak_path}" push "${source_args[@]}" "${package_file}" ;;
+        *) _die "Unknown package action: ${action}" ;;
+    esac
 }
 _main() {
     local route="${1:-}"
     [[ -n "${route}" ]] || _die_usage all
     shift
-    if [[ "${route}" == bridge ]]; then
-        local -r bridge_command="${1:-}"
-        [[ -n "${bridge_command}" ]] || _die_usage bridge
-        route="bridge:${bridge_command}"
-        shift
-    fi
-    if [[ "${route}" == api ]]; then
-        local -r api_command="${1:-}"
-        [[ -n "${api_command}" ]] || _die_usage api
-        route="api:${api_command}"
-        shift
-    fi
+    case "${route}" in
+        bridge|api)
+            local -r subcommand="${1:-}"
+            [[ -n "${subcommand}" ]] || _die_usage "${route}"
+            route="${route}:${subcommand}"
+            shift
+            ;;
+    esac
     _dispatch "${route}" "$@"
 }
 
