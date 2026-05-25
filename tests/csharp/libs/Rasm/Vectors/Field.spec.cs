@@ -10,6 +10,7 @@ namespace Rasm.Tests.Vectors;
 internal static class FieldGens {
     public static readonly Context Model = Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "field context");
     public static readonly Op Key = Op.Of(name: "field-test");
+    public static readonly BoundingBox Bounds = new(min: new Point3d(x: -1.0, y: -1.0, z: -1.0), max: new Point3d(x: 1.0, y: 1.0, z: 1.0));
     public static readonly Gen<CsgKind> Csg = Gen.OneOfConst(CsgKind.Union, CsgKind.Intersect, CsgKind.Difference);
     public static readonly Gen<KernelKind> Kernel = Gen.OneOfConst(KernelKind.Wendland, KernelKind.Quintic, KernelKind.Cosine, KernelKind.Cubic, KernelKind.Linear, KernelKind.Epanechnikov);
     public static double Sum(Seq<double> xs) => xs.Fold(initialState: 0.0, f: static (acc, x) => acc + x);
@@ -207,9 +208,63 @@ public sealed class FieldReconstructionAndSdfLaws {
         });
     }
     [Fact]
-    public void IsoSurfaceAdmissionRejectsNonfiniteScalarPayloadBeforeNativeMarching() {
-        BoundingBox bounds = new(min: new Point3d(x: -1.0, y: -1.0, z: -1.0), max: new Point3d(x: 1.0, y: 1.0, z: 1.0));
-        Spec.FailCategory(ScalarField.Constant(value: double.NaN).IsoSurfaceDetailed(bounds: bounds, resolution: 8, maxRootSteps: 16, context: FieldGens.Model, key: FieldGens.Key), category: "Input");
+    public void IsoSurfaceAdmissionRejectsNonfiniteScalarPayloadBeforeNativeMarching() =>
+        Spec.FailCategory(ScalarField.Constant(value: double.NaN).IsoSurfaceDetailed(bounds: FieldGens.Bounds, resolution: 8, maxRootSteps: 16, context: FieldGens.Model, key: FieldGens.Key), category: "Input");
+    [Fact]
+    public void IsoSurfaceAdmissionRejectsNonfiniteAnalyticCentersAndStrengthBeforeNativeMarching() {
+        Seq<ScalarField> invalid = Seq(
+            Spec.SuccValue(ScalarField.Density(center: new Point3d(x: double.NaN, y: 0.0, z: 0.0), spread: 1.0, strength: 1.0, key: FieldGens.Key), label: "density center"),
+            Spec.SuccValue(ScalarField.Density(center: Point3d.Origin, spread: 1.0, strength: double.NaN, key: FieldGens.Key), label: "density strength"),
+            Spec.SuccValue(ScalarField.Morse(center: new Point3d(x: 0.0, y: double.NaN, z: 0.0), depth: 1.0, width: 1.0, key: FieldGens.Key), label: "morse center"),
+            Spec.SuccValue(ScalarField.Mollifier(center: new Point3d(x: 0.0, y: 0.0, z: double.NaN), radius: 1.0, key: FieldGens.Key), label: "mollifier center"));
+        _ = invalid.Iter(field => Spec.FailCategory(field.IsoSurfaceDetailed(bounds: FieldGens.Bounds, resolution: 8, maxRootSteps: 16, context: FieldGens.Model, key: FieldGens.Key), category: "Input"));
+    }
+    [Fact]
+    public void IsoSurfaceAdmissionRecursesThroughVectorBackedScalarPayloads() {
+        VectorField invalid = VectorField.Constant(value: new Vector3d(x: double.NaN, y: 0.0, z: 0.0));
+        Seq<ScalarField> fields = Seq(
+            ScalarField.Magnitude(source: invalid),
+            Spec.SuccValue(ScalarField.Divergence(source: invalid, epsilon: 0.1, key: FieldGens.Key), label: "divergence"),
+            Spec.SuccValue(ScalarField.StrainMagnitude(source: invalid, epsilon: 0.1, key: FieldGens.Key), label: "strain"));
+        _ = fields.Iter(field => Spec.FailCategory(field.IsoSurfaceDetailed(bounds: FieldGens.Bounds, resolution: 8, maxRootSteps: 16, context: FieldGens.Model, key: FieldGens.Key), category: "Input"));
+    }
+    [Fact]
+    public void IsoSurfaceAdmissionRejectsNonfiniteChargeAndFalloffPayloads() {
+        SymmetricMatrix invalidMetric = new(Dimension: Rasm.Vectors.Dimension.Create(value: 3), Upper: new Arr<double>([double.NaN, 0.0, 0.0, 1.0, 0.0, 1.0]));
+        Falloff invalidFalloff = Spec.SuccValue(Falloff.AnisotropicKernel(kind: KernelKind.Wendland, metric: TensorField.Constant(value: invalidMetric), radius: 2.0, key: FieldGens.Key), label: "anisotropic falloff");
+        Seq<ScalarField> fields = Seq(
+            new ScalarField.PotentialCase(Charges: Seq((new Point3d(x: double.NaN, y: 0.0, z: 0.0), 1.0)), Falloff: Falloff.Constant),
+            new ScalarField.PotentialCase(Charges: Seq((Point3d.Origin, double.NaN)), Falloff: Falloff.Constant),
+            new ScalarField.PotentialCase(Charges: Seq((Point3d.Origin, 1.0)), Falloff: invalidFalloff),
+            ScalarField.Magnitude(source: new VectorField.CoulombCase(Charges: Seq((Point3d.Origin, double.NaN)), Falloff: Falloff.Constant)));
+        _ = fields.Iter(field => Spec.FailCategory(field.IsoSurfaceDetailed(bounds: FieldGens.Bounds, resolution: 8, maxRootSteps: 16, context: FieldGens.Model, key: FieldGens.Key), category: "Input"));
+    }
+    [Fact]
+    public void ReconstructionAdmissionKeepsSolveFactsAndRejectsTamperedPayloads() {
+        Seq<(Point3d Position, double Value)> samples = Seq(
+            (new Point3d(x: -1.0, y: 0.0, z: 0.0), -1.0),
+            (Point3d.Origin, 0.0),
+            (new Point3d(x: 1.0, y: 0.0, z: 0.0), 1.0));
+        ReconstructionResult rbf = Spec.SuccValue(ScalarField.RbfDetailed(samples: samples, kernel: KernelKind.Wendland, radius: 3.0, key: FieldGens.Key), label: "rbf");
+        ReconstructionResult approximate = Spec.SuccValue(ScalarField.RbfDetailed(samples: samples, kernel: KernelKind.Wendland, radius: 3.0, smoothing: 0.5, key: FieldGens.Key), label: "rbf approximation");
+        Spec.Some(rbf.Receipt.Solve, solve => Assert.Equal(expected: samples.Count, actual: solve.Solution.Count));
+        ScalarField.RbfCase rbfCase = Assert.IsType<ScalarField.RbfCase>(@object: rbf.Field);
+        ScalarField.RbfCase approximateCase = Assert.IsType<ScalarField.RbfCase>(@object: approximate.Field);
+        ScalarField tamperedRbf = new ScalarField.RbfCase(Samples: rbfCase.Samples, Kernel: rbfCase.Kernel, Radius: rbfCase.Radius, Coefficients: new Arr<double>([1.0]), Receipt: rbfCase.Receipt);
+        ScalarField tamperedApproximation = new ScalarField.RbfCase(Samples: approximateCase.Samples, Kernel: approximateCase.Kernel, Radius: approximateCase.Radius, Coefficients: approximateCase.Coefficients, Receipt: approximateCase.Receipt with { Solve = rbfCase.Receipt.Solve });
+        Spec.FailCategory(tamperedRbf.IsoSurfaceDetailed(bounds: FieldGens.Bounds, resolution: 8, maxRootSteps: 16, context: FieldGens.Model, key: FieldGens.Key), category: "Result");
+        Spec.FailCategory(tamperedApproximation.IsoSurfaceDetailed(bounds: FieldGens.Bounds, resolution: 8, maxRootSteps: 16, context: FieldGens.Model, key: FieldGens.Key), category: "Result");
+        Seq<MlsSample> plane = Seq(
+            new MlsSample(Position: new Point3d(x: -1.0, y: -1.0, z: 0.0), Normal: Vector3d.ZAxis, Value: 0.0),
+            new MlsSample(Position: new Point3d(x: 1.0, y: -1.0, z: 0.0), Normal: Vector3d.ZAxis, Value: 0.0),
+            new MlsSample(Position: new Point3d(x: -1.0, y: 1.0, z: 0.0), Normal: Vector3d.ZAxis, Value: 0.0),
+            new MlsSample(Position: new Point3d(x: 1.0, y: 1.0, z: 0.0), Normal: Vector3d.ZAxis, Value: 0.0));
+        ReconstructionResult mls = Spec.SuccValue(ScalarField.MlsDetailed(samples: plane, kernel: KernelKind.Wendland, radius: 3.0, context: FieldGens.Model, key: FieldGens.Key), label: "mls");
+        ScalarField.MlsCase mlsCase = Assert.IsType<ScalarField.MlsCase>(@object: mls.Field);
+        ScalarField tamperedMls = new ScalarField.MlsCase(
+            Samples: Seq(new MlsSample(Position: new Point3d(x: double.NaN, y: 0.0, z: 0.0), Normal: Vector3d.ZAxis, Value: 0.0)),
+            Kernel: mlsCase.Kernel, Radius: mlsCase.Radius, Receipt: mlsCase.Receipt);
+        Spec.FailCategory(tamperedMls.IsoSurfaceDetailed(bounds: FieldGens.Bounds, resolution: 8, maxRootSteps: 16, context: FieldGens.Model, key: FieldGens.Key), category: "Input");
     }
 }
 

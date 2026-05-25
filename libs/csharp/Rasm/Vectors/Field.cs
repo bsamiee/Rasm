@@ -778,7 +778,7 @@ public abstract partial record ScalarField {
     internal Fin<IsoSurfaceResult> IsoSurfaceAttemptDetailed(BoundingBox bounds, int resolution, int maxRootSteps, Context context, Op key) {
         ScalarField self = this;
         return FieldNabla.IsoSurfaceInput(bounds: bounds, resolution: resolution, maxRootSteps: maxRootSteps, key: key)
-            .Bind(_ => self.AdmitIsoSurfaceEvaluator(context: context, key: key))
+            .Bind(_ => Optional(context).ToFin(key.MissingContext()).Bind(model => self.AdmitScalarPayload(context: model, key: key)))
             .Bind(_ => key.Catch(() => {
                 int failures = 0;
                 double EvaluateIso(Point3d point) =>
@@ -798,52 +798,251 @@ public abstract partial record ScalarField {
                     Receipt: new IsoSurfaceReceipt(NativeRouted: true, Bounds: bounds, Resolution: resolution, MaxRootSteps: maxRootSteps, ParallelCallback: true, EvaluatorFailures: failures, Valid: valid, VertexCount: result?.Vertices.Count ?? 0, FaceCount: result?.Faces.Count ?? 0, FixedTolerance: Some(0.001))));
             }));
     }
-    private Fin<Unit> AdmitIsoSurfaceEvaluator(Context context, Op key) =>
-        Optional(context).ToFin(key.MissingContext()).Bind(model =>
-            from _ in AdmitIsoSurfacePayload(key: key)
-            from __ in this is SignedDistanceFromMeshCase mesh
-                ? MeshKernel.PrewarmSignedDistanceEvaluator(space: mesh.Space, method: mesh.Method, key: key).Map(static _ => unit)
-                : (this switch {
-                    BlendCase c => c.Fields,
-                    ScaledCase c => Seq(c.Source),
-                    LaplacianCase c => Seq(c.Source),
-                    PowerCase c => Seq(c.Source),
-                    CsgCase c => Seq(c.Left, c.Right),
-                    PeriodicCase c => Seq(c.Source),
-                    ClampCase c => Seq(c.Source),
-                    OnionCase c => Seq(c.Source),
-                    SdfRoundCase c => Seq(c.Source),
-                    ElongateCase c => Seq(c.Source),
-                    DisplaceCase c => Seq(c.Source, c.Displacement),
-                    TwistCase c => Seq(c.Source),
-                    BendCase c => Seq(c.Source),
-                    _ => Seq<ScalarField>(),
-                }).TraverseM(field => field.AdmitIsoSurfaceEvaluator(context: model, key: key)).As().Map(static _ => unit)
-            select unit);
-    private Fin<Unit> AdmitIsoSurfacePayload(Op key) =>
+    private Fin<Unit> AdmitScalarPayload(Context context, Op key) =>
         this switch {
             ConstantCase c => FieldNabla.Finite(value: c.Value, key: key),
-            ScaledCase c => FieldNabla.Finite(value: c.Scale, key: key),
-            DensityCase c => FieldNabla.Finite(value: c.Strength, key: key),
-            PotentialCase c => c.Charges.ForAll(static charge => FieldNabla.Finite(point: charge.Position) && RhinoMath.IsValidDouble(x: charge.Charge)) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput()),
+            DistanceCase c => AdmitSupportSpace(space: c.Source, key: key),
+            BlendCase c => from mode in Optional(c.Mode).ToFin(key.InvalidInput())
+                           from _ in AdmitScalarFields(fields: c.Fields, context: context, key: key)
+                           select unit,
+            ScaledCase c => from scale in FieldNabla.Finite(value: c.Scale, key: key)
+                            from source in AdmitScalarSource(source: c.Source, context: context, key: key)
+                            select unit,
+            PotentialCase c => from charges in AdmitCharges(charges: c.Charges, key: key)
+                               from falloff in AdmitFalloff(falloff: c.Falloff, context: context, key: key)
+                               select unit,
+            DensityCase c => from center in FieldNabla.Finite(point: c.Center, key: key)
+                             from strength in FieldNabla.Finite(value: c.Strength, key: key)
+                             select unit,
+            MagnitudeCase c => AdmitVectorSource(source: c.Source, context: context, key: key),
+            DivergenceCase c => AdmitVectorSource(source: c.Source, context: context, key: key),
+            LaplacianCase c => AdmitScalarSource(source: c.Source, context: context, key: key),
+            StrainMagnitudeCase c => AdmitVectorSource(source: c.Source, context: context, key: key),
             WorleyCase c => c.Order >= 1 && c.Order <= c.Seeds.Count && c.Seeds.ForAll(static seed => FieldNabla.Finite(point: seed)) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput()),
+            MorseCase c => FieldNabla.Finite(point: c.Center, key: key),
+            MollifierCase c => FieldNabla.Finite(point: c.Center, key: key),
             NoiseCase c => FieldNabla.NoiseInput(octaves: c.Octaves, persistence: c.Persistence, lacunarity: c.Lacunarity, frequency: c.Frequency, key: key),
-            PowerCase c => FieldNabla.Finite(value: c.Exponent, key: key),
-            PeriodicCase c => FieldNabla.Period(period: c.Period, key: key).Map(static _ => unit),
-            ClampCase c => FieldNabla.FiniteRange(minimum: c.Minimum, maximum: c.Maximum, key: key),
+            PowerCase c => from exponent in FieldNabla.Finite(value: c.Exponent, key: key)
+                           from source in AdmitScalarSource(source: c.Source, context: context, key: key)
+                           select unit,
+            CsgCase c => from op in Optional(c.Op).ToFin(key.InvalidInput())
+                         from smoothing in Optional(c.Smoothing).ToFin(key.InvalidInput())
+                         from left in AdmitScalarSource(source: c.Left, context: context, key: key)
+                         from right in AdmitScalarSource(source: c.Right, context: context, key: key)
+                         select unit,
+            PeriodicCase c => from period in FieldNabla.Period(period: c.Period, key: key).Map(static _ => unit)
+                              from source in AdmitScalarSource(source: c.Source, context: context, key: key)
+                              select unit,
+            ClampCase c => from range in FieldNabla.FiniteRange(minimum: c.Minimum, maximum: c.Maximum, key: key)
+                           from source in AdmitScalarSource(source: c.Source, context: context, key: key)
+                           select unit,
             PrimitiveCase c => from kind in Optional(c.Kind).ToFin(key.InvalidInput())
-                               from _ in guard(c.Parameters.Values.All(static value => RhinoMath.IsValidDouble(x: value)) && kind.ValidateParameters(parameters: c.Parameters), key.InvalidInput())
+                               from parameters in Optional(c.Parameters).ToFin(key.InvalidInput())
+                               from _ in guard(parameters.Values.All(static value => RhinoMath.IsValidDouble(x: value)) && kind.ValidateParameters(parameters: parameters), key.InvalidInput())
                                from __ in FieldNabla.Plane(basis: c.Pose, key: key).Map(static _ => unit)
                                select unit,
-            ProfileExtrusionCase c => from _ in guard(c.Profile.IsValid, key.InvalidInput())
+            ProfileExtrusionCase c => from profile in Optional(c.Profile).ToFin(key.InvalidInput())
+                                      from _ in guard(profile.IsValid, key.InvalidInput())
                                       from __ in FieldNabla.Plane(basis: c.Plane, key: key).Map(static _ => unit)
                                       select unit,
-            ElongateCase c => FieldNabla.NonnegativeExtent(extent: c.Extent, key: key).Map(static _ => unit),
-            TwistCase c => FieldNabla.Finite(value: c.AnglePerUnit, key: key),
-            BendCase c => FieldNabla.Finite(value: c.Curvature, key: key),
-            RbfCase c => c.Coefficients.Count == c.Samples.Count && c.Coefficients.ForAll(RhinoMath.IsValidDouble) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult()),
-            _ => Fin.Succ(unit),
+            GeodesicCase c => FieldNabla.MeshVertices(space: c.Space, vertices: c.Sources, allowEmpty: false, key: key).Map(static _ => unit),
+            MeanCurvatureFlowCase c => FieldNabla.MeshOf(space: c.Space, key: key).Map(static _ => unit),
+            SpectralDistanceCase c => from mesh in FieldNabla.MeshVertices(space: c.Space, vertices: c.Sources, allowEmpty: true, key: key).Map(static _ => unit)
+                                      from filter in Optional(c.Filter).ToFin(key.InvalidInput())
+                                      select unit,
+            StripeCase c => from mesh in FieldNabla.MeshOf(space: c.Space, key: key).Map(static _ => unit)
+                            from cross in AdmitVectorSource(source: c.CrossField, context: context, key: key)
+                            select unit,
+            SignedDistanceFromMeshCase c => MeshKernel.PrewarmSignedDistanceEvaluator(space: c.Space, method: c.Method, key: key).Map(static _ => unit),
+            RbfCase c => AdmitRbfPayload(field: c, key: key),
+            MlsCase c => AdmitMlsPayload(field: c, context: context, key: key),
+            OnionCase c => AdmitScalarSource(source: c.Source, context: context, key: key),
+            SdfRoundCase c => AdmitScalarSource(source: c.Source, context: context, key: key),
+            ElongateCase c => from extent in FieldNabla.NonnegativeExtent(extent: c.Extent, key: key).Map(static _ => unit)
+                              from source in AdmitScalarSource(source: c.Source, context: context, key: key)
+                              select unit,
+            DisplaceCase c => from source in AdmitScalarSource(source: c.Source, context: context, key: key)
+                              from displacement in AdmitScalarSource(source: c.Displacement, context: context, key: key)
+                              select unit,
+            TwistCase c => from angle in FieldNabla.Finite(value: c.AnglePerUnit, key: key)
+                           from axis in AdmitDirection(direction: c.Axis, context: context, key: key)
+                           from source in AdmitScalarSource(source: c.Source, context: context, key: key)
+                           select unit,
+            BendCase c => from curvature in FieldNabla.Finite(value: c.Curvature, key: key)
+                          from axis in AdmitDirection(direction: c.Axis, context: context, key: key)
+                          from source in AdmitScalarSource(source: c.Source, context: context, key: key)
+                          select unit,
+            _ => Fin.Fail<Unit>(key.InvalidInput()),
         };
+    private static Fin<Unit> AdmitScalarSource(ScalarField? source, Context context, Op key) =>
+        Optional(source).ToFin(key.InvalidInput()).Bind(field => field.AdmitScalarPayload(context: context, key: key));
+    private static Fin<Unit> AdmitScalarFields(Seq<ScalarField> fields, Context context, Op key) =>
+        !fields.IsEmpty ? fields.TraverseM(field => AdmitScalarSource(source: field, context: context, key: key)).As().Map(static _ => unit) : Fin.Fail<Unit>(key.InvalidInput());
+    private static Fin<Unit> AdmitVectorSource(VectorField? source, Context context, Op key) =>
+        Optional(source).ToFin(key.InvalidInput()).Bind(field => AdmitVectorField(field: field, context: context, key: key));
+    private static Fin<Unit> AdmitVectorFields(Seq<VectorField> fields, Context context, Op key) =>
+        !fields.IsEmpty ? fields.TraverseM(field => AdmitVectorSource(source: field, context: context, key: key)).As().Map(static _ => unit) : Fin.Fail<Unit>(key.InvalidInput());
+    private static Fin<Unit> AdmitVectorField(VectorField field, Context context, Op key) =>
+        field switch {
+            VectorField.ConstantCase c => FieldNabla.Finite(vector: c.Value, key: key),
+            VectorField.BlendCase c => from mode in Optional(c.Mode).ToFin(key.InvalidInput())
+                                       from fields in AdmitVectorFields(fields: c.Fields, context: context, key: key)
+                                       select unit,
+            VectorField.ScaledCase c => from scale in FieldNabla.Finite(value: c.Scale, key: key)
+                                        from source in AdmitVectorSource(source: c.Source, context: context, key: key)
+                                        select unit,
+            VectorField.InfluenceCase c => from space in AdmitSupportSpace(space: c.Source, key: key)
+                                           from falloff in AdmitFalloff(falloff: c.Falloff, context: context, key: key)
+                                           select unit,
+            VectorField.HitFieldCase c => from space in AdmitSupportSpace(space: c.Source, key: key)
+                                          from projection in Optional(c.Projection).ToFin(key.InvalidInput())
+                                          select unit,
+            VectorField.VortexCase c => from anchor in FieldNabla.Finite(point: c.Anchor, key: key)
+                                        from axis in AdmitDirection(direction: c.Axis, context: context, key: key)
+                                        from falloff in AdmitFalloff(falloff: c.Falloff, context: context, key: key)
+                                        select unit,
+            VectorField.RingCase c => from center in FieldNabla.Finite(point: c.Center, key: key)
+                                      from axis in AdmitDirection(direction: c.Axis, context: context, key: key)
+                                      from falloff in AdmitFalloff(falloff: c.Falloff, context: context, key: key)
+                                      select unit,
+            VectorField.HelicalCase c => from anchor in FieldNabla.Finite(point: c.Anchor, key: key)
+                                         from axis in AdmitDirection(direction: c.Axis, context: context, key: key)
+                                         from axial in FieldNabla.Finite(value: c.Axial, key: key)
+                                         from swirl in FieldNabla.Finite(value: c.Swirl, key: key)
+                                         from falloff in AdmitFalloff(falloff: c.Falloff, context: context, key: key)
+                                         select unit,
+            VectorField.CoulombCase c => from charges in AdmitCharges(charges: c.Charges, key: key)
+                                         from falloff in AdmitFalloff(falloff: c.Falloff, context: context, key: key)
+                                         select unit,
+            VectorField.ClusterFieldCase c => from cluster in Optional(c.Source).ToFin(key.InvalidInput())
+                                              from mass in CloudKernel.MassOf(cluster: cluster, key: key).Map(static _ => unit)
+                                              from falloff in AdmitFalloff(falloff: c.Falloff, context: context, key: key)
+                                              select unit,
+            VectorField.DipoleCase c => from origin in FieldNabla.Finite(point: c.Origin, key: key)
+                                        from moment in AdmitDirection(direction: c.Moment, context: context, key: key)
+                                        select unit,
+            VectorField.HarmonicCase c => c.Components.TraverseM(component =>
+                from direction in AdmitDirection(direction: component.Direction, context: context, key: key)
+                from frequency in FieldNabla.Finite(value: component.Frequency, key: key)
+                from phase in FieldNabla.Finite(value: component.Phase, key: key)
+                from amplitude in FieldNabla.Finite(value: component.Amplitude, key: key)
+                select unit).As().Map(static _ => unit),
+            VectorField.ProjectedCase c => from plane in FieldNabla.Plane(basis: c.Onto, key: key).Map(static _ => unit)
+                                           from source in AdmitVectorSource(source: c.Source, context: context, key: key)
+                                           select unit,
+            VectorField.WarpCase c => from spatial in key.AcceptValue(value: c.Spatial).Map(static _ => unit)
+                                      from source in AdmitVectorSource(source: c.Source, context: context, key: key)
+                                      select unit,
+            VectorField.ClampMagnitudeCase c => from order in guard(c.Min.Value <= c.Max.Value, key.InvalidInput())
+                                                from source in AdmitVectorSource(source: c.Source, context: context, key: key)
+                                                select unit,
+            VectorField.GradientCase c => AdmitScalarSource(source: c.Source, context: context, key: key),
+            VectorField.CurlCase c => AdmitVectorSource(source: c.Source, context: context, key: key),
+            VectorField.CurlNoiseCase c => AdmitScalarSource(source: c.Potential, context: context, key: key),
+            VectorField.CrossProductCase c => from left in AdmitVectorSource(source: c.Left, context: context, key: key)
+                                              from right in AdmitVectorSource(source: c.Right, context: context, key: key)
+                                              select unit,
+            VectorField.BiotSavartCase c => from start in FieldNabla.Finite(point: c.Start, key: key)
+                                            from end in FieldNabla.Finite(point: c.End, key: key)
+                                            from current in FieldNabla.Finite(value: c.Current, key: key)
+                                            from length in guard(!(c.Start - c.End).IsTiny(), key.InvalidInput())
+                                            select unit,
+            VectorField.SaddleCase c => from anchor in FieldNabla.Finite(point: c.Anchor, key: key)
+                                        from basis in FieldNabla.Plane(basis: c.Basis, key: key).Map(static _ => unit)
+                                        from strength in FieldNabla.Finite(value: c.Strength, key: key)
+                                        select unit,
+            VectorField.CrossFieldCase c => AdmitCrossFieldPayload(field: c, context: context, key: key),
+            VectorField.HodgeCase c => from mesh in FieldNabla.MeshOf(space: c.Space, key: key).Map(static _ => unit)
+                                       from source in AdmitVectorSource(source: c.Source, context: context, key: key)
+                                       select unit,
+            VectorField.VectorHeatCase c => from mesh in FieldNabla.MeshVertices(space: c.Space, vertices: c.Sources.Map(static source => source.Vertex), allowEmpty: false, key: key).Map(static _ => unit)
+                                            from vectors in c.Sources.TraverseM(source => FieldNabla.Finite(vector: source.Direction, key: key)).As().Map(static _ => unit)
+                                            select unit,
+            VectorField.GeodesicTangentCase c => FieldNabla.MeshVertices(space: c.Space, vertices: c.Sources, allowEmpty: false, key: key).Map(static _ => unit),
+            _ => Fin.Fail<Unit>(key.InvalidInput()),
+        };
+    private static Fin<Unit> AdmitFalloff(Falloff? falloff, Context context, Op key) =>
+        Optional(falloff).ToFin(key.InvalidInput()).Bind(active => active switch {
+            Falloff.ConstantCase => Fin.Succ(unit),
+            Falloff.InverseCase => Fin.Succ(unit),
+            Falloff.InverseSquareCase => Fin.Succ(unit),
+            Falloff.GaussianCase => Fin.Succ(unit),
+            Falloff.KernelCase c => Optional(c.Kind).ToFin(key.InvalidInput()).Map(static _ => unit),
+            Falloff.AnisotropicKernelCase c => from kind in Optional(c.Kind).ToFin(key.InvalidInput())
+                                               from metric in AdmitTensorField(field: c.Metric, context: context, key: key)
+                                               select unit,
+            _ => Fin.Fail<Unit>(key.InvalidInput()),
+        });
+    private static Fin<Unit> AdmitTensorField(TensorField? field, Context context, Op key) =>
+        Optional(field).ToFin(key.InvalidInput()).Bind(active => active switch {
+            TensorField.ConstantCase c => c.Value.IsValid ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput()),
+            TensorField.CurvatureCase c => Optional(c.Space.Native).ToFin(key.InvalidInput()).Map(static _ => unit),
+            TensorField.LiftCase c => Optional(c.Sampler).ToFin(key.InvalidInput()).Map(static _ => unit),
+            TensorField.WarpCase c => from spatial in key.AcceptValue(value: c.Spatial).Map(static _ => unit)
+                                      from source in AdmitTensorField(field: c.Source, context: context, key: key)
+                                      select unit,
+            TensorField.ScaledCase c => from scale in FieldNabla.Finite(value: c.Scale, key: key)
+                                        from source in AdmitTensorField(field: c.Source, context: context, key: key)
+                                        select unit,
+            TensorField.BlendCase c => !c.Fields.IsEmpty ? c.Fields.TraverseM(source => AdmitTensorField(field: source, context: context, key: key)).As().Map(static _ => unit) : Fin.Fail<Unit>(key.InvalidInput()),
+            _ => Fin.Fail<Unit>(key.InvalidInput()),
+        });
+    private static Fin<Unit> AdmitRbfPayload(RbfCase field, Op key) =>
+        from kernel in Optional(field.Kernel).ToFin(key.InvalidInput())
+        from samples in FieldNabla.ReconstructionSamples(samples: field.Samples, key: key)
+        from coefficientShape in guard(field.Coefficients.Count == samples.Count && field.Coefficients.ForAll(static value => RhinoMath.IsValidDouble(x: value)), key.InvalidResult())
+        from solve in field.Receipt.Solve.ToFin(key.InvalidResult())
+        from receipt in AdmitReconstructionReceipt(receipt: field.Receipt, mode: Option<ReconstructionMode>.None, kernel: kernel, radius: field.Radius.Value, sampleCount: samples.Count, solve: solve, key: key)
+        let interpolation = field.Receipt.Smoothing <= RhinoMath.ZeroTolerance
+        let rows = interpolation ? samples.Count : 2 * samples.Count
+        from mode in guard(field.Receipt.PolynomialDegree == 0 && field.Receipt.Interpolation == interpolation && field.Receipt.Mode.Equals(interpolation ? ReconstructionMode.RbfInterpolation : ReconstructionMode.RbfApproximation), key.InvalidResult())
+        from shape in guard(solve.Solution.Count == field.Coefficients.Count && solve.Cols.Value == field.Coefficients.Count && solve.Rows.Value == rows && solve.RhsLength == rows, key.InvalidResult())
+        select unit;
+    private static Fin<Unit> AdmitMlsPayload(MlsCase field, Context context, Op key) =>
+        from kernel in Optional(field.Kernel).ToFin(key.InvalidInput())
+        from samples in FieldNabla.MlsInput(samples: field.Samples, context: context, key: key)
+        from receipt in AdmitReconstructionReceipt(receipt: field.Receipt, mode: Some(ReconstructionMode.MovingLeastSquares), kernel: kernel, radius: field.Radius.Value, sampleCount: samples.Count, solve: Option<SolveReceipt>.None, key: key)
+        from mode in guard(!field.Receipt.Interpolation && field.Receipt.PolynomialDegree == 1, key.InvalidResult())
+        select unit;
+    private static Fin<Unit> AdmitReconstructionReceipt(ReconstructionReceipt receipt, Option<ReconstructionMode> mode, KernelKind kernel, double radius, int sampleCount, Option<SolveReceipt> solve, Op key) =>
+        from receiptKernel in Optional(receipt.Kernel).ToFin(key.InvalidResult())
+        from receiptMode in Optional(receipt.Mode).ToFin(key.InvalidResult())
+        from _ in guard(
+            mode.Match(Some: receiptMode.Equals, None: static () => true)
+            && receiptKernel.Equals(kernel)
+            && Math.Abs(value: receipt.Radius - radius) <= RhinoMath.SqrtEpsilon
+            && RhinoMath.IsValidDouble(x: receipt.Smoothing)
+            && receipt.Smoothing >= 0.0
+            && receipt.SampleCount == sampleCount
+            && receipt.CenterCount == sampleCount
+            && solve.Match(
+                Some: solved => receipt.Solve.Match(Some: actual => actual.Equals(solved), None: static () => false)
+                    && solved.Solution.ForAll(static value => RhinoMath.IsValidDouble(x: value))
+                    && RhinoMath.IsValidDouble(x: solved.Residual),
+                None: () => receipt.Solve.IsNone),
+            key.InvalidResult())
+        select unit;
+    private static Fin<Unit> AdmitCrossFieldPayload(VectorField.CrossFieldCase field, Context context, Op key) =>
+        from mesh in FieldNabla.MeshOf(space: field.Space, key: key)
+        from symmetry in guard(field.Symmetry is 1 or 2 or 4 or 6, key.InvalidInput())
+        from constraints in field.Constraints.Match(
+            Some: values => FieldNabla.MeshVertices(space: field.Space, vertices: values.Map(static value => value.Vertex), allowEmpty: true, key: key)
+                .Bind(_ => values.TraverseM(value => AdmitDirection(direction: value.Hint, context: context, key: key)).As().Map(static _ => unit)),
+            None: static () => Fin.Succ(unit))
+        from cones in field.Cones.Match(
+            Some: values => FieldNabla.MeshVertices(space: field.Space, vertices: values.Map(static value => value.Vertex), allowEmpty: true, key: key)
+                .Bind(_ => values.TraverseM(value => FieldNabla.Finite(value: value.HolonomyDeficit, key: key)).As().Map(static _ => unit)),
+            None: static () => Fin.Succ(unit))
+        select unit;
+    private static Fin<Unit> AdmitCharges(Seq<(Point3d Position, double Charge)> charges, Op key) =>
+        charges.TraverseM(charge =>
+            from point in FieldNabla.Finite(point: charge.Position, key: key)
+            from value in FieldNabla.Finite(value: charge.Charge, key: key)
+            select unit).As().Map(static _ => unit);
+    private static Fin<Unit> AdmitDirection(Direction direction, Context context, Op key) =>
+        Direction.Of(value: direction.Value, context: context, key: key).Map(static _ => unit);
+    private static Fin<Unit> AdmitSupportSpace(SupportSpace? space, Op key) =>
+        Optional(space).ToFin(key.InvalidInput()).Bind(source => Optional(source.Value).ToFin(key.InvalidInput()).Map(static _ => unit));
     internal static bool BoundsAdmitted(BoundingBox bounds) =>
         bounds is { IsValid: true, Diagonal: Vector3d d }
         && d.X > RhinoMath.ZeroTolerance
@@ -972,6 +1171,10 @@ internal static class FieldNabla {
     internal static readonly Vector3d CurlOffset2 = new(x: 31.4159, y: 27.1828, z: 41.4213), CurlOffset3 = new(x: -19.3274, y: 53.2186, z: -67.9531);
     internal static Fin<Unit> Finite(double value, Op key) =>
         RhinoMath.IsValidDouble(x: value) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+    internal static Fin<Unit> Finite(Point3d point, Op key) =>
+        Finite(point: point) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+    internal static Fin<Unit> Finite(Vector3d vector, Op key) =>
+        Finite(vector: vector) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
     internal static Fin<double> NonnegativeFinite(double value, Op key) =>
         RhinoMath.IsValidDouble(x: value) && value >= 0.0 ? Fin.Succ(value) : Fin.Fail<double>(key.InvalidInput());
     internal static Fin<TResult> WithPositive<TResult>(double candidate, Func<PositiveMagnitude, TResult> make, Op? key) =>
