@@ -154,6 +154,7 @@ public sealed partial class SolveStop {
     public static readonly SolveStop DirectSolved = new(key: 0);
     public static readonly SolveStop LeastSquaresSolved = new(key: 1);
     public static readonly SolveStop ResidualConverged = new(key: 2);
+    public static readonly SolveStop DirectFallbackSolved = new(key: 3);
 }
 
 public readonly record struct EigenSolveReceipt<TEigen, TVector>(Seq<(TEigen Eigenvalue, TVector Eigenvector)> Pairs, EigenSolvePath Path, EigenSolveStop Stop, int RequestedPairs, int ReturnedPairs, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, double MaxResidual);
@@ -479,7 +480,7 @@ internal static class MatrixKernel {
                 bool iterativeConverged = RhinoMath.IsValidDouble(x: iterativeResidual) && iterativeResidual <= Math.Sqrt(RhinoMath.SqrtEpsilon);
                 LinearVector x = iterativeConverged ? iterative : A.Solve(b);
                 double residual = RelativeResidual(a: A, x: x, b: b);
-                return SolveSuccess(solution: ArrFromVector(x), solutionLength: matrix.Cols.Value, path: iterativeConverged ? SolvePath.SparseBiCgStabDiagonal : SolvePath.SparseMathNetDirectFallback, stop: SolveStop.ResidualConverged, rows: matrix.Rows, cols: matrix.Cols, rhsLength: rhs.Count, residual: residual, key: key, residualCap: Math.Sqrt(RhinoMath.SqrtEpsilon), maxIterations: Some(iterationCap), tolerance: Some(RhinoMath.SqrtEpsilon), inputNonZeros: Some(matrix.NonZeros));
+                return SolveSuccess(solution: ArrFromVector(x), solutionLength: matrix.Cols.Value, path: iterativeConverged ? SolvePath.SparseBiCgStabDiagonal : SolvePath.SparseMathNetDirectFallback, stop: iterativeConverged ? SolveStop.ResidualConverged : SolveStop.DirectFallbackSolved, rows: matrix.Rows, cols: matrix.Cols, rhsLength: rhs.Count, residual: residual, key: key, residualCap: Math.Sqrt(RhinoMath.SqrtEpsilon), maxIterations: Some(iterationCap), tolerance: Some(RhinoMath.SqrtEpsilon), inputNonZeros: Some(matrix.NonZeros));
             });
     internal static Fin<EigenSolveReceipt<double, Arr<double>>> GeneralizedEigenpairsDetailed(SparseMatrix stiffness, SparseMatrix mass, int k, Op key) =>
         stiffness.Rows.Value != stiffness.Cols.Value || mass.Rows.Value != mass.Cols.Value || stiffness.Rows.Value != mass.Rows.Value || k < 1 || k >= stiffness.Rows.Value

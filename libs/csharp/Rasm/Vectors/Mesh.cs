@@ -6,7 +6,7 @@ namespace Rasm.Vectors;
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SparseLaplacian(SparseMatrix Stiffness, SparseMatrix MassConsistent, Arr<double> MassLumped) {
+public readonly record struct SparseLaplacian(SparseMatrix Stiffness, SparseMatrix MassConsistent, Arr<double> MassLumped, int SkippedDegenerateFaces = 0) {
     public bool IsValid => Stiffness.IsValid && MassConsistent.IsValid && Stiffness.Rows.Value == MassConsistent.Rows.Value && Stiffness.Cols.Value == MassConsistent.Cols.Value && Stiffness.Rows.Value == Stiffness.Cols.Value && MassLumped.Count == Stiffness.Rows.Value && MassLumped.All(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0);
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -50,7 +50,7 @@ internal sealed class LaplacianCache {
     private readonly Lazy<Fin<SpectralBasisBundle>> defaultSpectral;
     private readonly Lazy<double> meanEdgeLength;
     private readonly Lazy<Fin<MeshKernel.IntrinsicMesh>> intrinsicMesh;
-    private readonly Lazy<Fin<Arr<double>>> signedHeat;
+    private readonly Lazy<Fin<(Arr<double> Values, SolveReceipt Solve)>> signedHeat;
     private readonly Memo<(int Symmetry, double Time), CholeskySparse> connectionCholesky = new();
     private readonly Memo<double, CholeskySparse> scalarHeatCholesky = new(), edgeConnectionCholesky = new();
     private readonly Memo<GeodesicKey, Arr<double>> geodesicCache = new();
@@ -73,7 +73,7 @@ internal sealed class LaplacianCache {
             select factor);
         defaultSpectral = new Lazy<Fin<SpectralBasisBundle>>(valueFactory: () => MeshKernel.ComputeSpectralBasisDetailed(space: space, k: DefaultSpectralCount, key: fallback));
         meanEdgeLength = new Lazy<double>(valueFactory: () => MeshKernel.MeanEdgeLengthOf(mesh: space.Native));
-        signedHeat = new Lazy<Fin<Arr<double>>>(valueFactory: () => MeshKernel.ComputeSignedHeat(space: space, key: fallback));
+        signedHeat = new Lazy<Fin<(Arr<double> Values, SolveReceipt Solve)>>(valueFactory: () => MeshKernel.ComputeSignedHeatDetailed(space: space, key: fallback));
     }
     internal static LaplacianCache For(MeshSpace space) =>
         Table.GetValue(key: space.Native, createValueCallback: _ => new LaplacianCache(space: space));
@@ -82,12 +82,15 @@ internal sealed class LaplacianCache {
     internal Fin<SparseLaplacian> Robust => robust.Value;
     internal Fin<CholeskySparse> Cholesky => cholesky.Value;
     internal Fin<MeshKernel.IntrinsicMesh> IntrinsicMeshSnapshot => intrinsicMesh.Value;
-    internal Fin<Arr<double>> SignedHeat => signedHeat.Value;
+    internal Fin<Arr<double>> SignedHeat => signedHeat.Value.Map(static result => result.Values);
+    internal Fin<(Arr<double> Values, SolveReceipt Solve)> SignedHeatDetailed => signedHeat.Value;
     internal double MeanEdgeLength => meanEdgeLength.Value;
-    internal Fin<SpectralBasisBundle> SpectralBasisBundleOf(int k, Op key) =>
-        k <= DefaultSpectralCount
-            ? defaultSpectral.Value.Map(bundle => bundle with { Basis = bundle.Basis.Truncate(k: k) })
+    internal Fin<SpectralBasisBundle> SpectralBasisBundleOf(int k, Op key) {
+        bool cacheHit = k <= DefaultSpectralCount && defaultSpectral.IsValueCreated;
+        return k <= DefaultSpectralCount
+            ? defaultSpectral.Value.Map(bundle => bundle with { Basis = bundle.Basis.Truncate(k: k), CacheHit = cacheHit })
             : MeshKernel.ComputeSpectralBasisDetailed(space: space, k: k, key: key);
+    }
     internal Fin<CholeskySparse> ConnectionCholesky(int symmetry, double time, Option<Arr<double>> edgeAdjustment, Op key) =>
         edgeAdjustment.IsSome
             ? from real in MeshKernel.BuildConnectionLaplacianRealSystem(space: space, symmetry: symmetry, time: time, edgeAdjustment: edgeAdjustment, key: key)
@@ -116,7 +119,7 @@ internal sealed class LaplacianCache {
     internal Fin<Complex[]> VectorHeat(VectorHeatKey probe, Func<Fin<Complex[]>> compute) => vectorHeatCache.Of(probe, compute);
 }
 [SmartEnum<int>] public sealed partial class MeshLaplacian { public static readonly MeshLaplacian Cotangent = new(key: 0, select: static cache => cache.Cotangent), IntrinsicDelaunay = new(key: 1, select: static cache => cache.IntrinsicDelaunay), Robust = new(key: 2, select: static cache => cache.Robust); [UseDelegateFromConstructor] internal partial Fin<SparseLaplacian> Select(LaplacianCache cache); }
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SpectralBasisBundle(SpectralBasis Basis, EigenSolveReceipt<double, Arr<double>> Eigen);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SpectralBasisBundle(SpectralBasis Basis, EigenSolveReceipt<double, Arr<double>> Eigen, bool CacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TopologyReceipt(int Vertices, int TopologyVertices, int TopologyEdges, int Faces, int Triangles, int Quads, int Ngons, int VisiblePolygons, int BoundaryComponents, int NonManifoldEdges, bool IsManifold, bool IsOriented, int EulerCharacteristic, Option<int> Genus, bool EulerValidated);
 [SmartEnum<int>] public sealed partial class MeshFeatureKind { public static readonly MeshFeatureKind Boundary = new(key: 0), Crease = new(key: 1), NonManifold = new(key: 2), Unwelded = new(key: 3), NgonInteriorSkipped = new(key: 4); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FeatureEdge(int A, int B, MeshFeatureKind Kind, Option<double> DihedralRadians);
@@ -126,10 +129,12 @@ internal sealed class LaplacianCache {
 [SmartEnum<int>] public sealed partial class RemeshStatus { public static readonly RemeshStatus Completed = new(key: 0), NativeRejected = new(key: 1); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct RemeshReceipt(RemeshKind Kind, RemeshStatus Status, Option<double> TargetLength, Option<int> DesiredPolygonCount, int PreVertexCount, int PreFaceCount, int PostVertexCount, int PostFaceCount, double ReductionRatio, bool Valid, bool HardEdgePreservationRequested, bool TopologyChanged);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct RemeshResult(Mesh Mesh, RemeshReceipt Receipt);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorReceipt(SpectralDescriptorReceipt Spectral, EigenSolveReceipt<double, Arr<double>> Eigen, int RequestedEigenpairs, int ReturnedEigenpairs, bool ComparisonReady);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorReceipt(SpectralDescriptorReceipt Spectral, EigenSolveReceipt<double, Arr<double>> Eigen, int RequestedEigenpairs, int ReturnedEigenpairs, bool ComparisonReady, bool SpectralCacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorResult(Arr<double> Values, DescriptorReceipt Receipt);
-[SmartEnum<int>] public sealed partial class MeshSegmentationStatus { public static readonly MeshSegmentationStatus Completed = new(key: 0), MissingScalarInput = new(key: 1), MissingDescriptorInput = new(key: 2), Unsupported = new(key: 3); }
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationReceipt(MeshSegmentationStatus Status, int RegionCount, int SeedCount, int AssignedFaceCount, Option<double> Threshold);
+[SmartEnum<int>] public sealed partial class MeshSegmentationAlgorithm { public static readonly MeshSegmentationAlgorithm ScalarThresholdComponents = new(key: 0), ScalarBandComponents = new(key: 1), SeededRegionGrow = new(key: 2), DescriptorScalarClusters = new(key: 3); }
+[SmartEnum<int>] public sealed partial class MeshSegmentationStatus { public static readonly MeshSegmentationStatus Completed = new(key: 0), MaxIterationsExhausted = new(key: 1); }
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationReceipt(MeshSegmentationAlgorithm Algorithm, MeshSegmentationStatus Status, int RequestedRegionCount, int RegionCount, int SeedCount, int AssignedFaceCount, int UnassignedFaceCount, int SkippedDegenerateFaces, int SkippedNonFiniteValues, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorReceipt> Descriptor, Option<SolveReceipt> Solve, Option<bool> SpectralCacheHit, Option<bool> FactorCacheHit, Option<int> FactorNonZeros);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationResult(Arr<int> FaceRegions, Arr<int> VertexRegions, MeshSegmentationReceipt Receipt);
 [SmartEnum<int>] public sealed partial class SdfMeshStatus { public static readonly SdfMeshStatus Approximate = new(key: 0), BoundarySourceSignedHeat = new(key: 1), Unsupported = new(key: 2); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfMeshReceipt(SdfMeshMethod Method, SdfMeshStatus Status, bool IsSolid, bool IsManifold, bool IsOriented, int BoundaryComponents, int NonManifoldEdges, bool UsesGeneralizedWindingApproximation, bool UsesBoundarySignedHeat, Option<SolveReceipt> Solve);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfMeshSample(double Distance, SdfMeshReceipt Receipt);
@@ -139,6 +144,30 @@ public abstract partial record MeshDescriptor {
     public sealed record SpectralCase(SpectralFilter Filter, Option<Seq<int>> Sources) : MeshDescriptor;
     internal bool IsValid => this is SpectralCase { Filter: not null };
     public static MeshDescriptor Spectral(SpectralFilter filter, Option<Seq<int>> sources = default) => new SpectralCase(Filter: filter, Sources: sources);
+}
+
+[Union]
+public abstract partial record MeshSegmentation {
+    private MeshSegmentation() { }
+    public sealed record ScalarThresholdCase(Arr<double> Values, double Threshold, bool IncludeAbove, bool ValuesAreVertices) : MeshSegmentation;
+    public sealed record ScalarBandsCase(Arr<double> Values, Dimension BandCount, bool ValuesAreVertices) : MeshSegmentation;
+    public sealed record SeededRegionGrowCase(Arr<double> Values, Seq<int> SeedFaces, PositiveMagnitude Tolerance, Dimension MaxIterations, bool ValuesAreVertices) : MeshSegmentation;
+    public sealed record DescriptorClustersCase(MeshDescriptor Descriptor, Dimension Eigenpairs, Dimension RegionCount, Dimension MaxIterations, PositiveMagnitude Tolerance) : MeshSegmentation;
+    public static Fin<MeshSegmentation> ScalarThreshold(Arr<double> values, double threshold, bool includeAbove = true, bool valuesAreVertices = false, Op? key = null) =>
+        AdmitScalars(values: values, key: key.OrDefault()).Bind(admitted =>
+            RhinoMath.IsValidDouble(x: threshold)
+                ? Fin.Succ<MeshSegmentation>(new ScalarThresholdCase(Values: admitted, Threshold: threshold, IncludeAbove: includeAbove, ValuesAreVertices: valuesAreVertices))
+                : Fin.Fail<MeshSegmentation>(key.OrDefault().InvalidInput()));
+    public static Fin<MeshSegmentation> ScalarBands(Arr<double> values, int bandCount, bool valuesAreVertices = false, Op? key = null) =>
+        key.OrDefault() switch { Op op => from admitted in AdmitScalars(values: values, key: op) from count in op.AcceptValidated<Dimension>(candidate: bandCount) from _ in bandCount > 1 ? Fin.Succ(unit) : Fin.Fail<Unit>(op.InvalidInput()) select (MeshSegmentation)new ScalarBandsCase(Values: admitted, BandCount: count, ValuesAreVertices: valuesAreVertices) };
+    public static Fin<MeshSegmentation> SeededRegionGrow(Arr<double> values, Seq<int> seedFaces, double tolerance, int maxIterations, bool valuesAreVertices = false, Op? key = null) =>
+        key.OrDefault() switch { Op op => from admitted in AdmitScalars(values: values, key: op) from seeds in Optional(seedFaces).ToFin(op.InvalidInput()) from _ in seeds.IsEmpty ? Fin.Fail<Unit>(op.InvalidInput()) : Fin.Succ(unit) from eps in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance) from cap in op.AcceptValidated<Dimension>(candidate: maxIterations) select (MeshSegmentation)new SeededRegionGrowCase(Values: admitted, SeedFaces: seeds, Tolerance: eps, MaxIterations: cap, ValuesAreVertices: valuesAreVertices) };
+    public static Fin<MeshSegmentation> DescriptorClusters(MeshDescriptor descriptor, int eigenpairs, int regionCount, int maxIterations, double tolerance, Op? key = null) =>
+        key.OrDefault() switch { Op op => from active in Optional(descriptor).ToFin(op.InvalidInput()) from _ in guard(active.IsValid, op.InvalidInput()) from pairs in op.AcceptValidated<Dimension>(candidate: eigenpairs) from regions in op.AcceptValidated<Dimension>(candidate: regionCount) from __ in regionCount > 1 ? Fin.Succ(unit) : Fin.Fail<Unit>(op.InvalidInput()) from cap in op.AcceptValidated<Dimension>(candidate: maxIterations) from eps in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance) select (MeshSegmentation)new DescriptorClustersCase(Descriptor: active, Eigenpairs: pairs, RegionCount: regions, MaxIterations: cap, Tolerance: eps) };
+    private static Fin<Arr<double>> AdmitScalars(Arr<double> values, Op key) =>
+        values.Count == 0
+            ? Fin.Fail<Arr<double>>(key.InvalidInput())
+            : Fin.Succ(values);
 }
 
 [Union]
@@ -159,10 +188,15 @@ public abstract partial record RemeshKind {
 internal static class MeshKernel {
     private const double DegenerateTriangleArea = 1e-14;
     private const double AspectRatioCeiling = 11.5;
+    private const int UnassignedRegion = -1;
+    private readonly record struct SegmentationScalars(Arr<double> FaceValues, int SkippedDegenerateFaces, int SkippedNonFiniteValues, int FiniteCount, double Min, double Max);
+    private readonly record struct SegmentationRun(MeshSegmentationAlgorithm Algorithm, int RequestedRegionCount, int SeedCount, MeshSegmentationStatus Status, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorReceipt> Descriptor);
+    private readonly record struct ClusterState(int[] Labels, int Iterations, bool Converged);
     private sealed class LaplacianTriplets {
         private readonly int vertexCount;
         internal readonly List<(int Row, int Col, double Value)> Stiffness = [], Mass = [];
         internal readonly double[] Lumped;
+        internal int SkippedDegenerateFaces;
         internal LaplacianTriplets(int vertexCount) {
             this.vertexCount = vertexCount;
             Lumped = new double[vertexCount];
@@ -185,7 +219,7 @@ internal static class MeshKernel {
         internal Fin<SparseLaplacian> Build(Op key) =>
             from stiff in SparseMatrix.FromTriplets(rows: Dimension.Create(value: vertexCount), cols: Dimension.Create(value: vertexCount), triplets: Stiffness, key: key)
             from mass in SparseMatrix.FromTriplets(rows: Dimension.Create(value: vertexCount), cols: Dimension.Create(value: vertexCount), triplets: Mass, key: key)
-            select new SparseLaplacian(Stiffness: stiff, MassConsistent: mass, MassLumped: new Arr<double>(Lumped));
+            select new SparseLaplacian(Stiffness: stiff, MassConsistent: mass, MassLumped: new Arr<double>(Lumped), SkippedDegenerateFaces: SkippedDegenerateFaces);
     }
     private static bool ContainsQuads(Mesh mesh) => mesh.Faces.QuadCount > 0;
 
@@ -214,7 +248,7 @@ internal static class MeshKernel {
             Point3d pa = active.Vertices[index: va]; Point3d pb = active.Vertices[index: vb]; Point3d pc = active.Vertices[index: vc];
             Vector3d ab = pb - pa; Vector3d ac = pc - pa; Vector3d bc = pc - pb;
             double area = 0.5 * Vector3d.CrossProduct(a: ab, b: ac).Length;
-            if (area < DegenerateTriangleArea) continue;
+            if (area < DegenerateTriangleArea) { triplets.SkippedDegenerateFaces++; continue; }
             double cotA = -ab * -ac / (2.0 * area);
             double cotB = ab * -bc / (2.0 * area);
             double cotC = ac * bc / (2.0 * area);
@@ -416,7 +450,7 @@ internal static class MeshKernel {
             double lAC = imesh.EdgeLengthOf(i: va, j: vc);
             double s = (lAB + lBC + lAC) * 0.5;
             double areaSq = s * (s - lAB) * (s - lBC) * (s - lAC);
-            if (areaSq < DegenerateTriangleArea * DegenerateTriangleArea) continue;
+            if (areaSq < DegenerateTriangleArea * DegenerateTriangleArea) { triplets.SkippedDegenerateFaces++; continue; }
             double area = Math.Sqrt(d: areaSq);
             double cotA = ((lAC * lAC) + (lAB * lAB) - (lBC * lBC)) / (4.0 * area);
             double cotB = ((lAB * lAB) + (lBC * lBC) - (lAC * lAC)) / (4.0 * area);
@@ -468,7 +502,10 @@ internal static class MeshKernel {
             Basis: new SpectralBasis(
                 Eigenvalues: new Arr<double>([.. receipt.Pairs.AsIterable().Select(static p => p.Eigenvalue)]),
                 Eigenvectors: new Arr<Arr<double>>([.. receipt.Pairs.AsIterable().Select(static p => p.Eigenvector)])),
-            Eigen: receipt);
+            Eigen: receipt,
+            CacheHit: false,
+            SkippedDegenerateFaces: laplacian.SkippedDegenerateFaces,
+            FactorNonZeros: Option<int>.None);
 
     // --- [METRICS] --------------------------------------------------------------------------
     internal static double MeanEdgeLengthOf(Mesh mesh) {
@@ -843,7 +880,7 @@ internal static class MeshKernel {
         new(Kind: kind, Status: RemeshStatus.Completed, TargetLength: targetLength, DesiredPolygonCount: desiredPolygonCount, PreVertexCount: source.Vertices.Count, PreFaceCount: source.Faces.Count, PostVertexCount: output.Vertices.Count, PostFaceCount: output.Faces.Count, ReductionRatio: source.Faces.Count == 0 ? 0.0 : (double)output.Faces.Count / source.Faces.Count, Valid: output.IsValid, HardEdgePreservationRequested: hardEdges, TopologyChanged: source.Vertices.Count != output.Vertices.Count || source.Faces.Count != output.Faces.Count);
 
     // --- [DESCRIPTORS] ----------------------------------------------------------------------
-    // SpectralFilter owns HKS/WKS/biharmonic/diffusion/commute-time/identity descriptors.
+    // SpectralFilter owns HKS-like heat, unnormalized WKS-style wave, biharmonic, diffusion, commute-time, and identity descriptors.
     internal static Fin<TOut> DescribeShape<TOut>(MeshSpace space, MeshDescriptor kind, int eigenpairs, Op key) =>
         Optional(kind).ToFin(key.InvalidInput()).Bind(active =>
             guard(active.IsValid, key.InvalidInput()).Bind(_ => active.Switch(
@@ -855,7 +892,7 @@ internal static class MeshKernel {
     internal static Fin<DescriptorResult> DescribeSpectralShape(MeshSpace space, MeshDescriptor.SpectralCase spec, int eigenpairs, Op key) =>
         from bundle in space.Cache.SpectralBasisBundleOf(k: eigenpairs, key: key)
         from spectral in spec.Filter.ApplyDetailed(basis: bundle.Basis, sources: spec.Sources, key: key)
-        select new DescriptorResult(Values: spectral.Values, Receipt: new DescriptorReceipt(Spectral: spectral.Receipt, Eigen: bundle.Eigen, RequestedEigenpairs: eigenpairs, ReturnedEigenpairs: bundle.Eigen.ReturnedPairs, ComparisonReady: spectral.Receipt.ComparisonReady));
+        select new DescriptorResult(Values: spectral.Values, Receipt: new DescriptorReceipt(Spectral: spectral.Receipt, Eigen: bundle.Eigen, RequestedEigenpairs: eigenpairs, ReturnedEigenpairs: bundle.Eigen.ReturnedPairs, ComparisonReady: spectral.Receipt.ComparisonReady, SpectralCacheHit: bundle.CacheHit, SkippedDegenerateFaces: bundle.SkippedDegenerateFaces, FactorNonZeros: bundle.FactorNonZeros));
     private static Fin<TOut> ProjectDescriptor<TOut>(DescriptorResult descriptor, Op key) =>
         typeof(TOut) switch {
             Type t when t == typeof(DescriptorResult) => Fin.Succ((TOut)(object)descriptor),
@@ -865,6 +902,197 @@ internal static class MeshKernel {
             Type t when t == typeof(Arr<double>) => Fin.Succ((TOut)(object)descriptor.Values),
             _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(MeshDescriptor.SpectralCase), outputType: typeof(TOut))),
         };
+
+    // --- [SEGMENTATION] ---------------------------------------------------------------------
+    internal static Fin<TOut> Segment<TOut>(MeshSpace space, MeshSegmentation kind, Op key) =>
+        Optional(kind).ToFin(key.InvalidInput()).Bind(active =>
+            active.Switch(
+                state: (Space: space, Key: key),
+                scalarThresholdCase: static (state, threshold) => SegmentThreshold(space: state.Space, kind: threshold, key: state.Key),
+                scalarBandsCase: static (state, bands) => SegmentBands(space: state.Space, kind: bands, key: state.Key),
+                seededRegionGrowCase: static (state, grow) => SegmentRegionGrow(space: state.Space, kind: grow, key: state.Key),
+                descriptorClustersCase: static (state, clusters) => SegmentDescriptorClusters(space: state.Space, kind: clusters, key: state.Key))
+            .Bind(result => ProjectSegmentation<TOut>(result: result, key: key)));
+    private static Fin<MeshSegmentationResult> SegmentThreshold(MeshSpace space, MeshSegmentation.ScalarThresholdCase kind, Op key) =>
+        from scalars in SegmentationScalarsOf(mesh: space.Native, values: kind.Values, valuesAreVertices: kind.ValuesAreVertices, key: key)
+        select SegmentationComponentsOf(mesh: space.Native, scalars: scalars, bucket: value => (kind.IncludeAbove ? value >= kind.Threshold : value <= kind.Threshold) ? 0 : UnassignedRegion, run: new SegmentationRun(Algorithm: MeshSegmentationAlgorithm.ScalarThresholdComponents, RequestedRegionCount: 1, SeedCount: 0, Status: MeshSegmentationStatus.Completed, Iterations: Option<int>.None, MaxIterations: Option<int>.None, Tolerance: Option<double>.None, Threshold: Some(kind.Threshold), Descriptor: Option<DescriptorReceipt>.None));
+    private static Fin<MeshSegmentationResult> SegmentBands(MeshSpace space, MeshSegmentation.ScalarBandsCase kind, Op key) =>
+        from scalars in SegmentationScalarsOf(mesh: space.Native, values: kind.Values, valuesAreVertices: kind.ValuesAreVertices, key: key)
+        from _ in scalars.FiniteCount == 0 ? Fin.Fail<Unit>(key.InvalidInput()) : Fin.Succ(unit)
+        select SegmentationComponentsOf(mesh: space.Native, scalars: scalars, bucket: value => BandIndexOf(value: value, min: scalars.Min, max: scalars.Max, count: kind.BandCount.Value), run: new SegmentationRun(Algorithm: MeshSegmentationAlgorithm.ScalarBandComponents, RequestedRegionCount: kind.BandCount.Value, SeedCount: 0, Status: MeshSegmentationStatus.Completed, Iterations: Option<int>.None, MaxIterations: Option<int>.None, Tolerance: Option<double>.None, Threshold: Option<double>.None, Descriptor: Option<DescriptorReceipt>.None));
+    private static Fin<MeshSegmentationResult> SegmentRegionGrow(MeshSpace space, MeshSegmentation.SeededRegionGrowCase kind, Op key) =>
+        from scalars in SegmentationScalarsOf(mesh: space.Native, values: kind.Values, valuesAreVertices: kind.ValuesAreVertices, key: key)
+        from labels in RegionGrowLabels(mesh: space.Native, scalars: scalars.FaceValues, seeds: kind.SeedFaces, tolerance: kind.Tolerance.Value, maxIterations: kind.MaxIterations.Value, key: key)
+        select SegmentationResultOf(mesh: space.Native, faceRegions: labels.Regions, scalars: scalars, run: new SegmentationRun(Algorithm: MeshSegmentationAlgorithm.SeededRegionGrow, RequestedRegionCount: labels.SeedCount, SeedCount: labels.SeedCount, Status: labels.Exhausted ? MeshSegmentationStatus.MaxIterationsExhausted : MeshSegmentationStatus.Completed, Iterations: Some(labels.Iterations), MaxIterations: Some(kind.MaxIterations.Value), Tolerance: Some(kind.Tolerance.Value), Threshold: Option<double>.None, Descriptor: Option<DescriptorReceipt>.None));
+    private static Fin<MeshSegmentationResult> SegmentDescriptorClusters(MeshSpace space, MeshSegmentation.DescriptorClustersCase kind, Op key) =>
+        kind.Descriptor is MeshDescriptor.SpectralCase spectral
+            ? from descriptor in DescribeSpectralShape(space: space, spec: spectral, eigenpairs: kind.Eigenpairs.Value, key: key)
+              from scalars in SegmentationScalarsOf(mesh: space.Native, values: descriptor.Values, valuesAreVertices: true, key: key)
+              from clusters in ClusterLabels(values: scalars.FaceValues, count: kind.RegionCount.Value, maxIterations: kind.MaxIterations.Value, tolerance: kind.Tolerance.Value, key: key)
+              let labels = ConnectedComponents(mesh: space.Native, buckets: clusters.Labels)
+              select SegmentationResultOf(mesh: space.Native, faceRegions: labels, scalars: scalars, run: new SegmentationRun(Algorithm: MeshSegmentationAlgorithm.DescriptorScalarClusters, RequestedRegionCount: kind.RegionCount.Value, SeedCount: 0, Status: clusters.Converged ? MeshSegmentationStatus.Completed : MeshSegmentationStatus.MaxIterationsExhausted, Iterations: Some(clusters.Iterations), MaxIterations: Some(kind.MaxIterations.Value), Tolerance: Some(kind.Tolerance.Value), Threshold: Option<double>.None, Descriptor: Some(descriptor.Receipt)))
+            : Fin.Fail<MeshSegmentationResult>(key.Unsupported(geometryType: kind.Descriptor.GetType(), outputType: typeof(MeshSegmentationResult)));
+    private static Fin<TOut> ProjectSegmentation<TOut>(MeshSegmentationResult result, Op key) => typeof(TOut) switch { Type t when t == typeof(MeshSegmentationResult) => Fin.Succ((TOut)(object)result), Type t when t == typeof(MeshSegmentationReceipt) => Fin.Succ((TOut)(object)result.Receipt), Type t when t == typeof(Arr<int>) => Fin.Succ((TOut)(object)result.FaceRegions), _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(MeshSegmentation), outputType: typeof(TOut))) };
+    private static MeshSegmentationResult SegmentationComponentsOf(Mesh mesh, SegmentationScalars scalars, Func<double, int> bucket, SegmentationRun run) =>
+        SegmentationResultOf(mesh: mesh, faceRegions: ConnectedComponents(mesh: mesh, buckets: BucketsOf(values: scalars.FaceValues, bucket: bucket)), scalars: scalars, run: run);
+    private static MeshSegmentationResult SegmentationResultOf(Mesh mesh, int[] faceRegions, SegmentationScalars scalars, SegmentationRun run) {
+        Arr<int> faces = new(faceRegions);
+        int assigned = faceRegions.Count(static label => label >= 0);
+        int regionCount = faceRegions.Where(static label => label >= 0).Distinct().Count();
+        MeshSegmentationReceipt receipt = new(Algorithm: run.Algorithm, Status: run.Status, RequestedRegionCount: run.RequestedRegionCount, RegionCount: regionCount, SeedCount: run.SeedCount, AssignedFaceCount: assigned, UnassignedFaceCount: faceRegions.Length - assigned, SkippedDegenerateFaces: scalars.SkippedDegenerateFaces, SkippedNonFiniteValues: scalars.SkippedNonFiniteValues, Iterations: run.Iterations, MaxIterations: run.MaxIterations, Tolerance: run.Tolerance, Threshold: run.Threshold, Descriptor: run.Descriptor, Solve: Option<SolveReceipt>.None, SpectralCacheHit: run.Descriptor.Map(static receipt => receipt.SpectralCacheHit), FactorCacheHit: Option<bool>.None, FactorNonZeros: run.Descriptor.Bind(static receipt => receipt.FactorNonZeros));
+        return new MeshSegmentationResult(FaceRegions: faces, VertexRegions: VertexRegionsOf(mesh: mesh, faceRegions: faceRegions), Receipt: receipt);
+    }
+    private static Fin<SegmentationScalars> SegmentationScalarsOf(Mesh mesh, Arr<double> values, bool valuesAreVertices, Op key) =>
+        values.Count == (valuesAreVertices ? mesh.Vertices.Count : mesh.Faces.Count)
+            ? Fin.Succ(FaceScalarsOf(mesh: mesh, values: values, valuesAreVertices: valuesAreVertices))
+            : Fin.Fail<SegmentationScalars>(key.InvalidInput());
+    private static SegmentationScalars FaceScalarsOf(Mesh mesh, Arr<double> values, bool valuesAreVertices) {
+        double[] faceValues = new double[mesh.Faces.Count];
+        System.Array.Fill(array: faceValues, value: double.NaN);
+        int skippedDegenerate = 0, skippedNonFinite = 0, finite = 0;
+        double min = double.PositiveInfinity, max = double.NegativeInfinity;
+        for (int f = 0; f < mesh.Faces.Count; f++) {
+            MeshFace face = mesh.Faces[index: f];
+            Point3d a = mesh.Vertices[index: face.A], b = mesh.Vertices[index: face.B], c = mesh.Vertices[index: face.C];
+            double area = 0.5 * Vector3d.CrossProduct(a: b - a, b: c - a).Length;
+            if ((face.IsTriangle ? area : area + (0.5 * Vector3d.CrossProduct(a: c - a, b: mesh.Vertices[index: face.D] - a).Length)) < DegenerateTriangleArea) { skippedDegenerate++; continue; }
+            double value = valuesAreVertices ? (values[index: face.A] + values[index: face.B] + values[index: face.C] + (face.IsQuad ? values[index: face.D] : 0.0)) / (face.IsQuad ? 4.0 : 3.0) : values[index: f];
+            if (!RhinoMath.IsValidDouble(x: value)) { skippedNonFinite++; continue; }
+            faceValues[f] = value; min = Math.Min(val1: min, val2: value); max = Math.Max(val1: max, val2: value); finite++;
+        }
+        return new SegmentationScalars(FaceValues: new Arr<double>(faceValues), SkippedDegenerateFaces: skippedDegenerate, SkippedNonFiniteValues: skippedNonFinite, FiniteCount: finite, Min: min, Max: max);
+    }
+    private static int BandIndexOf(double value, double min, double max, int count) =>
+        !RhinoMath.IsValidDouble(x: value) ? UnassignedRegion : Math.Abs(value: max - min) <= RhinoMath.SqrtEpsilon ? 0 : Math.Min(val1: count - 1, val2: Math.Max(val1: 0, val2: (int)Math.Floor(d: (value - min) / ((max - min) / count))));
+    private static int[] BucketsOf(Arr<double> values, Func<double, int> bucket) =>
+        [.. values.AsIterable().Select(value => RhinoMath.IsValidDouble(x: value) ? bucket(arg: value) : UnassignedRegion)];
+    private static int[] ConnectedComponents(Mesh mesh, int[] buckets) {
+        int[] regions = [.. Enumerable.Repeat(element: UnassignedRegion, count: mesh.Faces.Count)];
+        int[][] adjacency = FaceAdjacencyOf(mesh: mesh);
+        int region = 0;
+        for (int start = 0; start < buckets.Length; start++) {
+            if (buckets[start] < 0 || regions[start] >= 0) continue;
+            Queue<int> queue = new(); queue.Enqueue(item: start); regions[start] = region;
+            while (queue.Count > 0) {
+                int face = queue.Dequeue();
+                for (int n = 0; n < adjacency[face].Length; n++) {
+                    int next = adjacency[face][n];
+                    if (next < 0 || next >= buckets.Length || regions[next] >= 0 || buckets[next] != buckets[start]) continue;
+                    regions[next] = region; queue.Enqueue(item: next);
+                }
+            }
+            region++;
+        }
+        return regions;
+    }
+    private static int[][] FaceAdjacencyOf(Mesh mesh) {
+        List<int>[] adjacency = [.. Enumerable.Range(start: 0, count: mesh.Faces.Count).Select(static _ => new List<int>())];
+        for (int edge = 0; edge < mesh.TopologyEdges.Count; edge++) {
+            int[] faces = mesh.TopologyEdges.GetConnectedFaces(topologyEdgeIndex: edge);
+            for (int a = 0; a < faces.Length; a++)
+                for (int b = a + 1; b < faces.Length; b++) {
+                    adjacency[faces[a]].Add(item: faces[b]); adjacency[faces[b]].Add(item: faces[a]);
+                }
+        }
+        return [.. adjacency.Select(static faces => faces.Distinct().OrderBy(static f => f).ToArray())];
+    }
+    private static Fin<(int[] Regions, int Iterations, bool Exhausted, int SeedCount)> RegionGrowLabels(Mesh mesh, Arr<double> scalars, Seq<int> seeds, double tolerance, int maxIterations, Op key) {
+        int faceCount = mesh.Faces.Count;
+        int[] seedArray = [.. seeds.AsIterable()];
+        if (seedArray.Any(seed => seed < 0 || seed >= faceCount || !RhinoMath.IsValidDouble(x: scalars[index: seed]))) return Fin.Fail<(int[], int, bool, int)>(key.InvalidInput());
+        int[] regions = [.. Enumerable.Repeat(element: UnassignedRegion, count: faceCount)];
+        int[][] adjacency = FaceAdjacencyOf(mesh: mesh);
+        List<double> anchors = new(capacity: seedArray.Length);
+        for (int s = 0; s < seedArray.Length; s++)
+            if (regions[seedArray[s]] < 0) {
+                regions[seedArray[s]] = anchors.Count;
+                anchors.Add(item: scalars[index: seedArray[s]]);
+            }
+        if (anchors.Count == 0) return Fin.Fail<(int[], int, bool, int)>(key.InvalidInput());
+        int iterations = 0;
+        bool HasCandidates() {
+            for (int face = 0; face < faceCount; face++)
+                if (regions[face] >= 0)
+                    for (int i = 0; i < adjacency[face].Length; i++) {
+                        int next = adjacency[face][i]; double value = scalars[index: next];
+                        if (regions[next] < 0 && RhinoMath.IsValidDouble(x: value) && Math.Abs(value: value - anchors[index: regions[face]]) <= tolerance) return true;
+                    }
+            return false;
+        }
+        while (iterations < maxIterations) {
+            int[] proposalRegion = [.. Enumerable.Repeat(element: UnassignedRegion, count: faceCount)];
+            int[] proposalSource = [.. Enumerable.Repeat(element: int.MaxValue, count: faceCount)];
+            for (int face = 0; face < faceCount; face++) {
+                int region = regions[face];
+                if (region < 0) continue;
+                for (int i = 0; i < adjacency[face].Length; i++) {
+                    int next = adjacency[face][i]; double value = scalars[index: next];
+                    if (regions[next] >= 0 || !RhinoMath.IsValidDouble(x: value) || Math.Abs(value: value - anchors[index: region]) > tolerance) continue;
+                    if (proposalRegion[next] < 0 || region < proposalRegion[next] || (region == proposalRegion[next] && face < proposalSource[next])) {
+                        proposalRegion[next] = region; proposalSource[next] = face;
+                    }
+                }
+            }
+            bool changed = false;
+            for (int face = 0; face < faceCount; face++)
+                if (proposalRegion[face] >= 0) { regions[face] = proposalRegion[face]; changed = true; }
+            if (!changed) return Fin.Succ((regions, iterations, false, anchors.Count));
+            iterations++;
+        }
+        return Fin.Succ((regions, iterations, HasCandidates(), anchors.Count));
+    }
+    private static Fin<ClusterState> ClusterLabels(Arr<double> values, int count, int maxIterations, double tolerance, Op key) {
+        int[] valid = [.. Enumerable.Range(start: 0, count: values.Count).Where(i => RhinoMath.IsValidDouble(x: values[index: i]))];
+        if (valid.Length < count) return Fin.Fail<ClusterState>(key.InvalidInput());
+        double[] centers = new double[count];
+        centers[0] = valid.Min(i => values[index: i]);
+        for (int c = 1; c < count; c++) {
+            double bestValue = centers[0], bestDistance = double.NegativeInfinity;
+            for (int i = 0; i < valid.Length; i++) {
+                double value = values[index: valid[i]], nearest = double.PositiveInfinity;
+                for (int j = 0; j < c; j++) nearest = Math.Min(val1: nearest, val2: Math.Abs(value: value - centers[j]));
+                if (nearest > bestDistance || (Math.Abs(value: nearest - bestDistance) <= RhinoMath.SqrtEpsilon && value < bestValue)) { bestDistance = nearest; bestValue = value; }
+            }
+            centers[c] = bestValue;
+        }
+        int[] labels = [.. Enumerable.Repeat(element: UnassignedRegion, count: values.Count)];
+        bool converged = false;
+        int iteration = 0;
+        while (iteration < maxIterations && !converged) {
+            double[] sums = new double[count], next = new double[count];
+            int[] counts = new int[count];
+            for (int i = 0; i < valid.Length; i++) {
+                double value = values[index: valid[i]];
+                int nearest = 0;
+                double best = Math.Abs(value: value - centers[0]);
+                for (int c = 1; c < count; c++) {
+                    double distance = Math.Abs(value: value - centers[c]);
+                    if (distance < best) { best = distance; nearest = c; }
+                }
+                labels[valid[i]] = nearest; sums[nearest] += value; counts[nearest]++;
+            }
+            double shift = 0.0;
+            for (int c = 0; c < count; c++) {
+                next[c] = counts[c] > 0 ? sums[c] / counts[c] : centers[c];
+                shift = Math.Max(val1: shift, val2: Math.Abs(value: next[c] - centers[c]));
+            }
+            centers = next; converged = shift <= tolerance; iteration++;
+        }
+        return labels.Any(static label => label >= 0)
+            ? Fin.Succ(new ClusterState(Labels: labels, Iterations: iteration, Converged: converged))
+            : Fin.Fail<ClusterState>(key.InvalidResult());
+    }
+    private static Arr<int> VertexRegionsOf(Mesh mesh, int[] faceRegions) {
+        List<int>[] mutable = [.. Enumerable.Range(start: 0, count: mesh.Vertices.Count).Select(static _ => new List<int>())];
+        for (int f = 0; f < mesh.Faces.Count; f++) {
+            int region = faceRegions[f];
+            if (region < 0) continue;
+            MeshFace face = mesh.Faces[index: f];
+            mutable[face.A].Add(item: region); mutable[face.B].Add(item: region); mutable[face.C].Add(item: region);
+            if (face.IsQuad) mutable[face.D].Add(item: region);
+        }
+        return new Arr<int>([.. mutable.Select(static regions => regions.Count == 0 ? UnassignedRegion : regions.GroupBy(static r => r).OrderByDescending(static g => g.Count()).ThenBy(static g => g.Key).First().Key)]);
+    }
 
     internal static Fin<double> SpectralDistanceAt(MeshSpace space, SpectralFilter filter, Seq<int> sources, int pairs, Point3d sample, Op key) =>
         from bundle in space.Cache.SpectralBasisBundleOf(k: pairs, key: key)
@@ -1061,9 +1289,9 @@ internal static class MeshKernel {
     // --- [SDF_FROM_MESH] ---------------------------------------------------------------------
     internal static Fin<SdfMeshSample> SignedDistanceFromMeshDetailed(MeshSpace space, SdfMeshMethod method, Point3d sample, Op key) =>
         (method.Equals(SdfMeshMethod.BoundarySignedHeat)
-            ? SignedHeatDistance(space: space, sample: sample, key: key).Map(distance => (Distance: distance, Status: SdfMeshStatus.BoundarySourceSignedHeat))
-            : GeneralizedWindingDistance(space: space, sample: sample, key: key).Map(distance => (Distance: distance, Status: SdfMeshStatus.Approximate)))
-        .Map(result => new SdfMeshSample(Distance: result.Distance, Receipt: SdfMeshReceiptOf(space: space, method: method, status: result.Status, solve: Option<SolveReceipt>.None)));
+            ? SignedHeatDistanceDetailed(space: space, sample: sample, key: key).Map(result => (result.Distance, Status: SdfMeshStatus.BoundarySourceSignedHeat, Solve: Some(result.Solve)))
+            : GeneralizedWindingDistance(space: space, sample: sample, key: key).Map(distance => (Distance: distance, Status: SdfMeshStatus.Approximate, Solve: Option<SolveReceipt>.None)))
+        .Map(result => new SdfMeshSample(Distance: result.Distance, Receipt: SdfMeshReceiptOf(space: space, method: method, status: result.Status, solve: result.Solve)));
     private static SdfMeshReceipt SdfMeshReceiptOf(MeshSpace space, SdfMeshMethod method, SdfMeshStatus status, Option<SolveReceipt> solve) {
         Mesh mesh = space.Native;
         bool manifold = mesh.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out _);
@@ -1098,34 +1326,35 @@ internal static class MeshKernel {
         double denom = lengthProduct + (abDot * lc) + (bcDot * la) + (caDot * lb);
         return 2.0 * Math.Atan2(y: det, x: denom);
     }
-    private static Fin<double> SignedHeatDistance(MeshSpace space, Point3d sample, Op key) {
+    private static Fin<(double Distance, SolveReceipt Solve)> SignedHeatDistanceDetailed(MeshSpace space, Point3d sample, Op key) {
         Polyline[]? polylines = space.Native.GetNakedEdges();
         return polylines is null || polylines.Length == 0
-            ? Fin.Fail<double>(key.Unsupported(geometryType: typeof(SdfMeshMethod), outputType: typeof(double)))
-            : from phi in space.Cache.SignedHeat
-              from signed in InterpolateOnMesh(space: space, sample: sample, perVertex: phi, key: key)
-              select signed;
+            ? Fin.Fail<(double, SolveReceipt)>(key.Unsupported(geometryType: typeof(SdfMeshMethod), outputType: typeof((double, SolveReceipt))))
+            : from phi in space.Cache.SignedHeatDetailed
+              from signed in InterpolateOnMesh(space: space, sample: sample, perVertex: phi.Values, key: key)
+              select (signed, phi.Solve);
     }
     // Boundary-source signed heat rejects flipped IDT until CR signpost transfer exists.
-    internal static Fin<Arr<double>> ComputeSignedHeat(MeshSpace space, Op key) {
+    internal static Fin<Arr<double>> ComputeSignedHeat(MeshSpace space, Op key) => ComputeSignedHeatDetailed(space: space, key: key).Map(static result => result.Values);
+    internal static Fin<(Arr<double> Values, SolveReceipt Solve)> ComputeSignedHeatDetailed(MeshSpace space, Op key) {
         Mesh mesh = space.Native;
         Polyline[]? polylines = mesh.GetNakedEdges();
-        if (polylines is null || polylines.Length == 0) return Fin.Fail<Arr<double>>(error: key.InvalidInput());
+        if (polylines is null || polylines.Length == 0) return Fin.Fail<(Arr<double>, SolveReceipt)>(error: key.InvalidInput());
         double h = space.Cache.MeanEdgeLength;
-        if (h <= RhinoMath.ZeroTolerance) return Fin.Fail<Arr<double>>(error: key.InvalidResult());
+        if (h <= RhinoMath.ZeroTolerance) return Fin.Fail<(Arr<double>, SolveReceipt)>(error: key.InvalidResult());
         double t = 0.5 * h * (0.5 * h);
         return from imesh in space.Cache.IntrinsicMeshSnapshot
-               from _ in guard(!imesh.HasFlips, key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof(Arr<double>)))
+               from _ in guard(!imesh.HasFlips, key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof((Arr<double>, SolveReceipt))))
                let encoded = EncodeSignedHeatBoundarySource(mesh: mesh, imesh: imesh, polylines: polylines)
                from admitted in AdmitSignedHeatSource(encoded: encoded, key: key)
                from heatFactor in space.Cache.EdgeConnectionCholesky(time: t, key: key)
-               from Xt in heatFactor.Solve(rhs: admitted.Rhs, key: key)
-               let faceField = SpectralCore.SampleCrouzeixRaviartFaceField(mesh: mesh, imesh: imesh, stacked: Xt)
+               from heatSolve in heatFactor.SolveDetailed(rhs: admitted.Rhs, key: key)
+               let faceField = SpectralCore.SampleCrouzeixRaviartFaceField(mesh: mesh, imesh: imesh, stacked: heatSolve.Solution)
                let divergence = SpectralCore.ComputeIntrinsicVertexDivergence(mesh: mesh, imesh: imesh, faceFields: faceField)
                from poissonFactor in space.Cache.Cholesky
-               from phi in poissonFactor.Solve(rhs: divergence, key: key)
-               from shifted in ShiftSignedHeat(phi: phi, sourceVertices: admitted.SourceVertices, key: key)
-               select shifted;
+               from poissonSolve in poissonFactor.SolveDetailed(rhs: divergence, key: key)
+               from shifted in ShiftSignedHeat(phi: poissonSolve.Solution, sourceVertices: admitted.SourceVertices, key: key)
+               select (shifted, poissonSolve);
     }
     // Edge-as-source encoding stacks imaginary CR edge sources with Lo→Hi signs.
     private static (Arr<double> Rhs, Seq<int> SourceVertices) EncodeSignedHeatBoundarySource(Mesh mesh, IntrinsicMesh imesh, Polyline[] polylines) {

@@ -35,6 +35,7 @@ public abstract partial record VectorIntent {
     public sealed record TopologyCase : VectorIntent { internal TopologyCase(MeshSpace Space) => this.Space = Space; public MeshSpace Space { get; } }
     public sealed record FeaturesCase : VectorIntent { internal FeaturesCase(MeshSpace Space, VectorAngle Dihedral) { this.Space = Space; this.Dihedral = Dihedral; } public MeshSpace Space { get; } public VectorAngle Dihedral { get; } }
     public sealed record DescriptorCase : VectorIntent { internal DescriptorCase(MeshSpace Space, MeshDescriptor Kind, Dimension Pairs) { this.Space = Space; this.Kind = Kind; this.Pairs = Pairs; } public MeshSpace Space { get; } public MeshDescriptor Kind { get; } public Dimension Pairs { get; } }
+    public sealed record SegmentationCase : VectorIntent { internal SegmentationCase(MeshSpace Space, MeshSegmentation Kind) { this.Space = Space; this.Kind = Kind; } public MeshSpace Space { get; } public MeshSegmentation Kind { get; } }
     public Fin<TOut> Project<TOut>(Context context, Op? key = null) {
         Op op = key.OrDefault();
         return from model in Optional(context).ToFin(op.MissingContext())
@@ -209,7 +210,8 @@ public abstract partial record VectorIntent {
                             .Select(static edge => (edge.A, edge.B)))).Map(static v => (TOut)(object)v)
                         : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(FeaturesCase), outputType: typeof(TOut)))
             select output,
-        descriptorCase: static (state, intent) => MeshKernel.DescribeShape<TOut>(space: intent.Space, kind: intent.Kind, eigenpairs: intent.Pairs.Value, key: state.Key));
+        descriptorCase: static (state, intent) => MeshKernel.DescribeShape<TOut>(space: intent.Space, kind: intent.Kind, eigenpairs: intent.Pairs.Value, key: state.Key),
+        segmentationCase: static (state, intent) => MeshKernel.Segment<TOut>(space: intent.Space, kind: intent.Kind, key: state.Key));
     public static VectorIntent Axis(SignedAxis axis, Plane? frame = null) =>
         new AxisCase(Value: axis, Basis: Optional(frame));
     public static VectorIntent Direction(Vector3d value) =>
@@ -348,5 +350,11 @@ public abstract partial record VectorIntent {
                from __ in guard(active.IsValid, op.InvalidInput())
                from count in op.AcceptValidated<Dimension>(candidate: pairs)
                select (VectorIntent)new DescriptorCase(Space: space, Kind: active, Pairs: count);
+    }
+    public static Fin<VectorIntent> Segmentation(MeshSpace space, MeshSegmentation kind, Op? key = null) {
+        Op op = key.OrDefault();
+        return from _ in Optional(space.Native).ToFin(op.InvalidInput())
+               from active in Optional(kind).ToFin(op.InvalidInput())
+               select (VectorIntent)new SegmentationCase(Space: space, Kind: active);
     }
 }

@@ -33,7 +33,8 @@ public sealed class SparseLaplacianLaws {
         SparseLaplacian valid = new(
             Stiffness: MeshGens.Identity2,
             MassConsistent: MeshGens.Identity2,
-            MassLumped: new Arr<double>([1.0, 2.0]));
+            MassLumped: new Arr<double>([1.0, 2.0]),
+            SkippedDegenerateFaces: 0);
         SparseLaplacian badMass = valid with { MassLumped = new Arr<double>([1.0]) };
         SparseLaplacian negativeMass = valid with { MassLumped = new Arr<double>([1.0, -1.0]) };
         SparseLaplacian nonFiniteMass = valid with { MassLumped = new Arr<double>([1.0, double.NaN]) };
@@ -57,6 +58,22 @@ public sealed class SparseLaplacianLaws {
         Assert.False(condition: nonFiniteMass.IsValid);
         Assert.False(condition: badShape.IsValid);
         Assert.False(condition: badColumns.IsValid);
+    }
+}
+
+public sealed class MeshSegmentationLaws {
+    [Fact]
+    public void SegmentationFactoriesGateInputsAndPreserveModes() {
+        MeshDescriptor descriptor = MeshDescriptor.Spectral(filter: SpectralFilter.Identity);
+        _ = Assert.IsType<MeshSegmentation.ScalarThresholdCase>(@object: Spec.SuccValue(MeshSegmentation.ScalarThreshold(values: [0.0, 1.0], threshold: 0.5, includeAbove: true, key: MeshGens.Key), label: "threshold"));
+        _ = Assert.IsType<MeshSegmentation.ScalarBandsCase>(@object: Spec.SuccValue(MeshSegmentation.ScalarBands(values: [0.0, 1.0], bandCount: 2, key: MeshGens.Key), label: "bands"));
+        _ = Assert.IsType<MeshSegmentation.SeededRegionGrowCase>(@object: Spec.SuccValue(MeshSegmentation.SeededRegionGrow(values: [0.0, 0.1], seedFaces: Seq(0), tolerance: 0.2, maxIterations: 16, key: MeshGens.Key), label: "grow"));
+        _ = Assert.IsType<MeshSegmentation.DescriptorClustersCase>(@object: Spec.SuccValue(MeshSegmentation.DescriptorClusters(descriptor: descriptor, eigenpairs: 2, regionCount: 2, maxIterations: 16, tolerance: 1.0e-9, key: MeshGens.Key), label: "clusters"));
+        Spec.FailCategory(MeshSegmentation.ScalarThreshold(values: [], threshold: 0.0, key: MeshGens.Key), category: "Input");
+        Spec.FailCategory(MeshSegmentation.ScalarThreshold(values: [0.0], threshold: double.NaN, key: MeshGens.Key), category: "Input");
+        Spec.FailCategory(MeshSegmentation.ScalarBands(values: [0.0], bandCount: 1, key: MeshGens.Key), category: "Input");
+        Spec.FailCategory(MeshSegmentation.SeededRegionGrow(values: [0.0], seedFaces: Seq<int>(), tolerance: 0.2, maxIterations: 16, key: MeshGens.Key), category: "Input");
+        Spec.FailCategory(MeshSegmentation.DescriptorClusters(descriptor: descriptor, eigenpairs: 2, regionCount: 1, maxIterations: 16, tolerance: 1.0e-9, key: MeshGens.Key), category: "Input");
     }
 }
 

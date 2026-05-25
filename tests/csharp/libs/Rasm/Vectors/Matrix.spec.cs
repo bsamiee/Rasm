@@ -135,10 +135,10 @@ public sealed class SparseMatrixLaws {
         SparseMatrix matrix = MatrixGens.Sparse2((0, 0, 4.0), (1, 1, 2.0));
         Spec.Succ(matrix.SolveDetailed(rhs: [8.0, 6.0], key: MatrixGens.Key), then: result => {
             Spec.SmartEnumKeysUnique(items: [SolvePath.DenseLu, SolvePath.DenseQrLeastSquares, SolvePath.DenseCholesky, SolvePath.SparseBiCgStabDiagonal, SolvePath.SparseMathNetDirectFallback, SolvePath.SparseCholesky], key: static s => s.Key);
-            Spec.SmartEnumKeysUnique(items: [SolveStop.DirectSolved, SolveStop.LeastSquaresSolved, SolveStop.ResidualConverged], key: static s => s.Key);
+            Spec.SmartEnumKeysUnique(items: [SolveStop.DirectSolved, SolveStop.LeastSquaresSolved, SolveStop.ResidualConverged, SolveStop.DirectFallbackSolved], key: static s => s.Key);
             Assert.Contains(expected: result.Path, collection: [SolvePath.SparseBiCgStabDiagonal, SolvePath.SparseMathNetDirectFallback]);
             Assert.True(condition: result.Path.IsSparse);
-            Assert.Equal(expected: SolveStop.ResidualConverged, actual: result.Stop);
+            Assert.Equal(expected: result.Path.Equals(SolvePath.SparseMathNetDirectFallback) ? SolveStop.DirectFallbackSolved : SolveStop.ResidualConverged, actual: result.Stop);
             Spec.Some(result.MaxIterations, cap => Assert.True(condition: cap >= 64));
             Spec.Some(result.InputNonZeros, nnz => Assert.Equal(expected: matrix.NonZeros, actual: nnz));
             Spec.EqualWithin(left: result.Solution[index: 0], right: 2.0, tolerance: 1.0e-8, what: "x0");
