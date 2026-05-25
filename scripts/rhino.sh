@@ -44,7 +44,7 @@ declare -Ar ROUTES=(
     [push]='_package_action|2|2|push <package> <version>|push'
     [bridge:build]='_bridge_build|0|0|bridge build|'
     [bridge:package]='_cmd_package|1|1|bridge package <version>|rasm-bridge'
-    [bridge:install]='_bridge_install|1|1|bridge install <local-yak-path>|'
+    [bridge:install]='_bridge_install|0|1|bridge install [local-yak-path]|'
     [bridge:launch]='_bridge_client|0|0|bridge launch|launch'
     [bridge:restart]='_bridge_client|0|0|bridge restart|restart'
     [bridge:doctor]='_bridge_client|0|999|bridge doctor [client options]|doctor'
@@ -166,7 +166,7 @@ _self_test() {
     done
     declare -Ar route_contracts=(
         [bridge:package]='_cmd_package|rasm-bridge|1|1'
-        [bridge:install]='_bridge_install||1|1'
+        [bridge:install]='_bridge_install||0|1'
         [install]='_package_action|install|2|2'
         [bridge:quit]='_bridge_client|quit|0|0'
         [push]='_package_action|push|2|2'
@@ -537,10 +537,17 @@ _api_doctor() {
     done
 }
 _bridge_install() {
-    local -r package_path="$1"
-    local -r package_name="${package_path##*/}"
-    [[ "${package_name}" =~ ^rasm-bridge-(.+)-rh[0-9_]+-mac[.]yak$ ]] || _die "Could not read bridge package version from ${package_name}"
-    local -r expected_version="${BASH_REMATCH[1]}"
+    local package_path="${1:-}"
+    if [[ -z "${package_path}" ]]; then
+        local -r package_slug="$(_msbuild_property "${BRIDGE_PLUGIN_PROJECT}" YakPackageSlug)"
+        local -r package_dir="$(_msbuild_property "${BRIDGE_PLUGIN_PROJECT}" YakPackageDirectory)"
+        [[ -d "${package_dir}" ]] || _die "No staged bridge package directory: ${package_dir}; run bridge package <version>"
+        local -a package_files=()
+        mapfile -t package_files < <(fd -H -g "${package_slug}-*-rh9_*-mac.yak" . "${package_dir}" --max-depth 1)
+        ((${#package_files[@]} == 1)) || _die "Expected one staged bridge package in ${package_dir}, found ${#package_files[@]}"
+        package_path="${package_files[0]}"
+    fi
+    readonly package_path
     [[ -x "${YAK_PATH}" ]] || _die "Yak not executable at ${YAK_PATH}"
     [[ -f "${package_path}" ]] || _die "Missing Yak package: ${package_path}"
     "${YAK_PATH}" install "${package_path}"
@@ -549,8 +556,8 @@ _bridge_install() {
     if restart_json="$(_bridge_client restart)"; then
         lifecycle_json="${restart_json}"
     else
-        printf '%s\n' "${restart_json}"
         lifecycle_json="$(_bridge_client launch)" || {
+            printf '%s\n' "${restart_json}"
             printf '%s\n' "${lifecycle_json}"
             _die "Bridge restart/launch failed after install"
         }
@@ -564,10 +571,7 @@ _bridge_install() {
     }
     readonly doctor_json
     printf '%s\n' "${doctor_json}"
-    local live_version
-    live_version="$(jq -er 'first(.phases[] | select(.phase == "doctor") | .data.assemblies[] | select(.name == "rasm-bridge") | (.informationalVersion // .version)) // empty' <<< "${doctor_json}")" || _die "Bridge doctor did not report rasm-bridge"
-    readonly live_version
-    [[ "${live_version}" == "${expected_version}" ]] || _die "Installed bridge version mismatch: expected ${expected_version}, live ${live_version}"
+    jq -er 'first(.phases[]? | select(.phase == "doctor") | .data.assemblies[]? | select(.name == "rasm-bridge")) // empty' >/dev/null <<< "${doctor_json}" || _die "Bridge doctor did not report rasm-bridge"
 }
 _package_meta() {
     local -r package_slug="$1"

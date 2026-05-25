@@ -74,8 +74,7 @@ Pre-flight (once per session, when Rhino is not already running with the bridge)
 ```bash
 bash scripts/rhino.sh bridge build      # builds protocol + plugin + client
 bash scripts/rhino.sh bridge package $V # only when the plugin source changed
-bash scripts/rhino.sh bridge install \
-     .artifacts/rhino/rasm-bridge/package/rasm-bridge-$V-rh9_0-mac.yak
+bash scripts/rhino.sh bridge install
 bash scripts/rhino.sh bridge launch     # opens RhinoWIP, verifies hello
 ```
 

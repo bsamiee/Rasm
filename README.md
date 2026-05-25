@@ -84,8 +84,7 @@ Build and install the runtime analyzer bridge:
 VERSION=0.1.0-wip
 scripts/rhino.sh bridge build
 scripts/rhino.sh bridge package "$VERSION"
-PACKAGE="$(fd -H -g "rasm-bridge-${VERSION}-*-mac.yak" .artifacts/rhino/rasm-bridge/package --max-depth 1)"
-scripts/rhino.sh bridge install "$PACKAGE"
+scripts/rhino.sh bridge install
 ```
 
 Collect live RhinoWIP runtime evidence:

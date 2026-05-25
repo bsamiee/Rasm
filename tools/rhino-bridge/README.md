@@ -79,7 +79,7 @@ Run commands from repository root.
 | **11** | `scripts/rhino.sh bridge unload <session-id>` | Unload explicit bridge load session. |
 | **12** | `scripts/rhino.sh bridge quit` | Ask Rhino to exit only when open documents have no unsaved changes. |
 | **13** | `scripts/rhino.sh bridge package <version>` | Build bridge `.rhp`, run Yak in staged directory, and create a local package. |
-| **14** | `scripts/rhino.sh bridge install <package.yak>` | Install bridge package, restart or launch RhinoWIP, then verify live version. |
+| **14** | `scripts/rhino.sh bridge install [package.yak]` | Install staged or explicit bridge package, restart or launch RhinoWIP, then verify bridge health. |
 | **15** | `scripts/rhino.sh api doctor` | Report local RhinoWIP API XML, ILSpy, and RhinoCode metadata availability. |
 | **16** | `scripts/rhino.sh api path <key> [assembly\|xml]` | Print the resolved assembly or XML path for an API reference key. |
 | **17** | `scripts/rhino.sh api xml <key> <pattern>` | Search the resolved XML documentation with `rg`. |
@@ -297,5 +297,5 @@ scripts/rhino.sh bridge check-source apps/grasshopper/Radyab/Components/ExtractP
 Add focused live checks for bridge implementation changes:
 - Reference projection changes: run `check-source <source.cs> --script <script.csx>` that imports affected assemblies.
 - Assembly load policy changes: run same-simple-name stale assembly scenario and verify mismatch fails.
-- Packaging changes: run `scripts/rhino.sh bridge package <version>` and validate one staged `.yak`.
+- Packaging changes: run `scripts/rhino.sh bridge package <version>`, then `scripts/rhino.sh bridge install` to validate the staged `.yak`.
 - Transport changes: run `bridge doctor`, `bridge script`, and `bridge load-smoke`.
