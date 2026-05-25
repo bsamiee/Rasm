@@ -123,16 +123,31 @@ internal abstract partial record StreamlineStep {
 [Union]
 public abstract partial record FieldIntegrator {
     private FieldIntegrator() { }
-    public sealed record FixedCase(IntegratorKind Kind) : FieldIntegrator;
-    public sealed record AdaptiveCase(IntegratorKind Kind, PositiveMagnitude Tolerance, int MaxRejects) : FieldIntegrator;
+    public sealed record FixedCase : FieldIntegrator { internal FixedCase(IntegratorKind kind) => Kind = kind; public IntegratorKind Kind { get; } }
+    public sealed record AdaptiveCase : FieldIntegrator { internal AdaptiveCase(IntegratorKind kind, PositiveMagnitude tolerance, int maxRejects) { Kind = kind; Tolerance = tolerance; MaxRejects = maxRejects; } public IntegratorKind Kind { get; } public PositiveMagnitude Tolerance { get; } public int MaxRejects { get; } }
+    public static Fin<FieldIntegrator> Fixed(IntegratorKind kind, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in Optional(kind).ToFin(op.InvalidInput())
+               from _ in guard(!active.IsAdaptive, op.Unsupported(geometryType: active.GetType(), outputType: typeof(FixedCase)))
+               select (FieldIntegrator)new FixedCase(kind: active);
+    }
     public static Fin<FieldIntegrator> Adaptive(IntegratorKind kind, double tolerance, int maxRejects = 3, Op? key = null) {
         Op op = key.OrDefault();
         return from active in Optional(kind).ToFin(op.InvalidInput())
                from _ in guard(maxRejects >= 0, op.InvalidInput())
                from __ in guard(active.IsAdaptive, op.Unsupported(geometryType: active.GetType(), outputType: typeof(AdaptiveCase)))
                from validated in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
-               select (FieldIntegrator)new AdaptiveCase(Kind: active, Tolerance: validated, MaxRejects: maxRejects);
+               select (FieldIntegrator)new AdaptiveCase(kind: active, tolerance: validated, maxRejects: maxRejects);
     }
+    internal Fin<FieldIntegrator> Admit(Op key) =>
+        Switch(
+            state: key,
+            fixedCase: static (op, integrator) => Fixed(kind: integrator.Kind, key: op),
+            adaptiveCase: static (op, integrator) => Adaptive(kind: integrator.Kind, tolerance: integrator.Tolerance.Value, maxRejects: integrator.MaxRejects, key: op));
+    internal static Fin<FieldIntegrator> Admit(FieldIntegrator value, Op key) =>
+        Optional(value).ToFin(key.InvalidInput()).Bind(integrator => integrator.Admit(key: key));
+    internal static Fin<FieldIntegrator> AdmitOrFixed(FieldIntegrator? value, Op key) =>
+        value is null ? Fixed(kind: IntegratorKind.RK4, key: key) : Admit(value: value, key: key);
     internal int RejectBudget => Switch(
         state: 0,
         fixedCase: static (s, _) => s,
@@ -323,8 +338,9 @@ internal static class FlowKernel {
     private const int MaxIterations = 100000;
 
     internal static Fin<TOut> Trace<TOut>(VectorField source, Point3d seed, PositiveMagnitude initialStep, FieldIntegrator integrator, Termination termination, Context context, Op key) =>
-        from state in TraceState(source: source, seed: seed, initialStep: initialStep, integrator: integrator, termination: termination, context: context, key: key)
-        let trace = ToTrace(state: state, integrator: integrator)
+        from activeIntegrator in FieldIntegrator.Admit(value: integrator, key: key)
+        from state in TraceState(source: source, seed: seed, initialStep: initialStep, integrator: activeIntegrator, termination: termination, context: context, key: key)
+        let trace = ToTrace(state: state, integrator: activeIntegrator)
         from output in ProjectTrace<TOut>(trace: trace, key: key)
         select output;
     private static Fin<StreamlineState> TraceState(VectorField source, Point3d seed, PositiveMagnitude initialStep, FieldIntegrator integrator, Termination termination, Context context, Op key) =>

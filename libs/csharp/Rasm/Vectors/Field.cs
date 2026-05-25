@@ -27,14 +27,14 @@ public sealed partial class CsgKind {
 [Union]
 public abstract partial record BlendKind {
     private BlendKind() { }
-    public sealed record HardCase : BlendKind;
-    public sealed record PolynomialCase(PositiveMagnitude K) : BlendKind;
-    public sealed record ExponentialCase(PositiveMagnitude K) : BlendKind;
-    public sealed record RootCase(PositiveMagnitude K) : BlendKind;
-    public sealed record CubicCase(PositiveMagnitude K) : BlendKind;
-    public sealed record ChamferCase(PositiveMagnitude K) : BlendKind;
-    public sealed record GrooveCase(PositiveMagnitude K, PositiveMagnitude D) : BlendKind;
-    public sealed record RoundCase(PositiveMagnitude R) : BlendKind;
+    public sealed record HardCase : BlendKind { internal HardCase() { } }
+    public sealed record PolynomialCase : BlendKind { internal PolynomialCase(PositiveMagnitude K) => this.K = K; public PositiveMagnitude K { get; } }
+    public sealed record ExponentialCase : BlendKind { internal ExponentialCase(PositiveMagnitude K) => this.K = K; public PositiveMagnitude K { get; } }
+    public sealed record RootCase : BlendKind { internal RootCase(PositiveMagnitude K) => this.K = K; public PositiveMagnitude K { get; } }
+    public sealed record CubicCase : BlendKind { internal CubicCase(PositiveMagnitude K) => this.K = K; public PositiveMagnitude K { get; } }
+    public sealed record ChamferCase : BlendKind { internal ChamferCase(PositiveMagnitude K) => this.K = K; public PositiveMagnitude K { get; } }
+    public sealed record GrooveCase : BlendKind { internal GrooveCase(PositiveMagnitude K, PositiveMagnitude D) { this.K = K; this.D = D; } public PositiveMagnitude K { get; } public PositiveMagnitude D { get; } }
+    public sealed record RoundCase : BlendKind { internal RoundCase(PositiveMagnitude R) => this.R = R; public PositiveMagnitude R { get; } }
     public static BlendKind Hard => new HardCase();
     public static Fin<BlendKind> Polynomial(double k, Op? key = null) => FieldNabla.WithPositive(candidate: k, make: static v => (BlendKind)new PolynomialCase(K: v), key: key);
     public static Fin<BlendKind> Exponential(double k, Op? key = null) => FieldNabla.WithPositive(candidate: k, make: static v => (BlendKind)new ExponentialCase(K: v), key: key);
@@ -193,12 +193,12 @@ public sealed partial class KernelKind {
     public static readonly KernelKind Linear = new(key: 4, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: true, value: static (q, _) => 1.0 - q, first: static (_, r) => -1.0 / r, second: static (_, _) => 0.0));
     public static readonly KernelKind Epanechnikov = new(key: 5, evaluate: static (d, r) => SupportProfile(distance: d, radius: r, nonsmoothAtOrigin: false, value: static (q, _) => 1.0 - (q * q), first: static (q, r) => -2.0 * q / r, second: static (_, r) => -2.0 / (r * r)));
     internal Fin<KernelProfile> Profile(double distance, double radius, Op key) =>
-        !RhinoMath.IsValidDouble(x: distance) || !RhinoMath.IsValidDouble(x: radius) || distance < 0.0 || radius <= RhinoMath.ZeroTolerance
-            ? Fin.Fail<KernelProfile>(key.InvalidInput())
-            : Evaluate(distance: distance, radius: radius) switch {
-                KernelProfile profile when profile.IsValid => Fin.Succ(profile),
-                _ => Fin.Fail<KernelProfile>(key.InvalidResult()),
-            };
+        from _ in FieldNabla.KernelInput(distance: distance, radius: radius, key: key)
+        from profile in Evaluate(distance: distance, radius: radius) switch {
+            KernelProfile p when p.IsValid => Fin.Succ(p),
+            _ => Fin.Fail<KernelProfile>(key.InvalidResult()),
+        }
+        select profile;
     internal double Weight(double distance, double radius) => Evaluate(distance: distance, radius: radius).Value;
     [UseDelegateFromConstructor] private partial KernelProfile Evaluate(double distance, double radius);
     private static double Pow1(double q, int power) => Math.Pow(x: 1.0 - q, y: power);
@@ -216,8 +216,12 @@ public sealed partial class KernelKind {
 [Union]
 public abstract partial record Falloff {
     private Falloff() { }
-    public sealed record ConstantCase : Falloff; public sealed record InverseCase : Falloff; public sealed record InverseSquareCase : Falloff;
-    public sealed record GaussianCase(PositiveMagnitude Spread) : Falloff; public sealed record KernelCase(KernelKind Kind, PositiveMagnitude Radius) : Falloff; public sealed record AnisotropicKernelCase(KernelKind Kind, TensorField Metric, PositiveMagnitude Radius) : Falloff;
+    public sealed record ConstantCase : Falloff { internal ConstantCase() { } }
+    public sealed record InverseCase : Falloff { internal InverseCase() { } }
+    public sealed record InverseSquareCase : Falloff { internal InverseSquareCase() { } }
+    public sealed record GaussianCase : Falloff { internal GaussianCase(PositiveMagnitude Spread) => this.Spread = Spread; public PositiveMagnitude Spread { get; } }
+    public sealed record KernelCase : Falloff { internal KernelCase(KernelKind Kind, PositiveMagnitude Radius) { this.Kind = Kind; this.Radius = Radius; } public KernelKind Kind { get; } public PositiveMagnitude Radius { get; } }
+    public sealed record AnisotropicKernelCase : Falloff { internal AnisotropicKernelCase(KernelKind Kind, TensorField Metric, PositiveMagnitude Radius) { this.Kind = Kind; this.Metric = Metric; this.Radius = Radius; } public KernelKind Kind { get; } public TensorField Metric { get; } public PositiveMagnitude Radius { get; } }
     public static Falloff Constant => new ConstantCase();
     public static Falloff Inverse => new InverseCase();
     public static Falloff InverseSquare => new InverseSquareCase();
@@ -304,15 +308,33 @@ public abstract partial record BouncePolicy {
 }
 
 [Union]
-public partial record VectorField {
-    public sealed record ConstantCase(Vector3d Value) : VectorField; public sealed record BlendCase(Seq<VectorField> Fields, FieldBlend Mode) : VectorField; public sealed record ScaledCase(VectorField Source, double Scale) : VectorField;
-    public sealed record InfluenceCase(SupportSpace Source, Falloff Falloff, BoundarySense Sense, Option<PositiveMagnitude> Radius) : VectorField; public sealed record HitFieldCase(SupportSpace Source, SupportProjection Projection, BoundarySense Sense) : VectorField;
-    public sealed record VortexCase(Point3d Anchor, Direction Axis, Falloff Falloff) : VectorField; public sealed record RingCase(Point3d Center, Direction Axis, PositiveMagnitude Radius, Falloff Falloff) : VectorField; public sealed record HelicalCase(Point3d Anchor, Direction Axis, double Axial, double Swirl, Falloff Falloff) : VectorField;
-    public sealed record CoulombCase(Seq<(Point3d Position, double Charge)> Charges, Falloff Falloff) : VectorField; public sealed record ClusterFieldCase(VectorCloud.ClusterCase Source, Falloff Falloff, PositiveMagnitude Radius, BoundarySense Sense) : VectorField; public sealed record DipoleCase(Point3d Origin, Direction Moment, PositiveMagnitude Strength) : VectorField;
-    public sealed record HarmonicCase(Seq<(Direction Direction, double Frequency, double Phase, double Amplitude)> Components) : VectorField; public sealed record ProjectedCase(VectorField Source, Plane Onto) : VectorField; public sealed record WarpCase(VectorField Source, Transform Spatial) : VectorField; public sealed record ClampMagnitudeCase(VectorField Source, PositiveMagnitude Min, PositiveMagnitude Max) : VectorField;
-    public sealed record GradientCase(ScalarField Source, PositiveMagnitude Epsilon) : VectorField; public sealed record CurlCase(VectorField Source, PositiveMagnitude Epsilon) : VectorField; public sealed record CurlNoiseCase(ScalarField Potential, PositiveMagnitude Epsilon, bool RaisesCaution) : VectorField; public sealed record CrossProductCase(VectorField Left, VectorField Right) : VectorField;
-    public sealed record BiotSavartCase(Point3d Start, Point3d End, double Current) : VectorField; public sealed record SaddleCase(Point3d Anchor, Plane Basis, double Strength) : VectorField;
-    public sealed record CrossFieldCase(MeshSpace Space, int Symmetry, Option<Seq<(int Vertex, Direction Hint)>> Constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> Cones) : VectorField; public sealed record HodgeCase(VectorField Source, MeshSpace Space, BoundarySense Sense) : VectorField; public sealed record VectorHeatCase(MeshSpace Space, Seq<(int Vertex, Vector3d Direction)> Sources, PositiveMagnitude Time) : VectorField; public sealed record GeodesicTangentCase(MeshSpace Space, Seq<int> Sources) : VectorField;
+public abstract partial record VectorField {
+    private VectorField() { }
+    public sealed record ConstantCase : VectorField { internal ConstantCase(Vector3d Value) => this.Value = Value; public Vector3d Value { get; } }
+    public sealed record BlendCase : VectorField { internal BlendCase(Seq<VectorField> Fields, FieldBlend Mode) { this.Fields = Fields; this.Mode = Mode; } public Seq<VectorField> Fields { get; } public FieldBlend Mode { get; } }
+    public sealed record ScaledCase : VectorField { internal ScaledCase(VectorField Source, double Scale) { this.Source = Source; this.Scale = Scale; } public VectorField Source { get; } public double Scale { get; } }
+    public sealed record InfluenceCase : VectorField { internal InfluenceCase(SupportSpace Source, Falloff Falloff, BoundarySense Sense, Option<PositiveMagnitude> Radius) { this.Source = Source; this.Falloff = Falloff; this.Sense = Sense; this.Radius = Radius; } public SupportSpace Source { get; } public Falloff Falloff { get; } public BoundarySense Sense { get; } public Option<PositiveMagnitude> Radius { get; } }
+    public sealed record HitFieldCase : VectorField { internal HitFieldCase(SupportSpace Source, SupportProjection Projection, BoundarySense Sense) { this.Source = Source; this.Projection = Projection; this.Sense = Sense; } public SupportSpace Source { get; } public SupportProjection Projection { get; } public BoundarySense Sense { get; } }
+    public sealed record VortexCase : VectorField { internal VortexCase(Point3d Anchor, Direction Axis, Falloff Falloff) { this.Anchor = Anchor; this.Axis = Axis; this.Falloff = Falloff; } public Point3d Anchor { get; } public Direction Axis { get; } public Falloff Falloff { get; } }
+    public sealed record RingCase : VectorField { internal RingCase(Point3d Center, Direction Axis, PositiveMagnitude Radius, Falloff Falloff) { this.Center = Center; this.Axis = Axis; this.Radius = Radius; this.Falloff = Falloff; } public Point3d Center { get; } public Direction Axis { get; } public PositiveMagnitude Radius { get; } public Falloff Falloff { get; } }
+    public sealed record HelicalCase : VectorField { internal HelicalCase(Point3d Anchor, Direction Axis, double Axial, double Swirl, Falloff Falloff) { this.Anchor = Anchor; this.Axis = Axis; this.Axial = Axial; this.Swirl = Swirl; this.Falloff = Falloff; } public Point3d Anchor { get; } public Direction Axis { get; } public double Axial { get; } public double Swirl { get; } public Falloff Falloff { get; } }
+    public sealed record CoulombCase : VectorField { internal CoulombCase(Seq<(Point3d Position, double Charge)> Charges, Falloff Falloff) { this.Charges = Charges; this.Falloff = Falloff; } public Seq<(Point3d Position, double Charge)> Charges { get; } public Falloff Falloff { get; } }
+    public sealed record ClusterFieldCase : VectorField { internal ClusterFieldCase(VectorCloud.ClusterCase Source, Falloff Falloff, PositiveMagnitude Radius, BoundarySense Sense) { this.Source = Source; this.Falloff = Falloff; this.Radius = Radius; this.Sense = Sense; } public VectorCloud.ClusterCase Source { get; } public Falloff Falloff { get; } public PositiveMagnitude Radius { get; } public BoundarySense Sense { get; } }
+    public sealed record DipoleCase : VectorField { internal DipoleCase(Point3d Origin, Direction Moment, PositiveMagnitude Strength) { this.Origin = Origin; this.Moment = Moment; this.Strength = Strength; } public Point3d Origin { get; } public Direction Moment { get; } public PositiveMagnitude Strength { get; } }
+    public sealed record HarmonicCase : VectorField { internal HarmonicCase(Seq<(Direction Direction, double Frequency, double Phase, double Amplitude)> Components) => this.Components = Components; public Seq<(Direction Direction, double Frequency, double Phase, double Amplitude)> Components { get; } }
+    public sealed record ProjectedCase : VectorField { internal ProjectedCase(VectorField Source, Plane Onto) { this.Source = Source; this.Onto = Onto; } public VectorField Source { get; } public Plane Onto { get; } }
+    public sealed record WarpCase : VectorField { internal WarpCase(VectorField Source, Transform Spatial) { this.Source = Source; this.Spatial = Spatial; } public VectorField Source { get; } public Transform Spatial { get; } }
+    public sealed record ClampMagnitudeCase : VectorField { internal ClampMagnitudeCase(VectorField Source, PositiveMagnitude Min, PositiveMagnitude Max) { this.Source = Source; this.Min = Min; this.Max = Max; } public VectorField Source { get; } public PositiveMagnitude Min { get; } public PositiveMagnitude Max { get; } }
+    public sealed record GradientCase : VectorField { internal GradientCase(ScalarField Source, PositiveMagnitude Epsilon) { this.Source = Source; this.Epsilon = Epsilon; } public ScalarField Source { get; } public PositiveMagnitude Epsilon { get; } }
+    public sealed record CurlCase : VectorField { internal CurlCase(VectorField Source, PositiveMagnitude Epsilon) { this.Source = Source; this.Epsilon = Epsilon; } public VectorField Source { get; } public PositiveMagnitude Epsilon { get; } }
+    public sealed record CurlNoiseCase : VectorField { internal CurlNoiseCase(ScalarField Potential, PositiveMagnitude Epsilon, bool RaisesCaution) { this.Potential = Potential; this.Epsilon = Epsilon; this.RaisesCaution = RaisesCaution; } public ScalarField Potential { get; } public PositiveMagnitude Epsilon { get; } public bool RaisesCaution { get; } }
+    public sealed record CrossProductCase : VectorField { internal CrossProductCase(VectorField Left, VectorField Right) { this.Left = Left; this.Right = Right; } public VectorField Left { get; } public VectorField Right { get; } }
+    public sealed record BiotSavartCase : VectorField { internal BiotSavartCase(Point3d Start, Point3d End, double Current) { this.Start = Start; this.End = End; this.Current = Current; } public Point3d Start { get; } public Point3d End { get; } public double Current { get; } }
+    public sealed record SaddleCase : VectorField { internal SaddleCase(Point3d Anchor, Plane Basis, double Strength) { this.Anchor = Anchor; this.Basis = Basis; this.Strength = Strength; } public Point3d Anchor { get; } public Plane Basis { get; } public double Strength { get; } }
+    public sealed record CrossFieldCase : VectorField { internal CrossFieldCase(MeshSpace Space, int Symmetry, Option<Seq<(int Vertex, Direction Hint)>> Constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> Cones) { this.Space = Space; this.Symmetry = Symmetry; this.Constraints = Constraints; this.Cones = Cones; } public MeshSpace Space { get; } public int Symmetry { get; } public Option<Seq<(int Vertex, Direction Hint)>> Constraints { get; } public Option<Seq<(int Vertex, double HolonomyDeficit)>> Cones { get; } }
+    public sealed record HodgeCase : VectorField { internal HodgeCase(VectorField Source, MeshSpace Space, BoundarySense Sense) { this.Source = Source; this.Space = Space; this.Sense = Sense; } public VectorField Source { get; } public MeshSpace Space { get; } public BoundarySense Sense { get; } }
+    public sealed record VectorHeatCase : VectorField { internal VectorHeatCase(MeshSpace Space, Seq<(int Vertex, Vector3d Direction)> Sources, PositiveMagnitude Time) { this.Space = Space; this.Sources = Sources; this.Time = Time; } public MeshSpace Space { get; } public Seq<(int Vertex, Vector3d Direction)> Sources { get; } public PositiveMagnitude Time { get; } }
+    public sealed record GeodesicTangentCase : VectorField { internal GeodesicTangentCase(MeshSpace Space, Seq<int> Sources) { this.Space = Space; this.Sources = Sources; } public MeshSpace Space { get; } public Seq<int> Sources { get; } }
     public static VectorField Constant(Vector3d value) => new ConstantCase(Value: value);
     public static Fin<VectorField> Hit(SupportSpace source, SupportProjection projection, BoundarySense? sense = null, Op? key = null) =>
         from active in Optional(source).ToFin(key.OrDefault().InvalidInput()) from selected in Optional(projection).ToFin(key.OrDefault().InvalidInput()) from _ in guard(selected.CanProjectVector(space: active), key.OrDefault().Unsupported(active.SourceType, typeof(Vector3d))) select (VectorField)new HitFieldCase(Source: active, Projection: selected, Sense: sense ?? BoundarySense.Toward);
@@ -337,7 +359,7 @@ public partial record VectorField {
     public static Fin<VectorField> BiotSavart(Point3d start, Point3d end, double current, Op? key = null) =>
         from a in key.OrDefault().AcceptValue(value: start) from b in key.OrDefault().AcceptValue(value: end) from i in key.OrDefault().AcceptValue(value: current) from _ in guard(!(a - b).IsTiny(), key.OrDefault().InvalidInput()) select (VectorField)new BiotSavartCase(Start: a, End: b, Current: i);
     public static Fin<VectorField> Saddle(Point3d anchor, Plane basis, double strength, Op? key = null) =>
-        basis.IsValid ? Fin.Succ((VectorField)new SaddleCase(Anchor: anchor, Basis: basis, Strength: strength)) : Fin.Fail<VectorField>(key.OrDefault().InvalidInput());
+        FieldNabla.Plane(basis: basis, key: key.OrDefault()).Map(validBasis => (VectorField)new SaddleCase(Anchor: anchor, Basis: validBasis, Strength: strength));
     public static Fin<VectorField> CrossField(MeshSpace space, int symmetry, Option<Seq<(int Vertex, Direction Hint)>> constraints = default, Option<Seq<(int Vertex, double HolonomyDeficit)>> cones = default, Op? key = null) =>
         from active in FieldNabla.MeshOf(space: space, key: key.OrDefault()) from __ in guard(symmetry is 1 or 2 or 4 or 6, key.OrDefault().InvalidInput()) let vertexCount = active.Vertices.Count from ___ in guard(constraints.Match(Some: values => values.ForAll(item => item.Vertex >= 0 && item.Vertex < vertexCount), None: static () => true) && cones.Match(Some: values => values.ForAll(item => item.Vertex >= 0 && item.Vertex < vertexCount && RhinoMath.IsValidDouble(x: item.HolonomyDeficit)), None: static () => true), key.OrDefault().InvalidInput()) select (VectorField)new CrossFieldCase(Space: space, Symmetry: symmetry, Constraints: constraints, Cones: cones);
     public static Fin<VectorField> VectorHeat(MeshSpace space, Seq<(int Vertex, Vector3d Direction)> sources, double time, Op? key = null) =>
@@ -467,9 +489,14 @@ public partial record VectorField {
 }
 
 [Union]
-public partial record TensorField {
-    public sealed record ConstantCase(SymmetricMatrix Value) : TensorField; public sealed record CurvatureCase(SurfaceSpace Space) : TensorField; public sealed record LiftCase(Func<Point3d, SymmetricMatrix> Sampler) : TensorField;
-    public sealed record WarpCase(TensorField Source, Transform Spatial) : TensorField; public sealed record ScaledCase(TensorField Source, double Scale) : TensorField; public sealed record BlendCase(Seq<TensorField> Fields, FieldBlend Mode) : TensorField;
+public abstract partial record TensorField {
+    private TensorField() { }
+    public sealed record ConstantCase : TensorField { internal ConstantCase(SymmetricMatrix Value) => this.Value = Value; public SymmetricMatrix Value { get; } }
+    public sealed record CurvatureCase : TensorField { internal CurvatureCase(SurfaceSpace Space) => this.Space = Space; public SurfaceSpace Space { get; } }
+    public sealed record LiftCase : TensorField { internal LiftCase(Func<Point3d, SymmetricMatrix> Sampler) => this.Sampler = Sampler; public Func<Point3d, SymmetricMatrix> Sampler { get; } }
+    public sealed record WarpCase : TensorField { internal WarpCase(TensorField Source, Transform Spatial) { this.Source = Source; this.Spatial = Spatial; } public TensorField Source { get; } public Transform Spatial { get; } }
+    public sealed record ScaledCase : TensorField { internal ScaledCase(TensorField Source, double Scale) { this.Source = Source; this.Scale = Scale; } public TensorField Source { get; } public double Scale { get; } }
+    public sealed record BlendCase : TensorField { internal BlendCase(Seq<TensorField> Fields, FieldBlend Mode) { this.Fields = Fields; this.Mode = Mode; } public Seq<TensorField> Fields { get; } public FieldBlend Mode { get; } }
     public static TensorField Constant(SymmetricMatrix value) => new ConstantCase(Value: value);
     public static Fin<TensorField> Lift(Func<Point3d, SymmetricMatrix>? sampler, Op? key = null) =>
         Optional(sampler).ToFin(key.OrDefault().InvalidInput()).Map(active => (TensorField)new LiftCase(Sampler: active));
@@ -519,16 +546,39 @@ public partial record TensorField {
 }
 
 [Union]
-public partial record ScalarField {
-    public sealed record ConstantCase(double Value) : ScalarField; public sealed record BlendCase(Seq<ScalarField> Fields, FieldBlend Mode) : ScalarField; public sealed record ScaledCase(ScalarField Source, double Scale) : ScalarField;
-    public sealed record DistanceCase(SupportSpace Source, BoundarySense Sense) : ScalarField; public sealed record PotentialCase(Seq<(Point3d Position, double Charge)> Charges, Falloff Falloff) : ScalarField; public sealed record DensityCase(Point3d Center, PositiveMagnitude Spread, double Strength) : ScalarField;
-    public sealed record MagnitudeCase(VectorField Source) : ScalarField; public sealed record DivergenceCase(VectorField Source, PositiveMagnitude Epsilon) : ScalarField; public sealed record LaplacianCase(ScalarField Source, PositiveMagnitude Epsilon) : ScalarField; public sealed record StrainMagnitudeCase(VectorField Source, PositiveMagnitude Epsilon) : ScalarField;
-    public sealed record WorleyCase(Seq<Point3d> Seeds, int Order) : ScalarField; public sealed record MorseCase(Point3d Center, PositiveMagnitude Depth, PositiveMagnitude Width) : ScalarField; public sealed record MollifierCase(Point3d Center, PositiveMagnitude Radius) : ScalarField; public sealed record NoiseCase(NoiseKind Kind, int Seed, int Octaves, double Persistence, double Lacunarity, double Frequency) : ScalarField;
-    public sealed record PowerCase(ScalarField Source, double Exponent) : ScalarField; public sealed record CsgCase(ScalarField Left, ScalarField Right, CsgKind Op, BlendKind Smoothing) : ScalarField; public sealed record PeriodicCase(ScalarField Source, Vector3d Period) : ScalarField; public sealed record ClampCase(ScalarField Source, double Minimum, double Maximum) : ScalarField;
-    public sealed record PrimitiveCase(SdfKind Kind, ImmutableDictionary<string, double> Parameters, Plane Pose) : ScalarField; public sealed record OnionCase(ScalarField Source, PositiveMagnitude Thickness) : ScalarField; public sealed record SdfRoundCase(ScalarField Source, PositiveMagnitude Radius) : ScalarField; public sealed record ElongateCase(ScalarField Source, Vector3d Extent) : ScalarField;
-    public sealed record DisplaceCase(ScalarField Source, ScalarField Displacement) : ScalarField; public sealed record TwistCase(ScalarField Source, double AnglePerUnit, Direction Axis) : ScalarField; public sealed record BendCase(ScalarField Source, double Curvature, Direction Axis) : ScalarField;
-    public sealed record GeodesicCase(MeshSpace Space, Seq<int> Sources) : ScalarField; public sealed record MeanCurvatureFlowCase(MeshSpace Space, PositiveMagnitude TimeStep, Dimension Iterations) : ScalarField; public sealed record SpectralDistanceCase(MeshSpace Space, SpectralFilter Filter, Seq<int> Sources, Dimension Pairs) : ScalarField; public sealed record StripeCase(MeshSpace Space, VectorField CrossField, PositiveMagnitude Frequency) : ScalarField; public sealed record SignedDistanceFromMeshCase(MeshSpace Space, SdfMeshMethod Method) : ScalarField;
-    public sealed record RbfCase(Seq<(Point3d Position, double Value)> Samples, KernelKind Kernel, PositiveMagnitude Radius, Arr<double> Coefficients, ReconstructionReceipt Receipt) : ScalarField;
+public abstract partial record ScalarField {
+    private ScalarField() { }
+    public sealed record ConstantCase : ScalarField { internal ConstantCase(double Value) => this.Value = Value; public double Value { get; } }
+    public sealed record BlendCase : ScalarField { internal BlendCase(Seq<ScalarField> Fields, FieldBlend Mode) { this.Fields = Fields; this.Mode = Mode; } public Seq<ScalarField> Fields { get; } public FieldBlend Mode { get; } }
+    public sealed record ScaledCase : ScalarField { internal ScaledCase(ScalarField Source, double Scale) { this.Source = Source; this.Scale = Scale; } public ScalarField Source { get; } public double Scale { get; } }
+    public sealed record DistanceCase : ScalarField { internal DistanceCase(SupportSpace Source, BoundarySense Sense) { this.Source = Source; this.Sense = Sense; } public SupportSpace Source { get; } public BoundarySense Sense { get; } }
+    public sealed record PotentialCase : ScalarField { internal PotentialCase(Seq<(Point3d Position, double Charge)> Charges, Falloff Falloff) { this.Charges = Charges; this.Falloff = Falloff; } public Seq<(Point3d Position, double Charge)> Charges { get; } public Falloff Falloff { get; } }
+    public sealed record DensityCase : ScalarField { internal DensityCase(Point3d Center, PositiveMagnitude Spread, double Strength) { this.Center = Center; this.Spread = Spread; this.Strength = Strength; } public Point3d Center { get; } public PositiveMagnitude Spread { get; } public double Strength { get; } }
+    public sealed record MagnitudeCase : ScalarField { internal MagnitudeCase(VectorField Source) => this.Source = Source; public VectorField Source { get; } }
+    public sealed record DivergenceCase : ScalarField { internal DivergenceCase(VectorField Source, PositiveMagnitude Epsilon) { this.Source = Source; this.Epsilon = Epsilon; } public VectorField Source { get; } public PositiveMagnitude Epsilon { get; } }
+    public sealed record LaplacianCase : ScalarField { internal LaplacianCase(ScalarField Source, PositiveMagnitude Epsilon) { this.Source = Source; this.Epsilon = Epsilon; } public ScalarField Source { get; } public PositiveMagnitude Epsilon { get; } }
+    public sealed record StrainMagnitudeCase : ScalarField { internal StrainMagnitudeCase(VectorField Source, PositiveMagnitude Epsilon) { this.Source = Source; this.Epsilon = Epsilon; } public VectorField Source { get; } public PositiveMagnitude Epsilon { get; } }
+    public sealed record WorleyCase : ScalarField { internal WorleyCase(Seq<Point3d> Seeds, int Order) { this.Seeds = Seeds; this.Order = Order; } public Seq<Point3d> Seeds { get; } public int Order { get; } }
+    public sealed record MorseCase : ScalarField { internal MorseCase(Point3d Center, PositiveMagnitude Depth, PositiveMagnitude Width) { this.Center = Center; this.Depth = Depth; this.Width = Width; } public Point3d Center { get; } public PositiveMagnitude Depth { get; } public PositiveMagnitude Width { get; } }
+    public sealed record MollifierCase : ScalarField { internal MollifierCase(Point3d Center, PositiveMagnitude Radius) { this.Center = Center; this.Radius = Radius; } public Point3d Center { get; } public PositiveMagnitude Radius { get; } }
+    public sealed record NoiseCase : ScalarField { internal NoiseCase(NoiseKind Kind, int Seed, int Octaves, double Persistence, double Lacunarity, double Frequency) { this.Kind = Kind; this.Seed = Seed; this.Octaves = Octaves; this.Persistence = Persistence; this.Lacunarity = Lacunarity; this.Frequency = Frequency; } public NoiseKind Kind { get; } public int Seed { get; } public int Octaves { get; } public double Persistence { get; } public double Lacunarity { get; } public double Frequency { get; } }
+    public sealed record PowerCase : ScalarField { internal PowerCase(ScalarField Source, double Exponent) { this.Source = Source; this.Exponent = Exponent; } public ScalarField Source { get; } public double Exponent { get; } }
+    public sealed record CsgCase : ScalarField { internal CsgCase(ScalarField Left, ScalarField Right, CsgKind Op, BlendKind Smoothing) { this.Left = Left; this.Right = Right; this.Op = Op; this.Smoothing = Smoothing; } public ScalarField Left { get; } public ScalarField Right { get; } public CsgKind Op { get; } public BlendKind Smoothing { get; } }
+    public sealed record PeriodicCase : ScalarField { internal PeriodicCase(ScalarField Source, Vector3d Period) { this.Source = Source; this.Period = Period; } public ScalarField Source { get; } public Vector3d Period { get; } }
+    public sealed record ClampCase : ScalarField { internal ClampCase(ScalarField Source, double Minimum, double Maximum) { this.Source = Source; this.Minimum = Minimum; this.Maximum = Maximum; } public ScalarField Source { get; } public double Minimum { get; } public double Maximum { get; } }
+    public sealed record PrimitiveCase : ScalarField { internal PrimitiveCase(SdfKind Kind, ImmutableDictionary<string, double> Parameters, Plane Pose) { this.Kind = Kind; this.Parameters = Parameters; this.Pose = Pose; } public SdfKind Kind { get; } public ImmutableDictionary<string, double> Parameters { get; } public Plane Pose { get; } }
+    public sealed record OnionCase : ScalarField { internal OnionCase(ScalarField Source, PositiveMagnitude Thickness) { this.Source = Source; this.Thickness = Thickness; } public ScalarField Source { get; } public PositiveMagnitude Thickness { get; } }
+    public sealed record SdfRoundCase : ScalarField { internal SdfRoundCase(ScalarField Source, PositiveMagnitude Radius) { this.Source = Source; this.Radius = Radius; } public ScalarField Source { get; } public PositiveMagnitude Radius { get; } }
+    public sealed record ElongateCase : ScalarField { internal ElongateCase(ScalarField Source, Vector3d Extent) { this.Source = Source; this.Extent = Extent; } public ScalarField Source { get; } public Vector3d Extent { get; } }
+    public sealed record DisplaceCase : ScalarField { internal DisplaceCase(ScalarField Source, ScalarField Displacement) { this.Source = Source; this.Displacement = Displacement; } public ScalarField Source { get; } public ScalarField Displacement { get; } }
+    public sealed record TwistCase : ScalarField { internal TwistCase(ScalarField Source, double AnglePerUnit, Direction Axis) { this.Source = Source; this.AnglePerUnit = AnglePerUnit; this.Axis = Axis; } public ScalarField Source { get; } public double AnglePerUnit { get; } public Direction Axis { get; } }
+    public sealed record BendCase : ScalarField { internal BendCase(ScalarField Source, double Curvature, Direction Axis) { this.Source = Source; this.Curvature = Curvature; this.Axis = Axis; } public ScalarField Source { get; } public double Curvature { get; } public Direction Axis { get; } }
+    public sealed record GeodesicCase : ScalarField { internal GeodesicCase(MeshSpace Space, Seq<int> Sources) { this.Space = Space; this.Sources = Sources; } public MeshSpace Space { get; } public Seq<int> Sources { get; } }
+    public sealed record MeanCurvatureFlowCase : ScalarField { internal MeanCurvatureFlowCase(MeshSpace Space, PositiveMagnitude TimeStep, Dimension Iterations) { this.Space = Space; this.TimeStep = TimeStep; this.Iterations = Iterations; } public MeshSpace Space { get; } public PositiveMagnitude TimeStep { get; } public Dimension Iterations { get; } }
+    public sealed record SpectralDistanceCase : ScalarField { internal SpectralDistanceCase(MeshSpace Space, SpectralFilter Filter, Seq<int> Sources, Dimension Pairs) { this.Space = Space; this.Filter = Filter; this.Sources = Sources; this.Pairs = Pairs; } public MeshSpace Space { get; } public SpectralFilter Filter { get; } public Seq<int> Sources { get; } public Dimension Pairs { get; } }
+    public sealed record StripeCase : ScalarField { internal StripeCase(MeshSpace Space, VectorField CrossField, PositiveMagnitude Frequency) { this.Space = Space; this.CrossField = CrossField; this.Frequency = Frequency; } public MeshSpace Space { get; } public VectorField CrossField { get; } public PositiveMagnitude Frequency { get; } }
+    public sealed record SignedDistanceFromMeshCase : ScalarField { internal SignedDistanceFromMeshCase(MeshSpace Space, SdfMeshMethod Method) { this.Space = Space; this.Method = Method; } public MeshSpace Space { get; } public SdfMeshMethod Method { get; } }
+    public sealed record RbfCase : ScalarField { internal RbfCase(Seq<(Point3d Position, double Value)> Samples, KernelKind Kernel, PositiveMagnitude Radius, Arr<double> Coefficients, ReconstructionReceipt Receipt) { this.Samples = Samples; this.Kernel = Kernel; this.Radius = Radius; this.Coefficients = Coefficients; this.Receipt = Receipt; } public Seq<(Point3d Position, double Value)> Samples { get; } public KernelKind Kernel { get; } public PositiveMagnitude Radius { get; } public Arr<double> Coefficients { get; } public ReconstructionReceipt Receipt { get; } }
     public static ScalarField Constant(double value) => new ConstantCase(Value: value);
     public static Fin<ScalarField> Density(Point3d center, double spread, double strength, Op? key = null) =>
         FieldNabla.WithPositive(candidate: spread, make: s => (ScalarField)new DensityCase(Center: center, Spread: s, Strength: strength), key: key);
@@ -550,23 +600,27 @@ public partial record ScalarField {
     public static Fin<ScalarField> Power(ScalarField source, double exponent, Op? key = null) =>
         from active in Optional(source).ToFin(key.OrDefault().InvalidInput()) from _ in guard(RhinoMath.IsValidDouble(x: exponent), key.OrDefault().InvalidInput()) select (ScalarField)new PowerCase(Source: active, Exponent: exponent);
     public static Fin<ScalarField> Primitive(SdfKind kind, ImmutableDictionary<string, double> parameters, Plane pose, Op? key = null) =>
-        from active in Optional(kind).ToFin(key.OrDefault().InvalidInput()) from validParams in Optional(parameters).ToFin(key.OrDefault().InvalidInput()) from _ in guard(active.ValidateParameters(parameters: validParams), key.OrDefault().InvalidInput()) from validPose in key.OrDefault().AcceptValue(value: pose) select (ScalarField)new PrimitiveCase(Kind: active, Parameters: validParams, Pose: validPose);
+        from active in Optional(kind).ToFin(key.OrDefault().InvalidInput()) from validParams in Optional(parameters).ToFin(key.OrDefault().InvalidInput()) from _ in guard(active.ValidateParameters(parameters: validParams), key.OrDefault().InvalidInput()) from validPose in FieldNabla.Plane(basis: pose, key: key.OrDefault()) select (ScalarField)new PrimitiveCase(Kind: active, Parameters: validParams, Pose: validPose);
     public static Fin<ScalarField> Noise(NoiseKind kind, int seed, int octaves, double persistence, double lacunarity, double frequency, Op? key = null) =>
-        from active in Optional(kind).ToFin(key.OrDefault().InvalidInput()) from _ in guard(octaves is >= 1 and <= 32 && RhinoMath.IsValidDouble(x: frequency) && frequency > 0.0 && RhinoMath.IsValidDouble(x: persistence) && persistence is > 0.0 and <= 1.0 && RhinoMath.IsValidDouble(x: lacunarity) && lacunarity > 1.0, key.OrDefault().InvalidInput()) select (ScalarField)new NoiseCase(Kind: active, Seed: seed, Octaves: octaves, Persistence: persistence, Lacunarity: lacunarity, Frequency: frequency);
+        from active in Optional(kind).ToFin(key.OrDefault().InvalidInput()) from _ in FieldNabla.NoiseInput(octaves: octaves, persistence: persistence, lacunarity: lacunarity, frequency: frequency, key: key.OrDefault()) select (ScalarField)new NoiseCase(Kind: active, Seed: seed, Octaves: octaves, Persistence: persistence, Lacunarity: lacunarity, Frequency: frequency);
     public static Fin<ScalarField> Onion(ScalarField source, double thickness, Op? key = null) =>
         FieldNabla.WithPositive(candidate: thickness, make: t => (ScalarField)new OnionCase(Source: source, Thickness: t), key: key);
     public static Fin<ScalarField> SdfRound(ScalarField source, double radius, Op? key = null) =>
         FieldNabla.WithPositive(candidate: radius, make: r => (ScalarField)new SdfRoundCase(Source: source, Radius: r), key: key);
     public static Fin<ScalarField> Elongate(ScalarField source, Vector3d extent, Op? key = null) =>
-        extent.IsValid && extent.X >= 0.0 && extent.Y >= 0.0 && extent.Z >= 0.0 ? Fin.Succ((ScalarField)new ElongateCase(Source: source, Extent: extent)) : Fin.Fail<ScalarField>(key.OrDefault().InvalidInput());
+        from active in Optional(source).ToFin(key.OrDefault().InvalidInput())
+        from validExtent in FieldNabla.NonnegativeExtent(extent: extent, key: key.OrDefault())
+        select (ScalarField)new ElongateCase(Source: active, Extent: validExtent);
     public static Fin<ScalarField> Twist(ScalarField source, double anglePerUnit, Direction axis, Op? key = null) =>
-        RhinoMath.IsValidDouble(x: anglePerUnit)
-            ? Fin.Succ((ScalarField)new TwistCase(Source: source, AnglePerUnit: anglePerUnit, Axis: axis))
-            : Fin.Fail<ScalarField>(key.OrDefault().InvalidInput());
+        from active in Optional(source).ToFin(key.OrDefault().InvalidInput())
+        from validAxis in Optional(axis).ToFin(key.OrDefault().InvalidInput())
+        from _ in FieldNabla.Finite(value: anglePerUnit, key: key.OrDefault())
+        select (ScalarField)new TwistCase(Source: active, AnglePerUnit: anglePerUnit, Axis: validAxis);
     public static Fin<ScalarField> Bend(ScalarField source, double curvature, Direction axis, Op? key = null) =>
-        RhinoMath.IsValidDouble(x: curvature)
-            ? Fin.Succ((ScalarField)new BendCase(Source: source, Curvature: curvature, Axis: axis))
-            : Fin.Fail<ScalarField>(key.OrDefault().InvalidInput());
+        from active in Optional(source).ToFin(key.OrDefault().InvalidInput())
+        from validAxis in Optional(axis).ToFin(key.OrDefault().InvalidInput())
+        from _ in FieldNabla.Finite(value: curvature, key: key.OrDefault())
+        select (ScalarField)new BendCase(Source: active, Curvature: curvature, Axis: validAxis);
     public static Fin<ScalarField> Geodesic(MeshSpace space, Seq<int> sources, Op? key = null) =>
         FieldNabla.MeshVertices(space: space, vertices: sources, allowEmpty: false, key: key.OrDefault()).Map(_ => (ScalarField)new GeodesicCase(Space: space, Sources: sources));
     public static Fin<ScalarField> MeanCurvatureFlow(MeshSpace space, double timeStep, int iterations, Op? key = null) =>
@@ -580,26 +634,22 @@ public partial record ScalarField {
     public static Fin<ReconstructionResult> RbfDetailed(Seq<(Point3d Position, double Value)> samples, KernelKind kernel, double radius, double smoothing = 0.0, Op? key = null) =>
         from active in Optional(kernel).ToFin(key.OrDefault().InvalidInput())
         from r in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: radius)
-        from _ in guard(!samples.IsEmpty && samples.ForAll(static s => s.Position.IsValid && RhinoMath.IsValidDouble(x: s.Value)) && RhinoMath.IsValidDouble(x: smoothing) && smoothing >= 0.0, key.OrDefault().InvalidInput())
-        from solved in SolveRbf(samples: samples, kernel: active, radius: r.Value, smoothing: smoothing, key: key.OrDefault())
-        let receipt = new ReconstructionReceipt(Mode: smoothing <= RhinoMath.ZeroTolerance ? ReconstructionMode.RbfInterpolation : ReconstructionMode.RbfApproximation, Kernel: active, Radius: r.Value, Smoothing: smoothing, Interpolation: smoothing <= RhinoMath.ZeroTolerance, SampleCount: samples.Count, CenterCount: samples.Count, PolynomialDegree: 0, Solve: solved)
-        select new ReconstructionResult(Field: new RbfCase(Samples: samples, Kernel: active, Radius: r, Coefficients: solved.Solution, Receipt: receipt), Receipt: receipt);
-    private static Fin<SolveReceipt> SolveRbf(Seq<(Point3d Position, double Value)> samples, KernelKind kernel, double radius, double smoothing, Op key) {
-        int n = samples.Count;
-        bool interpolation = smoothing <= RhinoMath.ZeroTolerance;
-        (Point3d Position, double Value)[] sampleArray = [.. samples.AsIterable()];
-        Arr<double> rhs = new([.. sampleArray.Select(static s => s.Value)]);
-        Dimension cols = Dimension.Create(value: n);
-        return KernelWeights(left: sampleArray.Select(static s => s.Position), right: sampleArray.Select(static s => s.Position), kernel: kernel, radius: radius, key: key)
-            .Bind(kernelEntries =>
-                from matrix in Matrix.Of(
-                    rows: Dimension.Create(value: interpolation ? n : 2 * n), cols: cols,
-                    entries: interpolation ? kernelEntries : new Arr<double>([.. kernelEntries.AsIterable().Concat(Enumerable.Range(start: 0, count: n * n).Select(i => i / n == i % n ? Math.Sqrt(d: smoothing) : 0.0))]), key: key)
-                from solved in interpolation
-                    ? matrix.SolveDetailed(rhs: rhs, key: key)
-                    : matrix.LeastSquaresDetailed(rhs: new Arr<double>([.. rhs.AsIterable().Concat(Enumerable.Repeat(element: 0.0, count: n))]), key: key)
-                select solved);
-    }
+        from admittedSamples in FieldNabla.ReconstructionSamples(samples: samples, key: key.OrDefault())
+        from admittedSmoothing in FieldNabla.NonnegativeFinite(value: smoothing, key: key.OrDefault())
+        let n = admittedSamples.Count
+        let interpolation = admittedSmoothing <= RhinoMath.ZeroTolerance
+        let sampleArray = admittedSamples.AsIterable().ToArray()
+        let rhs = new Arr<double>([.. sampleArray.Select(static sample => sample.Value)])
+        let cols = Dimension.Create(value: n)
+        from kernelEntries in KernelWeights(left: sampleArray.Select(static sample => sample.Position), right: sampleArray.Select(static sample => sample.Position), kernel: active, radius: r.Value, key: key.OrDefault())
+        from matrix in Matrix.Of(
+            rows: Dimension.Create(value: interpolation ? n : 2 * n), cols: cols,
+            entries: interpolation ? kernelEntries : new Arr<double>([.. kernelEntries.AsIterable().Concat(Enumerable.Range(start: 0, count: n * n).Select(i => i / n == i % n ? Math.Sqrt(d: admittedSmoothing) : 0.0))]), key: key.OrDefault())
+        from solved in interpolation
+            ? matrix.SolveDetailed(rhs: rhs, key: key.OrDefault())
+            : matrix.LeastSquaresDetailed(rhs: new Arr<double>([.. rhs.AsIterable().Concat(Enumerable.Repeat(element: 0.0, count: n))]), key: key.OrDefault())
+        let receipt = new ReconstructionReceipt(Mode: admittedSmoothing <= RhinoMath.ZeroTolerance ? ReconstructionMode.RbfInterpolation : ReconstructionMode.RbfApproximation, Kernel: active, Radius: r.Value, Smoothing: admittedSmoothing, Interpolation: admittedSmoothing <= RhinoMath.ZeroTolerance, SampleCount: admittedSamples.Count, CenterCount: admittedSamples.Count, PolynomialDegree: 0, Solve: solved)
+        select new ReconstructionResult(Field: new RbfCase(Samples: admittedSamples, Kernel: active, Radius: r, Coefficients: solved.Solution, Receipt: receipt), Receipt: receipt);
     private static Fin<double> EvaluateRbf(Seq<(Point3d Position, double Value)> samples, KernelKind kernel, double radius, Arr<double> coefficients, Point3d sample, Op key) =>
         coefficients.Count != samples.Count
             ? Fin.Fail<double>(key.InvalidResult())
@@ -611,13 +661,13 @@ public partial record ScalarField {
             .TraverseM(distance => kernel.Profile(distance: distance, radius: radius, key: key).Map(static profile => profile.Value)).As()
             .Map(static values => new Arr<double>([.. values.AsIterable()]));
     public static Fin<ScalarField> Periodic(ScalarField source, Vector3d period, Op? key = null) =>
-        !period.IsValid || Math.Abs(value: period.X) <= RhinoMath.ZeroTolerance || Math.Abs(value: period.Y) <= RhinoMath.ZeroTolerance || Math.Abs(value: period.Z) <= RhinoMath.ZeroTolerance
-            ? Fin.Fail<ScalarField>(key.OrDefault().InvalidInput())
-            : Fin.Succ((ScalarField)new PeriodicCase(Source: source, Period: period));
+        from active in Optional(source).ToFin(key.OrDefault().InvalidInput())
+        from validPeriod in FieldNabla.Period(period: period, key: key.OrDefault())
+        select (ScalarField)new PeriodicCase(Source: active, Period: validPeriod);
     public static Fin<ScalarField> StrainMagnitude(VectorField source, double epsilon, Op? key = null) =>
         FieldNabla.WithSourceEpsilon<VectorField, ScalarField>(source, epsilon, static (s, e) => new StrainMagnitudeCase(Source: s, Epsilon: e), key);
     public static Fin<ScalarField> Clamp(ScalarField source, double minimum, double maximum, Op? key = null) =>
-        from active in Optional(source).ToFin(key.OrDefault().InvalidInput()) from _ in guard(RhinoMath.IsValidDouble(x: minimum) && RhinoMath.IsValidDouble(x: maximum) && minimum <= maximum, key.OrDefault().InvalidInput()) select (ScalarField)new ClampCase(Source: active, Minimum: minimum, Maximum: maximum);
+        from active in Optional(source).ToFin(key.OrDefault().InvalidInput()) from _ in FieldNabla.FiniteRange(minimum: minimum, maximum: maximum, key: key.OrDefault()) select (ScalarField)new ClampCase(Source: active, Minimum: minimum, Maximum: maximum);
     public Option<double> LipschitzBound() => this switch {
         PrimitiveCase p => Some(p.Kind.Lipschitz),
         CsgCase c => from l in c.Left.LipschitzBound() from r in c.Right.LipschitzBound() select c.Smoothing.Erode(leftLip: l, rightLip: r),
@@ -642,9 +692,8 @@ public partial record ScalarField {
     public Fin<IsoSurfaceResult> IsoSurfaceDetailed(BoundingBox bounds, int resolution, int maxRootSteps, Context context, Op? key = null) {
         Op op = key.OrDefault();
         ScalarField self = this;
-        return !BoundsAdmitted(bounds: bounds) || resolution < 2 || maxRootSteps < 1
-            ? Fin.Fail<IsoSurfaceResult>(op.InvalidInput())
-            : op.Catch(() => {
+        return FieldNabla.IsoSurfaceInput(bounds: bounds, resolution: resolution, maxRootSteps: maxRootSteps, key: op)
+            .Bind(_ => op.Catch(() => {
                 int failures = 0;
                 double EvaluateIso(Point3d point) =>
                     self.SampleScalar(sample: point, context: context, key: op)
@@ -664,7 +713,7 @@ public partial record ScalarField {
                     : Fin.Succ(new IsoSurfaceResult(
                         Mesh: result,
                         Receipt: new IsoSurfaceReceipt(NativeRouted: true, Bounds: bounds, Resolution: resolution, MaxRootSteps: maxRootSteps, ParallelCallback: true, EvaluatorFailures: failures, Valid: result.IsValid, VertexCount: result.Vertices.Count, FaceCount: result.Faces.Count, FixedTolerance: Option<double>.None)));
-            });
+            }));
     }
     internal static bool BoundsAdmitted(BoundingBox bounds) =>
         bounds is { IsValid: true, Diagonal: Vector3d d }
@@ -780,12 +829,40 @@ public partial record ScalarField {
 
 internal static class FieldNabla {
     internal static readonly Vector3d CurlOffset2 = new(x: 31.4159, y: 27.1828, z: 41.4213), CurlOffset3 = new(x: -19.3274, y: 53.2186, z: -67.9531);
+    internal static Fin<Unit> Finite(double value, Op key) =>
+        RhinoMath.IsValidDouble(x: value) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+    internal static Fin<double> NonnegativeFinite(double value, Op key) =>
+        RhinoMath.IsValidDouble(x: value) && value >= 0.0 ? Fin.Succ(value) : Fin.Fail<double>(key.InvalidInput());
     internal static Fin<TResult> WithPositive<TResult>(double candidate, Func<PositiveMagnitude, TResult> make, Op? key) =>
         key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: candidate).Map(make);
     internal static Fin<TResult> WithPositivePair<TResult>(double left, double right, Func<PositiveMagnitude, PositiveMagnitude, TResult> make, Op? key) =>
         from a in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: left) from b in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: right) select make(arg1: a, arg2: b);
     internal static Fin<TResult> WithDivisor<TResult>(double divisor, Func<double, TResult> make, Op? key) =>
         Math.Abs(value: divisor) > RhinoMath.ZeroTolerance ? Fin.Succ(make(arg: 1.0 / divisor)) : Fin.Fail<TResult>(key.OrDefault().InvalidInput());
+    internal static Fin<Unit> KernelInput(double distance, double radius, Op key) =>
+        RhinoMath.IsValidDouble(x: distance) && RhinoMath.IsValidDouble(x: radius) && distance >= 0.0 && radius > RhinoMath.ZeroTolerance ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+    internal static Fin<Unit> NoiseInput(int octaves, double persistence, double lacunarity, double frequency, Op key) =>
+        octaves is >= 1 and <= 32 && RhinoMath.IsValidDouble(x: frequency) && frequency > 0.0 && RhinoMath.IsValidDouble(x: persistence) && persistence is > 0.0 and <= 1.0 && RhinoMath.IsValidDouble(x: lacunarity) && lacunarity > 1.0
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(key.InvalidInput());
+    internal static Fin<Vector3d> NonnegativeExtent(Vector3d extent, Op key) =>
+        Finite(vector: extent) && extent.X >= 0.0 && extent.Y >= 0.0 && extent.Z >= 0.0 ? Fin.Succ(extent) : Fin.Fail<Vector3d>(key.InvalidInput());
+    internal static Fin<Plane> Plane(Plane basis, Op key) =>
+        Finite(point: basis.Origin) && Finite(vector: basis.XAxis) && Finite(vector: basis.YAxis) && Finite(vector: basis.ZAxis)
+            && basis.XAxis.Length > RhinoMath.ZeroTolerance && basis.YAxis.Length > RhinoMath.ZeroTolerance && basis.ZAxis.Length > RhinoMath.ZeroTolerance
+            && Vector3d.CrossProduct(a: basis.XAxis, b: basis.YAxis).Length > RhinoMath.ZeroTolerance
+            ? Fin.Succ(basis)
+            : Fin.Fail<Plane>(key.InvalidInput());
+    internal static Fin<Vector3d> Period(Vector3d period, Op key) =>
+        Finite(vector: period) && Math.Abs(value: period.X) > RhinoMath.ZeroTolerance && Math.Abs(value: period.Y) > RhinoMath.ZeroTolerance && Math.Abs(value: period.Z) > RhinoMath.ZeroTolerance
+            ? Fin.Succ(period)
+            : Fin.Fail<Vector3d>(key.InvalidInput());
+    internal static Fin<Unit> FiniteRange(double minimum, double maximum, Op key) =>
+        RhinoMath.IsValidDouble(x: minimum) && RhinoMath.IsValidDouble(x: maximum) && minimum <= maximum ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+    internal static Fin<Seq<(Point3d Position, double Value)>> ReconstructionSamples(Seq<(Point3d Position, double Value)> samples, Op key) =>
+        !samples.IsEmpty && samples.ForAll(static sample => Finite(point: sample.Position) && RhinoMath.IsValidDouble(x: sample.Value)) ? Fin.Succ(samples) : Fin.Fail<Seq<(Point3d Position, double Value)>>(key.InvalidInput());
+    internal static Fin<Unit> IsoSurfaceInput(BoundingBox bounds, int resolution, int maxRootSteps, Op key) =>
+        ScalarField.BoundsAdmitted(bounds: bounds) && resolution >= 2 && maxRootSteps >= 1 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
     internal static Fin<TResult> WithSourceEpsilon<TSource, TResult>(TSource? source, double epsilon, Func<TSource, PositiveMagnitude, TResult> make, Op? key)
         where TSource : class =>
         from active in Optional(source).ToFin(key.OrDefault().InvalidInput()) from eps in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: epsilon) select make(active, eps);
@@ -795,6 +872,10 @@ internal static class FieldNabla {
         from _ in guard((allowEmpty || !vertices.IsEmpty) && vertices.ForAll(vertex => vertex >= 0 && vertex < mesh.Vertices.Count), key.InvalidInput())
         select mesh;
     internal static Vector3d PerpendicularComponent(Vector3d r, Vector3d axis) => r - (r * axis * axis);
+    internal static bool Finite(Point3d point) =>
+        RhinoMath.IsValidDouble(x: point.X) && RhinoMath.IsValidDouble(x: point.Y) && RhinoMath.IsValidDouble(x: point.Z);
+    internal static bool Finite(Vector3d vector) =>
+        RhinoMath.IsValidDouble(x: vector.X) && RhinoMath.IsValidDouble(x: vector.Y) && RhinoMath.IsValidDouble(x: vector.Z);
     internal static Point3d ToroidalWrap(Point3d sample, Vector3d period) =>
         new(x: sample.X - (Math.Floor(d: (sample.X / period.X) + 0.5) * period.X),
             y: sample.Y - (Math.Floor(d: (sample.Y / period.Y) + 0.5) * period.Y),

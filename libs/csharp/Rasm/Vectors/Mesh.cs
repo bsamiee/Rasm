@@ -135,7 +135,7 @@ internal sealed class LaplacianCache {
 [SmartEnum<int>] public sealed partial class MeshSegmentationStatus { public static readonly MeshSegmentationStatus Completed = new(key: 0), MaxIterationsExhausted = new(key: 1); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationReceipt(MeshSegmentationAlgorithm Algorithm, MeshSegmentationStatus Status, int RequestedRegionCount, int RegionCount, int SeedCount, int AssignedFaceCount, int UnassignedFaceCount, int SkippedDegenerateFaces, int SkippedNonFiniteValues, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorReceipt> Descriptor, Option<SolveReceipt> Solve, Option<bool> SpectralCacheHit, Option<bool> FactorCacheHit, Option<int> FactorNonZeros);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationResult(Arr<int> FaceRegions, Arr<int> VertexRegions, MeshSegmentationReceipt Receipt);
-[SmartEnum<int>] public sealed partial class SdfMeshStatus { public static readonly SdfMeshStatus Approximate = new(key: 0), BoundarySourceSignedHeat = new(key: 1), Unsupported = new(key: 2); }
+[SmartEnum<int>] public sealed partial class SdfMeshStatus { public static readonly SdfMeshStatus Approximate = new(key: 0), BoundarySourceSignedHeat = new(key: 1); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfMeshReceipt(SdfMeshMethod Method, SdfMeshStatus Status, bool IsSolid, bool IsManifold, bool IsOriented, int BoundaryComponents, int NonManifoldEdges, bool UsesGeneralizedWindingApproximation, bool UsesBoundarySignedHeat, Option<SolveReceipt> Solve);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfMeshSample(double Distance, SdfMeshReceipt Receipt);
 [Union]
@@ -1313,13 +1313,11 @@ internal static class MeshKernel {
         (method.Equals(SdfMeshMethod.BoundarySignedHeat)
             ? SignedHeatDistanceDetailed(space: space, sample: sample, key: key).Map(result => (result.Distance, Status: SdfMeshStatus.BoundarySourceSignedHeat, Solve: Some(result.Solve)))
             : GeneralizedWindingDistance(space: space, sample: sample, key: key).Map(distance => (Distance: distance, Status: SdfMeshStatus.Approximate, Solve: Option<SolveReceipt>.None)))
-        .Map(result => new SdfMeshSample(Distance: result.Distance, Receipt: SdfMeshReceiptOf(space: space, method: method, status: result.Status, solve: result.Solve)));
-    private static SdfMeshReceipt SdfMeshReceiptOf(MeshSpace space, SdfMeshMethod method, SdfMeshStatus status, Option<SolveReceipt> solve) {
-        Mesh mesh = space.Native;
-        bool manifold = mesh.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out _);
-        (int boundaryComponents, int nonManifoldEdges) = TopologyEdgeStatsOf(mesh: mesh);
-        return new SdfMeshReceipt(Method: method, Status: status, IsSolid: mesh.IsSolid, IsManifold: manifold, IsOriented: oriented, BoundaryComponents: boundaryComponents, NonManifoldEdges: nonManifoldEdges, UsesGeneralizedWindingApproximation: method.Equals(SdfMeshMethod.GeneralizedWindingNumber), UsesBoundarySignedHeat: method.Equals(SdfMeshMethod.BoundarySignedHeat), Solve: solve);
-    }
+        .Bind(result => SdfMeshReceiptOf(space: space, method: method, status: result.Status, solve: result.Solve, key: key)
+            .Map(receipt => new SdfMeshSample(Distance: result.Distance, Receipt: receipt)));
+    private static Fin<SdfMeshReceipt> SdfMeshReceiptOf(MeshSpace space, SdfMeshMethod method, SdfMeshStatus status, Option<SolveReceipt> solve, Op key) =>
+        TopologyDetailed(space: space, key: key)
+            .Map(topology => new SdfMeshReceipt(Method: method, Status: status, IsSolid: space.Native.IsSolid, IsManifold: topology.IsManifold, IsOriented: topology.IsOriented, BoundaryComponents: topology.BoundaryComponents, NonManifoldEdges: topology.NonManifoldEdges, UsesGeneralizedWindingApproximation: method.Equals(SdfMeshMethod.GeneralizedWindingNumber), UsesBoundarySignedHeat: method.Equals(SdfMeshMethod.BoundarySignedHeat), Solve: solve));
     private static Fin<double> GeneralizedWindingDistance(MeshSpace space, Point3d sample, Op key) =>
         Optional(space.Native.ClosestPoint(testPoint: sample)).Filter(static closest => closest.IsValid).ToFin(key.InvalidResult()).Bind(closest =>
             SolidAngleWindingNumber(mesh: space.Native, sample: sample, key: key)
@@ -1351,7 +1349,7 @@ internal static class MeshKernel {
     private static Fin<(double Distance, SolveReceipt Solve)> SignedHeatDistanceDetailed(MeshSpace space, Point3d sample, Op key) {
         Polyline[]? polylines = space.Native.GetNakedEdges();
         return polylines is null || polylines.Length == 0
-            ? Fin.Fail<(double, SolveReceipt)>(key.Unsupported(geometryType: typeof(SdfMeshMethod), outputType: typeof((double, SolveReceipt))))
+            ? Fin.Fail<(double, SolveReceipt)>(key.InvalidInput())
             : from phi in space.Cache.SignedHeatDetailed
               from signed in InterpolateOnMesh(space: space, sample: sample, perVertex: phi.Values, key: key)
               select (signed, phi.Solve);

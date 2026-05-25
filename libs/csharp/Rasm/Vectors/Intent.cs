@@ -277,7 +277,8 @@ public abstract partial record VectorIntent {
         return from validField in Optional(field).ToFin(op.InvalidInput())
                from validStop in Optional(termination).ToFin(op.InvalidInput())
                from h in op.AcceptValidated<PositiveMagnitude>(candidate: initialStep)
-               select (VectorIntent)new StreamlineCase(Source: validField, Seed: seed, InitialStep: h, Integrator: integrator ?? new FieldIntegrator.FixedCase(Kind: IntegratorKind.RK4), Termination: validStop);
+               from validIntegrator in FieldIntegrator.AdmitOrFixed(value: integrator, key: op)
+               select (VectorIntent)new StreamlineCase(Source: validField, Seed: seed, InitialStep: h, Integrator: validIntegrator, Termination: validStop);
     }
     public static Fin<VectorIntent> Lerp(Vector3d a, Vector3d b, double t, Op? key = null) =>
         key.OrDefault().AcceptValidated<UnitInterval>(candidate: t)

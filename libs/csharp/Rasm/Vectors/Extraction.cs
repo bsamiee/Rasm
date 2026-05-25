@@ -8,12 +8,12 @@ namespace Rasm.Vectors;
 [SmartEnum<int>] public sealed partial class ToleranceSource { public static readonly ToleranceSource Context = new(key: 0), RhinoDefault = new(key: 1), NotApplicable = new(key: 2); }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct ExtractionReceipt(ExtractionStatus Status, int Attempted, int Emitted, int Rejected, bool NativeRouted, ToleranceSource ToleranceSource, Option<double> Tolerance, bool ParallelCallback) {
+public readonly record struct ExtractionReceipt(ExtractionStatus Status, int Attempted, int Emitted, int Rejected, bool NativeRouted, ToleranceSource ToleranceSource, Option<double> Tolerance, bool ParallelCallback, Option<IsoSurfaceReceipt> IsoSurface = default) {
     public ExtractionRoute Route => NativeRouted ? ExtractionRoute.Native : ExtractionRoute.Local;
-    internal static Fin<ExtractionReceipt> Of(ExtractionStatus status, int attempted, int emitted, bool nativeRouted, ToleranceSource toleranceSource, Option<double> tolerance, bool parallelCallback, Op key) =>
+    internal static Fin<ExtractionReceipt> Of(ExtractionStatus status, int attempted, int emitted, bool nativeRouted, ToleranceSource toleranceSource, Option<double> tolerance, bool parallelCallback, Op key, Option<IsoSurfaceReceipt> isoSurface = default) =>
         attempted < 0 || emitted < 0 || emitted > attempted
             ? Fin.Fail<ExtractionReceipt>(error: key.InvalidResult())
-            : Fin.Succ(new ExtractionReceipt(Status: status, Attempted: attempted, Emitted: emitted, Rejected: attempted - emitted, NativeRouted: nativeRouted, ToleranceSource: toleranceSource, Tolerance: tolerance, ParallelCallback: parallelCallback));
+            : Fin.Succ(new ExtractionReceipt(Status: status, Attempted: attempted, Emitted: emitted, Rejected: attempted - emitted, NativeRouted: nativeRouted, ToleranceSource: toleranceSource, Tolerance: tolerance, ParallelCallback: parallelCallback, IsoSurface: isoSurface));
 }
 
 [SmartEnum<int>] public sealed partial class ScalarIsolineRoute { public static readonly ScalarIsolineRoute LocalPiecewiseLinearMesh = new(key: 0, nativeRouted: false); public bool NativeRouted { get; } }
@@ -57,11 +57,12 @@ public readonly record struct StreamBundlePolicy {
     public Termination Termination { get; }
     public static Fin<StreamBundlePolicy> Of(SampleKind kind, double initialStep, Termination termination, FieldIntegrator? integrator = null, Op? key = null) =>
         key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: initialStep)
-            .Bind(step => Of(kind: kind, initialStep: step, termination: termination, integrator: integrator ?? new FieldIntegrator.FixedCase(Kind: IntegratorKind.RK4), key: key));
+            .Bind(step => FieldIntegrator.AdmitOrFixed(value: integrator, key: key.OrDefault())
+                .Bind(active => Of(kind: kind, initialStep: step, termination: termination, integrator: active, key: key)));
     public static Fin<StreamBundlePolicy> Of(SampleKind kind, PositiveMagnitude initialStep, Termination termination, FieldIntegrator integrator, Op? key = null) {
         Op op = key.OrDefault();
         return from validKind in SampleKind.Admit(value: kind, key: op)
-               from validIntegrator in Optional(integrator).ToFin(op.InvalidInput())
+               from validIntegrator in FieldIntegrator.Admit(value: integrator, key: op)
                from validTermination in Optional(termination).ToFin(op.InvalidInput())
                from _ in guard(initialStep.Value > RhinoMath.ZeroTolerance, op.InvalidInput())
                select new StreamBundlePolicy(kind: validKind, initialStep: initialStep, integrator: validIntegrator, termination: validTermination);
@@ -76,25 +77,11 @@ public abstract partial record ContourPolicy {
     public sealed record SurfaceIsoCase(IsoStatus Status, double Parameter) : ContourPolicy;
     public sealed record MeshScalarCase(Arr<double> Values, Seq<double> Levels) : ContourPolicy;
     public static Fin<ContourPolicy> Plane(Plane section, Op? key = null) =>
-        Finite(section: section)
-            ? Fin.Succ<ContourPolicy>(new PlaneCase(Section: section))
-            : Fin.Fail<ContourPolicy>(key.OrDefault().InvalidInput());
-    private static bool Finite(Plane section) =>
-        Finite(point: section.Origin)
-        && Finite(vector: section.XAxis)
-        && Finite(vector: section.YAxis)
-        && Finite(vector: section.ZAxis)
-        && section.XAxis.Length > RhinoMath.ZeroTolerance
-        && section.YAxis.Length > RhinoMath.ZeroTolerance
-        && section.ZAxis.Length > RhinoMath.ZeroTolerance;
-    private static bool Finite(Point3d point) =>
-        RhinoMath.IsValidDouble(x: point.X) && RhinoMath.IsValidDouble(x: point.Y) && RhinoMath.IsValidDouble(x: point.Z);
-    private static bool Finite(Vector3d vector) =>
-        RhinoMath.IsValidDouble(x: vector.X) && RhinoMath.IsValidDouble(x: vector.Y) && RhinoMath.IsValidDouble(x: vector.Z);
+        FieldNabla.Plane(basis: section, key: key.OrDefault()).Map(active => (ContourPolicy)new PlaneCase(Section: active));
     public static Fin<ContourPolicy> Axis(Point3d start, Point3d end, double interval, Op? key = null) {
         Op op = key.OrDefault();
         Vector3d vector = end - start;
-        return from _ in guard(Finite(point: start) && Finite(point: end) && Finite(vector: vector) && vector.Length > RhinoMath.ZeroTolerance, op.InvalidInput())
+        return from _ in guard(FieldNabla.Finite(point: start) && FieldNabla.Finite(point: end) && FieldNabla.Finite(vector: vector) && vector.Length > RhinoMath.ZeroTolerance, op.InvalidInput())
                from step in op.AcceptValidated<PositiveMagnitude>(candidate: interval)
                select (ContourPolicy)new AxisCase(Start: start, End: end, Interval: step);
     }
@@ -393,11 +380,9 @@ internal abstract partial record Extraction {
     }
     public static Fin<Extraction> IsoSurface(ScalarField field, BoundingBox bounds, int resolution, int maxRootSteps, Op? key = null) {
         Op op = key.OrDefault();
-        return Optional(field).ToFin(op.InvalidInput()).Bind(validField => ScalarField.BoundsAdmitted(bounds: bounds)
-            && resolution >= 2
-            && maxRootSteps >= 1
-            ? Fin.Succ<Extraction>(new IsoSurfaceCase(Field: validField, Bounds: bounds, Resolution: resolution, MaxRootSteps: maxRootSteps))
-            : Fin.Fail<Extraction>(op.InvalidInput()));
+        return from validField in Optional(field).ToFin(op.InvalidInput())
+               from _ in FieldNabla.IsoSurfaceInput(bounds: bounds, resolution: resolution, maxRootSteps: maxRootSteps, key: op)
+               select (Extraction)new IsoSurfaceCase(Field: validField, Bounds: bounds, Resolution: resolution, MaxRootSteps: maxRootSteps);
     }
     public static Fin<Extraction> Glyph(VectorField field, ExtractionDomain domain, GlyphPolicy policy, Op? key = null) =>
         Sampled(field: field, domain: domain, policy: policy, key: key.OrDefault(),
@@ -430,7 +415,7 @@ internal abstract partial record Extraction {
                     Type t when t.Equals(typeof(Mesh)) => Accept<TOut, Mesh>(value: result.Mesh, key: state.Key),
                     Type t when t == typeof(IsoSurfaceReceipt) => Accept<TOut, IsoSurfaceReceipt>(value: result.Receipt, key: state.Key),
                     Type t when t == typeof(IsoSurfaceResult) => Accept<TOut, IsoSurfaceResult>(value: result, key: state.Key),
-                    Type t when t == typeof(ExtractionReceipt) => Receipt<TOut>(attempted: 1, emitted: result.Receipt.Valid ? 1 : 0, nativeRouted: true, toleranceSource: ToleranceSource.NotApplicable, tolerance: result.Receipt.FixedTolerance, parallelCallback: result.Receipt.ParallelCallback, key: state.Key),
+                    Type t when t == typeof(ExtractionReceipt) => ExtractionReceipt.Of(status: result.Receipt.Valid ? ExtractionStatus.Complete : ExtractionStatus.Approximate, attempted: 1, emitted: result.Receipt.Valid ? 1 : 0, nativeRouted: result.Receipt.NativeRouted, toleranceSource: result.Receipt.FixedTolerance.IsSome ? ToleranceSource.RhinoDefault : ToleranceSource.NotApplicable, tolerance: result.Receipt.FixedTolerance, parallelCallback: result.Receipt.ParallelCallback, key: state.Key, isoSurface: Some(result.Receipt)).Map(static receipt => (TOut)(object)receipt),
                     _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(IsoSurfaceCase), outputType: typeof(TOut))),
                 }
                 select output,

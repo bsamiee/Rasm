@@ -82,7 +82,7 @@ public sealed class VectorIntentShapeLaws {
         _ = Assert.IsType<VectorIntent.ExtractionCase>(@object: Spec.SuccValue(VectorIntent.StreamBundle(
             field: VectorField.Constant(value: Vector3d.XAxis),
             domain: IntentGens.CloudDomain,
-            policy: Spec.SuccValue(StreamBundlePolicy.Of(kind: IntentGens.ExplicitSamples, initialStep: IntentGens.Step, integrator: new FieldIntegrator.FixedCase(Kind: IntegratorKind.RK4), termination: IntentGens.Stop, key: IntentGens.Key), label: "bundle policy"),
+            policy: Spec.SuccValue(StreamBundlePolicy.Of(kind: IntentGens.ExplicitSamples, initialStep: IntentGens.Step, integrator: Spec.SuccValue(FieldIntegrator.Fixed(kind: IntegratorKind.RK4, key: IntentGens.Key), label: "fixed rk4"), termination: IntentGens.Stop, key: IntentGens.Key), label: "bundle policy"),
             key: IntentGens.Key), label: "bundle intent"));
     }
     [Fact]

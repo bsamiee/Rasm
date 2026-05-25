@@ -142,7 +142,9 @@ public sealed class FieldIntegratorLaws {
     }
     [Fact]
     public void FixedAndTraceReceiptsExposeBoundedStops() {
-        Assert.Equal(expected: 0, actual: new FieldIntegrator.FixedCase(Kind: IntegratorKind.RK4).RejectBudget);
+        Assert.Equal(expected: 0, actual: Spec.SuccValue(FieldIntegrator.Fixed(kind: IntegratorKind.RK4, key: FlowGens.Key), label: "fixed rk4").RejectBudget);
+        Spec.ForAll(FlowGens.NonAdaptive, k => Spec.Succ(FieldIntegrator.Fixed(kind: k, key: FlowGens.Key), then: fixedIntegrator => Assert.IsType<FieldIntegrator.FixedCase>(@object: fixedIntegrator)));
+        Spec.ForAll(FlowGens.Adaptive, k => Spec.FailCategory(FieldIntegrator.Fixed(kind: k, key: FlowGens.Key), category: "Unsupported"));
         StreamlineStopKind[] stops = [StreamlineStopKind.Terminated, StreamlineStopKind.RejectBudgetExhausted, StreamlineStopKind.MaxIterationsExhausted];
         Spec.SmartEnumKeysUnique(items: stops, key: static s => s.Key);
         Assert.True(FlowGens.Trace(stop: StreamlineStopKind.Terminated).IsComplete);
@@ -161,7 +163,7 @@ public sealed class FieldIntegratorLaws {
             source: VectorField.Constant(value: Vector3d.XAxis),
             seed: Point3d.Origin,
             initialStep: step,
-            integrator: new FieldIntegrator.FixedCase(Kind: IntegratorKind.RK4),
+            integrator: Spec.SuccValue(FieldIntegrator.Fixed(kind: IntegratorKind.RK4, key: FlowGens.Key), label: "fixed rk4"),
             termination: stop,
             context: FlowGens.Model,
             key: FlowGens.Key), then: trace => {
