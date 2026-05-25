@@ -90,7 +90,7 @@ public static partial class Analyze {
                 ClosestOp<TGeometry, TOut>(key: LocationAspect.ClosestKey, target: ct.Probe, projection: SupportProjection.Closest),
             (LocationValue.FrameCase, Locator.CurveParameter or Locator.ArcLength or Locator.NormalizedMid) =>
                 Located<TGeometry, TOut, Curve, Plane>(key: LocationAspect.FrameAtKey, operation: () => CurveLocatedOp<TGeometry, Plane>(key: LocationAspect.FrameAtKey, locator: locator, project: static (curve, t, context) =>
-                    VectorIntent.Curve(source: curve, parameter: t, mode: CurveProjection.Frame).Project<Plane>(context: context, key: LocationAspect.FrameAtKey).Bind(plane => LocationAspect.FrameAtKey.Accept(value: plane)))),
+                    VectorIntent.Curve(source: curve, parameter: t, mode: CurveProjection.Frame, key: LocationAspect.FrameAtKey).Bind(intent => intent.Project<Plane>(context: context, key: LocationAspect.FrameAtKey)).Bind(plane => LocationAspect.FrameAtKey.Accept(value: plane)))),
             (LocationValue.FrameCase, Locator.SurfaceParameter sp) =>
                 Located<TGeometry, TOut, Surface, Plane>(key: LocationAspect.FrameAtKey, operation: () => SurfaceUvOp<TGeometry, Plane>(key: LocationAspect.FrameAtKey, uv: sp.Uv, project: static (surface, p) => GeometryKernel.FrameAt(surface: surface, uv: p, key: LocationAspect.FrameAtKey).Bind(frame => LocationAspect.FrameAtKey.Accept(value: frame)))),
             (LocationValue.FrameCase, Locator.ClosestTo ct) =>
@@ -103,10 +103,10 @@ public static partial class Analyze {
                 ClosestOp<TGeometry, TOut>(key: LocationAspect.NormalAtKey, target: ct.Probe, projection: SupportProjection.Normal),
             (LocationValue.TangentCase, Locator.CurveParameter or Locator.ArcLength or Locator.NormalizedMid) =>
                 Located<TGeometry, TOut, Curve, Vector3d>(key: LocationAspect.TangentKey, operation: () => CurveLocatedOp<TGeometry, Vector3d>(key: LocationAspect.TangentKey, locator: locator, project: static (curve, parameter, context) =>
-                    VectorIntent.Curve(source: curve, parameter: parameter, mode: CurveProjection.Tangent).Project<Vector3d>(context: context, key: LocationAspect.TangentKey).Bind(tangent => LocationAspect.TangentKey.Accept(value: tangent)))),
+                    VectorIntent.Curve(source: curve, parameter: parameter, mode: CurveProjection.Tangent, key: LocationAspect.TangentKey).Bind(intent => intent.Project<Vector3d>(context: context, key: LocationAspect.TangentKey)).Bind(tangent => LocationAspect.TangentKey.Accept(value: tangent)))),
             (LocationValue.CurvatureCase, Locator.CurveParameter or Locator.ArcLength or Locator.NormalizedMid) =>
                 Located<TGeometry, TOut, Curve, Vector3d>(key: LocationAspect.CurvatureAtKey, operation: () => CurveLocatedOp<TGeometry, Vector3d>(key: LocationAspect.CurvatureAtKey, locator: locator, project: static (curve, t, context) =>
-                    VectorIntent.Curve(source: curve, parameter: t, mode: CurveProjection.Curvature).Project<Vector3d>(context: context, key: LocationAspect.CurvatureAtKey).Bind(curvature => LocationAspect.CurvatureAtKey.Accept(value: curvature)))),
+                    VectorIntent.Curve(source: curve, parameter: t, mode: CurveProjection.Curvature, key: LocationAspect.CurvatureAtKey).Bind(intent => intent.Project<Vector3d>(context: context, key: LocationAspect.CurvatureAtKey)).Bind(curvature => LocationAspect.CurvatureAtKey.Accept(value: curvature)))),
             (LocationValue.CurvatureCase, Locator.SurfaceParameter sp) =>
                 Located<TGeometry, TOut, Surface, SurfaceCurvature>(key: LocationAspect.CurvatureAtKey, operation: () => SurfaceUvOp<TGeometry, SurfaceCurvature>(key: LocationAspect.CurvatureAtKey, uv: sp.Uv, project: static (surface, p) => Optional(surface.CurvatureAt(u: p.X, v: p.Y)).ToFin(LocationAspect.CurvatureAtKey.InvalidResult()).Map(static curvature => Seq(curvature)))),
             (LocationValue.DerivativeCase { Order: >= 0 } derivative, Locator.CurveParameter or Locator.ArcLength or Locator.NormalizedMid) =>

@@ -37,7 +37,7 @@ public readonly record struct GlyphPolicy {
         key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: scale)
             .Bind(validScale => Of(kind: kind, scale: validScale, key: key));
     public static Fin<GlyphPolicy> Of(SampleKind kind, PositiveMagnitude scale, Op? key = null) =>
-        from validKind in Optional(kind).ToFin(key.OrDefault().InvalidInput())
+        from validKind in SampleKind.Admit(value: kind, key: key.OrDefault())
         from _ in guard(scale.Value > RhinoMath.ZeroTolerance, key.OrDefault().InvalidInput())
         select new GlyphPolicy(kind: validKind, scale: scale);
 }
@@ -46,7 +46,7 @@ public readonly record struct GridPolicy {
     private GridPolicy(SampleKind kind) => Kind = kind;
     public SampleKind Kind { get; }
     public static Fin<GridPolicy> Of(SampleKind kind, Op? key = null) =>
-        Optional(kind).ToFin(key.OrDefault().InvalidInput()).Map(static validKind => new GridPolicy(kind: validKind));
+        SampleKind.Admit(value: kind, key: key.OrDefault()).Map(static validKind => new GridPolicy(kind: validKind));
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct StreamBundlePolicy {
@@ -60,7 +60,7 @@ public readonly record struct StreamBundlePolicy {
             .Bind(step => Of(kind: kind, initialStep: step, termination: termination, integrator: integrator ?? new FieldIntegrator.FixedCase(Kind: IntegratorKind.RK4), key: key));
     public static Fin<StreamBundlePolicy> Of(SampleKind kind, PositiveMagnitude initialStep, Termination termination, FieldIntegrator integrator, Op? key = null) {
         Op op = key.OrDefault();
-        return from validKind in Optional(kind).ToFin(op.InvalidInput())
+        return from validKind in SampleKind.Admit(value: kind, key: op)
                from validIntegrator in Optional(integrator).ToFin(op.InvalidInput())
                from validTermination in Optional(termination).ToFin(op.InvalidInput())
                from _ in guard(initialStep.Value > RhinoMath.ZeroTolerance, op.InvalidInput())
@@ -131,7 +131,7 @@ public abstract partial record ExtractionDomain {
     public static Fin<ExtractionDomain> Mesh(MeshSpace value, Op? key = null) =>
         Optional(value.Native).ToFin(key.OrDefault().InvalidInput()).Map(_ => (ExtractionDomain)new MeshCase(value: value));
     public static Fin<ExtractionDomain> Cloud(VectorCloud value, Op? key = null) =>
-        Optional(value).ToFin(key.OrDefault().InvalidInput()).Map(valid => (ExtractionDomain)new CloudCase(value: valid));
+        VectorCloud.Admit(value: value, key: key.OrDefault()).Map(static valid => (ExtractionDomain)new CloudCase(value: valid));
     public static Fin<ExtractionDomain> Of(object? value, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return Optional(value).ToFin(op.InvalidInput()).Bind(source => source switch {

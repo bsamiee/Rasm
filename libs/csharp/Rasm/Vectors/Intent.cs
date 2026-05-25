@@ -243,8 +243,13 @@ public abstract partial record VectorIntent {
         new RayCase(Origin: origin, RayDirection: direction, Policy: policy ?? RayPolicy.Forward);
     public static VectorIntent Frame(Point3d origin, Vector3d normal, Option<Vector3d> xHint = default) =>
         new FrameCase(Origin: origin, Normal: normal, XHint: xHint);
-    public static VectorIntent Curve(Curve source, double parameter, CurveProjection mode) =>
-        new CurveCase(Source: source, Parameter: parameter, Mode: mode);
+    public static Fin<VectorIntent> Curve(Curve source, double parameter, CurveProjection mode, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in Optional(source).ToFin(op.InvalidInput())
+               from _ in guard(active.IsValid && active.Domain.IncludesParameter(t: parameter), op.InvalidInput())
+               from validMode in Optional(mode).ToFin(op.InvalidInput())
+               select (VectorIntent)new CurveCase(Source: active, Parameter: parameter, Mode: validMode);
+    }
     public static Fin<VectorIntent> Cloud(VectorCloud cloud, VectorCloudMetric metric, Op? key = null) {
         Op op = key.OrDefault();
         return from validCloud in Optional(cloud).ToFin(op.InvalidInput())
@@ -284,8 +289,13 @@ public abstract partial record VectorIntent {
         new ProjectOntoCase(Value: value, Target: target);
     public static VectorIntent Mirror(Vector3d value, Plane across) =>
         new MirrorCase(Value: value, Across: across);
-    public static VectorIntent Surface(SurfaceSpace surface, double u, double v, SurfaceProjection mode) =>
-        new SurfaceCase(SurfaceSource: surface, U: u, V: v, Mode: mode);
+    public static Fin<VectorIntent> Surface(SurfaceSpace surface, double u, double v, SurfaceProjection mode, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in SurfaceSpace.Of(native: surface.Native, context: surface.Tolerance, key: op)
+               from _ in GeometryKernel.SurfaceUv(surface: active.Native, uv: new Point2d(x: u, y: v), context: active.Tolerance, key: op)
+               from validMode in Optional(mode).ToFin(op.InvalidInput())
+               select (VectorIntent)new SurfaceCase(SurfaceSource: active, U: u, V: v, Mode: validMode);
+    }
     public static Fin<VectorIntent> Pose(Plane from, Plane to, double t, MotionInterpolation mode, Op? key = null) =>
         key.OrDefault().AcceptValidated<UnitInterval>(candidate: t)
             .Map(unit => (VectorIntent)new PoseCase(From: from, To: to, Parameter: unit, Mode: mode));
@@ -302,7 +312,7 @@ public abstract partial record VectorIntent {
     public static Fin<VectorIntent> Sample(ExtractionDomain domain, SampleKind kind, Op? key = null) {
         Op op = key.OrDefault();
         return from validDomain in Optional(domain).ToFin(op.InvalidInput()).Bind(active => active.Admit(key: op))
-               from validKind in Optional(kind).ToFin(op.InvalidInput())
+               from validKind in SampleKind.Admit(value: kind, key: op)
                select (VectorIntent)new SampleCase(Domain: validDomain, Kind: validKind);
     }
     public static Fin<VectorIntent> Align(VectorCloud source, VectorCloud target, AlignKind kind, Op? key = null) {

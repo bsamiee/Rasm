@@ -15,6 +15,16 @@ internal static class SampleGens {
     public static readonly Gen<(double Radius, int Count, int Iterations, int Capacity)> Payloads =
         Gens.Positive.Select(Gen.Int[start: 1, finish: 32], Gen.Int[start: 33, finish: 64], Gen.Int[start: 65, finish: 96],
             static (double radius, int count, int iterations, int capacity) => (Radius: radius, Count: count, Iterations: iterations, Capacity: capacity));
+    public static VectorCloud Cloud(Option<Seq<double>> mass = default) =>
+        mass.Match(
+            Some: weights => Spec.SuccValue(VectorCloud.WeightedCluster(points: Points, mass: weights, context: Model, key: Key), label: "weighted sample cloud"),
+            None: () => Spec.SuccValue(VectorCloud.Cluster(points: Points, context: Model, key: Key), label: "sample cloud"));
+    public static ExtractionDomain Domain(VectorCloud cloud) =>
+        Spec.SuccValue(ExtractionDomain.Cloud(value: cloud, key: Key), label: "sample cloud domain");
+    public static VectorIntent Intent(SampleKind kind, Option<Seq<double>> mass = default) =>
+        Spec.SuccValue(VectorIntent.Sample(domain: Domain(cloud: Cloud(mass: mass)), kind: kind, key: Key), label: "sample intent");
+    public static VectorIntent Intent(VectorCloud cloud, SampleKind kind) =>
+        Spec.SuccValue(VectorIntent.Sample(domain: Domain(cloud: cloud), kind: kind, key: Key), label: "sample intent");
 }
 
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
@@ -57,12 +67,8 @@ public sealed class SampleKindFactoryLaws {
     }
     [Fact]
     public void ExplicitSamplesProjectExactOutputsThroughIntentDomainRail() {
-        VectorCloud cloud = Spec.SuccValue(VectorCloud.Cluster(points: SampleGens.Points, context: SampleGens.Model, key: SampleGens.Key), label: "sample cloud");
         SampleKind kind = Spec.SuccValue(SampleKind.Explicit(points: SampleGens.Points, key: SampleGens.Key), label: "explicit sample kind");
-        VectorIntent intent = Spec.SuccValue(VectorIntent.Sample(
-            domain: Spec.SuccValue(ExtractionDomain.Cloud(value: cloud, key: SampleGens.Key), label: "sample cloud domain"),
-            kind: kind,
-            key: SampleGens.Key), label: "sample intent");
+        VectorIntent intent = SampleGens.Intent(kind: kind);
         Spec.Succ(intent.Project<Seq<Point3d>>(context: SampleGens.Model, key: SampleGens.Key),
             then: points => _ = points.Zip(SampleGens.Points).Iter(pair => Spec.NearEqual(left: pair.Item1, right: pair.Item2, tolerance: 0.0)));
         Spec.Succ(intent.Project<VectorCloud>(context: SampleGens.Model, key: SampleGens.Key),
@@ -82,9 +88,9 @@ public sealed class SampleKindFactoryLaws {
     }
     [Fact]
     public void ExplicitReceiptCountsRejectedDomainSamplesWithoutForcingCloudOutput() {
-        VectorCloud cloud = Spec.SuccValue(VectorCloud.Cluster(points: SampleGens.Points, context: SampleGens.Model, key: SampleGens.Key), label: "sample cloud");
+        VectorCloud cloud = SampleGens.Cloud();
         SampleKind partial = Spec.SuccValue(SampleKind.Explicit(points: SampleGens.Points.Add(new Point3d(x: 10.0, y: 0.0, z: 0.0)), key: SampleGens.Key), label: "partial explicit sample kind");
-        ExtractionDomain domain = Spec.SuccValue(ExtractionDomain.Cloud(value: cloud, key: SampleGens.Key), label: "sample cloud domain");
+        ExtractionDomain domain = SampleGens.Domain(cloud: cloud);
         VectorIntent intent = Spec.SuccValue(VectorIntent.Sample(domain: domain, kind: partial, key: SampleGens.Key), label: "partial sample intent");
         Spec.Succ(intent.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key), then: receipt => {
             Spec.CountsConserve(attempted: receipt.Attempted, emitted: receipt.Emitted, rejected: receipt.Rejected, label: "partial receipt");
@@ -99,7 +105,7 @@ public sealed class SampleKindFactoryLaws {
             Assert.Equal(expected: 1, actual: receipt.Rejected);
         });
         Spec.FailCategory(rejectedIntent.Project<VectorCloud>(context: SampleGens.Model, key: SampleGens.Key), category: "Input");
-        SampleKind invalid = new SampleKind.ExplicitCase(Points: Seq(Point3d.Unset));
+        SampleKind invalid = Spec.SuccValue(SampleKind.Explicit(points: Seq(Point3d.Unset), key: SampleGens.Key), label: "invalid explicit sample kind");
         VectorIntent invalidIntent = Spec.SuccValue(VectorIntent.Sample(domain: domain, kind: invalid, key: SampleGens.Key), label: "invalid sample intent");
         Spec.Succ(invalidIntent.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key), then: receipt => {
             Spec.CountsConserve(attempted: receipt.Attempted, emitted: receipt.Emitted, rejected: receipt.Rejected, label: "invalid explicit receipt");
@@ -133,16 +139,58 @@ public sealed class SampleDensityLaws {
     }
     [Fact]
     public void ReceiptConservationIsBoundedByAttemptedCandidates() {
-        VectorCloud cloud = Spec.SuccValue(VectorCloud.Cluster(points: SampleGens.Points, context: SampleGens.Model, key: SampleGens.Key), label: "sample cloud");
         SampleKind kind = Spec.SuccValue(SampleKind.Explicit(points: SampleGens.Points.Add(new Point3d(x: 10.0, y: 0.0, z: 0.0)), key: SampleGens.Key), label: "explicit sample kind");
-        VectorIntent intent = Spec.SuccValue(VectorIntent.Sample(
-            domain: Spec.SuccValue(ExtractionDomain.Cloud(value: cloud, key: SampleGens.Key), label: "sample cloud domain"),
-            kind: kind,
-            key: SampleGens.Key), label: "density sample intent");
+        VectorIntent intent = SampleGens.Intent(kind: kind);
         Spec.Succ(intent.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key), then: receipt => {
             Spec.CountsConserve(attempted: receipt.Attempted, emitted: receipt.Emitted, rejected: receipt.Rejected, label: "density receipt");
             Assert.True(condition: receipt.Emitted <= receipt.Attempted);
             Assert.True(condition: receipt.Rejected >= 0);
+        });
+    }
+    [Fact]
+    public void CloudCandidateMassIsNormalizedAndPreservedInCandidateSampling() {
+        VectorIntent intent = SampleGens.Intent(
+            kind: Spec.SuccValue(SampleKind.Farthest(count: 2, key: SampleGens.Key), label: "farthest kind"),
+            mass: Some(Seq(1000.0, 1.0, 1.0)));
+        Spec.Succ(intent.Project<VectorCloud>(context: SampleGens.Model, key: SampleGens.Key), then: projected => {
+            VectorCloud.ClusterCase cluster = Assert.IsType<VectorCloud.ClusterCase>(@object: projected);
+            Spec.Some(cluster.Mass, mass => {
+                Assert.Equal(expected: cluster.Vertices.Count, actual: mass.Count);
+                Spec.EqualWithin(left: Enumerable.Sum(source: mass.AsIterable()), right: 1.0, tolerance: 1.0e-12, what: "selected normalized mass");
+            });
+        });
+        Spec.Succ(intent.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key), then: receipt =>
+            Spec.CountsConserve(attempted: receipt.Attempted, emitted: receipt.Emitted, rejected: receipt.Rejected, label: "weighted cloud receipt"));
+    }
+    [Fact]
+    public void ScalarDensityPriorityMultipliesCloudMassDeterministically() {
+        SampleKind density = Spec.SuccValue(SampleKind.ScalarDensity(density: ScalarField.Constant(value: 2.0), count: 2, key: SampleGens.Key), label: "density kind");
+        VectorIntent weighted = SampleGens.Intent(kind: density, mass: Some(Seq(1000.0, 1.0, 1.0)));
+        VectorIntent uniform = SampleGens.Intent(kind: density);
+        Arr<double> weightedMass = Spec.SuccValue(weighted.Project<VectorCloud>(context: SampleGens.Model, key: SampleGens.Key), label: "weighted density cloud") is VectorCloud.ClusterCase weightedCluster
+            ? weightedCluster.Mass.IfNone(new Arr<double>([]))
+            : new Arr<double>([]);
+        Arr<double> uniformMass = Spec.SuccValue(uniform.Project<VectorCloud>(context: SampleGens.Model, key: SampleGens.Key), label: "uniform density cloud") is VectorCloud.ClusterCase uniformCluster
+            ? uniformCluster.Mass.IfNone(new Arr<double>([]))
+            : new Arr<double>([]);
+        Assert.Equal(expected: weightedMass.Count, actual: uniformMass.Count);
+        Assert.True(condition: Enumerable.Max(source: weightedMass.AsIterable()) > Enumerable.Max(source: uniformMass.AsIterable()));
+        Spec.Succ(weighted.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key), then: receipt => {
+            Spec.Some(receipt.DensityAccepted, accepted => Assert.Equal(expected: SampleGens.Points.Count, actual: accepted));
+            Spec.Some(receipt.DensityRejected, rejected => Assert.Equal(expected: 0, actual: rejected));
+        });
+    }
+    [Fact]
+    public void AdaptiveDensitySelectionIsRepeatablePrioritySelection() {
+        SampleKind adaptive = Spec.SuccValue(SampleKind.Adaptive(density: ScalarField.Constant(value: 1.0), count: 2, minSpacing: 0.01, key: SampleGens.Key), label: "adaptive kind");
+        VectorIntent intent = SampleGens.Intent(kind: adaptive);
+        Seq<Point3d> first = Spec.SuccValue(intent.Project<Seq<Point3d>>(context: SampleGens.Model, key: SampleGens.Key), label: "first adaptive sample");
+        Seq<Point3d> second = Spec.SuccValue(intent.Project<Seq<Point3d>>(context: SampleGens.Model, key: SampleGens.Key), label: "second adaptive sample");
+        _ = first.Zip(second).Iter(pair => Spec.NearEqual(left: pair.Item1, right: pair.Item2, tolerance: 0.0));
+        Spec.Succ(intent.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key), then: receipt => {
+            Spec.Some(receipt.DensityAccepted, accepted => Assert.Equal(expected: SampleGens.Points.Count, actual: accepted));
+            Spec.Some(receipt.DensityRejected, rejected => Assert.Equal(expected: 0, actual: rejected));
+            Assert.Equal(expected: SampleDomainStatus.CandidateAccepted, actual: receipt.DomainStatus);
         });
     }
 }

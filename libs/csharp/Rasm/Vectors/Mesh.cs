@@ -233,6 +233,28 @@ internal static class MeshKernel {
         }
         return Fin.Succ(unit);
     }
+    internal static Fin<Seq<Point3d>> SurfaceCandidatePoints(MeshSpace space, double density, Op key) {
+        if (!RhinoMath.IsValidDouble(x: density) || density <= 0.0) return Fin.Fail<Seq<Point3d>>(key.InvalidInput());
+        List<Point3d> samples = [];
+        using Mesh triangulated = space.Native.DuplicateMesh();
+        if (ContainsQuads(mesh: triangulated) && !triangulated.Faces.ConvertQuadsToTriangles()) return Fin.Fail<Seq<Point3d>>(key.InvalidResult());
+        for (int f = 0; f < triangulated.Faces.Count; f++) {
+            MeshFace face = triangulated.Faces[index: f];
+            if (!face.IsTriangle) continue;
+            Point3d a = triangulated.Vertices[index: face.A]; Point3d b = triangulated.Vertices[index: face.B]; Point3d c = triangulated.Vertices[index: face.C];
+            double area = 0.5 * Vector3d.CrossProduct(a: b - a, b: c - a).Length;
+            int count = Math.Max(val1: 1, val2: (int)Math.Ceiling(a: area * density)); int side = Math.Max(val1: 1, val2: (int)Math.Ceiling(a: Math.Sqrt(d: count * 2.0)));
+            int emitted = 0;
+            for (int i = 0; i <= side && emitted < count; i++) {
+                for (int j = 0; j <= side - i && emitted < count; j++) {
+                    double wa = (i + 1.0) / (side + 3.0); double wb = (j + 1.0) / (side + 3.0); double wc = 1.0 - wa - wb;
+                    samples.Add(item: new Point3d(x: (wa * a.X) + (wb * b.X) + (wc * c.X), y: (wa * a.Y) + (wb * b.Y) + (wc * c.Y), z: (wa * a.Z) + (wb * b.Z) + (wc * c.Z)));
+                    emitted++;
+                }
+            }
+        }
+        return key.AcceptValue(value: toSeq(samples));
+    }
 
     // --- [COTANGENT_ASSEMBLY] ---------------------------------------------------------------
     // BOUNDARY ADAPTER — native face iteration builds sparse triplets without duplicating mesh storage.

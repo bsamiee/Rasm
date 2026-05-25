@@ -129,6 +129,17 @@ public abstract partial record VectorCloud {
             .Map(static admitted => (VectorCloud)new ClusterCase(Vertices: admitted.Points, Tolerance: admitted.Context));
     public static Fin<VectorCloud> WeightedCluster(Seq<Point3d> points, Seq<double> mass, Context context, Op? key = null) =>
         from admitted in AdmitPoints(points: points, context: context, key: key, minimum: 1) from normalized in CloudKernel.MassOf(mass: new Arr<double>([.. mass.AsIterable()]), count: admitted.Points.Count, key: admitted.Key) select (VectorCloud)new ClusterCase(Vertices: admitted.Points, Tolerance: admitted.Context, Mass: Some(normalized));
+    internal Fin<VectorCloud> Admit(Op key) =>
+        this switch {
+            RingCase ring => Ring(points: ring.Vertices, context: ring.Tolerance, key: key),
+            PolylineCase polyline => Polyline(points: polyline.Vertices, context: polyline.Tolerance, key: key),
+            ClusterCase cluster => CloudKernel.MassOf(cluster: cluster, key: key).Bind(mass => cluster.Mass.Match(
+                Some: _ => WeightedCluster(points: cluster.Vertices, mass: toSeq(mass.AsIterable()), context: cluster.Tolerance, key: key),
+                None: () => Cluster(points: cluster.Vertices, context: cluster.Tolerance, key: key))),
+            _ => Fin.Fail<VectorCloud>(key.InvalidInput()),
+        };
+    internal static Fin<VectorCloud> Admit(VectorCloud value, Op key) =>
+        Optional(value).ToFin(key.InvalidInput()).Bind(cloud => cloud.Admit(key: key));
     private static Fin<(Seq<Point3d> Points, Context Context, Op Key)> AdmitPoints(Seq<Point3d> points, Context context, Op? key, int minimum) =>
         key.OrDefault() switch {
             Op op => from model in Optional(context).ToFin(op.MissingContext())

@@ -4,32 +4,32 @@ namespace Rasm.Vectors;
 [SmartEnum<int>]
 public sealed partial class CurveProjection {
     public static readonly CurveProjection Tangent = new(key: 0,
-        sample: static (curve, t, _) => curve.TangentAt(t: t) switch {
+        sample: static (curve, t, _, key) => curve.TangentAt(t: t) switch {
             Vector3d tangent when tangent.IsValid && !tangent.IsTiny() => Fin.Succ((object)tangent),
-            _ => Fin.Fail<object>(Op.Of().InvalidResult()),
+            _ => Fin.Fail<object>(key.InvalidResult()),
         });
     public static readonly CurveProjection Curvature = new(key: 1,
-        sample: static (curve, t, _) => curve.CurvatureAt(t: t) switch {
+        sample: static (curve, t, _, key) => curve.CurvatureAt(t: t) switch {
             Vector3d curvature when curvature.IsValid => Fin.Succ((object)curvature),
-            _ => Fin.Fail<object>(Op.Of().InvalidResult()),
+            _ => Fin.Fail<object>(key.InvalidResult()),
         });
-    public static readonly CurveProjection Frame = new(key: 2, sample: static (curve, t, _) => CurveFrame(curve: curve, parameter: t, perpendicular: false, project: static frame => frame));
-    public static readonly CurveProjection PerpendicularFrame = new(key: 3, sample: static (curve, t, _) => CurveFrame(curve: curve, parameter: t, perpendicular: true, project: static frame => frame));
+    public static readonly CurveProjection Frame = new(key: 2, sample: static (curve, t, _, key) => CurveFrame(curve: curve, parameter: t, perpendicular: false, key: key, project: static frame => frame));
+    public static readonly CurveProjection PerpendicularFrame = new(key: 3, sample: static (curve, t, _, key) => CurveFrame(curve: curve, parameter: t, perpendicular: true, key: key, project: static frame => frame));
     public static readonly CurveProjection ArcLength = new(key: 4,
-        sample: static (curve, t, context) => curve.GetLength(fractionalTolerance: context.Fractional, subdomain: new Interval(curve.Domain.T0, t)) switch {
+        sample: static (curve, t, context, key) => curve.GetLength(fractionalTolerance: context.Fractional, subdomain: new Interval(curve.Domain.T0, t)) switch {
             double length when RhinoMath.IsValidDouble(x: length) && (length > 0.0 || Math.Abs(value: t - curve.Domain.T0) <= context.Absolute.Value) => Fin.Succ((object)length),
-            _ => Fin.Fail<object>(Op.Of().InvalidResult()),
+            _ => Fin.Fail<object>(key.InvalidResult()),
         });
-    public static readonly CurveProjection FrameNormal = new(key: 5, sample: static (curve, t, _) => CurveFrame(curve: curve, parameter: t, perpendicular: false, project: static frame => frame.YAxis));
-    public static readonly CurveProjection FrameBinormal = new(key: 6, sample: static (curve, t, _) => CurveFrame(curve: curve, parameter: t, perpendicular: false, project: static frame => frame.ZAxis));
-    public static readonly CurveProjection PerpendicularNormal = new(key: 7, sample: static (curve, t, _) => CurveFrame(curve: curve, parameter: t, perpendicular: true, project: static frame => frame.YAxis));
-    public static readonly CurveProjection PerpendicularBinormal = new(key: 8, sample: static (curve, t, _) => CurveFrame(curve: curve, parameter: t, perpendicular: true, project: static frame => frame.ZAxis));
-    [UseDelegateFromConstructor] private partial Fin<object> Sample(Curve curve, double parameter, Context context);
+    public static readonly CurveProjection FrameNormal = new(key: 5, sample: static (curve, t, _, key) => CurveFrame(curve: curve, parameter: t, perpendicular: false, key: key, project: static frame => frame.YAxis));
+    public static readonly CurveProjection FrameBinormal = new(key: 6, sample: static (curve, t, _, key) => CurveFrame(curve: curve, parameter: t, perpendicular: false, key: key, project: static frame => frame.ZAxis));
+    public static readonly CurveProjection PerpendicularNormal = new(key: 7, sample: static (curve, t, _, key) => CurveFrame(curve: curve, parameter: t, perpendicular: true, key: key, project: static frame => frame.YAxis));
+    public static readonly CurveProjection PerpendicularBinormal = new(key: 8, sample: static (curve, t, _, key) => CurveFrame(curve: curve, parameter: t, perpendicular: true, key: key, project: static frame => frame.ZAxis));
+    [UseDelegateFromConstructor] private partial Fin<object> Sample(Curve curve, double parameter, Context context, Op key);
     internal Fin<TOut> Project<TOut>(Curve curve, double parameter, Context context, Op key) =>
         from active in Optional(curve).ToFin(key.InvalidInput())
         from __ in guard(active.IsValid, key.InvalidInput())
         from _ in guard(active.Domain.IncludesParameter(t: parameter), key.InvalidInput())
-        from raw in Sample(curve: active, parameter: parameter, context: context).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
+        from raw in Sample(curve: active, parameter: parameter, context: context, key: key).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
         from output in (raw, typeof(TOut)) switch {
             (Vector3d v, Type t) when t == typeof(Vector3d) => AtomProjection.Value<Vector3d, TOut>(value: v, key: key),
             (Vector3d v, Type t) when t == typeof(Direction) => Direction.Of(value: v, context: context, key: key).Bind(d => d.Project<TOut>(key: key)),
@@ -41,10 +41,10 @@ public sealed partial class CurveProjection {
             _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(CurveProjection), outputType: typeof(TOut))),
         }
         select output;
-    private static Fin<object> CurveFrame(Curve curve, double parameter, bool perpendicular, Func<Plane, object> project) =>
+    private static Fin<object> CurveFrame(Curve curve, double parameter, bool perpendicular, Op key, Func<Plane, object> project) =>
         perpendicular switch {
-            true => curve.PerpendicularFrameAt(t: parameter, plane: out Plane frame) ? Fin.Succ(project(arg: frame)) : Fin.Fail<object>(Op.Of().InvalidResult()),
-            false => curve.FrameAt(t: parameter, plane: out Plane frame) ? Fin.Succ(project(arg: frame)) : Fin.Fail<object>(Op.Of().InvalidResult()),
+            true => curve.PerpendicularFrameAt(t: parameter, plane: out Plane frame) ? Fin.Succ(project(arg: frame)) : Fin.Fail<object>(key.InvalidResult()),
+            false => curve.FrameAt(t: parameter, plane: out Plane frame) ? Fin.Succ(project(arg: frame)) : Fin.Fail<object>(key.InvalidResult()),
         };
 }
 
