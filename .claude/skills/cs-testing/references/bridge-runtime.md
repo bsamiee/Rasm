@@ -15,7 +15,7 @@
 ## [2][RULES]
 
 - Static specs may classify bridge-owned behavior, but must not pretend to execute it.
-- Pair new bridge scenarios with owning source files through `bridge check-source`.
+- Pair new bridge scenarios with owning source files through `bridge check <source.cs> <scenario.verify.csx>`.
 - Host/package collisions are evidence. Investigate loaded Rhino assemblies before weakening scenarios.
 - Keep bridge output as JSON evidence plus captures under `.artifacts/verify`.
 - On macOS, Rasm.Vectors static specs should treat successful `Curve`, `Surface`, `Mesh`, `PlaneSurface`, `Point3d.IsValid`, `Vector3d.IsTiny`, and `Polyline.IsValid` native materialization as bridge-owned unless a current run proves the path is pure managed.

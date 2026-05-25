@@ -48,11 +48,10 @@ declare -Ar ROUTES=(
     [bridge:launch]='_bridge_client|0|0|bridge launch|launch'
     [bridge:restart]='_bridge_client|0|0|bridge restart|restart'
     [bridge:doctor]='_bridge_client|0|999|bridge doctor [client options]|doctor'
-    [bridge:script]='_bridge_client|1|999|bridge script <script> [client options]|script'
     [bridge:load]='_bridge_client|1|999|bridge load <assembly.dll> [client options]|load'
     [bridge:load-smoke]='_bridge_client|1|999|bridge load-smoke <assembly.dll> [client options]|load-smoke'
-    [bridge:check]='_bridge_client|1|999|bridge check <project.csproj> [client options]|check'
-    [bridge:check-source]='_bridge_client|1|999|bridge check-source <source.cs> [client options]|check-source'
+    [bridge:check]='_bridge_client|1|999|bridge check <target> [scenario.csx] [client options]|check'
+    [bridge:clean]='_bridge_client|1|1|bridge clean <target>|clean'
     [bridge:unload]='_bridge_client|1|1|bridge unload <session-id>|unload'
     [bridge:quit]='_bridge_client|0|0|bridge quit|quit'
     [api:doctor]='_api_doctor|0|0|api doctor|'
@@ -61,7 +60,7 @@ declare -Ar ROUTES=(
     [api:types]='_api_types|1|2|api types <api-key> [pattern]|'
     [api:decompile]='_api_decompile|2|2|api decompile <api-key> <type>|'
 )
-readonly -a ROUTE_ORDER=(--self-test build verify bridge:build bridge:package bridge:install bridge:launch bridge:restart bridge:doctor bridge:script bridge:load bridge:load-smoke bridge:check bridge:check-source bridge:unload bridge:quit api:doctor api:path api:xml api:types api:decompile package install push)
+readonly -a ROUTE_ORDER=(--self-test build verify bridge:build bridge:package bridge:install bridge:launch bridge:restart bridge:doctor bridge:load bridge:load-smoke bridge:check bridge:clean bridge:unload bridge:quit api:doctor api:path api:xml api:types api:decompile package install push)
 readonly -a BRIDGE_PROJECTS=("${BRIDGE_PROTOCOL_PROJECT}" "${BRIDGE_PLUGIN_PROJECT}" "${BRIDGE_CLIENT_PROJECT}")
 _trap_err() {
     local -r exit_code="$?"
@@ -335,7 +334,7 @@ _verify_run() {
         result="${report_dir}/${name}.json"
         _verify_wrap "${scenario}" "${name}" "${capture_dir}/${name}.png" "${wrapped}"
         rc=0
-        _bridge_client_invoke script "${wrapped}" --result "${result}" >/dev/null 2>&1 || rc=$?
+        _bridge_client_invoke check "${wrapped}" --result "${result}" >/dev/null 2>&1 || rc=$?
         status="$(jq -r '.status // "failed"' "${result}" 2>/dev/null || printf 'failed')"
         result_files+=("${result}")
         case "${status}" in

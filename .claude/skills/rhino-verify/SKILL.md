@@ -88,7 +88,7 @@ bash scripts/rhino.sh verify path/to/single.verify.csx          # explicit
 
 Reading results:
 
-- Per-scenario evidence: `.artifacts/verify/<name>.json` — full bridge phase JSON, same shape as `bridge script`.
+- Per-scenario evidence: `.artifacts/verify/<name>.json` — full bridge phase JSON, same shape as `bridge check <script.csx>`.
 - Per-scenario capture: `.artifacts/verify/captures/<name>.png` — open with the multimodal Read tool.
 - Aggregate: `.artifacts/verify/summary.json` — `{summary:{ok,failed,total}, scenarios:[…]}`.
 

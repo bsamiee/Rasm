@@ -70,21 +70,19 @@ Run commands from repository root.
 | **2** | `scripts/rhino.sh bridge launch` | Open RhinoWIP and verify bridge handshake. |
 | **3** | `scripts/rhino.sh bridge doctor` | Report live Rhino, plugin, required assemblies, and sessions. |
 | **4** | `scripts/rhino.sh bridge restart` | Quit safe Rhino session, relaunch RhinoWIP, and reconnect. |
-| **5** | `scripts/rhino.sh bridge check <project.csproj>` | Build project and execute RhinoCode smoke in Rhino. |
-| **6** | `scripts/rhino.sh bridge check-source <source.cs>` | Resolve owning project and validate source build. |
-| **7** | `scripts/rhino.sh bridge check-source <source.cs> --script <script.csx>` | Build owner and execute supplied RhinoCode script with host-filtered runtime references. |
-| **8** | `scripts/rhino.sh bridge script <script.csx>` | Execute explicit RhinoCode script in Rhino. |
-| **9** | `scripts/rhino.sh bridge load <assembly.dll>` | Diagnostic-only load into a bridge session. |
-| **10** | `scripts/rhino.sh bridge load-smoke <assembly.dll>` | Diagnostic-only load in a collectible session and unload it. |
-| **11** | `scripts/rhino.sh bridge unload <session-id>` | Diagnostic-only unload for explicit bridge load sessions. |
-| **12** | `scripts/rhino.sh bridge quit` | Lifecycle-only safe Rhino exit when open documents have no unsaved changes. |
-| **13** | `scripts/rhino.sh bridge package <version>` | Build bridge `.rhp`, run Yak in staged directory, and create a local package. |
-| **14** | `scripts/rhino.sh bridge install [package.yak]` | Install staged or explicit bridge package, restart or launch RhinoWIP, then verify bridge health. |
-| **15** | `scripts/rhino.sh api doctor` | Report local RhinoWIP API XML, ILSpy, and RhinoCode metadata availability. |
-| **16** | `scripts/rhino.sh api path <key> [assembly\|xml]` | Print the resolved assembly or XML path for an API reference key. |
-| **17** | `scripts/rhino.sh api xml <key> <pattern>` | Search the resolved XML documentation with `rg`. |
-| **18** | `scripts/rhino.sh api types <key> [pattern]` | List assembly types through ILSpy, optionally filtered by pattern. |
-| **19** | `scripts/rhino.sh api decompile <key> <type>` | Decompile a type through ILSpy for assemblies without XML. |
+| **5** | `scripts/rhino.sh bridge check <target> [scenario.csx]` | Build or execute the target through the agent-first RhinoCode lane. |
+| **6** | `scripts/rhino.sh bridge clean <target>` | Remove generated bridge check reports for one target. |
+| **7** | `scripts/rhino.sh bridge load <assembly.dll>` | Diagnostic-only load into a bridge session. |
+| **8** | `scripts/rhino.sh bridge load-smoke <assembly.dll>` | Diagnostic-only load in a collectible session and unload it. |
+| **9** | `scripts/rhino.sh bridge unload <session-id>` | Diagnostic-only unload for explicit bridge load sessions. |
+| **10** | `scripts/rhino.sh bridge quit` | Lifecycle-only safe Rhino exit when open documents have no unsaved changes. |
+| **11** | `scripts/rhino.sh bridge package <version>` | Build bridge `.rhp`, run Yak in staged directory, and create a local package. |
+| **12** | `scripts/rhino.sh bridge install [package.yak]` | Install staged or explicit bridge package, restart or launch RhinoWIP, then verify bridge health. |
+| **13** | `scripts/rhino.sh api doctor` | Report local RhinoWIP API XML, ILSpy, and RhinoCode metadata availability. |
+| **14** | `scripts/rhino.sh api path <key> [assembly\|xml]` | Print the resolved assembly or XML path for an API reference key. |
+| **15** | `scripts/rhino.sh api xml <key> <pattern>` | Search the resolved XML documentation with `rg`. |
+| **16** | `scripts/rhino.sh api types <key> [pattern]` | List assembly types through ILSpy, optionally filtered by pattern. |
+| **17** | `scripts/rhino.sh api decompile <key> <type>` | Decompile a type through ILSpy for assemblies without XML. |
 
 ### [3.1][PRIMARY_USAGE]
 
@@ -99,7 +97,7 @@ Expected result: JSON with top-level `"status": "ok"` and successful `resolve`, 
 Validate source ownership without runtime script:
 
 ```bash
-scripts/rhino.sh bridge check-source apps/grasshopper/Radyab/Components/ExtractPoints.cs
+scripts/rhino.sh bridge check apps/grasshopper/Radyab/Components/ExtractPoints.cs
 ```
 
 Expected result: exit code `3`, top-level `"status": "unsupported"`, `build` phase `"ok"`, and message `Source build validated; no runtime script supplied.`
@@ -107,7 +105,7 @@ Expected result: exit code `3`, top-level `"status": "unsupported"`, `build` pha
 Validate source with an existing task-relevant RhinoCode script:
 
 ```bash
-scripts/rhino.sh bridge check-source <real-source.cs> --script <real-diagnostic-script.csx>
+scripts/rhino.sh bridge check <real-source.cs> <real-diagnostic-script.csx>
 ```
 
 Expected result: `"status": "ok"` when the script compiles against generated `#r` directives from `HostFilteredRuntimeReferences` and exercises real Rhino behavior. Do not create throwaway proof scripts except when changing bridge reference projection itself.
@@ -145,8 +143,7 @@ Common client options:
 | **1** | `--configuration <name>` | Build configuration used by project checks. |
 | **2** | `--worktree <path>` | Repository root for project/source resolution. |
 | **3** | `--timeout-ms <ms>` | Client transport timeout; Rhino UI-thread execution is not server-cancelable. |
-| **4** | `--result <path>` | Write structured JSON result atomically. |
-| **5** | `--script <path>` | Runtime script for `check-source`; without it, source checks stop after build evidence. |
+| **4** | `--result <path>` | Override the automatically generated structured JSON report path. |
 
 Environment overrides:
 
@@ -165,6 +162,7 @@ Top-level fields:
 - `schema`: wire contract. Current value: `rasm.rhino-bridge.v1`.
 - `command`: client command.
 - `status`: worst decisive phase status.
+- `reportPath`: saved report path when the command writes an artifact.
 - `phases`: ordered phase evidence.
 - `fault`: top-level failure when authoritative phases fail, time out, are busy, or are unsupported.
 
@@ -180,7 +178,7 @@ Decisive phase policy:
 - Required failures from `resolve`, `build`, `connect`, and applicable `execute` phases drive top-level `status`.
 - Supplemental `rhinoCodeCli` evidence remains visible but does not override successful in-process `execute`.
 - Skipped `load`, `unload`, and `lifecycle` phases document non-applicable work and do not weaken top-level status.
-- `check-source <source.cs>` without `--script` remains top-level `unsupported` after successful ownership and build evidence.
+- `check <source.cs>` without a scenario remains top-level `unsupported` after successful ownership and build evidence.
 
 Status policy:
 
@@ -239,7 +237,7 @@ API metadata lookup uses local sources in this order:
 | **2** | `HostFilteredRuntimeReferences` | Project smoke and source scripts; excludes Rhino, Grasshopper, and bridge host assemblies already present in Rhino. |
 | **3** | `BridgeExecuteRequest.References` | Execution provenance/report metadata; not a plugin-applied reference mechanism. |
 
-[CRITICAL] Do not document `check-source --script` as compile-reference based until the client owns a real compile-reference projection and the plugin applies it authoritatively.
+[CRITICAL] Do not document `check <source.cs> <script.csx>` as compile-reference based until the client owns a real compile-reference projection and the plugin applies it authoritatively.
 
 ---
 ## [6][FAILURE_READING]
@@ -256,7 +254,7 @@ API metadata lookup uses local sources in this order:
 | **5** | `execute` diagnostics | RhinoCode compile/runtime failure inside Rhino. | Use `diagnostics` and `fault.stackTrace`; fix real code. |
 | **6** | already-loaded mismatch | Rhino has simple-name assembly loaded from different path or assembly version. | Restart Rhino or change target identity; do not accept stale success. |
 | **7** | `loadedLocation=none` | Target assembly loaded without a path-backed location. | Treat as missing post-load identity evidence; normal fresh loads report `targetAssembly.Location`. |
-| **8** | `unsupported` source check | Source build is valid, but no runtime script was supplied. | Add `--script` only when runtime behavior needs Rhino evidence. |
+| **8** | `unsupported` source check | Source build is valid, but no runtime scenario was supplied. | Add a scenario path only when runtime behavior needs Rhino evidence. |
 | **9** | `ilspycmd` apphost failure | Effective `DOTNET_ROOT` does not point at a hostfxr/runtime root. | Use `api doctor`; fix apphost environment, not `Directory.Build.props` or Rhino references. |
 
 ---
@@ -274,7 +272,7 @@ API metadata lookup uses local sources in this order:
 
 [CRITICAL]:
 - Never hardcode project discovery for packages. Extend `PACKAGE_PROJECTS` deliberately.
-- Never imply `check-source <source.cs>` executes runtime behavior without an explicit `--script`.
+- Never imply `check <source.cs>` executes runtime behavior without an explicit scenario.
 - Never treat reported `BridgeExecuteRequest.References` as plugin-applied execution state.
 - Never silently pass an already-loaded assembly whose simple name matches but location or assembly version differs.
 - Never add temp-only scripts, generated tests, or fake probes as bridge purpose.
@@ -303,12 +301,13 @@ bash scripts/check-cs.sh check
 scripts/rhino.sh bridge doctor
 scripts/rhino.sh bridge check apps/grasshopper/Radyab/Radyab.csproj
 rc=0
-scripts/rhino.sh bridge check-source apps/grasshopper/Radyab/Components/ExtractPoints.cs || rc=$?
+scripts/rhino.sh bridge check apps/grasshopper/Radyab/Components/ExtractPoints.cs || rc=$?
 [[ "${rc}" == 3 ]]
+scripts/rhino.sh bridge clean apps/grasshopper/Radyab/Radyab.csproj
 ```
 
 Add focused live checks for bridge implementation changes:
-- Reference projection changes: run `check-source <source.cs> --script <script.csx>` that imports affected assemblies.
+- Reference projection changes: run `check <source.cs> <script.csx>` that imports affected assemblies.
 - Assembly load policy changes: run same-simple-name stale assembly scenario and verify mismatch fails.
 - Packaging changes: run `scripts/rhino.sh bridge package <version>`, then `scripts/rhino.sh bridge install` to validate the staged `.yak`.
-- Transport changes: run `bridge doctor`, `bridge script`, and `bridge load-smoke`.
+- Transport changes: run `bridge doctor`, `bridge check <script.csx>`, and `bridge load-smoke`.

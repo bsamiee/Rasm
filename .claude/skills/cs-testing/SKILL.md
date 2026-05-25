@@ -136,5 +136,5 @@ bash scripts/mutate-cs.sh
 Bridge ownership proof:
 
 ```bash
-bash scripts/rhino.sh bridge check-source libs/csharp/Rasm/Vectors/Space.cs --script apps/grasshopper/Radyab/Scenarios/vectors-space-projection.verify.csx
+bash scripts/rhino.sh bridge check libs/csharp/Rasm/Vectors/Space.cs apps/grasshopper/Radyab/Scenarios/vectors-space-projection.verify.csx
 ```
