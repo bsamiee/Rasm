@@ -13,34 +13,27 @@ public sealed partial class CurveProjection {
             Vector3d curvature when curvature.IsValid => Fin.Succ((object)curvature),
             _ => Fin.Fail<object>(key.InvalidResult()),
         });
-    public static readonly CurveProjection Frame = new(key: 2, sample: static (curve, t, _, key) => CurveFrame(curve: curve, parameter: t, perpendicular: false, key: key, project: static frame => frame));
-    public static readonly CurveProjection PerpendicularFrame = new(key: 3, sample: static (curve, t, _, key) => CurveFrame(curve: curve, parameter: t, perpendicular: true, key: key, project: static frame => frame));
+    public static readonly CurveProjection Frame = CurveFrameProjection(key: 2, perpendicular: false, project: static frame => frame);
+    public static readonly CurveProjection PerpendicularFrame = CurveFrameProjection(key: 3, perpendicular: true, project: static frame => frame);
     public static readonly CurveProjection ArcLength = new(key: 4,
         sample: static (curve, t, context, key) => curve.GetLength(fractionalTolerance: context.Fractional, subdomain: new Interval(curve.Domain.T0, t)) switch {
             double length when RhinoMath.IsValidDouble(x: length) && (length > 0.0 || Math.Abs(value: t - curve.Domain.T0) <= context.Absolute.Value) => Fin.Succ((object)length),
             _ => Fin.Fail<object>(key.InvalidResult()),
         });
-    public static readonly CurveProjection FrameNormal = new(key: 5, sample: static (curve, t, _, key) => CurveFrame(curve: curve, parameter: t, perpendicular: false, key: key, project: static frame => frame.YAxis));
-    public static readonly CurveProjection FrameBinormal = new(key: 6, sample: static (curve, t, _, key) => CurveFrame(curve: curve, parameter: t, perpendicular: false, key: key, project: static frame => frame.ZAxis));
-    public static readonly CurveProjection PerpendicularNormal = new(key: 7, sample: static (curve, t, _, key) => CurveFrame(curve: curve, parameter: t, perpendicular: true, key: key, project: static frame => frame.YAxis));
-    public static readonly CurveProjection PerpendicularBinormal = new(key: 8, sample: static (curve, t, _, key) => CurveFrame(curve: curve, parameter: t, perpendicular: true, key: key, project: static frame => frame.ZAxis));
+    public static readonly CurveProjection FrameNormal = CurveFrameProjection(key: 5, perpendicular: false, project: static frame => frame.YAxis);
+    public static readonly CurveProjection FrameBinormal = CurveFrameProjection(key: 6, perpendicular: false, project: static frame => frame.ZAxis);
+    public static readonly CurveProjection PerpendicularNormal = CurveFrameProjection(key: 7, perpendicular: true, project: static frame => frame.YAxis);
+    public static readonly CurveProjection PerpendicularBinormal = CurveFrameProjection(key: 8, perpendicular: true, project: static frame => frame.ZAxis);
     [UseDelegateFromConstructor] private partial Fin<object> Sample(Curve curve, double parameter, Context context, Op key);
     internal Fin<TOut> Project<TOut>(Curve curve, double parameter, Context context, Op key) =>
         from active in Optional(curve).ToFin(key.InvalidInput())
         from __ in guard(active.IsValid, key.InvalidInput())
         from _ in guard(active.Domain.IncludesParameter(t: parameter), key.InvalidInput())
         from raw in Sample(curve: active, parameter: parameter, context: context, key: key).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
-        from output in (raw, typeof(TOut)) switch {
-            (Vector3d v, Type t) when t == typeof(Vector3d) => AtomProjection.Value<Vector3d, TOut>(value: v, key: key),
-            (Vector3d v, Type t) when t == typeof(Direction) => Direction.Of(value: v, context: context, key: key).Bind(d => d.Project<TOut>(key: key)),
-            (Vector3d v, Type t) when t == typeof(double) && ReferenceEquals(objA: this, objB: Curvature) =>
-                key.AcceptValue(value: v).Bind(valid => AtomProjection.Value<double, TOut>(value: valid.Length, key: key)),
-            (Plane p, Type t) when t == typeof(Plane) => AtomProjection.Value<Plane, TOut>(value: p, key: key),
-            (Plane p, Type t) when t == typeof(VectorFrame) => VectorFrame.Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: context, key: key).Bind(f => f.Project<TOut>(key: key)),
-            (double d, Type t) when t == typeof(double) => AtomProjection.Value<double, TOut>(value: d, key: key),
-            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(CurveProjection), outputType: typeof(TOut))),
-        }
+        from output in AtomProjection.Raw<TOut>(raw: raw, context: Some(context), key: key, owner: typeof(CurveProjection), admitsVectorMagnitude: ReferenceEquals(objA: this, objB: Curvature))
         select output;
+    private static CurveProjection CurveFrameProjection(int key, bool perpendicular, Func<Plane, object> project) =>
+        new(key: key, sample: (curve, parameter, _, op) => CurveFrame(curve: curve, parameter: parameter, perpendicular: perpendicular, key: op, project: project));
     private static Fin<object> CurveFrame(Curve curve, double parameter, bool perpendicular, Op key, Func<Plane, object> project) =>
         perpendicular switch {
             true => curve.PerpendicularFrameAt(t: parameter, plane: out Plane frame) ? Fin.Succ(project(arg: frame)) : Fin.Fail<object>(key.InvalidResult()),
@@ -69,43 +62,20 @@ public sealed partial class SurfaceProjection {
         }));
     public static readonly SurfaceProjection Point = new(key: 7, sample: static (surface, uv, _, key) => key.AcceptValue(value: surface.PointAt(u: uv.X, v: uv.Y)).Map(static point => (object)point));
     public static readonly SurfaceProjection Frame = new(key: 8, sample: static (surface, uv, _, key) => GeometryKernel.FrameAt(surface: surface, uv: uv, key: key).Map(static value => (object)value));
-    public static readonly SurfaceProjection UvFrame = new(key: 9,
-        sample: static (surface, uv, _, key) => SurfaceDerivatives(surface: surface, uv: uv, key: key)
-            .Bind(d => OrientedFrame(surface: surface, uv: uv, frame: new Plane(origin: d.Point, xDirection: d.Du, yDirection: d.Dv), key: key).Map(static value => (object)value)));
-    public static readonly SurfaceProjection Jacobian = new(key: 10,
-        sample: static (surface, uv, _, key) => SurfaceDerivatives(surface: surface, uv: uv, key: key)
-            .Bind(d => Matrix.Of(rows: Dimension.Create(value: 3), cols: Dimension.Create(value: 2), entries: [d.Du.X, d.Dv.X, d.Du.Y, d.Dv.Y, d.Du.Z, d.Dv.Z], key: key))
-            .Map(static value => (object)value));
-    public static readonly SurfaceProjection Metric = new(key: 11,
-        sample: static (surface, uv, _, key) => SurfaceDerivatives(surface: surface, uv: uv, key: key)
-            .Bind(d => SymmetricMatrix.Of(dim: Dimension.Create(value: 2), upper: [d.Du * d.Du, d.Du * d.Dv, d.Dv * d.Dv], key: key))
-            .Map(static value => (object)value));
-    public static readonly SurfaceProjection AreaScale = new(key: 12,
-        sample: static (surface, uv, _, key) => SurfaceDerivatives(surface: surface, uv: uv, key: key)
-            .Bind(d => key.AcceptValue(value: Vector3d.CrossProduct(a: d.Du, b: d.Dv).Length).Map(static value => (object)value)));
+    public static readonly SurfaceProjection UvFrame = Derivatives(key: 9, project: static (surface, uv, derivatives, _, key) => OrientedFrame(surface: surface, uv: uv, frame: new Plane(origin: derivatives.Point, xDirection: derivatives.Du, yDirection: derivatives.Dv), key: key).Map(static value => (object)value));
+    public static readonly SurfaceProjection Jacobian = Derivatives(key: 10, project: static (_, _, derivatives, _, key) => Matrix.Of(rows: Dimension.Create(value: 3), cols: Dimension.Create(value: 2), entries: [derivatives.Du.X, derivatives.Dv.X, derivatives.Du.Y, derivatives.Dv.Y, derivatives.Du.Z, derivatives.Dv.Z], key: key).Map(static value => (object)value));
+    public static readonly SurfaceProjection Metric = Derivatives(key: 11, project: static (_, _, derivatives, _, key) => SymmetricMatrix.Of(dim: Dimension.Create(value: 2), upper: [derivatives.Du * derivatives.Du, derivatives.Du * derivatives.Dv, derivatives.Dv * derivatives.Dv], key: key).Map(static value => (object)value));
+    public static readonly SurfaceProjection AreaScale = Derivatives(key: 12, project: static (_, _, derivatives, _, key) => key.AcceptValue(value: Vector3d.CrossProduct(a: derivatives.Du, b: derivatives.Dv).Length).Map(static value => (object)value));
     [UseDelegateFromConstructor] private partial Fin<object> Sample(Surface surface, Point2d uv, Context context, Op key);
     internal Fin<TOut> Project<TOut>(Surface surface, double u, double v, Context context, Op key) =>
         from active in Optional(surface).ToFin(key.InvalidInput())
         from __ in guard(active.IsValid, key.InvalidInput())
         from uv in GeometryKernel.SurfaceUv(surface: active, uv: new Point2d(x: u, y: v), context: context, key: key)
-        from output in
-            from raw in Sample(surface: active, uv: uv, context: context, key: key).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
-            from projected in (raw, typeof(TOut)) switch {
-                (double d, Type t) when t == typeof(double) => AtomProjection.Value<double, TOut>(value: d, key: key),
-                (Circle c, Type t) when t == typeof(Circle) => AtomProjection.Value<Circle, TOut>(value: c, key: key),
-                (Point3d p, Type t) when t == typeof(Point3d) => AtomProjection.Value<Point3d, TOut>(value: p, key: key),
-                (Plane p, Type t) when t == typeof(Plane) => AtomProjection.Value<Plane, TOut>(value: p, key: key),
-                (Plane p, Type t) when t == typeof(VectorFrame) => VectorFrame.Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: context, key: key).Map(static value => (TOut)(object)value),
-                (Vector3d n, Type t) when t == typeof(Vector3d) => AtomProjection.Value<Vector3d, TOut>(value: n, key: key),
-                (Vector3d n, Type t) when t == typeof(Direction) => Direction.Of(value: n, context: context, key: key).Map(static value => (TOut)(object)value),
-                (Matrix matrix, Type t) when t == typeof(Matrix) => matrix.IsValid ? AtomProjection.Value<Matrix, TOut>(value: matrix, key: key) : Fin.Fail<TOut>(error: key.InvalidResult()),
-                (Seq<double> ks, Type t) when t == typeof(Seq<double>) =>
-                    ks.TraverseM(k => key.AcceptValue(value: k)).As().Map(static valid => (TOut)(object)valid),
-                (SymmetricMatrix matrix, Type t) when t == typeof(SymmetricMatrix) => matrix.IsValid ? AtomProjection.Value<SymmetricMatrix, TOut>(value: matrix, key: key) : Fin.Fail<TOut>(error: key.InvalidResult()),
-                _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(SurfaceProjection), outputType: typeof(TOut))),
-            }
-            select projected
+        from raw in Sample(surface: active, uv: uv, context: context, key: key).BindFail(_ => Fin.Fail<object>(key.InvalidResult()))
+        from output in AtomProjection.Raw<TOut>(raw: raw, context: Some(context), key: key, owner: typeof(SurfaceProjection))
         select output;
+    private static SurfaceProjection Derivatives(int key, Func<Surface, Point2d, (Point3d Point, Vector3d Du, Vector3d Dv), Context, Op, Fin<object>> project) =>
+        new(key: key, sample: (surface, uv, context, op) => SurfaceDerivatives(surface: surface, uv: uv, key: op).Bind(derivatives => project(arg1: surface, arg2: uv, arg3: derivatives, arg4: context, arg5: op)));
     private static Fin<T> WithCurvature<T>(Surface surface, Point2d uv, Op key, Func<SurfaceCurvature, Fin<T>> project) {
         using SurfaceCurvature? curvature = surface.CurvatureAt(u: uv.X, v: uv.Y);
         return curvature is { IsSet: true }
@@ -172,13 +142,5 @@ public sealed partial class ConeProjection {
     public static readonly ConeProjection HalfAngle = new(key: 0, sample: static cone => cone.HalfAngle), SolidAngle = new(key: 1, sample: static cone => cone.SolidAngle), Axis = new(key: 2, sample: static cone => cone.Axis), Apex = new(key: 3, sample: static cone => cone.Apex);
     [UseDelegateFromConstructor] private partial object Sample(VectorCone cone);
     internal Fin<TOut> Project<TOut>(VectorCone cone, Op key) =>
-        (Sample(cone: cone), typeof(TOut)) switch {
-            (VectorAngle a, Type t) when t == typeof(VectorAngle) => Fin.Succ((TOut)(object)a),
-            (VectorAngle a, Type t) when t == typeof(double) => AtomProjection.Value<double, TOut>(value: a.Value, key: key),
-            (double d, Type t) when t == typeof(double) => AtomProjection.Value<double, TOut>(value: d, key: key),
-            (Direction d, Type t) when t == typeof(Direction) => d.Project<TOut>(key: key),
-            (Direction d, Type t) when t == typeof(Vector3d) => d.Project<Vector3d>(key: key).Map(static x => (TOut)(object)x),
-            (Point3d p, Type t) when t == typeof(Point3d) => AtomProjection.Value<Point3d, TOut>(value: p, key: key),
-            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(ConeProjection), outputType: typeof(TOut))),
-        };
+        AtomProjection.Raw<TOut>(raw: Sample(cone: cone), context: Option<Context>.None, key: key, owner: typeof(ConeProjection));
 }

@@ -7,6 +7,23 @@ internal static class AtomProjection {
     internal static Fin<TOut> Self<TSelf, TOut>(TSelf value, Op key) => typeof(TOut) == typeof(TSelf) ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(TSelf), outputType: typeof(TOut)));
     internal static Fin<TOut> Value<TValue, TOut>(TValue value, Op key) => key.AcceptValue(value: value).Map(static accepted => (TOut)(object)accepted!);
     internal static Fin<TOut> SelfOrValue<TSelf, TValue, TOut>(TSelf self, TValue value, Op key) => typeof(TOut) == typeof(TValue) ? Value<TValue, TOut>(value: value, key: key) : Self<TSelf, TOut>(value: self, key: key);
+    internal static Fin<TOut> Raw<TOut>(object raw, Option<Context> context, Op key, Type owner, bool admitsVectorMagnitude = false) =>
+        (raw, typeof(TOut)) switch {
+            (Vector3d v, Type t) when t == typeof(Vector3d) => Value<Vector3d, TOut>(value: v, key: key),
+            (Vector3d v, Type t) when t == typeof(Direction) => context.ToFin(Fail: key.MissingContext()).Bind(model => Direction.Of(value: v, context: model, key: key).Bind(direction => direction.Project<TOut>(key: key))),
+            (Vector3d v, Type t) when t == typeof(double) && admitsVectorMagnitude => key.AcceptValue(value: v).Bind(valid => Value<double, TOut>(value: valid.Length, key: key)),
+            (Plane p, Type t) when t == typeof(Plane) => Value<Plane, TOut>(value: p, key: key),
+            (Plane p, Type t) when t == typeof(VectorFrame) => context.ToFin(Fail: key.MissingContext()).Bind(model => VectorFrame.Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: model, key: key).Bind(frame => frame.Project<TOut>(key: key))),
+            (double d, Type t) when t == typeof(double) => Value<double, TOut>(value: d, key: key),
+            (Circle c, Type t) when t == typeof(Circle) => Value<Circle, TOut>(value: c, key: key),
+            (Point3d p, Type t) when t == typeof(Point3d) => Value<Point3d, TOut>(value: p, key: key),
+            (Matrix matrix, Type t) when t == typeof(Matrix) => matrix.IsValid ? Value<Matrix, TOut>(value: matrix, key: key) : Fin.Fail<TOut>(error: key.InvalidResult()),
+            (Seq<double> ks, Type t) when t == typeof(Seq<double>) => ks.TraverseM(k => key.AcceptValue(value: k)).As().Map(static valid => (TOut)(object)valid),
+            (SymmetricMatrix matrix, Type t) when t == typeof(SymmetricMatrix) => matrix.IsValid ? Value<SymmetricMatrix, TOut>(value: matrix, key: key) : Fin.Fail<TOut>(error: key.InvalidResult()),
+            (VectorAngle angle, Type t) when t == typeof(VectorAngle) || t == typeof(double) => angle.Project<TOut>(key: key),
+            (Direction direction, Type t) when t == typeof(Direction) || t == typeof(Vector3d) => direction.Project<TOut>(key: key),
+            _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: owner, outputType: typeof(TOut))),
+        };
 }
 
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]

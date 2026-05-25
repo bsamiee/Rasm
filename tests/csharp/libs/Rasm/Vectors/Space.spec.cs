@@ -51,6 +51,9 @@ public sealed class SupportProjectionLaws {
         Spec.FailCategory(SupportProjection.Parameter.Project<double>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Result");
         Spec.FailCategory(SupportProjection.Uv.Project<Point2d>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Result");
         Spec.FailCategory(SupportProjection.Component.Project<ComponentIndex>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Result");
+        Spec.FailCategory(SupportProjection.Frame.Project<Plane>(space: SpaceGens.PointSpace, hit: sparse, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Unsupported");
+        ClosestHit invalid = rich with { Component = Some(new ComponentIndex(type: ComponentIndexType.InvalidType, index: -1)) };
+        Spec.FailCategory(SupportProjection.Component.Project<ComponentIndex>(space: SpaceGens.PointSpace, hit: invalid, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Result");
     }
     [Fact]
     public void SpanOwnershipAndUnsupportedOutputAreExplicit() {
@@ -72,6 +75,11 @@ public sealed class SupportProjectionLaws {
         Spec.FailCategory(SupportProjection.Span.Project<VectorFrame>(space: SpaceGens.PointSpace, hit: hit, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Unsupported");
         Spec.FailCategory(SupportProjection.Closest.Project<VectorFrame>(space: SpaceGens.PointSpace, hit: hit, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Unsupported");
         Spec.FailCategory(SupportSpace.Of(value: new object(), key: SpaceGens.Key), category: "Unsupported");
+    }
+    [Fact]
+    public void ClusterSupportAdmissionReusesMassValidation() {
+        VectorCloud.ClusterCase invalid = new(Vertices: Seq(Point3d.Origin, new Point3d(x: 1.0, y: 0.0, z: 0.0)), Tolerance: SpaceGens.Model, Mass: Some(new Arr<double>([1.0, -1.0])));
+        Spec.FailCategory(SupportSpace.Of(value: invalid, key: SpaceGens.Key), category: "Input");
     }
     [Fact]
     public void SurfaceSpaceAdmissionFailsBeforeProjectionDispatch() =>

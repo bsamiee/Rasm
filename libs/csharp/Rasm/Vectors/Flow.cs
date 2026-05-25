@@ -128,14 +128,16 @@ public abstract partial record FieldIntegrator {
     public static Fin<FieldIntegrator> Fixed(IntegratorKind kind, Op? key = null) {
         Op op = key.OrDefault();
         return from active in Optional(kind).ToFin(op.InvalidInput())
-               from _ in guard(!active.IsAdaptive, op.Unsupported(geometryType: active.GetType(), outputType: typeof(FixedCase)))
+               from _ in active.Tableau.Admit(key: op)
+               from __ in guard(!active.IsAdaptive, op.Unsupported(geometryType: active.GetType(), outputType: typeof(FixedCase)))
                select (FieldIntegrator)new FixedCase(kind: active);
     }
     public static Fin<FieldIntegrator> Adaptive(IntegratorKind kind, double tolerance, int maxRejects = 3, Op? key = null) {
         Op op = key.OrDefault();
         return from active in Optional(kind).ToFin(op.InvalidInput())
-               from _ in guard(maxRejects >= 0, op.InvalidInput())
-               from __ in guard(active.IsAdaptive, op.Unsupported(geometryType: active.GetType(), outputType: typeof(AdaptiveCase)))
+               from _ in active.Tableau.Admit(key: op)
+               from __ in guard(maxRejects >= 0, op.InvalidInput())
+               from ___ in guard(active.IsAdaptive, op.Unsupported(geometryType: active.GetType(), outputType: typeof(AdaptiveCase)))
                from validated in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
                select (FieldIntegrator)new AdaptiveCase(kind: active, tolerance: validated, maxRejects: maxRejects);
     }
@@ -226,8 +228,8 @@ public abstract partial record Termination {
     public sealed record StepCountCase(int Count) : Termination;
     public sealed record ArcLengthCase(PositiveMagnitude Length) : Termination;
     public sealed record MagnitudeFloorCase(PositiveMagnitude Threshold) : Termination;
-    public sealed record CrossSurfaceCase(SupportSpace Surface) : Termination;
-    public sealed record RegionThresholdCase(ScalarField Region, double Threshold) : Termination;
+    public sealed record CrossSurfaceCase(SupportSpace Surface, int MaxLocalizationIterations) : Termination;
+    public sealed record RegionThresholdCase(ScalarField Region, double Threshold, int MaxLocalizationIterations) : Termination;
     public sealed record LoopDetectedCase(PositiveMagnitude ClosureRadius) : Termination;
     public static Fin<Termination> Steps(int count, Op? key = null) =>
         count > 0
@@ -237,24 +239,26 @@ public abstract partial record Termination {
         Positive(candidate: length, create: static l => new ArcLengthCase(Length: l), key: key);
     public static Fin<Termination> Magnitude(double threshold, Op? key = null) =>
         Positive(candidate: threshold, create: static t => new MagnitudeFloorCase(Threshold: t), key: key);
-    public static Fin<Termination> CrossSurface(SupportSpace surface, Op? key = null) {
+    public static Fin<Termination> CrossSurface(SupportSpace surface, int maxLocalizationIterations = EventBisectionMaxIterations, Op? key = null) {
         Op op = key.OrDefault();
-        return Optional(surface).ToFin(op.InvalidInput())
-            .Bind(active => GeometryKernel.CanClosest(type: active.SourceType) && active.CanSignedDistance
-                ? Fin.Succ<Termination>(new CrossSurfaceCase(Surface: active))
-                : Fin.Fail<Termination>(op.Unsupported(geometryType: active.SourceType, outputType: typeof(double))));
+        return from active in Optional(surface).ToFin(op.InvalidInput())
+               from iterations in LocalizationIterations(candidate: maxLocalizationIterations, key: op)
+               from _ in guard(GeometryKernel.CanClosest(type: active.SourceType) && active.CanSignedDistance, op.Unsupported(geometryType: active.SourceType, outputType: typeof(double)))
+               select (Termination)new CrossSurfaceCase(Surface: active, MaxLocalizationIterations: iterations);
     }
-    public static Fin<Termination> RegionThreshold(ScalarField region, double threshold, Op? key = null) {
+    public static Fin<Termination> RegionThreshold(ScalarField region, double threshold, int maxLocalizationIterations = EventBisectionMaxIterations, Op? key = null) {
         Op op = key.OrDefault();
-        return Optional(region).ToFin(op.InvalidInput())
-            .Bind(active => RhinoMath.IsValidDouble(x: threshold)
-                ? Fin.Succ<Termination>(new RegionThresholdCase(Region: active, Threshold: threshold))
-                : Fin.Fail<Termination>(op.InvalidInput()));
+        return from active in Optional(region).ToFin(op.InvalidInput())
+               from iterations in LocalizationIterations(candidate: maxLocalizationIterations, key: op)
+               from _ in guard(RhinoMath.IsValidDouble(x: threshold), op.InvalidInput())
+               select (Termination)new RegionThresholdCase(Region: active, Threshold: threshold, MaxLocalizationIterations: iterations);
     }
     public static Fin<Termination> LoopDetected(double closureRadius, Op? key = null) =>
         Positive(candidate: closureRadius, create: static r => new LoopDetectedCase(ClosureRadius: r), key: key);
     private static Fin<Termination> Positive(double candidate, Func<PositiveMagnitude, Termination> create, Op? key) =>
         key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: candidate).Map(create);
+    private static Fin<int> LocalizationIterations(int candidate, Op key) =>
+        candidate > 0 ? Fin.Succ(candidate) : Fin.Fail<int>(key.InvalidInput());
     private static Fin<(bool Stop, Option<TraceEvent> Event)> Decision(bool stop) =>
         Fin.Succ((Stop: stop, Event: Option<TraceEvent>.None));
     internal Fin<(bool Stop, Option<TraceEvent> Event)> Evaluate(StreamlineState state, Vector3d currentSample, Context context, Op key) => Switch(
@@ -267,6 +271,7 @@ public abstract partial record Termination {
             state: s.Field,
             kind: TraceEventKind.CrossSurface,
             tolerance: s.Context.Absolute.Value,
+            maxIterations: c.MaxLocalizationIterations,
             sample: point =>
                 from hit in c.Surface.Closest(sample: point, key: s.Key)
                 from value in c.Surface.AdmitsSignedDistance(hit: hit)
@@ -278,28 +283,31 @@ public abstract partial record Termination {
             state: s.Field,
             kind: TraceEventKind.RegionThresholdCrossing,
             tolerance: s.Context.Fractional * Math.Max(val1: 1.0, val2: Math.Abs(value: c.Threshold)),
+            maxIterations: c.MaxLocalizationIterations,
             sample: point => c.Region.SampleScalar(sample: point, context: s.Context, key: s.Key).Map(value => value - c.Threshold),
             key: s.Key).Map(@event => (Stop: @event.IsSome, Event: @event)));
-    private static Fin<Option<TraceEvent>> EvaluateEvent(StreamlineState state, TraceEventKind kind, double tolerance, Func<Point3d, Fin<double>> sample, Op key) =>
+    private static Fin<Option<TraceEvent>> EvaluateEvent(StreamlineState state, TraceEventKind kind, double tolerance, int maxIterations, Func<Point3d, Fin<double>> sample, Op key) =>
         from currentValue in sample(state.Current)
         from output in state.Trail.Count < 2
-            ? Math.Abs(value: currentValue) <= tolerance
-                ? EventAt(kind: kind, status: TraceEventStatus.InitialEndpointTouch, points: (state.Current, state.Current, state.Current), values: (currentValue, currentValue, currentValue), parameter: 0.0, tolerance: tolerance, iterations: 0, key: key).Map(Some)
-                : Fin.Succ(Option<TraceEvent>.None)
-            : EvaluateSegmentEvent(previous: state.Trail[state.Trail.Count - 2], current: state.Current, currentValue: currentValue, kind: kind, tolerance: tolerance, sample: sample, key: key)
+            ? EndpointEvent(kind: kind, status: TraceEventStatus.InitialEndpointTouch, previous: state.Current, current: state.Current, previousValue: currentValue, currentValue: currentValue, localized: state.Current, localizedValue: currentValue, parameter: 0.0, tolerance: tolerance)
+            : EvaluateSegmentEvent(previous: state.Trail[state.Trail.Count - 2], current: state.Current, currentValue: currentValue, kind: kind, tolerance: tolerance, maxIterations: maxIterations, sample: sample, key: key)
         select output;
-    private static Fin<Option<TraceEvent>> EvaluateSegmentEvent(Point3d previous, Point3d current, double currentValue, TraceEventKind kind, double tolerance, Func<Point3d, Fin<double>> sample, Op key) =>
+    private static Fin<Option<TraceEvent>> EvaluateSegmentEvent(Point3d previous, Point3d current, double currentValue, TraceEventKind kind, double tolerance, int maxIterations, Func<Point3d, Fin<double>> sample, Op key) =>
         from previousValue in sample(previous)
         from output in Math.Abs(value: previousValue) <= tolerance
-            ? EventAt(kind: kind, status: TraceEventStatus.PreviousEndpointTouch, points: (previous, current, previous), values: (previousValue, currentValue, previousValue), parameter: 0.0, tolerance: tolerance, iterations: 0, key: key).Map(Some)
+            ? EndpointEvent(kind: kind, status: TraceEventStatus.PreviousEndpointTouch, previous: previous, current: current, previousValue: previousValue, currentValue: currentValue, localized: previous, localizedValue: previousValue, parameter: 0.0, tolerance: tolerance)
             : Math.Abs(value: currentValue) <= tolerance
-                ? EventAt(kind: kind, status: TraceEventStatus.CurrentEndpointTouch, points: (previous, current, current), values: (previousValue, currentValue, currentValue), parameter: 1.0, tolerance: tolerance, iterations: 0, key: key).Map(Some)
+                ? EndpointEvent(kind: kind, status: TraceEventStatus.CurrentEndpointTouch, previous: previous, current: current, previousValue: previousValue, currentValue: currentValue, localized: current, localizedValue: currentValue, parameter: 1.0, tolerance: tolerance)
                 : previousValue * currentValue < 0.0
-                    ? LocateRoot(previous: previous, current: current, previousValue: previousValue, currentValue: currentValue, kind: kind, tolerance: tolerance, sample: sample, key: key).Map(Some)
+                    ? LocateRoot(previous: previous, current: current, previousValue: previousValue, currentValue: currentValue, kind: kind, tolerance: tolerance, maxIterations: maxIterations, sample: sample, key: key).Map(Some)
                     : Fin.Succ(Option<TraceEvent>.None)
         select output;
-    private static Fin<TraceEvent> EventAt(TraceEventKind kind, TraceEventStatus status, (Point3d Previous, Point3d Current, Point3d Localized) points, (double Previous, double Current, double Localized) values, double parameter, double tolerance, int iterations, Op key) =>
-        key.AcceptValue(value: new TraceEvent(
+    private static Fin<Option<TraceEvent>> EndpointEvent(TraceEventKind kind, TraceEventStatus status, Point3d previous, Point3d current, double previousValue, double currentValue, Point3d localized, double localizedValue, double parameter, double tolerance) =>
+        Math.Abs(value: localizedValue) <= tolerance
+            ? EventAt(kind: kind, status: status, points: (previous, current, localized), values: (previousValue, currentValue, localizedValue), parameter: parameter, tolerance: tolerance, iterations: 0).Map(Some)
+            : Fin.Succ(Option<TraceEvent>.None);
+    private static Fin<TraceEvent> EventAt(TraceEventKind kind, TraceEventStatus status, (Point3d Previous, Point3d Current, Point3d Localized) points, (double Previous, double Current, double Localized) values, double parameter, double tolerance, int iterations) =>
+        Fin.Succ(new TraceEvent(
             Kind: kind,
             Status: status,
             Points: points,
@@ -308,9 +316,9 @@ public abstract partial record Termination {
             Tolerance: tolerance,
             Residual: Math.Abs(value: values.Localized),
             Iterations: iterations));
-    private static Fin<TraceEvent> LocateRoot(Point3d previous, Point3d current, double previousValue, double currentValue, TraceEventKind kind, double tolerance, Func<Point3d, Fin<double>> sample, Op key) =>
-        from bracket in toSeq(Enumerable.Range(start: 0, count: EventBisectionMaxIterations)).Fold(
-            initialState: Fin.Succ((A: previous, B: current, FA: previousValue, FB: currentValue, TA: 0.0, TB: 1.0, Done: false, Iterations: 0)),
+    private static Fin<TraceEvent> LocateRoot(Point3d previous, Point3d current, double previousValue, double currentValue, TraceEventKind kind, double tolerance, int maxIterations, Func<Point3d, Fin<double>> sample, Op key) =>
+        from bracket in toSeq(Enumerable.Range(start: 0, count: maxIterations)).Fold(
+            initialState: Fin.Succ((A: previous, B: current, FA: previousValue, FB: currentValue, TA: 0.0, TB: 1.0, Localized: previous, FLocalized: previousValue, TLocalized: 0.0, Done: false, Iterations: 0)),
             f: (acc, _) => acc.Bind(state => state.Done
                 ? Fin.Succ(state)
                 : Fin.Succ(state.A + (0.5 * (state.B - state.A))).Bind(mid =>
@@ -318,13 +326,14 @@ public abstract partial record Termination {
                         double tm = 0.5 * (state.TA + state.TB);
                         bool localized = Math.Abs(value: fm) <= tolerance || mid.DistanceTo(other: state.A) <= tolerance || mid.DistanceTo(other: state.B) <= tolerance;
                         return state.FA * fm <= 0.0
-                            ? (state.A, mid, state.FA, fm, state.TA, tm, localized, state.Iterations + 1)
-                            : (mid, state.B, fm, state.FB, tm, state.TB, localized, state.Iterations + 1);
+                            ? (state.A, mid, state.FA, fm, state.TA, tm, mid, fm, tm, localized, state.Iterations + 1)
+                            : (mid, state.B, fm, state.FB, tm, state.TB, mid, fm, tm, localized, state.Iterations + 1);
                     }))))
-        let localized = bracket.A + (0.5 * (bracket.B - bracket.A))
-        from residual in sample(localized)
+        let localized = bracket.Done ? bracket.Localized : bracket.A + (0.5 * (bracket.B - bracket.A))
+        from residual in bracket.Done ? Fin.Succ(bracket.FLocalized) : sample(localized)
+        let parameter = bracket.Done ? bracket.TLocalized : 0.5 * (bracket.TA + bracket.TB)
         from @event in Math.Abs(value: residual) <= tolerance || localized.DistanceTo(other: bracket.A) <= tolerance || localized.DistanceTo(other: bracket.B) <= tolerance
-            ? EventAt(kind: kind, status: TraceEventStatus.BracketedCrossing, points: (previous, current, localized), values: (previousValue, currentValue, residual), parameter: 0.5 * (bracket.TA + bracket.TB), tolerance: tolerance, iterations: bracket.Iterations, key: key)
+            ? EventAt(kind: kind, status: TraceEventStatus.BracketedCrossing, points: (previous, current, localized), values: (previousValue, currentValue, residual), parameter: parameter, tolerance: tolerance, iterations: bracket.Iterations)
             : Fin.Fail<TraceEvent>(key.InvalidResult())
         select @event;
     private static bool LoopDetected(StreamlineState state, double radius) =>

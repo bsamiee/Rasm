@@ -91,7 +91,28 @@ public sealed class TerminationLaws {
             then: s => Spec.Fail(Termination.CrossSurface(surface: s, key: FlowGens.Key)));
         Spec.Fail(Termination.LoopDetected(closureRadius: 0.0, key: FlowGens.Key));
         Spec.Fail(Termination.RegionThreshold(region: ScalarField.Constant(value: 1.0), threshold: double.NaN, key: FlowGens.Key));
+        Spec.FailCategory(Termination.RegionThreshold(region: ScalarField.Constant(value: 1.0), threshold: 0.0, maxLocalizationIterations: 0, key: FlowGens.Key), category: "Input");
         Spec.Fail(Termination.CrossSurface(surface: null!, key: FlowGens.Key));
+    }
+    [Fact]
+    public void RegionEventsDistinguishEndpointTouchesFromBracketCrossings() {
+        ScalarField region = Spec.SuccValue(ScalarField.Worley(seeds: Seq(Point3d.Origin), order: 1, key: FlowGens.Key), label: "radial region");
+        Termination termination = Spec.SuccValue(Termination.RegionThreshold(region: region, threshold: 1.0, maxLocalizationIterations: 1, key: FlowGens.Key), label: "region threshold");
+        (StreamlineState State, TraceEventStatus Status, double Parameter)[] cases = [
+            (FlowGens.State(trail: Seq(new Point3d(x: 1.0, y: 0.0, z: 0.0)), current: new Point3d(x: 1.0, y: 0.0, z: 0.0), h: 1.0, arc: 0.0, steps: 0), TraceEventStatus.InitialEndpointTouch, 0.0),
+            (FlowGens.State(trail: Seq(new Point3d(x: 1.0, y: 0.0, z: 0.0), new Point3d(x: 2.0, y: 0.0, z: 0.0)), current: new Point3d(x: 2.0, y: 0.0, z: 0.0), h: 1.0, arc: 1.0, steps: 1), TraceEventStatus.PreviousEndpointTouch, 0.0),
+            (FlowGens.State(trail: Seq(new Point3d(x: 2.0, y: 0.0, z: 0.0), new Point3d(x: 1.0, y: 0.0, z: 0.0)), current: new Point3d(x: 1.0, y: 0.0, z: 0.0), h: 1.0, arc: 1.0, steps: 1), TraceEventStatus.CurrentEndpointTouch, 1.0),
+            (FlowGens.State(trail: Seq(new Point3d(x: 2.0, y: 0.0, z: 0.0), Point3d.Origin), current: Point3d.Origin, h: 1.0, arc: 2.0, steps: 1), TraceEventStatus.BracketedCrossing, 0.5),
+        ];
+        _ = toSeq(cases).Iter(item => Spec.Succ(termination.Evaluate(state: item.State, currentSample: Vector3d.XAxis, context: FlowGens.Model, key: FlowGens.Key),
+            then: decision => Spec.Some(decision.Event, @event => {
+                Assert.True(condition: decision.Stop);
+                Assert.Equal(expected: item.Status, actual: @event.Status);
+                Spec.EqualWithin(left: @event.Parameter, right: item.Parameter, tolerance: 0.0, what: "event parameter");
+                Assert.True(condition: @event.IsValidFor(terminationPoint: @event.Points.Localized));
+                Assert.True(condition: @event.Residual <= @event.Tolerance);
+                Assert.True(condition: @event.Iterations <= 1);
+            })));
     }
 }
 
