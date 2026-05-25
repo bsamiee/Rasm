@@ -149,6 +149,65 @@ public sealed class FieldPolicyAndSamplingLaws {
     }
 }
 
+public sealed class FieldReconstructionAndSdfLaws {
+    [Fact]
+    public void MlsReconstructsOrientedPlaneAndReportsQueryFacts() {
+        Seq<MlsSample> plane = Seq(
+            new MlsSample(Position: new Point3d(x: -1.0, y: -1.0, z: 0.0), Normal: Vector3d.ZAxis, Value: 0.0),
+            new MlsSample(Position: new Point3d(x: 1.0, y: -1.0, z: 0.0), Normal: Vector3d.ZAxis, Value: 0.0),
+            new MlsSample(Position: new Point3d(x: -1.0, y: 1.0, z: 0.0), Normal: Vector3d.ZAxis, Value: 0.0),
+            new MlsSample(Position: new Point3d(x: 1.0, y: 1.0, z: 0.0), Normal: Vector3d.ZAxis, Value: 0.0));
+        ReconstructionResult result = Spec.SuccValue(ScalarField.MlsDetailed(samples: plane, kernel: KernelKind.Wendland, radius: 3.0, context: FieldGens.Model, key: FieldGens.Key), label: "mls");
+        Spec.None(result.Receipt.Solve);
+        Spec.Succ(result.Field.SampleReconstructionDetailed(sample: new Point3d(x: 0.2, y: -0.25, z: 0.5), context: FieldGens.Model, key: FieldGens.Key), then: sample => {
+            Spec.EqualWithin(left: sample.Value, right: 0.5, tolerance: 1.0e-12, what: "mls plane value");
+            Assert.Equal(expected: ReconstructionMode.MovingLeastSquares, actual: sample.Receipt.Mode);
+            Assert.Equal(expected: ReconstructionStatus.ApproximateSdf, actual: sample.Receipt.Status);
+            Assert.Equal(expected: plane.Count, actual: sample.Receipt.NeighborhoodCount);
+            Assert.True(condition: sample.Receipt.Rank >= 2);
+            Assert.True(condition: sample.Receipt.WeightSum > 0.0);
+            Spec.EqualWithin(left: sample.Receipt.GradientNorm, right: 1.0, tolerance: 1.0e-12, what: "mls gradient norm");
+        });
+        Spec.Succ(ExtractionProbe.Scalar(source: result.Field).Project<double>(sample: new Point3d(x: 0.0, y: 0.0, z: -0.25), context: FieldGens.Model, key: FieldGens.Key),
+            then: value => Spec.EqualWithin(left: value, right: -0.25, tolerance: 1.0e-12, what: "mls scalar rail"));
+        Spec.Fail(result.Field.SampleReconstructionDetailed(sample: new Point3d(x: 10.0, y: 10.0, z: 10.0), context: FieldGens.Model, key: FieldGens.Key));
+    }
+    [Fact]
+    public void MlsRejectsInvalidAndRankDeficientInputs() {
+        Seq<MlsSample> empty = Seq<MlsSample>();
+        Seq<MlsSample> zeroNormal = Seq(new MlsSample(Position: Point3d.Origin, Normal: Vector3d.Zero, Value: 0.0));
+        Seq<MlsSample> opposedNormals = Seq(
+            new MlsSample(Position: new Point3d(x: -1.0, y: 0.0, z: 0.0), Normal: Vector3d.ZAxis, Value: 0.0),
+            new MlsSample(Position: new Point3d(x: 1.0, y: 0.0, z: 0.0), Normal: -Vector3d.ZAxis, Value: 0.0));
+        Seq<MlsSample> nonfinite = Seq(new MlsSample(Position: new Point3d(x: double.NaN, y: 0.0, z: 0.0), Normal: Vector3d.ZAxis, Value: 0.0));
+        Seq<MlsSample> line = Seq(
+            new MlsSample(Position: new Point3d(x: -1.0, y: 0.0, z: 0.0), Normal: Vector3d.ZAxis, Value: 0.0),
+            new MlsSample(Position: Point3d.Origin, Normal: Vector3d.ZAxis, Value: 0.0),
+            new MlsSample(Position: new Point3d(x: 1.0, y: 0.0, z: 0.0), Normal: Vector3d.ZAxis, Value: 0.0));
+        Seq<Seq<MlsSample>> invalid = Seq(empty, zeroNormal, opposedNormals, nonfinite);
+        _ = invalid.Iter(samples => Spec.Fail(ScalarField.MlsDetailed(samples: samples, kernel: KernelKind.Wendland, radius: 1.0, context: FieldGens.Model, key: FieldGens.Key)));
+        Spec.Fail(ScalarField.MlsDetailed(samples: line, kernel: KernelKind.Wendland, radius: 0.0, context: FieldGens.Model, key: FieldGens.Key));
+        ReconstructionResult rankDeficient = Spec.SuccValue(ScalarField.MlsDetailed(samples: line, kernel: KernelKind.Wendland, radius: 3.0, context: FieldGens.Model, key: FieldGens.Key), label: "rank-deficient mls factory");
+        Spec.Fail(rankDeficient.Field.SampleReconstructionDetailed(sample: Point3d.Origin, context: FieldGens.Model, key: FieldGens.Key));
+    }
+    [Fact]
+    public void ProfileExtrusionRejectsInvalidAdmissionBeforeNativeSampling() {
+        Spec.Fail(ScalarField.ProfileExtrusion(profile: null!, plane: Plane.WorldXY, halfHeight: 1.0, context: FieldGens.Model, key: FieldGens.Key));
+        Spec.Fail(ScalarField.ProfileExtrusion(profile: null!, plane: Plane.WorldXY, halfHeight: 0.0, context: FieldGens.Model, key: FieldGens.Key));
+    }
+    [Fact]
+    public void IsoSurfaceReceiptCarriesNativeThreadingAndToleranceFacts() {
+        IsoSurfaceReceipt receipt = new(
+            NativeRouted: true, Bounds: new BoundingBox(min: new Point3d(x: -1.0, y: -1.0, z: -1.0), max: new Point3d(x: 1.0, y: 1.0, z: 1.0)),
+            Resolution: 8, MaxRootSteps: 16, ParallelCallback: true, EvaluatorFailures: 0, Valid: true, VertexCount: 4, FaceCount: 4, FixedTolerance: Some(0.001));
+        Spec.Succ(ExtractionReceipt.Of(status: ExtractionStatus.Complete, attempted: 1, emitted: 1, nativeRouted: receipt.NativeRouted, toleranceSource: ToleranceSource.RhinoDefault, tolerance: receipt.FixedTolerance, parallelCallback: receipt.ParallelCallback, key: FieldGens.Key, isoSurface: Some(receipt)), then: extraction => {
+            Assert.True(condition: extraction.ParallelCallback);
+            Spec.Some(extraction.Tolerance, tolerance => Spec.EqualWithin(left: tolerance, right: 0.001, tolerance: 0.0, what: "iso fixed tolerance"));
+            Spec.Some(extraction.IsoSurface, iso => Assert.True(condition: iso.ParallelCallback && iso.FixedTolerance.IsSome));
+        });
+    }
+}
+
 public sealed class VectorFieldAlgebraLaws {
     [Fact]
     public void BlendAndScaleCasesAreCanonical() {

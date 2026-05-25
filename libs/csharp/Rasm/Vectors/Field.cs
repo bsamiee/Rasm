@@ -174,14 +174,19 @@ public sealed partial class NoiseKind {
     [UseDelegateFromConstructor] internal partial double Sample(Point3d point, int seed, double frequency);
 }
 
-[SmartEnum<int>] public sealed partial class SdfStatus { public static readonly SdfStatus Analytic = new(key: 0), ComposedAnalytic = new(key: 1), MeshApproximate = new(key: 2), LossyFallback = new(key: 3); }
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfReceipt(SdfStatus Status, Option<double> LipschitzBound, bool AnalyticPrimitive, bool MeshBacked, Option<bool> WatertightPreflight, bool LossyFallback, Option<SdfMeshReceipt> Mesh);
+[SmartEnum<int>] public sealed partial class SdfStatus { public static readonly SdfStatus Analytic = new(key: 0), ComposedAnalytic = new(key: 1), MeshApproximate = new(key: 2), LossyFallback = new(key: 3), NativeProfile = new(key: 4); }
+[SmartEnum<int>] public sealed partial class ProfileExtrusionFeature { public static readonly ProfileExtrusionFeature Interior = new(key: 0), ProfileBoundary = new(key: 1), Cap = new(key: 2), Rim = new(key: 3); }
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfReceipt(SdfStatus Status, Option<double> LipschitzBound, bool AnalyticPrimitive, bool MeshBacked, Option<bool> WatertightPreflight, bool LossyFallback, Option<SdfMeshReceipt> Mesh, bool NativeProfile = false, Option<ToleranceSource> ToleranceSource = default, Option<double> Tolerance = default, bool ClosestAccepted = false, Option<PointContainment> ProfileContainment = default, Option<ProfileExtrusionFeature> ProfileFeature = default);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfSample(double Value, SdfReceipt Receipt);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct IsoSurfaceReceipt(bool NativeRouted, BoundingBox Bounds, int Resolution, int MaxRootSteps, bool ParallelCallback, int EvaluatorFailures, bool Valid, int VertexCount, int FaceCount, Option<double> FixedTolerance);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct IsoSurfaceResult(Mesh Mesh, IsoSurfaceReceipt Receipt);
 [SmartEnum<int>] public sealed partial class ReconstructionMode { public static readonly ReconstructionMode RbfInterpolation = new(key: 0), RbfApproximation = new(key: 1), MovingLeastSquares = new(key: 2); }
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ReconstructionReceipt(ReconstructionMode Mode, KernelKind Kernel, double Radius, double Smoothing, bool Interpolation, int SampleCount, int CenterCount, int PolynomialDegree, SolveReceipt Solve);
+[SmartEnum<int>] public sealed partial class ReconstructionStatus { public static readonly ReconstructionStatus ExactInterpolation = new(key: 0), ApproximateSdf = new(key: 1); }
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MlsSample(Point3d Position, Vector3d Normal, double Value);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ReconstructionReceipt(ReconstructionMode Mode, KernelKind Kernel, double Radius, double Smoothing, bool Interpolation, int SampleCount, int CenterCount, int PolynomialDegree, Option<SolveReceipt> Solve);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ReconstructionResult(ScalarField Field, ReconstructionReceipt Receipt);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ReconstructionSampleReceipt(ReconstructionMode Mode, ReconstructionStatus Status, KernelKind Kernel, double Radius, int SampleCount, int NeighborhoodCount, int RejectedWeightCount, double WeightSum, int Rank, Option<double> Condition, double NormalAgreement, double GradientNorm, SolveReceipt Solve);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ReconstructionSample(double Value, ReconstructionSampleReceipt Receipt);
 [SmartEnum<int>] public sealed partial class KernelProfileStatus { public static readonly KernelProfileStatus Smooth = new(key: 0), SupportBoundary = new(key: 1), NonsmoothOrigin = new(key: 2), OutsideSupport = new(key: 3); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct KernelProfile(double Value, double FirstDerivative, double SecondDerivative, KernelProfileStatus Status) { public bool IsValid => RhinoMath.IsValidDouble(x: Value) && RhinoMath.IsValidDouble(x: FirstDerivative) && RhinoMath.IsValidDouble(x: SecondDerivative); }
 [SmartEnum<int>]
@@ -567,6 +572,7 @@ public abstract partial record ScalarField {
     public sealed record PeriodicCase : ScalarField { internal PeriodicCase(ScalarField Source, Vector3d Period) { this.Source = Source; this.Period = Period; } public ScalarField Source { get; } public Vector3d Period { get; } }
     public sealed record ClampCase : ScalarField { internal ClampCase(ScalarField Source, double Minimum, double Maximum) { this.Source = Source; this.Minimum = Minimum; this.Maximum = Maximum; } public ScalarField Source { get; } public double Minimum { get; } public double Maximum { get; } }
     public sealed record PrimitiveCase : ScalarField { internal PrimitiveCase(SdfKind Kind, ImmutableDictionary<string, double> Parameters, Plane Pose) { this.Kind = Kind; this.Parameters = Parameters; this.Pose = Pose; } public SdfKind Kind { get; } public ImmutableDictionary<string, double> Parameters { get; } public Plane Pose { get; } }
+    public sealed record ProfileExtrusionCase : ScalarField { internal ProfileExtrusionCase(Curve Profile, Plane Plane, PositiveMagnitude HalfHeight) { this.Profile = Profile; this.Plane = Plane; this.HalfHeight = HalfHeight; } public Curve Profile { get; } public Plane Plane { get; } public PositiveMagnitude HalfHeight { get; } }
     public sealed record OnionCase : ScalarField { internal OnionCase(ScalarField Source, PositiveMagnitude Thickness) { this.Source = Source; this.Thickness = Thickness; } public ScalarField Source { get; } public PositiveMagnitude Thickness { get; } }
     public sealed record SdfRoundCase : ScalarField { internal SdfRoundCase(ScalarField Source, PositiveMagnitude Radius) { this.Source = Source; this.Radius = Radius; } public ScalarField Source { get; } public PositiveMagnitude Radius { get; } }
     public sealed record ElongateCase : ScalarField { internal ElongateCase(ScalarField Source, Vector3d Extent) { this.Source = Source; this.Extent = Extent; } public ScalarField Source { get; } public Vector3d Extent { get; } }
@@ -579,6 +585,7 @@ public abstract partial record ScalarField {
     public sealed record StripeCase : ScalarField { internal StripeCase(MeshSpace Space, VectorField CrossField, PositiveMagnitude Frequency) { this.Space = Space; this.CrossField = CrossField; this.Frequency = Frequency; } public MeshSpace Space { get; } public VectorField CrossField { get; } public PositiveMagnitude Frequency { get; } }
     public sealed record SignedDistanceFromMeshCase : ScalarField { internal SignedDistanceFromMeshCase(MeshSpace Space, SdfMeshMethod Method) { this.Space = Space; this.Method = Method; } public MeshSpace Space { get; } public SdfMeshMethod Method { get; } }
     public sealed record RbfCase : ScalarField { internal RbfCase(Seq<(Point3d Position, double Value)> Samples, KernelKind Kernel, PositiveMagnitude Radius, Arr<double> Coefficients, ReconstructionReceipt Receipt) { this.Samples = Samples; this.Kernel = Kernel; this.Radius = Radius; this.Coefficients = Coefficients; this.Receipt = Receipt; } public Seq<(Point3d Position, double Value)> Samples { get; } public KernelKind Kernel { get; } public PositiveMagnitude Radius { get; } public Arr<double> Coefficients { get; } public ReconstructionReceipt Receipt { get; } }
+    public sealed record MlsCase : ScalarField { internal MlsCase(Seq<MlsSample> Samples, KernelKind Kernel, PositiveMagnitude Radius, ReconstructionReceipt Receipt) { this.Samples = Samples; this.Kernel = Kernel; this.Radius = Radius; this.Receipt = Receipt; } public Seq<MlsSample> Samples { get; } public KernelKind Kernel { get; } public PositiveMagnitude Radius { get; } public ReconstructionReceipt Receipt { get; } }
     public static ScalarField Constant(double value) => new ConstantCase(Value: value);
     public static Fin<ScalarField> Density(Point3d center, double spread, double strength, Op? key = null) =>
         FieldNabla.WithPositive(candidate: spread, make: s => (ScalarField)new DensityCase(Center: center, Spread: s, Strength: strength), key: key);
@@ -601,6 +608,9 @@ public abstract partial record ScalarField {
         from active in Optional(source).ToFin(key.OrDefault().InvalidInput()) from _ in guard(RhinoMath.IsValidDouble(x: exponent), key.OrDefault().InvalidInput()) select (ScalarField)new PowerCase(Source: active, Exponent: exponent);
     public static Fin<ScalarField> Primitive(SdfKind kind, ImmutableDictionary<string, double> parameters, Plane pose, Op? key = null) =>
         from active in Optional(kind).ToFin(key.OrDefault().InvalidInput()) from validParams in Optional(parameters).ToFin(key.OrDefault().InvalidInput()) from _ in guard(active.ValidateParameters(parameters: validParams), key.OrDefault().InvalidInput()) from validPose in FieldNabla.Plane(basis: pose, key: key.OrDefault()) select (ScalarField)new PrimitiveCase(Kind: active, Parameters: validParams, Pose: validPose);
+    public static Fin<ScalarField> ProfileExtrusion(Curve profile, Plane plane, double halfHeight, Context context, Op? key = null) =>
+        from admitted in FieldNabla.ProfileExtrusionInput(profile: profile, plane: plane, halfHeight: halfHeight, context: context, key: key.OrDefault())
+        select (ScalarField)new ProfileExtrusionCase(Profile: admitted.Profile, Plane: admitted.Plane, HalfHeight: admitted.HalfHeight);
     public static Fin<ScalarField> Noise(NoiseKind kind, int seed, int octaves, double persistence, double lacunarity, double frequency, Op? key = null) =>
         from active in Optional(kind).ToFin(key.OrDefault().InvalidInput()) from _ in FieldNabla.NoiseInput(octaves: octaves, persistence: persistence, lacunarity: lacunarity, frequency: frequency, key: key.OrDefault()) select (ScalarField)new NoiseCase(Kind: active, Seed: seed, Octaves: octaves, Persistence: persistence, Lacunarity: lacunarity, Frequency: frequency);
     public static Fin<ScalarField> Onion(ScalarField source, double thickness, Op? key = null) =>
@@ -648,8 +658,14 @@ public abstract partial record ScalarField {
         from solved in interpolation
             ? matrix.SolveDetailed(rhs: rhs, key: key.OrDefault())
             : matrix.LeastSquaresDetailed(rhs: new Arr<double>([.. rhs.AsIterable().Concat(Enumerable.Repeat(element: 0.0, count: n))]), key: key.OrDefault())
-        let receipt = new ReconstructionReceipt(Mode: admittedSmoothing <= RhinoMath.ZeroTolerance ? ReconstructionMode.RbfInterpolation : ReconstructionMode.RbfApproximation, Kernel: active, Radius: r.Value, Smoothing: admittedSmoothing, Interpolation: admittedSmoothing <= RhinoMath.ZeroTolerance, SampleCount: admittedSamples.Count, CenterCount: admittedSamples.Count, PolynomialDegree: 0, Solve: solved)
+        let receipt = new ReconstructionReceipt(Mode: admittedSmoothing <= RhinoMath.ZeroTolerance ? ReconstructionMode.RbfInterpolation : ReconstructionMode.RbfApproximation, Kernel: active, Radius: r.Value, Smoothing: admittedSmoothing, Interpolation: admittedSmoothing <= RhinoMath.ZeroTolerance, SampleCount: admittedSamples.Count, CenterCount: admittedSamples.Count, PolynomialDegree: 0, Solve: Some(solved))
         select new ReconstructionResult(Field: new RbfCase(Samples: admittedSamples, Kernel: active, Radius: r, Coefficients: solved.Solution, Receipt: receipt), Receipt: receipt);
+    public static Fin<ReconstructionResult> MlsDetailed(Seq<MlsSample> samples, KernelKind kernel, double radius, Context context, Op? key = null) =>
+        from active in Optional(kernel).ToFin(key.OrDefault().InvalidInput())
+        from r in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: radius)
+        from admittedSamples in FieldNabla.MlsInput(samples: samples, context: context, key: key.OrDefault())
+        let receipt = new ReconstructionReceipt(Mode: ReconstructionMode.MovingLeastSquares, Kernel: active, Radius: r.Value, Smoothing: 0.0, Interpolation: false, SampleCount: admittedSamples.Count, CenterCount: admittedSamples.Count, PolynomialDegree: 1, Solve: Option<SolveReceipt>.None)
+        select new ReconstructionResult(Field: new MlsCase(Samples: admittedSamples, Kernel: active, Radius: r, Receipt: receipt), Receipt: receipt);
     private static Fin<double> EvaluateRbf(Seq<(Point3d Position, double Value)> samples, KernelKind kernel, double radius, Arr<double> coefficients, Point3d sample, Op key) =>
         coefficients.Count != samples.Count
             ? Fin.Fail<double>(key.InvalidResult())
@@ -660,6 +676,65 @@ public abstract partial record ScalarField {
         toSeq(left.SelectMany(l => right.Select(r => l.DistanceTo(other: r))))
             .TraverseM(distance => kernel.Profile(distance: distance, radius: radius, key: key).Map(static profile => profile.Value)).As()
             .Map(static values => new Arr<double>([.. values.AsIterable()]));
+    private static Fin<ReconstructionSample> EvaluateMls(Seq<MlsSample> samples, KernelKind kernel, double radius, Point3d sample, Context context, Op key) {
+        (MlsSample Sample, Vector3d Offset, KernelProfile Profile)[] neighborhood = [.. toSeq(samples.AsIterable().Select(candidate => (Sample: candidate, Offset: sample - candidate.Position))
+            .Select(candidate => (candidate.Sample, candidate.Offset, Profile: kernel.Profile(distance: candidate.Offset.Length, radius: radius, key: key))))
+            .Choose(static candidate => candidate.Profile.Match(Succ: profile => Some((candidate.Sample, candidate.Offset, Profile: profile)), Fail: _ => Option<(MlsSample Sample, Vector3d Offset, KernelProfile Profile)>.None))
+            .Filter(candidate => candidate.Profile.Value > Math.Max(val1: context.Relative.Value, val2: RhinoMath.SqrtEpsilon)).AsIterable()];
+        int rejected = samples.Count - neighborhood.Length;
+        double weightSum = neighborhood.Sum(static candidate => candidate.Profile.Value);
+        return guard(neighborhood.Length >= 3 && RhinoMath.IsValidDouble(x: weightSum) && weightSum > RhinoMath.ZeroTolerance, key.InvalidInput())
+            .Bind(_ => {
+                Vector3d weightedNormal = neighborhood.Aggregate(seed: Vector3d.Zero, func: static (sum, candidate) => sum + (candidate.Profile.Value * candidate.Sample.Normal));
+                double value = neighborhood.Sum(static candidate => candidate.Profile.Value * ((candidate.Sample.Normal * candidate.Offset) + candidate.Sample.Value)) / weightSum;
+                double gradientNorm = weightedNormal.Length / weightSum;
+                Vector3d direction = gradientNorm > RhinoMath.ZeroTolerance ? weightedNormal / weightedNormal.Length : Vector3d.Zero;
+                Arr<double> rhs = new([.. neighborhood.Select(static candidate => Math.Sqrt(d: candidate.Profile.Value) * ((candidate.Sample.Normal * candidate.Offset) + candidate.Sample.Value))]);
+                Arr<double> entries = new([.. neighborhood.SelectMany(static candidate => {
+                    double root = Math.Sqrt(d: candidate.Profile.Value);
+                    return new[] { root * candidate.Offset.X, root * candidate.Offset.Y, root * candidate.Offset.Z };
+                })]);
+                return Matrix.Of(rows: Dimension.Create(value: neighborhood.Length), cols: Dimension.Create(value: 3), entries: entries, key: key).Bind(design =>
+                    design.LeastSquaresDetailed(rhs: rhs, key: key).Bind(solve => design.DecomposeSvd(key: key).Bind(svd => {
+                        int rank = svd.Rank;
+                        double[] positive = [.. svd.Sigma.AsIterable().Where(static s => s > RhinoMath.SqrtEpsilon)];
+                        Option<double> condition = positive.Length == 0 ? Option<double>.None : Some(Enumerable.Max(source: positive) / Enumerable.Min(source: positive));
+                        double normalAgreement = neighborhood.Average(candidate => Math.Abs(value: candidate.Sample.Normal * direction));
+                        return rank >= 2 && RhinoMath.IsValidDouble(x: value) && RhinoMath.IsValidDouble(x: gradientNorm) && normalAgreement >= 0.5
+                            ? Fin.Succ(new ReconstructionSample(Value: value, Receipt: new ReconstructionSampleReceipt(Mode: ReconstructionMode.MovingLeastSquares, Status: ReconstructionStatus.ApproximateSdf, Kernel: kernel, Radius: radius, SampleCount: samples.Count, NeighborhoodCount: neighborhood.Length, RejectedWeightCount: rejected, WeightSum: weightSum, Rank: rank, Condition: condition, NormalAgreement: normalAgreement, GradientNorm: gradientNorm, Solve: solve)))
+                            : Fin.Fail<ReconstructionSample>(key.InvalidResult());
+                    })));
+            });
+    }
+    private static Fin<SdfSample> SampleProfileExtrusion(ProfileExtrusionCase source, Point3d sample, Context context, Op key) =>
+        source.Plane.RemapToPlaneSpace(ptSample: sample, ptPlane: out Point3d local) switch {
+            false => Fin.Fail<SdfSample>(key.InvalidResult()),
+            true when source.Plane.PointAt(u: local.X, v: local.Y) is Point3d planar => source.Profile.ClosestPoint(testPoint: planar, t: out double curveParameter) switch {
+                false => Fin.Fail<SdfSample>(key.InvalidResult()),
+                true => source.Profile.Contains(testPoint: planar, plane: source.Plane, tolerance: context.Absolute.Value) switch {
+                    PointContainment.Unset => Fin.Fail<SdfSample>(key.InvalidResult()),
+                    PointContainment containment when planar.DistanceTo(other: source.Profile.PointAt(t: curveParameter)) is double dxy
+                        && (containment switch { PointContainment.Inside => -dxy, PointContainment.Coincident => 0.0, _ => dxy }, Math.Abs(value: local.Z) - source.HalfHeight.Value) is (double profile, double cap)
+                        && (Math.Max(val1: profile, val2: 0.0), Math.Max(val1: cap, val2: 0.0)) is (double px, double pz) =>
+                        key.AcceptValue(value: Math.Sqrt(d: (px * px) + (pz * pz)) + Math.Min(val1: Math.Max(val1: profile, val2: cap), val2: 0.0))
+                            .Map(distance => new SdfSample(Value: distance, Receipt: SdfReceiptOf(field: source, status: SdfStatus.NativeProfile, mesh: Option<SdfMeshReceipt>.None) with {
+                                NativeProfile = true,
+                                ToleranceSource = Some(ToleranceSource.Context),
+                                Tolerance = Some(context.Absolute.Value),
+                                ClosestAccepted = true,
+                                ProfileContainment = Some(containment),
+                                ProfileFeature = Some((Math.Abs(value: profile) <= context.Absolute.Value, Math.Abs(value: cap) <= context.Absolute.Value) switch {
+                                    (true, true) => ProfileExtrusionFeature.Rim,
+                                    (true, false) => ProfileExtrusionFeature.ProfileBoundary,
+                                    (false, true) => ProfileExtrusionFeature.Cap,
+                                    _ => ProfileExtrusionFeature.Interior,
+                                }),
+                            })),
+                    _ => Fin.Fail<SdfSample>(key.InvalidResult()),
+                },
+            },
+            _ => Fin.Fail<SdfSample>(key.InvalidResult()),
+        };
     public static Fin<ScalarField> Periodic(ScalarField source, Vector3d period, Op? key = null) =>
         from active in Optional(source).ToFin(key.OrDefault().InvalidInput())
         from validPeriod in FieldNabla.Period(period: period, key: key.OrDefault())
@@ -670,6 +745,7 @@ public abstract partial record ScalarField {
         from active in Optional(source).ToFin(key.OrDefault().InvalidInput()) from _ in FieldNabla.FiniteRange(minimum: minimum, maximum: maximum, key: key.OrDefault()) select (ScalarField)new ClampCase(Source: active, Minimum: minimum, Maximum: maximum);
     public Option<double> LipschitzBound() => this switch {
         PrimitiveCase p => Some(p.Kind.Lipschitz),
+        ProfileExtrusionCase => Some(1.0),
         CsgCase c => from l in c.Left.LipschitzBound() from r in c.Right.LipschitzBound() select c.Smoothing.Erode(leftLip: l, rightLip: r),
         OnionCase o => o.Source.LipschitzBound(),
         SdfRoundCase r => r.Source.LipschitzBound(),
@@ -682,11 +758,13 @@ public abstract partial record ScalarField {
     public static ScalarField operator -(ScalarField field) => new ScaledCase(Source: field, Scale: -1.0);
     public static ScalarField operator *(ScalarField field, double scale) => new ScaledCase(Source: field, Scale: scale);
     public static ScalarField operator *(double scale, ScalarField field) => new ScaledCase(Source: field, Scale: scale);
-    public Fin<SdfSample> SampleSdfDetailed(Point3d sample, Context context, Op? key = null) => this switch {
-        PrimitiveCase => from value in SampleScalar(sample: sample, context: context, key: key.OrDefault()) select new SdfSample(Value: value, Receipt: SdfReceiptOf(field: this, status: SdfStatus.Analytic, mesh: Option<SdfMeshReceipt>.None)),
-        SignedDistanceFromMeshCase meshCase => from signed in MeshKernel.SignedDistanceFromMeshDetailed(space: meshCase.Space, method: meshCase.Method, sample: sample, key: key.OrDefault()) select new SdfSample(Value: signed.Distance, Receipt: SdfReceiptOf(field: this, status: SdfStatus.MeshApproximate, mesh: Some(signed.Receipt))),
-        _ => from _ in LipschitzBound().ToFin(key.OrDefault().Unsupported(geometryType: GetType(), outputType: typeof(SdfSample))) from value in SampleScalar(sample: sample, context: context, key: key.OrDefault()) select new SdfSample(Value: value, Receipt: SdfReceiptOf(field: this, status: SdfStatus.ComposedAnalytic, mesh: Option<SdfMeshReceipt>.None)),
-    };
+    public Fin<SdfSample> SampleSdfDetailed(Point3d sample, Context context, Op? key = null) =>
+        Optional(context).ToFin(key.OrDefault().MissingContext()).Bind(model => this switch {
+            PrimitiveCase => from value in SampleScalar(sample: sample, context: model, key: key.OrDefault()) select new SdfSample(Value: value, Receipt: SdfReceiptOf(field: this, status: SdfStatus.Analytic, mesh: Option<SdfMeshReceipt>.None)),
+            ProfileExtrusionCase profileCase => SampleProfileExtrusion(source: profileCase, sample: sample, context: model, key: key.OrDefault()),
+            SignedDistanceFromMeshCase meshCase => from signed in MeshKernel.SignedDistanceFromMeshDetailed(space: meshCase.Space, method: meshCase.Method, sample: sample, key: key.OrDefault()) select new SdfSample(Value: signed.Distance, Receipt: SdfReceiptOf(field: this, status: SdfStatus.MeshApproximate, mesh: Some(signed.Receipt))),
+            _ => from _ in LipschitzBound().ToFin(key.OrDefault().Unsupported(geometryType: GetType(), outputType: typeof(SdfSample))) from value in SampleScalar(sample: sample, context: model, key: key.OrDefault()) select new SdfSample(Value: value, Receipt: SdfReceiptOf(field: this, status: SdfStatus.ComposedAnalytic, mesh: Option<SdfMeshReceipt>.None)),
+        });
     private static SdfReceipt SdfReceiptOf(ScalarField field, SdfStatus status, Option<SdfMeshReceipt> mesh) =>
         new(Status: status, LipschitzBound: field.LipschitzBound(), AnalyticPrimitive: field is PrimitiveCase, MeshBacked: field is SignedDistanceFromMeshCase, WatertightPreflight: mesh.Map(static receipt => receipt.IsSolid && receipt.IsManifold && receipt.IsOriented), LossyFallback: status.Equals(SdfStatus.LossyFallback), Mesh: mesh);
     public Fin<IsoSurfaceResult> IsoSurfaceDetailed(BoundingBox bounds, int resolution, int maxRootSteps, Context context, Op? key = null) {
@@ -712,7 +790,7 @@ public abstract partial record ScalarField {
                     ? Fin.Fail<IsoSurfaceResult>(op.InvalidResult())
                     : Fin.Succ(new IsoSurfaceResult(
                         Mesh: result,
-                        Receipt: new IsoSurfaceReceipt(NativeRouted: true, Bounds: bounds, Resolution: resolution, MaxRootSteps: maxRootSteps, ParallelCallback: true, EvaluatorFailures: failures, Valid: result.IsValid, VertexCount: result.Vertices.Count, FaceCount: result.Faces.Count, FixedTolerance: Option<double>.None)));
+                        Receipt: new IsoSurfaceReceipt(NativeRouted: true, Bounds: bounds, Resolution: resolution, MaxRootSteps: maxRootSteps, ParallelCallback: true, EvaluatorFailures: failures, Valid: result.IsValid, VertexCount: result.Vertices.Count, FaceCount: result.Faces.Count, FixedTolerance: Some(0.001))));
             }));
     }
     internal static bool BoundsAdmitted(BoundingBox bounds) =>
@@ -773,6 +851,7 @@ public abstract partial record ScalarField {
         strainMagnitudeCase: static (state, c) => FieldNabla.StrainMagnitudeAt(field: c.Source, point: state.Sample, eps: c.Epsilon.Value, context: state.Context, key: state.Key),
         clampCase: static (state, c) => SampleMapped(source: c.Source, state: state, data: (c.Minimum, c.Maximum), map: static (range, value) => Math.Clamp(value: value, min: range.Minimum, max: range.Maximum)),
         primitiveCase: static (state, c) => c.Kind.SignedDistance(worldPoint: state.Sample, parameters: c.Parameters, pose: c.Pose, key: state.Key),
+        profileExtrusionCase: static (state, c) => SampleProfileExtrusion(source: c, sample: state.Sample, context: state.Context, key: state.Key).Map(static sdf => sdf.Value),
         noiseCase: static (state, c) => {
             (double sum, _, _) = toSeq(Enumerable.Range(start: 0, count: c.Octaves)).Fold(
                 initialState: (Sum: 0.0, Amp: 1.0, Freq: c.Frequency),
@@ -821,7 +900,18 @@ public abstract partial record ScalarField {
         spectralDistanceCase: static (state, c) => MeshKernel.SpectralDistanceAt(space: c.Space, filter: c.Filter, sources: c.Sources, pairs: c.Pairs.Value, sample: state.Sample, key: state.Key),
         stripeCase: static (state, c) => MeshKernel.StripeAt(space: c.Space, crossField: c.CrossField, frequency: c.Frequency.Value, sample: state.Sample, key: state.Key),
         signedDistanceFromMeshCase: static (state, c) => MeshKernel.SignedDistanceFromMeshDetailed(space: c.Space, method: c.Method, sample: state.Sample, key: state.Key).Map(static result => result.Distance),
-        rbfCase: static (state, c) => EvaluateRbf(samples: c.Samples, kernel: c.Kernel, radius: c.Radius.Value, coefficients: c.Coefficients, sample: state.Sample, key: state.Key));
+        rbfCase: static (state, c) => EvaluateRbf(samples: c.Samples, kernel: c.Kernel, radius: c.Radius.Value, coefficients: c.Coefficients, sample: state.Sample, key: state.Key),
+        mlsCase: static (state, c) => EvaluateMls(samples: c.Samples, kernel: c.Kernel, radius: c.Radius.Value, sample: state.Sample, context: state.Context, key: state.Key).Map(static result => result.Value));
+    public Fin<ReconstructionSample> SampleReconstructionDetailed(Point3d sample, Context context, Op? key = null) =>
+        from model in Optional(context).ToFin(key.OrDefault().MissingContext())
+        from output in this switch {
+            RbfCase r => from value in EvaluateRbf(samples: r.Samples, kernel: r.Kernel, radius: r.Radius.Value, coefficients: r.Coefficients, sample: sample, key: key.OrDefault())
+                         from solve in r.Receipt.Solve.ToFin(key.OrDefault().InvalidResult())
+                         select new ReconstructionSample(Value: value, Receipt: new ReconstructionSampleReceipt(Mode: r.Receipt.Mode, Status: r.Receipt.Interpolation ? ReconstructionStatus.ExactInterpolation : ReconstructionStatus.ApproximateSdf, Kernel: r.Kernel, Radius: r.Radius.Value, SampleCount: r.Samples.Count, NeighborhoodCount: r.Samples.Count, RejectedWeightCount: 0, WeightSum: 1.0, Rank: r.Samples.Count, Condition: Option<double>.None, NormalAgreement: 1.0, GradientNorm: 0.0, Solve: solve)),
+            MlsCase m => EvaluateMls(samples: m.Samples, kernel: m.Kernel, radius: m.Radius.Value, sample: sample, context: model, key: key.OrDefault()),
+            _ => Fin.Fail<ReconstructionSample>(key.OrDefault().Unsupported(geometryType: GetType(), outputType: typeof(ReconstructionSample))),
+        }
+        select output;
     private static Fin<double> SampleMapped<T>(ScalarField source, (Point3d Sample, Context Context, Op Key) state, T data, Func<T, double, double> map) =>
         source.SampleScalar(sample: state.Sample, context: state.Context, key: state.Key)
             .Bind(value => state.Key.AcceptValue(value: map(arg1: data, arg2: value)));
@@ -842,25 +932,40 @@ internal static class FieldNabla {
     internal static Fin<Unit> KernelInput(double distance, double radius, Op key) =>
         RhinoMath.IsValidDouble(x: distance) && RhinoMath.IsValidDouble(x: radius) && distance >= 0.0 && radius > RhinoMath.ZeroTolerance ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
     internal static Fin<Unit> NoiseInput(int octaves, double persistence, double lacunarity, double frequency, Op key) =>
-        octaves is >= 1 and <= 32 && RhinoMath.IsValidDouble(x: frequency) && frequency > 0.0 && RhinoMath.IsValidDouble(x: persistence) && persistence is > 0.0 and <= 1.0 && RhinoMath.IsValidDouble(x: lacunarity) && lacunarity > 1.0
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(key.InvalidInput());
+        octaves is >= 1 and <= 32 && RhinoMath.IsValidDouble(x: frequency) && frequency > 0.0 && RhinoMath.IsValidDouble(x: persistence) && persistence is > 0.0 and <= 1.0 && RhinoMath.IsValidDouble(x: lacunarity) && lacunarity > 1.0 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
     internal static Fin<Vector3d> NonnegativeExtent(Vector3d extent, Op key) =>
         Finite(vector: extent) && extent.X >= 0.0 && extent.Y >= 0.0 && extent.Z >= 0.0 ? Fin.Succ(extent) : Fin.Fail<Vector3d>(key.InvalidInput());
     internal static Fin<Plane> Plane(Plane basis, Op key) =>
-        Finite(point: basis.Origin) && Finite(vector: basis.XAxis) && Finite(vector: basis.YAxis) && Finite(vector: basis.ZAxis)
-            && basis.XAxis.Length > RhinoMath.ZeroTolerance && basis.YAxis.Length > RhinoMath.ZeroTolerance && basis.ZAxis.Length > RhinoMath.ZeroTolerance
-            && Vector3d.CrossProduct(a: basis.XAxis, b: basis.YAxis).Length > RhinoMath.ZeroTolerance
-            ? Fin.Succ(basis)
-            : Fin.Fail<Plane>(key.InvalidInput());
+        Finite(point: basis.Origin) && Finite(vector: basis.XAxis) && Finite(vector: basis.YAxis) && Finite(vector: basis.ZAxis) && basis.XAxis.Length > RhinoMath.ZeroTolerance && basis.YAxis.Length > RhinoMath.ZeroTolerance && basis.ZAxis.Length > RhinoMath.ZeroTolerance && Vector3d.CrossProduct(a: basis.XAxis, b: basis.YAxis).Length > RhinoMath.ZeroTolerance ? Fin.Succ(basis) : Fin.Fail<Plane>(key.InvalidInput());
     internal static Fin<Vector3d> Period(Vector3d period, Op key) =>
-        Finite(vector: period) && Math.Abs(value: period.X) > RhinoMath.ZeroTolerance && Math.Abs(value: period.Y) > RhinoMath.ZeroTolerance && Math.Abs(value: period.Z) > RhinoMath.ZeroTolerance
-            ? Fin.Succ(period)
-            : Fin.Fail<Vector3d>(key.InvalidInput());
+        Finite(vector: period) && Math.Abs(value: period.X) > RhinoMath.ZeroTolerance && Math.Abs(value: period.Y) > RhinoMath.ZeroTolerance && Math.Abs(value: period.Z) > RhinoMath.ZeroTolerance ? Fin.Succ(period) : Fin.Fail<Vector3d>(key.InvalidInput());
     internal static Fin<Unit> FiniteRange(double minimum, double maximum, Op key) =>
         RhinoMath.IsValidDouble(x: minimum) && RhinoMath.IsValidDouble(x: maximum) && minimum <= maximum ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
     internal static Fin<Seq<(Point3d Position, double Value)>> ReconstructionSamples(Seq<(Point3d Position, double Value)> samples, Op key) =>
         !samples.IsEmpty && samples.ForAll(static sample => Finite(point: sample.Position) && RhinoMath.IsValidDouble(x: sample.Value)) ? Fin.Succ(samples) : Fin.Fail<Seq<(Point3d Position, double Value)>>(key.InvalidInput());
+    internal static Fin<Seq<MlsSample>> MlsInput(Seq<MlsSample> samples, Context context, Op key) =>
+        Optional(context).ToFin(key.MissingContext()).Bind(model => !samples.IsEmpty
+            && samples.ForAll(sample => Finite(point: sample.Position) && Finite(vector: sample.Normal) && Math.Abs(value: sample.Normal.Length - 1.0) <= Math.Max(val1: model.Relative.Value, val2: RhinoMath.SqrtEpsilon) && RhinoMath.IsValidDouble(x: sample.Value))
+            && samples.AsIterable().Aggregate(seed: Vector3d.Zero, func: static (sum, sample) => sum + sample.Normal).Length / samples.Count >= 0.5
+                ? Fin.Succ(samples)
+                : Fin.Fail<Seq<MlsSample>>(key.InvalidInput()));
+    internal static Fin<(Curve Profile, Plane Plane, PositiveMagnitude HalfHeight)> ProfileExtrusionInput(Curve profile, Plane plane, double halfHeight, Context context, Op key) =>
+        from model in Optional(context).ToFin(key.MissingContext())
+        from activePlane in Plane(basis: plane, key: key)
+        from height in key.AcceptValidated<PositiveMagnitude>(candidate: halfHeight)
+        from admitted in key.Catch(() => {
+            Curve? duplicate = profile?.DuplicateCurve();
+            Plane profilePlane = default;
+            using CurveBooleanRegions? regions = duplicate is null ? null : Curve.CreateBooleanRegions(curves: [duplicate], plane: activePlane, combineRegions: false, tolerance: model.Absolute.Value);
+            using CurveIntersections? self = duplicate is null ? null : Intersection.CurveSelf(curve: duplicate, tolerance: model.Absolute.Value);
+            bool planeFound = profile is not null && profile.TryGetPlane(plane: out profilePlane, tolerance: model.Absolute.Value);
+            bool planeAligned = planeFound && Math.Abs(value: activePlane.ZAxis * profilePlane.ZAxis) >= Math.Cos(d: model.Angle.Value) && Math.Abs(value: activePlane.DistanceTo(testPoint: profilePlane.Origin)) <= model.Absolute.Value;
+            bool singleRegion = regions is { RegionCount: 1 } && regions.BoundaryCount(regionIndex: 0) == 1 && self is { Count: 0 };
+            return duplicate is { IsValid: true, IsClosed: true } validProfile && planeAligned && singleRegion
+                ? Fin.Succ((Profile: validProfile, Plane: activePlane, HalfHeight: height))
+                : Fin.Fail<(Curve Profile, Plane Plane, PositiveMagnitude HalfHeight)>(key.InvalidInput());
+        })
+        select admitted;
     internal static Fin<Unit> IsoSurfaceInput(BoundingBox bounds, int resolution, int maxRootSteps, Op key) =>
         ScalarField.BoundsAdmitted(bounds: bounds) && resolution >= 2 && maxRootSteps >= 1 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
     internal static Fin<TResult> WithSourceEpsilon<TSource, TResult>(TSource? source, double epsilon, Func<TSource, PositiveMagnitude, TResult> make, Op? key)
@@ -877,9 +982,7 @@ internal static class FieldNabla {
     internal static bool Finite(Vector3d vector) =>
         RhinoMath.IsValidDouble(x: vector.X) && RhinoMath.IsValidDouble(x: vector.Y) && RhinoMath.IsValidDouble(x: vector.Z);
     internal static Point3d ToroidalWrap(Point3d sample, Vector3d period) =>
-        new(x: sample.X - (Math.Floor(d: (sample.X / period.X) + 0.5) * period.X),
-            y: sample.Y - (Math.Floor(d: (sample.Y / period.Y) + 0.5) * period.Y),
-            z: sample.Z - (Math.Floor(d: (sample.Z / period.Z) + 0.5) * period.Z));
+        new(x: sample.X - (Math.Floor(d: (sample.X / period.X) + 0.5) * period.X), y: sample.Y - (Math.Floor(d: (sample.Y / period.Y) + 0.5) * period.Y), z: sample.Z - (Math.Floor(d: (sample.Z / period.Z) + 0.5) * period.Z));
     internal static Fin<(T X1, T X0, T Y1, T Y0, T Z1, T Z0)> SampleAxes<T>(Func<Point3d, Fin<T>> sampler, Point3d point, double eps) =>
         from xp in sampler(arg: point + (eps * Vector3d.XAxis)) from xm in sampler(arg: point - (eps * Vector3d.XAxis)) from yp in sampler(arg: point + (eps * Vector3d.YAxis)) from ym in sampler(arg: point - (eps * Vector3d.YAxis)) from zp in sampler(arg: point + (eps * Vector3d.ZAxis)) from zm in sampler(arg: point - (eps * Vector3d.ZAxis)) select (X1: xp, X0: xm, Y1: yp, Y0: ym, Z1: zp, Z0: zm);
     internal static Fin<Vector3d> GradientAt(ScalarField field, Point3d point, double eps, Context context, Op key) =>
