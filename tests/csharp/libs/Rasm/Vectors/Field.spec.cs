@@ -131,9 +131,9 @@ public sealed class FieldPolicyAndSamplingLaws {
     [Fact]
     public void ScalarConstantProjectAndNablaGradientAreStable() {
         ScalarField constant = ScalarField.Constant(value: 7.0);
-        Spec.Succ(constant.Project<double>(sample: new Point3d(x: 1.0, y: 2.0, z: 3.0), context: FieldGens.Model, key: FieldGens.Key),
+        Spec.Succ(ExtractionProbe.Scalar(source: constant).Project<double>(sample: new Point3d(x: 1.0, y: 2.0, z: 3.0), context: FieldGens.Model, key: FieldGens.Key),
             then: value => Spec.EqualWithin(left: value, right: 7.0, tolerance: 0.0, what: "constant"));
-        Spec.Fail(constant.Project<Vector3d>(sample: Point3d.Origin, context: FieldGens.Model, key: FieldGens.Key));
+        Spec.Fail(ExtractionProbe.Scalar(source: constant).Project<Vector3d>(sample: Point3d.Origin, context: FieldGens.Model, key: FieldGens.Key));
         Spec.Succ(FieldNabla.GradientAt(field: constant, point: Point3d.Origin, eps: 0.01, context: FieldGens.Model, key: FieldGens.Key),
             then: grad => Spec.EqualWithin(left: grad.Length, right: 0.0, tolerance: 1.0e-12, what: "constant gradient"));
     }
@@ -163,7 +163,7 @@ public sealed class VectorFieldAlgebraLaws {
         Spec.ForAll(Gens.Finite, k => {
             VectorField scaled = VectorField.Constant(value: Vector3d.XAxis) * k;
             Assert.Equal(expected: k, actual: ((VectorField.ScaledCase)scaled).Scale);
-            Spec.Succ(scaled.Project<Vector3d>(sample: Point3d.Origin, context: FieldGens.Model, key: FieldGens.Key),
+            Spec.Succ(ExtractionProbe.Vector(source: scaled).Project<Vector3d>(sample: Point3d.Origin, context: FieldGens.Model, key: FieldGens.Key),
                 then: vector => Spec.NearEqual(left: vector, right: k * Vector3d.XAxis, tolerance: 1.0e-9));
         });
     }
@@ -171,9 +171,9 @@ public sealed class VectorFieldAlgebraLaws {
     public void BlendProjectionMatchesIndependentVectorFold() {
         VectorField x = VectorField.Constant(value: Vector3d.XAxis);
         VectorField y = VectorField.Constant(value: Vector3d.YAxis);
-        Spec.Succ(VectorField.Blend(fields: Seq(x, y), blend: FieldBlend.Sum).Project<Vector3d>(sample: Point3d.Origin, context: FieldGens.Model, key: FieldGens.Key),
+        Spec.Succ(ExtractionProbe.Vector(source: VectorField.Blend(fields: Seq(x, y), blend: FieldBlend.Sum)).Project<Vector3d>(sample: Point3d.Origin, context: FieldGens.Model, key: FieldGens.Key),
             then: vector => Spec.NearEqual(left: vector, right: Vector3d.XAxis + Vector3d.YAxis, tolerance: 1.0e-12));
-        Spec.Succ(VectorField.Blend(fields: Seq(x, y), blend: FieldBlend.Average).Project<Vector3d>(sample: Point3d.Origin, context: FieldGens.Model, key: FieldGens.Key),
+        Spec.Succ(ExtractionProbe.Vector(source: VectorField.Blend(fields: Seq(x, y), blend: FieldBlend.Average)).Project<Vector3d>(sample: Point3d.Origin, context: FieldGens.Model, key: FieldGens.Key),
             then: vector => Spec.NearEqual(left: vector, right: 0.5 * (Vector3d.XAxis + Vector3d.YAxis), tolerance: 1.0e-12));
     }
 }

@@ -105,6 +105,42 @@ public readonly record struct Stat(int Count, double Minimum, double Maximum, do
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+internal readonly record struct SampleMoment(int Dimension, Arr<double> Mean, Arr<double> UpperCovariance) {
+    internal static Fin<SampleMoment> Of(Seq<Arr<double>> rows, int dimension, Op key, Option<Arr<double>> weights = default) =>
+        new Arr<Arr<double>>([.. rows.AsIterable()]) switch {
+            Arr<Arr<double>> samples when dimension > 0 && !samples.IsEmpty && samples.ForAll(row => row.Count == dimension && row.ForAll(RhinoMath.IsValidDouble)) =>
+                weights switch {
+                    { IsSome: true, Case: Arr<double> raw } => (raw.Count, raw.Fold(initialState: 0.0, f: static (sum, value) => sum + value)) switch {
+                        (int length, double sum) when length == samples.Count && raw.ForAll(static value => RhinoMath.IsValidDouble(x: value) && value > 0.0) && RhinoMath.IsValidDouble(x: sum) && sum > RhinoMath.ZeroTolerance =>
+                            MomentOf(rows: samples, weights: new Arr<double>([.. raw.AsIterable().Select(value => value / sum)]), dimension: dimension, key: key),
+                        _ => Fin.Fail<SampleMoment>(key.InvalidInput()),
+                    },
+                    _ => MomentOf(rows: samples, weights: new Arr<double>([.. Enumerable.Repeat(element: 1.0 / samples.Count, count: samples.Count)]), dimension: dimension, key: key),
+                },
+            _ => Fin.Fail<SampleMoment>(key.InvalidInput()),
+        };
+    private static Fin<SampleMoment> MomentOf(Arr<Arr<double>> rows, Arr<double> weights, int dimension, Op key) {
+        double MeanAt(int component) {
+            double total = 0.0;
+            for (int row = 0; row < rows.Count; row++) total += weights[index: row] * rows[index: row][index: component];
+            return total;
+        }
+        double CovarianceAt(Arr<double> mean, int left, int right) {
+            double total = 0.0;
+            for (int row = 0; row < rows.Count; row++) total += weights[index: row] * (rows[index: row][index: left] - mean[index: left]) * (rows[index: row][index: right] - mean[index: right]);
+            return total;
+        }
+        Arr<double> mean = new([.. Enumerable.Range(start: 0, count: dimension).Select(MeanAt)]);
+        Arr<double> upper = new([.. Enumerable.Range(start: 0, count: dimension)
+            .SelectMany(left => Enumerable.Range(start: left, count: dimension - left).Select(right => CovarianceAt(mean: mean, left: left, right: right)))]);
+        return (mean.ForAll(RhinoMath.IsValidDouble), upper.ForAll(RhinoMath.IsValidDouble)) switch {
+            (true, true) => Fin.Succ(new SampleMoment(Dimension: dimension, Mean: mean, UpperCovariance: upper)),
+            _ => Fin.Fail<SampleMoment>(key.InvalidResult()),
+        };
+    }
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct Distribution(Stat Summary, double Median, double Iqr, Seq<(double Percentile, double Value)> Percentiles) {
     internal static Fin<Distribution> Of(Seq<double> values, Seq<double> percentiles, Op key, StatContext? context = null) =>
         percentiles.TraverseM(p => RhinoMath.IsValidDouble(x: p) && p is >= 0.0 and <= 100.0 ? Fin.Succ(p) : Fin.Fail<double>(key.InvalidInput())).As()

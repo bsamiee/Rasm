@@ -44,8 +44,9 @@ public sealed class AlignSolverLaws {
     public void PointToPlaneGuardsLinearizedRailCountsBeforeNativeNormals() {
         Point3d[] target = [.. AlignGens.Six.AsIterable().Select(static p => p + Vector3d.ZAxis)];
         Vector3d[] normals = [.. Enumerable.Repeat(element: Vector3d.ZAxis, count: AlignGens.Six.Count)];
-        Spec.FailCategory(AlignKernel.SolvePointToPlane(source: AlignGens.Six, target: target[..^1], normals: normals, current: Transform.Identity, key: AlignGens.Key), category: "Input");
-        Spec.FailCategory(AlignKernel.SolvePointToPlane(source: AlignGens.Six, target: target, normals: normals[..^1], current: Transform.Identity, key: AlignGens.Key), category: "Input");
+        double[] rowMass = [.. Enumerable.Repeat(element: 1.0 / AlignGens.Six.Count, count: AlignGens.Six.Count)];
+        Spec.FailCategory(AlignKernel.SolvePointToPlane(source: AlignGens.Six, target: target[..^1], normals: normals, rowMass: rowMass, current: Transform.Identity, key: AlignGens.Key), category: "Input");
+        Spec.FailCategory(AlignKernel.SolvePointToPlane(source: AlignGens.Six, target: target, normals: normals[..^1], rowMass: rowMass, current: Transform.Identity, key: AlignGens.Key), category: "Input");
     }
     [Fact]
     public void PointToPlaneQrMigrationRecoversPlanarZTranslation() {
@@ -58,17 +59,20 @@ public sealed class AlignSolverLaws {
             new Vector3d(x: 2.0, y: -1.0, z: -1.0),
             new Vector3d(x: 2.0, y: -1.0, z: 1.0),
         ];
-        Spec.Succ(AlignKernel.SolvePointToPlane(source: AlignGens.Six, target: target, normals: normals, current: Transform.Identity, key: AlignGens.Key), then: transform => {
-            Spec.EqualWithin(left: transform[0, 3], right: 0.0, tolerance: 1.0e-10, what: "x translation");
-            Spec.EqualWithin(left: transform[1, 3], right: 0.0, tolerance: 1.0e-10, what: "y translation");
-            Spec.EqualWithin(left: transform[2, 3], right: 1.0, tolerance: 1.0e-10, what: "z translation");
+        double[] rowMass = [.. Enumerable.Repeat(element: 1.0 / AlignGens.Six.Count, count: AlignGens.Six.Count)];
+        Spec.Succ(AlignKernel.SolvePointToPlane(source: AlignGens.Six, target: target, normals: normals, rowMass: rowMass, current: Transform.Identity, key: AlignGens.Key), then: step => {
+            Spec.EqualWithin(left: step.Delta[0, 3], right: 0.0, tolerance: 1.0e-10, what: "x translation");
+            Spec.EqualWithin(left: step.Delta[1, 3], right: 0.0, tolerance: 1.0e-10, what: "y translation");
+            Spec.EqualWithin(left: step.Delta[2, 3], right: 1.0, tolerance: 1.0e-10, what: "z translation");
+            Assert.True(condition: step.Solve.IsSome);
         });
     }
     [Fact]
     public void RobustSolverRejectsMismatchedResidualRails() {
         Point3d[] target = [.. AlignGens.Tetra.AsIterable()];
         double[] residuals = [.. Enumerable.Repeat(element: 0.0, count: AlignGens.Tetra.Count)];
-        Spec.FailCategory(AlignKernel.SolveRobustProcrustes(source: AlignGens.Tetra, target: target[..^1], residuals: residuals, current: Transform.Identity, key: AlignGens.Key), category: "Input");
-        Spec.FailCategory(AlignKernel.SolveRobustProcrustes(source: AlignGens.Tetra, target: target, residuals: residuals[..^1], current: Transform.Identity, key: AlignGens.Key), category: "Input");
+        double[] rowMass = [.. Enumerable.Repeat(element: 1.0 / AlignGens.Tetra.Count, count: AlignGens.Tetra.Count)];
+        Spec.FailCategory(AlignKernel.SolveRobustProcrustes(source: AlignGens.Tetra, target: target[..^1], residuals: residuals, rowMass: rowMass, current: Transform.Identity, key: AlignGens.Key), category: "Input");
+        Spec.FailCategory(AlignKernel.SolveRobustProcrustes(source: AlignGens.Tetra, target: target, residuals: residuals[..^1], rowMass: rowMass, current: Transform.Identity, key: AlignGens.Key), category: "Input");
     }
 }

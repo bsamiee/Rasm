@@ -10,11 +10,13 @@ internal static class ModeGens {
     public static readonly Op Key = Op.Of(name: "modes-test");
     public static readonly Context Model = Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "modes context");
     public static readonly CurveProjection[] CurveModes = [
-        CurveProjection.Tangent, CurveProjection.Curvature, CurveProjection.FrenetFrame, CurveProjection.BishopFrame, CurveProjection.ArcLength,
+        CurveProjection.Tangent, CurveProjection.Curvature, CurveProjection.Frame, CurveProjection.PerpendicularFrame, CurveProjection.ArcLength,
+        CurveProjection.FrameNormal, CurveProjection.FrameBinormal, CurveProjection.PerpendicularNormal, CurveProjection.PerpendicularBinormal,
     ];
     public static readonly SurfaceProjection[] SurfaceModes = [
         SurfaceProjection.PrincipalCurvatures, SurfaceProjection.Gaussian, SurfaceProjection.Mean, SurfaceProjection.MaximumOsculatingCircle,
-        SurfaceProjection.Normal, SurfaceProjection.ShapeOperator, SurfaceProjection.MinimumOsculatingCircle,
+        SurfaceProjection.Normal, SurfaceProjection.ShapeOperator, SurfaceProjection.MinimumOsculatingCircle, SurfaceProjection.Point,
+        SurfaceProjection.Frame, SurfaceProjection.UvFrame, SurfaceProjection.Jacobian, SurfaceProjection.Metric, SurfaceProjection.AreaScale,
     ];
     public static readonly ConeProjection[] ConeModes = [
         ConeProjection.HalfAngle, ConeProjection.SolidAngle, ConeProjection.Axis, ConeProjection.Apex,

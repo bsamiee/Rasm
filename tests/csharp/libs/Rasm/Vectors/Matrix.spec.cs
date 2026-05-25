@@ -81,7 +81,7 @@ public sealed class MatrixCoreLaws {
     public void SolveInversePseudoInverseAndRankUseResidualOrShapeLaws() =>
         Spec.ForAll(MatrixGens.NonSingularSquare, static a => {
             Arr<double> rhs = new([.. Enumerable.Range(start: 1, count: a.Rows.Value).Select(static i => (double)i)]);
-            Spec.Succ(a.Solve(rhs: rhs, key: MatrixGens.Key), then: x => Numeric.Residual(matrix: a, x: x, b: rhs, tolerance: 1.0e-7, label: "solve"));
+            Spec.Succ(a.SolveDetailed(rhs: rhs, key: MatrixGens.Key), then: receipt => Numeric.Residual(matrix: a, x: receipt.Solution, b: rhs, tolerance: 1.0e-7, label: "solve"));
             Spec.Succ(a.Inverse(key: MatrixGens.Key), then: inverse => {
                 Numeric.Product(rows: a.Rows.Value, width: a.Cols.Value, cols: a.Cols.Value, left: a.At, right: inverse.At, actual: (row, col) => row == col ? 1.0 : 0.0, tolerance: 1.0e-7, label: "A*A^-1");
                 Numeric.Product(rows: inverse.Rows.Value, width: inverse.Cols.Value, cols: inverse.Cols.Value, left: inverse.At, right: a.At, actual: (row, col) => row == col ? 1.0 : 0.0, tolerance: 1.0e-7, label: "A^-1*A");
@@ -109,7 +109,7 @@ public sealed class MatrixCoreLaws {
                 Spec.EqualWithin(left: normalResidual, right: 0.0, tolerance: 1.0e-10, what: $"normal residual {col}");
             });
         });
-        Spec.FailCategory(design.LeastSquares(rhs: [1.0, 2.0], key: MatrixGens.Key), category: "Input");
+        Spec.FailCategory(design.LeastSquaresDetailed(rhs: [1.0, 2.0], key: MatrixGens.Key), category: "Input");
     }
     [Fact]
     public void NormKindsHaveDistinctKeysAndNonNegativeValues() {
@@ -134,9 +134,9 @@ public sealed class SparseMatrixLaws {
     public void SparseSolveDetailedUsesBoundedMetadata() {
         SparseMatrix matrix = MatrixGens.Sparse2((0, 0, 4.0), (1, 1, 2.0));
         Spec.Succ(matrix.SolveDetailed(rhs: [8.0, 6.0], key: MatrixGens.Key), then: result => {
-            Spec.SmartEnumKeysUnique(items: [SolvePath.DenseLu, SolvePath.DenseQrLeastSquares, SolvePath.DenseCholesky, SolvePath.SparseBiCgStabDiagonal, SolvePath.SparseMathNetQrFallback, SolvePath.SparseCholesky], key: static s => s.Key);
+            Spec.SmartEnumKeysUnique(items: [SolvePath.DenseLu, SolvePath.DenseQrLeastSquares, SolvePath.DenseCholesky, SolvePath.SparseBiCgStabDiagonal, SolvePath.SparseMathNetDirectFallback, SolvePath.SparseCholesky], key: static s => s.Key);
             Spec.SmartEnumKeysUnique(items: [SolveStop.DirectSolved, SolveStop.LeastSquaresSolved, SolveStop.ResidualConverged], key: static s => s.Key);
-            Assert.Contains(expected: result.Path, collection: [SolvePath.SparseBiCgStabDiagonal, SolvePath.SparseMathNetQrFallback]);
+            Assert.Contains(expected: result.Path, collection: [SolvePath.SparseBiCgStabDiagonal, SolvePath.SparseMathNetDirectFallback]);
             Assert.True(condition: result.Path.IsSparse);
             Assert.Equal(expected: SolveStop.ResidualConverged, actual: result.Stop);
             Spec.Some(result.MaxIterations, cap => Assert.True(condition: cap >= 64));
@@ -190,7 +190,7 @@ public sealed class SparseMatrixLaws {
             Numeric.Eigenpair(matrix: diagonal.ToDense(), eigenvalue: eigenvalue, eigenvector: eigenvector, eq: Gens.Approx(relativeTolerance: 1.0e-4), label: "lobpcg");
             Assert.True(condition: receipt.MaxResidual <= 1.0e-4);
         });
-        Spec.FailCategory(diagonal.SmallestEigenpairs(k: 1, tolerance: 1.0e-12, maxIterations: 0, key: MatrixGens.Key), category: "Input");
+        Spec.FailCategory(diagonal.SmallestEigenpairsDetailed(k: 1, tolerance: 1.0e-12, maxIterations: 0, key: MatrixGens.Key), category: "Input");
         SparseMatrix conflictingMirror = MatrixGens.Sparse(dimension: 3, (0, 0, 1.0), (0, 1, 2.0), (1, 0, 4.0), (1, 1, 3.0), (2, 2, 7.0));
         Spec.FailCategory(conflictingMirror.SmallestEigenpairsDetailed(k: 1, tolerance: 1.0e-5, maxIterations: 80, key: MatrixGens.Key), category: "Input");
     }
@@ -243,8 +243,8 @@ public sealed class DecompositionLaws {
             double det = Numeric.Determinant(n: a.Rows.Value, at: a.At);
             Spec.EqualWithin(left: lu.Determinant, right: det, tolerance: Math.Max(val1: 1.0e-8, val2: Math.Abs(value: det) * 1.0e-12), what: "LU determinant");
             Arr<double> rhs = new([.. Enumerable.Range(start: 1, count: a.Rows.Value).Select(static i => (double)i)]);
-            Spec.Succ(lu.Solve(rhs: rhs, key: MatrixGens.Key), then: x => Numeric.Residual(matrix: a, x: x, b: rhs, tolerance: 1.0e-7, label: "LU solve"));
-            Spec.FailCategory(lu.Solve(rhs: new Arr<double>([1.0]), key: MatrixGens.Key), category: "Input");
+            Spec.Succ(lu.SolveDetailed(rhs: rhs, key: MatrixGens.Key), then: receipt => Numeric.Residual(matrix: a, x: receipt.Solution, b: rhs, tolerance: 1.0e-7, label: "LU solve"));
+            Spec.FailCategory(lu.SolveDetailed(rhs: new Arr<double>([1.0]), key: MatrixGens.Key), category: "Input");
         }));
     [Fact]
     public void DenseSolveReceiptsReportOwnedPaths() {

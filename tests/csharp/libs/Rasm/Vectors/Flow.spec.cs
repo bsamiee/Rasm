@@ -25,9 +25,6 @@ internal static class FlowGens {
             Steps: steps,
             Rejects: 0,
             RejectedSteps: 0,
-            RejectBudget: 0,
-            MethodOrder: IntegratorKind.RK4.Order,
-            EmbeddedOrder: Option<int>.None,
             MinStep: h,
             MaxStep: h,
             LastError: Option<double>.None,
@@ -42,7 +39,7 @@ internal static class FlowGens {
             RejectedSteps: 0,
             ArcLength: stop.Equals(StreamlineStopKind.Terminated) ? 1.0 : 0.0,
             FinalStep: 0.5,
-            MethodOrder: IntegratorKind.RK4.Order,
+            MethodOrder: IntegratorKind.RK4.Tableau.MethodOrder,
             EmbeddedOrder: Option<int>.None,
             LastError: Option<double>.None,
             MaxError: 0.0,
@@ -105,15 +102,13 @@ public sealed class IntegratorKindLaws {
         Spec.ForAll(FlowGens.NonAdaptive, k => Assert.False(k.IsAdaptive));
         Spec.ForAll(FlowGens.Integrator, k => {
             Assert.True(k.Tableau.IsValid);
-            Assert.Equal(expected: k.Tableau.Weights.Count, actual: k.StageCount);
-            Assert.Equal(expected: k.Tableau.MethodOrder, actual: k.Order);
             Spec.EqualWithin(left: Numeric.Sum(values: k.Tableau.Weights), right: 1.0, tolerance: 1.0e-10, what: "weights");
             Spec.Holds(condition: k.Tableau.Coupling.Zip(k.Tableau.Abscissae).ForAll(pair => Math.Abs(value: Numeric.Sum(values: pair.Item1) - pair.Item2) <= 1.0e-10), label: "Butcher row sums match abscissae");
             Spec.Holds(condition: k.Tableau.Coupling.AsIterable().Select((row, i) => row.Count <= i).All(static ok => ok), label: "Butcher coupling[i].Count <= i");
         });
         Spec.ForAll(FlowGens.Adaptive, k => Spec.EqualWithin(
             left: k.AdaptiveExponent,
-            right: k.EmbeddedOrder.Match(Some: static order => 1.0 / (order + 1.0), None: static () => 0.2),
+            right: k.Tableau.EmbeddedOrder.Match(Some: static order => 1.0 / (order + 1.0), None: static () => 0.2),
             tolerance: 0.0,
             what: "adaptive exponent"));
     }
@@ -182,18 +177,14 @@ public sealed class FieldIntegratorLaws {
         TraceEvent @event = new(
             Kind: TraceEventKind.CrossSurface,
             Status: TraceEventStatus.BracketedCrossing,
-            Previous: Point3d.Origin,
-            Current: new Point3d(x: 1.0, y: 0.0, z: 0.0),
-            Localized: new Point3d(x: 0.5, y: 0.0, z: 0.0),
-            PreviousValue: -1.0,
-            CurrentValue: 1.0,
-            LocalizedValue: 0.0,
+            Points: (Previous: Point3d.Origin, Current: new Point3d(x: 1.0, y: 0.0, z: 0.0), Localized: new Point3d(x: 0.5, y: 0.0, z: 0.0)),
+            Values: (Previous: -1.0, Current: 1.0, Localized: 0.0),
             Parameter: 0.5,
             Tolerance: FlowGens.Model.Absolute.Value,
             Residual: 0.0,
             Iterations: 12);
         StreamlineTrace trace = FlowGens.Trace(stop: StreamlineStopKind.Terminated) with {
-            TerminationPoint = @event.Localized,
+            TerminationPoint = @event.Points.Localized,
             Event = Some(@event),
         };
         Spec.Succ(FlowKernel.ProjectTrace<StreamlineTrace>(trace: trace, key: FlowGens.Key), then: valid =>

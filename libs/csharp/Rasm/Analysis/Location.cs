@@ -90,7 +90,7 @@ public static partial class Analyze {
                 ClosestOp<TGeometry, TOut>(key: LocationAspect.ClosestKey, target: ct.Probe, projection: SupportProjection.Closest),
             (LocationValue.FrameCase, Locator.CurveParameter or Locator.ArcLength or Locator.NormalizedMid) =>
                 Located<TGeometry, TOut, Curve, Plane>(key: LocationAspect.FrameAtKey, operation: () => CurveLocatedOp<TGeometry, Plane>(key: LocationAspect.FrameAtKey, locator: locator, project: static (curve, t, context) =>
-                    VectorIntent.Curve(source: curve, parameter: t, mode: CurveProjection.FrenetFrame).Project<Plane>(context: context, key: LocationAspect.FrameAtKey).Bind(plane => LocationAspect.FrameAtKey.Accept(value: plane)))),
+                    VectorIntent.Curve(source: curve, parameter: t, mode: CurveProjection.Frame).Project<Plane>(context: context, key: LocationAspect.FrameAtKey).Bind(plane => LocationAspect.FrameAtKey.Accept(value: plane)))),
             (LocationValue.FrameCase, Locator.SurfaceParameter sp) =>
                 Located<TGeometry, TOut, Surface, Plane>(key: LocationAspect.FrameAtKey, operation: () => SurfaceUvOp<TGeometry, Plane>(key: LocationAspect.FrameAtKey, uv: sp.Uv, project: static (surface, p) => GeometryKernel.FrameAt(surface: surface, uv: p, key: LocationAspect.FrameAtKey).Bind(frame => LocationAspect.FrameAtKey.Accept(value: frame)))),
             (LocationValue.FrameCase, Locator.ClosestTo ct) =>

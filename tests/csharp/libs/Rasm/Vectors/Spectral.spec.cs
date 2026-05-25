@@ -50,18 +50,25 @@ public sealed class SpectralBasisLaws {
 public sealed class SpectralFilterLaws {
     [Fact]
     public void IdentitySignatureAndPairwiseDistancesUseIndependentSpectralSums() {
-        Spec.Succ(SpectralFilter.Identity.Apply(basis: SpectralGens.Basis, sources: Option<Seq<int>>.None, key: SpectralGens.Key), then: values =>
-            Spec.SeqEqualWithin(left: toSeq(values.AsIterable()), right: Seq(2.0, 1.0, 2.0), tolerance: 1.0e-12, what: "signature"));
-        Spec.Succ(SpectralFilter.Identity.Apply(basis: SpectralGens.Basis, sources: Some(Seq(0)), key: SpectralGens.Key), then: values =>
-            Spec.SeqEqualWithin(left: toSeq(values.AsIterable()), right: Seq(0.0, 1.0, 2.0), tolerance: 1.0e-12, what: "pairwise"));
+        Spec.Succ(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.Basis, sources: Option<Seq<int>>.None, key: SpectralGens.Key), then: descriptor => {
+            Spec.SeqEqualWithin(left: toSeq(descriptor.Values.AsIterable()), right: Seq(2.0, 1.0, 2.0), tolerance: 1.0e-12, what: "signature");
+            Assert.False(condition: descriptor.Receipt.ComparisonReady);
+            Assert.False(condition: descriptor.Receipt.EnergyNormalized);
+            Assert.False(condition: descriptor.Receipt.BandwidthNormalized);
+        });
+        Spec.Succ(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.Basis, sources: Some(Seq(0)), key: SpectralGens.Key), then: descriptor => {
+            Spec.SeqEqualWithin(left: toSeq(descriptor.Values.AsIterable()), right: Seq(0.0, 1.0, 2.0), tolerance: 1.0e-12, what: "pairwise");
+            Assert.True(condition: descriptor.Receipt.Pairwise);
+            Assert.Equal(expected: 1, actual: descriptor.Receipt.SourceCount);
+        });
     }
     [Fact]
     public void SourceRailRejectsEmptyOrOutOfRangePairwiseInputs() {
-        Spec.FailCategory(SpectralFilter.Identity.Apply(basis: SpectralGens.Basis, sources: Some(Seq<int>()), key: SpectralGens.Key), category: "Input");
-        Spec.FailCategory(SpectralFilter.Identity.Apply(basis: SpectralGens.Basis, sources: Some(Seq(3)), key: SpectralGens.Key), category: "Input");
-        Spec.FailCategory(SpectralFilter.Identity.Apply(basis: SpectralGens.Basis, sources: Some(Seq(-1)), key: SpectralGens.Key), category: "Input");
+        Spec.FailCategory(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.Basis, sources: Some(Seq<int>()), key: SpectralGens.Key), category: "Input");
+        Spec.FailCategory(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.Basis, sources: Some(Seq(3)), key: SpectralGens.Key), category: "Input");
+        Spec.FailCategory(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.Basis, sources: Some(Seq(-1)), key: SpectralGens.Key), category: "Input");
         Assert.True(condition: SpectralGens.OverflowBasis.IsValid);
-        Spec.FailCategory(SpectralFilter.Identity.Apply(basis: SpectralGens.OverflowBasis, sources: Option<Seq<int>>.None, key: SpectralGens.Key), category: "Result");
+        Spec.FailCategory(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.OverflowBasis, sources: Option<Seq<int>>.None, key: SpectralGens.Key), category: "Result");
     }
     [Fact]
     public void ClosedCompositionsAreAlgebraicAndUnsupportedPairsStayNone() {

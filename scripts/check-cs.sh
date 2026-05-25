@@ -49,26 +49,44 @@ _lock_stale() {
     [[ -n "${owner_started}" && "${owner_start_command}" == "${owner_started}" ]] && return 1
     return 0
 }
+_clear_stale_lock() {
+    local -r lock_dir="$1"
+    rm -f -- "${lock_dir}/owner" 2>/dev/null || true
+    rmdir -- "${lock_dir}" 2>/dev/null || true
+}
+_lock_covers() {
+    local -r requested="$1" active="$2"
+    [[ "${active}" == full || "${active}" == "${requested}" ]]
+}
+_coalesce_lock() {
+    local -r lock_dir="$1" requested_mode="$2"
+    local -r meta="${lock_dir}/owner"
+    local owner_pid owner_started owner_token owner_name owner_mode
+    owner_mode=unknown
+    [[ -f "${meta}" ]] && IFS='|' read -r owner_pid owner_started owner_token owner_name owner_mode < "${meta}" || true
+    _lock_covers "${requested_mode}" "${owner_mode}" && {
+        printf 'check-cs: coalesced %s gate behind active %s gate; not launching duplicate dotnet work\n' "${requested_mode}" "${owner_mode}" >&2
+        return 0
+    }
+    _die "Active ${owner_mode} gate does not cover requested ${requested_mode} gate; retry after it completes." 75
+}
 _with_lock() {
     local -r name="$1" handler="$2"
     shift 2
+    local -r mode="${1:-unknown}"
     local -r lock_key="${name//[^[:alnum:]_.:-]/_}"
     local -r lock_dir="${LOCK_ROOT}/${lock_key}.lock"
     local -r lock_meta="${lock_dir}/owner"
     mkdir -p -- "${LOCK_ROOT}"
-    local -r deadline=$((BASH_MONOSECONDS + 120))
-    local waited=0
-    until mkdir -- "${lock_dir}" 2>/dev/null; do
-        _lock_stale "${lock_dir}" && { rm -rf -- "${lock_dir}"; continue; }
-        ((waited)) || { printf 'check-cs: waiting for quality gate lock: %s\n' "${lock_dir}" >&2; waited=1; }
-        ((BASH_MONOSECONDS < deadline)) || _die "Timed out waiting for quality gate lock: ${lock_dir}"
-        sleep 0.2
-    done
+    mkdir -- "${lock_dir}" 2>/dev/null || {
+        _lock_stale "${lock_dir}" && _clear_stale_lock "${lock_dir}"
+        mkdir -- "${lock_dir}" 2>/dev/null || { _coalesce_lock "${lock_dir}" "${mode}"; return; }
+    }
     ACTIVE_LOCK="${lock_dir}"
     ACTIVE_TOKEN="$$:${BASH_MONOSECONDS}:${SRANDOM}"
     local lock_tmp
     lock_tmp="$(mktemp "${lock_dir}/owner.XXXXXXXX")"
-    printf '%s|%s|%s|%s\n' "$$" "$(ps -o lstart= -p "$$" 2>/dev/null || true)" "${ACTIVE_TOKEN}" "${name}" > "${lock_tmp}"
+    printf '%s|%s|%s|%s|%s\n' "$$" "$(ps -o lstart= -p "$$" 2>/dev/null || true)" "${ACTIVE_TOKEN}" "${name}" "${mode}" > "${lock_tmp}"
     mv -- "${lock_tmp}" "${lock_meta}"
     "${handler}" "$@"
     _release_lock
@@ -330,6 +348,9 @@ _self_test() {
     _assert_eq full "$(_route_file tools/cs-analyzer/config.json)"
     _assert_eq "project|libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj" "$(_route_file libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj)"
     _assert_eq "project|libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj" "$(_route_file libs/csharp/Rasm.Rhino/packages.lock.json)"
+    _lock_covers check check || _die "Lock coverage must accept same-mode check"
+    _lock_covers check full || _die "Lock coverage must accept full as covering check"
+    ! _lock_covers full check || _die "Lock coverage must not accept check as covering full"
 }
 _main() {
     (($# <= 1)) || _die "Unexpected arguments: $*" 2

@@ -128,8 +128,8 @@ public static partial class Analyze {
             .Map(components => Math.Abs(value: (components.X * -Math.Sin(a: angle)) + (components.Y * Math.Cos(d: angle))))
             .BindFail(static _ => Fin.Succ(0.0))).As()
         select spread.Fold(initialState: 0.0, f: Math.Max);
-    // Principal angle of the 2D point cloud in `fit` plane coordinates. Defers to Vectors'
-    // N-D Welford covariance + Jacobi eigen on the 2x2 symmetric covariance matrix; the
+    // Principal angle of the 2D point cloud in `fit` plane coordinates. Domain owns raw
+    // covariance moments; Vectors owns the 2x2 symmetric eigen decomposition, where the
     // first eigenvector encodes the principal axis directly via atan2.
     private static Fin<double> PrincipalAngle(Seq<Point3d> points, Plane fit, Context context, Op op) {
         Seq<Arr<double>> planar = points.Map(point =>
@@ -138,8 +138,9 @@ public static partial class Analyze {
                 .Match(
                     Succ: v => new Arr<double>([v.X, v.Y]),
                     Fail: _ => new Arr<double>([0.0, 0.0])));
-        return CloudKernel.CovarianceOf(points: planar, dimension: Vectors.Dimension.Create(value: 2), key: op)
-            .Bind(stats => stats.Cov.DecomposeEigen(key: op))
+        return SampleMoment.Of(rows: planar, dimension: 2, key: op)
+            .Bind(moment => SymmetricMatrix.Of(dim: Vectors.Dimension.Create(value: moment.Dimension), upper: moment.UpperCovariance, key: op))
+            .Bind(covariance => covariance.DecomposeEigen(key: op))
             .Map(static eigen => Math.Atan2(y: eigen[0].Eigenvector[1], x: eigen[0].Eigenvector[0]));
     }
 }

@@ -67,12 +67,6 @@ public sealed record SupportSpace {
     internal Type SourceType => Value.GetType();
     internal bool CanClosestNormal => GeometryKernel.CanClosestNormal(type: SourceType);
     internal bool CanSignedDistance => GeometryKernel.CanSignedDistance(type: SourceType);
-    internal bool AdmitsNormal(ClosestHit hit) =>
-        CanClosestNormal && hit.Normal.IsSome;
-    internal bool AdmitsTangent(ClosestHit hit) =>
-        GeometryKernel.CanClosestTangent(type: SourceType) && hit.Tangent.IsSome;
-    internal bool AdmitsFrame(ClosestHit hit) =>
-        GeometryKernel.CanClosestFrame(type: SourceType) && hit.Frame.IsSome;
     internal bool AdmitsSignedDistance(ClosestHit hit) =>
         Value switch {
             Plane or Sphere or Box or BoundingBox => hit.Distance.IsSome,
@@ -93,9 +87,20 @@ public sealed record SupportSpace {
             _ => from source in Optional(value).ToFin(op.InvalidInput())
                  let type = source.GetType()
                  from _ in guard(type != typeof(object) && type != typeof(GeometryBase) && GeometryKernel.CanClosest(type: type), op.Unsupported(type, typeof(ClosestHit)))
+                 from valid in SupportIsValid(source: source).ToFin(op.InvalidInput())
+                 from __ in guard(valid, op.InvalidInput())
                  select new SupportSpace(value: source),
         };
     }
+    private static Option<bool> SupportIsValid(object source) =>
+        source switch {
+            Plane plane => Some(PointIsFinite(point: plane.Origin) && VectorIsFinite(vector: plane.XAxis) && VectorIsFinite(vector: plane.YAxis) && VectorIsFinite(vector: plane.ZAxis)),
+            _ => OpAcceptance.ValidityOf(source: source),
+        };
+    private static bool PointIsFinite(Point3d point) =>
+        RhinoMath.IsValidDouble(x: point.X) && RhinoMath.IsValidDouble(x: point.Y) && RhinoMath.IsValidDouble(x: point.Z);
+    private static bool VectorIsFinite(Vector3d vector) =>
+        RhinoMath.IsValidDouble(x: vector.X) && RhinoMath.IsValidDouble(x: vector.Y) && RhinoMath.IsValidDouble(x: vector.Z);
     private static bool ClusterIsValid(VectorCloud.ClusterCase cluster) =>
         cluster.Vertices.Count > 0
         && cluster.Vertices.ForAll(static point => point.IsValid)

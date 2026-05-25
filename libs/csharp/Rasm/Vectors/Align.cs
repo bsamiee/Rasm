@@ -3,42 +3,63 @@ using Foundation.CSharp.Analyzers.Contracts;
 namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct AlignmentRobustReceipt(double Scale, double MinWeight, double MaxWeight);
+internal readonly record struct AlignmentStep(Transform Delta, Option<SolveReceipt> Solve = default, Option<AlignmentRobustReceipt> Robust = default);
+internal readonly record struct AlignmentMatch(CloudCorrespondenceSet Correspondences, Point3d[] Targets, Vector3d[] Normals, double[] Distances, double[] RowMass);
+
 [SmartEnum<int>]
 public sealed partial class AlignKind {
     public static readonly AlignKind Point = new(key: 0,
-        solveStep: static (source, target, _, _, current, key) => AlignKernel.SolvePointToPoint(source: source, target: target, current: current, key: key));
+        needsTargetNormals: false,
+        approximation: AlignmentApproximationStatus.RigidPointToPoint,
+        solveStep: static (source, match, current, key) => AlignKernel.SolvePointToPoint(source: source, target: match.Targets, rowMass: match.RowMass, current: current, key: key));
     public static readonly AlignKind Plane = new(key: 1,
-        solveStep: static (source, target, normals, _, current, key) => AlignKernel.SolvePointToPlane(source: source, target: target, normals: normals, current: current, key: key));
+        needsTargetNormals: true,
+        approximation: AlignmentApproximationStatus.LinearizedPointToPlane,
+        solveStep: static (source, match, current, key) => AlignKernel.SolvePointToPlane(source: source, target: match.Targets, normals: match.Normals, rowMass: match.RowMass, current: current, key: key));
     public static readonly AlignKind Symmetric = new(key: 2,
-        solveStep: static (source, target, normals, _, current, key) => AlignKernel.SolveSymmetric(source: source, target: target, normals: normals, current: current, key: key));
+        needsTargetNormals: true,
+        approximation: AlignmentApproximationStatus.SymmetricNormalSumLinearized,
+        solveStep: static (source, match, current, key) => AlignKernel.SolveSymmetric(source: source, target: match.Targets, normals: match.Normals, rowMass: match.RowMass, current: current, key: key));
     public static readonly AlignKind Robust = new(key: 3,
-        solveStep: static (source, target, _, residuals, current, key) => AlignKernel.SolveRobustProcrustes(source: source, target: target, residuals: residuals, current: current, key: key));
+        needsTargetNormals: false,
+        approximation: AlignmentApproximationStatus.RobustWeightedPointToPoint,
+        solveStep: static (source, match, current, key) => AlignKernel.SolveRobustProcrustes(source: source, target: match.Targets, residuals: match.Distances, rowMass: match.RowMass, current: current, key: key));
     public static readonly AlignKind NormalWeightedPointToPlane = new(key: 4,
-        solveStep: static (source, target, normals, _, current, key) => AlignKernel.SolveNormalWeightedPointToPlane(source: source, target: target, targetNormals: normals, current: current, key: key));
-    [UseDelegateFromConstructor] internal partial Fin<Transform> SolveStep(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, double[] residuals, Transform current, Op key);
+        needsTargetNormals: true,
+        approximation: AlignmentApproximationStatus.NormalWeightedPointToPlane,
+        solveStep: static (source, match, current, key) => AlignKernel.SolveNormalWeightedPointToPlane(source: source, target: match.Targets, targetNormals: match.Normals, rowMass: match.RowMass, current: current, key: key));
+    public bool NeedsTargetNormals { get; }
+    public AlignmentApproximationStatus Approximation { get; }
+    [UseDelegateFromConstructor] internal partial Fin<AlignmentStep> SolveStep(Seq<Point3d> source, AlignmentMatch match, Transform current, Op key);
     internal Fin<AlignmentReceipt> AlignDetailed(VectorCloud source, VectorCloud target, Op? key = null) =>
         AlignKernel.AlignClouds(kind: this, source: source, target: target, key: key.OrDefault());
 }
 
 [SmartEnum<int>]
 public sealed partial class AlignmentStopKind {
-    public static readonly AlignmentStopKind Converged = new(key: 0);
-    public static readonly AlignmentStopKind MaxIterationsExhausted = new(key: 1);
+    public static readonly AlignmentStopKind Converged = new(key: 0), MaxIterationsExhausted = new(key: 1);
+}
+
+[SmartEnum<int>]
+public sealed partial class AlignmentApproximationStatus {
+    public static readonly AlignmentApproximationStatus RigidPointToPoint = new(key: 0), LinearizedPointToPlane = new(key: 1), SymmetricNormalSumLinearized = new(key: 2), RobustWeightedPointToPoint = new(key: 3), NormalWeightedPointToPlane = new(key: 4);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct AlignmentReceipt(Transform Transform, AlignmentStopKind Stop, int Iterations, double FinalDelta, int Count, double Rmse, double MedianResidual);
+public readonly record struct AlignmentReceipt(Transform Transform, AlignKind Kind, AlignmentApproximationStatus Approximation, AlignmentStopKind Stop, int Iterations, double FinalDelta, Option<AlignmentRobustReceipt> Robust, CloudCorrespondenceSet Correspondences, Option<SolveReceipt> Solve);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class AlignKernel {
     private const int IcpMaxIterations = 30;
     private const double IcpConvergenceTolerance = 1e-6;
     private const double WelschNu = 0.1;
-    private readonly record struct IcpState(Transform Current, double FinalDelta, int Iterations, int Count, double Rmse, double MedianResidual, Option<AlignmentStopKind> Stop);
+    private readonly record struct IcpState(Transform Current, double FinalDelta, int Iterations, AlignmentStep Step, Option<AlignmentStopKind> Stop);
 
     // --- [ALIGNMENT] ------------------------------------------------------------------------
     // Umeyama 1991 (point-to-point) | Chen-Medioni 1992 (point-to-plane) | Rusinkiewicz 2019
-    // (symmetric) | yaoyx689 2020 robust IRLS with Welsch loss. All modes share the iterative
+    // (symmetric) | MAD-scaled Welsch weighting. All modes share the iterative
     // correspondence-finding outer loop; the inner solve switches on kind.
     internal static Fin<AlignmentReceipt> AlignClouds(AlignKind kind, VectorCloud source, VectorCloud target, Op key) =>
         (source, target) switch {
@@ -47,76 +68,70 @@ internal static class AlignKernel {
             _ => Fin.Fail<AlignmentReceipt>(error: key.InvalidInput()),
         };
 
-    // Iterative closest-point with correspondence re-association at each step; AlignKind owns
-    // the point, plane, symmetric, robust, or normal-weighted inner solve.
     private static Fin<AlignmentReceipt> IcpAlign(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, AlignKind kind, Op key) =>
-        from targetNormals in CloudKernel.EstimateNormalsViaCovariance(target: target, key: key)
-        from aligned in IcpAlignWithNormals(source: source, target: target, kind: kind, targetNormals: targetNormals, key: key)
-        select aligned;
-    private static Fin<AlignmentReceipt> IcpAlignWithNormals(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, AlignKind kind, Vector3d[] targetNormals, Op key) =>
+        from targetNormals in kind.NeedsTargetNormals
+            ? CloudKernel.EstimateNormalsViaCovariance(target: target, key: key)
+            : Fin.Succ(System.Array.Empty<Vector3d>())
+        from sourceMass in CloudKernel.MassOf(cluster: source, key: key)
         from final in toSeq(Enumerable.Range(start: 0, count: IcpMaxIterations)).Fold(
-            initialState: Fin.Succ(new IcpState(Current: Transform.Identity, FinalDelta: double.PositiveInfinity, Iterations: 0, Count: 0, Rmse: 0.0, MedianResidual: 0.0, Stop: Option<AlignmentStopKind>.None)),
+            initialState: Fin.Succ(new IcpState(Current: Transform.Identity, FinalDelta: double.PositiveInfinity, Iterations: 0, Step: new AlignmentStep(Delta: Transform.Identity), Stop: Option<AlignmentStopKind>.None)),
             f: (acc, iter) => acc.Bind(state => state.Stop.IsSome
                 ? Fin.Succ(state)
-                : from correspondences in FindCorrespondences(source: source.Vertices, target: target, normals: targetNormals, current: state.Current, key: key)
-                  from delta in kind.SolveStep(source: source.Vertices, target: correspondences.Target, normals: correspondences.Normals, residuals: correspondences.Residuals, current: state.Current, key: key)
-                  let current = delta * state.Current
-                  let finalDelta = DeltaMagnitude(delta: delta)
+                : from match in FindCorrespondences(source: source.Vertices, sourceMass: sourceMass, target: target, normals: targetNormals, current: state.Current, key: key)
+                  from step in kind.SolveStep(source: source.Vertices, match: match, current: state.Current, key: key)
+                  let current = step.Delta * state.Current
+                  let finalDelta = DeltaMagnitude(delta: step.Delta)
                   select new IcpState(
                       Current: current,
                       FinalDelta: finalDelta,
                       Iterations: iter + 1,
-                      Count: correspondences.Count,
-                      Rmse: correspondences.Rmse,
-                      MedianResidual: correspondences.MedianResidual,
+                      Step: step,
                       Stop: finalDelta < IcpConvergenceTolerance ? Some(AlignmentStopKind.Converged) : Option<AlignmentStopKind>.None)))
-        select new AlignmentReceipt(
-            Transform: final.Current,
-            Stop: final.Stop.IfNone(AlignmentStopKind.MaxIterationsExhausted),
-            Iterations: final.Iterations,
-            FinalDelta: final.FinalDelta,
-            Count: final.Count,
-            Rmse: final.Rmse,
-            MedianResidual: final.MedianResidual);
-    private static Fin<(Point3d[] Target, Vector3d[] Normals, double[] Residuals, int Count, double Rmse, double MedianResidual)> FindCorrespondences(Seq<Point3d> source, VectorCloud.ClusterCase target, Vector3d[] normals, Transform current, Op key) {
+        from finalMatch in FindCorrespondences(source: source.Vertices, sourceMass: sourceMass, target: target, normals: targetNormals, current: final.Current, key: key)
+        select new AlignmentReceipt(Transform: final.Current, Kind: kind, Approximation: kind.Approximation, Stop: final.Stop.IfNone(AlignmentStopKind.MaxIterationsExhausted), Iterations: final.Iterations, FinalDelta: final.FinalDelta, Robust: final.Step.Robust, Correspondences: finalMatch.Correspondences, Solve: final.Step.Solve);
+    private static Fin<AlignmentMatch> FindCorrespondences(Seq<Point3d> source, Arr<double> sourceMass, VectorCloud.ClusterCase target, Vector3d[] normals, Transform current, Op key) {
         int n = source.Count;
         Point3d[] transformed = [.. source.AsIterable().Select(point => current * point)];
         int[][] nearestIds = [.. RTree.PointCloudKNeighbors(pointcloud: target.Indexed, needlePts: transformed, amount: 1)];
-        Point3d[] matchedTarget = new Point3d[n]; Vector3d[] matchedNormals = new Vector3d[n]; double[] residuals = new double[n];
-        double squared = 0.0;
+        Arr<double> targetMass = target.Mass.IfNone(new Arr<double>([.. Enumerable.Repeat(element: 1.0 / target.Vertices.Count, count: target.Vertices.Count)]));
+        Point3d[] targets = new Point3d[n]; Vector3d[] rowNormals = normals.Length == 0 ? [] : new Vector3d[n]; double[] distances = new double[n]; double[] rowMass = new double[n];
+        List<CloudCorrespondence> items = new(capacity: n);
         for (int i = 0; i < n; i++) {
             int nearest = nearestIds.Length > i && nearestIds[i].Length > 0 ? nearestIds[i][0] : -1;
-            if (nearest < 0 || nearest >= target.Vertices.Count || nearest >= normals.Length) return Fin.Fail<(Point3d[] Target, Vector3d[] Normals, double[] Residuals, int Count, double Rmse, double MedianResidual)>(key.InvalidResult());
-            matchedTarget[i] = target.Indexed.PointAt(index: nearest);
-            matchedNormals[i] = normals[nearest];
-            residuals[i] = transformed[i].DistanceTo(other: matchedTarget[i]);
-            squared += residuals[i] * residuals[i];
+            if (nearest < 0 || nearest >= target.Vertices.Count || sourceMass.Count <= i || (normals.Length > 0 && nearest >= normals.Length)) return Fin.Fail<AlignmentMatch>(key.InvalidResult());
+            Point3d targetPoint = target.Indexed.PointAt(index: nearest);
+            Vector3d residual = targetPoint - transformed[i];
+            double squared = residual.SquareLength;
+            targets[i] = targetPoint; distances[i] = Math.Sqrt(d: squared); rowMass[i] = sourceMass[index: i];
+            if (normals.Length > 0) rowNormals[i] = normals[nearest];
+            items.Add(item: new CloudCorrespondence(
+                SourceIndex: i,
+                TargetIndex: nearest,
+                SourcePoint: transformed[i],
+                TargetPoint: targetPoint,
+                Residual: residual,
+                Distance: distances[i],
+                SquaredDistance: squared,
+                SourceMass: Some(sourceMass[index: i]),
+                TargetMass: Some(targetMass[index: nearest]),
+                CouplingMass: Some(sourceMass[index: i]),
+                Confidence: Option<double>.None));
         }
-        double[] sorted = [.. residuals.Select(static residual => Math.Abs(value: residual)).Order()];
-        return Fin.Succ((
-            Target: matchedTarget,
-            Normals: matchedNormals,
-            Residuals: residuals,
-            Count: n,
-            Rmse: n > 0 ? Math.Sqrt(d: squared / n) : 0.0,
-            MedianResidual: sorted.Length > 0 ? (sorted[(sorted.Length - 1) / 2] + sorted[sorted.Length / 2]) * 0.5 : 0.0));
+        return Fin.Succ(new AlignmentMatch(Correspondences: CloudCorrespondenceSet.Of(items: toSeq(items), sourceCount: source.Count, targetCount: target.Vertices.Count), Targets: targets, Normals: rowNormals, Distances: distances, RowMass: rowMass));
     }
-    internal static Fin<Transform> SolvePointToPoint(Seq<Point3d> source, Point3d[] target, Transform current, Op key) {
-        Seq<Point3d> transformedSource = toSeq(source.AsIterable().Select(p => current * p));
-        Seq<Point3d> targetSeq = toSeq(target);
-        return transformedSource.Count != targetSeq.Count || transformedSource.Count < 3
-            ? Fin.Fail<Transform>(error: key.InvalidInput())
-            : AlignViaCrossCovariance(source: transformedSource, target: targetSeq, srcCentroid: CentroidOf(points: transformedSource), tgtCentroid: CentroidOf(points: targetSeq), weights: null, key: key);
-    }
+    internal static Fin<AlignmentStep> SolvePointToPoint(Seq<Point3d> source, Point3d[] target, double[] rowMass, Transform current, Op key) =>
+        SolveProcrustes(source: source, target: target, weights: rowMass, current: current, key: key)
+            .Map(static delta => new AlignmentStep(Delta: delta));
     // Point-to-plane linearization (Chen-Medioni 1992): assume small-angle rotation R ≈ I + [ω]×,
     // minimize ||A[ω;t] − b||² where each row is [cross(p, n) | n] · [ω;t] = (q − p) · n.
-    internal static Fin<Transform> SolvePointToPlane(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, Transform current, Op key) =>
-        SolveLinearizedRows(source: source, target: target, normals: normals, current: current, key: key, rowNormal: static (_, normal) => (Normal: normal, Weight: 1.0));
-    internal static Fin<Transform> SolveSymmetric(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, Transform current, Op key) =>
+    internal static Fin<AlignmentStep> SolvePointToPlane(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, double[] rowMass, Transform current, Op key) =>
+        SolveLinearizedRows(source: source, target: target, normals: normals, rowMass: rowMass, current: current, key: key, rowNormal: static (_, normal) => (Normal: normal, Weight: 1.0));
+    internal static Fin<AlignmentStep> SolveSymmetric(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, double[] rowMass, Transform current, Op key) =>
         EstimateSourceNormals(source: source, current: current, key: key).Bind(sourceNormals => SolveLinearizedRows(
             source: source,
             target: target,
             normals: normals,
+            rowMass: rowMass,
             current: current,
             key: key,
             rowNormal: (i, targetNormal) => {
@@ -127,53 +142,70 @@ internal static class AlignKernel {
             }));
     private static Fin<Vector3d[]> EstimateSourceNormals(Seq<Point3d> source, Transform current, Op key) =>
         CloudKernel.EstimateNormalsFromPoints(points: [.. source.Map(p => current * p).AsIterable()], key: key);
-    internal static Fin<Transform> SolveNormalWeightedPointToPlane(Seq<Point3d> source, Point3d[] target, Vector3d[] targetNormals, Transform current, Op key) =>
+    internal static Fin<AlignmentStep> SolveNormalWeightedPointToPlane(Seq<Point3d> source, Point3d[] target, Vector3d[] targetNormals, double[] rowMass, Transform current, Op key) =>
         EstimateSourceNormals(source: source, current: current, key: key).Bind(sourceNormals => SolveLinearizedRows(
             source: source,
             target: target,
             normals: targetNormals,
+            rowMass: rowMass,
             current: current,
             key: key,
             rowNormal: (i, normal) => (Normal: normal, Weight: Math.Sqrt(d: Math.Max(val1: Math.Abs(value: sourceNormals[i] * normal), val2: RhinoMath.SqrtEpsilon)))));
-    private static Fin<Transform> SolveLinearizedRows(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, Transform current, Op key, Func<int, Vector3d, (Vector3d Normal, double Weight)> rowNormal) {
+    private static Fin<AlignmentStep> SolveLinearizedRows(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, double[] rowMass, Transform current, Op key, Func<int, Vector3d, (Vector3d Normal, double Weight)> rowNormal) {
         int n = source.Count;
-        if (n < 6 || target.Length != n || normals.Length != n) return Fin.Fail<Transform>(key.InvalidInput());
+        if (n < 6 || target.Length != n || normals.Length != n || rowMass.Length != n) return Fin.Fail<AlignmentStep>(key.InvalidInput());
         double[] aFlat = new double[n * 6]; double[] b = new double[n];
         for (int i = 0; i < n; i++) {
             (Vector3d rawNormal, double weight) = rowNormal(i, normals[i]);
+            double massWeight = Math.Sqrt(d: rowMass[i]);
             if (!rawNormal.IsValid || rawNormal.SquareLength <= RhinoMath.SqrtEpsilon * RhinoMath.SqrtEpsilon || !RhinoMath.IsValidDouble(x: weight) || weight <= 0.0)
-                return Fin.Fail<Transform>(key.InvalidResult());
-            Point3d p = current * source[index: i]; Point3d q = target[i]; Vector3d nrm = weight * rawNormal;
+                return Fin.Fail<AlignmentStep>(key.InvalidResult());
+            Point3d p = current * source[index: i]; Point3d q = target[i]; Vector3d nrm = weight * massWeight * rawNormal;
             Vector3d cross = Vector3d.CrossProduct(a: (Vector3d)p, b: nrm);
             aFlat[(i * 6) + 0] = cross.X; aFlat[(i * 6) + 1] = cross.Y; aFlat[(i * 6) + 2] = cross.Z;
             aFlat[(i * 6) + 3] = nrm.X; aFlat[(i * 6) + 4] = nrm.Y; aFlat[(i * 6) + 5] = nrm.Z;
             b[i] = (q - p) * nrm;
         }
         return Matrix.Of(rows: Dimension.Create(value: n), cols: Dimension.Create(value: 6), entries: new Arr<double>(aFlat), key: key)
-            .Bind(design => design.LeastSquares(rhs: new Arr<double>(b), key: key))
-            .Bind(x => x.Count == 6 && x.ForAll(RhinoMath.IsValidDouble)
-                ? Fin.Succ(ComposeRigidTransform(omega: new Vector3d(x: x[0], y: x[1], z: x[2]), translation: new Vector3d(x: x[3], y: x[4], z: x[5])))
-                : Fin.Fail<Transform>(key.InvalidResult()));
+            .Bind(design => design.LeastSquaresDetailed(rhs: new Arr<double>(b), key: key))
+            .Bind(receipt => receipt.Solution.Count == 6 && receipt.Solution.ForAll(RhinoMath.IsValidDouble)
+                ? Fin.Succ(new AlignmentStep(
+                    Delta: ComposeRigidTransform(omega: new Vector3d(x: receipt.Solution[0], y: receipt.Solution[1], z: receipt.Solution[2]), translation: new Vector3d(x: receipt.Solution[3], y: receipt.Solution[4], z: receipt.Solution[5])),
+                    Solve: Some(receipt)))
+                : Fin.Fail<AlignmentStep>(key.InvalidResult()));
     }
 
-    internal static Fin<Transform> SolveRobustProcrustes(Seq<Point3d> source, Point3d[] target, double[] residuals, Transform current, Op key) {
+    internal static Fin<AlignmentStep> SolveRobustProcrustes(Seq<Point3d> source, Point3d[] target, double[] residuals, double[] rowMass, Transform current, Op key) {
         int n = source.Count;
-        if (n < 3 || target.Length != n || residuals.Length != n) return Fin.Fail<Transform>(key.InvalidInput());
+        if (n < 3 || target.Length != n || residuals.Length != n || rowMass.Length != n) return Fin.Fail<AlignmentStep>(key.InvalidInput());
         double[] weights = new double[n];
         double[] sortedResiduals = [.. residuals.Select(static residual => Math.Abs(value: residual)).Order()];
         double median = sortedResiduals.Length == 0 ? 1.0 : sortedResiduals[sortedResiduals.Length / 2];
         double nu = Math.Max(val1: 1.4826 * median * WelschNu, val2: RhinoMath.SqrtEpsilon);
-        for (int i = 0; i < n; i++) weights[i] = Math.Exp(d: -(residuals[i] * residuals[i]) / (2.0 * nu * nu));
+        for (int i = 0; i < n; i++) weights[i] = rowMass[i] * Math.Exp(d: -(residuals[i] * residuals[i]) / (2.0 * nu * nu));
+        return from aligned in SolveProcrustes(source: source, target: target, weights: weights, current: current, key: key)
+               select new AlignmentStep(Delta: aligned, Robust: Some(new AlignmentRobustReceipt(Scale: nu, MinWeight: weights.Min(), MaxWeight: weights.Max())));
+    }
+    private static Fin<Transform> SolveProcrustes(Seq<Point3d> source, Point3d[] target, double[] weights, Transform current, Op key) {
         Seq<Point3d> transformedSource = toSeq(source.AsIterable().Select(p => current * p));
         Seq<Point3d> targetSeq = toSeq(target);
-        Point3d srcCentroid = WeightedCentroidOf(points: transformedSource, weights: weights);
-        Point3d tgtCentroid = WeightedCentroidOf(points: targetSeq, weights: weights);
-        return AlignViaCrossCovariance(source: transformedSource, target: targetSeq, srcCentroid: srcCentroid, tgtCentroid: tgtCentroid, weights: weights, key: key);
+        return transformedSource.Count != targetSeq.Count || transformedSource.Count < 3 || weights.Length != transformedSource.Count
+            ? Fin.Fail<Transform>(error: key.InvalidInput())
+            : from srcCentroid in WeightedCentroidOf(points: transformedSource, weights: weights, key: key)
+              from tgtCentroid in WeightedCentroidOf(points: targetSeq, weights: weights, key: key)
+              from aligned in AlignViaCrossCovariance(source: transformedSource, target: targetSeq, srcCentroid: srcCentroid, tgtCentroid: tgtCentroid, weights: weights, key: key)
+              select aligned;
     }
-    private static Point3d WeightedCentroidOf(Seq<Point3d> points, double[] weights) {
+    private static Fin<Point3d> WeightedCentroidOf(Seq<Point3d> points, double[] weights, Op key) {
+        if (weights.Length < points.Count) return Fin.Fail<Point3d>(key.InvalidInput());
         Vector3d sum = Vector3d.Zero; double totalW = 0.0;
-        for (int i = 0; i < points.Count; i++) { sum += weights[i] * (Vector3d)points[index: i]; totalW += weights[i]; }
-        return totalW > RhinoMath.ZeroTolerance ? Point3d.Origin + (sum / totalW) : Point3d.Origin;
+        for (int i = 0; i < points.Count; i++) {
+            if (!RhinoMath.IsValidDouble(x: weights[i]) || weights[i] <= 0.0) return Fin.Fail<Point3d>(key.InvalidInput());
+            sum += weights[i] * (Vector3d)points[index: i]; totalW += weights[i];
+        }
+        return totalW > RhinoMath.ZeroTolerance && RhinoMath.IsValidDouble(x: totalW)
+            ? key.AcceptValue(value: Point3d.Origin + (sum / totalW))
+            : Fin.Fail<Point3d>(key.InvalidResult());
     }
     // Cross-covariance H = Σ w_i (s_i − ȳ)(t_i − ȳ)ᵀ → SVD → R = V·diag(1,1,det(VUᵀ))·Uᵀ;
     // post-rotation translation = ȳ − R x̄ assembles the full rigid transform.
@@ -189,18 +221,15 @@ internal static class AlignKernel {
         }
         return from h in Matrix.Of(rows: dim3, cols: dim3, entries: new Arr<double>(cross), key: key)
                from svd in h.DecomposeSvd(key: key)
-               from rotation in BuildRotation(u: svd.U, v: svd.V, key: key)
-               select WithTranslation(rotation: rotation, translation: tgtCentroid - (rotation * srcCentroid));
-    }
-    private static Fin<Transform> BuildRotation(Matrix u, Matrix v, Op key) {
-        return from vu in v.Multiply(other: u.Transpose(), key: key)
+               from vu in svd.V.Multiply(other: svd.U.Transpose(), key: key)
                from det in vu.Determinant(key: key)
                let diag = new[] { 1.0, 1.0, det >= 0.0 ? 1.0 : -1.0 }
                let d = new Matrix(Rows: Dimension.Create(value: 3), Cols: Dimension.Create(value: 3),
                    Entries: [.. Enumerable.Range(start: 0, count: 9).Select(idx => (idx / 3) == (idx % 3) ? diag[idx / 3] : 0.0)])
-               from vd in v.Multiply(other: d, key: key)
-               from rot in vd.Multiply(other: u.Transpose(), key: key)
-               select RotationTransformOf(rotation: rot);
+               from vd in svd.V.Multiply(other: d, key: key)
+               from rot in vd.Multiply(other: svd.U.Transpose(), key: key)
+               let rotation = RotationTransformOf(rotation: rot)
+               select WithTranslation(rotation: rotation, translation: tgtCentroid - (rotation * srcCentroid));
     }
     private static Transform RotationTransformOf(Matrix rotation) {
         Transform xform = Transform.Identity;
@@ -213,10 +242,6 @@ internal static class AlignKernel {
         Transform aligned = rotation;
         aligned[0, 3] = translation.X; aligned[1, 3] = translation.Y; aligned[2, 3] = translation.Z;
         return aligned;
-    }
-    private static Point3d CentroidOf(Seq<Point3d> points) {
-        Vector3d sum = points.Fold(initialState: Vector3d.Zero, f: static (acc, p) => acc + (Vector3d)p);
-        return Point3d.Origin + (sum / points.Count);
     }
     // Compose the linearized increment as an exact axis-angle rotation plus translation.
     private static Transform ComposeRigidTransform(Vector3d omega, Vector3d translation) {
