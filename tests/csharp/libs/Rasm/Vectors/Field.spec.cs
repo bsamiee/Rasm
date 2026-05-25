@@ -206,6 +206,11 @@ public sealed class FieldReconstructionAndSdfLaws {
             Spec.Some(extraction.IsoSurface, iso => Assert.True(condition: iso.ParallelCallback && iso.FixedTolerance.IsSome));
         });
     }
+    [Fact]
+    public void IsoSurfaceAdmissionRejectsNonfiniteScalarPayloadBeforeNativeMarching() {
+        BoundingBox bounds = new(min: new Point3d(x: -1.0, y: -1.0, z: -1.0), max: new Point3d(x: 1.0, y: 1.0, z: 1.0));
+        Spec.FailCategory(ScalarField.Constant(value: double.NaN).IsoSurfaceDetailed(bounds: bounds, resolution: 8, maxRootSteps: 16, context: FieldGens.Model, key: FieldGens.Key), category: "Input");
+    }
 }
 
 public sealed class VectorFieldAlgebraLaws {

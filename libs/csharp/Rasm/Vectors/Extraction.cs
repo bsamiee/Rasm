@@ -410,9 +410,9 @@ internal abstract partial record Extraction {
                 from output in ProjectCurves<TOut>(batch: batch, key: state.Key)
                 select output,
             isoSurfaceCase: static (state, extraction) =>
-                from result in extraction.Field.IsoSurfaceDetailed(bounds: extraction.Bounds, resolution: extraction.Resolution, maxRootSteps: extraction.MaxRootSteps, context: state.Context, key: state.Key)
+                from result in extraction.Field.IsoSurfaceAttemptDetailed(bounds: extraction.Bounds, resolution: extraction.Resolution, maxRootSteps: extraction.MaxRootSteps, context: state.Context, key: state.Key)
                 from output in typeof(TOut) switch {
-                    Type t when t.Equals(typeof(Mesh)) => Accept<TOut, Mesh>(value: result.Mesh, key: state.Key),
+                    Type t when t.Equals(typeof(Mesh)) => result.Receipt.Valid ? Accept<TOut, Mesh>(value: result.Mesh, key: state.Key) : Fin.Fail<TOut>(state.Key.InvalidResult()),
                     Type t when t == typeof(IsoSurfaceReceipt) => Fin.Succ((TOut)(object)result.Receipt),
                     Type t when t == typeof(IsoSurfaceResult) => Fin.Succ((TOut)(object)result),
                     Type t when t == typeof(ExtractionReceipt) => ExtractionReceipt.Of(status: result.Receipt.Valid ? ExtractionStatus.Complete : ExtractionStatus.Approximate, attempted: 1, emitted: result.Receipt.Valid ? 1 : 0, nativeRouted: result.Receipt.NativeRouted, toleranceSource: result.Receipt.FixedTolerance.IsSome ? ToleranceSource.RhinoDefault : ToleranceSource.NotApplicable, tolerance: result.Receipt.FixedTolerance, parallelCallback: result.Receipt.ParallelCallback, key: state.Key, isoSurface: Some(result.Receipt)).Map(static receipt => (TOut)(object)receipt),

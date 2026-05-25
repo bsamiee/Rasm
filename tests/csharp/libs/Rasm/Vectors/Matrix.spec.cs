@@ -304,4 +304,11 @@ public sealed class DecompositionLaws {
             Assert.True(condition: receipt.MaxResidual < 1.0e-10);
         });
     }
+    [Fact]
+    public void SolveAndEigenAdmissionRejectNonfiniteInputs() {
+        SparseMatrix stiffness = MatrixGens.Sparse(dimension: 3, (0, 0, 2.0), (1, 1, 3.0), (2, 2, 5.0));
+        SparseMatrix invalidMass = stiffness with { Values = new Arr<double>([1.0, double.NaN, 1.0]) };
+        Assert.False(condition: MatrixKernel.SolveInputIsValid(rows: 2, rhs: [1.0, double.NaN]));
+        Spec.FailCategory(MatrixKernel.GeneralizedEigenpairsDetailed(stiffness: stiffness, mass: invalidMass, k: 1, key: MatrixGens.Key), category: "Input");
+    }
 }

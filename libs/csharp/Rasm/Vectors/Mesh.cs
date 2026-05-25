@@ -32,7 +32,7 @@ internal readonly record struct GeodesicKey(Seq<int> Sources);
 [StructLayout(LayoutKind.Auto)] internal readonly record struct CrossFieldKey(int Symmetry, Option<Seq<(int Vertex, Direction Hint)>> Constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> Cones);
 internal readonly record struct HodgeKey(VectorField Source);
 [StructLayout(LayoutKind.Auto)] internal readonly record struct VectorHeatKey(double Time, Seq<(int Vertex, Vector3d Direction)> Sources);
-internal readonly record struct SignedHeatSolution(Arr<double> Values, SignedHeatReceipt Receipt);
+internal readonly record struct SignedHeatSolution(Arr<double> Values, SignedHeatReceipt Receipt, TopologyReceipt Topology);
 internal readonly record struct BoundarySignedHeatSource(Arr<double> Rhs, Seq<int> SourceVertices, int EncodedEdgeSourceCount, int RejectedBoundaryPointCount, int UnmatchedBoundarySegmentCount);
 internal sealed class LaplacianCache {
     internal const int DefaultSpectralCount = 32;
@@ -50,12 +50,13 @@ internal sealed class LaplacianCache {
                     },
                     Fail: error => Fin.Fail<T>(error));
             });
+        internal bool Contains(TKey probe) => cache.Value.ContainsKey(key: probe);
     }
-    private readonly Lazy<Fin<SparseLaplacian>> cotangent, intrinsicDelaunay, robust;
-    private readonly Lazy<Fin<CholeskySparse>> cholesky;
-    private readonly Lazy<Fin<SpectralBasisBundle>> defaultSpectral;
+    private readonly Memo<Unit, SparseLaplacian> cotangent = new(), intrinsicDelaunay = new(), robust = new();
+    private readonly Memo<Unit, CholeskySparse> cholesky = new();
+    private readonly Memo<Unit, SpectralBasisBundle> defaultSpectral = new();
     private readonly Lazy<double> meanEdgeLength;
-    private readonly Lazy<Fin<MeshKernel.IntrinsicMesh>> intrinsicMesh;
+    private readonly Memo<Unit, MeshKernel.IntrinsicMesh> intrinsicMesh = new();
     private readonly Memo<(int Symmetry, double Time), CholeskySparse> connectionCholesky = new();
     private readonly Memo<double, CholeskySparse> scalarHeatCholesky = new(), edgeConnectionCholesky = new();
     private readonly Memo<GeodesicKey, Arr<double>> geodesicCache = new();
@@ -67,34 +68,42 @@ internal sealed class LaplacianCache {
     private readonly MeshSpace space;
     private LaplacianCache(MeshSpace space) {
         this.space = space;
-        Op fallback = Op.Of();
-        intrinsicMesh = new Lazy<Fin<MeshKernel.IntrinsicMesh>>(valueFactory: () => MeshKernel.BuildIntrinsicMesh(mesh: space.Native, key: fallback));
-        cotangent = new Lazy<Fin<SparseLaplacian>>(valueFactory: () => MeshKernel.AssembleCotangent(mesh: space.Native, key: fallback));
-        intrinsicDelaunay = new Lazy<Fin<SparseLaplacian>>(valueFactory: () => intrinsicMesh.Value.Bind(im => MeshKernel.AssembleCotangentFromIntrinsic(imesh: im, key: fallback)));
-        robust = new Lazy<Fin<SparseLaplacian>>(valueFactory: () => MeshKernel.AssembleRobust(mesh: space.Native, key: fallback));
-        cholesky = new Lazy<Fin<CholeskySparse>>(valueFactory: () =>
-            from L in intrinsicDelaunay.Value
-            from spd in MeshKernel.AssembleMassStiffnessSystem(laplacian: L, massScale: SpdRegularization, stiffnessScale: 1.0, key: fallback)
-            from factor in CholeskySparse.Of(symmetric: spd, key: fallback)
-            select factor);
-        defaultSpectral = new Lazy<Fin<SpectralBasisBundle>>(valueFactory: () => MeshKernel.ComputeSpectralBasisDetailed(space: space, k: DefaultSpectralCount, key: fallback));
         meanEdgeLength = new Lazy<double>(valueFactory: () => MeshKernel.MeanEdgeLengthOf(mesh: space.Native));
     }
     internal static LaplacianCache For(MeshSpace space) =>
         Table.GetValue(key: space.Native, createValueCallback: _ => new LaplacianCache(space: space));
-    internal Fin<SparseLaplacian> Cotangent => cotangent.Value;
-    internal Fin<SparseLaplacian> IntrinsicDelaunay => intrinsicDelaunay.Value;
-    internal Fin<SparseLaplacian> Robust => robust.Value;
-    internal Fin<CholeskySparse> Cholesky => cholesky.Value;
-    internal Fin<MeshKernel.IntrinsicMesh> IntrinsicMeshSnapshot => intrinsicMesh.Value;
+    internal Fin<SparseLaplacian> Cotangent(Op key) =>
+        cotangent.Of(probe: unit, compute: () => MeshKernel.AssembleCotangent(mesh: space.Native, key: key));
+    internal Fin<SparseLaplacian> IntrinsicDelaunay(Op key) =>
+        intrinsicDelaunay.Of(probe: unit, compute: () =>
+            from imesh in IntrinsicMeshSnapshot(key: key)
+            from laplacian in MeshKernel.AssembleCotangentFromIntrinsic(imesh: imesh, key: key)
+            select laplacian);
+    internal Fin<SparseLaplacian> Robust(Op key) =>
+        robust.Of(probe: unit, compute: () => MeshKernel.AssembleRobust(mesh: space.Native, key: key));
+    internal Fin<CholeskySparse> Cholesky(Op key) =>
+        cholesky.Of(probe: unit, compute: () =>
+            from L in IntrinsicDelaunay(key: key)
+            from spd in MeshKernel.AssembleMassStiffnessSystem(laplacian: L, massScale: SpdRegularization, stiffnessScale: 1.0, key: key)
+            from factor in CholeskySparse.Of(symmetric: spd, key: key)
+            select factor);
+    internal Fin<MeshKernel.IntrinsicMesh> IntrinsicMeshSnapshot(Op key) =>
+        intrinsicMesh.Of(probe: unit, compute: () => MeshKernel.BuildIntrinsicMesh(mesh: space.Native, key: key));
     internal Fin<Arr<double>> SignedHeat(Op key) => SignedHeatDetailed(key: key).Map(static result => result.Values);
     internal Fin<SignedHeatSolution> SignedHeatDetailed(Op key) =>
         signedHeat.Of(probe: unit, compute: () => MeshKernel.ComputeSignedHeatDetailed(space: space, key: key));
     internal double MeanEdgeLength => meanEdgeLength.Value;
     internal Fin<SpectralBasisBundle> SpectralBasisBundleOf(int k, Op key) {
-        bool cacheHit = k <= DefaultSpectralCount && defaultSpectral.IsValueCreated;
+        bool cacheHit = k <= DefaultSpectralCount && defaultSpectral.Contains(probe: unit);
         return k <= DefaultSpectralCount
-            ? defaultSpectral.Value.Map(bundle => bundle with { Basis = bundle.Basis.Truncate(k: k), CacheHit = cacheHit })
+            ? defaultSpectral.Of(probe: unit, compute: () => MeshKernel.ComputeSpectralBasisDetailed(space: space, k: DefaultSpectralCount, key: key)).Map(bundle =>
+                bundle.Basis.Truncate(k: k) switch {
+                    SpectralBasis basis => bundle with {
+                        Basis = basis,
+                        Eigen = bundle.Eigen with { Pairs = toSeq(Enumerable.Take(source: bundle.Eigen.Pairs.AsIterable(), count: basis.Eigenvalues.Count)), RequestedPairs = k, ReturnedPairs = basis.Eigenvalues.Count },
+                        CacheHit = cacheHit,
+                    },
+                })
             : MeshKernel.ComputeSpectralBasisDetailed(space: space, k: k, key: key);
     }
     internal Fin<CholeskySparse> ConnectionCholesky(int symmetry, double time, Option<Arr<double>> edgeAdjustment, Op key) =>
@@ -108,13 +117,13 @@ internal sealed class LaplacianCache {
                 select factor);
     internal Fin<CholeskySparse> ScalarHeatCholesky(double time, Op key) =>
         scalarHeatCholesky.Of(probe: time, compute: () =>
-            from L in intrinsicDelaunay.Value
+            from L in IntrinsicDelaunay(key: key)
             from system in MeshKernel.AssembleMassStiffnessSystem(laplacian: L, stiffnessScale: time, key: key)
             from factor in CholeskySparse.Of(symmetric: system, key: key)
             select factor);
     internal Fin<CholeskySparse> EdgeConnectionCholesky(double time, Op key) =>
         edgeConnectionCholesky.Of(probe: time, compute: () =>
-            from imesh in intrinsicMesh.Value
+            from imesh in IntrinsicMeshSnapshot(key: key)
             from system in SpectralCore.BuildCrouzeixRaviartHeatSystem(mesh: imesh, time: time, key: key)
             from factor in CholeskySparse.Of(symmetric: system, key: key)
             select factor);
@@ -124,7 +133,7 @@ internal sealed class LaplacianCache {
     internal Fin<MeshKernel.HodgeBundle> Hodge(HodgeKey probe, Func<Fin<MeshKernel.HodgeBundle>> compute) => hodgeCache.Of(probe, compute);
     internal Fin<Complex[]> VectorHeat(VectorHeatKey probe, Func<Fin<Complex[]>> compute) => vectorHeatCache.Of(probe, compute);
 }
-[SmartEnum<int>] public sealed partial class MeshLaplacian { public static readonly MeshLaplacian Cotangent = new(key: 0, select: static cache => cache.Cotangent), IntrinsicDelaunay = new(key: 1, select: static cache => cache.IntrinsicDelaunay), Robust = new(key: 2, select: static cache => cache.Robust); [UseDelegateFromConstructor] internal partial Fin<SparseLaplacian> Select(LaplacianCache cache); }
+[SmartEnum<int>] public sealed partial class MeshLaplacian { public static readonly MeshLaplacian Cotangent = new(key: 0, select: static (cache, key) => cache.Cotangent(key: key)), IntrinsicDelaunay = new(key: 1, select: static (cache, key) => cache.IntrinsicDelaunay(key: key)), Robust = new(key: 2, select: static (cache, key) => cache.Robust(key: key)); [UseDelegateFromConstructor] internal partial Fin<SparseLaplacian> Select(LaplacianCache cache, Op key); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SpectralBasisBundle(SpectralBasis Basis, EigenSolveReceipt<double, Arr<double>> Eigen, bool CacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TopologyReceipt(int Vertices, int TopologyVertices, int TopologyEdges, int Faces, int Triangles, int Quads, int Ngons, int VisiblePolygons, int BoundaryComponents, int NonManifoldEdges, bool IsManifold, bool IsOriented, int EulerCharacteristic, Option<int> Genus, bool EulerValidated);
 [SmartEnum<int>] public sealed partial class MeshFeatureKind { public static readonly MeshFeatureKind Boundary = new(key: 0), Crease = new(key: 1), NonManifold = new(key: 2), Unwelded = new(key: 3), NgonInteriorSkipped = new(key: 4); }
@@ -497,7 +506,7 @@ internal static class MeshKernel {
         from _ in active.Equals(MeshLaplacian.Cotangent)
             ? AspectRatioGuard(mesh: space.Native, ceiling: AspectRatioCeiling, key: key)
             : Fin.Succ(unit)
-        from result in active.Select(cache: space.Cache)
+        from result in active.Select(cache: space.Cache, key: key)
         select result;
 
     // --- [SPD_PIN] --------------------------------------------------------------------------
@@ -580,14 +589,12 @@ internal static class MeshKernel {
             (MeshFeatureKind Kind, Option<double> Angle)? feature = faces.Length switch {
                 1 => (MeshFeatureKind.Boundary, Option<double>.None),
                 > 2 => (MeshFeatureKind.NonManifold, Option<double>.None),
-                2 => (
-                    mesh.Ngons.NgonIndexFromFaceIndex(faces[0]),
-                    mesh.Ngons.NgonIndexFromFaceIndex(faces[1]),
-                    Vector3d.VectorAngle(a: (Vector3d)faceNormals[faces[0]], b: (Vector3d)faceNormals[faces[1]])) switch {
-                        (int a, int b, _) when a >= 0 && a == b => (MeshFeatureKind.NgonInteriorSkipped, Option<double>.None),
-                        (_, _, double angle) when angle >= dihedralRadians => (MeshFeatureKind.Crease, Some(angle)),
-                        _ => null,
-                    },
+                2 when mesh.TopologyEdges.IsEdgeUnwelded(topologyEdgeIndex: e) => (MeshFeatureKind.Unwelded, Option<double>.None),
+                2 when mesh.TopologyEdges.IsNgonInterior(topologyEdgeIndex: e) => (MeshFeatureKind.NgonInteriorSkipped, Option<double>.None),
+                2 => Vector3d.VectorAngle(a: (Vector3d)faceNormals[faces[0]], b: (Vector3d)faceNormals[faces[1]]) switch {
+                    double angle when angle >= dihedralRadians => (MeshFeatureKind.Crease, Some(angle)),
+                    _ => null,
+                },
                 _ => null,
             };
             if (feature is not { } edge) continue;
@@ -620,7 +627,7 @@ internal static class MeshKernel {
         return ordered.IsEmpty || ordered.Exists(i => i < 0 || i >= n)
             ? Fin.Fail<Arr<double>>(key.InvalidInput())
             : space.Cache.Geodesic(probe: new GeodesicKey(Sources: ordered),
-                compute: () => from imesh in space.Cache.IntrinsicMeshSnapshot
+                compute: () => from imesh in space.Cache.IntrinsicMeshSnapshot(key: key)
                                from _ in guard(!imesh.HasFlips, key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof(Arr<double>)))
                                from L in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
                                from distances in ComputeHeatGeodesic(space: space, laplacian: L, sources: ordered, key: key)
@@ -724,7 +731,7 @@ internal static class MeshKernel {
 
     // Flipped intrinsic edges need signpost transport, so this rail fails before use.
     private static Fin<Seq<(int I, int J, double Weight, double Rho)>> EnumerateConnectionEntries(MeshSpace space, Option<Arr<double>> edgeAdjustment, Op key) =>
-        space.Cache.IntrinsicMeshSnapshot.Bind(imesh => {
+        space.Cache.IntrinsicMeshSnapshot(key: key).Bind(imesh => {
             if (imesh.HasFlips)
                 return Fin.Fail<Seq<(int I, int J, double Weight, double Rho)>>(key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof(SparseHermitian)));
             Mesh mesh = space.Native;
@@ -814,7 +821,7 @@ internal static class MeshKernel {
     private static Fin<Option<Arr<double>>> ResolveEdgeAdjustment(MeshSpace space, Option<Seq<(int Vertex, double HolonomyDeficit)>> cones, Op key) =>
         cones.IsNone
             ? Fin.Succ(Option<Arr<double>>.None)
-            : from imesh in space.Cache.IntrinsicMeshSnapshot
+            : from imesh in space.Cache.IntrinsicMeshSnapshot(key: key)
               from adjustment in SpectralCore.DistributeHolonomy(space: space, imesh: imesh, cones: cones.IfNone(toSeq<(int, double)>([])).Map(c => (c.Vertex, ConeIndex: c.HolonomyDeficit / (2.0 * Math.PI))), key: key)
               select Some(adjustment);
     private static Fin<Complex[]> SolveSmoothestCrossField(MeshSpace space, int symmetry, Option<Arr<double>> edgeAdjustment, Op key) =>
@@ -1233,7 +1240,7 @@ internal static class MeshKernel {
     private static Fin<Complex[]> ComputeVectorHeat(MeshSpace space, Seq<(int Vertex, Vector3d Direction)> sources, double time, Op key) {
         int n = space.Native.Vertices.Count;
         FrameBundle frames = EnsureVertexFrames(mesh: space.Native);
-        return from imesh in space.Cache.IntrinsicMeshSnapshot
+        return from imesh in space.Cache.IntrinsicMeshSnapshot(key: key)
                from _ in guard(!imesh.HasFlips, key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof(Complex[])))
                from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
                from connectionFactor in space.Cache.ConnectionCholesky(symmetry: 1, time: time, edgeAdjustment: Option<Arr<double>>.None, key: key)
@@ -1321,7 +1328,7 @@ internal static class MeshKernel {
             ? Fin.Fail<SdfMeshSample>(key.Unsupported(geometryType: typeof(MeshSpace), outputType: typeof(SdfMeshSample)))
             : method.Equals(SdfMeshMethod.BoundarySignedHeat)
                 ? SignedHeatDistanceDetailed(space: space, sample: sample, key: key)
-                    .Bind(result => SdfMeshReceiptOf(space: space, method: method, signedHeat: Some(result.Receipt), key: key)
+                    .Bind(result => SdfMeshReceiptOf(space: space, method: method, signedHeat: Some(result.Solution.Receipt), key: key, topology: Some(result.Solution.Topology))
                         .Map(receipt => new SdfMeshSample(Distance: result.Distance, Receipt: receipt)))
                 : GeneralizedWindingDistance(space: space, sample: sample, key: key)
                     .Bind(distance => SdfMeshReceiptOf(space: space, method: method, signedHeat: Option<SignedHeatReceipt>.None, key: key)
@@ -1331,11 +1338,11 @@ internal static class MeshKernel {
             ? Fin.Fail<SdfMeshReceipt>(key.Unsupported(geometryType: typeof(MeshSpace), outputType: typeof(SdfMeshReceipt)))
             : method.Equals(SdfMeshMethod.BoundarySignedHeat)
                 ? from solution in space.Cache.SignedHeatDetailed(key: key)
-                  from receipt in SdfMeshReceiptOf(space: space, method: method, signedHeat: Some(solution.Receipt), key: key)
+                  from receipt in SdfMeshReceiptOf(space: space, method: method, signedHeat: Some(solution.Receipt), key: key, topology: Some(solution.Topology))
                   select receipt
                 : SdfMeshReceiptOf(space: space, method: method, signedHeat: Option<SignedHeatReceipt>.None, key: key);
-    private static Fin<SdfMeshReceipt> SdfMeshReceiptOf(MeshSpace space, SdfMeshMethod method, Option<SignedHeatReceipt> signedHeat, Op key) =>
-        TopologyDetailed(space: space, key: key)
+    private static Fin<SdfMeshReceipt> SdfMeshReceiptOf(MeshSpace space, SdfMeshMethod method, Option<SignedHeatReceipt> signedHeat, Op key, Option<TopologyReceipt> topology = default) =>
+        topology.Match(Some: static receipt => Fin.Succ(receipt), None: () => TopologyDetailed(space: space, key: key))
             .Map(topology => new SdfMeshReceipt(Method: method, Status: method.Equals(SdfMeshMethod.BoundarySignedHeat) ? SdfMeshStatus.BoundarySourceSignedHeat : SdfMeshStatus.ApproximateSignClosestDistance, IsSolid: space.Native.IsSolid, IsManifold: topology.IsManifold, IsOriented: topology.IsOriented, BoundaryComponents: topology.BoundaryComponents, NonManifoldEdges: topology.NonManifoldEdges, UsesGeneralizedWindingApproximation: method.Equals(SdfMeshMethod.GeneralizedWindingNumber), UsesBoundarySignedHeat: method.Equals(SdfMeshMethod.BoundarySignedHeat), SignedHeat: signedHeat));
     private static Fin<double> GeneralizedWindingDistance(MeshSpace space, Point3d sample, Op key) =>
         Optional(space.Native.ClosestPoint(testPoint: sample)).Filter(static closest => closest.IsValid).ToFin(key.InvalidResult()).Bind(closest =>
@@ -1365,38 +1372,38 @@ internal static class MeshKernel {
         double denom = lengthProduct + (abDot * lc) + (bcDot * la) + (caDot * lb);
         return 2.0 * Math.Atan2(y: det, x: denom);
     }
-    private static Fin<(double Distance, SignedHeatReceipt Receipt)> SignedHeatDistanceDetailed(MeshSpace space, Point3d sample, Op key) {
-        Polyline[]? polylines = space.Native.GetNakedEdges();
-        return polylines is null || polylines.Length == 0
-            ? Fin.Fail<(double, SignedHeatReceipt)>(key.InvalidInput())
-            : from phi in space.Cache.SignedHeatDetailed(key: key)
-              from signed in InterpolateOnMesh(space: space, sample: sample, perVertex: phi.Values, key: key)
-              select (signed, phi.Receipt);
-    }
+    private static Fin<(double Distance, SignedHeatSolution Solution)> SignedHeatDistanceDetailed(MeshSpace space, Point3d sample, Op key) =>
+        from solution in space.Cache.SignedHeatDetailed(key: key)
+        from signed in InterpolateOnMesh(space: space, sample: sample, perVertex: solution.Values, key: key)
+        select (signed, solution);
     // Boundary-source signed heat rejects flipped IDT until CR signpost transfer exists.
     internal static Fin<Arr<double>> ComputeSignedHeat(MeshSpace space, Op key) => ComputeSignedHeatDetailed(space: space, key: key).Map(static result => result.Values);
     internal static Fin<SignedHeatSolution> ComputeSignedHeatDetailed(MeshSpace space, Op key) {
         Mesh mesh = space.Native;
-        Polyline[]? polylines = mesh.GetNakedEdges();
-        if (polylines is null || polylines.Length == 0) return Fin.Fail<SignedHeatSolution>(error: key.InvalidInput());
         double h = space.Cache.MeanEdgeLength;
         if (h <= RhinoMath.ZeroTolerance) return Fin.Fail<SignedHeatSolution>(error: key.InvalidResult());
         double t = 0.5 * h * (0.5 * h);
-        return from imesh in space.Cache.IntrinsicMeshSnapshot
+        return from imesh in space.Cache.IntrinsicMeshSnapshot(key: key)
                from _ in guard(!imesh.HasFlips, key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof(SignedHeatSolution)))
-               let encoded = EncodeSignedHeatBoundarySource(mesh: mesh, imesh: imesh, polylines: polylines)
-               from admitted in AdmitSignedHeatSource(encoded: encoded, key: key)
+               from admitted in AdmitBoundarySignedHeat(space: space, imesh: imesh, key: key)
                from heatFactor in space.Cache.EdgeConnectionCholesky(time: t, key: key)
-               from heatSolve in heatFactor.SolveDetailed(rhs: admitted.Rhs, key: key)
+               from heatSolve in heatFactor.SolveDetailed(rhs: admitted.Source.Rhs, key: key)
                let faceField = SpectralCore.SampleCrouzeixRaviartFaceField(mesh: mesh, imesh: imesh, stacked: heatSolve.Solution)
                let divergence = SpectralCore.ComputeIntrinsicVertexDivergence(mesh: mesh, imesh: imesh, faceFields: faceField)
-               from poissonFactor in space.Cache.Cholesky
+               from poissonFactor in space.Cache.Cholesky(key: key)
                from poissonSolve in poissonFactor.SolveDetailed(rhs: divergence, key: key)
-               from shifted in ShiftSignedHeat(phi: poissonSolve.Solution, sourceVertices: admitted.SourceVertices, key: key)
+               from shifted in ShiftSignedHeat(phi: poissonSolve.Solution, sourceVertices: admitted.Source.SourceVertices, vertexCount: mesh.Vertices.Count, key: key)
                select new SignedHeatSolution(
                    Values: shifted,
-                   Receipt: new SignedHeatReceipt(BoundarySourceVertexCount: admitted.SourceVertices.Count, BoundaryEncodedEdgeSourceCount: admitted.EncodedEdgeSourceCount, BoundaryRejectedPointCount: admitted.RejectedBoundaryPointCount, BoundaryUnmatchedSegmentCount: admitted.UnmatchedBoundarySegmentCount, HeatSolve: heatSolve, PoissonSolve: poissonSolve));
+                   Receipt: new SignedHeatReceipt(BoundarySourceVertexCount: admitted.Source.SourceVertices.Count, BoundaryEncodedEdgeSourceCount: admitted.Source.EncodedEdgeSourceCount, BoundaryRejectedPointCount: admitted.Source.RejectedBoundaryPointCount, BoundaryUnmatchedSegmentCount: admitted.Source.UnmatchedBoundarySegmentCount, HeatSolve: heatSolve, PoissonSolve: poissonSolve),
+                   Topology: admitted.Topology);
     }
+    private static Fin<(TopologyReceipt Topology, BoundarySignedHeatSource Source)> AdmitBoundarySignedHeat(MeshSpace space, IntrinsicMesh imesh, Op key) =>
+        from topology in TopologyDetailed(space: space, key: key)
+        from polylines in Optional(space.Native.GetNakedEdges()).Filter(static edges => edges.Length > 0).ToFin(key.InvalidInput())
+        let encoded = EncodeSignedHeatBoundarySource(mesh: space.Native, imesh: imesh, polylines: polylines)
+        from admitted in AdmitSignedHeatSource(encoded: encoded, key: key)
+        select (Topology: topology, Source: admitted);
     // Edge-as-source encoding stacks imaginary CR edge sources with Lo→Hi signs.
     private static BoundarySignedHeatSource EncodeSignedHeatBoundarySource(Mesh mesh, IntrinsicMesh imesh, Polyline[] polylines) {
         int eCount = imesh.EdgeCount;
@@ -1440,10 +1447,11 @@ internal static class MeshKernel {
             int best when best >= 0 && vertices[index: best].DistanceToSquared(other: target) <= tolSq => best,
             _ => -1,
         };
-    private static Fin<Arr<double>> ShiftSignedHeat(Arr<double> phi, Seq<int> sourceVertices, Op key) =>
-        sourceVertices.IsEmpty
+    private static Fin<Arr<double>> ShiftSignedHeat(Arr<double> phi, Seq<int> sourceVertices, int vertexCount, Op key) =>
+        phi.Count != vertexCount || !phi.ForAll(RhinoMath.IsValidDouble) || sourceVertices.IsEmpty || sourceVertices.Exists(source => source < 0 || source >= vertexCount)
             ? Fin.Fail<Arr<double>>(key.InvalidResult())
             : (sourceVertices.Fold(initialState: 0.0, f: (sum, source) => sum - phi[index: source]) / sourceVertices.Count) switch {
-                double mean => Fin.Succ(new Arr<double>([.. phi.AsIterable().Select(value => -value - mean)])),
+                double mean when RhinoMath.IsValidDouble(x: mean) && phi.AsIterable().Select(value => -value - mean).All(static value => RhinoMath.IsValidDouble(x: value)) => Fin.Succ(new Arr<double>([.. phi.AsIterable().Select(value => -value - mean)])),
+                _ => Fin.Fail<Arr<double>>(key.InvalidResult()),
             };
 }

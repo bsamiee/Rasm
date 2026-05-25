@@ -188,10 +188,10 @@ internal static class SpectralCore {
 
     internal static Fin<Arr<double>> DistributeHolonomy(MeshSpace space, MeshKernel.IntrinsicMesh imesh, Seq<(int Vertex, double ConeIndex)> cones, Op key) {
         Arr<double> defects = ComputeIntrinsicAngleDefects(imesh: imesh);
-        return from _ in ValidateGaussBonnet(mesh: space.Native, imesh: imesh, defects: defects, cones: cones, key: key) let u = BuildConePrimalOneForm(imesh: imesh, defects: defects, cones: cones) let star1 = ComputeIntrinsicStar1(imesh: imesh) let rhs = IntrinsicCoexactRhs(imesh: imesh, star1: star1, u: u) from beta in space.Cache.Cholesky.Bind(factor => factor.Solve(rhs: rhs, key: key)) let dBeta = IntrinsicEdgeGradient(imesh: imesh, beta: beta) select new Arr<double>([.. dBeta.AsIterable().Select(static value => -value)]);
+        return from _ in ValidateGaussBonnet(mesh: space.Native, imesh: imesh, defects: defects, cones: cones, key: key) let u = BuildConePrimalOneForm(imesh: imesh, defects: defects, cones: cones) let star1 = ComputeIntrinsicStar1(imesh: imesh) let rhs = IntrinsicCoexactRhs(imesh: imesh, star1: star1, u: u) from beta in space.Cache.Cholesky(key: key).Bind(factor => factor.Solve(rhs: rhs, key: key)) let dBeta = IntrinsicEdgeGradient(imesh: imesh, beta: beta) select new Arr<double>([.. dBeta.AsIterable().Select(static value => -value)]);
     }
     private static Fin<Unit> ValidateGaussBonnet(Mesh mesh, MeshKernel.IntrinsicMesh imesh, Arr<double> defects, Seq<(int Vertex, double ConeIndex)> cones, Op key) {
-        bool valid = mesh.GetNakedEdges() is { Length: 0 } && defects.Count == imesh.VertexCount && defects.ForAll(RhinoMath.IsValidDouble) && !cones.Exists(c => c.Vertex < 0 || c.Vertex >= imesh.VertexCount || !RhinoMath.IsValidDouble(x: c.ConeIndex));
+        bool valid = mesh.GetNakedEdges() is null && defects.Count == imesh.VertexCount && defects.ForAll(RhinoMath.IsValidDouble) && !cones.Exists(c => c.Vertex < 0 || c.Vertex >= imesh.VertexCount || !RhinoMath.IsValidDouble(x: c.ConeIndex));
         double sumK = Enumerable.Sum(defects.AsIterable());
         double euler = sumK / (2.0 * Math.PI);
         double sumPrescribed = Enumerable.Sum(cones.AsIterable(), static c => c.ConeIndex);
@@ -310,7 +310,7 @@ internal static class SpectralCore {
     }
 
     // --- [DEC_ASSEMBLY] ---------------------------------------------------------------------
-    internal static Fin<DiscreteCalculus> Build(MeshSpace space, Op key) => from imesh in space.Cache.IntrinsicMeshSnapshot from laplacian in space.Cache.IntrinsicDelaunay from dec in AssembleDecOperators(imesh: imesh, mass: laplacian.MassLumped, key: key) select dec;
+    internal static Fin<DiscreteCalculus> Build(MeshSpace space, Op key) => from imesh in space.Cache.IntrinsicMeshSnapshot(key: key) from laplacian in space.Cache.IntrinsicDelaunay(key: key) from dec in AssembleDecOperators(imesh: imesh, mass: laplacian.MassLumped, key: key) select dec;
 
     private static Fin<DiscreteCalculus> AssembleDecOperators(MeshKernel.IntrinsicMesh imesh, Arr<double> mass, Op key) {
         int vertCount = imesh.VertexCount;

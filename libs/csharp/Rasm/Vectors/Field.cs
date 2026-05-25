@@ -772,34 +772,36 @@ public abstract partial record ScalarField {
         new(Status: status, LipschitzBound: field.LipschitzBound(), AnalyticPrimitive: field is PrimitiveCase, MeshBacked: field is SignedDistanceFromMeshCase, WatertightPreflight: mesh.Map(static receipt => receipt.IsSolid && receipt.IsManifold && receipt.IsOriented), LossyFallback: status.Equals(SdfStatus.LossyFallback), Mesh: mesh);
     public Fin<IsoSurfaceResult> IsoSurfaceDetailed(BoundingBox bounds, int resolution, int maxRootSteps, Context context, Op? key = null) {
         Op op = key.OrDefault();
+        return IsoSurfaceAttemptDetailed(bounds: bounds, resolution: resolution, maxRootSteps: maxRootSteps, context: context, key: op)
+            .Bind(result => result.Receipt.Valid ? Fin.Succ(result) : Fin.Fail<IsoSurfaceResult>(op.InvalidResult()));
+    }
+    internal Fin<IsoSurfaceResult> IsoSurfaceAttemptDetailed(BoundingBox bounds, int resolution, int maxRootSteps, Context context, Op key) {
         ScalarField self = this;
-        return FieldNabla.IsoSurfaceInput(bounds: bounds, resolution: resolution, maxRootSteps: maxRootSteps, key: op)
-            .Bind(_ => self.AdmitIsoSurfaceEvaluator(context: context, key: op))
-            .Bind(_ => op.Catch(() => {
+        return FieldNabla.IsoSurfaceInput(bounds: bounds, resolution: resolution, maxRootSteps: maxRootSteps, key: key)
+            .Bind(_ => self.AdmitIsoSurfaceEvaluator(context: context, key: key))
+            .Bind(_ => key.Catch(() => {
                 int failures = 0;
                 double EvaluateIso(Point3d point) =>
-                    self.SampleScalar(sample: point, context: context, key: op)
+                    self.SampleScalar(sample: point, context: context, key: key)
                         .Match(
                             Succ: static value => value,
                             Fail: _ => {
                                 failures = Interlocked.Increment(location: ref failures);
                                 return double.NaN;
                             });
-                Mesh result = Mesh.CreateFromIsosurface(
+                Mesh? result = Mesh.CreateFromIsosurface(
                     scalarFieldEvaluator: EvaluateIso,
                     box: bounds, resolution: resolution, RootFindingMaxSteps: maxRootSteps);
-                return failures > 0
-                    ? Fin.Fail<IsoSurfaceResult>(op.InvalidResult())
-                    : result is null || !result.IsValid
-                    ? Fin.Fail<IsoSurfaceResult>(op.InvalidResult())
-                    : Fin.Succ(new IsoSurfaceResult(
-                        Mesh: result,
-                        Receipt: new IsoSurfaceReceipt(NativeRouted: true, Bounds: bounds, Resolution: resolution, MaxRootSteps: maxRootSteps, ParallelCallback: true, EvaluatorFailures: failures, Valid: result.IsValid, VertexCount: result.Vertices.Count, FaceCount: result.Faces.Count, FixedTolerance: Some(0.001))));
+                bool valid = failures == 0 && result is { IsValid: true };
+                return Fin.Succ(new IsoSurfaceResult(
+                    Mesh: result ?? new Mesh(),
+                    Receipt: new IsoSurfaceReceipt(NativeRouted: true, Bounds: bounds, Resolution: resolution, MaxRootSteps: maxRootSteps, ParallelCallback: true, EvaluatorFailures: failures, Valid: valid, VertexCount: result?.Vertices.Count ?? 0, FaceCount: result?.Faces.Count ?? 0, FixedTolerance: Some(0.001))));
             }));
     }
     private Fin<Unit> AdmitIsoSurfaceEvaluator(Context context, Op key) =>
         Optional(context).ToFin(key.MissingContext()).Bind(model =>
-            this is SignedDistanceFromMeshCase mesh
+            from _ in AdmitIsoSurfacePayload(key: key)
+            from __ in this is SignedDistanceFromMeshCase mesh
                 ? MeshKernel.PrewarmSignedDistanceEvaluator(space: mesh.Space, method: mesh.Method, key: key).Map(static _ => unit)
                 : (this switch {
                     BlendCase c => c.Fields,
@@ -816,7 +818,32 @@ public abstract partial record ScalarField {
                     TwistCase c => Seq(c.Source),
                     BendCase c => Seq(c.Source),
                     _ => Seq<ScalarField>(),
-                }).TraverseM(field => field.AdmitIsoSurfaceEvaluator(context: model, key: key)).As().Map(static _ => unit));
+                }).TraverseM(field => field.AdmitIsoSurfaceEvaluator(context: model, key: key)).As().Map(static _ => unit)
+            select unit);
+    private Fin<Unit> AdmitIsoSurfacePayload(Op key) =>
+        this switch {
+            ConstantCase c => FieldNabla.Finite(value: c.Value, key: key),
+            ScaledCase c => FieldNabla.Finite(value: c.Scale, key: key),
+            DensityCase c => FieldNabla.Finite(value: c.Strength, key: key),
+            PotentialCase c => c.Charges.ForAll(static charge => FieldNabla.Finite(point: charge.Position) && RhinoMath.IsValidDouble(x: charge.Charge)) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput()),
+            WorleyCase c => c.Order >= 1 && c.Order <= c.Seeds.Count && c.Seeds.ForAll(static seed => FieldNabla.Finite(point: seed)) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput()),
+            NoiseCase c => FieldNabla.NoiseInput(octaves: c.Octaves, persistence: c.Persistence, lacunarity: c.Lacunarity, frequency: c.Frequency, key: key),
+            PowerCase c => FieldNabla.Finite(value: c.Exponent, key: key),
+            PeriodicCase c => FieldNabla.Period(period: c.Period, key: key).Map(static _ => unit),
+            ClampCase c => FieldNabla.FiniteRange(minimum: c.Minimum, maximum: c.Maximum, key: key),
+            PrimitiveCase c => from kind in Optional(c.Kind).ToFin(key.InvalidInput())
+                               from _ in guard(c.Parameters.Values.All(static value => RhinoMath.IsValidDouble(x: value)) && kind.ValidateParameters(parameters: c.Parameters), key.InvalidInput())
+                               from __ in FieldNabla.Plane(basis: c.Pose, key: key).Map(static _ => unit)
+                               select unit,
+            ProfileExtrusionCase c => from _ in guard(c.Profile.IsValid, key.InvalidInput())
+                                      from __ in FieldNabla.Plane(basis: c.Plane, key: key).Map(static _ => unit)
+                                      select unit,
+            ElongateCase c => FieldNabla.NonnegativeExtent(extent: c.Extent, key: key).Map(static _ => unit),
+            TwistCase c => FieldNabla.Finite(value: c.AnglePerUnit, key: key),
+            BendCase c => FieldNabla.Finite(value: c.Curvature, key: key),
+            RbfCase c => c.Coefficients.Count == c.Samples.Count && c.Coefficients.ForAll(RhinoMath.IsValidDouble) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult()),
+            _ => Fin.Succ(unit),
+        };
     internal static bool BoundsAdmitted(BoundingBox bounds) =>
         bounds is { IsValid: true, Diagonal: Vector3d d }
         && d.X > RhinoMath.ZeroTolerance
