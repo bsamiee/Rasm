@@ -32,17 +32,23 @@ internal readonly record struct GeodesicKey(Seq<int> Sources);
 [StructLayout(LayoutKind.Auto)] internal readonly record struct CrossFieldKey(int Symmetry, Option<Seq<(int Vertex, Direction Hint)>> Constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> Cones);
 internal readonly record struct HodgeKey(VectorField Source);
 [StructLayout(LayoutKind.Auto)] internal readonly record struct VectorHeatKey(double Time, Seq<(int Vertex, Vector3d Direction)> Sources);
+internal readonly record struct SignedHeatSolution(Arr<double> Values, SignedHeatReceipt Receipt);
+internal readonly record struct BoundarySignedHeatSource(Arr<double> Rhs, Seq<int> SourceVertices, int EncodedEdgeSourceCount, int RejectedBoundaryPointCount, int UnmatchedBoundarySegmentCount);
 internal sealed class LaplacianCache {
     internal const int DefaultSpectralCount = 32;
     private const double SpdRegularization = 1e-8;
     private static readonly ConditionalWeakTable<object, LaplacianCache> Table = [];
     private sealed class Memo<TKey, T> {
-        private readonly Atom<HashMap<TKey, Fin<T>>> cache = Atom(value: HashMap<TKey, Fin<T>>());
+        private readonly Atom<HashMap<TKey, T>> cache = Atom(value: HashMap<TKey, T>());
         internal Fin<T> Of(TKey probe, Func<Fin<T>> compute) =>
-            cache.Value.Find(key: probe).IfNone(() => {
+            cache.Value.Find(key: probe).Map(static value => Fin.Succ(value)).IfNone(() => {
                 Fin<T> computed = compute();
-                _ = cache.Swap(f: map => map.AddOrUpdate(key: probe, value: computed));
-                return computed;
+                return computed.Match(
+                    Succ: value => {
+                        _ = cache.Swap(f: map => map.AddOrUpdate(key: probe, value: value));
+                        return Fin.Succ(value);
+                    },
+                    Fail: error => Fin.Fail<T>(error));
             });
     }
     private readonly Lazy<Fin<SparseLaplacian>> cotangent, intrinsicDelaunay, robust;
@@ -50,7 +56,6 @@ internal sealed class LaplacianCache {
     private readonly Lazy<Fin<SpectralBasisBundle>> defaultSpectral;
     private readonly Lazy<double> meanEdgeLength;
     private readonly Lazy<Fin<MeshKernel.IntrinsicMesh>> intrinsicMesh;
-    private readonly Lazy<Fin<(Arr<double> Values, SolveReceipt Solve)>> signedHeat;
     private readonly Memo<(int Symmetry, double Time), CholeskySparse> connectionCholesky = new();
     private readonly Memo<double, CholeskySparse> scalarHeatCholesky = new(), edgeConnectionCholesky = new();
     private readonly Memo<GeodesicKey, Arr<double>> geodesicCache = new();
@@ -58,6 +63,7 @@ internal sealed class LaplacianCache {
     private readonly Memo<CrossFieldKey, Complex[]> crossFieldCache = new();
     private readonly Memo<HodgeKey, MeshKernel.HodgeBundle> hodgeCache = new();
     private readonly Memo<VectorHeatKey, Complex[]> vectorHeatCache = new();
+    private readonly Memo<Unit, SignedHeatSolution> signedHeat = new();
     private readonly MeshSpace space;
     private LaplacianCache(MeshSpace space) {
         this.space = space;
@@ -73,7 +79,6 @@ internal sealed class LaplacianCache {
             select factor);
         defaultSpectral = new Lazy<Fin<SpectralBasisBundle>>(valueFactory: () => MeshKernel.ComputeSpectralBasisDetailed(space: space, k: DefaultSpectralCount, key: fallback));
         meanEdgeLength = new Lazy<double>(valueFactory: () => MeshKernel.MeanEdgeLengthOf(mesh: space.Native));
-        signedHeat = new Lazy<Fin<(Arr<double> Values, SolveReceipt Solve)>>(valueFactory: () => MeshKernel.ComputeSignedHeatDetailed(space: space, key: fallback));
     }
     internal static LaplacianCache For(MeshSpace space) =>
         Table.GetValue(key: space.Native, createValueCallback: _ => new LaplacianCache(space: space));
@@ -82,8 +87,9 @@ internal sealed class LaplacianCache {
     internal Fin<SparseLaplacian> Robust => robust.Value;
     internal Fin<CholeskySparse> Cholesky => cholesky.Value;
     internal Fin<MeshKernel.IntrinsicMesh> IntrinsicMeshSnapshot => intrinsicMesh.Value;
-    internal Fin<Arr<double>> SignedHeat => signedHeat.Value.Map(static result => result.Values);
-    internal Fin<(Arr<double> Values, SolveReceipt Solve)> SignedHeatDetailed => signedHeat.Value;
+    internal Fin<Arr<double>> SignedHeat(Op key) => SignedHeatDetailed(key: key).Map(static result => result.Values);
+    internal Fin<SignedHeatSolution> SignedHeatDetailed(Op key) =>
+        signedHeat.Of(probe: unit, compute: () => MeshKernel.ComputeSignedHeatDetailed(space: space, key: key));
     internal double MeanEdgeLength => meanEdgeLength.Value;
     internal Fin<SpectralBasisBundle> SpectralBasisBundleOf(int k, Op key) {
         bool cacheHit = k <= DefaultSpectralCount && defaultSpectral.IsValueCreated;
@@ -135,8 +141,9 @@ internal sealed class LaplacianCache {
 [SmartEnum<int>] public sealed partial class MeshSegmentationStatus { public static readonly MeshSegmentationStatus Completed = new(key: 0), MaxIterationsExhausted = new(key: 1); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationReceipt(MeshSegmentationAlgorithm Algorithm, MeshSegmentationStatus Status, int RequestedRegionCount, int RegionCount, int SeedCount, int AssignedFaceCount, int UnassignedFaceCount, int SkippedDegenerateFaces, int SkippedNonFiniteValues, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorReceipt> Descriptor, Option<SolveReceipt> Solve, Option<bool> SpectralCacheHit, Option<bool> FactorCacheHit, Option<int> FactorNonZeros);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationResult(Arr<int> FaceRegions, Arr<int> VertexRegions, MeshSegmentationReceipt Receipt);
-[SmartEnum<int>] public sealed partial class SdfMeshStatus { public static readonly SdfMeshStatus Approximate = new(key: 0), BoundarySourceSignedHeat = new(key: 1); }
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfMeshReceipt(SdfMeshMethod Method, SdfMeshStatus Status, bool IsSolid, bool IsManifold, bool IsOriented, int BoundaryComponents, int NonManifoldEdges, bool UsesGeneralizedWindingApproximation, bool UsesBoundarySignedHeat, Option<SolveReceipt> Solve);
+[SmartEnum<int>] public sealed partial class SdfMeshStatus { public static readonly SdfMeshStatus ApproximateSignClosestDistance = new(key: 0), BoundarySourceSignedHeat = new(key: 1); }
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SignedHeatReceipt(int BoundarySourceVertexCount, int BoundaryEncodedEdgeSourceCount, int BoundaryRejectedPointCount, int BoundaryUnmatchedSegmentCount, SolveReceipt HeatSolve, SolveReceipt PoissonSolve);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfMeshReceipt(SdfMeshMethod Method, SdfMeshStatus Status, bool IsSolid, bool IsManifold, bool IsOriented, int BoundaryComponents, int NonManifoldEdges, bool UsesGeneralizedWindingApproximation, bool UsesBoundarySignedHeat, Option<SignedHeatReceipt> SignedHeat);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfMeshSample(double Distance, SdfMeshReceipt Receipt);
 [Union]
 public abstract partial record MeshDescriptor {
@@ -1310,14 +1317,26 @@ internal static class MeshKernel {
 
     // --- [SDF_FROM_MESH] ---------------------------------------------------------------------
     internal static Fin<SdfMeshSample> SignedDistanceFromMeshDetailed(MeshSpace space, SdfMeshMethod method, Point3d sample, Op key) =>
-        (method.Equals(SdfMeshMethod.BoundarySignedHeat)
-            ? SignedHeatDistanceDetailed(space: space, sample: sample, key: key).Map(result => (result.Distance, Status: SdfMeshStatus.BoundarySourceSignedHeat, Solve: Some(result.Solve)))
-            : GeneralizedWindingDistance(space: space, sample: sample, key: key).Map(distance => (Distance: distance, Status: SdfMeshStatus.Approximate, Solve: Option<SolveReceipt>.None)))
-        .Bind(result => SdfMeshReceiptOf(space: space, method: method, status: result.Status, solve: result.Solve, key: key)
-            .Map(receipt => new SdfMeshSample(Distance: result.Distance, Receipt: receipt)));
-    private static Fin<SdfMeshReceipt> SdfMeshReceiptOf(MeshSpace space, SdfMeshMethod method, SdfMeshStatus status, Option<SolveReceipt> solve, Op key) =>
+        method.Equals(SdfMeshMethod.ClosedSurfaceSignedHeat)
+            ? Fin.Fail<SdfMeshSample>(key.Unsupported(geometryType: typeof(MeshSpace), outputType: typeof(SdfMeshSample)))
+            : method.Equals(SdfMeshMethod.BoundarySignedHeat)
+                ? SignedHeatDistanceDetailed(space: space, sample: sample, key: key)
+                    .Bind(result => SdfMeshReceiptOf(space: space, method: method, signedHeat: Some(result.Receipt), key: key)
+                        .Map(receipt => new SdfMeshSample(Distance: result.Distance, Receipt: receipt)))
+                : GeneralizedWindingDistance(space: space, sample: sample, key: key)
+                    .Bind(distance => SdfMeshReceiptOf(space: space, method: method, signedHeat: Option<SignedHeatReceipt>.None, key: key)
+                        .Map(receipt => new SdfMeshSample(Distance: distance, Receipt: receipt)));
+    internal static Fin<SdfMeshReceipt> PrewarmSignedDistanceEvaluator(MeshSpace space, SdfMeshMethod method, Op key) =>
+        method.Equals(SdfMeshMethod.ClosedSurfaceSignedHeat)
+            ? Fin.Fail<SdfMeshReceipt>(key.Unsupported(geometryType: typeof(MeshSpace), outputType: typeof(SdfMeshReceipt)))
+            : method.Equals(SdfMeshMethod.BoundarySignedHeat)
+                ? from solution in space.Cache.SignedHeatDetailed(key: key)
+                  from receipt in SdfMeshReceiptOf(space: space, method: method, signedHeat: Some(solution.Receipt), key: key)
+                  select receipt
+                : SdfMeshReceiptOf(space: space, method: method, signedHeat: Option<SignedHeatReceipt>.None, key: key);
+    private static Fin<SdfMeshReceipt> SdfMeshReceiptOf(MeshSpace space, SdfMeshMethod method, Option<SignedHeatReceipt> signedHeat, Op key) =>
         TopologyDetailed(space: space, key: key)
-            .Map(topology => new SdfMeshReceipt(Method: method, Status: status, IsSolid: space.Native.IsSolid, IsManifold: topology.IsManifold, IsOriented: topology.IsOriented, BoundaryComponents: topology.BoundaryComponents, NonManifoldEdges: topology.NonManifoldEdges, UsesGeneralizedWindingApproximation: method.Equals(SdfMeshMethod.GeneralizedWindingNumber), UsesBoundarySignedHeat: method.Equals(SdfMeshMethod.BoundarySignedHeat), Solve: solve));
+            .Map(topology => new SdfMeshReceipt(Method: method, Status: method.Equals(SdfMeshMethod.BoundarySignedHeat) ? SdfMeshStatus.BoundarySourceSignedHeat : SdfMeshStatus.ApproximateSignClosestDistance, IsSolid: space.Native.IsSolid, IsManifold: topology.IsManifold, IsOriented: topology.IsOriented, BoundaryComponents: topology.BoundaryComponents, NonManifoldEdges: topology.NonManifoldEdges, UsesGeneralizedWindingApproximation: method.Equals(SdfMeshMethod.GeneralizedWindingNumber), UsesBoundarySignedHeat: method.Equals(SdfMeshMethod.BoundarySignedHeat), SignedHeat: signedHeat));
     private static Fin<double> GeneralizedWindingDistance(MeshSpace space, Point3d sample, Op key) =>
         Optional(space.Native.ClosestPoint(testPoint: sample)).Filter(static closest => closest.IsValid).ToFin(key.InvalidResult()).Bind(closest =>
             SolidAngleWindingNumber(mesh: space.Native, sample: sample, key: key)
@@ -1346,25 +1365,25 @@ internal static class MeshKernel {
         double denom = lengthProduct + (abDot * lc) + (bcDot * la) + (caDot * lb);
         return 2.0 * Math.Atan2(y: det, x: denom);
     }
-    private static Fin<(double Distance, SolveReceipt Solve)> SignedHeatDistanceDetailed(MeshSpace space, Point3d sample, Op key) {
+    private static Fin<(double Distance, SignedHeatReceipt Receipt)> SignedHeatDistanceDetailed(MeshSpace space, Point3d sample, Op key) {
         Polyline[]? polylines = space.Native.GetNakedEdges();
         return polylines is null || polylines.Length == 0
-            ? Fin.Fail<(double, SolveReceipt)>(key.InvalidInput())
-            : from phi in space.Cache.SignedHeatDetailed
+            ? Fin.Fail<(double, SignedHeatReceipt)>(key.InvalidInput())
+            : from phi in space.Cache.SignedHeatDetailed(key: key)
               from signed in InterpolateOnMesh(space: space, sample: sample, perVertex: phi.Values, key: key)
-              select (signed, phi.Solve);
+              select (signed, phi.Receipt);
     }
     // Boundary-source signed heat rejects flipped IDT until CR signpost transfer exists.
     internal static Fin<Arr<double>> ComputeSignedHeat(MeshSpace space, Op key) => ComputeSignedHeatDetailed(space: space, key: key).Map(static result => result.Values);
-    internal static Fin<(Arr<double> Values, SolveReceipt Solve)> ComputeSignedHeatDetailed(MeshSpace space, Op key) {
+    internal static Fin<SignedHeatSolution> ComputeSignedHeatDetailed(MeshSpace space, Op key) {
         Mesh mesh = space.Native;
         Polyline[]? polylines = mesh.GetNakedEdges();
-        if (polylines is null || polylines.Length == 0) return Fin.Fail<(Arr<double>, SolveReceipt)>(error: key.InvalidInput());
+        if (polylines is null || polylines.Length == 0) return Fin.Fail<SignedHeatSolution>(error: key.InvalidInput());
         double h = space.Cache.MeanEdgeLength;
-        if (h <= RhinoMath.ZeroTolerance) return Fin.Fail<(Arr<double>, SolveReceipt)>(error: key.InvalidResult());
+        if (h <= RhinoMath.ZeroTolerance) return Fin.Fail<SignedHeatSolution>(error: key.InvalidResult());
         double t = 0.5 * h * (0.5 * h);
         return from imesh in space.Cache.IntrinsicMeshSnapshot
-               from _ in guard(!imesh.HasFlips, key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof((Arr<double>, SolveReceipt))))
+               from _ in guard(!imesh.HasFlips, key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof(SignedHeatSolution)))
                let encoded = EncodeSignedHeatBoundarySource(mesh: mesh, imesh: imesh, polylines: polylines)
                from admitted in AdmitSignedHeatSource(encoded: encoded, key: key)
                from heatFactor in space.Cache.EdgeConnectionCholesky(time: t, key: key)
@@ -1374,37 +1393,47 @@ internal static class MeshKernel {
                from poissonFactor in space.Cache.Cholesky
                from poissonSolve in poissonFactor.SolveDetailed(rhs: divergence, key: key)
                from shifted in ShiftSignedHeat(phi: poissonSolve.Solution, sourceVertices: admitted.SourceVertices, key: key)
-               select (shifted, poissonSolve);
+               select new SignedHeatSolution(
+                   Values: shifted,
+                   Receipt: new SignedHeatReceipt(BoundarySourceVertexCount: admitted.SourceVertices.Count, BoundaryEncodedEdgeSourceCount: admitted.EncodedEdgeSourceCount, BoundaryRejectedPointCount: admitted.RejectedBoundaryPointCount, BoundaryUnmatchedSegmentCount: admitted.UnmatchedBoundarySegmentCount, HeatSolve: heatSolve, PoissonSolve: poissonSolve));
     }
     // Edge-as-source encoding stacks imaginary CR edge sources with Lo→Hi signs.
-    private static (Arr<double> Rhs, Seq<int> SourceVertices) EncodeSignedHeatBoundarySource(Mesh mesh, IntrinsicMesh imesh, Polyline[] polylines) {
+    private static BoundarySignedHeatSource EncodeSignedHeatBoundarySource(Mesh mesh, IntrinsicMesh imesh, Polyline[] polylines) {
         int eCount = imesh.EdgeCount;
         double[] stacked = new double[2 * eCount];
         System.Collections.Generic.HashSet<int> sources = [];
         Point3dList vertices = [.. mesh.Vertices.ToPoint3dArray()];
         double tolSq = RhinoMath.ZeroTolerance * 1.0e2;
         tolSq *= tolSq;
+        int encodedEdges = 0;
+        int rejectedPoints = 0;
+        int unmatchedSegments = 0;
         for (int p = 0; p < polylines.Length; p++) {
             Polyline poly = polylines[p];
             int prev = FindClosestVertex(vertices: vertices, target: poly[0], tolSq: tolSq);
-            if (prev >= 0) _ = sources.Add(item: prev);
+            _ = prev >= 0 && sources.Add(item: prev);
+            rejectedPoints += prev >= 0 ? 0 : 1;
             for (int q = 1; q < poly.Count; q++) {
                 int curr = FindClosestVertex(vertices: vertices, target: poly[q], tolSq: tolSq);
-                if (curr >= 0) _ = sources.Add(item: curr);
-                if (prev >= 0 && curr >= 0 && imesh.IndexOfEdge(lo: prev, hi: curr) is int e and >= 0) {
+                _ = curr >= 0 && sources.Add(item: curr);
+                rejectedPoints += curr >= 0 ? 0 : 1;
+                int e = prev >= 0 && curr >= 0 ? imesh.IndexOfEdge(lo: prev, hi: curr) : -1;
+                if (e >= 0) {
                     IntrinsicEdge edge = imesh.EdgeAt(index: e);
                     double sign = prev == edge.Lo ? 1.0 : -1.0;
                     stacked[e + eCount] += edge.Length * sign;
+                    encodedEdges++;
                 }
+                unmatchedSegments += prev >= 0 && curr >= 0 && e < 0 ? 1 : 0;
                 prev = curr;
             }
         }
-        return (Rhs: new Arr<double>(stacked), SourceVertices: toSeq(sources));
+        return new BoundarySignedHeatSource(Rhs: new Arr<double>(stacked), SourceVertices: toSeq(sources), EncodedEdgeSourceCount: encodedEdges, RejectedBoundaryPointCount: rejectedPoints, UnmatchedBoundarySegmentCount: unmatchedSegments);
     }
-    private static Fin<(Arr<double> Rhs, Seq<int> SourceVertices)> AdmitSignedHeatSource((Arr<double> Rhs, Seq<int> SourceVertices) encoded, Op key) =>
-        (encoded.SourceVertices.IsEmpty, encoded.Rhs.Fold(initialState: (Finite: true, Active: false), f: static (state, value) => (state.Finite && RhinoMath.IsValidDouble(x: value), state.Active || Math.Abs(value: value) > RhinoMath.ZeroTolerance))) switch {
-            (false, (true, true)) => Fin.Succ(encoded),
-            _ => Fin.Fail<(Arr<double>, Seq<int>)>(key.InvalidResult()),
+    private static Fin<BoundarySignedHeatSource> AdmitSignedHeatSource(BoundarySignedHeatSource encoded, Op key) =>
+        (encoded.SourceVertices.IsEmpty, encoded.EncodedEdgeSourceCount <= 0, encoded.Rhs.Fold(initialState: (Finite: true, Active: false), f: static (state, value) => (state.Finite && RhinoMath.IsValidDouble(x: value), state.Active || Math.Abs(value: value) > RhinoMath.ZeroTolerance))) switch {
+            (false, false, (true, true)) => Fin.Succ(encoded),
+            _ => Fin.Fail<BoundarySignedHeatSource>(key.InvalidResult()),
         };
     private static int FindClosestVertex(Point3dList vertices, Point3d target, double tolSq) =>
         vertices.ClosestIndex(testPoint: target) switch {

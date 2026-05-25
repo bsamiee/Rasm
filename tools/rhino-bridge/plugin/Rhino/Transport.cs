@@ -41,6 +41,7 @@ internal static class BridgeRuntime {
 
 internal sealed class BridgeServer : IDisposable {
     private static readonly TimeSpan HandshakeTimeout = TimeSpan.FromSeconds(value: 2.0);
+    private const string CSharpResolverIsolateOption = "csharp.resolver.isolate";
     private const int PipeInstances = 4;
     private const int OutputLimit = 32768;
     private const PipeOptions PipePolicy = PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly;
@@ -216,11 +217,13 @@ internal sealed class BridgeServer : IDisposable {
         global::Rhino.Runtime.Code.Execution.RunContextStream stdout = new();
         global::Rhino.Runtime.Code.Execution.RunContextStream stderr = new();
         using global::Rhino.Runtime.Code.Execution.RunContext context = new(defaultOutputStream: false, defaultErrorStream: false) {
+            CachePolicy = global::Rhino.Runtime.Code.Execution.CachePolicy.NeverCache,
             OutputStream = stdout,
             ErrorStream = stderr,
             ExclusiveStreams = false,
             ResetStreamsPolicy = global::Rhino.Runtime.Code.Execution.ResetStreamPolicy.ResetToPreviousStream,
         };
+        context.Options.Set(key: CSharpResolverIsolateOption, value: true);
         global::Rhino.Runtime.Code.Code? code = null;
         try {
             EnsureCSharpScripting();
@@ -255,6 +258,7 @@ internal sealed class BridgeServer : IDisposable {
             BridgeAssemblyVersion: typeof(BridgeServer).Assembly.GetName().Version?.ToString() ?? "unknown",
             BridgeAssemblyInformationalVersion: typeof(BridgeServer).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? typeof(BridgeServer).Assembly.GetName().Version?.ToString() ?? "unknown",
             RhinoVersion: RhinoApp.Version.ToString(),
+            RhinoCode: new(ResolverIsolated: true, ResolverOption: CSharpResolverIsolateOption, CachePolicy: global::Rhino.Runtime.Code.Execution.CachePolicy.NeverCache.ToString(), CacheReusable: false),
             Document: Document(document: document),
             ReturnValue: returnValue,
             References: references,
@@ -309,7 +313,7 @@ internal sealed class BridgeServer : IDisposable {
     private static void EnsureCSharpScripting() =>
         RhinoCodePlatform.Rhino3D.Registrar.StartScriptingLanguages(
             spec: global::Rhino.Runtime.Code.Languages.LanguageSpec.CSharp,
-            startServer: true);
+            startServer: false);
     private static BridgeQuitReport Quit(RhinoDoc? document) =>
         RhinoDoc.OpenDocuments().Any(static open => open.Modified) switch {
             true => new(Status: BridgeWire.Failed, RhinoPid: Environment.ProcessId, ActiveDocument: document is not null, Modified: true, Fault: BridgeFault.MessageOnly(category: "quit", message: "At least one Rhino document has unsaved changes; refusing automated quit.")),

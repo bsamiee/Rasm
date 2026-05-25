@@ -138,3 +138,5 @@ Bridge ownership proof:
 ```bash
 bash scripts/rhino.sh bridge check libs/csharp/Rasm/Vectors/Space.cs apps/grasshopper/Radyab/Scenarios/vectors-space-projection.verify.csx
 ```
+
+Bridge scenarios are source-only. Do not add `#r`, `#load`, or absolute build-output paths; the bridge owns reference projection and fresh artifact refs.

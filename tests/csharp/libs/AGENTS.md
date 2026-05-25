@@ -27,6 +27,7 @@
 - RhinoCommon or GH2 APIs that only work inside RhinoWIP must be proven by `*.verify.csx` scenarios under `/Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/Scenarios`.
 - Static specs may classify bridge-owned behavior, but must not pretend to execute native runtime paths that fail outside Rhino.
 - Pair each bridge scenario with an owning source file for `scripts/rhino.sh bridge check <source> <scenario>`.
+- Keep bridge scenarios source-only. Do not add `#r`, `#load`, or absolute build-output paths; bridge check owns reference projection and fresh artifact refs.
 - Treat host dependency collisions as product/packaging evidence. Do not rewrite bridge scenarios into weaker static assertions just because Rhino has preloaded a conflicting assembly.
 - For Rasm.Vectors on macOS, assume Rhino native geometry validity/materialization can cross into `rhcommon_c` unless a current static run proves otherwise. Static specs may own managed guards and failure categories for `Curve`, `Surface`, `Mesh`, `PlaneSurface`, `Point3d.IsValid`, `Vector3d.IsTiny`, and `Polyline.IsValid`, but successful native sampling/projection belongs in bridge scenarios.
 - Record bridge-owned gaps as executable scenario work, not skipped xUnit tests or shape-only assertions.

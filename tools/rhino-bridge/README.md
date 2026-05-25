@@ -67,17 +67,18 @@ Run commands from repository root.
 | [INDEX] | [COMMAND] | [INTENT] |
 | :-----: | --------- | -------- |
 | **1** | `scripts/rhino.sh bridge build` | Build protocol, plugin, and client in `Release`. |
-| **2** | `scripts/rhino.sh bridge launch` | Open RhinoWIP and verify bridge handshake. |
+| **2** | `scripts/rhino.sh bridge launch` | Open RhinoWIP and verify endpoint round trip. |
 | **3** | `scripts/rhino.sh bridge doctor` | Report live Rhino, plugin, required assemblies, and sessions. |
-| **4** | `scripts/rhino.sh bridge restart` | Quit safe Rhino session, relaunch RhinoWIP, and reconnect. |
+| **4** | `scripts/rhino.sh bridge restart` | Lifecycle diagnostic for safe manual bridge reloads. |
 | **5** | `scripts/rhino.sh bridge check <target> [scenario.csx]` | Build or execute the target through the agent-first RhinoCode lane. |
 | **6** | `scripts/rhino.sh bridge clean <target>` | Remove generated bridge check reports for one target. |
 | **7** | `scripts/rhino.sh bridge load <assembly.dll>` | Diagnostic-only load into a bridge session. |
 | **8** | `scripts/rhino.sh bridge load-smoke <assembly.dll>` | Diagnostic-only load in a collectible session and unload it. |
 | **9** | `scripts/rhino.sh bridge unload <session-id>` | Diagnostic-only unload for explicit bridge load sessions. |
 | **10** | `scripts/rhino.sh bridge quit` | Lifecycle-only safe Rhino exit when open documents have no unsaved changes. |
-| **11** | `scripts/rhino.sh bridge package <version>` | Build bridge `.rhp`, run Yak in staged directory, and create a local package. |
-| **12** | `scripts/rhino.sh bridge install [package.yak]` | Install staged or explicit bridge package, restart or launch RhinoWIP, then verify bridge health. |
+| **11** | `scripts/rhino.sh package rasm-bridge <version>` | Build bridge `.rhp`, run Yak in staged directory, and create a local package. |
+| **12** | `scripts/rhino.sh deploy rasm-bridge <version>` | Install the staged bridge package, refresh RhinoWIP, and verify bridge health. |
+| **13** | `scripts/rhino.sh verify <scenario-or-glob>` | Convenience rail for scenarios; resolves owning project, routes through `bridge check`. |
 | **13** | `scripts/rhino.sh api doctor` | Report local RhinoWIP API XML, ILSpy, and RhinoCode metadata availability. |
 | **14** | `scripts/rhino.sh api path <key> [assembly\|xml]` | Print the resolved assembly or XML path for an API reference key. |
 | **15** | `scripts/rhino.sh api xml <key> <pattern>` | Search the resolved XML documentation with `rg`. |
@@ -105,10 +106,10 @@ Expected result: exit code `3`, top-level `"status": "unsupported"`, `build` pha
 Validate source with an existing task-relevant RhinoCode script:
 
 ```bash
-scripts/rhino.sh bridge check <real-source.cs> <real-diagnostic-script.csx>
+scripts/rhino.sh bridge check <real-source.cs> <scenario.verify.csx>
 ```
 
-Expected result: `"status": "ok"` when the script compiles against generated `#r` directives from `HostFilteredRuntimeReferences` and exercises real Rhino behavior. Do not create throwaway proof scripts except when changing bridge reference projection itself.
+Expected result: `"status": "ok"` when the scenario compiles against bridge-generated `#r` directives from host-filtered runtime references and exercises real Rhino behavior. Scenarios must not contain `#r`, `#load`, or absolute build-output paths.
 
 Verify local API metadata:
 
@@ -195,7 +196,7 @@ Phase expectations:
 - `resolve`: file/project ownership, workspace root, command path validity, MSBuild owner-evaluation evidence.
 - `build`: real `dotnet restore`, `dotnet build`, MSBuild projection, target and references.
 - `launch`: existing bridge reuse or RhinoWIP launch evidence.
-- `connect`: named-pipe handshake with endpoint metadata.
+- `connect`: named-pipe hello round trip with endpoint metadata.
 - `rhinoCodeCli`: supplemental external `rhinocode list --json` probe; `DOTNET_ROLL_FORWARD=Major` fallback is intentional.
 - `load`: collectible load session only for explicit load commands.
 - `execute`: RhinoCode execution report, stdout/stderr, diagnostics, Rhino document facts, and optional script return JSON.
@@ -215,7 +216,7 @@ Console.WriteLine("rasm.rhino-bridge.return=" + JsonSerializer.Serialize(receipt
 
 The plugin preserves raw stdout and parses the last line with this prefix into `execute.data.returnValue`. Missing return lines are valid. Malformed return JSON fails `execute` with `fault.category = "return"`.
 
-Project smoke scripts emit `returnValue.kind = "assemblyFreshness"` with loaded/target paths, loaded/target versions, `alreadyLoaded`, `staleLocation`, `staleIdentity`, and `refreshRequired`. Stale assemblies still fail; the return value carries machine-readable evidence for the agent.
+Runtime checks force RhinoCode C# `csharp.resolver.isolate = true` and `CachePolicy.NeverCache`. Script references load through RhinoCode's collectible Roslyn context instead of Rhino's default host context, so other installed plugins cannot poison package identity for `LanguageExt`, `Thinktecture`, or rebuilt repo assemblies. Every execute report includes `execute.data.rhinoCode`; project smoke scripts also emit `returnValue.kind = "assemblyFreshness"` with exact target-location evidence and `resolverIsolated = true`.
 
 ---
 ## [5][REFERENCE_POLICY]
@@ -223,7 +224,7 @@ Project smoke scripts emit `returnValue.kind = "assemblyFreshness"` with loaded/
 
 <br>
 
-The client emits runtime reference projections from one evaluated project build. Generated RhinoCode scripts apply references by prepending `#r` directives before submission. `BridgeExecuteRequest.References` is reported metadata today; the plugin does not independently apply that field during execution.
+The client emits runtime reference projections from one evaluated project build. Generated RhinoCode scripts apply references by prepending `#r` directives before submission. Project/source scenario references are shadow-copied into artifact `refs/<content-hash>/` folders so repeated checks see fresh assembly paths without scenario-owned machine paths. `BridgeExecuteRequest.References` is reported metadata today; the plugin does not independently apply that field during execution.
 
 API metadata lookup uses local sources in this order:
 1. RhinoWIP app-bundle XML for `RhinoCommon`, `Grasshopper2`, and `GrasshopperIO`.
@@ -252,7 +253,7 @@ API metadata lookup uses local sources in this order:
 | **3** | `connect` failed | RhinoWIP bridge unavailable or stale endpoint. | Run `bridge launch` or `bridge doctor`; inspect `~/.rasm/rhino-bridge.json`. |
 | **4** | `rhinoCodeCli` failed | Supplemental RhinoCode CLI probe unavailable or roll-forward failure. | Inspect the phase, but trust successful in-process `execute` as authoritative. |
 | **5** | `execute` diagnostics | RhinoCode compile/runtime failure inside Rhino. | Use `diagnostics` and `fault.stackTrace`; fix real code. |
-| **6** | already-loaded mismatch | Rhino has simple-name assembly loaded from different path or assembly version. | Restart Rhino or change target identity; do not accept stale success. |
+| **6** | external package collision | Another Rhino plugin has loaded a different same-name package. | `check` uses isolated RhinoCode references; inspect `execute` only if a real scenario still fails. |
 | **7** | `loadedLocation=none` | Target assembly loaded without a path-backed location. | Treat as missing post-load identity evidence; normal fresh loads report `targetAssembly.Location`. |
 | **8** | `unsupported` source check | Source build is valid, but no runtime scenario was supplied. | Add a scenario path only when runtime behavior needs Rhino evidence. |
 | **9** | `ilspycmd` apphost failure | Effective `DOTNET_ROOT` does not point at a hostfxr/runtime root. | Use `api doctor`; fix apphost environment, not `Directory.Build.props` or Rhino references. |
@@ -271,10 +272,11 @@ API metadata lookup uses local sources in this order:
 5. Keep `--timeout-ms` described as client transport timeout. Rhino UI-thread execution is not server-cancelable.
 
 [CRITICAL]:
-- Never hardcode project discovery for packages. Extend `PACKAGE_PROJECTS` deliberately.
+- Never hardcode project discovery for packages. Use evaluated `YakPackageSlug` project metadata.
+- Never put `#r`, `#load`, or absolute build-output paths in scenarios. The bridge owns references.
 - Never imply `check <source.cs>` executes runtime behavior without an explicit scenario.
 - Never treat reported `BridgeExecuteRequest.References` as plugin-applied execution state.
-- Never silently pass an already-loaded assembly whose simple name matches but location or assembly version differs.
+- Never run bridge RhinoCode checks without isolated C# reference resolution and cache-free execution.
 - Never add temp-only scripts, generated tests, or fake probes as bridge purpose.
 - Never automate Rhino settings or templates from this repository.
 
@@ -307,7 +309,7 @@ scripts/rhino.sh bridge clean apps/grasshopper/Radyab/Radyab.csproj
 ```
 
 Add focused live checks for bridge implementation changes:
-- Reference projection changes: run `check <source.cs> <script.csx>` that imports affected assemblies.
-- Assembly load policy changes: run same-simple-name stale assembly scenario and verify mismatch fails.
-- Packaging changes: run `scripts/rhino.sh bridge package <version>`, then `scripts/rhino.sh bridge install` to validate the staged `.yak`.
-- Transport changes: run `bridge doctor`, `bridge check <script.csx>`, and `bridge load-smoke`.
+- Reference projection changes: run `check <source.cs> <scenario.verify.csx>` that imports affected assemblies.
+- Assembly load policy changes: verify known same-name package collisions do not poison isolated RhinoCode checks.
+- Packaging changes: run `scripts/rhino.sh package rasm-bridge <version>`, then `scripts/rhino.sh deploy rasm-bridge <version>` to validate the staged `.yak`.
+- Transport changes: run `bridge doctor`, `bridge check <source.cs> <scenario.verify.csx>`, and `bridge load-smoke`.

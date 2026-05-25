@@ -1,6 +1,3 @@
-// SCENARIO_NAME and CAPTURE_PATH are injected by scripts/rhino.sh verify.
-#r "/Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/bin/Debug/net10.0/Rasm.dll"
-#r "/Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/bin/Debug/net10.0/Rasm.Grasshopper.dll"
 using System;
 using Rasm.Grasshopper.UI;
 using Rhino;

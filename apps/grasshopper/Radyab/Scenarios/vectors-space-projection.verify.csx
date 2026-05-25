@@ -1,14 +1,3 @@
-// SCENARIO_NAME and CAPTURE_PATH are injected by scripts/rhino.sh verify.
-#r "/Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/bin/Debug/net10.0/CSparse.dll"
-#r "/Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/bin/Debug/net10.0/FParsec.dll"
-#r "/Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/bin/Debug/net10.0/FParsecCS.dll"
-#r "/Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/bin/Debug/net10.0/FSharp.Core.dll"
-#r "/Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/bin/Debug/net10.0/LanguageExt.Core.dll"
-#r "/Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/bin/Debug/net10.0/MathNet.Numerics.dll"
-#r "/Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/bin/Debug/net10.0/MathNet.Numerics.FSharp.dll"
-#r "/Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/bin/Debug/net10.0/MathNet.Symbolics.dll"
-#r "/Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/bin/Debug/net10.0/Thinktecture.Runtime.Extensions.dll"
-#r "/Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/bin/Debug/net10.0/Rasm.dll"
 using System;
 using LanguageExt;
 using Rasm.Domain;

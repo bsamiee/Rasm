@@ -16,12 +16,25 @@ readonly BRIDGE_PROTOCOL_PROJECT="${ROOT_DIR}/tools/rhino-bridge/protocol/Rasm.R
 readonly BRIDGE_CLIENT_PROJECT="${ROOT_DIR}/tools/rhino-bridge/client/Rasm.RhinoBridge.Client.csproj"
 readonly BRIDGE_PLUGIN_PROJECT="${ROOT_DIR}/tools/rhino-bridge/plugin/Rasm.RhinoBridge.Plugin.csproj"
 PACKAGE_STAGE_ROOT="$(_msbuild_property "${BRIDGE_CLIENT_PROJECT}" YakStageRoot)"
-YAK_PATH="$(_msbuild_property "${BRIDGE_CLIENT_PROJECT}" YakPath)"
-readonly PACKAGE_STAGE_ROOT YAK_PATH
+PACKAGE_STAGE_ROOT="${PACKAGE_STAGE_ROOT%/}"
+readonly PACKAGE_STAGE_ROOT
 readonly API_RHINO_WIP_APP_PATH="${RHINO_WIP_APP_PATH:-/Applications/RhinoWIP.app}"
 readonly API_RHINO_WIP_RESOURCES="${API_RHINO_WIP_APP_PATH}/Contents/Frameworks/RhCore.framework/Versions/A/Resources"
 readonly API_RHINO_CODE="${API_RHINO_WIP_APP_PATH}/Contents/Resources/bin/rhinocode"
 readonly -a DOTNET_SERIAL_BUILD_ARGS=(-maxcpucount:1 -p:BuildInParallel=false)
+readonly -a RHINO_HOST_PACKAGE_EXCLUDES=(
+    'Eto.*'
+    'Eto.macOS.*'
+    'Grasshopper.*'
+    'Grasshopper2.*'
+    'GrasshopperIO.*'
+    'Microsoft.macOS.*'
+    'Rhino.Runtime.Code.*'
+    'Rhino.UI.*'
+    'RhinoCodePlatform.Rhino3D.*'
+    'RhinoCommon.*'
+    'System.Drawing.Common.*'
+)
 readonly -a PACKAGE_PROJECT_ROOTS=("${ROOT_DIR}/apps" "${ROOT_DIR}/tools")
 declare -Ar API_REFERENCES=(
     [rhino-common]="${API_RHINO_WIP_RESOURCES}/RhinoCommon.dll|${API_RHINO_WIP_RESOURCES}/RhinoCommon.xml|${ROOT_DIR}/.cache/nuget/packages/rhinocommon/*/lib/net8.0/RhinoCommon.xml"
@@ -40,11 +53,10 @@ declare -Ar ROUTES=(
     [build]='_build|0|1|build [version]|'
     [verify]='_verify|1|1|verify <path-or-glob>|'
     [package]='_cmd_package|2|2|package <package> <version>|'
+    [deploy]='_package_action|2|2|deploy <package> <version>|deploy'
     [install]='_package_action|2|2|install <package> <version>|install'
     [push]='_package_action|2|2|push <package> <version>|push'
     [bridge:build]='_bridge_build|0|0|bridge build|'
-    [bridge:package]='_cmd_package|1|1|bridge package <version>|rasm-bridge'
-    [bridge:install]='_bridge_install|0|1|bridge install [local-yak-path]|'
     [bridge:launch]='_bridge_client|0|0|bridge launch|launch'
     [bridge:restart]='_bridge_client|0|0|bridge restart|restart'
     [bridge:doctor]='_bridge_client|0|999|bridge doctor [client options]|doctor'
@@ -60,7 +72,7 @@ declare -Ar ROUTES=(
     [api:types]='_api_types|1|2|api types <api-key> [pattern]|'
     [api:decompile]='_api_decompile|2|2|api decompile <api-key> <type>|'
 )
-readonly -a ROUTE_ORDER=(--self-test build verify bridge:build bridge:package bridge:install bridge:launch bridge:restart bridge:doctor bridge:load bridge:load-smoke bridge:check bridge:clean bridge:unload bridge:quit api:doctor api:path api:xml api:types api:decompile package install push)
+readonly -a ROUTE_ORDER=(--self-test build verify bridge:build bridge:launch bridge:restart bridge:doctor bridge:load bridge:load-smoke bridge:check bridge:clean bridge:unload bridge:quit api:doctor api:path api:xml api:types api:decompile package deploy install push)
 readonly -a BRIDGE_PROJECTS=("${BRIDGE_PROTOCOL_PROJECT}" "${BRIDGE_PLUGIN_PROJECT}" "${BRIDGE_CLIENT_PROJECT}")
 _trap_err() {
     local -r exit_code="$?"
@@ -164,8 +176,7 @@ _self_test() {
         [[ -v ordered_routes["${route}"] ]] || _die "Route missing from order: ${route}"
     done
     declare -Ar route_contracts=(
-        [bridge:package]='_cmd_package|rasm-bridge|1|1'
-        [bridge:install]='_bridge_install||0|1'
+        [deploy]='_package_action|deploy|2|2'
         [install]='_package_action|install|2|2'
         [bridge:quit]='_bridge_client|quit|0|0'
         [push]='_package_action|push|2|2'
@@ -322,23 +333,21 @@ _verify_discover() {
 _verify_run() {
     local -a scenarios=("$@")
     local -r report_dir="${PACKAGE_STAGE_ROOT}/verify"
-    local -r capture_dir="${report_dir}/captures"
-    mkdir -p -- "${report_dir}" "${capture_dir}"
+    mkdir -p -- "${report_dir}"
     CLEANUP_PATHS+=("${report_dir}/.tmp")
     mkdir -p -- "${report_dir}/.tmp"
     local -a result_files=()
-    local scenario name wrapped result rc status ok=0 failed=0
+    local scenario name project result rc status ok=0 failed=0
     for scenario in "${scenarios[@]}"; do
         name="${scenario##*/}"; name="${name%.verify.csx}"
-        wrapped="${report_dir}/.tmp/${name}.csx"
         result="${report_dir}/${name}.json"
-        _verify_wrap "${scenario}" "${name}" "${capture_dir}/${name}.png" "${wrapped}"
+        _verify_project "${scenario}" project
         rc=0
-        _bridge_client_invoke check "${wrapped}" --result "${result}" >/dev/null 2>&1 || rc=$?
+        _bridge_client_invoke check "${project}" "${scenario}" --result "${result}" >/dev/null 2>&1 || rc=$?
         status="$(jq -r '.status // "failed"' "${result}" 2>/dev/null || printf 'failed')"
         result_files+=("${result}")
         case "${status}" in
-            ok) ((ok += 1)); printf '[OK]     %s capture=%s\n' "${scenario#"${ROOT_DIR}/"}" "${capture_dir}/${name}.png" >&2 ;;
+            ok) ((ok += 1)); printf '[OK]     %s report=%s\n' "${scenario#"${ROOT_DIR}/"}" "${result}" >&2 ;;
             *) ((failed += 1)); printf '[FAILED] %s rc=%s status=%s result=%s\n' "${scenario#"${ROOT_DIR}/"}" "${rc}" "${status}" "${result}" >&2 ;;
         esac
     done
@@ -353,30 +362,23 @@ _verify_run() {
     cat "${summary}"
     ((failed == 0)) || exit 1
 }
-_verify_wrap() {
-    local -r source="$1" name="$2" capture="$3" wrapped="$4"
-    local -r scenario_name="${name//\"/\\\"}"
-    local -r capture_path="${capture//\"/\\\"}"
-    awk -v scenario_name="${scenario_name}" -v capture_path="${capture_path}" '
-        function inject() {
-            if (!injected) {
-                printf "const string SCENARIO_NAME = \"%s\";\n", scenario_name
-                printf "const string CAPTURE_PATH = \"%s\";\n", capture_path
-                injected = 1
-            }
-        }
-        !injected && ($0 ~ /^[[:space:]]*$/ || $0 ~ /^[[:space:]]*\/\// || $0 ~ /^#(r|load)[[:space:]]/ || $0 ~ /^using([[:space:]]+static)?[[:space:]]/) {
-            print
-            next
-        }
-        {
-            inject()
-            print
-        }
-        END {
-            inject()
-        }
-    ' "${source}" > "${wrapped}"
+_verify_project() {
+    local -r scenario="$1"
+    local -n __project="$2"
+    local dir
+    dir="$(cd -- "$(dirname -- "${scenario}")" && pwd)"
+    while [[ "${dir}" == "${ROOT_DIR}" || "${dir}" == "${ROOT_DIR}/"* ]]; do
+        local -a projects=()
+        mapfile -t projects < <(fd -H -e csproj . "${dir}" --max-depth 1 | LC_ALL=C sort)
+        ((${#projects[@]} <= 1)) || _die "Expected at most one scenario project in ${dir}, found ${#projects[@]}"
+        if ((${#projects[@]} == 1)); then
+            __project="${projects[0]}"
+            return 0
+        fi
+        [[ "${dir}" != "${ROOT_DIR}" ]] || break
+        dir="${dir%/*}"
+    done
+    _die "No owning project found for scenario: ${scenario}"
 }
 _api_meta() {
     local -r key="$1"
@@ -535,43 +537,6 @@ _api_doctor() {
         printf 'api.ref.%s.xml\t%s\t%s\n' "${key}" "${status}" "${resolved:-${xml}}"
     done
 }
-_bridge_install() {
-    local package_path="${1:-}"
-    if [[ -z "${package_path}" ]]; then
-        local -r package_slug="$(_msbuild_property "${BRIDGE_PLUGIN_PROJECT}" YakPackageSlug)"
-        local -r package_dir="$(_msbuild_property "${BRIDGE_PLUGIN_PROJECT}" YakPackageDirectory)"
-        [[ -d "${package_dir}" ]] || _die "No staged bridge package directory: ${package_dir}; run bridge package <version>"
-        local -a package_files=()
-        mapfile -t package_files < <(fd -H -g "${package_slug}-*-rh9_*-mac.yak" . "${package_dir}" --max-depth 1)
-        ((${#package_files[@]} == 1)) || _die "Expected one staged bridge package in ${package_dir}, found ${#package_files[@]}"
-        package_path="${package_files[0]}"
-    fi
-    readonly package_path
-    [[ -x "${YAK_PATH}" ]] || _die "Yak not executable at ${YAK_PATH}"
-    [[ -f "${package_path}" ]] || _die "Missing Yak package: ${package_path}"
-    "${YAK_PATH}" install "${package_path}"
-    local lifecycle_json
-    local restart_json
-    if restart_json="$(_bridge_client restart)"; then
-        lifecycle_json="${restart_json}"
-    else
-        lifecycle_json="$(_bridge_client launch)" || {
-            printf '%s\n' "${restart_json}"
-            printf '%s\n' "${lifecycle_json}"
-            _die "Bridge restart/launch failed after install"
-        }
-    fi
-    readonly lifecycle_json
-    printf '%s\n' "${lifecycle_json}"
-    local doctor_json
-    doctor_json="$(_bridge_client doctor)" || {
-        printf '%s\n' "${doctor_json}"
-        _die "Bridge doctor failed after install"
-    }
-    readonly doctor_json
-    printf '%s\n' "${doctor_json}"
-    jq -er 'first(.phases[]? | select(.phase == "doctor") | .data.assemblies[]? | select(.name == "rasm-bridge")) // empty' >/dev/null <<< "${doctor_json}" || _die "Bridge doctor did not report rasm-bridge"
-}
 _package_meta() {
     local -r package_slug="$1"
     local -r package_version="$2"
@@ -656,7 +621,12 @@ _package_transaction() {
     [[ -f "${primary_artifact}" ]] || _die "Missing primary package artifact: ${primary_artifact}"
     cp -p -- "${manifest_dir}/manifest.yml" "${stage_tmp}/manifest.yml"
     [[ -f "${manifest_dir}/icon.png" ]] && cp -p -- "${manifest_dir}/icon.png" "${stage_tmp}/icon.png"
-    fd -H -e rhp -e dll -e json --exclude 'RhinoCommon.*' --exclude 'Grasshopper2.*' --exclude 'GrasshopperIO.*' . "${target_dir}" --max-depth 1 -X cp -p -- {} "${stage_tmp}/"
+    local -a host_excludes=()
+    local host_exclude
+    for host_exclude in "${RHINO_HOST_PACKAGE_EXCLUDES[@]}"; do
+        host_excludes+=(--exclude "${host_exclude}")
+    done
+    fd -H -e rhp -e dll -e json "${host_excludes[@]}" . "${target_dir}" --max-depth 1 -X cp -p -- {} "${stage_tmp}/"
     local -a staged_plugins=()
     mapfile -t staged_plugins < <(fd -H -e rhp . "${stage_tmp}" --max-depth 1)
     ((${#staged_plugins[@]} == 1)) || _die "Expected one staged .rhp for ${package_slug}, found ${#staged_plugins[@]}"
@@ -682,9 +652,33 @@ _package_action() {
     [[ -x "${yak_path}" ]] || _die "Yak not executable at ${yak_path}"
     case "${action}" in
         install) "${yak_path}" install "${package_file}" ;;
+        deploy) "${yak_path}" install "${package_file}"; _package_deploy_refresh "${package_slug}" ;;
         push) "${yak_path}" push "${source_args[@]}" "${package_file}" ;;
         *) _die "Unknown package action: ${action}" ;;
     esac
+}
+_package_deploy_refresh() {
+    local -r package_slug="$1"
+    local lifecycle_json restart_json doctor_json
+    if restart_json="$(_bridge_client restart)"; then
+        lifecycle_json="${restart_json}"
+    else
+        lifecycle_json="$(_bridge_client launch)" || {
+            printf '%s\n' "${restart_json}"
+            printf '%s\n' "${lifecycle_json}"
+            _die "Package deploy refresh failed for ${package_slug}"
+        }
+    fi
+    readonly lifecycle_json
+    printf '%s\n' "${lifecycle_json}"
+    [[ "${package_slug}" == "rasm-bridge" ]] || return 0
+    doctor_json="$(_bridge_client doctor)" || {
+        printf '%s\n' "${doctor_json}"
+        _die "Bridge doctor failed after deploying ${package_slug}"
+    }
+    readonly doctor_json
+    printf '%s\n' "${doctor_json}"
+    jq -er 'first(.phases[]? | select(.phase == "doctor") | .data.assemblies[]? | select(.name == "rasm-bridge")) // empty' >/dev/null <<< "${doctor_json}" || _die "Bridge doctor did not report rasm-bridge"
 }
 _main() {
     local route="${1:-}"

@@ -42,10 +42,13 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 ## [6][LIVE_RHINO_BRIDGE]
 - Source lives under `tools/rhino-bridge`: `protocol/` is the Rhino-free named-pipe protocol shared by client/plugin, `plugin/` is the RhinoCommon `.rhp` that executes RhinoCode in-process, and `client/` is the local CLI that owns orchestration and phase JSON.
 - Use `scripts/rhino.sh bridge build` to build the bridge protocol, plugin, and CLI.
-- Use `scripts/rhino.sh bridge package <version>` and `scripts/rhino.sh bridge install <local-yak-path>` for repeatable bridge plugin install.
+- Use `scripts/rhino.sh package rasm-bridge <version>` and `scripts/rhino.sh deploy rasm-bridge <version>` for repeatable bridge plugin packaging and install.
 - Use `scripts/rhino.sh bridge launch` to open RhinoWIP and verify a `hello` round trip against `~/.rasm/rhino-bridge.json`.
 - Use `scripts/rhino.sh bridge doctor` against a running RhinoWIP session with the bridge loaded.
 - Use `scripts/rhino.sh bridge check <target> [scenario.csx]` as the agent-first runtime diagnostic command. It accepts project, source, and script targets, prints JSON to stdout, and auto-writes the same report under `.artifacts/rhino/bridge/check/<target-path>/`.
+- `bridge check` runs RhinoCode with isolated C# reference resolution and no script cache reuse, so other loaded Rhino plugins cannot poison LanguageExt, Thinktecture, or repo assembly identity.
 - Use `scripts/rhino.sh bridge check <source.cs>` for source ownership/build proof. It returns `unsupported` unless a real scenario is supplied as the second positional argument.
+- Use `scripts/rhino.sh verify <scenario-or-glob>` as the scenario convenience rail; it resolves the owning project and routes through `bridge check <project> <scenario.verify.csx>`.
+- Keep scenarios source-only. Do not add `#r`, `#load`, or absolute build-output paths; the bridge owns reference projection and fresh artifact refs.
 - Use `scripts/rhino.sh bridge clean <target>` to delete generated reports for one target; use `scripts/rhino.sh bridge load-smoke <assembly.dll>` for lower-level assembly load/unload evidence.
 - Do not automate Rhino settings or template creation from this repo. Persistent startup is owned by the plugin `LoadTime.AtStartup`; `_RasmBridgeStart` may be entered manually in Rhino settings if an operator wants a command-list fallback.

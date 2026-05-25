@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -23,6 +24,21 @@ public static class BridgeWire {
     public const string OutputStderr = "stderr";
     public const string OutputCommandStdout = "process.stdout";
     public const string OutputCommandStderr = "process.stderr";
+    public static FrozenSet<string> HostAssemblyNames { get; } = new[] {
+        "Eto",
+        "Eto.macOS",
+        "Grasshopper",
+        "Grasshopper2",
+        "GrasshopperIO",
+        "Microsoft.macOS",
+        "Rasm.RhinoBridge.Protocol",
+        "rasm-bridge",
+        "Rhino.Runtime.Code",
+        "Rhino.UI",
+        "RhinoCodePlatform.Rhino3D",
+        "RhinoCommon",
+        "System.Drawing.Common",
+    }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
     public static JsonSerializerOptions CompactJson { get; } = Options(writeIndented: false);
     public static JsonSerializerOptions PrettyJson { get; } = Options(writeIndented: true);
     public static string EndpointDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".rasm");
@@ -49,12 +65,8 @@ public static class BridgeWire {
             Busy or Timeout => 5,
             _ => 1,
         };
-    public static BridgeLoadRequest LoadRequest(string assemblyPath, string workspaceRoot, string? packageCacheRoot = null) =>
-        new(AssemblyPath: assemblyPath, WorkspaceRoot: workspaceRoot, PackageCacheRoot: packageCacheRoot);
-    public static BridgeExecuteRequest ExecuteRequest(string script, string? scriptPath, IReadOnlyList<string> references) =>
-        new(Script: script, ScriptPath: scriptPath, References: references);
-    public static BridgeUnloadRequest UnloadRequest(string sessionId) =>
-        new(SessionId: sessionId);
+    public static bool IsHostAssemblyName(string? name) =>
+        !string.IsNullOrWhiteSpace(value: name) && HostAssemblyNames.Contains(item: name);
     public static BridgeRequest Request<TPayload>(string command, TPayload payload, int timeoutMs = 15000) =>
         new(Schema: Schema, Command: command, TimeoutMs: timeoutMs, Payload: JsonSerializer.SerializeToElement(value: payload, options: CompactJson));
     public static BridgeRequest Request(string command, int timeoutMs = 15000) =>
@@ -152,7 +164,8 @@ public sealed record BridgeUnloadRequest(string SessionId);
 public sealed record BridgeLoadReport(string Status, string? SessionId, string? AssemblyName, string? Location, string? PdbPath, string? WorkspaceRoot, string? PackageCacheRoot, IReadOnlyList<BridgeAssemblyReport> Assemblies, BridgeFault? Fault);
 public sealed record BridgeDocumentReport(bool Active, uint? RuntimeSerialNumber, string? Name, string? Path, bool? Modified, double? ModelAbsoluteTolerance, string? ModelUnitSystem);
 public sealed record BridgeReturnValue(JsonElement Value, string Source);
-public sealed record BridgeExecuteReport(string Status, int DurationMs, bool ServerExecutionCancelable, string BridgeAssemblyName, string BridgeAssemblyVersion, string BridgeAssemblyInformationalVersion, string RhinoVersion, BridgeDocumentReport Document, BridgeReturnValue? ReturnValue, IReadOnlyList<string> References, BridgeFault? Fault);
+public sealed record BridgeRhinoCodePolicy(bool ResolverIsolated, string ResolverOption, string CachePolicy, bool CacheReusable);
+public sealed record BridgeExecuteReport(string Status, int DurationMs, bool ServerExecutionCancelable, string BridgeAssemblyName, string BridgeAssemblyVersion, string BridgeAssemblyInformationalVersion, string RhinoVersion, BridgeRhinoCodePolicy RhinoCode, BridgeDocumentReport Document, BridgeReturnValue? ReturnValue, IReadOnlyList<string> References, BridgeFault? Fault);
 public sealed record BridgeUnloadReport(string Status, string SessionId, bool UnloadRequested, bool Unloaded, BridgeFault? Fault);
 public sealed record BridgeQuitReport(string Status, int RhinoPid, bool ActiveDocument, bool Modified, BridgeFault? Fault);
 public sealed record BridgeOutput(string Source, string Text, bool Truncated, int Length, int Limit);

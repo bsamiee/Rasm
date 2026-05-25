@@ -22,7 +22,7 @@
 - Verify snapshots compare stable artifacts only; never snapshot current implementation output as a domain oracle.
 - Prove non-zero VSTest discovery before using Stryker survivor data; if Stryker reports zero tests while `bash scripts/test.sh` finds tests, treat mutation output as tooling evidence, not code quality evidence.
 - Generated reports, corpora, mutation output, benchmark output, and transient test results belong under `/Users/bardiasamiee/Documents/99.Github/Rasm/.artifacts`; do not create local scratch roots such as `.remember`.
-- If bridge execution reports `LanguageExt.*` value-type mismatch or already-loaded assembly identity failures, investigate loaded Rhino packages/assemblies before changing the scenario or static spec.
+- If bridge execution reports `LanguageExt.*` value-type mismatch or already-loaded assembly identity failures, first verify `bridge check` is using staged `refs/<content-hash>/` paths and isolated RhinoCode resolution before changing the scenario or static spec.
 
 ## [2][ORACLES]
 
@@ -63,5 +63,5 @@
   - `dotnet test /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_tooling/Rasm.TestingTools.Tests.csproj --configuration Release` when stable testing-rail snapshots changed.
   - `dotnet run --project /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_benchmarks/Rasm.Benchmarks.csproj --configuration Release -- --list flat` when benchmark projects or config changed.
   - `printf 'running,1000,240,0,modular,9.525,9.525,concave' | dotnet run --project /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_fuzz/Rasm.Fuzz.csproj --configuration Release` when fuzz harnesses changed.
-  - `bash /Users/bardiasamiee/Documents/99.Github/Rasm/scripts/rhino.sh verify /Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/Scenarios` when bridge scenarios changed.
+  - `bash /Users/bardiasamiee/Documents/99.Github/Rasm/scripts/rhino.sh verify /Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/Scenarios` when bridge scenarios changed; scenarios must not contain `#r` or `#load`.
   - `git diff --check`

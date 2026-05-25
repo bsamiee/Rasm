@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO.Pipes;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Rasm.RhinoBridge.Protocol;
@@ -145,8 +146,7 @@ internal static class Program {
         string reportRoot = ReportRoot(worktree: worktree);
         string fullRoot = Path.GetFullPath(path: reportRoot);
         string fullDir = Path.GetFullPath(path: reportDir);
-        bool safe = fullDir.StartsWith(value: fullRoot + Path.DirectorySeparatorChar, comparisonType: PathComparison)
-            || string.Equals(a: fullDir, b: fullRoot, comparisonType: PathComparison);
+        bool safe = fullDir.StartsWith(value: fullRoot + Path.DirectorySeparatorChar, comparisonType: PathComparison);
         if (!safe) {
             throw new InvalidOperationException(message: $"Refusing to clean outside bridge check artifacts: {fullDir}");
         }
@@ -187,16 +187,13 @@ internal static class Program {
             resultPath: resultPath,
             loadMessage: "RhinoCode check uses #r references without a separate bridge load session.",
             noRuntimeMessage: "Build failed before RhinoCode execution.",
-            script: projectBuild => ProjectScriptAsync(project: projectBuild, scriptPath: scenarioPath)).ConfigureAwait(false);
+            script: (projectBuild, reportPath) => ProjectScriptAsync(project: projectBuild, scriptPath: scenarioPath, resultPath: reportPath)).ConfigureAwait(false);
     }
     private static async Task<int> CheckSourceAsync(string sourcePath, string? scenarioPath, CliOptions options) {
         string source = ExistingFile(path: sourcePath, label: "source");
         string worktree = await WorkspaceRootAsync(path: source, options: options).ConfigureAwait(false);
         string resultPath = options.Result ?? DefaultResultPath(worktree: worktree, target: source);
         (BridgePhase resolvePhase, string? resolvedProject) = await ResolveSourcePhaseAsync(source: source, worktree: worktree, configuration: options.Configuration).ConfigureAwait(false);
-        if (resolvedProject is null && scenarioPath is null && string.Equals(a: resolvePhase.Fault?.Category, b: "source", comparisonType: StringComparison.Ordinal)) {
-            return await CheckScriptAsync(scriptPath: source, options: options).ConfigureAwait(false);
-        }
         (BridgePhase buildPhase, ProjectBuild? buildProject) = resolvedProject is string project
             ? await BuildPhaseAsync(project: project, configuration: options.Configuration).ConfigureAwait(false)
             : (BridgePhase.Skipped(phase: PhaseBuild, message: "Source ownership could not be resolved."), null);
@@ -210,7 +207,7 @@ internal static class Program {
             resultPath: resultPath,
             loadMessage: "Source checks use RhinoCode #r scripts without a separate bridge load session.",
             noRuntimeMessage: BridgeWire.IsOk(status: buildPhase.Status) && scenarioPath is null ? "Source build validated; no runtime script supplied." : "Source ownership or build failed before source script execution.",
-            script: projectBuild => ScenarioScriptAsync(project: projectBuild, scriptPath: scenarioPath)).ConfigureAwait(false);
+            script: (projectBuild, reportPath) => ScenarioScriptAsync(project: projectBuild, scriptPath: scenarioPath, resultPath: reportPath)).ConfigureAwait(false);
     }
     private static async Task<int> QuitAsync() {
         BridgeEndpoint endpoint = ReadEndpoint();
@@ -382,9 +379,9 @@ internal static class Program {
                 _ => (BridgePhase.Failed(phase: PhaseResolve, timer: timer, category: "ambiguous", message: $"Multiple projects own source file: {source}", data: new { sourcePath = source, candidates = owners }, outputs: tracked.Outputs), null),
             };
     }
-    private static async Task<int> CheckRuntimeAsync(string command, BridgePhase resolve, BridgePhase build, ProjectBuild? project, string worktree, CliOptions options, string resultPath, string loadMessage, string noRuntimeMessage, Func<ProjectBuild, Task<(string Script, IReadOnlyList<string> References)?>> script) {
+    private static async Task<int> CheckRuntimeAsync(string command, BridgePhase resolve, BridgePhase build, ProjectBuild? project, string worktree, CliOptions options, string resultPath, string loadMessage, string noRuntimeMessage, Func<ProjectBuild, string, Task<(string Script, IReadOnlyList<string> References)?>> script) {
         (string Script, IReadOnlyList<string> References)? checkScript = project is { } projectBuild && BridgeWire.IsOk(status: build.Status)
-            ? await script(projectBuild).ConfigureAwait(false)
+            ? await script(projectBuild, resultPath).ConfigureAwait(false)
             : null;
         bool canRun = checkScript is not null && BridgeWire.IsOk(status: build.Status);
         BridgePhase launch = canRun ? await LaunchPhaseAsync().ConfigureAwait(false) : BridgePhase.Skipped(phase: PhaseLaunch, message: noRuntimeMessage);
@@ -409,24 +406,32 @@ internal static class Program {
         BridgeResult result = BridgeResult.From(command: command, phases: [resolve, build, launch, connect, scriptServer, load, execute, diagnostics, BridgePhase.Skipped(phase: PhaseUnload, message: "No bridge load session was created."), BridgePhase.Skipped(phase: PhaseLifecycle, message: "No lifecycle action was requested.")]);
         return PrintResult(result: result, path: resultPath);
     }
-    private static async Task<(string Script, IReadOnlyList<string> References)?> ProjectScriptAsync(ProjectBuild project, string? scriptPath) =>
+    private static async Task<(string Script, IReadOnlyList<string> References)?> ProjectScriptAsync(ProjectBuild project, string? scriptPath, string resultPath) =>
         scriptPath is string sourceScriptPath
-            ? await SourceScenarioScriptAsync(project: project, scriptPath: ExistingFile(path: sourceScriptPath, label: "script")).ConfigureAwait(false)
-            : (SmokeScript(project: project), project.HostFilteredRuntimeReferences);
-    private static async Task<(string Script, IReadOnlyList<string> References)?> ScenarioScriptAsync(ProjectBuild project, string? scriptPath) =>
+            ? await SourceScenarioScriptAsync(project: project, scriptPath: ExistingFile(path: sourceScriptPath, label: "script"), resultPath: resultPath).ConfigureAwait(false)
+            : SmokeScript(project: project, resultPath: resultPath);
+    private static async Task<(string Script, IReadOnlyList<string> References)?> ScenarioScriptAsync(ProjectBuild project, string? scriptPath, string resultPath) =>
         scriptPath is string sourceScriptPath
-            ? await SourceScenarioScriptAsync(project: project, scriptPath: ExistingFile(path: sourceScriptPath, label: "script")).ConfigureAwait(false)
+            ? await SourceScenarioScriptAsync(project: project, scriptPath: ExistingFile(path: sourceScriptPath, label: "script"), resultPath: resultPath).ConfigureAwait(false)
             : null;
-    private static async Task<(string Script, IReadOnlyList<string> References)> SourceScenarioScriptAsync(ProjectBuild project, string scriptPath) {
-        IReadOnlyList<string> references = [.. new[] { project.TargetPath }.Concat(project.HostFilteredRuntimeReferences).Distinct(StringComparer.OrdinalIgnoreCase)];
+    private static async Task<(string Script, IReadOnlyList<string> References)> SourceScenarioScriptAsync(ProjectBuild project, string scriptPath, string resultPath) {
+        IReadOnlyList<string> references = ScriptReferences(project: project, resultPath: resultPath);
         string[] script = await File.ReadAllLinesAsync(path: scriptPath, encoding: Encoding.UTF8, cancellationToken: CancellationToken.None).ConfigureAwait(false);
+        string? embeddedReference = script.Select((line, index) => new { Line = line.TrimStart(), Number = index + 1 })
+            .Where(static item => SourceScenarioReferenceLine(line: item.Line))
+            .Select(static item => $"{item.Number.ToString(provider: CultureInfo.InvariantCulture)}:{item.Line}")
+            .FirstOrDefault();
+        if (embeddedReference is not null) {
+            throw new InvalidOperationException(message: $"Scenario references are bridge-owned; remove '#r' or '#load' from {scriptPath}:{embeddedReference}");
+        }
         string scenario = ScenarioName(scriptPath: scriptPath);
-        string capture = Path.Combine(path1: Path.GetDirectoryName(path: project.TargetPath) ?? Environment.CurrentDirectory, path2: ".verify", path3: $"{scenario}.png");
-        int bodyIndex = Array.FindIndex(array: script, match: static line => !SourceScenarioPreambleLine(line: line)) switch { -1 => script.Length, var index => index };
+        string capture = Path.Combine(path1: Path.GetDirectoryName(path: resultPath) ?? Environment.CurrentDirectory, path2: $"{Path.GetFileNameWithoutExtension(path: resultPath)}.png");
+        int foundBodyIndex = Array.FindIndex(array: script, match: static line => !SourceScenarioPreambleLine(line: line));
+        int bodyIndex = foundBodyIndex < 0 ? script.Length : foundBodyIndex;
         return (
             string.Join(separator: Environment.NewLine, values: new[] {
                 ReferenceDirectives(references: references),
-            }.Concat(script.Take(count: bodyIndex).Where(static line => !SourceScenarioReferenceLine(line: line))).Concat([
+            }.Concat(script.Take(count: bodyIndex)).Concat([
                 $"const string SCENARIO_NAME = \"{Escape(value: scenario)}\";",
                 $"const string CAPTURE_PATH = \"{Escape(value: capture)}\";",
             ]).Concat(script.Skip(count: bodyIndex))),
@@ -443,12 +448,13 @@ internal static class Program {
         || line.TrimStart().StartsWith(value: "#load ", comparisonType: StringComparison.Ordinal);
     private static string ScenarioName(string scriptPath) =>
         Path.GetFileName(path: scriptPath).Replace(oldValue: ".verify.csx", newValue: string.Empty, comparisonType: StringComparison.OrdinalIgnoreCase);
-    private static string SmokeScript(ProjectBuild project) {
-        string references = ReferenceDirectives(references: project.HostFilteredRuntimeReferences);
-        string target = Escape(value: project.TargetPath);
-        string assemblyName = Escape(value: project.AssemblyName ?? Path.GetFileNameWithoutExtension(path: project.TargetPath));
+    private static (string Script, IReadOnlyList<string> References) SmokeScript(ProjectBuild project, string resultPath) {
+        IReadOnlyList<string> scriptReferences = ScriptReferences(project: project, resultPath: resultPath);
+        string references = ReferenceDirectives(references: scriptReferences);
+        string target = Escape(value: scriptReferences[0]);
+        string sourceTarget = Escape(value: project.TargetPath);
         string nonce = Guid.NewGuid().ToString(format: "N");
-        return string.Join(separator: Environment.NewLine, values: [
+        return (string.Join(separator: Environment.NewLine, values: [
             references,
             "using System;",
             "using System.Globalization;",
@@ -458,23 +464,23 @@ internal static class Program {
             "using Rhino;",
             string.Empty,
 $"string targetLocation = Path.GetFullPath(\"{target}\");",
+$"string sourceTargetLocation = Path.GetFullPath(\"{sourceTarget}\");",
 "AssemblyName targetName = AssemblyName.GetAssemblyName(targetLocation);",
-$"Assembly? loadedAssembly = Array.Find(AppDomain.CurrentDomain.GetAssemblies(), assembly => string.Equals(assembly.GetName().Name, \"{assemblyName}\", StringComparison.Ordinal));",
-"Version? loadedVersion = loadedAssembly?.GetName().Version;",
-            "string? preLoadLocation = loadedAssembly?.Location;",
-            "bool alreadyLoaded = loadedAssembly is not null;",
-            "bool staleLocation = alreadyLoaded && !string.Equals(Path.GetFullPath(preLoadLocation ?? string.Empty), targetLocation, OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);",
-            "bool staleIdentity = alreadyLoaded && !Equals(loadedVersion, targetName.Version);",
-            "bool staleLoaded = staleLocation || staleIdentity;",
-            "Assembly? targetAssembly = staleLoaded ? loadedAssembly : loadedAssembly ?? Assembly.LoadFrom(targetLocation);",
+"StringComparison pathComparison = OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;",
+"Assembly loadedByPath = Assembly.LoadFile(targetLocation);",
+"Assembly[] nameMatches = Array.FindAll(AppDomain.CurrentDomain.GetAssemblies(), assembly => string.Equals(assembly.GetName().Name, targetName.Name, StringComparison.Ordinal));",
+"Assembly? targetAssembly = Array.Find(nameMatches, assembly => ReferenceEquals(assembly, loadedByPath) || (!string.IsNullOrWhiteSpace(assembly.Location) && string.Equals(Path.GetFullPath(assembly.Location), targetLocation, pathComparison)));",
+"Assembly? otherAssembly = Array.Find(nameMatches, assembly => !ReferenceEquals(assembly, targetAssembly));",
+"Version? loadedVersion = targetAssembly?.GetName().Version;",
+            "string? preLoadLocation = otherAssembly?.Location;",
+            "bool alreadyLoaded = otherAssembly is not null;",
             "string postLoadLocation = targetAssembly?.Location ?? \"none\";",
             "string loadedVersionText = loadedVersion?.ToString() ?? \"none\";",
             "string targetVersionText = targetName.Version?.ToString() ?? \"none\";",
             "string assemblyVersionText = targetAssembly?.GetName().Version?.ToString() ?? \"none\";",
             "string assemblyInformationalVersion = targetAssembly?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? \"none\";",
-$"Console.WriteLine(\"{BridgeWire.ReturnPrefix}\" + JsonSerializer.Serialize(new {{ kind = \"assemblyFreshness\", nonce = \"{nonce}\", targetLocation, loadedLocation = string.IsNullOrWhiteSpace(postLoadLocation) ? \"none\" : postLoadLocation, preLoadLocation = preLoadLocation ?? \"none\", alreadyLoaded, staleLocation, staleIdentity, refreshRequired = staleLoaded, loadedVersion = loadedVersionText, targetVersion = targetVersionText, assemblyVersion = assemblyVersionText, assemblyInformationalVersion }}));",
-            "if (staleLoaded) throw new InvalidOperationException($\"Already-loaded assembly does not match built target. loaded={preLoadLocation}; target={targetLocation}; loadedVersion={loadedVersion}; targetVersion={targetName.Version}\");",
-            "Assembly targetAssemblyFresh = targetAssembly ?? throw new InvalidOperationException(\"Target assembly did not load.\");",
+            $"Console.WriteLine(\"{BridgeWire.ReturnPrefix}\" + JsonSerializer.Serialize(new {{ kind = \"assemblyFreshness\", nonce = \"{nonce}\", sourceTargetLocation, targetLocation, loadedLocation = string.IsNullOrWhiteSpace(postLoadLocation) ? \"none\" : postLoadLocation, preLoadLocation = preLoadLocation ?? \"none\", alreadyLoaded, sameNameAssemblyCount = nameMatches.Length, refreshRequired = targetAssembly is null, loadedVersion = loadedVersionText, targetVersion = targetVersionText, assemblyVersion = assemblyVersionText, assemblyInformationalVersion, resolverIsolated = true }}));",
+            "Assembly targetAssemblyFresh = targetAssembly ?? throw new InvalidOperationException($\"RhinoCode did not load target assembly through isolated #r reference. target={targetLocation}; sameName={preLoadLocation ?? \"none\"}\");",
 $"Console.WriteLine(\"rasm.rhino-bridge.nonce={nonce}\");",
             "Console.WriteLine(\"loadedAssembly=\" + targetAssemblyFresh.FullName);",
             "Console.WriteLine(\"targetLocation=\" + targetLocation);",
@@ -488,7 +494,51 @@ $"Console.WriteLine(\"rasm.rhino-bridge.nonce={nonce}\");",
             "Console.WriteLine(\"activeDocument=\" + (RhinoDoc.ActiveDoc is not null));",
             "Console.WriteLine(\"modelAbsoluteTolerance=\" + (RhinoDoc.ActiveDoc?.ModelAbsoluteTolerance.ToString(CultureInfo.InvariantCulture) ?? \"none\"));",
 $"Console.Error.WriteLine(\"rasm.rhino-bridge.stderr={nonce}\");",
-        ]);
+        ]), scriptReferences);
+    }
+    private static IReadOnlyList<string> ScriptReferences(ProjectBuild project, string resultPath) =>
+        ShadowReferences(
+            targetPath: project.TargetPath,
+            references: new[] { project.TargetPath }.Concat(project.HostFilteredRuntimeReferences).Distinct(StringComparer.OrdinalIgnoreCase),
+            resultPath: resultPath);
+    private static IReadOnlyList<string> ShadowReferences(string targetPath, IEnumerable<string> references, string resultPath) {
+        string target = Path.GetFullPath(path: targetPath);
+        ReferenceFile[] ordered = [.. references
+            .Select(Path.GetFullPath)
+            .Where(File.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(static reference => ReferenceFile.From(path: reference))
+            .OrderBy(reference => string.Equals(a: reference.Path, b: target, comparisonType: PathComparison) ? 0 : 1)
+            .ThenBy(static reference => reference.Identity, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(static reference => reference.Path, StringComparer.OrdinalIgnoreCase)];
+        string fingerprint = ContentFingerprint(references: ordered);
+        string root = Path.Combine(path1: Path.GetDirectoryName(path: resultPath) ?? Environment.CurrentDirectory, path2: "refs", path3: fingerprint);
+        _ = Directory.CreateDirectory(path: root);
+        Dictionary<string, int> seen = new(StringComparer.OrdinalIgnoreCase);
+        return [.. ordered.Select(reference => {
+            string file = Path.GetFileName(path: reference.Path);
+            int index = seen.GetValueOrDefault(key: file);
+            seen[file] = index + 1;
+            string directory = index == 0 ? root : Path.Combine(path1: root, path2: index.ToString(format: "00", provider: CultureInfo.InvariantCulture));
+            _ = Directory.CreateDirectory(path: directory);
+            string target = Path.Combine(path1: directory, path2: file);
+            string temp = string.Create(provider: CultureInfo.InvariantCulture, $"{target}.{Environment.ProcessId}.tmp");
+            File.Copy(sourceFileName: reference.Path, destFileName: temp, overwrite: true);
+            File.Move(sourceFileName: temp, destFileName: target, overwrite: true);
+            return target;
+        })];
+    }
+    private static string ContentFingerprint(IReadOnlyList<ReferenceFile> references) {
+        using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        foreach (ReferenceFile reference in references) {
+            byte[] identity = Encoding.UTF8.GetBytes(s: reference.Identity);
+            byte[] content = File.ReadAllBytes(path: reference.Path);
+            hash.AppendData(data: identity);
+            hash.AppendData(data: [0]);
+            hash.AppendData(data: content);
+            hash.AppendData(data: [0]);
+        }
+        return Convert.ToHexString(inArray: hash.GetHashAndReset())[..32];
     }
     private static string ReferenceDirectives(IReadOnlyList<string> references) =>
         string.Join(separator: Environment.NewLine, values: references.Select(static reference => $"#r \"{Escape(value: reference)}\""));
@@ -691,6 +741,19 @@ internal sealed record BridgePhase(string Phase, string Status, int DurationMs, 
         Data is JsonElement data ? data.Deserialize<T>(options: BridgeWire.CompactJson) : default;
 }
 
+internal sealed record ReferenceFile(string Path, string Identity) {
+    internal static ReferenceFile From(string path) =>
+        new(Path: path, Identity: IdentityOf(path: path));
+    private static string IdentityOf(string path) {
+        try {
+            System.Reflection.AssemblyName name = System.Reflection.AssemblyName.GetAssemblyName(assemblyFile: path);
+            return string.Create(provider: CultureInfo.InvariantCulture, $"{name.Name}|{name.Version}|{File.GetLastWriteTimeUtc(path).Ticks}|{new FileInfo(fileName: path).Length}");
+        } catch (Exception error) when (error is IOException or UnauthorizedAccessException or BadImageFormatException or FileLoadException or ArgumentException) {
+            return string.Create(provider: CultureInfo.InvariantCulture, $"{System.IO.Path.GetFileName(path)}|{File.GetLastWriteTimeUtc(path).Ticks}|{new FileInfo(fileName: path).Length}");
+        }
+    }
+}
+
 internal sealed record ProjectBuild(string ProjectPath, string Configuration, string? TargetFramework, string? AssemblyName, string TargetPath, string? TargetDir, string? TargetExt, string? PackageCacheRoot, IReadOnlyList<string> References) {
     internal IReadOnlyList<string> RuntimeReferences =>
         [.. References.Where(reference => !string.Equals(a: Path.GetFullPath(path: reference), b: Path.GetFullPath(path: TargetPath), comparisonType: OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))];
@@ -719,7 +782,7 @@ internal sealed record ProjectBuild(string ProjectPath, string Configuration, st
         path.Contains(value: "/packs/Microsoft.NETCore.App.Ref/", comparisonType: StringComparison.Ordinal)
         || path.Contains(value: "/packs/NETStandard.Library.Ref/", comparisonType: StringComparison.Ordinal);
     private static bool IsHostReference(string path) =>
-        Path.GetFileNameWithoutExtension(path: path) is "RhinoCommon" or "Rhino.UI" or "Grasshopper" or "Grasshopper2" or "GrasshopperIO" or "Rasm.RhinoBridge.Protocol" or "rasm-bridge";
+        BridgeWire.IsHostAssemblyName(name: Path.GetFileNameWithoutExtension(path: path));
     private static string ReferenceIdentity(string path) {
         try {
             System.Reflection.AssemblyName name = System.Reflection.AssemblyName.GetAssemblyName(assemblyFile: path);

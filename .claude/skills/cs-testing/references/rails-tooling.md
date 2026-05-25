@@ -37,8 +37,9 @@ bash scripts/mutate-cs.sh
 | [1] | `bash scripts/rhino.sh verify apps/grasshopper/Radyab/Scenarios` | Run all `*.verify.csx` scenarios. |
 | [2] | `bash scripts/rhino.sh bridge check <source.cs> <scenario.verify.csx>` | Prove scenario owns a source slice. |
 | [3] | `bash scripts/rhino.sh bridge doctor` | Check active bridge session. |
+| [4] | `bash scripts/rhino.sh bridge clean <target>` | Clear generated reports for one target. |
 
-Static specs must not fake this rail with skips, mocked Rhino native calls, or dylib copying.
+Static specs must not fake this rail with skips, mocked Rhino native calls, dylib copying, scenario `#r` blocks, or hardcoded build-output paths.
 
 ---
 ## [4][ADJACENT_RAILS]

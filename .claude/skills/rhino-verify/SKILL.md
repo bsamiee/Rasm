@@ -24,7 +24,7 @@ Rhino has no working headless mode on macOS as of Rhino 9 WIP 9.0.26132 (May 202
 | [RAIL] | [WHEN] | [COMMAND] | [FAILURE_MODE] |
 | --- | --- | --- | --- |
 | Static (xUnit) | Pure C# logic — algebras, folds, projections, validation that does not require Rhino runtime | `bash scripts/test.sh [<filter>]` | Compile or assertion failure; non-zero exit |
-| Scenario (Rhino bridge) | Anything that touches `RhinoCommon`, `Grasshopper2`, plugin behavior, geometric correctness, or needs a visual oracle | `bash scripts/rhino.sh verify <path-or-glob>` | Phase JSON status != `ok`; non-zero exit; summary JSON written to `.artifacts/verify/summary.json` |
+| Scenario (Rhino bridge) | Anything that touches `RhinoCommon`, `Grasshopper2`, plugin behavior, geometric correctness, or needs a visual oracle | `bash scripts/rhino.sh verify <path-or-glob>` | Phase JSON status != `ok`; non-zero exit; summary JSON written to `.artifacts/rhino/verify/summary.json` |
 
 [ALWAYS] Static first. Push to the scenario rail only when the question requires Rhino's runtime.
 
@@ -44,7 +44,7 @@ Tests live under `tests/csharp/<project>/`, mirroring source layout. `Directory.
 
 A scenario is a single `*.verify.csx` file co-located with the code it exercises (typical path: `apps/grasshopper/<plugin>/Scenarios/<name>.verify.csx`). It is a RhinoCode C# script executed through the bridge inside the running `RhinoWIP.app`.
 
-The runner prepends two `const string` declarations to every scenario before execution:
+The bridge resolves the owning project, stages fresh bridge-owned references, and prepends two `const string` declarations to every scenario before execution:
 
 ```csharp
 const string SCENARIO_NAME = "<file-stem>";
@@ -52,6 +52,8 @@ const string CAPTURE_PATH  = "<absolute-png-path>";
 ```
 
 [NEVER] Declare `SCENARIO_NAME` or `CAPTURE_PATH` yourself — the runner injects them. Use them; do not shadow them.
+
+[NEVER] Add `#r` or `#load` to scenarios. References are bridge-owned so agents do not bake machine paths, build configurations, or stale assembly locations into diagnostic scripts.
 
 Scenario shape (in this order):
 
@@ -64,7 +66,7 @@ Scenario shape (in this order):
 
 [CRITICAL] macOS `ViewCapture` quirk (Rhino 9 WIP, regression open since March 2026): `CaptureToBitmap(view)` ignores the `view` parameter and captures the **active** viewport. Workaround: set `doc.Views.ActiveView` (or operate on whatever `ActiveView` returns) and `view.Redraw()` before capture. Off-screen / parallel-viewport captures are unreliable until McNeel fixes the bug.
 
-Reference scenario: `apps/grasshopper/Radyab/Scenarios/extract-points.verify.csx`.
+Reference scenario: `apps/grasshopper/Radyab/Scenarios/vectors-space-projection.verify.csx`.
 
 ---
 ## [5][RUN_LOOP]
@@ -73,8 +75,8 @@ Pre-flight (once per session, when Rhino is not already running with the bridge)
 
 ```bash
 bash scripts/rhino.sh bridge build      # builds protocol + plugin + client
-bash scripts/rhino.sh bridge package $V # only when the plugin source changed
-bash scripts/rhino.sh bridge install
+bash scripts/rhino.sh package rasm-bridge $V # only when the bridge plugin changed
+bash scripts/rhino.sh deploy rasm-bridge $V
 bash scripts/rhino.sh bridge launch     # opens RhinoWIP, verifies hello
 ```
 
@@ -82,15 +84,15 @@ Per iteration:
 
 ```bash
 bash scripts/rhino.sh verify apps/grasshopper/Radyab/Scenarios   # all
-bash scripts/rhino.sh verify Radyab/Scenarios/extract-points    # one (regex)
+bash scripts/rhino.sh verify Radyab/Scenarios/vectors-space    # one (regex)
 bash scripts/rhino.sh verify path/to/single.verify.csx          # explicit
 ```
 
 Reading results:
 
-- Per-scenario evidence: `.artifacts/verify/<name>.json` — full bridge phase JSON, same shape as `bridge check <script.csx>`.
-- Per-scenario capture: `.artifacts/verify/captures/<name>.png` — open with the multimodal Read tool.
-- Aggregate: `.artifacts/verify/summary.json` — `{summary:{ok,failed,total}, scenarios:[…]}`.
+- Per-scenario evidence: `.artifacts/rhino/verify/<name>.json` — full bridge phase JSON, same shape as `bridge check <owning.csproj> <scenario.verify.csx>`.
+- Per-scenario capture: `.artifacts/rhino/verify/<name>.png` — open with the multimodal Read tool.
+- Aggregate: `.artifacts/rhino/verify/summary.json` — `{summary:{ok,failed,total}, scenarios:[…]}`.
 
 A scenario passes when its top-level `status` is `ok`. The runner exits non-zero when any scenario fails.
 
@@ -100,6 +102,7 @@ A scenario passes when its top-level `status` is `ok`. The runner exits non-zero
 Before committing a new scenario:
 
 - [ ] File name ends in `.verify.csx`.
+- [ ] Contains no `#r` or `#load`; bridge check owns generated references.
 - [ ] Does not declare `SCENARIO_NAME` or `CAPTURE_PATH`.
 - [ ] Calls `doc.Objects.Clear()` at the top (scenarios share one Rhino session).
 - [ ] Inputs are deterministic constants — no `Random`, no file reads, no time-dependent values.

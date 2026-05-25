@@ -3,7 +3,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum<int>] public sealed partial class SdfMeshMethod { public static readonly SdfMeshMethod GeneralizedWindingNumber = new(key: 0), BoundarySignedHeat = new(key: 1); }
+[SmartEnum<int>] public sealed partial class SdfMeshMethod { public static readonly SdfMeshMethod GeneralizedWindingNumber = new(key: 0), BoundarySignedHeat = new(key: 1), ClosedSurfaceSignedHeat = new(key: 2); }
 
 [SmartEnum<int>]
 public sealed partial class FieldBlend {
@@ -242,27 +242,28 @@ public abstract partial record Falloff {
         WeightCore(distance: offset.Length, distanceSquared: offset.SquareLength, metric: Some((Offset: offset, Sample: sample, Context: context)), tolerance: tolerance, key: key);
     internal Fin<double> Weight(Vector3d offset, double tolerance, Op key) =>
         WeightCore(distance: offset.Length, distanceSquared: offset.SquareLength, metric: Option<(Vector3d Offset, Point3d Sample, Context Context)>.None, tolerance: tolerance, key: key);
-    private Fin<double> WeightCore(double distance, double distanceSquared, Option<(Vector3d Offset, Point3d Sample, Context Context)> metric, double tolerance, Op key) => Switch(
-        state: (Distance: distance, DistanceSquared: distanceSquared, Metric: metric, Tolerance: tolerance, Key: key),
-        constantCase: static (_, _) => Fin.Succ(1.0),
-        inverseCase: static (s, _) => s.Distance > s.Tolerance ? Fin.Succ(1.0 / s.Distance) : Fin.Fail<double>(s.Key.InvalidInput()),
-        inverseSquareCase: static (s, _) => s.Distance > s.Tolerance ? Fin.Succ(1.0 / s.DistanceSquared) : Fin.Fail<double>(s.Key.InvalidInput()),
-        gaussianCase: static (s, g) => Fin.Succ(Math.Exp(-s.DistanceSquared / (2.0 * g.Spread.Value * g.Spread.Value))),
-        kernelCase: static (s, k) => k.Kind.Profile(distance: s.Distance, radius: k.Radius.Value, key: s.Key).Map(static p => p.Value),
-        anisotropicKernelCase: static (s, k) =>
-            from m in s.Metric.ToFin(s.Key.Unsupported(geometryType: typeof(AnisotropicKernelCase), outputType: typeof(double)))
-            from tensor in k.Metric.SampleTensor(sample: m.Sample, context: m.Context, key: s.Key)
-            from _ in tensor.Dimension.Value == 3 ? tensor.DecomposeCholesky(key: s.Key).Map(static _ => unit) : Fin.Fail<Unit>(s.Key.InvalidInput())
-            from metricDistance in (m.Offset.X, m.Offset.Y, m.Offset.Z) switch {
-                (double x, double y, double z) when
-                    (x * ((tensor.At(i: 0, j: 0) * x) + (tensor.At(i: 0, j: 1) * y) + (tensor.At(i: 0, j: 2) * z))) +
-                    (y * ((tensor.At(i: 1, j: 0) * x) + (tensor.At(i: 1, j: 1) * y) + (tensor.At(i: 1, j: 2) * z))) +
-                    (z * ((tensor.At(i: 2, j: 0) * x) + (tensor.At(i: 2, j: 1) * y) + (tensor.At(i: 2, j: 2) * z))) is double quadratic
-                    && RhinoMath.IsValidDouble(x: quadratic) && quadratic > 0.0 => s.Key.AcceptValue(value: Math.Sqrt(d: quadratic)),
-                _ => Fin.Fail<double>(s.Key.InvalidResult()),
-            }
-            from profile in k.Kind.Profile(distance: metricDistance, radius: k.Radius.Value, key: s.Key)
-            select profile.Value);
+    private Fin<double> WeightCore(double distance, double distanceSquared, Option<(Vector3d Offset, Point3d Sample, Context Context)> metric, double tolerance, Op key) =>
+        FieldNabla.FalloffInput(distance: distance, distanceSquared: distanceSquared, tolerance: tolerance, key: key).Bind(_ => Switch(
+            state: (Distance: distance, DistanceSquared: distanceSquared, Metric: metric, Tolerance: tolerance, Key: key),
+            constantCase: static (_, _) => Fin.Succ(1.0),
+            inverseCase: static (s, _) => s.Distance > s.Tolerance ? Fin.Succ(1.0 / s.Distance) : Fin.Fail<double>(s.Key.InvalidInput()),
+            inverseSquareCase: static (s, _) => s.Distance > s.Tolerance ? Fin.Succ(1.0 / s.DistanceSquared) : Fin.Fail<double>(s.Key.InvalidInput()),
+            gaussianCase: static (s, g) => Fin.Succ(Math.Exp(-s.DistanceSquared / (2.0 * g.Spread.Value * g.Spread.Value))),
+            kernelCase: static (s, k) => k.Kind.Profile(distance: s.Distance, radius: k.Radius.Value, key: s.Key).Map(static p => p.Value),
+            anisotropicKernelCase: static (s, k) =>
+                from m in s.Metric.ToFin(s.Key.Unsupported(geometryType: typeof(AnisotropicKernelCase), outputType: typeof(double)))
+                from tensor in k.Metric.SampleTensor(sample: m.Sample, context: m.Context, key: s.Key)
+                from _ in tensor.Dimension.Value == 3 ? tensor.DecomposeCholesky(key: s.Key).Map(static _ => unit) : Fin.Fail<Unit>(s.Key.InvalidInput())
+                from metricDistance in (m.Offset.X, m.Offset.Y, m.Offset.Z) switch {
+                    (double x, double y, double z) when
+                        (x * ((tensor.At(i: 0, j: 0) * x) + (tensor.At(i: 0, j: 1) * y) + (tensor.At(i: 0, j: 2) * z))) +
+                        (y * ((tensor.At(i: 1, j: 0) * x) + (tensor.At(i: 1, j: 1) * y) + (tensor.At(i: 1, j: 2) * z))) +
+                        (z * ((tensor.At(i: 2, j: 0) * x) + (tensor.At(i: 2, j: 1) * y) + (tensor.At(i: 2, j: 2) * z))) is double quadratic
+                        && RhinoMath.IsValidDouble(x: quadratic) && quadratic > 0.0 => s.Key.AcceptValue(value: Math.Sqrt(d: quadratic)),
+                    _ => Fin.Fail<double>(s.Key.InvalidResult()),
+                }
+                from profile in k.Kind.Profile(distance: metricDistance, radius: k.Radius.Value, key: s.Key)
+                select profile.Value));
 }
 
 [Union]
@@ -677,13 +678,14 @@ public abstract partial record ScalarField {
             .TraverseM(distance => kernel.Profile(distance: distance, radius: radius, key: key).Map(static profile => profile.Value)).As()
             .Map(static values => new Arr<double>([.. values.AsIterable()]));
     private static Fin<ReconstructionSample> EvaluateMls(Seq<MlsSample> samples, KernelKind kernel, double radius, Point3d sample, Context context, Op key) {
-        (MlsSample Sample, Vector3d Offset, KernelProfile Profile)[] neighborhood = [.. toSeq(samples.AsIterable().Select(candidate => (Sample: candidate, Offset: sample - candidate.Position))
-            .Select(candidate => (candidate.Sample, candidate.Offset, Profile: kernel.Profile(distance: candidate.Offset.Length, radius: radius, key: key))))
-            .Choose(static candidate => candidate.Profile.Match(Succ: profile => Some((candidate.Sample, candidate.Offset, Profile: profile)), Fail: _ => Option<(MlsSample Sample, Vector3d Offset, KernelProfile Profile)>.None))
-            .Filter(candidate => candidate.Profile.Value > Math.Max(val1: context.Relative.Value, val2: RhinoMath.SqrtEpsilon)).AsIterable()];
-        int rejected = samples.Count - neighborhood.Length;
-        double weightSum = neighborhood.Sum(static candidate => candidate.Profile.Value);
-        return guard(neighborhood.Length >= 3 && RhinoMath.IsValidDouble(x: weightSum) && weightSum > RhinoMath.ZeroTolerance, key.InvalidInput())
+        return (FieldNabla.Finite(point: sample) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())).Bind(_ => {
+            (MlsSample Sample, Vector3d Offset, KernelProfile Profile)[] neighborhood = [.. toSeq(samples.AsIterable().Select(candidate => (Sample: candidate, Offset: sample - candidate.Position))
+                .Select(candidate => (candidate.Sample, candidate.Offset, Profile: kernel.Profile(distance: candidate.Offset.Length, radius: radius, key: key))))
+                .Choose(static candidate => candidate.Profile.Match(Succ: profile => Some((candidate.Sample, candidate.Offset, Profile: profile)), Fail: _ => Option<(MlsSample Sample, Vector3d Offset, KernelProfile Profile)>.None))
+                .Filter(candidate => candidate.Profile.Value > Math.Max(val1: context.Relative.Value, val2: RhinoMath.SqrtEpsilon)).AsIterable()];
+            int rejected = samples.Count - neighborhood.Length;
+            double weightSum = neighborhood.Sum(static candidate => candidate.Profile.Value);
+            return guard(neighborhood.Length >= 3 && RhinoMath.IsValidDouble(x: weightSum) && weightSum > RhinoMath.ZeroTolerance, key.InvalidInput())
             .Bind(_ => {
                 Vector3d weightedNormal = neighborhood.Aggregate(seed: Vector3d.Zero, func: static (sum, candidate) => sum + (candidate.Profile.Value * candidate.Sample.Normal));
                 double value = neighborhood.Sum(static candidate => candidate.Profile.Value * ((candidate.Sample.Normal * candidate.Offset) + candidate.Sample.Value)) / weightSum;
@@ -705,6 +707,7 @@ public abstract partial record ScalarField {
                             : Fin.Fail<ReconstructionSample>(key.InvalidResult());
                     })));
             });
+        });
     }
     private static Fin<SdfSample> SampleProfileExtrusion(ProfileExtrusionCase source, Point3d sample, Context context, Op key) =>
         source.Plane.RemapToPlaneSpace(ptSample: sample, ptPlane: out Point3d local) switch {
@@ -771,6 +774,7 @@ public abstract partial record ScalarField {
         Op op = key.OrDefault();
         ScalarField self = this;
         return FieldNabla.IsoSurfaceInput(bounds: bounds, resolution: resolution, maxRootSteps: maxRootSteps, key: op)
+            .Bind(_ => self.AdmitIsoSurfaceEvaluator(context: context, key: op))
             .Bind(_ => op.Catch(() => {
                 int failures = 0;
                 double EvaluateIso(Point3d point) =>
@@ -793,6 +797,26 @@ public abstract partial record ScalarField {
                         Receipt: new IsoSurfaceReceipt(NativeRouted: true, Bounds: bounds, Resolution: resolution, MaxRootSteps: maxRootSteps, ParallelCallback: true, EvaluatorFailures: failures, Valid: result.IsValid, VertexCount: result.Vertices.Count, FaceCount: result.Faces.Count, FixedTolerance: Some(0.001))));
             }));
     }
+    private Fin<Unit> AdmitIsoSurfaceEvaluator(Context context, Op key) =>
+        Optional(context).ToFin(key.MissingContext()).Bind(model =>
+            this is SignedDistanceFromMeshCase mesh
+                ? MeshKernel.PrewarmSignedDistanceEvaluator(space: mesh.Space, method: mesh.Method, key: key).Map(static _ => unit)
+                : (this switch {
+                    BlendCase c => c.Fields,
+                    ScaledCase c => Seq(c.Source),
+                    LaplacianCase c => Seq(c.Source),
+                    PowerCase c => Seq(c.Source),
+                    CsgCase c => Seq(c.Left, c.Right),
+                    PeriodicCase c => Seq(c.Source),
+                    ClampCase c => Seq(c.Source),
+                    OnionCase c => Seq(c.Source),
+                    SdfRoundCase c => Seq(c.Source),
+                    ElongateCase c => Seq(c.Source),
+                    DisplaceCase c => Seq(c.Source, c.Displacement),
+                    TwistCase c => Seq(c.Source),
+                    BendCase c => Seq(c.Source),
+                    _ => Seq<ScalarField>(),
+                }).TraverseM(field => field.AdmitIsoSurfaceEvaluator(context: model, key: key)).As().Map(static _ => unit));
     internal static bool BoundsAdmitted(BoundingBox bounds) =>
         bounds is { IsValid: true, Diagonal: Vector3d d }
         && d.X > RhinoMath.ZeroTolerance
@@ -931,12 +955,27 @@ internal static class FieldNabla {
         Math.Abs(value: divisor) > RhinoMath.ZeroTolerance ? Fin.Succ(make(arg: 1.0 / divisor)) : Fin.Fail<TResult>(key.OrDefault().InvalidInput());
     internal static Fin<Unit> KernelInput(double distance, double radius, Op key) =>
         RhinoMath.IsValidDouble(x: distance) && RhinoMath.IsValidDouble(x: radius) && distance >= 0.0 && radius > RhinoMath.ZeroTolerance ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+    internal static Fin<Unit> FalloffInput(double distance, double distanceSquared, double tolerance, Op key) =>
+        RhinoMath.IsValidDouble(x: distance) && RhinoMath.IsValidDouble(x: distanceSquared) && RhinoMath.IsValidDouble(x: tolerance) && distance >= 0.0 && distanceSquared >= 0.0 && tolerance >= 0.0 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
     internal static Fin<Unit> NoiseInput(int octaves, double persistence, double lacunarity, double frequency, Op key) =>
         octaves is >= 1 and <= 32 && RhinoMath.IsValidDouble(x: frequency) && frequency > 0.0 && RhinoMath.IsValidDouble(x: persistence) && persistence is > 0.0 and <= 1.0 && RhinoMath.IsValidDouble(x: lacunarity) && lacunarity > 1.0 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
     internal static Fin<Vector3d> NonnegativeExtent(Vector3d extent, Op key) =>
         Finite(vector: extent) && extent.X >= 0.0 && extent.Y >= 0.0 && extent.Z >= 0.0 ? Fin.Succ(extent) : Fin.Fail<Vector3d>(key.InvalidInput());
     internal static Fin<Plane> Plane(Plane basis, Op key) =>
-        Finite(point: basis.Origin) && Finite(vector: basis.XAxis) && Finite(vector: basis.YAxis) && Finite(vector: basis.ZAxis) && basis.XAxis.Length > RhinoMath.ZeroTolerance && basis.YAxis.Length > RhinoMath.ZeroTolerance && basis.ZAxis.Length > RhinoMath.ZeroTolerance && Vector3d.CrossProduct(a: basis.XAxis, b: basis.YAxis).Length > RhinoMath.ZeroTolerance ? Fin.Succ(basis) : Fin.Fail<Plane>(key.InvalidInput());
+        basis.IsValid
+        && Finite(point: basis.Origin)
+        && Finite(vector: basis.XAxis)
+        && Finite(vector: basis.YAxis)
+        && Finite(vector: basis.ZAxis)
+        && Math.Abs(value: basis.XAxis.Length - 1.0) <= RhinoMath.SqrtEpsilon
+        && Math.Abs(value: basis.YAxis.Length - 1.0) <= RhinoMath.SqrtEpsilon
+        && Math.Abs(value: basis.ZAxis.Length - 1.0) <= RhinoMath.SqrtEpsilon
+        && Math.Abs(value: basis.XAxis * basis.YAxis) <= RhinoMath.SqrtEpsilon
+        && Math.Abs(value: basis.XAxis * basis.ZAxis) <= RhinoMath.SqrtEpsilon
+        && Math.Abs(value: basis.YAxis * basis.ZAxis) <= RhinoMath.SqrtEpsilon
+        && Vector3d.CrossProduct(a: basis.XAxis, b: basis.YAxis) * basis.ZAxis > 1.0 - RhinoMath.SqrtEpsilon
+            ? Fin.Succ(basis)
+            : Fin.Fail<Plane>(key.InvalidInput());
     internal static Fin<Vector3d> Period(Vector3d period, Op key) =>
         Finite(vector: period) && Math.Abs(value: period.X) > RhinoMath.ZeroTolerance && Math.Abs(value: period.Y) > RhinoMath.ZeroTolerance && Math.Abs(value: period.Z) > RhinoMath.ZeroTolerance ? Fin.Succ(period) : Fin.Fail<Vector3d>(key.InvalidInput());
     internal static Fin<Unit> FiniteRange(double minimum, double maximum, Op key) =>

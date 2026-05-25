@@ -12,35 +12,35 @@ RhinoWIP macOS workspace for first-party Rhino and Grasshopper products. Each ap
 
 ## Layout
 
-| Path | Purpose |
-| ---- | ------- |
-| `apps/grasshopper/Radyab` | Radyab GH2 `.rhp` plugin boundary. |
-| `libs/csharp/Rasm` | RhinoCommon-aware geometry domain + analysis algebra (merged). |
+| Path                           | Purpose                                                                                  |
+| ------------------------------ | ---------------------------------------------------------------------------------------- |
+| `apps/grasshopper/Radyab`      | Radyab GH2 `.rhp` plugin boundary.                                                       |
+| `libs/csharp/Rasm`             | RhinoCommon-aware geometry domain + analysis algebra (merged).                           |
 | `libs/csharp/Rasm.Grasshopper` | GH2 component infrastructure: typed parameter bindings, bridge plumbing, component base. |
-| `tests/csharp` | Managed C# contract tests for shared libraries. |
-| `tools/cs-analyzer` | Local Roslyn analyzer project used by C# builds. |
-| `tools/yak/<package>` | Tracked Yak metadata for one package. |
-| `scripts/rhino.sh` | Build, package, publish, and run RhinoWIP bridge analyzer flows. |
+| `tests/csharp`                 | Managed C# contract tests for shared libraries.                                          |
+| `tools/cs-analyzer`            | Local Roslyn analyzer project used by C# builds.                                         |
+| `tools/yak/<package>`          | Tracked Yak metadata for one package.                                                    |
+| `scripts/rhino.sh`             | Build, package, publish, and run RhinoWIP bridge analyzer flows.                         |
 
 ## Build Policy
 
 `Directory.Build.props` owns shared C# and RhinoWIP configuration.
 
-| Property | Value |
-| -------- | ----- |
-| `TargetFramework` | `net10.0` |
-| `RhinoWipAppPath` | `/Applications/RhinoWIP.app` |
-| `RhinoCommonReferencePath` | Installed RhinoWIP `RhinoCommon.dll` |
-| `RhinoUiReferencePath` | Installed RhinoWIP `Rhino.UI.dll` |
-| `EtoReferencePath` | Installed RhinoWIP Eto assembly. |
-| `SystemDrawingCommonReferencePath` | RhinoWIP-hosted `System.Drawing.Common.dll` for UI/raster boundaries. |
-| `Grasshopper2ReferencePath` | Installed RhinoWIP `Grasshopper2.dll` |
-| `GrasshopperIoReferencePath` | Installed RhinoWIP `GrasshopperIO.dll` |
-| `IsGrasshopperPluginProject` | Enables `.rhp` output plus local Grasshopper2 and GrasshopperIO references. |
-| `IsGrasshopperAwareProject` | Enables Grasshopper2 and GrasshopperIO references without plugin output. |
-| `IsRhinoCommonAwareProject` | Enables local RhinoCommon references. |
-| `IsRhinoUiAwareProject` | Enables Rhino UI, Eto, and RhinoWIP-hosted drawing references. |
-| `UseWorkspaceLibraries` | Enables the shared LanguageExt and Thinktecture package surface. |
+| Property                           | Value                                                                       |
+| ---------------------------------- | --------------------------------------------------------------------------- |
+| `TargetFramework`                  | `net10.0`                                                                   |
+| `RhinoWipAppPath`                  | `/Applications/RhinoWIP.app`                                                |
+| `RhinoCommonReferencePath`         | Installed RhinoWIP `RhinoCommon.dll`                                        |
+| `RhinoUiReferencePath`             | Installed RhinoWIP `Rhino.UI.dll`                                           |
+| `EtoReferencePath`                 | Installed RhinoWIP Eto assembly.                                            |
+| `SystemDrawingCommonReferencePath` | RhinoWIP-hosted `System.Drawing.Common.dll` for UI/raster boundaries.       |
+| `Grasshopper2ReferencePath`        | Installed RhinoWIP `Grasshopper2.dll`                                       |
+| `GrasshopperIoReferencePath`       | Installed RhinoWIP `GrasshopperIO.dll`                                      |
+| `IsGrasshopperPluginProject`       | Enables `.rhp` output plus local Grasshopper2 and GrasshopperIO references. |
+| `IsGrasshopperAwareProject`        | Enables Grasshopper2 and GrasshopperIO references without plugin output.    |
+| `IsRhinoCommonAwareProject`        | Enables local RhinoCommon references.                                       |
+| `IsRhinoUiAwareProject`            | Enables Rhino UI, Eto, and RhinoWIP-hosted drawing references.              |
+| `UseWorkspaceLibraries`            | Enables the shared LanguageExt and Thinktecture package surface.            |
 
 Plugin projects set plugin classification explicitly in their `.csproj`; build behavior does not depend on product names.
 
@@ -66,25 +66,25 @@ Create the Mac Yak package:
 scripts/rhino.sh package radyab 0.1.0-wip
 ```
 
-Push to the test Yak feed:
+Deploy a package into RhinoWIP:
 
 ```bash
-scripts/rhino.sh push-test radyab 0.1.0-wip
+scripts/rhino.sh deploy radyab 0.1.0-wip
 ```
 
-Push to the public Yak feed:
+Push to a Yak feed:
 
 ```bash
 scripts/rhino.sh push radyab 0.1.0-wip
 ```
 
-Build and install the runtime analyzer bridge:
+Build and deploy the runtime analyzer bridge:
 
 ```bash
 VERSION=0.1.0-wip
 scripts/rhino.sh bridge build
-scripts/rhino.sh bridge package "$VERSION"
-scripts/rhino.sh bridge install
+scripts/rhino.sh package rasm-bridge "$VERSION"
+scripts/rhino.sh deploy rasm-bridge "$VERSION"
 ```
 
 Collect live RhinoWIP runtime evidence:
@@ -92,9 +92,10 @@ Collect live RhinoWIP runtime evidence:
 ```bash
 scripts/rhino.sh bridge doctor
 scripts/rhino.sh bridge check path/to/project.csproj
-scripts/rhino.sh bridge check path/to/source.cs path/to/diagnostic.csx
+scripts/rhino.sh bridge check path/to/source.cs path/to/scenario.verify.csx
 scripts/rhino.sh bridge check path/to/script.csx
 scripts/rhino.sh bridge clean path/to/project.csproj
+scripts/rhino.sh verify path/to/scenario.verify.csx
 ```
 
 ## Artifact Flow
@@ -108,11 +109,13 @@ scripts/rhino.sh bridge clean path/to/project.csproj
 5. Copy `tools/yak/<package>/manifest.yml` and `tools/yak/<package>/icon.png`.
 6. Run RhinoWIP Yak with `--platform mac` and the supplied version.
 
-Host assemblies stay outside package output: `RhinoCommon`, `Grasshopper2`, and `GrasshopperIO`.
+`scripts/rhino.sh deploy <package> <version>` builds the same package, installs the local `.yak`, and refreshes RhinoWIP through the bridge lifecycle path. `scripts/rhino.sh push <package> <version>` builds the same package and pushes it with `YAK_SOURCE` when that environment variable is set.
+
+Host assemblies stay outside package output: `RhinoCommon`, `Rhino.UI`, `Rhino.Runtime.Code`, `Grasshopper2`, `GrasshopperIO`, `Eto`, `Microsoft.macOS`, and `System.Drawing.Common`.
 
 The generated Yak package root is `.artifacts/rhino/<package>/package`, with `manifest.yml` and plugin files at the top level required by Yak.
 
-Package-to-plugin membership is explicit in `scripts/rhino.sh`. The package map stages `radyab` from `apps/grasshopper/Radyab`; new Grasshopper or Rhino plugins add sibling app roots and one deliberate package mapping.
+Package membership is evaluated from MSBuild. Projects under `apps/` or package-capable `tools/` roots opt in with `YakPackageSlug`; `Directory.Build.targets` derives manifest and stage paths.
 
 ## Runtime Notes
 
@@ -121,6 +124,8 @@ Grasshopper uses GH2 component APIs directly: `Grasshopper2.Components.Component
 GH2 can run component work in parallel. Component code must keep execution state local to `Process`; reusable geometry logic belongs in `Rasm.Analysis` and `Rasm.Domain`.
 
 Automated Rhino/GH2 unit-test frameworks stay out of this foundation until Rhino.Testing exposes a current `net10.0` path. Live RhinoWIP runtime analyzer evidence flows through the installed bridge plugin, which registers RhinoCode C# scripting, runs transient scripts in-process, and returns factual build, diagnostic, stdout, stderr, exception, Rhino, document, tolerance, and bridge identity data. `rhinocode list --json` and ScriptServer state are discovery evidence; RhinoCode publishing remains out of scope. `bridge check <source.cs>` resolves and builds the owning project, then returns `unsupported` unless an executable scenario is supplied as the second positional argument.
+
+Scenarios are source-only diagnostics. Do not add `#r`, `#load`, or absolute build-output paths; `bridge check` owns host-filtered reference projection, fresh artifact refs, and `SCENARIO_NAME` / `CAPTURE_PATH` injection.
 
 ## GH2 Foundation
 

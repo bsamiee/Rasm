@@ -13,10 +13,10 @@ apps/
     └── <Plugin>/<Plugin>.csproj
 ```
 
-| [INDEX] | [HOST]        | [WHEN_TO_USE]                                                        | [EXAMPLES]              |
-| :-----: | ------------- | -------------------------------------------------------------------- | ----------------------- |
+| [INDEX] | [HOST]        | [WHEN_TO_USE]                                                        | [EXAMPLES]                 |
+| :-----: | ------------- | -------------------------------------------------------------------- | -------------------------- |
 |   [1]   | `grasshopper` | Plugin exposes Grasshopper2 components, parameter ports, IDataAccess | `apps/grasshopper/Radyab/` |
-|   [2]   | `rhino`       | Plugin exposes Rhino commands, panels, overlays — no GH components   | *(to be populated)*     |
+|   [2]   | `rhino`       | Plugin exposes Rhino commands, panels, overlays — no GH components   | *(to be populated)*        |
 
 ---
 ## [1][CSPROJ_CONVENTIONS]
@@ -37,7 +37,7 @@ To add a new plugin:
 
 1. Create `apps/<host>/<PluginName>/<PluginName>.csproj` with `<TargetFramework>net10.0</TargetFramework>` and the `RhinoPluginAssemblyGuid` / `RhinoPluginIconResource` properties as needed.
 2. Add the project to `Workspace.slnx` under the matching `/apps/<host>/<PluginName>/` folder.
-3. Add the package slug + project mapping to the `PACKAGE_PROJECTS` table in `scripts/rhino.sh` so `scripts/rhino.sh package <slug> <version>` resolves the artifact.
+3. Add `<YakPackageSlug>` to the project and `tools/yak/<slug>/manifest.yml` so `scripts/rhino.sh package <slug> <version>` resolves the artifact through MSBuild.
 4. Tests for the plugin live at `tests/csharp/<PluginName>/<PluginName>.Tests.csproj` (static rail) plus `apps/<host>/<PluginName>/Scenarios/*.verify.csx` (bridge rail). See `cs-testing` and `rhino-verify` skills.
 
 ---
