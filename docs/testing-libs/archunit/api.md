@@ -44,3 +44,45 @@ Run architecture laws in Debug so dependency metadata is not optimized away:
 ```bash
 dotnet test tests/csharp/_architecture/Rasm.Architecture.Tests.csproj --configuration Debug
 ```
+
+---
+## [4][CROSS_LAYER_INTERFACE_COVERAGE]
+>**Dictum:** *Closed switches over open type sets are structural debt — assert reachability.*
+
+<br>
+
+When a closed-world dispatch (e.g., `OpAcceptance.ValidityOf` in `Domain/Validation.cs`) must recognize an open set of types from downstream layers (e.g., `[BoundaryAdapter]`-marked records from `Vectors`, `Mesh`, `Field`), the canonical extension hook is a marker interface (`IDomainValid`). The architecture test enumerates all implementers and asserts each is reachable through the dispatch:
+
+```csharp
+[Fact]
+public void EveryBoundaryAdapterImplementsIDomainValidOrIsRegisteredInValidityOf() {
+    var arch = new ArchLoader()
+        .LoadAssemblies(typeof(Rasm.Domain.Op).Assembly, typeof(Rasm.Vectors.Matrix).Assembly /*, ...*/)
+        .Build();
+    var adapters = arch.Types().That().HaveAttribute<BoundaryAdapterAttribute>();
+    foreach (var adapter in adapters) {
+        Assert.True(
+            adapter.ImplementsInterface(typeof(IDomainValid))
+            || OpAcceptance.IsRegisteredInValidityOf(adapter.ReflectionType),
+            $"{adapter.FullName} is [BoundaryAdapter] but unreachable from OpAcceptance.ValidityOf");
+    }
+}
+```
+
+Catches the entire `AcceptValue / ValidityOf` gap regression class once and forever. See `feedback_acceptvalue_validity_gap` memory for the bug-class background.
+
+---
+## [5][CYCLE_DETECTION_SCOPE]
+>**Dictum:** *Cycles are architectural, not symbolic.*
+
+<br>
+
+Rasm uses namespace-slice cycle detection only for stable namespaces (Domain, Vectors, Mesh, Field) — not for in-flight refactor namespaces or test/_testkit. Slice patterns:
+
+| [PATTERN] | [SCOPE] |
+| --------- | ------- |
+| `Rasm.Domain.(*)..` | Domain internal slices must not cycle. |
+| `Rasm.Vectors.(*)..` | Vectors module slices must not cycle. |
+| `Rasm.(*)..` | Top-level module slices must not cycle across modules. |
+
+Avoid `Rasm..` global cycle detection — it would block valid abstraction layers (Domain → Vectors → Mesh) and flag every legitimate boundary crossing.

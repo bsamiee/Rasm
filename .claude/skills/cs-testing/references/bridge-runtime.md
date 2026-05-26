@@ -34,3 +34,39 @@ When a RhinoWIP update or product change makes a previously bridge-owned API gen
 4. Record the RhinoWIP version that enabled the reclassification in the spec or commit message — reclassifications are reversible if a later update reintroduces the host dependency.
 
 Reclassifications are conservative by default: when in doubt, the behavior stays bridge-owned. The cost of a false-positive reclassification (silent CI failure on next RhinoWIP regression) outweighs the cost of an over-strict bridge classification.
+
+---
+## [4][SCENARIO_GROUPING]
+>**Dictum:** *Bridge handshakes are 3-8s each; amortize via thematic grouping.*
+
+<br>
+
+Every `bash scripts/rhino.sh verify <scenario>` invocation pays a 3-8s Rhino handshake (assembly probing, RhinoCode resolution, document init). N independent `.verify.csx` files cost N × handshake; grouping K related scenarios into one file costs 1 × handshake + K × scenario body.
+
+| [PATTERN] | [EXAMPLE] |
+| --------- | --------- |
+| One scenario per concern | `vectors-mesh-topology.verify.csx` (Euler check only) |
+| Thematic group | `vectors-mesh-topology-and-validity.verify.csx` (Euler + naked-edge + closed-watertight + non-manifold detection) |
+
+Group when scenarios:
+- Share the same fixture geometry (one cube/tetrahedron loaded once, reused for 4-6 assertions).
+- Cover related production code paths (`Mesh.IsValid` + `Mesh.IsClosed` + `Mesh.IsSolid` are all native predicates on the same Mesh).
+- Have similar performance cost (do not group a 50ms predicate with a 30s eigendecomposition).
+
+Do NOT group when:
+- A scenario's failure must be triagable without parsing N other assertions in the same evidence file.
+- The fixture setup for one scenario is incompatible with another (different RhinoDoc unit systems, conflicting active views).
+- The grouped file would exceed 200 LOC — split into thematic subgroups.
+
+Evidence channel: each grouped assertion emits its own `Console.WriteLine("key=value")` line. When a grouped scenario fails, the JSON evidence under `.artifacts/rhino/verify/<scenario>.json` shows which assertion within the group failed.
+
+---
+## [5][SCENARIO_LOC_GUIDANCE]
+
+| [TYPE] | [TARGET_LOC] | [NOTES] |
+| ------ | ------------ | ------- |
+| Single-concern scenario | 30-80 | Fixture setup + 1-2 assertions + evidence lines. |
+| Thematic group | 80-200 | 4-8 assertions over shared fixture. |
+| Hard cap per file | 250 | Above 250, split into thematic subgroups. |
+
+Use `RasmTestKit.Scenarios.*` helpers (`Capture`, `DocumentScope`, `Evidence`, `Marker`, `Probe`) to keep scenario boilerplate compact. Adding to `Scenarios/*` is permitted when the helper has 2+ scenario consumers across different specs.

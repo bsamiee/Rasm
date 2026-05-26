@@ -85,19 +85,22 @@ The bridge injects `SCENARIO_NAME` and `CAPTURE_PATH` before execution. Do not d
 
 | [INDEX] | [RULE] | [DETAIL] |
 | :-----: | ------ | -------- |
-| [1] | LOC | Target 175 LOC per normal spec; 176-200 only when one owning source file has multiple real concepts and the result is denser than a split. Testkit files may reach 350 LOC. |
+| [1] | LOC | Target 175 LOC per normal spec; 176-225 when one owning source file has multiple real concepts and the result is denser than a split. Testkit files may reach 350 LOC. |
 | [2] | Layout | Imports, namespace, `[CONSTANTS]`, `[ALGEBRAIC]`, optional `[EDGE_CASES]`. |
 | [3] | Classes | Public xUnit test classes; spec-local generator classes stay non-public unless discovery requires public visibility. |
 | [4] | Attributes | `[Fact]`/`[Theory]` on their own line. No local analyzer suppressions for normal test shape. |
-| [5] | Generators | Route reusable value-object generators through production factories. Avoid parallel constructors. |
+| [5] | Generators | Route reusable value-object generators through production factories. Avoid parallel constructors. Use `Gen.Where(...).Select(...)`, never `Select+throw` — `throw` breaks CsCheck shrinking. |
 | [6] | Names | PascalCase law names; no underscores. |
+| [7] | Polymorphic-first | Before writing a second `[Fact]` that shares setup with an existing one, reach for a polymorphic pattern from [density-axes.md `[4][POLYMORPHIC_PATTERNS]`](references/density-axes.md). |
 
 [CRITICAL]:
 - A spec is not "world-class" because it has many facts. It is strong when one generated domain attacks construction, projection, unsupported outputs, failure categories, receipt invariants, and an independent oracle without mirroring production code.
 - A real oracle predicts behavior from another source of truth: closed-form math, conservation, fixture geometry, category contract, runtime bridge observation, or documented external behavior. A law varies a behavior family enough to catch swapped inputs, missing validation, unsupported outputs, and receipt drift.
 - Use distinct generated payload values when a source function transports or dispatches multiple inputs. Equal or placeholder payloads hide swaps and ignored branches.
-- Allow 225 LOC, and exceptionally 300 LOC, only when each added line buys a real oracle, boundary, bridge classification, or product-bug guard that cannot be compressed through `Spec`, `Gens`, `Numeric`, local arrays, or product generators.
+- Allow 225 LOC, and exceptionally 300 LOC, only when each added line buys a real oracle, boundary, bridge classification, or product-bug guard that cannot be compressed through `Spec`, `Gens`, `Numeric`, local arrays, or product generators. Specs that exceed 225 LOC must document the per-section LOC delta justifying the overage (e.g., Matrix spec at 300-350 LOC owns SVD/QR/LU/Cholesky/Eigen reconstruction + 5 SmartEnum dispatch paths + 8 norm laws).
 - If a failing law reveals a real production bug, fix the owner. Do not weaken the law into shape-only proof.
+- Hand-constructing a record type (e.g., `TopologyReceipt`) and asserting its own fields is Grade D mirror coverage. Migrate to a bridge scenario OR add an `IsValid` predicate law via `TheoryData<Record, bool>` (one valid row, each invariant individually broken).
+- Filter `Spec.ForAll(Gen.OneOfConst([A,B,C]), ...)` shows as ONE Stryker mutation target. Convert to `[Theory][InlineData(A)][InlineData(B)][InlineData(C)]` (or `MemberData(...)` from `SmartEnum.Items`) when Stryker survivors include per-case logic — Theory rows give N separately-killable targets.
 
 ---
 ## [5][TOOL_RAIL]

@@ -43,3 +43,72 @@ Every owning spec should explicitly consider these axes:
 - Use local fixture geometry only when it is the independent model: asymmetric tetrahedra, a unit segment, one triangle, one square, diagonal matrices, and one-point probability plans often expose more bugs than large random fixtures.
 - Raise the 175 LOC target only after collapsing repeated setup into arrays, `Spec.Cases`, `Spec.SmartEnumKeysUnique`, `Numeric`, or a two-consumer testkit primitive.
 - Keep bridge classification concise in static specs; executable native success belongs in `*.verify.csx`, not in long static workarounds.
+
+---
+## [4][POLYMORPHIC_PATTERNS]
+>**Dictum:** *Reach for these before adding a second Fact that shares setup with an existing one.*
+
+<br>
+
+Ten base patterns that convert O(N) per-case Facts into O(1) generated laws:
+
+| [INDEX] | [PATTERN] | [WHEN] | [TEMPLATE] |
+| :-----: | --------- | ------ | ---------- |
+| [1] | SmartEnum case sweep via `T.Items` | Closed catalog with per-case invariant | `Spec.Cases(T.Items, key: m => m.Key, law: m => /* per-case oracle */)` |
+| [2] | Union case sweep via factory generator | `[Union]` cases each with their own factory | `Gen.OneOf(/* per-case factories */)` + single `Spec.ForAll` body with pattern match |
+| [3] | State-threaded Switch as oracle table | Production uses `[Union].Switch(state, ...)` | `Seq<(Case, ExpectedFn)>` walked once; spec body never calls `Switch` |
+| [4] | Product generator over (algo × input × output) | Output type axis matters | `Gen.OneOfConst([..Items]).Select(InputGen, Gen.OneOfConst(OutputFamily), ...)` |
+| [5] | Variable-driven dispatch with dispatch-free body | Oracle is closed-form per case | Oracle table maps case → closed-form; body has zero `switch` |
+| [6] | Single fixture / N invariants | One construction is expensive | One generated SPD matrix asserts orthogonality, trace, det, eigen-sum, Frobenius in one body |
+| [7] | Theory-cased ForAll body | Algorithm rows + random inputs | `[Theory] + [MemberData]` carries algorithm; `Spec.ForAll` inside body carries input |
+| [8] | Reflection-driven `TheoryData(T.Items)` | Maintenance-free per-case rows | `static TheoryData<T> CasesOf() => T.Items.Fold(new TheoryData<T>(), ...)`, then `[MemberData(nameof(CasesOf))]` |
+| [9] | Factory-routed generators | Value-objects with `TryCreate` | `Where(Try).Select(Get)` preserves shrinking; never `Select+throw` |
+| [10] | Algorithmic O(1) Fact for O(N) impls | N implementations of same concept | Single Fact walks `T.Items` asserting per-case-self-consistency |
+
+Nine torture-pattern extensions:
+
+| [INDEX] | [PATTERN] | [WHEN] | [TEMPLATE] |
+| :-----: | --------- | ------ | ---------- |
+| [11] | Algebraic trio generator | Operator-rich algebra | `Spec.ForAll(genT.Select(genT, genT), (a, b, c) => { /* associativity + distributivity */ })` |
+| [12] | Metamorphic transform bundle | Numeric algorithm with symmetries | One ForAll body asserts (translate, scale, permute) invariants over the same input |
+| [13] | Reference loop oracle | Matrix/vector algorithm | Independent O(n³) loop over rows/cols/items inside the property body |
+| [14] | Generative oracle ladder | Closed-form unknown | Algebraic identity → metamorphic → smaller reference → conditioning fuzz |
+| [15] | Distinct-value product | Transport / dispatch | `Where`-enforced channel entropy: `(7.0, 13.0, 3.0)` over `(1.0, 1.0, 1.0)` |
+| [16] | Stratified edge-bias `Gen.Frequency` | Tail-of-distribution coverage | 5-7 tier weights mixing zero, infinity, NaN, tolerance-adjacent with bulk-random |
+| [17] | Conditioning-aware tolerance | Floating-point algorithms | Tolerance = `κ(A) × base` where conditioning comes from the input generator, not a constant |
+| [18] | Composite MR chain | Multi-step pipeline | `f(g(h(x))) ≡ permuted_chain(x)` over generated `(x, perm)` |
+| [19] | Pre/post triple for stateful APIs | `Atom` / `Validation` / `Fin` chains | Generated `(precondition, action, postcondition)` triples |
+
+Worked example — composite MR chain:
+
+```csharp
+[Fact]
+public void TransposeScalePermuteChainOrderInvariant() =>
+    Spec.ForAll(matrixGen.Select(scalarGen, permutationGen), tuple => {
+        var (M, k, perm) = tuple;
+        var Mp = M.PermuteRows(perm);
+        var Mps = Mp.Multiply(k);
+        var Mpst = Mps.Transpose();
+        var Mt = M.Transpose();
+        var Mts = Mt.Multiply(k);
+        var Mtsp = Mts.PermuteCols(perm);
+        Numeric.Entrywise(M.Rows.Value, M.Cols.Value,
+            (i, j) => Mpst.At(i, j), (i, j) => Mtsp.At(i, j),
+            tolerance: 1e-7, "composite MR chain");
+    });
+```
+
+When NOT to polymorphize:
+- The *oracle statement* changes per case (distinct closed-form per primitive, different operator algebra, disjoint state machines).
+- Number of cases is 2 and likely to stay at 2.
+- Failure on one case must be visible as separately-tracked test ID for CI triage — use Theory rows.
+
+---
+## [5][COVERAGE_AXES_EXTENDED]
+
+Beyond the base axes in `[2]`, two more axes apply to numeric algorithms:
+
+| [INDEX] | [AXIS] | [QUESTION] |
+| :-----: | ------ | ---------- |
+| [9] | Conditioning regimes | Are well-conditioned, mildly-ill, and severely-ill inputs all sampled? |
+| [10] | Distinct-channel entropy | Do generator outputs carry distinct values per channel to expose swaps? |

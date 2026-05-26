@@ -62,3 +62,115 @@
 - `Spec.Regression` records a durable shrunk seed only after product behavior is classified.
 - Use model-based APIs only when the model is smaller than production: list log, scalar receipt, set/map reference, or finite state machine.
 - Do not promote spec-local generators until two specs share the same domain shape.
+
+---
+## [5][SHRINKING_DISCIPLINE]
+>**Dictum:** *Generators must preserve shrinking — `throw` breaks it.*
+
+<br>
+
+CsCheck shrinking finds the minimal counterexample by repeatedly narrowing failed inputs. Two generator patterns break shrinking:
+
+| [BREAKS] | [PRESERVES] |
+| -------- | ----------- |
+| `Gen.Int.Select(i => i > 0 ? new T(i) : throw new ...)` | `Gen.Int.Where(i => i > 0).Select(i => new T(i))` |
+| `Gen.Select(Factory).Select(opt => opt.IfNone(() => throw new ...))` | `Gen.Select(Factory).Where(opt => opt.IsSome).Select(opt => opt.IfNone(default!))` |
+
+The `throw` form fires CsCheck's `WhereLimit` (default 100); when exhausted CsCheck gives up with a generic "could not satisfy" message and no minimal counterexample. The `Where` form keeps shrinking on the satisfying subset.
+
+`Try.lift` pattern for factories returning `Fin`:
+
+```csharp
+public static readonly Gen<Dimension> Dimension =
+    SmallDimension
+        .Select(value => Vectors.Dimension.TryCreate(value: value, obj: out Vectors.Dimension d) ? Some(d) : None)
+        .Where(opt => opt.IsSome)
+        .Select(opt => opt.IfNone(default(Vectors.Dimension)));
+```
+
+[SOURCE] CsCheck README on `Where` shrinking: https://github.com/AnthonyLloyd/CsCheck
+
+---
+## [6][ENV_KNOBS]
+>**Dictum:** *Env policy flows through `Spec.ForAll` precedence; never set globals.*
+
+<br>
+
+| [INDEX] | [VAR] | [DEFAULT] | [USE] |
+| :-----: | ----- | --------- | ----- |
+| [1] | `CsCheck_Iter` | 100 | Per-property iteration count. |
+| [2] | `CsCheck_Time` | 0 (disabled) | Wall-clock budget in seconds (overrides Iter when set). |
+| [3] | `CsCheck_Threads` | 1 | Parallel sample workers (for `SampleParallel`). |
+| [4] | `CsCheck_Seed` | unset | Fixed seed for reproducible runs. |
+| [5] | `CsCheck_Replay` | 100 | Number of times to replay a failing seed for parallel reproduction. |
+| [6] | `CsCheck_Sigma` | 6.0 | Statistical significance for `Check.Faster`. |
+| [7] | `CsCheck_Timeout` | 30 | Per-sample timeout (seconds). |
+| [8] | `CsCheck_Ulps` | 0 | Allowed ULP slack for floating equality (off by default; tolerance lives in `Spec.EqualWithin`). |
+| [9] | `CsCheck_WhereLimit` | 100 | Filter rejection cap; lower → fail faster, higher → tolerate sparse-acceptance generators. |
+
+`Spec.ForAll` precedence: explicit args > env vars > package defaults. CI policy: tune `CsCheck_Iter=1000` and `CsCheck_Time=60` for nightly extended runs; keep PR validation at defaults. `CsCheck_Replay=10` for CI, default 100 for local repro.
+
+---
+## [7][MODEL_BASED]
+>**Dictum:** *Model is smaller than actual; both are observed at every step.*
+
+<br>
+
+`Check.SampleModelBased(initial, model_initial, ops...)` traces `(actual, model)` pairs through a sequence of `GenOperation<TActual, TModel>` steps and asserts equivalence at every step. Use when:
+
+- Actual implementation is `Atom<T>` or `ConcurrentDictionary` — model is `Dictionary<T>` or `Seq<T>`.
+- Actual is a state-threaded `[Union].Switch` dispatcher — model is a `Map<Key, T>`.
+- Actual is `Validation` accumulation — model is `List<Error>`.
+
+Avoid when no smaller model exists (model = actual implementation defeats the purpose).
+
+```csharp
+public static GenOperation<Atom<HashMap<int, int>>, Dictionary<int, int>> SetOp(int key, int value) =>
+    Gen.Operation(
+        $"Set({key}, {value})",
+        atom => atom.Swap(m => m.AddOrUpdate(key, value)),
+        dict => dict[key] = value);
+```
+
+---
+## [8][DISTRIBUTION_AUDIT]
+>**Dictum:** *Generated distributions must be audited — assumptions about uniformity rot.*
+
+<br>
+
+`Check.ChiSquared(observed, expected, sigma)` audits a generator's distribution against expected frequencies. Use when:
+
+- An edge-biased `Gen.Frequency` ships with 90/10 weights — verify the tail actually fires 10% of the time across 10k samples.
+- A factory-routed generator filters >20% of inputs — verify the surviving distribution isn't skewed away from the boundary cases the test depends on.
+- A SmartEnum case sweep with case-specific frequencies — verify rarely-fired cases still fire often enough to exercise their per-case oracle in `Spec.Cases`.
+
+Audit lives in `tests/csharp/_testkit/Gens.spec.cs` (a generator self-test), not in spec files.
+
+---
+## [9][PARALLEL_CHECKS]
+>**Dictum:** *`Check.SampleParallel` linearizes; `Causal.Profile` explains.*
+
+<br>
+
+`Check.SampleParallel` runs the generated operations concurrently and asserts a linearizable history exists. `Spec.ConcurrentProfiled` wraps this and emits `Causal.Profile` output to `ITestOutputHelper`. Use for:
+
+- `Atom<T>` swap contention (closure-free `applyScratch` patterns).
+- Process-static cache races (`ConcurrentDictionary` + `[ThreadStatic]`).
+- `SmartEnum.Items` lazy initialization under first-access concurrency.
+
+Pair with `Check.Sample(seed: ...)` after the first parallel failure to reproduce deterministically.
+
+[SOURCE] CsCheck causal profiling: https://github.com/AnthonyLloyd/CsCheck#parallel-sampling
+
+---
+## [10][PERFORMANCE_ASSERTIONS]
+>**Dictum:** *`Check.Faster` is statistical; BenchmarkDotNet is for shipping numbers.*
+
+<br>
+
+`Check.Faster(slow, fast, sigma)` compares two implementations across generated inputs and reports a sigma confidence that `fast < slow`. Use only for:
+
+- Regression detection (e.g., Yuksel WSE O(n²) allocation regression on Sample.cs at `n ≥ candidate_count × MeshScale`).
+- A/B-style algorithmic choice during refactor (e.g., Cholesky vs LU on the same SPD generator).
+
+Never use for absolute performance claims — those belong in `tests/csharp/_benchmarks` with BenchmarkDotNet (see `docs/testing-libs/benchmarkdotnet/api.md`).

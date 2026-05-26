@@ -53,3 +53,34 @@
 <br>
 
 Keep script-owned settings while mutation targets one project. Add `stryker-config.*` only when config-only options such as `coverage-analysis`, executable excludes, or multi-project orchestration become necessary.
+
+---
+## [5][THEORY_AS_STRYKER_ENABLER]
+>**Dictum:** *PBT hosts are one mutation target; Theory rows are N.*
+
+<br>
+
+Stryker mutates each test method body and asks "does any test fail?". A `Spec.ForAll(Gen.OneOfConst([A,B,C]), ...)` body is ONE method, ONE mutation target — Stryker kills the mutation if any of the three cases catches it, then moves on. Survivors that affect only case `B` are invisible.
+
+A `[Theory][InlineData(A)][InlineData(B)][InlineData(C)]` becomes THREE separately-tracked entry points. Stryker can now report "survivor in case B" specifically, enabling targeted oracle improvements.
+
+Convert when:
+- Stryker survivor analysis points at a SmartEnum / Union case the PBT host happens to under-sample.
+- The CI mutation budget cannot afford to re-run the full PBT body per mutant (Theory rows are independent and parallelize better).
+
+Do NOT convert when the cases share oracle logic and the PBT body is the more honest representation (per-case Theory rows would be copy-paste).
+
+---
+## [6][SURVIVOR_TAXONOMY]
+>**Dictum:** *Every survivor classifies before any test changes.*
+
+<br>
+
+| [INDEX] | [CLASS] | [ACTION] |
+| :-----: | ------- | -------- |
+| [1] | Missing oracle | Add a Grade A/B oracle (closed-form, smaller model, metamorphic) that distinguishes the mutant. |
+| [2] | Equivalent mutant | Document; do not weaken oracle. |
+| [3] | Bridge-owned path | Add or strengthen `*.verify.csx` scenario; static spec cannot kill it. |
+| [4] | Product bug | Fix the production code; the mutation revealed a real defect. |
+
+Do not chase a survivor by adding an assertion on the mutant's behavior — that is implementation mirror coverage (Grade F per `cs-testing/references/oracles-laws.md`).

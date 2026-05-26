@@ -49,6 +49,24 @@
 - Promote only anti-circular value: reusable finite point sets, centroid/covariance/distance oracles, row-major residuals, Hermitian matvec/residuals, and stable serializers are valid candidates once multiple specs need them.
 - Treat `_testkit` additions as higher-order testing capability, not extraction. New surface should replace repeated spec logic with a stronger oracle, generator, serializer, or law adapter that immediately improves multiple owners.
 - Do not promote benchmark, fuzz, bridge, or one-off fixture adapters into `_testkit`; those rails have their own executable owners.
+- Filtered generators must use `Gen.Where(...).Select(...)` or `Gen.Select(Try.lift).Where(IsSucc).Select(Get)` — never `Select+throw`. The `throw` form breaks CsCheck shrinking (`CsCheck_WhereLimit` exhausts at 100 with no useful message); the `Where` form preserves shrink minimality. Every factory-routed value-object generator follows this rule.
+- The canonical `AcceptValue` extension hook for Rasm-defined types is the `IDomainValid` interface registered through `OpAcceptance.ValueValidity` reflection cache (see [[feedback_acceptvalue_validity_gap]]). New record/struct types that need `op.AcceptValue` support implement `IDomainValid { bool IsValid { get; } }` — do not extend the manual `ValidityOf` switch arm-by-arm.
+- Shared assembly context belongs in `[assembly: AssemblyFixture(typeof(T))]` plus constructor injection (xUnit v3 has no `IAssemblyFixture<T>` API). When ≥3 specs share the same `static readonly Context Model = Spec.SuccValue(Context.Of(...).ToFin())` block, promote to an `AssemblyFixture`-routed value.
+
+## [5][ANTI_PATTERNS]
+
+- **Stub-receipt construction**: hand-building a record type (e.g., `IsoSurfaceReceipt`, `TopologyReceipt`, `SignedHeatReceipt`) then asserting its own fields is Grade D mirror coverage — the assertion reads what the test just wrote. Delete and migrate to a bridge scenario, OR add an `IsValid` predicate law that covers the conjunctive invariant via `TheoryData<Receipt, bool>` rows (one valid, each invariant individually broken).
+- **Filtered-generator `throw`**: `Gen.Int.Select(i => i > 0 ? new T(i) : throw new InvalidOperationException(...))` exhausts CsCheck's where-limit silently. Use `Gen.Int.Where(i => i > 0).Select(i => new T(i))`.
+- **Single-fixture distinct-detection blind spot**: a test that uses `[1.0, 1.0, 1.0]` cannot detect a swap between any two slots. Distinct-value product generators (`[7.0, 13.0, 3.0]`) are the minimum bar for swap-detecting laws.
+- **Hoisted `Op key` across `Switch` arms**: every `[Union].Switch` arm constructs its own `Op.Of(name: nameof(CaseName))` for diagnostic provenance (see [[feedback_per_arm_op_provenance]]). The Rasm analyzer enforces this via CSP0801; do not suppress.
+- **`TestContext.Current` ignored in long ForAll bodies**: every `Spec.ForAll`/`Spec.Cases`/`Spec.Metamorphic` should propagate `TestContext.Current.CancellationToken` into the body. The `Spec.*` adapters do this automatically — raw `Check.Sample` calls do not.
+- **Spec.ForAll(Gen.OneOfConst([A,B,C]))** is ONE Stryker mutation target. Converting to `[Theory][InlineData(A)][InlineData(B)][InlineData(C)]` (or `MemberData(...)` populated from `SmartEnum.Items`) gives N mutation targets, each individually killable. Convert when Stryker survivors include uncovered SmartEnum/Union cases.
+
+## [6][BRIDGE_RAIL_OPERATIONS]
+
+- Each `bash scripts/rhino.sh verify <scenario>` invocation pays a 3-8s Rhino handshake. Group thematically related scenarios per `.verify.csx` file (e.g. `vectors-mesh-topology-and-validity.verify.csx` bundles topology census + naked-edge + validity guards) to amortize the handshake ~4×.
+- Per-scenario `Console.WriteLine("key=value")` evidence lines are the only durable runtime fact channel — exception messages alone make failed scenarios hard to triage.
+- If a scenario passes locally but fails in CI, first check loaded RhinoCommon/Grasshopper assembly identity (`bridge doctor` output) before changing the scenario. Host-package collisions are evidence, not noise.
 
 ## [4][SUPPRESSIONS_AND_GATES]
 

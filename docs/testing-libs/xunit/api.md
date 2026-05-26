@@ -71,3 +71,93 @@
 Rasm currently chooses `xunit.v3.mtp-off` and VSTest. Stryker MTP diagnostics require a deliberate package/runner migration, not only `--test-runner mtp`. A future MTP migration must update central packages, runner configuration, Stryker diagnostics, coverlet expectations, and prove `dotnet test` discovery for every runnable project.
 
 [SOURCE] xUnit MTP docs: https://xunit.net/docs/getting-started/v3/microsoft-testing-platform
+
+---
+## [6][THEORY_DATA_FROM_SMARTENUM]
+>**Dictum:** *Reflection over closed-set catalogs is the maintenance-free Theory.*
+
+<br>
+
+When a `[Theory]` should cover every case of a `[SmartEnum<int>]` or `[Union]`, build `TheoryData` from the closed-set `Items` property rather than enumerating `[InlineData]` rows. Adding a new case auto-extends coverage; no spec maintenance is required.
+
+```csharp
+public static TheoryData<SdfKind> AllSdfPrimitives() =>
+    SdfKind.Items.Fold(new TheoryData<SdfKind>(), (data, kind) => { data.Add(kind); return data; });
+
+[Theory]
+[MemberData(nameof(AllSdfPrimitives))]
+public void SdfPrimitiveSatisfiesClosedFormAtKnownPoints(SdfKind kind) =>
+    Spec.ForAll(GenInputFor(kind), input => { /* assert closed-form */ });
+```
+
+`MatrixTheoryData<T1,T2>` for 2-5 axis Cartesian products is cheaper than nested `Gen.Select` when each row should produce a separately-tracked test ID for CI triage.
+
+Cross-reference: this pattern is also a Stryker enabler — see `docs/testing-libs/stryker/api.md [5][THEORY_AS_STRYKER_ENABLER]`.
+
+---
+## [7][TRAIT_BASED_FILTERING]
+>**Dictum:** *Test categorization beats run-everything CI.*
+
+<br>
+
+| [INDEX] | [TRAIT_VALUE] | [PURPOSE] |
+| :-----: | ------------- | --------- |
+| [1] | `[Trait("Category", "Algebra")]` | Algebraic identity / metamorphic laws. |
+| [2] | `[Trait("Category", "Projection")]` | Output-direction dispatch laws. |
+| [3] | `[Trait("Category", "Rail")]` | `Fin`/`Validation`/`Option` failure-category laws. |
+| [4] | `[Trait("Category", "Numeric")]` | Residual / reconstruction / conditioning laws. |
+| [5] | `[Trait("Category", "Construction")]` | Factory boundary / default-struct laws. |
+| [6] | `[Trait("Category", "Runtime")]` | Static classification of bridge-owned behavior. |
+| [7] | `[Trait("Stryker", "Survivor")]` | Targeted regression coverage after Stryker survivor analysis. |
+
+Filter via `dotnet test --filter "Category=Algebra"` or `dotnet test --filter "Category=Algebra|Category=Numeric"`. Pair with CI matrix jobs for fast PR validation (Construction + Rail) vs. nightly extended runs (Numeric + Algebra + Projection + Runtime).
+
+---
+## [8][ASSERT_MULTIPLE_FOR_RECEIPTS]
+>**Dictum:** *Batch receipt invariants; report all failures at once.*
+
+<br>
+
+When asserting N invariants over the same receipt (e.g., `TopologyReceipt`, `SpectralAssemblyReceipt`, `SignedHeatReceipt`), wrap in `Assert.Multiple` so a failed invariant does not mask sibling failures:
+
+```csharp
+Assert.Multiple(
+    () => Spec.Holds(receipt.AdmittedFaceCount >= 0, "non-negative admitted"),
+    () => Spec.Holds(receipt.SkippedDegenerateFaces <= receipt.FaceCount, "skipped bounded"),
+    () => Spec.Holds(receipt.Genus.IsNone || receipt.HarmonicDimension == 2 * receipt.Genus.IfNone(0), "Euler-genus"),
+    () => Spec.Holds(receipt.BoundaryCompositionResidual <= RhinoMath.SqrtEpsilon, "D1∘D0 = 0"));
+```
+
+Reserved for receipt-invariant blocks; do not chain unrelated assertions.
+
+---
+## [9][TEST_CONTEXT_CANCELLATION]
+>**Dictum:** *Long-running properties must respect `TestContext.Current.CancellationToken`.*
+
+<br>
+
+`Spec.ForAll` reads `TestContext.Current.CancellationToken` and propagates into the property body. Raw `Check.Sample` calls do not. Pattern for any spec that may iterate thousands of times:
+
+```csharp
+public void LawObeysCancellation() =>
+    Spec.ForAll(gen, candidate => {
+        TestContext.Current.CancellationToken.ThrowIfCancellationRequested();
+        /* heavy assertion */
+    });
+```
+
+For long synchronous CsCheck samples (>30s under default Iter), add `[Trait("LongRunning", "true")]` and let CI partition skip them on PR validation.
+
+---
+## [10][CUSTOM_TEST_PIPELINE_HOOKS]
+>**Dictum:** *Pre-test assembly setup belongs to `ITestPipelineStartup`.*
+
+<br>
+
+| [INDEX] | [HOOK] | [USE_CASE] |
+| :-----: | ------ | ---------- |
+| [1] | `ITestPipelineStartup` | Force `CultureInfo.InvariantCulture` assembly-wide; warm `RhinoMath` constants; resolve native library probing paths. |
+| [2] | `IAfterTestStarting` | Stamp `TestContext.Current.KeyValueStorage` with seed/iter for shrinking-replay artifacts. |
+| [3] | `[assembly: AssemblyFixture(typeof(T))]` + constructor injection | Shared expensive immutables (reference factorizations, document loaders). NEVER mutable per-test state — AssemblyFixture is thread-shared across parallel test classes. |
+
+Avoid `IXunitTestCollectionRunner` overrides; they break VSTest discovery in subtle ways.

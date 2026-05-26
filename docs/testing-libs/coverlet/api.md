@@ -51,3 +51,22 @@ Local command:
 ```bash
 bash scripts/test.sh --coverage
 ```
+
+---
+## [4][SURVIVOR_CLASSIFICATION]
+>**Dictum:** *Every uncovered line classifies before any test changes.*
+
+<br>
+
+| [INDEX] | [CLASS] | [ACTION] |
+| :-----: | ------- | -------- |
+| [1] | Missing static law | Add a Grade A/B/C oracle to the owning spec. |
+| [2] | Bridge-owned runtime | Add or strengthen `*.verify.csx`; coverlet cannot reach the line. Mark with `[ExcludeFromCodeCoverage]` only after the scenario exists. |
+| [3] | Generated source | Exclude via `[ExcludeFromCodeCoverage]` on the generator or `ExcludeByFile=**/*.g.cs` MSBuild property. |
+| [4] | Defensive unreachable | Document inline (one-line comment naming the invariant that proves unreachability); do not test the unreachable arm. |
+| [5] | Dead code | Remove. |
+
+Anti-patterns:
+- Writing an `Assert.True(true)` test only to "cover" the line.
+- Bumping `Threshold*` to mask uncovered bridge paths.
+- Mutating the test to invoke a private method via reflection — the contract surface should drive coverage.

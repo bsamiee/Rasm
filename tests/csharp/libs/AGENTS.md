@@ -43,3 +43,40 @@
 - Specs may reach 225 LOC, and exceptionally 300 LOC, only when every added line buys a real oracle, boundary, native classification, or product-bug guard that cannot be expressed more densely through existing `Spec`, `Gens`, `Numeric`, or local case tables.
 - If a spec starts to grow through repeated setup, collapse the repetition into a richer product generator or table inside the same owner before adding helper files.
 - Thin tests found during review are bugs in the test design. Replace them with multi-axis laws, delete them when they only mirror implementation, or classify the behavior as bridge-owned/product-direction instead of preserving low-value coverage.
+
+## [5][POLYMORPHIC_DENSITY]
+
+The following patterns convert O(N) per-case Facts into O(1) generated laws. Reach for them before adding a second Fact that shares setup with an existing one.
+
+- **SmartEnum case sweep** — `Spec.Cases(MySmartEnum.Items, key: m => m.Key, law: m => ...)` enumerates every case, asserts key uniqueness, and runs a per-case invariant in one body. Auto-extends when cases are added.
+- **Union case sweep** — `Gen.OneOf(/* factory-routed per-case generators */)` plus a single `Spec.ForAll` body that pattern-matches on case. The body either dispatches via pattern (when oracle differs) or calls a single oracle (when invariant is uniform).
+- **Reflection-driven `TheoryData(T.Items)`** — `MemberData(nameof(CasesOf))` where `CasesOf` returns `TheoryData<T>` populated from `SmartEnum.Items`. Maintenance-free row count.
+- **Product generator over (case × input × output)** — `Gen.OneOfConst([..Items]).Select(InputGen, Gen.OneOfConst(OutputFamily), ...)` and the body's signature carries all three axes. One Fact, three coverage dimensions.
+- **Single fixture / N invariants** — one generated SPD matrix (or one generated mesh, etc.) asserts 5+ invariants per draw. Reuses the fixture cost across the oracle set.
+- **Variable-driven dispatch with dispatch-free body** — oracle table mapping case → closed-form (e.g., `Spec.Cases(SdfPrimitives, p => p.ClosedFormDistance)`); body never contains a switch.
+
+When NOT to polymorphize:
+- The *oracle statement* changes per case (distinct closed-form per primitive, different operator algebra, disjoint state machines).
+- The number of cases is 2 and likely to stay at 2.
+- A failure on one case must be visible as a separately-tracked test ID for CI triage.
+
+## [6][TORTURE_TACTICS]
+
+- **Distinct-value product generators** — `[7.0, 13.0, 3.0]` over `[1.0, 1.0, 1.0]` catches transport/dispatch swaps that placeholder fixtures hide.
+- **Stratified edge-bias `Gen.Frequency`** — 5-7 tier weights mix tail-of-distribution values (zero, infinity, NaN, tolerance-adjacent) with bulk-random while preserving statistical power.
+- **Conditioning-aware tolerance** — for numeric algorithms, tolerance is `κ(A) × base`, not a hardcoded `1e-9`. The conditioning factor comes from the input generator, not from the test author guessing.
+- **Composite metamorphic chain** — `f(g(h(x))) ≡ permuted_chain(x)` over generated `(x, perm)` pairs. Catches order-of-operation regressions in algorithmic pipelines.
+- **Generative oracle ladder** — when the closed-form is unknown, climb: algebraic identity (Grade A) → metamorphic relation (Grade A) → smaller reference model (Grade B) → conditioning fuzz (Grade B+). Start at the top of the ladder achievable for the algorithm.
+- **Pre/post triple for stateful APIs** — generated `(precondition, action, postcondition)` triples for `Atom` / `Validation` accumulation / `Fin` chaining. Single property body covers state-machine contract.
+
+## [7][DEFAULT_STRUCT_LAWS]
+
+Public `record struct` types with private constructors expose a `default` that bypasses the factory and produces an invalid value. Every such type needs a default-invalid raw-payload law per `cs-testing/SKILL.md [2][RAILS]`. Pattern:
+
+```csharp
+[Fact]
+public void DefaultStructIsRejectedByValidation() =>
+    Spec.Fail(Op.Of().AcceptValue(default(MyRecordStruct)));
+```
+
+Skip this only when the factory is internalized (no public construction path bypasses validation — see plan A.9 for the Intent positional-ctor lockdown case).

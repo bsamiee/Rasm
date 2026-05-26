@@ -22,6 +22,7 @@
 | [GRADE] | [ORACLE] | [USE] |
 | ------- | -------- | ----- |
 | A | Independent closed form, smaller model, or metamorphic relation | Default target for core behavior. |
+| B+ | Independent algorithmic identity with conditioning-aware tolerance | Numeric algorithms where the tolerance scales with the input's condition number (`κ(A) × base`), not a hardcoded constant. The conditioning factor comes from the input generator, not the test author guessing. |
 | B | External library fact or independent scalar/reference loop | Numeric and parsing rails. |
 | C | Typed receipt/category/code invariant | Failure and unsupported-output rails. |
 | D | Structural assertion | Supplemental shape proof only. |
@@ -58,3 +59,19 @@
 - Adding a shared helper for one file instead of inlining or promoting a universal testkit primitive.
 - Counting coverage from static specs by calling native Rhino geometry methods that require RhinoWIP host initialization.
 - Reusing production projection/operators as expected-value engines under a different name.
+- **Generator-mirror**: a generator-side filter that re-encodes a production predicate (e.g., `Gen.Where(v => MyEnum.Items.Contains(v))` when production `MyEnum.Items` is the catalog). The generator becomes the oracle's twin; mutations to the catalog are invisible.
+- **Placeholder-fixture swap blindness**: single-value or symmetric fixtures (`(0, 0, 0)`, `UnitTriangle3` for X/Y transport) cannot detect swaps between channels. Use distinct-value product generators.
+- **Equal-value channels**: `mass=[1.0, 1.0, 1.0]` cannot detect swap between any two slots. `mass=[1000.0, 7.0, 3.0]` exposes transport / dispatch bugs.
+- **Tautological receipt-field self-assertion**: hand-constructing a record then asserting its own fields. The test reads what it just wrote.
+- **Spec-class title/body mismatch**: copy-paste authoring against `oracles-laws.md [4]`. Rewrite must re-derive every law name from the law itself, not from a previous fact.
+- **`throw` inside `Select`**: `Gen.Int.Select(v => v > 0 ? T(v) : throw ...)` breaks CsCheck shrinking. Use `Gen.Int.Where(v => v > 0).Select(v => T(v))`.
+- **Hoisted `Op key` across `Switch` arms**: every `[Union].Switch` arm constructs `Op.Of(name: nameof(CaseName))` for diagnostic provenance.
+
+---
+## [5][POLYMORPHIC_ORACLE_RULES]
+
+Cross-reference [density-axes.md `[4]`](density-axes.md) for the pattern catalog. Oracle-side rules that govern polymorphic specs:
+
+- A polymorphic spec's oracle table is itself a contract — when a new SmartEnum/Union case is added, the oracle table must be extended in the same change. The architecture test (`Items.Count == OracleTable.Count`) catches drift.
+- Per-case oracles in a `Spec.Cases(items, key, law)` body must each be independent of production — a case-specific closed form, a smaller model, or a metamorphic relation. If three of N cases share an oracle and the other N-3 are mirrors, the polymorphic structure hides Grade F coverage; split into two laws.
+- When using `Theory + InlineData`, each row is a separately-tracked test ID and Stryker mutation target. Prefer Theory over PBT for SmartEnum case sweeps when the oracle differs per row.

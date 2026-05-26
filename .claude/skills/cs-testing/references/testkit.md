@@ -38,3 +38,90 @@
 - Keep test classes public for xUnit discovery.
 - Keep spec-local generator/static data classes non-public when discovery does not need them.
 - Folder-wide analyzer rationale belongs in `.editorconfig`, not in repeated file-local comments.
+
+---
+## [5][GENERATOR_SHRINKING_RULE]
+>**Dictum:** *`throw` inside `Select` breaks shrinking; use `Where(Try)+Select` to preserve it.*
+
+<br>
+
+CsCheck shrinking finds minimal counterexamples by narrowing failed inputs. Two patterns break it:
+
+| [BREAKS] | [PRESERVES] |
+| -------- | ----------- |
+| `Gen.Int.Select(i => i > 0 ? new T(i) : throw new ...)` | `Gen.Int.Where(i => i > 0).Select(i => new T(i))` |
+| `Gen.Select(Factory).Select(opt => opt.IfNone(() => throw new ...))` | `Gen.Select(Factory).Where(opt => opt.IsSome).Select(opt => opt.IfNone(default!))` |
+
+For factory-routed value-objects returning `Fin<T>` / `TryCreate(out T)`:
+
+```csharp
+public static readonly Gen<Dimension> Dimension =
+    SmallDimension
+        .Select(v => Vectors.Dimension.TryCreate(value: v, obj: out Vectors.Dimension d) ? Some(d) : None)
+        .Where(opt => opt.IsSome)
+        .Select(opt => opt.IfNone(default(Vectors.Dimension)));
+```
+
+The `throw` form fires CsCheck's `CsCheck_WhereLimit` (default 100); when exhausted CsCheck gives up with a generic message and no minimal counterexample. The `Where` form keeps shrinking on the satisfying subset.
+
+[SOURCE] CsCheck README on `Where` shrinking semantics.
+
+---
+## [6][IDOMAINVALID_EXTENSION_HOOK]
+>**Dictum:** *Cross-layer types extend `OpAcceptance.ValidityOf` through an interface, not a switch arm.*
+
+<br>
+
+When a Rasm-defined type from a downstream layer (Vectors, Mesh, Field, Analysis) needs `op.AcceptValue<T>(value)` support, the canonical extension hook is the `IDomainValid` interface:
+
+```csharp
+// in libs/csharp/Rasm/Domain/Validation.cs
+public interface IDomainValid { bool IsValid { get; } }
+
+// in OpAcceptance.ValidityOf switch:
+IDomainValid v => Some(v.IsValid),
+```
+
+Downstream record/struct types implement `IDomainValid`:
+
+```csharp
+public readonly record struct TopologyReceipt(...) : IDomainValid {
+    public bool IsValid => /* invariant predicate */;
+}
+```
+
+Do NOT add per-type arms to `ValidityOf` for cross-layer types — that would create `Domain → Vectors` dependencies and violate the universal-code-shape no-upstream-mirroring rule.
+
+Architecture coverage: an `ArchUnitNET` test in `tests/csharp/_architecture/` enumerates all `[BoundaryAdapter]`-marked types and asserts each is reachable through `ValidityOf` (either via `IDomainValid` or explicit switch arm). Catches the entire `AcceptValue / ValidityOf` gap regression class once and forever.
+
+See also: `feedback_acceptvalue_validity_gap` memory.
+
+---
+## [7][ASSEMBLY_FIXTURE_PATTERN]
+>**Dictum:** *Shared assembly context is an attribute, not an interface.*
+
+<br>
+
+xUnit v3 has **no `IAssemblyFixture<T>` API** — the v2 folklore does not apply. Shared assembly context uses `[assembly: AssemblyFixture(typeof(T))]` plus constructor injection:
+
+```csharp
+// in tests/csharp/<Project>/<AnyFile>.cs:
+[assembly: AssemblyFixture(typeof(VectorsContextFixture))]
+
+// the fixture:
+public sealed class VectorsContextFixture {
+    public Context Model { get; }
+    public VectorsContextFixture() {
+        Model = Context.Of(absolute: 1.0e-6, relative: 1.0e-6, angle: 1.0e-3, units: UnitSystem.Millimeters)
+            .Match(Succ: c => c, Fail: e => throw new InvalidOperationException(e.Message));
+    }
+}
+
+// consumers:
+public sealed class MyLaws(VectorsContextFixture fixture) {
+    private readonly Context model = fixture.Model;
+    [Fact] public void LawUsesSharedContext() => Spec.ForAll(gen, x => /* uses model */);
+}
+```
+
+Promote to a shared fixture only when ≥3 specs duplicate the same `static readonly Context Model = Spec.SuccValue(...)` block. AssemblyFixture is thread-shared across parallel test classes — reserve for *constructed-once expensive immutables* (reference factorizations, document loaders), never for per-test mutable state.

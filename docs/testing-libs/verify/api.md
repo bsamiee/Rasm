@@ -38,3 +38,40 @@
 <br>
 
 Use Verify for analyzer diagnostics, generated manifests, normalized bridge JSON, or package/config reports. Avoid snapshots for floating numeric values, generated random samples, current implementation output, or anything better described by an algebraic law.
+
+---
+## [4][NATURAL_USE_CASES_IN_RASM]
+>**Dictum:** *Snapshots earn their place by encoding what an algebraic law cannot.*
+
+<br>
+
+| [INDEX] | [USE_CASE] | [WHY_VERIFY_FITS] |
+| :-----: | ---------- | ----------------- |
+| [1] | `tools/cs-analyzer` rule diagnostics | Per-rule fixture produces a deterministic diagnostic message; Verify pins the exact text including parameter names. Drift catches accidental wording changes that break IDE quick-fix UX. |
+| [2] | SmartEnum catalog enumerations | When a public catalog (e.g., `CurveProjection.Items`) is API surface, snapshotting the list catches accidental case reorder/rename in code review. Pair with `Spec.SmartEnumKeysUnique` for runtime contract. |
+| [3] | Bridge JSON evidence files | Normalized `vectors-*-verify.csx` JSON output under `.artifacts/rhino/verify/` can be snapshot-asserted in `_tooling` after the bridge has stabilized. |
+| [4] | Generated source files | Roslyn source-generators (Thinktecture `[Union]`/`[SmartEnum]`/`[ValueObject]`) produce `*.g.cs` under `obj/`. Snapshotting select generated files catches breaking changes in source-generator behavior between Thinktecture upgrades. |
+| [5] | Package/config reports | Normalized output of `dotnet list package --vulnerable`, `dotnet restore --locked-mode` reports. |
+
+Anti-uses (Grade F):
+- Snapshotting `Matrix.spec.cs` SVD reconstruction output is not a law; the math IS the oracle.
+- Snapshotting bridge scenario stdout when it includes wall-clock timing or RhinoWIP version strings — scrub or skip.
+
+---
+## [5][SCRUBBER_RAIL]
+>**Dictum:** *Scrubbers are part of the contract, not noise reduction.*
+
+<br>
+
+Module initializer in `tests/csharp/_tooling/ModuleInitializers.cs`:
+
+```csharp
+[ModuleInitializer]
+public static void InitVerify() {
+    VerifierSettings.AddScrubber(text => text.Replace(Environment.MachineName, "{machine}"));
+    VerifierSettings.AddScrubber(text => Regex.Replace(text.ToString(), @"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", "{timestamp}"));
+    VerifierSettings.AddScrubber(text => Regex.Replace(text.ToString(), @"RhinoWIP \d+\.\d+\.\d+", "RhinoWIP {version}"));
+}
+```
+
+Centralize all scrubbers — per-test scrubbers fragment the contract and make snapshot diffs noisy across machines.
