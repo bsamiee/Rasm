@@ -39,7 +39,6 @@ declare -Ar API_REFERENCES=(
 )
 readonly -a API_REFERENCE_ORDER=(rhino-common rhino-ui rhino-code rhino-code-remote eto gh2 gh2-io)
 declare -a CLEANUP_PATHS=()
-declare -a CLEANUP_LOCKS=()
 declare -a CLEANUP_ROLLBACKS=()
 CLEANING=0
 declare -Ar ROUTES=(
@@ -48,17 +47,12 @@ declare -Ar ROUTES=(
     [verify]='_verify|1|1|'
     [package]='_cmd_package|2|2|'
     [deploy]='_package_action|2|2|deploy'
-    [install]='_package_action|2|2|install'
-    [push]='_package_action|2|2|push'
+    [publish]='_package_action|2|2|publish'
     [bridge:build]='_bridge_build|0|0|'
     [bridge:launch]='_bridge_client|0|0|launch'
-    [bridge:restart]='_bridge_client|0|0|restart'
     [bridge:doctor]='_bridge_client|0|999|doctor'
-    [bridge:load]='_bridge_client|1|999|load'
-    [bridge:load-smoke]='_bridge_client|1|999|load-smoke'
     [bridge:check]='_bridge_client|1|999|check'
     [bridge:clean]='_bridge_client|1|1|clean'
-    [bridge:unload]='_bridge_client|1|1|unload'
     [bridge:quit]='_bridge_client|0|0|quit'
     [api:doctor]='_api|0|0|doctor'
     [api:path]='_api|1|2|path'
@@ -79,7 +73,7 @@ _trap_err() {
 trap _trap_err ERR
 _cleanup_exit() {
     local -r exit_code="$?"
-    local entry index lock_dir path previous_dir stage_dir
+    local entry index path previous_dir stage_dir
     ((CLEANING == 0)) || exit "${exit_code}"
     CLEANING=1
     for ((index = ${#CLEANUP_ROLLBACKS[@]} - 1; index >= 0; index--)); do
@@ -91,10 +85,6 @@ _cleanup_exit() {
     for ((index = ${#CLEANUP_PATHS[@]} - 1; index >= 0; index--)); do
         path="${CLEANUP_PATHS[index]}"
         rm -rf -- "${path}" 2>/dev/null || true
-    done
-    for ((index = ${#CLEANUP_LOCKS[@]} - 1; index >= 0; index--)); do
-        lock_dir="${CLEANUP_LOCKS[index]}"
-        rmdir -- "${lock_dir}" 2>/dev/null || true
     done
     exit "${exit_code}"
 }
@@ -178,50 +168,18 @@ _bridge_build() {
         dotnet build "${project}" --configuration "${CONFIGURATION}" --no-restore "${DOTNET_SERIAL_BUILD_ARGS[@]}"
     done
 }
-_lock_stale() {
-    local -r lock_dir="$1"
-    local -r meta="${lock_dir}/owner"
-    local created owner_pid owner_started
-    if [[ ! -f "${meta}" ]]; then
-        created="$(stat -f %m "${lock_dir}" 2>/dev/null || stat -c %Y "${lock_dir}" 2>/dev/null || printf '%s' "${EPOCHSECONDS}")"
-        ((EPOCHSECONDS - created > 5)) && return 0
-        return 1
-    fi
-    IFS='|' read -r owner_pid owner_started < "${meta}" || return 0
-    [[ "${owner_pid}" =~ ^[0-9]+$ ]] || return 0
-    kill -0 "${owner_pid}" 2>/dev/null || return 0
-    local owner_start_command
-    owner_start_command="$(ps -o lstart= -p "${owner_pid}" 2>/dev/null || true)"
-    [[ -n "${owner_started}" && "${owner_start_command}" == "${owner_started}" ]] && return 1
-    return 0
-}
 _with_lock() {
     local -r name="$1"
     local -r handler="$2"
     shift 2
     local -r lock_root="${PACKAGE_STAGE_ROOT}/locks"
     local -r lock_key="${name//[^[:alnum:]_.:-]/_}"
-    local -r lock_dir="${lock_root}/${lock_key}.lock"
+    local -r lock_file="${lock_root}/${lock_key}.lock"
     mkdir -p -- "${lock_root}"
-    local -r deadline=$((BASH_MONOSECONDS + 30))
-    until mkdir -- "${lock_dir}" 2>/dev/null; do
-        _lock_stale "${lock_dir}" && rm -rf -- "${lock_dir}"
-        ((BASH_MONOSECONDS < deadline)) || _die "Timed out waiting for ${name} lock: ${lock_dir}"
-        sleep 0.1
-    done
-    CLEANUP_LOCKS+=("${lock_dir}")
-    local lock_tmp
-    lock_tmp="$(mktemp "${lock_dir}/owner.XXXXXXXXXX")"
-    printf '%s|%s|%s\n' "$$" "$(ps -o lstart= -p "$$" 2>/dev/null || true)" "${name}" >"${lock_tmp}"
-    mv -- "${lock_tmp}" "${lock_dir}/owner"
-    "${handler}" "$@"
-    rm -f -- "${lock_dir}/owner" 2>/dev/null || true
-    rmdir -- "${lock_dir}" 2>/dev/null || true
+    : > "${lock_file}"
+    lockf -t 30 "${lock_file}" "${handler}" "$@" || _die "Timed out waiting for ${name} lock: ${lock_file}"
 }
-_bridge_client() {
-    _with_lock bridge-client-build _bridge_client_run "$@"
-}
-_bridge_client_run() {
+_bridge_client_build_only() {
     local -r lock_root="${PACKAGE_STAGE_ROOT}/locks"
     local build_log
     build_log="$(mktemp "${lock_root}/bridge-client-build.XXXXXXXXXX")"
@@ -229,6 +187,12 @@ _bridge_client_run() {
     dotnet restore "${BRIDGE_CLIENT_PROJECT}" --locked-mode --disable-parallel >"${build_log}" 2>&1 || { cat "${build_log}" >&2; _die "Bridge client restore failed"; }
     dotnet build "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" --no-restore "${DOTNET_SERIAL_BUILD_ARGS[@]}" >>"${build_log}" 2>&1 || { cat "${build_log}" >&2; _die "Bridge client build failed"; }
     rm -f -- "${build_log}"
+}
+_bridge_client() {
+    _with_lock bridge-client-build _bridge_client_run "$@"
+}
+_bridge_client_run() {
+    _bridge_client_build_only
     dotnet run --no-build --project "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" -- "$@"
 }
 _bridge_invoke() {
@@ -243,13 +207,7 @@ _verify_run() {
     local -a scenarios=()
     _verify_discover "${pattern}" scenarios
     ((${#scenarios[@]} > 0)) || _die "No *.verify.csx scenarios matched: ${pattern}"
-    local -r lock_root="${PACKAGE_STAGE_ROOT}/locks"
-    local build_log
-    build_log="$(mktemp "${lock_root}/bridge-client-build.XXXXXXXXXX")"
-    CLEANUP_PATHS+=("${build_log}")
-    dotnet restore "${BRIDGE_CLIENT_PROJECT}" --locked-mode --disable-parallel >"${build_log}" 2>&1 || { cat "${build_log}" >&2; _die "Bridge client restore failed"; }
-    dotnet build "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" --no-restore "${DOTNET_SERIAL_BUILD_ARGS[@]}" >>"${build_log}" 2>&1 || { cat "${build_log}" >&2; _die "Bridge client build failed"; }
-    rm -f -- "${build_log}"
+    _bridge_client_build_only
     local -r report_dir="${PACKAGE_STAGE_ROOT}/verify"
     mkdir -p -- "${report_dir}/.tmp"
     CLEANUP_PATHS+=("${report_dir}/.tmp")
@@ -580,28 +538,25 @@ _package_action() {
     _package_meta "${package_slug}" "${version}" project manifest_dir target_dir target_framework assembly_name target_ext project_dir yak_path yak_platform yak_push_source package_dir package_pattern
     local package_file
     _package_find "${package_slug}" "${version}" "${package_dir}" "${package_pattern}" package_file
-    local -a source_args=()
-    [[ -n "${yak_push_source}" ]] && source_args=(--source "${yak_push_source}")
     [[ -x "${yak_path}" ]] || _die "Yak not executable at ${yak_path}"
     case "${action}" in
-        install) "${yak_path}" install "${package_file}" ;;
         deploy) "${yak_path}" install "${package_file}"; _package_deploy_refresh "${package_slug}" ;;
-        push) "${yak_path}" push "${source_args[@]}" "${package_file}" ;;
+        publish)
+            local -a source_args=()
+            [[ -n "${yak_push_source}" ]] && source_args=(--source "${yak_push_source}")
+            "${yak_path}" install "${package_file}"
+            "${yak_path}" push "${source_args[@]}" "${package_file}"
+            ;;
         *) _die "Unknown package action: ${action}" ;;
     esac
 }
 _package_deploy_refresh() {
     local -r package_slug="$1"
-    local lifecycle_json restart_json doctor_json
-    if restart_json="$(_bridge_client restart)"; then
-        lifecycle_json="${restart_json}"
-    else
-        lifecycle_json="$(_bridge_client launch)" || {
-            printf '%s\n' "${restart_json}"
-            printf '%s\n' "${lifecycle_json}"
-            _die "Package deploy refresh failed for ${package_slug}"
-        }
-    fi
+    local lifecycle_json doctor_json
+    lifecycle_json="$(_bridge_client launch)" || {
+        printf '%s\n' "${lifecycle_json}"
+        _die "Package deploy refresh failed for ${package_slug}"
+    }
     readonly lifecycle_json
     printf '%s\n' "${lifecycle_json}"
     [[ "${package_slug}" == "rasm-bridge" ]] || return 0

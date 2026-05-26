@@ -1,7 +1,7 @@
 using System;
 using LanguageExt;
 using Rasm.Domain;
-using Rasm.RhinoBridge.Protocol;
+using Rasm.TestKit.Scenarios;
 using Rasm.Vectors;
 using Rhino;
 using Rhino.Geometry;
@@ -37,9 +37,7 @@ static Mesh OpenSquare() {
 Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).ToFin(), "context");
 
 // --- [SCENARIO: vectors-spectral-dec] ---------------------------------------------------
-{
-    const string theme = "vectors-spectral-dec";
-    Op key = Op.Of(name: theme);
+Scenario.Run("vectors-spectral-dec", CAPTURE_PATH, (key, facts) => {
     static Mesh DegenerateFaceMesh() {
         Mesh mesh = new();
         _ = mesh.Vertices.Add(x: 0.0, y: 0.0, z: 0.0);
@@ -109,17 +107,14 @@ Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).T
     Probe.Require(openReceipt.BoundaryEdgeCount > 0 && openReceipt.BoundaryComponentCount > 0 && openReceipt.HarmonicDimension == 0, $"open.receipt={openReceipt}");
     Probe.Require(degenerateReceipt.Kind.Equals(SpectralAssemblyKind.Dec) && degenerateReceipt.SkippedDegenerateFaces > 0, $"degenerate.receipt={degenerateReceipt}");
     Probe.Require(torusTopology.Genus.Map(static genus => genus > 0).IfNone(false) && genusPositiveHodgeUnsupported, $"torus.topology={torusTopology}");
-    BridgeMarker.EmitScenarioHeader(scenario: theme, capturePath: CAPTURE_PATH);
-    BridgeMarker.EmitFact(key: "dec.nonzeros", value: receipt.NonZeros);
-    BridgeMarker.EmitFact(key: "dec.d1d0", value: receipt.BoundaryCompositionResidual);
-    BridgeMarker.EmitFact(key: "open.boundaryEdges", value: openReceipt.BoundaryEdgeCount);
-    BridgeMarker.EmitFact(key: "torus.genus", value: torusTopology.Genus.IfNone(-1));
-}
+    facts.Add("dec.nonzeros", receipt.NonZeros);
+    facts.Add("dec.d1d0", receipt.BoundaryCompositionResidual);
+    facts.Add("open.boundaryEdges", openReceipt.BoundaryEdgeCount);
+    facts.Add("torus.genus", torusTopology.Genus.IfNone(-1));
+});
 
 // --- [SCENARIO: vectors-spectral-descriptor] --------------------------------------------
-{
-    const string theme = "vectors-spectral-descriptor";
-    Op key = Op.Of(name: theme);
+Scenario.Run("vectors-spectral-descriptor", CAPTURE_PATH, (key, facts) => {
     using Mesh native = Tetrahedron();
     MeshSpace space = Probe.Expect(MeshSpace.Of(native: native, context: context, key: key), "space");
     SpectralDescriptorPolicy policy = new(
@@ -141,18 +136,15 @@ Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).T
     Probe.Require(meshReceipt.Spectral.Policy.ScaleNormalization.Equals(policy.ScaleNormalization) && meshReceipt.Spectral.Policy.EnergyNormalization.Equals(policy.EnergyNormalization), $"mesh.policy={meshReceipt.Spectral.Policy}");
     Probe.Require(spectralReceipt.Policy.ZeroModePolicy.Equals(policy.ZeroModePolicy) && spectralReceipt.ComparisonReady && spectralReceipt.EnergyNormalized && spectralReceipt.BandwidthNormalized, $"spectral.receipt={spectralReceipt}");
     Probe.Require(spectralReceipt.VertexCount == native.Vertices.Count && spectralReceipt.EigenpairCount == meshReceipt.Spectral.EigenpairCount, $"spectral.counts={spectralReceipt}");
-    BridgeMarker.EmitScenarioHeader(scenario: theme, capturePath: CAPTURE_PATH);
-    BridgeMarker.EmitFact(key: "descriptor.values", value: result.Values.Count);
-    BridgeMarker.EmitFact(key: "descriptor.returnedEigenpairs", value: meshReceipt.ReturnedEigenpairs);
-    BridgeMarker.EmitFact(key: "descriptor.cacheHit", value: meshReceipt.SpectralCacheHit);
-    BridgeMarker.EmitFact(key: "descriptor.hasAssembly", value: meshReceipt.Assembly.IsSome);
-    BridgeMarker.EmitFact(key: "spectral.comparisonReady", value: spectralReceipt.ComparisonReady);
-}
+    facts.Add("descriptor.values", result.Values.Count);
+    facts.Add("descriptor.returnedEigenpairs", meshReceipt.ReturnedEigenpairs);
+    facts.Add("descriptor.cacheHit", meshReceipt.SpectralCacheHit);
+    facts.Add("descriptor.hasAssembly", meshReceipt.Assembly.IsSome);
+    facts.Add("spectral.comparisonReady", spectralReceipt.ComparisonReady);
+});
 
 // --- [SCENARIO: vectors-spectral-edge-connection] ---------------------------------------
-{
-    const string theme = "vectors-spectral-edge-connection";
-    Op key = Op.Of(name: theme);
+Scenario.Run("vectors-spectral-edge-connection", CAPTURE_PATH, (key, facts) => {
     using Mesh native = OpenSquare();
     MeshSpace space = Probe.Expect(MeshSpace.Of(native: native, context: context, key: key), "space");
     VolumeSolverPolicy solver = Probe.Expect(VolumeSolverPolicy.SparseCholesky(residualTolerance: 1.0e-4, key: key), "solver policy");
@@ -169,10 +161,9 @@ Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).T
     Probe.Require(edge.PositiveMassCount > 0 && edge.PositiveMassCount <= edge.EdgeCount, $"edge.mass={edge}");
     Probe.Require(edge.SymmetryResidual <= RhinoMath.SqrtEpsilon && edge.FactorNonZeros.IsSome, $"edge.factor={edge}");
     Probe.Require(heat.IsUsable && signed.PoissonSolve.IsUsable, $"solves heat={heat} poisson={signed.PoissonSolve}");
-    BridgeMarker.EmitScenarioHeader(scenario: theme, capturePath: CAPTURE_PATH);
-    BridgeMarker.EmitFact(key: "edgeDofs", value: edge.EdgeCount);
-    BridgeMarker.EmitFact(key: "edgeRows", value: edge.MatrixRows);
-    BridgeMarker.EmitFact(key: "edgeNonZeros", value: edge.NonZeros);
-    BridgeMarker.EmitFact(key: "edgeFactorNonZeros", value: edge.FactorNonZeros.IfNone(0));
-    BridgeMarker.EmitFact(key: "solverTolerance", value: solver.ResidualTolerance.Value);
-}
+    facts.Add("edgeDofs", edge.EdgeCount);
+    facts.Add("edgeRows", edge.MatrixRows);
+    facts.Add("edgeNonZeros", edge.NonZeros);
+    facts.Add("edgeFactorNonZeros", edge.FactorNonZeros.IfNone(0));
+    facts.Add("solverTolerance", solver.ResidualTolerance.Value);
+});

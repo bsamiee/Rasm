@@ -12,7 +12,9 @@ internal sealed class BridgeSessionTable : IDisposable {
             RhinoPid: Environment.ProcessId,
             ActiveDocument: document is not null,
             ModelAbsoluteTolerance: document?.ModelAbsoluteTolerance,
-            Assemblies: HostAssemblies(),
+            Assemblies: [.. LoadContext.SharedAssemblies().Values
+                .OrderBy(static assembly => assembly.GetName().Name, StringComparer.Ordinal)
+                .Select(static assembly => LoadedReport(assembly: assembly, required: true))],
             Sessions: [.. sessions.Values.Where(static entry => entry.IsLoaded).Select(static entry => entry.Report())]);
     internal BridgeReport.Load Load(BridgeLoadRequest request) {
         ArgumentNullException.ThrowIfNull(request);
@@ -42,6 +44,7 @@ internal sealed class BridgeSessionTable : IDisposable {
     }
     private BridgeReport.Load LoadExisting(string path, string workspaceRoot, string packageCacheRoot) {
         string sessionId = Guid.NewGuid().ToString(format: "N");
+        // BOUNDARY ADAPTER — ALC load surfaces a wide native exception family; collapse into a Failed report with causes.
         try {
             Entry entry = Entry.Load(sessionId: sessionId, assemblyPath: path, workspaceRoot: workspaceRoot, packageCacheRoot: packageCacheRoot);
             sessions.Add(key: entry.SessionId, value: entry);
@@ -52,27 +55,16 @@ internal sealed class BridgeSessionTable : IDisposable {
     }
     private static string PackageCacheRoot(string workspaceRoot, string? packageCacheRoot) =>
         string.IsNullOrWhiteSpace(value: packageCacheRoot) ? Path.Combine(path1: workspaceRoot, path2: ".cache/nuget/packages") : Path.GetFullPath(path: packageCacheRoot);
-    private static BridgeAssemblyReport[] HostAssemblies() {
-        Assembly[] required = [typeof(RhinoApp).Assembly, typeof(BridgeWire).Assembly, typeof(Host).Assembly];
-        return [.. required
-            .Where(static assembly => !string.IsNullOrWhiteSpace(assembly.GetName().Name))
-            .GroupBy(static assembly => assembly.GetName().Name, StringComparer.Ordinal)
-            .Select(static group => group.First())
-            .OrderBy(static assembly => assembly.GetName().Name, StringComparer.Ordinal)
-            .Select(static assembly => LoadedReport(assembly: assembly, required: true))];
-    }
     internal static BridgeAssemblyReport LoadedReport(Assembly assembly, bool required) =>
         new(Name: assembly.GetName().Name ?? "unknown", Status: PhaseStatus.Ok, Required: required, Version: assembly.GetName().Version?.ToString(), InformationalVersion: assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion, Location: assembly.Location, Fault: null);
-    private static BridgeFault LoadFault(Exception error) {
-        ReflectionTypeLoadException? loader = error switch {
-            ReflectionTypeLoadException current => current,
-            { InnerException: ReflectionTypeLoadException current } => current,
-            _ => null,
+    private static BridgeFault LoadFault(Exception error) =>
+        BridgeFault.FromException(category: "load", error: error) with {
+            Causes = error switch {
+                ReflectionTypeLoadException current => [.. current.LoaderExceptions.OfType<Exception>().Select(static loader => BridgeFault.FromException(category: "loader", error: loader))],
+                { InnerException: ReflectionTypeLoadException nested } => [.. nested.LoaderExceptions.OfType<Exception>().Select(static loader => BridgeFault.FromException(category: "loader", error: loader))],
+                _ => null,
+            },
         };
-        return BridgeFault.FromException(category: "load", error: error) with {
-            Causes = loader?.LoaderExceptions.Select(static item => item is null ? null : BridgeFault.FromException(category: "loader", error: item)).OfType<BridgeFault>().ToArray(),
-        };
-    }
 
     private sealed class Entry {
         private readonly string location;
@@ -81,7 +73,6 @@ internal sealed class BridgeSessionTable : IDisposable {
         private LoadContext? context;
         private Assembly? assembly;
         private BridgeAssemblyReport[] closure;
-        private bool unloadRequested;
         private Entry(string sessionId, string location, string workspaceRoot, string packageCacheRoot, LoadContext context, Assembly assembly, BridgeAssemblyReport[] closure) {
             SessionId = sessionId;
             this.location = location;
@@ -95,6 +86,7 @@ internal sealed class BridgeSessionTable : IDisposable {
         internal bool IsLoaded => context is not null && assembly is not null;
         internal static Entry Load(string sessionId, string assemblyPath, string workspaceRoot, string packageCacheRoot) {
             LoadContext loadContext = new(assemblyPath: assemblyPath, packageCacheRoot: packageCacheRoot);
+            // BOUNDARY ADAPTER — partial-load rollback requires synchronous Unload on the same thread.
             try {
                 Assembly loadedAssembly = loadContext.LoadFromAssemblyPath(assemblyPath);
                 Assembly[] loadedClosure = loadContext.LoadClosure(root: loadedAssembly);
@@ -119,23 +111,15 @@ internal sealed class BridgeSessionTable : IDisposable {
                 WorkspaceRoot: workspaceRoot,
                 PackageCacheRoot: packageCacheRoot,
                 Assemblies: closure);
-        internal BridgeReport.Unload Unload() {
-            if (unloadRequested) {
-                return new(Status: PhaseStatus.Failed, Fault: BridgeFault.MessageOnly(category: "unload", message: $"Session '{SessionId}' already requested unload, but loaded code still has live references."), SessionId: SessionId, UnloadRequested: true, Unloaded: false);
-            }
-            WeakReference? reference = Release();
-            unloadRequested = true;
-            bool unloaded = reference is not null && Collect(reference: reference);
-            return new(
-                Status: unloaded ? PhaseStatus.Ok : PhaseStatus.Failed,
-                Fault: unloaded ? null : BridgeFault.MessageOnly(category: "unload", message: $"Session '{SessionId}' requested unload, but loaded code still has live references."),
-                SessionId: SessionId,
-                UnloadRequested: reference is not null,
-                Unloaded: unloaded);
-        }
+        internal BridgeReport.Unload Unload() =>
+            (IsLoaded, Release()) switch {
+                (false, _) => new(Status: PhaseStatus.Failed, Fault: BridgeFault.MessageOnly(category: "unload", message: $"Session '{SessionId}' is already unloaded."), SessionId: SessionId, UnloadRequested: false, Unloaded: false),
+                (_, WeakReference reference) when Collect(reference: reference) => new(Status: PhaseStatus.Ok, Fault: null, SessionId: SessionId, UnloadRequested: true, Unloaded: true),
+                _ => new(Status: PhaseStatus.Failed, Fault: BridgeFault.MessageOnly(category: "unload", message: $"Session '{SessionId}' requested unload, but loaded code still has live references."), SessionId: SessionId, UnloadRequested: true, Unloaded: false),
+            };
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private WeakReference? Release() {
-            WeakReference? reference = context is LoadContext active ? new WeakReference(target: active, trackResurrection: false) : null;
+        private WeakReference Release() {
+            WeakReference reference = new(target: context!, trackResurrection: false);
             closure = [];
             assembly = null;
             context?.Unload();
@@ -145,9 +129,11 @@ internal sealed class BridgeSessionTable : IDisposable {
         // Why: Collectible ALC unloads require finalizer drain + reference release; 3 cycles
         // is sufficient for synchronous Rhino plugin contexts. If a session leaks, the
         // BridgeReport.Unload.Unloaded=false signals the agent; manual restart resolves.
+        // BOUNDARY ADAPTER — GC drain loop is the canonical .NET unloadability pattern.
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static bool Collect(WeakReference reference) {
-            for (int index = 0; index < 3 && reference.IsAlive; index++) {
+            int attempts = 0;
+            while (reference.IsAlive && attempts++ < 3) {
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
             }
@@ -155,7 +141,7 @@ internal sealed class BridgeSessionTable : IDisposable {
         }
     }
 
-    private sealed class LoadContext : AssemblyLoadContext {
+    internal sealed class LoadContext : AssemblyLoadContext {
         private readonly AssemblyDependencyResolver resolver;
         private readonly Dictionary<string, Assembly> shared;
         private readonly Dictionary<string, string> packageAssets;
@@ -164,11 +150,16 @@ internal sealed class BridgeSessionTable : IDisposable {
             resolver = new AssemblyDependencyResolver(assemblyPath);
             shared = SharedAssemblies();
             packageAssets = PackageAssets(assemblyPath: assemblyPath, packageCacheRoot: packageCacheRoot);
+            // Cascade: resolver (plugin-folder + RID fallback) → packageAssets (NuGet cache, covers macos hostpolicy gap) → shared (host identity).
             resolvers = [
-                name => name.Name is string n && BridgeWire.IsHostAssemblyName(name: n) && shared.TryGetValue(key: n, value: out Assembly? a) ? a : null,
-                name => name.Name is string n && packageAssets.TryGetValue(key: n, value: out string? p) ? LoadFromAssemblyPath(p) : null,
                 name => resolver.ResolveAssemblyToPath(name) is string p ? LoadFromAssemblyPath(p) : null,
+                name => name.Name is string n && packageAssets.TryGetValue(key: n, value: out string? p) ? LoadFromAssemblyPath(p) : null,
+                name => name.Name is string n && shared.TryGetValue(key: n, value: out Assembly? a) ? a : null,
             ];
+            Unloading += _ => {
+                shared.Clear();
+                packageAssets.Clear();
+            };
         }
         internal static string HostRoot => Path.GetDirectoryName(typeof(RhinoApp).Assembly.Location) ?? string.Empty;
         internal Assembly[] LoadClosure(Assembly root) {
@@ -195,7 +186,7 @@ internal sealed class BridgeSessionTable : IDisposable {
                 pending.Enqueue(item: assembly);
             }
         }
-        private static Dictionary<string, Assembly> SharedAssemblies() =>
+        internal static Dictionary<string, Assembly> SharedAssemblies() =>
             AppDomain.CurrentDomain.GetAssemblies()
                 .Where(static assembly => IsUnder(path: assembly.Location, root: HostRoot))
                 .Concat([typeof(BridgeWire).Assembly, typeof(RhinoApp).Assembly])
@@ -208,6 +199,7 @@ internal sealed class BridgeSessionTable : IDisposable {
             if (!File.Exists(path: deps) || !Directory.Exists(path: packages)) {
                 return new(StringComparer.Ordinal);
             }
+            // BOUNDARY ADAPTER — .deps.json may be missing fields on partial restore.
             try {
                 using JsonDocument document = JsonDocument.Parse(json: File.ReadAllText(path: deps, encoding: Encoding.UTF8));
                 return document.RootElement.GetProperty(propertyName: "targets").EnumerateObject()

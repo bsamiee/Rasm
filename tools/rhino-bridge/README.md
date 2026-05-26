@@ -67,23 +67,20 @@ Run commands from repository root.
 | [INDEX] | [COMMAND] | [INTENT] |
 | :-----: | --------- | -------- |
 | **1** | `scripts/rhino.sh bridge build` | Build protocol, plugin, and client in `Release`. |
-| **2** | `scripts/rhino.sh bridge launch` | Open RhinoWIP and verify endpoint round trip. |
-| **3** | `scripts/rhino.sh bridge doctor` | Report live Rhino, plugin, required assemblies, and sessions. |
-| **4** | `scripts/rhino.sh bridge restart` | Lifecycle diagnostic for safe manual bridge reloads. |
-| **5** | `scripts/rhino.sh bridge check <target> [scenario.csx]` | Build or execute the target through the agent-first RhinoCode lane. |
-| **6** | `scripts/rhino.sh bridge clean <target>` | Remove generated bridge check reports for one target. |
-| **7** | `scripts/rhino.sh bridge load <assembly.dll>` | Diagnostic-only load into a bridge session. |
-| **8** | `scripts/rhino.sh bridge load-smoke <assembly.dll>` | Diagnostic-only load in a collectible session and unload it. |
-| **9** | `scripts/rhino.sh bridge unload <session-id>` | Diagnostic-only unload for explicit bridge load sessions. |
-| **10** | `scripts/rhino.sh bridge quit` | Lifecycle-only safe Rhino exit when open documents have no unsaved changes. |
-| **11** | `scripts/rhino.sh package rasm-bridge <version>` | Build bridge `.rhp`, run Yak in staged directory, and create a local package. |
-| **12** | `scripts/rhino.sh deploy rasm-bridge <version>` | Install the staged bridge package, refresh RhinoWIP, and verify bridge health. |
-| **13** | `scripts/rhino.sh verify <scenario-or-glob>` | Convenience rail for source-only scenarios; resolves owning project, routes through `bridge check`. |
-| **13** | `scripts/rhino.sh api doctor` | Report local RhinoWIP API XML, ILSpy, and RhinoCode metadata availability. |
-| **14** | `scripts/rhino.sh api path <key> [assembly\|xml]` | Print the resolved assembly or XML path for an API reference key. |
-| **15** | `scripts/rhino.sh api xml <key> <pattern>` | Search the resolved XML documentation with `rg`. |
-| **16** | `scripts/rhino.sh api types <key> [pattern]` | List assembly types through ILSpy, optionally filtered by pattern. |
-| **17** | `scripts/rhino.sh api decompile <key> <type>` | Decompile a type through ILSpy for assemblies without XML. |
+| **2** | `scripts/rhino.sh bridge launch` | Idempotent: reuses an existing endpoint or opens RhinoWIP and verifies endpoint round trip. |
+| **3** | `scripts/rhino.sh bridge doctor` | Report live Rhino, plugin, and required assemblies. |
+| **4** | `scripts/rhino.sh bridge check <target> [scenario.csx]` | Build or execute the target through the agent-first RhinoCode lane. |
+| **5** | `scripts/rhino.sh bridge clean <target>` | Remove generated bridge check reports for one target. |
+| **6** | `scripts/rhino.sh bridge quit` | Lifecycle-only safe Rhino exit when open documents have no unsaved changes. |
+| **7** | `scripts/rhino.sh package rasm-bridge <version>` | Build bridge `.rhp`, run Yak in staged directory, and create a local package. |
+| **8** | `scripts/rhino.sh deploy rasm-bridge <version>` | Install the staged bridge package, refresh RhinoWIP via idempotent launch, and verify bridge health. |
+| **9** | `scripts/rhino.sh publish rasm-bridge <version>` | Build, install locally, then push to the configured Yak feed in one shot. |
+| **10** | `scripts/rhino.sh verify <scenario-or-glob>` | Convenience rail for source-only scenarios; resolves owning project, routes through `bridge check`. |
+| **11** | `scripts/rhino.sh api doctor` | Report local RhinoWIP API XML, ILSpy, and RhinoCode metadata availability. |
+| **12** | `scripts/rhino.sh api path <key> [assembly\|xml]` | Print the resolved assembly or XML path for an API reference key. |
+| **13** | `scripts/rhino.sh api xml <key> <pattern>` | Search the resolved XML documentation with `rg`. |
+| **14** | `scripts/rhino.sh api types <key> [pattern]` | List assembly types through ILSpy, optionally filtered by pattern. |
+| **15** | `scripts/rhino.sh api decompile <key> <type>` | Decompile a type through ILSpy for assemblies without XML. |
 
 ### [3.1][PRIMARY_USAGE]
 
@@ -139,14 +136,11 @@ Expected result: decompiled C# from `Rhino.UI.dll` through ILSpy using a normali
 
 ### [3.2][OPTIONS]
 
-Common client options:
+The client surface is intentionally minimal — defaults are env-driven and constant.
 
 | [INDEX] | [OPTION] | [USE] |
 | :-----: | -------- | ----- |
-| **1** | `--configuration <name>` | Build configuration used by project checks. |
-| **2** | `--worktree <path>` | Repository root for project/source resolution. |
-| **3** | `--timeout-ms <ms>` | Client transport timeout; Rhino UI-thread execution is not server-cancelable. |
-| **4** | `--result <path>` | Override the automatically generated structured JSON report path. |
+| **1** | `--result <path>` | Override the automatically generated structured JSON report path. |
 
 Environment overrides:
 
@@ -154,6 +148,7 @@ Environment overrides:
 | :-----: | ---------- | ----- |
 | **1** | `RHINO_WIP_APP_PATH` | Launch a specific RhinoWIP app bundle. |
 | **2** | `RHINO_WIP_BUNDLE_ID` | Launch RhinoWIP by bundle identifier. |
+| **3** | `CONFIGURATION` | Build configuration for project checks (default `Release`). |
 
 ---
 ## [4][OUTPUT_CONTRACT]
@@ -219,6 +214,30 @@ Console.WriteLine("rasm.rhino-bridge.return=" + JsonSerializer.Serialize(receipt
 The plugin preserves raw stdout and parses the last line with this prefix into `execute.data.returnValue`. Missing return lines are valid. Malformed return JSON fails `execute` with `fault.category = "return"`.
 
 Runtime checks force RhinoCode C# `csharp.resolver.isolate = true` and `CachePolicy.NeverCache`. Script references load through RhinoCode's collectible Roslyn context instead of Rhino's default host context, so other installed plugins cannot poison package identity for `LanguageExt`, `Thinktecture`, or rebuilt repo assemblies. Every execute report includes `execute.data.rhinoCode`; project smoke scripts also emit `returnValue.kind = "assemblyFreshness"` with exact target-location evidence and `resolverIsolated = true`.
+
+### [4.2][BRIDGE_MARKERS]
+
+Scenarios and smoke probes emit structured evidence as **bridge markers** — line-oriented stdout records prefixed `rasm.rhino-bridge.`. The plugin captures stdout, leaves raw text in `execute.outputs[].text`, and the canonical parser is `Rasm.RhinoBridge.Protocol.BridgeMarker.Scan(string stdout) -> Seq<BridgeMarker>` (in the protocol assembly, also published in the agent reference set).
+
+Marker kinds:
+
+| [INDEX] | [PREFIX] | [VARIANT] | [PAYLOAD] |
+| :-----: | -------- | --------- | --------- |
+| **1** | `rasm.rhino-bridge.return=` | `Returned(JsonElement Value)` | Final return JSON; only the last occurrence wins; consumed into `execute.data.returnValue`. |
+| **2** | `rasm.rhino-bridge.evidence=` | `Evidence(string Key, string Value)` | Structured fact carriers; `Value` is opaque to the parser (recipients deserialize per-key). |
+| **3** | `rasm.rhino-bridge.capture=` | `Capture(string Path, int Width, int Height)` | PNG capture metadata (path + dimensions). |
+| **4** | `rasm.rhino-bridge.nonce=` | `Nonce(string Value)` | Smoke-probe handshake nonce. |
+
+**Fact emission contract (current).** `Rasm.TestKit.Scenarios.Scenario.Run(theme, capturePath, body)` emits per scenario:
+
+1. One `scenario={theme}` plain line (no prefix).
+2. One `capture={capturePath}` plain line (no prefix).
+3. The scenario body populates a `FactBag` via `facts.Add(string key, object value)` (statement form, no return value).
+4. On scope exit the harness emits exactly one `facts={json}` plain line **AND** one `rasm.rhino-bridge.evidence=facts={json}` prefixed marker. Both carry the same JSON-serialized `IReadOnlyDictionary<string, object>` payload.
+
+**Agent guidance.** Parse the prefixed `Evidence("facts", json)` marker — it is the structured, canonical, single source of truth. The plain `facts={json}` line is for human-readable agent logs only and is redundant with the marker. Do **not** parse individual `key=value` plain lines: that legacy emission style is removed. Use `BridgeMarker.Scan(stdout)` and filter on `Evidence` cases; deserialize `Evidence.Value` as a `Dictionary<string, JsonElement>` for typed fact access.
+
+**Wire format migration.** Before this revision, scenarios emitted N × `key=value` plain lines per scenario (one per fact). Agents parsing line-by-line for `key=` would see N entries. After the migration, scenarios emit **one** `facts={json}` plain line + **one** `rasm.rhino-bridge.evidence=facts={json}` marker carrying the full dictionary. Agents must switch to JSON parsing — there are no per-fact plain lines anymore.
 
 ---
 ## [5][REFERENCE_POLICY]
@@ -312,6 +331,6 @@ scripts/rhino.sh bridge clean apps/grasshopper/Radyab/Radyab.csproj
 
 Add focused live checks for bridge implementation changes:
 - Reference projection changes: run `check <source.cs> <scenario.verify.csx>` that imports affected assemblies.
-- Assembly load policy changes: verify known same-name package collisions do not poison isolated RhinoCode checks.
+- Assembly load policy changes: verify known same-name package collisions do not poison isolated RhinoCode checks (use `bridge check <project.csproj>` without scenario — the internal smoke probe reports `returnValue.kind = "assemblyFreshness"`).
 - Packaging changes: run `scripts/rhino.sh package rasm-bridge <version>`, then `scripts/rhino.sh deploy rasm-bridge <version>` to validate the staged `.yak`.
-- Transport changes: run `bridge doctor`, `bridge check <source.cs> <scenario.verify.csx>`, and `bridge load-smoke`.
+- Transport changes: run `bridge doctor` and `bridge check <source.cs> <scenario.verify.csx>`.

@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using LanguageExt;
 using Rasm.Domain;
-using Rasm.RhinoBridge.Protocol;
+using Rasm.TestKit.Scenarios;
 using Rasm.Vectors;
 using Rhino;
 using Rhino.Geometry;
@@ -12,9 +12,7 @@ using Dimension = Rasm.Vectors.Dimension;
 Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).ToFin(), "context");
 
 // --- [SCENARIO: vectors-cloud-shapes] ---------------------------------------------------
-{
-    const string theme = "vectors-cloud-shapes";
-    Op key = Op.Of(name: theme);
+Scenario.Run("vectors-cloud-shapes", CAPTURE_PATH, (key, facts) => {
     Seq<Point3d> ringPoints = Seq(
         new Point3d(x: 0.0, y: 0.0, z: 0.0),
         new Point3d(x: 2.0, y: 0.0, z: 0.0),
@@ -41,19 +39,16 @@ Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).T
     Probe.Require(RhinoMath.IsValidDouble(x: transport.Distance) && transport.Iterations >= 1, $"transport={transport}");
     Probe.Require(transport.Correspondences.CoveredSourceCount == 3 && transport.Correspondences.CoveredTargetCount == 3, $"transport.coverage={transport.Correspondences}");
     Probe.Require(transport.Correspondences.RetainedSourceMass > 0.0 && transport.Correspondences.RetainedTargetMass > 0.0, $"transport.mass={transport.Correspondences}");
-    BridgeMarker.EmitScenarioHeader(scenario: theme, capturePath: CAPTURE_PATH);
-    BridgeMarker.EmitFact(key: "ring.area", value: area.ToString("F6", System.Globalization.CultureInfo.InvariantCulture));
-    BridgeMarker.EmitFact(key: "ring.centroid", value: shape.Centroid);
-    BridgeMarker.EmitFact(key: "cluster.spread", value: spread);
-    BridgeMarker.EmitFact(key: "transport.distance", value: transport.Distance.ToString("F6", System.Globalization.CultureInfo.InvariantCulture));
-    BridgeMarker.EmitFact(key: "transport.coveredSource", value: transport.Correspondences.CoveredSourceCount);
-    BridgeMarker.EmitFact(key: "transport.coveredTarget", value: transport.Correspondences.CoveredTargetCount);
-}
+    facts.Add("ring.area", area.ToString("F6", System.Globalization.CultureInfo.InvariantCulture));
+    facts.Add("ring.centroid", shape.Centroid.ToString());
+    facts.Add("cluster.spread", spread.ToString());
+    facts.Add("transport.distance", transport.Distance.ToString("F6", System.Globalization.CultureInfo.InvariantCulture));
+    facts.Add("transport.coveredSource", transport.Correspondences.CoveredSourceCount);
+    facts.Add("transport.coveredTarget", transport.Correspondences.CoveredTargetCount);
+});
 
 // --- [SCENARIO: vectors-cloud-neighborhood] ---------------------------------------------
-{
-    const string theme = "vectors-cloud-neighborhood";
-    Op key = Op.Of(name: theme);
+Scenario.Run("vectors-cloud-neighborhood", CAPTURE_PATH, (key, facts) => {
     static Seq<Point3d> Grid(double step, Func<double, double, double> z) =>
         toSeq(from ix in Enumerable.Range(start: -2, count: 5) from iy in Enumerable.Range(start: -2, count: 5) let x = ix * step let y = iy * step select new Point3d(x: x, y: y, z: z(x, y)));
     CloudCurvatureResult CurvatureOf(Seq<Point3d> points, CloudMetricPolicy policy, string label) =>
@@ -103,19 +98,16 @@ Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).T
     Probe.Require(planeCurvature.Samples.ForAll(static sample => Math.Abs(value: sample.K1) <= 1.0e-8 && Math.Abs(value: sample.K2) <= 1.0e-8), "plane curvature");
     Probe.Require(sphereMean is > 0.12 and < 0.35, $"sphere.mean={sphereMean:R}");
     Probe.Require(saddleCurvature.Samples.AsIterable().Any(static sample => sample.K1 * sample.K2 < -1.0e-3), "saddle signed curvature");
-    BridgeMarker.EmitScenarioHeader(scenario: theme, capturePath: CAPTURE_PATH);
-    BridgeMarker.EmitFact(key: "normal.count", value: normals.Count);
-    BridgeMarker.EmitFact(key: "duplicate.ids", value: string.Join(separator: ",", values: duplicateIds[0]));
-    BridgeMarker.EmitFact(key: "curvature.accepted", value: planeCurvature.Receipt.AcceptedSampleCount);
-    BridgeMarker.EmitFact(key: "curvature.self", value: planeCurvature.Receipt.SelfNeighborIncluded);
-    BridgeMarker.EmitFact(key: "curvature.radiusLimited", value: radiusCurvature.Receipt.RadiusLimited);
-    BridgeMarker.EmitFact(key: "sphere.mean", value: sphereMean);
-}
+    facts.Add("normal.count", normals.Count);
+    facts.Add("duplicate.ids", string.Join(separator: ",", values: duplicateIds[0]));
+    facts.Add("curvature.accepted", planeCurvature.Receipt.AcceptedSampleCount);
+    facts.Add("curvature.self", planeCurvature.Receipt.SelfNeighborIncluded);
+    facts.Add("curvature.radiusLimited", radiusCurvature.Receipt.RadiusLimited);
+    facts.Add("sphere.mean", sphereMean);
+});
 
 // --- [SCENARIO: vectors-cloud-hull] -----------------------------------------------------
-{
-    const string theme = "vectors-cloud-hull";
-    Op key = Op.Of(name: theme);
+Scenario.Run("vectors-cloud-hull", CAPTURE_PATH, (key, facts) => {
     VectorCloud tooFew = Probe.Expect(VectorCloud.Cluster(
         points: Seq(
             new Point3d(x: 0.0, y: 0.0, z: 0.0),
@@ -173,9 +165,8 @@ Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).T
     Probe.Require(footprint.Receipt.Status.Equals(CloudHullStatus.Completed) && footprint.Receipt.NativeRouted && footprint.Receipt.InputCount == 6 && footprint.Receipt.OutputVertexCount == 4, $"footprint={footprint.Receipt}");
     Probe.Require(collinearFootprint.Receipt.Status.Equals(CloudHullStatus.Rejected) && collinearFootprint.Mesh.IsNone && collinearFootprint.Receipt.NativeRouted && collinearFootprint.Receipt.ContainmentRejectedCount == 3, $"collinear={collinearFootprint.Receipt}");
     Probe.Require(alphaReceipt.Status.Equals(CloudHullStatus.Unsupported) && !alphaReceipt.NativeRouted, $"alpha={alphaReceipt}");
-    BridgeMarker.EmitScenarioHeader(scenario: theme, capturePath: CAPTURE_PATH);
-    BridgeMarker.EmitFact(key: "hull.vertices", value: result.Receipt.OutputVertexCount);
-    BridgeMarker.EmitFact(key: "hull.facets", value: result.Receipt.NativeFacetCount);
-    BridgeMarker.EmitFact(key: "footprint.vertices", value: footprint.Receipt.OutputVertexCount);
-    BridgeMarker.EmitFact(key: "collinear.status", value: collinearFootprint.Receipt.Status);
-}
+    facts.Add("hull.vertices", result.Receipt.OutputVertexCount);
+    facts.Add("hull.facets", result.Receipt.NativeFacetCount);
+    facts.Add("footprint.vertices", footprint.Receipt.OutputVertexCount);
+    facts.Add("collinear.status", collinearFootprint.Receipt.Status.ToString());
+});

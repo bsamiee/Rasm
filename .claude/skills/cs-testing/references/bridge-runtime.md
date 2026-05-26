@@ -58,15 +58,15 @@ Do NOT group when:
 - The fixture setup for one scenario is incompatible with another (different RhinoDoc unit systems, conflicting active views).
 - The grouped file would exceed 200 LOC — split into thematic subgroups.
 
-Evidence channel: each grouped assertion emits its own `Console.WriteLine("key=value")` line. When a grouped scenario fails, the JSON evidence under `.artifacts/rhino/verify/<scenario>.json` shows which assertion within the group failed.
+Evidence channel: grouped assertions populate a shared `FactBag` via `facts.Add(string key, object value);` inside the `Scenario.Run` body. On scope exit the harness emits one `facts={json}` plain line plus one `rasm.rhino-bridge.evidence=facts={json}` marker carrying the whole dictionary. When a grouped scenario fails, the JSON evidence under `.artifacts/rhino/verify/<scenario>.json` shows the predicate that threw plus the full fact dictionary collected before the throw.
 
 ---
 ## [5][SCENARIO_LOC_GUIDANCE]
 
 | [TYPE] | [TARGET_LOC] | [NOTES] |
 | ------ | ------------ | ------- |
-| Single-concern scenario | 30-80 | Fixture setup + 1-2 assertions + evidence lines. |
-| Thematic group | 80-200 | 4-8 assertions over shared fixture. |
+| Single-concern scenario | 30-80 | Fixture setup + 1-2 assertions + `facts.Add` lines. |
+| Thematic group | 80-200 | 4-8 assertions over shared fixture, all wrapped in one `Scenario.Run`. |
 | Hard cap per file | 250 | Above 250, split into thematic subgroups. |
 
-Use `RasmTestKit.Scenarios.*` helpers (`Capture`, `DocumentScope`, `Evidence`, `Marker`, `Probe`) to keep scenario boilerplate compact. Adding to `Scenarios/*` is permitted when the helper has 2+ scenario consumers across different specs.
+Use `Rasm.TestKit.Scenarios.*` helpers (`Scenario.Run`, `FactBag`, `Capture`, `DocumentScope`, `Probe`) to keep scenario boilerplate compact. Adding to `Scenarios/*` is permitted when the helper has 2+ scenario consumers across different specs.

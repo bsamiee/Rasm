@@ -65,7 +65,7 @@
 ## [6][BRIDGE_RAIL_OPERATIONS]
 
 - Each `bash scripts/rhino.sh verify <scenario>` invocation pays a 3-8s Rhino handshake. Group thematically related scenarios per `.verify.csx` file (e.g. `vectors-mesh-topology-and-validity.verify.csx` bundles topology census + naked-edge + validity guards) to amortize the handshake ~4×.
-- Per-scenario `Console.WriteLine("key=value")` evidence lines are the only durable runtime fact channel — exception messages alone make failed scenarios hard to triage.
+- Populate runtime evidence inside the `Scenario.Run(theme, capturePath, (key, facts) => { … })` body via `facts.Add(string key, object value);` statements. The harness emits one `facts={json}` plain line plus one `rasm.rhino-bridge.evidence=facts={json}` marker on scope exit — that batched dictionary is the durable runtime fact channel; exception messages alone make failed scenarios hard to triage. Do not call `BridgeMarker.EmitFact`/`EmitScenarioHeader` — those public emitters were dropped during the protocol-surface tightening.
 - If a scenario passes locally but fails in CI, first check loaded RhinoCommon/Grasshopper assembly identity (`bridge doctor` output) before changing the scenario. Host-package collisions are evidence, not noise.
 
 ## [4][SUPPRESSIONS_AND_GATES]

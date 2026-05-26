@@ -1,5 +1,6 @@
 using System.Globalization;
 using Rasm.Domain;
+using Rasm.RhinoBridge.Protocol;
 using Rasm.Vectors;
 
 namespace Rasm.TestKit.Scenarios;
@@ -29,4 +30,33 @@ public static class Probe {
             result: Expect(result: intent, label: string.Create(provider: CultureInfo.InvariantCulture, $"{label}: intent"))
                 .Project<TOut>(context: context, key: key),
             label: string.Create(provider: CultureInfo.InvariantCulture, $"{label}: project"));
+}
+
+public static class Scenario {
+    public static Unit Run(string theme, string capturePath, Action<Op, FactBag> body) {
+        ArgumentNullException.ThrowIfNull(argument: theme);
+        ArgumentNullException.ThrowIfNull(argument: capturePath);
+        ArgumentNullException.ThrowIfNull(argument: body);
+        Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"scenario={theme}"));
+        Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"capture={capturePath}"));
+        Op key = Op.Of(name: theme);
+        FactBag bag = new();
+        body(arg1: key, arg2: bag);
+        IReadOnlyDictionary<string, object> snapshot = bag.Snapshot();
+        if (snapshot.Count > 0) {
+            BridgeMarker.EmitFacts(facts: snapshot);
+        }
+        return unit;
+    }
+}
+
+// --- [MODELS] -------------------------------------------------------------------------------
+public sealed class FactBag {
+    private readonly Dictionary<string, object> facts = new(StringComparer.Ordinal);
+    public void Add(string key, object value) {
+        ArgumentNullException.ThrowIfNull(argument: key);
+        ArgumentNullException.ThrowIfNull(argument: value);
+        facts[key] = value;
+    }
+    internal IReadOnlyDictionary<string, object> Snapshot() => facts;
 }

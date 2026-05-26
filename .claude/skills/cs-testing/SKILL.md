@@ -67,12 +67,14 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 
 Place `*.verify.csx` files beside the relevant test slice under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/`. The bridge maps that convention to `libs/csharp/<Project>/<Project>.csproj`; do not add manifests, catalogs, app-local scenario folders, or per-scenario path maps.
 
-The bridge injects `SCENARIO_NAME` and `CAPTURE_PATH` before execution. Do not declare or shadow them. Scenarios may use deterministic setup, behavior assertions, optional viewport capture, and `Console.WriteLine("key=value")` evidence. Throw `InvalidOperationException` with observed values for failed predicates.
+The bridge injects `SCENARIO_NAME` and `CAPTURE_PATH` before execution. Do not declare or shadow them. Author scenarios through the polymorphic `Rasm.TestKit.Scenarios.Scenario.Run(theme, capturePath, (key, facts) => { … })` harness — it builds the `Op key`, emits the `scenario=`/`capture=` plain header, runs the body, and serializes the populated `FactBag` to a single `facts={json}` plain line plus a `rasm.rhino-bridge.evidence=facts={json}` marker. Inside the body, populate evidence with `facts.Add(string key, object value);` as a void statement. Throw `InvalidOperationException` with observed values for failed predicates.
 
 [CRITICAL]:
-- Keep scenarios deterministic: clear or create only the document state they own, use constants instead of randomness/time/I/O, redraw before capture, and print compact evidence lines for every runtime fact that would be hard to infer from the exception alone.
+- Keep scenarios deterministic: clear or create only the document state they own, use constants instead of randomness/time/I/O, redraw before capture, and add a `facts.Add(...)` for every runtime fact that would be hard to infer from the exception alone.
+- Do not call `BridgeMarker.EmitFact`, `BridgeMarker.EmitScenarioHeader`, `BridgeMarker.EmitReturn`, `BridgeMarker.EmitEvidence`, or `BridgeMarker.EmitCapture` — those public emitters were dropped during the protocol-surface tightening. The only public emitters are `BridgeMarker.Emit(BridgeMarker marker)` and `BridgeMarker.EmitFacts(IReadOnlyDictionary<string, object>)`; routine fact emission belongs in `Scenario.Run`.
+- Do not emit `Console.WriteLine("key=value")` plain lines for per-fact evidence; the harness's batched `facts={json}` line is the canonical fact wire format. The agent-side parser is `BridgeMarker.Scan(stdout)` filtered on `BridgeMarker.Evidence` cases.
 - Do not add `#r`, `#load`, absolute build-output paths, legacy bridge job files, or retired script-server flow.
-- Do not treat a missing `~/.rasm/rhino-bridge.json` as missing scenario data. It is live endpoint metadata; run `bridge launch` or `bridge doctor`.
+- Do not treat a missing `~/.rasm/rhino-bridge.json` as missing scenario data. It is live endpoint metadata; run `bridge launch` (idempotent — reuses an existing endpoint or relaunches) or `bridge doctor`.
 - Do not propose headless Rhino, Docker/VM Rhino, or Rhino.Inside as substitutes for the bridge scenario rail on macOS. Use the installed RhinoWIP bridge and reverify stale runtime claims locally.
 - Capture paths live beside bridge reports under `.artifacts/rhino/verify` or `.artifacts/rhino/bridge/check`.
 - On macOS, `ViewCapture.CaptureToBitmap(view)` can capture the active viewport. Set the active view and redraw before capture when a scenario uses viewport evidence.

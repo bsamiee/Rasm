@@ -72,10 +72,10 @@ Deploy a package into RhinoWIP:
 scripts/rhino.sh deploy radyab 0.1.0-wip
 ```
 
-Push to a Yak feed:
+Build, install locally, then push to a Yak feed (one shot):
 
 ```bash
-scripts/rhino.sh push radyab 0.1.0-wip
+scripts/rhino.sh publish radyab 0.1.0-wip
 ```
 
 Build and deploy the runtime analyzer bridge:
@@ -109,7 +109,7 @@ scripts/rhino.sh verify path/to/scenario.verify.csx
 5. Copy `tools/yak/<package>/manifest.yml` and `tools/yak/<package>/icon.png`.
 6. Run RhinoWIP Yak with `--platform mac` and the supplied version.
 
-`scripts/rhino.sh deploy <package> <version>` builds the same package, installs the local `.yak`, and refreshes RhinoWIP through the bridge lifecycle path. `scripts/rhino.sh push <package> <version>` builds the same package and pushes it with `YAK_SOURCE` when that environment variable is set.
+`scripts/rhino.sh deploy <package> <version>` builds the same package, installs the local `.yak`, and refreshes RhinoWIP through the idempotent `bridge launch` path. `scripts/rhino.sh publish <package> <version>` builds the same package, installs it locally, and pushes it with `YAK_SOURCE` when that environment variable is set — install and push were merged from the prior separate routes into a single agent-facing action.
 
 Host assemblies stay outside package output: `RhinoCommon`, `Rhino.UI`, `Rhino.Runtime.Code`, `Grasshopper2`, `GrasshopperIO`, `Eto`, `Microsoft.macOS`, and `System.Drawing.Common`.
 

@@ -15,7 +15,7 @@
 | :-----: | -------- | ----- |
 | [1] | `MathNet.Symbolics` `0.25.0` local XML/nuspec/DLL | API and package truth. |
 | [2] | Symbolics package source commit | Parse/format/evaluate implementation proof. |
-| [3] | `.deps.json`, assembly identity tools, bridge load-smoke/check | Runtime load proof. |
+| [3] | `.deps.json`, assembly identity tools, `bridge check <project.csproj>` smoke probe | Runtime load proof — the internal smoke probe emits `returnValue.kind = "assemblyFreshness"` when no scenario is supplied. |
 | [4] | RhinoWIP/GH2 XML | Host projection and diagnostics. |
 
 ---

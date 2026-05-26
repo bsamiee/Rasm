@@ -5,7 +5,7 @@ using System.Collections.Immutable;
 using System.Threading;
 using LanguageExt;
 using Rasm.Domain;
-using Rasm.RhinoBridge.Protocol;
+using Rasm.TestKit.Scenarios;
 using Rasm.Vectors;
 using Rhino;
 using Rhino.Geometry;
@@ -14,9 +14,7 @@ using static LanguageExt.Prelude;
 Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).ToFin(), "context");
 
 // --- [SCENARIO: vectors-field-sdf-isosurface] -------------------------------------------
-{
-    const string theme = "vectors-field-sdf-isosurface";
-    Op key = Op.Of(name: theme);
+Scenario.Run("vectors-field-sdf-isosurface", CAPTURE_PATH, (key, facts) => {
     BoundingBox isoBounds = new(min: new Point3d(-6.0, -6.0, -6.0), max: new Point3d(6.0, 6.0, 6.0));
     BoundingBox nonCubicBounds = new(min: new Point3d(-4.0, -2.0, -1.0), max: new Point3d(4.0, 2.0, 1.0));
     ScalarField sphereField = Probe.Expect(
@@ -104,35 +102,30 @@ Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).T
     Probe.Require(RhinoMath.IsValidDouble(x: containment) && containment > 0.0, $"containment={containment:R}");
     Probe.Require(evaluatorFailureRejected && evaluatorFailureReceiptRejected, "native iso-surface evaluator failure path should reject current invalid scalar input");
     Probe.Require(nativeIso is { IsValid: true } && sampleCount > 0 && threadIdsSeen.Count >= 1, "native callback evidence missing");
-    BridgeMarker.EmitScenarioHeader(scenario: theme, capturePath: CAPTURE_PATH);
-    BridgeMarker.EmitFacts(new Dictionary<string, object> {
-        ["analyticVertices"] = analyticIso.Receipt.VertexCount,
-        ["nonCubicCells"] = $"{nonCubicIso.Grid.XCells}x{nonCubicIso.Grid.YCells}x{nonCubicIso.Grid.ZCells}",
-        ["nonCubicInitialSamples"] = nonCubicIso.Grid.InitialSampleCount,
-        ["meshVertices"] = meshIso.Receipt.VertexCount,
-        ["fixedTolerance"] = 0.001,
-        ["parallelCallback"] = analyticIso.Receipt.ParallelCallback,
-        ["meshMethod"] = "GeneralizedWindingNumber",
-        ["meshStatus"] = "ApproximateSignClosestDistance",
-        ["meshSolid"] = meshReceipt.Topology.IsSolid,
-        ["boundaryMethod"] = "BoundarySignedHeat",
-        ["boundaryDefaultToleranceRejected"] = boundaryDefaultToleranceRejected,
-        ["closedMethod"] = "ClosedSurfaceSignedHeat",
-        ["closedRejected"] = closedSignedHeatRejected,
-        ["flippedClosedRejected"] = flippedClosedSignedHeatRejected,
-        ["closedIsoRejected"] = closedIsoRejected,
-        ["openClosedSignedHeatRejected"] = openClosedSignedHeatRejected,
-        ["evaluatorFailureRejected"] = evaluatorFailureRejected,
-        ["evaluatorFailureReceiptRejected"] = evaluatorFailureReceiptRejected,
-        ["threadIdsSeen"] = threadIdsSeen.Count,
-        ["sampleCount"] = sampleCount,
-    });
-}
+    facts.Add("analyticVertices", analyticIso.Receipt.VertexCount);
+    facts.Add("nonCubicCells", $"{nonCubicIso.Grid.XCells}x{nonCubicIso.Grid.YCells}x{nonCubicIso.Grid.ZCells}");
+    facts.Add("nonCubicInitialSamples", nonCubicIso.Grid.InitialSampleCount);
+    facts.Add("meshVertices", meshIso.Receipt.VertexCount);
+    facts.Add("fixedTolerance", 0.001);
+    facts.Add("parallelCallback", analyticIso.Receipt.ParallelCallback);
+    facts.Add("meshMethod", "GeneralizedWindingNumber");
+    facts.Add("meshStatus", "ApproximateSignClosestDistance");
+    facts.Add("meshSolid", meshReceipt.Topology.IsSolid);
+    facts.Add("boundaryMethod", "BoundarySignedHeat");
+    facts.Add("boundaryDefaultToleranceRejected", boundaryDefaultToleranceRejected);
+    facts.Add("closedMethod", "ClosedSurfaceSignedHeat");
+    facts.Add("closedRejected", closedSignedHeatRejected);
+    facts.Add("flippedClosedRejected", flippedClosedSignedHeatRejected);
+    facts.Add("closedIsoRejected", closedIsoRejected);
+    facts.Add("openClosedSignedHeatRejected", openClosedSignedHeatRejected);
+    facts.Add("evaluatorFailureRejected", evaluatorFailureRejected);
+    facts.Add("evaluatorFailureReceiptRejected", evaluatorFailureReceiptRejected);
+    facts.Add("threadIdsSeen", threadIdsSeen.Count);
+    facts.Add("sampleCount", sampleCount);
+});
 
 // --- [SCENARIO: vectors-atoms-frame] ----------------------------------------------------
-{
-    const string theme = "vectors-atoms-frame";
-    Op key = Op.Of(name: theme);
+Scenario.Run("vectors-atoms-frame", CAPTURE_PATH, (key, facts) => {
     Direction x = Probe.Expect(Direction.Of(value: new Vector3d(x: 4.0, y: 0.0, z: 0.0), context: context, key: key), "direction x");
     Vector3d axisX = Probe.Expect(VectorIntent.Axis(axis: SignedAxis.PositiveX).Project<Vector3d>(context: context, key: key), "axis x");
     Plane frame = Probe.Expect(VectorIntent.Frame(origin: Point3d.Origin, normal: Vector3d.ZAxis, xHint: Some(Vector3d.XAxis)).Project<Plane>(context: context, key: key), "frame");
@@ -148,18 +141,15 @@ Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).T
     Probe.Require(componentsRejected, "components tuple projection should reject current native result");
     Probe.Require(coneAxis.IsParallelTo(other: Vector3d.ZAxis) == 1, $"coneAxis={coneAxis}");
     Probe.Require(containsAxis && !rejectsOpposite, "cone containment rail inverted");
-    BridgeMarker.EmitScenarioHeader(scenario: theme, capturePath: CAPTURE_PATH);
-    BridgeMarker.EmitFact(key: "direction", value: x.Value);
-    BridgeMarker.EmitFact(key: "axis.x", value: axisX);
-    BridgeMarker.EmitFact(key: "frame.z", value: frame.ZAxis);
-    BridgeMarker.EmitFact(key: "components.rejected", value: componentsRejected);
-    BridgeMarker.EmitFact(key: "cone.axis", value: coneAxis);
-}
+    facts.Add("direction", x.Value.ToString());
+    facts.Add("axis.x", axisX.ToString());
+    facts.Add("frame.z", frame.ZAxis.ToString());
+    facts.Add("components.rejected", componentsRejected);
+    facts.Add("cone.axis", coneAxis.ToString());
+});
 
 // --- [SCENARIO: vectors-space-projection] -----------------------------------------------
-{
-    const string theme = "vectors-space-projection";
-    Op key = Op.Of(name: theme);
+Scenario.Run("vectors-space-projection", CAPTURE_PATH, (key, facts) => {
     SupportSpace sphere = Probe.Expect(SupportSpace.Of(value: new Sphere(Point3d.Origin, 5.0), key: key), "sphere support");
     Point3d sample = new(x: 7.0, y: 0.0, z: 0.0);
     Point3d closest = Probe.Expect(Probe.Expect(VectorIntent.Support(space: sphere, sample: sample, projection: SupportProjection.Closest, key: key), "closest intent").Project<Point3d>(context: context, key: key), "closest point");
@@ -175,10 +165,9 @@ Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).T
     Probe.Require(outward.X > 0.0 && Math.Abs(outward.Length - 2.0) <= 1.0e-6, $"outward={outward}");
     Probe.Require(closestVectorRejected, "closest projection must reject unsupported vector output");
     Probe.Require(RhinoMath.IsValidDouble(uv.X) && RhinoMath.IsValidDouble(uv.Y), $"uv={uv}");
-    BridgeMarker.EmitScenarioHeader(scenario: theme, capturePath: CAPTURE_PATH);
-    BridgeMarker.EmitFact(key: "closest", value: closest);
-    BridgeMarker.EmitFact(key: "distance", value: distance.ToString("F6", System.Globalization.CultureInfo.InvariantCulture));
-    BridgeMarker.EmitFact(key: "span.toward", value: inward);
-    BridgeMarker.EmitFact(key: "span.away", value: outward);
-    BridgeMarker.EmitFact(key: "uv", value: uv);
-}
+    facts.Add("closest", closest.ToString());
+    facts.Add("distance", distance.ToString("F6", System.Globalization.CultureInfo.InvariantCulture));
+    facts.Add("span.toward", inward.ToString());
+    facts.Add("span.away", outward.ToString());
+    facts.Add("uv", uv.ToString());
+});

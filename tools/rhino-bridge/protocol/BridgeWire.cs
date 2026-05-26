@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -33,6 +34,9 @@ public sealed partial class PhaseStatus {
                     : Fin.Fail<PhaseStatus>(error: Error.New(message: $"unsupported phase status wire '{wire}'"));
 }
 
+public enum FileSystemKind { File, Directory }
+
+// --- [MODELS] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record BridgeMarker {
     public const string Prefix = "rasm.rhino-bridge.";
@@ -54,35 +58,15 @@ public abstract partial record BridgeMarker {
     public static Seq<BridgeMarker> Scan(string stdout) =>
         toSeq(value: (stdout ?? string.Empty).Split(separator: ['\r', '\n'], options: StringSplitOptions.RemoveEmptyEntries))
             .Choose(selector: line => Parse(line: line).ToOption());
-    public static void EmitReturn(object value) {
-        ArgumentNullException.ThrowIfNull(argument: value);
-        Console.WriteLine(value: new Returned(Value: JsonSerializer.SerializeToElement(value: value, options: BridgeWire.CompactJson)).Serialize());
+    public static void Emit(BridgeMarker marker) {
+        ArgumentNullException.ThrowIfNull(argument: marker);
+        Console.WriteLine(value: marker.Serialize());
     }
-    public static void EmitEvidence(string key, string value) {
-        ArgumentNullException.ThrowIfNull(argument: key);
-        ArgumentNullException.ThrowIfNull(argument: value);
-        Console.WriteLine(value: new Evidence(Key: key, Value: value).Serialize());
-    }
-    public static void EmitFact(string key, object value) {
-        ArgumentNullException.ThrowIfNull(argument: key);
-        ArgumentNullException.ThrowIfNull(argument: value);
-        Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"{key}={Format(value: value)}"));
-    }
-    public static void EmitFacts(object facts) {
+    public static void EmitFacts(IReadOnlyDictionary<string, object> facts) {
         ArgumentNullException.ThrowIfNull(argument: facts);
         string serialized = JsonSerializer.Serialize(value: facts, options: BridgeWire.CompactJson);
         Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"facts={serialized}"));
-        Console.WriteLine(value: new Evidence(Key: "facts", Value: serialized).Serialize());
-    }
-    public static void EmitCapture(string path, int width, int height) {
-        ArgumentNullException.ThrowIfNull(argument: path);
-        Console.WriteLine(value: new Capture(Path: path, Width: width, Height: height).Serialize());
-    }
-    public static void EmitScenarioHeader(string scenario, string capturePath) {
-        ArgumentNullException.ThrowIfNull(argument: scenario);
-        ArgumentNullException.ThrowIfNull(argument: capturePath);
-        Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"scenario={scenario}"));
-        Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"capture={capturePath}"));
+        Emit(marker: new Evidence(Key: "facts", Value: serialized));
     }
     private static Fin<BridgeMarker> ParsePayload(string payload) =>
         payload.IndexOf(value: '=', comparisonType: StringComparison.Ordinal) switch {
@@ -120,16 +104,143 @@ public abstract partial record BridgeMarker {
             return Fin.Fail<BridgeMarker>(error: Error.New(message: $"bridge marker capture payload was not valid JSON: {error.Message}"));
         }
     }
-    private static string Format(object value) =>
-        value switch {
-            string text => text,
-            bool flag => flag ? "true" : "false",
-            IFormattable formattable => formattable.ToString(format: null, formatProvider: CultureInfo.InvariantCulture),
-            _ => value.ToString() ?? "<null>",
-        };
 }
 
-public enum FileSystemKind { File, Directory }
+public sealed record BridgeEndpoint(
+    string Schema,
+    string PipeName,
+    int RhinoPid,
+    DateTimeOffset RhinoStartedAt,
+    DateTimeOffset StartedAt,
+    string BridgeAssemblyName,
+    string BridgeAssemblyVersion,
+    string BridgeAssemblyInformationalVersion,
+    string RhinoVersion);
+
+public sealed record BridgeRequest(string Schema, string Command, int TimeoutMs, JsonElement? Payload);
+
+public sealed record BridgeReply(
+    string Schema,
+    string Command,
+    PhaseStatus Status,
+    JsonElement? Data,
+    IReadOnlyList<BridgeOutput> Outputs,
+    IReadOnlyList<BridgeDiagnostic> Diagnostics,
+    BridgeFault? Fault);
+
+[Union]
+public abstract partial record BridgeReport {
+    public sealed record Doctor(
+        PhaseStatus Status,
+        BridgeFault? Fault,
+        string RhinoName,
+        string RhinoVersion,
+        int RhinoPid,
+        bool ActiveDocument,
+        double? ModelAbsoluteTolerance,
+        IReadOnlyList<BridgeAssemblyReport> Assemblies,
+        IReadOnlyList<BridgeSessionReport> Sessions) : BridgeReport;
+    public sealed record Load(
+        PhaseStatus Status,
+        BridgeFault? Fault,
+        string? SessionId,
+        string? AssemblyName,
+        string? Location,
+        string? PdbPath,
+        string? WorkspaceRoot,
+        string? PackageCacheRoot,
+        IReadOnlyList<BridgeAssemblyReport> Assemblies) : BridgeReport;
+    public sealed record Execute(
+        PhaseStatus Status,
+        BridgeFault? Fault,
+        int DurationMs,
+        bool ServerExecutionCancelable,
+        string BridgeAssemblyName,
+        string BridgeAssemblyVersion,
+        string BridgeAssemblyInformationalVersion,
+        string RhinoVersion,
+        BridgeDocumentReport Document,
+        BridgeReturnValue? ReturnValue,
+        IReadOnlyList<string> References) : BridgeReport;
+    public sealed record Unload(
+        PhaseStatus Status,
+        BridgeFault? Fault,
+        string SessionId,
+        bool UnloadRequested,
+        bool Unloaded) : BridgeReport;
+    public sealed record Quit(
+        PhaseStatus Status,
+        BridgeFault? Fault,
+        int RhinoPid,
+        bool ActiveDocument,
+        bool Modified) : BridgeReport;
+}
+
+public sealed record BridgePhase(
+    string Phase,
+    PhaseStatus Status,
+    int DurationMs,
+    JsonElement? Data,
+    IReadOnlyList<BridgeOutput> Outputs,
+    IReadOnlyList<BridgeDiagnostic> Diagnostics,
+    BridgeFault? Fault) {
+    public static BridgePhase Of<TData>(
+        string phase,
+        PhaseStatus status,
+        TData? data = default,
+        string? message = null,
+        string? category = null,
+        int durationMs = 0,
+        Stopwatch? timer = null,
+        IReadOnlyList<BridgeOutput>? outputs = null,
+        IReadOnlyList<BridgeDiagnostic>? diagnostics = null,
+        BridgeFault? fault = null) =>
+        new(
+            Phase: phase,
+            Status: status,
+            DurationMs: timer is null ? durationMs : (int)timer.ElapsedMilliseconds,
+            Data: data is null ? null : JsonSerializer.SerializeToElement(value: data, options: BridgeWire.CompactJson),
+            Outputs: outputs ?? [],
+            Diagnostics: diagnostics ?? [],
+            Fault: fault ?? (message is null ? null : BridgeFault.MessageOnly(category: category ?? phase, message: message)));
+    public static BridgePhase Of(
+        string phase,
+        PhaseStatus status,
+        string? message = null,
+        string? category = null,
+        int durationMs = 0,
+        Stopwatch? timer = null,
+        IReadOnlyList<BridgeOutput>? outputs = null,
+        IReadOnlyList<BridgeDiagnostic>? diagnostics = null,
+        BridgeFault? fault = null) =>
+        Of<object>(phase: phase, status: status, data: null, message: message, category: category, durationMs: durationMs, timer: timer, outputs: outputs, diagnostics: diagnostics, fault: fault);
+    public static BridgePhase FromReply(string phase, BridgeReply reply) {
+        ArgumentNullException.ThrowIfNull(argument: reply);
+        return new(Phase: phase, Status: reply.Status, DurationMs: 0, Data: reply.Data, Outputs: reply.Outputs, Diagnostics: reply.Diagnostics, Fault: reply.Fault);
+    }
+    public T? DataValue<T>() =>
+        Data is JsonElement data ? data.Deserialize<T>(options: BridgeWire.CompactJson) : default;
+}
+
+public sealed record BridgeAssemblyReport(string Name, PhaseStatus Status, bool Required, string? Version, string? InformationalVersion, string? Location, BridgeFault? Fault);
+public sealed record BridgeSessionReport(string SessionId, string AssemblyName, string Location, PhaseStatus Status);
+public sealed record BridgeLoadRequest(string AssemblyPath, string WorkspaceRoot, string? PackageCacheRoot);
+public sealed record BridgeExecuteRequest(string Script, string? ScriptPath, IReadOnlyList<string> References);
+public sealed record BridgeUnloadRequest(string SessionId);
+public sealed record BridgeDocumentReport(bool Active, uint? RuntimeSerialNumber, string? Name, string? Path, bool? Modified, double? ModelAbsoluteTolerance, string? ModelUnitSystem);
+public sealed record BridgeReturnValue(JsonElement Value, string Source);
+public sealed record BridgeOutput(string Source, string Text, bool Truncated, int Length, int Limit);
+public sealed record BridgeDiagnostic(string Severity, string Message, string? Source = null, string? Code = null, string? File = null, int? Line = null, int? Column = null, string? Category = null);
+public sealed record BridgeFault(string Category, string Message, string? Type = null, string? StackTrace = null, IReadOnlyList<BridgeFault>? Causes = null) {
+    public static BridgeFault MessageOnly(string category, string message) => new(Category: category, Message: message);
+    public static BridgeFault FromException(string category, Exception error) {
+        ArgumentNullException.ThrowIfNull(argument: error);
+        return new(Category: category, Message: error.Message, Type: error.GetType().FullName, StackTrace: error.StackTrace, Causes: error.InnerException switch {
+            Exception inner => [FromException(category: category, error: inner)],
+            _ => null,
+        });
+    }
+}
 
 // --- [CONSTANTS] ------------------------------------------------------------------------
 public static class BridgeWire {
@@ -212,6 +323,36 @@ public static class BridgeWire {
         IReadOnlyList<BridgeDiagnostic>? diagnostics = null,
         BridgeFault? fault = null) =>
         Reply<object>(command: command, status: status, data: null, outputs: outputs, diagnostics: diagnostics, fault: fault);
+    public static string SmokeTemplate(string targetPath, string sourceTargetPath, string nonce) {
+        ArgumentNullException.ThrowIfNull(argument: targetPath);
+        ArgumentNullException.ThrowIfNull(argument: sourceTargetPath);
+        ArgumentNullException.ThrowIfNull(argument: nonce);
+        string escTarget = Escape(value: targetPath);
+        string escSource = Escape(value: sourceTargetPath);
+        return string.Join(separator: Environment.NewLine, values: new[] {
+            "using System;",
+            "using System.IO;",
+            "using System.Reflection;",
+            "using System.Text.Json;",
+            "using Rhino;",
+            string.Empty,
+            $"string targetLocation = Path.GetFullPath(\"{escTarget}\");",
+            $"string sourceTargetLocation = Path.GetFullPath(\"{escSource}\");",
+            "AssemblyName targetName = AssemblyName.GetAssemblyName(targetLocation);",
+            "StringComparison pathCmp = OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;",
+            "Assembly loaded = Assembly.LoadFile(targetLocation);",
+            "Assembly[] matches = Array.FindAll(AppDomain.CurrentDomain.GetAssemblies(), a => string.Equals(a.GetName().Name, targetName.Name, StringComparison.Ordinal));",
+            "Assembly? target = Array.Find(matches, a => ReferenceEquals(a, loaded) || (!string.IsNullOrWhiteSpace(a.Location) && string.Equals(Path.GetFullPath(a.Location), targetLocation, pathCmp)));",
+            "Assembly? other = Array.Find(matches, a => !ReferenceEquals(a, target));",
+            $"Console.WriteLine(\"{ReturnPrefix}\" + JsonSerializer.Serialize(new {{ kind = \"assemblyFreshness\", nonce = \"{nonce}\", sourceTargetLocation, targetLocation, loadedLocation = target?.Location ?? \"none\", preLoadLocation = other?.Location ?? \"none\", alreadyLoaded = other is not null, sameNameAssemblyCount = matches.Length, refreshRequired = target is null, loadedVersion = target?.GetName().Version?.ToString() ?? \"none\", targetVersion = targetName.Version?.ToString() ?? \"none\", assemblyVersion = target?.GetName().Version?.ToString() ?? \"none\", assemblyInformationalVersion = target?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? \"none\", resolverIsolated = true }}));",
+            "_ = target ?? throw new InvalidOperationException($\"RhinoCode did not load target assembly through isolated #r reference. target={targetLocation}\");",
+            $"Console.WriteLine(\"{BridgeMarker.Prefix}nonce={nonce}\");",
+            $"Console.Error.WriteLine(\"{BridgeMarker.Prefix}stderr={nonce}\");",
+        });
+    }
+    private static string Escape(string value) =>
+        value.Replace(oldValue: "\\", newValue: "\\\\", comparisonType: StringComparison.Ordinal)
+             .Replace(oldValue: "\"", newValue: "\\\"", comparisonType: StringComparison.Ordinal);
     private static JsonSerializerOptions Options(bool writeIndented) {
         JsonSerializerOptions options = new(defaults: JsonSerializerDefaults.Web) {
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -257,95 +398,4 @@ public static class BoundaryIO {
     }
     public static void RestrictFile(string path) => Restrict(path: path, kind: FileSystemKind.File);
     public static void RestrictDirectory(string path) => Restrict(path: path, kind: FileSystemKind.Directory);
-}
-
-// --- [MODELS] ---------------------------------------------------------------------------
-public sealed record BridgeEndpoint(
-    string Schema,
-    string PipeName,
-    int RhinoPid,
-    DateTimeOffset RhinoStartedAt,
-    DateTimeOffset StartedAt,
-    string BridgeAssemblyName,
-    string BridgeAssemblyVersion,
-    string BridgeAssemblyInformationalVersion,
-    string RhinoVersion);
-
-public sealed record BridgeRequest(string Schema, string Command, int TimeoutMs, JsonElement? Payload);
-
-public sealed record BridgeReply(
-    string Schema,
-    string Command,
-    PhaseStatus Status,
-    JsonElement? Data,
-    IReadOnlyList<BridgeOutput> Outputs,
-    IReadOnlyList<BridgeDiagnostic> Diagnostics,
-    BridgeFault? Fault);
-
-[Union]
-public abstract partial record BridgeReport {
-    public sealed record Doctor(
-        PhaseStatus Status,
-        BridgeFault? Fault,
-        string RhinoName,
-        string RhinoVersion,
-        int RhinoPid,
-        bool ActiveDocument,
-        double? ModelAbsoluteTolerance,
-        IReadOnlyList<BridgeAssemblyReport> Assemblies,
-        IReadOnlyList<BridgeSessionReport> Sessions) : BridgeReport;
-    public sealed record Load(
-        PhaseStatus Status,
-        BridgeFault? Fault,
-        string? SessionId,
-        string? AssemblyName,
-        string? Location,
-        string? PdbPath,
-        string? WorkspaceRoot,
-        string? PackageCacheRoot,
-        IReadOnlyList<BridgeAssemblyReport> Assemblies) : BridgeReport;
-    public sealed record Execute(
-        PhaseStatus Status,
-        BridgeFault? Fault,
-        int DurationMs,
-        bool ServerExecutionCancelable,
-        string BridgeAssemblyName,
-        string BridgeAssemblyVersion,
-        string BridgeAssemblyInformationalVersion,
-        string RhinoVersion,
-        BridgeDocumentReport Document,
-        BridgeReturnValue? ReturnValue,
-        IReadOnlyList<string> References) : BridgeReport;
-    public sealed record Unload(
-        PhaseStatus Status,
-        BridgeFault? Fault,
-        string SessionId,
-        bool UnloadRequested,
-        bool Unloaded) : BridgeReport;
-    public sealed record Quit(
-        PhaseStatus Status,
-        BridgeFault? Fault,
-        int RhinoPid,
-        bool ActiveDocument,
-        bool Modified) : BridgeReport;
-}
-
-public sealed record BridgeAssemblyReport(string Name, PhaseStatus Status, bool Required, string? Version, string? InformationalVersion, string? Location, BridgeFault? Fault);
-public sealed record BridgeSessionReport(string SessionId, string AssemblyName, string Location, PhaseStatus Status);
-public sealed record BridgeLoadRequest(string AssemblyPath, string WorkspaceRoot, string? PackageCacheRoot);
-public sealed record BridgeExecuteRequest(string Script, string? ScriptPath, IReadOnlyList<string> References);
-public sealed record BridgeUnloadRequest(string SessionId);
-public sealed record BridgeDocumentReport(bool Active, uint? RuntimeSerialNumber, string? Name, string? Path, bool? Modified, double? ModelAbsoluteTolerance, string? ModelUnitSystem);
-public sealed record BridgeReturnValue(JsonElement Value, string Source);
-public sealed record BridgeOutput(string Source, string Text, bool Truncated, int Length, int Limit);
-public sealed record BridgeDiagnostic(string Severity, string Message, string? Source = null, string? Code = null, string? File = null, int? Line = null, int? Column = null, string? Category = null);
-public sealed record BridgeFault(string Category, string Message, string? Type = null, string? StackTrace = null, IReadOnlyList<BridgeFault>? Causes = null) {
-    public static BridgeFault MessageOnly(string category, string message) => new(Category: category, Message: message);
-    public static BridgeFault FromException(string category, Exception error) {
-        ArgumentNullException.ThrowIfNull(argument: error);
-        return new(Category: category, Message: error.Message, Type: error.GetType().FullName, StackTrace: error.StackTrace, Causes: error.InnerException switch {
-            Exception inner => [FromException(category: category, error: inner)],
-            _ => null,
-        });
-    }
 }
