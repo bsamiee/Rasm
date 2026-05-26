@@ -1,0 +1,26 @@
+---
+description: Rasm Grasshopper: GH2 components, typed ports, Shape conversion, GhUi, and host lifecycle rails
+globs: "libs/csharp/Rasm.Grasshopper/**/*.cs,apps/grasshopper/**/*.cs"
+alwaysApply: false
+---
+
+# Rasm Grasshopper
+
+Read `libs/csharp/Rasm.Grasshopper/AGENTS.md` and verify GH2 APIs through local RhinoWIP XML/decompile when uncertain.
+
+## Component Rails
+
+- Keep component definitions type-owned through `IComponentDefinition<TSelf>.Definition`.
+- Use `ComponentSpec.Of`, `Port`, `Port<TVal>`, `PortPolicy`, `Output`, and `Shape` as the public component/data rails.
+- Preserve GH2 tree, path, conversion, disposal, unsupported/empty, diagnostic, and ownership-transfer evidence.
+- Keep apps such as `Radyab` thin; library boundaries set capability.
+
+## UI Rails
+
+- Keep `GhUi` as the request constructor and `GrasshopperUi.Use` as the executor.
+- Extend existing algebras: `CanvasOp`, `DocumentOp`, `EditorOp`, `InputRequest<T>`, `UiEvent`, `LayoutOp`, `PaintRequest<T>`, and `WireOp`.
+- Do not reintroduce `CanvasUi`, `ComponentUi`, wrapper services, WinForms, WPF, polling replacements, or parallel UI frameworks.
+
+## Validation
+
+Use `bash scripts/check-cs.sh check`; add managed GH tests or `bash scripts/rhino.sh verify <scenario-or-glob>` when behavior crosses those rails.

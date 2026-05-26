@@ -308,8 +308,25 @@ internal sealed record CanvasRequest(CanvasOp Op) : GhUiRequest<CanvasResult> {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class UiRail {
-    // Quartz practical max on macOS (16k × 16k BGRA ≈ 1 GB; beyond this Quartz downsamples silently).
+    // Quartz hard ceiling — beyond 16384×16384 the framework silently downsamples (Apple WWDC22
+    // CoreGraphics session). Per-canvas effective max derives from the host window's screen pixel
+    // dimensions; capped at the architectural ceiling. The static constant remains the upper bound,
+    // RenderDimensionLimit() returns the device-respecting bound for any concrete Canvas.
     internal const int MaxRenderDimension = 16384;
+
+    internal static int RenderDimensionLimit(GhCanvas canvas) {
+        Eto.Forms.Window? window = (canvas.ControlObject as Eto.Forms.Control)?.ParentWindow;
+        if (window is null) {
+            return MaxRenderDimension;
+        }
+        float logicalPx = window.LogicalPixelSize;
+        if (logicalPx <= 0f) {
+            return MaxRenderDimension;
+        }
+        Eto.Drawing.SizeF screenSize = window.Screen.Bounds.Size;
+        int devicePixelMax = (int)MathF.Round(MathF.Max(screenSize.Width, screenSize.Height) * logicalPx);
+        return Math.Min(MaxRenderDimension, devicePixelMax > 0 ? devicePixelMax : MaxRenderDimension);
+    }
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
     internal static Fin<CanvasResult> CanvasDispatch(GrasshopperUi.Scope scope, CanvasOp op) => op switch {
@@ -365,17 +382,20 @@ internal static partial class UiRail {
         CanvasOp.ActionsCase =>
             scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.ActionsResult(Snapshot: ActionSnapshotOf(canvas: canvas))),
         CanvasOp.RenderCase r =>
-            Optional((r.Width, r.Height))
-                .Filter(static dim => dim.Width is > 0 and <= MaxRenderDimension && dim.Height is > 0 and <= MaxRenderDimension)
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Render)), detail: $"dimensions out of [1, {MaxRenderDimension}]"))
-                .Bind(dim => scope.NeedCanvas().Bind(canvas => EncodeBitmap(
-                    bitmap: canvas.DrawToBitmap(
+            scope.NeedCanvas().Bind(canvas => {
+                int limit = RenderDimensionLimit(canvas: canvas);
+                return Optional((r.Width, r.Height))
+                    .Filter(dim => dim.Width > 0 && dim.Width <= limit && dim.Height > 0 && dim.Height <= limit)
+                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Render)), detail: $"dimensions out of [1, {limit}]"))
+                    .Bind(dim => EncodeBitmap(
+                        bitmap: canvas.DrawToBitmap(
+                            width: dim.Width, height: dim.Height,
+                            drawBackground: (r.Layers & CanvasBitmapLayers.Background) == CanvasBitmapLayers.Background,
+                            drawWires: (r.Layers & CanvasBitmapLayers.Wires) == CanvasBitmapLayers.Wires,
+                            drawMessages: (r.Layers & CanvasBitmapLayers.Messages) == CanvasBitmapLayers.Messages),
                         width: dim.Width, height: dim.Height,
-                        drawBackground: (r.Layers & CanvasBitmapLayers.Background) == CanvasBitmapLayers.Background,
-                        drawWires: (r.Layers & CanvasBitmapLayers.Wires) == CanvasBitmapLayers.Wires,
-                        drawMessages: (r.Layers & CanvasBitmapLayers.Messages) == CanvasBitmapLayers.Messages),
-                    width: dim.Width, height: dim.Height,
-                    op: Op.Of(name: nameof(CanvasOp.Render))))),
+                        op: Op.Of(name: nameof(CanvasOp.Render))));
+            }),
         CanvasOp.PickMapCase =>
             scope.NeedCanvas().Bind(canvas => EncodeBitmap(bitmap: canvas.DrawPickMap(), width: 0, height: 0, op: Op.Of(name: nameof(CanvasOp.PickMap)))),
         CanvasOp.ViewCase v =>

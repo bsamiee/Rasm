@@ -147,6 +147,85 @@ public partial record WireQuery {
     public static WireQuery SortedTopology(Seq<Guid> ids) => new SortedTopologyCase(Ids: ids);
 }
 
+// Routing strategies — each case produces an IGraphicsPath from a (source, target) endpoint pair.
+// Auto inspects endpoint positions and picks Manhattan when same-row/same-column, Bezier otherwise.
+// Library scaffolding for future custom wire renderers; current paint path goes through GH2's
+// native WireShape — these routers complement it for overlay/preview channels.
+[Union]
+public partial record WireRouter {
+    private WireRouter() { }
+    public sealed record StraightCase : WireRouter;
+    public sealed record BezierCase(float Tangent) : WireRouter;
+    public sealed record ManhattanCase(float CornerRadius) : WireRouter;
+    public sealed record AutoCase(float Tangent, float CornerRadius, float AxisAlignedTolerance) : WireRouter;
+
+    public static readonly WireRouter Straight = new StraightCase();
+    public static WireRouter Bezier(float tangent = 60f) => new BezierCase(Tangent: tangent);
+    public static WireRouter Manhattan(float cornerRadius = 8f) => new ManhattanCase(CornerRadius: cornerRadius);
+    public static WireRouter Auto(float tangent = 60f, float cornerRadius = 8f, float axisAlignedTolerance = 2f) =>
+        new AutoCase(Tangent: tangent, CornerRadius: cornerRadius, AxisAlignedTolerance: axisAlignedTolerance);
+
+    public IGraphicsPath Route(PointF source, PointF target) {
+        IGraphicsPath path = new GraphicsPath();
+        _ = Apply(path: path, source: source, target: target);
+        return path;
+    }
+
+    private Unit Apply(IGraphicsPath path, PointF source, PointF target) =>
+        Switch(state: (path, source, target),
+            straightCase: static (s, _) => RouteStraight(path: s.path, source: s.source, target: s.target),
+            bezierCase: static (s, b) => RouteBezier(path: s.path, source: s.source, target: s.target, tangent: b.Tangent),
+            manhattanCase: static (s, m) => RouteManhattan(path: s.path, source: s.source, target: s.target, cornerRadius: m.CornerRadius),
+            autoCase: static (s, a) =>
+                MathF.Abs(s.source.Y - s.target.Y) <= a.AxisAlignedTolerance
+                    ? RouteStraight(path: s.path, source: s.source, target: s.target)
+                    : MathF.Abs(s.source.X - s.target.X) <= a.AxisAlignedTolerance
+                        ? RouteManhattan(path: s.path, source: s.source, target: s.target, cornerRadius: a.CornerRadius)
+                        : RouteBezier(path: s.path, source: s.source, target: s.target, tangent: a.Tangent));
+
+    private static Unit RouteStraight(IGraphicsPath path, PointF source, PointF target) {
+        path.AddLine(start: source, end: target);
+        return unit;
+    }
+
+    private static Unit RouteBezier(IGraphicsPath path, PointF source, PointF target, float tangent) {
+        PointF c1 = new(source.X + tangent, source.Y);
+        PointF c2 = new(target.X - tangent, target.Y);
+        path.AddBezier(start: source, control1: c1, control2: c2, end: target);
+        return unit;
+    }
+
+    // CornerRadius reserved for future quarter-circle fillets; current shape draws sharp turns and
+    // honors the reservation so consumers can opt-in later without an API break.
+    private static Unit RouteManhattan(IGraphicsPath path, PointF source, PointF target, float cornerRadius) {
+        _ = cornerRadius;
+        float midX = (source.X + target.X) * 0.5f;
+        PointF turn1 = new(midX, source.Y);
+        PointF turn2 = new(midX, target.Y);
+        path.AddLine(start: source, end: turn1);
+        path.AddLine(start: turn1, end: turn2);
+        path.AddLine(start: turn2, end: target);
+        return unit;
+    }
+}
+
+// Wire flow visualization channels — each case projects to a per-frame DashOffset/Color modulation
+// suitable for an animated stroke. Consumers feed Phase via TimeProvider; cyclic Phase in [0, 1).
+[Union]
+public partial record WireFlowAnimation {
+    private WireFlowAnimation() { }
+    public sealed record DashPhaseCase(float Speed, float DashLength) : WireFlowAnimation;
+    public sealed record GlowCase(float MinThickness, float MaxThickness, float Speed) : WireFlowAnimation;
+    public sealed record PulseCase(Color From, Color To, float Speed) : WireFlowAnimation;
+
+    public static WireFlowAnimation DashPhase(float speed = 12f, float dashLength = 8f) =>
+        new DashPhaseCase(Speed: speed, DashLength: dashLength);
+    public static WireFlowAnimation Glow(float minThickness = 1f, float maxThickness = 4f, float speed = 1.5f) =>
+        new GlowCase(MinThickness: minThickness, MaxThickness: maxThickness, Speed: speed);
+    public static WireFlowAnimation Pulse(Color from, Color to, float speed = 1f) =>
+        new PulseCase(From: from, To: to, Speed: speed);
+}
+
 [Union]
 public partial record WireOp {
     private WireOp() { }

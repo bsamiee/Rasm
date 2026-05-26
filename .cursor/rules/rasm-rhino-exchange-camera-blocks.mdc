@@ -1,0 +1,28 @@
+---
+description: Rasm Rhino category folders: Exchange, Camera, Blocks, document receipts, native capability, and local API truth
+globs: "libs/csharp/Rasm.Rhino/Exchange/*.cs,libs/csharp/Rasm.Rhino/Camera/*.cs,libs/csharp/Rasm.Rhino/Blocks/*.cs"
+alwaysApply: false
+---
+
+# Rasm Rhino Exchange Camera Blocks
+
+Read `libs/csharp/Rasm.Rhino/AGENTS.md` and verify named Rhino members through local XML/decompile evidence.
+
+## Category Owners
+
+| Folder | Owns |
+| --- | --- |
+| `Exchange/` | File capabilities, archive/publish/import/export, sheet edits, linked resources, raster/PDF policy, and typed receipts. |
+| `Camera/` | Viewport target resolution, live camera state, camera mutation, projections, frustums, named views, capture, and sequencing. |
+| `Blocks/` | Block definitions, instances, live/archive linked state, placement, replacement, graph/audit, events, cleanup, preview/export, and management. |
+
+## Rules
+
+- Capture full Rhino capability behind one operation rail per category; do not mirror native calls as public wrappers.
+- Preserve document receipts, redraw/commit behavior, resource lifetimes, and native consistency in the category boundary.
+- Keep document mutation, selection, construction, UI, camera, and exchange ownership separated.
+- Use current RhinoWIP API evidence. Do not rely on GH1, Rhino 8, Windows, or stale public examples.
+
+## Validation
+
+Use `bash scripts/check-cs.sh check`; add tests or bridge checks when runtime document, viewport, block, file, or capture behavior changes.

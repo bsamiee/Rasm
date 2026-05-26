@@ -116,16 +116,19 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
                 MostRecentCount: 0));
     }
 
+    // current.Canvas can be null in race-with-init paths (Mac NSView host parented before content
+    // injection). Guard via Optional+Iter — without this the chain NPEs silently mid-shell-config.
     private static Fin<EditorResult> DispatchShell(EditorOp.ShellCase shell) =>
         Try.lift(f: () => {
             GhEditor current = GhEditor.ShowEditor(createVisible: true, layoutRules: shell.Layout.IfNone(string.Empty));
             _ = shell.Collapsed.Iter(value => current.Collapsed = value);
             _ = shell.ShowNotes.Iter(value => current.ShowNotes = value);
-            _ = shell.ShowUndoHistory.Iter(value => current.Canvas.ShowUndoHistory = value);
+            Option<Grasshopper2.UI.Canvas.Canvas> canvas = Optional(current.Canvas);
+            _ = canvas.Iter(c => shell.ShowUndoHistory.Iter(value => c.ShowUndoHistory = value));
             return Snapshot.Of(new EditorShellSnapshot(
                 Collapsed: current.Collapsed,
                 ShowNotes: current.ShowNotes,
-                ShowUndoHistory: current.Canvas.ShowUndoHistory,
+                ShowUndoHistory: canvas.Map(static c => c.ShowUndoHistory).IfNone(false),
                 InitialLayout: GhEditor.InitialLayout,
                 DefinedLayouts: toSeq(GhEditor.DefinedLayouts)));
         }).Run().MapFail(error => UiFault.GhEditor(detail: $"{nameof(EditorOp.Shell)}: {error.Message}"))

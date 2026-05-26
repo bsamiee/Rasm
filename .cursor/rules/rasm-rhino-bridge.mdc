@@ -1,35 +1,38 @@
 ---
-description: Rasm Rhino bridge — when to invoke verify/doctor/check, scenario kit, validation ladder
-globs: tools/rhino-bridge/**,scripts/rhino.sh,**/*.verify.csx
+description: Rasm Rhino bridge: current operator routes, scenario evidence, serial runtime validation
+globs: "tools/rhino-bridge/**,scripts/rhino.sh,**/*.verify.csx"
 alwaysApply: false
 ---
 
 # Rasm Rhino Bridge
 
-**Refs**: `tools/rhino-bridge/README.md`, `tools/rhino-bridge/AGENTS.md`, root `AGENTS.md` § LIVE_RHINO_BRIDGE.
+Use `scripts/rhino.sh` as the only bridge operator. Read `tools/rhino-bridge/README.md`, `tools/rhino-bridge/AGENTS.md`, root `AGENTS.md`, and `.claude/skills/cs-testing/references/bridge-runtime.md`.
 
-## Invoke ONLY when static gates cannot answer
+## Current Routes
 
-| Need | Command |
-|------|---------|
-| Library runtime scenarios | `bash scripts/rhino.sh verify <path-or-glob>` |
-| Project diagnostics | `bash scripts/rhino.sh bridge check <project.csproj>` |
-| Source build proof (no scenario) | `bridge check <source.cs>` → exit 3 = unsupported, not failure |
-| Pre-native-edit health | `bash scripts/rhino.sh bridge doctor` |
-| RhinoWIP API truth | `bash scripts/rhino.sh api doctor\|path\|xml\|types\|decompile` |
+| Need | Route |
+| --- | --- |
+| Scenario runtime | `bash scripts/rhino.sh verify <scenario-or-glob>` |
+| Project/source diagnostic | `bash scripts/rhino.sh bridge check <target> [scenario]` |
+| Bridge health | `bash scripts/rhino.sh bridge doctor` |
+| Local API truth | `bash scripts/rhino.sh api doctor|path|xml|types|decompile` |
+| Yak flow | `bash scripts/rhino.sh package|deploy|publish rasm-bridge <version>` |
 
-## Do NOT invoke for
+## Runtime Rules
 
-- xUnit/CsCheck specs (use `scripts/test.sh`)
-- Analyzer/format failures (`check-cs.sh check`)
-- Rhino settings/template automation (owned by plugin `LoadTime.AtStartup`)
+- Bridge commands run serially; one live Rhino endpoint handles one client.
+- `bridge check <source.cs>` without a scenario can exit `3` as truthful unsupported runtime evidence after build proof.
+- RhinoCode scenarios are diagnostics and verification, not publishing foundations.
+- Do not use stale commands or concepts: `load-smoke`, `StartScriptServer`, job JSON, `tests/rhino`, or `pnpm check:cs`.
 
 ## Scenario kit
 
-- `Rasm.TestKit.Scenarios` staged automatically — `using Rasm.TestKit.Scenarios;`
-- Output: JSON evidence + PNG under `.artifacts/rhino/verify/`
-- Host: `/Applications/RhinoWIP.app` (override via `RHINO_WIP_APP_PATH`)
+- `Rasm.TestKit.Scenarios` is staged automatically; no `#r`, `#load`, or absolute paths.
+- Use `Scenario.Run` and `facts.Add`; the durable evidence is one batched `facts={json}` marker parsed by `BridgeMarker.Scan`.
+- Output JSON and captures land under `.artifacts/rhino/verify/`.
 
-## Bridge change ladder
+## Not For
 
-See serial commands in `tools/rhino-bridge/AGENTS.md` — `bash -n`, shellcheck, `--self-test`, `bridge build`, `check-cs.sh check`, `bridge doctor`, sample verify.
+- Pure xUnit/CsCheck specs.
+- Analyzer, format, or static build failures.
+- Rhino settings, template automation, or persistent startup policy beyond plugin `LoadTime.AtStartup`.

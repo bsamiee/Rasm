@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
@@ -67,6 +68,25 @@ public readonly record struct PaintScope(
                 font.IfNone(UiFont.Empty()).Use(run: resolved =>
                     new PaintTextMeasurement(Text: valid, Size: TextMeasure.Single(font: resolved, text: valid))
                 )).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(MeasureText)), detail: error.Message)));
+
+    // Push a clip region onto the graphics stack, run body, and restore. Eto's SaveTransformState does
+    // NOT capture clipping state; ResetClip in finally is mandatory. `self` localizes the struct so the
+    // closure target doesn't capture `this` (CS1673 — readonly struct boundary).
+    public Fin<Unit> Clip(IGraphicsPath path, Func<PaintScope, Fin<Unit>> body) {
+        PaintScope self = this;
+        return Optional(path)
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Clip)), detail: "clip path is required"))
+            .Bind(validPath => Optional(body).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Clip)), detail: "body is required"))
+            .Bind(validBody => {
+                Graphics graphics = self.Graphics.Content;
+                graphics.SetClip(path: validPath);
+                try {
+                    return validBody(arg: self);
+                } finally {
+                    graphics.ResetClip();
+                }
+            }));
+    }
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -82,14 +102,28 @@ public readonly record struct PaintStyle(
     float MiterLimit = 10f,
     bool AntiAlias = true,
     ImageInterpolation ImageInterpolation = ImageInterpolation.Default,
-    PixelOffsetMode PixelOffset = PixelOffsetMode.None) {
+    PixelOffsetMode PixelOffset = PixelOffsetMode.None,
+    float DashOffset = 0f,
+    Option<FillSource> FillBrush = default) {
+    // DashOffset feeds DashStyle.Offset for crawling-dash flow viz (animated wires). Eto 2.11 has no
+    // Pen.DashOffset setter AND DashStyle is a sealed class with readonly offset/dashes fields — fresh
+    // allocation per frame is unavoidable at the API. DashStyleIntern caches by (dashes ref, quantized
+    // offset) so the same offset bucket returns the same DashStyle reference across frames, restoring
+    // the Pens.Cached reference-equality fast path (Brushes/Pens cache key compares DashStyle by ref
+    // first, then value). Without this, 50 wires × 120Hz = 6000 fresh DashStyles/sec + cache-key
+    // value-walk hits on every Pens.Cached lookup.
     internal Pen Pen() =>
         new(color: Edge, thickness: Thickness) {
             LineCap = LineCap,
             LineJoin = LineJoin,
-            DashStyle = Dash.IfNone(DashStyles.Solid),
+            DashStyle = OffsetDash(),
             MiterLimit = MiterLimit,
         };
+
+    private DashStyle OffsetDash() {
+        DashStyle baseline = Dash.IfNone(DashStyles.Solid);
+        return DashOffset == 0f ? baseline : DashStyleIntern.WithOffset(baseline: baseline, offset: DashOffset);
+    }
 
     internal static SolidBrush Brush(Color color) => new(color: color);
 
@@ -147,6 +181,48 @@ file static class TextMeasure {
 
     // Bounded eviction — drop the oldest half (FIFO via Keys snapshot order). Single-flight via
     // Interlocked CAS so concurrent Measure() callers don't double-trim; the loser fast-returns.
+    private static Unit TrimCache() {
+        if (Interlocked.Exchange(ref trimming, 1) == 1) {
+            return unit;
+        }
+        try {
+            _ = toSeq(Cache.Keys).Take(Cache.Count / 2).Iter(static key => Cache.TryRemove(key, out _));
+        } finally {
+            _ = Interlocked.Exchange(ref trimming, 0);
+        }
+        return unit;
+    }
+
+    internal static int Count => Cache.Count;
+    internal static Unit Clear() { Cache.Clear(); return unit; }
+}
+
+// Process-static DashStyle intern table. DashStyle is sealed-immutable in Eto 2.11 (readonly
+// offset + readonly float[] dashes), so every per-frame offset change naively allocates a new
+// instance and defeats Pens.Cached reference-equality fast path. The intern table dedupes by
+// (dashes array reference identity, quantized offset). Offset is quantized to a single hundredth
+// to bound cardinality — perceptually identical at any pen thickness and well under the 0.01f
+// equality tolerance that DashStyle.Equals already uses.
+file static class DashStyleIntern {
+    private const float Quantum = 0.01f;
+    private const int CacheSizeLimit = 4096;
+    private static readonly ConcurrentDictionary<(int DashesRef, int Bucket), DashStyle> Cache = new();
+    private static int trimming;
+
+    internal static DashStyle WithOffset(DashStyle baseline, float offset) {
+        int bucket = (int)MathF.Round(offset / Quantum);
+        if (bucket == 0) {
+            return baseline;
+        }
+        int dashesRef = baseline.Dashes is float[] dashes ? RuntimeHelpers.GetHashCode(dashes) : 0;
+        _ = Cache.Count >= CacheSizeLimit ? TrimCache() : unit;
+        return Cache.GetOrAdd(
+            key: (DashesRef: dashesRef, Bucket: bucket),
+            valueFactory: key => new DashStyle(offset: key.Bucket * Quantum, dashes: baseline.Dashes));
+    }
+
+    // Single-flight FIFO eviction — drop oldest half when cardinality crosses the limit. Same shape
+    // as TextMeasure.TrimCache; CAS gate prevents concurrent callers from double-trimming.
     private static Unit TrimCache() {
         if (Interlocked.Exchange(ref trimming, 1) == 1) {
             return unit;

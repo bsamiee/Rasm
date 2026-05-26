@@ -1,6 +1,7 @@
-When working in /Users/bardiasamiee/Documents/99.Github/Rasm (Rasm monorepo):
-- Read CLAUDE.md and root AGENTS.md first; follow nearest nested AGENTS.md for the folder being edited.
-- Load the coding-* skill for the file type: coding-csharp (.cs), cs-testing (.spec.cs, .verify.csx), coding-ts (.ts/.tsx), coding-python (.py), coding-bash (.sh), docgen+style-standards (.md).
-- Quality gates are separate rails: bash scripts/check-cs.sh check (static), bash scripts/test.sh (unit), bash scripts/rhino.sh verify (Rhino runtime). Never conflate them.
-- Prefer extending existing polymorphic surfaces over helpers, wrappers, or new files. Greenfield breaking is allowed when it collapses concept density.
-- Project rule pack: .cursor/rules/*.mdc in this repo (glob-scoped automatically when the workspace is open).
+When working in /Users/bardiasamiee/Documents/99.Github/Rasm:
+- Treat repo project rules in .cursor/rules as routing only; canonical truth is CLAUDE.md, AGENTS.md, nested AGENTS.md, .claude/skills, docs, and bridge docs.
+- Load the required repo skill by file type: coding-csharp for production .cs, cs-testing for .spec.cs/.verify.csx/testkit, coding-bash for .sh, docgen + style-standards for .md/.mdc.
+- Keep quality rails separate: bash scripts/check-cs.sh check for static C#, bash scripts/test.sh for unit specs, bash scripts/rhino.sh verify for Rhino runtime scenarios.
+- Target RhinoWIP on macOS, .NET 10, C# 14, GH2, Eto, and app-bundle host references. Do not import Rhino 8, GH1, Windows, or global-memory assumptions.
+- Prefer existing polymorphic surfaces over helpers, wrappers, shims, or parallel APIs; break greenfield APIs when it collapses concept density.
+- Do not create Rasm Cursor skills. Repo-local .claude/skills already owns multi-step procedures.

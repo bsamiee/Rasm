@@ -32,6 +32,29 @@ public partial record MotionClock {
     public static MotionClock DisplayLink(Option<CAFrameRateRange> rate = default) => new DisplayLinkCase(Rate: rate);
 }
 
+// Timeline transport state — interpretable by any time-keyed animation. Playing/Reverse multiply dt
+// by Rate; Scrubbing pins the integrator to absolute Position (in seconds of timeline duration);
+// Paused stalls accumulation without releasing the Pacer subscription.
+[Union]
+public partial record TimelineMode {
+    private TimelineMode() { }
+    public sealed record PlayingCase(float Rate) : TimelineMode;
+    public sealed record PausedCase : TimelineMode;
+    public sealed record ScrubbingCase(double Position) : TimelineMode;
+    public sealed record ReverseCase(float Rate) : TimelineMode;
+
+    public static readonly TimelineMode Paused = new PausedCase();
+    public static TimelineMode Playing(float rate = 1f) => new PlayingCase(Rate: rate);
+    public static TimelineMode Scrubbing(double position) => new ScrubbingCase(Position: position);
+    public static TimelineMode Reverse(float rate = 1f) => new ReverseCase(Rate: rate);
+
+    public float SignedRate => Switch(
+        playingCase: static c => c.Rate,
+        pausedCase: static _ => 0f,
+        scrubbingCase: static _ => 0f,
+        reverseCase: static c => -c.Rate);
+}
+
 public interface IMotionVector<T> {
     public T Zero { get; }
     public float RestEpsilon { get; }
@@ -218,10 +241,26 @@ public readonly partial struct SpringConfig {
             mass: mass);
     }
 
-    public static readonly SpringConfig Snappy = Response(response: 0.30f, dampingFraction: 0.85f);
-    public static readonly SpringConfig Bouncy = Response(response: 0.55f, dampingFraction: 0.50f);
-    public static readonly SpringConfig Smooth = Response(response: 0.50f, dampingFraction: 1.00f);
-    public static readonly SpringConfig Sluggish = Response(response: 1.00f, dampingFraction: 1.20f);
+}
+
+// Material 3 Expressive (m3.material.io/styles/motion/overview/specs) and Apple HIG SwiftUI spring
+// presets. SmartEnum surface enables Items enumeration, Get/TryGet by name, exhaustive case sweep —
+// hardcoded SpringConfig statics would not. Each item carries its tuned SpringConfig via .Config.
+[SmartEnum<int>]
+public sealed partial class SpringPreset {
+    public SpringConfig Config { get; }
+
+    public static readonly SpringPreset Relaxed = Of(key: 0, response: 0.65f, dampingFraction: 1.00f);
+    public static readonly SpringPreset Standard = Of(key: 1, response: 0.35f, dampingFraction: 0.90f);
+    public static readonly SpringPreset Expressive = Of(key: 2, response: 0.45f, dampingFraction: 0.65f);
+    public static readonly SpringPreset Snappy = Of(key: 3, response: 0.30f, dampingFraction: 0.85f);
+    public static readonly SpringPreset Smooth = Of(key: 4, response: 0.50f, dampingFraction: 1.00f);
+    public static readonly SpringPreset Bouncy = Of(key: 5, response: 0.55f, dampingFraction: 0.50f);
+    public static readonly SpringPreset Snappier = Of(key: 6, response: 0.25f, dampingFraction: 0.85f);
+    public static readonly SpringPreset Sluggish = Of(key: 7, response: 1.00f, dampingFraction: 1.20f);
+
+    private static SpringPreset Of(int key, float response, float dampingFraction) =>
+        new(key: key, config: SpringConfig.Response(response: response, dampingFraction: dampingFraction));
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -609,11 +648,16 @@ internal static class Motion {
     }
 
     // Polymorphic dispatch over MotionClock collapses the parallel `useDisplayLink: bool` knob from
-    // every motion service signature. DisplayLink case threads optional rate through Pacer.For.
+    // every motion service signature. DisplayLink case threads optional rate through Pacer.For but
+    // demotes to None when AccessibilityDisplayShouldReduceMotion is on — caller falls back to
+    // message-loop coalesced 60Hz, which still produces frames (instant-1-frame fallback, never
+    // silent skip).
     internal static Fin<Option<Pacer>> PacerOption(Grasshopper2.UI.Canvas.Canvas canvas, MotionClock clock) =>
         clock.Switch(state: canvas,
             messageLoopCase: static (_, _) => Fin.Succ(Option<Pacer>.None),
-            displayLinkCase: static (c, d) => Pacer.For(canvas: c, rate: d.Rate.ToNullable()).Map(Some));
+            displayLinkCase: static (c, d) => Pacer.AccessibilityShouldReduceMotion
+                ? Fin.Succ(Option<Pacer>.None)
+                : Pacer.For(canvas: c, rate: d.Rate.ToNullable()).Map(Some));
 
     internal static Unit PauseWhenFinished(GhState state, Option<Pacer> pacer) {
         if (state == GhState.Finished && pacer is { IsSome: true, Case: Pacer p }) {
@@ -734,14 +778,16 @@ internal static class Motion {
         private readonly Atom<TState> cell;
         private readonly Grasshopper2.UI.Canvas.Canvas canvas;
         private readonly Option<Pacer> pacer;
+        private readonly CancellationToken cancellation;
         private readonly Func<TState, TState> applyScratch;
         private TState scratch;
         private int wantingTicks;
 
-        private MotionRunner(Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer) {
+        private MotionRunner(Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer, CancellationToken cancellation) {
             this.cell = cell;
             this.canvas = canvas;
             this.pacer = pacer;
+            this.cancellation = cancellation;
             // Block body re-reads the mutable `scratch` field on every invocation. A method-group form
             // `scratch.MergeInto` would bind the struct receiver at construction (to default(TState))
             // and freeze the merge; the explicit read here is load-bearing.
@@ -751,10 +797,15 @@ internal static class Motion {
             };
         }
 
-        internal static MotionRunner<TState> Of(Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer = default) =>
-            new(cell: cell, canvas: canvas, pacer: pacer);
+        internal static MotionRunner<TState> Of(Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer = default, CancellationToken cancellation = default) =>
+            new(cell: cell, canvas: canvas, pacer: pacer, cancellation: cancellation);
 
+        // Cancellation arrives as an early-return guard, never as an exception throw — consistent with
+        // the rail discipline. Sleep() drops Pacer ref so quiesced animations don't pin vsync wakeups.
         internal Unit Tick() {
+            if (cancellation.IsCancellationRequested) {
+                return Sleep();
+            }
             TState next = cell.Value.Step();
             _ = next.Emit();
             scratch = next;
@@ -780,7 +831,14 @@ internal static class Motion {
     }
 
     // Vsync scheduler: NSView.GetDisplayLink auto-tracks screens (WWDC23). Pooled per Canvas via
-    // ConditionalWeakTable; refCount drives teardown, active drives Paused gate.
+    // ConditionalWeakTable; refCount drives teardown, active drives Paused gate. A single process-
+    // static observer walks the pool on NSApplicationDidChangeScreenParametersNotification so multi-
+    // monitor moves preserve vsync alignment + adopt the new screen's MaximumFramesPerSecond when no
+    // explicit rate is supplied. Per-instance observer was leak-prone: NSNotificationCenter holds a
+    // strong ref to the registered NSObject, which holds a strong ref to the Pacer instance via the
+    // captured delegate. If Pool eviction (Canvas GC'd) races Pacer.Release, the per-instance observer
+    // path could leak the link + the Pacer indefinitely. The static observer holds zero Pacer refs —
+    // it only walks `Pool` which uses Canvas as the WEAK key; evicted entries are skipped naturally.
     [SupportedOSPlatform("macos14.0")]
     internal sealed class Pacer : NSObject {
         private static readonly Selector TickSelector = new("tick:");
@@ -789,20 +847,79 @@ internal static class Motion {
         private static readonly ConditionalWeakTable<Grasshopper2.UI.Canvas.Canvas, Pacer> Pool = new();
 #pragma warning restore IDE0028
         private static readonly Lock PoolGate = new();
+        private static readonly Lock ObserverGate = new();
+        private static NSObject? screenChangeObserver;
 
         private readonly Grasshopper2.UI.Canvas.Canvas canvas;
-        private readonly CADisplayLink link;
+        private readonly NSView view;
+        private readonly CAFrameRateRange? explicitRate;
+        private CADisplayLink link;
         private int refCount;
         private int active;
         private int disposed;
 
-        private Pacer(Grasshopper2.UI.Canvas.Canvas canvas, NSView view, CAFrameRateRange range) {
+        private Pacer(Grasshopper2.UI.Canvas.Canvas canvas, NSView view, CAFrameRateRange? explicitRate) {
             this.canvas = canvas;
-            link = view.GetDisplayLink(target: this, selector: TickSelector);
-            link.PreferredFrameRateRange = range;
-            link.Paused = true;
-            link.AddToRunLoop(runloop: NSRunLoop.Main, mode: NSRunLoopMode.Common.GetConstant()!);
+            this.view = view;
+            this.explicitRate = explicitRate;
+            link = BindLink(view: view, range: ResolveRange(view: view, explicitRate: explicitRate));
+            EnsureScreenChangeObserver();
         }
+
+        // Lazy-init the process-static observer. Lives for the lifetime of the AppDomain — RhinoWIP's
+        // plugin runtime never tears down between sessions, so removal is unnecessary and would race
+        // with concurrent OnScreenParametersChanged callbacks anyway. The observer holds NO Pacer ref;
+        // it invokes a static dispatcher that iterates the WEAK-keyed pool. Lock is acquired on every
+        // Pacer construction; contention is negligible because For() already serializes on PoolGate
+        // for the table read, and Pacer construction itself is a rare event (per-canvas-lifetime).
+        private static void EnsureScreenChangeObserver() {
+            using (ObserverGate.EnterScope()) {
+                screenChangeObserver ??= NSNotificationCenter.DefaultCenter.AddObserver(
+                    NSApplication.DidChangeScreenParametersNotification,
+                    static _ => OnScreenParametersChanged(),
+                    NSOperationQueue.MainQueue);
+            }
+        }
+
+        // Walk every live (Canvas, Pacer) entry and rebind the link. ConditionalWeakTable's enumerator
+        // returns only entries whose Canvas key is still strongly reachable elsewhere; evicted entries
+        // are skipped, so dead-Pacer reference firing is structurally impossible. Iteration under the
+        // PoolGate matches the For/CreateOrAdopt/Release contract — no entry can be added or removed
+        // mid-walk. RebindLink itself never throws (CADisplayLink ops are infallible on macOS 14+).
+        private static void OnScreenParametersChanged() {
+            using (PoolGate.EnterScope()) {
+                foreach (KeyValuePair<Grasshopper2.UI.Canvas.Canvas, Pacer> entry in Pool) {
+                    entry.Value.RebindLink();
+                }
+            }
+        }
+
+        private CADisplayLink BindLink(NSView view, CAFrameRateRange range) {
+            CADisplayLink bound = view.GetDisplayLink(target: this, selector: TickSelector);
+            bound.PreferredFrameRateRange = range;
+            bound.Paused = true;
+            bound.AddToRunLoop(runloop: NSRunLoop.Main, mode: NSRunLoopMode.Common.GetConstant()!);
+            return bound;
+        }
+
+        // ProMotion (M-series) reports 120Hz; Studio Display 60Hz; ultrawide externals vary. Querying
+        // NSScreen.MaximumFramesPerSecond honors the actual hardware ceiling; literal (30,120,120)
+        // wastes power on 60Hz panels and underclaims on 144Hz externals.
+        private static CAFrameRateRange ResolveRange(NSView view, CAFrameRateRange? explicitRate) {
+            if (explicitRate is CAFrameRateRange supplied) {
+                return supplied;
+            }
+            NSScreen? screen = view.Window?.Screen;
+            float maximum = screen is NSScreen active ? active.MaximumFramesPerSecond : 120f;
+            float floor = MathF.Min(x: 30f, y: maximum);
+            return CAFrameRateRange.Create(minimum: floor, maximum: maximum, preferred: maximum);
+        }
+
+        // Reduce-motion gate is a query for callers — None Pacer means "ride the instant-1-frame
+        // message-loop fallback" (caller skips Pacer enrollment but still schedules one repaint so
+        // the visual transition lands; the alternative — silent skip — would freeze the UI mid-tween).
+        internal static bool AccessibilityShouldReduceMotion =>
+            NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion;
 
         // Default range covers ProMotion adaptive (30-120 preferred 120). CAS-style re-check after
         // construction adopts a peer entry if a concurrent For() raced.
@@ -819,21 +936,17 @@ internal static class Motion {
                     op: Op.Of(name: nameof(Pacer)),
                     detail: "canvas.ControlObject is not an NSView"))
                 .Bind(view => Op.Of(name: nameof(Pacer)).Attempt(
-                    body: () => CreateOrAdopt(
-                        canvas: canvas,
-                        view: view,
-                        range: rate ?? CAFrameRateRange.Create(minimum: 30f, maximum: 120f, preferred: 120f)),
+                    body: () => CreateOrAdopt(canvas: canvas, view: view, rate: rate),
                     what: "Pacer construction"));
         }
 
         [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
             Justification = "The fresh Pacer either transfers ownership to the static Pool (lifecycle-managed via refCount/Release) or invalidates+disposes its link explicitly when it loses the race.")]
-        private static Pacer CreateOrAdopt(Grasshopper2.UI.Canvas.Canvas canvas, NSView view, CAFrameRateRange range) {
-            Pacer fresh = new(canvas: canvas, view: view, range: range);
+        private static Pacer CreateOrAdopt(Grasshopper2.UI.Canvas.Canvas canvas, NSView view, CAFrameRateRange? rate) {
+            Pacer fresh = new(canvas: canvas, view: view, explicitRate: rate);
             using (PoolGate.EnterScope()) {
                 if (Pool.TryGetValue(canvas, out Pacer? adopted)) {
-                    fresh.link.Invalidate();
-                    fresh.link.Dispose();
+                    fresh.TearDownLink();
                     _ = Interlocked.Increment(ref adopted.refCount);
                     return adopted;
                 }
@@ -841,6 +954,19 @@ internal static class Motion {
                 _ = Interlocked.Increment(ref fresh.refCount);
                 return fresh;
             }
+        }
+
+        // Rebind the CADisplayLink to the current view's window screen so PreferredFrameRateRange
+        // tracks the new display's MaximumFramesPerSecond. The active flag is preserved across the
+        // swap; Paused is restored. Invoked exclusively from the process-static OnScreenParametersChanged
+        // dispatcher; pool-iteration semantics guarantee `this` is still reachable.
+        private void RebindLink() {
+            bool wasActive = active > 0;
+            CADisplayLink replacement = BindLink(view: view, range: ResolveRange(view: view, explicitRate: explicitRate));
+            replacement.Paused = !wasActive;
+            CADisplayLink previous = Interlocked.Exchange(ref link, replacement);
+            previous.Invalidate();
+            previous.Dispose();
         }
 
         [Export("tick:")]
@@ -872,15 +998,19 @@ internal static class Motion {
             return unit;
         }
 
+        private void TearDownLink() {
+            link.Paused = true;
+            link.Invalidate();
+            link.Dispose();
+        }
+
         protected override void Dispose(bool disposing) {
             if (Interlocked.Exchange(ref disposed, 1) == 1) {
                 base.Dispose(disposing);
                 return;
             }
             if (disposing) {
-                link.Paused = true;
-                link.Invalidate();
-                link.Dispose();
+                TearDownLink();
             }
             base.Dispose(disposing);
         }

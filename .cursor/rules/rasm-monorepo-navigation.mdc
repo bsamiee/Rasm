@@ -1,37 +1,34 @@
 ---
-description: Rasm monorepo discovery — fd, rg, ast-grep, Nx topology before broad scans
+description: Rasm monorepo discovery: fd, rg, ast-grep, Nx topology, local docs, and minimal reads
+globs: ""
 alwaysApply: false
 ---
 
 # Rasm Navigation
 
-Use tools over memory. Parallelize discovery reads.
+Use tools over memory and parallelize independent reads.
 
 ## Discovery ladder
 
-1. `fd -H .` — locate files by name
-2. `rg -n --hidden --glob '!.git' --glob '!node_modules' "<pattern>" <path>` — exact references
-3. `pnpm exec ast-grep run --pattern "<structural-pattern>" <path>` — symbol-aware edits
-4. Nx topology (`nx graph`, affected commands) before repo-wide scans
-5. Read minimal slices; read a file fully before editing
+1. Use file discovery for names, then `rg` for exact references.
+2. Use `ast-grep` for symbol-shaped edits when available.
+3. Inspect Nx topology before broad monorepo assumptions.
+4. Read minimal slices for orientation, then read full files before editing them.
+5. Prefer local XML/decompile evidence over public examples for RhinoWIP, GH2, Eto, and RhinoCode.
 
 ## Layout anchors
 
 | Path | Owns |
-|------|------|
-| `libs/csharp/Rasm` | Geometry kernel, Domain, Analysis, Vectors |
+| --- | --- |
+| `libs/csharp/Rasm` | Domain, Analysis, Vectors geometry kernel. |
 | `libs/csharp/Rasm.Rhino` | RhinoWIP boundary (Commands, UI, Camera, Blocks, Construction, Exchange) |
-| `libs/csharp/Rasm.Grasshopper` | GH2 component + UI rails |
-| `libs/csharp/Rasm.Materials` | Data-only catalogues (zero ProjectReference) |
-| `apps/grasshopper/Radyab` | Sample GH2 plugin |
-| `tests/csharp/_testkit` | Rasm.TestKit (Spec, Gens, Numeric) |
-| `tests/csharp/libs/<Project>/` | Mirror-path specs + `scenarios/*.verify.csx` |
-| `tools/rhino-bridge` | Live RhinoWIP runtime verification |
-| `tools/cs-analyzer` | CSP#### custom analyzer |
-| `docs/system-api-map` | BCL/System/package/host reference policy |
-| `docs/external-libs` | LanguageExt, Thinktecture, MathNet |
-| `docs/testing-libs` | xUnit, CsCheck, Stryker, Verify, etc. |
+| `libs/csharp/Rasm.Grasshopper` | GH2 components, data, and UI rails. |
+| `tests/csharp` | xUnit, CsCheck, testkit, and bridge scenarios. |
+| `tools/rhino-bridge` | Live RhinoWIP runtime verification. |
+| `docs/system-api-map` | BCL, `System.*`, package, host reference policy. |
+| `docs/external-libs` | Approved product libraries. |
+| `docs/testing-libs` | Test library APIs. |
 
 ## Docs before packages
 
-Check `docs/system-api-map` before adding `System.*` packages. Check `docs/external-libs` before numerical or rail libraries. Verify RhinoWIP APIs via local XML/decompile + `scripts/rhino.sh api doctor`.
+Check `docs/system-api-map` before `System.*`, global using, or host-reference changes. `global.json` is currently absent; treat it as an optional trigger file only if a future change adds it.

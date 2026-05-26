@@ -1,11 +1,12 @@
 ---
-description: Rasm monorepo core manifest — read CLAUDE.md, AGENTS.md, universal constraints, quality gates
+description: Rasm repo router: canonical reads, current host baseline, skill routing, and separated quality gates
+globs: "**/*"
 alwaysApply: true
 ---
 
 # Rasm Core
 
-**Repo**: `/Users/bardiasamiee/Documents/99.Github/Rasm` — RhinoWIP macOS plugin workspace (`net10.0`, C# 14, GH2).
+Rasm is a RhinoWIP macOS monorepo targeting `.NET 10`, C# 14, GH2, Eto, and app-bundle host assemblies from `/Applications/RhinoWIP.app`.
 
 ## Required reads (in order)
 
@@ -13,32 +14,31 @@ alwaysApply: true
 2. Root `AGENTS.md` — navigation, language policy, documentation policy, live Rhino bridge
 3. Nearest nested `AGENTS.md` for the folder under edit
 
-## Philosophy (do not restate in code)
+## Skill routing
 
-- Polymorphic collapse over parallel types/helpers; one entrypoint per concern
-- Effect-first / ROP: `Fin`, `Validation`, `Eff`; typed errors; no exception control flow in domain
-- External-lib-first: approved packages are the implementation surface; no thin wrappers
-- Greenfield: break APIs freely; no shims, `[Obsolete]`, or compatibility aliases
-- Concept-density trigger (not LOC): ≥3 parallel types, sibling factories, switch arms, or single-call helpers → collapse in place
+Use repo `.claude/skills/` first for Rasm procedures. Fall back to `~/.codex/skills/` only when repo skills do not cover a file type. Do not create Cursor skills.
 
-## Quality gates (orthogonal — never merge)
+| File | Skill |
+| --- | --- |
+| Production `.cs` | `coding-csharp` |
+| `.spec.cs`, `.verify.csx`, testkit | `cs-testing` |
+| `.sh` | `coding-bash` |
+| `.md`, `.mdc` | `docgen` + `style-standards` |
+
+## Invariants
+
+- Collapse concept density into existing polymorphic owners before adding files, helpers, wrappers, or shims.
+- Keep OOP native boundaries small and singular; keep internals functional with `Fin`, `Validation`, `Eff`, `Option`, folds, and typed errors.
+- Treat approved dependencies and local docs as implementation surfaces; do not hand-roll covered behavior.
+- Preserve macOS RhinoWIP/GH2 assumptions. Do not import GH1, Rhino 8, Windows, or global-memory guidance.
+
+## Quality Gates
 
 | Rail | Command |
-|------|---------|
+| --- | --- |
 | Static C# | `bash scripts/check-cs.sh check` |
-| Full static (trigger files only) | `bash scripts/check-cs.sh full` |
+| Full static, trigger files only | `bash scripts/check-cs.sh full` |
 | Unit tests | `bash scripts/test.sh [<filter>]` |
 | Rhino runtime | `bash scripts/rhino.sh verify <scenario-or-glob>` |
 
-Trust CSP#### analyzer rules in `tools/cs-analyzer` — fix architecture, do not suppress.
-
-## Skill routing
-
-| File type | Skill |
-|-----------|-------|
-| `.cs` production | `coding-csharp` (`.claude/skills/` or `~/.codex/skills/`) |
-| `.spec.cs`, `.verify.csx` | `cs-testing` |
-| `.ts`, `.tsx` | `coding-ts` |
-| `.py` | `coding-python` |
-| `.sh` | `coding-bash` |
-| `.md` | `docgen` + `style-standards` |
+Keep rails orthogonal. Trust `CSP####` analyzer findings and fix architecture rather than suppressing.

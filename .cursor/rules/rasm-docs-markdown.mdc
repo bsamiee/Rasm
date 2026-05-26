@@ -1,33 +1,31 @@
 ---
-description: Rasm documentation — docgen mechanics, style-standards voice, no invented paths
-globs: **/*.md
+description: Rasm documentation and Cursor markdown: docgen, style-standards, concise source-grounded guidance
+globs: "**/*.md,.cursor/rules/*.mdc"
 alwaysApply: false
 ---
 
 # Rasm Documentation
 
-**Required**: `docgen` + `style-standards` skills.
+Read `docgen` and `style-standards` before editing Markdown or `.mdc` files.
 
 ## Routing
 
-| Change type | Skill / doc |
-|-------------|-------------|
+| Need | Source |
+| --- | --- |
 | README, ADR, changelog, architecture | `docgen` |
-| Headers, lists, separators, voice | `style-standards` |
-| BCL/System/package policy | `docs/system-api-map` |
-| Library APIs | `docs/external-libs` |
-| Test tool APIs | `docs/testing-libs` |
+| Headers, lists, voice, separators | `style-standards` |
+| BCL, `System.*`, package policy | `docs/system-api-map` |
+| Product libraries | `docs/external-libs` |
+| Test libraries | `docs/testing-libs` |
 
 ## Rules
 
-- Root docs in existing paths only; remove stale or invented commands/paths
-- Plans: max 1–2 screens — Context, Critical files, Approach (3–5 bullets), Verification (1–2 commands)
-- No emoji; use `[X]` UPPERCASE markers per `CLAUDE.md`
-- Do not duplicate `CLAUDE.md`/`AGENTS.md` content — link and distill
+- Remove stale or invented commands, paths, APIs, platforms, and package claims.
+- Keep Cursor rules concise: one concern per `.mdc`, frontmatter with `description`, `globs`, and `alwaysApply`.
+- Do not duplicate full `CLAUDE.md`, `AGENTS.md`, skills, or docs. Link and distill.
+- Do not expose private transcript paths or secrets in repo docs.
+- Use ASCII unless existing file context justifies otherwise.
 
-## Standards references
+## Cursor Artifacts
 
-- `docs/standards/readme-standards.md`
-- `docs/standards/architecture-standards.md`
-- `docs/standards/code-documentation-standards.md`
-- `docs/standards/voice.md`, `formatting.md`, `taxonomy.md`
+Project rules belong in `.cursor/rules/*.mdc`. User rules are plain text in Cursor Settings. Rasm Cursor skills are intentionally absent because `.claude/skills/` owns procedures.

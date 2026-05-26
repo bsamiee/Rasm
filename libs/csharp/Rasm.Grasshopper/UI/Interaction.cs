@@ -302,6 +302,9 @@ internal static class FloatingButton {
                 marshalToUi: true)
             select sub);
 
+    // The plan-flagged silent fail: FindByName returning null after Add() leaves the button registered
+    // but un-numerified. The throw propagates through Subscription.Bind's Try.lift wrapper and surfaces
+    // as a typed UiFault — caller sees explicit registration failure instead of a half-built control.
     internal static GrasshopperUiIntent<Subscription> AddNumeric(
         FloatingPosition position, string name, string info, IIcon icon,
         GhUiNumber value, string valueKey, Option<Color> colour) =>
@@ -310,8 +313,9 @@ internal static class FloatingButton {
                 position: position, name: name, info: info,
                 colour: ColourOf(colour), icon: icon,
                 click: NoOp, mouseDown: NoOp, mouseUp: NoOp);
-            _ = Optional(canvas.FloatingButtons.FindByName(name: name))
-                .IfSome(button => button.MakeNumeric(number: value, valueKey: valueKey));
+            Grasshopper2.UI.Flex.FloatingButton registered = canvas.FloatingButtons.FindByName(name: name)
+                ?? throw new InvalidOperationException($"FloatingButton '{name}' was not registered after Add() — MakeNumeric cannot apply.");
+            registered.MakeNumeric(number: value, valueKey: valueKey);
         });
 
     internal static GrasshopperUiIntent<Unit> Modify(

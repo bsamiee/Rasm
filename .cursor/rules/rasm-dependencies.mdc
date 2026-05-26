@@ -1,6 +1,6 @@
 ---
-description: Rasm dependency policy — central package management, catalog workflow, external-lib-first
-globs: Directory.Packages.props,Directory.Build.props,Directory.Build.targets,**/*.csproj,pnpm-workspace.yaml,pyproject.toml
+description: Rasm dependency policy: central packages, host refs, external-lib-first, and graph validation
+globs: "Directory.Packages.props,Directory.Build.props,Directory.Build.targets,**/*.csproj,pnpm-workspace.yaml,pyproject.toml,global.json"
 alwaysApply: false
 ---
 
@@ -8,28 +8,23 @@ alwaysApply: false
 
 ## C# central package management
 
-- Versions live in `Directory.Packages.props` only — `.csproj` declares usage, never versions
+- Versions live in `Directory.Packages.props`; `.csproj` files declare usage without versions.
 - Check truth: `rg -n "<PackageId>" Directory.Packages.props Directory.Build.props **/*.csproj`
-- Add `PackageVersion` only when a concrete consumer exists — no future-intent entries
-- Validate: `dotnet restore Workspace.slnx --locked-mode` (removals) or normal restore (graph changes)
-- RhinoWIP host assemblies via `Directory.Build.props` app-bundle refs — not universal NuGet
+- Add `PackageVersion` only with a concrete consumer.
+- Validate removals with `dotnet restore Workspace.slnx --locked-mode`; use normal restore for graph changes.
+- `global.json` is currently absent. If introduced later, treat it as a full-static trigger.
 
-## TypeScript catalog
+## Host References
 
-1. `rg -n "dep" pnpm-workspace.yaml` (catalog)
-2. Add exact version to catalog if missing
-3. Reference as `"catalog:"` in package.json
-4. `pnpm install` → `pnpm exec nx run-many -t typecheck`
+RhinoWIP, GH2, Eto, Rhino.UI, and RhinoWIP-hosted `System.Drawing.Common` resolve through `Directory.Build.props` app-bundle paths. Do not replace host assemblies with broad NuGet references unless `docs/system-api-map` documents the boundary.
 
 ## External-lib-first
 
 - Approved manifest deps are first-class — integrate native APIs end-to-end
 - Check `docs/system-api-map` before `System.*` additions
 - Check `docs/external-libs` before LanguageExt/Thinktecture/MathNet usage
-- Never hand-roll what approved libraries already own; never thin-wrap external APIs
+- Never hand-roll what approved libraries own; never thin-wrap external APIs
 
-## Key pinned packages (see Directory.Packages.props for truth)
+## TypeScript Catalog
 
-- LanguageExt.Core 5.0.0-beta-77, Thinktecture.Runtime.Extensions 10.2.0
-- MathNet.Numerics/Symbolics 6.0.0-beta2, CSparse 4.3.0 (Rasm only)
-- xUnit v3, CsCheck, coverlet, Verify, ArchUnitNET, BenchmarkDotNet, SharpFuzz
+Use `pnpm-workspace.yaml` catalog entries and `"catalog:"` package references. Validate with `pnpm install` and the relevant Nx typecheck target when TypeScript changes.

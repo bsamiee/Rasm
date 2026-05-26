@@ -1,0 +1,26 @@
+---
+description: Rasm Vectors: intent projection, vector fields, spectral mesh algebra, cloud metrics, and numerical kernels
+globs: "libs/csharp/Rasm/Vectors/*.cs"
+alwaysApply: false
+---
+
+# Rasm Vectors
+
+Read `libs/csharp/Rasm/AGENTS.md`, `docs/external-libs/mathnet`, and package truth before numerical edits.
+
+## Ownership
+
+- `Vectors/` owns vector intent, direction, support-space projection, fields, rays, spans, signed axes, relation logic, mesh-aware field algebra, spectral filters, and cloud metrics.
+- `Domain/` owns shared validity, tolerance, statistics, geometry identity, and projection carriers.
+
+## Rules
+
+- Route consumer intent through `VectorIntent.Project<TOut>` and existing vector owners before adding entrypoints.
+- Keep DEC, spectral filters, Laplacian cache, sparse factorization, field algebra, and mesh/cloud dispatch centralized.
+- Use MathNet and approved sparse/numeric libraries where they provide real numerical value.
+- Preserve independent or bridge-backed oracles for geometry, spectral, field, and cloud changes.
+- Do not duplicate `Analysis` or `Domain` validation locally.
+
+## Validation
+
+Run `bash scripts/check-cs.sh check`, `bash scripts/test.sh`, and vector bridge scenarios when native Rhino/GH evidence changes.

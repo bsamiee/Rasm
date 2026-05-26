@@ -203,7 +203,7 @@ public abstract record ToolbarItem {
                 (Toggle toggle, UiCommandSurface.MenuCase menu) =>
                     from command in toggle.Command.Validated(op: Op.Of(name: nameof(Toggle)))
                     from changed in Optional(toggle.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Toggle)), detail: "toggle change delegate is required"))
-                    from added in Try.lift(f: () => {
+                    from added in Op.Of(name: nameof(Toggle)).Attempt(body: () => {
                         CheckCommand menuCommand = new() {
                             ID = command.Name,
                             MenuText = command.Name,
@@ -218,57 +218,50 @@ public abstract record ToolbarItem {
                         _ = command.CanExecute.Iter(can => item.Validate += (_, _) =>
                             item.Enabled = command.Enabled && GrasshopperUi.Protect(valid: can).IfFail(_ => false));
                         menu.Target.Items.Add(item: item);
-                        return unit;
-                    }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Toggle)), detail: $"menu toggle threw: {error.Message}"))
+                    }, what: "menu toggle")
                     select added,
-                (SectionToggle toggle, UiCommandSurface.ToolbarCase toolbar) => Try.lift(f: () => {
+                (SectionToggle toggle, UiCommandSurface.ToolbarCase toolbar) => Op.Of(name: nameof(SectionToggle)).Attempt(body: () => {
                     _ = toolbar.Bar.AddToggle(nomen: new Nomen(name: toggle.Name, info: toggle.Name), initialState: toggle.State, additionalAffectedSections: [.. toggle.Sections]);
-                    return unit;
-                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(SectionToggle)), detail: $"AddToggle threw: {error.Message}")),
+                }, what: "AddToggle"),
                 (Radio radio, UiCommandSurface.ToolbarCase toolbar) =>
                     from command in radio.Command.Validated(op: Op.Of(name: nameof(Radio)))
                     from changed in Optional(radio.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Radio)), detail: "radio change delegate is required"))
                     select AddRadioToggle(bar: toolbar.Bar, command: command, state: radio.State, optional: false, changed: changed),
                 (TextInput text, UiCommandSurface.ToolbarCase toolbar) =>
                     from changed in Optional(text.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(TextInput)), detail: "text change delegate is required"))
-                    from added in Try.lift(f: () => {
+                    from added in Op.Of(name: nameof(TextInput)).Attempt(body: () => {
                         TextField field = toolbar.Bar.AddTextField(icon: default!, nomen: new Nomen(name: text.Name, info: text.Name), initial: text.Value, placeholder: text.Name);
                         field.TextChanged += (_, value) => _ = GrasshopperUi.Protect(valid: () => changed(arg: value));
-                        return unit;
-                    }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(TextInput)), detail: $"AddTextField threw: {error.Message}"))
+                    }, what: "AddTextField")
                     select added,
                 (Number number, UiCommandSurface.ToolbarCase toolbar) =>
                     from changed in Optional(number.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Number)), detail: "number change delegate is required"))
                     from value in Optional(number.Value).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Number)), detail: "UiNumber is required"))
-                    from added in Try.lift(f: () => {
-                        toolbar.Bar.Add(new NumberSlider(nomen: new Nomen(name: number.Name, info: number.Name), number: value, callback: current => _ = GrasshopperUi.Protect(valid: () => changed(arg: current))));
-                        return unit;
-                    }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Number)), detail: $"NumberSlider threw: {error.Message}"))
+                    from added in Op.Of(name: nameof(Number)).Attempt(
+                        body: () => toolbar.Bar.Add(new NumberSlider(nomen: new Nomen(name: number.Name, info: number.Name), number: value, callback: current => _ = GrasshopperUi.Protect(valid: () => changed(arg: current)))),
+                        what: "NumberSlider")
                     select added,
                 (SwatchInput colour, UiCommandSurface.ToolbarCase toolbar) =>
                     from changed in Optional(colour.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SwatchInput)), detail: "colour change delegate is required"))
-                    from added in Try.lift(f: () => {
-                        toolbar.Bar.AddLifeColours(nomen: new Nomen(name: colour.Name, info: colour.Name), initial: colour.Family, assignment: value => _ = GrasshopperUi.Protect(valid: () => changed(arg: value)));
-                        return unit;
-                    }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(SwatchInput)), detail: $"AddLifeColours threw: {error.Message}"))
+                    from added in Op.Of(name: nameof(SwatchInput)).Attempt(
+                        body: () => toolbar.Bar.AddLifeColours(nomen: new Nomen(name: colour.Name, info: colour.Name), initial: colour.Family, assignment: value => _ = GrasshopperUi.Protect(valid: () => changed(arg: value))),
+                        what: "AddLifeColours")
                     select added,
                 (ColourBars colour, UiCommandSurface.ToolbarCase toolbar) =>
                     from changed in Optional(colour.Changed).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ColourBars)), detail: "colour change delegate is required"))
-                    from added in Try.lift(f: () => {
+                    from added in Op.Of(name: nameof(ColourBars)).Attempt(body: () => {
                         void Assign(OpenColor.Family value) => _ = GrasshopperUi.Protect(valid: () => changed(arg: value));
                         Nomen nomen = new(name: $"{colour.Name} {{family}}", info: $"{colour.Name} {{family}}");
                         toolbar.Bar.AddLifeColours(nomen: nomen, initial: colour.Family, assignment: Assign);
                         toolbar.Bar.AddCoolColours(nomen: nomen, initial: colour.Family, assignment: Assign);
                         toolbar.Bar.AddWarmColours(nomen: nomen, initial: colour.Family, assignment: Assign);
-                        return unit;
-                    }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(ColourBars)), detail: $"colour bars threw: {error.Message}"))
+                    }, what: "colour bars")
                     select added,
-                (Spacer spacer, UiCommandSurface.ToolbarCase toolbar) => Try.lift(f: () => {
+                (Spacer spacer, UiCommandSurface.ToolbarCase toolbar) => Op.Of(name: nameof(Spacer)).Attempt(body: () => {
                     _ = toolbar.Bar.AddSpacer(chapterName: spacer.Chapter, sectionName: spacer.Section);
-                    return unit;
-                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Spacer)), detail: $"AddSpacer threw: {error.Message}")),
-                (Spacer, UiCommandSurface.MenuCase menu) => Try.lift(f: () => { menu.Target.AddSeparator(); return unit; })
-                            .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Spacer)), detail: $"AddSeparator threw: {error.Message}")),
+                }, what: "AddSpacer"),
+                (Spacer, UiCommandSurface.MenuCase menu) => Op.Of(name: nameof(Spacer)).Attempt(
+                    body: menu.Target.AddSeparator, what: "AddSeparator"),
                 (_, UiCommandSurface.MenuCase) => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{GetType().Name} cannot be projected to a context menu")),
                 _ => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: "unknown command surface")),
             });
@@ -544,8 +537,12 @@ internal static partial class Input {
     private static InputModifierSnapshot ModifierOf(Keys keys) =>
         new(Shift: keys.HasShift(), Command: keys.HasCommand(), Option: keys.HasOption());
 
+    // DialogParent cascade: Editor.ThisOrRhino > RhinoEtoApp.MainWindowForOwner (Mac-appropriate) >
+    // RhinoEtoApp.MainWindow (fallback). Returning null silently re-parents the dialog to nowhere and
+    // produces off-screen render on multi-display setups; the cascade always lands on a visible host.
     private static Control? DialogParent(GrasshopperUi.Scope scope) =>
-        scope.Editor.Map(static _ => (Control?)Editor.ThisOrRhino).IfNone((Control?)null);
+        scope.Editor.Map(static _ => (Control?)Editor.ThisOrRhino).IfNone(static () =>
+            (Control?)(Rhino.UI.RhinoEtoApp.MainWindowForOwner ?? Rhino.UI.RhinoEtoApp.MainWindow));
 
     internal static Seq<string> RunFileDialog(FileDialog dialog, Control? parent, Option<string> initialPath, FileFilter[] filters, Option<string> title) {
         using FileDialog owned = dialog;

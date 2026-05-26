@@ -1,42 +1,31 @@
 ---
-description: Rasm C# production code — LanguageExt, Thinktecture, polymorphic collapse, boundary capsules
-globs: libs/**/*.cs,apps/**/*.cs,tools/**/*.cs
+description: Rasm production C#: LanguageExt rails, Thinktecture collapse, native boundary capsules
+globs: "libs/**/*.cs,apps/**/*.cs,tools/**/*.cs"
 alwaysApply: false
 ---
 
 # Rasm C# Production
 
-**Required**: Read `coding-csharp` skill (`.claude/skills/coding-csharp/SKILL.md` or `~/.codex/skills/coding-csharp/SKILL.md`).
+Read `.claude/skills/coding-csharp/SKILL.md`, `CLAUDE.md`, root `AGENTS.md`, and the nearest nested `AGENTS.md`.
 
-## Architecture trinity
+## Architecture
 
-1. **Singular OOP boundary** — one sealed capsule per native integration (`RasmCommand`, `RhinoUi.Use`, `GhUi`, etc.)
-2. **Unified rails** — one of `Fin<T>`, `Validation<Error,T>`, `Eff<RT,T>` per file; no mixing
-3. **Dense FP internals** — exhaustive `switch`, `[Union]`/`SmartEnum`, folds; zero domain `if`/`while`/`try`
+- Keep one OOP capsule per native boundary, with FP/ROP internals.
+- Prefer `Fin<T>`, `Validation<Error,T>`, `Eff<RT,T>`, `Option`, folds, exhaustive switches, and typed failures.
+- Use Thinktecture `[Union]`, `[SmartEnum]`, and value objects to collapse sibling types and switches.
+- Convert nullable, bool, disposable, command, document, and host-specific effects at the boundary.
 
-## Library-specific AGENTS.md
+## Do Not Add
 
-| Library | File |
-|---------|------|
-| All libs | `libs/csharp/AGENTS.md` |
-| Rasm core | `libs/csharp/Rasm/AGENTS.md` |
-| Rhino boundary | `libs/csharp/Rasm.Rhino/AGENTS.md` |
-| GH2 boundary | `libs/csharp/Rasm.Grasshopper/AGENTS.md` |
-| Materials catalogue | `libs/csharp/Rasm.Materials/AGENTS.md` |
+- Helper, util, manager, common, options, params, or compatibility-shim files.
+- Wrapper-only RhinoCommon, GH2, Eto, LanguageExt, or MathNet renames.
+- Domain `try`/`catch`, exception control flow, mutable accumulation, or unbounded primitives where a typed invariant exists.
+- `RhinoDoc.ActiveDoc` when a command, UI, or document context already supplies a document.
 
-## Hard rules
+## Host Baseline
 
-- Zero `var`; explicit types everywhere
-- No helper/utility files (`*Helper`, `*Util`, `common.*`)
-- No wrapper-only RhinoCommon/GH2 renames
-- Extend canonical owners before new files/types
-- File sections: `TYPES` → `MODELS` → `CONSTANTS` → `ERRORS` → `SERVICES` → `OPERATIONS` → `COMPOSITION` → `EXPORTS`
-- Boundary adapters only: `// BOUNDARY ADAPTER — reason` for required imperative/native code
+Target RhinoWIP on macOS, GH2, Eto, and app-bundle references from `Directory.Build.props`. Verify risky host APIs with `bash scripts/rhino.sh api doctor|xml|types|decompile`.
 
 ## Validation
 
-```bash
-bash scripts/check-cs.sh check
-```
-
-Fix CSP#### violations architecturally. Run `full` only when `Directory.Build.props`, `Directory.Packages.props`, `.editorconfig`, or `Workspace.slnx` change.
+Run `bash scripts/check-cs.sh check` for coherent C# changes. Run `full` only when trigger build/config files change.

@@ -1,29 +1,37 @@
-# Rasm Project Cursor Rules
+# Rasm Cursor Rules
 
-Rule pack for the Rasm monorepo. Files live in `.cursor/rules/` at the repo root and are versioned with the project.
+Project rules for the Rasm monorepo live in `.cursor/rules/*.mdc`. They are concise routing and invariant files; canonical procedures remain in `CLAUDE.md`, `AGENTS.md`, nested `AGENTS.md`, `.claude/skills/`, `docs/`, and bridge docs.
 
 ## Activation
 
-| Method | Auto globs | Notes |
-|--------|------------|-------|
-| **Project rules (default)** | Yes | Cursor loads `.mdc` files here when the workspace is open |
-| **Personal skills** (`~/.cursor/skills/rasm-*`) | Via skill descriptions | Optional global router; complements project rules |
-| **User Rules paste** | No | Optional — copy `user-rules-bootstrap.txt` into Cursor Settings → Rules → User Rules |
-| **Manual @mention** | No | Reference `@rasm-csharp-production` etc. in Agent chat |
+| Rule mode | Where | Use |
+| --- | --- | --- |
+| Always | `rasm-core.mdc` | Repo router, required reads, quality rails. |
+| Auto attached | Rule `globs` | File-family guidance when matching files are open. |
+| Agent requested | Description with empty `globs` | Navigation guidance when useful. |
+| User Rules | Cursor Settings | Optional personal bootstrap from `user-rules-bootstrap.txt`. |
 
-Cursor docs: project `.mdc` rules use YAML frontmatter (`description`, `globs`, `alwaysApply`). User Rules in Settings are plain text only (no frontmatter).
+Cursor precedence is Team > Project > User. This repo does not define Cursor skills because `.claude/skills/` owns full procedures.
 
-## Rule index
+## Rule Index
 
 | File | Scope |
-|------|-------|
-| `rasm-core.mdc` | Always — manifest pointers, philosophy, gates |
-| `rasm-monorepo-navigation.mdc` | Intelligent — fd/rg/Nx discovery |
-| `rasm-csharp-production.mdc` | `**/*.cs` (not tests) |
-| `rasm-csharp-tests.mdc` | `**/*.spec.cs`, `**/*.verify.csx` |
-| `rasm-bash-scripts.mdc` | `**/*.sh` |
-| `rasm-docs-markdown.mdc` | `**/*.md` |
-| `rasm-rhino-bridge.mdc` | Bridge tool + scenarios |
-| `rasm-dependencies.mdc` | Package manifests |
+| --- | --- |
+| `rasm-core.mdc` | Always-on router. |
+| `rasm-monorepo-navigation.mdc` | Discovery and topology. |
+| `rasm-csharp-production.mdc` | Production C# under `libs/`, `apps/`, `tools/`. |
+| `rasm-csharp-tests.mdc` | C# specs, testkit, and Rhino scenarios. |
+| `rasm-rhino-bridge.mdc` | Bridge operator and `*.verify.csx` files. |
+| `rasm-bash-scripts.mdc` | Bash scripts. |
+| `rasm-docs-markdown.mdc` | Markdown and Cursor docs. |
+| `rasm-dependencies.mdc` | Package manifests and build props. |
+| `rasm-analysis-domain.mdc` | `Rasm/Analysis` plus `Rasm/Domain`. |
+| `rasm-vectors.mdc` | `Rasm/Vectors`. |
+| `rasm-grasshopper.mdc` | GH2 components and UI boundary. |
+| `rasm-rhino-ui.mdc` | Rhino/GH2/Eto UI rails. |
+| `rasm-rhino-exchange-camera-blocks.mdc` | Rhino Exchange, Camera, Blocks. |
 
-Repo truth stays in `CLAUDE.md`, `AGENTS.md`, and `docs/` — these rules distill Cursor-specific routing only.
+## Non-Rule Artifacts
+
+- `.cursor/BUGBOT.md` gives PR-review expectations for Bugbot.
+- `.cursor/research/rasm-cursor-infrastructure.md` captures the source-grounded synthesis behind this rule pack.

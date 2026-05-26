@@ -1,0 +1,28 @@
+---
+description: Rasm Analysis and Domain: shared kernel semantics, analysis rails, validation, stats, and geometry identity
+globs: "libs/csharp/Rasm/Analysis/*.cs,libs/csharp/Rasm/Domain/*.cs"
+alwaysApply: false
+---
+
+# Rasm Analysis And Domain
+
+Read `libs/csharp/Rasm/AGENTS.md` before edits.
+
+## Ownership
+
+| Folder | Owns |
+| --- | --- |
+| `Domain/` | `Context`, tolerances, geometry kind, coercion, ownership, validity, requirements, faults, stats, residuals, distributions, acceptance, and projection carriers. |
+| `Analysis/` | `Analyze`, `Operation<TGeometry,TOut>`, `IAspect`, and higher-order geometry analysis built on `Domain`. |
+
+## Rules
+
+- Extend existing `Domain` owners before adding local validation, stats, geometry-kind, or coercion logic.
+- Keep `Domain` independent of `Analysis`, `Vectors`, and future concern folders.
+- Route analysis through the unified `Analyze`/operation surface instead of per-file consumer APIs.
+- Model new intent as typed records, smart enums, unions, or projection carriers when it reduces primitive knobs.
+- Keep native interop converted at the boundary into typed rails and receipts.
+
+## Validation
+
+Run `bash scripts/check-cs.sh check`. Add `bash scripts/test.sh` when behavior or test oracles change.

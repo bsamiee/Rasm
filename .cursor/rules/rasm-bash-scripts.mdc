@@ -1,28 +1,28 @@
 ---
-description: Rasm bash scripts — strict mode, dispatch tables, ShellCheck, rhino.sh patterns
-globs: scripts/**/*.sh,**/*.sh
+description: Rasm Bash scripts: strict mode, dispatch tables, ShellCheck, and separated rail scripts
+globs: "scripts/**/*.sh,**/*.sh"
 alwaysApply: false
 ---
 
 # Rasm Bash Scripts
 
-**Required**: `coding-bash` skill (`~/.codex/skills/coding-bash/SKILL.md`).
+Read `.claude/skills/coding-bash/SKILL.md` before edits.
 
-## Script roles (do not conflate)
+## Script Roles
 
 | Script | Rail |
-|--------|------|
+| --- | --- |
 | `scripts/check-cs.sh` | Static: build, format, analyzer — no tests |
 | `scripts/test.sh` | `dotnet test` unit specs |
-| `scripts/rhino.sh` | Rhino bridge: build, doctor, check, verify, package, deploy |
+| `scripts/rhino.sh` | Rhino bridge: build, doctor, check, verify, package, deploy, publish |
 
 ## Conventions
 
-- Bash 5.2+/5.3, `set -euo pipefail` (or repo-established strict prelude)
-- Dispatch-table routing over nested conditionals
-- Atomic I/O, signal-safe cleanup
-- Validate with `bash -n` and `shellcheck` before completion
+- Use the repo strict prelude, dispatch-table routing, quoted paths, atomic staging, and cleanup traps.
+- Keep routes deterministic and fork-minimal.
+- Do not merge static, unit, and Rhino runtime rails.
+- Do not reintroduce stale bridge routes such as `load-smoke` or `StartScriptServer`.
 
-## Bridge script changes
+## Validation
 
-Run the validation ladder in `tools/rhino-bridge/AGENTS.md` serially; bridge and static gates share build caches and one live Rhino endpoint.
+Use `bash -n` and `shellcheck` for touched scripts. For `scripts/rhino.sh`, follow the serial ladder in `tools/rhino-bridge/AGENTS.md`.

@@ -721,9 +721,12 @@ internal static partial class UiRail {
             : (Verb: "Edit", Noun: name);
     }
 
+    private static Seq<WireEnds> WiresOrEmpty(IEnumerable<WireEnds>? wires) =>
+        Optional(wires).Map(static w => toSeq(w)).IfNone(Seq<WireEnds>());
+
     internal static DocumentSnapshot DocumentSnapshotOf(GhDocument document, GhObjectList objects) {
-        Seq<WireEnds> allWires = Optional(objects.AllWires).Map(static wires => toSeq(wires)).IfNone(Seq<WireEnds>());
-        Seq<WireEnds> selectedWires = Optional(objects.SelectedWires).Map(static wires => toSeq(wires)).IfNone(Seq<WireEnds>());
+        Seq<WireEnds> allWires = WiresOrEmpty(wires: objects.AllWires);
+        Seq<WireEnds> selectedWires = WiresOrEmpty(wires: objects.SelectedWires);
         int wireCount = allWires.Count(wire => Wire.IsConnected(objects: objects, wire: wire));
         int selectedWireCount = selectedWires.Count(wire => Wire.IsConnected(objects: objects, wire: wire));
         return new DocumentSnapshot(
