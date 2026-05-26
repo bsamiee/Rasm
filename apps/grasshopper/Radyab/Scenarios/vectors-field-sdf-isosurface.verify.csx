@@ -42,7 +42,8 @@ Mesh closedBox = Mesh.CreateFromBox(
 closedBox.Normals.ComputeNormals();
 closedBox.Compact();
 MeshSpace boxSpace = Expect(MeshSpace.Of(native: closedBox, context: context, key: key), "box space");
-ScalarField boxField = Expect(ScalarField.SignedDistanceFromMesh(space: boxSpace, method: SdfMeshMethod.GeneralizedWindingNumber, key: key), "box sdf");
+SdfMeshPolicy windingPolicy = Expect(SdfMeshPolicy.GeneralizedWinding(key: key), "winding policy");
+ScalarField boxField = Expect(ScalarField.SignedDistanceFromMesh(space: boxSpace, policy: windingPolicy, key: key), "box sdf");
 IsoSurfaceResult meshIso = Project<IsoSurfaceResult>(
     intent: VectorIntent.IsoSurface(field: boxField, bounds: isoBounds, resolution: 16, maxRootSteps: 16, key: key),
     context: context,
@@ -60,12 +61,32 @@ Mesh openSquare = Mesh.CreateFromPlane(
 openSquare.Normals.ComputeNormals();
 openSquare.Compact();
 MeshSpace openSpace = Expect(MeshSpace.Of(native: openSquare, context: context, key: key), "open space");
-ScalarField boundaryField = Expect(ScalarField.SignedDistanceFromMesh(space: openSpace, method: SdfMeshMethod.BoundarySignedHeat, key: key), "boundary signed heat sdf");
+SdfMeshPolicy boundaryPolicy = Expect(SdfMeshPolicy.BoundarySignedHeat(key: key), "boundary policy");
+ScalarField boundaryField = Expect(ScalarField.SignedDistanceFromMesh(space: openSpace, policy: boundaryPolicy, key: key), "boundary signed heat sdf");
 SdfSample boundarySample = Expect(boundaryField.SampleSdfDetailed(sample: new Point3d(x: 0.25, y: 0.25, z: 0.1), context: context, key: key), "boundary signed heat sample");
 SdfMeshReceipt boundaryReceipt = ExpectSome(boundarySample.Receipt.Mesh, "boundary receipt");
 SignedHeatReceipt signedHeat = ExpectSome(boundaryReceipt.SignedHeat, "signed heat receipt");
+SolveReceipt boundaryHeatSolve = ExpectSome(signedHeat.HeatSolve, "boundary heat solve");
 
-bool closedSignedHeatRejected = ScalarField.SignedDistanceFromMesh(space: boxSpace, method: SdfMeshMethod.ClosedSurfaceSignedHeat, key: key)
+VolumeGridPolicy closedGrid = Expect(VolumeGridPolicy.ByResolution(resolution: 8, padding: 1.0, key: key), "closed grid policy");
+SdfMeshPolicy closedPolicy = Expect(SdfMeshPolicy.ClosedSignedHeat(grid: closedGrid, key: key), "closed signed heat policy");
+ScalarField closedField = Expect(ScalarField.SignedDistanceFromMesh(space: boxSpace, policy: closedPolicy, key: key), "closed signed heat field");
+SdfSample closedInside = Expect(closedField.SampleSdfDetailed(sample: Point3d.Origin, context: context, key: key), "closed signed heat inside");
+SdfSample closedOutside = Expect(closedField.SampleSdfDetailed(sample: new Point3d(x: 3.4, y: 0.0, z: 0.0), context: context, key: key), "closed signed heat outside");
+SdfMeshPolicy flippedClosedPolicy = Expect(SdfMeshPolicy.ClosedSignedHeat(grid: closedGrid, signConvention: SdfSignConvention.PositiveInsideNegativeOutside, key: key), "flipped closed signed heat policy");
+ScalarField flippedClosedField = Expect(ScalarField.SignedDistanceFromMesh(space: boxSpace, policy: flippedClosedPolicy, key: key), "flipped closed signed heat field");
+SdfSample flippedClosedInside = Expect(flippedClosedField.SampleSdfDetailed(sample: Point3d.Origin, context: context, key: key), "flipped closed signed heat inside");
+SdfSample flippedClosedOutside = Expect(flippedClosedField.SampleSdfDetailed(sample: new Point3d(x: 3.4, y: 0.0, z: 0.0), context: context, key: key), "flipped closed signed heat outside");
+SdfMeshReceipt closedReceipt = ExpectSome(closedInside.Receipt.Mesh, "closed receipt");
+VolumeGridReceipt volumeReceipt = ExpectSome(closedReceipt.VolumeGrid, "closed volume grid receipt");
+IsoSurfaceReceipt closedIsoReceipt = Project<IsoSurfaceReceipt>(
+    intent: VectorIntent.IsoSurface(field: closedField, bounds: new BoundingBox(min: new Point3d(-3.5, -3.5, -3.5), max: new Point3d(3.5, 3.5, 3.5)), resolution: 12, maxRootSteps: 16, key: key),
+    context: context,
+    key: key,
+    label: "closed signed heat iso receipt");
+SdfMeshReceipt closedIsoPreflight = ExpectSome(closedIsoReceipt.MeshPreflight, "closed iso mesh preflight");
+
+bool openClosedSignedHeatRejected = ScalarField.SignedDistanceFromMesh(space: openSpace, policy: closedPolicy, key: key)
     .Bind(field => field.SampleSdfDetailed(sample: Point3d.Origin, context: context, key: key))
     .Match(Succ: static _ => false, Fail: static _ => true);
 
@@ -76,14 +97,16 @@ double containment = Project<double>(
     key: key,
     label: "support containment");
 
-bool evaluatorFailureRejected = VectorIntent.IsoSurface(
+Fin<VectorIntent> invalidIsoIntent = VectorIntent.IsoSurface(
         field: ScalarField.Constant(value: double.NaN),
         bounds: isoBounds,
         resolution: 8,
         maxRootSteps: 4,
-        key: key)
+        key: key);
+bool evaluatorFailureRejected = invalidIsoIntent
     .Bind(intent => intent.Project<IsoSurfaceResult>(context: context, key: key))
     .Match(Succ: static _ => false, Fail: static _ => true);
+IsoSurfaceReceipt evaluatorFailureReceipt = Expect(Expect(invalidIsoIntent, "invalid iso intent").Project<IsoSurfaceReceipt>(context: context, key: key), "invalid iso receipt");
 
 ConcurrentDictionary<int, int> threadIdsSeen = new();
 int sampleCount = 0;
@@ -99,14 +122,18 @@ Mesh nativeIso = Mesh.CreateFromIsosurface(
 
 Require(analyticIso.Receipt.ParallelCallback && analyticIso.Receipt.FixedTolerance.Match(Some: static tolerance => Math.Abs(tolerance - 0.001) <= 1.0e-12, None: static () => false), "analytic iso receipt lost native callback/tolerance facts");
 Require(analyticIso.Mesh.IsValid && analyticIso.Receipt.VertexCount > 0 && analyticIso.Receipt.FaceCount > 0, "analytic iso mesh invalid");
-Require(meshIso.Mesh.IsValid && meshReceipt.UsesGeneralizedWindingApproximation && meshReceipt.Status.Equals(SdfMeshStatus.ApproximateSignClosestDistance), "mesh iso receipt lost generalized-winding facts");
-Require(boundaryReceipt.UsesBoundarySignedHeat && boundaryReceipt.Status.Equals(SdfMeshStatus.BoundarySourceSignedHeat), "boundary signed heat receipt lost status");
-Require(signedHeat.BoundarySourceVertexCount > 0 && signedHeat.BoundaryEncodedEdgeSourceCount > 0 && signedHeat.HeatSolve.Solution.Count > 0 && signedHeat.PoissonSolve.Solution.Count > 0, "boundary signed heat solve/source facts invalid");
-Require(closedSignedHeatRejected, "closed SignedHeat must remain unsupported");
+Require(meshIso.Mesh.IsValid && meshReceipt.Domain.Equals(SdfMeshDomain.SurfaceMesh) && meshReceipt.Status.Equals(SdfMeshStatus.ApproximateSignClosestDistance), "mesh iso receipt lost generalized-winding facts");
+Require(boundaryReceipt.Domain.Equals(SdfMeshDomain.BoundarySource) && boundaryReceipt.Status.Equals(SdfMeshStatus.BoundarySourceSignedHeat), "boundary signed heat receipt lost status");
+Require(signedHeat.BoundarySourceVertexCount > 0 && signedHeat.BoundaryEncodedEdgeSourceCount > 0 && boundaryHeatSolve.Solution.Count > 0 && signedHeat.PoissonSolve.Solution.Count > 0, "boundary signed heat solve/source facts invalid");
+Require(closedReceipt.Domain.Equals(SdfMeshDomain.VolumeGrid) && closedReceipt.Status.Equals(SdfMeshStatus.ClosedSurfaceSignedHeat) && volumeReceipt.NodeCount > 0 && volumeReceipt.OperatorNonZeros > 0, "closed SignedHeat volume-grid facts invalid");
+Require(closedInside.Value < 0.0 && closedOutside.Value > 0.0, $"closed signs invalid inside={closedInside.Value:R} outside={closedOutside.Value:R}");
+Require(flippedClosedInside.Value > 0.0 && flippedClosedOutside.Value < 0.0, $"flipped closed signs invalid inside={flippedClosedInside.Value:R} outside={flippedClosedOutside.Value:R}");
+Require(closedIsoPreflight.Domain.Equals(SdfMeshDomain.VolumeGrid) && closedIsoPreflight.Status.Equals(SdfMeshStatus.ClosedSurfaceSignedHeat) && closedIsoPreflight.VolumeGrid.Match(Some: static grid => grid.NodeCount > 0, None: static () => false), "closed iso mesh preflight lost volume-grid facts");
+Require(openClosedSignedHeatRejected, "open mesh must reject closed SignedHeat");
 Require(RhinoMath.IsValidDouble(x: containment) && containment > 0.0, $"containment={containment:R}");
-Require(evaluatorFailureRejected, "native iso-surface evaluator failure must reject");
+Require(evaluatorFailureRejected && evaluatorFailureReceipt.Status.Equals(IsoSurfaceStatus.EvaluatorFailure), "native iso-surface evaluator failure receipt must be preserved");
 Require(nativeIso is { IsValid: true } && sampleCount > 0 && threadIdsSeen.Count >= 1, "native callback evidence missing");
 
 Console.WriteLine($"scenario={SCENARIO_NAME}");
 Console.WriteLine($"capture={CAPTURE_PATH}");
-Console.WriteLine($"facts={{\"analyticVertices\":{analyticIso.Receipt.VertexCount},\"meshVertices\":{meshIso.Receipt.VertexCount},\"fixedTolerance\":0.001,\"parallelCallback\":{analyticIso.Receipt.ParallelCallback.ToString().ToLowerInvariant()},\"meshMethod\":\"GeneralizedWindingNumber\",\"meshStatus\":\"ApproximateSignClosestDistance\",\"meshSolid\":{meshReceipt.IsSolid.ToString().ToLowerInvariant()},\"boundaryMethod\":\"BoundarySignedHeat\",\"boundaryStatus\":\"BoundarySourceSignedHeat\",\"boundaryComponents\":{boundaryReceipt.BoundaryComponents},\"nonManifoldEdges\":{boundaryReceipt.NonManifoldEdges},\"signedHeatSources\":{signedHeat.BoundarySourceVertexCount},\"signedHeatEncodedEdges\":{signedHeat.BoundaryEncodedEdgeSourceCount},\"heatResidual\":{signedHeat.HeatSolve.Residual:R},\"poissonResidual\":{signedHeat.PoissonSolve.Residual:R},\"closedSignedHeatRejected\":{closedSignedHeatRejected.ToString().ToLowerInvariant()},\"evaluatorFailureRejected\":{evaluatorFailureRejected.ToString().ToLowerInvariant()},\"threadIdsSeen\":{threadIdsSeen.Count},\"sampleCount\":{sampleCount}}}");
+Console.WriteLine($"facts={{\"analyticVertices\":{analyticIso.Receipt.VertexCount},\"meshVertices\":{meshIso.Receipt.VertexCount},\"fixedTolerance\":0.001,\"parallelCallback\":{analyticIso.Receipt.ParallelCallback.ToString().ToLowerInvariant()},\"meshMethod\":\"GeneralizedWindingNumber\",\"meshStatus\":\"ApproximateSignClosestDistance\",\"meshSolid\":{meshReceipt.Topology.IsSolid.ToString().ToLowerInvariant()},\"boundaryMethod\":\"BoundarySignedHeat\",\"boundaryStatus\":\"BoundarySourceSignedHeat\",\"boundaryComponents\":{boundaryReceipt.Topology.BoundaryComponents},\"nonManifoldEdges\":{boundaryReceipt.Topology.NonManifoldEdges},\"signedHeatSources\":{signedHeat.BoundarySourceVertexCount},\"signedHeatEncodedEdges\":{signedHeat.BoundaryEncodedEdgeSourceCount},\"heatResidual\":{boundaryHeatSolve.Residual:R},\"poissonResidual\":{signedHeat.PoissonSolve.Residual:R},\"closedMethod\":\"ClosedSurfaceSignedHeat\",\"closedDomain\":\"VolumeGrid\",\"closedNodes\":{volumeReceipt.NodeCount},\"closedCells\":{volumeReceipt.CellCount},\"closedSources\":{volumeReceipt.SourceTriangleCount},\"closedResidual\":{volumeReceipt.Residual:R},\"closedInside\":{closedInside.Value:R},\"closedOutside\":{closedOutside.Value:R},\"flippedClosedInside\":{flippedClosedInside.Value:R},\"flippedClosedOutside\":{flippedClosedOutside.Value:R},\"openClosedSignedHeatRejected\":{openClosedSignedHeatRejected.ToString().ToLowerInvariant()},\"evaluatorFailureRejected\":{evaluatorFailureRejected.ToString().ToLowerInvariant()},\"evaluatorFailureStatus\":\"EvaluatorFailure\",\"threadIdsSeen\":{threadIdsSeen.Count},\"sampleCount\":{sampleCount}}}");

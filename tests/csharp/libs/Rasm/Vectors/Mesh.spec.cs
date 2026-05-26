@@ -1,6 +1,7 @@
 using Rasm.Domain;
 using Rasm.TestKit;
 using Rasm.Vectors;
+using Rhino;
 using Rhino.Geometry;
 using Dimension = Rasm.Vectors.Dimension;
 
@@ -107,14 +108,90 @@ public sealed class MeshTopologyAndSdfLaws {
         TopologyReceipt open = closed with { BoundaryComponents = 1, HasBoundary = true, IsClosed = false, IsSolid = false, IsWatertight = false };
         Assert.True(condition: closed.IsWatertight);
         Assert.False(condition: open.IsWatertight);
-        Assert.Equal(expected: SdfMeshStatus.ClosedSurfaceSignedHeatUnsupported, actual: SdfMeshMethod.ClosedSurfaceSignedHeat.Status);
-        Assert.Equal(expected: SdfMeshDomain.VolumeTet, actual: SdfMeshMethod.ClosedSurfaceSignedHeat.Domain);
+        Assert.Equal(expected: SdfMeshStatus.ClosedSurfaceSignedHeat, actual: SdfMeshMethod.ClosedSurfaceSignedHeat.Status);
+        Assert.Equal(expected: SdfMeshDomain.VolumeGrid, actual: SdfMeshMethod.ClosedSurfaceSignedHeat.Domain);
         Assert.NotEqual(expected: SdfMeshDomain.BoundarySource, actual: SdfMeshMethod.ClosedSurfaceSignedHeat.Domain);
         Assert.NotEqual(expected: SdfMeshDomain.SurfaceMesh, actual: SdfMeshMethod.ClosedSurfaceSignedHeat.Domain);
         Assert.Equal(expected: SdfMeshStatus.BoundarySourceSignedHeat, actual: SdfMeshMethod.BoundarySignedHeat.Status);
         Assert.Equal(expected: SdfMeshDomain.SurfaceMesh, actual: SdfMeshMethod.GeneralizedWindingNumber.Domain);
-        Spec.SmartEnumKeysUnique(items: [SdfMeshStatus.ApproximateSignClosestDistance, SdfMeshStatus.BoundarySourceSignedHeat, SdfMeshStatus.ClosedSurfaceSignedHeatUnsupported], key: static status => status.Key);
+        Spec.SmartEnumKeysUnique(items: [SdfMeshStatus.ApproximateSignClosestDistance, SdfMeshStatus.BoundarySourceSignedHeat, SdfMeshStatus.ClosedSurfaceSignedHeat], key: static status => status.Key);
         Spec.SmartEnumKeysUnique(items: [SdfMeshDomain.SurfaceMesh, SdfMeshDomain.BoundarySource, SdfMeshDomain.VolumeGrid, SdfMeshDomain.VolumeTet], key: static domain => domain.Key);
+    }
+    [Fact]
+    public void ClosedSignedHeatPolicyAndReceiptsExposeVolumeGridWithoutFallback() {
+        VolumeGridPolicy grid = Spec.SuccValue(VolumeGridPolicy.ByResolution(resolution: 4, padding: 1.0, key: MeshGens.Key), label: "grid policy");
+        SignedHeatTime heat = Spec.SuccValue(SignedHeatTime.Scaled(coefficient: 1.0, key: MeshGens.Key), label: "heat");
+        VolumeSolverPolicy solver = Spec.SuccValue(VolumeSolverPolicy.SparseCholesky(key: MeshGens.Key), label: "solver");
+        SdfMeshPolicy policy = Spec.SuccValue(SdfMeshPolicy.ClosedSignedHeat(grid: grid, heat: heat, solver: solver, key: MeshGens.Key), label: "closed policy");
+        TopologyReceipt topology = new(Vertices: 8, TopologyVertices: 8, TopologyEdges: 12, Faces: 6, Triangles: 12, Quads: 0, Ngons: 0, VisiblePolygons: 12, BoundaryComponents: 0, NonManifoldEdges: 0, HasBoundary: false, IsClosed: true, IsSolid: true, IsWatertight: true, IsManifold: true, IsOriented: true, EulerCharacteristic: 2, Genus: Some(0), EulerValidated: true);
+        SolveReceipt poisson = new(
+            Solution: new Arr<double>([0.0, 1.0]),
+            Path: SolvePath.SparseCholesky,
+            Stop: SolveStop.DirectSolved,
+            Rows: Dimension.Create(value: 2),
+            Cols: Dimension.Create(value: 2),
+            RhsLength: 2,
+            Iterations: Option<int>.None,
+            MaxIterations: Option<int>.None,
+            Tolerance: Some(solver.ResidualTolerance.Value),
+            Residual: 0.0,
+            FullRank: Option<bool>.None,
+            InputNonZeros: Some(2),
+            FactorNonZeros: Some(2));
+        VolumeGridReceipt volumeReceipt = new(
+            Bounds: new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0)),
+            Resolution: grid.Resolution.Map(static value => value.Value).IfNone(0),
+            XNodes: 5,
+            YNodes: 5,
+            ZNodes: 5,
+            CellSize: 0.25,
+            Padding: grid.Padding.Value,
+            NodeCount: 125,
+            CellCount: 64,
+            SourceTriangleCount: 12,
+            DegenerateTriangleCount: 0,
+            SourceArea: 24.0,
+            InsideNodeCount: 27,
+            OutsideNodeCount: 98,
+            NearSurfaceNodeCount: 54,
+            RejectedVectorCount: 0,
+            HeatTime: heat.Coefficient.Value * 0.25 * 0.25,
+            GaugeNode: 0,
+            SurfaceShift: 0.1,
+            Interpolation: VolumeInterpolation.Trilinear,
+            BoundaryCondition: VolumeBoundaryCondition.NeumannGaugePinned,
+            Solver: solver,
+            OperatorNonZeros: 725,
+            FactorNonZeros: Some(512),
+            Residual: 0.0);
+        SdfMeshReceipt receipt = new(Method: policy.Method, Status: policy.Method.Status, Domain: policy.Method.Domain, Topology: topology, SignedHeat: Some(new SignedHeatReceipt(BoundarySourceVertexCount: 0, BoundaryEncodedEdgeSourceCount: 0, BoundaryRejectedPointCount: 0, BoundaryUnmatchedSegmentCount: 0, HeatSolve: Option<SolveReceipt>.None, PoissonSolve: poisson)), VolumeGrid: Some(volumeReceipt));
+        Assert.Equal(expected: SdfMeshDomain.VolumeGrid, actual: receipt.Domain);
+        Assert.Equal(expected: SdfMeshStatus.ClosedSurfaceSignedHeat, actual: receipt.Status);
+        Spec.Some(receipt.VolumeGrid, volume => {
+            Assert.True(condition: volume.NodeCount > 0 && volume.CellCount > 0 && volume.SourceTriangleCount == 12);
+            Assert.True(condition: volume.OperatorNonZeros > 0 && volume.FactorNonZeros.IsSome);
+            Assert.True(condition: RhinoMath.IsValidDouble(x: volume.Residual));
+        });
+        Spec.Some(receipt.SignedHeat, signed => {
+            Assert.Equal(expected: 0, actual: signed.BoundaryEncodedEdgeSourceCount);
+            Assert.True(condition: signed.HeatSolve.IsNone);
+            Assert.True(condition: signed.PoissonSolve.FactorNonZeros.IsSome);
+        });
+    }
+    [Fact]
+    public void SdfMeshPolicyAdmissionRejectsDefaultAndConstructorBypass() {
+        Spec.Fail(default(SdfMeshPolicy).Admit(key: MeshGens.Key));
+        VolumeGridPolicy grid = Spec.SuccValue(VolumeGridPolicy.ByResolution(key: MeshGens.Key), label: "grid");
+        VolumeGridPolicy sized = Spec.SuccValue(VolumeGridPolicy.ByCellSize(cellSize: 0.25, key: MeshGens.Key), label: "sized grid");
+        SdfMeshPolicy closed = Spec.SuccValue(SdfMeshPolicy.ClosedSignedHeat(grid: grid, key: MeshGens.Key), label: "closed");
+        SdfMeshPolicy noGridClosed = Spec.SuccValue(SdfMeshPolicy.GeneralizedWinding(key: MeshGens.Key), label: "winding") with { Method = SdfMeshMethod.ClosedSurfaceSignedHeat };
+        SdfMeshPolicy gridOnSurface = closed with { Method = SdfMeshMethod.GeneralizedWindingNumber };
+        SdfMeshPolicy bothGridScales = closed with { Grid = Some(grid with { CellSize = sized.CellSize }) };
+        SdfMeshPolicy noGridScale = closed with { Grid = Some(grid with { Resolution = Option<Dimension>.None }) };
+        SdfMeshPolicy noSign = closed with { SignConvention = null! };
+        SdfMeshPolicy noSolver = closed with { Solver = default };
+        Seq<SdfMeshPolicy> invalid = Seq(noGridClosed, gridOnSurface, bothGridScales, noGridScale, noSign, noSolver);
+        _ = invalid.Iter(policy => Spec.Fail(policy.Admit(key: MeshGens.Key)));
     }
 }
 

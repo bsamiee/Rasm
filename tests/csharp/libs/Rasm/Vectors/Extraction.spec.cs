@@ -74,6 +74,10 @@ public sealed class ExtractionProjectionLaws {
             Assert.Equal(expected: ExtractionGens.Samples.Count, actual: receipt.Emitted);
             Assert.Equal(expected: 0, actual: receipt.Rejected);
             Assert.False(condition: receipt.NativeRouted);
+            Spec.Some(receipt.Sample, sample => {
+                Assert.Equal(expected: ExtractionGens.Samples.Count, actual: sample.Attempted);
+                Assert.Equal(expected: ExtractionGens.Samples.Count, actual: sample.Emitted);
+            });
         });
         Spec.FailCategory(grid.Project<Point3d>(context: ExtractionGens.Model, key: ExtractionGens.Key), category: "Unsupported");
     }

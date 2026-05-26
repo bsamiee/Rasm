@@ -3,7 +3,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum<int>] public sealed partial class SdfMeshMethod { public static readonly SdfMeshMethod GeneralizedWindingNumber = new(key: 0, status: SdfMeshStatus.ApproximateSignClosestDistance, domain: SdfMeshDomain.SurfaceMesh), BoundarySignedHeat = new(key: 1, status: SdfMeshStatus.BoundarySourceSignedHeat, domain: SdfMeshDomain.BoundarySource), ClosedSurfaceSignedHeat = new(key: 2, status: SdfMeshStatus.ClosedSurfaceSignedHeatUnsupported, domain: SdfMeshDomain.VolumeTet); public SdfMeshStatus Status { get; } public SdfMeshDomain Domain { get; } }
+[SmartEnum<int>] public sealed partial class SdfMeshMethod { public static readonly SdfMeshMethod GeneralizedWindingNumber = new(key: 0, status: SdfMeshStatus.ApproximateSignClosestDistance, domain: SdfMeshDomain.SurfaceMesh), BoundarySignedHeat = new(key: 1, status: SdfMeshStatus.BoundarySourceSignedHeat, domain: SdfMeshDomain.BoundarySource), ClosedSurfaceSignedHeat = new(key: 2, status: SdfMeshStatus.ClosedSurfaceSignedHeat, domain: SdfMeshDomain.VolumeGrid); public SdfMeshStatus Status { get; } public SdfMeshDomain Domain { get; } }
 
 [SmartEnum<int>]
 public sealed partial class FieldBlend {
@@ -162,6 +162,82 @@ public sealed partial class SdfKind {
         };
     private static double SdfOctant(double qx, double qy, double qz, double s) =>
         Math.Clamp(value: 0.5 * (qz - qy + s), min: 0.0, max: s) switch { double k => Math.Sqrt(d: (qx * qx) + ((qy - s + k) * (qy - s + k)) + ((qz - k) * (qz - k))) };
+}
+
+[SmartEnum<int>] public sealed partial class SdfSignConvention { public static readonly SdfSignConvention NegativeInsidePositiveOutside = new(key: 0, multiplier: 1.0), PositiveInsideNegativeOutside = new(key: 1, multiplier: -1.0); public double Multiplier { get; } }
+[SmartEnum<int>] public sealed partial class VolumeInterpolation { public static readonly VolumeInterpolation Trilinear = new(key: 0); }
+[SmartEnum<int>] public sealed partial class VolumeBoundaryCondition { public static readonly VolumeBoundaryCondition NeumannGaugePinned = new(key: 0); }
+[SmartEnum<int>] public sealed partial class VolumeSolverKind { public static readonly VolumeSolverKind SparseCholeskyPinned = new(key: 0); }
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SignedHeatTime(Option<PositiveMagnitude> Explicit, PositiveMagnitude Coefficient) {
+    public static Fin<SignedHeatTime> Scaled(double coefficient = 1.0, Op? key = null) =>
+        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: coefficient).Map(static c => new SignedHeatTime(Explicit: Option<PositiveMagnitude>.None, Coefficient: c));
+    public static Fin<SignedHeatTime> Fixed(double value, Op? key = null) =>
+        from heat in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: value)
+        from coefficient in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: 1.0)
+        select new SignedHeatTime(Explicit: Some(heat), Coefficient: coefficient);
+    internal double Resolve(double cellSize) {
+        double coefficient = Coefficient.Value;
+        return Explicit.Match(Some: static heat => heat.Value, None: () => coefficient * cellSize * cellSize);
+    }
+    internal bool IsValid => Coefficient.Value > 0.0 && Explicit.Map(static heat => heat.Value > 0.0).IfNone(true);
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct VolumeGridPolicy(Option<Dimension> Resolution, Option<PositiveMagnitude> CellSize, PositiveMagnitude Padding) {
+    public static Fin<VolumeGridPolicy> ByResolution(int resolution = 16, double padding = 1.0, Op? key = null) =>
+        from count in key.OrDefault().AcceptValidated<Dimension>(candidate: resolution)
+        from pad in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: padding)
+        select new VolumeGridPolicy(Resolution: Some(count), CellSize: Option<PositiveMagnitude>.None, Padding: pad);
+    public static Fin<VolumeGridPolicy> ByCellSize(double cellSize, double padding = 1.0, Op? key = null) =>
+        from size in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: cellSize)
+        from pad in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: padding)
+        select new VolumeGridPolicy(Resolution: Option<Dimension>.None, CellSize: Some(size), Padding: pad);
+    internal bool IsValid => Padding.Value > 0.0 && Resolution.IsSome != CellSize.IsSome && Resolution.Map(static count => count.Value > 0).IfNone(true) && CellSize.Map(static size => size.Value > 0.0).IfNone(true);
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct VolumeSolverPolicy(VolumeSolverKind Kind, PositiveMagnitude ResidualTolerance) {
+    public static Fin<VolumeSolverPolicy> SparseCholesky(double residualTolerance = 1.0e-8, Op? key = null) =>
+        from kind in Optional(VolumeSolverKind.SparseCholeskyPinned).ToFin(key.OrDefault().InvalidInput())
+        from tolerance in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: residualTolerance)
+        select new VolumeSolverPolicy(Kind: kind, ResidualTolerance: tolerance);
+    internal bool IsValid => Kind is not null && Kind.Equals(VolumeSolverKind.SparseCholeskyPinned) && ResidualTolerance.Value > 0.0;
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SdfMeshPolicy(SdfMeshMethod Method, SdfSignConvention SignConvention, Option<VolumeGridPolicy> Grid, SignedHeatTime Heat, VolumeSolverPolicy Solver, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition) {
+    public static Fin<SdfMeshPolicy> GeneralizedWinding(SdfSignConvention? signConvention = null, Op? key = null) =>
+        Defaults(method: SdfMeshMethod.GeneralizedWindingNumber, signConvention: signConvention, grid: Option<VolumeGridPolicy>.None, key: key.OrDefault());
+    public static Fin<SdfMeshPolicy> BoundarySignedHeat(SignedHeatTime? heat = null, VolumeSolverPolicy? solver = null, SdfSignConvention? signConvention = null, Op? key = null) =>
+        Defaults(method: SdfMeshMethod.BoundarySignedHeat, signConvention: signConvention, grid: Option<VolumeGridPolicy>.None, heat: heat, solver: solver, key: key.OrDefault());
+    public static Fin<SdfMeshPolicy> ClosedSignedHeat(VolumeGridPolicy grid, SignedHeatTime? heat = null, VolumeSolverPolicy? solver = null, VolumeInterpolation? interpolation = null, SdfSignConvention? signConvention = null, VolumeBoundaryCondition? boundaryCondition = null, Op? key = null) =>
+        Defaults(method: SdfMeshMethod.ClosedSurfaceSignedHeat, signConvention: signConvention, grid: Some(grid), heat: heat, solver: solver, interpolation: interpolation, boundaryCondition: boundaryCondition, key: key.OrDefault());
+    internal Fin<SdfMeshPolicy> Admit(Op key) {
+        SdfMeshPolicy self = this;
+        SdfMeshMethod method = Method; SdfSignConvention signConvention = SignConvention; VolumeInterpolation interpolation = Interpolation; VolumeBoundaryCondition boundaryCondition = BoundaryCondition;
+        SignedHeatTime heat = Heat; VolumeSolverPolicy solver = Solver; Option<VolumeGridPolicy> grid = Grid;
+        return from active in Optional(method).ToFin(key.InvalidInput())
+               from sign in Optional(signConvention).ToFin(key.InvalidInput())
+               from interp in Optional(interpolation).ToFin(key.InvalidInput())
+               from boundary in Optional(boundaryCondition).ToFin(key.InvalidInput())
+               from _ in guard(sign.Equals(SdfSignConvention.NegativeInsidePositiveOutside) || sign.Equals(SdfSignConvention.PositiveInsideNegativeOutside), key.InvalidInput())
+               from __ in guard(interp.Equals(VolumeInterpolation.Trilinear) && boundary.Equals(VolumeBoundaryCondition.NeumannGaugePinned) && heat.IsValid && solver.IsValid, key.InvalidInput())
+               from ___ in active.Equals(SdfMeshMethod.ClosedSurfaceSignedHeat)
+                   ? grid.Filter(static policy => policy.IsValid).ToFin(key.InvalidInput()).Map(static _ => unit)
+                   : grid.IsNone ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
+               select self;
+    }
+    private static Fin<SdfMeshPolicy> Defaults(SdfMeshMethod method, SdfSignConvention? signConvention, Option<VolumeGridPolicy> grid, Op key, SignedHeatTime? heat = null, VolumeSolverPolicy? solver = null, VolumeInterpolation? interpolation = null, VolumeBoundaryCondition? boundaryCondition = null) =>
+        from active in Optional(method).ToFin(key.InvalidInput())
+        from sign in Optional(signConvention ?? SdfSignConvention.NegativeInsidePositiveOutside).ToFin(key.InvalidInput())
+        from time in heat.HasValue ? Fin.Succ(heat.Value) : SignedHeatTime.Scaled(key: key)
+        from solve in solver.HasValue ? Fin.Succ(solver.Value) : VolumeSolverPolicy.SparseCholesky(key: key)
+        from interp in Optional(interpolation ?? VolumeInterpolation.Trilinear).ToFin(key.InvalidInput())
+        from boundary in Optional(boundaryCondition ?? VolumeBoundaryCondition.NeumannGaugePinned).ToFin(key.InvalidInput())
+        from policy in new SdfMeshPolicy(Method: active, SignConvention: sign, Grid: grid, Heat: time, Solver: solve, Interpolation: interp, BoundaryCondition: boundary).Admit(key: key)
+        select policy;
 }
 
 [SmartEnum<int>]
@@ -586,7 +662,7 @@ public abstract partial record ScalarField {
     public sealed record MeanCurvatureFlowCase : ScalarField { internal MeanCurvatureFlowCase(MeshSpace Space, PositiveMagnitude TimeStep, Dimension Iterations) { this.Space = Space; this.TimeStep = TimeStep; this.Iterations = Iterations; } public MeshSpace Space { get; } public PositiveMagnitude TimeStep { get; } public Dimension Iterations { get; } }
     public sealed record SpectralDistanceCase : ScalarField { internal SpectralDistanceCase(MeshSpace Space, SpectralFilter Filter, Seq<int> Sources, Dimension Pairs) { this.Space = Space; this.Filter = Filter; this.Sources = Sources; this.Pairs = Pairs; } public MeshSpace Space { get; } public SpectralFilter Filter { get; } public Seq<int> Sources { get; } public Dimension Pairs { get; } }
     public sealed record StripeCase : ScalarField { internal StripeCase(MeshSpace Space, VectorField CrossField, PositiveMagnitude Frequency) { this.Space = Space; this.CrossField = CrossField; this.Frequency = Frequency; } public MeshSpace Space { get; } public VectorField CrossField { get; } public PositiveMagnitude Frequency { get; } }
-    public sealed record SignedDistanceFromMeshCase : ScalarField { internal SignedDistanceFromMeshCase(MeshSpace Space, SdfMeshMethod Method) { this.Space = Space; this.Method = Method; } public MeshSpace Space { get; } public SdfMeshMethod Method { get; } }
+    public sealed record SignedDistanceFromMeshCase : ScalarField { internal SignedDistanceFromMeshCase(MeshSpace Space, SdfMeshPolicy Policy) { this.Space = Space; this.Policy = Policy; } public MeshSpace Space { get; } public SdfMeshPolicy Policy { get; } }
     public sealed record RbfCase : ScalarField { internal RbfCase(Seq<(Point3d Position, double Value)> Samples, KernelKind Kernel, PositiveMagnitude Radius, Arr<double> Coefficients, ReconstructionReceipt Receipt) { this.Samples = Samples; this.Kernel = Kernel; this.Radius = Radius; this.Coefficients = Coefficients; this.Receipt = Receipt; } public Seq<(Point3d Position, double Value)> Samples { get; } public KernelKind Kernel { get; } public PositiveMagnitude Radius { get; } public Arr<double> Coefficients { get; } public ReconstructionReceipt Receipt { get; } }
     public sealed record MlsCase : ScalarField { internal MlsCase(Seq<MlsSample> Samples, KernelKind Kernel, PositiveMagnitude Radius, ReconstructionReceipt Receipt) { this.Samples = Samples; this.Kernel = Kernel; this.Radius = Radius; this.Receipt = Receipt; } public Seq<MlsSample> Samples { get; } public KernelKind Kernel { get; } public PositiveMagnitude Radius { get; } public ReconstructionReceipt Receipt { get; } }
     public static ScalarField Constant(double value) => new ConstantCase(Value: value);
@@ -642,8 +718,8 @@ public abstract partial record ScalarField {
         from _ in FieldNabla.MeshVertices(space: space, vertices: sources, allowEmpty: true, key: key.OrDefault()) from active in Optional(filter).ToFin(key.OrDefault().InvalidInput()) from count in key.OrDefault().AcceptValidated<Dimension>(candidate: pairs) select (ScalarField)new SpectralDistanceCase(Space: space, Filter: active, Sources: sources, Pairs: count);
     public static Fin<ScalarField> Stripe(MeshSpace space, VectorField crossField, double frequency, Op? key = null) =>
         from _ in FieldNabla.MeshOf(space: space, key: key.OrDefault()) from active in Optional(crossField).ToFin(key.OrDefault().InvalidInput()) from freq in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: frequency) select (ScalarField)new StripeCase(Space: space, CrossField: active, Frequency: freq);
-    public static Fin<ScalarField> SignedDistanceFromMesh(MeshSpace space, SdfMeshMethod method, Op? key = null) =>
-        from _ in FieldNabla.MeshOf(space: space, key: key.OrDefault()) from active in Optional(method).ToFin(key.OrDefault().InvalidInput()) select (ScalarField)new SignedDistanceFromMeshCase(Space: space, Method: active);
+    public static Fin<ScalarField> SignedDistanceFromMesh(MeshSpace space, SdfMeshPolicy policy, Op? key = null) =>
+        from _ in FieldNabla.MeshOf(space: space, key: key.OrDefault()) from active in policy.Admit(key: key.OrDefault()) select (ScalarField)new SignedDistanceFromMeshCase(Space: space, Policy: active);
     public static Fin<ReconstructionResult> RbfDetailed(Seq<(Point3d Position, double Value)> samples, KernelKind kernel, double radius, double smoothing = 0.0, Op? key = null) =>
         from active in Optional(kernel).ToFin(key.OrDefault().InvalidInput())
         from r in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: radius)
@@ -767,7 +843,7 @@ public abstract partial record ScalarField {
         Optional(context).ToFin(key.OrDefault().MissingContext()).Bind(model => this switch {
             PrimitiveCase => from value in SampleScalar(sample: sample, context: model, key: key.OrDefault()) select new SdfSample(Value: value, Receipt: SdfReceiptOf(field: this, status: SdfStatus.Analytic, mesh: Option<SdfMeshReceipt>.None)),
             ProfileExtrusionCase profileCase => SampleProfileExtrusion(source: profileCase, sample: sample, context: model, key: key.OrDefault()),
-            SignedDistanceFromMeshCase meshCase => from signed in MeshKernel.SignedDistanceFromMeshDetailed(space: meshCase.Space, method: meshCase.Method, sample: sample, key: key.OrDefault()) select new SdfSample(Value: signed.Distance, Receipt: SdfReceiptOf(field: this, status: SdfStatus.MeshApproximate, mesh: Some(signed.Receipt))),
+            SignedDistanceFromMeshCase meshCase => from signed in MeshKernel.SignedDistanceFromMeshDetailed(space: meshCase.Space, policy: meshCase.Policy, sample: sample, key: key.OrDefault()) select new SdfSample(Value: signed.Distance, Receipt: SdfReceiptOf(field: this, status: SdfStatus.MeshApproximate, mesh: Some(signed.Receipt))),
             _ => from _ in LipschitzBound().ToFin(key.OrDefault().Unsupported(geometryType: GetType(), outputType: typeof(SdfSample))) from value in SampleScalar(sample: sample, context: model, key: key.OrDefault()) select new SdfSample(Value: value, Receipt: SdfReceiptOf(field: this, status: SdfStatus.ComposedAnalytic, mesh: Option<SdfMeshReceipt>.None)),
         });
     private static SdfReceipt SdfReceiptOf(ScalarField field, SdfStatus status, Option<SdfMeshReceipt> mesh) =>
@@ -782,7 +858,7 @@ public abstract partial record ScalarField {
         return FieldNabla.IsoSurfaceInput(bounds: bounds, resolution: resolution, maxRootSteps: maxRootSteps, key: key)
             .Bind(_ => Optional(context).ToFin(key.MissingContext()).Bind(model => self.AdmitScalarPayload(context: model, key: key)))
             .Bind(_ => self is SignedDistanceFromMeshCase meshCase
-                ? MeshKernel.PrewarmSignedDistanceEvaluator(space: meshCase.Space, method: meshCase.Method, key: key).Map(Some)
+                ? MeshKernel.PrewarmSignedDistanceEvaluator(space: meshCase.Space, policy: meshCase.Policy, key: key).Map(Some)
                 : Fin.Succ(Option<SdfMeshReceipt>.None))
             .Bind(meshPreflight => key.Catch(() => {
                 int failures = 0;
@@ -873,7 +949,7 @@ public abstract partial record ScalarField {
             StripeCase c => from mesh in FieldNabla.MeshOf(space: c.Space, key: key).Map(static _ => unit)
                             from cross in AdmitVectorSource(source: c.CrossField, context: context, key: key)
                             select unit,
-            SignedDistanceFromMeshCase c => MeshKernel.PrewarmSignedDistanceEvaluator(space: c.Space, method: c.Method, key: key).Map(static _ => unit),
+            SignedDistanceFromMeshCase c => MeshKernel.PrewarmSignedDistanceEvaluator(space: c.Space, policy: c.Policy, key: key).Map(static _ => unit),
             RbfCase c => AdmitRbfPayload(field: c, key: key),
             MlsCase c => AdmitMlsPayload(field: c, context: context, key: key),
             OnionCase c => AdmitScalarSource(source: c.Source, context: context, key: key),
@@ -1169,7 +1245,7 @@ public abstract partial record ScalarField {
         meanCurvatureFlowCase: static (state, c) => MeshKernel.MeanCurvatureMagnitudeAt(space: c.Space, timeStep: c.TimeStep.Value, iterations: c.Iterations.Value, sample: state.Sample, key: state.Key),
         spectralDistanceCase: static (state, c) => MeshKernel.SpectralDistanceAt(space: c.Space, filter: c.Filter, sources: c.Sources, pairs: c.Pairs.Value, sample: state.Sample, key: state.Key),
         stripeCase: static (state, c) => MeshKernel.StripeAt(space: c.Space, crossField: c.CrossField, frequency: c.Frequency.Value, sample: state.Sample, key: state.Key),
-        signedDistanceFromMeshCase: static (state, c) => MeshKernel.SignedDistanceFromMeshDetailed(space: c.Space, method: c.Method, sample: state.Sample, key: state.Key).Map(static result => result.Distance),
+        signedDistanceFromMeshCase: static (state, c) => MeshKernel.SignedDistanceFromMeshDetailed(space: c.Space, policy: c.Policy, sample: state.Sample, key: state.Key).Map(static result => result.Distance),
         rbfCase: static (state, c) => EvaluateRbf(samples: c.Samples, kernel: c.Kernel, radius: c.Radius.Value, coefficients: c.Coefficients, sample: state.Sample, key: state.Key),
         mlsCase: static (state, c) => EvaluateMls(samples: c.Samples, kernel: c.Kernel, radius: c.Radius.Value, sample: state.Sample, context: state.Context, key: state.Key).Map(static result => result.Value));
     public Fin<ReconstructionSample> SampleReconstructionDetailed(Point3d sample, Context context, Op? key = null) =>
@@ -1212,8 +1288,7 @@ internal static class FieldNabla {
     internal static Fin<Vector3d> NonnegativeExtent(Vector3d extent, Op key) =>
         Finite(vector: extent) && extent.X >= 0.0 && extent.Y >= 0.0 && extent.Z >= 0.0 ? Fin.Succ(extent) : Fin.Fail<Vector3d>(key.InvalidInput());
     internal static Fin<Plane> Plane(Plane basis, Op key) =>
-        basis.IsValid
-        && Finite(point: basis.Origin)
+        Finite(point: basis.Origin)
         && Finite(vector: basis.XAxis)
         && Finite(vector: basis.YAxis)
         && Finite(vector: basis.ZAxis)

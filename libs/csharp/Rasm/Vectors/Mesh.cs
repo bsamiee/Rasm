@@ -32,7 +32,15 @@ internal readonly record struct GeodesicKey(Seq<int> Sources);
 [StructLayout(LayoutKind.Auto)] internal readonly record struct CrossFieldKey(int Symmetry, Option<Seq<(int Vertex, Direction Hint)>> Constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> Cones);
 internal readonly record struct HodgeKey(VectorField Source);
 [StructLayout(LayoutKind.Auto)] internal readonly record struct VectorHeatKey(double Time, Seq<(int Vertex, Vector3d Direction)> Sources);
+internal readonly record struct BoundarySignedHeatKey(SignedHeatTime Heat, VolumeSolverPolicy Solver);
+internal readonly record struct ClosedSignedHeatKey(VolumeGridPolicy Grid, SignedHeatTime Heat, VolumeSolverPolicy Solver, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition);
 internal readonly record struct SignedHeatSolution(Arr<double> Values, SignedHeatReceipt Receipt, TopologyReceipt Topology);
+internal readonly record struct ClosedSignedHeatSolution(VolumeGridDomain Domain, Arr<double> Values, SignedHeatReceipt Receipt, TopologyReceipt Topology);
+internal readonly record struct VolumeGridDomain(BoundingBox Bounds, int Resolution, int XCells, int YCells, int ZCells, double CellSize, double Padding, VolumeGridReceipt Receipt) {
+    internal int XNodes => XCells + 1; internal int YNodes => YCells + 1; internal int ZNodes => ZCells + 1; internal int NodeCount => XNodes * YNodes * ZNodes; internal int CellCount => XCells * YCells * ZCells;
+    internal int Index(int x, int y, int z) => x + (XNodes * (y + (YNodes * z)));
+    internal Point3d PointAt(int x, int y, int z) => new(x: Bounds.Min.X + (x * CellSize), y: Bounds.Min.Y + (y * CellSize), z: Bounds.Min.Z + (z * CellSize));
+}
 internal readonly record struct BoundarySignedHeatSource(Arr<double> Rhs, Seq<int> SourceVertices, int EncodedEdgeSourceCount, int RejectedBoundaryPointCount, int UnmatchedBoundarySegmentCount);
 internal sealed class LaplacianCache {
     internal const int DefaultSpectralCount = 32;
@@ -64,7 +72,8 @@ internal sealed class LaplacianCache {
     private readonly Memo<CrossFieldKey, Complex[]> crossFieldCache = new();
     private readonly Memo<HodgeKey, MeshKernel.HodgeBundle> hodgeCache = new();
     private readonly Memo<VectorHeatKey, Complex[]> vectorHeatCache = new();
-    private readonly Memo<Unit, SignedHeatSolution> signedHeat = new();
+    private readonly Memo<BoundarySignedHeatKey, SignedHeatSolution> signedHeat = new();
+    private readonly Memo<ClosedSignedHeatKey, ClosedSignedHeatSolution> closedSignedHeat = new();
     private readonly MeshSpace space;
     private LaplacianCache(MeshSpace space) {
         this.space = space;
@@ -89,9 +98,11 @@ internal sealed class LaplacianCache {
             select factor);
     internal Fin<MeshKernel.IntrinsicMesh> IntrinsicMeshSnapshot(Op key) =>
         intrinsicMesh.Of(probe: unit, compute: () => MeshKernel.BuildIntrinsicMesh(mesh: space.Native, key: key));
-    internal Fin<Arr<double>> SignedHeat(Op key) => SignedHeatDetailed(key: key).Map(static result => result.Values);
-    internal Fin<SignedHeatSolution> SignedHeatDetailed(Op key) =>
-        signedHeat.Of(probe: unit, compute: () => MeshKernel.ComputeSignedHeatDetailed(space: space, key: key));
+    internal Fin<Arr<double>> SignedHeat(SdfMeshPolicy policy, Op key) => SignedHeatDetailed(policy: policy, key: key).Map(static result => result.Values);
+    internal Fin<SignedHeatSolution> SignedHeatDetailed(SdfMeshPolicy policy, Op key) =>
+        signedHeat.Of(probe: new BoundarySignedHeatKey(Heat: policy.Heat, Solver: policy.Solver), compute: () => MeshKernel.ComputeSignedHeatDetailed(space: space, policy: policy, key: key));
+    internal Fin<ClosedSignedHeatSolution> ClosedSignedHeatDetailed(SdfMeshPolicy policy, Op key) =>
+        policy.Grid.ToFin(key.InvalidInput()).Bind(grid => closedSignedHeat.Of(probe: new ClosedSignedHeatKey(Grid: grid, Heat: policy.Heat, Solver: policy.Solver, Interpolation: policy.Interpolation, BoundaryCondition: policy.BoundaryCondition), compute: () => MeshKernel.ComputeClosedSignedHeatDetailed(space: space, policy: policy, key: key)));
     internal double MeanEdgeLength => meanEdgeLength.Value;
     internal Fin<SpectralBasisBundle> SpectralBasisBundleOf(int k, Op key) {
         bool cacheHit = k <= DefaultSpectralCount && defaultSpectral.Contains(probe: unit);
@@ -151,9 +162,11 @@ internal sealed class LaplacianCache {
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationReceipt(MeshSegmentationAlgorithm Algorithm, MeshSegmentationStatus Status, int RequestedRegionCount, int RegionCount, int SeedCount, int AssignedFaceCount, int UnassignedFaceCount, int SkippedDegenerateFaces, int SkippedNonFiniteValues, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorReceipt> Descriptor, Option<SolveReceipt> Solve, Option<bool> SpectralCacheHit, Option<bool> FactorCacheHit, Option<int> FactorNonZeros);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationResult(Arr<int> FaceRegions, Arr<int> VertexRegions, MeshSegmentationReceipt Receipt);
 [SmartEnum<int>] public sealed partial class SdfMeshDomain { public static readonly SdfMeshDomain SurfaceMesh = new(key: 0), BoundarySource = new(key: 1), VolumeGrid = new(key: 2), VolumeTet = new(key: 3); }
-[SmartEnum<int>] public sealed partial class SdfMeshStatus { public static readonly SdfMeshStatus ApproximateSignClosestDistance = new(key: 0), BoundarySourceSignedHeat = new(key: 1), ClosedSurfaceSignedHeatUnsupported = new(key: 2); }
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SignedHeatReceipt(int BoundarySourceVertexCount, int BoundaryEncodedEdgeSourceCount, int BoundaryRejectedPointCount, int BoundaryUnmatchedSegmentCount, SolveReceipt HeatSolve, SolveReceipt PoissonSolve);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfMeshReceipt(SdfMeshMethod Method, SdfMeshStatus Status, SdfMeshDomain Domain, TopologyReceipt Topology, Option<SignedHeatReceipt> SignedHeat);
+[SmartEnum<int>] public sealed partial class SdfMeshStatus { public static readonly SdfMeshStatus ApproximateSignClosestDistance = new(key: 0), BoundarySourceSignedHeat = new(key: 1), ClosedSurfaceSignedHeat = new(key: 2); }
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct VolumeGridReceipt(BoundingBox Bounds, int Resolution, int XNodes, int YNodes, int ZNodes, double CellSize, double Padding, int NodeCount, int CellCount, int SourceTriangleCount, int DegenerateTriangleCount, double SourceArea, int InsideNodeCount, int OutsideNodeCount, int NearSurfaceNodeCount, int RejectedVectorCount, double HeatTime, int GaugeNode, double SurfaceShift, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition, VolumeSolverPolicy Solver, int OperatorNonZeros, Option<int> FactorNonZeros, double Residual);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SignedHeatReceipt(int BoundarySourceVertexCount, int BoundaryEncodedEdgeSourceCount, int BoundaryRejectedPointCount, int BoundaryUnmatchedSegmentCount, Option<SolveReceipt> HeatSolve, SolveReceipt PoissonSolve);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SdfMeshReceipt(SdfMeshMethod Method, SdfMeshStatus Status, SdfMeshDomain Domain, TopologyReceipt Topology, Option<SignedHeatReceipt> SignedHeat, Option<VolumeGridReceipt> VolumeGrid = default);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfMeshSample(double Distance, SdfMeshReceipt Receipt);
 [Union]
 public abstract partial record MeshDescriptor {
@@ -205,10 +218,16 @@ public abstract partial record RemeshKind {
 internal static class MeshKernel {
     private const double DegenerateTriangleArea = 1e-14;
     private const double AspectRatioCeiling = 11.5;
+    private const double VolumeGridKernelSofteningRatio = 0.0625;
+    private const int VolumeGridMaxNodes = 1_000_000;
     private const int UnassignedRegion = -1;
     private readonly record struct SegmentationScalars(Arr<double> FaceValues, int SkippedDegenerateFaces, int SkippedNonFiniteValues, int FiniteCount, double Min, double Max);
     private readonly record struct SegmentationRun(MeshSegmentationAlgorithm Algorithm, int RequestedRegionCount, int SeedCount, MeshSegmentationStatus Status, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorReceipt> Descriptor);
     private readonly record struct ClusterState(int[] Labels, int Iterations, bool Converged);
+    [StructLayout(LayoutKind.Auto)] private readonly record struct VolumeSource(Point3d Center, Vector3d Normal, double Area);
+    [StructLayout(LayoutKind.Auto)] private readonly record struct VolumeSourceSet(VolumeSource[] Sources, int Degenerate, double Area);
+    [StructLayout(LayoutKind.Auto)] private readonly record struct VolumeGridVectors(double[] X, double[] Y, double[] Z, int Rejected, int Inside, int Outside, int NearSurface, int InteriorIndex);
+    [StructLayout(LayoutKind.Auto)] private readonly record struct VolumeGridSystem(SparseMatrix Operator, Arr<double> Rhs, int GaugeNode);
     private sealed class LaplacianTriplets {
         private readonly int vertexCount;
         internal readonly List<(int Row, int Col, double Value)> Stiffness = [], Mass = [];
@@ -1328,27 +1347,23 @@ internal static class MeshKernel {
         (weights[0] * at(face.A)) + (weights[1] * at(face.B)) + (weights[2] * at(face.C)) + (face.IsQuad ? weights[3] * at(face.D) : Vector3d.Zero);
 
     // --- [SDF_FROM_MESH] ---------------------------------------------------------------------
-    internal static Fin<SdfMeshSample> SignedDistanceFromMeshDetailed(MeshSpace space, SdfMeshMethod method, Point3d sample, Op key) =>
-        method.Equals(SdfMeshMethod.ClosedSurfaceSignedHeat)
-            ? Fin.Fail<SdfMeshSample>(key.Unsupported(geometryType: typeof(MeshSpace), outputType: typeof(SdfMeshSample)))
-            : method.Equals(SdfMeshMethod.BoundarySignedHeat)
-                ? SignedHeatDistanceDetailed(space: space, sample: sample, key: key)
-                    .Bind(result => SdfMeshReceiptOf(space: space, method: method, signedHeat: Some(result.Solution.Receipt), key: key, topology: Some(result.Solution.Topology))
-                        .Map(receipt => new SdfMeshSample(Distance: result.Distance, Receipt: receipt)))
-                : GeneralizedWindingDistance(space: space, sample: sample, key: key)
-                    .Bind(distance => SdfMeshReceiptOf(space: space, method: method, signedHeat: Option<SignedHeatReceipt>.None, key: key)
-                        .Map(receipt => new SdfMeshSample(Distance: distance, Receipt: receipt)));
-    internal static Fin<SdfMeshReceipt> PrewarmSignedDistanceEvaluator(MeshSpace space, SdfMeshMethod method, Op key) =>
-        method.Equals(SdfMeshMethod.ClosedSurfaceSignedHeat)
-            ? Fin.Fail<SdfMeshReceipt>(key.Unsupported(geometryType: typeof(MeshSpace), outputType: typeof(SdfMeshReceipt)))
-            : method.Equals(SdfMeshMethod.BoundarySignedHeat)
-                ? from solution in space.Cache.SignedHeatDetailed(key: key)
-                  from receipt in SdfMeshReceiptOf(space: space, method: method, signedHeat: Some(solution.Receipt), key: key, topology: Some(solution.Topology))
-                  select receipt
-                : SdfMeshReceiptOf(space: space, method: method, signedHeat: Option<SignedHeatReceipt>.None, key: key);
-    private static Fin<SdfMeshReceipt> SdfMeshReceiptOf(MeshSpace space, SdfMeshMethod method, Option<SignedHeatReceipt> signedHeat, Op key, Option<TopologyReceipt> topology = default) =>
+    internal static Fin<SdfMeshSample> SignedDistanceFromMeshDetailed(MeshSpace space, SdfMeshPolicy policy, Point3d sample, Op key) =>
+        policy.Admit(key: key).Bind(active => active.Method switch {
+            SdfMeshMethod method when method.Equals(SdfMeshMethod.ClosedSurfaceSignedHeat) => ClosedSignedHeatDistanceDetailed(space: space, policy: active, sample: sample, key: key).Bind(result => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Some(result.Solution.Receipt), key: key, topology: Some(result.Solution.Topology), volumeGrid: Some(result.Solution.Domain.Receipt)).Map(receipt => new SdfMeshSample(Distance: result.Distance, Receipt: receipt))),
+            SdfMeshMethod method when method.Equals(SdfMeshMethod.BoundarySignedHeat) => SignedHeatDistanceDetailed(space: space, policy: active, sample: sample, key: key).Bind(result => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Some(result.Solution.Receipt), key: key, topology: Some(result.Solution.Topology)).Map(receipt => new SdfMeshSample(Distance: result.Distance, Receipt: receipt))),
+            SdfMeshMethod method when method.Equals(SdfMeshMethod.GeneralizedWindingNumber) => GeneralizedWindingDistance(space: space, sample: sample, key: key).Bind(distance => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Option<SignedHeatReceipt>.None, key: key).Map(receipt => new SdfMeshSample(Distance: active.SignConvention.Multiplier * distance, Receipt: receipt))),
+            _ => Fin.Fail<SdfMeshSample>(key.InvalidInput()),
+        });
+    internal static Fin<SdfMeshReceipt> PrewarmSignedDistanceEvaluator(MeshSpace space, SdfMeshPolicy policy, Op key) =>
+        policy.Admit(key: key).Bind(active => active.Method switch {
+            SdfMeshMethod method when method.Equals(SdfMeshMethod.ClosedSurfaceSignedHeat) => space.Cache.ClosedSignedHeatDetailed(policy: active, key: key).Bind(solution => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Some(solution.Receipt), key: key, topology: Some(solution.Topology), volumeGrid: Some(solution.Domain.Receipt))),
+            SdfMeshMethod method when method.Equals(SdfMeshMethod.BoundarySignedHeat) => space.Cache.SignedHeatDetailed(policy: active, key: key).Bind(solution => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Some(solution.Receipt), key: key, topology: Some(solution.Topology))),
+            SdfMeshMethod method when method.Equals(SdfMeshMethod.GeneralizedWindingNumber) => SdfMeshReceiptOf(space: space, policy: active, signedHeat: Option<SignedHeatReceipt>.None, key: key),
+            _ => Fin.Fail<SdfMeshReceipt>(key.InvalidInput()),
+        });
+    private static Fin<SdfMeshReceipt> SdfMeshReceiptOf(MeshSpace space, SdfMeshPolicy policy, Option<SignedHeatReceipt> signedHeat, Op key, Option<TopologyReceipt> topology = default, Option<VolumeGridReceipt> volumeGrid = default) =>
         topology.Match(Some: static receipt => Fin.Succ(receipt), None: () => TopologyDetailed(space: space, key: key))
-            .Map(topology => new SdfMeshReceipt(Method: method, Status: method.Status, Domain: method.Domain, Topology: topology, SignedHeat: signedHeat));
+            .Map(topology => new SdfMeshReceipt(Method: policy.Method, Status: policy.Method.Status, Domain: policy.Method.Domain, Topology: topology, SignedHeat: signedHeat, VolumeGrid: volumeGrid));
     private static Fin<double> GeneralizedWindingDistance(MeshSpace space, Point3d sample, Op key) =>
         Optional(space.Native.ClosestPoint(testPoint: sample)).Filter(static closest => closest.IsValid).ToFin(key.InvalidResult()).Bind(closest =>
             SolidAngleWindingNumber(mesh: space.Native, sample: sample, key: key)
@@ -1377,17 +1392,21 @@ internal static class MeshKernel {
         double denom = lengthProduct + (abDot * lc) + (bcDot * la) + (caDot * lb);
         return 2.0 * Math.Atan2(y: det, x: denom);
     }
-    private static Fin<(double Distance, SignedHeatSolution Solution)> SignedHeatDistanceDetailed(MeshSpace space, Point3d sample, Op key) =>
-        from solution in space.Cache.SignedHeatDetailed(key: key)
+    private static Fin<(double Distance, SignedHeatSolution Solution)> SignedHeatDistanceDetailed(MeshSpace space, SdfMeshPolicy policy, Point3d sample, Op key) =>
+        from solution in space.Cache.SignedHeatDetailed(policy: policy, key: key)
         from signed in InterpolateOnMesh(space: space, sample: sample, perVertex: solution.Values, key: key)
-        select (signed, solution);
+        select (policy.SignConvention.Multiplier * signed, solution);
+    private static Fin<(double Distance, ClosedSignedHeatSolution Solution)> ClosedSignedHeatDistanceDetailed(MeshSpace space, SdfMeshPolicy policy, Point3d sample, Op key) =>
+        from solution in space.Cache.ClosedSignedHeatDetailed(policy: policy, key: key)
+        from signed in InterpolateVolumeGrid(domain: solution.Domain, values: solution.Values, sample: sample, key: key)
+        select (policy.SignConvention.Multiplier * signed, solution);
     // Boundary-source signed heat rejects flipped IDT until CR signpost transfer exists.
-    internal static Fin<Arr<double>> ComputeSignedHeat(MeshSpace space, Op key) => ComputeSignedHeatDetailed(space: space, key: key).Map(static result => result.Values);
-    internal static Fin<SignedHeatSolution> ComputeSignedHeatDetailed(MeshSpace space, Op key) {
+    internal static Fin<Arr<double>> ComputeSignedHeat(MeshSpace space, SdfMeshPolicy policy, Op key) => ComputeSignedHeatDetailed(space: space, policy: policy, key: key).Map(static result => result.Values);
+    internal static Fin<SignedHeatSolution> ComputeSignedHeatDetailed(MeshSpace space, SdfMeshPolicy policy, Op key) {
         Mesh mesh = space.Native;
         double h = space.Cache.MeanEdgeLength;
         if (h <= RhinoMath.ZeroTolerance) return Fin.Fail<SignedHeatSolution>(error: key.InvalidResult());
-        double t = 0.5 * h * (0.5 * h);
+        double t = policy.Heat.Resolve(cellSize: 0.5 * h);
         return from imesh in space.Cache.IntrinsicMeshSnapshot(key: key)
                from _ in guard(!imesh.HasFlips, key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof(SignedHeatSolution)))
                from admitted in AdmitBoundarySignedHeat(space: space, imesh: imesh, key: key)
@@ -1397,11 +1416,174 @@ internal static class MeshKernel {
                let divergence = SpectralCore.ComputeIntrinsicVertexDivergence(mesh: mesh, imesh: imesh, faceFields: faceField)
                from poissonFactor in space.Cache.Cholesky(key: key)
                from poissonSolve in poissonFactor.SolveDetailed(rhs: divergence, key: key)
+               from residuals in heatSolve.Residual <= policy.Solver.ResidualTolerance.Value && poissonSolve.Residual <= policy.Solver.ResidualTolerance.Value ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
                from shifted in ShiftSignedHeat(phi: poissonSolve.Solution, sourceVertices: admitted.Source.SourceVertices, vertexCount: mesh.Vertices.Count, key: key)
                select new SignedHeatSolution(
                    Values: shifted,
-                   Receipt: new SignedHeatReceipt(BoundarySourceVertexCount: admitted.Source.SourceVertices.Count, BoundaryEncodedEdgeSourceCount: admitted.Source.EncodedEdgeSourceCount, BoundaryRejectedPointCount: admitted.Source.RejectedBoundaryPointCount, BoundaryUnmatchedSegmentCount: admitted.Source.UnmatchedBoundarySegmentCount, HeatSolve: heatSolve, PoissonSolve: poissonSolve),
+                   Receipt: new SignedHeatReceipt(BoundarySourceVertexCount: admitted.Source.SourceVertices.Count, BoundaryEncodedEdgeSourceCount: admitted.Source.EncodedEdgeSourceCount, BoundaryRejectedPointCount: admitted.Source.RejectedBoundaryPointCount, BoundaryUnmatchedSegmentCount: admitted.Source.UnmatchedBoundarySegmentCount, HeatSolve: Some(heatSolve), PoissonSolve: poissonSolve),
                    Topology: admitted.Topology);
+    }
+    internal static Fin<ClosedSignedHeatSolution> ComputeClosedSignedHeatDetailed(MeshSpace space, SdfMeshPolicy policy, Op key) =>
+        from admitted in AdmitClosedSignedHeat(space: space, policy: policy, key: key)
+        from gridPolicy in policy.Grid.ToFin(key.InvalidInput())
+        from domain in VolumeGridDomainOf(source: admitted.Bounds, grid: gridPolicy, key: key)
+        let heatTime = policy.Heat.Resolve(cellSize: domain.CellSize)
+        from _ in RhinoMath.IsValidDouble(x: heatTime) && heatTime > RhinoMath.ZeroTolerance ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
+        from sources in VolumeSourcesOf(mesh: space.Native, normalSign: admitted.NormalSign, key: key)
+        from vectors in VolumeGridVectorsOf(mesh: space.Native, domain: domain, sources: sources, heatTime: heatTime, tolerance: space.Tolerance.Absolute.Value, key: key)
+        from system in AssembleVolumeGridPoisson(domain: domain, vectors: vectors, key: key)
+        from solve in CholeskySparse.Of(symmetric: system.Operator, key: key).Bind(factor => factor.SolveDetailed(rhs: system.Rhs, key: key))
+        from __ in solve.Residual <= policy.Solver.ResidualTolerance.Value ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
+        from calibrated in CalibrateClosedSignedHeat(domain: domain, raw: solve.Solution, sources: sources, interiorIndex: vectors.InteriorIndex, key: key)
+        let receipt = new VolumeGridReceipt(Bounds: domain.Bounds, Resolution: domain.Resolution, XNodes: domain.XNodes, YNodes: domain.YNodes, ZNodes: domain.ZNodes, CellSize: domain.CellSize, Padding: domain.Padding, NodeCount: domain.NodeCount, CellCount: domain.CellCount, SourceTriangleCount: sources.Sources.Length, DegenerateTriangleCount: sources.Degenerate, SourceArea: sources.Area, InsideNodeCount: vectors.Inside, OutsideNodeCount: vectors.Outside, NearSurfaceNodeCount: vectors.NearSurface, RejectedVectorCount: vectors.Rejected, HeatTime: heatTime, GaugeNode: system.GaugeNode, SurfaceShift: calibrated.Shift, Interpolation: policy.Interpolation, BoundaryCondition: policy.BoundaryCondition, Solver: policy.Solver, OperatorNonZeros: system.Operator.NonZeros, FactorNonZeros: solve.FactorNonZeros, Residual: solve.Residual)
+        let solvedDomain = domain with { Receipt = receipt }
+        select new ClosedSignedHeatSolution(Domain: solvedDomain, Values: calibrated.Values, Receipt: new SignedHeatReceipt(BoundarySourceVertexCount: 0, BoundaryEncodedEdgeSourceCount: 0, BoundaryRejectedPointCount: 0, BoundaryUnmatchedSegmentCount: 0, HeatSolve: Option<SolveReceipt>.None, PoissonSolve: solve), Topology: admitted.Topology);
+    private static Fin<(TopologyReceipt Topology, BoundingBox Bounds, double NormalSign)> AdmitClosedSignedHeat(MeshSpace space, SdfMeshPolicy policy, Op key) =>
+        from topology in TopologyDetailed(space: space, key: key)
+        from _ in policy.Method.Equals(SdfMeshMethod.ClosedSurfaceSignedHeat) && policy.Grid.IsSome && topology.IsWatertight && topology.IsSolid && topology.IsClosed && topology.IsOriented && !topology.HasBoundary && topology.NonManifoldEdges == 0 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
+        from bounds in Optional(space.Native.GetBoundingBox(accurate: true)).Filter(static box => box.IsValid && box.Diagonal.Length > RhinoMath.ZeroTolerance).ToFin(key.InvalidInput())
+        let orientation = space.Native.SolidOrientation()
+        from __ in orientation == 0 ? Fin.Fail<Unit>(key.InvalidInput()) : Fin.Succ(unit)
+        select (Topology: topology, Bounds: bounds, NormalSign: orientation > 0 ? 1.0 : -1.0);
+    private static Fin<VolumeGridDomain> VolumeGridDomainOf(BoundingBox source, VolumeGridPolicy grid, Op key) {
+        double minSpan = Math.Min(val1: source.Max.X - source.Min.X, val2: Math.Min(val1: source.Max.Y - source.Min.Y, val2: source.Max.Z - source.Min.Z));
+        double h = grid.CellSize.Match(Some: static size => size.Value, None: () => minSpan / grid.Resolution.Match(Some: static resolution => resolution.Value, None: static () => 16));
+        if (!source.IsValid || !RhinoMath.IsValidDouble(x: h) || h <= RhinoMath.ZeroTolerance) return Fin.Fail<VolumeGridDomain>(key.InvalidInput());
+        double pad = grid.Padding.Value * h;
+        Point3d min = new(x: source.Min.X - pad, y: source.Min.Y - pad, z: source.Min.Z - pad);
+        double xSpan = source.Max.X + pad - min.X, ySpan = source.Max.Y + pad - min.Y, zSpan = source.Max.Z + pad - min.Z;
+        long xCells = Math.Max(val1: 1L, val2: (long)Math.Ceiling(a: xSpan / h)), yCells = Math.Max(val1: 1L, val2: (long)Math.Ceiling(a: ySpan / h)), zCells = Math.Max(val1: 1L, val2: (long)Math.Ceiling(a: zSpan / h));
+        long xNodes = xCells + 1L, yNodes = yCells + 1L, zNodes = zCells + 1L;
+        if (xCells <= 0L || yCells <= 0L || zCells <= 0L || xCells > int.MaxValue || yCells > int.MaxValue || zCells > int.MaxValue || xNodes > VolumeGridMaxNodes || yNodes > VolumeGridMaxNodes / xNodes) return Fin.Fail<VolumeGridDomain>(key.InvalidInput());
+        long xyNodes = xNodes * yNodes;
+        if (zNodes > VolumeGridMaxNodes / xyNodes || yCells > int.MaxValue / xCells) return Fin.Fail<VolumeGridDomain>(key.InvalidInput());
+        long nodeCount = xyNodes * zNodes, xyCells = xCells * yCells;
+        if (zCells > int.MaxValue / xyCells) return Fin.Fail<VolumeGridDomain>(key.InvalidInput());
+        long cellCount = xyCells * zCells;
+        int xi = (int)xCells, yi = (int)yCells, zi = (int)zCells;
+        BoundingBox bounds = new(min: min, max: new Point3d(x: min.X + (xi * h), y: min.Y + (yi * h), z: min.Z + (zi * h)));
+        int resolution = grid.Resolution.Match(Some: static value => value.Value, None: () => Math.Min(val1: xi, val2: Math.Min(val1: yi, val2: zi)));
+        return bounds.IsValid ? Fin.Succ(new VolumeGridDomain(Bounds: bounds, Resolution: resolution, XCells: xi, YCells: yi, ZCells: zi, CellSize: h, Padding: pad, Receipt: default)) : Fin.Fail<VolumeGridDomain>(key.InvalidResult());
+    }
+    // BOUNDARY ADAPTER — native face iteration keeps the watertight mesh snapshot stable.
+    private static Fin<VolumeSourceSet> VolumeSourcesOf(Mesh mesh, double normalSign, Op key) {
+        using Mesh triangulated = mesh.DuplicateMesh();
+        if (triangulated.Faces.QuadCount > 0 && !triangulated.Faces.ConvertQuadsToTriangles()) return Fin.Fail<VolumeSourceSet>(key.InvalidResult());
+        List<VolumeSource> sources = new(capacity: triangulated.Faces.TriangleCount);
+        double total = 0.0;
+        int degenerate = 0;
+        for (int f = 0; f < triangulated.Faces.Count; f++) {
+            MeshFace face = triangulated.Faces[index: f];
+            if (!face.IsTriangle) continue;
+            Point3d a = triangulated.Vertices[index: face.A], b = triangulated.Vertices[index: face.B], c = triangulated.Vertices[index: face.C];
+            Vector3d normal = Vector3d.CrossProduct(a: b - a, b: c - a);
+            double area = 0.5 * normal.Length;
+            if (!RhinoMath.IsValidDouble(x: area) || area <= DegenerateTriangleArea) { degenerate++; continue; }
+            _ = normal.Unitize(); normal *= normalSign;
+            Point3d center = new(x: (a.X + b.X + c.X) / 3.0, y: (a.Y + b.Y + c.Y) / 3.0, z: (a.Z + b.Z + c.Z) / 3.0);
+            sources.Add(item: new VolumeSource(Center: center, Normal: normal, Area: area));
+            total += area;
+        }
+        return sources.Count > 0
+            ? Fin.Succ(new VolumeSourceSet(Sources: [.. sources], Degenerate: degenerate, Area: total))
+            : Fin.Fail<VolumeSourceSet>(key.InvalidResult());
+    }
+    // HOT NUMERIC LOOP — every grid node integrates all source triangles for the v1 regular-domain SHM approximation.
+    private static Fin<VolumeGridVectors> VolumeGridVectorsOf(Mesh mesh, VolumeGridDomain domain, VolumeSourceSet sources, double heatTime, double tolerance, Op key) {
+        double[] xs = new double[domain.NodeCount], ys = new double[domain.NodeCount], zs = new double[domain.NodeCount];
+        VolumeSource[] sourceArray = sources.Sources;
+        double rootT = Math.Sqrt(d: heatTime), epsilon = domain.CellSize * domain.CellSize * VolumeGridKernelSofteningRatio;
+        int rejected = 0, inside = 0, outside = 0, near = 0, interior = -1;
+        for (int z = 0; z < domain.ZNodes; z++)
+            for (int y = 0; y < domain.YNodes; y++)
+                for (int x = 0; x < domain.XNodes; x++) {
+                    int index = domain.Index(x: x, y: y, z: z);
+                    Point3d point = domain.PointAt(x: x, y: y, z: z);
+                    bool isInside = mesh.IsPointInside(point: point, tolerance: tolerance, strictlyIn: true);
+                    inside += isInside ? 1 : 0; outside += isInside ? 0 : 1; interior = isInside && interior < 0 ? index : interior;
+                    near += mesh.ClosestPoint(testPoint: point, pointOnMesh: out Point3d _, maximumDistance: domain.CellSize) >= 0 ? 1 : 0;
+                    Vector3d vector = Vector3d.Zero;
+                    for (int s = 0; s < sourceArray.Length; s++) {
+                        VolumeSource source = sourceArray[s]; Vector3d delta = point - source.Center; double r = Math.Sqrt(d: delta.SquareLength + epsilon);
+                        vector += source.Area * Math.Exp(d: -r / rootT) / r * source.Normal;
+                    }
+                    bool valid = vector.Unitize();
+                    xs[index] = valid ? vector.X : 0.0; ys[index] = valid ? vector.Y : 0.0; zs[index] = valid ? vector.Z : 0.0;
+                    rejected += valid ? 0 : 1;
+                }
+        return rejected < domain.NodeCount && interior >= 0
+            ? Fin.Succ(new VolumeGridVectors(X: xs, Y: ys, Z: zs, Rejected: rejected, Inside: inside, Outside: outside, NearSurface: near, InteriorIndex: interior))
+            : Fin.Fail<VolumeGridVectors>(key.InvalidResult());
+    }
+    private static Fin<VolumeGridSystem> AssembleVolumeGridPoisson(VolumeGridDomain domain, VolumeGridVectors vectors, Op key) {
+        int gauge = 0;
+        double invH = 1.0 / domain.CellSize, invH2 = invH * invH;
+        double[] rhs = new double[domain.NodeCount];
+        List<(int Row, int Col, double Value)> triplets = new(capacity: domain.NodeCount * 7);
+        double Difference(double[] values, int x, int y, int z, int axis) {
+            int max = axis == 0 ? domain.XNodes - 1 : axis == 1 ? domain.YNodes - 1 : domain.ZNodes - 1;
+            int lo = axis == 0 ? domain.Index(Math.Max(x - 1, 0), y, z) : axis == 1 ? domain.Index(x, Math.Max(y - 1, 0), z) : domain.Index(x, y, Math.Max(z - 1, 0));
+            int hi = axis == 0 ? domain.Index(Math.Min(x + 1, max), y, z) : axis == 1 ? domain.Index(x, Math.Min(y + 1, max), z) : domain.Index(x, y, Math.Min(z + 1, max));
+            int coord = axis == 0 ? x : axis == 1 ? y : z;
+            return (values[hi] - values[lo]) * (coord == 0 || coord == max ? invH : 0.5 * invH);
+        }
+        for (int z = 0; z < domain.ZNodes; z++)
+            for (int y = 0; y < domain.YNodes; y++)
+                for (int x = 0; x < domain.XNodes; x++) {
+                    int row = domain.Index(x: x, y: y, z: z);
+                    if (row == gauge) {
+                        rhs[row] = 0.0;
+                        triplets.Add(item: (row, row, 1.0));
+                        continue;
+                    }
+                    rhs[row] = -(Difference(values: vectors.X, x: x, y: y, z: z, axis: 0) + Difference(values: vectors.Y, x: x, y: y, z: z, axis: 1) + Difference(values: vectors.Z, x: x, y: y, z: z, axis: 2));
+                    double diag = 0.0;
+                    void AddNeighbor(int nx, int ny, int nz) {
+                        int col = domain.Index(x: nx, y: ny, z: nz); diag += invH2;
+                        if (col != gauge) triplets.Add(item: (row, col, -invH2));
+                    }
+                    if (x > 0) AddNeighbor(nx: x - 1, ny: y, nz: z); if (x < domain.XNodes - 1) AddNeighbor(nx: x + 1, ny: y, nz: z);
+                    if (y > 0) AddNeighbor(nx: x, ny: y - 1, nz: z); if (y < domain.YNodes - 1) AddNeighbor(nx: x, ny: y + 1, nz: z);
+                    if (z > 0) AddNeighbor(nx: x, ny: y, nz: z - 1); if (z < domain.ZNodes - 1) AddNeighbor(nx: x, ny: y, nz: z + 1);
+                    triplets.Add(item: (row, row, diag));
+                }
+        Dimension dim = Dimension.Create(value: domain.NodeCount);
+        return SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: triplets, key: key)
+            .Map(matrix => new VolumeGridSystem(Operator: matrix, Rhs: new Arr<double>(rhs), GaugeNode: gauge));
+    }
+    private static Fin<(Arr<double> Values, double Shift)> CalibrateClosedSignedHeat(VolumeGridDomain domain, Arr<double> raw, VolumeSourceSet sources, int interiorIndex, Op key) {
+        VolumeSource[] sourceArray = sources.Sources;
+        if (raw.Count != domain.NodeCount || sourceArray.Length <= 0) return Fin.Fail<(Arr<double>, double)>(key.InvalidResult());
+        double sourceSum = 0.0;
+        for (int s = 0; s < sourceArray.Length; s++) {
+            double value = InterpolateVolumeGrid(domain: domain, values: raw, sample: sourceArray[s].Center, key: key).IfFail(double.NaN);
+            if (!RhinoMath.IsValidDouble(x: value)) return Fin.Fail<(Arr<double>, double)>(key.InvalidResult());
+            sourceSum += value;
+        }
+        double shift = sourceSum / sourceArray.Length;
+        double[] values = new double[raw.Count];
+        double flip = interiorIndex >= 0 && raw[index: interiorIndex] - shift > 0.0 ? -1.0 : 1.0;
+        for (int i = 0; i < raw.Count; i++) {
+            double value = flip * (raw[index: i] - shift);
+            if (!RhinoMath.IsValidDouble(x: value)) return Fin.Fail<(Arr<double>, double)>(key.InvalidResult());
+            values[i] = value;
+        }
+        return RhinoMath.IsValidDouble(x: shift) ? Fin.Succ((Values: new Arr<double>(values), Shift: shift)) : Fin.Fail<(Arr<double>, double)>(key.InvalidResult());
+    }
+    private static Fin<double> InterpolateVolumeGrid(VolumeGridDomain domain, Arr<double> values, Point3d sample, Op key) {
+        if (values.Count != domain.XNodes * domain.YNodes * domain.ZNodes || !sample.IsValid) return Fin.Fail<double>(key.InvalidInput());
+        double sx = (sample.X - domain.Bounds.Min.X) / domain.CellSize, sy = (sample.Y - domain.Bounds.Min.Y) / domain.CellSize, sz = (sample.Z - domain.Bounds.Min.Z) / domain.CellSize;
+        if (!RhinoMath.IsValidDouble(x: sx) || !RhinoMath.IsValidDouble(x: sy) || !RhinoMath.IsValidDouble(x: sz) || sx < 0.0 || sy < 0.0 || sz < 0.0 || sx > domain.XNodes - 1 || sy > domain.YNodes - 1 || sz > domain.ZNodes - 1)
+            return Fin.Fail<double>(key.InvalidInput());
+        int x0 = sx >= domain.XNodes - 1 ? domain.XNodes - 2 : (int)Math.Floor(d: sx), y0 = sy >= domain.YNodes - 1 ? domain.YNodes - 2 : (int)Math.Floor(d: sy), z0 = sz >= domain.ZNodes - 1 ? domain.ZNodes - 2 : (int)Math.Floor(d: sz);
+        double tx = sx - x0, ty = sy - y0, tz = sz - z0;
+        double Sample(int dx, int dy, int dz) => values[index: domain.Index(x: x0 + dx, y: y0 + dy, z: z0 + dz)];
+        double c00 = (Sample(dx: 0, dy: 0, dz: 0) * (1.0 - tx)) + (Sample(dx: 1, dy: 0, dz: 0) * tx);
+        double c10 = (Sample(dx: 0, dy: 1, dz: 0) * (1.0 - tx)) + (Sample(dx: 1, dy: 1, dz: 0) * tx);
+        double c01 = (Sample(dx: 0, dy: 0, dz: 1) * (1.0 - tx)) + (Sample(dx: 1, dy: 0, dz: 1) * tx);
+        double c11 = (Sample(dx: 0, dy: 1, dz: 1) * (1.0 - tx)) + (Sample(dx: 1, dy: 1, dz: 1) * tx);
+        double c0 = (c00 * (1.0 - ty)) + (c10 * ty), c1 = (c01 * (1.0 - ty)) + (c11 * ty);
+        return key.AcceptValue(value: (c0 * (1.0 - tz)) + (c1 * tz));
     }
     private static Fin<(TopologyReceipt Topology, BoundarySignedHeatSource Source)> AdmitBoundarySignedHeat(MeshSpace space, IntrinsicMesh imesh, Op key) =>
         from topology in TopologyDetailed(space: space, key: key)
