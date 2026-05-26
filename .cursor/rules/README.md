@@ -8,7 +8,8 @@ Project rules for the Rasm monorepo live in `.cursor/rules/*.mdc`. They are conc
 | --- | --- | --- |
 | Always | `rasm-core.mdc` | Repo router, required reads, quality rails. |
 | Auto attached | Rule `globs` | File-family guidance when matching files are open. |
-| Agent requested | Description with empty `globs` | Navigation guidance when useful. |
+| Apply intelligently | `description` with omitted `globs` | Agent-selected guidance such as navigation. |
+| Apply manually | Omit both `description` and `globs` | Only load by explicit `@rule` mention. |
 | User Rules | Cursor Settings | Optional personal bootstrap from `user-rules-bootstrap.txt`. |
 
 Cursor precedence is Team > Project > User. This repo does not define Cursor skills because `.claude/skills/` owns full procedures.
@@ -20,16 +21,21 @@ Cursor precedence is Team > Project > User. This repo does not define Cursor ski
 | `rasm-core.mdc` | Always-on router. |
 | `rasm-monorepo-navigation.mdc` | Discovery and topology. |
 | `rasm-csharp-production.mdc` | Production C# under `libs/`, `apps/`, `tools/`. |
-| `rasm-csharp-tests.mdc` | C# specs, testkit, and Rhino scenarios. |
-| `rasm-rhino-bridge.mdc` | Bridge operator and `*.verify.csx` files. |
+| `rasm-csharp-specs.mdc` | xUnit/CsCheck law-matrix specs. |
+| `rasm-testkit.mdc` | Shared `Rasm.TestKit` generators, oracles, and scenario harness. |
+| `rasm-bridge-scenarios.mdc` | Rhino/GH2 `*.verify.csx` runtime scenarios. |
+| `rasm-rhino-bridge.mdc` | Bridge operator and runtime command routes. |
 | `rasm-bash-scripts.mdc` | Bash scripts. |
 | `rasm-docs-markdown.mdc` | Markdown and Cursor docs. |
+| `rasm-docs-reference.mdc` | System, external library, testing library, and usage reference docs. |
+| `rasm-docs-architecture.mdc` | Architecture, ADR, README, and changelog docs. |
 | `rasm-dependencies.mdc` | Package manifests and build props. |
 | `rasm-analysis-domain.mdc` | `Rasm/Analysis` plus `Rasm/Domain`. |
 | `rasm-vectors.mdc` | `Rasm/Vectors`. |
+| `rasm-materials.mdc` | Host-free material catalogues. |
 | `rasm-grasshopper.mdc` | GH2 components and UI boundary. |
 | `rasm-rhino-ui.mdc` | Rhino/GH2/Eto UI rails. |
-| `rasm-rhino-exchange-camera-blocks.mdc` | Rhino Exchange, Camera, Blocks. |
+| `rasm-rhino-categories.mdc` | Rhino Commands, Capture, Construction, Exchange, Camera, Blocks. |
 
 ## Non-Rule Artifacts
 

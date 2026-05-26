@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Rasm C# Production
 
-Read `.claude/skills/coding-csharp/SKILL.md`, `CLAUDE.md`, root `AGENTS.md`, and the nearest nested `AGENTS.md`.
+Read `.claude/skills/coding-csharp/SKILL.md`, `CLAUDE.md`, root `AGENTS.md`, the nearest nested `AGENTS.md`, `docs/usage.md`, and relevant `docs/external-libs/*/rasm.md`.
 
 ## Architecture
 
@@ -14,6 +14,8 @@ Read `.claude/skills/coding-csharp/SKILL.md`, `CLAUDE.md`, root `AGENTS.md`, and
 - Prefer `Fin<T>`, `Validation<Error,T>`, `Eff<RT,T>`, `Option`, folds, exhaustive switches, and typed failures.
 - Use Thinktecture `[Union]`, `[SmartEnum]`, and value objects to collapse sibling types and switches.
 - Convert nullable, bool, disposable, command, document, and host-specific effects at the boundary.
+- Follow `libs/csharp/AGENTS.md` before new library folders: sibling scan, local API truth, compact roadmap, and value-add above raw native calls.
+- Treat `tools/cs-analyzer/Kernel/RuleCatalog.cs` and `CSP####` findings as architecture signals; do not suppress them.
 
 ## Do Not Add
 
@@ -28,4 +30,4 @@ Target RhinoWIP on macOS, GH2, Eto, and app-bundle references from `Directory.Bu
 
 ## Validation
 
-Run `bash scripts/check-cs.sh check` for coherent C# changes. Run `full` only when trigger build/config files change.
+Run `bash scripts/check-cs.sh check` once at the end of a coherent C# change set. Run `full` only when trigger build/config files change.

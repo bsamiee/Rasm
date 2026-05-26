@@ -1,37 +1,29 @@
 ---
-description: Rasm tests: xUnit v3, CsCheck law matrices, testkit, and bridge scenarios
-globs: "tests/csharp/**/*.cs,**/*.spec.cs,**/*.verify.csx"
+description: Rasm test router: managed specs, shared testkit, architecture tests, benchmarks, fuzz, and bridge scenarios
+globs: "tests/csharp/**/AGENTS.md,tests/csharp/**/Directory.Build.props,tests/csharp/**/*.csproj,tests/csharp/**/*Benchmark*.cs,tests/csharp/**/*Fuzz*.cs"
 alwaysApply: false
 ---
 
 # Rasm C# Testing
 
-Read `.claude/skills/cs-testing/SKILL.md`, `tests/csharp/AGENTS.md`, and nearest test `AGENTS.md`.
+Read `.claude/skills/cs-testing/SKILL.md`, `tests/csharp/AGENTS.md`, and nearest test `AGENTS.md`. File-specific rules own `*.spec.cs`, `_testkit`, and `*.verify.csx`.
 
 ## Rail split
 
 | Rail | Owns |
 | --- | --- |
-| xUnit + `Rasm.TestKit` | Pure-managed behavior, law-matrix specs |
-| `*.verify.csx` + bridge | Native Rhino/GH2 runtime paths |
+| `rasm-csharp-specs.mdc` | Pure-managed xUnit/CsCheck behavior and law-matrix specs |
+| `rasm-testkit.mdc` | Shared generators, oracles, adapters, and scenario capsules |
+| `rasm-bridge-scenarios.mdc` | Native Rhino/GH2 runtime paths |
 | Architecture tests | Assembly dependency direction only |
 | Benchmarks and fuzz | Separate executables, not xUnit |
 
-## Oracles
+## Shared Constraints
 
-- Prefer closed-form math, fixture geometry, metamorphic laws, or independent `Numeric` oracles.
-- Never mirror current implementation output as expected value.
-- Use `Spec.ForAll`, `Spec.Cases`, `Spec.Metamorphic`, `Gens`, and `Numeric`; promote to `_testkit` only after multiple consumers.
-- Use `Gen.Where(...).Select(...)` or lifted `Fin` filtering, never `Select+throw`.
-
-## Bridge scenarios
-
-- Path: `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/*.verify.csx`
-- Source-only: no `#r`, `#load`, or absolute paths
-- Group related checks per file (3–8s Rhino handshake each run)
-- Author with `Scenario.Run("theme", CAPTURE_PATH, (key, facts) => { ... });`
-- Populate evidence with `facts.Add(string key, object value);`
-- Do not call `BridgeMarker.EmitFact`, `BridgeMarker.EmitScenarioHeader`, or per-fact `Console.WriteLine("key=value")`.
+- Keep static, unit, runtime, benchmark, and fuzz rails independent.
+- Keep architecture tests focused on dependency direction, not behavioral assertions.
+- Keep benchmarks and fuzz harnesses outside normal xUnit execution.
+- Never mirror current implementation output as an oracle.
 
 ## Validation ladder
 

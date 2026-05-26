@@ -1,0 +1,29 @@
+---
+description: Rasm.TestKit: shared law adapters, generators, numeric oracles, and scenario harness capsules
+globs: "tests/csharp/_testkit/**/*.cs"
+alwaysApply: false
+---
+
+# Rasm TestKit
+
+Read `.claude/skills/cs-testing/SKILL.md`, `tests/csharp/AGENTS.md`, and `docs/testing-libs/*/api.md` before changing shared test infrastructure.
+
+## Ownership
+
+- `_testkit` is higher-order testing capability, not extraction for shorter specs.
+- Add surface only after a second consumer appears, or when a cross-rail oracle prevents future circular tests.
+- Do not promote benchmark, fuzz, bridge-only, or one-off fixture adapters into `_testkit`.
+
+## Rails
+
+- `Spec` owns property execution, success/failure assertions, validation rails, and numeric equality.
+- `Gens` owns shared edge-biased numeric, dimension, tolerance, unit interval, positive magnitude, and context generators.
+- `Numeric` owns independent matrix/vector, eigen, inverse, residual, and reconstruction oracles.
+- `Scenarios` owns Rhino bridge capsules such as `Scenario`, `FactBag`, `Probe`, `DocumentScope`, and `Capture`.
+
+## Rules
+
+- Use xUnit v3 `[assembly: AssemblyFixture(typeof(T))]` plus constructor injection; there is no `IAssemblyFixture<T>`.
+- Propagate `TestContext.Current.CancellationToken` in raw long-running CsCheck bodies; `Spec.*` adapters do this automatically.
+- Keep filtered generators shrinkable with `Where(...).Select(...)`.
+- Keep generated artifacts under `.artifacts`.

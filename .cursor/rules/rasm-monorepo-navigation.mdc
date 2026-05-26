@@ -1,6 +1,5 @@
 ---
 description: Rasm monorepo discovery: fd, rg, ast-grep, Nx topology, local docs, and minimal reads
-globs: ""
 alwaysApply: false
 ---
 
@@ -25,9 +24,11 @@ Use tools over memory and parallelize independent reads.
 | `libs/csharp/Rasm.Grasshopper` | GH2 components, data, and UI rails. |
 | `tests/csharp` | xUnit, CsCheck, testkit, and bridge scenarios. |
 | `tools/rhino-bridge` | Live RhinoWIP runtime verification. |
+| `docs/usage.md` | Cross-stack owner ladder and implementation source order. |
 | `docs/system-api-map` | BCL, `System.*`, package, host reference policy. |
 | `docs/external-libs` | Approved product libraries. |
 | `docs/testing-libs` | Test library APIs. |
+| `docs/standards` | Documentation voice, structure, ADR, architecture, changelog, and code-doc standards. |
 
 ## Docs before packages
 

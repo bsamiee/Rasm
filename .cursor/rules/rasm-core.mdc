@@ -1,6 +1,5 @@
 ---
 description: Rasm repo router: canonical reads, current host baseline, skill routing, and separated quality gates
-globs: "**/*"
 alwaysApply: true
 ---
 
@@ -24,11 +23,15 @@ Use repo `.claude/skills/` first for Rasm procedures. Fall back to `~/.codex/ski
 | `.spec.cs`, `.verify.csx`, testkit | `cs-testing` |
 | `.sh` | `coding-bash` |
 | `.md`, `.mdc` | `docgen` + `style-standards` |
+| `.ts`, `.tsx` | `coding-ts` |
+| `.py` | `coding-python` |
+| `.sql` | `coding-pg` |
 
 ## Invariants
 
 - Collapse concept density into existing polymorphic owners before adding files, helpers, wrappers, or shims.
 - Keep OOP native boundaries small and singular; keep internals functional with `Fin`, `Validation`, `Eff`, `Option`, folds, and typed errors.
+- Treat C# as LanguageExt-first functional ROP; do not import TypeScript Effect patterns into C# rails.
 - Treat approved dependencies and local docs as implementation surfaces; do not hand-roll covered behavior.
 - Preserve macOS RhinoWIP/GH2 assumptions. Do not import GH1, Rhino 8, Windows, or global-memory guidance.
 

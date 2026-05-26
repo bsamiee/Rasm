@@ -1,0 +1,33 @@
+---
+description: Rasm Rhino/GH bridge scenarios: source-only verify scripts, batched facts, captures, and runtime evidence
+globs: "tests/csharp/libs/**/scenarios/*.verify.csx"
+alwaysApply: false
+---
+
+# Rasm Bridge Scenarios
+
+Read `.claude/skills/cs-testing/SKILL.md`, `tools/rhino-bridge/README.md`, `tools/rhino-bridge/AGENTS.md`, and nearest test `AGENTS.md`.
+
+## Shape
+
+- Path scenarios under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/*.verify.csx`.
+- Keep scripts source-only: no `#r`, no `#load`, no absolute paths.
+- Group related runtime checks per file because each Rhino handshake costs several seconds.
+- Use only public product assemblies and staged `Rasm.TestKit.Scenarios` capsules.
+
+## Evidence
+
+- Author scenarios with `Scenario.Run("theme", CAPTURE_PATH, (key, facts) => { ... });`.
+- Add facts with `facts.Add(string key, object value);`.
+- Prefer structured booleans, counts, names, tolerances, and file references over narrative console text.
+- Use `Capture` only for visual or document evidence that static tests cannot prove.
+
+## Prohibited
+
+- Do not call `BridgeMarker.EmitFact`, `BridgeMarker.EmitScenarioHeader`, or per-fact `Console.WriteLine("key=value")`.
+- Do not manually stage references or load assemblies inside the scenario.
+- Do not automate Rhino settings or templates from scenarios.
+
+## Validation
+
+Run `bash scripts/rhino.sh verify <scenario-or-glob>` for runtime behavior. Keep managed assertions in `*.spec.cs`.

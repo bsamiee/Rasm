@@ -1,0 +1,28 @@
+---
+description: Rasm architecture docs: README, ADR, changelog, standards, and architecture narratives
+globs: "README.md,CHANGELOG.md,docs/architecture/**/*.md,docs/adr/**/*.md,docs/standards/**/*.md,docs/**/README.md,**/ARCHITECTURE.md"
+alwaysApply: false
+---
+
+# Rasm Architecture Docs
+
+Read `.claude/skills/docgen/SKILL.md`, `.claude/skills/style-standards/SKILL.md`, `docs/AGENTS.md`, and relevant standards docs before editing narrative documentation.
+
+## Structure
+
+- Use the existing Diátaxis role: tutorial, how-to, explanation, or reference.
+- Keep ADRs decision-centered: context, decision, consequences, and status.
+- Keep READMEs task-oriented with verified commands and current paths.
+- Keep architecture docs grounded in actual projects, manifests, scripts, and bridge routes.
+
+## Voice
+
+- Prefer direct imperative guidance, bounded claims, and source-grounded vocabulary.
+- Use `[CRITICAL]`, `[IMPORTANT]`, `[ALWAYS]`, and `[NEVER]` only for durable policy with enforcement value.
+- Avoid duplicating full `CLAUDE.md`, `AGENTS.md`, skills, or generated API reference content.
+
+## Review
+
+- Remove private paths, transcript references, and local memory provenance.
+- Replace historical agent notes with repo-owned evidence or delete them.
+- Keep Markdown whitespace, heading order, tables, and list grammar compliant with style standards.

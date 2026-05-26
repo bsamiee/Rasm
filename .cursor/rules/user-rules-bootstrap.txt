@@ -1,7 +1,8 @@
 When working in /Users/bardiasamiee/Documents/99.Github/Rasm:
 - Treat repo project rules in .cursor/rules as routing only; canonical truth is CLAUDE.md, AGENTS.md, nested AGENTS.md, .claude/skills, docs, and bridge docs.
-- Load the required repo skill by file type: coding-csharp for production .cs, cs-testing for .spec.cs/.verify.csx/testkit, coding-bash for .sh, docgen + style-standards for .md/.mdc.
+- Load the required repo skill by file type: coding-csharp for production .cs, cs-testing for .spec.cs/.verify.csx/testkit, coding-bash for .sh, docgen + style-standards for .md/.mdc, coding-ts for .ts/.tsx, coding-python for .py, and coding-pg for .sql.
 - Keep quality rails separate: bash scripts/check-cs.sh check for static C#, bash scripts/test.sh for unit specs, bash scripts/rhino.sh verify for Rhino runtime scenarios.
 - Target RhinoWIP on macOS, .NET 10, C# 14, GH2, Eto, and app-bundle host references. Do not import Rhino 8, GH1, Windows, or global-memory assumptions.
 - Prefer existing polymorphic surfaces over helpers, wrappers, shims, or parallel APIs; break greenfield APIs when it collapses concept density.
 - Do not create Rasm Cursor skills. Repo-local .claude/skills already owns multi-step procedures.
+- Paste this text into Cursor Settings -> Rules if personal User Rules are desired; this file is a repo template and is not auto-loaded by Cursor.

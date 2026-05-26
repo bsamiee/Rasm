@@ -1,6 +1,6 @@
 ---
 description: Rasm Rhino bridge: current operator routes, scenario evidence, serial runtime validation
-globs: "tools/rhino-bridge/**,scripts/rhino.sh,**/*.verify.csx"
+globs: "tools/rhino-bridge/**,scripts/rhino.sh"
 alwaysApply: false
 ---
 
@@ -27,8 +27,9 @@ Use `scripts/rhino.sh` as the only bridge operator. Read `tools/rhino-bridge/REA
 
 ## Scenario kit
 
+- `rasm-bridge-scenarios.mdc` owns `*.verify.csx` authoring rules.
 - `Rasm.TestKit.Scenarios` is staged automatically; no `#r`, `#load`, or absolute paths.
-- Use `Scenario.Run` and `facts.Add`; the durable evidence is one batched `facts={json}` marker parsed by `BridgeMarker.Scan`.
+- The durable evidence is one batched `facts={json}` marker parsed by `BridgeMarker.Scan`.
 - Output JSON and captures land under `.artifacts/rhino/verify/`.
 
 ## Not For

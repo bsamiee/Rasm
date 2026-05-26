@@ -1,6 +1,6 @@
 ---
 description: Rasm Bash scripts: strict mode, dispatch tables, ShellCheck, and separated rail scripts
-globs: "scripts/**/*.sh,**/*.sh"
+globs: "scripts/**/*.sh"
 alwaysApply: false
 ---
 
@@ -21,7 +21,7 @@ Read `.claude/skills/coding-bash/SKILL.md` before edits.
 - Use the repo strict prelude, dispatch-table routing, quoted paths, atomic staging, and cleanup traps.
 - Keep routes deterministic and fork-minimal.
 - Do not merge static, unit, and Rhino runtime rails.
-- Do not reintroduce stale bridge routes such as `load-smoke` or `StartScriptServer`.
+- Defer bridge route validity to `rasm-rhino-bridge.mdc` and `tools/rhino-bridge/AGENTS.md`.
 
 ## Validation
 

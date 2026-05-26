@@ -12,6 +12,7 @@ alwaysApply: false
 - Check truth: `rg -n "<PackageId>" Directory.Packages.props Directory.Build.props **/*.csproj`
 - Add `PackageVersion` only with a concrete consumer.
 - Validate removals with `dotnet restore Workspace.slnx --locked-mode`; use normal restore for graph changes.
+- Reconcile manifest edits with `docs/system-api-map/packages.md` and any affected `docs/external-libs/**/api.md` or `docs/testing-libs/**/api.md` version pins.
 - `global.json` is currently absent. If introduced later, treat it as a full-static trigger.
 
 ## Host References

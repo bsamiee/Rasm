@@ -19,7 +19,7 @@ Read `libs/csharp/Rasm.Grasshopper/AGENTS.md` and verify GH2 APIs through local 
 
 - Keep `GhUi` as the request constructor and `GrasshopperUi.Use` as the executor.
 - Extend existing algebras: `CanvasOp`, `DocumentOp`, `EditorOp`, `InputRequest<T>`, `UiEvent`, `LayoutOp`, `PaintRequest<T>`, and `WireOp`.
-- Do not reintroduce `CanvasUi`, `ComponentUi`, wrapper services, WinForms, WPF, polling replacements, or parallel UI frameworks.
+- Do not add wrapper services, WinForms, WPF, polling replacements, or parallel UI frameworks. Extend current component, `Shape`, `GhUi`, and `GrasshopperUi` owners instead of reviving removed wrapper-only surfaces.
 
 ## Validation
 
