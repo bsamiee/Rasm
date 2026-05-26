@@ -36,6 +36,7 @@ internal readonly record struct BoundarySignedHeatKey(SignedHeatTime Heat, Volum
 internal readonly record struct ClosedSignedHeatKey(VolumeGridPolicy Grid, SignedHeatTime Heat, VolumeSolverPolicy Solver, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition);
 internal readonly record struct SignedHeatSolution(Arr<double> Values, SignedHeatReceipt Receipt, TopologyReceipt Topology);
 internal readonly record struct ClosedSignedHeatSolution(VolumeGridDomain Domain, Arr<double> Values, SignedHeatReceipt Receipt, TopologyReceipt Topology);
+internal readonly record struct EdgeConnectionFactor(CholeskySparse Factor, SpectralAssemblyReceipt Receipt);
 internal readonly record struct VolumeGridDomain(BoundingBox Bounds, int Resolution, int XCells, int YCells, int ZCells, double CellSize, double Padding, VolumeGridReceipt Receipt) {
     internal int XNodes => XCells + 1; internal int YNodes => YCells + 1; internal int ZNodes => ZCells + 1; internal int NodeCount => XNodes * YNodes * ZNodes; internal int CellCount => XCells * YCells * ZCells;
     internal int Index(int x, int y, int z) => x + (XNodes * (y + (YNodes * z)));
@@ -66,7 +67,8 @@ internal sealed class LaplacianCache {
     private readonly Lazy<double> meanEdgeLength;
     private readonly Memo<Unit, MeshKernel.IntrinsicMesh> intrinsicMesh = new();
     private readonly Memo<(int Symmetry, double Time), CholeskySparse> connectionCholesky = new();
-    private readonly Memo<double, CholeskySparse> scalarHeatCholesky = new(), edgeConnectionCholesky = new();
+    private readonly Memo<double, CholeskySparse> scalarHeatCholesky = new();
+    private readonly Memo<double, EdgeConnectionFactor> edgeConnectionCholesky = new();
     private readonly Memo<GeodesicKey, Arr<double>> geodesicCache = new();
     private readonly Memo<McfKey, Arr<double>> mcfCache = new();
     private readonly Memo<CrossFieldKey, Complex[]> crossFieldCache = new();
@@ -132,12 +134,12 @@ internal sealed class LaplacianCache {
             from system in MeshKernel.AssembleMassStiffnessSystem(laplacian: L, stiffnessScale: time, key: key)
             from factor in CholeskySparse.Of(symmetric: system, key: key)
             select factor);
-    internal Fin<CholeskySparse> EdgeConnectionCholesky(double time, Op key) =>
+    internal Fin<EdgeConnectionFactor> EdgeConnectionCholeskyDetailed(double time, Op key) =>
         edgeConnectionCholesky.Of(probe: time, compute: () =>
             from imesh in IntrinsicMeshSnapshot(key: key)
-            from system in SpectralCore.BuildCrouzeixRaviartHeatSystem(mesh: imesh, time: time, key: key)
-            from factor in CholeskySparse.Of(symmetric: system, key: key)
-            select factor);
+            from system in SpectralCore.BuildCrouzeixRaviartHeatSystemDetailed(mesh: imesh, time: time, key: key)
+            from factor in CholeskySparse.Of(symmetric: system.Matrix, key: key)
+            select new EdgeConnectionFactor(Factor: factor, Receipt: system.Receipt));
     internal Fin<Arr<double>> Geodesic(GeodesicKey probe, Func<Fin<Arr<double>>> compute) => geodesicCache.Of(probe, compute);
     internal Fin<Arr<double>> Mcf(McfKey probe, Func<Fin<Arr<double>>> compute) => mcfCache.Of(probe, compute);
     internal Fin<Complex[]> CrossField(CrossFieldKey probe, Func<Fin<Complex[]>> compute) => crossFieldCache.Of(probe, compute);
@@ -155,7 +157,7 @@ internal sealed class LaplacianCache {
 [SmartEnum<int>] public sealed partial class RemeshStatus { public static readonly RemeshStatus Completed = new(key: 0), NativeRejected = new(key: 1); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct RemeshReceipt(RemeshKind Kind, RemeshStatus Status, Option<double> TargetLength, Option<int> DesiredPolygonCount, int PreVertexCount, int PreFaceCount, int PostVertexCount, int PostFaceCount, double ReductionRatio, bool Valid, bool HardEdgePreservationRequested, bool TopologyChanged);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct RemeshResult(Mesh Mesh, RemeshReceipt Receipt);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorReceipt(SpectralDescriptorReceipt Spectral, EigenSolveReceipt<double, Arr<double>> Eigen, int RequestedEigenpairs, int ReturnedEigenpairs, bool ComparisonReady, bool SpectralCacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorReceipt(SpectralDescriptorReceipt Spectral, EigenSolveReceipt<double, Arr<double>> Eigen, int RequestedEigenpairs, int ReturnedEigenpairs, bool ComparisonReady, bool SpectralCacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default, Option<SpectralAssemblyReceipt> Assembly = default);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorResult(Arr<double> Values, DescriptorReceipt Receipt);
 [SmartEnum<int>] public sealed partial class MeshSegmentationAlgorithm { public static readonly MeshSegmentationAlgorithm ScalarThresholdComponents = new(key: 0), ScalarBandComponents = new(key: 1), SeededRegionGrow = new(key: 2), DescriptorScalarClusters = new(key: 3); }
 [SmartEnum<int>] public sealed partial class MeshSegmentationStatus { public static readonly MeshSegmentationStatus Completed = new(key: 0), MaxIterationsExhausted = new(key: 1); }
@@ -164,16 +166,17 @@ internal sealed class LaplacianCache {
 [SmartEnum<int>] public sealed partial class SdfMeshDomain { public static readonly SdfMeshDomain SurfaceMesh = new(key: 0), BoundarySource = new(key: 1), VolumeGrid = new(key: 2), VolumeTet = new(key: 3); }
 [SmartEnum<int>] public sealed partial class SdfMeshStatus { public static readonly SdfMeshStatus ApproximateSignClosestDistance = new(key: 0), BoundarySourceSignedHeat = new(key: 1), ClosedSurfaceSignedHeat = new(key: 2); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct VolumeGridReceipt(BoundingBox Bounds, int Resolution, int XNodes, int YNodes, int ZNodes, double CellSize, double Padding, int NodeCount, int CellCount, int SourceTriangleCount, int DegenerateTriangleCount, double SourceArea, int InsideNodeCount, int OutsideNodeCount, int NearSurfaceNodeCount, int RejectedVectorCount, double HeatTime, int GaugeNode, double SurfaceShift, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition, VolumeSolverPolicy Solver, int OperatorNonZeros, Option<int> FactorNonZeros, double Residual);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SignedHeatReceipt(int BoundarySourceVertexCount, int BoundaryEncodedEdgeSourceCount, int BoundaryRejectedPointCount, int BoundaryUnmatchedSegmentCount, Option<SolveReceipt> HeatSolve, SolveReceipt PoissonSolve);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SignedHeatReceipt(int BoundarySourceVertexCount, int BoundaryEncodedEdgeSourceCount, int BoundaryRejectedPointCount, int BoundaryUnmatchedSegmentCount, Option<SolveReceipt> HeatSolve, SolveReceipt PoissonSolve, Option<SpectralAssemblyReceipt> EdgeAssembly = default);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SdfMeshReceipt(SdfMeshMethod Method, SdfMeshStatus Status, SdfMeshDomain Domain, TopologyReceipt Topology, Option<SignedHeatReceipt> SignedHeat, Option<VolumeGridReceipt> VolumeGrid = default);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfMeshSample(double Distance, SdfMeshReceipt Receipt);
 [Union]
 public abstract partial record MeshDescriptor {
     private MeshDescriptor() { }
-    public sealed record SpectralCase(SpectralFilter Filter, Option<Seq<int>> Sources) : MeshDescriptor;
-    internal bool IsValid => this is SpectralCase { Filter: not null };
-    public static MeshDescriptor Spectral(SpectralFilter filter, Option<Seq<int>> sources = default) => new SpectralCase(Filter: filter, Sources: sources);
+    public sealed record SpectralCase(SpectralFilter Filter, Option<Seq<int>> Sources, SpectralDescriptorPolicy Policy) : MeshDescriptor;
+    internal bool IsValid => this is SpectralCase { Filter: not null } spectral && spectral.Policy.IsValid;
+    public static MeshDescriptor Spectral(SpectralFilter filter, Option<Seq<int>> sources = default) => Spectral(filter: filter, sources: sources, policy: SpectralDescriptorPolicy.Raw);
+    public static MeshDescriptor Spectral(SpectralFilter filter, Option<Seq<int>> sources, SpectralDescriptorPolicy policy) => new SpectralCase(Filter: filter, Sources: sources, Policy: policy.IsValid ? policy : SpectralDescriptorPolicy.Raw);
 }
 
 [Union]
@@ -951,8 +954,9 @@ internal static class MeshKernel {
                     select output)));
     internal static Fin<DescriptorResult> DescribeSpectralShape(MeshSpace space, MeshDescriptor.SpectralCase spec, int eigenpairs, Op key) =>
         from bundle in space.Cache.SpectralBasisBundleOf(k: eigenpairs, key: key)
-        from spectral in spec.Filter.ApplyDetailed(basis: bundle.Basis, sources: spec.Sources, key: key)
-        select new DescriptorResult(Values: spectral.Values, Receipt: new DescriptorReceipt(Spectral: spectral.Receipt, Eigen: bundle.Eigen, RequestedEigenpairs: eigenpairs, ReturnedEigenpairs: bundle.Eigen.ReturnedPairs, ComparisonReady: spectral.Receipt.ComparisonReady, SpectralCacheHit: bundle.CacheHit, SkippedDegenerateFaces: bundle.SkippedDegenerateFaces, FactorNonZeros: bundle.FactorNonZeros));
+        from spectral in spec.Filter.ApplyDetailed(basis: bundle.Basis, sources: spec.Sources, policy: spec.Policy, key: key)
+        let receipt = spectral.Receipt with { SkippedDegenerateFaces = bundle.SkippedDegenerateFaces, FactorNonZeros = bundle.FactorNonZeros }
+        select new DescriptorResult(Values: spectral.Values, Receipt: new DescriptorReceipt(Spectral: receipt, Eigen: bundle.Eigen, RequestedEigenpairs: eigenpairs, ReturnedEigenpairs: bundle.Eigen.ReturnedPairs, ComparisonReady: receipt.ComparisonReady, SpectralCacheHit: bundle.CacheHit, SkippedDegenerateFaces: bundle.SkippedDegenerateFaces, FactorNonZeros: bundle.FactorNonZeros, Assembly: receipt.Assembly));
     private static Fin<TOut> ProjectDescriptor<TOut>(DescriptorResult descriptor, Op key) =>
         typeof(TOut) switch {
             Type t when t == typeof(DescriptorResult) => Fin.Succ((TOut)(object)descriptor),
@@ -1173,7 +1177,13 @@ internal static class MeshKernel {
         int nVerts = mesh.Vertices.Count;
         int nEdges = mesh.TopologyEdges.Count;
         double[] negDivergence = new double[nVerts];
-        return toSeq(Enumerable.Range(start: 0, count: nEdges)).Fold(
+        return from topology in TopologyDetailed(space: space, key: key)
+               from _ in topology.Genus.Match(
+                   Some: genus => genus > 0
+                       ? Fin.Fail<Unit>(key.Unsupported(geometryType: typeof(MeshSpace), outputType: typeof(HodgeBundle)))
+                       : Fin.Succ(unit),
+                   None: () => Fin.Succ(unit))
+               from bundle in toSeq(Enumerable.Range(start: 0, count: nEdges)).Fold(
             initialState: Fin.Succ(unit),
             f: (acc, e) => acc.Bind(_ => {
                 Line line = mesh.TopologyEdges.EdgeLine(topologyEdgeIndex: e);
@@ -1196,7 +1206,8 @@ internal static class MeshKernel {
             }))
             .Bind(_ => space.Laplacian(kind: MeshLaplacian.Cotangent, key: key))
             .Bind(L => SolvePinnedPoisson(stiffness: L.Stiffness, rhs: new Arr<double>(negDivergence), key: key))
-            .Bind(potential => BuildHodgeFromPotential(mesh: mesh, source: source, potential: potential, space: space, key: key));
+            .Bind(potential => BuildHodgeFromPotential(mesh: mesh, source: source, potential: potential, space: space, key: key))
+               select bundle;
     }
     // Pinning removes the constant Laplacian null mode.
     private static Fin<Arr<double>> SolvePinnedPoisson(SparseMatrix stiffness, Arr<double> rhs, Op key) {
@@ -1410,8 +1421,8 @@ internal static class MeshKernel {
         return from imesh in space.Cache.IntrinsicMeshSnapshot(key: key)
                from _ in guard(!imesh.HasFlips, key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof(SignedHeatSolution)))
                from admitted in AdmitBoundarySignedHeat(space: space, imesh: imesh, key: key)
-               from heatFactor in space.Cache.EdgeConnectionCholesky(time: t, key: key)
-               from heatSolve in heatFactor.SolveDetailed(rhs: admitted.Source.Rhs, key: key)
+               from heatFactor in space.Cache.EdgeConnectionCholeskyDetailed(time: t, key: key)
+               from heatSolve in heatFactor.Factor.SolveDetailed(rhs: admitted.Source.Rhs, key: key)
                let faceField = SpectralCore.SampleCrouzeixRaviartFaceField(mesh: mesh, imesh: imesh, stacked: heatSolve.Solution)
                let divergence = SpectralCore.ComputeIntrinsicVertexDivergence(mesh: mesh, imesh: imesh, faceFields: faceField)
                from poissonFactor in space.Cache.Cholesky(key: key)
@@ -1420,7 +1431,7 @@ internal static class MeshKernel {
                from shifted in ShiftSignedHeat(phi: poissonSolve.Solution, sourceVertices: admitted.Source.SourceVertices, vertexCount: mesh.Vertices.Count, key: key)
                select new SignedHeatSolution(
                    Values: shifted,
-                   Receipt: new SignedHeatReceipt(BoundarySourceVertexCount: admitted.Source.SourceVertices.Count, BoundaryEncodedEdgeSourceCount: admitted.Source.EncodedEdgeSourceCount, BoundaryRejectedPointCount: admitted.Source.RejectedBoundaryPointCount, BoundaryUnmatchedSegmentCount: admitted.Source.UnmatchedBoundarySegmentCount, HeatSolve: Some(heatSolve), PoissonSolve: poissonSolve),
+                   Receipt: new SignedHeatReceipt(BoundarySourceVertexCount: admitted.Source.SourceVertices.Count, BoundaryEncodedEdgeSourceCount: admitted.Source.EncodedEdgeSourceCount, BoundaryRejectedPointCount: admitted.Source.RejectedBoundaryPointCount, BoundaryUnmatchedSegmentCount: admitted.Source.UnmatchedBoundarySegmentCount, HeatSolve: Some(heatSolve), PoissonSolve: poissonSolve, EdgeAssembly: Some(heatFactor.Receipt)),
                    Topology: admitted.Topology);
     }
     internal static Fin<ClosedSignedHeatSolution> ComputeClosedSignedHeatDetailed(MeshSpace space, SdfMeshPolicy policy, Op key) =>

@@ -13,7 +13,7 @@ public abstract partial record VectorIntent {
     public sealed record RayCase(Point3d Origin, Direction RayDirection, RayPolicy Policy) : VectorIntent;
     public sealed record FrameCase(Point3d Origin, Vector3d Normal, Option<Vector3d> XHint) : VectorIntent;
     public sealed record CurveCase(Curve Source, double Parameter, CurveProjection Mode) : VectorIntent;
-    public sealed record CloudCase : VectorIntent { internal CloudCase(VectorCloud Value, VectorCloudMetric Metric) { this.Value = Value; this.Metric = Metric; } public VectorCloud Value { get; } public VectorCloudMetric Metric { get; } }
+    public sealed record CloudCase : VectorIntent { internal CloudCase(VectorCloud Value, VectorCloudMetric Metric, CloudMetricPolicy Policy) { this.Value = Value; this.Metric = Metric; this.Policy = Policy; } public VectorCloud Value { get; } public VectorCloudMetric Metric { get; } public CloudMetricPolicy Policy { get; } }
     public sealed record WindingCase : VectorIntent { internal WindingCase(VectorCloud Value, Point3d Query) { this.Value = Value; this.Query = Query; } public VectorCloud Value { get; } public Point3d Query { get; } }
     public sealed record ConeCase(VectorCone Value, ConeProjection Mode) : VectorIntent;
     public sealed record ComponentsCase(Point3d Anchor, Vector3d Value, Plane Basis) : VectorIntent;
@@ -27,14 +27,15 @@ public abstract partial record VectorIntent {
     public sealed record SurfaceCase(SurfaceSpace SurfaceSource, double U, double V, SurfaceProjection Mode) : VectorIntent;
     public sealed record PoseCase(Plane From, Plane To, UnitInterval Parameter, MotionInterpolation Mode) : VectorIntent;
     public sealed record FlattenCase : VectorIntent { internal FlattenCase(MeshSpace Space) => this.Space = Space; public MeshSpace Space { get; } }
-    public sealed record HullCase : VectorIntent { internal HullCase(VectorCloud Source, CloudHullKind Kind) { this.Source = Source; this.Kind = Kind; } public VectorCloud Source { get; } public CloudHullKind Kind { get; } }
+    public sealed record HullCase : VectorIntent { internal HullCase(VectorCloud Source, CloudHullKind Kind, CloudHullPolicy Policy) { this.Source = Source; this.Kind = Kind; this.Policy = Policy; } public VectorCloud Source { get; } public CloudHullKind Kind { get; } public CloudHullPolicy Policy { get; } }
     public sealed record SampleCase : VectorIntent { internal SampleCase(ExtractionDomain Domain, SampleKind Kind) { this.Domain = Domain; this.Kind = Kind; } public ExtractionDomain Domain { get; } public SampleKind Kind { get; } }
     public sealed record AlignCase : VectorIntent { internal AlignCase(VectorCloud Source, VectorCloud Target, AlignKind Kind) { this.Source = Source; this.Target = Target; this.Kind = Kind; } public VectorCloud Source { get; } public VectorCloud Target { get; } public AlignKind Kind { get; } }
     public sealed record RemeshCase : VectorIntent { internal RemeshCase(MeshSpace Space, RemeshKind Kind) { this.Space = Space; this.Kind = Kind; } public MeshSpace Space { get; } public RemeshKind Kind { get; } }
-    public sealed record TransportCase : VectorIntent { internal TransportCase(VectorCloud Source, VectorCloud Target, PositiveMagnitude Regularization, Dimension MaxIterations, bool Debiased, Option<PositiveMagnitude> MassRelaxation) { this.Source = Source; this.Target = Target; this.Regularization = Regularization; this.MaxIterations = MaxIterations; this.Debiased = Debiased; this.MassRelaxation = MassRelaxation; } public VectorCloud Source { get; } public VectorCloud Target { get; } public PositiveMagnitude Regularization { get; } public Dimension MaxIterations { get; } public bool Debiased { get; } public Option<PositiveMagnitude> MassRelaxation { get; } }
+    public sealed record TransportCase : VectorIntent { internal TransportCase(VectorCloud Source, VectorCloud Target, PositiveMagnitude Regularization, Dimension MaxIterations, bool Debiased, Option<PositiveMagnitude> MassRelaxation, PositiveMagnitude ConvergenceTolerance, PositiveMagnitude CouplingCutoff) { this.Source = Source; this.Target = Target; this.Regularization = Regularization; this.MaxIterations = MaxIterations; this.Debiased = Debiased; this.MassRelaxation = MassRelaxation; this.ConvergenceTolerance = ConvergenceTolerance; this.CouplingCutoff = CouplingCutoff; } public VectorCloud Source { get; } public VectorCloud Target { get; } public PositiveMagnitude Regularization { get; } public Dimension MaxIterations { get; } public bool Debiased { get; } public Option<PositiveMagnitude> MassRelaxation { get; } public PositiveMagnitude ConvergenceTolerance { get; } public PositiveMagnitude CouplingCutoff { get; } }
     public sealed record TopologyCase : VectorIntent { internal TopologyCase(MeshSpace Space) => this.Space = Space; public MeshSpace Space { get; } }
     public sealed record FeaturesCase : VectorIntent { internal FeaturesCase(MeshSpace Space, VectorAngle Dihedral) { this.Space = Space; this.Dihedral = Dihedral; } public MeshSpace Space { get; } public VectorAngle Dihedral { get; } }
     public sealed record DescriptorCase : VectorIntent { internal DescriptorCase(MeshSpace Space, MeshDescriptor Kind, Dimension Pairs) { this.Space = Space; this.Kind = Kind; this.Pairs = Pairs; } public MeshSpace Space { get; } public MeshDescriptor Kind { get; } public Dimension Pairs { get; } }
+    public sealed record DiscreteCalculusCase : VectorIntent { internal DiscreteCalculusCase(MeshSpace Space, MeshLaplacian Kind) { this.Space = Space; this.Kind = Kind; } public MeshSpace Space { get; } public MeshLaplacian Kind { get; } }
     public sealed record SegmentationCase : VectorIntent { internal SegmentationCase(MeshSpace Space, MeshSegmentation Kind) { this.Space = Space; this.Kind = Kind; } public MeshSpace Space { get; } public MeshSegmentation Kind { get; } }
     public Fin<TOut> Project<TOut>(Context context, Op? key = null) {
         Op op = key.OrDefault();
@@ -76,7 +77,7 @@ public abstract partial record VectorIntent {
             from output in frame.Project<TOut>(key: state.Key)
             select output,
         curveCase: static (state, intent) => intent.Mode.Project<TOut>(curve: intent.Source, parameter: intent.Parameter, context: state.Context, key: state.Key),
-        cloudCase: static (state, intent) => intent.Metric.Project<TOut>(cloud: intent.Value, key: state.Key),
+        cloudCase: static (state, intent) => intent.Metric.Project<TOut>(cloud: intent.Value, policy: intent.Policy, key: state.Key),
         windingCase: static (state, intent) => CloudKernel.Winding<TOut>(cloud: intent.Value, query: intent.Query, key: state.Key),
         coneCase: static (state, intent) => intent.Mode.Project<TOut>(cone: intent.Value, key: state.Key),
         componentsCase: static (state, intent) =>
@@ -149,10 +150,10 @@ public abstract partial record VectorIntent {
                             : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(FlattenCase), outputType: typeof(TOut)))
             select output,
         hullCase: static (state, intent) =>
-            from result in CloudKernel.ComputeHullDetailed(source: intent.Source, kind: intent.Kind, context: state.Context, key: state.Key)
+            from result in CloudKernel.ComputeHullDetailed(source: intent.Source, kind: intent.Kind, policy: intent.Policy, key: state.Key)
             from output in typeof(TOut) switch {
-                Type t when t == typeof(CloudHullResult) => state.Key.AcceptValue(value: result).Map(static v => (TOut)(object)v),
-                Type t when t == typeof(CloudHullReceipt) => state.Key.AcceptValue(value: result.Receipt).Map(static v => (TOut)(object)v),
+                Type t when t == typeof(CloudHullResult) => Fin.Succ((TOut)(object)result),
+                Type t when t == typeof(CloudHullReceipt) => Fin.Succ((TOut)(object)result.Receipt),
                 Type t when t == typeof(Mesh) => result.Mesh.ToFin(state.Key.Unsupported(geometryType: typeof(HullCase), outputType: typeof(Mesh))).Bind(mesh => state.Key.AcceptValue(value: mesh).Map(static v => (TOut)(object)v)),
                 Type t when t == typeof(VectorCloud) => result.Mesh.ToFin(state.Key.Unsupported(geometryType: typeof(HullCase), outputType: typeof(VectorCloud))).Bind(mesh => VectorCloud.Cluster(
                     points: toSeq(mesh.Vertices.AsIterable().Select(static v => (Point3d)v)),
@@ -187,7 +188,7 @@ public abstract partial record VectorIntent {
                         ? state.Key.AcceptValue(value: result.Receipt).Map(static v => (TOut)(object)v)
                         : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(RemeshCase), outputType: typeof(TOut)))
             select output,
-        transportCase: static (state, intent) => CloudKernel.Sinkhorn<TOut>(source: intent.Source, target: intent.Target, regularization: intent.Regularization.Value, maxIterations: intent.MaxIterations.Value, debiased: intent.Debiased, massRelaxation: intent.MassRelaxation, key: state.Key),
+        transportCase: static (state, intent) => CloudKernel.Sinkhorn<TOut>(source: intent.Source, target: intent.Target, regularization: intent.Regularization.Value, maxIterations: intent.MaxIterations.Value, debiased: intent.Debiased, massRelaxation: intent.MassRelaxation, convergenceTolerance: intent.ConvergenceTolerance, couplingCutoff: intent.CouplingCutoff, key: state.Key),
         topologyCase: static (state, intent) =>
             from topology in MeshKernel.TopologyDetailed(space: intent.Space, key: state.Key)
             from output in typeof(TOut) == typeof(TopologyReceipt)
@@ -211,6 +212,14 @@ public abstract partial record VectorIntent {
                         : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(FeaturesCase), outputType: typeof(TOut)))
             select output,
         descriptorCase: static (state, intent) => MeshKernel.DescribeShape<TOut>(space: intent.Space, kind: intent.Kind, eigenpairs: intent.Pairs.Value, key: state.Key),
+        discreteCalculusCase: static (state, intent) =>
+            from calculus in SpectralCore.Build(space: intent.Space, kind: intent.Kind, key: state.Key)
+            from output in typeof(TOut) switch {
+                Type t when t == typeof(DiscreteCalculus) => Fin.Succ((TOut)(object)calculus),
+                Type t when t == typeof(SpectralAssemblyReceipt) => Fin.Succ((TOut)(object)calculus.Receipt),
+                _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(DiscreteCalculusCase), outputType: typeof(TOut))),
+            }
+            select output,
         segmentationCase: static (state, intent) => MeshKernel.Segment<TOut>(space: intent.Space, kind: intent.Kind, key: state.Key));
     public static VectorIntent Axis(SignedAxis axis, Plane? frame = null) =>
         new AxisCase(Value: axis, Basis: Optional(frame));
@@ -250,12 +259,15 @@ public abstract partial record VectorIntent {
                from validMode in Optional(mode).ToFin(op.InvalidInput())
                select (VectorIntent)new CurveCase(Source: active, Parameter: parameter, Mode: validMode);
     }
-    public static Fin<VectorIntent> Cloud(VectorCloud cloud, VectorCloudMetric metric, Op? key = null) {
+    public static Fin<VectorIntent> Cloud(VectorCloud cloud, VectorCloudMetric metric, Op? key = null) =>
+        Cloud(cloud: cloud, metric: metric, policy: Option<CloudMetricPolicy>.None, key: key);
+    public static Fin<VectorIntent> Cloud(VectorCloud cloud, VectorCloudMetric metric, Option<CloudMetricPolicy> policy, Op? key = null) {
         Op op = key.OrDefault();
         return from validCloud in Optional(cloud).ToFin(op.InvalidInput())
                from validMetric in Optional(metric).ToFin(op.InvalidInput())
+               from validPolicy in CloudMetricPolicy.AdmitOrDefault(policy: policy, key: op)
                from _ in guard(validMetric.AdmitsCase(cloud: validCloud), op.Unsupported(geometryType: validCloud.GetType(), outputType: validMetric.Output))
-               select (VectorIntent)new CloudCase(Value: validCloud, Metric: validMetric);
+               select (VectorIntent)new CloudCase(Value: validCloud, Metric: validMetric, Policy: validPolicy);
     }
     public static Fin<VectorIntent> Winding(VectorCloud cloud, Point3d query, Op? key = null) {
         Op op = key.OrDefault();
@@ -304,11 +316,17 @@ public abstract partial record VectorIntent {
         Op op = key.OrDefault();
         return Optional(space.Native).ToFin(op.InvalidInput()).Map(_ => (VectorIntent)new FlattenCase(Space: space));
     }
-    public static Fin<VectorIntent> Hull(VectorCloud source, CloudHullKind? kind = null, Op? key = null) {
+    public static Fin<VectorIntent> Hull(VectorCloud source, CloudHullKind? kind = null, Op? key = null) =>
+        Hull(source: source, kind: kind, policy: Option<CloudHullPolicy>.None, key: key);
+    public static Fin<VectorIntent> Hull(VectorCloud source, CloudHullKind? kind, Option<CloudHullPolicy> policy, Op? key = null) {
         Op op = key.OrDefault();
         return from validSource in Optional(source).ToFin(op.InvalidInput())
                from validKind in Optional(kind ?? CloudHullKind.Convex3D).ToFin(op.InvalidInput())
-               select (VectorIntent)new HullCase(Source: validSource, Kind: validKind);
+               from cluster in validSource is VectorCloud.ClusterCase c
+                   ? Fin.Succ(c)
+                   : Fin.Fail<VectorCloud.ClusterCase>(op.Unsupported(geometryType: validSource.GetType(), outputType: typeof(CloudHullResult)))
+               from validPolicy in CloudHullPolicy.AdmitOrDefault(policy: policy, context: cluster.Tolerance, key: op)
+               select (VectorIntent)new HullCase(Source: cluster, Kind: validKind, Policy: validPolicy);
     }
     public static Fin<VectorIntent> Sample(ExtractionDomain domain, SampleKind kind, Op? key = null) {
         Op op = key.OrDefault();
@@ -330,7 +348,7 @@ public abstract partial record VectorIntent {
                select (VectorIntent)new RemeshCase(Space: space, Kind: activeKind);
     }
     // massRelaxation changes the KL marginal penalty over the cluster mass owner.
-    public static Fin<VectorIntent> Transport(VectorCloud source, VectorCloud target, double regularization, int maxIterations, bool debiased = false, double? massRelaxation = null, Op? key = null) {
+    public static Fin<VectorIntent> Transport(VectorCloud source, VectorCloud target, double regularization, int maxIterations, bool debiased = false, double? massRelaxation = null, double? convergenceTolerance = null, double? couplingCutoff = null, Op? key = null) {
         Op op = key.OrDefault();
         return from validSource in Optional(source).ToFin(op.InvalidInput())
                from validTarget in Optional(target).ToFin(op.InvalidInput())
@@ -339,7 +357,9 @@ public abstract partial record VectorIntent {
                from relax in massRelaxation is double lambda
                     ? op.AcceptValidated<PositiveMagnitude>(candidate: lambda).Map(Some)
                     : Fin.Succ(Option<PositiveMagnitude>.None)
-               select (VectorIntent)new TransportCase(Source: validSource, Target: validTarget, Regularization: reg, MaxIterations: cap, Debiased: debiased, MassRelaxation: relax);
+               from tolerance in op.AcceptValidated<PositiveMagnitude>(candidate: convergenceTolerance ?? 1.0e-8)
+               from cutoff in op.AcceptValidated<PositiveMagnitude>(candidate: couplingCutoff ?? 1.0e-8)
+               select (VectorIntent)new TransportCase(Source: validSource, Target: validTarget, Regularization: reg, MaxIterations: cap, Debiased: debiased, MassRelaxation: relax, ConvergenceTolerance: tolerance, CouplingCutoff: cutoff);
     }
     public static Fin<VectorIntent> Topology(MeshSpace space, Op? key = null) {
         Op op = key.OrDefault();
@@ -361,6 +381,12 @@ public abstract partial record VectorIntent {
                from __ in guard(active.IsValid, op.InvalidInput())
                from count in op.AcceptValidated<Dimension>(candidate: pairs)
                select (VectorIntent)new DescriptorCase(Space: space, Kind: active, Pairs: count);
+    }
+    public static Fin<VectorIntent> DiscreteCalculus(MeshSpace space, MeshLaplacian? kind = null, Op? key = null) {
+        Op op = key.OrDefault();
+        return from _ in Optional(space.Native).ToFin(op.InvalidInput())
+               from active in Optional(kind ?? MeshLaplacian.IntrinsicDelaunay).ToFin(op.InvalidInput())
+               select (VectorIntent)new DiscreteCalculusCase(Space: space, Kind: active);
     }
     public static Fin<VectorIntent> Segmentation(MeshSpace space, MeshSegmentation kind, Op? key = null) {
         Op op = key.OrDefault();

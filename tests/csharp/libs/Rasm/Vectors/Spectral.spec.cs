@@ -19,6 +19,8 @@ internal static class SpectralGens {
     public static readonly Gen<double> PositiveEigenvalue = Gen.Double[start: 0.25, finish: 4.0];
     public static PositiveMagnitude Positive(double value) =>
         Spec.SuccValue(Key.AcceptValidated<PositiveMagnitude>(candidate: value), label: "positive");
+    public static SpectralDescriptor Descriptor(params double[] values) =>
+        new(Values: new Arr<double>(values), Receipt: new SpectralDescriptorReceipt(Filter: SpectralFilter.Identity, VertexCount: values.Length, EigenpairCount: values.Length, SourceCount: 0, ComparisonReady: false, Pairwise: false, EnergyNormalized: false, BandwidthNormalized: false, Policy: SpectralDescriptorPolicy.Raw));
 }
 
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
@@ -61,6 +63,41 @@ public sealed class SpectralFilterLaws {
             Assert.True(condition: descriptor.Receipt.Pairwise);
             Assert.Equal(expected: 1, actual: descriptor.Receipt.SourceCount);
         });
+    }
+    [Fact]
+    public void DescriptorPolicyNormalizesZeroModesAndEnergyForComparison() {
+        SpectralDescriptorPolicy policy = new(
+            ScaleNormalization: SpectralScaleNormalization.FirstNonZeroEigenvalue,
+            EnergyNormalization: SpectralEnergyNormalization.UnitL2,
+            ZeroModePolicy: SpectralZeroModePolicy.Drop,
+            CropCount: Some(Dimension.Create(value: 1)));
+        Spec.Succ(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.Basis, sources: Option<Seq<int>>.None, policy: policy, key: SpectralGens.Key), descriptor => {
+            double invRoot2 = 1.0 / Math.Sqrt(d: 2.0);
+            Spec.SeqEqualWithin(left: toSeq(descriptor.Values.AsIterable()), right: Seq(invRoot2, 0.0, invRoot2), tolerance: 1.0e-12, what: "normalized identity");
+            Assert.True(condition: descriptor.Receipt.ComparisonReady);
+            Assert.True(condition: descriptor.Receipt.EnergyNormalized);
+            Assert.True(condition: descriptor.Receipt.BandwidthNormalized);
+            Assert.Equal(expected: 1, actual: descriptor.Receipt.ZeroModeCount);
+            Assert.Equal(expected: 1, actual: descriptor.Receipt.CroppedEigenpairCount);
+            Assert.Equal(expected: policy.ScaleNormalization, actual: descriptor.Receipt.Policy.ScaleNormalization);
+            Assert.Equal(expected: policy.EnergyNormalization, actual: descriptor.Receipt.Policy.EnergyNormalization);
+            Assert.Equal(expected: policy.ZeroModePolicy, actual: descriptor.Receipt.Policy.ZeroModePolicy);
+            Spec.Some(policy.CropCount, expected => Spec.Some(descriptor.Receipt.Policy.CropCount, actual => Assert.Equal(expected: expected.Value, actual: actual.Value)));
+        });
+    }
+    [Fact]
+    public void RankingUsesPolicyDistanceAndOriginalOrderTieBreak() {
+        SpectralDescriptor query = SpectralGens.Descriptor(1.0, 0.0, 0.0);
+        Seq<SpectralDescriptor> candidates = Seq(SpectralGens.Descriptor(0.0, 1.0, 0.0), SpectralGens.Descriptor(1.0, 0.0, 0.0), SpectralGens.Descriptor(1.0, 0.0, 0.0));
+        SpectralRankingPolicy policy = new(Descriptor: new SpectralDescriptorPolicy(ScaleNormalization: SpectralScaleNormalization.Raw, EnergyNormalization: SpectralEnergyNormalization.UnitL2, ZeroModePolicy: SpectralZeroModePolicy.Keep, CropCount: Option<Dimension>.None), Distance: SpectralDistanceKind.Euclidean, TieBreak: SpectralTieBreak.InputOrder);
+        Spec.Succ(query.Rank(candidates: candidates, policy: policy, key: SpectralGens.Key), ranking => {
+            Assert.Equal(expected: 3, actual: ranking.Items.Count);
+            Assert.Equal(expected: 1, actual: ranking.Items[0].Index);
+            Assert.Equal(expected: 2, actual: ranking.Items[1].Index);
+            Assert.Equal(expected: 0, actual: ranking.Items[2].Index);
+            Assert.True(condition: ranking.Query.Receipt.ComparisonReady);
+        });
+        Spec.FailCategory(query.Normalize(policy: policy.Descriptor with { ScaleNormalization = SpectralScaleNormalization.FirstNonZeroEigenvalue }, key: SpectralGens.Key), category: "Unsupported");
     }
     [Fact]
     public void SourceRailRejectsEmptyOrOutOfRangePairwiseInputs() {

@@ -3,6 +3,7 @@ using Rasm.TestKit;
 using Rasm.Vectors;
 using Rhino;
 using Rhino.Geometry;
+using Dimension = Rasm.Vectors.Dimension;
 
 namespace Rasm.Tests.Vectors;
 
@@ -30,8 +31,19 @@ internal static class CloudMetricGens {
     public static readonly Type[] OutputFamily = [
         typeof(Vector3d), typeof(double), typeof(Point3d), typeof(Plane),
         typeof(Seq<Vector3d>), typeof(VectorCloudShape), typeof(Seq<Plane>),
-        typeof(SymmetricMatrix), typeof(Seq<double>), typeof(Seq<(double K1, double K2, Direction E1, Direction E2)>),
+        typeof(SymmetricMatrix), typeof(Seq<double>), typeof(CloudCurvatureResult),
     ];
+    public static CloudMetricPolicy MetricPolicy(int neighbors, double residual = 1.0e-3) {
+        Op key = Op.Of(name: "cloud-test");
+        return Spec.SuccValue(
+            from count in key.AcceptValidated<Dimension>(candidate: neighbors)
+            from gap in key.AcceptValidated<PositiveMagnitude>(candidate: 1.0e-8)
+            from fit in key.AcceptValidated<PositiveMagnitude>(candidate: residual)
+            select new CloudMetricPolicy(Neighborhood: new CloudNeighborhoodPolicy(NeighborCount: count, Radius: Option<PositiveMagnitude>.None, EigenGapTolerance: gap, FitResidualTolerance: fit)),
+            label: "cloud metric policy");
+    }
+    public static VectorCloud ClusterOf(Seq<Point3d> points) =>
+        Spec.SuccValue(VectorCloud.Cluster(points: points, context: Model, key: Op.Of(name: "cloud-test")), label: "cluster");
 }
 
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
@@ -54,6 +66,7 @@ public sealed class VectorCloudMetricLaws {
             (VectorCloudMetric.BishopFrames, typeof(Seq<Plane>)),
             (VectorCloudMetric.TangentFlow, typeof(Seq<Vector3d>)),
             (VectorCloudMetric.OrientedNormals, typeof(Seq<Vector3d>)),
+            (VectorCloudMetric.PrincipalCurvature, typeof(CloudCurvatureResult)),
             (VectorCloudMetric.CumulativeArcLength, typeof(Seq<double>)),
             (VectorCloudMetric.EdgeCurvatures, typeof(Seq<double>)),
             (VectorCloudMetric.Curvedness, typeof(Seq<double>)),
@@ -74,7 +87,7 @@ public sealed class VectorCloudMetricLaws {
             then: centroid => Spec.NearEqual(left: centroid, right: Numeric.Centroid(points: CloudMetricGens.Triangle), tolerance: 1.0e-12));
         Spec.Fail(VectorCloudMetric.Covariance.Project<double>(cloud: cluster, key: Op.Of(name: "cloud-test")));
         Spec.Fail(VectorCloudMetric.Area.Project<double>(cloud: cluster, key: Op.Of(name: "cloud-test")));
-        Assert.Equal(expected: typeof(Seq<(double K1, double K2, Direction E1, Direction E2)>), actual: VectorCloudMetric.PrincipalCurvature.Output);
+        Assert.Equal(expected: typeof(CloudCurvatureResult), actual: VectorCloudMetric.PrincipalCurvature.Output);
     }
 }
 
@@ -105,6 +118,16 @@ public sealed class VectorCloudMassLaws {
             Spec.Some(Assert.IsType<VectorCloud.ClusterCase>(@object: cloud).Mass, weights =>
                 Spec.SeqEqualWithin(left: mass, right: toSeq(weights.AsIterable()), tolerance: 1.0e-12, what: "simplex mass"))));
     [Fact]
+    public void ClusterAdmissionValidatesMassOnceAndRebuildsSameCase() {
+        VectorCloud weighted = Spec.SuccValue(VectorCloud.WeightedCluster(points: CloudMetricGens.Triangle, mass: Seq(2.0, 3.0, 5.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), label: "weighted");
+        Spec.Succ(VectorCloud.Admit(value: weighted, key: Op.Of(name: "cloud-test")), admitted => {
+            VectorCloud.ClusterCase cluster = Assert.IsType<VectorCloud.ClusterCase>(@object: admitted);
+            Spec.Some(cluster.Mass, mass => Spec.SeqEqualWithin(left: Seq(0.2, 0.3, 0.5), right: toSeq(mass.AsIterable()), tolerance: 1.0e-12, what: "admitted mass"));
+        });
+        Spec.Succ(VectorCloud.Admit(value: CloudMetricGens.ClusterOf(points: CloudMetricGens.Triangle), key: Op.Of(name: "cloud-test")), admitted =>
+            Assert.True(condition: Assert.IsType<VectorCloud.ClusterCase>(@object: admitted).Mass.IsNone));
+    }
+    [Fact]
     public void SinkhornReceiptsUseTypedStopSemantics() {
         VectorCloud source = Spec.SuccValue(VectorCloud.WeightedCluster(points: Seq(CloudMetricGens.Triangle[0]), mass: Seq(2.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), label: "source");
         VectorCloud target = Spec.SuccValue(VectorCloud.WeightedCluster(points: Seq(CloudMetricGens.Triangle[1]), mass: Seq(5.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), label: "target");
@@ -118,5 +141,49 @@ public sealed class VectorCloudMassLaws {
         Spec.FailCategory(CloudKernel.Sinkhorn<double>(source: source, target: target, regularization: 0.0, maxIterations: 32, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")), category: "Input");
         Spec.FailCategory(CloudKernel.Sinkhorn<double>(source: source, target: target, regularization: 1.0, maxIterations: 0, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")), category: "Input");
         Spec.FailCategory(CloudKernel.Sinkhorn<Point3d>(source: source, target: target, regularization: 1.0, maxIterations: 32, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")), category: "Unsupported");
+    }
+    [Fact]
+    public void SinkhornReceiptsExposeToleranceCutoffAndMarginalProof() {
+        VectorCloud source = Spec.SuccValue(VectorCloud.WeightedCluster(points: Seq(CloudMetricGens.Triangle[0], CloudMetricGens.Triangle[1]), mass: Seq(1.0, 1.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), label: "source");
+        VectorCloud target = Spec.SuccValue(VectorCloud.WeightedCluster(points: Seq(CloudMetricGens.Triangle[0], CloudMetricGens.Triangle[2]), mass: Seq(1.0, 1.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), label: "target");
+        Op key = Op.Of(name: "cloud-test");
+        PositiveMagnitude tolerance = Spec.SuccValue(key.AcceptValidated<PositiveMagnitude>(candidate: 1.0e-8), label: "tolerance");
+        PositiveMagnitude cutoff = Spec.SuccValue(key.AcceptValidated<PositiveMagnitude>(candidate: 1.0e-8), label: "cutoff");
+        Spec.Succ(CloudKernel.Sinkhorn<SinkhornReceipt>(source: source, target: target, regularization: 0.2, maxIterations: 128, debiased: true, massRelaxation: Option<PositiveMagnitude>.None, convergenceTolerance: tolerance, couplingCutoff: cutoff, key: key), receipt => {
+            Spec.EqualWithin(left: receipt.ConvergenceTolerance, right: tolerance.Value, tolerance: 0.0, what: "sinkhorn tolerance");
+            Spec.EqualWithin(left: receipt.CouplingCutoff, right: cutoff.Value, tolerance: 0.0, what: "sinkhorn cutoff");
+            Assert.True(condition: receipt.SourceConvergenceResidual <= tolerance.Value);
+            Assert.True(condition: receipt.TargetConvergenceResidual <= tolerance.Value);
+            Assert.Equal(expected: receipt.NonZeroCouplings, actual: receipt.Correspondences.NonZeroCount);
+            Spec.EqualWithin(left: receipt.CouplingMass, right: receipt.Correspondences.TotalMass, tolerance: 1.0e-12, what: "retained coupling mass");
+        });
+    }
+}
+
+public sealed class VectorCloudHullAndCurvatureLaws {
+    [Fact]
+    public void HullReceiptsExposeRejectedAndUnsupportedFactsWithoutNativeCalls() {
+        VectorCloud tooFew = CloudMetricGens.ClusterOf(points: Seq(new Point3d(0.0, 0.0, 0.0), new Point3d(1.0, 0.0, 0.0), new Point3d(0.0, 1.0, 0.0)));
+        Spec.Succ(VectorIntent.Hull(source: tooFew, kind: CloudHullKind.Convex3D, key: Op.Of(name: "cloud-test")).Bind(intent => intent.Project<CloudHullReceipt>(context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test"))), receipt => {
+            Assert.Equal(expected: CloudHullStatus.Rejected, actual: receipt.Status);
+            Assert.False(condition: receipt.CoplanarRejected);
+            Assert.Equal(expected: 3, actual: receipt.InputCount);
+            Assert.Equal(expected: 0, actual: receipt.OutputVertexCount);
+            Assert.True(condition: receipt.NativeRouted);
+        });
+        Spec.Succ(VectorIntent.Hull(source: tooFew, kind: CloudHullKind.AlphaShape, key: Op.Of(name: "cloud-test")).Bind(intent => intent.Project<CloudHullReceipt>(context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test"))), receipt => {
+            Assert.Equal(expected: CloudHullStatus.Unsupported, actual: receipt.Status);
+            Assert.False(condition: receipt.NativeRouted);
+            Assert.Equal(expected: 0, actual: receipt.NativeFacetCount);
+        });
+    }
+    [Fact]
+    public void CurvatureResultReceiptRequiresConservedAcceptedRejectedCounts() {
+        CloudCurvatureReceipt receipt = new(InputCount: 2, RequestedNeighborCount: 6, AcceptedSampleCount: 0, RejectedSampleCount: 2, RankRejectedCount: 1, ResidualRejectedCount: 1, MeanResidual: 0.0, MaxResidual: 0.0, EigenGapTolerance: 1.0e-8, FitResidualTolerance: 1.0e-4);
+        CloudCurvatureResult result = new(Samples: Seq<CloudCurvatureSample>(), Receipt: receipt);
+        Assert.True(condition: receipt.IsValid);
+        Assert.True(condition: result.IsValid);
+        Assert.False(condition: (receipt with { RejectedSampleCount = 1 }).IsValid);
+        Assert.False(condition: (receipt with { RankRejectedCount = 0 }).IsValid);
     }
 }

@@ -81,11 +81,16 @@ public sealed class MeshSegmentationLaws {
 public sealed class MeshDescriptorAndRemeshLaws {
     [Fact]
     public void DescriptorAndRemeshFactoriesPreserveValidatedPayloads() {
-        MeshDescriptor descriptor = MeshDescriptor.Spectral(filter: SpectralFilter.Identity, sources: Some(Seq(1, 2)));
+        SpectralDescriptorPolicy policy = new(ScaleNormalization: SpectralScaleNormalization.FirstNonZeroEigenvalue, EnergyNormalization: SpectralEnergyNormalization.UnitL1, ZeroModePolicy: SpectralZeroModePolicy.Drop, CropCount: Some(Dimension.Create(value: 4)));
+        MeshDescriptor descriptor = MeshDescriptor.Spectral(filter: SpectralFilter.Identity, sources: Some(Seq(1, 2)), policy: policy);
         MeshDescriptor.SpectralCase spectral = Assert.IsType<MeshDescriptor.SpectralCase>(@object: descriptor);
         Assert.True(condition: descriptor.IsValid);
         Assert.False(condition: MeshDescriptor.Spectral(filter: null!).IsValid);
         Assert.Equal(expected: SpectralFilter.Identity, actual: spectral.Filter);
+        Assert.Equal(expected: policy.ScaleNormalization, actual: spectral.Policy.ScaleNormalization);
+        Assert.Equal(expected: policy.EnergyNormalization, actual: spectral.Policy.EnergyNormalization);
+        Assert.Equal(expected: policy.ZeroModePolicy, actual: spectral.Policy.ZeroModePolicy);
+        Spec.Some(policy.CropCount, expected => Spec.Some(spectral.Policy.CropCount, actual => Assert.Equal(expected: expected.Value, actual: actual.Value)));
         Spec.Some(spectral.Sources, sources => {
             Assert.Equal(expected: 2, actual: sources.Count);
             Assert.Equal(expected: 1, actual: sources[index: 0]);
@@ -98,6 +103,16 @@ public sealed class MeshDescriptorAndRemeshLaws {
         Spec.FailCategory(RemeshKind.Quad(targetLength: 0.0, key: MeshGens.Key), category: "Tolerance");
         Spec.FailCategory(RemeshKind.Simplify(parameters: null!, key: MeshGens.Key), category: "Input");
         Spec.FailCategory(RemeshKind.Simplify(parameters: new ReduceMeshParameters { DesiredPolygonCount = 0 }, key: MeshGens.Key), category: "Input");
+    }
+    [Fact]
+    public void DiscreteCalculusAssemblyReceiptPreservesMatrixAndTopologyFacts() {
+        SpectralAssemblyReceipt receipt = new(VertexCount: 4, EdgeCount: 6, FaceCount: 4, AdmittedFaceCount: 4, SkippedDegenerateFaces: 0, SkippedMissingEdges: 0, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: false, MatrixRows: 10, MatrixCols: 10, NonZeros: 36, PositiveStar0Count: 4, PositiveStar1Count: 6, PositiveStar2Count: 4, BoundaryCompositionResidual: 0.0, Genus: Some(0), HarmonicDimension: 0);
+        SpectralAssemblyReceipt genusPositive = receipt with { Genus = Some(2), HarmonicDimension = 4 };
+        Assert.True(condition: receipt.IsValid);
+        Assert.True(condition: genusPositive.IsValid);
+        Assert.Equal(expected: 4, actual: genusPositive.HarmonicDimension);
+        Assert.False(condition: (genusPositive with { HarmonicDimension = 3 }).IsValid);
+        Assert.False(condition: (receipt with { AdmittedFaceCount = 5 }).IsValid);
     }
 }
 
