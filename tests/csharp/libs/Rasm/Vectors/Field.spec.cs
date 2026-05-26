@@ -198,13 +198,18 @@ public sealed class FieldReconstructionAndSdfLaws {
     }
     [Fact]
     public void IsoSurfaceReceiptCarriesNativeThreadingAndToleranceFacts() {
+        BoundingBox bounds = new(min: new Point3d(x: -2.0, y: -1.0, z: -0.5), max: new Point3d(x: 2.0, y: 1.0, z: 0.5));
+        IsoSurfaceGrid grid = new(Bounds: bounds, Resolution: 4, XCells: 16, YCells: 8, ZCells: 4, CellSize: 0.25, HexCellCount: 512, CornerSampleCount: 765, CenterSampleCount: 512, InitialSampleCount: 1277);
         IsoSurfaceReceipt receipt = new(
-            NativeRouted: true, Bounds: new BoundingBox(min: new Point3d(x: -1.0, y: -1.0, z: -1.0), max: new Point3d(x: 1.0, y: 1.0, z: 1.0)),
-            Resolution: 8, MaxRootSteps: 16, ParallelCallback: true, EvaluatorFailures: 0, Valid: true, VertexCount: 4, FaceCount: 4, FixedTolerance: Some(0.001));
+            NativeRouted: true, Status: IsoSurfaceStatus.NativeValid, Grid: grid, MaxRootSteps: 16, ParallelCallback: true, EvaluatorFailures: 0, Valid: true, VertexCount: 4, FaceCount: 4, FixedTolerance: Some(0.001), FixedNormalSampleDistance: Some(1.0e-5), MeshPreflight: Option<SdfMeshReceipt>.None);
         Spec.Succ(ExtractionReceipt.Of(status: ExtractionStatus.Complete, attempted: 1, emitted: 1, nativeRouted: receipt.NativeRouted, toleranceSource: ToleranceSource.RhinoDefault, tolerance: receipt.FixedTolerance, parallelCallback: receipt.ParallelCallback, key: FieldGens.Key, isoSurface: Some(receipt)), then: extraction => {
             Assert.True(condition: extraction.ParallelCallback);
+            Assert.Equal(expected: IsoSurfaceStatus.NativeValid, actual: receipt.Status);
+            Assert.Equal(expected: 512, actual: receipt.Grid.HexCellCount);
+            Assert.Equal(expected: 1277, actual: receipt.Grid.InitialSampleCount);
             Spec.Some(extraction.Tolerance, tolerance => Spec.EqualWithin(left: tolerance, right: 0.001, tolerance: 0.0, what: "iso fixed tolerance"));
-            Spec.Some(extraction.IsoSurface, iso => Assert.True(condition: iso.ParallelCallback && iso.FixedTolerance.IsSome));
+            Spec.Some(receipt.FixedNormalSampleDistance, tolerance => Spec.EqualWithin(left: tolerance, right: 1.0e-5, tolerance: 0.0, what: "iso normal sampling"));
+            Spec.Some(extraction.IsoSurface, iso => Assert.True(condition: iso.ParallelCallback && iso.FixedTolerance.IsSome && iso.FixedNormalSampleDistance.IsSome));
         });
     }
     [Fact]

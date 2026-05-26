@@ -3,7 +3,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum<int>] public sealed partial class SdfMeshMethod { public static readonly SdfMeshMethod GeneralizedWindingNumber = new(key: 0), BoundarySignedHeat = new(key: 1), ClosedSurfaceSignedHeat = new(key: 2); }
+[SmartEnum<int>] public sealed partial class SdfMeshMethod { public static readonly SdfMeshMethod GeneralizedWindingNumber = new(key: 0, status: SdfMeshStatus.ApproximateSignClosestDistance, domain: SdfMeshDomain.SurfaceMesh), BoundarySignedHeat = new(key: 1, status: SdfMeshStatus.BoundarySourceSignedHeat, domain: SdfMeshDomain.BoundarySource), ClosedSurfaceSignedHeat = new(key: 2, status: SdfMeshStatus.ClosedSurfaceSignedHeatUnsupported, domain: SdfMeshDomain.VolumeTet); public SdfMeshStatus Status { get; } public SdfMeshDomain Domain { get; } }
 
 [SmartEnum<int>]
 public sealed partial class FieldBlend {
@@ -178,7 +178,9 @@ public sealed partial class NoiseKind {
 [SmartEnum<int>] public sealed partial class ProfileExtrusionFeature { public static readonly ProfileExtrusionFeature Interior = new(key: 0), ProfileBoundary = new(key: 1), Cap = new(key: 2), Rim = new(key: 3); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfReceipt(SdfStatus Status, Option<double> LipschitzBound, bool AnalyticPrimitive, bool MeshBacked, Option<bool> WatertightPreflight, bool LossyFallback, Option<SdfMeshReceipt> Mesh, bool NativeProfile = false, Option<ToleranceSource> ToleranceSource = default, Option<double> Tolerance = default, bool ClosestAccepted = false, Option<PointContainment> ProfileContainment = default, Option<ProfileExtrusionFeature> ProfileFeature = default);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfSample(double Value, SdfReceipt Receipt);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct IsoSurfaceReceipt(bool NativeRouted, BoundingBox Bounds, int Resolution, int MaxRootSteps, bool ParallelCallback, int EvaluatorFailures, bool Valid, int VertexCount, int FaceCount, Option<double> FixedTolerance);
+[SmartEnum<int>] public sealed partial class IsoSurfaceStatus { public static readonly IsoSurfaceStatus NativeValid = new(key: 0), EvaluatorFailure = new(key: 1), NativeReturnedNull = new(key: 2), NativeInvalidMesh = new(key: 3); }
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct IsoSurfaceGrid(BoundingBox Bounds, int Resolution, int XCells, int YCells, int ZCells, double CellSize, int HexCellCount, int CornerSampleCount, int CenterSampleCount, int InitialSampleCount);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct IsoSurfaceReceipt(bool NativeRouted, IsoSurfaceStatus Status, IsoSurfaceGrid Grid, int MaxRootSteps, bool ParallelCallback, int EvaluatorFailures, bool Valid, int VertexCount, int FaceCount, Option<double> FixedTolerance, Option<double> FixedNormalSampleDistance, Option<SdfMeshReceipt> MeshPreflight);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct IsoSurfaceResult(Mesh Mesh, IsoSurfaceReceipt Receipt);
 [SmartEnum<int>] public sealed partial class ReconstructionMode { public static readonly ReconstructionMode RbfInterpolation = new(key: 0), RbfApproximation = new(key: 1), MovingLeastSquares = new(key: 2); }
 [SmartEnum<int>] public sealed partial class ReconstructionStatus { public static readonly ReconstructionStatus ExactInterpolation = new(key: 0), ApproximateSdf = new(key: 1); }
@@ -769,7 +771,7 @@ public abstract partial record ScalarField {
             _ => from _ in LipschitzBound().ToFin(key.OrDefault().Unsupported(geometryType: GetType(), outputType: typeof(SdfSample))) from value in SampleScalar(sample: sample, context: model, key: key.OrDefault()) select new SdfSample(Value: value, Receipt: SdfReceiptOf(field: this, status: SdfStatus.ComposedAnalytic, mesh: Option<SdfMeshReceipt>.None)),
         });
     private static SdfReceipt SdfReceiptOf(ScalarField field, SdfStatus status, Option<SdfMeshReceipt> mesh) =>
-        new(Status: status, LipschitzBound: field.LipschitzBound(), AnalyticPrimitive: field is PrimitiveCase, MeshBacked: field is SignedDistanceFromMeshCase, WatertightPreflight: mesh.Map(static receipt => receipt.IsSolid && receipt.IsManifold && receipt.IsOriented), LossyFallback: status.Equals(SdfStatus.LossyFallback), Mesh: mesh);
+        new(Status: status, LipschitzBound: field.LipschitzBound(), AnalyticPrimitive: field is PrimitiveCase, MeshBacked: field is SignedDistanceFromMeshCase, WatertightPreflight: mesh.Map(static receipt => receipt.Topology.IsWatertight), LossyFallback: status.Equals(SdfStatus.LossyFallback), Mesh: mesh);
     public Fin<IsoSurfaceResult> IsoSurfaceDetailed(BoundingBox bounds, int resolution, int maxRootSteps, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return IsoSurfaceAttemptDetailed(bounds: bounds, resolution: resolution, maxRootSteps: maxRootSteps, context: context, key: op)
@@ -779,8 +781,20 @@ public abstract partial record ScalarField {
         ScalarField self = this;
         return FieldNabla.IsoSurfaceInput(bounds: bounds, resolution: resolution, maxRootSteps: maxRootSteps, key: key)
             .Bind(_ => Optional(context).ToFin(key.MissingContext()).Bind(model => self.AdmitScalarPayload(context: model, key: key)))
-            .Bind(_ => key.Catch(() => {
+            .Bind(_ => self is SignedDistanceFromMeshCase meshCase
+                ? MeshKernel.PrewarmSignedDistanceEvaluator(space: meshCase.Space, method: meshCase.Method, key: key).Map(Some)
+                : Fin.Succ(Option<SdfMeshReceipt>.None))
+            .Bind(meshPreflight => key.Catch(() => {
                 int failures = 0;
+                double xSpan = bounds.Max.X - bounds.Min.X;
+                double ySpan = bounds.Max.Y - bounds.Min.Y;
+                double zSpan = bounds.Max.Z - bounds.Min.Z;
+                double cellSize = Math.Min(val1: xSpan, val2: Math.Min(val1: ySpan, val2: zSpan)) / resolution;
+                int xCells = Math.Max(val1: 1, val2: (int)Math.Floor(d: xSpan / cellSize));
+                int yCells = Math.Max(val1: 1, val2: (int)Math.Floor(d: ySpan / cellSize));
+                int zCells = Math.Max(val1: 1, val2: (int)Math.Floor(d: zSpan / cellSize));
+                int hexCellCount = xCells * yCells * zCells;
+                IsoSurfaceGrid grid = new(Bounds: bounds, Resolution: resolution, XCells: xCells, YCells: yCells, ZCells: zCells, CellSize: cellSize, HexCellCount: hexCellCount, CornerSampleCount: (xCells + 1) * (yCells + 1) * (zCells + 1), CenterSampleCount: hexCellCount, InitialSampleCount: ((xCells + 1) * (yCells + 1) * (zCells + 1)) + hexCellCount);
                 double EvaluateIso(Point3d point) =>
                     self.SampleScalar(sample: point, context: context, key: key)
                         .Match(
@@ -792,10 +806,16 @@ public abstract partial record ScalarField {
                 Mesh? result = Mesh.CreateFromIsosurface(
                     scalarFieldEvaluator: EvaluateIso,
                     box: bounds, resolution: resolution, RootFindingMaxSteps: maxRootSteps);
-                bool valid = failures == 0 && result is { IsValid: true };
+                IsoSurfaceStatus status = (failures, result) switch {
+                    ( > 0, _) => IsoSurfaceStatus.EvaluatorFailure,
+                    (_, null) => IsoSurfaceStatus.NativeReturnedNull,
+                    (_, { IsValid: true }) => IsoSurfaceStatus.NativeValid,
+                    _ => IsoSurfaceStatus.NativeInvalidMesh,
+                };
+                bool valid = status.Equals(IsoSurfaceStatus.NativeValid);
                 return Fin.Succ(new IsoSurfaceResult(
                     Mesh: result ?? new Mesh(),
-                    Receipt: new IsoSurfaceReceipt(NativeRouted: true, Bounds: bounds, Resolution: resolution, MaxRootSteps: maxRootSteps, ParallelCallback: true, EvaluatorFailures: failures, Valid: valid, VertexCount: result?.Vertices.Count ?? 0, FaceCount: result?.Faces.Count ?? 0, FixedTolerance: Some(0.001))));
+                    Receipt: new IsoSurfaceReceipt(NativeRouted: true, Status: status, Grid: grid, MaxRootSteps: maxRootSteps, ParallelCallback: true, EvaluatorFailures: failures, Valid: valid, VertexCount: result?.Vertices.Count ?? 0, FaceCount: result?.Faces.Count ?? 0, FixedTolerance: Some(0.001), FixedNormalSampleDistance: Some(1.0e-5), MeshPreflight: meshPreflight)));
             }));
     }
     private Fin<Unit> AdmitScalarPayload(Context context, Op key) =>

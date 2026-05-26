@@ -191,6 +191,15 @@ public sealed class SparseMatrixLaws {
             Assert.True(condition: receipt.MaxResidual <= 1.0e-4);
         });
         Spec.FailCategory(diagonal.SmallestEigenpairsDetailed(k: 1, tolerance: 1.0e-12, maxIterations: 0, key: MatrixGens.Key), category: "Input");
+        Spec.Succ(diagonal.SmallestEigenpairsDetailed(k: 1, tolerance: 1.0e-14, maxIterations: 1, key: MatrixGens.Key), then: receipt => {
+            Assert.Equal(expected: EigenSolveStop.MaxIterationsExhausted, actual: receipt.Stop);
+            Assert.Equal(expected: EigenSolvePath.SparseLobpcg, actual: receipt.Path);
+            Assert.Equal(expected: 1, actual: receipt.ReturnedPairs);
+            Spec.Some(receipt.Iterations, iterations => Assert.Equal(expected: 1, actual: iterations));
+            Spec.Some(receipt.MaxIterations, iterations => Assert.Equal(expected: 1, actual: iterations));
+            Spec.Some(receipt.Tolerance, tolerance => Spec.EqualWithin(left: tolerance, right: 1.0e-14, tolerance: 0.0, what: "lobpcg tolerance"));
+            Assert.True(condition: receipt.MaxResidual >= 0.0);
+        });
         SparseMatrix conflictingMirror = MatrixGens.Sparse(dimension: 3, (0, 0, 1.0), (0, 1, 2.0), (1, 0, 4.0), (1, 1, 3.0), (2, 2, 7.0));
         Spec.FailCategory(conflictingMirror.SmallestEigenpairsDetailed(k: 1, tolerance: 1.0e-5, maxIterations: 80, key: MatrixGens.Key), category: "Input");
     }

@@ -135,7 +135,7 @@ internal sealed class LaplacianCache {
 }
 [SmartEnum<int>] public sealed partial class MeshLaplacian { public static readonly MeshLaplacian Cotangent = new(key: 0, select: static (cache, key) => cache.Cotangent(key: key)), IntrinsicDelaunay = new(key: 1, select: static (cache, key) => cache.IntrinsicDelaunay(key: key)), Robust = new(key: 2, select: static (cache, key) => cache.Robust(key: key)); [UseDelegateFromConstructor] internal partial Fin<SparseLaplacian> Select(LaplacianCache cache, Op key); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SpectralBasisBundle(SpectralBasis Basis, EigenSolveReceipt<double, Arr<double>> Eigen, bool CacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TopologyReceipt(int Vertices, int TopologyVertices, int TopologyEdges, int Faces, int Triangles, int Quads, int Ngons, int VisiblePolygons, int BoundaryComponents, int NonManifoldEdges, bool IsManifold, bool IsOriented, int EulerCharacteristic, Option<int> Genus, bool EulerValidated);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TopologyReceipt(int Vertices, int TopologyVertices, int TopologyEdges, int Faces, int Triangles, int Quads, int Ngons, int VisiblePolygons, int BoundaryComponents, int NonManifoldEdges, bool HasBoundary, bool IsClosed, bool IsSolid, bool IsWatertight, bool IsManifold, bool IsOriented, int EulerCharacteristic, Option<int> Genus, bool EulerValidated);
 [SmartEnum<int>] public sealed partial class MeshFeatureKind { public static readonly MeshFeatureKind Boundary = new(key: 0), Crease = new(key: 1), NonManifold = new(key: 2), Unwelded = new(key: 3), NgonInteriorSkipped = new(key: 4); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FeatureEdge(int A, int B, MeshFeatureKind Kind, Option<double> DihedralRadians);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FeatureReceipt(Seq<FeatureEdge> Edges, int BoundaryEdges, int CreaseEdges, int NonManifoldEdges, int UnweldedEdges, int NgonInteriorSkippedEdges, double DihedralThresholdRadians);
@@ -150,9 +150,10 @@ internal sealed class LaplacianCache {
 [SmartEnum<int>] public sealed partial class MeshSegmentationStatus { public static readonly MeshSegmentationStatus Completed = new(key: 0), MaxIterationsExhausted = new(key: 1); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationReceipt(MeshSegmentationAlgorithm Algorithm, MeshSegmentationStatus Status, int RequestedRegionCount, int RegionCount, int SeedCount, int AssignedFaceCount, int UnassignedFaceCount, int SkippedDegenerateFaces, int SkippedNonFiniteValues, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorReceipt> Descriptor, Option<SolveReceipt> Solve, Option<bool> SpectralCacheHit, Option<bool> FactorCacheHit, Option<int> FactorNonZeros);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationResult(Arr<int> FaceRegions, Arr<int> VertexRegions, MeshSegmentationReceipt Receipt);
-[SmartEnum<int>] public sealed partial class SdfMeshStatus { public static readonly SdfMeshStatus ApproximateSignClosestDistance = new(key: 0), BoundarySourceSignedHeat = new(key: 1); }
+[SmartEnum<int>] public sealed partial class SdfMeshDomain { public static readonly SdfMeshDomain SurfaceMesh = new(key: 0), BoundarySource = new(key: 1), VolumeGrid = new(key: 2), VolumeTet = new(key: 3); }
+[SmartEnum<int>] public sealed partial class SdfMeshStatus { public static readonly SdfMeshStatus ApproximateSignClosestDistance = new(key: 0), BoundarySourceSignedHeat = new(key: 1), ClosedSurfaceSignedHeatUnsupported = new(key: 2); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SignedHeatReceipt(int BoundarySourceVertexCount, int BoundaryEncodedEdgeSourceCount, int BoundaryRejectedPointCount, int BoundaryUnmatchedSegmentCount, SolveReceipt HeatSolve, SolveReceipt PoissonSolve);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfMeshReceipt(SdfMeshMethod Method, SdfMeshStatus Status, bool IsSolid, bool IsManifold, bool IsOriented, int BoundaryComponents, int NonManifoldEdges, bool UsesGeneralizedWindingApproximation, bool UsesBoundarySignedHeat, Option<SignedHeatReceipt> SignedHeat);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfMeshReceipt(SdfMeshMethod Method, SdfMeshStatus Status, SdfMeshDomain Domain, TopologyReceipt Topology, Option<SignedHeatReceipt> SignedHeat);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfMeshSample(double Distance, SdfMeshReceipt Receipt);
 [Union]
 public abstract partial record MeshDescriptor {
@@ -558,13 +559,16 @@ internal static class MeshKernel {
     }
     internal static Fin<TopologyReceipt> TopologyDetailed(MeshSpace space, Op key) {
         Mesh mesh = space.Native;
-        bool manifold = mesh.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out _);
+        bool manifold = mesh.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out bool hasBoundary);
         int euler = mesh.TopologyVertices.Count - mesh.TopologyEdges.Count + mesh.Faces.Count;
         (int boundaryComponents, int nonManifoldEdges) = TopologyEdgeStatsOf(mesh: mesh);
+        bool closed = mesh.IsClosed;
+        bool solid = mesh.IsSolid;
+        bool watertight = closed && solid && manifold && nonManifoldEdges == 0;
         int components = Math.Max(val1: 1, val2: mesh.DisjointMeshCount);
         int numerator = (2 * components) - boundaryComponents - euler;
         bool hasGenus = manifold && oriented && numerator >= 0 && numerator % 2 == 0;
-        return Fin.Succ(new TopologyReceipt(Vertices: mesh.Vertices.Count, TopologyVertices: mesh.TopologyVertices.Count, TopologyEdges: mesh.TopologyEdges.Count, Faces: mesh.Faces.Count, Triangles: mesh.Faces.TriangleCount, Quads: mesh.Faces.QuadCount, Ngons: mesh.Ngons.Count, VisiblePolygons: mesh.GetNgonAndFacesCount(), BoundaryComponents: boundaryComponents, NonManifoldEdges: nonManifoldEdges, IsManifold: manifold, IsOriented: oriented, EulerCharacteristic: euler, Genus: hasGenus ? Some(numerator / 2) : Option<int>.None, EulerValidated: hasGenus));
+        return Fin.Succ(new TopologyReceipt(Vertices: mesh.Vertices.Count, TopologyVertices: mesh.TopologyVertices.Count, TopologyEdges: mesh.TopologyEdges.Count, Faces: mesh.Faces.Count, Triangles: mesh.Faces.TriangleCount, Quads: mesh.Faces.QuadCount, Ngons: mesh.Ngons.Count, VisiblePolygons: mesh.GetNgonAndFacesCount(), BoundaryComponents: boundaryComponents, NonManifoldEdges: nonManifoldEdges, HasBoundary: hasBoundary || boundaryComponents > 0, IsClosed: closed, IsSolid: solid, IsWatertight: watertight, IsManifold: manifold, IsOriented: oriented, EulerCharacteristic: euler, Genus: hasGenus ? Some(numerator / 2) : Option<int>.None, EulerValidated: hasGenus));
     }
     private static (int BoundaryComponents, int NonManifoldEdges) TopologyEdgeStatsOf(Mesh mesh) {
         int nonManifoldEdges = 0;
@@ -826,7 +830,8 @@ internal static class MeshKernel {
               select Some(adjustment);
     private static Fin<Complex[]> SolveSmoothestCrossField(MeshSpace space, int symmetry, Option<Arr<double>> edgeAdjustment, Op key) =>
         BuildConnectionLaplacian(space: space, symmetry: symmetry, edgeAdjustment: edgeAdjustment, key: key)
-            .Bind(Lconn => Lconn.SmallestEigenpairsDetailed(k: 1, tolerance: 1e-6, maxIterations: 200, key: key).Map(static receipt => receipt.Pairs))
+            .Bind(Lconn => Lconn.SmallestEigenpairsDetailed(k: 1, tolerance: 1e-6, maxIterations: 200, key: key)
+                .Bind(receipt => receipt.Stop.Equals(EigenSolveStop.ResidualConverged) ? Fin.Succ(receipt.Pairs) : Fin.Fail<Seq<(double Eigenvalue, Arr<Complex> Eigenvector)>>(key.InvalidResult())))
             .Bind(pairs => pairs.Count > 0
                 ? Fin.Succ(pairs[index: 0])
                 : Fin.Fail<(double Eigenvalue, Arr<Complex> Eigenvector)>(error: key.InvalidResult()))
@@ -1343,7 +1348,7 @@ internal static class MeshKernel {
                 : SdfMeshReceiptOf(space: space, method: method, signedHeat: Option<SignedHeatReceipt>.None, key: key);
     private static Fin<SdfMeshReceipt> SdfMeshReceiptOf(MeshSpace space, SdfMeshMethod method, Option<SignedHeatReceipt> signedHeat, Op key, Option<TopologyReceipt> topology = default) =>
         topology.Match(Some: static receipt => Fin.Succ(receipt), None: () => TopologyDetailed(space: space, key: key))
-            .Map(topology => new SdfMeshReceipt(Method: method, Status: method.Equals(SdfMeshMethod.BoundarySignedHeat) ? SdfMeshStatus.BoundarySourceSignedHeat : SdfMeshStatus.ApproximateSignClosestDistance, IsSolid: space.Native.IsSolid, IsManifold: topology.IsManifold, IsOriented: topology.IsOriented, BoundaryComponents: topology.BoundaryComponents, NonManifoldEdges: topology.NonManifoldEdges, UsesGeneralizedWindingApproximation: method.Equals(SdfMeshMethod.GeneralizedWindingNumber), UsesBoundarySignedHeat: method.Equals(SdfMeshMethod.BoundarySignedHeat), SignedHeat: signedHeat));
+            .Map(topology => new SdfMeshReceipt(Method: method, Status: method.Status, Domain: method.Domain, Topology: topology, SignedHeat: signedHeat));
     private static Fin<double> GeneralizedWindingDistance(MeshSpace space, Point3d sample, Op key) =>
         Optional(space.Native.ClosestPoint(testPoint: sample)).Filter(static closest => closest.IsValid).ToFin(key.InvalidResult()).Bind(closest =>
             SolidAngleWindingNumber(mesh: space.Native, sample: sample, key: key)

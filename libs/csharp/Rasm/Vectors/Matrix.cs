@@ -174,6 +174,7 @@ public sealed partial class EigenSolvePath {
 public sealed partial class EigenSolveStop {
     public static readonly EigenSolveStop DirectSolved = new(key: 0);
     public static readonly EigenSolveStop ResidualConverged = new(key: 1);
+    public static readonly EigenSolveStop MaxIterationsExhausted = new(key: 2);
 }
 
 [BoundaryAdapter]
@@ -330,8 +331,8 @@ internal static class MatrixKernel {
         requestedPairs >= 1 && pairs.Count is > 0 && pairs.Count <= requestedPairs && RhinoMath.IsValidDouble(x: maxResidual) && pairs.ForAll(static pair => EigenvalueIsFinite(value: pair.Eigenvalue) && EigenvectorIsFinite(vector: pair.Eigenvector))
             ? Fin.Succ(new EigenSolveReceipt<TEigen, TVector>(Pairs: pairs, Path: path, Stop: stop, RequestedPairs: requestedPairs, ReturnedPairs: pairs.Count, Iterations: iterations, MaxIterations: maxIterations, Tolerance: tolerance, MaxResidual: maxResidual))
             : Fin.Fail<EigenSolveReceipt<TEigen, TVector>>(key.InvalidResult());
-    private static Fin<EigenSolveReceipt<double, TVector>> LobpcgReceiptOf<TVector>(Seq<(double Eigenvalue, TVector Eigenvector)> pairs, EigenSolvePath path, int requestedPairs, double maxResidual, int iterations, int maxIterations, double tolerance, Op key) =>
-        EigenReceiptOf(pairs: pairs, path: path, stop: EigenSolveStop.ResidualConverged, requestedPairs: requestedPairs, maxResidual: maxResidual, key: key, iterations: Some(iterations), maxIterations: Some(maxIterations), tolerance: Some(tolerance));
+    private static Fin<EigenSolveReceipt<double, TVector>> LobpcgReceiptOf<TVector>(Seq<(double Eigenvalue, TVector Eigenvector)> pairs, EigenSolvePath path, EigenSolveStop stop, int requestedPairs, double maxResidual, int iterations, int maxIterations, double tolerance, Op key) =>
+        EigenReceiptOf(pairs: pairs, path: path, stop: stop, requestedPairs: requestedPairs, maxResidual: maxResidual, key: key, iterations: Some(iterations), maxIterations: Some(maxIterations), tolerance: Some(tolerance));
     private static bool EigenvalueIsFinite<TEigen>(TEigen value) =>
         value switch {
             double real => RhinoMath.IsValidDouble(x: real),
@@ -536,14 +537,14 @@ internal static class MatrixKernel {
         return Iterate(iter: 0, X: X, P: P);
         Fin<EigenSolveReceipt<double, TVector>> Iterate(int iter, Matrix<T> X, Matrix<T> P) =>
             iter >= maxIterations
-                ? Fin.Fail<EigenSolveReceipt<double, TVector>>(key.InvalidResult())
+                ? LobpcgReceipt(A: A, lambda: rayleigh(arg1: X, arg2: A * X), X: X, k: k, iter: iter, maxIterations: maxIterations, tolerance: tolerance, path: path, stop: EigenSolveStop.MaxIterationsExhausted, eigenvalue: eigenvalue, vector: vector, residual: residual, key: key)
                 : Step(iter: iter, X: X, P: P);
         Fin<EigenSolveReceipt<double, TVector>> Step(int iter, Matrix<T> X, Matrix<T> P) {
             Matrix<T> AX = A * X;
             MathNet.Numerics.LinearAlgebra.Vector<T> lambda = rayleigh(arg1: X, arg2: AX);
             Matrix<T> R = AX - (X * diagonal(arg: lambda));
             return MaxColumnNorm(m: R) < tolerance
-                ? LobpcgConverged(A: A, lambda: lambda, X: X, k: k, iter: iter, maxIterations: maxIterations, tolerance: tolerance, path: path, eigenvalue: eigenvalue, vector: vector, residual: residual, key: key)
+                ? LobpcgReceipt(A: A, lambda: lambda, X: X, k: k, iter: iter, maxIterations: maxIterations, tolerance: tolerance, path: path, stop: EigenSolveStop.ResidualConverged, eigenvalue: eigenvalue, vector: vector, residual: residual, key: key)
                 : Continue(iter: iter, X: X, P: P, R: R);
         }
         Fin<EigenSolveReceipt<double, TVector>> Continue(int iter, Matrix<T> X, Matrix<T> P, Matrix<T> R) {
@@ -560,10 +561,10 @@ internal static class MatrixKernel {
             });
         }
     }
-    private static Fin<EigenSolveReceipt<double, TVector>> LobpcgConverged<T, TVector>(Matrix<T> A, MathNet.Numerics.LinearAlgebra.Vector<T> lambda, Matrix<T> X, int k, int iter, int maxIterations, double tolerance, EigenSolvePath path, Func<T, double> eigenvalue, Func<MathNet.Numerics.LinearAlgebra.Vector<T>, TVector> vector, Func<Matrix<T>, Seq<(double Eigenvalue, TVector Eigenvector)>, double> residual, Op key)
+    private static Fin<EigenSolveReceipt<double, TVector>> LobpcgReceipt<T, TVector>(Matrix<T> A, MathNet.Numerics.LinearAlgebra.Vector<T> lambda, Matrix<T> X, int k, int iter, int maxIterations, double tolerance, EigenSolvePath path, EigenSolveStop stop, Func<T, double> eigenvalue, Func<MathNet.Numerics.LinearAlgebra.Vector<T>, TVector> vector, Func<Matrix<T>, Seq<(double Eigenvalue, TVector Eigenvector)>, double> residual, Op key)
         where T : struct, IEquatable<T>, IFormattable {
         Seq<(double Eigenvalue, TVector Eigenvector)> pairs = LobpcgPairs(lambda: lambda, X: X, k: k, eigenvalue: eigenvalue, vector: vector);
-        return LobpcgReceiptOf(pairs: pairs, path: path, requestedPairs: k, maxResidual: residual(arg1: A, arg2: pairs), iterations: iter, maxIterations: maxIterations, tolerance: tolerance, key: key);
+        return LobpcgReceiptOf(pairs: pairs, path: path, stop: stop, requestedPairs: k, maxResidual: residual(arg1: A, arg2: pairs), iterations: iter, maxIterations: maxIterations, tolerance: tolerance, key: key);
     }
     private static Seq<(double Eigenvalue, TVector Eigenvector)> LobpcgPairs<T, TVector>(MathNet.Numerics.LinearAlgebra.Vector<T> lambda, Matrix<T> X, int k, Func<T, double> eigenvalue, Func<MathNet.Numerics.LinearAlgebra.Vector<T>, TVector> vector)
         where T : struct, IEquatable<T>, IFormattable =>

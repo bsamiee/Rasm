@@ -100,6 +100,24 @@ public sealed class MeshDescriptorAndRemeshLaws {
     }
 }
 
+public sealed class MeshTopologyAndSdfLaws {
+    [Fact]
+    public void ReceiptsExposeWatertightAndClosedSignedHeatDomainFacts() {
+        TopologyReceipt closed = new(Vertices: 8, TopologyVertices: 8, TopologyEdges: 12, Faces: 6, Triangles: 0, Quads: 6, Ngons: 0, VisiblePolygons: 6, BoundaryComponents: 0, NonManifoldEdges: 0, HasBoundary: false, IsClosed: true, IsSolid: true, IsWatertight: true, IsManifold: true, IsOriented: true, EulerCharacteristic: 2, Genus: Some(0), EulerValidated: true);
+        TopologyReceipt open = closed with { BoundaryComponents = 1, HasBoundary = true, IsClosed = false, IsSolid = false, IsWatertight = false };
+        Assert.True(condition: closed.IsWatertight);
+        Assert.False(condition: open.IsWatertight);
+        Assert.Equal(expected: SdfMeshStatus.ClosedSurfaceSignedHeatUnsupported, actual: SdfMeshMethod.ClosedSurfaceSignedHeat.Status);
+        Assert.Equal(expected: SdfMeshDomain.VolumeTet, actual: SdfMeshMethod.ClosedSurfaceSignedHeat.Domain);
+        Assert.NotEqual(expected: SdfMeshDomain.BoundarySource, actual: SdfMeshMethod.ClosedSurfaceSignedHeat.Domain);
+        Assert.NotEqual(expected: SdfMeshDomain.SurfaceMesh, actual: SdfMeshMethod.ClosedSurfaceSignedHeat.Domain);
+        Assert.Equal(expected: SdfMeshStatus.BoundarySourceSignedHeat, actual: SdfMeshMethod.BoundarySignedHeat.Status);
+        Assert.Equal(expected: SdfMeshDomain.SurfaceMesh, actual: SdfMeshMethod.GeneralizedWindingNumber.Domain);
+        Spec.SmartEnumKeysUnique(items: [SdfMeshStatus.ApproximateSignClosestDistance, SdfMeshStatus.BoundarySourceSignedHeat, SdfMeshStatus.ClosedSurfaceSignedHeatUnsupported], key: static status => status.Key);
+        Spec.SmartEnumKeysUnique(items: [SdfMeshDomain.SurfaceMesh, SdfMeshDomain.BoundarySource, SdfMeshDomain.VolumeGrid, SdfMeshDomain.VolumeTet], key: static domain => domain.Key);
+    }
+}
+
 public sealed class MeshScalarPolicyLaws {
     [Fact]
     public void ScalarContourPolicyGatesFinitePayloadAndLevels() {

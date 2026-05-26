@@ -19,14 +19,14 @@ public readonly record struct ExtractionReceipt(ExtractionStatus Status, int Att
 [SmartEnum<int>] public sealed partial class ScalarIsolineRoute { public static readonly ScalarIsolineRoute LocalPiecewiseLinearMesh = new(key: 0, nativeRouted: false); public bool NativeRouted { get; } }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct ScalarIsolineReceipt(ScalarIsolineRoute Route, int FiniteLevels, int RawSegments, int DedupedSegments, int DegenerateRejected, int PlateauRejected, int StitchedCandidates, int BranchStops, int EmittedCurves);
+public readonly record struct ScalarIsolineReceipt(ScalarIsolineRoute Route, int FiniteLevels, int RawSegments, int DedupedSegments, int DegenerateRejected, int PlateauRejected, int StitchedCandidates, int BranchStops, int BranchNodes, int MaxIncidentSegments, int EmittedCurves);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ScalarIsolineResult(Seq<Curve> Curves, ScalarIsolineReceipt Receipt);
 
 [StructLayout(LayoutKind.Auto)] internal readonly record struct ScalarIsolineSegment(Point3d A, Point3d B);
 
 [StructLayout(LayoutKind.Auto)] internal readonly record struct ScalarIsolinePointKey(long X, long Y, long Z) { internal int Compare(ScalarIsolinePointKey other) => (X, Y, Z).CompareTo((other.X, other.Y, other.Z)); }
-internal sealed class ScalarIsolineStats { internal int RawSegments, DedupedSegments, DegenerateRejected, PlateauRejected, StitchedCandidates, BranchStops, EmittedCurves; }
+internal sealed class ScalarIsolineStats { internal int RawSegments, DedupedSegments, DegenerateRejected, PlateauRejected, StitchedCandidates, BranchStops, BranchNodes, MaxIncidentSegments, EmittedCurves; }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct GlyphPolicy {
@@ -180,7 +180,7 @@ public abstract partial record ExtractionDomain {
         }
         Seq<ScalarIsolineSegment> deduped = DeduplicateSegments(segments: segments, tolerance: context.Absolute.Value, stats: stats);
         Seq<Curve> curves = StitchSegments(segments: deduped, tolerance: context.Absolute.Value, stats: stats);
-        return key.AcceptValue(value: new ScalarIsolineResult(Curves: curves, Receipt: new ScalarIsolineReceipt(Route: ScalarIsolineRoute.LocalPiecewiseLinearMesh, FiniteLevels: levels.Count, RawSegments: stats.RawSegments, DedupedSegments: stats.DedupedSegments, DegenerateRejected: stats.DegenerateRejected, PlateauRejected: stats.PlateauRejected, StitchedCandidates: stats.StitchedCandidates, BranchStops: stats.BranchStops, EmittedCurves: stats.EmittedCurves)));
+        return key.AcceptValue(value: new ScalarIsolineResult(Curves: curves, Receipt: new ScalarIsolineReceipt(Route: ScalarIsolineRoute.LocalPiecewiseLinearMesh, FiniteLevels: levels.Count, RawSegments: stats.RawSegments, DedupedSegments: stats.DedupedSegments, DegenerateRejected: stats.DegenerateRejected, PlateauRejected: stats.PlateauRejected, StitchedCandidates: stats.StitchedCandidates, BranchStops: stats.BranchStops, BranchNodes: stats.BranchNodes, MaxIncidentSegments: stats.MaxIncidentSegments, EmittedCurves: stats.EmittedCurves)));
     }
     private static void AddFaceIsolines(Mesh mesh, MeshFace face, Arr<double> values, Seq<double> levels, double tolerance, List<ScalarIsolineSegment> segments, ScalarIsolineStats stats) {
         Point3d[] points = [mesh.Vertices[index: face.A], mesh.Vertices[index: face.B], mesh.Vertices[index: face.C]];
@@ -230,6 +230,10 @@ public abstract partial record ExtractionDomain {
             ref List<int>? b = ref CollectionsMarshal.GetValueRefOrAddDefault(dictionary: incident, key: KeyOf(point: all[i].B, tolerance: tolerance), exists: out _);
             (a ??= []).Add(item: i);
             (b ??= []).Add(item: i);
+        }
+        foreach (List<int> edges in incident.Values) {
+            stats.MaxIncidentSegments = Math.Max(val1: stats.MaxIncidentSegments, val2: edges.Count);
+            stats.BranchNodes += edges.Count > 2 ? 1 : 0;
         }
         List<Curve> curves = [];
         int attempted = 0;
