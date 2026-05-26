@@ -101,17 +101,31 @@ internal abstract record GeometrySource {
     }
 }
 
-public abstract record DocumentTarget {
+[Union]
+public abstract partial record DocumentTarget {
     private DocumentTarget() { }
 
-    public static Fin<DocumentTarget> Selection(CommandSelection selection) => Optional(selection).ToFin(Fail: Op.Of(name: nameof(DocumentTarget)).InvalidInput()).Map(value => (DocumentTarget)new SelectionTarget(value));
+    public sealed record SelectionCase(CommandSelection Value) : DocumentTarget;
+    public sealed record ReferenceCase(CommandSelection.Reference Value) : DocumentTarget;
+    public sealed record ObjectsCase(Seq<Guid> Values) : DocumentTarget;
+    public sealed record FilterCase(ObjectEnumeratorSettings Settings) : DocumentTarget;
+    public sealed record PredicateCase(ObjectEnumeratorSettings Settings, Func<RhinoDoc, RhinoObject, bool> Predicate) : DocumentTarget;
+    public sealed record PickCase(CommandPickPolicy Policy) : DocumentTarget;
 
-    public static Fin<DocumentTarget> Reference(CommandSelection.Reference reference) => reference.ObjectId switch { Guid id when id != Guid.Empty => Fin.Succ<DocumentTarget>(value: new ReferenceTarget(reference)), _ => Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(DocumentTarget)).InvalidInput()) };
+    public static Fin<DocumentTarget> Selection(CommandSelection selection) =>
+        Optional(selection).ToFin(Fail: Op.Of(name: nameof(DocumentTarget)).InvalidInput()).Map(value => (DocumentTarget)new SelectionCase(value));
 
-    public static Fin<DocumentTarget> Objects(IEnumerable<Guid> objectIds) => TargetIds(ids: objectIds, op: Op.Of(name: nameof(DocumentTarget))).Map(ids => (DocumentTarget)new ObjectsTarget(ids));
+    public static Fin<DocumentTarget> Reference(CommandSelection.Reference reference) =>
+        reference.ObjectId switch {
+            Guid id when id != Guid.Empty => Fin.Succ<DocumentTarget>(value: new ReferenceCase(reference)),
+            _ => Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(DocumentTarget)).InvalidInput()),
+        };
+
+    public static Fin<DocumentTarget> Objects(IEnumerable<Guid> objectIds) =>
+        TargetIds(ids: objectIds, op: Op.Of(name: nameof(DocumentTarget))).Map(ids => (DocumentTarget)new ObjectsCase(ids));
 
     public static Fin<DocumentTarget> Filter(ObjectEnumeratorSettings settings) =>
-        Optional(settings).ToFin(Fail: Op.Of(name: nameof(DocumentTarget)).InvalidInput()).Map(value => (DocumentTarget)new FilterTarget(value));
+        Optional(settings).ToFin(Fail: Op.Of(name: nameof(DocumentTarget)).InvalidInput()).Map(value => (DocumentTarget)new FilterCase(value));
 
     public static Fin<DocumentTarget> Layer(int layerIndex) =>
         layerIndex switch {
@@ -120,7 +134,7 @@ public abstract record DocumentTarget {
         };
 
     public static Fin<DocumentTarget> UserString(string key, Option<string> value = default) =>
-        DocumentEdit.NonBlank(value: key, op: Op.Of(name: nameof(UserString))).Map(valid => (DocumentTarget)new PredicateTarget(QuerySettings(), (_, native) =>
+        DocumentEdit.NonBlank(value: key, op: Op.Of(name: nameof(UserString))).Map(valid => (DocumentTarget)new PredicateCase(QuerySettings(), (_, native) =>
             Optional(native.Attributes?.GetUserString(key: valid)).Map(stored => value.Case switch {
                 string expected => string.Equals(a: stored, b: expected, comparisonType: StringComparison.Ordinal),
                 _ => !string.IsNullOrEmpty(value: stored),
@@ -128,7 +142,7 @@ public abstract record DocumentTarget {
 
     public static Fin<DocumentTarget> DrawColor(System.Drawing.Color color) =>
         color.IsEmpty switch {
-            false => Fin.Succ<DocumentTarget>(value: new PredicateTarget(QuerySettings(), (document, native) => Optional(native.Attributes).Map(attributes => attributes.DrawColor(document: document) == color).IfNone(noneValue: false))),
+            false => Fin.Succ<DocumentTarget>(value: new PredicateCase(QuerySettings(), (document, native) => Optional(native.Attributes).Map(attributes => attributes.DrawColor(document: document) == color).IfNone(noneValue: false))),
             true => Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(DrawColor)).InvalidInput()),
         };
 
@@ -136,7 +150,7 @@ public abstract record DocumentTarget {
         Filter(settings: QuerySettings(configure: s => s.ObjectTypeFilter = ObjectType.ClipPlane));
 
     public static Fin<DocumentTarget> Pick(CommandPickPolicy policy) =>
-        Optional(policy).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()).Map(value => (DocumentTarget)new PickTarget(value));
+        Optional(policy).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()).Map(value => (DocumentTarget)new PickCase(value));
 
     internal Fin<int> Select(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) =>
         Use(document: document, op: op,
@@ -183,50 +197,35 @@ public abstract record DocumentTarget {
             reference: reference => reference.Use(document: document, op: op, use: native => IdResult(id: document.Objects.Transform(objref: native, xform: transform, deleteOriginal: deleteOriginal), op: op).Map(static id => Seq(id))),
             objects: ids => ids.TraverseM(id => IdResult(id: document.Objects.Transform(objectId: id, xform: transform, deleteOriginal: deleteOriginal), op: op)).As());
 
-    internal abstract Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects);
-
-    private sealed record SelectionTarget(CommandSelection Value) : DocumentTarget {
-        internal override Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) => (Value, document) switch { (CommandSelection value, RhinoDoc doc) when value.Document.RuntimeSerialNumber == doc.RuntimeSerialNumber => selection(arg: value), _ => Fin.Fail<T>(error: op.InvalidInput()) };
-    }
-
-    private sealed record ReferenceTarget(CommandSelection.Reference Value) : DocumentTarget {
-        internal override Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) =>
-            Value.Use(document: document, op: op, use: _ => reference(arg: Value));
-    }
-
-    private sealed record ObjectsTarget(Seq<Guid> Values) : DocumentTarget {
-        internal override Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) => objects(arg: Values);
-    }
-
-    private sealed record FilterTarget(ObjectEnumeratorSettings Settings) : DocumentTarget {
-        internal override Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) =>
-            Optional(document).ToFin(Fail: op.InvalidInput()).Bind(valid => toSeq(valid.Objects.GetObjectIdList(settings: Settings)).Distinct() switch {
-                Seq<Guid> ids when !ids.IsEmpty => objects(arg: ids),
-                _ => Fin.Fail<T>(error: op.InvalidResult()),
-            });
-    }
-
-    private sealed record PredicateTarget(ObjectEnumeratorSettings Settings, Func<RhinoDoc, RhinoObject, bool> Predicate) : DocumentTarget {
-        internal override Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) =>
-            from validDocument in Optional(document).ToFin(Fail: op.InvalidInput())
-            from predicate in Optional(Predicate).ToFin(Fail: op.InvalidInput())
-            from ids in toSeq(validDocument.Objects.GetObjectList(settings: Settings))
-                .Filter(native => predicate(arg1: validDocument, arg2: native))
-                .Map(static native => native.Id)
-                .Distinct() switch {
-                    Seq<Guid> values when !values.IsEmpty => Fin.Succ(value: values),
-                    _ => Fin.Fail<Seq<Guid>>(error: op.InvalidResult()),
-                }
-            from result in objects(arg: ids)
-            select result;
-    }
-
-    private sealed record PickTarget(CommandPickPolicy Policy) : DocumentTarget {
-        internal override Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) =>
-            from picked in CommandSelection.Pick(document: document, policy: Policy)
-            from result in selection(arg: picked)
-            select result;
-    }
+    internal Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) =>
+        Switch(
+            (Doc: document, Op: op, S: selection, R: reference, O: objects),
+            selectionCase: static (ctx, c) => (c.Value, ctx.Doc) switch {
+                (CommandSelection value, RhinoDoc doc) when value.Document.RuntimeSerialNumber == doc.RuntimeSerialNumber => ctx.S(arg: value),
+                _ => Fin.Fail<T>(error: ctx.Op.InvalidInput()),
+            },
+            referenceCase: static (ctx, c) => c.Value.Use(document: ctx.Doc, op: ctx.Op, use: _ => ctx.R(arg: c.Value)),
+            objectsCase: static (ctx, c) => ctx.O(arg: c.Values),
+            filterCase: static (ctx, c) => Optional(ctx.Doc).ToFin(Fail: ctx.Op.InvalidInput()).Bind(valid => toSeq(valid.Objects.GetObjectIdList(settings: c.Settings)).Distinct() switch {
+                Seq<Guid> ids when !ids.IsEmpty => ctx.O(arg: ids),
+                _ => Fin.Fail<T>(error: ctx.Op.InvalidResult()),
+            }),
+            predicateCase: static (ctx, c) =>
+                from validDocument in Optional(ctx.Doc).ToFin(Fail: ctx.Op.InvalidInput())
+                from predicate in Optional(c.Predicate).ToFin(Fail: ctx.Op.InvalidInput())
+                from ids in toSeq(validDocument.Objects.GetObjectList(settings: c.Settings))
+                    .Filter(native => predicate(arg1: validDocument, arg2: native))
+                    .Map(static native => native.Id)
+                    .Distinct() switch {
+                        Seq<Guid> values when !values.IsEmpty => Fin.Succ(value: values),
+                        _ => Fin.Fail<Seq<Guid>>(error: ctx.Op.InvalidResult()),
+                    }
+                from result in ctx.O(arg: ids)
+                select result,
+            pickCase: static (ctx, c) =>
+                from picked in CommandSelection.Pick(document: ctx.Doc, policy: c.Policy)
+                from result in ctx.S(arg: picked)
+                select result);
 
     private static ObjectEnumeratorSettings QuerySettings(Action<ObjectEnumeratorSettings>? configure = null) {
         ObjectEnumeratorSettings settings = new() { NormalObjects = true, LockedObjects = true, HiddenObjects = true };
@@ -349,8 +348,6 @@ public abstract partial record DocumentOp {
     public sealed record Lifecycle(DocumentTarget Target, DocumentLifecycle Change) : DocumentOp;
     public sealed record Resource(DocumentResourceKind Kind, string Name, Func<RhinoDoc, Fin<string>> Change) : DocumentOp;
 
-    // Parent-body state-threaded dispatcher: one entry, all arms static. Flash is the only
-    // case that opts out of undo recording; the predicate is consolidated below.
     internal Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) =>
         Switch(
             (Document: document, Domain: domain, Op: op),
@@ -477,7 +474,6 @@ public abstract partial record DocumentOp {
                 from label in change(arg: ctx.Document).Map(value => string.IsNullOrWhiteSpace(value: value) ? name : value)
                 select DocumentReceipt.Empty with { ResourceChanged = Seq(new DocumentResourceChange(Kind: edit.Kind, Name: label)) });
 
-    // Flash is the only case that opts out of undo recording (pure visual effect).
     internal bool RecordsUndo => this is not Flash;
 }
 

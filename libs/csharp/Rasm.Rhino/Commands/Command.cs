@@ -177,8 +177,7 @@ public readonly record struct CommandGraphEvents<TState>(
                 select defaults);
 }
 
-// Cannot be `[Union]` — generic-Union source-gen propagates `where TState : allows ref struct`
-// which conflicts with `CommandStageContext<TState>`'s record-based usage. See [[thinktecture-generic-union]].
+// Not `[Union]`: generic-Union source-gen forces `where TState : allows ref struct`, incompatible with record-based `CommandStageContext<TState>`.
 public abstract record PromptTransition<TState> {
     private PromptTransition() { }
 

@@ -128,40 +128,26 @@ public abstract record CommandOption {
     private static Case Color(string name, Color initial, string? prompt = null, Option<string> localName = default, bool varies = false) =>
         Ref(name: name, create: () => Fin.Succ(value: new OptionColor(initial)), prompt: Optional(prompt), localName: localName, bind: Prompted(plain: static (getter, name, ref native) => getter.AddOptionColor(name, ref native), prompted: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionColor native, string label) => getter.AddOptionColor(name, ref native, label)), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => ColorValue(text: pair.Value).Map(value => Scripted(key: name, value: Some((object)value), listIndex: Option<int>.None, optionType: CommandLineOptionType.Color, stringValue: Some(pair.Value)))), varies: varies);
     private static Case List(string name, Seq<string> values, int current = 0, Option<string> localName = default, bool varies = false) =>
-        new(Name: name, AddToGetter: (getter, validName) =>
-            from valid in values.TraverseM(ValidValue).As()
-            from nonEmpty in NonEmpty(values: valid)
-            from index in ValidIndex(index: current, count: nonEmpty.Count, error: Op.Of(name: nameof(CommandOption)).InvalidInput())
-            from bound in Added(getter: getter, index: getter.AddOptionList(OptionName(english: validName, localName: localName), nonEmpty.Map(static value => new global::Rhino.UI.LocalizeStringPair(english: value, local: value)).AsIterable(), index), native: null, snapshot: g => SnapshotAt(name: validName, getter: g, values: nonEmpty), varies: varies)
-            select bound,
-            ScriptToken: token =>
-                from pair in ScriptPair(name: name, token: token)
-                from index in IndexOf(values: values, selected: pair.Value, same: StringComparer.Ordinal.Equals)
-                select Scripted(key: name, value: Some((object)values[index]), listIndex: Some(index), optionType: CommandLineOptionType.List, stringValue: Some(pair.Value)));
+        ListCore(name: name, values: values, label: static value => value, current: current, localName: localName, varies: varies, bind: PlainBind, capture: SnapshotAt);
     private static Case List<T>(string name, Seq<T> values, Func<T, string> label, int current = 0, Option<string> localName = default, bool varies = false) =>
+        ListCore(name: name, values: values, label: label, current: current, localName: localName, varies: varies, bind: PlainBind, capture: SnapshotAt);
+    private static Case EnumList<T>(string name, Seq<T> values, Func<T, string> label, int current = 0, bool varies = false) =>
+        ListCore(name: name, values: values, label: label, current: current, localName: Option<string>.None, varies: varies, bind: static (g, n, items, _, i) => AddEnumSelection(getter: g, name: n.English, values: items, index: i), capture: SnapshotEnum);
+
+    private static int PlainBind<T>(GetBaseClass getter, global::Rhino.UI.LocalizeStringPair localized, Seq<T> _, Seq<string> labels, int index) =>
+        getter.AddOptionList(localized, labels.Map(static value => new global::Rhino.UI.LocalizeStringPair(english: value, local: value)).AsIterable(), index);
+
+    private static Case ListCore<T>(string name, Seq<T> values, Func<T, string> label, int current, Option<string> localName, bool varies, Func<GetBaseClass, global::Rhino.UI.LocalizeStringPair, Seq<T>, Seq<string>, int, int> bind, Func<string, GetBaseClass, Seq<T>, Fin<CommandOptionValue>> capture) =>
         new(Name: name, AddToGetter: (getter, validName) =>
             from items in values.TraverseM(value => Optional(value).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())).As()
             from labels in items.TraverseM(value => Optional(label(arg: value)).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput()).Bind(ValidValue)).As()
             from nonEmpty in NonEmpty(values: items)
-            from index in ValidIndex(index: current, count: items.Count, error: Op.Of(name: nameof(CommandOption)).InvalidInput())
-            from bound in Added(getter: getter, index: getter.AddOptionList(OptionName(english: validName, localName: localName), labels.Map(static value => new global::Rhino.UI.LocalizeStringPair(english: value, local: value)).AsIterable(), index), native: null, snapshot: g => SnapshotAt(name: validName, getter: g, values: nonEmpty), varies: varies)
-            select bound,
-            ScriptToken: token =>
-                from pair in ScriptPair(name: name, token: token)
-                from project in Optional(label)
-                from index in toSeq(Enumerable.Range(start: 0, count: values.Count)).Find(index => string.Equals(a: project(arg: values[index]), b: pair.Value, comparisonType: StringComparison.Ordinal) || string.Equals(a: values[index]?.ToString(), b: pair.Value, comparisonType: StringComparison.Ordinal))
-                select Scripted(key: name, value: Some((object)values[index]!), listIndex: Some(index), optionType: CommandLineOptionType.List, stringValue: Some(pair.Value)));
-    private static Case EnumList<T>(string name, Seq<T> values, Func<T, string> label, int current = 0, bool varies = false) =>
-        new(Name: name, AddToGetter: (getter, validName) =>
-            from items in values.TraverseM(value => Optional(value).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())).As()
-            from nonEmpty in NonEmpty(values: items)
             from index in ValidIndex(index: current, count: nonEmpty.Count, error: Op.Of(name: nameof(CommandOption)).InvalidInput())
-            from bound in Added(getter: getter, index: AddEnumSelection(getter: getter, name: validName, values: nonEmpty, index: index), native: null, snapshot: g => SnapshotEnum(name: validName, getter: g, values: nonEmpty), varies: varies)
+            from bound in Added(getter: getter, index: bind(arg1: getter, arg2: OptionName(english: validName, localName: localName), arg3: nonEmpty, arg4: labels, arg5: index), native: null, snapshot: g => capture(arg1: validName, arg2: g, arg3: nonEmpty), varies: varies)
             select bound,
             ScriptToken: token =>
                 from pair in ScriptPair(name: name, token: token)
-                from project in Optional(label)
-                from index in toSeq(Enumerable.Range(start: 0, count: values.Count)).Find(index => string.Equals(a: project(arg: values[index]), b: pair.Value, comparisonType: StringComparison.Ordinal) || string.Equals(a: values[index]?.ToString(), b: pair.Value, comparisonType: StringComparison.Ordinal))
+                from index in toSeq(Enumerable.Range(start: 0, count: values.Count)).Find(i => string.Equals(a: label(arg: values[i]), b: pair.Value, comparisonType: StringComparison.Ordinal) || string.Equals(a: values[i]?.ToString(), b: pair.Value, comparisonType: StringComparison.Ordinal))
                 select Scripted(key: name, value: Some((object)values[index]!), listIndex: Some(index), optionType: CommandLineOptionType.List, stringValue: Some(pair.Value)));
     private static Case Ref<TNative, TValue>(string name, Func<Fin<TNative>> create, Option<string> prompt, Option<string> localName, RefOptionBinder<TNative> bind, Func<TNative, TValue> current, Func<string, Option<CommandOptionValue>> script, bool varies) where TNative : IDisposable =>
         new(Name: name, AddToGetter: (getter, validName) => create().Bind(native => {

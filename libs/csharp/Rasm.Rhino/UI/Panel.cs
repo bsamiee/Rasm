@@ -53,26 +53,12 @@ public abstract record UiChromeOp<T> {
 
     public sealed record EtoToolbar(IEnumerable<UiAction> Actions) : UiChromeOp<ToolBar> {
         internal override Fin<ToolBar> Run(RhinoDoc? document) =>
-            from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(EtoToolbar)).InvalidInput())
-            from actions in Optional(Actions).ToFin(Fail: Op.Of(name: nameof(EtoToolbar)).InvalidInput()).Map(static values => toSeq(values))
-            from commands in actions.TraverseM(action => action.ToCommand(document: validDocument)).As()
-            select ((Func<ToolBar>)(() => {
-                ToolBar toolbar = new();
-                _ = commands.Iter(command => toolbar.Items.Add(command.CreateToolItem()));
-                return toolbar;
-            }))();
+            BuildBar(Actions, document, nameof(EtoToolbar), static () => new ToolBar(), static (bar, cmd) => bar.Items.Add(cmd.CreateToolItem()));
     }
 
     public sealed record EtoMenu(IEnumerable<UiAction> Actions) : UiChromeOp<MenuBar> {
         internal override Fin<MenuBar> Run(RhinoDoc? document) =>
-            from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(EtoMenu)).InvalidInput())
-            from actions in Optional(Actions).ToFin(Fail: Op.Of(name: nameof(EtoMenu)).InvalidInput()).Map(static values => toSeq(values))
-            from commands in actions.TraverseM(action => action.ToCommand(document: validDocument)).As()
-            select ((Func<MenuBar>)(() => {
-                MenuBar menu = new();
-                _ = commands.Iter(command => menu.Items.Add(command.CreateMenuItem()));
-                return menu;
-            }))();
+            BuildBar(Actions, document, nameof(EtoMenu), static () => new MenuBar(), static (bar, cmd) => bar.Items.Add(cmd.CreateMenuItem()));
     }
 
     public sealed record RuiSnapshot : UiChromeOp<PanelChromeSnapshot> {
@@ -85,30 +71,29 @@ public abstract record UiChromeOp<T> {
     public sealed record RuiFile(UiChromeFileMode Mode, Option<Guid> FileId = default, Option<string> Path = default, Option<string> Name = default, bool IgnoreCase = true, bool Prompt = false, bool SaveAfterOpen = false) : UiChromeOp<PanelChromeSnapshot> {
         internal override bool Interactive => Mode == UiChromeFileMode.Close && Prompt;
 
-        internal override Fin<PanelChromeSnapshot> Run(RhinoDoc? document) =>
-            RhinoUi.Protect(valid: () =>
+        internal override Fin<PanelChromeSnapshot> Run(RhinoDoc? document) {
+            Op op = Op.Of(name: nameof(RuiFile));
+            return RhinoUi.Protect(valid: () =>
                 from _ in Mode switch {
                     UiChromeFileMode.Open => from path in NonBlank(value: Path)
-                                             from file in Optional(RhinoApp.ToolbarFiles.Open(path: path)).ToFin(Fail: Op.Of(name: nameof(RuiFile)).InvalidResult())
-                                             from saved in SaveAfterOpen switch {
-                                                 true => file.Save() switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(RuiFile)).InvalidResult()) },
-                                                 false => Fin.Succ(value: unit),
-                                             }
+                                             from file in Optional(RhinoApp.ToolbarFiles.Open(path: path)).ToFin(Fail: op.InvalidResult())
+                                             from saved in SaveAfterOpen ? Bool(file.Save(), op) : Fin.Succ(value: unit)
                                              select saved,
                     UiChromeFileMode.Close => from file in FindFile(fileId: FileId, path: Path, name: Name, ignoreCase: IgnoreCase)
-                                              from closed in file.Close(prompt: Prompt) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(RuiFile)).InvalidResult()) }
+                                              from closed in Bool(file.Close(prompt: Prompt), op)
                                               select closed,
                     UiChromeFileMode.Save => from file in FindFile(fileId: FileId, path: Path, name: Name, ignoreCase: IgnoreCase)
-                                             from saved in file.Save() switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(RuiFile)).InvalidResult()) }
+                                             from saved in Bool(file.Save(), op)
                                              select saved,
                     UiChromeFileMode.SaveAs => from file in FindFile(fileId: FileId, path: Option<string>.None, name: Name, ignoreCase: IgnoreCase)
                                                from path in NonBlank(value: Path)
-                                               from saved in file.SaveAs(path: path) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(RuiFile)).InvalidResult()) }
+                                               from saved in Bool(file.SaveAs(path: path), op)
                                                select saved,
-                    _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(RuiFile)).InvalidInput()),
+                    _ => Fin.Fail<Unit>(error: op.InvalidInput()),
                 }
                 from snapshot in Snapshot()
                 select snapshot);
+        }
     }
 
     public sealed record RuiGroup(Guid FileId, Guid GroupId, bool Visible) : UiChromeOp<Unit> {
@@ -121,13 +106,10 @@ public abstract record UiChromeOp<T> {
 
     public sealed record RuiSidebar(bool Visible, bool Mru = false) : UiChromeOp<Unit> {
         internal override Fin<Unit> Run(RhinoDoc? document) =>
-            RhinoUi.Protect(valid: () => {
-                _ = Mru switch {
-                    true => Op.Side(() => global::Rhino.UI.ToolbarFileCollection.MruSidebarIsVisible = Visible),
-                    false => Op.Side(() => global::Rhino.UI.ToolbarFileCollection.SidebarIsVisible = Visible),
-                };
-                return Fin.Succ(value: unit);
-            });
+            RhinoUi.Protect(valid: () => Fin.Succ(value: Mru switch {
+                true => Op.Side(() => global::Rhino.UI.ToolbarFileCollection.MruSidebarIsVisible = Visible),
+                false => Op.Side(() => global::Rhino.UI.ToolbarFileCollection.SidebarIsVisible = Visible),
+            }));
     }
 
     public sealed record RuiToolbarSize(Option<DrawingSize> Bitmap = default, Option<DrawingSize> Tab = default) : UiChromeOp<Unit> {
@@ -140,6 +122,15 @@ public abstract record UiChromeOp<T> {
                     _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(RuiToolbarSize)).InvalidInput()),
                 });
     }
+
+    private static Fin<Unit> Bool(bool value, Op op) =>
+        value ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: op.InvalidResult());
+
+    private static Fin<TBar> BuildBar<TBar>(IEnumerable<UiAction>? actions, RhinoDoc? document, string opName, Func<TBar> create, Action<TBar, Eto.Forms.Command> add) where TBar : class =>
+        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: opName).InvalidInput())
+        from validActions in Optional(actions).ToFin(Fail: Op.Of(name: opName).InvalidInput()).Map(static values => toSeq(values))
+        from commands in validActions.TraverseM(action => action.ToCommand(document: validDocument)).As()
+        select ((Func<TBar>)(() => { TBar bar = create(); _ = commands.Iter(c => add(bar, c)); return bar; }))();
 
     private static Fin<global::Rhino.UI.ToolbarFile> FindFile(Option<Guid> fileId, Option<string> path, Option<string> name, bool ignoreCase) =>
         (fileId.Bind(id => toSeq(RhinoApp.ToolbarFiles).Choose(Optional).Find(file => file.Id == id)) |

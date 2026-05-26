@@ -37,8 +37,7 @@ public sealed class RhinoBlocks {
         Optional(work).ToFin(Fail: key.OrDefault().InvalidInput())
             .Map(valid => { _ = IdlePump.Enqueue(document: Document, work: valid); return unit; });
 
-    /// Bounded native capsule: resolves a definition, projects through `project` under Op.Catch,
-    /// guarantees mutation cannot escape the closure.
+    /// Bounded native capsule: resolves the definition then projects under Op.Catch.
     public Fin<T> Use<T>(DefinitionRef refer, Func<InstanceDefinition, Fin<T>> project, Op? key = null) {
         Op op = key.OrDefault();
         return Optional(project).ToFin(Fail: op.InvalidInput())
@@ -46,18 +45,16 @@ public sealed class RhinoBlocks {
                 .Bind(pair => op.Catch(() => valid(arg: pair.Live))));
     }
 
-    /// Linked-archive watcher. Returns Subscription IDisposable, not MutationReceipt.
     public Fin<Subscription> Watch(ArchivePath path, WatchPolicy? policy = null) =>
         Operations.AttachWatcher(owner: this, path: path, policy: policy ?? WatchPolicy.Default);
 
-    /// Document-level linked-update policy.
     public Fin<Unit> SetLinkedPolicy(LinkedPolicy policy, Op? key = null) =>
         Op.Of(name: nameof(SetLinkedPolicy)).Catch(() => {
             Document.LinkedInstanceDefinitionUpdate = policy.Native;
             return Fin.Succ(value: unit);
         });
 
-    /// Per-definition opt-out for nested linked resolution (paired with SetLinkedPolicy).
+    /// Per-definition opt-out paired with SetLinkedPolicy.
     public Fin<Unit> SetSkipNestedLinked(DefinitionRef refer, bool value, Op? key = null) =>
         Use(refer: refer, project: def => Op.Of(name: nameof(SetSkipNestedLinked)).Catch(() => {
             def.SkipNestedLinkedDefinitions = value;
@@ -79,7 +76,7 @@ public abstract partial record Subscription : IDisposable {
     public sealed record Composite(Seq<Subscription> Members) : Subscription;
 
     public void Dispose() {
-        // [BOUNDARY ADAPTER — IDisposable contract; the single permitted switch statement here.]
+        // IDisposable boundary adapter; closed-sum dispatch.
         switch (this) {
             case Empty: break;
             case Atomic a: a.Detach(); break;
@@ -87,9 +84,8 @@ public abstract partial record Subscription : IDisposable {
         }
     }
 
-    /// Monoid algebra — identity = Nothing; associative; flattens nested Composites left-biased.
-    /// (Cannot formally implement Monoid&lt;Subscription&gt; trait: case-record `Empty` name collides
-    /// with the trait's static `Empty` property — `|` + Nothing provide the same algebra.)
+    /// Monoid algebra (identity = Nothing). Cannot implement Monoid&lt;Subscription&gt; — the
+    /// case-record `Empty` name collides with the trait's `Empty` static.
     public static Subscription operator |(Subscription a, Subscription b) =>
         (a, b) switch {
             (Empty, _) => b,
@@ -105,9 +101,6 @@ public abstract partial record Subscription : IDisposable {
 }
 
 // --- [COMPOSITION] [CACHE] ----------------------------------------------------------------
-// [DEFERRED — plan §9] VersionedStore is the shared versioned-cache primitive. Promote to
-// a Rasm.Rhino.Caching namespace when Layers/Materials/Hatches/Linetypes need the same shape;
-// the type itself is namespace-agnostic — only its placement is Blocks-internal today.
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CacheKey(uint Serial, Guid DefId);
 
@@ -141,7 +134,7 @@ internal sealed class VersionedStore<TKey, TValue>(Func<TKey, Guid> versionKey)
         return value;
     }
 
-    /// Borrow: returns Some(value) only if entry exists AND version matches; on success RefCount++.
+    /// Some(value) only when entry exists AND version matches; on hit RefCount++.
     public Option<TValue> Borrow(TKey key) {
         State result = store.Swap(f: s => s.Entries.Find(key: key) switch {
             { IsSome: true, Case: Entry e } when e.VersionAtInsert == s.Versions.Find(key: versionKey(arg: key)).IfNone(noneValue: 0u) =>
@@ -153,9 +146,7 @@ internal sealed class VersionedStore<TKey, TValue>(Func<TKey, Guid> versionKey)
                 ? Some(value: e.Value) : Option<TValue>.None);
     }
 
-    /// Release: returns Some(value) when refcount transitions to 0 — caller disposes outside Swap.
-    /// Capture/reclaim pattern: Swap retries on contention; the captured reference reflects only
-    /// the winning attempt because entries are immutable records (each retry sees same Value field).
+    /// Some(value) only when refcount transitions to 0 — caller disposes outside Swap.
     public Option<TValue> Release(TKey key) {
         TValue? captured = default;
         _ = store.Swap(f: s => s.Entries.Find(key: key) switch {
@@ -172,11 +163,7 @@ internal sealed class VersionedStore<TKey, TValue>(Func<TKey, Guid> versionKey)
         return s with { Entries = s.Entries.Remove(key: key) };
     }
 
-    /// Invalidate: atomic version-bump + filter; stale-insert protection guaranteed by the
-    /// VersionAtInsert tag carried on each Entry.
-    /// [DEFERRED — plan §9] Filter is O(N). Partition-by-versionId
-    /// (HashMap&lt;Guid, HashMap&lt;TKey, Entry&gt;&gt;) makes invalidate O(1) lookup + O(1) replace.
-    /// Defer until profile shows allocation pressure at >1K cached entries.
+    /// Atomic version-bump + filter; VersionAtInsert tags guard stale inserts.
     public Unit Invalidate(Guid versionId) {
         Func<TKey, Guid> vk = versionKey;
         _ = store.Swap(f: s => s with {
@@ -220,21 +207,11 @@ internal static class PreviewVault {
     }
 
     private static Fin<PreviewHandle> Render(InstanceDefinition def, PreviewSpec spec, CacheKey key, Op op) =>
-        op.Catch(() => ResolveDisplayMode(refer: spec.ResolvedMode, op: op).Bind(displayId =>
+        op.Catch(() => spec.ResolvedMode.Resolve(op: op).Bind(displayId =>
             RenderNative(def: def, spec: spec, displayId: displayId) switch {
                 Bitmap bmp => Fin.Succ(value: Handle(key: key, bitmap: store.Insert(key: key, value: bmp))),
                 _ => Fin.Fail<PreviewHandle>(error: op.InvalidResult()),
             }));
-
-    private static Fin<Guid> ResolveDisplayMode(DisplayModeRef refer, Op op) =>
-        refer switch {
-            DisplayModeRef.WireframeCase => Fin.Succ(value: Guid.Empty),
-            DisplayModeRef.ById r => Fin.Succ(value: r.Id),
-            DisplayModeRef.ByName r => Optional(DisplayModeDescription.FindByName(englishName: r.Name))
-                .Map(static desc => desc.Id)
-                .ToFin(Fail: op.InvalidInput()),
-            _ => Fin.Fail<Guid>(error: op.InvalidInput()),
-        };
 
     private static Bitmap? RenderNative(InstanceDefinition def, PreviewSpec spec, Guid displayId) {
         Size size = new(width: spec.Width, height: spec.Height);
@@ -264,7 +241,7 @@ internal static class PreviewVault {
 internal static class IdlePump {
     private static readonly Atom<Seq<(RhinoDoc Document, Func<RhinoDoc, Fin<DocumentReceipt>> Work)>> queue =
         Atom(value: Seq<(RhinoDoc, Func<RhinoDoc, Fin<DocumentReceipt>>)>());
-    private static int hooked;   // CAS gate: 0 = not hooked, 1 = hooked
+    private static int hooked;
 
     private static readonly TimeSpan DefaultBudget = TimeSpan.FromMilliseconds(value: 8);
     private static TimeProvider clock = TimeProvider.System;
@@ -281,8 +258,7 @@ internal static class IdlePump {
     }
 
     private static void EnsureHook() {
-        // [BOUNDARY ADAPTER — one-shot CAS gate; canonical .NET primitive over Atom.Swap which
-        //  returns the new value (not previous) and cannot distinguish first-caller from contenders.]
+        // Atom.Swap can't distinguish first-caller from contenders; Interlocked does.
         if (Interlocked.CompareExchange(location1: ref hooked, value: 1, comparand: 0) != 0) return;
         RhinoApp.Idle += static (_, _) => Drain();
     }
@@ -296,7 +272,6 @@ internal static class IdlePump {
         long start = clock.GetTimestamp();
         Seq<(RhinoDoc Document, Func<RhinoDoc, Fin<DocumentReceipt>> Work)> snapshot = queue.Value;
         int taken = 0;
-        // [BOUNDARY ADAPTER — time-bounded queue drain; the only imperative loop in this file.]
         foreach ((RhinoDoc Document, Func<RhinoDoc, Fin<DocumentReceipt>> Work) in snapshot) {
             if (clock.GetElapsedTime(startingTimestamp: start) >= budget) break;
             _ = Op.Of(name: nameof(Drain)).Catch(() => Work(arg: Document));
@@ -310,16 +285,16 @@ internal static class IdlePump {
 internal static class EventBridge {
     private static readonly Atom<HashMap<uint, Seq<Subscriber>>> bySerial =
         Atom(value: HashMap<uint, Seq<Subscriber>>());
-    private static int hooked;   // CAS gate (one-shot wire of native events)
+    private static int hooked;
 
-    [ThreadStatic]
-    private static bool dispatching;   // re-entrancy guard for synchronous (Immediate) subscribers
+    /// Per-thread re-entry guard; concurrent dispatch from distinct threads proceeds in parallel.
+    /// The check-then-Swap is race-safe: only the entering thread can insert its own tid.
+    private static readonly Atom<LanguageExt.HashSet<int>> dispatching = Atom(value: LanguageExt.HashSet<int>.Empty);
 
     internal static Subscription Attach(RhinoDoc doc, Action<BlockTableEvent> handler, BlockSubscriptionPolicy policy) {
         EnsureHook();
         Subscriber sub = new(Id: Guid.NewGuid(), Handler: handler, Policy: policy);
         uint serial = doc.RuntimeSerialNumber;
-        // Inline upsert: single pattern-match over current bucket, no auxiliary helper.
         _ = bySerial.Swap(f: map => map.AddOrUpdate(key: serial, value: map.Find(key: serial) switch {
             { IsSome: true, Case: Seq<Subscriber> existing } => existing.Add(value: sub),
             _ => Seq(sub),
@@ -328,7 +303,6 @@ internal static class EventBridge {
     }
 
     private static void EnsureHook() {
-        // [BOUNDARY ADAPTER — once-only attach via CAS gate; wires both table events and doc lifecycle.]
         if (Interlocked.CompareExchange(location1: ref hooked, value: 1, comparand: 0) != 0) return;
         RhinoDoc.InstanceDefinitionTableEvent += static (_, args) => Dispatch(args: args);
         RhinoDoc.CloseDocument += static (_, args) => OnDocClose(serial: args.Document?.RuntimeSerialNumber ?? 0u);
@@ -338,31 +312,32 @@ internal static class EventBridge {
         _ = SnapshotVault.EvictDoc(serial: serial);
         _ = PreviewVault.EvictDoc(serial: serial);
         _ = Operations.InvalidateContentIndex(serial: serial);
-        _ = bySerial.Swap(f: map => map.Remove(key: serial));
+        // When the last subscriber bucket drops, any tids in `dispatching` must be stale
+        // leftovers from a bypassed `finally` — safe to flush; recycled tids can't re-block.
+        if (bySerial.Swap(f: map => map.Remove(key: serial)).IsEmpty)
+            _ = dispatching.Swap(f: static _ => []);
         return unit;
     }
 
-    /// [BOUNDARY ADAPTER — InstanceDefinitionTableEvent re-entry: an Immediate subscriber that
-    /// mutates the table during handling fires Dispatch recursively. The ThreadStatic gate
-    /// drops recursive deliveries on the same thread; the originating mutation issues its own
-    /// table event for the inner change, observed after the outer dispatch unwinds.]
+    /// Re-entry guard: Immediate subscribers that mutate during handling fire Dispatch
+    /// recursively; the inner mutation's own table event arrives after outer unwinds.
     private static void Dispatch(InstanceDefinitionTableEventArgs args) {
-        if (dispatching) return;
-        dispatching = true;
+        int tid = System.Environment.CurrentManagedThreadId;
+        if (dispatching.Value.Contains(key: tid)) return;
+        _ = dispatching.Swap(f: set => set.Add(key: tid));
         try {
             uint serial = args.Document?.RuntimeSerialNumber ?? 0u;
             BlockTableEvent snapshot = BlockTableEvent.From(args: args);
             _ = Invalidate(serial: serial, snapshot: snapshot);
             Seq<Subscriber> subs = bySerial.Value.Find(key: serial).IfNone(noneValue: Seq<Subscriber>());
             if (subs.IsEmpty) return;
-            // Inline filter predicate (was Allow helper) — single call-site, no abstraction value.
             _ = subs
                 .Filter(s => s.Policy.Filter switch {
                     { IsSome: true, Case: Func<BlockTableEvent, bool> pred } => pred(arg: snapshot),
                     _ => true,
                 })
                 .Iter(s => Deliver(sub: s, snapshot: snapshot, serial: serial));
-        } finally { dispatching = false; }
+        } finally { _ = dispatching.Swap(f: set => set.Remove(key: tid)); }
     }
 
     private static void Deliver(Subscriber sub, BlockTableEvent snapshot, uint serial) {
@@ -387,7 +362,7 @@ internal static class EventBridge {
 
     private static Unit Invalidate(uint serial, BlockTableEvent snapshot) =>
         snapshot.Kind switch {
-            // Sorted: cache is keyed by Guid not Index; sort-only re-numbering preserves cache validity.
+            // Cache keys by Guid; sort-only re-numbering preserves validity.
             InstanceDefinitionTableEventType.Sorted => unit,
             InstanceDefinitionTableEventType.Deleted or InstanceDefinitionTableEventType.Modified =>
                 snapshot.Old.Case switch {

@@ -142,52 +142,46 @@ public readonly record struct UiPreviewStyle(
     internal OverlayPhase PhaseOrDefault => Phase.IfNone(OverlayPhase.PostDraw);
 
     internal Fin<Unit> Draw(UiPreviewContext context, object geometry) {
-        Option<DrawingColor> strokeOption = Stroke;
-        Option<DrawingColor> textOption = Text;
-        Option<DisplayMaterial> materialOption = Material;
         int thickness = Thickness;
         int wireDensity = WireDensity;
         float pointRadius = PointRadius;
         PointStyle pointStyle = PointStyle;
         double transparency = Transparency;
-        DrawingColor stroke = strokeOption.IfNone(() => context.Document.CreateDefaultAttributes().DrawColor(context.Document));
-        DrawingColor text = textOption.IfNone(DrawingColor.White);
-        DisplayMaterial material = materialOption.IfNone(() => new DisplayMaterial(diffuse: stroke, transparency: transparency));
-        return (Optional(context.Display), Optional(geometry)) switch {
-            (Option<DisplayPipeline> display, Option<object> target) when display.Case is DisplayPipeline pipeline && target.Case is object value => value switch {
-                Mesh mesh => Fin.Succ(value: Effect(action: () => { pipeline.DrawMeshShaded(mesh: mesh, material: material); pipeline.DrawMeshWires(mesh: mesh, color: stroke, thickness: thickness); })),
-                Brep brep => Fin.Succ(value: Effect(action: () => { pipeline.DrawBrepShaded(brep: brep, material: material); pipeline.DrawBrepWires(brep: brep, color: stroke, wireDensity: wireDensity); })),
-                Curve curve => Fin.Succ(value: Effect(action: () => pipeline.DrawCurve(curve: curve, color: stroke, thickness: thickness))),
-                Extrusion extrusion => Fin.Succ(value: Effect(action: () => pipeline.DrawExtrusionWires(extrusion: extrusion, color: stroke, wireDensity: wireDensity))),
-                ClippingPlaneSurface clipping => Fin.Succ(value: Effect(action: () => pipeline.DrawClippingPlaneWires(clippingPlane: clipping, color: stroke))),
-                Surface surface => Fin.Succ(value: Effect(action: () => pipeline.DrawSurface(surface: surface, wireColor: stroke, wireDensity: wireDensity))),
-                Point point => Fin.Succ(value: Effect(action: () => pipeline.DrawPoint(point: point.Location, style: pointStyle, radius: pointRadius, color: stroke))),
-                Point3d point => Fin.Succ(value: Effect(action: () => pipeline.DrawPoint(point: point, style: pointStyle, radius: pointRadius, color: stroke))),
-                Line line => Fin.Succ(value: Effect(action: () => pipeline.DrawLine(line: line, color: stroke, thickness: thickness))),
-                Polyline polyline => Fin.Succ(value: Effect(action: () => pipeline.DrawPolyline(polyline: polyline, color: stroke, thickness: thickness))),
-                Arc arc => Fin.Succ(value: Effect(action: () => pipeline.DrawArc(arc: arc, color: stroke, thickness: thickness))),
-                Circle circle => Fin.Succ(value: Effect(action: () => pipeline.DrawCircle(circle: circle, color: stroke, thickness: thickness))),
-                Box box => Fin.Succ(value: Effect(action: () => pipeline.DrawBox(box: box, color: stroke, thickness: thickness))),
-                BoundingBox box => Fin.Succ(value: Effect(action: () => pipeline.DrawBox(box, stroke, thickness))),
-                Sphere sphere => Fin.Succ(value: Effect(action: () => pipeline.DrawSphere(sphere: sphere, color: stroke, thickness: thickness))),
-                Ellipse ellipse => Fin.Succ(value: Effect(action: () => { using Curve curve = ellipse.ToNurbsCurve(); pipeline.DrawCurve(curve: curve, color: stroke, thickness: thickness); })),
-                PointCloud cloud => Fin.Succ(value: Effect(action: () => pipeline.DrawPointCloud(cloud: cloud, size: pointRadius, color: stroke))),
-                SubD subd => Fin.Succ(value: Effect(action: () => { pipeline.DrawSubDShaded(subd: subd, material: material); pipeline.DrawSubDWires(subd: subd, color: stroke, thickness: thickness); })),
-                Hatch hatch => Fin.Succ(value: Effect(action: () => pipeline.DrawHatch(hatch: hatch, hatchColor: stroke, boundaryColor: stroke))),
-                TextDot dot => Fin.Succ(value: Effect(action: () => pipeline.DrawDot(dot: dot, fillColor: stroke, textColor: text, borderColor: stroke))),
-                TextEntity entity => Fin.Succ(value: Effect(action: () => pipeline.DrawText(text: entity, color: text))),
-                AnnotationBase annotation => Fin.Succ(value: Effect(action: () => pipeline.DrawAnnotation(annotation: annotation, color: text))),
-                Light light => Fin.Succ(value: Effect(action: () => pipeline.DrawLight(light: light, wireframeColor: stroke))),
+        DrawingColor stroke = Stroke.IfNone(() => context.Document.CreateDefaultAttributes().DrawColor(context.Document));
+        DrawingColor text = Text.IfNone(DrawingColor.White);
+        DisplayMaterial material = Material.IfNone(() => new DisplayMaterial(diffuse: stroke, transparency: transparency));
+        return (context.Display, geometry) switch {
+            (DisplayPipeline pipeline, object value) => value switch {
+                Mesh mesh => Paint(() => { pipeline.DrawMeshShaded(mesh: mesh, material: material); pipeline.DrawMeshWires(mesh: mesh, color: stroke, thickness: thickness); }),
+                Brep brep => Paint(() => { pipeline.DrawBrepShaded(brep: brep, material: material); pipeline.DrawBrepWires(brep: brep, color: stroke, wireDensity: wireDensity); }),
+                Curve curve => Paint(() => pipeline.DrawCurve(curve: curve, color: stroke, thickness: thickness)),
+                Extrusion extrusion => Paint(() => pipeline.DrawExtrusionWires(extrusion: extrusion, color: stroke, wireDensity: wireDensity)),
+                ClippingPlaneSurface clipping => Paint(() => pipeline.DrawClippingPlaneWires(clippingPlane: clipping, color: stroke)),
+                Surface surface => Paint(() => pipeline.DrawSurface(surface: surface, wireColor: stroke, wireDensity: wireDensity)),
+                Point point => Paint(() => pipeline.DrawPoint(point: point.Location, style: pointStyle, radius: pointRadius, color: stroke)),
+                Point3d point => Paint(() => pipeline.DrawPoint(point: point, style: pointStyle, radius: pointRadius, color: stroke)),
+                Line line => Paint(() => pipeline.DrawLine(line: line, color: stroke, thickness: thickness)),
+                Polyline polyline => Paint(() => pipeline.DrawPolyline(polyline: polyline, color: stroke, thickness: thickness)),
+                Arc arc => Paint(() => pipeline.DrawArc(arc: arc, color: stroke, thickness: thickness)),
+                Circle circle => Paint(() => pipeline.DrawCircle(circle: circle, color: stroke, thickness: thickness)),
+                Box box => Paint(() => pipeline.DrawBox(box: box, color: stroke, thickness: thickness)),
+                BoundingBox box => Paint(() => pipeline.DrawBox(box, stroke, thickness)),
+                Sphere sphere => Paint(() => pipeline.DrawSphere(sphere: sphere, color: stroke, thickness: thickness)),
+                Ellipse ellipse => Paint(() => { using Curve curve = ellipse.ToNurbsCurve(); pipeline.DrawCurve(curve: curve, color: stroke, thickness: thickness); }),
+                PointCloud cloud => Paint(() => pipeline.DrawPointCloud(cloud: cloud, size: pointRadius, color: stroke)),
+                SubD subd => Paint(() => { pipeline.DrawSubDShaded(subd: subd, material: material); pipeline.DrawSubDWires(subd: subd, color: stroke, thickness: thickness); }),
+                Hatch hatch => Paint(() => pipeline.DrawHatch(hatch: hatch, hatchColor: stroke, boundaryColor: stroke)),
+                TextDot dot => Paint(() => pipeline.DrawDot(dot: dot, fillColor: stroke, textColor: text, borderColor: stroke)),
+                TextEntity entity => Paint(() => pipeline.DrawText(text: entity, color: text)),
+                AnnotationBase annotation => Paint(() => pipeline.DrawAnnotation(annotation: annotation, color: text)),
+                Light light => Paint(() => pipeline.DrawLight(light: light, wireframeColor: stroke)),
                 _ => Fin.Succ(value: unit),
             },
             _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Draw)).InvalidInput()),
         };
     }
 
-    private static Unit Effect(Action action) {
-        action();
-        return unit;
-    }
+    private static Fin<Unit> Paint(Action draw) => Fin.Succ(value: Op.Side(draw));
 }
 
 public readonly record struct UiPreviewContext(

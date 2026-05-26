@@ -101,7 +101,6 @@ public static class UiIntent {
                 true => Fin.Fail<global::Rhino.UI.ShowMessageResult>(error: Op.Of(name: nameof(Message)).InvalidInput()),
             });
 
-    // "What"-style read-only multiline viewer; preferred over `RhinoApp.WriteLine` for long payloads.
     public static UiIntent<Unit> Text(string body, string title = "") =>
         Request(
             name: nameof(Text),
@@ -121,12 +120,10 @@ public static class UiIntent {
                     Seq<T> choices when !choices.IsEmpty => Fin.Succ(value: choices),
                     _ => Fin.Fail<Seq<T>>(error: Op.Of(name: nameof(Choice)).InvalidInput()),
                 });
-            return values.Bind(choices => Optional(combo switch {
-                true => global::Rhino.UI.Dialogs.ShowComboListBox(title: title, message: message, items: choices.ToList()),
-                false => selected.Case switch {
-                    T current => global::Rhino.UI.Dialogs.ShowListBox(title: title, message: message, items: choices.ToList(), selectedItem: current),
-                    _ => global::Rhino.UI.Dialogs.ShowListBox(title: title, message: message, items: choices.ToList()),
-                },
+            return values.Bind(choices => Optional((combo, selected.Case) switch {
+                (true, _) => global::Rhino.UI.Dialogs.ShowComboListBox(title: title, message: message, items: choices.ToList()),
+                (false, T current) => global::Rhino.UI.Dialogs.ShowListBox(title: title, message: message, items: choices.ToList(), selectedItem: current),
+                _ => global::Rhino.UI.Dialogs.ShowListBox(title: title, message: message, items: choices.ToList()),
             }).ToFin(Fail: new Fault.Cancelled()).Bind(result => result is T typed ? Fin.Succ(value: typed) : Fin.Fail<T>(error: Op.Of(name: nameof(Choice)).InvalidResult())));
         });
 
@@ -138,7 +135,7 @@ public static class UiIntent {
 
     public static UiIntent<Seq<bool>> Checklist(string title, string message, IEnumerable<string> items, IEnumerable<bool> states) =>
         Request(name: nameof(Checklist), run: _ => (Optional(items).ToFin(Fail: Op.Of(name: nameof(Checklist)).InvalidInput()).Map(static source => toSeq(source)), Optional(states).ToFin(Fail: Op.Of(name: nameof(Checklist)).InvalidInput()).Map(static source => toSeq(source))).Apply(static (values, checks) => (Values: values, Checks: checks)).As().Bind(values => values switch {
-            (Seq<string> choices, Seq<bool> checks) when !choices.IsEmpty && choices.Count == checks.Count => Optional(global::Rhino.UI.Dialogs.ShowCheckListBox(title: title, message: message, items: (string[])[.. choices], checkState: (bool[])[.. checks])).ToFin(Fail: new Fault.Cancelled()).Map(static result => toSeq(result).Map(static item => item)),
+            (Seq<string> choices, Seq<bool> checks) when !choices.IsEmpty && choices.Count == checks.Count => Optional(global::Rhino.UI.Dialogs.ShowCheckListBox(title: title, message: message, items: (string[])[.. choices], checkState: (bool[])[.. checks])).ToFin(Fail: new Fault.Cancelled()).Map(static result => toSeq(result)),
             _ => Fin.Fail<Seq<bool>>(error: Op.Of(name: nameof(Checklist)).InvalidInput()),
         }));
 
@@ -147,7 +144,7 @@ public static class UiIntent {
             Seq<(string Name, string Value)> items when !items.IsEmpty => Optional(global::Rhino.UI.Dialogs.ShowPropertyListBox(title: title, message: message, items: [.. items.Map(static item => new KeyValuePair<string, string>(key: item.Name, value: item.Value))]))
                 .ToFin(Fail: new Fault.Cancelled())
                 .Bind(result => toSeq(result) switch {
-                    Seq<string> updated when updated.Count == items.Count => Fin.Succ(value: toSeq(Enumerable.Range(start: 0, count: items.Count)).Map(index => (items[index].Name, updated[index]))),
+                    Seq<string> updated when updated.Count == items.Count => Fin.Succ(value: items.Zip(updated).Map(static pair => (pair.First.Name, pair.Second))),
                     _ => Fin.Fail<Seq<(string Name, string Value)>>(error: Op.Of(name: nameof(Properties)).InvalidResult()),
                 }),
             _ => Fin.Fail<Seq<(string Name, string Value)>>(error: Op.Of(name: nameof(Properties)).InvalidInput()),
@@ -192,7 +189,7 @@ public static class UiIntent {
         Request(name: nameof(ContextMenu), run: _ => Optional(items).ToFin(Fail: Op.Of(name: nameof(ContextMenu)).InvalidInput()).Bind(source => (toSeq(source), Optional(modes).Map(static value => toSeq(value)).IfNone(Seq<int>())) switch {
             (Seq<string> values, _) when values.IsEmpty => Fin.Fail<int>(error: Op.Of(name: nameof(ContextMenu)).InvalidInput()),
             (Seq<string> values, Seq<int> flags) when !flags.IsEmpty && flags.Count != values.Count => Fin.Fail<int>(error: Op.Of(name: nameof(ContextMenu)).InvalidInput()),
-            (Seq<string> values, Seq<int> flags) => global::Rhino.UI.Dialogs.ShowContextMenu(items: values.AsIterable(), screenPoint: screenPoint, modes: (flags.IsEmpty ? toSeq(Enumerable.Repeat(element: 1, count: values.Count)) : flags).AsIterable()) switch {
+            (Seq<string> values, Seq<int> flags) => global::Rhino.UI.Dialogs.ShowContextMenu(items: values.AsIterable(), screenPoint: screenPoint, modes: (flags.IsEmpty ? values.Map(static _ => 1) : flags).AsIterable()) switch {
                 int index when index >= 0 => Fin.Succ(value: index),
                 _ => Fin.Fail<int>(error: new Fault.Cancelled()),
             },

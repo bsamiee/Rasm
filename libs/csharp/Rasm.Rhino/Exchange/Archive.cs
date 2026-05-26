@@ -45,8 +45,7 @@ public readonly record struct FileArchiveMetadata(
     Option<FileGeoLocation> EarthAnchor = default,
     Option<string> StartComments = default);
 
-// `EarthAnchorPoint` is IDisposable; getters allocate a new wrapper per call. Storing the bare ref
-// past File3dm.Dispose dangles its m_ptr. `From(anchor)` projects scalars + KML triple at the boundary.
+// EarthAnchorPoint getters allocate per call; storing the wrapper past File3dm.Dispose dangles m_ptr — project scalars + KML triple here.
 public readonly record struct FileGeoLocation(
     Option<double> Latitude,
     Option<double> Longitude,
@@ -137,9 +136,8 @@ public readonly record struct FileResourceGraph(
             .As()
             .Bind(values => Stat.Of(values: values, key: op));
 
-    // BOUNDARY ADAPTER — `parallel: true` fans `File.Exists` across PLINQ workers; UI callers must
-    // wrap in `Task.Run` to avoid stutter on archives with hundreds of links.
-    public Seq<FileIssue> Validate(FileArchiveSource source, bool parallel = true) {
+    public Seq<FileIssue> Validate(FileArchiveSource source, IoScheduler scheduler) {
+        ArgumentNullException.ThrowIfNull(argument: scheduler);
         Option<string> folder = source switch {
             FileArchiveSource.Path path => Optional(IOPath.GetDirectoryName(path: path.Value.Path)),
             _ => Option<string>.None,
@@ -153,8 +151,10 @@ public readonly record struct FileResourceGraph(
             .AsIterable()];
         return paths.Length switch {
             0 => Seq<FileIssue>(),
-            _ => toSeq((parallel ? paths.AsParallel().Where(static item => !File.Exists(path: item.Path)) : paths.Where(static item => !File.Exists(path: item.Path)))
-                .Select(static item => FileIssue.Of(code: FileIssueCode.BrokenLink, message: $"missing linked resource: {item.Raw} -> {item.Path}"))),
+            _ => scheduler.Filter(
+                source: paths,
+                predicate: static item => !File.Exists(path: item.Path),
+                map: static item => FileIssue.Of(code: FileIssueCode.BrokenLink, message: $"missing linked resource: {item.Raw} -> {item.Path}")),
         };
     }
 }
@@ -241,10 +241,10 @@ internal static class FileArchiveOps {
                 .Filter(static value => value.Length > 0)
                 .ToFin(Fail: Op.Of(name: nameof(Bytes)).InvalidResult()));
 
-    internal static Fin<FileReport> Validate(FileArchiveSource source, ArchiveProfile profile) =>
+    internal static Fin<FileReport> Validate(FileArchiveSource source, ArchiveProfile profile, IoScheduler scheduler) =>
         from result in UseArchive(source: source, profile: profile with { Projection = FileArchiveProjection.Graph }, op: Op.Of(name: nameof(Validate)), use: (endpoint, model, log) =>
             Snapshot(source: source, model: model, profile: profile with { Projection = FileArchiveProjection.Graph })
-                .Map(archive => (Endpoint: endpoint, Archive: archive, Log: log, Issues: archive.Resources.Validate(source: archive.Source, parallel: true))))
+                .Map(archive => (Endpoint: endpoint, Archive: archive, Log: log, Issues: archive.Resources.Validate(source: archive.Source, scheduler: scheduler))))
         select FileReport.Of(
             phase: FilePhase.ArchiveValidate,
             source: result.Endpoint,

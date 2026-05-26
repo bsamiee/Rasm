@@ -309,7 +309,7 @@ public sealed record CommandInputPolicy {
         (typeof(TGetter), Optional(apply).Case) switch {
             (Type type, Action<TGetter> action) when type == typeof(GetObject) => new(objectActions: Seq<Action<GetObject>>(getter => action((TGetter)(GetBaseClass)getter))),
             (Type type, Action<TGetter> action) when type == typeof(GetPoint) => new(pointActions: Seq<Action<GetPoint>>(getter => action((TGetter)(GetBaseClass)getter))),
-            (_, Action<TGetter> action) => new(baseActions: Seq<Action<GetBaseClass>>(getter => _ = getter is TGetter typed ? ((Func<Unit>)(() => { action(typed); return unit; }))() : unit)),
+            (_, Action<TGetter> action) => new(baseActions: Seq<Action<GetBaseClass>>(getter => _ = getter is TGetter typed ? Op.Side(() => action(typed)) : unit)),
             _ => Empty,
         };
     public static CommandInputPolicy Prompt(string value) => new(baseActions: Seq<Action<GetBaseClass>>(getter => getter.SetCommandPrompt(value)), prompt: Optional(value));
@@ -480,24 +480,12 @@ public sealed record CommandInputPolicy {
             getter.PermitTabMode(spec.PermitTabMode);
             getter.PermitElevatorMode(spec.PermitElevatorMode);
             getter.EnableSnapToCurves(enable: spec.SnapToCurves);
-            _ = spec.ClearConstraints switch {
-                true => Op.Side(getter.ClearConstraints),
-                false => unit,
-            };
-            _ = spec.SnapPoints.IsEmpty switch {
-                false => Op.Side(() => getter.AddSnapPoints(points: [.. spec.SnapPoints])),
-                true => unit,
-            };
-            _ = spec.ConstructionPoints.IsEmpty switch {
-                false => Op.Side(() => getter.AddConstructionPoints(points: [.. spec.ConstructionPoints])),
-                true => unit,
-            };
+            _ = Op.SideWhen(spec.ClearConstraints, getter.ClearConstraints);
+            _ = Op.SideWhen(!spec.SnapPoints.IsEmpty, () => getter.AddSnapPoints(points: [.. spec.SnapPoints]));
+            _ = Op.SideWhen(!spec.ConstructionPoints.IsEmpty, () => getter.AddConstructionPoints(points: [.. spec.ConstructionPoints]));
             _ = spec.BasePoint.Iter(point => {
                 getter.SetBasePoint(point, showDistanceInStatusBar: true);
-                _ = spec.DrawLineFromBasePoint switch {
-                    true => Op.Side(() => getter.DrawLineFromPoint(point, showDistanceInStatusBar: true)),
-                    false => unit,
-                };
+                _ = Op.SideWhen(spec.DrawLineFromBasePoint, () => getter.DrawLineFromPoint(point, showDistanceInStatusBar: true));
             });
             return (spec.DistanceFromBasePoint.Case switch {
                 double value when RhinoMath.IsValidDouble(x: value) && value >= 0.0 => Fin.Succ(value: Op.Side(() => getter.ConstrainDistanceFromBasePoint(distance: value))),
@@ -606,38 +594,102 @@ public static class CommandInputs {
     public static CommandInputRequest<T> Get<T>(params CommandInputPolicy[] policies) {
         Seq<CommandInputPolicy> active = toSeq(policies);
         CommandInputPolicy policy = CommandInputPolicy.Merge(policies: active);
-        CommandInputRequest<T> request = typeof(T) switch {
-            Type t when t == typeof(CommandSelection) => Objects<T>(policy: policy, policies: active),
-            Type t when t == typeof(CommandOptionValue) => Getter(policy: policy, create: static () => new GetOption(), receive: static getter => getter.Get(), project: static (_, _, _) => (Value: Option<T>.None, Trim: Option<CommandSelection.TrimResult>.None)),
-            Type t when t == typeof(CommandPoint) || t == typeof(Point3d) || t == typeof(DrawingPoint) => Point<T>(policy: policy),
-            Type t when t == typeof(Transform) => Transform<T>(policy: policy),
-            Type t when t == typeof(double)
-                && !policy.IsLiteralText
-                && policy.ScalarMode.Map(static scalar => scalar.Kind is CommandInputPolicy.ScalarKind.Number).IfNone(noneValue: true) =>
-                Number<GetNumber, double, T>(
-                    policy: policy,
-                    create: static () => new GetNumber(),
-                    receive: static getter => getter.Get(),
-                    current: static getter => getter.Number(),
-                    setLower: static (getter, value, strict) => getter.SetLowerLimit(lowerLimit: value, strictlyGreaterThan: strict),
-                    setUpper: static (getter, value, strict) => getter.SetUpperLimit(upperLimit: value, strictlyLessThan: strict)),
-            Type t when t == typeof(string) || t == typeof(double) => Text<T>(policy: policy),
-            Type t when t == typeof(int) => Number<GetInteger, int, T>(policy: policy, create: static () => new GetInteger(), receive: static getter => getter.Get(), current: static getter => getter.Number(), setLower: static (getter, value, strict) => getter.SetLowerLimit(value, strict), setUpper: static (getter, value, strict) => getter.SetUpperLimit(value, strict)),
-            Type t when t == typeof(bool) => Native(run: () => Bool<T>(prompt: policy.PromptText.IfNone(string.Empty), acceptNothing: policy.AcceptsNothing)),
-            Type t when t == typeof(Line) => Native<T, Line>(get: static (out value) => RhinoGet.GetLine(line: out value)),
-            Type t when t == typeof(Polyline) => Native<T, Polyline>(get: static (out value) => RhinoGet.GetPolyline(polyline: out value)),
-            Type t when t == typeof(Circle) => Native<T, Circle>(get: static (out value) => RhinoGet.GetCircle(circle: out value)),
-            Type t when t == typeof(Arc) => Native<T, Arc>(get: static (out value) => RhinoGet.GetArc(arc: out value)),
-            Type t when t == typeof(Plane) => Native<T, Plane>(get: static (out value) => RhinoGet.GetPlane(plane: out value)),
-            Type t when t == typeof(Seq<Point3d>) => Native(run: () => Rectangle<T>(prompt: policy.PromptText.IfNone(string.Empty))),
-            Type t when t == typeof(Box) => Native(run: () => Box<T>(spec: policy.BoxMode.IfNone(new CommandInputPolicy.BoxSpec(Mode: GetBoxMode.All, BasePoint: null, Prompt1: null, Prompt2: null, Prompt3: null)))),
-            Type t when t == typeof(Color) => Native(run: () => Color<T>(prompt: policy.PromptText.IfNone(string.Empty), acceptNothing: policy.AcceptsNothing)),
-            _ => Invalid<T>(name: nameof(Get)),
-        };
+        CommandInputRequest<T> request = CommandValueKind.For<T>()
+            .Map(kind => kind.Build<T>(policy: policy, policies: active))
+            .IfNone(() => Invalid<T>(name: nameof(Get)));
         return new CommandInputRequest<T>(
             runEvent: request.RunEvent,
             rebind: static values => Get<T>(policies: [.. values]),
             scripted: request.Script);
+    }
+
+    internal abstract record CommandValueKind {
+        private CommandValueKind() { }
+
+        internal abstract CommandInputRequest<T> Build<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies);
+
+        internal static Option<CommandValueKind> For<T>() => typeof(T) switch {
+            Type t when t == typeof(CommandSelection) => Some<CommandValueKind>(new SelectionKind()),
+            Type t when t == typeof(CommandOptionValue) => Some<CommandValueKind>(new OptionValueKind()),
+            Type t when t == typeof(CommandPoint) || t == typeof(Point3d) || t == typeof(DrawingPoint) => Some<CommandValueKind>(new PointKind()),
+            Type t when t == typeof(Transform) => Some<CommandValueKind>(new TransformKind()),
+            Type t when t == typeof(double) => Some<CommandValueKind>(new DoubleKind()),
+            Type t when t == typeof(string) => Some<CommandValueKind>(new StringKind()),
+            Type t when t == typeof(int) => Some<CommandValueKind>(new IntKind()),
+            Type t when t == typeof(bool) => Some<CommandValueKind>(new BoolKind()),
+            Type t when t == typeof(Line) => Some<CommandValueKind>(new LineKind()),
+            Type t when t == typeof(Polyline) => Some<CommandValueKind>(new PolylineKind()),
+            Type t when t == typeof(Circle) => Some<CommandValueKind>(new CircleKind()),
+            Type t when t == typeof(Arc) => Some<CommandValueKind>(new ArcKind()),
+            Type t when t == typeof(Plane) => Some<CommandValueKind>(new PlaneKind()),
+            Type t when t == typeof(Seq<Point3d>) => Some<CommandValueKind>(new RectangleKind()),
+            Type t when t == typeof(Box) => Some<CommandValueKind>(new BoxKind()),
+            Type t when t == typeof(Color) => Some<CommandValueKind>(new ColorKind()),
+            _ => Option<CommandValueKind>.None,
+        };
+
+        public sealed record SelectionKind : CommandValueKind {
+            internal override CommandInputRequest<T> Build<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) => Objects<T>(policy: policy, policies: policies);
+        }
+        public sealed record OptionValueKind : CommandValueKind {
+            internal override CommandInputRequest<T> Build<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) =>
+                Getter(policy: policy, create: static () => new GetOption(), receive: static getter => getter.Get(), project: static (_, _, _) => (Value: Option<T>.None, Trim: Option<CommandSelection.TrimResult>.None));
+        }
+        public sealed record PointKind : CommandValueKind {
+            internal override CommandInputRequest<T> Build<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) => Point<T>(policy: policy);
+        }
+        public sealed record TransformKind : CommandValueKind {
+            internal override CommandInputRequest<T> Build<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) => Transform<T>(policy: policy);
+        }
+        public sealed record DoubleKind : CommandValueKind {
+            internal override CommandInputRequest<T> Build<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) =>
+                (!policy.IsLiteralText && policy.ScalarMode.Map(static scalar => scalar.Kind is CommandInputPolicy.ScalarKind.Number).IfNone(noneValue: true))
+                    ? Number<GetNumber, double, T>(policy: policy, create: static () => new GetNumber(), receive: static getter => getter.Get(), current: static getter => getter.Number(), setLower: static (getter, value, strict) => getter.SetLowerLimit(lowerLimit: value, strictlyGreaterThan: strict), setUpper: static (getter, value, strict) => getter.SetUpperLimit(upperLimit: value, strictlyLessThan: strict))
+                    : Text<T>(policy: policy);
+        }
+        public sealed record StringKind : CommandValueKind {
+            internal override CommandInputRequest<T> Build<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) => Text<T>(policy: policy);
+        }
+        public sealed record IntKind : CommandValueKind {
+            internal override CommandInputRequest<T> Build<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) =>
+                Number<GetInteger, int, T>(policy: policy, create: static () => new GetInteger(), receive: static getter => getter.Get(), current: static getter => getter.Number(), setLower: static (getter, value, strict) => getter.SetLowerLimit(value, strict), setUpper: static (getter, value, strict) => getter.SetUpperLimit(value, strict));
+        }
+        public sealed record BoolKind : CommandValueKind {
+            internal override CommandInputRequest<T> Build<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) =>
+                Native(run: () => Bool<T>(prompt: policy.PromptText.IfNone(string.Empty), acceptNothing: policy.AcceptsNothing));
+        }
+        public sealed record LineKind : CommandValueKind {
+            internal override CommandInputRequest<T> Build<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) =>
+                Native<T, Line>(get: static (out value) => RhinoGet.GetLine(line: out value));
+        }
+        public sealed record PolylineKind : CommandValueKind {
+            internal override CommandInputRequest<T> Build<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) =>
+                Native<T, Polyline>(get: static (out value) => RhinoGet.GetPolyline(polyline: out value));
+        }
+        public sealed record CircleKind : CommandValueKind {
+            internal override CommandInputRequest<T> Build<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) =>
+                Native<T, Circle>(get: static (out value) => RhinoGet.GetCircle(circle: out value));
+        }
+        public sealed record ArcKind : CommandValueKind {
+            internal override CommandInputRequest<T> Build<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) =>
+                Native<T, Arc>(get: static (out value) => RhinoGet.GetArc(arc: out value));
+        }
+        public sealed record PlaneKind : CommandValueKind {
+            internal override CommandInputRequest<T> Build<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) =>
+                Native<T, Plane>(get: static (out value) => RhinoGet.GetPlane(plane: out value));
+        }
+        public sealed record RectangleKind : CommandValueKind {
+            internal override CommandInputRequest<T> Build<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) =>
+                Native(run: () => Rectangle<T>(prompt: policy.PromptText.IfNone(string.Empty)));
+        }
+        public sealed record BoxKind : CommandValueKind {
+            internal override CommandInputRequest<T> Build<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) =>
+                Native(run: () => Box<T>(spec: policy.BoxMode.IfNone(new CommandInputPolicy.BoxSpec(Mode: GetBoxMode.All, BasePoint: null, Prompt1: null, Prompt2: null, Prompt3: null))));
+        }
+        public sealed record ColorKind : CommandValueKind {
+            internal override CommandInputRequest<T> Build<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) =>
+                Native(run: () => Color<T>(prompt: policy.PromptText.IfNone(string.Empty), acceptNothing: policy.AcceptsNothing));
+        }
     }
 
     private sealed class CommandTransformGetter(Func<RhinoViewport, Point3d, Transform> calculate) : GetTransform {
@@ -656,7 +708,6 @@ public static class CommandInputs {
                         selection.Maximum == 0 ? CommandInputPolicy.Accept(modes: CommandInputAccept.EnterWhenDone) : CommandInputPolicy.Empty) + policies),
                 create: static () => new GetObject(),
                 receive: getter => getter.GetMultiple(minimumNumber: selection.Minimum, maximumNumber: selection.Maximum),
-                // Single trim computation reused for both Value and Trim projections (TP1).
                 project: (source, getter, raw) => SelectionTrim(source: source, getter: getter, raw: raw, policy: selection).Case switch {
                     CommandSelection.TrimResult trim => (Value: trim.Require(policy: selection).ToOption().Bind(Cast<T>), Trim: Some(trim)),
                     _ => (Value: Option<T>.None, Trim: Option<CommandSelection.TrimResult>.None),
@@ -698,8 +749,6 @@ public static class CommandInputs {
             configure: getter => Limits(getter: getter, bounds: policy.LimitsMode, setLower: setLower, setUpper: setUpper),
             project: (_, getter, raw) => (raw is GetResult.Number ? Cast<TOut>(current(arg: getter)!) : Option<TOut>.None, Option<CommandSelection.TrimResult>.None));
 
-    // TP1: single-tuple `project` callback replaces dual `value`/`selectionTrim` callbacks; one
-    // computation feeds both observers, eliminating the double-traversal on every `GetObject` event.
     private static CommandInputRequest<T> Getter<TGetter, T>(
         CommandInputPolicy policy,
         Func<TGetter> create,

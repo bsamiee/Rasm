@@ -36,9 +36,7 @@ public abstract partial record ViewportTarget {
                 },
             view: static (ctx, target) =>
                 from view in Optional(target.Value).ToFin(Fail: ctx.Op.InvalidInput())
-                from _ in view.Document?.RuntimeSerialNumber == ctx.Document.RuntimeSerialNumber
-                    ? Fin.Succ(value: unit)
-                    : Fin.Fail<Unit>(error: ctx.Op.InvalidInput())
+                from _ in guard(view.Document?.RuntimeSerialNumber == ctx.Document.RuntimeSerialNumber, ctx.Op.InvalidInput())
                 select CameraScope.Of(document: ctx.Document, view: view, viewport: view.ActiveViewport));
 }
 
@@ -47,6 +45,8 @@ public readonly record struct CameraDepth(double Near, double Far);
 
 [Union(SwitchMapStateParameterName = "viewport")]
 public abstract partial record CameraSubject {
+    private static readonly Op DepthKey = Op.Of(name: nameof(Depth));
+    private static readonly Op VisibleKey = Op.Of(name: nameof(Visible));
     private CameraSubject() { }
     public sealed record AtPoint(Point3d Value) : CameraSubject;
     public sealed record InBounds(BoundingBox Value) : CameraSubject;
@@ -58,54 +58,50 @@ public abstract partial record CameraSubject {
     public static CameraSubject Sphere(Sphere sphere) => new InSphere(Value: sphere);
     public static CameraSubject Geometry(GeometryBase geometry) => new FromGeometry(Value: geometry);
 
-    internal Fin<CameraDepth> Depth(RhinoViewport viewport) {
-        Op op = Op.Of(name: nameof(Depth));
-        return Switch(
-            (Viewport: viewport, Op: op),
-            atPoint: static (ctx, source) => UI.RhinoUi.Protect(valid: () =>
+    internal Fin<CameraDepth> Depth(RhinoViewport viewport) =>
+        Switch(
+            viewport,
+            atPoint: static (vp, source) => UI.RhinoUi.Protect(valid: () =>
                 source.Value.IsValid switch {
-                    false => Fin.Fail<CameraDepth>(error: ctx.Op.InvalidInput()),
-                    true => ctx.Viewport.GetDepth(point: source.Value, distance: out double distance)
+                    false => Fin.Fail<CameraDepth>(error: DepthKey.InvalidInput()),
+                    true => vp.GetDepth(point: source.Value, distance: out double distance)
                         ? Fin.Succ(value: new CameraDepth(Near: distance, Far: distance))
-                        : Fin.Fail<CameraDepth>(error: ctx.Op.InvalidResult()),
+                        : Fin.Fail<CameraDepth>(error: DepthKey.InvalidResult()),
                 }),
-            inBounds: static (ctx, source) => UI.RhinoUi.Protect(valid: () =>
+            inBounds: static (vp, source) => UI.RhinoUi.Protect(valid: () =>
                 source.Value.IsValid switch {
-                    false => Fin.Fail<CameraDepth>(error: ctx.Op.InvalidInput()),
-                    true => ctx.Viewport.GetDepth(bbox: source.Value, nearDistance: out double near, farDistance: out double far)
+                    false => Fin.Fail<CameraDepth>(error: DepthKey.InvalidInput()),
+                    true => vp.GetDepth(bbox: source.Value, nearDistance: out double near, farDistance: out double far)
                         ? Fin.Succ(value: new CameraDepth(Near: near, Far: far))
-                        : Fin.Fail<CameraDepth>(error: ctx.Op.InvalidResult()),
+                        : Fin.Fail<CameraDepth>(error: DepthKey.InvalidResult()),
                 }),
-            inSphere: static (ctx, source) => UI.RhinoUi.Protect(valid: () =>
+            inSphere: static (vp, source) => UI.RhinoUi.Protect(valid: () =>
                 source.Value.IsValid switch {
-                    false => Fin.Fail<CameraDepth>(error: ctx.Op.InvalidInput()),
-                    true => ctx.Viewport.GetDepth(sphere: source.Value, nearDistance: out double near, farDistance: out double far)
+                    false => Fin.Fail<CameraDepth>(error: DepthKey.InvalidInput()),
+                    true => vp.GetDepth(sphere: source.Value, nearDistance: out double near, farDistance: out double far)
                         ? Fin.Succ(value: new CameraDepth(Near: near, Far: far))
-                        : Fin.Fail<CameraDepth>(error: ctx.Op.InvalidResult()),
+                        : Fin.Fail<CameraDepth>(error: DepthKey.InvalidResult()),
                 }),
-            fromGeometry: static (ctx, source) =>
-                source.Value.BoundsOf(op: ctx.Op).Bind(bounds => Bounds(bounds: bounds).Depth(viewport: ctx.Viewport)));
-    }
+            fromGeometry: static (vp, source) =>
+                source.Value.BoundsOf(op: DepthKey).Bind(bounds => Bounds(bounds: bounds).Depth(viewport: vp)));
 
-    internal Fin<bool> Visible(RhinoViewport viewport) {
-        Op op = Op.Of(name: nameof(Visible));
-        return Switch(
-            (Viewport: viewport, Op: op),
-            atPoint: static (ctx, source) => UI.RhinoUi.Protect(valid: () =>
+    internal Fin<bool> Visible(RhinoViewport viewport) =>
+        Switch(
+            viewport,
+            atPoint: static (vp, source) => UI.RhinoUi.Protect(valid: () =>
                 source.Value.IsValid
-                    ? Fin.Succ(value: ctx.Viewport.IsVisible(point: source.Value))
-                    : Fin.Fail<bool>(error: ctx.Op.InvalidInput())),
-            inBounds: static (ctx, source) => UI.RhinoUi.Protect(valid: () =>
+                    ? Fin.Succ(value: vp.IsVisible(point: source.Value))
+                    : Fin.Fail<bool>(error: VisibleKey.InvalidInput())),
+            inBounds: static (vp, source) => UI.RhinoUi.Protect(valid: () =>
                 source.Value.IsValid
-                    ? Fin.Succ(value: ctx.Viewport.IsVisible(bbox: source.Value))
-                    : Fin.Fail<bool>(error: ctx.Op.InvalidInput())),
-            inSphere: static (ctx, source) => UI.RhinoUi.Protect(valid: () =>
+                    ? Fin.Succ(value: vp.IsVisible(bbox: source.Value))
+                    : Fin.Fail<bool>(error: VisibleKey.InvalidInput())),
+            inSphere: static (vp, source) => UI.RhinoUi.Protect(valid: () =>
                 source.Value.IsValid
-                    ? Fin.Succ(value: ctx.Viewport.IsVisible(bbox: source.Value.BoundingBox))
-                    : Fin.Fail<bool>(error: ctx.Op.InvalidInput())),
-            fromGeometry: static (ctx, source) =>
-                source.Value.BoundsOf(op: ctx.Op).Bind(bounds => Bounds(bounds: bounds).Visible(viewport: ctx.Viewport)));
-    }
+                    ? Fin.Succ(value: vp.IsVisible(bbox: source.Value.BoundingBox))
+                    : Fin.Fail<bool>(error: VisibleKey.InvalidInput())),
+            fromGeometry: static (vp, source) =>
+                source.Value.BoundsOf(op: VisibleKey).Bind(bounds => Bounds(bounds: bounds).Visible(viewport: vp)));
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -114,6 +110,8 @@ public readonly record struct CameraScope(
     RhinoView View,
     RhinoViewport Viewport,
     Option<DetailViewObject> Detail = default) {
+    private static readonly Op WorldToScreenScaleKey = Op.Of(name: nameof(WorldToScreenScale));
+
     internal static CameraScope Of(RhinoDoc document, RhinoView view, RhinoViewport viewport) =>
         new(
             Document: document,
@@ -167,12 +165,11 @@ public readonly record struct CameraScope(
 
     public Fin<double> WorldToScreenScale(Point3d point) {
         RhinoViewport viewport = Viewport;
-        Op op = Op.Of(name: nameof(WorldToScreenScale));
-        return from _ in guard(point.IsValid, op.InvalidInput())
-               from scale in op.Catch(() => UI.RhinoUi.Protect(valid: () =>
+        return from _ in guard(point.IsValid, WorldToScreenScaleKey.InvalidInput())
+               from scale in WorldToScreenScaleKey.Catch(() => UI.RhinoUi.Protect(valid: () =>
                    viewport.GetWorldToScreenScale(pointInFrustum: point, pixelsPerUnit: out double pixels) switch {
                        true when RhinoMath.IsValidDouble(x: pixels) && pixels > 0.0 => Fin.Succ(value: pixels),
-                       _ => Fin.Fail<double>(error: op.InvalidResult()),
+                       _ => Fin.Fail<double>(error: WorldToScreenScaleKey.InvalidResult()),
                    }))
                select scale;
     }
@@ -183,37 +180,37 @@ public readonly record struct CameraScope(
         return UI.RhinoUi.Protect(valid: () =>
             detail.Case switch {
                 DetailViewObject value when !value.CommitViewportChanges() => Fin.Fail<Unit>(error: Op.Of(name: nameof(Redraw)).InvalidResult()),
-                _ => Fin.Succ(value: unit).Map(_ => { view.Redraw(); return unit; }),
+                _ => Fin.Succ(value: Op.Side(() => view.Redraw())),
             });
     }
 }
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CameraFrame(Plane Frame, Point3d Target) {
+    private static readonly Op OfKey = Op.Of(name: nameof(Of));
+    private static readonly Op LookAtKey = Op.Of(name: nameof(LookAt));
+
     public Point3d Location => Frame.Origin;
     public Vector3d Direction => -Frame.ZAxis;
     public Vector3d Up => Frame.YAxis;
 
     public static Fin<CameraFrame> Of(RhinoViewport viewport) =>
-        Optional(viewport).ToFin(Fail: Op.Of(name: nameof(Of)).InvalidInput())
+        Optional(viewport).ToFin(Fail: OfKey.InvalidInput())
             .Bind(valid => valid.GetCameraFrame(frame: out Plane plane) switch {
                 true => Fin.Succ(value: new CameraFrame(Frame: plane, Target: valid.CameraTarget)),
-                false => Fin.Fail<CameraFrame>(error: Op.Of(name: nameof(Of)).InvalidResult()),
+                false => Fin.Fail<CameraFrame>(error: OfKey.InvalidResult()),
             });
 
     public static Fin<CameraFrame> LookAt(Point3d location, Point3d target, Option<Vector3d> up = default) =>
         from direction in (location.IsValid, target.IsValid, target - location) switch {
             (true, true, Vector3d d) when d.Length > RhinoMath.ZeroTolerance => Fin.Succ(value: d),
-            _ => Fin.Fail<Vector3d>(error: Op.Of(name: nameof(LookAt)).InvalidInput()),
+            _ => Fin.Fail<Vector3d>(error: LookAtKey.InvalidInput()),
         }
         let resolved = up.Filter(static value => value.IsValid && value.Length > RhinoMath.ZeroTolerance)
                          .IfNone(() => ViewportInfo.CalculateCameraUpDirection(location: location, direction: direction, angle: 0.0))
         let plane = new Plane(origin: location, xDirection: Vector3d.CrossProduct(direction, resolved), yDirection: resolved)
-        from valid in plane.IsValid switch {
-            true => Fin.Succ(value: plane),
-            false => Fin.Fail<Plane>(error: Op.Of(name: nameof(LookAt)).InvalidResult()),
-        }
-        select new CameraFrame(Frame: valid, Target: target);
+        from _ in guard(plane.IsValid, LookAtKey.InvalidResult())
+        select new CameraFrame(Frame: plane, Target: target);
 
     internal Fin<Unit> Apply(RhinoViewport viewport, Op op) {
         Plane frame = Frame;
@@ -253,6 +250,7 @@ public readonly record struct CameraFrustum(
 }
 
 public sealed record CameraSnapshot : IDisposable {
+    private static readonly Op OfKey = Op.Of(name: nameof(CameraSnapshot));
     private readonly ViewportInfo projection;
 
     private CameraSnapshot(
@@ -302,8 +300,7 @@ public sealed record CameraSnapshot : IDisposable {
     public uint DocumentSerial { get; }
     public uint ChangeSerial { get; }
 
-    // `ChangeCounter` advances on every viewport mutation — cheapest staleness probe is uint equality.
-    // `DocumentSerial` guard catches doc-close/reopen and `ChangeCounter` uint wraparound.
+    // `ChangeCounter` (uint) advances per viewport mutation; doc serial guards reopen + uint wrap.
     public bool IsStale =>
         Scope.Document.RuntimeSerialNumber != DocumentSerial || Scope.Viewport.ChangeCounter != ChangeSerial;
 
@@ -313,14 +310,13 @@ public sealed record CameraSnapshot : IDisposable {
     }
 
     internal static Fin<CameraSnapshot> Of(CameraScope scope) {
-        Op op = Op.Of(name: nameof(CameraSnapshot));
         RhinoViewport viewport = scope.Viewport;
-        return op.Catch(() => {
+        return OfKey.Catch(() => {
             ViewportInfo? snapshotProjection = null;
             try {
                 snapshotProjection = new ViewportInfo(rhinoViewport: viewport);
                 ViewportInfo captured = snapshotProjection;
-                return from frustum in CameraFrustum.Of(viewport: viewport, op: op)
+                return from frustum in CameraFrustum.Of(viewport: viewport, op: OfKey)
                        from frame in CameraFrame.Of(viewport: viewport)
                        select new CameraSnapshot(
                            scope: scope,

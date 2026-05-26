@@ -151,6 +151,14 @@ public abstract partial record DisplayModeRef {
     public static readonly DisplayModeRef Wireframe = new WireframeCase();
     public static DisplayModeRef Of(Guid id) => new ById(Id: id);
     public static DisplayModeRef Of(string name) => new ByName(Name: name);
+
+    public Fin<Guid> Resolve(Op op) =>
+        Switch(op,
+            wireframeCase: static (_, _) => Fin.Succ(value: Guid.Empty),
+            byId: static (_, r) => Fin.Succ(value: r.Id),
+            byName: static (k, r) => Optional(DisplayModeDescription.FindByName(englishName: r.Name))
+                .Map(static desc => desc.Id)
+                .ToFin(Fail: k.InvalidInput()));
 }
 
 [Union]
@@ -159,6 +167,12 @@ public abstract partial record DependencyTarget {
     public sealed record OnDefinition(int OtherIndex) : DependencyTarget;
     public sealed record OnLayer(int LayerIndex) : DependencyTarget;
     public sealed record OnLinetype(int LinetypeIndex) : DependencyTarget;
+
+    public Probe ProbeOn(InstanceDefinition live) =>
+        Switch(live,
+            onDefinition: static (d, t) => new Probe.DefinitionDepth(Depth: d.UsesDefinition(otherIdefIndex: t.OtherIndex)),
+            onLayer: static (d, t) => new Probe.LayerUsed(Used: d.UsesLayer(layerIndex: t.LayerIndex)),
+            onLinetype: static (d, t) => (Probe)new Probe.LinetypeUsed(Used: d.UsesLinetype(linetypeIndex: t.LinetypeIndex)));
 }
 
 [Union]
@@ -253,11 +267,9 @@ public readonly partial struct BlockContentHash {
             _ => Mix(acc: acc, v: BoundsAndKindHash(geometry: geometry)),
         };
 
-    /// Deterministic content projection over LayerIndex/ObjectColor/MaterialIndex/LinetypeIndex —
-    /// avoids ObjectAttributes.GetHashCode (reference-equality default) which produced different
-    /// hashes for content-equivalent instances across reload/session. `unchecked` preserves the
-    /// bit-pattern across `int → uint → ulong` so negative indices (e.g., LayerIndex == -1 for
-    /// "no layer") hash deterministically without sign-extension into the high 32 bits.
+    /// Avoids ObjectAttributes.GetHashCode (reference-equality default). `unchecked` preserves
+    /// bit-pattern across int→uint→ulong so sentinel negative indices (LayerIndex == -1) hash
+    /// deterministically without sign-extension.
     private static ulong HashAttributes(ObjectAttributes? a) =>
         a switch {
             null => 0UL,
@@ -271,9 +283,8 @@ public readonly partial struct BlockContentHash {
         BitConverter.DoubleToUInt64Bits(value: x.M00) ^ BitConverter.DoubleToUInt64Bits(value: x.M11)
             ^ BitConverter.DoubleToUInt64Bits(value: x.M22) ^ BitConverter.DoubleToUInt64Bits(value: x.M33);
 
-    /// Deterministic bounds projection — hashes Min/Max corners + ObjectType via accurate bounds.
-    /// `accurate:false` returns implementation-dependent loose AABB whose Volume varies across
-    /// Rhino patch releases; the content hash must be reproducible for AddOrReuse to be sound.
+    /// `accurate:true` is load-bearing; the loose AABB varies across Rhino patch releases and
+    /// breaks AddOrReuse content matching.
     private static ulong BoundsAndKindHash(GeometryBase geometry) {
         BoundingBox box = geometry.GetBoundingBox(accurate: true);
         return ((ulong)geometry.ObjectType.GetHashCode())
@@ -325,6 +336,12 @@ public abstract partial record DefinitionRef {
     public static DefinitionRef Of(DefinitionId id) => new ById(Id: id);
     public static DefinitionRef Of(DefinitionIndex index) => new ByIndex(Index: index);
     public static DefinitionRef Of(DefinitionName name) => new ByName(Name: name);
+
+    public bool Matches(InstanceDefinition definition) =>
+        Switch(definition,
+            byId: static (d, r) => d.Id == r.Id.Value,
+            byIndex: static (d, r) => d.Index == r.Index.Value,
+            byName: static (d, r) => string.Equals(a: d.Name, b: r.Name.Value, comparisonType: StringComparison.OrdinalIgnoreCase));
 }
 
 // --- [MODELS] [MEMBERS] -------------------------------------------------------------------
@@ -334,7 +351,6 @@ public abstract partial record Members {
     public sealed record Provided(Seq<GeometryBase> Geometry, Seq<ObjectAttributes> Attributes) : Members;
     public sealed record FromDocument(Seq<Guid> Sources) : Members;
 
-    /// Direct factory for Provided so callers do not pattern-match the abstract Members.
     public static Fin<Provided> OfProvided(Seq<GeometryBase> geometry, Seq<ObjectAttributes>? attributes = null, Op? key = null) {
         Op op = key.OrDefault();
         Seq<ObjectAttributes> attrs = attributes ?? geometry.Map(static _ => new ObjectAttributes());
@@ -421,12 +437,10 @@ public sealed record BlockSubscriptionPolicy(
 
     public static BlockSubscriptionPolicy Default { get; } = new();
     public static BlockSubscriptionPolicy Immediate { get; } = new(DeferToIdle: false);
-    /// Monoid identity — Default policy (no filter, defer-to-idle).
     public static BlockSubscriptionPolicy Empty => Default;
-    /// Monoid composition — same algebra as `operator |` (filter AND, defer OR).
     public BlockSubscriptionPolicy Combine(BlockSubscriptionPolicy rhs) => this | rhs;
 
-    /// Monoid identity = Default; associative; commutes on Filter conjunction.
+    /// Identity = Default; filter conjunction commutes.
     public static BlockSubscriptionPolicy operator |(BlockSubscriptionPolicy a, BlockSubscriptionPolicy b) {
         ArgumentNullException.ThrowIfNull(argument: a);
         ArgumentNullException.ThrowIfNull(argument: b);
@@ -474,7 +488,6 @@ public readonly record struct LiveStats(
     int UseCountNested) {
 
     internal static LiveStats From(InstanceDefinition active) {
-        // [BOUNDARY ADAPTER — UseCount(out, out) is the canonical Rhino split; capture once.]
         _ = active.UseCount(topLevelReferenceCount: out int top, nestedReferenceCount: out int nested);
         return new LiveStats(
             Units: active.UnitSystem,
@@ -580,7 +593,7 @@ public readonly record struct BlockTableEvent(
 
     public static BlockTableEvent From(InstanceDefinitionTableEventArgs args) {
         ArgumentNullException.ThrowIfNull(argument: args);
-        // [BOUNDARY ADAPTER — OldState wraps pre-mutation native ptr; project archive subset inside the callback.]
+        // OldState's native ptr invalidates after callback; project inside.
         return new BlockTableEvent(
             Kind: args.EventType,
             Index: args.InstanceDefinitionIndex,
@@ -611,8 +624,6 @@ public sealed record Graph(ImmutableArray<Graph.Node> Nodes, ImmutableArray<Grap
 public sealed record MutationReceipt(DocumentReceipt Document, Seq<BlockDiagnostic> Diagnostics) : Monoid<MutationReceipt> {
     public static MutationReceipt Empty { get; } = new(Document: DocumentReceipt.Empty, Diagnostics: Seq<BlockDiagnostic>());
 
-    /// Monoid identity = Empty; associative; closed. Combine = `operator +` (DocumentReceipt fold +
-    /// Diagnostic concat). Enables generic `Seq.Combine()` via Monoid trait.
     public MutationReceipt Combine(MutationReceipt rhs) => this + rhs;
 
     public static MutationReceipt Of(DocumentReceipt receipt) => new(Document: receipt, Diagnostics: Seq<BlockDiagnostic>());
@@ -627,9 +638,6 @@ public sealed record MutationReceipt(DocumentReceipt Document, Seq<BlockDiagnost
 
     public bool HasDiagnostics => !Diagnostics.IsEmpty;
 
-    /// Monoid identity = Empty; associative; closed. Delegates to DocumentReceipt.operator + for
-    /// the full 14-field fold (Created, Replaced, Deleted, Transformed, Selected, Unselected, Hidden,
-    /// Locked, Flashed, AttributeChanged, LifecycleChanged, ResourceChanged, UndoRecords, CustomUndo).
     public static MutationReceipt operator +(MutationReceipt a, MutationReceipt b) {
         ArgumentNullException.ThrowIfNull(argument: a);
         ArgumentNullException.ThrowIfNull(argument: b);
@@ -661,7 +669,6 @@ public sealed class PreviewHandle(Bitmap bitmap, Action<PreviewHandle> release) 
     public Bitmap Bitmap { get; } = bitmap ?? throw new ArgumentNullException(paramName: nameof(bitmap));
 
     public void Dispose() {
-        // [BOUNDARY ADAPTER — IDisposable; cache or caller decides actual bitmap disposal via release.]
         if (disposed) return;
         disposed = true;
         release(obj: this);

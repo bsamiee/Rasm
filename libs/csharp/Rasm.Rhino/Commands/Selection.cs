@@ -50,10 +50,7 @@ public sealed record CommandPickPolicy(
             context.PickGroupsEnabled = PickGroups;
             context.SubObjectSelectionEnabled = SubObjects;
             _ = Transform.Iter(active => context.SetPickTransform(active));
-            _ = UpdateClippingPlanes switch {
-                true => ((Func<Unit>)(() => { context.UpdateClippingPlanes(); return unit; }))(),
-                false => unit,
-            };
+            _ = Op.SideWhen(UpdateClippingPlanes, context.UpdateClippingPlanes);
             return valid(arg: context);
         }));
 }
@@ -300,14 +297,7 @@ public sealed record CommandSelection {
         }
 
         public Fin<T> Object<TObject, T>(RhinoDoc document, Func<TObject, Fin<T>> use) where TObject : RhinoObject =>
-            Use(document: document, op: Op.Of(name: nameof(Object)), use: reference =>
-                from native in Optional(reference.Object()).ToFin(Fail: Op.Of(name: nameof(Object)).InvalidResult())
-                from typed in native switch {
-                    TObject value => Fin.Succ(value: value),
-                    _ => Fin.Fail<TObject>(error: Op.Of(name: nameof(Object)).InvalidResult()),
-                }
-                from result in Optional(use).ToFin(Fail: Op.Of(name: nameof(Object)).InvalidInput()).Bind(run => run(arg: typed))
-                select result);
+            Part(document: document, op: Op.Of(name: nameof(Object)), project: static reference => Cast<TObject>(reference.Object()), use: use);
 
         public Fin<T> Part<TPart, T>(RhinoDoc document, Func<TPart, Fin<T>> use) where TPart : class =>
             Part(document: document, op: Op.Of(name: nameof(Part)), project: Project<TPart>, use: use);

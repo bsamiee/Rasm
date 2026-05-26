@@ -106,10 +106,7 @@ public abstract partial record FilePublishTarget {
 
     private static Fin<FilePublishResult> WritePrinter(Printer target, Seq<FileSheetPage> pages, Op op) =>
         from name in FileEndpoint.NonBlank(value: target.Name, op: op)
-        from copies in target.Copies switch {
-            > 0 => Fin.Succ(value: target.Copies),
-            _ => Fin.Fail<int>(error: op.InvalidInput()),
-        }
+        from copies in target.Copies > 0 ? Fin.Succ(value: target.Copies) : Fin.Fail<int>(error: op.InvalidInput())
         from settings in pages.TraverseM(page => page.Sheet.Settings(page: page.Page, op: op)).As()
         from result in op.Catch(() => {
             ViewCaptureSettings[] captures = [.. settings];
@@ -314,7 +311,7 @@ public static class FileOp {
                     phase: FilePhase.ArchiveInspect,
                     source: Some(archive.Source),
                     archive: Some(new FileArchive(Source: new FileArchiveSource.Path(Value: archive.Source), Metadata: metadata, Resources: default, Objects: Seq<FileObjectManifest>())))),
-                archiveValidate: static (_, archive) => FileArchiveOps.Validate(source: archive.Source, profile: archive.Profile),
+                archiveValidate: static (runtime, archive) => FileArchiveOps.Validate(source: archive.Source, profile: archive.Profile, scheduler: runtime.Scheduler),
                 sheetEdit: static (runtime, sheet) => SheetEditCore(runtime: runtime, edit: sheet.Edit))
             select result);
 
@@ -356,7 +353,7 @@ public static class FileOp {
         select format;
 
     internal static Eff<FileRuntime, T> HeadlessOp<T>(HeadlessExchange scope, Eff<FileRuntime, T> body) =>
-        Lift(run: _ => HeadlessScope(scope: scope, body: body));
+        Lift(run: runtime => HeadlessScope(scope: scope, body: body, scheduler: runtime.Scheduler));
 
     private static Fin<FileReport> OpenCore(FileEndpoint source, FileProfile profile) =>
         from endpoint in source.Input(op: Op.Of(name: nameof(FileExchange.Open)))
@@ -444,9 +441,8 @@ public static class FileOp {
                select FileReport.Of(phase: FilePhase.Publish, target: result.Target, format: result.Format, issues: result.Issues, nativeLog: result.NativeLog, receipt: Some(result.Receipt), sheets: result.Sheets);
     }
 
-    // BOUNDARY ADAPTER — SnapshotTable exposes only `Names[]`; save/restore/delete route through
-    // `RhinoApp.RunScript("-_Snapshot ...")`. Bracket: save-sentinel → restore-target → body →
-    // restore-sentinel → delete-sentinel; Guid-N sentinel keeps the user's table intact.
+    // SnapshotTable exposes only `Names[]`; save/restore/delete route through `RhinoApp.RunScript("-_Snapshot ...")`.
+    // Guid-N sentinel preserves the user's snapshot table across the restore-target body bracket.
     private static Fin<T> InSnapshot<T>(RhinoDoc document, string snapshotName, Op op, Func<Fin<T>> body) =>
         from target in FileEndpoint.NonBlank(value: snapshotName, op: op)
         from _exists in toSeq(document.Snapshots.Names).Exists(name => string.Equals(a: name, b: target, comparisonType: StringComparison.Ordinal))
@@ -467,7 +463,7 @@ public static class FileOp {
         select result;
 
     private static Fin<Unit> SnapshotScript(uint serial, string verb, string name, Op op) =>
-        op.Catch(() => RhinoApp.RunScript(documentSerialNumber: serial, script: string.Create(CultureInfo.InvariantCulture, $"-_Snapshot {verb} _Name {name} _Enter"), echo: false) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: op.InvalidResult()) });
+        op.Catch(() => op.Confirm(success: RhinoApp.RunScript(documentSerialNumber: serial, script: string.Create(CultureInfo.InvariantCulture, $"-_Snapshot {verb} _Name {name} _Enter"), echo: false)));
 
     private static Fin<Seq<FileSheetPage>> MatchSheet(RhinoDoc document, Seq<RhinoPageView> views, FileSheet sheet, Op op) {
         Option<int> groupIndex = sheet.Group.Bind(name => Optional(document.PageViewGroups.FindName(name: name)).Map(static active => active.Index));
@@ -510,11 +506,10 @@ public static class FileOp {
             run: (document, _, op) => SheetEditOps.Apply(document: document, edit: active, op: op))
         select FileReport.Of(phase: FilePhase.SheetEdit, receipt: Some(receipt));
 
-    private static Fin<T> HeadlessScope<T>(HeadlessExchange scope, Eff<FileRuntime, T> body) =>
+    private static Fin<T> HeadlessScope<T>(HeadlessExchange scope, Eff<FileRuntime, T> body, IoScheduler scheduler) =>
         Op.Of(name: nameof(Headless)).Catch(() => {
             RhinoDoc? headless = null;
             try {
-                // BOUNDARY ADAPTER — RhinoDoc is disposable resource owning native handle
                 Fin<RhinoDoc> opened = scope.Switch(
                     create: static _ =>
                         Optional(RhinoDoc.CreateHeadless(file3dmTemplatePath: null)).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidResult()),
@@ -538,7 +533,8 @@ public static class FileOp {
                         mode: RunMode.Scripted,
                         domain: Some(domain),
                         edit: Some(new DocumentEdit(document: document, domain: domain)),
-                        ui: Some(new RhinoUi(document: document, mode: RunMode.Scripted)))));
+                        ui: Some(new RhinoUi(document: document, mode: RunMode.Scripted)),
+                        scheduler: scheduler)));
                 });
             } finally {
                 headless?.Dispose();
@@ -808,8 +804,7 @@ internal static class SheetEditOps {
         };
 }
 
-// `EarthAnchorPoint` is IDisposable native; every op brackets in `using` so the pointer never
-// escapes. `GetModelToEarthTransform(LengthUnit)` is 9.0; the `UnitSystem` overload is `[Obsolete]`.
+// `GetModelToEarthTransform(LengthUnit)` is canonical; the `UnitSystem` overload is `[Obsolete]`.
 // `SyncSun` encodes the Sun.North↔ModelNorth invariant `_SetGeoLocation` does not honour.
 public static class FileEarthOps {
     public static Fin<Option<FileGeoLocation>> Read(RhinoDoc document) {

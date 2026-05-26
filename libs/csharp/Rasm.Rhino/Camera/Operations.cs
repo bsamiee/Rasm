@@ -25,13 +25,11 @@ public sealed partial class CameraMouseMove {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed record CameraOp<T>(Func<CameraScope, Fin<T>> Run) {
-    internal Fin<T> Apply(CameraScope scope) => Run(arg: scope);
-
     public CameraOp<TNext> Map<TNext>(Func<T, TNext> project) =>
-        new(Run: scope => Apply(scope: scope).Map(project));
+        new(Run: scope => Run(arg: scope).Map(project));
 
     public CameraOp<TNext> Bind<TNext>(Func<T, CameraOp<TNext>> bind) =>
-        new(Run: scope => Apply(scope: scope).Bind(value => bind(arg: value).Apply(scope: scope)));
+        new(Run: scope => Run(arg: scope).Bind(value => bind(arg: value).Run(arg: scope)));
 }
 
 [Union(SwitchMapStateParameterName = "viewport")]
@@ -58,17 +56,19 @@ public abstract partial record CameraProjection {
             parallelReflected: static (ctx, _) => ctx.Op.Confirm(success: ctx.Viewport.ChangeToParallelReflectedProjection())));
 }
 
-// Greenfield collapse: 30+ Func<>-wrapped factories → state-threaded [Union] dispatcher.
-// Every case visible, every arm static, zero closure capture.
 [Union(SwitchMapStateParameterName = "context")]
 public abstract partial record CameraEdit {
+    private static readonly Op ConfirmKey = Op.Of(name: nameof(Confirm));
+    private static readonly Op FrustumKey = Op.Of(name: nameof(Frustum));
+    private static readonly Op PlanKey = Op.Of(name: nameof(Plan));
+    private static readonly Op TransformKey = Op.Of(name: nameof(Transform));
+    private static readonly Op ZoomBoxKey = Op.Of(name: nameof(ZoomBox));
+    private static readonly Op RotateKey = Op.Of(name: nameof(Rotate));
+
     private CameraEdit() { }
 
-    // Native bridges. `Action` wraps a void native call; `Confirm` wraps a bool-returning one.
     public sealed record Action(Action<RhinoViewport> Run) : CameraEdit;
     public sealed record Confirm(Func<RhinoViewport, bool> Run) : CameraEdit;
-
-    // Camera triad
     public sealed record Frame(CameraFrame Value) : CameraEdit;
     public sealed record Location(Point3d Value, bool UpdateTarget = true) : CameraEdit;
     public sealed record Target(Point3d Value, bool UpdateLocation = true) : CameraEdit;
@@ -76,13 +76,9 @@ public abstract partial record CameraEdit {
     public sealed record Up(Vector3d Value) : CameraEdit;
     public sealed record Lens(double Millimeters) : CameraEdit;
     public sealed record Angle(double Radians) : CameraEdit;
-
-    // Projection switching — three distinct native paths.
     public sealed record Defined(DefinedViewportProjection Projection, string Name = "", bool UpdateConstructionPlane = true) : CameraEdit;
     public sealed record Snapshot(ViewportInfo Projection, bool UpdateTarget = true) : CameraEdit;
     public sealed record Project(CameraProjection Projection) : CameraEdit;
-
-    // Frame / CPlane / Plan
     public sealed record Frustum(CameraFrustum Value, bool UpdateTarget = true) : CameraEdit;
     public sealed record PlanePlain(Plane Value) : CameraEdit;
     public sealed record PlaneFull(ConstructionPlane Value) : CameraEdit;
@@ -90,44 +86,34 @@ public abstract partial record CameraEdit {
     public sealed record DisplayMode(DisplayModeDescription Value) : CameraEdit;
     public sealed record Clipping(BoundingBox Box) : CameraEdit;
     public sealed record Transform(global::Rhino.Geometry.Transform Xform) : CameraEdit;
-
-    // Navigation
     public sealed record Zoom : CameraEdit;
     public sealed record ZoomSelected : CameraEdit;
     public sealed record ZoomBox(BoundingBox Bounds) : CameraEdit;
     public sealed record ZoomWindow(DrawingRectangle Window) : CameraEdit;
     public sealed record Rotate(double Radians, Vector3d Axis, Point3d Center) : CameraEdit;
     public sealed record Magnify(double Factor, bool LensMode, Option<DrawingPoint> FixedPoint = default) : CameraEdit;
-
-    // Interaction
     public sealed record Keyboard(bool RotateInPlace, bool LeftRight, double Amount) : CameraEdit;
     public sealed record KeyboardDolly(double Amount) : CameraEdit;
     public sealed record Mouse(CameraMouseMove Move, DrawingPoint PreviousPoint, DrawingPoint CurrentPoint) : CameraEdit;
     public sealed record MouseLens(DrawingPoint PreviousPoint, DrawingPoint CurrentPoint, bool MoveTarget) : CameraEdit;
 
-    // View stack — Push/Pop/Next/Previous return void (verified IL); PushView returns bool.
+    // Push/Pop/Next/Previous return void per verified IL; PushView returns bool.
     public sealed record Push : CameraEdit;
     public sealed record Pop : CameraEdit;
     public sealed record NextView : CameraEdit;
     public sealed record Previous : CameraEdit;
     public sealed record PushView(ViewInfo Info, bool IncludeTarget = true) : CameraEdit;
 
-    // Parent-body Switch dispatcher: one entry, all lambdas static. Per-arm Op carries the
-    // case-specific name so diagnostics reflect the actual failure point.
     internal Fin<Unit> Apply(CameraScope scope, bool redraw) =>
         Switch(
             (Scope: scope, Redraw: redraw),
             action: static (ctx, edit) => from valid in Optional(edit.Run).ToFin(Fail: Op.Of(name: nameof(Action)).InvalidInput())
-                                          from _ in Fin.Succ(value: Op.Side(() => valid(obj: ctx.Scope.Viewport)))
-                                          from done in RedrawIf(ctx)
+                                          from done in Side(ctx, valid)
                                           select done,
-            confirm: static (ctx, edit) => from valid in Optional(edit.Run).ToFin(Fail: Op.Of(name: nameof(Confirm)).InvalidInput())
-                                           from _ in Op.Of(name: nameof(Confirm)).Confirm(success: valid(arg: ctx.Scope.Viewport))
-                                           from done in RedrawIf(ctx)
+            confirm: static (ctx, edit) => from valid in Optional(edit.Run).ToFin(Fail: ConfirmKey.InvalidInput())
+                                           from done in Result(ctx, valid, ConfirmKey)
                                            select done,
-            frame: static (ctx, edit) => from _ in edit.Value.Apply(viewport: ctx.Scope.Viewport, op: Op.Of(name: nameof(Frame)))
-                                         from done in RedrawIf(ctx)
-                                         select done,
+            frame: static (ctx, edit) => edit.Value.Apply(viewport: ctx.Scope.Viewport, op: Op.Of(name: nameof(Frame))).Bind(_ => RedrawIf(ctx)),
             location: static (ctx, edit) => Side(ctx, vp => vp.SetCameraLocation(cameraLocation: edit.Value, updateTargetLocation: edit.UpdateTarget)),
             target: static (ctx, edit) => Side(ctx, vp => vp.SetCameraTarget(targetLocation: edit.Value, updateCameraLocation: edit.UpdateLocation)),
             direction: static (ctx, edit) => from context in Context.Of(doc: ctx.Scope.Document).ToFin()
@@ -150,10 +136,9 @@ public abstract partial record CameraEdit {
                                            from done in RedrawIf(ctx)
                                            select done,
             frustum: static (ctx, edit) => UI.RhinoUi.Protect(valid: () => {
-                Op op = Op.Of(name: nameof(Frustum));
                 using ViewportInfo projection = new(ctx.Scope.Viewport);
-                return from authored in edit.Value.Apply(projection: projection, op: op)
-                       from _ in op.Confirm(success: ctx.Scope.Viewport.SetViewProjection(projection: authored, updateTargetLocation: edit.UpdateTarget))
+                return from authored in edit.Value.Apply(projection: projection, op: FrustumKey)
+                       from _ in FrustumKey.Confirm(success: ctx.Scope.Viewport.SetViewProjection(projection: authored, updateTargetLocation: edit.UpdateTarget))
                        from done in RedrawIf(ctx)
                        select done;
             }),
@@ -165,8 +150,8 @@ public abstract partial record CameraEdit {
                                              select done,
             plan: static (ctx, edit) =>
                 from _ in guard(edit.Origin.IsValid && edit.XDirection.IsValid && edit.YDirection.IsValid
-                                && edit.XDirection.Length > RhinoMath.ZeroTolerance && edit.YDirection.Length > RhinoMath.ZeroTolerance, Op.Of(name: nameof(Plan)).InvalidInput())
-                from done in Result(ctx, vp => vp.SetToPlanView(edit.Origin, edit.XDirection, edit.YDirection, edit.SetConstructionPlane), Op.Of(name: nameof(Plan)))
+                                && edit.XDirection.Length > RhinoMath.ZeroTolerance && edit.YDirection.Length > RhinoMath.ZeroTolerance, PlanKey.InvalidInput())
+                from done in Result(ctx, vp => vp.SetToPlanView(edit.Origin, edit.XDirection, edit.YDirection, edit.SetConstructionPlane), PlanKey)
                 select done,
             displayMode: static (ctx, edit) => from valid in Optional(edit.Value).ToFin(Fail: Op.Of(name: nameof(DisplayMode)).InvalidInput())
                                                from done in Side(ctx, vp => vp.DisplayMode = valid)
@@ -175,23 +160,20 @@ public abstract partial record CameraEdit {
                                             from done in Side(ctx, vp => vp.SetClippingPlanes(box: edit.Box))
                                             select done,
             transform: static (ctx, edit) => UI.RhinoUi.Protect(valid: () => {
-                Op op = Op.Of(name: nameof(Transform));
-                return Optional(ctx.Scope.Viewport).ToFin(Fail: op.InvalidInput()).Bind(viewport => {
-                    using ViewportInfo projection = new(rhinoViewport: viewport);
-                    return op.Confirm(success: projection.TransformCamera(xform: edit.Xform))
-                        .Bind(_ => op.Confirm(success: viewport.SetViewProjection(projection: projection, updateTargetLocation: true)))
-                        .Bind(_ => RedrawIf(ctx));
-                });
+                using ViewportInfo projection = new(rhinoViewport: ctx.Scope.Viewport);
+                return TransformKey.Confirm(success: projection.TransformCamera(xform: edit.Xform))
+                    .Bind(_ => TransformKey.Confirm(success: ctx.Scope.Viewport.SetViewProjection(projection: projection, updateTargetLocation: true)))
+                    .Bind(_ => RedrawIf(ctx));
             }),
             zoom: static (ctx, _) => Result(ctx, static vp => vp.ZoomExtents(), Op.Of(name: nameof(Zoom))),
             zoomSelected: static (ctx, _) => Result(ctx, static vp => vp.ZoomExtentsSelected(), Op.Of(name: nameof(ZoomSelected))),
-            zoomBox: static (ctx, edit) => from _ in guard(edit.Bounds.IsValid, Op.Of(name: nameof(ZoomBox)).InvalidInput())
-                                           from done in Result(ctx, vp => vp.ZoomBoundingBox(box: edit.Bounds), Op.Of(name: nameof(ZoomBox)))
+            zoomBox: static (ctx, edit) => from _ in guard(edit.Bounds.IsValid, ZoomBoxKey.InvalidInput())
+                                           from done in Result(ctx, vp => vp.ZoomBoundingBox(box: edit.Bounds), ZoomBoxKey)
                                            select done,
             zoomWindow: static (ctx, edit) => Result(ctx, vp => vp.ZoomWindow(rect: edit.Window), Op.Of(name: nameof(ZoomWindow))),
             rotate: static (ctx, edit) => from context in Context.Of(doc: ctx.Scope.Document).ToFin()
-                                          from direction in VectorIntent.Direction(value: edit.Axis).Project<Vector3d>(context: context, key: Op.Of(name: nameof(Rotate)))
-                                          from done in Result(ctx, vp => vp.Rotate(angleRadians: edit.Radians, rotationAxis: direction, rotationCenter: edit.Center), Op.Of(name: nameof(Rotate)))
+                                          from direction in VectorIntent.Direction(value: edit.Axis).Project<Vector3d>(context: context, key: RotateKey)
+                                          from done in Result(ctx, vp => vp.Rotate(angleRadians: edit.Radians, rotationAxis: direction, rotationCenter: edit.Center), RotateKey)
                                           select done,
             magnify: static (ctx, edit) => Result(ctx, vp => edit.FixedPoint.Case switch {
                 DrawingPoint p => vp.Magnify(magnificationFactor: edit.Factor, mode: edit.LensMode, fixedScreenPoint: p),
@@ -212,10 +194,10 @@ public abstract partial record CameraEdit {
     private static Fin<Unit> RedrawIf((CameraScope Scope, bool Redraw) ctx) =>
         ctx.Redraw ? ctx.Scope.Redraw() : Fin.Succ(value: unit);
 
-    private static Fin<Unit> Side((CameraScope Scope, bool Redraw) ctx, Action<RhinoViewport> apply) =>
-        from _ in Fin.Succ(value: Op.Side(() => apply(obj: ctx.Scope.Viewport)))
-        from done in RedrawIf(ctx)
-        select done;
+    private static Fin<Unit> Side((CameraScope Scope, bool Redraw) ctx, Action<RhinoViewport> apply) {
+        apply(obj: ctx.Scope.Viewport);
+        return RedrawIf(ctx);
+    }
 
     private static Fin<Unit> Result((CameraScope Scope, bool Redraw) ctx, Func<RhinoViewport, bool> apply, Op op) =>
         from _ in op.Confirm(success: apply(arg: ctx.Scope.Viewport))
@@ -225,6 +207,7 @@ public abstract partial record CameraEdit {
 
 [Union(SwitchMapStateParameterName = "context")]
 public abstract partial record CameraNamedRestore {
+    private static readonly Op ApplyKey = Op.Of(name: nameof(CameraNamedRestore));
     private CameraNamedRestore() { }
 
     public sealed record Direct : CameraNamedRestore;
@@ -232,15 +215,13 @@ public abstract partial record CameraNamedRestore {
     public sealed record ConstantSpeed(double UnitsPerFrame, int DelayMilliseconds) : CameraNamedRestore;
     public sealed record ConstantTime(int Frames, int DelayMilliseconds) : CameraNamedRestore;
 
-    internal Fin<Unit> Apply(RhinoDoc document, int index, RhinoViewport viewport) {
-        Op op = Op.Of(name: nameof(CameraNamedRestore));
-        return Switch(
-            (Document: document, Index: index, Viewport: viewport, Op: op),
-            direct: static (ctx, _) => ctx.Op.Confirm(success: ctx.Document.NamedViews.Restore(index: ctx.Index, viewport: ctx.Viewport)),
-            matchAspect: static (ctx, _) => ctx.Op.Confirm(success: ctx.Document.NamedViews.RestoreWithAspectRatio(index: ctx.Index, viewport: ctx.Viewport)),
-            constantSpeed: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Document.NamedViews.RestoreAnimatedConstantSpeed(ctx.Index, ctx.Viewport, edit.UnitsPerFrame, edit.DelayMilliseconds)),
-            constantTime: static (ctx, edit) => ctx.Op.Confirm(success: ctx.Document.NamedViews.RestoreAnimatedConstantTime(ctx.Index, ctx.Viewport, edit.Frames, edit.DelayMilliseconds)));
-    }
+    internal Fin<Unit> Apply(RhinoDoc document, int index, RhinoViewport viewport) =>
+        Switch(
+            (Document: document, Index: index, Viewport: viewport),
+            direct: static (ctx, _) => ApplyKey.Confirm(success: ctx.Document.NamedViews.Restore(index: ctx.Index, viewport: ctx.Viewport)),
+            matchAspect: static (ctx, _) => ApplyKey.Confirm(success: ctx.Document.NamedViews.RestoreWithAspectRatio(index: ctx.Index, viewport: ctx.Viewport)),
+            constantSpeed: static (ctx, edit) => ApplyKey.Confirm(success: ctx.Document.NamedViews.RestoreAnimatedConstantSpeed(ctx.Index, ctx.Viewport, edit.UnitsPerFrame, edit.DelayMilliseconds)),
+            constantTime: static (ctx, edit) => ApplyKey.Confirm(success: ctx.Document.NamedViews.RestoreAnimatedConstantTime(ctx.Index, ctx.Viewport, edit.Frames, edit.DelayMilliseconds)));
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -258,13 +239,12 @@ public readonly record struct CameraCapture(
     bool UsePrintWidths = false,
     ViewCaptureSettings.ColorMode OutputColor = ViewCaptureSettings.ColorMode.DisplayColor,
     Option<CaptureLayout> Layout = default) {
+    private static readonly Op CaptureKey = Op.Of(name: nameof(Capture));
+
     internal Fin<T> Capture<T>(CameraScope scope, Func<ViewCaptureSettings, Fin<T>> project) {
         CameraCapture self = this;
-        Op op = Op.Of(name: nameof(CameraCapture));
-        return from valid in Optional(project).ToFin(Fail: Op.Of(name: nameof(Capture)).InvalidInput())
-               from _ in self.Size is { Width: > 0, Height: > 0 } && RhinoMath.IsValidDouble(x: self.Dpi) && self.Dpi > 0.0
-                   ? Fin.Succ(value: unit)
-                   : Fin.Fail<Unit>(error: op.InvalidInput())
+        return from valid in Optional(project).ToFin(Fail: CaptureKey.InvalidInput())
+               from _ in guard(self.Size is { Width: > 0, Height: > 0 } && RhinoMath.IsValidDouble(x: self.Dpi) && self.Dpi > 0.0, CaptureKey.InvalidInput())
                from result in UI.RhinoUi.Protect(valid: () => {
                    using ViewCaptureSettings settings = new(sourceView: scope.View, mediaSize: self.Size, dpi: self.Dpi) {
                        DrawBackground = self.DrawBackground,
@@ -279,12 +259,9 @@ public readonly record struct CameraCapture(
                        OutputColor = self.OutputColor,
                    };
                    settings.SetViewport(viewport: scope.Viewport);
-                   return from layout in self.Layout.Map(active => active.Apply(settings: settings, op: op)).IfNone(Fin.Succ(value: unit))
-                          from ready in settings.IsValid switch {
-                              true => Fin.Succ(value: settings),
-                              false => Fin.Fail<ViewCaptureSettings>(error: op.InvalidResult()),
-                          }
-                          from projected in valid(arg: ready)
+                   return from layout in self.Layout.Map(active => active.Apply(settings: settings, op: CaptureKey)).IfNone(Fin.Succ(value: unit))
+                          from __ in guard(settings.IsValid, CaptureKey.InvalidResult())
+                          from projected in valid(arg: settings)
                           select projected;
                })
                select result;
@@ -293,6 +270,11 @@ public readonly record struct CameraCapture(
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class CameraOps {
+    private static readonly Op SaveNamedKey = Op.Of(name: nameof(SaveNamed));
+    private static readonly Op RestoreNamedKey = Op.Of(name: nameof(RestoreNamed));
+    private static readonly Op RenameNamedKey = Op.Of(name: nameof(RenameNamed));
+    private static readonly Op DeleteNamedKey = Op.Of(name: nameof(DeleteNamed));
+
     public static CameraOp<T> Query<T>(Func<CameraScope, Fin<T>> query) =>
         new(Run: scope => Optional(query).ToFin(Fail: Op.Of(name: nameof(Query)).InvalidInput()).Bind(valid => valid(arg: scope)));
 
@@ -304,8 +286,7 @@ public static class CameraOps {
     public static CameraOp<Unit> Change(params CameraEdit[] edits) =>
         Change(edits: edits, redrawEach: true);
 
-    // `redrawEach: false` brackets the batch in `Views.EnableRedraw(false)` + final Redraw to
-    // eliminate flicker; try/finally restores redraw even when an edit throws.
+    // redrawEach:false brackets the batch in EnableRedraw(false) + try/finally to eliminate flicker even if an edit throws.
     public static CameraOp<Unit> Change(IEnumerable<CameraEdit> edits, bool redrawEach = true) =>
         new(Run: scope =>
             from changes in Optional(edits).ToFin(Fail: Op.Of(name: nameof(Change)).InvalidInput()).Map(static source => toSeq(source))
@@ -324,10 +305,10 @@ public static class CameraOps {
 
     public static CameraOp<Commands.DocumentResourceChange> SaveNamed(string name) =>
         new(Run: scope =>
-            from valid in Name(value: name, op: Op.Of(name: nameof(SaveNamed)))
+            from valid in Name(value: name, op: SaveNamedKey)
             from index in scope.Document.NamedViews.Add(name: valid, viewportId: scope.Viewport.Id) switch {
                 int value when value >= 0 => Fin.Succ(value: value),
-                _ => Fin.Fail<int>(error: Op.Of(name: nameof(SaveNamed)).InvalidResult()),
+                _ => Fin.Fail<int>(error: SaveNamedKey.InvalidResult()),
             }
             select new Commands.DocumentResourceChange(Kind: Commands.DocumentResourceKind.NamedView, Name: valid));
 
@@ -336,23 +317,23 @@ public static class CameraOps {
 
     public static CameraOp<Unit> RestoreNamed(string name, CameraNamedRestore restore) =>
         new(Run: scope =>
-            from index in NamedIndex(document: scope.Document, name: name, op: Op.Of(name: nameof(RestoreNamed)))
+            from index in NamedIndex(document: scope.Document, name: name, op: RestoreNamedKey)
             from restored in restore.Apply(document: scope.Document, index: index, viewport: scope.Viewport)
             from redraw in scope.Redraw()
             select redraw);
 
     public static CameraOp<Commands.DocumentResourceChange> RenameNamed(string current, string next) =>
         new(Run: scope =>
-            from index in NamedIndex(document: scope.Document, name: current, op: Op.Of(name: nameof(RenameNamed)))
-            from name in Name(value: next, op: Op.Of(name: nameof(RenameNamed)))
-            from renamed in Op.Of(name: nameof(RenameNamed)).Confirm(success: scope.Document.NamedViews.Rename(index: index, newName: name))
+            from index in NamedIndex(document: scope.Document, name: current, op: RenameNamedKey)
+            from name in Name(value: next, op: RenameNamedKey)
+            from renamed in RenameNamedKey.Confirm(success: scope.Document.NamedViews.Rename(index: index, newName: name))
             select new Commands.DocumentResourceChange(Kind: Commands.DocumentResourceKind.NamedView, Name: name));
 
     public static CameraOp<Commands.DocumentResourceChange> DeleteNamed(string name) =>
         new(Run: scope =>
-            from index in NamedIndex(document: scope.Document, name: name, op: Op.Of(name: nameof(DeleteNamed)))
-            from valid in Name(value: name, op: Op.Of(name: nameof(DeleteNamed)))
-            from deleted in Op.Of(name: nameof(DeleteNamed)).Confirm(success: scope.Document.NamedViews.Delete(index: index))
+            from index in NamedIndex(document: scope.Document, name: name, op: DeleteNamedKey)
+            from valid in Name(value: name, op: DeleteNamedKey)
+            from deleted in DeleteNamedKey.Confirm(success: scope.Document.NamedViews.Delete(index: index))
             select new Commands.DocumentResourceChange(Kind: Commands.DocumentResourceKind.NamedView, Name: valid));
 
     public static CameraOp<DrawingBitmap> CaptureBitmap(CameraCapture capture) =>

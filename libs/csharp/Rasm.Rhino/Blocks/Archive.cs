@@ -62,12 +62,8 @@ public static class Archive {
     }
 
     // ---- [BAKE PLAN] (Speckle topological-sort pattern) ----------------------------------
-    /// Topologically-sorted bake order: definitions with no nested-instance dependencies first.
-    /// Depth = length of longest chain of (def → nested-def) edges. Cycle-safe via visiting set.
-    ///
-    /// Nested-def discovery: each Instance.ObjectId may be a member of some def (D.MemberIds);
-    /// that maps D → set-of-nested-def-ids. Pre-built once into a FrozenDictionary lookup so
-    /// the recursive walk is O(N + E) over (defs + nested-edges) not O(N × instances).
+    /// Topologically-sorted bake order; depth = longest (def → nested-def) chain.
+    /// Cycle-safe via visiting set; nested-def lookup pre-built so the walk is O(N + E).
     public static Seq<Definition> BakePlan(Graph graph) {
         ArgumentNullException.ThrowIfNull(argument: graph);
         FrozenDictionary<Guid, DefinitionId> instanceByObject = graph.Instances.Length == 0
@@ -88,12 +84,11 @@ public static class Archive {
         [.. toSeq(def.MemberIds).Choose(memberId =>
             instanceByObject.TryGetValue(key: memberId, value: out DefinitionId nested) ? Some(value: nested.Value) : Option<Guid>.None).Distinct()];
 
-    /// Recursive walk over the nested-def graph; visiting set guards cycles. Pure (HashMap memo
-    /// is by-value, recursion does not mutate); the boundary `int` return collapses over depth.
+    /// Recursive walk; visiting set guards cycles. Pure — HashMap memo is by-value.
     private static int ComputeDepth(Guid defId, HashMap<Guid, ImmutableArray<Guid>> nestedDefs, LanguageExt.HashSet<Guid> visiting, HashMap<Guid, int> memo) =>
         (memo.Find(key: defId), LxHashSet.contains(set: visiting, value: defId)) switch {
             ( { IsSome: true, Case: int cached }, _) => cached,
-            (_, true) => 0,        // cycle: contribute zero depth, don't recurse
+            (_, true) => 0,        // cycle: zero depth, don't recurse
             _ => 1 + toSeq(nestedDefs.Find(key: defId).IfNone(noneValue: []))
                     .Map(nestedId => ComputeDepth(defId: nestedId, nestedDefs: nestedDefs, visiting: visiting.Add(key: defId), memo: memo))
                     .DefaultIfEmpty(defaultValue: 0)

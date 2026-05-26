@@ -32,6 +32,7 @@ public readonly partial struct Op {
         action();
         return unit;
     }
+    [BoundaryAdapter] public static Unit SideWhen(bool condition, Action action) => condition ? Side(action: action) : unit;
 }
 
 public static partial class OpExtensions {

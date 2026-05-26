@@ -79,10 +79,8 @@ public sealed record FileFormat {
 
     internal Fin<Unit> Validate(FileProfile profile, FilePhase phase, Op op) =>
         from valid in profile.Validate(phase: phase, op: op)
-        from supported in profile.Scale.IsSome && !phase.Allows(capability: scale)
-            ? Fin.Fail<Unit>(error: op.InvalidInput())
-            : Fin.Succ(value: unit)
-        select supported;
+        from _ in guard(!profile.Scale.IsSome || phase.Allows(capability: scale), op.InvalidInput())
+        select unit;
 
     public static FileFormat ThreeDm { get; } = Native(key: "3dm", extensions: Seq(".3dm"), archive: true);
     public static FileFormat ThreeDs { get; } = Native(
@@ -248,7 +246,6 @@ public sealed record FileFormat {
         result switch {
             WriteFileResult.Success => Fin.Succ(value: unit),
             WriteFileResult.Cancel => Fin.Fail<Unit>(error: new Fault.Cancelled()),
-            WriteFileResult.Failure => Fin.Fail<Unit>(error: op.InvalidResult()),
             _ => Fin.Fail<Unit>(error: op.InvalidResult()),
         };
 

@@ -455,49 +455,39 @@ public readonly record struct FileVectorScale(
     Option<bool> Preserve = default) {
     internal Fin<FileVectorScale> Validate(Op op) {
         FileVectorScale self = this;
-        return from mode in self.Preserve.Case is true && self.HasExplicit
-                   ? Fin.Fail<Unit>(error: op.InvalidInput())
-                   : Fin.Succ(value: unit)
+        return from mode in guard(!(self.Preserve.Case is true && self.HasExplicit), op.InvalidInput())
                from source in self.Source.Map(value => RhinoMath.IsValidDouble(x: value) && value > 0.0 ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: op.InvalidInput())).IfNone(Fin.Succ(value: unit))
                from rhino in self.Rhino.Map(value => RhinoMath.IsValidDouble(x: value) && value > 0.0 ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: op.InvalidInput())).IfNone(Fin.Succ(value: unit))
                select self;
     }
 
-    internal FilePdfReadOptions Apply(FilePdfReadOptions options) {
-        FileVectorScale self = this;
-        _ = self.PreserveMode.Iter(value => options.PreserveModelScale = value);
-        _ = self.Rhino.Iter(value => options.RhinoScale = value);
-        _ = self.Source.Iter(value => options.PDFScale = value);
-        _ = self.Units.Iter(value => options.PdfUnits = value.Pdf);
-        return options;
-    }
+    internal FilePdfReadOptions Apply(FilePdfReadOptions options) =>
+        options
+            .Set(PreserveMode, static (o, v) => o.PreserveModelScale = v)
+            .Set(Rhino, static (o, v) => o.RhinoScale = v)
+            .Set(Source, static (o, v) => o.PDFScale = v)
+            .Set(Units, static u => u.Pdf, static (o, v) => o.PdfUnits = v);
 
-    internal FileAiReadOptions Apply(FileAiReadOptions options) {
-        FileVectorScale self = this;
-        _ = self.PreserveMode.Iter(value => options.PreserveModelScale = value);
-        _ = self.Rhino.Iter(value => options.RhinoScale = value);
-        _ = self.Source.Iter(value => options.AiScale = value);
-        _ = self.Units.Iter(value => options.AiUnits = value.AiRead);
-        return options;
-    }
+    internal FileAiReadOptions Apply(FileAiReadOptions options) =>
+        options
+            .Set(PreserveMode, static (o, v) => o.PreserveModelScale = v)
+            .Set(Rhino, static (o, v) => o.RhinoScale = v)
+            .Set(Source, static (o, v) => o.AiScale = v)
+            .Set(Units, static u => u.AiRead, static (o, v) => o.AiUnits = v);
 
-    internal FileAiWriteOptions Apply(FileAiWriteOptions options) {
-        FileVectorScale self = this;
-        _ = self.PreserveMode.Iter(value => options.PreserveModelScale = value);
-        _ = self.Rhino.Iter(value => options.RhinoScale = value);
-        _ = self.Source.Iter(value => options.AIScale = value);
-        _ = self.Units.Iter(value => options.AiUnits = value.AiWrite);
-        return options;
-    }
+    internal FileAiWriteOptions Apply(FileAiWriteOptions options) =>
+        options
+            .Set(PreserveMode, static (o, v) => o.PreserveModelScale = v)
+            .Set(Rhino, static (o, v) => o.RhinoScale = v)
+            .Set(Source, static (o, v) => o.AIScale = v)
+            .Set(Units, static u => u.AiWrite, static (o, v) => o.AiUnits = v);
 
-    internal FileEpsReadOptions Apply(FileEpsReadOptions options) {
-        FileVectorScale self = this;
-        _ = self.PreserveMode.Iter(value => options.PreserveModelScale = value);
-        _ = self.Rhino.Iter(value => options.RhinoScale = value);
-        _ = self.Source.Iter(value => options.EpsScale = value);
-        _ = self.Units.Iter(value => options.EpsUnits = value.Eps);
-        return options;
-    }
+    internal FileEpsReadOptions Apply(FileEpsReadOptions options) =>
+        options
+            .Set(PreserveMode, static (o, v) => o.PreserveModelScale = v)
+            .Set(Rhino, static (o, v) => o.RhinoScale = v)
+            .Set(Source, static (o, v) => o.EpsScale = v)
+            .Set(Units, static u => u.Eps, static (o, v) => o.EpsUnits = v);
 
     private bool HasExplicit => Source.IsSome || Rhino.IsSome || Units.IsSome;
     private Option<bool> PreserveMode => Preserve | (HasExplicit ? Some(false) : Option<bool>.None);
@@ -575,45 +565,29 @@ public readonly partial record struct FileSheetDecor(
     Option<string> HeaderText = default,
     Option<string> FooterText = default) {
     internal Fin<ViewCaptureSettings> Apply(ViewCaptureSettings settings, RhinoPageView page, Op op) {
-        bool drawGrid = DrawGrid;
-        bool drawAxis = DrawAxis;
-        bool drawLights = DrawLights;
-        bool drawLocked = DrawLockedObjects;
-        bool drawSelected = DrawSelectedObjectsOnly;
-        bool drawMargins = DrawMargins;
-        bool drawClipping = DrawClippingPlanes;
-        bool drawWallpaper = DrawWallpaper;
-        bool drawBackgroundBitmap = DrawBackgroundBitmap;
-        bool drawBackground = DrawBackground;
-        Option<double> wire = WireThicknessScale;
-        Option<double> point = PointSizeMillimeters;
-        Option<double> arrow = ArrowheadSizeMillimeters;
-        Option<double> dot = TextDotPointSize;
-        Option<CaptureLayout> layout = Layout;
-        Option<string> header = HeaderText;
-        Option<string> footer = FooterText;
+        FileSheetDecor self = this;
         return from active in Optional(settings).ToFin(Fail: op.InvalidInput())
                from sheet in Optional(page).ToFin(Fail: op.InvalidInput())
                from configured in op.Catch(() => {
-                   active.DrawGrid = drawGrid;
-                   active.DrawAxis = drawAxis;
-                   active.DrawLights = drawLights;
-                   active.DrawLockedObjects = drawLocked;
-                   active.DrawSelectedObjectsOnly = drawSelected;
-                   active.DrawMargins = drawMargins;
-                   active.DrawClippingPlanes = drawClipping;
-                   active.DrawWallpaper = drawWallpaper;
-                   active.DrawBackgroundBitmap = drawBackgroundBitmap;
-                   active.DrawBackground = drawBackground;
-                   _ = wire.Iter(value => active.WireThicknessScale = value);
-                   _ = point.Iter(value => active.PointSizeMillimeters = value);
-                   _ = arrow.Iter(value => active.ArrowheadSizeMillimeters = value);
-                   _ = dot.Iter(value => active.TextDotPointSize = value);
-                   _ = header.Iter(value => active.HeaderText = Interpolate(template: value, document: sheet.Document, page: sheet));
-                   _ = footer.Iter(value => active.FooterText = Interpolate(template: value, document: sheet.Document, page: sheet));
-                   return Fin.Succ(value: active);
+                   active.DrawGrid = self.DrawGrid;
+                   active.DrawAxis = self.DrawAxis;
+                   active.DrawLights = self.DrawLights;
+                   active.DrawLockedObjects = self.DrawLockedObjects;
+                   active.DrawSelectedObjectsOnly = self.DrawSelectedObjectsOnly;
+                   active.DrawMargins = self.DrawMargins;
+                   active.DrawClippingPlanes = self.DrawClippingPlanes;
+                   active.DrawWallpaper = self.DrawWallpaper;
+                   active.DrawBackgroundBitmap = self.DrawBackgroundBitmap;
+                   active.DrawBackground = self.DrawBackground;
+                   return Fin.Succ(value: active
+                       .Set(self.WireThicknessScale, static (a, v) => a.WireThicknessScale = v)
+                       .Set(self.PointSizeMillimeters, static (a, v) => a.PointSizeMillimeters = v)
+                       .Set(self.ArrowheadSizeMillimeters, static (a, v) => a.ArrowheadSizeMillimeters = v)
+                       .Set(self.TextDotPointSize, static (a, v) => a.TextDotPointSize = v)
+                       .Set(self.HeaderText, value => Interpolate(template: value, document: sheet.Document, page: sheet), static (a, v) => a.HeaderText = v)
+                       .Set(self.FooterText, value => Interpolate(template: value, document: sheet.Document, page: sheet), static (a, v) => a.FooterText = v));
                })
-               from layoutApplied in layout.Map(value => value.Apply(settings: configured, op: op)).IfNone(Fin.Succ(value: unit))
+               from layoutApplied in self.Layout.Map(value => value.Apply(settings: configured, op: op)).IfNone(Fin.Succ(value: unit))
                select configured;
     }
 
@@ -635,26 +609,22 @@ public readonly partial record struct FileSheetDecor(
 
 public readonly record struct FileSheetSize(UnitSystem Units, Option<double> Width = default, Option<double> Height = default) {
     internal Fin<Option<(double Width, double Height)>> Create(RhinoDoc document, Op op) {
-        UnitSystem units = Units;
-        Option<double> width = Width;
-        Option<double> height = Height;
-        return (width.Case, height.Case) switch {
-            (double w, double h) => Resolve(value: (Width: w, Height: h), units: units, document: document, op: op).Map(value => Some(value: value)),
+        FileSheetSize self = this;
+        return (self.Width.Case, self.Height.Case) switch {
+            (double w, double h) => Resolve(value: (Width: w, Height: h), units: self.Units, document: document, op: op).Map(value => Some(value: value)),
             (double, _) or (_, double) => Fin.Fail<Option<(double Width, double Height)>>(error: op.InvalidInput()),
             _ => Fin.Succ(value: Option<(double Width, double Height)>.None),
         };
     }
 
     internal Fin<(Option<double> Width, Option<double> Height)> Resize(RhinoDoc document, Op op) {
-        UnitSystem units = Units;
-        Option<double> width = Width;
-        Option<double> height = Height;
-        return from resolvedWidth in width.Case switch {
-            double value => Resolve(value: value, units: units, document: document, op: op).Map(value => Some(value: value)),
+        FileSheetSize self = this;
+        return from resolvedWidth in self.Width.Case switch {
+            double value => Resolve(value: value, units: self.Units, document: document, op: op).Map(value => Some(value: value)),
             _ => Fin.Succ(value: Option<double>.None),
         }
-               from resolvedHeight in height.Case switch {
-                   double value => Resolve(value: value, units: units, document: document, op: op).Map(value => Some(value: value)),
+               from resolvedHeight in self.Height.Case switch {
+                   double value => Resolve(value: value, units: self.Units, document: document, op: op).Map(value => Some(value: value)),
                    _ => Fin.Succ(value: Option<double>.None),
                }
                select (Width: resolvedWidth, Height: resolvedHeight);
@@ -742,17 +712,14 @@ public readonly record struct FileLayerOverrideSpec(
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct FileDetailScale(double ModelLength, LengthUnit ModelUnit, double PageLength, LengthUnit PageUnit) {
     internal Fin<Unit> Apply(DetailView geometry, Op op) {
-        double modelLength = ModelLength;
-        LengthUnit modelUnit = ModelUnit;
-        double pageLength = PageLength;
-        LengthUnit pageUnit = PageUnit;
+        FileDetailScale self = this;
         return from active in Optional(geometry).ToFin(Fail: op.InvalidInput())
                from valid in guard(
-                   RhinoMath.IsValidDouble(x: modelLength) && modelLength > 0.0
-                   && RhinoMath.IsValidDouble(x: pageLength) && pageLength > 0.0
-                   && modelUnit != LengthUnit.None && pageUnit != LengthUnit.None,
+                   RhinoMath.IsValidDouble(x: self.ModelLength) && self.ModelLength > 0.0
+                   && RhinoMath.IsValidDouble(x: self.PageLength) && self.PageLength > 0.0
+                   && self.ModelUnit != LengthUnit.None && self.PageUnit != LengthUnit.None,
                    op.InvalidInput())
-               from applied in op.Confirm(success: active.SetScale(modelLength: modelLength, modelUnits: modelUnit, pageLength: pageLength, pageUnits: pageUnit))
+               from applied in op.Confirm(success: active.SetScale(modelLength: self.ModelLength, modelUnits: self.ModelUnit, pageLength: self.PageLength, pageUnits: self.PageUnit))
                select applied;
     }
 }
@@ -812,4 +779,17 @@ public sealed record FileReport(
 
     internal static FileReport Of(FilePhase phase, Option<FileEndpoint> source = default, Option<FileEndpoint> target = default, Option<FileFormat> format = default, Option<DocumentReceipt> receipt = default, Seq<FileIssue> issues = default, Option<string> nativeLog = default, Option<FileArchive> archive = default, Seq<FileReport> children = default, Seq<FileSheetReport> sheets = default) =>
         new(Source: source, Target: target, Format: format, Phase: phase, Receipt: receipt, Issues: issues.IsEmpty ? Seq<FileIssue>() : issues, NativeLog: nativeLog, Archive: archive, Children: children.IsEmpty ? Seq<FileReport>() : children, Sheets: sheets.IsEmpty ? Seq<FileSheetReport>() : sheets);
+}
+
+// --- [COMPOSITION] ------------------------------------------------------------------------
+internal static class OptionsProjection {
+    internal static TOptions Set<TOptions, T>(this TOptions options, Option<T> source, Action<TOptions, T> setter) where TOptions : class {
+        _ = source.Iter(value => setter(arg1: options, arg2: value));
+        return options;
+    }
+
+    internal static TOptions Set<TOptions, T, TProjected>(this TOptions options, Option<T> source, Func<T, TProjected> project, Action<TOptions, TProjected> setter) where TOptions : class {
+        _ = source.Iter(value => setter(arg1: options, arg2: project(arg: value)));
+        return options;
+    }
 }

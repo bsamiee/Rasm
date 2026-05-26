@@ -7,12 +7,11 @@ namespace Rasm.Rhino.UI;
 public readonly record struct UiToast(RhinoView View, string Message, Option<int> TextHeight = default, Option<System.Drawing.PointF> Location = default) {
     internal Unit Apply() {
         UiToast toast = this;
-        _ = (toast.TextHeight.Case, toast.Location.Case) switch {
+        return Op.Side(() => _ = (toast.TextHeight.Case, toast.Location.Case) switch {
             (int height, System.Drawing.PointF point) when height > 0 => toast.View.ShowToast(toast.Message, height, point),
             (int height, _) when height > 0 => toast.View.ShowToast(toast.Message, height),
             _ => toast.View.ShowToast(toast.Message),
-        };
-        return unit;
+        });
     }
 }
 
@@ -154,17 +153,27 @@ public sealed class UiProgress : IDisposable {
         current = lower;
     }
 
-    public Fin<int> Update(UiProgressStep step) =>
-        disposed switch {
+    public Fin<int> Update(UiProgressStep step) {
+        int Commit(int value) { current = value; return value; }
+        Fin<int> Drive(int target, int rawPosition, string? label) =>
+            label switch {
+                string text => global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: text, position: rawPosition, absolute: step.Absolute),
+                _ => global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, position: rawPosition, absolute: step.Absolute),
+            } switch {
+                RhinoMath.UnsetIntIndex => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidResult()),
+                _ => Fin.Succ(value: Commit(target)),
+            };
+        return disposed switch {
             true => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
             false => (step.Position.Map(position => step.Absolute ? position : current + position).Case, step.Position.Case, step.Label.Case) switch {
                 (int position, _, _) when position < lower || position > upper => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
-                (int target, int position, string label) => global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: position, absolute: step.Absolute) switch { RhinoMath.UnsetIntIndex => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidResult()), _ => Fin.Succ(value: ((Func<int>)(() => { current = target; return target; }))()) },
-                (_, _, string label) => Fin.Succ(value: ((Func<int>)(() => { _ = global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: RhinoMath.UnsetIntIndex, absolute: true); return current; }))()),
-                (int target, int position, _) => global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, position: position, absolute: step.Absolute) switch { RhinoMath.UnsetIntIndex => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidResult()), _ => Fin.Succ(value: ((Func<int>)(() => { current = target; return target; }))()) },
+                (int target, int position, string label) => Drive(target, position, label),
+                (_, _, string label) => Op.Side(() => global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: RhinoMath.UnsetIntIndex, absolute: true)) switch { _ => Fin.Succ(value: current) },
+                (int target, int position, _) => Drive(target, position, null),
                 _ => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
             },
         };
+    }
 
     public Fin<TState> Fold<TItem, TState>(
         IEnumerable<TItem> items,
