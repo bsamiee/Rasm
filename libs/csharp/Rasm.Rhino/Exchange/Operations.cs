@@ -590,10 +590,7 @@ internal static class SheetEditOps {
             removeDetail: static (ctx, edit) => RemoveDetail(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, op: ctx.Op),
             activateDetail: static (ctx, edit) => ActivateDetail(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, op: ctx.Op),
             layerOverride: static (ctx, edit) => ApplyLayerOverride(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, layerPath: edit.LayerPath, spec: edit.Spec, op: ctx.Op),
-            clippingOverride: static (ctx, edit) => ApplyClippingOverride(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, box: edit.Box, op: ctx.Op),
-            refreshLinks: static (ctx, edit) => RefreshLinks(document: ctx.Document, archives: edit.Archives, skipUpToDate: edit.SkipUpToDate, op: ctx.Op),
-            flattenLinkedBlocks: static (ctx, edit) => FlattenLinkedBlocks(document: ctx.Document, archives: edit.Archives, ids: edit.Ids, op: ctx.Op),
-            exportBlock: static (ctx, edit) => ExportBlock(document: ctx.Document, blockName: edit.BlockName, target: edit.Target, op: ctx.Op));
+            clippingOverride: static (ctx, edit) => ApplyClippingOverride(document: ctx.Document, sheetName: edit.SheetName, detailName: edit.DetailName, box: edit.Box, op: ctx.Op));
 
     private static Fin<DocumentReceipt> CreateSheet(RhinoDoc document, FileSheetSpec spec, Op op) =>
         from name in FileEndpoint.NonBlank(value: spec.Name, op: op)
@@ -779,17 +776,6 @@ internal static class SheetEditOps {
                 new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: name)),
         };
 
-    // `InstanceDefinitionTable.Export` (9.0+) is the canonical "save block as own file" primitive,
-    // replacing the prior `_-Export _Pause _Selected` RunScript that required selection bracketing.
-    private static Fin<DocumentReceipt> ExportBlock(RhinoDoc document, string blockName, FileEndpoint target, Op op) =>
-        from name in FileEndpoint.NonBlank(value: blockName, op: op)
-        from endpoint in target.Output(op: op)
-        from definition in Optional(document.InstanceDefinitions.Find(instanceDefinitionName: name)).ToFin(Fail: op.InvalidInput())
-        from _ in op.Confirm(success: document.InstanceDefinitions.Export(idefIndex: definition.Index, filename: endpoint.Path))
-        select DocumentReceipt.Empty with {
-            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: name)),
-        };
-
     private static Fin<DocumentReceipt> ApplyClippingOverride(RhinoDoc document, string sheetName, string detailName, BoundingBox box, Op op) =>
         from page in Sheet(document: document, name: sheetName, op: op)
         from name in FileEndpoint.NonBlank(value: detailName, op: op)
@@ -803,51 +789,6 @@ internal static class SheetEditOps {
             AttributeChanged = Seq(detail.Id),
             ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: name)),
         };
-
-    // BOUNDARY ADAPTER — `RefreshLinkedBlock` is synchronous on the caller's thread. `UpdateType`
-    // (NOT SourceArchive) is the canonical linked discriminant; TraverseM short-circuits on first fail.
-    private static Fin<DocumentReceipt> RefreshLinks(RhinoDoc document, Option<Seq<string>> archives, bool skipUpToDate, Op op) =>
-        op.Catch(() =>
-            toSeq(document.InstanceDefinitions)
-                .Filter(static definition => definition.UpdateType is InstanceDefinitionUpdateType.Linked or InstanceDefinitionUpdateType.LinkedAndEmbedded)
-                .Filter(definition => archives.Case switch {
-                    Seq<string> filter => filter.Exists(path => string.Equals(a: path, b: definition.SourceArchive ?? string.Empty, comparisonType: StringComparison.OrdinalIgnoreCase)),
-                    _ => true,
-                })
-                .Filter(definition => !skipUpToDate || definition.ArchiveFileStatus != InstanceDefinitionArchiveFileStatus.LinkedFileIsUpToDate)
-                .TraverseM(definition => document.InstanceDefinitions.RefreshLinkedBlock(definition: definition)
-                    ? Fin.Succ(value: definition)
-                    : Fin.Fail<InstanceDefinition>(error: op.InvalidResult())).As()
-                .Map(refreshed => DocumentReceipt.Empty with {
-                    AttributeChanged = refreshed.Map(static definition => definition.Id),
-                    ResourceChanged = refreshed.Map(static definition => new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: definition.Name ?? string.Empty)),
-                }));
-
-    // BOUNDARY ADAPTER — LayerStyle.Active is valid ONLY when UpdateType==Linked (LinkedAndEmbedded
-    // and Static forbid it). Filters: skip Tenuous (drops on save), skip negative ArchiveFileStatus
-    // (unreadable), skip already-Active (avoid redundant Modified fires). NOT reversible: toggling
-    // back to Reference leaves orphan layer/material rows requiring manual purge.
-    private static Fin<DocumentReceipt> FlattenLinkedBlocks(RhinoDoc document, Option<Seq<string>> archives, Option<Seq<Guid>> ids, Op op) =>
-        op.Catch(() => {
-            Seq<InstanceDefinition> targets = toSeq(document.InstanceDefinitions)
-                .Filter(static definition => definition.UpdateType == InstanceDefinitionUpdateType.Linked)
-                .Filter(static definition => !definition.IsTenuous)
-                .Filter(static definition => definition.ArchiveFileStatus >= InstanceDefinitionArchiveFileStatus.LinkedFileIsUpToDate)
-                .Filter(static definition => definition.LayerStyle != InstanceDefinitionLayerStyle.Active)
-                .Filter(definition => archives.Case switch {
-                    Seq<string> filter => filter.Exists(path => string.Equals(a: path, b: definition.SourceArchive ?? string.Empty, comparisonType: StringComparison.OrdinalIgnoreCase)),
-                    _ => true,
-                })
-                .Filter(definition => ids.Case switch {
-                    Seq<Guid> filter => filter.Exists(id => id == definition.Id),
-                    _ => true,
-                });
-            _ = targets.Iter(static definition => definition.LayerStyle = InstanceDefinitionLayerStyle.Active);
-            return Fin.Succ(value: DocumentReceipt.Empty with {
-                AttributeChanged = targets.Map(static definition => definition.Id),
-                ResourceChanged = targets.Map(static definition => new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: definition.Name ?? string.Empty)),
-            });
-        });
 
     private static Fin<T> Resolve<T>(IEnumerable<T> source, Func<T, bool> match, Op op) =>
         toSeq(source).Find(match).ToFin(Fail: op.InvalidInput());

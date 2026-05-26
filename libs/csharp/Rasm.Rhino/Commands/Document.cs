@@ -43,6 +43,20 @@ public sealed partial class DocumentResourceKind {
             : Items.AsIterable().Find(kind => kind.ComponentType == type);
 }
 
+[SmartEnum<string>]
+public sealed partial class FileResourceRole {
+    public static readonly FileResourceRole Layer = new(key: "layer");
+    public static readonly FileResourceRole Material = new(key: "material");
+    public static readonly FileResourceRole Linetype = new(key: "linetype");
+    public static readonly FileResourceRole Group = new(key: "group");
+    public static readonly FileResourceRole Block = new(key: "block");
+    public static readonly FileResourceRole Instance = new(key: "instance");
+    public static readonly FileResourceRole Member = new(key: "member");
+    public static readonly FileResourceRole Linked = new(key: "linked");
+    public static readonly FileResourceRole Texture = new(key: "texture");
+    public static readonly FileResourceRole Child = new(key: "child");
+}
+
 public enum DocumentLifecycle { Purge, Undelete }
 
 // --- [MODELS] -----------------------------------------------------------------------------

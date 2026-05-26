@@ -5,7 +5,6 @@ using File3dmModel = Rhino.FileIO.File3dm;
 using File3dmNotes = Rhino.FileIO.File3dmNotes;
 using File3dmObject = Rhino.FileIO.File3dmObject;
 using File3dmSettings = Rhino.FileIO.File3dmSettings;
-using InstanceReferenceGeometry = Rhino.Geometry.InstanceReferenceGeometry;
 using IOPath = System.IO.Path;
 using RenderContent = Rhino.FileIO.File3dmRenderContent;
 using RenderEnvironment = Rhino.FileIO.File3dmRenderEnvironment;
@@ -211,11 +210,6 @@ internal static class FileArchiveOps {
                     true => Fin.Succ(new DocumentResourceChange(Kind: DocumentResourceKind.EmbeddedFile, Name: payload.Path)),
                     false => Fin.Fail<DocumentResourceChange>(error: op.InvalidResult()),
                 })).As()
-            from links in update.LinkBlocks.TraverseM(endpoint =>
-                endpoint.Input(op: op).Bind(link => model.AllInstanceDefinitions.AddLinked(filename: link.Path, name: IOPath.GetFileNameWithoutExtension(path: link.Path), description: string.Empty) switch {
-                    >= 0 => Fin.Succ(new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: link.Path)),
-                    _ => Fin.Fail<DocumentResourceChange>(error: op.InvalidResult()),
-                })).As()
             from writeLog in op.Catch(() => model.WriteWithLog(path: output.Path, options: FileFormatProjection.ArchiveWriteOptions(profile: profile), errorLog: out string log) switch {
                 true => Fin.Succ(value: log),
                 false => Fin.Fail<string>(error: op.InvalidResult()),
@@ -229,7 +223,7 @@ internal static class FileArchiveOps {
             from snapshot in Snapshot(source: new FileArchiveSource.Path(Value: output), model: model, profile: profile)
             select (Endpoint: endpoint, ReadLog: readLog, WriteLog: writeLog, Archive: snapshot,
                 Receipt: DocumentReceipt.Empty with {
-                    ResourceChanged = metadataChange + embedded + links + extracted.Map(static path => new DocumentResourceChange(Kind: DocumentResourceKind.EmbeddedFile, Name: path)),
+                    ResourceChanged = metadataChange + embedded + extracted.Map(static path => new DocumentResourceChange(Kind: DocumentResourceKind.EmbeddedFile, Name: path)),
                 }))
         select FileReport.Of(
             phase: FilePhase.ArchiveUpdate,
@@ -321,11 +315,9 @@ internal static class FileArchiveOps {
             + toSeq(model.RenderEnvironments).Map(static environment => (RenderContent)environment)
             + toSeq(model.RenderTextures).Map(static texture => (RenderContent)texture);
         Seq<string> embedded = toSeq(model.EmbeddedFiles).Map(static file => file.Filename);
-        // BOUNDARY ADAPTER — archive `InstanceDefinitionGeometry` exposes only `SourceArchive`;
-        // `UpdateType`/`ArchiveFileStatus` are live-doc only. Non-empty SourceArchive ⇒ linked.
-        Seq<string> linked = toSeq(model.AllInstanceDefinitions)
-            .Choose(static definition => TextOption(value: definition.SourceArchive))
-            .Distinct();
+        // [BOUNDARY ADAPTER — Blocks.BlockArchive owns the offline graph; Exchange consumes the projection.]
+        Blocks.BlockArchiveGraph blockGraph = Blocks.BlockArchive.From(model: model).IfFail(_ => Blocks.BlockArchiveGraph.Empty);
+        Seq<string> linked = Blocks.BlockArchive.LinkedPaths(graph: blockGraph);
         Seq<string> textures = renderTree.Bind(static content => TraverseRender(content: content, parent: Option<RenderContent>.None, project: static (cur, _) => cur switch {
             RenderTexture texture => TextOption(value: texture.Filename).Map(Seq).IfNone(Seq<string>()),
             _ => Seq<string>(),
@@ -365,12 +357,7 @@ internal static class FileArchiveOps {
             + Entries(source: model.AllLayers, kind: DocumentResourceKind.Layer, name: static l => TextOption(value: l.FullPath), id: static l => GuidOption(value: l.Id), label: "layer")
             + Entries(source: model.AllMaterials, kind: DocumentResourceKind.Material, name: static m => TextOption(value: m.Name), id: static m => GuidOption(value: m.Id), label: "material")
             + Entries(source: model.AllGroups, kind: DocumentResourceKind.Group, name: static g => TextOption(value: g.Name), id: static g => GuidOption(value: g.Id), label: "group")
-            + toSeq(model.AllInstanceDefinitions).Map(definition => new FileResourceEntry(
-                Kind: DocumentResourceKind.Block,
-                Name: TextOption(value: definition.Name),
-                Path: TextOption(value: definition.SourceArchive),
-                Id: GuidOption(value: definition.Id),
-                Source: Some(TextOption(value: definition.SourceArchive).Map(static _ => "linked-block").IfNone("block"))))
+            + Blocks.BlockArchive.ToFileResourceEntries(graph: blockGraph)
             + Entries(source: model.AllLinetypes, kind: DocumentResourceKind.Linetype, name: static l => TextOption(value: l.Name), id: static l => GuidOption(value: l.Id), label: "linetype")
             + Entries(source: model.AllDimStyles, kind: DocumentResourceKind.DimensionStyle, name: static s => TextOption(value: s.Name), id: static s => GuidOption(value: s.Id), label: "dimension-style")
             + Entries(source: model.AllHatchPatterns, kind: DocumentResourceKind.Hatch, name: static p => TextOption(value: p.Name), id: static p => GuidOption(value: p.Id), label: "hatch-pattern")
@@ -385,18 +372,14 @@ internal static class FileArchiveOps {
             return parentEdge + textureEdge;
         }));
         Seq<FileResourceEdge> edges = toSeq(model.Objects).Bind(fileObject => ObjectEdges(model: model, fileObject: fileObject))
-            + toSeq(model.AllInstanceDefinitions).Bind(definition =>
-                TextOption(value: definition.SourceArchive)
-                    .Map(path => Seq(new FileResourceEdge(FromKind: DocumentResourceKind.Block, FromId: GuidOption(value: definition.Id), ToKind: DocumentResourceKind.FileReference, ToId: Option<Guid>.None, Role: FileResourceRole.Linked, Path: Some(path))))
-                    .IfNone(Seq<FileResourceEdge>())
-                + toSeq(definition.GetObjectIds()).Map(id => new FileResourceEdge(FromKind: DocumentResourceKind.Block, FromId: GuidOption(value: definition.Id), ToKind: DocumentResourceKind.Object, ToId: GuidOption(value: id), Role: FileResourceRole.Member)))
+            + Blocks.BlockArchive.ToFileResourceEdges(graph: blockGraph)
             + renderEdges;
         return new FileResourceGraph(
             Objects: model.Objects.Count,
             Layers: model.AllLayers.Count,
             Materials: model.AllMaterials.Count,
             Groups: model.AllGroups.Count,
-            Blocks: model.AllInstanceDefinitions.Count,
+            Blocks: Blocks.BlockArchive.Count(graph: blockGraph),
             Views: model.Views.Count,
             NamedViews: model.NamedViews.Count,
             Strings: model.Strings.Count,
@@ -479,13 +462,7 @@ internal static class FileArchiveOps {
             .Choose(index => Optional(model.AllGroups.FindIndex(index))
                 .Bind(group => GuidOption(value: group.Id))
                 .Map(id => new FileResourceEdge(FromKind: DocumentResourceKind.Object, FromId: objectId, ToKind: DocumentResourceKind.Group, ToId: Some(id), Role: FileResourceRole.Group)));
-        Seq<FileResourceEdge> blockEdge = fileObject.Geometry switch {
-            InstanceReferenceGeometry reference => GuidOption(value: reference.ParentIdefId)
-                .Map(id => Seq(new FileResourceEdge(FromKind: DocumentResourceKind.Object, FromId: objectId, ToKind: DocumentResourceKind.Block, ToId: Some(id), Role: FileResourceRole.Instance)))
-                .IfNone(Seq<FileResourceEdge>()),
-            _ => Seq<FileResourceEdge>(),
-        };
-        return layerEdge + materialEdge + linetypeEdge + groupEdges + blockEdge;
+        return layerEdge + materialEdge + linetypeEdge + groupEdges;
     }
 
     private static Option<Material> MaterialOf(File3dmModel model, File3dmObject fileObject) =>

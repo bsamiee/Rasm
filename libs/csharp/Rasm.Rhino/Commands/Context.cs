@@ -1,4 +1,5 @@
 using Rasm.Analysis;
+using BlocksApi = Rasm.Rhino.Blocks;
 
 namespace Rasm.Rhino.Commands;
 
@@ -14,6 +15,7 @@ public sealed class RhinoCommandContext {
         Ui = new(document: document, mode: mode);
         Camera = new(document: document);
         Files = Exchange.RhinoFiles.Live(document: document, mode: mode);
+        Blocks = BlocksApi.RhinoBlocks.Live(document: document, mode: mode);
     }
 
     public RhinoDoc Document { get; }
@@ -25,6 +27,7 @@ public sealed class RhinoCommandContext {
     public UI.RhinoUi Ui { get; }
     public Camera.RhinoCamera Camera { get; }
     public Exchange.RhinoFiles Files { get; }
+    public BlocksApi.RhinoBlocks Blocks { get; }
 
     public static Fin<RhinoCommandContext> Of(RhinoDoc doc, RunMode mode) =>
         Optional(doc)

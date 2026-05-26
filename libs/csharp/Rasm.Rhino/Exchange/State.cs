@@ -181,20 +181,6 @@ public readonly record struct FileRasterSettings(
     Option<int> PngDepth = default,
     Option<double> ExifDpi = default);
 
-[SmartEnum<string>]
-public sealed partial class FileResourceRole {
-    public static readonly FileResourceRole Layer = new(key: "layer");
-    public static readonly FileResourceRole Material = new(key: "material");
-    public static readonly FileResourceRole Linetype = new(key: "linetype");
-    public static readonly FileResourceRole Group = new(key: "group");
-    public static readonly FileResourceRole Block = new(key: "block");
-    public static readonly FileResourceRole Instance = new(key: "instance");
-    public static readonly FileResourceRole Member = new(key: "member");
-    public static readonly FileResourceRole Linked = new(key: "linked");
-    public static readonly FileResourceRole Texture = new(key: "texture");
-    public static readonly FileResourceRole Child = new(key: "child");
-}
-
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct FileNamePolicy(FileCollisionPolicy Collision = FileCollisionPolicy.Preserve, Option<string> Extension = default) {
     public static FileNamePolicy Default => default;
@@ -529,8 +515,7 @@ public sealed record ArchiveProfile(ArchiveSlice Slice, FileArchiveProjection Pr
 public sealed record ArchiveUpdate(
     Option<FileArchiveMetadataPatch> Metadata = default,
     Seq<FileEndpoint> Embed = default,
-    Seq<string> Extract = default,
-    Seq<FileEndpoint> LinkBlocks = default);
+    Seq<string> Extract = default);
 
 public sealed record FilePublish(FilePublishTarget Target, Seq<FileSheet> Sheets, FileProfile Profile, bool Layers = true, Option<string> Snapshot = default) {
     public FilePublish WithSnapshot(string name) =>
@@ -788,9 +773,6 @@ public abstract partial record FileSheetEdit {
     public sealed record ActivateDetail(string SheetName, Option<string> DetailName) : FileSheetEdit;
     public sealed record LayerOverride(string SheetName, string DetailName, string LayerPath, FileLayerOverrideSpec Spec) : FileSheetEdit;
     public sealed record ClippingOverride(string SheetName, string DetailName, BoundingBox Box) : FileSheetEdit;
-    public sealed record RefreshLinks(Option<Seq<string>> Archives = default, bool SkipUpToDate = false) : FileSheetEdit;
-    public sealed record FlattenLinkedBlocks(Option<Seq<string>> Archives = default, Option<Seq<Guid>> Ids = default) : FileSheetEdit;
-    public sealed record ExportBlock(string BlockName, FileEndpoint Target) : FileSheetEdit;
 }
 
 internal readonly record struct FileSheetPage(RhinoPageView Page, FileSheet Sheet);
