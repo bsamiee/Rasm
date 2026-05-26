@@ -152,8 +152,6 @@ public partial record DocumentOp {
     public static readonly DocumentOp DependencyGraph = new InspectCase(Kind: DocumentInspect.DependencyGraph);
 }
 
-// Modal viewer kinds — currently DependencyGraph (DocumentMethods.ShowDependencyGraph), extensible
-// without bloating DocumentOp itself when more inspect surfaces land in GH2.
 [SmartEnum<int>]
 public sealed partial class DocumentInspect {
     public static readonly DocumentInspect DependencyGraph = new(key: 0);
@@ -428,9 +426,8 @@ public abstract partial record DocumentTargetOp {
     internal Fin<int> ApplySelected(GhDocumentMethods methods, ActionList actions) =>
         Dispatch(methods: methods, actions: actions, targets: null);
 
-    // Unified target/selection dispatcher. Non-null `targets` routes through *Objects(targets, actions);
-    // null `targets` routes through *Selected(actions). Centralizes seven native verbs in one site.
-    // Null sentinel over Option<...> because CSP0705 forbids Option.Match mid-Switch-arm.
+    // Non-null `targets` → *Objects(targets, actions); null → *Selected(actions). Null sentinel
+    // over Option<T> because CSP0705 forbids Option.Match inside the Switch arms below.
     private Fin<int> Dispatch(GhDocumentMethods methods, ActionList actions, IDocumentObject[]? targets) =>
         Switch(
             state: (methods, targets, actions),
@@ -717,8 +714,7 @@ internal static partial class UiRail {
             }).Run().MapFail(error => UiFault.MutationRejected(op: op, detail: $"History.Do threw: {error.Message}")),
         };
 
-    // Op names follow "Noun.Verb"; the History panel renders VerbNoun as "Verb Noun" (e.g. "Connect Wire"),
-    // so we split rather than emit a flat "Edit Wire.Connect" label.
+    // Op names are "Noun.Verb"; History panel renders VerbNoun as "Verb Noun" — split, don't flat-emit.
     internal static VerbNoun VerbNounOf(Op op) {
         string name = op.ToString();
         int dot = name.IndexOf(value: '.', comparisonType: StringComparison.Ordinal);

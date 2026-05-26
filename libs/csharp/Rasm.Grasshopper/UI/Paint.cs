@@ -58,11 +58,8 @@ public readonly record struct PaintScope(
             .Bind(valid => valid.Apply(scope: current));
     }
 
-    // Routed through TextMeasure (process-static cache + private FormattedText scratch). Avoids
-    // Graphics.MeasureString's silent state leak: that method mutates the private SharedFormattedText
-    // singleton with only Font+Text, inheriting Wrap/Alignment/Trimming/MaximumSize from whatever
-    // the prior DrawText left behind (verified against Eto.Mac.Drawing.GraphicsHandler.MeasureString
-    // IL offset 37767-37773, Eto 2.11.0).
+    // TextMeasure-routed to avoid Graphics.MeasureString state leak on macOS (Eto.Mac 2.11
+    // GraphicsHandler IL@37767 mutates a shared FormattedText inheriting prior wrap/alignment).
     public Fin<PaintTextMeasurement> MeasureText(string value, Option<UiFont> font = default) =>
         Optional(value)
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(MeasureText)), detail: "text is required"))
@@ -107,27 +104,21 @@ public readonly record struct PaintStyle(
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct PaintTextMeasurement(string Text, SizeF Size);
 
-// Process-static measurement cache. Keys by (Font, Text, Wrap, Alignment, Trimming, MaxWidth,
-// MaxHeight, Decoration) since FormattedText.Measure honors all of these. Font carries value-
-// semantic Equals/GetHashCode on (Family, Size, Style, Platform) per Eto.Drawing.Font:130-142,
-// but FontDecoration is NOT in that equality — included explicitly here. Per-thread FormattedText
-// scratch avoids cross-thread mutation; AppKit text APIs are main-thread-only on macOS Quartz, so
-// callers off the UI thread must marshal first (the paint hook pipeline already guarantees UI
-// thread). Cache hits skip the entire NSAttributedString + NSLayoutManager + BoundingRectWithSize
-// pipeline (verified against Eto.Mac.Drawing.FormattedTextHandler IL offset 37004-37271).
+// Process-static measurement cache. Key includes FontDecoration explicitly — Eto.Drawing.Font
+// equality excludes it. Per-thread FormattedText scratch (AppKit text APIs are main-thread-only).
 file static class TextMeasure {
     private readonly record struct Key(
         Font Font, string Text,
         FormattedTextWrapMode Wrap, FormattedTextAlignment Alignment, FormattedTextTrimming Trimming,
         float MaxWidth, float MaxHeight, FontDecoration Decoration);
 
+    private const int CacheSizeLimit = 1024;
     private static readonly ConcurrentDictionary<Key, SizeF> Cache = new();
+    private static int trimming;
     [ThreadStatic] private static FormattedText? scratch;
 
     private static FormattedText Scratch() => scratch ??= new FormattedText();
 
-    // Single-line measurement: Wrap=None, no trimming, unbounded max size. Matches the intent of
-    // the prior Graphics.MeasureString call but without the shared-state leak.
     internal static SizeF Single(Font font, string text) =>
         Measure(font: font, text: text,
             wrap: FormattedTextWrapMode.None,
@@ -135,13 +126,11 @@ file static class TextMeasure {
             trimming: FormattedTextTrimming.None,
             maxSize: new SizeF(float.MaxValue, float.MaxValue));
 
-    // Layout-aware measurement honoring wrap/alignment/trimming/maxSize. Use when measuring text
-    // that will be rendered through Graphics.DrawText(font, brush, frame, text, wrap, alignment,
-    // trimming) — measurement and draw must agree on all six axes.
     internal static SizeF Measure(Font font, string text,
         FormattedTextWrapMode wrap, FormattedTextAlignment alignment, FormattedTextTrimming trimming,
-        SizeF maxSize) =>
-        Cache.GetOrAdd(
+        SizeF maxSize) {
+        _ = Cache.Count >= CacheSizeLimit ? TrimCache() : unit;
+        return Cache.GetOrAdd(
             key: new Key(Font: font, Text: text, Wrap: wrap, Alignment: alignment, Trimming: trimming,
                 MaxWidth: maxSize.Width, MaxHeight: maxSize.Height, Decoration: font.FontDecoration),
             valueFactory: static k => {
@@ -154,6 +143,21 @@ file static class TextMeasure {
                 ft.MaximumSize = new SizeF(width: k.MaxWidth, height: k.MaxHeight);
                 return ft.Measure();
             });
+    }
+
+    // Bounded eviction — drop the oldest half (FIFO via Keys snapshot order). Single-flight via
+    // Interlocked CAS so concurrent Measure() callers don't double-trim; the loser fast-returns.
+    private static Unit TrimCache() {
+        if (Interlocked.Exchange(ref trimming, 1) == 1) {
+            return unit;
+        }
+        try {
+            _ = toSeq(Cache.Keys).Take(Cache.Count / 2).Iter(static key => Cache.TryRemove(key, out _));
+        } finally {
+            _ = Interlocked.Exchange(ref trimming, 0);
+        }
+        return unit;
+    }
 
     internal static int Count => Cache.Count;
     internal static Unit Clear() { Cache.Clear(); return unit; }
@@ -188,11 +192,8 @@ public partial record UiFont {
             emptyCase: static (r, _) => r(arg: SystemFonts.Default()));
 }
 
-// Solid hits Brushes.Cached for reuse; gradient/texture allocate fresh per draw. Eto 2.11.0 macOS
-// Brush.Dispose is inert (handler ControlObject is non-IDisposable; CGGradient/CGImage release
-// only via wrapper finalizer), so `using` on the returned Brush is safe-but-pointless — kept to
-// future-proof if Eto attaches IDisposable to the handler. IsCached gates callers that want to
-// branch on disposal policy.
+// Solid → Brushes.Cached; gradient/texture allocate fresh. Mac Brush.Dispose is inert under
+// Eto 2.11 (handler is non-IDisposable); using-blocks future-proof against later API changes.
 [Union]
 public partial record FillSource {
     private FillSource() { }
@@ -219,11 +220,8 @@ public partial record FillSource {
     internal bool IsCached => this is SolidCase;
 }
 
-// Solid + vanilla cap/join/miter routes through Pens.Cached for hot-path reuse. The IsVanilla
-// predicate matches Eto.Mac.Drawing.PenHandler.Create defaults exactly (PenLineCap.Square →
-// kCGLineCapSquare, PenLineJoin.Miter, MiterLimit = 10f, DashStyle = null). Non-vanilla paths
-// and brush-backed pens allocate fresh — `using` is inert under Eto 2.11 but reserves future
-// IDisposable contract on the PenControl handler.
+// Solid + vanilla cap/join/miter → Pens.Cached. IsVanilla matches Eto.Mac.PenHandler.Create
+// defaults (Square cap, Miter join, MiterLimit=10f); non-vanilla paths allocate fresh.
 [Union]
 public partial record EdgeSource {
     private EdgeSource() { }
@@ -250,8 +248,8 @@ public partial record EdgeSource {
         cap == PenLineCap.Square && join == PenLineJoin.Miter && miterLimit == DefaultMiterLimit;
 }
 
-// Per-corner rounded rectangle radii (clockwise from top-left). GraphicsPath.GetRoundRect silently
-// mis-renders with NaN or negative input — the construction-time invariant prevents that.
+// Per-corner radii (TL/TR/BR/BL clockwise). NaN/negative inputs mis-render in GraphicsPath; the
+// construction-time invariant prevents that.
 [ComplexValueObject]
 [ValidationError<UiFault>]
 [StructLayout(LayoutKind.Auto)]
@@ -262,14 +260,16 @@ public readonly partial struct CornerRadii {
     public float BottomLeft { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref UiFault? validationError, ref float topLeft, ref float topRight, ref float bottomRight, ref float bottomLeft) =>
+    static partial void ValidateFactoryArguments(ref UiFault? validationError, ref float topLeft, ref float topRight, ref float bottomRight, ref float bottomLeft) {
+        Op op = Op.Of(name: nameof(CornerRadii));
         validationError = (Valid(topLeft), Valid(topRight), Valid(bottomRight), Valid(bottomLeft)) switch {
             (true, true, true, true) => null,
-            (false, _, _, _) => UiFault.Create(message: $"CornerRadii.TopLeft must be finite and >= 0 (got {topLeft:R})."),
-            (_, false, _, _) => UiFault.Create(message: $"CornerRadii.TopRight must be finite and >= 0 (got {topRight:R})."),
-            (_, _, false, _) => UiFault.Create(message: $"CornerRadii.BottomRight must be finite and >= 0 (got {bottomRight:R})."),
-            (_, _, _, false) => UiFault.Create(message: $"CornerRadii.BottomLeft must be finite and >= 0 (got {bottomLeft:R})."),
+            (false, _, _, _) => UiFault.Create(op: op, message: $"TopLeft must be finite and >= 0 (got {topLeft:R})."),
+            (_, false, _, _) => UiFault.Create(op: op, message: $"TopRight must be finite and >= 0 (got {topRight:R})."),
+            (_, _, false, _) => UiFault.Create(op: op, message: $"BottomRight must be finite and >= 0 (got {bottomRight:R})."),
+            (_, _, _, false) => UiFault.Create(op: op, message: $"BottomLeft must be finite and >= 0 (got {bottomLeft:R})."),
         };
+    }
 
     private static bool Valid(float corner) => float.IsFinite(corner) && corner >= 0f;
 
@@ -319,9 +319,6 @@ public partial record DrawMark {
     public static DrawMark WirePreview(PointF source, PointF target, WireKind kind = WireKind.Tentative) =>
         new WireCase(Source: source, Target: target, Kind: kind, Style: new PaintStyle(Edge: Colors.Transparent));
 
-    // State-threaded dispatch: scope flows through `state` so every arm stays `static` (no closure
-    // capture per-paint). Each arm receives (scope, case-payload) and dispatches to the appropriate
-    // shape/text/image/wire primitive.
     internal Fin<Unit> Apply(PaintScope scope) =>
         Try.lift(f: () => Switch(state: scope,
             lineCase: static (s, line) => Draw(scope: s, style: line.Style, run: graphics => {
@@ -368,7 +365,7 @@ public partial record DrawMark {
                 return unit;
             }),
             wireCase: static (s, w) => DrawWire(scope: s, wire: w)
-        )).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(DrawMark)), detail: $"{GetType().Name} draw failed: {error.Message}"));
+        )).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: $"DrawMark.{GetType().Name}"), detail: $"draw failed: {error.Message}"));
 
     private static Unit Draw(PaintScope scope, PaintStyle style, Func<Graphics, Unit> run) {
         Graphics graphics = scope.Graphics.Content;
@@ -434,9 +431,9 @@ public abstract record PaintRequest<T> : GhUiRequest<T> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
         internal override Fin<PaintSkinSnapshot> Apply(GrasshopperUi.Scope scope) => Paint.Skin().Run(scope: scope);
     }
-    public sealed record Hook(CanvasPaintPhase Phase, DrawPlan Plan) : PaintRequest<Subscription> {
+    public sealed record Hook(CanvasPaintPhase Phase, DrawPlan Plan, bool UseDisplayLink = false) : PaintRequest<Subscription> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
-        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.Hook(phase: Phase, paint: Plan.Apply).Run(scope: scope);
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.Hook(phase: Phase, paint: Plan.Apply, useDisplayLink: UseDisplayLink).Run(scope: scope);
     }
     public sealed record RedrawOnMouseMove(bool Enabled = true) : PaintRequest<Unit> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Canvas);
@@ -453,11 +450,15 @@ internal static partial class Paint {
                 SkinType: skin.GetType().FullName ?? skin.GetType().Name,
                 Skin: Some(skin))));
 
-    internal static GrasshopperUiIntent<Subscription> Hook(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> paint) =>
+    // Paint.Hook pairs Resume/Pause symmetrically inside attach/detach (no PauseWhenFinished
+    // equivalent like Motion.* methods have), so the Pacer's `active` counter stays balanced
+    // when Paint hooks share a Canvas with Motion runners.
+    internal static GrasshopperUiIntent<Subscription> Hook(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> paint, bool useDisplayLink = false) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from valid in Optional(paint).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null paint callback"))
             from validPhase in Optional(phase).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null phase"))
+            from pacer in Motion.PacerOption(canvas: canvas, useDisplayLink: useDisplayLink)
             let handler = (EventHandler<CanvasPaintEventArgs>)((_, args) => GrasshopperUi.Protect(valid: () => valid(arg: new PaintScope(
                 Phase: validPhase,
                 Graphics: args.Graphics,
@@ -465,8 +466,14 @@ internal static partial class Paint {
                 Background = Optional(args as CanvasBackgroundPaintEventArgs),
             })).Ignore())
             from sub in Subscription.Bind(
-                attach: () => validPhase.Attach(canvas: canvas, handler: handler),
-                detach: () => validPhase.Detach(canvas: canvas, handler: handler),
+                attach: () => {
+                    _ = validPhase.Attach(canvas: canvas, handler: handler);
+                    _ = pacer is { IsSome: true, Case: Motion.Pacer p } ? p.Resume() : Op.Side(canvas.ScheduleRedraw);
+                },
+                detach: () => {
+                    _ = validPhase.Detach(canvas: canvas, handler: handler);
+                    _ = pacer is { IsSome: true, Case: Motion.Pacer p } ? Op.Side(() => { _ = p.Pause(); _ = p.Release(); }) : unit;
+                },
                 marshalToUi: true)
             select sub);
 

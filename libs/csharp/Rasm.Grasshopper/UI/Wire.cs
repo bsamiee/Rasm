@@ -114,12 +114,16 @@ public partial record WireQuery {
     public sealed record DanglingCase : WireQuery;
     public sealed record PickCase(PointF Point) : WireQuery;
     public sealed record GraphCase(Guid StartParameterId, WireTraversal Direction, int MaxHops) : WireQuery;
+    public sealed record LinearityCase(Seq<Guid> Ids) : WireQuery;
+    public sealed record TopologyCase(Seq<Guid> Ids) : WireQuery;
     public static readonly WireQuery All = new AllCase();
     public static readonly WireQuery Selected = new SelectedCase();
     public static readonly WireQuery Dangling = new DanglingCase();
     public static WireQuery Pick(PointF point) => new PickCase(Point: point);
     public static WireQuery Graph(Guid startParameterId, WireTraversal? direction = null, int maxHops = 32) =>
         new GraphCase(StartParameterId: startParameterId, Direction: direction ?? WireTraversal.Bidirectional, MaxHops: maxHops);
+    public static WireQuery Linearity(Seq<Guid> ids) => new LinearityCase(Ids: ids);
+    public static WireQuery Topology(Seq<Guid> ids) => new TopologyCase(Ids: ids);
 }
 
 [Union]
@@ -142,6 +146,8 @@ public partial record WireResult {
     public sealed record WireCase(WireSnapshot Wire) : WireResult;
     public sealed record GraphCase(WireGraph Graph) : WireResult;
     public sealed record MutationCase(Snapshot<DocumentMutationDelta> Delta) : WireResult;
+    public sealed record LinearityResult(WireLinearity Linearity) : WireResult;
+    public sealed record TopologyResult(GraphTopology Topology) : WireResult;
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -149,6 +155,9 @@ public partial record WireResult {
 public readonly record struct WireGraph(
     Seq<WireSnapshot.ConnectedCase> Wires,
     Seq<Guid> Visited);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct WireLinearity(bool IsLinear, Option<Guid> Start, Option<Guid> End);
 
 internal sealed record WireRequest(WireOp Op) : GhUiRequest<WireResult> {
     internal override GrasshopperUiPolicy Policy => Wire.PolicyOf(op: Op);
@@ -175,7 +184,9 @@ internal static partial class Wire {
             selectedCase: static _ => Selected().Map(static wires => (WireResult)new WireResult.WiresCase(Wires: wires)),
             danglingCase: static _ => Dangling().Map(static wires => (WireResult)new WireResult.WiresCase(Wires: wires)),
             pickCase: static p => Pick(point: p.Point).Map(static wire => (WireResult)new WireResult.WireCase(Wire: wire)),
-            graphCase: static g => Graph(startParameterId: g.StartParameterId, direction: g.Direction, maxHops: g.MaxHops).Map(static graph => (WireResult)new WireResult.GraphCase(Graph: graph)));
+            graphCase: static g => Graph(startParameterId: g.StartParameterId, direction: g.Direction, maxHops: g.MaxHops).Map(static graph => (WireResult)new WireResult.GraphCase(Graph: graph)),
+            linearityCase: static l => Linearity(ids: l.Ids).Map(static linearity => (WireResult)new WireResult.LinearityResult(Linearity: linearity)),
+            topologyCase: static t => Topology(ids: t.Ids).Map(static topology => (WireResult)new WireResult.TopologyResult(Topology: topology)));
 
     internal static GrasshopperUiIntent<Seq<WireSnapshot.ConnectedCase>> All() =>
         GhUi.Document(run: scope =>
@@ -248,6 +259,28 @@ internal static partial class Wire {
                 from changed in validEdit.Apply(methods: methods, objects: objs, source: source, target: target, actions: actions)
                 from committed in UiRail.CommitActions(document: doc, op: Op.Of(name: string.Create(CultureInfo.InvariantCulture, $"Wire.{validEdit}")), actions: actions)
                 select new DocumentMutationDelta(Changed: changed, After: UiRail.DocumentSnapshotOf(document: doc, objects: objs)));
+
+    internal static GrasshopperUiIntent<WireLinearity> Linearity(Seq<Guid> ids) =>
+        GhUi.Document(run: scope =>
+            from objects in scope.NeedObjects()
+            from result in Op.Of(name: nameof(Linearity)).Attempt(
+                body: () => {
+                    bool linear = objects.Connectivity.IsLinear(ids: [.. ids], first: out ConnectiveObject? start, last: out ConnectiveObject? end);
+                    return new WireLinearity(
+                        IsLinear: linear,
+                        Start: Optional(start?.Id).Filter(static g => g != Guid.Empty),
+                        End: Optional(end?.Id).Filter(static g => g != Guid.Empty));
+                },
+                what: "Connectivity.IsLinear")
+            select result);
+
+    internal static GrasshopperUiIntent<GraphTopology> Topology(Seq<Guid> ids) =>
+        GhUi.Document(run: scope =>
+            from objects in scope.NeedObjects()
+            from result in Op.Of(name: nameof(Topology)).Attempt(
+                body: () => objects.Connectivity.SubsetTopology(ids: [.. ids]),
+                what: "Connectivity.SubsetTopology")
+            select result);
 
     internal static GrasshopperUiIntent<WireGraph> Graph(Guid startParameterId, WireTraversal? direction = null, int maxHops = 32) =>
         GhUi.Document(run: scope =>

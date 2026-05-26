@@ -20,8 +20,6 @@ namespace Rasm.Grasshopper.UI;
 // --- [TYPES] ------------------------------------------------------------------------------
 public interface IMotionVector<T> {
     public T Zero { get; }
-    // Per-type rest threshold. Color channels are [0,1] (1/255 = 1 visual quanta); pixel-quantized
-    // PointF/SizeF/RectangleF cross visual rest at half a logical pixel; scalars at 1e-3 normalized.
     public float RestEpsilon { get; }
     public T Add(T a, T b);
     public T Subtract(T a, T b);
@@ -30,25 +28,19 @@ public interface IMotionVector<T> {
     public T Interpolate(T value0, T value1, double factor);
 }
 
-// Polymorphic runner contract. SpringRunnerState and PulseRunnerState implement this so a single
-// MotionRunner<TState> drives both spring physics and pulse tweens through static dispatch.
 internal interface IMotionState<TSelf> where TSelf : struct, IMotionState<TSelf> {
-    public TSelf Step();              // pure compute: integrate / reissue / no-op
-    public Unit Emit();               // side effect: invoke sink with current value
-    public bool IsActive { get; }     // continue ticking next frame?
-    public TSelf MergeInto(TSelf live); // preserve concurrent mutator updates (e.g., SpringHandle.Retarget)
+    public TSelf Step();
+    public Unit Emit();
+    public bool IsActive { get; }
+    public TSelf MergeInto(TSelf live);
 }
 
-// Polymorphic easing surface — 16 GH2-native cases delegate to MotionEquations.Blend; 30 closed-form
-// Penner cases (Sine/Quad/Cubic/Quart/Quint/Expo/Circ/Back/Elastic/Bounce × In/Out/InOut) implement the
-// canonical formulae inline. Pre-multiplied to a per-case `Func<double, double>` at registration
-// time so the hot 60 Hz tick path pays only the partial method invoke + a single virtual delegate dispatch.
+// Penner closed-form curves pre-multiplied to Func<double,double> at registration — hot 60Hz tick
+// pays only the virtual delegate dispatch. Constants per Robert Penner (easings.net).
 [SmartEnum<int>]
 public sealed partial class Easing {
     private delegate double EasingCurve(double t);
 
-    // Robert Penner's easing constants (easings.net / robertpenner.com/easing). Back overshoot
-    // magnitudes (c2 = c1 * 1.525 for the InOut variant); Bounce piecewise normalization (n1, d1).
     private const double BackC1 = 1.70158;
     private const double BackC3 = BackC1 + 1.0;
     private const double BackC2 = BackC1 * 1.525;
@@ -182,9 +174,6 @@ public abstract record MotionRequest<T> : GhUiRequest<T> {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// Mass-spring-damper coefficients with construction-time finite+positivity invariants. Generated
-// Create(...) factory enforces physics admission so the semi-implicit Euler step at
-// SpringRunnerState.Step cannot receive NaN/zero/negative values that would explode the integrator.
 [ComplexValueObject]
 [ValidationError<UiFault>]
 [StructLayout(LayoutKind.Auto)]
@@ -194,13 +183,15 @@ public readonly partial struct SpringConfig {
     public float Mass { get; }
 
     [BoundaryAdapter]
-    static partial void ValidateFactoryArguments(ref UiFault? validationError, ref float stiffness, ref float damping, ref float mass) =>
+    static partial void ValidateFactoryArguments(ref UiFault? validationError, ref float stiffness, ref float damping, ref float mass) {
+        Op op = Op.Of(name: nameof(SpringConfig));
         validationError = (float.IsFinite(stiffness) && stiffness > 0f, float.IsFinite(damping) && damping >= 0f, float.IsFinite(mass) && mass > 0f) switch {
             (true, true, true) => null,
-            (false, _, _) => UiFault.Create(message: $"SpringConfig.Stiffness must be finite and > 0 (got {stiffness:R})."),
-            (_, false, _) => UiFault.Create(message: $"SpringConfig.Damping must be finite and >= 0 (got {damping:R})."),
-            (_, _, false) => UiFault.Create(message: $"SpringConfig.Mass must be finite and > 0 (got {mass:R})."),
+            (false, _, _) => UiFault.Create(op: op, message: $"Stiffness must be finite and > 0 (got {stiffness:R})."),
+            (_, false, _) => UiFault.Create(op: op, message: $"Damping must be finite and >= 0 (got {damping:R})."),
+            (_, _, false) => UiFault.Create(op: op, message: $"Mass must be finite and > 0 (got {mass:R})."),
         };
+    }
 
     public static SpringConfig Response(float response, float dampingFraction, float mass = 1f) {
         float twoPiOverR = (float)(2.0 * Math.PI) / response;
@@ -217,16 +208,11 @@ public readonly partial struct SpringConfig {
 }
 
 [StructLayout(LayoutKind.Auto)]
-// `Clock` is the injectable time source (defaults to `TimeProvider.System` at construction). Tests
-// can substitute `FakeTimeProvider` to advance time deterministically — the integrator never reads
-// the wall clock directly. `Timestamp` is the last-frame timestamp in `Clock.TimestampFrequency`
-// units (matches Stopwatch.Frequency for the default System provider).
 internal readonly record struct SpringRunnerState<T>(
     T Value, T Velocity, T Target,
     SpringConfig Config, IMotionVector<T> Vector,
     Action<T> Sink, TimeProvider Clock, long Timestamp) : IMotionState<SpringRunnerState<T>> {
-    // Semi-implicit Euler step with frame-rate clamp. Displacement = current - target;
-    // force = -k*displacement - b*velocity; a = F / m.
+    // Semi-implicit Euler: F = -k·displacement - b·velocity; a = F/m; v += a·dt; x += v·dt.
     public SpringRunnerState<T> Step() {
         long now = Clock.GetTimestamp();
         float dt = Math.Min(val1: (float)Clock.GetElapsedTime(startingTimestamp: Timestamp, endingTimestamp: now).TotalSeconds, val2: Motion.MaxFrameDelta);
@@ -246,8 +232,6 @@ internal readonly record struct SpringRunnerState<T>(
     public bool IsActive =>
         !((Vector.Norm(Vector.Subtract(Value, Target)) < Vector.RestEpsilon) && (Vector.Norm(Velocity) < Vector.RestEpsilon));
 
-    // Preserve any concurrent Target/Sink updates from SpringHandle.Retarget by merging only the
-    // integrator-owned fields back into the live cell value.
     public SpringRunnerState<T> MergeInto(SpringRunnerState<T> live) =>
         live with { Value = Value, Velocity = Velocity, Timestamp = Timestamp };
 }
@@ -296,8 +280,6 @@ internal readonly record struct PulseRunnerState<T>(
     int CyclesRemaining,
     IMotionVector<T> Vector,
     Action<T> Sink) : IMotionState<PulseRunnerState<T>> {
-    // Reissue a fresh animator when the current cycle finishes and more remain; yoyo reverses
-    // endpoints on each reissue. Non-cycling completion is a no-op (IsActive returns false next).
     public PulseRunnerState<T> Step() =>
         (Animated.State == GhState.Finished, Infinite || CyclesRemaining > 0) switch {
             (true, true) => this with {
@@ -321,8 +303,6 @@ internal readonly record struct PulseRunnerState<T>(
 }
 
 public static class MotionVector {
-    // Rest-epsilon vocabulary: scalars at 1e-3 normalized; pixel-quantized geometry rests at half a
-    // logical pixel; channel-quantized colors rest at one byte of visual delta (1/255).
     private const float ScalarRest = 0.001f;
     private const float PixelRest = 0.5f;
     private const float ChannelRest = 1f / 255f;
@@ -375,10 +355,8 @@ public static class MotionVector {
         scale: static (v, s) => new Color(red: v.R * s, green: v.G * s, blue: v.B * s, alpha: v.A * s),
         norm: static v => Math.Max(Math.Max(Math.Abs(v.R), Math.Abs(v.G)), Math.Max(Math.Abs(v.B), Math.Abs(v.A))),
         interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
-    // Process-wide phase clock. `Phase(period)` returns a value in [0, 1) advancing linearly over
-    // `period`. Multiple animations sharing the same period stay phase-locked (e.g., two hover halos
-    // pulsing together) — they sample the same wall clock divided by the same period. The clock is
-    // driven by TimeProvider.System (mach_absolute_time on macOS, monotonic, no NTP drift).
+    // Wall-clock phase in [0, 1) advancing linearly over `period`; shared period stays phase-locked
+    // across animations. Defaults to TimeProvider.System (mach_absolute_time on macOS, monotonic).
     public static double Phase(TimeSpan period, TimeProvider? clock = null) {
         TimeProvider source = clock ?? TimeProvider.System;
         double seconds = (double)source.GetTimestamp() / source.TimestampFrequency;
@@ -395,9 +373,8 @@ public static class MotionVector {
         norm: static v => Math.Max(Math.Max(Math.Abs(v.R), Math.Abs(v.G)), Math.Max(Math.Abs(v.B), Math.Abs(v.A))),
         interpolate: HslInterpolate);
 
-    // Perceptual OKLab interpolation (Björn Ottosson, CSS Color Level 4). Saturated transitions
-    // avoid the dead-grey midpoint of sRGB lerp — red → green passes through olive/yellow-green
-    // instead of muddy grey. Hue, lightness, and chroma move on perceptually uniform axes.
+    // OKLab perceptual interpolation (Björn Ottosson 2020; CSS Color Level 4). Saturated
+    // transitions avoid the dead-grey midpoint of sRGB lerp.
     public static readonly IMotionVector<Color> ColorOklab = new MotionVectorImpl<Color>(
         zero: new Color(red: 0f, green: 0f, blue: 0f, alpha: 0f),
         restEpsilon: ChannelRest,
@@ -407,8 +384,7 @@ public static class MotionVector {
         norm: static v => Math.Max(Math.Max(Math.Abs(v.R), Math.Abs(v.G)), Math.Max(Math.Abs(v.B), Math.Abs(v.A))),
         interpolate: OklabInterpolate);
 
-    // Cylindrical OKLab (OKLCH): perceptual lightness + chroma + hue. Hue uses shortest-arc
-    // wrap like ColorHSL, but lightness/chroma travel in OKLab space — gradients stay vivid.
+    // OKLCH: cylindrical OKLab; hue takes shortest arc, lightness/chroma travel in OKLab space.
     public static readonly IMotionVector<Color> ColorOklch = new MotionVectorImpl<Color>(
         zero: new Color(red: 0f, green: 0f, blue: 0f, alpha: 0f),
         restEpsilon: ChannelRest,
@@ -432,9 +408,7 @@ public static class MotionVector {
     }
 
     // --- [OKLAB CONVERSION] ----------------------------------------------------------------
-    // Björn Ottosson 2020: https://bottosson.github.io/posts/oklab/
-    // sRGB → linear → LMS → OKLab and back. Each conversion is 3 multiplies + a sum per channel;
-    // total per-interpolation cost is ~12 cube roots + ~24 multiply-adds. Negligible at UI rates.
+    // Björn Ottosson 2020 (bottosson.github.io/posts/oklab). sRGB → linear → LMS → OKLab and back.
     private static Color OklabInterpolate(Color a, Color b, double factor) {
         (float la, float aa, float ba) = SrgbToOklab(a);
         (float lb, float ab, float bb) = SrgbToOklab(b);
@@ -504,9 +478,7 @@ public static class MotionVector {
         c <= 0.0031308f ? 12.92f * c : (1.055f * MathF.Pow(c, 1f / 2.4f)) - 0.055f;
 }
 
-// Internal delegate-driven IMotionVector<T> carrier. Named *Impl to avoid clashing with
-// System.Numerics.Vector<T> SIMD primitive — collision matters once any caller imports
-// System.Numerics for vectorized math.
+// Named *Impl to avoid clashing with System.Numerics.Vector<T> on any caller importing SIMD.
 internal sealed class MotionVectorImpl<T>(
     T zero,
     float restEpsilon,
@@ -549,8 +521,7 @@ public static class Glyph {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static class Motion {
-    // Frame-rate clamp on the integrator dt. Prevents spring instability when the window stalls
-    // (e.g., debugger break, long GC pause). Equivalent to "minimum 30 fps" assumption.
+    // Integrator dt clamp — prevents spring blowup on debugger/GC stalls (33ms = 30fps floor).
     internal const float MaxFrameDelta = 1f / 30f;
 
     internal static GrasshopperUiIntent<Subscription> Tween<TValue>(
@@ -604,12 +575,11 @@ internal static class Motion {
                 subscription: bundle.Subscription,
                 wake: bundle.Wake));
 
-    // Pacer-aware subscription bundle for any motion intent. When the Pacer is present the
-    // composite owns its Release() — pool refcount decrements at detach, physical teardown runs at
-    // the final release. Wake routes to Resume (vsync) or canvas.ScheduleRedraw (message-loop).
+    // Pacer-aware Subscription bundle: when present, composite owns Release() so pool refcount
+    // decrements at detach. Wake routes to Resume (vsync) or canvas.ScheduleRedraw (message-loop).
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
         Justification = "Subscription.Atom is consumed by the Subscription `|` operator and disposed via the returned composite.")]
-    private static (Subscription Subscription, Action Wake) MotionBundleOf(
+    internal static (Subscription Subscription, Action Wake) MotionBundleOf(
         Option<Pacer> pacer, Subscription sub, Grasshopper2.UI.Canvas.Canvas canvas) {
         if (pacer is not { IsSome: true, Case: Pacer p }) {
             return (Subscription: sub, Wake: canvas.ScheduleRedraw);
@@ -619,13 +589,10 @@ internal static class Motion {
         void WakeFn() => p.Resume().Ignore();
     }
 
-    private static Fin<Option<Pacer>> PacerOption(Grasshopper2.UI.Canvas.Canvas canvas, bool useDisplayLink) =>
+    internal static Fin<Option<Pacer>> PacerOption(Grasshopper2.UI.Canvas.Canvas canvas, bool useDisplayLink) =>
         useDisplayLink ? Pacer.For(canvas: canvas).Map(Some) : Fin.Succ(Option<Pacer>.None);
 
-    // Finite-animation paint-hook helper: pause the optional Pacer once the underlying Animated<T>
-    // reaches Finished, so vsync ticks stop without disposing the subscription. Returns unit so the
-    // caller can sit at the tail of a Try.lift body and forward into Fin<Unit>.
-    private static Unit PauseWhenFinished(GhState state, Option<Pacer> pacer) {
+    internal static Unit PauseWhenFinished(GhState state, Option<Pacer> pacer) {
         if (state == GhState.Finished && pacer is { IsSome: true, Case: Pacer p }) {
             _ = p.Pause();
         }
@@ -735,10 +702,6 @@ internal static class Motion {
                 }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(ZoomGate)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
             select sub);
 
-    // Unified motion capsule: state owns Step/Emit/IsActive/MergeInto; runner owns the cell+canvas
-    // plumbing, the cached applyScratch closure, and the redraw schedule. When pacer is Some, the
-    // wantingTicks gate ensures Pacer.Resume / Pause fire only on transitions — concurrent runners
-    // sharing a pooled Pacer can independently raise/drop the want-tick refcount.
     internal sealed class MotionRunner<TState> where TState : struct, IMotionState<TState> {
         private readonly Atom<TState> cell;
         private readonly Grasshopper2.UI.Canvas.Canvas canvas;
@@ -772,10 +735,8 @@ internal static class Motion {
             return unit;
         }
 
-        // Wake/Sleep run on the canvas paint thread (CanvasPaintPhase.BeforeBackground hook) which
-        // GH2 dispatches on the main UI thread; Pacer.Resume/Pause therefore see serialized calls.
-        // With pacer: only Resume on the 0→1 want-tick edge; the message-loop fallback re-schedules
-        // every tick (Eto coalesces) so transition-gating is unnecessary there.
+        // Pacer path: Resume only on 0→1 want-tick edge (serialized by canvas paint thread).
+        // Fallback path: ScheduleRedraw every tick — Eto coalesces, no edge gate needed.
         private Unit Wake() {
             if (pacer is { IsSome: true, Case: Pacer p }) {
                 return Interlocked.Exchange(ref wantingTicks, 1) == 0 ? p.Resume() : unit;
@@ -790,10 +751,8 @@ internal static class Motion {
                 : unit;
     }
 
-    // Canvas-scoped vsync scheduler. View-bound CADisplayLink auto-tracks the screen the canvas
-    // moves across (WWDC23: NSView.GetDisplayLink). Pooled per Canvas via ConditionalWeakTable so
-    // concurrent springs/pulses on one canvas share one link; refCount drives physical teardown,
-    // active drives the Paused gate while any subscriber still wants ticks.
+    // Vsync scheduler: NSView.GetDisplayLink auto-tracks screens (WWDC23). Pooled per Canvas via
+    // ConditionalWeakTable; refCount drives teardown, active drives Paused gate.
     [SupportedOSPlatform("macos14.0")]
     internal sealed class Pacer : NSObject {
         private static readonly Selector TickSelector = new("tick:");
@@ -817,9 +776,8 @@ internal static class Motion {
             link.AddToRunLoop(runloop: NSRunLoop.Main, mode: NSRunLoopMode.Common.GetConstant()!);
         }
 
-        // Pooled accessor. Default frame-rate range covers ProMotion adaptive (30-120 preferred 120)
-        // on M-series displays. Construction surfaces NSView cast failure on the Fin rail; the
-        // CAS-style re-check after construction adopts a peer entry if a concurrent For() raced.
+        // Default range covers ProMotion adaptive (30-120 preferred 120). CAS-style re-check after
+        // construction adopts a peer entry if a concurrent For() raced.
         internal static Fin<Pacer> For(Grasshopper2.UI.Canvas.Canvas canvas, CAFrameRateRange? rate = null) {
             using (PoolGate.EnterScope()) {
                 if (Pool.TryGetValue(canvas, out Pacer? existing)) {
@@ -860,8 +818,7 @@ internal static class Motion {
         [Export("tick:")]
         public void Tick(CADisplayLink sender) => canvas.ScheduleRedraw();
 
-        // Subscriber-refcounted gate. Increment unpauses the link unconditionally (Paused=false is
-        // idempotent); decrement only re-pauses when the last wanting subscriber drops out.
+        // Refcounted Paused gate — decrement re-pauses only when last subscriber drops out.
         internal Unit Resume() {
             _ = Interlocked.Increment(ref active);
             link.Paused = false;
@@ -875,8 +832,7 @@ internal static class Motion {
             return unit;
         }
 
-        // Final decrement disposes physically. Held inside PoolGate so a concurrent For() cannot
-        // adopt an entry that is mid-teardown.
+        // Final refcount decrement disposes physically; PoolGate prevents adoption mid-teardown.
         internal Unit Release() {
             using (PoolGate.EnterScope()) {
                 if (Interlocked.Decrement(ref refCount) > 0) {

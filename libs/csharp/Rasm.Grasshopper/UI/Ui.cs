@@ -30,18 +30,13 @@ public partial record RepaintRequest {
     public sealed record DisplayCase : RepaintRequest;
     public sealed record SolutionAndDisplayCase : RepaintRequest;
 
-    // State-threaded dispatch over the 8 cases. Scope flows through `state` so every arm can stay
-    // `static` (zero closure capture). Explicit type arguments select the Func-returning Switch
-    // overload (the codegen also emits a void Action variant that would otherwise win for the
-    // unit-returning arms). Outer parameters use named bindings to keep inner `_ = ...` discards
-    // unambiguous under static-anonymous-function rules.
     internal Unit ApplyTo(GrasshopperUi.Scope scope) =>
         Switch(state: scope,
             noneCase: static (_, _) => unit,
             objectCase: static (s, o) => s.Canvas.Bind(canvas => s.Objects.Map(objects =>
-                Optional(objects.Find(instanceId: o.Id)).Match(
-                    Some: target => { canvas.Invalidate(rect: GrasshopperUi.ControlSpace(canvas: canvas, bounds: target.Attributes.AggregateBounds)); return unit; },
-                    None: () => { canvas.Invalidate(); return unit; }))).IfNone(unit),
+                Optional(objects.Find(instanceId: o.Id))
+                    .Map(target => { canvas.Invalidate(rect: GrasshopperUi.ControlSpace(canvas: canvas, bounds: target.Attributes.AggregateBounds)); return unit; })
+                    .IfNone(() => { canvas.Invalidate(); return unit; }))).IfNone(unit),
             regionCase: static (s, r) => s.Canvas.IfSome(canvas => canvas.Invalidate(rect: GrasshopperUi.ControlSpace(canvas: canvas, bounds: r.Bounds))),
             canvasCase: static (s, _) => s.Canvas.IfSome(static canvas => canvas.Invalidate()),
             scheduledCase: static (s, _) => s.Canvas.IfSome(static canvas => canvas.ScheduleRedraw()),
@@ -79,9 +74,8 @@ public partial record RepaintRequest {
     public static RepaintRequest BitwiseOr(RepaintRequest left, RepaintRequest right) => left | right;
 }
 
-// Auto covers both the "no undo recording" intent (caller will commit actions via UiRail.CommitActions)
-// and the "GH built-in produces no actions" intent (Select/DeselectWire). Manual captures actions through
-// the supplied record delegate.
+// Auto: caller commits via UiRail.CommitActions OR built-in produces no actions (Select/DeselectWire).
+// Manual: caller-supplied record delegate captures the action list.
 [Union]
 internal partial record UndoStrategy {
     private UndoStrategy() { }
@@ -101,7 +95,7 @@ public partial record Subscription : IDisposable {
 
     public static readonly Subscription Empty = new EmptyCase();
     public static Subscription Atom(System.Action detach, bool marshalToUi = false) => new AtomCase(Detach: detach, MarshalToUi: marshalToUi);
-    // Members are stored LIFO (most-recently-acquired first) so Dispose iterates in detach order without allocating a reversed view.
+    // Members stored LIFO so Dispose iterates in detach order without a reversed view allocation.
     public static Subscription Composite(Seq<Subscription> members) =>
         members.Count switch {
             0 => Empty,
@@ -303,12 +297,11 @@ public abstract partial record UiFault : Expected, IValidationError<UiFault> {
     public static UiFault ThreadMarshal(string detail) => new ThreadMarshalCase(Detail: detail);
     public static UiFault Cancelled(Op op) => new CancelledCase(Op: op);
 
-    // IValidationError<UiFault> — required by [ValidationError<UiFault>] on the validated VOs
-    // (ZoomFactor, SpringConfig, CornerRadii). The generator routes Validate(...) failures through
-    // this factory so the typed UiFault rail flows straight through Create/TryCreate without a
-    // ValidationException → MapFail bridge per call site.
-    public static UiFault Create(string message) =>
-        InvalidInput(op: Op.Of(name: "Validation"), detail: message);
+    // IValidationError<UiFault> — required by [ValidationError<UiFault>] on validated VOs. The
+    // Op-bearing overload preserves call-site provenance (nameof(SpringConfig)/CornerRadii/ZoomFactor);
+    // the unary form is kept for the interface contract and defaults Op to "Validation".
+    public static UiFault Create(string message) => Create(op: Op.Of(name: "Validation"), message: message);
+    public static UiFault Create(Op op, string message) => InvalidInput(op: op, detail: message);
 }
 
 public static partial class OpUiExtensions {
@@ -500,10 +493,8 @@ public sealed partial record GrasshopperUi {
                     from _ in RecordUndo(scope: scope, op: op, undo: undo)
                     select Snapshot.Of(payload: delta, ownerId: scope.Document.Map(d => d.Hash)));
 
-    // Two-phase commit: PrepareUndo captures pre-state on each Action without committing to History;
-    // a cancellation check between prepare and Do() prevents leaving the document mutated with no
-    // undo entry. GH2 doc (Action.PrepareUndo): "a call to PrepareUndo is not necessarily followed
-    // by a call to PerformUndo".
+    // Two-phase commit: PrepareUndo captures pre-state on each Action; cancellation check between
+    // prepare and Do() prevents the document from being mutated without an undo entry.
     private static Fin<Unit> RecordUndo(Scope scope, Op op, UndoStrategy undo) =>
         undo switch {
             UndoStrategy.AutoCase => Fin.Succ(value: unit),

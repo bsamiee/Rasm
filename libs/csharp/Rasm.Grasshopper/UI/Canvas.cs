@@ -25,6 +25,12 @@ public enum CanvasWindowScope {
     All = Objects | Wires | Groups,
 }
 
+[Flags]
+public enum CanvasPickPolicy {
+    None = 0, Grips = 1, Foreground = 2, Background = 4, Wires = 8, Recursive = 16,
+    All = Grips | Foreground | Background | Wires | Recursive,
+}
+
 [Union]
 public partial record CanvasFitTarget {
     private CanvasFitTarget() { }
@@ -75,7 +81,7 @@ public partial record CanvasViewOp {
 public partial record CanvasOp {
     private CanvasOp() { }
     public sealed record SnapshotCase(bool OpenEditor) : CanvasOp;
-    public sealed record PickCase(PointF Point, CoordinateSystem Source) : CanvasOp;
+    public sealed record PickCase(PointF Point, CoordinateSystem Source, CanvasPickPolicy Policy) : CanvasOp;
     public sealed record MapCase(CanvasLocus Locus, CoordinateSystem From, CoordinateSystem To) : CanvasOp;
     public sealed record InvalidateCase(RepaintRequest Repaint) : CanvasOp;
     public sealed record InstantiateCase(Option<string> SearchText, bool MouseCentred) : CanvasOp;
@@ -91,7 +97,7 @@ public partial record CanvasOp {
     public sealed record WindowSelectCase(WindowSelection Window, Grasshopper2.Extensions.SelectionMode Mode, CanvasWindowScope Scope) : CanvasOp;
 
     public static CanvasOp Snapshot(bool openEditor = false) => new SnapshotCase(OpenEditor: openEditor);
-    public static CanvasOp Pick(PointF point, CoordinateSystem source = CoordinateSystem.Content) => new PickCase(Point: point, Source: source);
+    public static CanvasOp Pick(PointF point, CoordinateSystem source = CoordinateSystem.Content, CanvasPickPolicy policy = CanvasPickPolicy.All) => new PickCase(Point: point, Source: source, Policy: policy);
     public static CanvasOp Map(CanvasLocus locus, CoordinateSystem from, CoordinateSystem to) => new MapCase(Locus: locus, From: from, To: to);
     public static CanvasOp Invalidate(RepaintRequest? repaint = null) => new InvalidateCase(Repaint: repaint ?? RepaintRequest.Canvas);
     public static CanvasOp Instantiate(string? searchText = null, bool mouseCentred = true) => new InstantiateCase(SearchText: Optional(searchText), MouseCentred: mouseCentred);
@@ -152,9 +158,7 @@ public readonly record struct CanvasInteractionSnapshot(CanvasInteractionPolicy 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasProjectionPolicy(Option<PointF> Centre = default, Option<float> Zoom = default);
 
-// Canonical zoom-factor primitive. Float not double — Eto.Drawing zoom and GH2 Projection are float-keyed.
-// `[ValidationError<UiFault>]` routes admission failures through `UiFault.Create(string)` so callers see a
-// typed UiFault on the Fin rail without a per-call-site MapFail bridge.
+// Float not double — Eto.Drawing zoom and GH2 Projection are float-keyed.
 [ValueObject<float>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ValidationError<UiFault>]
 public readonly partial struct ZoomFactor {
@@ -162,7 +166,7 @@ public readonly partial struct ZoomFactor {
     static partial void ValidateFactoryArguments(ref UiFault? validationError, ref float value) =>
         validationError = float.IsFinite(value) && value is > 0f and <= 1000f
             ? null
-            : UiFault.Create(message: string.Create(CultureInfo.InvariantCulture, $"ZoomFactor must be finite within (0, 1000] (got {value:R})."));
+            : UiFault.Create(op: Op.Of(name: nameof(ZoomFactor)), message: string.Create(CultureInfo.InvariantCulture, $"must be finite within (0, 1000] (got {value:R})."));
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -304,9 +308,7 @@ internal sealed record CanvasRequest(CanvasOp Op) : GhUiRequest<CanvasResult> {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class UiRail {
-    // Maximum pixel dimension for canvas bitmap render. Bound matches Eto.Drawing.Bitmap's practical
-    // limit on macOS Quartz (16k × 16k px = ~1 GB for 32-bit BGRA — beyond this, allocation fails or
-    // Quartz silently downsamples). Keeping it consts here lets the validation message stay in sync.
+    // Quartz practical max on macOS (16k × 16k BGRA ≈ 1 GB; beyond this Quartz downsamples silently).
     internal const int MaxRenderDimension = 16384;
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -318,7 +320,13 @@ internal static partial class UiRail {
             Op.Of(name: nameof(CanvasOp.Pick)).AcceptPoint(value: p.Point, detail: "non-finite point")
                 .Bind(valid => scope.NeedCanvas().Map(canvas => {
                     PointF content = p.Source == CoordinateSystem.Content ? valid : canvas.Map(point: valid, from: p.Source, to: CoordinateSystem.Content);
-                    SelectionResult result = canvas.ResolvePick(point: content, includeGrips: true, includeForeground: true, includeBackground: true, includeWires: true, recursive: true);
+                    SelectionResult result = canvas.ResolvePick(
+                        point: content,
+                        includeGrips: (p.Policy & CanvasPickPolicy.Grips) == CanvasPickPolicy.Grips,
+                        includeForeground: (p.Policy & CanvasPickPolicy.Foreground) == CanvasPickPolicy.Foreground,
+                        includeBackground: (p.Policy & CanvasPickPolicy.Background) == CanvasPickPolicy.Background,
+                        includeWires: (p.Policy & CanvasPickPolicy.Wires) == CanvasPickPolicy.Wires,
+                        recursive: (p.Policy & CanvasPickPolicy.Recursive) == CanvasPickPolicy.Recursive);
                     return (CanvasResult)new CanvasResult.PickResult(Pick: PickSnapshotOf(result: result));
                 })),
         CanvasOp.MapCase m =>

@@ -25,8 +25,7 @@ public partial record TooltipPainter {
     public static TooltipPainter TextAndIcon(params object[] elements) => new TextAndIconCase(Elements: toSeq(elements));
     public static TooltipPainter Custom(Action<EtoContext, Rectangle> paint, Size paintingSize) => new CustomCase(Paint: paint, PaintingSize: paintingSize);
 
-    // GH2 CreateShortcutPainter / CreateTextAndIconPainter both return (Action, Size) — deconstruct
-    // once at boundary so Show() can pass painter + paintingSize as separate args.
+    // GH2 painters return (Action, Size); deconstruct here so Show() passes them as separate args.
     internal (Action<EtoContext, Rectangle> Paint, Size Size) Resolve() =>
         Switch(
             shortcutKeysCase: static s => GhTooltip.CreateShortcutPainter(prefix: s.Prefix, keys: s.Keys, suffix: s.Suffix),
@@ -70,33 +69,32 @@ public abstract record TooltipRequest<T> : GhUiRequest<T> {
     }
 }
 
+public readonly record struct FloatingButtonHandlers(
+    Option<FloatingButtonHandler> Click = default,
+    Option<FloatingButtonHandler> MouseDown = default,
+    Option<FloatingButtonHandler> MouseUp = default);
+
 public abstract record FloatingButtonRequest<T> : GhUiRequest<T> {
     public sealed record Add(
         FloatingPosition Position, string Name, string Info, IIcon Icon,
         Option<Color> Colour = default,
-        Option<FloatingButtonHandler> Click = default,
-        Option<FloatingButtonHandler> MouseDown = default,
-        Option<FloatingButtonHandler> MouseUp = default) : FloatingButtonRequest<Subscription> {
+        FloatingButtonHandlers Handlers = default) : FloatingButtonRequest<Subscription> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
         internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) =>
             FloatingButton.Add(position: Position, name: Name, info: Info, icon: Icon,
-                colour: Colour, click: Click, mouseDown: MouseDown, mouseUp: MouseUp).Run(scope: scope);
+                colour: Colour, handlers: Handlers).Run(scope: scope);
     }
     public sealed record AddAnchored(
         PointF Anchor, string Name, string Info, IIcon Icon,
         Option<Color> Colour = default,
-        Option<FloatingButtonHandler> Click = default,
-        Option<FloatingButtonHandler> MouseDown = default,
-        Option<FloatingButtonHandler> MouseUp = default) : FloatingButtonRequest<Subscription> {
+        FloatingButtonHandlers Handlers = default) : FloatingButtonRequest<Subscription> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
         internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) =>
             FloatingButton.AddAnchored(anchor: Anchor, name: Name, info: Info, icon: Icon,
-                colour: Colour, click: Click, mouseDown: MouseDown, mouseUp: MouseUp).Run(scope: scope);
+                colour: Colour, handlers: Handlers).Run(scope: scope);
     }
-    // MakeNumeric is a post-creation instance method on FloatingButton, but FloatingButtonCollection.Add
-    // returns void. The attach action therefore Adds, then FindByName-retrieves the just-added button,
-    // then upgrades via MakeNumeric — all three steps in one atomic install so Dispose sees a single
-    // Close(name) detach regardless of how far through the upgrade chain we reached.
+    // FloatingButtonCollection.Add returns void, so attach Adds + FindByName-retrieves + MakeNumeric
+    // atomically; Dispose detaches via the single Close(name) regardless of upgrade chain progress.
     public sealed record AddNumeric(
         FloatingPosition Position, string Name, string Info, IIcon Icon,
         GhUiNumber Value, string ValueKey,
@@ -106,21 +104,15 @@ public abstract record FloatingButtonRequest<T> : GhUiRequest<T> {
             FloatingButton.AddNumeric(position: Position, name: Name, info: Info, icon: Icon,
                 value: Value, valueKey: ValueKey, colour: Colour).Run(scope: scope);
     }
-    public sealed record ModifyInfo(string Name, string Info) : FloatingButtonRequest<Unit> {
+    public sealed record Modify(
+        string Name,
+        Option<string> Info = default,
+        Option<IIcon> Icon = default,
+        Option<Color> Colour = default,
+        Option<(PointF Point, bool Immediate)> Anchor = default) : FloatingButtonRequest<Unit> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
-        internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => FloatingButton.ModifyInfo(name: Name, info: Info).Run(scope: scope);
-    }
-    public sealed record ModifyIcon(string Name, IIcon Icon) : FloatingButtonRequest<Unit> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
-        internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => FloatingButton.ModifyIcon(name: Name, icon: Icon).Run(scope: scope);
-    }
-    public sealed record ModifyColour(string Name, Color Colour) : FloatingButtonRequest<Unit> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
-        internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => FloatingButton.ModifyColour(name: Name, colour: Colour).Run(scope: scope);
-    }
-    public sealed record ModifyAnchor(string Name, PointF Anchor, bool Immediate = false) : FloatingButtonRequest<Unit> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
-        internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => FloatingButton.ModifyAnchor(name: Name, anchor: Anchor, immediate: Immediate).Run(scope: scope);
+        internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) =>
+            FloatingButton.Modify(name: Name, info: Info, icon: Icon, colour: Colour, anchor: Anchor).Run(scope: scope);
     }
     public sealed record ShowNamed(Seq<string> Names) : FloatingButtonRequest<Unit> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
@@ -289,15 +281,15 @@ internal static class Tooltip {
 internal static class FloatingButton {
     internal static GrasshopperUiIntent<Subscription> Add(
         FloatingPosition position, string name, string info, IIcon icon,
-        Option<Color> colour, Option<FloatingButtonHandler> click, Option<FloatingButtonHandler> mouseDown, Option<FloatingButtonHandler> mouseUp) =>
+        Option<Color> colour, FloatingButtonHandlers handlers) =>
         Install(name: name, attach: canvas => canvas.FloatingButtons.Add(
             position: position, name: name, info: info,
             colour: ColourOf(colour), icon: icon,
-            click: click.IfNone(NoOp), mouseDown: mouseDown.IfNone(NoOp), mouseUp: mouseUp.IfNone(NoOp)));
+            click: handlers.Click.IfNone(NoOp), mouseDown: handlers.MouseDown.IfNone(NoOp), mouseUp: handlers.MouseUp.IfNone(NoOp)));
 
     internal static GrasshopperUiIntent<Subscription> AddAnchored(
         PointF anchor, string name, string info, IIcon icon,
-        Option<Color> colour, Option<FloatingButtonHandler> click, Option<FloatingButtonHandler> mouseDown, Option<FloatingButtonHandler> mouseUp) =>
+        Option<Color> colour, FloatingButtonHandlers handlers) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from validAnchor in Op.Of(name: nameof(AddAnchored)).AcceptPoint(value: anchor, detail: "non-finite anchor")
@@ -305,7 +297,7 @@ internal static class FloatingButton {
                 attach: () => canvas.FloatingButtons.AddAnchored(
                     anchor: validAnchor, name: name, info: info,
                     colour: ColourOf(colour), icon: icon,
-                    click: click.IfNone(NoOp), mouseDown: mouseDown.IfNone(NoOp), mouseUp: mouseUp.IfNone(NoOp)),
+                    click: handlers.Click.IfNone(NoOp), mouseDown: handlers.MouseDown.IfNone(NoOp), mouseUp: handlers.MouseUp.IfNone(NoOp)),
                 detach: () => canvas.FloatingButtons.Close(name),
                 marshalToUi: true)
             select sub);
@@ -322,23 +314,29 @@ internal static class FloatingButton {
                 .IfSome(button => button.MakeNumeric(number: value, valueKey: valueKey));
         });
 
-    internal static GrasshopperUiIntent<Unit> ModifyInfo(string name, string info) =>
-        Modify(op: Op.Of(name: nameof(ModifyInfo)), what: "ModifyInfo", apply: canvas => canvas.FloatingButtons.ModifyInfo(name: name, buttonInfo: info));
-
-    internal static GrasshopperUiIntent<Unit> ModifyIcon(string name, IIcon icon) =>
-        Modify(op: Op.Of(name: nameof(ModifyIcon)), what: "ModifyIcon", apply: canvas => canvas.FloatingButtons.ModifyIcon(name: name, icon: icon));
-
-    internal static GrasshopperUiIntent<Unit> ModifyColour(string name, Color colour) =>
-        Modify(op: Op.Of(name: nameof(ModifyColour)), what: "ModifyColour", apply: canvas => canvas.FloatingButtons.ModifyColour(name: name, colour: colour));
-
-    internal static GrasshopperUiIntent<Unit> ModifyAnchor(string name, PointF anchor, bool immediate) =>
+    internal static GrasshopperUiIntent<Unit> Modify(
+        string name,
+        Option<string> info = default,
+        Option<IIcon> icon = default,
+        Option<Color> colour = default,
+        Option<(PointF Point, bool Immediate)> anchor = default) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
-            from valid in Op.Of(name: nameof(ModifyAnchor)).AcceptPoint(value: anchor, detail: "non-finite anchor")
-            from _ in Op.Of(name: nameof(ModifyAnchor)).Attempt(
-                body: () => canvas.FloatingButtons.ModifyAnchor(name: name, anchor: valid, immediate: immediate),
-                what: "ModifyAnchor")
+            from validAnchor in ValidateAnchor(anchor: anchor)
+            from _ in Op.Of(name: nameof(Modify)).Attempt(
+                body: () => {
+                    _ = info.Iter(value => canvas.FloatingButtons.ModifyInfo(name: name, buttonInfo: value));
+                    _ = icon.Iter(value => canvas.FloatingButtons.ModifyIcon(name: name, icon: value));
+                    _ = colour.Iter(value => canvas.FloatingButtons.ModifyColour(name: name, colour: value));
+                    _ = validAnchor.Iter(av => canvas.FloatingButtons.ModifyAnchor(name: name, anchor: av.Point, immediate: av.Immediate));
+                },
+                what: "ModifyButton")
             select unit);
+
+    private static Fin<Option<(PointF Point, bool Immediate)>> ValidateAnchor(Option<(PointF Point, bool Immediate)> anchor) =>
+        anchor.Match(
+            Some: a => Op.Of(name: nameof(Modify)).AcceptPoint(value: a.Point, detail: "non-finite anchor").Map(p => Some((Point: p, a.Immediate))),
+            None: () => Fin.Succ(Option<(PointF Point, bool Immediate)>.None));
 
     internal static GrasshopperUiIntent<Unit> SetVisible(Seq<string> names, bool visible) =>
         GhUi.Canvas(run: scope =>
@@ -402,12 +400,6 @@ internal static class FloatingButton {
                 detach: () => canvas.FloatingButtons.Close(name),
                 marshalToUi: true)
             select sub);
-
-    private static GrasshopperUiIntent<Unit> Modify(Op op, string what, Action<GhCanvas> apply) =>
-        GhUi.Canvas(run: scope =>
-            from canvas in scope.NeedCanvas()
-            from _ in op.Attempt(body: () => apply(canvas), what: what)
-            select unit);
 
     private static Color? ColourOf(Option<Color> colour) =>
         colour is { IsSome: true, Case: Color picked } ? picked : null;
