@@ -27,8 +27,8 @@ public readonly record struct SpectralDescriptorPolicy(SpectralScaleNormalizatio
     internal bool IsValid => ScaleNormalization is not null && EnergyNormalization is not null && ZeroModePolicy is not null && CropCount.Map(static count => count.Value > 0).IfNone(true);
     internal bool IsRaw => ScaleNormalization.Equals(SpectralScaleNormalization.Raw) && EnergyNormalization.Equals(SpectralEnergyNormalization.Raw) && ZeroModePolicy.Equals(SpectralZeroModePolicy.Keep) && CropCount.IsNone;
     internal bool IsValueOnly => ScaleNormalization.Equals(SpectralScaleNormalization.Raw) && ZeroModePolicy.Equals(SpectralZeroModePolicy.Keep) && CropCount.IsNone;
-    internal static Fin<SpectralDescriptorPolicy> AdmitOrRaw(SpectralDescriptorPolicy policy, Op key) =>
-        policy.IsValid ? Fin.Succ(policy) : Fin.Succ(Raw);
+    internal static Fin<SpectralDescriptorPolicy> Admit(SpectralDescriptorPolicy policy, Op key) =>
+        policy.IsValid ? Fin.Succ(policy) : Fin.Fail<SpectralDescriptorPolicy>(key.InvalidInput());
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SpectralRankingPolicy(SpectralDescriptorPolicy Descriptor, SpectralDistanceKind Distance, SpectralTieBreak TieBreak) {
@@ -41,16 +41,20 @@ public readonly record struct SpectralRank(int Index, double Distance, SpectralD
 public readonly record struct SpectralRanking(SpectralDescriptor Query, Seq<SpectralRank> Items, SpectralRankingPolicy Policy);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralAssemblyReceipt(int VertexCount, int EdgeCount, int FaceCount, int AdmittedFaceCount, int SkippedDegenerateFaces, int SkippedMissingEdges, int SkippedInvalidNormals, int SkippedInvalidTangents, bool FlippedIntrinsicRejected, int MatrixRows, int MatrixCols, int NonZeros, int PositiveStar0Count, int PositiveStar1Count, int PositiveStar2Count, double BoundaryCompositionResidual, Option<int> Genus, int HarmonicDimension) {
+public readonly record struct SpectralAssemblyReceipt(int VertexCount, int EdgeCount, int FaceCount, int AdmittedFaceCount, int SkippedDegenerateFaces, int SkippedMissingEdges, int SkippedInvalidNormals, int SkippedInvalidTangents, bool FlippedIntrinsicRejected, int MatrixRows, int MatrixCols, int NonZeros, int PositiveStar0Count, int PositiveStar1Count, int PositiveStar2Count, double BoundaryCompositionResidual, Option<int> Genus, int HarmonicDimension, int BoundaryEdgeCount = 0, int BoundaryComponentCount = 0, int NonManifoldEdgeCount = 0, int EulerCharacteristic = 0, bool TopologyEulerValidated = false, int ComponentCount = 1, int PositiveMassCount = 0, double SymmetryResidual = 0.0, Option<int> FactorNonZeros = default, SpectralAssemblyKind Kind = default!) {
     internal bool IsValid =>
-        new[] { VertexCount, EdgeCount, FaceCount, AdmittedFaceCount, SkippedDegenerateFaces, SkippedMissingEdges, SkippedInvalidNormals, SkippedInvalidTangents, MatrixRows, MatrixCols, NonZeros, PositiveStar0Count, PositiveStar1Count, PositiveStar2Count, HarmonicDimension }.All(static count => count >= 0)
+        Kind is not null
+        && new[] { VertexCount, EdgeCount, FaceCount, AdmittedFaceCount, SkippedDegenerateFaces, SkippedMissingEdges, SkippedInvalidNormals, SkippedInvalidTangents, MatrixRows, MatrixCols, NonZeros, PositiveStar0Count, PositiveStar1Count, PositiveStar2Count, HarmonicDimension, BoundaryEdgeCount, BoundaryComponentCount, NonManifoldEdgeCount, ComponentCount, PositiveMassCount }.All(static count => count >= 0)
         && AdmittedFaceCount + SkippedDegenerateFaces + SkippedMissingEdges <= FaceCount
-        && PositiveStar0Count <= VertexCount
-        && PositiveStar1Count <= EdgeCount
-        && PositiveStar2Count <= FaceCount
         && RhinoMath.IsValidDouble(x: BoundaryCompositionResidual)
-        && (Genus is { IsSome: true, Case: int genus } ? genus >= 0 && HarmonicDimension == 2 * genus : HarmonicDimension == 0);
+        && RhinoMath.IsValidDouble(x: SymmetryResidual)
+        && FactorNonZeros.Map(static value => value > 0).IfNone(true)
+        && (Kind.Equals(SpectralAssemblyKind.EdgeConnection)
+            ? ComponentCount == 2 && MatrixRows == EdgeCount * ComponentCount && MatrixCols == MatrixRows && PositiveMassCount <= EdgeCount
+            : ComponentCount == 1 && PositiveStar0Count <= VertexCount && PositiveStar1Count <= EdgeCount && PositiveStar2Count <= FaceCount && (Genus is { IsSome: true, Case: int genus } ? genus >= 0 && HarmonicDimension == 2 * genus : HarmonicDimension == 0));
 }
+[SmartEnum<int>]
+public sealed partial class SpectralAssemblyKind { public static readonly SpectralAssemblyKind Dec = new(key: 0), EdgeConnection = new(key: 1); }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct DiscreteCalculus(SparseMatrix D0, SparseMatrix D1, Arr<double> Star0, Arr<double> Star1, Arr<double> Star2, SpectralAssemblyReceipt Receipt) {
@@ -58,7 +62,7 @@ public readonly record struct DiscreteCalculus(SparseMatrix D0, SparseMatrix D1,
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralDescriptorReceipt(SpectralFilter Filter, int VertexCount, int EigenpairCount, int SourceCount, bool ComparisonReady, bool Pairwise, bool EnergyNormalized, bool BandwidthNormalized, SpectralDescriptorPolicy Policy = default, int ZeroModeCount = 0, int CroppedEigenpairCount = 0, Option<SpectralAssemblyReceipt> Assembly = default, Option<int> Genus = default, int HarmonicDimension = 0, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default);
+public readonly record struct SpectralDescriptorReceipt(SpectralFilter Filter, int VertexCount, int EigenpairCount, int SourceCount, bool ComparisonReady, bool Pairwise, bool EnergyNormalized, bool BandwidthNormalized, SpectralDescriptorPolicy Policy = default, int ZeroModeCount = 0, int CroppedEigenpairCount = 0);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SpectralDescriptor(Arr<double> Values, SpectralDescriptorReceipt Receipt) {
@@ -98,7 +102,7 @@ public abstract partial record SpectralFilter {
     internal Fin<SpectralDescriptor> ApplyDetailed(SpectralBasis basis, Option<Seq<int>> sources, SpectralDescriptorPolicy policy, Op key) =>
         Optional(this).ToFin(key.InvalidInput())
             .Bind(filter => guard(basis.IsValid, key.InvalidInput())
-                .Bind(_ => SpectralDescriptorPolicy.AdmitOrRaw(policy: policy, key: key))
+                .Bind(_ => SpectralDescriptorPolicy.Admit(policy: policy, key: key))
                 .Bind(activePolicy => SpectralCore.EvaluateFilteredDetailed(basis: basis, sources: sources, filter: filter, policy: activePolicy, key: key)));
 
     public Option<SpectralFilter> Compose(SpectralFilter other) =>
@@ -166,7 +170,7 @@ internal static class SpectralCore {
         return NormalizeValues(values: result, policy: policy, key: key).Map(values => new SpectralDescriptor(Values: new Arr<double>(values), Receipt: new SpectralDescriptorReceipt(Filter: filter, VertexCount: n, EigenpairCount: basis.Eigenvalues.Count, SourceCount: sourceSet.Length, ComparisonReady: !policy.IsRaw, Pairwise: isPairwise, EnergyNormalized: !policy.EnergyNormalization.Equals(SpectralEnergyNormalization.Raw), BandwidthNormalized: !policy.ScaleNormalization.Equals(SpectralScaleNormalization.Raw), Policy: policy, ZeroModeCount: zeroModeCount, CroppedEigenpairCount: eigenIndices.Length)));
     }
     internal static Fin<SpectralDescriptor> NormalizeDescriptor(SpectralDescriptor descriptor, SpectralDescriptorPolicy policy, Op key) =>
-        from activePolicy in SpectralDescriptorPolicy.AdmitOrRaw(policy: policy, key: key)
+        from activePolicy in SpectralDescriptorPolicy.Admit(policy: policy, key: key)
         from _ in activePolicy.IsValueOnly
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(key.Unsupported(geometryType: typeof(SpectralDescriptor), outputType: typeof(SpectralDescriptorPolicy)))
@@ -249,7 +253,7 @@ internal static class SpectralCore {
         }
         for (int e = 0; e < eCount; e++) triplets.AddRange([(e, e, mass[e]), (e + eCount, e + eCount, mass[e])]);
         return SparseMatrix.FromTriplets(rows: Dimension.Create(value: 2 * eCount), cols: Dimension.Create(value: 2 * eCount), triplets: triplets, key: key)
-            .Map(matrix => (Matrix: matrix, Receipt: new SpectralAssemblyReceipt(VertexCount: mesh.VertexCount, EdgeCount: eCount, FaceCount: mesh.Triangles.Count, AdmittedFaceCount: admitted, SkippedDegenerateFaces: skippedDegenerate, SkippedMissingEdges: skippedMissing, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: mesh.HasFlips, MatrixRows: matrix.Rows.Value, MatrixCols: matrix.Cols.Value, NonZeros: matrix.Values.Count, PositiveStar0Count: mass.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar1Count: 0, PositiveStar2Count: admitted, BoundaryCompositionResidual: 0.0, Genus: None, HarmonicDimension: 0)));
+            .Map(matrix => (Matrix: matrix, Receipt: new SpectralAssemblyReceipt(VertexCount: 0, EdgeCount: eCount, FaceCount: mesh.Triangles.Count, AdmittedFaceCount: admitted, SkippedDegenerateFaces: skippedDegenerate, SkippedMissingEdges: skippedMissing, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: mesh.HasFlips, MatrixRows: matrix.Rows.Value, MatrixCols: matrix.Cols.Value, NonZeros: matrix.Values.Count, PositiveStar0Count: 0, PositiveStar1Count: 0, PositiveStar2Count: admitted, BoundaryCompositionResidual: 0.0, Genus: Option<int>.None, HarmonicDimension: 0, ComponentCount: 2, PositiveMassCount: mass.Count(static value => value > RhinoMath.ZeroTolerance), SymmetryResidual: 0.0, FactorNonZeros: Option<int>.None, Kind: SpectralAssemblyKind.EdgeConnection)));
     }
     private static void EmitCrouzeixRaviartPair(List<(int Row, int Col, double Value)> triplets, int eCount, (int I, int J, double Sign, double LA, double LB, double LOpp) pair, double area, double time) {
         double dot = (pair.LA * pair.LA) + (pair.LB * pair.LB) - (pair.LOpp * pair.LOpp);
@@ -447,10 +451,10 @@ internal static class SpectralCore {
         from imesh in space.Cache.IntrinsicMeshSnapshot(key: key)
         from laplacian in space.Laplacian(kind: kind, key: key)
         from topology in MeshKernel.TopologyDetailed(space: space, key: key)
-        from dec in AssembleDecOperators(imesh: imesh, mass: laplacian.MassLumped, genus: topology.Genus, key: key)
+        from dec in AssembleDecOperators(imesh: imesh, mass: laplacian.MassLumped, topology: topology, key: key)
         select dec;
 
-    private static Fin<DiscreteCalculus> AssembleDecOperators(MeshKernel.IntrinsicMesh imesh, Arr<double> mass, Option<int> genus, Op key) {
+    private static Fin<DiscreteCalculus> AssembleDecOperators(MeshKernel.IntrinsicMesh imesh, Arr<double> mass, TopologyReceipt topology, Op key) {
         int vertCount = imesh.VertexCount;
         int edgeCount = imesh.EdgeCount;
         int[] liveFaces = [.. imesh.LiveFaceIndices()];
@@ -479,14 +483,15 @@ internal static class SpectralCore {
             }
         }
         double boundaryResidual = BoundaryCompositionResidual(d0: d0, d1: d1);
-        int harmonicDimension = genus.Map(static g => 2 * g).IfNone(0);
+        int harmonicDimension = topology.Genus.Map(static g => 2 * g).IfNone(0);
         return mass.Count != vertCount
             || !mass.ForAll(static value => RhinoMath.IsValidDouble(x: value) && value > 0.0)
             || boundaryResidual > RhinoMath.SqrtEpsilon
             ? Fin.Fail<DiscreteCalculus>(key.InvalidResult())
             : from D0 in SparseMatrix.FromTriplets(rows: Dimension.Create(value: edgeCount), cols: Dimension.Create(value: vertCount), triplets: d0, key: key)
               from D1 in SparseMatrix.FromTriplets(rows: Dimension.Create(value: faceCount), cols: Dimension.Create(value: edgeCount), triplets: d1, key: key)
-              let receipt = new SpectralAssemblyReceipt(VertexCount: vertCount, EdgeCount: edgeCount, FaceCount: faceCount, AdmittedFaceCount: admitted, SkippedDegenerateFaces: skippedDegenerate, SkippedMissingEdges: skippedMissing, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: imesh.HasFlips, MatrixRows: D0.Rows.Value + D1.Rows.Value, MatrixCols: D0.Cols.Value + D1.Cols.Value, NonZeros: D0.Values.Count + D1.Values.Count, PositiveStar0Count: mass.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar1Count: star1.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar2Count: star2.Count(static value => value > RhinoMath.ZeroTolerance), BoundaryCompositionResidual: boundaryResidual, Genus: genus, HarmonicDimension: harmonicDimension)
+              let boundaryEdgeCount = Enumerable.Range(start: 0, count: imesh.EdgeCount).Count(edgeIndex => imesh.EdgeAt(index: edgeIndex).Face1 < 0)
+              let receipt = new SpectralAssemblyReceipt(VertexCount: vertCount, EdgeCount: edgeCount, FaceCount: faceCount, AdmittedFaceCount: admitted, SkippedDegenerateFaces: skippedDegenerate, SkippedMissingEdges: skippedMissing, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: imesh.HasFlips, MatrixRows: D0.Rows.Value + D1.Rows.Value, MatrixCols: D0.Cols.Value + D1.Cols.Value, NonZeros: D0.Values.Count + D1.Values.Count, PositiveStar0Count: mass.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar1Count: star1.Count(static value => value > RhinoMath.ZeroTolerance), PositiveStar2Count: star2.Count(static value => value > RhinoMath.ZeroTolerance), BoundaryCompositionResidual: boundaryResidual, Genus: topology.Genus, HarmonicDimension: harmonicDimension, BoundaryEdgeCount: boundaryEdgeCount, BoundaryComponentCount: topology.BoundaryComponents, NonManifoldEdgeCount: topology.NonManifoldEdges, EulerCharacteristic: topology.EulerCharacteristic, TopologyEulerValidated: topology.EulerValidated, Kind: SpectralAssemblyKind.Dec)
               select new DiscreteCalculus(D0: D0, D1: D1, Star0: mass, Star1: star1, Star2: new Arr<double>(star2), Receipt: receipt);
     }
     private static IntrinsicTriangle? IntrinsicTriangleOf(MeshKernel.IntrinsicMesh imesh, int faceIdx) =>

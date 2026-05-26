@@ -15,6 +15,7 @@ internal static class IntentGens {
     public static ExtractionDomain CloudDomain => Spec.SuccValue(ExtractionDomain.Cloud(value: Cluster, key: Key), label: "intent cloud domain");
     public static SampleKind ExplicitSamples => Spec.SuccValue(SampleKind.Explicit(points: ClusterPoints, key: Key), label: "intent explicit samples");
     public static PositiveMagnitude Step => Spec.SuccValue(Key.AcceptValidated<PositiveMagnitude>(candidate: 0.1), label: "step");
+    public static CloudTransportPolicy TransportPolicy => Spec.SuccValue(CloudTransportPolicy.Of(regularization: 1.0, maxIterations: 32, massRelaxation: 2.0, key: Key), label: "intent transport policy");
     public static Termination Stop => Spec.SuccValue(Termination.Steps(count: 1, key: Key), label: "stop");
     public static Direction X => default;
     public static Direction Y => default;
@@ -44,10 +45,11 @@ public sealed class VectorIntentFactoryLaws {
         Spec.Succ(VectorIntent.Cloud(cloud: IntentGens.Cluster, metric: VectorCloudMetric.Covariance, key: IntentGens.Key), then: intent => Assert.IsType<VectorIntent.CloudCase>(@object: intent));
         Spec.FailCategory(VectorIntent.Cloud(cloud: IntentGens.Cluster, metric: VectorCloudMetric.Area, key: IntentGens.Key), category: "Unsupported");
         Spec.FailCategory(VectorIntent.Winding(cloud: IntentGens.Cluster, query: Point3d.Origin, key: IntentGens.Key), category: "Unsupported");
-        Spec.Succ(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, regularization: 1.0, maxIterations: 32, massRelaxation: 2.0, key: IntentGens.Key),
+        Spec.Succ(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, policy: IntentGens.TransportPolicy, key: IntentGens.Key),
             then: intent => Assert.IsType<VectorIntent.TransportCase>(@object: intent));
-        Spec.FailCategory(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, regularization: 0.0, maxIterations: 32, key: IntentGens.Key), category: "Tolerance");
-        Spec.FailCategory(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, regularization: 1.0, maxIterations: 0, key: IntentGens.Key), category: "Tolerance");
+        Spec.FailCategory(CloudTransportPolicy.Of(regularization: 0.0, maxIterations: 32, key: IntentGens.Key), category: "Tolerance");
+        Spec.FailCategory(CloudTransportPolicy.Of(regularization: 1.0, maxIterations: 0, key: IntentGens.Key), category: "Tolerance");
+        Spec.FailCategory(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, policy: default, key: IntentGens.Key), category: "Input");
         Spec.FailCategory(VectorIntent.Features(space: IntentGens.Space, dihedralRadians: 0.1, key: IntentGens.Key), category: "Input");
         Spec.FailCategory(VectorIntent.Features(space: IntentGens.Space, dihedralRadians: 0.0, key: IntentGens.Key), category: "Input");
         Spec.FailCategory(VectorIntent.Descriptor(space: IntentGens.Space, kind: MeshDescriptor.Spectral(filter: SpectralFilter.Identity), pairs: 4, key: IntentGens.Key), category: "Input");
@@ -89,9 +91,9 @@ public sealed class VectorIntentShapeLaws {
     public void ProjectRequiresContextBeforeDispatch() {
         Spec.FailCategory(VectorIntent.Direction(value: Vector3d.XAxis).Project<Vector3d>(context: null!, key: IntentGens.Key), category: "Operation");
         Spec.FailCategory(VectorIntent.Lerp(a: Vector3d.XAxis, b: Vector3d.YAxis, t: double.NaN, key: IntentGens.Key), category: "Tolerance");
-        Spec.FailCategory(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, regularization: double.NaN, maxIterations: 16, key: IntentGens.Key), category: "Tolerance");
-        Spec.FailCategory(VectorIntent.Transport(source: null!, target: IntentGens.Cluster, regularization: 1.0, maxIterations: 16, key: IntentGens.Key), category: "Input");
-        Spec.FailCategory(VectorIntent.Transport(source: IntentGens.Cluster, target: null!, regularization: 1.0, maxIterations: 16, key: IntentGens.Key), category: "Input");
+        Spec.FailCategory(CloudTransportPolicy.Of(regularization: double.NaN, maxIterations: 16, key: IntentGens.Key), category: "Tolerance");
+        Spec.FailCategory(VectorIntent.Transport(source: null!, target: IntentGens.Cluster, policy: IntentGens.TransportPolicy, key: IntentGens.Key), category: "Input");
+        Spec.FailCategory(VectorIntent.Transport(source: IntentGens.Cluster, target: null!, policy: IntentGens.TransportPolicy, key: IntentGens.Key), category: "Input");
         Spec.FailCategory(VectorIntent.Streamline(field: null!, seed: Point3d.Origin, initialStep: 0.1, termination: IntentGens.Stop, key: IntentGens.Key), category: "Input");
         Spec.FailCategory(VectorIntent.Streamline(field: VectorField.Constant(value: Vector3d.XAxis), seed: Point3d.Origin, initialStep: 0.1, termination: null!, key: IntentGens.Key), category: "Input");
         Spec.FailCategory(VectorIntent.IsoSurface(field: null!, bounds: new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0)), resolution: 2, maxRootSteps: 1, key: IntentGens.Key), category: "Input");

@@ -12,6 +12,7 @@ using Rhino.Geometry;
 Op key = Op.Of(name: SCENARIO_NAME);
 Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).ToFin(), "context");
 BoundingBox isoBounds = new(min: new Point3d(-6.0, -6.0, -6.0), max: new Point3d(6.0, 6.0, 6.0));
+BoundingBox nonCubicBounds = new(min: new Point3d(-4.0, -2.0, -1.0), max: new Point3d(4.0, 2.0, 1.0));
 
 ScalarField sphereField = Probe.Expect(
     ScalarField.Primitive(
@@ -25,6 +26,11 @@ IsoSurfaceResult analyticIso = Probe.Project<IsoSurfaceResult>(
     context: context,
     key: key,
     label: "analytic iso");
+IsoSurfaceReceipt nonCubicIso = Probe.Project<IsoSurfaceReceipt>(
+    intent: VectorIntent.IsoSurface(field: sphereField, bounds: nonCubicBounds, resolution: 4, maxRootSteps: 12, key: key),
+    context: context,
+    key: key,
+    label: "non-cubic iso");
 
 Mesh closedBox = Mesh.CreateFromBox(
     box: new BoundingBox(min: new Point3d(-3.0, -3.0, -3.0), max: new Point3d(3.0, 3.0, 3.0)),
@@ -54,7 +60,7 @@ openSquare.Normals.ComputeNormals();
 openSquare.Compact();
 MeshSpace openSpace = Probe.Expect(MeshSpace.Of(native: openSquare, context: context, key: key), "open space");
 SdfMeshPolicy boundaryPolicy = Probe.Expect(SdfMeshPolicy.BoundarySignedHeat(key: key), "boundary policy");
-bool boundarySignedHeatRejected = ScalarField.SignedDistanceFromMesh(space: openSpace, policy: boundaryPolicy, key: key)
+bool boundaryDefaultToleranceRejected = ScalarField.SignedDistanceFromMesh(space: openSpace, policy: boundaryPolicy, key: key)
     .Bind(field => field.SampleSdfDetailed(sample: new Point3d(x: 0.25, y: 0.25, z: 0.1), context: context, key: key))
     .Match(Succ: static _ => false, Fail: static _ => true);
 
@@ -108,8 +114,10 @@ Mesh nativeIso = Mesh.CreateFromIsosurface(
 
 Probe.Require(analyticIso.Receipt.ParallelCallback && analyticIso.Receipt.FixedTolerance.Match(Some: static tolerance => Math.Abs(tolerance - 0.001) <= 1.0e-12, None: static () => false), "analytic iso receipt lost native callback/tolerance facts");
 Probe.Require(analyticIso.Mesh.IsValid && analyticIso.Receipt.VertexCount > 0 && analyticIso.Receipt.FaceCount > 0, "analytic iso mesh invalid");
+Probe.Require(analyticIso.Receipt.MeshPreflight.IsNone && meshIso.Receipt.MeshPreflight.IsSome, "iso mesh prewarm receipts lost analytic/mesh distinction");
+Probe.Require(nonCubicIso.Grid.XCells == 16 && nonCubicIso.Grid.YCells == 8 && nonCubicIso.Grid.ZCells == 4 && nonCubicIso.Grid.InitialSampleCount == 1277, $"nonCubic.grid={nonCubicIso.Grid}");
 Probe.Require(meshIso.Mesh.IsValid && meshReceipt.Domain.Equals(SdfMeshDomain.SurfaceMesh) && meshReceipt.Status.Equals(SdfMeshStatus.ApproximateSignClosestDistance), "mesh iso receipt lost generalized-winding facts");
-Probe.Require(boundarySignedHeatRejected, "boundary signed heat open-source sample should reject until product owner admits a valid native result");
+Probe.Require(boundaryDefaultToleranceRejected, "boundary signed heat default solver tolerance should reject this open-source sample");
 Probe.Require(closedSignedHeatRejected && flippedClosedSignedHeatRejected && closedIsoRejected, "closed signed heat runtime paths should reject current native input until product owner admits valid samples");
 Probe.Require(openClosedSignedHeatRejected, "open mesh must reject closed SignedHeat");
 Probe.Require(RhinoMath.IsValidDouble(x: containment) && containment > 0.0, $"containment={containment:R}");
@@ -119,6 +127,8 @@ Probe.Require(nativeIso is { IsValid: true } && sampleCount > 0 && threadIdsSeen
 Evidence.EmitScenarioHeader(SCENARIO_NAME, CAPTURE_PATH);
 Evidence.EmitFacts(new Dictionary<string, object> {
     ["analyticVertices"] = analyticIso.Receipt.VertexCount,
+    ["nonCubicCells"] = $"{nonCubicIso.Grid.XCells}x{nonCubicIso.Grid.YCells}x{nonCubicIso.Grid.ZCells}",
+    ["nonCubicInitialSamples"] = nonCubicIso.Grid.InitialSampleCount,
     ["meshVertices"] = meshIso.Receipt.VertexCount,
     ["fixedTolerance"] = 0.001,
     ["parallelCallback"] = analyticIso.Receipt.ParallelCallback,
@@ -126,7 +136,7 @@ Evidence.EmitFacts(new Dictionary<string, object> {
     ["meshStatus"] = "ApproximateSignClosestDistance",
     ["meshSolid"] = meshReceipt.Topology.IsSolid,
     ["boundaryMethod"] = "BoundarySignedHeat",
-    ["boundaryRejected"] = boundarySignedHeatRejected,
+    ["boundaryDefaultToleranceRejected"] = boundaryDefaultToleranceRejected,
     ["closedMethod"] = "ClosedSurfaceSignedHeat",
     ["closedRejected"] = closedSignedHeatRejected,
     ["flippedClosedRejected"] = flippedClosedSignedHeatRejected,

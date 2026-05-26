@@ -31,7 +31,7 @@ public abstract partial record VectorIntent {
     public sealed record SampleCase : VectorIntent { internal SampleCase(ExtractionDomain Domain, SampleKind Kind) { this.Domain = Domain; this.Kind = Kind; } public ExtractionDomain Domain { get; } public SampleKind Kind { get; } }
     public sealed record AlignCase : VectorIntent { internal AlignCase(VectorCloud Source, VectorCloud Target, AlignKind Kind) { this.Source = Source; this.Target = Target; this.Kind = Kind; } public VectorCloud Source { get; } public VectorCloud Target { get; } public AlignKind Kind { get; } }
     public sealed record RemeshCase : VectorIntent { internal RemeshCase(MeshSpace Space, RemeshKind Kind) { this.Space = Space; this.Kind = Kind; } public MeshSpace Space { get; } public RemeshKind Kind { get; } }
-    public sealed record TransportCase : VectorIntent { internal TransportCase(VectorCloud Source, VectorCloud Target, PositiveMagnitude Regularization, Dimension MaxIterations, bool Debiased, Option<PositiveMagnitude> MassRelaxation, PositiveMagnitude ConvergenceTolerance, PositiveMagnitude CouplingCutoff) { this.Source = Source; this.Target = Target; this.Regularization = Regularization; this.MaxIterations = MaxIterations; this.Debiased = Debiased; this.MassRelaxation = MassRelaxation; this.ConvergenceTolerance = ConvergenceTolerance; this.CouplingCutoff = CouplingCutoff; } public VectorCloud Source { get; } public VectorCloud Target { get; } public PositiveMagnitude Regularization { get; } public Dimension MaxIterations { get; } public bool Debiased { get; } public Option<PositiveMagnitude> MassRelaxation { get; } public PositiveMagnitude ConvergenceTolerance { get; } public PositiveMagnitude CouplingCutoff { get; } }
+    public sealed record TransportCase : VectorIntent { internal TransportCase(VectorCloud Source, VectorCloud Target, CloudTransportPolicy Policy) { this.Source = Source; this.Target = Target; this.Policy = Policy; } public VectorCloud Source { get; } public VectorCloud Target { get; } public CloudTransportPolicy Policy { get; } }
     public sealed record TopologyCase : VectorIntent { internal TopologyCase(MeshSpace Space) => this.Space = Space; public MeshSpace Space { get; } }
     public sealed record FeaturesCase : VectorIntent { internal FeaturesCase(MeshSpace Space, VectorAngle Dihedral) { this.Space = Space; this.Dihedral = Dihedral; } public MeshSpace Space { get; } public VectorAngle Dihedral { get; } }
     public sealed record DescriptorCase : VectorIntent { internal DescriptorCase(MeshSpace Space, MeshDescriptor Kind, Dimension Pairs) { this.Space = Space; this.Kind = Kind; this.Pairs = Pairs; } public MeshSpace Space { get; } public MeshDescriptor Kind { get; } public Dimension Pairs { get; } }
@@ -188,11 +188,11 @@ public abstract partial record VectorIntent {
                         ? state.Key.AcceptValue(value: result.Receipt).Map(static v => (TOut)(object)v)
                         : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(RemeshCase), outputType: typeof(TOut)))
             select output,
-        transportCase: static (state, intent) => CloudKernel.Sinkhorn<TOut>(source: intent.Source, target: intent.Target, regularization: intent.Regularization.Value, maxIterations: intent.MaxIterations.Value, debiased: intent.Debiased, massRelaxation: intent.MassRelaxation, convergenceTolerance: intent.ConvergenceTolerance, couplingCutoff: intent.CouplingCutoff, key: state.Key),
+        transportCase: static (state, intent) => CloudKernel.Sinkhorn<TOut>(source: intent.Source, target: intent.Target, policy: intent.Policy, key: state.Key),
         topologyCase: static (state, intent) =>
             from topology in MeshKernel.TopologyDetailed(space: intent.Space, key: state.Key)
             from output in typeof(TOut) == typeof(TopologyReceipt)
-                ? state.Key.AcceptValue(value: topology).Map(static v => (TOut)(object)v)
+                ? Fin.Succ((TOut)(object)topology)
                     : typeof(TOut) == typeof((int Euler, int Genus, int BoundaryComponents))
                         ? topology.Genus.Match(
                             Some: genus => state.Key.AcceptValue(value: (topology.EulerCharacteristic, genus, topology.BoundaryComponents)).Map(static v => (TOut)(object)v),
@@ -348,18 +348,12 @@ public abstract partial record VectorIntent {
                select (VectorIntent)new RemeshCase(Space: space, Kind: activeKind);
     }
     // massRelaxation changes the KL marginal penalty over the cluster mass owner.
-    public static Fin<VectorIntent> Transport(VectorCloud source, VectorCloud target, double regularization, int maxIterations, bool debiased = false, double? massRelaxation = null, double? convergenceTolerance = null, double? couplingCutoff = null, Op? key = null) {
+    public static Fin<VectorIntent> Transport(VectorCloud source, VectorCloud target, CloudTransportPolicy policy, Op? key = null) {
         Op op = key.OrDefault();
         return from validSource in Optional(source).ToFin(op.InvalidInput())
                from validTarget in Optional(target).ToFin(op.InvalidInput())
-               from reg in op.AcceptValidated<PositiveMagnitude>(candidate: regularization)
-               from cap in op.AcceptValidated<Dimension>(candidate: maxIterations)
-               from relax in massRelaxation is double lambda
-                    ? op.AcceptValidated<PositiveMagnitude>(candidate: lambda).Map(Some)
-                    : Fin.Succ(Option<PositiveMagnitude>.None)
-               from tolerance in op.AcceptValidated<PositiveMagnitude>(candidate: convergenceTolerance ?? 1.0e-8)
-               from cutoff in op.AcceptValidated<PositiveMagnitude>(candidate: couplingCutoff ?? 1.0e-8)
-               select (VectorIntent)new TransportCase(Source: validSource, Target: validTarget, Regularization: reg, MaxIterations: cap, Debiased: debiased, MassRelaxation: relax, ConvergenceTolerance: tolerance, CouplingCutoff: cutoff);
+               from activePolicy in policy.Admit(key: op)
+               select (VectorIntent)new TransportCase(Source: validSource, Target: validTarget, Policy: activePolicy);
     }
     public static Fin<VectorIntent> Topology(MeshSpace space, Op? key = null) {
         Op op = key.OrDefault();

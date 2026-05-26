@@ -42,6 +42,8 @@ internal static class CloudMetricGens {
             select new CloudMetricPolicy(Neighborhood: new CloudNeighborhoodPolicy(NeighborCount: count, Radius: Option<PositiveMagnitude>.None, EigenGapTolerance: gap, FitResidualTolerance: fit)),
             label: "cloud metric policy");
     }
+    public static CloudTransportPolicy TransportPolicy(double regularization = 1.0, int maxIterations = 64, bool debiased = false, double? massRelaxation = null, double? convergenceTolerance = null, double? couplingCutoff = null) =>
+        Spec.SuccValue(CloudTransportPolicy.Of(regularization: regularization, maxIterations: maxIterations, debiased: debiased, massRelaxation: massRelaxation, convergenceTolerance: convergenceTolerance, couplingCutoff: couplingCutoff, key: Op.Of(name: "cloud-test")), label: "cloud transport policy");
     public static VectorCloud ClusterOf(Seq<Point3d> points) =>
         Spec.SuccValue(VectorCloud.Cluster(points: points, context: Model, key: Op.Of(name: "cloud-test")), label: "cluster");
 }
@@ -131,31 +133,34 @@ public sealed class VectorCloudMassLaws {
     public void SinkhornReceiptsUseTypedStopSemantics() {
         VectorCloud source = Spec.SuccValue(VectorCloud.WeightedCluster(points: Seq(CloudMetricGens.Triangle[0]), mass: Seq(2.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), label: "source");
         VectorCloud target = Spec.SuccValue(VectorCloud.WeightedCluster(points: Seq(CloudMetricGens.Triangle[1]), mass: Seq(5.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), label: "target");
-        Assert.True(PositiveMagnitude.TryCreate(value: 2.0, obj: out PositiveMagnitude relaxation));
-        Spec.Succ(CloudKernel.Sinkhorn<SinkhornReceipt>(source: source, target: target, regularization: 1.0, maxIterations: 32, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")), then: receipt =>
+        CloudTransportPolicy balanced = CloudMetricGens.TransportPolicy(maxIterations: 32);
+        CloudTransportPolicy relaxed = CloudMetricGens.TransportPolicy(maxIterations: 32, massRelaxation: 2.0);
+        Spec.Succ(CloudKernel.Sinkhorn<SinkhornReceipt>(source: source, target: target, policy: balanced, key: Op.Of(name: "cloud-test")), then: receipt =>
             Assert.Equal(expected: SinkhornStopKind.BalancedMarginalsConverged, actual: receipt.Stop));
-        Spec.Succ(CloudKernel.Sinkhorn<SinkhornReceipt>(source: source, target: target, regularization: 1.0, maxIterations: 32, debiased: false, massRelaxation: Some(relaxation), key: Op.Of(name: "cloud-test")), then: receipt =>
+        Spec.Succ(CloudKernel.Sinkhorn<SinkhornReceipt>(source: source, target: target, policy: relaxed, key: Op.Of(name: "cloud-test")), then: receipt =>
             Assert.Equal(expected: SinkhornStopKind.RelaxedScalingConverged, actual: receipt.Stop));
-        Spec.Succ(CloudKernel.Sinkhorn<double>(source: source, target: target, regularization: 1.0, maxIterations: 32, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")),
+        Spec.Succ(CloudKernel.Sinkhorn<double>(source: source, target: target, policy: balanced, key: Op.Of(name: "cloud-test")),
             then: distance => Spec.EqualWithin(left: distance, right: 1.0, tolerance: 1.0e-12, what: "one-point OT distance"));
-        Spec.FailCategory(CloudKernel.Sinkhorn<double>(source: source, target: target, regularization: 0.0, maxIterations: 32, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")), category: "Input");
-        Spec.FailCategory(CloudKernel.Sinkhorn<double>(source: source, target: target, regularization: 1.0, maxIterations: 0, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")), category: "Input");
-        Spec.FailCategory(CloudKernel.Sinkhorn<Point3d>(source: source, target: target, regularization: 1.0, maxIterations: 32, debiased: false, massRelaxation: Option<PositiveMagnitude>.None, key: Op.Of(name: "cloud-test")), category: "Unsupported");
+        Spec.FailCategory(CloudKernel.Sinkhorn<double>(source: source, target: target, policy: default, key: Op.Of(name: "cloud-test")), category: "Input");
+        Spec.FailCategory(CloudKernel.Sinkhorn<Point3d>(source: source, target: target, policy: balanced, key: Op.Of(name: "cloud-test")), category: "Unsupported");
     }
     [Fact]
     public void SinkhornReceiptsExposeToleranceCutoffAndMarginalProof() {
         VectorCloud source = Spec.SuccValue(VectorCloud.WeightedCluster(points: Seq(CloudMetricGens.Triangle[0], CloudMetricGens.Triangle[1]), mass: Seq(1.0, 1.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), label: "source");
         VectorCloud target = Spec.SuccValue(VectorCloud.WeightedCluster(points: Seq(CloudMetricGens.Triangle[0], CloudMetricGens.Triangle[2]), mass: Seq(1.0, 1.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), label: "target");
         Op key = Op.Of(name: "cloud-test");
-        PositiveMagnitude tolerance = Spec.SuccValue(key.AcceptValidated<PositiveMagnitude>(candidate: 1.0e-8), label: "tolerance");
-        PositiveMagnitude cutoff = Spec.SuccValue(key.AcceptValidated<PositiveMagnitude>(candidate: 1.0e-8), label: "cutoff");
-        Spec.Succ(CloudKernel.Sinkhorn<SinkhornReceipt>(source: source, target: target, regularization: 0.2, maxIterations: 128, debiased: true, massRelaxation: Option<PositiveMagnitude>.None, convergenceTolerance: tolerance, couplingCutoff: cutoff, key: key), receipt => {
-            Spec.EqualWithin(left: receipt.ConvergenceTolerance, right: tolerance.Value, tolerance: 0.0, what: "sinkhorn tolerance");
-            Spec.EqualWithin(left: receipt.CouplingCutoff, right: cutoff.Value, tolerance: 0.0, what: "sinkhorn cutoff");
-            Assert.True(condition: receipt.SourceConvergenceResidual <= tolerance.Value);
-            Assert.True(condition: receipt.TargetConvergenceResidual <= tolerance.Value);
+        CloudTransportPolicy policy = CloudMetricGens.TransportPolicy(regularization: 0.2, maxIterations: 128, debiased: true, convergenceTolerance: 1.0e-8, couplingCutoff: 1.0e-8);
+        Spec.Succ(CloudKernel.Sinkhorn<SinkhornReceipt>(source: source, target: target, policy: policy, key: key), receipt => {
+            Spec.EqualWithin(left: receipt.ConvergenceTolerance, right: policy.ConvergenceTolerance.Value, tolerance: 0.0, what: "sinkhorn tolerance");
+            Spec.EqualWithin(left: receipt.CouplingCutoff, right: policy.CouplingCutoff.Value, tolerance: 0.0, what: "sinkhorn cutoff");
+            Assert.True(condition: receipt.SourceConvergenceResidual <= policy.ConvergenceTolerance.Value);
+            Assert.True(condition: receipt.TargetConvergenceResidual <= policy.ConvergenceTolerance.Value);
             Assert.Equal(expected: receipt.NonZeroCouplings, actual: receipt.Correspondences.NonZeroCount);
             Spec.EqualWithin(left: receipt.CouplingMass, right: receipt.Correspondences.TotalMass, tolerance: 1.0e-12, what: "retained coupling mass");
+            Assert.True(condition: receipt.Correspondences.CoveredSourceCount > 0);
+            Assert.True(condition: receipt.Correspondences.CoveredTargetCount > 0);
+            Assert.True(condition: receipt.Correspondences.RetainedSourceMass > 0.0 && receipt.Correspondences.RetainedTargetMass > 0.0);
+            _ = receipt.Correspondences.Items.Iter(item => Spec.Some(item.Confidence, confidence => Assert.InRange(actual: confidence, low: 0.0, high: 1.0)));
         });
     }
 }
@@ -179,7 +184,7 @@ public sealed class VectorCloudHullAndCurvatureLaws {
     }
     [Fact]
     public void CurvatureResultReceiptRequiresConservedAcceptedRejectedCounts() {
-        CloudCurvatureReceipt receipt = new(InputCount: 2, RequestedNeighborCount: 6, AcceptedSampleCount: 0, RejectedSampleCount: 2, RankRejectedCount: 1, ResidualRejectedCount: 1, MeanResidual: 0.0, MaxResidual: 0.0, EigenGapTolerance: 1.0e-8, FitResidualTolerance: 1.0e-4);
+        CloudCurvatureReceipt receipt = new(InputCount: 2, RequestedNeighborCount: 6, AcceptedSampleCount: 0, RejectedSampleCount: 2, RankRejectedCount: 1, ResidualRejectedCount: 1, MeanResidual: 0.0, MaxResidual: 0.0, EigenGapTolerance: 1.0e-8, FitResidualTolerance: 1.0e-4, SelfNeighborIncluded: true, NativeIndexRouted: true, RadiusLimited: false, SearchBackend: CloudNeighborhoodSearchBackend.RhinoPointCloudKnn);
         CloudCurvatureResult result = new(Samples: Seq<CloudCurvatureSample>(), Receipt: receipt);
         Assert.True(condition: receipt.IsValid);
         Assert.True(condition: result.IsValid);

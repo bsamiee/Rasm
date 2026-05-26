@@ -84,6 +84,7 @@ public sealed class SpectralFilterLaws {
             Assert.Equal(expected: policy.ZeroModePolicy, actual: descriptor.Receipt.Policy.ZeroModePolicy);
             Spec.Some(policy.CropCount, expected => Spec.Some(descriptor.Receipt.Policy.CropCount, actual => Assert.Equal(expected: expected.Value, actual: actual.Value)));
         });
+        Spec.FailCategory(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.Basis, sources: Option<Seq<int>>.None, policy: default, key: SpectralGens.Key), category: "Input");
     }
     [Fact]
     public void RankingUsesPolicyDistanceAndOriginalOrderTieBreak() {

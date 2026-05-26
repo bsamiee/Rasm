@@ -86,6 +86,7 @@ public sealed class MeshDescriptorAndRemeshLaws {
         MeshDescriptor.SpectralCase spectral = Assert.IsType<MeshDescriptor.SpectralCase>(@object: descriptor);
         Assert.True(condition: descriptor.IsValid);
         Assert.False(condition: MeshDescriptor.Spectral(filter: null!).IsValid);
+        Assert.False(condition: MeshDescriptor.Spectral(filter: SpectralFilter.Identity, sources: Option<Seq<int>>.None, policy: default).IsValid);
         Assert.Equal(expected: SpectralFilter.Identity, actual: spectral.Filter);
         Assert.Equal(expected: policy.ScaleNormalization, actual: spectral.Policy.ScaleNormalization);
         Assert.Equal(expected: policy.EnergyNormalization, actual: spectral.Policy.EnergyNormalization);
@@ -106,13 +107,23 @@ public sealed class MeshDescriptorAndRemeshLaws {
     }
     [Fact]
     public void DiscreteCalculusAssemblyReceiptPreservesMatrixAndTopologyFacts() {
-        SpectralAssemblyReceipt receipt = new(VertexCount: 4, EdgeCount: 6, FaceCount: 4, AdmittedFaceCount: 4, SkippedDegenerateFaces: 0, SkippedMissingEdges: 0, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: false, MatrixRows: 10, MatrixCols: 10, NonZeros: 36, PositiveStar0Count: 4, PositiveStar1Count: 6, PositiveStar2Count: 4, BoundaryCompositionResidual: 0.0, Genus: Some(0), HarmonicDimension: 0);
+        SpectralAssemblyReceipt receipt = new(VertexCount: 4, EdgeCount: 6, FaceCount: 4, AdmittedFaceCount: 4, SkippedDegenerateFaces: 0, SkippedMissingEdges: 0, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: false, MatrixRows: 10, MatrixCols: 10, NonZeros: 36, PositiveStar0Count: 4, PositiveStar1Count: 6, PositiveStar2Count: 4, BoundaryCompositionResidual: 0.0, Genus: Some(0), HarmonicDimension: 0, BoundaryEdgeCount: 0, BoundaryComponentCount: 0, NonManifoldEdgeCount: 0, EulerCharacteristic: 2, TopologyEulerValidated: true, Kind: SpectralAssemblyKind.Dec);
         SpectralAssemblyReceipt genusPositive = receipt with { Genus = Some(2), HarmonicDimension = 4 };
         Assert.True(condition: receipt.IsValid);
         Assert.True(condition: genusPositive.IsValid);
         Assert.Equal(expected: 4, actual: genusPositive.HarmonicDimension);
+        Assert.Equal(expected: 2, actual: receipt.EulerCharacteristic);
+        Assert.True(condition: receipt.TopologyEulerValidated);
         Assert.False(condition: (genusPositive with { HarmonicDimension = 3 }).IsValid);
         Assert.False(condition: (receipt with { AdmittedFaceCount = 5 }).IsValid);
+    }
+    [Fact]
+    public void EdgeConnectionAssemblyReceiptUsesEdgeSpaceCounts() {
+        SpectralAssemblyReceipt receipt = new(VertexCount: 0, EdgeCount: 6, FaceCount: 4, AdmittedFaceCount: 4, SkippedDegenerateFaces: 0, SkippedMissingEdges: 0, SkippedInvalidNormals: 0, SkippedInvalidTangents: 0, FlippedIntrinsicRejected: false, MatrixRows: 12, MatrixCols: 12, NonZeros: 48, PositiveStar0Count: 0, PositiveStar1Count: 0, PositiveStar2Count: 4, BoundaryCompositionResidual: 0.0, Genus: Option<int>.None, HarmonicDimension: 0, ComponentCount: 2, PositiveMassCount: 6, SymmetryResidual: 0.0, FactorNonZeros: Some(32), Kind: SpectralAssemblyKind.EdgeConnection);
+        Assert.True(condition: receipt.IsValid);
+        Assert.False(condition: (receipt with { ComponentCount = 3 }).IsValid);
+        Assert.False(condition: (receipt with { MatrixRows = 6 }).IsValid);
+        Assert.False(condition: (receipt with { PositiveMassCount = 7 }).IsValid);
     }
 }
 

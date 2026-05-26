@@ -139,7 +139,7 @@ internal sealed class LaplacianCache {
             from imesh in IntrinsicMeshSnapshot(key: key)
             from system in SpectralCore.BuildCrouzeixRaviartHeatSystemDetailed(mesh: imesh, time: time, key: key)
             from factor in CholeskySparse.Of(symmetric: system.Matrix, key: key)
-            select new EdgeConnectionFactor(Factor: factor, Receipt: system.Receipt));
+            select new EdgeConnectionFactor(Factor: factor, Receipt: system.Receipt with { FactorNonZeros = Some(factor.FactorNonZeros) }));
     internal Fin<Arr<double>> Geodesic(GeodesicKey probe, Func<Fin<Arr<double>>> compute) => geodesicCache.Of(probe, compute);
     internal Fin<Arr<double>> Mcf(McfKey probe, Func<Fin<Arr<double>>> compute) => mcfCache.Of(probe, compute);
     internal Fin<Complex[]> CrossField(CrossFieldKey probe, Func<Fin<Complex[]>> compute) => crossFieldCache.Of(probe, compute);
@@ -157,7 +157,7 @@ internal sealed class LaplacianCache {
 [SmartEnum<int>] public sealed partial class RemeshStatus { public static readonly RemeshStatus Completed = new(key: 0), NativeRejected = new(key: 1); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct RemeshReceipt(RemeshKind Kind, RemeshStatus Status, Option<double> TargetLength, Option<int> DesiredPolygonCount, int PreVertexCount, int PreFaceCount, int PostVertexCount, int PostFaceCount, double ReductionRatio, bool Valid, bool HardEdgePreservationRequested, bool TopologyChanged);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct RemeshResult(Mesh Mesh, RemeshReceipt Receipt);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorReceipt(SpectralDescriptorReceipt Spectral, EigenSolveReceipt<double, Arr<double>> Eigen, int RequestedEigenpairs, int ReturnedEigenpairs, bool ComparisonReady, bool SpectralCacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default, Option<SpectralAssemblyReceipt> Assembly = default);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorReceipt(SpectralDescriptorReceipt Spectral, EigenSolveReceipt<double, Arr<double>> Eigen, int RequestedEigenpairs, int ReturnedEigenpairs, bool SpectralCacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default, Option<SpectralAssemblyReceipt> Assembly = default);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorResult(Arr<double> Values, DescriptorReceipt Receipt);
 [SmartEnum<int>] public sealed partial class MeshSegmentationAlgorithm { public static readonly MeshSegmentationAlgorithm ScalarThresholdComponents = new(key: 0), ScalarBandComponents = new(key: 1), SeededRegionGrow = new(key: 2), DescriptorScalarClusters = new(key: 3); }
 [SmartEnum<int>] public sealed partial class MeshSegmentationStatus { public static readonly MeshSegmentationStatus Completed = new(key: 0), MaxIterationsExhausted = new(key: 1); }
@@ -176,7 +176,7 @@ public abstract partial record MeshDescriptor {
     public sealed record SpectralCase(SpectralFilter Filter, Option<Seq<int>> Sources, SpectralDescriptorPolicy Policy) : MeshDescriptor;
     internal bool IsValid => this is SpectralCase { Filter: not null } spectral && spectral.Policy.IsValid;
     public static MeshDescriptor Spectral(SpectralFilter filter, Option<Seq<int>> sources = default) => Spectral(filter: filter, sources: sources, policy: SpectralDescriptorPolicy.Raw);
-    public static MeshDescriptor Spectral(SpectralFilter filter, Option<Seq<int>> sources, SpectralDescriptorPolicy policy) => new SpectralCase(Filter: filter, Sources: sources, Policy: policy.IsValid ? policy : SpectralDescriptorPolicy.Raw);
+    public static MeshDescriptor Spectral(SpectralFilter filter, Option<Seq<int>> sources, SpectralDescriptorPolicy policy) => new SpectralCase(Filter: filter, Sources: sources, Policy: policy);
 }
 
 [Union]
@@ -557,16 +557,19 @@ internal static class MeshKernel {
 
     // --- [SPECTRAL_BASIS] ------------------------------------------------------------------
     internal static Fin<SpectralBasisBundle> ComputeSpectralBasisDetailed(MeshSpace space, int k, Op key) =>
-        from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
-        from receipt in MatrixKernel.GeneralizedEigenpairsDetailed(stiffness: laplacian.Stiffness, mass: laplacian.MassConsistent, k: k, key: key)
-        select new SpectralBasisBundle(
-            Basis: new SpectralBasis(
-                Eigenvalues: new Arr<double>([.. receipt.Pairs.AsIterable().Select(static p => p.Eigenvalue)]),
-                Eigenvectors: new Arr<Arr<double>>([.. receipt.Pairs.AsIterable().Select(static p => p.Eigenvector)])),
-            Eigen: receipt,
-            CacheHit: false,
-            SkippedDegenerateFaces: laplacian.SkippedDegenerateFaces,
-            FactorNonZeros: Option<int>.None);
+        Math.Min(val1: k, val2: space.Native.Vertices.Count - 1) switch {
+            < 1 => Fin.Fail<SpectralBasisBundle>(key.InvalidInput()),
+            int count => from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
+                         from receipt in MatrixKernel.GeneralizedEigenpairsDetailed(stiffness: laplacian.Stiffness, mass: laplacian.MassConsistent, k: count, key: key)
+                         select new SpectralBasisBundle(
+                             Basis: new SpectralBasis(
+                                 Eigenvalues: new Arr<double>([.. receipt.Pairs.AsIterable().Select(static p => p.Eigenvalue)]),
+                                 Eigenvectors: new Arr<Arr<double>>([.. receipt.Pairs.AsIterable().Select(static p => p.Eigenvector)])),
+                             Eigen: receipt,
+                             CacheHit: false,
+                             SkippedDegenerateFaces: laplacian.SkippedDegenerateFaces,
+                             FactorNonZeros: Option<int>.None),
+        };
 
     // --- [METRICS] --------------------------------------------------------------------------
     internal static double MeanEdgeLengthOf(Mesh mesh) {
@@ -949,14 +952,16 @@ internal static class MeshKernel {
             guard(active.IsValid, key.InvalidInput()).Bind(_ => active.Switch(
                 state: (Space: space, Eigenpairs: eigenpairs, Key: key),
                 spectralCase: static (state, spec) =>
-                    from descriptor in DescribeSpectralShape(space: state.Space, spec: spec, eigenpairs: state.Eigenpairs, key: state.Key)
+                    from descriptor in DescribeSpectralShape(space: state.Space, spec: spec, eigenpairs: state.Eigenpairs, includeAssembly: typeof(TOut) == typeof(DescriptorResult) || typeof(TOut) == typeof(DescriptorReceipt), key: state.Key)
                     from output in ProjectDescriptor<TOut>(descriptor: descriptor, key: state.Key)
                     select output)));
     internal static Fin<DescriptorResult> DescribeSpectralShape(MeshSpace space, MeshDescriptor.SpectralCase spec, int eigenpairs, Op key) =>
+        DescribeSpectralShape(space: space, spec: spec, eigenpairs: eigenpairs, includeAssembly: false, key: key);
+    private static Fin<DescriptorResult> DescribeSpectralShape(MeshSpace space, MeshDescriptor.SpectralCase spec, int eigenpairs, bool includeAssembly, Op key) =>
         from bundle in space.Cache.SpectralBasisBundleOf(k: eigenpairs, key: key)
         from spectral in spec.Filter.ApplyDetailed(basis: bundle.Basis, sources: spec.Sources, policy: spec.Policy, key: key)
-        let receipt = spectral.Receipt with { SkippedDegenerateFaces = bundle.SkippedDegenerateFaces, FactorNonZeros = bundle.FactorNonZeros }
-        select new DescriptorResult(Values: spectral.Values, Receipt: new DescriptorReceipt(Spectral: receipt, Eigen: bundle.Eigen, RequestedEigenpairs: eigenpairs, ReturnedEigenpairs: bundle.Eigen.ReturnedPairs, ComparisonReady: receipt.ComparisonReady, SpectralCacheHit: bundle.CacheHit, SkippedDegenerateFaces: bundle.SkippedDegenerateFaces, FactorNonZeros: bundle.FactorNonZeros, Assembly: receipt.Assembly));
+        from assembly in includeAssembly ? SpectralCore.Build(space: space, key: key).Map(calculus => Some(calculus.Receipt)) : Fin.Succ(Option<SpectralAssemblyReceipt>.None)
+        select new DescriptorResult(Values: spectral.Values, Receipt: new DescriptorReceipt(Spectral: spectral.Receipt, Eigen: bundle.Eigen, RequestedEigenpairs: eigenpairs, ReturnedEigenpairs: bundle.Eigen.ReturnedPairs, SpectralCacheHit: bundle.CacheHit, SkippedDegenerateFaces: bundle.SkippedDegenerateFaces, FactorNonZeros: bundle.FactorNonZeros, Assembly: assembly));
     private static Fin<TOut> ProjectDescriptor<TOut>(DescriptorResult descriptor, Op key) =>
         typeof(TOut) switch {
             Type t when t == typeof(DescriptorResult) => Fin.Succ((TOut)(object)descriptor),

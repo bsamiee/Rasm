@@ -6,9 +6,6 @@ using Rhino;
 using Rhino.Geometry;
 using static LanguageExt.Prelude;
 
-static T Project<T>(VectorCloud cloud, VectorCloudMetric metric, Context context, Op key) =>
-    Probe.Expect(Probe.Expect(VectorIntent.Cloud(cloud: cloud, metric: metric, key: key), $"{metric}: intent").Project<T>(context: context, key: key), $"{metric}: project");
-
 Op key = Op.Of(name: SCENARIO_NAME);
 Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).ToFin(), "context");
 Seq<Point3d> ringPoints = Seq(
@@ -27,18 +24,23 @@ VectorCloud shifted = Probe.Expect(VectorCloud.Cluster(
     context: context,
     key: key), "target cluster");
 
-double area = Project<double>(cloud: ring, metric: VectorCloudMetric.Area, context: context, key: key);
-VectorCloudShape shape = Project<VectorCloudShape>(cloud: ring, metric: VectorCloudMetric.Shape, context: context, key: key);
-Vector3d spread = Project<Vector3d>(cloud: cluster, metric: VectorCloudMetric.Spread, context: context, key: key);
-SinkhornReceipt transport = Probe.Expect(Probe.Expect(VectorIntent.Transport(source: cluster, target: shifted, regularization: 0.5, maxIterations: 64, massRelaxation: 1.0, key: key), "transport intent").Project<SinkhornReceipt>(context: context, key: key), "transport");
+double area = Probe.Project<double>(intent: VectorIntent.Cloud(cloud: ring, metric: VectorCloudMetric.Area, key: key), context: context, key: key, label: "area");
+VectorCloudShape shape = Probe.Project<VectorCloudShape>(intent: VectorIntent.Cloud(cloud: ring, metric: VectorCloudMetric.Shape, key: key), context: context, key: key, label: "shape");
+Vector3d spread = Probe.Project<Vector3d>(intent: VectorIntent.Cloud(cloud: cluster, metric: VectorCloudMetric.Spread, key: key), context: context, key: key, label: "spread");
+CloudTransportPolicy transportPolicy = Probe.Expect(CloudTransportPolicy.Of(regularization: 0.5, maxIterations: 64, massRelaxation: 1.0, key: key), "transport policy");
+SinkhornReceipt transport = Probe.Expect(Probe.Expect(VectorIntent.Transport(source: cluster, target: shifted, policy: transportPolicy, key: key), "transport intent").Project<SinkhornReceipt>(context: context, key: key), "transport");
 
 Probe.Require(Math.Abs(area - 2.0) <= 1.0e-6, $"area={area:R}");
 Probe.Require(shape.Area.IsSome && shape.Perimeter.IsSome && shape.Centroid.DistanceTo(new Point3d(x: 1.0, y: 0.5, z: 0.0)) <= 1.0e-6, $"shape.centroid={shape.Centroid}");
 Probe.Require(spread.IsValid && spread.X >= 0.0 && spread.Y >= 0.0 && spread.Z >= 0.0, $"spread={spread}");
 Probe.Require(RhinoMath.IsValidDouble(x: transport.Distance) && transport.Iterations >= 1, $"transport={transport}");
+Probe.Require(transport.Correspondences.CoveredSourceCount == 3 && transport.Correspondences.CoveredTargetCount == 3, $"transport.coverage={transport.Correspondences}");
+Probe.Require(transport.Correspondences.RetainedSourceMass > 0.0 && transport.Correspondences.RetainedTargetMass > 0.0, $"transport.mass={transport.Correspondences}");
 
 Evidence.EmitScenarioHeader(SCENARIO_NAME, CAPTURE_PATH);
 Evidence.Emit("ring.area", area.ToString("F6", System.Globalization.CultureInfo.InvariantCulture));
 Evidence.Emit("ring.centroid", shape.Centroid);
 Evidence.Emit("cluster.spread", spread);
 Evidence.Emit("transport.distance", transport.Distance.ToString("F6", System.Globalization.CultureInfo.InvariantCulture));
+Evidence.Emit("transport.coveredSource", transport.Correspondences.CoveredSourceCount);
+Evidence.Emit("transport.coveredTarget", transport.Correspondences.CoveredTargetCount);

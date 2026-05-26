@@ -82,6 +82,27 @@ public readonly record struct CloudHullPolicy(PositiveMagnitude Tolerance, Vecto
             : Fin.Fail<CloudHullPolicy>(key.InvalidInput());
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct CloudTransportPolicy(PositiveMagnitude Regularization, Dimension MaxIterations, bool Debiased, Option<PositiveMagnitude> MassRelaxation, PositiveMagnitude ConvergenceTolerance, PositiveMagnitude CouplingCutoff) {
+    public static Fin<CloudTransportPolicy> Of(double regularization, int maxIterations, bool debiased = false, double? massRelaxation = null, double? convergenceTolerance = null, double? couplingCutoff = null, Op? key = null) {
+        Op op = key.OrDefault();
+        return from reg in op.AcceptValidated<PositiveMagnitude>(candidate: regularization)
+               from cap in op.AcceptValidated<Dimension>(candidate: maxIterations)
+               from relax in massRelaxation is double lambda
+                   ? op.AcceptValidated<PositiveMagnitude>(candidate: lambda).Map(Some)
+                   : Fin.Succ(Option<PositiveMagnitude>.None)
+               from tolerance in op.AcceptValidated<PositiveMagnitude>(candidate: convergenceTolerance ?? 1.0e-8)
+               from cutoff in op.AcceptValidated<PositiveMagnitude>(candidate: couplingCutoff ?? 1.0e-8)
+               from policy in new CloudTransportPolicy(Regularization: reg, MaxIterations: cap, Debiased: debiased, MassRelaxation: relax, ConvergenceTolerance: tolerance, CouplingCutoff: cutoff).Admit(key: op)
+               select policy;
+    }
+    internal Fin<CloudTransportPolicy> Admit(Op key) =>
+        Regularization.Value > 0.0 && MaxIterations.Value > 0 && ConvergenceTolerance.Value > 0.0 && CouplingCutoff.Value > 0.0 && MassRelaxation.Map(static lambda => lambda.Value > 0.0).IfNone(true)
+            ? Fin.Succ(this)
+            : Fin.Fail<CloudTransportPolicy>(key.InvalidInput());
+}
+[SmartEnum<int>]
+public sealed partial class CloudNeighborhoodSearchBackend { public static readonly CloudNeighborhoodSearchBackend RhinoPointCloudKnn = new(key: 0), RhinoPointCloudRadius = new(key: 1); }
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudCurvatureSample(int Index, Point3d Point, double K1, double K2, Direction E1, Direction E2, double Residual, int NeighborCount) {
     internal bool IsValid =>
         Index >= 0
@@ -90,14 +111,15 @@ public readonly record struct CloudCurvatureSample(int Index, Point3d Point, dou
         && NeighborCount >= 6;
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CloudCurvatureReceipt(int InputCount, int RequestedNeighborCount, int AcceptedSampleCount, int RejectedSampleCount, int RankRejectedCount, int ResidualRejectedCount, double MeanResidual, double MaxResidual, double EigenGapTolerance, double FitResidualTolerance) {
+public readonly record struct CloudCurvatureReceipt(int InputCount, int RequestedNeighborCount, int AcceptedSampleCount, int RejectedSampleCount, int RankRejectedCount, int ResidualRejectedCount, double MeanResidual, double MaxResidual, double EigenGapTolerance, double FitResidualTolerance, bool SelfNeighborIncluded = false, bool NativeIndexRouted = false, bool RadiusLimited = false, CloudNeighborhoodSearchBackend? SearchBackend = null) {
     internal bool IsValid =>
         new[] { InputCount, RequestedNeighborCount, AcceptedSampleCount, RejectedSampleCount, RankRejectedCount, ResidualRejectedCount }.All(static count => count >= 0)
         && AcceptedSampleCount + RejectedSampleCount == InputCount
         && RankRejectedCount + ResidualRejectedCount == RejectedSampleCount
         && new[] { MeanResidual, MaxResidual, EigenGapTolerance, FitResidualTolerance }.All(RhinoMath.IsValidDouble)
         && EigenGapTolerance > 0.0
-        && FitResidualTolerance > 0.0;
+        && FitResidualTolerance > 0.0
+        && SearchBackend is not null;
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudCurvatureResult(Seq<CloudCurvatureSample> Samples, CloudCurvatureReceipt Receipt) {
@@ -117,11 +139,20 @@ public readonly record struct SinkhornReceipt(double Distance, Option<double> Ra
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudCorrespondence(int SourceIndex, int TargetIndex, Point3d SourcePoint, Point3d TargetPoint, Vector3d Residual, double Distance, double SquaredDistance, Option<double> SourceMass, Option<double> TargetMass, Option<double> CouplingMass, Option<double> Confidence);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CloudCorrespondenceSet(Seq<CloudCorrespondence> Items, int SourceCount, int TargetCount, int NonZeroCount, double TotalMass, double Rmse, double MedianDistance, double MaxDistance, double Quantile90, double Quantile95) {
+public readonly record struct CloudCorrespondenceSet(Seq<CloudCorrespondence> Items, int SourceCount, int TargetCount, int NonZeroCount, double TotalMass, double Rmse, double MedianDistance, double MaxDistance, double Quantile90, double Quantile95, int CoveredSourceCount = 0, int CoveredTargetCount = 0, double RetainedSourceMass = 0.0, double RetainedTargetMass = 0.0) {
     public static CloudCorrespondenceSet Of(Seq<CloudCorrespondence> items, int sourceCount, int targetCount) {
         CloudCorrespondence[] ordered = [.. items.AsIterable()]; double totalMass = ordered.Sum(static item => item.CouplingMass.IfNone(item.SourceMass.IfNone(0.0))); double[] distances = [.. ordered.Select(static item => item.Distance).Order()];
         double denominator = totalMass > RhinoMath.ZeroTolerance ? totalMass : ordered.Length, squared = ordered.Sum(item => item.SquaredDistance * (totalMass > RhinoMath.ZeroTolerance ? item.CouplingMass.IfNone(item.SourceMass.IfNone(0.0)) : 1.0));
-        return new CloudCorrespondenceSet(Items: items, SourceCount: sourceCount, TargetCount: targetCount, NonZeroCount: ordered.Length, TotalMass: totalMass, Rmse: ordered.Length > 0 ? Math.Sqrt(d: squared / denominator) : 0.0, MedianDistance: QuantileOrZero(sorted: distances, tau: 0.5), MaxDistance: distances.Length > 0 ? distances[^1] : 0.0, Quantile90: QuantileOrZero(sorted: distances, tau: 0.9), Quantile95: QuantileOrZero(sorted: distances, tau: 0.95));
+        return new CloudCorrespondenceSet(Items: items, SourceCount: sourceCount, TargetCount: targetCount, NonZeroCount: ordered.Length, TotalMass: totalMass, Rmse: ordered.Length > 0 ? Math.Sqrt(d: squared / denominator) : 0.0, MedianDistance: QuantileOrZero(sorted: distances, tau: 0.5), MaxDistance: distances.Length > 0 ? distances[^1] : 0.0, Quantile90: QuantileOrZero(sorted: distances, tau: 0.9), Quantile95: QuantileOrZero(sorted: distances, tau: 0.95), CoveredSourceCount: ordered.Select(static item => item.SourceIndex).Distinct().Count(), CoveredTargetCount: ordered.Select(static item => item.TargetIndex).Distinct().Count());
+    }
+    internal static CloudCorrespondenceSet Of(Seq<CloudCorrespondence> items, int sourceCount, int targetCount, double[] rowMass, double[] columnMass) {
+        CloudCorrespondenceSet basic = Of(items: items, sourceCount: sourceCount, targetCount: targetCount);
+        return basic with {
+            CoveredSourceCount = rowMass.Count(static mass => mass > RhinoMath.ZeroTolerance),
+            CoveredTargetCount = columnMass.Count(static mass => mass > RhinoMath.ZeroTolerance),
+            RetainedSourceMass = rowMass.Sum(),
+            RetainedTargetMass = columnMass.Sum()
+        };
     }
     private static double QuantileOrZero(double[] sorted, double tau) =>
         sorted.Length == 0 ? 0.0 : SortedArrayStatistics.Quantile(data: sorted, tau: tau);
@@ -554,10 +585,11 @@ internal static class CloudKernel {
             ? Fin.Succ(new CloudHullResult(Mesh: Option<Mesh>.None, Receipt: HullReceipt(kind: kind, status: CloudHullStatus.Rejected, policy: policy, inputCount: cluster.Vertices.Count, outputVertexCount: 0, nativeFacetCount: 0, planarityDeviation: None, coplanarRejected: false, containmentRejectedCount: cluster.Vertices.Count, nativeRouted: false, fallback: kind.Equals(CloudHullKind.FootprintWrapper))))
             : from fit in BestFitOf(points: cluster.Vertices, key: key)
               let hull = ConvexHull2D(points: cluster.Vertices, plane: fit.Plane)
-              let containmentRejected = FootprintContainmentRejectedCount(points: cluster.Vertices, hull: hull, plane: fit.Plane, tolerance: policy.Tolerance.Value)
-              from _ in containmentRejected == 0 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
-              from mesh in MeshFromFootprint(points: hull, key: key)
-              select new CloudHullResult(Mesh: Some(mesh), Receipt: HullReceipt(kind: kind, status: CloudHullStatus.Completed, policy: policy, inputCount: cluster.Vertices.Count, outputVertexCount: mesh.Vertices.Count, nativeFacetCount: mesh.Faces.Count, planarityDeviation: Some(fit.Deviation), coplanarRejected: false, containmentRejectedCount: containmentRejected, nativeRouted: false, fallback: kind.Equals(CloudHullKind.FootprintWrapper)));
+              let containmentRejected = hull.Count < 3 ? cluster.Vertices.Count : FootprintContainmentRejectedCount(points: cluster.Vertices, hull: hull, plane: fit.Plane, tolerance: policy.Tolerance.Value)
+              from result in containmentRejected == 0
+                  ? MeshFromFootprint(points: hull, key: key).Map(mesh => new CloudHullResult(Mesh: Some(mesh), Receipt: HullReceipt(kind: kind, status: CloudHullStatus.Completed, policy: policy, inputCount: cluster.Vertices.Count, outputVertexCount: mesh.Vertices.Count, nativeFacetCount: mesh.Faces.Count, planarityDeviation: Some(fit.Deviation), coplanarRejected: false, containmentRejectedCount: containmentRejected, nativeRouted: true, fallback: kind.Equals(CloudHullKind.FootprintWrapper))))
+                  : Fin.Succ(new CloudHullResult(Mesh: Option<Mesh>.None, Receipt: HullReceipt(kind: kind, status: CloudHullStatus.Rejected, policy: policy, inputCount: cluster.Vertices.Count, outputVertexCount: 0, nativeFacetCount: 0, planarityDeviation: Some(fit.Deviation), coplanarRejected: false, containmentRejectedCount: containmentRejected, nativeRouted: true, fallback: kind.Equals(CloudHullKind.FootprintWrapper))))
+              select result;
     private static CloudHullReceipt HullReceipt(CloudHullKind kind, CloudHullStatus status, CloudHullPolicy policy, int inputCount, int outputVertexCount, int nativeFacetCount, Option<double> planarityDeviation, bool coplanarRejected, int containmentRejectedCount, bool nativeRouted, bool fallback) =>
         new(Kind: kind, Status: status, Tolerance: policy.Tolerance.Value, AngleTolerance: policy.AngleTolerance.Value, InputCount: inputCount, OutputVertexCount: outputVertexCount, NativeFacetCount: nativeFacetCount, PlanarityDeviation: planarityDeviation, CoplanarRejected: coplanarRejected, ContainmentRejectedCount: containmentRejectedCount, NativeRouted: nativeRouted, Fallback: fallback);
     private static Seq<Point3d> ConvexHull2D(Seq<Point3d> points, Plane plane) {
@@ -692,32 +724,29 @@ internal static class CloudKernel {
     }
 
     // --- [TRANSPORT] ------------------------------------------------------------------------
-    internal static Fin<TOut> Sinkhorn<TOut>(VectorCloud source, VectorCloud target, double regularization, int maxIterations, bool debiased, Option<PositiveMagnitude> massRelaxation, Op key) =>
-        from tolerance in key.AcceptValidated<PositiveMagnitude>(candidate: 1.0e-8)
-        from cutoff in key.AcceptValidated<PositiveMagnitude>(candidate: 1.0e-8)
-        from output in Sinkhorn<TOut>(source: source, target: target, regularization: regularization, maxIterations: maxIterations, debiased: debiased, massRelaxation: massRelaxation, convergenceTolerance: tolerance, couplingCutoff: cutoff, key: key)
+    internal static Fin<TOut> Sinkhorn<TOut>(VectorCloud source, VectorCloud target, CloudTransportPolicy policy, Op key) =>
+        from activePolicy in policy.Admit(key: key)
+        from output in (source, target) switch {
+            (VectorCloud.ClusterCase src, VectorCloud.ClusterCase tgt) => SinkhornCluster<TOut>(source: src, target: tgt, policy: activePolicy, key: key),
+            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))),
+        }
         select output;
-    internal static Fin<TOut> Sinkhorn<TOut>(VectorCloud source, VectorCloud target, double regularization, int maxIterations, bool debiased, Option<PositiveMagnitude> massRelaxation, PositiveMagnitude convergenceTolerance, PositiveMagnitude couplingCutoff, Op key) =>
-            (source, target) switch {
-                (VectorCloud.ClusterCase src, VectorCloud.ClusterCase tgt) => SinkhornCluster<TOut>(source: src, target: tgt, regularization: regularization, maxIterations: maxIterations, debiased: debiased, massRelaxation: massRelaxation, convergenceTolerance: convergenceTolerance, couplingCutoff: couplingCutoff, key: key),
-                _ => Fin.Fail<TOut>(key.Unsupported(geometryType: source.GetType(), outputType: typeof(TOut))),
-            };
-    private static Fin<TOut> SinkhornCluster<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double regularization, int maxIterations, bool debiased, Option<PositiveMagnitude> massRelaxation, PositiveMagnitude convergenceTolerance, PositiveMagnitude couplingCutoff, Op key) =>
+    private static Fin<TOut> SinkhornCluster<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, CloudTransportPolicy policy, Op key) =>
         source.Vertices.Count < 1 || target.Vertices.Count < 1
             ? Fin.Fail<TOut>(error: key.InvalidInput())
             : from sourceMass in MassOf(cluster: source, key: key)
               from targetMass in MassOf(cluster: target, key: key)
-              from plan in SinkhornOt(source: source.Vertices, target: target.Vertices, sourceMass: sourceMass, targetMass: targetMass, reg: regularization, maxIter: maxIterations, massRelaxation: massRelaxation, convergenceTolerance: convergenceTolerance, couplingCutoff: couplingCutoff, key: key)
-              from bias in debiased
-                  ? from sourceBias in SinkhornOt(source: source.Vertices, target: source.Vertices, sourceMass: sourceMass, targetMass: sourceMass, reg: regularization, maxIter: maxIterations, massRelaxation: massRelaxation, convergenceTolerance: convergenceTolerance, couplingCutoff: couplingCutoff, key: key) from targetBias in SinkhornOt(source: target.Vertices, target: target.Vertices, sourceMass: targetMass, targetMass: targetMass, reg: regularization, maxIter: maxIterations, massRelaxation: massRelaxation, convergenceTolerance: convergenceTolerance, couplingCutoff: couplingCutoff, key: key) select (Source: Some(sourceBias.Distance), Target: Some(targetBias.Distance), Distance: plan.Distance - (0.5 * sourceBias.Distance) - (0.5 * targetBias.Distance))
+              from plan in SinkhornOt(source: source.Vertices, target: target.Vertices, sourceMass: sourceMass, targetMass: targetMass, policy: policy, key: key)
+              from bias in policy.Debiased
+                  ? from sourceBias in SinkhornOt(source: source.Vertices, target: source.Vertices, sourceMass: sourceMass, targetMass: sourceMass, policy: policy, key: key) from targetBias in SinkhornOt(source: target.Vertices, target: target.Vertices, sourceMass: targetMass, targetMass: targetMass, policy: policy, key: key) select (Source: Some(sourceBias.Distance), Target: Some(targetBias.Distance), Distance: plan.Distance - (0.5 * sourceBias.Distance) - (0.5 * targetBias.Distance))
                   : key.AcceptValue(value: plan.Distance).Map(distance => (Source: Option<double>.None, Target: Option<double>.None, Distance: distance))
-              from output in plan.Project<TOut>(source: source, target: target, distance: bias.Distance, sourceBias: bias.Source, targetBias: bias.Target, regularization: regularization, debiased: debiased, massRelaxation: massRelaxation, key: key)
+              from output in plan.Project<TOut>(source: source, target: target, distance: bias.Distance, sourceBias: bias.Source, targetBias: bias.Target, policy: policy, key: key)
               select output;
     private sealed record SinkhornPlan(double Distance, DenseMatrixD Coupling, double SourceConvergenceResidual, double TargetConvergenceResidual, int Iterations, SinkhornStopKind Stop, double ConvergenceTolerance, double CouplingCutoff) {
-        internal Fin<TOut> Project<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double distance, Option<double> sourceBias, Option<double> targetBias, double regularization, bool debiased, Option<PositiveMagnitude> massRelaxation, Op key) =>
+        internal Fin<TOut> Project<TOut>(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double distance, Option<double> sourceBias, Option<double> targetBias, CloudTransportPolicy policy, Op key) =>
             typeof(TOut) switch {
                 Type t when t == typeof(double) => key.AcceptValue(value: distance).Map(static d => (TOut)(object)d),
-                Type t when t == typeof(SinkhornReceipt) => ReceiptOf(source: source, target: target, distance: distance, sourceBias: sourceBias, targetBias: targetBias, regularization: regularization, debiased: debiased, massRelaxation: massRelaxation, key: key).Map(static receipt => (TOut)(object)receipt),
+                Type t when t == typeof(SinkhornReceipt) => ReceiptOf(source: source, target: target, distance: distance, sourceBias: sourceBias, targetBias: targetBias, policy: policy, key: key).Map(static receipt => (TOut)(object)receipt),
                 Type t when t == typeof(CloudCorrespondenceSet) => CouplingCorrespondences(source: source, target: target, coupling: Coupling, couplingCutoff: CouplingCutoff, key: key).Map(static correspondences => (TOut)(object)correspondences),
                 Type t when t == typeof(Matrix) => key.AcceptValue(value: MatrixKernel.FromMathNet(m: Coupling, rows: Dimension.Create(value: Coupling.RowCount), cols: Dimension.Create(value: Coupling.ColumnCount))).Map(static matrix => (TOut)(object)matrix),
                 Type t when t == typeof(VectorCloud) => toSeq(Enumerable.Range(start: 0, count: source.Vertices.Count)).TraverseM(i => Coupling.Row(i).Sum() switch {
@@ -726,31 +755,33 @@ internal static class CloudKernel {
                 }).As().Bind(transported => VectorCloud.WeightedCluster(points: transported.Map(static item => item.Point), mass: transported.Map(static item => item.Mass), context: source.Tolerance, key: key).Map(static cloud => (TOut)(object)cloud)),
                 _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorCloud), outputType: typeof(TOut))),
             };
-        private Fin<SinkhornReceipt> ReceiptOf(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double distance, Option<double> sourceBias, Option<double> targetBias, double regularization, bool debiased, Option<PositiveMagnitude> massRelaxation, Op key) {
+        private Fin<SinkhornReceipt> ReceiptOf(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, double distance, Option<double> sourceBias, Option<double> targetBias, CloudTransportPolicy policy, Op key) {
             (double couplingMass, int nonZeroCouplings, double minPositiveCoupling, double maxCoupling) = Coupling.Enumerate().Aggregate(
                 seed: (Total: 0.0, Nonzero: 0, MinPositive: double.PositiveInfinity, Max: 0.0),
                 func: (s, value) => value > CouplingCutoff ? (s.Total + value, s.Nonzero + 1, Math.Min(val1: s.MinPositive, val2: value), Math.Max(val1: s.Max, val2: value)) : s);
             return CouplingCorrespondences(source: source, target: target, coupling: Coupling, couplingCutoff: CouplingCutoff, key: key).Map(correspondences => new SinkhornReceipt(
-                Distance: distance, RawDistance: Some(Distance), SourceBiasDistance: sourceBias, TargetBiasDistance: targetBias, Regularization: regularization, MassRelaxation: massRelaxation.Map(static value => value.Value), ConvergenceTolerance: ConvergenceTolerance, CouplingCutoff: CouplingCutoff, Debiased: debiased,
-                ResidualKind: massRelaxation.IsSome ? SinkhornResidualKind.ScalingChange : SinkhornResidualKind.MarginalMass, NumericStatus: SinkhornNumericStatus.FiniteAccepted,
+                Distance: distance, RawDistance: Some(Distance), SourceBiasDistance: sourceBias, TargetBiasDistance: targetBias, Regularization: policy.Regularization.Value, MassRelaxation: policy.MassRelaxation.Map(static value => value.Value), ConvergenceTolerance: ConvergenceTolerance, CouplingCutoff: CouplingCutoff, Debiased: policy.Debiased,
+                ResidualKind: policy.MassRelaxation.IsSome ? SinkhornResidualKind.ScalingChange : SinkhornResidualKind.MarginalMass, NumericStatus: SinkhornNumericStatus.FiniteAccepted,
                 SourceConvergenceResidual: SourceConvergenceResidual, TargetConvergenceResidual: TargetConvergenceResidual, Iterations: Iterations, Stop: Stop, CouplingMass: couplingMass, NonZeroCouplings: nonZeroCouplings, MinPositiveCoupling: nonZeroCouplings > 0 ? Some(minPositiveCoupling) : Option<double>.None, MaxCoupling: nonZeroCouplings > 0 ? Some(maxCoupling) : Option<double>.None, Correspondences: correspondences));
         }
     }
-    private static Fin<SinkhornPlan> SinkhornOt(Seq<Point3d> source, Seq<Point3d> target, Arr<double> sourceMass, Arr<double> targetMass, double reg, int maxIter, Option<PositiveMagnitude> massRelaxation, PositiveMagnitude convergenceTolerance, PositiveMagnitude couplingCutoff, Op key) {
+    private static Fin<SinkhornPlan> SinkhornOt(Seq<Point3d> source, Seq<Point3d> target, Arr<double> sourceMass, Arr<double> targetMass, CloudTransportPolicy policy, Op key) {
         int m = source.Count; int n = target.Count;
-        if (sourceMass.Count != m || targetMass.Count != n || !RhinoMath.IsValidDouble(x: reg) || reg <= 0.0 || maxIter < 1)
+        double reg = policy.Regularization.Value;
+        int maxIter = policy.MaxIterations.Value;
+        if (sourceMass.Count != m || targetMass.Count != n || sourceMass.AsIterable().Any(static mass => !RhinoMath.IsValidDouble(x: mass) || mass <= 0.0) || targetMass.AsIterable().Any(static mass => !RhinoMath.IsValidDouble(x: mass) || mass <= 0.0) || reg <= 0.0 || maxIter < 1)
             return Fin.Fail<SinkhornPlan>(key.InvalidInput());
         DenseMatrixD logKernel = DenseMatrixD.OfRowArrays(source.AsIterable().Select(src => target.AsIterable().Select(tgt => -src.DistanceToSquared(other: tgt) / reg).ToArray()));
         DenseVectorD logU = DenseVectorD.Create(m, 0.0);
         DenseVectorD logV = DenseVectorD.Create(n, 0.0);
         DenseVectorD logA = DenseVectorD.OfEnumerable(sourceMass.AsIterable().Select(static value => Math.Log(d: value)));
         DenseVectorD logB = DenseVectorD.OfEnumerable(targetMass.AsIterable().Select(static value => Math.Log(d: value)));
-        double exponent = massRelaxation.Match(Some: lambda => lambda.Value / (lambda.Value + reg), None: () => 1.0);
-        bool balanced = massRelaxation.IsNone;
+        double exponent = policy.MassRelaxation.Match(Some: lambda => lambda.Value / (lambda.Value + reg), None: () => 1.0);
+        bool balanced = policy.MassRelaxation.IsNone;
         double sourceConvergenceResidual = double.PositiveInfinity;
         double targetConvergenceResidual = double.PositiveInfinity;
         int iterations = 0;
-        for (int iter = 0; iter < maxIter && Math.Max(val1: sourceConvergenceResidual, val2: targetConvergenceResidual) > convergenceTolerance.Value; iter++) {
+        for (int iter = 0; iter < maxIter && Math.Max(val1: sourceConvergenceResidual, val2: targetConvergenceResidual) > policy.ConvergenceTolerance.Value; iter++) {
             iterations = iter + 1;
             double[] previousU = [.. logU];
             double[] previousV = [.. logV];
@@ -769,8 +800,8 @@ internal static class CloudKernel {
         DenseMatrixD coupling = DenseMatrixD.OfRowArrays(Enumerable.Range(start: 0, count: m).Select(i => Enumerable.Range(start: 0, count: n).Select(j => (logU[i] + logKernel[i, j] + logV[j]) switch { double value when value < -745.0 => 0.0, double value => Math.Exp(d: value) }).ToArray()));
         double dist = -reg * coupling.PointwiseMultiply(logKernel).Enumerate().Sum();
         bool numeric = RhinoMath.IsValidDouble(x: dist) && coupling.Enumerate().All(RhinoMath.IsValidDouble);
-        return numeric && Math.Max(val1: sourceConvergenceResidual, val2: targetConvergenceResidual) <= convergenceTolerance.Value
-            ? Fin.Succ(new SinkhornPlan(Distance: dist, Coupling: coupling, SourceConvergenceResidual: sourceConvergenceResidual, TargetConvergenceResidual: targetConvergenceResidual, Iterations: iterations, Stop: balanced ? SinkhornStopKind.BalancedMarginalsConverged : SinkhornStopKind.RelaxedScalingConverged, ConvergenceTolerance: convergenceTolerance.Value, CouplingCutoff: couplingCutoff.Value))
+        return numeric && Math.Max(val1: sourceConvergenceResidual, val2: targetConvergenceResidual) <= policy.ConvergenceTolerance.Value
+            ? Fin.Succ(new SinkhornPlan(Distance: dist, Coupling: coupling, SourceConvergenceResidual: sourceConvergenceResidual, TargetConvergenceResidual: targetConvergenceResidual, Iterations: iterations, Stop: balanced ? SinkhornStopKind.BalancedMarginalsConverged : SinkhornStopKind.RelaxedScalingConverged, ConvergenceTolerance: policy.ConvergenceTolerance.Value, CouplingCutoff: policy.CouplingCutoff.Value))
             : Fin.Fail<SinkhornPlan>(key.InvalidResult());
     }
     private static double LogSumExp(int count, Func<int, double> valueAt) =>
@@ -790,6 +821,9 @@ internal static class CloudKernel {
     internal static Fin<CloudCorrespondenceSet> CouplingCorrespondences(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, DenseMatrixD coupling, double couplingCutoff, Op key) =>
         from sourceMass in MassOf(cluster: source, key: key)
         from targetMass in MassOf(cluster: target, key: key)
+        let retained = coupling.Map(value => value > couplingCutoff ? value : 0.0)
+        let rowMass = retained.RowSums().ToArray()
+        let columnMass = retained.ColumnSums().ToArray()
         from correspondences in coupling.RowCount == source.Vertices.Count && coupling.ColumnCount == target.Vertices.Count
             ? Fin.Succ(CloudCorrespondenceSet.Of(items: toSeq(
                 from i in Enumerable.Range(start: 0, count: source.Vertices.Count)
@@ -798,7 +832,8 @@ internal static class CloudKernel {
                 where mass > couplingCutoff
                 let residual = target.Vertices[index: j] - source.Vertices[index: i]
                 let squared = residual.SquareLength
-                select new CloudCorrespondence(SourceIndex: i, TargetIndex: j, SourcePoint: source.Vertices[index: i], TargetPoint: target.Vertices[index: j], Residual: residual, Distance: Math.Sqrt(d: squared), SquaredDistance: squared, SourceMass: Some(sourceMass[index: i]), TargetMass: Some(targetMass[index: j]), CouplingMass: Some(mass), Confidence: Option<double>.None)), sourceCount: source.Vertices.Count, targetCount: target.Vertices.Count))
+                let confidence = Math.Min(val1: 1.0, val2: mass / Math.Max(val1: sourceMass[index: i], val2: targetMass[index: j]))
+                select new CloudCorrespondence(SourceIndex: i, TargetIndex: j, SourcePoint: source.Vertices[index: i], TargetPoint: target.Vertices[index: j], Residual: residual, Distance: Math.Sqrt(d: squared), SquaredDistance: squared, SourceMass: Some(sourceMass[index: i]), TargetMass: Some(targetMass[index: j]), CouplingMass: Some(mass), Confidence: RhinoMath.IsValidDouble(x: confidence) ? Some(confidence) : Option<double>.None)), sourceCount: source.Vertices.Count, targetCount: target.Vertices.Count, rowMass: rowMass, columnMass: columnMass))
             : Fin.Fail<CloudCorrespondenceSet>(key.InvalidResult())
         select correspondences;
     // --- [PRINCIPAL_CURVATURE] -------------------------------------------------------------
@@ -821,10 +856,12 @@ internal static class CloudKernel {
         }
         double meanResidual = samples.Count == 0 ? 0.0 : samples.Average(static sample => sample.Residual);
         double maxResidual = samples.Count == 0 ? 0.0 : samples.Max(static sample => sample.Residual);
-        CloudCurvatureReceipt receipt = new(InputCount: n, RequestedNeighborCount: requested, AcceptedSampleCount: samples.Count, RejectedSampleCount: n - samples.Count, RankRejectedCount: rankRejected, ResidualRejectedCount: residualRejected, MeanResidual: meanResidual, MaxResidual: maxResidual, EigenGapTolerance: policy.EigenGapTolerance.Value, FitResidualTolerance: policy.FitResidualTolerance.Value);
+        CloudCurvatureReceipt receipt = new(InputCount: n, RequestedNeighborCount: requested, AcceptedSampleCount: samples.Count, RejectedSampleCount: n - samples.Count, RankRejectedCount: rankRejected, ResidualRejectedCount: residualRejected, MeanResidual: meanResidual, MaxResidual: maxResidual, EigenGapTolerance: policy.EigenGapTolerance.Value, FitResidualTolerance: policy.FitResidualTolerance.Value, SelfNeighborIncluded: SelfNeighborIncluded(ids: neighborhoods), NativeIndexRouted: true, RadiusLimited: policy.Radius.IsSome, SearchBackend: policy.Radius.IsSome ? CloudNeighborhoodSearchBackend.RhinoPointCloudRadius : CloudNeighborhoodSearchBackend.RhinoPointCloudKnn);
         CloudCurvatureResult result = new(Samples: toSeq(samples), Receipt: receipt);
         return result.IsValid && samples.Count > 0 ? Fin.Succ(result) : Fin.Fail<CloudCurvatureResult>(key.InvalidResult());
     }
+    private static bool SelfNeighborIncluded(int[][] ids) =>
+        ids.Length > 0 && Enumerable.Range(start: 0, count: ids.Length).All(i => ids[i].Contains(i));
     private readonly record struct CurvatureAttempt(Option<CloudCurvatureSample> Sample, bool RankRejected, bool ResidualRejected) {
         internal static readonly CurvatureAttempt Rank = new(Sample: None, RankRejected: true, ResidualRejected: false);
         internal static readonly CurvatureAttempt Residual = new(Sample: None, RankRejected: false, ResidualRejected: true);
