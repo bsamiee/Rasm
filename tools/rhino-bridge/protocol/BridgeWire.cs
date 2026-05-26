@@ -1,6 +1,5 @@
 using System.Collections.Frozen;
 using System.Globalization;
-using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -55,6 +54,36 @@ public abstract partial record BridgeMarker {
     public static Seq<BridgeMarker> Scan(string stdout) =>
         toSeq(value: (stdout ?? string.Empty).Split(separator: ['\r', '\n'], options: StringSplitOptions.RemoveEmptyEntries))
             .Choose(selector: line => Parse(line: line).ToOption());
+    public static void EmitReturn(object value) {
+        ArgumentNullException.ThrowIfNull(argument: value);
+        Console.WriteLine(value: new Returned(Value: JsonSerializer.SerializeToElement(value: value, options: BridgeWire.CompactJson)).Serialize());
+    }
+    public static void EmitEvidence(string key, string value) {
+        ArgumentNullException.ThrowIfNull(argument: key);
+        ArgumentNullException.ThrowIfNull(argument: value);
+        Console.WriteLine(value: new Evidence(Key: key, Value: value).Serialize());
+    }
+    public static void EmitFact(string key, object value) {
+        ArgumentNullException.ThrowIfNull(argument: key);
+        ArgumentNullException.ThrowIfNull(argument: value);
+        Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"{key}={Format(value: value)}"));
+    }
+    public static void EmitFacts(object facts) {
+        ArgumentNullException.ThrowIfNull(argument: facts);
+        string serialized = JsonSerializer.Serialize(value: facts, options: BridgeWire.CompactJson);
+        Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"facts={serialized}"));
+        Console.WriteLine(value: new Evidence(Key: "facts", Value: serialized).Serialize());
+    }
+    public static void EmitCapture(string path, int width, int height) {
+        ArgumentNullException.ThrowIfNull(argument: path);
+        Console.WriteLine(value: new Capture(Path: path, Width: width, Height: height).Serialize());
+    }
+    public static void EmitScenarioHeader(string scenario, string capturePath) {
+        ArgumentNullException.ThrowIfNull(argument: scenario);
+        ArgumentNullException.ThrowIfNull(argument: capturePath);
+        Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"scenario={scenario}"));
+        Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"capture={capturePath}"));
+    }
     private static Fin<BridgeMarker> ParsePayload(string payload) =>
         payload.IndexOf(value: '=', comparisonType: StringComparison.Ordinal) switch {
             < 0 => Fin.Fail<BridgeMarker>(error: Error.New(message: $"bridge marker payload missing '=': {payload}")),
@@ -91,7 +120,16 @@ public abstract partial record BridgeMarker {
             return Fin.Fail<BridgeMarker>(error: Error.New(message: $"bridge marker capture payload was not valid JSON: {error.Message}"));
         }
     }
+    private static string Format(object value) =>
+        value switch {
+            string text => text,
+            bool flag => flag ? "true" : "false",
+            IFormattable formattable => formattable.ToString(format: null, formatProvider: CultureInfo.InvariantCulture),
+            _ => value.ToString() ?? "<null>",
+        };
 }
+
+public enum FileSystemKind { File, Directory }
 
 // --- [CONSTANTS] ------------------------------------------------------------------------
 public static class BridgeWire {
@@ -155,7 +193,7 @@ public static class BridgeWire {
     public static BridgeReply Reply<TData>(
         string command,
         PhaseStatus status,
-        TData data,
+        TData? data = default,
         IReadOnlyList<BridgeOutput>? outputs = null,
         IReadOnlyList<BridgeDiagnostic>? diagnostics = null,
         BridgeFault? fault = null) =>
@@ -163,7 +201,7 @@ public static class BridgeWire {
             Schema: Schema,
             Command: command,
             Status: status,
-            Data: JsonSerializer.SerializeToElement(value: data, options: CompactJson),
+            Data: data is null ? null : JsonSerializer.SerializeToElement(value: data, options: CompactJson),
             Outputs: outputs ?? [],
             Diagnostics: diagnostics ?? [],
             Fault: fault);
@@ -173,14 +211,7 @@ public static class BridgeWire {
         IReadOnlyList<BridgeOutput>? outputs = null,
         IReadOnlyList<BridgeDiagnostic>? diagnostics = null,
         BridgeFault? fault = null) =>
-        new(
-            Schema: Schema,
-            Command: command,
-            Status: status,
-            Data: null,
-            Outputs: outputs ?? [],
-            Diagnostics: diagnostics ?? [],
-            Fault: fault);
+        Reply<object>(command: command, status: status, data: null, outputs: outputs, diagnostics: diagnostics, fault: fault);
     private static JsonSerializerOptions Options(bool writeIndented) {
         JsonSerializerOptions options = new(defaults: JsonSerializerDefaults.Web) {
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -216,22 +247,16 @@ public static class BoundaryIO {
         File.Move(sourceFileName: temp, destFileName: path, overwrite: true);
         restrict?.Invoke(obj: path);
     }
-    [UnsupportedOSPlatform("windows")]
-    public static void RestrictUnixFile(string path) =>
-        File.SetUnixFileMode(path: path, mode: UnixFileMode.UserRead | UnixFileMode.UserWrite);
-    [UnsupportedOSPlatform("windows")]
-    public static void RestrictUnixDirectory(string path) =>
-        File.SetUnixFileMode(path: path, mode: UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-    public static void RestrictFile(string path) {
-        if (!OperatingSystem.IsWindows()) {
-            RestrictUnixFile(path: path);
-        }
+    public static void Restrict(string path, FileSystemKind kind) {
+        if (OperatingSystem.IsWindows()) return;
+        UnixFileMode mode = kind switch {
+            FileSystemKind.Directory => UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
+            _ => UnixFileMode.UserRead | UnixFileMode.UserWrite,
+        };
+        File.SetUnixFileMode(path: path, mode: mode);
     }
-    public static void RestrictDirectory(string path) {
-        if (!OperatingSystem.IsWindows()) {
-            RestrictUnixDirectory(path: path);
-        }
-    }
+    public static void RestrictFile(string path) => Restrict(path: path, kind: FileSystemKind.File);
+    public static void RestrictDirectory(string path) => Restrict(path: path, kind: FileSystemKind.Directory);
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -257,27 +282,61 @@ public sealed record BridgeReply(
     IReadOnlyList<BridgeDiagnostic> Diagnostics,
     BridgeFault? Fault);
 
-public sealed record BridgeDoctor(
-    string RhinoName,
-    string RhinoVersion,
-    int RhinoPid,
-    bool ActiveDocument,
-    double? ModelAbsoluteTolerance,
-    IReadOnlyList<BridgeAssemblyReport> Assemblies,
-    IReadOnlyList<BridgeSessionReport> Sessions);
+[Union]
+public abstract partial record BridgeReport {
+    public sealed record Doctor(
+        PhaseStatus Status,
+        BridgeFault? Fault,
+        string RhinoName,
+        string RhinoVersion,
+        int RhinoPid,
+        bool ActiveDocument,
+        double? ModelAbsoluteTolerance,
+        IReadOnlyList<BridgeAssemblyReport> Assemblies,
+        IReadOnlyList<BridgeSessionReport> Sessions) : BridgeReport;
+    public sealed record Load(
+        PhaseStatus Status,
+        BridgeFault? Fault,
+        string? SessionId,
+        string? AssemblyName,
+        string? Location,
+        string? PdbPath,
+        string? WorkspaceRoot,
+        string? PackageCacheRoot,
+        IReadOnlyList<BridgeAssemblyReport> Assemblies) : BridgeReport;
+    public sealed record Execute(
+        PhaseStatus Status,
+        BridgeFault? Fault,
+        int DurationMs,
+        bool ServerExecutionCancelable,
+        string BridgeAssemblyName,
+        string BridgeAssemblyVersion,
+        string BridgeAssemblyInformationalVersion,
+        string RhinoVersion,
+        BridgeDocumentReport Document,
+        BridgeReturnValue? ReturnValue,
+        IReadOnlyList<string> References) : BridgeReport;
+    public sealed record Unload(
+        PhaseStatus Status,
+        BridgeFault? Fault,
+        string SessionId,
+        bool UnloadRequested,
+        bool Unloaded) : BridgeReport;
+    public sealed record Quit(
+        PhaseStatus Status,
+        BridgeFault? Fault,
+        int RhinoPid,
+        bool ActiveDocument,
+        bool Modified) : BridgeReport;
+}
 
 public sealed record BridgeAssemblyReport(string Name, PhaseStatus Status, bool Required, string? Version, string? InformationalVersion, string? Location, BridgeFault? Fault);
 public sealed record BridgeSessionReport(string SessionId, string AssemblyName, string Location, PhaseStatus Status);
 public sealed record BridgeLoadRequest(string AssemblyPath, string WorkspaceRoot, string? PackageCacheRoot);
 public sealed record BridgeExecuteRequest(string Script, string? ScriptPath, IReadOnlyList<string> References);
 public sealed record BridgeUnloadRequest(string SessionId);
-public sealed record BridgeLoadReport(PhaseStatus Status, string? SessionId, string? AssemblyName, string? Location, string? PdbPath, string? WorkspaceRoot, string? PackageCacheRoot, IReadOnlyList<BridgeAssemblyReport> Assemblies, BridgeFault? Fault);
 public sealed record BridgeDocumentReport(bool Active, uint? RuntimeSerialNumber, string? Name, string? Path, bool? Modified, double? ModelAbsoluteTolerance, string? ModelUnitSystem);
 public sealed record BridgeReturnValue(JsonElement Value, string Source);
-public sealed record BridgeRhinoCodePolicy(bool ResolverIsolated, string ResolverOption, string CachePolicy, bool CacheReusable);
-public sealed record BridgeExecuteReport(PhaseStatus Status, int DurationMs, bool ServerExecutionCancelable, string BridgeAssemblyName, string BridgeAssemblyVersion, string BridgeAssemblyInformationalVersion, string RhinoVersion, BridgeRhinoCodePolicy RhinoCode, BridgeDocumentReport Document, BridgeReturnValue? ReturnValue, IReadOnlyList<string> References, BridgeFault? Fault);
-public sealed record BridgeUnloadReport(PhaseStatus Status, string SessionId, bool UnloadRequested, bool Unloaded, BridgeFault? Fault);
-public sealed record BridgeQuitReport(PhaseStatus Status, int RhinoPid, bool ActiveDocument, bool Modified, BridgeFault? Fault);
 public sealed record BridgeOutput(string Source, string Text, bool Truncated, int Length, int Limit);
 public sealed record BridgeDiagnostic(string Severity, string Message, string? Source = null, string? Code = null, string? File = null, int? Line = null, int? Column = null, string? Category = null);
 public sealed record BridgeFault(string Category, string Message, string? Type = null, string? StackTrace = null, IReadOnlyList<BridgeFault>? Causes = null) {

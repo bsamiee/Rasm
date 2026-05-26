@@ -89,7 +89,7 @@ internal static class Program {
         BridgePhase load = connect.Status.IsOk
             ? await LoadPhaseAsync(assembly: assembly, workspaceRoot: workspaceRoot, packageCacheRoot: null, timeoutMs: options.TimeoutMs).ConfigureAwait(false)
             : BridgePhase.Skipped(phase: PhaseLoad, message: "Bridge connect failed before load-smoke.");
-        BridgePhase unload = load.DataValue<BridgeLoadReport>() is { SessionId: string sessionId }
+        BridgePhase unload = load.DataValue<BridgeReport.Load>() is { SessionId: string sessionId }
             ? await UnloadPhaseAsync(sessionId: sessionId).ConfigureAwait(false)
             : BridgePhase.Skipped(phase: PhaseUnload, message: "No load session was created.");
         BridgeResult result = BridgeResult.From(command: "load-smoke", phases: [connect, load, unload]);
