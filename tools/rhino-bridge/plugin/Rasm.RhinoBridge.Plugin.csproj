@@ -8,10 +8,16 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
         <ProjectReference Include="../protocol/Rasm.RhinoBridge.Protocol.csproj" />
     </ItemGroup>
 
     <ItemGroup>
+        <Using Include="LanguageExt" />
+        <Using Include="LanguageExt.Common" />
+        <Using Include="LanguageExt.Prelude" Static="true" />
+        <Using Include="Thinktecture" />
         <Using Include="Rasm.RhinoBridge.Protocol" />
         <Using Include="Rhino" />
         <Using Include="Rhino.Commands" />

@@ -2,19 +2,15 @@ using System;
 using Rasm.Grasshopper.UI;
 using Rhino;
 
-static void Require(bool condition, string message) =>
-    _ = condition ? true : throw new InvalidOperationException(message);
-
 int detached = 0;
 Subscription.Atom(detach: () => detached++, marshalToUi: true).Dispose();
-Require(detached == 1, $"marshal detach count={detached}");
+Probe.Require(detached == 1, $"marshal detach count={detached}");
 
 int composite = 0;
 (Subscription.Atom(detach: () => composite += 1, marshalToUi: true) | Subscription.Atom(detach: () => composite += 10, marshalToUi: true)).Dispose();
-Require(composite == 11, $"composite detach sum={composite}");
+Probe.Require(composite == 11, $"composite detach sum={composite}");
 
-Console.WriteLine($"scenario={SCENARIO_NAME}");
-Console.WriteLine($"capture={CAPTURE_PATH}");
-Console.WriteLine($"rhino.mainThread={RhinoApp.IsOnMainThread}");
-Console.WriteLine($"marshal.detached={detached}");
-Console.WriteLine($"composite.sum={composite}");
+Evidence.EmitScenarioHeader(SCENARIO_NAME, CAPTURE_PATH);
+Evidence.Emit("rhino.mainThread", RhinoApp.IsOnMainThread);
+Evidence.Emit("marshal.detached", detached);
+Evidence.Emit("composite.sum", composite);

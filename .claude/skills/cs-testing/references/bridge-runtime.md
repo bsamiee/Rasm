@@ -23,3 +23,14 @@
 - On macOS, Rasm.Vectors static specs should treat successful `Plane`, `Curve`, `Surface`, `Mesh`, native polyline closure/conversion, vector unitization/tiny checks, point-cloud topology, and geometry materialization as bridge-owned unless a current run proves the path is pure managed.
 - Static specs still own managed input guards around those payloads: null/default validation, unsupported outputs, category shape, and no exception-shaped failures.
 - Do not replace a bridge-owned success case with a weaker xUnit shape assertion. Add a scenario or record the exact executable gap.
+
+## [3][RECLASSIFICATION]
+
+When a RhinoWIP update or product change makes a previously bridge-owned API genuinely pure-managed, reclassify it back to static via the following audit:
+
+1. Run `bash scripts/rhino.sh bridge check <source.cs> <scenario.verify.csx>` and confirm the scenario passes WITHOUT loading any RhinoCommon/Grasshopper host-resolved type at the relevant call path.
+2. Run the same behavior as a static xUnit spec; confirm the assertion succeeds in a clean managed process (no RhinoWIP bridge running).
+3. If both pass, move the law into the static spec, delete the scenario (or shrink it to the still-bridge-owned remainder), and update the `[1][OWNERSHIP]` table above plus `tests/csharp/AGENTS.md` if the change affects multiple owners.
+4. Record the RhinoWIP version that enabled the reclassification in the spec or commit message — reclassifications are reversible if a later update reintroduces the host dependency.
+
+Reclassifications are conservative by default: when in doubt, the behavior stays bridge-owned. The cost of a false-positive reclassification (silent CI failure on next RhinoWIP regression) outweighs the cost of an over-strict bridge classification.

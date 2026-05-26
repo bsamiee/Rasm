@@ -25,8 +25,8 @@ public sealed class RasmBridgeStart : Command {
     protected override Result RunCommand(RhinoDoc doc, RunMode mode) {
         BridgeRuntimeState status = BridgeRuntime.Start();
         RhinoApp.WriteLine(status.Endpoint is BridgeEndpoint endpoint
-            ? $"[{EnglishName}] {BridgeWire.Ok}: pipe={endpoint.PipeName}, pid={endpoint.RhinoPid}"
-            : $"[{EnglishName}] {BridgeWire.Failed}: {status.Fault?.Message ?? "Bridge did not start."}");
+            ? $"[{EnglishName}] {PhaseStatus.Ok.Wire}: pipe={endpoint.PipeName}, pid={endpoint.RhinoPid}"
+            : $"[{EnglishName}] {PhaseStatus.Failed.Wire}: {status.Fault?.Message ?? "Bridge did not start."}");
         return status.Endpoint is not null ? Result.Success : Result.Failure;
     }
 }

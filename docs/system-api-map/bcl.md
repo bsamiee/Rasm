@@ -28,8 +28,9 @@
 | :-----: | ------------------- | --------- | ----- |
 | [1] | `System.Collections.Frozen` | `FrozenDictionary`, `FrozenSet` | Static read-mostly lookup. |
 | [2] | `System.Collections.Immutable` | Immutable collections | Evolving immutable state outside LanguageExt rails. |
-| [3] | `System.Buffers` | `ArrayPool<T>` | Temporary buffers with explicit return ownership. |
-| [4] | `System.Runtime.InteropServices` | `CollectionsMarshal` | Measured hot-path internal access only. |
+| [3] | `System.Collections.Generic` | `OrderedDictionary<K,V>` (.NET 10) | Insertion-ordered key/value store at boundary; never inside LanguageExt rails. |
+| [4] | `System.Buffers` | `ArrayPool<T>` | Temporary buffers with explicit return ownership. |
+| [5] | `System.Runtime.InteropServices` | `CollectionsMarshal` | Measured hot-path internal access only. |
 
 ---
 ## [3][NUMERICS]

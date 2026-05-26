@@ -198,11 +198,20 @@
           "Thinktecture.Runtime.Extensions": "[10.2.0, )"
         }
       },
+      "rasm.rhinobridge.protocol": {
+        "type": "Project",
+        "dependencies": {
+          "LanguageExt.Core": "[5.0.0-beta-77, )",
+          "Thinktecture.Runtime.Extensions": "[10.2.0, )"
+        }
+      },
       "rasm.testkit": {
         "type": "Project",
         "dependencies": {
           "LanguageExt.Core": "[5.0.0-beta-77, )",
           "Rasm": "[1.0.0, )",
+          "Rasm.RhinoBridge.Protocol": "[1.0.0, )",
+          "System.Drawing.Common": "[10.0.0, )",
           "Thinktecture.Runtime.Extensions": "[10.2.0, )"
         }
       },

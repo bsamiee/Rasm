@@ -27,31 +27,16 @@ internal static class Program {
     private const PipeOptions PipePolicy = PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly;
     private static readonly Encoding OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
     private static readonly TimeSpan ProcessTimeout = TimeSpan.FromMinutes(value: 5.0);
-    private static readonly IReadOnlyDictionary<string, ClientCommand> Commands =
-        new Dictionary<string, ClientCommand>(StringComparer.Ordinal) {
-            ["doctor"] = new(Usage: "doctor [options]", FailurePhase: BridgeWire.Doctor, MinArgs: 0, MaxArgs: 999, Run: static rest => {
-                CliOptions options = CliOptions.Parse(args: rest);
-                return ReplyCommandAsync(command: BridgeWire.Doctor, phase: BridgeWire.Doctor, request: BridgeWire.Request(command: BridgeWire.Doctor, timeoutMs: options.TimeoutMs), resultPath: options.Result);
-            }),
-            ["launch"] = new(Usage: "launch", FailurePhase: PhaseLaunch, MinArgs: 0, MaxArgs: 0, Run: static _ => LaunchCommandAsync()),
-            ["restart"] = new(Usage: "restart", FailurePhase: PhaseLifecycle, MinArgs: 0, MaxArgs: 0, Run: static _ => RestartAsync()),
-            ["load-smoke"] = new(Usage: "load-smoke <assembly> [options]", FailurePhase: PhaseResolve, MinArgs: 1, MaxArgs: 999, Run: static rest => LoadSmokeAsync(assemblyPath: rest[0], options: CliOptions.Parse(rest[1..]))),
-            ["load"] = new(Usage: "load <assembly> [options]", FailurePhase: PhaseLoad, MinArgs: 1, MaxArgs: 999, Run: static rest => LoadAsync(assemblyPath: rest[0], options: CliOptions.Parse(rest[1..]))),
-            ["unload"] = new(Usage: "unload <session>", FailurePhase: PhaseUnload, MinArgs: 1, MaxArgs: 1, Run: static rest => ReplyCommandAsync(command: BridgeWire.Unload, phase: PhaseUnload, request: BridgeWire.Request(command: BridgeWire.Unload, payload: new BridgeUnloadRequest(SessionId: rest[0])), resultPath: null)),
-            ["check"] = new(Usage: "check <target> [scenario.csx|scenario.verify.csx] [options]", FailurePhase: PhaseResolve, MinArgs: 1, MaxArgs: 999, Run: static rest => CheckAsync(args: rest)),
-            ["clean"] = new(Usage: "clean <target>", FailurePhase: PhaseClean, MinArgs: 1, MaxArgs: 1, Run: static rest => CleanAsync(targetPath: rest[0])),
-            ["quit"] = new(Usage: "quit", FailurePhase: PhaseLifecycle, MinArgs: 0, MaxArgs: 0, Run: static _ => QuitAsync()),
-        };
     public static async Task<int> Main(string[] args) {
-        string command = args.Length > 0 ? args[0] : string.Empty;
-        string[] rest = args.Length > 1 ? args[1..] : [];
-        ClientCommand? route = Commands.GetValueOrDefault(key: command);
+        ArgumentNullException.ThrowIfNull(argument: args);
+        Fin<ClientVerb> parsed = ClientVerb.Parse(args: args);
+        ClientVerb? verb = parsed.IsSucc ? (ClientVerb)parsed : null;
         try {
-            return route is null ? Usage() : await route.InvokeAsync(args: rest).ConfigureAwait(false);
+            return verb is null ? ClientVerb.Usage() : await verb.RunAsync().ConfigureAwait(continueOnCapturedContext: false);
         } catch (Exception error) when (error is IOException or JsonException or InvalidOperationException or OperationCanceledException or ArgumentException or TimeoutException or Win32Exception or UnauthorizedAccessException) {
-            return route is not null
-                ? PrintFailure(command: command, phase: route.FailurePhase, rest: rest, error: error)
-                : BridgeWire.ExitCode(status: BridgeWire.Failed);
+            string command = args.Length > 0 ? args[0] : string.Empty;
+            string phase = verb?.FailurePhase ?? command;
+            return PrintFailure(command: command, phase: phase, rest: args.Length > 1 ? args[1..] : [], error: error);
         }
     }
     private static int PrintFailure(string command, string phase, IReadOnlyList<string> rest, Exception error) {
@@ -63,55 +48,45 @@ internal static class Program {
             .Where(item => string.Equals(a: item.value, b: "--result", comparisonType: StringComparison.Ordinal) && item.index + 1 < args.Count)
             .Select(item => args[item.index + 1])
             .FirstOrDefault();
-    internal static int Usage() {
-        Console.Error.WriteLine("Usage:");
-        foreach (KeyValuePair<string, ClientCommand> command in Commands.OrderBy(static item => item.Key, StringComparer.Ordinal)) {
-            Console.Error.WriteLine($"  rhino-bridge-client {command.Value.Usage}");
-        }
-        Console.Error.WriteLine("Options: --configuration <name> --worktree <path> --timeout-ms <ms> --result <path>");
-        Console.Error.WriteLine("--timeout-ms controls client transport waits; RhinoCode execution is synchronous inside Rhino.");
-        Console.Error.WriteLine("Launch env: RHINO_WIP_APP_PATH=/Applications/RhinoWIP.app or RHINO_WIP_BUNDLE_ID=com.mcneel.rhinoceros.9");
-        return 2;
-    }
-    private static async Task<int> LaunchCommandAsync() {
+    internal static async Task<int> LaunchCommandAsync() {
         BridgePhase launch = await LaunchPhaseAsync().ConfigureAwait(false);
         BridgePhase connect = await ConnectPhaseAsync(timeout: TimeSpan.FromSeconds(value: 45.0)).ConfigureAwait(false);
         BridgeResult result = BridgeResult.From(command: "launch", phases: [launch, connect]);
         return PrintResult(result: result, path: null);
     }
-    private static async Task<int> RestartAsync() {
+    internal static async Task<int> RestartAsync() {
         BridgeEndpoint endpoint = ReadEndpoint();
         BridgePhase quit = await PhaseAsync(phase: PhaseLifecycle, work: async () => {
             BridgeReply reply = await SendAsync(request: BridgeWire.Request(command: BridgeWire.Quit), timeout: TransportTimeout(timeoutMs: 15000)).ConfigureAwait(false);
             return BridgePhase.FromReply(phase: PhaseLifecycle, reply: reply);
         }).ConfigureAwait(false);
-        bool exited = !BridgeWire.IsOk(status: quit.Status)
+        bool exited = !quit.Status.IsOk
             || await WaitForExitAsync(pid: endpoint.RhinoPid, timeout: TimeSpan.FromSeconds(value: 30.0)).ConfigureAwait(false);
-        if (BridgeWire.IsOk(status: quit.Status)) {
+        if (quit.Status.IsOk) {
             quit = exited ? quit : BridgePhase.Failed(phase: PhaseLifecycle, message: $"Rhino process {endpoint.RhinoPid.ToString(provider: CultureInfo.InvariantCulture)} did not exit before restart timeout.");
         }
-        BridgePhase launch = BridgeWire.IsOk(status: quit.Status)
+        BridgePhase launch = quit.Status.IsOk
             ? await LaunchPhaseAsync().ConfigureAwait(false)
             : BridgePhase.Skipped(phase: PhaseLaunch, message: "Lifecycle quit failed before restart launch.");
-        bool canConnect = BridgeWire.IsOk(status: quit.Status)
-            && (BridgeWire.IsOk(status: launch.Status) || string.Equals(a: launch.Status, b: BridgeWire.Skipped, comparisonType: StringComparison.Ordinal));
+        bool canConnect = quit.Status.IsOk
+            && (launch.Status.IsOk || !launch.Status.IsDecisive);
         BridgePhase connect = canConnect
             ? await ConnectPhaseAsync(timeout: TimeSpan.FromSeconds(value: 45.0)).ConfigureAwait(false)
             : BridgePhase.Skipped(phase: PhaseConnect, message: "Lifecycle quit failed before restart connect.");
         BridgeResult result = BridgeResult.From(command: "restart", phases: [quit, launch, connect]);
         return PrintResult(result: result, path: null);
     }
-    private static async Task<int> LoadAsync(string assemblyPath, CliOptions options) {
+    internal static async Task<int> LoadAsync(string assemblyPath, CliOptions options) {
         string assembly = ExistingFile(path: assemblyPath, label: "assembly");
         string workspaceRoot = await WorkspaceRootAsync(path: assembly, options: options).ConfigureAwait(false);
         BridgePhase load = await LoadPhaseAsync(assembly: assembly, workspaceRoot: workspaceRoot, packageCacheRoot: null, timeoutMs: options.TimeoutMs).ConfigureAwait(false);
         return PrintResult(result: BridgeResult.From(command: BridgeWire.Load, phases: [load]), path: options.Result);
     }
-    private static async Task<int> LoadSmokeAsync(string assemblyPath, CliOptions options) {
+    internal static async Task<int> LoadSmokeAsync(string assemblyPath, CliOptions options) {
         string assembly = ExistingFile(path: assemblyPath, label: "assembly");
         string workspaceRoot = await WorkspaceRootAsync(path: assembly, options: options).ConfigureAwait(false);
         BridgePhase connect = await ConnectPhaseAsync(timeout: TransportTimeout(timeoutMs: options.TimeoutMs)).ConfigureAwait(false);
-        BridgePhase load = BridgeWire.IsOk(status: connect.Status)
+        BridgePhase load = connect.Status.IsOk
             ? await LoadPhaseAsync(assembly: assembly, workspaceRoot: workspaceRoot, packageCacheRoot: null, timeoutMs: options.TimeoutMs).ConfigureAwait(false)
             : BridgePhase.Skipped(phase: PhaseLoad, message: "Bridge connect failed before load-smoke.");
         BridgePhase unload = load.DataValue<BridgeLoadReport>() is { SessionId: string sessionId }
@@ -120,15 +95,7 @@ internal static class Program {
         BridgeResult result = BridgeResult.From(command: "load-smoke", phases: [connect, load, unload]);
         return PrintResult(result: result, path: options.Result);
     }
-    private static async Task<int> CheckAsync(string[] args) {
-        CliInvocation invocation = CliOptions.ParseInvocation(args: args);
-        return invocation.Positionals.Count switch {
-            1 => await CheckTargetAsync(targetPath: invocation.Positionals[0], scenarioPath: null, options: invocation.Options).ConfigureAwait(false),
-            2 => await CheckTargetAsync(targetPath: invocation.Positionals[0], scenarioPath: invocation.Positionals[1], options: invocation.Options).ConfigureAwait(false),
-            _ => throw new InvalidOperationException(message: "Usage: check <target> [scenario.csx|scenario.verify.csx] [options]"),
-        };
-    }
-    private static async Task<int> CheckTargetAsync(string targetPath, string? scenarioPath, CliOptions options) {
+    internal static async Task<int> CheckTargetAsync(string targetPath, string? scenarioPath, CliOptions options) {
         string target = ExistingFile(path: targetPath, label: "target");
         return Path.GetExtension(path: target).ToUpperInvariant() switch {
             ".CSPROJ" => await CheckProjectAsync(projectPath: target, scenarioPath: scenarioPath, options: options).ConfigureAwait(false),
@@ -139,7 +106,7 @@ internal static class Program {
             string extension => throw new InvalidOperationException(message: $"Unsupported check target extension '{extension}': {target}"),
         };
     }
-    private static async Task<int> CleanAsync(string targetPath) {
+    internal static async Task<int> CleanAsync(string targetPath) {
         string target = Path.GetFullPath(path: targetPath);
         string worktree = await WorktreeAsync(path: target).ConfigureAwait(false);
         string reportDir = ReportDirectory(worktree: worktree, target: target);
@@ -165,7 +132,7 @@ internal static class Program {
         BridgePhase launch = await LaunchPhaseAsync().ConfigureAwait(false);
         BridgePhase connect = await ConnectPhaseAsync(timeout: TransportTimeout(timeoutMs: options.TimeoutMs)).ConfigureAwait(false);
         BridgePhase scriptServer = await RhinoCodeCliPhaseAsync().ConfigureAwait(false);
-        BridgePhase execute = BridgeWire.IsOk(status: connect.Status)
+        BridgePhase execute = connect.Status.IsOk
             ? await ExecutePhaseAsync(script: script, scriptPath: scriptFile, worktree: worktree, references: [], timeoutMs: options.TimeoutMs).ConfigureAwait(false)
             : BridgePhase.Skipped(phase: PhaseExecute, message: "Bridge connect failed before script execution.");
         BridgeResult result = BridgeResult.From(command: "check", phases: [launch, connect, scriptServer, execute]);
@@ -206,15 +173,15 @@ internal static class Program {
             options: options,
             resultPath: resultPath,
             loadMessage: "Source checks use RhinoCode #r scripts without a separate bridge load session.",
-            noRuntimeMessage: BridgeWire.IsOk(status: buildPhase.Status) && scenarioPath is null ? "Source build validated; no runtime script supplied." : "Source ownership or build failed before source script execution.",
+            noRuntimeMessage: buildPhase.Status.IsOk && scenarioPath is null ? "Source build validated; no runtime script supplied." : "Source ownership or build failed before source script execution.",
             script: (projectBuild, reportPath) => ScenarioScriptAsync(project: projectBuild, scriptPath: scenarioPath, resultPath: reportPath)).ConfigureAwait(false);
     }
-    private static async Task<int> QuitAsync() {
+    internal static async Task<int> QuitAsync() {
         BridgeEndpoint endpoint = ReadEndpoint();
         BridgeReply reply = await SendAsync(request: BridgeWire.Request(command: BridgeWire.Quit), timeout: TransportTimeout(timeoutMs: 15000)).ConfigureAwait(false);
         BridgeResult result = BridgeResult.From(command: "quit", phases: [BridgePhase.FromReply(phase: PhaseLifecycle, reply: reply)]);
         int exitCode = PrintResult(result: result, path: null);
-        if (BridgeWire.IsOk(status: reply.Status)) {
+        if (reply.Status.IsOk) {
             _ = await WaitForExitAsync(pid: endpoint.RhinoPid, timeout: TimeSpan.FromSeconds(value: 30.0)).ConfigureAwait(false);
         }
         return exitCode;
@@ -256,7 +223,7 @@ internal static class Program {
                 BridgeReply reply = await SendAsync(request: BridgeWire.Request(command: BridgeWire.Hello), timeout: TimeSpan.FromSeconds(value: 3.0)).ConfigureAwait(false);
                 timer.Stop();
                 BridgePhase phase = BridgePhase.FromReply(phase: PhaseConnect, reply: reply) with { DurationMs = (int)timer.ElapsedMilliseconds };
-                if (BridgeWire.IsOk(status: phase.Status)) {
+                if (phase.Status.IsOk) {
                     return phase;
                 }
                 last = phase;
@@ -289,7 +256,7 @@ internal static class Program {
                 : BridgePhase.Failed(phase: PhaseRhinoCodeCli, timer: timer, message: "rhinocode list --json failed.", outputs: outputs);
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or Win32Exception or JsonException or InvalidOperationException or OperationCanceledException or ArgumentException or TimeoutException) {
             timer.Stop();
-            return BridgePhase.Create<object>(phase: PhaseRhinoCodeCli, status: BridgeWire.Failed, durationMs: (int)timer.ElapsedMilliseconds, fault: BridgeFault.FromException(category: PhaseRhinoCodeCli, error: error));
+            return BridgePhase.Create<object>(phase: PhaseRhinoCodeCli, status: PhaseStatus.Failed, durationMs: (int)timer.ElapsedMilliseconds, fault: BridgeFault.FromException(category: PhaseRhinoCodeCli, error: error));
         }
     }
     private static async Task<BridgePhase> LoadPhaseAsync(string assembly, string workspaceRoot, string? packageCacheRoot, int timeoutMs) =>
@@ -318,9 +285,7 @@ internal static class Program {
         string root = stageDirectory ?? Path.Combine(path1: worktree, path2: ".artifacts/rhino/bridge", path3: string.Create(provider: CultureInfo.InvariantCulture, $"execute-{Environment.ProcessId}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}"));
         _ = Directory.CreateDirectory(path: root);
         string path = Path.Combine(path1: root, path2: "script.csx");
-        string temp = string.Create(provider: CultureInfo.InvariantCulture, $"{path}.{Environment.ProcessId}.tmp");
-        File.WriteAllText(path: temp, contents: script, encoding: Encoding.UTF8);
-        File.Move(sourceFileName: temp, destFileName: path, overwrite: true);
+        BoundaryIO.Write(path: path, contents: script, encoding: Encoding.UTF8);
         return path;
     }
     private static async Task<(BridgePhase Build, ProjectBuild? Project)> BuildPhaseAsync(string project, string configuration) {
@@ -380,15 +345,15 @@ internal static class Program {
             };
     }
     private static async Task<int> CheckRuntimeAsync(string command, BridgePhase resolve, BridgePhase build, ProjectBuild? project, string worktree, CliOptions options, string resultPath, string loadMessage, string noRuntimeMessage, Func<ProjectBuild, string, Task<(string Script, IReadOnlyList<string> References)?>> script) {
-        (string Script, IReadOnlyList<string> References)? checkScript = project is { } projectBuild && BridgeWire.IsOk(status: build.Status)
+        (string Script, IReadOnlyList<string> References)? checkScript = project is { } projectBuild && build.Status.IsOk
             ? await script(projectBuild, resultPath).ConfigureAwait(false)
             : null;
-        bool canRun = checkScript is not null && BridgeWire.IsOk(status: build.Status);
+        bool canRun = checkScript is not null && build.Status.IsOk;
         BridgePhase launch = canRun ? await LaunchPhaseAsync().ConfigureAwait(false) : BridgePhase.Skipped(phase: PhaseLaunch, message: noRuntimeMessage);
         BridgePhase connect = canRun ? await ConnectPhaseAsync(timeout: TransportTimeout(timeoutMs: options.TimeoutMs)).ConfigureAwait(false) : BridgePhase.Skipped(phase: PhaseConnect, message: noRuntimeMessage);
-        BridgePhase scriptServer = BridgeWire.IsOk(status: connect.Status) ? await RhinoCodeCliPhaseAsync().ConfigureAwait(false) : BridgePhase.Skipped(phase: PhaseRhinoCodeCli, message: "Bridge connect failed before RhinoCode CLI discovery.");
+        BridgePhase scriptServer = connect.Status.IsOk ? await RhinoCodeCliPhaseAsync().ConfigureAwait(false) : BridgePhase.Skipped(phase: PhaseRhinoCodeCli, message: "Bridge connect failed before RhinoCode CLI discovery.");
         BridgePhase load = BridgePhase.Skipped(phase: PhaseLoad, message: loadMessage);
-        Task<BridgePhase> executeTask = (checkScript, BridgeWire.IsOk(status: connect.Status), BridgeWire.IsOk(status: build.Status)) switch {
+        Task<BridgePhase> executeTask = (checkScript, connect.Status.IsOk, build.Status.IsOk) switch {
             ( { } current, true, _) => ExecutePhaseAsync(
                 script: current.Script,
                 scriptPath: null,
@@ -396,7 +361,7 @@ internal static class Program {
                 references: current.References,
                 timeoutMs: options.TimeoutMs,
                 stageDirectory: Path.GetDirectoryName(path: resultPath)),
-            (null, _, true) => Task.FromResult(BridgePhase.Create<object>(phase: PhaseExecute, status: BridgeWire.Unsupported, fault: BridgeFault.MessageOnly(category: BridgeWire.Unsupported, message: noRuntimeMessage))),
+            (null, _, true) => Task.FromResult(BridgePhase.Create<object>(phase: PhaseExecute, status: PhaseStatus.Unsupported, fault: BridgeFault.MessageOnly(category: PhaseStatus.Unsupported.Wire, message: noRuntimeMessage))),
             _ => Task.FromResult(BridgePhase.Skipped(phase: PhaseExecute, message: noRuntimeMessage)),
         };
         BridgePhase execute = await executeTask.ConfigureAwait(false);
@@ -415,7 +380,7 @@ internal static class Program {
             ? await SourceScenarioScriptAsync(project: project, scriptPath: ExistingFile(path: sourceScriptPath, label: "script"), resultPath: resultPath).ConfigureAwait(false)
             : null;
     private static async Task<(string Script, IReadOnlyList<string> References)> SourceScenarioScriptAsync(ProjectBuild project, string scriptPath, string resultPath) {
-        IReadOnlyList<string> references = ScriptReferences(project: project, resultPath: resultPath);
+        IReadOnlyList<string> references = ScenarioScriptReferences(project: project, resultPath: resultPath);
         string[] script = await File.ReadAllLinesAsync(path: scriptPath, encoding: Encoding.UTF8, cancellationToken: CancellationToken.None).ConfigureAwait(false);
         string? embeddedReference = script.Select((line, index) => new { Line = line.TrimStart(), Number = index + 1 })
             .Where(static item => SourceScenarioReferenceLine(line: item.Line))
@@ -426,16 +391,50 @@ internal static class Program {
         }
         string scenario = ScenarioName(scriptPath: scriptPath);
         string capture = Path.Combine(path1: Path.GetDirectoryName(path: resultPath) ?? Environment.CurrentDirectory, path2: $"{Path.GetFileNameWithoutExtension(path: resultPath)}.png");
-        int foundBodyIndex = Array.FindIndex(array: script, match: static line => !SourceScenarioPreambleLine(line: line));
+        int foundBodyIndex = System.Array.FindIndex(array: script, match: static line => !SourceScenarioPreambleLine(line: line));
         int bodyIndex = foundBodyIndex < 0 ? script.Length : foundBodyIndex;
         return (
             string.Join(separator: Environment.NewLine, values: new[] {
                 ReferenceDirectives(references: references),
             }.Concat(script.Take(count: bodyIndex)).Concat([
+                "using Rasm.TestKit.Scenarios;",
                 $"const string SCENARIO_NAME = \"{Escape(value: scenario)}\";",
                 $"const string CAPTURE_PATH = \"{Escape(value: capture)}\";",
             ]).Concat(script.Skip(count: bodyIndex))),
             references);
+    }
+    private static IReadOnlyList<string> ScenarioScriptReferences(ProjectBuild project, string resultPath) =>
+        ShadowReferences(
+            targetPath: project.TargetPath,
+            references: new[] { project.TargetPath }
+                .Concat(project.HostFilteredRuntimeReferences)
+                .Concat(ScenarioKitArtifacts(project: project))
+                .Distinct(StringComparer.OrdinalIgnoreCase),
+            resultPath: resultPath);
+    private static IEnumerable<string> ScenarioKitArtifacts(ProjectBuild project) {
+        string? worktreeRoot = LocateWorktreeRoot(project: project);
+        if (worktreeRoot is null) {
+            yield break;
+        }
+        string framework = project.TargetFramework ?? "net10.0";
+        string testKitArtifact = Path.Combine(paths: [worktreeRoot, "tests/csharp/_testkit/bin", project.Configuration, framework, "Rasm.TestKit.dll"]);
+        if (File.Exists(path: testKitArtifact)) {
+            yield return testKitArtifact;
+        }
+        string protocolArtifact = Path.Combine(paths: [worktreeRoot, "tools/rhino-bridge/protocol/bin", project.Configuration, framework, "Rasm.RhinoBridge.Protocol.dll"]);
+        if (File.Exists(path: protocolArtifact)) {
+            yield return protocolArtifact;
+        }
+    }
+    private static string? LocateWorktreeRoot(ProjectBuild project) {
+        string? dir = Path.GetDirectoryName(path: project.ProjectPath);
+        while (!string.IsNullOrEmpty(value: dir)) {
+            if (Directory.Exists(path: Path.Combine(path1: dir, path2: "tests/csharp/_testkit"))) {
+                return dir;
+            }
+            dir = Path.GetDirectoryName(path: dir);
+        }
+        return null;
     }
     private static bool SourceScenarioPreambleLine(string line) =>
         string.IsNullOrWhiteSpace(value: line)
@@ -548,12 +547,12 @@ $"Console.Error.WriteLine(\"rasm.rhino-bridge.stderr={nonce}\");",
         try {
             return await work().ConfigureAwait(false);
         } catch (TimeoutException error) {
-            return BridgePhase.Create<object>(phase: phase, status: BridgeWire.Timeout, fault: BridgeFault.FromException(category: phase, error: error));
+            return BridgePhase.Create<object>(phase: phase, status: PhaseStatus.Timeout, fault: BridgeFault.FromException(category: phase, error: error));
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or Win32Exception or JsonException or InvalidOperationException or OperationCanceledException or ArgumentException) {
             return BridgePhase.Failed(phase: phase, message: error.Message, fault: BridgeFault.FromException(category: phase, error: error));
         }
     }
-    private static async Task<int> ReplyCommandAsync(string command, string phase, BridgeRequest request, string? resultPath) {
+    internal static async Task<int> ReplyCommandAsync(string command, string phase, BridgeRequest request, string? resultPath) {
         BridgeReply reply = await SendAsync(request: request, timeout: TransportTimeout(timeoutMs: request.TimeoutMs)).ConfigureAwait(false);
         BridgeResult result = BridgeResult.From(command: command, phases: [BridgePhase.FromReply(phase: phase, reply: reply)]);
         return PrintResult(result: result, path: resultPath);
@@ -599,18 +598,15 @@ $"Console.Error.WriteLine(\"rasm.rhino-bridge.stderr={nonce}\");",
         string json = JsonSerializer.Serialize(value: published, options: BridgeWire.PrettyJson);
         if (fullPath is not null) {
             try {
-                _ = Directory.CreateDirectory(path: Path.GetDirectoryName(path: fullPath) ?? Directory.GetCurrentDirectory());
-                string temp = string.Create(provider: CultureInfo.InvariantCulture, $"{fullPath}.{Environment.ProcessId}.tmp");
-                File.WriteAllText(path: temp, contents: json + Environment.NewLine, encoding: OutputEncoding);
-                File.Move(sourceFileName: temp, destFileName: fullPath, overwrite: true);
+                BoundaryIO.Write(path: fullPath, contents: json + Environment.NewLine, encoding: OutputEncoding);
             } catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException) {
                 BridgeResult failed = BridgeResult.From(command: result.Command, phases: [BridgePhase.Failed(phase: "result", message: $"Could not write result file: {path}", fault: BridgeFault.FromException(category: "result", error: error))]);
                 Console.WriteLine(value: JsonSerializer.Serialize(value: failed, options: BridgeWire.PrettyJson));
-                return BridgeWire.ExitCode(status: failed.Status);
+                return failed.Status.Exit;
             }
         }
         Console.WriteLine(value: json);
-        return BridgeWire.ExitCode(status: result.Status);
+        return result.Status.Exit;
     }
     private static string DefaultResultPath(string worktree, string target) =>
         Path.Combine(path1: ReportDirectory(worktree: worktree, target: target), path2: string.Create(provider: CultureInfo.InvariantCulture, $"{DateTimeOffset.Now:yyyyMMdd-HHmmss}-{Path.GetFileName(path: target)}.json"));
@@ -651,9 +647,84 @@ $"Console.Error.WriteLine(\"rasm.rhino-bridge.stderr={nonce}\");",
 }
 
 // --- [MODELS] ---------------------------------------------------------------------------
-internal sealed record ClientCommand(string Usage, string FailurePhase, int MinArgs, int MaxArgs, Func<string[], Task<int>> Run) {
-    internal Task<int> InvokeAsync(string[] args) =>
-        args.Length >= MinArgs && args.Length <= MaxArgs ? Run(args) : Task.FromResult(Program.Usage());
+[Union]
+internal abstract partial record ClientVerb {
+    internal sealed record Doctor(CliOptions Options) : ClientVerb;
+    internal sealed record Launch : ClientVerb;
+    internal sealed record Restart : ClientVerb;
+    internal sealed record LoadSmoke(string AssemblyPath, CliOptions Options) : ClientVerb;
+    internal sealed record Load(string AssemblyPath, CliOptions Options) : ClientVerb;
+    internal sealed record Unload(string SessionId) : ClientVerb;
+    internal sealed record Check(string TargetPath, Option<string> ScenarioPath, CliOptions Options) : ClientVerb;
+    internal sealed record Clean(string TargetPath) : ClientVerb;
+    internal sealed record Quit : ClientVerb;
+    private static readonly (string Name, string Synopsis)[] Synopses = [
+        ("doctor", "doctor [options]"),
+        ("launch", "launch"),
+        ("restart", "restart"),
+        ("load-smoke", "load-smoke <assembly> [options]"),
+        ("load", "load <assembly> [options]"),
+        ("unload", "unload <session>"),
+        ("check", "check <target> [scenario.csx|scenario.verify.csx] [options]"),
+        ("clean", "clean <target>"),
+        ("quit", "quit"),
+    ];
+    internal string FailurePhase => Switch(
+        doctor: static _ => BridgeWire.Doctor,
+        launch: static _ => Program.PhaseLaunch,
+        restart: static _ => Program.PhaseLifecycle,
+        loadSmoke: static _ => Program.PhaseResolve,
+        load: static _ => Program.PhaseLoad,
+        unload: static _ => Program.PhaseUnload,
+        check: static _ => Program.PhaseResolve,
+        clean: static _ => Program.PhaseClean,
+        quit: static _ => Program.PhaseLifecycle);
+    internal Task<int> RunAsync() => Switch(
+        doctor: static d => Program.ReplyCommandAsync(command: BridgeWire.Doctor, phase: BridgeWire.Doctor, request: BridgeWire.Request(command: BridgeWire.Doctor, timeoutMs: d.Options.TimeoutMs), resultPath: d.Options.Result),
+        launch: static _ => Program.LaunchCommandAsync(),
+        restart: static _ => Program.RestartAsync(),
+        loadSmoke: static s => Program.LoadSmokeAsync(assemblyPath: s.AssemblyPath, options: s.Options),
+        load: static l => Program.LoadAsync(assemblyPath: l.AssemblyPath, options: l.Options),
+        unload: static u => Program.ReplyCommandAsync(command: BridgeWire.Unload, phase: Program.PhaseUnload, request: BridgeWire.Request(command: BridgeWire.Unload, payload: new BridgeUnloadRequest(SessionId: u.SessionId)), resultPath: null),
+        check: static c => Program.CheckTargetAsync(targetPath: c.TargetPath, scenarioPath: c.ScenarioPath.IsSome ? c.ScenarioPath.IfNone(string.Empty) : null, options: c.Options),
+        clean: static c => Program.CleanAsync(targetPath: c.TargetPath),
+        quit: static _ => Program.QuitAsync());
+    internal static Fin<ClientVerb> Parse(string[] args) {
+        ArgumentNullException.ThrowIfNull(argument: args);
+        return args switch {
+            { Length: 0 } => Fin.Fail<ClientVerb>(error: Error.New(message: "Bridge command missing.")),
+            _ => args[0] switch {
+                "doctor" => Fin.Succ<ClientVerb>(value: new Doctor(Options: CliOptions.Parse(args: args[1..]))),
+                "launch" when args.Length == 1 => Fin.Succ<ClientVerb>(value: new Launch()),
+                "restart" when args.Length == 1 => Fin.Succ<ClientVerb>(value: new Restart()),
+                "load-smoke" when args.Length >= 2 => Fin.Succ<ClientVerb>(value: new LoadSmoke(AssemblyPath: args[1], Options: CliOptions.Parse(args: args[2..]))),
+                "load" when args.Length >= 2 => Fin.Succ<ClientVerb>(value: new Load(AssemblyPath: args[1], Options: CliOptions.Parse(args: args[2..]))),
+                "unload" when args.Length == 2 => Fin.Succ<ClientVerb>(value: new Unload(SessionId: args[1])),
+                "check" when args.Length >= 2 => ParseCheck(args: args[1..]),
+                "clean" when args.Length == 2 => Fin.Succ<ClientVerb>(value: new Clean(TargetPath: args[1])),
+                "quit" when args.Length == 1 => Fin.Succ<ClientVerb>(value: new Quit()),
+                string verb => Fin.Fail<ClientVerb>(error: Error.New(message: $"Unsupported bridge command '{verb}'.")),
+            },
+        };
+    }
+    private static Fin<ClientVerb> ParseCheck(string[] args) {
+        CliInvocation invocation = CliOptions.ParseInvocation(args: args);
+        return invocation.Positionals.Count switch {
+            1 => Fin.Succ<ClientVerb>(value: new Check(TargetPath: invocation.Positionals[0], ScenarioPath: Option<string>.None, Options: invocation.Options)),
+            2 => Fin.Succ<ClientVerb>(value: new Check(TargetPath: invocation.Positionals[0], ScenarioPath: Some(value: invocation.Positionals[1]), Options: invocation.Options)),
+            _ => Fin.Fail<ClientVerb>(error: Error.New(message: "Usage: check <target> [scenario.csx|scenario.verify.csx] [options]")),
+        };
+    }
+    internal static int Usage() {
+        Console.Error.WriteLine(value: "Usage:");
+        foreach ((_, string synopsis) in Synopses) {
+            Console.Error.WriteLine(value: $"  rhino-bridge-client {synopsis}");
+        }
+        Console.Error.WriteLine(value: "Options: --configuration <name> --worktree <path> --timeout-ms <ms> --result <path>");
+        Console.Error.WriteLine(value: "--timeout-ms controls client transport waits; RhinoCode execution is synchronous inside Rhino.");
+        Console.Error.WriteLine(value: "Launch env: RHINO_WIP_APP_PATH=/Applications/RhinoWIP.app or RHINO_WIP_BUNDLE_ID=com.mcneel.rhinoceros.9");
+        return 2;
+    }
 }
 
 internal sealed record CliOptions(string? Worktree, string Configuration, int TimeoutMs, string? Result) {
@@ -688,31 +759,54 @@ internal sealed record CliOptions(string? Worktree, string Configuration, int Ti
 
 internal sealed record CliInvocation(CliOptions Options, IReadOnlyList<string> Positionals);
 
-internal sealed record BridgeResult(string Schema, string Command, string Status, string? ReportPath, IReadOnlyList<BridgePhase> Phases, BridgeFault? Fault) {
+[SmartEnum<int>]
+internal sealed partial class PhaseClassification {
+    public static readonly PhaseClassification Decisive = new(key: 0);
+    public static readonly PhaseClassification Advisory = new(key: 1);
+    public static readonly PhaseClassification Lifecycle = new(key: 2);
+    public bool IsDecisive(bool executeSucceeded, PhaseStatus status) {
+        ArgumentNullException.ThrowIfNull(argument: status);
+        return Key switch {
+            0 => true,
+            1 => !executeSucceeded && !status.IsOk && status.IsDecisive,
+            _ => status.IsDecisive,
+        };
+    }
+    internal static PhaseClassification Of(string phaseName) =>
+        phaseName switch {
+            Program.PhaseRhinoCodeCli => Advisory,
+            Program.PhaseLoad or Program.PhaseUnload or Program.PhaseLifecycle => Lifecycle,
+            _ => Decisive,
+        };
+}
+
+internal readonly record struct PhaseAggregate(PhaseStatus Status, BridgeFault? Fault) {
+    internal static readonly PhaseAggregate Identity = new(Status: PhaseStatus.Ok, Fault: null);
+    internal PhaseAggregate Combine(BridgePhase phase, bool executeSucceeded) =>
+        PhaseClassification.Of(phaseName: phase.Phase).IsDecisive(executeSucceeded: executeSucceeded, status: phase.Status)
+            ? new(Status: Status.Worst(other: phase.Status), Fault: Fault ?? phase.Fault)
+            : this;
+}
+
+internal sealed record BridgeResult(string Schema, string Command, PhaseStatus Status, string? ReportPath, IReadOnlyList<BridgePhase> Phases, BridgeFault? Fault) {
     internal static BridgeResult From(string command, IReadOnlyList<BridgePhase> phases) {
-        bool executeSucceeded = phases.Any(static phase => string.Equals(a: phase.Phase, b: Program.PhaseExecute, comparisonType: StringComparison.Ordinal) && BridgeWire.IsOk(status: phase.Status));
-        BridgePhase[] decisive = [.. phases.Where(phase => phase.Phase switch {
-            Program.PhaseRhinoCodeCli => !executeSucceeded && !BridgeWire.IsOk(status: phase.Status) && !string.Equals(a: phase.Status, b: BridgeWire.Skipped, comparisonType: StringComparison.Ordinal),
-            Program.PhaseLoad or Program.PhaseUnload or Program.PhaseLifecycle => !string.Equals(a: phase.Status, b: BridgeWire.Skipped, comparisonType: StringComparison.Ordinal),
-            _ => true,
-        })];
-        BridgePhase? execute = phases.FirstOrDefault(static phase => string.Equals(a: phase.Phase, b: Program.PhaseExecute, comparisonType: StringComparison.Ordinal));
+        bool executeSucceeded = phases.Any(predicate: static phase => string.Equals(a: phase.Phase, b: Program.PhaseExecute, comparisonType: StringComparison.Ordinal) && phase.Status.IsOk);
+        BridgePhase? execute = phases.FirstOrDefault(predicate: static phase => string.Equals(a: phase.Phase, b: Program.PhaseExecute, comparisonType: StringComparison.Ordinal));
+        PhaseAggregate aggregate = phases.Aggregate(seed: PhaseAggregate.Identity, func: (acc, phase) => acc.Combine(phase: phase, executeSucceeded: executeSucceeded));
         return new(
             Schema: BridgeWire.Schema,
             Command: command,
-            Status: decisive.Select(static phase => phase.Status).Aggregate(seed: BridgeWire.Ok, func: BridgeWire.Worst),
+            Status: aggregate.Status,
             ReportPath: null,
             Phases: phases,
-            Fault: execute is { Fault: not null } && !BridgeWire.IsOk(status: execute.Status)
-                ? execute.Fault
-                : decisive.FirstOrDefault(static phase => phase.Fault is not null)?.Fault);
+            Fault: execute is { Fault: not null } && !execute.Status.IsOk ? execute.Fault : aggregate.Fault);
     }
 }
 
-internal sealed record BridgePhase(string Phase, string Status, int DurationMs, JsonElement? Data, IReadOnlyList<BridgeOutput> Outputs, IReadOnlyList<BridgeDiagnostic> Diagnostics, BridgeFault? Fault) {
+internal sealed record BridgePhase(string Phase, PhaseStatus Status, int DurationMs, JsonElement? Data, IReadOnlyList<BridgeOutput> Outputs, IReadOnlyList<BridgeDiagnostic> Diagnostics, BridgeFault? Fault) {
     internal static BridgePhase Create<TData>(
         string phase,
-        string status,
+        PhaseStatus status,
         int durationMs = 0,
         TData? data = default,
         IReadOnlyList<BridgeOutput>? outputs = null,
@@ -720,23 +814,21 @@ internal sealed record BridgePhase(string Phase, string Status, int DurationMs, 
         BridgeFault? fault = null) =>
         new(Phase: phase, Status: status, DurationMs: durationMs, Data: data is null ? null : JsonSerializer.SerializeToElement(value: data, options: BridgeWire.CompactJson), Outputs: outputs ?? [], Diagnostics: diagnostics ?? [], Fault: fault);
     internal static BridgePhase Ok<TData>(string phase, TData data, IReadOnlyList<BridgeOutput>? outputs = null, IReadOnlyList<BridgeDiagnostic>? diagnostics = null) =>
-        Create(phase: phase, status: BridgeWire.Ok, data: data, outputs: outputs, diagnostics: diagnostics);
+        Create(phase: phase, status: PhaseStatus.Ok, data: data, outputs: outputs, diagnostics: diagnostics);
     internal static BridgePhase Ok<TData>(string phase, Stopwatch timer, TData data, IReadOnlyList<BridgeOutput>? outputs = null, IReadOnlyList<BridgeDiagnostic>? diagnostics = null) =>
-        Create(phase: phase, status: BridgeWire.Ok, durationMs: (int)timer.ElapsedMilliseconds, data: data, outputs: outputs, diagnostics: diagnostics);
+        Create(phase: phase, status: PhaseStatus.Ok, durationMs: (int)timer.ElapsedMilliseconds, data: data, outputs: outputs, diagnostics: diagnostics);
     internal static BridgePhase Failed(string phase, string message, BridgeFault? fault = null) =>
-        Create<object>(phase: phase, status: BridgeWire.Failed, fault: fault ?? BridgeFault.MessageOnly(category: phase, message: message));
+        Create<object>(phase: phase, status: PhaseStatus.Failed, fault: fault ?? BridgeFault.MessageOnly(category: phase, message: message));
     internal static BridgePhase Failed(string phase, Stopwatch timer, string message, IReadOnlyList<BridgeOutput>? outputs = null) =>
-        Create<object>(phase: phase, status: BridgeWire.Failed, durationMs: (int)timer.ElapsedMilliseconds, outputs: outputs, fault: BridgeFault.MessageOnly(category: phase, message: message));
+        Create<object>(phase: phase, status: PhaseStatus.Failed, durationMs: (int)timer.ElapsedMilliseconds, outputs: outputs, fault: BridgeFault.MessageOnly(category: phase, message: message));
     internal static BridgePhase Failed<TData>(string phase, Stopwatch timer, string category, string message, TData? data, IReadOnlyList<BridgeOutput>? outputs = null) =>
-        Create(phase: phase, status: BridgeWire.Failed, durationMs: (int)timer.ElapsedMilliseconds, data: data, outputs: outputs, fault: BridgeFault.MessageOnly(category: category, message: message));
+        Create(phase: phase, status: PhaseStatus.Failed, durationMs: (int)timer.ElapsedMilliseconds, data: data, outputs: outputs, fault: BridgeFault.MessageOnly(category: category, message: message));
     internal static BridgePhase Skipped(string phase, string message) =>
-        Create(phase: phase, status: BridgeWire.Skipped, data: new { reason = message });
+        Create(phase: phase, status: PhaseStatus.Skipped, data: new { reason = message });
     internal static BridgePhase Skipped<TData>(string phase, Stopwatch timer, TData data) =>
-        Create(phase: phase, status: BridgeWire.Skipped, durationMs: (int)timer.ElapsedMilliseconds, data: data);
+        Create(phase: phase, status: PhaseStatus.Skipped, durationMs: (int)timer.ElapsedMilliseconds, data: data);
     internal static BridgePhase FromReply(string phase, BridgeReply reply) =>
-        BridgeWire.IsStatus(status: reply.Status)
-            ? new(Phase: phase, Status: reply.Status, DurationMs: 0, Data: reply.Data, Outputs: reply.Outputs, Diagnostics: reply.Diagnostics, Fault: reply.Fault)
-            : Failed(phase: phase, message: $"Bridge returned unsupported status '{reply.Status}'.", fault: BridgeFault.MessageOnly(category: phase, message: $"Bridge returned unsupported status '{reply.Status}'."));
+        new(Phase: phase, Status: reply.Status, DurationMs: 0, Data: reply.Data, Outputs: reply.Outputs, Diagnostics: reply.Diagnostics, Fault: reply.Fault);
     internal T? DataValue<T>() =>
         Data is JsonElement data ? data.Deserialize<T>(options: BridgeWire.CompactJson) : default;
 }

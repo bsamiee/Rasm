@@ -8,7 +8,7 @@ description: >-
   singular OOP boundary capsules, unified Fin/Validation/Eff rails, and matching the
   established RasmCommand/RhinoUi/RasmOverlay templates. Activates on concept-density
   pressure points: 3 or more parallel types, 3 or more sibling factories, 3 or more
-  repeated switch arms.
+  repeated switch arms, 3 or more single-call private helpers.
 ---
 
 # [H1][CODING-CSHARP]
@@ -169,7 +169,16 @@ These packages are standard libraries — use over BCL/stdlib equivalents.
 | Meziantou.Analyzer              | Static analysis enforcement                                     |
 | Microsoft.VisualStudio.Threading.Analyzers | Threading-correctness diagnostics                  |
 
-Note: Polly, FluentValidation, NodaTime, Scrutor, and BenchmarkDotNet are intentionally absent until a concrete consumer is introduced. Retry/backoff is covered by LanguageExt `Schedule`; validation by `Validation<Error,T>` applicative; time by host injection; DI composition by runtime records (`Eff.runtime<RT>()`).
+Boundary-approved dependencies (allowed ONLY at marked `[BOUNDARY ADAPTER — reason]` sites; never in `Domain.*`):
+
+| Package | Boundary scope |
+| ------- | -------------- |
+| FluentValidation | HTTP/API boundary only — `ValidateAsync` results bridged to `Validation<Error,T>` before entering domain (see `validation.md [10][BOUNDARY_ADAPTER]`) |
+| Microsoft.Extensions.Http.Resilience (Polly wrapper) | Composition root only — `AddStandardResilienceHandler` for outbound HTTP (see `observability.md [4]`) |
+| NodaTime | Optional time-zone math at boundary; `IClock` injection covers timestamp needs (see `concurrency.md [5]`) |
+| Scrutor | Composition root only — `Scan`/`Decorate` for AOP, never inside domain modules |
+
+Polly raw and BenchmarkDotNet are intentionally absent. Retry/backoff inside domain is covered by LanguageExt `Schedule`; validation by `Validation<Error,T>` applicative; time inside domain by `IClock` injection; DI composition by runtime records (`Eff.runtime<RT>()`).
 
 
 ## Active-folder canonical templates
@@ -184,4 +193,4 @@ When generating new code, structurally match these established surfaces. Read th
 | Document operation | `libs/csharp/Rasm.Rhino/Commands/Document.cs` `DocumentOp` | `[Union]` with ≥10 sealed cases + shared `DocumentReceipt` monoid |
 | Selection algebra | `libs/csharp/Rasm.Rhino/Commands/Selection.cs` `CommandSelection.Reference.*` | Domain-vocabulary specializations over native return types — preserved, not collapsed |
 
-These folders were refined in commits `53d314a` / `524870e` / `a266634` / `187daaa` / `262018b`. Replicate their patterns; do not reinvent.
+Replicate the patterns at these canonical surfaces; do not reinvent. Read the file table above as executable doctrine before writing analogous code.

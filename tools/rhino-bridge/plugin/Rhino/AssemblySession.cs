@@ -17,14 +17,14 @@ internal sealed class BridgeSessions : IDisposable {
         string path = Path.GetFullPath(request.AssemblyPath);
         string packageCacheRoot = BridgeLoadContext.PackageCacheRoot(workspaceRoot: request.WorkspaceRoot, packageCacheRoot: request.PackageCacheRoot);
         return File.Exists(path) switch {
-            false => new(Status: BridgeWire.Failed, SessionId: null, AssemblyName: null, Location: path, PdbPath: null, WorkspaceRoot: request.WorkspaceRoot, PackageCacheRoot: packageCacheRoot, Assemblies: [], Fault: BridgeFault.MessageOnly(category: "load", message: $"Assembly does not exist: {path}")),
+            false => new(Status: PhaseStatus.Failed, SessionId: null, AssemblyName: null, Location: path, PdbPath: null, WorkspaceRoot: request.WorkspaceRoot, PackageCacheRoot: packageCacheRoot, Assemblies: [], Fault: BridgeFault.MessageOnly(category: "load", message: $"Assembly does not exist: {path}")),
             true => LoadExisting(path: path, workspaceRoot: request.WorkspaceRoot, packageCacheRoot: packageCacheRoot),
         };
     }
     internal BridgeUnloadReport Unload(BridgeUnloadRequest request) {
         ArgumentNullException.ThrowIfNull(request);
         if (!sessions.TryGetValue(key: request.SessionId, value: out BridgeAssemblySession? session)) {
-            return new(Status: BridgeWire.Failed, SessionId: request.SessionId, UnloadRequested: false, Unloaded: false, Fault: BridgeFault.MessageOnly(category: "session", message: $"Bridge session '{request.SessionId}' is not loaded."));
+            return new(Status: PhaseStatus.Failed, SessionId: request.SessionId, UnloadRequested: false, Unloaded: false, Fault: BridgeFault.MessageOnly(category: "session", message: $"Bridge session '{request.SessionId}' is not loaded."));
         }
         BridgeUnloadReport report = session.Unload();
         if (report.Unloaded) {
@@ -45,7 +45,7 @@ internal sealed class BridgeSessions : IDisposable {
             sessions.Add(key: session.SessionId, value: session);
             return session.LoadReport();
         } catch (Exception error) when (error is BadImageFormatException or FileLoadException or FileNotFoundException or InvalidOperationException or ReflectionTypeLoadException) {
-            return new(Status: BridgeWire.Failed, SessionId: sessionId, AssemblyName: null, Location: path, PdbPath: null, WorkspaceRoot: workspaceRoot, PackageCacheRoot: packageCacheRoot, Assemblies: [], Fault: LoadFault(error: error));
+            return new(Status: PhaseStatus.Failed, SessionId: sessionId, AssemblyName: null, Location: path, PdbPath: null, WorkspaceRoot: workspaceRoot, PackageCacheRoot: packageCacheRoot, Assemblies: [], Fault: LoadFault(error: error));
         }
     }
     private static BridgeAssemblyReport[] Assemblies() {
@@ -58,7 +58,7 @@ internal sealed class BridgeSessions : IDisposable {
             .Select(static assembly => Loaded(assembly: assembly, required: true))];
     }
     internal static BridgeAssemblyReport Loaded(Assembly assembly, bool required) =>
-        new(Name: assembly.GetName().Name ?? "unknown", Status: BridgeWire.Ok, Required: required, Version: assembly.GetName().Version?.ToString(), InformationalVersion: assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion, Location: assembly.Location, Fault: null);
+        new(Name: assembly.GetName().Name ?? "unknown", Status: PhaseStatus.Ok, Required: required, Version: assembly.GetName().Version?.ToString(), InformationalVersion: assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion, Location: assembly.Location, Fault: null);
     private static BridgeFault LoadFault(Exception error) {
         ReflectionTypeLoadException? loader = error switch {
             ReflectionTypeLoadException current => current,
@@ -104,10 +104,10 @@ internal sealed class BridgeAssemblySession {
         }
     }
     internal BridgeSessionReport Report() =>
-        new(SessionId: SessionId, AssemblyName: assembly?.GetName().Name ?? "unloaded", Location: location, Status: IsLoaded ? BridgeWire.Ok : BridgeWire.Skipped);
+        new(SessionId: SessionId, AssemblyName: assembly?.GetName().Name ?? "unloaded", Location: location, Status: IsLoaded ? PhaseStatus.Ok : PhaseStatus.Skipped);
     internal BridgeLoadReport LoadReport() =>
         new(
-            Status: BridgeWire.Ok,
+            Status: PhaseStatus.Ok,
             SessionId: SessionId,
             AssemblyName: assembly?.GetName().FullName,
             Location: location,
@@ -119,7 +119,7 @@ internal sealed class BridgeAssemblySession {
     internal BridgeUnloadReport Unload() {
         if (unloadRequested) {
             return new(
-                Status: BridgeWire.Failed,
+                Status: PhaseStatus.Failed,
                 SessionId: SessionId,
                 UnloadRequested: true,
                 Unloaded: false,
@@ -129,7 +129,7 @@ internal sealed class BridgeAssemblySession {
         unloadRequested = true;
         bool unloaded = reference is not null && Collect(reference: reference);
         return new(
-            Status: unloaded ? BridgeWire.Ok : BridgeWire.Failed,
+            Status: unloaded ? PhaseStatus.Ok : PhaseStatus.Failed,
             SessionId: SessionId,
             UnloadRequested: reference is not null,
             Unloaded: unloaded,

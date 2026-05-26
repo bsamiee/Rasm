@@ -14,10 +14,9 @@
         "**/.cache/**/CLAUDE.md",
         "**/node_modules/**/CLAUDE.md",
         "**/bin/**/CLAUDE.md",
-        "**/obj/**/CLAUDE.md"
+        "**/obj/**/CLAUDE.md",
+        "**/.artifacts/**/CLAUDE.md"
     ],
-    "disabledMcpjsonServers": ["React Aria", "tailwindcss-server"],
-    "enabledMcpjsonServers": ["playwright-test"],
     "permissions": {
         "allow": [
             "Read",
@@ -36,24 +35,20 @@
             "Agent(Explore)",
             "Agent(Plan)",
             "Agent(general-purpose)",
-            "Bash(curl:*)",
-            "Bash(pnpm:*)",
-            "Bash(nx:*)",
+            "Agent(skill-summarizer)",
             "Bash(git:*)",
             "Bash(gh:*)",
-            "Bash(node:*)",
             "Bash(dotnet:*)",
-            "Bash(ty:*)",
-            "Bash(uv:*)",
-            "Bash(bash:.claude/scripts/*)",
-            "Bash(bash:scripts/check-cs.sh*)",
+            "Bash(bash:scripts/*)",
+            "Bash(bash -n:*)",
+            "Bash(shellcheck:*)",
             "Bash(rg:*)",
             "Bash(fd:*)",
             "Bash(eza:*)",
             "Bash(jq:*)",
-            "mcp__playwright-test__*",
-            "mcp__playwright__browser_*",
-            "mcp__plugin_pdf-viewer_pdf__*"
+            "Bash(pnpm:*)",
+            "Bash(nx:*)",
+            "Bash(curl:*)"
         ],
         "deny": [
             "Read(.env)",

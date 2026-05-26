@@ -50,3 +50,27 @@ Use complex value objects for normalized ranges, sample windows, tolerance bundl
 - LanguageExt carries failure through `Fin<T>` or `Validation<Error,T>`.
 - Rhino/GH/MathNet projections preserve native validity and tolerance in error detail.
 - Do not wrap generated factories in single-call helpers.
+
+---
+## [5][V10_SHAPE]
+>**Dictum:** *v10 ComplexValueObject is class-or-struct partial, never record.*
+
+<br>
+
+`Directory.Packages.props` pins `Thinktecture.Runtime.Extensions 10.2.0`. Hard shape constraints verified against `~/.nuget/packages/thinktecture.runtime.extensions/10.2.0/lib/net9.0/Thinktecture.Runtime.Extensions.xml`:
+
+- `[ComplexValueObject]` requires `partial class` OR `partial struct` — **never** `record` or `record struct` (generator doubles emitted members).
+- Properties are `{ get; }` only — no `{ get; init; }`, no positional record params.
+- `ValidateFactoryArguments(ref ValidationError?, ref T1, ref T2, ...)` — all params `ref`, camelCase of property names. Property/param name mismatch fires the TTRESG analyzer diagnostic.
+- Constructor is generated `private`; construction is via generated `Create` (throws `ValidationException`) / `TryCreate` (bool result + out item / out error) / `Validate` (returns nullable error).
+- No ordering operators (`<`, `<=`, `>`, `>=`) on `[ComplexValueObject]`; only `[ValueObject<T>]` gets `EqualityComparisonOperators`/`ComparisonOperators`. Hand-write `IComparable<T>` in the partial if multi-field ordering is needed.
+- `default(T)` is a compile error by default — set `AllowDefaultStructs = true` ONLY when zero-init semantics are genuinely valid (rare for invariant-bearing types).
+- Multi-field struct value objects require `[StructLayout(LayoutKind.Auto)]` to satisfy Meziantou `MA0008`.
+
+### [5.1][CUSTOM_VALIDATION_ERROR]
+
+`[ValidationError<TCustom>]` + `TCustom : IValidationError<TCustom>` (with static `TCustom.Create(string)`) replaces per-call-site `ValidationException` → `MapFail` bridging. Generated `Validate` returns `TCustom?` directly into the Fin/Validation rail.
+
+### [5.2][SMARTENUM_FACTORY_INITIALIZERS]
+
+`[SmartEnum<TKey>]` codegen accepts any expression returning T as an item initializer — not just `new(...)` literals. Private static factory helpers compress repetitive case definitions (e.g. 23 cases × 3 lines → 23 × 1 line via 4 factory helpers that wrap shared cast + admits predicate). Generated `Items`/`Get`/`TryGet`/`Parse` behave identically.

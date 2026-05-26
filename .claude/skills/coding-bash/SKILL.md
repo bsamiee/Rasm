@@ -79,7 +79,7 @@ All code follows five governing principles:
 - `_CLEANUP_STACK` LIFO registry invoked by EXIT trap. `_CLEANING` guard prevents re-entrant execution on cascading signals.
 - Exit codes: 0=success, 1=general error, 2=usage error. Custom codes in `EX_*` constants.
 - `_die()` for fatal errors (log + exit). `_die_usage()` for argument errors (log + hint + exit 2).
-- Timing via `EPOCHREALTIME` microsecond arithmetic: `_bench()` computes `(end_s - start_s) * 1000000 + 10#end_us - 10#start_us` — zero forks.
+- Timing rule: `BASH_MONOSECONDS` (5.3+) for elapsed-time durations — monotonic, immune to NTP drift, zero forks. `EPOCHREALTIME` only for absolute timestamps and microsecond-precision benchmarks (`_bench()` shape: `(end_s - start_s) * 1000000 + 10#end_us - 10#start_us`). See `references/version-features.md` for version-safe `BASH_MONOSECONDS` / `EPOCHREALTIME` fallback dispatch.
 
 **Logging architecture**
 - `declare -Ar _LOG_EMIT=([json]=_log_json [text]=_log_text_emit)` — format resolved once at startup via `readonly _LOG_EMITTER="${_LOG_EMIT[${LOG_FORMAT:-text}]}"`.

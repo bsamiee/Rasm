@@ -44,3 +44,26 @@ JSON, Newtonsoft, MessagePack, ASP.NET, EF, OpenAPI, and similar integration pac
 - Keep sourcegen examples tiny and compilable.
 - Do not claim span, serialization, or model-binding behavior without a compiled fixture or source proof.
 - Keep analyzer/sourcegen detail in this file; keep domain usage in `rasm.md`.
+
+---
+## [5][V10_GENERATED_NAMES]
+>**Dictum:** *Bind to the generated case name, not a hand-authored alias.*
+
+<br>
+
+In v10 the generator simplified nested union case type names. Hand-authored aliases that duplicated the generated case name are no longer needed and silently shadow the generated symbol. Cite the generated form directly:
+
+```csharp
+[Union]
+public abstract partial record FileTarget {
+    public sealed record Loose(string Path) : FileTarget;
+    public sealed record Bundled(string Path, string Slug) : FileTarget;
+}
+
+// Bind to FileTarget.Loose / FileTarget.Bundled — NOT a FileLoose / FileBundled alias.
+return target switch {
+    FileTarget.Loose(var p) => ..., FileTarget.Bundled(var p, var s) => ...,
+};
+```
+
+Generic `[Union]` on `record<TState>` emits `Switch<TState, TResult>` overloads with `where TState : allows ref struct` (C# 13+). The constraint propagates and conflicts with `sealed record` consumers that use `TState` without the same allowance — keep generic transition unions as `abstract record` + virtual `switch (this)` instead of `[Union]`. Non-generic `[Union]` cases are unaffected.

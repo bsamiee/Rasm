@@ -40,15 +40,8 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - Use `docs/system-api-map` for BCL, `System.*`, package/reference, C# meta, and RhinoWIP host-reference policy; use `docs/external-libs` for approved product library APIs and `docs/testing-libs` for test-tool APIs.
 
 ## [6][LIVE_RHINO_BRIDGE]
-- Source lives under `tools/rhino-bridge`: `protocol/` is the Rhino-free named-pipe protocol shared by client/plugin, `plugin/` is the RhinoCommon `.rhp` that executes RhinoCode in-process, and `client/` is the local CLI that owns orchestration and phase JSON.
-- Use `scripts/rhino.sh bridge build` to build the bridge protocol, plugin, and CLI.
-- Use `scripts/rhino.sh package rasm-bridge <version>` and `scripts/rhino.sh deploy rasm-bridge <version>` for repeatable bridge plugin packaging and install.
-- Use `scripts/rhino.sh bridge launch` to open RhinoWIP and verify a `hello` round trip against `~/.rasm/rhino-bridge.json`.
-- Use `scripts/rhino.sh bridge doctor` against a running RhinoWIP session with the bridge loaded.
-- Use `scripts/rhino.sh bridge check <target> [scenario.csx]` as the agent-first runtime diagnostic command. It accepts project, source, and script targets, prints JSON to stdout, and auto-writes the same report under `.artifacts/rhino/bridge/check/<target-path>/`.
-- `bridge check` runs RhinoCode with isolated C# reference resolution and no script cache reuse, so other loaded Rhino plugins cannot poison LanguageExt, Thinktecture, or repo assembly identity.
-- Use `scripts/rhino.sh bridge check <source.cs>` for source ownership/build proof. It returns `unsupported` unless a real scenario is supplied as the second positional argument.
-- Use `scripts/rhino.sh verify <scenario-or-glob>` as the scenario convenience rail; it resolves the owning project and routes through `bridge check <project> <scenario.verify.csx>`.
-- Keep library scenarios under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/`. Keep scenarios source-only; do not add `#r`, `#load`, or absolute build-output paths because the bridge owns reference projection and fresh artifact refs.
-- Use `scripts/rhino.sh bridge clean <target>` to delete generated reports for one target; use `scripts/rhino.sh bridge load-smoke <assembly.dll>` for lower-level assembly load/unload evidence.
-- Do not automate Rhino settings or template creation from this repo. Persistent startup is owned by the plugin `LoadTime.AtStartup`; `_RasmBridgeStart` may be entered manually in Rhino settings if an operator wants a command-list fallback.
+- `tools/rhino-bridge` answers runtime questions that static .NET gates cannot. Architecture (operator CLI → client → protocol → in-Rhino plugin), command catalog, output contract, failure reading, and validation ladder live in `tools/rhino-bridge/README.md` and `tools/rhino-bridge/AGENTS.md`.
+- Agent-first scenario rail: `bash scripts/rhino.sh verify <scenario-or-glob>` for `*.verify.csx` files under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/`. Scenarios are source-only — no `#r`, no `#load`, no absolute paths.
+- Scenarios consume universal capsules from `Rasm.TestKit.Scenarios` (predicate, evidence, document scope, capture, marker). The bridge stages `Rasm.TestKit.dll` automatically; no manual reference setup.
+- Diagnostic commands: `bridge build`, `bridge doctor`, `bridge check <target> [scenario]`, `bridge launch`, `bridge restart`, `bridge clean`, `bridge load-smoke`, `bridge quit`. API metadata: `api doctor|path|xml|types|decompile`. Packaging: `package rasm-bridge <ver>` / `deploy rasm-bridge <ver>`.
+- Do not automate Rhino settings or template creation from this repo. Persistent startup is owned by the plugin `LoadTime.AtStartup`.

@@ -5,6 +5,19 @@ namespace Foundation.CSharp.Analyzers.Kernel;
 
 // --- [RULE_CATALOG] ----------------------------------------------------------
 
+// Deferred rule gaps (documented for a future analyzer pass; not implemented):
+//   * K<F,A> / Monad<M> generic-effect collapse — fires when 4+ parallel
+//     Eff/Fin/IO/Validation variants of the same function exist in one module.
+//     Pattern documented in coding-csharp/references/transforms.md.
+//   * Thinktecture v10 case-name binding — forbid hand-authored aliases for
+//     generated nested case types (CS-level shadow of the generated symbol).
+//     Pattern documented in docs/external-libs/thinktecture/sourcegen.md [5].
+//   * Extension method naming — forbid GetXyz / XyzExt prefix patterns on
+//     extension methods; complements CSP0506 ExtensionProjectionRequired.
+//   * BoundaryAdapter exemption auditability — emit a periodic info diagnostic
+//     listing every active [BoundaryImperativeExemption] site with expiry, so
+//     the marker doesn't become a blank check.
+
 internal static class RuleCatalog {
     // --- [CONSTANTS] ----------------------------------------------------------
 

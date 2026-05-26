@@ -122,7 +122,7 @@ Concrete search patterns an agent can apply to any `.cs` file:
 |   [9]   | **BOUNDARY_ADAPTER**        | FluentValidation async RuleSets bridged to typed channels       | `effects.md` [4], [2]               |
 
 ---
-## [11][BOUNDARY_ADAPTER]
+## [10][BOUNDARY_ADAPTER]
 
 > [BOUNDARY ONLY] FluentValidation adapters belong at the HTTP/API layer. Never import FluentValidation into domain modules. Use the bridge ONLY in application service boundary code.
 

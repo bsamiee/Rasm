@@ -6,6 +6,10 @@
 
 Encode building-material reference data (sizes, families, grades, types, bonds, special shapes, joints, properties) and material-domain layout outputs as typed in-memory data carried by closed `SmartEnum` vocabularies, Thinktecture unions, and immutable records. Downstream consumers — geometry generators, Grasshopper components, structural assemblers — receive immutable typed records. No JSON, no SQL, no source generator, no native binary, no I/O.
 
+## Boundary doctrine
+
+`Rasm.Materials.csproj` carries **zero `ProjectReference`** by design. Materials is sibling to `Rasm` core, not subordinate. Future consumers that compose materials with geometry (e.g. `Rasm.Masonry` for layout-into-Rhino) reference BOTH `Rasm.Materials` and `Rasm.Rhino` — they never widen `Rasm.Materials` with geometry awareness. Adding a `Rasm` ProjectReference here would let geometry types leak into the catalogue and break the "downstream-consumable by any plugin without dragging the geometry kernel" guarantee that justifies the separation in the first place. Same rule applies to every future data-only catalogue library (`Rasm.Standards`, `Rasm.Codes`, etc.) — sibling, not subordinate.
+
 ## Design Contract
 
 - Build per-material polymorphic surfaces, not flat constant pools. Each material folder owns its full domain (types + data + query) through one consumer surface and dense FP internals.

@@ -57,7 +57,7 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 - Public union cases, record structs, and policy records that bypass factory methods need default-invalid/raw-payload laws or must be made unconstructable by design.
 - Mixed guards must preserve categories: invalid input stays `Input`/`Tolerance`; unsupported capability stays `Unsupported`.
 - Paired raw/domain outputs both need laws, for example `Vector3d` and `Direction`, receipt and geometry, scalar and value-object projections.
-- For `Rasm.Vectors`, static specs own pure MathNet/Spectral/factory/failure laws; Mesh/native Rhino success, point-cloud kNN, ICP, contours, validity, and materialization belong in bridge scenarios.
+- For `Rasm.Vectors`, the canonical bridge-vs-static rail list lives in [bridge-runtime.md `[2][RULES]`](references/bridge-runtime.md); static specs own pure MathNet/Spectral/factory/failure laws and managed input guards, every other native success belongs in bridge scenarios per that authoritative list.
 
 ---
 ## [3][SCENARIOS]
