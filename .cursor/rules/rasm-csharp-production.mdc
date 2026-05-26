@@ -1,0 +1,42 @@
+---
+description: Rasm C# production code — LanguageExt, Thinktecture, polymorphic collapse, boundary capsules
+globs: libs/**/*.cs,apps/**/*.cs,tools/**/*.cs
+alwaysApply: false
+---
+
+# Rasm C# Production
+
+**Required**: Read `coding-csharp` skill (`.claude/skills/coding-csharp/SKILL.md` or `~/.codex/skills/coding-csharp/SKILL.md`).
+
+## Architecture trinity
+
+1. **Singular OOP boundary** — one sealed capsule per native integration (`RasmCommand`, `RhinoUi.Use`, `GhUi`, etc.)
+2. **Unified rails** — one of `Fin<T>`, `Validation<Error,T>`, `Eff<RT,T>` per file; no mixing
+3. **Dense FP internals** — exhaustive `switch`, `[Union]`/`SmartEnum`, folds; zero domain `if`/`while`/`try`
+
+## Library-specific AGENTS.md
+
+| Library | File |
+|---------|------|
+| All libs | `libs/csharp/AGENTS.md` |
+| Rasm core | `libs/csharp/Rasm/AGENTS.md` |
+| Rhino boundary | `libs/csharp/Rasm.Rhino/AGENTS.md` |
+| GH2 boundary | `libs/csharp/Rasm.Grasshopper/AGENTS.md` |
+| Materials catalogue | `libs/csharp/Rasm.Materials/AGENTS.md` |
+
+## Hard rules
+
+- Zero `var`; explicit types everywhere
+- No helper/utility files (`*Helper`, `*Util`, `common.*`)
+- No wrapper-only RhinoCommon/GH2 renames
+- Extend canonical owners before new files/types
+- File sections: `TYPES` → `MODELS` → `CONSTANTS` → `ERRORS` → `SERVICES` → `OPERATIONS` → `COMPOSITION` → `EXPORTS`
+- Boundary adapters only: `// BOUNDARY ADAPTER — reason` for required imperative/native code
+
+## Validation
+
+```bash
+bash scripts/check-cs.sh check
+```
+
+Fix CSP#### violations architecturally. Run `full` only when `Directory.Build.props`, `Directory.Packages.props`, `.editorconfig`, or `Workspace.slnx` change.

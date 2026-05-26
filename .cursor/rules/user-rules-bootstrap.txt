@@ -1,0 +1,6 @@
+When working in /Users/bardiasamiee/Documents/99.Github/Rasm (Rasm monorepo):
+- Read CLAUDE.md and root AGENTS.md first; follow nearest nested AGENTS.md for the folder being edited.
+- Load the coding-* skill for the file type: coding-csharp (.cs), cs-testing (.spec.cs, .verify.csx), coding-ts (.ts/.tsx), coding-python (.py), coding-bash (.sh), docgen+style-standards (.md).
+- Quality gates are separate rails: bash scripts/check-cs.sh check (static), bash scripts/test.sh (unit), bash scripts/rhino.sh verify (Rhino runtime). Never conflate them.
+- Prefer extending existing polymorphic surfaces over helpers, wrappers, or new files. Greenfield breaking is allowed when it collapses concept density.
+- Project rule pack: .cursor/rules/*.mdc in this repo (glob-scoped automatically when the workspace is open).

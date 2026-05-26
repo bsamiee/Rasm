@@ -1,0 +1,35 @@
+---
+description: Rasm dependency policy — central package management, catalog workflow, external-lib-first
+globs: Directory.Packages.props,Directory.Build.props,Directory.Build.targets,**/*.csproj,pnpm-workspace.yaml,pyproject.toml
+alwaysApply: false
+---
+
+# Rasm Dependencies
+
+## C# central package management
+
+- Versions live in `Directory.Packages.props` only — `.csproj` declares usage, never versions
+- Check truth: `rg -n "<PackageId>" Directory.Packages.props Directory.Build.props **/*.csproj`
+- Add `PackageVersion` only when a concrete consumer exists — no future-intent entries
+- Validate: `dotnet restore Workspace.slnx --locked-mode` (removals) or normal restore (graph changes)
+- RhinoWIP host assemblies via `Directory.Build.props` app-bundle refs — not universal NuGet
+
+## TypeScript catalog
+
+1. `rg -n "dep" pnpm-workspace.yaml` (catalog)
+2. Add exact version to catalog if missing
+3. Reference as `"catalog:"` in package.json
+4. `pnpm install` → `pnpm exec nx run-many -t typecheck`
+
+## External-lib-first
+
+- Approved manifest deps are first-class — integrate native APIs end-to-end
+- Check `docs/system-api-map` before `System.*` additions
+- Check `docs/external-libs` before LanguageExt/Thinktecture/MathNet usage
+- Never hand-roll what approved libraries already own; never thin-wrap external APIs
+
+## Key pinned packages (see Directory.Packages.props for truth)
+
+- LanguageExt.Core 5.0.0-beta-77, Thinktecture.Runtime.Extensions 10.2.0
+- MathNet.Numerics/Symbolics 6.0.0-beta2, CSparse 4.3.0 (Rasm only)
+- xUnit v3, CsCheck, coverlet, Verify, ArchUnitNET, BenchmarkDotNet, SharpFuzz

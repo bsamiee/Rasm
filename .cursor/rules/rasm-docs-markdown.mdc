@@ -1,0 +1,33 @@
+---
+description: Rasm documentation — docgen mechanics, style-standards voice, no invented paths
+globs: **/*.md
+alwaysApply: false
+---
+
+# Rasm Documentation
+
+**Required**: `docgen` + `style-standards` skills.
+
+## Routing
+
+| Change type | Skill / doc |
+|-------------|-------------|
+| README, ADR, changelog, architecture | `docgen` |
+| Headers, lists, separators, voice | `style-standards` |
+| BCL/System/package policy | `docs/system-api-map` |
+| Library APIs | `docs/external-libs` |
+| Test tool APIs | `docs/testing-libs` |
+
+## Rules
+
+- Root docs in existing paths only; remove stale or invented commands/paths
+- Plans: max 1–2 screens — Context, Critical files, Approach (3–5 bullets), Verification (1–2 commands)
+- No emoji; use `[X]` UPPERCASE markers per `CLAUDE.md`
+- Do not duplicate `CLAUDE.md`/`AGENTS.md` content — link and distill
+
+## Standards references
+
+- `docs/standards/readme-standards.md`
+- `docs/standards/architecture-standards.md`
+- `docs/standards/code-documentation-standards.md`
+- `docs/standards/voice.md`, `formatting.md`, `taxonomy.md`

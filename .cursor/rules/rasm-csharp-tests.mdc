@@ -1,0 +1,42 @@
+---
+description: Rasm C# tests — xUnit v3, CsCheck law-matrix, bridge scenarios, independent oracles
+globs: **/*.spec.cs,**/*.verify.csx
+alwaysApply: false
+---
+
+# Rasm C# Testing
+
+**Required**: `cs-testing` skill + `tests/csharp/AGENTS.md` + `tests/csharp/libs/AGENTS.md`.
+
+## Rail split
+
+| Rail | Owns |
+|------|------|
+| xUnit + `Rasm.TestKit` | Pure-managed behavior, law-matrix specs |
+| `*.verify.csx` + bridge | Native Rhino/GH2 runtime paths |
+| Architecture tests | Assembly dependency direction only |
+| Benchmarks / fuzz | Separate executables, not xUnit |
+
+## Oracle discipline
+
+- Grade A/B: closed-form math, metamorphic laws, independent `Numeric` oracles
+- Never mirror implementation output as expected value (Grade D)
+- Use `Spec.ForAll`, `Gens`, `Numeric` from `_testkit`; promote to testkit only after ≥2 consumers
+- Filtered generators: `Gen.Where(...).Select(...)` — never `Select+throw` (breaks CsCheck shrinking)
+- Specs target ~175 LOC; densify with polymorphic sweeps over duplicate Facts
+
+## Bridge scenarios
+
+- Path: `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/*.verify.csx`
+- Source-only: no `#r`, `#load`, or absolute paths
+- Group related checks per file (3–8s Rhino handshake each run)
+- Evidence via `Console.WriteLine("key=value")`
+
+## Validation ladder
+
+```bash
+bash scripts/test.sh
+bash scripts/rhino.sh verify <scenario-or-glob>   # when bridge-owned behavior changed
+```
+
+Override target: `TEST_TARGET=<csproj> bash scripts/test.sh`

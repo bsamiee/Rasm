@@ -1,0 +1,28 @@
+---
+description: Rasm bash scripts — strict mode, dispatch tables, ShellCheck, rhino.sh patterns
+globs: scripts/**/*.sh,**/*.sh
+alwaysApply: false
+---
+
+# Rasm Bash Scripts
+
+**Required**: `coding-bash` skill (`~/.codex/skills/coding-bash/SKILL.md`).
+
+## Script roles (do not conflate)
+
+| Script | Rail |
+|--------|------|
+| `scripts/check-cs.sh` | Static: build, format, analyzer — no tests |
+| `scripts/test.sh` | `dotnet test` unit specs |
+| `scripts/rhino.sh` | Rhino bridge: build, doctor, check, verify, package, deploy |
+
+## Conventions
+
+- Bash 5.2+/5.3, `set -euo pipefail` (or repo-established strict prelude)
+- Dispatch-table routing over nested conditionals
+- Atomic I/O, signal-safe cleanup
+- Validate with `bash -n` and `shellcheck` before completion
+
+## Bridge script changes
+
+Run the validation ladder in `tools/rhino-bridge/AGENTS.md` serially; bridge and static gates share build caches and one live Rhino endpoint.

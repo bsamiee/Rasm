@@ -1,0 +1,37 @@
+---
+description: Rasm monorepo discovery — fd, rg, ast-grep, Nx topology before broad scans
+alwaysApply: false
+---
+
+# Rasm Navigation
+
+Use tools over memory. Parallelize discovery reads.
+
+## Discovery ladder
+
+1. `fd -H .` — locate files by name
+2. `rg -n --hidden --glob '!.git' --glob '!node_modules' "<pattern>" <path>` — exact references
+3. `pnpm exec ast-grep run --pattern "<structural-pattern>" <path>` — symbol-aware edits
+4. Nx topology (`nx graph`, affected commands) before repo-wide scans
+5. Read minimal slices; read a file fully before editing
+
+## Layout anchors
+
+| Path | Owns |
+|------|------|
+| `libs/csharp/Rasm` | Geometry kernel, Domain, Analysis, Vectors |
+| `libs/csharp/Rasm.Rhino` | RhinoWIP boundary (Commands, UI, Camera, Blocks, Construction, Exchange) |
+| `libs/csharp/Rasm.Grasshopper` | GH2 component + UI rails |
+| `libs/csharp/Rasm.Materials` | Data-only catalogues (zero ProjectReference) |
+| `apps/grasshopper/Radyab` | Sample GH2 plugin |
+| `tests/csharp/_testkit` | Rasm.TestKit (Spec, Gens, Numeric) |
+| `tests/csharp/libs/<Project>/` | Mirror-path specs + `scenarios/*.verify.csx` |
+| `tools/rhino-bridge` | Live RhinoWIP runtime verification |
+| `tools/cs-analyzer` | CSP#### custom analyzer |
+| `docs/system-api-map` | BCL/System/package/host reference policy |
+| `docs/external-libs` | LanguageExt, Thinktecture, MathNet |
+| `docs/testing-libs` | xUnit, CsCheck, Stryker, Verify, etc. |
+
+## Docs before packages
+
+Check `docs/system-api-map` before adding `System.*` packages. Check `docs/external-libs` before numerical or rail libraries. Verify RhinoWIP APIs via local XML/decompile + `scripts/rhino.sh api doctor`.
