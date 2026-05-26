@@ -315,9 +315,9 @@ internal static class FileArchiveOps {
             + toSeq(model.RenderEnvironments).Map(static environment => (RenderContent)environment)
             + toSeq(model.RenderTextures).Map(static texture => (RenderContent)texture);
         Seq<string> embedded = toSeq(model.EmbeddedFiles).Map(static file => file.Filename);
-        // [BOUNDARY ADAPTER — Blocks.BlockArchive owns the offline graph; Exchange consumes the projection.]
-        Blocks.BlockArchiveGraph blockGraph = Blocks.BlockArchive.From(model: model).IfFail(_ => Blocks.BlockArchiveGraph.Empty);
-        Seq<string> linked = Blocks.BlockArchive.LinkedPaths(graph: blockGraph);
+        // [BOUNDARY ADAPTER — Blocks.Archive owns the offline graph; Exchange consumes the projection.]
+        Blocks.Archive.Graph blockGraph = Blocks.Archive.From(model: model).IfFail(_ => Blocks.Archive.Graph.Empty);
+        Seq<string> linked = toSeq(blockGraph.LinkedArchives.AsEnumerable()).Map(static path => path.Value);
         Seq<string> textures = renderTree.Bind(static content => TraverseRender(content: content, parent: Option<RenderContent>.None, project: static (cur, _) => cur switch {
             RenderTexture texture => TextOption(value: texture.Filename).Map(Seq).IfNone(Seq<string>()),
             _ => Seq<string>(),
@@ -357,7 +357,7 @@ internal static class FileArchiveOps {
             + Entries(source: model.AllLayers, kind: DocumentResourceKind.Layer, name: static l => TextOption(value: l.FullPath), id: static l => GuidOption(value: l.Id), label: "layer")
             + Entries(source: model.AllMaterials, kind: DocumentResourceKind.Material, name: static m => TextOption(value: m.Name), id: static m => GuidOption(value: m.Id), label: "material")
             + Entries(source: model.AllGroups, kind: DocumentResourceKind.Group, name: static g => TextOption(value: g.Name), id: static g => GuidOption(value: g.Id), label: "group")
-            + Blocks.BlockArchive.ToFileResourceEntries(graph: blockGraph)
+            + Blocks.Archive.ToFileResourceEntries(graph: blockGraph)
             + Entries(source: model.AllLinetypes, kind: DocumentResourceKind.Linetype, name: static l => TextOption(value: l.Name), id: static l => GuidOption(value: l.Id), label: "linetype")
             + Entries(source: model.AllDimStyles, kind: DocumentResourceKind.DimensionStyle, name: static s => TextOption(value: s.Name), id: static s => GuidOption(value: s.Id), label: "dimension-style")
             + Entries(source: model.AllHatchPatterns, kind: DocumentResourceKind.Hatch, name: static p => TextOption(value: p.Name), id: static p => GuidOption(value: p.Id), label: "hatch-pattern")
@@ -372,14 +372,14 @@ internal static class FileArchiveOps {
             return parentEdge + textureEdge;
         }));
         Seq<FileResourceEdge> edges = toSeq(model.Objects).Bind(fileObject => ObjectEdges(model: model, fileObject: fileObject))
-            + Blocks.BlockArchive.ToFileResourceEdges(graph: blockGraph)
+            + Blocks.Archive.ToFileResourceEdges(graph: blockGraph)
             + renderEdges;
         return new FileResourceGraph(
             Objects: model.Objects.Count,
             Layers: model.AllLayers.Count,
             Materials: model.AllMaterials.Count,
             Groups: model.AllGroups.Count,
-            Blocks: Blocks.BlockArchive.Count(graph: blockGraph),
+            Blocks: blockGraph.Definitions.Length,
             Views: model.Views.Count,
             NamedViews: model.NamedViews.Count,
             Strings: model.Strings.Count,

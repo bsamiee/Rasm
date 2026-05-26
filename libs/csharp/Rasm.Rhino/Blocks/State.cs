@@ -1,6 +1,7 @@
-using System.Collections.Frozen;
+using System.Buffers;
 using System.Collections.Immutable;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using Rasm.Rhino.Commands;
 using Rhino.DocObjects.Tables;
 using InstanceAttributeField = Rhino.Runtime.TextFields.InstanceAttributeField;
@@ -94,13 +95,6 @@ public sealed partial class ConflictPolicy {
 }
 
 [SmartEnum<int>]
-public sealed partial class BlockSourceMode {
-    public static readonly BlockSourceMode FromConstruction = new(key: 0);
-    public static readonly BlockSourceMode FromDocumentObjects = new(key: 1);
-    public static readonly BlockSourceMode FromArchive = new(key: 2);
-}
-
-[SmartEnum<int>]
 public sealed partial class DeletionPolicy {
     public static readonly DeletionPolicy ReferencesAndQuiet = new(key: 0, deleteReferences: true, quiet: true);
     public static readonly DeletionPolicy ReferencesOnly = new(key: 1, deleteReferences: true, quiet: false);
@@ -111,6 +105,28 @@ public sealed partial class DeletionPolicy {
     public bool Quiet { get; }
 }
 
+[SmartEnum<int>]
+public sealed partial class LinkedPolicy {
+    public static readonly LinkedPolicy Prompt = new(key: 0, native: LinkedInstanceDefinitionUpdateStyle.Prompt);
+    public static readonly LinkedPolicy AlwaysUpdate = new(key: 1, native: LinkedInstanceDefinitionUpdateStyle.AlwaysUpdate);
+    public static readonly LinkedPolicy NeverUpdate = new(key: 2, native: LinkedInstanceDefinitionUpdateStyle.NeverUpdate);
+
+    public LinkedInstanceDefinitionUpdateStyle Native { get; }
+
+    public static LinkedPolicy FromNative(LinkedInstanceDefinitionUpdateStyle native) =>
+        native switch {
+            LinkedInstanceDefinitionUpdateStyle.AlwaysUpdate => AlwaysUpdate,
+            LinkedInstanceDefinitionUpdateStyle.NeverUpdate => NeverUpdate,
+            _ => Prompt,
+        };
+}
+
+[SmartEnum<int>]
+public sealed partial class BlockEdgeKind {
+    public static readonly BlockEdgeKind Member = new(key: 0);
+    public static readonly BlockEdgeKind LinkedArchive = new(key: 1);
+}
+
 [Union]
 public abstract partial record ExplodePolicy {
     private ExplodePolicy() { }
@@ -118,16 +134,39 @@ public abstract partial record ExplodePolicy {
     public sealed record VisibleOnly() : ExplodePolicy;
     public sealed record VisibleIn(Guid ViewportId) : ExplodePolicy;
 
-    public bool SkipsHidden => this is not All;
-    public Guid ViewportFilter => this is VisibleIn v ? v.ViewportId : Guid.Empty;
+    public (bool SkipsHidden, Guid ViewportFilter) Resolve() =>
+        Switch(
+            all: static _ => (SkipsHidden: false, ViewportFilter: Guid.Empty),
+            visibleOnly: static _ => (SkipsHidden: true, ViewportFilter: Guid.Empty),
+            visibleIn: static v => (SkipsHidden: true, ViewportFilter: v.ViewportId));
 }
 
-[SmartEnum<int>]
-public sealed partial class BlockEdgeKind {
-    public static readonly BlockEdgeKind Member = new(key: 0);
-    public static readonly BlockEdgeKind Insert = new(key: 1);
-    public static readonly BlockEdgeKind Container = new(key: 2);
-    public static readonly BlockEdgeKind LinkedArchive = new(key: 3);
+[Union]
+public abstract partial record DisplayModeRef {
+    private DisplayModeRef() { }
+    public sealed record WireframeCase() : DisplayModeRef;
+    public sealed record ById(Guid Id) : DisplayModeRef;
+    public sealed record ByName(string Name) : DisplayModeRef;
+
+    public static readonly DisplayModeRef Wireframe = new WireframeCase();
+    public static DisplayModeRef Of(Guid id) => new ById(Id: id);
+    public static DisplayModeRef Of(string name) => new ByName(Name: name);
+}
+
+[Union]
+public abstract partial record DependencyTarget {
+    private DependencyTarget() { }
+    public sealed record OnDefinition(int OtherIndex) : DependencyTarget;
+    public sealed record OnLayer(int LayerIndex) : DependencyTarget;
+    public sealed record OnLinetype(int LinetypeIndex) : DependencyTarget;
+}
+
+[Union]
+public abstract partial record Probe {
+    private Probe() { }
+    public sealed record DefinitionDepth(int Depth) : Probe;
+    public sealed record LayerUsed(bool Used) : Probe;
+    public sealed record LinetypeUsed(bool Used) : Probe;
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -152,16 +191,27 @@ public readonly partial struct DefinitionIndex {
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public readonly partial struct DefinitionName {
     public const int MaxLength = 256;
+    private static readonly SearchValues<char> ForbiddenChars = SearchValues.Create(values: ['/', '\\']);
 
     public static Fin<DefinitionName> From(string value, Op? key = null) {
         Op op = key.OrDefault();
         return Optional(value).Map(static raw => raw.Trim()).Case switch {
             string trimmed when trimmed.Length > 0
                                 && trimmed.Length <= MaxLength
-                                && ModelComponent.IsValidComponentName(name: trimmed) =>
+                                && ModelComponent.IsValidComponentName(name: trimmed)
+                                && !trimmed.AsSpan().ContainsAny(values: ForbiddenChars) =>
                 Fin.Succ(value: Create(value: trimmed)),
             _ => Fin.Fail<DefinitionName>(error: op.InvalidInput()),
         };
+    }
+
+    /// Replace forbidden characters with '_' before admission (Speckle CleanBlockDefinitionName pattern).
+    public static Fin<DefinitionName> Sanitize(string value, Op? key = null) {
+        Op op = key.OrDefault();
+        string cleaned = (value ?? string.Empty).Trim()
+            .Replace(oldChar: '/', newChar: '_')
+            .Replace(oldChar: '\\', newChar: '_');
+        return From(value: cleaned, key: op);
     }
 }
 
@@ -182,6 +232,88 @@ public readonly partial struct ArchivePath {
     public string Stem => IOPath.GetFileNameWithoutExtension(path: Value);
 }
 
+[ValueObject<ulong>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+public readonly partial struct BlockContentHash {
+    private const ulong FnvOffset = 0xCBF29CE484222325UL;
+    private const ulong FnvPrime = 0x100000001B3UL;
+
+    /// FNV-1a 64-bit fold. Nested InstanceReferenceGeometry contributes ParentIdefId + Xform.
+    public static BlockContentHash Of(Members.Provided members) {
+        ArgumentNullException.ThrowIfNull(argument: members);
+        return Create(value: members.Attributes
+            .Map(static a => HashAttributes(a: a))
+            .Fold(initialState: members.Geometry.Fold(initialState: FnvOffset, f: HashGeometry),
+                  f: Mix));
+    }
+
+    private static ulong HashGeometry(ulong acc, GeometryBase? geometry) =>
+        geometry switch {
+            null => acc,
+            InstanceReferenceGeometry r => Mix(acc: Mix(acc: acc, v: (ulong)r.ParentIdefId.GetHashCode()), v: XformHash(x: r.Xform)),
+            _ => Mix(acc: acc, v: BoundsAndKindHash(geometry: geometry)),
+        };
+
+    /// Deterministic content projection over LayerIndex/ObjectColor/MaterialIndex/LinetypeIndex —
+    /// avoids ObjectAttributes.GetHashCode (reference-equality default) which produced different
+    /// hashes for content-equivalent instances across reload/session. `unchecked` preserves the
+    /// bit-pattern across `int → uint → ulong` so negative indices (e.g., LayerIndex == -1 for
+    /// "no layer") hash deterministically without sign-extension into the high 32 bits.
+    private static ulong HashAttributes(ObjectAttributes? a) =>
+        a switch {
+            null => 0UL,
+            _ => unchecked((uint)a.LayerIndex
+                ^ ((ulong)(uint)a.ObjectColor.ToArgb() << 16)
+                ^ ((ulong)(uint)a.MaterialIndex << 32)
+                ^ ((ulong)(uint)a.LinetypeIndex << 48)),
+        };
+
+    private static ulong XformHash(Transform x) =>
+        BitConverter.DoubleToUInt64Bits(value: x.M00) ^ BitConverter.DoubleToUInt64Bits(value: x.M11)
+            ^ BitConverter.DoubleToUInt64Bits(value: x.M22) ^ BitConverter.DoubleToUInt64Bits(value: x.M33);
+
+    /// Deterministic bounds projection — hashes Min/Max corners + ObjectType via accurate bounds.
+    /// `accurate:false` returns implementation-dependent loose AABB whose Volume varies across
+    /// Rhino patch releases; the content hash must be reproducible for AddOrReuse to be sound.
+    private static ulong BoundsAndKindHash(GeometryBase geometry) {
+        BoundingBox box = geometry.GetBoundingBox(accurate: true);
+        return ((ulong)geometry.ObjectType.GetHashCode())
+            ^ BitConverter.DoubleToUInt64Bits(value: box.Min.X) ^ BitConverter.DoubleToUInt64Bits(value: box.Min.Y) ^ BitConverter.DoubleToUInt64Bits(value: box.Min.Z)
+            ^ BitConverter.DoubleToUInt64Bits(value: box.Max.X) ^ BitConverter.DoubleToUInt64Bits(value: box.Max.Y) ^ BitConverter.DoubleToUInt64Bits(value: box.Max.Z);
+    }
+
+    private static ulong Mix(ulong acc, ulong v) => (acc ^ v) * FnvPrime;
+}
+
+[ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+public readonly partial struct Axis {
+    public static readonly Axis X = Create(value: "X");
+    public static readonly Axis Y = Create(value: "Y");
+    public static readonly Axis Z = Create(value: "Z");
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        value = (value ?? string.Empty).Trim().ToUpperInvariant();
+        validationError = value is "X" or "Y" or "Z" ? null : new ValidationError(message: "Axis must be X|Y|Z (case-insensitive).");
+    }
+}
+
+[ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public readonly partial struct SnapshotName {
+    public const int MaxLength = 128;
+    private static readonly SearchValues<char> ForbiddenChars =
+        SearchValues.Create(values: ['/', '\\', '"', '\'', '\n', '\r', '=']);
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        value = (value ?? string.Empty).Trim();
+        validationError = value.Length is > 0 and <= MaxLength && !value.AsSpan().ContainsAny(values: ForbiddenChars)
+            ? null
+            : new ValidationError(message: "SnapshotName 1..128 chars, no /\\\"'=\\n\\r.");
+    }
+}
+
 // --- [MODELS] [REF] -----------------------------------------------------------------------
 [Union]
 public abstract partial record DefinitionRef {
@@ -193,6 +325,29 @@ public abstract partial record DefinitionRef {
     public static DefinitionRef Of(DefinitionId id) => new ById(Id: id);
     public static DefinitionRef Of(DefinitionIndex index) => new ByIndex(Index: index);
     public static DefinitionRef Of(DefinitionName name) => new ByName(Name: name);
+}
+
+// --- [MODELS] [MEMBERS] -------------------------------------------------------------------
+[Union]
+public abstract partial record Members {
+    private Members() { }
+    public sealed record Provided(Seq<GeometryBase> Geometry, Seq<ObjectAttributes> Attributes) : Members;
+    public sealed record FromDocument(Seq<Guid> Sources) : Members;
+
+    /// Direct factory for Provided so callers do not pattern-match the abstract Members.
+    public static Fin<Provided> OfProvided(Seq<GeometryBase> geometry, Seq<ObjectAttributes>? attributes = null, Op? key = null) {
+        Op op = key.OrDefault();
+        Seq<ObjectAttributes> attrs = attributes ?? geometry.Map(static _ => new ObjectAttributes());
+        return (geometry.IsEmpty, geometry.Count == attrs.Count, geometry.Exists(static g => g is null)) switch {
+            (false, true, false) => Fin.Succ(value: new Provided(Geometry: geometry, Attributes: attrs)),
+            _ => Fin.Fail<Provided>(error: op.InvalidInput()),
+        };
+    }
+
+    public static Fin<Members> Of(Seq<GeometryBase> geometry, Seq<ObjectAttributes>? attributes = null, Op? key = null) =>
+        OfProvided(geometry: geometry, attributes: attributes, key: key).Map(static p => (Members)p);
+
+    public static Members From(Seq<Guid> sources) => new FromDocument(Sources: sources);
 }
 
 // --- [MODELS] [SPECS] ---------------------------------------------------------------------
@@ -234,128 +389,182 @@ public sealed record AuthorSpec(
     }
 }
 
-public sealed record BlockMembers(Seq<GeometryBase> Geometry, Seq<ObjectAttributes> Attributes) {
-    public static BlockMembers Empty { get; } = new(Geometry: Seq<GeometryBase>(), Attributes: Seq<ObjectAttributes>());
-    public int Count => Geometry.Count;
-    public bool IsEmpty => Count == 0;
-
-    public static Fin<BlockMembers> Of(Seq<GeometryBase> geometry, Seq<ObjectAttributes>? attributes = null, Op? key = null) {
-        Op op = key.OrDefault();
-        Seq<ObjectAttributes> attrs = attributes ?? geometry.Map(static _ => new ObjectAttributes());
-        return (geometry.IsEmpty, geometry.Count == attrs.Count, geometry.Exists(static g => g is null)) switch {
-            (false, true, false) => Fin.Succ(value: new BlockMembers(Geometry: geometry, Attributes: attrs)),
-            _ => Fin.Fail<BlockMembers>(error: op.InvalidInput()),
-        };
-    }
-}
-
 public sealed record PreviewSpec(
     int Width = 256,
     int Height = 256,
-    Option<Guid> DisplayModeId = default,
+    DisplayModeRef? DisplayMode = null,
     bool Isometric = true,
-    bool DrawDecorations = false) {
+    bool DrawDecorations = false,
+    bool ApplyDpiScaling = false) {
+
     public static PreviewSpec Default { get; } = new();
 
-    public static Fin<PreviewSpec> Of(int width, int height, Option<Guid> displayModeId = default, bool isometric = true, bool drawDecorations = false, Op? key = null) {
-        Op op = key.OrDefault();
-        return (width, height) switch {
-            ( >= 16 and <= 4096, >= 16 and <= 4096) =>
-                Fin.Succ(value: new PreviewSpec(Width: width, Height: height, DisplayModeId: displayModeId, Isometric: isometric, DrawDecorations: drawDecorations)),
-            _ => Fin.Fail<PreviewSpec>(error: op.InvalidInput()),
+    public DisplayModeRef ResolvedMode => DisplayMode ?? DisplayModeRef.Wireframe;
+
+    public static Fin<PreviewSpec> Of(
+        int width, int height,
+        DisplayModeRef? displayMode = null,
+        bool isometric = true, bool drawDecorations = false, bool applyDpiScaling = false,
+        Op? key = null) =>
+        (width, height) switch {
+            ( >= 16 and <= 4096, >= 16 and <= 4096) => Fin.Succ(value: new PreviewSpec(
+                Width: width, Height: height,
+                DisplayMode: displayMode,
+                Isometric: isometric, DrawDecorations: drawDecorations, ApplyDpiScaling: applyDpiScaling)),
+            _ => Fin.Fail<PreviewSpec>(error: key.OrDefault().InvalidInput()),
         };
+}
+
+public sealed record BlockSubscriptionPolicy(
+    Option<Func<BlockTableEvent, bool>> Filter = default,
+    bool DeferToIdle = true) : Monoid<BlockSubscriptionPolicy> {
+
+    public static BlockSubscriptionPolicy Default { get; } = new();
+    public static BlockSubscriptionPolicy Immediate { get; } = new(DeferToIdle: false);
+    /// Monoid identity — Default policy (no filter, defer-to-idle).
+    public static BlockSubscriptionPolicy Empty => Default;
+    /// Monoid composition — same algebra as `operator |` (filter AND, defer OR).
+    public BlockSubscriptionPolicy Combine(BlockSubscriptionPolicy rhs) => this | rhs;
+
+    /// Monoid identity = Default; associative; commutes on Filter conjunction.
+    public static BlockSubscriptionPolicy operator |(BlockSubscriptionPolicy a, BlockSubscriptionPolicy b) {
+        ArgumentNullException.ThrowIfNull(argument: a);
+        ArgumentNullException.ThrowIfNull(argument: b);
+        return new(Filter: (a.Filter, b.Filter) switch {
+            ( { IsSome: true, Case: Func<BlockTableEvent, bool> af }, { IsSome: true, Case: Func<BlockTableEvent, bool> bf }) =>
+                Some<Func<BlockTableEvent, bool>>(value: e => af(arg: e) && bf(arg: e)),
+            ( { IsSome: true }, _) => a.Filter,
+            (_, { IsSome: true }) => b.Filter,
+            _ => Option<Func<BlockTableEvent, bool>>.None,
+        },
+            DeferToIdle: a.DeferToIdle || b.DeferToIdle);
     }
 }
 
-public sealed record BlockSubscriptionPolicy(Option<Func<BlockTableEvent, bool>> Filter = default) {
-    public static BlockSubscriptionPolicy Default { get; } = new();
+public readonly record struct BatchPolicy(bool SuppressRedraw = true, bool BundleHistory = false) {
+    public static BatchPolicy Default { get; } = new(SuppressRedraw: true);
 }
 
-// --- [MODELS] [SNAPSHOTS] -----------------------------------------------------------------
-public sealed record BlockSnapshot(
-    DefinitionId Id,
-    DefinitionIndex Index,
-    DefinitionName Name,
-    Option<string> DeletedName,
-    Option<string> Description,
-    Option<ArchivePath> Url,
-    Option<string> UrlDescription,
+public readonly record struct WatchPolicy(TimeSpan Debounce, bool RefreshNested = true) {
+    public static WatchPolicy Default { get; } = new(Debounce: TimeSpan.FromMilliseconds(value: 500));
+}
+
+public readonly record struct FlattenPolicy(int MaxDepth = 8) {
+    public static FlattenPolicy Default { get; } = new(MaxDepth: 8);
+}
+
+public readonly record struct Placement(Transform Transform, Option<ObjectAttributes> Attrs, Option<HistoryRecord> History) {
+    public static Placement Of(Transform xform) => new(Transform: xform, Attrs: Option<ObjectAttributes>.None, History: Option<HistoryRecord>.None);
+    public static Placement Of(Transform xform, ObjectAttributes attrs) => new(Transform: xform, Attrs: Some(attrs), History: Option<HistoryRecord>.None);
+    public static Placement Of(Transform xform, ObjectAttributes attrs, HistoryRecord history) => new(Transform: xform, Attrs: Some(attrs), History: Some(history));
+}
+
+// --- [MODELS] [PROJECTIONS] ---------------------------------------------------------------
+public readonly record struct LiveStats(
     UnitSystem Units,
     UpdatePolicy Update,
     LayerStyle Layer,
     ArchiveStatus Archive,
-    Option<ArchivePath> Source,
-    ImmutableArray<Guid> MemberIds,
     bool IsDeleted,
     bool IsTenuous,
+    bool IsReference,
+    bool SkipNestedLinked,
+    Option<string> DeletedName,
     int UseCountTop,
     int UseCountNested) {
 
-    public static Fin<BlockSnapshot> From(InstanceDefinition definition, Op? key = null) {
-        Op op = key.OrDefault();
-        return Optional(definition)
-            .ToFin(Fail: op.InvalidInput())
-            .Bind(active => op.Catch(() => Project(active: active, op: op)));
-    }
-
-    private static Fin<BlockSnapshot> Project(InstanceDefinition active, Op op) =>
-        from id in DefinitionId.From(value: active.Id, key: op)
-        from idx in DefinitionIndex.From(value: active.Index, key: op)
-        from name in DefinitionName.From(value: active.Name ?? string.Empty, key: op)
-        let deletedName = NonBlank(value: active.DeletedName)
-        let description = NonBlank(value: active.Description)
-        let urlDescription = NonBlank(value: active.UrlDescription)
-        let url = NonBlank(value: active.Url).Bind(value => ArchivePath.From(value: value, key: op).ToOption())
-        let source = ProjectSourceArchive(definition: active, op: op)
-        let members = active.GetObjectIds() is Guid[] arr ? [.. arr] : ImmutableArray<Guid>.Empty
-        let counts = ReadUseCounts(active: active)
-        select new BlockSnapshot(
-            Id: id,
-            Index: idx,
-            Name: name,
-            DeletedName: deletedName,
-            Description: description,
-            Url: url,
-            UrlDescription: urlDescription,
+    internal static LiveStats From(InstanceDefinition active) {
+        // [BOUNDARY ADAPTER — UseCount(out, out) is the canonical Rhino split; capture once.]
+        _ = active.UseCount(topLevelReferenceCount: out int top, nestedReferenceCount: out int nested);
+        return new LiveStats(
             Units: active.UnitSystem,
             Update: UpdatePolicy.FromNative(native: active.UpdateType),
             Layer: LayerStyle.FromNative(native: active.LayerStyle),
             Archive: ArchiveStatus.FromNative(native: active.ArchiveFileStatus),
-            Source: source,
-            MemberIds: members,
             IsDeleted: active.IsDeleted,
             IsTenuous: active.IsTenuous,
-            UseCountTop: counts.Top,
-            UseCountNested: counts.Nested);
-
-    private static Option<string> NonBlank(string? value) =>
-        Optional(value).Filter(static s => !string.IsNullOrWhiteSpace(value: s));
-
-    private static Option<ArchivePath> ProjectSourceArchive(InstanceDefinition definition, Op op) =>
-        NonBlank(value: definition.SourceArchive)
-            .Bind(value => ArchivePath.From(value: value, key: op).ToOption());
-
-    private static (int Top, int Nested) ReadUseCounts(InstanceDefinition active) {
-        // [BOUNDARY ADAPTER — UseCount(out, out) is the canonical Rhino split; capture once.]
-        _ = active.UseCount(topLevelReferenceCount: out int top, nestedReferenceCount: out int nested);
-        return (top, nested);
+            IsReference: active.IsReference,
+            SkipNestedLinked: active.SkipNestedLinkedDefinitions,
+            DeletedName: Definition.NonBlank(value: active.DeletedName),
+            UseCountTop: top,
+            UseCountNested: nested);
     }
 }
 
-public readonly record struct BlockMemberContext(DefinitionId DefId, Guid MemberId, Option<ObjectAttributes> Attrs);
+public sealed record Definition(
+    DefinitionId Id,
+    Option<DefinitionIndex> Index,
+    DefinitionName Name,
+    Option<string> Description,
+    Option<ArchivePath> Url,
+    Option<string> UrlDescription,
+    Option<ArchivePath> Source,
+    ImmutableArray<Guid> MemberIds,
+    Option<LiveStats> Live) {
 
-public readonly record struct BlockInsertContext(
+    public bool IsArchiveOnly => Live.IsNone;
+    public bool IsLinked => Source.IsSome;
+
+    public static Fin<Definition> From(InstanceDefinition active, Op? key = null) {
+        Op op = key.OrDefault();
+        return Optional(active).ToFin(Fail: op.InvalidInput())
+            .Bind(d => op.Catch(() => ProjectLive(active: d, op: op)));
+    }
+
+    public static Fin<Definition> From(InstanceDefinitionGeometry archive, Op? key = null) {
+        Op op = key.OrDefault();
+        return Optional(archive).ToFin(Fail: op.InvalidInput())
+            .Bind(g => op.Catch(() => ProjectArchive(active: g, op: op)));
+    }
+
+    private static Fin<Definition> ProjectLive(InstanceDefinition active, Op op) =>
+        from id in DefinitionId.From(value: active.Id, key: op)
+        from idx in DefinitionIndex.From(value: active.Index, key: op)
+        from name in DefinitionName.From(value: active.Name ?? string.Empty, key: op)
+        let live = LiveStats.From(active: active)
+        select new Definition(
+            Id: id,
+            Index: Some(value: idx),
+            Name: name,
+            Description: NonBlank(value: active.Description),
+            Url: NonBlank(value: active.Url).Bind(v => ArchivePath.From(value: v, key: op).ToOption()),
+            UrlDescription: NonBlank(value: active.UrlDescription),
+            Source: NonBlank(value: active.SourceArchive).Bind(v => ArchivePath.From(value: v, key: op).ToOption()),
+            MemberIds: active.GetObjectIds() is Guid[] arr ? [.. arr] : [],
+            Live: Some(value: live));
+
+    private static Fin<Definition> ProjectArchive(InstanceDefinitionGeometry active, Op op) =>
+        from id in DefinitionId.From(value: active.Id, key: op)
+        from name in DefinitionName.From(value: active.Name ?? string.Empty, key: op)
+        select new Definition(
+            Id: id,
+            Index: Option<DefinitionIndex>.None,
+            Name: name,
+            Description: NonBlank(value: active.Description),
+            Url: NonBlank(value: active.Url).Bind(v => ArchivePath.From(value: v, key: op).ToOption()),
+            UrlDescription: NonBlank(value: active.UrlDescription),
+            Source: NonBlank(value: active.SourceArchive).Bind(v => ArchivePath.From(value: v, key: op).ToOption()),
+            MemberIds: active.GetObjectIds() is Guid[] ids ? [.. ids] : [],
+            Live: Option<LiveStats>.None);
+
+    internal static Option<string> NonBlank(string? value) =>
+        Optional(value).Filter(static s => !string.IsNullOrWhiteSpace(value: s));
+}
+
+public readonly record struct Member(DefinitionId DefId, Guid MemberId, Option<ObjectAttributes> Attrs);
+
+public readonly record struct Insert(
     Guid InstanceId,
     DefinitionId DefId,
     Transform InstanceXform,
     Option<Guid> SelectedPartId) {
     public Point3d InsertionPoint => InstanceXform * Point3d.Origin;
 
-    public static Fin<BlockInsertContext> From(InstanceObject instance, Option<Guid> selectedPart = default, Op? key = null) {
+    public static Fin<Insert> From(InstanceObject instance, Option<Guid> selectedPart = default, Op? key = null) {
         Op op = key.OrDefault();
         return Optional(instance).ToFin(Fail: op.InvalidInput()).Bind(active =>
             Optional(active.InstanceDefinition).ToFin(Fail: op.InvalidResult()).Bind(def =>
-                DefinitionId.From(value: def.Id, key: op).Map(id => new BlockInsertContext(
+                DefinitionId.From(value: def.Id, key: op).Map(id => new Insert(
                     InstanceId: active.Id,
                     DefId: id,
                     InstanceXform: active.InstanceXform,
@@ -363,104 +572,96 @@ public readonly record struct BlockInsertContext(
     }
 }
 
-public sealed record BlockArchiveSnapshot(
-    DefinitionId Id,
-    DefinitionName Name,
-    Option<string> Description,
-    Option<ArchivePath> Source,
-    ImmutableArray<Guid> MemberIds) {
-
-    public static Fin<BlockArchiveSnapshot> From(InstanceDefinitionGeometry geometry, Op? key = null) {
-        Op op = key.OrDefault();
-        return Optional(geometry).ToFin(Fail: op.InvalidInput()).Bind(active => op.Catch(() => Project(active: active, op: op)));
-    }
-
-    private static Fin<BlockArchiveSnapshot> Project(InstanceDefinitionGeometry active, Op op) =>
-        from id in DefinitionId.From(value: active.Id, key: op)
-        from name in DefinitionName.From(value: active.Name ?? string.Empty, key: op)
-        let description = Optional(active.Description).Filter(static s => !string.IsNullOrWhiteSpace(value: s))
-        let source = Optional(active.SourceArchive)
-            .Filter(static s => !string.IsNullOrWhiteSpace(value: s))
-            .Bind(value => ArchivePath.From(value: value, key: op).ToOption())
-        let members = active.GetObjectIds() is Guid[] ids ? [.. ids] : ImmutableArray<Guid>.Empty
-        select new BlockArchiveSnapshot(Id: id, Name: name, Description: description, Source: source, MemberIds: members);
-}
-
 public readonly record struct BlockTableEvent(
     InstanceDefinitionTableEventType Kind,
     int Index,
-    Option<BlockSnapshot> New,
-    Option<BlockArchiveSnapshot> Old) {
+    Option<Definition> New,
+    Option<Definition> Old) {
 
     public static BlockTableEvent From(InstanceDefinitionTableEventArgs args) {
         ArgumentNullException.ThrowIfNull(argument: args);
-        // [BOUNDARY ADAPTER — OldState wraps pre-mutation native ptr; project archive-readable subset inside the callback.]
+        // [BOUNDARY ADAPTER — OldState wraps pre-mutation native ptr; project archive subset inside the callback.]
         return new BlockTableEvent(
             Kind: args.EventType,
             Index: args.InstanceDefinitionIndex,
-            New: Optional(args.NewState).Bind(definition => BlockSnapshot.From(definition: definition).ToOption()),
-            Old: Optional(args.OldState).Bind(geometry => BlockArchiveSnapshot.From(geometry: geometry).ToOption()));
+            New: Optional(args.NewState).Bind(d => Definition.From(active: d).ToOption()),
+            Old: Optional(args.OldState).Bind(g => Definition.From(archive: g).ToOption()));
     }
 }
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FlatPiece(GeometryBase Geometry, Transform Composed, ImmutableArray<DefinitionId> Path);
 
 // --- [MODELS] [GRAPH] ---------------------------------------------------------------------
 [Union]
 public abstract partial record EdgeTarget {
     private EdgeTarget() { }
     public sealed record ObjectId(Guid Id) : EdgeTarget;
-    public sealed record Definition(DefinitionId Id) : EdgeTarget;
-    public sealed record Archive(ArchivePath Path) : EdgeTarget;
+    public sealed record ArchiveTarget(ArchivePath Path) : EdgeTarget;
 }
 
-public sealed record BlockGraphNode(DefinitionId Id, DefinitionName Name, ImmutableArray<Guid> Members);
+public sealed record Graph(ImmutableArray<Graph.Node> Nodes, ImmutableArray<Graph.Edge> Edges) {
+    public static Graph Empty { get; } = new(Nodes: [], Edges: []);
 
-public sealed record BlockGraphEdge(DefinitionId From, BlockEdgeKind Kind, EdgeTarget To);
-
-public sealed record BlockGraph(ImmutableArray<BlockGraphNode> Nodes, ImmutableArray<BlockGraphEdge> Edges) {
-    public static BlockGraph Empty { get; } = new(Nodes: [], Edges: []);
+    public sealed record Node(DefinitionId Id, DefinitionName Name, ImmutableArray<Guid> Members);
+    public sealed record Edge(DefinitionId From, BlockEdgeKind Kind, EdgeTarget To);
 }
 
 // --- [MODELS] [RESULTS] -------------------------------------------------------------------
-public sealed record MutationReceipt(DocumentReceipt Document, Seq<BlockDiagnostic> Diagnostics) {
+public sealed record MutationReceipt(DocumentReceipt Document, Seq<BlockDiagnostic> Diagnostics) : Monoid<MutationReceipt> {
     public static MutationReceipt Empty { get; } = new(Document: DocumentReceipt.Empty, Diagnostics: Seq<BlockDiagnostic>());
 
-    public static MutationReceipt Of(DocumentReceipt receipt) =>
-        new(Document: receipt, Diagnostics: Seq<BlockDiagnostic>());
+    /// Monoid identity = Empty; associative; closed. Combine = `operator +` (DocumentReceipt fold +
+    /// Diagnostic concat). Enables generic `Seq.Combine()` via Monoid trait.
+    public MutationReceipt Combine(MutationReceipt rhs) => this + rhs;
 
-    public static MutationReceipt Of(DocumentReceipt receipt, Seq<BlockDiagnostic> diagnostics) =>
-        new(Document: receipt, Diagnostics: diagnostics);
+    public static MutationReceipt Of(DocumentReceipt receipt) => new(Document: receipt, Diagnostics: Seq<BlockDiagnostic>());
+    public static MutationReceipt Of(DocumentReceipt receipt, Seq<BlockDiagnostic> diagnostics) => new(Document: receipt, Diagnostics: diagnostics);
+    public static MutationReceipt Named(string name) => Of(receipt: DocumentReceipt.Empty with {
+        ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: name)),
+    });
+    public static MutationReceipt Lifecycle(Guid id, string name) => Of(receipt: DocumentReceipt.Empty with {
+        LifecycleChanged = Seq(id),
+        ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: name)),
+    });
 
     public bool HasDiagnostics => !Diagnostics.IsEmpty;
+
+    /// Monoid identity = Empty; associative; closed. Delegates to DocumentReceipt.operator + for
+    /// the full 14-field fold (Created, Replaced, Deleted, Transformed, Selected, Unselected, Hidden,
+    /// Locked, Flashed, AttributeChanged, LifecycleChanged, ResourceChanged, UndoRecords, CustomUndo).
+    public static MutationReceipt operator +(MutationReceipt a, MutationReceipt b) {
+        ArgumentNullException.ThrowIfNull(argument: a);
+        ArgumentNullException.ThrowIfNull(argument: b);
+        return new(Document: a.Document + b.Document, Diagnostics: a.Diagnostics + b.Diagnostics);
+    }
 }
 
 [Union]
 public abstract partial record BlockResult {
     private BlockResult() { }
-    public sealed record Snapshot(BlockSnapshot Value) : BlockResult;
-    public sealed record Snapshots(Seq<BlockSnapshot> Values) : BlockResult;
-    public sealed record Members(Seq<BlockMemberContext> Values) : BlockResult;
-    public sealed record Inserts(Seq<BlockInsertContext> Values) : BlockResult;
+    public sealed record Snapshot(Definition Value) : BlockResult;
+    public sealed record Snapshots(Seq<Definition> Values) : BlockResult;
+    public sealed record MembersResult(Seq<Member> Values) : BlockResult;
+    public sealed record Inserts(Seq<Insert> Values) : BlockResult;
     public sealed record Definitions(Seq<DefinitionId> Values) : BlockResult;
-    public sealed record Graph(BlockGraph Value) : BlockResult;
+    public sealed record Graphs(Graph Value) : BlockResult;
     public sealed record Name(DefinitionName Value) : BlockResult;
     public sealed record Texts(HashMap<string, string> Fields) : BlockResult;
     public sealed record Attributes(Seq<InstanceAttributeField> Values) : BlockResult;
     public sealed record Preview(PreviewHandle Handle) : BlockResult;
+    public sealed record Pieces(Seq<FlatPiece> Values) : BlockResult;
+    public sealed record Probed(Probe Value) : BlockResult;
 }
 
-public sealed class PreviewHandle : IDisposable {
-    private readonly Action<PreviewHandle> release;
+public sealed class PreviewHandle(Bitmap bitmap, Action<PreviewHandle> release) : IDisposable {
+    private readonly Action<PreviewHandle> release = release ?? throw new ArgumentNullException(paramName: nameof(release));
     private bool disposed;
 
-    internal PreviewHandle(Bitmap bitmap, Action<PreviewHandle> release) {
-        Bitmap = bitmap ?? throw new ArgumentNullException(paramName: nameof(bitmap));
-        this.release = release ?? throw new ArgumentNullException(paramName: nameof(release));
-    }
-
-    public Bitmap Bitmap { get; }
+    public Bitmap Bitmap { get; } = bitmap ?? throw new ArgumentNullException(paramName: nameof(bitmap));
 
     public void Dispose() {
-        // [BOUNDARY ADAPTER — IDisposable; cache or caller decides actual bitmap disposal via release callback.]
+        // [BOUNDARY ADAPTER — IDisposable; cache or caller decides actual bitmap disposal via release.]
         if (disposed) return;
         disposed = true;
         release(obj: this);
@@ -473,71 +674,12 @@ public abstract partial record BlockDiagnostic {
     private BlockDiagnostic() { }
     public sealed record NotFound(DefinitionRef Ref) : BlockDiagnostic;
     public sealed record DuplicateName(DefinitionName Name, DefinitionId Existing) : BlockDiagnostic;
+    public sealed record ReusedExisting(DefinitionId Existing) : BlockDiagnostic;
     public sealed record LinkedSetterIgnored(DefinitionId Id, UpdatePolicy Actual) : BlockDiagnostic;
-    public sealed record LinkedRefreshFailed(DefinitionId Id, ArchiveStatus Status) : BlockDiagnostic;
     public sealed record ExplodePartial(int Requested, int Received) : BlockDiagnostic;
-    public sealed record HistoryNotRecorded(Guid InstanceId) : BlockDiagnostic;
-    public sealed record PreviewUnavailable(DefinitionId Id) : BlockDiagnostic;
     public sealed record GeometryRejected(DefinitionId Id, string Reason) : BlockDiagnostic;
     public sealed record ArchiveLinkFailed(ArchivePath Path) : BlockDiagnostic;
+    public sealed record WatchAttached(ArchivePath Path) : BlockDiagnostic;
+    public sealed record SilentUserStringMutation(DefinitionId Id) : BlockDiagnostic;
 }
 
-// --- [MODELS] [INDEX] ---------------------------------------------------------------------
-public sealed class BlockSnapshotIndex {
-    private readonly FrozenDictionary<DefinitionName, BlockSnapshot> byName;
-    private readonly FrozenDictionary<DefinitionId, BlockSnapshot> byId;
-    private readonly FrozenDictionary<DefinitionIndex, BlockSnapshot> byIndex;
-
-    private BlockSnapshotIndex(Seq<BlockSnapshot> snapshots) {
-        byName = snapshots.AsIterable()
-            .Map(static s => KeyValuePair.Create(key: s.Name, value: s))
-            .ToFrozenDictionary();
-        byId = snapshots.AsIterable()
-            .Map(static s => KeyValuePair.Create(key: s.Id, value: s))
-            .ToFrozenDictionary();
-        byIndex = snapshots.AsIterable()
-            .Map(static s => KeyValuePair.Create(key: s.Index, value: s))
-            .ToFrozenDictionary();
-    }
-
-    public static BlockSnapshotIndex Empty { get; } = new(snapshots: Seq<BlockSnapshot>());
-
-    public static BlockSnapshotIndex From(Seq<BlockSnapshot> snapshots) =>
-        snapshots.IsEmpty ? Empty : new(snapshots: snapshots);
-
-    public Option<BlockSnapshot> Find(DefinitionRef reference) =>
-        reference switch {
-            DefinitionRef.ById r => byId.Lookup(key: r.Id),
-            DefinitionRef.ByIndex r => byIndex.Lookup(key: r.Index),
-            DefinitionRef.ByName r => byName.Lookup(key: r.Name),
-            _ => Option<BlockSnapshot>.None,
-        };
-
-    public Seq<BlockSnapshot> All => toSeq(byId.Values);
-    public int Count => byId.Count;
-}
-
-// --- [OPERATIONS] [HELPERS] ---------------------------------------------------------------
-internal static class BlockReceipt {
-    internal static DocumentReceipt Named(string name) =>
-        DocumentReceipt.Empty with {
-            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: name)),
-        };
-
-    internal static DocumentReceipt Lifecycle(Guid id, string name) =>
-        DocumentReceipt.Empty with {
-            LifecycleChanged = Seq(id),
-            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: name)),
-        };
-}
-
-internal static class BlockCollectionExtensions {
-    internal static Option<V> Lookup<K, V>(this FrozenDictionary<K, V> dict, K key) where K : notnull =>
-        dict.TryGetValue(key: key, value: out V? value) ? Some(value!) : Option<V>.None;
-
-    internal static HashMap<K, V> UpdateIf<K, V>(this HashMap<K, V> map, K key, Func<V, V> update) =>
-        map.Find(key: key) switch {
-            { IsSome: true, Case: V existing } => map.AddOrUpdate(key: key, value: update(arg: existing)),
-            _ => map,
-        };
-}
