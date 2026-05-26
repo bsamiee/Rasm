@@ -473,28 +473,22 @@ internal static partial class Input {
                 .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(FileDialog)), detail: $"FileDialog.ShowDialog threw: {error.Message}")));
 
     internal static GrasshopperUiIntent<InputClipboardSnapshot> Clipboard(InputClipboardOp op) =>
-        GhUi.Read(run: _scope =>
-            Try.lift(f: () => {
-                Func<InputClipboardSnapshot> action = op switch {
-                    InputClipboardOp.ReadCase => ClipboardSnapshotOf,
-                    InputClipboardOp.WriteCase w => () => {
-                        Clipboard clipboard = Eto.Forms.Clipboard.Instance;
-                        _ = w.Payload.Text.Iter(text => clipboard.Text = text);
-                        _ = w.Payload.Html.Iter(html => clipboard.Html = html);
-                        _ = w.Payload.Image.Iter(image => clipboard.Image = image);
-                        _ = w.Payload.Uris.IsEmpty ? unit : Optional(w.Payload.Uris.ToArray()).Iter(uris => clipboard.Uris = uris);
-                        return ClipboardSnapshotOf();
-                    }
-                    ,
-                    InputClipboardOp.ClearCase => static () => {
-                        Eto.Forms.Clipboard.Instance.Clear();
-                        return InputClipboardSnapshot.Empty;
-                    }
-                    ,
-                    _ => static () => InputClipboardSnapshot.Empty,
-                };
-                return action();
-            }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Clipboard)), detail: $"Clipboard op threw: {error.Message}")));
+        GhUi.Read(run: _scope => Op.Of(name: nameof(Clipboard)).Attempt(
+            body: () => op.Switch(
+                readCase: static _ => ClipboardSnapshotOf(),
+                writeCase: static w => {
+                    Clipboard clipboard = Eto.Forms.Clipboard.Instance;
+                    _ = w.Payload.Text.Iter(text => clipboard.Text = text);
+                    _ = w.Payload.Html.Iter(html => clipboard.Html = html);
+                    _ = w.Payload.Image.Iter(image => clipboard.Image = image);
+                    _ = w.Payload.Uris.IsEmpty ? unit : Optional(w.Payload.Uris.ToArray()).Iter(uris => clipboard.Uris = uris);
+                    return ClipboardSnapshotOf();
+                },
+                clearCase: static _ => {
+                    Eto.Forms.Clipboard.Instance.Clear();
+                    return InputClipboardSnapshot.Empty;
+                }),
+            what: "Clipboard op"));
 
     internal static GrasshopperUiIntent<Option<TResult>> Dialog<TResult>(Func<Dialog<TResult>, Fin<Unit>> configure, string title, DialogDisplayMode mode) =>
         GhUi.Read(run: scope =>

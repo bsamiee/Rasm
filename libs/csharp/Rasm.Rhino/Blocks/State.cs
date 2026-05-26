@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Collections.Immutable;
+using System.Collections.Specialized;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using Rasm.Rhino.Commands;
@@ -26,6 +27,7 @@ public sealed partial class UpdatePolicy {
     public static readonly UpdatePolicy Linked = new(key: 2, native: InstanceDefinitionUpdateType.Linked);
 
     public InstanceDefinitionUpdateType Native { get; }
+    public bool IsLinked => this == Linked || this == LinkedAndEmbedded;
 
     public static UpdatePolicy FromNative(InstanceDefinitionUpdateType native) =>
         native switch {
@@ -45,9 +47,10 @@ public sealed partial class LayerStyle {
 
     public bool AppliesTo(UpdatePolicy policy) =>
         (this, policy) switch {
-            _ when this == Reference => policy == UpdatePolicy.Linked,
             _ when this == None => policy == UpdatePolicy.Static || policy == UpdatePolicy.LinkedAndEmbedded,
-            _ => true,
+            _ when this == Active => policy == UpdatePolicy.Linked,
+            _ when this == Reference => policy == UpdatePolicy.Linked,
+            _ => false,
         };
 
     public static LayerStyle FromNative(InstanceDefinitionLayerStyle native) =>
@@ -73,6 +76,16 @@ public sealed partial class ArchiveStatus {
     public bool RequiresRefresh =>
         Native is not InstanceDefinitionArchiveFileStatus.LinkedFileIsUpToDate
             and not InstanceDefinitionArchiveFileStatus.NotALinkedInstanceDefinition;
+
+    public bool CanRefresh =>
+        Native is InstanceDefinitionArchiveFileStatus.LinkedFileIsUpToDate
+            or InstanceDefinitionArchiveFileStatus.LinkedFileIsNewer
+            or InstanceDefinitionArchiveFileStatus.LinkedFileIsOlder
+            or InstanceDefinitionArchiveFileStatus.LinkedFileIsDifferent;
+
+    public bool IsBroken =>
+        Native is InstanceDefinitionArchiveFileStatus.LinkedFileNotReadable
+            or InstanceDefinitionArchiveFileStatus.LinkedFileNotFound;
 
     public static ArchiveStatus FromNative(InstanceDefinitionArchiveFileStatus native) =>
         native switch {
@@ -106,6 +119,41 @@ public sealed partial class DeletionPolicy {
 }
 
 [SmartEnum<int>]
+public sealed partial class TransformPolicy {
+    public static readonly TransformPolicy Copy = new(key: 0, deleteOriginal: false);
+    public static readonly TransformPolicy Move = new(key: 1, deleteOriginal: true);
+
+    public bool DeleteOriginal { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class LinkRefreshPolicy {
+    public static readonly LinkRefreshPolicy All = new(key: 0, skipUpToDate: false);
+    public static readonly LinkRefreshPolicy Changed = new(key: 1, skipUpToDate: true);
+
+    public bool SkipUpToDate { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class LinkReloadPolicy {
+    public static readonly LinkReloadPolicy NestedQuiet = new(key: 0, updateNestedLinks: true, quiet: true);
+    public static readonly LinkReloadPolicy NestedVerbose = new(key: 1, updateNestedLinks: true, quiet: false);
+    public static readonly LinkReloadPolicy ShallowQuiet = new(key: 2, updateNestedLinks: false, quiet: true);
+    public static readonly LinkReloadPolicy ShallowVerbose = new(key: 3, updateNestedLinks: false, quiet: false);
+
+    public bool UpdateNestedLinks { get; }
+    public bool Quiet { get; }
+}
+
+[SmartEnum<int>]
+public sealed partial class CompactPolicy {
+    public static readonly CompactPolicy UndoAware = new(key: 0, ignoreUndoReferences: false);
+    public static readonly CompactPolicy AllDeleted = new(key: 1, ignoreUndoReferences: true);
+
+    public bool IgnoreUndoReferences { get; }
+}
+
+[SmartEnum<int>]
 public sealed partial class LinkedPolicy {
     public static readonly LinkedPolicy Prompt = new(key: 0, native: LinkedInstanceDefinitionUpdateStyle.Prompt);
     public static readonly LinkedPolicy AlwaysUpdate = new(key: 1, native: LinkedInstanceDefinitionUpdateStyle.AlwaysUpdate);
@@ -125,6 +173,7 @@ public sealed partial class LinkedPolicy {
 public sealed partial class BlockEdgeKind {
     public static readonly BlockEdgeKind Member = new(key: 0);
     public static readonly BlockEdgeKind LinkedArchive = new(key: 1);
+    public static readonly BlockEdgeKind InstanceInsert = new(key: 2);
 }
 
 [Union]
@@ -154,12 +203,15 @@ public abstract partial record DisplayModeRef {
 
     public Fin<Guid> Resolve(Op op) =>
         Switch(op,
-            wireframeCase: static (_, _) => Fin.Succ(value: Guid.Empty),
+            wireframeCase: static (_, _) => Fin.Succ(value: DisplayModeDescription.WireframeId),
             byId: static (_, r) => Fin.Succ(value: r.Id),
             byName: static (k, r) => Optional(DisplayModeDescription.FindByName(englishName: r.Name))
                 .Map(static desc => desc.Id)
                 .ToFin(Fail: k.InvalidInput()));
 }
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PreviewFingerprint(ulong Value);
 
 [Union]
 public abstract partial record DependencyTarget {
@@ -251,48 +303,74 @@ public readonly partial struct BlockContentHash {
     private const ulong FnvOffset = 0xCBF29CE484222325UL;
     private const ulong FnvPrime = 0x100000001B3UL;
 
-    /// FNV-1a 64-bit fold. Nested InstanceReferenceGeometry contributes ParentIdefId + Xform.
     public static BlockContentHash Of(Members.Provided members) {
         ArgumentNullException.ThrowIfNull(argument: members);
-        return Create(value: members.Attributes
-            .Map(static a => HashAttributes(a: a))
-            .Fold(initialState: members.Geometry.Fold(initialState: FnvOffset, f: HashGeometry),
-                  f: Mix));
+        Seq<GeometryBase> geometry = members.Geometry;
+        Seq<ObjectAttributes> attributes = members.Attributes;
+        ulong geometryHash = geometry.Fold(initialState: FnvOffset, f: HashGeometry);
+        ulong attributeHash = attributes.Fold(initialState: geometryHash, f: static (acc, a) => Mix(acc: acc, v: HashAttributes(a: a)));
+        return Create(value: Mix(acc: attributeHash, v: unchecked((ulong)geometry.Count ^ ((ulong)attributes.Count << 32))));
     }
 
     private static ulong HashGeometry(ulong acc, GeometryBase? geometry) =>
         geometry switch {
             null => acc,
-            InstanceReferenceGeometry r => Mix(acc: Mix(acc: acc, v: (ulong)r.ParentIdefId.GetHashCode()), v: XformHash(x: r.Xform)),
-            _ => Mix(acc: acc, v: BoundsAndKindHash(geometry: geometry)),
+            InstanceReferenceGeometry r => Mix(acc: Mix(acc: acc, v: HashGuid(value: r.ParentIdefId)), v: XformHash(x: r.Xform)),
+            _ => Mix(acc: Mix(acc: acc, v: BoundsAndKindHash(geometry: geometry)), v: geometry.DataCRC(currentRemainder: 0u)),
         };
 
-    /// Avoids ObjectAttributes.GetHashCode (reference-equality default). `unchecked` preserves
-    /// bit-pattern across int→uint→ulong so sentinel negative indices (LayerIndex == -1) hash
-    /// deterministically without sign-extension.
     private static ulong HashAttributes(ObjectAttributes? a) =>
         a switch {
             null => 0UL,
-            _ => unchecked((uint)a.LayerIndex
-                ^ ((ulong)(uint)a.ObjectColor.ToArgb() << 16)
-                ^ ((ulong)(uint)a.MaterialIndex << 32)
-                ^ ((ulong)(uint)a.LinetypeIndex << 48)),
+            _ => HashAttributeCore(a: a),
         };
 
     private static ulong XformHash(Transform x) =>
-        BitConverter.DoubleToUInt64Bits(value: x.M00) ^ BitConverter.DoubleToUInt64Bits(value: x.M11)
-            ^ BitConverter.DoubleToUInt64Bits(value: x.M22) ^ BitConverter.DoubleToUInt64Bits(value: x.M33);
+        Seq(
+                x.M00, x.M01, x.M02, x.M03,
+                x.M10, x.M11, x.M12, x.M13,
+                x.M20, x.M21, x.M22, x.M23,
+                x.M30, x.M31, x.M32, x.M33)
+            .Fold(initialState: FnvOffset, f: static (acc, value) => Mix(acc: acc, v: BitConverter.DoubleToUInt64Bits(value: value)));
 
-    /// `accurate:true` is load-bearing; the loose AABB varies across Rhino patch releases and
-    /// breaks AddOrReuse content matching.
     private static ulong BoundsAndKindHash(GeometryBase geometry) {
         BoundingBox box = geometry.GetBoundingBox(accurate: true);
-        return ((ulong)geometry.ObjectType.GetHashCode())
-            ^ BitConverter.DoubleToUInt64Bits(value: box.Min.X) ^ BitConverter.DoubleToUInt64Bits(value: box.Min.Y) ^ BitConverter.DoubleToUInt64Bits(value: box.Min.Z)
-            ^ BitConverter.DoubleToUInt64Bits(value: box.Max.X) ^ BitConverter.DoubleToUInt64Bits(value: box.Max.Y) ^ BitConverter.DoubleToUInt64Bits(value: box.Max.Z);
+        return Seq(
+                (double)geometry.ObjectType,
+                box.Min.X, box.Min.Y, box.Min.Z,
+                box.Max.X, box.Max.Y, box.Max.Z)
+            .Fold(initialState: FnvOffset, f: static (acc, value) => Mix(acc: acc, v: BitConverter.DoubleToUInt64Bits(value: value)));
     }
 
-    private static ulong Mix(ulong acc, ulong v) => (acc ^ v) * FnvPrime;
+    private static ulong HashAttributeCore(ObjectAttributes a) =>
+        Seq(
+                unchecked((uint)a.LayerIndex),
+                unchecked((uint)a.MaterialIndex),
+                unchecked((uint)a.LinetypeIndex),
+                unchecked((uint)a.ObjectColor.ToArgb()),
+                unchecked((uint)a.PlotColor.ToArgb()),
+                BitConverter.DoubleToUInt64Bits(value: a.PlotWeight),
+                unchecked((uint)a.Mode),
+                unchecked((uint)a.ColorSource),
+                unchecked((uint)a.MaterialSource),
+                unchecked((uint)a.LinetypeSource),
+                a.Visible ? 1UL : 0UL)
+            .Fold(initialState: HashText(value: a.Name ?? string.Empty), f: Mix)
+        ^ HashStrings(strings: a.GetUserStrings());
+
+    private static ulong HashStrings(NameValueCollection strings) =>
+        strings.AllKeys
+            .OrderBy(key => key, comparer: StringComparer.Ordinal)
+            .Aggregate(seed: FnvOffset, func: (acc, key) =>
+                Mix(acc: HashText(value: key ?? string.Empty, seed: acc), v: HashText(value: strings[key] ?? string.Empty)));
+
+    private static ulong HashText(string value, ulong seed = FnvOffset) =>
+        value.Aggregate(seed: seed, func: static (acc, ch) => Mix(acc: acc, v: ch));
+
+    private static ulong HashGuid(Guid value) =>
+        value.ToByteArray().Aggregate(seed: FnvOffset, func: static (acc, b) => Mix(acc: acc, v: b));
+
+    private static ulong Mix(ulong acc, ulong v) => unchecked((acc ^ v) * FnvPrime);
 }
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
@@ -403,13 +481,17 @@ public sealed record AuthorSpec(
             _ => Fin.Fail<AuthorSpec>(error: op.InvalidInput()),
         };
     }
+
+    public Fin<AuthorSpec> Admit(Op key) =>
+        Of(name: Name, basePoint: BasePoint, update: Update, layer: Layer, metadata: Metadata, key: key);
 }
 
 public sealed record PreviewSpec(
     int Width = 256,
     int Height = 256,
     DisplayModeRef? DisplayMode = null,
-    bool Isometric = true,
+    DefinedViewportProjection Projection = DefinedViewportProjection.Perspective,
+    IsometricCamera Camera = IsometricCamera.Northeast,
     bool DrawDecorations = false,
     bool ApplyDpiScaling = false) {
 
@@ -417,18 +499,56 @@ public sealed record PreviewSpec(
 
     public DisplayModeRef ResolvedMode => DisplayMode ?? DisplayModeRef.Wireframe;
 
+    private const ulong FingerprintOffset = 0xCBF29CE484222325UL;
+    private const ulong FingerprintPrime = 0x100000001B3UL;
+
+    public PreviewFingerprint Fingerprint => new(Value: Seq(
+            (ulong)Width,
+            (ulong)Height,
+            (ulong)(int)Projection,
+            (ulong)(int)Camera,
+            DrawDecorations ? 1UL : 0UL,
+            ApplyDpiScaling ? 1UL : 0UL,
+            DisplayHash(mode: ResolvedMode))
+        .Fold(initialState: FingerprintOffset, f: MixFingerprint));
+
+    public Fin<PreviewSpec> Admit(Op key) =>
+        Of(
+            width: Width,
+            height: Height,
+            displayMode: DisplayMode,
+            projection: Projection,
+            camera: Camera,
+            drawDecorations: DrawDecorations,
+            applyDpiScaling: ApplyDpiScaling,
+            key: key);
+
     public static Fin<PreviewSpec> Of(
         int width, int height,
         DisplayModeRef? displayMode = null,
-        bool isometric = true, bool drawDecorations = false, bool applyDpiScaling = false,
+        DefinedViewportProjection projection = DefinedViewportProjection.Perspective,
+        IsometricCamera camera = IsometricCamera.Northeast,
+        bool drawDecorations = false, bool applyDpiScaling = false,
         Op? key = null) =>
         (width, height) switch {
             ( >= 16 and <= 4096, >= 16 and <= 4096) => Fin.Succ(value: new PreviewSpec(
                 Width: width, Height: height,
                 DisplayMode: displayMode,
-                Isometric: isometric, DrawDecorations: drawDecorations, ApplyDpiScaling: applyDpiScaling)),
+                Projection: projection, Camera: camera,
+                DrawDecorations: drawDecorations, ApplyDpiScaling: applyDpiScaling)),
             _ => Fin.Fail<PreviewSpec>(error: key.OrDefault().InvalidInput()),
         };
+
+    private static ulong DisplayHash(DisplayModeRef mode) =>
+        mode switch {
+            DisplayModeRef.WireframeCase => 0UL,
+            DisplayModeRef.ById byId => byId.Id.ToByteArray().Aggregate(seed: 1UL, func: static (acc, value) => MixFingerprint(acc: acc, value: value)),
+            DisplayModeRef.ByName byName => byName.Name.ToUpperInvariant().Aggregate(seed: 2UL, func: static (acc, ch) => MixFingerprint(acc: acc, value: ch)),
+            _ => ulong.MaxValue,
+        };
+
+    private static ulong MixFingerprint(ulong acc, ulong value) =>
+        unchecked((acc ^ value) * FingerprintPrime);
 }
 
 public sealed record BlockSubscriptionPolicy(
@@ -455,16 +575,42 @@ public sealed record BlockSubscriptionPolicy(
     }
 }
 
-public readonly record struct BatchPolicy(bool SuppressRedraw = true, bool BundleHistory = false) {
+public readonly record struct BatchPolicy(bool SuppressRedraw = true) {
     public static BatchPolicy Default { get; } = new(SuppressRedraw: true);
 }
 
-public readonly record struct WatchPolicy(TimeSpan Debounce, bool RefreshNested = true) {
+public readonly record struct WatchPolicy(TimeSpan Debounce) {
     public static WatchPolicy Default { get; } = new(Debounce: TimeSpan.FromMilliseconds(value: 500));
+    public Fin<WatchPolicy> Admit(Op key) =>
+        Debounce > TimeSpan.Zero && Debounce <= TimeSpan.FromMinutes(value: 5)
+            ? Fin.Succ(value: this)
+            : Fin.Fail<WatchPolicy>(error: key.InvalidInput());
+    public static Fin<WatchPolicy> Of(TimeSpan debounce, Op? key = null) =>
+        new WatchPolicy(Debounce: debounce).Admit(key: key.OrDefault());
 }
 
 public readonly record struct FlattenPolicy(int MaxDepth = 8) {
     public static FlattenPolicy Default { get; } = new(MaxDepth: 8);
+    public Fin<FlattenPolicy> Admit(Op key) =>
+        MaxDepth is >= 1 and <= 64
+            ? Fin.Succ(value: this)
+            : Fin.Fail<FlattenPolicy>(error: key.InvalidInput());
+    public static Fin<FlattenPolicy> Of(int maxDepth, Op? key = null) =>
+        new FlattenPolicy(MaxDepth: maxDepth).Admit(key: key.OrDefault());
+}
+
+public readonly record struct LinkCreatePolicy(
+    UpdatePolicy? Update = null,
+    LayerStyle? Layer = null,
+    LinkReloadPolicy? Reload = null) {
+    public static LinkCreatePolicy Default { get; } = new(Update: UpdatePolicy.Linked, Layer: LayerStyle.Reference, Reload: LinkReloadPolicy.NestedQuiet);
+    public UpdatePolicy EffectiveUpdate => Update ?? UpdatePolicy.Linked;
+    public LayerStyle EffectiveLayer => Layer ?? LayerStyle.Reference;
+    public LinkReloadPolicy EffectiveReload => Reload ?? LinkReloadPolicy.NestedQuiet;
+    public Fin<LinkCreatePolicy> Admit(Op key) =>
+        EffectiveUpdate.IsLinked && EffectiveLayer.AppliesTo(policy: EffectiveUpdate)
+            ? Fin.Succ(value: this)
+            : Fin.Fail<LinkCreatePolicy>(error: key.InvalidInput());
 }
 
 public readonly record struct Placement(Transform Transform, Option<ObjectAttributes> Attrs, Option<HistoryRecord> History) {
@@ -616,8 +762,23 @@ public abstract partial record EdgeTarget {
 public sealed record Graph(ImmutableArray<Graph.Node> Nodes, ImmutableArray<Graph.Edge> Edges) {
     public static Graph Empty { get; } = new(Nodes: [], Edges: []);
 
-    public sealed record Node(DefinitionId Id, DefinitionName Name, ImmutableArray<Guid> Members);
+    public sealed record Node(DefinitionId Id, DefinitionName Name, ImmutableArray<Guid> Members, UpdatePolicy Update, ArchiveStatus Archive, Option<ArchivePath> Source);
     public sealed record Edge(DefinitionId From, BlockEdgeKind Kind, EdgeTarget To);
+}
+
+public sealed record LinkedHealth(
+    DefinitionId Id,
+    DefinitionName Name,
+    Option<ArchivePath> Source,
+    UpdatePolicy Update,
+    LayerStyle Layer,
+    ArchiveStatus Archive,
+    bool SkipNestedLinked,
+    Seq<BlockDiagnostic> Diagnostics);
+
+public sealed record RefreshPlan(Seq<LinkedHealth> Items) {
+    public Seq<LinkedHealth> Refreshable => Items.Filter(static item => item.Update.IsLinked && item.Source.IsSome && item.Archive.CanRefresh);
+    public Seq<LinkedHealth> Blocked => Items.Filter(static item => !item.Diagnostics.IsEmpty);
 }
 
 // --- [MODELS] [RESULTS] -------------------------------------------------------------------
@@ -660,6 +821,7 @@ public abstract partial record BlockResult {
     public sealed record Preview(PreviewHandle Handle) : BlockResult;
     public sealed record Pieces(Seq<FlatPiece> Values) : BlockResult;
     public sealed record Probed(Probe Value) : BlockResult;
+    public sealed record Refresh(RefreshPlan Value) : BlockResult;
 }
 
 public sealed class PreviewHandle(Bitmap bitmap, Action<PreviewHandle> release) : IDisposable {
@@ -681,12 +843,14 @@ public abstract partial record BlockDiagnostic {
     private BlockDiagnostic() { }
     public sealed record NotFound(DefinitionRef Ref) : BlockDiagnostic;
     public sealed record DuplicateName(DefinitionName Name, DefinitionId Existing) : BlockDiagnostic;
+    public sealed record ConflictFailed(DefinitionName Name, DefinitionId Existing) : BlockDiagnostic;
     public sealed record ReusedExisting(DefinitionId Existing) : BlockDiagnostic;
     public sealed record LinkedSetterIgnored(DefinitionId Id, UpdatePolicy Actual) : BlockDiagnostic;
     public sealed record ExplodePartial(int Requested, int Received) : BlockDiagnostic;
     public sealed record GeometryRejected(DefinitionId Id, string Reason) : BlockDiagnostic;
-    public sealed record ArchiveLinkFailed(ArchivePath Path) : BlockDiagnostic;
-    public sealed record WatchAttached(ArchivePath Path) : BlockDiagnostic;
+    public sealed record SourceArchiveRequired(DefinitionId Id, UpdatePolicy Requested) : BlockDiagnostic;
     public sealed record SilentUserStringMutation(DefinitionId Id) : BlockDiagnostic;
+    public sealed record InvalidLayerStyle(DefinitionId Id, UpdatePolicy Update, LayerStyle Layer) : BlockDiagnostic;
+    public sealed record LinkedArchiveIssue(DefinitionId Id, ArchiveStatus Status) : BlockDiagnostic;
 }
 

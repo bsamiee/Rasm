@@ -251,7 +251,7 @@ internal static partial class Events {
 
     internal static GrasshopperUiIntent<Subscription> Subscribe(UiEvent uiEvent) =>
         uiEvent.Switch(
-            paintCase: static p => Paint.Hook(phase: p.Phase, paint: p.Handler),
+            paintCase: static p => Paint.Hook(phase: p.Phase, paint: p.Handler, clock: MotionClock.MessageLoop),
             documentCase: static d => SubscribeDocument(kind: d.Kind, handler: d.Handler),
             solutionCase: static s => SubscribeSolution(kind: s.Kind, handler: s.Handler),
             undoCase: static u => SubscribeUndo(kind: u.Kind, handler: u.Handler),

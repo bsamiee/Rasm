@@ -33,24 +33,36 @@ public partial record WireSelectionOp {
     public static readonly WireSelectionOp DeselectAll = new DeselectAllCase();
 }
 
+// WireTraversal carries two delegate flavors: parameter-keyed `Search` (ObjectList.SearchUpstream/Downstream
+// — GH2-native depth-first-without-duplicates, cycle-safe by construction) and owner-keyed `Walk`
+// (Connectivity.FindAllInputs/Outputs(Guid) — broader topology snapshot). Parameter-keyed is narrower;
+// owner-keyed sweeps all wires through an object's port set. Both are pre-materialised at the call
+// boundary because Connectivity is documented non-threadsafe — callers must never propagate references.
 [SmartEnum<int>]
 public sealed partial class WireTraversal {
     private delegate IEnumerable<IDocumentObject> SearchObjects(GhObjectList objects, IParameter parameter);
+    private delegate IEnumerable<ConnectiveObject> OwnerWalk(Connectivity connectivity, Guid ownerId);
 
     public static readonly WireTraversal Upstream = new(
         key: 0,
-        search: static (objects, parameter) => objects.SearchUpstream(parameter: parameter));
+        search: static (objects, parameter) => objects.SearchUpstream(parameter: parameter),
+        walk: static (connectivity, ownerId) => connectivity.FindAllInputs(ownerId));
 
     public static readonly WireTraversal Downstream = new(
         key: 1,
-        search: static (objects, parameter) => objects.SearchDownstream(parameter: parameter));
+        search: static (objects, parameter) => objects.SearchDownstream(parameter: parameter),
+        walk: static (connectivity, ownerId) => connectivity.FindAllOutputs(ownerId));
 
     public static readonly WireTraversal Bidirectional = new(
         key: 2,
-        search: static (objects, parameter) => objects.SearchUpstream(parameter: parameter).Concat(objects.SearchDownstream(parameter: parameter)));
+        search: static (objects, parameter) => objects.SearchUpstream(parameter: parameter).Concat(objects.SearchDownstream(parameter: parameter)),
+        walk: static (connectivity, ownerId) => connectivity.FindAllInputs(ownerId).Concat(connectivity.FindAllOutputs(ownerId)));
 
     [UseDelegateFromConstructor]
     internal partial IEnumerable<IDocumentObject> Search(GhObjectList objects, IParameter parameter);
+
+    [UseDelegateFromConstructor]
+    internal partial IEnumerable<ConnectiveObject> Walk(Connectivity connectivity, Guid ownerId);
 }
 
 [SmartEnum<int>]
@@ -113,17 +125,26 @@ public partial record WireQuery {
     public sealed record SelectedCase : WireQuery;
     public sealed record DanglingCase : WireQuery;
     public sealed record PickCase(PointF Point) : WireQuery;
+    // Parameter-keyed walk via ObjectList.SearchUpstream/Downstream (narrower; cycle-safe DFS).
     public sealed record GraphCase(Guid StartParameterId, WireTraversal Direction, int MaxHops) : WireQuery;
+    // Owner-keyed walk via Connectivity.FindAllInputs/Outputs(Guid) (broader; sweeps every wire crossing
+    // an object's port set). Snapshot the Connectivity result locally — non-threadsafe per GH2 docs.
+    public sealed record OwnerGraphCase(Guid OwnerId, WireTraversal Direction, int MaxHops) : WireQuery;
     public sealed record LinearityCase(Seq<Guid> Ids) : WireQuery;
     public sealed record TopologyCase(Seq<Guid> Ids) : WireQuery;
+    // Causal topological sort via Connectivity.SortCausally — returns Ids in dependency order.
+    public sealed record SortedTopologyCase(Seq<Guid> Ids) : WireQuery;
     public static readonly WireQuery All = new AllCase();
     public static readonly WireQuery Selected = new SelectedCase();
     public static readonly WireQuery Dangling = new DanglingCase();
     public static WireQuery Pick(PointF point) => new PickCase(Point: point);
     public static WireQuery Graph(Guid startParameterId, WireTraversal? direction = null, int maxHops = 32) =>
         new GraphCase(StartParameterId: startParameterId, Direction: direction ?? WireTraversal.Bidirectional, MaxHops: maxHops);
+    public static WireQuery OwnerGraph(Guid ownerId, WireTraversal? direction = null, int maxHops = 32) =>
+        new OwnerGraphCase(OwnerId: ownerId, Direction: direction ?? WireTraversal.Bidirectional, MaxHops: maxHops);
     public static WireQuery Linearity(Seq<Guid> ids) => new LinearityCase(Ids: ids);
     public static WireQuery Topology(Seq<Guid> ids) => new TopologyCase(Ids: ids);
+    public static WireQuery SortedTopology(Seq<Guid> ids) => new SortedTopologyCase(Ids: ids);
 }
 
 [Union]
@@ -148,6 +169,7 @@ public partial record WireResult {
     public sealed record MutationCase(Snapshot<DocumentMutationDelta> Delta) : WireResult;
     public sealed record LinearityResult(WireLinearity Linearity) : WireResult;
     public sealed record TopologyResult(GraphTopology Topology) : WireResult;
+    public sealed record SortedIdsResult(Seq<Guid> Ids) : WireResult;
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -185,8 +207,10 @@ internal static partial class Wire {
             danglingCase: static _ => Dangling().Map(static wires => (WireResult)new WireResult.WiresCase(Wires: wires)),
             pickCase: static p => Pick(point: p.Point).Map(static wire => (WireResult)new WireResult.WireCase(Wire: wire)),
             graphCase: static g => Graph(startParameterId: g.StartParameterId, direction: g.Direction, maxHops: g.MaxHops).Map(static graph => (WireResult)new WireResult.GraphCase(Graph: graph)),
+            ownerGraphCase: static g => OwnerGraph(ownerId: g.OwnerId, direction: g.Direction, maxHops: g.MaxHops).Map(static graph => (WireResult)new WireResult.GraphCase(Graph: graph)),
             linearityCase: static l => Linearity(ids: l.Ids).Map(static linearity => (WireResult)new WireResult.LinearityResult(Linearity: linearity)),
-            topologyCase: static t => Topology(ids: t.Ids).Map(static topology => (WireResult)new WireResult.TopologyResult(Topology: topology)));
+            topologyCase: static t => Topology(ids: t.Ids).Map(static topology => (WireResult)new WireResult.TopologyResult(Topology: topology)),
+            sortedTopologyCase: static s => SortedTopology(ids: s.Ids).Map(static ids => (WireResult)new WireResult.SortedIdsResult(Ids: ids)));
 
     internal static GrasshopperUiIntent<Seq<WireSnapshot.ConnectedCase>> All() =>
         GhUi.Document(run: scope =>
@@ -290,6 +314,58 @@ internal static partial class Wire {
             from objects in scope.NeedObjects()
             from graphObjects in TraverseObjects(objects: objects, startParameterId: startParameterId, direction: direction ?? WireTraversal.Bidirectional)
             select GraphOf(objects: objects, graphObjects: graphObjects, startParameterId: startParameterId, maxHops: hops));
+
+    // Owner-keyed walk via Connectivity.FindAllInputs/Outputs(Guid). Materialises the IEnumerable
+    // immediately into a Seq<Guid> — Connectivity is non-threadsafe; never propagate the underlying
+    // reference. Visited set seeds with ownerId so the originating object always appears in the graph
+    // even when degree=0.
+    internal static GrasshopperUiIntent<WireGraph> OwnerGraph(Guid ownerId, WireTraversal? direction = null, int maxHops = 32) =>
+        GhUi.Document(run: scope =>
+            from hops in Optional(maxHops)
+                .Filter(static count => count >= 0)
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(OwnerGraph)), detail: "maxHops must be non-negative"))
+            from objects in scope.NeedObjects()
+            from owner in Optional(ownerId).Filter(static g => g != Guid.Empty)
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(OwnerGraph)), detail: "ownerId must be non-empty"))
+            from result in Op.Of(name: nameof(OwnerGraph)).Attempt(
+                body: () => OwnerGraphOf(
+                    objects: objects,
+                    direction: direction ?? WireTraversal.Bidirectional,
+                    ownerId: owner,
+                    maxHops: hops),
+                what: "Connectivity.FindAll")
+            select result);
+
+    private static WireGraph OwnerGraphOf(GhObjectList objects, WireTraversal direction, Guid ownerId, int maxHops) {
+        Seq<Guid> walked = toSeq(direction.Walk(connectivity: objects.Connectivity, ownerId: ownerId).Select(static co => co.Id).Take(maxHops).Distinct());
+        Seq<Guid> visited = (Seq(ownerId) + walked).Distinct();
+        LanguageExt.HashSet<Guid> visitedSet = toHashSet(visited);
+        Seq<WireSnapshot.ConnectedCase> wires = SafeWires(source: objects.AllWires, objects: objects)
+            .Filter(wire => visitedSet.Find(key: wire.Source).IsSome || visitedSet.Find(key: wire.Target).IsSome);
+        return new WireGraph(Wires: wires, Visited: visited);
+    }
+
+    // Connectivity.SortCausally returns topologically-ordered ConnectiveObject[] in dependency order
+    // (upstream-first). Snapshot to Seq<Guid> immediately — non-threadsafe per GH2 docs.
+    internal static GrasshopperUiIntent<Seq<Guid>> SortedTopology(Seq<Guid> ids) =>
+        GhUi.Document(run: scope =>
+            from objects in scope.NeedObjects()
+            from result in Op.Of(name: nameof(SortedTopology)).Attempt(
+                body: () => SortCausallyOf(objects: objects, ids: ids),
+                what: "Connectivity.SortCausally")
+            select result);
+
+    private static Seq<Guid> SortCausallyOf(GhObjectList objects, Seq<Guid> ids) {
+        ConnectiveObject[] nodes = [.. ids.Choose(id => FindConnective(connectivity: objects.Connectivity, id: id))];
+        _ = Op.Side(() => objects.Connectivity.SortCausally(objects: nodes));
+        return toSeq(nodes.Select(static co => co.Id));
+    }
+
+    // Boundary adapter wrapping Connectivity.Find(Guid, out ConnectiveObject) for LINQ flow. Connectivity
+    // exposes the out-parameter pattern; this projects to Option so callers compose via Map/Bind without
+    // imperative branching.
+    private static Option<ConnectiveObject> FindConnective(Connectivity connectivity, Guid id) =>
+        connectivity.Find(id, out ConnectiveObject? co) ? Optional(co) : Option<ConnectiveObject>.None;
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
     // Batch-friendly: materialize AllWires into a (Source, Target) index ONCE per call so each

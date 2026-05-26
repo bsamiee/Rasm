@@ -18,6 +18,20 @@ using ZoomThreshold = Grasshopper2.UI.ZoomThreshold;
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+// Single discriminant for "how this animation is paced" — collapses the parallel `useDisplayLink: bool`
+// knob from Tween/Spring/Pulse/Stroke/Theme/ZoomGate + Paint.Hook + Paint.RedrawOnMouseMove. MessageLoop
+// rides Eto's coalesced ~60Hz paint pump (default; safe everywhere). DisplayLink opt-in binds the
+// canvas-bound CADisplayLink via Pacer pool for vsync-aligned 30-120Hz on ProMotion (macOS 14+).
+[Union]
+public partial record MotionClock {
+    private MotionClock() { }
+    public sealed record MessageLoopCase : MotionClock;
+    public sealed record DisplayLinkCase(Option<CAFrameRateRange> Rate) : MotionClock;
+
+    public static readonly MotionClock MessageLoop = new MessageLoopCase();
+    public static MotionClock DisplayLink(Option<CAFrameRateRange> rate = default) => new DisplayLinkCase(Rate: rate);
+}
+
 public interface IMotionVector<T> {
     public T Zero { get; }
     public float RestEpsilon { get; }
@@ -139,29 +153,29 @@ public sealed partial class Easing {
 }
 
 public abstract record MotionRequest<T> : GhUiRequest<T> {
-    public sealed record Tween<TValue>(Animated<TValue> Animated, Action<TValue> Sink, bool UseDisplayLink = false) : MotionRequest<Subscription> {
+    public sealed record Tween<TValue>(Animated<TValue> Animated, Action<TValue> Sink, MotionClock? Clock = null) : MotionRequest<Subscription> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
-        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Tween(animated: Animated, sink: Sink, useDisplayLink: UseDisplayLink).Run(scope: scope);
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Tween(animated: Animated, sink: Sink, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope);
     }
-    public sealed record Spring<TValue>(TValue From, TValue To, SpringConfig Config, IMotionVector<TValue> Vector, Action<TValue> Sink, Option<TValue> InitialVelocity = default, TimeProvider? Clock = null, bool UseDisplayLink = false) : MotionRequest<SpringHandle<TValue>> {
+    public sealed record Spring<TValue>(TValue From, TValue To, SpringConfig Config, IMotionVector<TValue> Vector, Action<TValue> Sink, Option<TValue> InitialVelocity = default, TimeProvider? TimeSource = null, MotionClock? Clock = null) : MotionRequest<SpringHandle<TValue>> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
-        internal override Fin<SpringHandle<TValue>> Apply(GrasshopperUi.Scope scope) => Motion.Spring(start: From, target: To, config: Config, vector: Vector, sink: Sink, initialVelocity: InitialVelocity, clock: Clock, useDisplayLink: UseDisplayLink).Run(scope: scope);
+        internal override Fin<SpringHandle<TValue>> Apply(GrasshopperUi.Scope scope) => Motion.Spring(start: From, target: To, config: Config, vector: Vector, sink: Sink, initialVelocity: InitialVelocity, timeSource: TimeSource, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope);
     }
-    public sealed record Pulse<TValue>(TValue From, TValue To, GhDuration Duration, GhMotion Easing, IMotionVector<TValue> Vector, Action<TValue> Sink, int Cycles = 1, bool Yoyo = false, bool Infinite = false, bool UseDisplayLink = false) : MotionRequest<Subscription> {
+    public sealed record Pulse<TValue>(TValue From, TValue To, GhDuration Duration, GhMotion Easing, IMotionVector<TValue> Vector, Action<TValue> Sink, int Cycles = 1, bool Yoyo = false, bool Infinite = false, MotionClock? Clock = null) : MotionRequest<Subscription> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
-        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Pulse(start: From, target: To, duration: Duration, easing: Easing, cycles: Cycles, yoyo: Yoyo, infinite: Infinite, vector: Vector, sink: Sink, useDisplayLink: UseDisplayLink).Run(scope: scope);
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Pulse(start: From, target: To, duration: Duration, easing: Easing, cycles: Cycles, yoyo: Yoyo, infinite: Infinite, vector: Vector, sink: Sink, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope);
     }
-    public sealed record Stroke(AnimatedPath Path, GhDuration Duration, GhMotion Easing, PaintStyle Style, PointF Origin, float Scale = 1f, float Angle = 0f, bool UseDisplayLink = false) : MotionRequest<Subscription> {
+    public sealed record Stroke(AnimatedPath Path, GhDuration Duration, GhMotion Easing, PaintStyle Style, PointF Origin, float Scale = 1f, float Angle = 0f, MotionClock? Clock = null) : MotionRequest<Subscription> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
-        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Stroke(path: Path, duration: Duration, easing: Easing, style: Style, origin: Origin, scale: Scale, angle: Angle, useDisplayLink: UseDisplayLink).Run(scope: scope);
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Stroke(path: Path, duration: Duration, easing: Easing, style: Style, origin: Origin, scale: Scale, angle: Angle, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope);
     }
     public sealed record Sparkle(ISparkle Instance) : MotionRequest<Unit> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
         internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Motion.Sparkle(instance: Instance).Run(scope: scope);
     }
-    public sealed record Theme(Skin From, Skin To, GhDuration Duration, GhMotion Easing, Action<Skin> Sink, bool UseDisplayLink = false) : MotionRequest<Subscription> {
+    public sealed record Theme(Skin From, Skin To, GhDuration Duration, GhMotion Easing, Action<Skin> Sink, MotionClock? Clock = null) : MotionRequest<Subscription> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
-        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Theme(start: From, target: To, duration: Duration, easing: Easing, sink: Sink, useDisplayLink: UseDisplayLink).Run(scope: scope);
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Theme(start: From, target: To, duration: Duration, easing: Easing, sink: Sink, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope);
     }
     public sealed record Navigate(PointF Centre, GhDuration Duration, float MinZoom = CanvasViewPolicy.DefaultMinimumZoom, float MaxZoom = CanvasViewPolicy.DefaultMaximumZoom) : MotionRequest<Unit> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
@@ -182,15 +196,18 @@ public readonly partial struct SpringConfig {
     public float Damping { get; }
     public float Mass { get; }
 
+    // Accumulates all invalid fields into a single composite UiFault instead of short-circuiting on
+    // the first invalid one. Thinktecture's `ref UiFault?` slot is single-valued, so multiple errors
+    // ride in a `;`-joined message — preserves every field's diagnostic without splitting the rail.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref UiFault? validationError, ref float stiffness, ref float damping, ref float mass) {
         Op op = Op.Of(name: nameof(SpringConfig));
-        validationError = (float.IsFinite(stiffness) && stiffness > 0f, float.IsFinite(damping) && damping >= 0f, float.IsFinite(mass) && mass > 0f) switch {
-            (true, true, true) => null,
-            (false, _, _) => UiFault.Create(op: op, message: $"Stiffness must be finite and > 0 (got {stiffness:R})."),
-            (_, false, _) => UiFault.Create(op: op, message: $"Damping must be finite and >= 0 (got {damping:R})."),
-            (_, _, false) => UiFault.Create(op: op, message: $"Mass must be finite and > 0 (got {mass:R})."),
-        };
+        Seq<string> errors = Seq(
+            float.IsFinite(stiffness) && stiffness > 0f ? "" : $"Stiffness must be finite and > 0 (got {stiffness:R}).",
+            float.IsFinite(damping) && damping >= 0f ? "" : $"Damping must be finite and >= 0 (got {damping:R}).",
+            float.IsFinite(mass) && mass > 0f ? "" : $"Mass must be finite and > 0 (got {mass:R}).")
+            .Filter(static s => !string.IsNullOrEmpty(s));
+        validationError = errors.IsEmpty ? null : UiFault.Create(op: op, message: string.Join("; ", errors));
     }
 
     public static SpringConfig Response(float response, float dampingFraction, float mass = 1f) {
@@ -525,18 +542,19 @@ internal static class Motion {
     internal const float MaxFrameDelta = 1f / 30f;
 
     internal static GrasshopperUiIntent<Subscription> Tween<TValue>(
-        Animated<TValue> animated, Action<TValue> sink, bool useDisplayLink = false) =>
+        Animated<TValue> animated, Action<TValue> sink, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Tween)), detail: "sink delegate is required"))
-            from pacer in PacerOption(canvas: canvas, useDisplayLink: useDisplayLink)
+            from pacer in PacerOption(canvas: canvas, clock: clock)
             let pausedPacer = pacer // bind for paint-hook closure; force value capture, not transparent-identifier deferral
             from sub in Paint.Hook(
                 phase: CanvasPaintPhase.BeforeBackground,
                 paint: _ => Try.lift(f: () => {
                     validSink(canvas.Animate(animated: animated));
                     return PauseWhenFinished(state: animated.State, pacer: pausedPacer);
-                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Tween)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
+                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Tween)), detail: $"tick threw: {error.Message}")),
+                clock: clock).Run(scope: scope)
             let bundle = MotionBundleOf(pacer: pacer, sub: sub, canvas: canvas)
             from kickoff in Op.Of(name: nameof(Tween)).Attempt(body: bundle.Wake, what: $"{nameof(Tween)} initial wake")
                 .MapFail(error => UiFault.ThreadMarshal(detail: error.Message))
@@ -544,13 +562,13 @@ internal static class Motion {
 
     internal static GrasshopperUiIntent<SpringHandle<TValue>> Spring<TValue>(
         TValue start, TValue target, SpringConfig config, IMotionVector<TValue> vector,
-        Action<TValue> sink, Option<TValue> initialVelocity, TimeProvider? clock = null, bool useDisplayLink = false) =>
+        Action<TValue> sink, Option<TValue> initialVelocity, TimeProvider? timeSource, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from validVector in Optional(vector).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "vector is required"))
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "sink delegate is required"))
-            from pacer in PacerOption(canvas: canvas, useDisplayLink: useDisplayLink)
-            let resolvedClock = clock ?? TimeProvider.System
+            from pacer in PacerOption(canvas: canvas, clock: clock)
+            let resolvedClock = timeSource ?? TimeProvider.System
             let cell = Atom(new SpringRunnerState<TValue>(
                 Value: start,
                 Velocity: initialVelocity.IfNone(validVector.Zero),
@@ -564,7 +582,8 @@ internal static class Motion {
             from sub in Paint.Hook(
                 phase: CanvasPaintPhase.BeforeBackground,
                 paint: _ => Try.lift(runner.Tick)
-                    .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Spring)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
+                    .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Spring)), detail: $"tick threw: {error.Message}")),
+                clock: clock).Run(scope: scope)
             let bundle = MotionBundleOf(pacer: pacer, sub: sub, canvas: canvas)
             from initial in Op.Of(name: nameof(Spring)).Attempt(
                 body: bundle.Wake,
@@ -589,8 +608,12 @@ internal static class Motion {
         void WakeFn() => p.Resume().Ignore();
     }
 
-    internal static Fin<Option<Pacer>> PacerOption(Grasshopper2.UI.Canvas.Canvas canvas, bool useDisplayLink) =>
-        useDisplayLink ? Pacer.For(canvas: canvas).Map(Some) : Fin.Succ(Option<Pacer>.None);
+    // Polymorphic dispatch over MotionClock collapses the parallel `useDisplayLink: bool` knob from
+    // every motion service signature. DisplayLink case threads optional rate through Pacer.For.
+    internal static Fin<Option<Pacer>> PacerOption(Grasshopper2.UI.Canvas.Canvas canvas, MotionClock clock) =>
+        clock.Switch(state: canvas,
+            messageLoopCase: static (_, _) => Fin.Succ(Option<Pacer>.None),
+            displayLinkCase: static (c, d) => Pacer.For(canvas: c, rate: d.Rate.ToNullable()).Map(Some));
 
     internal static Unit PauseWhenFinished(GhState state, Option<Pacer> pacer) {
         if (state == GhState.Finished && pacer is { IsSome: true, Case: Pacer p }) {
@@ -601,7 +624,7 @@ internal static class Motion {
 
     internal static GrasshopperUiIntent<Subscription> Pulse<TValue>(
         TValue start, TValue target, GhDuration duration, GhMotion easing, int cycles, bool yoyo, bool infinite,
-        IMotionVector<TValue> vector, Action<TValue> sink, bool useDisplayLink = false) =>
+        IMotionVector<TValue> vector, Action<TValue> sink, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from validVector in Optional(vector).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "vector is required"))
@@ -610,7 +633,7 @@ internal static class Motion {
                 ? Fin.Succ(1)
                 : Optional(cycles).Filter(static c => c >= 1)
                     .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "cycles must be positive when not infinite"))
-            from pacer in PacerOption(canvas: canvas, useDisplayLink: useDisplayLink)
+            from pacer in PacerOption(canvas: canvas, clock: clock)
             let initial = Animated<TValue>.CreateUnfinished(
                 value0: start, value1: target,
                 duration: Animators.DurationToTimeSpan(duration: duration),
@@ -628,7 +651,8 @@ internal static class Motion {
             from sub in Paint.Hook(
                 phase: CanvasPaintPhase.BeforeBackground,
                 paint: _ => Try.lift(runner.Tick)
-                    .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Pulse)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
+                    .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Pulse)), detail: $"tick threw: {error.Message}")),
+                clock: clock).Run(scope: scope)
             let bundle = MotionBundleOf(pacer: pacer, sub: sub, canvas: canvas)
             from kickoff in Op.Of(name: nameof(Pulse)).Attempt(body: bundle.Wake, what: $"{nameof(Pulse)} initial wake")
                 .MapFail(error => UiFault.ThreadMarshal(detail: error.Message))
@@ -636,21 +660,24 @@ internal static class Motion {
 
     internal static GrasshopperUiIntent<Subscription> Stroke(
         AnimatedPath path, GhDuration duration, GhMotion easing, PaintStyle style,
-        PointF origin, float scale, float angle, bool useDisplayLink = false) =>
+        PointF origin, float scale, float angle, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from validPath in Optional(path).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Stroke)), detail: "path is required"))
             from validOrigin in Op.Of(name: nameof(Stroke)).AcceptPoint(value: origin, detail: "non-finite origin")
-            from pacer in PacerOption(canvas: canvas, useDisplayLink: useDisplayLink)
+            from validScale in Op.Of(name: nameof(Stroke)).AcceptFinite(value: scale, detail: "non-finite scale")
+            from validAngle in Op.Of(name: nameof(Stroke)).AcceptFinite(value: angle, detail: "non-finite angle")
+            from pacer in PacerOption(canvas: canvas, clock: clock)
             let pausedPacer = pacer // bind for paint-hook closure; force value capture, not transparent-identifier deferral
             let progress = Animators.Unfinished(value0: 0.0, value1: 1.0, duration: duration, motion: easing)
             from sub in Paint.Hook(
                 phase: CanvasPaintPhase.AfterObjects,
                 paint: paintScope => Try.lift(f: () => {
                     using Pen pen = style.Pen();
-                    validPath.Draw(paintScope.Graphics.Content, pen, canvas.Animate(animated: progress), validOrigin, scale, angle);
+                    validPath.Draw(paintScope.Graphics.Content, pen, canvas.Animate(animated: progress), validOrigin, validScale, validAngle);
                     return PauseWhenFinished(state: progress.State, pacer: pausedPacer);
-                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Stroke)), detail: $"draw threw: {error.Message}"))).Run(scope: scope)
+                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Stroke)), detail: $"draw threw: {error.Message}")),
+                clock: clock).Run(scope: scope)
             let bundle = MotionBundleOf(pacer: pacer, sub: sub, canvas: canvas)
             from kickoff in Op.Of(name: nameof(Stroke)).Attempt(body: bundle.Wake, what: $"{nameof(Stroke)} initial wake")
                 .MapFail(error => UiFault.ThreadMarshal(detail: error.Message))
@@ -667,7 +694,7 @@ internal static class Motion {
                 select unit);
 
     internal static GrasshopperUiIntent<Subscription> Theme(
-        Skin start, Skin target, GhDuration duration, GhMotion easing, Action<Skin> sink, bool useDisplayLink = false) =>
+        Skin start, Skin target, GhDuration duration, GhMotion easing, Action<Skin> sink, MotionClock clock) =>
         Tween(
             animated: Animated<Skin>.CreateUnfinished(
                 value0: start, value1: target,
@@ -675,7 +702,7 @@ internal static class Motion {
                 motion: easing,
                 interpolator: static (a, b, t) => a.Interpolate(b, (float)t)),
             sink: sink,
-            useDisplayLink: useDisplayLink);
+            clock: clock);
 
     internal static GrasshopperUiIntent<Unit> Navigate(PointF centre, GhDuration duration, float minZoom, float maxZoom) =>
         GhUi.Canvas(run: scope =>
@@ -699,7 +726,8 @@ internal static class Motion {
                 paint: paintScope => Try.lift(f: () => {
                     validSink(canvas.AnimatedZoomFactor(threshold: threshold));
                     return unit;
-                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(ZoomGate)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
+                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(ZoomGate)), detail: $"tick threw: {error.Message}")),
+                clock: MotionClock.MessageLoop).Run(scope: scope)
             select sub);
 
     internal sealed class MotionRunner<TState> where TState : struct, IMotionState<TState> {

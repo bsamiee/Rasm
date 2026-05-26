@@ -259,16 +259,18 @@ public readonly partial struct CornerRadii {
     public float BottomRight { get; }
     public float BottomLeft { get; }
 
+    // Accumulates every invalid corner into one composite message — caller sees all four diagnostics
+    // at once instead of fixing them one-by-one across rebuild cycles.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref UiFault? validationError, ref float topLeft, ref float topRight, ref float bottomRight, ref float bottomLeft) {
         Op op = Op.Of(name: nameof(CornerRadii));
-        validationError = (Valid(topLeft), Valid(topRight), Valid(bottomRight), Valid(bottomLeft)) switch {
-            (true, true, true, true) => null,
-            (false, _, _, _) => UiFault.Create(op: op, message: $"TopLeft must be finite and >= 0 (got {topLeft:R})."),
-            (_, false, _, _) => UiFault.Create(op: op, message: $"TopRight must be finite and >= 0 (got {topRight:R})."),
-            (_, _, false, _) => UiFault.Create(op: op, message: $"BottomRight must be finite and >= 0 (got {bottomRight:R})."),
-            (_, _, _, false) => UiFault.Create(op: op, message: $"BottomLeft must be finite and >= 0 (got {bottomLeft:R})."),
-        };
+        Seq<string> errors = Seq(
+            Valid(topLeft) ? "" : $"TopLeft must be finite and >= 0 (got {topLeft:R}).",
+            Valid(topRight) ? "" : $"TopRight must be finite and >= 0 (got {topRight:R}).",
+            Valid(bottomRight) ? "" : $"BottomRight must be finite and >= 0 (got {bottomRight:R}).",
+            Valid(bottomLeft) ? "" : $"BottomLeft must be finite and >= 0 (got {bottomLeft:R}).")
+            .Filter(static s => !string.IsNullOrEmpty(s));
+        validationError = errors.IsEmpty ? null : UiFault.Create(op: op, message: string.Join("; ", errors));
     }
 
     private static bool Valid(float corner) => float.IsFinite(corner) && corner >= 0f;
@@ -319,20 +321,23 @@ public partial record DrawMark {
     public static DrawMark WirePreview(PointF source, PointF target, WireKind kind = WireKind.Tentative) =>
         new WireCase(Source: source, Target: target, Kind: kind, Style: new PaintStyle(Edge: Colors.Transparent));
 
+    // Per-arm Op.Of(name: nameof(...)) inside each Switch arm gives compile-time provenance for
+    // failure attribution — `$"DrawMark.{GetType().Name}"` runtime interpolation would be opaque to
+    // analyzer rules (CSP0801). Op.Attempt collapses the Try.lift boundary into each arm.
     internal Fin<Unit> Apply(PaintScope scope) =>
-        Try.lift(f: () => Switch(state: scope,
-            lineCase: static (s, line) => Draw(scope: s, style: line.Style, run: graphics => {
+        Switch(state: scope,
+            lineCase: static (s, line) => Op.Of(name: nameof(LineCase)).Attempt(body: () => Draw(scope: s, style: line.Style, run: graphics => {
                 using Pen pen = line.Style.Pen();
                 graphics.DrawLine(pen, line.A.X, line.A.Y, line.B.X, line.B.Y);
                 return unit;
-            }),
-            rectangleCase: static (s, r) => Draw(scope: s, style: r.Style, run: graphics =>
-                DrawShape(graphics: graphics, style: r.Style, shape: PaintShape.Rectangle(bounds: r.Bounds))),
-            roundedRectangleCase: static (s, r) => Draw(scope: s, style: r.Style, run: graphics => {
+            }), what: "line draw"),
+            rectangleCase: static (s, r) => Op.Of(name: nameof(RectangleCase)).Attempt(body: () => Draw(scope: s, style: r.Style, run: graphics =>
+                DrawShape(graphics: graphics, style: r.Style, shape: PaintShape.Rectangle(bounds: r.Bounds))), what: "rectangle draw"),
+            roundedRectangleCase: static (s, r) => Op.Of(name: nameof(RoundedRectangleCase)).Attempt(body: () => Draw(scope: s, style: r.Style, run: graphics => {
                 using IGraphicsPath path = GraphicsPath.GetRoundRect(rectangle: r.Bounds, radius: r.Radius);
                 return DrawShape(graphics: graphics, style: r.Style, shape: PaintShape.Path(path: path));
-            }),
-            roundedCornersCase: static (s, c) => Draw(scope: s, style: c.Style, run: graphics => {
+            }), what: "rounded rectangle draw"),
+            roundedCornersCase: static (s, c) => Op.Of(name: nameof(RoundedCornersCase)).Attempt(body: () => Draw(scope: s, style: c.Style, run: graphics => {
                 using IGraphicsPath path = c.Radii.IsUniform
                     ? GraphicsPath.GetRoundRect(rectangle: c.Bounds, radius: c.Radii.TopLeft)
                     : GraphicsPath.GetRoundRect(
@@ -342,30 +347,29 @@ public partial record DrawMark {
                         seRadius: c.Radii.BottomRight,
                         swRadius: c.Radii.BottomLeft);
                 return DrawShape(graphics: graphics, style: c.Style, shape: PaintShape.Path(path: path));
-            }),
-            ellipseCase: static (s, e) => Draw(scope: s, style: e.Style, run: graphics =>
-                DrawShape(graphics: graphics, style: e.Style, shape: PaintShape.Ellipse(bounds: e.Bounds))),
-            pathCase: static (s, p) => Draw(scope: s, style: p.Style, run: graphics =>
-                DrawShape(graphics: graphics, style: p.Style, shape: PaintShape.Path(path: p.Geometry))),
-            textCase: static (s, t) => Draw(scope: s, style: t.Style, run: graphics =>
+            }), what: "rounded corners draw"),
+            ellipseCase: static (s, e) => Op.Of(name: nameof(EllipseCase)).Attempt(body: () => Draw(scope: s, style: e.Style, run: graphics =>
+                DrawShape(graphics: graphics, style: e.Style, shape: PaintShape.Ellipse(bounds: e.Bounds))), what: "ellipse draw"),
+            pathCase: static (s, p) => Op.Of(name: nameof(PathCase)).Attempt(body: () => Draw(scope: s, style: p.Style, run: graphics =>
+                DrawShape(graphics: graphics, style: p.Style, shape: PaintShape.Path(path: p.Geometry))), what: "path draw"),
+            textCase: static (s, t) => Op.Of(name: nameof(TextCase)).Attempt(body: () => Draw(scope: s, style: t.Style, run: graphics =>
                 t.Style.Font.IfNone(UiFont.Empty()).Use(run: font => {
                     using SolidBrush brush = PaintStyle.Brush(color: t.Style.Edge);
                     graphics.DrawText(font, brush, t.Frame, t.Value, t.Wrap, t.Alignment, t.Trimming);
                     return unit;
-                })),
-            imageCase: static (s, i) => Draw(scope: s, style: i.Style, run: graphics => {
+                })), what: "text draw"),
+            imageCase: static (s, i) => Op.Of(name: nameof(ImageCase)).Attempt(body: () => Draw(scope: s, style: i.Style, run: graphics => {
                 graphics.DrawImage(image: i.Value, rectangle: i.Frame);
                 return unit;
-            }),
-            ghIconCase: static (s, g) => Draw(scope: s, style: g.Style, run: _ => {
+            }), what: "image draw"),
+            ghIconCase: static (s, g) => Op.Of(name: nameof(GhIconCase)).Attempt(body: () => Draw(scope: s, style: g.Style, run: _ => {
                 g.Value.Draw(context: new IconContext(
                     context: Eto.Drawing.Context.CreateFromContent(graphics: s.Graphics),
                     frame: g.Frame,
                     background: g.Style.Background));
                 return unit;
-            }),
-            wireCase: static (s, w) => DrawWire(scope: s, wire: w)
-        )).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: $"DrawMark.{GetType().Name}"), detail: $"draw failed: {error.Message}"));
+            }), what: "icon draw"),
+            wireCase: static (s, w) => Op.Of(name: nameof(WireCase)).Attempt(body: () => DrawWire(scope: s, wire: w), what: "wire draw"));
 
     private static Unit Draw(PaintScope scope, PaintStyle style, Func<Graphics, Unit> run) {
         Graphics graphics = scope.Graphics.Content;
@@ -431,13 +435,13 @@ public abstract record PaintRequest<T> : GhUiRequest<T> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
         internal override Fin<PaintSkinSnapshot> Apply(GrasshopperUi.Scope scope) => Paint.Skin().Run(scope: scope);
     }
-    public sealed record Hook(CanvasPaintPhase Phase, DrawPlan Plan, bool UseDisplayLink = false) : PaintRequest<Subscription> {
+    public sealed record Hook(CanvasPaintPhase Phase, DrawPlan Plan, MotionClock? Clock = null) : PaintRequest<Subscription> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
-        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.Hook(phase: Phase, paint: Plan.Apply, useDisplayLink: UseDisplayLink).Run(scope: scope);
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.Hook(phase: Phase, paint: Plan.Apply, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope);
     }
-    public sealed record RedrawOnMouseMove(bool Enabled = true) : PaintRequest<Unit> {
+    public sealed record RedrawOnMouseMove(bool Enabled = true, MotionClock? Clock = null) : PaintRequest<Subscription> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Canvas);
-        internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Paint.RedrawOnMouseMove(enabled: Enabled).Run(scope: scope);
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.RedrawOnMouseMove(enabled: Enabled, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope);
     }
 }
 
@@ -453,12 +457,12 @@ internal static partial class Paint {
     // Paint.Hook pairs Resume/Pause symmetrically inside attach/detach (no PauseWhenFinished
     // equivalent like Motion.* methods have), so the Pacer's `active` counter stays balanced
     // when Paint hooks share a Canvas with Motion runners.
-    internal static GrasshopperUiIntent<Subscription> Hook(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> paint, bool useDisplayLink = false) =>
+    internal static GrasshopperUiIntent<Subscription> Hook(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> paint, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from valid in Optional(paint).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null paint callback"))
             from validPhase in Optional(phase).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null phase"))
-            from pacer in Motion.PacerOption(canvas: canvas, useDisplayLink: useDisplayLink)
+            from pacer in Motion.PacerOption(canvas: canvas, clock: clock)
             let handler = (EventHandler<CanvasPaintEventArgs>)((_, args) => GrasshopperUi.Protect(valid: () => valid(arg: new PaintScope(
                 Phase: validPhase,
                 Graphics: args.Graphics,
@@ -477,8 +481,26 @@ internal static partial class Paint {
                 marshalToUi: true)
             select sub);
 
-    internal static GrasshopperUiIntent<Unit> RedrawOnMouseMove(bool enabled = true) =>
+    // RedrawOnMouseMove + Pacer coordination: when MotionClock.DisplayLink, the returned Subscription
+    // holds a Pacer Resume for the mouse-move pump lifetime, ensuring vsync alignment between paint
+    // events triggered by motion runners and those triggered by mouse moves. MessageLoop path is a
+    // simple flag toggle returning Subscription.Empty. Symmetric detach restores prior toggle state.
+    internal static GrasshopperUiIntent<Subscription> RedrawOnMouseMove(bool enabled = true, MotionClock? clock = null) =>
         GhUi.Canvas(
             repaint: RepaintRequest.Canvas,
-            run: scope => scope.NeedCanvas().Map(canvas => { canvas.RedrawOnMouseMove = enabled; return unit; }));
+            run: scope =>
+                from canvas in scope.NeedCanvas()
+                from pacer in Motion.PacerOption(canvas: canvas, clock: clock ?? MotionClock.MessageLoop)
+                let priorEnabled = canvas.RedrawOnMouseMove
+                from sub in Subscription.Bind(
+                    attach: () => {
+                        canvas.RedrawOnMouseMove = enabled;
+                        _ = pacer is { IsSome: true, Case: Motion.Pacer p } ? p.Resume() : unit;
+                    },
+                    detach: () => {
+                        canvas.RedrawOnMouseMove = priorEnabled;
+                        _ = pacer is { IsSome: true, Case: Motion.Pacer p } ? Op.Side(() => { _ = p.Pause(); _ = p.Release(); }) : unit;
+                    },
+                    marshalToUi: true)
+                select sub);
 }

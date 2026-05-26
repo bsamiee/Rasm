@@ -152,9 +152,16 @@ public partial record DocumentOp {
     public static readonly DocumentOp DependencyGraph = new InspectCase(Kind: DocumentInspect.DependencyGraph);
 }
 
+// Item-owned native invocation closes the if/throw dispatch hole — every item carries the
+// methods-mutation closure so adding a new inspect kind is one factory line, not a switch arm.
 [SmartEnum<int>]
 public sealed partial class DocumentInspect {
-    public static readonly DocumentInspect DependencyGraph = new(key: 0);
+    private delegate Unit InspectInvoke(GhDocumentMethods methods);
+
+    public static readonly DocumentInspect DependencyGraph = new(key: 0, invoke: static methods => { methods.ShowDependencyGraph(); return unit; });
+
+    [UseDelegateFromConstructor]
+    internal partial Unit Invoke(GhDocumentMethods methods);
 }
 
 [Union]
@@ -485,17 +492,8 @@ internal static partial class UiRail {
 
     private static Fin<DocumentResult> InspectDispatch(GrasshopperUi.Scope scope, DocumentInspect kind) =>
         from methods in scope.NeedMethods()
-        from _ in Try.lift(f: () => InvokeInspect(methods: methods, kind: kind)).Run()
-            .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(InspectDispatch)), detail: $"{kind.Key}: {error.Message}"))
+        from _ in Op.Of(name: nameof(InspectDispatch)).Attempt(body: () => kind.Invoke(methods), what: string.Create(CultureInfo.InvariantCulture, $"DocumentInspect[{kind.Key}]"))
         select (DocumentResult)new DocumentResult.InspectResult(Kind: kind);
-
-    private static Unit InvokeInspect(GhDocumentMethods methods, DocumentInspect kind) {
-        if (kind == DocumentInspect.DependencyGraph) {
-            methods.ShowDependencyGraph();
-            return unit;
-        }
-        throw new InvalidOperationException(message: $"Unknown DocumentInspect kind: {kind.Key}");
-    }
 
     private static Fin<DocumentResult> QueryDispatch(GrasshopperUi.Scope scope, DocumentQuery query) => query switch {
         DocumentQuery.SnapshotCase =>

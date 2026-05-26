@@ -57,44 +57,51 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
     internal override GrasshopperUiPolicy Policy => PolicyOf(op: Op);
     internal override Fin<EditorResult> Apply(GrasshopperUi.Scope scope) => Dispatch(op: Op);
 
-    private static GrasshopperUiPolicy PolicyOf(EditorOp op) =>
-        op switch {
-            EditorOp.StateCase or EditorOp.BeginRhinoGetterCase => GrasshopperUiPolicy.Read,
-            EditorOp.ShowCase show => GrasshopperUiPolicy.Canvas(openEditor: show.Visible),
-            EditorOp.EnsureVisibleCase => GrasshopperUiPolicy.Canvas(openEditor: true),
-            EditorOp.ShellCase => GrasshopperUiPolicy.Canvas(openEditor: true),
-            _ => GrasshopperUiPolicy.Read,
-        };
+    private static GrasshopperUiPolicy PolicyOf(EditorOp op) => op.Switch(
+        showCase: static show => GrasshopperUiPolicy.Canvas(openEditor: show.Visible),
+        stateCase: static _ => GrasshopperUiPolicy.Read,
+        ensureVisibleCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true),
+        shellCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true),
+        beginRhinoGetterCase: static _ => GrasshopperUiPolicy.Read);
 
     private static Fin<EditorResult> Dispatch(EditorOp op) => op.Switch(
-        showCase: static show => Try.lift(f: () => {
-            _ = GhEditor.ShowEditor(createVisible: show.Visible, layoutRules: show.Layout.IfNone(string.Empty));
-            return EditorResult.Unit;
-        }).Run().MapFail(error => UiFault.GhEditor(detail: $"{nameof(EditorOp.Show)}: {error.Message}")),
-        stateCase: static state => DispatchState(),
-        ensureVisibleCase: static ensure => Try.lift(f: () => {
-            _ = GhEditor.ShowEditor(createVisible: true, layoutRules: string.Empty);
-            return EditorResult.Unit;
-        }).Run().MapFail(static error => UiFault.GhEditor(detail: $"{nameof(EditorOp.EnsureVisible)}: {error.Message}")),
+        showCase: static show => ShowEditor(visible: show.Visible, layoutRules: show.Layout.IfNone(string.Empty), errorTag: nameof(EditorOp.Show)),
+        stateCase: static _ => DispatchState(),
+        ensureVisibleCase: static _ => ShowEditor(visible: true, layoutRules: string.Empty, errorTag: nameof(EditorOp.EnsureVisible)),
         shellCase: DispatchShell,
         beginRhinoGetterCase: DispatchRhinoGetter);
 
+    // Show/EnsureVisible share the Try.lift(GhEditor.ShowEditor) capsule with only visibility +
+    // layoutRules differing — one helper subsumes both arms; `errorTag` preserves arm provenance.
+    private static Fin<EditorResult> ShowEditor(bool visible, string layoutRules, string errorTag) =>
+        Try.lift(f: () => {
+            _ = GhEditor.ShowEditor(createVisible: visible, layoutRules: layoutRules);
+            return EditorResult.Unit;
+        }).Run().MapFail(error => UiFault.GhEditor(detail: $"{errorTag}: {error.Message}"));
+
+    // Optional(GhEditor.Instance) discharges the "running" vs "not yet shown" branches polymorphically;
+    // shared InitialLayout + DefinedLayouts hoisted once instead of duplicated across arms.
     private static Fin<EditorResult> DispatchState() =>
-        Fin.Succ<EditorResult>(value: new EditorResult.StateResult(Snapshot: GhEditor.Instance switch {
-            GhEditor editor => new EditorSnapshot(
+        Fin.Succ<EditorResult>(value: new EditorResult.StateResult(Snapshot: SnapshotEditor(editor: Optional(GhEditor.Instance))));
+
+    private static EditorSnapshot SnapshotEditor(Option<GhEditor> editor) {
+        string layout = GhEditor.InitialLayout;
+        Seq<string> definedLayouts = toSeq(GhEditor.DefinedLayouts);
+        return editor.Match(
+            Some: e => new EditorSnapshot(
                 HasEditor: true,
-                HasCanvas: editor.Canvas is not null,
-                HasDocument: (editor.Documents.Current ?? editor.Canvas?.Document) is not null,
-                Collapsed: editor.Collapsed,
-                HasStatusBar: editor.StatusBar is not null,
-                ShowNotes: editor.ShowNotes,
-                ShowUndoHistory: editor.Canvas?.ShowUndoHistory ?? false,
-                InitialLayout: GhEditor.InitialLayout,
-                DefinedLayouts: toSeq(GhEditor.DefinedLayouts),
-                MostRecentActiveDocument: Optional(editor.MostRecentActiveDocument),
-                MostRecentLoadedDocuments: toSeq(editor.MostRecentLoadedDocuments),
-                MostRecentCount: editor.MostRecentCount),
-            _ => new EditorSnapshot(
+                HasCanvas: e.Canvas is not null,
+                HasDocument: (e.Documents.Current ?? e.Canvas?.Document) is not null,
+                Collapsed: e.Collapsed,
+                HasStatusBar: e.StatusBar is not null,
+                ShowNotes: e.ShowNotes,
+                ShowUndoHistory: e.Canvas?.ShowUndoHistory ?? false,
+                InitialLayout: layout,
+                DefinedLayouts: definedLayouts,
+                MostRecentActiveDocument: Optional(e.MostRecentActiveDocument),
+                MostRecentLoadedDocuments: toSeq(e.MostRecentLoadedDocuments),
+                MostRecentCount: e.MostRecentCount),
+            None: () => new EditorSnapshot(
                 HasEditor: false,
                 HasCanvas: false,
                 HasDocument: false,
@@ -102,12 +109,12 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
                 HasStatusBar: false,
                 ShowNotes: false,
                 ShowUndoHistory: false,
-                InitialLayout: GhEditor.InitialLayout,
-                DefinedLayouts: toSeq(GhEditor.DefinedLayouts),
+                InitialLayout: layout,
+                DefinedLayouts: definedLayouts,
                 MostRecentActiveDocument: Option<string>.None,
                 MostRecentLoadedDocuments: Seq<string>(),
-                MostRecentCount: 0),
-        }));
+                MostRecentCount: 0));
+    }
 
     private static Fin<EditorResult> DispatchShell(EditorOp.ShellCase shell) =>
         Try.lift(f: () => {

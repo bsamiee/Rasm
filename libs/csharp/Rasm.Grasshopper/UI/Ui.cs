@@ -343,6 +343,18 @@ public static partial class OpUiExtensions {
     [BoundaryAdapter]
     internal static Fin<Unit> Attempt(this Op op, System.Action body, string what = "") =>
         op.Attempt(body: () => { body(); return unit; }, what: what);
+
+    // Validation<Seq<UiFault>, T> → Fin<T> bridge — Seq's built-in monoid accumulates faults during
+    // parallel validation; this collapses to Error.Many for single-error Fin contract while preserving
+    // every accumulated UiFault's provenance. Use when CornerRadii/SpringConfig/Bounds/Navigate fold
+    // multiple AcceptX calls via Apply.
+    [BoundaryAdapter]
+    internal static Fin<T> ToFin<T>(this Validation<Seq<UiFault>, T> validation) =>
+        validation.Match(
+            Succ: Fin.Succ,
+            Fail: static faults => Fin.Fail<T>(error: faults.IsEmpty
+                ? UiFault.InvalidInput(op: Op.Of(name: "Validation"), detail: "empty failure")
+                : faults.Skip(1).Fold((Error)faults[0], static (acc, fault) => acc + fault)));
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------

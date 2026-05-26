@@ -268,7 +268,10 @@
         </Reference>
     </ItemGroup>
 
-    <ItemGroup Label="Rhino UI Libraries" Condition="'$(IsRhinoUiAwareProject)' == 'true'">
+    <!-- Rhino.UI ships RhinoEtoApp.MainWindowForOwner / MainWindowForDocument used by the DialogParent
+         polymorphic fallback in Rasm.Grasshopper UI. Mac MainWindowForOwner returns null without a doc,
+         so Grasshopper-aware code must cascade through MainWindowForDocument before reaching MainWindow. -->
+    <ItemGroup Label="Rhino UI Libraries" Condition="'$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <Reference Include="Rhino.UI">
             <HintPath>$(RhinoUiReferencePath)</HintPath>
             <Private>false</Private>
@@ -279,7 +282,7 @@
         </Reference>
     </ItemGroup>
 
-    <ItemGroup Label="Rhino UI Compile Packages" Condition="'$(IsRhinoUiAwareProject)' == 'true'">
+    <ItemGroup Label="Rhino UI Compile Packages" Condition="'$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <PackageReference Include="System.Drawing.Common" ExcludeAssets="runtime" />
     </ItemGroup>
 
