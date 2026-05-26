@@ -34,7 +34,7 @@ bash scripts/mutate-cs.sh
 
 | [INDEX] | [COMMAND] | [USE] |
 | :-----: | --------- | ----- |
-| [1] | `bash scripts/rhino.sh verify apps/grasshopper/Radyab/Scenarios` | Run all `*.verify.csx` scenarios. |
+| [1] | `bash scripts/rhino.sh verify tests/csharp/libs/Rasm/Vectors/scenarios` | Run vector-owned `*.verify.csx` scenarios. |
 | [2] | `bash scripts/rhino.sh bridge check <source.cs> <scenario.verify.csx>` | Prove scenario owns a source slice. |
 | [3] | `bash scripts/rhino.sh bridge doctor` | Check active bridge session. |
 | [4] | `bash scripts/rhino.sh bridge clean <target>` | Clear generated reports for one target. |

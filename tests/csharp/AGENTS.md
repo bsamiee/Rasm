@@ -63,5 +63,6 @@
   - `dotnet test /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_tooling/Rasm.TestingTools.Tests.csproj --configuration Release` when stable testing-rail snapshots changed.
   - `dotnet run --project /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_benchmarks/Rasm.Benchmarks.csproj --configuration Release -- --list flat` when benchmark projects or config changed.
   - `printf 'running,1000,240,0,modular,9.525,9.525,concave' | dotnet run --project /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_fuzz/Rasm.Fuzz.csproj --configuration Release` when fuzz harnesses changed.
-  - `bash /Users/bardiasamiee/Documents/99.Github/Rasm/scripts/rhino.sh verify /Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/Scenarios` when bridge scenarios changed; scenarios must not contain `#r` or `#load`.
+  - `bash /Users/bardiasamiee/Documents/99.Github/Rasm/scripts/rhino.sh verify /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/libs/Rasm/Vectors/scenarios` when vector bridge scenarios changed; scenarios must not contain `#r` or `#load`.
+  - `bash /Users/bardiasamiee/Documents/99.Github/Rasm/scripts/rhino.sh verify /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/libs/Rasm.Grasshopper/UI/scenarios` when GH UI bridge scenarios changed; scenarios must not contain `#r` or `#load`.
   - `git diff --check`

@@ -54,7 +54,7 @@ graph LR
 | **2** | Client | `tools/rhino-bridge/client` | Resolves projects, builds code, formats phase JSON, talks to Rhino named pipe. |
 | **3** | Protocol | `tools/rhino-bridge/protocol` | Defines wire DTOs, status vocabulary, exit-code policy, endpoint metadata. |
 | **4** | Plugin | `tools/rhino-bridge/plugin` | Runs in Rhino, owns named pipe server, executes RhinoCode on Rhino UI thread. |
-| **5** | Endpoint | `~/.rasm/rhino-bridge.json` | Records live pipe name, Rhino PID, Rhino version, bridge identity. |
+| **5** | Endpoint | `~/.rasm/rhino-bridge.json` | Records live pipe name, Rhino PID, Rhino version, bridge identity; not job or scenario data. |
 
 ---
 ## [3][COMMANDS]
@@ -78,7 +78,7 @@ Run commands from repository root.
 | **10** | `scripts/rhino.sh bridge quit` | Lifecycle-only safe Rhino exit when open documents have no unsaved changes. |
 | **11** | `scripts/rhino.sh package rasm-bridge <version>` | Build bridge `.rhp`, run Yak in staged directory, and create a local package. |
 | **12** | `scripts/rhino.sh deploy rasm-bridge <version>` | Install the staged bridge package, refresh RhinoWIP, and verify bridge health. |
-| **13** | `scripts/rhino.sh verify <scenario-or-glob>` | Convenience rail for scenarios; resolves owning project, routes through `bridge check`. |
+| **13** | `scripts/rhino.sh verify <scenario-or-glob>` | Convenience rail for source-only scenarios; resolves owning project, routes through `bridge check`. |
 | **13** | `scripts/rhino.sh api doctor` | Report local RhinoWIP API XML, ILSpy, and RhinoCode metadata availability. |
 | **14** | `scripts/rhino.sh api path <key> [assembly\|xml]` | Print the resolved assembly or XML path for an API reference key. |
 | **15** | `scripts/rhino.sh api xml <key> <pattern>` | Search the resolved XML documentation with `rg`. |
@@ -110,6 +110,8 @@ scripts/rhino.sh bridge check <real-source.cs> <scenario.verify.csx>
 ```
 
 Expected result: `"status": "ok"` when the scenario compiles against bridge-generated `#r` directives from host-filtered runtime references and exercises real Rhino behavior. Scenarios must not contain `#r`, `#load`, or absolute build-output paths.
+
+Library scenarios live under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/`. The operator script maps that convention to `libs/csharp/<Project>/<Project>.csproj` without manifests or scenario catalogs.
 
 Verify local API metadata:
 

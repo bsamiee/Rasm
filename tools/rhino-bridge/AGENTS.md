@@ -45,7 +45,7 @@ The bridge is not a unit-test framework, ScriptEditor automation layer, Rhino se
 - Prefer one intelligent command over flags, modes, or alternate routes.
 - Extend existing script/client/protocol/plugin ownership; do not add helper-file sprawl or one-off wrappers.
 - Do not hardcode app, package, output, or reference paths. Use evaluated MSBuild properties such as `YakPackageSlug`, `YakPath`, `YakStageRoot`, and project build output.
-- Do not reintroduce former source-specific routes, job JSON flows, bridge-specific package/install commands, or ScriptEditor/Code Panel automation.
+- Do not reintroduce former source-specific routes, retired per-job files, bridge-specific package/install commands, or editor-panel automation.
 - Do not weaken diagnostics into pass/fail text. Preserve phase JSON, raw output, compile diagnostics, document metadata, RhinoCode policy, and assembly freshness evidence.
 - Keep bridge commands serial in validation. The live Rhino endpoint and shared build outputs are intentional single-client surfaces.
 - Treat scenarios as disposable diagnostic scripts for current implementation truth. Refactor stale scenarios freely, but do not move product fixes into `libs/` during bridge/tooling work unless explicitly asked.
@@ -66,7 +66,7 @@ bash scripts/rhino.sh bridge check apps/grasshopper/Radyab/Radyab.csproj
 rc=0
 bash scripts/rhino.sh bridge check apps/grasshopper/Radyab/Components/ExtractPoints.cs || rc=$?
 [[ "${rc}" == 3 ]]
-bash scripts/rhino.sh verify apps/grasshopper/Radyab/Scenarios/vectors-space-projection.verify.csx
+bash scripts/rhino.sh verify tests/csharp/libs/Rasm/Vectors/scenarios/vectors-space-projection.verify.csx
 ```
 
 For packaging changes, add:

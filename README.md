@@ -123,9 +123,9 @@ Grasshopper uses GH2 component APIs directly: `Grasshopper2.Components.Component
 
 GH2 can run component work in parallel. Component code must keep execution state local to `Process`; reusable geometry logic belongs in `Rasm.Analysis` and `Rasm.Domain`.
 
-Automated Rhino/GH2 unit-test frameworks stay out of this foundation until Rhino.Testing exposes a current `net10.0` path. Live RhinoWIP runtime analyzer evidence flows through the installed bridge plugin, which registers RhinoCode C# scripting, runs transient scripts in-process, and returns factual build, diagnostic, stdout, stderr, exception, Rhino, document, tolerance, and bridge identity data. `rhinocode list --json` and ScriptServer state are discovery evidence; RhinoCode publishing remains out of scope. `bridge check <source.cs>` resolves and builds the owning project, then returns `unsupported` unless an executable scenario is supplied as the second positional argument.
+Automated Rhino/GH2 unit-test frameworks stay out of this foundation until Rhino.Testing exposes a current `net10.0` path. Live RhinoWIP runtime analyzer evidence flows through the installed bridge plugin, which registers RhinoCode C# scripting, runs transient scripts in-process, and returns factual build, diagnostic, stdout, stderr, exception, Rhino, document, tolerance, and bridge identity data. `rhinocode list --json`, `bridge doctor`, and endpoint metadata are discovery evidence; RhinoCode publishing remains out of scope. `bridge check <source.cs>` resolves and builds the owning project, then returns `unsupported` unless an executable scenario is supplied as the second positional argument.
 
-Scenarios are source-only diagnostics. Do not add `#r`, `#load`, or absolute build-output paths; `bridge check` owns host-filtered reference projection, fresh artifact refs, and `SCENARIO_NAME` / `CAPTURE_PATH` injection.
+Scenarios are source-only diagnostics. Library scenarios live under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/`. Do not add `#r`, `#load`, or absolute build-output paths; `bridge check` owns host-filtered reference projection, fresh artifact refs, and `SCENARIO_NAME` / `CAPTURE_PATH` injection.
 
 ## GH2 Foundation
 

@@ -49,6 +49,6 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - `bridge check` runs RhinoCode with isolated C# reference resolution and no script cache reuse, so other loaded Rhino plugins cannot poison LanguageExt, Thinktecture, or repo assembly identity.
 - Use `scripts/rhino.sh bridge check <source.cs>` for source ownership/build proof. It returns `unsupported` unless a real scenario is supplied as the second positional argument.
 - Use `scripts/rhino.sh verify <scenario-or-glob>` as the scenario convenience rail; it resolves the owning project and routes through `bridge check <project> <scenario.verify.csx>`.
-- Keep scenarios source-only. Do not add `#r`, `#load`, or absolute build-output paths; the bridge owns reference projection and fresh artifact refs.
+- Keep library scenarios under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/`. Keep scenarios source-only; do not add `#r`, `#load`, or absolute build-output paths because the bridge owns reference projection and fresh artifact refs.
 - Use `scripts/rhino.sh bridge clean <target>` to delete generated reports for one target; use `scripts/rhino.sh bridge load-smoke <assembly.dll>` for lower-level assembly load/unload evidence.
 - Do not automate Rhino settings or template creation from this repo. Persistent startup is owned by the plugin `LoadTime.AtStartup`; `_RasmBridgeStart` may be entered manually in Rhino settings if an operator wants a command-list fallback.

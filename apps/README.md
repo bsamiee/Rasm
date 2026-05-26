@@ -38,7 +38,7 @@ To add a new plugin:
 1. Create `apps/<host>/<PluginName>/<PluginName>.csproj` with `<TargetFramework>net10.0</TargetFramework>` and the `RhinoPluginAssemblyGuid` / `RhinoPluginIconResource` properties as needed.
 2. Add the project to `Workspace.slnx` under the matching `/apps/<host>/<PluginName>/` folder.
 3. Add `<YakPackageSlug>` to the project and `tools/yak/<slug>/manifest.yml` so `scripts/rhino.sh package <slug> <version>` resolves the artifact through MSBuild.
-4. Tests for the plugin live at `tests/csharp/<PluginName>/<PluginName>.Tests.csproj` (static rail) plus `apps/<host>/<PluginName>/Scenarios/*.verify.csx` (bridge rail). See `cs-testing` and `rhino-verify` skills.
+4. Tests for the plugin live at `tests/csharp/<PluginName>/<PluginName>.Tests.csproj` for static specs. Runtime bridge scenarios live under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/` for library-owned behavior, including plugin-facing GH UI slices. See the `cs-testing` skill.
 
 ---
 ## [2][REFERENCE_PLUGIN]
@@ -49,7 +49,6 @@ To add a new plugin:
 apps/grasshopper/Radyab/
 ├── Components/         # IComponentDefinition implementations
 ├── Icons/              # plugin.ico + .ghicon assets
-├── Scenarios/          # *.verify.csx bridge-rail tests
 ├── Library.cs          # plugin manifest (IoId, Author, Icon)
 └── Radyab.csproj
 ```

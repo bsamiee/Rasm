@@ -153,7 +153,7 @@ _self_test() {
     done
     bash -n "${BASH_SOURCE[0]}"
     shellcheck "${BASH_SOURCE[0]}"
-    local path route handler min max line preset package_slug project manifest_dir target_dir target_framework assembly_name target_ext project_dir
+    local path route handler min max line preset package_slug project manifest_dir target_dir target_framework assembly_name target_ext project_dir scenario rel_scenario test_project expected_project resolved_project
     declare -A ordered_routes=()
     local -a package_projects=()
     _package_projects package_projects
@@ -198,6 +198,17 @@ _self_test() {
         [[ -n "${yak_path}" && -n "${yak_platform}" && -n "${package_dir}" && -n "${package_pattern}" ]] || _die "Package Yak metadata incomplete for ${package_slug}"
     done
     ((package_count > 0)) || _die "No YakPackageSlug projects found"
+    local -a test_owned_scenarios=()
+    _verify_discover "${ROOT_DIR}/tests/csharp/libs" test_owned_scenarios
+    for scenario in "${test_owned_scenarios[@]}"; do
+        rel_scenario="${scenario#"${ROOT_DIR}/"}"
+        [[ "${rel_scenario}" == tests/csharp/libs/*/scenarios/*.verify.csx ]] || continue
+        test_project="${rel_scenario#tests/csharp/libs/}"
+        test_project="${test_project%%/*}"
+        expected_project="${ROOT_DIR}/libs/csharp/${test_project}/${test_project}.csproj"
+        _verify_project "${scenario}" resolved_project
+        [[ "${resolved_project}" == "${expected_project}" ]] || _die "Test-owned scenario resolved to ${resolved_project}, expected ${expected_project}: ${scenario}"
+    done
 }
 _package_projects() {
     local -n __projects="$1"
@@ -365,7 +376,19 @@ _verify_run() {
 _verify_project() {
     local -r scenario="$1"
     local -n __project="$2"
-    local dir
+    local abs_scenario rel_scenario test_project candidate dir
+    abs_scenario="$(cd -- "$(dirname -- "${scenario}")" && pwd)/${scenario##*/}"
+    rel_scenario="${abs_scenario#"${ROOT_DIR}/"}"
+    case "${rel_scenario}" in
+        tests/csharp/libs/*/scenarios/*.verify.csx)
+            test_project="${rel_scenario#tests/csharp/libs/}"
+            test_project="${test_project%%/*}"
+            candidate="${ROOT_DIR}/libs/csharp/${test_project}/${test_project}.csproj"
+            [[ -f "${candidate}" ]] || _die "No source project found for test scenario: ${scenario} -> ${candidate}"
+            __project="${candidate}"
+            return 0
+            ;;
+    esac
     dir="$(cd -- "$(dirname -- "${scenario}")" && pwd)"
     while [[ "${dir}" == "${ROOT_DIR}" || "${dir}" == "${ROOT_DIR}/"* ]]; do
         local -a projects=()

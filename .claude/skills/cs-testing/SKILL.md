@@ -40,7 +40,7 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 | :-----: | ------ | ---------- | ------ |
 | [1] | Static spec | `tests/csharp/libs/<Project>/<MirrorPath>/<Source>.spec.cs` | Pure managed constructors, smart enums, unions, matrix/math rails, `Fin`/`Validation`, deterministic algorithms. |
 | [2] | Testkit | `tests/csharp/_testkit` | Universal law adapters, reusable generators, independent numeric oracles, serializers. |
-| [3] | Bridge scenario | `apps/grasshopper/Radyab/Scenarios/*.verify.csx` | RhinoCommon/GH runtime APIs, native geometry validity, UI marshaling, document/canvas behavior. |
+| [3] | Bridge scenario | `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/*.verify.csx` | RhinoCommon/GH runtime APIs, native geometry validity, UI marshaling, document/canvas behavior. |
 | [4] | Mutation | `scripts/mutate-cs.sh` | Opt-in managed survivor discovery for `libs/csharp/Rasm` and its tests. |
 | [5] | Architecture | `tests/csharp/_architecture` | Assembly dependency direction and cycle laws. |
 | [6] | Tooling snapshot | `tests/csharp/_tooling` | Stable generated/config artifacts through Verify. |
@@ -60,7 +60,25 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 - For `Rasm.Vectors`, static specs own pure MathNet/Spectral/factory/failure laws; Mesh/native Rhino success, point-cloud kNN, ICP, contours, validity, and materialization belong in bridge scenarios.
 
 ---
-## [3][SPEC_SHAPE]
+## [3][SCENARIOS]
+>**Dictum:** *Scenario files are source-only runtime laws owned by tests.*
+
+<br>
+
+Place `*.verify.csx` files beside the relevant test slice under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/`. The bridge maps that convention to `libs/csharp/<Project>/<Project>.csproj`; do not add manifests, catalogs, app-local scenario folders, or per-scenario path maps.
+
+The bridge injects `SCENARIO_NAME` and `CAPTURE_PATH` before execution. Do not declare or shadow them. Scenarios may use deterministic setup, behavior assertions, optional viewport capture, and `Console.WriteLine("key=value")` evidence. Throw `InvalidOperationException` with observed values for failed predicates.
+
+[CRITICAL]:
+- Keep scenarios deterministic: clear or create only the document state they own, use constants instead of randomness/time/I/O, redraw before capture, and print compact evidence lines for every runtime fact that would be hard to infer from the exception alone.
+- Do not add `#r`, `#load`, absolute build-output paths, legacy bridge job files, or retired script-server flow.
+- Do not treat a missing `~/.rasm/rhino-bridge.json` as missing scenario data. It is live endpoint metadata; run `bridge launch` or `bridge doctor`.
+- Do not propose headless Rhino, Docker/VM Rhino, or Rhino.Inside as substitutes for the bridge scenario rail on macOS. Use the installed RhinoWIP bridge and reverify stale runtime claims locally.
+- Capture paths live beside bridge reports under `.artifacts/rhino/verify` or `.artifacts/rhino/bridge/check`.
+- On macOS, `ViewCapture.CaptureToBitmap(view)` can capture the active viewport. Set the active view and redraw before capture when a scenario uses viewport evidence.
+
+---
+## [4][SPEC_SHAPE]
 >**Dictum:** *One generated input should exercise many assertions.*
 
 <br>
@@ -82,7 +100,7 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 - If a failing law reveals a real production bug, fix the owner. Do not weaken the law into shape-only proof.
 
 ---
-## [4][TOOL_RAIL]
+## [5][TOOL_RAIL]
 >**Dictum:** *Tool knowledge lives in docs; specs use the small contract.*
 
 <br>
@@ -108,7 +126,7 @@ Current local truth:
 - Treat Stryker as diagnostic until its runner discovers non-zero tests; the managed target is 95% after discovery proof.
 
 ---
-## [5][VALIDATION]
+## [6][VALIDATION]
 >**Dictum:** *A failing law is evidence; investigate product behavior before weakening the test.*
 
 <br>
@@ -122,7 +140,8 @@ dotnet tool restore
 bash scripts/check-cs.sh full
 bash scripts/test.sh
 dotnet test tests/csharp/libs/Rasm/Rasm.Tests.csproj --configuration Release /p:CollectCoverage=true
-bash scripts/rhino.sh verify apps/grasshopper/Radyab/Scenarios
+bash scripts/rhino.sh verify tests/csharp/libs/Rasm/Vectors/scenarios
+bash scripts/rhino.sh verify tests/csharp/libs/Rasm.Grasshopper/UI/scenarios
 git diff --check
 ```
 
@@ -136,7 +155,7 @@ bash scripts/mutate-cs.sh
 Bridge ownership proof:
 
 ```bash
-bash scripts/rhino.sh bridge check libs/csharp/Rasm/Vectors/Space.cs apps/grasshopper/Radyab/Scenarios/vectors-space-projection.verify.csx
+bash scripts/rhino.sh bridge check libs/csharp/Rasm/Vectors/Space.cs tests/csharp/libs/Rasm/Vectors/scenarios/vectors-space-projection.verify.csx
 ```
 
 Bridge scenarios are source-only. Do not add `#r`, `#load`, or absolute build-output paths; the bridge owns reference projection and fresh artifact refs.

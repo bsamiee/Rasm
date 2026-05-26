@@ -24,12 +24,12 @@
 
 ## [3][BRIDGE_BOUNDARIES]
 
-- RhinoCommon or GH2 APIs that only work inside RhinoWIP must be proven by `*.verify.csx` scenarios under `/Users/bardiasamiee/Documents/99.Github/Rasm/apps/grasshopper/Radyab/Scenarios`.
+- RhinoCommon or GH2 APIs that only work inside RhinoWIP must be proven by `*.verify.csx` scenarios under the relevant `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/` folder.
 - Static specs may classify bridge-owned behavior, but must not pretend to execute native runtime paths that fail outside Rhino.
 - Pair each bridge scenario with an owning source file for `scripts/rhino.sh bridge check <source> <scenario>`.
 - Keep bridge scenarios source-only. Do not add `#r`, `#load`, or absolute build-output paths; bridge check owns reference projection and fresh artifact refs.
 - Treat host dependency collisions as product/packaging evidence. Do not rewrite bridge scenarios into weaker static assertions just because Rhino has preloaded a conflicting assembly.
-- For Rasm.Vectors on macOS, assume Rhino native geometry validity/materialization can cross into `rhcommon_c` unless a current static run proves otherwise. Static specs may own managed guards and failure categories for `Curve`, `Surface`, `Mesh`, `PlaneSurface`, `Point3d.IsValid`, `Vector3d.IsTiny`, and `Polyline.IsValid`, but successful native sampling/projection belongs in bridge scenarios.
+- For Rasm.Vectors on macOS, classify by actual call behavior rather than broad type names. Static specs may own managed factories, guards, smart-enum dispatch, matrix/math laws, and failure categories. Bridge scenarios own successful native sampling/projection/materialization and RhinoCommon calls that the current static run proves require RhinoWIP host state, including point-cloud topology, mesh topology/Laplacian/remesh/SDF/heat, curve/surface projections, Rhino validity/unitization, and mass properties.
 - Record bridge-owned gaps as executable scenario work, not skipped xUnit tests or shape-only assertions.
 - Vector bridge-owned successes include ICP/RTree point-cloud ordering, native contours/materialization, mesh topology/Laplacian/remesh/SDF/heat, curve/surface projections, Rhino validity/unitization, and mass properties.
 
