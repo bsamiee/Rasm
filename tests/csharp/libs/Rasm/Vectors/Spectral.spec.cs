@@ -53,13 +53,13 @@ public sealed class SpectralFilterLaws {
     [Fact]
     public void IdentitySignatureAndPairwiseDistancesUseIndependentSpectralSums() {
         Spec.Succ(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.Basis, sources: Option<Seq<int>>.None, key: SpectralGens.Key), then: descriptor => {
-            Spec.SeqEqualWithin(left: toSeq(descriptor.Values.AsIterable()), right: Seq(2.0, 1.0, 2.0), tolerance: 1.0e-12, what: "signature");
+            Spec.Equal(left: toSeq(descriptor.Values.AsIterable()), right: Seq(2.0, 1.0, 2.0), tolerance: 1.0e-12, what: "signature");
             Assert.False(condition: descriptor.Receipt.ComparisonReady);
             Assert.False(condition: descriptor.Receipt.EnergyNormalized);
             Assert.False(condition: descriptor.Receipt.BandwidthNormalized);
         });
         Spec.Succ(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.Basis, sources: Some(Seq(0)), key: SpectralGens.Key), then: descriptor => {
-            Spec.SeqEqualWithin(left: toSeq(descriptor.Values.AsIterable()), right: Seq(0.0, 1.0, 2.0), tolerance: 1.0e-12, what: "pairwise");
+            Spec.Equal(left: toSeq(descriptor.Values.AsIterable()), right: Seq(0.0, 1.0, 2.0), tolerance: 1.0e-12, what: "pairwise");
             Assert.True(condition: descriptor.Receipt.Pairwise);
             Assert.Equal(expected: 1, actual: descriptor.Receipt.SourceCount);
         });
@@ -73,7 +73,7 @@ public sealed class SpectralFilterLaws {
             CropCount: Some(Dimension.Create(value: 1)));
         Spec.Succ(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.Basis, sources: Option<Seq<int>>.None, policy: policy, key: SpectralGens.Key), descriptor => {
             double invRoot2 = 1.0 / Math.Sqrt(d: 2.0);
-            Spec.SeqEqualWithin(left: toSeq(descriptor.Values.AsIterable()), right: Seq(invRoot2, 0.0, invRoot2), tolerance: 1.0e-12, what: "normalized identity");
+            Spec.Equal(left: toSeq(descriptor.Values.AsIterable()), right: Seq(invRoot2, 0.0, invRoot2), tolerance: 1.0e-12, what: "normalized identity");
             Assert.True(condition: descriptor.Receipt.ComparisonReady);
             Assert.True(condition: descriptor.Receipt.EnergyNormalized);
             Assert.True(condition: descriptor.Receipt.BandwidthNormalized);
@@ -114,11 +114,11 @@ public sealed class SpectralFilterLaws {
         SpectralFilter heatB = SpectralFilter.Heat(time: SpectralGens.Positive(value: 0.75));
         SpectralFilter heatC = SpectralFilter.Heat(time: SpectralGens.Positive(value: 0.5));
         Spec.Some(heatA.Compose(other: heatB), composed =>
-            Spec.EqualWithin(left: ((SpectralFilter.HeatCase)composed).Time.Value, right: 1.0, tolerance: 1.0e-12, what: "heat time"));
+            Spec.Equal(left: ((SpectralFilter.HeatCase)composed).Time.Value, right: 1.0, tolerance: 1.0e-12, what: "heat time"));
         Option<SpectralFilter> left = heatA.Compose(other: heatB).Bind(composed => composed.Compose(other: heatC));
         Spec.Some(heatB.Compose(other: heatC), bc => Spec.Some(left, l => Spec.Some(heatA.Compose(other: bc), r => Assert.Equal(expected: l, actual: r))));
         Spec.Some(SpectralFilter.Diffusion(time: SpectralGens.Positive(value: 0.25)).Compose(other: SpectralFilter.Diffusion(time: SpectralGens.Positive(value: 0.75))), composed =>
-            Spec.EqualWithin(left: ((SpectralFilter.DiffusionCase)composed).Time.Value, right: 1.0, tolerance: 1.0e-12, what: "diffusion time"));
+            Spec.Equal(left: ((SpectralFilter.DiffusionCase)composed).Time.Value, right: 1.0, tolerance: 1.0e-12, what: "diffusion time"));
         Spec.Some(SpectralFilter.Identity.Compose(other: heatA), composed => Assert.Equal(expected: heatA, actual: composed));
         Spec.Some(heatA.Compose(other: SpectralFilter.Identity), composed => Assert.Equal(expected: heatA, actual: composed));
         Spec.None(SpectralFilter.Wave(energy: SpectralGens.Positive(value: 1.0), bandwidth: SpectralGens.Positive(value: 0.2)).Compose(other: heatA));
@@ -131,11 +131,11 @@ public sealed class SpectralFilterLaws {
             PositiveMagnitude energy = SpectralGens.Positive(value: 1.5);
             PositiveMagnitude bandwidth = SpectralGens.Positive(value: 0.75);
             double waveRatio = (Math.Log(d: energy.Value) - Math.Log(d: lambda)) / bandwidth.Value;
-            Spec.EqualWithin(left: SpectralFilter.Heat(time: time).Weight(eigenvalue: lambda), right: Math.Exp(d: -time.Value * lambda), tolerance: 1.0e-12, what: "heat");
-            Spec.EqualWithin(left: SpectralFilter.Diffusion(time: time).Weight(eigenvalue: lambda), right: Math.Exp(d: -2.0 * time.Value * lambda), tolerance: 1.0e-12, what: "diffusion");
-            Spec.EqualWithin(left: SpectralFilter.Wave(energy: energy, bandwidth: bandwidth).Weight(eigenvalue: lambda), right: Math.Exp(d: -0.5 * waveRatio * waveRatio), tolerance: 1.0e-12, what: "wave");
-            Spec.EqualWithin(left: SpectralFilter.Biharmonic.Weight(eigenvalue: lambda), right: 1.0 / (lambda * lambda), tolerance: 1.0e-12, what: "biharmonic");
-            Spec.EqualWithin(left: SpectralFilter.CommuteTime.Weight(eigenvalue: lambda), right: 1.0 / lambda, tolerance: 1.0e-12, what: "commute");
-            Spec.EqualWithin(left: SpectralFilter.Identity.Weight(eigenvalue: lambda), right: 1.0, tolerance: 0.0, what: "identity");
+            Spec.Equal(left: SpectralFilter.Heat(time: time).Weight(eigenvalue: lambda), right: Math.Exp(d: -time.Value * lambda), tolerance: 1.0e-12, what: "heat");
+            Spec.Equal(left: SpectralFilter.Diffusion(time: time).Weight(eigenvalue: lambda), right: Math.Exp(d: -2.0 * time.Value * lambda), tolerance: 1.0e-12, what: "diffusion");
+            Spec.Equal(left: SpectralFilter.Wave(energy: energy, bandwidth: bandwidth).Weight(eigenvalue: lambda), right: Math.Exp(d: -0.5 * waveRatio * waveRatio), tolerance: 1.0e-12, what: "wave");
+            Spec.Equal(left: SpectralFilter.Biharmonic.Weight(eigenvalue: lambda), right: 1.0 / (lambda * lambda), tolerance: 1.0e-12, what: "biharmonic");
+            Spec.Equal(left: SpectralFilter.CommuteTime.Weight(eigenvalue: lambda), right: 1.0 / lambda, tolerance: 1.0e-12, what: "commute");
+            Spec.Equal(left: SpectralFilter.Identity.Weight(eigenvalue: lambda), right: 1.0, tolerance: 0.0, what: "identity");
         });
 }

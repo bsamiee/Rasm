@@ -36,11 +36,11 @@ public sealed class ExtractionProjectionLaws {
         Spec.Succ(
             Spec.SuccValue(VectorIntent.Probe(source: ExtractionProbe.Scalar(source: ScalarField.Constant(value: 3.0)), sample: Point3d.Origin, key: ExtractionGens.Key), label: "scalar probe")
                 .Project<double>(context: ExtractionGens.Model, key: ExtractionGens.Key),
-            then: value => Spec.EqualWithin(left: value, right: 3.0, tolerance: 0.0, what: "scalar probe"));
+            then: value => Spec.Equal(left: value, right: 3.0, tolerance: 0.0, what: "scalar probe"));
         Spec.Succ(
             Spec.SuccValue(VectorIntent.Probe(source: ExtractionProbe.Vector(source: VectorField.Constant(value: Vector3d.XAxis)), sample: Point3d.Origin, key: ExtractionGens.Key), label: "vector probe")
                 .Project<Vector3d>(context: ExtractionGens.Model, key: ExtractionGens.Key),
-            then: vector => Spec.NearEqual(left: vector, right: Vector3d.XAxis, tolerance: 0.0));
+            then: vector => Spec.Equal(left: vector, right: Vector3d.XAxis, tolerance: 0.0));
         Spec.Succ(
             Spec.SuccValue(VectorIntent.Probe(source: ExtractionProbe.Tensor(source: TensorField.Constant(value: tensor)), sample: Point3d.Origin, key: ExtractionGens.Key), label: "tensor probe")
                 .Project<SymmetricMatrix>(context: ExtractionGens.Model, key: ExtractionGens.Key),
@@ -63,8 +63,8 @@ public sealed class ExtractionProjectionLaws {
             then: samples => {
                 Assert.Equal(expected: ExtractionGens.Samples.Count, actual: samples.Count);
                 _ = samples.Zip(ExtractionGens.Samples).Iter(pair => {
-                    Spec.NearEqual(left: pair.Item1.Point, right: pair.Item2, tolerance: 0.0);
-                    Spec.EqualWithin(left: pair.Item1.Value, right: 4.0, tolerance: 0.0, what: "constant grid value");
+                    Spec.Equal(left: pair.Item1.Point, right: pair.Item2, tolerance: 0.0);
+                    Spec.Equal(left: pair.Item1.Value, right: 4.0, tolerance: 0.0, what: "constant grid value");
                 });
             });
         Spec.Succ(grid.Project<ExtractionReceipt>(context: ExtractionGens.Model, key: ExtractionGens.Key), then: receipt => {

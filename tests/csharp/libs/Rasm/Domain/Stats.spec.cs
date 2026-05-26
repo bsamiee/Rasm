@@ -26,17 +26,17 @@ public sealed class StatComputationLaws {
     public void SingletonProducesZeroVariance() =>
         Spec.ForAll(StatGens.SingletonFinite, xs => Spec.Succ(Stat.Of(values: xs, key: StatGens.Key), then: static s => {
             Assert.Equal(expected: 1, actual: s.Count);
-            Spec.EqualWithin(left: s.Variance, right: 0.0, tolerance: 1.0e-12, what: "singleton variance");
-            Spec.EqualWithin(left: s.Minimum, right: s.Maximum, tolerance: 0.0, what: "singleton extrema collapse");
+            Spec.Equal(left: s.Variance, right: 0.0, tolerance: 1.0e-12, what: "singleton variance");
+            Spec.Equal(left: s.Minimum, right: s.Maximum, tolerance: 0.0, what: "singleton extrema collapse");
         }));
     [Fact]
     public void ConstantSequenceCollapsesMeanAndExtrema() =>
         Spec.ForAll(StatGens.ConstantFinite, xs => Spec.Succ(Stat.Of(values: xs, key: StatGens.Key), then: x => {
             double observed = xs[0];
-            Spec.EqualWithin(left: x.Mean, right: observed, tolerance: 1.0e-9, what: "constant mean");
-            Spec.EqualWithin(left: x.Variance, right: 0.0, tolerance: 1.0e-9, what: "constant variance");
-            Spec.EqualWithin(left: x.Minimum, right: observed, tolerance: 0.0, what: "constant minimum");
-            Spec.EqualWithin(left: x.Maximum, right: observed, tolerance: 0.0, what: "constant maximum");
+            Spec.Equal(left: x.Mean, right: observed, tolerance: 1.0e-9, what: "constant mean");
+            Spec.Equal(left: x.Variance, right: 0.0, tolerance: 1.0e-9, what: "constant variance");
+            Spec.Equal(left: x.Minimum, right: observed, tolerance: 0.0, what: "constant minimum");
+            Spec.Equal(left: x.Maximum, right: observed, tolerance: 0.0, what: "constant maximum");
         }));
     [Fact]
     public void NaNInputFails() =>

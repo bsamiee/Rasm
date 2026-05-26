@@ -41,7 +41,7 @@ public sealed class SampleKindFactoryLaws {
     public void FactoriesGatePositiveDimensionsAndPreservePayloads() {
         Spec.ForAll(SampleGens.Payloads, p => {
             Spec.Succ(SampleKind.PoissonDisk(radius: p.Radius, key: SampleGens.Key), then: kind =>
-                Spec.EqualWithin(left: Assert.IsType<SampleKind.PoissonDiskCase>(@object: kind).Radius.Value, right: p.Radius, tolerance: 0.0, what: "radius"));
+                Spec.Equal(left: Assert.IsType<SampleKind.PoissonDiskCase>(@object: kind).Radius.Value, right: p.Radius, tolerance: 0.0, what: "radius"));
             Spec.Succ(SampleKind.Farthest(count: p.Count, key: SampleGens.Key), then: kind =>
                 Assert.Equal(expected: p.Count, actual: Assert.IsType<SampleKind.FarthestCase>(@object: kind).Count.Value));
             Spec.Succ(SampleKind.Optimize(count: p.Count, iterations: p.Iterations, key: SampleGens.Key), then: kind => {
@@ -92,12 +92,12 @@ public sealed class SampleKindFactoryLaws {
         SampleKind kind = Spec.SuccValue(SampleKind.Explicit(points: SampleGens.Points, key: SampleGens.Key), label: "explicit sample kind");
         VectorIntent intent = SampleGens.Intent(kind: kind);
         Spec.Succ(intent.Project<Seq<Point3d>>(context: SampleGens.Model, key: SampleGens.Key),
-            then: points => _ = points.Zip(SampleGens.Points).Iter(pair => Spec.NearEqual(left: pair.Item1, right: pair.Item2, tolerance: 0.0)));
+            then: points => _ = points.Zip(SampleGens.Points).Iter(pair => Spec.Equal(left: pair.Item1, right: pair.Item2, tolerance: 0.0)));
         Spec.Succ(intent.Project<VectorCloud>(context: SampleGens.Model, key: SampleGens.Key),
             then: projected => {
                 VectorCloud.ClusterCase cluster = Assert.IsType<VectorCloud.ClusterCase>(@object: projected);
                 Assert.Equal(expected: SampleGens.Points.Count, actual: cluster.Vertices.Count);
-                Spec.NearEqual(left: Numeric.Centroid(points: cluster.Vertices), right: Numeric.Centroid(points: SampleGens.Points), tolerance: 1.0e-12);
+                Spec.Equal(left: Numeric.Centroid(points: cluster.Vertices), right: Numeric.Centroid(points: SampleGens.Points), tolerance: 1.0e-12);
             });
         Spec.Succ(intent.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key),
             then: receipt => {
@@ -143,25 +143,25 @@ public sealed class SampleDensityLaws {
         double area = 4.0;
         Spec.Succ(SampleKind.PoissonDisk(radius: 2.0, key: SampleGens.Key), then: kind =>
             Spec.Succ(kind.MeshCandidateDensity(area: area, key: SampleGens.Key), then: density =>
-                Spec.EqualWithin(left: density, right: 0.25, tolerance: 1.0e-12, what: "poisson density")));
+                Spec.Equal(left: density, right: 0.25, tolerance: 1.0e-12, what: "poisson density")));
         Spec.Succ(SampleKind.Explicit(points: SampleGens.Points, key: SampleGens.Key), then: kind =>
             Spec.Succ(kind.MeshCandidateDensity(area: area, key: SampleGens.Key), then: density =>
-                Spec.EqualWithin(left: density, right: 0.75, tolerance: 1.0e-12, what: "explicit density")));
+                Spec.Equal(left: density, right: 0.75, tolerance: 1.0e-12, what: "explicit density")));
         Spec.Succ(SampleKind.Farthest(count: 8, key: SampleGens.Key), then: kind =>
             Spec.Succ(kind.MeshCandidateDensity(area: area, key: SampleGens.Key), then: density =>
-                Spec.EqualWithin(left: density, right: 2.0, tolerance: 1.0e-12, what: "farthest density")));
+                Spec.Equal(left: density, right: 2.0, tolerance: 1.0e-12, what: "farthest density")));
         Spec.Succ(SampleKind.Optimize(count: 6, iterations: 2, key: SampleGens.Key), then: kind =>
             Spec.Succ(kind.MeshCandidateDensity(area: area, key: SampleGens.Key), then: density =>
-                Spec.EqualWithin(left: density, right: 1.5, tolerance: 1.0e-12, what: "optimize density")));
+                Spec.Equal(left: density, right: 1.5, tolerance: 1.0e-12, what: "optimize density")));
         Spec.Succ(SampleKind.Lloyd(count: 4, iterations: 2, key: SampleGens.Key), then: kind =>
             Spec.Succ(kind.MeshCandidateDensity(area: area, key: SampleGens.Key), then: density =>
-                Spec.EqualWithin(left: density, right: 1.0, tolerance: 1.0e-12, what: "lloyd density")));
+                Spec.Equal(left: density, right: 1.0, tolerance: 1.0e-12, what: "lloyd density")));
         Spec.Succ(SampleKind.Capacity(count: 3, capacity: 5, key: SampleGens.Key), then: kind =>
             Spec.Succ(kind.MeshCandidateDensity(area: 10.0, key: SampleGens.Key), then: density =>
-                Spec.EqualWithin(left: density, right: 1.5, tolerance: 1.0e-12, what: "capacity density")));
+                Spec.Equal(left: density, right: 1.5, tolerance: 1.0e-12, what: "capacity density")));
         Spec.Succ(SampleKind.SampleElimination(count: 3, oversampleFactor: 5, alpha: 8.0, beta: 0.65, gamma: 1.5, seed: 17, key: SampleGens.Key), then: kind =>
             Spec.Succ(kind.MeshCandidateDensity(area: 10.0, key: SampleGens.Key), then: density =>
-                Spec.EqualWithin(left: density, right: 1.5, tolerance: 1.0e-12, what: "wse density")));
+                Spec.Equal(left: density, right: 1.5, tolerance: 1.0e-12, what: "wse density")));
     }
     [Fact]
     public void ReceiptConservationIsBoundedByAttemptedCandidates() {
@@ -182,7 +182,7 @@ public sealed class SampleDensityLaws {
             VectorCloud.ClusterCase cluster = Assert.IsType<VectorCloud.ClusterCase>(@object: projected);
             Spec.Some(cluster.Mass, mass => {
                 Assert.Equal(expected: cluster.Vertices.Count, actual: mass.Count);
-                Spec.EqualWithin(left: Enumerable.Sum(source: mass.AsIterable()), right: 1.0, tolerance: 1.0e-12, what: "selected normalized mass");
+                Spec.Equal(left: Enumerable.Sum(source: mass.AsIterable()), right: 1.0, tolerance: 1.0e-12, what: "selected normalized mass");
             });
         });
         Spec.Succ(intent.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key), then: receipt =>
@@ -216,7 +216,7 @@ public sealed class SampleDensityLaws {
         VectorIntent intent = SampleGens.Intent(kind: adaptive);
         Seq<Point3d> first = Spec.SuccValue(intent.Project<Seq<Point3d>>(context: SampleGens.Model, key: SampleGens.Key), label: "first adaptive sample");
         Seq<Point3d> second = Spec.SuccValue(intent.Project<Seq<Point3d>>(context: SampleGens.Model, key: SampleGens.Key), label: "second adaptive sample");
-        _ = first.Zip(second).Iter(pair => Spec.NearEqual(left: pair.Item1, right: pair.Item2, tolerance: 0.0));
+        _ = first.Zip(second).Iter(pair => Spec.Equal(left: pair.Item1, right: pair.Item2, tolerance: 0.0));
         Spec.Succ(intent.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key), then: receipt => {
             Spec.Some(receipt.DensityAccepted, accepted => Assert.Equal(expected: SampleGens.Points.Count, actual: accepted));
             Spec.Some(receipt.DensityRejected, rejected => Assert.Equal(expected: 0, actual: rejected));
@@ -231,7 +231,7 @@ public sealed class SampleDensityLaws {
         Seq<Point3d> first = Spec.SuccValue(intent.Project<Seq<Point3d>>(context: SampleGens.Model, key: SampleGens.Key), label: "first wse sample");
         Seq<Point3d> second = Spec.SuccValue(intent.Project<Seq<Point3d>>(context: SampleGens.Model, key: SampleGens.Key), label: "second wse sample");
         Assert.Equal(expected: 2, actual: first.Count);
-        _ = first.Zip(second).Iter(pair => Spec.NearEqual(left: pair.Item1, right: pair.Item2, tolerance: 0.0));
+        _ = first.Zip(second).Iter(pair => Spec.Equal(left: pair.Item1, right: pair.Item2, tolerance: 0.0));
         Spec.Succ(intent.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key), then: receipt => {
             Spec.CountsConserve(attempted: receipt.Attempted, emitted: receipt.Emitted, rejected: receipt.Rejected, label: "wse receipt");
             Assert.Equal(expected: SampleGens.DensePoints.Count, actual: receipt.CandidateCount.IfNone(0));
