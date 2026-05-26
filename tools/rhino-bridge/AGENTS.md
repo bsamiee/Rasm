@@ -26,7 +26,7 @@ Scenarios are authored via the polymorphic `Scenario.Run(theme, capturePath, (ke
 
 ## Parsing scenario evidence
 
-Bridge markers are the structured wire contract. Use `Rasm.RhinoBridge.Protocol.BridgeMarker.Scan(string stdout) -> Seq<BridgeMarker>` to extract them; filter on `BridgeMarker.Evidence` for the `facts` payload and `BridgeMarker.Returned` for `execute.data.returnValue`-equivalent envelopes. Do not parse individual `key=value` plain lines — the legacy per-fact emission was removed during the scenario migration. The plain `facts={json}` line is duplicate human-readable noise; rely on the prefixed Evidence marker.
+Bridge markers are the structured wire contract. Use `Rasm.RhinoBridge.Protocol.BridgeMarker.Scan(string stdout) -> IReadOnlyList<BridgeMarker>` to extract them; filter on `BridgeMarker.Evidence` for the `facts` payload and `BridgeMarker.Returned` for `execute.data.returnValue`-equivalent envelopes. Do not parse individual `key=value` plain lines — the legacy per-fact emission was removed during the scenario migration. The plain `facts={json}` line is duplicate human-readable noise; rely on the prefixed Evidence marker.
 
 ## Validation ladder for bridge changes
 

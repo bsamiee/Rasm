@@ -240,7 +240,9 @@ _route_changed() {
         [[ "${route}" != full ]] || { __full=1; continue; }
         project="${route#project|}"
         _array_has "${project}" "${__projects[@]}" || __projects+=("${project}")
-        [[ "${file}" == *.cs ]] && __format+=("${project}|${file}")
+        if [[ "${file}" == *.cs ]]; then
+            __format+=("${project}|${file}")
+        fi
     done
 }
 _configurations() {

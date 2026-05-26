@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Use this bridge when static .NET validation is insufficient. It launches or connects to RhinoWIP, executes RhinoCode inside Rhino, and returns structured JSON that coding agents can parse for build, load, runtime, host, and diagnostic evidence.
+[IMPORTANT] Use this bridge when static .NET validation is insufficient. It launches or connects to RhinoWIP, executes RhinoCode inside Rhino, and returns structured JSON that coding agents can parse for build, reference, runtime, host, and diagnostic evidence.
 
 [CRITICAL] Do not treat this bridge as a unit-test framework. Do not create artificial tests to prove code paths. Use it to validate real project files, source files, assemblies, and scripts against the Rhino coding environment.
 
@@ -13,13 +13,13 @@
 
 <br>
 
-The bridge answers one question: does current code build, load, reference, and execute correctly in RhinoWIP with RhinoCode, RhinoCommon, Grasshopper2, and repository assemblies resolved as Rhino sees them.
+The bridge answers one question: does current code build, reference, and execute correctly in RhinoWIP with RhinoCode, RhinoCommon, Grasshopper2, and repository assemblies resolved as Rhino sees them.
 
 Use it for:
 - Real diagnostics on `*.csproj` projects that target Rhino or Grasshopper.
 - Source ownership checks for `*.cs` files through evaluated SDK projects.
 - Explicit RhinoCode scripts that exercise current code through real Rhino APIs.
-- Assembly load evidence for plugin and dependency resolution problems.
+- Assembly freshness evidence for plugin and dependency resolution problems.
 - Bridge health checks when agents need Rhino runtime facts before editing code.
 
 Scripts are transient diagnostic entrypoints for current code and real Rhino APIs. They are not test cases, suites, or coverage probes.
@@ -175,7 +175,7 @@ Read order:
 Decisive phase policy:
 - Required failures from `resolve`, `build`, `connect`, and applicable `execute` phases drive top-level `status`.
 - Supplemental `rhinoCodeCli` evidence remains visible but does not override successful in-process `execute`.
-- Skipped `load`, `unload`, and `lifecycle` phases document non-applicable work and do not weaken top-level status.
+- Skipped `lifecycle` phases document non-applicable work and do not weaken top-level status.
 - `check <source.cs>` without a scenario remains top-level `unsupported` after successful ownership and build evidence.
 
 Status policy:
@@ -186,7 +186,7 @@ Status policy:
 | **2** | `unsupported` | 3 | Request is valid, but no runtime action applies. |
 | **3** | `busy` | 5 | Live bridge already handles another client. |
 | **4** | `timeout` | 5 | Client transport wait expired. |
-| **5** | `failed` | 1 | Build, protocol, load, execute, or diagnostic failure. |
+| **5** | `failed` | 1 | Build, protocol, execute, or diagnostic failure. |
 | **6** | `skipped` | phase-only | Phase intentionally did not run because prior state made it irrelevant. |
 
 Phase expectations:
@@ -195,10 +195,8 @@ Phase expectations:
 - `launch`: existing bridge reuse or RhinoWIP launch evidence.
 - `connect`: named-pipe hello round trip with endpoint metadata.
 - `rhinoCodeCli`: supplemental external `rhinocode list --json` probe; `DOTNET_ROLL_FORWARD=Major` fallback is intentional.
-- `load`: collectible load session only for explicit load commands.
 - `execute`: RhinoCode execution report, stdout/stderr, diagnostics, Rhino document facts, and optional script return JSON.
 - `diagnostics`: RhinoCode compile diagnostics when available.
-- `unload`: collectible session unload evidence.
 - `lifecycle`: quit/restart status.
 
 Output blocks include `source`, `text`, `truncated`, `length`, and `limit`. Treat `truncated: true` as machine-actionable loss of detail.
@@ -215,9 +213,11 @@ The plugin preserves raw stdout and parses the last line with this prefix into `
 
 Runtime checks force RhinoCode C# `csharp.resolver.isolate = true` and `CachePolicy.NeverCache`. Script references load through RhinoCode's collectible Roslyn context instead of Rhino's default host context, so other installed plugins cannot poison package identity for `LanguageExt`, `Thinktecture`, or rebuilt repo assemblies. Every execute report includes `execute.data.rhinoCode`; project smoke scripts also emit `returnValue.kind = "assemblyFreshness"` with exact target-location evidence and `resolverIsolated = true`.
 
+The Rhino-loaded bridge boundary is dependency-free outside RhinoWIP host assemblies and the local protocol DLL. `rasm-bridge.rhp` and `Rasm.RhinoBridge.Protocol.dll` do not package `LanguageExt.Core` or `Thinktecture.Runtime.Extensions`; this prevents Rhino's shared plugin load context from binding other plugins to Rasm's functional-library versions.
+
 ### [4.2][BRIDGE_MARKERS]
 
-Scenarios and smoke probes emit structured evidence as **bridge markers** — line-oriented stdout records prefixed `rasm.rhino-bridge.`. The plugin captures stdout, leaves raw text in `execute.outputs[].text`, and the canonical parser is `Rasm.RhinoBridge.Protocol.BridgeMarker.Scan(string stdout) -> Seq<BridgeMarker>` (in the protocol assembly, also published in the agent reference set).
+Scenarios and smoke probes emit structured evidence as **bridge markers** — line-oriented stdout records prefixed `rasm.rhino-bridge.`. The plugin captures stdout, leaves raw text in `execute.outputs[].text`, and the canonical parser is `Rasm.RhinoBridge.Protocol.BridgeMarker.Scan(string stdout) -> IReadOnlyList<BridgeMarker>` (in the protocol assembly, also published in the agent reference set).
 
 Marker kinds:
 
@@ -331,6 +331,6 @@ scripts/rhino.sh bridge clean apps/grasshopper/Radyab/Radyab.csproj
 
 Add focused live checks for bridge implementation changes:
 - Reference projection changes: run `check <source.cs> <scenario.verify.csx>` that imports affected assemblies.
-- Assembly load policy changes: verify known same-name package collisions do not poison isolated RhinoCode checks (use `bridge check <project.csproj>` without scenario — the internal smoke probe reports `returnValue.kind = "assemblyFreshness"`).
+- Reference isolation policy changes: verify known same-name package collisions do not poison isolated RhinoCode checks (use `bridge check <project.csproj>` without scenario — the internal smoke probe reports `returnValue.kind = "assemblyFreshness"`).
 - Packaging changes: run `scripts/rhino.sh package rasm-bridge <version>`, then `scripts/rhino.sh deploy rasm-bridge <version>` to validate the staged `.yak`.
 - Transport changes: run `bridge doctor` and `bridge check <source.cs> <scenario.verify.csx>`.

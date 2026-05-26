@@ -21,6 +21,7 @@ readonly PACKAGE_STAGE_ROOT
 readonly API_RHINO_WIP_APP_PATH="${RHINO_WIP_APP_PATH:-/Applications/RhinoWIP.app}"
 readonly API_RHINO_WIP_RESOURCES="${API_RHINO_WIP_APP_PATH}/Contents/Frameworks/RhCore.framework/Versions/A/Resources"
 readonly API_RHINO_CODE="${API_RHINO_WIP_APP_PATH}/Contents/Resources/bin/rhinocode"
+readonly BRIDGE_RESTART_TIMEOUT_SECONDS="${BRIDGE_RESTART_TIMEOUT_SECONDS:-45}"
 readonly -a DOTNET_SERIAL_BUILD_ARGS=(-maxcpucount:1 -p:BuildInParallel=false)
 readonly -a RHINO_HOST_PACKAGE_EXCLUDES=(
     'Eto.*' 'Eto.macOS.*' 'Grasshopper.*' 'Grasshopper2.*' 'GrasshopperIO.*'
@@ -63,6 +64,7 @@ declare -Ar ROUTES=(
 readonly -a BRIDGE_PROJECTS=("${BRIDGE_PROTOCOL_PROJECT}" "${BRIDGE_PLUGIN_PROJECT}" "${BRIDGE_CLIENT_PROJECT}")
 _trap_err() {
     local -r exit_code="$?"
+    ((exit_code == 3 || exit_code == 5)) && exit "${exit_code}"
     local index
     printf 'rhino: error at %s:%s: %s\n' "${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}" "${BASH_LINENO[0]:-0}" "${BASH_COMMAND}" >&2
     for ((index = 1; index < ${#FUNCNAME[@]}; index++)); do
@@ -174,10 +176,16 @@ _with_lock() {
     shift 2
     local -r lock_root="${PACKAGE_STAGE_ROOT}/locks"
     local -r lock_key="${name//[^[:alnum:]_.:-]/_}"
-    local -r lock_file="${lock_root}/${lock_key}.lock"
+    local -r lock_dir="${lock_root}/${lock_key}.lock"
+    local -r deadline=$((BASH_MONOSECONDS + 30))
     mkdir -p -- "${lock_root}"
-    : > "${lock_file}"
-    lockf -t 30 "${lock_file}" "${handler}" "$@" || _die "Timed out waiting for ${name} lock: ${lock_file}"
+    while ! mkdir -- "${lock_dir}" 2>/dev/null; do
+        ((BASH_MONOSECONDS < deadline)) || _die "Timed out waiting for ${name} lock: ${lock_dir}"
+        sleep 0.2
+    done
+    CLEANUP_PATHS+=("${lock_dir}")
+    "${handler}" "$@"
+    rm -rf -- "${lock_dir}"
 }
 _bridge_client_build_only() {
     local -r lock_root="${PACKAGE_STAGE_ROOT}/locks"
@@ -540,7 +548,7 @@ _package_action() {
     _package_find "${package_slug}" "${version}" "${package_dir}" "${package_pattern}" package_file
     [[ -x "${yak_path}" ]] || _die "Yak not executable at ${yak_path}"
     case "${action}" in
-        deploy) "${yak_path}" install "${package_file}"; _package_deploy_refresh "${package_slug}" ;;
+        deploy) _package_deploy_quit "${package_slug}"; "${yak_path}" install "${package_file}"; _package_deploy_refresh "${package_slug}" ;;
         publish)
             local -a source_args=()
             [[ -n "${yak_push_source}" ]] && source_args=(--source "${yak_push_source}")
@@ -549,6 +557,35 @@ _package_action() {
             ;;
         *) _die "Unknown package action: ${action}" ;;
     esac
+}
+_pid_alive() {
+    local -r pid="$1"
+    [[ "${pid}" =~ ^[0-9]+$ ]] && kill -0 "${pid}" 2>/dev/null
+}
+_wait_pid_exit() {
+    local -r pid="$1" name="$2"
+    local -r deadline=$((BASH_MONOSECONDS + BRIDGE_RESTART_TIMEOUT_SECONDS))
+    while _pid_alive "${pid}"; do
+        ((BASH_MONOSECONDS < deadline)) || _die "${name} did not exit within ${BRIDGE_RESTART_TIMEOUT_SECONDS}s after bridge quit"
+        sleep 0.5
+    done
+}
+_package_deploy_quit() {
+    local -r package_slug="$1"
+    [[ "${package_slug}" == "rasm-bridge" ]] || return 0
+    local quit_json quit_status quit_pid
+    quit_json="$(_bridge_client quit 2>&1)" || {
+        printf '%s\n' "${quit_json}"
+        quit_status="$(jq -r '.status? // empty' <<< "${quit_json}" 2>/dev/null || true)"
+        [[ "${quit_status}" == "failed" ]] && _die "Bridge quit refused before deploying ${package_slug}"
+        return 0
+    }
+    readonly quit_json
+    printf '%s\n' "${quit_json}"
+    quit_status="$(jq -r '.status? // empty' <<< "${quit_json}" 2>/dev/null || true)"
+    [[ "${quit_status}" == "ok" ]] || _die "Bridge quit returned ${quit_status:-non-json} before deploying ${package_slug}"
+    quit_pid="$(jq -r 'first(.phases[]? | select(.phase == "lifecycle") | .data.rhinoPid) // empty' <<< "${quit_json}")"
+    [[ -z "${quit_pid}" ]] || _wait_pid_exit "${quit_pid}" "Rhino pid ${quit_pid}"
 }
 _package_deploy_refresh() {
     local -r package_slug="$1"

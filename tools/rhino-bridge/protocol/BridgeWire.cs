@@ -8,14 +8,19 @@ using System.Text.Json.Serialization;
 namespace Rasm.RhinoBridge.Protocol;
 
 // --- [TYPES] ----------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class PhaseStatus {
-    public static readonly PhaseStatus Ok = new(key: 0, wire: "ok", rank: 1, exit: 0);
-    public static readonly PhaseStatus Skipped = new(key: 1, wire: "skipped", rank: 1, exit: 0);
-    public static readonly PhaseStatus Unsupported = new(key: 2, wire: "unsupported", rank: 2, exit: 3);
-    public static readonly PhaseStatus Failed = new(key: 3, wire: "failed", rank: 3, exit: 1);
-    public static readonly PhaseStatus Timeout = new(key: 4, wire: "timeout", rank: 3, exit: 5);
-    public static readonly PhaseStatus Busy = new(key: 5, wire: "busy", rank: 3, exit: 5);
+public sealed class PhaseStatus {
+    public static readonly PhaseStatus Ok = new(wire: "ok", rank: 1, exit: 0);
+    public static readonly PhaseStatus Skipped = new(wire: "skipped", rank: 1, exit: 0);
+    public static readonly PhaseStatus Unsupported = new(wire: "unsupported", rank: 2, exit: 3);
+    public static readonly PhaseStatus Failed = new(wire: "failed", rank: 3, exit: 1);
+    public static readonly PhaseStatus Timeout = new(wire: "timeout", rank: 3, exit: 5);
+    public static readonly PhaseStatus Busy = new(wire: "busy", rank: 3, exit: 5);
+    public static readonly IReadOnlyList<PhaseStatus> Items = [Ok, Skipped, Unsupported, Failed, Timeout, Busy];
+    private PhaseStatus(string wire, int rank, int exit) {
+        Wire = wire;
+        Rank = rank;
+        Exit = exit;
+    }
     public string Wire { get; }
     public int Rank { get; }
     public int Exit { get; }
@@ -25,39 +30,38 @@ public sealed partial class PhaseStatus {
         ArgumentNullException.ThrowIfNull(argument: other);
         return other.Rank > Rank ? other : this;
     }
-    public static Fin<PhaseStatus> FromWire(string? wire) =>
-        wire is null
-            ? Fin.Fail<PhaseStatus>(error: Error.New(message: "phase status wire was null"))
-            : Items.FirstOrDefault(predicate: status => string.Equals(a: status.Wire, b: wire, comparisonType: StringComparison.Ordinal))
-                is { } match
-                    ? Fin.Succ(value: match)
-                    : Fin.Fail<PhaseStatus>(error: Error.New(message: $"unsupported phase status wire '{wire}'"));
+    public static PhaseStatus FromWire(string? wire) =>
+        Items.FirstOrDefault(predicate: status => string.Equals(a: status.Wire, b: wire, comparisonType: StringComparison.Ordinal))
+            ?? throw new JsonException(message: wire is null ? "phase status wire was null" : $"unsupported phase status wire '{wire}'");
 }
 
 public enum FileSystemKind { File, Directory }
 
 // --- [MODELS] ---------------------------------------------------------------------------
-[Union]
-public abstract partial record BridgeMarker {
+public abstract record BridgeMarker {
     public const string Prefix = "rasm.rhino-bridge.";
     public sealed record Returned(JsonElement Value) : BridgeMarker;
     public sealed record Evidence(string Key, string Value) : BridgeMarker;
     public sealed record Capture(string Path, int Width, int Height) : BridgeMarker;
     public sealed record Nonce(string Value) : BridgeMarker;
-    public string Serialize() => Switch(
-        returned: static r => $"{Prefix}return={JsonSerializer.Serialize(value: r.Value, options: BridgeWire.CompactJson)}",
-        evidence: static e => $"{Prefix}evidence={e.Key}={e.Value}",
-        capture: static c => $"{Prefix}capture={JsonSerializer.Serialize(value: new { path = c.Path, width = c.Width, height = c.Height }, options: BridgeWire.CompactJson)}",
-        nonce: static n => $"{Prefix}nonce={n.Value}");
-    public static Fin<BridgeMarker> Parse(string line) =>
+    public string Serialize() =>
+        this switch {
+            Returned returned => $"{Prefix}return={JsonSerializer.Serialize(value: returned.Value, options: BridgeWire.CompactJson)}",
+            Evidence evidence => $"{Prefix}evidence={evidence.Key}={evidence.Value}",
+            Capture capture => $"{Prefix}capture={JsonSerializer.Serialize(value: new { path = capture.Path, width = capture.Width, height = capture.Height }, options: BridgeWire.CompactJson)}",
+            Nonce nonce => $"{Prefix}nonce={nonce.Value}",
+            _ => throw new UnreachableException(),
+        };
+    public static BridgeMarker? Parse(string line) =>
         (line ?? string.Empty).Trim() switch {
-            { Length: 0 } => Fin.Fail<BridgeMarker>(error: Error.New(message: "bridge marker line was empty")),
-            string trimmed when !trimmed.StartsWith(value: Prefix, comparisonType: StringComparison.Ordinal) => Fin.Fail<BridgeMarker>(error: Error.New(message: $"bridge marker line lacks prefix '{Prefix}'")),
+            { Length: 0 } => null,
+            string trimmed when !trimmed.StartsWith(value: Prefix, comparisonType: StringComparison.Ordinal) => null,
             string trimmed => ParsePayload(payload: trimmed[Prefix.Length..]),
         };
-    public static Seq<BridgeMarker> Scan(string stdout) =>
-        toSeq(value: (stdout ?? string.Empty).Split(separator: ['\r', '\n'], options: StringSplitOptions.RemoveEmptyEntries))
-            .Choose(selector: line => Parse(line: line).ToOption());
+    public static IReadOnlyList<BridgeMarker> Scan(string stdout) =>
+        [.. (stdout ?? string.Empty).Split(separator: ['\r', '\n'], options: StringSplitOptions.RemoveEmptyEntries)
+            .Select(Parse)
+            .OfType<BridgeMarker>()];
     public static void Emit(BridgeMarker marker) {
         ArgumentNullException.ThrowIfNull(argument: marker);
         Console.WriteLine(value: marker.Serialize());
@@ -68,40 +72,40 @@ public abstract partial record BridgeMarker {
         Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"facts={serialized}"));
         Emit(marker: new Evidence(Key: "facts", Value: serialized));
     }
-    private static Fin<BridgeMarker> ParsePayload(string payload) =>
+    private static BridgeMarker? ParsePayload(string payload) =>
         payload.IndexOf(value: '=', comparisonType: StringComparison.Ordinal) switch {
-            < 0 => Fin.Fail<BridgeMarker>(error: Error.New(message: $"bridge marker payload missing '=': {payload}")),
+            < 0 => null,
             int separator => (payload[..separator], payload[(separator + 1)..]) switch {
                 ("return", string json) => ParseReturn(json: json),
                 ("evidence", string body) => ParseEvidence(body: body),
                 ("capture", string json) => ParseCapture(json: json),
-                ("nonce", string value) => Fin.Succ<BridgeMarker>(value: new Nonce(Value: value)),
-                (string kind, _) => Fin.Fail<BridgeMarker>(error: Error.New(message: $"unsupported bridge marker kind '{kind}'")),
+                ("nonce", string value) => new Nonce(Value: value),
+                _ => null,
             },
         };
-    private static Fin<BridgeMarker> ParseReturn(string json) {
+    private static Returned? ParseReturn(string json) {
         try {
             using JsonDocument document = JsonDocument.Parse(json: json);
-            return Fin.Succ<BridgeMarker>(value: new Returned(Value: document.RootElement.Clone()));
-        } catch (JsonException error) {
-            return Fin.Fail<BridgeMarker>(error: Error.New(message: $"bridge marker return payload was not valid JSON: {error.Message}"));
+            return new Returned(Value: document.RootElement.Clone());
+        } catch (JsonException) {
+            return null;
         }
     }
-    private static Fin<BridgeMarker> ParseEvidence(string body) =>
+    private static Evidence? ParseEvidence(string body) =>
         body.IndexOf(value: '=', comparisonType: StringComparison.Ordinal) switch {
-            < 0 => Fin.Fail<BridgeMarker>(error: Error.New(message: $"bridge marker evidence payload missing 'key=value' separator: {body}")),
-            int separator => Fin.Succ<BridgeMarker>(value: new Evidence(Key: body[..separator], Value: body[(separator + 1)..])),
+            < 0 => null,
+            int separator => new Evidence(Key: body[..separator], Value: body[(separator + 1)..]),
         };
-    private static Fin<BridgeMarker> ParseCapture(string json) {
+    private static Capture? ParseCapture(string json) {
         try {
             using JsonDocument document = JsonDocument.Parse(json: json);
             JsonElement root = document.RootElement;
-            return Fin.Succ<BridgeMarker>(value: new Capture(
+            return new Capture(
                 Path: root.TryGetProperty(propertyName: "path", value: out JsonElement path) ? path.GetString() ?? string.Empty : string.Empty,
                 Width: root.TryGetProperty(propertyName: "width", value: out JsonElement width) && width.TryGetInt32(value: out int w) ? w : 0,
-                Height: root.TryGetProperty(propertyName: "height", value: out JsonElement height) && height.TryGetInt32(value: out int h) ? h : 0));
-        } catch (JsonException error) {
-            return Fin.Fail<BridgeMarker>(error: Error.New(message: $"bridge marker capture payload was not valid JSON: {error.Message}"));
+                Height: root.TryGetProperty(propertyName: "height", value: out JsonElement height) && height.TryGetInt32(value: out int h) ? h : 0);
+        } catch (JsonException) {
+            return null;
         }
     }
 }
@@ -128,8 +132,7 @@ public sealed record BridgeReply(
     IReadOnlyList<BridgeDiagnostic> Diagnostics,
     BridgeFault? Fault);
 
-[Union]
-public abstract partial record BridgeReport {
+public abstract record BridgeReport {
     public sealed record Doctor(
         PhaseStatus Status,
         BridgeFault? Fault,
@@ -138,17 +141,6 @@ public abstract partial record BridgeReport {
         int RhinoPid,
         bool ActiveDocument,
         double? ModelAbsoluteTolerance,
-        IReadOnlyList<BridgeAssemblyReport> Assemblies,
-        IReadOnlyList<BridgeSessionReport> Sessions) : BridgeReport;
-    public sealed record Load(
-        PhaseStatus Status,
-        BridgeFault? Fault,
-        string? SessionId,
-        string? AssemblyName,
-        string? Location,
-        string? PdbPath,
-        string? WorkspaceRoot,
-        string? PackageCacheRoot,
         IReadOnlyList<BridgeAssemblyReport> Assemblies) : BridgeReport;
     public sealed record Execute(
         PhaseStatus Status,
@@ -159,15 +151,10 @@ public abstract partial record BridgeReport {
         string BridgeAssemblyVersion,
         string BridgeAssemblyInformationalVersion,
         string RhinoVersion,
+        BridgeRhinoCodeReport RhinoCode,
         BridgeDocumentReport Document,
         BridgeReturnValue? ReturnValue,
         IReadOnlyList<string> References) : BridgeReport;
-    public sealed record Unload(
-        PhaseStatus Status,
-        BridgeFault? Fault,
-        string SessionId,
-        bool UnloadRequested,
-        bool Unloaded) : BridgeReport;
     public sealed record Quit(
         PhaseStatus Status,
         BridgeFault? Fault,
@@ -223,10 +210,8 @@ public sealed record BridgePhase(
 }
 
 public sealed record BridgeAssemblyReport(string Name, PhaseStatus Status, bool Required, string? Version, string? InformationalVersion, string? Location, BridgeFault? Fault);
-public sealed record BridgeSessionReport(string SessionId, string AssemblyName, string Location, PhaseStatus Status);
-public sealed record BridgeLoadRequest(string AssemblyPath, string WorkspaceRoot, string? PackageCacheRoot);
 public sealed record BridgeExecuteRequest(string Script, string? ScriptPath, IReadOnlyList<string> References);
-public sealed record BridgeUnloadRequest(string SessionId);
+public sealed record BridgeRhinoCodeReport(string CachePolicy, bool ResolverIsolated, bool PreferBasePathResolution);
 public sealed record BridgeDocumentReport(bool Active, uint? RuntimeSerialNumber, string? Name, string? Path, bool? Modified, double? ModelAbsoluteTolerance, string? ModelUnitSystem);
 public sealed record BridgeReturnValue(JsonElement Value, string Source);
 public sealed record BridgeOutput(string Source, string Text, bool Truncated, int Length, int Limit);
@@ -249,8 +234,6 @@ public static class BridgeWire {
     public const string Hello = "hello";
     public const string Doctor = "doctor";
     public const string Execute = "execute";
-    public const string Load = "load";
-    public const string Unload = "unload";
     public const string Quit = "quit";
     public const string OutputStdout = "stdout";
     public const string OutputStderr = "stderr";
@@ -367,7 +350,7 @@ public static class BridgeWire {
 public sealed class PhaseStatusConverter : JsonConverter<PhaseStatus> {
     public override PhaseStatus Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
         reader.TokenType is JsonTokenType.String
-            ? PhaseStatus.FromWire(wire: reader.GetString()).IfFail(error => throw new JsonException(message: error.Message))
+            ? PhaseStatus.FromWire(wire: reader.GetString())
             : throw new JsonException(message: $"phase status expected a string token; got {reader.TokenType}");
     public override void Write(Utf8JsonWriter writer, PhaseStatus value, JsonSerializerOptions options) {
         ArgumentNullException.ThrowIfNull(argument: writer);

@@ -4,15 +4,4 @@
         <RootNamespace>Rasm.RhinoBridge.Protocol</RootNamespace>
     </PropertyGroup>
 
-    <ItemGroup>
-        <PackageReference Include="LanguageExt.Core" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <Using Include="LanguageExt" />
-        <Using Include="LanguageExt.Common" />
-        <Using Include="LanguageExt.Prelude" Static="true" />
-        <Using Include="Thinktecture" />
-    </ItemGroup>
 </Project>

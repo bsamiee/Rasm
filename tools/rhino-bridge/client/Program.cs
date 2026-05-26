@@ -20,10 +20,8 @@ internal static class Program {
     internal const string PhaseExecute = "execute";
     internal const string PhaseLaunch = "launch";
     internal const string PhaseLifecycle = "lifecycle";
-    internal const string PhaseLoad = "load";
     internal const string PhaseResolve = "resolve";
     internal const string PhaseRhinoCodeCli = "rhinoCodeCli";
-    internal const string PhaseUnload = "unload";
     private const int TransportTimeoutMs = 30000;
     private const PipeOptions PipePolicy = PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly;
     private static readonly Encoding OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
@@ -55,6 +53,15 @@ internal static class Program {
         BridgePhase connect = await ConnectPhaseAsync(timeout: TimeSpan.FromSeconds(value: 45.0)).ConfigureAwait(false);
         BridgeResult result = BridgeResult.From(command: "launch", phases: [launch, connect]);
         return PrintResult(result: result, path: null);
+    }
+    internal static async Task<int> DoctorAsync(CliOptions options) {
+        BridgePhase launch = await LaunchPhaseAsync().ConfigureAwait(false);
+        BridgePhase connect = await ConnectPhaseAsync(timeout: TransportTimeout).ConfigureAwait(false);
+        BridgePhase doctor = connect.Status.IsOk
+            ? await RequestPhaseAsync(phase: BridgeWire.Doctor, request: BridgeWire.Request(command: BridgeWire.Doctor)).ConfigureAwait(false)
+            : BridgePhase.Of(phase: BridgeWire.Doctor, status: PhaseStatus.Skipped, data: new { reason = "Bridge connect failed before doctor request." });
+        BridgeResult result = BridgeResult.From(command: BridgeWire.Doctor, phases: [launch, connect, doctor]);
+        return PrintResult(result: result, path: options.Result);
     }
     internal static async Task<int> CheckAsync(CheckTarget target, CliOptions options) =>
         await target.Switch(
@@ -107,7 +114,6 @@ internal static class Program {
             worktree: worktree,
             options: options,
             resultPath: resultPath,
-            loadMessage: "RhinoCode check uses #r references without a separate bridge load session.",
             noRuntimeMessage: "Build failed before RhinoCode execution.",
             script: (projectBuild, reportPath) => ProjectScriptAsync(project: projectBuild, scriptPath: scenarioPath, resultPath: reportPath)).ConfigureAwait(false);
     }
@@ -127,7 +133,6 @@ internal static class Program {
             worktree: worktree,
             options: options,
             resultPath: resultPath,
-            loadMessage: "Source checks use RhinoCode #r scripts without a separate bridge load session.",
             noRuntimeMessage: buildPhase.Status.IsOk && scenarioPath is null ? "Source build validated; no runtime script supplied." : "Source ownership or build failed before source script execution.",
             script: (projectBuild, reportPath) => ScenarioScriptAsync(project: projectBuild, scriptPath: scenarioPath, resultPath: reportPath)).ConfigureAwait(false);
     }
@@ -290,7 +295,7 @@ internal static class Program {
                 _ => (BridgePhase.Of(phase: PhaseResolve, status: PhaseStatus.Failed, timer: timer, category: "ambiguous", message: $"Multiple projects own source file: {source}", data: new { sourcePath = source, candidates = owners }, outputs: tracked.Outputs), null),
             };
     }
-    private static async Task<int> CheckRuntimeAsync(string command, BridgePhase resolve, BridgePhase build, ProjectBuild? project, string worktree, CliOptions options, string resultPath, string loadMessage, string noRuntimeMessage, Func<ProjectBuild, string, Task<(string Script, IReadOnlyList<string> References)?>> script) {
+    private static async Task<int> CheckRuntimeAsync(string command, BridgePhase resolve, BridgePhase build, ProjectBuild? project, string worktree, CliOptions options, string resultPath, string noRuntimeMessage, Func<ProjectBuild, string, Task<(string Script, IReadOnlyList<string> References)?>> script) {
         (string Script, IReadOnlyList<string> References)? checkScript = project is { } projectBuild && build.Status.IsOk
             ? await script(projectBuild, resultPath).ConfigureAwait(false)
             : null;
@@ -298,7 +303,6 @@ internal static class Program {
         BridgePhase launch = canRun ? await LaunchPhaseAsync().ConfigureAwait(false) : BridgePhase.Of(phase: PhaseLaunch, status: PhaseStatus.Skipped, data: new { reason = noRuntimeMessage });
         BridgePhase connect = canRun ? await ConnectPhaseAsync(timeout: TransportTimeout).ConfigureAwait(false) : BridgePhase.Of(phase: PhaseConnect, status: PhaseStatus.Skipped, data: new { reason = noRuntimeMessage });
         BridgePhase scriptServer = connect.Status.IsOk ? await RhinoCodeCliPhaseAsync().ConfigureAwait(false) : BridgePhase.Of(phase: PhaseRhinoCodeCli, status: PhaseStatus.Skipped, data: new { reason = "Bridge connect failed before RhinoCode CLI discovery." });
-        BridgePhase load = BridgePhase.Of(phase: PhaseLoad, status: PhaseStatus.Skipped, data: new { reason = loadMessage });
         Task<BridgePhase> executeTask = (checkScript, connect.Status.IsOk, build.Status.IsOk) switch {
             ( { } current, true, _) => ExecutePhaseAsync(
                 script: current.Script,
@@ -313,7 +317,7 @@ internal static class Program {
         BridgePhase diagnostics = execute.Diagnostics.Count > 0
             ? BridgePhase.Of(phase: PhaseDiagnostics, status: PhaseStatus.Ok, data: new { count = execute.Diagnostics.Count, sourcePhase = execute.Phase }, diagnostics: execute.Diagnostics)
             : BridgePhase.Of(phase: PhaseDiagnostics, status: PhaseStatus.Skipped, data: new { reason = "No RhinoCode diagnostics were reported." });
-        BridgeResult result = BridgeResult.From(command: command, phases: [resolve, build, launch, connect, scriptServer, load, execute, diagnostics, BridgePhase.Of(phase: PhaseUnload, status: PhaseStatus.Skipped, data: new { reason = "No bridge load session was created." }), BridgePhase.Of(phase: PhaseLifecycle, status: PhaseStatus.Skipped, data: new { reason = "No lifecycle action was requested." })]);
+        BridgeResult result = BridgeResult.From(command: command, phases: [resolve, build, launch, connect, scriptServer, execute, diagnostics, BridgePhase.Of(phase: PhaseLifecycle, status: PhaseStatus.Skipped, data: new { reason = "No lifecycle action was requested." })]);
         return PrintResult(result: result, path: resultPath);
     }
     private static async Task<(string Script, IReadOnlyList<string> References)?> ProjectScriptAsync(ProjectBuild project, string? scriptPath, string resultPath) =>
@@ -459,11 +463,6 @@ internal static class Program {
             return BridgePhase.Of(phase: phase, status: PhaseStatus.Failed, fault: BridgeFault.FromException(category: phase, error: error));
         }
     }
-    internal static async Task<int> ReplyCommandAsync(string command, string phase, BridgeRequest request, string? resultPath) {
-        BridgeReply reply = await SendAsync(request: request, timeout: TransportTimeout).ConfigureAwait(false);
-        BridgeResult result = BridgeResult.From(command: command, phases: [BridgePhase.FromReply(phase: phase, reply: reply)]);
-        return PrintResult(result: result, path: resultPath);
-    }
     private static async Task<BridgeReply> SendAsync(BridgeRequest request, TimeSpan timeout) {
         using CancellationTokenSource cancellation = new(delay: timeout);
         BridgeEndpoint endpoint = ReadEndpoint();
@@ -589,7 +588,7 @@ internal abstract partial record ClientVerb {
         clean: static _ => Program.PhaseClean,
         quit: static _ => Program.PhaseLifecycle);
     internal Task<int> RunAsync() => Switch(
-        doctor: static d => Program.ReplyCommandAsync(command: BridgeWire.Doctor, phase: BridgeWire.Doctor, request: BridgeWire.Request(command: BridgeWire.Doctor), resultPath: d.Options.Result),
+        doctor: static d => Program.DoctorAsync(options: d.Options),
         launch: static _ => Program.LaunchAsync(),
         check: static c => Program.CheckAsync(target: c.Target, options: c.Options),
         clean: static c => Program.CleanAsync(targetPath: c.TargetPath),
@@ -667,7 +666,7 @@ internal sealed partial class PhaseClassification {
     internal static PhaseClassification Of(string phaseName) =>
         phaseName switch {
             Program.PhaseRhinoCodeCli => Advisory,
-            Program.PhaseLoad or Program.PhaseUnload or Program.PhaseLifecycle => Lifecycle,
+            Program.PhaseLifecycle => Lifecycle,
             _ => Decisive,
         };
 }
