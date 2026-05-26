@@ -83,10 +83,10 @@ public sealed class VectorCloudMetricLaws {
         Spec.Succ(VectorCloudMetric.Covariance.Project<SymmetricMatrix>(cloud: cluster, key: Op.Of(name: "cloud-test")),
             then: cov => {
                 Assert.Equal(expected: 3, actual: cov.Dimension.Value);
-                Spec.SeqEqualWithin(left: toSeq(cov.Upper.AsIterable()), right: toSeq(Numeric.CovarianceUpper(points: CloudMetricGens.Triangle).AsIterable()), tolerance: 1.0e-12, what: "covariance");
+                Spec.Equal(left: toSeq(cov.Upper.AsIterable()), right: toSeq(Numeric.CovarianceUpper(points: CloudMetricGens.Triangle).AsIterable()), tolerance: 1.0e-12, what: "covariance");
             });
         Spec.Succ(VectorCloudMetric.Centroid.Project<Point3d>(cloud: cluster, key: Op.Of(name: "cloud-test")),
-            then: centroid => Spec.NearEqual(left: centroid, right: Numeric.Centroid(points: CloudMetricGens.Triangle), tolerance: 1.0e-12));
+            then: centroid => Spec.Equal(left: centroid, right: Numeric.Centroid(points: CloudMetricGens.Triangle), tolerance: 1.0e-12));
         Spec.Fail(VectorCloudMetric.Covariance.Project<double>(cloud: cluster, key: Op.Of(name: "cloud-test")));
         Spec.Fail(VectorCloudMetric.Area.Project<double>(cloud: cluster, key: Op.Of(name: "cloud-test")));
         Assert.Equal(expected: typeof(CloudCurvatureResult), actual: VectorCloudMetric.PrincipalCurvature.Output);
@@ -100,8 +100,8 @@ public sealed class VectorCloudMassLaws {
             VectorCloud.ClusterCase cluster = Assert.IsType<VectorCloud.ClusterCase>(@object: cloud);
             Spec.Some(cluster.Mass, weights => {
                 double total = Numeric.Sum(values: mass);
-                Spec.EqualWithin(left: Numeric.Sum(values: toSeq(weights.AsIterable())), right: 1.0, tolerance: 1.0e-12, what: "mass sum");
-                Spec.SeqEqualWithin(left: toSeq(mass.AsIterable().Select(value => value / total)), right: toSeq(weights.AsIterable()), tolerance: 1.0e-12, what: "mass");
+                Spec.Equal(left: Numeric.Sum(values: toSeq(weights.AsIterable())), right: 1.0, tolerance: 1.0e-12, what: "mass sum");
+                Spec.Equal(left: toSeq(mass.AsIterable().Select(value => value / total)), right: toSeq(weights.AsIterable()), tolerance: 1.0e-12, what: "mass");
             });
         }));
     [Fact]
@@ -118,13 +118,13 @@ public sealed class VectorCloudMassLaws {
     public void AlreadyNormalMassRailStaysProportional() =>
         Spec.ForAll(CloudMetricGens.Simplex3, mass => Spec.Succ(VectorCloud.WeightedCluster(points: CloudMetricGens.Triangle, mass: mass, context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), then: cloud =>
             Spec.Some(Assert.IsType<VectorCloud.ClusterCase>(@object: cloud).Mass, weights =>
-                Spec.SeqEqualWithin(left: mass, right: toSeq(weights.AsIterable()), tolerance: 1.0e-12, what: "simplex mass"))));
+                Spec.Equal(left: mass, right: toSeq(weights.AsIterable()), tolerance: 1.0e-12, what: "simplex mass"))));
     [Fact]
     public void ClusterAdmissionValidatesMassOnceAndRebuildsSameCase() {
         VectorCloud weighted = Spec.SuccValue(VectorCloud.WeightedCluster(points: CloudMetricGens.Triangle, mass: Seq(2.0, 3.0, 5.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), label: "weighted");
         Spec.Succ(VectorCloud.Admit(value: weighted, key: Op.Of(name: "cloud-test")), admitted => {
             VectorCloud.ClusterCase cluster = Assert.IsType<VectorCloud.ClusterCase>(@object: admitted);
-            Spec.Some(cluster.Mass, mass => Spec.SeqEqualWithin(left: Seq(0.2, 0.3, 0.5), right: toSeq(mass.AsIterable()), tolerance: 1.0e-12, what: "admitted mass"));
+            Spec.Some(cluster.Mass, mass => Spec.Equal(left: Seq(0.2, 0.3, 0.5), right: toSeq(mass.AsIterable()), tolerance: 1.0e-12, what: "admitted mass"));
         });
         Spec.Succ(VectorCloud.Admit(value: CloudMetricGens.ClusterOf(points: CloudMetricGens.Triangle), key: Op.Of(name: "cloud-test")), admitted =>
             Assert.True(condition: Assert.IsType<VectorCloud.ClusterCase>(@object: admitted).Mass.IsNone));
@@ -140,7 +140,7 @@ public sealed class VectorCloudMassLaws {
         Spec.Succ(CloudKernel.Sinkhorn<SinkhornReceipt>(source: source, target: target, policy: relaxed, key: Op.Of(name: "cloud-test")), then: receipt =>
             Assert.Equal(expected: SinkhornStopKind.RelaxedScalingConverged, actual: receipt.Stop));
         Spec.Succ(CloudKernel.Sinkhorn<double>(source: source, target: target, policy: balanced, key: Op.Of(name: "cloud-test")),
-            then: distance => Spec.EqualWithin(left: distance, right: 1.0, tolerance: 1.0e-12, what: "one-point OT distance"));
+            then: distance => Spec.Equal(left: distance, right: 1.0, tolerance: 1.0e-12, what: "one-point OT distance"));
         Spec.FailCategory(CloudKernel.Sinkhorn<double>(source: source, target: target, policy: default, key: Op.Of(name: "cloud-test")), category: "Input");
         Spec.FailCategory(CloudKernel.Sinkhorn<Point3d>(source: source, target: target, policy: balanced, key: Op.Of(name: "cloud-test")), category: "Unsupported");
     }
@@ -151,12 +151,12 @@ public sealed class VectorCloudMassLaws {
         Op key = Op.Of(name: "cloud-test");
         CloudTransportPolicy policy = CloudMetricGens.TransportPolicy(regularization: 0.2, maxIterations: 128, debiased: true, convergenceTolerance: 1.0e-8, couplingCutoff: 1.0e-8);
         Spec.Succ(CloudKernel.Sinkhorn<SinkhornReceipt>(source: source, target: target, policy: policy, key: key), receipt => {
-            Spec.EqualWithin(left: receipt.ConvergenceTolerance, right: policy.ConvergenceTolerance.Value, tolerance: 0.0, what: "sinkhorn tolerance");
-            Spec.EqualWithin(left: receipt.CouplingCutoff, right: policy.CouplingCutoff.Value, tolerance: 0.0, what: "sinkhorn cutoff");
+            Spec.Equal(left: receipt.ConvergenceTolerance, right: policy.ConvergenceTolerance.Value, tolerance: 0.0, what: "sinkhorn tolerance");
+            Spec.Equal(left: receipt.CouplingCutoff, right: policy.CouplingCutoff.Value, tolerance: 0.0, what: "sinkhorn cutoff");
             Assert.True(condition: receipt.SourceConvergenceResidual <= policy.ConvergenceTolerance.Value);
             Assert.True(condition: receipt.TargetConvergenceResidual <= policy.ConvergenceTolerance.Value);
             Assert.Equal(expected: receipt.NonZeroCouplings, actual: receipt.Correspondences.NonZeroCount);
-            Spec.EqualWithin(left: receipt.CouplingMass, right: receipt.Correspondences.TotalMass, tolerance: 1.0e-12, what: "retained coupling mass");
+            Spec.Equal(left: receipt.CouplingMass, right: receipt.Correspondences.TotalMass, tolerance: 1.0e-12, what: "retained coupling mass");
             Assert.True(condition: receipt.Correspondences.CoveredSourceCount > 0);
             Assert.True(condition: receipt.Correspondences.CoveredTargetCount > 0);
             Assert.True(condition: receipt.Correspondences.RetainedSourceMass > 0.0 && receipt.Correspondences.RetainedTargetMass > 0.0);

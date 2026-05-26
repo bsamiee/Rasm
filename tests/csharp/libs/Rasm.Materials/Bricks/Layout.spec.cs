@@ -45,7 +45,7 @@ public sealed class BrickLayoutLaws {
                 Assert.True(condition: placement.Course >= 0 && placement.Course < assembly.CourseCount);
                 Assert.True(condition: placement.RunMm > 0.0);
                 Assert.True(condition: placement.RiseMm > 0.0);
-                Spec.EqualWithin(left: placement.ElevationMm, right: placement.Course * run.Unit.Unit.Coursing.CourseHeightMm, tolerance: 1.0e-9, what: "elevation");
+                Spec.Equal(left: placement.ElevationMm, right: placement.Course * run.Unit.Unit.Coursing.CourseHeightMm, tolerance: 1.0e-9, what: "elevation");
             });
         }));
 
@@ -60,7 +60,7 @@ public sealed class BrickLayoutLaws {
             HeadJointMm: Option<double>.None,
             BedJointMm: Option<double>.None);
         Spec.Succ(BrickAssembly.Layout(run: arc), then: assembly =>
-            Spec.EqualWithin(left: assembly.LengthMm, right: Math.PI * 500.0, tolerance: 1.0e-9, what: "arc length"));
+            Spec.Equal(left: assembly.LengthMm, right: Math.PI * 500.0, tolerance: 1.0e-9, what: "arc length"));
         Spec.Fail(BrickAssembly.Layout(run: arc with { HeightMm = 0.0 }));
         Spec.Fail(BrickAssembly.Layout(run: arc with { Bond = BondName.Herringbone45 }));
     }

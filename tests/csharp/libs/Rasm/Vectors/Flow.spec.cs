@@ -108,7 +108,7 @@ public sealed class TerminationLaws {
             then: decision => Spec.Some(decision.Event, @event => {
                 Assert.True(condition: decision.Stop);
                 Assert.Equal(expected: item.Status, actual: @event.Status);
-                Spec.EqualWithin(left: @event.Parameter, right: item.Parameter, tolerance: 0.0, what: "event parameter");
+                Spec.Equal(left: @event.Parameter, right: item.Parameter, tolerance: 0.0, what: "event parameter");
                 Assert.True(condition: @event.IsValidFor(terminationPoint: @event.Points.Localized));
                 Assert.True(condition: @event.Residual <= @event.Tolerance);
                 Assert.True(condition: @event.Iterations <= 1);
@@ -123,11 +123,11 @@ public sealed class IntegratorKindLaws {
         Spec.ForAll(FlowGens.NonAdaptive, k => Assert.False(k.IsAdaptive));
         Spec.ForAll(FlowGens.Integrator, k => {
             Assert.True(k.Tableau.IsValid);
-            Spec.EqualWithin(left: Numeric.Sum(values: k.Tableau.Weights), right: 1.0, tolerance: 1.0e-10, what: "weights");
+            Spec.Equal(left: Numeric.Sum(values: k.Tableau.Weights), right: 1.0, tolerance: 1.0e-10, what: "weights");
             Spec.Holds(condition: k.Tableau.Coupling.Zip(k.Tableau.Abscissae).ForAll(pair => Math.Abs(value: Numeric.Sum(values: pair.Item1) - pair.Item2) <= 1.0e-10), label: "Butcher row sums match abscissae");
             Spec.Holds(condition: k.Tableau.Coupling.AsIterable().Select((row, i) => row.Count <= i).All(static ok => ok), label: "Butcher coupling[i].Count <= i");
         });
-        Spec.ForAll(FlowGens.Adaptive, k => Spec.EqualWithin(
+        Spec.ForAll(FlowGens.Adaptive, k => Spec.Equal(
             left: k.AdaptiveExponent,
             right: k.Tableau.EmbeddedOrder.Match(Some: static order => 1.0 / (order + 1.0), None: static () => 0.2),
             tolerance: 0.0,
@@ -149,7 +149,7 @@ public sealed class FieldIntegratorLaws {
             FieldIntegrator.AdaptiveCase adaptive = Assert.IsType<FieldIntegrator.AdaptiveCase>(@object: integrator);
             Assert.Equal(expected: k, actual: adaptive.Kind);
             Assert.Equal(expected: 2, actual: adaptive.MaxRejects);
-            Spec.EqualWithin(left: adaptive.Tolerance.Value, right: 1.0e-6, tolerance: 0.0, what: "adaptive tolerance");
+            Spec.Equal(left: adaptive.Tolerance.Value, right: 1.0e-6, tolerance: 0.0, what: "adaptive tolerance");
         }));
         Spec.ForAll(FlowGens.NonAdaptive, k => Spec.Fail(FieldIntegrator.Adaptive(kind: k, tolerance: 1.0e-6, key: FlowGens.Key)));
     }
@@ -191,8 +191,8 @@ public sealed class FieldIntegratorLaws {
                 Assert.Equal(expected: StreamlineStopKind.Terminated, actual: trace.Stop);
                 Assert.Equal(expected: 4, actual: trace.AcceptedSteps);
                 Assert.Equal(expected: 5, actual: trace.Trail.Count);
-                Spec.NearEqual(left: trace.Trail[index: 4], right: new Point3d(x: 1.0, y: 0.0, z: 0.0), tolerance: 1.0e-12);
-                Spec.EqualWithin(left: trace.ArcLength, right: Numeric.ArcLength(points: trace.Trail), tolerance: 1.0e-12, what: "arc fold");
+                Spec.Equal(left: trace.Trail[index: 4], right: new Point3d(x: 1.0, y: 0.0, z: 0.0), tolerance: 1.0e-12);
+                Spec.Equal(left: trace.ArcLength, right: Numeric.ArcLength(points: trace.Trail), tolerance: 1.0e-12, what: "arc fold");
             });
     }
     [Fact]

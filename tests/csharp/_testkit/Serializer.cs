@@ -6,11 +6,13 @@ using Xunit.Sdk;
 namespace Rasm.TestKit;
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-public sealed class RhinoGeometrySerializer : IXunitSerializer {
+// Singular serializer surface for the testkit. Currently owns Rhino.Geometry value-type round-trip; extend by
+// adding new IXunitSerializer types here and registering each via Directory.Build.props.
+public sealed class GeometrySerializer : IXunitSerializer {
     public bool IsSerializable(Type type, object? value, [NotNullWhen(false)] out string? failureReason) {
         ArgumentNullException.ThrowIfNull(argument: type);
         bool supported = type == typeof(Point3d) || type == typeof(Vector3d) || type == typeof(BoundingBox);
-        failureReason = supported ? null : $"RhinoGeometrySerializer does not support type '{type.FullName}'";
+        failureReason = supported ? null : $"GeometrySerializer does not support type '{type.FullName}'";
         return supported;
     }
     public string Serialize(object value) {
@@ -19,7 +21,7 @@ public sealed class RhinoGeometrySerializer : IXunitSerializer {
             Point3d p => Join(p.X, p.Y, p.Z),
             Vector3d v => Join(v.X, v.Y, v.Z),
             BoundingBox b => Join(b.Min.X, b.Min.Y, b.Min.Z, b.Max.X, b.Max.Y, b.Max.Z),
-            _ => throw new ArgumentException($"RhinoGeometrySerializer cannot serialize '{value.GetType().FullName}'", nameof(value)),
+            _ => throw new ArgumentException($"GeometrySerializer cannot serialize '{value.GetType().FullName}'", nameof(value)),
         };
     }
     public object Deserialize(Type type, string serializedValue) {
@@ -32,7 +34,7 @@ public sealed class RhinoGeometrySerializer : IXunitSerializer {
                 new Vector3d(x: Parse(x), y: Parse(y), z: Parse(z)),
             (Type t, [string mx, string my, string mz, string xx, string xy, string xz]) when t == typeof(BoundingBox) =>
                 new BoundingBox(min: new Point3d(x: Parse(mx), y: Parse(my), z: Parse(mz)), max: new Point3d(x: Parse(xx), y: Parse(xy), z: Parse(xz))),
-            _ => throw new FormatException($"RhinoGeometrySerializer cannot deserialize '{serializedValue}' as '{type.FullName}'"),
+            _ => throw new FormatException($"GeometrySerializer cannot deserialize '{serializedValue}' as '{type.FullName}'"),
         };
     }
     private static string Join(params double[] components) =>

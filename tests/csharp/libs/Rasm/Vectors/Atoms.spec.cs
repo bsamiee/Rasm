@@ -43,7 +43,7 @@ public sealed class VectorAngleProps {
     public void ProjectionOwnsSelfScalarAndUnsupportedRails() =>
         Spec.ForAll(AtomGens.Angle, static angle => {
             Spec.Succ(angle.Project<VectorAngle>(key: AtomGens.Key), then: actual => Assert.Equal(expected: angle, actual: actual));
-            Spec.Succ(angle.Project<double>(key: AtomGens.Key), then: value => Spec.EqualWithin(left: value, right: angle.Value, tolerance: 0.0, what: "angle scalar"));
+            Spec.Succ(angle.Project<double>(key: AtomGens.Key), then: value => Spec.Equal(left: value, right: angle.Value, tolerance: 0.0, what: "angle scalar"));
             Spec.FailCategory(angle.Project<Point3d>(key: AtomGens.Key), category: "Unsupported");
         });
 }
@@ -87,7 +87,7 @@ public sealed class UnitIntervalProps {
         Spec.Cases(items: [0.0, RhinoMath.ZeroTolerance, 1.0 - RhinoMath.ZeroTolerance, 1.0], key: static x => x,
             law: static x => Assert.True(condition: UnitInterval.TryCreate(value: x, obj: out _)));
         Assert.True(condition: UnitInterval.TryCreate(value: default(UnitInterval).Value, obj: out UnitInterval unit));
-        Spec.EqualWithin(left: unit.Value, right: 0.0, tolerance: 0.0, what: "default unit lower bound");
+        Spec.Equal(left: unit.Value, right: 0.0, tolerance: 0.0, what: "default unit lower bound");
     }
     [Fact]
     public void ValueRoundtripsThroughFactory() =>
@@ -98,9 +98,9 @@ public sealed class UnitIntervalProps {
 public sealed class DimensionProps {
     [Fact]
     public void ClosureRejectsValuesBelowOneAndAcceptsPositiveIntegers() {
-        Spec.ForAll(Gen.Int[-100, 0], static value => Assert.False(Rasm.Vectors.Dimension.TryCreate(value: value, obj: out _)));
-        Spec.ForAll(Gen.Int[1, 256], static value => Assert.True(Rasm.Vectors.Dimension.TryCreate(value: value, obj: out Rasm.Vectors.Dimension d) && d.Value == value));
-        Assert.False(condition: Rasm.Vectors.Dimension.TryCreate(value: default(Rasm.Vectors.Dimension).Value, obj: out _));
+        Spec.ForAll(Gen.Int[-100, 0], static value => Assert.False(Dim.TryCreate(value: value, obj: out _)));
+        Spec.ForAll(Gen.Int[1, 256], static value => Assert.True(Dim.TryCreate(value: value, obj: out Dim d) && d.Value == value));
+        Assert.False(condition: Dim.TryCreate(value: default(Dim).Value, obj: out _));
     }
 }
 
@@ -108,7 +108,7 @@ public sealed class BoundarySenseLaws {
     [Fact]
     public void CatalogKeysAndSignsArePaired() =>
         Spec.Cases(items: AtomGens.Senses, key: static sense => sense.Key, law: static sense => {
-            Spec.EqualWithin(left: Math.Abs(value: sense.Sign), right: 1.0, tolerance: 0.0, what: "sense unit magnitude");
+            Spec.Equal(left: Math.Abs(value: sense.Sign), right: 1.0, tolerance: 0.0, what: "sense unit magnitude");
             Assert.Equal(expected: sense.Key, actual: (int)sense.Sign);
         });
 }
@@ -121,8 +121,8 @@ public sealed class SignedAxisLaws {
         Seq<SignedAxis> full = SignedAxis.Cardinal(planar: false);
         _ = SignedAxis.Cardinal(planar: true).Iter(axis => Assert.Contains(expected: axis, collection: full));
         Spec.Cases(items: AtomGens.Axes, key: static axis => axis.Key, law: static axis => {
-            Spec.EqualWithin(left: axis.World.Length, right: 1.0, tolerance: 1.0e-12, what: "axis world length");
-            Spec.EqualWithin(left: axis.World * axis.World, right: 1.0, tolerance: 1.0e-12, what: "axis self dot");
+            Spec.Equal(left: axis.World.Length, right: 1.0, tolerance: 1.0e-12, what: "axis world length");
+            Spec.Equal(left: axis.World * axis.World, right: 1.0, tolerance: 1.0e-12, what: "axis self dot");
             Assert.Equal(expected: Math.Sign(value: axis.Key), actual: Math.Sign(value: axis.World.X + axis.World.Y + axis.World.Z));
         });
     }

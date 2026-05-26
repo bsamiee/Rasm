@@ -28,11 +28,11 @@ public sealed class VectorIntentFactoryLaws {
     public void InterpolationFactoriesValidateUnitInterval() {
         Spec.ForAll(Gens.UnitClosed, t => {
             Spec.Succ(VectorIntent.Lerp(a: Vector3d.XAxis, b: Vector3d.YAxis, t: t, key: IntentGens.Key),
-                then: intent => Spec.EqualWithin(left: Assert.IsType<VectorIntent.LerpCase>(@object: intent).Parameter.Value, right: t, tolerance: 0.0, what: "lerp t"));
+                then: intent => Spec.Equal(left: Assert.IsType<VectorIntent.LerpCase>(@object: intent).Parameter.Value, right: t, tolerance: 0.0, what: "lerp t"));
             Spec.Succ(VectorIntent.Pose(from: Plane.WorldXY, to: Plane.WorldZX, t: t, mode: MotionInterpolation.Linear, key: IntentGens.Key),
-                then: intent => Spec.EqualWithin(left: Assert.IsType<VectorIntent.PoseCase>(@object: intent).Parameter.Value, right: t, tolerance: 0.0, what: "pose t"));
+                then: intent => Spec.Equal(left: Assert.IsType<VectorIntent.PoseCase>(@object: intent).Parameter.Value, right: t, tolerance: 0.0, what: "pose t"));
             Spec.Succ(VectorIntent.Slerp(a: IntentGens.X, b: IntentGens.Y, t: t, key: IntentGens.Key),
-                then: intent => Spec.EqualWithin(left: Assert.IsType<VectorIntent.SlerpCase>(@object: intent).Parameter.Value, right: t, tolerance: 0.0, what: "slerp t"));
+                then: intent => Spec.Equal(left: Assert.IsType<VectorIntent.SlerpCase>(@object: intent).Parameter.Value, right: t, tolerance: 0.0, what: "slerp t"));
         });
         Spec.ForAll(IntentGens.OutsideUnit, t => {
             Spec.Fail(VectorIntent.Lerp(a: Vector3d.XAxis, b: Vector3d.YAxis, t: t, key: IntentGens.Key));
@@ -112,7 +112,7 @@ public sealed class VectorIntentShapeLaws {
         Spec.FailCategory(sample.Project<SymmetricMatrix>(context: IntentGens.Model, key: IntentGens.Key), category: "Unsupported");
         VectorIntent cloudMetric = Spec.SuccValue(VectorIntent.Cloud(cloud: IntentGens.Cluster, metric: VectorCloudMetric.Covariance, key: IntentGens.Key), label: "metric intent");
         Spec.Succ(cloudMetric.Project<SymmetricMatrix>(context: IntentGens.Model, key: IntentGens.Key), then: matrix =>
-            Spec.SeqEqualWithin(left: toSeq(matrix.Upper.AsIterable()), right: toSeq(Numeric.CovarianceUpper(points: IntentGens.ClusterPoints).AsIterable()), tolerance: 1.0e-12, what: "intent covariance"));
+            Spec.Equal(left: toSeq(matrix.Upper.AsIterable()), right: toSeq(Numeric.CovarianceUpper(points: IntentGens.ClusterPoints).AsIterable()), tolerance: 1.0e-12, what: "intent covariance"));
         Spec.FailCategory(cloudMetric.Project<Point3d>(context: IntentGens.Model, key: IntentGens.Key), category: "Unsupported");
     }
 }

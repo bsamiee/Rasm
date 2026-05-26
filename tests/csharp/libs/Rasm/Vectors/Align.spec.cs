@@ -63,9 +63,9 @@ public sealed class AlignSolverLaws {
         ];
         double[] rowMass = [.. Enumerable.Repeat(element: 1.0 / AlignGens.Six.Count, count: AlignGens.Six.Count)];
         Spec.Succ(AlignKernel.SolvePointToPlane(source: AlignGens.Six, target: target, normals: normals, rowMass: rowMass, current: Transform.Identity, key: AlignGens.Key), then: step => {
-            Spec.EqualWithin(left: step.Delta[0, 3], right: 0.0, tolerance: 1.0e-10, what: "x translation");
-            Spec.EqualWithin(left: step.Delta[1, 3], right: 0.0, tolerance: 1.0e-10, what: "y translation");
-            Spec.EqualWithin(left: step.Delta[2, 3], right: 1.0, tolerance: 1.0e-10, what: "z translation");
+            Spec.Equal(left: step.Delta[0, 3], right: 0.0, tolerance: 1.0e-10, what: "x translation");
+            Spec.Equal(left: step.Delta[1, 3], right: 0.0, tolerance: 1.0e-10, what: "y translation");
+            Spec.Equal(left: step.Delta[2, 3], right: 1.0, tolerance: 1.0e-10, what: "z translation");
             Assert.True(condition: step.Solve.IsSome);
         });
     }
