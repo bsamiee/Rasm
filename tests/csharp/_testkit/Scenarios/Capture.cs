@@ -30,7 +30,7 @@ public static class Capture {
             }
             _ = Directory.CreateDirectory(path: Path.GetDirectoryName(path: path) ?? Directory.GetCurrentDirectory());
             bitmap.Save(filename: path, format: System.Drawing.Imaging.ImageFormat.Png);
-            Console.WriteLine(value: new BridgeMarker.Capture(Path: path, Width: width, Height: height).Serialize());
+            BridgeMarker.EmitCapture(path: path, width: width, height: height);
             return Fin.Succ(value: unit);
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException) {
             return Fin.Fail<Unit>(error: Error.New(message: $"Capture.Snapshot failed: {error.Message}"));

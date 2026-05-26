@@ -23,63 +23,54 @@ readonly API_RHINO_WIP_RESOURCES="${API_RHINO_WIP_APP_PATH}/Contents/Frameworks/
 readonly API_RHINO_CODE="${API_RHINO_WIP_APP_PATH}/Contents/Resources/bin/rhinocode"
 readonly -a DOTNET_SERIAL_BUILD_ARGS=(-maxcpucount:1 -p:BuildInParallel=false)
 readonly -a RHINO_HOST_PACKAGE_EXCLUDES=(
-    'Eto.*'
-    'Eto.macOS.*'
-    'Grasshopper.*'
-    'Grasshopper2.*'
-    'GrasshopperIO.*'
-    'Microsoft.macOS.*'
-    'Rhino.Runtime.Code.*'
-    'Rhino.UI.*'
-    'RhinoCodePlatform.Rhino3D.*'
-    'RhinoCommon.*'
-    'System.Drawing.Common.*'
+    'Eto.*' 'Eto.macOS.*' 'Grasshopper.*' 'Grasshopper2.*' 'GrasshopperIO.*'
+    'Microsoft.macOS.*' 'Rhino.Runtime.Code.*' 'Rhino.UI.*'
+    'RhinoCodePlatform.Rhino3D.*' 'RhinoCommon.*' 'System.Drawing.Common.*'
 )
 readonly -a PACKAGE_PROJECT_ROOTS=("${ROOT_DIR}/apps" "${ROOT_DIR}/tools")
 declare -Ar API_REFERENCES=(
     [rhino-common]="${API_RHINO_WIP_RESOURCES}/RhinoCommon.dll|${API_RHINO_WIP_RESOURCES}/RhinoCommon.xml|${ROOT_DIR}/.cache/nuget/packages/rhinocommon/*/lib/net8.0/RhinoCommon.xml"
     [rhino-ui]="${API_RHINO_WIP_RESOURCES}/Rhino.UI.dll|${API_RHINO_WIP_RESOURCES}/Rhino.UI.xml|"
+    [rhino-code-remote]="${API_RHINO_WIP_RESOURCES}/Rhino.Runtime.Code.Remote.dll||"
+    [rhino-code]="${API_RHINO_WIP_RESOURCES}/Rhino.Runtime.Code.dll||"
     [eto]="${API_RHINO_WIP_RESOURCES}/Eto.dll|${API_RHINO_WIP_RESOURCES}/Eto.xml|${ROOT_DIR}/.cache/nuget/packages/rhinocommon/*/lib/net8.0/Eto.xml"
     [gh2]="${API_RHINO_WIP_RESOURCES}/ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll|${API_RHINO_WIP_RESOURCES}/ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.xml|${ROOT_DIR}/.cache/nuget/packages/grasshopper2/*/ref/net7.0/Grasshopper2.xml"
     [gh2-io]="${API_RHINO_WIP_RESOURCES}/ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll|${API_RHINO_WIP_RESOURCES}/ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.xml|${ROOT_DIR}/.cache/nuget/packages/grasshopper2/*/ref/net7.0/GrasshopperIO.xml"
 )
-readonly -a API_REFERENCE_ORDER=(rhino-common rhino-ui eto gh2 gh2-io)
+readonly -a API_REFERENCE_ORDER=(rhino-common rhino-ui rhino-code rhino-code-remote eto gh2 gh2-io)
 declare -a CLEANUP_PATHS=()
 declare -a CLEANUP_LOCKS=()
 declare -a CLEANUP_ROLLBACKS=()
 CLEANING=0
 declare -Ar ROUTES=(
-    [--self-test]='_self_test|0|0|--self-test|'
-    [build]='_build|0|1|build [version]|'
-    [verify]='_verify|1|1|verify <path-or-glob>|'
-    [package]='_cmd_package|2|2|package <package> <version>|'
-    [deploy]='_package_action|2|2|deploy <package> <version>|deploy'
-    [install]='_package_action|2|2|install <package> <version>|install'
-    [push]='_package_action|2|2|push <package> <version>|push'
-    [bridge:build]='_bridge_build|0|0|bridge build|'
-    [bridge:launch]='_bridge_client|0|0|bridge launch|launch'
-    [bridge:restart]='_bridge_client|0|0|bridge restart|restart'
-    [bridge:doctor]='_bridge_client|0|999|bridge doctor [client options]|doctor'
-    [bridge:load]='_bridge_client|1|999|bridge load <assembly.dll> [client options]|load'
-    [bridge:load-smoke]='_bridge_client|1|999|bridge load-smoke <assembly.dll> [client options]|load-smoke'
-    [bridge:check]='_bridge_client|1|999|bridge check <target> [scenario.csx] [client options]|check'
-    [bridge:clean]='_bridge_client|1|1|bridge clean <target>|clean'
-    [bridge:unload]='_bridge_client|1|1|bridge unload <session-id>|unload'
-    [bridge:quit]='_bridge_client|0|0|bridge quit|quit'
-    [api:doctor]='_api_doctor|0|0|api doctor|'
-    [api:path]='_api_path|1|2|api path <api-key> [assembly/xml]|'
-    [api:xml]='_api_xml|2|2|api xml <api-key> <pattern>|'
-    [api:types]='_api_types|1|2|api types <api-key> [pattern]|'
-    [api:decompile]='_api_decompile|2|2|api decompile <api-key> <type>|'
+    [--self-test]='_self_test|0|0|'
+    [build]='_build|0|1|'
+    [verify]='_verify|1|1|'
+    [package]='_cmd_package|2|2|'
+    [deploy]='_package_action|2|2|deploy'
+    [install]='_package_action|2|2|install'
+    [push]='_package_action|2|2|push'
+    [bridge:build]='_bridge_build|0|0|'
+    [bridge:launch]='_bridge_client|0|0|launch'
+    [bridge:restart]='_bridge_client|0|0|restart'
+    [bridge:doctor]='_bridge_client|0|999|doctor'
+    [bridge:load]='_bridge_client|1|999|load'
+    [bridge:load-smoke]='_bridge_client|1|999|load-smoke'
+    [bridge:check]='_bridge_client|1|999|check'
+    [bridge:clean]='_bridge_client|1|1|clean'
+    [bridge:unload]='_bridge_client|1|1|unload'
+    [bridge:quit]='_bridge_client|0|0|quit'
+    [api:doctor]='_api|0|0|doctor'
+    [api:path]='_api|1|2|path'
+    [api:xml]='_api|2|2|xml'
+    [api:types]='_api|1|2|types'
+    [api:decompile]='_api|2|2|decompile'
 )
-readonly -a ROUTE_ORDER=(--self-test build verify bridge:build bridge:launch bridge:restart bridge:doctor bridge:load bridge:load-smoke bridge:check bridge:clean bridge:unload bridge:quit api:doctor api:path api:xml api:types api:decompile package deploy install push)
 readonly -a BRIDGE_PROJECTS=("${BRIDGE_PROTOCOL_PROJECT}" "${BRIDGE_PLUGIN_PROJECT}" "${BRIDGE_CLIENT_PROJECT}")
 _trap_err() {
     local -r exit_code="$?"
-    local -r source="${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}"
-    local -r line="${BASH_LINENO[0]:-0}"
     local index
-    printf 'rhino: error at %s:%s: %s\n' "${source}" "${line}" "${BASH_COMMAND}" >&2
+    printf 'rhino: error at %s:%s: %s\n' "${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}" "${BASH_LINENO[0]:-0}" "${BASH_COMMAND}" >&2
     for ((index = 1; index < ${#FUNCNAME[@]}; index++)); do
         printf 'rhino: stack[%d] %s at %s:%s\n' "${index}" "${FUNCNAME[index]}" "${BASH_SOURCE[index]}" "${BASH_LINENO[index - 1]:-0}" >&2
     done
@@ -112,39 +103,17 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 _die() {
     printf 'rhino: %s\n' "$1" >&2
-    exit 1
-}
-_die_usage() {
-    _usage "${1:-all}" >&2
-    exit 2
-}
-_route_meta() {
-    local -r route="$1"
-    local -n __handler="$2" __min="$3" __max="$4" __line="$5" __preset="$6"
-    IFS='|' read -r __handler __min __max __line __preset <<< "${ROUTES[${route}]}"
-}
-_usage() {
-    local -r scope="${1:-all}"
-    printf 'Usage:\n'
-    local route handler min max line preset
-    for route in "${ROUTE_ORDER[@]}"; do
-        [[ "${scope}" == bridge && "${route}" != bridge:* ]] && continue
-        [[ "${scope}" == api && "${route}" != api:* ]] && continue
-        _route_meta "${route}" handler min max line preset
-        printf '  scripts/rhino.sh %s\n' "${line}"
-    done
+    exit "${2:-1}"
 }
 _dispatch() {
     local -r route="$1"
     shift
-    [[ -v ROUTES["${route}"] ]] || _die_usage "${route%%:*}"
-    local handler min max line preset
-    _route_meta "${route}" handler min max line preset
-    (($# >= min && $# <= max)) || _die_usage "${route%%:*}"
-    local -a call_args=("$@")
-    [[ -n "${preset}" && "${preset}" != '-' ]] && call_args=("${preset}" "$@")
-    [[ "${preset}" == '-' ]] && call_args=("" "$@")
-    "${handler}" "${call_args[@]}"
+    [[ -v ROUTES["${route}"] ]] || _die "Unknown route: ${route}" 2
+    local handler min max preset
+    IFS='|' read -r handler min max preset <<< "${ROUTES[${route}]}"
+    (($# >= min && $# <= max)) || _die "Wrong arg count for ${route}: got $#, expected ${min}..${max}" 2
+    [[ -n "${preset}" ]] && set -- "${preset}" "$@"
+    "${handler}" "$@"
 }
 _self_test() {
     local command
@@ -153,61 +122,14 @@ _self_test() {
     done
     bash -n "${BASH_SOURCE[0]}"
     shellcheck "${BASH_SOURCE[0]}"
-    local path route handler min max line preset package_slug project manifest_dir target_dir target_framework assembly_name target_ext project_dir scenario rel_scenario test_project expected_project resolved_project
-    declare -A ordered_routes=()
-    local -a package_projects=()
-    _package_projects package_projects
-    ((${#package_projects[@]} > 0)) || _die "No package projects found"
-    local -a required=("${SOLUTION_PATH}" "${BRIDGE_PROJECTS[@]}" "${package_projects[@]}")
-    for path in "${required[@]}"; do
-        [[ -e "${path}" ]] || _die "Missing required path: ${path}"
-    done
-    for route in "${ROUTE_ORDER[@]}"; do
-        [[ ! -v ordered_routes["${route}"] ]] || _die "Route listed more than once: ${route}"
-        ordered_routes["${route}"]=1
-        [[ -v ROUTES["${route}"] ]] || _die "Route missing metadata: ${route}"
-        _route_meta "${route}" handler min max line preset
-        declare -F "${handler}" >/dev/null || _die "Route handler missing: ${route} -> ${handler}"
-        [[ "${min}" =~ ^[0-9]+$ && "${max}" =~ ^[0-9]+$ && -n "${line}" ]] || _die "Route metadata invalid: ${route}"
-        ((min <= max)) || _die "Route arity invalid: ${route}"
-        [[ "${handler}" != "_bridge_client" ]] || [[ "${route}" == bridge:* && "${preset}" == "${route#bridge:}" ]] || _die "Bridge client preset invalid: ${route}"
-    done
+    local route handler
     for route in "${!ROUTES[@]}"; do
-        [[ -v ordered_routes["${route}"] ]] || _die "Route missing from order: ${route}"
+        IFS='|' read -r handler _ _ _ <<< "${ROUTES[${route}]}"
+        declare -F "${handler}" >/dev/null || _die "Route handler missing: ${route} -> ${handler}"
     done
-    declare -Ar route_contracts=(
-        [deploy]='_package_action|deploy|2|2'
-        [install]='_package_action|install|2|2'
-        [bridge:quit]='_bridge_client|quit|0|0'
-        [push]='_package_action|push|2|2'
-    )
-    for route in "${!route_contracts[@]}"; do
-        _route_meta "${route}" handler min max line preset
-        [[ "${handler}|${preset}|${min}|${max}" == "${route_contracts[${route}]}" ]] || _die "Route contract invalid: ${route}"
-    done
-    local package_count=0
-    for project in "${package_projects[@]}"; do
-        package_slug="$(_package_slug "${project}" || true)"
-        [[ -n "${package_slug}" ]] || continue
-        ((package_count += 1))
-        local yak_path yak_platform yak_push_source package_dir package_pattern
-        _package_meta "${package_slug}" "" project manifest_dir target_dir target_framework assembly_name target_ext project_dir yak_path yak_platform yak_push_source package_dir package_pattern
-        [[ -f "${manifest_dir}/manifest.yml" ]] || _die "Missing Yak manifest for ${package_slug}: ${manifest_dir}/manifest.yml"
-        [[ -d "${project_dir}" ]] || _die "Package project directory missing for ${package_slug}: ${project_dir}"
-        [[ -n "${target_dir}" && "${target_dir}" == "${ROOT_DIR}/"* && "${target_dir}" == "${project_dir}/bin/${CONFIGURATION}/${target_framework}/" ]] || _die "Package target directory unsafe for ${package_slug}: ${target_dir}"
-        [[ -n "${yak_path}" && -n "${yak_platform}" && -n "${package_dir}" && -n "${package_pattern}" ]] || _die "Package Yak metadata incomplete for ${package_slug}"
-    done
-    ((package_count > 0)) || _die "No YakPackageSlug projects found"
-    local -a test_owned_scenarios=()
-    _verify_discover "${ROOT_DIR}/tests/csharp/libs" test_owned_scenarios
-    for scenario in "${test_owned_scenarios[@]}"; do
-        rel_scenario="${scenario#"${ROOT_DIR}/"}"
-        [[ "${rel_scenario}" == tests/csharp/libs/*/scenarios/*.verify.csx ]] || continue
-        test_project="${rel_scenario#tests/csharp/libs/}"
-        test_project="${test_project%%/*}"
-        expected_project="${ROOT_DIR}/libs/csharp/${test_project}/${test_project}.csproj"
-        _verify_project "${scenario}" resolved_project
-        [[ "${resolved_project}" == "${expected_project}" ]] || _die "Test-owned scenario resolved to ${resolved_project}, expected ${expected_project}: ${scenario}"
+    local path
+    for path in "${SOLUTION_PATH}" "${BRIDGE_PROJECTS[@]}"; do
+        [[ -e "${path}" ]] || _die "Missing required path: ${path}"
     done
 }
 _package_projects() {
@@ -297,13 +219,9 @@ _with_lock() {
     rmdir -- "${lock_dir}" 2>/dev/null || true
 }
 _bridge_client() {
-    _with_lock bridge-client-build _bridge_client_locked "$@"
+    _with_lock bridge-client-build _bridge_client_run "$@"
 }
-_bridge_client_locked() {
-    _bridge_client_ensure
-    _bridge_client_invoke "$@" || exit "$?"
-}
-_bridge_client_ensure() {
+_bridge_client_run() {
     local -r lock_root="${PACKAGE_STAGE_ROOT}/locks"
     local build_log
     build_log="$(mktemp "${lock_root}/bridge-client-build.XXXXXXXXXX")"
@@ -311,21 +229,55 @@ _bridge_client_ensure() {
     dotnet restore "${BRIDGE_CLIENT_PROJECT}" --locked-mode --disable-parallel >"${build_log}" 2>&1 || { cat "${build_log}" >&2; _die "Bridge client restore failed"; }
     dotnet build "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" --no-restore "${DOTNET_SERIAL_BUILD_ARGS[@]}" >>"${build_log}" 2>&1 || { cat "${build_log}" >&2; _die "Bridge client build failed"; }
     rm -f -- "${build_log}"
+    dotnet run --no-build --project "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" -- "$@"
 }
-_bridge_client_invoke() {
+_bridge_invoke() {
     dotnet run --no-build --project "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" -- "$@"
 }
 _verify() {
     local -r pattern="$1"
-    _with_lock bridge-client-build _verify_locked "${pattern}"
+    _with_lock bridge-client-build _verify_run "${pattern}"
 }
-_verify_locked() {
+_verify_run() {
     local -r pattern="$1"
     local -a scenarios=()
     _verify_discover "${pattern}" scenarios
     ((${#scenarios[@]} > 0)) || _die "No *.verify.csx scenarios matched: ${pattern}"
-    _bridge_client_ensure
-    _verify_run "${scenarios[@]}"
+    local -r lock_root="${PACKAGE_STAGE_ROOT}/locks"
+    local build_log
+    build_log="$(mktemp "${lock_root}/bridge-client-build.XXXXXXXXXX")"
+    CLEANUP_PATHS+=("${build_log}")
+    dotnet restore "${BRIDGE_CLIENT_PROJECT}" --locked-mode --disable-parallel >"${build_log}" 2>&1 || { cat "${build_log}" >&2; _die "Bridge client restore failed"; }
+    dotnet build "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" --no-restore "${DOTNET_SERIAL_BUILD_ARGS[@]}" >>"${build_log}" 2>&1 || { cat "${build_log}" >&2; _die "Bridge client build failed"; }
+    rm -f -- "${build_log}"
+    local -r report_dir="${PACKAGE_STAGE_ROOT}/verify"
+    mkdir -p -- "${report_dir}/.tmp"
+    CLEANUP_PATHS+=("${report_dir}/.tmp")
+    local -a result_files=()
+    local scenario name project result rc status ok=0 failed=0
+    for scenario in "${scenarios[@]}"; do
+        name="${scenario##*/}"; name="${name%.verify.csx}"
+        result="${report_dir}/${name}.json"
+        _verify_project "${scenario}" project
+        rc=0
+        _bridge_invoke check "${project}" "${scenario}" --result "${result}" >/dev/null 2>&1 || rc=$?
+        status="$(jq -r '.status // "failed"' "${result}" 2>/dev/null || printf 'failed')"
+        result_files+=("${result}")
+        case "${status}" in
+            ok) ((ok += 1)); printf '[OK]     %s report=%s\n' "${scenario#"${ROOT_DIR}/"}" "${result}" >&2 ;;
+            *) ((failed += 1)); printf '[FAILED] %s rc=%s status=%s result=%s\n' "${scenario#"${ROOT_DIR}/"}" "${rc}" "${status}" "${result}" >&2 ;;
+        esac
+    done
+    local -r result_stream="${report_dir}/.tmp/results.jsonl"
+    : > "${result_stream}"
+    local result_file
+    for result_file in "${result_files[@]}"; do
+        jq -c . "${result_file}" >> "${result_stream}" 2>/dev/null || true
+    done
+    local -r summary="${report_dir}/summary.json"
+    jq -n --argjson ok "${ok}" --argjson failed "${failed}" --slurpfile s "${result_stream}" '{summary:{ok:$ok,failed:$failed,total:($ok+$failed)},scenarios:$s}' > "${summary}"
+    cat "${summary}"
+    ((failed == 0)) || exit 1
 }
 _verify_discover() {
     local -r pattern="$1"
@@ -340,38 +292,6 @@ _verify_discover() {
         return 0
     fi
     mapfile -t __scenarios < <(fd -H -e csx '\.verify\.csx$' "${ROOT_DIR}" | rg -- "${pattern}" | LC_ALL=C sort)
-}
-_verify_run() {
-    local -a scenarios=("$@")
-    local -r report_dir="${PACKAGE_STAGE_ROOT}/verify"
-    mkdir -p -- "${report_dir}"
-    CLEANUP_PATHS+=("${report_dir}/.tmp")
-    mkdir -p -- "${report_dir}/.tmp"
-    local -a result_files=()
-    local scenario name project result rc status ok=0 failed=0
-    for scenario in "${scenarios[@]}"; do
-        name="${scenario##*/}"; name="${name%.verify.csx}"
-        result="${report_dir}/${name}.json"
-        _verify_project "${scenario}" project
-        rc=0
-        _bridge_client_invoke check "${project}" "${scenario}" --result "${result}" >/dev/null 2>&1 || rc=$?
-        status="$(jq -r '.status // "failed"' "${result}" 2>/dev/null || printf 'failed')"
-        result_files+=("${result}")
-        case "${status}" in
-            ok) ((ok += 1)); printf '[OK]     %s report=%s\n' "${scenario#"${ROOT_DIR}/"}" "${result}" >&2 ;;
-            *) ((failed += 1)); printf '[FAILED] %s rc=%s status=%s result=%s\n' "${scenario#"${ROOT_DIR}/"}" "${rc}" "${status}" "${result}" >&2 ;;
-        esac
-    done
-    local result_file
-    local -r result_stream="${report_dir}/.tmp/results.jsonl"
-    : > "${result_stream}"
-    for result_file in "${result_files[@]}"; do
-        jq -c . "${result_file}" >> "${result_stream}" 2>/dev/null || true
-    done
-    local -r summary="${report_dir}/summary.json"
-    jq -n --argjson ok "${ok}" --argjson failed "${failed}" --slurpfile s "${result_stream}" '{summary:{ok:$ok,failed:$failed,total:($ok+$failed)},scenarios:$s}' > "${summary}"
-    cat "${summary}"
-    ((failed == 0)) || exit 1
 }
 _verify_project() {
     local -r scenario="$1"
@@ -402,39 +322,6 @@ _verify_project() {
         dir="${dir%/*}"
     done
     _die "No owning project found for scenario: ${scenario}"
-}
-_api_meta() {
-    local -r key="$1"
-    local -n __assembly="$2" __xml="$3" __fallback="$4"
-    [[ -v API_REFERENCES["${key}"] ]] || _die "Unknown API key: ${key}"
-    IFS='|' read -r __assembly __xml __fallback <<< "${API_REFERENCES[${key}]}"
-}
-_api_fallback_xml() {
-    local -r pattern="$1"
-    [[ -n "${pattern}" ]] || return 1
-    local -a matches=()
-    mapfile -t matches < <({ compgen -G "${pattern}" || true; } | LC_ALL=C sort)
-    ((${#matches[@]} > 0)) || return 1
-    printf '%s\n' "${matches[${#matches[@]} - 1]}"
-}
-_api_xml_path() {
-    local -r key="$1"
-    local -n __path="$2" __status="$3"
-    local meta_assembly meta_xml meta_fallback
-    _api_meta "${key}" meta_assembly meta_xml meta_fallback
-    : "${meta_assembly}"
-    if [[ -f "${meta_xml}" ]]; then
-        __path="${meta_xml}"
-        __status="primary"
-        return 0
-    fi
-    if __path="$(_api_fallback_xml "${meta_fallback}")"; then
-        __status="fallback"
-        return 0
-    fi
-    __path=""
-    __status="missing"
-    return 1
 }
 _dotnet_root_valid() {
     local -r root="$1"
@@ -475,94 +362,117 @@ _with_dotnet_apphost() {
     fi
     env -u DOTNET_ROOT -u DOTNET_MULTILEVEL_LOOKUP "$@"
 }
-_api_path() {
+_api() {
+    local -r action="$1"
+    shift
+    local key="${1:-}"
+    case "${action}" in
+        doctor) _api_doctor ;;
+        path) [[ -n "${key}" ]] || _die "api path requires <key>"; _api_path "${key}" "${2:-assembly}" ;;
+        xml) [[ -n "${key}" && -n "${2:-}" ]] || _die "api xml requires <key> <pattern>"; _api_search "${key}" "$2" ;;
+        types) [[ -n "${key}" ]] || _die "api types requires <key>"; _api_types "${key}" "${2:-}" ;;
+        decompile) [[ -n "${key}" && -n "${2:-}" ]] || _die "api decompile requires <key> <type>"; _api_decompile "${key}" "$2" ;;
+        *) _die "Unknown api action: ${action}" ;;
+    esac
+}
+_api_meta() {
     local -r key="$1"
-    local -r kind="${2:-assembly}"
+    local -n __assembly="$2" __xml="$3" __fallback="$4"
+    [[ -v API_REFERENCES["${key}"] ]] || _die "Unknown API key: ${key}"
+    IFS='|' read -r __assembly __xml __fallback <<< "${API_REFERENCES[${key}]}"
+}
+_api_xml_path() {
+    local -r key="$1"
+    local -n __path="$2" __status="$3"
+    local meta_assembly meta_xml meta_fallback
+    _api_meta "${key}" meta_assembly meta_xml meta_fallback
+    : "${meta_assembly}"
+    if [[ -n "${meta_xml}" && -f "${meta_xml}" ]]; then
+        __path="${meta_xml}"; __status="primary"; return 0
+    fi
+    if [[ -n "${meta_fallback}" ]]; then
+        local -a matches=()
+        mapfile -t matches < <({ compgen -G "${meta_fallback}" || true; } | LC_ALL=C sort)
+        if ((${#matches[@]} > 0)); then
+            __path="${matches[${#matches[@]} - 1]}"; __status="fallback"; return 0
+        fi
+    fi
+    __path=""; __status="missing"
+    return 1
+}
+_api_path() {
+    local -r key="$1" kind="$2"
     local assembly xml fallback resolved status
     _api_meta "${key}" assembly xml fallback
     case "${kind}" in
-        assembly)
-            [[ -f "${assembly}" ]] || _die "Missing API assembly for ${key}: ${assembly}"
-            printf '%s\n' "${assembly}"
-            ;;
-        xml)
-            _api_xml_path "${key}" resolved status || _die "Missing API XML for ${key}: ${xml}"
-            printf '%s\n' "${resolved}"
-            ;;
-        *) _die "Unknown API path kind: ${kind}" ;;
+        assembly) [[ -f "${assembly}" ]] || _die "Missing API assembly for ${key}: ${assembly}"; printf '%s\n' "${assembly}" ;;
+        xml) _api_xml_path "${key}" resolved status || _die "Missing API XML for ${key}: ${xml}"; printf '%s\n' "${resolved}" ;;
+        *) _die "Unknown api path kind: ${kind}" ;;
     esac
 }
-_api_xml() {
-    local -r key="$1"
-    local -r pattern="$2"
+_api_search() {
+    local -r key="$1" pattern="$2"
     local xml status
     _api_xml_path "${key}" xml status || _die "Missing API XML for ${key}"
     rg -n -C 2 -- "${pattern}" "${xml}"
 }
 _api_types() {
-    local -r key="$1"
-    local -r pattern="${2:-}"
-    local assembly xml fallback
+    local -r key="$1" pattern="${2:-}"
+    local assembly xml fallback types
     _api_meta "${key}" assembly xml fallback
     [[ -f "${assembly}" ]] || _die "Missing API assembly for ${key}: ${assembly}"
-    local types
     types="$(_with_dotnet_apphost ilspycmd -l cisde "${assembly}")"
     [[ -n "${pattern}" ]] || { printf '%s\n' "${types}"; return; }
     rg -n -- "${pattern}" <<< "${types}" || _die "No API types matched ${key}: ${pattern}"
 }
 _api_decompile() {
-    local -r key="$1"
-    local -r type_name="$2"
+    local -r key="$1" type_name="$2"
     local assembly xml fallback
     _api_meta "${key}" assembly xml fallback
     [[ -f "${assembly}" ]] || _die "Missing API assembly for ${key}: ${assembly}"
     _with_dotnet_apphost ilspycmd -t "${type_name}" "${assembly}"
 }
-_api_rhino_version() {
-    local -r plist="${API_RHINO_WIP_APP_PATH}/Contents/Info.plist"
-    [[ -f "${plist}" ]] || { printf 'missing'; return; }
-    plutil -extract CFBundleVersion raw -o - "${plist}" 2>/dev/null || printf 'unknown'
-}
-_api_ilspy_report() {
-    local dotnet_root status version
+_api_doctor() {
+    local plist="${API_RHINO_WIP_APP_PATH}/Contents/Info.plist"
+    local rhino_version="missing"
+    [[ -f "${plist}" ]] && rhino_version="$(plutil -extract CFBundleVersion raw -o - "${plist}" 2>/dev/null || printf 'unknown')"
+    local dotnet_root ilspy_status="failed" ilspy_version=""
     dotnet_root="$(_dotnet_root_resolve || true)"
-    status="failed"
-    version=""
     local output
     mkdir -p -- "${PACKAGE_STAGE_ROOT}"
     output="$(mktemp "${PACKAGE_STAGE_ROOT}/ilspy.XXXXXXXXXX")"
     CLEANUP_PATHS+=("${output}")
-    _with_dotnet_apphost ilspycmd --version >"${output}" 2>&1 && status="ok"
-    IFS= read -r version < "${output}" || true
-    printf 'api.ilspy.status\t%s\napi.ilspy.dotnet_root\t%s\napi.ilspy.version\t%s\n' "${status}" "${dotnet_root:-hostfxr-probe}" "${version:-unavailable}"
-}
-_api_rhinocode_report() {
-    local direct roll
-    [[ -x "${API_RHINO_CODE}" ]] || { printf 'api.rhinocode.path\t%s\napi.rhinocode.direct\tmissing\napi.rhinocode.roll_forward\tmissing\n' "${API_RHINO_CODE}"; return; }
-    direct=0
-    roll=0
-    "${API_RHINO_CODE}" list --json >/dev/null 2>&1 || direct="$?"
-    DOTNET_ROLL_FORWARD=Major "${API_RHINO_CODE}" list --json >/dev/null 2>&1 || roll="$?"
-    printf 'api.rhinocode.path\t%s\napi.rhinocode.direct\t%s\napi.rhinocode.roll_forward\t%s\n' "${API_RHINO_CODE}" "${direct}" "${roll}"
-}
-_api_doctor() {
-    printf 'api.rhino.app\t%s\napi.rhino.version\t%s\n' "${API_RHINO_WIP_APP_PATH}" "$(_api_rhino_version)"
-    _api_ilspy_report
-    _api_rhinocode_report
+    _with_dotnet_apphost ilspycmd --version >"${output}" 2>&1 && ilspy_status="ok"
+    IFS= read -r ilspy_version < "${output}" || true
+    local rhinocode_direct=0 rhinocode_roll=0 rhinocode_status="ok"
+    if [[ ! -x "${API_RHINO_CODE}" ]]; then
+        rhinocode_status="missing"
+    else
+        "${API_RHINO_CODE}" list --json >/dev/null 2>&1 || rhinocode_direct="$?"
+        DOTNET_ROLL_FORWARD=Major "${API_RHINO_CODE}" list --json >/dev/null 2>&1 || rhinocode_roll="$?"
+    fi
     local key assembly xml fallback resolved status assembly_status
+    local refs="["
+    local refs_sep=""
     for key in "${API_REFERENCE_ORDER[@]}"; do
         _api_meta "${key}" assembly xml fallback
         : "${fallback}"
         assembly_status="missing"
         [[ -f "${assembly}" ]] && assembly_status="present"
         _api_xml_path "${key}" resolved status || true
-        printf 'api.ref.%s.assembly\t%s\t%s\n' "${key}" "${assembly_status}" "${assembly}"
-        printf 'api.ref.%s.xml\t%s\t%s\n' "${key}" "${status}" "${resolved:-${xml}}"
+        refs+="${refs_sep}{\"key\":\"${key}\",\"assembly\":{\"status\":\"${assembly_status}\",\"path\":\"${assembly}\"},\"xml\":{\"status\":\"${status}\",\"path\":\"${resolved:-${xml}}\"}}"
+        refs_sep=","
     done
+    refs+="]"
+    jq -n --arg rhino_app "${API_RHINO_WIP_APP_PATH}" --arg rhino_version "${rhino_version}" \
+          --arg ilspy_status "${ilspy_status}" --arg dotnet_root "${dotnet_root:-hostfxr-probe}" --arg ilspy_version "${ilspy_version:-unavailable}" \
+          --arg rhinocode_status "${rhinocode_status}" --arg rhinocode_path "${API_RHINO_CODE}" \
+          --argjson rhinocode_direct "${rhinocode_direct}" --argjson rhinocode_roll "${rhinocode_roll}" \
+          --argjson refs "${refs}" \
+          '{rhino:{app:$rhino_app,version:$rhino_version},ilspy:{status:$ilspy_status,dotnet_root:$dotnet_root,version:$ilspy_version},rhinocode:{status:$rhinocode_status,path:$rhinocode_path,direct:$rhinocode_direct,roll_forward:$rhinocode_roll},references:$refs}'
 }
 _package_meta() {
-    local -r package_slug="$1"
-    local -r package_version="$2"
+    local -r package_slug="$1" package_version="$2"
     shift 2
     local -n __project="$1" __manifest_dir="$2" __target_dir="$3" __target_framework="$4" __assembly_name="$5" __target_ext="$6" __project_dir="$7" __yak_path="$8" __yak_platform="$9"
     shift 9
@@ -705,12 +615,12 @@ _package_deploy_refresh() {
 }
 _main() {
     local route="${1:-}"
-    [[ -n "${route}" ]] || _die_usage all
+    [[ -n "${route}" ]] || _die "Usage: scripts/rhino.sh <route> [args]" 2
     shift
     case "${route}" in
         bridge|api)
             local -r subcommand="${1:-}"
-            [[ -n "${subcommand}" ]] || _die_usage "${route}"
+            [[ -n "${subcommand}" ]] || _die "Usage: scripts/rhino.sh ${route} <subcommand> [args]" 2
             route="${route}:${subcommand}"
             shift
             ;;
