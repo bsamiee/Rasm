@@ -83,15 +83,16 @@ public static class Archive {
             lookup: lookup,
             source: definitions.Bind(def =>
                 Optional(table.Find(instanceId: def.Id.Value, ignoreDeletedInstanceDefinitions: true))
-                    .Map(active => toSeq(active.GetObjects())
-                        .Filter(static o => o?.Geometry is InstanceReferenceGeometry)
-                        .Map(o => (ObjectId: o!.Id, Reference: (InstanceReferenceGeometry)o.Geometry!)))
+                    .Map(active => Operations.NestedReferences(def: active))
                     .IfNone(Seq<(Guid, InstanceReferenceGeometry)>())));
         return Compose(
             definitions: definitions,
             instances: instances,
             linkedArchives: LinkedArchives(definitions: definitions));
     }
+
+    internal static Option<InstanceDefinitionGeometry> FindDefinition(File3dm model, DefinitionName name) =>
+        Optional(model.AllInstanceDefinitions.FindNameHash(nameHash: new NameHash(name: name.Value)));
 
     private static ImmutableArray<ArchiveLink> LinkedArchives(Seq<Definition> definitions) =>
         [.. toSeq(definitions).Choose(static d => d.Source)
@@ -179,9 +180,8 @@ public static class Archive {
     private static LanguageExt.HashSet<Guid> Reachable(Guid defId, HashMap<Guid, Definition> lookup, InstanceDefinitionTable table) {
         Seq<Guid> Nested(Guid id) =>
             Optional(table.Find(instanceId: id, ignoreDeletedInstanceDefinitions: true))
-                .Map(def => toSeq(def.GetObjects())
-                    .Filter(static o => o?.Geometry is InstanceReferenceGeometry)
-                    .Map(o => ((InstanceReferenceGeometry)o!.Geometry!).ParentIdefId)
+                .Map(def => Operations.NestedReferences(def: def)
+                    .Map(pair => pair.Reference.ParentIdefId)
                     .Filter(parent => lookup.ContainsKey(key: parent)))
                 .IfNone(Seq<Guid>());
         return ExpandReachable(frontier: Seq(defId), seen: LanguageExt.HashSet<Guid>.Empty.Add(defId), nested: Nested);
@@ -207,14 +207,22 @@ public static class Archive {
 
     private static Graph Compose(File3dm active, Seq<Definition> definitions, Option<string> anchorDirectory, Op key) {
         HashMap<Guid, Definition> lookup = Lookup(definitions: definitions);
+        Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> topLevel = toSeq(active.Objects)
+            .Choose(o => o.Geometry switch {
+                InstanceReferenceGeometry { ParentIdefId: var parentId } r when parentId != Guid.Empty =>
+                    lookup.Find(key: parentId).Map(parent => (o.Attributes.ObjectId, r)),
+                _ => Option<(Guid ObjectId, InstanceReferenceGeometry Reference)>.None,
+            });
+        Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> memberRefs = definitions.Bind((Definition snap) =>
+            toSeq(snap.MemberIds).Bind<(Guid ObjectId, InstanceReferenceGeometry Reference)>((Guid memberId) =>
+                Optional(active.Objects.FindId(id: memberId)).Case switch {
+                    File3dmObject member when member.Geometry is InstanceReferenceGeometry reference =>
+                        Seq((ObjectId: memberId, Reference: (InstanceReferenceGeometry)reference.Duplicate())),
+                    _ => Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>(),
+                }));
         ImmutableArray<Instance> instances = ProjectInstances(
             lookup: lookup,
-            source: toSeq(active.Objects)
-                .Choose(o => o.Geometry switch {
-                    InstanceReferenceGeometry { ParentIdefId: var parentId } r when parentId != Guid.Empty =>
-                        lookup.Find(key: parentId).Map(_ => (o.Attributes.ObjectId, r)),
-                    _ => Option<(Guid, InstanceReferenceGeometry)>.None,
-                }));
+            source: topLevel + memberRefs);
         return Compose(
             definitions: definitions,
             instances: instances,

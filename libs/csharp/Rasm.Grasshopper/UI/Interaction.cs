@@ -390,7 +390,11 @@ internal static class FloatingButton {
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from _ in Op.Of(name: nameof(CloseAll)).Attempt(
-                body: canvas.FloatingButtons.CloseAll,
+                body: () => {
+                    canvas.FloatingButtons.CloseAll();
+                    Owners.ClearAll();
+                    return unit;
+                },
                 what: "FloatingButtonCollection.CloseAll")
             select unit);
 
@@ -522,6 +526,8 @@ internal sealed class OwnedSubscription<TKey> {
 
     internal void Clear(TKey key) => _ = owners.Swap(map => map.Remove(key));
 
+    internal void ClearAll() => _ = owners.Swap(_ => HashMap<TKey, Guid>());
+
     internal Fin<Subscription> Bind(TKey key, Action attach, Action<TKey> detach) {
         Guid token = Guid.NewGuid();
         return Subscription.Bind(
@@ -535,7 +541,8 @@ internal sealed class OwnedSubscription<TKey> {
                         _ = owners.Swap(map => map.Remove(key));
                         detach(obj: key);
                     }),
-            marshalToUi: true);
+            marshalToUi: true,
+            teardown: SubscriptionTeardown.TokenGated);
     }
 }
 

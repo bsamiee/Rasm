@@ -65,23 +65,32 @@ internal static partial class Editor {
         string layoutRules,
         string errorTag,
         Option<EditorOp.ShellCase> shell = default) =>
-        Try.lift(f: () => {
-            GhEditor current = GhEditor.ShowEditor(createVisible: visible, layoutRules: layoutRules);
-            return shell.Match(
-                Some: s => {
-                    _ = s.Collapsed.Iter(value => current.Collapsed = value);
-                    _ = s.ShowNotes.Iter(value => current.ShowNotes = value);
-                    Option<GhCanvas> canvas = Optional(current.Canvas);
-                    _ = canvas.Iter(c => s.ShowUndoHistory.Iter(value => c.ShowUndoHistory = value));
-                    return new EditorResult.ShellResult(Snapshot: Snapshot.Of(new EditorShellSnapshot(
-                        Collapsed: current.Collapsed,
-                        ShowNotes: current.ShowNotes,
-                        ShowUndoHistory: canvas.Map(static c => c.ShowUndoHistory).IfNone(false),
-                        InitialLayout: GhEditor.InitialLayout,
-                        DefinedLayouts: toSeq(GhEditor.DefinedLayouts))));
-                },
-                None: () => EditorResult.Unit);
-        }).Run().MapFail(error => UiFault.GhEditor(detail: $"{errorTag}: {error.Message}"));
+        Try.lift(f: () => GhEditor.ShowEditor(createVisible: visible, layoutRules: layoutRules)).Run()
+            .MapFail(error => UiFault.GhEditor(detail: $"{errorTag}: {error.Message}"))
+            .Bind(current => shell.Match(
+                Some: s => ApplyShell(current: current, shell: s),
+                None: () => Fin.Succ<EditorResult>(value: EditorResult.Unit)));
+
+    private static Fin<EditorResult> ApplyShell(GhEditor current, EditorOp.ShellCase shell) {
+        Option<GhCanvas> canvas = Optional(current.Canvas);
+        bool requiresHistory = shell.ShowUndoHistory.IfNone(false);
+        return (requiresHistory, canvas.IsSome) switch {
+            (true, false) => Fin.Fail<EditorResult>(error: UiFault.GhEditor(detail: "ShowUndoHistory requires an active canvas")),
+            _ => Fin.Succ<EditorResult>(ShellResultOf(current: current, shell: shell, canvas: canvas)),
+        };
+    }
+
+    private static EditorResult.ShellResult ShellResultOf(GhEditor current, EditorOp.ShellCase shell, Option<GhCanvas> canvas) {
+        _ = shell.Collapsed.Iter(value => current.Collapsed = value);
+        _ = shell.ShowNotes.Iter(value => current.ShowNotes = value);
+        _ = canvas.Iter(c => shell.ShowUndoHistory.Iter(value => c.ShowUndoHistory = value));
+        return new EditorResult.ShellResult(Snapshot: Snapshot.Of(new EditorShellSnapshot(
+            Collapsed: current.Collapsed,
+            ShowNotes: current.ShowNotes,
+            ShowUndoHistory: canvas.Map(static c => c.ShowUndoHistory).IfNone(false),
+            InitialLayout: GhEditor.InitialLayout,
+            DefinedLayouts: toSeq(GhEditor.DefinedLayouts))));
+    }
 
     // Optional(GhEditor.Instance) discharges the "running" vs "not yet shown" branches polymorphically;
     // shared InitialLayout + DefinedLayouts hoisted once instead of duplicated across arms.

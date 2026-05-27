@@ -24,6 +24,8 @@ Use bridge commands ONLY when static .NET gates cannot answer:
 
 Scenarios are authored via the polymorphic `Scenario.Run(theme, capturePath, (key, facts) => { … })` harness — it builds the `Op key`, emits the `scenario=`/`capture=` plain header, runs the body, and serializes the populated `FactBag` to a single `facts={json}` plain line plus a `rasm.rhino-bridge.evidence=facts={json}` marker. Inside the body, scenarios call `facts.Add(string key, object value);` as a void statement (no return value, no chaining required).
 
+Grasshopper-aware projects receive bridge-owned `BridgeWire.ScenarioHostUsings` (`Eto.Drawing`, `LanguageExt`) after the scenario preamble and before `LanguageExtBootstrap`. Host assemblies remain off `#r`; add explicit `using Grasshopper2.*` in scenario source only when a rail needs GH2 types.
+
 ## Parsing scenario evidence
 
 Bridge markers are the structured wire contract. Use `Rasm.RhinoBridge.Protocol.BridgeMarker.Scan(string stdout) -> IReadOnlyList<BridgeMarker>` to extract them; filter on `BridgeMarker.Evidence` for the `facts` payload and `BridgeMarker.Returned` for `execute.data.returnValue`-equivalent envelopes. Do not parse individual `key=value` plain lines — the legacy per-fact emission was removed during the scenario migration. The plain `facts={json}` line is duplicate human-readable noise; rely on the prefixed Evidence marker.

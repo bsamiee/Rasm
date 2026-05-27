@@ -20,10 +20,16 @@ public sealed class RhinoBlocks {
     public static RhinoBlocks Live(RhinoDoc document, RunMode mode = RunMode.Interactive) =>
         new(document: document, mode: mode);
 
-    public Fin<BlockOutcome> Run(BlockOp op, Op? key = null) =>
-        Optional(op).ToFin(Fail: key.OrDefault().InvalidInput())
-            .Bind(valid => RhinoUi.OnUiThread(run: () =>
-                Op.Of(name: nameof(Run)).Catch(() => Operations.Run(op: valid, owner: this))));
+    public Fin<BlockOutcome> Run(BlockOp op, Op? key = null) {
+        Op runKey = key.OrDefault();
+        return Optional(op).ToFin(Fail: runKey.InvalidInput())
+            .Bind(valid => ExecuteRun(op: valid, runKey: runKey));
+    }
+
+    private Fin<BlockOutcome> ExecuteRun(BlockOp op, Op runKey) {
+        Fin<BlockOutcome> Work() => runKey.Catch(() => Operations.Run(op: op, owner: this));
+        return RhinoUi.WhenUiBound(uiBound: op.RequiresUiThread(), run: Work, name: nameof(Run));
+    }
 
     public Subscription Subscribe(Action<BlockTableEvent> handler, BlockSubscriptionPolicy? policy = null) {
         ArgumentNullException.ThrowIfNull(argument: handler);

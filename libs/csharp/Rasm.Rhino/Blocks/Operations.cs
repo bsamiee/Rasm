@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Exchange;
 using Rhino.Collections;
+using Rhino.DocObjects.Custom;
 using Rhino.DocObjects.Tables;
 using Rhino.FileIO;
 using IOPath = System.IO.Path;
@@ -69,6 +70,14 @@ public abstract partial record BlockOp {
     public sealed record TextFieldsOf(DefinitionRef Ref, Option<Guid> InstanceId = default) : BlockOp;
     public sealed record AttributeFieldsOf(DefinitionRef Ref) : BlockOp;
     public sealed record AttributeMatrix(Option<Seq<DefinitionRef>> Refs, ReferenceScope Scope) : BlockOp;
+
+    /// Document mutation, linked I/O, scripted export, and preview rasterization require UI-thread marshaling.
+    internal bool RequiresUiThread() => this switch {
+        BlockOp.AllocateName or BlockOp.Snapshot or BlockOp.ExplodeInspect or BlockOp.UseSubObject
+            or BlockOp.Graph or BlockOp.SelectedPart or BlockOp.Flatten or BlockOp.Bounds
+            or BlockOp.TextFieldsOf or BlockOp.AttributeFieldsOf or BlockOp.AttributeMatrix => false,
+        _ => true,
+    };
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -255,11 +264,34 @@ internal static partial class Operations {
 
     internal static Fin<Members.Provided> ReifyDefinitionMembers(InstanceDefinition definition, Op key) =>
         Optional(definition).ToFin(Fail: key.InvalidInput())
-            .Bind(def => ReifyObjects(
-                pairs: toSeq(def.GetObjects())
-                    .Filter(static o => o is not null && o.Geometry is not null)
-                    .Map(static o => (o!.Geometry!.Duplicate(), Members.SanitizeAttributes(attributes: o.Attributes))),
-                key: key));
+            .Bind(def => ReifyObjects(pairs: CanonicalMemberPairs(def: def), key: key));
+
+    /// Nested InstanceObject members project to InstanceReferenceGeometry so content-hash and graph walks agree.
+    internal static Seq<(GeometryBase Geometry, ObjectAttributes Attributes)> CanonicalMemberPairs(InstanceDefinition def) =>
+        toSeq(def.GetObjects()).Filter(static o => o is not null).Choose(static o => o switch {
+            InstanceObject nested when nested.InstanceDefinition is InstanceDefinition inst => Some((
+                (GeometryBase)new InstanceReferenceGeometry(instanceDefinitionId: inst.Id, transform: nested.InstanceXform),
+                Members.SanitizeAttributes(attributes: nested.Attributes))),
+            { Geometry: InstanceReferenceGeometry r } => Some((
+                r.Duplicate(),
+                Members.SanitizeAttributes(attributes: o!.Attributes))),
+            RhinoObject leaf when leaf.Geometry is not null => Some((
+                leaf.Geometry.Duplicate(),
+                Members.SanitizeAttributes(attributes: leaf.Attributes))),
+            _ => None,
+        });
+
+    internal static Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> NestedReferences(InstanceDefinition def) =>
+        BindDefinitionMembers(
+            def: def,
+            composed: Transform.Identity,
+            onInstance: (nested, _) => Optional(nested.InstanceDefinition).Map(inst =>
+                Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>((
+                    ObjectId: nested.Id,
+                    Reference: new InstanceReferenceGeometry(instanceDefinitionId: inst.Id, transform: nested.InstanceXform)))).IfNone(Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>()),
+            onReference: (reference, memberId, _) => Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>((
+                ObjectId: memberId,
+                Reference: (InstanceReferenceGeometry)reference.Duplicate())));
 
     private static Fin<MutationReceipt> AddNew(RhinoBlocks owner, AuthorSpec spec, Members.Provided members, Op key) =>
         AddDefinition(table: owner.Document.InstanceDefinitions, spec: spec, members: members) switch {
@@ -386,7 +418,7 @@ internal static partial class Operations {
 
     private static Fin<Unit> CommitMetadata(InstanceDefinitionTable table, Definition snap, MetadataPatch patch, Op key) =>
         from idx in RequireIndex(snap: snap, key: key)
-        from _ in key.Confirm(success: table.Modify(
+        from metaOk in key.Confirm(success: table.Modify(
             idefIndex: idx,
             newName: snap.Name.Value,
             newDescription: patch.Description.IfNone(snap.Description.IfNone(string.Empty)),
@@ -395,8 +427,11 @@ internal static partial class Operations {
             quiet: true))
         from strings in ApplyUserStringsWhenPresent(table: table, idx: idx, strings: patch.UserStrings, key: key)
         from dict in patch.UserDictionary.Case is ArchivableDictionary d
-            ? Optional(table[idx]).ToFin(Fail: key.InvalidResult()).Map(live =>
-                (live.UserDictionary.ReplaceContentsWith(source: d), InvalidateDefinition(defId: live.Id)).Item2)
+            ? Optional(table[idx]).ToFin(Fail: key.InvalidResult()).Map(live => {
+                UserDictionary updated = new();
+                _ = updated.Dictionary.ReplaceContentsWith(source: d);
+                return key.Confirm(success: table.Modify(idefIndex: idx, userData: updated, quiet: true));
+            })
             : Fin.Succ(value: unit)
         select unit;
 
@@ -981,7 +1016,8 @@ internal static partial class Operations {
             plan: static (ctx, p) => PerformGraphPlan(owner: ctx.Owner, root: p.Root, key: ctx.Key),
             stats: static (ctx, _) => PerformStats(owner: ctx.Owner, key: ctx.Key),
             health: static (ctx, h) => PerformLinkedHealth(owner: ctx.Owner, filter: h.Filter ?? BlockFilter.All, key: ctx.Key),
-            reach: static (ctx, r) => PerformGraphReach(owner: ctx.Owner, refer: r.Ref, scope: r.Scope, policy: r.Policy, key: ctx.Key));
+            reach: static (ctx, r) => PerformGraphReach(owner: ctx.Owner, refer: r.Ref, scope: r.Scope, policy: r.Policy, key: ctx.Key),
+            ensureIndexed: static (ctx, e) => PerformGraphEnsureIndexed(owner: ctx.Owner, refer: e.Ref, key: ctx.Key));
 
     private static Fin<BlockOutcome> PerformStats(RhinoBlocks owner, Op key) {
         InstanceDefinitionTable table = owner.Document.InstanceDefinitions;
@@ -989,6 +1025,22 @@ internal static partial class Operations {
             Count: table.Count,
             ActiveCount: table.ActiveCount)));
     }
+
+    private static Fin<BlockOutcome> PerformGraphEnsureIndexed(RhinoBlocks owner, Option<DefinitionRef> refer, Op key) =>
+        refer.Case switch {
+            DefinitionRef r => Resolve(table: owner.Document.InstanceDefinitions, refer: r, key: key)
+                .Map(pair => {
+                    _ = ContentIndex.RegisterDefinition(doc: owner.Document, defId: pair.Live.Id);
+                    return (BlockOutcome)new BlockOutcome.Definitions(Values: Seq(pair.Snap.Id));
+                }),
+            _ => Fin.Succ(value: (BlockOutcome)new BlockOutcome.Definitions(Values:
+                toSeq(owner.Document.InstanceDefinitions.GetList(ignoreDeleted: true))
+                    .Filter(static d => d is not null)
+                    .Choose(d => {
+                        _ = ContentIndex.RegisterDefinition(doc: owner.Document, defId: d!.Id);
+                        return DefinitionId.From(value: d!.Id, key: key).ToOption();
+                    }))),
+        };
 
     private static Fin<BlockOutcome> PerformGraphPlan(RhinoBlocks owner, Option<DefinitionRef> root, Op key) =>
         from anchor in root.Case switch {
@@ -1393,17 +1445,15 @@ internal static class ContentIndex {
         return unit;
     }
 
-    /// Lazy-build per-doc hash index on first hit; captured via tuple side-effect since Atom.Swap returns the map, not the inner index.
-    private static HashMap<ulong, Seq<DefinitionId>> Ensure(RhinoDoc doc, uint serial) {
-        HashMap<ulong, Seq<DefinitionId>> captured = HashMap<ulong, Seq<DefinitionId>>();
-        _ = byDoc.Swap(f: m => m.Find(key: serial).Case switch {
-            HashMap<ulong, Seq<DefinitionId>> existing => (captured = existing, m).Item2,
-            _ => m.AddOrUpdate(key: serial, value: captured = Build(doc: doc)),
+    /// Cold seed folds the live table once; table events keep the index aligned via RegisterDefinition.
+    private static HashMap<ulong, Seq<DefinitionId>> Ensure(RhinoDoc doc, uint serial) =>
+        byDoc.Value.Find(key: serial).IfNone(() => {
+            HashMap<ulong, Seq<DefinitionId>> seeded = FoldHashIndex(doc: doc);
+            _ = byDoc.Swap(f: m => m.AddOrUpdate(key: serial, value: seeded));
+            return seeded;
         });
-        return captured;
-    }
 
-    private static HashMap<ulong, Seq<DefinitionId>> Build(RhinoDoc doc) =>
+    private static HashMap<ulong, Seq<DefinitionId>> FoldHashIndex(RhinoDoc doc) =>
         toSeq(doc.InstanceDefinitions.GetList(ignoreDeleted: true))
             .Filter(static d => d is not null)
             .Choose(d => HashEntry(doc: doc, active: d))

@@ -368,103 +368,102 @@ internal static partial class UiRail {
             .IfNone(MaxRenderDimension);
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
-    internal static Fin<CanvasResult> CanvasDispatch(GrasshopperUi.Scope scope, CanvasOp op) => op switch {
-        CanvasOp.SnapshotCase =>
-            from canvas in scope.NeedCanvas()
-            from document in scope.NeedDocument()
-            from objects in scope.NeedObjects()
-            select (CanvasResult)new CanvasResult.SnapshotResult(
-                Snapshot: SnapshotOf(scope: scope, canvas: canvas, document: document, objects: objects)),
-        CanvasOp.PickCase p =>
-            Op.Of(name: nameof(CanvasOp.Pick)).AcceptPoint(value: p.Point, detail: "non-finite point")
-                .Bind(valid => PickAt(scope: scope, point: valid, source: p.Source, policy: p.Policy, tolerance: p.Tolerance)
-                    .Map(pick => (CanvasResult)new CanvasResult.PickResult(Pick: pick))),
-        CanvasOp.MapCase m =>
-            Optional(m.Locus)
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Map)), detail: "locus is required"))
-                .Bind(locus => scope.NeedCanvas().Bind(canvas => locus.Map(canvas: canvas, from: m.From, to: m.To)
-                    .Map(mapped => (CanvasResult)new CanvasResult.MapResult(Mapped: new CanvasMappedLocus(Source: locus, Target: mapped, From: m.From, To: m.To))))),
-        CanvasOp.InvalidateCase =>
-            scope.NeedCanvas().Map(_ => CanvasResult.Unit),
-        CanvasOp.InstantiateCase ins =>
-            scope.NeedCanvas()
-                .Bind(canvas => Optional(canvas.AllowedActions.AllowMakeObject)
-                    .Filter(static allowed => allowed)
-                    .ToFin(Fail: UiFault.MutationRejected(op: Op.Of(name: nameof(CanvasOp.Instantiate)), detail: "canvas disallows object creation"))
-                    .Map(_ => {
-                        canvas.ShowInstantiationPopup(mouseCentred: ins.MouseCentred, initialText: ins.SearchText.IfNone(string.Empty));
-                        return CanvasResult.Unit;
-                    })),
-        CanvasOp.FocusCase =>
-            scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.FocusResult(FocusedNomen: FocusNomenOf(canvas: canvas))),
-        CanvasOp.DetailCase =>
-            scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.DetailResult(
-                Detail: new CanvasDetailSnapshot(
-                    ShowUndoHistory: canvas.ShowUndoHistory,
-                    ZuiVariableParameterThreshold: canvas.ZuiVariableParameterThreshold,
-                    ZuiVariableParameterState: canvas.ZuiVariableParameterState,
-                    ZuiWireDetailingThreshold: canvas.ZuiWireDetailingThreshold,
-                    ZuiWireDetailingState: canvas.ZuiWireDetailingState,
-                    Actions: CanvasActionSnapshot.Of(actions: canvas.AllowedActions)))),
-        CanvasOp.ActionsCase =>
-            scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.ActionsResult(Snapshot: CanvasActionSnapshot.Of(actions: canvas.AllowedActions))),
-        CanvasOp.RenderCase r =>
-            scope.NeedCanvas().Bind(canvas => {
-                int limit = RenderDimensionLimit(canvas: canvas);
-                return Optional((r.Width, r.Height))
-                    .Filter(dim => dim.Width > 0 && dim.Width <= limit && dim.Height > 0 && dim.Height <= limit)
-                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Render)), detail: $"dimensions out of [1, {limit}]"))
-                    .Bind(dim => EncodeBitmap(
-                        bitmap: canvas.DrawToBitmap(
+    internal static Fin<CanvasResult> CanvasDispatch(GrasshopperUi.Scope scope, CanvasOp op) =>
+        op.Switch(
+            state: scope,
+            snapshotCase: static (scope, _) =>
+                from canvas in scope.NeedCanvas()
+                from document in scope.NeedDocument()
+                from objects in scope.NeedObjects()
+                select (CanvasResult)new CanvasResult.SnapshotResult(
+                    Snapshot: SnapshotOf(scope: scope, canvas: canvas, document: document, objects: objects)),
+            pickCase: static (scope, p) =>
+                Op.Of(name: nameof(CanvasOp.Pick)).AcceptPoint(value: p.Point, detail: "non-finite point")
+                    .Bind(valid => PickAt(scope: scope, point: valid, source: p.Source, policy: p.Policy, tolerance: p.Tolerance)
+                        .Map(pick => (CanvasResult)new CanvasResult.PickResult(Pick: pick))),
+            mapCase: static (scope, m) =>
+                Optional(m.Locus)
+                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Map)), detail: "locus is required"))
+                    .Bind(locus => scope.NeedCanvas().Bind(canvas => locus.Map(canvas: canvas, from: m.From, to: m.To)
+                        .Map(mapped => (CanvasResult)new CanvasResult.MapResult(Mapped: new CanvasMappedLocus(Source: locus, Target: mapped, From: m.From, To: m.To))))),
+            invalidateCase: static (scope, _) =>
+                scope.NeedCanvas().Map(_ => CanvasResult.Unit),
+            instantiateCase: static (scope, ins) =>
+                scope.NeedCanvas()
+                    .Bind(canvas => Optional(canvas.AllowedActions.AllowMakeObject)
+                        .Filter(static allowed => allowed)
+                        .ToFin(Fail: UiFault.MutationRejected(op: Op.Of(name: nameof(CanvasOp.Instantiate)), detail: "canvas disallows object creation"))
+                        .Map(_ => {
+                            canvas.ShowInstantiationPopup(mouseCentred: ins.MouseCentred, initialText: ins.SearchText.IfNone(string.Empty));
+                            return CanvasResult.Unit;
+                        })),
+            focusCase: static (scope, _) =>
+                scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.FocusResult(FocusedNomen: FocusNomenOf(canvas: canvas))),
+            detailCase: static (scope, _) =>
+                scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.DetailResult(
+                    Detail: new CanvasDetailSnapshot(
+                        ShowUndoHistory: canvas.ShowUndoHistory,
+                        ZuiVariableParameterThreshold: canvas.ZuiVariableParameterThreshold,
+                        ZuiVariableParameterState: canvas.ZuiVariableParameterState,
+                        ZuiWireDetailingThreshold: canvas.ZuiWireDetailingThreshold,
+                        ZuiWireDetailingState: canvas.ZuiWireDetailingState,
+                        Actions: CanvasActionSnapshot.Of(actions: canvas.AllowedActions)))),
+            actionsCase: static (scope, _) =>
+                scope.NeedCanvas().Map(canvas => (CanvasResult)new CanvasResult.ActionsResult(Snapshot: CanvasActionSnapshot.Of(actions: canvas.AllowedActions))),
+            renderCase: static (scope, r) =>
+                scope.NeedCanvas().Bind(canvas => {
+                    int limit = RenderDimensionLimit(canvas: canvas);
+                    return Optional((r.Width, r.Height))
+                        .Filter(dim => dim.Width > 0 && dim.Width <= limit && dim.Height > 0 && dim.Height <= limit)
+                        .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Render)), detail: $"dimensions out of [1, {limit}]"))
+                        .Bind(dim => EncodeBitmap(
+                            bitmap: canvas.DrawToBitmap(
+                                width: dim.Width, height: dim.Height,
+                                drawBackground: (r.Layers & CanvasBitmapLayers.Background) == CanvasBitmapLayers.Background,
+                                drawWires: (r.Layers & CanvasBitmapLayers.Wires) == CanvasBitmapLayers.Wires,
+                                drawMessages: (r.Layers & CanvasBitmapLayers.Messages) == CanvasBitmapLayers.Messages),
                             width: dim.Width, height: dim.Height,
-                            drawBackground: (r.Layers & CanvasBitmapLayers.Background) == CanvasBitmapLayers.Background,
-                            drawWires: (r.Layers & CanvasBitmapLayers.Wires) == CanvasBitmapLayers.Wires,
-                            drawMessages: (r.Layers & CanvasBitmapLayers.Messages) == CanvasBitmapLayers.Messages),
-                        width: dim.Width, height: dim.Height,
-                        op: Op.Of(name: nameof(CanvasOp.Render))));
-            }),
-        CanvasOp.PickMapCase =>
-            scope.NeedCanvas().Bind(canvas => EncodeBitmap(bitmap: canvas.DrawPickMap(), width: 0, height: 0, op: Op.Of(name: nameof(CanvasOp.PickMap)))),
-        CanvasOp.ViewCase v =>
-            ViewDispatch(scope: scope, view: v.Request),
-        CanvasOp.SnapFeedbackCase f =>
-            scope.NeedCanvas().Map(canvas => {
-                _ = f.Clear ? ClearSnapFeedback(canvas: canvas) : unit;
-                return (CanvasResult)new CanvasResult.SnapFeedbackResult(Feedback: SnapFeedbackOf(canvas: canvas));
-            }),
-        CanvasOp.InteractionCase ic =>
-            from canvas in scope.NeedCanvas()
-            let before = InteractionOf(canvas: canvas, document: scope.Document)
-            from projected in ic.Policy.Projection.TraverseM(projection => ApplyProjection(scope: scope, policy: projection)).As()
-            from applied in Op.Of(name: nameof(CanvasOp.Interaction)).Attempt(body: () => {
-                canvas.AllowPan = ic.Policy.AllowPan;
-                canvas.AllowZoom = ic.Policy.AllowZoom;
-                canvas.ShowTilesWhenEmpty = ic.Policy.ShowTilesWhenEmpty;
-                canvas.WindowSelectObjects = ic.Policy.WindowSelectObjects;
-                canvas.WindowSelectWires = ic.Policy.WindowSelectWires;
-                canvas.WindowSelectGroups = ic.Policy.WindowSelectGroups;
-                _ = projected;
-                _ = ic.Policy.ViewportDragging.Iter(value => canvas.ViewportDragging = value);
-                _ = ic.Policy.Actions.Iter(policy => policy.Apply(actions: canvas.AllowedActions));
-                _ = ic.Policy.ClearSnapFeedback ? ClearSnapFeedback(canvas: canvas) : unit;
-                return unit;
-            }, what: "canvas interaction")
-            select (CanvasResult)new CanvasResult.InteractionResult(
-                Interaction: new CanvasInteractionSnapshot(Before: before, After: InteractionOf(canvas: canvas, document: scope.Document))),
-        CanvasOp.WindowSelectCase ws =>
-            scope.NeedObjects().Bind(objs => scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Map(doc => {
-                // Groups scope bit → considerBackground (GH2 WindowSelectGroups canvas flag; background objects sit below wires).
-                SelectionResult result = objs.WindowSelect(window: ws.Window, mode: ws.Mode,
-                    considerForeground: (ws.Scope & CanvasWindowScope.Objects) == CanvasWindowScope.Objects,
-                    considerBackground: (ws.Scope & CanvasWindowScope.Groups) == CanvasWindowScope.Groups,
-                    considerWires: (ws.Scope & CanvasWindowScope.Wires) == CanvasWindowScope.Wires);
-                return (CanvasResult)new CanvasResult.WindowResult(Window: new CanvasWindowSnapshot(
-                    Canvas: SnapshotOf(scope: scope, canvas: canvas, document: doc, objects: objs),
-                    SelectedCount: result.SelectedCount,
-                    DeselectedCount: result.DeselectedCount));
-            }))),
-        _ => Fin.Fail<CanvasResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasDispatch)), detail: "unknown CanvasOp")),
-    };
+                            op: Op.Of(name: nameof(CanvasOp.Render))));
+                }),
+            pickMapCase: static (scope, _) =>
+                scope.NeedCanvas().Bind(canvas => EncodeBitmap(bitmap: canvas.DrawPickMap(), width: 0, height: 0, op: Op.Of(name: nameof(CanvasOp.PickMap)))),
+            viewCase: static (scope, v) =>
+                ViewDispatch(scope: scope, view: v.Request),
+            snapFeedbackCase: static (scope, f) =>
+                scope.NeedCanvas().Map(canvas => {
+                    _ = f.Clear ? ClearSnapFeedback(canvas: canvas) : unit;
+                    return (CanvasResult)new CanvasResult.SnapFeedbackResult(Feedback: SnapFeedbackOf(canvas: canvas));
+                }),
+            interactionCase: static (scope, ic) =>
+                from canvas in scope.NeedCanvas()
+                let before = InteractionOf(canvas: canvas, document: scope.Document)
+                from projected in ic.Policy.Projection.TraverseM(projection => ApplyProjection(scope: scope, policy: projection)).As()
+                from applied in Op.Of(name: nameof(CanvasOp.Interaction)).Attempt(body: () => {
+                    canvas.AllowPan = ic.Policy.AllowPan;
+                    canvas.AllowZoom = ic.Policy.AllowZoom;
+                    canvas.ShowTilesWhenEmpty = ic.Policy.ShowTilesWhenEmpty;
+                    canvas.WindowSelectObjects = ic.Policy.WindowSelectObjects;
+                    canvas.WindowSelectWires = ic.Policy.WindowSelectWires;
+                    canvas.WindowSelectGroups = ic.Policy.WindowSelectGroups;
+                    _ = projected;
+                    _ = ic.Policy.ViewportDragging.Iter(value => canvas.ViewportDragging = value);
+                    _ = ic.Policy.Actions.Iter(policy => policy.Apply(actions: canvas.AllowedActions));
+                    _ = ic.Policy.ClearSnapFeedback ? ClearSnapFeedback(canvas: canvas) : unit;
+                    return unit;
+                }, what: "canvas interaction")
+                select (CanvasResult)new CanvasResult.InteractionResult(
+                    Interaction: new CanvasInteractionSnapshot(Before: before, After: InteractionOf(canvas: canvas, document: scope.Document))),
+            windowSelectCase: static (scope, ws) =>
+                scope.NeedObjects().Bind(objs => scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Map(doc => {
+                    SelectionResult result = objs.WindowSelect(window: ws.Window, mode: ws.Mode,
+                        considerForeground: (ws.Scope & CanvasWindowScope.Objects) == CanvasWindowScope.Objects,
+                        considerBackground: (ws.Scope & CanvasWindowScope.Groups) == CanvasWindowScope.Groups,
+                        considerWires: (ws.Scope & CanvasWindowScope.Wires) == CanvasWindowScope.Wires);
+                    return (CanvasResult)new CanvasResult.WindowResult(Window: new CanvasWindowSnapshot(
+                        Canvas: SnapshotOf(scope: scope, canvas: canvas, document: doc, objects: objs),
+                        SelectedCount: result.SelectedCount,
+                        DeselectedCount: result.DeselectedCount));
+                }))));
 
     private readonly record struct ViewTarget(GhCanvas Canvas, GhDocument Document, GhObjectList Objects);
 
@@ -495,8 +494,9 @@ internal static partial class UiRail {
             objects: target.Objects);
 
     private static Fin<CanvasResult> ViewDispatch(GrasshopperUi.Scope scope, CanvasViewOp view) =>
-        view switch {
-            CanvasViewOp.BoundsCase n =>
+        view.Switch(
+            state: scope,
+            boundsCase: static (scope, n) =>
                 from frame in Op.Of(name: nameof(CanvasViewOp.Bounds)).AcceptRect(value: n.Region, detail: "non-finite frame")
                 from result in NavigateView(
                     scope: scope,
@@ -505,7 +505,7 @@ internal static partial class UiRail {
                     op: Op.Of(name: nameof(CanvasViewOp.Bounds)),
                     frame: _ => Fin.Succ(frame))
                 select result,
-            CanvasViewOp.SelectionCase f =>
+            selectionCase: static (scope, f) =>
                 NavigateView(
                     scope: scope,
                     rawPolicy: f.Policy,
@@ -524,7 +524,7 @@ internal static partial class UiRail {
                                 requirePositive: true)
                                 .Map(valid => RectangleF.Inflate(rectangle: valid, width: policy.Padding, height: policy.Padding)));
                     }),
-            CanvasViewOp.FitCase ft =>
+            fitCase: static (scope, ft) =>
                 NavigateView(
                     scope: scope,
                     rawPolicy: ft.Policy,
@@ -536,23 +536,21 @@ internal static partial class UiRail {
                         selectionCase: static (state, _) => FrameOf(targets: state.Objects.SelectedObjects)
                             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasViewOp.Fit)), detail: "no selected objects to fit")),
                         viewportCase: static (state, _) => Fin.Succ(state.Canvas.VisibleFrame))),
-            CanvasViewOp.PositionCase pos =>
+            positionCase: static (scope, pos) =>
                 from target in NeedViewTarget(scope)
                 from _ in Op.Of(name: nameof(CanvasViewOp.Position)).Attempt(
                     body: () => { target.Canvas.Navigate(position: pos.Where, duration: pos.Duration); return unit; },
                     what: "FlexControl.Navigate(ContentPosition)")
                 select (CanvasResult)new CanvasResult.SnapshotResult(
                     Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document, objects: target.Objects)),
-            CanvasViewOp.ProjectionCase pr =>
+            projectionCase: static (scope, pr) =>
                 from zoom in Op.Of(name: nameof(CanvasViewOp.Projection)).Attempt(
                     body: () => ZoomFactor.Create(pr.Zoom),
                     what: nameof(ZoomFactor))
                 from _ in ApplyProjection(scope: scope, policy: new CanvasProjectionPolicy(Centre: Some(pr.Centre), Zoom: Some(zoom.Value)))
                 from target in NeedViewTarget(scope)
                 select (CanvasResult)new CanvasResult.SnapshotResult(
-                    Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document, objects: target.Objects)),
-            _ => Fin.Fail<CanvasResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ViewDispatch)), detail: "unknown CanvasViewOp")),
-        };
+                    Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document, objects: target.Objects)));
 
     private static Fin<Unit> ApplyProjection(GrasshopperUi.Scope scope, CanvasProjectionPolicy policy) =>
         from document in scope.NeedDocument()

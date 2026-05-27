@@ -280,6 +280,10 @@ public static class BridgeWire {
     public const string LanguageExtBootstrap =
         "global::LanguageExt.HashMap<string, int> __rasmBridgeLanguageExtBootstrap = global::LanguageExt.HashMap<string, int>.Empty;\n"
         + "global::LanguageExt.HashMap<(uint Serial, System.Guid DefId), int> __rasmBridgeLanguageExtTupleBootstrap = global::LanguageExt.HashMap<(uint Serial, System.Guid DefId), int>.Empty;";
+    /// Grasshopper-aware scenario compile surface: host-resolvable usings only (Eto/Rhino/LanguageExt). GH2 namespaces stay in scenario preamble when needed.
+    public const string ScenarioHostUsings =
+        "using Eto.Drawing;\n"
+        + "using LanguageExt;\n";
     public static FrozenSet<string> CollisionWatchAssemblyNames { get; } = new[] {
         "FSharp.Core",
         "LanguageExt.Core",

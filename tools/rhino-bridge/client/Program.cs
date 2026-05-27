@@ -242,7 +242,7 @@ internal static class Program {
         (string Message, string[] Arguments)[] steps = [
             (Message: "dotnet restore failed.", Arguments: ["restore", project, "--locked-mode"]),
             (Message: "dotnet build failed.", Arguments: ["build", project, "--configuration", Configuration, "--no-restore"]),
-            (Message: "dotnet msbuild ResolveReferences failed.", Arguments: ["msbuild", project, "-target:ResolveReferences", "-getProperty:TargetPath", "-getProperty:TargetDir", "-getProperty:TargetFramework", "-getProperty:AssemblyName", "-getProperty:TargetExt", "-getProperty:RestorePackagesPath", "-getItem:ReferenceCopyLocalPaths", "-getItem:ReferencePath", $"-p:Configuration={Configuration}", "-p:RestoreLockedMode=true", "-nologo"]),
+            (Message: "dotnet msbuild ResolveReferences failed.", Arguments: ["msbuild", project, "-target:ResolveReferences", "-getProperty:TargetPath", "-getProperty:TargetDir", "-getProperty:TargetFramework", "-getProperty:AssemblyName", "-getProperty:TargetExt", "-getProperty:RestorePackagesPath", "-getProperty:LangVersion", "-getProperty:IsGrasshopperAwareProject", "-getItem:ReferenceCopyLocalPaths", "-getItem:ReferencePath", $"-p:Configuration={Configuration}", "-p:RestoreLockedMode=true", "-nologo"]),
         ];
         List<BridgeOutput> outputs = [];
         List<BridgeOutput> buildOutputs = [];
@@ -345,7 +345,7 @@ internal static class Program {
         return (
             string.Join(separator: Environment.NewLine, values: new[] {
                 ReferenceDirectives(references: references),
-            }.Concat(script.Take(count: bodyIndex)).Concat([
+            }.Concat(script.Take(count: bodyIndex)).Concat(project.IsGrasshopperAware ? [BridgeWire.ScenarioHostUsings] : []).Concat([
                 $"const string SCENARIO_NAME = \"{Escape(value: scenario)}\";",
                 $"const string CAPTURE_PATH = \"{Escape(value: capture)}\";",
                 BridgeWire.LanguageExtBootstrap,
@@ -707,18 +707,32 @@ internal sealed record ReferenceFile(string Path, string Identity) {
     }
 }
 
-internal sealed record ProjectBuild(string ProjectPath, string Configuration, string? TargetFramework, string? AssemblyName, string TargetPath, string? TargetDir, string? TargetExt, string? PackageCacheRoot, IReadOnlyList<string> References) {
+internal sealed record ProjectBuild(string ProjectPath, string Configuration, string? TargetFramework, string? AssemblyName, string TargetPath, string? TargetDir, string? TargetExt, string? PackageCacheRoot, string? LangVersion, string? IsGrasshopperAwareProject, IReadOnlyList<string> References) {
     internal IReadOnlyList<string> RuntimeReferences =>
         [.. References.Where(reference => !string.Equals(a: Path.GetFullPath(path: reference), b: Path.GetFullPath(path: TargetPath), comparisonType: OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))];
     internal IReadOnlyList<string> HostFilteredRuntimeReferences =>
         [.. RuntimeReferences.Where(static reference => !IsHostReference(path: reference))];
+    internal bool IsGrasshopperAware =>
+        string.Equals(a: IsGrasshopperAwareProject, b: "true", comparisonType: StringComparison.OrdinalIgnoreCase)
+        || RuntimeReferences.Any(predicate: static reference => Path.GetFileName(path: reference).Equals(value: "Grasshopper2.dll", comparisonType: StringComparison.OrdinalIgnoreCase));
     internal static ProjectBuild Parse(string projectPath, string configuration, string json) {
         using JsonDocument document = JsonDocument.Parse(json: json);
         JsonElement properties = document.RootElement.GetProperty(propertyName: "Properties");
         string targetPath = Existing(Text(properties: properties, name: "TargetPath"), label: "TargetPath");
         string? targetDir = Text(properties: properties, name: "TargetDir");
         string[] references = ReferencesOf(root: document.RootElement, targetPath: targetPath, targetDir: targetDir);
-        return new(ProjectPath: projectPath, Configuration: configuration, TargetFramework: Text(properties: properties, name: "TargetFramework"), AssemblyName: Text(properties: properties, name: "AssemblyName"), TargetPath: targetPath, TargetDir: targetDir, TargetExt: Text(properties: properties, name: "TargetExt"), PackageCacheRoot: Text(properties: properties, name: "RestorePackagesPath"), References: references);
+        return new(
+            ProjectPath: projectPath,
+            Configuration: configuration,
+            TargetFramework: Text(properties: properties, name: "TargetFramework"),
+            AssemblyName: Text(properties: properties, name: "AssemblyName"),
+            TargetPath: targetPath,
+            TargetDir: targetDir,
+            TargetExt: Text(properties: properties, name: "TargetExt"),
+            PackageCacheRoot: Text(properties: properties, name: "RestorePackagesPath"),
+            LangVersion: Text(properties: properties, name: "LangVersion"),
+            IsGrasshopperAwareProject: Text(properties: properties, name: "IsGrasshopperAwareProject"),
+            References: references);
     }
     private static string[] ReferencesOf(JsonElement root, string targetPath, string? targetDir) =>
         [.. new[] { targetPath }

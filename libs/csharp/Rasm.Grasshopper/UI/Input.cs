@@ -41,6 +41,24 @@ public sealed partial class CursorKind {
 }
 
 [SmartEnum<int>]
+public sealed partial class DialogPresentation {
+    public static readonly DialogPresentation Modal = new(key: 0);
+    public static readonly DialogPresentation AttachedSheet = new(key: 1);
+
+    internal Option<TResult> Show<TResult>(Dialog<TResult> dialog, Control? parent) =>
+        Key switch {
+            0 => Optional(dialog.ShowModal(owner: parent)),
+            1 => Optional(Attached(dialog: dialog, parent: parent)),
+            _ => Option<TResult>.None,
+        };
+
+    private static TResult Attached<TResult>(Dialog<TResult> dialog, Control? parent) {
+        dialog.DisplayMode = DialogDisplayMode.Attached;
+        return dialog.ShowModal(owner: parent);
+    }
+}
+
+[SmartEnum<int>]
 public sealed partial class FileDialogMode {
     private delegate Seq<string> DialogRun(Control? parent, Option<string> initialPath, FileFilter[] filters, bool multiSelect, Option<string> title);
 
@@ -389,7 +407,9 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
     // Typed modal dialog. The Configure delegate is responsible for installing widgets, wiring
     // a confirmation Button that invokes dialog.Close(result), and returning Fin.Succ once setup
     // is complete. macOS: DisplayMode.Attached presents as a sheet on the parent window.
-    public sealed record Dialog<TResult>(Func<Eto.Forms.Dialog<TResult>, Fin<Unit>> Configure, string Title = "", DialogDisplayMode Mode = DialogDisplayMode.Default) : InputRequest<Option<TResult>> { internal override Fin<Option<TResult>> Apply(GrasshopperUi.Scope scope) => Input.Dialog(configure: Configure, title: Title, mode: Mode).Run(scope: scope); }
+    public sealed record Dialog<TResult>(Func<Eto.Forms.Dialog<TResult>, Fin<Unit>> Configure, string Title = "", Option<DialogPresentation> Presentation = default) : InputRequest<Option<TResult>> {
+        internal override Fin<Option<TResult>> Apply(GrasshopperUi.Scope scope) => Input.Dialog(configure: Configure, title: Title, presentation: Presentation).Run(scope: scope);
+    }
     public sealed record PickColor(Color Initial, bool AllowAlpha = true) : InputRequest<Option<Color>> { internal override Fin<Option<Color>> Apply(GrasshopperUi.Scope scope) => Input.PickColor(initial: Initial, allowAlpha: AllowAlpha).Run(scope: scope); }
     public sealed record PickFont(Option<Font> Initial = default) : InputRequest<Option<Font>> { internal override Fin<Option<Font>> Apply(GrasshopperUi.Scope scope) => Input.PickFont(initial: Initial).Run(scope: scope); }
     public sealed record Notify(string Title, string Body, Option<Image> ContentImage = default) : InputRequest<Unit> { internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Input.Notify(title: Title, message: Body, contentImage: ContentImage).Run(scope: scope); }
@@ -512,6 +532,7 @@ internal static partial class Input {
                 readCase: static _ => ClipboardSnapshotOf(),
                 writeCase: static w => {
                     Clipboard clipboard = Eto.Forms.Clipboard.Instance;
+                    clipboard.Clear();
                     _ = w.Payload.Text.Iter(text => clipboard.Text = text);
                     _ = w.Payload.Html.Iter(html => clipboard.Html = html);
                     _ = w.Payload.Image.Iter(image => clipboard.Image = image);
@@ -524,16 +545,17 @@ internal static partial class Input {
                 }),
             what: "Clipboard op"));
 
-    internal static GrasshopperUiIntent<Option<TResult>> Dialog<TResult>(Func<Dialog<TResult>, Fin<Unit>> configure, string title, DialogDisplayMode mode) =>
+    internal static GrasshopperUiIntent<Option<TResult>> Dialog<TResult>(Func<Dialog<TResult>, Fin<Unit>> configure, string title, Option<DialogPresentation> presentation) =>
         GhUi.Read(run: scope =>
             from validConfigure in Optional(configure).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Dialog)), detail: "null configure delegate"))
-            from result in RunDialog(scope: scope, title: title, mode: mode, configure: validConfigure)
+            from result in RunDialog(scope: scope, title: title, presentation: presentation.IfNone(DialogPresentation.Modal), configure: validConfigure)
             select result);
 
-    private static Fin<Option<TResult>> RunDialog<TResult>(GrasshopperUi.Scope scope, string title, DialogDisplayMode mode, Func<Dialog<TResult>, Fin<Unit>> configure) =>
+    private static Fin<Option<TResult>> RunDialog<TResult>(GrasshopperUi.Scope scope, string title, DialogPresentation presentation, Func<Dialog<TResult>, Fin<Unit>> configure) =>
         Try.lift<Fin<Option<TResult>>>(f: () => {
-            using Dialog<TResult> dialog = new() { Title = title, DisplayMode = mode };
-            return configure(arg: dialog).Map(_ => Optional(dialog.ShowModal(owner: DialogParent(scope: scope))));
+            using Dialog<TResult> dialog = new() { Title = title };
+            global::Rhino.UI.EtoExtensions.UseRhinoStyle(dialog);
+            return configure(arg: dialog).Map(_ => presentation.Show(dialog: dialog, parent: DialogParent(scope: scope)));
         }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Dialog)), detail: $"Dialog<T> threw: {error.Message}")).Bind(static r => r);
 
     internal static GrasshopperUiIntent<Option<Color>> PickColor(Color initial, bool allowAlpha) =>
@@ -559,9 +581,9 @@ internal static partial class Input {
         GhUi.Read(run: scope =>
             Try.lift(f: () => {
                 Notification notification = new() { Title = title, Message = message };
-                Unit assignImage = contentImage.Iter(image => notification.ContentImage = image);
-                notification.Show(indicator: null!);
-                return assignImage;
+                _ = contentImage.Iter(image => notification.ContentImage = image);
+                notification.Show();
+                return unit;
             }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Notify)), detail: $"Notification threw: {error.Message}")));
 
     private static InputClipboardSnapshot ClipboardSnapshotOf() {
@@ -578,12 +600,10 @@ internal static partial class Input {
     private static InputModifierSnapshot ModifierOf(Keys keys) =>
         new(Shift: keys.HasShift(), Command: keys.HasCommand(), Option: keys.HasOption());
 
-    // DialogParent cascade: Editor.ThisOrRhino > RhinoEtoApp.MainWindowForOwner (Mac-appropriate) >
-    // RhinoEtoApp.MainWindow (fallback). Returning null silently re-parents the dialog to nowhere and
-    // produces off-screen render on multi-display setups; the cascade always lands on a visible host.
     private static Control? DialogParent(GrasshopperUi.Scope scope) =>
-        scope.Editor.Map(static _ => (Control?)Grasshopper2.UI.Editor.ThisOrRhino).IfNone(static () =>
-            (Control?)(Rhino.UI.RhinoEtoApp.MainWindowForOwner ?? Rhino.UI.RhinoEtoApp.MainWindow));
+        scope.Editor.Map(static _ => (Control?)Grasshopper2.UI.Editor.ThisOrRhino).IfNone(() =>
+            scope.Canvas.Map(static c => (Control?)c.ControlObject)
+                .IfNone(() => (Control?)(Rhino.UI.RhinoEtoApp.MainWindowForOwner ?? Rhino.UI.RhinoEtoApp.MainWindow)));
 
     internal static Seq<string> RunFileDialog(FileDialog dialog, Control? parent, Option<string> initialPath, FileFilter[] filters, Option<string> title) {
         using FileDialog owned = dialog;

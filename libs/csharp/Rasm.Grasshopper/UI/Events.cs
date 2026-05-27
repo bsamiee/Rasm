@@ -18,8 +18,8 @@ public partial record UiEvent {
     private UiEvent() { }
     public sealed record PaintCase(CanvasPaintPhase Phase, Func<PaintScope, Fin<Unit>> Handler, MotionClock? Clock = null) : UiEvent;
     public sealed record DocumentCase(DocumentEvent Kind, Func<DocumentEventSnapshot, Fin<Unit>> Handler) : UiEvent;
-    public sealed record SolutionCase(SolutionEvent Kind, Func<DocumentSnapshot, Fin<Unit>> Handler) : UiEvent;
-    public sealed record UndoCase(UndoEvent Kind, Func<DocumentHistorySnapshot, Fin<Unit>> Handler) : UiEvent;
+    public sealed record SolutionCase(SolutionEvent Kind, Func<SolutionEventSnapshot, Fin<Unit>> Handler) : UiEvent;
+    public sealed record UndoCase(UndoEvent Kind, Func<UndoEventSnapshot, Fin<Unit>> Handler) : UiEvent;
     public sealed record TimerCase(TimeSpan Interval, Func<Fin<Unit>> Handler) : UiEvent;
     public sealed record ControlCase(Control Source, ControlEvent Kind, Func<ControlEventSnapshot, Fin<Unit>> Handler) : UiEvent;
 
@@ -31,9 +31,9 @@ public partial record UiEvent {
         new DocumentCase(Kind: DocumentEventKind.Changed, Handler: e => handler(arg: e.Document));
     public static UiEvent SelectionChanged(Func<Seq<DocumentObjectSnapshot>, Fin<Unit>> handler) =>
         new DocumentCase(Kind: DocumentEventKind.Selection, Handler: e => handler(arg: e.Objects));
-    public static UiEvent Solution(SolutionEvent kind, Func<DocumentSnapshot, Fin<Unit>> handler) =>
+    public static UiEvent Solution(SolutionEvent kind, Func<SolutionEventSnapshot, Fin<Unit>> handler) =>
         new SolutionCase(Kind: kind, Handler: handler);
-    public static UiEvent Undo(UndoEvent kind, Func<DocumentHistorySnapshot, Fin<Unit>> handler) =>
+    public static UiEvent Undo(UndoEvent kind, Func<UndoEventSnapshot, Fin<Unit>> handler) =>
         new UndoCase(Kind: kind, Handler: handler);
     public static UiEvent Timer(TimeSpan interval, Func<Fin<Unit>> handler) =>
         new TimerCase(Interval: interval, Handler: handler);
@@ -228,6 +228,12 @@ public static class ControlEventKind {
 public readonly record struct DocumentEventSnapshot(DocumentEvent Kind, DocumentSnapshot Document, Seq<DocumentObjectSnapshot> Objects, Seq<WireSnapshot.ConnectedCase> Wires, Option<string> Detail);
 
 [StructLayout(LayoutKind.Auto)]
+public readonly record struct SolutionEventSnapshot(SolutionEvent Kind, DocumentSnapshot Document);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct UndoEventSnapshot(UndoEvent Kind, DocumentHistorySnapshot History);
+
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct ControlEventSnapshot(ControlEvent Kind, bool Enabled, bool Visible, bool HasFocus, Option<PointF> Point = default, Option<MouseButtons> Buttons = default, Option<Keys> Keys = default, Option<string> Text = default, Option<SizeF> Delta = default, Option<float> Pressure = default, Option<DragEffects> DragEffects = default, Option<DragEffects> AllowedDragEffects = default, Option<IDataObject> DragData = default);
 
 internal abstract record EventRequest : GhUiRequest<Subscription> {
@@ -282,21 +288,21 @@ internal static partial class Events {
                 marshalToUi: true)
             select sub);
 
-    private static GrasshopperUiIntent<Subscription> SubscribeSolution(SolutionEvent kind, Func<DocumentSnapshot, Fin<Unit>> handler) =>
+    private static GrasshopperUiIntent<Subscription> SubscribeSolution(SolutionEvent kind, Func<SolutionEventSnapshot, Fin<Unit>> handler) =>
         SubscribePublish(
             opName: nameof(SubscribeSolution),
             kind: kind,
             handler: handler,
-            snapshot: UiRail.DocumentSnapshotOf,
+            snapshot: (doc, objs) => new SolutionEventSnapshot(Kind: kind, Document: UiRail.DocumentSnapshotOf(document: doc, objects: objs)),
             owner: static doc => doc.Solution,
             handlers: static publish => new SolutionEventHandlers(About: (_, _) => publish(), Plain: (_, _) => publish(), Faulted: (_, _) => publish()));
 
-    private static GrasshopperUiIntent<Subscription> SubscribeUndo(UndoEvent kind, Func<DocumentHistorySnapshot, Fin<Unit>> handler) =>
+    private static GrasshopperUiIntent<Subscription> SubscribeUndo(UndoEvent kind, Func<UndoEventSnapshot, Fin<Unit>> handler) =>
         SubscribePublish(
             opName: nameof(SubscribeUndo),
             kind: kind,
             handler: handler,
-            snapshot: static (doc, _) => UiRail.HistorySnapshotOf(document: doc),
+            snapshot: (doc, _) => new UndoEventSnapshot(Kind: kind, History: UiRail.HistorySnapshotOf(document: doc)),
             owner: static doc => doc.Undo,
             handlers: static publish => new UndoEventHandlers(Plain: (_, _) => publish(), Node: (_, _) => publish(), Moved: (_, _) => publish()));
 
@@ -341,14 +347,14 @@ internal static partial class Events {
         GhUi.Read(run: scope =>
             from validSource in Optional(source).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeControl)), detail: "null control"))
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeControl)), detail: "null handler"))
-            let events = BuildControlHandlers(source: validSource, kind: kind, handler: valid)
+            from events in BuildControlHandlers(source: validSource, kind: kind, handler: valid)
             from sub in Subscription.Bind(
                 attach: () => kind.Attach(validSource, events),
                 detach: () => kind.Detach(validSource, events),
                 marshalToUi: true)
             select sub);
 
-    private static ControlEventHandlers BuildControlHandlers(Control source, ControlEvent kind, Func<ControlEventSnapshot, Fin<Unit>> handler) {
+    private static Fin<ControlEventHandlers> BuildControlHandlers(Control source, ControlEvent kind, Func<ControlEventSnapshot, Fin<Unit>> handler) {
         ControlEventSnapshot Snapshot(
             Option<PointF> point = default,
             Option<MouseButtons> buttons = default,
@@ -367,12 +373,12 @@ internal static partial class Events {
             return unit;
         }
         return kind.Name switch {
-            nameof(ControlEventKind.PreLoad) or nameof(ControlEventKind.Load) or nameof(ControlEventKind.LoadComplete) or nameof(ControlEventKind.UnLoad) or nameof(ControlEventKind.Shown) or nameof(ControlEventKind.GotFocus) or nameof(ControlEventKind.LostFocus) or nameof(ControlEventKind.SizeChanged) or nameof(ControlEventKind.EnabledChanged) => IgnoreControlHandlers with { Plain = (_, _) => Publish(Snapshot()) },
-            nameof(ControlEventKind.KeyDown) or nameof(ControlEventKind.KeyUp) => IgnoreControlHandlers with { Key = (_, e) => Publish(Snapshot(keys: Some(e.KeyData))) },
-            nameof(ControlEventKind.TextInput) => IgnoreControlHandlers with { Text = (_, e) => Publish(Snapshot(text: Optional(e.Text))) },
-            nameof(ControlEventKind.MouseDown) or nameof(ControlEventKind.MouseUp) or nameof(ControlEventKind.MouseMove) or nameof(ControlEventKind.MouseEnter) or nameof(ControlEventKind.MouseLeave) or nameof(ControlEventKind.MouseDoubleClick) or nameof(ControlEventKind.MouseWheel) => IgnoreControlHandlers with { Mouse = (_, e) => Publish(Snapshot(point: Some(e.Location), buttons: Some(e.Buttons), keys: Some(e.Modifiers), delta: Some(e.Delta), pressure: Some(e.Pressure))) },
-            nameof(ControlEventKind.DragDrop) or nameof(ControlEventKind.DragOver) or nameof(ControlEventKind.DragEnter) or nameof(ControlEventKind.DragLeave) or nameof(ControlEventKind.DragEnd) => IgnoreControlHandlers with { Drag = (_, e) => Publish(Snapshot(point: Some(e.Location), keys: Some(e.Modifiers), dragEffects: Some(e.Effects), allowedDragEffects: Some(e.AllowedEffects), dragData: Optional<IDataObject>(value: e.Data))) },
-            _ => IgnoreControlHandlers,
+            nameof(ControlEventKind.PreLoad) or nameof(ControlEventKind.Load) or nameof(ControlEventKind.LoadComplete) or nameof(ControlEventKind.UnLoad) or nameof(ControlEventKind.Shown) or nameof(ControlEventKind.GotFocus) or nameof(ControlEventKind.LostFocus) or nameof(ControlEventKind.SizeChanged) or nameof(ControlEventKind.EnabledChanged) => Fin.Succ(IgnoreControlHandlers with { Plain = (_, _) => Publish(Snapshot()) }),
+            nameof(ControlEventKind.KeyDown) or nameof(ControlEventKind.KeyUp) => Fin.Succ(IgnoreControlHandlers with { Key = (_, e) => Publish(Snapshot(keys: Some(e.KeyData))) }),
+            nameof(ControlEventKind.TextInput) => Fin.Succ(IgnoreControlHandlers with { Text = (_, e) => Publish(Snapshot(text: Optional(e.Text))) }),
+            nameof(ControlEventKind.MouseDown) or nameof(ControlEventKind.MouseUp) or nameof(ControlEventKind.MouseMove) or nameof(ControlEventKind.MouseEnter) or nameof(ControlEventKind.MouseLeave) or nameof(ControlEventKind.MouseDoubleClick) or nameof(ControlEventKind.MouseWheel) => Fin.Succ(IgnoreControlHandlers with { Mouse = (_, e) => Publish(Snapshot(point: Some(e.Location), buttons: Some(e.Buttons), keys: Some(e.Modifiers), delta: Some(e.Delta), pressure: Some(e.Pressure))) }),
+            nameof(ControlEventKind.DragDrop) or nameof(ControlEventKind.DragOver) or nameof(ControlEventKind.DragEnter) or nameof(ControlEventKind.DragLeave) or nameof(ControlEventKind.DragEnd) => Fin.Succ(IgnoreControlHandlers with { Drag = (_, e) => Publish(Snapshot(point: Some(e.Location), keys: Some(e.Modifiers), dragEffects: Some(e.Effects), allowedDragEffects: Some(e.AllowedEffects), dragData: Optional<IDataObject>(value: e.Data))) }),
+            _ => Fin.Fail<ControlEventHandlers>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(BuildControlHandlers)), detail: $"unsupported control event '{kind.Name}'")),
         };
     }
 

@@ -117,20 +117,27 @@ public sealed partial record RhinoUi {
                 false => Invoke(valid: valid, name: name),
             });
 
+    internal static Fin<T> WhenUiBound<T>(bool uiBound, Func<Fin<T>> run, [CallerMemberName] string name = "") =>
+        uiBound || !RhinoApp.IsOnMainThread
+            ? OnUiThread(run: run, name: name)
+            : run();
+
     private static Fin<T> Invoke<T>(Func<Fin<T>> valid, string name) {
         Op op = Op.Of(name: name);
         return op.Catch(() => {
             if (RhinoApp.IsOnMainThread)
                 return op.Catch(valid);
+            Option<Fin<T>> captured = Option<Fin<T>>.None;
             bool ran = false;
-            Fin<T> result = Fin.Fail<T>(error: op.InvalidResult());
             RhinoApp.InvokeAndWait(action: () => {
                 ran = true;
-                result = op.Catch(valid);
+                captured = Some(value: op.Catch(valid));
             });
-            return ran
-                ? result
-                : Fin.Fail<T>(error: op.Caution(concern: "RhinoApp.InvokeAndWait did not execute the delegate."));
+            return (ran, captured.Case) switch {
+                (true, Fin<T> result) => result,
+                (true, _) => Fin.Fail<T>(error: op.Caution(concern: "RhinoApp.InvokeAndWait executed but captured no result.")),
+                (false, _) => Fin.Fail<T>(error: op.Caution(concern: "RhinoApp.InvokeAndWait did not execute the delegate.")),
+            };
         });
     }
 

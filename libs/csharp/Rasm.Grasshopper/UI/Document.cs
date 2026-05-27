@@ -425,8 +425,7 @@ public abstract partial record DocumentMutation {
                 from spec in Optional(place.Object).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Place)), detail: "object spec is required"))
                 from location in Op.Of(name: nameof(Place)).AcceptPoint(value: place.Location, detail: "non-finite location")
                 from obj in spec.Build(op: Op.Of(name: nameof(Place)))
-                from cue in Optional(place.Cue).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Place)), detail: "drop cue is required"))
-                from resolved in cue.Resolve(objects: s.objects, op: Op.Of(name: nameof(Place)))
+                from resolved in place.Cue.Resolve(objects: s.objects, op: Op.Of(name: nameof(Place)))
                 let native = (resolved.Source.IsSome || resolved.Target.IsSome) switch {
                     true => s.methods.DropObject(
                         obj: obj,

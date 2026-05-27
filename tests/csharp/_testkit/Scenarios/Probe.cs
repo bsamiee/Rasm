@@ -25,6 +25,21 @@ public static class Probe {
             Succ: value => throw new InvalidOperationException(message: $"{label}: expected rejection, got {value?.ToString() ?? "<null>"}"),
             Fail: static _ => unit);
     }
+    public static Unit ExpectRejectedContains<T>(Fin<T> result, string substring, string label) {
+        ArgumentNullException.ThrowIfNull(argument: result);
+        ArgumentException.ThrowIfNullOrWhiteSpace(argument: substring);
+        return result.Match(
+            Succ: value => throw new InvalidOperationException(message: $"{label}: expected rejection, got {value?.ToString() ?? "<null>"}"),
+            Fail: error => error.Message.Contains(value: substring, comparisonType: StringComparison.Ordinal)
+                ? unit
+                : throw new InvalidOperationException(message: $"{label}: rejection missing '{substring}': {error.Message}"));
+    }
+    public static TCase ExpectCase<T, TCase>(Fin<T> result, string label, Func<T, Option<TCase>> select) {
+        ArgumentNullException.ThrowIfNull(argument: select);
+        return ExpectSome(
+            result: select(arg: Expect(result: result, label: label)),
+            label: string.Create(provider: CultureInfo.InvariantCulture, $"{label}: case"));
+    }
     public static TOut Project<TOut>(Fin<VectorIntent> intent, Context context, Op key, string label) =>
         Expect(
             result: Expect(result: intent, label: string.Create(provider: CultureInfo.InvariantCulture, $"{label}: intent"))
@@ -57,6 +72,11 @@ public sealed class FactBag {
         ArgumentNullException.ThrowIfNull(argument: key);
         ArgumentNullException.ThrowIfNull(argument: value);
         facts[key] = value;
+    }
+    public void AddIfSome<T>(string key, Option<T> value, Func<T, object> serialize) {
+        ArgumentNullException.ThrowIfNull(argument: key);
+        ArgumentNullException.ThrowIfNull(argument: serialize);
+        _ = value.IfSome(v => Add(key: key, value: serialize(arg: v)));
     }
     internal IReadOnlyDictionary<string, object> Snapshot() => facts;
 }

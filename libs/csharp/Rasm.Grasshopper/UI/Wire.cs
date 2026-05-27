@@ -357,6 +357,7 @@ internal static partial class Wire {
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from objects in scope.NeedObjects()
+            from _ in WireRepositoryRail.Require()
             from obj in Optional(objects.Find(instanceId: objectId)).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanInsert)), detail: $"object {objectId} not found"))
             from valid in Op.Of(name: nameof(CanInsert)).AcceptPoint(value: location, detail: "non-finite location")
             from snapshot in WireRepositoryRail.CanInsert(canvas: canvas, obj: obj, location: valid)
@@ -365,6 +366,7 @@ internal static partial class Wire {
     internal static GrasshopperUiIntent<WireDrawnSnapshot> RecentlyDrawn() =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
+            from _ in WireRepositoryRail.Require()
             from snapshot in WireDrawnCache.Read(canvas: canvas)
             select snapshot);
 
@@ -567,6 +569,8 @@ internal static class WireRepositoryRail {
         FieldInfo Kind);
 
     internal static readonly Lazy<Fin<WireRepositoryAccess>> Repository = new(Bootstrap);
+
+    internal static Fin<WireRepositoryAccess> Require() => Repository.Value;
 
     private static Fin<WireRepositoryAccess> Bootstrap() {
         const BindingFlags instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;

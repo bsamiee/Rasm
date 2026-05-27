@@ -7,6 +7,7 @@ using CoreGraphics;
 using Foundation;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.UI.Animation;
+using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Skinning;
 using Grasshopper2.UI.Sparkles;
 using ObjCRuntime;
@@ -22,6 +23,15 @@ namespace Rasm.Grasshopper.UI;
 internal static class MotionAccessibility {
     internal static bool ShouldReduceMotion =>
         NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion;
+
+    internal static bool ShouldIncreaseContrast =>
+        NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldIncreaseContrast;
+
+    internal static bool ShouldDifferentiateWithoutColor =>
+        NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldDifferentiateWithoutColor;
+
+    internal static bool ShouldSkipDecorativeMotion =>
+        ShouldReduceMotion || ShouldDifferentiateWithoutColor;
 }
 
 // MessageLoop = Eto coalesced ~60Hz (default). DisplayLink = CADisplayLink vsync (macOS 14+).
@@ -57,7 +67,7 @@ public interface IMotionVector<T> {
 }
 
 internal interface IMotionState<TSelf> where TSelf : struct, IMotionState<TSelf> {
-    public TSelf Step();
+    public TSelf Step(float frameDeltaSeconds);
     public Unit Emit();
     public bool IsActive { get; }
     public TSelf MergeInto(TSelf live);
@@ -226,9 +236,11 @@ public sealed partial class SpringPreset {
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct SpringRunnerState<T>(T Value, T Velocity, T Target, SpringConfig Config, IMotionVector<T> Vector, Action<T> Sink, TimeProvider Clock, long Timestamp) : IMotionState<SpringRunnerState<T>> {
     // Semi-implicit Euler: F = -k·x - b·v ; a = F/m ; v += a·dt ; x += v·dt.
-    public SpringRunnerState<T> Step() {
+    public SpringRunnerState<T> Step(float frameDeltaSeconds) {
         long now = Clock.GetTimestamp();
-        float dt = Math.Min(val1: (float)Clock.GetElapsedTime(startingTimestamp: Timestamp, endingTimestamp: now).TotalSeconds, val2: Motion.MaxFrameDelta);
+        float dt = frameDeltaSeconds > 0f
+            ? Math.Min(val1: frameDeltaSeconds, val2: Motion.MaxFrameDelta)
+            : Math.Min(val1: (float)Clock.GetElapsedTime(startingTimestamp: Timestamp, endingTimestamp: now).TotalSeconds, val2: Motion.MaxFrameDelta);
         T displacement = Vector.Subtract(Value, Target);
         T accel = Vector.Scale(
             Vector.Add(
@@ -286,7 +298,7 @@ public sealed class SpringHandle<T> : IDisposable {
 
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct PulseRunnerState<T>(Animated<T> Animated, T From, T To, GhDuration Duration, GhMotion Easing, bool Yoyo, bool Infinite, int CyclesRemaining, IMotionVector<T> Vector, Action<T> Sink) : IMotionState<PulseRunnerState<T>> {
-    public PulseRunnerState<T> Step() =>
+    public PulseRunnerState<T> Step(float _) =>
         (Animated.State == GhState.Finished, Infinite || CyclesRemaining > 0) switch {
             (true, true) => this with {
                 Animated = Animated<T>.CreateUnfinished(
@@ -528,7 +540,7 @@ internal static class Motion {
         Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer,
         string opName, CanvasPaintPhase phase, MotionClock clock, Func<PaintScope, Fin<Unit>> paint) =>
         GhUi.Canvas(run: scope =>
-            from sub in Paint.Hook(phase: phase, paint: paint, clock: clock).Run(scope: scope)
+            from sub in Paint.Hook(phase: phase, paint: paint, clock: clock, adoptedPacer: pacer).Run(scope: scope)
             let bundle = MotionBundleOf(pacer: pacer, sub: sub, canvas: canvas)
             from kickoff in Op.Of(name: opName).Attempt(body: bundle.Wake, what: $"{opName} initial wake")
                 .MapFail(error => UiFault.ThreadMarshal(detail: error.Message))
@@ -595,16 +607,12 @@ internal static class Motion {
                 paint: RunnerPaint(cell: cell, canvas: canvas, pacer: pacer, opName: nameof(Spring))).Run(scope: scope)
             select new SpringHandle<TValue>(cell: cell, subscription: bundle.Subscription, wake: bundle.Wake));
 
-    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
-        Justification = "Subscription.Atom is consumed by the Subscription `|` operator and disposed via the returned composite.")]
     internal static (Subscription Subscription, Action Wake) MotionBundleOf(
         Option<Pacer> pacer, Subscription sub, Grasshopper2.UI.Canvas.Canvas canvas) {
-        if (pacer is not { IsSome: true, Case: Pacer p }) {
-            return (Subscription: sub, Wake: canvas.ScheduleRedraw);
-        }
-        Subscription composite = sub | Subscription.Atom(detach: () => p.Release().Ignore(), detachOnce: true);
-        return (Subscription: composite, WakeFn);
-        void WakeFn() => p.Resume().Ignore();
+        Action wake = pacer is { IsSome: true }
+            ? () => _ = PacerResume(pacer: pacer, canvas: canvas)
+            : canvas.ScheduleRedraw;
+        return (Subscription: Subscription.DisposeOnce(sub), Wake: wake);
     }
 
     // DisplayLink demotes to None under AccessibilityShouldReduceMotion — caller falls through
@@ -756,12 +764,31 @@ internal static class Motion {
             from view in Optional(canvas.ControlObject as NSView).ToFin(Fail: UiFault.MutationRejected(
                 op: Op.Of(name: nameof(Cosmetic)), detail: "canvas.ControlObject is not an NSView"))
             from validated in ValidateCosmetic(intent: intent)
+            from mapped in MapCosmetic(canvas: canvas, intent: validated)
             let key = (NSString)$"rasm.cosmetic.{Guid.NewGuid():N}"
             from sub in Subscription.Bind(
-                attach: () => CosmeticAttach(view: view, intent: validated, key: key),
+                attach: () => CosmeticAttach(view: view, intent: mapped, key: key),
                 detach: () => CosmeticStrip(view: view, key: key),
                 marshalToUi: true)
             select sub);
+
+    private static Fin<CosmeticIntent> MapCosmetic(Grasshopper2.UI.Canvas.Canvas canvas, CosmeticIntent intent) =>
+        intent.Switch(
+            pulseCase: static (c, p) => Fin.Succ<CosmeticIntent>(new CosmeticIntent.PulseCase(
+                Bounds: MapCosmeticRect(canvas: c, bounds: p.Bounds), Tint: p.Tint, Duration: p.Duration)),
+            glowCase: static (c, g) => Fin.Succ<CosmeticIntent>(new CosmeticIntent.GlowCase(
+                Bounds: MapCosmeticRect(canvas: c, bounds: g.Bounds), Tint: g.Tint, CornerRadius: g.CornerRadius, ShadowRadius: g.ShadowRadius, Duration: g.Duration)),
+            strokeOnCase: static (c, s) => Fin.Succ<CosmeticIntent>(new CosmeticIntent.StrokeOnCase(
+                Polyline: MapCosmeticPolyline(canvas: c, polyline: s.Polyline), Tint: s.Tint, Thickness: s.Thickness, Duration: s.Duration)),
+            state: canvas);
+
+    private static RectangleF MapCosmeticRect(Grasshopper2.UI.Canvas.Canvas canvas, RectangleF bounds) =>
+        canvas.Map(rectangle: bounds, from: CoordinateSystem.Content, to: CoordinateSystem.Control);
+
+    private static ReadOnlyMemory<PointF> MapCosmeticPolyline(Grasshopper2.UI.Canvas.Canvas canvas, ReadOnlyMemory<PointF> polyline) =>
+        toSeq(polyline.Span.ToArray())
+            .Map(point => canvas.Map(point: point, from: CoordinateSystem.Content, to: CoordinateSystem.Control))
+            .ToArray();
 
     private static Fin<CosmeticIntent> ValidateCosmetic(CosmeticIntent intent) =>
         intent.Switch(
@@ -793,7 +820,7 @@ internal static class Motion {
         }
         CAShapeLayer shape = BuildCosmeticShape(intent: intent);
         shape.Name = key.ToString();
-        if (MotionAccessibility.ShouldReduceMotion) {
+        if (MotionAccessibility.ShouldSkipDecorativeMotion) {
             return WithoutAnimation(() => {
                 ApplyCosmeticTerminal(shape: shape, intent: intent);
                 host.AddSublayer(layer: shape);
@@ -954,6 +981,7 @@ internal static class Motion {
         private readonly Func<TState, TState> applyScratch;
         private TState scratch;
         private int wantingTicks;
+        private double lastVsyncTimestamp;
 
         private MotionRunner(Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer, CancellationToken cancellation) {
             this.cell = cell;
@@ -975,7 +1003,7 @@ internal static class Motion {
             if (cancellation.IsCancellationRequested) {
                 return Sleep();
             }
-            TState next = cell.Value.Step();
+            TState next = cell.Value.Step(frameDeltaSeconds: ResolveFrameDelta());
             _ = next.Emit();
             scratch = next;
             _ = cell.Swap(applyScratch);
@@ -983,10 +1011,30 @@ internal static class Motion {
             return unit;
         }
 
+        private float ResolveFrameDelta() {
+            if (pacer is not { IsSome: true, Case: Pacer paced }) {
+                return 0f;
+            }
+            double timestamp = paced.LastFrameTimestamp;
+            if (timestamp <= 0d || lastVsyncTimestamp <= 0d) {
+                if (timestamp > 0d) {
+                    lastVsyncTimestamp = timestamp;
+                }
+                return 0f;
+            }
+            float delta = (float)(timestamp - lastVsyncTimestamp);
+            lastVsyncTimestamp = timestamp;
+            return delta;
+        }
+
         // Pacer Resume only on 0→1 edge; ScheduleRedraw fallback relies on Eto coalescing.
         private Unit Wake() {
             if (pacer is { IsSome: true, Case: Pacer p }) {
-                return Interlocked.Exchange(ref wantingTicks, 1) == 0 ? p.Resume() : unit;
+                if (Interlocked.Exchange(ref wantingTicks, 1) == 0) {
+                    lastVsyncTimestamp = 0d;
+                    return p.Resume();
+                }
+                return unit;
             }
             canvas.ScheduleRedraw();
             return unit;
@@ -1121,13 +1169,19 @@ internal static class Motion {
         internal double LastFrameTimestamp => Volatile.Read(ref lastFrameTimestamp);
 
         internal Unit Resume() {
-            _ = Interlocked.Increment(ref active);
-            link.Paused = false;
+            if (Interlocked.Increment(ref active) == 1) {
+                link.Paused = false;
+            }
             return unit;
         }
 
         internal Unit Pause() {
-            if (Interlocked.Decrement(ref active) <= 0) {
+            int next = Interlocked.Decrement(ref active);
+            if (next < 0) {
+                _ = Interlocked.CompareExchange(ref active, 0, next);
+                next = 0;
+            }
+            if (next <= 0) {
                 link.Paused = true;
             }
             return unit;

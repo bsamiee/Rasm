@@ -66,6 +66,8 @@
 
 - Each `bash scripts/rhino.sh verify <scenario>` invocation pays a 3-8s Rhino handshake. Group thematically related scenarios per `.verify.csx` file (e.g. `vectors-mesh-topology-and-validity.verify.csx` bundles topology census + naked-edge + validity guards) to amortize the handshake ~4×.
 - Populate runtime evidence inside the `Scenario.Run(theme, capturePath, (key, facts) => { … })` body via `facts.Add(string key, object value);` statements. The harness emits one `facts={json}` plain line plus one `rasm.rhino-bridge.evidence=facts={json}` marker on scope exit — that batched dictionary is the durable runtime fact channel; exception messages alone make failed scenarios hard to triage. Do not call `BridgeMarker.EmitFact`/`EmitScenarioHeader` — those public emitters were dropped during the protocol-surface tightening.
+- Grasshopper-aware scenarios receive bridge-owned `ScenarioHostUsings` (`Eto.Drawing`, `LanguageExt`) after the scenario preamble — host assemblies stay off `#r`; add explicit `using Grasshopper2.*` in scenario source only when a rail needs GH2 types. Do not add production icon/motion shims.
+- Prefer `Probe.ExpectCase`, `Probe.ExpectRejectedContains`, and `FactBag.AddIfSome` over duplicated `switch`/`Match` boilerplate in GH UI scenarios.
 - If a scenario passes locally but fails in CI, first check loaded RhinoCommon/Grasshopper assembly identity (`bridge doctor` output) before changing the scenario. Host-package collisions are evidence, not noise.
 
 ## [4][SUPPRESSIONS_AND_GATES]

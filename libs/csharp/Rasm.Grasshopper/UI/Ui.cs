@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
@@ -91,19 +92,37 @@ internal partial record UndoStrategy {
     public static UndoStrategy Manual(Func<GrasshopperUi.Scope, UndoEntry> record) => new ManualCase(Record: record);
 }
 
+[SmartEnum<int>]
+public sealed partial class SubscriptionTeardown {
+    public static readonly SubscriptionTeardown RunAlways = new(key: 0);
+    public static readonly SubscriptionTeardown DetachOnce = new(key: 1);
+    public static readonly SubscriptionTeardown TokenGated = new(key: 2);
+}
+
 [SkipUnionOps]
 [Union]
 public partial record Subscription : IDisposable {
     private Subscription() { }
-    // DetachOnce: idempotent teardown (TimerScope, pacer Release). Default RunAlways (LIFO composite).
-    // OwnedSubscription token gates live in Interaction.cs — do not conflate with Atom detach semantics.
-    public sealed record AtomCase(System.Action Detach, bool MarshalToUi, bool DetachOnce = false) : Subscription;
+    // Teardown: RunAlways (LIFO composite, repeat detach), DetachOnce (pacer/timer), TokenGated (OwnedSubscription).
+    public sealed record AtomCase(System.Action Detach, bool MarshalToUi, SubscriptionTeardown Teardown) : Subscription;
     public sealed record CompositeCase(Seq<Subscription> Members) : Subscription;
     public sealed record EmptyCase : Subscription;
 
     public static readonly Subscription Empty = new EmptyCase();
     public static Subscription Atom(System.Action detach, bool marshalToUi = false, bool detachOnce = false) =>
-        new AtomCase(Detach: GuardDetach(detach: detach, detachOnce: detachOnce), MarshalToUi: marshalToUi, DetachOnce: detachOnce);
+        new AtomCase(
+            Detach: GuardDetach(detach: detach, detachOnce: detachOnce),
+            MarshalToUi: marshalToUi,
+            Teardown: detachOnce ? SubscriptionTeardown.DetachOnce : SubscriptionTeardown.RunAlways);
+    [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "Composite owns the pacer atom; caller disposes the returned subscription.")]
+    internal static Subscription PaintPacer(Subscription paintHook, System.Action pacerRelease) =>
+        paintHook | Atom(detach: pacerRelease, detachOnce: true, marshalToUi: true);
+    internal static Subscription DisposeOnce(Subscription inner) =>
+        inner switch {
+            EmptyCase => Empty,
+            AtomCase atom when atom.Teardown != SubscriptionTeardown.RunAlways => inner,
+            _ => Atom(detach: inner.Dispose, detachOnce: true),
+        };
     // Members stored LIFO so Dispose iterates in detach order without a reversed view allocation.
     public static Subscription Composite(Seq<Subscription> members) =>
         members.Count switch {
@@ -151,9 +170,18 @@ public partial record Subscription : IDisposable {
         };
     }
 
-    internal static Fin<Subscription> Bind(System.Action attach, System.Action detach, bool marshalToUi = false, bool detachOnce = false) =>
+    internal static Fin<Subscription> Bind(
+        System.Action attach,
+        System.Action detach,
+        bool marshalToUi = false,
+        bool detachOnce = false,
+        SubscriptionTeardown? teardown = null) =>
         Try.lift(f: () => { attach(); return unit; }).Run()
-            .Map(_ => (Subscription)new AtomCase(Detach: GuardDetach(detach: detach, detachOnce: detachOnce), MarshalToUi: marshalToUi, DetachOnce: detachOnce))
+            .Map(_ => (Subscription)new AtomCase(
+                Detach: detachOnce ? GuardDetach(detach: detach, detachOnce: true) : detach,
+                MarshalToUi: marshalToUi,
+                Teardown: teardown ?? (detachOnce ? SubscriptionTeardown.DetachOnce : SubscriptionTeardown.RunAlways)))
+            .Map(DisposeOnce)
             .MapFail(attachError => {
                 Error primary = UiFault.MutationRejected(op: Op.Of(name: nameof(Bind)), detail: $"attach failed: {attachError.Message}");
                 return Try.lift(f: () => { detach(); return unit; }).Run().Match(

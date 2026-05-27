@@ -620,29 +620,36 @@ internal static partial class Paint {
                 SkinType: skin.GetType().FullName ?? skin.GetType().Name,
                 Skin: Some(skin))));
 
-    internal static GrasshopperUiIntent<Subscription> Hook(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> paint, MotionClock clock) =>
+    internal static GrasshopperUiIntent<Subscription> Hook(
+        CanvasPaintPhase phase,
+        Func<PaintScope, Fin<Unit>> paint,
+        MotionClock clock,
+        Option<Motion.Pacer> adoptedPacer = default) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from valid in Optional(paint).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null paint callback"))
             from validPhase in Optional(phase).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null phase"))
-            from pacer in Motion.PacerOption(canvas: canvas, clock: clock)
+            from pacer in adoptedPacer.Match(
+                Some: p => Fin.Succ<Option<Motion.Pacer>>(Some(p)),
+                None: () => Motion.PacerOption(canvas: canvas, clock: clock))
             let handler = (EventHandler<CanvasPaintEventArgs>)((_, args) => GrasshopperUi.Handler(valid: () => valid(arg: new PaintScope(
                 Phase: validPhase,
                 Graphics: args.Graphics,
                 Skin: args.Skin) {
                 Background = Optional(args as CanvasBackgroundPaintEventArgs),
             })).Ignore())
-            from sub in Subscription.Bind(
+            from paintSub in Subscription.Bind(
                 attach: () => {
                     _ = validPhase.Attach(canvas: canvas, handler: handler);
-                    _ = Motion.PacerResume(pacer: pacer, canvas: canvas);
+                    if (adoptedPacer.IsNone) {
+                        _ = Motion.PacerResume(pacer: pacer, canvas: canvas);
+                    }
                 },
-                detach: () => {
-                    _ = validPhase.Detach(canvas: canvas, handler: handler);
-                    _ = Motion.PacerRelease(pacer: pacer);
-                },
+                detach: () => _ = validPhase.Detach(canvas: canvas, handler: handler),
                 marshalToUi: true)
-            select sub);
+            select Subscription.DisposeOnce(Subscription.PaintPacer(
+                paintHook: paintSub,
+                pacerRelease: () => _ = Motion.PacerRelease(pacer: pacer))));
 
     internal static GrasshopperUiIntent<Subscription> RedrawOnMouseMove(bool enabled = true, MotionClock? clock = null) =>
         GhUi.Canvas(
@@ -651,15 +658,14 @@ internal static partial class Paint {
                 from canvas in scope.NeedCanvas()
                 from pacer in Motion.PacerOption(canvas: canvas, clock: clock ?? MotionClock.MessageLoop)
                 let priorEnabled = canvas.RedrawOnMouseMove
-                from sub in Subscription.Bind(
+                from paintSub in Subscription.Bind(
                     attach: () => {
                         canvas.RedrawOnMouseMove = enabled;
                         _ = Motion.PacerResume(pacer: pacer, canvas: canvas);
                     },
-                    detach: () => {
-                        canvas.RedrawOnMouseMove = priorEnabled;
-                        _ = Motion.PacerRelease(pacer: pacer);
-                    },
+                    detach: () => canvas.RedrawOnMouseMove = priorEnabled,
                     marshalToUi: true)
-                select sub);
+                select Subscription.DisposeOnce(Subscription.PaintPacer(
+                    paintHook: paintSub,
+                    pacerRelease: () => _ = Motion.PacerRelease(pacer: pacer))));
 }

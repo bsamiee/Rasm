@@ -307,6 +307,7 @@ public abstract partial record GraphQuery {
     public sealed record Stats() : GraphQuery;
     public sealed record Health(BlockFilter? Filter = null) : GraphQuery;
     public sealed record Reach(DefinitionRef Ref, ReferenceScope Scope, DepthPolicy? Policy = null) : GraphQuery;
+    public sealed record EnsureIndexed(Option<DefinitionRef> Ref = default) : GraphQuery;
 }
 
 public sealed record BlockFilter(

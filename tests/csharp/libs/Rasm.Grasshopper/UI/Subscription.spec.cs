@@ -107,6 +107,66 @@ public sealed class SubscriptionLifoLaws {
     }
 }
 
+public sealed class SubscriptionTeardownLaws {
+    [Fact]
+    public void PaintPacerDisposesPacerBeforePaintHook() {
+        List<string> log = [];
+        Subscription paint = Subscription.Atom(detach: () => log.Add(item: "paint"));
+        Subscription paced = paint | Subscription.Atom(detach: () => log.Add(item: "pacer"), detachOnce: true);
+        paced.Dispose();
+        Assert.Equal<string>(expected: ["pacer", "paint"], actual: [.. log]);
+    }
+    [Fact]
+    public void DisposeOnceCompositeRunsInnerAtMostOnce() {
+        int paint = 0;
+        int pacer = 0;
+        Subscription inner = Subscription.Atom(detach: () => paint++) | Subscription.Atom(detach: () => pacer++, detachOnce: true);
+        Subscription guarded = Subscription.Atom(detach: inner.Dispose, detachOnce: true);
+        guarded.Dispose();
+        guarded.Dispose();
+        Assert.Equal(expected: 1, actual: paint);
+        Assert.Equal(expected: 1, actual: pacer);
+    }
+    [Fact]
+    public void BindTagsDetachOnceTeardown() {
+        Fin<Subscription> result = Subscription.Bind(attach: static () => { }, detach: static () => { }, detachOnce: true);
+        Spec.Succ(result: result, then: sub => {
+            Subscription.AtomCase atom = Assert.IsType<Subscription.AtomCase>(@object: sub);
+            Assert.Equal(expected: SubscriptionTeardown.DetachOnce, actual: atom.Teardown);
+        });
+    }
+    [Fact]
+    public void BindTagsTokenGatedTeardown() {
+        Fin<Subscription> result = Subscription.Bind(
+            attach: static () => { },
+            detach: static () => { },
+            teardown: SubscriptionTeardown.TokenGated);
+        Spec.Succ(result: result, then: sub => {
+            Subscription.AtomCase atom = Assert.IsType<Subscription.AtomCase>(@object: sub);
+            Assert.Equal(expected: SubscriptionTeardown.TokenGated, actual: atom.Teardown);
+        });
+    }
+}
+
+public sealed class RepaintRequestAbsorptionLaws {
+    [Fact]
+    public void CanvasBeatsScheduled() {
+        RepaintRequest merged = RepaintRequest.Scheduled | RepaintRequest.Canvas;
+        _ = Assert.IsType<RepaintRequest.CanvasCase>(@object: merged);
+    }
+    [Fact]
+    public void SolutionAndDisplayBeatsSolutionAndDisplayParts() {
+        RepaintRequest merged = RepaintRequest.Solution | RepaintRequest.Display;
+        _ = Assert.IsType<RepaintRequest.SolutionAndDisplayCase>(@object: merged);
+    }
+    [Fact]
+    public void SameObjectIdIsIdempotent() {
+        Guid id = Guid.NewGuid();
+        RepaintRequest merged = RepaintRequest.Object(id: id) | RepaintRequest.Object(id: id);
+        _ = Assert.IsType<RepaintRequest.ObjectCase>(@object: merged);
+    }
+}
+
 public sealed class SubscriptionBindLaws {
     [Fact]
     public void AttachRunsOnceAtBindDetachRunsOnceAtDispose() {
