@@ -59,11 +59,6 @@ public abstract partial record CameraSubject {
     public sealed record InSphere(Sphere Value) : CameraSubject;
     public sealed record FromGeometry(GeometryBase Value) : CameraSubject;
 
-    public static CameraSubject Point(Point3d point) => new AtPoint(Value: point);
-    public static CameraSubject Bounds(BoundingBox bounds) => new InBounds(Value: bounds);
-    public static CameraSubject Sphere(Sphere sphere) => new InSphere(Value: sphere);
-    public static CameraSubject Geometry(GeometryBase geometry) => new FromGeometry(Value: geometry);
-
     internal Fin<BoundingBox> BoundsOf(Op op) =>
         this switch {
             AtPoint source when source.Value.IsValid => Fin.Succ(value: new BoundingBox(min: source.Value, max: source.Value)),
@@ -98,7 +93,7 @@ public abstract partial record CameraSubject {
                         : Fin.Fail<CameraDepth>(error: DepthKey.InvalidResult()),
                 }),
             fromGeometry: static (vp, source) =>
-                source.Value.BoundsOf(op: DepthKey).Bind(bounds => Bounds(bounds: bounds).Depth(viewport: vp)));
+                source.Value.BoundsOf(op: DepthKey).Bind(bounds => new InBounds(Value: bounds).Depth(viewport: vp)));
 
     internal Fin<bool> Visible(RhinoViewport viewport) =>
         Switch(
@@ -116,7 +111,7 @@ public abstract partial record CameraSubject {
                     ? Fin.Succ(value: vp.IsVisible(bbox: source.Value.BoundingBox))
                     : Fin.Fail<bool>(error: VisibleKey.InvalidInput())),
             fromGeometry: static (vp, source) =>
-                source.Value.BoundsOf(op: VisibleKey).Bind(bounds => Bounds(bounds: bounds).Visible(viewport: vp)));
+                source.Value.BoundsOf(op: VisibleKey).Bind(bounds => new InBounds(Value: bounds).Visible(viewport: vp)));
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -335,6 +330,7 @@ public sealed record CameraSnapshot : IDisposable {
     internal static Fin<CameraSnapshot> Of(CameraScope scope) {
         RhinoViewport viewport = scope.Viewport;
         return OfKey.Catch(() => {
+            // BOUNDARY ADAPTER — ViewportInfo ctor may throw; disposal on exception prevents native leak.
             ViewportInfo? snapshotProjection = null;
             try {
                 snapshotProjection = new ViewportInfo(rhinoViewport: viewport);

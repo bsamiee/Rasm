@@ -31,11 +31,11 @@ public abstract partial record RedrawRequest {
             view: static (ctx, _) => Fin.Succ(value: Op.Side(() => ctx.View.Redraw())),
             detailCommit: static (ctx, _) =>
                 ctx.Detail.Case switch {
-                    DetailViewObject value when value.CommitViewportChanges() => Fin.Succ(value: Op.Side(() => ctx.View.Redraw())),
-                    DetailViewObject => Fin.Fail<Unit>(error: Op.Of(name: nameof(ApplyTo)).InvalidResult()),
+                    DetailViewObject value when !value.CommitViewportChanges() =>
+                        Fin.Fail<Unit>(error: Op.Of(name: nameof(ApplyTo)).InvalidResult()),
                     _ => Fin.Succ(value: Op.Side(() => ctx.View.Redraw())),
                 },
-            deferred: static (_, __) => Fin.Succ(value: unit));
+            deferred: static (ctx, _) => Fin.Succ(value: Op.Side(() => ctx.Document.Views.Redraw(deferred: true))));
 }
 
 public readonly record struct CameraScopeReceipt<T>(
@@ -81,26 +81,26 @@ public readonly record struct CameraSyncPolicy(
     public static CameraSyncPolicy Independent { get; } = new(StopOnFirstFailure: true, MergeRedraw: false);
     public static CameraSyncPolicy Rig { get; } = new(StopOnFirstFailure: false, MergeRedraw: true);
 
-    public CameraOutcome<T> Fold<T>(Seq<CameraOutcome<T>> outcomes) {
-        CameraSyncPolicy policy = this;
-        return outcomes.Fold(
-            initialState: Option<CameraOutcome<T>>.None,
-            f: (state, next) => state.Case switch {
-                CameraOutcome<T> current => Some(value: CameraOutcomeCreate.Value(
-                    value: next.Value,
-                    redraw: policy.MergeRedraw ? current.Redraw | next.Redraw : next.Redraw,
-                    resources: current.Resources + next.Resources)),
-                _ => Some(value: next),
-            })
+    public CameraOutcome<T> Fold<T>(Seq<CameraOutcome<T>> outcomes) =>
+        outcomes.Fold(
+            initialState: (Result: Option<CameraOutcome<T>>.None, Policy: this),
+            f: static (acc, next) => (
+                Result: Some(value: acc.Result.Case switch {
+                    CameraOutcome<T> current => CameraOutcomeCreate.Value(
+                        value: next.Value,
+                        redraw: acc.Policy.MergeRedraw ? current.Redraw | next.Redraw : next.Redraw,
+                        resources: current.Resources + next.Resources),
+                    _ => next,
+                }),
+                acc.Policy))
+            .Result
             .IfNone(() => CameraOutcomeCreate.Value(value: default(T)!));
-    }
 
     public CameraOutcome<Seq<CameraScopeReceipt<T>>> FoldReceipts<T>(Seq<CameraScopeReceipt<T>> receipts) {
-        CameraSyncPolicy policy = this;
         Seq<CameraScopeReceipt<T>> succeeded = receipts.Filter(static receipt => receipt.Succeeded);
         return CameraOutcomeCreate.Value(
             value: receipts,
-            redraw: policy.MergeRedraw
+            redraw: MergeRedraw
                 ? receipts.Fold(RedrawRequest.Empty, static (left, right) => left | right.Redraw)
                 : succeeded.IsEmpty
                     ? RedrawRequest.Empty
@@ -112,6 +112,7 @@ public readonly record struct CameraSyncPolicy(
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed class RhinoCamera {
     private static readonly Op ScopeKey = Op.Of(name: nameof(Scope));
+    private static readonly Op BroadcastKey = Op.Of(name: nameof(Broadcast));
 
     private RhinoCamera(RhinoDoc document, RunMode mode) {
         Document = document ?? throw new ArgumentNullException(paramName: nameof(document));
@@ -149,12 +150,13 @@ public sealed class RhinoCamera {
         select result;
 
     public Fin<CameraOutcome<T>> Run<T>(CameraOp<T> operation, ViewportTarget target) =>
-        Optional(operation).ToFin(Fail: Op.Of(name: nameof(Run)).InvalidInput())
-            .Bind(valid => RhinoUi.DispatchThread(
-                uiBound: valid.RequiresUiThread(),
-                mode: Mode,
-                run: () => ExecuteRun(operation: valid, target: target),
-                name: nameof(Run)));
+        from valid in Optional(operation).ToFin(Fail: Op.Of(name: nameof(Run)).InvalidInput())
+        from outcome in RhinoUi.DispatchThread(
+            uiBound: valid.UiBound,
+            mode: Mode,
+            run: () => ExecuteRun(operation: valid, target: target),
+            name: nameof(Run))
+        select outcome;
 
     public Fin<T> RunValue<T>(CameraOp<T> operation, ViewportTarget target) =>
         Run(operation: operation, target: target).Map(outcome => outcome.Value);
@@ -163,15 +165,16 @@ public sealed class RhinoCamera {
         CameraOp<T> operation,
         ViewportTarget target,
         CameraSyncPolicy policy) =>
-        Optional(operation).ToFin(Fail: Op.Of(name: nameof(Broadcast)).InvalidInput())
-            .Bind(valid => RhinoUi.DispatchThread(
-                uiBound: valid.RequiresUiThread(),
-                mode: Mode,
-                run: () =>
-                    from scopes in Scopes(target: target)
-                    from folded in ExecuteBroadcast(operation: valid, scopes: scopes, policy: policy)
-                    select folded,
-                name: nameof(Broadcast)));
+        from valid in Optional(operation).ToFin(Fail: BroadcastKey.InvalidInput())
+        from outcome in RhinoUi.DispatchThread(
+            uiBound: valid.UiBound,
+            mode: Mode,
+            run: () =>
+                from scopes in Scopes(target: target)
+                from folded in ExecuteBroadcast(operation: valid, scopes: scopes, policy: policy)
+                select folded,
+            name: nameof(Broadcast))
+        select outcome;
 
     public static UiIntent<CameraOutcome<T>> Intent<T>(CameraOp<T> operation, ViewportTarget target) =>
         UiIntent.Operation(run: (doc, mode) => Live(document: doc, mode: mode).Run(operation: operation, target: target));
@@ -194,11 +197,9 @@ public sealed class RhinoCamera {
                 select policy.FoldReceipts(receipts: receipts),
             false =>
                 from receipts in scopes
-                    .Traverse(scope =>
-                        ExecuteRunOnScope(operation: operation, scope: scope)
-                            .Match(
-                                Succ: outcome => Fin.Succ(value: CameraScopeReceipt<T>.FromOutcome(scope: scope, result: Fin.Succ(value: outcome))),
-                                Fail: error => Fin.Succ(value: CameraScopeReceipt<T>.FromOutcome(scope: scope, result: Fin.Fail<CameraOutcome<T>>(error: error)))))
+                    .Traverse(scope => Fin.Succ(value: CameraScopeReceipt<T>.FromOutcome(
+                        scope: scope,
+                        result: ExecuteRunOnScope(operation: operation, scope: scope))))
                     .As()
                 from folded in ResolveBroadcastFin(receipts: receipts, policy: policy)
                 select folded,
@@ -212,7 +213,7 @@ public sealed class RhinoCamera {
             false => Fin.Fail<CameraOutcome<Seq<CameraScopeReceipt<T>>>>(
                 error: receipts.Find(static receipt => receipt.Failure.IsSome)
                     .Bind(static receipt => receipt.Failure)
-                    .IfNone(() => Op.Of(name: "Broadcast").InvalidResult())),
+                    .IfNone(() => BroadcastKey.InvalidResult())),
         };
 
     private static Fin<CameraOutcome<T>> ExecuteRunOnScope<T>(CameraOp<T> operation, CameraScope scope) =>
