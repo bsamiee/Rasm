@@ -7,9 +7,7 @@ using Rhino.DocObjects.Tables;
 using Rhino.FileIO;
 using IOPath = System.IO.Path;
 using LxHashSet = LanguageExt.HashSet;
-
 namespace Rasm.Rhino.Blocks;
-
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Archive {
     // ---- [MODELS] (nested under Archive — same archival concern) -------------------------
@@ -19,15 +17,11 @@ public static class Archive {
         ImmutableArray<ArchiveLink> LinkedArchives) {
         public static Graph Empty { get; } = new(Definitions: [], Instances: [], LinkedArchives: []);
     }
-
     [StructLayout(LayoutKind.Auto)]
     public readonly record struct Instance(Guid ObjectId, DefinitionId ParentDefId, Transform Xform);
-
     [StructLayout(LayoutKind.Auto)]
     public readonly record struct LinkedArchiveEdge(ArchivePath FromPath, ArchiveLink Link, ArchivePath ToPath, int Depth);
-
     internal const int LinkedArchiveClosureMaxDepth = 64;
-
     // ---- [BUILD] -------------------------------------------------------------------------
     public static Fin<Graph> From(File3dm model, Op? key = null, Option<string> archivePath = default) {
         Op op = key.OrDefault();
@@ -35,7 +29,6 @@ public static class Archive {
         return Optional(model).ToFin(Fail: op.InvalidInput())
             .Bind(active => op.Catch(() => Build(active: active, anchorDirectory: anchor, op: op)));
     }
-
     private static Fin<Graph> Build(File3dm active, Option<string> anchorDirectory, Op op) =>
         from defs in toSeq(active.AllInstanceDefinitions)
             .Map(geo => Definition.From(definition: geo, anchorDirectory: anchorDirectory, key: op))
@@ -77,13 +70,11 @@ public static class Archive {
                    key: op))
                select state.Report(policy: validPolicy);
     }
-
     private sealed record ClosureState(
         Seq<LinkedArchiveEdge> Edges,
         Seq<ArchivePath> Broken,
         Seq<Seq<ArchivePath>> Cycles) {
         public static ClosureState Empty { get; } = new(Edges: Seq<LinkedArchiveEdge>(), Broken: Seq<ArchivePath>(), Cycles: Seq<Seq<ArchivePath>>());
-
         public ArchiveClosureReport Report(ClosureValidationPolicy policy) =>
             new(
                 Valid: Broken.IsEmpty && (!policy.DetectCycles || Cycles.IsEmpty),
@@ -91,7 +82,6 @@ public static class Archive {
                 Broken: Broken,
                 Cycles: Cycles);
     }
-
     private static Fin<ClosureState> WalkClosure(
         File3dm model,
         string path,
@@ -122,7 +112,6 @@ public static class Archive {
                 key: key),
         };
     }
-
     private static Fin<ClosureState> ExpandClosure(
         File3dm model,
         string path,
@@ -150,7 +139,6 @@ public static class Archive {
                             state: acc,
                             policy: policy,
                             key: key)))));
-
     private static Fin<ClosureState> WalkEdge(
         ArchivePath anchor,
         ArchiveLink link,
@@ -167,7 +155,6 @@ public static class Archive {
             ? ReadNestedArchive(toFull: toFull, next: next, depth: depth, stack: stack, visited: visited, policy: policy, key: key)
             : Fin.Succ(next with { Broken = next.Broken + BrokenPath(here: toFull, key: key) });
     }
-
     // BOUNDARY ADAPTER — File3dm.Read owns native archive lifetime.
     private static Fin<ClosureState> ReadNestedArchive(
         string toFull,
@@ -192,10 +179,8 @@ public static class Archive {
                     key: key),
             };
         });
-
     private static Seq<ArchivePath> BrokenPath(string here, Op key) =>
         ArchivePath.From(value: here, key: key).Match(Succ: path => Seq(path), Fail: _ => Seq<ArchivePath>());
-
     private static Seq<Seq<ArchivePath>> CyclePath(Seq<string> stack, string cycleAt, Op key) {
         (bool Capture, Seq<ArchivePath> Paths) folded = stack.Fold(
             initialState: (Capture: false, Paths: Seq<ArchivePath>()),
@@ -209,7 +194,6 @@ public static class Archive {
         Seq<ArchivePath> closed = paths + ArchivePath.From(value: cycleAt, key: key).ToOption().ToSeq();
         return closed.IsEmpty ? Seq<Seq<ArchivePath>>() : Seq(closed);
     }
-
     public static Graph ComposeLive(InstanceDefinitionTable table, Seq<Definition> definitions) {
         HashMap<Guid, Definition> lookup = Lookup(definitions: definitions);
         ImmutableArray<Instance> instances = ProjectInstances(
@@ -223,10 +207,6 @@ public static class Archive {
             instances: instances,
             linkedArchives: LinkedArchives(definitions: definitions));
     }
-
-    internal static Option<InstanceDefinitionGeometry> FindDefinition(File3dm model, DefinitionName name) =>
-        Optional(model.AllInstanceDefinitions.FindNameHash(nameHash: new NameHash(name: name.Value)));
-
     private static ImmutableArray<ArchiveLink> LinkedArchives(
         Seq<Definition> definitions,
         Option<File3dm> model = default,
@@ -243,12 +223,10 @@ public static class Archive {
             .Values
             .ToSeq()];
     }
-
     private static HashMap<Guid, Definition> Lookup(Seq<Definition> definitions) =>
         definitions.Fold(
             initialState: HashMap<Guid, Definition>(),
             f: (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: def));
-
     // --- [WALK] -----------------------------------------------------------------------------
     public readonly record struct DefinitionWalkFrame(
         Transform Composed,
@@ -256,11 +234,9 @@ public static class Archive {
         int Depth,
         Option<Guid> InstanceId,
         Option<Guid> MemberId);
-
     internal readonly record struct DefinitionWalkNode(
         Option<ReachInsert> Reach,
         Option<FlatPiece> Flat);
-
     internal static Seq<DefinitionWalkNode> WalkDefinitions(
         InstanceDefinitionTable table,
         InstanceObject seed,
@@ -285,7 +261,6 @@ public static class Archive {
                 flatLeaves: flatLeaves,
                 key: key),
         };
-
     private static Seq<DefinitionWalkNode> ExpandDefinitions(
         InstanceDefinitionTable table,
         InstanceDefinition def,
@@ -347,13 +322,11 @@ public static class Archive {
                             : Seq<DefinitionWalkNode>()
                         : null);
         }).IfNone(Seq<DefinitionWalkNode>());
-
     private static ImmutableArray<DefinitionId> AppendWalkPath(ImmutableArray<DefinitionId> path, Guid id, Op key) =>
         DefinitionId.From(value: id, key: key).ToOption() switch {
             { IsSome: true, Case: DefinitionId defId } => path.Add(item: defId),
             _ => path,
         };
-
     private static ImmutableArray<Instance> ProjectInstances(
         HashMap<Guid, Definition> lookup,
         Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> source) =>
@@ -362,25 +335,21 @@ public static class Archive {
                 ObjectId: pair.ObjectId,
                 ParentDefId: parent.Id,
                 Xform: pair.Reference.Xform)))];
-
     private static Graph Compose(Seq<Definition> definitions, ImmutableArray<Instance> instances, ImmutableArray<ArchiveLink> linkedArchives) {
         ImmutableArray<Definition> defArray = [.. definitions];
         return new Graph(Definitions: defArray, Instances: instances, LinkedArchives: linkedArchives);
     }
-
     public static Graph Subgraph(InstanceDefinitionTable table, Seq<Definition> definitions, Definition anchor) {
         ArgumentNullException.ThrowIfNull(argument: anchor);
         HashMap<Guid, Definition> lookup = Lookup(definitions: definitions);
         LanguageExt.HashSet<Guid> reachable = Reachable(defId: anchor.Id.Value, lookup: lookup, table: table);
         return ComposeLive(table: table, definitions: definitions.Filter(def => reachable.Contains(key: def.Id.Value)));
     }
-
     // ---- [AUDIT GRAPH] (Blocks.Graph — document dependency audit) ------------------------
     public static Fin<Blocks.Graph> Audit(InstanceDefinitionTable table, Op key) {
         ArgumentNullException.ThrowIfNull(argument: table);
         Option<string> anchor = BlockPaths.DocAnchor(document: table.Document);
-        Seq<InstanceDefinition> definitions = toSeq(table.GetList(ignoreDeleted: true))
-            .Filter(static d => d is not null);
+        Seq<InstanceDefinition> definitions = Definition.List(table: table);
         (Seq<Blocks.Graph.Node> nodes, Seq<Blocks.Graph.Edge> edges) = definitions
             .Choose(d => ProjectAudit(definition: d, anchorDirectory: anchor, key: key))
             .Fold((Nodes: Seq<Blocks.Graph.Node>(), Edges: Seq<Blocks.Graph.Edge>()), static (acc, pair) =>
@@ -400,13 +369,11 @@ public static class Archive {
                 + toSeq(definition.GetReferences(wheretoLook: ReferenceScope.TopAndNested.Native) ?? [])
                     .Filter(static inst => inst is not null)
                     .Map(inst => new Blocks.Graph.Edge(From: def.Id, Kind: BlockEdgeKind.InstanceInsert, To: new EdgeTarget.ObjectId(Id: inst.Id)))));
-
     // ---- [LIVE GRAPH] (Archive.Graph — bake/plan topology) --------------------------------
     public static Fin<Graph> LiveGraph(InstanceDefinitionTable table, Option<Definition> anchor, Op key) {
         ArgumentNullException.ThrowIfNull(argument: table);
-        return toSeq(table.GetList(ignoreDeleted: true))
-            .Filter(static d => d is not null)
-            .Map(d => Definition.From(definition: d!, anchorDirectory: BlockPaths.DocAnchor(document: table.Document), key: key))
+        return Definition.List(table: table)
+            .Map(d => Definition.From(definition: d, anchorDirectory: BlockPaths.DocAnchor(document: table.Document), key: key))
             .TraverseM(identity).As()
             .Map(definitions => anchor.Case switch {
                 Definition a => Subgraph(table: table, definitions: definitions, anchor: a),
@@ -425,7 +392,6 @@ public static class Archive {
                 return toSeq(candidates.OrderBy(d => rank.GetValueOrDefault(key: d.Id, defaultValue: int.MaxValue)));
             });
     }
-
     private static LanguageExt.HashSet<Guid> Reachable(Guid defId, HashMap<Guid, Definition> lookup, InstanceDefinitionTable table) {
         Seq<Guid> Nested(Guid id) =>
             Optional(table.Find(instanceId: id, ignoreDeletedInstanceDefinitions: true))
@@ -435,7 +401,6 @@ public static class Archive {
                 .IfNone(Seq<Guid>());
         return ExpandReachable(frontier: Seq(defId), seen: LanguageExt.HashSet<Guid>.Empty.Add(defId), nested: Nested);
     }
-
     private static LanguageExt.HashSet<Guid> ExpandReachable(
         Seq<Guid> frontier,
         LanguageExt.HashSet<Guid> seen,
@@ -448,12 +413,10 @@ public static class Archive {
                 seen: next.Fold(seen, static (acc, id) => acc.Add(key: id)),
                 nested: nested);
     }
-
     internal static Seq<ArchiveLink> LinkedSources(File3dm model, Option<string> anchorDirectory, Op key) =>
         toSeq(model.AllInstanceDefinitions)
-            .Choose(def => (Definition.NonBlank(value: def.SourceArchive) | Definition.NonBlank(value: def.Url))
+            .Choose(def => Definition.NonBlank(value: def.SourceArchive)
                 .Bind(raw => ArchiveLink.Resolve(raw: raw, anchorDirectory: anchorDirectory, key: key).ToOption()));
-
     private static Graph Compose(File3dm active, Seq<Definition> definitions, Option<string> anchorDirectory, Op key) {
         HashMap<Guid, Definition> lookup = Lookup(definitions: definitions);
         Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> topLevel = toSeq(active.Objects)
@@ -463,7 +426,7 @@ public static class Archive {
                 _ => Option<(Guid ObjectId, InstanceReferenceGeometry Reference)>.None,
             });
         Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> memberRefs = definitions.Bind((Definition snap) =>
-            toSeq(snap.MemberIds).Bind<(Guid ObjectId, InstanceReferenceGeometry Reference)>((Guid memberId) =>
+            toSeq(snap.MemberIds).Bind((Guid memberId) =>
                 Optional(active.Objects.FindId(id: memberId)).Case switch {
                     File3dmObject member when member.Geometry is InstanceReferenceGeometry reference =>
                         Seq((ObjectId: memberId, Reference: (InstanceReferenceGeometry)reference.Duplicate())),
@@ -481,25 +444,8 @@ public static class Archive {
                 anchorDirectory: anchorDirectory,
                 key: key));
     }
-
-    public static Fin<DocumentReceipt> AddLinked(File3dm model, Seq<FileEndpoint> sources, Op? key = null) {
-        Op op = key.OrDefault();
-        return Optional(model).ToFin(Fail: op.InvalidInput()).Bind(active => sources.IsEmpty
-            ? Fin.Succ(value: DocumentReceipt.Empty)
-            : sources
-                .Map(endpoint => op.Catch(() => active.AllInstanceDefinitions.AddLinked(
-                    filename: endpoint.StoredLinkPath,
-                    name: IOPath.GetFileNameWithoutExtension(path: endpoint.Path),
-                    description: string.Empty) switch {
-                        >= 0 => Fin.Succ(value: new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: endpoint.StoredLinkPath)),
-                        _ => Fin.Fail<DocumentResourceChange>(error: op.InvalidResult()),
-                    }))
-                .TraverseM(identity).As()
-                .Map(static changes => DocumentReceipt.Empty with { ResourceChanged = changes }));
-    }
-
     // ---- [BAKE PLAN] (Speckle topological-sort pattern) ----------------------------------
-    /// Topologically-sorted bake order; depth = longest (def → nested-def) chain.
+    /// Topologically-sorted bake order; depth = longest (def -> nested-def) chain.
     /// Cycle-safe via visiting set; nested-def lookup pre-built so the walk is O(N + E).
     public static Seq<Definition> BakePlan(Graph graph) {
         ArgumentNullException.ThrowIfNull(argument: graph);
@@ -516,12 +462,9 @@ public static class Archive {
                 : acc.AddOrUpdate(key: def.Id.Value, value: ComputeDepth(defId: def.Id.Value, nestedDefs: nestedDefs, visiting: LxHashSet.empty<Guid>(), memo: acc)));
         return toSeq(graph.Definitions.OrderBy(d => resolved.Find(key: d.Id.Value).IfNone(noneValue: 0)));
     }
-
     private static ImmutableArray<Guid> NestedDefsOf(Definition def, FrozenDictionary<Guid, DefinitionId> instanceByObject) =>
         [.. toSeq(def.MemberIds).Choose(memberId =>
             instanceByObject.TryGetValue(key: memberId, value: out DefinitionId nested) ? Some(value: nested.Value) : Option<Guid>.None).Distinct()];
-
-    /// Recursive walk; visiting set guards cycles. Pure — HashMap memo is by-value.
     private static int ComputeDepth(Guid defId, HashMap<Guid, ImmutableArray<Guid>> nestedDefs, LanguageExt.HashSet<Guid> visiting, HashMap<Guid, int> memo) =>
         (memo.Find(key: defId), LxHashSet.contains(set: visiting, value: defId)) switch {
             ( { IsSome: true, Case: int cached }, _) => cached,
@@ -531,7 +474,6 @@ public static class Archive {
                     .DefaultIfEmpty(defaultValue: 0)
                     .Max(),
         };
-
     // ---- [PROJECTIONS] -------------------------------------------------------------------
     public static Seq<FileResourceEntry> ToFileResourceEntries(Graph graph) {
         ArgumentNullException.ThrowIfNull(argument: graph);
@@ -542,7 +484,6 @@ public static class Archive {
             Id: Some(value: d.Id.Value),
             Source: Some(value: d.IsLinked ? "linked-block" : "block")));
     }
-
     public static Seq<FileResourceEdge> ToFileResourceEdges(Graph graph) {
         ArgumentNullException.ThrowIfNull(argument: graph);
         Seq<FileResourceEdge> linked = toSeq(graph.Definitions).Bind(static d => d.Source.Match(
@@ -562,5 +503,4 @@ public static class Archive {
             Role: FileResourceRole.Instance));
         return linked + members + instances;
     }
-
 }

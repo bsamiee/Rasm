@@ -63,8 +63,8 @@ public sealed partial class UpdatePolicy {
         native switch {
             InstanceDefinitionUpdateType.Linked => Linked,
             InstanceDefinitionUpdateType.LinkedAndEmbedded => LinkedAndEmbedded,
-#pragma warning disable CS0618 // BOUNDARY ADAPTER — legacy documents may still report obsolete Embedded; collapse to LinkedAndEmbedded on read.
-            InstanceDefinitionUpdateType.Embedded => LinkedAndEmbedded,
+#pragma warning disable CS0618 // BOUNDARY ADAPTER — legacy documents may still report obsolete Embedded; RhinoWIP says use Static.
+            InstanceDefinitionUpdateType.Embedded => Static,
 #pragma warning restore CS0618
             _ => Static,
         };
@@ -350,34 +350,18 @@ public sealed record BlockFilter(
     Option<ArchiveStatus> Archive = default) {
     public static BlockFilter All { get; } = new();
     public static BlockFilter ArchivesOnly(Seq<string> paths) => new(Archives: Some(paths));
-    public static BlockFilter RefsOnly(Seq<DefinitionRef> refs) => new(Refs: Some(refs));
-    public static BlockFilter UpdateOnly(UpdatePolicy update) => new(Update: Some(update));
 
     public Seq<InstanceDefinition> Apply(InstanceDefinitionTable table, Option<string> anchorDirectory = default, LinkRefreshPolicy? policy = null) {
+        ArgumentNullException.ThrowIfNull(argument: table);
         LinkRefreshPolicy refresh = policy ?? LinkRefreshPolicy.All;
-        return toSeq(table).Filter(d =>
+        return Definition.List(table: table)
+            .Filter(d =>
             UpdatePolicy.FromNative(native: d.UpdateType).IsLinked
-            && FilterPredicates(anchorDirectory: anchorDirectory).All(predicate => predicate(d))
+            && (Archives.Case is not Seq<string> paths || paths.Exists(p => ArchiveLink.Matches(stored: d.SourceArchive, candidate: p, anchorDirectory: anchorDirectory)))
+            && (Refs.Case is not Seq<DefinitionRef> refs || refs.Exists(r => r.Matches(definition: d)))
+            && (Update.Case is not UpdatePolicy update || UpdatePolicy.FromNative(native: d.UpdateType) == update)
+            && (Archive.Case is not ArchiveStatus archive || ArchiveStatus.FromNative(native: d.ArchiveFileStatus) == archive)
             && (!refresh.SkipUpToDate || d.ArchiveFileStatus != InstanceDefinitionArchiveFileStatus.LinkedFileIsUpToDate));
-
-        IEnumerable<Func<InstanceDefinition, bool>> FilterPredicates(Option<string> anchorDirectory) => [
-            _ => Archives.Case switch {
-                Seq<string> paths => paths.Exists(p => ArchiveLink.Matches(stored: _.SourceArchive, candidate: p, anchorDirectory: anchorDirectory)),
-                _ => true,
-            },
-            _ => Refs.Case switch {
-                Seq<DefinitionRef> refs => refs.Exists(r => r.Matches(definition: _)),
-                _ => true,
-            },
-            _ => Update.Case switch {
-                UpdatePolicy update => UpdatePolicy.FromNative(native: _.UpdateType) == update,
-                _ => true,
-            },
-            _ => Archive.Case switch {
-                ArchiveStatus archive => ArchiveStatus.FromNative(native: _.ArchiveFileStatus) == archive,
-                _ => true,
-            },
-        ];
     }
 }
 
@@ -459,8 +443,6 @@ public readonly partial struct ArchivePath {
         };
     }
 
-    public string FileName => IOPath.GetFileName(path: Value);
-    public string Stem => IOPath.GetFileNameWithoutExtension(path: Value);
 }
 
 /// Resolved archive link: absolute path for IO plus optional relative stored in 3dm for relocation.
@@ -519,7 +501,7 @@ public readonly partial struct BlockContentHash {
     private static ulong HashGeometry(ulong acc, GeometryBase? geometry) =>
         geometry switch {
             null => acc,
-            InstanceReferenceGeometry r => Fnv64.Mix(acc: Fnv64.Mix(acc: acc, v: HashGuid(value: r.ParentIdefId)), v: XformHash(x: r.Xform)),
+            InstanceReferenceGeometry r => Fnv64.Mix(acc: Fnv64.Mix(acc: acc, v: Fnv64.HashGuid(value: r.ParentIdefId)), v: XformHash(x: r.Xform)),
             _ => Fnv64.Mix(acc: Fnv64.Mix(acc: acc, v: BoundsAndKindHash(geometry: geometry)), v: geometry.DataCRC(currentRemainder: 0u)),
         };
 
@@ -559,18 +541,14 @@ public readonly partial struct BlockContentHash {
                 unchecked((uint)a.MaterialSource),
                 unchecked((uint)a.LinetypeSource),
                 a.Visible ? 1UL : 0UL)
-            .Fold(initialState: HashText(value: a.Name ?? string.Empty), f: Fnv64.Mix)
+            .Fold(initialState: Fnv64.HashText(value: a.Name ?? string.Empty), f: Fnv64.Mix)
         ^ HashStrings(strings: a.GetUserStrings());
 
     private static ulong HashStrings(NameValueCollection strings) =>
         strings.AllKeys
             .OrderBy(key => key, comparer: StringComparer.Ordinal)
             .Aggregate(seed: Fnv64.Offset, func: (acc, key) =>
-                Fnv64.Mix(acc: HashText(value: key ?? string.Empty, seed: acc), v: HashText(value: strings[key] ?? string.Empty)));
-
-    private static ulong HashGuid(Guid value) => Fnv64.HashGuid(value: value);
-
-    private static ulong HashText(string value, ulong seed = Fnv64.Offset) => Fnv64.HashText(value: value, seed: seed);
+                Fnv64.Mix(acc: Fnv64.HashText(value: key ?? string.Empty, seed: acc), v: Fnv64.HashText(value: strings[key] ?? string.Empty)));
 }
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
@@ -881,12 +859,12 @@ public readonly record struct Placement(
     Option<ObjectAttributes> Attrs,
     Option<HistoryRecord> History,
     bool Reference = false) {
-    public static Placement Of(Transform xform, bool reference = false) =>
-        new(Transform: xform, Attrs: Option<ObjectAttributes>.None, History: Option<HistoryRecord>.None, Reference: reference);
-    public static Placement Of(Transform xform, ObjectAttributes attrs, bool reference = false) =>
-        new(Transform: xform, Attrs: Some(attrs), History: Option<HistoryRecord>.None, Reference: reference);
-    public static Placement Of(Transform xform, ObjectAttributes attrs, HistoryRecord history, bool reference = false) =>
-        new(Transform: xform, Attrs: Some(attrs), History: Some(history), Reference: reference);
+    public static Placement Of(
+        Transform xform,
+        Option<ObjectAttributes> attrs = default,
+        Option<HistoryRecord> history = default,
+        bool reference = false) =>
+        new(Transform: xform, Attrs: attrs, History: history, Reference: reference);
 
     public Fin<Placement> Admit(LiveStats live, Op key) =>
         !Reference || ReferenceAdmits(live: live)
@@ -967,6 +945,11 @@ public sealed record Definition(
         Archive: Live.Map(static live => live.Archive).IfNone(ArchiveStatus.NotALinked),
         Source: Source);
 
+    internal static Seq<InstanceDefinition> List(InstanceDefinitionTable table, bool ignoreDeleted = true) {
+        ArgumentNullException.ThrowIfNull(argument: table);
+        return toSeq(table.GetList(ignoreDeleted: ignoreDeleted)).Choose(static d => Optional(d));
+    }
+
     /// Diagnostics fold = InvalidLayerStyle (when layer/update mismatch) + LinkedArchiveIssue (when source missing or broken).
     public Option<LinkedHealth> ToLinkedHealth() =>
         Live.Map(live => new LinkedHealth(
@@ -993,7 +976,7 @@ public sealed record Definition(
                            Description: NonBlank(value: d.Description),
                            Url: NonBlank(value: d.Url).Bind(v => ArchivePath.From(value: v, key: op).ToOption()),
                            UrlDescription: NonBlank(value: d.UrlDescription),
-                           Source: (NonBlank(value: d.SourceArchive) | NonBlank(value: d.Url))
+                           Source: NonBlank(value: d.SourceArchive)
                                .Bind(v => ArchiveLink.Resolve(raw: v, anchorDirectory: anchorDirectory, key: op).ToOption()),
                            MemberIds: d.GetObjectIds() is Guid[] ids ? [.. ids] : [],
                            Live: active is null ? Option<LiveStats>.None : Some(value: LiveStats.From(active: active))));
@@ -1072,8 +1055,6 @@ public abstract partial record EdgeTarget {
 }
 
 public sealed record Graph(ImmutableArray<Graph.Node> Nodes, ImmutableArray<Graph.Edge> Edges) {
-    public static Graph Empty { get; } = new(Nodes: [], Edges: []);
-
     public sealed record Node(DefinitionId Id, DefinitionName Name, ImmutableArray<Guid> Members, UpdatePolicy Update, ArchiveStatus Archive, Option<ArchiveLink> Source);
     public sealed record Edge(DefinitionId From, BlockEdgeKind Kind, EdgeTarget To);
 }
@@ -1173,4 +1154,3 @@ public abstract partial record BlockDiagnostic {
     public sealed record InvalidLayerStyle(DefinitionId Id, UpdatePolicy Update, LayerStyle Layer) : BlockDiagnostic;
     public sealed record LinkedArchiveIssue(DefinitionId Id, ArchiveStatus Status) : BlockDiagnostic;
 }
-

@@ -26,12 +26,10 @@ public sealed class RhinoBlocks {
     public Fin<BlockOutcome> Run(BlockOp op, Op? key = null) {
         Op runKey = key.OrDefault();
         return Optional(op).ToFin(Fail: runKey.InvalidInput())
-            .Bind(valid => ExecuteRun(op: valid, runKey: runKey));
-    }
-
-    private Fin<BlockOutcome> ExecuteRun(BlockOp op, Op runKey) {
-        Fin<BlockOutcome> Work() => runKey.Catch(() => Operations.Run(op: op, owner: this));
-        return RhinoUi.DispatchThread(uiBound: op.RequiresUiThread(), mode: Mode, run: Work, name: nameof(Run));
+            .Bind(valid => {
+                Fin<BlockOutcome> Work() => runKey.Catch(() => Operations.Run(op: valid, owner: this));
+                return RhinoUi.DispatchThread(uiBound: valid.RequiresUiThread(), mode: Mode, run: Work, name: nameof(Run));
+            });
     }
 
     public Subscription Subscribe(Action<BlockTableEvent> handler, BlockSubscriptionPolicy? policy = null) {
@@ -56,18 +54,20 @@ public sealed class RhinoBlocks {
             .Admit(key: Op.Of(name: nameof(Watch)))
             .Bind(valid => Operations.AttachWatcher(owner: this, path: path, policy: valid));
 
-    public Fin<Unit> SetLinkedPolicy(LinkedPolicy policy, Op? key = null) =>
-        Op.Of(name: nameof(SetLinkedPolicy)).Catch(() => {
+    public Fin<Unit> SetLinkedPolicy(LinkedPolicy policy, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.Catch(() => {
             Document.LinkedInstanceDefinitionUpdate = policy.Native;
             return Fin.Succ(value: unit);
         });
-
-    /// Per-definition opt-out paired with SetLinkedPolicy.
-    public Fin<Unit> SetSkipNestedLinked(DefinitionRef refer, bool value, Op? key = null) =>
-        Use(refer: refer, project: def => Op.Of(name: nameof(SetSkipNestedLinked)).Catch(() => {
+    }
+    public Fin<Unit> SetSkipNestedLinked(DefinitionRef refer, bool value, Op? key = null) {
+        Op op = key.OrDefault();
+        return Use(refer: refer, project: def => op.Catch(() => {
             def.SkipNestedLinkedDefinitions = value;
             return Fin.Succ(value: unit);
-        }), key: key);
+        }), key: op);
+    }
 
     internal Fin<PreviewHandle> AcquirePreview(InstanceDefinition definition, PreviewSpec spec, Op key) =>
         PreviewVault.Acquire(doc: Document, def: definition, spec: spec, key: key);
@@ -91,9 +91,6 @@ public abstract partial record Subscription : IDisposable {
             case Composite c: _ = c.Members.Iter(static m => m.Dispose()); break;
         }
     }
-
-    /// Monoid algebra (identity = Nothing). Cannot implement Monoid&lt;Subscription&gt; — the
-    /// case-record `Empty` name collides with the trait's `Empty` static.
     public static Subscription operator |(Subscription a, Subscription b) =>
         (a, b) switch {
             (Empty, _) => b,
@@ -110,8 +107,6 @@ public abstract partial record Subscription : IDisposable {
 
 // --- [COMPOSITION] [CACHE] ----------------------------------------------------------------
 internal enum RefCacheMode { Snapshot, Preview }
-
-/// Unified ref-count cache: snapshot mode hard-evicts on invalidate; preview mode retains stale entries while borrowed.
 internal sealed class RefCache<TKey, TValue>(
     RefCacheMode mode,
     Func<TKey, Guid> versionId,
@@ -156,9 +151,6 @@ internal sealed class RefCache<TKey, TValue>(
         });
         return after.Entries.Find(key: key).Bind(e => Fresh(key: key, entry: e, state: after) ? Some(value: e.Value) : Option<TValue>.None);
     }
-
-    /// Caller hands off `rendered`; cache returns the live entry (hit → return existing, miss → insert rendered), plus the
-    /// reject-dispose slot for the value the cache did NOT retain (so caller can dispose safely).
     internal (TValue Selected, bool Cached, TValue? RejectDispose) Store(TKey key, TValue rendered) {
         TValue selected = rendered;
         TValue? rejectDispose = default;
@@ -353,8 +345,6 @@ internal static class IdlePump {
         int taken = DrainUntilDeadline(budget: budget);
         _ = queue.Swap(f: live => toSeq(live.Skip(count: taken)));
     }
-
-    /// BOUNDARY ADAPTER — idle pumping is budgeted host integration; TakeWhile early-exits on deadline.
     private static int DrainUntilDeadline(TimeSpan budget) {
         long start = clock.GetTimestamp();
         Seq<Fin<DocumentReceipt>> drained = queue.Value
@@ -370,9 +360,6 @@ internal static class EventBridge {
     private static readonly Atom<HashMap<uint, Seq<Subscriber>>> bySerial =
         Atom(value: HashMap<uint, Seq<Subscriber>>());
     private static int hooked;
-
-    /// Per-thread re-entry guard; concurrent dispatch from distinct threads proceeds in parallel.
-    /// The check-then-Swap is race-safe: only the entering thread can insert its own tid.
     private static readonly Atom<LanguageExt.HashSet<int>> dispatching = Atom(value: LanguageExt.HashSet<int>.Empty);
 
     internal static Subscription Attach(RhinoDoc doc, Action<BlockTableEvent> handler, BlockSubscriptionPolicy policy) {
@@ -397,15 +384,10 @@ internal static class EventBridge {
         _ = SnapshotVault.EvictDoc(serial: serial);
         _ = PreviewVault.EvictDoc(serial: serial);
         _ = ContentIndex.EvictDoc(serial: serial);
-        // When the last subscriber bucket drops, any tids in `dispatching` must be stale
-        // leftovers from a bypassed `finally` — safe to flush; recycled tids can't re-block.
         if (bySerial.Swap(f: map => map.Remove(key: serial)).IsEmpty)
             _ = dispatching.Swap(f: static _ => []);
         return unit;
     }
-
-    /// Re-entry guard: Immediate subscribers that mutate during handling fire Dispatch
-    /// recursively; the inner mutation's own table event arrives after outer unwinds.
     private static void Dispatch(InstanceDefinitionTableEventArgs args) {
         int tid = System.Environment.CurrentManagedThreadId;
         // BOUNDARY ADAPTER — Rhino events can re-enter while subscribers mutate the table.
@@ -445,8 +427,6 @@ internal static class EventBridge {
         });
         return unit;
     }
-
-    /// Sort-only events touch no definition state; mutation/content events flush ContentIndex and per-def caches.
     private static Unit Invalidate(RhinoDoc? document, uint serial, BlockTableEvent snapshot) {
         if (snapshot.Kind == InstanceDefinitionTableEventType.Sorted) return unit;
         _ = ContentIndex.Invalidate(serial: serial, doc: document, snapshot: snapshot);
