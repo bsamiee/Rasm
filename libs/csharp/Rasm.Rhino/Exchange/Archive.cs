@@ -276,7 +276,10 @@ internal static class FileArchiveOps {
                         ? (File3dmModel.ReadWithLog(path: endpoint.Path, tableTypeFilterFilter: slice.Tables, objectTypeFilter: slice.ObjectFilter, errorLog: out string filteredLog), filteredLog)
                         : (File3dmModel.ReadWithLog(path: endpoint.Path, errorLog: out string fullLog), fullLog);
                     using File3dmModel? owned = model;
-                    return Optional(owned).ToFin(Fail: ctx.Op.InvalidResult()).Bind(active => ctx.Use(arg1: Some(endpoint), arg2: active, arg3: log));
+                    Fin<T> work = Optional(owned).ToFin(Fail: ctx.Op.InvalidResult()).Bind(active => ctx.Use(arg1: Some(endpoint), arg2: active, arg3: log));
+                    return work.Match(
+                        Fail: static fail => Fin.Fail<T>(fail),
+                        Succ: static succ => Fin.Succ(succ));
                 })
                 select value,
             bytes: static (ctx, source) =>
@@ -285,7 +288,10 @@ internal static class FileArchiveOps {
                     : Fin.Succ(value: source.Value)
                 from value in ctx.Op.Catch(() => {
                     using File3dmModel? model = File3dmModel.FromByteArray(bytes: memory.ToArray());
-                    return Optional(model).ToFin(Fail: ctx.Op.InvalidResult()).Bind(active => ctx.Use(arg1: Option<FileEndpoint>.None, arg2: active, arg3: string.Empty));
+                    Fin<T> work = Optional(model).ToFin(Fail: ctx.Op.InvalidResult()).Bind(active => ctx.Use(arg1: Option<FileEndpoint>.None, arg2: active, arg3: string.Empty));
+                    return work.Match(
+                        Fail: static fail => Fin.Fail<T>(fail),
+                        Succ: static succ => Fin.Succ(succ));
                 })
                 select value)
         select result;

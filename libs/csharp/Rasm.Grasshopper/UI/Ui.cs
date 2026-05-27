@@ -58,6 +58,9 @@ public partial record RepaintRequest {
     public static RepaintRequest Object(Guid id) => new ObjectCase(Id: id);
     public static RepaintRequest Region(RectangleF bounds) => new RegionCase(Bounds: bounds);
 
+    // Absorption priority (None identity → SolutionAndDisplay → Solution → Display → Canvas → Scheduled
+    // → Region union → same-Object idempotent → else Canvas). ApplyTo runs once at GrasshopperUi.Use exit;
+    // CanvasOp.Invalidate dispatch is policy-only and never calls native invalidate directly.
     public static RepaintRequest operator |(RepaintRequest left, RepaintRequest right) =>
         (left, right) switch {
             (NoneCase, _) => right,
@@ -92,12 +95,15 @@ internal partial record UndoStrategy {
 [Union]
 public partial record Subscription : IDisposable {
     private Subscription() { }
-    public sealed record AtomCase(System.Action Detach, bool MarshalToUi) : Subscription;
+    // DetachOnce: idempotent teardown (TimerScope, pacer Release). Default RunAlways (LIFO composite).
+    // OwnedSubscription token gates live in Interaction.cs — do not conflate with Atom detach semantics.
+    public sealed record AtomCase(System.Action Detach, bool MarshalToUi, bool DetachOnce = false) : Subscription;
     public sealed record CompositeCase(Seq<Subscription> Members) : Subscription;
     public sealed record EmptyCase : Subscription;
 
     public static readonly Subscription Empty = new EmptyCase();
-    public static Subscription Atom(System.Action detach, bool marshalToUi = false) => new AtomCase(Detach: detach, MarshalToUi: marshalToUi);
+    public static Subscription Atom(System.Action detach, bool marshalToUi = false, bool detachOnce = false) =>
+        new AtomCase(Detach: GuardDetach(detach: detach, detachOnce: detachOnce), MarshalToUi: marshalToUi, DetachOnce: detachOnce);
     // Members stored LIFO so Dispose iterates in detach order without a reversed view allocation.
     public static Subscription Composite(Seq<Subscription> members) =>
         members.Count switch {
@@ -133,9 +139,21 @@ public partial record Subscription : IDisposable {
             emptyCase: static _ => Fin.Succ(value: unit));
     }
 
-    internal static Fin<Subscription> Bind(System.Action attach, System.Action detach, bool marshalToUi = false) =>
+    internal static System.Action GuardDetach(System.Action detach, bool detachOnce) {
+        if (!detachOnce) {
+            return detach;
+        }
+        int gate = 0;
+        return () => {
+            if (Interlocked.Exchange(ref gate, 1) == 0) {
+                detach();
+            }
+        };
+    }
+
+    internal static Fin<Subscription> Bind(System.Action attach, System.Action detach, bool marshalToUi = false, bool detachOnce = false) =>
         Try.lift(f: () => { attach(); return unit; }).Run()
-            .Map(_ => (Subscription)new AtomCase(Detach: detach, MarshalToUi: marshalToUi))
+            .Map(_ => (Subscription)new AtomCase(Detach: GuardDetach(detach: detach, detachOnce: detachOnce), MarshalToUi: marshalToUi, DetachOnce: detachOnce))
             .MapFail(attachError => {
                 Error primary = UiFault.MutationRejected(op: Op.Of(name: nameof(Bind)), detail: $"attach failed: {attachError.Message}");
                 return Try.lift(f: () => { detach(); return unit; }).Run().Match(
@@ -180,24 +198,19 @@ public readonly record struct LayoutArrangeDelta(Seq<LayoutMoveDelta> Moves) {
     public int Count => Moves.Count;
 }
 
-// Public bag contract exposes only the appender; Annotate and Commit are implementation details on UndoGroup.
-public interface IUndoBag {
-    public Unit Add(UndoAction action);
-}
-
 public readonly record struct UndoEntry(VerbNoun Name, Seq<UndoAction> Actions) {
     internal ActionList AsList() => new([.. Actions]);
 }
 
-internal sealed class UndoGroup : IUndoBag {
+internal sealed class UndoGroup {
     private readonly List<UndoAction> actions = [];
     public VerbNoun Name { get; private set; }
     internal UndoGroup(string verb, string noun) => Name = (verb, noun);
-    public Unit Add(UndoAction action) {
+    internal Unit Add(UndoAction action) {
         actions.Add(item: action);
         return unit;
     }
-    // Append a nested label via VerbNoun's native concatenation; the History panel sees nested provenance preserved in the single combined record.
+    // Nested labels concatenate via VerbNoun so History preserves grouped provenance.
     internal Unit Annotate(string verb, string noun) {
         Name += (verb, noun);
         return unit;
@@ -237,92 +250,48 @@ public readonly record struct GrasshopperUiPolicy(
     public static GrasshopperUiPolicy BitwiseOr(GrasshopperUiPolicy left, GrasshopperUiPolicy right) => left | right;
 }
 
-internal static partial class GhUiPolicy {
-    internal static GrasshopperUiPolicy ForCanvas(CanvasOp op) =>
-        op switch {
-            CanvasOp.SnapshotCase s => GrasshopperUiPolicy.Canvas(openEditor: s.OpenEditor),
-            CanvasOp.InvalidateCase i => GrasshopperUiPolicy.Canvas(repaint: i.Repaint),
-            CanvasOp.InstantiateCase => GrasshopperUiPolicy.Canvas(openEditor: true),
-            CanvasOp.ViewCase or CanvasOp.SnapFeedbackCase => GrasshopperUiPolicy.Canvas(openEditor: true, repaint: RepaintRequest.Canvas),
-            CanvasOp.InteractionCase i => i.Policy.Projection.IsSome
-                ? GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas)
-                : GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Canvas),
-            CanvasOp.WindowSelectCase => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
-            _ => GrasshopperUiPolicy.Canvas(),
-        };
-
-    internal static GrasshopperUiPolicy ForDocument(DocumentOp op) =>
-        op switch {
-            DocumentOp.QueryCase { Request: DocumentQuery.UniverseCase } => GrasshopperUiPolicy.Read,
-            DocumentOp.MutateCase mutate => GrasshopperUiPolicy.Document(repaint: mutate.Policy.RepaintOrDefault),
-            _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
-        };
-
-    internal static GrasshopperUiPolicy ForEditor(EditorOp op) =>
-        op switch {
-            EditorOp.ShowCase show => GrasshopperUiPolicy.Canvas(openEditor: show.Visible),
-            EditorOp.EnsureVisibleCase or EditorOp.ShellCase => GrasshopperUiPolicy.Canvas(openEditor: true),
-            _ => GrasshopperUiPolicy.Read,
-        };
-
-    internal static GrasshopperUiPolicy ForLayout(LayoutOp op) =>
-        op.Switch(
-            measureCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
-            arrangeCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
-            snapCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None));
-
-    internal static GrasshopperUiPolicy ForWire(WireOp op) =>
-        op switch {
-            WireOp.QueryCase => GrasshopperUiPolicy.Canvas(),
-            WireOp.InstallShapeCase => GrasshopperUiPolicy.Read,
-            WireOp.OverlayPenCase or WireOp.WirePaintObserveCase => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled),
-            _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
-        };
-
-    internal static GrasshopperUiPolicy ForEvent(UiEvent uiEvent) =>
-        uiEvent switch {
-            UiEvent.PaintCase => GrasshopperUiPolicy.Canvas(),
-            UiEvent.DocumentCase or UiEvent.SolutionCase or UiEvent.UndoCase => GrasshopperUiPolicy.Document(),
-            _ => GrasshopperUiPolicy.Read,
-        };
-
-    internal static GrasshopperUiPolicy ForCanvasChrome(CanvasChromeOp op) =>
-        op.Switch(
-            tooltipCase: static t => ForTooltip(op: t.Op),
-            floatingButtonCase: static _ => GrasshopperUiPolicy.Canvas(),
-            interactionCase: static _ => GrasshopperUiPolicy.Canvas());
-
-    internal static GrasshopperUiPolicy ForTooltip(TooltipOp op) =>
-        op.Switch(
-            showCase: static _ => GrasshopperUiPolicy.Canvas(),
-            hideCase: static _ => GrasshopperUiPolicy.Read,
-            invalidateCase: static _ => GrasshopperUiPolicy.Read,
-            statusCase: static _ => GrasshopperUiPolicy.Read,
-            layoutCase: static _ => GrasshopperUiPolicy.Read);
-}
+internal readonly record struct IntentOutcome<T>(T Value, RepaintRequest Repaint);
 
 public sealed record GrasshopperUiIntent<T> {
-    private readonly Func<GrasshopperUi.Scope, Fin<T>> run;
-    internal GrasshopperUiIntent(Func<GrasshopperUi.Scope, Fin<T>> run, GrasshopperUiPolicy policy) {
-        this.run = run;
+    private readonly Func<GrasshopperUi.Scope, Fin<IntentOutcome<T>>> execute;
+
+    internal GrasshopperUiIntent(Func<GrasshopperUi.Scope, Fin<T>> run, GrasshopperUiPolicy policy)
+        : this(execute: scope => run(arg: scope).Map(value => new IntentOutcome<T>(Value: value, Repaint: policy.RepaintOrNone)), policy: policy) { }
+
+    private GrasshopperUiIntent(Func<GrasshopperUi.Scope, Fin<IntentOutcome<T>>> execute, GrasshopperUiPolicy policy) {
+        this.execute = execute;
         Policy = policy;
     }
+
     internal GrasshopperUiPolicy Policy { get; }
-    internal Fin<T> Run(GrasshopperUi.Scope scope) => run(arg: scope);
+    internal Fin<T> Run(GrasshopperUi.Scope scope) => execute(arg: scope).Map(outcome => outcome.Value);
+    internal Fin<IntentOutcome<T>> RunWithRepaint(GrasshopperUi.Scope scope) => execute(arg: scope);
+
     public GrasshopperUiIntent<TOut> Map<TOut>(Func<T, TOut> project) =>
-        new(run: scope => Run(scope: scope).Map(project), policy: Policy);
+        new(
+            execute: scope => execute(arg: scope).Map(outcome => new IntentOutcome<TOut>(
+                Value: project(arg: outcome.Value),
+                Repaint: outcome.Repaint)),
+            policy: Policy);
+
     public GrasshopperUiIntent<TOut> Bind<TOut>(Func<T, GrasshopperUiIntent<TOut>> bind) =>
         new(
-            run: scope =>
-                from value in Run(scope: scope)
-                from next in Optional(bind(arg: value))
+            execute: scope =>
+                from left in execute(arg: scope)
+                from next in Optional(bind(arg: left.Value))
                     .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Bind)), detail: "bind returned null"))
                 let merged = Policy | next.Policy
                 from resolved in merged == Policy
                     ? Fin.Succ(value: scope)
                     : GrasshopperUi.Scope.Resolve(policy: merged, cancellation: scope.Cancellation, undo: scope.UndoGroup)
-                from result in next.Run(scope: resolved)
-                select GrasshopperUi.Repaint(scope: resolved, policy: next.Policy, value: result),
+                from right in next.RunWithRepaint(scope: resolved)
+                select new IntentOutcome<TOut>(Value: right.Value, Repaint: left.Repaint | right.Repaint),
+            policy: Policy);
+
+    public GrasshopperUiIntent<TOut> BindFin<TOut>(Func<T, Fin<TOut>> bind) =>
+        new(
+            execute: scope => execute(arg: scope).Bind(outcome => bind(arg: outcome.Value).Map(value =>
+                new IntentOutcome<TOut>(Value: value, Repaint: outcome.Repaint))),
             policy: Policy);
 }
 
@@ -396,9 +365,7 @@ public static partial class OpUiExtensions {
             ? Fin.Succ(value)
             : Fin.Fail<float>(error: UiFault.InvalidInput(op: op, detail: detail));
 
-    // Native-boundary exception capsule. Wraps `Try.lift(f).Run().MapFail(e => UiFault.MutationRejected(op,
-    // $"{what} threw: {e.Message}"))` so call sites stay declarative. Use for any GH2/Eto/Rhino mutation
-    // that may throw native exceptions; the typed UiFault.MutationRejected case preserves the op + reason.
+    // BOUNDARY ADAPTER — native GH2/Eto/Rhino throws → UiFault.MutationRejected.
     [BoundaryAdapter]
     internal static Fin<T> Attempt<T>(this Op op, Func<T> body, string what = "") =>
         Optional(body)
@@ -409,14 +376,11 @@ public static partial class OpUiExtensions {
                     ? $"native call threw: {error.Message}"
                     : $"{what} threw: {error.Message}")));
 
-    // Side-effect variant of Attempt. Returns Fin<Unit> for actions that don't yield a value.
     [BoundaryAdapter]
     internal static Fin<Unit> Attempt(this Op op, System.Action body, string what = "") =>
         op.Attempt(body: () => { body(); return unit; }, what: what);
 
-    // Parallel admission — folds multiple AcceptPoint/AcceptRect/AcceptFinite checks into one
-    // Validation<Seq<UiFault>, T> before ToFin. Use when PaintStyle/CornerRadii/multi-field
-    // validation repeats across a single payload.
+    // Parallel AcceptX checks folded into one Validation before ToFin.
     [BoundaryAdapter]
     internal static Validation<Seq<UiFault>, T> ValidateParallel<T>(this Op op, T value, params Func<Op, Fin<Unit>>[] checks) {
         Seq<UiFault> faults = toSeq(checks).Choose(check =>
@@ -432,10 +396,7 @@ public static partial class OpUiExtensions {
     internal static Fin<T> AcceptAll<T>(this Op op, T value, params Func<Op, Fin<Unit>>[] checks) =>
         op.ValidateParallel(value: value, checks: checks).ToFin();
 
-    // Validation<Seq<UiFault>, T> → Fin<T> bridge — Seq's built-in monoid accumulates faults during
-    // parallel validation; this collapses to Error.Many for single-error Fin contract while preserving
-    // every accumulated UiFault's provenance. Use when CornerRadii/SpringConfig/Bounds/Navigate fold
-    // multiple AcceptX calls via Apply.
+    // Validation<Seq<UiFault>, T> → Fin<T>; preserves accumulated fault provenance.
     [BoundaryAdapter]
     internal static Fin<T> ToFin<T>(this Validation<Seq<UiFault>, T> validation) =>
         validation.Match(
@@ -500,6 +461,18 @@ public static class GhUi {
 
 [BoundaryAdapter]
 public sealed partial record GrasshopperUi {
+    private static readonly Atom<Option<Error>> HandlerFaultCell = Atom(value: Option<Error>.None);
+
+    internal static Fin<Unit> Handler(Func<Fin<Unit>> valid) =>
+        Protect(valid: valid).Match(
+            Succ: static _ => Fin.Succ(value: unit),
+            Fail: error => {
+                _ = HandlerFaultCell.Swap(_ => Some(error));
+                return Fin.Succ(value: unit);
+            });
+
+    public static Option<Error> TakeHandlerFault() => HandlerFaultCell.Swap(_ => Option<Error>.None);
+
     [StructLayout(LayoutKind.Auto)]
     internal readonly record struct Scope(Option<GhEditor> Editor, Option<GhCanvas> Canvas, Option<GhDocument> Document, Option<GhDocumentMethods> Methods, Option<GhObjectList> Objects, Option<Skin> Skin, Option<UndoGroup> UndoGroup, CancellationToken Cancellation) {
         internal static Fin<Scope> Resolve(GrasshopperUiPolicy policy, CancellationToken cancellation, Option<UndoGroup> undo = default) =>
@@ -545,8 +518,11 @@ public sealed partial record GrasshopperUi {
             cancellation: cancellation,
             run: () =>
                 from scope in Scope.Resolve(policy: valid.Policy, cancellation: cancellation)
-                from value in valid.Run(scope: scope)
-                select Repaint(scope: scope, policy: valid.Policy, value: value))
+                from outcome in valid.RunWithRepaint(scope: scope)
+                select Repaint(
+                    scope: scope,
+                    policy: GrasshopperUiPolicy.Read with { Repaint = Some(outcome.Repaint) },
+                    value: outcome.Value))
         select result;
 
     internal static GrasshopperUiIntent<Snapshot<TDelta>> Mutate<TDelta>(

@@ -626,7 +626,7 @@ internal static partial class Paint {
             from valid in Optional(paint).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null paint callback"))
             from validPhase in Optional(phase).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null phase"))
             from pacer in Motion.PacerOption(canvas: canvas, clock: clock)
-            let handler = (EventHandler<CanvasPaintEventArgs>)((_, args) => GrasshopperUi.Protect(valid: () => valid(arg: new PaintScope(
+            let handler = (EventHandler<CanvasPaintEventArgs>)((_, args) => GrasshopperUi.Handler(valid: () => valid(arg: new PaintScope(
                 Phase: validPhase,
                 Graphics: args.Graphics,
                 Skin: args.Skin) {
@@ -635,11 +635,11 @@ internal static partial class Paint {
             from sub in Subscription.Bind(
                 attach: () => {
                     _ = validPhase.Attach(canvas: canvas, handler: handler);
-                    _ = pacer is { IsSome: true, Case: Motion.Pacer p } ? p.Resume() : Op.Side(canvas.ScheduleRedraw);
+                    _ = Motion.PacerResume(pacer: pacer, canvas: canvas);
                 },
                 detach: () => {
                     _ = validPhase.Detach(canvas: canvas, handler: handler);
-                    _ = pacer is { IsSome: true, Case: Motion.Pacer p } ? Op.Side(() => { _ = p.Pause(); _ = p.Release(); }) : unit;
+                    _ = Motion.PacerRelease(pacer: pacer);
                 },
                 marshalToUi: true)
             select sub);
@@ -654,11 +654,11 @@ internal static partial class Paint {
                 from sub in Subscription.Bind(
                     attach: () => {
                         canvas.RedrawOnMouseMove = enabled;
-                        _ = pacer is { IsSome: true, Case: Motion.Pacer p } ? p.Resume() : unit;
+                        _ = Motion.PacerResume(pacer: pacer, canvas: canvas);
                     },
                     detach: () => {
                         canvas.RedrawOnMouseMove = priorEnabled;
-                        _ = pacer is { IsSome: true, Case: Motion.Pacer p } ? Op.Side(() => { _ = p.Pause(); _ = p.Release(); }) : unit;
+                        _ = Motion.PacerRelease(pacer: pacer);
                     },
                     marshalToUi: true)
                 select sub);

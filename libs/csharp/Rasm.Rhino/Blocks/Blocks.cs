@@ -22,11 +22,8 @@ public sealed class RhinoBlocks {
 
     public Fin<BlockOutcome> Run(BlockOp op, Op? key = null) =>
         Optional(op).ToFin(Fail: key.OrDefault().InvalidInput())
-            .Bind(valid => (RhinoApp.IsOnMainThread, Mode) switch {
-                (true, _) or (_, RunMode.Scripted) =>
-                    Op.Of(name: nameof(Run)).Catch(() => Operations.Run(op: valid, owner: this)),
-                _ => RhinoUi.OnUiThread(run: () => Op.Of(name: nameof(Run)).Catch(() => Operations.Run(op: valid, owner: this))),
-            });
+            .Bind(valid => RhinoUi.OnUiThread(run: () =>
+                Op.Of(name: nameof(Run)).Catch(() => Operations.Run(op: valid, owner: this))));
 
     public Subscription Subscribe(Action<BlockTableEvent> handler, BlockSubscriptionPolicy? policy = null) {
         ArgumentNullException.ThrowIfNull(argument: handler);

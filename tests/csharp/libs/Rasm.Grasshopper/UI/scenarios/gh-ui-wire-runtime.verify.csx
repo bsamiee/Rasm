@@ -40,4 +40,7 @@ Scenario.Run("gh-ui-wire-runtime", CAPTURE_PATH, (key, facts) => {
     facts.Add("drawn.entryCount", snapshot.Entries.Count);
     facts.Add("drawn.freshFromWirePaint", snapshot.FreshFromWirePaint);
     facts.Add("drawn.documentModifications", snapshot.DocumentModifications);
+    facts.Add("drawn.stamp.modifications", snapshot.Stamp.Modifications);
+    facts.Add("drawn.stamp.projectionZoom", snapshot.Stamp.ProjectionZoom);
+    facts.Add("drawn.stamp.innerFrameWidth", snapshot.Stamp.DrawInnerFrame.Width);
 });

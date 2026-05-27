@@ -117,7 +117,25 @@ public partial record CanvasOp {
     public static CanvasOp Interaction(CanvasInteractionPolicy policy) => new InteractionCase(Policy: policy);
     public static CanvasOp WindowSelect(WindowSelection window, Grasshopper2.Extensions.SelectionMode mode, CanvasWindowScope scope = CanvasWindowScope.ObjectsAndWires) => new WindowSelectCase(Window: window, Mode: mode, Scope: scope);
 
-    internal GrasshopperUiPolicy UiPolicy => GhUiPolicy.ForCanvas(op: this);
+    // GH2 ObjectList.WindowSelect(..., considerForeground, considerBackground, considerWires):
+    // CanvasWindowScope.Groups maps to considerBackground (objects below wires); canvas flag is WindowSelectGroups.
+    internal GrasshopperUiPolicy UiPolicy => Switch(
+        snapshotCase: static s => GrasshopperUiPolicy.Canvas(openEditor: s.OpenEditor),
+        pickCase: static _ => GrasshopperUiPolicy.Canvas(),
+        mapCase: static _ => GrasshopperUiPolicy.Canvas(),
+        invalidateCase: static i => GrasshopperUiPolicy.Canvas(repaint: i.Repaint),
+        instantiateCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true),
+        focusCase: static _ => GrasshopperUiPolicy.Canvas(),
+        detailCase: static _ => GrasshopperUiPolicy.Canvas(),
+        actionsCase: static _ => GrasshopperUiPolicy.Canvas(),
+        renderCase: static _ => GrasshopperUiPolicy.Canvas(),
+        pickMapCase: static _ => GrasshopperUiPolicy.Canvas(),
+        viewCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true, repaint: RepaintRequest.Canvas),
+        snapFeedbackCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true, repaint: RepaintRequest.Canvas),
+        interactionCase: static i => i.Policy.Projection.IsSome
+            ? GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas)
+            : GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Canvas),
+        windowSelectCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas));
 }
 
 [SkipUnionOps]
@@ -435,6 +453,7 @@ internal static partial class UiRail {
                 Interaction: new CanvasInteractionSnapshot(Before: before, After: InteractionOf(canvas: canvas, document: scope.Document))),
         CanvasOp.WindowSelectCase ws =>
             scope.NeedObjects().Bind(objs => scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Map(doc => {
+                // Groups scope bit → considerBackground (GH2 WindowSelectGroups canvas flag; background objects sit below wires).
                 SelectionResult result = objs.WindowSelect(window: ws.Window, mode: ws.Mode,
                     considerForeground: (ws.Scope & CanvasWindowScope.Objects) == CanvasWindowScope.Objects,
                     considerBackground: (ws.Scope & CanvasWindowScope.Groups) == CanvasWindowScope.Groups,

@@ -92,7 +92,6 @@ public sealed partial class WireTraversal {
                 .OfType<IDocumentObject>());
 }
 
-[SkipUnionOps]
 [SmartEnum<int>]
 public sealed partial class WireEdit {
     private delegate Fin<int> WireEditRun(GhDocumentMethods methods, GhObjectList objects, IParameter source, IParameter target, ActionList actions);
@@ -179,11 +178,13 @@ public sealed partial class GraphMetric {
             from result in Op.Of(name: nameof(SortedTopology)).Attempt(
                 body: () => {
                     ConnectiveObject[] nodes = [.. ids.Choose(id => objects.Connectivity.Find(id, out ConnectiveObject? co) ? Optional(co) : Option<ConnectiveObject>.None)];
-                    _ = Op.Side(() => objects.Connectivity.SortCausally(objects: nodes));
-                    return (WireResult)new WireResult.SortedIdsResult(Ids: toSeq(nodes.Select(static co => co.Id)));
+                    ConnectiveObject[] sorted = objects.Connectivity.SortCausally(objects: nodes);
+                    return (WireResult)new WireResult.SortedIdsResult(Ids: toSeq(sorted.Select(static co => co.Id)));
                 },
                 what: "Connectivity.SortCausally")
             select result));
+
+    public static WireQuery Query(Seq<Guid> ids, GraphMetric kind) => WireQuery.GraphMetric(ids: ids, kind: kind);
 
     [UseDelegateFromConstructor]
     internal partial GrasshopperUiIntent<WireResult> Run(Seq<Guid> ids);
@@ -230,9 +231,6 @@ public partial record WireQuery {
             Direction: direction ?? WireTraversal.Bidirectional,
             MaxHops: WireHopLimit.Create(value: maxHops));
     public static WireQuery GraphMetric(Seq<Guid> ids, GraphMetric kind) => new GraphMetricCase(Ids: ids, Kind: kind);
-    public static WireQuery Linearity(Seq<Guid> ids) => new GraphMetricCase(Ids: ids, Kind: UI.GraphMetric.Linearity);
-    public static WireQuery Topology(Seq<Guid> ids) => new GraphMetricCase(Ids: ids, Kind: UI.GraphMetric.Topology);
-    public static WireQuery SortedTopology(Seq<Guid> ids) => new GraphMetricCase(Ids: ids, Kind: UI.GraphMetric.SortedTopology);
     public static WireQuery CanInsert(Guid objectId, PointF location) => new CanInsertCase(ObjectId: objectId, Location: location);
     public static WireQuery RecentlyDrawn() => new RecentlyDrawnCase();
 }
@@ -246,15 +244,24 @@ public partial record WireOp {
     public sealed partial record SplitCase(WireSnapshot.ConnectedCase Wire, PointF Location) : WireOp;
     public sealed partial record EditCase(WireSnapshot.ConnectedCase Wire, WireEdit Kind) : WireOp;
     public sealed partial record InstallShapeCase(Type ShapeType) : WireOp;
-    public sealed partial record OverlayPenCase(Pen Pen) : WireOp;
-    public sealed partial record WirePaintObserveCase : WireOp;
+    public sealed partial record OverlayPenCase(Pen Pen, MotionClock? Clock = null) : WireOp;
+    public sealed partial record WirePaintObserveCase(MotionClock? Clock = null) : WireOp;
     public static WireOp Query(WireQuery query) => new QueryCase(Request: query);
     public static WireOp Select(WireSelectionOp op) => new SelectCase(Op: op);
     public static WireOp Split(WireSnapshot.ConnectedCase wire, PointF location) => new SplitCase(Wire: wire, Location: location);
     public static WireOp Edit(WireSnapshot.ConnectedCase wire, WireEdit edit) => new EditCase(Wire: wire, Kind: edit);
     public static WireOp InstallShape(Type shapeType) => new InstallShapeCase(ShapeType: shapeType);
-    public static WireOp OverlayPen(Pen pen) => new OverlayPenCase(Pen: pen);
-    public static readonly WireOp WirePaintObserve = new WirePaintObserveCase();
+    public static WireOp OverlayPen(Pen pen, MotionClock? clock = null) => new OverlayPenCase(Pen: pen, Clock: clock);
+    public static WireOp WirePaintObserve(MotionClock? clock = null) => new WirePaintObserveCase(Clock: clock);
+
+    internal GrasshopperUiPolicy UiPolicy => Switch(
+        queryCase: static _ => GrasshopperUiPolicy.Canvas(),
+        installShapeCase: static _ => GrasshopperUiPolicy.Read,
+        overlayPenCase: static _ => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled),
+        wirePaintObserveCase: static _ => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled),
+        selectCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
+        splitCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
+        editCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas));
 }
 
 [SkipUnionOps]
@@ -287,10 +294,19 @@ public readonly record struct WireInsertSnapshot(bool CanInsert, Option<Guid> So
 public readonly record struct WireDrawnEntry(Guid SourceId, Guid TargetId, WireKind Kind);
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct WireDrawnSnapshot(Seq<WireDrawnEntry> Entries, int DocumentModifications, bool FreshFromWirePaint);
+public readonly record struct WireDrawnStamp(
+    Guid DocumentHash,
+    int Modifications,
+    PointF ProjectionCentre,
+    float ProjectionZoom,
+    RectangleF DrawInnerFrame);
+
+public readonly record struct WireDrawnSnapshot(Seq<WireDrawnEntry> Entries, WireDrawnStamp Stamp, bool FreshFromWirePaint) {
+    public int DocumentModifications => Stamp.Modifications;
+}
 
 public abstract record WireRequest : GhUiRequest<WireResult> {
-    public sealed record Run(WireOp Op) : WireRequest { internal override GrasshopperUiPolicy Policy => GhUiPolicy.ForWire(op: Op); internal override Fin<WireResult> Apply(GrasshopperUi.Scope scope) => Wire.Dispatch(op: Op).Run(scope: scope); }
+    public sealed record Run(WireOp Op) : WireRequest { internal override GrasshopperUiPolicy Policy => Op.UiPolicy; internal override Fin<WireResult> Apply(GrasshopperUi.Scope scope) => Wire.Dispatch(op: Op).Run(scope: scope); }
 }
 
 internal static partial class Wire {
@@ -300,8 +316,8 @@ internal static partial class Wire {
         splitCase: static s => Split(wire: s.Wire, location: s.Location).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
         editCase: static e => Edit(wire: e.Wire, edit: e.Kind).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
         installShapeCase: static i => InstallShape(shapeType: i.ShapeType).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
-        overlayPenCase: static o => OverlayPen(pen: o.Pen).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
-        wirePaintObserveCase: static _ => WirePaintObserve().Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)));
+        overlayPenCase: static o => OverlayPen(pen: o.Pen, clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
+        wirePaintObserveCase: static o => WirePaintObserve(clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)));
 
     internal static GrasshopperUiIntent<WireResult> Query(WireQuery query) => query.Switch(
         listCase: static list => Listed(kind: list.Kind).Map(static wires => (WireResult)new WireResult.WiresCase(Wires: wires)),
@@ -314,24 +330,28 @@ internal static partial class Wire {
     internal static GrasshopperUiIntent<Subscription> InstallShape(Type shapeType) =>
         GhUi.Read(run: _ => WireShapeInstall.Push(shapeType: shapeType));
 
-    internal static GrasshopperUiIntent<Subscription> OverlayPen(Pen pen) =>
+    internal static GrasshopperUiIntent<Subscription> OverlayPen(Pen pen, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from sub in Paint.Hook(
                 phase: CanvasPaintPhase.AfterWires,
                 paint: paintScope => WireRepositoryRail.AfterWirePaint(canvas: canvas, scope: paintScope, pen: pen),
-                clock: MotionClock.MessageLoop).Run(scope: scope)
+                clock: clock).Run(scope: scope)
             select sub);
 
-    internal static GrasshopperUiIntent<Subscription> WirePaintObserve() =>
+    internal static GrasshopperUiIntent<Subscription> WirePaintObserve(MotionClock clock) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
-            from sub in Paint.Hook(
+            from drift in Paint.Hook(
+                phase: CanvasPaintPhase.BeforeBackground,
+                paint: _ => Fin.Succ(value: WireDrawnCache.InvalidateOnStampDrift(canvas: canvas)),
+                clock: clock).Run(scope: scope)
+            from capture in Paint.Hook(
                 phase: CanvasPaintPhase.AfterWires,
                 paint: _ => WireRepositoryRail.CaptureDrawn(canvas: canvas)
                     .Map(snapshot => WireDrawnCache.Record(canvas: canvas, snapshot: snapshot)),
-                clock: MotionClock.MessageLoop).Run(scope: scope)
-            select sub);
+                clock: clock).Run(scope: scope)
+            select drift | capture);
 
     internal static GrasshopperUiIntent<WireInsertSnapshot> CanInsert(Guid objectId, PointF location) =>
         GhUi.Canvas(run: scope =>
@@ -536,16 +556,17 @@ internal static partial class Wire {
 internal static class WireRepositoryRail {
     private static readonly Op RailOp = Op.Of(name: nameof(WireRepositoryRail));
 
-    private readonly record struct WireRepositoryAccess(
+    internal readonly record struct WireRepositoryAccess(
         PropertyInfo CacheProperty,
         MethodInfo CanInsert,
         PropertyInfo RecentlyDrawn,
+        PropertyInfo InnerFrame,
         FieldInfo Shape,
         FieldInfo Source,
         FieldInfo Target,
         FieldInfo Kind);
 
-    private static readonly Lazy<Fin<WireRepositoryAccess>> Repository = new(Bootstrap);
+    internal static readonly Lazy<Fin<WireRepositoryAccess>> Repository = new(Bootstrap);
 
     private static Fin<WireRepositoryAccess> Bootstrap() {
         const BindingFlags instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -564,6 +585,8 @@ internal static class WireRepositoryRail {
                    .ToFin(Fail: UiFault.MutationRejected(op: op, detail: "WireRepository.CanInsertObject not found"))
                from recent in Optional(repoType.GetProperty(name: "MostRecentlyDrawnWires", bindingAttr: BindingFlags.Instance | BindingFlags.Public))
                    .ToFin(Fail: UiFault.MutationRejected(op: op, detail: "WireRepository.MostRecentlyDrawnWires not found"))
+               from innerFrame in Optional(repoType.GetProperty(name: "InnerFrame", bindingAttr: BindingFlags.Instance | BindingFlags.Public))
+                   .ToFin(Fail: UiFault.MutationRejected(op: op, detail: "WireRepository.InnerFrame not found"))
                from shape in Optional(wireData.GetField(name: "Shape", bindingAttr: BindingFlags.Instance | BindingFlags.Public))
                    .ToFin(Fail: UiFault.MutationRejected(op: op, detail: "WireRepository.WireData.Shape not found"))
                from source in Optional(wireData.GetField(name: "Source", bindingAttr: BindingFlags.Instance | BindingFlags.Public))
@@ -576,10 +599,22 @@ internal static class WireRepositoryRail {
                    CacheProperty: cache,
                    CanInsert: canInsert,
                    RecentlyDrawn: recent,
+                   InnerFrame: innerFrame,
                    Shape: shape,
                    Source: source,
                    Target: target,
                    Kind: kind);
+    }
+    internal static WireDrawnStamp StampOf(GhCanvas canvas, object repo, WireRepositoryAccess access) {
+        GhDocument? document = canvas.Document;
+        (PointF centre, float zoom) = document?.Projection ?? (PointF.Empty, 1f);
+        RectangleF innerFrame = (RectangleF)access.InnerFrame.GetValue(obj: repo)!;
+        return new WireDrawnStamp(
+            DocumentHash: document?.Hash ?? Guid.Empty,
+            Modifications: document?.Modifications ?? 0,
+            ProjectionCentre: centre,
+            ProjectionZoom: zoom,
+            DrawInnerFrame: innerFrame);
     }
 
     internal static Fin<WireInsertSnapshot> CanInsert(GhCanvas canvas, IDocumentObject obj, PointF location) =>
@@ -602,10 +637,9 @@ internal static class WireRepositoryRail {
         from repo in Optional(access.CacheProperty.GetValue(obj: canvas)).ToFin(Fail: UiFault.MutationRejected(op: RailOp, detail: "wire repository is null"))
         from snapshot in RailOp.Attempt(body: () => {
             IEnumerable<object> wires = ((System.Collections.IEnumerable)access.RecentlyDrawn.GetValue(obj: repo)!).Cast<object>();
-            int stamp = canvas.Document?.Modifications ?? 0;
             return new WireDrawnSnapshot(
                 Entries: toSeq(wires).Map(wire => MapWireData(wire: wire, access: access)).ToSeq(),
-                DocumentModifications: stamp,
+                Stamp: StampOf(canvas: canvas, repo: repo, access: access),
                 FreshFromWirePaint: true);
         }, what: nameof(CaptureDrawn))
         select snapshot;
@@ -647,8 +681,9 @@ file static class WireShapeInstall {
             Type prior = WireShape.ShapeType ?? DefaultShape;
             _ = Stack.Swap(stack => stack + prior);
             WireShape.ShapeType = shapeType;
-            return Subscription.Atom(detach: Pop);
-        }, what: nameof(WireShapeInstall));
+            return unit;
+        }, what: nameof(WireShapeInstall))
+        .Bind(_ => Subscription.Bind(attach: static () => { }, detach: Pop, marshalToUi: true, detachOnce: true));
 
     private static void Pop() {
         Seq<Type> remaining = Stack.Swap(static stack => stack.IsEmpty ? stack : stack.Init);
@@ -657,28 +692,62 @@ file static class WireShapeInstall {
 }
 
 // --- [CACHE] ------------------------------------------------------------------------------
-// Populated at CanvasPaintPhase.AfterWires after native WireRepository.DrawWires; stale reads fail fast.
+// Populated at AfterWires; Read validates composite stamp (doc identity, modifications, projection, last draw frame).
 file static class WireDrawnCache {
-    private readonly record struct Entry(int DocumentModifications, WireDrawnSnapshot Snapshot);
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct CacheKey(int CanvasId, Guid DocumentHash);
+    private readonly record struct Entry(WireDrawnStamp Stamp, WireDrawnSnapshot Snapshot);
 
-    private static readonly Atom<HashMap<int, Entry>> ByCanvas = Atom(value: HashMap<int, Entry>());
+    private static readonly Atom<HashMap<CacheKey, Entry>> ByKey = Atom(value: HashMap<CacheKey, Entry>());
+
+    private static CacheKey KeyOf(GhCanvas canvas, WireDrawnStamp stamp) =>
+        new(CanvasId: RuntimeHelpers.GetHashCode(canvas), DocumentHash: stamp.DocumentHash);
 
     internal static Unit Record(GhCanvas canvas, WireDrawnSnapshot snapshot) {
-        int key = RuntimeHelpers.GetHashCode(canvas);
-        _ = ByCanvas.Swap(map => map.AddOrUpdate(key: key, value: new Entry(DocumentModifications: snapshot.DocumentModifications, Snapshot: snapshot)));
+        CacheKey key = KeyOf(canvas: canvas, stamp: snapshot.Stamp);
+        _ = ByKey.Swap(map => map.AddOrUpdate(key: key, value: new Entry(Stamp: snapshot.Stamp, Snapshot: snapshot)));
         return unit;
     }
 
-    internal static Fin<WireDrawnSnapshot> Read(GhCanvas canvas) {
-        int key = RuntimeHelpers.GetHashCode(canvas);
-        int stamp = canvas.Document?.Modifications ?? 0;
-        return ByCanvas.Value.Find(key)
-            .Filter(entry => entry.DocumentModifications == stamp)
-            .Map(entry => entry.Snapshot)
+    internal static Unit Invalidate(GhCanvas canvas) =>
+        WireRepositoryRail.Repository.Value.Match(
+            Fail: _ => unit,
+            Succ: access => Optional(access.CacheProperty.GetValue(obj: canvas)).Match(
+                None: () => unit,
+                Some: repo => {
+                    WireDrawnStamp stamp = WireRepositoryRail.StampOf(canvas: canvas, repo: repo, access: access);
+                    CacheKey key = KeyOf(canvas: canvas, stamp: stamp);
+                    _ = ByKey.Swap(map => map.Remove(key));
+                    return unit;
+                }));
+
+    // Repository bootstrap failure is silent — drift invalidation no-ops when reflection rail is absent.
+    internal static Unit InvalidateOnStampDrift(GhCanvas canvas) =>
+        WireRepositoryRail.Repository.Value.Match(
+            Fail: _ => unit,
+            Succ: access => Optional(access.CacheProperty.GetValue(obj: canvas)).Match(
+                None: () => unit,
+                Some: repo => {
+                    WireDrawnStamp current = WireRepositoryRail.StampOf(canvas: canvas, repo: repo, access: access);
+                    CacheKey key = KeyOf(canvas: canvas, stamp: current);
+                    _ = ByKey.Value.Find(key)
+                        .Filter(entry => entry.Stamp != current)
+                        .Iter(_ => Invalidate(canvas: canvas));
+                    return unit;
+                }));
+
+    internal static Fin<WireDrawnSnapshot> Read(GhCanvas canvas) =>
+        from access in WireRepositoryRail.Repository.Value
+        from repo in Optional(access.CacheProperty.GetValue(obj: canvas)).ToFin(Fail: UiFault.MutationRejected(
+            op: Op.Of(name: nameof(Read)), detail: "wire repository is null"))
+        let current = WireRepositoryRail.StampOf(canvas: canvas, repo: repo, access: access)
+        let key = KeyOf(canvas: canvas, stamp: current)
+        from entry in ByKey.Value.Find(key)
+            .Filter(entry => entry.Stamp == current)
             .ToFin(Fail: UiFault.InvalidInput(
                 op: Op.Of(name: nameof(Read)),
-                detail: "wire draw snapshot is missing or stale; query after AfterWires paint (WireOp.OverlayPen subscription or canvas repaint)"));
-    }
+                detail: "wire draw snapshot is missing or stale; subscribe WirePaintObserve or OverlayPen and schedule repaint before query"))
+        select entry.Snapshot with { FreshFromWirePaint = false };
 }
 
 // Document-keyed (Source,Target) index. Refreshes on Document.Modifications change; MRU-bounded.

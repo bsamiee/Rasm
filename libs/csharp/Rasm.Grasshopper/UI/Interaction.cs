@@ -71,6 +71,13 @@ public partial record TooltipOp {
         new ShowCase(Icon: icon, Caption: caption, Message: message, Body: TooltipBody.FromPanes(panes: panes), Warnings: warnings, Errors: errors);
     public static TooltipOp ShowPainter(IIcon icon, string caption, string message, TooltipPainter painter, bool warnings = false, bool errors = false) =>
         new ShowCase(Icon: icon, Caption: caption, Message: message, Body: TooltipBody.FromPainter(painter: painter), Warnings: warnings, Errors: errors);
+
+    internal GrasshopperUiPolicy UiPolicy => Switch(
+        showCase: static _ => GrasshopperUiPolicy.Canvas(),
+        hideCase: static _ => GrasshopperUiPolicy.Read,
+        invalidateCase: static _ => GrasshopperUiPolicy.Read,
+        statusCase: static _ => GrasshopperUiPolicy.Read,
+        layoutCase: static _ => GrasshopperUiPolicy.Read);
 }
 
 [SkipUnionOps]
@@ -84,6 +91,11 @@ public partial record CanvasChromeOp {
     public static CanvasChromeOp Tooltip(TooltipOp op) => new TooltipCase(Op: op);
     public static CanvasChromeOp FloatingButton(FloatingButtonOp op) => new FloatingButtonCase(Op: op);
     public static CanvasChromeOp Interaction(InteractionOp op) => new InteractionCase(Op: op);
+
+    internal GrasshopperUiPolicy UiPolicy => Switch(
+        tooltipCase: static t => t.Op.UiPolicy,
+        floatingButtonCase: static _ => GrasshopperUiPolicy.Canvas(),
+        interactionCase: static _ => GrasshopperUiPolicy.Canvas());
 }
 
 [SkipUnionOps]
@@ -100,15 +112,17 @@ public partial record CanvasChromeResult {
 
     internal static readonly CanvasChromeResult UnitInstance = new UnitCase();
 
-    internal static CanvasChromeResult Of<T>(T value) =>
+    internal static Fin<CanvasChromeResult> Of<T>(T value) =>
         value switch {
-            Subscription subscription => new SubscriptionCase(Subscription: subscription),
-            TooltipSnapshot snapshot => new TooltipStatusCase(Snapshot: snapshot),
-            TooltipLayoutSnapshot snapshot => new TooltipLayoutCase(Snapshot: snapshot),
-            FloatingButtonSnapshot snapshot => new FloatingButtonStatusCase(Snapshot: snapshot),
-            Option<FloatingButtonInfo> info => new FloatingButtonFoundCase(Info: info),
-            InteractionSnapshot snapshot => new InteractionStatusCase(Snapshot: snapshot),
-            _ => throw new InvalidOperationException(message: $"unsupported chrome payload '{typeof(T).Name}'"),
+            Subscription subscription => Fin.Succ<CanvasChromeResult>(new SubscriptionCase(Subscription: subscription)),
+            TooltipSnapshot snapshot => Fin.Succ<CanvasChromeResult>(new TooltipStatusCase(Snapshot: snapshot)),
+            TooltipLayoutSnapshot snapshot => Fin.Succ<CanvasChromeResult>(new TooltipLayoutCase(Snapshot: snapshot)),
+            FloatingButtonSnapshot snapshot => Fin.Succ<CanvasChromeResult>(new FloatingButtonStatusCase(Snapshot: snapshot)),
+            Option<FloatingButtonInfo> info => Fin.Succ<CanvasChromeResult>(new FloatingButtonFoundCase(Info: info)),
+            InteractionSnapshot snapshot => Fin.Succ<CanvasChromeResult>(new InteractionStatusCase(Snapshot: snapshot)),
+            _ => Fin.Fail<CanvasChromeResult>(error: UiFault.InvalidInput(
+                op: Op.Of(name: nameof(CanvasChromeResult)),
+                detail: $"unsupported chrome payload '{typeof(T).Name}'")),
         };
 }
 
@@ -150,7 +164,7 @@ public partial record InteractionOp {
 }
 
 public abstract record CanvasChromeRequest : GhUiRequest<CanvasChromeResult> {
-    public sealed record Run(CanvasChromeOp Op) : CanvasChromeRequest { internal override GrasshopperUiPolicy Policy => GhUiPolicy.ForCanvasChrome(op: Op); internal override Fin<CanvasChromeResult> Apply(GrasshopperUi.Scope scope) => CanvasChrome.Dispatch(op: Op).Run(scope: scope); }
+    public sealed record Run(CanvasChromeOp Op) : CanvasChromeRequest { internal override GrasshopperUiPolicy Policy => Op.UiPolicy; internal override Fin<CanvasChromeResult> Apply(GrasshopperUi.Scope scope) => CanvasChrome.Dispatch(op: Op).Run(scope: scope); }
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -213,11 +227,11 @@ internal static class Tooltip {
 
     internal static GrasshopperUiIntent<CanvasChromeResult> Dispatch(TooltipOp op) =>
         op.Switch(
-            showCase: static s => Bind(invoke: () => ShowNative(show: s)).Map(CanvasChromeResult.Of),
+            showCase: static s => Bind(invoke: () => ShowNative(show: s)).BindFin(CanvasChromeResult.Of),
             hideCase: static _ => HideNow().Map(static _ => CanvasChromeResult.UnitInstance),
             invalidateCase: static _ => InvalidateNow().Map(static _ => CanvasChromeResult.UnitInstance),
-            statusCase: static _ => SnapshotNow().Map(CanvasChromeResult.Of),
-            layoutCase: static _ => TooltipRail.Layout().Map(CanvasChromeResult.Of));
+            statusCase: static _ => SnapshotNow().BindFin(CanvasChromeResult.Of),
+            layoutCase: static _ => TooltipRail.Layout().BindFin(CanvasChromeResult.Of));
 
     internal static GrasshopperUiIntent<Unit> HideNow() =>
         GhUi.Read(run: scope => Op.Of(name: nameof(HideNow)).Attempt(body: HideNative, what: "Tooltip.Frame.Hide"));
@@ -262,17 +276,17 @@ internal static class FloatingButton {
 
     internal static GrasshopperUiIntent<CanvasChromeResult> Dispatch(FloatingButtonOp op) =>
         op.Switch(
-            addCase: static a => Add(a.Position, a.Name, a.Info, a.Icon, a.Colour, a.Handlers).Map(CanvasChromeResult.Of),
-            addAnchoredCase: static a => AddAnchored(a.Anchor, a.Name, a.Info, a.Icon, a.Colour, a.Handlers).Map(CanvasChromeResult.Of),
-            addNumericCase: static a => AddNumeric(a.Position, a.Name, a.Info, a.Icon, a.Value, a.ValueKey, a.Colour).Map(CanvasChromeResult.Of),
+            addCase: static a => Add(a.Position, a.Name, a.Info, a.Icon, a.Colour, a.Handlers).BindFin(CanvasChromeResult.Of),
+            addAnchoredCase: static a => AddAnchored(a.Anchor, a.Name, a.Info, a.Icon, a.Colour, a.Handlers).BindFin(CanvasChromeResult.Of),
+            addNumericCase: static a => AddNumeric(a.Position, a.Name, a.Info, a.Icon, a.Value, a.ValueKey, a.Colour).BindFin(CanvasChromeResult.Of),
             modifyCase: static m => Modify(m.Name, m.Info, m.Icon, m.Colour, m.Anchor).Map(AsUnit),
             showNamedCase: static s => SetVisible(s.Names, visible: true).Map(AsUnit),
             hideNamedCase: static h => SetVisible(h.Names, visible: false).Map(AsUnit),
             closeNamedCase: static c => Close(c.Names).Map(AsUnit),
             closeAllCase: static _ => CloseAll().Map(AsUnit),
-            findByNameCase: static f => FindByName(f.Name).Map(CanvasChromeResult.Of),
-            findByPointCase: static f => FindByPoint(f.ControlPoint).Map(CanvasChromeResult.Of),
-            statusCase: static _ => SnapshotNow().Map(CanvasChromeResult.Of));
+            findByNameCase: static f => FindByName(f.Name).BindFin(CanvasChromeResult.Of),
+            findByPointCase: static f => FindByPoint(f.ControlPoint).BindFin(CanvasChromeResult.Of),
+            statusCase: static _ => SnapshotNow().BindFin(CanvasChromeResult.Of));
 
     private static CanvasChromeResult AsUnit(Unit _) => CanvasChromeResult.UnitInstance;
 
@@ -364,7 +378,11 @@ internal static class FloatingButton {
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from _ in Op.Of(name: nameof(Close)).Attempt(
-                body: () => canvas.FloatingButtons.Close([.. names]),
+                body: () => {
+                    canvas.FloatingButtons.Close([.. names]);
+                    _ = names.Iter(Owners.Clear);
+                    return unit;
+                },
                 what: "FloatingButtonCollection.Close")
             select unit);
 
@@ -434,11 +452,11 @@ internal static class FloatingButton {
 internal static class Interaction {
     internal static GrasshopperUiIntent<CanvasChromeResult> Dispatch(InteractionOp op) =>
         op.Switch(
-            pushCase: static p => Push(p.Target).Map(CanvasChromeResult.Of),
-            registerCase: static r => Register(r.Responsive, r.System).Map(CanvasChromeResult.Of),
-            hoverCase: static h => Hover(h.Delay, h.Handler).Map(CanvasChromeResult.Of),
-            contextMenuCase: static c => ContextMenu(c.Handler).Map(CanvasChromeResult.Of),
-            statusCase: static _ => SnapshotNow().Map(CanvasChromeResult.Of));
+            pushCase: static p => Push(p.Target).BindFin(CanvasChromeResult.Of),
+            registerCase: static r => Register(r.Responsive, r.System).BindFin(CanvasChromeResult.Of),
+            hoverCase: static h => Hover(h.Delay, h.Handler).BindFin(CanvasChromeResult.Of),
+            contextMenuCase: static c => ContextMenu(c.Handler).BindFin(CanvasChromeResult.Of),
+            statusCase: static _ => SnapshotNow().BindFin(CanvasChromeResult.Of));
 
     internal static GrasshopperUiIntent<Subscription> Push(IInteraction target) =>
         GhUi.Canvas(run: scope =>
@@ -465,7 +483,7 @@ internal static class Interaction {
             from canvas in scope.NeedCanvas()
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hover)), detail: "handler is required"))
             let onHover = (EventHandler<MouseHoverEventArgs>)((_, e) =>
-                _ = GrasshopperUi.Protect(valid: () => valid(arg: new MouseHoverSnapshot(ControlPoint: e.ControlPoint, ContentPoint: e.ContentPoint))))
+                _ = GrasshopperUi.Handler(valid: () => valid(arg: new MouseHoverSnapshot(ControlPoint: e.ControlPoint, ContentPoint: e.ContentPoint))))
             from sub in Subscription.Bind(
                 attach: () => { HoverDelayInstall.Enter(canvas: canvas, delay: delay); canvas.MouseHover += onHover; },
                 detach: () => { canvas.MouseHover -= onHover; HoverDelayInstall.Exit(canvas: canvas); },
@@ -477,7 +495,7 @@ internal static class Interaction {
             from canvas in scope.NeedCanvas()
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ContextMenu)), detail: "handler is required"))
             let onPopulate = (EventHandler<PopulateContextMenuEventArgs>)((_, e) =>
-                _ = GrasshopperUi.Protect(valid: () => valid(arg: new ContextMenuSnapshot(Menu: e.Menu, MouseEvent: e.MouseEvent))))
+                _ = GrasshopperUi.Handler(valid: () => valid(arg: new ContextMenuSnapshot(Menu: e.Menu, MouseEvent: e.MouseEvent))))
             from sub in Subscription.Bind(
                 attach: () => canvas.PopulateContextMenu += onPopulate,
                 detach: () => canvas.PopulateContextMenu -= onPopulate,

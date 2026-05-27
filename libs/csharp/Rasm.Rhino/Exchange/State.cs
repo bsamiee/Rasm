@@ -354,14 +354,18 @@ public sealed record FileEndpoint {
     internal FileEndpoint WithRelative(Option<string> relative) =>
         new(path: Path, format: Format, name: Name, write: Write, relative: relative);
 
-    internal Fin<T> WithReference<T>(Op key, Func<FileReference, Fin<T>> use) {
-        // BOUNDARY ADAPTER — FileReference owns native source metadata and must be disposed after the table call.
-        using FileReference reference = Relative.Case switch {
-            string relative => FileReference.CreateFromFullAndRelativePaths(fullPath: Path, relativePath: relative),
-            _ => FileReference.CreateFromFullPath(fullPath: Path),
-        };
-        return use(arg: reference);
-    }
+    internal Fin<T> WithReference<T>(Op key, Func<FileReference, Fin<T>> use) =>
+        key.Catch(() => {
+            // BOUNDARY ADAPTER — FileReference owns native metadata; materialize callback Fin before disposal.
+            using FileReference reference = Relative.Case switch {
+                string relative => FileReference.CreateFromFullAndRelativePaths(fullPath: Path, relativePath: relative),
+                _ => FileReference.CreateFromFullPath(fullPath: Path),
+            };
+            Fin<T> work = use(arg: reference);
+            return work.Match(
+                Fail: static fail => Fin.Fail<T>(fail),
+                Succ: static succ => Fin.Succ(succ));
+        });
 
     private static Fin<Option<string>> RelativeOption(Option<string> value, Op op) =>
         value.Case switch {

@@ -233,6 +233,12 @@ internal sealed class BridgeServer : IDisposable {
         Stopwatch timer = Stopwatch.StartNew();
         global::Rhino.Runtime.Code.Execution.RunContextStream stdout = new();
         global::Rhino.Runtime.Code.Execution.RunContextStream stderr = new();
+        bool priorCapture = RhinoApp.CommandWindowCaptureEnabled;
+        string historyBefore = RhinoApp.CommandHistoryWindowText ?? string.Empty;
+        RhinoApp.CommandWindowCaptureEnabled = true;
+        global::Rhino.Runtime.Code.Code? code;
+        Exception? error;
+        string commandText = string.Empty;
         using global::Rhino.Runtime.Code.Execution.RunContext context = new(defaultOutputStream: false, defaultErrorStream: false) {
             CachePolicy = global::Rhino.Runtime.Code.Execution.CachePolicy.NeverCache,
             PreferBasePathResolution = false,
@@ -242,7 +248,12 @@ internal sealed class BridgeServer : IDisposable {
             ExclusiveStreams = false,
             ResetStreamsPolicy = global::Rhino.Runtime.Code.Execution.ResetStreamPolicy.ResetToPreviousStream,
         };
-        (global::Rhino.Runtime.Code.Code? code, Exception? error) = TryRunScript(request: request, context: context);
+        try {
+            (code, error) = TryRunScript(request: request, context: context);
+            commandText = CommandWindowCapture(historyBefore: historyBefore);
+        } finally {
+            RhinoApp.CommandWindowCaptureEnabled = priorCapture;
+        }
         timer.Stop();
         string stdoutText = stdout.GetContents();
         string stderrText = stderr.GetContents();
@@ -279,10 +290,21 @@ internal sealed class BridgeServer : IDisposable {
             outputs: [
                 BridgeWire.Capture(source: BridgeWire.OutputStdout, text: stdoutText, limit: OutputLimit),
                 BridgeWire.Capture(source: BridgeWire.OutputStderr, text: stderrText, limit: OutputLimit),
+                BridgeWire.Capture(source: BridgeWire.OutputRhinoCommand, text: commandText, limit: OutputLimit),
             ],
             diagnostics: diagnostics,
             fault: fault);
     }
+    private static string CommandWindowCapture(string historyBefore) {
+        string[] captured = RhinoApp.CapturedCommandWindowStrings(clearBuffer: true);
+        return captured.Length > 0
+            ? string.Concat(captured)
+            : (RhinoApp.CommandHistoryWindowText ?? string.Empty) switch {
+                string after when after.StartsWith(value: historyBefore, comparisonType: StringComparison.Ordinal) => after[historyBefore.Length..],
+                _ => string.Empty,
+            };
+    }
+
     private static (global::Rhino.Runtime.Code.Code? Code, Exception? Error) TryRunScript(BridgeExecuteRequest request, global::Rhino.Runtime.Code.Execution.RunContext context) {
         // BOUNDARY ADAPTER — RhinoCode compile/execute throws; collapse to report data.
         try {

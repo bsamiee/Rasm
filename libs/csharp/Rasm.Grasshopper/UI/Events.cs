@@ -16,15 +16,15 @@ namespace Rasm.Grasshopper.UI;
 [Union]
 public partial record UiEvent {
     private UiEvent() { }
-    public sealed record PaintCase(CanvasPaintPhase Phase, Func<PaintScope, Fin<Unit>> Handler) : UiEvent;
+    public sealed record PaintCase(CanvasPaintPhase Phase, Func<PaintScope, Fin<Unit>> Handler, MotionClock? Clock = null) : UiEvent;
     public sealed record DocumentCase(DocumentEvent Kind, Func<DocumentEventSnapshot, Fin<Unit>> Handler) : UiEvent;
     public sealed record SolutionCase(SolutionEvent Kind, Func<DocumentSnapshot, Fin<Unit>> Handler) : UiEvent;
     public sealed record UndoCase(UndoEvent Kind, Func<DocumentHistorySnapshot, Fin<Unit>> Handler) : UiEvent;
     public sealed record TimerCase(TimeSpan Interval, Func<Fin<Unit>> Handler) : UiEvent;
     public sealed record ControlCase(Control Source, ControlEvent Kind, Func<ControlEventSnapshot, Fin<Unit>> Handler) : UiEvent;
 
-    public static UiEvent Paint(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> handler) =>
-        new PaintCase(Phase: phase, Handler: handler);
+    public static UiEvent Paint(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> handler, MotionClock? clock = null) =>
+        new PaintCase(Phase: phase, Handler: handler, Clock: clock);
     public static UiEvent Document(DocumentEvent kind, Func<DocumentEventSnapshot, Fin<Unit>> handler) =>
         new DocumentCase(Kind: kind, Handler: handler);
     public static UiEvent DocumentChanged(Func<DocumentSnapshot, Fin<Unit>> handler) =>
@@ -39,6 +39,14 @@ public partial record UiEvent {
         new TimerCase(Interval: interval, Handler: handler);
     public static UiEvent Control(Control source, ControlEvent kind, Func<ControlEventSnapshot, Fin<Unit>> handler) =>
         new ControlCase(Source: source, Kind: kind, Handler: handler);
+
+    internal GrasshopperUiPolicy UiPolicy => Switch(
+        paintCase: static _ => GrasshopperUiPolicy.Canvas(),
+        documentCase: static _ => GrasshopperUiPolicy.Document(),
+        solutionCase: static _ => GrasshopperUiPolicy.Document(),
+        undoCase: static _ => GrasshopperUiPolicy.Document(),
+        timerCase: static _ => GrasshopperUiPolicy.Read,
+        controlCase: static _ => GrasshopperUiPolicy.Read);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -93,7 +101,7 @@ public sealed record DocumentEventPipe(
     Func<DocumentEventSnapshot, Fin<Unit>> Handler) {
     internal Unit Publish(DocumentEvent kind, Option<IDocumentObject> changed = default, Option<string> detail = default) {
         bool selection = string.Equals(kind.Name, nameof(DocumentEventKind.Selection), StringComparison.Ordinal);
-        _ = GrasshopperUi.Protect(valid: () => Handler(arg: new DocumentEventSnapshot(
+        _ = GrasshopperUi.Handler(valid: () => Handler(arg: new DocumentEventSnapshot(
             Kind: kind,
             Document: UiRail.DocumentSnapshotOf(document: Document, objects: Objects),
             Objects: selection
@@ -223,22 +231,22 @@ public readonly record struct DocumentEventSnapshot(DocumentEvent Kind, Document
 public readonly record struct ControlEventSnapshot(ControlEvent Kind, bool Enabled, bool Visible, bool HasFocus, Option<PointF> Point = default, Option<MouseButtons> Buttons = default, Option<Keys> Keys = default, Option<string> Text = default, Option<SizeF> Delta = default, Option<float> Pressure = default, Option<DragEffects> DragEffects = default, Option<DragEffects> AllowedDragEffects = default, Option<IDataObject> DragData = default);
 
 internal abstract record EventRequest : GhUiRequest<Subscription> {
-    internal sealed record Run(UiEvent Event) : EventRequest { internal override GrasshopperUiPolicy Policy => GhUiPolicy.ForEvent(uiEvent: Event); internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Events.Subscribe(uiEvent: Event).Run(scope: scope); }
+    internal sealed record Run(UiEvent Event) : EventRequest { internal override GrasshopperUiPolicy Policy => Event.UiPolicy; internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Events.Subscribe(uiEvent: Event).Run(scope: scope); }
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Events {
     internal static GrasshopperUiIntent<Subscription> Subscribe(UiEvent uiEvent) =>
         uiEvent.Switch(
-            paintCase: static p => SubscribePaint(phase: p.Phase, handler: p.Handler),
+            paintCase: static p => SubscribePaint(phase: p.Phase, handler: p.Handler, clock: p.Clock),
             documentCase: static d => SubscribeDocument(kind: d.Kind, handler: d.Handler),
             solutionCase: static s => SubscribeSolution(kind: s.Kind, handler: s.Handler),
             undoCase: static u => SubscribeUndo(kind: u.Kind, handler: u.Handler),
             timerCase: static t => SubscribeTimer(interval: t.Interval, handler: t.Handler),
             controlCase: static c => SubscribeControl(source: c.Source, kind: c.Kind, handler: c.Handler));
 
-    private static GrasshopperUiIntent<Subscription> SubscribePaint(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> handler) =>
-        Paint.Hook(phase: phase, paint: handler, clock: MotionClock.MessageLoop);
+    private static GrasshopperUiIntent<Subscription> SubscribePaint(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> handler, MotionClock? clock) =>
+        Paint.Hook(phase: phase, paint: handler, clock: clock ?? MotionClock.MessageLoop);
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
     private static GrasshopperUiIntent<Subscription> SubscribePublish<TSnapshot, TOwner, THandlers>(
@@ -252,7 +260,7 @@ internal static partial class Events {
             from doc in scope.NeedDocument()
             from objs in scope.NeedObjects()
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: opName), detail: "null handler"))
-            let publish = (System.Action)(() => GrasshopperUi.Protect(valid: () => valid(arg: snapshot(doc, objs))).Ignore())
+            let publish = (System.Action)(() => GrasshopperUi.Handler(valid: () => valid(arg: snapshot(doc, objs))).Ignore())
             let events = handlers(publish)
             let attachOwner = owner(doc)
             from sub in Subscription.Bind(
@@ -297,11 +305,12 @@ internal static partial class Events {
             from validInterval in Optional(interval).Filter(static value => value > TimeSpan.Zero)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeTimer)), detail: "interval must be positive"))
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeTimer)), detail: "null handler"))
-            let scope2 = new TimerScope(interval: validInterval, tick: () => GrasshopperUi.Protect(valid: valid).Ignore())
+            let scope2 = new TimerScope(interval: validInterval, tick: () => GrasshopperUi.Handler(valid: valid).Ignore())
             from sub in Subscription.Bind(
                 attach: scope2.Start,
                 detach: scope2.Dispose,
-                marshalToUi: true)
+                marshalToUi: true,
+                detachOnce: true)
             select sub);
 
     // Idempotent UITimer lifecycle wrapper. Attaches Elapsed handler on Start; Dispose is gated by
@@ -354,7 +363,7 @@ internal static partial class Events {
                 Point: point, Buttons: buttons, Keys: keys, Text: text, Delta: delta, Pressure: pressure,
                 DragEffects: dragEffects, AllowedDragEffects: allowedDragEffects, DragData: dragData);
         Unit Publish(ControlEventSnapshot snapshot) {
-            _ = GrasshopperUi.Protect(valid: () => handler(arg: snapshot));
+            _ = GrasshopperUi.Handler(valid: () => handler(arg: snapshot));
             return unit;
         }
         return kind.Name switch {

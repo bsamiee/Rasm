@@ -19,8 +19,12 @@ using ZoomThreshold = Grasshopper2.UI.ZoomThreshold;
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-// MessageLoop = Eto's coalesced ~60Hz paint pump (default). DisplayLink = canvas-bound CADisplayLink
-// for vsync-aligned 30-120Hz on ProMotion (macOS 14+).
+internal static class MotionAccessibility {
+    internal static bool ShouldReduceMotion =>
+        NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion;
+}
+
+// MessageLoop = Eto coalesced ~60Hz (default). DisplayLink = CADisplayLink vsync (macOS 14+).
 [SkipUnionOps]
 [Union]
 public partial record MotionClock {
@@ -32,7 +36,7 @@ public partial record MotionClock {
     public static MotionClock DisplayLink(Option<CAFrameRateRange> rate = default) => new DisplayLinkCase(Rate: rate);
 }
 
-// Fire-and-forget GPU chrome — cannot retarget mid-flight (CASpringAnimation design).
+// Fire-and-forget GPU chrome on CALayer; no mid-flight retarget — dispose and re-issue to change bounds/tint/path.
 [SkipUnionOps]
 [Union]
 public partial record CosmeticIntent {
@@ -158,7 +162,7 @@ public abstract record MotionRequest<T> : GhUiRequest<T> {
     public sealed record Sparkle(ISparkle Instance) : MotionRequest<Unit> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Motion.Sparkle(instance: Instance).Run(scope: scope); }
     public sealed record Theme(Skin From, Skin To, GhDuration Duration, GhMotion Easing, Action<Skin> Sink, MotionClock? Clock = null) : MotionRequest<Subscription> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Theme(start: From, target: To, duration: Duration, easing: Easing, sink: Sink, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
     public sealed record Navigate(PointF Centre, GhDuration Duration, float MinZoom = CanvasViewPolicy.DefaultMinimumZoom, float MaxZoom = CanvasViewPolicy.DefaultMaximumZoom) : MotionRequest<Unit> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(); internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Motion.Navigate(centre: Centre, duration: Duration, minZoom: MinZoom, maxZoom: MaxZoom).Run(scope: scope); }
-    public sealed record ZoomGate(ZoomThreshold Threshold, Action<float> Sink) : MotionRequest<Subscription> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.ZoomGate(threshold: Threshold, sink: Sink).Run(scope: scope); }
+    public sealed record ZoomGate(ZoomThreshold Threshold, Action<float> Sink, MotionClock? Clock = null) : MotionRequest<Subscription> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.ZoomGate(threshold: Threshold, sink: Sink, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
     public sealed record Cosmetic(CosmeticIntent Intent) : MotionRequest<Subscription> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(); internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Cosmetic(intent: Intent).Run(scope: scope); }
 }
 
@@ -174,12 +178,23 @@ public readonly partial struct SpringConfig {
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref UiFault? validationError, ref float stiffness, ref float damping, ref float mass) {
         Op op = Op.Of(name: nameof(SpringConfig));
-        Seq<string> errors = Seq(
-            float.IsFinite(stiffness) && stiffness > 0f ? "" : $"Stiffness must be finite and > 0 (got {stiffness:R}).",
-            float.IsFinite(damping) && damping >= 0f ? "" : $"Damping must be finite and >= 0 (got {damping:R}).",
-            float.IsFinite(mass) && mass > 0f ? "" : $"Mass must be finite and > 0 (got {mass:R}).")
-            .Filter(static s => !string.IsNullOrEmpty(s));
-        validationError = errors.IsEmpty ? null : UiFault.Create(op: op, message: string.Join("; ", errors));
+        float stiffnessValue = stiffness;
+        float dampingValue = damping;
+        float massValue = mass;
+        UiFault? fault = null;
+        _ = op.AcceptAll(
+                value: unit,
+                o => float.IsFinite(stiffnessValue) && stiffnessValue > 0f
+                    ? Fin.Succ(unit)
+                    : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: o, detail: $"Stiffness must be finite and > 0 (got {stiffnessValue:R}).")),
+                o => float.IsFinite(dampingValue) && dampingValue >= 0f
+                    ? Fin.Succ(unit)
+                    : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: o, detail: $"Damping must be finite and >= 0 (got {dampingValue:R}).")),
+                o => float.IsFinite(massValue) && massValue > 0f
+                    ? Fin.Succ(unit)
+                    : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: o, detail: $"Mass must be finite and > 0 (got {massValue:R}).")))
+            .IfFail(err => { fault = (UiFault)err; return unit; });
+        validationError = fault;
     }
 
     public static SpringConfig Response(float response, float dampingFraction, float mass = 1f) {
@@ -525,12 +540,44 @@ internal static class Motion {
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Tween)), detail: "sink delegate is required"))
             from result in Pipeline(opName: nameof(Tween), phase: CanvasPaintPhase.BeforeBackground, clock: clock,
                 paintFactory: (canvas, pacer) => _ => Try.lift(f: () => {
+                    if (MotionAccessibility.ShouldReduceMotion) {
+                        validSink(animated.Value1);
+                        return unit;
+                    }
                     validSink(canvas.Animate(animated: animated));
                     return PauseWhenFinished(state: animated.State, pacer: pacer);
                 }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Tween)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
             select result);
 
     internal static GrasshopperUiIntent<SpringHandle<TValue>> Spring<TValue>(
+        TValue start, TValue target, SpringConfig config, IMotionVector<TValue> vector,
+        Action<TValue> sink, Option<TValue> initialVelocity, TimeProvider? timeSource, MotionClock clock) =>
+        MotionAccessibility.ShouldReduceMotion
+            ? SettledSpring(
+                target: target, config: config, vector: vector, sink: sink, timeSource: timeSource)
+            : AnimatedSpring(
+                start: start, target: target, config: config, vector: vector, sink: sink,
+                initialVelocity: initialVelocity, timeSource: timeSource, clock: clock);
+
+    private static GrasshopperUiIntent<SpringHandle<TValue>> SettledSpring<TValue>(
+        TValue target, SpringConfig config, IMotionVector<TValue> vector,
+        Action<TValue> sink, TimeProvider? timeSource) =>
+        GhUi.Canvas(run: scope =>
+            from validVector in Optional(vector).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "vector is required"))
+            from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "sink delegate is required"))
+            from canvas in scope.NeedCanvas()
+            from _ in Op.Of(name: nameof(Spring)).Attempt(body: () => { validSink(target); return unit; }, what: "spring reduce-motion settle")
+            let resolvedClock = timeSource ?? TimeProvider.System
+            select new SpringHandle<TValue>(
+                cell: Atom(new SpringRunnerState<TValue>(
+                    Value: target,
+                    Velocity: validVector.Zero,
+                    Target: target, Config: config, Vector: validVector, Sink: validSink,
+                    Clock: resolvedClock, Timestamp: resolvedClock.GetTimestamp())),
+                subscription: Subscription.Empty,
+                wake: canvas.ScheduleRedraw));
+
+    private static GrasshopperUiIntent<SpringHandle<TValue>> AnimatedSpring<TValue>(
         TValue start, TValue target, SpringConfig config, IMotionVector<TValue> vector,
         Action<TValue> sink, Option<TValue> initialVelocity, TimeProvider? timeSource, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
@@ -555,7 +602,7 @@ internal static class Motion {
         if (pacer is not { IsSome: true, Case: Pacer p }) {
             return (Subscription: sub, Wake: canvas.ScheduleRedraw);
         }
-        Subscription composite = sub | Subscription.Atom(detach: () => p.Release().Ignore());
+        Subscription composite = sub | Subscription.Atom(detach: () => p.Release().Ignore(), detachOnce: true);
         return (Subscription: composite, WakeFn);
         void WakeFn() => p.Resume().Ignore();
     }
@@ -565,9 +612,15 @@ internal static class Motion {
     internal static Fin<Option<Pacer>> PacerOption(Grasshopper2.UI.Canvas.Canvas canvas, MotionClock clock) =>
         clock.Switch(state: canvas,
             messageLoopCase: static (_, _) => Fin.Succ(Option<Pacer>.None),
-            displayLinkCase: static (c, d) => Pacer.AccessibilityShouldReduceMotion
+            displayLinkCase: static (c, d) => MotionAccessibility.ShouldReduceMotion
                 ? Fin.Succ(Option<Pacer>.None)
                 : Pacer.For(canvas: c, rate: d.Rate.ToNullable()).Map(Some));
+
+    internal static Unit PacerResume(Option<Pacer> pacer, Grasshopper2.UI.Canvas.Canvas canvas) =>
+        pacer is { IsSome: true, Case: Pacer p } ? Op.Side(() => p.Resume()) : Op.Side(canvas.ScheduleRedraw);
+
+    internal static Unit PacerRelease(Option<Pacer> pacer) =>
+        pacer is { IsSome: true, Case: Pacer p } ? Op.Side(() => { _ = p.Pause(); _ = p.Release(); }) : unit;
 
     internal static Unit PauseWhenFinished(GhState state, Option<Pacer> pacer) {
         if (state == GhState.Finished && pacer is { IsSome: true, Case: Pacer p }) {
@@ -597,15 +650,20 @@ internal static class Motion {
                 : Optional(cycles).Filter(static c => c >= 1)
                     .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "cycles must be positive when not infinite"))
             from result in Pipeline(opName: nameof(Pulse), phase: CanvasPaintPhase.BeforeBackground, clock: clock,
-                paintFactory: (canvas, pacer) => RunnerPaint(
-                    cell: Atom(new PulseRunnerState<TValue>(
-                        Animated: Animated<TValue>.CreateUnfinished(
-                            value0: start, value1: target,
-                            duration: Animators.DurationToTimeSpan(duration: duration),
-                            motion: easing, interpolator: validVector.Interpolate),
-                        From: start, To: target, Duration: duration, Easing: easing, Yoyo: yoyo, Infinite: infinite,
-                        CyclesRemaining: validCycles - 1, Vector: validVector, Sink: validSink)),
-                    canvas: canvas, pacer: pacer, opName: nameof(Pulse))).Run(scope: scope)
+                paintFactory: (canvas, pacer) => {
+                    Func<PaintScope, Fin<Unit>> animated = RunnerPaint(
+                        cell: Atom(new PulseRunnerState<TValue>(
+                            Animated: Animated<TValue>.CreateUnfinished(
+                                value0: start, value1: target,
+                                duration: Animators.DurationToTimeSpan(duration: duration),
+                                motion: easing, interpolator: validVector.Interpolate),
+                            From: start, To: target, Duration: duration, Easing: easing, Yoyo: yoyo, Infinite: infinite,
+                            CyclesRemaining: validCycles - 1, Vector: validVector, Sink: validSink)),
+                        canvas: canvas, pacer: pacer, opName: nameof(Pulse));
+                    return paintScope => MotionAccessibility.ShouldReduceMotion
+                        ? Op.Of(name: nameof(Pulse)).Attempt(body: () => { validSink(target); return unit; }, what: "pulse reduce-motion settle")
+                        : animated(paintScope);
+                }).Run(scope: scope)
             select result);
 
     internal static GrasshopperUiIntent<Subscription> Stroke(
@@ -618,11 +676,19 @@ internal static class Motion {
             from validAngle in Op.Of(name: nameof(Stroke)).AcceptFinite(value: angle, detail: "non-finite angle")
             from result in Pipeline(opName: nameof(Stroke), phase: CanvasPaintPhase.AfterObjects, clock: clock,
                 paintFactory: (canvas, pacer) => {
-                    Animated<double> progress = Animators.Unfinished(value0: 0.0, value1: 1.0, duration: duration, motion: easing);
+                    Animated<double> progress = Animated<double>.CreateUnfinished(
+                        value0: 0.0, value1: 1.0,
+                        duration: Animators.DurationToTimeSpan(duration: duration),
+                        motion: easing,
+                        interpolator: static (value0, value1, factor) => value0 + ((value1 - value0) * factor));
+                    Animated<double> settled = Animated<double>.CreateUnfinished(
+                        value0: 1.0, value1: 1.0, duration: TimeSpan.Zero, motion: easing,
+                        interpolator: static (value0, value1, factor) => 1.0);
                     return paintScope => Try.lift(f: () => {
                         using Pen pen = style.Pen();
-                        validPath.Draw(paintScope.Graphics.Content, pen, canvas.Animate(animated: progress), validOrigin, validScale, validAngle);
-                        return PauseWhenFinished(state: progress.State, pacer: pacer);
+                        Animated<double> animated = MotionAccessibility.ShouldReduceMotion ? settled : progress;
+                        validPath.Draw(paintScope.Graphics.Content, pen, canvas.Animate(animated: animated), validOrigin, validScale, validAngle);
+                        return MotionAccessibility.ShouldReduceMotion ? unit : PauseWhenFinished(state: progress.State, pacer: pacer);
                     }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Stroke)), detail: $"draw threw: {error.Message}"));
                 }).Run(scope: scope)
             select result);
@@ -651,17 +717,27 @@ internal static class Motion {
     internal static GrasshopperUiIntent<Unit> Navigate(PointF centre, GhDuration duration, float minZoom, float maxZoom) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
+            from document in scope.NeedDocument()
             from validCentre in Op.Of(name: nameof(Navigate)).AcceptPoint(value: centre, detail: "non-finite centre")
             from validMin in Op.Of(name: nameof(Navigate)).AcceptFinite(value: minZoom, detail: "min zoom must be finite and positive", requirePositive: true)
             from validMax in Op.Of(name: nameof(Navigate)).AcceptFinite(value: maxZoom, detail: "max zoom must be finite and positive", requirePositive: true)
             from _ in validMax >= validMin
                 ? Fin.Succ(value: unit)
                 : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Navigate)), detail: "max zoom below min zoom"))
-            from __ in Try.lift(f: () => { canvas.Navigate(point: validCentre, zoomLimits: (validMin, validMax), duration: duration); return unit; }).Run()
-                .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Navigate)), detail: $"navigate threw: {error.Message}"))
+            from __ in MotionAccessibility.ShouldReduceMotion
+                ? Op.Of(name: nameof(Navigate)).Attempt(body: () => {
+                    float zoom = Math.Clamp(value: document.Projection.zoom, min: validMin, max: validMax);
+                    canvas.Projection = canvas.Projection.SetZoom(zoom: zoom).SetCentre(centre: validCentre, frame: canvas.VisibleFrame);
+                    document.Projection = (validCentre, zoom);
+                    return unit;
+                }, what: "navigate reduce-motion snap")
+                : Try.lift(f: () => {
+                    canvas.Navigate(point: validCentre, zoomLimits: (validMin, validMax), duration: duration);
+                    return unit;
+                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Navigate)), detail: $"navigate threw: {error.Message}"))
             select unit);
 
-    internal static GrasshopperUiIntent<Subscription> ZoomGate(ZoomThreshold threshold, Action<float> sink) =>
+    internal static GrasshopperUiIntent<Subscription> ZoomGate(ZoomThreshold threshold, Action<float> sink, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ZoomGate)), detail: "sink delegate is required"))
@@ -671,7 +747,7 @@ internal static class Motion {
                     validSink(canvas.AnimatedZoomFactor(threshold: threshold));
                     return unit;
                 }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(ZoomGate)), detail: $"tick threw: {error.Message}")),
-                clock: MotionClock.MessageLoop).Run(scope: scope)
+                clock: clock).Run(scope: scope)
             select sub);
 
     internal static GrasshopperUiIntent<Subscription> Cosmetic(CosmeticIntent intent) =>
@@ -717,11 +793,23 @@ internal static class Motion {
         }
         CAShapeLayer shape = BuildCosmeticShape(intent: intent);
         shape.Name = key.ToString();
+        if (MotionAccessibility.ShouldReduceMotion) {
+            return WithoutAnimation(() => {
+                ApplyCosmeticTerminal(shape: shape, intent: intent);
+                host.AddSublayer(layer: shape);
+            });
+        }
         host.AddSublayer(layer: shape);
         CAAnimation animation = BuildCosmeticAnimation(intent: intent);
         animation.WeakDelegate = new CosmeticRemove(shape: shape, key: key);
         shape.AddAnimation(animation: animation, key: key);
         return unit;
+    }
+
+    private static void ApplyCosmeticTerminal(CAShapeLayer shape, CosmeticIntent intent) {
+        _ = intent is CosmeticIntent.PulseCase ? Op.Side(() => shape.Opacity = 0f)
+            : intent is CosmeticIntent.GlowCase ? Op.Side(() => shape.ShadowOpacity = 0f)
+            : Op.Side(() => shape.StrokeEnd = 1f);
     }
 
     // Mutual-exclusion claim: TryClaim wins exactly once across explicit-dispose vs AnimationStopped.
@@ -794,31 +882,31 @@ internal static class Motion {
                 };
             });
 
-    // Reduce-motion clamps duration to 1% — CABasicAnimation does NOT auto-honour NSWorkspace's flag.
+    // CABasicAnimation does not auto-honour NSWorkspace reduce-motion; terminal snap is handled in CosmeticAttach.
     [SupportedOSPlatform("macos14.0")]
-    private static CAKeyFrameAnimation KeyframeFade(string path, GhDuration duration, float alpha, double scale) {
+    private static CAKeyFrameAnimation KeyframeFade(string path, GhDuration duration, float alpha) {
         CAKeyFrameAnimation anim = CAKeyFrameAnimation.FromKeyPath(path: path);
-        anim.Duration = Animators.DurationToTimeSpan(duration: duration).TotalSeconds * scale;
+        anim.Duration = Animators.DurationToTimeSpan(duration: duration).TotalSeconds;
         anim.Values = [NSNumber.FromFloat(0f), NSNumber.FromFloat(alpha), NSNumber.FromFloat(0f)];
         anim.KeyTimes = [NSNumber.FromFloat(0f), NSNumber.FromFloat(0.5f), NSNumber.FromFloat(1f)];
         return anim;
     }
 
     [SupportedOSPlatform("macos14.0")]
-    private static CAAnimation BuildCosmeticAnimation(CosmeticIntent intent) {
-        double scale = Pacer.AccessibilityShouldReduceMotion ? 0.01 : 1.0;
-        return intent.Switch<double, CAAnimation>(
-            state: scale,
-            pulseCase: static (s, p) => KeyframeFade(path: "opacity", duration: p.Duration, alpha: p.Tint.A, scale: s),
-            glowCase: static (s, g) => KeyframeFade(path: "shadowOpacity", duration: g.Duration, alpha: g.Tint.A, scale: s),
-            strokeOnCase: static (s, str) => {
-                CABasicAnimation anim = CABasicAnimation.FromKeyPath(path: "strokeEnd");
-                anim.Duration = Animators.DurationToTimeSpan(duration: str.Duration).TotalSeconds * s;
-                anim.SetFrom(value: NSNumber.FromFloat(0f));
-                anim.SetTo(value: NSNumber.FromFloat(1f));
-                return anim;
-            });
+    private static CABasicAnimation StrokeEndAnimation(GhDuration duration) {
+        CABasicAnimation anim = CABasicAnimation.FromKeyPath(path: "strokeEnd");
+        anim.Duration = Animators.DurationToTimeSpan(duration: duration).TotalSeconds;
+        anim.SetFrom(value: NSNumber.FromFloat(0f));
+        anim.SetTo(value: NSNumber.FromFloat(1f));
+        return anim;
     }
+
+    [SupportedOSPlatform("macos14.0")]
+    private static CAAnimation BuildCosmeticAnimation(CosmeticIntent intent) =>
+        intent is CosmeticIntent.PulseCase pulse ? KeyframeFade(path: "opacity", duration: pulse.Duration, alpha: pulse.Tint.A)
+        : intent is CosmeticIntent.GlowCase glow ? KeyframeFade(path: "shadowOpacity", duration: glow.Duration, alpha: glow.Tint.A)
+        : intent is CosmeticIntent.StrokeOnCase stroke ? StrokeEndAnimation(duration: stroke.Duration)
+        : KeyframeFade(path: "opacity", duration: GhDuration.Fast, alpha: 0f);
 
     private static CGRect ToCGRect(RectangleF r) => new(x: r.X, y: r.Y, width: r.Width, height: r.Height);
 
@@ -977,9 +1065,6 @@ internal static class Motion {
             float floor = MathF.Min(x: 30f, y: maximum);
             return CAFrameRateRange.Create(minimum: floor, maximum: maximum, preferred: maximum);
         }
-
-        internal static bool AccessibilityShouldReduceMotion =>
-            NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion;
 
         // CAS-style adopt: construct outside the gate, then re-check inside to win-or-adopt.
         internal static Fin<Pacer> For(Grasshopper2.UI.Canvas.Canvas canvas, CAFrameRateRange? rate = null) {

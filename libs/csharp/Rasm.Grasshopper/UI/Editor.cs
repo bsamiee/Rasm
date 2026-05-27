@@ -21,6 +21,13 @@ public partial record EditorOp {
     public static EditorOp Shell(Option<bool> collapsed = default, Option<bool> showNotes = default, Option<bool> showUndoHistory = default, Option<string> layout = default) =>
         new ShellCase(Collapsed: collapsed, ShowNotes: showNotes, ShowUndoHistory: showUndoHistory, Layout: layout);
     public static EditorOp BeginRhinoGetter(RhinoDoc document) => new BeginRhinoGetterCase(Document: document);
+
+    internal GrasshopperUiPolicy UiPolicy => Switch(
+        showCase: static s => GrasshopperUiPolicy.Canvas(openEditor: s.Visible),
+        stateCase: static _ => GrasshopperUiPolicy.Read,
+        ensureVisibleCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true),
+        shellCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true),
+        beginRhinoGetterCase: static _ => GrasshopperUiPolicy.Read);
 }
 
 [SkipUnionOps]
@@ -34,13 +41,13 @@ public partial record EditorResult {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct EditorSnapshot(bool HasEditor, bool HasCanvas, bool HasDocument, bool Collapsed, bool HasStatusBar, bool ShowNotes, bool ShowUndoHistory, string InitialLayout, Seq<string> DefinedLayouts, Option<string> MostRecentActiveDocument, Seq<string> MostRecentLoadedDocuments, int MostRecentCount);
+public readonly record struct EditorSnapshot(bool HasEditor, bool HasCanvas, bool HasDocument, bool Collapsed, bool HasStatusBar, Option<Guid> StatusBarDocumentHash, bool ShowNotes, bool ShowUndoHistory, string InitialLayout, Seq<string> DefinedLayouts, Option<string> MostRecentActiveDocument, Seq<string> MostRecentLoadedDocuments, int MostRecentCount);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct EditorShellSnapshot(bool Collapsed, bool ShowNotes, bool ShowUndoHistory, string InitialLayout, Seq<string> DefinedLayouts);
 
 public abstract record EditorRequest : GhUiRequest<EditorResult> {
-    public sealed record Run(EditorOp Op) : EditorRequest { internal override GrasshopperUiPolicy Policy => GhUiPolicy.ForEditor(op: Op); internal override Fin<EditorResult> Apply(GrasshopperUi.Scope scope) => Editor.Dispatch(op: Op); }
+    public sealed record Run(EditorOp Op) : EditorRequest { internal override GrasshopperUiPolicy Policy => Op.UiPolicy; internal override Fin<EditorResult> Apply(GrasshopperUi.Scope scope) => Editor.Dispatch(op: Op); }
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -91,6 +98,7 @@ internal static partial class Editor {
                 HasDocument: (e.Documents.Current ?? e.Canvas?.Document) is not null,
                 Collapsed: e.Collapsed,
                 HasStatusBar: e.StatusBar is not null,
+                StatusBarDocumentHash: Optional(e.StatusBar?.Document).Map(static doc => doc.Hash),
                 ShowNotes: e.ShowNotes,
                 ShowUndoHistory: e.Canvas?.ShowUndoHistory ?? false,
                 InitialLayout: layout,
@@ -104,6 +112,7 @@ internal static partial class Editor {
                 HasDocument: false,
                 Collapsed: false,
                 HasStatusBar: false,
+                StatusBarDocumentHash: Option<Guid>.None,
                 ShowNotes: false,
                 ShowUndoHistory: false,
                 InitialLayout: layout,

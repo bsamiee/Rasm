@@ -134,6 +134,11 @@ public partial record LayoutOp {
     public sealed partial record MeasureCase(ObjectScope Scope) : LayoutOp;
     public sealed partial record ArrangeCase(LayoutArrangement Arrangement) : LayoutOp;
     public sealed partial record SnapCase(SnapProbe Probe) : LayoutOp;
+
+    internal GrasshopperUiPolicy UiPolicy => Switch(
+        measureCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
+        arrangeCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
+        snapCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None));
 }
 
 [SkipUnionOps]
@@ -146,7 +151,7 @@ public partial record LayoutResult {
 }
 
 public abstract record LayoutRequest : GhUiRequest<LayoutResult> {
-    public sealed record Run(LayoutOp Op) : LayoutRequest { internal override GrasshopperUiPolicy Policy => GhUiPolicy.ForLayout(op: Op); internal override Fin<LayoutResult> Apply(GrasshopperUi.Scope scope) => Layout.Dispatch(op: Op).Run(scope: scope); }
+    public sealed record Run(LayoutOp Op) : LayoutRequest { internal override GrasshopperUiPolicy Policy => Op.UiPolicy; internal override Fin<LayoutResult> Apply(GrasshopperUi.Scope scope) => Layout.Dispatch(op: Op).Run(scope: scope); }
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -310,7 +315,6 @@ internal static partial class Layout {
         float effDx = dx + deltaDx;
         float effDy = dy + deltaDy;
         attributes.Move(dx: effDx, dy: effDy);
-        attributes.Invalidate();
         return new LayoutMoveDelta(
             ObjectId: attributes.Owner.InstanceId,
             Dx: effDx, Dy: effDy,
@@ -388,8 +392,7 @@ internal static partial class Layout {
     }
 
     private static Fin<Unit> InvokeAlign(Op op, Action run, IDocumentObject a, IDocumentObject b) =>
-        op.Attempt(body: run, what: "OCD.AlignObjects")
-            .Bind(_ => { a.Attributes.Invalidate(); b.Attributes.Invalidate(); return Fin.Succ(value: unit); });
+        op.Attempt(body: run, what: "OCD.AlignObjects");
 
     private static Seq<(Guid Id, float Dx, float Dy)> ComputeDistribution(
         GhObjectList objects,

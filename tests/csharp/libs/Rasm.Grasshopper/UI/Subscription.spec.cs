@@ -97,6 +97,14 @@ public sealed class SubscriptionLifoLaws {
         atom.Dispose();
         Assert.Equal(expected: 2, actual: count);
     }
+    [Fact]
+    public void DetachOnceAtomRunsAtMostOnce() {
+        int count = 0;
+        Subscription atom = Subscription.Atom(detach: () => count++, detachOnce: true);
+        atom.Dispose();
+        atom.Dispose();
+        Assert.Equal(expected: 1, actual: count);
+    }
 }
 
 public sealed class SubscriptionBindLaws {

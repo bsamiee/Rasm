@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using LanguageExt;
 using Rasm.Rhino.Blocks;
+using Rasm.Rhino.Commands;
 using Rasm.Rhino.Exchange;
 using Rasm.TestKit.Scenarios;
 using Rhino;
@@ -51,6 +52,7 @@ Scenario.Run("blocks-placement-reference", CAPTURE_PATH, (key, facts) => {
                 geometry: childBrep,
                 attributes: new ObjectAttributes()) >= 0,
             "child block add");
+        Probe.Require(child.Objects.Add(childBrep, new ObjectAttributes()) != Guid.Empty, "child model object");
         Probe.Require(child.Write(path: childPath, version: 8), "child write");
     }
     FileEndpoint source = Probe.Expect(FileEndpoint.From(path: childFullPath), "child endpoint");
@@ -63,8 +65,14 @@ Scenario.Run("blocks-placement-reference", CAPTURE_PATH, (key, facts) => {
         ? created
         : throw new InvalidOperationException(message: $"unexpected link outcome: {linkOutcome.GetType().Name}");
     facts.Add("link.receipt.changes", linkReceipt.Value.Document.ResourceChanged.Count);
-    InstanceDefinition linked = LinkedDefinition.ForSource(doc: scope.Active, sourcePath: childFullPath)
-        ?? throw new InvalidOperationException(message: $"linked definition missing for {childFullPath}");
+    string linkedBlockName = linkReceipt.Value.Document.ResourceChanged
+        .Find(change => change.Kind == DocumentResourceKind.Block)
+        .Map(change => change.Name)
+        .IfNone(string.Empty);
+    facts.Add("link.receipt.name", linkedBlockName);
+    Probe.Require(!string.IsNullOrWhiteSpace(value: linkedBlockName), "link receipt block name");
+    InstanceDefinition linked = scope.Active.InstanceDefinitions.Find(instanceDefinitionName: linkedBlockName)
+        ?? throw new InvalidOperationException(message: $"linked definition missing for receipt name {linkedBlockName}");
     facts.Add("linked.name", linked.Name ?? string.Empty);
     facts.Add("linked.sourceArchive", linked.SourceArchive ?? string.Empty);
     facts.Add("linked.layerStyle", linked.LayerStyle.ToString());
@@ -89,30 +97,3 @@ Scenario.Run("blocks-placement-reference", CAPTURE_PATH, (key, facts) => {
     facts.Add("instance.id", instanceId);
     facts.Add("instance.definition", placed.InstanceDefinition?.Name ?? string.Empty);
 });
-
-static class LinkedDefinition {
-    internal static InstanceDefinition? ForSource(RhinoDoc doc, string sourcePath) {
-        string full = Path.GetFullPath(path: sourcePath);
-        string leaf = Path.GetFileName(path: full);
-        for (int index = 0; index < doc.InstanceDefinitions.Count; index++) {
-            InstanceDefinition? definition = doc.InstanceDefinitions[index];
-            if (definition is null || definition.IsDeleted) {
-                continue;
-            }
-            if (definition.UpdateType is not (InstanceDefinitionUpdateType.Linked or InstanceDefinitionUpdateType.LinkedAndEmbedded)) {
-                continue;
-            }
-            string archive = definition.SourceArchive ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(value: archive)) {
-                continue;
-            }
-            if (string.Equals(a: archive, b: sourcePath, comparisonType: StringComparison.OrdinalIgnoreCase)
-                || string.Equals(a: archive, b: full, comparisonType: StringComparison.OrdinalIgnoreCase)
-                || string.Equals(a: Path.GetFullPath(path: archive), b: full, comparisonType: StringComparison.OrdinalIgnoreCase)
-                || string.Equals(a: Path.GetFileName(path: archive), b: leaf, comparisonType: StringComparison.OrdinalIgnoreCase)) {
-                return definition;
-            }
-        }
-        return null;
-    }
-}

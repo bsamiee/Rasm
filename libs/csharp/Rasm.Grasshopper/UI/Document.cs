@@ -238,7 +238,14 @@ public partial record DocumentOp {
     public static DocumentOp Inspect(DocumentInspect kind) => new InspectCase(Kind: kind);
     public static readonly DocumentOp DependencyGraph = new InspectCase(Kind: DocumentInspect.DependencyGraph);
 
-    internal GrasshopperUiPolicy UiPolicy => GhUiPolicy.ForDocument(op: this);
+    internal GrasshopperUiPolicy UiPolicy => Switch(
+        queryCase: static q => q.Request switch {
+            DocumentQuery.UniverseCase => GrasshopperUiPolicy.Read,
+            _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
+        },
+        mutateCase: static m => GrasshopperUiPolicy.Document(repaint: m.Policy.RepaintOrDefault),
+        historyCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
+        inspectCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None));
 }
 
 // Item-owned native invocation closes the if/throw dispatch hole — every item carries the
@@ -672,11 +679,11 @@ internal static partial class Document {
         new(
             Id: parameter.InstanceId,
             Name: parameter.Nomen.Name,
-            Kind: parameter.Kind.ToString(),
-            Access: parameter.Access.ToString(),
-            AccessVariability: parameter.AccessVariability.ToString(),
-            Requirement: parameter.Requirement.ToString(),
-            TypeFlavour: parameter.TypeFlavour.ToString(),
+            Kind: string.Create(CultureInfo.InvariantCulture, $"{parameter.Kind}"),
+            Access: string.Create(CultureInfo.InvariantCulture, $"{parameter.Access}"),
+            AccessVariability: string.Create(CultureInfo.InvariantCulture, $"{parameter.AccessVariability}"),
+            Requirement: string.Create(CultureInfo.InvariantCulture, $"{parameter.Requirement}"),
+            TypeFlavour: string.Create(CultureInfo.InvariantCulture, $"{parameter.TypeFlavour}"),
             InputCount: parameter.Inputs.Count,
             OutputCount: parameter.Outputs.Count,
             HasColourOverride: parameter.ColourOverride is not null);
@@ -806,8 +813,8 @@ internal static partial class UiRail {
 
     internal static DocumentObjectSnapshot DocumentObjectSnapshotOf(IDocumentObject obj) =>
         new(Id: obj.InstanceId, Name: obj.Nomen.Name, DisplayName: obj.DisplayName,
-            Selected: obj.Selected, Activity: obj.Activity.ToString(),
-            Display: obj.Display.ToString(), Phase: obj.Phase.ToString(), State: obj.State.ToString(),
+            Selected: obj.Selected, Activity: string.Create(CultureInfo.InvariantCulture, $"{obj.Activity}"),
+            Display: string.Create(CultureInfo.InvariantCulture, $"{obj.Display}"), Phase: string.Create(CultureInfo.InvariantCulture, $"{obj.Phase}"), State: string.Create(CultureInfo.InvariantCulture, $"{obj.State}"),
             Bounds: obj.Attributes.Bounds, Pivot: obj.Attributes.Pivot);
 
 }

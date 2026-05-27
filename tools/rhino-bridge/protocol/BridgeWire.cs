@@ -249,6 +249,7 @@ public static class BridgeWire {
     public const string Quit = "quit";
     public const string OutputStdout = "stdout";
     public const string OutputStderr = "stderr";
+    public const string OutputRhinoCommand = "rhino.command";
     public const string OutputCommandStdout = "process.stdout";
     public const string OutputCommandStderr = "process.stderr";
     public static FrozenSet<string> HostAssemblyNames { get; } = new[] {

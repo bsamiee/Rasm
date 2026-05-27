@@ -901,11 +901,14 @@ public static class FileEarthOps {
     private static Fin<T> UseAnchor<T>(RhinoDoc document, Op op, Func<EarthAnchorPoint, Op, Fin<T>> use, bool requireEarth = false, bool requireModel = false) =>
         Optional(document).ToFin(Fail: op.InvalidInput()).Bind(active => op.Catch(() => {
             using EarthAnchorPoint? anchor = active.EarthAnchorPoint;
-            return Optional(anchor).ToFin(Fail: op.InvalidResult()).Bind(valid =>
+            Fin<T> work = Optional(anchor).ToFin(Fail: op.InvalidResult()).Bind(valid =>
                 (requireEarth && !valid.EarthLocationIsSet(), requireModel && !valid.ModelLocationIsSet()) switch {
                     (false, false) => use(arg1: valid, arg2: op),
                     _ => Fin.Fail<T>(error: op.InvalidInput()),
                 });
+            return work.Match(
+                Fail: static fail => Fin.Fail<T>(fail),
+                Succ: static succ => Fin.Succ(succ));
         }));
 }
 

@@ -131,6 +131,18 @@ internal static partial class Operations {
         return key.Catch(() => body(arg: key).Map(project));
     }
 
+    private static Fin<Unit> ConfirmNative(Op key, string step, bool success) =>
+        success ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: key.InvalidResult(detail: step));
+
+    /// Linked attach requires an empty placeholder definition; non-empty geometry breaks ModifySourceArchive.
+    private static int AddLinkPlaceholder(InstanceDefinitionTable table, string name) =>
+        table.Add(
+            name: name,
+            description: string.Empty,
+            basePoint: Point3d.Origin,
+            geometry: [],
+            attributes: []);
+
     // ---- [RESOLVE] -----------------------------------------------------------------------
     internal static Fin<(Definition Snap, InstanceDefinition Live)> Resolve(InstanceDefinitionTable table, DefinitionRef refer, Op key, bool includeDeleted = false) =>
         FindDefinition(table: table, refer: refer, includeDeleted: includeDeleted, key: key)
@@ -589,35 +601,46 @@ internal static partial class Operations {
             .TraverseM(identity).As()
         select MutationReceipt.Of(receipt: DocumentReceipt.Empty with { ResourceChanged = changes });
 
-    /// Anchor endpoint to doc-relative when possible, then bind FileReference scope and dispatch into CreateAndAttach.
+    /// Resolve endpoint and attach; link attach uses full-path FileReference like native ModifySourceArchive callers.
     private static Fin<DocumentResourceChange> CreateOneLink(RhinoBlocks owner, FileEndpoint endpoint, LinkCreatePolicy policy, Op key) =>
-        from anchored in (BlockPaths.DocAnchor(document: owner.Document).Case, endpoint.Relative.IsSome) switch {
-            (string dir, false) => FileEndpoint.From(
-                path: endpoint.Path,
-                relative: Some(IOPath.GetRelativePath(relativeTo: dir, path: IOPath.GetFullPath(path: endpoint.Path)))),
-            _ => Fin.Succ(endpoint),
-        }
-        from source in anchored.Input(op: key)
-        from change in source.WithReference(key: key, use: reference => CreateAndAttach(
-            owner: owner, source: source, reference: reference, policy: policy, key: key))
+        from source in endpoint.Input(op: key)
+        from change in CreateAndAttach(owner: owner, source: source, policy: policy, key: key)
         select change;
 
-    /// Add empty placeholder → ModifySourceArchive + reload → finalize (set layer + invalidate) OR rollback.
-    private static Fin<DocumentResourceChange> CreateAndAttach(RhinoBlocks owner, FileEndpoint source, FileReference reference, LinkCreatePolicy policy, Op key) {
+    /// Add empty placeholder → ModifySourceArchive + reload → finalize layer style OR rollback.
+    private static Fin<DocumentResourceChange> CreateAndAttach(RhinoBlocks owner, FileEndpoint source, LinkCreatePolicy policy, Op key) {
         string filename = source.Path;
-        int idx = owner.Document.InstanceDefinitions.Add(
-            name: owner.Document.InstanceDefinitions.GetUnusedInstanceDefinitionName(root: IOPath.GetFileNameWithoutExtension(path: filename)),
-            description: string.Empty, basePoint: Point3d.Origin, geometry: [], attributes: []);
+        int idx = AddLinkPlaceholder(
+            table: owner.Document.InstanceDefinitions,
+            name: owner.Document.InstanceDefinitions.GetUnusedInstanceDefinitionName(root: IOPath.GetFileNameWithoutExtension(path: filename)));
         return idx < 0
-            ? Fin.Fail<DocumentResourceChange>(error: key.InvalidResult())
-            : key.Catch(() => ModifyAndRefreshLinked(
-                    owner: owner, index: idx, reference: reference,
-                    policy: policy.EffectiveUpdate,
-                    quiet: policy.EffectiveReload.Quiet,
-                    updateNestedLinks: policy.EffectiveReload.UpdateNestedLinks,
-                    loadPath: filename, key: key)) is { IsSucc: true }
-                ? Fin.Succ(value: FinalizeLink(owner: owner, index: idx, layer: policy.EffectiveLayer, filename: filename))
-                : RollbackLink(owner: owner, idx: idx, key: key);
+            ? Fin.Fail<DocumentResourceChange>(error: key.InvalidResult(detail: nameof(InstanceDefinitionTable.Add)))
+            : FinalizeAttachedLink(
+                owner: owner, index: idx, source: source, policy: policy, filename: filename, key: key);
+    }
+
+    private static Fin<DocumentResourceChange> FinalizeAttachedLink(
+        RhinoBlocks owner,
+        int index,
+        FileEndpoint source,
+        LinkCreatePolicy policy,
+        string filename,
+        Op key) =>
+        ModifyAndRefreshLinked(
+                owner: owner, index: index, source: source,
+                policy: policy.EffectiveUpdate,
+                quiet: policy.EffectiveReload.Quiet,
+                updateNestedLinks: policy.EffectiveReload.UpdateNestedLinks,
+                loadPath: filename, key: key)
+            .Match(
+                Succ: _ => Fin.Succ(value: FinalizeLink(owner: owner, index: index, layer: policy.EffectiveLayer, filename: filename)),
+                Fail: error => RollbackLink(owner: owner, idx: index, error: error));
+
+    private static Fin<DocumentResourceChange> RollbackLink(RhinoBlocks owner, int idx, Error error) {
+        _ = owner.Document.InstanceDefinitions.Delete(idefIndex: idx, deleteReferences: true, quiet: true);
+        _ = owner.Document.InstanceDefinitions.Purge(idefIndex: idx);
+        _ = ContentIndex.EvictDoc(serial: owner.Document.RuntimeSerialNumber);
+        return Fin.Fail<DocumentResourceChange>(error);
     }
 
     private static DocumentResourceChange FinalizeLink(RhinoBlocks owner, int index, LayerStyle layer, string filename) {
@@ -626,13 +649,6 @@ internal static partial class Operations {
         _ = InvalidateDefinition(defId: live.Id, doc: Some(value: owner.Document));
         _ = ContentIndex.EvictDoc(serial: owner.Document.RuntimeSerialNumber);
         return new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: live.Name ?? filename);
-    }
-
-    private static Fin<DocumentResourceChange> RollbackLink(RhinoBlocks owner, int idx, Op key) {
-        _ = owner.Document.InstanceDefinitions.Delete(idefIndex: idx, deleteReferences: true, quiet: true);
-        _ = owner.Document.InstanceDefinitions.Purge(idefIndex: idx);
-        _ = ContentIndex.EvictDoc(serial: owner.Document.RuntimeSerialNumber);
-        return Fin.Fail<DocumentResourceChange>(error: key.InvalidResult());
     }
 
     private static Fin<MutationReceipt> PerformLinkedFilter(
@@ -722,39 +738,55 @@ internal static partial class Operations {
         Op key) =>
         from _ in policy.RequireLinked(key: key)
         from endpoint in source.Input(op: key)
-        from changed in endpoint.WithReference(key: key, use: reference =>
-            ModifyAndRefreshLinked(
-                owner: owner,
-                index: index,
-                reference: reference,
-                policy: policy,
-                quiet: reload.Quiet,
-                updateNestedLinks: reload.UpdateNestedLinks,
-                loadPath: endpoint.Path,
-                key: key))
+        from changed in ModifyAndRefreshLinked(
+            owner: owner,
+            index: index,
+            source: endpoint,
+            policy: policy,
+            quiet: reload.Quiet,
+            updateNestedLinks: reload.UpdateNestedLinks,
+            loadPath: endpoint.Path,
+            key: key)
         select changed;
 
     /// ModifySourceArchive attaches the link; UpdateLinkedInstanceDefinition + RefreshLinkedBlock together
     /// guarantee geometry is loaded after first attach OR relink.
-    private static Fin<Unit> ModifyAndRefreshLinked(
-        RhinoBlocks owner, int index, FileReference reference,
-        UpdatePolicy policy, bool quiet, bool updateNestedLinks, string loadPath, Op key) =>
-        from _ in key.Confirm(success: owner.Document.InstanceDefinitions.ModifySourceArchive(
-            idefIndex: index, sourceArchive: reference, updateType: policy.Native, quiet: quiet))
-        from live in Optional(owner.Document.InstanceDefinitions[index]).ToFin(Fail: key.InvalidResult())
-        from __ in live.ObjectCount >= 1
+    private static Fin<Unit> ConfirmAttached(Op key, InstanceDefinition live, bool modifyReported) =>
+        live.UpdateType is InstanceDefinitionUpdateType.Linked or InstanceDefinitionUpdateType.LinkedAndEmbedded
+        && Definition.NonBlank(value: live.SourceArchive).IsSome
             ? Fin.Succ(value: unit)
-            : LoadOrRefresh(owner: owner, index: index, loadPath: loadPath, updateNestedLinks: updateNestedLinks, quiet: quiet, key: key)
-        select unit;
+            : ConfirmNative(key: key, step: nameof(InstanceDefinitionTable.ModifySourceArchive), success: modifyReported);
 
-    private static Fin<Unit> LoadOrRefresh(RhinoBlocks owner, int index, string loadPath, bool updateNestedLinks, bool quiet, Op key) =>
-        from _ in key.Confirm(success: owner.Document.InstanceDefinitions.UpdateLinkedInstanceDefinition(
-            idefIndex: index, filename: loadPath, updateNestedLinks: updateNestedLinks, quiet: quiet))
-        from refreshed in Optional(owner.Document.InstanceDefinitions[index]).ToFin(Fail: key.InvalidResult())
-        from __ in refreshed.ObjectCount >= 1
-            ? Fin.Succ(value: unit)
-            : key.Confirm(success: owner.Document.InstanceDefinitions.RefreshLinkedBlock(definition: refreshed))
-        select unit;
+    private static Fin<Unit> ModifyAndRefreshLinked(
+        RhinoBlocks owner, int index, FileEndpoint source,
+        UpdatePolicy policy, bool quiet, bool updateNestedLinks, string loadPath, Op key) =>
+        source.WithReference(key: key, reference =>
+            Fin.Succ(value: owner.Document.InstanceDefinitions.ModifySourceArchive(
+                idefIndex: index, sourceArchive: reference, updateType: policy.Native, quiet: quiet))
+            .Bind(reported => Optional(owner.Document.InstanceDefinitions[index]).ToFin(Fail: key.InvalidResult(detail: nameof(InstanceDefinitionTable)))
+                .Bind(live => ConfirmAttached(key: key, live: live, modifyReported: reported)))
+            .Bind(_ => ReloadLinked(
+                owner: owner, index: index, loadPath: loadPath, updateNestedLinks: updateNestedLinks, quiet: quiet, key: key)));
+
+    /// UpdateLinkedInstanceDefinition reads model-space objects; RefreshLinkedBlock follows when counts stay zero.
+    private static Fin<Unit> ReloadLinked(RhinoBlocks owner, int index, string loadPath, bool updateNestedLinks, bool quiet, Op key) =>
+        Optional(owner.Document.InstanceDefinitions[index]).ToFin(Fail: key.InvalidResult(detail: nameof(InstanceDefinitionTable)))
+            .Bind(live => live.ObjectCount >= 1
+                ? Fin.Succ(value: unit)
+                : Fin.Succ(value: Definition.NonBlank(value: live.SourceArchive).IfNone(noneValue: loadPath))
+                    .Bind(filename => Fin.Succ(value: owner.Document.InstanceDefinitions.UpdateLinkedInstanceDefinition(
+                            idefIndex: index, filename: filename, updateNestedLinks: updateNestedLinks, quiet: quiet))
+                        .Bind(_ => Optional(owner.Document.InstanceDefinitions[index]).ToFin(Fail: key.InvalidResult(detail: nameof(InstanceDefinitionTable)))
+                            .Bind(refreshed => refreshed.ObjectCount >= 1
+                                ? Fin.Succ(value: unit)
+                                : Fin.Succ(value: owner.Document.InstanceDefinitions.RefreshLinkedBlock(definition: refreshed))
+                                    .Bind(__ => Optional(owner.Document.InstanceDefinitions[index]).ToFin(Fail: key.InvalidResult(detail: nameof(InstanceDefinitionTable)))
+                                        .Bind(final => final.ObjectCount >= 1
+                                            ? Fin.Succ(value: unit)
+                                            : ConfirmNative(
+                                                key: key,
+                                                step: nameof(InstanceDefinitionTable.RefreshLinkedBlock),
+                                                success: false)))))));
     private static Fin<MutationReceipt> PerformExportAttributes(RhinoBlocks owner, DefinitionRef refer, FileEndpoint target, Op key) =>
         from snap in ResolveSnap(table: owner.Document.InstanceDefinitions, refer: refer, key: key)
         from endpoint in target.Output(op: key)
@@ -1053,7 +1085,9 @@ internal static partial class Operations {
             .Map(live => (BlockOutcome)new BlockOutcome.Bounds(Value: policy.ExpandNested
                 ? toSeq(live.GetReferences(wheretoLook: ReferenceScope.TopAndNested.Native))
                     .Filter(static i => i is not null)
-                    .Fold(BoundingBox.Empty, static (acc, inst) => BoundingBox.Union(acc, inst.Geometry?.GetBoundingBox(accurate: true) ?? BoundingBox.Empty))
+                    .Fold(BoundingBox.Empty, (acc, inst) => BoundingBox.Union(
+                        acc,
+                        inst!.Geometry?.GetBoundingBox(xform: inst.InstanceXform) ?? BoundingBox.Empty))
                 : toSeq(live.GetObjects())
                     .Filter(static o => o?.Geometry is not null)
                     .Map(static o => o!.Geometry!)

@@ -37,10 +37,10 @@ public static class Archive {
     }
 
     private static Fin<Graph> Build(File3dm active, Option<string> anchorDirectory, Op op) =>
-        toSeq(active.AllInstanceDefinitions)
+        from defs in toSeq(active.AllInstanceDefinitions)
             .Map(geo => Definition.From(definition: geo, anchorDirectory: anchorDirectory, key: op))
             .TraverseM(identity).As()
-            .Map(defs => Compose(active: active, definitions: defs));
+        select Compose(active: active, definitions: defs, anchorDirectory: anchorDirectory, key: op);
 
     /// Transitive linked-archive walk; each hop resolves `SourceArchive` against `dirname(containing file)`.
     public static Fin<Seq<LinkedArchiveEdge>> LinkedArchiveClosure(File3dm root, string rootPath, Op? key = null) {
@@ -72,7 +72,7 @@ public static class Archive {
             using File3dm? child = File3dm.Read(path: toFull);
             return child is null
                 ? Fin.Fail<Seq<LinkedArchiveEdge>>(error: key.InvalidInput())
-                : Walk(model: child, path: toFull, depth: depth + 1, visited: visited.Add(key: toFull), key: key)
+                : Walk(model: child, path: toFull, depth: depth + 1, visited: visited, key: key)
                     .Map(nested => Seq(new LinkedArchiveEdge(FromPath: anchor, Link: link, ToPath: link.Full, Depth: depth)) + nested);
         });
     }
@@ -87,8 +87,17 @@ public static class Archive {
                         .Filter(static o => o?.Geometry is InstanceReferenceGeometry)
                         .Map(o => (ObjectId: o!.Id, Reference: (InstanceReferenceGeometry)o.Geometry!)))
                     .IfNone(Seq<(Guid, InstanceReferenceGeometry)>())));
-        return Compose(definitions: definitions, instances: instances);
+        return Compose(
+            definitions: definitions,
+            instances: instances,
+            linkedArchives: LinkedArchives(definitions: definitions));
     }
+
+    private static ImmutableArray<ArchiveLink> LinkedArchives(Seq<Definition> definitions) =>
+        [.. toSeq(definitions).Choose(static d => d.Source)
+            .Fold(HashMap<string, ArchiveLink>(), static (acc, link) => acc.AddOrUpdate(key: link.Full.Value, value: link))
+            .Values
+            .ToSeq()];
 
     private static HashMap<Guid, Definition> Lookup(Seq<Definition> definitions) =>
         definitions.Fold(
@@ -104,10 +113,9 @@ public static class Archive {
                 ParentDefId: parent.Id,
                 Xform: pair.Reference.Xform)))];
 
-    private static Graph Compose(Seq<Definition> definitions, ImmutableArray<Instance> instances) {
+    private static Graph Compose(Seq<Definition> definitions, ImmutableArray<Instance> instances, ImmutableArray<ArchiveLink> linkedArchives) {
         ImmutableArray<Definition> defArray = [.. definitions];
-        ImmutableArray<ArchiveLink> linked = [.. toSeq(defArray).Choose(static d => d.Source).Distinct()];
-        return new Graph(Definitions: defArray, Instances: instances, LinkedArchives: linked);
+        return new Graph(Definitions: defArray, Instances: instances, LinkedArchives: linkedArchives);
     }
 
     public static Graph Subgraph(InstanceDefinitionTable table, Seq<Definition> definitions, Definition anchor) {
@@ -192,7 +200,12 @@ public static class Archive {
                 nested: nested);
     }
 
-    private static Graph Compose(File3dm active, Seq<Definition> definitions) {
+    internal static Seq<ArchiveLink> LinkedSources(File3dm model, Option<string> anchorDirectory, Op key) =>
+        toSeq(model.AllInstanceDefinitions)
+            .Choose(def => (Definition.NonBlank(value: def.SourceArchive) | Definition.NonBlank(value: def.Url))
+                .Bind(raw => ArchiveLink.Resolve(raw: raw, anchorDirectory: anchorDirectory, key: key).ToOption()));
+
+    private static Graph Compose(File3dm active, Seq<Definition> definitions, Option<string> anchorDirectory, Op key) {
         HashMap<Guid, Definition> lookup = Lookup(definitions: definitions);
         ImmutableArray<Instance> instances = ProjectInstances(
             lookup: lookup,
@@ -202,8 +215,22 @@ public static class Archive {
                         lookup.Find(key: parentId).Map(_ => (o.Attributes.ObjectId, r)),
                     _ => Option<(Guid, InstanceReferenceGeometry)>.None,
                 }));
-        return Compose(definitions: definitions, instances: instances);
+        return Compose(
+            definitions: definitions,
+            instances: instances,
+            linkedArchives: LinkedArchives(definitions: definitions, model: active, anchorDirectory: anchorDirectory, key: key));
     }
+
+    private static ImmutableArray<ArchiveLink> LinkedArchives(
+        Seq<Definition> definitions,
+        File3dm model,
+        Option<string> anchorDirectory,
+        Op key) =>
+        [.. toSeq(definitions).Choose(static d => d.Source)
+            .Concat(LinkedSources(model: model, anchorDirectory: anchorDirectory, key: key))
+            .Fold(HashMap<string, ArchiveLink>(), static (acc, link) => acc.AddOrUpdate(key: link.Full.Value, value: link))
+            .Values
+            .ToSeq()];
 
     public static Fin<DocumentReceipt> AddLinked(File3dm model, Seq<FileEndpoint> sources, Op? key = null) {
         Op op = key.OrDefault();

@@ -128,7 +128,9 @@ public sealed partial record RhinoUi {
                 ran = true;
                 result = op.Catch(valid);
             });
-            return ran ? result : op.Catch(valid);
+            return ran
+                ? result
+                : Fin.Fail<T>(error: op.Caution(concern: "RhinoApp.InvokeAndWait did not execute the delegate."));
         });
     }
 

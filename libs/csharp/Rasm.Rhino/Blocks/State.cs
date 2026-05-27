@@ -447,6 +447,9 @@ public readonly record struct ArchiveLink(ArchivePath Full, Option<string> Relat
             string relative when anchorDirectory.Case is string anchor =>
                 from full in ArchivePath.From(value: IOPath.GetFullPath(path: IOPath.Combine(path1: anchor, path2: relative)), key: op)
                 select new ArchiveLink(Full: full, Relative: Some(value: relative)),
+            string relative when IOPath.IsPathFullyQualified(path: IOPath.GetFullPath(path: relative)) =>
+                from full in ArchivePath.From(value: IOPath.GetFullPath(path: relative), key: op)
+                select new ArchiveLink(Full: full, Relative: Option<string>.None),
             _ => Fin.Fail<ArchiveLink>(error: op.InvalidInput()),
         };
     }
@@ -929,7 +932,8 @@ public sealed record Definition(
                            Description: NonBlank(value: d.Description),
                            Url: NonBlank(value: d.Url).Bind(v => ArchivePath.From(value: v, key: op).ToOption()),
                            UrlDescription: NonBlank(value: d.UrlDescription),
-                           Source: NonBlank(value: d.SourceArchive).Bind(v => ArchiveLink.Resolve(raw: v, anchorDirectory: anchorDirectory, key: op).ToOption()),
+                           Source: (NonBlank(value: d.SourceArchive) | NonBlank(value: d.Url))
+                               .Bind(v => ArchiveLink.Resolve(raw: v, anchorDirectory: anchorDirectory, key: op).ToOption()),
                            MemberIds: d.GetObjectIds() is Guid[] ids ? [.. ids] : [],
                            Live: active is null ? Option<LiveStats>.None : Some(value: LiveStats.From(active: active))));
     }
@@ -977,11 +981,12 @@ public readonly record struct BlockTableEvent(
     public static BlockTableEvent From(InstanceDefinitionTableEventArgs args) {
         ArgumentNullException.ThrowIfNull(argument: args);
         // OldState's native ptr invalidates after callback; project inside.
+        Option<string> anchor = Optional(args.Document).Bind(static doc => BlockPaths.DocAnchor(document: doc));
         return new BlockTableEvent(
             Kind: args.EventType,
             Index: args.InstanceDefinitionIndex,
-            New: Optional(args.NewState).Bind(d => Definition.From(definition: d).ToOption()),
-            Old: Optional(args.OldState).Bind(g => Definition.From(definition: g).ToOption()));
+            New: Optional(args.NewState).Bind(d => Definition.From(definition: d, anchorDirectory: anchor).ToOption()),
+            Old: Optional(args.OldState).Bind(g => Definition.From(definition: g, anchorDirectory: anchor).ToOption()));
     }
 }
 

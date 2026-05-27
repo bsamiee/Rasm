@@ -34,6 +34,10 @@ Build GH2-native component, data, and UI rails that let downstream apps stay thi
 - Extend existing request algebras: `CanvasOp`, `DocumentOp`, `EditorOp`, `InputRequest<T>`, `UiEvent`, `LayoutOp`, `PaintRequest<T>`, and `WireOp`.
 - Preserve read-only semantics. Snapshot/query operations should not open editors, mutate documents, or repaint unless the request policy says so.
 - Preserve mutation semantics. Document, layout, and wire changes must flow through the existing mutation rail with undo, repaint, action commit, and snapshot behavior owned once.
+- Repaint is policy-driven: `RepaintRequest |` absorbs at `GrasshopperUi.Use` exit (`None` identity; `Canvas` beats `Scheduled`; `Object`+same-id idempotent). `CanvasOp.Invalidate` records policy only — never calls native invalidate directly.
+- Subscription teardown has two semantics: `Subscription.Atom` detach is non-idempotent; `detachOnce: true` and `OwnedSubscription` token gates (`Interaction.cs`) are idempotent — do not conflate them when composing with `|`.
+- `WireDrawnCache` validates a composite `WireDrawnStamp` (document hash, modifications, projection, draw inner frame). Pure viewport drift without `AfterWires` capture fails `Read` by design; subscribe `WirePaintObserve` or accept live `CaptureDrawn` fallback.
+- Motion has two paths: canvas paint loop (`Animated<T>` + optional `Pacer`/`MotionClock`) vs CoreAnimation cosmetics (`CosmeticIntent` on `NSView.Layer`). Both honour `MotionAccessibility.ShouldReduceMotion`; cosmetics cannot retarget mid-flight — dispose and re-issue.
 - Use GH2/Eto/RhinoCommon only. Do not introduce WinForms, WPF, polling replacements for native events, or an Eto abstraction layer beside the current rail.
 - Use `docs/system-api-map` for GH2/Rhino/System API boundary decisions, especially host-provided assemblies versus NuGet packages. Use `docs/external-libs/mathnet` only where numerical or symbolic computation adds value; preserve GH2 tree, path, coverage, and ownership semantics.
 

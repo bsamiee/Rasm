@@ -168,7 +168,7 @@ public readonly partial struct UiCommand {
         Command command = new() { ID = name, MenuText = name, ToolBarText = name, ToolTip = info, Enabled = EffectiveEnabled() };
         _ = MenuImage.Iter(image => command.Image = image);
         _ = Shortcut.Iter(shortcut => command.Shortcut = shortcut.Keys);
-        command.Executed += (_, _) => _ = GrasshopperUi.Protect(valid: run);
+        command.Executed += (_, _) => _ = GrasshopperUi.Handler(valid: run);
         return command;
     }
 
@@ -236,7 +236,7 @@ public partial record ToolbarItem {
             PushButton pushed = bar.AddPushButton(
                 icon: command.Icon.IfNone(default(IIcon)!),
                 nomen: new Nomen(name: command.Name, info: command.Info),
-                callback: () => _ = GrasshopperUi.Protect(valid: command.Run),
+                callback: () => _ = GrasshopperUi.Handler(valid: command.Run),
                 keys: command.Shortcut.Map(static shortcut => (BarShortcut?)shortcut).IfNone((BarShortcut?)null));
             pushed.Enabled = command.EffectiveEnabled();
             pushed.CloseOnActivate = item.CloseOnActivate;
@@ -266,26 +266,26 @@ public partial record ToolbarItem {
             from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: TextInputCase.SelfOp, detail: "text change delegate is required"))
             from added in TextInputCase.SelfOp.Attempt(body: () => {
                 TextField field = bar.AddTextField(icon: default!, nomen: new Nomen(name: item.Name, info: item.Name), initial: item.Value, placeholder: item.Name);
-                field.TextChanged += (_, value) => _ = GrasshopperUi.Protect(valid: () => changed(arg: value));
+                field.TextChanged += (_, value) => _ = GrasshopperUi.Handler(valid: () => changed(arg: value));
             }, what: "AddTextField")
             select added,
         numberCase: static (bar, item) =>
             from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: NumberCase.SelfOp, detail: "number change delegate is required"))
             from value in Optional(item.Value).ToFin(Fail: UiFault.InvalidInput(op: NumberCase.SelfOp, detail: "UiNumber is required"))
             from added in NumberCase.SelfOp.Attempt(
-                body: () => bar.Add(new NumberSlider(nomen: new Nomen(name: item.Name, info: item.Name), number: value, callback: current => _ = GrasshopperUi.Protect(valid: () => changed(arg: current)))),
+                body: () => bar.Add(new NumberSlider(nomen: new Nomen(name: item.Name, info: item.Name), number: value, callback: current => _ = GrasshopperUi.Handler(valid: () => changed(arg: current)))),
                 what: "NumberSlider")
             select added,
         swatchInputCase: static (bar, item) =>
             from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: SwatchInputCase.SelfOp, detail: "colour change delegate is required"))
             from added in SwatchInputCase.SelfOp.Attempt(
-                body: () => bar.AddLifeColours(nomen: new Nomen(name: item.Name, info: item.Name), initial: item.Family, assignment: value => _ = GrasshopperUi.Protect(valid: () => changed(arg: value))),
+                body: () => bar.AddLifeColours(nomen: new Nomen(name: item.Name, info: item.Name), initial: item.Family, assignment: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value))),
                 what: "AddLifeColours")
             select added,
         colourBarsCase: static (bar, item) =>
             from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: ColourBarsCase.SelfOp, detail: "colour change delegate is required"))
             from added in ColourBarsCase.SelfOp.Attempt(body: () => {
-                void Assign(OpenColor.Family value) => _ = GrasshopperUi.Protect(valid: () => changed(value));
+                void Assign(OpenColor.Family value) => _ = GrasshopperUi.Handler(valid: () => changed(value));
                 Nomen nomen = new(name: $"{item.Name} {{family}}", info: $"{item.Name} {{family}}");
                 Bar.CreateStandardColourBars(nomen: nomen, initial: item.Family, assignment: Assign, out Bar life, out Bar cool, out Bar warm);
                 Seq<Seq<RadioToggle>> groups = Seq(life, cool, warm).Map(static toolbar => toSeq(toolbar.ActiveElements.OfType<RadioToggle>())).ToSeq();
@@ -330,7 +330,7 @@ public partial record ToolbarItem {
         };
         _ = command.MenuImage.Iter(image => menuCommand.Image = image);
         _ = command.Shortcut.Iter(shortcut => menuCommand.Shortcut = shortcut.Keys);
-        menuCommand.Executed += (_, _) => _ = GrasshopperUi.Protect(valid: () => changed(arg: menuCommand.Checked));
+        menuCommand.Executed += (_, _) => _ = GrasshopperUi.Handler(valid: () => changed(arg: menuCommand.Checked));
         MenuItem menuItem = menuCommand.CreateMenuItem();
         _ = command.CanExecute.Iter(can => menuItem.Validate += (_, _) =>
             menuItem.Enabled = command.Enabled && GrasshopperUi.Protect(valid: can).IfFail(_ => false));
@@ -350,7 +350,7 @@ public partial record ToolbarItem {
             icon: command.Icon.IfNone(default(IIcon)!),
             nomen: new Nomen(name: command.Name, info: command.Info),
             initial: state,
-            callback: value => _ = GrasshopperUi.Protect(valid: () => changed(arg: value)),
+            callback: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)),
             keys: command.Shortcut.Map(static shortcut => (BarShortcut?)shortcut).IfNone((BarShortcut?)null));
         toggled.Optional = optional;
         toggled.Enabled = command.EffectiveEnabled();
