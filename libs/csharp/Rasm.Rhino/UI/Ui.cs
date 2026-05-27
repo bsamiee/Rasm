@@ -117,28 +117,44 @@ public sealed partial record RhinoUi {
                 false => Invoke(valid: valid, name: name),
             });
 
-    internal static Fin<T> WhenUiBound<T>(bool uiBound, Func<Fin<T>> run, [CallerMemberName] string name = "") =>
-        uiBound || !RhinoApp.IsOnMainThread
-            ? OnUiThread(run: run, name: name)
-            : run();
+    /// Domain rails (Blocks, Camera, …) call this once at the service edge.
+    /// Scripted RhinoCode runs inside a blocked main-thread idle handler; InvokeAndWait deadlocks there.
+    /// Native table/object mutations succeed on the script thread — marshal only for interactive off-thread callers.
+    internal static Fin<T> DispatchThread<T>(
+        bool uiBound,
+        RunMode mode,
+        Func<Fin<T>> run,
+        [CallerMemberName] string name = "") =>
+        Optional(run)
+            .ToFin(Fail: Op.Of(name: name).InvalidInput())
+            .Bind(work => (uiBound, mode, RhinoApp.IsOnMainThread) switch {
+                (false, _, _) => work(),
+                (_, RunMode.Scripted, _) => work(),
+                (_, _, true) => work(),
+                (_, _, false) => OnUiThread(run: work, name: name),
+            });
 
     private static Fin<T> Invoke<T>(Func<Fin<T>> valid, string name) {
         Op op = Op.Of(name: name);
         return op.Catch(() => {
             if (RhinoApp.IsOnMainThread)
                 return op.Catch(valid);
-            Option<Fin<T>> captured = Option<Fin<T>>.None;
+            FinCapture<T> capture = new();
             bool ran = false;
             RhinoApp.InvokeAndWait(action: () => {
                 ran = true;
-                captured = Some(value: op.Catch(valid));
+                capture.Value = op.Catch(valid);
             });
-            return (ran, captured.Case) switch {
-                (true, Fin<T> result) => result,
-                (true, _) => Fin.Fail<T>(error: op.Caution(concern: "RhinoApp.InvokeAndWait executed but captured no result.")),
+            return (ran, capture.Value) switch {
+                (true, { } result) => result,
+                (true, null) => Fin.Fail<T>(error: op.Caution(concern: "RhinoApp.InvokeAndWait executed but captured no result.")),
                 (false, _) => Fin.Fail<T>(error: op.Caution(concern: "RhinoApp.InvokeAndWait did not execute the delegate.")),
             };
         });
+    }
+
+    private sealed class FinCapture<T> {
+        internal Fin<T>? Value { get; set; }
     }
 
     internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>

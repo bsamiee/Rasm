@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using Grasshopper2.Extensions;
+using Grasshopper2.UI.Flex;
 using Rasm.Grasshopper.UI;
 using Rasm.TestKit.Scenarios;
 using Rhino;
@@ -9,11 +10,17 @@ Scenario.Run("gh-ui-canvas-runtime", CAPTURE_PATH, (key, facts) => {
     GrasshopperUi ui = new();
     facts.Add("rhino.mainThread", RhinoApp.IsOnMainThread);
 
-    CanvasInteractionPolicy scopePolicy = CanvasInteractionPolicy.Default with {
-        WindowSelectObjects = true,
-        WindowSelectWires = false,
-        WindowSelectGroups = true,
-    };
+    CanvasInteractionPolicy scopePolicy = CanvasInteractionPolicy.Create(
+        allowPan: true,
+        allowZoom: true,
+        showTilesWhenEmpty: true,
+        windowSelectObjects: true,
+        windowSelectWires: false,
+        windowSelectGroups: true,
+        viewportDragging: default,
+        actions: default,
+        projection: default,
+        clearSnapFeedback: false);
     CanvasResult interaction = Probe.Expect(
         result: ui.Use(intent: GhUi.Canvas(op: CanvasOp.Interaction(policy: scopePolicy))),
         label: "interaction");
@@ -40,6 +47,11 @@ Scenario.Run("gh-ui-canvas-runtime", CAPTURE_PATH, (key, facts) => {
     facts.Add("canvas.windowSelectObjects", canvas.WindowSelectObjects);
     facts.Add("canvas.windowSelectWires", canvas.WindowSelectWires);
     facts.Add("canvas.windowSelectGroups", canvas.WindowSelectGroups);
+    facts.Add("canvas.logicalPixelSize", canvas.LogicalPixelSize);
+    facts.Add("canvas.pointsPerPixel", canvas.PointsPerPixel);
+    Probe.Require(
+        condition: canvas.LogicalPixelSize > 0f && canvas.PointsPerPixel > 0f && MathF.Abs(canvas.PointsPerPixel * canvas.LogicalPixelSize - 1f) < 0.01f,
+        message: "canvas logical DPI reciprocity");
 
     WindowSelection window = new(
         left: canvas.VisibleFrame.Left,

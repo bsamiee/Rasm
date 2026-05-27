@@ -21,8 +21,12 @@ public readonly record struct MouseContext<TState>(MousePhase Phase, TState Stat
     public Option<System.Drawing.Point> ViewportPoint => Args.ViewportPoint switch { { IsEmpty: false } point => Some(point), _ => Option<System.Drawing.Point>.None };
     public Option<Line> WorldLine =>
         (View.Case, ViewportPoint.Case) switch {
-            (RhinoView view, System.Drawing.Point point) => view.ActiveViewport.GetFrustumLine(screenX: point.X, screenY: point.Y, worldLine: out Line line) switch {
-                true when line.IsValid && line != Line.Unset => Some(line),
+            (RhinoView view, System.Drawing.Point point) => Optional(view.Document).Case switch {
+                RhinoDoc document => global::Rasm.Rhino.Camera.RhinoCamera.Live(document: document)
+                    .RunValue(
+                        operation: global::Rasm.Rhino.Camera.CameraOps.Query(query: scope => scope.FrustumLine(screenX: point.X, screenY: point.Y)),
+                        target: new global::Rasm.Rhino.Camera.ViewportTarget.View(Value: view))
+                    .ToOption(),
                 _ => Option<Line>.None,
             },
             _ => Option<Line>.None,

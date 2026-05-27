@@ -310,6 +310,39 @@ public abstract partial record GraphQuery {
     public sealed record EnsureIndexed(Option<DefinitionRef> Ref = default) : GraphQuery;
 }
 
+[SmartEnum<int>]
+public sealed partial class ConstraintPolicy {
+    public static readonly ConstraintPolicy Schema = new(key: 0);
+    public static readonly ConstraintPolicy Extend = new(key: 1);
+
+    internal Fin<Unit> AdmitValues(HashMap<string, string> values, Seq<InstanceAttributeField> schema, Op key) =>
+        Key switch {
+            0 => values
+                .Filter((k, _) => !schema.Any(field => string.Equals(a: field.Key, b: k, comparisonType: StringComparison.Ordinal)))
+                .IsEmpty
+                ? Fin.Succ(value: unit)
+                : Fin.Fail<Unit>(error: key.InvalidInput()),
+            _ => Fin.Succ(value: unit),
+        };
+}
+
+public readonly record struct ClosureValidationPolicy(
+    bool DetectCycles,
+    int MaxDepth = Archive.LinkedArchiveClosureMaxDepth) {
+    public static ClosureValidationPolicy Default { get; } = new(DetectCycles: true);
+
+    public Fin<ClosureValidationPolicy> Admit(Op key) =>
+        MaxDepth is >= 1 and <= Archive.LinkedArchiveClosureMaxDepth
+            ? Fin.Succ(value: this)
+            : Fin.Fail<ClosureValidationPolicy>(error: key.InvalidInput());
+}
+
+public sealed record ArchiveClosureReport(
+    bool Valid,
+    Seq<Archive.LinkedArchiveEdge> Edges,
+    Seq<ArchivePath> Broken,
+    Seq<Seq<ArchivePath>> Cycles);
+
 public sealed record BlockFilter(
     Option<Seq<string>> Archives = default,
     Option<Seq<DefinitionRef>> Refs = default,
@@ -784,8 +817,35 @@ public readonly record struct DepthPolicy(int MaxDepth = 8, bool StopOnCycle = f
         new DepthPolicy(MaxDepth: maxDepth, StopOnCycle: stopOnCycle).Admit(key: key.OrDefault());
 }
 
-public readonly record struct BoundsPolicy(bool Accurate = true, bool ExpandNested = false) {
-    public static BoundsPolicy Default { get; } = new(Accurate: true);
+[SmartEnum<int>]
+public sealed partial class BoundsSpace {
+    public static readonly BoundsSpace Definition = new(key: 0);
+    public static readonly BoundsSpace Nested = new(key: 1);
+
+    internal BoundingBox Union(InstanceDefinition live, bool accurate) =>
+        Key switch {
+            1 => toSeq(live.GetReferences(wheretoLook: ReferenceScope.TopAndNested.Native))
+                .Filter(static i => i is not null)
+                .Fold(
+                    BoundingBox.Empty,
+                    static (acc, inst) => BoundingBox.Union(
+                        acc,
+                        inst!.Geometry?.GetBoundingBox(xform: inst.InstanceXform) ?? BoundingBox.Empty)),
+            _ => toSeq(live.GetObjects())
+                .Filter(static o => o?.Geometry is not null)
+                .Map(static o => o!.Geometry!)
+                .Fold(
+                    BoundingBox.Empty,
+                    (acc, g) => BoundingBox.Union(acc, g.GetBoundingBox(accurate: accurate))),
+        };
+}
+
+public readonly record struct BoundsPolicy(bool Accurate = true, BoundsSpace? Space = null) {
+    public static BoundsPolicy Default { get; } = new(Accurate: true, Space: BoundsSpace.Definition);
+    private BoundsSpace EffectiveSpace => Space ?? BoundsSpace.Definition;
+
+    internal BoundingBox Union(InstanceDefinition live) =>
+        EffectiveSpace.Union(live: live, accurate: Accurate);
 }
 
 public readonly record struct BakePolicy(
@@ -1077,9 +1137,11 @@ public abstract partial record BlockOutcome {
     public sealed record Probed(DependencyProbe Value) : BlockOutcome;
     public sealed record Refresh(RefreshPlan Value) : BlockOutcome;
     public sealed record Bounds(BoundingBox Value) : BlockOutcome;
+    public sealed record Adopted(int Count) : BlockOutcome;
     public sealed record TableStats(int Count, int ActiveCount) : BlockOutcome;
     public sealed record Plan(Seq<DefinitionId> Order) : BlockOutcome;
     public sealed record ReachInserts(Seq<ReachInsert> Values) : BlockOutcome;
+    public sealed record ClosureReport(ArchiveClosureReport Value) : BlockOutcome;
 }
 
 public sealed class PreviewHandle(Bitmap bitmap, Action<PreviewHandle> release) : IDisposable {

@@ -161,6 +161,7 @@ public partial record InteractionOp {
     public sealed record HoverCase(TimeSpan Delay, Func<MouseHoverSnapshot, Fin<Unit>> Handler) : InteractionOp;
     public sealed record ContextMenuCase(Func<ContextMenuSnapshot, Fin<Unit>> Handler) : InteractionOp;
     public sealed record StatusCase : InteractionOp;
+    public sealed record ModifierWatchCase(Func<InputModifierSnapshot, Fin<Unit>> Handler) : InteractionOp;
 }
 
 public abstract record CanvasChromeRequest : GhUiRequest<CanvasChromeResult> {
@@ -460,7 +461,8 @@ internal static class Interaction {
             registerCase: static r => Register(r.Responsive, r.System).BindFin(CanvasChromeResult.Of),
             hoverCase: static h => Hover(h.Delay, h.Handler).BindFin(CanvasChromeResult.Of),
             contextMenuCase: static c => ContextMenu(c.Handler).BindFin(CanvasChromeResult.Of),
-            statusCase: static _ => SnapshotNow().BindFin(CanvasChromeResult.Of));
+            statusCase: static _ => SnapshotNow().BindFin(CanvasChromeResult.Of),
+            modifierWatchCase: static m => GhUi.Event(uiEvent: UiEvent.KeyboardModifiers(handler: m.Handler)).BindFin(CanvasChromeResult.Of));
 
     internal static GrasshopperUiIntent<Subscription> Push(IInteraction target) =>
         GhUi.Canvas(run: scope =>

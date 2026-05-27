@@ -69,7 +69,7 @@ internal static partial class Editor {
             .MapFail(error => UiFault.GhEditor(detail: $"{errorTag}: {error.Message}"))
             .Bind(current => shell.Match(
                 Some: s => ApplyShell(current: current, shell: s),
-                None: () => Fin.Succ<EditorResult>(value: EditorResult.Unit)));
+                None: () => Fin.Succ(value: EditorResult.Unit)));
 
     private static Fin<EditorResult> ApplyShell(GhEditor current, EditorOp.ShellCase shell) {
         Option<GhCanvas> canvas = Optional(current.Canvas);

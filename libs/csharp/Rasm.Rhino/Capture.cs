@@ -132,3 +132,52 @@ public readonly record struct CaptureLayout(
                select unit;
     }
 }
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CaptureDecor(
+    bool DrawBackground = true,
+    bool DrawGrid = false,
+    bool DrawAxis = false,
+    bool DrawLockedObjects = true,
+    bool DrawSelectedObjectsOnly = false,
+    bool DrawMargins = false,
+    bool DrawClippingPlanes = true,
+    bool DrawLights = true,
+    bool DrawWallpaper = true,
+    bool DrawBackgroundBitmap = false,
+    bool UsePrintWidths = false,
+    ViewCaptureSettings.ColorMode OutputColor = ViewCaptureSettings.ColorMode.DisplayColor,
+    Option<double> WireThicknessScale = default,
+    Option<double> PointSizeMillimeters = default,
+    Option<double> ArrowheadSizeMillimeters = default,
+    Option<double> TextDotPointSize = default,
+    Option<string> HeaderText = default,
+    Option<string> FooterText = default,
+    Option<CaptureLayout> Layout = default) {
+    internal Fin<Unit> Apply(ViewCaptureSettings settings, Op op) {
+        CaptureDecor self = this;
+        return from active in Optional(settings).ToFin(Fail: op.InvalidInput())
+               from configured in Fin.Succ(value: Op.Side(() => {
+                   active.DrawBackground = self.DrawBackground;
+                   active.DrawGrid = self.DrawGrid;
+                   active.DrawAxis = self.DrawAxis;
+                   active.DrawLockedObjects = self.DrawLockedObjects;
+                   active.DrawSelectedObjectsOnly = self.DrawSelectedObjectsOnly;
+                   active.DrawMargins = self.DrawMargins;
+                   active.DrawClippingPlanes = self.DrawClippingPlanes;
+                   active.DrawLights = self.DrawLights;
+                   active.DrawWallpaper = self.DrawWallpaper;
+                   active.DrawBackgroundBitmap = self.DrawBackgroundBitmap;
+                   active.UsePrintWidths = self.UsePrintWidths;
+                   active.OutputColor = self.OutputColor;
+                   _ = self.WireThicknessScale.Iter(value => active.WireThicknessScale = value);
+                   _ = self.PointSizeMillimeters.Iter(value => active.PointSizeMillimeters = value);
+                   _ = self.ArrowheadSizeMillimeters.Iter(value => active.ArrowheadSizeMillimeters = value);
+                   _ = self.TextDotPointSize.Iter(value => active.TextDotPointSize = value);
+                   _ = self.HeaderText.Iter(value => active.HeaderText = value);
+                   _ = self.FooterText.Iter(value => active.FooterText = value);
+               }))
+               from layout in self.Layout.Map(value => value.Apply(settings: active, op: op)).IfNone(Fin.Succ(value: unit))
+               select layout;
+    }
+}

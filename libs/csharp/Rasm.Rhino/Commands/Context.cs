@@ -1,4 +1,5 @@
 using Rasm.Analysis;
+using Rasm.Rhino.Camera;
 using BlocksApi = Rasm.Rhino.Blocks;
 
 namespace Rasm.Rhino.Commands;
@@ -13,7 +14,7 @@ public sealed class RhinoCommandContext {
         Input = new(document: document, domain: domain);
         Edit = new(document: document, domain: domain);
         Ui = new(document: document, mode: mode);
-        Camera = new(document: document);
+        Camera = RhinoCamera.Live(document: document, mode: mode);
         Files = Exchange.RhinoFiles.Live(document: document, mode: mode);
         Blocks = BlocksApi.RhinoBlocks.Live(document: document, mode: mode);
     }
@@ -25,7 +26,7 @@ public sealed class RhinoCommandContext {
     public CommandInput Input { get; }
     public DocumentEdit Edit { get; }
     public UI.RhinoUi Ui { get; }
-    public Camera.RhinoCamera Camera { get; }
+    public RhinoCamera Camera { get; }
     public Exchange.RhinoFiles Files { get; }
     public BlocksApi.RhinoBlocks Blocks { get; }
 

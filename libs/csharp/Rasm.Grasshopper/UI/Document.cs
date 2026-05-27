@@ -65,6 +65,27 @@ internal sealed partial class ScopeUse {
     internal partial string RejectsPrimaryDetail();
 }
 
+[SmartEnum<int>]
+internal sealed partial class DocumentDeleteMode {
+    public static readonly DocumentDeleteMode SelectionDataOnly = new(key: 0, run: static (m, _, _, a) => m.DeleteSelectionData(actions: a));
+    public static readonly DocumentDeleteMode SelectionFull = new(key: 1, run: static (m, _, _, a) => m.DeleteSelection(actions: a));
+    public static readonly DocumentDeleteMode SelectionWires = new(key: 2, run: static (m, _, w, a) => m.DeleteObjects(objects: [], wires: [.. w], actions: a));
+    public static readonly DocumentDeleteMode ObjectsDataOnly = new(key: 3, run: static (m, t, _, a) => m.DeleteObjectData(objects: t!, actions: a));
+    public static readonly DocumentDeleteMode ObjectsFull = new(key: 4, run: static (m, t, w, a) => m.DeleteObjects(objects: t!, wires: [.. w], actions: a));
+
+    [UseDelegateFromConstructor]
+    internal partial int Run(GhDocumentMethods methods, IDocumentObject[]? targets, Seq<WireEnds> wires, ActionList actions);
+
+    internal static DocumentDeleteMode Resolve(IDocumentObject[]? targets, bool dataOnly, Seq<WireEnds> wires) =>
+        (targets, dataOnly, wires.IsEmpty) switch {
+            (null, true, _) => SelectionDataOnly,
+            (null, false, true) => SelectionFull,
+            (null, false, false) => SelectionWires,
+            (_, true, _) => ObjectsDataOnly,
+            (_, false, _) => ObjectsFull,
+        };
+}
+
 [SkipUnionOps]
 [Union]
 public partial record VisibilityChange {
@@ -244,7 +265,10 @@ public partial record DocumentOp {
             _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
         },
         mutateCase: static m => GrasshopperUiPolicy.Document(repaint: m.Policy.RepaintOrDefault),
-        historyCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
+        historyCase: static h => h.Request.Key switch {
+            var key when key == DocumentHistory.ShowHistory.Key => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.None),
+            _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
+        },
         inspectCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None));
 }
 
@@ -686,134 +710,4 @@ internal static partial class Document {
             InputCount: parameter.Inputs.Count,
             OutputCount: parameter.Outputs.Count,
             HasColourOverride: parameter.ColourOverride is not null);
-}
-
-internal static partial class UiRail {
-    // --- [OPERATIONS] -------------------------------------------------------------------------
-    internal static Fin<int> SelectionDispatch(GhDocumentMethods methods, SelectionOp op) =>
-        op.Switch(
-            state: methods,
-            allCase: static (m, _) => Fin.Succ(value: m.SelectAll()),
-            noneCase: static (m, _) => Fin.Succ(value: m.DeselectAll()),
-            invertCase: static (m, _) => Fin.Succ(value: m.InvertSelection()),
-            growCase: static (m, g) => Fin.Succ(value: m.GrowSelection(upstream: g.Upstream, downstream: g.Downstream)),
-            shiftCase: static (m, s) => Fin.Succ(value: m.ShiftSelection(upstream: s.Upstream)));
-
-    internal static Fin<int> ClipboardDispatch(GhDocumentMethods methods, ClipboardOp op, ActionList actions) =>
-        op.Switch(
-            state: (methods, actions),
-            verbCase: static (s, op) => op.Verb.Run(methods: s.methods, kind: op.Kind, behaviour: op.Behaviour, actions: s.actions));
-
-    internal static Fin<Option<Guid>> ComposeDispatch(GhDocumentMethods methods, GhObjectList objects, ObjectScope subject, ComposeOp op, ActionList actions) =>
-        from _ in subject.RequireMutationScope(op: Op.Of(name: nameof(ComposeDispatch)), use: ScopeUse.Compose)
-        from created in subject.Switch(
-            state: (methods, objects, op, actions),
-            selectionCase: static (s, _) => s.op.Apply(methods: s.methods, objects: s.objects, targets: null, actions: s.actions),
-            objectsCase: static (s, selected) => selected.Ids
-                .TraverseM(id => ResolveObject(objects: s.objects, id: id, op: Op.Of(name: nameof(ObjectScope.Objects))))
-                .As()
-                .Map(static resolved => resolved.ToArray())
-                .Bind(targets => s.op.Apply(methods: s.methods, objects: s.objects, targets: targets, actions: s.actions)),
-            primaryCase: static (_, _) => Fin.Fail<Option<Guid>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ComposeDispatch)), detail: ScopeUse.Compose.RejectsPrimaryDetail())),
-            primaryAndSecondaryCase: static (_, _) => Fin.Fail<Option<Guid>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ComposeDispatch)), detail: ScopeUse.Compose.RejectsPrimaryDetail())))
-        select created;
-
-    internal static Fin<IDocumentObject> ResolveObject(GhObjectList objects, Guid id, Op op) =>
-        op.AcceptValue(value: id)
-            .MapFail(_ => UiFault.InvalidInput(op: op, detail: "empty Guid"))
-            .Bind(valid => Optional(objects.Find(instanceId: valid))
-                .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"object {valid} not found")));
-
-    internal static Fin<IDocumentObject> ResolveObject(GrasshopperUi.Scope scope, Guid id, Op op) =>
-        scope.NeedObjects().Bind(objs => ResolveObject(objects: objs, id: id, op: op));
-
-    internal static int RunDelete(GhDocumentMethods methods, IDocumentObject[]? targets, bool dataOnly, Seq<WireEnds> wires, ActionList actions) =>
-        (targets, dataOnly, wires.IsEmpty) switch {
-            (null, true, _) => methods.DeleteSelectionData(actions: actions),
-            (null, false, true) => methods.DeleteSelection(actions: actions),
-            (null, false, false) => methods.DeleteObjects(objects: [], wires: [.. wires], actions: actions),
-            (_, true, _) => methods.DeleteObjectData(objects: targets, actions: actions),
-            (_, false, _) => methods.DeleteObjects(objects: targets, wires: [.. wires], actions: actions),
-        };
-
-    internal static Fin<ClipboardKind> ValidateClipboard(string name, ClipboardKind clipboard) =>
-        clipboard switch {
-            ClipboardKind.Instance => Fin.Fail<ClipboardKind>(error: UiFault.InvalidInput(op: Op.Of(name: name), detail: "ClipboardKind.Instance is not supported")),
-            _ => Fin.Succ(value: clipboard),
-        };
-
-    internal static Fin<Unit> PreflightCompose(Op op, Func<(bool Ok, string WhyNot)> check) =>
-        check() switch {
-            (true, _) => Fin.Succ(value: unit),
-            (false, string whyNot) => Fin.Fail<Unit>(error: UiFault.MutationRejected(op: op, detail: string.IsNullOrWhiteSpace(value: whyNot) ? "pre-flight rejected" : whyNot)),
-        };
-
-    internal static DocumentHistorySnapshot HistorySnapshotOf(GhDocument document) =>
-        new(
-            IsEmpty: document.Undo.IsEmpty,
-            CanUndo: document.Undo.FirstUndo is not null,
-            CanRedo: document.Undo.FirstRedo is not null,
-            UndoCount: document.Undo.CentralUndoSequence.Count(),
-            RedoCount: document.Undo.CentralRedoSequence.Count());
-
-    internal static Fin<Snapshot<DocumentMutationDelta>> RunMutation(
-        GrasshopperUi.Scope scope,
-        Op op,
-        Func<GhDocumentMethods, GhObjectList, ActionList, Fin<DocumentMutationReceipt>> mutate,
-        DocumentMutationPolicy policy) =>
-        from methods in scope.NeedMethods()
-        from document in scope.NeedDocument()
-        from objects in scope.NeedObjects()
-        let actions = ActionList.Empty
-        from receipt in mutate(arg1: methods, arg2: objects, arg3: actions).Bind(result => result.Changed switch {
-            >= 0 => Fin.Succ(value: result),
-            _ => Fin.Fail<DocumentMutationReceipt>(error: UiFault.MutationRejected(op: op, detail: string.Create(CultureInfo.InvariantCulture, $"count={result.Changed}"))),
-        })
-        from _ in CommitActions(document: document, op: op, actions: actions)
-        select Snapshot.Of(
-            payload: new DocumentMutationDelta(Changed: receipt.Changed, After: DocumentSnapshotOf(document: document, objects: objects), Created: receipt.Created),
-            ownerId: Some(document.Hash));
-
-    internal static Fin<Unit> CommitActions(GhDocument document, Op op, ActionList actions) =>
-        actions.Count switch {
-            <= 0 => Fin.Succ(value: unit),
-            _ => Try.lift(f: () => {
-                document.Undo.Do(name: VerbNounOf(op: op), actions: actions);
-                return unit;
-            }).Run().MapFail(error => UiFault.MutationRejected(op: op, detail: $"History.Do threw: {error.Message}")),
-        };
-
-    // Op names are "Noun.Verb"; History panel renders VerbNoun as "Verb Noun" — split, don't flat-emit.
-    internal static VerbNoun VerbNounOf(Op op) {
-        string name = op.ToString();
-        int dot = name.IndexOf(value: '.', comparisonType: StringComparison.Ordinal);
-        return dot > 0 && dot < name.Length - 1
-            ? (Verb: name[(dot + 1)..], Noun: name[..dot])
-            : (Verb: "Edit", Noun: name);
-    }
-
-    private static Seq<WireEnds> WiresOrEmpty(IEnumerable<WireEnds>? wires) =>
-        Optional(wires).Map(static w => toSeq(w)).IfNone(Seq<WireEnds>());
-
-    internal static DocumentSnapshot DocumentSnapshotOf(GhDocument document, GhObjectList objects) {
-        Seq<WireEnds> allWires = WiresOrEmpty(wires: objects.AllWires);
-        Seq<WireEnds> selectedWires = WiresOrEmpty(wires: objects.SelectedWires);
-        int wireCount = allWires.Count(wire => Wire.IsConnected(objects: objects, wire: wire));
-        int selectedWireCount = selectedWires.Count(wire => Wire.IsConnected(objects: objects, wire: wire));
-        return new DocumentSnapshot(
-            Hash: document.Hash, Modified: document.Modified, Modifications: document.Modifications,
-            ObjectCount: objects.Count, PinCount: objects.PinCount, ExpiredCount: objects.ExpiredCount,
-            SelectedObjectCount: objects.SelectedCount, SelectedWireCount: selectedWireCount,
-            SelectedDanglingWireCount: selectedWires.Count - selectedWireCount,
-            WireCount: wireCount, DanglingWireCount: allWires.Count - wireCount,
-            AttributeBounds: objects.AttributeBounds, PivotBounds: objects.PivotBounds,
-            ProjectionCentre: document.Projection.centre, ProjectionZoom: document.Projection.zoom);
-    }
-
-    internal static DocumentObjectSnapshot DocumentObjectSnapshotOf(IDocumentObject obj) =>
-        new(Id: obj.InstanceId, Name: obj.Nomen.Name, DisplayName: obj.DisplayName,
-            Selected: obj.Selected, Activity: string.Create(CultureInfo.InvariantCulture, $"{obj.Activity}"),
-            Display: string.Create(CultureInfo.InvariantCulture, $"{obj.Display}"), Phase: string.Create(CultureInfo.InvariantCulture, $"{obj.Phase}"), State: string.Create(CultureInfo.InvariantCulture, $"{obj.State}"),
-            Bounds: obj.Attributes.Bounds, Pivot: obj.Attributes.Pivot);
-
 }

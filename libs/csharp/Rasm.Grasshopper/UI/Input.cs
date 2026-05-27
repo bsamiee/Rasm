@@ -33,9 +33,9 @@ public sealed partial class CursorKind {
 
     internal Fin<Cursor> Resolve(Grasshopper2.UI.Canvas.Canvas canvas) =>
         Key switch {
-            9 => Fin.Succ(Optional(Grasshopper2.UI.Canvas.Canvas.CursorWireIn).IfNone(() => Cursor(canvas: canvas))),
-            10 => Fin.Succ(Optional(Grasshopper2.UI.Canvas.Canvas.CursorWireOut).IfNone(() => Cursor(canvas: canvas))),
-            11 => Fin.Succ(Optional(Grasshopper2.UI.Canvas.Canvas.CursorQuestion).IfNone(() => Cursor(canvas: canvas))),
+            var key when key == WireIn.Key => Fin.Succ(Optional(Grasshopper2.UI.Canvas.Canvas.CursorWireIn).IfNone(() => Cursor(canvas: canvas))),
+            var key when key == WireOut.Key => Fin.Succ(Optional(Grasshopper2.UI.Canvas.Canvas.CursorWireOut).IfNone(() => Cursor(canvas: canvas))),
+            var key when key == WireQuestion.Key => Fin.Succ(Optional(Grasshopper2.UI.Canvas.Canvas.CursorQuestion).IfNone(() => Cursor(canvas: canvas))),
             _ => Fin.Succ(Cursor(canvas: canvas)),
         };
 }
@@ -47,8 +47,8 @@ public sealed partial class DialogPresentation {
 
     internal Option<TResult> Show<TResult>(Dialog<TResult> dialog, Control? parent) =>
         Key switch {
-            0 => Optional(dialog.ShowModal(owner: parent)),
-            1 => Optional(Attached(dialog: dialog, parent: parent)),
+            var key when key == Modal.Key => Optional(dialog.ShowModal(owner: parent)),
+            var key when key == AttachedSheet.Key => Optional(Attached(dialog: dialog, parent: parent)),
             _ => Option<TResult>.None,
         };
 
@@ -113,6 +113,9 @@ public partial record InputClipboardOp {
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct InputModifierSnapshot(bool Shift, bool Command, bool Option);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PointerSnapshot(PointF ScreenPosition, MouseButtons Buttons);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct InputSelectionSnapshot(SelectionMode Mode, InputModifierSnapshot Modifiers);
@@ -387,6 +390,8 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
 
     public sealed record Selection(InputSelectionSource Source) : InputRequest<InputSelectionSnapshot> { internal override Fin<InputSelectionSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Selection(source: Source).Run(scope: scope); }
     public sealed record Modifiers(Keys Keys) : InputRequest<InputModifierSnapshot> { internal override Fin<InputModifierSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Modifiers(keys: Keys).Run(scope: scope); }
+    public sealed record ModifierStateCase : InputRequest<InputModifierSnapshot> { internal override Fin<InputModifierSnapshot> Apply(GrasshopperUi.Scope scope) => Input.ModifierState().Run(scope: scope); }
+    public sealed record PointerStateCase : InputRequest<PointerSnapshot> { internal override Fin<PointerSnapshot> Apply(GrasshopperUi.Scope scope) => Input.PointerState().Run(scope: scope); }
     public sealed record Panel(Func<InputPanel, Fin<Unit>> Populate) : InputRequest<InputPanelSnapshot> { internal override Fin<InputPanelSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Panel(populate: Populate).Run(scope: scope); }
     public sealed record Popup(Control Owner, PointF Location, RectangleF Screen, Func<InputPanel, Fin<Unit>> Populate) : InputRequest<InputPanelSnapshot> { internal override Fin<InputPanelSnapshot> Apply(GrasshopperUi.Scope scope) => Input.PopupPanel(owner: Owner, location: Location, screen: Screen, populate: Populate).Run(scope: scope); }
     public sealed record CommandBar(CommandPlan Plan) : InputRequest<ToolbarSnapshot> { internal override Fin<ToolbarSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Toolbar(plan: Plan).Run(scope: scope); }
@@ -432,6 +437,15 @@ internal static partial class Input {
 
     internal static GrasshopperUiIntent<InputModifierSnapshot> Modifiers(Keys keys) =>
         GhUi.Read(run: _ => Fin.Succ(value: ModifierOf(keys: keys)));
+
+    internal static GrasshopperUiIntent<InputModifierSnapshot> ModifierState() =>
+        GhUi.Read(run: _ => Fin.Succ(value: ModifierOf(keys: Keyboard.Modifiers)));
+
+    internal static GrasshopperUiIntent<PointerSnapshot> PointerState() =>
+        GhUi.Read(run: _ =>
+            Mouse.IsSupported
+                ? Fin.Succ(value: new PointerSnapshot(ScreenPosition: Mouse.Position, Buttons: Mouse.Buttons))
+                : Fin.Fail<PointerSnapshot>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(PointerState)), detail: "mouse position is not supported on this platform")));
 
     internal static GrasshopperUiIntent<InputPanelSnapshot> Panel(Func<InputPanel, Fin<Unit>> populate) =>
         GhUi.Read(run: _ =>
@@ -554,7 +568,7 @@ internal static partial class Input {
     private static Fin<Option<TResult>> RunDialog<TResult>(GrasshopperUi.Scope scope, string title, DialogPresentation presentation, Func<Dialog<TResult>, Fin<Unit>> configure) =>
         Try.lift<Fin<Option<TResult>>>(f: () => {
             using Dialog<TResult> dialog = new() { Title = title };
-            global::Rhino.UI.EtoExtensions.UseRhinoStyle(dialog);
+            Rhino.UI.EtoExtensions.UseRhinoStyle(dialog);
             return configure(arg: dialog).Map(_ => presentation.Show(dialog: dialog, parent: DialogParent(scope: scope)));
         }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Dialog)), detail: $"Dialog<T> threw: {error.Message}")).Bind(static r => r);
 
@@ -597,7 +611,7 @@ internal static partial class Input {
     }
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
-    private static InputModifierSnapshot ModifierOf(Keys keys) =>
+    internal static InputModifierSnapshot ModifierOf(Keys keys) =>
         new(Shift: keys.HasShift(), Command: keys.HasCommand(), Option: keys.HasOption());
 
     private static Control? DialogParent(GrasshopperUi.Scope scope) =>

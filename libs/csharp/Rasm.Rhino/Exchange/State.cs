@@ -557,7 +557,7 @@ internal static class FileSheetDefaults {
     internal const long DefaultJpegQuality = 90L;
 }
 
-public sealed record FileSheet(
+public sealed partial record FileSheet(
     Option<Guid> Id = default,
     Option<string> Name = default,
     Option<string> Group = default,
@@ -565,7 +565,7 @@ public sealed record FileSheet(
     bool PrintWidths = true,
     bool Raster = false,
     ViewCaptureSettings.ColorMode Color = ViewCaptureSettings.ColorMode.DisplayColor,
-    Option<FileSheetDecor> Decor = default,
+    Option<CaptureDecor> Decor = default,
     Option<Func<RhinoPageView, bool>> Predicate = default) {
     internal Fin<ViewCaptureSettings> Settings(RhinoPageView page, Op op) =>
         from active in Optional(page).ToFin(Fail: op.InvalidInput())
@@ -578,58 +578,23 @@ public sealed record FileSheet(
             RasterMode = Raster,
             OutputColor = Color,
         }
-        from configured in Decor.Map(decor => decor.Apply(settings: settings, page: active, op: op)).IfNone(Fin.Succ(value: settings))
+        from configured in Decor.Map(decor => ApplyDecor(decor: decor, settings: settings, page: active, op: op)).IfNone(Fin.Succ(value: settings))
         from ready in configured.IsValid
             ? Fin.Succ(value: configured)
             : Fin.Fail<ViewCaptureSettings>(error: op.InvalidResult())
         select ready;
-}
 
-[StructLayout(LayoutKind.Auto)]
-public readonly partial record struct FileSheetDecor(
-    bool DrawGrid = false,
-    bool DrawAxis = false,
-    bool DrawLights = false,
-    bool DrawLockedObjects = true,
-    bool DrawSelectedObjectsOnly = false,
-    bool DrawMargins = false,
-    bool DrawClippingPlanes = false,
-    bool DrawWallpaper = false,
-    bool DrawBackgroundBitmap = false,
-    bool DrawBackground = true,
-    Option<double> WireThicknessScale = default,
-    Option<double> PointSizeMillimeters = default,
-    Option<double> ArrowheadSizeMillimeters = default,
-    Option<double> TextDotPointSize = default,
-    Option<CaptureLayout> Layout = default,
-    Option<string> HeaderText = default,
-    Option<string> FooterText = default) {
-    internal Fin<ViewCaptureSettings> Apply(ViewCaptureSettings settings, RhinoPageView page, Op op) {
-        FileSheetDecor self = this;
-        return from active in Optional(settings).ToFin(Fail: op.InvalidInput())
-               from sheet in Optional(page).ToFin(Fail: op.InvalidInput())
-               from configured in op.Catch(() => {
-                   active.DrawGrid = self.DrawGrid;
-                   active.DrawAxis = self.DrawAxis;
-                   active.DrawLights = self.DrawLights;
-                   active.DrawLockedObjects = self.DrawLockedObjects;
-                   active.DrawSelectedObjectsOnly = self.DrawSelectedObjectsOnly;
-                   active.DrawMargins = self.DrawMargins;
-                   active.DrawClippingPlanes = self.DrawClippingPlanes;
-                   active.DrawWallpaper = self.DrawWallpaper;
-                   active.DrawBackgroundBitmap = self.DrawBackgroundBitmap;
-                   active.DrawBackground = self.DrawBackground;
-                   return Fin.Succ(value: active
-                       .Set(self.WireThicknessScale, static (a, v) => a.WireThicknessScale = v)
-                       .Set(self.PointSizeMillimeters, static (a, v) => a.PointSizeMillimeters = v)
-                       .Set(self.ArrowheadSizeMillimeters, static (a, v) => a.ArrowheadSizeMillimeters = v)
-                       .Set(self.TextDotPointSize, static (a, v) => a.TextDotPointSize = v)
-                       .Set(self.HeaderText, value => Interpolate(template: value, document: sheet.Document, page: sheet), static (a, v) => a.HeaderText = v)
-                       .Set(self.FooterText, value => Interpolate(template: value, document: sheet.Document, page: sheet), static (a, v) => a.FooterText = v));
-               })
-               from layoutApplied in self.Layout.Map(value => value.Apply(settings: configured, op: op)).IfNone(Fin.Succ(value: unit))
-               select configured;
-    }
+    private static Fin<ViewCaptureSettings> ApplyDecor(CaptureDecor decor, ViewCaptureSettings settings, RhinoPageView page, Op op) =>
+        from active in Optional(settings).ToFin(Fail: op.InvalidInput())
+        from sheet in Optional(page).ToFin(Fail: op.InvalidInput())
+        let projected = decor with {
+            UsePrintWidths = active.UsePrintWidths,
+            OutputColor = active.OutputColor,
+            HeaderText = decor.HeaderText.Map(value => Interpolate(template: value, document: sheet.Document, page: sheet)),
+            FooterText = decor.FooterText.Map(value => Interpolate(template: value, document: sheet.Document, page: sheet)),
+        }
+        from _ in projected.Apply(settings: active, op: op)
+        select active;
 
     private static string Interpolate(string template, RhinoDoc document, RhinoPageView page) {
         int total = document.Views.GetPageViews()?.Length ?? 0;

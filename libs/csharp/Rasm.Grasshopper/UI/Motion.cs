@@ -30,8 +30,11 @@ internal static class MotionAccessibility {
     internal static bool ShouldDifferentiateWithoutColor =>
         NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldDifferentiateWithoutColor;
 
+    internal static bool ShouldReduceTransparency =>
+        NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceTransparency;
+
     internal static bool ShouldSkipDecorativeMotion =>
-        ShouldReduceMotion || ShouldDifferentiateWithoutColor;
+        ShouldReduceMotion || ShouldDifferentiateWithoutColor || ShouldReduceTransparency;
 }
 
 // MessageLoop = Eto coalesced ~60Hz (default). DisplayLink = CADisplayLink vsync (macOS 14+).
@@ -46,6 +49,22 @@ public partial record MotionClock {
     public static MotionClock DisplayLink(Option<CAFrameRateRange> rate = default) => new DisplayLinkCase(Rate: rate);
 }
 
+[SmartEnum<int>]
+public sealed partial class GradientKind {
+    public static readonly GradientKind Axial = new(key: 0);
+    public static readonly GradientKind Radial = new(key: 1);
+    public static readonly GradientKind Conic = new(key: 2);
+
+    internal int ProfileIndex => Key;
+}
+
+// CALayer gradient points are normalized to the layer frame (0,0)–(1,1). Omit both to use the profile row for Kind.
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CosmeticGradientPoints(Option<PointF> Start = default, Option<PointF> End = default) {
+    public static CosmeticGradientPoints ConicSweep(PointF end) => new(End: Some(end));
+    public static CosmeticGradientPoints Conic(PointF center, PointF sweep) => new(Start: Some(center), End: Some(sweep));
+}
+
 // Fire-and-forget GPU chrome on CALayer; no mid-flight retarget — dispose and re-issue to change bounds/tint/path.
 [SkipUnionOps]
 [Union]
@@ -54,6 +73,15 @@ public partial record CosmeticIntent {
     public sealed record PulseCase(RectangleF Bounds, Color Tint, GhDuration Duration) : CosmeticIntent;
     public sealed record GlowCase(RectangleF Bounds, Color Tint, float CornerRadius, float ShadowRadius, GhDuration Duration) : CosmeticIntent;
     public sealed record StrokeOnCase(ReadOnlyMemory<PointF> Polyline, Color Tint, float Thickness, GhDuration Duration) : CosmeticIntent;
+    public sealed record GradientCase(
+        RectangleF Bounds,
+        Color Start,
+        Color End,
+        GradientKind Kind,
+        GhDuration Duration,
+        CosmeticGradientPoints Points = default) : CosmeticIntent;
+    public sealed record TextLayerCase(string Text, PointF Origin, Color Tint, float FontSize, GhDuration Duration) : CosmeticIntent;
+    public sealed record ReplicatorCase(RectangleF SourceBounds, int Count, float Spacing, Color Tint, GhDuration Duration) : CosmeticIntent;
 }
 
 public interface IMotionVector<T> {
@@ -763,8 +791,7 @@ internal static class Motion {
             from canvas in scope.NeedCanvas()
             from view in Optional(canvas.ControlObject as NSView).ToFin(Fail: UiFault.MutationRejected(
                 op: Op.Of(name: nameof(Cosmetic)), detail: "canvas.ControlObject is not an NSView"))
-            from validated in ValidateCosmetic(intent: intent)
-            from mapped in MapCosmetic(canvas: canvas, intent: validated)
+            from mapped in PrepareCosmetic(canvas: canvas, intent: intent)
             let key = (NSString)$"rasm.cosmetic.{Guid.NewGuid():N}"
             from sub in Subscription.Bind(
                 attach: () => CosmeticAttach(view: view, intent: mapped, key: key),
@@ -772,15 +799,88 @@ internal static class Motion {
                 marshalToUi: true)
             select sub);
 
-    private static Fin<CosmeticIntent> MapCosmetic(Grasshopper2.UI.Canvas.Canvas canvas, CosmeticIntent intent) =>
+    private static readonly (CAGradientLayerType Type, CGPoint Start, CGPoint End)[] CosmeticGradientProfile = [
+        (CAGradientLayerType.Axial, CGPoint.Empty, new CGPoint(x: 1, y: 0)),
+        (CAGradientLayerType.Radial, new CGPoint(x: 0.5, y: 0.5), new CGPoint(x: 1, y: 1)),
+        (CAGradientLayerType.Conic, new CGPoint(x: 0.5, y: 0.5), new CGPoint(x: 1, y: 0.5)),
+    ];
+
+    private static Fin<CosmeticIntent> PrepareCosmetic(Grasshopper2.UI.Canvas.Canvas canvas, CosmeticIntent intent) =>
         intent.Switch(
-            pulseCase: static (c, p) => Fin.Succ<CosmeticIntent>(new CosmeticIntent.PulseCase(
-                Bounds: MapCosmeticRect(canvas: c, bounds: p.Bounds), Tint: p.Tint, Duration: p.Duration)),
-            glowCase: static (c, g) => Fin.Succ<CosmeticIntent>(new CosmeticIntent.GlowCase(
-                Bounds: MapCosmeticRect(canvas: c, bounds: g.Bounds), Tint: g.Tint, CornerRadius: g.CornerRadius, ShadowRadius: g.ShadowRadius, Duration: g.Duration)),
-            strokeOnCase: static (c, s) => Fin.Succ<CosmeticIntent>(new CosmeticIntent.StrokeOnCase(
-                Polyline: MapCosmeticPolyline(canvas: c, polyline: s.Polyline), Tint: s.Tint, Thickness: s.Thickness, Duration: s.Duration)),
+            pulseCase: static (c, p) => {
+                Op op = Op.Of(name: nameof(CosmeticIntent.PulseCase));
+                return op.AcceptRect(value: p.Bounds, detail: "non-finite pulse bounds")
+                    .Map<CosmeticIntent>(_ => new CosmeticIntent.PulseCase(
+                        Bounds: MapCosmeticRect(canvas: c, bounds: p.Bounds), Tint: p.Tint, Duration: p.Duration));
+            },
+            glowCase: static (c, g) => {
+                Op op = Op.Of(name: nameof(CosmeticIntent.GlowCase));
+                return op.AcceptRect(value: g.Bounds, detail: "non-finite glow bounds")
+                    .Bind(_ => op.AcceptFinite(value: g.CornerRadius, detail: "non-finite corner radius"))
+                    .Bind(_ => op.AcceptFinite(value: g.ShadowRadius, detail: "non-finite shadow radius"))
+                    .Map<CosmeticIntent>(_ => new CosmeticIntent.GlowCase(
+                        Bounds: MapCosmeticRect(canvas: c, bounds: g.Bounds), Tint: g.Tint, CornerRadius: g.CornerRadius, ShadowRadius: g.ShadowRadius, Duration: g.Duration));
+            },
+            strokeOnCase: static (c, s) => {
+                Op op = Op.Of(name: nameof(CosmeticIntent.StrokeOnCase));
+                return op.AcceptFinite(value: s.Thickness, detail: "non-positive thickness", requirePositive: true)
+                    .Map<CosmeticIntent>(_ => new CosmeticIntent.StrokeOnCase(
+                        Polyline: MapCosmeticPolyline(canvas: c, polyline: s.Polyline), Tint: s.Tint, Thickness: s.Thickness, Duration: s.Duration));
+            },
+            gradientCase: static (c, g) => {
+                Op op = Op.Of(name: nameof(CosmeticIntent.GradientCase));
+                return op.AcceptRect(value: g.Bounds, detail: "non-finite gradient bounds")
+                    .Bind(_ => AcceptGradientPoints(op: op, points: g.Points))
+                    .Map<CosmeticIntent>(_ => new CosmeticIntent.GradientCase(
+                        Bounds: MapCosmeticRect(canvas: c, bounds: g.Bounds),
+                        Start: g.Start,
+                        End: g.End,
+                        Kind: g.Kind,
+                        Duration: g.Duration,
+                        Points: g.Points));
+            },
+            textLayerCase: static (c, t) => {
+                Op op = Op.Of(name: nameof(CosmeticIntent.TextLayerCase));
+                return Optional(t.Text)
+                    .Filter(static text => text.Length > 0)
+                    .ToFin(Fail: UiFault.InvalidInput(op: op, detail: "text is required"))
+                    .Bind(_ => op.AcceptFinite(value: t.FontSize, detail: "non-positive font size", requirePositive: true))
+                    .Map<CosmeticIntent>(_ => new CosmeticIntent.TextLayerCase(
+                        Text: t.Text, Origin: c.Map(point: t.Origin, from: CoordinateSystem.Content, to: CoordinateSystem.Control), Tint: t.Tint, FontSize: t.FontSize, Duration: t.Duration));
+            },
+            replicatorCase: static (c, r) => {
+                Op op = Op.Of(name: nameof(CosmeticIntent.ReplicatorCase));
+                return r.Count > 0
+                    ? op.AcceptRect(value: r.SourceBounds, detail: "non-finite replicator bounds")
+                        .Bind(_ => op.AcceptFinite(value: r.Spacing, detail: "non-finite replicator spacing"))
+                        .Map<CosmeticIntent>(_ => new CosmeticIntent.ReplicatorCase(
+                            SourceBounds: MapCosmeticRect(canvas: c, bounds: r.SourceBounds), Count: r.Count, Spacing: r.Spacing, Tint: r.Tint, Duration: r.Duration))
+                    : Fin.Fail<CosmeticIntent>(error: UiFault.InvalidInput(op: op, detail: "replicator count must be positive"));
+            },
             state: canvas);
+
+    private static Fin<Unit> AcceptGradientPoints(Op op, CosmeticGradientPoints points) =>
+        toSeq([
+            points.Start.Map(start => AcceptNormalizedGradientPoint(op: op, point: start, label: nameof(CosmeticGradientPoints.Start))),
+            points.End.Map(end => AcceptNormalizedGradientPoint(op: op, point: end, label: nameof(CosmeticGradientPoints.End))),
+        ])
+            .Somes()
+            .Fold(
+                initialState: Fin.Succ(unit),
+                f: static (acc, step) => acc.Bind(_ => step));
+
+    private static Fin<Unit> AcceptNormalizedGradientPoint(Op op, PointF point, string label) =>
+        op.AcceptPoint(value: point, detail: $"non-finite {label}")
+            .Bind(valid => valid is { X: >= 0f and <= 1f, Y: >= 0f and <= 1f }
+                ? Fin.Succ(unit)
+                : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: op, detail: $"{label} must lie in [0,1] layer space (got {valid.X:R},{valid.Y:R})")));
+
+    private static (CGPoint Start, CGPoint End) ResolveGradientPoints(GradientKind kind, CosmeticGradientPoints points) {
+        (_, CGPoint profileStart, CGPoint profileEnd) = CosmeticGradientProfile[kind.ProfileIndex];
+        return (
+            Start: points.Start.Map(static value => ToCGPoint(value)).IfNone(profileStart),
+            End: points.End.Map(static value => ToCGPoint(value)).IfNone(profileEnd));
+    }
 
     private static RectangleF MapCosmeticRect(Grasshopper2.UI.Canvas.Canvas canvas, RectangleF bounds) =>
         canvas.Map(rectangle: bounds, from: CoordinateSystem.Content, to: CoordinateSystem.Control);
@@ -790,26 +890,6 @@ internal static class Motion {
             .Map(point => canvas.Map(point: point, from: CoordinateSystem.Content, to: CoordinateSystem.Control))
             .ToArray();
 
-    private static Fin<CosmeticIntent> ValidateCosmetic(CosmeticIntent intent) =>
-        intent.Switch(
-            pulseCase: p => {
-                Op op = Op.Of(name: nameof(CosmeticIntent.PulseCase));
-                return op.AcceptRect(value: p.Bounds, detail: "non-finite pulse bounds")
-                    .Map<CosmeticIntent>(_ => p);
-            },
-            glowCase: g => {
-                Op op = Op.Of(name: nameof(CosmeticIntent.GlowCase));
-                return op.AcceptRect(value: g.Bounds, detail: "non-finite glow bounds")
-                    .Bind(_ => op.AcceptFinite(value: g.CornerRadius, detail: "non-finite corner radius"))
-                    .Bind(_ => op.AcceptFinite(value: g.ShadowRadius, detail: "non-finite shadow radius"))
-                    .Map<CosmeticIntent>(_ => g);
-            },
-            strokeOnCase: s => {
-                Op op = Op.Of(name: nameof(CosmeticIntent.StrokeOnCase));
-                return op.AcceptFinite(value: s.Thickness, detail: "non-positive thickness", requirePositive: true)
-                    .Map<CosmeticIntent>(_ => s);
-            });
-
     [SupportedOSPlatform("macos14.0")]
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
         Justification = "CAShapeLayer ownership transfers to host CALayer via AddSublayer; disposal happens on Subscription detach or animation completion delegate.")]
@@ -818,25 +898,16 @@ internal static class Motion {
         if (view.Layer is not CALayer host) {
             return unit;
         }
-        CAShapeLayer shape = BuildCosmeticShape(intent: intent);
-        shape.Name = key.ToString();
         if (MotionAccessibility.ShouldSkipDecorativeMotion) {
-            return WithoutAnimation(() => {
-                ApplyCosmeticTerminal(shape: shape, intent: intent);
-                host.AddSublayer(layer: shape);
-            });
+            return unit;
         }
-        host.AddSublayer(layer: shape);
+        CALayer layer = BuildCosmeticLayer(intent: intent);
+        layer.Name = key.ToString();
+        host.AddSublayer(layer: layer);
         CAAnimation animation = BuildCosmeticAnimation(intent: intent);
-        animation.WeakDelegate = new CosmeticRemove(shape: shape, key: key);
-        shape.AddAnimation(animation: animation, key: key);
+        animation.WeakDelegate = new CosmeticRemove(layer: layer, key: key);
+        layer.AddAnimation(animation: animation, key: key);
         return unit;
-    }
-
-    private static void ApplyCosmeticTerminal(CAShapeLayer shape, CosmeticIntent intent) {
-        _ = intent is CosmeticIntent.PulseCase ? Op.Side(() => shape.Opacity = 0f)
-            : intent is CosmeticIntent.GlowCase ? Op.Side(() => shape.ShadowOpacity = 0f)
-            : Op.Side(() => shape.StrokeEnd = 1f);
     }
 
     // Mutual-exclusion claim: TryClaim wins exactly once across explicit-dispose vs AnimationStopped.
@@ -863,51 +934,113 @@ internal static class Motion {
     }
 
     [SupportedOSPlatform("macos14.0")]
-    private static CAShapeLayer BuildCosmeticShape(CosmeticIntent intent) =>
-        intent.Switch(
-            pulseCase: static p => {
-                CAShapeLayer shape = new() { Frame = ToCGRect(p.Bounds) };
-                CGPath path = new();
-                path.AddRect(rect: ToCGRect(p.Bounds));
-                shape.Path = path;
-                shape.FillColor = ToCGColor(p.Tint);
-                shape.Opacity = 0f;
-                return shape;
-            },
-            glowCase: static g => {
-                CGRect rect = ToCGRect(g.Bounds);
-                CGPath path = new();
-                path.AddRoundedRect(transform: CGAffineTransform.MakeIdentity(), rect: rect, cornerWidth: g.CornerRadius, cornerHeight: g.CornerRadius);
-                CAShapeLayer shape = new() {
-                    Frame = rect,
-                    Path = path,
-                    StrokeColor = ToCGColor(g.Tint),
-                    LineWidth = 0f,
-                    ShadowColor = ToCGColor(g.Tint),
-                    ShadowRadius = g.ShadowRadius,
-                    ShadowOffset = CGSize.Empty,
-                    ShadowPath = path,
-                    ShadowOpacity = 0f,
-                };
-                return shape;
-            },
-            strokeOnCase: static s => {
-                CGPath path = new();
-                ReadOnlySpan<PointF> points = s.Polyline.Span;
-                if (points.Length > 0) {
-                    path.MoveToPoint(point: ToCGPoint(points[0]));
-                    for (int i = 1; i < points.Length; i++) {
-                        path.AddLineToPoint(point: ToCGPoint(points[i]));
-                    }
-                }
-                return new CAShapeLayer {
-                    Path = path,
-                    StrokeColor = ToCGColor(s.Tint),
-                    LineWidth = s.Thickness,
-                    StrokeStart = 0f,
-                    StrokeEnd = 0f,
-                };
-            });
+    private static CALayer BuildCosmeticLayer(CosmeticIntent intent) =>
+        intent is CosmeticIntent.PulseCase pulse ? CosmeticPulseLayer(pulse)
+        : intent is CosmeticIntent.GlowCase glow ? CosmeticGlowLayer(glow)
+        : intent is CosmeticIntent.StrokeOnCase stroke ? CosmeticStrokeLayer(stroke)
+        : intent is CosmeticIntent.GradientCase gradient ? CosmeticGradientLayer(gradient)
+        : intent is CosmeticIntent.TextLayerCase text ? CosmeticTextLayer(text)
+        : intent is CosmeticIntent.ReplicatorCase replicate ? CosmeticReplicatorLayer(replicate)
+        : CosmeticPulseLayer(new CosmeticIntent.PulseCase(Bounds: RectangleF.Empty, Tint: Colors.Transparent, Duration: GhDuration.Fast));
+
+    [SupportedOSPlatform("macos14.0")]
+    private static CAShapeLayer CosmeticPulseLayer(CosmeticIntent.PulseCase pulse) {
+        CAShapeLayer shape = new() { Frame = ToCGRect(pulse.Bounds) };
+        CGPath path = new();
+        path.AddRect(rect: ToCGRect(pulse.Bounds));
+        shape.Path = path;
+        shape.FillColor = ToCGColor(pulse.Tint);
+        shape.Opacity = 0f;
+        return shape;
+    }
+
+    [SupportedOSPlatform("macos14.0")]
+    private static CAShapeLayer CosmeticGlowLayer(CosmeticIntent.GlowCase glow) {
+        CGRect rect = ToCGRect(glow.Bounds);
+        CGPath path = new();
+        path.AddRoundedRect(transform: CGAffineTransform.MakeIdentity(), rect: rect, cornerWidth: glow.CornerRadius, cornerHeight: glow.CornerRadius);
+        return new CAShapeLayer {
+            Frame = rect,
+            Path = path,
+            StrokeColor = ToCGColor(glow.Tint),
+            LineWidth = 0f,
+            ShadowColor = ToCGColor(glow.Tint),
+            ShadowRadius = glow.ShadowRadius,
+            ShadowOffset = CGSize.Empty,
+            ShadowPath = path,
+            ShadowOpacity = 0f,
+        };
+    }
+
+    [SupportedOSPlatform("macos14.0")]
+    private static CAShapeLayer CosmeticStrokeLayer(CosmeticIntent.StrokeOnCase stroke) {
+        CGPath path = new();
+        ReadOnlySpan<PointF> points = stroke.Polyline.Span;
+        if (points.Length > 0) {
+            path.MoveToPoint(point: ToCGPoint(points[0]));
+            for (int i = 1; i < points.Length; i++) {
+                path.AddLineToPoint(point: ToCGPoint(points[i]));
+            }
+        }
+        return new CAShapeLayer {
+            Path = path,
+            StrokeColor = ToCGColor(stroke.Tint),
+            LineWidth = stroke.Thickness,
+            StrokeStart = 0f,
+            StrokeEnd = 0f,
+        };
+    }
+
+    [SupportedOSPlatform("macos14.0")]
+    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
+        Justification = "CGColor/NSString ownership transfers to CALayer property graph for animation lifetime.")]
+    private static CAGradientLayer CosmeticGradientLayer(CosmeticIntent.GradientCase gradient) {
+        (CAGradientLayerType type, _, _) = CosmeticGradientProfile[gradient.Kind.ProfileIndex];
+        (CGPoint start, CGPoint end) = ResolveGradientPoints(kind: gradient.Kind, points: gradient.Points);
+        return new CAGradientLayer {
+            Frame = ToCGRect(gradient.Bounds),
+            Colors = [ToCGColor(gradient.Start), ToCGColor(gradient.End)],
+            LayerType = type,
+            StartPoint = start,
+            EndPoint = end,
+            Opacity = 0f,
+        };
+    }
+
+    [SupportedOSPlatform("macos14.0")]
+    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
+        Justification = "CGColor/NSString ownership transfers to CALayer property graph for animation lifetime.")]
+    private static CATextLayer CosmeticTextLayer(CosmeticIntent.TextLayerCase text) {
+        CATextLayer layer = new() {
+            String = new NSString(text.Text),
+            ForegroundColor = ToCGColor(text.Tint),
+            FontSize = text.FontSize,
+            ContentsScale = NSScreen.MainScreen?.BackingScaleFactor ?? 2f,
+            Opacity = 0f,
+            Position = ToCGPoint(text.Origin),
+        };
+        return layer;
+    }
+
+    [SupportedOSPlatform("macos14.0")]
+    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
+        Justification = "CGPath ownership transfers to CAShapeLayer hosted by CAReplicatorLayer.")]
+    private static CAReplicatorLayer CosmeticReplicatorLayer(CosmeticIntent.ReplicatorCase replicate) {
+        CGRect rect = ToCGRect(replicate.SourceBounds);
+        CAShapeLayer source = new();
+        CGPath path = new();
+        path.AddRect(rect: rect);
+        source.Path = path;
+        source.FillColor = ToCGColor(replicate.Tint);
+        CAReplicatorLayer replicator = new() {
+            Frame = rect,
+            InstanceCount = replicate.Count,
+            InstanceTransform = CATransform3D.MakeTranslation(tx: replicate.Spacing, ty: 0, tz: 0),
+            Opacity = 0f,
+        };
+        replicator.AddSublayer(layer: source);
+        return replicator;
+    }
 
     // CABasicAnimation does not auto-honour NSWorkspace reduce-motion; terminal snap is handled in CosmeticAttach.
     [SupportedOSPlatform("macos14.0")]
@@ -933,6 +1066,9 @@ internal static class Motion {
         intent is CosmeticIntent.PulseCase pulse ? KeyframeFade(path: "opacity", duration: pulse.Duration, alpha: pulse.Tint.A)
         : intent is CosmeticIntent.GlowCase glow ? KeyframeFade(path: "shadowOpacity", duration: glow.Duration, alpha: glow.Tint.A)
         : intent is CosmeticIntent.StrokeOnCase stroke ? StrokeEndAnimation(duration: stroke.Duration)
+        : intent is CosmeticIntent.GradientCase gradient ? KeyframeFade(path: "opacity", duration: gradient.Duration, alpha: Math.Max(gradient.Start.A, gradient.End.A))
+        : intent is CosmeticIntent.TextLayerCase text ? KeyframeFade(path: "opacity", duration: text.Duration, alpha: text.Tint.A)
+        : intent is CosmeticIntent.ReplicatorCase replicate ? KeyframeFade(path: "opacity", duration: replicate.Duration, alpha: replicate.Tint.A)
         : KeyframeFade(path: "opacity", duration: GhDuration.Fast, alpha: 0f);
 
     private static CGRect ToCGRect(RectangleF r) => new(x: r.X, y: r.Y, width: r.Width, height: r.Height);
@@ -951,12 +1087,12 @@ internal static class Motion {
     // Exchange-on-stripped is symmetric with CosmeticStrip.TryClaim — whichever path wins owns the strip.
     [SupportedOSPlatform("macos14.0")]
     private sealed class CosmeticRemove : CAAnimationDelegate {
-        private readonly CAShapeLayer shape;
+        private readonly CALayer layer;
         private readonly string key;
         private int stripped;
 
-        internal CosmeticRemove(CAShapeLayer shape, NSString key) {
-            this.shape = shape;
+        internal CosmeticRemove(CALayer layer, NSString key) {
+            this.layer = layer;
             this.key = key.ToString();
         }
 
@@ -965,8 +1101,8 @@ internal static class Motion {
                 return;
             }
             _ = WithoutAnimation(() => {
-                shape.RemoveAnimation(key: key);
-                shape.RemoveFromSuperLayer();
+                layer.RemoveAnimation(key: key);
+                layer.RemoveFromSuperLayer();
             });
         }
 

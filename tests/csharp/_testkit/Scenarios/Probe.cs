@@ -9,11 +9,15 @@ namespace Rasm.TestKit.Scenarios;
 public static class Probe {
     public static void Require(bool condition, string message) =>
         _ = condition ? true : throw new InvalidOperationException(message: message);
-    public static T Expect<T>(Fin<T> result, string label) {
+    public static T Expect<T>(Fin<T> result, string label, FactBag? facts = null) {
         ArgumentNullException.ThrowIfNull(argument: result);
         return result.Match(
             Succ: static value => value,
-            Fail: error => throw new InvalidOperationException(message: $"{label}: {error.Message}"));
+            Fail: error => {
+                facts?.Add(key: string.Create(provider: CultureInfo.InvariantCulture, $"{label}.error.category"), value: error.Category());
+                facts?.Add(key: string.Create(provider: CultureInfo.InvariantCulture, $"{label}.error"), value: error.Message);
+                throw new InvalidOperationException(message: $"{label}: {error.Message}");
+            });
     }
     public static T ExpectSome<T>(Option<T> result, string label) =>
         result.Match(

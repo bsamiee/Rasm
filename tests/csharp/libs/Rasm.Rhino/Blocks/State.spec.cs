@@ -106,6 +106,17 @@ public sealed class BlockRailLaws {
         BlockOp matrix = new BlockOp.AttributeMatrix(
             Refs: Some(Seq(refer)),
             Scope: ReferenceScope.TopAndNested);
+        BlockOp validate = new BlockOp.ValidateArchiveClosure(
+            Source: FileEndpoint.From(path: "parent.3dm").IfFail(error => throw new InvalidOperationException(message: error.Message)));
+        BlockOp writeAttributes = new BlockOp.WriteAttributeFields(
+            Ref: refer,
+            Values: HashMap<string, string>().AddOrUpdate(key: "Mark", value: "A"),
+            Policy: ConstraintPolicy.Schema);
+        BlockOutcome closure = new BlockOutcome.ClosureReport(Value: new ArchiveClosureReport(
+            Valid: true,
+            Edges: Seq<Archive.LinkedArchiveEdge>(),
+            Broken: Seq<ArchivePath>(),
+            Cycles: Seq<Seq<ArchivePath>>()));
         BlockOutcome receipt = new BlockOutcome.Receipt(Value: MutationReceipt.Named(name: name.Value));
         BlockOutcome boundsOutcome = new BlockOutcome.Bounds(Value: BoundingBox.Empty);
         AttributeCell cell = new(
@@ -121,6 +132,9 @@ public sealed class BlockRailLaws {
         _ = Assert.IsType<BlockOp.Graph>(@object: graph);
         _ = Assert.IsType<BlockOp.Bounds>(@object: bounds);
         _ = Assert.IsType<BlockOp.AttributeMatrix>(@object: matrix);
+        _ = Assert.IsType<BlockOp.ValidateArchiveClosure>(@object: validate);
+        _ = Assert.IsType<BlockOp.WriteAttributeFields>(@object: writeAttributes);
+        _ = Assert.IsType<BlockOutcome.ClosureReport>(@object: closure);
         _ = Assert.IsType<BlockOutcome.Receipt>(@object: receipt);
         _ = Assert.IsType<BlockOutcome.Bounds>(@object: boundsOutcome);
         _ = Assert.IsType<BlockOutcome.AttributeMatrix>(@object: attributes);

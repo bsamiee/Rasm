@@ -327,9 +327,9 @@ internal static class FileArchiveOps {
             .IfNone(() => Blocks.Archive.From(model: model, key: key))
             .IfFail(_ => Blocks.Archive.Graph.Empty);
         Seq<string> linked = archivePath
-            .Map(path => Blocks.Archive.LinkedArchiveClosure(root: model, rootPath: path, key: key)
-                .Map(edges => edges.Map(static edge => edge.Link.Full.Value).Distinct())
-                .IfFail(_ => toSeq(graph.LinkedArchives.AsEnumerable()).Map(static link => link.Stored)))
+            .Map(path => Blocks.Archive.ValidateArchiveClosure(root: model, rootPath: path, key: key)
+                .Map(report => report.Edges.Map(static edge => edge.Link.Full.Value).Distinct())
+                .IfFail(_ => Seq<string>()))
             .IfNone(() => toSeq(graph.LinkedArchives.AsEnumerable()).Map(static link => link.Stored));
         return (Graph: graph, Linked: linked);
     }

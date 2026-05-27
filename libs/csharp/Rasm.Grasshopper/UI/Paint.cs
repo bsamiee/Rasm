@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
@@ -6,10 +7,30 @@ using Grasshopper2.UI.Icon;
 using Grasshopper2.UI.Primitives;
 using Grasshopper2.UI.Skinning;
 using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
+using Op = Rasm.Domain.Op;
 
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class SystemColorKind {
+    private delegate Color ColorSource();
+
+    public static readonly SystemColorKind ControlText = new(key: 0, resolve: static () => SystemColors.ControlText);
+    public static readonly SystemColorKind Control = new(key: 1, resolve: static () => SystemColors.Control);
+    public static readonly SystemColorKind ControlBackground = new(key: 2, resolve: static () => SystemColors.ControlBackground);
+    public static readonly SystemColorKind WindowBackground = new(key: 3, resolve: static () => SystemColors.WindowBackground);
+    public static readonly SystemColorKind Highlight = new(key: 4, resolve: static () => SystemColors.Highlight);
+    public static readonly SystemColorKind HighlightText = new(key: 5, resolve: static () => SystemColors.HighlightText);
+    public static readonly SystemColorKind Selection = new(key: 6, resolve: static () => SystemColors.Selection);
+    public static readonly SystemColorKind SelectionText = new(key: 7, resolve: static () => SystemColors.SelectionText);
+    public static readonly SystemColorKind DisabledText = new(key: 8, resolve: static () => SystemColors.DisabledText);
+    public static readonly SystemColorKind LinkText = new(key: 9, resolve: static () => SystemColors.LinkText);
+
+    [UseDelegateFromConstructor]
+    internal partial Color Resolve();
+}
+
 [SmartEnum<int>]
 public sealed partial class CanvasPaintPhase {
     private delegate Unit PaintWire(GhCanvas canvas, EventHandler<CanvasPaintEventArgs> handler);
@@ -49,6 +70,17 @@ public readonly record struct PaintScope(CanvasPaintPhase Phase, ControlGraphics
 
     internal Option<CanvasBackgroundPaintEventArgs> Background { get; init; }
 
+    public float PointsPerPixel => Graphics.Content.PointsPerPixel > 0f ? Graphics.Content.PointsPerPixel : 1f;
+
+    public float Dpi => Graphics.Content.DPI;
+
+    public UiPixelScale PixelScale => new(
+        LogicalPixelSize: PointsPerPixel > 0f ? 1f / PointsPerPixel : 1f,
+        PointsPerPixel: PointsPerPixel,
+        FromPaintGraphics: true);
+
+    public bool IsVisible(RectangleF bounds) => Graphics.Content.IsVisible(rectangle: bounds);
+
     public Fin<Unit> Apply(DrawMark mark) {
         PaintScope current = this;
         return Optional(mark)
@@ -58,11 +90,34 @@ public readonly record struct PaintScope(CanvasPaintPhase Phase, ControlGraphics
 
     // TextMeasure-routed: Eto.Mac 2.11 GraphicsHandler.MeasureString leaks FormattedText state across calls.
     public Fin<PaintTextMeasurement> MeasureText(string value, Option<UiFont> font = default) =>
+        MeasureText(
+            value: value,
+            font: font,
+            wrap: FormattedTextWrapMode.None,
+            alignment: FormattedTextAlignment.Left,
+            trimming: FormattedTextTrimming.None,
+            maxSize: new SizeF(width: float.MaxValue, height: float.MaxValue));
+
+    public Fin<PaintTextMeasurement> MeasureText(
+        string value,
+        Option<UiFont> font,
+        FormattedTextWrapMode wrap,
+        FormattedTextAlignment alignment,
+        FormattedTextTrimming trimming,
+        SizeF maxSize) =>
         Optional(value)
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(MeasureText)), detail: "text is required"))
             .Bind(valid => Try.lift(f: () =>
                 font.IfNone(UiFont.Empty()).Use(run: resolved =>
-                    new PaintTextMeasurement(Text: valid, Size: TextMeasure.Single(font: resolved, text: valid))
+                    new PaintTextMeasurement(
+                        Text: valid,
+                        Size: TextMeasure.Measure(
+                            font: resolved,
+                            text: valid,
+                            wrap: wrap,
+                            alignment: alignment,
+                            trimming: trimming,
+                            maxSize: maxSize))
                 )).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(MeasureText)), detail: error.Message)));
 
     // SaveTransformState does NOT capture clipping; ResetClip in finally is mandatory.
@@ -203,6 +258,9 @@ public readonly partial struct PaintStyle {
 
     internal static PaintStyle ForTransparent(Color background = default) =>
         CreateEdge(edge: Colors.Transparent, background: background);
+
+    internal static PaintStyle ForSystemColor(SystemColorKind kind, Option<Color> fill = default, float thickness = 1f) =>
+        CreateEdge(edge: kind.Resolve(), fill: fill, thickness: thickness);
 
     internal Unit Assign(Graphics graphics) {
         graphics.AntiAlias = AntiAlias;
@@ -450,6 +508,10 @@ public partial record DrawMark {
     public sealed partial record ImageCase(Image Value, RectangleF Frame, PaintStyle Style) : DrawMark;
     public sealed partial record GhIconCase(IIcon Value, RectangleF Frame, PaintStyle Style) : DrawMark;
     public sealed partial record WireCase(PointF Source, PointF Target, WireKind Kind, PaintStyle Style) : DrawMark;
+    public sealed partial record ArcCase(RectangleF Bounds, float StartAngle, float SweepAngle, PaintStyle Style) : DrawMark;
+    public sealed partial record PieCase(RectangleF Bounds, float StartAngle, float SweepAngle, PaintStyle Style) : DrawMark;
+    public sealed partial record PolylineCase(ReadOnlyMemory<PointF> Points, PaintStyle Style) : DrawMark;
+    public sealed partial record PolygonCase(ReadOnlyMemory<PointF> Points, PaintStyle Style) : DrawMark;
     public sealed partial record CapsuleCase(Capsule Value, Parts Elements, Shade Shade) : DrawMark;
 
     public static DrawMark Line(PointF a, PointF b, Color colour, float thickness = 1f) =>
@@ -479,23 +541,35 @@ public partial record DrawMark {
         new GhIconCase(Value: value, Frame: frame, Style: PaintStyle.ForTransparent(background: background));
     public static DrawMark WirePreview(PointF source, PointF target, WireKind kind = WireKind.Tentative) =>
         new WireCase(Source: source, Target: target, Kind: kind, Style: PaintStyle.ForTransparent());
+    public static DrawMark Arc(RectangleF bounds, float startAngle, float sweepAngle, Color edge, float thickness = 1f) =>
+        new ArcCase(Bounds: bounds, StartAngle: startAngle, SweepAngle: sweepAngle, Style: PaintStyle.ForEdge(edge: edge, thickness: thickness));
+    public static DrawMark Pie(RectangleF bounds, float startAngle, float sweepAngle, Color fill, Option<Color> edge = default, float thickness = 1f) =>
+        new PieCase(Bounds: bounds, StartAngle: startAngle, SweepAngle: sweepAngle, Style: PaintStyle.ForEdge(edge: edge.IfNone(fill), fill: Some(fill), thickness: thickness));
+    public static DrawMark Polyline(ReadOnlyMemory<PointF> points, Color edge, float thickness = 1f) =>
+        new PolylineCase(Points: points, Style: PaintStyle.ForEdge(edge: edge, thickness: thickness));
+    public static DrawMark Polygon(ReadOnlyMemory<PointF> points, Color edge, Option<Color> fill = default, float thickness = 1f) =>
+        new PolygonCase(Points: points, Style: PaintStyle.ForEdge(edge: edge, fill: fill, thickness: thickness));
+    public static DrawMark SystemArc(RectangleF bounds, float startAngle, float sweepAngle, SystemColorKind color, float thickness = 1f) {
+        ArgumentNullException.ThrowIfNull(color);
+        return new ArcCase(Bounds: bounds, StartAngle: startAngle, SweepAngle: sweepAngle, Style: PaintStyle.ForSystemColor(kind: color, thickness: thickness));
+    }
     public static DrawMark DrawCapsule(Capsule capsule, Shade shade, Parts elements = Parts.All) =>
         new CapsuleCase(Value: capsule, Elements: elements, Shade: shade);
 
     internal Fin<Unit> Apply(PaintScope scope) =>
         Switch(state: scope,
-            lineCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: LineCase.SelfOp, what: "line draw", draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Line(a: c.A, b: c.B))),
-            rectangleCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: RectangleCase.SelfOp, what: "rectangle draw", draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Rectangle(bounds: c.Bounds))),
+            lineCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(LineCase)), what: "line draw", draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Line(a: c.A, b: c.B))),
+            rectangleCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(RectangleCase)), what: "rectangle draw", draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Rectangle(bounds: c.Bounds))),
             roundedRectangleCase: static (s, c) => DrawPathStyled(
                 scope: s,
                 style: c.Style,
-                op: RoundedRectangleCase.SelfOp,
+                op: Op.Of(name: nameof(RoundedRectangleCase)),
                 what: "rounded rectangle draw",
                 path: () => GraphicsPath.GetRoundRect(rectangle: c.Bounds, radius: c.Radius)),
             roundedCornersCase: static (s, c) => DrawPathStyled(
                 scope: s,
                 style: c.Style,
-                op: RoundedCornersCase.SelfOp,
+                op: Op.Of(name: nameof(RoundedCornersCase)),
                 what: "rounded corners draw",
                 path: () => c.Radii.IsUniform
                     ? GraphicsPath.GetRoundRect(rectangle: c.Bounds, radius: c.Radii.TopLeft)
@@ -505,42 +579,93 @@ public partial record DrawMark {
                         neRadius: c.Radii.TopRight,
                         seRadius: c.Radii.BottomRight,
                         swRadius: c.Radii.BottomLeft)),
-            ellipseCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: EllipseCase.SelfOp, what: "ellipse draw", draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Ellipse(bounds: c.Bounds))),
-            pathCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: PathCase.SelfOp, what: "path draw", draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Path(path: c.Geometry))),
-            textCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: TextCase.SelfOp, what: "text draw", draw: g =>
+            ellipseCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(EllipseCase)), what: "ellipse draw", draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Ellipse(bounds: c.Bounds))),
+            pathCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(PathCase)), what: "path draw", draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Path(path: c.Geometry))),
+            textCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(TextCase)), what: "text draw", draw: g =>
                 c.Style.Font.IfNone(UiFont.Empty()).Use(run: font => {
                     using SolidBrush brush = PaintStyle.Brush(color: c.Style.Edge);
                     g.DrawText(font, brush, c.Frame, c.Value, c.Wrap, c.Alignment, c.Trimming);
                     return unit;
                 })),
-            imageCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: ImageCase.SelfOp, what: "image draw", draw: g => {
+            imageCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(ImageCase)), what: "image draw", draw: g => {
                 g.DrawImage(image: c.Value, rectangle: c.Frame);
                 return unit;
             }),
-            ghIconCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: GhIconCase.SelfOp, what: "icon draw", draw: _ => {
+            ghIconCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(GhIconCase)), what: "icon draw", draw: _ => {
                 c.Value.Draw(context: new IconContext(
                     context: Eto.Drawing.Context.CreateFromContent(graphics: s.Graphics),
                     frame: c.Frame,
                     background: c.Style.Background));
                 return unit;
             }),
-            wireCase: static (s, w) => DrawStyled(scope: s, style: w.Style, op: WireCase.SelfOp, what: "wire draw", draw: graphics => {
+            wireCase: static (s, w) => DrawStyled(scope: s, style: w.Style, op: Op.Of(name: nameof(WireCase)), what: "wire draw", draw: graphics => {
                 WireSkin skin = s.Skin.Wires[w.Kind];
                 WireShape shape = WireShape.Create(source: w.Source, target: w.Target);
                 using Pen outerPen = new(color: skin.Normal, thickness: skin.Outer.Width);
                 skin.Outer.AssignToPen(pen: outerPen);
                 shape.Draw(graphics: graphics, edge: outerPen);
                 _ = Optional(skin.Inner).Iter(inner => {
-                    using Pen innerPen = new(color: skin.Normal, thickness: inner.Width);
+                    using Pen innerPen = new(color: skin.SelectedGlow, thickness: inner.Width);
                     inner.AssignToPen(pen: innerPen);
                     shape.Draw(graphics: graphics, edge: innerPen);
                 });
                 return unit;
             }),
-            capsuleCase: static (s, c) => CapsuleCase.SelfOp.Attempt(body: () => {
+            arcCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(ArcCase)), what: "arc draw", bounds: c.Bounds, draw: g => {
+                using Pen pen = c.Style.Pen();
+                g.DrawArc(pen, c.Bounds, c.StartAngle, c.SweepAngle);
+                return unit;
+            }),
+            pieCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(PieCase)), what: "pie draw", bounds: c.Bounds, draw: g => {
+                _ = c.Style.Fill.IfSome(colour => { using SolidBrush brush = PaintStyle.Brush(colour); g.FillPie(brush, c.Bounds, c.StartAngle, c.SweepAngle); });
+                using Pen pen = c.Style.Pen();
+                g.DrawArc(pen, c.Bounds, c.StartAngle, c.SweepAngle);
+                return unit;
+            }),
+            polylineCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(PolylineCase)), what: "polyline draw", bounds: BoundsOf(points: c.Points), draw: g => {
+                PointF[] points = c.Points.Span.ToArray();
+                using Pen pen = c.Style.Pen();
+                g.DrawLines(pen, points);
+                return unit;
+            }),
+            polygonCase: static (s, c) => DrawPathStyled(
+                scope: s,
+                style: c.Style,
+                op: Op.Of(name: nameof(PolygonCase)),
+                what: "polygon draw",
+                bounds: BoundsOf(points: c.Points),
+                path: () => {
+                    GraphicsPath path = new();
+                    PointF[] points = c.Points.Span.ToArray();
+                    if (points.Length > 0) {
+                        path.AddLines(points: points);
+                        path.CloseFigure();
+                    }
+                    return path;
+                }),
+            capsuleCase: static (s, c) => Op.Of(name: nameof(CapsuleCase)).Attempt(body: () => {
                 c.Value.Draw(graphics: s.Graphics.Content, elements: c.Elements, shade: c.Shade, skin: s.Skin);
                 return unit;
             }, what: "capsule draw"));
+
+    private static RectangleF BoundsOf(ReadOnlyMemory<PointF> points) {
+        if (points.Length == 0) {
+            return RectangleF.Empty;
+        }
+        (float minX, float maxX, float minY, float maxY) = toSeq(points.Span.ToArray()).Fold(
+            initialState: (MinX: points.Span[0].X, MaxX: points.Span[0].X, MinY: points.Span[0].Y, MaxY: points.Span[0].Y),
+            f: static (state, point) => (
+                MinX: Math.Min(state.MinX, point.X),
+                MaxX: Math.Max(state.MaxX, point.X),
+                MinY: Math.Min(state.MinY, point.Y),
+                MaxY: Math.Max(state.MaxY, point.Y)));
+        return new RectangleF(x: minX, y: minY, width: maxX - minX, height: maxY - minY);
+    }
+
+    private static Fin<Unit> DrawStyled(PaintScope scope, PaintStyle style, Op op, string what, RectangleF bounds, Func<Graphics, Unit> draw) =>
+        bounds == RectangleF.Empty || scope.IsVisible(bounds: bounds)
+            ? DrawStyled(scope: scope, style: style, op: op, what: what, draw: draw)
+            : Fin.Succ(unit);
 
     private static Fin<Unit> DrawStyled(PaintScope scope, PaintStyle style, Op op, string what, Func<Graphics, Unit> draw) =>
         op.Attempt(body: () => {
@@ -555,6 +680,11 @@ public partial record DrawMark {
             using IGraphicsPath owned = path();
             return DrawShape(style: style, graphics: g, shape: PaintShape.Path(path: owned));
         });
+
+    private static Fin<Unit> DrawPathStyled(PaintScope scope, PaintStyle style, Op op, string what, RectangleF bounds, Func<IGraphicsPath> path) =>
+        bounds == RectangleF.Empty || scope.IsVisible(bounds: bounds)
+            ? DrawPathStyled(scope: scope, style: style, op: op, what: what, path: path)
+            : Fin.Succ(unit);
 
     private static Unit DrawShape(PaintStyle style, Graphics graphics, PaintShape shape) {
         _ = style.FillBrush.IfSome(source => {
@@ -602,54 +732,69 @@ public readonly record struct DrawPlan(Seq<DrawMark> Marks) {
 }
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct PaintSkinSnapshot(bool HasSkin, string SkinType, Option<Skin> Skin);
+public readonly record struct PaintSkinSnapshot(bool HasSkin, string SkinType, Option<CanvasSkin> Appearance) {
+    public Option<Skin> Skin => Appearance.Map(static a => a.Effective);
+}
 
 public abstract record PaintRequest<T> : GhUiRequest<T> {
     public sealed record Skin : PaintRequest<PaintSkinSnapshot> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(); internal override Fin<PaintSkinSnapshot> Apply(GrasshopperUi.Scope scope) => Paint.Skin().Run(scope: scope); }
     public sealed record Hook(CanvasPaintPhase Phase, DrawPlan Plan, MotionClock? Clock = null) : PaintRequest<Subscription> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(); internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.Hook(phase: Phase, paint: Plan.Apply, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
     public sealed record RedrawOnMouseMove(bool Enabled = true, MotionClock? Clock = null) : PaintRequest<Subscription> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Canvas); internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.RedrawOnMouseMove(enabled: Enabled, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
     public sealed record SolutionOverlay(DrawPlan Plan, MotionClock? Clock = null) : PaintRequest<Subscription> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled); internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.Hook(phase: CanvasPaintPhase.AfterObjects, paint: Plan.Apply, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
+    public sealed record FloatingDrawable(DrawPlan Plan, Size Size, Option<string> Title = default) : PaintRequest<Subscription> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.FloatingDrawable(plan: Plan, size: Size, title: Title).Run(scope: scope);
+    }
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Paint {
     internal static GrasshopperUiIntent<PaintSkinSnapshot> Skin() =>
-        GhUi.Canvas(run: scope => scope.NeedSkin().Map(skin =>
+        GhUi.Canvas(run: scope => scope.NeedCanvasSkin().Map(appearance =>
             new PaintSkinSnapshot(
                 HasSkin: true,
-                SkinType: skin.GetType().FullName ?? skin.GetType().Name,
-                Skin: Some(skin))));
+                SkinType: appearance.Effective.GetType().FullName ?? appearance.Effective.GetType().Name,
+                Appearance: Some(appearance))));
 
     internal static GrasshopperUiIntent<Subscription> Hook(
         CanvasPaintPhase phase,
         Func<PaintScope, Fin<Unit>> paint,
         MotionClock clock,
-        Option<Motion.Pacer> adoptedPacer = default) =>
+        Option<Motion.Pacer> adoptedPacer = default,
+        bool ownsPacerLifecycle = true,
+        bool sustainMouseRedraw = false) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from valid in Optional(paint).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null paint callback"))
             from validPhase in Optional(phase).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null phase"))
             from pacer in adoptedPacer.Match(
-                Some: p => Fin.Succ<Option<Motion.Pacer>>(Some(p)),
+                Some: p => Fin.Succ(value: Some(value: p)),
                 None: () => Motion.PacerOption(canvas: canvas, clock: clock))
-            let handler = (EventHandler<CanvasPaintEventArgs>)((_, args) => GrasshopperUi.Handler(valid: () => valid(arg: new PaintScope(
-                Phase: validPhase,
-                Graphics: args.Graphics,
-                Skin: args.Skin) {
-                Background = Optional(args as CanvasBackgroundPaintEventArgs),
-            })).Ignore())
+            let handler = (EventHandler<CanvasPaintEventArgs>)((_, args) => {
+                _ = GrasshopperUi.Handler(valid: () => valid(arg: new PaintScope(
+                    Phase: validPhase,
+                    Graphics: args.Graphics,
+                    Skin: args.Skin) {
+                    Background = Optional(args as CanvasBackgroundPaintEventArgs),
+                })).Ignore();
+                if (sustainMouseRedraw) {
+                    canvas.RedrawOnMouseMove = true;
+                }
+            })
             from paintSub in Subscription.Bind(
                 attach: () => {
                     _ = validPhase.Attach(canvas: canvas, handler: handler);
-                    if (adoptedPacer.IsNone) {
+                    if (adoptedPacer.IsNone || ownsPacerLifecycle) {
                         _ = Motion.PacerResume(pacer: pacer, canvas: canvas);
                     }
                 },
                 detach: () => _ = validPhase.Detach(canvas: canvas, handler: handler),
                 marshalToUi: true)
-            select Subscription.DisposeOnce(Subscription.PaintPacer(
-                paintHook: paintSub,
-                pacerRelease: () => _ = Motion.PacerRelease(pacer: pacer))));
+            select ownsPacerLifecycle
+                ? Subscription.DisposeOnce(Subscription.PaintPacer(
+                    paintHook: paintSub,
+                    pacerRelease: () => _ = Motion.PacerRelease(pacer: pacer)))
+                : paintSub);
 
     internal static GrasshopperUiIntent<Subscription> RedrawOnMouseMove(bool enabled = true, MotionClock? clock = null) =>
         GhUi.Canvas(
@@ -658,14 +803,58 @@ internal static partial class Paint {
                 from canvas in scope.NeedCanvas()
                 from pacer in Motion.PacerOption(canvas: canvas, clock: clock ?? MotionClock.MessageLoop)
                 let priorEnabled = canvas.RedrawOnMouseMove
-                from paintSub in Subscription.Bind(
+                from sustain in Hook(
+                    phase: CanvasPaintPhase.AfterWires,
+                    paint: static _ => Fin.Succ(value: unit),
+                    clock: clock ?? MotionClock.MessageLoop,
+                    adoptedPacer: pacer,
+                    ownsPacerLifecycle: false,
+                    sustainMouseRedraw: enabled).Run(scope: scope)
+                from arm in Events.BindMarshaled(
                     attach: () => {
                         canvas.RedrawOnMouseMove = enabled;
                         _ = Motion.PacerResume(pacer: pacer, canvas: canvas);
                     },
-                    detach: () => canvas.RedrawOnMouseMove = priorEnabled,
-                    marshalToUi: true)
+                    detach: () => canvas.RedrawOnMouseMove = priorEnabled)
                 select Subscription.DisposeOnce(Subscription.PaintPacer(
-                    paintHook: paintSub,
+                    paintHook: sustain | arm,
                     pacerRelease: () => _ = Motion.PacerRelease(pacer: pacer))));
+
+    internal static GrasshopperUiIntent<Subscription> FloatingDrawable(DrawPlan plan, Size size, Option<string> title) =>
+        GhUi.Canvas(run: scope =>
+            from canvas in scope.NeedCanvas()
+            from skin in scope.NeedSkin()
+            from validPlan in Optional(plan).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(FloatingDrawable)), detail: "null draw plan"))
+            from validWidth in Op.Of(name: nameof(FloatingDrawable)).AcceptFinite(value: size.Width, detail: "width must be finite and positive", requirePositive: true)
+            from validHeight in Op.Of(name: nameof(FloatingDrawable)).AcceptFinite(value: size.Height, detail: "height must be finite and positive", requirePositive: true)
+            let validSize = new Size(width: (int)Math.Ceiling(validWidth), height: (int)Math.Ceiling(validHeight))
+            let owner = Optional(canvas.ControlObject as Control).Bind(static control => Optional(control.ParentWindow))
+            let screenScale = UiRail.PixelScale(canvas: canvas).LogicalPixelSize
+            let drawable = new Drawable { Size = validSize }
+            let form = new FloatingForm(owner: owner) {
+                Content = drawable,
+                Size = validSize,
+                Title = title.IfNone(string.Empty),
+            }
+            let paintHandler = (EventHandler<PaintEventArgs>)((_, args) => {
+                using Bitmap surface = new(validSize, PixelFormat.Format32bppRgba);
+                using ControlGraphics graphics = new(bitmap: surface);
+                graphics.ScreenScale = screenScale;
+                _ = GrasshopperUi.Handler(valid: () => validPlan.Apply(scope: new PaintScope(
+                    Phase: CanvasPaintPhase.AfterObjects,
+                    Graphics: graphics,
+                    Skin: skin))).Ignore();
+                args.Graphics.DrawImage(image: surface, x: 0, y: 0);
+            })
+            from sub in Subscription.Bind(
+                attach: () => {
+                    drawable.Paint += paintHandler;
+                    form.Show();
+                },
+                detach: () => {
+                    drawable.Paint -= paintHandler;
+                    form.Close();
+                },
+                marshalToUi: true)
+            select sub);
 }

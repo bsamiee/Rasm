@@ -39,10 +39,19 @@ Scenario.Run("blocks-archive-closure", CAPTURE_PATH, (key, facts) => {
         ?? throw new InvalidOperationException(message: "parent read");
     Seq<Archive.LinkedArchiveEdge> edges = Archive.LinkedArchiveClosure(root: parentModel, rootPath: parentPath, key: key)
         .IfFail(error => throw new InvalidOperationException(message: error.Message));
+    ArchiveClosureReport report = Archive.ValidateArchiveClosure(root: parentModel, rootPath: parentPath, key: key)
+        .IfFail(error => throw new InvalidOperationException(message: error.Message));
     facts.Add("closure.count", edges.Count);
+    facts.Add("validate.valid", report.Valid);
+    facts.Add("validate.broken", report.Broken.Count);
+    facts.Add("validate.cycles", report.Cycles.Count);
     facts.Add("closure.child", edges[0].Link.Full.Value);
     facts.Add("closure.nested", edges.Count > 1 ? edges[1].Link.Full.Value : string.Empty);
     Probe.Require(edges.Count == 2, $"closure.count={edges.Count}");
+    Probe.Require(report.Valid, "validate.valid");
+    Probe.Require(report.Broken.IsEmpty, $"validate.broken={report.Broken.Count}");
+    Probe.Require(report.Cycles.IsEmpty, $"validate.cycles={report.Cycles.Count}");
+    Probe.Require(report.Edges.Count == edges.Count, $"validate.edges={report.Edges.Count}");
     Probe.Require(edges[0].Depth == 0, $"depth0={edges[0].Depth}");
     Probe.Require(
         string.Equals(

@@ -29,7 +29,7 @@ Scenario.Run("blocks-run-author", CAPTURE_PATH, (key, facts) => {
         Members.Of(geometry: Seq<GeometryBase>(brep), key: key),
         "members");
     BlockOp author = new BlockOp.Author(Spec: spec, Source: source, Conflict: ConflictPolicy.Fail);
-    BlockOutcome outcome = Probe.Expect(blocks.Run(op: author, key: key), "author run");
+    BlockOutcome outcome = Probe.Expect(result: blocks.Run(op: author, key: key), label: "author run", facts: facts);
     BlockOutcome.Receipt receipt = outcome is BlockOutcome.Receipt value
         ? value
         : throw new InvalidOperationException(message: $"unexpected outcome: {outcome.GetType().Name}");

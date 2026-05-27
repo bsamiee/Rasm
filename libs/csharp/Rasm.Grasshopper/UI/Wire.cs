@@ -147,11 +147,11 @@ public sealed partial class WireEdit {
 
 [SmartEnum<int>]
 public sealed partial class GraphMetric {
-    private delegate GrasshopperUiIntent<WireResult> RunFn(Seq<Guid> ids);
+    private delegate Fin<WireResult> RunFn(GrasshopperUi.Scope scope, Seq<Guid> ids);
 
     public static readonly GraphMetric Linearity = new(
         key: 0,
-        run: static ids => GhUi.Document(run: scope =>
+        run: static (scope, ids) =>
             from objects in scope.NeedObjects()
             from result in Op.Of(name: nameof(Linearity)).Attempt(
                 body: () => {
@@ -162,18 +162,18 @@ public sealed partial class GraphMetric {
                         End: Optional(end?.Id).Filter(static g => g != Guid.Empty)));
                 },
                 what: "Connectivity.IsLinear")
-            select result));
+            select result);
     public static readonly GraphMetric Topology = new(
         key: 1,
-        run: static ids => GhUi.Document(run: scope =>
+        run: static (scope, ids) =>
             from objects in scope.NeedObjects()
             from result in Op.Of(name: nameof(Topology)).Attempt(
                 body: () => (WireResult)new WireResult.TopologyResult(Topology: objects.Connectivity.SubsetTopology(ids: [.. ids])),
                 what: "Connectivity.SubsetTopology")
-            select result));
+            select result);
     public static readonly GraphMetric SortedTopology = new(
         key: 2,
-        run: static ids => GhUi.Document(run: scope =>
+        run: static (scope, ids) =>
             from objects in scope.NeedObjects()
             from result in Op.Of(name: nameof(SortedTopology)).Attempt(
                 body: () => {
@@ -182,12 +182,12 @@ public sealed partial class GraphMetric {
                     return (WireResult)new WireResult.SortedIdsResult(Ids: toSeq(sorted.Select(static co => co.Id)));
                 },
                 what: "Connectivity.SortCausally")
-            select result));
+            select result);
 
     public static WireQuery Query(Seq<Guid> ids, GraphMetric kind) => WireQuery.GraphMetric(ids: ids, kind: kind);
 
     [UseDelegateFromConstructor]
-    internal partial GrasshopperUiIntent<WireResult> Run(Seq<Guid> ids);
+    internal partial Fin<WireResult> Run(GrasshopperUi.Scope scope, Seq<Guid> ids);
 }
 
 [SmartEnum<int>]
@@ -255,7 +255,7 @@ public partial record WireOp {
     public static WireOp WirePaintObserve(MotionClock? clock = null) => new WirePaintObserveCase(Clock: clock);
 
     internal GrasshopperUiPolicy UiPolicy => Switch(
-        queryCase: static _ => GrasshopperUiPolicy.Canvas(),
+        queryCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
         installShapeCase: static _ => GrasshopperUiPolicy.Read,
         overlayPenCase: static _ => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled),
         wirePaintObserveCase: static _ => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled),
@@ -272,6 +272,7 @@ public partial record WireResult {
     public sealed record WireCase(WireSnapshot Wire) : WireResult;
     public sealed record GraphCase(WireGraph Graph) : WireResult;
     public sealed record MutationCase(Snapshot<DocumentMutationDelta> Delta) : WireResult;
+    public sealed record SelectionCase(WireSelectionDelta Delta) : WireResult;
     public sealed record LinearityResult(WireLinearity Linearity) : WireResult;
     public sealed record TopologyResult(GraphTopology Topology) : WireResult;
     public sealed record SortedIdsResult(Seq<Guid> Ids) : WireResult;
@@ -305,6 +306,9 @@ public readonly record struct WireDrawnSnapshot(Seq<WireDrawnEntry> Entries, Wir
     public int DocumentModifications => Stamp.Modifications;
 }
 
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct WireSelectionDelta(int Selected, int Deselected);
+
 public abstract record WireRequest : GhUiRequest<WireResult> {
     public sealed record Run(WireOp Op) : WireRequest { internal override GrasshopperUiPolicy Policy => Op.UiPolicy; internal override Fin<WireResult> Apply(GrasshopperUi.Scope scope) => Wire.Dispatch(op: Op).Run(scope: scope); }
 }
@@ -312,7 +316,7 @@ public abstract record WireRequest : GhUiRequest<WireResult> {
 internal static partial class Wire {
     internal static GrasshopperUiIntent<WireResult> Dispatch(WireOp op) => op.Switch(
         queryCase: static q => Query(query: q.Request),
-        selectCase: static s => Selection(op: s.Op).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
+        selectCase: static s => Selection(op: s.Op).Map(static delta => (WireResult)new WireResult.SelectionCase(Delta: delta)),
         splitCase: static s => Split(wire: s.Wire, location: s.Location).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
         editCase: static e => Edit(wire: e.Wire, edit: e.Kind).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
         installShapeCase: static i => InstallShape(shapeType: i.ShapeType).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
@@ -323,7 +327,7 @@ internal static partial class Wire {
         listCase: static list => Listed(kind: list.Kind).Map(static wires => (WireResult)new WireResult.WiresCase(Wires: wires)),
         pickCase: static p => Pick(point: p.Point).Map(static wire => (WireResult)new WireResult.WireCase(Wire: wire)),
         graphCase: static g => Graph(anchor: g.Anchor, direction: g.Direction, maxHops: g.MaxHops).Map(static graph => (WireResult)new WireResult.GraphCase(Graph: graph)),
-        graphMetricCase: static g => g.Kind.Run(ids: g.Ids),
+        graphMetricCase: static g => GhUi.Document(run: scope => g.Kind.Run(scope: scope, ids: g.Ids)),
         canInsertCase: static c => CanInsert(objectId: c.ObjectId, location: c.Location).Map(static snap => (WireResult)new WireResult.InsertCase(Snapshot: snap)),
         recentlyDrawnCase: static _ => RecentlyDrawn().Map(static snap => (WireResult)new WireResult.DrawnCase(Snapshot: snap)));
 
@@ -342,16 +346,30 @@ internal static partial class Wire {
     internal static GrasshopperUiIntent<Subscription> WirePaintObserve(MotionClock clock) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
+            from pacer in Motion.PacerOption(canvas: canvas, clock: clock)
             from drift in Paint.Hook(
                 phase: CanvasPaintPhase.BeforeBackground,
                 paint: _ => Fin.Succ(value: WireDrawnCache.InvalidateOnStampDrift(canvas: canvas)),
-                clock: clock).Run(scope: scope)
+                clock: clock,
+                adoptedPacer: pacer,
+                ownsPacerLifecycle: false).Run(scope: scope)
             from capture in Paint.Hook(
                 phase: CanvasPaintPhase.AfterWires,
                 paint: _ => WireRepositoryRail.CaptureDrawn(canvas: canvas)
                     .Map(snapshot => WireDrawnCache.Record(canvas: canvas, snapshot: snapshot)),
-                clock: clock).Run(scope: scope)
-            select drift | capture);
+                clock: clock,
+                adoptedPacer: pacer,
+                ownsPacerLifecycle: false).Run(scope: scope)
+            let hooks = drift | capture
+            from kicked in Op.Of(name: nameof(WirePaintObserve)).Attempt(
+                body: () => {
+                    _ = Motion.PacerResume(pacer: pacer, canvas: canvas);
+                    return unit;
+                },
+                what: "wire paint observe wake").MapFail(error => UiFault.ThreadMarshal(detail: error.Message))
+            select Subscription.DisposeOnce(Subscription.PaintPacer(
+                paintHook: hooks,
+                pacerRelease: () => _ = Motion.PacerRelease(pacer: pacer))));
 
     internal static GrasshopperUiIntent<WireInsertSnapshot> CanInsert(Guid objectId, PointF location) =>
         GhUi.Canvas(run: scope =>
@@ -385,11 +403,17 @@ internal static partial class Wire {
                 Some: wireEnds => SnapshotIn(objects: objs, wire: wireEnds, index: WireIndexCache.ConnectedOf(objects: objs, document: doc)),
                 None: () => WireSnapshot.Absent));
 
-    internal static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> Selection(WireSelectionOp op) =>
-        op.Switch(
-            selectCase: static s => MutateWire(op: Op.Of(name: "Wire.Select"), wire: s.Wire, run: static (objs, ends) => objs.SelectWire(wire: ends)),
-            deselectCase: static d => MutateWire(op: Op.Of(name: "Wire.Deselect"), wire: d.Wire, run: static (objs, ends) => objs.DeselectWire(wire: ends)),
-            deselectAllCase: static _ => MutateDeselectAll(op: Op.Of(name: "Wire.DeselectAll")));
+    internal static GrasshopperUiIntent<WireSelectionDelta> Selection(WireSelectionOp op) =>
+        GhUi.Document(
+            repaint: RepaintRequest.Canvas,
+            run: scope =>
+                from objects in scope.NeedObjects()
+                from delta in op.Switch(
+                    state: objects,
+                    selectCase: static (objs, s) => ToggleWire(op: Op.Of(name: "Wire.Select"), objects: objs, wire: s.Wire, picked: true),
+                    deselectCase: static (objs, d) => ToggleWire(op: Op.Of(name: "Wire.Deselect"), objects: objs, wire: d.Wire, picked: false),
+                    deselectAllCase: static (objs, _) => DeselectAllWires(op: Op.Of(name: "Wire.DeselectAll"), objects: objs))
+                select delta);
 
     internal static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> Split(WireSnapshot.ConnectedCase wire, PointF location) =>
         MutateConnectedWire(
@@ -412,15 +436,23 @@ internal static partial class Wire {
         MutateConnectedWire(
             op: Op.Of(name: string.Create(CultureInfo.InvariantCulture, $"Wire.{edit}")),
             wire: wire,
+            requireConnectedPair: WireEditRequiresConnectedPair(edit: edit),
             run: (methods, objs, source, target, actions) =>
                 from validEdit in Optional(edit).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Edit)), detail: "wire edit is required"))
                 from changed in validEdit.Apply(methods: methods, objects: objs, source: source, target: target, actions: actions)
                 select DocumentMutationReceipt.Count(changed: changed));
 
+    private static bool WireEditRequiresConnectedPair(WireEdit edit) =>
+        edit.Key switch {
+            var key when key == WireEdit.DisconnectInputs.Key || key == WireEdit.DisconnectOutputs.Key => false,
+            _ => true,
+        };
+
     private static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> MutateConnectedWire(
         Op op,
         WireSnapshot.ConnectedCase wire,
-        Func<GhDocumentMethods, GhObjectList, IParameter, IParameter, ActionList, Fin<DocumentMutationReceipt>> run) =>
+        Func<GhDocumentMethods, GhObjectList, IParameter, IParameter, ActionList, Fin<DocumentMutationReceipt>> run,
+        bool requireConnectedPair = true) =>
         GhUi.Document(
             repaint: RepaintRequest.Canvas,
             run: scope => UiRail.RunMutation(
@@ -430,6 +462,9 @@ internal static partial class Wire {
                 mutate: (methods, objs, actions) =>
                     from source in Optional(objs.FindParameter(instanceId: wire.Source)).ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"source param {wire.Source} not found"))
                     from target in Optional(objs.FindParameter(instanceId: wire.Target)).ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"target param {wire.Target} not found"))
+                    from _ in requireConnectedPair
+                        ? RequireConnected(objects: objs, source: source, target: target, op: op).Map(static _ => unit)
+                        : Fin.Succ(unit)
                     from result in run(arg1: methods, arg2: objs, arg3: source, arg4: target, arg5: actions)
                     select result));
 
@@ -488,49 +523,35 @@ internal static partial class Wire {
             ? Fin.Succ(value: unit)
             : Fin.Fail<Unit>(error: UiFault.MutationRejected(op: op, detail: "wire is not currently connected"));
 
-
-    private static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> MutateMetric(
-        Op op,
-        Func<GhObjectList, Fin<Unit>> precheck,
-        Func<GhObjectList, int> metric,
-        Func<GhObjectList, Fin<Unit>> action,
-        Func<int, int, int> delta) =>
-            GrasshopperUi.Mutate(
-                op: op,
-                undo: UndoStrategy.Auto,
-                repaint: RepaintRequest.Canvas,
-                mutate: scope =>
-                    from objects in scope.NeedObjects()
-                    from doc in scope.NeedDocument()
-                    from _gate in precheck(arg: objects)
-                    let before = metric(arg: objects)
-                    from _ran in action(arg: objects)
-                    let after = metric(arg: objects)
-                    select new DocumentMutationDelta(Changed: delta(arg1: before, arg2: after), After: UiRail.DocumentSnapshotOf(document: doc, objects: objects)));
-
-    private static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> MutateWire(
-        Op op,
-        WireSnapshot.ConnectedCase wire,
-        Func<GhObjectList, WireEnds, bool> run) {
+    private static Fin<WireSelectionDelta> ToggleWire(Op op, GhObjectList objects, WireSnapshot.ConnectedCase wire, bool picked) {
         WireEnds ends = new(source: wire.Source, target: wire.Target);
-        return MutateMetric(
-            op: op,
-            precheck: objects => Optional(IsConnected(objects: objects, wire: ends))
-                .Filter(static live => live)
-                .ToFin(Fail: UiFault.MutationRejected(op: op, detail: "wire is not currently connected"))
-                .Map(static _ => unit),
-            metric: objects => objects.IsWireSelected(wire: ends) ? 1 : 0,
-            action: objects => op.Attempt(body: () => run(arg1: objects, arg2: ends), what: "wire selection").Map(static _ => unit),
-            delta: static (before, after) => before == after ? 0 : 1);
+        return Optional(IsConnected(objects: objects, wire: ends))
+            .Filter(static live => live)
+            .ToFin(Fail: UiFault.MutationRejected(op: op, detail: "wire is not currently connected"))
+            .Map(_ => objects.IsWireSelected(wire: ends))
+            .Bind(before =>
+                op.Attempt(body: () => {
+                    _ = picked ? objects.SelectWire(wire: ends) : objects.DeselectWire(wire: ends);
+                    return unit;
+                }, what: "wire selection")
+                .Map(_ => SelectionDelta(picked: picked, before: before, after: objects.IsWireSelected(wire: ends))));
     }
 
-    private static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> MutateDeselectAll(Op op) =>
-        MutateMetric(
-            op: op,
-            precheck: static _ => Fin.Succ(value: unit),
-            metric: static objects => objects.SelectedWireCount,
-            action: objects => op.Attempt(body: () => objects.DeselectAllWires(), what: "DeselectAllWires"),
-            delta: static (before, after) => Math.Max(val1: 0, val2: before - after));
+    private static WireSelectionDelta SelectionDelta(bool picked, bool before, bool after) =>
+        (picked, before, after) switch {
+            (true, false, true) => new WireSelectionDelta(Selected: 1, Deselected: 0),
+            (false, true, false) => new WireSelectionDelta(Selected: 0, Deselected: 1),
+            _ => new WireSelectionDelta(Selected: 0, Deselected: 0),
+        };
+
+    private static Fin<WireSelectionDelta> DeselectAllWires(Op op, GhObjectList objects) {
+        int before = ConnectedSelectedCount(objects: objects);
+        return op.Attempt(body: objects.DeselectAllWires, what: "DeselectAllWires")
+            .Map(_ => new WireSelectionDelta(Selected: 0, Deselected: Math.Max(val1: 0, val2: before - ConnectedSelectedCount(objects: objects))));
+    }
+
+    private static int ConnectedSelectedCount(GhObjectList objects) =>
+        toSeq(objects.SelectedWires).Count(wire => IsConnected(objects: objects, wire: wire));
 
     internal static Fin<Seq<IDocumentObject>> TraverseObjects(GhObjectList objects, Guid startParameterId, WireTraversal direction) =>
         Optional(objects.FindParameter(instanceId: startParameterId))
@@ -696,34 +717,42 @@ file static class WireShapeInstall {
 }
 
 // --- [CACHE] ------------------------------------------------------------------------------
-// Populated at AfterWires; Read validates composite stamp (doc identity, modifications, projection, last draw frame).
+// AfterWires populates; Read matches composite stamp (doc, modifications, projection, inner frame).
 file static class WireDrawnCache {
+    private const int MaxEntries = 8;
+
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct CacheKey(int CanvasId, Guid DocumentHash);
     private readonly record struct Entry(WireDrawnStamp Stamp, WireDrawnSnapshot Snapshot);
 
-    private static readonly Atom<HashMap<CacheKey, Entry>> ByKey = Atom(value: HashMap<CacheKey, Entry>());
+    private static readonly Atom<(Seq<CacheKey> Order, HashMap<CacheKey, Entry> Map)> ByKey =
+        Atom(value: (Order: Seq<CacheKey>(), Map: HashMap<CacheKey, Entry>()));
 
     private static CacheKey KeyOf(GhCanvas canvas, WireDrawnStamp stamp) =>
         new(CanvasId: RuntimeHelpers.GetHashCode(canvas), DocumentHash: stamp.DocumentHash);
 
     internal static Unit Record(GhCanvas canvas, WireDrawnSnapshot snapshot) {
         CacheKey key = KeyOf(canvas: canvas, stamp: snapshot.Stamp);
-        _ = ByKey.Swap(map => map.AddOrUpdate(key: key, value: new Entry(Stamp: snapshot.Stamp, Snapshot: snapshot)));
+        _ = ByKey.Swap(state => {
+            Seq<CacheKey> merged = state.Order.Filter(k => k != key) + Seq(key);
+            int skip = merged.Count > MaxEntries ? merged.Count - MaxEntries : 0;
+            Seq<CacheKey> promoted = toSeq(merged.Skip(count: skip));
+            LanguageExt.HashSet<CacheKey> keep = toHashSet(promoted);
+            HashMap<CacheKey, Entry> map = state.Map
+                .AddOrUpdate(key: key, value: new Entry(Stamp: snapshot.Stamp, Snapshot: snapshot))
+                .Filter((k, _) => keep.Find(key: k).IsSome);
+            return (Order: promoted, Map: map);
+        });
         return unit;
     }
 
-    internal static Unit Invalidate(GhCanvas canvas) =>
-        WireRepositoryRail.Repository.Value.Match(
-            Fail: _ => unit,
-            Succ: access => Optional(access.CacheProperty.GetValue(obj: canvas)).Match(
-                None: () => unit,
-                Some: repo => {
-                    WireDrawnStamp stamp = WireRepositoryRail.StampOf(canvas: canvas, repo: repo, access: access);
-                    CacheKey key = KeyOf(canvas: canvas, stamp: stamp);
-                    _ = ByKey.Swap(map => map.Remove(key));
-                    return unit;
-                }));
+    private static Unit Invalidate(GhCanvas canvas, CacheKey key) {
+        CacheKey cacheKey = key;
+        _ = ByKey.Swap(state => (
+            Order: state.Order.Filter(k => k != cacheKey),
+            Map: state.Map.Remove(cacheKey)));
+        return unit;
+    }
 
     // Repository bootstrap failure is silent — drift invalidation no-ops when reflection rail is absent.
     internal static Unit InvalidateOnStampDrift(GhCanvas canvas) =>
@@ -734,9 +763,9 @@ file static class WireDrawnCache {
                 Some: repo => {
                     WireDrawnStamp current = WireRepositoryRail.StampOf(canvas: canvas, repo: repo, access: access);
                     CacheKey key = KeyOf(canvas: canvas, stamp: current);
-                    _ = ByKey.Value.Find(key)
+                    _ = ByKey.Value.Map.Find(key)
                         .Filter(entry => entry.Stamp != current)
-                        .Iter(_ => Invalidate(canvas: canvas));
+                        .Iter(_ => Invalidate(canvas: canvas, key: key));
                     return unit;
                 }));
 
@@ -746,7 +775,7 @@ file static class WireDrawnCache {
             op: Op.Of(name: nameof(Read)), detail: "wire repository is null"))
         let current = WireRepositoryRail.StampOf(canvas: canvas, repo: repo, access: access)
         let key = KeyOf(canvas: canvas, stamp: current)
-        from entry in ByKey.Value.Find(key)
+        from entry in ByKey.Value.Map.Find(key)
             .Filter(entry => entry.Stamp == current)
             .ToFin(Fail: UiFault.InvalidInput(
                 op: Op.Of(name: nameof(Read)),
@@ -785,7 +814,9 @@ file static class WireIndexCache {
     private static (Seq<Guid> Order, HashMap<Guid, Entry> Entries) Touch(
         (Seq<Guid> Order, HashMap<Guid, Entry> Entries) state,
         Guid hash, int stamp, LanguageExt.HashSet<(Guid Source, Guid Target)> index) {
-        Seq<Guid> promoted = toSeq((state.Order.Filter(h => h != hash) + Seq(hash)).Take(count: MaxDocuments));
+        Seq<Guid> merged = state.Order.Filter(h => h != hash) + Seq(hash);
+        int skip = merged.Count > MaxDocuments ? merged.Count - MaxDocuments : 0;
+        Seq<Guid> promoted = toSeq(merged.Skip(count: skip));
         LanguageExt.HashSet<Guid> keep = toHashSet(promoted);
         HashMap<Guid, Entry> entries = state.Entries
             .AddOrUpdate(key: hash, value: new Entry(Stamp: stamp, Connected: index))

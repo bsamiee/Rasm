@@ -17,6 +17,9 @@ public sealed class RhinoBlocks {
     public RhinoDoc Document { get; }
     public RunMode Mode { get; }
 
+    /// RhinoCommon echo: Interactive surfaces scripted tokens in the command output window; Scripted stays silent.
+    internal bool RunScriptEcho => Mode == RunMode.Interactive;
+
     public static RhinoBlocks Live(RhinoDoc document, RunMode mode = RunMode.Interactive) =>
         new(document: document, mode: mode);
 
@@ -28,7 +31,7 @@ public sealed class RhinoBlocks {
 
     private Fin<BlockOutcome> ExecuteRun(BlockOp op, Op runKey) {
         Fin<BlockOutcome> Work() => runKey.Catch(() => Operations.Run(op: op, owner: this));
-        return RhinoUi.WhenUiBound(uiBound: op.RequiresUiThread(), run: Work, name: nameof(Run));
+        return RhinoUi.DispatchThread(uiBound: op.RequiresUiThread(), mode: Mode, run: Work, name: nameof(Run));
     }
 
     public Subscription Subscribe(Action<BlockTableEvent> handler, BlockSubscriptionPolicy? policy = null) {
@@ -272,7 +275,7 @@ internal static class PreviewVault {
         (uint Serial, Guid DefId, ulong Spec, uint Version) cacheKey = Key(doc: doc, def: def, spec: spec);
         return store.Borrow(key: cacheKey) switch {
             { IsSome: true, Case: Bitmap bmp } => Fin.Succ(value: Handle(key: cacheKey, bitmap: bmp)),
-            _ => RhinoUi.OnUiThread(run: () => Render(def: def, spec: spec, key: cacheKey, op: key)),
+            _ => Render(def: def, spec: spec, key: cacheKey, op: key),
         };
     }
 

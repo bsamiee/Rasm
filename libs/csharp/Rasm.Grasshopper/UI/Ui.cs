@@ -79,7 +79,7 @@ public partial record RepaintRequest {
     public static RepaintRequest BitwiseOr(RepaintRequest left, RepaintRequest right) => left | right;
 }
 
-// Auto: caller commits via UiRail.CommitActions OR built-in produces no actions (Select/DeselectWire).
+// Auto: caller commits via UiRail.CommitActions OR native path records no undo (wire selection mirrors ObjectList.SelectWire).
 // Manual: caller-supplied record delegate captures the action list.
 [SkipUnionOps]
 [Union]
@@ -244,14 +244,10 @@ internal sealed class UndoGroup {
         return unit;
     }
     internal UndoEntry ToEntry() => new(Name: Name, Actions: toSeq(actions));
-    internal Fin<Unit> Commit(GhDocument document) =>
-        Try.lift(f: () => {
-            UndoEntry entry = ToEntry();
-            _ = Optional(entry)
-                .Filter(static e => e.Actions.Count > 0)
-                .IfSome(e => document.Undo.Do(name: e.Name, actions: e.AsList()));
-            return unit;
-        }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Commit)), detail: $"History.Do threw: {error.Message}"));
+    internal Fin<Unit> Commit(GhDocument document) {
+        UndoEntry entry = ToEntry();
+        return UiRail.CommitActions(document: document, name: entry.Name, actions: entry.AsList());
+    }
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -487,6 +483,12 @@ public static class GhUi {
         new(run: run, policy: GrasshopperUiPolicy.Document(repaint: repaint));
 }
 
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasSkin(Skin Effective, Skin Lit, Skin Dim) {
+    internal static Option<CanvasSkin> Of(GhCanvas? canvas) =>
+        Optional(canvas).Map(static c => new CanvasSkin(Effective: c.Skin, Lit: c.SkinLit, Dim: c.SkinDim));
+}
+
 [BoundaryAdapter]
 public sealed partial record GrasshopperUi {
     private static readonly Atom<Option<Error>> HandlerFaultCell = Atom(value: Option<Error>.None);
@@ -502,11 +504,12 @@ public sealed partial record GrasshopperUi {
     public static Option<Error> TakeHandlerFault() => HandlerFaultCell.Swap(_ => Option<Error>.None);
 
     [StructLayout(LayoutKind.Auto)]
-    internal readonly record struct Scope(Option<GhEditor> Editor, Option<GhCanvas> Canvas, Option<GhDocument> Document, Option<GhDocumentMethods> Methods, Option<GhObjectList> Objects, Option<Skin> Skin, Option<UndoGroup> UndoGroup, CancellationToken Cancellation) {
+    internal readonly record struct Scope(Option<GhEditor> Editor, Option<GhCanvas> Canvas, Option<GhDocument> Document, Option<GhDocumentMethods> Methods, Option<GhObjectList> Objects, Option<CanvasSkin> Skin, Option<UndoGroup> UndoGroup, CancellationToken Cancellation) {
         internal static Fin<Scope> Resolve(GrasshopperUiPolicy policy, CancellationToken cancellation, Option<UndoGroup> undo = default) =>
             cancellation.IsCancellationRequested
                 ? Fin.Fail<Scope>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Resolve))))
                 : Fin.Succ(value: (GhEditor.Instance, policy.OpenEditor) switch {
+                    (GhEditor current, true) when !current.Visible => GhEditor.ShowEditor(createVisible: true),
                     (GhEditor current, _) => current,
                     (null, true) => GhEditor.ShowEditor(createVisible: true),
                     _ => null,
@@ -519,7 +522,7 @@ public sealed partial record GrasshopperUi {
                         Document: Optional(document),
                         Methods: Optional(document?.Methods),
                         Objects: Optional(document?.Objects),
-                        Skin: Optional(canvas?.Skin),
+                        Skin: CanvasSkin.Of(canvas: canvas),
                         UndoGroup: undo,
                         Cancellation: cancellation);
                 }).Bind(scope => (policy.RequireCanvas && scope.Canvas.IsNone, policy.RequireDocument && scope.Document.IsNone) switch {
@@ -537,6 +540,8 @@ public sealed partial record GrasshopperUi {
         internal Fin<GhObjectList> NeedObjects([CallerMemberName] string name = "") =>
             Objects.ToFin(Fail: UiFault.MissingScope(field: nameof(Objects)));
         internal Fin<Skin> NeedSkin([CallerMemberName] string name = "") =>
+            Skin.Map(static s => s.Effective).ToFin(Fail: UiFault.MissingScope(field: nameof(Skin)));
+        internal Fin<CanvasSkin> NeedCanvasSkin([CallerMemberName] string name = "") =>
             Skin.ToFin(Fail: UiFault.MissingScope(field: nameof(Skin)));
     }
 
@@ -628,4 +633,14 @@ public sealed partial record GrasshopperUi {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Rectangle ControlSpace(GhCanvas canvas, RectangleF bounds) =>
         Rectangle.Ceiling(canvas.Map(rectangle: bounds, from: CoordinateSystem.Content, to: CoordinateSystem.Control));
+}
+
+// Lightweight Eto panel host for DrawPlan outside the GH canvas paint cycle.
+internal sealed class FloatingForm : Form {
+    internal FloatingForm(Option<Window> owner) {
+        ShowInTaskbar = false;
+        Resizable = false;
+        WindowStyle = WindowStyle.Default;
+        Owner = owner.IfNone(() => Application.Instance.MainForm);
+    }
 }

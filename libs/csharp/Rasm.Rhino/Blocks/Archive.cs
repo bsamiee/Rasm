@@ -26,7 +26,7 @@ public static class Archive {
     [StructLayout(LayoutKind.Auto)]
     public readonly record struct LinkedArchiveEdge(ArchivePath FromPath, ArchiveLink Link, ArchivePath ToPath, int Depth);
 
-    private const int LinkedArchiveClosureMaxDepth = 64;
+    internal const int LinkedArchiveClosureMaxDepth = 64;
 
     // ---- [BUILD] -------------------------------------------------------------------------
     public static Fin<Graph> From(File3dm model, Op? key = null, Option<string> archivePath = default) {
@@ -43,38 +43,171 @@ public static class Archive {
         select Compose(active: active, definitions: defs, anchorDirectory: anchorDirectory, key: op);
 
     /// Transitive linked-archive walk; each hop resolves `SourceArchive` against `dirname(containing file)`.
-    public static Fin<Seq<LinkedArchiveEdge>> LinkedArchiveClosure(File3dm root, string rootPath, Op? key = null) {
+    /// Fails when <see cref="ValidateArchiveClosure"/> reports broken links or cycles.
+    /// Callers needing partial edge lists on broken archives must use <see cref="ValidateArchiveClosure"/> and read <see cref="ArchiveClosureReport.Edges"/> even when <see cref="ArchiveClosureReport.Valid"/> is false.
+    public static Fin<Seq<LinkedArchiveEdge>> LinkedArchiveClosure(
+        File3dm root,
+        string rootPath,
+        Op? key = null,
+        ClosureValidationPolicy? policy = null) =>
+        ValidateArchiveClosure(root: root, rootPath: rootPath, policy: policy, key: key)
+            .Bind(report => report.Valid
+                ? Fin.Succ(value: report.Edges)
+                : Fin.Fail<Seq<LinkedArchiveEdge>>(error: key.OrDefault().InvalidResult(detail: nameof(LinkedArchiveClosure))));
+
+    /// Read-only linked-archive closure audit: existence, readability, and cycle detection without document mutation.
+    /// Always returns discovered <see cref="ArchiveClosureReport.Edges"/> before validity is evaluated; broken or cyclic archives still populate partial edge lists.
+    public static Fin<ArchiveClosureReport> ValidateArchiveClosure(
+        File3dm root,
+        string rootPath,
+        ClosureValidationPolicy? policy = null,
+        Op? key = null) {
         Op op = key.OrDefault();
-        return Optional(root).ToFin(Fail: op.InvalidInput())
-            .Bind(model => op.Catch(() => Walk(model: model, path: rootPath, depth: 0, visited: LxHashSet.empty<string>(), key: op)));
+        ClosureValidationPolicy admitted = policy ?? ClosureValidationPolicy.Default;
+        return from validPolicy in admitted.Admit(key: op)
+               from model in Optional(root).ToFin(Fail: op.InvalidInput())
+               from state in op.Catch(() => WalkClosure(
+                   model: model,
+                   path: rootPath,
+                   depth: 0,
+                   stack: Seq<string>(),
+                   visited: LxHashSet.empty<string>(),
+                   state: ClosureState.Empty,
+                   policy: validPolicy,
+                   key: op))
+               select state.Report(policy: validPolicy);
     }
 
-    private static Fin<Seq<LinkedArchiveEdge>> Walk(File3dm model, string path, int depth, LanguageExt.HashSet<string> visited, Op key) {
+    private sealed record ClosureState(
+        Seq<LinkedArchiveEdge> Edges,
+        Seq<ArchivePath> Broken,
+        Seq<Seq<ArchivePath>> Cycles) {
+        public static ClosureState Empty { get; } = new(Edges: Seq<LinkedArchiveEdge>(), Broken: Seq<ArchivePath>(), Cycles: Seq<Seq<ArchivePath>>());
+
+        public ArchiveClosureReport Report(ClosureValidationPolicy policy) =>
+            new(
+                Valid: Broken.IsEmpty && (!policy.DetectCycles || Cycles.IsEmpty),
+                Edges: Edges,
+                Broken: Broken,
+                Cycles: Cycles);
+    }
+
+    private static Fin<ClosureState> WalkClosure(
+        File3dm model,
+        string path,
+        int depth,
+        Seq<string> stack,
+        LanguageExt.HashSet<string> visited,
+        ClosureState state,
+        ClosureValidationPolicy policy,
+        Op key) {
         string here = IOPath.GetFullPath(path: path);
-        return depth > LinkedArchiveClosureMaxDepth || visited.Contains(key: here)
-            ? Fin.Succ(Seq<LinkedArchiveEdge>())
-            : Expand(model: model, path: path, here: here, depth: depth, seen: visited.Add(key: here), key: key);
+        bool onStack = stack.Any(item => string.Equals(a: item, b: here, comparisonType: StringComparison.OrdinalIgnoreCase));
+        return (depth > policy.MaxDepth, onStack, visited.Contains(key: here)) switch {
+            (true, _, _) => Fin.Succ(state),
+            (_, true, _) when policy.DetectCycles => Fin.Succ(state with {
+                Cycles = state.Cycles + CyclePath(stack: stack, cycleAt: here, key: key),
+            }),
+            (_, true, _) => Fin.Succ(state),
+            (_, _, true) => Fin.Succ(state),
+            _ => ExpandClosure(
+                model: model,
+                path: path,
+                here: here,
+                depth: depth,
+                stack: stack.Add(here),
+                visited: visited.Add(key: here),
+                state: state,
+                policy: policy,
+                key: key),
+        };
     }
 
-    private static Fin<Seq<LinkedArchiveEdge>> Expand(File3dm model, string path, string here, int depth, LanguageExt.HashSet<string> seen, Op key) =>
-        from graph in From(model: model, archivePath: Some(path), key: key)
-        from anchor in ArchivePath.From(value: here, key: key)
-        from nested in toSeq(graph.LinkedArchives)
-            .Filter(link => !seen.Contains(key: IOPath.GetFullPath(path: link.Full.Value)))
-            .TraverseM(link => WalkEdge(anchor: anchor, link: link, depth: depth, visited: seen, key: key))
-            .As()
-        select nested.Fold(Seq<LinkedArchiveEdge>(), static (acc, edges) => acc + edges);
+    private static Fin<ClosureState> ExpandClosure(
+        File3dm model,
+        string path,
+        string here,
+        int depth,
+        Seq<string> stack,
+        LanguageExt.HashSet<string> visited,
+        ClosureState state,
+        ClosureValidationPolicy policy,
+        Op key) =>
+        From(model: model, archivePath: Some(path), key: key).Match(
+            Fail: _ => Fin.Succ(state with { Broken = state.Broken + BrokenPath(here: here, key: key) }),
+            Succ: graph => ArchivePath.From(value: here, key: key).Match(
+                Fail: _ => Fin.Succ(state),
+                Succ: anchorPath => toSeq(graph.LinkedArchives)
+                    .Filter(link => !visited.Contains(key: IOPath.GetFullPath(path: link.Full.Value)))
+                    .Fold(
+                        initialState: Fin.Succ(state),
+                        f: (stateFin, link) => stateFin.Bind(acc => WalkEdge(
+                            anchor: anchorPath,
+                            link: link,
+                            depth: depth,
+                            stack: stack,
+                            visited: visited,
+                            state: acc,
+                            policy: policy,
+                            key: key)))));
 
-    /// Filter at the caller guarantees `link.Full` is unseen; this method only reads + recurses.
-    private static Fin<Seq<LinkedArchiveEdge>> WalkEdge(ArchivePath anchor, ArchiveLink link, int depth, LanguageExt.HashSet<string> visited, Op key) {
+    private static Fin<ClosureState> WalkEdge(
+        ArchivePath anchor,
+        ArchiveLink link,
+        int depth,
+        Seq<string> stack,
+        LanguageExt.HashSet<string> visited,
+        ClosureState state,
+        ClosureValidationPolicy policy,
+        Op key) {
         string toFull = IOPath.GetFullPath(path: link.Full.Value);
-        return key.Catch(() => {
+        LinkedArchiveEdge edge = new(FromPath: anchor, Link: link, ToPath: link.Full, Depth: depth);
+        ClosureState next = state with { Edges = state.Edges + edge };
+        return File.Exists(path: toFull)
+            ? ReadNestedArchive(toFull: toFull, next: next, depth: depth, stack: stack, visited: visited, policy: policy, key: key)
+            : Fin.Succ(next with { Broken = next.Broken + BrokenPath(here: toFull, key: key) });
+    }
+
+    // BOUNDARY ADAPTER — File3dm.Read owns native archive lifetime.
+    private static Fin<ClosureState> ReadNestedArchive(
+        string toFull,
+        ClosureState next,
+        int depth,
+        Seq<string> stack,
+        LanguageExt.HashSet<string> visited,
+        ClosureValidationPolicy policy,
+        Op key) =>
+        key.Catch(() => {
             using File3dm? child = File3dm.Read(path: toFull);
-            return child is null
-                ? Fin.Fail<Seq<LinkedArchiveEdge>>(error: key.InvalidInput())
-                : Walk(model: child, path: toFull, depth: depth + 1, visited: visited, key: key)
-                    .Map(nested => Seq(new LinkedArchiveEdge(FromPath: anchor, Link: link, ToPath: link.Full, Depth: depth)) + nested);
+            return child switch {
+                null => Fin.Succ(next with { Broken = next.Broken + BrokenPath(here: toFull, key: key) }),
+                File3dm model => WalkClosure(
+                    model: model,
+                    path: toFull,
+                    depth: depth + 1,
+                    stack: stack,
+                    visited: visited,
+                    state: next,
+                    policy: policy,
+                    key: key),
+            };
         });
+
+    private static Seq<ArchivePath> BrokenPath(string here, Op key) =>
+        ArchivePath.From(value: here, key: key).Match(Succ: path => Seq(path), Fail: _ => Seq<ArchivePath>());
+
+    private static Seq<Seq<ArchivePath>> CyclePath(Seq<string> stack, string cycleAt, Op key) {
+        (bool Capture, Seq<ArchivePath> Paths) folded = stack.Fold(
+            initialState: (Capture: false, Paths: Seq<ArchivePath>()),
+            f: (acc, item) => {
+                bool capture = acc.Capture || string.Equals(a: item, b: cycleAt, comparisonType: StringComparison.OrdinalIgnoreCase);
+                return capture
+                    ? (Capture: true, Paths: acc.Paths + ArchivePath.From(value: item, key: key).ToOption().ToSeq())
+                    : acc;
+            });
+        (_, Seq<ArchivePath> paths) = folded;
+        Seq<ArchivePath> closed = paths + ArchivePath.From(value: cycleAt, key: key).ToOption().ToSeq();
+        return closed.IsEmpty ? Seq<Seq<ArchivePath>>() : Seq(closed);
     }
 
     public static Graph ComposeLive(InstanceDefinitionTable table, Seq<Definition> definitions) {
@@ -94,16 +227,132 @@ public static class Archive {
     internal static Option<InstanceDefinitionGeometry> FindDefinition(File3dm model, DefinitionName name) =>
         Optional(model.AllInstanceDefinitions.FindNameHash(nameHash: new NameHash(name: name.Value)));
 
-    private static ImmutableArray<ArchiveLink> LinkedArchives(Seq<Definition> definitions) =>
-        [.. toSeq(definitions).Choose(static d => d.Source)
+    private static ImmutableArray<ArchiveLink> LinkedArchives(
+        Seq<Definition> definitions,
+        Option<File3dm> model = default,
+        Option<string> anchorDirectory = default,
+        Op? key = null) {
+        Op op = key.OrDefault();
+        Seq<ArchiveLink> fromModel = model.Case switch {
+            File3dm active => LinkedSources(model: active, anchorDirectory: anchorDirectory, key: op),
+            _ => Seq<ArchiveLink>(),
+        };
+        return [.. toSeq(definitions).Choose(static d => d.Source)
+            .Concat(fromModel)
             .Fold(HashMap<string, ArchiveLink>(), static (acc, link) => acc.AddOrUpdate(key: link.Full.Value, value: link))
             .Values
             .ToSeq()];
+    }
 
     private static HashMap<Guid, Definition> Lookup(Seq<Definition> definitions) =>
         definitions.Fold(
             initialState: HashMap<Guid, Definition>(),
             f: (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: def));
+
+    // --- [WALK] -----------------------------------------------------------------------------
+    public readonly record struct DefinitionWalkFrame(
+        Transform Composed,
+        ImmutableArray<DefinitionId> Path,
+        int Depth,
+        Option<Guid> InstanceId,
+        Option<Guid> MemberId);
+
+    internal readonly record struct DefinitionWalkNode(
+        Option<ReachInsert> Reach,
+        Option<FlatPiece> Flat);
+
+    internal static Seq<DefinitionWalkNode> WalkDefinitions(
+        InstanceDefinitionTable table,
+        InstanceObject seed,
+        Transform parent,
+        ImmutableArray<DefinitionId> path,
+        int depth,
+        DepthPolicy policy,
+        bool flatLeaves,
+        Op key) =>
+        (flatLeaves && depth >= policy.MaxDepth, seed.InstanceDefinition) switch {
+            (true, _) or (_, null) => Seq<DefinitionWalkNode>(),
+            (_, InstanceDefinition def) => ExpandDefinitions(
+                table: table,
+                def: def,
+                frame: new DefinitionWalkFrame(
+                    Composed: parent * seed.InstanceXform,
+                    Path: path,
+                    Depth: flatLeaves ? depth + 1 : depth,
+                    InstanceId: Some(seed.Id),
+                    MemberId: Option<Guid>.None),
+                policy: policy,
+                flatLeaves: flatLeaves,
+                key: key),
+        };
+
+    private static Seq<DefinitionWalkNode> ExpandDefinitions(
+        InstanceDefinitionTable table,
+        InstanceDefinition def,
+        DefinitionWalkFrame frame,
+        DepthPolicy policy,
+        bool flatLeaves,
+        Op key) =>
+        DefinitionId.From(value: def.Id, key: key).ToOption().Map(defId => {
+            ImmutableArray<DefinitionId> nextPath = flatLeaves
+                ? AppendWalkPath(path: frame.Path, id: def.Id, key: key)
+                : frame.Path.Add(item: defId);
+            Seq<DefinitionWalkNode> prefix = flatLeaves
+                ? Seq<DefinitionWalkNode>()
+                : Seq(new DefinitionWalkNode(
+                    Reach: Some(new ReachInsert(
+                        InstanceId: frame.InstanceId.IfNone(noneValue: frame.MemberId.IfNone(noneValue: Guid.Empty)),
+                        DefId: defId,
+                        WorldXform: frame.Composed,
+                        Depth: frame.Depth,
+                        Path: nextPath)),
+                    Flat: Option<FlatPiece>.None));
+            bool stop = flatLeaves
+                ? frame.Depth >= policy.MaxDepth
+                : (policy.StopOnCycle && frame.Path.Contains(defId)) || frame.Depth >= policy.MaxDepth;
+            return stop
+                ? prefix
+                : prefix + Operations.BindDefinitionMembers(
+                    def: def,
+                    composed: frame.Composed,
+                    onInstance: (nested, parentXform) => WalkDefinitions(
+                        table: table,
+                        seed: nested,
+                        parent: parentXform,
+                        path: nextPath,
+                        depth: frame.Depth + 1,
+                        policy: policy,
+                        flatLeaves: flatLeaves,
+                        key: key),
+                    onReference: (reference, memberId, parentXform) =>
+                        Optional(table.Find(instanceId: reference.ParentIdefId, ignoreDeletedInstanceDefinitions: true))
+                            .Map(nestedDef => ExpandDefinitions(
+                                table: table,
+                                def: nestedDef,
+                                frame: new DefinitionWalkFrame(
+                                    Composed: parentXform * reference.Xform,
+                                    Path: nextPath,
+                                    Depth: frame.Depth + 1,
+                                    InstanceId: frame.InstanceId,
+                                    MemberId: Some(memberId)),
+                                policy: policy,
+                                flatLeaves: flatLeaves,
+                                key: key))
+                            .IfNone(Seq<DefinitionWalkNode>()),
+                    onLeaf: flatLeaves
+                        ? (leaf, parentXform) => leaf.Geometry is GeometryBase g
+                            ? Seq(new DefinitionWalkNode(
+                                Reach: Option<ReachInsert>.None,
+                                Flat: Some(new FlatPiece(Geometry: g, Composed: parentXform, Path: frame.Path))))
+                            : Seq<DefinitionWalkNode>()
+                        : null);
+        }).IfNone(Seq<DefinitionWalkNode>());
+
+    private static ImmutableArray<DefinitionId> AppendWalkPath(ImmutableArray<DefinitionId> path, Guid id, Op key) =>
+        DefinitionId.From(value: id, key: key).ToOption() switch {
+            { IsSome: true, Case: DefinitionId defId } => path.Add(item: defId),
+            _ => path,
+        };
 
     private static ImmutableArray<Instance> ProjectInstances(
         HashMap<Guid, Definition> lookup,
@@ -226,19 +475,12 @@ public static class Archive {
         return Compose(
             definitions: definitions,
             instances: instances,
-            linkedArchives: LinkedArchives(definitions: definitions, model: active, anchorDirectory: anchorDirectory, key: key));
+            linkedArchives: LinkedArchives(
+                definitions: definitions,
+                model: Some(active),
+                anchorDirectory: anchorDirectory,
+                key: key));
     }
-
-    private static ImmutableArray<ArchiveLink> LinkedArchives(
-        Seq<Definition> definitions,
-        File3dm model,
-        Option<string> anchorDirectory,
-        Op key) =>
-        [.. toSeq(definitions).Choose(static d => d.Source)
-            .Concat(LinkedSources(model: model, anchorDirectory: anchorDirectory, key: key))
-            .Fold(HashMap<string, ArchiveLink>(), static (acc, link) => acc.AddOrUpdate(key: link.Full.Value, value: link))
-            .Values
-            .ToSeq()];
 
     public static Fin<DocumentReceipt> AddLinked(File3dm model, Seq<FileEndpoint> sources, Op? key = null) {
         Op op = key.OrDefault();

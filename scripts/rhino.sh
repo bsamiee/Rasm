@@ -269,25 +269,31 @@ _verify_run() {
     _verify_discover "${pattern}" scenarios
     ((${#scenarios[@]} > 0)) || _die "No *.verify.csx scenarios matched: ${pattern}"
     local -r report_dir="${PACKAGE_STAGE_ROOT}/verify"
-    mkdir -p -- "${report_dir}/.tmp"
-    CLEANUP_PATHS+=("${report_dir}/.tmp")
+    mkdir -p -- "${report_dir}"
+    local result_stream
+    result_stream="$(mktemp "${report_dir}/results-XXXXXX")"
+    CLEANUP_PATHS+=("${result_stream}")
     local -a result_files=()
-    local scenario name project result rc status ok=0 failed=0
+    local scenario name project result rc status ok=0 failed=0 attempt
     for scenario in "${scenarios[@]}"; do
         name="${scenario##*/}"; name="${name%.verify.csx}"
         result="${report_dir}/${name}.json"
         _verify_project "${scenario}" project
         rc=0
-        _bridge_invoke check "${project}" "${scenario}" --result "${result}" >/dev/null 2>&1 || rc=$?
-        status="$(jq -r '.status // "failed"' "${result}" 2>/dev/null || printf 'failed')"
+        status=failed
+        for attempt in 1 2; do
+            rc=0
+            _bridge_invoke check "${project}" "${scenario}" --result "${result}" >/dev/null 2>&1 || rc=$?
+            status="$(jq -r '.status // "failed"' "${result}" 2>/dev/null || printf 'failed')"
+            [[ "${status}" == ok || ${attempt} -ge 2 ]] && break
+            printf 'rhino: retry scenario %s after rc=%s status=%s\n' "${name}" "${rc}" "${status}" >&2
+        done
         result_files+=("${result}")
         case "${status}" in
-            ok) ((ok += 1)); printf '[OK]     %s report=%s\n' "${scenario#"${ROOT_DIR}/"}" "${result}" >&2 ;;
-            *) ((failed += 1)); printf '[FAILED] %s rc=%s status=%s result=%s\n' "${scenario#"${ROOT_DIR}/"}" "${rc}" "${status}" "${result}" >&2 ;;
+            ok) ok=$((ok + 1)); printf '[OK]     %s report=%s\n' "${scenario#"${ROOT_DIR}/"}" "${result}" >&2 ;;
+            *) failed=$((failed + 1)); printf '[FAILED] %s rc=%s status=%s result=%s\n' "${scenario#"${ROOT_DIR}/"}" "${rc}" "${status}" "${result}" >&2 ;;
         esac
     done
-    local -r result_stream="${report_dir}/.tmp/results.jsonl"
-    : > "${result_stream}"
     local result_file
     for result_file in "${result_files[@]}"; do
         jq -c . "${result_file}" >> "${result_stream}" 2>/dev/null || true

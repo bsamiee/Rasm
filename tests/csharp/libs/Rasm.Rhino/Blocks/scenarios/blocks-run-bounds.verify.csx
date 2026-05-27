@@ -44,7 +44,7 @@ Scenario.Run("blocks-run-bounds", CAPTURE_PATH, (key, facts) => {
     BlockOp bounds = new BlockOp.Bounds(
         Ref: DefinitionRef.Of(name: blockName),
         Policy: BoundsPolicy.Default);
-    BlockOutcome outcome = Probe.Expect(blocks.Run(op: bounds, key: key), "bounds run");
+    BlockOutcome outcome = Probe.Expect(result: blocks.Run(op: bounds, key: key), label: "bounds run", facts: facts);
     BlockOutcome.Bounds boxed = outcome is BlockOutcome.Bounds value
         ? value
         : throw new InvalidOperationException(message: $"unexpected outcome: {outcome.GetType().Name}");

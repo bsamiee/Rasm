@@ -200,8 +200,10 @@ internal static partial class Layout {
             undo: PivotUndo(noun: "Move", id: id),
             mutate: scope =>
                 Op.Of(name: nameof(Move)).AcceptPoint(value: new PointF(x: dx, y: dy), detail: "non-finite delta")
-                    .Bind(delta => ObjectOf(scope: scope, id: id).Bind(obj => scope.NeedDocument().Map(doc =>
-                        ApplyMove(obj: obj, document: doc, dx: delta.X, dy: delta.Y, snap: snap)))));
+                    .Bind(delta => ObjectOf(scope: scope, id: id).Bind(obj => scope.NeedDocument().Map(doc => {
+                        RectangleF snapLimit = scope.Canvas.Map(static canvas => canvas.VisibleFrame).IfNone(doc.Objects.AttributeBounds);
+                        return ApplyMove(obj: obj, document: doc, dx: delta.X, dy: delta.Y, snap: snap, snapVisibleLimit: snapLimit);
+                    }))));
 
     internal static GrasshopperUiIntent<Snapshot<LayoutMoveDelta>> Place(Guid id, PointF pivot) =>
         GrasshopperUi.Mutate(
@@ -213,7 +215,13 @@ internal static partial class Layout {
                 from obj in ObjectOf(scope: scope, id: id)
                 from doc in scope.NeedDocument()
                 let before = SnapshotOf(attributes: obj.Attributes)
-                select ApplyMove(obj: obj, document: doc, dx: valid.X - before.Pivot.X, dy: valid.Y - before.Pivot.Y, snap: false));
+                select ApplyMove(
+                    obj: obj,
+                    document: doc,
+                    dx: valid.X - before.Pivot.X,
+                    dy: valid.Y - before.Pivot.Y,
+                    snap: false,
+                    snapVisibleLimit: doc.Objects.AttributeBounds));
 
     internal static GrasshopperUiIntent<Snapshot<LayoutMoveDelta>> Align(Guid left, Guid right, OCD.Fixed fix = OCD.Fixed.None) =>
         GrasshopperUi.Mutate(
@@ -261,21 +269,20 @@ internal static partial class Layout {
         GhUi.Document(run: scope =>
             Optional(probe)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "snap probe is required"))
-                .Bind(valid => valid switch {
-                    SnapProbe.PointCase point =>
+                .Bind(valid => valid.Switch(
+                    state: scope,
+                    pointCase: static (s, point) =>
                         from probe in Op.Of(name: nameof(Snap)).AcceptPoint(value: point.Probe, detail: "non-finite probe")
                         from radius in Op.Of(name: nameof(Snap)).AcceptFinite(value: point.Radius, detail: "radius must be finite and positive", requirePositive: true)
-                        from snapped in SnapRectangle(scope: scope, id: point.ObjectId, bounds: new RectangleF(x: probe.X - radius, y: probe.Y - radius, width: radius * 2f, height: radius * 2f), policy: point.Policy)
+                        from snapped in SnapRectangle(scope: s, id: point.ObjectId, bounds: new RectangleF(x: probe.X - radius, y: probe.Y - radius, width: radius * 2f, height: radius * 2f), policy: point.Policy)
                         select snapped,
-                    SnapProbe.RectangleCase rectangle =>
-                        SnapRectangle(scope: scope, id: rectangle.ObjectId, bounds: rectangle.Bounds, policy: rectangle.Policy),
-                    SnapProbe.ObjectCase obj =>
-                        ObjectOf(scope: scope, id: obj.ObjectId).Bind(target =>
-                            from document in scope.NeedDocument()
-                            from canvas in scope.NeedCanvas()
-                            select SnapCore(document: document, obj: target, policy: obj.Policy, visibleLimit: canvas.VisibleFrame, bounds: Option<RectangleF>.None)),
-                    _ => Fin.Fail<Option<SnappingSnapshot>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "unknown snap probe")),
-                }));
+                    rectangleCase: static (s, rectangle) =>
+                        SnapRectangle(scope: s, id: rectangle.ObjectId, bounds: rectangle.Bounds, policy: rectangle.Policy),
+                    objectCase: static (s, obj) =>
+                        ObjectOf(scope: s, id: obj.ObjectId).Bind(target =>
+                            from document in s.NeedDocument()
+                            from canvas in s.NeedCanvas()
+                            select SnapCore(document: document, obj: target, policy: obj.Policy, visibleLimit: canvas.VisibleFrame, bounds: Option<RectangleF>.None)))));
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
     private static UndoStrategy PivotUndo(string noun, Guid id) =>
@@ -302,14 +309,14 @@ internal static partial class Layout {
             AggregateBounds: attributes.AggregateBounds,
             Snappable: attributes.Snappable);
 
-    private static LayoutMoveDelta ApplyMove(IDocumentObject obj, GhDocument document, float dx, float dy, bool snap) {
+    private static LayoutMoveDelta ApplyMove(IDocumentObject obj, GhDocument document, float dx, float dy, bool snap, RectangleF snapVisibleLimit) {
         IAttributes attributes = obj.Attributes;
         RectangleF bounds = attributes.AggregateBounds;
         Option<SnappingSnapshot> snapped = snap && attributes.Snappable
             ? SnapRectangle(
                 document: document, obj: obj,
                 bounds: new RectangleF(x: bounds.X + dx, y: bounds.Y + dy, width: bounds.Width, height: bounds.Height),
-                policy: default, visibleLimit: document.Objects.AttributeBounds)
+                policy: default, visibleLimit: snapVisibleLimit)
             : Option<SnappingSnapshot>.None;
         (float deltaDx, float deltaDy) = snapped.Map(static s => (s.Dx, s.Dy)).IfNone((0f, 0f));
         float effDx = dx + deltaDx;
@@ -341,7 +348,7 @@ internal static partial class Layout {
         (SnappingAction x, SnappingAction y) = bounds
             .Map(SnapRectangle)
             .IfNone(SnapObject);
-        return SnapshotOf(
+        return UiRail.SnapChannels(
             x: Optional(x),
             y: Optional(SnappingAction.SmallerMagnitude(
                 a: y,
@@ -362,19 +369,6 @@ internal static partial class Layout {
             true => policy,
             false => policy with { IncludeSelected = true, IncludeUnselected = true },
         };
-
-    internal static Option<SnappingSnapshot> SnapshotOf(Option<SnappingAction> x, Option<SnappingAction> y) =>
-        Optional((X: x, Y: y))
-            .Filter(static snap => snap.X.IsSome || snap.Y.IsSome)
-            .Map(static snap => new SnappingSnapshot(
-                Dx: snap.X.Map(static action => action.ΔX).IfNone(0f),
-                Dy: snap.Y.Map(static action => action.ΔY).IfNone(0f),
-                Magnitude: snap.X.Map(static action => action.Magnitude).IfNone(0f) + snap.Y.Map(static action => action.Magnitude).IfNone(0f),
-                XLabel: snap.X.Map(static action => action.LabelText).IfNone(string.Empty),
-                YLabel: snap.Y.Map(static action => action.LabelText).IfNone(string.Empty),
-                Lines: snap.X.Map(static action => toSeq(action.Lines)).IfNone(Seq<LineF>()) + snap.Y.Map(static action => toSeq(action.Lines)).IfNone(Seq<LineF>()),
-                LabelPoint: snap.X.Map(static action => action.LabelPoint) | snap.Y.Map(static action => action.LabelPoint),
-                LabelAnchor: snap.X.Map(static action => action.LabelAnchor) | snap.Y.Map(static action => action.LabelAnchor)));
 
     // OCD.AlignObjects exposes exactly four (Component|IParameter)² overloads — exhaustively keyed here
     // so unsupported pairs fail as typed UiFault without DLR/runtime-binder cost.
