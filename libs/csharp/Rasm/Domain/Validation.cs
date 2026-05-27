@@ -5,6 +5,12 @@ using Foundation.CSharp.Analyzers.Contracts;
 namespace Rasm.Domain;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false)]
+public sealed class GenerateUnionOpsAttribute : Attribute;
+
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false)]
+public sealed class SkipUnionOpsAttribute : Attribute;
+
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -12,7 +18,7 @@ public readonly partial struct Op {
     [BoundaryAdapter] public static Op Of([CallerMemberName] string name = "") => Create(value: name);
     [BoundaryAdapter] public Error MissingContext() => new Fault.MissingContext(Key: this);
     [BoundaryAdapter] public Error InvalidInput() => new Fault.InvalidInput(Key: this);
-    [BoundaryAdapter] public Error InvalidResult() => new Fault.InvalidResult(Key: this);
+    [BoundaryAdapter] public Error InvalidResult(string? detail = null) => new Fault.InvalidResult(Key: this, Detail: Optional(detail).Filter(static text => !string.IsNullOrWhiteSpace(value: text)));
     [BoundaryAdapter] public Error Unsupported(Type geometryType, Type outputType) => new Fault.Unsupported(Key: this, GeometryType: geometryType, OutputType: outputType);
     [BoundaryAdapter] public Error Caution(string concern) => new Fault.Caution(Key: this, Concern: concern);
     [BoundaryAdapter] public Fin<T> AcceptValue<T>(T value) => OpAcceptance.AcceptValue(key: this, value: value);
@@ -24,7 +30,7 @@ public readonly partial struct Op {
         return Optional(body).ToFin(Fail: self.InvalidInput()).Bind(valid =>
             Try.lift<Fin<T>>(f: valid).Run().Match(
                 Succ: static result => result,
-                Fail: _ => Fin.Fail<T>(error: self.InvalidResult())));
+                Fail: error => Fin.Fail<T>(error: self.InvalidResult(detail: error.Message))));
     }
     [BoundaryAdapter]
     public static Unit Side(Action action) {
@@ -185,31 +191,35 @@ public abstract record Expected : Error {
     public virtual string Category => "Fault";
 }
 
+[GenerateUnionOps]
 [Union]
 public abstract partial record Fault : Expected {
     private Fault() : base() { }
     internal const int UnsupportedCode = 9104;
-    public sealed record MissingOperation : Fault { public override string Message => "Geometry operation is required."; public override string Category => "Operation"; }
-    public sealed record MissingContext(Op Key) : Fault { public override string Message => $"Geometry operation '{Key}' requires a model context."; public override string Category => "Operation"; }
-    public sealed record InvalidInput(Op Key) : Fault { public override string Message => $"Geometry operation '{Key}' received invalid Rhino input."; public override string Category => "Input"; }
-    public sealed record InvalidResult(Op Key) : Fault { public override string Message => $"Geometry operation '{Key}' produced no valid Rhino result."; public override string Category => "Result"; }
-    public sealed record Cancelled : Fault { public override string Message => "Geometry operation was cancelled."; public override string Category => "Cancelled"; }
-    public sealed record Unsupported(Op Key, Type GeometryType, Type OutputType) : Fault {
+    public sealed partial record MissingOperation : Fault { public override string Message => "Geometry operation is required."; public override string Category => "Operation"; }
+    public sealed partial record MissingContext(Op Key) : Fault { public override string Message => $"Geometry operation '{Key}' requires a model context."; public override string Category => "Operation"; }
+    public sealed partial record InvalidInput(Op Key) : Fault { public override string Message => $"Geometry operation '{Key}' received invalid Rhino input."; public override string Category => "Input"; }
+    public sealed partial record InvalidResult(Op Key, Option<string> Detail = default) : Fault {
+        public override string Message => $"Geometry operation '{Key}' produced no valid Rhino result{Detail.Map(static d => $": {d}").IfNone(static () => ".")}";
+        public override string Category => "Result";
+    }
+    public sealed partial record Cancelled : Fault { public override string Message => "Geometry operation was cancelled."; public override string Category => "Cancelled"; }
+    public sealed partial record Unsupported(Op Key, Type GeometryType, Type OutputType) : Fault {
         public override string Message => $"Geometry operation '{Key}' does not support geometry '{GeometryType.Name}' with output '{OutputType.Name}'.";
         public override int Code => UnsupportedCode;
         public override string Category => "Unsupported";
     }
-    public sealed record ComputationFailed(string Label) : Fault { public override string Message => $"Rhino {Label} computation failed."; public override string Category => "Computation"; }
-    public sealed record MissingGeometry : Fault { public override string Message => "Geometry input is required."; public override string Category => "Geometry"; }
-    public sealed record InvalidGeometry(GeometryBase Geometry, string Check, string Log) : Fault {
+    public sealed partial record ComputationFailed(string Label) : Fault { public override string Message => $"Rhino {Label} computation failed."; public override string Category => "Computation"; }
+    public sealed partial record MissingGeometry : Fault { public override string Message => "Geometry input is required."; public override string Category => "Geometry"; }
+    public sealed partial record InvalidGeometry(GeometryBase Geometry, string Check, string Log) : Fault {
         public override string Message => string.IsNullOrWhiteSpace(value: Log)
             ? $"Geometry validation failed for {Geometry.GetType().Name} under check '{Check}'."
             : $"Geometry validation failed for {Geometry.GetType().Name} under check '{Check}': {Log}";
         public override string Category => "Geometry";
     }
-    public sealed record OutOfRange(string Label, double Scalar, string Requirement) : Fault { public override string Message => string.Create(provider: CultureInfo.InvariantCulture, $"Geometry value '{Label}' must be {Requirement}; actual={Scalar:R}."); public override string Category => "Tolerance"; }
-    public sealed record InvalidUnitSystem(UnitSystem Units, string Requirement) : Fault { public override string Message => $"Model unit system must be {Requirement}; actual={Units}."; public override string Category => "Context"; }
-    public sealed record Caution(Op Key, string Concern) : Fault { public override string Message => $"Geometry operation '{Key}' raised a recoverable concern: {Concern}."; public override string Category => "Caution"; }
+    public sealed partial record OutOfRange(string Label, double Scalar, string Requirement) : Fault { public override string Message => string.Create(provider: CultureInfo.InvariantCulture, $"Geometry value '{Label}' must be {Requirement}; actual={Scalar:R}."); public override string Category => "Tolerance"; }
+    public sealed partial record InvalidUnitSystem(UnitSystem Units, string Requirement) : Fault { public override string Message => $"Model unit system must be {Requirement}; actual={Units}."; public override string Category => "Context"; }
+    public sealed partial record Caution(Op Key, string Concern) : Fault { public override string Message => $"Geometry operation '{Key}' raised a recoverable concern: {Concern}."; public override string Category => "Caution"; }
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------

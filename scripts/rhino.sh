@@ -22,6 +22,9 @@ readonly API_RHINO_WIP_APP_PATH="${RHINO_WIP_APP_PATH:-/Applications/RhinoWIP.ap
 readonly API_RHINO_WIP_RESOURCES="${API_RHINO_WIP_APP_PATH}/Contents/Frameworks/RhCore.framework/Versions/A/Resources"
 readonly API_RHINO_CODE="${API_RHINO_WIP_APP_PATH}/Contents/Resources/bin/rhinocode"
 readonly BRIDGE_RESTART_TIMEOUT_SECONDS="${BRIDGE_RESTART_TIMEOUT_SECONDS:-45}"
+readonly BRIDGE_LOCK_TIMEOUT_SECONDS="${BRIDGE_LOCK_TIMEOUT_SECONDS:-120}"
+readonly BRIDGE_LOCK_STALE_SECONDS="${BRIDGE_LOCK_STALE_SECONDS:-30}"
+readonly BRIDGE_ENDPOINT_PATH="${HOME}/.rasm/rhino-bridge.json"
 readonly -a DOTNET_SERIAL_BUILD_ARGS=(-maxcpucount:1 -p:BuildInParallel=false)
 readonly -a RHINO_HOST_PACKAGE_EXCLUDES=(
     'Eto.*' 'Eto.macOS.*' 'Grasshopper.*' 'Grasshopper2.*' 'GrasshopperIO.*'
@@ -41,6 +44,7 @@ declare -Ar API_REFERENCES=(
 readonly -a API_REFERENCE_ORDER=(rhino-common rhino-ui rhino-code rhino-code-remote eto gh2 gh2-io)
 declare -a CLEANUP_PATHS=()
 declare -a CLEANUP_ROLLBACKS=()
+ACTIVE_LOCK="" ACTIVE_TOKEN=""
 CLEANING=0
 declare -Ar ROUTES=(
     [--self-test]='_self_test|0|0|'
@@ -78,6 +82,7 @@ _cleanup_exit() {
     local entry index path previous_dir stage_dir
     ((CLEANING == 0)) || exit "${exit_code}"
     CLEANING=1
+    _release_lock
     for ((index = ${#CLEANUP_ROLLBACKS[@]} - 1; index >= 0; index--)); do
         entry="${CLEANUP_ROLLBACKS[index]}"
         stage_dir="${entry%%|*}"
@@ -96,6 +101,66 @@ trap 'exit 143' TERM
 _die() {
     printf 'rhino: %s\n' "$1" >&2
     exit "${2:-1}"
+}
+_release_lock() {
+    local -r lock_dir="${ACTIVE_LOCK:-}"
+    local -r token="${ACTIVE_TOKEN:-}"
+    ACTIVE_LOCK="" ACTIVE_TOKEN=""
+    [[ -z "${lock_dir}" ]] || {
+        [[ -f "${lock_dir}/owner" && "$(<"${lock_dir}/owner")" == *"|${token}|"* ]] && rm -f -- "${lock_dir}/owner" 2>/dev/null || true
+        rmdir -- "${lock_dir}" 2>/dev/null || true
+    }
+}
+_lock_stale() {
+    local -r lock_dir="$1"
+    local -r meta="${lock_dir}/owner"
+    local created
+    [[ -f "${meta}" ]] || {
+        created="$(stat -f %m "${lock_dir}" 2>/dev/null || stat -c %Y "${lock_dir}" 2>/dev/null || printf '%s' "${EPOCHSECONDS}")"
+        ((EPOCHSECONDS - created > BRIDGE_LOCK_STALE_SECONDS)) && return 0
+        return 1
+    }
+    local owner_pid owner_started owner_token owner_name owner_start_command
+    IFS='|' read -r owner_pid owner_started owner_token owner_name < "${meta}" || return 0
+    [[ -n "${owner_token}" && -n "${owner_name}" ]] || return 0
+    [[ "${owner_pid}" =~ ^[0-9]+$ ]] || return 0
+    kill -0 "${owner_pid}" 2>/dev/null || return 0
+    owner_start_command="$(ps -o lstart= -p "${owner_pid}" 2>/dev/null || true)"
+    [[ -n "${owner_started}" && "${owner_start_command}" == "${owner_started}" ]] && return 1
+    return 0
+}
+_clear_stale_lock() {
+    local -r lock_dir="$1"
+    rm -f -- "${lock_dir}/owner" 2>/dev/null || true
+    rmdir -- "${lock_dir}" 2>/dev/null || true
+}
+_lock_owner_label() {
+    local -r meta="$1"
+    [[ -f "${meta}" ]] && cat "${meta}" || printf 'unknown'
+}
+_with_lock() {
+    local -r name="$1"
+    local -r handler="$2"
+    shift 2
+    local -r lock_root="${PACKAGE_STAGE_ROOT}/locks"
+    local -r lock_key="${name//[^[:alnum:]_.:-]/_}"
+    local -r lock_dir="${lock_root}/${lock_key}.lock"
+    local -r lock_meta="${lock_dir}/owner"
+    local -r deadline=$((BASH_MONOSECONDS + BRIDGE_LOCK_TIMEOUT_SECONDS))
+    mkdir -p -- "${lock_root}"
+    while ! mkdir -- "${lock_dir}" 2>/dev/null; do
+        _lock_stale "${lock_dir}" && _clear_stale_lock "${lock_dir}" && continue
+        ((BASH_MONOSECONDS < deadline)) || _die "Timed out waiting for ${name} lock: ${lock_dir} (owner: $(_lock_owner_label "${lock_meta}"))"
+        sleep 0.2
+    done
+    ACTIVE_LOCK="${lock_dir}"
+    ACTIVE_TOKEN="$$:${BASH_MONOSECONDS}:${SRANDOM}"
+    local lock_tmp
+    lock_tmp="$(mktemp "${lock_dir}/owner.XXXXXXXX")"
+    printf '%s|%s|%s|%s\n' "$$" "$(ps -o lstart= -p "$$" 2>/dev/null || true)" "${ACTIVE_TOKEN}" "${name}" > "${lock_tmp}"
+    mv -- "${lock_tmp}" "${lock_meta}"
+    "${handler}" "$@"
+    _release_lock
 }
 _dispatch() {
     local -r route="$1"
@@ -123,6 +188,10 @@ _self_test() {
     for path in "${SOLUTION_PATH}" "${BRIDGE_PROJECTS[@]}"; do
         [[ -e "${path}" ]] || _die "Missing required path: ${path}"
     done
+    local -a verify_found=()
+    _verify_discover 'blocks-stats.verify.csx' verify_found
+    ((${#verify_found[@]} == 1)) || _die "verify discover: expected 1 match for blocks-stats.verify.csx, got ${#verify_found[@]}"
+    [[ "${verify_found[0]##*/}" == 'blocks-stats.verify.csx' ]] || _die "verify discover: wrong file ${verify_found[0]}"
 }
 _package_projects() {
     local -n __projects="$1"
@@ -170,23 +239,6 @@ _bridge_build() {
         dotnet build "${project}" --configuration "${CONFIGURATION}" --no-restore "${DOTNET_SERIAL_BUILD_ARGS[@]}"
     done
 }
-_with_lock() {
-    local -r name="$1"
-    local -r handler="$2"
-    shift 2
-    local -r lock_root="${PACKAGE_STAGE_ROOT}/locks"
-    local -r lock_key="${name//[^[:alnum:]_.:-]/_}"
-    local -r lock_dir="${lock_root}/${lock_key}.lock"
-    local -r deadline=$((BASH_MONOSECONDS + 30))
-    mkdir -p -- "${lock_root}"
-    while ! mkdir -- "${lock_dir}" 2>/dev/null; do
-        ((BASH_MONOSECONDS < deadline)) || _die "Timed out waiting for ${name} lock: ${lock_dir}"
-        sleep 0.2
-    done
-    CLEANUP_PATHS+=("${lock_dir}")
-    "${handler}" "$@"
-    rm -rf -- "${lock_dir}"
-}
 _bridge_client_build_only() {
     local -r lock_root="${PACKAGE_STAGE_ROOT}/locks"
     local build_log
@@ -197,10 +249,10 @@ _bridge_client_build_only() {
     rm -f -- "${build_log}"
 }
 _bridge_client() {
-    _with_lock bridge-client-build _bridge_client_run "$@"
+    _with_lock bridge-client-build _bridge_client_build_only
+    _bridge_client_run "$@"
 }
 _bridge_client_run() {
-    _bridge_client_build_only
     dotnet run --no-build --project "${BRIDGE_CLIENT_PROJECT}" --configuration "${CONFIGURATION}" -- "$@"
 }
 _bridge_invoke() {
@@ -208,14 +260,14 @@ _bridge_invoke() {
 }
 _verify() {
     local -r pattern="$1"
-    _with_lock bridge-client-build _verify_run "${pattern}"
+    _with_lock bridge-client-build _bridge_client_build_only
+    _verify_run "${pattern}"
 }
 _verify_run() {
     local -r pattern="$1"
     local -a scenarios=()
     _verify_discover "${pattern}" scenarios
     ((${#scenarios[@]} > 0)) || _die "No *.verify.csx scenarios matched: ${pattern}"
-    _bridge_client_build_only
     local -r report_dir="${PACKAGE_STAGE_ROOT}/verify"
     mkdir -p -- "${report_dir}/.tmp"
     CLEANUP_PATHS+=("${report_dir}/.tmp")
@@ -249,15 +301,21 @@ _verify_discover() {
     local -r pattern="$1"
     local -n __scenarios="$2"
     __scenarios=()
-    if [[ -f "${pattern}" && "${pattern}" == *.verify.csx ]]; then
-        __scenarios=("${pattern}")
+    local candidate resolved glob
+    for candidate in "${pattern}" "${ROOT_DIR}/${pattern}"; do
+        [[ -f "${candidate}" && "${candidate}" == *.verify.csx ]] || continue
+        resolved="$(cd -- "$(dirname -- "${candidate}")" && pwd)/${candidate##*/}"
+        __scenarios=("${resolved}")
         return 0
-    fi
-    if [[ -d "${pattern}" ]]; then
-        mapfile -t __scenarios < <(fd -H -e csx '\.verify\.csx$' "${pattern}" | LC_ALL=C sort)
+    done
+    for candidate in "${pattern}" "${ROOT_DIR}/${pattern}"; do
+        [[ -d "${candidate}" ]] || continue
+        mapfile -t __scenarios < <(fd -H -e csx '\.verify\.csx$' "${candidate}" | LC_ALL=C sort)
         return 0
-    fi
-    mapfile -t __scenarios < <(fd -H -e csx '\.verify\.csx$' "${ROOT_DIR}" | rg -- "${pattern}" | LC_ALL=C sort)
+    done
+    glob="${pattern}"
+    [[ "${glob}" == *'/'* || "${glob}" == *'*'* || "${glob}" == *'?'* || "${glob}" == *'['* ]] || glob="**/${glob}"
+    mapfile -t __scenarios < <(fd -H -e csx -g "${glob}" "${ROOT_DIR}" | LC_ALL=C sort)
 }
 _verify_project() {
     local -r scenario="$1"
@@ -562,6 +620,36 @@ _pid_alive() {
     local -r pid="$1"
     [[ "${pid}" =~ ^[0-9]+$ ]] && kill -0 "${pid}" 2>/dev/null
 }
+_bridge_endpoint_pid() {
+    local -r endpoint_path="$1"
+    [[ -f "${endpoint_path}" ]] || return 1
+    jq -er '.rhinoPid // empty | select(type == "number" and . > 0)' "${endpoint_path}" 2>/dev/null || return 1
+}
+_bridge_live() {
+    local pid
+    pid="$(_bridge_endpoint_pid "${BRIDGE_ENDPOINT_PATH}")" || return 1
+    _pid_alive "${pid}"
+}
+_bridge_endpoint_retire() {
+    local pid
+    [[ -f "${BRIDGE_ENDPOINT_PATH}" ]] || return 0
+    pid="$(_bridge_endpoint_pid "${BRIDGE_ENDPOINT_PATH}")" || {
+        rm -f -- "${BRIDGE_ENDPOINT_PATH}"
+        return 0
+    }
+    _pid_alive "${pid}" && return 0
+    rm -f -- "${BRIDGE_ENDPOINT_PATH}"
+}
+_bridge_quit_refused() {
+    local -r quit_json="$1"
+    jq -er '
+        .status == "failed"
+        and (
+            (.fault.message // "") | test("unsaved changes"; "i")
+            or ((.phases[]? | select(.phase == "lifecycle") | .fault.message) // "") | test("unsaved changes"; "i")
+        )
+    ' <<< "${quit_json}" 2>/dev/null
+}
 _wait_pid_exit() {
     local -r pid="$1" name="$2"
     local -r deadline=$((BASH_MONOSECONDS + BRIDGE_RESTART_TIMEOUT_SECONDS))
@@ -573,23 +661,33 @@ _wait_pid_exit() {
 _package_deploy_quit() {
     local -r package_slug="$1"
     [[ "${package_slug}" == "rasm-bridge" ]] || return 0
+    _bridge_live || {
+        _bridge_endpoint_retire
+        return 0
+    }
     local quit_json quit_status quit_pid
     quit_json="$(_bridge_client quit 2>&1)" || {
         printf '%s\n' "${quit_json}"
         quit_status="$(jq -r '.status? // empty' <<< "${quit_json}" 2>/dev/null || true)"
-        [[ "${quit_status}" == "failed" ]] && _die "Bridge quit refused before deploying ${package_slug}"
-        return 0
+        [[ "${quit_status}" == "failed" ]] || return 0
+        _bridge_quit_refused "${quit_json}" && _die "Bridge quit refused before deploying ${package_slug}: unsaved Rhino documents"
+        _die "Bridge quit failed before deploying ${package_slug}"
     }
     readonly quit_json
     printf '%s\n' "${quit_json}"
     quit_status="$(jq -r '.status? // empty' <<< "${quit_json}" 2>/dev/null || true)"
-    [[ "${quit_status}" == "ok" ]] || _die "Bridge quit returned ${quit_status:-non-json} before deploying ${package_slug}"
+    [[ "${quit_status}" == "ok" ]] || {
+        _bridge_quit_refused "${quit_json}" && _die "Bridge quit refused before deploying ${package_slug}: unsaved Rhino documents"
+        _die "Bridge quit returned ${quit_status:-non-json} before deploying ${package_slug}"
+    }
     quit_pid="$(jq -r 'first(.phases[]? | select(.phase == "lifecycle") | .data.rhinoPid) // empty' <<< "${quit_json}")"
     [[ -z "${quit_pid}" ]] || _wait_pid_exit "${quit_pid}" "Rhino pid ${quit_pid}"
+    _bridge_endpoint_retire
 }
 _package_deploy_refresh() {
     local -r package_slug="$1"
     local lifecycle_json doctor_json
+    _bridge_endpoint_retire
     lifecycle_json="$(_bridge_client launch)" || {
         printf '%s\n' "${lifecycle_json}"
         _die "Package deploy refresh failed for ${package_slug}"

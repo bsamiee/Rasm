@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
-using System.Runtime.InteropServices;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.UI;
 using Rhino.DocObjects.Tables;
@@ -21,13 +20,13 @@ public sealed class RhinoBlocks {
     public static RhinoBlocks Live(RhinoDoc document, RunMode mode = RunMode.Interactive) =>
         new(document: document, mode: mode);
 
-    public Fin<MutationReceipt> Run(BlockMutation op, Op? key = null) =>
+    public Fin<BlockOutcome> Run(BlockOp op, Op? key = null) =>
         Optional(op).ToFin(Fail: key.OrDefault().InvalidInput())
-            .Bind(valid => Operations.RunMutation(op: valid, owner: this));
-
-    public Fin<BlockResult> Run(BlockQuery op, Op? key = null) =>
-        Optional(op).ToFin(Fail: key.OrDefault().InvalidInput())
-            .Bind(valid => Operations.RunQuery(op: valid, owner: this));
+            .Bind(valid => (RhinoApp.IsOnMainThread, Mode) switch {
+                (true, _) or (_, RunMode.Scripted) =>
+                    Op.Of(name: nameof(Run)).Catch(() => Operations.Run(op: valid, owner: this)),
+                _ => RhinoUi.OnUiThread(run: () => Op.Of(name: nameof(Run)).Catch(() => Operations.Run(op: valid, owner: this))),
+            });
 
     public Subscription Subscribe(Action<BlockTableEvent> handler, BlockSubscriptionPolicy? policy = null) {
         ArgumentNullException.ThrowIfNull(argument: handler);
@@ -104,127 +103,180 @@ public abstract partial record Subscription : IDisposable {
 }
 
 // --- [COMPOSITION] [CACHE] ----------------------------------------------------------------
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CacheKey(uint Serial, Guid DefId);
+internal enum RefCacheMode { Snapshot, Preview }
 
-[StructLayout(LayoutKind.Auto)]
-internal readonly record struct PreviewKey(uint Serial, Guid DefId, PreviewFingerprint Spec, uint Version);
-
-internal sealed class VersionedStore<TKey, TValue>(Func<TKey, Guid> versionKey)
+/// Unified ref-count cache: snapshot mode hard-evicts on invalidate; preview mode retains stale entries while borrowed.
+internal sealed class RefCache<TKey, TValue>(
+    RefCacheMode mode,
+    Func<TKey, Guid> versionId,
+    Func<TKey, uint>? versionTag,
+    Func<TKey, uint>? docSerial,
+    Action<TValue>? dispose)
     where TKey : notnull
-    where TValue : notnull {
+    where TValue : class {
 
-    private sealed record State(
-        HashMap<TKey, Entry> Entries,
-        HashMap<Guid, uint> Versions);
+    private sealed record Entry(TValue Value, uint VersionAtInsert, int RefCount, bool Stale);
 
-    private sealed record Entry(TValue Value, uint VersionAtInsert, int RefCount);
+    private sealed record State(HashMap<TKey, Entry> Entries, HashMap<Guid, uint> Versions);
 
-    private readonly Func<TKey, Guid> versionKey = versionKey ?? throw new ArgumentNullException(paramName: nameof(versionKey));
-    private readonly Atom<State> store = Atom(value: new State(Entries: HashMap<TKey, Entry>(), Versions: HashMap<Guid, uint>()));
+    private readonly Atom<State> atom = Atom(value: new State(Entries: HashMap<TKey, Entry>(), Versions: HashMap<Guid, uint>()));
 
-    public Option<TValue> Find(TKey key) {
-        State s = store.Value;
-        return s.Entries.Find(key: key) switch {
-            { IsSome: true, Case: Entry e } when e.VersionAtInsert == s.Versions.Find(key: versionKey(arg: key)).IfNone(noneValue: 0u) =>
-                Some(value: e.Value),
-            _ => Option<TValue>.None,
-        };
+    internal uint VersionOf(Guid id) => atom.Value.Versions.Find(key: id).IfNone(noneValue: 0u);
+
+    private bool Fresh(TKey key, Entry entry, State state) =>
+        !entry.Stale && CurrentVersion(key: key, state: state) == entry.VersionAtInsert;
+
+    private uint CurrentVersion(TKey key, State state) =>
+        state.Versions.Find(key: versionId(arg: key)).IfNone(noneValue: 0u);
+
+    internal Option<TValue> Find(TKey key) {
+        State s = atom.Value;
+        return s.Entries.Find(key: key).Bind(e => Fresh(key: key, entry: e, state: s) ? Some(value: e.Value) : Option<TValue>.None);
     }
 
-    public TValue Insert(TKey key, TValue value, int refCount = 1) {
-        _ = store.Swap(f: s => {
-            uint v = s.Versions.Find(key: versionKey(arg: key)).IfNone(noneValue: 0u);
-            return s with { Entries = s.Entries.AddOrUpdate(key: key, value: new Entry(value, v, refCount)) };
+    internal TValue Insert(TKey key, TValue value, int refCount = 1) {
+        _ = atom.Swap(f: s => {
+            uint v = s.Versions.Find(key: versionId(arg: key)).IfNone(noneValue: 0u);
+            return s with { Entries = s.Entries.AddOrUpdate(key: key, value: new Entry(Value: value, VersionAtInsert: v, RefCount: refCount, Stale: false)) };
         });
         return value;
     }
 
-    /// Some(value) only when entry exists AND version matches; on hit RefCount++.
-    public Option<TValue> Borrow(TKey key) {
-        State result = store.Swap(f: s => s.Entries.Find(key: key) switch {
-            { IsSome: true, Case: Entry e } when e.VersionAtInsert == s.Versions.Find(key: versionKey(arg: key)).IfNone(noneValue: 0u) =>
+    internal Option<TValue> Borrow(TKey key) {
+        State after = atom.Swap(f: s => s.Entries.Find(key: key) switch {
+            { IsSome: true, Case: Entry e } when Fresh(key: key, entry: e, state: s) =>
                 s with { Entries = s.Entries.AddOrUpdate(key: key, value: e with { RefCount = e.RefCount + 1 }) },
             _ => s,
         });
-        return result.Entries.Find(key: key)
-            .Bind(e => e.VersionAtInsert == result.Versions.Find(key: versionKey(arg: key)).IfNone(noneValue: 0u)
-                ? Some(value: e.Value) : Option<TValue>.None);
+        return after.Entries.Find(key: key).Bind(e => Fresh(key: key, entry: e, state: after) ? Some(value: e.Value) : Option<TValue>.None);
     }
 
-    /// Some(value) only when refcount transitions to 0 — caller disposes outside Swap.
-    public Option<TValue> Release(TKey key) {
+    /// Caller hands off `rendered`; cache returns the live entry (hit → return existing, miss → insert rendered), plus the
+    /// reject-dispose slot for the value the cache did NOT retain (so caller can dispose safely).
+    internal (TValue Selected, bool Cached, TValue? RejectDispose) Store(TKey key, TValue rendered) {
+        TValue selected = rendered;
+        TValue? rejectDispose = default;
+        bool cached = false;
+        _ = atom.Swap(f: s => {
+            uint current = s.Versions.Find(key: versionId(arg: key)).IfNone(noneValue: 0u);
+            bool versionStale = versionTag is not null && versionTag(arg: key) != current;
+            return versionStale
+                ? (rejectDispose = rendered, s).Item2
+                : s.Entries.Find(key: key) switch {
+                    { IsSome: true, Case: Entry e } when Fresh(key: key, entry: e, state: s) =>
+                        (selected = e.Value, rejectDispose = rendered, cached = true,
+                         s with { Entries = s.Entries.AddOrUpdate(key: key, value: e with { RefCount = e.RefCount + 1 }) }).Item4,
+                    { IsSome: true, Case: Entry e } when e.Stale && e.RefCount > 0 =>
+                        (rejectDispose = rendered, s).Item2,
+                    _ => (cached = true,
+                          s with { Entries = s.Entries.AddOrUpdate(key: key, value: new Entry(Value: rendered, VersionAtInsert: current, RefCount: 1, Stale: false)) }).Item2,
+                };
+        });
+        return (selected, cached, rejectDispose);
+    }
+
+    internal Unit Release(TKey key) {
         TValue? captured = default;
-        _ = store.Swap(f: s => s.Entries.Find(key: key) switch {
+        _ = atom.Swap(f: s => s.Entries.Find(key: key) switch {
             { IsSome: true, Case: Entry e } when e.RefCount > 1 =>
                 s with { Entries = s.Entries.AddOrUpdate(key: key, value: e with { RefCount = e.RefCount - 1 }) },
-            { IsSome: true, Case: Entry e } => CaptureAndRemove(s: s, key: key, value: e.Value, into: ref captured),
+            { IsSome: true, Case: Entry e } =>
+                (captured = e.Value, s with { Entries = s.Entries.Remove(key: key) }).Item2,
             _ => s,
         });
-        return captured is null ? Option<TValue>.None : Some(value: captured);
+        _ = Optional(captured).Iter(value => dispose?.Invoke(obj: value));
+        return unit;
     }
 
-    private static State CaptureAndRemove(State s, TKey key, TValue value, ref TValue? into) {
-        into = value;
-        return s with { Entries = s.Entries.Remove(key: key) };
+    internal Unit InvalidateDef(Guid defId) =>
+        mode == RefCacheMode.Preview
+            ? ApplyMask(mask: k => versionId(arg: k) == defId, bump: Some(value: defId))
+            : HardInvalidate(defId: defId);
+
+    internal Unit EvictDoc(uint serial) =>
+        docSerial is null
+            ? unit
+            : ApplyMask(mask: k => docSerial(arg: k) == serial, bump: Option<Guid>.None);
+
+    internal Unit EvictWhere(Func<TKey, bool> predicate) {
+        Seq<TValue> captured = Seq<TValue>();
+        _ = atom.Swap(f: s => {
+            captured = s.Entries.Filter((k, _) => predicate(arg: k)).Values.Map(static e => e.Value).ToSeq();
+            return s with { Entries = s.Entries.Filter((k, _) => !predicate(arg: k)) };
+        });
+        _ = captured.Iter(value => dispose?.Invoke(obj: value));
+        return unit;
     }
 
-    /// Atomic version-bump + filter; VersionAtInsert tags guard stale inserts.
-    public Unit Invalidate(Guid versionId) {
-        Func<TKey, Guid> vk = versionKey;
-        _ = store.Swap(f: s => s with {
-            Versions = s.Versions.AddOrUpdate(key: versionId, value: s.Versions.Find(key: versionId).IfNone(noneValue: 0u) + 1u),
-            Entries = s.Entries.Filter((k, _) => vk(arg: k) != versionId),
+    private Unit HardInvalidate(Guid defId) {
+        Func<TKey, Guid> vid = versionId;
+        _ = atom.Swap(f: s => s with {
+            Versions = s.Versions.AddOrUpdate(key: defId, value: s.Versions.Find(key: defId).IfNone(noneValue: 0u) + 1u),
+            Entries = s.Entries.Filter((k, _) => vid(arg: k) != defId),
         });
         return unit;
     }
 
-    public Unit EvictWhere(Func<TKey, bool> predicate) {
-        _ = store.Swap(f: s => s with { Entries = s.Entries.Filter((k, _) => !predicate(arg: k)) });
+    private Unit ApplyMask(Func<TKey, bool> mask, Option<Guid> bump) {
+        Seq<TValue> captured = Seq<TValue>();
+        _ = atom.Swap(f: s => {
+            HashMap<TKey, Entry> marked = s.Entries.Map((k, e) => mask(arg: k) ? e with { Stale = true } : e);
+            HashMap<TKey, Entry> kept = marked.Filter((k, e) => !mask(arg: k) || e.RefCount > 0);
+            captured = marked.Filter((k, e) => mask(arg: k) && e.RefCount <= 0).Values.Map(static e => e.Value).ToSeq();
+            return s with {
+                Versions = bump.Case switch {
+                    Guid id => s.Versions.AddOrUpdate(key: id, value: s.Versions.Find(key: id).IfNone(noneValue: 0u) + 1u),
+                    _ => s.Versions,
+                },
+                Entries = kept,
+            };
+        });
+        _ = captured.Iter(value => dispose?.Invoke(obj: value));
         return unit;
     }
 }
 
 internal static class SnapshotVault {
-    private static readonly VersionedStore<CacheKey, Definition> store = new(versionKey: static k => k.DefId);
+    private static readonly RefCache<(uint Serial, Guid DefId), Definition> store = new(
+        mode: RefCacheMode.Snapshot,
+        versionId: static k => k.DefId,
+        versionTag: null,
+        docSerial: static k => k.Serial,
+        dispose: null);
 
     internal static Option<Definition> Find(uint docSerial, DefinitionId id) =>
-        store.Find(key: new CacheKey(Serial: docSerial, DefId: id.Value));
+        store.Find(key: (Serial: docSerial, DefId: id.Value));
 
     internal static Unit Upsert(uint docSerial, Definition definition) {
-        _ = store.Insert(key: new CacheKey(Serial: docSerial, DefId: definition.Id.Value), value: definition);
+        _ = store.Insert(key: (Serial: docSerial, DefId: definition.Id.Value), value: definition);
         return unit;
     }
 
-    internal static Unit Invalidate(Guid defId) => store.Invalidate(versionId: defId);
-    internal static Unit EvictDoc(uint serial) => store.EvictWhere(predicate: k => k.Serial == serial);
+    internal static Unit Invalidate(Guid defId) => store.InvalidateDef(defId: defId);
+    internal static Unit EvictDoc(uint serial) => store.EvictDoc(serial: serial);
 }
 
 internal static class PreviewVault {
-    private sealed record State(
-        HashMap<PreviewKey, Entry> Entries,
-        HashMap<Guid, uint> Versions);
-
-    private sealed record Entry(Bitmap Bitmap, int RefCount, bool Stale);
-
-    private static readonly Atom<State> store = Atom(value: new State(Entries: HashMap<PreviewKey, Entry>(), Versions: HashMap<Guid, uint>()));
+    private static readonly RefCache<(uint Serial, Guid DefId, ulong Spec, uint Version), Bitmap> store = new(
+        mode: RefCacheMode.Preview,
+        versionId: static k => k.DefId,
+        versionTag: static k => k.Version,
+        docSerial: static k => k.Serial,
+        dispose: static bmp => bmp.Dispose());
 
     [SuppressMessage(category: "Reliability", checkId: "CA2000", Justification = "PreviewHandle release path disposes the bitmap.")]
     internal static Fin<PreviewHandle> Acquire(RhinoDoc doc, InstanceDefinition def, PreviewSpec spec, Op key) {
-        PreviewKey k = Key(doc: doc, def: def, spec: spec);
-        return Borrow(key: k) switch {
-            { IsSome: true, Case: Bitmap bmp } => Fin.Succ(value: Handle(key: k, bitmap: bmp)),
-            _ => RhinoUi.OnUiThread(run: () => Render(def: def, spec: spec, key: k, op: key)),
+        (uint Serial, Guid DefId, ulong Spec, uint Version) cacheKey = Key(doc: doc, def: def, spec: spec);
+        return store.Borrow(key: cacheKey) switch {
+            { IsSome: true, Case: Bitmap bmp } => Fin.Succ(value: Handle(key: cacheKey, bitmap: bmp)),
+            _ => RhinoUi.OnUiThread(run: () => Render(def: def, spec: spec, key: cacheKey, op: key)),
         };
     }
 
-    private static PreviewKey Key(RhinoDoc doc, InstanceDefinition def, PreviewSpec spec) {
-        State s = store.Value;
-        uint version = s.Versions.Find(key: def.Id).IfNone(noneValue: 0u);
-        return new PreviewKey(Serial: doc.RuntimeSerialNumber, DefId: def.Id, Spec: spec.Fingerprint, Version: version);
-    }
+    private static (uint Serial, Guid DefId, ulong Spec, uint Version) Key(RhinoDoc doc, InstanceDefinition def, PreviewSpec spec) =>
+        (Serial: doc.RuntimeSerialNumber, DefId: def.Id, Spec: spec.Fingerprint.Value, Version: store.VersionOf(id: def.Id));
 
-    private static Fin<PreviewHandle> Render(InstanceDefinition def, PreviewSpec spec, PreviewKey key, Op op) =>
+    private static Fin<PreviewHandle> Render(InstanceDefinition def, PreviewSpec spec, (uint Serial, Guid DefId, ulong Spec, uint Version) key, Op op) =>
         op.Catch(() => spec.ResolvedMode.Resolve(op: op).Bind(displayId =>
             RenderNative(def: def, spec: spec, displayId: displayId) switch {
                 Bitmap bmp => Fin.Succ(value: StoreRendered(key: key, rendered: bmp)),
@@ -233,109 +285,36 @@ internal static class PreviewVault {
 
     private static Bitmap? RenderNative(InstanceDefinition def, PreviewSpec spec, Guid displayId) {
         Size size = new(width: spec.Width, height: spec.Height);
-        return def.CreatePreviewBitmap(
-            displayModeId: displayId,
-            viewportProjection: spec.Projection,
-            isometricCamera: spec.Camera,
-            drawDecorations: spec.DrawDecorations,
-            bitmapSize: size,
-            applyDpiScaling: spec.ApplyDpiScaling);
+        return spec.HighlightMemberId.Case switch {
+            Guid memberId => def.CreatePreviewBitmap(
+                definitionObjectId: memberId,
+                viewportProjection: spec.Projection,
+                displayMode: DisplayModeRef.NativeMode(displayId: displayId),
+                bitmapSize: size,
+                applyDpiScaling: spec.ApplyDpiScaling),
+            _ => def.CreatePreviewBitmap(
+                displayModeId: displayId,
+                viewportProjection: spec.Projection,
+                isometricCamera: spec.Camera,
+                drawDecorations: spec.DrawDecorations,
+                bitmapSize: size,
+                applyDpiScaling: spec.ApplyDpiScaling),
+        };
     }
 
-    private static Option<Bitmap> Borrow(PreviewKey key) {
-        State after = store.Swap(f: s => s.Entries.Find(key: key) switch {
-            { IsSome: true, Case: Entry e } when !e.Stale && key.Version == s.Versions.Find(key: key.DefId).IfNone(noneValue: 0u) =>
-                s with { Entries = s.Entries.AddOrUpdate(key: key, value: e with { RefCount = e.RefCount + 1 }) },
-            _ => s,
-        });
-        return after.Entries.Find(key: key).Bind(e => !e.Stale && key.Version == after.Versions.Find(key: key.DefId).IfNone(noneValue: 0u)
-            ? Some(value: e.Bitmap)
-            : Option<Bitmap>.None);
-    }
-
-    private static PreviewHandle StoreRendered(PreviewKey key, Bitmap rendered) {
-        Bitmap? dispose = null;
-        Bitmap selected = rendered;
-        bool cached = false;
-        _ = store.Swap(f: s => key.Version == s.Versions.Find(key: key.DefId).IfNone(noneValue: 0u)
-            ? s.Entries.Find(key: key) switch {
-                { IsSome: true, Case: Entry e } when !e.Stale =>
-                    CaptureRendered(state: s, key: key, existing: e, rendered: rendered, selected: ref selected, dispose: ref dispose, cached: ref cached),
-                { IsSome: true, Case: Entry e } when e.Stale && e.RefCount > 0 =>
-                    CaptureRejected(state: s, rendered: rendered, dispose: ref dispose),
-                _ => CaptureInserted(state: s, key: key, rendered: rendered, cached: ref cached),
-            }
-            : CaptureRejected(state: s, rendered: rendered, dispose: ref dispose));
-        dispose?.Dispose();
+    private static PreviewHandle StoreRendered((uint Serial, Guid DefId, ulong Spec, uint Version) key, Bitmap rendered) {
+        (Bitmap selected, bool cached, Bitmap? rejectDispose) = store.Store(key: key, rendered: rendered);
+        rejectDispose?.Dispose();
         return cached
             ? Handle(key: key, bitmap: selected)
             : new PreviewHandle(bitmap: selected, release: static handle => handle.Bitmap.Dispose());
     }
 
-    private static State CaptureRendered(State state, PreviewKey key, Entry existing, Bitmap rendered, ref Bitmap selected, ref Bitmap? dispose, ref bool cached) {
-        selected = existing.Bitmap;
-        dispose = rendered;
-        cached = true;
-        return state with { Entries = state.Entries.AddOrUpdate(key: key, value: existing with { RefCount = existing.RefCount + 1 }) };
-    }
+    private static PreviewHandle Handle((uint Serial, Guid DefId, ulong Spec, uint Version) key, Bitmap bitmap) =>
+        new(bitmap: bitmap, release: _ => store.Release(key: key));
 
-    private static State CaptureInserted(State state, PreviewKey key, Bitmap rendered, ref bool cached) {
-        cached = true;
-        return state with { Entries = state.Entries.AddOrUpdate(key: key, value: new Entry(Bitmap: rendered, RefCount: 1, Stale: false)) };
-    }
-
-    private static State CaptureRejected(State state, Bitmap rendered, ref Bitmap? dispose) {
-        dispose = null;
-        return state;
-    }
-
-    private static PreviewHandle Handle(PreviewKey key, Bitmap bitmap) =>
-        new(bitmap: bitmap, release: _ => Reclaim(key: key));
-
-    private static Unit Reclaim(PreviewKey key) {
-        Bitmap? dispose = null;
-        _ = store.Swap(f: s => s.Entries.Find(key: key) switch {
-            { IsSome: true, Case: Entry e } when e.RefCount > 1 =>
-                s with { Entries = s.Entries.AddOrUpdate(key: key, value: e with { RefCount = e.RefCount - 1 }) },
-            { IsSome: true, Case: Entry e } =>
-                CaptureDisposal(state: s, key: key, bitmap: e.Bitmap, dispose: ref dispose),
-            _ => s,
-        });
-        dispose?.Dispose();
-        return unit;
-    }
-
-    private static State CaptureDisposal(State state, PreviewKey key, Bitmap bitmap, ref Bitmap? dispose) {
-        dispose = bitmap;
-        return state with { Entries = state.Entries.Remove(key: key) };
-    }
-
-    internal static Unit Invalidate(Guid defId) {
-        Seq<Bitmap> dispose = Seq<Bitmap>();
-        _ = store.Swap(f: s => {
-            HashMap<PreviewKey, Entry> entries = s.Entries.Map((k, e) => k.DefId == defId ? e with { Stale = true } : e);
-            HashMap<PreviewKey, Entry> kept = entries.Filter((k, e) => k.DefId != defId || e.RefCount > 0);
-            dispose = entries.Filter((k, e) => k.DefId == defId && e.RefCount <= 0).Values.Map(static e => e.Bitmap).ToSeq();
-            return s with {
-                Versions = s.Versions.AddOrUpdate(key: defId, value: s.Versions.Find(key: defId).IfNone(noneValue: 0u) + 1u),
-                Entries = kept,
-            };
-        });
-        _ = dispose.Iter(static bmp => bmp.Dispose());
-        return unit;
-    }
-
-    internal static Unit EvictDoc(uint serial) {
-        Seq<Bitmap> dispose = Seq<Bitmap>();
-        _ = store.Swap(f: s => {
-            HashMap<PreviewKey, Entry> entries = s.Entries.Map((k, e) => k.Serial == serial ? e with { Stale = true } : e);
-            HashMap<PreviewKey, Entry> kept = entries.Filter((k, e) => k.Serial != serial || e.RefCount > 0);
-            dispose = entries.Filter((k, e) => k.Serial == serial && e.RefCount <= 0).Values.Map(static e => e.Bitmap).ToSeq();
-            return s with { Entries = kept };
-        });
-        _ = dispose.Iter(static bmp => bmp.Dispose());
-        return unit;
-    }
+    internal static Unit Invalidate(Guid defId) => store.InvalidateDef(defId: defId);
+    internal static Unit EvictDoc(uint serial) => store.EvictDoc(serial: serial);
 }
 
 // --- [COMPOSITION] [IDLE] -----------------------------------------------------------------
@@ -369,17 +348,14 @@ internal static class IdlePump {
         _ = queue.Swap(f: live => toSeq(live.Skip(count: taken)));
     }
 
+    /// BOUNDARY ADAPTER — idle pumping is budgeted host integration; TakeWhile early-exits on deadline.
     private static int DrainUntilDeadline(TimeSpan budget) {
         long start = clock.GetTimestamp();
-        Seq<(RhinoDoc Document, Func<RhinoDoc, Fin<DocumentReceipt>> Work)> snapshot = queue.Value;
-        int taken = 0;
-        // BOUNDARY ADAPTER — idle pumping is budgeted host integration.
-        foreach ((RhinoDoc Document, Func<RhinoDoc, Fin<DocumentReceipt>> Work) in snapshot) {
-            if (clock.GetElapsedTime(startingTimestamp: start) >= budget) break;
-            _ = Op.Of(name: nameof(Drain)).Catch(() => Work(arg: Document));
-            taken++;
-        }
-        return taken;
+        Seq<Fin<DocumentReceipt>> drained = queue.Value
+            .TakeWhile(_ => clock.GetElapsedTime(startingTimestamp: start) < budget)
+            .Map(item => Op.Of(name: nameof(Drain)).Catch(() => item.Work(arg: item.Document)))
+            .ToSeq();
+        return drained.Count;
     }
 }
 
@@ -414,7 +390,7 @@ internal static class EventBridge {
     private static Unit OnDocClose(uint serial) {
         _ = SnapshotVault.EvictDoc(serial: serial);
         _ = PreviewVault.EvictDoc(serial: serial);
-        _ = Operations.InvalidateContentIndex(serial: serial);
+        _ = ContentIndex.EvictDoc(serial: serial);
         // When the last subscriber bucket drops, any tids in `dispatching` must be stale
         // leftovers from a bypassed `finally` — safe to flush; recycled tids can't re-block.
         if (bySerial.Swap(f: map => map.Remove(key: serial)).IsEmpty)
@@ -432,7 +408,7 @@ internal static class EventBridge {
         try {
             uint serial = args.Document?.RuntimeSerialNumber ?? 0u;
             BlockTableEvent snapshot = BlockTableEvent.From(args: args);
-            _ = Invalidate(serial: serial, snapshot: snapshot);
+            _ = Invalidate(document: args.Document, serial: serial, snapshot: snapshot);
             Seq<Subscriber> subs = bySerial.Value.Find(key: serial).IfNone(noneValue: Seq<Subscriber>());
             if (subs.IsEmpty) return;
             _ = subs
@@ -464,25 +440,16 @@ internal static class EventBridge {
         return unit;
     }
 
-    private static Unit Invalidate(uint serial, BlockTableEvent snapshot) =>
-        snapshot.Kind switch {
-            InstanceDefinitionTableEventType.Sorted => unit,
-            _ => InvalidateDefinitions(serial: serial, snapshot: snapshot),
-        };
-
-    private static Unit InvalidateDefinitions(uint serial, BlockTableEvent snapshot) {
-        _ = Operations.InvalidateContentIndex(serial: serial);
+    /// Sort-only events touch no definition state; mutation/content events flush ContentIndex and per-def caches.
+    private static Unit Invalidate(RhinoDoc? document, uint serial, BlockTableEvent snapshot) {
+        if (snapshot.Kind == InstanceDefinitionTableEventType.Sorted) return unit;
+        _ = ContentIndex.Invalidate(serial: serial, doc: document, snapshot: snapshot);
         return Seq(snapshot.Old, snapshot.New)
             .Choose(static candidate => candidate)
             .Map(static d => d.Id.Value)
             .Distinct()
-            .Iter(defId => InvalidateOne(serial: serial, defId: defId));
-    }
-
-    private static Unit InvalidateOne(uint serial, Guid defId) {
-        _ = PreviewVault.Invalidate(defId: defId);
-        _ = SnapshotVault.Invalidate(defId: defId);
-        return unit;
+            .Iter(defId => Operations.InvalidateDefinition(
+                defId: defId, doc: Optional(RhinoDoc.FromRuntimeSerialNumber(serialNumber: serial))));
     }
 
     private sealed record Subscriber(Guid Id, Action<BlockTableEvent> Handler, BlockSubscriptionPolicy Policy);

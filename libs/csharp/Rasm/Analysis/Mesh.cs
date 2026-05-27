@@ -9,6 +9,7 @@ namespace Rasm.Analysis;
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshFaceShape(ComponentIndex Source, VectorCloudShape Shape);
 
 // --- [MODELS] -----------------------------------------------------------------------------
+[SkipUnionOps]
 [Union]
 public partial record Meshes : IAspect {
     public sealed record SamplesCase(MeshSampleGroup Group) : Meshes;

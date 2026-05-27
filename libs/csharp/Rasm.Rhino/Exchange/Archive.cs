@@ -299,7 +299,7 @@ internal static class FileArchiveOps {
                     : Fin.Succ(value: default(FileArchiveMetadata))).Map(metadata => new FileArchive(
                         Source: source,
                         Metadata: metadata,
-                        Resources: (projection & FileArchiveProjection.Graph) != FileArchiveProjection.None ? Resources(model: model) : default,
+                        Resources: (projection & FileArchiveProjection.Graph) != FileArchiveProjection.None ? Resources(model: model, source: source) : default,
                         Objects: (projection & FileArchiveProjection.Objects) != FileArchiveProjection.None ? Objects(model: model) : Seq<FileObjectManifest>())),
         };
 
@@ -309,15 +309,33 @@ internal static class FileArchiveOps {
             _ => Some(FileFormat.ThreeDm),
         };
 
-    private static FileResourceGraph Resources(File3dmModel model) {
+    private static (Blocks.Archive.Graph Graph, Seq<string> Linked) BlockArchiveResources(File3dmModel model, FileArchiveSource source, Op key) =>
+        source switch {
+            FileArchiveSource.Path path => BlockArchiveResources(model: model, archivePath: Some(path.Value.Path), key: key),
+            _ => BlockArchiveResources(model: model, archivePath: Option<string>.None, key: key),
+        };
+
+    private static (Blocks.Archive.Graph Graph, Seq<string> Linked) BlockArchiveResources(File3dmModel model, Option<string> archivePath, Op key) {
+        Blocks.Archive.Graph graph = archivePath
+            .Map(path => Blocks.Archive.From(model: model, archivePath: Some(path), key: key))
+            .IfNone(() => Blocks.Archive.From(model: model, key: key))
+            .IfFail(_ => Blocks.Archive.Graph.Empty);
+        Seq<string> linked = archivePath
+            .Map(path => Blocks.Archive.LinkedArchiveClosure(root: model, rootPath: path, key: key)
+                .Map(edges => edges.Map(static edge => edge.Link.Full.Value).Distinct())
+                .IfFail(_ => toSeq(graph.LinkedArchives.AsEnumerable()).Map(static link => link.Stored)))
+            .IfNone(() => toSeq(graph.LinkedArchives.AsEnumerable()).Map(static link => link.Stored));
+        return (Graph: graph, Linked: linked);
+    }
+
+    private static FileResourceGraph Resources(File3dmModel model, FileArchiveSource source) {
+        Op key = Op.Of(name: nameof(Resources));
+        (Blocks.Archive.Graph blockGraph, Seq<string> linked) = BlockArchiveResources(model: model, source: source, key: key);
         Seq<RenderContent> renderTree =
             toSeq(model.RenderMaterials).Map(static material => (RenderContent)material)
             + toSeq(model.RenderEnvironments).Map(static environment => (RenderContent)environment)
             + toSeq(model.RenderTextures).Map(static texture => (RenderContent)texture);
         Seq<string> embedded = toSeq(model.EmbeddedFiles).Map(static file => file.Filename);
-        // [BOUNDARY ADAPTER — Blocks.Archive owns the offline graph; Exchange consumes the projection.]
-        Blocks.Archive.Graph blockGraph = Blocks.Archive.From(model: model).IfFail(_ => Blocks.Archive.Graph.Empty);
-        Seq<string> linked = toSeq(blockGraph.LinkedArchives.AsEnumerable()).Map(static path => path.Value);
         Seq<string> textures = renderTree.Bind(static content => TraverseRender(content: content, parent: Option<RenderContent>.None, project: static (cur, _) => cur switch {
             RenderTexture texture => TextOption(value: texture.Filename).Map(Seq).IfNone(Seq<string>()),
             _ => Seq<string>(),

@@ -1,26 +1,29 @@
 using Rhino;
+using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
 using GhEditor = Grasshopper2.UI.Editor;
 
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+[GenerateUnionOps]
 [Union]
 public partial record EditorOp {
     private EditorOp() { }
-    public sealed record ShowCase(bool Visible, Option<string> Layout) : EditorOp;
-    public sealed record StateCase : EditorOp;
-    public sealed record EnsureVisibleCase : EditorOp;
-    public sealed record ShellCase(Option<bool> Collapsed, Option<bool> ShowNotes, Option<bool> ShowUndoHistory, Option<string> Layout) : EditorOp;
-    public sealed record BeginRhinoGetterCase(Option<RhinoDoc> Document) : EditorOp;
+    public sealed partial record ShowCase(bool Visible, Option<string> Layout) : EditorOp;
+    public sealed partial record StateCase : EditorOp;
+    public sealed partial record EnsureVisibleCase : EditorOp;
+    public sealed partial record ShellCase(Option<bool> Collapsed, Option<bool> ShowNotes, Option<bool> ShowUndoHistory, Option<string> Layout) : EditorOp;
+    public sealed partial record BeginRhinoGetterCase(RhinoDoc Document) : EditorOp;
 
     public static EditorOp Show(bool visible = true, string? layout = null) => new ShowCase(Visible: visible, Layout: Optional(layout));
     public static readonly EditorOp State = new StateCase();
     public static readonly EditorOp EnsureVisible = new EnsureVisibleCase();
     public static EditorOp Shell(Option<bool> collapsed = default, Option<bool> showNotes = default, Option<bool> showUndoHistory = default, Option<string> layout = default) =>
         new ShellCase(Collapsed: collapsed, ShowNotes: showNotes, ShowUndoHistory: showUndoHistory, Layout: layout);
-    public static EditorOp BeginRhinoGetter(RhinoDoc? document = null) => new BeginRhinoGetterCase(Document: Optional(document));
+    public static EditorOp BeginRhinoGetter(RhinoDoc document) => new BeginRhinoGetterCase(Document: document);
 }
 
+[SkipUnionOps]
 [Union]
 public partial record EditorResult {
     private EditorResult() { }
@@ -31,52 +34,46 @@ public partial record EditorResult {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct EditorSnapshot(
-    bool HasEditor,
-    bool HasCanvas,
-    bool HasDocument,
-    bool Collapsed,
-    bool HasStatusBar,
-    bool ShowNotes,
-    bool ShowUndoHistory,
-    string InitialLayout,
-    Seq<string> DefinedLayouts,
-    Option<string> MostRecentActiveDocument,
-    Seq<string> MostRecentLoadedDocuments,
-    int MostRecentCount);
+public readonly record struct EditorSnapshot(bool HasEditor, bool HasCanvas, bool HasDocument, bool Collapsed, bool HasStatusBar, bool ShowNotes, bool ShowUndoHistory, string InitialLayout, Seq<string> DefinedLayouts, Option<string> MostRecentActiveDocument, Seq<string> MostRecentLoadedDocuments, int MostRecentCount);
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct EditorShellSnapshot(
-    bool Collapsed,
-    bool ShowNotes,
-    bool ShowUndoHistory,
-    string InitialLayout,
-    Seq<string> DefinedLayouts);
+public readonly record struct EditorShellSnapshot(bool Collapsed, bool ShowNotes, bool ShowUndoHistory, string InitialLayout, Seq<string> DefinedLayouts);
 
-internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
-    internal override GrasshopperUiPolicy Policy => PolicyOf(op: Op);
-    internal override Fin<EditorResult> Apply(GrasshopperUi.Scope scope) => Dispatch(op: Op);
+public abstract record EditorRequest : GhUiRequest<EditorResult> {
+    public sealed record Run(EditorOp Op) : EditorRequest { internal override GrasshopperUiPolicy Policy => GhUiPolicy.ForEditor(op: Op); internal override Fin<EditorResult> Apply(GrasshopperUi.Scope scope) => Editor.Dispatch(op: Op); }
+}
 
-    private static GrasshopperUiPolicy PolicyOf(EditorOp op) => op.Switch(
-        showCase: static show => GrasshopperUiPolicy.Canvas(openEditor: show.Visible),
-        stateCase: static _ => GrasshopperUiPolicy.Read,
-        ensureVisibleCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true),
-        shellCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true),
-        beginRhinoGetterCase: static _ => GrasshopperUiPolicy.Read);
-
-    private static Fin<EditorResult> Dispatch(EditorOp op) => op.Switch(
+// --- [SERVICES] ---------------------------------------------------------------------------
+internal static partial class Editor {
+    internal static Fin<EditorResult> Dispatch(EditorOp op) => op.Switch(
         showCase: static show => ShowEditor(visible: show.Visible, layoutRules: show.Layout.IfNone(string.Empty), errorTag: nameof(EditorOp.Show)),
         stateCase: static _ => DispatchState(),
         ensureVisibleCase: static _ => ShowEditor(visible: true, layoutRules: string.Empty, errorTag: nameof(EditorOp.EnsureVisible)),
-        shellCase: DispatchShell,
-        beginRhinoGetterCase: DispatchRhinoGetter);
+        shellCase: static shell => ShowEditor(visible: true, layoutRules: shell.Layout.IfNone(string.Empty), errorTag: nameof(EditorOp.Shell), shell: Some(shell)),
+        beginRhinoGetterCase: static getter => DispatchRhinoGetter(getter: getter));
 
-    // Show/EnsureVisible share the Try.lift(GhEditor.ShowEditor) capsule with only visibility +
-    // layoutRules differing — one helper subsumes both arms; `errorTag` preserves arm provenance.
-    private static Fin<EditorResult> ShowEditor(bool visible, string layoutRules, string errorTag) =>
+    // Show/EnsureVisible/Shell share GhEditor.ShowEditor; Shell projects EditorShellSnapshot after optional chrome writes.
+    private static Fin<EditorResult> ShowEditor(
+        bool visible,
+        string layoutRules,
+        string errorTag,
+        Option<EditorOp.ShellCase> shell = default) =>
         Try.lift(f: () => {
-            _ = GhEditor.ShowEditor(createVisible: visible, layoutRules: layoutRules);
-            return EditorResult.Unit;
+            GhEditor current = GhEditor.ShowEditor(createVisible: visible, layoutRules: layoutRules);
+            return shell.Match(
+                Some: s => {
+                    _ = s.Collapsed.Iter(value => current.Collapsed = value);
+                    _ = s.ShowNotes.Iter(value => current.ShowNotes = value);
+                    Option<GhCanvas> canvas = Optional(current.Canvas);
+                    _ = canvas.Iter(c => s.ShowUndoHistory.Iter(value => c.ShowUndoHistory = value));
+                    return new EditorResult.ShellResult(Snapshot: Snapshot.Of(new EditorShellSnapshot(
+                        Collapsed: current.Collapsed,
+                        ShowNotes: current.ShowNotes,
+                        ShowUndoHistory: canvas.Map(static c => c.ShowUndoHistory).IfNone(false),
+                        InitialLayout: GhEditor.InitialLayout,
+                        DefinedLayouts: toSeq(GhEditor.DefinedLayouts))));
+                },
+                None: () => EditorResult.Unit);
         }).Run().MapFail(error => UiFault.GhEditor(detail: $"{errorTag}: {error.Message}"));
 
     // Optional(GhEditor.Instance) discharges the "running" vs "not yet shown" branches polymorphically;
@@ -115,28 +112,8 @@ internal sealed record EditorRequest(EditorOp Op) : GhUiRequest<EditorResult> {
                 MostRecentLoadedDocuments: Seq<string>(),
                 MostRecentCount: 0));
     }
-
-    // current.Canvas can be null in race-with-init paths (Mac NSView host parented before content
-    // injection). Guard via Optional+Iter — without this the chain NPEs silently mid-shell-config.
-    private static Fin<EditorResult> DispatchShell(EditorOp.ShellCase shell) =>
-        Try.lift(f: () => {
-            GhEditor current = GhEditor.ShowEditor(createVisible: true, layoutRules: shell.Layout.IfNone(string.Empty));
-            _ = shell.Collapsed.Iter(value => current.Collapsed = value);
-            _ = shell.ShowNotes.Iter(value => current.ShowNotes = value);
-            Option<Grasshopper2.UI.Canvas.Canvas> canvas = Optional(current.Canvas);
-            _ = canvas.Iter(c => shell.ShowUndoHistory.Iter(value => c.ShowUndoHistory = value));
-            return Snapshot.Of(new EditorShellSnapshot(
-                Collapsed: current.Collapsed,
-                ShowNotes: current.ShowNotes,
-                ShowUndoHistory: canvas.Map(static c => c.ShowUndoHistory).IfNone(false),
-                InitialLayout: GhEditor.InitialLayout,
-                DefinedLayouts: toSeq(GhEditor.DefinedLayouts)));
-        }).Run().MapFail(error => UiFault.GhEditor(detail: $"{nameof(EditorOp.Shell)}: {error.Message}"))
-        .Map(static snapshot => (EditorResult)new EditorResult.ShellResult(Snapshot: snapshot));
-
     private static Fin<EditorResult> DispatchRhinoGetter(EditorOp.BeginRhinoGetterCase getter) =>
-        from active in Optional(getter.Document.IfNone(RhinoDoc.ActiveDoc)).ToFin(Fail: UiFault.MissingScope(field: "rhino-doc"))
-        from started in Try.lift(f: () => GhEditor.BeginRhinoGetter(doc: active)).Run().MapFail(static error => UiFault.GhEditor(detail: $"{nameof(EditorOp.BeginRhinoGetter)}: {error.Message}"))
+        from started in Try.lift(f: () => GhEditor.BeginRhinoGetter(doc: getter.Document)).Run().MapFail(static error => UiFault.GhEditor(detail: $"{nameof(EditorOp.BeginRhinoGetter)}: {error.Message}"))
         from valid in started
             ? Fin.Succ(value: EditorResult.Unit)
             : Fin.Fail<EditorResult>(error: UiFault.GhEditor(detail: "Rhino getter is already active or no document can receive it"))

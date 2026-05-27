@@ -4,6 +4,8 @@
         <AssemblyName>Foundation.CSharp.Analyzers</AssemblyName>
         <RootNamespace>Foundation.CSharp.Analyzers</RootNamespace>
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+        <IsRoslynComponent>true</IsRoslynComponent>
+        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
     </PropertyGroup>
 
     <ItemGroup>

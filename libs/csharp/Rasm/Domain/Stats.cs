@@ -30,6 +30,7 @@ public sealed partial class ExtremumDirection {
     public static readonly ExtremumDirection Minimum = new(key: -1);
 }
 
+[SkipUnionOps]
 [Union]
 public partial record CurvatureMode {
     public sealed record VectorCase : CurvatureMode;
@@ -40,6 +41,7 @@ public partial record CurvatureMode {
     internal Seq<ScalarMetric> SurfaceMetrics => this switch { VectorCase => Seq(ScalarMetric.Gaussian, ScalarMetric.Mean), ScalarCase { Metric: ScalarMetric metric } when metric.IsSurface => Seq(metric), _ => Seq<ScalarMetric>() };
 }
 
+[SkipUnionOps]
 [Union]
 public partial record StatContext {
     public sealed record NoneCase : StatContext;
@@ -51,6 +53,7 @@ public partial record StatContext {
         new ToleranceCase(Value: tolerance, WithinTolerance: Math.Max(val1: Math.Abs(value: minimum), val2: Math.Abs(value: maximum)) <= tolerance);
 }
 
+[SkipUnionOps]
 [Union]
 internal partial record ResidualAggregate {
     public sealed record DistancesCase : ResidualAggregate;

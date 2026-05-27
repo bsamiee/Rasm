@@ -117,12 +117,20 @@ public sealed partial record RhinoUi {
                 false => Invoke(valid: valid, name: name),
             });
 
-    private static Fin<T> Invoke<T>(Func<Fin<T>> valid, string name) =>
-        Op.Of(name: name).Catch(() => {
-            Fin<T> result = Fin.Fail<T>(error: Op.Of(name: name).InvalidResult());
-            RhinoApp.InvokeAndWait(action: () => result = Op.Of(name: name).Catch(valid));
-            return result;
+    private static Fin<T> Invoke<T>(Func<Fin<T>> valid, string name) {
+        Op op = Op.Of(name: name);
+        return op.Catch(() => {
+            if (RhinoApp.IsOnMainThread)
+                return op.Catch(valid);
+            bool ran = false;
+            Fin<T> result = Fin.Fail<T>(error: op.InvalidResult());
+            RhinoApp.InvokeAndWait(action: () => {
+                ran = true;
+                result = op.Catch(valid);
+            });
+            return ran ? result : op.Catch(valid);
         });
+    }
 
     internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
         OnUiThread(run: valid, name: name);

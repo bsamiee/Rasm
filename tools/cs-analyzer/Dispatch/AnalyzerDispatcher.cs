@@ -43,6 +43,7 @@ internal static class AnalyzerDispatcher {
                 TypeShapeRules.CheckDomainPrimitiveShape(context, scope, namedType);
                 TypeShapeRules.CheckCreateFactoryReturnType(context, scope, namedType);
                 TypeShapeRules.CheckDiscriminatedUnionShape(context, scope, namedType);
+                TypeShapeRules.CheckUnionOpsQualification(context, scope, namedType);
                 TypeShapeRules.CheckDateTimeFieldInDomain(context, scope, namedType);
                 TypeShapeRules.CheckAnemicEntity(context, scope, namedType);
                 TypeShapeRules.CheckInitOnlyBypassOnValidated(context, scope, namedType);

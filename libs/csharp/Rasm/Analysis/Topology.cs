@@ -3,6 +3,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 namespace Rasm.Analysis;
 
 // --- [MODELS] -----------------------------------------------------------------------------
+[SkipUnionOps]
 [Union]
 public partial record Topologies : IAspect {
     public sealed record KindCase : Topologies;

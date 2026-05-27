@@ -76,6 +76,7 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
                  select ready,
         }
         select validated;
+    [SkipUnionOps]
     [Union]
     private abstract partial record Body {
         private Body() { }

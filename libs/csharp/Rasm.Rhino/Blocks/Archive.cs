@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Exchange;
+using Rhino.DocObjects.Tables;
 using Rhino.FileIO;
 using IOPath = System.IO.Path;
 using LxHashSet = LanguageExt.HashSet;
@@ -15,48 +16,207 @@ public static class Archive {
     public sealed record Graph(
         ImmutableArray<Definition> Definitions,
         ImmutableArray<Instance> Instances,
-        ImmutableArray<ArchivePath> LinkedArchives) {
+        ImmutableArray<ArchiveLink> LinkedArchives) {
         public static Graph Empty { get; } = new(Definitions: [], Instances: [], LinkedArchives: []);
     }
 
     [StructLayout(LayoutKind.Auto)]
     public readonly record struct Instance(Guid ObjectId, DefinitionId ParentDefId, Transform Xform);
 
+    [StructLayout(LayoutKind.Auto)]
+    public readonly record struct LinkedArchiveEdge(ArchivePath FromPath, ArchiveLink Link, ArchivePath ToPath, int Depth);
+
+    private const int LinkedArchiveClosureMaxDepth = 64;
+
     // ---- [BUILD] -------------------------------------------------------------------------
-    public static Fin<Graph> From(File3dm model, Op? key = null) {
+    public static Fin<Graph> From(File3dm model, Op? key = null, Option<string> archivePath = default) {
         Op op = key.OrDefault();
+        Option<string> anchor = archivePath.Bind(static path => BlockPaths.ArchiveAnchor(archivePath: Some(path)));
         return Optional(model).ToFin(Fail: op.InvalidInput())
-            .Bind(active => op.Catch(() => Build(active: active, op: op)));
+            .Bind(active => op.Catch(() => Build(active: active, anchorDirectory: anchor, op: op)));
     }
 
-    private static Fin<Graph> Build(File3dm active, Op op) =>
+    private static Fin<Graph> Build(File3dm active, Option<string> anchorDirectory, Op op) =>
         toSeq(active.AllInstanceDefinitions)
-            .Map(geo => Definition.From(archive: geo, key: op))
+            .Map(geo => Definition.From(definition: geo, anchorDirectory: anchorDirectory, key: op))
             .TraverseM(identity).As()
             .Map(defs => Compose(active: active, definitions: defs));
 
-    private static Graph Compose(File3dm active, Seq<Definition> definitions) {
+    /// Transitive linked-archive walk; each hop resolves `SourceArchive` against `dirname(containing file)`.
+    public static Fin<Seq<LinkedArchiveEdge>> LinkedArchiveClosure(File3dm root, string rootPath, Op? key = null) {
+        Op op = key.OrDefault();
+        return Optional(root).ToFin(Fail: op.InvalidInput())
+            .Bind(model => op.Catch(() => Walk(model: model, path: rootPath, depth: 0, visited: LxHashSet.empty<string>(), key: op)));
+    }
+
+    private static Fin<Seq<LinkedArchiveEdge>> Walk(File3dm model, string path, int depth, LanguageExt.HashSet<string> visited, Op key) {
+        string here = IOPath.GetFullPath(path: path);
+        return depth > LinkedArchiveClosureMaxDepth || visited.Contains(key: here)
+            ? Fin.Succ(Seq<LinkedArchiveEdge>())
+            : Expand(model: model, path: path, here: here, depth: depth, seen: visited.Add(key: here), key: key);
+    }
+
+    private static Fin<Seq<LinkedArchiveEdge>> Expand(File3dm model, string path, string here, int depth, LanguageExt.HashSet<string> seen, Op key) =>
+        from graph in From(model: model, archivePath: Some(path), key: key)
+        from anchor in ArchivePath.From(value: here, key: key)
+        from nested in toSeq(graph.LinkedArchives)
+            .Filter(link => !seen.Contains(key: IOPath.GetFullPath(path: link.Full.Value)))
+            .TraverseM(link => WalkEdge(anchor: anchor, link: link, depth: depth, visited: seen, key: key))
+            .As()
+        select nested.Fold(Seq<LinkedArchiveEdge>(), static (acc, edges) => acc + edges);
+
+    /// Filter at the caller guarantees `link.Full` is unseen; this method only reads + recurses.
+    private static Fin<Seq<LinkedArchiveEdge>> WalkEdge(ArchivePath anchor, ArchiveLink link, int depth, LanguageExt.HashSet<string> visited, Op key) {
+        string toFull = IOPath.GetFullPath(path: link.Full.Value);
+        return key.Catch(() => {
+            using File3dm? child = File3dm.Read(path: toFull);
+            return child is null
+                ? Fin.Fail<Seq<LinkedArchiveEdge>>(error: key.InvalidInput())
+                : Walk(model: child, path: toFull, depth: depth + 1, visited: visited.Add(key: toFull), key: key)
+                    .Map(nested => Seq(new LinkedArchiveEdge(FromPath: anchor, Link: link, ToPath: link.Full, Depth: depth)) + nested);
+        });
+    }
+
+    public static Graph ComposeLive(InstanceDefinitionTable table, Seq<Definition> definitions) {
+        HashMap<Guid, Definition> lookup = Lookup(definitions: definitions);
+        ImmutableArray<Instance> instances = ProjectInstances(
+            lookup: lookup,
+            source: definitions.Bind(def =>
+                Optional(table.Find(instanceId: def.Id.Value, ignoreDeletedInstanceDefinitions: true))
+                    .Map(active => toSeq(active.GetObjects())
+                        .Filter(static o => o?.Geometry is InstanceReferenceGeometry)
+                        .Map(o => (ObjectId: o!.Id, Reference: (InstanceReferenceGeometry)o.Geometry!)))
+                    .IfNone(Seq<(Guid, InstanceReferenceGeometry)>())));
+        return Compose(definitions: definitions, instances: instances);
+    }
+
+    private static HashMap<Guid, Definition> Lookup(Seq<Definition> definitions) =>
+        definitions.Fold(
+            initialState: HashMap<Guid, Definition>(),
+            f: (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: def));
+
+    private static ImmutableArray<Instance> ProjectInstances(
+        HashMap<Guid, Definition> lookup,
+        Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> source) =>
+        [.. source.Choose(pair =>
+            lookup.Find(key: pair.Reference.ParentIdefId).Map(parent => new Instance(
+                ObjectId: pair.ObjectId,
+                ParentDefId: parent.Id,
+                Xform: pair.Reference.Xform)))];
+
+    private static Graph Compose(Seq<Definition> definitions, ImmutableArray<Instance> instances) {
         ImmutableArray<Definition> defArray = [.. definitions];
-        FrozenDictionary<Guid, Definition> lookup = defArray.ToFrozenDictionary(static d => d.Id.Value);
-        ImmutableArray<Instance> instances = [.. toSeq(active.Objects).Choose(o => ProjectOne(o: o, lookup: lookup))];
-        ImmutableArray<ArchivePath> linked = [.. toSeq(defArray).Choose(static d => d.Source).Distinct()];
+        ImmutableArray<ArchiveLink> linked = [.. toSeq(defArray).Choose(static d => d.Source).Distinct()];
         return new Graph(Definitions: defArray, Instances: instances, LinkedArchives: linked);
     }
 
-    private static Option<Instance> ProjectOne(File3dmObject o, FrozenDictionary<Guid, Definition> lookup) =>
-        (o.Geometry, lookup) switch {
-            (InstanceReferenceGeometry r, _) when r.ParentIdefId != Guid.Empty
-                                              && lookup.TryGetValue(key: r.ParentIdefId, value: out Definition? parent) =>
-                Some(value: new Instance(ObjectId: o.Attributes.ObjectId, ParentDefId: parent.Id, Xform: r.Xform)),
-            _ => Option<Instance>.None,
-        };
+    public static Graph Subgraph(InstanceDefinitionTable table, Seq<Definition> definitions, Definition anchor) {
+        ArgumentNullException.ThrowIfNull(argument: anchor);
+        HashMap<Guid, Definition> lookup = Lookup(definitions: definitions);
+        LanguageExt.HashSet<Guid> reachable = Reachable(defId: anchor.Id.Value, lookup: lookup, table: table);
+        return ComposeLive(table: table, definitions: definitions.Filter(def => reachable.Contains(key: def.Id.Value)));
+    }
+
+    // ---- [AUDIT GRAPH] (Blocks.Graph — document dependency audit) ------------------------
+    public static Fin<Blocks.Graph> Audit(InstanceDefinitionTable table, Op key) {
+        ArgumentNullException.ThrowIfNull(argument: table);
+        Option<string> anchor = BlockPaths.DocAnchor(document: table.Document);
+        Seq<InstanceDefinition> definitions = toSeq(table.GetList(ignoreDeleted: true))
+            .Filter(static d => d is not null);
+        (Seq<Blocks.Graph.Node> nodes, Seq<Blocks.Graph.Edge> edges) = definitions
+            .Choose(d => ProjectAudit(definition: d, anchorDirectory: anchor, key: key))
+            .Fold((Nodes: Seq<Blocks.Graph.Node>(), Edges: Seq<Blocks.Graph.Edge>()), static (acc, pair) =>
+                (Nodes: acc.Nodes + pair.Node, Edges: acc.Edges + pair.Edges));
+        return Fin.Succ(value: new Blocks.Graph(Nodes: [.. nodes], Edges: [.. edges]));
+    }
+
+    /// Single-pass edge projection: members + linked-archive + top/nested inserts share the same `From`.
+    private static Option<(Blocks.Graph.Node Node, Seq<Blocks.Graph.Edge> Edges)> ProjectAudit(
+        InstanceDefinition definition,
+        Option<string> anchorDirectory,
+        Op key) =>
+        Definition.From(definition: definition, anchorDirectory: anchorDirectory, key: key).ToOption().Map(def => (
+            Node: def.ToAuditNode(),
+            Edges: toSeq(def.MemberIds).Map(id => new Blocks.Graph.Edge(From: def.Id, Kind: BlockEdgeKind.Member, To: new EdgeTarget.ObjectId(Id: id)))
+                + def.Source.Map(link => Seq(new Blocks.Graph.Edge(From: def.Id, Kind: BlockEdgeKind.LinkedArchive, To: new EdgeTarget.ArchiveTarget(Path: link.Full)))).IfNone(Seq<Blocks.Graph.Edge>())
+                + toSeq(definition.GetReferences(wheretoLook: ReferenceScope.TopAndNested.Native) ?? [])
+                    .Filter(static inst => inst is not null)
+                    .Map(inst => new Blocks.Graph.Edge(From: def.Id, Kind: BlockEdgeKind.InstanceInsert, To: new EdgeTarget.ObjectId(Id: inst.Id)))));
+
+    // ---- [LIVE GRAPH] (Archive.Graph — bake/plan topology) --------------------------------
+    public static Fin<Graph> LiveGraph(InstanceDefinitionTable table, Option<Definition> anchor, Op key) {
+        ArgumentNullException.ThrowIfNull(argument: table);
+        return toSeq(table.GetList(ignoreDeleted: true))
+            .Filter(static d => d is not null)
+            .Map(d => Definition.From(definition: d!, anchorDirectory: BlockPaths.DocAnchor(document: table.Document), key: key))
+            .TraverseM(identity).As()
+            .Map(definitions => anchor.Case switch {
+                Definition a => Subgraph(table: table, definitions: definitions, anchor: a),
+                _ => ComposeLive(table: table, definitions: definitions),
+            });
+    }
+
+    /// Topologically ordered linked definitions intersecting candidates; BakePlan rank drives refresh order.
+    public static Fin<Seq<InstanceDefinition>> LinkedRefreshOrder(InstanceDefinitionTable table, Seq<InstanceDefinition> candidates, Op key) {
+        ArgumentNullException.ThrowIfNull(argument: table);
+        return LiveGraph(table: table, anchor: Option<Definition>.None, key: key)
+            .Map(graph => {
+                Dictionary<Guid, int> rank = BakePlan(graph: graph)
+                    .Select((definition, index) => (definition.Id.Value, index))
+                    .ToDictionary(pair => pair.Value, pair => pair.index);
+                return toSeq(candidates.OrderBy(d => rank.GetValueOrDefault(key: d.Id, defaultValue: int.MaxValue)));
+            });
+    }
+
+    private static LanguageExt.HashSet<Guid> Reachable(Guid defId, HashMap<Guid, Definition> lookup, InstanceDefinitionTable table) {
+        Seq<Guid> Nested(Guid id) =>
+            Optional(table.Find(instanceId: id, ignoreDeletedInstanceDefinitions: true))
+                .Map(def => toSeq(def.GetObjects())
+                    .Filter(static o => o?.Geometry is InstanceReferenceGeometry)
+                    .Map(o => ((InstanceReferenceGeometry)o!.Geometry!).ParentIdefId)
+                    .Filter(parent => lookup.ContainsKey(key: parent)))
+                .IfNone(Seq<Guid>());
+        return ExpandReachable(frontier: Seq(defId), seen: LanguageExt.HashSet<Guid>.Empty.Add(defId), nested: Nested);
+    }
+
+    private static LanguageExt.HashSet<Guid> ExpandReachable(
+        Seq<Guid> frontier,
+        LanguageExt.HashSet<Guid> seen,
+        Func<Guid, Seq<Guid>> nested) {
+        Seq<Guid> next = frontier.Bind(nested).Filter(id => !seen.Contains(key: id));
+        return next.IsEmpty
+            ? seen
+            : ExpandReachable(
+                frontier: next,
+                seen: next.Fold(seen, static (acc, id) => acc.Add(key: id)),
+                nested: nested);
+    }
+
+    private static Graph Compose(File3dm active, Seq<Definition> definitions) {
+        HashMap<Guid, Definition> lookup = Lookup(definitions: definitions);
+        ImmutableArray<Instance> instances = ProjectInstances(
+            lookup: lookup,
+            source: toSeq(active.Objects)
+                .Choose(o => o.Geometry switch {
+                    InstanceReferenceGeometry { ParentIdefId: var parentId } r when parentId != Guid.Empty =>
+                        lookup.Find(key: parentId).Map(_ => (o.Attributes.ObjectId, r)),
+                    _ => Option<(Guid, InstanceReferenceGeometry)>.None,
+                }));
+        return Compose(definitions: definitions, instances: instances);
+    }
 
     public static Fin<DocumentReceipt> AddLinked(File3dm model, Seq<FileEndpoint> sources, Op? key = null) {
         Op op = key.OrDefault();
         return Optional(model).ToFin(Fail: op.InvalidInput()).Bind(active => sources.IsEmpty
             ? Fin.Succ(value: DocumentReceipt.Empty)
             : sources
-                .Map(endpoint => op.Catch(() => AddOne(model: active, endpoint: endpoint, op: op)))
+                .Map(endpoint => op.Catch(() => active.AllInstanceDefinitions.AddLinked(
+                    filename: endpoint.StoredLinkPath,
+                    name: IOPath.GetFileNameWithoutExtension(path: endpoint.Path),
+                    description: string.Empty) switch {
+                        >= 0 => Fin.Succ(value: new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: endpoint.StoredLinkPath)),
+                        _ => Fin.Fail<DocumentResourceChange>(error: op.InvalidResult()),
+                    }))
                 .TraverseM(identity).As()
                 .Map(static changes => DocumentReceipt.Empty with { ResourceChanged = changes }));
     }
@@ -101,7 +261,7 @@ public static class Archive {
         return toSeq(graph.Definitions).Map(static d => new FileResourceEntry(
             Kind: DocumentResourceKind.Block,
             Name: Some(value: d.Name.Value),
-            Path: d.Source.Map(static p => p.Value),
+            Path: d.Source.Map(static link => link.Stored),
             Id: Some(value: d.Id.Value),
             Source: Some(value: d.IsLinked ? "linked-block" : "block")));
     }
@@ -109,10 +269,10 @@ public static class Archive {
     public static Seq<FileResourceEdge> ToFileResourceEdges(Graph graph) {
         ArgumentNullException.ThrowIfNull(argument: graph);
         Seq<FileResourceEdge> linked = toSeq(graph.Definitions).Bind(static d => d.Source.Match(
-            Some: p => Seq(new FileResourceEdge(
+            Some: link => Seq(new FileResourceEdge(
                 FromKind: DocumentResourceKind.Block, FromId: Some(value: d.Id.Value),
                 ToKind: DocumentResourceKind.FileReference, ToId: Option<Guid>.None,
-                Role: FileResourceRole.Linked, Path: Some(value: p.Value))),
+                Role: FileResourceRole.Linked, Path: Some(value: link.Stored))),
             None: static () => Seq<FileResourceEdge>()));
         Seq<FileResourceEdge> members = toSeq(graph.Definitions).Bind(static d => toSeq(d.MemberIds)
             .Map(memberId => new FileResourceEdge(
@@ -126,12 +286,4 @@ public static class Archive {
         return linked + members + instances;
     }
 
-    private static Fin<DocumentResourceChange> AddOne(File3dm model, FileEndpoint endpoint, Op op) =>
-        model.AllInstanceDefinitions.AddLinked(
-            filename: endpoint.Path,
-            name: IOPath.GetFileNameWithoutExtension(path: endpoint.Path),
-            description: string.Empty) switch {
-                >= 0 => Fin.Succ(value: new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: endpoint.Path)),
-                _ => Fin.Fail<DocumentResourceChange>(error: op.InvalidResult()),
-            };
 }

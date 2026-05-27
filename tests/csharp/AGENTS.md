@@ -22,7 +22,7 @@
 - Verify snapshots compare stable artifacts only; never snapshot current implementation output as a domain oracle.
 - Prove non-zero VSTest discovery before using Stryker survivor data; if Stryker reports zero tests while `bash scripts/test.sh` finds tests, treat mutation output as tooling evidence, not code quality evidence.
 - Generated reports, corpora, mutation output, benchmark output, and transient test results belong under `/Users/bardiasamiee/Documents/99.Github/Rasm/.artifacts`; do not create local scratch roots such as `.remember`.
-- If bridge execution reports `LanguageExt.*` value-type mismatch or already-loaded assembly identity failures, first verify `bridge check` is using staged `refs/<content-hash>/` paths and isolated RhinoCode resolution before changing the scenario or static spec.
+- If bridge execution reports `LanguageExt.*` value-type mismatch, `HashableResolve`/`OrdDefault` type-initializer failures, or already-loaded assembly identity failures, first verify `bridge check` is using staged `refs/<content-hash>/` paths, dependency-first `#r` order (`FSharp.Core` → `LanguageExt.Core` → transitive packages → `Rasm.dll` → target last), and the bridge-owned LanguageExt bootstrap before changing the scenario or static spec.
 
 ## [2][ORACLES]
 

@@ -18,6 +18,7 @@ using UndoAction = Grasshopper2.Undo.Action;
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+[SkipUnionOps]
 [Union]
 public partial record RepaintRequest {
     private RepaintRequest() { }
@@ -76,6 +77,7 @@ public partial record RepaintRequest {
 
 // Auto: caller commits via UiRail.CommitActions OR built-in produces no actions (Select/DeselectWire).
 // Manual: caller-supplied record delegate captures the action list.
+[SkipUnionOps]
 [Union]
 internal partial record UndoStrategy {
     private UndoStrategy() { }
@@ -86,6 +88,7 @@ internal partial record UndoStrategy {
     public static UndoStrategy Manual(Func<GrasshopperUi.Scope, UndoEntry> record) => new ManualCase(Record: record);
 }
 
+[SkipUnionOps]
 [Union]
 public partial record Subscription : IDisposable {
     private Subscription() { }
@@ -143,9 +146,7 @@ public partial record Subscription : IDisposable {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct Snapshot<T>(
-    Option<Guid> OwnerId,
-    T Payload) {
+public readonly record struct Snapshot<T>(Option<Guid> OwnerId, T Payload) {
     public Snapshot<TOut> Map<TOut>(Func<T, TOut> project) {
         ArgumentNullException.ThrowIfNull(argument: project);
         return new(OwnerId: OwnerId, Payload: project(arg: Payload));
@@ -159,7 +160,12 @@ public static class Snapshot {
 
 internal readonly record struct DocumentMutationReceipt(int Changed, Seq<Guid> Created) {
     public static DocumentMutationReceipt None => new(Changed: 0, Created: Seq<Guid>());
+    public static DocumentMutationReceipt Of(int changed, Seq<Guid> created) =>
+        new(Changed: changed, Created: created.Filter(static id => id != Guid.Empty));
     public static DocumentMutationReceipt Count(int changed) => new(Changed: changed, Created: Seq<Guid>());
+    public static DocumentMutationReceipt From(bool changed) => changed ? Count(changed: 1) : None;
+    public static DocumentMutationReceipt CreatedFrom(Option<Guid> id) =>
+        id.Map(CreatedObject).IfNone(None);
     public static DocumentMutationReceipt CreatedObject(Guid id) =>
         id switch {
             Guid value when value != Guid.Empty => new(Changed: 1, Created: Seq(value)),
@@ -214,7 +220,6 @@ public readonly record struct GrasshopperUiPolicy(
     bool RequireDocument = false,
     Option<RepaintRequest> Repaint = default) {
     public static GrasshopperUiPolicy Read => new(Repaint: Some(RepaintRequest.None));
-    public static GrasshopperUiPolicy Empty => Read;
 
     internal RepaintRequest RepaintOrNone => Repaint.IfNone(RepaintRequest.None);
 
@@ -230,6 +235,70 @@ public readonly record struct GrasshopperUiPolicy(
             RequireDocument: left.RequireDocument || right.RequireDocument,
             Repaint: left.RepaintOrNone | right.RepaintOrNone);
     public static GrasshopperUiPolicy BitwiseOr(GrasshopperUiPolicy left, GrasshopperUiPolicy right) => left | right;
+}
+
+internal static partial class GhUiPolicy {
+    internal static GrasshopperUiPolicy ForCanvas(CanvasOp op) =>
+        op switch {
+            CanvasOp.SnapshotCase s => GrasshopperUiPolicy.Canvas(openEditor: s.OpenEditor),
+            CanvasOp.InvalidateCase i => GrasshopperUiPolicy.Canvas(repaint: i.Repaint),
+            CanvasOp.InstantiateCase => GrasshopperUiPolicy.Canvas(openEditor: true),
+            CanvasOp.ViewCase or CanvasOp.SnapFeedbackCase => GrasshopperUiPolicy.Canvas(openEditor: true, repaint: RepaintRequest.Canvas),
+            CanvasOp.InteractionCase i => i.Policy.Projection.IsSome
+                ? GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas)
+                : GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Canvas),
+            CanvasOp.WindowSelectCase => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
+            _ => GrasshopperUiPolicy.Canvas(),
+        };
+
+    internal static GrasshopperUiPolicy ForDocument(DocumentOp op) =>
+        op switch {
+            DocumentOp.QueryCase { Request: DocumentQuery.UniverseCase } => GrasshopperUiPolicy.Read,
+            DocumentOp.MutateCase mutate => GrasshopperUiPolicy.Document(repaint: mutate.Policy.RepaintOrDefault),
+            _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
+        };
+
+    internal static GrasshopperUiPolicy ForEditor(EditorOp op) =>
+        op switch {
+            EditorOp.ShowCase show => GrasshopperUiPolicy.Canvas(openEditor: show.Visible),
+            EditorOp.EnsureVisibleCase or EditorOp.ShellCase => GrasshopperUiPolicy.Canvas(openEditor: true),
+            _ => GrasshopperUiPolicy.Read,
+        };
+
+    internal static GrasshopperUiPolicy ForLayout(LayoutOp op) =>
+        op.Switch(
+            measureCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
+            arrangeCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
+            snapCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None));
+
+    internal static GrasshopperUiPolicy ForWire(WireOp op) =>
+        op switch {
+            WireOp.QueryCase => GrasshopperUiPolicy.Canvas(),
+            WireOp.InstallShapeCase => GrasshopperUiPolicy.Read,
+            WireOp.OverlayPenCase or WireOp.WirePaintObserveCase => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled),
+            _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
+        };
+
+    internal static GrasshopperUiPolicy ForEvent(UiEvent uiEvent) =>
+        uiEvent switch {
+            UiEvent.PaintCase => GrasshopperUiPolicy.Canvas(),
+            UiEvent.DocumentCase or UiEvent.SolutionCase or UiEvent.UndoCase => GrasshopperUiPolicy.Document(),
+            _ => GrasshopperUiPolicy.Read,
+        };
+
+    internal static GrasshopperUiPolicy ForCanvasChrome(CanvasChromeOp op) =>
+        op.Switch(
+            tooltipCase: static t => ForTooltip(op: t.Op),
+            floatingButtonCase: static _ => GrasshopperUiPolicy.Canvas(),
+            interactionCase: static _ => GrasshopperUiPolicy.Canvas());
+
+    internal static GrasshopperUiPolicy ForTooltip(TooltipOp op) =>
+        op.Switch(
+            showCase: static _ => GrasshopperUiPolicy.Canvas(),
+            hideCase: static _ => GrasshopperUiPolicy.Read,
+            invalidateCase: static _ => GrasshopperUiPolicy.Read,
+            statusCase: static _ => GrasshopperUiPolicy.Read,
+            layoutCase: static _ => GrasshopperUiPolicy.Read);
 }
 
 public sealed record GrasshopperUiIntent<T> {
@@ -248,10 +317,10 @@ public sealed record GrasshopperUiIntent<T> {
                 from value in Run(scope: scope)
                 from next in Optional(bind(arg: value))
                     .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Bind)), detail: "bind returned null"))
-                let policy = Policy | next.Policy
-                from resolved in policy == Policy
+                let merged = Policy | next.Policy
+                from resolved in merged == Policy
                     ? Fin.Succ(value: scope)
-                    : GrasshopperUi.Scope.Resolve(policy: policy, cancellation: scope.Cancellation, undo: scope.UndoGroup)
+                    : GrasshopperUi.Scope.Resolve(policy: merged, cancellation: scope.Cancellation, undo: scope.UndoGroup)
                 from result in next.Run(scope: resolved)
                 select GrasshopperUi.Repaint(scope: resolved, policy: next.Policy, value: result),
             policy: Policy);
@@ -263,6 +332,7 @@ public abstract record GhUiRequest<T> {
 }
 
 // --- [ERRORS] -----------------------------------------------------------------------------
+[SkipUnionOps]
 [Union]
 public abstract partial record UiFault : Expected, IValidationError<UiFault> {
     private UiFault() : base() { }
@@ -305,20 +375,20 @@ public abstract partial record UiFault : Expected, IValidationError<UiFault> {
 }
 
 public static partial class OpUiExtensions {
-    [BoundaryAdapter]
+    [BoundaryAdapter, MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Fin<PointF> AcceptPoint(this Op op, PointF value, string detail = "non-finite point") =>
         float.IsFinite(value.X) && float.IsFinite(value.Y)
             ? Fin.Succ(value)
             : Fin.Fail<PointF>(error: UiFault.InvalidInput(op: op, detail: detail));
 
-    [BoundaryAdapter]
+    [BoundaryAdapter, MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Fin<RectangleF> AcceptRect(this Op op, RectangleF value, string detail = "non-finite rect", bool requirePositive = false) =>
         float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Width) && float.IsFinite(value.Height)
         && (!requirePositive || (value.Width > 0f && value.Height > 0f))
             ? Fin.Succ(value)
             : Fin.Fail<RectangleF>(error: UiFault.InvalidInput(op: op, detail: detail));
 
-    [BoundaryAdapter]
+    [BoundaryAdapter, MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Fin<float> AcceptFinite(this Op op, float value, string detail = "non-finite value", bool requirePositive = false, bool nonNegative = false) =>
         float.IsFinite(value)
         && (!requirePositive || value > 0f)
@@ -344,6 +414,24 @@ public static partial class OpUiExtensions {
     internal static Fin<Unit> Attempt(this Op op, System.Action body, string what = "") =>
         op.Attempt(body: () => { body(); return unit; }, what: what);
 
+    // Parallel admission — folds multiple AcceptPoint/AcceptRect/AcceptFinite checks into one
+    // Validation<Seq<UiFault>, T> before ToFin. Use when PaintStyle/CornerRadii/multi-field
+    // validation repeats across a single payload.
+    [BoundaryAdapter]
+    internal static Validation<Seq<UiFault>, T> ValidateParallel<T>(this Op op, T value, params Func<Op, Fin<Unit>>[] checks) {
+        Seq<UiFault> faults = toSeq(checks).Choose(check =>
+            check(arg: op).Match(
+                Succ: static _ => None,
+                Fail: static error => Some((UiFault)error)));
+        return faults.IsEmpty
+            ? Success<Seq<UiFault>, T>(value)
+            : Fail<Seq<UiFault>, T>(faults);
+    }
+
+    [BoundaryAdapter]
+    internal static Fin<T> AcceptAll<T>(this Op op, T value, params Func<Op, Fin<Unit>>[] checks) =>
+        op.ValidateParallel(value: value, checks: checks).ToFin();
+
     // Validation<Seq<UiFault>, T> → Fin<T> bridge — Seq's built-in monoid accumulates faults during
     // parallel validation; this collapses to Error.Many for single-error Fin contract while preserving
     // every accumulated UiFault's provenance. Use when CornerRadii/SpringConfig/Bounds/Navigate fold
@@ -360,47 +448,27 @@ public static partial class OpUiExtensions {
 // --- [SERVICES] ---------------------------------------------------------------------------
 public static class GhUi {
     public static GrasshopperUiIntent<T> Apply<T>(GhUiRequest<T> request) =>
-        new(
-            run: scope => Optional(request)
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Apply)), detail: "request is required"))
-                .Bind(valid => valid.Apply(scope: scope)),
-            policy: Optional(request).Map(static valid => valid.Policy).IfNone(GrasshopperUiPolicy.Read));
+        Optional(request).Match(
+            Some: valid => new GrasshopperUiIntent<T>(
+                run: scope => valid.Apply(scope: scope),
+                policy: valid.Policy),
+            None: () => new GrasshopperUiIntent<T>(
+                run: _ => Fin.Fail<T>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Apply)), detail: "request is required")),
+                policy: GrasshopperUiPolicy.Read));
 
-    public static GrasshopperUiIntent<CanvasResult> Canvas(CanvasOp op) =>
-        Apply(request: new CanvasRequest(Op: op));
-
-    public static GrasshopperUiIntent<DocumentResult> Document(DocumentOp op) =>
-        Apply(request: new DocumentRequest(Op: op));
-
-    public static GrasshopperUiIntent<EditorResult> Editor(EditorOp op) =>
-        Apply(request: new EditorRequest(Op: op));
-
-    public static GrasshopperUiIntent<LayoutResult> Layout(LayoutOp op) =>
-        Apply(request: new LayoutRequest(Op: op));
-
-    public static GrasshopperUiIntent<WireResult> Wire(WireOp op) =>
-        Apply(request: new WireRequest(Op: op));
-
-    public static GrasshopperUiIntent<T> Input<T>(InputRequest<T> request) =>
-        Apply(request: request);
-
-    public static GrasshopperUiIntent<T> Paint<T>(PaintRequest<T> request) =>
-        Apply(request: request);
-
-    public static GrasshopperUiIntent<T> Motion<T>(MotionRequest<T> request) =>
-        Apply(request: request);
-
-    public static GrasshopperUiIntent<T> Tooltip<T>(TooltipRequest<T> request) =>
-        Apply(request: request);
-
-    public static GrasshopperUiIntent<T> FloatingButton<T>(FloatingButtonRequest<T> request) =>
-        Apply(request: request);
-
-    public static GrasshopperUiIntent<T> Interaction<T>(InteractionRequest<T> request) =>
-        Apply(request: request);
-
-    public static GrasshopperUiIntent<Subscription> Event(UiEvent uiEvent) =>
-        Apply(request: new EventRequest(Event: uiEvent));
+    public static GrasshopperUiIntent<CanvasResult> Canvas(CanvasOp op) => Apply(request: new CanvasRequest.Run(Op: op));
+    public static GrasshopperUiIntent<DocumentResult> Document(DocumentOp op) => Apply(request: new DocumentRequest.Run(Op: op));
+    public static GrasshopperUiIntent<EditorResult> Editor(EditorOp op) => Apply(request: new EditorRequest.Run(Op: op));
+    public static GrasshopperUiIntent<LayoutResult> Layout(LayoutOp op) => Apply(request: new LayoutRequest.Run(Op: op));
+    public static GrasshopperUiIntent<WireResult> Wire(WireOp op) => Apply(request: new WireRequest.Run(Op: op));
+    public static GrasshopperUiIntent<T> Input<T>(InputRequest<T> request) => Apply(request: request);
+    public static GrasshopperUiIntent<T> Paint<T>(PaintRequest<T> request) => Apply(request: request);
+    public static GrasshopperUiIntent<T> Motion<T>(MotionRequest<T> request) => Apply(request: request);
+    public static GrasshopperUiIntent<CanvasChromeResult> CanvasChrome(CanvasChromeOp op) => Apply(request: new CanvasChromeRequest.Run(Op: op));
+    public static GrasshopperUiIntent<CanvasChromeResult> Tooltip(TooltipOp op) => CanvasChrome(CanvasChromeOp.Tooltip(op: op));
+    public static GrasshopperUiIntent<CanvasChromeResult> FloatingButton(FloatingButtonOp op) => CanvasChrome(CanvasChromeOp.FloatingButton(op: op));
+    public static GrasshopperUiIntent<CanvasChromeResult> Interaction(InteractionOp op) => CanvasChrome(CanvasChromeOp.Interaction(op: op));
+    public static GrasshopperUiIntent<Subscription> Event(UiEvent uiEvent) => Apply(request: new EventRequest.Run(Event: uiEvent));
 
     public static GrasshopperUiIntent<T> Group<T>(string verb, string noun, GrasshopperUiIntent<T> body) =>
         Optional(body).Match(
@@ -433,43 +501,31 @@ public static class GhUi {
 [BoundaryAdapter]
 public sealed partial record GrasshopperUi {
     [StructLayout(LayoutKind.Auto)]
-    internal readonly record struct Scope(
-        Option<GhEditor> Editor,
-        Option<GhCanvas> Canvas,
-        Option<GhDocument> Document,
-        Option<GhDocumentMethods> Methods,
-        Option<GhObjectList> Objects,
-        Option<Skin> Skin,
-        Option<UndoGroup> UndoGroup,
-        CancellationToken Cancellation) {
+    internal readonly record struct Scope(Option<GhEditor> Editor, Option<GhCanvas> Canvas, Option<GhDocument> Document, Option<GhDocumentMethods> Methods, Option<GhObjectList> Objects, Option<Skin> Skin, Option<UndoGroup> UndoGroup, CancellationToken Cancellation) {
         internal static Fin<Scope> Resolve(GrasshopperUiPolicy policy, CancellationToken cancellation, Option<UndoGroup> undo = default) =>
             cancellation.IsCancellationRequested
                 ? Fin.Fail<Scope>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Resolve))))
-                : ResolveInner(policy: policy, undo: undo, cancellation: cancellation);
-
-        private static Fin<Scope> ResolveInner(GrasshopperUiPolicy policy, Option<UndoGroup> undo, CancellationToken cancellation) {
-            GhEditor? editor = (GhEditor.Instance, policy.OpenEditor) switch {
-                (GhEditor current, _) => current,
-                (null, true) => GhEditor.ShowEditor(createVisible: true),
-                _ => null,
-            };
-            GhCanvas? canvas = editor?.Canvas;
-            GhDocument? document = editor?.Documents.Current ?? canvas?.Document;
-            Scope scope = new(
-                Editor: Optional(editor),
-                Canvas: Optional(canvas),
-                Document: Optional(document),
-                Methods: Optional(document?.Methods),
-                Objects: Optional(document?.Objects),
-                Skin: Optional(canvas?.Skin),
-                UndoGroup: undo,
-                Cancellation: cancellation);
-            return (policy.RequireCanvas && scope.Canvas.IsNone, policy.RequireDocument && scope.Document.IsNone) switch {
-                (true, _) => Fin.Fail<Scope>(error: UiFault.MissingScope(field: nameof(Canvas))),
-                (_, true) => Fin.Fail<Scope>(error: UiFault.MissingScope(field: nameof(Document))),
-                _ => Fin.Succ(value: scope),
-            };
-        }
+                : Fin.Succ(value: (GhEditor.Instance, policy.OpenEditor) switch {
+                    (GhEditor current, _) => current,
+                    (null, true) => GhEditor.ShowEditor(createVisible: true),
+                    _ => null,
+                }).Map(editor => {
+                    GhCanvas? canvas = editor?.Canvas;
+                    GhDocument? document = editor?.Documents.Current ?? canvas?.Document;
+                    return new Scope(
+                        Editor: Optional(editor),
+                        Canvas: Optional(canvas),
+                        Document: Optional(document),
+                        Methods: Optional(document?.Methods),
+                        Objects: Optional(document?.Objects),
+                        Skin: Optional(canvas?.Skin),
+                        UndoGroup: undo,
+                        Cancellation: cancellation);
+                }).Bind(scope => (policy.RequireCanvas && scope.Canvas.IsNone, policy.RequireDocument && scope.Document.IsNone) switch {
+                    (true, _) => Fin.Fail<Scope>(error: UiFault.MissingScope(field: nameof(Canvas))),
+                    (_, true) => Fin.Fail<Scope>(error: UiFault.MissingScope(field: nameof(Document))),
+                    _ => Fin.Succ(value: scope),
+                });
 
         internal Fin<GhCanvas> NeedCanvas([CallerMemberName] string name = "") =>
             Canvas.ToFin(Fail: UiFault.MissingScope(field: nameof(Canvas)));
@@ -565,6 +621,7 @@ public sealed partial record GrasshopperUi {
         return value;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Rectangle ControlSpace(GhCanvas canvas, RectangleF bounds) =>
         Rectangle.Ceiling(canvas.Map(rectangle: bounds, from: CoordinateSystem.Content, to: CoordinateSystem.Control));
 }

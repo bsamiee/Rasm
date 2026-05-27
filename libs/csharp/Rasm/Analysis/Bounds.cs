@@ -3,6 +3,7 @@ using Rasm.Vectors;
 namespace Rasm.Analysis;
 
 // --- [MODELS] -----------------------------------------------------------------------------
+[SkipUnionOps]
 [Union]
 public partial record Bounds : IAspect {
     public sealed record AxisAlignedCase : Bounds;

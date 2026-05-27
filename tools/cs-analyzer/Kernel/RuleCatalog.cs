@@ -174,6 +174,18 @@ internal static class RuleCatalog {
     /// </summary>
     internal static readonly DiagnosticDescriptor CSP0723 = Err("CSP0723", "RhinoActiveDocLeak", "Ambient Rhino state '{0}' accessed outside boundary adapter; pass RhinoDoc/runtime via parameter", "FunctionalDiscipline");
 
+    // --- [UNION_OPS_RULES] ----------------------------------------------------
+
+    /// <summary>
+    /// CSP0802 UnionOpsQualification — functional [Union] types must opt into generated SelfOp via
+    /// [GenerateUnionOps] or explicitly opt out via [SkipUnionOps].
+    /// </summary>
+    internal static readonly DiagnosticDescriptor CSP0802 = Err(
+        "CSP0802",
+        "UnionOpsQualification",
+        "[Union] type '{0}' has no ops qualification; add [GenerateUnionOps] to emit SelfOp per case, or [SkipUnionOps] to opt out",
+        "TypeDiscipline");
+
     // --- [CONVENTION_RULES] ---------------------------------------------------
 
     internal static readonly DiagnosticDescriptor CSP0015 = Err("CSP0015", "VarInference", "Explicit 'var' usage in domain/application code is forbidden; declare explicit type for '{0}'", "TypeDiscipline");
@@ -192,5 +204,6 @@ internal static class RuleCatalog {
         CSP0601, CSP0602, CSP0603, CSP0604, CSP0605, CSP0606, CSP0607, CSP0608,
         CSP0701, CSP0702, CSP0703, CSP0704, CSP0705, CSP0706, CSP0707, CSP0708, CSP0709,
         CSP0710, CSP0711, CSP0712, CSP0713, CSP0714, CSP0715, CSP0717, CSP0718, CSP0719, CSP0720,
-        CSP0723, CSP0724, CSP0725, CSP0726, CSP0727, CSP0728);
+        CSP0723, CSP0724, CSP0725, CSP0726, CSP0727, CSP0728,
+        CSP0802);
 }

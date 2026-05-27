@@ -220,10 +220,22 @@ public sealed record BridgeFault(string Category, string Message, string? Type =
     public static BridgeFault MessageOnly(string category, string message) => new(Category: category, Message: message);
     public static BridgeFault FromException(string category, Exception error) {
         ArgumentNullException.ThrowIfNull(argument: error);
-        return new(Category: category, Message: error.Message, Type: error.GetType().FullName, StackTrace: error.StackTrace, Causes: error.InnerException switch {
-            Exception inner => [FromException(category: category, error: inner)],
-            _ => null,
-        });
+        Exception? cursor = error.InnerException;
+        List<BridgeFault> causes = [];
+        while (cursor is Exception inner) {
+            causes.Add(item: new BridgeFault(
+                Category: category,
+                Message: inner.Message,
+                Type: inner.GetType().FullName,
+                StackTrace: inner.StackTrace));
+            cursor = inner.InnerException;
+        }
+        return new(
+            Category: category,
+            Message: error.Message,
+            Type: error.GetType().FullName,
+            StackTrace: error.StackTrace,
+            Causes: causes.Count > 0 ? causes : null);
     }
 }
 
@@ -262,6 +274,33 @@ public static class BridgeWire {
         string.Equals(a: schema, b: Schema, comparisonType: StringComparison.Ordinal);
     public static bool IsHostAssemblyName(string? name) =>
         !string.IsNullOrWhiteSpace(value: name) && HostAssemblyNames.Contains(item: name);
+    /// RhinoCode isolated #r order must initialize LanguageExt traits before staged Rasm assemblies touch HashMap keys.
+    /// Staged Rasm assemblies must use primitive or built-in tuple HashMap keys only; custom record-struct keys fail under isolated resolver trait warmup.
+    public const string LanguageExtBootstrap =
+        "global::LanguageExt.HashMap<string, int> __rasmBridgeLanguageExtBootstrap = global::LanguageExt.HashMap<string, int>.Empty;\n"
+        + "global::LanguageExt.HashMap<(uint Serial, System.Guid DefId), int> __rasmBridgeLanguageExtTupleBootstrap = global::LanguageExt.HashMap<(uint Serial, System.Guid DefId), int>.Empty;";
+    public static FrozenSet<string> CollisionWatchAssemblyNames { get; } = new[] {
+        "FSharp.Core",
+        "LanguageExt.Core",
+        "Thinktecture.Runtime.Extensions",
+    }.ToFrozenSet(comparer: StringComparer.OrdinalIgnoreCase);
+    public static int ReferenceLoadOrder(string path, string targetPath) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(argument: path);
+        ArgumentException.ThrowIfNullOrWhiteSpace(argument: targetPath);
+        string fullPath = Path.GetFullPath(path: path);
+        string fullTarget = Path.GetFullPath(path: targetPath);
+        return string.Equals(a: fullPath, b: fullTarget, comparisonType: OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
+            ? 1000
+            : Path.GetFileNameWithoutExtension(path: fullPath) switch {
+                "FSharp.Core" => 0,
+                "LanguageExt.Core" => 10,
+                "Thinktecture.Runtime.Extensions" => 20,
+                "Rasm" => 900,
+                "Rasm.TestKit" => 910,
+                "Rasm.RhinoBridge.Protocol" => 910,
+                _ => 100,
+            };
+    }
     public static BridgeRequest Request<TPayload>(string command, TPayload payload, int timeoutMs = 15000) =>
         new(Schema: Schema, Command: command, TimeoutMs: timeoutMs, Payload: JsonSerializer.SerializeToElement(value: payload, options: CompactJson));
     public static BridgeRequest Request(string command, int timeoutMs = 15000) =>
@@ -312,23 +351,57 @@ public static class BridgeWire {
         ArgumentNullException.ThrowIfNull(argument: nonce);
         string escTarget = Escape(value: targetPath);
         string escSource = Escape(value: sourceTargetPath);
+        string watchNames = JsonSerializer.Serialize(value: CollisionWatchAssemblyNames, options: CompactJson);
         return string.Join(separator: Environment.NewLine, values: new[] {
             "using System;",
             "using System.IO;",
+            "using System.Linq;",
             "using System.Reflection;",
             "using System.Text.Json;",
             "using Rhino;",
             string.Empty,
             $"string targetLocation = Path.GetFullPath(\"{escTarget}\");",
             $"string sourceTargetLocation = Path.GetFullPath(\"{escSource}\");",
-            "AssemblyName targetName = AssemblyName.GetAssemblyName(targetLocation);",
+            $"string nonce = \"{nonce}\";",
+            $"string[] watchNames = {watchNames};",
             "StringComparison pathCmp = OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;",
-            "Assembly loaded = Assembly.LoadFile(targetLocation);",
-            "Assembly[] matches = Array.FindAll(AppDomain.CurrentDomain.GetAssemblies(), a => string.Equals(a.GetName().Name, targetName.Name, StringComparison.Ordinal));",
-            "Assembly? target = Array.Find(matches, a => ReferenceEquals(a, loaded) || (!string.IsNullOrWhiteSpace(a.Location) && string.Equals(Path.GetFullPath(a.Location), targetLocation, pathCmp)));",
-            "Assembly? other = Array.Find(matches, a => !ReferenceEquals(a, target));",
-            $"Console.WriteLine(\"{ReturnPrefix}\" + JsonSerializer.Serialize(new {{ kind = \"assemblyFreshness\", nonce = \"{nonce}\", sourceTargetLocation, targetLocation, loadedLocation = target?.Location ?? \"none\", preLoadLocation = other?.Location ?? \"none\", alreadyLoaded = other is not null, sameNameAssemblyCount = matches.Length, refreshRequired = target is null, loadedVersion = target?.GetName().Version?.ToString() ?? \"none\", targetVersion = targetName.Version?.ToString() ?? \"none\", assemblyVersion = target?.GetName().Version?.ToString() ?? \"none\", assemblyInformationalVersion = target?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? \"none\", resolverIsolated = true }}));",
-            "_ = target ?? throw new InvalidOperationException($\"RhinoCode did not load target assembly through isolated #r reference. target={targetLocation}\");",
+            "object Probe() {",
+            "  AssemblyName targetName = AssemblyName.GetAssemblyName(targetLocation);",
+            "  Assembly loaded = Assembly.LoadFile(targetLocation);",
+            "  Assembly[] domain = AppDomain.CurrentDomain.GetAssemblies();",
+            "  Assembly[] matches = Array.FindAll(domain, a => string.Equals(a.GetName().Name, targetName.Name, StringComparison.Ordinal));",
+            "  Assembly? target = Array.Find(matches, a => ReferenceEquals(a, loaded) || (!string.IsNullOrWhiteSpace(a.Location) && string.Equals(Path.GetFullPath(a.Location), targetLocation, pathCmp)));",
+            "  Assembly? stale = Array.Find(matches, a => !ReferenceEquals(a, target));",
+            "  var dependencyCollisions = watchNames",
+            "    .Select(name => (Name: name, Hits: Array.FindAll(domain, a => string.Equals(a.GetName().Name, name, StringComparison.OrdinalIgnoreCase))))",
+            "    .Where(entry => entry.Hits.Length > 1)",
+            "    .Select(entry => new { name = entry.Name, count = entry.Hits.Length, locations = entry.Hits.Select(a => a.Location ?? string.Empty).ToArray(), versions = entry.Hits.Select(a => a.GetName().Version?.ToString() ?? \"none\").ToArray() })",
+            "    .ToArray();",
+            "  return new {",
+            "    kind = \"assemblyFreshness\",",
+            "    nonce,",
+            "    sourceTargetLocation,",
+            "    targetLocation,",
+            "    loadedLocation = target?.Location ?? \"none\",",
+            "    preLoadLocation = stale?.Location ?? \"none\",",
+            "    alreadyLoaded = stale is not null,",
+            "    sameNameAssemblyCount = matches.Length,",
+            "    refreshRequired = target is null,",
+            "    loadedVersion = target?.GetName().Version?.ToString() ?? \"none\",",
+            "    targetVersion = targetName.Version?.ToString() ?? \"none\",",
+            "    assemblyInformationalVersion = target?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? \"none\",",
+            "    resolverIsolated = true,",
+            "    collisionDetected = stale is not null || dependencyCollisions.Length > 0,",
+            "    dependencyCollisions,",
+            "  };",
+            "}",
+            $"Console.WriteLine(\"{ReturnPrefix}\" + JsonSerializer.Serialize(Probe()));",
+            "_ = AssemblyName.GetAssemblyName(targetLocation);",
+            "Assembly[] postProbe = AppDomain.CurrentDomain.GetAssemblies();",
+            "AssemblyName postName = AssemblyName.GetAssemblyName(targetLocation);",
+            "Assembly[] postMatches = Array.FindAll(postProbe, a => string.Equals(a.GetName().Name, postName.Name, StringComparison.Ordinal));",
+            "Assembly? postTarget = Array.Find(postMatches, a => !string.IsNullOrWhiteSpace(a.Location) && string.Equals(Path.GetFullPath(a.Location), targetLocation, pathCmp));",
+            "_ = postTarget ?? throw new InvalidOperationException($\"RhinoCode did not load target assembly through isolated #r reference. target={targetLocation}\");",
             $"Console.WriteLine(\"{BridgeMarker.Prefix}nonce={nonce}\");",
             $"Console.Error.WriteLine(\"{BridgeMarker.Prefix}stderr={nonce}\");",
         });

@@ -33,7 +33,7 @@ public sealed class BlockArchivePlanLaws {
             Description: Option<string>.None,
             Url: Option<ArchivePath>.None,
             UrlDescription: Option<string>.None,
-            Source: Option<ArchivePath>.None,
+            Source: Option<ArchiveLink>.None,
             MemberIds: members,
             Live: Option<LiveStats>.None);
 }

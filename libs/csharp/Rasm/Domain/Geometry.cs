@@ -14,6 +14,7 @@ public sealed partial class IntersectionKind {
 }
 public enum IntersectionTangency { Unknown = 0, Transversal = 1, Tangent = 2 }
 public enum CurveFeature { Input = 0, Segment = 1, Edge = 2, Boundary = 3, NakedOuter = 4, NakedInner = 5, Interior = 6, NonManifold = 7, OuterLoop = 8, InnerLoop = 9, Iso = 10, Silhouette = 11, SubCurve = 12, Draft = 13 }
+[SkipUnionOps]
 [Union]
 public partial record CurveForm {
     public sealed record LineCase(Line Value) : CurveForm;
@@ -24,6 +25,7 @@ public partial record CurveForm {
     public sealed record NurbsCase(int Degree, bool IsClosed, bool IsPlanar, bool IsPeriodic, int SpanCount, int Dimension) : CurveForm;
 }
 
+[SkipUnionOps]
 [Union]
 internal abstract partial record Lease<T> where T : class, IDisposable {
     private Lease() { }
@@ -39,6 +41,7 @@ internal abstract partial record Lease<T> where T : class, IDisposable {
     internal Unit Dispose() => Switch(owned: static owned => { owned.Value.Dispose(); return unit; }, borrowed: static _ => unit);
 }
 [BoundaryAdapter]
+[SkipUnionOps]
 [Union]
 public abstract partial record IntersectionHit {
     private IntersectionHit() { }

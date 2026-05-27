@@ -306,31 +306,67 @@ public sealed record FilePrompt {
 }
 
 public sealed record FileEndpoint {
-    private FileEndpoint(string path, Option<FileFormat> format, FileNamePolicy name, FileWritePolicy write) =>
-        (Path, Format, Name, Write) = (path, format, name.Normalized, write.Normalized);
+    private FileEndpoint(string path, Option<FileFormat> format, FileNamePolicy name, FileWritePolicy write, Option<string> relative) =>
+        (Path, Format, Name, Write, Relative) = (path, format, name.Normalized, write.Normalized, relative);
 
     public string Path { get; }
     public Option<FileFormat> Format { get; }
     public FileNamePolicy Name { get; }
     public FileWritePolicy Write { get; }
+    public Option<string> Relative { get; }
+    public string StoredLinkPath => Relative.IfNone(noneValue: Path);
 
-    public static Fin<FileEndpoint> From(string path, Option<FileFormat> format = default, FileNamePolicy name = default, FileWritePolicy write = default) =>
+    public static Fin<FileEndpoint> From(
+        string path,
+        Option<FileFormat> format = default,
+        FileNamePolicy name = default,
+        FileWritePolicy write = default,
+        Option<string> relative = default) =>
         from raw in NonBlank(value: path, op: Op.Of(name: nameof(FileEndpoint)))
         from normalized in NormalizePath(path: raw, op: Op.Of(name: nameof(FileEndpoint)))
+        from rel in RelativeOption(value: relative, op: Op.Of(name: nameof(FileEndpoint)))
         let named = ApplyExtension(path: normalized, format: Option<FileFormat>.None, name: name)
         let detected = format.Case switch {
             FileFormat known => Some(known),
             _ => FileFormat.Detect(path: named),
         }
-        select new FileEndpoint(path: ApplyExtension(path: named, format: detected, name: FileNamePolicy.Default), format: detected, name: name, write: write);
+        select new FileEndpoint(
+            path: ApplyExtension(path: named, format: detected, name: FileNamePolicy.Default),
+            format: detected,
+            name: name,
+            write: write,
+            relative: rel);
 
     internal FileEndpoint WithPath(string path) =>
-        new(path: path, format: Format, name: Name, write: Write);
+        new(path: path, format: Format, name: Name, write: Write, relative: Relative);
 
     internal FileEndpoint WithFormat(FileFormat format) =>
         Optional(format).Case switch {
-            FileFormat known => new(path: known.EnsureExtension(path: Path), format: Some(known), name: Name with { Extension = Some(known.Extensions[0]) }, write: Write),
+            FileFormat known => new(
+                path: known.EnsureExtension(path: Path),
+                format: Some(known),
+                name: Name with { Extension = Some(known.Extensions[0]) },
+                write: Write,
+                relative: Relative),
             _ => this,
+        };
+
+    internal FileEndpoint WithRelative(Option<string> relative) =>
+        new(path: Path, format: Format, name: Name, write: Write, relative: relative);
+
+    internal Fin<T> WithReference<T>(Op key, Func<FileReference, Fin<T>> use) {
+        // BOUNDARY ADAPTER — FileReference owns native source metadata and must be disposed after the table call.
+        using FileReference reference = Relative.Case switch {
+            string relative => FileReference.CreateFromFullAndRelativePaths(fullPath: Path, relativePath: relative),
+            _ => FileReference.CreateFromFullPath(fullPath: Path),
+        };
+        return use(arg: reference);
+    }
+
+    private static Fin<Option<string>> RelativeOption(Option<string> value, Op op) =>
+        value.Case switch {
+            string text => op.AcceptText(value: text).Map(Some).MapFail(_ => op.InvalidInput()),
+            _ => Fin.Succ(Option<string>.None),
         };
 
     internal Fin<FileEndpoint> Input(Op op) =>

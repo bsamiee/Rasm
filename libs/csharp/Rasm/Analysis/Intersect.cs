@@ -3,6 +3,7 @@ using Rasm.Vectors;
 namespace Rasm.Analysis;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+[SkipUnionOps]
 [Union]
 internal partial record IntersectionResult {
     public sealed record Lines(Seq<Line> Values) : IntersectionResult;

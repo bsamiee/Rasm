@@ -73,7 +73,7 @@ Run commands from repository root.
 | **5** | `scripts/rhino.sh bridge clean <target>` | Remove generated bridge check reports for one target. |
 | **6** | `scripts/rhino.sh bridge quit` | Lifecycle-only safe Rhino exit when open documents have no unsaved changes. |
 | **7** | `scripts/rhino.sh package rasm-bridge <version>` | Build bridge `.rhp`, run Yak in staged directory, and create a local package. |
-| **8** | `scripts/rhino.sh deploy rasm-bridge <version>` | Install the staged bridge package, refresh RhinoWIP via idempotent launch, and verify bridge health. |
+| **8** | `scripts/rhino.sh deploy rasm-bridge <version>` | Install the staged bridge package, refresh RhinoWIP via idempotent launch, and verify bridge health. Skips automated quit when no live bridge endpoint exists (Rhino already closed); retires stale `~/.rasm/rhino-bridge.json` before relaunch. |
 | **9** | `scripts/rhino.sh publish rasm-bridge <version>` | Build, install locally, then push to the configured Yak feed in one shot. |
 | **10** | `scripts/rhino.sh verify <scenario-or-glob>` | Convenience rail for source-only scenarios; resolves owning project, routes through `bridge check`. |
 | **11** | `scripts/rhino.sh api doctor` | Report local RhinoWIP API XML, ILSpy, and RhinoCode metadata availability. |
@@ -211,7 +211,7 @@ Console.WriteLine("rasm.rhino-bridge.return=" + JsonSerializer.Serialize(receipt
 
 The plugin preserves raw stdout and parses the last line with this prefix into `execute.data.returnValue`. Missing return lines are valid. Malformed return JSON fails `execute` with `fault.category = "return"`.
 
-Runtime checks force RhinoCode C# `csharp.resolver.isolate = true` and `CachePolicy.NeverCache`. Script references load through RhinoCode's collectible Roslyn context instead of Rhino's default host context, so other installed plugins cannot poison package identity for `LanguageExt`, `Thinktecture`, or rebuilt repo assemblies. Every execute report includes `execute.data.rhinoCode`; project smoke scripts also emit `returnValue.kind = "assemblyFreshness"` with exact target-location evidence and `resolverIsolated = true`.
+Runtime checks force RhinoCode C# `csharp.resolver.isolate = true` and `CachePolicy.NeverCache`. Script references load through RhinoCode's collectible Roslyn context instead of Rhino's default host context, so other installed plugins cannot poison package identity for `LanguageExt`, `Thinktecture`, or rebuilt repo assemblies. Every execute report includes `execute.data.rhinoCode`; project smoke scripts also emit `returnValue.kind = "assemblyFreshness"` with target-location evidence, `dependencyCollisions` for watched packages (`LanguageExt.Core`, `FSharp.Core`, `Thinktecture.Runtime.Extensions`), `collisionDetected`, and `resolverIsolated = true`.
 
 The Rhino-loaded bridge boundary is dependency-free outside RhinoWIP host assemblies and the local protocol DLL. `rasm-bridge.rhp` and `Rasm.RhinoBridge.Protocol.dll` do not package `LanguageExt.Core` or `Thinktecture.Runtime.Extensions`; this prevents Rhino's shared plugin load context from binding other plugins to Rasm's functional-library versions.
 
@@ -245,7 +245,7 @@ Marker kinds:
 
 <br>
 
-The client emits runtime reference projections from one evaluated project build. Generated RhinoCode scripts apply references by prepending `#r` directives before submission. Project/source scenario references are shadow-copied into artifact `refs/<content-hash>/` folders so repeated checks see fresh assembly paths without scenario-owned machine paths. `BridgeExecuteRequest.References` is reported metadata today; the plugin does not independently apply that field during execution.
+The client emits runtime reference projections from one evaluated project build. Generated RhinoCode scripts apply references by prepending `#r` directives before submission. References are ordered dependency-first: `FSharp.Core`, `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, transitive packages, `Rasm.dll`, scenario kit assemblies, then the target assembly last. Scenario scripts also inject a bridge-owned LanguageExt `HashMap` bootstrap so trait resolution completes before staged Rasm code touches custom `HashMap` keys under RhinoCode's isolated resolver. **Rasm.Rhino HashMap policy:** use primitive, `string`, `Guid`, `uint`/`ulong`, or built-in value-tuple keys only in bridge-hot assemblies; do not use custom record-struct keys (for example `PreviewFingerprint`) inside `HashMap<,>` — they fail under isolated resolver trait warmup even when reference order is correct. Project/source scenario references are shadow-copied into artifact `refs/<content-hash>/` folders so repeated checks see fresh assembly paths without scenario-owned machine paths. `BridgeExecuteRequest.References` is reported metadata today; the plugin does not independently apply that field during execution.
 
 API metadata lookup uses local sources in this order:
 1. RhinoWIP app-bundle XML for `RhinoCommon`, `Grasshopper2`, and `GrasshopperIO`.

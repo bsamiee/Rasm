@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using AppKit;
 using CoreAnimation;
+using CoreGraphics;
 using Foundation;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.UI.Animation;
@@ -18,10 +19,9 @@ using ZoomThreshold = Grasshopper2.UI.ZoomThreshold;
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-// Single discriminant for "how this animation is paced" — collapses the parallel `useDisplayLink: bool`
-// knob from Tween/Spring/Pulse/Stroke/Theme/ZoomGate + Paint.Hook + Paint.RedrawOnMouseMove. MessageLoop
-// rides Eto's coalesced ~60Hz paint pump (default; safe everywhere). DisplayLink opt-in binds the
-// canvas-bound CADisplayLink via Pacer pool for vsync-aligned 30-120Hz on ProMotion (macOS 14+).
+// MessageLoop = Eto's coalesced ~60Hz paint pump (default). DisplayLink = canvas-bound CADisplayLink
+// for vsync-aligned 30-120Hz on ProMotion (macOS 14+).
+[SkipUnionOps]
 [Union]
 public partial record MotionClock {
     private MotionClock() { }
@@ -32,27 +32,14 @@ public partial record MotionClock {
     public static MotionClock DisplayLink(Option<CAFrameRateRange> rate = default) => new DisplayLinkCase(Rate: rate);
 }
 
-// Timeline transport state — interpretable by any time-keyed animation. Playing/Reverse multiply dt
-// by Rate; Scrubbing pins the integrator to absolute Position (in seconds of timeline duration);
-// Paused stalls accumulation without releasing the Pacer subscription.
+// Fire-and-forget GPU chrome — cannot retarget mid-flight (CASpringAnimation design).
+[SkipUnionOps]
 [Union]
-public partial record TimelineMode {
-    private TimelineMode() { }
-    public sealed record PlayingCase(float Rate) : TimelineMode;
-    public sealed record PausedCase : TimelineMode;
-    public sealed record ScrubbingCase(double Position) : TimelineMode;
-    public sealed record ReverseCase(float Rate) : TimelineMode;
-
-    public static readonly TimelineMode Paused = new PausedCase();
-    public static TimelineMode Playing(float rate = 1f) => new PlayingCase(Rate: rate);
-    public static TimelineMode Scrubbing(double position) => new ScrubbingCase(Position: position);
-    public static TimelineMode Reverse(float rate = 1f) => new ReverseCase(Rate: rate);
-
-    public float SignedRate => Switch(
-        playingCase: static c => c.Rate,
-        pausedCase: static _ => 0f,
-        scrubbingCase: static _ => 0f,
-        reverseCase: static c => -c.Rate);
+public partial record CosmeticIntent {
+    private CosmeticIntent() { }
+    public sealed record PulseCase(RectangleF Bounds, Color Tint, GhDuration Duration) : CosmeticIntent;
+    public sealed record GlowCase(RectangleF Bounds, Color Tint, float CornerRadius, float ShadowRadius, GhDuration Duration) : CosmeticIntent;
+    public sealed record StrokeOnCase(ReadOnlyMemory<PointF> Polyline, Color Tint, float Thickness, GhDuration Duration) : CosmeticIntent;
 }
 
 public interface IMotionVector<T> {
@@ -72,99 +59,85 @@ internal interface IMotionState<TSelf> where TSelf : struct, IMotionState<TSelf>
     public TSelf MergeInto(TSelf live);
 }
 
-// Penner closed-form curves pre-multiplied to Func<double,double> at registration — hot 60Hz tick
-// pays only the virtual delegate dispatch. Constants per Robert Penner (easings.net).
+// Robert Penner closed-form curves (easings.net).
 [SmartEnum<int>]
 public sealed partial class Easing {
-    private delegate double EasingCurve(double t);
-
     private const double BackC1 = 1.70158;
     private const double BackC3 = BackC1 + 1.0;
     private const double BackC2 = BackC1 * 1.525;
     private const double BounceN1 = 7.5625;
     private const double BounceD1 = 2.75;
 
-    // --- [GH2_NATIVE] (delegate to MotionEquations.Blend) -----------------------------------
-    public static readonly Easing Linear = Native(key: 0, motion: GhMotion.Linear);
-    public static readonly Easing LinearDelayed = Native(key: 1, motion: GhMotion.LinearDelayed);
-    public static readonly Easing EaseIn = Native(key: 2, motion: GhMotion.EaseIn);
-    public static readonly Easing EaseInDelayed = Native(key: 3, motion: GhMotion.EaseInDelayed);
-    public static readonly Easing EaseOut = Native(key: 4, motion: GhMotion.EaseOut);
-    public static readonly Easing EaseOutDelayed = Native(key: 5, motion: GhMotion.EaseOutDelayed);
-    public static readonly Easing EaseInOut = Native(key: 6, motion: GhMotion.EaseInOut);
-    public static readonly Easing EaseInOutDelayed = Native(key: 7, motion: GhMotion.EaseInOutDelayed);
-    public static readonly Easing SnapIn = Native(key: 8, motion: GhMotion.SnapIn);
-    public static readonly Easing SnapInDelayed = Native(key: 9, motion: GhMotion.SnapInDelayed);
-    public static readonly Easing SnapOut = Native(key: 10, motion: GhMotion.SnapOut);
-    public static readonly Easing SnapOutDelayed = Native(key: 11, motion: GhMotion.SnapOutDelayed);
-    public static readonly Easing Bounce = Native(key: 12, motion: GhMotion.Bounce);
-    public static readonly Easing BounceDelayed = Native(key: 13, motion: GhMotion.BounceDelayed);
-    public static readonly Easing Twang = Native(key: 14, motion: GhMotion.Twang);
-    public static readonly Easing TwangDelayed = Native(key: 15, motion: GhMotion.TwangDelayed);
+    private static readonly GhMotion[] NativeCatalog = [
+        GhMotion.Linear, GhMotion.LinearDelayed, GhMotion.EaseIn, GhMotion.EaseInDelayed,
+        GhMotion.EaseOut, GhMotion.EaseOutDelayed, GhMotion.EaseInOut, GhMotion.EaseInOutDelayed,
+        GhMotion.SnapIn, GhMotion.SnapInDelayed, GhMotion.SnapOut, GhMotion.SnapOutDelayed,
+        GhMotion.Bounce, GhMotion.BounceDelayed, GhMotion.Twang, GhMotion.TwangDelayed,
+    ];
 
-    // --- [CLOSED_FORM] (Penner equations: 10 families × In/Out/InOut) -----------------------
-    public static readonly Easing SineIn = Closed(key: 16, compute: static t => 1.0 - Math.Cos(t * Math.PI / 2.0));
-    public static readonly Easing SineOut = Closed(key: 17, compute: static t => Math.Sin(t * Math.PI / 2.0));
-    public static readonly Easing SineInOut = Closed(key: 18, compute: static t => -(Math.Cos(Math.PI * t) - 1.0) / 2.0);
-    public static readonly Easing QuadIn = Closed(key: 19, compute: static t => t * t);
-    public static readonly Easing QuadOut = Closed(key: 20, compute: static t => 1.0 - ((1.0 - t) * (1.0 - t)));
-    public static readonly Easing QuadInOut = Closed(key: 21, compute: static t =>
-        t < 0.5 ? 2.0 * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 2.0) / 2.0));
-    public static readonly Easing CubicIn = Closed(key: 22, compute: static t => t * t * t);
-    public static readonly Easing CubicOut = Closed(key: 23, compute: static t => 1.0 - Math.Pow(1.0 - t, 3.0));
-    public static readonly Easing CubicInOut = Closed(key: 24, compute: static t =>
-        t < 0.5 ? 4.0 * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 3.0) / 2.0));
-    public static readonly Easing QuartIn = Closed(key: 25, compute: static t => t * t * t * t);
-    public static readonly Easing QuartOut = Closed(key: 26, compute: static t => 1.0 - Math.Pow(1.0 - t, 4.0));
-    public static readonly Easing QuartInOut = Closed(key: 27, compute: static t =>
-        t < 0.5 ? 8.0 * t * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 4.0) / 2.0));
-    public static readonly Easing QuintIn = Closed(key: 28, compute: static t => t * t * t * t * t);
-    public static readonly Easing QuintOut = Closed(key: 29, compute: static t => 1.0 - Math.Pow(1.0 - t, 5.0));
-    public static readonly Easing QuintInOut = Closed(key: 30, compute: static t =>
-        t < 0.5 ? 16.0 * t * t * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 5.0) / 2.0));
-    public static readonly Easing ExpoIn = Closed(key: 31, compute: static t => t == 0.0 ? 0.0 : Math.Pow(2.0, (10.0 * t) - 10.0));
-    public static readonly Easing ExpoOut = Closed(key: 32, compute: static t => t == 1.0 ? 1.0 : 1.0 - Math.Pow(2.0, -10.0 * t));
-    public static readonly Easing ExpoInOut = Closed(key: 33, compute: static t =>
-        t == 0.0 ? 0.0 : t == 1.0 ? 1.0 :
-        t < 0.5 ? Math.Pow(2.0, (20.0 * t) - 10.0) / 2.0 : (2.0 - Math.Pow(2.0, (-20.0 * t) + 10.0)) / 2.0);
-    public static readonly Easing CircIn = Closed(key: 34, compute: static t => 1.0 - Math.Sqrt(1.0 - (t * t)));
-    public static readonly Easing CircOut = Closed(key: 35, compute: static t => Math.Sqrt(1.0 - ((t - 1.0) * (t - 1.0))));
-    public static readonly Easing CircInOut = Closed(key: 36, compute: static t =>
-        t < 0.5
-            ? (1.0 - Math.Sqrt(1.0 - (4.0 * t * t))) / 2.0
-            : (Math.Sqrt(1.0 - (((-2.0 * t) + 2.0) * ((-2.0 * t) + 2.0))) + 1.0) / 2.0);
-    public static readonly Easing BackIn = Closed(key: 37, compute: static t => (BackC3 * t * t * t) - (BackC1 * t * t));
-    public static readonly Easing BackOut = Closed(key: 38, compute: static t =>
-        1.0 + (BackC3 * Math.Pow(t - 1.0, 3.0)) + (BackC1 * Math.Pow(t - 1.0, 2.0)));
-    public static readonly Easing BackInOut = Closed(key: 39, compute: static t =>
-        t < 0.5
-            ? Math.Pow(2.0 * t, 2.0) * (((BackC2 + 1.0) * 2.0 * t) - BackC2) / 2.0
-            : ((Math.Pow((2.0 * t) - 2.0, 2.0) * (((BackC2 + 1.0) * ((t * 2.0) - 2.0)) + BackC2)) + 2.0) / 2.0);
-    public static readonly Easing ElasticIn = Closed(key: 40, compute: static t =>
-        t == 0.0 ? 0.0 : t == 1.0 ? 1.0 :
-        -Math.Pow(2.0, (10.0 * t) - 10.0) * Math.Sin(((t * 10.0) - 10.75) * (2.0 * Math.PI / 3.0)));
-    public static readonly Easing ElasticOut = Closed(key: 41, compute: static t =>
-        t == 0.0 ? 0.0 : t == 1.0 ? 1.0 :
-        (Math.Pow(2.0, -10.0 * t) * Math.Sin(((t * 10.0) - 0.75) * (2.0 * Math.PI / 3.0))) + 1.0);
-    public static readonly Easing ElasticInOut = Closed(key: 42, compute: static t =>
-        t == 0.0 ? 0.0 : t == 1.0 ? 1.0 :
-        t < 0.5
-            ? -(Math.Pow(2.0, (20.0 * t) - 10.0) * Math.Sin(((20.0 * t) - 11.125) * (2.0 * Math.PI / 4.5))) / 2.0
-            : (Math.Pow(2.0, (-20.0 * t) + 10.0) * Math.Sin(((20.0 * t) - 11.125) * (2.0 * Math.PI / 4.5)) / 2.0) + 1.0);
-    public static readonly Easing BounceIn = Closed(key: 43, compute: static t => 1.0 - BounceOutFormula(1.0 - t));
-    public static readonly Easing BounceOut = Closed(key: 44, compute: BounceOutFormula);
-    public static readonly Easing BounceInOut = Closed(key: 45, compute: static t =>
-        t < 0.5
-            ? (1.0 - BounceOutFormula(1.0 - (2.0 * t))) / 2.0
-            : (1.0 + BounceOutFormula((2.0 * t) - 1.0)) / 2.0);
+    public static readonly Easing Linear = Native(key: 0, index: 0), LinearDelayed = Native(key: 1, index: 1), EaseIn = Native(key: 2, index: 2), EaseInDelayed = Native(key: 3, index: 3);
+    public static readonly Easing EaseOut = Native(key: 4, index: 4), EaseOutDelayed = Native(key: 5, index: 5), EaseInOut = Native(key: 6, index: 6), EaseInOutDelayed = Native(key: 7, index: 7);
+    public static readonly Easing SnapIn = Native(key: 8, index: 8), SnapInDelayed = Native(key: 9, index: 9), SnapOut = Native(key: 10, index: 10), SnapOutDelayed = Native(key: 11, index: 11);
+    public static readonly Easing Bounce = Native(key: 12, index: 12), BounceDelayed = Native(key: 13, index: 13), Twang = Native(key: 14, index: 14), TwangDelayed = Native(key: 15, index: 15);
+    public static readonly Easing SineIn = Closed(key: 16, curve: PennerCurve.SineIn), SineOut = Closed(key: 17, curve: PennerCurve.SineOut), SineInOut = Closed(key: 18, curve: PennerCurve.SineInOut);
+    public static readonly Easing QuadIn = Closed(key: 19, curve: PennerCurve.QuadIn), QuadOut = Closed(key: 20, curve: PennerCurve.QuadOut), QuadInOut = Closed(key: 21, curve: PennerCurve.QuadInOut);
+    public static readonly Easing CubicIn = Closed(key: 22, curve: PennerCurve.CubicIn), CubicOut = Closed(key: 23, curve: PennerCurve.CubicOut), CubicInOut = Closed(key: 24, curve: PennerCurve.CubicInOut);
+    public static readonly Easing QuartIn = Closed(key: 25, curve: PennerCurve.QuartIn), QuartOut = Closed(key: 26, curve: PennerCurve.QuartOut), QuartInOut = Closed(key: 27, curve: PennerCurve.QuartInOut);
+    public static readonly Easing QuintIn = Closed(key: 28, curve: PennerCurve.QuintIn), QuintOut = Closed(key: 29, curve: PennerCurve.QuintOut), QuintInOut = Closed(key: 30, curve: PennerCurve.QuintInOut);
+    public static readonly Easing ExpoIn = Closed(key: 31, curve: PennerCurve.ExpoIn), ExpoOut = Closed(key: 32, curve: PennerCurve.ExpoOut), ExpoInOut = Closed(key: 33, curve: PennerCurve.ExpoInOut);
+    public static readonly Easing CircIn = Closed(key: 34, curve: PennerCurve.CircIn), CircOut = Closed(key: 35, curve: PennerCurve.CircOut), CircInOut = Closed(key: 36, curve: PennerCurve.CircInOut);
+    public static readonly Easing BackIn = Closed(key: 37, curve: PennerCurve.BackIn), BackOut = Closed(key: 38, curve: PennerCurve.BackOut), BackInOut = Closed(key: 39, curve: PennerCurve.BackInOut);
+    public static readonly Easing ElasticIn = Closed(key: 40, curve: PennerCurve.ElasticIn), ElasticOut = Closed(key: 41, curve: PennerCurve.ElasticOut), ElasticInOut = Closed(key: 42, curve: PennerCurve.ElasticInOut);
+    public static readonly Easing BounceIn = Closed(key: 43, curve: PennerCurve.BounceIn), BounceOut = Closed(key: 44, curve: PennerCurve.BounceOut), BounceInOut = Closed(key: 45, curve: PennerCurve.BounceInOut);
 
     [UseDelegateFromConstructor]
     public partial double Apply(double t);
 
-    private static Easing Native(int key, GhMotion motion) =>
-        new(key: key, apply: t => MotionEquations.Blend(motion: motion, parameter: t));
+    private enum PennerCurve : byte {
+        SineIn, SineOut, SineInOut, QuadIn, QuadOut, QuadInOut, CubicIn, CubicOut, CubicInOut,
+        QuartIn, QuartOut, QuartInOut, QuintIn, QuintOut, QuintInOut, ExpoIn, ExpoOut, ExpoInOut,
+        CircIn, CircOut, CircInOut, BackIn, BackOut, BackInOut, ElasticIn, ElasticOut, ElasticInOut,
+        BounceIn, BounceOut, BounceInOut,
+    }
 
-    private static Easing Closed(int key, EasingCurve compute) => new(key: key, apply: t => compute(t));
+    private static Easing Native(int key, int index) =>
+        new(key: key, apply: t => MotionEquations.Blend(motion: NativeCatalog[index], parameter: t));
+
+    private static Easing Closed(int key, PennerCurve curve) =>
+        new(key: key, apply: t => PennerCatalog[(int)curve](t));
+
+    private static readonly Func<double, double>[] PennerCatalog = [
+        static t => 1.0 - Math.Cos(t * Math.PI / 2.0),
+        static t => Math.Sin(t * Math.PI / 2.0),
+        static t => -(Math.Cos(Math.PI * t) - 1.0) / 2.0,
+        static t => t * t,
+        static t => 1.0 - ((1.0 - t) * (1.0 - t)),
+        static t => t < 0.5 ? 2.0 * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 2.0) / 2.0),
+        static t => t * t * t,
+        static t => 1.0 - Math.Pow(1.0 - t, 3.0),
+        static t => t < 0.5 ? 4.0 * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 3.0) / 2.0),
+        static t => t * t * t * t,
+        static t => 1.0 - Math.Pow(1.0 - t, 4.0),
+        static t => t < 0.5 ? 8.0 * t * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 4.0) / 2.0),
+        static t => t * t * t * t * t,
+        static t => 1.0 - Math.Pow(1.0 - t, 5.0),
+        static t => t < 0.5 ? 16.0 * t * t * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 5.0) / 2.0),
+        static t => t == 0.0 ? 0.0 : Math.Pow(2.0, (10.0 * t) - 10.0),
+        static t => t == 1.0 ? 1.0 : 1.0 - Math.Pow(2.0, -10.0 * t),
+        static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : t < 0.5 ? Math.Pow(2.0, (20.0 * t) - 10.0) / 2.0 : (2.0 - Math.Pow(2.0, (-20.0 * t) + 10.0)) / 2.0,
+        static t => 1.0 - Math.Sqrt(1.0 - (t * t)),
+        static t => Math.Sqrt(1.0 - ((t - 1.0) * (t - 1.0))),
+        static t => t < 0.5 ? (1.0 - Math.Sqrt(1.0 - (4.0 * t * t))) / 2.0 : (Math.Sqrt(1.0 - (((-2.0 * t) + 2.0) * ((-2.0 * t) + 2.0))) + 1.0) / 2.0,
+        static t => (BackC3 * t * t * t) - (BackC1 * t * t),
+        static t => 1.0 + (BackC3 * Math.Pow(t - 1.0, 3.0)) + (BackC1 * Math.Pow(t - 1.0, 2.0)),
+        static t => t < 0.5 ? Math.Pow(2.0 * t, 2.0) * (((BackC2 + 1.0) * 2.0 * t) - BackC2) / 2.0 : ((Math.Pow((2.0 * t) - 2.0, 2.0) * (((BackC2 + 1.0) * ((t * 2.0) - 2.0)) + BackC2)) + 2.0) / 2.0,
+        static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : -Math.Pow(2.0, (10.0 * t) - 10.0) * Math.Sin(((t * 10.0) - 10.75) * (2.0 * Math.PI / 3.0)),
+        static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : (Math.Pow(2.0, -10.0 * t) * Math.Sin(((t * 10.0) - 0.75) * (2.0 * Math.PI / 3.0))) + 1.0,
+        static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : t < 0.5 ? -(Math.Pow(2.0, (20.0 * t) - 10.0) * Math.Sin(((20.0 * t) - 11.125) * (2.0 * Math.PI / 4.5))) / 2.0 : (Math.Pow(2.0, (-20.0 * t) + 10.0) * Math.Sin(((20.0 * t) - 11.125) * (2.0 * Math.PI / 4.5)) / 2.0) + 1.0,
+        static t => 1.0 - BounceOutFormula(1.0 - t),
+        static t => BounceOutFormula(t),
+        static t => t < 0.5 ? (1.0 - BounceOutFormula(1.0 - (2.0 * t))) / 2.0 : (1.0 + BounceOutFormula((2.0 * t) - 1.0)) / 2.0,
+    ];
 
     private static double BounceOutFormula(double t) =>
         t switch {
@@ -176,38 +149,17 @@ public sealed partial class Easing {
 }
 
 public abstract record MotionRequest<T> : GhUiRequest<T> {
-    public sealed record Tween<TValue>(Animated<TValue> Animated, Action<TValue> Sink, MotionClock? Clock = null) : MotionRequest<Subscription> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
-        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Tween(animated: Animated, sink: Sink, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope);
-    }
-    public sealed record Spring<TValue>(TValue From, TValue To, SpringConfig Config, IMotionVector<TValue> Vector, Action<TValue> Sink, Option<TValue> InitialVelocity = default, TimeProvider? TimeSource = null, MotionClock? Clock = null) : MotionRequest<SpringHandle<TValue>> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
-        internal override Fin<SpringHandle<TValue>> Apply(GrasshopperUi.Scope scope) => Motion.Spring(start: From, target: To, config: Config, vector: Vector, sink: Sink, initialVelocity: InitialVelocity, timeSource: TimeSource, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope);
-    }
-    public sealed record Pulse<TValue>(TValue From, TValue To, GhDuration Duration, GhMotion Easing, IMotionVector<TValue> Vector, Action<TValue> Sink, int Cycles = 1, bool Yoyo = false, bool Infinite = false, MotionClock? Clock = null) : MotionRequest<Subscription> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
-        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Pulse(start: From, target: To, duration: Duration, easing: Easing, cycles: Cycles, yoyo: Yoyo, infinite: Infinite, vector: Vector, sink: Sink, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope);
-    }
-    public sealed record Stroke(AnimatedPath Path, GhDuration Duration, GhMotion Easing, PaintStyle Style, PointF Origin, float Scale = 1f, float Angle = 0f, MotionClock? Clock = null) : MotionRequest<Subscription> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
-        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Stroke(path: Path, duration: Duration, easing: Easing, style: Style, origin: Origin, scale: Scale, angle: Angle, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope);
-    }
-    public sealed record Sparkle(ISparkle Instance) : MotionRequest<Unit> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
-        internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Motion.Sparkle(instance: Instance).Run(scope: scope);
-    }
-    public sealed record Theme(Skin From, Skin To, GhDuration Duration, GhMotion Easing, Action<Skin> Sink, MotionClock? Clock = null) : MotionRequest<Subscription> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
-        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Theme(start: From, target: To, duration: Duration, easing: Easing, sink: Sink, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope);
-    }
-    public sealed record Navigate(PointF Centre, GhDuration Duration, float MinZoom = CanvasViewPolicy.DefaultMinimumZoom, float MaxZoom = CanvasViewPolicy.DefaultMaximumZoom) : MotionRequest<Unit> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
-        internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Motion.Navigate(centre: Centre, duration: Duration, minZoom: MinZoom, maxZoom: MaxZoom).Run(scope: scope);
-    }
-    public sealed record ZoomGate(ZoomThreshold Threshold, Action<float> Sink) : MotionRequest<Subscription> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
-        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.ZoomGate(threshold: Threshold, sink: Sink).Run(scope: scope);
-    }
+    protected static GrasshopperUiPolicy ScheduledCanvas => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled);
+
+    public sealed record Tween<TValue>(Animated<TValue> Animated, Action<TValue> Sink, MotionClock? Clock = null) : MotionRequest<Subscription> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Tween(animated: Animated, sink: Sink, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
+    public sealed record Spring<TValue>(TValue From, TValue To, SpringConfig Config, IMotionVector<TValue> Vector, Action<TValue> Sink, Option<TValue> InitialVelocity = default, TimeProvider? TimeSource = null, MotionClock? Clock = null) : MotionRequest<SpringHandle<TValue>> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<SpringHandle<TValue>> Apply(GrasshopperUi.Scope scope) => Motion.Spring(start: From, target: To, config: Config, vector: Vector, sink: Sink, initialVelocity: InitialVelocity, timeSource: TimeSource, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
+    public sealed record Pulse<TValue>(TValue From, TValue To, GhDuration Duration, GhMotion Easing, IMotionVector<TValue> Vector, Action<TValue> Sink, int Cycles = 1, bool Yoyo = false, bool Infinite = false, MotionClock? Clock = null) : MotionRequest<Subscription> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Pulse(start: From, target: To, duration: Duration, easing: Easing, cycles: Cycles, yoyo: Yoyo, infinite: Infinite, vector: Vector, sink: Sink, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
+    public sealed record Stroke(AnimatedPath Path, GhDuration Duration, GhMotion Easing, PaintStyle Style, PointF Origin, float Scale = 1f, float Angle = 0f, MotionClock? Clock = null) : MotionRequest<Subscription> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Stroke(path: Path, duration: Duration, easing: Easing, style: Style, origin: Origin, scale: Scale, angle: Angle, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
+    public sealed record Sparkle(ISparkle Instance) : MotionRequest<Unit> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Motion.Sparkle(instance: Instance).Run(scope: scope); }
+    public sealed record Theme(Skin From, Skin To, GhDuration Duration, GhMotion Easing, Action<Skin> Sink, MotionClock? Clock = null) : MotionRequest<Subscription> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Theme(start: From, target: To, duration: Duration, easing: Easing, sink: Sink, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
+    public sealed record Navigate(PointF Centre, GhDuration Duration, float MinZoom = CanvasViewPolicy.DefaultMinimumZoom, float MaxZoom = CanvasViewPolicy.DefaultMaximumZoom) : MotionRequest<Unit> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(); internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Motion.Navigate(centre: Centre, duration: Duration, minZoom: MinZoom, maxZoom: MaxZoom).Run(scope: scope); }
+    public sealed record ZoomGate(ZoomThreshold Threshold, Action<float> Sink) : MotionRequest<Subscription> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.ZoomGate(threshold: Threshold, sink: Sink).Run(scope: scope); }
+    public sealed record Cosmetic(CosmeticIntent Intent) : MotionRequest<Subscription> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(); internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Cosmetic(intent: Intent).Run(scope: scope); }
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -219,9 +171,6 @@ public readonly partial struct SpringConfig {
     public float Damping { get; }
     public float Mass { get; }
 
-    // Accumulates all invalid fields into a single composite UiFault instead of short-circuiting on
-    // the first invalid one. Thinktecture's `ref UiFault?` slot is single-valued, so multiple errors
-    // ride in a `;`-joined message — preserves every field's diagnostic without splitting the rail.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref UiFault? validationError, ref float stiffness, ref float damping, ref float mass) {
         Op op = Op.Of(name: nameof(SpringConfig));
@@ -242,10 +191,6 @@ public readonly partial struct SpringConfig {
     }
 
 }
-
-// Material 3 Expressive (m3.material.io/styles/motion/overview/specs) and Apple HIG SwiftUI spring
-// presets. SmartEnum surface enables Items enumeration, Get/TryGet by name, exhaustive case sweep —
-// hardcoded SpringConfig statics would not. Each item carries its tuned SpringConfig via .Config.
 [SmartEnum<int>]
 public sealed partial class SpringPreset {
     public SpringConfig Config { get; }
@@ -264,11 +209,8 @@ public sealed partial class SpringPreset {
 }
 
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct SpringRunnerState<T>(
-    T Value, T Velocity, T Target,
-    SpringConfig Config, IMotionVector<T> Vector,
-    Action<T> Sink, TimeProvider Clock, long Timestamp) : IMotionState<SpringRunnerState<T>> {
-    // Semi-implicit Euler: F = -k·displacement - b·velocity; a = F/m; v += a·dt; x += v·dt.
+internal readonly record struct SpringRunnerState<T>(T Value, T Velocity, T Target, SpringConfig Config, IMotionVector<T> Vector, Action<T> Sink, TimeProvider Clock, long Timestamp) : IMotionState<SpringRunnerState<T>> {
+    // Semi-implicit Euler: F = -k·x - b·v ; a = F/m ; v += a·dt ; x += v·dt.
     public SpringRunnerState<T> Step() {
         long now = Clock.GetTimestamp();
         float dt = Math.Min(val1: (float)Clock.GetElapsedTime(startingTimestamp: Timestamp, endingTimestamp: now).TotalSeconds, val2: Motion.MaxFrameDelta);
@@ -328,14 +270,7 @@ public sealed class SpringHandle<T> : IDisposable {
 }
 
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct PulseRunnerState<T>(
-    Animated<T> Animated,
-    T From, T To,
-    GhDuration Duration, GhMotion Easing,
-    bool Yoyo, bool Infinite,
-    int CyclesRemaining,
-    IMotionVector<T> Vector,
-    Action<T> Sink) : IMotionState<PulseRunnerState<T>> {
+internal readonly record struct PulseRunnerState<T>(Animated<T> Animated, T From, T To, GhDuration Duration, GhMotion Easing, bool Yoyo, bool Infinite, int CyclesRemaining, IMotionVector<T> Vector, Action<T> Sink) : IMotionState<PulseRunnerState<T>> {
     public PulseRunnerState<T> Step() =>
         (Animated.State == GhState.Finished, Infinite || CyclesRemaining > 0) switch {
             (true, true) => this with {
@@ -403,16 +338,7 @@ public static class MotionVector {
         scale: static (v, s) => new RectangleF(v.X * s, v.Y * s, v.Width * s, v.Height * s),
         norm: static v => Math.Max(Math.Max(Math.Abs(v.X), Math.Abs(v.Y)), Math.Max(Math.Abs(v.Width), Math.Abs(v.Height))),
         interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
-    public static readonly IMotionVector<Color> Color = new MotionVectorImpl<Color>(
-        zero: new Color(red: 0f, green: 0f, blue: 0f, alpha: 0f),
-        restEpsilon: ChannelRest,
-        add: static (a, b) => new Color(red: a.R + b.R, green: a.G + b.G, blue: a.B + b.B, alpha: a.A + b.A),
-        subtract: static (a, b) => new Color(red: a.R - b.R, green: a.G - b.G, blue: a.B - b.B, alpha: a.A - b.A),
-        scale: static (v, s) => new Color(red: v.R * s, green: v.G * s, blue: v.B * s, alpha: v.A * s),
-        norm: static v => Math.Max(Math.Max(Math.Abs(v.R), Math.Abs(v.G)), Math.Max(Math.Abs(v.B), Math.Abs(v.A))),
-        interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
-    // Wall-clock phase in [0, 1) advancing linearly over `period`; shared period stays phase-locked
-    // across animations. Defaults to TimeProvider.System (mach_absolute_time on macOS, monotonic).
+    public static readonly IMotionVector<Color> Color = ColorChannels(static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
     public static double Phase(TimeSpan period, TimeProvider? clock = null) {
         TimeProvider source = clock ?? TimeProvider.System;
         double seconds = (double)source.GetTimestamp() / source.TimestampFrequency;
@@ -420,41 +346,30 @@ public static class MotionVector {
         return cycle <= 0d ? 0d : seconds % cycle / cycle;
     }
 
-    public static readonly IMotionVector<Color> ColorHSL = new MotionVectorImpl<Color>(
-        zero: new Color(red: 0f, green: 0f, blue: 0f, alpha: 0f),
-        restEpsilon: ChannelRest,
-        add: static (a, b) => new Color(red: a.R + b.R, green: a.G + b.G, blue: a.B + b.B, alpha: a.A + b.A),
-        subtract: static (a, b) => new Color(red: a.R - b.R, green: a.G - b.G, blue: a.B - b.B, alpha: a.A - b.A),
-        scale: static (v, s) => new Color(red: v.R * s, green: v.G * s, blue: v.B * s, alpha: v.A * s),
-        norm: static v => Math.Max(Math.Max(Math.Abs(v.R), Math.Abs(v.G)), Math.Max(Math.Abs(v.B), Math.Abs(v.A))),
-        interpolate: HslInterpolate);
+    // Shortest-arc HSL interpolation.
+    public static readonly IMotionVector<Color> ColorHSL = ColorChannels(HslInterpolate);
 
-    // OKLab perceptual interpolation (Björn Ottosson 2020; CSS Color Level 4). Saturated
-    // transitions avoid the dead-grey midpoint of sRGB lerp.
-    public static readonly IMotionVector<Color> ColorOklab = new MotionVectorImpl<Color>(
-        zero: new Color(red: 0f, green: 0f, blue: 0f, alpha: 0f),
-        restEpsilon: ChannelRest,
-        add: static (a, b) => new Color(red: a.R + b.R, green: a.G + b.G, blue: a.B + b.B, alpha: a.A + b.A),
-        subtract: static (a, b) => new Color(red: a.R - b.R, green: a.G - b.G, blue: a.B - b.B, alpha: a.A - b.A),
-        scale: static (v, s) => new Color(red: v.R * s, green: v.G * s, blue: v.B * s, alpha: v.A * s),
-        norm: static v => Math.Max(Math.Max(Math.Abs(v.R), Math.Abs(v.G)), Math.Max(Math.Abs(v.B), Math.Abs(v.A))),
-        interpolate: OklabInterpolate);
+    // OKLab perceptual interpolation (Ottosson 2020 / CSS Color Level 4). Avoids sRGB dead-grey midpoint.
+    public static readonly IMotionVector<Color> ColorOklab = ColorChannels(OklabInterpolate);
 
-    // OKLCH: cylindrical OKLab; hue takes shortest arc, lightness/chroma travel in OKLab space.
-    public static readonly IMotionVector<Color> ColorOklch = new MotionVectorImpl<Color>(
-        zero: new Color(red: 0f, green: 0f, blue: 0f, alpha: 0f),
-        restEpsilon: ChannelRest,
-        add: static (a, b) => new Color(red: a.R + b.R, green: a.G + b.G, blue: a.B + b.B, alpha: a.A + b.A),
-        subtract: static (a, b) => new Color(red: a.R - b.R, green: a.G - b.G, blue: a.B - b.B, alpha: a.A - b.A),
-        scale: static (v, s) => new Color(red: v.R * s, green: v.G * s, blue: v.B * s, alpha: v.A * s),
-        norm: static v => Math.Max(Math.Max(Math.Abs(v.R), Math.Abs(v.G)), Math.Max(Math.Abs(v.B), Math.Abs(v.A))),
-        interpolate: OklchInterpolate);
+    // OKLCH: cylindrical OKLab. Hue takes shortest arc; L/C interpolate in OKLab.
+    public static readonly IMotionVector<Color> ColorOklch = ColorChannels(OklchInterpolate);
+
+    private static MotionVectorImpl<Color> ColorChannels(Func<Color, Color, double, Color> interpolate) =>
+        new(
+            zero: new Color(red: 0f, green: 0f, blue: 0f, alpha: 0f),
+            restEpsilon: ChannelRest,
+            add: static (a, b) => new Color(red: a.R + b.R, green: a.G + b.G, blue: a.B + b.B, alpha: a.A + b.A),
+            subtract: static (a, b) => new Color(red: a.R - b.R, green: a.G - b.G, blue: a.B - b.B, alpha: a.A - b.A),
+            scale: static (v, s) => new Color(red: v.R * s, green: v.G * s, blue: v.B * s, alpha: v.A * s),
+            norm: static v => Math.Max(Math.Max(Math.Abs(v.R), Math.Abs(v.G)), Math.Max(Math.Abs(v.B), Math.Abs(v.A))),
+            interpolate: interpolate);
 
     private static Color HslInterpolate(Color a, Color b, double factor) {
         ColorHSL ha = a;
         ColorHSL hb = b;
         float tf = (float)factor;
-        // Wrap hue delta into [-180, +180] to take the shortest arc around the colour wheel.
+        // Shortest hue arc in [-180, +180].
         float hueDelta = ((hb.H - ha.H + 540f) % 360f) - 180f;
         return new ColorHSL(
             hue: ha.H + (hueDelta * tf),
@@ -464,7 +379,7 @@ public static class MotionVector {
     }
 
     // --- [OKLAB CONVERSION] ----------------------------------------------------------------
-    // Björn Ottosson 2020 (bottosson.github.io/posts/oklab). sRGB → linear → LMS → OKLab and back.
+    // Ottosson 2020: sRGB → linear → LMS → OKLab and back.
     private static Color OklabInterpolate(Color a, Color b, double factor) {
         (float la, float aa, float ba) = SrgbToOklab(a);
         (float lb, float ab, float bb) = SrgbToOklab(b);
@@ -479,17 +394,16 @@ public static class MotionVector {
     private static Color OklchInterpolate(Color a, Color b, double factor) {
         (float la, float aa, float ba) = SrgbToOklab(a);
         (float lb, float ab, float bb) = SrgbToOklab(b);
-        // Convert to polar (L, C, H); interpolate hue with shortest-arc wrap.
         float ca = MathF.Sqrt((aa * aa) + (ba * ba));
         float cb = MathF.Sqrt((ab * ab) + (bb * bb));
         float ha = MathF.Atan2(ba, aa);
         float hb = MathF.Atan2(bb, ab);
+        // Shortest hue arc in radians.
         float hueDelta = ((hb - ha + (3f * MathF.PI)) % (2f * MathF.PI)) - MathF.PI;
         float tf = (float)factor;
         float hMix = ha + (hueDelta * tf);
         float lMix = la + ((lb - la) * tf);
         float cMix = ca + ((cb - ca) * tf);
-        // Back to rectangular (a, b) and into sRGB.
         (float L, float A, float B) mix = (L: lMix, A: cMix * MathF.Cos(hMix), B: cMix * MathF.Sin(hMix));
         return OklabToSrgb(mix, alpha: a.A + ((b.A - a.A) * tf));
     }
@@ -534,7 +448,6 @@ public static class MotionVector {
         c <= 0.0031308f ? 12.92f * c : (1.055f * MathF.Pow(c, 1f / 2.4f)) - 0.055f;
 }
 
-// Named *Impl to avoid clashing with System.Numerics.Vector<T> on any caller importing SIMD.
 internal sealed class MotionVectorImpl<T>(
     T zero,
     float restEpsilon,
@@ -557,7 +470,11 @@ public static class Spark {
         new BlastSparkle(radius: radius, location: location, colour: colour, attachedToContent: attachedToContent);
     public static ISparkle Edge(PointF point0, PointF point1, bool attachedToContent = false) =>
         new EdgeSparkle(edge0: point0, edge1: point1, attachedToContent: attachedToContent);
+    public static ISparkle EdgeAnchored(Func<PointF> edge0, Func<PointF> edge1, bool attachedToContent = true) =>
+        new EdgeSparkle(edge0: edge0, edge1: edge1, attachedToContent: attachedToContent);
     public static ISparkle Face(RectangleF face, bool attachedToContent = false) =>
+        new FaceSparkle(face: face, attachedToContent: attachedToContent);
+    public static ISparkle FaceAnchored(Func<GraphicsPath> face, bool attachedToContent = true) =>
         new FaceSparkle(face: face, attachedToContent: attachedToContent);
     public static ISparkle Notice(NoticeType notice, PointF location, bool attachedToContent = false) =>
         new NoticeSparkle(notice: notice, location: location, attachedToContent: attachedToContent);
@@ -577,64 +494,60 @@ public static class Glyph {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static class Motion {
-    // Integrator dt clamp — prevents spring blowup on debugger/GC stalls (33ms = 30fps floor).
+    // dt clamp prevents spring blowup on debugger/GC stalls (33ms = 30fps floor).
     internal const float MaxFrameDelta = 1f / 30f;
+
+    // Shared scaffold: NeedCanvas + PacerOption + Paint.Hook + bundle + initial wake. Variant services
+    // (Spring exposing a cell, etc.) consume RunPipeline directly with their own canvas/pacer setup.
+    internal static GrasshopperUiIntent<Subscription> Pipeline(
+        string opName, CanvasPaintPhase phase, MotionClock clock,
+        Func<Grasshopper2.UI.Canvas.Canvas, Option<Pacer>, Func<PaintScope, Fin<Unit>>> paintFactory) =>
+        GhUi.Canvas(run: scope =>
+            from canvas in scope.NeedCanvas()
+            from pacer in PacerOption(canvas: canvas, clock: clock)
+            from bundle in RunPipeline(canvas: canvas, pacer: pacer, opName: opName, phase: phase, clock: clock,
+                paint: paintFactory(arg1: canvas, arg2: pacer)).Run(scope: scope)
+            select bundle.Subscription);
+
+    internal static GrasshopperUiIntent<(Subscription Subscription, Action Wake)> RunPipeline(
+        Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer,
+        string opName, CanvasPaintPhase phase, MotionClock clock, Func<PaintScope, Fin<Unit>> paint) =>
+        GhUi.Canvas(run: scope =>
+            from sub in Paint.Hook(phase: phase, paint: paint, clock: clock).Run(scope: scope)
+            let bundle = MotionBundleOf(pacer: pacer, sub: sub, canvas: canvas)
+            from kickoff in Op.Of(name: opName).Attempt(body: bundle.Wake, what: $"{opName} initial wake")
+                .MapFail(error => UiFault.ThreadMarshal(detail: error.Message))
+            select (bundle.Subscription, bundle.Wake));
 
     internal static GrasshopperUiIntent<Subscription> Tween<TValue>(
         Animated<TValue> animated, Action<TValue> sink, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
-            from canvas in scope.NeedCanvas()
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Tween)), detail: "sink delegate is required"))
-            from pacer in PacerOption(canvas: canvas, clock: clock)
-            let pausedPacer = pacer // bind for paint-hook closure; force value capture, not transparent-identifier deferral
-            from sub in Paint.Hook(
-                phase: CanvasPaintPhase.BeforeBackground,
-                paint: _ => Try.lift(f: () => {
+            from result in Pipeline(opName: nameof(Tween), phase: CanvasPaintPhase.BeforeBackground, clock: clock,
+                paintFactory: (canvas, pacer) => _ => Try.lift(f: () => {
                     validSink(canvas.Animate(animated: animated));
-                    return PauseWhenFinished(state: animated.State, pacer: pausedPacer);
-                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Tween)), detail: $"tick threw: {error.Message}")),
-                clock: clock).Run(scope: scope)
-            let bundle = MotionBundleOf(pacer: pacer, sub: sub, canvas: canvas)
-            from kickoff in Op.Of(name: nameof(Tween)).Attempt(body: bundle.Wake, what: $"{nameof(Tween)} initial wake")
-                .MapFail(error => UiFault.ThreadMarshal(detail: error.Message))
-            select bundle.Subscription);
+                    return PauseWhenFinished(state: animated.State, pacer: pacer);
+                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Tween)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
+            select result);
 
     internal static GrasshopperUiIntent<SpringHandle<TValue>> Spring<TValue>(
         TValue start, TValue target, SpringConfig config, IMotionVector<TValue> vector,
         Action<TValue> sink, Option<TValue> initialVelocity, TimeProvider? timeSource, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
-            from canvas in scope.NeedCanvas()
             from validVector in Optional(vector).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "vector is required"))
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "sink delegate is required"))
+            from canvas in scope.NeedCanvas()
             from pacer in PacerOption(canvas: canvas, clock: clock)
             let resolvedClock = timeSource ?? TimeProvider.System
             let cell = Atom(new SpringRunnerState<TValue>(
                 Value: start,
                 Velocity: initialVelocity.IfNone(validVector.Zero),
-                Target: target,
-                Config: config,
-                Vector: validVector,
-                Sink: validSink,
-                Clock: resolvedClock,
-                Timestamp: resolvedClock.GetTimestamp()))
-            let runner = MotionRunner<SpringRunnerState<TValue>>.Of(cell: cell, canvas: canvas, pacer: pacer)
-            from sub in Paint.Hook(
-                phase: CanvasPaintPhase.BeforeBackground,
-                paint: _ => Try.lift(runner.Tick)
-                    .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Spring)), detail: $"tick threw: {error.Message}")),
-                clock: clock).Run(scope: scope)
-            let bundle = MotionBundleOf(pacer: pacer, sub: sub, canvas: canvas)
-            from initial in Op.Of(name: nameof(Spring)).Attempt(
-                body: bundle.Wake,
-                what: "Spring initial wake")
-                .MapFail(error => UiFault.ThreadMarshal(detail: error.Message))
-            select new SpringHandle<TValue>(
-                cell: cell,
-                subscription: bundle.Subscription,
-                wake: bundle.Wake));
+                Target: target, Config: config, Vector: validVector, Sink: validSink,
+                Clock: resolvedClock, Timestamp: resolvedClock.GetTimestamp()))
+            from bundle in RunPipeline(canvas: canvas, pacer: pacer, opName: nameof(Spring), phase: CanvasPaintPhase.BeforeBackground, clock: clock,
+                paint: RunnerPaint(cell: cell, canvas: canvas, pacer: pacer, opName: nameof(Spring))).Run(scope: scope)
+            select new SpringHandle<TValue>(cell: cell, subscription: bundle.Subscription, wake: bundle.Wake));
 
-    // Pacer-aware Subscription bundle: when present, composite owns Release() so pool refcount
-    // decrements at detach. Wake routes to Resume (vsync) or canvas.ScheduleRedraw (message-loop).
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
         Justification = "Subscription.Atom is consumed by the Subscription `|` operator and disposed via the returned composite.")]
     internal static (Subscription Subscription, Action Wake) MotionBundleOf(
@@ -647,11 +560,8 @@ internal static class Motion {
         void WakeFn() => p.Resume().Ignore();
     }
 
-    // Polymorphic dispatch over MotionClock collapses the parallel `useDisplayLink: bool` knob from
-    // every motion service signature. DisplayLink case threads optional rate through Pacer.For but
-    // demotes to None when AccessibilityDisplayShouldReduceMotion is on — caller falls back to
-    // message-loop coalesced 60Hz, which still produces frames (instant-1-frame fallback, never
-    // silent skip).
+    // DisplayLink demotes to None under AccessibilityShouldReduceMotion — caller falls through
+    // to message-loop coalesced 60Hz so the transition still lands (never silent skip).
     internal static Fin<Option<Pacer>> PacerOption(Grasshopper2.UI.Canvas.Canvas canvas, MotionClock clock) =>
         clock.Switch(state: canvas,
             messageLoopCase: static (_, _) => Fin.Succ(Option<Pacer>.None),
@@ -666,66 +576,56 @@ internal static class Motion {
         return unit;
     }
 
+    private static Func<PaintScope, Fin<Unit>> RunnerPaint<TState>(
+        Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer, string opName)
+        where TState : struct, IMotionState<TState> =>
+        paintScope => Op.Of(name: opName).Attempt(
+            body: () => {
+                _ = MotionRunner<TState>.Of(cell: cell, canvas: canvas, pacer: pacer, cancellation: default).Tick();
+                return unit;
+            },
+            what: "motion tick");
+
     internal static GrasshopperUiIntent<Subscription> Pulse<TValue>(
         TValue start, TValue target, GhDuration duration, GhMotion easing, int cycles, bool yoyo, bool infinite,
         IMotionVector<TValue> vector, Action<TValue> sink, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
-            from canvas in scope.NeedCanvas()
             from validVector in Optional(vector).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "vector is required"))
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "sink delegate is required"))
             from validCycles in infinite
                 ? Fin.Succ(1)
                 : Optional(cycles).Filter(static c => c >= 1)
                     .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "cycles must be positive when not infinite"))
-            from pacer in PacerOption(canvas: canvas, clock: clock)
-            let initial = Animated<TValue>.CreateUnfinished(
-                value0: start, value1: target,
-                duration: Animators.DurationToTimeSpan(duration: duration),
-                motion: easing,
-                interpolator: validVector.Interpolate)
-            let cell = Atom(new PulseRunnerState<TValue>(
-                Animated: initial,
-                From: start, To: target,
-                Duration: duration, Easing: easing,
-                Yoyo: yoyo, Infinite: infinite,
-                CyclesRemaining: validCycles - 1,
-                Vector: validVector,
-                Sink: validSink))
-            let runner = MotionRunner<PulseRunnerState<TValue>>.Of(cell: cell, canvas: canvas, pacer: pacer)
-            from sub in Paint.Hook(
-                phase: CanvasPaintPhase.BeforeBackground,
-                paint: _ => Try.lift(runner.Tick)
-                    .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Pulse)), detail: $"tick threw: {error.Message}")),
-                clock: clock).Run(scope: scope)
-            let bundle = MotionBundleOf(pacer: pacer, sub: sub, canvas: canvas)
-            from kickoff in Op.Of(name: nameof(Pulse)).Attempt(body: bundle.Wake, what: $"{nameof(Pulse)} initial wake")
-                .MapFail(error => UiFault.ThreadMarshal(detail: error.Message))
-            select bundle.Subscription);
+            from result in Pipeline(opName: nameof(Pulse), phase: CanvasPaintPhase.BeforeBackground, clock: clock,
+                paintFactory: (canvas, pacer) => RunnerPaint(
+                    cell: Atom(new PulseRunnerState<TValue>(
+                        Animated: Animated<TValue>.CreateUnfinished(
+                            value0: start, value1: target,
+                            duration: Animators.DurationToTimeSpan(duration: duration),
+                            motion: easing, interpolator: validVector.Interpolate),
+                        From: start, To: target, Duration: duration, Easing: easing, Yoyo: yoyo, Infinite: infinite,
+                        CyclesRemaining: validCycles - 1, Vector: validVector, Sink: validSink)),
+                    canvas: canvas, pacer: pacer, opName: nameof(Pulse))).Run(scope: scope)
+            select result);
 
     internal static GrasshopperUiIntent<Subscription> Stroke(
         AnimatedPath path, GhDuration duration, GhMotion easing, PaintStyle style,
         PointF origin, float scale, float angle, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
-            from canvas in scope.NeedCanvas()
             from validPath in Optional(path).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Stroke)), detail: "path is required"))
             from validOrigin in Op.Of(name: nameof(Stroke)).AcceptPoint(value: origin, detail: "non-finite origin")
             from validScale in Op.Of(name: nameof(Stroke)).AcceptFinite(value: scale, detail: "non-finite scale")
             from validAngle in Op.Of(name: nameof(Stroke)).AcceptFinite(value: angle, detail: "non-finite angle")
-            from pacer in PacerOption(canvas: canvas, clock: clock)
-            let pausedPacer = pacer // bind for paint-hook closure; force value capture, not transparent-identifier deferral
-            let progress = Animators.Unfinished(value0: 0.0, value1: 1.0, duration: duration, motion: easing)
-            from sub in Paint.Hook(
-                phase: CanvasPaintPhase.AfterObjects,
-                paint: paintScope => Try.lift(f: () => {
-                    using Pen pen = style.Pen();
-                    validPath.Draw(paintScope.Graphics.Content, pen, canvas.Animate(animated: progress), validOrigin, validScale, validAngle);
-                    return PauseWhenFinished(state: progress.State, pacer: pausedPacer);
-                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Stroke)), detail: $"draw threw: {error.Message}")),
-                clock: clock).Run(scope: scope)
-            let bundle = MotionBundleOf(pacer: pacer, sub: sub, canvas: canvas)
-            from kickoff in Op.Of(name: nameof(Stroke)).Attempt(body: bundle.Wake, what: $"{nameof(Stroke)} initial wake")
-                .MapFail(error => UiFault.ThreadMarshal(detail: error.Message))
-            select bundle.Subscription);
+            from result in Pipeline(opName: nameof(Stroke), phase: CanvasPaintPhase.AfterObjects, clock: clock,
+                paintFactory: (canvas, pacer) => {
+                    Animated<double> progress = Animators.Unfinished(value0: 0.0, value1: 1.0, duration: duration, motion: easing);
+                    return paintScope => Try.lift(f: () => {
+                        using Pen pen = style.Pen();
+                        validPath.Draw(paintScope.Graphics.Content, pen, canvas.Animate(animated: progress), validOrigin, validScale, validAngle);
+                        return PauseWhenFinished(state: progress.State, pacer: pacer);
+                    }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Stroke)), detail: $"draw threw: {error.Message}"));
+                }).Run(scope: scope)
+            select result);
 
     internal static GrasshopperUiIntent<Unit> Sparkle(ISparkle instance) =>
         GhUi.Canvas(
@@ -774,6 +674,190 @@ internal static class Motion {
                 clock: MotionClock.MessageLoop).Run(scope: scope)
             select sub);
 
+    internal static GrasshopperUiIntent<Subscription> Cosmetic(CosmeticIntent intent) =>
+        GhUi.Canvas(run: scope =>
+            from canvas in scope.NeedCanvas()
+            from view in Optional(canvas.ControlObject as NSView).ToFin(Fail: UiFault.MutationRejected(
+                op: Op.Of(name: nameof(Cosmetic)), detail: "canvas.ControlObject is not an NSView"))
+            from validated in ValidateCosmetic(intent: intent)
+            let key = (NSString)$"rasm.cosmetic.{Guid.NewGuid():N}"
+            from sub in Subscription.Bind(
+                attach: () => CosmeticAttach(view: view, intent: validated, key: key),
+                detach: () => CosmeticStrip(view: view, key: key),
+                marshalToUi: true)
+            select sub);
+
+    private static Fin<CosmeticIntent> ValidateCosmetic(CosmeticIntent intent) =>
+        intent.Switch(
+            pulseCase: p => {
+                Op op = Op.Of(name: nameof(CosmeticIntent.PulseCase));
+                return op.AcceptRect(value: p.Bounds, detail: "non-finite pulse bounds")
+                    .Map<CosmeticIntent>(_ => p);
+            },
+            glowCase: g => {
+                Op op = Op.Of(name: nameof(CosmeticIntent.GlowCase));
+                return op.AcceptRect(value: g.Bounds, detail: "non-finite glow bounds")
+                    .Bind(_ => op.AcceptFinite(value: g.CornerRadius, detail: "non-finite corner radius"))
+                    .Bind(_ => op.AcceptFinite(value: g.ShadowRadius, detail: "non-finite shadow radius"))
+                    .Map<CosmeticIntent>(_ => g);
+            },
+            strokeOnCase: s => {
+                Op op = Op.Of(name: nameof(CosmeticIntent.StrokeOnCase));
+                return op.AcceptFinite(value: s.Thickness, detail: "non-positive thickness", requirePositive: true)
+                    .Map<CosmeticIntent>(_ => s);
+            });
+
+    [SupportedOSPlatform("macos14.0")]
+    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
+        Justification = "CAShapeLayer ownership transfers to host CALayer via AddSublayer; disposal happens on Subscription detach or animation completion delegate.")]
+    private static Unit CosmeticAttach(NSView view, CosmeticIntent intent, NSString key) {
+        view.WantsLayer = true;
+        if (view.Layer is not CALayer host) {
+            return unit;
+        }
+        CAShapeLayer shape = BuildCosmeticShape(intent: intent);
+        shape.Name = key.ToString();
+        host.AddSublayer(layer: shape);
+        CAAnimation animation = BuildCosmeticAnimation(intent: intent);
+        animation.WeakDelegate = new CosmeticRemove(shape: shape, key: key);
+        shape.AddAnimation(animation: animation, key: key);
+        return unit;
+    }
+
+    // Mutual-exclusion claim: TryClaim wins exactly once across explicit-dispose vs AnimationStopped.
+    [SupportedOSPlatform("macos14.0")]
+    private static Unit CosmeticStrip(NSView view, NSString key) {
+        if (view.Layer is not CALayer host || host.Sublayers is not CALayer[] sublayers) {
+            return unit;
+        }
+        string keyString = key.ToString();
+        return WithoutAnimation(() => {
+            foreach (CALayer sub in sublayers) {
+                if (!string.Equals(a: sub.Name, b: keyString, comparisonType: StringComparison.Ordinal)) {
+                    continue;
+                }
+                if (sub.AnimationForKey(key: keyString) is CAAnimation animation
+                    && animation.WeakDelegate is CosmeticRemove remove
+                    && !remove.TryClaim()) {
+                    continue;
+                }
+                sub.RemoveAnimation(key: keyString);
+                sub.RemoveFromSuperLayer();
+            }
+        });
+    }
+
+    [SupportedOSPlatform("macos14.0")]
+    private static CAShapeLayer BuildCosmeticShape(CosmeticIntent intent) =>
+        intent.Switch(
+            pulseCase: static p => {
+                CAShapeLayer shape = new() { Frame = ToCGRect(p.Bounds) };
+                CGPath path = new();
+                path.AddRect(rect: ToCGRect(p.Bounds));
+                shape.Path = path;
+                shape.FillColor = ToCGColor(p.Tint);
+                shape.Opacity = 0f;
+                return shape;
+            },
+            glowCase: static g => {
+                CGRect rect = ToCGRect(g.Bounds);
+                CGPath path = new();
+                path.AddRoundedRect(transform: CGAffineTransform.MakeIdentity(), rect: rect, cornerWidth: g.CornerRadius, cornerHeight: g.CornerRadius);
+                CAShapeLayer shape = new() {
+                    Frame = rect,
+                    Path = path,
+                    StrokeColor = ToCGColor(g.Tint),
+                    LineWidth = 0f,
+                    ShadowColor = ToCGColor(g.Tint),
+                    ShadowRadius = g.ShadowRadius,
+                    ShadowOffset = CGSize.Empty,
+                    ShadowPath = path,
+                    ShadowOpacity = 0f,
+                };
+                return shape;
+            },
+            strokeOnCase: static s => {
+                CGPath path = new();
+                ReadOnlySpan<PointF> points = s.Polyline.Span;
+                if (points.Length > 0) {
+                    path.MoveToPoint(point: ToCGPoint(points[0]));
+                    for (int i = 1; i < points.Length; i++) {
+                        path.AddLineToPoint(point: ToCGPoint(points[i]));
+                    }
+                }
+                return new CAShapeLayer {
+                    Path = path,
+                    StrokeColor = ToCGColor(s.Tint),
+                    LineWidth = s.Thickness,
+                    StrokeStart = 0f,
+                    StrokeEnd = 0f,
+                };
+            });
+
+    // Reduce-motion clamps duration to 1% — CABasicAnimation does NOT auto-honour NSWorkspace's flag.
+    [SupportedOSPlatform("macos14.0")]
+    private static CAKeyFrameAnimation KeyframeFade(string path, GhDuration duration, float alpha, double scale) {
+        CAKeyFrameAnimation anim = CAKeyFrameAnimation.FromKeyPath(path: path);
+        anim.Duration = Animators.DurationToTimeSpan(duration: duration).TotalSeconds * scale;
+        anim.Values = [NSNumber.FromFloat(0f), NSNumber.FromFloat(alpha), NSNumber.FromFloat(0f)];
+        anim.KeyTimes = [NSNumber.FromFloat(0f), NSNumber.FromFloat(0.5f), NSNumber.FromFloat(1f)];
+        return anim;
+    }
+
+    [SupportedOSPlatform("macos14.0")]
+    private static CAAnimation BuildCosmeticAnimation(CosmeticIntent intent) {
+        double scale = Pacer.AccessibilityShouldReduceMotion ? 0.01 : 1.0;
+        return intent.Switch<double, CAAnimation>(
+            state: scale,
+            pulseCase: static (s, p) => KeyframeFade(path: "opacity", duration: p.Duration, alpha: p.Tint.A, scale: s),
+            glowCase: static (s, g) => KeyframeFade(path: "shadowOpacity", duration: g.Duration, alpha: g.Tint.A, scale: s),
+            strokeOnCase: static (s, str) => {
+                CABasicAnimation anim = CABasicAnimation.FromKeyPath(path: "strokeEnd");
+                anim.Duration = Animators.DurationToTimeSpan(duration: str.Duration).TotalSeconds * s;
+                anim.SetFrom(value: NSNumber.FromFloat(0f));
+                anim.SetTo(value: NSNumber.FromFloat(1f));
+                return anim;
+            });
+    }
+
+    private static CGRect ToCGRect(RectangleF r) => new(x: r.X, y: r.Y, width: r.Width, height: r.Height);
+
+    private static CGPoint ToCGPoint(PointF p) => new(x: p.X, y: p.Y);
+
+    private static CGColor ToCGColor(Color c) => new(red: c.R, green: c.G, blue: c.B, alpha: c.A);
+
+    private static Unit WithoutAnimation(Action body) {
+        CATransaction.Begin();
+        CATransaction.DisableActions = true;
+        try { body(); } finally { CATransaction.Commit(); }
+        return unit;
+    }
+
+    // Exchange-on-stripped is symmetric with CosmeticStrip.TryClaim — whichever path wins owns the strip.
+    [SupportedOSPlatform("macos14.0")]
+    private sealed class CosmeticRemove : CAAnimationDelegate {
+        private readonly CAShapeLayer shape;
+        private readonly string key;
+        private int stripped;
+
+        internal CosmeticRemove(CAShapeLayer shape, NSString key) {
+            this.shape = shape;
+            this.key = key.ToString();
+        }
+
+        public override void AnimationStopped(CAAnimation animation, bool finished) {
+            if (Interlocked.Exchange(ref stripped, 1) == 1) {
+                return;
+            }
+            _ = WithoutAnimation(() => {
+                shape.RemoveAnimation(key: key);
+                shape.RemoveFromSuperLayer();
+            });
+        }
+
+        internal bool TryClaim() => Interlocked.Exchange(ref stripped, 1) == 0;
+    }
+
     internal sealed class MotionRunner<TState> where TState : struct, IMotionState<TState> {
         private readonly Atom<TState> cell;
         private readonly Grasshopper2.UI.Canvas.Canvas canvas;
@@ -788,9 +872,8 @@ internal static class Motion {
             this.canvas = canvas;
             this.pacer = pacer;
             this.cancellation = cancellation;
-            // Block body re-reads the mutable `scratch` field on every invocation. A method-group form
-            // `scratch.MergeInto` would bind the struct receiver at construction (to default(TState))
-            // and freeze the merge; the explicit read here is load-bearing.
+            // Block body re-reads mutable `scratch` each call; a method-group form would freeze the
+            // struct receiver to default(TState) at construction (IDE0200 hazard).
             applyScratch = live => {
                 TState current = scratch;
                 return current.MergeInto(live: live);
@@ -800,8 +883,6 @@ internal static class Motion {
         internal static MotionRunner<TState> Of(Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer = default, CancellationToken cancellation = default) =>
             new(cell: cell, canvas: canvas, pacer: pacer, cancellation: cancellation);
 
-        // Cancellation arrives as an early-return guard, never as an exception throw — consistent with
-        // the rail discipline. Sleep() drops Pacer ref so quiesced animations don't pin vsync wakeups.
         internal Unit Tick() {
             if (cancellation.IsCancellationRequested) {
                 return Sleep();
@@ -814,8 +895,7 @@ internal static class Motion {
             return unit;
         }
 
-        // Pacer path: Resume only on 0→1 want-tick edge (serialized by canvas paint thread).
-        // Fallback path: ScheduleRedraw every tick — Eto coalesces, no edge gate needed.
+        // Pacer Resume only on 0→1 edge; ScheduleRedraw fallback relies on Eto coalescing.
         private Unit Wake() {
             if (pacer is { IsSome: true, Case: Pacer p }) {
                 return Interlocked.Exchange(ref wantingTicks, 1) == 0 ? p.Resume() : unit;
@@ -830,30 +910,23 @@ internal static class Motion {
                 : unit;
     }
 
-    // Vsync scheduler: NSView.GetDisplayLink auto-tracks screens (WWDC23). Pooled per Canvas via
-    // ConditionalWeakTable; refCount drives teardown, active drives Paused gate. A single process-
-    // static observer walks the pool on NSApplicationDidChangeScreenParametersNotification so multi-
-    // monitor moves preserve vsync alignment + adopt the new screen's MaximumFramesPerSecond when no
-    // explicit rate is supplied. Per-instance observer was leak-prone: NSNotificationCenter holds a
-    // strong ref to the registered NSObject, which holds a strong ref to the Pacer instance via the
-    // captured delegate. If Pool eviction (Canvas GC'd) races Pacer.Release, the per-instance observer
-    // path could leak the link + the Pacer indefinitely. The static observer holds zero Pacer refs —
-    // it only walks `Pool` which uses Canvas as the WEAK key; evicted entries are skipped naturally.
+    // Per-canvas vsync via NSView.GetDisplayLink (WWDC23). Pool keys are weak so dead canvases evict
+    // naturally; the static screen-change observer holds zero Pacer refs and walks the live pool.
     [SupportedOSPlatform("macos14.0")]
     internal sealed class Pacer : NSObject {
         private static readonly Selector TickSelector = new("tick:");
-        // ConditionalWeakTable lacks a collection-expression target, so IDE0028 cannot simplify; suppress.
-#pragma warning disable IDE0028
+#pragma warning disable IDE0028 // ConditionalWeakTable has no collection-expression target.
         private static readonly ConditionalWeakTable<Grasshopper2.UI.Canvas.Canvas, Pacer> Pool = new();
 #pragma warning restore IDE0028
         private static readonly Lock PoolGate = new();
         private static readonly Lock ObserverGate = new();
-        private static NSObject? screenChangeObserver;
+        private static IDisposable? screenChangeObserver;
 
         private readonly Grasshopper2.UI.Canvas.Canvas canvas;
         private readonly NSView view;
         private readonly CAFrameRateRange? explicitRate;
         private CADisplayLink link;
+        private double lastFrameTimestamp;
         private int refCount;
         private int active;
         private int disposed;
@@ -866,26 +939,18 @@ internal static class Motion {
             EnsureScreenChangeObserver();
         }
 
-        // Lazy-init the process-static observer. Lives for the lifetime of the AppDomain — RhinoWIP's
-        // plugin runtime never tears down between sessions, so removal is unnecessary and would race
-        // with concurrent OnScreenParametersChanged callbacks anyway. The observer holds NO Pacer ref;
-        // it invokes a static dispatcher that iterates the WEAK-keyed pool. Lock is acquired on every
-        // Pacer construction; contention is negligible because For() already serializes on PoolGate
-        // for the table read, and Pacer construction itself is a rare event (per-canvas-lifetime).
+        // AppDomain-lifetime observer (RhinoWIP never tears down plugins). No Pacer refs held.
         private static void EnsureScreenChangeObserver() {
             using (ObserverGate.EnterScope()) {
-                screenChangeObserver ??= NSNotificationCenter.DefaultCenter.AddObserver(
-                    NSApplication.DidChangeScreenParametersNotification,
-                    static _ => OnScreenParametersChanged(),
-                    NSOperationQueue.MainQueue);
+                if (screenChangeObserver is not null) {
+                    return;
+                }
+                _ = NotificationSubscription.Of(
+                    (NSApplication.DidChangeScreenParametersNotification, static _ => OnScreenParametersChanged(), NSOperationQueue.MainQueue))
+                    .IfSucc(static observer => screenChangeObserver = observer);
             }
         }
 
-        // Walk every live (Canvas, Pacer) entry and rebind the link. ConditionalWeakTable's enumerator
-        // returns only entries whose Canvas key is still strongly reachable elsewhere; evicted entries
-        // are skipped, so dead-Pacer reference firing is structurally impossible. Iteration under the
-        // PoolGate matches the For/CreateOrAdopt/Release contract — no entry can be added or removed
-        // mid-walk. RebindLink itself never throws (CADisplayLink ops are infallible on macOS 14+).
         private static void OnScreenParametersChanged() {
             using (PoolGate.EnterScope()) {
                 foreach (KeyValuePair<Grasshopper2.UI.Canvas.Canvas, Pacer> entry in Pool) {
@@ -902,9 +967,7 @@ internal static class Motion {
             return bound;
         }
 
-        // ProMotion (M-series) reports 120Hz; Studio Display 60Hz; ultrawide externals vary. Querying
-        // NSScreen.MaximumFramesPerSecond honors the actual hardware ceiling; literal (30,120,120)
-        // wastes power on 60Hz panels and underclaims on 144Hz externals.
+        // NSScreen.MaximumFramesPerSecond honours the actual panel ceiling (60/120/144Hz vary).
         private static CAFrameRateRange ResolveRange(NSView view, CAFrameRateRange? explicitRate) {
             if (explicitRate is CAFrameRateRange supplied) {
                 return supplied;
@@ -915,14 +978,10 @@ internal static class Motion {
             return CAFrameRateRange.Create(minimum: floor, maximum: maximum, preferred: maximum);
         }
 
-        // Reduce-motion gate is a query for callers — None Pacer means "ride the instant-1-frame
-        // message-loop fallback" (caller skips Pacer enrollment but still schedules one repaint so
-        // the visual transition lands; the alternative — silent skip — would freeze the UI mid-tween).
         internal static bool AccessibilityShouldReduceMotion =>
             NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion;
 
-        // Default range covers ProMotion adaptive (30-120 preferred 120). CAS-style re-check after
-        // construction adopts a peer entry if a concurrent For() raced.
+        // CAS-style adopt: construct outside the gate, then re-check inside to win-or-adopt.
         internal static Fin<Pacer> For(Grasshopper2.UI.Canvas.Canvas canvas, CAFrameRateRange? rate = null) {
             using (PoolGate.EnterScope()) {
                 if (Pool.TryGetValue(canvas, out Pacer? existing)) {
@@ -930,7 +989,6 @@ internal static class Motion {
                     return Fin.Succ(existing);
                 }
             }
-            // Lock released here; CreateOrAdopt re-enters the gate after construction to win-or-adopt.
             return Optional(canvas.ControlObject as NSView)
                 .ToFin(Fail: UiFault.MutationRejected(
                     op: Op.Of(name: nameof(Pacer)),
@@ -956,23 +1014,27 @@ internal static class Motion {
             }
         }
 
-        // Rebind the CADisplayLink to the current view's window screen so PreferredFrameRateRange
-        // tracks the new display's MaximumFramesPerSecond. The active flag is preserved across the
-        // swap; Paused is restored. Invoked exclusively from the process-static OnScreenParametersChanged
-        // dispatcher; pool-iteration semantics guarantee `this` is still reachable.
+        // Invalidate-prev-then-unpause-new avoids the dual-link overlap window in the main RunLoop.
         private void RebindLink() {
             bool wasActive = active > 0;
             CADisplayLink replacement = BindLink(view: view, range: ResolveRange(view: view, explicitRate: explicitRate));
-            replacement.Paused = !wasActive;
             CADisplayLink previous = Interlocked.Exchange(ref link, replacement);
             previous.Invalidate();
             previous.Dispose();
+            replacement.Paused = !wasActive;
         }
 
+        // sender.Timestamp = just-displayed host clock (mach_absolute_time, seconds). Exposed for
+        // integrators that want exact-vsync dt instead of paint-time TimeProvider drift. Volatile
+        // fences AArch64 reordering; 64-bit double is atomic on Apple Silicon.
         [Export("tick:")]
-        public void Tick(CADisplayLink sender) => canvas.ScheduleRedraw();
+        public void Tick(CADisplayLink sender) {
+            Volatile.Write(ref lastFrameTimestamp, sender.Timestamp);
+            canvas.ScheduleRedraw();
+        }
 
-        // Refcounted Paused gate — decrement re-pauses only when last subscriber drops out.
+        internal double LastFrameTimestamp => Volatile.Read(ref lastFrameTimestamp);
+
         internal Unit Resume() {
             _ = Interlocked.Increment(ref active);
             link.Paused = false;
@@ -986,7 +1048,7 @@ internal static class Motion {
             return unit;
         }
 
-        // Final refcount decrement disposes physically; PoolGate prevents adoption mid-teardown.
+        // PoolGate prevents adoption mid-teardown.
         internal Unit Release() {
             using (PoolGate.EnterScope()) {
                 if (Interlocked.Decrement(ref refCount) > 0) {
@@ -1004,15 +1066,53 @@ internal static class Motion {
             link.Dispose();
         }
 
+        // Defensive Pool.Remove catches the finalizer path where Release was never invoked.
         protected override void Dispose(bool disposing) {
             if (Interlocked.Exchange(ref disposed, 1) == 1) {
                 base.Dispose(disposing);
                 return;
             }
             if (disposing) {
+                using (PoolGate.EnterScope()) {
+                    _ = Pool.Remove(canvas);
+                }
                 TearDownLink();
             }
             base.Dispose(disposing);
+        }
+    }
+
+    // NSNotificationCenter retains the observer until `removeObserver:` lands; Dispose alone leaks it.
+    [SupportedOSPlatform("macos14.0")]
+    internal sealed class NotificationSubscription : IDisposable {
+        private readonly Seq<Action> detachers;
+        private int disposed;
+
+        private NotificationSubscription(Seq<Action> detachers) => this.detachers = detachers;
+
+        internal static Fin<IDisposable> Of(params (NSString Name, Action<NSNotification> Handler, NSOperationQueue? Queue)[] subscriptions) =>
+            Op.Of(name: nameof(NotificationSubscription)).Attempt(
+                body: () => (IDisposable)new NotificationSubscription(
+                    detachers: toSeq(subscriptions).Map(Attach).Strict()),
+                what: "observer attach");
+
+        private static Action Attach((NSString Name, Action<NSNotification> Handler, NSOperationQueue? Queue) sub) {
+            NSObject observer = NSNotificationCenter.DefaultCenter.AddObserver(
+                name: sub.Name.ToString(),
+                obj: null,
+                queue: sub.Queue ?? NSOperationQueue.MainQueue,
+                handler: sub.Handler);
+            return () => {
+                NSNotificationCenter.DefaultCenter.RemoveObserver(observer: observer);
+                observer.Dispose();
+            };
+        }
+
+        public void Dispose() {
+            if (Interlocked.Exchange(ref disposed, 1) == 1) {
+                return;
+            }
+            _ = detachers.Iter(detach => detach());
         }
     }
 }

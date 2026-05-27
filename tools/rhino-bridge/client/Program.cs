@@ -346,9 +346,9 @@ internal static class Program {
             string.Join(separator: Environment.NewLine, values: new[] {
                 ReferenceDirectives(references: references),
             }.Concat(script.Take(count: bodyIndex)).Concat([
-                "using Rasm.TestKit.Scenarios;",
                 $"const string SCENARIO_NAME = \"{Escape(value: scenario)}\";",
                 $"const string CAPTURE_PATH = \"{Escape(value: capture)}\";",
+                BridgeWire.LanguageExtBootstrap,
             ]).Concat(script.Skip(count: bodyIndex))),
             references);
     }
@@ -418,7 +418,7 @@ internal static class Program {
             .Where(File.Exists)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(static reference => ReferenceFile.From(path: reference))
-            .OrderBy(reference => string.Equals(a: reference.Path, b: target, comparisonType: PathComparison) ? 0 : 1)
+            .OrderBy(reference => BridgeWire.ReferenceLoadOrder(path: reference.Path, targetPath: target))
             .ThenBy(static reference => reference.Identity, StringComparer.OrdinalIgnoreCase)
             .ThenBy(static reference => reference.Path, StringComparer.OrdinalIgnoreCase)];
         string fingerprint = ContentFingerprint(references: ordered);

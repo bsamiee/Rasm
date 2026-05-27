@@ -218,6 +218,10 @@
         <Using Include="Thinktecture" />
     </ItemGroup>
 
+    <ItemGroup Label="Grasshopper Thinktecture Usings" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and ('$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true')">
+        <Using Include="Thinktecture" />
+    </ItemGroup>
+
     <ItemGroup Label="Grasshopper-Aware Usings" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <Using Include="Eto.Drawing" />
         <Using Include="Grasshopper2.Types.Numeric" />

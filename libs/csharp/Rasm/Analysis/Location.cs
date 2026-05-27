@@ -4,12 +4,14 @@ using LocationAspect = Rasm.Analysis.Location;
 namespace Rasm.Analysis;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+[SkipUnionOps]
 [Union]
 public partial record Locator {
     public sealed record CurveParameter(double T) : Locator; public sealed record SurfaceParameter(Point2d Uv) : Locator; public sealed record ArcLength(double Distance) : Locator;
     public sealed record ClosestTo(Point3d Probe) : Locator; public sealed record NormalizedMid : Locator; public sealed record PerpendicularParameters(Seq<double> Ts) : Locator;
 }
 
+[SkipUnionOps]
 [Union]
 public partial record LocationValue {
     public sealed record PointCase : LocationValue; public sealed record FrameCase : LocationValue; public sealed record NormalCase : LocationValue; public sealed record TangentCase : LocationValue;
@@ -24,11 +26,13 @@ public partial record LocationValue {
     public static LocationValue Length => new LengthCase();
 }
 
+[SkipUnionOps]
 [Union]
 public partial record Division {
     public sealed record ByCount(int Count) : Division; public sealed record ByLength(double Length) : Division;
 }
 
+[SkipUnionOps]
 [Union]
 internal partial record CurvatureAggregation {
     public sealed record SamplesCase : CurvatureAggregation;
@@ -36,6 +40,7 @@ internal partial record CurvatureAggregation {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+[SkipUnionOps]
 [Union]
 public partial record Location : IAspect {
     public sealed record AtCase(Locator Locator, LocationValue Value) : LocationAspect;

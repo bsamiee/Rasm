@@ -3,6 +3,7 @@ using Rasm.Vectors;
 namespace Rasm.Analysis;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+[SkipUnionOps]
 [Union]
 internal abstract partial record EdgeDescriptor {
     private EdgeDescriptor() { }
@@ -12,6 +13,7 @@ internal abstract partial record EdgeDescriptor {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+[SkipUnionOps]
 [Union]
 public partial record Curves : IAspect {
     public sealed record EdgesCase(Option<CurveFeature> Kind) : Curves; public sealed record SegmentsCase(bool Smooth) : Curves; public sealed record IsoCase(IsoStatus Direction, double Normalized) : Curves; public sealed record SilhouetteCase(Vector3d? Direction, Option<double> DraftAngle) : Curves; public sealed record AtCase(int? Value) : Curves; public sealed record FormCase(int? Index = null) : Curves;

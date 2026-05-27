@@ -1,6 +1,7 @@
 namespace Rasm.Analysis;
 
 // --- [MODELS] -----------------------------------------------------------------------------
+[SkipUnionOps]
 [Union]
 public partial record Probe {
     public sealed record NearestCase(int Count) : Probe;

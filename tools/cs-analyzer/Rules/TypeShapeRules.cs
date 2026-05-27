@@ -81,6 +81,18 @@ internal static class TypeShapeRules {
         });
     }
 
+    // --- [UNION_OPS_QUALIFICATION] --------------------------------------------
+
+    internal static void CheckUnionOpsQualification(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
+        bool thinktectureUnion = SymbolFacts.HasAnyAttribute(namedType, "UnionAttribute", "Union");
+        bool generate = SymbolFacts.HasAnyAttribute(namedType, "GenerateUnionOpsAttribute", "GenerateUnionOps");
+        bool skip = SymbolFacts.HasAnyAttribute(namedType, "SkipUnionOpsAttribute", "SkipUnionOps");
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, thinktectureUnion, generate, skip, namedType.Locations.Length) switch {
+            (true, true, false, false, > 0) => Diagnostic.Create(RuleCatalog.CSP0802, namedType.Locations[0], namedType.Name),
+            _ => null,
+        });
+    }
+
     // --- [DATETIME_FIELD] -----------------------------------------------------
 
     internal static void CheckDateTimeFieldInDomain(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {

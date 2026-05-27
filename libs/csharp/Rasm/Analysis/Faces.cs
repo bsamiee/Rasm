@@ -3,6 +3,7 @@ using Rasm.Vectors;
 namespace Rasm.Analysis;
 
 // --- [MODELS] -----------------------------------------------------------------------------
+[SkipUnionOps]
 [Union]
 public partial record Faces : IAspect {
     public sealed record AllCase : Faces; public sealed record RankedCase(Vector3d Axis, ExtremumDirection Direction) : Faces; public sealed record AtCase(int? Value) : Faces;

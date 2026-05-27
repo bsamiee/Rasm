@@ -11,6 +11,7 @@ public sealed partial class SpreadAspect {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+[SkipUnionOps]
 [Union]
 public partial record Points : IAspect {
     public sealed record ExtremaCase(Option<Seq<Vector3d>> Directions) : Points; public sealed record EdgeMidpointsCase : Points; public sealed record VerticesCase : Points; public sealed record ControlPointsCase : Points;

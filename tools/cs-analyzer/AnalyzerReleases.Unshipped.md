@@ -74,3 +74,4 @@ CSP0725 | FunctionalDiscipline  | Error    | ImperativeAccumulator
 CSP0726 | SurfaceArea           | Error    | PositionalRecordConstructor
 CSP0727 | FunctionalDiscipline  | Error    | SwitchExpressionPrecedence
 CSP0728 | FunctionalDiscipline  | Error    | MapFailDiscardsException
+CSP0802 | TypeDiscipline        | Error    | UnionOpsQualification
