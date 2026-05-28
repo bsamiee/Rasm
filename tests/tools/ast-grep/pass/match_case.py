@@ -1,7 +1,7 @@
-from typing import assert_never
+from typing import Literal, assert_never
 
 
-type State = str
+type State = Literal["ready", "blocked"]
 
 
 def render(state: State) -> str:

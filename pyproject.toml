@@ -54,6 +54,7 @@ exclude = [
     "coverage",
     "node_modules",
     "test-results",
+    "tests/tools/ast-grep/fail/**",
     "tmp",
 ]
 
@@ -94,6 +95,7 @@ exclude = [
     "^coverage/",
     "^test-results/",
     "^node_modules/",
+    "^tests/tools/ast-grep/fail/",
     "^tmp/",
 ]
 
