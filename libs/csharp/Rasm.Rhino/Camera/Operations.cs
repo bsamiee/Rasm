@@ -26,11 +26,13 @@ public sealed partial class CameraMouseMove {
 public sealed partial class CameraStackOp {
     public static readonly CameraStackOp ViewPush = new(key: 0, apply: static (vp, _) => Op.Side(vp.PushViewProjection) switch { _ => true });
     public static readonly CameraStackOp ViewPop = new(key: 1, apply: static (vp, _) => vp.PopViewProjection());
-    public static readonly CameraStackOp ViewNext = new(key: 2, apply: static (vp, _) => vp.NextViewProjection() switch { _ => true });
-    public static readonly CameraStackOp ViewPrevious = new(key: 3, apply: static (vp, _) => vp.PreviousViewProjection() switch { _ => true });
-    public static readonly CameraStackOp CPlanePush = new(key: 4, apply: static (vp, plane) => plane.Match(
-        Some: cplane => Op.Side(() => vp.PushConstructionPlane(cplane: cplane)) switch { _ => true },
-        None: () => Op.Side(() => vp.PushConstructionPlane(cplane: vp.GetConstructionPlane())) switch { _ => true }));
+    public static readonly CameraStackOp ViewNext = new(key: 2, apply: static (vp, _) => vp.NextViewProjection());
+    public static readonly CameraStackOp ViewPrevious = new(key: 3, apply: static (vp, _) => vp.PreviousViewProjection());
+    public static readonly CameraStackOp CPlanePush = new(key: 4, apply: static (vp, plane) =>
+        Op.Side(() => vp.PushConstructionPlane(cplane: plane.Case switch {
+            ConstructionPlane cplane => cplane,
+            _ => vp.GetConstructionPlane(),
+        })) switch { _ => true });
     public static readonly CameraStackOp CPlanePop = new(key: 5, apply: static (vp, _) => vp.PopConstructionPlane());
     public static readonly CameraStackOp CPlaneNext = new(key: 6, apply: static (vp, _) => vp.NextConstructionPlane());
     public static readonly CameraStackOp CPlanePrevious = new(key: 7, apply: static (vp, _) => vp.PreviousConstructionPlane());
@@ -97,11 +99,15 @@ public abstract partial record CameraProjection {
             parallelReflected: static (ctx, _) => ctx.Op.Confirm(success: ctx.Viewport.ChangeToParallelReflectedProjection())));
 }
 
-public readonly record struct NamedRestorePolicy(bool Clipping = true, bool Display = true) {
+public readonly record struct NamedRestorePolicy(bool CPlane = true, bool Projection = true, bool Clipping = true, bool Display = true) {
     internal Fin<Unit> ApplyBeforeRestore() {
-        _ = Op.SideWhen(condition: Clipping, action: static () => global::Rhino.ApplicationSettings.ViewSettings.DefinedViewSetClippingPlanes = true);
-        _ = Op.SideWhen(condition: Display, action: static () => global::Rhino.ApplicationSettings.ViewSettings.DefinedViewSetDisplayMode = true);
-        return Fin.Succ(value: unit);
+        NamedRestorePolicy self = this;
+        return Fin.Succ(value: Op.Side(() => {
+            global::Rhino.ApplicationSettings.ViewSettings.DefinedViewSetCPlane = self.CPlane;
+            global::Rhino.ApplicationSettings.ViewSettings.DefinedViewSetProjection = self.Projection;
+            global::Rhino.ApplicationSettings.ViewSettings.DefinedViewSetClippingPlanes = self.Clipping;
+            global::Rhino.ApplicationSettings.ViewSettings.DefinedViewSetDisplayMode = self.Display;
+        }));
     }
 }
 
@@ -186,14 +192,10 @@ file static class CameraEditKernel {
                                                  select CameraScope.RedrawFor(scope: ctx),
             location: static (ctx, value) => Side(scope: ctx, apply: vp => vp.SetCameraLocation(cameraLocation: value.Value, updateTargetLocation: value.UpdateTarget)),
             target: static (ctx, value) => Side(scope: ctx, apply: vp => vp.SetCameraTarget(targetLocation: value.Value, updateCameraLocation: value.UpdateLocation)),
-            direction: static (ctx, value) => from context in Context.Of(doc: ctx.Document).ToFin()
-                                              from direction in VectorIntent.Direction(value: value.Value).Project<Vector3d>(context: context, key: Op.Of(name: nameof(CameraEdit.Direction)))
-                                              from redraw in Side(scope: ctx, apply: vp => vp.SetCameraDirection(cameraDirection: direction, updateTargetLocation: value.UpdateTarget))
-                                              select redraw,
-            up: static (ctx, value) => from context in Context.Of(doc: ctx.Document).ToFin()
-                                       from up in VectorIntent.Direction(value: value.Value).Project<Vector3d>(context: context, key: Op.Of(name: nameof(CameraEdit.Up)))
-                                       from redraw in Side(scope: ctx, apply: vp => vp.CameraUp = up)
-                                       select redraw,
+            direction: static (ctx, value) => WithDirection(scope: ctx, value: value.Value, op: Op.Of(name: nameof(CameraEdit.Direction)),
+                apply: dir => Side(scope: ctx, apply: vp => vp.SetCameraDirection(cameraDirection: dir, updateTargetLocation: value.UpdateTarget))),
+            up: static (ctx, value) => WithDirection(scope: ctx, value: value.Value, op: Op.Of(name: nameof(CameraEdit.Up)),
+                apply: dir => Side(scope: ctx, apply: vp => vp.CameraUp = dir)),
             lens: static (ctx, value) => from _ in guard(value.Millimeters > 0, Op.Of(name: nameof(CameraEdit.Lens)).InvalidInput())
                                          from redraw in Side(scope: ctx, apply: vp => vp.Camera35mmLensLength = value.Millimeters)
                                          select redraw,
@@ -229,10 +231,8 @@ file static class CameraEditKernel {
                                             from done in Result(scope: ctx, apply: vp => vp.ZoomBoundingBox(box: value.Bounds), Op.Of(name: nameof(CameraEdit.ZoomBox)))
                                             select done,
             zoomWindow: static (ctx, value) => Result(scope: ctx, apply: vp => vp.ZoomWindow(rect: value.Window), Op.Of(name: nameof(CameraEdit.ZoomWindow))),
-            rotate: static (ctx, value) => from context in Context.Of(doc: ctx.Document).ToFin()
-                                           from direction in VectorIntent.Direction(value: value.Axis).Project<Vector3d>(context: context, key: Op.Of(name: nameof(CameraEdit.Rotate)))
-                                           from done in Result(scope: ctx, apply: vp => vp.Rotate(angleRadians: value.Radians, rotationAxis: direction, rotationCenter: value.Center), Op.Of(name: nameof(CameraEdit.Rotate)))
-                                           select done,
+            rotate: static (ctx, value) => WithDirection(scope: ctx, value: value.Axis, op: Op.Of(name: nameof(CameraEdit.Rotate)),
+                apply: dir => Result(scope: ctx, apply: vp => vp.Rotate(angleRadians: value.Radians, rotationAxis: dir, rotationCenter: value.Center), Op.Of(name: nameof(CameraEdit.Rotate)))),
             magnify: static (ctx, value) => Result(scope: ctx, apply: vp => value.FixedPoint.Case switch {
                 DrawingPoint p => vp.Magnify(magnificationFactor: value.Factor, mode: value.LensMode, fixedScreenPoint: p),
                 _ => vp.Magnify(magnificationFactor: value.Factor, mode: value.LensMode),
@@ -240,7 +240,9 @@ file static class CameraEditKernel {
             keyboard: static (ctx, value) => Result(scope: ctx, apply: vp => value.Move.Apply(viewport: vp, leftRight: value.LeftRight, amount: value.Amount), Op.Of(name: nameof(CameraEdit.Keyboard))),
             mouse: static (ctx, value) => Result(scope: ctx, apply: vp => value.Move.Apply(viewport: vp, previous: value.PreviousPoint, current: value.CurrentPoint), Op.Of(name: nameof(CameraEdit.Mouse))),
             mouseLens: static (ctx, value) => Result(scope: ctx, apply: vp => vp.MouseAdjustLensLength(mousePreviousPoint: value.PreviousPoint, mouseCurrentPoint: value.CurrentPoint, moveTarget: value.MoveTarget), Op.Of(name: nameof(CameraEdit.MouseLens))),
-            stackMove: static (ctx, value) => Result(scope: ctx, apply: vp => value.Move.Apply(viewport: vp, plane: value.Plane), Op.Of(name: nameof(CameraEdit.StackMove))),
+            stackMove: static (ctx, value) => Fin.Succ(value: value.Move.Apply(viewport: ctx.Viewport, plane: value.Plane)
+                ? CameraScope.RedrawFor(scope: ctx)
+                : RedrawRequest.Empty),
             pushView: static (ctx, value) => Result(scope: ctx, apply: vp => vp.PushViewInfo(value.Info, value.IncludeTraceImage), Op.Of(name: nameof(CameraEdit.PushView))));
 
     private static BoundingBox InflateBox(BoundingBox source, double padding) {
@@ -269,6 +271,12 @@ file static class CameraEditKernel {
     private static Fin<RedrawRequest> Result(CameraScope scope, Func<RhinoViewport, bool> apply, Op op) =>
         from _ in op.Confirm(success: apply(arg: scope.Viewport))
         select CameraScope.RedrawFor(scope: scope);
+
+    private static Fin<RedrawRequest> WithDirection(CameraScope scope, Vector3d value, Op op, Func<Vector3d, Fin<RedrawRequest>> apply) =>
+        from context in Context.Of(doc: scope.Document).ToFin()
+        from direction in VectorIntent.Direction(value: value).Project<Vector3d>(context: context, key: op)
+        from result in apply(arg: direction)
+        select result;
 }
 
 [Union(SwitchMapStateParameterName = "scope")]
@@ -293,10 +301,8 @@ public abstract partial record CameraPick {
                 }),
             subject: static (ctx, pick) => pick.Value switch {
                 CameraSubject.AtPoint source when source.Value.IsValid => Fin.Succ(value: source.Value),
-                CameraSubject.InBounds source when source.Value.IsValid => Fin.Succ(value: source.Value.Center),
-                CameraSubject.InSphere source when source.Value.IsValid => Fin.Succ(value: source.Value.Center),
-                CameraSubject.FromGeometry source => source.Value.BoundsOf(op: ResolveKey).Map(bounds => bounds.Center),
-                _ => Fin.Fail<Point3d>(error: ResolveKey.InvalidInput()),
+                CameraSubject.AtPoint => Fin.Fail<Point3d>(error: ResolveKey.InvalidInput()),
+                CameraSubject value => value.BoundsOf(op: ResolveKey).Map(bounds => bounds.Center),
             });
 }
 
@@ -304,6 +310,7 @@ public abstract partial record CameraPick {
 public readonly record struct CameraCapture(
     DrawingSize Size,
     double Dpi = 96,
+    bool Raster = false,
     CaptureDecor Decor = default) {
     private static readonly Op CaptureKey = Op.Of(name: nameof(Capture));
 
@@ -314,6 +321,7 @@ public readonly record struct CameraCapture(
                from result in UI.RhinoUi.Protect(valid: () => {
                    using ViewCaptureSettings settings = new(sourceView: scope.View, mediaSize: self.Size, dpi: self.Dpi);
                    settings.SetViewport(viewport: scope.Viewport);
+                   settings.RasterMode = self.Raster;
                    return from configured in self.Decor.Apply(settings: settings, op: CaptureKey)
                           from __ in guard(settings.IsValid, CaptureKey.InvalidResult())
                           from projected in valid(arg: settings)
@@ -376,12 +384,26 @@ public static class CameraOps {
             select outcome,
             UiBound: true);
 
-    public static CameraOp<Commands.DocumentResourceChange> SaveNamed(string name, bool fullView = true) =>
+    public static CameraOp<Commands.DocumentResourceChange> SaveNamed(string name, bool fullView = true, Option<CameraDof> dof = default) =>
         new(Run: scope =>
             from valid in Name(value: name, op: Op.Of(name: nameof(SaveNamed)))
-            from _ in CommitNamed(scope: scope, name: valid, full: fullView, op: Op.Of(name: nameof(SaveNamed)))
+            from _ in CommitNamed(scope: scope, name: valid, full: fullView, dof: dof, op: Op.Of(name: nameof(SaveNamed)))
             select NamedResource(name: valid),
             UiBound: true);
+
+    public static CameraOp<CameraFrame> ReadNamed(string name) =>
+        new(Run: scope =>
+            from index in NamedIndex(document: scope.Document, name: name, op: Op.Of(name: nameof(ReadNamed)))
+            from frame in Op.Of(name: nameof(ReadNamed)).Catch(() => {
+                using ViewInfo view = scope.Document.NamedViews[index];
+                ViewportInfo projection = view.Viewport;
+                Plane plane = new(origin: projection.CameraLocation, xDirection: Vector3d.CrossProduct(projection.CameraDirection, projection.CameraUp), yDirection: projection.CameraUp);
+                return plane.IsValid
+                    ? Fin.Succ(value: new CameraFrame(Frame: plane, Target: projection.TargetPoint))
+                    : Fin.Fail<CameraFrame>(error: Op.Of(name: nameof(ReadNamed)).InvalidResult());
+            })
+            select CameraOutcomeCreate.Value(value: frame),
+            UiBound: false);
 
     public static CameraOp<Unit> RestoreNamed(string name, CameraPath? path = null, NamedRestorePolicy restore = default) =>
         new(Run: scope =>
@@ -423,11 +445,12 @@ public static class CameraOps {
     private static Fin<string> Name(string value, Op op) =>
         op.AcceptText(value: value).MapFail(_ => op.InvalidInput());
 
-    private static Fin<Unit> CommitNamed(CameraScope scope, string name, bool full, Op op) =>
+    private static Fin<Unit> CommitNamed(CameraScope scope, string name, bool full, Option<CameraDof> dof, Op op) =>
         full switch {
             true => op.Catch(() => {
                 using ViewInfo view = new(scope.Viewport);
                 view.Name = name;
+                _ = dof.Iter(value => value.Write(view: view));
                 return op.Confirm(success: scope.Document.NamedViews.Add(view: view) >= 0);
             }),
             false => op.Confirm(success: scope.Document.NamedViews.Add(name: name, viewportId: scope.Viewport.Id) >= 0),

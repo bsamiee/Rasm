@@ -81,21 +81,6 @@ public readonly record struct CameraSyncPolicy(
     public static CameraSyncPolicy Independent { get; } = new(StopOnFirstFailure: true, MergeRedraw: false);
     public static CameraSyncPolicy Rig { get; } = new(StopOnFirstFailure: false, MergeRedraw: true);
 
-    public CameraOutcome<T> Fold<T>(Seq<CameraOutcome<T>> outcomes) =>
-        outcomes.Fold(
-            initialState: (Result: Option<CameraOutcome<T>>.None, Policy: this),
-            f: static (acc, next) => (
-                Result: Some(value: acc.Result.Case switch {
-                    CameraOutcome<T> current => CameraOutcomeCreate.Value(
-                        value: next.Value,
-                        redraw: acc.Policy.MergeRedraw ? current.Redraw | next.Redraw : next.Redraw,
-                        resources: current.Resources + next.Resources),
-                    _ => next,
-                }),
-                acc.Policy))
-            .Result
-            .IfNone(() => CameraOutcomeCreate.Value(value: default(T)!));
-
     public CameraOutcome<Seq<CameraScopeReceipt<T>>> FoldReceipts<T>(Seq<CameraScopeReceipt<T>> receipts) {
         Seq<CameraScopeReceipt<T>> succeeded = receipts.Filter(static receipt => receipt.Succeeded);
         return CameraOutcomeCreate.Value(
@@ -201,19 +186,13 @@ public sealed class RhinoCamera {
                         scope: scope,
                         result: ExecuteRunOnScope(operation: operation, scope: scope))))
                     .As()
-                from folded in ResolveBroadcastFin(receipts: receipts, policy: policy)
+                from folded in receipts.Exists(static receipt => receipt.Succeeded)
+                    ? Fin.Succ(value: policy.FoldReceipts(receipts: receipts))
+                    : Fin.Fail<CameraOutcome<Seq<CameraScopeReceipt<T>>>>(
+                        error: receipts.Find(static receipt => receipt.Failure.IsSome)
+                            .Bind(static receipt => receipt.Failure)
+                            .IfNone(() => BroadcastKey.InvalidResult()))
                 select folded,
-        };
-
-    private static Fin<CameraOutcome<Seq<CameraScopeReceipt<T>>>> ResolveBroadcastFin<T>(
-        Seq<CameraScopeReceipt<T>> receipts,
-        CameraSyncPolicy policy) =>
-        receipts.Exists(static receipt => receipt.Succeeded) switch {
-            true => Fin.Succ(value: policy.FoldReceipts(receipts: receipts)),
-            false => Fin.Fail<CameraOutcome<Seq<CameraScopeReceipt<T>>>>(
-                error: receipts.Find(static receipt => receipt.Failure.IsSome)
-                    .Bind(static receipt => receipt.Failure)
-                    .IfNone(() => BroadcastKey.InvalidResult())),
         };
 
     private static Fin<CameraOutcome<T>> ExecuteRunOnScope<T>(CameraOp<T> operation, CameraScope scope) =>
