@@ -100,7 +100,7 @@ public abstract record UiChromeOp<T> {
         internal override Fin<Unit> Run(RhinoDoc? document) =>
             RhinoUi.Protect(valid: () =>
                 from file in FindFile(fileId: Some(FileId), path: Option<string>.None, name: Option<string>.None, ignoreCase: true)
-                from activeGroup in toSeq(Enumerable.Range(start: 0, count: file.GroupCount)).Choose(index => Optional(file.GetGroup(index))).Find(candidate => candidate.Id == GroupId).ToFin(Fail: Op.Of(name: nameof(RuiGroup)).InvalidInput())
+                from activeGroup in Op.Of(name: nameof(RuiGroup)).Need(toSeq(Enumerable.Range(start: 0, count: file.GroupCount)).Choose(index => Optional(file.GetGroup(index))).Find(candidate => candidate.Id == GroupId))
                 select Op.Side(() => activeGroup.Visible = Visible));
     }
 
@@ -127,19 +127,19 @@ public abstract record UiChromeOp<T> {
         value ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: op.InvalidResult());
 
     private static Fin<TBar> BuildBar<TBar>(IEnumerable<UiAction>? actions, RhinoDoc? document, string opName, Func<TBar> create, Action<TBar, Eto.Forms.Command> add) where TBar : class =>
-        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: opName).InvalidInput())
-        from validActions in Optional(actions).ToFin(Fail: Op.Of(name: opName).InvalidInput()).Map(static values => toSeq(values))
+        from validDocument in Op.Of(name: opName).Need(document)
+        from validActions in Op.Of(name: opName).Need(actions).Map(static values => toSeq(values))
         from commands in validActions.TraverseM(action => action.ToCommand(document: validDocument)).As()
         select ((Func<TBar>)(() => { TBar bar = create(); _ = commands.Iter(c => add(bar, c)); return bar; }))();
 
     private static Fin<global::Rhino.UI.ToolbarFile> FindFile(Option<Guid> fileId, Option<string> path, Option<string> name, bool ignoreCase) =>
-        (fileId.Bind(id => toSeq(RhinoApp.ToolbarFiles).Choose(Optional).Find(file => file.Id == id)) |
-         path.Bind(value => Optional(RhinoApp.ToolbarFiles.FindByPath(path: value))) |
-         name.Bind(value => Optional(RhinoApp.ToolbarFiles.FindByName(name: value, ignoreCase: ignoreCase))))
-        .ToFin(Fail: Op.Of(name: nameof(FindFile)).InvalidInput());
+        Op.Of(name: nameof(FindFile)).Need(
+            fileId.Bind(id => toSeq(RhinoApp.ToolbarFiles).Choose(Optional).Find(file => file.Id == id)) |
+            path.Bind(value => Optional(RhinoApp.ToolbarFiles.FindByPath(path: value))) |
+            name.Bind(value => Optional(RhinoApp.ToolbarFiles.FindByName(name: value, ignoreCase: ignoreCase))));
 
     private static Fin<string> NonBlank(Option<string> value) =>
-        value.ToFin(Fail: Op.Of(name: nameof(NonBlank)).InvalidInput()).Bind(NonBlank);
+        Op.Of(name: nameof(NonBlank)).Need(value).Bind(NonBlank);
 
     private static Fin<string> NonBlank(string value) =>
         Op.Of(name: nameof(NonBlank)).AcceptText(value: value).MapFail(_ => Op.Of(name: nameof(NonBlank)).InvalidInput());
@@ -164,19 +164,6 @@ public abstract record UiChromeOp<T> {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public sealed record PanelOp<TPanel, T> where TPanel : RasmPanel {
-    private readonly Func<RhinoDoc?, Fin<T>> run;
-
-    internal PanelOp(Func<RhinoDoc?, Fin<T>> run, bool interactive) {
-        this.run = run;
-        Interactive = interactive;
-    }
-
-    internal bool Interactive { get; }
-
-    internal Fin<T> Run(RhinoDoc? document) => run(arg: document);
-}
-
 public readonly record struct PanelChromeSnapshot(
     Seq<(Guid Id, string Name, string Path, int GroupCount, int ToolbarCount)> Files,
     Seq<(Guid FileId, Guid GroupId, string Name, bool Visible, bool IsDocked)> Groups,
@@ -200,15 +187,15 @@ public sealed record UiAction(
             ToolTip: tooltip,
             Image: image,
             Run: document =>
-                from active in Optional(document).ToFin(Fail: Op.Of(name: nameof(UiAction)).InvalidInput())
+                from active in Op.Of(name: nameof(UiAction)).Need(document)
                 let command = typeof(TCommand).Name
                 from _ in guard(global::Rhino.Commands.Command.LookupCommandId(name: command, searchForEnglishName: true) != Guid.Empty, Op.Of(name: nameof(UiAction)).InvalidInput())
                 from __ in guard(RhinoApp.RunScript(documentSerialNumber: active.RuntimeSerialNumber, script: $"_{command}", echo: false), Op.Of(name: nameof(UiAction)).InvalidResult())
                 select unit);
 
     internal Fin<Eto.Forms.Command> ToCommand(RhinoDoc document) =>
-        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(ToCommand)).InvalidInput())
-        from action in Optional(Run).ToFin(Fail: Op.Of(name: nameof(ToCommand)).InvalidInput())
+        from validDocument in Op.Of(name: nameof(ToCommand)).Need(document)
+        from action in Op.Of(name: nameof(ToCommand)).Need(Run)
         from id in string.IsNullOrWhiteSpace(value: Id) switch {
             false => Fin.Succ(value: Id),
             true => Fin.Fail<string>(error: Op.Of(name: nameof(ToCommand)).InvalidInput()),
@@ -254,31 +241,31 @@ public readonly record struct PanelIcon(Option<DrawingIcon> Icon, Option<string>
     public static PanelIcon Of(DrawingIcon value) => new(Icon: Some(value));
     public static PanelIcon Resource(string name, ReflectionAssembly? assembly = null) => new(Icon: Option<DrawingIcon>.None, ResourceName: Some(name), ResourceAssembly: Optional(assembly));
 
-    internal Fin<Unit> Register(global::Rhino.PlugIns.PlugIn plugin, Type type, string caption, global::Rhino.UI.PanelType mode) {
-        Option<DrawingIcon> icon = Icon;
-        Option<string> resourceName = ResourceName;
-        Option<ReflectionAssembly> resourceAssembly = ResourceAssembly;
-        return icon.Case switch {
-            DrawingIcon value => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.RegisterPanel(plugin, type, caption, value, mode); return Fin.Succ(value: unit); }),
-            _ => from resource in resourceName.ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput())
-                 from registered in RhinoUi.Protect(valid: () => {
-                     _ = resourceAssembly.Case switch {
-                         ReflectionAssembly assembly => Op.Side(() => global::Rhino.UI.Panels.RegisterPanel(plugin, type, caption, assembly, resource, mode)),
-                         _ => Op.Side(() => global::Rhino.UI.Panels.RegisterPanel(plugin, type, caption, null!, resource, mode)),
-                     };
-                     return Fin.Succ(value: unit);
-                 })
-                 select registered,
+    private Fin<Unit> Resolve(Op op, Func<DrawingIcon, Fin<Unit>> onIcon, Func<string, Fin<Unit>> onResource) =>
+        Icon.Case switch {
+            DrawingIcon value => onIcon(arg: value),
+            _ => op.Need(ResourceName).Bind(onResource),
         };
+
+    internal Fin<Unit> Register(global::Rhino.PlugIns.PlugIn plugin, Type type, string caption, global::Rhino.UI.PanelType mode) {
+        Option<ReflectionAssembly> resourceAssembly = ResourceAssembly;
+        return Resolve(
+            op: Op.Of(name: nameof(Register)),
+            onIcon: value => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.RegisterPanel(plugin, type, caption, value, mode); return Fin.Succ(value: unit); }),
+            onResource: resource => RhinoUi.Protect(valid: () => {
+                _ = resourceAssembly.Case switch {
+                    ReflectionAssembly assembly => Op.Side(() => global::Rhino.UI.Panels.RegisterPanel(plugin, type, caption, assembly, resource, mode)),
+                    _ => Op.Side(() => global::Rhino.UI.Panels.RegisterPanel(plugin, type, caption, null!, resource, mode)),
+                };
+                return Fin.Succ(value: unit);
+            }));
     }
 
     internal Fin<Unit> Change(Type type) =>
-        Icon.Case switch {
-            DrawingIcon value => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.ChangePanelIcon(type, value); return Fin.Succ(value: unit); }),
-            _ => from resource in ResourceName.ToFin(Fail: Op.Of(name: nameof(Change)).InvalidInput())
-                 from changed in RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.ChangePanelIcon(type, resource); return Fin.Succ(value: unit); })
-                 select changed,
-        };
+        Resolve(
+            op: Op.Of(name: nameof(Change)),
+            onIcon: value => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.ChangePanelIcon(type, value); return Fin.Succ(value: unit); }),
+            onResource: resource => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.ChangePanelIcon(type, resource); return Fin.Succ(value: unit); }));
 }
 
 public readonly record struct PanelHostEvent(PanelHostPhase Phase, Option<global::Rhino.UI.ShowPanelEventArgs> Show, Option<global::Rhino.UI.PanelEventArgs> Closed);
@@ -314,76 +301,72 @@ public abstract class RasmPanel : Panel, global::Rhino.UI.IPanel {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class PanelOp {
-    public static PanelOp<TPanel, T> Chrome<TPanel, T>(UiChromeOp<T> operation) where TPanel : RasmPanel =>
-        new(
-            run: document =>
-                from valid in Optional(operation).ToFin(Fail: Op.Of(name: nameof(Chrome)).InvalidInput())
-                from result in valid.Run(document: document)
+    public static UiIntent<T> Chrome<TPanel, T>(UiChromeOp<T> operation) where TPanel : RasmPanel =>
+        UiIntent.OfScope(
+            run: scope =>
+                from valid in Op.Of(name: nameof(Chrome)).Need(operation)
+                from result in valid.Run(document: scope.Document)
                 select result,
             interactive: Optional(operation).Map(static valid => valid.Interactive).IfNone(noneValue: true));
 
-    public static PanelOp<TPanel, Unit> Register<TPanel>(
+    public static UiIntent<Unit> Register<TPanel>(
         global::Rhino.PlugIns.PlugIn plugin,
         string caption,
         PanelIcon icon,
         global::Rhino.UI.PanelType panelType = global::Rhino.UI.PanelType.PerDoc) where TPanel : RasmPanel =>
-        new(
+        UiIntent.OfScope(
             run: _ =>
-                from validPlugin in Optional(plugin).ToFin(Fail: Op.Of(name: nameof(Register)).InvalidInput())
+                from validPlugin in Op.Of(name: nameof(Register)).Need(plugin)
                 from validCaption in Op.Of(name: nameof(Register)).AcceptText(value: caption).MapFail(_ => Op.Of(name: nameof(Register)).InvalidInput())
                 from panel in RasmPanel.PanelIdentityOf<TPanel>()
                 from registered in icon.Register(plugin: validPlugin, type: panel.Type, caption: validCaption, mode: panelType)
                 select registered,
             interactive: false);
 
-    public static PanelOp<TPanel, Unit> Open<TPanel>(PanelPlacement? placement = null, bool selected = true) where TPanel : RasmPanel =>
-        new(run: _ =>
+    public static UiIntent<Unit> Open<TPanel>(PanelPlacement? placement = null, bool selected = true) where TPanel : RasmPanel =>
+        UiIntent.OfScope(run: _ =>
             from panel in RasmPanel.PanelIdentityOf<TPanel>()
             from opened in (placement ?? PanelPlacement.Default).Open(panelType: panel.Type, panelId: panel.Id, selected: selected)
             select opened,
             interactive: true);
 
-    public static PanelOp<TPanel, PanelSnapshot<TPanel>> Show<TPanel>(bool selected = true) where TPanel : RasmPanel =>
-        new(
-            run: document =>
-                from _ in Open<TPanel>(selected: selected).Run(document: document)
-                from snapshot in Snapshot<TPanel>().Run(document: document)
+    public static UiIntent<PanelSnapshot<TPanel>> Show<TPanel>(bool selected = true) where TPanel : RasmPanel =>
+        UiIntent.OfScope(
+            run: scope =>
+                from _ in Open<TPanel>(selected: selected).Run(scope: scope)
+                from snapshot in Snapshot<TPanel>().Run(scope: scope)
                 select snapshot,
             interactive: true);
 
-    public static PanelOp<TPanel, bool> Float<TPanel>(global::Rhino.UI.Panels.FloatPanelMode mode = global::Rhino.UI.Panels.FloatPanelMode.Show) where TPanel : RasmPanel =>
-        new(run: _ => RasmPanel.PanelIdentityOf<TPanel>().Bind(panel => RhinoUi.Protect(valid: () => Fin.Succ(value: global::Rhino.UI.Panels.FloatPanel(panelType: panel.Type, mode: mode)))), interactive: true);
+    public static UiIntent<bool> Float<TPanel>(global::Rhino.UI.Panels.FloatPanelMode mode = global::Rhino.UI.Panels.FloatPanelMode.Show) where TPanel : RasmPanel =>
+        UiIntent.OfScope(run: _ => RasmPanel.PanelIdentityOf<TPanel>().Bind(panel => RhinoUi.Protect(valid: () => Fin.Succ(value: global::Rhino.UI.Panels.FloatPanel(panelType: panel.Type, mode: mode)))), interactive: true);
 
-    public static PanelOp<TPanel, bool> DockBarInUse<TPanel>(Guid dockBarId) where TPanel : RasmPanel =>
-        new(run: _ => dockBarId switch {
+    public static UiIntent<bool> DockBarInUse<TPanel>(Guid dockBarId) where TPanel : RasmPanel =>
+        UiIntent.OfScope(run: _ => dockBarId switch {
             Guid id when id != Guid.Empty => RhinoUi.Protect(valid: () => Fin.Succ(value: global::Rhino.UI.Panels.DockBarIdInUse(dockBarId: id))),
             _ => Fin.Fail<bool>(error: Op.Of(name: nameof(DockBarInUse)).InvalidInput()),
         }, interactive: false);
 
-    public static PanelOp<TPanel, Unit> Icon<TPanel>(PanelIcon icon) where TPanel : RasmPanel =>
-        new(run: _ =>
+    public static UiIntent<Unit> Icon<TPanel>(PanelIcon icon) where TPanel : RasmPanel =>
+        UiIntent.OfScope(run: _ =>
             from panel in RasmPanel.PanelIdentityOf<TPanel>()
             from changed in icon.Change(type: panel.Type)
             select changed,
             interactive: false);
 
-    public static PanelOp<TPanel, Unit> Close<TPanel>() where TPanel : RasmPanel =>
-        new(run: document =>
+    public static UiIntent<Unit> Close<TPanel>() where TPanel : RasmPanel =>
+        UiIntent.OfScope(run: scope =>
             RasmPanel.PanelIdentityOf<TPanel>().Bind(panel => RhinoUi.Protect(valid: () => {
-                _ = document switch {
-                    RhinoDoc doc => Op.Side(() => global::Rhino.UI.Panels.ClosePanel(panelId: panel.Id, doc: doc)),
-                    _ => Op.Side(() => global::Rhino.UI.Panels.ClosePanel(panelType: panel.Type)),
-                };
+                global::Rhino.UI.Panels.ClosePanel(panelId: panel.Id, doc: scope.Document);
                 return Fin.Succ(value: unit);
             })),
             interactive: true);
 
-    public static PanelOp<TPanel, PanelSnapshot<TPanel>> Snapshot<TPanel>() where TPanel : RasmPanel =>
-        new(run: document =>
+    public static UiIntent<PanelSnapshot<TPanel>> Snapshot<TPanel>() where TPanel : RasmPanel =>
+        UiIntent.OfScope(run: scope =>
             from panel in RasmPanel.PanelIdentityOf<TPanel>()
-            from doc in Optional(document).ToFin(Fail: Op.Of(name: nameof(Snapshot)).InvalidInput())
             from snapshot in RhinoUi.Protect(valid: () => {
-                Seq<TPanel> instances = toSeq(global::Rhino.UI.Panels.GetPanels<TPanel>(doc));
+                Seq<TPanel> instances = toSeq(global::Rhino.UI.Panels.GetPanels<TPanel>(scope.Document));
                 Seq<Guid> open = toSeq(global::Rhino.UI.Panels.GetOpenPanelIds()).Distinct();
                 Guid dock = global::Rhino.UI.Panels.PanelDockBar(panelId: panel.Id);
                 return Fin.Succ(value: new PanelSnapshot<TPanel>(
@@ -398,35 +381,30 @@ public static class PanelOp {
             select snapshot,
             interactive: false);
 
-    public static PanelOp<TPanel, T> With<TPanel, T>(Func<Seq<TPanel>, Fin<T>> run) where TPanel : RasmPanel =>
-        new(run: document => from validRun in Optional(run).ToFin(Fail: Op.Of(name: nameof(With)).InvalidInput()) from snapshot in Snapshot<TPanel>().Run(document: document) from panels in snapshot.Instances switch { Seq<TPanel> values when !values.IsEmpty => Fin.Succ(value: values), _ => Fin.Fail<Seq<TPanel>>(error: Op.Of(name: nameof(With)).InvalidResult()) } from result in validRun(arg: panels) select result, interactive: true);
+    public static UiIntent<T> With<TPanel, T>(Func<Seq<TPanel>, Fin<T>> run) where TPanel : RasmPanel =>
+        UiIntent.OfScope(run: scope => from validRun in Op.Of(name: nameof(With)).Need(run) from snapshot in Snapshot<TPanel>().Run(scope: scope) from panels in snapshot.Instances switch { Seq<TPanel> values when !values.IsEmpty => Fin.Succ(value: values), _ => Fin.Fail<Seq<TPanel>>(error: Op.Of(name: nameof(With)).InvalidResult()) } from result in validRun(arg: panels) select result, interactive: true);
 
-    public static PanelOp<TPanel, Unit> MenuState<TPanel>(Guid fileId, Guid menuId, Guid itemId, Func<PanelMenuState, Fin<PanelMenuState>> update) where TPanel : RasmPanel =>
-        new(run: _ => from validUpdate in Optional(update).ToFin(Fail: Op.Of(name: nameof(MenuState)).InvalidInput()) from validIds in guard(fileId != Guid.Empty && menuId != Guid.Empty && itemId != Guid.Empty, Op.Of(name: nameof(MenuState)).InvalidInput()) from registered in RhinoUi.Protect(valid: () => global::Rhino.UI.RuiUpdateUi.RegisterMenuItem(fileId, menuId, itemId, (_, ui) => _ = RhinoUi.Protect(valid: () => from source in PanelMenuState.Of(ui: ui).ToFin(Fail: Op.Of(name: nameof(MenuState)).InvalidInput()) from state in validUpdate(arg: source) select state.Apply(ui: ui))) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(MenuState)).InvalidResult()) }) select registered, interactive: false);
+    public static UiIntent<Unit> MenuState<TPanel>(Guid fileId, Guid menuId, Guid itemId, Func<PanelMenuState, Fin<PanelMenuState>> update) where TPanel : RasmPanel =>
+        UiIntent.OfScope(run: _ => from validUpdate in Op.Of(name: nameof(MenuState)).Need(update) from validIds in guard(fileId != Guid.Empty && menuId != Guid.Empty && itemId != Guid.Empty, Op.Of(name: nameof(MenuState)).InvalidInput()) from registered in RhinoUi.Protect(valid: () => global::Rhino.UI.RuiUpdateUi.RegisterMenuItem(fileId, menuId, itemId, (_, ui) => _ = RhinoUi.Protect(valid: () => from source in Op.Of(name: nameof(MenuState)).Need(PanelMenuState.Of(ui: ui)) from state in validUpdate(arg: source) select state.Apply(ui: ui))) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(MenuState)).InvalidResult()) }) select registered, interactive: false);
 
-    public static PanelOp<TPanel, T> Watch<TPanel, T>(Func<PanelHostEvent, Fin<Unit>> change, Func<Fin<T>> run) where TPanel : RasmPanel =>
-        new(run: _ =>
+    public static UiIntent<T> Watch<TPanel, T>(Func<PanelHostEvent, Fin<Unit>> change, Func<Fin<T>> run) where TPanel : RasmPanel =>
+        UiIntent.OfScope(run: _ =>
             from panel in RasmPanel.PanelIdentityOf<TPanel>()
-            from valid in Optional(change).ToFin(Fail: Op.Of(name: nameof(Watch)).InvalidInput())
-            from body in Optional(run).ToFin(Fail: Op.Of(name: nameof(Watch)).InvalidInput())
+            from valid in Op.Of(name: nameof(Watch)).Need(change)
+            from body in Op.Of(name: nameof(Watch)).Need(run)
             from subscription in RhinoUi.Protect(valid: () => {
-                void Show(object? _, global::Rhino.UI.ShowPanelEventArgs args) =>
-                    _ = (args.PanelId == panel.Id) switch {
-                        true => RhinoUi.Protect(valid: () => valid(arg: new PanelHostEvent(Phase: args.Show ? PanelHostPhase.Shown : PanelHostPhase.Hidden, Show: Some(args), Closed: Option<global::Rhino.UI.PanelEventArgs>.None))),
+                EventHandler<TArgs> Gate<TArgs>(Func<TArgs, Guid> idOf, Func<TArgs, PanelHostEvent> make) =>
+                    (_, args) => _ = (idOf(arg: args) == panel.Id) switch {
+                        true => RhinoUi.Protect(valid: () => valid(arg: make(arg: args))),
                         false => Fin.Succ(value: unit),
                     };
-
-                void Closed(object? _, global::Rhino.UI.PanelEventArgs args) =>
-                    _ = (args.PanelId == panel.Id) switch {
-                        true => RhinoUi.Protect(valid: () => valid(arg: new PanelHostEvent(Phase: PanelHostPhase.Closed, Show: Option<global::Rhino.UI.ShowPanelEventArgs>.None, Closed: Some(args)))),
-                        false => Fin.Succ(value: unit),
-                    };
-
-                EventHandler<global::Rhino.UI.ShowPanelEventArgs> show = Show;
-                EventHandler<global::Rhino.UI.PanelEventArgs> closed = Closed;
+                EventHandler<global::Rhino.UI.ShowPanelEventArgs> show = Gate<global::Rhino.UI.ShowPanelEventArgs>(idOf: static args => args.PanelId, make: static args => new PanelHostEvent(Phase: args.Show ? PanelHostPhase.Shown : PanelHostPhase.Hidden, Show: Some(args), Closed: Option<global::Rhino.UI.PanelEventArgs>.None));
+                EventHandler<global::Rhino.UI.PanelEventArgs> closed = Gate<global::Rhino.UI.PanelEventArgs>(idOf: static args => args.PanelId, make: static args => new PanelHostEvent(Phase: PanelHostPhase.Closed, Show: Option<global::Rhino.UI.ShowPanelEventArgs>.None, Closed: Some(args)));
                 global::Rhino.UI.Panels.Show += show;
                 global::Rhino.UI.Panels.Closed += closed;
-                return Fin.Succ(value: new PanelSubscription(show: show, closed: closed));
+                return Fin.Succ(value: new PanelSubscription(detachers: Seq<Action>(
+                    () => global::Rhino.UI.Panels.Show -= show,
+                    () => global::Rhino.UI.Panels.Closed -= closed)));
             })
             from result in RhinoUi.Protect(valid: () => {
                 try {
@@ -438,16 +416,13 @@ public static class PanelOp {
             select result,
             interactive: false);
 
-    private sealed class PanelSubscription(EventHandler<global::Rhino.UI.ShowPanelEventArgs> show, EventHandler<global::Rhino.UI.PanelEventArgs> closed) : IDisposable {
+    private sealed class PanelSubscription(Seq<Action> detachers) : IDisposable {
         private bool disposed;
 
         public void Dispose() {
             _ = disposed switch {
                 true => unit,
-                false => Op.Side(() => {
-                    global::Rhino.UI.Panels.Show -= show;
-                    global::Rhino.UI.Panels.Closed -= closed;
-                }),
+                false => detachers.Iter(detach => detach()),
             };
             disposed = true;
             GC.SuppressFinalize(obj: this);

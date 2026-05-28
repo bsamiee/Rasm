@@ -98,8 +98,7 @@ public sealed partial record RhinoUi {
     }
 
     public Fin<T> Use<T>(UiIntent<T> intent) =>
-        Optional(intent)
-            .ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
+        Op.Of(name: nameof(Use)).Need(intent)
             .Bind(valid => (valid.Interactive && mode == RunMode.Scripted, valid.Scripted.Case) switch {
                 (true, Func<Scope, Fin<T>> scripted) => OnUiThread(run: () => scripted(arg: new Scope(Document: document, Mode: mode))),
                 (true, _) => Fin.Fail<T>(error: Op.Of(name: nameof(Use)).InvalidInput()),
@@ -110,8 +109,7 @@ public sealed partial record RhinoUi {
         toSeq(global::Rhino.UI.EtoExtensions.WindowsFromDocument<T>(document));
 
     internal static Fin<T> OnUiThread<T>(Func<Fin<T>> run, [CallerMemberName] string name = "") =>
-        Optional(run)
-            .ToFin(Fail: Op.Of(name: name).InvalidInput())
+        Op.Of(name: name).Need(run)
             .Bind(valid => RhinoApp.IsOnMainThread switch {
                 true => Catch(valid: valid, name: name),
                 false => Invoke(valid: valid, name: name),
@@ -125,8 +123,7 @@ public sealed partial record RhinoUi {
         RunMode mode,
         Func<Fin<T>> run,
         [CallerMemberName] string name = "") =>
-        Optional(run)
-            .ToFin(Fail: Op.Of(name: name).InvalidInput())
+        Op.Of(name: name).Need(run)
             .Bind(work => (uiBound, mode, RhinoApp.IsOnMainThread) switch {
                 (false, _, _) => work(),
                 (_, RunMode.Scripted, _) => work(),
@@ -137,15 +134,13 @@ public sealed partial record RhinoUi {
     private static Fin<T> Invoke<T>(Func<Fin<T>> valid, string name) {
         Op op = Op.Of(name: name);
         return op.Catch(() => {
-            if (RhinoApp.IsOnMainThread)
-                return op.Catch(valid);
-            FinCapture<T> capture = new();
+            Fin<T>? captured = null;
             bool ran = false;
             RhinoApp.InvokeAndWait(action: () => {
                 ran = true;
-                capture.Value = op.Catch(valid);
+                captured = op.Catch(valid);
             });
-            return (ran, capture.Value) switch {
+            return (ran, captured) switch {
                 (true, { } result) => result,
                 (true, null) => Fin.Fail<T>(error: op.Caution(concern: "RhinoApp.InvokeAndWait executed but captured no result.")),
                 (false, _) => Fin.Fail<T>(error: op.Caution(concern: "RhinoApp.InvokeAndWait did not execute the delegate.")),
@@ -153,16 +148,11 @@ public sealed partial record RhinoUi {
         });
     }
 
-    private sealed class FinCapture<T> {
-        internal Fin<T>? Value { get; set; }
-    }
-
     internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
         OnUiThread(run: valid, name: name);
 
     internal static Fin<Unit> Enqueue(Action run, string name) =>
-        Optional(run)
-            .ToFin(Fail: Op.Of(name: name).InvalidInput())
+        Op.Of(name: name).Need(run)
             .Map(valid => {
                 RhinoApp.InvokeOnUiThread(method: valid, args: []);
                 return unit;
@@ -213,9 +203,9 @@ public sealed class UiProgress : IDisposable {
         TState initial,
         Func<TState, TItem, Fin<TState>> step,
         Func<TItem, UiProgressStep> progress) =>
-        from source in Optional(items).ToFin(Fail: Op.Of(name: nameof(Fold)).InvalidInput()).Map(static values => toSeq(values))
-        from transition in Optional(step).ToFin(Fail: Op.Of(name: nameof(Fold)).InvalidInput())
-        from project in Optional(progress).ToFin(Fail: Op.Of(name: nameof(Fold)).InvalidInput())
+        from source in Op.Of(name: nameof(Fold)).Need(items).Map(static values => toSeq(values))
+        from transition in Op.Of(name: nameof(Fold)).Need(step)
+        from project in Op.Of(name: nameof(Fold)).Need(progress)
         from result in source.Fold(
             Fin.Succ(value: initial),
             (state, item) =>
@@ -235,7 +225,7 @@ public sealed class UiProgress : IDisposable {
     }
 
     internal static Fin<T> Use<T>(RhinoDoc document, UiProgressSpec spec, Func<UiProgress, Fin<T>> run) =>
-        from validRun in Optional(run).ToFin(Fail: Op.Of(name: nameof(UiProgress)).InvalidInput())
+        from validRun in Op.Of(name: nameof(UiProgress)).Need(run)
         from scope in Start(document: document, spec: spec)
         from result in RhinoUi.Protect(valid: () => {
             // BOUNDARY ADAPTER - native status meter must hide even when caller rail fails.
@@ -244,8 +234,8 @@ public sealed class UiProgress : IDisposable {
         select result;
 
     private static Fin<UiProgress> Start(RhinoDoc document, UiProgressSpec spec) =>
-        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(UiProgress)).InvalidInput())
-        from label in Optional(spec.Label).ToFin(Fail: Op.Of(name: nameof(UiProgress)).InvalidInput())
+        from validDocument in Op.Of(name: nameof(UiProgress)).Need(document)
+        from label in Op.Of(name: nameof(UiProgress)).Need(spec.Label)
         from _ in guard(spec.Upper >= spec.Lower, Op.Of(name: nameof(UiProgress)).InvalidInput())
         from created in global::Rhino.UI.StatusBar.ShowProgressMeter(
             docSerialNumber: validDocument.RuntimeSerialNumber,

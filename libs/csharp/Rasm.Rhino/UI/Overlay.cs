@@ -40,20 +40,14 @@ public readonly record struct MouseContext<TState>(MousePhase Phase, TState Stat
             false => new MouseDecision<TState>(State: State, Cancel: false, ToolTip: Some(value)),
             true => Pass,
         };
-    public Fin<Point3d> Project(Plane plane) => from line in WorldLine.ToFin(Fail: Op.Of(name: nameof(Project)).InvalidInput()) from validPlane in plane.IsValid switch { true => Fin.Succ(value: plane), false => Fin.Fail<Plane>(error: Op.Of(name: nameof(Project)).InvalidInput()) } from point in global::Rhino.Geometry.Intersect.Intersection.LinePlane(line: line, plane: validPlane, lineParameter: out double parameter) switch { true => Fin.Succ(value: line.PointAt(t: parameter)), false => Fin.Fail<Point3d>(error: Op.Of(name: nameof(Project)).InvalidResult()) } select point;
+    public Fin<Point3d> Project(Plane plane) => from line in Op.Of(name: nameof(Project)).Need(WorldLine) from validPlane in plane.IsValid switch { true => Fin.Succ(value: plane), false => Fin.Fail<Plane>(error: Op.Of(name: nameof(Project)).InvalidInput()) } from point in global::Rhino.Geometry.Intersect.Intersection.LinePlane(line: line, plane: validPlane, lineParameter: out double parameter) switch { true => Fin.Succ(value: line.PointAt(t: parameter)), false => Fin.Fail<Point3d>(error: Op.Of(name: nameof(Project)).InvalidResult()) } select point;
 }
 
 public readonly record struct MouseDecision<TState>(TState State, bool Cancel, Option<string> ToolTip = default);
 
 public readonly record struct OverlayContext<TState>(OverlayPhase Phase, TState State, object? Args = null, bool Enabled = false) {
-    public Option<DrawEventArgs> Draw => Optional(Args as DrawEventArgs);
-    public Option<DrawForegroundEventArgs> Foreground => Optional(Args as DrawForegroundEventArgs);
-    public Option<DrawObjectEventArgs> DrawObject => Optional(Args as DrawObjectEventArgs);
-    public Option<CullObjectEventArgs> Cull => Optional(Args as CullObjectEventArgs);
-    public Option<CalculateBoundingBoxEventArgs> Bounds => Optional(Args as CalculateBoundingBoxEventArgs);
-
-    public Fin<TArgs> Require<TArgs>() where TArgs : class =>
-        Optional(Args as TArgs).ToFin(Fail: Op.Of(name: nameof(Require)).InvalidInput());
+    public Option<TArgs> As<TArgs>() where TArgs : class => Optional(Args as TArgs);
+    public Fin<TArgs> Require<TArgs>() where TArgs : class => Op.Of(name: nameof(Require)).Need(As<TArgs>());
 }
 
 public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = default, Option<bool> Cull = default, Option<Func<DisplayPipeline, Fin<Unit>>> Draw = default, Option<Func<DrawObjectEventArgs, Fin<Unit>>> DrawObject = default) {
@@ -63,29 +57,23 @@ public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = defau
         BoundsOf(source: geometry, op: Op.Of(name: nameof(OverlayDecision))).Bind(Include);
     public static OverlayDecision CullObject(bool cull = true) => new(Cull: Some(cull));
     public static Fin<OverlayDecision> Paint(Func<DisplayPipeline, Fin<Unit>> draw) =>
-        Optional(draw)
-            .ToFin(Fail: Op.Of(name: nameof(Paint)).InvalidInput())
+        Op.Of(name: nameof(Paint)).Need(draw)
             .Map(static value => new OverlayDecision(Draw: Some(value)));
     public static Fin<OverlayDecision> PaintObject(Func<DrawObjectEventArgs, Fin<Unit>> draw) =>
-        Optional(draw)
-            .ToFin(Fail: Op.Of(name: nameof(PaintObject)).InvalidInput())
+        Op.Of(name: nameof(PaintObject)).Need(draw)
             .Map(static value => new OverlayDecision(DrawObject: Some(value)));
     public static OverlayDecision operator +(OverlayDecision left, OverlayDecision right) => Add(left: left, right: right);
     public static OverlayDecision Add(OverlayDecision left, OverlayDecision right) => new(
-        Bounds: (left.Bounds.Case, right.Bounds.Case) switch { (BoundingBox a, BoundingBox b) => Some(BoundingBox.Union(a, b)), (_, BoundingBox b) => Some(b), (BoundingBox a, _) => Some(a), _ => Option<BoundingBox>.None },
+        Bounds: (left.Bounds.Case, right.Bounds.Case) switch { (BoundingBox a, BoundingBox b) => Some(BoundingBox.Union(a, b)), _ => right.Bounds | left.Bounds },
         Cull: right.Cull | left.Cull,
-        Draw: (left.Draw.Case, right.Draw.Case) switch {
-            (Func<DisplayPipeline, Fin<Unit>> a, Func<DisplayPipeline, Fin<Unit>> b) => Some<Func<DisplayPipeline, Fin<Unit>>>(pipeline => a(arg: pipeline).Bind(_ => b(arg: pipeline))),
-            (_, Func<DisplayPipeline, Fin<Unit>> b) => Some(b),
-            (Func<DisplayPipeline, Fin<Unit>> a, _) => Some(a),
-            _ => Option<Func<DisplayPipeline, Fin<Unit>>>.None,
-        },
-        DrawObject: (left.DrawObject.Case, right.DrawObject.Case) switch {
-            (Func<DrawObjectEventArgs, Fin<Unit>> a, Func<DrawObjectEventArgs, Fin<Unit>> b) => Some<Func<DrawObjectEventArgs, Fin<Unit>>>(args => a(arg: args).Bind(_ => b(arg: args))),
-            (_, Func<DrawObjectEventArgs, Fin<Unit>> b) => Some(b),
-            (Func<DrawObjectEventArgs, Fin<Unit>> a, _) => Some(a),
-            _ => Option<Func<DrawObjectEventArgs, Fin<Unit>>>.None,
-        });
+        Draw: Combine(left: left.Draw, right: right.Draw),
+        DrawObject: Combine(left: left.DrawObject, right: right.DrawObject));
+
+    private static Option<Func<TArg, Fin<Unit>>> Combine<TArg>(Option<Func<TArg, Fin<Unit>>> left, Option<Func<TArg, Fin<Unit>>> right) =>
+        (left.Case, right.Case) switch {
+            (Func<TArg, Fin<Unit>> a, Func<TArg, Fin<Unit>> b) => Some<Func<TArg, Fin<Unit>>>(arg => a(arg: arg).Bind(_ => b(arg: arg))),
+            _ => right | left,
+        };
     internal static Fin<BoundingBox> BoundsOf(object source, Op op) =>
         Analyze.Run(operation: Analyze.Bounds<object, BoundingBox>(aspect: Analysis.Bounds.AxisAligned), input: source)
             .ToFin()
@@ -99,8 +87,7 @@ public readonly record struct OverlayFilter(Option<ObjectType> Geometry = defaul
     internal Fin<Unit> Apply(DisplayConduit conduit) {
         Option<ObjectType> geometry = Geometry; Option<ActiveSpace> space = Space; Option<Seq<Guid>> objectIds = ObjectIds.Map(static ids => ids.Filter(static id => id != Guid.Empty).Distinct()); Option<(bool On, bool CheckSubObjects)> selection = Selection; Option<(RhinoViewport Viewport, bool Exclusive)> viewport = Viewport;
         bool unbind = Unbind;
-        return Optional(conduit)
-            .ToFin(Fail: Op.Of(name: nameof(OverlayFilter)).InvalidInput())
+        return Op.Of(name: nameof(OverlayFilter)).Need(conduit)
             .Map(valid => {
                 _ = unbind switch {
                     true => Op.Side(() => {
@@ -202,26 +189,18 @@ public readonly record struct UiPreviewScope(
     public Fin<Unit> Set(UiViewportPreview preview) {
         RasmOverlay<UiViewportPreview> overlay = Overlay;
         RhinoDoc document = Document;
-        return Optional(preview)
-            .ToFin(Fail: Op.Of(name: nameof(Set)).InvalidInput())
+        return Op.Of(name: nameof(Set)).Need(preview)
             .Bind(valid => valid.Validate().Map(_ => valid))
             .Bind(valid => overlay.Transition(transition: _ => valid, document: document));
     }
 
     public Fin<bool> UpdateGumball(Point3d point, Line worldLine) =>
-        from active in Gumball.ToFin(Fail: Op.Of(name: nameof(UpdateGumball)).InvalidInput())
+        from active in Op.Of(name: nameof(UpdateGumball)).Need(Gumball)
         from _ in active.CheckKeys()
         from changed in active.Update(point: point, line: worldLine)
         select changed;
 
-    public Fin<bool> PickGumball(PickContext pick, GetPoint point) => from active in Gumball.ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from validPick in Optional(pick).ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from validPoint in Optional(point).ToFin(Fail: Op.Of(name: nameof(PickGumball)).InvalidInput()) from picked in active.Pick(pick: validPick, point: validPoint) select picked;
-}
-
-public sealed record UiViewportRequest<T>(Func<RhinoDoc, Fin<T>> Run) {
-    public Fin<T> Execute(RhinoDoc document) =>
-        from validRun in Optional(Run).ToFin(Fail: Op.Of(name: nameof(Execute)).InvalidInput())
-        from result in validRun(arg: document)
-        select result;
+    public Fin<bool> PickGumball(PickContext pick, GetPoint point) => from active in Op.Of(name: nameof(PickGumball)).Need(Gumball) from validPick in Op.Of(name: nameof(PickGumball)).Need(pick) from validPoint in Op.Of(name: nameof(PickGumball)).Need(point) from picked in active.Pick(pick: validPick, point: validPoint) select picked;
 }
 
 public sealed record UiViewportInteraction<TState>(
@@ -230,8 +209,8 @@ public sealed record UiViewportInteraction<TState>(
     Func<MouseContext<TState>, Fin<MouseDecision<TState>>> Mouse,
     Option<UiGumballSpec> Gumball = default) {
     internal Fin<T> Use<T>(RhinoDoc document, Func<UiPreviewScope, Fin<T>> run) =>
-        from validRun in Optional(run).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
-        from validMouse in Optional(Mouse).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
+        from validRun in Op.Of(name: nameof(Use)).Need(run)
+        from validMouse in Op.Of(name: nameof(Use)).Need(Mouse)
         from result in UiViewportPreview.Use(document: document, preview: Preview, gumball: Gumball, run: scope => new Callback(initial: Initial, change: validMouse).Use(run: _ => validRun(arg: scope)))
         select result;
 
@@ -241,7 +220,7 @@ public sealed record UiViewportInteraction<TState>(
         private bool disposed;
 
         internal Fin<T> Use<T>(Func<Callback, Fin<T>> run) =>
-            from validRun in Optional(run).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
+            from validRun in Op.Of(name: nameof(Use)).Need(run)
             from _ in guard(!disposed, Op.Of(name: nameof(Use)).InvalidInput())
             from result in RhinoUi.Protect(valid: () => {
                 Enabled = true;
@@ -321,10 +300,8 @@ public sealed record UiViewportPreview {
         new(draw: _ => Fin.Succ(value: unit), bounds: static () => Fin.Succ(value: OverlayDecision.Ignore), validate: static () => Fin.Succ(value: unit));
 
     public static UiViewportPreview Of<TGeometry>(IEnumerable<TGeometry> geometry, UiPreviewStyle style = default) where TGeometry : notnull {
-        Fin<Seq<object>> items = Optional(geometry)
-            .ToFin(Fail: Op.Of(name: nameof(UiViewportPreview)).InvalidInput())
-            .Bind(static source => toSeq(source).Map(static item => (object)item).TraverseM(item => Optional(item)
-                .ToFin(Fail: Op.Of(name: nameof(UiViewportPreview)).InvalidInput())
+        Fin<Seq<object>> items = Op.Of(name: nameof(UiViewportPreview)).Need(geometry)
+            .Bind(static source => toSeq(source).Map(static item => (object)item).TraverseM(item => Op.Of(name: nameof(UiViewportPreview)).Need(item)
                 .Bind(static value => OverlayDecision.BoundsOf(source: value, op: Op.Of(name: nameof(UiViewportPreview))).Map(_ => value))).As())
             .Bind(static values => values.IsEmpty switch {
                 false => Fin.Succ(value: values),
@@ -348,8 +325,7 @@ public sealed record UiViewportPreview {
 
     public static UiViewportPreview FromSelection(Commands.CommandSelection selection, UiPreviewStyle style = default) {
         Fin<UiViewportPreview> preview =
-            Optional(selection)
-                .ToFin(Fail: Op.Of(name: nameof(FromSelection)).InvalidInput())
+            Op.Of(name: nameof(FromSelection)).Need(selection)
                 .Bind(valid => valid.Geometry<GeometryBase>())
                 .Map(geometry => Of(geometry: geometry, style: style));
 
@@ -361,11 +337,10 @@ public sealed record UiViewportPreview {
 
     public static UiViewportPreview Draw(Func<UiPreviewContext, Fin<Unit>> draw, Func<Fin<OverlayDecision>> bounds) =>
         new(
-            draw: context => Optional(draw).ToFin(Fail: Op.Of(name: nameof(Draw)).InvalidInput()).Bind(valid => valid(arg: context)),
-            bounds: () => Optional(bounds).ToFin(Fail: Op.Of(name: nameof(Draw)).InvalidInput()).Bind(valid => valid()),
-            validate: () => Optional(draw)
-                .ToFin(Fail: Op.Of(name: nameof(Draw)).InvalidInput())
-                .Bind(_ => Optional(bounds).ToFin(Fail: Op.Of(name: nameof(Draw)).InvalidInput()))
+            draw: context => Op.Of(name: nameof(Draw)).Need(draw).Bind(valid => valid(arg: context)),
+            bounds: () => Op.Of(name: nameof(Draw)).Need(bounds).Bind(valid => valid()),
+            validate: () => Op.Of(name: nameof(Draw)).Need(draw)
+                .Bind(_ => Op.Of(name: nameof(Draw)).Need(bounds))
                 .Map(static _ => unit));
 
     public static UiViewportPreview Add(UiViewportPreview left, UiViewportPreview right) =>
@@ -384,9 +359,9 @@ public sealed record UiViewportPreview {
     internal Fin<Unit> Validate() => validate();
 
     internal static Fin<T> Use<T>(RhinoDoc document, UiViewportPreview preview, Option<UiGumballSpec> gumball, Func<UiPreviewScope, Fin<T>> run) =>
-        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
-        from validPreview in Optional(preview).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput()).Bind(valid => valid.Validate().Map(_ => valid))
-        from validRun in Optional(run).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
+        from validDocument in Op.Of(name: nameof(Use)).Need(document)
+        from validPreview in Op.Of(name: nameof(Use)).Need(preview).Bind(valid => valid.Validate().Map(_ => valid))
+        from validRun in Op.Of(name: nameof(Use)).Need(run)
         from result in gumball.Case switch {
             UiGumballSpec spec => UiGumball.Use(
                 document: validDocument,
@@ -423,8 +398,8 @@ public readonly record struct UiGumballSnapshot(
     Transform TotalTransform,
     global::Rhino.UI.Gumball.GumballMode Mode,
     bool InRelocate) {
-    public Fin<TGeometry> Apply<TGeometry>(TGeometry geometry, bool duplicate = true) where TGeometry : GeometryBase { Transform transform = TotalTransform; return from _ in guard(transform.IsValid, Op.Of(name: nameof(Apply)).InvalidInput()) from source in Optional(geometry).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()) from target in duplicate switch { true => Optional(source.Duplicate() as TGeometry).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidResult()), false => Fin.Succ(value: source) } from __ in target.Transform(xform: transform) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Apply)).InvalidResult()) } select target; }
-    public Fin<Seq<TGeometry>> Apply<TGeometry>(IEnumerable<TGeometry> geometry, bool duplicate = true) where TGeometry : GeometryBase { UiGumballSnapshot snapshot = this; return Optional(geometry).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(items => toSeq(items).TraverseM(item => snapshot.Apply(geometry: item, duplicate: duplicate)).As()); }
+    public Fin<TGeometry> Apply<TGeometry>(TGeometry geometry, bool duplicate = true) where TGeometry : GeometryBase { Transform transform = TotalTransform; return from _ in guard(transform.IsValid, Op.Of(name: nameof(Apply)).InvalidInput()) from source in Op.Of(name: nameof(Apply)).Need(geometry) from target in duplicate switch { true => Optional(source.Duplicate() as TGeometry).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidResult()), false => Fin.Succ(value: source) } from __ in target.Transform(xform: transform) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Apply)).InvalidResult()) } select target; }
+    public Fin<Seq<TGeometry>> Apply<TGeometry>(IEnumerable<TGeometry> geometry, bool duplicate = true) where TGeometry : GeometryBase { UiGumballSnapshot snapshot = this; return Op.Of(name: nameof(Apply)).Need(geometry).Bind(items => toSeq(items).TraverseM(item => snapshot.Apply(geometry: item, duplicate: duplicate)).As()); }
 }
 
 public sealed record UiGumballSpec {
@@ -438,8 +413,7 @@ public sealed record UiGumballSpec {
     internal global::Rhino.UI.Gumball.GumballAppearanceSettings? Appearance { get; }
 
     internal Fin<Unit> Configure(global::Rhino.UI.Gumball.GumballObject gumball) =>
-        Optional(configure)
-            .ToFin(Fail: Op.Of(name: nameof(UiGumballSpec)).InvalidInput())
+        Op.Of(name: nameof(UiGumballSpec)).Need(configure)
             .Bind(valid => valid(arg: gumball));
 
     public static UiGumballSpec Of(
@@ -448,7 +422,7 @@ public sealed record UiGumballSpec {
         global::Rhino.UI.Gumball.GumballAppearanceSettings? appearance = null,
         params Action<global::Rhino.UI.Gumball.GumballAppearanceSettings>[] appearanceActions) =>
         new(
-            configure: gumball => Optional(source).ToFin(Fail: Op.Of(name: nameof(UiGumballSpec)).InvalidInput()).Bind(value => From(gumball: gumball, source: value, frame: frame)),
+            configure: gumball => Op.Of(name: nameof(UiGumballSpec)).Need(source).Bind(value => From(gumball: gumball, source: value, frame: frame)),
             appearance: appearance,
             appearanceActions: toSeq(appearanceActions));
 
@@ -472,7 +446,7 @@ public sealed record UiGumballSpec {
 
     private static Fin<Unit> Valid(bool value) => value switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult()) };
 
-    private static Fin<BoundingBox> Bounds(object source, Option<Plane> frame) => (frame.Case, source) switch { (Plane plane, GeometryBase geometry) => Optional(geometry).ToFin(Fail: Op.Of(name: nameof(UiGumballSpec)).InvalidInput()).Bind(value => value.GetBoundingBox(plane: plane) switch { BoundingBox box when box.IsValid => Fin.Succ(value: box), _ => Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult()) }), (_, object value) => OverlayDecision.BoundsOf(source: value, op: Op.Of(name: nameof(UiGumballSpec))).Bind(static box => box.IsValid ? Fin.Succ(value: box) : Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult())) };
+    private static Fin<BoundingBox> Bounds(object source, Option<Plane> frame) => (frame.Case, source) switch { (Plane plane, GeometryBase geometry) => Op.Of(name: nameof(UiGumballSpec)).Need(geometry).Bind(value => value.GetBoundingBox(plane: plane) switch { BoundingBox box when box.IsValid => Fin.Succ(value: box), _ => Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult()) }), (_, object value) => OverlayDecision.BoundsOf(source: value, op: Op.Of(name: nameof(UiGumballSpec))).Bind(static box => box.IsValid ? Fin.Succ(value: box) : Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult())) };
 
     private static global::Rhino.UI.Gumball.GumballAppearanceSettings? Settings(global::Rhino.UI.Gumball.GumballAppearanceSettings? seed, Seq<Action<global::Rhino.UI.Gumball.GumballAppearanceSettings>> actions) => (seed, actions.IsEmpty) switch { (global::Rhino.UI.Gumball.GumballAppearanceSettings settings, false) => Apply(settings: settings, actions: actions), (_, false) => Apply(settings: new global::Rhino.UI.Gumball.GumballAppearanceSettings(), actions: actions), _ => seed };
 
@@ -487,7 +461,7 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDis
     public TState State => state.Value;
 
     public Fin<Unit> Transition(Func<TState, TState> transition, RhinoDoc? document = null) =>
-        disposed switch { false => Optional(transition).ToFin(Fail: Op.Of(name: nameof(Transition)).InvalidInput()).Map(apply => { _ = state.Swap(f: apply); _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Transition)).InvalidInput()) };
+        disposed switch { false => Op.Of(name: nameof(Transition)).Need(transition).Map(apply => { _ = state.Swap(f: apply); _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Transition)).InvalidInput()) };
 
     public Fin<Unit> Enable(bool enabled = true, RhinoDoc? document = null) =>
         disposed switch { false => Fin.Succ(value: Op.Side(() => { Enabled = enabled; _ = Optional(document).Iter(static doc => doc.Views.Redraw()); })), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Enable)).InvalidInput()) };
@@ -496,7 +470,7 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDis
         disposed switch { false => filter.Apply(conduit: this).Map(_ => { _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Filter)).InvalidInput()) };
 
     public Fin<T> Use<T>(RhinoDoc document, Func<RasmOverlay<TState>, Fin<T>> run) =>
-        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput()) from validRun in Optional(run).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput()) from active in guard(!disposed, Op.Of(name: nameof(Use)).InvalidInput()) from result in RhinoUi.Protect(valid: () => {
+        from validDocument in Op.Of(name: nameof(Use)).Need(document) from validRun in Op.Of(name: nameof(Use)).Need(run) from active in guard(!disposed, Op.Of(name: nameof(Use)).InvalidInput()) from result in RhinoUi.Protect(valid: () => {
             Enabled = true;
             validDocument.Views.Redraw();
             // BOUNDARY ADAPTER - display conduit lifetime must be closed after the caller rail exits.
@@ -582,7 +556,7 @@ public sealed class UiGumball : IDisposable {
             Mode: conduit.PickResult.Mode,
             InRelocate: conduit.InRelocate);
 
-    public Fin<bool> Pick(PickContext pick, GetPoint point) => from _ in guard(!disposed, Op.Of(name: nameof(Pick)).InvalidInput()) from validPick in Optional(pick).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()) from validPoint in Optional(point).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()) select conduit.PickGumball(pickContext: validPick, getPoint: validPoint);
+    public Fin<bool> Pick(PickContext pick, GetPoint point) => from _ in guard(!disposed, Op.Of(name: nameof(Pick)).InvalidInput()) from validPick in Op.Of(name: nameof(Pick)).Need(pick) from validPoint in Op.Of(name: nameof(Pick)).Need(point) select conduit.PickGumball(pickContext: validPick, getPoint: validPoint);
 
     public Fin<bool> Update(Point3d point, Line line) =>
         from _ in guard(!disposed && point.IsValid && line.IsValid, Op.Of(name: nameof(Update)).InvalidInput()) from changed in Redraw(value: conduit.UpdateGumball(point: point, worldLine: line)) select changed;
@@ -603,18 +577,14 @@ public sealed class UiGumball : IDisposable {
     }
 
     internal static Fin<T> Use<T>(RhinoDoc document, UiGumballSpec spec, Func<UiGumball, Fin<T>> run) =>
-        from scope in Start(document: document, spec: spec)
+        from validDocument in Op.Of(name: nameof(UiGumball)).Need(document)
+        from validSpec in Op.Of(name: nameof(UiGumball)).Need(spec)
+        from scope in RhinoUi.Protect(valid: () => Create(document: validDocument, spec: validSpec))
         from result in RhinoUi.Protect(valid: () => {
             // BOUNDARY ADAPTER - gumball/conduit are native disposable view state.
             try { return run(arg: scope); } finally { scope.Dispose(); }
         })
         select result;
-
-    private static Fin<UiGumball> Start(RhinoDoc document, UiGumballSpec spec) =>
-        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(UiGumball)).InvalidInput())
-        from validSpec in Optional(spec).ToFin(Fail: Op.Of(name: nameof(UiGumball)).InvalidInput())
-        from scope in RhinoUi.Protect(valid: () => Create(document: validDocument, spec: validSpec))
-        select scope;
 
     private static Fin<UiGumball> Create(RhinoDoc document, UiGumballSpec spec) {
         global::Rhino.UI.Gumball.GumballObject? nativeSource = new();
@@ -656,12 +626,12 @@ public sealed class UiGumball : IDisposable {
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class UiViewportRequest {
-    public static UiViewportRequest<T> Preview<T>(UiViewportPreview preview, Func<UiPreviewScope, Fin<T>> run, Option<UiGumballSpec> gumball = default) =>
-        new(Run: document => UiViewportPreview.Use(document: document, preview: preview, gumball: gumball, run: run));
+    public static UiIntent<T> Preview<T>(UiViewportPreview preview, Func<UiPreviewScope, Fin<T>> run, Option<UiGumballSpec> gumball = default) =>
+        UiIntent.OfScope(run: scope => UiViewportPreview.Use(document: scope.Document, preview: preview, gumball: gumball, run: run), interactive: true);
 
-    public static UiViewportRequest<T> Interaction<TState, T>(UiViewportInteraction<TState> interaction, Func<UiPreviewScope, Fin<T>> run) =>
-        new(Run: document =>
-            from active in Optional(interaction).ToFin(Fail: Op.Of(name: nameof(Interaction)).InvalidInput())
-            from result in active.Use(document: document, run: run)
-            select result);
+    public static UiIntent<T> Interaction<TState, T>(UiViewportInteraction<TState> interaction, Func<UiPreviewScope, Fin<T>> run) =>
+        UiIntent.OfScope(run: scope =>
+            from active in Op.Of(name: nameof(Interaction)).Need(interaction)
+            from result in active.Use(document: scope.Document, run: run)
+            select result, interactive: true);
 }
