@@ -87,9 +87,7 @@ public abstract partial record FilePublishTarget {
             select unit).As()
         from _suffix in target.Suffix.TraverseM(spec => AddBlankPdfPage(pdf: pdf, spec: spec, op: op)).As()
         from _write in op.Catch(() => { pdf.Write(filename: endpoint.Path); return Fin.Succ(value: unit); })
-        from _verify in Optional(new IOFileInfo(fileName: endpoint.Path))
-            .Filter(static info => info.Exists && info.Length > 0)
-            .ToFin(Fail: op.InvalidResult())
+        from _verify in VerifyFile(path: endpoint.Path, op: op)
         select new FilePublishResult(
             Target: Some(endpoint),
             Format: Some(FileFormat.Pdf),
@@ -127,57 +125,53 @@ public abstract partial record FilePublishTarget {
     private static Fin<FilePublishResult> WriteRaster(Raster target, Seq<FileSheetPage> pages, Op op) {
         FileRasterEncoding encoding = target.ResolvedEncoding;
         FileRasterSettings settings = target.Settings;
-        return from endpoint in target.Target.WithFormat(format: encoding.Format).Output(op: op)
-               from written in pages.Map((page, index) => (Index: index, Page: page))
-                   .TraverseM(item =>
-                       from captureSettings in item.Page.Sheet.Settings(page: item.Page.Page, op: op)
-                       from rendered in op.Catch(() => {
-                           using ViewCaptureSettings owned = captureSettings;
-                           DrawingBitmap? bitmap = ViewCapture.CaptureToBitmap(settings: owned);
-                           try {
-                               string path = pages.Count == 1 ? endpoint.Path : FileEndpoint.NumberedPath(path: endpoint.Path, index: item.Index + 1);
-                               return Optional(bitmap)
-                                   .ToFin(Fail: op.InvalidResult())
-                                   .Map(active => {
-                                       _ = settings.ExifDpi.Iter(dpi => active.SetResolution(xDpi: (float)dpi, yDpi: (float)dpi));
-                                       return active;
-                                   })
-                                   .Bind(active => SaveBitmap(bitmap: active, encoding: encoding, settings: settings, path: path, op: op));
-                           } finally {
-                               bitmap?.Dispose();
-                           }
-                       })
-                       select rendered).As()
-               select new FilePublishResult(
-                   Target: Some(endpoint),
-                   Format: Some(encoding.Format),
-                   Receipt: DocumentReceipt.Empty,
-                   Sheets: pages.Map(SheetReportOf),
-                   NativeLog: Some(string.Create(CultureInfo.InvariantCulture, $"raster:{encoding.Key};quality:{settings.JpegQuality};sheets:{pages.Count}")));
+        return CaptureSheets(target: target.Target, format: encoding.Format, pages: pages, op: op,
+            render: (owned, path) => {
+                DrawingBitmap? bitmap = ViewCapture.CaptureToBitmap(settings: owned);
+                try {
+                    return Optional(bitmap)
+                        .ToFin(Fail: op.InvalidResult())
+                        .Map(active => {
+                            _ = settings.ExifDpi.Iter(dpi => active.SetResolution(xDpi: (float)dpi, yDpi: (float)dpi));
+                            return active;
+                        })
+                        .Bind(active => SaveBitmap(bitmap: active, encoding: encoding, settings: settings, path: path, op: op));
+                } finally {
+                    bitmap?.Dispose();
+                }
+            },
+            log: string.Create(CultureInfo.InvariantCulture, $"raster:{encoding.Key};quality:{settings.JpegQuality};sheets:{pages.Count}"));
     }
 
     private static Fin<FilePublishResult> WriteSvg(Svg target, Seq<FileSheetPage> pages, Op op) =>
-        from endpoint in target.Target.WithFormat(format: FileFormat.Svg).Output(op: op)
+        CaptureSheets(target: target.Target, format: FileFormat.Svg, pages: pages, op: op,
+            render: (owned, path) => Optional(ViewCapture.CaptureToSvg(settings: owned))
+                .ToFin(Fail: op.InvalidResult())
+                .Bind(document => op.Catch(() => {
+                    document.Save(filename: path);
+                    return VerifyFile(path: path, op: op);
+                })),
+            log: string.Create(CultureInfo.InvariantCulture, $"svg;sheets:{pages.Count}"));
+
+    private static Fin<FilePublishResult> CaptureSheets(FileEndpoint target, FileFormat format, Seq<FileSheetPage> pages, Op op, Func<ViewCaptureSettings, string, Fin<Unit>> render, string log) =>
+        from endpoint in target.WithFormat(format: format).Output(op: op)
         from written in pages.Map((page, index) => (Index: index, Page: page))
             .TraverseM(item =>
                 from settings in item.Page.Sheet.Settings(page: item.Page.Page, op: op)
                 from rendered in op.Catch(() => {
                     using ViewCaptureSettings owned = settings;
-                    string path = pages.Count == 1 ? endpoint.Path : FileEndpoint.NumberedPath(path: endpoint.Path, index: item.Index + 1);
-                    return Optional(ViewCapture.CaptureToSvg(settings: owned))
-                        .ToFin(Fail: op.InvalidResult())
-                        .Bind(document => op.Catch(() => {
-                            document.Save(filename: path);
-                            return Optional(new IOFileInfo(fileName: path)).Filter(static info => info.Exists && info.Length > 0).Map(static _ => unit).ToFin(Fail: op.InvalidResult());
-                        }));
+                    return render(arg1: owned, arg2: pages.Count == 1 ? endpoint.Path : FileEndpoint.NumberedPath(path: endpoint.Path, index: item.Index + 1));
                 })
                 select rendered).As()
         select new FilePublishResult(
             Target: Some(endpoint),
-            Format: Some(FileFormat.Svg),
+            Format: Some(format),
             Receipt: DocumentReceipt.Empty,
             Sheets: pages.Map(SheetReportOf),
-            NativeLog: Some(string.Create(CultureInfo.InvariantCulture, $"svg;sheets:{pages.Count}")));
+            NativeLog: Some(log));
+
+    private static Fin<Unit> VerifyFile(string path, Op op) =>
+        Optional(new IOFileInfo(fileName: path)).Filter(static info => info.Exists && info.Length > 0).Map(static _ => unit).ToFin(Fail: op.InvalidResult());
 
     private static Fin<Unit> SaveBitmap(DrawingBitmap bitmap, FileRasterEncoding encoding, FileRasterSettings settings, string path, Op op) =>
         op.Catch(() => {
@@ -198,10 +192,7 @@ public abstract partial record FilePublishTarget {
                 }),
                 _ => Op.Side(() => bitmap.Save(filename: path, format: image)),
             };
-            return Optional(new IOFileInfo(fileName: path))
-                .Filter(static info => info.Exists && info.Length > 0)
-                .Map(static _ => unit)
-                .ToFin(Fail: op.InvalidResult());
+            return VerifyFile(path: path, op: op);
         });
 
     private static FileSheetReport SheetReportOf(FileSheetPage entry) {
@@ -520,8 +511,8 @@ public static class FileOp {
                     open: static open =>
                         from source in open.Source.Input(op: Op.Of(name: nameof(Headless)))
                         from options in FileFormatProjection.Dictionary(endpoint: source, profile: open.Profile, phase: FilePhase.Headless, op: Op.Of(name: nameof(Headless)))
-                            .BindFail(error => source.Format.Case switch {
-                                FileFormat => Fin.Fail<ArchivableDictionary>(error: error),
+                            .BindFail(error => (source.Format.Case, open.Profile.Scale.IsSome) switch {
+                                (FileFormat, _) or (_, true) => Fin.Fail<ArchivableDictionary>(error: error),
                                 _ => Fin.Succ(value: new ArchivableDictionary()),
                             })
                         from document in Optional(RhinoDoc.OpenHeadless(filePath: source.Path, options: options)).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidResult())
@@ -901,14 +892,11 @@ public static class FileEarthOps {
     private static Fin<T> UseAnchor<T>(RhinoDoc document, Op op, Func<EarthAnchorPoint, Op, Fin<T>> use, bool requireEarth = false, bool requireModel = false) =>
         Optional(document).ToFin(Fail: op.InvalidInput()).Bind(active => op.Catch(() => {
             using EarthAnchorPoint? anchor = active.EarthAnchorPoint;
-            Fin<T> work = Optional(anchor).ToFin(Fail: op.InvalidResult()).Bind(valid =>
+            return Optional(anchor).ToFin(Fail: op.InvalidResult()).Bind(valid =>
                 (requireEarth && !valid.EarthLocationIsSet(), requireModel && !valid.ModelLocationIsSet()) switch {
                     (false, false) => use(arg1: valid, arg2: op),
                     _ => Fin.Fail<T>(error: op.InvalidInput()),
                 });
-            return work.Match(
-                Fail: static fail => Fin.Fail<T>(fail),
-                Succ: static succ => Fin.Succ(succ));
         }));
 }
 
