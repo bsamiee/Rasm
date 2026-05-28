@@ -409,10 +409,6 @@ public partial record DropCue {
                 .Map(static parameter => Some(parameter)));
 }
 
-public abstract record DocumentRequest : GhUiRequest<DocumentResult> {
-    public sealed record Run(DocumentOp Op) : DocumentRequest { internal override GrasshopperUiPolicy Policy => Op.UiPolicy; internal override Fin<DocumentResult> Apply(GrasshopperUi.Scope scope) => Document.Dispatch(scope: scope, op: Op); }
-}
-
 [SkipUnionOps]
 [Union]
 public abstract partial record DocumentMutation {

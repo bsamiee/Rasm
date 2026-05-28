@@ -6,6 +6,7 @@ using Grasshopper2.UI.Canvas;
 using Grasshopper2.Undo.Actions;
 using GhDocument = Grasshopper2.Doc.Document;
 using GhObjectList = Grasshopper2.Doc.ObjectList;
+using GuidSet = System.Collections.Generic.HashSet<System.Guid>;
 using Op = Rasm.Domain.Op;
 using UiSnapshot = Rasm.Grasshopper.UI.Snapshot;
 using UndoAction = Grasshopper2.Undo.Action;
@@ -148,10 +149,6 @@ public partial record LayoutResult {
     public sealed record SnapshotsResult(Seq<LayoutSnapshot> Snapshots) : LayoutResult;
     public sealed record MutationResult(Snapshot<LayoutArrangeDelta> Delta) : LayoutResult;
     public sealed record SnapResult(Option<SnappingSnapshot> Snapshot) : LayoutResult;
-}
-
-public abstract record LayoutRequest : GhUiRequest<LayoutResult> {
-    public sealed record Run(LayoutOp Op) : LayoutRequest { internal override GrasshopperUiPolicy Policy => Op.UiPolicy; internal override Fin<LayoutResult> Apply(GrasshopperUi.Scope scope) => Layout.Dispatch(op: Op).Run(scope: scope); }
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -343,7 +340,7 @@ internal static partial class Layout {
             document: document,
             includeSelected: active.IncludeSelected,
             includeUnselected: active.IncludeUnselected,
-            filter: new System.Collections.Generic.HashSet<Guid>([obj.InstanceId]));
+            filter: new GuidSet([obj.InstanceId]));
         RectangleF wireBounds = bounds.IfNone(obj.Attributes.Bounds);
         (SnappingAction x, SnappingAction y) = bounds
             .Map(SnapRectangle)

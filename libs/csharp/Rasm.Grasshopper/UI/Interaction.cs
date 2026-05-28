@@ -164,10 +164,6 @@ public partial record InteractionOp {
     public sealed record ModifierWatchCase(Func<InputModifierSnapshot, Fin<Unit>> Handler) : InteractionOp;
 }
 
-public abstract record CanvasChromeRequest : GhUiRequest<CanvasChromeResult> {
-    public sealed record Run(CanvasChromeOp Op) : CanvasChromeRequest { internal override GrasshopperUiPolicy Policy => Op.UiPolicy; internal override Fin<CanvasChromeResult> Apply(GrasshopperUi.Scope scope) => CanvasChrome.Dispatch(op: Op).Run(scope: scope); }
-}
-
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct TooltipSnapshot(bool Visible, Option<Guid> OwnerToken);

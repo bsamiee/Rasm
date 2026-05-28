@@ -41,14 +41,10 @@ public partial record EditorResult {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct EditorSnapshot(bool HasEditor, bool HasCanvas, bool HasDocument, bool Collapsed, bool HasStatusBar, Option<Guid> StatusBarDocumentHash, bool ShowNotes, bool ShowUndoHistory, string InitialLayout, Seq<string> DefinedLayouts, Option<string> MostRecentActiveDocument, Seq<string> MostRecentLoadedDocuments, int MostRecentCount);
+public readonly record struct EditorSnapshot(bool HasEditor = false, bool HasCanvas = false, bool HasDocument = false, bool Collapsed = false, bool HasStatusBar = false, Option<Guid> StatusBarDocumentHash = default, bool ShowNotes = false, bool ShowUndoHistory = false, string InitialLayout = "", Seq<string> DefinedLayouts = default, Option<string> MostRecentActiveDocument = default, Seq<string> MostRecentLoadedDocuments = default, int MostRecentCount = 0);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct EditorShellSnapshot(bool Collapsed, bool ShowNotes, bool ShowUndoHistory, string InitialLayout, Seq<string> DefinedLayouts);
-
-public abstract record EditorRequest : GhUiRequest<EditorResult> {
-    public sealed record Run(EditorOp Op) : EditorRequest { internal override GrasshopperUiPolicy Policy => Op.UiPolicy; internal override Fin<EditorResult> Apply(GrasshopperUi.Scope scope) => Editor.Dispatch(op: Op); }
-}
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Editor {
@@ -115,20 +111,7 @@ internal static partial class Editor {
                 MostRecentActiveDocument: Optional(e.MostRecentActiveDocument),
                 MostRecentLoadedDocuments: toSeq(e.MostRecentLoadedDocuments),
                 MostRecentCount: e.MostRecentCount),
-            None: () => new EditorSnapshot(
-                HasEditor: false,
-                HasCanvas: false,
-                HasDocument: false,
-                Collapsed: false,
-                HasStatusBar: false,
-                StatusBarDocumentHash: Option<Guid>.None,
-                ShowNotes: false,
-                ShowUndoHistory: false,
-                InitialLayout: layout,
-                DefinedLayouts: definedLayouts,
-                MostRecentActiveDocument: Option<string>.None,
-                MostRecentLoadedDocuments: Seq<string>(),
-                MostRecentCount: 0));
+            None: () => new EditorSnapshot(InitialLayout: layout, DefinedLayouts: definedLayouts));
     }
     private static Fin<EditorResult> DispatchRhinoGetter(EditorOp.BeginRhinoGetterCase getter) =>
         from started in Try.lift(f: () => GhEditor.BeginRhinoGetter(doc: getter.Document)).Run().MapFail(static error => UiFault.GhEditor(detail: $"{nameof(EditorOp.BeginRhinoGetter)}: {error.Message}"))

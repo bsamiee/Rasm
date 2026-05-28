@@ -324,6 +324,13 @@ public abstract record GhUiRequest<T> {
     internal abstract Fin<T> Apply(GrasshopperUi.Scope scope);
 }
 
+// One generic request collapses the per-file CanvasRequest/DocumentRequest/... `Run` wrappers:
+// PolicyOf reads the op's policy, DispatchOf routes to the owning service's dispatch.
+internal sealed record OpRequest<TOp, TResult>(TOp Op, Func<TOp, GrasshopperUiPolicy> PolicyOf, Func<GrasshopperUi.Scope, TOp, Fin<TResult>> DispatchOf) : GhUiRequest<TResult> {
+    internal override GrasshopperUiPolicy Policy => PolicyOf(arg: Op);
+    internal override Fin<TResult> Apply(GrasshopperUi.Scope scope) => DispatchOf(arg1: scope, arg2: Op);
+}
+
 // --- [ERRORS] -----------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
@@ -441,19 +448,19 @@ public static class GhUi {
                 run: _ => Fin.Fail<T>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Apply)), detail: "request is required")),
                 policy: GrasshopperUiPolicy.Read));
 
-    public static GrasshopperUiIntent<CanvasResult> Canvas(CanvasOp op) => Apply(request: new CanvasRequest.Run(Op: op));
-    public static GrasshopperUiIntent<DocumentResult> Document(DocumentOp op) => Apply(request: new DocumentRequest.Run(Op: op));
-    public static GrasshopperUiIntent<EditorResult> Editor(EditorOp op) => Apply(request: new EditorRequest.Run(Op: op));
-    public static GrasshopperUiIntent<LayoutResult> Layout(LayoutOp op) => Apply(request: new LayoutRequest.Run(Op: op));
-    public static GrasshopperUiIntent<WireResult> Wire(WireOp op) => Apply(request: new WireRequest.Run(Op: op));
+    public static GrasshopperUiIntent<CanvasResult> Canvas(CanvasOp op) => Apply(request: new OpRequest<CanvasOp, CanvasResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UiRail.CanvasDispatch(scope: scope, op: o)));
+    public static GrasshopperUiIntent<DocumentResult> Document(DocumentOp op) => Apply(request: new OpRequest<DocumentOp, DocumentResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.Document.Dispatch(scope: scope, op: o)));
+    public static GrasshopperUiIntent<EditorResult> Editor(EditorOp op) => Apply(request: new OpRequest<EditorOp, EditorResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (_, o) => UI.Editor.Dispatch(op: o)));
+    public static GrasshopperUiIntent<LayoutResult> Layout(LayoutOp op) => Apply(request: new OpRequest<LayoutOp, LayoutResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.Layout.Dispatch(op: o).Run(scope: scope)));
+    public static GrasshopperUiIntent<WireResult> Wire(WireOp op) => Apply(request: new OpRequest<WireOp, WireResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.Wire.Dispatch(op: o).Run(scope: scope)));
     public static GrasshopperUiIntent<T> Input<T>(InputRequest<T> request) => Apply(request: request);
     public static GrasshopperUiIntent<T> Paint<T>(PaintRequest<T> request) => Apply(request: request);
     public static GrasshopperUiIntent<T> Motion<T>(MotionRequest<T> request) => Apply(request: request);
-    public static GrasshopperUiIntent<CanvasChromeResult> CanvasChrome(CanvasChromeOp op) => Apply(request: new CanvasChromeRequest.Run(Op: op));
+    public static GrasshopperUiIntent<CanvasChromeResult> CanvasChrome(CanvasChromeOp op) => Apply(request: new OpRequest<CanvasChromeOp, CanvasChromeResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.CanvasChrome.Dispatch(op: o).Run(scope: scope)));
     public static GrasshopperUiIntent<CanvasChromeResult> Tooltip(TooltipOp op) => CanvasChrome(CanvasChromeOp.Tooltip(op: op));
     public static GrasshopperUiIntent<CanvasChromeResult> FloatingButton(FloatingButtonOp op) => CanvasChrome(CanvasChromeOp.FloatingButton(op: op));
     public static GrasshopperUiIntent<CanvasChromeResult> Interaction(InteractionOp op) => CanvasChrome(CanvasChromeOp.Interaction(op: op));
-    public static GrasshopperUiIntent<Subscription> Event(UiEvent uiEvent) => Apply(request: new EventRequest.Run(Event: uiEvent));
+    public static GrasshopperUiIntent<Subscription> Event(UiEvent uiEvent) => Apply(request: new OpRequest<UiEvent, Subscription>(Op: uiEvent, PolicyOf: static e => e.UiPolicy, DispatchOf: static (scope, e) => Events.Subscribe(uiEvent: e).Run(scope: scope)));
 
     public static GrasshopperUiIntent<T> Group<T>(string verb, string noun, GrasshopperUiIntent<T> body) =>
         Optional(body).Match(

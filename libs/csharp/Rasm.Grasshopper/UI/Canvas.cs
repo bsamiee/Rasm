@@ -362,10 +362,6 @@ public readonly record struct CanvasPickSnapshot(Pick Kind, Option<PointF> Point
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasWindowSnapshot(CanvasSnapshot Canvas, int SelectedCount, int DeselectedCount);
 
-public abstract record CanvasRequest : GhUiRequest<CanvasResult> {
-    public sealed record Run(CanvasOp Op) : CanvasRequest { internal override GrasshopperUiPolicy Policy => Op.UiPolicy; internal override Fin<CanvasResult> Apply(GrasshopperUi.Scope scope) => UiRail.CanvasDispatch(scope: scope, op: Op); }
-}
-
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class UiRail {
     // Quartz hard ceiling — beyond 16384×16384 the framework silently downsamples (Apple WWDC22

@@ -65,29 +65,19 @@ public partial record GraphKey {
 public sealed partial class WireTraversal {
     private delegate IEnumerable<IDocumentObject> WalkFn(GhObjectList objects, GraphKey key);
 
-    public static readonly WireTraversal Upstream = new(key: 0, walkObjects: WalkUpstream);
-    public static readonly WireTraversal Downstream = new(key: 1, walkObjects: WalkDownstream);
-    public static readonly WireTraversal Bidirectional = new(key: 2, walkObjects: static (objects, key) =>
-        WalkUpstream(objects, key).Concat(WalkDownstream(objects, key)));
+    public static readonly WireTraversal Upstream = new(key: 0, walkObjects: static (objects, key) => Walk(objects, key, up: true));
+    public static readonly WireTraversal Downstream = new(key: 1, walkObjects: static (objects, key) => Walk(objects, key, up: false));
+    public static readonly WireTraversal Bidirectional = new(key: 2, walkObjects: static (objects, key) => Walk(objects, key, up: true).Concat(Walk(objects, key, up: false)));
 
     [UseDelegateFromConstructor]
     internal partial IEnumerable<IDocumentObject> WalkObjects(GhObjectList objects, GraphKey key);
 
-    private static IEnumerable<IDocumentObject> WalkUpstream(GhObjectList objects, GraphKey key) =>
+    private static IEnumerable<IDocumentObject> Walk(GhObjectList objects, GraphKey key, bool up) =>
         key.Switch(
             parameterCase: p => Optional(objects.FindParameter(instanceId: p.Id))
-                .Map(param => objects.SearchUpstream(parameter: param))
+                .Map(param => up ? objects.SearchUpstream(parameter: param) : objects.SearchDownstream(parameter: param))
                 .IfNone(noneValue: []),
-            ownerCase: o => objects.Connectivity.FindAllInputs(o.Id)
-                .Select(co => objects.Find(instanceId: co.Id))
-                .OfType<IDocumentObject>());
-
-    private static IEnumerable<IDocumentObject> WalkDownstream(GhObjectList objects, GraphKey key) =>
-        key.Switch(
-            parameterCase: p => Optional(objects.FindParameter(instanceId: p.Id))
-                .Map(param => objects.SearchDownstream(parameter: param))
-                .IfNone(noneValue: []),
-            ownerCase: o => objects.Connectivity.FindAllOutputs(o.Id)
+            ownerCase: o => (up ? objects.Connectivity.FindAllInputs(o.Id) : objects.Connectivity.FindAllOutputs(o.Id))
                 .Select(co => objects.Find(instanceId: co.Id))
                 .OfType<IDocumentObject>());
 }
@@ -308,10 +298,6 @@ public readonly record struct WireDrawnSnapshot(Seq<WireDrawnEntry> Entries, Wir
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct WireSelectionDelta(int Selected, int Deselected);
-
-public abstract record WireRequest : GhUiRequest<WireResult> {
-    public sealed record Run(WireOp Op) : WireRequest { internal override GrasshopperUiPolicy Policy => Op.UiPolicy; internal override Fin<WireResult> Apply(GrasshopperUi.Scope scope) => Wire.Dispatch(op: Op).Run(scope: scope); }
-}
 
 internal static partial class Wire {
     internal static GrasshopperUiIntent<WireResult> Dispatch(WireOp op) => op.Switch(

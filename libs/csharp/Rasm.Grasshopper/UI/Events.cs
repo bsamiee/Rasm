@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Eto.Forms;
 using Grasshopper2.Doc;
 using Grasshopper2.Undo;
@@ -52,20 +51,6 @@ public partial record UiEvent {
         controlCase: static _ => GrasshopperUiPolicy.Read,
         keyboardModifiersCase: static _ => GrasshopperUiPolicy.Read,
         logicalPixelSizeCase: static _ => GrasshopperUiPolicy.Read);
-}
-
-[StructLayout(LayoutKind.Auto)]
-[SuppressMessage("Design", "CA1000:Do not declare static members on generic types", Justification = "Generic carrier with closed-generic factory On<TArgs>; moving to companion class breaks lambda type inference at call sites.")]
-public readonly record struct EventSource<TOwner, THandlers>(string Name, Action<TOwner, THandlers> Attach, Action<TOwner, THandlers> Detach) {
-    public static EventSource<TOwner, THandlers> On<TArgs>(
-        string name,
-        Action<TOwner, EventHandler<TArgs>> attach,
-        Action<TOwner, EventHandler<TArgs>> detach,
-        Func<THandlers, EventHandler<TArgs>> selector) =>
-        new(
-            Name: name,
-            Attach: (owner, handlers) => attach(arg1: owner, arg2: selector(arg: handlers)),
-            Detach: (owner, handlers) => detach(arg1: owner, arg2: selector(arg: handlers)));
 }
 
 public readonly record struct DocumentEventHandlers(EventHandler<DocumentModifiedEventArgs> Modified, EventHandler<DocumentStateEventArgs> State, EventHandler<AfterAddObjectEventArgs> Added, EventHandler<AfterRemoveObjectEventArgs> Removed, EventHandler<ObjectEventArgs> Expired, EventHandler<ObjectEventArgs> Selection, EventHandler<ObjectEventArgs> Enabled, EventHandler<ObjectEventArgs> Relevance, EventHandler<ObjectEventArgs> Layout, EventHandler<ObjectEventArgs> Display, EventHandler<ObjectNameEventArgs> Name, EventHandler<ObjectGuidEventArgs> Id) {
@@ -543,10 +528,6 @@ public readonly record struct UndoEventSnapshot(
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct ControlEventSnapshot(ControlEvent Kind, bool Enabled, bool Visible, bool HasFocus, Option<PointF> Point = default, Option<MouseButtons> Buttons = default, Option<Keys> Keys = default, Option<string> Text = default, Option<SizeF> Delta = default, Option<float> Pressure = default, Option<DragEffects> DragEffects = default, Option<DragEffects> AllowedDragEffects = default, Option<IDataObject> DragData = default);
-
-internal abstract record EventRequest : GhUiRequest<Subscription> {
-    internal sealed record Run(UiEvent Event) : EventRequest { internal override GrasshopperUiPolicy Policy => Event.UiPolicy; internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Events.Subscribe(uiEvent: Event).Run(scope: scope); }
-}
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Events {
