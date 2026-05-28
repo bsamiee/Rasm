@@ -20,6 +20,14 @@ if TYPE_CHECKING:
     from tools.quality.process import ProcessFault
 
 
+def _scope(tmp_path: Path, rail: str = "static") -> ArtifactScope:
+    scope_path = tmp_path / ".artifacts" / "quality" / rail
+    scope_path.mkdir(parents=True, exist_ok=True)
+    return ArtifactScope(
+        root=tmp_path, rail=rail, scope_path=scope_path, dotnet_env={"DOTNET_CLI_HOME": str(scope_path / "dotnet-cli")}
+    )
+
+
 def test_discover_root_finds_workspace(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     nested = root / "a/b/c"
@@ -62,7 +70,7 @@ def test_dotnet_scope_flags_precede_passthrough_args(monkeypatch: pytest.MonkeyP
         return Ok(Completed(argv=argv, returncode=0, stdout=b"", stderr=b""))
 
     monkeypatch.setattr(process, "run", fake_run)
-    scope = ArtifactScope(root=tmp_path, pid=123, dotnet_env={"DOTNET_CLI_HOME": str(tmp_path)})
+    scope = _scope(tmp_path, rail="bridge")
 
     assert process.dotnet("run", "--project", "client.csproj", "--", "doctor", scope=scope).is_ok()
     assert seen == [
@@ -72,7 +80,7 @@ def test_dotnet_scope_flags_precede_passthrough_args(monkeypatch: pytest.MonkeyP
             "--project",
             "client.csproj",
             "--artifacts-path",
-            str(tmp_path / ".artifacts" / "agents" / "123"),
+            str(tmp_path / ".artifacts" / "quality" / "bridge"),
             "--disable-build-servers",
             "--",
             "doctor",
@@ -118,7 +126,7 @@ def _invoke_verify(
     calls: list[tuple[str, ...]] = []
     kwargs_seen: list[dict[str, object]] = []
     settings = QualitySettings(root=tmp_path)
-    scope = ArtifactScope(root=tmp_path, pid=123, dotnet_env={})
+    scope = _scope(tmp_path)
     report_dir = settings.bridge_verify_dir
     report_dir.mkdir(parents=True, exist_ok=True)
     scenario = tmp_path / "case.verify.csx"
@@ -229,14 +237,33 @@ def test_static_changed_routes_cs_relevant_file_to_owner(monkeypatch: pytest.Mon
 
     monkeypatch.setattr(static, "Workspace", FakeWorkspace)
 
-    scope = ArtifactScope(root=tmp_path, pid=123, dotnet_env={})
+    scope = _scope(tmp_path)
 
-    plan = static._plan(QualitySettings(root=tmp_path), "changed", scope).default_value(
-        static.StaticPlan("changed", ())
-    )
+    plan = static._plan(QualitySettings(root=tmp_path), scope).default_value(static.StaticPlan("changed", ()))
 
     assert plan.scope == "changed"
     assert plan.projects == ("libs/csharp/Rasm/Rasm.csproj",)
+
+
+def test_static_full_skips_without_changes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    class FakeWorkspace:
+        def __init__(self, root: Path) -> None:
+            self.root = root
+
+        @staticmethod
+        def index() -> process.ProjectIndex:
+            return {}
+
+        @staticmethod
+        def changed() -> tuple[str, ...]:
+            return ()
+
+    monkeypatch.setattr(static, "Workspace", FakeWorkspace)
+    scope = _scope(tmp_path)
+
+    plan = static._plan(QualitySettings(root=tmp_path), scope).default_value(static.StaticPlan("full", ("x",)))
+
+    assert plan == static.StaticPlan(scope="changed", projects=())
 
 
 def test_static_changed_ignores_python_analyzer_fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -254,11 +281,9 @@ def test_static_changed_ignores_python_analyzer_fixture(monkeypatch: pytest.Monk
 
     monkeypatch.setattr(static, "Workspace", FakeWorkspace)
 
-    scope = ArtifactScope(root=tmp_path, pid=123, dotnet_env={})
+    scope = _scope(tmp_path)
 
-    plan = static._plan(QualitySettings(root=tmp_path), "changed", scope).default_value(
-        static.StaticPlan("full", ("x",))
-    )
+    plan = static._plan(QualitySettings(root=tmp_path), scope).default_value(static.StaticPlan("full", ("x",)))
 
     assert plan == static.StaticPlan(scope="changed", projects=())
 
@@ -274,7 +299,7 @@ def test_focused_test_target_skips_mutation(monkeypatch: pytest.MonkeyPatch, tmp
 
     monkeypatch.setattr(test, "dotnet", fake_dotnet)
     settings = QualitySettings(root=tmp_path, test_target=Path("tests/tools/cs-analyzer/CsAnalyzer.Tests.csproj"))
-    scope = ArtifactScope(root=tmp_path, pid=123, dotnet_env={})
+    scope = _scope(tmp_path)
 
     assert test.run_test_rail(settings, scope, "run").is_ok()
     assert tuple(command[0] for command in seen) == ("test",)
@@ -303,7 +328,7 @@ def test_package_duplicate_slug_fails_before_staging(monkeypatch: pytest.MonkeyP
 
     monkeypatch.setattr(package, "Workspace", FakeWorkspace)
     settings = QualitySettings(root=tmp_path)
-    scope = ArtifactScope(root=tmp_path, pid=123, dotnet_env={})
+    scope = _scope(tmp_path)
 
     result = package.run_package_rail(settings, scope, "package", "rasm-bridge", "0.0.0")
 
@@ -351,7 +376,7 @@ def test_package_finish_keeps_mode_and_slug_step_order(
     )
     artifact = package.PackageArtifact(stage=package_file.parent, meta=meta)
     settings = QualitySettings(root=tmp_path)
-    scope = ArtifactScope(root=tmp_path, pid=123, dotnet_env={})
+    scope = _scope(tmp_path)
 
     def fake_client_run(
         settings: QualitySettings, scope: ArtifactScope, *args: str, check: bool = True

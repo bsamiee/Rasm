@@ -179,7 +179,7 @@ def rail[T](
     cfg = settings or QualitySettings()
     started = time.perf_counter()
     with structlog.contextvars.bound_contextvars(rail=rail_name, phase=phase):
-        with ArtifactScope.open(cfg) as scope:
+        with ArtifactScope.open(cfg, rail_name) as scope:
             on_ok = ok or (lambda _: 0)
             code = (
                 execute(cfg, scope)

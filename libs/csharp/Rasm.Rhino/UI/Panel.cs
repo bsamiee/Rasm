@@ -402,7 +402,7 @@ public static class PanelOp {
                 EventHandler<global::Rhino.UI.PanelEventArgs> closed = Gate<global::Rhino.UI.PanelEventArgs>(idOf: static args => args.PanelId, make: static args => new PanelHostEvent(Phase: PanelHostPhase.Closed, Show: Option<global::Rhino.UI.ShowPanelEventArgs>.None, Closed: Some(args)));
                 global::Rhino.UI.Panels.Show += show;
                 global::Rhino.UI.Panels.Closed += closed;
-                return Fin.Succ(value: new PanelSubscription(detachers: Seq<Action>(
+                return Fin.Succ(value: new PanelSubscription(detachers: Seq(
                     () => global::Rhino.UI.Panels.Show -= show,
                     () => global::Rhino.UI.Panels.Closed -= closed)));
             })

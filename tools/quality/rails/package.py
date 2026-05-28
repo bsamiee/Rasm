@@ -204,7 +204,7 @@ def _stage(
         shutil.rmtree(meta.target_dir, ignore_errors=True)
         meta.package_dir.parent.mkdir(parents=True, exist_ok=True)
         stage = Path(tempfile.mkdtemp(prefix=f"{meta.package_dir.name}.", dir=meta.package_dir.parent))
-        previous = meta.package_dir.with_name(f"{meta.package_dir.name}.previous.{scope.pid}")
+        previous = meta.package_dir.with_name(f"{meta.package_dir.name}.previous.{os.getpid()}")
         primary = meta.target_dir / f"{meta.assembly_name}{meta.target_ext}"
         manifest = meta.manifest_dir / "manifest.yml"
 

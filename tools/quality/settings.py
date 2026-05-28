@@ -11,7 +11,6 @@ from datetime import datetime, UTC
 import os
 from pathlib import Path
 import plistlib
-import shutil
 from typing import Annotated, Final, Literal
 
 from pydantic import Field, field_validator
@@ -25,7 +24,7 @@ type Configuration = Literal["Debug", "Release"]
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
-_AGENTS: Final[str] = "agents"
+_QUALITY: Final[str] = "quality"
 _ARTIFACTS: Final[str] = ".artifacts"
 _DEFAULT_RASM_TESTS: Final[Path] = Path("tests/csharp/libs/Rasm/Rasm.Tests.csproj")
 _DEFAULT_RHINO_APP: Final[Path] = Path("/Applications/RhinoWIP.app")
@@ -211,8 +210,13 @@ class QualitySettings(BaseSettings):
     def version_props(version: str = "") -> tuple[str, ...]:
         return (f"/p:Version={version}", f"/p:InformationalVersion={version}") if version else ()
 
-    def dotnet_env(self, scope_path: Path) -> dict[str, str]:
-        overlay = {"MSBUILDDISABLENODEREUSE": "1", "DOTNET_CLI_HOME": str(scope_path / _DOTNET_CLI)}
+    def dotnet_env(self, scope_path: Path, *, rail: str = "") -> dict[str, str]:
+        overlay: dict[str, str] = {"DOTNET_CLI_HOME": str(scope_path / _DOTNET_CLI)}
+        match rail:
+            case "static":
+                pass
+            case _:
+                overlay["MSBUILDDISABLENODEREUSE"] = "1"
         return {**os.environ, **overlay, "RHINO_WIP_APP_PATH": str(self.rhino_app)}  # noqa: TID251
 
     def _artifact_dir(self, kind: Literal["test", "mutation"]) -> Path:
@@ -222,16 +226,18 @@ class QualitySettings(BaseSettings):
 @dataclass(frozen=True, slots=True)
 class ArtifactScope:
     root: Path
-    pid: int
+    rail: str
+    scope_path: Path
     dotnet_env: dict[str, str]
 
     @property
     def path(self) -> Path:
-        return self.root / _ARTIFACTS / _AGENTS / str(self.pid)
+        return self.scope_path
 
     @property
     def dotnet_flags(self) -> tuple[str, ...]:
-        return ("--artifacts-path", str(self.path), "--disable-build-servers")
+        base = ("--artifacts-path", str(self.path))
+        return base if self.rail == "static" else (*base, "--disable-build-servers")
 
     @property
     def artifacts_property(self) -> tuple[str, ...]:
@@ -239,12 +245,9 @@ class ArtifactScope:
 
     @classmethod
     @contextmanager
-    def open(cls, settings: QualitySettings) -> Iterator[ArtifactScope]:
-        pid = os.getpid()
-        scope_path = settings.artifact_root / _AGENTS / str(pid)
+    def open(cls, settings: QualitySettings, rail: str) -> Iterator[ArtifactScope]:
+        scope_path = settings.artifact_root / _QUALITY / rail
         (scope_path / _DOTNET_CLI).mkdir(parents=True, exist_ok=True)
-        scope = cls(root=settings.root, pid=pid, dotnet_env=settings.dotnet_env(scope_path))
-        try:
-            yield scope
-        finally:
-            shutil.rmtree(scope.path, ignore_errors=True)
+        yield ArtifactScope(
+            root=settings.root, rail=rail, scope_path=scope_path, dotnet_env=settings.dotnet_env(scope_path, rail=rail)
+        )

@@ -69,8 +69,20 @@ def _format_commands(root: Path, settings: QualitySettings, plan: StaticPlan) ->
             return tuple(("dotnet", "format", kind, solution, *_FORMAT_ARGS[kind]) for kind in _FORMAT_ARGS)
         case "changed":
             return tuple(
-                ("dotnet", "format", "style", str(root / project), "--include", *files, *_FORMAT_ARGS["style"])
+                command
                 for project, files in plan.format_groups
+                for command in (
+                    ("dotnet", "format", "style", str(root / project), "--include", *files, *_FORMAT_ARGS["style"]),
+                    (
+                        "dotnet",
+                        "format",
+                        "whitespace",
+                        str(root / project),
+                        "--include",
+                        *files,
+                        *_FORMAT_ARGS["whitespace"],
+                    ),
+                )
             )
         case unreachable:
             assert_never(unreachable)
@@ -87,7 +99,6 @@ def _gate_plan(
     plan: StaticPlan, settings: QualitySettings, scope: ArtifactScope, root: Path, mode: StaticScope
 ) -> Result[StaticOutcome, ProcessFault]:
     targets: tuple[str, ...] = ()
-    configurations: tuple[str, ...] = ()
     match (plan.scope, plan.projects):
         case ("changed", ()):
             return Ok("skip")
@@ -95,12 +106,11 @@ def _gate_plan(
             return Error(ProcessFault.fail("static", mode, detail=b"No C# projects selected"))
         case ("changed", projects):
             targets = tuple(str(root / project) for project in projects)
-            configurations = settings.static_configurations("changed")
         case ("full", _):
             targets = (str(settings.solution),)
-            configurations = settings.static_configurations("full")
+    configurations = settings.static_configurations(mode)
     commands = (
-        *(dotnet_args("restore", target) for target in targets),
+        dotnet_args("restore", settings.solution),
         *(
             dotnet_args("build", target, configuration=configuration, max_cpu=settings.dotnet_max_cpu)
             for configuration in configurations
@@ -114,39 +124,29 @@ def _gate_plan(
     )
 
 
-def _plan(settings: QualitySettings, mode: StaticScope, scope: ArtifactScope) -> Result[StaticPlan, ProcessFault]:
+def _plan(settings: QualitySettings, scope: ArtifactScope) -> Result[StaticPlan, ProcessFault]:
     workspace = Workspace(settings.root)
-    match mode:
-        case "full":
+    index = workspace.index()
+    routed = reduce(
+        lambda acc, file: _route_step(acc, file, index=index, workspace=workspace, root=settings.root),
+        workspace.changed(),
+        _ChangedRoute(),
+    )
+    match routed.full:
+        case True:
             return _projects(settings, workspace, "parity", scope=scope).map(
                 lambda rows: StaticPlan(scope="full", projects=rows)
             )
-        case "changed":
-            index = workspace.index()
-            routed = reduce(
-                lambda acc, file: _route_step(acc, file, index=index, workspace=workspace, root=settings.root),
-                workspace.changed(),
-                _ChangedRoute(),
-            )
-            match routed.full:
-                case True:
-                    return _projects(settings, workspace, "parity", scope=scope).map(
-                        lambda rows: StaticPlan(scope="full", projects=rows)
+        case False:
+            match routed.projects:
+                case _ if not routed.projects:
+                    return Ok(StaticPlan(scope="changed", projects=()))
+                case _:
+                    return _projects(settings, workspace, "closure", tuple(sorted(routed.projects)), scope=scope).map(
+                        lambda rows: StaticPlan(
+                            scope="changed", projects=rows, format_groups=_format_groups(routed.format_routes)
+                        )
                     )
-                case False:
-                    match routed.projects:
-                        case _ if not routed.projects:
-                            return Ok(StaticPlan(scope="changed", projects=()))
-                        case _:
-                            return _projects(
-                                settings, workspace, "closure", tuple(sorted(routed.projects)), scope=scope
-                            ).map(
-                                lambda rows: StaticPlan(
-                                    scope="changed", projects=rows, format_groups=_format_groups(routed.format_routes)
-                                )
-                            )
-        case unreachable:
-            assert_never(unreachable)
 
 
 def _projects(
@@ -255,4 +255,4 @@ def _route_step(
 def run_static_rail(
     settings: QualitySettings, scope: ArtifactScope, mode: StaticScope
 ) -> Result[StaticOutcome, ProcessFault]:
-    return _plan(settings, mode, scope).bind(lambda plan: _gate_plan(plan, settings, scope, settings.root, mode))
+    return _plan(settings, scope).bind(lambda plan: _gate_plan(plan, settings, scope, settings.root, mode))
