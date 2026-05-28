@@ -819,7 +819,7 @@ public sealed partial class BoundsSpace {
 }
 
 public readonly record struct BoundsPolicy(bool Accurate = true, BoundsSpace? Space = null) {
-    public static BoundsPolicy Default { get; } = new(Accurate: true, Space: BoundsSpace.Definition);
+    public static BoundsPolicy Default { get; } = new(Accurate: true);
     private BoundsSpace EffectiveSpace => Space ?? BoundsSpace.Definition;
 
     internal BoundingBox Union(InstanceDefinition live) =>
