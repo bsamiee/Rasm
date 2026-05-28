@@ -640,7 +640,7 @@ public sealed record MetadataPatch(
         Description.IsNone && Url.IsNone && UrlDescription.IsNone && UserStrings.IsEmpty && UserDictionary.IsNone;
 
     public Seq<BlockDiagnostic> ModifyDiagnostics(DefinitionId id) =>
-        UserStrings.IsEmpty ? Seq<BlockDiagnostic>() : Seq<BlockDiagnostic>(new BlockDiagnostic.SilentUserStringMutation(Id: id));
+        UserStrings.IsEmpty ? Seq<BlockDiagnostic>() : Seq(BlockDiagnostic.SilentUserStrings(id: id));
 }
 
 public sealed record AuthorSpec(
@@ -675,7 +675,7 @@ public sealed record AuthorSpec(
         Of(name: Name, basePoint: BasePoint, update: Update, layer: Layer, metadata: Metadata, key: key);
 
     private static readonly (Func<AuthorSpec, InstanceDefinition, DefinitionId, bool> When, Func<DefinitionId, AuthorSpec, InstanceDefinition, BlockDiagnostic> Make)[] CreateDiagnosticRules = [
-        (static (spec, _, _) => !spec.Metadata.UserStrings.IsEmpty, static (id, _, _) => new BlockDiagnostic.SilentUserStringMutation(Id: id)),
+        (static (spec, _, _) => !spec.Metadata.UserStrings.IsEmpty, static (id, _, _) => BlockDiagnostic.SilentUserStrings(id: id)),
         (static (spec, _, _) => spec.Update != UpdatePolicy.Static, static (id, spec, _) => new BlockDiagnostic.SourceArchiveRequired(Id: id, Requested: spec.Update)),
         (static (spec, live, _) => live.LayerStyle != spec.Layer.Native, static (id, _, live) => new BlockDiagnostic.LinkedSetterIgnored(Id: id, Actual: UpdatePolicy.FromNative(native: live.UpdateType))),
     ];
@@ -808,13 +808,22 @@ public sealed partial class BoundsSpace {
                     static (acc, inst) => BoundingBox.Union(
                         acc,
                         inst!.Geometry?.GetBoundingBox(xform: inst.InstanceXform) ?? BoundingBox.Empty)),
-            _ => toSeq(live.GetObjects())
+            _ => DefinitionBounds(live: live, accurate: accurate),
+        };
+
+    private static BoundingBox DefinitionBounds(InstanceDefinition live, bool accurate) {
+        using InstanceReferenceGeometry proxy =
+            new(instanceDefinitionId: live.Id, transform: Transform.Identity);
+        BoundingBox proxyBox = proxy.GetBoundingBox(accurate: accurate);
+        return proxyBox.IsValid
+            ? proxyBox
+            : toSeq(live.GetObjects())
                 .Filter(static o => o?.Geometry is not null)
                 .Map(static o => o!.Geometry!)
                 .Fold(
                     BoundingBox.Empty,
-                    (acc, g) => BoundingBox.Union(acc, g.GetBoundingBox(accurate: accurate))),
-        };
+                    (acc, g) => BoundingBox.Union(acc, g.GetBoundingBox(accurate: accurate)));
+    }
 }
 
 public readonly record struct BoundsPolicy(bool Accurate = true, BoundsSpace? Space = null) {
@@ -866,7 +875,7 @@ public readonly record struct Placement(
         new(Transform: xform, Attrs: attrs, History: history, Reference: reference);
 
     public Fin<Placement> Admit(LiveStats live, Op key) =>
-        !Reference || ReferenceAdmits(live: live)
+        Transform.IsValid && (!Reference || ReferenceAdmits(live: live))
             ? Fin.Succ(value: this)
             : Fin.Fail<Placement>(error: key.InvalidInput());
 
@@ -936,7 +945,7 @@ public sealed record Definition(
     public bool IsArchiveOnly => Live.IsNone;
     public bool IsLinked => Source.IsSome;
 
-    public Graph.Node ToAuditNode() => new(
+    public AuditGraph.Node ToAuditNode() => new(
         Id: Id,
         Name: Name,
         Members: MemberIds,
@@ -999,8 +1008,8 @@ public readonly record struct Insert(
     Guid InstanceId,
     DefinitionId DefId,
     Transform InstanceXform,
+    Point3d Insertion,
     Option<Guid> SelectedPartId) {
-    public Point3d InsertionPoint => InstanceXform * Point3d.Origin;
 
     public static Fin<Insert> From(InstanceObject instance, Option<Guid> selectedPart = default, Op? key = null) {
         Op op = key.OrDefault();
@@ -1010,6 +1019,7 @@ public readonly record struct Insert(
                     InstanceId: active.Id,
                     DefId: id,
                     InstanceXform: active.InstanceXform,
+                    Insertion: active.InsertionPoint.IsValid ? active.InsertionPoint : active.InstanceXform * Point3d.Origin,
                     SelectedPartId: selectedPart))));
     }
 }
@@ -1053,7 +1063,7 @@ public abstract partial record EdgeTarget {
     public sealed record ArchiveTarget(ArchivePath Path) : EdgeTarget;
 }
 
-public sealed record Graph(ImmutableArray<Graph.Node> Nodes, ImmutableArray<Graph.Edge> Edges) {
+public sealed record AuditGraph(ImmutableArray<AuditGraph.Node> Nodes, ImmutableArray<AuditGraph.Edge> Edges) {
     public sealed record Node(DefinitionId Id, DefinitionName Name, ImmutableArray<Guid> Members, UpdatePolicy Update, ArchiveStatus Archive, Option<ArchiveLink> Source);
     public sealed record Edge(DefinitionId From, BlockEdgeKind Kind, EdgeTarget To);
 }
@@ -1107,7 +1117,7 @@ public abstract partial record BlockOutcome {
     public sealed record MembersResult(Seq<Member> Values) : BlockOutcome;
     public sealed record Inserts(Seq<Insert> Values) : BlockOutcome;
     public sealed record Definitions(Seq<DefinitionId> Values) : BlockOutcome;
-    public sealed record Graphs(Graph Value) : BlockOutcome;
+    public sealed record Graphs(AuditGraph Value) : BlockOutcome;
     public sealed record Name(DefinitionName Value) : BlockOutcome;
     public sealed record Texts(HashMap<string, string> Fields) : BlockOutcome;
     public sealed record Attributes(Seq<InstanceAttributeField> Values) : BlockOutcome;
@@ -1141,6 +1151,9 @@ public sealed class PreviewHandle(Bitmap bitmap, Action<PreviewHandle> release) 
 [Union]
 public abstract partial record BlockDiagnostic {
     private BlockDiagnostic() { }
+
+    public static BlockDiagnostic SilentUserStrings(DefinitionId id) =>
+        new SilentUserStringMutation(Id: id);
     public sealed record NotFound(DefinitionRef Ref) : BlockDiagnostic;
     public sealed record DuplicateName(DefinitionName Name, DefinitionId Existing) : BlockDiagnostic;
     public sealed record ConflictFailed(DefinitionName Name, DefinitionId Existing) : BlockDiagnostic;

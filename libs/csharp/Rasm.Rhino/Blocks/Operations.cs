@@ -452,11 +452,11 @@ internal static partial class Operations {
         select InvalidateWith(doc: owner.Document, defId: snap.Id.Value, value: mutation.Project(snap: snap));
 
     private static Fin<MutationReceipt> PerformPurge(RhinoBlocks owner, Option<DefinitionRef> refer, Option<DefinitionPrefix> prefix, Op key) =>
-        (refer.Case, prefix.Case) switch {
+        key.Catch(() => (refer.Case, prefix.Case) switch {
             (DefinitionRef r, _) => Mutate(owner: owner, refer: r, mutation: new TableMutation.Purge(), key: key),
             (_, DefinitionPrefix p) => PerformPurgeByPrefix(owner: owner, prefix: p, key: key),
             _ => PurgeAllUnused(owner: owner),
-        };
+        });
 
     private static Fin<MutationReceipt> PurgeAllUnused(RhinoBlocks owner) {
         int purged = owner.Document.InstanceDefinitions.PurgeUnused();
@@ -477,11 +477,12 @@ internal static partial class Operations {
         return Fin.Succ(value: MutationReceipt.Of(receipt: DocumentReceipt.Empty with { ResourceChanged = changes }));
     }
 
-    private static Fin<MutationReceipt> PerformCompact(RhinoBlocks owner, CompactPolicy policy, Op key) {
-        owner.Document.InstanceDefinitions.Compact(ignoreUndoReferences: policy.IgnoreUndoReferences);
-        _ = ContentIndex.EvictDoc(serial: owner.Document.RuntimeSerialNumber);
-        return Fin.Succ(value: MutationReceipt.Empty);
-    }
+    private static Fin<MutationReceipt> PerformCompact(RhinoBlocks owner, CompactPolicy policy, Op key) =>
+        key.Catch(() => {
+            owner.Document.InstanceDefinitions.Compact(ignoreUndoReferences: policy.IgnoreUndoReferences);
+            _ = ContentIndex.EvictDoc(serial: owner.Document.RuntimeSerialNumber);
+            return Fin.Succ(value: MutationReceipt.Empty);
+        });
 
     // ---- [PLACE] [MUTATION] --------------------------------------------------------------
     private static Fin<MutationReceipt> PerformPlace(RhinoBlocks owner, DefinitionRef refer, Seq<Placement> at, BatchPolicy policy, Op key) =>
@@ -690,7 +691,7 @@ internal static partial class Operations {
         RefreshLinkedDocument(doc: owner.Document, filter: filter, policy: policy, batch: batch, key: key)
             .Map(MutationReceipt.Of);
 
-    private static Fin<DocumentReceipt> RefreshLinkedDocument(
+    internal static Fin<DocumentReceipt> RefreshLinkedDocument(
         RhinoDoc doc,
         BlockFilter filter,
         LinkRefreshPolicy policy,
@@ -967,12 +968,17 @@ internal static partial class Operations {
     }
 
     // ---- [PLACE] [QUERY] -----------------------------------------------------------------
+    private static Seq<Member> ProjectMembers(DefinitionId defId, InstanceDefinition live, Option<Seq<ExplodedPiece>> pieces) =>
+        pieces.Match(
+            Some: exploded => toSeq(exploded).Map(p => new Member(DefId: defId, MemberId: p.Piece.Id, Attrs: Some(p.Attrs))),
+            None: () => NonNull(native: live.GetObjects())
+                .Map(obj => new Member(DefId: defId, MemberId: obj.Id, Attrs: Optional(obj.Attributes))));
+
     private static Fin<BlockOutcome> PerformExplodeInspect(RhinoBlocks owner, Guid instanceId, ExplodePolicy policy, Op key) =>
         from instance in AsInstance(objects: owner.Document.Objects, instanceId: instanceId, key: key)
-        let pieces = ExplodePieces(instance: instance, policy: policy)
-        from defId in DefinitionId.From(value: instance.InstanceDefinition?.Id ?? Guid.Empty, key: key)
-        let members = toSeq(pieces)
-            .Map(p => new Member(DefId: defId, MemberId: p.Piece.Id, Attrs: Some(p.Attrs)))
+        from live in Optional(instance.InstanceDefinition).ToFin(Fail: key.InvalidResult())
+        from defId in DefinitionId.From(value: live.Id, key: key)
+        let members = ProjectMembers(defId: defId, live: live, pieces: Some(toSeq(ExplodePieces(instance: instance, policy: policy))))
         select (BlockOutcome)new BlockOutcome.MembersResult(Values: members);
 
     private static Fin<BlockOutcome> PerformUseSubObject(RhinoBlocks owner, Guid instanceId, ComponentIndex component, Op key) =>
@@ -1052,8 +1058,10 @@ internal static partial class Operations {
                     .Choose(static node => node.Reach)));
 
     private static Fin<BlockOutcome> PerformBounds(RhinoBlocks owner, DefinitionRef refer, BoundsPolicy policy, Op key) =>
-        FindDefinition(table: owner.Document.InstanceDefinitions, refer: refer, includeDeleted: false, key: key)
-            .Map(live => (BlockOutcome)new BlockOutcome.Bounds(Value: policy.Union(live: live)));
+        from live in FindDefinition(table: owner.Document.InstanceDefinitions, refer: refer, includeDeleted: false, key: key)
+        let box = policy.Union(live: live)
+        from _ in box.IsValid ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: key.InvalidResult(detail: nameof(BoundingBox)))
+        select (BlockOutcome)new BlockOutcome.Bounds(Value: box);
 
     private static Fin<BlockOutcome> PerformAdoptContent(RhinoBlocks owner, Op key) =>
         Fin.Succ(value: (BlockOutcome)new BlockOutcome.Adopted(Count: ContentIndex.Adopt(doc: owner.Document)));
@@ -1061,9 +1069,7 @@ internal static partial class Operations {
     private static Fin<BlockOutcome> PerformGraphMembers(RhinoBlocks owner, DefinitionRef refer, Op key) =>
         from live in FindDefinition(table: owner.Document.InstanceDefinitions, refer: refer, includeDeleted: false, key: key)
         from defId in DefinitionId.From(value: live.Id, key: key)
-        let members = NonNull(native: live.GetObjects())
-            .Map(obj => new Member(DefId: defId, MemberId: obj.Id, Attrs: Optional(obj.Attributes)))
-        select (BlockOutcome)new BlockOutcome.MembersResult(Values: members);
+        select (BlockOutcome)new BlockOutcome.MembersResult(Values: ProjectMembers(defId: defId, live: live, pieces: None));
 
     private static Fin<BlockOutcome> PerformGraphInserts(RhinoBlocks owner, DefinitionRef refer, ReferenceScope scope, Op key) =>
         from pair in Resolve(table: owner.Document.InstanceDefinitions, refer: refer, key: key)
@@ -1228,22 +1234,16 @@ internal static partial class Operations {
             DefaultValue: field.DefaultValue)));
     }
 
-    // ---- [WATCH] -------------------------------------------------------------------------
-    /// All four FileSystemWatcher events wired (matches McNeel RhinoFileWatcher set) so atomic-rename
-    /// and delete-replace editor saves aren't missed; NotifyFilter narrows to suppress dir churn.
-    internal static Fin<Subscription> AttachWatcher(RhinoBlocks owner, ArchivePath path, WatchPolicy policy) =>
-        Op.Of(name: nameof(AttachWatcher)).Catch(() => {
+    internal static Fin<Subscription> AttachWatch(RhinoBlocks owner, ArchivePath path, WatchPolicy policy) {
+        Op key = Op.Of(name: nameof(AttachWatch));
+        return key.Catch(() => {
             string dir = IOPath.GetDirectoryName(path: path.Value) ?? string.Empty;
             string filter = IOPath.GetFileName(path: path.Value);
             FileSystemWatcher watcher = new(path: dir, filter: filter) {
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite,
             };
             try {
-                // BOUNDARY ADAPTER — FileSystemWatcher delegate lifetime is owned by Subscription disposal.
-                WatchContext ctx = new(
-                    Owner: owner, Path: path, Policy: policy,
-                    LastFired: Atom(value: DateTimeOffset.MinValue),
-                    Watcher: watcher);
+                WatchContext ctx = new(Owner: owner, Path: path, Policy: policy, LastFired: Atom(value: DateTimeOffset.MinValue), Watcher: watcher);
                 void OnChange(object sender, FileSystemEventArgs args) => OnWatchChanged(ctx: ctx);
                 void OnRename(object sender, RenamedEventArgs args) => OnWatchChanged(ctx: ctx);
                 watcher.Changed += OnChange;
@@ -1252,11 +1252,15 @@ internal static partial class Operations {
                 watcher.Renamed += OnRename;
                 watcher.EnableRaisingEvents = true;
                 return Fin.Succ(value: Subscription.Of(detach: ctx.Watcher.Dispose));
-            } catch {
+            } catch (IOException ex) {
                 watcher.Dispose();
-                throw;
+                return Fin.Fail<Subscription>(error: key.InvalidResult(detail: ex.Message));
+            } catch (UnauthorizedAccessException ex) {
+                watcher.Dispose();
+                return Fin.Fail<Subscription>(error: key.InvalidResult(detail: ex.Message));
             }
         });
+    }
 
     private static void OnWatchChanged(WatchContext ctx) {
         DateTimeOffset now = ctx.Policy.EffectiveClock.GetUtcNow();
@@ -1270,18 +1274,10 @@ internal static partial class Operations {
             key: Op.Of(name: nameof(BlockOp.RefreshLinks))));
     }
 
-    private sealed record WatchContext(
-        RhinoBlocks Owner,
-        ArchivePath Path,
-        WatchPolicy Policy,
-        Atom<DateTimeOffset> LastFired,
-        FileSystemWatcher Watcher);
-
+    private sealed record WatchContext(RhinoBlocks Owner, ArchivePath Path, WatchPolicy Policy, Atom<DateTimeOffset> LastFired, FileSystemWatcher Watcher);
 }
 
 // --- [COMPOSITION] [CONTENT INDEX] --------------------------------------------------------
-/// Per-doc content-hash -> DefinitionId index. Incremental via table events and RegisterIfMissing;
-/// explicit AdoptContent / Adopt scans pre-existing definitions. Find never cold-scans the table.
 internal static class ContentIndex {
     private static readonly Atom<HashMap<uint, HashMap<ulong, Seq<DefinitionId>>>> byDoc =
         Atom(value: HashMap<uint, HashMap<ulong, Seq<DefinitionId>>>());
@@ -1291,22 +1287,15 @@ internal static class ContentIndex {
         return unit;
     }
 
-    internal static Seq<DefinitionId> Find(RhinoDoc doc, BlockContentHash hash) {
-        uint serial = doc.RuntimeSerialNumber;
-        return byDoc.Value.Find(key: serial)
-            .Bind(idx => idx.Find(key: hash.Value))
-            .IfNone(noneValue: Seq<DefinitionId>());
-    }
+    internal static Seq<DefinitionId> Find(RhinoDoc doc, BlockContentHash hash) =>
+        byDoc.Value.Find(key: doc.RuntimeSerialNumber).Bind(idx => idx.Find(key: hash.Value)).IfNone(noneValue: Seq<DefinitionId>());
 
-    /// Explicit O(N) adopt for documents opened with pre-existing definitions; table events keep the index warm afterward.
     internal static int Adopt(RhinoDoc doc) {
-        uint serial = doc.RuntimeSerialNumber;
         HashMap<ulong, Seq<DefinitionId>> seeded = FoldHashIndex(doc: doc);
-        _ = byDoc.Swap(f: m => m.AddOrUpdate(key: serial, value: seeded));
+        _ = byDoc.Swap(f: m => m.AddOrUpdate(key: doc.RuntimeSerialNumber, value: seeded));
         return seeded.Values.Fold(0, static (acc, ids) => acc + ids.Count);
     }
 
-    /// Merges incrementally; does not cold-scan the table on Find.
     internal static Unit RegisterIfMissing(RhinoDoc doc, BlockContentHash hash, DefinitionId defId) =>
         MutateDoc(serial: doc.RuntimeSerialNumber, update: inner => inner.AddOrUpdate(
             key: hash.Value,
@@ -1325,15 +1314,10 @@ internal static class ContentIndex {
             .IfNone(unit);
 
     internal static Unit Invalidate(uint serial, RhinoDoc? doc, BlockTableEvent snapshot) {
-        _ = Seq(snapshot.Old, snapshot.New)
-            .Choose(static candidate => candidate)
-            .Map(static definition => definition.Id)
-            .Distinct()
+        _ = Seq(snapshot.Old, snapshot.New).Choose(static candidate => candidate).Map(static definition => definition.Id).Distinct()
             .Iter(defId => RemoveDefinition(serial: serial, defId: defId));
         return Optional(doc)
-            .Map(active => snapshot.New
-                .Map(definition => RegisterDefinition(doc: active, defId: definition.Id.Value))
-                .IfNone(unit))
+            .Map(active => snapshot.New.Map(definition => RegisterDefinition(doc: active, defId: definition.Id.Value)).IfNone(unit))
             .IfNone(unit);
     }
 
@@ -1361,3 +1345,4 @@ internal static class ContentIndex {
                 .Bind(provided => Op.Of(name: nameof(ContentIndex)).Catch(() => Fin.Succ(value: BlockContentHash.Of(members: provided).Value)).ToOption()
                     .Map(hash => (Key: hash, Value: id))));
 }
+

@@ -332,30 +332,30 @@ public static class Archive {
         LanguageExt.HashSet<Guid> reachable = Reachable(defId: anchor.Id.Value, lookup: lookup, table: table);
         return ComposeLive(table: table, definitions: definitions.Filter(def => reachable.Contains(key: def.Id.Value)));
     }
-    // ---- [AUDIT GRAPH] (Blocks.Graph — document dependency audit) ------------------------
-    public static Fin<Blocks.Graph> Audit(InstanceDefinitionTable table, Op key) {
+    // ---- [AUDIT GRAPH] (Blocks.AuditGraph — document dependency audit) -------------------
+    public static Fin<AuditGraph> Audit(InstanceDefinitionTable table, Op key) {
         ArgumentNullException.ThrowIfNull(argument: table);
         Option<string> anchor = BlockPaths.DocAnchor(document: table.Document);
         Seq<InstanceDefinition> definitions = Definition.List(table: table);
-        (Seq<Blocks.Graph.Node> nodes, Seq<Blocks.Graph.Edge> edges) = definitions
+        (Seq<AuditGraph.Node> nodes, Seq<AuditGraph.Edge> edges) = definitions
             .Choose(d => ProjectAudit(definition: d, anchorDirectory: anchor, key: key))
-            .Fold((Nodes: Seq<Blocks.Graph.Node>(), Edges: Seq<Blocks.Graph.Edge>()), static (acc, pair) =>
+            .Fold((Nodes: Seq<AuditGraph.Node>(), Edges: Seq<AuditGraph.Edge>()), static (acc, pair) =>
                 (Nodes: acc.Nodes + pair.Node, Edges: acc.Edges + pair.Edges));
-        return Fin.Succ(value: new Blocks.Graph(Nodes: [.. nodes], Edges: [.. edges]));
+        return Fin.Succ(value: new AuditGraph(Nodes: [.. nodes], Edges: [.. edges]));
     }
 
     /// Single-pass edge projection: members + linked-archive + top/nested inserts share the same `From`.
-    private static Option<(Blocks.Graph.Node Node, Seq<Blocks.Graph.Edge> Edges)> ProjectAudit(
+    private static Option<(AuditGraph.Node Node, Seq<AuditGraph.Edge> Edges)> ProjectAudit(
         InstanceDefinition definition,
         Option<string> anchorDirectory,
         Op key) =>
         Definition.From(definition: definition, anchorDirectory: anchorDirectory, key: key).ToOption().Map(def => (
             Node: def.ToAuditNode(),
-            Edges: toSeq(def.MemberIds).Map(id => new Blocks.Graph.Edge(From: def.Id, Kind: BlockEdgeKind.Member, To: new EdgeTarget.ObjectId(Id: id)))
-                + def.Source.Map(link => Seq(new Blocks.Graph.Edge(From: def.Id, Kind: BlockEdgeKind.LinkedArchive, To: new EdgeTarget.ArchiveTarget(Path: link.Full)))).IfNone(Seq<Blocks.Graph.Edge>())
+            Edges: toSeq(def.MemberIds).Map(id => new AuditGraph.Edge(From: def.Id, Kind: BlockEdgeKind.Member, To: new EdgeTarget.ObjectId(Id: id)))
+                + def.Source.Map(link => Seq(new AuditGraph.Edge(From: def.Id, Kind: BlockEdgeKind.LinkedArchive, To: new EdgeTarget.ArchiveTarget(Path: link.Full)))).IfNone(Seq<AuditGraph.Edge>())
                 + toSeq(definition.GetReferences(wheretoLook: ReferenceScope.TopAndNested.Native) ?? [])
                     .Filter(static inst => inst is not null)
-                    .Map(inst => new Blocks.Graph.Edge(From: def.Id, Kind: BlockEdgeKind.InstanceInsert, To: new EdgeTarget.ObjectId(Id: inst.Id)))));
+                    .Map(inst => new AuditGraph.Edge(From: def.Id, Kind: BlockEdgeKind.InstanceInsert, To: new EdgeTarget.ObjectId(Id: inst!.Id)))));
     // ---- [LIVE GRAPH] (Archive.Graph — bake/plan topology) --------------------------------
     public static Fin<Graph> LiveGraph(InstanceDefinitionTable table, Option<Definition> anchor, Op key) {
         ArgumentNullException.ThrowIfNull(argument: table);

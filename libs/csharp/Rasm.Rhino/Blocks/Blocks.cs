@@ -3,7 +3,6 @@ using System.Drawing;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.UI;
 using Rhino.DocObjects.Tables;
-
 namespace Rasm.Rhino.Blocks;
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -52,7 +51,7 @@ public sealed class RhinoBlocks {
     public Fin<Subscription> Watch(ArchivePath path, WatchPolicy? policy = null) =>
         (policy ?? WatchPolicy.Default)
             .Admit(key: Op.Of(name: nameof(Watch)))
-            .Bind(valid => Operations.AttachWatcher(owner: this, path: path, policy: valid));
+            .Bind(valid => Operations.AttachWatch(owner: this, path: path, policy: valid));
 
     public Fin<Unit> SetLinkedPolicy(LinkedPolicy policy, Op? key = null) {
         Op op = key.OrDefault();
