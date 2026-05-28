@@ -3,7 +3,7 @@
 
 <br>
 
-Top-level layout for shippable plugins. The host platform (Rhino-only vs Grasshopper) determines the parent folder; each plugin gets its own subdirectory containing a single `.csproj` that emits a `.rhp` artifact via the Yak packaging pipeline (`scripts/rhino.sh package`).
+Top-level layout for shippable plugins. The host platform (Rhino-only vs Grasshopper) determines the parent folder; each plugin gets its own subdirectory containing a single `.csproj` that emits a `.rhp` artifact via the Yak packaging pipeline (`uv run python -m tools.quality bridge package`).
 
 ```
 apps/
@@ -37,7 +37,7 @@ To add a new plugin:
 
 1. Create `apps/<host>/<PluginName>/<PluginName>.csproj` with `<TargetFramework>net10.0</TargetFramework>` and the `RhinoPluginAssemblyGuid` / `RhinoPluginIconResource` properties as needed.
 2. Add the project to `Workspace.slnx` under the matching `/apps/<host>/<PluginName>/` folder.
-3. Add `<YakPackageSlug>` to the project and `tools/yak/<slug>/manifest.yml` so `scripts/rhino.sh package <slug> <version>` resolves the artifact through MSBuild.
+3. Add `<YakPackageSlug>` to the project and `tools/yak/<slug>/manifest.yml` so `uv run python -m tools.quality bridge package <slug> <version>` resolves the artifact through MSBuild.
 4. Tests for the plugin live at `tests/csharp/<PluginName>/<PluginName>.Tests.csproj` for static specs. Runtime bridge scenarios live under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/` for library-owned behavior, including plugin-facing GH UI slices. See the `cs-testing` skill.
 
 ---

@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Rasm uses `dotnet-stryker 4.14.2` through `.config/dotnet-tools.json` and `scripts/mutate-cs.sh`. Stryker is currently diagnostic, not a completion gate, because the Stryker VSTest path detects zero tests while plain VSTest discovers managed xUnit v3 tests.
+[IMPORTANT] Rasm uses `dotnet-stryker 4.14.2` through `.config/dotnet-tools.json` and `tools.quality test run`. Default managed `tools.quality test run` executes VSTest first, then Stryker on the `Rasm` project/test pair. Stryker remains diagnostic until its VSTest path discovers non-zero tests while plain VSTest does.
 
 ---
 ## [1][LOCAL_RAIL]
@@ -18,9 +18,22 @@
 | [3] | Test project | `tests/csharp/libs/Rasm/Rasm.Tests.csproj` |
 | [4] | Default runner | `vstest` |
 | [5] | Output | `.artifacts/mutation/<slice>/<run-id>` |
+| [6] | MSBuild isolation | VSTest uses `.artifacts/agents/<pid>/`; Stryker follows in-process and writes project `obj/`/`bin/` |
 
 ---
-## [2][RUNNER_DECISION]
+## [2][PARALLELISM]
+>**Dictum:** *Mutation follows VSTest in one test invocation.*
+
+<br>
+
+| [INDEX] | [RAIL] | [POLICY] |
+| :-----: | ------ | -------- |
+| [1] | `quality static`, focused `--target` test runs | Safe concurrently — per-invocation `--artifacts-path` under `.artifacts/agents/<pid>/`. |
+| [2] | Default `tools.quality test run` | VSTest then Stryker serially in one process — do not parallelize two default runs. |
+| [3] | `tools.quality bridge` | Serial — one live Rhino endpoint. |
+
+---
+## [3][RUNNER_DECISION]
 >**Dictum:** *MTP is a migration, not a retry flag.*
 
 <br>
@@ -34,7 +47,7 @@
 [SOURCE] Stryker config docs: https://stryker-mutator.io/docs/stryker-net/configuration/
 
 ---
-## [3][METRICS]
+## [4][METRICS]
 >**Dictum:** *Survivors are classified before tests change.*
 
 <br>
@@ -47,7 +60,7 @@
 - Do not mutate `libs/csharp/Rasm.Rhino`, `libs/csharp/Rasm.Grasshopper`, plugin apps, bridge tools, or `*.verify.csx`.
 
 ---
-## [4][CONFIG]
+## [5][CONFIG]
 >**Dictum:** *Add config only for config-only value.*
 
 <br>
@@ -55,7 +68,7 @@
 Keep script-owned settings while mutation targets one project. Add `stryker-config.*` only when config-only options such as `coverage-analysis`, executable excludes, or multi-project orchestration become necessary.
 
 ---
-## [5][THEORY_AS_STRYKER_ENABLER]
+## [6][THEORY_AS_STRYKER_ENABLER]
 >**Dictum:** *PBT hosts are one mutation target; Theory rows are N.*
 
 <br>
@@ -71,7 +84,7 @@ Convert when:
 Do NOT convert when the cases share oracle logic and the PBT body is the more honest representation (per-case Theory rows would be copy-paste).
 
 ---
-## [6][SURVIVOR_TAXONOMY]
+## [7][SURVIVOR_TAXONOMY]
 >**Dictum:** *Every survivor classifies before any test changes.*
 
 <br>

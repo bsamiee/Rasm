@@ -7,6 +7,7 @@ dependencies = [
     "algorithms",
     "anyio",
     "beartype",
+    "cyclopts",
     "msgspec",
     "opentelemetry-api",
     "opentelemetry-exporter-otlp-proto-http",
@@ -183,6 +184,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py"      = ["F401"]
+"tools/quality/**" = ["D101", "D102", "D103", "PLR0904", "PLR0912", "PLR0914", "TC001", "TC002", "TC003", "PLW0108"]
+"tests/tools/quality/**" = ["S101", "PLR2004", "TC002"]
 "**/.claude/skills/**/scripts/**" = [
     "ANN001",
     "ANN401",

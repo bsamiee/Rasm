@@ -22,10 +22,10 @@ public readonly record struct MouseContext<TState>(MousePhase Phase, TState Stat
     public Option<Line> WorldLine =>
         (View.Case, ViewportPoint.Case) switch {
             (RhinoView view, System.Drawing.Point point) => Optional(view.Document).Case switch {
-                RhinoDoc document => global::Rasm.Rhino.Camera.RhinoCamera.Live(document: document)
+                RhinoDoc document => Camera.RhinoCamera.Live(document: document)
                     .RunValue(
-                        operation: global::Rasm.Rhino.Camera.CameraOps.Query(query: scope => scope.FrustumLine(screenX: point.X, screenY: point.Y)),
-                        target: new global::Rasm.Rhino.Camera.ViewportTarget.View(Value: view))
+                        operation: Camera.CameraOps.Query(query: scope => scope.FrustumLine(screenX: point.X, screenY: point.Y)),
+                        target: new Camera.ViewportTarget.View(Value: view))
                     .ToOption(),
                 _ => Option<Line>.None,
             },

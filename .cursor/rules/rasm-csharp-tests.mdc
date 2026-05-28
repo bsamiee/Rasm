@@ -27,4 +27,4 @@ Read `.claude/skills/cs-testing/SKILL.md`, `tests/csharp/AGENTS.md`, and nearest
 
 ## Validation ladder
 
-Run `bash scripts/test.sh` for managed specs. Use `TEST_TARGET=<csproj> bash scripts/test.sh` for non-default projects. Run `bash scripts/rhino.sh verify <scenario-or-glob>` only for bridge-owned runtime behavior.
+Run `uv run python -m tools.quality test run` for managed specs. Use `uv run python -m tools.quality test run --target <csproj>` for non-default projects. Run `uv run python -m tools.quality bridge verify <scenario-or-glob>` only for bridge-owned runtime behavior.

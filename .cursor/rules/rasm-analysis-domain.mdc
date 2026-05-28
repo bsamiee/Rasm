@@ -25,4 +25,4 @@ Read `libs/csharp/Rasm/AGENTS.md` before edits.
 
 ## Validation
 
-Run `bash scripts/check-cs.sh check`. Add `bash scripts/test.sh` when behavior or test oracles change.
+Run `uv run python -m tools.quality static check`. Add `uv run python -m tools.quality test run` when behavior or test oracles change.

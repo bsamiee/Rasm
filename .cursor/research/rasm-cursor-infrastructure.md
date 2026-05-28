@@ -8,7 +8,7 @@ This document captures the source-grounded decisions behind the final Cursor cle
 | --- | --- |
 | Cursor product behavior | Current Cursor docs synthesis for project rules, user rules, team rules, skills, subagents, hooks, MCP, and Bugbot. |
 | Repo authority | `CLAUDE.md`, root `AGENTS.md`, nested `AGENTS.md`, `.claude/skills/`, `docs/system-api-map`, `docs/external-libs`, `docs/testing-libs`. |
-| Build and host config | `Directory.Build.props`, `Directory.Packages.props`, `README.md`, `scripts/check-cs.sh`, `scripts/test.sh`, `scripts/rhino.sh`. |
+| Build and host config | `Directory.Build.props`, `Directory.Packages.props`, `README.md`, `tools/quality/`, `package.json` (`test:cs`, `verify:rhino`). |
 | Bridge truth | `tools/rhino-bridge/README.md`, `tools/rhino-bridge/AGENTS.md`, `tests/csharp/AGENTS.md`, `Rasm.TestKit.Scenarios`, `BridgeMarker.Scan`. |
 | Code audits | `libs/csharp/Rasm`, `Rasm.Rhino`, `Rasm.Grasshopper`, tests, and bridge operator surfaces. |
 | Host research | Local RhinoWIP app-bundle XML/decompile, GH2 SDK notes, Eto/macOS UI constraints, RhinoCode diagnostic lane, Yak packaging lane. |
@@ -18,7 +18,7 @@ This document captures the source-grounded decisions behind the final Cursor cle
 - **Cursor docs wave:** Confirmed `.cursor/rules/*.mdc` project rules with `description`, `globs`, and `alwaysApply`; User Rules live in Settings as plain text; Team Rules outrank Project Rules, which outrank User Rules. Skills are multi-step procedures, but this repo should not define Cursor skills because `.claude/skills/` owns procedures.
 - **Claude/Codex synthesis wave:** Durable Rasm guidance is greenfield polymorphic collapse, OOP native boundaries with FP internals, LanguageExt/Thinktecture typed rails, external-lib-first policy, and separated quality gates. Codex had stale bridge memory and secret-bearing config, so none of that was imported.
 - **Repo config wave:** Rasm currently targets RhinoWIP on macOS, `.NET 10`, C# 14, GH2, Eto, central package management, and app-bundle host references. `global.json` is absent and should only be treated as a future trigger if added.
-- **Bridge audit wave:** `scripts/rhino.sh` is the only operator. Current routes are `verify`, `bridge check`, `bridge doctor`, `api doctor|path|xml|types|decompile`, and `package|deploy|publish`. Scenarios use `Scenario.Run` plus `facts.Add`; the batched `facts={json}` marker parsed by `BridgeMarker.Scan` is the durable evidence channel.
+- **Bridge audit wave:** `uv run python -m tools.quality bridge` is the only operator. Current routes are `verify`, `bridge check`, `bridge doctor`, `api doctor|path|xml|types|decompile`, and `package|deploy|publish`. Scenarios use `Scenario.Run` plus `facts.Add`; the batched `facts={json}` marker parsed by `BridgeMarker.Scan` is the durable evidence channel.
 - **Code audit wave:** Focused rules are useful for `Rasm/Analysis` + `Domain`, `Rasm/Vectors`, `Rasm.Materials`, `Rasm.Grasshopper`, Rhino UI, Rhino category folders, C# specs, testkit, bridge scenarios, and reference/architecture docs because each has specific ownership and host-risk patterns.
 - **Host research wave:** Local RhinoWIP XML/decompile is the highest-confidence API source. GH2 is WIP and local XML wins over older examples. Eto UI on macOS must be document-parented and UI-thread marshaled; `RhinoDoc.ActiveDoc` is not acceptable when command or UI context supplies a document.
 

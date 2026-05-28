@@ -117,7 +117,7 @@ Use static validation for this slice:
 ```bash
 rg -n "<stale external-layout ownership tokens>" libs/csharp/Rasm.Materials
 rg -n "<host drawing/runtime type tokens>" libs/csharp/Rasm.Materials/Bricks
-bash scripts/check-cs.sh check
+uv run python -m tools.quality static check
 git diff --check
 ```
 

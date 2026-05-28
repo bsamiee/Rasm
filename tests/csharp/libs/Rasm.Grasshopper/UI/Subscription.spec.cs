@@ -114,7 +114,7 @@ public sealed class SubscriptionTeardownLaws {
         Subscription paint = Subscription.Atom(detach: () => log.Add(item: "paint"));
         Subscription paced = paint | Subscription.Atom(detach: () => log.Add(item: "pacer"), detachOnce: true);
         paced.Dispose();
-        Assert.Equal<string>(expected: ["pacer", "paint"], actual: [.. log]);
+        Assert.Equal(expected: ["pacer", "paint"], actual: [.. log]);
     }
     [Fact]
     public void DisposeOnceCompositeRunsInnerAtMostOnce() {

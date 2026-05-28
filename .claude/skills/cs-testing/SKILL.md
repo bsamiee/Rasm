@@ -41,7 +41,7 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 | [1] | Static spec | `tests/csharp/libs/<Project>/<MirrorPath>/<Source>.spec.cs` | Pure managed constructors, smart enums, unions, matrix/math rails, `Fin`/`Validation`, deterministic algorithms. |
 | [2] | Testkit | `tests/csharp/_testkit` | Universal law adapters, reusable generators, independent numeric oracles, serializers. |
 | [3] | Bridge scenario | `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/*.verify.csx` | RhinoCommon/GH runtime APIs, native geometry validity, UI marshaling, document/canvas behavior. |
-| [4] | Mutation | `scripts/mutate-cs.sh` | Opt-in managed survivor discovery for `libs/csharp/Rasm` and its tests. |
+| [4] | Mutation | `tools.quality test run` (default managed target) | VSTest then Stryker survivor discovery for `libs/csharp/Rasm` and its tests. |
 | [5] | Architecture | `tests/csharp/_architecture` | Assembly dependency direction and cycle laws. |
 | [6] | Tooling snapshot | `tests/csharp/_tooling` | Stable generated/config artifacts through Verify. |
 | [7] | Benchmark | `tests/csharp/_benchmarks` | Managed hot-path measurement outside xUnit. |
@@ -115,7 +115,7 @@ The bridge injects `SCENARIO_NAME` and `CAPTURE_PATH` before execution. Do not d
 | [1] | xUnit v3 | `docs/testing-libs/xunit/api.md` | VSTest rail, assertions, fixtures, `TheoryData<T1..T15>`, generated runner JSON. |
 | [2] | CsCheck | `docs/testing-libs/cscheck/api.md` | `Gen`, `Sample`, shrink/replay, model/metamorphic/parallel/perf APIs. |
 | [3] | coverlet | `docs/testing-libs/coverlet/api.md` | Opt-in managed coverage map. |
-| [4] | Stryker.NET | `docs/testing-libs/stryker/api.md` | Opt-in mutation through `scripts/mutate-cs.sh`. |
+| [4] | Stryker.NET | `docs/testing-libs/stryker/api.md` | Mutation through default `tools.quality test run` after VSTest. |
 | [5] | Verify | `docs/testing-libs/verify/api.md` | Stable artifact snapshots only. |
 | [6] | ArchUnitNET | `docs/testing-libs/archunit/api.md` | Assembly boundary laws. |
 | [7] | BenchmarkDotNet | `docs/testing-libs/benchmarkdotnet/api.md` | Benchmark console projects. |
@@ -142,25 +142,20 @@ Use the repo gate ladder appropriate to the touched surface:
 dotnet restore Workspace.slnx
 dotnet restore Workspace.slnx --locked-mode
 dotnet tool restore
-bash scripts/check-cs.sh full
-bash scripts/test.sh
+uv run python -m tools.quality static full
+uv run python -m tools.quality test run
 dotnet test tests/csharp/libs/Rasm/Rasm.Tests.csproj --configuration Release /p:CollectCoverage=true
-bash scripts/rhino.sh verify tests/csharp/libs/Rasm/Vectors/scenarios
-bash scripts/rhino.sh verify tests/csharp/libs/Rasm.Grasshopper/UI/scenarios
+uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm/Vectors/scenarios
+uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm.Grasshopper/UI/scenarios
 git diff --check
 ```
 
-Opt-in mutation:
-
-```bash
-bash scripts/mutate-cs.sh --self-test
-bash scripts/mutate-cs.sh
-```
+Default `tools.quality test run` executes VSTest then Stryker on the managed `Rasm` pair. Focused `--target` runs skip mutation.
 
 Bridge ownership proof:
 
 ```bash
-bash scripts/rhino.sh bridge check libs/csharp/Rasm/Vectors/Space.cs tests/csharp/libs/Rasm/Vectors/scenarios/vectors-space-projection.verify.csx
+uv run python -m tools.quality bridge check libs/csharp/Rasm/Vectors/Space.cs tests/csharp/libs/Rasm/Vectors/scenarios/vectors-space-projection.verify.csx
 ```
 
 Bridge scenarios are source-only. Do not add `#r`, `#load`, or absolute build-output paths; the bridge owns reference projection and fresh artifact refs.

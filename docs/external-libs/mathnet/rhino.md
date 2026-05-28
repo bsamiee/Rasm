@@ -33,7 +33,7 @@ Convert native values into ordered coordinates, units, and weights before algori
 
 <br>
 
-When documenting Rhino 9/WIP members such as transform scale classification, vector decomposition, pseudo-inverse behavior, or new mesh operations, cite the local `scripts/rhino.sh api xml` or `decompile` command used to prove them. Do not infer availability from older public pages.
+When documenting Rhino 9/WIP members such as transform scale classification, vector decomposition, pseudo-inverse behavior, or new mesh operations, cite the local `uv run python -m tools.quality api xml` or `decompile` command used to prove them. Do not infer availability from older public pages.
 
 ---
 ## [4][RULES]

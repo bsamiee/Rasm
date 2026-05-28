@@ -25,7 +25,7 @@ Cursor precedence is Team > Project > User. This repo does not define Cursor ski
 | `rasm-testkit.mdc` | Shared `Rasm.TestKit` generators, oracles, and scenario harness. |
 | `rasm-bridge-scenarios.mdc` | Rhino/GH2 `*.verify.csx` runtime scenarios. |
 | `rasm-rhino-bridge.mdc` | Bridge operator and runtime command routes. |
-| `rasm-bash-scripts.mdc` | Bash scripts. |
+| `rasm-quality-operator.mdc` | `tools/quality` operator rails. |
 | `rasm-docs-markdown.mdc` | Markdown and Cursor docs. |
 | `rasm-docs-reference.mdc` | System, external library, testing library, and usage reference docs. |
 | `rasm-docs-architecture.mdc` | Architecture, ADR, README, and changelog docs. |

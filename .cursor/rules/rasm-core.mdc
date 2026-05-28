@@ -39,9 +39,11 @@ Use repo `.claude/skills/` first for Rasm procedures. Fall back to `~/.codex/ski
 
 | Rail | Command |
 | --- | --- |
-| Static C# | `bash scripts/check-cs.sh check` |
-| Full static, trigger files only | `bash scripts/check-cs.sh full` |
-| Unit tests | `bash scripts/test.sh [<filter>]` |
-| Rhino runtime | `bash scripts/rhino.sh verify <scenario-or-glob>` |
+| Static C# | `uv run python -m tools.quality static check` |
+| Full static, trigger files only | `uv run python -m tools.quality static full` |
+| Unit tests | `uv run python -m tools.quality test run [<filter>]` |
+| Rhino runtime | `uv run python -m tools.quality bridge verify <scenario-or-glob>` |
+
+`quality static`, focused `--target` test runs, and bridge dotnet routes in `tools.quality` isolate MSBuild scratch under `.artifacts/agents/<pid>/` and may run concurrently. Default `tools.quality test run` (managed `Rasm` target) runs VSTest then Stryker in one invocation — do not parallelize two default test runs. Bridge verify/check/package and live Rhino remain single-flight.
 
 Keep rails orthogonal. Trust `CSP####` analyzer findings and fix architecture rather than suppressing.

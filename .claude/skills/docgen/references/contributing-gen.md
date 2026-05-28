@@ -32,7 +32,7 @@ Before generating, gather information from:
 
 ### [2.1][DEVELOPMENT_SETUP]
 
-Exact commands from clone to running checks. Section contains one H2 heading (`## Development Setup`) followed by a single `sh` fenced code block with six sequential commands: `git clone <repo-url>`, `cd <repo>`, `pnpm install`, `pnpm check:ts`, `pnpm check:py`, `bash scripts/check-cs.sh check`.
+Exact commands from clone to running checks. Section contains one H2 heading (`## Development Setup`) followed by a single `sh` fenced code block with six sequential commands: `git clone <repo-url>`, `cd <repo>`, `pnpm install`, `pnpm check:ts`, `pnpm check:py`, `uv run python -m tools.quality static check`.
 
 Include fork vs. direct clone policy, required environment variables, database setup if applicable.
 
@@ -60,7 +60,7 @@ Link to language-specific standards; do not inline them. Section contains one H2
 
 Commands and coverage expectations. Section contains one H2 heading (`## Testing`) followed by two inline code commands and a coverage threshold statement:
 
-- **Run language checks:** `pnpm check:ts`, `pnpm check:py`, `bash scripts/check-cs.sh check`
+- **Run language checks:** `pnpm check:ts`, `pnpm check:py`, `uv run python -m tools.quality static check`
 - **Run with coverage:** `pnpm exec nx run-many -t test -- --coverage`
 - **Coverage threshold:** 80% line coverage; PRs below threshold fail CI.
 

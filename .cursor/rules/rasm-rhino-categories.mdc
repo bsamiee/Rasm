@@ -25,7 +25,7 @@ Read `libs/csharp/Rasm.Rhino/AGENTS.md`, `libs/csharp/AGENTS.md`, `.claude/skill
 - Preserve document receipts, redraw/commit behavior, resource lifetimes, disposal, UI-thread protection, and native consistency at the category boundary.
 - Keep document mutation, selection, construction, UI, camera, capture, block, and exchange ownership separated.
 - Convert nullable, bool, obsolete, disposable, and synchronous native surfaces into typed `Fin`, `Option`, receipt, policy, and scoped-resource rails.
-- Verify risky Rhino behavior against current RhinoWIP XML, decompile evidence when XML is absent, and `bash scripts/rhino.sh api doctor|xml|types|decompile`.
+- Verify risky Rhino behavior against current RhinoWIP XML, decompile evidence when XML is absent, and `uv run python -m tools.quality api doctor|xml|types|decompile`.
 
 ## Known RhinoWIP Constraints
 
@@ -39,4 +39,4 @@ Read `libs/csharp/Rasm.Rhino/AGENTS.md`, `libs/csharp/AGENTS.md`, `.claude/skill
 
 ## Validation
 
-Use `bash scripts/check-cs.sh check`; add managed specs or `bash scripts/rhino.sh verify <scenario-or-glob>` when runtime document, viewport, block, file, capture, or construction behavior changes.
+Use `uv run python -m tools.quality static check`; add managed specs or `uv run python -m tools.quality bridge verify <scenario-or-glob>` when runtime document, viewport, block, file, capture, or construction behavior changes.

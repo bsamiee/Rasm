@@ -26,7 +26,7 @@
 
 - RhinoCommon or GH2 APIs that only work inside RhinoWIP must be proven by `*.verify.csx` scenarios under the relevant `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/` folder.
 - Static specs may classify bridge-owned behavior, but must not pretend to execute native runtime paths that fail outside Rhino.
-- Pair each bridge scenario with an owning source file for `scripts/rhino.sh bridge check <source> <scenario>`.
+- Pair each bridge scenario with an owning source file for `uv run python -m tools.quality bridge check <source> <scenario>`.
 - Keep bridge scenarios source-only. Do not add `#r`, `#load`, or absolute build-output paths; bridge check owns reference projection and fresh artifact refs.
 - Treat host dependency collisions as product/packaging evidence. Do not rewrite bridge scenarios into weaker static assertions just because Rhino has preloaded a conflicting assembly.
 - For Rasm.Vectors on macOS, classify by actual call behavior rather than broad type names. Static specs may own managed factories, guards, smart-enum dispatch, matrix/math laws, and failure categories. Bridge scenarios own successful native sampling/projection/materialization and RhinoCommon calls that the current static run proves require RhinoWIP host state, including point-cloud topology, mesh topology/Laplacian/remesh/SDF/heat, curve/surface projections, Rhino validity/unitization, and mass properties.

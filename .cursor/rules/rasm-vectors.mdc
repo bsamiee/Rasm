@@ -23,4 +23,4 @@ Read `libs/csharp/Rasm/AGENTS.md`, `docs/external-libs/mathnet`, and package tru
 
 ## Validation
 
-Run `bash scripts/check-cs.sh check`, `bash scripts/test.sh`, and vector bridge scenarios when native Rhino/GH evidence changes.
+Run `uv run python -m tools.quality static check`, `uv run python -m tools.quality test run`, and vector bridge scenarios when native Rhino/GH evidence changes.

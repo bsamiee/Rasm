@@ -20,7 +20,8 @@ RhinoWIP macOS workspace for first-party Rhino and Grasshopper products. Each ap
 | `tests/csharp`                 | Managed C# contract tests for shared libraries.                                          |
 | `tools/cs-analyzer`            | Local Roslyn analyzer project used by C# builds.                                         |
 | `tools/yak/<package>`          | Tracked Yak metadata for one package.                                                    |
-| `scripts/rhino.sh`             | Build, package, publish, and run RhinoWIP bridge analyzer flows.                         |
+| `tools/quality`                | Typed quality operator: static, test, bridge, and API rails.                             |
+| `tools/rhino-bridge`             | In-Rhino bridge plugin, client, and protocol.                                            |
 
 ## Build Policy
 
@@ -51,56 +52,56 @@ RhinoWIP currently hosts .NET 10 while installed McNeel assemblies can target ol
 Run C# quality gates:
 
 ```bash
-bash scripts/check-cs.sh check
+uv run python -m tools.quality static check
 ```
 
 Build Rhino artifacts:
 
 ```bash
-scripts/rhino.sh build
+uv run python -m tools.quality bridge build
 ```
 
 Create the Mac Yak package:
 
 ```bash
-scripts/rhino.sh package radyab 0.1.0-wip
+uv run python -m tools.quality bridge package radyab 0.1.0-wip
 ```
 
 Deploy a package into RhinoWIP:
 
 ```bash
-scripts/rhino.sh deploy radyab 0.1.0-wip
+uv run python -m tools.quality bridge deploy radyab 0.1.0-wip
 ```
 
 Build, install locally, then push to a Yak feed (one shot):
 
 ```bash
-scripts/rhino.sh publish radyab 0.1.0-wip
+uv run python -m tools.quality bridge publish radyab 0.1.0-wip
 ```
 
 Build and deploy the runtime analyzer bridge:
 
 ```bash
 VERSION=0.1.0-wip
-scripts/rhino.sh bridge build
-scripts/rhino.sh package rasm-bridge "$VERSION"
-scripts/rhino.sh deploy rasm-bridge "$VERSION"
+uv run python -m tools.quality bridge build-bridge
+uv run python -m tools.quality bridge package rasm-bridge "$VERSION"
+uv run python -m tools.quality bridge deploy rasm-bridge "$VERSION"
 ```
 
 Collect live RhinoWIP runtime evidence:
 
 ```bash
-scripts/rhino.sh bridge doctor
-scripts/rhino.sh bridge check path/to/project.csproj
-scripts/rhino.sh bridge check path/to/source.cs path/to/scenario.verify.csx
-scripts/rhino.sh bridge check path/to/script.csx
-scripts/rhino.sh bridge clean path/to/project.csproj
-scripts/rhino.sh verify path/to/scenario.verify.csx
+uv run python -m tools.quality bridge doctor
+uv run python -m tools.quality bridge check path/to/project.csproj
+uv run python -m tools.quality bridge check path/to/source.cs path/to/scenario.verify.csx
+uv run python -m tools.quality bridge check path/to/script.csx
+uv run python -m tools.quality bridge clean path/to/project.csproj
+uv run python -m tools.quality bridge verify path/to/scenario.verify.csx
 ```
 
 ## Artifact Flow
 
-`scripts/rhino.sh package <package> <version>` performs one path:
+`uv run python -m tools.quality bridge package <package> <version>` performs one path:
 
 1. Restore `Workspace.slnx`.
 2. Clear configured plugin output directories for the selected package.
@@ -109,7 +110,7 @@ scripts/rhino.sh verify path/to/scenario.verify.csx
 5. Copy `tools/yak/<package>/manifest.yml` and `tools/yak/<package>/icon.png`.
 6. Run RhinoWIP Yak with `--platform mac` and the supplied version.
 
-`scripts/rhino.sh deploy <package> <version>` builds the same package, installs the local `.yak`, and refreshes RhinoWIP through the idempotent `bridge launch` path. `scripts/rhino.sh publish <package> <version>` builds the same package, installs it locally, and pushes it with `YAK_SOURCE` when that environment variable is set — install and push were merged from the prior separate routes into a single agent-facing action.
+`uv run python -m tools.quality bridge deploy <package> <version>` builds the same package, installs the local `.yak`, and refreshes RhinoWIP through the idempotent `bridge launch` path. `uv run python -m tools.quality bridge publish <package> <version>` builds the same package, installs it locally, and pushes it with `YAK_SOURCE` when that environment variable is set — install and push were merged from the prior separate routes into a single agent-facing action.
 
 Host assemblies stay outside package output: `RhinoCommon`, `Rhino.UI`, `Rhino.Runtime.Code`, `Grasshopper2`, `GrasshopperIO`, `Eto`, `Microsoft.macOS`, and `System.Drawing.Common`.
 

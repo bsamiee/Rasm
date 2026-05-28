@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from types import MappingProxyType
+from typing import Final, TYPE_CHECKING
 
 
 if TYPE_CHECKING:
@@ -41,6 +42,22 @@ class OutputFormat(StrEnum):
     github = "github"
 
 
+class Severity(StrEnum):
+    """Stable diagnostic severities."""
+
+    error = "error"
+
+
+class RuleCategory(StrEnum):
+    """Stable diagnostic categories."""
+
+    functional = "FunctionalDiscipline"
+    governance = "Governance"
+    infrastructure = "Infrastructure"
+    surface = "SurfaceArea"
+    type_discipline = "TypeDiscipline"
+
+
 class Scope(StrEnum):
     """Analyzer scope classification."""
 
@@ -59,7 +76,7 @@ class Rule:
     """Static rule metadata shared by output formats."""
 
     title: str
-    category: str
+    category: RuleCategory
     message: str
 
 
@@ -68,13 +85,13 @@ class Diagnostic:
     """Analyzer diagnostic with stable external wire shape."""
 
     rule_id: RuleId
-    severity: str
+    severity: Severity
     path: Path
     line: int
     column: int
     title: str
     message: str
-    category: str
+    category: RuleCategory
 
     def relative_path(self, root: Path) -> str:
         """Return a root-relative path when the diagnostic belongs to the project root."""
@@ -85,33 +102,35 @@ class Diagnostic:
         """Project diagnostic into JSON-compatible fields."""
         return {
             "rule_id": self.rule_id.value,
-            "severity": self.severity,
+            "severity": self.severity.value,
             "path": self.relative_path(root),
             "line": self.line,
             "column": self.column,
             "title": self.title,
             "message": self.message,
-            "category": self.category,
+            "category": self.category.value,
         }
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
-RULES: Mapping[RuleId, Rule] = {
-    RuleId.parse: Rule("AnalyzerInput", "Infrastructure", "Analyzer could not parse or read this Python file."),
+RULES: Final[Mapping[RuleId, Rule]] = MappingProxyType({
+    RuleId.parse: Rule(
+        "AnalyzerInput", RuleCategory.infrastructure, "Analyzer could not parse or read this Python file."
+    ),
     RuleId.domain_flow: Rule(
         "DomainImperativeFlow",
-        "FunctionalDiscipline",
+        RuleCategory.functional,
         "Domain/application flow uses imperative control; use match/case, folds, dispatch tables, or Result rails.",
     ),
     RuleId.boundary_exemption: Rule(
         "BoundaryExemptionGovernance",
-        "Governance",
+        RuleCategory.governance,
         "Boundary imperative flow requires exact RASM_BOUNDARY_EXEMPTION metadata.",
     ),
     RuleId.primitive_signature: Rule(
         "PrimitivePublicSignature",
-        "TypeDiscipline",
+        RuleCategory.type_discipline,
         (
             "Public domain/application signatures must use typed atoms or models instead of primitive, "
             "erased, or mutable annotation leakage."
@@ -119,38 +138,40 @@ RULES: Mapping[RuleId, Rule] = {
     ),
     RuleId.fallible_return: Rule(
         "FallibleReturnRail",
-        "FunctionalDiscipline",
+        RuleCategory.functional,
         "Fallible domain/application functions must return Result[T, E] or Option[T].",
     ),
     RuleId.single_use_private: Rule(
         "SingleUsePrivateFunction",
-        "SurfaceArea",
+        RuleCategory.surface,
         "Private module-level function has one call site; inline it into the owning public surface.",
     ),
     RuleId.duplicate_model: Rule(
         "DuplicateModelShape",
-        "TypeDiscipline",
+        RuleCategory.type_discipline,
         "Domain/application models cannot duplicate the same field shape across modules.",
     ),
     RuleId.rail_escape: Rule(
         "RailEscape",
-        "FunctionalDiscipline",
+        RuleCategory.functional,
         "Domain/application code must not collapse Result/Option rails before a boundary.",
     ),
     RuleId.model_immutability: Rule(
-        "ModelImmutability", "TypeDiscipline", "Domain/application models must declare frozen runtime shape policy."
+        "ModelImmutability",
+        RuleCategory.type_discipline,
+        "Domain/application models must declare frozen runtime shape policy.",
     ),
     RuleId.mutable_model_field: Rule(
         "MutableModelField",
-        "TypeDiscipline",
+        RuleCategory.type_discipline,
         "Domain/application model fields must use immutable container annotations.",
     ),
     RuleId.recovery_inside_effect: Rule(
         "RecoveryInsideEffectBuilder",
-        "FunctionalDiscipline",
+        RuleCategory.functional,
         "Effect result builders must not perform recovery inside the builder body.",
     ),
-}
+})
 
 
 # --- [OPERATIONS] ----------------------------------------------------------------------
@@ -160,5 +181,5 @@ def diagnostic(rule_id: RuleId, path: Path, line: int, column: int, detail: str)
     """Create a stable error diagnostic from a rule id and location."""
     rule = RULES[rule_id]
     return Diagnostic(
-        rule_id, "error", path.resolve(), line, column, rule.title, f"{rule.message} {detail}", rule.category
+        rule_id, Severity.error, path.resolve(), line, column, rule.title, f"{rule.message} {detail}", rule.category
     )

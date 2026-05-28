@@ -34,7 +34,7 @@
 
 <br>
 
-`Directory.Build.props` owns RhinoWIP app paths, `RhinoCommon`, `Rhino.UI`, `Grasshopper2`, `GrasshopperIO`, `Eto`, RhinoCode references, `System.Drawing.Common` host assembly, and conditioned compile package metadata. Verify host assemblies with `scripts/rhino.sh api doctor` before changing docs or references.
+`Directory.Build.props` owns RhinoWIP app paths, `RhinoCommon`, `Rhino.UI`, `Grasshopper2`, `GrasshopperIO`, `Eto`, RhinoCode references, `System.Drawing.Common` host assembly, and conditioned compile package metadata. Verify host assemblies with `uv run python -m tools.quality api doctor` before changing docs or references.
 
 ---
 ## [4][GENERATED_METADATA]

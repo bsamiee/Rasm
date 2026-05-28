@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import sys
-from typing import TYPE_CHECKING
+from typing import assert_never, TYPE_CHECKING
 
 import msgspec
 
@@ -59,15 +59,22 @@ def emit(diagnostics: Sequence[Diagnostic], root: Path, output_format: OutputFor
                 msgspec.json.encode([diagnostic.as_json(resolved_root) for diagnostic in diagnostics]) + b"\n"
             )
         case OutputFormat.github:
+
+            def escape(value: str, *, is_property: bool = False) -> str:
+                data = value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+                return data.replace(":", "%3A").replace(",", "%2C") if is_property else data
+
             sys.stdout.write(
                 "".join(
-                    f"::error file={_github_property(diagnostic.relative_path(resolved_root))},"
+                    f"::error file={escape(diagnostic.relative_path(resolved_root), is_property=True)},"
                     f"line={diagnostic.line},col={diagnostic.column},"
-                    f"title={_github_property(f'{diagnostic.rule_id.value} {diagnostic.title}')}::"
-                    f"{_github_data(diagnostic.message)}\n"
+                    f"title={escape(f'{diagnostic.rule_id.value} {diagnostic.title}', is_property=True)}::"
+                    f"{escape(diagnostic.message)}\n"
                     for diagnostic in diagnostics
                 )
             )
+        case unreachable:
+            assert_never(unreachable)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -95,11 +102,3 @@ def _invocation_errors(root: Path, paths: Sequence[Path]) -> tuple[str, ...]:
 
 def _anchor(root: Path, path: Path) -> Path:
     return path.resolve() if path.is_absolute() else (root / path).resolve()
-
-
-def _github_data(value: str) -> str:
-    return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-
-
-def _github_property(value: str) -> str:
-    return _github_data(value).replace(":", "%3A").replace(",", "%2C")

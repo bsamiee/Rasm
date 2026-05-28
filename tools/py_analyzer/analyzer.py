@@ -85,6 +85,7 @@ EXCLUDED_DIRS = frozenset({
     "test-results",
     "tmp",
 })
+EXCLUDED_PREFIXES = (("tests", "tools", "ast-grep"),)
 BOUNDARY_EXEMPTION = re.compile(
     r"#\s*RASM_BOUNDARY_EXEMPTION:\s+"
     r"rule=(?P<rule>PYS\d{4})\s+"
@@ -141,7 +142,8 @@ PRIMITIVE_NAMES = frozenset({"bool", "float", "int", "str", "tuple"})
 RAIL_NAMES = frozenset({"Option", "Result"})
 RAIL_ESCAPE_METHODS = frozenset({"unwrap", "value_or"})
 PY_ANALYZER_ROOT = ("tools", "py_analyzer")
-TOOLING_ROOTS = ((".claude", "hooks"), (".claude", "skills"), PY_ANALYZER_ROOT)
+QUALITY_ROOT = ("tools", "quality")
+TOOLING_ROOTS = ((".claude", "hooks"), (".claude", "skills"), PY_ANALYZER_ROOT, QUALITY_ROOT)
 DOMAIN_SCOPES = frozenset({Scope.domain, Scope.application})
 PUBLIC_SIGNATURE_BANNED_NAMES = ERASED_NAMES | MUTABLE_FIELD_NAMES | PRIMITIVE_NAMES
 
@@ -260,7 +262,9 @@ class ModuleAnalyzer(cst.CSTVisitor):
             case None:
                 pass
         for field in _model_fields(node):
-            if not _annotation_is_classvar(field.annotation) and _annotation_contains_mutable(field.annotation):
+            if not _annotation_contains(field.annotation, CLASSVAR_NAMES, nested=False) and _annotation_contains(
+                field.annotation, MUTABLE_FIELD_NAMES
+            ):
                 self._report(
                     RuleId.mutable_model_field,
                     field.node,
@@ -287,7 +291,7 @@ class ModuleAnalyzer(cst.CSTVisitor):
             (
                 self.module.code_for_node(annotation)
                 for annotation in _function_annotations(node)
-                if _annotation_exposes_primitive(annotation)
+                if _annotation_contains(annotation, PUBLIC_SIGNATURE_BANNED_NAMES)
             ),
             None,
         )
@@ -303,8 +307,8 @@ class ModuleAnalyzer(cst.CSTVisitor):
 
     def _check_fallible_return(self, node: cst.FunctionDef) -> None:
         returns = node.returns.annotation if node.returns else None
-        rail = bool(returns and _annotation_head_in(returns, RAIL_NAMES))
-        optional = bool(returns and _annotation_is_optional(returns))
+        rail = bool(returns and _annotation_contains(returns, RAIL_NAMES, nested=False))
+        optional = bool(returns and _annotation_contains(returns, frozenset({"Optional"}), nested=False, none=True))
         match (node.name.value.startswith(FALLIBLE_PREFIXES) or optional, rail):
             case (True, False):
                 self._report(RuleId.fallible_return, node, f"{node.name.value} must return Result[T, E] or Option[T].")
@@ -329,7 +333,7 @@ def analyze_paths(root: Path, paths: Sequence[Path]) -> tuple[Diagnostic, ...]:
             diagnostics
             + _single_use_private_function_diagnostics(module_facts)
             + _duplicate_model_shape_diagnostics(module_facts),
-            key=_diagnostic_key,
+            key=lambda value: (value.path.as_posix(), value.line, value.column, value.rule_id.value),
         )
     )
 
@@ -406,7 +410,9 @@ def _walk_python_files(root: Path) -> Iterator[Path]:
 
 def _excluded(path: Path, root: Path) -> bool:
     parts = _relative_parts(path, root)
-    return bool(EXCLUDED_DIRS.intersection(parts) or parts[:2] == ("tests", "ast-grep"))
+    return bool(
+        EXCLUDED_DIRS.intersection(parts) or any(parts[: len(prefix)] == prefix for prefix in EXCLUDED_PREFIXES)
+    )
 
 
 def _relative_parts(path: Path, root: Path) -> tuple[str, ...]:
@@ -465,6 +471,8 @@ def _decorator_name(node: cst.CSTNode) -> str:
             return value
         case cst.Attribute():
             return _dotted_name(node)
+        case cst.Subscript(value=value):
+            return _decorator_name(value)
         case cst.Call(func=func):
             return _decorator_name(func)
         case _:
@@ -495,70 +503,29 @@ def _annotation_head_name(node: cst.CSTNode) -> str:
     return name.rsplit(".", maxsplit=1)[-1] if name else ""
 
 
-def _annotation_head_in(node: cst.CSTNode, names: frozenset[str]) -> bool:
-    match node:
-        case cst.Subscript(value=value):
-            return _annotation_head_name(value) in names
-        case cst.Name() | cst.Attribute():
-            return _annotation_head_name(node) in names
-        case _:
-            return False
-
-
-def _annotation_exposes_primitive(node: cst.CSTNode) -> bool:
-    match node:
-        case cst.Name() | cst.Attribute():
-            return _annotation_head_name(node) in PUBLIC_SIGNATURE_BANNED_NAMES
-        case cst.Subscript(value=value, slice=slices):
-            return _annotation_head_name(value) in PUBLIC_SIGNATURE_BANNED_NAMES or any(
-                _annotation_exposes_primitive(element.slice.value)
-                for element in slices
-                if isinstance(element.slice, cst.Index)
-            )
-        case cst.BinaryOperation(left=left, operator=cst.BitOr(), right=right):
-            return _annotation_exposes_primitive(left) or _annotation_exposes_primitive(right)
-        case cst.Tuple(elements=elements):
-            return any(_annotation_exposes_primitive(element.value) for element in elements)
-        case _:
-            return False
-
-
-def _annotation_is_optional(node: cst.CSTNode) -> bool:
+def _annotation_contains(node: cst.CSTNode, names: frozenset[str], *, nested: bool = True, none: bool = False) -> bool:
     match node:
         case cst.Name(value="None"):
-            return True
-        case cst.Subscript(value=value):
-            return _annotation_head_name(value) == "Optional"
-        case cst.BinaryOperation(left=left, operator=cst.BitOr(), right=right):
-            return _annotation_is_optional(left) or _annotation_is_optional(right)
-        case _:
-            return False
-
-
-def _annotation_is_classvar(node: cst.CSTNode) -> bool:
-    match node:
-        case cst.Subscript(value=value):
-            return _annotation_head_name(value) in CLASSVAR_NAMES
+            return none
         case cst.Name() | cst.Attribute():
-            return _annotation_head_name(node) in CLASSVAR_NAMES
-        case _:
-            return False
-
-
-def _annotation_contains_mutable(node: cst.CSTNode) -> bool:
-    match node:
-        case cst.Name() | cst.Attribute():
-            return _annotation_head_name(node) in MUTABLE_FIELD_NAMES
+            return _annotation_head_name(node) in names
         case cst.Subscript(value=value, slice=slices):
-            return _annotation_head_name(value) in MUTABLE_FIELD_NAMES or any(
-                _annotation_contains_mutable(element.slice.value)
-                for element in slices
-                if isinstance(element.slice, cst.Index)
+            return _annotation_head_name(value) in names or (
+                nested
+                and any(
+                    _annotation_contains(element.slice.value, names, nested=nested, none=none)
+                    for element in slices
+                    if isinstance(element.slice, cst.Index)
+                )
             )
         case cst.BinaryOperation(left=left, operator=cst.BitOr(), right=right):
-            return _annotation_contains_mutable(left) or _annotation_contains_mutable(right)
+            return _annotation_contains(left, names, nested=nested, none=none) or _annotation_contains(
+                right, names, nested=nested, none=none
+            )
         case cst.Tuple(elements=elements):
-            return any(_annotation_contains_mutable(element.value) for element in elements)
+            return nested and any(
+                _annotation_contains(element.value, names, nested=nested, none=none) for element in elements
+            )
         case _:
             return False
 
@@ -575,7 +542,7 @@ def _model_shape(module: ModuleAnalyzer, node: cst.ClassDef) -> ModelShape:
             (
                 (field.name, _annotation_key(field.annotation, module.module))
                 for field in _model_fields(node)
-                if not _annotation_is_classvar(field.annotation)
+                if not _annotation_contains(field.annotation, CLASSVAR_NAMES, nested=False)
             ),
             key=itemgetter(0),
         )
@@ -754,5 +721,6 @@ def _duplicate_model_shape_diagnostics(module_facts: Sequence[ModuleFacts]) -> t
     )
 
 
-def _diagnostic_key(value: Diagnostic) -> tuple[str, int, int, str]:
-    return (value.path.as_posix(), value.line, value.column, value.rule_id.value)
+# --- [EXPORTS] -------------------------------------------------------------------------
+
+__all__ = ("analyze_paths", "classify_scope")

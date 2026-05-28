@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Rasm uses `BenchmarkDotNet 0.15.8` only in `tests/csharp/_benchmarks`. Benchmarks are executable measurement rails, not xUnit specs and not part of `scripts/test.sh`.
+[IMPORTANT] Rasm uses `BenchmarkDotNet 0.15.8` only in `tests/csharp/_benchmarks`. Benchmarks are executable measurement rails, not xUnit specs and not part of `tools.quality test run`.
 
 ---
 ## [1][PACKAGE]

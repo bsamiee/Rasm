@@ -25,7 +25,7 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 
 ## API Ownership Rules
 
-- Verify risky Rhino behavior against RhinoWIP `RhinoCommon.xml`, decompile evidence when XML is absent, and `scripts/rhino.sh api doctor`.
+- Verify risky Rhino behavior against RhinoWIP `RhinoCommon.xml`, decompile evidence when XML is absent, and `uv run python -m tools.quality api doctor`.
 - For new category roadmaps, verify every named Rhino member through local XML/decompile evidence before presenting it as available. List false, obsolete, internal, and missing APIs directly in the roadmap.
 - Treat RhinoWIP 9 as target. Do not rely on older public examples unless current local API evidence confirms semantics.
 - Keep `Domain` and `Analysis` as quality references for C# shape, ROP rails, polymorphism, and density unless scope explicitly expands.

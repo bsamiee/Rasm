@@ -8,7 +8,7 @@ import pytest
 
 from tools.py_analyzer.analyzer import analyze_paths, PY_ANALYZER_ROOT
 from tools.py_analyzer.cli import emit, main
-from tools.py_analyzer.rules import Diagnostic, OutputFormat, RuleId
+from tools.py_analyzer.rules import Diagnostic, OutputFormat, RuleCategory, RuleId, RULES, Severity
 
 
 type DiagnosticRow = tuple[str, str, int, int, str, str]
@@ -32,10 +32,15 @@ def diagnostic_rows(root: Path, paths: tuple[Path, ...]) -> tuple[DiagnosticRow,
             diagnostic.line,
             diagnostic.column,
             diagnostic.title,
-            diagnostic.category,
+            diagnostic.category.value,
         )
         for diagnostic in analyze_paths(root, paths)
     )
+
+
+def test_rule_catalog_has_one_entry_per_rule() -> None:
+    assert frozenset(RULES) == frozenset(RuleId)
+    assert all(rule.title and rule.category and rule.message for rule in RULES.values())
 
 
 @pytest.mark.parametrize(
@@ -454,7 +459,10 @@ def test_classvar_model_field_is_ignored_for_mutability_and_shape(tmp_path: Path
     )
 
 
-@pytest.mark.parametrize("decorator", ["effect.result", "effect.async_result", "result", "async_result"])
+@pytest.mark.parametrize(
+    "decorator",
+    ["effect.result", "effect.async_result", "result", "async_result", "effect.result[User, DomainError]()"],
+)
 def test_recovery_inside_effect_builder_emits(tmp_path: Path, decorator: str) -> None:
     path = write_module(
         tmp_path,
@@ -541,6 +549,15 @@ def test_excluded_directories_are_pruned_before_parse(tmp_path: Path) -> None:
     assert analyze_paths(tmp_path, ()) == ()
 
 
+def test_ast_grep_fixture_tree_is_pruned_before_semantic_analysis(tmp_path: Path) -> None:
+    path = write_module(
+        tmp_path,
+        "tests/tools/ast-grep/pass/flow.py",
+        "def run(value: Input) -> Output:\n    if value:\n        return Output()\n    return Output()\n",
+    )
+    assert analyze_paths(tmp_path, (path,)) == ()
+
+
 def test_output_formats(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     write_module(
         tmp_path, "src/domain/flow.py", "def run(value: Input) -> Output:\n    if value:\n        return Output()\n"
@@ -570,13 +587,13 @@ def test_github_output_escapes_properties_and_message(tmp_path: Path, capsys: py
         (
             Diagnostic(
                 RuleId.domain_flow,
-                "error",
+                Severity.error,
                 tmp_path / "src/domain/a,b:c.py",
                 1,
                 1,
                 "Title,With:Property",
                 "body %\r\n",
-                "FunctionalDiscipline",
+                RuleCategory.functional,
             ),
         ),
         tmp_path,

@@ -1,26 +1,29 @@
 ---
 description: Rasm Rhino bridge: current operator routes, scenario evidence, serial runtime validation
-globs: "tools/rhino-bridge/**,scripts/rhino.sh"
+globs: "tools/rhino-bridge/**,uv run python -m tools.quality bridge"
 alwaysApply: false
 ---
 
 # Rasm Rhino Bridge
 
-Use `scripts/rhino.sh` as the only bridge operator. Read `tools/rhino-bridge/README.md`, `tools/rhino-bridge/AGENTS.md`, root `AGENTS.md`, and `.claude/skills/cs-testing/references/bridge-runtime.md`.
+Use `uv run python -m tools.quality bridge` as the only bridge operator. Read `tools/rhino-bridge/README.md`, `tools/rhino-bridge/AGENTS.md`, root `AGENTS.md`, and `.claude/skills/cs-testing/references/bridge-runtime.md`.
 
 ## Current Routes
 
 | Need | Route |
 | --- | --- |
-| Scenario runtime | `bash scripts/rhino.sh verify <scenario-or-glob>` |
-| Project/source diagnostic | `bash scripts/rhino.sh bridge check <target> [scenario]` |
-| Bridge health | `bash scripts/rhino.sh bridge doctor` |
-| Local API truth | `bash scripts/rhino.sh api doctor|path|xml|types|decompile` |
-| Yak flow | `bash scripts/rhino.sh package|deploy|publish rasm-bridge <version>` |
+| Scenario runtime | `uv run python -m tools.quality bridge verify <scenario-or-glob>` |
+| Project/source diagnostic | `uv run python -m tools.quality bridge check <target> [scenario]` |
+| Bridge health | `uv run python -m tools.quality bridge doctor` |
+| Local API truth | `uv run python -m tools.quality api doctor|path|xml|types|decompile` |
+| Yak flow | `uv run python -m tools.quality bridge package|deploy|publish rasm-bridge <version>` |
 
 ## Runtime Rules
 
-- Bridge commands run serially; one live Rhino endpoint handles one client.
+- Bridge build/check/package/verify routes run serially; one live Rhino endpoint handles one client.
+- Yak `package`/`deploy`/`publish` write primary artifacts to project `bin/` — do not parallelize with other bridge commands.
+- `quality static` and focused `--target` test runs isolate MSBuild scratch under `.artifacts/agents/<pid>/`.
+- Default `tools.quality test run` executes VSTest then Stryker in order on the managed `Rasm` pair; Stryker uses project `obj/`/`bin/` — do not parallelize two default test runs with other dotnet gates.
 - `bridge check <source.cs>` without a scenario can exit `3` as truthful unsupported runtime evidence after build proof.
 - RhinoCode scenarios are diagnostics and verification, not publishing foundations.
 - Do not use stale commands or concepts: `load-smoke`, `StartScriptServer`, job JSON, `tests/rhino`, or `pnpm check:cs`.

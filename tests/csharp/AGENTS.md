@@ -20,7 +20,7 @@
 - Architecture tests own assembly dependency direction only; code-shape rules stay in `tools/cs-analyzer`.
 - Benchmarks and fuzz harnesses are separate executable rails, not xUnit specs.
 - Verify snapshots compare stable artifacts only; never snapshot current implementation output as a domain oracle.
-- Prove non-zero VSTest discovery before using Stryker survivor data; if Stryker reports zero tests while `bash scripts/test.sh` finds tests, treat mutation output as tooling evidence, not code quality evidence.
+- Prove non-zero VSTest discovery before using Stryker survivor data; if Stryker reports zero tests while `uv run python -m tools.quality test run` finds tests, treat mutation output as tooling evidence, not code quality evidence.
 - Generated reports, corpora, mutation output, benchmark output, and transient test results belong under `/Users/bardiasamiee/Documents/99.Github/Rasm/.artifacts`; do not create local scratch roots such as `.remember`.
 - If bridge execution reports `LanguageExt.*` value-type mismatch, `HashableResolve`/`OrdDefault` type-initializer failures, or already-loaded assembly identity failures, first verify `bridge check` is using staged `refs/<content-hash>/` paths, dependency-first `#r` order (`FSharp.Core` → `LanguageExt.Core` → transitive packages → `Rasm.dll` → target last), and the bridge-owned LanguageExt bootstrap before changing the scenario or static spec.
 
@@ -64,7 +64,7 @@
 
 ## [6][BRIDGE_RAIL_OPERATIONS]
 
-- Each `bash scripts/rhino.sh verify <scenario>` invocation pays a 3-8s Rhino handshake. Group thematically related scenarios per `.verify.csx` file (e.g. `vectors-mesh-topology-and-validity.verify.csx` bundles topology census + naked-edge + validity guards) to amortize the handshake ~4×.
+- Each `uv run python -m tools.quality bridge verify <scenario>` invocation pays a 3-8s Rhino handshake. Group thematically related scenarios per `.verify.csx` file (e.g. `vectors-mesh-topology-and-validity.verify.csx` bundles topology census + naked-edge + validity guards) to amortize the handshake ~4×.
 - Populate runtime evidence inside the `Scenario.Run(theme, capturePath, (key, facts) => { … })` body via `facts.Add(string key, object value);` statements. The harness emits one `facts={json}` plain line plus one `rasm.rhino-bridge.evidence=facts={json}` marker on scope exit — that batched dictionary is the durable runtime fact channel; exception messages alone make failed scenarios hard to triage. Do not call `BridgeMarker.EmitFact`/`EmitScenarioHeader` — those public emitters were dropped during the protocol-surface tightening.
 - Grasshopper-aware scenarios receive bridge-owned `ScenarioHostUsings` (`Eto.Drawing`, `LanguageExt`) after the scenario preamble — host assemblies stay off `#r`; add explicit `using Grasshopper2.*` in scenario source only when a rail needs GH2 types. Do not add production icon/motion shims.
 - Prefer `Probe.ExpectCase`, `Probe.ExpectRejectedContains`, and `FactBag.AddIfSome` over duplicated `switch`/`Match` boilerplate in GH UI scenarios.
@@ -75,14 +75,14 @@
 - Spec-local generator classes stay non-public unless discovery requires public visibility.
 - Do not add local xUnit/analyzer suppressions for style friction. Adjust folder-wide policy only when the rule conflicts with discovery or generated-code reality.
 - Validation ladder for test changes:
-  - `dotnet build /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/libs/Rasm/Rasm.Tests.csproj --configuration Debug --no-restore`
-  - `bash /Users/bardiasamiee/Documents/99.Github/Rasm/scripts/test.sh`
-  - `TEST_TARGET=/Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj bash /Users/bardiasamiee/Documents/99.Github/Rasm/scripts/test.sh` when GH2 managed specs changed.
-  - `TEST_TARGET=/Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj bash /Users/bardiasamiee/Documents/99.Github/Rasm/scripts/test.sh` when Rhino managed specs changed.
-  - `dotnet test /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_architecture/Rasm.Architecture.Tests.csproj --configuration Debug` when architecture laws changed.
-  - `dotnet test /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_tooling/Rasm.TestingTools.Tests.csproj --configuration Release` when stable testing-rail snapshots changed.
-  - `dotnet run --project /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_benchmarks/Rasm.Benchmarks.csproj --configuration Release -- --list flat` when benchmark projects or config changed.
-  - `printf 'running,1000,240,0,modular,9.525,9.525,concave' | dotnet run --project /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_fuzz/Rasm.Fuzz.csproj --configuration Release` when fuzz harnesses changed.
-  - `bash /Users/bardiasamiee/Documents/99.Github/Rasm/scripts/rhino.sh verify /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/libs/Rasm/Vectors/scenarios` when vector bridge scenarios changed; scenarios must not contain `#r` or `#load`.
-  - `bash /Users/bardiasamiee/Documents/99.Github/Rasm/scripts/rhino.sh verify /Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/libs/Rasm.Grasshopper/UI/scenarios` when GH UI bridge scenarios changed; scenarios must not contain `#r` or `#load`.
+  - `dotnet build tests/csharp/libs/Rasm/Rasm.Tests.csproj --configuration Debug --no-restore`
+  - `uv run python -m tools.quality test run`
+  - `uv run python -m tools.quality test run --target tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj` when GH2 managed specs changed.
+  - `uv run python -m tools.quality test run --target tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj` when Rhino managed specs changed.
+  - `dotnet test tests/csharp/_architecture/Rasm.Architecture.Tests.csproj --configuration Debug` when architecture laws changed.
+  - `dotnet test tests/csharp/_tooling/Rasm.TestingTools.Tests.csproj --configuration Release` when stable testing-rail snapshots changed.
+  - `dotnet run --project tests/csharp/_benchmarks/Rasm.Benchmarks.csproj --configuration Release -- --list flat` when benchmark projects or config changed.
+  - `printf 'running,1000,240,0,modular,9.525,9.525,concave' | dotnet run --project tests/csharp/_fuzz/Rasm.Fuzz.csproj --configuration Release` when fuzz harnesses changed.
+  - `uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm/Vectors/scenarios` when vector bridge scenarios changed; scenarios must not contain `#r` or `#load`.
+  - `uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm.Grasshopper/UI/scenarios` when GH UI bridge scenarios changed; scenarios must not contain `#r` or `#load`.
   - `git diff --check`

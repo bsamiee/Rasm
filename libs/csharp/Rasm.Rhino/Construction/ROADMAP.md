@@ -15,9 +15,9 @@
 
 | [INDEX] | [SOURCE] | [STATUS] | [USE] |
 | :-----: | -------- | -------- | ----- |
-| **[1]** | `scripts/rhino.sh api doctor` | Verified RhinoWIP `9.0.26132.12306`. | Host version and API tooling. |
+| **[1]** | `uv run python -m tools.quality api doctor` | Verified RhinoWIP `9.0.26132.12306`. | Host version and API tooling. |
 | **[2]** | `RhinoCommon.xml` | Primary. | Geometry type, factory, transform, and document insertion APIs. |
-| **[3]** | `scripts/rhino.sh api decompile rhino-common <type>` | Required for ambiguity. | Obsolete, hidden, internal, sentinel, and expert-only behavior. |
+| **[3]** | `uv run python -m tools.quality api decompile rhino-common <type>` | Required for ambiguity. | Obsolete, hidden, internal, sentinel, and expert-only behavior. |
 | **[4]** | `Rasm.Domain`, `Rasm.Vectors`, `Rasm.Rhino` source | Required. | Existing normalization, vector/numeric rails, UI/camera/document ownership. |
 
 [VERIFY] Re-run source checks before implementation. Every named Rhino member requires local XML or decompile proof before code claims capability.
@@ -142,14 +142,14 @@ Do not create one file per Rhino geometry type.
 <br>
 
 Docs-only refinement gate:
-- `bash scripts/rhino.sh api doctor`.
-- Targeted `bash scripts/rhino.sh api xml rhino-common "<symbol>"` for every newly named Rhino member.
-- `bash scripts/rhino.sh api decompile rhino-common "<type>"` where XML is missing or ambiguous.
+- `uv run python -m tools.quality api doctor`.
+- Targeted `uv run python -m tools.quality api xml rhino-common "<symbol>"` for every newly named Rhino member.
+- `uv run python -m tools.quality api decompile rhino-common "<type>"` where XML is missing or ambiguous.
 - Exact XML/decompile checks for rejected 2D types and hidden/internal mesh members.
 - `git diff --check -- libs/csharp/Rasm.Rhino/Construction/ROADMAP.md`.
 
 Future implementation gate:
 - `dotnet build libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj --no-restore`.
-- `bash scripts/check-cs.sh check`.
+- `uv run python -m tools.quality static check`.
 
 Runtime Rhino verification is required only when construction behavior needs native document/runtime mutation beyond static compile proof.

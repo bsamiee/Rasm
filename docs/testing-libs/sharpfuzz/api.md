@@ -31,7 +31,7 @@
 | [3] | `Fuzzer.LibFuzzer.Run` | Span-based harnesses when native setup exists. |
 | [4] | `RunAndIgnoreExceptions` | Only for explicitly non-crashing parsers. |
 | [5] | corpus/crash dirs | File-based artifacts under `.artifacts/fuzz`. |
-| [6] | instrumentation CLI | Opt-in script/harness flow; never required by `scripts/test.sh`. |
+| [6] | instrumentation CLI | Opt-in script/harness flow; never required by `tools.quality test run`. |
 
 ---
 ## [3][RASM_SCOPE]

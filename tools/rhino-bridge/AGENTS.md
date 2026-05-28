@@ -5,16 +5,16 @@ Operator reference is `tools/rhino-bridge/README.md` (architecture, command cata
 ## When to invoke
 
 Use bridge commands ONLY when static .NET gates cannot answer:
-- Library scenarios under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/*.verify.csx` — `scripts/rhino.sh verify <path-or-glob>` is the agent-first rail; it resolves the owning project automatically.
-- Real diagnostics on a `*.csproj` that targets Rhino or Grasshopper — `scripts/rhino.sh bridge check <project>`. With no scenario, the internal smoke probe emits `returnValue.kind = "assemblyFreshness"` as assembly-load evidence.
-- Source ownership/build proof on a `*.cs` file — `scripts/rhino.sh bridge check <source.cs>` returns `unsupported` (exit 3) without a scenario, which is truthful build proof, not failure.
-- Bridge health check before editing native-touching code — `scripts/rhino.sh bridge doctor`.
-- Local RhinoWIP API metadata lookup before relying on undocumented members — `scripts/rhino.sh api doctor|path|xml|types|decompile`.
+- Library scenarios under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/*.verify.csx` — `uv run python -m tools.quality bridge verify <path-or-glob>` is the agent-first rail; it resolves the owning project automatically.
+- Real diagnostics on a `*.csproj` that targets Rhino or Grasshopper — `uv run python -m tools.quality bridge check <project>`. With no scenario, the internal smoke probe emits `returnValue.kind = "assemblyFreshness"` as assembly-load evidence.
+- Source ownership/build proof on a `*.cs` file — `uv run python -m tools.quality bridge check <source.cs>` returns `unsupported` (exit 3) without a scenario, which is truthful build proof, not failure.
+- Bridge health check before editing native-touching code — `uv run python -m tools.quality bridge doctor`.
+- Local RhinoWIP API metadata lookup before relying on undocumented members — `uv run python -m tools.quality api doctor|path|xml|types|decompile`.
 
 ## When NOT to invoke
 
 - Synthetic unit tests, mocked Rhino/Grasshopper, or coverage probes — use xUnit + `Rasm.TestKit` (`docs/testing-libs/`).
-- C# analyzer/format failures already covered by `bash scripts/check-cs.sh check`.
+- C# analyzer/format failures already covered by `uv run python -m tools.quality static check`.
 - Long-running UI-thread experiments — RhinoCode execution is not server-cancelable.
 - Rhino settings / template / preference automation — owned by `LoadTime.AtStartup` plugin lifecycle.
 
@@ -32,27 +32,27 @@ Bridge markers are the structured wire contract. Use `Rasm.RhinoBridge.Protocol.
 
 ## Validation ladder for bridge changes
 
-Run serially in this order; bridge build/check/package commands and `scripts/check-cs.sh check` share build caches and one live Rhino endpoint:
+Run serially in this order. `quality static` and focused `--target` test runs may run concurrently — they isolate MSBuild artifacts per invocation under `.artifacts/agents/<pid>/`. Default `tools.quality test run` executes VSTest then Stryker in one invocation; do not parallelize two default test runs. Bridge build/check/package/verify routes and live Rhino remain single-flight (one endpoint; Yak packaging writes project `bin/` outputs).
 
 ```bash
-bash -n scripts/rhino.sh
-shellcheck scripts/rhino.sh
-bash scripts/rhino.sh --self-test
-bash scripts/rhino.sh bridge build
-bash scripts/check-cs.sh check
-git diff --check -- scripts/rhino.sh tools/rhino-bridge
-bash scripts/rhino.sh bridge doctor
-bash scripts/rhino.sh bridge check apps/grasshopper/Radyab/Radyab.csproj
+uv run python -m tools.quality self-test
+pnpm check:py
+uv run pytest tests/tools/quality/test_quality.py -q
+git diff --check -- tools/rhino-bridge
+uv run python -m tools.quality bridge build-bridge
+uv run python -m tools.quality static check
+uv run python -m tools.quality bridge doctor
+uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Radyab.csproj
 rc=0
-bash scripts/rhino.sh bridge check apps/grasshopper/Radyab/Components/ExtractPoints.cs || rc=$?
+uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Components/ExtractPoints.cs || rc=$?
 [[ "${rc}" == 3 ]]
-bash scripts/rhino.sh verify tests/csharp/libs/Rasm/Vectors/scenarios/vectors-space-projection.verify.csx
+uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm/Vectors/scenarios/vectors-space-projection.verify.csx
 ```
 
 For packaging changes, add:
 
 ```bash
 VERSION=0.0.0-ci.$(date -u +%Y%m%d%H%M%S)
-bash scripts/rhino.sh package rasm-bridge "${VERSION}"
-bash scripts/rhino.sh deploy rasm-bridge "${VERSION}"
+uv run python -m tools.quality bridge package rasm-bridge "${VERSION}"
+uv run python -m tools.quality bridge deploy rasm-bridge "${VERSION}"
 ```

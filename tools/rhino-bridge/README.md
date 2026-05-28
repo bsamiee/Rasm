@@ -27,7 +27,7 @@ Scripts are transient diagnostic entrypoints for current code and real Rhino API
 Avoid it for:
 - Synthetic unit-test suites.
 - Mocked Rhino or Grasshopper behavior.
-- Pure C# analyzer failures already covered by `bash scripts/check-cs.sh check`.
+- Pure C# analyzer failures already covered by `uv run python -m tools.quality static check`.
 - Long-running UI-thread experiments that require server-side cancellation.
 
 ---
@@ -38,7 +38,7 @@ Avoid it for:
 
 ```mermaid
 graph LR
-    Agent["Coding Agent"] --> Script["scripts/rhino.sh"]
+    Agent["Coding Agent"] --> Script["tools.quality bridge"]
     Script --> Client["client"]
     Client --> Protocol["protocol"]
     Protocol --> Plugin["plugin"]
@@ -50,7 +50,7 @@ graph LR
 
 | [INDEX] | [LAYER] | [OWNER] | [RESPONSIBILITY] |
 | :-----: | ------- | ------- | ---------------- |
-| **1** | Operator CLI | `scripts/rhino.sh` | Routes bridge/package commands, builds client deterministically, stages Yak packages transactionally. |
+| **1** | Operator CLI | `uv run python -m tools.quality bridge` | Routes bridge/package commands, builds client deterministically, stages Yak packages transactionally. |
 | **2** | Client | `tools/rhino-bridge/client` | Resolves projects, builds code, formats phase JSON, talks to Rhino named pipe. |
 | **3** | Protocol | `tools/rhino-bridge/protocol` | Defines wire DTOs, status vocabulary, exit-code policy, endpoint metadata. |
 | **4** | Plugin | `tools/rhino-bridge/plugin` | Runs in Rhino, owns named pipe server, executes RhinoCode on Rhino UI thread. |
@@ -66,28 +66,28 @@ Run commands from repository root.
 
 | [INDEX] | [COMMAND] | [INTENT] |
 | :-----: | --------- | -------- |
-| **1** | `scripts/rhino.sh bridge build` | Build protocol, plugin, and client in `Release`. |
-| **2** | `scripts/rhino.sh bridge launch` | Idempotent: reuses an existing endpoint or opens RhinoWIP and verifies endpoint round trip. |
-| **3** | `scripts/rhino.sh bridge doctor` | Report live Rhino, plugin, and required assemblies. |
-| **4** | `scripts/rhino.sh bridge check <target> [scenario.csx]` | Build or execute the target through the agent-first RhinoCode lane. |
-| **5** | `scripts/rhino.sh bridge clean <target>` | Remove generated bridge check reports for one target. |
-| **6** | `scripts/rhino.sh bridge quit` | Lifecycle-only safe Rhino exit when open documents have no unsaved changes. |
-| **7** | `scripts/rhino.sh package rasm-bridge <version>` | Build bridge `.rhp`, run Yak in staged directory, and create a local package. |
-| **8** | `scripts/rhino.sh deploy rasm-bridge <version>` | Install the staged bridge package, refresh RhinoWIP via idempotent launch, and verify bridge health. Skips automated quit when no live bridge endpoint exists (Rhino already closed); retires stale `~/.rasm/rhino-bridge.json` before relaunch. |
-| **9** | `scripts/rhino.sh publish rasm-bridge <version>` | Build, install locally, then push to the configured Yak feed in one shot. |
-| **10** | `scripts/rhino.sh verify <scenario-or-glob>` | Convenience rail for source-only scenarios; resolves owning project, routes through `bridge check`. |
-| **11** | `scripts/rhino.sh api doctor` | Report local RhinoWIP API XML, ILSpy, and RhinoCode metadata availability. |
-| **12** | `scripts/rhino.sh api path <key> [assembly\|xml]` | Print the resolved assembly or XML path for an API reference key. |
-| **13** | `scripts/rhino.sh api xml <key> <pattern>` | Search the resolved XML documentation with `rg`. |
-| **14** | `scripts/rhino.sh api types <key> [pattern]` | List assembly types through ILSpy, optionally filtered by pattern. |
-| **15** | `scripts/rhino.sh api decompile <key> <type>` | Decompile a type through ILSpy for assemblies without XML. |
+| **1** | `uv run python -m tools.quality bridge build-bridge` | Build protocol, plugin, and client in `Release`. |
+| **2** | `uv run python -m tools.quality bridge launch` | Idempotent: reuses an existing endpoint or opens RhinoWIP and verifies endpoint round trip. |
+| **3** | `uv run python -m tools.quality bridge doctor` | Report live Rhino, plugin, and required assemblies. |
+| **4** | `uv run python -m tools.quality bridge check <target> [scenario.csx]` | Build or execute the target through the agent-first RhinoCode lane. |
+| **5** | `uv run python -m tools.quality bridge clean <target>` | Remove generated bridge check reports for one target. |
+| **6** | `uv run python -m tools.quality bridge quit` | Lifecycle-only safe Rhino exit when open documents have no unsaved changes. |
+| **7** | `uv run python -m tools.quality bridge package rasm-bridge <version>` | Build bridge `.rhp`, run Yak in staged directory, and create a local package. |
+| **8** | `uv run python -m tools.quality bridge deploy rasm-bridge <version>` | Install the staged bridge package, refresh RhinoWIP via idempotent launch, and verify bridge health. Skips automated quit when no live bridge endpoint exists (Rhino already closed); retires stale `~/.rasm/rhino-bridge.json` before relaunch. |
+| **9** | `uv run python -m tools.quality bridge publish rasm-bridge <version>` | Build, install locally, then push to the configured Yak feed in one shot. |
+| **10** | `uv run python -m tools.quality bridge verify <scenario-or-glob>` | Convenience rail for source-only scenarios; resolves owning project, routes through `bridge check`. |
+| **11** | `uv run python -m tools.quality api doctor` | Report local RhinoWIP API XML, ILSpy, and RhinoCode metadata availability. |
+| **12** | `uv run python -m tools.quality api path <key> [assembly\|xml]` | Print the resolved assembly or XML path for an API reference key. |
+| **13** | `uv run python -m tools.quality api xml <key> <pattern>` | Search the resolved XML documentation with `rg`. |
+| **14** | `uv run python -m tools.quality api types <key> [pattern]` | List assembly types through ILSpy, optionally filtered by pattern. |
+| **15** | `uv run python -m tools.quality api decompile <key> <type>` | Decompile a type through ILSpy for assemblies without XML. |
 
 ### [3.1][PRIMARY_USAGE]
 
 Validate real Grasshopper project:
 
 ```bash
-scripts/rhino.sh bridge check apps/grasshopper/Radyab/Radyab.csproj
+uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Radyab.csproj
 ```
 
 Expected result: JSON with top-level `"status": "ok"` and successful `resolve`, `build`, `connect`, and `execute` phases. Treat `rhinoCodeCli` as supplemental environment evidence; in-process `execute` is authoritative Rhino evidence.
@@ -95,7 +95,7 @@ Expected result: JSON with top-level `"status": "ok"` and successful `resolve`, 
 Validate source ownership without runtime script:
 
 ```bash
-scripts/rhino.sh bridge check apps/grasshopper/Radyab/Components/ExtractPoints.cs
+uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Components/ExtractPoints.cs
 ```
 
 Expected result: exit code `3`, top-level `"status": "unsupported"`, `build` phase `"ok"`, and message `Source build validated; no runtime script supplied.`
@@ -103,7 +103,7 @@ Expected result: exit code `3`, top-level `"status": "unsupported"`, `build` pha
 Validate source with an existing task-relevant RhinoCode script:
 
 ```bash
-scripts/rhino.sh bridge check <real-source.cs> <scenario.verify.csx>
+uv run python -m tools.quality bridge check <real-source.cs> <scenario.verify.csx>
 ```
 
 Expected result: `"status": "ok"` when the scenario compiles against bridge-generated `#r` directives from host-filtered runtime references and exercises real Rhino behavior. Scenarios must not contain `#r`, `#load`, or absolute build-output paths.
@@ -113,7 +113,7 @@ Library scenarios live under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios
 Verify local API metadata:
 
 ```bash
-scripts/rhino.sh api doctor
+uv run python -m tools.quality api doctor
 ```
 
 Expected result: tab-separated evidence for RhinoWIP app version, ILSpy host status, RhinoCode direct and roll-forward status, and each API key's assembly/XML state.
@@ -121,7 +121,7 @@ Expected result: tab-separated evidence for RhinoWIP app version, ILSpy host sta
 Search Grasshopper2 XML:
 
 ```bash
-scripts/rhino.sh api xml gh2 IDataAccess
+uv run python -m tools.quality api xml gh2 IDataAccess
 ```
 
 Expected result: `rg` matches from the resolved `Grasshopper2.xml` path.
@@ -129,7 +129,7 @@ Expected result: `rg` matches from the resolved `Grasshopper2.xml` path.
 Inspect Rhino UI metadata when XML is absent:
 
 ```bash
-scripts/rhino.sh api decompile rhino-ui Rhino.UI.DataSerializer
+uv run python -m tools.quality api decompile rhino-ui Rhino.UI.DataSerializer
 ```
 
 Expected result: decompiled C# from `Rhino.UI.dll` through ILSpy using a normalized .NET apphost environment.
@@ -307,30 +307,38 @@ API metadata lookup uses local sources in this order:
 
 <br>
 
-Run after bridge changes. Run gates serially in listed order. Never parallelize bridge build/check/package commands, `bash scripts/check-cs.sh check`, or live Rhino commands; they share build caches, lock directories, and one live Rhino endpoint.
+Run after bridge changes. Run the validation ladder serially in listed order.
+
+| [INDEX] | [RAIL] | [PARALLELISM] |
+| :-----: | ------ | ------------- |
+| **1** | `uv run python -m tools.quality static check`, focused `--target` test runs | Safe concurrently — each invocation isolates MSBuild output under `.artifacts/agents/<pid>/`. |
+| **2** | `uv run python -m tools.quality bridge build-bridge`, `bridge check`, `verify`, `package`, `deploy`, `publish` | Serial — one live Rhino endpoint; Yak packaging writes project `bin/` outputs. |
+| **3** | Default `uv run python -m tools.quality test run` (managed `Rasm` target) | VSTest then Stryker in one invocation — do not parallelize two default test runs with other dotnet gates. |
+
+Never parallelize bridge commands or live Rhino sessions with each other.
 
 ```bash
-bash -n scripts/rhino.sh
-shellcheck scripts/rhino.sh
-scripts/rhino.sh --self-test
-git diff --check -- scripts/rhino.sh tools/rhino-bridge
-scripts/rhino.sh api doctor
-scripts/rhino.sh api path rhino-common xml
-scripts/rhino.sh api xml gh2 IDataAccess
-scripts/rhino.sh api types rhino-ui Panels
-scripts/rhino.sh api decompile rhino-ui Rhino.UI.DataSerializer
-scripts/rhino.sh bridge build
-bash scripts/check-cs.sh check
-scripts/rhino.sh bridge doctor
-scripts/rhino.sh bridge check apps/grasshopper/Radyab/Radyab.csproj
+uv run python -m tools.quality self-test
+pnpm check:py
+uv run pytest tests/tools/quality/test_quality.py -q
+git diff --check -- tools/rhino-bridge
+uv run python -m tools.quality api doctor
+uv run python -m tools.quality api path rhino-common xml
+uv run python -m tools.quality api xml gh2 IDataAccess
+uv run python -m tools.quality api types rhino-ui Panels
+uv run python -m tools.quality api decompile rhino-ui Rhino.UI.DataSerializer
+uv run python -m tools.quality bridge build-bridge
+uv run python -m tools.quality static check
+uv run python -m tools.quality bridge doctor
+uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Radyab.csproj
 rc=0
-scripts/rhino.sh bridge check apps/grasshopper/Radyab/Components/ExtractPoints.cs || rc=$?
+uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Components/ExtractPoints.cs || rc=$?
 [[ "${rc}" == 3 ]]
-scripts/rhino.sh bridge clean apps/grasshopper/Radyab/Radyab.csproj
+uv run python -m tools.quality bridge clean apps/grasshopper/Radyab/Radyab.csproj
 ```
 
 Add focused live checks for bridge implementation changes:
 - Reference projection changes: run `check <source.cs> <scenario.verify.csx>` that imports affected assemblies.
 - Reference isolation policy changes: verify known same-name package collisions do not poison isolated RhinoCode checks (use `bridge check <project.csproj>` without scenario — the internal smoke probe reports `returnValue.kind = "assemblyFreshness"`).
-- Packaging changes: run `scripts/rhino.sh package rasm-bridge <version>`, then `scripts/rhino.sh deploy rasm-bridge <version>` to validate the staged `.yak`.
+- Packaging changes: run `uv run python -m tools.quality bridge package rasm-bridge <version>`, then `uv run python -m tools.quality bridge deploy rasm-bridge <version>` to validate the staged `.yak`.
 - Transport changes: run `bridge doctor` and `bridge check <source.cs> <scenario.verify.csx>`.

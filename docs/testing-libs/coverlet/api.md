@@ -49,7 +49,7 @@
 Local command:
 
 ```bash
-bash scripts/test.sh --coverage
+uv run python -m tools.quality test coverage
 ```
 
 ---

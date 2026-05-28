@@ -30,4 +30,4 @@ Read `.claude/skills/cs-testing/SKILL.md`, `tools/rhino-bridge/README.md`, `tool
 
 ## Validation
 
-Run `bash scripts/rhino.sh verify <scenario-or-glob>` for runtime behavior. Keep managed assertions in `*.spec.cs`.
+Run `uv run python -m tools.quality bridge verify <scenario-or-glob>` for runtime behavior. Keep managed assertions in `*.spec.cs`.

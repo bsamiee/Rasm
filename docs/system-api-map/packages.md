@@ -66,6 +66,6 @@
 
 - Raw xUnit, CsCheck, coverlet, and Stryker API guidance lives under `docs/testing-libs`.
 - Test project package injection lives in `Directory.Build.props`; versions live in `Directory.Packages.props`.
-- Local mutation tooling lives in `.config/dotnet-tools.json` and is invoked by `scripts/mutate-cs.sh`.
+- Local mutation tooling lives in `.config/dotnet-tools.json` and runs through `tools.quality test run` after VSTest on the default managed target.
 - Verify, ArchUnitNET, BenchmarkDotNet, and SharpFuzz each keep one direct `tests/csharp/_*` rail: `_tooling`, `_architecture`, `_benchmarks`, and `_fuzz`.
 - Rejected adjacent testing packages stay out of the graph until a concrete test owner proves they add value beyond xUnit, CsCheck, coverlet, Stryker, bridge scenarios, and existing analyzers.

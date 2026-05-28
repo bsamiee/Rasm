@@ -142,8 +142,8 @@ When working in Rasm, read `docs/system-api-map` and `docs/external-libs` after 
 
 ## Validation gate
 
-- Required during iteration: `bash scripts/check-cs.sh check`.
-- Required for final completion: run every impacted language gate explicitly; for shared standards/tooling, run `pnpm check:ts`, `pnpm check:py`, and `bash scripts/check-cs.sh full`.
+- Required during iteration: `uv run python -m tools.quality static check`.
+- Required for final completion: run every impacted language gate explicitly; for shared standards/tooling, run `pnpm check:ts`, `pnpm check:py`, and `uv run python -m tools.quality static full`.
 - Reject completion when load order, contracts, or checks are not satisfied.
 - Examples inside this skill are executable doctrine: runtime-record `Eff.runtime<RT>()`, generated Thinktecture factories only when they serve boundary construction, no legacy runtime trait DI pattern, and no single-call helper extraction.
 
@@ -153,7 +153,7 @@ When working in Rasm, read `docs/system-api-map` and `docs/external-libs` after 
 - Implicit invocation: "Review this C# module for Thinktecture value object, Scrutor decorator, and no-helper compliance."
 - Noisy context: "Ignore frontend notes and only audit the C# persistence adapter."
 - Negative control: "Only write TypeScript Effect code." Expected: do not load C# references unless C# code appears.
-- Compliance checks: output should load only relevant references, avoid command thrash, avoid helper files, preserve runtime-record/LanguageExt doctrine, and run `bash scripts/check-cs.sh check` or narrower configured .NET gates when code is touched.
+- Compliance checks: output should load only relevant references, avoid command thrash, avoid helper files, preserve runtime-record/LanguageExt doctrine, and run `uv run python -m tools.quality static check` or narrower configured .NET gates when code is touched.
 
 
 ## First-class libraries

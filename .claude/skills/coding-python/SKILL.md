@@ -146,7 +146,7 @@ Semantic enforcement uses the LibCST `tools.py_analyzer` gate for `PYS0001`-`PYS
 ## Validation gate
 
 - Required during iteration: `pnpm check:py`.
-- Required for final completion: run every impacted language gate explicitly; for shared standards/tooling, run `pnpm check:ts`, `pnpm check:py`, and `bash scripts/check-cs.sh full`.
+- Required for final completion: run every impacted language gate explicitly; for shared standards/tooling, run `pnpm check:ts`, `pnpm check:py`, and `uv run python -m tools.quality static full`.
 - Reject completion when load order, contracts, or checks are not satisfied.
 - Python tool posture is Ruff + ty first; mypy is a configured secondary gate in this repo.
 - Repo-specific semantic posture is `uv run python -m tools.py_analyzer check --root . --format text`.
@@ -175,6 +175,7 @@ These packages are standard libraries — use over stdlib equivalents.
 | OpenTelemetry     | Distributed tracing, metrics                                                            |
 | msgspec           | High-performance serialization                                                          |
 | httpx             | Async HTTP client                                                                       |
+| cyclopts          | Type-hint CLI routing for quality operator and repo tools                               |
 | polars            | DataFrame operations                                                                    |
 | suitkaise         | Cross-process transport of unpicklable objects (cucumber modules: sk, circuits, timing) |
 | beartype          | Runtime type checking                                                                   |

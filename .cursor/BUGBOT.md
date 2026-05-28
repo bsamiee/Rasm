@@ -4,7 +4,7 @@ Review Rasm PRs for behavioral regressions, runtime host mistakes, missing valid
 
 ## High-Value Checks
 
-- Rails stay separate: static C# uses `bash scripts/check-cs.sh check`, unit specs use `bash scripts/test.sh`, and Rhino runtime evidence uses `bash scripts/rhino.sh verify <scenario-or-glob>`.
+- Rails stay separate: static C# uses `uv run python -m tools.quality static check`, unit specs use `uv run python -m tools.quality test run`, and Rhino runtime evidence uses `uv run python -m tools.quality bridge verify <scenario-or-glob>`.
 - C# changes preserve polymorphic collapse, typed rails, boundary conversion, and existing category owners instead of adding helpers, wrappers, shims, or parallel APIs.
 - Rhino/GH2/Eto code targets RhinoWIP on macOS, uses local API truth, marshals UI work, document-parents Eto UI, and avoids `RhinoDoc.ActiveDoc` when a document context exists.
 - Bridge scenarios use `Scenario.Run` plus `facts.Add`, contain no `#r`, `#load`, or absolute paths, and do not emit per-fact `Console.WriteLine("key=value")` evidence.

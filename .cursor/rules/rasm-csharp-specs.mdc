@@ -30,4 +30,4 @@ Read `.claude/skills/cs-testing/SKILL.md`, `tests/csharp/AGENTS.md`, nearest tes
 
 ## Validation
 
-Run `bash scripts/test.sh` for managed specs. Use `TEST_TARGET=<csproj> bash scripts/test.sh` for non-default test projects.
+Run `uv run python -m tools.quality test run` for managed specs. Use `uv run python -m tools.quality test run --target <csproj>` for non-default test projects.
