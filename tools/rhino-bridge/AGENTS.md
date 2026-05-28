@@ -8,7 +8,7 @@ Use bridge commands ONLY when static .NET gates cannot answer:
 - Library scenarios under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/*.verify.csx` — `uv run python -m tools.quality bridge verify <path-or-glob>` is the agent-first rail; it resolves the owning project automatically.
 - Real diagnostics on a `*.csproj` that targets Rhino or Grasshopper — `uv run python -m tools.quality bridge check <project>`. With no scenario, the internal smoke probe emits `returnValue.kind = "assemblyFreshness"` as assembly-load evidence.
 - Source ownership/build proof on a `*.cs` file — `uv run python -m tools.quality bridge check <source.cs>` returns `unsupported` (exit 3) without a scenario, which is truthful build proof, not failure.
-- Bridge health check before editing native-touching code — `uv run python -m tools.quality bridge doctor`.
+- Bridge health check before editing native-touching code — `uv run python -m tools.quality bridge doctor`. Reports `hostRuntime`, RhinoCode `scriptEngine` readiness, and resolved host-assembly versions/paths from the newest installed RhinoWIP bundle (never NuGet).
 - Local RhinoWIP API metadata lookup before relying on undocumented members — `uv run python -m tools.quality api doctor|path|xml|types|decompile`.
 
 ## When NOT to invoke

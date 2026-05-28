@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import assert_never, Final, Literal
+from typing import Final, Literal
 
 from beartype import beartype
 from expression import Error, Ok, Result
@@ -20,7 +20,7 @@ from tools.quality.process import (
     fold,
     ProcessFault,
     ProjectIndex,
-    run,
+    run_fold,
     Workspace,
 )
 from tools.quality.settings import ArtifactScope, QualitySettings
@@ -28,22 +28,10 @@ from tools.quality.settings import ArtifactScope, QualitySettings
 
 # --- [TYPES] ---------------------------------------------------------------------------
 
-type ApiKey = Literal["rhino-common", "rhino-ui", "rhino-code", "rhino-code-remote", "eto", "gh2", "gh2-io"]
-type ApiOp = Literal["doctor", "path", "search", "types", "decompile"]
-type ApiPathKind = Literal["assembly", "xml"]
-type ApiSpec = tuple[str, str, str]
 type BridgeStatus = Literal["ok", "skipped", "unsupported", "failed", "timeout", "busy"]
-type BuildPolicy = Literal["always", "never"]
 
 
 # --- [MODELS] ----------------------------------------------------------------------------
-
-
-class ApiDoctor(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
-    rhino: dict[str, str]
-    ilspy: dict[str, str]
-    rhinocode: dict[str, str | int]
-    references: tuple[dict[str, object], ...]
 
 
 class BridgeFault(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
@@ -95,28 +83,6 @@ class VerifyReport(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
-_API: Final[dict[ApiKey, ApiSpec]] = {
-    "eto": ("Eto.dll", "Eto.xml", ".cache/nuget/packages/rhinocommon/*/lib/net8.0/Eto.xml"),
-    "gh2": (
-        "ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll",
-        "ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.xml",
-        ".cache/nuget/packages/grasshopper2/*/ref/net7.0/Grasshopper2.xml",
-    ),
-    "gh2-io": (
-        "ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll",
-        "ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.xml",
-        ".cache/nuget/packages/grasshopper2/*/ref/net7.0/GrasshopperIO.xml",
-    ),
-    "rhino-code": ("Rhino.Runtime.Code.dll", "", ""),
-    "rhino-code-remote": ("Rhino.Runtime.Code.Remote.dll", "", ""),
-    "rhino-common": (
-        "RhinoCommon.dll",
-        "RhinoCommon.xml",
-        ".cache/nuget/packages/rhinocommon/*/lib/net8.0/RhinoCommon.xml",
-    ),
-    "rhino-ui": ("Rhino.UI.dll", "Rhino.UI.xml", ""),
-}
-_API_RESOURCE_ROOT: Final[Path] = Path("Contents/Frameworks/RhCore.framework/Versions/A/Resources")
 _BRIDGE_EXIT: Final[dict[BridgeStatus, int]] = {
     "busy": 5,
     "failed": 1,
@@ -128,21 +94,6 @@ _BRIDGE_EXIT: Final[dict[BridgeStatus, int]] = {
 
 
 # --- [OPERATIONS] ------------------------------------------------------------------------
-
-
-def _api_xml_path(root: Path, rhino_app: Path, key: ApiKey) -> tuple[str, str]:
-    _, xml_name, fallback_xml = _API[key]
-    primary = str(rhino_app / _API_RESOURCE_ROOT / xml_name) if xml_name else ""
-    match (primary, Path(primary).is_file() if primary else False):
-        case (path, True):
-            return path, "primary"
-        case _:
-            matches = sorted(root.glob(fallback_xml)) if fallback_xml else []
-            match matches:
-                case [*_, last]:
-                    return str(last), "fallback"
-                case _:
-                    return primary, "missing"
 
 
 def _verify_discover(workspace: Workspace, root: Path, pattern: str) -> tuple[Path, ...]:
@@ -169,30 +120,15 @@ def _verify_invoke(
     settings: QualitySettings, scope: ArtifactScope, report_dir: Path, project: Path, scenario: Path
 ) -> BridgeResult:
     result_path = report_dir / f"{scenario.stem.removesuffix('.verify')}.json"
-
-    def once() -> BridgeResult:
-        return (
-            client_run(
-                settings,
-                scope,
-                "check",
-                str(project),
-                str(scenario),
-                "--result",
-                str(result_path),
-                check=False,
-                build="never",
-            )
-            .map(
-                lambda run: try_decode_bridge(
-                    result_path.read_bytes() if result_path.is_file() else (run.stdout or run.stderr)
-                ).default_with(BridgeResult.failed)
-            )
-            .default_with(BridgeResult.failed)
+    return (
+        client_run(settings, scope, "check", str(project), str(scenario), "--result", str(result_path), check=False)
+        .map(
+            lambda run: try_decode_bridge(
+                result_path.read_bytes() if result_path.is_file() else (run.stdout or run.stderr)
+            ).default_with(BridgeResult.failed)
         )
-
-    result = once()
-    return result if result.status == "ok" else once()
+        .default_with(BridgeResult.failed)
+    )
 
 
 def _verify_resolve(
@@ -222,147 +158,40 @@ def _verify_summary(report_dir: Path, results: tuple[BridgeResult, ...]) -> Resu
     return Ok(payload)
 
 
-def _with_dotnet_apphost(
-    argv: tuple[str, ...], *, env: dict[str, str] | None = None, check: bool = True
-) -> Result[Completed, ProcessFault]:
-    dotnet_bin = (env or {}).get("DOTNET_ROOT", "")
-    overlay: dict[str, str] | None
-    match Path(dotnet_bin) if dotnet_bin else Path():
-        case path if path.is_dir():
-            overlay = {**(env or {}), "DOTNET_ROOT": str(path), "DOTNET_MULTILEVEL_LOOKUP": "0"}
-        case _:
-            overlay = env
-    return run(argv, env=overlay, check=check)
+@beartype
+def build_client(settings: QualitySettings, scope: ArtifactScope) -> Result[None, ProcessFault]:
+    return dotnet_rail(settings, scope, restore=settings.bridge_client, targets=(settings.bridge_client,))
 
 
 @beartype
-def api(
-    rhino_app: Path,
-    op: ApiOp,
-    key: ApiKey = "rhino-common",
-    *,
-    kind: ApiPathKind = "assembly",
-    pattern: str = "",
-    type_name: str = "",
-    settings_root: Path | None = None,
-    env: dict[str, str] | None = None,
-) -> Result[bytes | str | None, ProcessFault]:
-    root = settings_root or QualitySettings.anchor(Path.cwd())
-    resources = rhino_app / _API_RESOURCE_ROOT
-    assembly_name, _, _ = _API[key]
-    assembly = str(resources / assembly_name) if assembly_name else ""
-    match op:
-        case "doctor":
-            plist = rhino_app / "Contents/Info.plist"
-            version = (
-                run(("plutil", "-extract", "CFBundleVersion", "raw", "-o", "-", str(plist)), check=False)
-                .map(lambda done: done.text.strip() or "unknown")
-                .default_with(lambda _: "unknown")
-            )
-            ilspy_meta = (
-                _with_dotnet_apphost(("ilspycmd", "--version"), env=env, check=False)
-                .map(
-                    lambda done: {
-                        "status": "ok" if done.returncode == 0 else "failed",
-                        "version": done.text.strip() or "unavailable",
-                    }
-                )
-                .default_with(lambda _: {"status": "failed", "version": "unavailable"})
-            )
-            rhino_code = rhino_app / "Contents/Resources/bin/rhinocode"
-            direct, roll = (
-                run((str(rhino_code), "list", "--json"), env=overlay, check=False)
-                .map(lambda done: done.returncode)
-                .default_with(lambda _: -1)
-                if rhino_code.is_file()
-                else -1
-                for overlay in (None, {**(env or {}), "DOTNET_ROLL_FORWARD": "Major"})
-            )
-
-            def asset(path: str, label: str) -> dict[str, str]:
-                return {"status": label if path and Path(path).is_file() else "missing", "path": path}
-
-            return Ok(
-                msgspec.json.encode(
-                    ApiDoctor(
-                        rhino={"app": str(rhino_app), "version": version},
-                        ilspy={**ilspy_meta, "dotnet_root": (env or {}).get("DOTNET_ROOT", "hostfxr-probe")},
-                        rhinocode={
-                            "status": "ok" if rhino_code.is_file() else "missing",
-                            "path": str(rhino_code),
-                            "direct": direct,
-                            "roll_forward": roll,
-                        },
-                        references=tuple(
-                            dict[str, object](
-                                key=api_key,
-                                assembly=asset(str(resources / asm) if asm else "", "present"),
-                                xml=asset(*_api_xml_path(root, rhino_app, api_key)),
-                            )
-                            for api_key, (asm, _, _) in _API.items()
-                        ),
-                    )
-                )
-            )
-        case "path":
-            match kind:
-                case "assembly":
-                    path = assembly
-                    missing = f"Missing API assembly for {key}: {assembly}"
-                case "xml":
-                    path, _ = _api_xml_path(root, rhino_app, key)
-                    missing = f"Missing API XML for {key}: {path}"
-            return Ok(path).filter_with(
-                lambda value: bool(value) and Path(value).is_file(),
-                lambda _: ProcessFault.fail("api", key, detail=missing),
-            )
-        case "search":
-            return api(rhino_app, "path", key, kind="xml", settings_root=settings_root, env=env).bind(
-                lambda xml: (
-                    run(("rg", "-n", "-C", "2", "--", pattern, str(xml)), check=True).map(lambda done: done.text)
-                    if isinstance(xml, str)
-                    else Error(ProcessFault.fail("api", key, detail=b"Missing xml"))
-                )
-            )
-        case "types":
-            return (
-                _with_dotnet_apphost(("ilspycmd", "-l", "cisde", assembly), env=env, check=True)
-                .filter_with(
-                    lambda done: not pattern or pattern in done.text,
-                    lambda _: ProcessFault.fail("api", key, detail=b"No types matched"),
-                )
-                .map(lambda done: done.text)
-            )
-        case "decompile":
-            return _with_dotnet_apphost(("ilspycmd", "-t", type_name, assembly), env=env, check=True).map(
-                lambda done: done.text
-            )
-        case unreachable:
-            assert_never(unreachable)
+def build_scenario_kit(settings: QualitySettings, scope: ArtifactScope) -> Result[None, ProcessFault]:
+    # Default bin/ (no --artifacts-path) so the in-Rhino client's ScenarioKitArtifacts probe resolves the
+    # Rasm.TestKit + transitive Rasm/Protocol assemblies it injects as scenario #r references.
+    kit = str(settings.scenario_kit_project)
+    return run_fold(
+        scope,
+        (
+            ("dotnet", "restore", kit, "--locked-mode"),
+            ("dotnet", "build", kit, "--configuration", settings.configuration, "--no-restore"),
+        ),
+    )
 
 
 @beartype
 def client_run(
-    settings: QualitySettings, scope: ArtifactScope, *args: str, check: bool = True, build: BuildPolicy = "always"
+    settings: QualitySettings, scope: ArtifactScope, *args: str, check: bool = True
 ) -> Result[Completed, ProcessFault]:
-    prelude = (
-        dotnet_rail(settings, scope, restore=settings.bridge_client, targets=(settings.bridge_client,))
-        if build == "always"
-        else Ok(None)
-    )
-    return prelude.bind(
-        lambda _: dotnet(
-            "run",
-            "--no-build",
-            "--project",
-            str(settings.bridge_client),
-            "--configuration",
-            settings.configuration,
-            "--",
-            *args,
-            scope=scope,
-            check=check,
-        )
+    return dotnet(
+        "run",
+        "--no-build",
+        "--project",
+        str(settings.bridge_client),
+        "--configuration",
+        settings.configuration,
+        "--",
+        *args,
+        scope=scope,
+        check=check,
     )
 
 
@@ -385,8 +214,11 @@ def run_verify(settings: QualitySettings, scope: ArtifactScope, pattern: str) ->
                 )
 
             seed: tuple[BridgeResult, ...] = ()
-            return dotnet_rail(settings, scope, restore=settings.bridge_client, targets=(settings.bridge_client,)).bind(
-                lambda _: fold(scenarios, seed, scenario).bind(lambda rows: _verify_summary(report_dir, rows))
+            return (
+                build_client(settings, scope)
+                .bind(lambda _: build_scenario_kit(settings, scope))
+                .bind(lambda _: client_run(settings, scope, "launch", check=False))
+                .bind(lambda _: fold(scenarios, seed, scenario).bind(lambda rows: _verify_summary(report_dir, rows)))
             )
 
 

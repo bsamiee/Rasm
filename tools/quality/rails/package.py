@@ -18,7 +18,7 @@ from expression import Error, Ok, Result
 import msgspec
 
 from tools.quality.process import decode_json, dotnet, dotnet_rail, fd_args, fold, ProcessFault, run, Workspace
-from tools.quality.rails.bridge import BuildPolicy, client_run, try_decode_bridge
+from tools.quality.rails.bridge import build_client, client_run, try_decode_bridge
 from tools.quality.settings import ArtifactScope, QualitySettings, RASM_BRIDGE_SLUG
 
 
@@ -45,6 +45,7 @@ _HOST_EXCLUDES: Final[tuple[str, ...]] = (
     "RhinoCommon.*",
     "System.Drawing.Common.*",
 )
+_CLIENT_STEPS: Final[frozenset[PackageStepKind]] = frozenset({"quit", "refresh"})
 _MANIFEST_FILES: Final[tuple[str, ...]] = ("icon.png", "manifest.yml")
 _META_PROPS: Final[tuple[str, ...]] = (
     "AssemblyName",
@@ -60,7 +61,6 @@ _META_PROPS: Final[tuple[str, ...]] = (
     "YakPlatform",
     "YakPushSource",
 )
-_NEVER: Final[BuildPolicy] = "never"
 _PACKAGE_ROOTS: Final[tuple[str, ...]] = ("apps", "tools")
 _PACKAGE_STEPS: Final[dict[tuple[PackageMode, bool], tuple[PackageStepKind, ...]]] = {
     ("deploy", False): ("install",),
@@ -170,7 +170,7 @@ def _finish(
             step: dict[PackageStepKind, Callable[[], Result[None, ProcessFault]]] = {
                 "install": lambda: yak("install"),
                 "push": lambda: yak("push"),
-                "quit": lambda: client_run(settings, scope, "quit", check=False, build=_NEVER).bind(
+                "quit": lambda: client_run(settings, scope, "quit", check=False).bind(
                     lambda run: (
                         try_decode_bridge(run.stdout)
                         .filter_with(
@@ -185,12 +185,14 @@ def _finish(
                         .map(lambda _: None)
                     )
                 ),
-                "refresh": lambda: client_run(settings, scope, "launch", build=_NEVER).bind(
-                    lambda _: client_run(settings, scope, "doctor", build=_NEVER).map(lambda _: None)
+                "refresh": lambda: client_run(settings, scope, "launch").bind(
+                    lambda _: client_run(settings, scope, "doctor").map(lambda _: None)
                 ),
             }
 
-            return fold(_PACKAGE_STEPS.get((mode, slug == RASM_BRIDGE_SLUG), ()), None, lambda _, kind: step[kind]())
+            steps = _PACKAGE_STEPS.get((mode, slug == RASM_BRIDGE_SLUG), ())
+            prelude = build_client(settings, scope) if _CLIENT_STEPS.intersection(steps) else Ok(None)
+            return prelude.bind(lambda _: fold(steps, None, lambda _, kind: step[kind]()))
         case unreachable:
             assert_never(unreachable)
 

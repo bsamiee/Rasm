@@ -9,6 +9,7 @@ namespace Rasm.TestKit;
 // xUnit v3 has no IAssemblyFixture<T> — fixture types stand on their own, injected via test-class ctor.
 public sealed class ContextFixture {
     public ContextFixture() {
+        HostBundle.Register();
         Mm = Materialize(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: UnitSystem.Millimeters);
         Cm = Materialize(absolute: 0.01, relative: 1.0e-8, angle: 0.01, units: UnitSystem.Centimeters);
         Meters = Materialize(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: UnitSystem.Meters);

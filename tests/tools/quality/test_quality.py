@@ -10,7 +10,7 @@ import pytest
 from tools.quality import process
 from tools.quality.__main__ import main
 from tools.quality.process import Completed
-from tools.quality.rails import bridge, package, static, test
+from tools.quality.rails import api, bridge, package, static, test
 from tools.quality.settings import ArtifactScope, QualitySettings
 
 
@@ -81,7 +81,7 @@ def test_dotnet_scope_flags_precede_passthrough_args(monkeypatch: pytest.MonkeyP
 
 
 def test_api_search_returns_ripgrep_stdout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    xml = tmp_path / "Contents/Frameworks/RhCore.framework/Versions/A/Resources/RhinoCommon.xml"
+    xml = tmp_path / "Contents/Frameworks/RhCore.framework/Versions/Current/Resources/RhinoCommon.xml"
     xml.parent.mkdir(parents=True)
     xml.write_text("<member name='Mesh' />")
 
@@ -90,9 +90,9 @@ def test_api_search_returns_ripgrep_stdout(monkeypatch: pytest.MonkeyPatch, tmp_
     ) -> Result[Completed, ProcessFault]:
         return Ok(Completed(argv=argv, returncode=0, stdout=b"Mesh hit\n", stderr=b""))
 
-    monkeypatch.setattr(bridge, "run", fake_run)
+    monkeypatch.setattr(api, "run", fake_run)
 
-    assert bridge.api(tmp_path, "search", "rhino-common", pattern="Mesh").default_value("") == "Mesh hit\n"
+    assert api.api(tmp_path, "search", "rhino-common", pattern="Mesh").default_value("") == "Mesh hit\n"
 
 
 def test_api_decompile_returns_ilspy_stdout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -101,9 +101,9 @@ def test_api_decompile_returns_ilspy_stdout(monkeypatch: pytest.MonkeyPatch, tmp
     ) -> Result[Completed, ProcessFault]:
         return Ok(Completed(argv=argv, returncode=0, stdout=b"class Mesh {}\n", stderr=b""))
 
-    monkeypatch.setattr(bridge, "run", fake_run)
+    monkeypatch.setattr(api, "run", fake_run)
 
-    assert bridge.api(tmp_path, "decompile", "rhino-common", type_name="Rhino.Geometry.Mesh").default_value("") == (
+    assert api.api(tmp_path, "decompile", "rhino-common", type_name="Rhino.Geometry.Mesh").default_value("") == (
         "class Mesh {}\n"
     )
 
@@ -111,7 +111,8 @@ def test_api_decompile_returns_ilspy_stdout(monkeypatch: pytest.MonkeyPatch, tmp
 def _invoke_verify(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    *statuses: bridge.BridgeStatus,
+    status: bridge.BridgeStatus = "ok",
+    *,
     client_fault: process.ProcessFault | None = None,
 ) -> tuple[bridge.BridgeResult, tuple[tuple[str, ...], ...], tuple[dict[str, object], ...]]:
     calls: list[tuple[str, ...]] = []
@@ -125,20 +126,15 @@ def _invoke_verify(
     result_path = report_dir / "case.json"
 
     def fake_client_run(
-        settings: QualitySettings,
-        scope: ArtifactScope,
-        *args: str,
-        check: bool = True,
-        build: bridge.BuildPolicy = "always",
+        settings: QualitySettings, scope: ArtifactScope, *args: str, check: bool = True
     ) -> Result[Completed, ProcessFault]:
         _ = (settings, scope)
         calls.append(args)
-        kwargs_seen.append({"check": check, "build": build})
+        kwargs_seen.append({"check": check})
         match client_fault:
             case process.ProcessFault() as fault:
                 return Error(fault)
             case None:
-                status = statuses[min(len(calls) - 1, len(statuses) - 1)]
                 result_path.write_bytes(msgspec.json.encode(bridge.BridgeResult(status=status)))
                 return Ok(Completed(argv=("bridge", *args), returncode=0, stdout=b"", stderr=b""))
 
@@ -151,61 +147,26 @@ def _invoke_verify(
     )
 
 
-@pytest.mark.parametrize("status", ["busy", "timeout"])
-def test_verify_invoke_retries_transient_status_then_ok(
+@pytest.mark.parametrize("status", ["ok", "failed", "unsupported", "skipped", "busy", "timeout"])
+def test_verify_invoke_passes_status_through_single_call(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, status: bridge.BridgeStatus
 ) -> None:
-    result, calls, _ = _invoke_verify(monkeypatch, tmp_path, status, "ok")
-
-    assert result.status == "ok"
-    assert len(calls) == 2
-
-
-@pytest.mark.parametrize("status", ["ok"])
-def test_verify_invoke_does_not_retry_terminal_status(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, status: bridge.BridgeStatus
-) -> None:
-    result, calls, _ = _invoke_verify(monkeypatch, tmp_path, status)
+    result, calls, kwargs_seen = _invoke_verify(monkeypatch, tmp_path, status)
 
     assert result.status == status
-    assert len(calls) == 1
+    assert tuple(call[0] for call in calls) == ("check",)
+    assert kwargs_seen == ({"check": False},)
 
 
-@pytest.mark.parametrize("status", ["failed", "unsupported", "skipped", "busy", "timeout"])
-def test_verify_invoke_retries_non_ok_status(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, status: bridge.BridgeStatus
-) -> None:
-    result, calls, _ = _invoke_verify(monkeypatch, tmp_path, status, "ok")
-
-    assert result.status == "ok"
-    assert len(calls) == 2
-
-
-def test_verify_invoke_stops_after_max_tries(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    result, calls, _ = _invoke_verify(monkeypatch, tmp_path, "busy", "busy")
-
-    assert result.status == "busy"
-    assert len(calls) == 2
-
-
-def test_verify_invoke_maps_client_fault_to_failed_without_retry(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_verify_invoke_maps_client_fault_to_failed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     result, calls, _ = _invoke_verify(
-        monkeypatch, tmp_path, "ok", client_fault=process.ProcessFault.fail("bridge", detail=b"boom", returncode=9)
+        monkeypatch, tmp_path, client_fault=process.ProcessFault.fail("bridge", detail=b"boom", returncode=9)
     )
 
     assert result.status == "failed"
     assert result.fault is not None
     assert "boom" in result.fault.message
-    assert len(calls) == 2
-
-
-def test_verify_invoke_check_uses_never_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    _, calls, kwargs_seen = _invoke_verify(monkeypatch, tmp_path, "busy", "ok")
-
-    assert tuple(call[0] for call in calls) == ("check", "check")
-    assert kwargs_seen == ({"check": False, "build": "never"}, {"check": False, "build": "never"})
+    assert len(calls) == 1
 
 
 def test_verify_discover_returns_directory_matches(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -393,13 +354,9 @@ def test_package_finish_keeps_mode_and_slug_step_order(
     scope = ArtifactScope(root=tmp_path, pid=123, dotnet_env={})
 
     def fake_client_run(
-        settings: QualitySettings,
-        scope: ArtifactScope,
-        *args: str,
-        check: bool = True,
-        build: bridge.BuildPolicy = "always",
+        settings: QualitySettings, scope: ArtifactScope, *args: str, check: bool = True
     ) -> Result[Completed, ProcessFault]:
-        _ = (settings, scope, check, build)
+        _ = (settings, scope, check)
         seen.append(args[0])
         return Ok(Completed(argv=("bridge", *args), returncode=0, stdout=b'{"status":"ok"}', stderr=b""))
 
@@ -410,6 +367,7 @@ def test_package_finish_keeps_mode_and_slug_step_order(
         seen.append(argv[1])
         return Ok(Completed(argv=argv, returncode=0, stdout=b"", stderr=b""))
 
+    monkeypatch.setattr(package, "build_client", lambda *_: Ok(None))
     monkeypatch.setattr(package, "client_run", fake_client_run)
     monkeypatch.setattr(package, "run", fake_run)
 

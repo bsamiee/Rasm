@@ -55,8 +55,6 @@ internal sealed record BridgeCommandParse(BridgeCommand? Command, BridgeReply? F
 
 // --- [SERVICES] -------------------------------------------------------------------------
 internal sealed class BridgeServer : IDisposable {
-    private static readonly TimeSpan HandshakeTimeout = TimeSpan.FromSeconds(value: 2.0);
-    private static readonly TimeSpan IdleDispatchTimeout = TimeSpan.FromMinutes(value: 5.0);
     private const int PipeInstances = 4;
     private const int OutputLimit = 32768;
     private const PipeOptions PipePolicy = PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly;
@@ -180,7 +178,7 @@ internal sealed class BridgeServer : IDisposable {
         try {
             using StreamReader reader = new(stream: pipe, encoding: Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 4096, leaveOpen: true);
             using CancellationTokenSource handshake = CancellationTokenSource.CreateLinkedTokenSource(token);
-            handshake.CancelAfter(delay: HandshakeTimeout);
+            handshake.CancelAfter(delay: BridgeTimeouts.Handshake);
             string? line = await reader.ReadLineAsync(cancellationToken: handshake.Token).ConfigureAwait(false);
             BridgeReply reply = string.IsNullOrWhiteSpace(value: line)
                 ? BridgeWire.Reply(command: BridgeWire.Hello, status: PhaseStatus.Failed, fault: BridgeFault.MessageOnly(category: "protocol", message: "Bridge clients must send a hello or command request."))
@@ -219,6 +217,8 @@ internal sealed class BridgeServer : IDisposable {
             Fault: null,
             RhinoName: RhinoApp.Name,
             RhinoVersion: RhinoApp.Version.ToString(),
+            HostRuntime: Environment.Version.ToString(),
+            ScriptEngine: CodeEngine.Readiness(),
             RhinoPid: Environment.ProcessId,
             ActiveDocument: document is not null,
             ModelAbsoluteTolerance: document?.ModelAbsoluteTolerance,
@@ -230,70 +230,46 @@ internal sealed class BridgeServer : IDisposable {
                 .Select(static group => AssemblyReport(assembly: group.First()))
                 .OrderBy(static report => report.Name, StringComparer.Ordinal)]);
     internal static BridgeReply Execute(BridgeExecuteRequest request, RhinoDoc? document) {
-        Stopwatch timer = Stopwatch.StartNew();
-        global::Rhino.Runtime.Code.Execution.RunContextStream stdout = new();
-        global::Rhino.Runtime.Code.Execution.RunContextStream stderr = new();
         bool priorCapture = RhinoApp.CommandWindowCaptureEnabled;
         string historyBefore = RhinoApp.CommandHistoryWindowText ?? string.Empty;
         RhinoApp.CommandWindowCaptureEnabled = true;
-        global::Rhino.Runtime.Code.Code? code;
-        Exception? error;
-        string commandText = string.Empty;
-        using global::Rhino.Runtime.Code.Execution.RunContext context = new(defaultOutputStream: false, defaultErrorStream: false) {
-            CachePolicy = global::Rhino.Runtime.Code.Execution.CachePolicy.NeverCache,
-            PreferBasePathResolution = false,
-            Options = { ["csharp.resolver.isolate"] = true },
-            OutputStream = stdout,
-            ErrorStream = stderr,
-            ExclusiveStreams = false,
-            ResetStreamsPolicy = global::Rhino.Runtime.Code.Execution.ResetStreamPolicy.ResetToPreviousStream,
-        };
+        CodeOutcome outcome;
+        string commandText;
+        // BOUNDARY ADAPTER — RhinoApp command-window capture state must be restored around execution.
         try {
-            (code, error) = TryRunScript(request: request, context: context);
+            outcome = CodeEngine.Run(request: request);
             commandText = CommandWindowCapture(historyBefore: historyBefore);
         } finally {
             RhinoApp.CommandWindowCaptureEnabled = priorCapture;
         }
-        timer.Stop();
-        string stdoutText = stdout.GetContents();
-        string stderrText = stderr.GetContents();
-        BridgeReturnValue? returnValue = BridgeMarker.Scan(stdout: stdoutText).OfType<BridgeMarker.Returned>().LastOrDefault() is { } returned
-            ? new(Value: returned.Value, Source: BridgeWire.OutputStdout)
-            : null;
-        BridgeDiagnostic[] diagnostics = Diagnose(code: code, error: error);
-        BridgeFault? fault = error is null ? null : BridgeFault.FromException(category: diagnostics.Length > 0 ? "diagnostics" : "execute", error: error);
-        PhaseStatus status = error is null ? PhaseStatus.Ok : PhaseStatus.Failed;
         Assembly self = typeof(BridgeServer).Assembly;
         AssemblyName name = self.GetName();
         BridgeReport.Execute report = new(
-            Status: status,
-            Fault: fault,
-            DurationMs: (int)timer.ElapsedMilliseconds,
+            Status: outcome.Status,
+            Fault: outcome.Fault,
+            DurationMs: outcome.DurationMs,
             ServerExecutionCancelable: false,
             BridgeAssemblyName: name.Name ?? "unknown",
             BridgeAssemblyVersion: name.Version?.ToString() ?? "unknown",
             BridgeAssemblyInformationalVersion: self.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? name.Version?.ToString() ?? "unknown",
             RhinoVersion: RhinoApp.Version.ToString(),
-            RhinoCode: new(
-                CachePolicy: context.CachePolicy.ToString(),
-                ResolverIsolated: context.Options.Get(key: "csharp.resolver.isolate", defaultValue: false),
-                PreferBasePathResolution: context.PreferBasePathResolution),
+            RhinoCode: outcome.RhinoCode,
             Document: document is null
                 ? new(Active: false, RuntimeSerialNumber: null, Name: null, Path: null, Modified: null, ModelAbsoluteTolerance: null, ModelUnitSystem: null)
                 : new(Active: true, RuntimeSerialNumber: document.RuntimeSerialNumber, Name: document.Name, Path: document.Path, Modified: document.Modified, ModelAbsoluteTolerance: document.ModelAbsoluteTolerance, ModelUnitSystem: document.ModelUnitSystem.ToString()),
-            ReturnValue: returnValue,
+            ReturnValue: outcome.ReturnValue,
             References: request.References);
         return BridgeWire.Reply(
             command: BridgeWire.Execute,
-            status: status,
+            status: outcome.Status,
             data: report,
             outputs: [
-                BridgeWire.Capture(source: BridgeWire.OutputStdout, text: stdoutText, limit: OutputLimit),
-                BridgeWire.Capture(source: BridgeWire.OutputStderr, text: stderrText, limit: OutputLimit),
+                BridgeWire.Capture(source: BridgeWire.OutputStdout, text: outcome.Stdout, limit: OutputLimit),
+                BridgeWire.Capture(source: BridgeWire.OutputStderr, text: outcome.Stderr, limit: OutputLimit),
                 BridgeWire.Capture(source: BridgeWire.OutputRhinoCommand, text: commandText, limit: OutputLimit),
             ],
-            diagnostics: diagnostics,
-            fault: fault);
+            diagnostics: outcome.Diagnostics,
+            fault: outcome.Fault);
     }
     private static string CommandWindowCapture(string historyBefore) {
         string[] captured = RhinoApp.CapturedCommandWindowStrings(clearBuffer: true);
@@ -305,41 +281,6 @@ internal sealed class BridgeServer : IDisposable {
             };
     }
 
-    private static (global::Rhino.Runtime.Code.Code? Code, Exception? Error) TryRunScript(BridgeExecuteRequest request, global::Rhino.Runtime.Code.Execution.RunContext context) {
-        // BOUNDARY ADAPTER — RhinoCode compile/execute throws; collapse to report data.
-        try {
-            RhinoCodePlatform.Rhino3D.Registrar.StartScriptingLanguages(spec: global::Rhino.Runtime.Code.Languages.LanguageSpec.CSharp, startServer: false);
-            global::Rhino.Runtime.Code.Code? code = request.ScriptPath is string scriptPath && File.Exists(path: scriptPath)
-                ? global::Rhino.Runtime.Code.RhinoCode.RunScript(uri: new Uri(uriString: scriptPath), context: context)
-                : global::Rhino.Runtime.Code.RhinoCode.RunScript(text: request.Script, context: context);
-            return (Code: code, Error: null);
-        } catch (Exception error) when (error is global::Rhino.Runtime.Code.Execution.CompileException or global::Rhino.Runtime.Code.Execution.ExecuteException || NonFatal(error: error)) {
-            return (Code: null, Error: error);
-        }
-    }
-    private static BridgeDiagnostic[] Diagnose(global::Rhino.Runtime.Code.Code? code, Exception? error) =>
-        CompileFailure(error: error) switch {
-            global::Rhino.Runtime.Code.Execution.CompileException compile => [.. compile.Diagnosis.Select(ToDiagnostic)],
-            _ => code?.Diagnostics.Select(ToDiagnostic).ToArray() ?? [],
-        };
-    private static global::Rhino.Runtime.Code.Execution.CompileException? CompileFailure(Exception? error) =>
-        error switch {
-            null => null,
-            global::Rhino.Runtime.Code.Execution.CompileException compile => compile,
-            global::Rhino.Runtime.Code.Execution.ExecuteException execute when execute.TryGetCompileException(out global::Rhino.Runtime.Code.Execution.CompileException compile) => compile,
-            { InnerException: Exception inner } => CompileFailure(error: inner),
-            _ => null,
-        };
-    private static BridgeDiagnostic ToDiagnostic(global::Rhino.Runtime.Code.Diagnostics.Diagnostic diagnostic) =>
-        new(
-            Severity: diagnostic.Severity.ToString(),
-            Message: diagnostic.Message,
-            Source: diagnostic.Reference.Uri?.ToString(),
-            Code: diagnostic.HasId ? diagnostic.Id : null,
-            File: diagnostic.Reference.Uri?.LocalPath,
-            Line: diagnostic.Reference.Position.LineNumber,
-            Column: diagnostic.Reference.Position.ColumnNumber,
-            Category: "rhinocode");
     internal static BridgeReport.Quit Quit(RhinoDoc? document) =>
         RhinoDoc.OpenDocuments().Any(static open => open.Modified) switch {
             true => new(Status: PhaseStatus.Failed, Fault: BridgeFault.MessageOnly(category: "quit", message: "At least one Rhino document has unsaved changes; refusing automated quit."), RhinoPid: Environment.ProcessId, ActiveDocument: document is not null, Modified: true),
@@ -378,7 +319,7 @@ internal sealed class BridgeServer : IDisposable {
         TaskCompletionSource<BridgeReply> completion = new(creationOptions: TaskCreationOptions.RunContinuationsAsynchronously);
         idleQueue.Enqueue(item: new IdleJob(Work: doc => SafeDispatch(work: work, command: command, document: doc), Completion: completion));
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
-        timeout.CancelAfter(delay: IdleDispatchTimeout);
+        timeout.CancelAfter(delay: BridgeTimeouts.IdleDispatch);
         try {
             return await completion.Task.WaitAsync(cancellationToken: timeout.Token).ConfigureAwait(false);
         } catch (OperationCanceledException) {

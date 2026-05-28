@@ -68,7 +68,7 @@ Run commands from repository root.
 | :-----: | --------- | -------- |
 | **1** | `uv run python -m tools.quality bridge build-bridge` | Build protocol, plugin, and client in `Release`. |
 | **2** | `uv run python -m tools.quality bridge launch` | Idempotent: reuses an existing endpoint or opens RhinoWIP and verifies endpoint round trip. |
-| **3** | `uv run python -m tools.quality bridge doctor` | Report live Rhino, plugin, and required assemblies. |
+| **3** | `uv run python -m tools.quality bridge doctor` | Report live Rhino name/version, .NET `hostRuntime`, RhinoCode `scriptEngine` readiness, plugin identity, and required host assemblies with versions and resolved bundle paths. |
 | **4** | `uv run python -m tools.quality bridge check <target> [scenario.csx]` | Build or execute the target through the agent-first RhinoCode lane. |
 | **5** | `uv run python -m tools.quality bridge clean <target>` | Remove generated bridge check reports for one target. |
 | **6** | `uv run python -m tools.quality bridge quit` | Lifecycle-only safe Rhino exit when open documents have no unsaved changes. |
@@ -90,7 +90,7 @@ Validate real Grasshopper project:
 uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Radyab.csproj
 ```
 
-Expected result: JSON with top-level `"status": "ok"` and successful `resolve`, `build`, `connect`, and `execute` phases. Treat `rhinoCodeCli` as supplemental environment evidence; in-process `execute` is authoritative Rhino evidence.
+Expected result: JSON with top-level `"status": "ok"` and successful `resolve`, `build`, `connect`, and `execute` phases. The in-process `execute` phase is the authoritative Rhino evidence.
 
 Validate source ownership without runtime script:
 
@@ -118,13 +118,13 @@ uv run python -m tools.quality api doctor
 
 Expected result: tab-separated evidence for RhinoWIP app version, ILSpy host status, RhinoCode direct and roll-forward status, and each API key's assembly/XML state.
 
-Search Grasshopper2 XML:
+Search RhinoCommon XML (the only bundle-shipped XML):
 
 ```bash
-uv run python -m tools.quality api xml gh2 IDataAccess
+uv run python -m tools.quality api xml rhino-common Mesh
 ```
 
-Expected result: `rg` matches from the resolved `Grasshopper2.xml` path.
+Expected result: `rg` matches from the resolved `RhinoCommon.xml` path. `Eto`, `Grasshopper2`, and `GrasshopperIO` carry no bundle XML — use `api types` or `api decompile` for those.
 
 Inspect Rhino UI metadata when XML is absent:
 
@@ -146,9 +146,12 @@ Environment overrides:
 
 | [INDEX] | [VARIABLE] | [USE] |
 | :-----: | ---------- | ----- |
-| **1** | `RHINO_WIP_APP_PATH` | Launch a specific RhinoWIP app bundle. |
-| **2** | `RHINO_WIP_BUNDLE_ID` | Launch RhinoWIP by bundle identifier. |
-| **3** | `CONFIGURATION` | Build configuration for project checks (default `Release`). |
+| **1** | `RHINO_WIP_APP_PATH` | Target a specific RhinoWIP bundle for both launch and MSBuild reference resolution. Unset: the operator resolves the newest installed `/Applications/Rhino*.app` by `CFBundleVersion` (WIP-preferred). |
+| **2** | `QUALITY_RHINO_APP` | Operator-level RhinoWIP path; exported to the client and MSBuild as `RHINO_WIP_APP_PATH`. |
+| **3** | `RHINO_WIP_BUNDLE_ID` | Launch RhinoWIP by bundle identifier. |
+| **4** | `CONFIGURATION` | Build configuration for project checks (default `Release`). |
+| **5** | `RASM_BRIDGE_CONNECT_TIMEOUT_S` | Cold-launch connect deadline in seconds (default `90`). |
+| **6** | `RASM_BRIDGE_TRANSPORT_TIMEOUT_S` | Warm request/transport deadline in seconds (default `35`). |
 
 ---
 ## [4][OUTPUT_CONTRACT]
@@ -170,11 +173,9 @@ Read order:
 3. Inspect `execute.data.returnValue` when a script emits structured evidence.
 4. Inspect failed or unsupported `phases[]`.
 5. Inspect `diagnostics`, `outputs[].text`, `outputs[].truncated`, `outputs[].length`, and `outputs[].limit`.
-6. Treat `rhinoCodeCli` failure as non-authoritative when in-process `execute` succeeds.
 
 Decisive phase policy:
 - Required failures from `resolve`, `build`, `connect`, and applicable `execute` phases drive top-level `status`.
-- Supplemental `rhinoCodeCli` evidence remains visible but does not override successful in-process `execute`.
 - Skipped `lifecycle` phases document non-applicable work and do not weaken top-level status.
 - `check <source.cs>` without a scenario remains top-level `unsupported` after successful ownership and build evidence.
 
@@ -194,7 +195,6 @@ Phase expectations:
 - `build`: real `dotnet restore`, `dotnet build`, MSBuild projection, target and references.
 - `launch`: existing bridge reuse or RhinoWIP launch evidence.
 - `connect`: named-pipe hello round trip with endpoint metadata.
-- `rhinoCodeCli`: supplemental external `rhinocode list --json` probe; `DOTNET_ROLL_FORWARD=Major` fallback is intentional.
 - `execute`: RhinoCode execution report, stdout/stderr, diagnostics, Rhino document facts, and optional script return JSON.
 - `diagnostics`: RhinoCode compile diagnostics when available.
 - `lifecycle`: quit/restart status.
@@ -245,13 +245,14 @@ Marker kinds:
 
 <br>
 
+Host assemblies (`RhinoCommon`, `Rhino.UI`, `Eto`, `Grasshopper2`, `GrasshopperIO`, `RhinoCodePlatform.Rhino3D`, `Microsoft.macOS`, `System.Drawing.Common`) resolve from the installed RhinoWIP app bundle via `Directory.Build.props` HintPaths under `$(RhinoWipResourcesPath)` with `Private=false` — never from NuGet. The bundle path is the newest installed `/Applications/Rhino*.app` (see `RHINO_WIP_APP_PATH`), so compile and runtime bind the same versions Rhino loads; `bridge doctor` reports the resolved versions and paths.
+
 The client emits runtime reference projections from one evaluated project build. Generated RhinoCode scripts apply references by prepending `#r` directives before submission. References are ordered dependency-first: `FSharp.Core`, `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, transitive packages, `Rasm.dll`, scenario kit assemblies, then the target assembly last. Scenario scripts also inject a bridge-owned LanguageExt `HashMap` bootstrap so trait resolution completes before staged Rasm code touches custom `HashMap` keys under RhinoCode's isolated resolver. **Grasshopper-aware projects** (`IsGrasshopperAwareProject` or a `Grasshopper2.dll` reference) additionally receive bridge-owned `ScenarioHostUsings` (`Eto.Drawing`, `LanguageExt`) after the scenario preamble — host assemblies stay off `#r`; add explicit `using Grasshopper2.*` in scenario source when a rail needs GH2 surface types. **Rasm.Rhino HashMap policy:** use primitive, `string`, `Guid`, `uint`/`ulong`, or built-in value-tuple keys only in bridge-hot assemblies; do not use custom record-struct keys (for example `PreviewFingerprint`) inside `HashMap<,>` — they fail under isolated resolver trait warmup even when reference order is correct. Project/source scenario references are shadow-copied into artifact `refs/<content-hash>/` folders so repeated checks see fresh assembly paths without scenario-owned machine paths. `BridgeExecuteRequest.References` is reported metadata today; the plugin does not independently apply that field during execution.
 
 API metadata lookup uses local sources in this order:
-1. RhinoWIP app-bundle XML for `RhinoCommon`, `Grasshopper2`, and `GrasshopperIO`.
-2. Repo NuGet cache XML only when app-bundle XML is missing, especially `Eto.xml`.
-3. ILSpy metadata/decompilation for assemblies without XML, especially `Rhino.UI.dll`.
-4. RhinoCode CLI only as supplemental environment evidence; in-process bridge execution remains runtime authority.
+1. RhinoWIP app-bundle XML when present — today only `RhinoCommon.xml` ships; `Eto`, `Grasshopper2`, `GrasshopperIO`, and `Rhino.UI` carry no bundle XML, so XML lookups for those report `missing`.
+2. ILSpy `types`/`decompile` for assemblies without XML, for example `Rhino.UI.dll`, `Eto.dll`, and `Grasshopper2.dll`.
+3. `api doctor` reports `rhinocode` CLI availability as environment evidence only; the in-process `execute` rail, not the CLI, is the runtime authority.
 
 | [INDEX] | [REFERENCE_SET] | [USE] |
 | :-----: | --------------- | ----- |
@@ -272,12 +273,12 @@ API metadata lookup uses local sources in this order:
 | **1** | `build` failed | Managed compile/analyzer/MSBuild failure. | Fix C# or project configuration before Rhino work. |
 | **2** | `resolve` owner-evaluation failure | A tracked project could not produce MSBuild ownership data. | Inspect `failures[].projectPath`, `failures[].command`, `exitCode`, `outputs`, and `fault`; fix evaluation before trusting ownership. |
 | **3** | `connect` failed | RhinoWIP bridge unavailable or stale endpoint. | Run `bridge launch` or `bridge doctor`; inspect `~/.rasm/rhino-bridge.json`. |
-| **4** | `rhinoCodeCli` failed | Supplemental RhinoCode CLI probe unavailable or roll-forward failure. | Inspect the phase, but trust successful in-process `execute` as authoritative. |
-| **5** | `execute` diagnostics | RhinoCode compile/runtime failure inside Rhino. | Use `diagnostics` and `fault.stackTrace`; fix real code. |
-| **6** | external package collision | Another Rhino plugin has loaded a different same-name package. | `check` uses isolated RhinoCode references; inspect `execute` only if a real scenario still fails. |
-| **7** | `loadedLocation=none` | Target assembly loaded without a path-backed location. | Treat as missing post-load identity evidence; normal fresh loads report `targetAssembly.Location`. |
-| **8** | `unsupported` source check | Source build is valid, but no runtime scenario was supplied. | Add a scenario path only when runtime behavior needs Rhino evidence. |
-| **9** | `ilspycmd` apphost failure | Effective `DOTNET_ROOT` does not point at a hostfxr/runtime root. | Use `api doctor`; fix apphost environment, not `Directory.Build.props` or Rhino references. |
+| **4** | `execute` diagnostics | RhinoCode compile/runtime failure inside Rhino. | Use `diagnostics` and `fault.stackTrace`; fix real code. |
+| **5** | external package collision | Another Rhino plugin has loaded a different same-name package. | `check` uses isolated RhinoCode references; inspect `execute` only if a real scenario still fails. |
+| **6** | `loadedLocation=none` | Target assembly loaded without a path-backed location. | Treat as missing post-load identity evidence; normal fresh loads report `targetAssembly.Location`. |
+| **7** | `unsupported` source check | Source build is valid, but no runtime scenario was supplied. | Add a scenario path only when runtime behavior needs Rhino evidence. |
+| **8** | `ilspycmd` apphost failure | Effective `DOTNET_ROOT` does not point at a hostfxr/runtime root. | Use `api doctor`; fix apphost environment, not `Directory.Build.props` or Rhino references. |
+| **9** | `execute` script-engine fault | `doctor.scriptEngine` non-null or `execute` fault from RhinoCode language start. | A RhinoWIP runtime/runtimeconfig mismatch; confirm `doctor.hostRuntime` and rebuild the plugin against the current bundle. |
 
 ---
 ## [7][UPDATE_RULES]
@@ -324,7 +325,7 @@ uv run pytest tests/tools/quality/test_quality.py -q
 git diff --check -- tools/rhino-bridge
 uv run python -m tools.quality api doctor
 uv run python -m tools.quality api path rhino-common xml
-uv run python -m tools.quality api xml gh2 IDataAccess
+uv run python -m tools.quality api xml rhino-common Mesh
 uv run python -m tools.quality api types rhino-ui Panels
 uv run python -m tools.quality api decompile rhino-ui Rhino.UI.DataSerializer
 uv run python -m tools.quality bridge build-bridge

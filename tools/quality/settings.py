@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, UTC
 import os
 from pathlib import Path
+import plistlib
 import shutil
 from typing import Annotated, Final, Literal
 
@@ -27,6 +28,7 @@ type Configuration = Literal["Debug", "Release"]
 _AGENTS: Final[str] = "agents"
 _ARTIFACTS: Final[str] = ".artifacts"
 _DEFAULT_RASM_TESTS: Final[Path] = Path("tests/csharp/libs/Rasm/Rasm.Tests.csproj")
+_DEFAULT_RHINO_APP: Final[Path] = Path("/Applications/RhinoWIP.app")
 _DOTNET_CLI: Final[str] = "dotnet-cli"
 _MARKER: Final[str] = "Workspace.slnx"
 CS_SUFFIXES: Final[frozenset[str]] = frozenset((
@@ -86,9 +88,8 @@ class QualitySettings(BaseSettings):
     mutation_project: Path = Field(default=Path("libs/csharp/Rasm/Rasm.csproj"))
     mutation_test_project: Path = Field(default=_DEFAULT_RASM_TESTS)
     mutation_target_framework: str = "net10.0"
-    rhino_app: Path = Field(default=Path("/Applications/RhinoWIP.app"))
+    rhino_app: Path = Field(default_factory=lambda: QualitySettings._resolve_rhino_app())
     bridge_endpoint: Path = Field(default=Path.home() / ".rasm" / "rhino-bridge.json")
-    bridge_restart_timeout_s: Annotated[float, Field(gt=0)] = 45.0
     configurations: str | None = None
     run_id: str = Field(
         default_factory=lambda: f"{datetime.now(tz=UTC).strftime('%Y-%m-%dT%H-%M-%S.%f')}-{os.getpid()}"
@@ -111,6 +112,32 @@ class QualitySettings(BaseSettings):
     def anchor(cls, start: Path) -> Path:
         cursor = start.expanduser().resolve()
         return next((parent for parent in (cursor, *cursor.parents) if (parent / _MARKER).is_file()), cursor)
+
+    @staticmethod
+    def _resolve_rhino_app() -> Path:
+        def bundle_version(app: Path) -> tuple[int, ...]:
+            # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=plist-version-read ticket=QUALITY-R8
+            # expires=2026-12-31 rationale=filesystem-ingress-boundary
+            try:
+                plist = plistlib.loads((app / "Contents" / "Info.plist").read_bytes())
+            except OSError, plistlib.InvalidFileException:
+                return ()
+            return tuple(int(part) for part in str(plist.get("CFBundleVersion", "")).split(".") if part.isdigit())
+
+        def newest() -> Path | None:
+            ranked = sorted(
+                (bundle_version(app), "WIP" in app.name, app)
+                for app in Path("/Applications").glob("Rhino*.app")
+                if app.is_dir()
+            )
+            return ranked[-1][2] if ranked else None
+
+        override = os.environ.get("RHINO_WIP_APP_PATH", "")  # noqa: TID251
+        match Path(override).expanduser() if override else None:
+            case Path() as explicit if explicit.is_dir():
+                return explicit
+            case _:
+                return newest() or _DEFAULT_RHINO_APP
 
     @property
     def solution(self) -> Path:
@@ -139,6 +166,10 @@ class QualitySettings(BaseSettings):
     @property
     def bridge_client(self) -> Path:
         return self.root / "tools/rhino-bridge/client/Rasm.RhinoBridge.Client.csproj"
+
+    @property
+    def scenario_kit_project(self) -> Path:
+        return self.root / "tests/csharp/_testkit/Rasm.TestKit.csproj"
 
     @property
     def bridge_projects(self) -> tuple[Path, ...]:

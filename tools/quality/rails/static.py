@@ -14,7 +14,7 @@ from typing import assert_never, Final, Literal
 from beartype import beartype
 from expression import Error, Ok, Result
 
-from tools.quality.process import dotnet, dotnet_args, dotnet_fold, ProcessFault, ProjectIndex, run_fold, Workspace
+from tools.quality.process import dotnet_args, dotnet_fold, ProcessFault, ProjectIndex, run, run_fold, Workspace
 from tools.quality.settings import (
     ArtifactScope,
     CS_SUFFIXES,
@@ -34,7 +34,7 @@ type StaticScope = Literal["changed", "full"]
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
-_FORMAT_COMMON: Final[tuple[str, ...]] = ("--verify-no-changes", "--no-restore")
+_FORMAT_COMMON: Final[tuple[str, ...]] = ("--verify-no-changes",)
 _FORMAT_ARGS: Final[dict[str, tuple[str, ...]]] = {
     "style": (*_FORMAT_COMMON, "--severity", "error"),
     "whitespace": _FORMAT_COMMON,
@@ -62,17 +62,14 @@ class _ChangedRoute:
 # --- [OPERATIONS] ------------------------------------------------------------------------
 
 
-def _format_commands(
-    root: Path, settings: QualitySettings, plan: StaticPlan, scope: ArtifactScope
-) -> tuple[tuple[str, ...], ...]:
-    props = scope.artifacts_property
+def _format_commands(root: Path, settings: QualitySettings, plan: StaticPlan) -> tuple[tuple[str, ...], ...]:
     match plan.scope:
         case "full":
             solution = str(settings.solution)
-            return tuple(("dotnet", "format", kind, solution, *props, *_FORMAT_ARGS[kind]) for kind in _FORMAT_ARGS)
+            return tuple(("dotnet", "format", kind, solution, *_FORMAT_ARGS[kind]) for kind in _FORMAT_ARGS)
         case "changed":
             return tuple(
-                ("dotnet", "format", "style", str(root / project), "--include", *files, *props, *_FORMAT_ARGS["style"])
+                ("dotnet", "format", "style", str(root / project), "--include", *files, *_FORMAT_ARGS["style"])
                 for project, files in plan.format_groups
             )
         case unreachable:
@@ -112,7 +109,7 @@ def _gate_plan(
     )
     return (
         dotnet_fold(scope, commands)
-        .bind(lambda _: run_fold(scope, _format_commands(root, settings, plan, scope)))
+        .bind(lambda _: run_fold(scope, _format_commands(root, settings, plan)))
         .map(lambda _: "done")
     )
 
@@ -165,7 +162,7 @@ def _projects(
     match mode:
         case "parity":
             listed = frozenset(
-                dotnet("sln", str(settings.solution), "list", scope=scope, check=False)
+                run(("dotnet", "sln", str(settings.solution), "list"), env=scope.dotnet_env, check=False)
                 .map(lambda done: (line.strip() for line in done.lines() if line.strip().endswith(".csproj")))
                 .default_with(lambda _: ())
             )

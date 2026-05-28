@@ -138,6 +138,8 @@ public abstract record BridgeReport {
         BridgeFault? Fault,
         string RhinoName,
         string RhinoVersion,
+        string HostRuntime,
+        BridgeFault? ScriptEngine,
         int RhinoPid,
         bool ActiveDocument,
         double? ModelAbsoluteTolerance,
@@ -240,6 +242,19 @@ public sealed record BridgeFault(string Category, string Message, string? Type =
 }
 
 // --- [CONSTANTS] ------------------------------------------------------------------------
+public static class BridgeTimeouts {
+    public static TimeSpan Hello { get; } = TimeSpan.FromSeconds(value: 3.0);
+    public static TimeSpan Connect { get; } = EnvSeconds(name: "RASM_BRIDGE_CONNECT_TIMEOUT_S", fallback: 90.0);
+    public static TimeSpan Transport { get; } = EnvSeconds(name: "RASM_BRIDGE_TRANSPORT_TIMEOUT_S", fallback: 35.0);
+    public static TimeSpan QuitWait { get; } = TimeSpan.FromSeconds(value: 30.0);
+    public static TimeSpan Handshake { get; } = TimeSpan.FromSeconds(value: 2.0);
+    public static TimeSpan IdleDispatch { get; } = TimeSpan.FromMinutes(value: 5.0);
+    private static TimeSpan EnvSeconds(string name, double fallback) =>
+        double.TryParse(s: Environment.GetEnvironmentVariable(variable: name), style: NumberStyles.Float | NumberStyles.AllowThousands, provider: CultureInfo.InvariantCulture, result: out double seconds) && seconds > 0.0
+            ? TimeSpan.FromSeconds(value: seconds)
+            : TimeSpan.FromSeconds(value: fallback);
+}
+
 public static class BridgeWire {
     public const string Schema = "rasm.rhino-bridge.v1";
     public const string ReturnPrefix = BridgeMarker.Prefix + "return=";

@@ -19,6 +19,7 @@ import structlog
 
 from tools.quality.process import Completed, dotnet_rail, ProcessFault
 from tools.quality.rails import (
+    api as api_rail,
     bridge as bridge_rail,
     package as bridge_package,
     static as static_rail,
@@ -34,7 +35,7 @@ type ApiCliOp = Literal["doctor", "path", "xml", "types", "decompile"]
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
-_API: Final[dict[ApiCliOp, tuple[bridge_rail.ApiOp, str | None]]] = {
+_API: Final[dict[ApiCliOp, tuple[api_rail.ApiOp, str | None]]] = {
     "decompile": ("decompile", None),
     "doctor": ("doctor", None),
     "path": ("path", None),
@@ -67,7 +68,12 @@ test_app = App(name="test", help="Unit and mutation gate.", default_parameter=_P
 
 
 def _bridge(*args: str) -> int:
-    return rail("bridge", "client", lambda s, sc: bridge_rail.client_run(s, sc, *args, check=False), ok=_bridge_on_ok)
+    return rail(
+        "bridge",
+        "client",
+        lambda s, sc: bridge_rail.build_client(s, sc).bind(lambda _: bridge_rail.client_run(s, sc, *args, check=False)),
+        ok=_bridge_on_ok,
+    )
 
 
 def _bridge_on_ok(completed: Completed) -> int:
@@ -122,8 +128,8 @@ _STATIC_OK: Final[dict[static_rail.StaticOutcome, Callable[[], int]]] = {
 @api.default
 def api_gate(
     op: ApiCliOp,
-    key: bridge_rail.ApiKey = "rhino-common",
-    kind: bridge_rail.ApiPathKind = "assembly",
+    key: api_rail.ApiKey = "rhino-common",
+    kind: api_rail.ApiPathKind = "assembly",
     pattern: str = "",
     type_name: str = "",
 ) -> int:
@@ -131,15 +137,8 @@ def api_gate(
     return rail(
         "api",
         phase or op,
-        lambda s, sc: bridge_rail.api(
-            s.rhino_app,
-            rail_op,
-            key,
-            kind=kind,
-            pattern=pattern,
-            type_name=type_name,
-            settings_root=s.root,
-            env=sc.dotnet_env,
+        lambda s, sc: api_rail.api(
+            s.rhino_app, rail_op, key, kind=kind, pattern=pattern, type_name=type_name, env=sc.dotnet_env
         ),
         ok=_API_OK[op],
     )
