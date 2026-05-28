@@ -64,7 +64,7 @@ playwright/.cache/
 # --- [CACHES] -----------------------------------------------------------------
 
 .cache/
-/.artifacts/
+**/.artifacts/
 /.remember/
 .nx/*
 .stryker-tmp/
