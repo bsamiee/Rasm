@@ -31,42 +31,9 @@ from tools.quality.settings import ArtifactScope, QualitySettings
 type ApiKey = Literal["rhino-common", "rhino-ui", "rhino-code", "rhino-code-remote", "eto", "gh2", "gh2-io"]
 type ApiOp = Literal["doctor", "path", "search", "types", "decompile"]
 type ApiPathKind = Literal["assembly", "xml"]
+type ApiSpec = tuple[str, str, str]
 type BridgeStatus = Literal["ok", "skipped", "unsupported", "failed", "timeout", "busy"]
 type BuildPolicy = Literal["always", "never"]
-
-
-# --- [CONSTANTS] -----------------------------------------------------------------------
-
-_API_FALLBACKS: Final[dict[ApiKey, str]] = {
-    "eto": ".cache/nuget/packages/rhinocommon/*/lib/net8.0/Eto.xml",
-    "gh2": ".cache/nuget/packages/grasshopper2/*/ref/net7.0/Grasshopper2.xml",
-    "gh2-io": ".cache/nuget/packages/grasshopper2/*/ref/net7.0/GrasshopperIO.xml",
-    "rhino-common": ".cache/nuget/packages/rhinocommon/*/lib/net8.0/RhinoCommon.xml",
-}
-_API_MAP: Final[dict[ApiKey, tuple[str, str]]] = {
-    "eto": ("Eto.dll", "Eto.xml"),
-    "gh2": (
-        "ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll",
-        "ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.xml",
-    ),
-    "gh2-io": (
-        "ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll",
-        "ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.xml",
-    ),
-    "rhino-code": ("Rhino.Runtime.Code.dll", ""),
-    "rhino-code-remote": ("Rhino.Runtime.Code.Remote.dll", ""),
-    "rhino-common": ("RhinoCommon.dll", "RhinoCommon.xml"),
-    "rhino-ui": ("Rhino.UI.dll", "Rhino.UI.xml"),
-}
-_API_RESOURCE_ROOT: Final[Path] = Path("Contents/Frameworks/RhCore.framework/Versions/A/Resources")
-_BRIDGE_EXIT: Final[dict[BridgeStatus, int]] = {
-    "busy": 5,
-    "failed": 1,
-    "ok": 0,
-    "skipped": 0,
-    "timeout": 5,
-    "unsupported": 3,
-}
 
 
 # --- [MODELS] ----------------------------------------------------------------------------
@@ -126,19 +93,51 @@ class VerifyReport(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
         return self.summary.failed
 
 
+# --- [CONSTANTS] -----------------------------------------------------------------------
+
+_API: Final[dict[ApiKey, ApiSpec]] = {
+    "eto": ("Eto.dll", "Eto.xml", ".cache/nuget/packages/rhinocommon/*/lib/net8.0/Eto.xml"),
+    "gh2": (
+        "ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll",
+        "ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.xml",
+        ".cache/nuget/packages/grasshopper2/*/ref/net7.0/Grasshopper2.xml",
+    ),
+    "gh2-io": (
+        "ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll",
+        "ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.xml",
+        ".cache/nuget/packages/grasshopper2/*/ref/net7.0/GrasshopperIO.xml",
+    ),
+    "rhino-code": ("Rhino.Runtime.Code.dll", "", ""),
+    "rhino-code-remote": ("Rhino.Runtime.Code.Remote.dll", "", ""),
+    "rhino-common": (
+        "RhinoCommon.dll",
+        "RhinoCommon.xml",
+        ".cache/nuget/packages/rhinocommon/*/lib/net8.0/RhinoCommon.xml",
+    ),
+    "rhino-ui": ("Rhino.UI.dll", "Rhino.UI.xml", ""),
+}
+_API_RESOURCE_ROOT: Final[Path] = Path("Contents/Frameworks/RhCore.framework/Versions/A/Resources")
+_BRIDGE_EXIT: Final[dict[BridgeStatus, int]] = {
+    "busy": 5,
+    "failed": 1,
+    "ok": 0,
+    "skipped": 0,
+    "timeout": 5,
+    "unsupported": 3,
+}
+
+
 # --- [OPERATIONS] ------------------------------------------------------------------------
 
 
 def _api_xml_path(root: Path, rhino_app: Path, key: ApiKey) -> tuple[str, str]:
-    resources = rhino_app / _API_RESOURCE_ROOT
-    _, xml_name = _API_MAP[key]
-    primary = str(resources / xml_name) if xml_name else ""
+    _, xml_name, fallback_xml = _API[key]
+    primary = str(rhino_app / _API_RESOURCE_ROOT / xml_name) if xml_name else ""
     match (primary, Path(primary).is_file() if primary else False):
         case (path, True):
             return path, "primary"
         case _:
-            fallback = _API_FALLBACKS.get(key, "")
-            matches = sorted(root.glob(fallback)) if fallback else []
+            matches = sorted(root.glob(fallback_xml)) if fallback_xml else []
             match matches:
                 case [*_, last]:
                     return str(last), "fallback"
@@ -250,7 +249,7 @@ def api(
 ) -> Result[bytes | str | None, ProcessFault]:
     root = settings_root or QualitySettings.anchor(Path.cwd())
     resources = rhino_app / _API_RESOURCE_ROOT
-    assembly_name, _ = _API_MAP[key]
+    assembly_name, _, _ = _API[key]
     assembly = str(resources / assembly_name) if assembly_name else ""
     match op:
         case "doctor":
@@ -300,7 +299,7 @@ def api(
                                 assembly=asset(str(resources / asm) if asm else "", "present"),
                                 xml=asset(*_api_xml_path(root, rhino_app, api_key)),
                             )
-                            for api_key, (asm, _) in _API_MAP.items()
+                            for api_key, (asm, _, _) in _API.items()
                         ),
                     )
                 )
