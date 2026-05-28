@@ -505,31 +505,19 @@ public readonly partial struct BlockContentHash {
             _ => Fnv64.Mix(acc: Fnv64.Mix(acc: acc, v: BoundsAndKindHash(geometry: geometry)), v: geometry.DataCRC(currentRemainder: 0u)),
         };
 
-    private static ulong HashAttributes(ObjectAttributes? a) =>
-        a switch {
-            null => 0UL,
-            _ => HashAttributeCore(a: a),
-        };
+    private static ulong HashDoubles(Seq<double> values) =>
+        values.Fold(initialState: Fnv64.Offset, f: static (acc, value) => Fnv64.Mix(acc: acc, v: BitConverter.DoubleToUInt64Bits(value: value)));
 
     private static ulong XformHash(Transform x) =>
-        Seq(
-                x.M00, x.M01, x.M02, x.M03,
-                x.M10, x.M11, x.M12, x.M13,
-                x.M20, x.M21, x.M22, x.M23,
-                x.M30, x.M31, x.M32, x.M33)
-            .Fold(initialState: Fnv64.Offset, f: static (acc, value) => Fnv64.Mix(acc: acc, v: BitConverter.DoubleToUInt64Bits(value: value)));
+        HashDoubles(values: Seq(x.M00, x.M01, x.M02, x.M03, x.M10, x.M11, x.M12, x.M13, x.M20, x.M21, x.M22, x.M23, x.M30, x.M31, x.M32, x.M33));
 
     private static ulong BoundsAndKindHash(GeometryBase geometry) {
         BoundingBox box = geometry.GetBoundingBox(accurate: true);
-        return Seq(
-                (double)geometry.ObjectType,
-                box.Min.X, box.Min.Y, box.Min.Z,
-                box.Max.X, box.Max.Y, box.Max.Z)
-            .Fold(initialState: Fnv64.Offset, f: static (acc, value) => Fnv64.Mix(acc: acc, v: BitConverter.DoubleToUInt64Bits(value: value)));
+        return HashDoubles(values: Seq((double)geometry.ObjectType, box.Min.X, box.Min.Y, box.Min.Z, box.Max.X, box.Max.Y, box.Max.Z));
     }
 
-    private static ulong HashAttributeCore(ObjectAttributes a) =>
-        Seq(
+    private static ulong HashAttributes(ObjectAttributes? a) =>
+        a is null ? 0UL : Seq(
                 unchecked((uint)a.LayerIndex),
                 unchecked((uint)a.MaterialIndex),
                 unchecked((uint)a.LinetypeIndex),

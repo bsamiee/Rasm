@@ -182,31 +182,25 @@ public static class Archive {
     private static Seq<ArchivePath> BrokenPath(string here, Op key) =>
         ArchivePath.From(value: here, key: key).Match(Succ: path => Seq(path), Fail: _ => Seq<ArchivePath>());
     private static Seq<Seq<ArchivePath>> CyclePath(Seq<string> stack, string cycleAt, Op key) {
-        (bool Capture, Seq<ArchivePath> Paths) folded = stack.Fold(
-            initialState: (Capture: false, Paths: Seq<ArchivePath>()),
-            f: (acc, item) => {
-                bool capture = acc.Capture || string.Equals(a: item, b: cycleAt, comparisonType: StringComparison.OrdinalIgnoreCase);
-                return capture
-                    ? (Capture: true, Paths: acc.Paths + ArchivePath.From(value: item, key: key).ToOption().ToSeq())
-                    : acc;
-            });
-        (_, Seq<ArchivePath> paths) = folded;
-        Seq<ArchivePath> closed = paths + ArchivePath.From(value: cycleAt, key: key).ToOption().ToSeq();
+        Seq<ArchivePath> closed = toSeq(stack.SkipWhile(item => !string.Equals(a: item, b: cycleAt, comparisonType: StringComparison.OrdinalIgnoreCase)).Append(cycleAt))
+            .Choose(item => ArchivePath.From(value: item, key: key).ToOption());
         return closed.IsEmpty ? Seq<Seq<ArchivePath>>() : Seq(closed);
     }
-    public static Graph ComposeLive(InstanceDefinitionTable table, Seq<Definition> definitions) {
+    private static Graph ComposeFrom(
+        Seq<Definition> definitions,
+        Func<HashMap<Guid, Definition>, Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>> source,
+        ImmutableArray<ArchiveLink> linkedArchives) {
         HashMap<Guid, Definition> lookup = Lookup(definitions: definitions);
-        ImmutableArray<Instance> instances = ProjectInstances(
-            lookup: lookup,
-            source: definitions.Bind(def =>
+        return Compose(definitions: definitions, instances: ProjectInstances(lookup: lookup, source: source(arg: lookup)), linkedArchives: linkedArchives);
+    }
+    public static Graph ComposeLive(InstanceDefinitionTable table, Seq<Definition> definitions) =>
+        ComposeFrom(
+            definitions: definitions,
+            source: _ => definitions.Bind(def =>
                 Optional(table.Find(instanceId: def.Id.Value, ignoreDeletedInstanceDefinitions: true))
                     .Map(active => Operations.NestedReferences(def: active))
-                    .IfNone(Seq<(Guid, InstanceReferenceGeometry)>())));
-        return Compose(
-            definitions: definitions,
-            instances: instances,
+                    .IfNone(Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>())),
             linkedArchives: LinkedArchives(definitions: definitions));
-    }
     private static ImmutableArray<ArchiveLink> LinkedArchives(
         Seq<Definition> definitions,
         Option<File3dm> model = default,
@@ -269,9 +263,7 @@ public static class Archive {
         bool flatLeaves,
         Op key) =>
         DefinitionId.From(value: def.Id, key: key).ToOption().Map(defId => {
-            ImmutableArray<DefinitionId> nextPath = flatLeaves
-                ? AppendWalkPath(path: frame.Path, id: def.Id, key: key)
-                : frame.Path.Add(item: defId);
+            ImmutableArray<DefinitionId> nextPath = frame.Path.Add(item: defId);
             Seq<DefinitionWalkNode> prefix = flatLeaves
                 ? Seq<DefinitionWalkNode>()
                 : Seq(new DefinitionWalkNode(
@@ -322,11 +314,6 @@ public static class Archive {
                             : Seq<DefinitionWalkNode>()
                         : null);
         }).IfNone(Seq<DefinitionWalkNode>());
-    private static ImmutableArray<DefinitionId> AppendWalkPath(ImmutableArray<DefinitionId> path, Guid id, Op key) =>
-        DefinitionId.From(value: id, key: key).ToOption() switch {
-            { IsSome: true, Case: DefinitionId defId } => path.Add(item: defId),
-            _ => path,
-        };
     private static ImmutableArray<Instance> ProjectInstances(
         HashMap<Guid, Definition> lookup,
         Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> source) =>
@@ -418,11 +405,10 @@ public static class Archive {
             .Choose(def => Definition.NonBlank(value: def.SourceArchive)
                 .Bind(raw => ArchiveLink.Resolve(raw: raw, anchorDirectory: anchorDirectory, key: key).ToOption()));
     private static Graph Compose(File3dm active, Seq<Definition> definitions, Option<string> anchorDirectory, Op key) {
-        HashMap<Guid, Definition> lookup = Lookup(definitions: definitions);
         Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> topLevel = toSeq(active.Objects)
             .Choose(o => o.Geometry switch {
                 InstanceReferenceGeometry { ParentIdefId: var parentId } r when parentId != Guid.Empty =>
-                    lookup.Find(key: parentId).Map(parent => (o.Attributes.ObjectId, r)),
+                    Some((o.Attributes.ObjectId, Reference: r)),
                 _ => Option<(Guid ObjectId, InstanceReferenceGeometry Reference)>.None,
             });
         Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> memberRefs = definitions.Bind((Definition snap) =>
@@ -432,17 +418,10 @@ public static class Archive {
                         Seq((ObjectId: memberId, Reference: (InstanceReferenceGeometry)reference.Duplicate())),
                     _ => Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>(),
                 }));
-        ImmutableArray<Instance> instances = ProjectInstances(
-            lookup: lookup,
-            source: topLevel + memberRefs);
-        return Compose(
+        return ComposeFrom(
             definitions: definitions,
-            instances: instances,
-            linkedArchives: LinkedArchives(
-                definitions: definitions,
-                model: Some(active),
-                anchorDirectory: anchorDirectory,
-                key: key));
+            source: _ => topLevel + memberRefs,
+            linkedArchives: LinkedArchives(definitions: definitions, model: Some(active), anchorDirectory: anchorDirectory, key: key));
     }
     // ---- [BAKE PLAN] (Speckle topological-sort pattern) ----------------------------------
     /// Topologically-sorted bake order; depth = longest (def -> nested-def) chain.

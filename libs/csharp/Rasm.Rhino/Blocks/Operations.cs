@@ -194,6 +194,9 @@ internal static partial class Operations {
     private static Fin<InstanceObject> AsInstance(ObjectTable objects, Guid instanceId, Op key) =>
         Optional(objects.FindId(id: instanceId) as InstanceObject).ToFin(Fail: key.InvalidInput());
 
+    private static Seq<T> NonNull<T>(T[]? native) where T : class => toSeq(native ?? []).Choose(static item => Optional(item));
+    private static Seq<InstanceObject> LiveRefs(InstanceDefinition live, ReferenceScope scope) => NonNull(native: live.GetReferences(wheretoLook: scope.Native));
+
     // ---- [AUTHOR] ------------------------------------------------------------------------
     private static Fin<MutationReceipt> PerformAuthor(RhinoBlocks owner, AuthorSpec spec, Members source, ConflictPolicy conflict, Op key) =>
         spec.Admit(key: key).Bind(admitted =>
@@ -251,13 +254,13 @@ internal static partial class Operations {
         Optional(definition).ToFin(Fail: key.InvalidInput())
             .Bind(def => ReifyObjects(pairs: CanonicalMemberPairs(def: def), key: key));
     internal static Seq<(GeometryBase Geometry, ObjectAttributes Attributes)> CanonicalMemberPairs(InstanceDefinition def) =>
-        toSeq(def.GetObjects()).Filter(static o => o is not null).Choose(static o => o switch {
+        NonNull(native: def.GetObjects()).Choose(static o => o switch {
             InstanceObject nested when nested.InstanceDefinition is InstanceDefinition inst => Some((
                 (GeometryBase)new InstanceReferenceGeometry(instanceDefinitionId: inst.Id, transform: nested.InstanceXform),
                 Members.SanitizeAttributes(attributes: nested.Attributes))),
             { Geometry: InstanceReferenceGeometry r } => Some((
                 r.Duplicate(),
-                Members.SanitizeAttributes(attributes: o!.Attributes))),
+                Members.SanitizeAttributes(attributes: o.Attributes))),
             RhinoObject leaf when leaf.Geometry is not null => Some((
                 leaf.Geometry.Duplicate(),
                 Members.SanitizeAttributes(attributes: leaf.Attributes))),
@@ -302,9 +305,9 @@ internal static partial class Operations {
         Func<InstanceObject, Transform, Seq<T>> onInstance,
         Func<InstanceReferenceGeometry, Guid, Transform, Seq<T>> onReference,
         Func<RhinoObject, Transform, Seq<T>>? onLeaf = null) =>
-        toSeq(def.GetObjects()).Filter(static o => o is not null).Bind(member => member switch {
+        NonNull(native: def.GetObjects()).Bind(member => member switch {
             InstanceObject nested => onInstance(nested, composed),
-            { Geometry: InstanceReferenceGeometry r } => onReference(r, member!.Id, composed),
+            { Geometry: InstanceReferenceGeometry r } => onReference(r, member.Id, composed),
             RhinoObject leaf when onLeaf is not null => onLeaf(leaf, composed),
             _ => Seq<T>(),
         });
@@ -763,24 +766,19 @@ internal static partial class Operations {
                 .Bind(live => ConfirmAttached(key: key, live: live, modifyReported: reported)))
             .Bind(_ => ReloadLinked(
                 owner: owner, index: index, loadPath: loadPath, updateNestedLinks: updateNestedLinks, quiet: quiet, key: key)));
-    private static Fin<Unit> ReloadLinked(RhinoBlocks owner, int index, string loadPath, bool updateNestedLinks, bool quiet, Op key) =>
-        Optional(owner.Document.InstanceDefinitions[index]).ToFin(Fail: key.InvalidResult(detail: nameof(InstanceDefinitionTable)))
-            .Bind(live => live.ObjectCount >= 1
-                ? Fin.Succ(value: unit)
-                : Fin.Succ(value: Definition.NonBlank(value: live.SourceArchive).IfNone(noneValue: loadPath))
-                    .Bind(filename => Fin.Succ(value: owner.Document.InstanceDefinitions.UpdateLinkedInstanceDefinition(
-                            idefIndex: index, filename: filename, updateNestedLinks: updateNestedLinks, quiet: quiet))
-                        .Bind(_ => Optional(owner.Document.InstanceDefinitions[index]).ToFin(Fail: key.InvalidResult(detail: nameof(InstanceDefinitionTable)))
-                            .Bind(refreshed => refreshed.ObjectCount >= 1
-                                ? Fin.Succ(value: unit)
-                                : Fin.Succ(value: owner.Document.InstanceDefinitions.RefreshLinkedBlock(definition: refreshed))
-                                    .Bind(__ => Optional(owner.Document.InstanceDefinitions[index]).ToFin(Fail: key.InvalidResult(detail: nameof(InstanceDefinitionTable)))
-                                        .Bind(final => final.ObjectCount >= 1
-                                            ? Fin.Succ(value: unit)
-                                            : ConfirmNative(
-                                                key: key,
-                                                step: nameof(InstanceDefinitionTable.RefreshLinkedBlock),
-                                                success: false)))))));
+    private static Fin<Unit> ReloadLinked(RhinoBlocks owner, int index, string loadPath, bool updateNestedLinks, bool quiet, Op key) {
+        InstanceDefinitionTable defs = owner.Document.InstanceDefinitions;
+        Fin<InstanceDefinition> atIndex() => Optional(defs[index]).ToFin(Fail: key.InvalidResult(detail: nameof(InstanceDefinitionTable)));
+        Seq<Func<InstanceDefinition, bool>> loaders = Seq<Func<InstanceDefinition, bool>>(
+            live => defs.UpdateLinkedInstanceDefinition(idefIndex: index, filename: Definition.NonBlank(value: live.SourceArchive).IfNone(noneValue: loadPath), updateNestedLinks: updateNestedLinks, quiet: quiet),
+            defs.RefreshLinkedBlock);
+        return loaders
+            .Fold(atIndex().Map(static live => live.ObjectCount >= 1),
+                (acc, loader) => acc.Bind(done => done
+                    ? Fin.Succ(value: true)
+                    : atIndex().Bind(live => Fin.Succ(value: loader(live))).Bind(_ => atIndex().Map(static reread => reread.ObjectCount >= 1))))
+            .Bind(done => done ? Fin.Succ(value: unit) : ConfirmNative(key: key, step: nameof(InstanceDefinitionTable.RefreshLinkedBlock), success: false));
+    }
     private static Fin<MutationReceipt> PerformExportAttributes(RhinoBlocks owner, DefinitionRef refer, FileEndpoint target, Op key) =>
         from endpoint in target.Output(op: key)
         from receipt in RunBlockScriptFor(
@@ -1036,11 +1034,10 @@ internal static partial class Operations {
         from admitted in (policy ?? DepthPolicy.Reach).Admit(key: key)
         from pair in Resolve(table: owner.Document.InstanceDefinitions, refer: refer, key: key)
         select (BlockOutcome)new BlockOutcome.ReachInserts(Values:
-            toSeq(pair.Live.GetReferences(wheretoLook: scope.Native) ?? [])
-                .Filter(static inst => inst is not null)
+            LiveRefs(live: pair.Live, scope: scope)
                 .Bind(inst => Archive.WalkDefinitions(
                     table: owner.Document.InstanceDefinitions,
-                    seed: inst!,
+                    seed: inst,
                     parent: Transform.Identity,
                     path: [],
                     depth: 0,
@@ -1059,23 +1056,20 @@ internal static partial class Operations {
     private static Fin<BlockOutcome> PerformGraphMembers(RhinoBlocks owner, DefinitionRef refer, Op key) =>
         from live in FindDefinition(table: owner.Document.InstanceDefinitions, refer: refer, includeDeleted: false, key: key)
         from defId in DefinitionId.From(value: live.Id, key: key)
-        let members = toSeq(live.GetObjects())
-            .Filter(static obj => obj is not null)
+        let members = NonNull(native: live.GetObjects())
             .Map(obj => new Member(DefId: defId, MemberId: obj.Id, Attrs: Optional(obj.Attributes)))
         select (BlockOutcome)new BlockOutcome.MembersResult(Values: members);
 
     private static Fin<BlockOutcome> PerformGraphInserts(RhinoBlocks owner, DefinitionRef refer, ReferenceScope scope, Op key) =>
         from pair in Resolve(table: owner.Document.InstanceDefinitions, refer: refer, key: key)
-        from inserts in toSeq(pair.Live.GetReferences(wheretoLook: scope.Native))
-            .Filter(static inst => inst is not null)
+        from inserts in LiveRefs(live: pair.Live, scope: scope)
             .Map(static inst => Insert.From(instance: inst))
             .TraverseM(identity).As()
         select (BlockOutcome)new BlockOutcome.Inserts(Values: inserts);
 
     private static Fin<BlockOutcome> PerformGraphContainers(RhinoBlocks owner, DefinitionRef refer, Op key) =>
         from pair in Resolve(table: owner.Document.InstanceDefinitions, refer: refer, key: key)
-        from containers in toSeq(pair.Live.GetContainers())
-            .Filter(static c => c is not null)
+        from containers in NonNull(native: pair.Live.GetContainers())
             .Map(c => DefinitionId.From(value: c.Id, key: key))
             .TraverseM(identity).As()
         select (BlockOutcome)new BlockOutcome.Definitions(Values: containers);
@@ -1192,9 +1186,7 @@ internal static partial class Operations {
         Op key) =>
         instanceId.Case switch {
             Guid id => Optional(objects.FindId(id: id) as InstanceObject).ToFin(Fail: key.InvalidInput()).Map(inst => Seq(inst)),
-            _ => Fin.Succ(value: toSeq(live.GetReferences(wheretoLook: scope.Native) ?? [])
-                .Filter(static inst => inst is not null)
-                .ToSeq()),
+            _ => Fin.Succ(value: LiveRefs(live: live, scope: scope)),
         };
 
     private static Fin<Guid> WriteAttributeValues(
@@ -1218,9 +1210,7 @@ internal static partial class Operations {
 
     private static Seq<AttributeCell> AttributeCells((Definition Snap, InstanceDefinition Live) pair, ReferenceScope scope) {
         Seq<TextFields.InstanceAttributeField> fields = toSeq(TextFields.GetInstanceAttributeFields(idef: pair.Live) ?? []);
-        Seq<InstanceObject> refs = toSeq(pair.Live.GetReferences(wheretoLook: scope.Native) ?? [])
-            .Filter(static instance => instance is not null)
-            .ToSeq();
+        Seq<InstanceObject> refs = LiveRefs(live: pair.Live, scope: scope);
         Seq<Option<Guid>> instances = refs.IsEmpty
             ? Seq<Option<Guid>>(None)
             : refs.Map(static instance => Some(value: instance.Id));
@@ -1291,6 +1281,11 @@ internal static class ContentIndex {
     private static readonly Atom<HashMap<uint, HashMap<ulong, Seq<DefinitionId>>>> byDoc =
         Atom(value: HashMap<uint, HashMap<ulong, Seq<DefinitionId>>>());
 
+    private static Unit MutateDoc(uint serial, Func<HashMap<ulong, Seq<DefinitionId>>, HashMap<ulong, Seq<DefinitionId>>> update) {
+        _ = byDoc.Swap(f: m => m.AddOrUpdate(key: serial, Some: update, None: () => update(arg: HashMap<ulong, Seq<DefinitionId>>())));
+        return unit;
+    }
+
     internal static Seq<DefinitionId> Find(RhinoDoc doc, BlockContentHash hash) {
         uint serial = doc.RuntimeSerialNumber;
         return byDoc.Value.Find(key: serial)
@@ -1307,18 +1302,11 @@ internal static class ContentIndex {
     }
 
     /// Merges incrementally; does not cold-scan the table on Find.
-    internal static Unit RegisterIfMissing(RhinoDoc doc, BlockContentHash hash, DefinitionId defId) {
-        uint serial = doc.RuntimeSerialNumber;
-        _ = byDoc.Swap(f: m => m.Find(key: serial) switch {
-            { IsSome: true, Case: HashMap<ulong, Seq<DefinitionId>> existing } =>
-                m.AddOrUpdate(key: serial, value: existing.AddOrUpdate(
-                    key: hash.Value,
-                    value: existing.Find(key: hash.Value).IfNone(noneValue: Seq<DefinitionId>()).Add(value: defId).Distinct())),
-            _ =>
-                m.AddOrUpdate(key: serial, value: HashMap<ulong, Seq<DefinitionId>>().AddOrUpdate(key: hash.Value, value: Seq(defId))),
-        });
-        return unit;
-    }
+    internal static Unit RegisterIfMissing(RhinoDoc doc, BlockContentHash hash, DefinitionId defId) =>
+        MutateDoc(serial: doc.RuntimeSerialNumber, update: inner => inner.AddOrUpdate(
+            key: hash.Value,
+            Some: ids => ids.Add(value: defId).Distinct(),
+            None: () => Seq(defId)));
 
     internal static Unit RegisterDefinition(RhinoDoc doc, Guid defId) =>
         DefinitionId.From(value: defId, key: Op.Of(name: nameof(RegisterDefinition))).ToOption()
@@ -1344,18 +1332,11 @@ internal static class ContentIndex {
             .IfNone(unit);
     }
 
-    internal static Unit RemoveDefinition(uint serial, DefinitionId defId) {
-        _ = byDoc.Swap(f: m => m.Find(key: serial) switch {
-            { IsSome: true, Case: HashMap<ulong, Seq<DefinitionId>> existing } => m.AddOrUpdate(
-                key: serial,
-                value: existing
-                    .Map((hash, ids) => (Hash: hash, Ids: ids.Filter(id => id != defId)))
-                    .Filter(static entry => !entry.Ids.IsEmpty)
-                    .Fold(HashMap<ulong, Seq<DefinitionId>>(), static (acc, entry) => acc.AddOrUpdate(key: entry.Hash, value: entry.Ids))),
-            _ => m,
-        });
-        return unit;
-    }
+    internal static Unit RemoveDefinition(uint serial, DefinitionId defId) =>
+        MutateDoc(serial: serial, update: inner => inner
+            .Map((hash, ids) => (Hash: hash, Ids: ids.Filter(id => id != defId)))
+            .Filter(static entry => !entry.Ids.IsEmpty)
+            .Fold(HashMap<ulong, Seq<DefinitionId>>(), static (acc, entry) => acc.AddOrUpdate(key: entry.Hash, value: entry.Ids)));
 
     internal static Unit EvictDoc(uint serial) {
         _ = byDoc.Swap(f: m => m.Remove(key: serial));
