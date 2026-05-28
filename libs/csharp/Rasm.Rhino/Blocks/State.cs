@@ -17,8 +17,19 @@ internal static class Fnv64 {
     internal const ulong Offset = 0xCBF29CE484222325UL;
     internal const ulong Prime = 0x100000001B3UL;
     internal static ulong Mix(ulong acc, ulong v) => unchecked((acc ^ v) * Prime);
-    internal static ulong HashGuid(Guid value, ulong seed = Offset) =>
-        value.ToByteArray().Aggregate(seed: seed, func: static (acc, b) => Mix(acc: acc, v: b));
+    internal static ulong HashGuid(Guid value, ulong seed = Offset) {
+        Span<byte> bytes = stackalloc byte[16];
+        return value.TryWriteBytes(destination: bytes)
+            ? HashBytes(values: bytes, seed: seed)
+            : value.ToByteArray().Aggregate(seed: seed, func: static (acc, b) => Mix(acc: acc, v: b));
+    }
+
+    private static ulong HashBytes(ReadOnlySpan<byte> values, ulong seed) =>
+        values switch {
+            [] => seed,
+            [byte head, ..] => HashBytes(values: values[1..], seed: Mix(acc: seed, v: head)),
+        };
+
     internal static ulong HashText(string value, ulong seed = Offset) =>
         value.Aggregate(seed: seed, func: static (acc, ch) => Mix(acc: acc, v: ch));
 }
@@ -387,7 +398,7 @@ public readonly partial struct DefinitionIndex {
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public readonly partial struct DefinitionName {
     public const int MaxLength = 256;
-    private static readonly SearchValues<char> ForbiddenChars = SearchValues.Create(values: ['/', '\\']);
+    internal static readonly SearchValues<char> ForbiddenChars = SearchValues.Create(values: ['/', '\\']);
 
     public static Fin<DefinitionName> From(string value, Op? key = null) {
         Op op = key.OrDefault();
@@ -416,14 +427,13 @@ public readonly partial struct DefinitionName {
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public readonly partial struct DefinitionPrefix {
     public const int MaxLength = DefinitionName.MaxLength;
-    private static readonly SearchValues<char> ForbiddenChars = SearchValues.Create(values: ['/', '\\']);
 
     public static Fin<DefinitionPrefix> From(string value, Op? key = null) {
         Op op = key.OrDefault();
         return Optional(value).Map(static raw => raw.Trim()).Case switch {
             string trimmed when trimmed.Length > 0
                                 && trimmed.Length <= MaxLength
-                                && !trimmed.AsSpan().ContainsAny(values: ForbiddenChars) =>
+                                && !trimmed.AsSpan().ContainsAny(values: DefinitionName.ForbiddenChars) =>
                 Fin.Succ(value: Create(value: trimmed)),
             _ => Fin.Fail<DefinitionPrefix>(error: op.InvalidInput()),
         };
@@ -472,11 +482,11 @@ public readonly record struct ArchiveLink(ArchivePath Full, Option<string> Relat
 
     public static bool Matches(string? stored, string candidate, Option<string> anchorDirectory) {
         Op key = Op.Of(name: nameof(Matches));
-        return Resolve(raw: stored ?? string.Empty, anchorDirectory: anchorDirectory, key: key).Match(
-            Succ: storedLink => Resolve(raw: candidate, anchorDirectory: anchorDirectory, key: key).Match(
-                Succ: candidateLink => string.Equals(a: storedLink.Full.Value, b: candidateLink.Full.Value, comparisonType: StringComparison.OrdinalIgnoreCase),
-                Fail: _ => string.Equals(a: stored ?? string.Empty, b: candidate, comparisonType: StringComparison.OrdinalIgnoreCase)),
-            Fail: _ => string.Equals(a: stored ?? string.Empty, b: candidate, comparisonType: StringComparison.OrdinalIgnoreCase));
+        bool fallback = string.Equals(a: stored ?? string.Empty, b: candidate, comparisonType: StringComparison.OrdinalIgnoreCase);
+        return (from storedLink in Resolve(raw: stored ?? string.Empty, anchorDirectory: anchorDirectory, key: key)
+                from candidateLink in Resolve(raw: candidate, anchorDirectory: anchorDirectory, key: key)
+                select string.Equals(a: storedLink.Full.Value, b: candidateLink.Full.Value, comparisonType: StringComparison.OrdinalIgnoreCase))
+            .IfFail(_ => fallback);
     }
 
     private static Option<string> RelativeToAnchor(string anchor, string full) {
@@ -672,8 +682,9 @@ public sealed record AuthorSpec(
 
     public Seq<BlockDiagnostic> CreateDiagnostics(DefinitionId id, InstanceDefinition live) =>
         toSeq(CreateDiagnosticRules)
-            .Filter(rule => rule.When(this, live, id))
-            .Map(rule => rule.Make(id, this, live));
+            .Choose(rule => rule.When(this, live, id)
+                ? Some(value: rule.Make(id, this, live))
+                : Option<BlockDiagnostic>.None);
 }
 
 public sealed record PreviewSpec(
