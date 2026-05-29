@@ -1,6 +1,7 @@
 using Rhino;
 using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
 using GhEditor = Grasshopper2.UI.Editor;
+using Op = Rasm.Domain.Op;
 
 namespace Rasm.Grasshopper.UI;
 
@@ -113,8 +114,11 @@ internal static partial class Editor {
                 MostRecentCount: e.MostRecentCount),
             None: () => new EditorSnapshot(InitialLayout: layout, DefinedLayouts: definedLayouts));
     }
+    // Null RhinoDoc is bad input (InvalidInput rail); a non-null doc that GH2 refuses is a getter-state
+    // failure (GhEditor rail). Splitting the rails keeps the caller's diagnosis unambiguous.
     private static Fin<EditorResult> DispatchRhinoGetter(EditorOp.BeginRhinoGetterCase getter) =>
-        from started in Try.lift(f: () => GhEditor.BeginRhinoGetter(doc: getter.Document)).Run().MapFail(static error => UiFault.GhEditor(detail: $"{nameof(EditorOp.BeginRhinoGetter)}: {error.Message}"))
+        from document in Optional(getter.Document).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(EditorOp.BeginRhinoGetter)), detail: "RhinoDoc is required"))
+        from started in Try.lift(f: () => GhEditor.BeginRhinoGetter(doc: document)).Run().MapFail(static error => UiFault.GhEditor(detail: $"{nameof(EditorOp.BeginRhinoGetter)}: {error.Message}"))
         from valid in started
             ? Fin.Succ(value: EditorResult.Unit)
             : Fin.Fail<EditorResult>(error: UiFault.GhEditor(detail: "Rhino getter is already active or no document can receive it"))

@@ -153,11 +153,12 @@ public partial record LayoutResult {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Layout {
-    internal static GrasshopperUiIntent<LayoutResult> Dispatch(LayoutOp op) =>
+    internal static Fin<LayoutResult> Dispatch(GrasshopperUi.Scope scope, LayoutOp op) =>
         op.Switch(
-            measureCase: static measure => Measure(scope: measure.Scope),
-            arrangeCase: static a => Arrange(arrangement: a.Arrangement).Map(static delta => (LayoutResult)new LayoutResult.MutationResult(Delta: delta)),
-            snapCase: static s => Snap(probe: s.Probe).Map(static snap => (LayoutResult)new LayoutResult.SnapResult(Snapshot: snap)));
+            state: scope,
+            measureCase: static (s, measure) => Measure(scope: measure.Scope).Run(scope: s),
+            arrangeCase: static (s, a) => Arrange(arrangement: a.Arrangement).Map(static delta => (LayoutResult)new LayoutResult.MutationResult(Delta: delta)).Run(scope: s),
+            snapCase: static (s, snap) => Snap(probe: snap.Probe).Map(static result => (LayoutResult)new LayoutResult.SnapResult(Snapshot: result)).Run(scope: s));
 
     private static GrasshopperUiIntent<LayoutResult> Measure(ObjectScope scope) =>
         scope.Switch(
@@ -404,6 +405,10 @@ internal static partial class Layout {
 
     [SmartEnum<int>]
     private sealed partial class DistributeMode {
+        // Float slack so a selection whose extent only marginally exceeds packed content still distributes
+        // with a fixed cursor instead of invoking the stretch solver on sub-pixel overflow.
+        private const float ContentSlack = 1e-4f;
+
         public static readonly DistributeMode Cursor = new(key: 0, compute: ComputeCursor);
         public static readonly DistributeMode Stretch = new(key: 1, compute: ComputeStretch);
 
@@ -417,7 +422,7 @@ internal static partial class Layout {
             int count = sorted.Count;
             float extent = axis.Origin(bounds: sorted[count - 1].Bounds) + axis.Span(bounds: sorted[count - 1].Bounds) - axis.Origin(bounds: sorted[0].Bounds);
             float content = sorted.Fold(0f, (sum, item) => sum + axis.Span(bounds: item.Bounds)) + ((count - 1) * gap);
-            return gapPolicy.Equals(LayoutGapPolicy.Fixed) || extent <= content + 1e-4f ? Cursor : Stretch;
+            return gapPolicy.Equals(LayoutGapPolicy.Fixed) || extent <= content + ContentSlack ? Cursor : Stretch;
         }
 
         // Fixed-gap cursor fold: each object snaps to cursor, then cursor advances by span + gap.

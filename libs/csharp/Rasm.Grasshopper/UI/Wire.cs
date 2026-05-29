@@ -86,8 +86,12 @@ public sealed partial class WireTraversal {
 public sealed partial class WireEdit {
     private delegate Fin<int> WireEditRun(GhDocumentMethods methods, GhObjectList objects, IParameter source, IParameter target, ActionList actions);
 
+    // Disconnect-all verbs operate on one endpoint, so they never require a live source<->target pair.
+    public bool RequiresConnectedPair { get; }
+
     public static readonly WireEdit Connect = new(
         key: 0,
+        requiresConnectedPair: true,
         apply: static (_, _, source, target, actions) =>
             WireData.TryCreate(source: source, target: target, data: out WireData _)
                 ? Native(op: Op.Of(name: "Wire.Connect"), name: "Connections.Connect", run: () => Connections.Connect(source: source, target: target, undo: actions))
@@ -95,6 +99,7 @@ public sealed partial class WireEdit {
 
     public static readonly WireEdit Disconnect = new(
         key: 1,
+        requiresConnectedPair: true,
         apply: static (_, objects, source, target, actions) =>
             from connected in Wire.RequireConnected(objects: objects, source: source, target: target, op: Op.Of(name: "Wire.Disconnect"))
             from changed in Native(op: Op.Of(name: "Wire.Disconnect"), name: "Connections.Disconnect", run: () => Connections.Disconnect(source: source, target: target, undo: actions))
@@ -102,6 +107,7 @@ public sealed partial class WireEdit {
 
     public static readonly WireEdit Delete = new(
         key: 2,
+        requiresConnectedPair: true,
         apply: static (methods, objects, source, target, actions) =>
             from connected in Wire.RequireConnected(objects: objects, source: source, target: target, op: Op.Of(name: "Wire.Delete"))
             from changed in NativeCount(op: Op.Of(name: "Wire.Delete"), name: "DocumentMethods.DeleteObjects", run: () => methods.DeleteObjects(objects: [], wires: [new WireEnds(source: source.InstanceId, target: target.InstanceId)], actions: actions))
@@ -109,11 +115,13 @@ public sealed partial class WireEdit {
 
     public static readonly WireEdit DisconnectInputs = new(
         key: 3,
+        requiresConnectedPair: false,
         apply: static (_, _, _, target, actions) =>
             NativeCount(op: Op.Of(name: "Wire.DisconnectInputs"), name: "Connections.DisconnectAllInputs", run: () => Connections.DisconnectAllInputs(target: target, undo: actions)));
 
     public static readonly WireEdit DisconnectOutputs = new(
         key: 4,
+        requiresConnectedPair: false,
         apply: static (_, _, source, _, actions) =>
             NativeCount(op: Op.Of(name: "Wire.DisconnectOutputs"), name: "Connections.DisconnectAllOutputs", run: () => Connections.DisconnectAllOutputs(source: source, undo: actions)));
 
@@ -422,17 +430,11 @@ internal static partial class Wire {
         MutateConnectedWire(
             op: Op.Of(name: string.Create(CultureInfo.InvariantCulture, $"Wire.{edit}")),
             wire: wire,
-            requireConnectedPair: WireEditRequiresConnectedPair(edit: edit),
+            requireConnectedPair: edit.RequiresConnectedPair,
             run: (methods, objs, source, target, actions) =>
                 from validEdit in Optional(edit).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Edit)), detail: "wire edit is required"))
                 from changed in validEdit.Apply(methods: methods, objects: objs, source: source, target: target, actions: actions)
                 select DocumentMutationReceipt.Count(changed: changed));
-
-    private static bool WireEditRequiresConnectedPair(WireEdit edit) =>
-        edit.Key switch {
-            var key when key == WireEdit.DisconnectInputs.Key || key == WireEdit.DisconnectOutputs.Key => false,
-            _ => true,
-        };
 
     private static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> MutateConnectedWire(
         Op op,
@@ -484,14 +486,17 @@ internal static partial class Wire {
     internal static WireSnapshot.ConnectedCase SnapshotConnected(GhObjectList objects, WireEnds wire) =>
         SnapshotIn(objects: objects, wire: wire, index: WireIndexCache.BuildConnected(objects: objects));
 
-    // O(degree-of-source) via source.Outputs.IndexOf; avoids O(N) HashSet rebuild for single-wire guards.
+    // O(degree) via IndexOf; avoids O(N) HashSet rebuild for single-wire guards. Bidirectional to match
+    // GH2 Connections.IsConnected: Disconnect detaches both half-edges, so a one-sided test reports a
+    // half-torn wire as still connected — breaks Require/Toggle/Count/WireSnapshot.Connected.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool IsConnected(GhObjectList objects, WireEnds wire) =>
         wire.Source != Guid.Empty
             && wire.Target != Guid.Empty
             && objects.FindParameter(instanceId: wire.Source) is IParameter source
-            && objects.FindParameter(instanceId: wire.Target) is not null
-            && source.Outputs.IndexOf(parameter: wire.Target) >= 0;
+            && objects.FindParameter(instanceId: wire.Target) is IParameter target
+            && source.Outputs.IndexOf(parameter: wire.Target) >= 0
+            && target.Inputs.IndexOf(parameter: wire.Source) >= 0;
 
     private static WireSnapshot.ConnectedCase SnapshotIn(GhObjectList objects, WireEnds wire, LanguageExt.HashSet<(Guid Source, Guid Target)> index) {
         IParameter? source = objects.FindParameter(instanceId: wire.Source);

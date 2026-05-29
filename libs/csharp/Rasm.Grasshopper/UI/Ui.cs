@@ -451,7 +451,7 @@ public static class GhUi {
     public static GrasshopperUiIntent<CanvasResult> Canvas(CanvasOp op) => Apply(request: new OpRequest<CanvasOp, CanvasResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UiRail.CanvasDispatch(scope: scope, op: o)));
     public static GrasshopperUiIntent<DocumentResult> Document(DocumentOp op) => Apply(request: new OpRequest<DocumentOp, DocumentResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.Document.Dispatch(scope: scope, op: o)));
     public static GrasshopperUiIntent<EditorResult> Editor(EditorOp op) => Apply(request: new OpRequest<EditorOp, EditorResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (_, o) => UI.Editor.Dispatch(op: o)));
-    public static GrasshopperUiIntent<LayoutResult> Layout(LayoutOp op) => Apply(request: new OpRequest<LayoutOp, LayoutResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.Layout.Dispatch(op: o).Run(scope: scope)));
+    public static GrasshopperUiIntent<LayoutResult> Layout(LayoutOp op) => Apply(request: new OpRequest<LayoutOp, LayoutResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.Layout.Dispatch(scope: scope, op: o)));
     public static GrasshopperUiIntent<WireResult> Wire(WireOp op) => Apply(request: new OpRequest<WireOp, WireResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.Wire.Dispatch(op: o).Run(scope: scope)));
     public static GrasshopperUiIntent<T> Input<T>(InputRequest<T> request) => Apply(request: request);
     public static GrasshopperUiIntent<T> Paint<T>(PaintRequest<T> request) => Apply(request: request);
@@ -577,8 +577,8 @@ public sealed partial record GrasshopperUi {
                     from _ in RecordUndo(scope: scope, op: op, undo: undo)
                     select Snapshot.Of(payload: delta, ownerId: scope.Document.Map(d => d.Hash)));
 
-    // Two-phase commit: PrepareUndo captures pre-state on each Action; cancellation check between
-    // prepare and Do() prevents the document from being mutated without an undo entry.
+    // Cancellation is re-checked between recording the manual undo entry and History.Do, so a cancel
+    // cannot leave the document mutated without a matching undo entry.
     private static Fin<Unit> RecordUndo(Scope scope, Op op, UndoStrategy undo) =>
         undo switch {
             UndoStrategy.AutoCase => Fin.Succ(value: unit),

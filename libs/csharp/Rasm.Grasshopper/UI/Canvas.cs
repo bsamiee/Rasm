@@ -99,7 +99,7 @@ public partial record CanvasOp {
     public sealed partial record ViewCase(CanvasViewOp Request) : CanvasOp;
     public sealed partial record SnapFeedbackCase(bool Clear) : CanvasOp;
     public sealed partial record InteractionCase(CanvasInteractionPolicy Policy) : CanvasOp;
-    public sealed partial record WindowSelectCase(WindowSelection Window, Grasshopper2.Extensions.SelectionMode Mode, CanvasWindowScope Scope) : CanvasOp;
+    public sealed partial record WindowSelectCase(RectangleF Window, SelectionMode Mode, CanvasWindowScope Scope) : CanvasOp;
 
     public static CanvasOp Snapshot(bool openEditor = false) => new SnapshotCase(OpenEditor: openEditor);
     public static CanvasOp Pick(PointF point, CoordinateSystem source = CoordinateSystem.Content, CanvasPickPolicy policy = CanvasPickPolicy.All) =>
@@ -117,7 +117,9 @@ public partial record CanvasOp {
     public static CanvasOp View(CanvasViewOp view) => new ViewCase(Request: view);
     public static CanvasOp SnapFeedback(bool clear = false) => new SnapFeedbackCase(Clear: clear);
     public static CanvasOp Interaction(CanvasInteractionPolicy policy) => new InteractionCase(Policy: policy);
-    public static CanvasOp WindowSelect(WindowSelection window, Grasshopper2.Extensions.SelectionMode mode, CanvasWindowScope scope = CanvasWindowScope.ObjectsAndWires) => new WindowSelectCase(Window: window, Mode: mode, Scope: scope);
+    // De-GH2 surface: callers pass an Eto RectangleF content-space window; dispatch builds the native
+    // WindowSelection (start.Adapt(end)) and maps the library SelectionMode internally.
+    public static CanvasOp WindowSelect(RectangleF window, SelectionMode mode, CanvasWindowScope scope = CanvasWindowScope.ObjectsAndWires) => new WindowSelectCase(Window: window, Mode: mode, Scope: scope);
 
     // GH2 ObjectList.WindowSelect(..., considerForeground, considerBackground, considerWires):
     // CanvasWindowScope.Groups maps to considerBackground (objects below wires); canvas flag is WindowSelectGroups.
@@ -468,7 +470,9 @@ internal static partial class UiRail {
                     Interaction: new CanvasInteractionSnapshot(Before: before, After: InteractionOf(canvas: canvas, document: scope.Document))),
             windowSelectCase: static (scope, ws) =>
                 scope.NeedObjects().Bind(objs => scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Map(doc => {
-                    SelectionResult result = objs.WindowSelect(window: ws.Window, mode: ws.Mode,
+                    WindowSelection selection = new WindowSelection(startPoint: new PointF(x: ws.Window.Left, y: ws.Window.Top))
+                        .Adapt(newEndPoint: new PointF(x: ws.Window.Right, y: ws.Window.Bottom));
+                    SelectionResult result = objs.WindowSelect(window: selection, mode: ToGhSelectionMode(mode: ws.Mode),
                         considerForeground: (ws.Scope & CanvasWindowScope.Objects) == CanvasWindowScope.Objects,
                         considerBackground: (ws.Scope & CanvasWindowScope.Groups) == CanvasWindowScope.Groups,
                         considerWires: (ws.Scope & CanvasWindowScope.Wires) == CanvasWindowScope.Wires);
@@ -477,6 +481,14 @@ internal static partial class UiRail {
                         SelectedCount: result.SelectedCount,
                         DeselectedCount: result.DeselectedCount));
                 }))));
+
+    private static Grasshopper2.Extensions.SelectionMode ToGhSelectionMode(SelectionMode mode) =>
+        mode switch {
+            SelectionMode.Promote => Grasshopper2.Extensions.SelectionMode.Promote,
+            SelectionMode.Include => Grasshopper2.Extensions.SelectionMode.Include,
+            SelectionMode.Exclude => Grasshopper2.Extensions.SelectionMode.Exclude,
+            _ => Grasshopper2.Extensions.SelectionMode.Inverse,
+        };
 
     private readonly record struct ViewTarget(GhCanvas Canvas, GhDocument Document, GhObjectList Objects);
 

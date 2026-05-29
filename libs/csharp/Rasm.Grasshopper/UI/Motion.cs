@@ -98,7 +98,6 @@ internal interface IMotionState<TSelf> where TSelf : struct, IMotionState<TSelf>
     public TSelf Step(float frameDeltaSeconds);
     public Unit Emit();
     public bool IsActive { get; }
-    public TSelf MergeInto(TSelf live);
 }
 
 // Robert Penner closed-form curves (easings.net).
@@ -110,76 +109,26 @@ public sealed partial class Easing {
     private const double BounceN1 = 7.5625;
     private const double BounceD1 = 2.75;
 
-    private static readonly GhMotion[] NativeCatalog = [
-        GhMotion.Linear, GhMotion.LinearDelayed, GhMotion.EaseIn, GhMotion.EaseInDelayed,
-        GhMotion.EaseOut, GhMotion.EaseOutDelayed, GhMotion.EaseInOut, GhMotion.EaseInOutDelayed,
-        GhMotion.SnapIn, GhMotion.SnapInDelayed, GhMotion.SnapOut, GhMotion.SnapOutDelayed,
-        GhMotion.Bounce, GhMotion.BounceDelayed, GhMotion.Twang, GhMotion.TwangDelayed,
-    ];
-
-    public static readonly Easing Linear = Native(key: 0, index: 0), LinearDelayed = Native(key: 1, index: 1), EaseIn = Native(key: 2, index: 2), EaseInDelayed = Native(key: 3, index: 3);
-    public static readonly Easing EaseOut = Native(key: 4, index: 4), EaseOutDelayed = Native(key: 5, index: 5), EaseInOut = Native(key: 6, index: 6), EaseInOutDelayed = Native(key: 7, index: 7);
-    public static readonly Easing SnapIn = Native(key: 8, index: 8), SnapInDelayed = Native(key: 9, index: 9), SnapOut = Native(key: 10, index: 10), SnapOutDelayed = Native(key: 11, index: 11);
-    public static readonly Easing Bounce = Native(key: 12, index: 12), BounceDelayed = Native(key: 13, index: 13), Twang = Native(key: 14, index: 14), TwangDelayed = Native(key: 15, index: 15);
-    public static readonly Easing SineIn = Closed(key: 16, curve: PennerCurve.SineIn), SineOut = Closed(key: 17, curve: PennerCurve.SineOut), SineInOut = Closed(key: 18, curve: PennerCurve.SineInOut);
-    public static readonly Easing QuadIn = Closed(key: 19, curve: PennerCurve.QuadIn), QuadOut = Closed(key: 20, curve: PennerCurve.QuadOut), QuadInOut = Closed(key: 21, curve: PennerCurve.QuadInOut);
-    public static readonly Easing CubicIn = Closed(key: 22, curve: PennerCurve.CubicIn), CubicOut = Closed(key: 23, curve: PennerCurve.CubicOut), CubicInOut = Closed(key: 24, curve: PennerCurve.CubicInOut);
-    public static readonly Easing QuartIn = Closed(key: 25, curve: PennerCurve.QuartIn), QuartOut = Closed(key: 26, curve: PennerCurve.QuartOut), QuartInOut = Closed(key: 27, curve: PennerCurve.QuartInOut);
-    public static readonly Easing QuintIn = Closed(key: 28, curve: PennerCurve.QuintIn), QuintOut = Closed(key: 29, curve: PennerCurve.QuintOut), QuintInOut = Closed(key: 30, curve: PennerCurve.QuintInOut);
-    public static readonly Easing ExpoIn = Closed(key: 31, curve: PennerCurve.ExpoIn), ExpoOut = Closed(key: 32, curve: PennerCurve.ExpoOut), ExpoInOut = Closed(key: 33, curve: PennerCurve.ExpoInOut);
-    public static readonly Easing CircIn = Closed(key: 34, curve: PennerCurve.CircIn), CircOut = Closed(key: 35, curve: PennerCurve.CircOut), CircInOut = Closed(key: 36, curve: PennerCurve.CircInOut);
-    public static readonly Easing BackIn = Closed(key: 37, curve: PennerCurve.BackIn), BackOut = Closed(key: 38, curve: PennerCurve.BackOut), BackInOut = Closed(key: 39, curve: PennerCurve.BackInOut);
-    public static readonly Easing ElasticIn = Closed(key: 40, curve: PennerCurve.ElasticIn), ElasticOut = Closed(key: 41, curve: PennerCurve.ElasticOut), ElasticInOut = Closed(key: 42, curve: PennerCurve.ElasticInOut);
-    public static readonly Easing BounceIn = Closed(key: 43, curve: PennerCurve.BounceIn), BounceOut = Closed(key: 44, curve: PennerCurve.BounceOut), BounceInOut = Closed(key: 45, curve: PennerCurve.BounceInOut);
+    public static readonly Easing Linear = Native(key: 0, motion: GhMotion.Linear), LinearDelayed = Native(key: 1, motion: GhMotion.LinearDelayed), EaseIn = Native(key: 2, motion: GhMotion.EaseIn), EaseInDelayed = Native(key: 3, motion: GhMotion.EaseInDelayed);
+    public static readonly Easing EaseOut = Native(key: 4, motion: GhMotion.EaseOut), EaseOutDelayed = Native(key: 5, motion: GhMotion.EaseOutDelayed), EaseInOut = Native(key: 6, motion: GhMotion.EaseInOut), EaseInOutDelayed = Native(key: 7, motion: GhMotion.EaseInOutDelayed);
+    public static readonly Easing SnapIn = Native(key: 8, motion: GhMotion.SnapIn), SnapInDelayed = Native(key: 9, motion: GhMotion.SnapInDelayed), SnapOut = Native(key: 10, motion: GhMotion.SnapOut), SnapOutDelayed = Native(key: 11, motion: GhMotion.SnapOutDelayed);
+    public static readonly Easing Bounce = Native(key: 12, motion: GhMotion.Bounce), BounceDelayed = Native(key: 13, motion: GhMotion.BounceDelayed), Twang = Native(key: 14, motion: GhMotion.Twang), TwangDelayed = Native(key: 15, motion: GhMotion.TwangDelayed);
+    public static readonly Easing SineIn = new(key: 16, apply: static t => 1.0 - Math.Cos(t * Math.PI / 2.0)), SineOut = new(key: 17, apply: static t => Math.Sin(t * Math.PI / 2.0)), SineInOut = new(key: 18, apply: static t => -(Math.Cos(Math.PI * t) - 1.0) / 2.0);
+    public static readonly Easing QuadIn = new(key: 19, apply: static t => t * t), QuadOut = new(key: 20, apply: static t => 1.0 - ((1.0 - t) * (1.0 - t))), QuadInOut = new(key: 21, apply: static t => t < 0.5 ? 2.0 * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 2.0) / 2.0));
+    public static readonly Easing CubicIn = new(key: 22, apply: static t => t * t * t), CubicOut = new(key: 23, apply: static t => 1.0 - Math.Pow(1.0 - t, 3.0)), CubicInOut = new(key: 24, apply: static t => t < 0.5 ? 4.0 * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 3.0) / 2.0));
+    public static readonly Easing QuartIn = new(key: 25, apply: static t => t * t * t * t), QuartOut = new(key: 26, apply: static t => 1.0 - Math.Pow(1.0 - t, 4.0)), QuartInOut = new(key: 27, apply: static t => t < 0.5 ? 8.0 * t * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 4.0) / 2.0));
+    public static readonly Easing QuintIn = new(key: 28, apply: static t => t * t * t * t * t), QuintOut = new(key: 29, apply: static t => 1.0 - Math.Pow(1.0 - t, 5.0)), QuintInOut = new(key: 30, apply: static t => t < 0.5 ? 16.0 * t * t * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 5.0) / 2.0));
+    public static readonly Easing ExpoIn = new(key: 31, apply: static t => t == 0.0 ? 0.0 : Math.Pow(2.0, (10.0 * t) - 10.0)), ExpoOut = new(key: 32, apply: static t => t == 1.0 ? 1.0 : 1.0 - Math.Pow(2.0, -10.0 * t)), ExpoInOut = new(key: 33, apply: static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : t < 0.5 ? Math.Pow(2.0, (20.0 * t) - 10.0) / 2.0 : (2.0 - Math.Pow(2.0, (-20.0 * t) + 10.0)) / 2.0);
+    public static readonly Easing CircIn = new(key: 34, apply: static t => 1.0 - Math.Sqrt(1.0 - (t * t))), CircOut = new(key: 35, apply: static t => Math.Sqrt(1.0 - ((t - 1.0) * (t - 1.0)))), CircInOut = new(key: 36, apply: static t => t < 0.5 ? (1.0 - Math.Sqrt(1.0 - (4.0 * t * t))) / 2.0 : (Math.Sqrt(1.0 - (((-2.0 * t) + 2.0) * ((-2.0 * t) + 2.0))) + 1.0) / 2.0);
+    public static readonly Easing BackIn = new(key: 37, apply: static t => (BackC3 * t * t * t) - (BackC1 * t * t)), BackOut = new(key: 38, apply: static t => 1.0 + (BackC3 * Math.Pow(t - 1.0, 3.0)) + (BackC1 * Math.Pow(t - 1.0, 2.0))), BackInOut = new(key: 39, apply: static t => t < 0.5 ? Math.Pow(2.0 * t, 2.0) * (((BackC2 + 1.0) * 2.0 * t) - BackC2) / 2.0 : ((Math.Pow((2.0 * t) - 2.0, 2.0) * (((BackC2 + 1.0) * ((t * 2.0) - 2.0)) + BackC2)) + 2.0) / 2.0);
+    public static readonly Easing ElasticIn = new(key: 40, apply: static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : -Math.Pow(2.0, (10.0 * t) - 10.0) * Math.Sin(((t * 10.0) - 10.75) * (2.0 * Math.PI / 3.0))), ElasticOut = new(key: 41, apply: static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : (Math.Pow(2.0, -10.0 * t) * Math.Sin(((t * 10.0) - 0.75) * (2.0 * Math.PI / 3.0))) + 1.0), ElasticInOut = new(key: 42, apply: static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : t < 0.5 ? -(Math.Pow(2.0, (20.0 * t) - 10.0) * Math.Sin(((20.0 * t) - 11.125) * (2.0 * Math.PI / 4.5))) / 2.0 : (Math.Pow(2.0, (-20.0 * t) + 10.0) * Math.Sin(((20.0 * t) - 11.125) * (2.0 * Math.PI / 4.5)) / 2.0) + 1.0);
+    public static readonly Easing BounceIn = new(key: 43, apply: static t => 1.0 - BounceOutFormula(1.0 - t)), BounceOut = new(key: 44, apply: static t => BounceOutFormula(t)), BounceInOut = new(key: 45, apply: static t => t < 0.5 ? (1.0 - BounceOutFormula(1.0 - (2.0 * t))) / 2.0 : (1.0 + BounceOutFormula((2.0 * t) - 1.0)) / 2.0);
 
     [UseDelegateFromConstructor]
     public partial double Apply(double t);
 
-    private enum PennerCurve : byte {
-        SineIn, SineOut, SineInOut, QuadIn, QuadOut, QuadInOut, CubicIn, CubicOut, CubicInOut,
-        QuartIn, QuartOut, QuartInOut, QuintIn, QuintOut, QuintInOut, ExpoIn, ExpoOut, ExpoInOut,
-        CircIn, CircOut, CircInOut, BackIn, BackOut, BackInOut, ElasticIn, ElasticOut, ElasticInOut,
-        BounceIn, BounceOut, BounceInOut,
-    }
-
-    private static Easing Native(int key, int index) =>
-        new(key: key, apply: t => MotionEquations.Blend(motion: NativeCatalog[index], parameter: t));
-
-    private static Easing Closed(int key, PennerCurve curve) =>
-        new(key: key, apply: t => PennerCatalog[(int)curve](t));
-
-    private static readonly Func<double, double>[] PennerCatalog = [
-        static t => 1.0 - Math.Cos(t * Math.PI / 2.0),
-        static t => Math.Sin(t * Math.PI / 2.0),
-        static t => -(Math.Cos(Math.PI * t) - 1.0) / 2.0,
-        static t => t * t,
-        static t => 1.0 - ((1.0 - t) * (1.0 - t)),
-        static t => t < 0.5 ? 2.0 * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 2.0) / 2.0),
-        static t => t * t * t,
-        static t => 1.0 - Math.Pow(1.0 - t, 3.0),
-        static t => t < 0.5 ? 4.0 * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 3.0) / 2.0),
-        static t => t * t * t * t,
-        static t => 1.0 - Math.Pow(1.0 - t, 4.0),
-        static t => t < 0.5 ? 8.0 * t * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 4.0) / 2.0),
-        static t => t * t * t * t * t,
-        static t => 1.0 - Math.Pow(1.0 - t, 5.0),
-        static t => t < 0.5 ? 16.0 * t * t * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 5.0) / 2.0),
-        static t => t == 0.0 ? 0.0 : Math.Pow(2.0, (10.0 * t) - 10.0),
-        static t => t == 1.0 ? 1.0 : 1.0 - Math.Pow(2.0, -10.0 * t),
-        static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : t < 0.5 ? Math.Pow(2.0, (20.0 * t) - 10.0) / 2.0 : (2.0 - Math.Pow(2.0, (-20.0 * t) + 10.0)) / 2.0,
-        static t => 1.0 - Math.Sqrt(1.0 - (t * t)),
-        static t => Math.Sqrt(1.0 - ((t - 1.0) * (t - 1.0))),
-        static t => t < 0.5 ? (1.0 - Math.Sqrt(1.0 - (4.0 * t * t))) / 2.0 : (Math.Sqrt(1.0 - (((-2.0 * t) + 2.0) * ((-2.0 * t) + 2.0))) + 1.0) / 2.0,
-        static t => (BackC3 * t * t * t) - (BackC1 * t * t),
-        static t => 1.0 + (BackC3 * Math.Pow(t - 1.0, 3.0)) + (BackC1 * Math.Pow(t - 1.0, 2.0)),
-        static t => t < 0.5 ? Math.Pow(2.0 * t, 2.0) * (((BackC2 + 1.0) * 2.0 * t) - BackC2) / 2.0 : ((Math.Pow((2.0 * t) - 2.0, 2.0) * (((BackC2 + 1.0) * ((t * 2.0) - 2.0)) + BackC2)) + 2.0) / 2.0,
-        static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : -Math.Pow(2.0, (10.0 * t) - 10.0) * Math.Sin(((t * 10.0) - 10.75) * (2.0 * Math.PI / 3.0)),
-        static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : (Math.Pow(2.0, -10.0 * t) * Math.Sin(((t * 10.0) - 0.75) * (2.0 * Math.PI / 3.0))) + 1.0,
-        static t => t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : t < 0.5 ? -(Math.Pow(2.0, (20.0 * t) - 10.0) * Math.Sin(((20.0 * t) - 11.125) * (2.0 * Math.PI / 4.5))) / 2.0 : (Math.Pow(2.0, (-20.0 * t) + 10.0) * Math.Sin(((20.0 * t) - 11.125) * (2.0 * Math.PI / 4.5)) / 2.0) + 1.0,
-        static t => 1.0 - BounceOutFormula(1.0 - t),
-        static t => BounceOutFormula(t),
-        static t => t < 0.5 ? (1.0 - BounceOutFormula(1.0 - (2.0 * t))) / 2.0 : (1.0 + BounceOutFormula((2.0 * t) - 1.0)) / 2.0,
-    ];
+    private static Easing Native(int key, GhMotion motion) =>
+        new(key: key, apply: t => MotionEquations.Blend(motion: motion, parameter: t));
 
     private static double BounceOutFormula(double t) =>
         t switch {
@@ -284,9 +233,6 @@ internal readonly record struct SpringRunnerState<T>(T Value, T Velocity, T Targ
 
     public bool IsActive =>
         !((Vector.Norm(Vector.Subtract(Value, Target)) < Vector.RestEpsilon) && (Vector.Norm(Velocity) < Vector.RestEpsilon));
-
-    public SpringRunnerState<T> MergeInto(SpringRunnerState<T> live) =>
-        live with { Value = Value, Velocity = Velocity, Timestamp = Timestamp };
 }
 
 public sealed class SpringHandle<T> : IDisposable {
@@ -343,9 +289,6 @@ internal readonly record struct PulseRunnerState<T>(Animated<T> Animated, T From
     public Unit Emit() { Sink(Animated.ValueNow); return unit; }
 
     public bool IsActive => Animated.State != GhState.Finished || Infinite || CyclesRemaining > 0;
-
-    public PulseRunnerState<T> MergeInto(PulseRunnerState<T> live) =>
-        live with { Animated = Animated, CyclesRemaining = CyclesRemaining };
 }
 
 public static class MotionVector {
@@ -658,22 +601,22 @@ internal static class Motion {
     internal static Unit PacerRelease(Option<Pacer> pacer) =>
         pacer is { IsSome: true, Case: Pacer p } ? Op.Side(() => { _ = p.Pause(); _ = p.Release(); }) : unit;
 
-    internal static Unit PauseWhenFinished(GhState state, Option<Pacer> pacer) {
-        if (state == GhState.Finished && pacer is { IsSome: true, Case: Pacer p }) {
-            _ = p.Pause();
-        }
-        return unit;
-    }
+    internal static Unit PauseWhenFinished(GhState state, Option<Pacer> pacer) =>
+        state == GhState.Finished && pacer is { IsSome: true, Case: Pacer p }
+            ? p.Pause()
+            : unit;
 
     private static Func<PaintScope, Fin<Unit>> RunnerPaint<TState>(
         Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer, string opName)
-        where TState : struct, IMotionState<TState> =>
-        paintScope => Op.Of(name: opName).Attempt(
-            body: () => {
-                _ = MotionRunner<TState>.Of(cell: cell, canvas: canvas, pacer: pacer, cancellation: default).Tick();
-                return unit;
-            },
+        where TState : struct, IMotionState<TState> {
+        // One runner per pipeline, hoisted into the factory closure: wantingTicks / lastVsyncTimestamp
+        // must persist across frames or the Pacer.LastFrameTimestamp vsync-dt path never accumulates and
+        // Resume re-fires every frame. The per-frame paint lambda only calls Tick on the captured runner.
+        MotionRunner<TState> runner = MotionRunner<TState>.Of(cell: cell, canvas: canvas, pacer: pacer, cancellation: default);
+        return paintScope => Op.Of(name: opName).Attempt(
+            body: () => { _ = runner.Tick(); return unit; },
             what: "motion tick");
+    }
 
     internal static GrasshopperUiIntent<Subscription> Pulse<TValue>(
         TValue start, TValue target, GhDuration duration, GhMotion easing, int cycles, bool yoyo, bool infinite,
@@ -901,7 +844,7 @@ internal static class Motion {
         if (MotionAccessibility.ShouldSkipDecorativeMotion) {
             return unit;
         }
-        CALayer layer = BuildCosmeticLayer(intent: intent);
+        CALayer layer = BuildCosmeticLayer(view: view, intent: intent);
         layer.Name = key.ToString();
         host.AddSublayer(layer: layer);
         CAAnimation animation = BuildCosmeticAnimation(intent: intent);
@@ -934,14 +877,14 @@ internal static class Motion {
     }
 
     [SupportedOSPlatform("macos14.0")]
-    private static CALayer BuildCosmeticLayer(CosmeticIntent intent) =>
-        intent is CosmeticIntent.PulseCase pulse ? CosmeticPulseLayer(pulse)
-        : intent is CosmeticIntent.GlowCase glow ? CosmeticGlowLayer(glow)
-        : intent is CosmeticIntent.StrokeOnCase stroke ? CosmeticStrokeLayer(stroke)
-        : intent is CosmeticIntent.GradientCase gradient ? CosmeticGradientLayer(gradient)
-        : intent is CosmeticIntent.TextLayerCase text ? CosmeticTextLayer(text)
-        : intent is CosmeticIntent.ReplicatorCase replicate ? CosmeticReplicatorLayer(replicate)
-        : CosmeticPulseLayer(new CosmeticIntent.PulseCase(Bounds: RectangleF.Empty, Tint: Colors.Transparent, Duration: GhDuration.Fast));
+    private static CALayer BuildCosmeticLayer(NSView view, CosmeticIntent intent) =>
+        intent.Switch<CALayer>(
+            pulseCase: CosmeticPulseLayer,
+            glowCase: CosmeticGlowLayer,
+            strokeOnCase: CosmeticStrokeLayer,
+            gradientCase: CosmeticGradientLayer,
+            textLayerCase: text => CosmeticTextLayer(view: view, text: text),
+            replicatorCase: CosmeticReplicatorLayer);
 
     [SupportedOSPlatform("macos14.0")]
     private static CAShapeLayer CosmeticPulseLayer(CosmeticIntent.PulseCase pulse) {
@@ -1010,12 +953,12 @@ internal static class Motion {
     [SupportedOSPlatform("macos14.0")]
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
         Justification = "CGColor/NSString ownership transfers to CALayer property graph for animation lifetime.")]
-    private static CATextLayer CosmeticTextLayer(CosmeticIntent.TextLayerCase text) {
+    private static CATextLayer CosmeticTextLayer(NSView view, CosmeticIntent.TextLayerCase text) {
         CATextLayer layer = new() {
             String = new NSString(text.Text),
             ForegroundColor = ToCGColor(text.Tint),
             FontSize = text.FontSize,
-            ContentsScale = NSScreen.MainScreen?.BackingScaleFactor ?? 2f,
+            ContentsScale = view.Window?.Screen?.BackingScaleFactor ?? 2f,
             Opacity = 0f,
             Position = ToCGPoint(text.Origin),
         };
@@ -1063,13 +1006,13 @@ internal static class Motion {
 
     [SupportedOSPlatform("macos14.0")]
     private static CAAnimation BuildCosmeticAnimation(CosmeticIntent intent) =>
-        intent is CosmeticIntent.PulseCase pulse ? KeyframeFade(path: "opacity", duration: pulse.Duration, alpha: pulse.Tint.A)
-        : intent is CosmeticIntent.GlowCase glow ? KeyframeFade(path: "shadowOpacity", duration: glow.Duration, alpha: glow.Tint.A)
-        : intent is CosmeticIntent.StrokeOnCase stroke ? StrokeEndAnimation(duration: stroke.Duration)
-        : intent is CosmeticIntent.GradientCase gradient ? KeyframeFade(path: "opacity", duration: gradient.Duration, alpha: Math.Max(gradient.Start.A, gradient.End.A))
-        : intent is CosmeticIntent.TextLayerCase text ? KeyframeFade(path: "opacity", duration: text.Duration, alpha: text.Tint.A)
-        : intent is CosmeticIntent.ReplicatorCase replicate ? KeyframeFade(path: "opacity", duration: replicate.Duration, alpha: replicate.Tint.A)
-        : KeyframeFade(path: "opacity", duration: GhDuration.Fast, alpha: 0f);
+        intent.Switch<CAAnimation>(
+            pulseCase: static p => KeyframeFade(path: "opacity", duration: p.Duration, alpha: p.Tint.A),
+            glowCase: static g => KeyframeFade(path: "shadowOpacity", duration: g.Duration, alpha: g.Tint.A),
+            strokeOnCase: static s => StrokeEndAnimation(duration: s.Duration),
+            gradientCase: static g => KeyframeFade(path: "opacity", duration: g.Duration, alpha: Math.Max(g.Start.A, g.End.A)),
+            textLayerCase: static t => KeyframeFade(path: "opacity", duration: t.Duration, alpha: t.Tint.A),
+            replicatorCase: static r => KeyframeFade(path: "opacity", duration: r.Duration, alpha: r.Tint.A));
 
     private static CGRect ToCGRect(RectangleF r) => new(x: r.X, y: r.Y, width: r.Width, height: r.Height);
 
@@ -1114,8 +1057,8 @@ internal static class Motion {
         private readonly Grasshopper2.UI.Canvas.Canvas canvas;
         private readonly Option<Pacer> pacer;
         private readonly CancellationToken cancellation;
-        private readonly Func<TState, TState> applyScratch;
-        private TState scratch;
+        private readonly Func<TState, TState> stepCell;
+        private float pendingDt;
         private int wantingTicks;
         private double lastVsyncTimestamp;
 
@@ -1124,26 +1067,24 @@ internal static class Motion {
             this.canvas = canvas;
             this.pacer = pacer;
             this.cancellation = cancellation;
-            // Block body re-reads mutable `scratch` each call; a method-group form would freeze the
-            // struct receiver to default(TState) at construction (IDE0200 hazard).
-            applyScratch = live => {
-                TState current = scratch;
-                return current.MergeInto(live: live);
-            };
+            // Cached once so the per-frame Swap allocates no closure; the block re-reads mutable pendingDt
+            // each CAS attempt, so a concurrent SpringHandle.Retarget forces re-integration against the
+            // latest committed Target on retry (a method-group form would freeze the receiver, IDE0200).
+            stepCell = live => live.Step(frameDeltaSeconds: pendingDt);
         }
 
         internal static MotionRunner<TState> Of(Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer = default, CancellationToken cancellation = default) =>
             new(cell: cell, canvas: canvas, pacer: pacer, cancellation: cancellation);
 
+        // Step folded inside the CAS body; Emit/Wake act on the committed value Swap returns.
         internal Unit Tick() {
             if (cancellation.IsCancellationRequested) {
                 return Sleep();
             }
-            TState next = cell.Value.Step(frameDeltaSeconds: ResolveFrameDelta());
-            _ = next.Emit();
-            scratch = next;
-            _ = cell.Swap(applyScratch);
-            _ = next.IsActive ? Wake() : Sleep();
+            pendingDt = ResolveFrameDelta();
+            TState committed = cell.Swap(stepCell);
+            _ = committed.Emit();
+            _ = committed.IsActive ? Wake() : Sleep();
             return unit;
         }
 
@@ -1235,18 +1176,21 @@ internal static class Motion {
             CADisplayLink bound = view.GetDisplayLink(target: this, selector: TickSelector);
             bound.PreferredFrameRateRange = range;
             bound.Paused = true;
-            bound.AddToRunLoop(runloop: NSRunLoop.Main, mode: NSRunLoopMode.Common.GetConstant()!);
+            bound.AddToRunLoop(runloop: NSRunLoop.Main, mode: NSRunLoopMode.Common);
             return bound;
         }
 
         // NSScreen.MaximumFramesPerSecond honours the actual panel ceiling (60/120/144Hz vary).
+        private const float FallbackRefreshHz = 120f;
+        private const float FloorRefreshHz = 30f;
+
         private static CAFrameRateRange ResolveRange(NSView view, CAFrameRateRange? explicitRate) {
             if (explicitRate is CAFrameRateRange supplied) {
                 return supplied;
             }
             NSScreen? screen = view.Window?.Screen;
-            float maximum = screen is NSScreen active ? active.MaximumFramesPerSecond : 120f;
-            float floor = MathF.Min(x: 30f, y: maximum);
+            float maximum = screen is NSScreen active ? active.MaximumFramesPerSecond : FallbackRefreshHz;
+            float floor = MathF.Min(x: FloorRefreshHz, y: maximum);
             return CAFrameRateRange.Create(minimum: floor, maximum: maximum, preferred: maximum);
         }
 
@@ -1283,14 +1227,14 @@ internal static class Motion {
             }
         }
 
-        // Invalidate-prev-then-unpause-new avoids the dual-link overlap window in the main RunLoop.
+        // Exchange the live link FIRST so Resume/Pause race onto the replacement, then set its pause state
+        // from a re-read of active, then invalidate the previous. The view-vended link is not owned here,
+        // so Invalidate is the whole teardown — an explicit Dispose would double-free the run-loop handle.
         private void RebindLink() {
-            bool wasActive = active > 0;
             CADisplayLink replacement = BindLink(view: view, range: ResolveRange(view: view, explicitRate: explicitRate));
             CADisplayLink previous = Interlocked.Exchange(ref link, replacement);
+            replacement.Paused = active <= 0;
             previous.Invalidate();
-            previous.Dispose();
-            replacement.Paused = !wasActive;
         }
 
         // sender.Timestamp = just-displayed host clock (mach_absolute_time, seconds). Exposed for

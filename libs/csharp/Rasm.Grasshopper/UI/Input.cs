@@ -5,11 +5,16 @@ using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Icon;
 using Grasshopper2.UI.InputPanel;
 using Grasshopper2.UI.Toolbar;
+using GhSelectionMode = Grasshopper2.Extensions.SelectionMode;
 using Op = Rasm.Domain.Op;
 
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+// Library mirror of Grasshopper2.Extensions.SelectionMode — the single canonical selection-modifier
+// vocabulary, boundary-mapped at InputSelectionSource (GH2 -> library) and CanvasOp.WindowSelect
+// (library -> GH2) so public callers and scenarios never name the host enum.
+public enum SelectionMode { Promote, Include, Exclude, Inverse }
 [SmartEnum<int>]
 [ValidationError<UiFault>]
 public sealed partial class CursorKind {
@@ -24,20 +29,16 @@ public sealed partial class CursorKind {
     public static readonly CursorKind HorizontalSplit = new(key: 6, cursor: static _ => Cursors.HorizontalSplit);
     public static readonly CursorKind SizeAll = new(key: 7, cursor: static _ => Cursors.SizeAll);
     public static readonly CursorKind NotAllowed = new(key: 8, cursor: static _ => Cursors.NotAllowed);
-    public static readonly CursorKind WireIn = new(key: 9, cursor: static _ => Cursors.Pointer);
-    public static readonly CursorKind WireOut = new(key: 10, cursor: static _ => Cursors.Pointer);
-    public static readonly CursorKind WireQuestion = new(key: 11, cursor: static _ => Cursors.Default);
+    // Wire cursors prefer the host's static override (Canvas.CursorWireIn/Out/Question) and fall back to
+    // a stock cursor — folded into the item delegate so Resolve is a single uniform Cursor() call.
+    public static readonly CursorKind WireIn = new(key: 9, cursor: static _ => Optional(Grasshopper2.UI.Canvas.Canvas.CursorWireIn).IfNone(Cursors.Pointer));
+    public static readonly CursorKind WireOut = new(key: 10, cursor: static _ => Optional(Grasshopper2.UI.Canvas.Canvas.CursorWireOut).IfNone(Cursors.Pointer));
+    public static readonly CursorKind WireQuestion = new(key: 11, cursor: static _ => Optional(Grasshopper2.UI.Canvas.Canvas.CursorQuestion).IfNone(Cursors.Default));
 
     [UseDelegateFromConstructor]
     internal partial Cursor Cursor(Grasshopper2.UI.Canvas.Canvas canvas);
 
-    internal Fin<Cursor> Resolve(Grasshopper2.UI.Canvas.Canvas canvas) =>
-        Key switch {
-            var key when key == WireIn.Key => Fin.Succ(Optional(Grasshopper2.UI.Canvas.Canvas.CursorWireIn).IfNone(() => Cursor(canvas: canvas))),
-            var key when key == WireOut.Key => Fin.Succ(Optional(Grasshopper2.UI.Canvas.Canvas.CursorWireOut).IfNone(() => Cursor(canvas: canvas))),
-            var key when key == WireQuestion.Key => Fin.Succ(Optional(Grasshopper2.UI.Canvas.Canvas.CursorQuestion).IfNone(() => Cursor(canvas: canvas))),
-            _ => Fin.Succ(Cursor(canvas: canvas)),
-        };
+    internal Fin<Cursor> Resolve(Grasshopper2.UI.Canvas.Canvas canvas) => Fin.Succ(Cursor(canvas: canvas));
 }
 
 [SmartEnum<int>]
@@ -92,9 +93,17 @@ public partial record InputSelectionSource {
     public static InputSelectionSource From(WindowSelectionEventArgs window) => new WindowCase(Source: window);
 
     internal SelectionMode Mode() => Switch(
-        controlCase: static c => c.Source.SelectionMode(),
-        mouseCase: static m => m.Source.SelectionMode(),
-        windowCase: static w => w.Source.SelectionMode());
+        controlCase: static c => Map(c.Source.SelectionMode()),
+        mouseCase: static m => Map(m.Source.SelectionMode()),
+        windowCase: static w => Map(w.Source.SelectionMode()));
+
+    private static SelectionMode Map(GhSelectionMode mode) =>
+        mode switch {
+            GhSelectionMode.Promote => SelectionMode.Promote,
+            GhSelectionMode.Include => SelectionMode.Include,
+            GhSelectionMode.Exclude => SelectionMode.Exclude,
+            _ => SelectionMode.Inverse,
+        };
 }
 
 [SkipUnionOps]

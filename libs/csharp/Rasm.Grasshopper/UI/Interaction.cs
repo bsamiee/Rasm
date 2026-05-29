@@ -460,13 +460,17 @@ internal static class Interaction {
             statusCase: static _ => SnapshotNow().BindFin(CanvasChromeResult.Of),
             modifierWatchCase: static m => GhUi.Event(uiEvent: UiEvent.KeyboardModifiers(handler: m.Handler)).BindFin(CanvasChromeResult.Of));
 
+    // PushInteraction only pushes onto FlexControl._focus; the interaction self-terminates by popping
+    // itself when complete. There is no public pop-by-reference (UnregisterIResponsive no-ops on an
+    // interaction never registered in _responsives), so the detach is intentionally empty — the old
+    // valid.Release(canvas) released the interaction WITHOUT popping _focus, leaking a dangling entry.
     internal static GrasshopperUiIntent<Subscription> Push(IInteraction target) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from valid in Optional(target).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Push)), detail: "interaction is required"))
             from sub in Subscription.Bind(
                 attach: () => canvas.PushInteraction(interaction: valid),
-                detach: () => valid.Release(control: canvas),
+                detach: static () => { },
                 marshalToUi: true)
             select sub);
 

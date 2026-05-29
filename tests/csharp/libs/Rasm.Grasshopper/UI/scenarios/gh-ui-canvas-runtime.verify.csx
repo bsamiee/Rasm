@@ -1,13 +1,14 @@
 using System;
-using System.Drawing;
-using Grasshopper2.Extensions;
-using Grasshopper2.UI.Flex;
 using Rasm.Grasshopper.UI;
 using Rhino;
 
 Scenario.Run("gh-ui-canvas-runtime", CAPTURE_PATH, (key, facts) => {
     GrasshopperUi ui = new();
     facts.Add("rhino.mainThread", RhinoApp.IsOnMainThread);
+
+    // Canvas-policy ops require an open editor; CanvasOp.Interaction does not force one, so open it first
+    // (mirrors gh-ui-wire-runtime / gh-ui-p1-wiring-bundle).
+    Probe.Expect(result: ui.Use(intent: GhUi.Editor(op: EditorOp.EnsureVisible)), label: "ensure grasshopper editor");
 
     CanvasInteractionPolicy scopePolicy = CanvasInteractionPolicy.Create(
         allowPan: true,
@@ -52,26 +53,23 @@ Scenario.Run("gh-ui-canvas-runtime", CAPTURE_PATH, (key, facts) => {
         condition: canvas.LogicalPixelSize > 0f && canvas.PointsPerPixel > 0f && MathF.Abs(canvas.PointsPerPixel * canvas.LogicalPixelSize - 1f) < 0.01f,
         message: "canvas logical DPI reciprocity");
 
-    WindowSelection window = new(
-        left: canvas.VisibleFrame.Left,
-        top: canvas.VisibleFrame.Top,
-        right: canvas.VisibleFrame.Right,
-        bottom: canvas.VisibleFrame.Bottom);
-
-    foreach ((string label, CanvasWindowScope scope) in new (string, CanvasWindowScope)[] {
-        ("objects", CanvasWindowScope.Objects),
-        ("wires", CanvasWindowScope.Wires),
-        ("groups", CanvasWindowScope.Groups),
-        ("objectsAndWires", CanvasWindowScope.ObjectsAndWires),
+    // De-GH2 WindowSelect: the visible-frame RectangleF + library SelectionMode are the whole surface;
+    // no Grasshopper2.* type is named, proving the host-filtered scenario can drive window selection.
+    foreach ((string label, CanvasWindowScope scope, SelectionMode mode) in new (string, CanvasWindowScope, SelectionMode)[] {
+        ("objects", CanvasWindowScope.Objects, SelectionMode.Promote),
+        ("wires", CanvasWindowScope.Wires, SelectionMode.Include),
+        ("groups", CanvasWindowScope.Groups, SelectionMode.Exclude),
+        ("objectsAndWires", CanvasWindowScope.ObjectsAndWires, SelectionMode.Inverse),
     }) {
         CanvasResult result = Probe.Expect(
-            result: ui.Use(intent: GhUi.Canvas(op: CanvasOp.WindowSelect(window: window, mode: SelectionMode.Replace, scope: scope))),
+            result: ui.Use(intent: GhUi.Canvas(op: CanvasOp.WindowSelect(window: canvas.VisibleFrame, mode: mode, scope: scope))),
             label: $"window select {label}");
         CanvasWindowSnapshot windowSnapshot = result switch {
             CanvasResult.WindowResult value => value.Window,
             _ => throw new InvalidOperationException(message: $"unexpected window result: {result.GetType().Name}"),
         };
         facts.Add($"windowSelect.{label}.scope", scope.ToString());
+        facts.Add($"windowSelect.{label}.mode", mode.ToString());
         facts.Add($"windowSelect.{label}.selected", windowSnapshot.SelectedCount);
         facts.Add($"windowSelect.{label}.deselected", windowSnapshot.DeselectedCount);
         facts.Add($"windowSelect.{label}.canvas.windowSelectObjects", windowSnapshot.Canvas.WindowSelectObjects);
