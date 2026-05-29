@@ -6,6 +6,7 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Domain;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
+// LOC overage (~213) is a justified multi-concept owner: Stat (Welford) + Distribution (quantile) + SampleMoment (covariance) + ScalarMetric/CurvatureMode/StatContext/ExtremumDirection/ResidualAggregate dispatch.
 internal static class StatGens {
     public static readonly Op Key = Op.Of(name: "stats-test");
     public static readonly Func<double, double, bool> Approx = Gens.Approx(relativeTolerance: 1.0e-6);
@@ -93,11 +94,45 @@ public sealed class DistributionLaws {
         Spec.Fail(Distribution.Of(values: Seq(1.0, 2.0, 3.0), percentiles: Seq(101.0), key: StatGens.Key));
         Spec.ForAll(Gens.NonFinite, value => Spec.Fail(Distribution.Of(values: Seq(1.0, 2.0, 3.0), percentiles: Seq(value), key: StatGens.Key)));
     }
+    // Boundary guard: 0/100 are inclusive extrema, and emitted tuples must echo every requested percentile in request order (catches a reorder/drop in valid.Map).
+    [Fact]
+    public void ValidPercentilesEchoRequestOrderAndBoundariesMapToExtrema() =>
+        Spec.ForAll(StatGens.NonEmptyFinite, static xs => {
+            Seq<double> requested = Seq(0.0, 10.0, 50.0, 90.0, 100.0);
+            Spec.Succ(Distribution.Of(values: xs, percentiles: requested, key: StatGens.Key), then: d => {
+                Assert.Equal(expected: requested, actual: d.Percentiles.Map(static p => p.Percentile));
+                Spec.Equal(left: d.Percentiles[index: 0].Value, right: Enumerable.Min(xs.AsIterable()), tolerance: 1.0e-9, what: "p0 = min");
+                Spec.Equal(left: d.Percentiles[index: 4].Value, right: Enumerable.Max(xs.AsIterable()), tolerance: 1.0e-9, what: "p100 = max");
+            });
+        });
     private static double Q(double[] sorted, double fraction) =>
         ((sorted.Length - 1) * fraction) switch {
             double idx when Math.Abs(idx - Math.Floor(idx)) <= RhinoMath.ZeroTolerance => sorted[(int)Math.Floor(idx)],
             double idx => sorted[(int)Math.Floor(idx)] + ((sorted[(int)Math.Ceiling(idx)] - sorted[(int)Math.Floor(idx)]) * (idx - Math.Floor(idx))),
         };
+}
+
+public sealed class SampleMomentLaws {
+    // INDEPENDENT ORACLE: Numeric.CovarianceUpper re-derives equal-weight mean + upper-triangular covariance from Point3d rows;
+    // SampleMoment.Of folds the same moments over Arr<double> rows via a disjoint path. Coords bounded so centered covariance stays in tolerance.
+    private static readonly Gen<Seq<Point3d>> BoundedCloud = Gens.NonEmptyArray(
+        Gen.Double[-12.0, 12.0].Select(Gen.Double[-12.0, 12.0], Gen.Double[-12.0, 12.0], static (double x, double y, double z) => new Point3d(x: x, y: y, z: z)), max: 24)
+        .Select(static rows => toSeq(rows));
+    [Fact]
+    public void MeanAndUpperCovarianceMatchWeightedOracle() =>
+        Spec.ForAll(BoundedCloud, static points =>
+            Spec.Succ(SampleMoment.Of(rows: points.Map(static p => new Arr<double>([p.X, p.Y, p.Z])), dimension: 3, key: StatGens.Key), then: moment => {
+                Point3d centroid = Numeric.Centroid(points: points);
+                Spec.Equal(left: moment.Mean, right: new Arr<double>([centroid.X, centroid.Y, centroid.Z]), tolerance: 1.0e-6, what: "weighted mean");
+                Spec.Equal(left: moment.UpperCovariance, right: Numeric.CovarianceUpper(points: points), tolerance: 1.0e-6, what: "upper covariance");
+            }));
+    [Fact]
+    public void DegenerateShapesRejectWithInputCategory() {
+        Spec.FailCategory(SampleMoment.Of(rows: Seq<Arr<double>>(), dimension: 3, key: StatGens.Key), category: "Input");
+        Spec.FailCategory(SampleMoment.Of(rows: Seq(new Arr<double>([1.0, 2.0])), dimension: 3, key: StatGens.Key), category: "Input");
+        Spec.FailCategory(SampleMoment.Of(rows: Seq(new Arr<double>([1.0, 2.0, 3.0])), dimension: 0, key: StatGens.Key), category: "Input");
+        Spec.FailCategory(SampleMoment.Of(rows: Seq(new Arr<double>([double.NaN, 0.0, 0.0])), dimension: 3, key: StatGens.Key), category: "Input");
+    }
 }
 
 public sealed class ResidualAndCurvatureLaws {
@@ -116,8 +151,12 @@ public sealed class ResidualAndCurvatureLaws {
         Assert.Equal<string>(expected: ["a", "b"], actual: Stat.Extrema(items: items, projection: static x => x.Score, tolerance: 0.05, direction: ExtremumDirection.Maximum).Map(static x => x.Id).AsIterable().ToArray());
         Assert.True(CurvatureMode.Vector.IsCurveMagnitude);
         Assert.True(CurvatureMode.Scalar(metric: ScalarMetric.Magnitude).IsCurveMagnitude);
+        Assert.False(CurvatureMode.Scalar(metric: ScalarMetric.Gaussian).IsCurveMagnitude);
+        Assert.False(CurvatureMode.Scalar(metric: ScalarMetric.Mean).IsCurveMagnitude);
         Assert.Equal<ScalarMetric>(expected: [ScalarMetric.Gaussian, ScalarMetric.Mean], actual: CurvatureMode.Vector.SurfaceMetrics.AsIterable().ToArray());
         Assert.Empty(collection: CurvatureMode.Scalar(metric: ScalarMetric.Magnitude).SurfaceMetrics);
+        Assert.Equal<ScalarMetric>(expected: [ScalarMetric.Gaussian], actual: CurvatureMode.Scalar(metric: ScalarMetric.Gaussian).SurfaceMetrics.AsIterable().ToArray());
+        Assert.Equal<ScalarMetric>(expected: [ScalarMetric.Mean], actual: CurvatureMode.Scalar(metric: ScalarMetric.Mean).SurfaceMetrics.AsIterable().ToArray());
     }
 }
 
@@ -149,6 +188,14 @@ public sealed class ScalarMetricCases {
             items: [ScalarMetric.Magnitude, ScalarMetric.Gaussian, ScalarMetric.Mean],
             key: static metric => metric.Key,
             law: static metric => Assert.Contains(expected: metric.Key, collection: [0, 1, 2]));
+    // Magnitude projects Vector3d.Length (managed GetLengthHelper, no P/Invoke); surface metrics carry no Vector3d projection and surface Unsupported (Vector3d, double).
+    [Fact]
+    public void MagnitudeProjectsVectorLengthAndSurfaceMetricsRejectVectors() =>
+        Spec.ForAll(Gens.Vec, static v => {
+            Spec.Succ(ScalarMetric.Magnitude.Of(value: v, key: StatGens.Key), then: m => Spec.Equal(left: m, right: v.Length, tolerance: 1.0e-9, what: "magnitude = length"));
+            Spec.FailUnsupportedFor(result: ScalarMetric.Gaussian.Of(value: v, key: StatGens.Key), geometryType: typeof(Vector3d), outputType: typeof(double));
+            Spec.FailUnsupportedFor(result: ScalarMetric.Mean.Of(value: v, key: StatGens.Key), geometryType: typeof(Vector3d), outputType: typeof(double));
+        });
 }
 
 public sealed class ExtremumDirectionLaws {

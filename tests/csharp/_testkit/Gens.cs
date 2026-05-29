@@ -32,8 +32,7 @@ public static class Gens {
     public static readonly Gen<double> PositiveMagnitudeScalar = Gen.Frequency(
         (90, Positive),
         (10, Gen.OneOfConst(RhinoMath.ZeroTolerance * 2.0, RhinoMath.SqrtEpsilon, 1.0, 1.0e3)));
-    // Option-routed Where+Select preserves CsCheck shrinking AND eliminates the unreachable throw — TryCreate
-    // executes once per candidate; failing values become Option<TVo>.None and are filtered out by IsSome.
+    // Option-routed Where+Select preserves CsCheck shrinking and avoids throwing in Select: invalid candidates become None, filtered by IsSome.
     private delegate bool TryFn<TIn, TVo>(TIn value, out TVo result);
     private static Gen<TVo> ValueObject<TIn, TVo>(Gen<TIn> source, TryFn<TIn, TVo> tryCreate) =>
         source.Select(v => tryCreate(v, out TVo r) ? Some(r) : Option<TVo>.None)
@@ -61,6 +60,11 @@ public static class Gens {
     public static readonly Gen<(Vector3d A, Vector3d B)> VecPair = NonZeroVec.Select(NonZeroVec, static (Vector3d a, Vector3d b) => (A: a, B: b));
     public static readonly Gen<(Vector3d A, Vector3d B)> UnitVecPair = UnitVec.Select(UnitVec, static (Vector3d a, Vector3d b) => (A: a, B: b));
     public static readonly Gen<Plane> Plane = Point.Select(UnitVec, static (Point3d origin, Vector3d normal) => new Plane(origin: origin, normal: normal));
+    // Static-rail safe: copy-ctor from a World basis + Origin setter are IL-verified managed, unlike new Plane(origin, normal) which P/Invokes.
+    // Three distinct bases give distinct axis triples for swap detection.
+    public static readonly Gen<Plane> ManagedPlane = Point.Select(
+        Gen.OneOfConst(Rhino.Geometry.Plane.WorldXY, Rhino.Geometry.Plane.WorldZX, Rhino.Geometry.Plane.WorldYZ),
+        static (Point3d origin, Plane basis) => new Plane(other: basis) { Origin = origin });
     public static readonly Gen<Line> Line = Point.Select(Point, static (Point3d a, Point3d b) => new Line(from: a, to: b));
     public static readonly Gen<BoundingBox> Bbox = Point.Select(Point, static (Point3d a, Point3d b) => new BoundingBox(
         min: new Point3d(x: Math.Min(val1: a.X, val2: b.X), y: Math.Min(val1: a.Y, val2: b.Y), z: Math.Min(val1: a.Z, val2: b.Z)),
@@ -121,42 +125,30 @@ public static class Gens {
             (fail ?? Fault).Select(static (Error e) => Fail<Error, T>(value: e)));
 
     // --- [DOMAIN_SMARTENUMS] ---------------------------------------------------------------
-    // Plural field names avoid collision with the SmartEnum type (also `SdfKind`). Default mm Context lives on
-    // VectorsContextFixture (constructor-injected); generators that need a Context use Gens.Context (Gen<Context>).
-    // Consumers: Field SDF primitive Theory + Intent.Descriptor SDF-by-kind dispatch.
+    // Plural field names avoid collision with the SmartEnum type. Default mm Context lives on VectorsContextFixture; Context-needing generators use Gens.Context.
     public static readonly Gen<SdfKind> SdfKinds = Gen.OneOfConst([.. SdfKind.Items]);
-    // Consumers: Field Rbf/Mls kernel Theory + Mesh.Project<KernelProfile> kernel projection table.
     public static readonly Gen<KernelKind> KernelKinds = Gen.OneOfConst([.. KernelKind.Items]);
-    // Consumers: Flow integrator Theory (9 cases) + Intent.Streamline integrator dispatch.
     public static readonly Gen<IntegratorKind> IntegratorKinds = Gen.OneOfConst([.. IntegratorKind.Items]);
-    // Consumers: Sample explicit/Poisson/Lloyd/Welsh case sweep + Intent.Sample case dispatch + Extraction sample integration.
     public static readonly Gen<SampleAlgorithmKind> SampleAlgorithmKinds = Gen.OneOfConst([.. SampleAlgorithmKind.Items]);
 
     // --- [FIELD_FIXTURES] ------------------------------------------------------------------
-    // Consumers: Field SDF primitive admission + Intent.Descriptor primitive case factory.
     public static readonly Gen<(SdfKind Kind, ImmutableDictionary<string, double> Parameters, Plane Pose)> PrimitiveFixture =
         SdfKinds.Select(Plane, static (SdfKind kind, Plane pose) =>
             (Kind: kind, Parameters: kind.RequiredKeys.Fold(ImmutableDictionary<string, double>.Empty, static (acc, key) => acc.Add(key, 1.0)), Pose: pose));
-    // Consumers: Field iso-surface bounding-box admission + Sample volume sampling within box.
     public static readonly Gen<BoundingBox> AdmissibleBoundingBox = NonEmptyBbox;
-    // Consumers: Field iso-surface resolution + Sample adaptive grid resolution.
     public static readonly Gen<(int Nx, int Ny, int Nz)> GridResolution = Gen.Int[2, 32].Select(Gen.Int[2, 32], Gen.Int[2, 32],
         static (int x, int y, int z) => (Nx: x, Ny: y, Nz: z));
-    // Consumers: Field MLS smoothing+radius pair + Sample density+oversample pair.
     public static readonly Gen<(double A, double B)> PositivePair = Positive.Select(Positive, static (double a, double b) => (A: a, B: b));
 
     // --- [FLOW_FIXTURES] -------------------------------------------------------------------
-    // Consumers: Flow streamline state init + Field flow integration step seeding.
     public static readonly Gen<(Point3d Position, double Time, double Step)> StreamlineState =
         Point.Select(Gen.Double[0.0, 100.0], Positive, static (Point3d p, double t, double h) => (Position: p, Time: t, Step: h));
 
     // --- [GEOMETRY_FIXTURES] ---------------------------------------------------------------
-    // Consumers: Extraction surface-iso + Mesh planar fixture (4-corner quadrilateral).
     public static readonly Seq<Point3d> UnitSquare3 = Seq(
         new Point3d(x: 0.0, y: 0.0, z: 0.0), new Point3d(x: 1.0, y: 0.0, z: 0.0),
         new Point3d(x: 1.0, y: 1.0, z: 0.0), new Point3d(x: 0.0, y: 1.0, z: 0.0));
-    // Pure-data mesh fixture (vertex coords + triangle indices) — avoids native Mesh handle ownership in generators.
-    // Consumers: Mesh topology Euler V-E+F=2 + Extraction triangle-mesh iso-surface.
+    // Pure-data mesh fixture (coords + indices) — avoids native Mesh handle ownership in generators.
     public sealed record MeshFixture(Seq<Point3d> Vertices, Seq<(int A, int B, int C)> Triangles);
     public static readonly MeshFixture UnitTetrahedronFixture = new(
         Vertices: Seq(new Point3d(0, 0, 0), new Point3d(1, 0, 0), new Point3d(0, 1, 0), new Point3d(0, 0, 1)),
@@ -179,35 +171,27 @@ public static class Gens {
             }))));
 
     // --- [POINT_CLUSTERS] -----------------------------------------------------------------
-    // Consumers: Cloud ring-based centroid + isoperimetric compactness invariants.
     public static Gen<Seq<Point3d>> RingPoints(int count, double radius) =>
         Gen.Const(value: toSeq(Enumerable.Range(start: 0, count: count).Select(i => {
             double theta = 2.0 * Math.PI * i / count;
             return new Point3d(x: radius * Math.Cos(d: theta), y: radius * Math.Sin(a: theta), z: 0.0);
         })));
-    // Consumers: Cloud cluster fixtures + Sample uniform-cluster generation.
     public static Gen<Seq<Point3d>> ClusterPoints(int count, double spread) =>
         Point.SelectMany(center => UnitVec.Array[count].SelectMany(dirs => Gen.Double[0.0, spread].Array[count].Select(rads =>
             toSeq(dirs.Zip(rads, (d, r) => center + (d * r))))));
-    // Consumers: Cloud Mesh validity rejection + Mesh AcceptResults non-finite guard.
     public static readonly Gen<Point3d> NonFiniteCoordinatePoint = Gen.OneOfConst(
         new Point3d(x: double.NaN, y: 0.0, z: 0.0), new Point3d(x: 0.0, y: double.PositiveInfinity, z: 0.0),
         new Point3d(x: 0.0, y: 0.0, z: double.NegativeInfinity));
-    // Consumers: Align ICP fixture builder + Cloud Bridson seed + Sample Lloyd init + Spectral basis row count.
     public static Gen<Seq<Point3d>> PointCluster3(int min = 3, int max = 32, double spread = 1.0) =>
         Point.Array[min, max].SelectMany(centers => Vec.Array[centers.Length].Select(jitters =>
             toSeq(centers.Zip(jitters, (c, j) => c + (j * spread)))));
-    // Consumers: Align Procrustes mass + Cloud Sinkhorn mass + Sample Lloyd weight.
     public static Gen<Seq<double>> UniformMass(int count) =>
         Gen.Const(value: toSeq(Enumerable.Repeat(element: 1.0 / count, count: count)));
-    // Consumers: Intent.Sample (Domain × Kind tuple) + Cloud.Of(domain) + Align ICP seed cluster.
     public static Gen<(Seq<Point3d> Points, Seq<double> Mass)> Cluster(int min = 3, int max = 32) =>
         PointCluster3(min: min, max: max).SelectMany(p => UniformMass(p.Count).Select(m => (Points: p, Mass: m)));
-    // Consumers: Sample CloudDomain local + Extraction CloudDomain dispatch.
     public static readonly Gen<Seq<Point3d>> CloudDomain = NonEmptySeq(Point);
 
     // --- [SPECTRAL_FIXTURES] --------------------------------------------------------------
-    // Consumers: Spectral basis eigenpair tests + future Field/Cloud spectral consumers (path graph Laplacian).
     public static Gen<(int N, Arr<double> Eigenvalues, VectorMatrix Eigenvectors)> SpectralBasis(int n) =>
         Gen.Const(value: (
             N: n,
@@ -215,13 +199,11 @@ public static class Gens {
             Eigenvectors: VectorMatrix.Identity(dim: Dim.TryCreate(value: n, obj: out Dim d) ? d : throw new InvalidOperationException("SpectralBasis dimension"))));
 
     // --- [SPACE_FIXTURES] -----------------------------------------------------------------
-    // Consumers: Space.Sample (hitPoint sample) + Intent.Support direction-from-hit projection.
     public static Gen<ClosestHit> ClosestHit(Gen<Point3d>? point = null) =>
         (point ?? Point).Select(Point, static (Point3d target, Point3d hit) =>
             new ClosestHit(Point: hit, Distance: Some(value: target.DistanceTo(other: hit)), Parameter: Option<double>.None,
                 Uv: Option<Point2d>.None, Normal: Option<Vector3d>.None, Component: Option<ComponentIndex>.None,
                 MeshPoint: Option<MeshPoint>.None, Tangent: Option<Vector3d>.None, Frame: Option<Plane>.None));
-    // Consumers: Space.spec local SupportProjection sweep + Intent.spec output-projection matrix.
     public static readonly Gen<SupportProjection> SupportProjections = Gen.OneOfConst(
         SupportProjection.Closest, SupportProjection.Direction, SupportProjection.Normal,
         SupportProjection.Distance, SupportProjection.Parameter, SupportProjection.Uv,
@@ -229,60 +211,50 @@ public static class Gens {
         SupportProjection.ContainmentDistance, SupportProjection.Tangent, SupportProjection.Frame);
 
     // --- [MATRIX_FIXTURES] -----------------------------------------------------------------
-    // Shared matrix-from-flat-row-major builder. Inputs caller-validated (rows/cols ≥ 1); throws on invariant break.
+    // Row-major builder; rows/cols are caller-validated (≥ 1) and throw on invariant break.
     private static VectorMatrix BuildMatrix(int rows, int cols, double[] entries) =>
         VectorMatrix.Of(
             rows: Dim.TryCreate(rows, out Dim r) ? r : throw new InvalidOperationException($"BuildMatrix rows: {rows}"),
             cols: Dim.TryCreate(cols, out Dim c) ? c : throw new InvalidOperationException($"BuildMatrix cols: {cols}"),
             entries: new Arr<double>(entries))
             .Match(Succ: static m => m, Fail: static e => throw new InvalidOperationException($"BuildMatrix invariant: {e.Message}"));
-    // Consumers: Align Procrustes 2D rotation oracle + Atoms FrameOf 2D pose check.
     public static Gen<(double Theta, VectorMatrix R)> RotationMatrix2D(Gen<double>? angle = null) =>
         (angle ?? UnitAngle).Select(static theta => (
             Theta: theta,
             R: BuildMatrix(rows: 2, cols: 2, entries: [Math.Cos(d: theta), -Math.Sin(a: theta), Math.Sin(a: theta), Math.Cos(d: theta)])));
-    // Consumers: Align reflection oracle + Atoms.MirrorCase reflection plane.
     public static Gen<(Vector3d Normal, VectorMatrix M)> Reflection3D(Gen<Vector3d>? normal = null) =>
         (normal ?? UnitVec).Select(static n => (Normal: n, M: BuildMatrix(rows: 3, cols: 3, entries: [
             1 - (2 * n.X * n.X), -2 * n.X * n.Y, -2 * n.X * n.Z,
             -2 * n.X * n.Y, 1 - (2 * n.Y * n.Y), -2 * n.Y * n.Z,
             -2 * n.X * n.Z, -2 * n.Y * n.Z, 1 - (2 * n.Z * n.Z)])));
-    // Consumers: Matrix near-multiplicity eigenvalue stress + Spectral assembly conditioning test.
     public static Gen<VectorMatrix> SpdWithSpectrum(int n, Gen<Arr<double>> eigenvalues) =>
         eigenvalues.Select(spec => BuildMatrix(rows: n, cols: n,
             entries: [.. toSeq(Enumerable.Range(0, n * n)).Map(idx => idx / n == idx % n ? spec[idx / n] : 0.0)]));
-    // Consumers: Matrix conditioning-aware tolerance + Spectral filter conditioning fuzz.
     public static Gen<VectorMatrix> IllConditioned(int n, double kappa) =>
         SpdWithSpectrum(n: n, eigenvalues: Gen.Const(value: new Arr<double>([.. toSeq(Enumerable.Range(0, n)).Map(k => 1.0 + ((kappa - 1.0) * k / Math.Max(val1: n - 1, val2: 1)))])));
 
     // --- [POLYMORPHIC_TUPLES] --------------------------------------------------------------
-    // Consumers: Spec.Distributive (T,T,T) requirement + Spec.MetamorphicOps multi-param chain.
     public static Gen<(T A, T B, T C)> DistinctTriple<T>(Gen<T> element) =>
         (element ?? throw new ArgumentNullException(nameof(element))).Select(element, element, static (T a, T b, T c) => (A: a, B: b, C: c));
 
     // --- [DIRECTION_AND_FRAME] -------------------------------------------------------------
-    // Consumers: Align ICP normal alignment + Field angular direction sampling.
     public static readonly Gen<Vector3d> AngularDirection = UnitAngle.Select(UnitClosed,
         static (double azimuth, double polar) => {
             double phi = polar * Math.PI;
             return new Vector3d(x: Math.Sin(a: phi) * Math.Cos(d: azimuth), y: Math.Sin(a: phi) * Math.Sin(a: azimuth), z: Math.Cos(d: phi));
         });
-    // Consumers: Spectral basis Plane reconstruction + Atoms VectorFrame round-trip.
     public static readonly Gen<Plane> OrthonormalFrame = Point.Select(UnitVecPair,
         static (Point3d origin, (Vector3d A, Vector3d B) axes) => new Plane(origin: origin, xDirection: axes.A, yDirection: axes.B));
 
     // --- [CLOUD_FIXTURES] -----------------------------------------------------------------
-    // Consumers: Cloud cluster classification + Sample density clustering.
     public static Gen<Seq<Point3d>> PointCloudClustered(int clusters = 3, int perCluster = 10, double spread = 0.1) =>
         Point.Array[clusters].Select(Vec.Array[clusters * perCluster], (Point3d[] centers, Vector3d[] jitters) =>
             toSeq(Enumerable.Range(start: 0, count: centers.Length * perCluster).Select(idx =>
                 centers[idx / perCluster] + (jitters[idx] * spread))));
 
     // --- [METAMORPHIC_HELPERS] ------------------------------------------------------------
-    // Consumers: Cloud centroid translation MR + Field SDF sample translation MR.
     public static Gen<Vector3d> Translate(double maxMagnitude = 100.0) =>
         Vec.Where(v => v.Length <= maxMagnitude);
-    // Consumers: Cloud isoperimetric scaling MR + Field SDF scale MR.
     public static readonly Gen<double> Scale = Gen.Frequency(
         (80, Positive),
         (20, Gen.OneOfConst(0.5, 1.0, 2.0, 10.0)));

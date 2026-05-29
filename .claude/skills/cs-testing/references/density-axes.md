@@ -43,6 +43,7 @@ Every owning spec should explicitly consider these axes:
 - Use local fixture geometry only when it is the independent model: asymmetric tetrahedra, a unit segment, one triangle, one square, diagonal matrices, and one-point probability plans often expose more bugs than large random fixtures.
 - Raise the 175 LOC target only after collapsing repeated setup into arrays, `Spec.Cases`, `Spec.SmartEnumKeysUnique`, `Numeric`, or a two-consumer testkit primitive.
 - Keep bridge classification concise in static specs; executable native success belongs in `*.verify.csx`, not in long static workarounds.
+- Batch independent invariants (catalog multiplicities, fault category + type-pair) under `Assert.Multiple(() => …, …)` so every delta reports at once instead of stopping at the first failure. Use only for INDEPENDENT checks — never when one lambda's `Assert.IsType` result feeds the next.
 
 ---
 ## [4][POLYMORPHIC_PATTERNS]
@@ -78,6 +79,8 @@ Nine torture-pattern extensions:
 | [17] | Conditioning-aware tolerance | Floating-point algorithms | Tolerance = `κ(A) × base` where conditioning comes from the input generator, not a constant |
 | [18] | Composite MR chain | Multi-step pipeline | `f(g(h(x))) ≡ permuted_chain(x)` over generated `(x, perm)` |
 | [19] | Pre/post triple for stateful APIs | `Atom` / `Validation` / `Fin` chains | Generated `(precondition, action, postcondition)` triples |
+| [20] | `Spec.SmartEnumOutputCatalog` | SmartEnum catalog whose per-case declared `Output` type is the invariant | Folds dense-key + uniqueness + per-case Output vs an independent `expectedOutput` table in one law (wraps `SmartEnumCatalogMatches`). |
+| [21] | `Spec.SupportMatrix` | Walls of `Assert.True/False(...IsSupported)` or capability probes (`AcceptsTarget`/`CanProject`) | Labeled `(Label, () => probe, Expected)` rows; thunks keep `<TGeom,TOut>` generics at the call site and each row names its own failure instead of an anonymous `Assert.True`. |
 
 Worked example — composite MR chain:
 

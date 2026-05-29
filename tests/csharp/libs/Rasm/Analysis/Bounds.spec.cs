@@ -6,21 +6,11 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Analysis;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// Rasm.Analysis.Bounds is bridge-heavy: every Operation EVALUATION reads live native geometry — AxisAligned/
-// Center/Corners route GeometryKernel.BoundsOf; InPlane/Transformed/PrincipalFrame/Tightness route
-// GetBoundingBox(xform)/MassKind.PrincipalFrameOf + native Box construction; Edges reads BoundingBox.GetEdges;
-// Area/Volume/Diagonal/AspectRatio read native Box/BoundingBox metrics; EnclosingSphere/Circle/Cylinder fit via
-// the private Ritter/FarthestFrom/AspectOf helpers over GeometryKernel.SamplePoints + Circle.TrySmallestEnclosingCircle.
-// Those successes (and the unreachable-from-here private fitters) are owned by *.verify.csx and are NOT faked here.
-// The static rail owns the pure-managed surface only: the Bounds union catalog + 15 factories transporting their
-// Plane/Transform/Vector3d/bool/int payloads VERBATIM, and the operation-construction DISPATCH —
-// Bounds.Operation<TGeometry,TOut>() routes on pure Type-shape predicates (typeof + GeometryKernel.CanBound/Can
-// reflection over the frozen Kind catalog, zero Rhino runtime) to a built Operation (IsSupported) or
-// key.Unsupported<>(). That decision table is asserted against an INDEPENDENT (geometry × output) support
-// specification, and the Reject rail surfaces through Analyze.Run without touching native (Supported() fails first).
+// BRIDGE-DEFERRED (*.verify.csx): every Bounds Operation EVALUATION reads live native geometry (Ritter/Welzl fits,
+// metrics, PrincipalFrameOf). Static rail owns: the Bounds union catalog + 15 payload-transporting factories and
+// Operation<TGeom,TOut> dispatch (pure typeof + CanBound/CanPrincipal reflection); Run rejects at Supported() pre-Apply.
 internal static class BoundsGens {
-    // Plane via Plane.WorldZX (managed static — distinct from WorldXY) with an origin shift through the managed
-    // Origin setter; never new Plane(origin, normal), whose native axis derivation P/Invokes outside the bridge.
+    // Copy a World basis + managed Origin setter; new Plane(origin, normal) axis derivation P/Invokes.
     public static readonly Op Key = Op.Of(name: "bounds-test");
     public static readonly Plane Pose = new(other: Plane.WorldZX) { Origin = new Point3d(x: 3.0, y: -7.0, z: 11.0) };
     public static readonly Transform Shear = new() { M00 = 1.0, M01 = 2.0, M02 = 0.0, M03 = 5.0, M11 = 1.0, M12 = 3.0, M22 = 1.0, M33 = 1.0 };
@@ -44,48 +34,48 @@ public sealed class BoundsUnionCatalogLaws {
         Assert.Equal(expected: 15, actual: Cases.Select(static c => c.Aspect.GetType()).Distinct().Count());
     [Fact]
     public void PayloadCarryingFactoriesTransportTheirChannelsVerbatim() {
-        Spec.Equal(left: Assert.IsType<Bounds.InPlaneCase>(@object: Bounds.Oriented(plane: BoundsGens.Pose)).Plane, right: BoundsGens.Pose, what: "Oriented plane");
+        Spec.ForAll(Gens.ManagedPlane, static plane => {
+            Spec.Equal(left: Assert.IsType<Bounds.InPlaneCase>(@object: Bounds.Oriented(plane: plane)).Plane, right: plane, what: "Oriented plane");
+            Spec.Equal(left: Assert.IsType<Bounds.EnclosingCircleCase>(@object: Bounds.EnclosingCircle(plane: plane, count: BoundsGens.Count)).Plane, right: plane, what: "Circle plane");
+        });
         Spec.Equal(left: Assert.IsType<Bounds.TransformedCase>(@object: Bounds.Transformed(transform: BoundsGens.Shear)).Xform, right: BoundsGens.Shear, what: "Transformed xform");
-        Spec.Equal(left: Assert.IsType<Bounds.EnclosingCircleCase>(@object: Bounds.EnclosingCircle(plane: BoundsGens.Pose, count: BoundsGens.Count)).Plane, right: BoundsGens.Pose, what: "Circle plane");
         Spec.Equal(left: Assert.IsType<Bounds.EnclosingCylinderCase>(@object: Bounds.EnclosingCylinder(axis: BoundsGens.Axis, count: BoundsGens.Count)).Axis, right: BoundsGens.Axis, what: "Cylinder axis");
         Assert.True(condition: Assert.IsType<Bounds.CornersCase>(@object: Bounds.Corners(unique: true)).Unique);
         Assert.False(condition: Assert.IsType<Bounds.CornersCase>(@object: Bounds.Corners(unique: false)).Unique);
         Assert.Equal(expected: BoundsGens.Count, actual: Assert.IsType<Bounds.EnclosingSphereCase>(@object: Bounds.EnclosingSphere(count: BoundsGens.Count)).Count);
-        Assert.Equal(expected: BoundsGens.Count, actual: Assert.IsType<Bounds.EnclosingCircleCase>(@object: Bounds.EnclosingCircle(plane: BoundsGens.Pose, count: BoundsGens.Count)).Count);
         Assert.Equal(expected: BoundsGens.Count, actual: Assert.IsType<Bounds.EnclosingCylinderCase>(@object: Bounds.EnclosingCylinder(axis: BoundsGens.Axis, count: BoundsGens.Count)).Count);
     }
     [Fact]
-    public void EnclosingCountDefaultsToSixtyFourWhenOmitted() {
-        Assert.Equal(expected: 64, actual: Assert.IsType<Bounds.EnclosingSphereCase>(@object: Bounds.EnclosingSphere()).Count);
-        Assert.Equal(expected: 64, actual: Assert.IsType<Bounds.EnclosingCircleCase>(@object: Bounds.EnclosingCircle(plane: BoundsGens.Pose)).Count);
-        Assert.Equal(expected: 64, actual: Assert.IsType<Bounds.EnclosingCylinderCase>(@object: Bounds.EnclosingCylinder(axis: BoundsGens.Axis)).Count);
-        Assert.False(condition: Assert.IsType<Bounds.CornersCase>(@object: Bounds.Corners()).Unique);
-    }
+    public void EnclosingCountDefaultsToSixtyFourWhenOmitted() =>
+        Assert.Multiple(
+            () => Assert.Equal(expected: 64, actual: Assert.IsType<Bounds.EnclosingSphereCase>(@object: Bounds.EnclosingSphere()).Count),
+            () => Assert.Equal(expected: 64, actual: Assert.IsType<Bounds.EnclosingCircleCase>(@object: Bounds.EnclosingCircle(plane: BoundsGens.Pose)).Count),
+            () => Assert.Equal(expected: 64, actual: Assert.IsType<Bounds.EnclosingCylinderCase>(@object: Bounds.EnclosingCylinder(axis: BoundsGens.Axis)).Count),
+            () => Assert.False(condition: Assert.IsType<Bounds.CornersCase>(@object: Bounds.Corners()).Unique));
 }
 
 public sealed class BoundsOutputDispatchLaws {
-    // INDEPENDENT (geometry × output) support specification — re-derives each case's documented TOut from a
-    // closed reflection oracle (CanBound includeSphere:true / GeometryBase assignability / CanPrincipal over the
-    // frozen Kind catalog) distinct from production's per-case Switch arm. A swapped TOut or geometry guard is caught.
+    // INDEPENDENT support oracle: re-derives each case's documented TOut via closed reflection (CanBound /
+    // GeometryBase assignability / CanPrincipal), distinct from production's Switch arm; catches a swapped TOut or guard.
     [Fact]
-    public void SingularOutputCasesPinTheirDocumentedProjectionAndRejectForeignOutput() {
-        Assert.True(condition: Bounds.AxisAligned.Operation<Mesh, BoundingBox>().IsSupported);
-        Assert.True(condition: Bounds.AxisAligned.Operation<Point3d, BoundingBox>().IsSupported);
-        Assert.False(condition: Bounds.AxisAligned.Operation<Plane, BoundingBox>().IsSupported);
-        Assert.False(condition: Bounds.AxisAligned.Operation<Mesh, Box>().IsSupported);
-        Assert.True(condition: Bounds.Oriented(plane: BoundsGens.Pose).Operation<Mesh, Box>().IsSupported);
-        Assert.False(condition: Bounds.Oriented(plane: BoundsGens.Pose).Operation<BoundingBox, Box>().IsSupported);
-        Assert.False(condition: Bounds.Oriented(plane: BoundsGens.Pose).Operation<Mesh, BoundingBox>().IsSupported);
-        Assert.True(condition: Bounds.Transformed(transform: BoundsGens.Shear).Operation<Brep, BoundingBox>().IsSupported);
-        Assert.False(condition: Bounds.Transformed(transform: BoundsGens.Shear).Operation<Point3d, BoundingBox>().IsSupported);
-        Assert.True(condition: Bounds.Principal.Operation<Mesh, Box>().IsSupported);
-        Assert.True(condition: Bounds.Principal.Operation<Brep, Box>().IsSupported);
-        Assert.False(condition: Bounds.Principal.Operation<Point3d, Box>().IsSupported);
-        Assert.False(condition: Bounds.Principal.Operation<Mesh, BoundingBox>().IsSupported);
-        Assert.True(condition: Bounds.Edges.Operation<BoundingBox, Line>().IsSupported);
-        Assert.False(condition: Bounds.Edges.Operation<Mesh, Line>().IsSupported);
-        Assert.False(condition: Bounds.Edges.Operation<BoundingBox, Point3d>().IsSupported);
-    }
+    public void SingularOutputCasesPinTheirDocumentedProjectionAndRejectForeignOutput() =>
+        Spec.SupportMatrix(
+            ("AxisAligned Mesh→BoundingBox", static () => Bounds.AxisAligned.Operation<Mesh, BoundingBox>().IsSupported, true),
+            ("AxisAligned Point3d→BoundingBox", static () => Bounds.AxisAligned.Operation<Point3d, BoundingBox>().IsSupported, true),
+            ("AxisAligned Plane→BoundingBox", static () => Bounds.AxisAligned.Operation<Plane, BoundingBox>().IsSupported, false),
+            ("AxisAligned Mesh→Box", static () => Bounds.AxisAligned.Operation<Mesh, Box>().IsSupported, false),
+            ("Oriented Mesh→Box", static () => Bounds.Oriented(plane: BoundsGens.Pose).Operation<Mesh, Box>().IsSupported, true),
+            ("Oriented BoundingBox→Box", static () => Bounds.Oriented(plane: BoundsGens.Pose).Operation<BoundingBox, Box>().IsSupported, false),
+            ("Oriented Mesh→BoundingBox", static () => Bounds.Oriented(plane: BoundsGens.Pose).Operation<Mesh, BoundingBox>().IsSupported, false),
+            ("Transformed Brep→BoundingBox", static () => Bounds.Transformed(transform: BoundsGens.Shear).Operation<Brep, BoundingBox>().IsSupported, true),
+            ("Transformed Point3d→BoundingBox", static () => Bounds.Transformed(transform: BoundsGens.Shear).Operation<Point3d, BoundingBox>().IsSupported, false),
+            ("Principal Mesh→Box", static () => Bounds.Principal.Operation<Mesh, Box>().IsSupported, true),
+            ("Principal Brep→Box", static () => Bounds.Principal.Operation<Brep, Box>().IsSupported, true),
+            ("Principal Point3d→Box", static () => Bounds.Principal.Operation<Point3d, Box>().IsSupported, false),
+            ("Principal Mesh→BoundingBox", static () => Bounds.Principal.Operation<Mesh, BoundingBox>().IsSupported, false),
+            ("Edges BoundingBox→Line", static () => Bounds.Edges.Operation<BoundingBox, Line>().IsSupported, true),
+            ("Edges Mesh→Line", static () => Bounds.Edges.Operation<Mesh, Line>().IsSupported, false),
+            ("Edges BoundingBox→Point3d", static () => Bounds.Edges.Operation<BoundingBox, Point3d>().IsSupported, false));
     [Fact]
     public void CenterAndCornersProjectPoint3dForAnyGeometryAndRejectForeignOutput() {
         Spec.Cases(items: AnyGeometryPoint3d, key: static g => g.Label, law: static g => {
@@ -104,12 +94,12 @@ public sealed class BoundsOutputDispatchLaws {
             Assert.False(condition: m.Aspect.Operation<BoundingBox, Point3d>().IsSupported);
         });
     [Fact]
-    public void TightnessNeedsGeometryBaseWithPrincipalTopologyAndDoubleOutput() {
-        Assert.True(condition: Bounds.Tightness.Operation<Mesh, double>().IsSupported);
-        Assert.True(condition: Bounds.Tightness.Operation<Brep, double>().IsSupported);
-        Assert.False(condition: Bounds.Tightness.Operation<BoundingBox, double>().IsSupported);
-        Assert.False(condition: Bounds.Tightness.Operation<Mesh, Box>().IsSupported);
-    }
+    public void TightnessNeedsGeometryBaseWithPrincipalTopologyAndDoubleOutput() =>
+        Spec.SupportMatrix(
+            ("Tightness Mesh→double", static () => Bounds.Tightness.Operation<Mesh, double>().IsSupported, true),
+            ("Tightness Brep→double", static () => Bounds.Tightness.Operation<Brep, double>().IsSupported, true),
+            ("Tightness BoundingBox→double (no principal topology)", static () => Bounds.Tightness.Operation<BoundingBox, double>().IsSupported, false),
+            ("Tightness Mesh→Box (foreign output)", static () => Bounds.Tightness.Operation<Mesh, Box>().IsSupported, false));
     [Fact]
     public void EnclosingShapesSupportTheirHullOutputWhenBoundableAndRejectForeignOutput() =>
         Spec.Cases(items: Enclosings, key: static e => e.Label, law: static e => {
@@ -117,15 +107,14 @@ public sealed class BoundsOutputDispatchLaws {
             Assert.False(condition: e.PlaneHull);
             Assert.False(condition: e.ForeignOutput);
         });
-    // Center/Corners carry no geometry guard — TOut==Point3d alone supports any geometry; pre-projected per type.
+    // Center/Corners carry no geometry guard — TOut==Point3d alone suffices.
     public static readonly (string Label, bool Center, bool Corners)[] AnyGeometryPoint3d =
         [("Mesh", Bounds.Center.Operation<Mesh, Point3d>().IsSupported, Bounds.Corners(unique: true).Operation<Mesh, Point3d>().IsSupported),
          ("Plane", Bounds.Center.Operation<Plane, Point3d>().IsSupported, Bounds.Corners(unique: false).Operation<Plane, Point3d>().IsSupported),
          ("Point3d", Bounds.Center.Operation<Point3d, Point3d>().IsSupported, Bounds.Corners(unique: true).Operation<Point3d, Point3d>().IsSupported)];
     public static readonly (string Label, Bounds Aspect)[] Metrics =
         [("Area", Bounds.Area), ("Volume", Bounds.Volume), ("Diagonal", Bounds.Diagonal), ("AspectRatio", Bounds.AspectRatio)];
-    // Hull TOut is invariant per case (Sphere/Circle/Cylinder), so support truth is pre-projected to bool triples
-    // rather than stored through a lossy Operation<_,object> cast that would re-Reject every heterogeneous arm.
+    // Hull TOut is invariant per case, so pre-project to bool triples; a lossy Operation<_,object> cast would re-Reject every arm.
     public static readonly (string Label, bool MeshHull, bool PlaneHull, bool ForeignOutput)[] Enclosings =
         [("Sphere", Bounds.EnclosingSphere(count: BoundsGens.Count).Operation<Mesh, Sphere>().IsSupported,
           Bounds.EnclosingSphere(count: BoundsGens.Count).Operation<Plane, Sphere>().IsSupported,
@@ -140,9 +129,8 @@ public sealed class BoundsOutputDispatchLaws {
 
 // --- [EDGE_CASES] ---------------------------------------------------------------------------
 public sealed class BoundsRejectionRailLaws {
-    // Reject rail surfaces WITHOUT native: Analyze.Run fails on Supported() (Body.Rejected) before any Apply, so a
-    // foreign-output operation carries Fault.Unsupported with the exact (geometry, output) type-pair; a null aspect
-    // collapses to the Input category via Analyze.Bounds → Aspect's Reject(InvalidInput). Mirrors Topology's rail.
+    // Reject rail surfaces WITHOUT native: Run fails at Supported() pre-Apply. Foreign output → Fault.Unsupported with
+    // the exact (geometry, output) pair; null aspect → Input category via Aspect's Reject(InvalidInput).
     [Fact]
     public void ForeignOutputOperationRunRejectsWithUnsupportedTypePair() =>
         Spec.Invalid(Analyze.Run(operation: Bounds.AxisAligned.Operation<Mesh, Box>(), input: default(Mesh)!),

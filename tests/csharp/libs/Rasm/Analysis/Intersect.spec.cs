@@ -6,21 +6,11 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Analysis;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// BRIDGE-DEFERRED (native RhinoCommon — owned by *.verify.csx, never faked here): every Intersection.*
-// compute (LineLine/LinePlane/PlanePlane/LineCircle/LineSphere/LineBox/CurveCurve/CurveLine/CurvePlane/
-// CurveSurface/CurveBrep(Face)/SurfaceSurface/BrepPlane/BrepSurface/BrepBrep/MeshLine/MeshPlane/MeshMesh/
-// MeshRay/RayShoot), GeometryKernel.CurveForm/BrepForm, Curve.GetDistancesBetweenCurves/ClosestPoint/
-// TangentAt, mesh.GetSelfIntersections, the IntersectionCases compute lambdas, CurveDeviationOf,
-// DeviationOf, EnrichTangency/TangencyAt, IntersectOrdered/IntersectionOf/SelfIntersectionOf runtime,
-// the Analyze.{Intersect,Classify,Deviation,SelfIntersect}<...> evaluator pipelines. UNREACHABLE here
-// (private static, not internal): SegmentInterval clamp algebra and OnFiniteLine — their closed-form
-// laws have no public/internal entrypoint, so they are bridge-deferred through the Line/Box and
-// Line/Sphere cases that consume them. Static rail owns ONLY the pure-managed surface: IntersectionResult
-// union construction with value payloads (Seq<Line>/Seq<Point3d>/Seq<Interval>), CanProject per-case type
-// truth table, Project<TOut> dispatch (native echo verbatim + IntersectionKind uniform tag + Unsupported),
-// the Supports/IntersectionShape pure typeof tables (compute lambdas never fired by shape lookup), and the
-// CanSelfIntersect/CanDeviation reflection predicates. The Hits case delegates to IntersectionHit.Project
-// (covered in Domain/Geometry.spec) — touched once for routing parity, not duplicated.
+// BRIDGE-DEFERRED (*.verify.csx): every Intersection.* compute, GeometryKernel.CurveForm/BrepForm, Curve
+// distance/closest/tangent, mesh self-intersection, and the Analyze.* evaluator pipelines P/Invoke rhcommon_c;
+// SegmentInterval/OnFiniteLine are private (no entrypoint). Static rail owns: IntersectionResult construction, the
+// CanProject truth table, Project<TOut> dispatch, the pure unordered:true Supports/Shape tables, CanSelfIntersect,
+// and CanDeviation. Hits routes to IntersectionHit (Domain/Geometry.spec).
 internal static class IntersectGens {
     public static readonly Op Key = Op.Of(name: "intersect-test");
     // Distinct per-element payloads so a verbatim-echo swap (e.g. Values[0]<->Values[1]) is observable.
@@ -66,8 +56,8 @@ public sealed class IntersectionResultProjectionLaws {
 }
 
 public sealed class IntersectionResultCanProjectLaws {
-    // IntersectionResult is internal — a [Theory]/MemberData row over it would leak the type through a public
-    // signature (CS0051/53). Iterate a PRIVATE case table via Spec.Cases instead (the law body has internal access).
+    // IntersectionResult is internal: a [Theory]/MemberData row leaks it through a public signature (CS0051/53), so
+    // iterate a PRIVATE case table via Spec.Cases (the law body has internal access).
     private static readonly (IntersectionResult Case, Type Native)[] Rows = [
         (IntersectGens.LinesCase, typeof(Line)), (IntersectGens.PointsCase, typeof(Point3d)), (IntersectGens.IntervalsCase, typeof(Interval))];
     private static readonly Type[] NativeChannels = [typeof(Line), typeof(Point3d), typeof(Interval), typeof(Polyline)];
@@ -84,9 +74,9 @@ public sealed class IntersectionResultCanProjectLaws {
 }
 
 public sealed class IntersectionShapeSupportConsistencyLaws {
-    // BRIDGE-DEFERRED: Supports/IntersectionShape with unordered:false (single ordered scan) and any no-direct-match
-    // pair force a full IntersectionCases scan reaching coercion-probing predicates that P/Invoke rhcommon_c. The
-    // static rail owns the pure unordered:true rail: direct-case resolution, argument-swap recovery, wildcard.
+    // BRIDGE-DEFERRED: unordered:false and any no-direct-match pair force a full IntersectionCases scan into
+    // coercion-probing predicates that P/Invoke rhcommon_c; static rail owns the pure unordered:true rail
+    // (direct-case resolution, argument-swap recovery, wildcard).
     private static readonly (Type Left, Type Right, Type Output)[] DirectShapes = [
         (typeof(Line), typeof(Line), typeof(Point3d)), (typeof(Plane), typeof(Plane), typeof(Line)),
         (typeof(Line), typeof(BoundingBox), typeof(Interval)), (typeof(Mesh), typeof(Plane), typeof(Polyline)),
@@ -98,19 +88,19 @@ public sealed class IntersectionShapeSupportConsistencyLaws {
                 then: shape => Spec.Holds(condition: shape.CanProject(output: t.Output), label: $"{t.Left.Name}x{t.Right.Name}->{t.Output.Name} shape projects output"));
             Spec.Holds(condition: IntersectionResult.Supports(left: t.Left, right: t.Right, output: t.Output, unordered: true), label: $"Supports tracks shape for {t.Left.Name}x{t.Right.Name}");
         });
+    // Plane/Line has no Plane-first ordered shape; unordered:true recovers support via the LinePlane case.
     [Fact]
-    public void UnorderedSupportRecoversThroughArgumentSwap() {
-        // Plane/Line has no Plane-first ordered shape; unordered:true recovers support via the LinePlane case.
-        Assert.True(condition: IntersectionResult.Supports(left: typeof(Plane), right: typeof(Line), output: typeof(Point3d), unordered: true));
-        Assert.True(condition: IntersectionResult.Supports(left: typeof(Line), right: typeof(Plane), output: typeof(Point3d), unordered: true));
-    }
+    public void UnorderedSupportRecoversThroughArgumentSwap() =>
+        Spec.SupportMatrix(
+            ("Plane×Line→Point3d (swap recovery)", static () => IntersectionResult.Supports(left: typeof(Plane), right: typeof(Line), output: typeof(Point3d), unordered: true), true),
+            ("Line×Plane→Point3d", static () => IntersectionResult.Supports(left: typeof(Line), right: typeof(Plane), output: typeof(Point3d), unordered: true), true));
     [Fact]
-    public void ObjectWildcardSupportsAnyOutputAProjectableShapeOwnsAndForeignOutputCollapses() {
-        Assert.True(condition: IntersectionResult.Supports(left: typeof(object), right: typeof(Line), output: typeof(Point3d), unordered: true));
-        Assert.True(condition: IntersectionResult.Supports(left: typeof(Mesh), right: typeof(object), output: typeof(Polyline), unordered: true));
-        Assert.False(condition: IntersectionResult.Supports(left: typeof(object), right: typeof(object), output: typeof(string), unordered: true));
-        Assert.False(condition: IntersectionResult.Supports(left: typeof(string), right: typeof(Guid), output: typeof(Point3d), unordered: true));
-    }
+    public void ObjectWildcardSupportsAnyOutputAProjectableShapeOwnsAndForeignOutputCollapses() =>
+        Spec.SupportMatrix(
+            ("object×Line→Point3d", static () => IntersectionResult.Supports(left: typeof(object), right: typeof(Line), output: typeof(Point3d), unordered: true), true),
+            ("Mesh×object→Polyline", static () => IntersectionResult.Supports(left: typeof(Mesh), right: typeof(object), output: typeof(Polyline), unordered: true), true),
+            ("object×object→string (no shape)", static () => IntersectionResult.Supports(left: typeof(object), right: typeof(object), output: typeof(string), unordered: true), false),
+            ("string×Guid→Point3d (no shape)", static () => IntersectionResult.Supports(left: typeof(string), right: typeof(Guid), output: typeof(Point3d), unordered: true), false));
 }
 
 public sealed class CapabilityPredicateLaws {
@@ -122,11 +112,11 @@ public sealed class CapabilityPredicateLaws {
             law: static t => Assert.False(condition: Analyze.CanSelfIntersect(geometry: t)));
     }
     [Fact]
-    public void DeviationRequiresBothOperandsCoerceToCurveForm() {
-        Assert.True(condition: Analyze.CanDeviation(left: typeof(Curve), right: typeof(Line)));
-        Assert.True(condition: Analyze.CanDeviation(left: typeof(Circle), right: typeof(Arc)));
-        Assert.False(condition: Analyze.CanDeviation(left: typeof(Curve), right: typeof(Mesh)));
-        Assert.False(condition: Analyze.CanDeviation(left: typeof(Plane), right: typeof(Curve)));
-        Assert.False(condition: Analyze.CanDeviation(left: typeof(Mesh), right: typeof(Brep)));
-    }
+    public void DeviationRequiresBothOperandsCoerceToCurveForm() =>
+        Spec.SupportMatrix(
+            ("Curve×Line", static () => Analyze.CanDeviation(left: typeof(Curve), right: typeof(Line)), true),
+            ("Circle×Arc", static () => Analyze.CanDeviation(left: typeof(Circle), right: typeof(Arc)), true),
+            ("Curve×Mesh", static () => Analyze.CanDeviation(left: typeof(Curve), right: typeof(Mesh)), false),
+            ("Plane×Curve", static () => Analyze.CanDeviation(left: typeof(Plane), right: typeof(Curve)), false),
+            ("Mesh×Brep", static () => Analyze.CanDeviation(left: typeof(Mesh), right: typeof(Brep)), false));
 }

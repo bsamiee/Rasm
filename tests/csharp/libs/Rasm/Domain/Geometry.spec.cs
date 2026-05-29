@@ -5,27 +5,19 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Domain;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// BRIDGE-DEFERRED (native RhinoCommon geometry — owned by *.verify.csx, never faked here):
-// GeometryKernel.{KindOf,BoundsOf,CoerceTo,CurveForm,SurfaceForm,BrepForm,VerticesOf,SamplePoints,
-// SurfaceUv/SampleUv,NormalAt,FrameAt,ClosestOf,SignedDistanceOf,CurveFormOf}; TopologyProjection
-// construction/HasValidSource/As/DetachFrom/Transfers/FromMesh; Lease<T> over native disposables;
-// ClosestHit native-source success; RayQuery.IsValid (Vector3d.IsTiny P/Invokes rhcommon_c);
-// IntersectionHit.Along(Curve, ...) and any CurveCase law (needs a live Curve). Static rail owns only
-// the pure-managed surface: Kind/Topology/IntersectionKind catalogs, Kind.Of(Type) factory, capability
-// predicates, IntersectionHit value-type construction + validity + Point3d/Interval/enum/SmartEnum
-// projection dispatch, CurveForm value-case construction.
-// LOC: header 16 + usings 4 + [CONSTANTS] 28 + [ALGEBRAIC] ~150 = ~200; overage owns 3 SmartEnum
-// catalogs + 21-case capability matrix + IntersectionHit projection dispatch in one denser surface.
+// BRIDGE-DEFERRED (*.verify.csx): GeometryKernel.* coercion/sampling/closest, TopologyProjection, Lease<T>, ClosestHit
+// native source, RayQuery.IsValid (Vector3d.IsTiny P/Invoke), IntersectionHit.Along(Curve…). Static rail owns the
+// Kind/Topology/IntersectionKind catalogs, Kind.Of(Type) factory + capability lattice, and IntersectionHit construction/validity/projection.
 internal static class GeometryGens {
     public static readonly Op Key = Op.Of(name: "geometry-test");
-    // Distinct per-channel coordinates/intervals so a Start<->End or OverlapA<->OverlapB swap is observable.
+    // Distinct per-channel values so a Start<->End or OverlapA<->OverlapB swap is observable.
     public static readonly Point3d Start = new(x: 2.0, y: 3.0, z: 5.0), End = new(x: 7.0, y: 11.0, z: 13.0);
     public static readonly Interval OverlapA = new(t0: 17.0, t1: 19.0), OverlapB = new(t0: 23.0, t1: 29.0);
     public static readonly Gen<IntersectionHit> PointHit = Gens.Point.Where(static p => p.IsValid).Select(
         Gen.OneOfConst(IntersectionTangency.Transversal, IntersectionTangency.Tangent, IntersectionTangency.Unknown),
         static (Point3d p, IntersectionTangency t) => IntersectionHit.At(point: p, tangency: t));
     public static readonly IntersectionHit Overlap = IntersectionHit.Overlap(start: Start, end: End, overlapA: OverlapA, overlapB: OverlapB);
-    // Independent coercion oracle: documented assignable + Brep/Curve/Surface lattice (mirrors Kind.CanCoerceTo intent, not its body).
+    // Independent oracle: re-derives the assignable + Brep/Curve/Surface lattice from intent, not Kind.CanCoerceTo's body.
     public static bool CoerceOracle(Kind kind, Type target) {
         bool brepSource = kind.Type == typeof(Brep) || kind.Type == typeof(Surface) || kind.Type == typeof(Box) || kind.Type == typeof(BoundingBox)
             || kind.Type == typeof(Sphere) || kind.Type == typeof(Cylinder) || kind.Type == typeof(Cone) || kind.Type == typeof(Torus) || kind.Type == typeof(Extrusion) || kind.Type == typeof(SubD);

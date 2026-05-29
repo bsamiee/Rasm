@@ -6,17 +6,9 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Analysis;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// Rasm.Analysis.Spatial is almost entirely bridge-owned: Tree.Points/PointCloud/MeshFaces/FromBounds
-// construct a native RTree (RTree.CreateFromPointArray / CreatePointCloudTree / CreateMeshFaceTree /
-// Insert), Tree.Search(box|sphere) and Tree.Overlaps run native RTree.Search/SearchOverlaps callbacks,
-// and Spatial.NearestPoints' success path calls native RTree.Point3dKNeighbors / Point3dClosestPoints —
-// each loads rhcommon_c and is owned by *.verify.csx, NOT faked here. NearestPoints also returns
-// Eff<Context, Seq<Couple>>, whose extraction needs an Env/Context runtime that no static spec drives.
-// The static rail owns the pure-managed surface only: the Probe [Union] catalog (distinct case types +
-// payload transport via Nearest(count)/Within(distance)); Tree.ValidatePoints — a TraverseM guard over
-// Point3d.IsValid (managed) projecting an all-valid array or an Input fault on the first invalid point;
-// and Tree.PointPairs — pure (needle x source) index algebra emitting sorted Couple(A:needle, B:source),
-// anchored against an INDEPENDENT closed-form expansion oracle distinct from production's SelectMany fold.
+// BRIDGE-DEFERRED (*.verify.csx): Tree.* build native RTree, Search/Overlaps run native callbacks, NearestPoints
+// calls native KNeighbors. Static rail owns: the Probe union catalog, Tree.ValidatePoints (TraverseM over
+// Point3d.IsValid → all-valid or first-invalid Input fault), and Tree.PointPairs vs an independent sorted oracle.
 internal static class SpatialGens {
     public static readonly Op Key = Op.Of(name: "spatial-test");
     public static readonly Point3d[] InvalidPoints =

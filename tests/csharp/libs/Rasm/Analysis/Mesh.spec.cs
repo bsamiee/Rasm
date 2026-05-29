@@ -6,50 +6,36 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Analysis;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// Rasm.Analysis.Mesh is bridge-heavy: every MeshSampleKind.Sample delegate reads a live native Mesh
-// (IsValid/IsClosed/IsManifold/IsSolid/Faces/TopologyVertices/FaceNormals/GetNgonAndFacesCount...) and
-// every MeshMetric.Measure/Shape/VerticesOf/NormalOf/FaceArea/FaceMaxDihedral evaluates native faces,
-// ngons, and dihedral adjacency; MeshNakedEdges/MeshOutline/MeshAtVisiblePolygon/MeshVisiblePolygonCount
-// and the MeshCheckParameters report all bridge-defer. Those successes are owned by *.verify.csx and are
-// NOT faked here — this spec never calls .Sample/.Measure/.Shape nor Applies an Operation to a real Mesh.
-// The static rail owns the pure-managed surface only: the Meshes union catalog (7 cases) + factory case/
-// payload transport (Outline carries Plane, AtVisiblePolygon carries Option<int>, FaceQuality carries the
-// MeshMetric), the three SmartEnum catalogs (MeshSampleGroup/MeshSampleKind/MeshMetric key-uniqueness +
-// Group<->Kinds partition oracle + Inspect flag), MeshMetric.None InvalidInput rejection, and the
-// Operation<TGeometry,TOut>() DISPATCH — a pure Type-shape decision (typeof(TOut) + Metric.None guard,
-// zero Rhino runtime) routing to a built Operation (IsSupported) or a key.Unsupported<>()/Reject rail.
-// Reject short-circuits at Operation.Supported() BEFORE any native Apply, so Analyze.Run over a Rejected
-// op against default(Mesh)! is a pure managed rail observation, exactly like Topology's null-aspect law.
+// BRIDGE-DEFERRED (*.verify.csx): every MeshSampleKind.Sample + MeshMetric.Measure/Shape reads a live native Mesh;
+// NakedEdges/Outline/AtVisiblePolygon defer to the bridge. Static rail owns: the Meshes union catalog, the
+// MeshSampleGroup/MeshSampleKind/MeshMetric catalogs (keys + Label/Inspect + Group↔Kinds partition oracle),
+// MeshMetric.None InvalidInput, and Operation<TGeom,TOut> dispatch (Run rejects at Supported() pre-native).
+// Outline's eager plane.IsValid probe is native → not asserted here.
 internal static class MeshGens {
     public static readonly Op Key = Op.Of(name: "mesh-test");
-    public static readonly MeshSampleGroup[] Groups =
-        [MeshSampleGroup.None, MeshSampleGroup.Validity, MeshSampleGroup.Count, MeshSampleGroup.Defect, MeshSampleGroup.Quality];
-    public static readonly MeshMetric[] Metrics =
-        [MeshMetric.None, MeshMetric.EdgeAspect, MeshMetric.Area, MeshMetric.Perimeter, MeshMetric.Skewness, MeshMetric.DihedralAngle];
 }
 
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
 public sealed class MeshSampleGroupCatalogLaws {
     [Fact]
     public void KeysArePinnedLabelsMatchAndOnlyDefectInspects() {
-        Spec.SmartEnumCatalogMatches(production: MeshGens.Groups, expectedKeys: [0, 1, 2, 3, 4], key: static g => g.Key);
-        Spec.Cases(items: MeshGens.Groups, key: static g => g.Key, law: static g => {
+        Spec.SmartEnumCatalogMatches(production: MeshSampleGroup.Items, expectedKeys: [0, 1, 2, 3, 4], key: static g => g.Key);
+        Spec.Cases(items: MeshSampleGroup.Items, key: static g => g.Key, law: static g => {
             Assert.Equal(expected: g.Key switch { 0 => "None", 1 => "Validity", 2 => "Count", 3 => "Defect", _ => "Quality" }, actual: g.Label);
             Assert.Equal(expected: g.Key == 3, actual: g.Inspect);
         });
     }
-    // INDEPENDENT PARTITION ORACLE: every MeshSampleKind declares exactly one Group; Group.Kinds re-derives
-    // that membership by filtering the full catalog. Asserting each Kind's Group equals the owning partition
-    // AND that the partition sizes sum to the full catalog catches any kind reassigned to the wrong group.
+    // INDEPENDENT PARTITION ORACLE: re-derive Group membership by filtering the full catalog. Per-Kind Group equality
+    // plus partition sizes summing to the catalog catches any Kind reassigned to the wrong Group.
     [Fact]
     public void GroupKindsPartitionsTheKindCatalogExactly() {
         Seq<MeshSampleKind> all = toSeq(MeshSampleKind.Items);
-        Spec.Cases(items: MeshGens.Groups, key: static g => g.Key, law: g => {
+        Spec.Cases(items: MeshSampleGroup.Items, key: static g => g.Key, law: g => {
             Seq<MeshSampleKind> partition = all.Filter(k => k.Group.Equals(g));
             _ = partition.Iter(k => Assert.Same(expected: g, actual: k.Group));
             Assert.Equal(expected: partition.Count, actual: g.Kinds.Count);
         });
-        Assert.Equal(expected: all.Count, actual: MeshGens.Groups.Sum(g => all.Filter(k => k.Group.Equals(g)).Count));
+        Assert.Equal(expected: all.Count, actual: MeshSampleGroup.Items.Sum(g => all.Filter(k => k.Group.Equals(g)).Count));
     }
 }
 
@@ -65,7 +51,7 @@ public sealed class MeshSampleKindCatalogLaws {
 public sealed class MeshMetricCatalogLaws {
     [Fact]
     public void KeysArePinnedAndNoneAloneRejectsInput() {
-        Spec.SmartEnumCatalogMatches(production: MeshGens.Metrics, expectedKeys: [0, 1, 2, 3, 4, 5], key: static m => m.Key);
+        Spec.SmartEnumCatalogMatches(production: MeshMetric.Items, expectedKeys: [0, 1, 2, 3, 4, 5], key: static m => m.Key);
         Spec.Invalid(
             Analyze.Run(operation: Meshes.FaceQuality(metric: MeshMetric.None).Operation<Mesh, MeshMetricSample>(), input: default(Mesh)!),
             then: static error => {
@@ -83,21 +69,18 @@ public sealed class MeshesUnionCatalogLaws {
          ("VisiblePolygonCount", Meshes.VisiblePolygonCount), ("NakedEdges", Meshes.NakedEdges), ("Outline", Meshes.Outline(plane: Plane.WorldXY))];
     [Fact]
     public void SampleFactoriesProjectGroupCasesAndCarryDistinctPayloads() {
-        // Four Samples factories all project SamplesCase but transport four distinct groups (no swap).
         Spec.Cases(
             items: [(Meshes.Validity, MeshSampleGroup.Validity), (Meshes.Counts, MeshSampleGroup.Count),
                     (Meshes.Defects, MeshSampleGroup.Defect), (Meshes.Quality, MeshSampleGroup.Quality)],
             key: static c => c.Item2.Key,
             law: static c => Assert.Same(expected: c.Item2, actual: Assert.IsType<Meshes.SamplesCase>(@object: c.Item1).Group));
-        // Six non-Samples factories project six distinct case types; four Samples factories share SamplesCase.
         Assert.Equal(expected: 7, actual: Cases.Select(static c => c.Aspect.GetType()).Distinct().Count());
         Assert.Equal(expected: 4, actual: Cases.Count(static c => c.Aspect is Meshes.SamplesCase));
     }
     [Fact]
     public void TransportingFactoriesCarryTheirPayloadAndDefaultsResolve() {
-        // new Plane(origin, normal) P/Invokes native axis derivation; copy WorldXY + shift origin stays managed.
-        Plane plane = new(other: Plane.WorldXY) { Origin = new Point3d(x: 2.0, y: -3.0, z: 5.0) };
-        Spec.Equal(left: plane, right: Assert.IsType<Meshes.OutlineCase>(@object: Meshes.Outline(plane: plane)).Plane, what: "outline plane");
+        Spec.ForAll(Gens.ManagedPlane, static plane =>
+            Spec.Equal(left: plane, right: Assert.IsType<Meshes.OutlineCase>(@object: Meshes.Outline(plane: plane)).Plane, what: "outline plane"));
         Spec.Some(Assert.IsType<Meshes.AtVisiblePolygonCase>(@object: Meshes.AtVisiblePolygon(index: 7)).Value, then: static v => Assert.Equal(expected: 7, actual: v));
         Spec.None(Assert.IsType<Meshes.AtVisiblePolygonCase>(@object: Meshes.AtVisiblePolygon()).Value);
         Assert.Same(expected: MeshMetric.EdgeAspect, actual: Assert.IsType<Meshes.FaceQualityCase>(@object: Meshes.FaceQuality()).Metric);
@@ -107,28 +90,27 @@ public sealed class MeshesUnionCatalogLaws {
 
 public sealed class MeshesDispatchLaws {
     [Fact]
-    public void FaceQualityMetricGovernsOutputAndNoneRejects() {
-        Assert.True(condition: Meshes.FaceQuality(metric: MeshMetric.Area).Operation<Mesh, MeshMetricSample>().IsSupported);
-        Assert.True(condition: Meshes.FaceQuality(metric: MeshMetric.Area).Operation<Mesh, Stat>().IsSupported);
-        Assert.False(condition: Meshes.FaceQuality(metric: MeshMetric.Area).Operation<Mesh, MeshFaceShape>().IsSupported);
-        Assert.False(condition: Meshes.FaceQuality(metric: MeshMetric.None).Operation<Mesh, MeshMetricSample>().IsSupported);
-    }
+    public void FaceQualityMetricGovernsOutputAndNoneRejects() =>
+        Spec.SupportMatrix(
+            ("FaceQuality(Area) Mesh→MeshMetricSample", static () => Meshes.FaceQuality(metric: MeshMetric.Area).Operation<Mesh, MeshMetricSample>().IsSupported, true),
+            ("FaceQuality(Area) Mesh→Stat", static () => Meshes.FaceQuality(metric: MeshMetric.Area).Operation<Mesh, Stat>().IsSupported, true),
+            ("FaceQuality(Area) Mesh→MeshFaceShape", static () => Meshes.FaceQuality(metric: MeshMetric.Area).Operation<Mesh, MeshFaceShape>().IsSupported, false),
+            ("FaceQuality(None) Mesh→MeshMetricSample", static () => Meshes.FaceQuality(metric: MeshMetric.None).Operation<Mesh, MeshMetricSample>().IsSupported, false));
     [Fact]
-    public void FaceShapeOnlyAcceptsMeshFaceShapeOutput() {
-        Assert.True(condition: Meshes.FaceShape.Operation<Mesh, MeshFaceShape>().IsSupported);
-        Assert.False(condition: Meshes.FaceShape.Operation<Mesh, MeshMetricSample>().IsSupported);
-        Assert.False(condition: Meshes.FaceShape.Operation<Mesh, int>().IsSupported);
-    }
+    public void FaceShapeOnlyAcceptsMeshFaceShapeOutput() =>
+        Spec.SupportMatrix(
+            ("FaceShape Mesh→MeshFaceShape", static () => Meshes.FaceShape.Operation<Mesh, MeshFaceShape>().IsSupported, true),
+            ("FaceShape Mesh→MeshMetricSample", static () => Meshes.FaceShape.Operation<Mesh, MeshMetricSample>().IsSupported, false),
+            ("FaceShape Mesh→int", static () => Meshes.FaceShape.Operation<Mesh, int>().IsSupported, false));
+    // Untyped MeshLift arms carry no typeof guard, so support is unconditional at construction; native projection
+    // narrows at Apply. Outline's eager plane.IsValid probe is native → bridge-deferred, not asserted here.
     [Fact]
-    public void UntypedLiftedCasesBuildRegardlessOfDeclaredOutput() {
-        // Samples/AtVisiblePolygon/VisiblePolygonCount/NakedEdges arms always MeshLift (no typeof guard); their
-        // support is unconditional at construction — native projection narrows the value at Apply time. Outline's
-        // dispatch eagerly probes plane.IsValid (native rhcommon_c P/Invoke) → bridge-deferred, not asserted here.
-        Assert.True(condition: Meshes.Counts.Operation<Mesh, MeshSample>().IsSupported);
-        Assert.True(condition: Meshes.AtVisiblePolygon(index: 0).Operation<Mesh, TopologyProjection>().IsSupported);
-        Assert.True(condition: Meshes.VisiblePolygonCount.Operation<Mesh, int>().IsSupported);
-        Assert.True(condition: Meshes.NakedEdges.Operation<Mesh, Polyline>().IsSupported);
-    }
+    public void UntypedLiftedCasesBuildRegardlessOfDeclaredOutput() =>
+        Spec.SupportMatrix(
+            ("Counts Mesh→MeshSample", static () => Meshes.Counts.Operation<Mesh, MeshSample>().IsSupported, true),
+            ("AtVisiblePolygon Mesh→TopologyProjection", static () => Meshes.AtVisiblePolygon(index: 0).Operation<Mesh, TopologyProjection>().IsSupported, true),
+            ("VisiblePolygonCount Mesh→int", static () => Meshes.VisiblePolygonCount.Operation<Mesh, int>().IsSupported, true),
+            ("NakedEdges Mesh→Polyline", static () => Meshes.NakedEdges.Operation<Mesh, Polyline>().IsSupported, true));
     [Fact]
     public void UnsupportedOutputCollapsesToUnsupportedFaultWithTypePair() {
         Spec.Invalid(

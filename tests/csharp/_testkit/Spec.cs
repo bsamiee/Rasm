@@ -85,8 +85,7 @@ public static class Spec {
         Holds(condition: attempted >= 0 && emitted >= 0 && rejected >= 0, label: $"{label}: negative count (attempted={attempted}, emitted={emitted}, rejected={rejected})");
         Assert.Equal(expected: attempted, actual: emitted + rejected);
     }
-    // Validation<Error,T> aggregates via Error.+ which produces ManyErrors on double-fault. Flatten to per-error
-    // category list, sort by ordinal, compare; equivalent to LE Applicative commutativity assertion.
+    // Order-independent: Error.+ produces ManyErrors on double-fault; flatten + ordinal-sort asserts Applicative commutativity.
     public static void AllErrors<T>(Validation<Error, T> v, params string[] expectedCategories) {
         ArgumentNullException.ThrowIfNull(argument: v);
         string[] expected = [.. expectedCategories.OrderBy(static c => c, StringComparer.Ordinal)];
@@ -106,7 +105,6 @@ public static class Spec {
     public static void FailMany<T>(Fin<T> result, int expectedCount, params string[] expectedSubstrings) =>
         Fail(result: result, then: error => ManyErrors(error: error, expectedCount: expectedCount, expectedSubstrings: expectedSubstrings));
 
-    // Thinktecture SmartEnum: key-uniqueness + per-case law sweep (testkit two-consumer rule satisfied per spec).
     public static void SmartEnumKeysUnique<T, TKey>(IReadOnlyList<T> items, Func<T, TKey> key) where TKey : notnull {
         ArgumentNullException.ThrowIfNull(argument: items);
         Assert.Equal(expected: items.Count, actual: items.Select(selector: key).Distinct().Count());
@@ -125,8 +123,7 @@ public static class Spec {
         ForAll(invalid, value => Assert.False(condition: tryCreate(value)));
 
     // --- [APPROX_EQUALITY] -------------------------------------------------------------
-    // Spec.Equal — ergonomic facade over Approx.Equal with absolute-tolerance default. Advanced specs build
-    // Tolerance directly (Hybrid/FromContext) and call Approx.Equal for fine-grained regimes.
+    // Facade over Approx.Equal defaulting to absolute tolerance; advanced specs build Tolerance directly (Hybrid/FromContext).
     public static void Equal(double left, double right, double tolerance = 1e-9, string? what = null) =>
         Eq(ok: Approx.Equal(left: left, right: right, tolerance: Tolerance.Absolute(epsilon: tolerance)),
            label: $"{what ?? "Equal"}: |{left:R} - {right:R}| = {Math.Abs(left - right):R} > {tolerance:R}");
@@ -154,22 +151,17 @@ public static class Spec {
            label: $"{what ?? "UnitVec"} (sign-amb): min(|Δ|, |Σ|)={Math.Min(val1: (left - right).Length, val2: (left + right).Length):R} > {tolerance:R}");
 
     // --- [POLYMORPHIC_COMBINATORS] -----------------------------------------------------
-    // Consumers: Field weights monotone-decreasing in distance; Spectral eigenvalues monotone-increasing.
     public static void MonotoneSeq<T>(Gen<Seq<T>> gen, IComparer<T>? comparer = null, string? seed = null, long? iter = null, int? time = null, int? threads = null) =>
         ForAll(gen: gen, property: values => _ = toSeq(Enumerable.Range(start: 1, count: Math.Max(val1: 0, val2: values.Count - 1))).Iter(i =>
             Holds(condition: (comparer ?? Comparer<T>.Default).Compare(x: values[index: i - 1], y: values[index: i]) <= 0,
                   label: $"MonotoneSeq[{i}]: {values[index: i - 1]} > {values[index: i]}")), seed: seed, iter: iter, time: time, threads: threads);
-    // Consumers: Field ScalarField operator-algebra (mul over add); Matrix.Add over scalar.Multiply.
     public static void Distributive<T>(Gen<(T A, T B, T C)> gen, Func<T, T, T> mul, Func<T, T, T> add, Func<T, T, bool>? eq = null) =>
         EqLaw(gen: gen, left: t => mul(t.A, add(t.B, t.C)), right: t => add(mul(t.A, t.B), mul(t.A, t.C)), eq: eq);
-    // Consumers: Centroid translation invariance (T=Point3d); Direction positive-scalar scaling (T=Vector3d).
     public static void Linearity<T>(Gen<(T A, T B, double K)> gen, Func<T, T, T> add, Func<T, double, T> scale, Func<T, T, bool>? eq = null) =>
         EqLaw(gen: gen, left: t => scale(add(t.A, t.B), t.K), right: t => add(scale(t.A, t.K), scale(t.B, t.K)), eq: eq);
-    // Consumers: Spectral distance (SpectralRanking); Cloud OT cost ground-distance.
     public static void TriangleInequality<T>(Gen<(T A, T B, T C)> gen, Func<T, T, double> distance) =>
         ForAll(gen: gen, property: t => Holds(condition: distance(t.A, t.C) <= distance(t.A, t.B) + distance(t.B, t.C) + 1.0e-9,
             label: $"TriangleInequality: d(a,c)={distance(t.A, t.C):R} > d(a,b)+d(b,c)={distance(t.A, t.B) + distance(t.B, t.C):R}"));
-    // Consumers: Atom Refract.Bind chain order; Modes InterpolatePlanes Bind chain order across t.
     public static void FinChainOrder<T>(Gen<T> gen, Func<T, Fin<T>> first, Func<T, Fin<T>> second, Func<T, T, bool>? eq = null) =>
         ForAll(gen: gen, property: value => {
             (Fin<T> left, Fin<T> right) = (first(value).Bind(second), second(value).Bind(first));
@@ -179,18 +171,14 @@ public static class Spec {
                 _ => throw new XunitException($"FinChainOrder asymmetric: left.IsSucc={left.IsSucc}, right.IsSucc={right.IsSucc}"),
             };
         });
-    // Consumers: Direction.Refract dual-eta Validation accumulation; Context.Of multi-field validation.
     public static void ValidationAccumOrder<T>(Gen<T> gen, Func<T, Validation<Error, T>> path, params string[] expectedCategories) =>
         ForAll(gen: gen, property: value => AllErrors(v: path(value), expectedCategories: expectedCategories));
-    // Consumers: Atoms AnglePivot None vs Some; Sample optional Seed (None=>random, Some=>deterministic).
     public static void OptionExclusive<T>(Gen<Option<T>> gen, Action<T> whenSome, Action whenNone) =>
         ForAll(gen: gen, property: opt => _ = opt.Match(Some: v => Apply(action: whenSome, value: v), None: () => Apply(action: _ => whenNone(), value: unit)));
-    // Consumers: VectorRelation cases (Parallel/AntiParallel/Orthogonal/Acute/Obtuse); SignedAxis pair partition.
     public static void EquivalenceClass<T, TClass>(Gen<T> gen, Func<T, TClass> classify, Func<T, T, bool> eq) where TClass : notnull =>
         ForAll(gen.Select(gen), ((T A, T B) p) => Holds(
             condition: EqualityComparer<TClass>.Default.Equals(classify(p.A), classify(p.B)) == eq(p.A, p.B),
             label: $"EquivalenceClass: classify mismatch for {p.A}, {p.B}"));
-    // Consumers: Modes (4 SmartEnums) catalog-vs-key projection; Spectral (SpectralFilter family) catalog enumeration.
     public static void SmartEnumCatalogMatches<T, TKey>(IReadOnlyList<T> production, IReadOnlyList<TKey> expectedKeys, Func<T, TKey> key) where TKey : notnull {
         ArgumentNullException.ThrowIfNull(argument: expectedKeys);
         SmartEnumKeysUnique(items: production, key: key);
@@ -198,7 +186,12 @@ public static class Spec {
         TKey[] actual = [.. production.Select(key).OrderBy(static k => k)];
         Assert.Equal(expected: expected, actual: actual);
     }
-    // Consumers: VectorAngleProps, VectorRelationLaws, Cloud (DescriptorProjection), Extraction (TensorProjection), Field (RayProjection).
+    // expectedOutput is the spec's INDEPENDENT table, not production's per-case Output — the law cross-checks the two.
+    public static void SmartEnumOutputCatalog<T, TKey>(IReadOnlyList<T> items, IReadOnlyList<TKey> expectedKeys, Func<T, TKey> key, Func<T, Type> output, Func<T, Type> expectedOutput) where TKey : notnull {
+        ArgumentNullException.ThrowIfNull(argument: items);
+        SmartEnumCatalogMatches(production: items, expectedKeys: expectedKeys, key: key);
+        _ = items.AsIterable().Iter(item => { Cancel(); Assert.Equal(expected: expectedOutput(item), actual: output(item)); });
+    }
     public static void ProjectionDispatch<TSelf, TValue>(IReadOnlyList<(TSelf Input, TValue Expected, string Label)> cases, Func<TSelf, Fin<TValue>> project, Func<TValue, TValue, bool>? eq = null) =>
         _ = cases.AsIterable().Iter(c => {
             Cancel();
@@ -206,17 +199,14 @@ public static class Spec {
         });
     // VO shape lives as a record so generators+validators+readers can be packaged together for Family iteration.
     public sealed record ValueObjectShape<TIn, TStruct>(Gen<TIn> Valid, Gen<TIn> Invalid, TryCreate<TIn, TStruct> TryCreate, Func<TStruct, TIn> Read, Func<TIn, TIn, bool>? Eq = null);
-    // Consumers: Atoms (UnitInterval, Dimension, Probability, PositiveMagnitude); Cloud (CloudHullPolicy, CloudTransportPolicy).
     public static void Family<TIn, TStruct>(params ValueObjectShape<TIn, TStruct>[] shapes) =>
         _ = shapes.AsIterable().Iter(s => {
             Cancel();
             ValueObjectRoundtrip(validGen: s.Valid, tryCreate: s.TryCreate, read: s.Read, eq: s.Eq);
             ValueObjectRejects(invalid: s.Invalid, tryCreate: value => s.TryCreate(value, out _));
         });
-    // Consumers: Atoms PositiveMagnitude/UnitInterval AcceptValidated; Flow integrator Tolerance acceptance; Cloud Transport tolerance.
     public static void AcceptValidatedCategory<TVO>(Gen<double> invalidGen, string expectedCategory, Func<double, Fin<TVO>> create) =>
         ForAll(gen: invalidGen, property: x => FailCategory(result: create(x), category: expectedCategory));
-    // Consumers: SupportProjection × outputs; SurfaceProjection × outputs; CurveProjection × outputs.
     public sealed record OutputCase<TCase>(TCase Case, IReadOnlyList<Type> SupportedOuts, IReadOnlyList<Type> UnsupportedOuts);
     public static void OutputDispatchTable<TCase>(IReadOnlyList<OutputCase<TCase>> cases, Func<TCase, Type, Fin<object>> runProjection) =>
         _ = cases.AsIterable().Iter(c => {
@@ -224,7 +214,6 @@ public static class Spec {
             _ = c.SupportedOuts.AsIterable().Iter(t => Succ(result: runProjection(c.Case, t)));
             _ = c.UnsupportedOuts.AsIterable().Iter(t => FailCategory(result: runProjection(c.Case, t), category: "Unsupported"));
         });
-    // Consumers: Intent SupportedOutputProjectionLaws matrix; Cloud OutputFamilies; Sample Request projection table.
     public sealed record ProjectionMatrixCase<TIntent>(string Label, TIntent Intent, Type SupportedOut, Func<object, bool> Oracle, Type UnsupportedOut);
     public static void ProjectionMatrix<TIntent>(IReadOnlyList<ProjectionMatrixCase<TIntent>> cases, Context context, Op key, Func<TIntent, Context, Op, Type, Fin<object>> project) =>
         _ = cases.AsIterable().Iter(c => {
@@ -232,51 +221,56 @@ public static class Spec {
             Succ(result: project(c.Intent, context, key, c.SupportedOut), then: o => Holds(condition: c.Oracle(o), label: c.Label));
             FailCategory(result: project(c.Intent, context, key, c.UnsupportedOut), category: "Unsupported");
         });
-    // Consumers: Sample Poisson-disk radius invariant; Cloud Bridson neighborhood; iso-surface min-edge guard.
     public static void MinPairwiseDistanceAtLeast(Seq<Point3d> points, double minDistance, string label = "MinPairwiseDistance") =>
         _ = toSeq(Enumerable.Range(start: 0, count: points.Count)
             .SelectMany(i => Enumerable.Range(start: i + 1, count: points.Count - i - 1).Select(j => (i, j))))
             .Iter(p => Holds(condition: points[index: p.i].DistanceTo(other: points[index: p.j]) >= minDistance - RhinoMath.ZeroTolerance,
                 label: $"{label}[{p.i},{p.j}]: {points[index: p.i].DistanceTo(other: points[index: p.j]):R} < {minDistance:R}"));
-    // Consumers: Align ICP convergence (StopKind+iter); Cloud Sinkhorn convergence; Matrix LOBPCG eigen convergence.
     public static void Converged<TStop>(TStop actualStop, TStop expectedStop, int iterations, int maxIterations) {
         Assert.Equal(expected: expectedStop, actual: actualStop);
         Assert.InRange(actual: iterations, low: 1, high: maxIterations);
     }
-    // Translation MR: f(translate(x, t)) == translate(f(x), t). Consumers: Centroid translation; Field SDF sample translation.
+    // Translation MR: f(translate(x, t)) == translate(f(x), t).
     public static void MetamorphicTranslation<T>(Gen<(T X, Vector3d Translation)> gen, Func<T, Vector3d, T> translate, Func<T, Point3d> evaluate, double tolerance = 1e-9) =>
         ForAll(gen: gen, property: p => Equal(left: evaluate(translate(p.X, p.Translation)), right: evaluate(p.X) + p.Translation, tolerance: tolerance, what: "MetamorphicTranslation"));
-    // Consumers: Spectral Compose Identity is left+right identity; Field ScalarField additive zero is left+right identity.
     public static void AdditiveIdentity<T>(Gen<T> gen, Func<T, T, T> op, T identity, Func<T, T, bool>? eq = null) =>
         ForAll(gen: gen, property: value => {
             _ = EqOrThrow(left: op(identity, value), right: value, predicate: eq);
             _ = EqOrThrow(left: op(value, identity), right: value, predicate: eq);
         });
-    // Consumers: any spec asserting Fault.Unsupported (Atoms, Intent, Mesh, Field, Modes, Sample, Space).
     public static void FailUnsupportedFor<T>(Fin<T> result, Type geometryType, Type outputType) =>
         Fail(result: result, then: error => {
             Fault.Unsupported fault = Assert.IsType<Fault.Unsupported>(@object: error);
             Assert.Equal(expected: geometryType, actual: fault.GeometryType);
             Assert.Equal(expected: outputType, actual: fault.OutputType);
         });
-    // Wraps Check.SampleModelBased — consumers: Spectral filter Compose vs reference fold; Sample intent rebuild vs functional state model.
+    // Func<bool> thunks keep each row's generics at the call site and carry per-row diagnostics, replacing anonymous Assert.True/False walls.
+    public static void SupportMatrix(params (string Label, Func<bool> Probe, bool Expected)[] rows) {
+        ArgumentNullException.ThrowIfNull(argument: rows);
+        _ = rows.AsIterable().Iter(row => {
+            Cancel();
+            bool actual = row.Probe();
+            Holds(condition: actual == row.Expected, label: $"{row.Label}: expected {row.Expected}, got {actual}");
+        });
+    }
+    // Wraps Check.SampleModelBased.
     public static void ModelBased<TActual, TModel>(Gen<(TActual Actual, TModel Model)> init, Func<TActual, TModel, bool> equal, params GenOperation<TActual, TModel>[] operations) {
         Cancel();
         init.SampleModelBased(operations: operations, equal: equal);
     }
-    // Wraps Check.SampleMetamorphic — consumers: Matrix decomposition commutativity; Field blend fold associativity.
+    // Wraps Check.SampleMetamorphic.
     public static void MetamorphicOps<T, TParam>(Gen<T> initial, Gen<TParam> paramGen, Func<TParam, string> name, Action<T, TParam> path1, Action<T, TParam> path2, Func<T, T, bool>? equal = null) {
         Cancel();
         initial.SampleMetamorphic(operations: GenMetamorphic.Create(gen: paramGen, name: name, action1: path1, action2: path2), equal: equal);
     }
-    // Wraps Check.SampleParallel without Causal output — consumers: Atom motion runner concurrent reads; SmartEnum.Items concurrent first-touch.
+    // Wraps Check.SampleParallel without Causal profiling output (vs ConcurrentProfiled).
     public static void Parallel<T>(Gen<T> init, params GenOperation<T>[] operations) {
         Cancel();
         init.SampleParallel(operations: operations);
     }
 
     // --- [BOUNDARY_ADAPTERS] -----------------------------------------------------------
-    // xUnit v3 ITestContext.CancellationToken propagates runner-imposed cancellation into long sample loops.
+    // Propagates xUnit v3 runner cancellation into long CsCheck sample loops.
     private static void Cancel() => TestContext.Current.CancellationToken.ThrowIfCancellationRequested();
     // Action<T> -> CsCheck Func<T, bool> contract.
     private static bool Apply<T>(Action<T> action, T value) { action(value); return true; }
@@ -287,7 +281,6 @@ public static class Spec {
     // Generic dispatcher for ForAll-based equality laws — collapses Roundtrip/Identity/Idempotent/Inverse/Distributive/Linearity shapes.
     private static void EqLaw<TIn, TOut>(Gen<TIn> gen, Func<TIn, TOut> left, Func<TIn, TOut> right, Func<TOut, TOut, bool>? eq = null) =>
         ForAll(gen: gen, property: x => _ = EqOrThrow(left: left(x), right: right(x), predicate: eq));
-    // Polymorphic Spec.Equal label helper — strips one indirection per overload (Approx.Equal returns bool; Holds throws).
     private static void Eq(bool ok, string label) => Holds(condition: ok, label: label);
 
     private readonly record struct SamplePolicy(string? Seed, long? Iter, int? Time, int? Threads) {

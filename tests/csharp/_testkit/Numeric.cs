@@ -36,7 +36,7 @@ public static class Numeric {
     public static double ArcLength(Seq<Point3d> points) =>
         toSeq(Enumerable.Range(start: 1, count: Math.Max(val1: 0, val2: points.Count - 1)))
             .Fold(initialState: 0.0, f: (sum, i) => sum + points[index: i - 1].DistanceTo(other: points[index: i]));
-    // Row-major index projection — shared by every matrix-walking oracle (Entrywise/FrobeniusDistance/PathGraphLaplacian).
+    // Row-major (Row, Col) projection shared by every matrix-walking oracle.
     private static IEnumerable<(int Row, int Col)> Cells(int rows, int cols) =>
         Enumerable.Range(start: 0, count: rows * cols).Select(idx => (Row: idx / cols, Col: idx % cols));
     public static void Entrywise(int rows, int cols, Func<int, int, double> expected, Func<int, int, double> actual, double tolerance, string label) =>
@@ -93,19 +93,17 @@ public static class Numeric {
             });
 
     // --- [GEOMETRY_ORACLES] ----------------------------------------------------------------
-    // Consumers: Sample Poisson-disk receipt spacing + Cloud Bridson neighborhood + Mesh edge-length sanity.
     public static (double Min, double Mean, double Max) PairwiseDistances(Seq<Point3d> points) {
         double[] distances = [.. Enumerable.Range(start: 0, count: points.Count).SelectMany(i =>
             Enumerable.Range(start: i + 1, count: points.Count - i - 1).Select(j => points[index: i].DistanceTo(other: points[index: j])))];
         return distances.Length == 0 ? (Min: 0.0, Mean: 0.0, Max: 0.0)
             : (Min: distances.Min(), Mean: distances.Average(), Max: distances.Max());
     }
-    // Consumers: Mesh topology Euler V-E+F = 2 - 2g - b - h; Brep validity Euler reconstruction.
+    // V - E + F; full Euler is 2 - 2g - b - h.
     public static int EulerCharacteristic(int vertices, int edges, int faces) => vertices - edges + faces;
-    // Consumers: Mesh Heron-formula triangle area; Cloud triangle-area approximation.
     public static double TriangleArea(Point3d a, Point3d b, Point3d c) =>
         0.5 * Vector3d.CrossProduct(a: b - a, b: c - a).Length;
-    // Consumers: Align Procrustes Rodrigues axis-angle assembly; Atoms VectorFrame round-trip.
+    // Rodrigues axis-angle rotation matrix.
     public static double[][] RotationMatrix(Vector3d axis, double angle) {
         Vector3d k = axis.IsTiny() ? Vector3d.ZAxis : axis / axis.Length;
         double c = Math.Cos(d: angle), s = Math.Sin(a: angle), t = 1.0 - c;
@@ -114,20 +112,18 @@ public static class Numeric {
             [(t * k.X * k.Y) + (s * k.Z), c + (t * k.Y * k.Y),       (t * k.Y * k.Z) - (s * k.X)],
             [(t * k.X * k.Z) - (s * k.Y), (t * k.Y * k.Z) + (s * k.X), c + (t * k.Z * k.Z)]];
     }
-    // Consumers: Align ICP rotation residual; Modes Slerp angle interpolation.
     public static double AngularDistance(Vector3d a, Vector3d b) =>
         Math.Acos(d: Math.Clamp(value: a.IsTiny() || b.IsTiny() ? 1.0 : a * b / (a.Length * b.Length), min: -1.0, max: 1.0));
 
     // --- [MATRIX_ORACLES] -----------------------------------------------------------------
-    // Column Gram entry (M^T M)[r,c] — shared by ColumnGramIdentity and OrthogonalityResidual.
+    // Column Gram entry (M^T M)[r,c].
     private static Func<int, int, double> ColumnGram(VectorMatrix matrix) =>
         (row, col) => Dot(count: matrix.Rows.Value, left: k => matrix.At(i: k, j: row), right: k => matrix.At(i: k, j: col));
-    // Consumers: Matrix Multiply oracle (independent O(n^3) loop) + Cloud transport plan cost matrix.
+    // Independent O(n^3) oracle — must not reuse VectorMatrix production multiply.
     public static double[][] Multiply(VectorMatrix left, VectorMatrix right) =>
         [.. Enumerable.Range(start: 0, count: left.Rows.Value).Select(r =>
             Enumerable.Range(start: 0, count: right.Cols.Value).Select(c =>
                 ProductAt(width: left.Cols.Value, left: left.At, right: right.At, row: r, col: c)).ToArray())];
-    // Consumers: Matrix Norm Theory (MaxAbs/L1/LInf) + Cloud descriptor norm.
     public static double Norm(VectorMatrix matrix, string kind) {
         IEnumerable<int> rows = Enumerable.Range(start: 0, count: matrix.Rows.Value);
         IEnumerable<int> cols = Enumerable.Range(start: 0, count: matrix.Cols.Value);
@@ -138,17 +134,16 @@ public static class Numeric {
             _ => throw new ArgumentException(message: $"Norm: unknown kind '{kind}'", paramName: nameof(kind)),
         };
     }
-    // Consumers: Matrix decomposition residual ||A - Q*R||_F; Spectral basis residual ||L - V*Λ*V^T||_F.
+    // Frobenius residual ||left - right||_F.
     public static double FrobeniusDistance(Func<int, int, double> left, Func<int, int, double> right, int rows, int cols) =>
         Math.Sqrt(d: Cells(rows: rows, cols: cols).Sum(rc => { double d = left(rc.Row, rc.Col) - right(rc.Row, rc.Col); return d * d; }));
-    // Consumers: Field MLS conditioning gate; Matrix QR orthogonality residual.
     public static double OrthogonalityResidual(VectorMatrix matrix) {
         int n = matrix.Cols.Value;
         return FrobeniusDistance(left: ColumnGram(matrix: matrix), right: (r, c) => r == c ? 1.0 : 0.0, rows: n, cols: n);
     }
 
     // --- [SPECTRAL_ORACLES] ---------------------------------------------------------------
-    // Consumers: Spectral path-graph eigenvalue closed form λ_k = 2 - 2cos(kπ/N); Matrix LOBPCG test fixture.
+    // Path-graph Laplacian; eigenvalue closed form λ_k = 2 - 2cos(kπ/N).
     public static VectorMatrix PathGraphLaplacian(int n) =>
         VectorMatrix.Of(
             rows: Dim.TryCreate(value: n, obj: out Dim r) ? r : throw new InvalidOperationException(message: "PathGraphLaplacian dim"),
@@ -159,28 +154,24 @@ public static class Numeric {
                 var (i, j) when Math.Abs(value: i - j) == 1 => -1.0,
                 _ => 0.0,
             })])).Match(Succ: static m => m, Fail: static _ => throw new InvalidOperationException("PathGraphLaplacian invariant"));
-    // Consumers: Spectral Laplacian row-sum = 0 invariant; Matrix conservation test.
     public static double LaplacianRowSum(VectorMatrix L, int row) =>
         Enumerable.Range(start: 0, count: L.Cols.Value).Sum(c => L.At(i: row, j: c));
-    // Consumers: Spectral heat-kernel closed form k(x,y,t)=Σ exp(-λ_i t) φ_i(x) φ_i(y); bridge scenario.
+    // Heat-kernel closed form k(x,y,t) = Σ exp(-λ_i t) φ_i(x) φ_i(y).
     public static double HeatKernel(Arr<double> eigenvalues, Func<int, int, double> eigenvectors, double t, int x, int y) =>
         Enumerable.Range(start: 0, count: eigenvalues.Count).Sum(i => Math.Exp(d: -eigenvalues[index: i] * t) * eigenvectors(i, x) * eigenvectors(i, y));
-    // Consumers: Atoms VectorFrame orthonormality; Field gradient basis post-orthonormalization.
     public static bool OrthonormalBasisCheck(Vector3d a, Vector3d b, Vector3d c, double tolerance = 1e-9) =>
         Math.Abs(value: a.Length - 1.0) <= tolerance && Math.Abs(value: b.Length - 1.0) <= tolerance && Math.Abs(value: c.Length - 1.0) <= tolerance
         && Math.Abs(value: a * b) <= tolerance && Math.Abs(value: b * c) <= tolerance && Math.Abs(value: a * c) <= tolerance;
 
     // --- [FIELD_ORACLES] -------------------------------------------------------------------
-    // Consumers: Field SdfKind.Sphere closed form; Intent.Descriptor sphere SDF round-trip.
     public static double SignedDistanceSphere(Point3d p, Point3d center, double radius) =>
         p.DistanceTo(other: center) - radius;
-    // Consumers: Field SdfKind.Box closed form (axis-aligned half-extents); SDF metamorphic translation MR.
+    // Axis-aligned box SDF; half* are half-extents.
     public static double SignedDistanceBox(Point3d p, Point3d center, double halfX, double halfY, double halfZ) {
         Vector3d q = new(x: Math.Abs(p.X - center.X) - halfX, y: Math.Abs(p.Y - center.Y) - halfY, z: Math.Abs(p.Z - center.Z) - halfZ);
         Vector3d clamped = new(x: Math.Max(val1: q.X, val2: 0.0), y: Math.Max(val1: q.Y, val2: 0.0), z: Math.Max(val1: q.Z, val2: 0.0));
         return clamped.Length + Math.Min(val1: Math.Max(val1: q.X, val2: Math.Max(val1: q.Y, val2: q.Z)), val2: 0.0);
     }
-    // Consumers: Field FieldNabla.GradientAt central-difference oracle; Flow finite-difference convergence check.
     public static Vector3d GradientCentralDifference(Func<Point3d, double> f, Point3d p, double eps) {
         ArgumentNullException.ThrowIfNull(argument: f);
         return new Vector3d(
@@ -190,10 +181,8 @@ public static class Numeric {
     }
 
     // --- [FLOW_ORACLES] --------------------------------------------------------------------
-    // Consumers: Flow linear-field analytic streamline; Field divergence/curl analytic comparison.
     public static Vector3d AnalyticLinearField(Vector3d a, Vector3d b, Point3d p) =>
         a + new Vector3d(x: b.X * p.X, y: b.Y * p.Y, z: b.Z * p.Z);
-    // Consumers: Flow convergence-order halving (error reduces by 2^p); Spectral filter stability vs step.
     public static double ConvergenceOrder(double coarseError, double fineError, double stepRatio = 2.0) =>
         coarseError <= 0.0 || fineError <= 0.0 ? double.NaN : Math.Log(d: coarseError / fineError) / Math.Log(d: stepRatio);
 }

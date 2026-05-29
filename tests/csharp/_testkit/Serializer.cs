@@ -6,8 +6,7 @@ using Xunit.Sdk;
 namespace Rasm.TestKit;
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-// Singular serializer surface for the testkit. Currently owns Rhino.Geometry value-type round-trip; extend by
-// adding new IXunitSerializer types here and registering each via Directory.Build.props.
+// Singular testkit serializer surface. Adding a type here also requires registering it via Directory.Build.props.
 public sealed class GeometrySerializer : IXunitSerializer {
     public bool IsSerializable(Type type, object? value, [NotNullWhen(false)] out string? failureReason) {
         ArgumentNullException.ThrowIfNull(argument: type);

@@ -7,8 +7,7 @@ using Complex = System.Numerics.Complex;
 namespace Rasm.TestKit;
 
 // --- [MODELS] -------------------------------------------------------------------------------
-// Tolerance reduces to (abs + rel*max(1,|l|,|r|)) — Absolute/Relative/Hybrid/Context all degenerate to one
-// (abs, rel) tuple; the four cases of the original [Union] had identical bodies, so a record struct is denser.
+// Record struct, not a [Union]: Absolute/Relative/Hybrid/Context all reduce to one (abs, rel) tuple with identical bodies.
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Tolerance(double Abs, double Rel) {
     public static Tolerance Absolute(double epsilon) => new(Abs: epsilon, Rel: 0.0);
@@ -24,8 +23,7 @@ public readonly record struct Tolerance(double Abs, double Rel) {
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-// Polymorphic equality oracle — magnitude-based for Point3d/Vector3d/Complex, elementwise (Indexed fold) for
-// Transform/Arr/Seq/Matrix, recursive for Plane (Origin + 3 axes). Tolerance.Within owns the regime.
+// Polymorphic equality oracle: magnitude-based for vectors/Complex, elementwise for Transform/Arr/Seq/Matrix, recursive for Plane. Tolerance.Within owns the regime.
 public static class Approx {
     public static bool Equal(double left, double right, Tolerance tolerance) =>
         Math.Abs(value: left - right) <= tolerance.Within(left: left, right: right);

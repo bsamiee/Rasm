@@ -6,34 +6,21 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Analysis;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// Rasm.Analysis.Conformance success paths are bridge-deferred (owned by *.verify.csx): Conformance.Samples /
-// CurveCurveSamples / SampleResiduals / DistanceFor evaluate live native geometry (GeometryKernel.CurveForm /
-// SurfaceForm leases, SamplePoints, SupportSpace.Of, VectorIntent.Project, Analyze.CurveDeviationOf) and the
-// full Analyze.Run(...).Apply pipeline P/Invokes rhcommon_c — none of that runs in this managed process.
-// The static rail owns the pure-managed surface only: the ConformanceMetric SmartEnum catalog (contiguous keys +
-// per-case EXACT Output type, which is NON-uniform: double/bool/Stat/ResidualSample/Distribution), the internal
-// AcceptsTarget(target, curveSource) decision table (typeof + GeometryKernel.Can* reflection, zero Rhino runtime)
-// asserted against an INDEPENDENT (IsContainment, IsSigned, curveSource) truth oracle, the Conformance factory ->
-// (Metric, Count) construction, the operation-construction DISPATCH (Operation<…>.IsSupported is pure type-shape
-// dispatch on (Count, CanConform, TOut==Metric.Output); Analyze.Run short-circuits a rejected Body at Supported()
-// BEFORE any context build / native call, so reject-category laws are pure), and ConformanceMetric.Project<TOut>
-// over HAND-BUILT distinct ResidualSamples — Project routes through Stat.Residuals (Welford fold / sort+quantile
-// over plain doubles via Op.AcceptResults) and never touches native geometry.
+// BRIDGE-DEFERRED (*.verify.csx): Conformance.Samples/SampleResiduals/DistanceFor + Run(...).Apply (P/Invoke rhcommon_c).
+// Static rail owns: ConformanceMetric catalog (NON-uniform per-case Output), AcceptsTarget vs an independent oracle,
+// factory→(Metric,Count), dispatch (Run rejects at Supported() pre-native), Project<TOut> over hand-built ResidualSamples.
 internal static class ConformanceGens {
     public static readonly Op Key = Op.Of(name: "conformance-test");
-    public static readonly ConformanceMetric[] Metrics =
-        [ConformanceMetric.Distance, ConformanceMetric.Rms, ConformanceMetric.WithinTolerance, ConformanceMetric.Summary,
-         ConformanceMetric.Maximum, ConformanceMetric.SignedResidual, ConformanceMetric.Containment, ConformanceMetric.Distribution];
     public static readonly Type[] OutputsByKey =
         [typeof(double), typeof(double), typeof(bool), typeof(Stat), typeof(ResidualSample), typeof(ResidualSample), typeof(ResidualSample), typeof(Distribution)];
-    // Distinct distances so an argmax / order swap in Maximum/SignedResidual is caught; index ordering is non-monotone in distance.
+    // Distances non-monotone in index so an argmax / order swap in Maximum/SignedResidual is caught.
     public static readonly Seq<ResidualSample> Residuals = Seq(
         new ResidualSample(Index: 0, Location: new Point3d(x: 1.0, y: 0.0, z: 0.0), Distance: 2.0, Tolerance: 5.0, WithinTolerance: true),
         new ResidualSample(Index: 1, Location: new Point3d(x: 0.0, y: 1.0, z: 0.0), Distance: 7.0, Tolerance: 5.0, WithinTolerance: false),
         new ResidualSample(Index: 2, Location: new Point3d(x: 0.0, y: 0.0, z: 1.0), Distance: 3.0, Tolerance: 5.0, WithinTolerance: true));
     public static readonly Context Model = Context.Of(absolute: 5.0, relative: 1.0e-3, angle: 1.0e-3, units: Rhino.UnitSystem.Millimeters)
         .ToFin().Match(Succ: static c => c, Fail: static e => throw new InvalidOperationException(e.Message));
-    // Independent AcceptsTarget oracle: containment -> Brep/Mesh; signed -> CanSignedDistance; else CanClosest or curve-form (curveSource).
+    // Independent AcceptsTarget oracle, re-derived from metric semantics rather than production's stored predicate.
     public static bool AcceptsTargetOracle(ConformanceMetric metric, Type target, bool curveSource) =>
         (metric.IsContainment, metric.IsSigned) switch {
             (true, _) => target == typeof(Brep) || target == typeof(Mesh),
@@ -49,33 +36,31 @@ internal static class ConformanceGens {
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
 public sealed class ConformanceMetricCatalogLaws {
     [Fact]
-    public void KeysAreContiguousAndOutputTypesAreNonUniformPerCase() {
-        Spec.SmartEnumCatalogMatches(production: ConformanceGens.Metrics, expectedKeys: [0, 1, 2, 3, 4, 5, 6, 7], key: static m => m.Key);
-        Spec.Cases(items: ConformanceGens.Metrics, key: static m => m.Key, law: static m =>
-            Assert.Equal(expected: ConformanceGens.OutputsByKey[m.Key], actual: m.Output));
-    }
+    public void KeysAreContiguousAndOutputTypesAreNonUniformPerCase() =>
+        Spec.SmartEnumOutputCatalog(items: ConformanceMetric.Items, expectedKeys: [0, 1, 2, 3, 4, 5, 6, 7],
+            key: static m => m.Key, output: static m => m.Output, expectedOutput: static m => ConformanceGens.OutputsByKey[m.Key]);
     [Fact]
-    public void OutputTypeMultiplicityMatchesDeclaredFamilies() {
-        Assert.Equal(expected: 2, actual: ConformanceGens.Metrics.Count(static m => m.Output == typeof(double)));
-        Assert.Equal(expected: 1, actual: ConformanceGens.Metrics.Count(static m => m.Output == typeof(bool)));
-        Assert.Equal(expected: 1, actual: ConformanceGens.Metrics.Count(static m => m.Output == typeof(Stat)));
-        Assert.Equal(expected: 3, actual: ConformanceGens.Metrics.Count(static m => m.Output == typeof(ResidualSample)));
-        Assert.Equal(expected: 1, actual: ConformanceGens.Metrics.Count(static m => m.Output == typeof(Distribution)));
-    }
+    public void OutputTypeMultiplicityMatchesDeclaredFamilies() =>
+        Assert.Multiple(
+            () => Assert.Equal(expected: 2, actual: ConformanceMetric.Items.Count(static m => m.Output == typeof(double))),
+            () => Assert.Equal(expected: 1, actual: ConformanceMetric.Items.Count(static m => m.Output == typeof(bool))),
+            () => Assert.Equal(expected: 1, actual: ConformanceMetric.Items.Count(static m => m.Output == typeof(Stat))),
+            () => Assert.Equal(expected: 3, actual: ConformanceMetric.Items.Count(static m => m.Output == typeof(ResidualSample))),
+            () => Assert.Equal(expected: 1, actual: ConformanceMetric.Items.Count(static m => m.Output == typeof(Distribution))));
     [Fact]
     public void OnlyContainmentIsContainmentAndSignedExactlyOverlapsContainmentPlusSignedResidual() {
-        Assert.Equal(expected: 1, actual: ConformanceGens.Metrics.Count(static m => m.IsContainment));
+        Assert.Equal(expected: 1, actual: ConformanceMetric.Items.Count(static m => m.IsContainment));
         Assert.True(condition: ConformanceMetric.Containment.IsContainment && ConformanceMetric.Containment.IsSigned);
-        Assert.Equal(expected: 2, actual: ConformanceGens.Metrics.Count(static m => m.IsSigned));
+        Assert.Equal(expected: 2, actual: ConformanceMetric.Items.Count(static m => m.IsSigned));
         Assert.True(condition: ConformanceMetric.SignedResidual.IsSigned && !ConformanceMetric.SignedResidual.IsContainment);
-        Assert.Equal(expected: 2, actual: ConformanceGens.Metrics.Count(static m => m.ExactCurveDeviation));
+        Assert.Equal(expected: 2, actual: ConformanceMetric.Items.Count(static m => m.ExactCurveDeviation));
     }
 }
 
 public sealed class ConformanceMetricAcceptsTargetLaws {
     [Fact]
     public void DecisionTableMatchesIndependentContainmentSignedCurveSourceOracle() =>
-        Spec.Cases(items: ConformanceGens.Metrics, key: static m => m.Key, law: static m =>
+        Spec.Cases(items: ConformanceMetric.Items, key: static m => m.Key, law: static m =>
             _ = ConformanceGens.TargetTypes.AsIterable().Iter(target =>
                 _ = ConformanceGens.CurveSources.AsIterable().Iter(curveSource =>
                     Assert.Equal(
@@ -109,19 +94,16 @@ public sealed class ConformanceFactoryDispatchLaws {
             Assert.Equal(expected: 8, actual: f.Aspect.Count);
         });
     [Fact]
-    public void MatchedOutputAndConformableShapeBuildsSupportedOperation() {
-        Assert.True(condition: Conformance.Distance(count: 8).Operation<Curve, Plane, double>().IsSupported);
-        Assert.True(condition: Conformance.SignedResidual(count: 8).Operation<Surface, Plane, ResidualSample>().IsSupported);
-        Assert.True(condition: Conformance.Containment(count: 8).Operation<Surface, Brep, ResidualSample>().IsSupported);
-        Assert.True(condition: Conformance.Summary(count: 8).Operation<Curve, Line, Stat>().IsSupported);
-        Assert.True(condition: Conformance.Distribution(8, 50.0).Operation<Curve, Line, Distribution>().IsSupported);
-    }
-    [Fact]
-    public void ForeignOutputOrNonConformableShapeCollapsesToUnsupported() {
-        Assert.False(condition: Conformance.Distance(count: 8).Operation<Curve, Plane, Stat>().IsSupported);
-        Assert.False(condition: Conformance.Containment(count: 8).Operation<Curve, Plane, ResidualSample>().IsSupported);
-        Assert.False(condition: Conformance.Distance(count: 8).Operation<Point3d, Plane, double>().IsSupported);
-    }
+    public void OperationIsSupportedExactlyWhenOutputAndConformabilityMatch() =>
+        Spec.SupportMatrix(
+            ("Distance Curve/Plane→double", static () => Conformance.Distance(count: 8).Operation<Curve, Plane, double>().IsSupported, true),
+            ("SignedResidual Surface/Plane→ResidualSample", static () => Conformance.SignedResidual(count: 8).Operation<Surface, Plane, ResidualSample>().IsSupported, true),
+            ("Containment Surface/Brep→ResidualSample", static () => Conformance.Containment(count: 8).Operation<Surface, Brep, ResidualSample>().IsSupported, true),
+            ("Summary Curve/Line→Stat", static () => Conformance.Summary(count: 8).Operation<Curve, Line, Stat>().IsSupported, true),
+            ("Distribution Curve/Line→Distribution", static () => Conformance.Distribution(8, 50.0).Operation<Curve, Line, Distribution>().IsSupported, true),
+            ("Distance foreign-output Stat", static () => Conformance.Distance(count: 8).Operation<Curve, Plane, Stat>().IsSupported, false),
+            ("Containment non-solid Plane", static () => Conformance.Containment(count: 8).Operation<Curve, Plane, ResidualSample>().IsSupported, false),
+            ("Distance foreign-geometry Point3d", static () => Conformance.Distance(count: 8).Operation<Point3d, Plane, double>().IsSupported, false));
 }
 
 public sealed class ConformanceRejectCategoryLaws {
@@ -141,8 +123,7 @@ public sealed class ConformanceRejectCategoryLaws {
 
 // --- [EDGE_CASES] ---------------------------------------------------------------------------
 public sealed class ConformanceProjectionOracleLaws {
-    // INDEPENDENT ORACLE over hand-built distinct ResidualSamples (purely managed Stat.Residuals fold; no native).
-    // Distances -> per-sample distance seq; Rms -> sqrt(mean^2+variance); Maximum/SignedResidual -> argmax / identity.
+    // INDEPENDENT ORACLE over hand-built ResidualSamples (purely managed Stat.Residuals fold; no native).
     [Fact]
     public void DistanceProjectsEachSampleDistanceInOrder() =>
         Spec.Succ(Conformance.Distance(count: 3).Project<double>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),

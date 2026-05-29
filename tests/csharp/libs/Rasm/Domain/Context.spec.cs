@@ -5,11 +5,9 @@ using Rhino;
 namespace Rasm.Tests.Domain;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// Context.Of(double,...) + Fractional are internal; InternalsVisibleTo("Rasm.Tests") exposes them.
-// All three tolerances are pure-managed [ValueObject<double>] structs; no Rhino host needed.
-// BRIDGE-DEFERRED (P/Invoke rhcommon_c — owned by *.verify.csx): Context.Of(UnitSystem) model-unit ACCEPT
-// path (RhinoMath.UnitScale) and Context.Of(RhinoDoc?). The reject path (Custom/Unset/None) short-circuits
-// before UnitScale and stays pure, so it is owned here.
+// BRIDGE-DEFERRED (*.verify.csx): Context.Of(UnitSystem) accept path (RhinoMath.UnitScale P/Invoke) + Context.Of(RhinoDoc?).
+// Static rail owns the three [ValueObject<double>] tolerances, Context.Of(double…) validation/accumulation, and the
+// Custom/Unset/None reject path (short-circuits before UnitScale).
 internal static class ContextGens {
     public static readonly Op Key = Op.Of(name: "context-test");
     public static readonly Gen<double> AbsoluteValid = Gen.Frequency(
