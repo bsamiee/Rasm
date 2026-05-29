@@ -137,6 +137,7 @@ public partial record FloatingButtonOp {
     private FloatingButtonOp() { }
     public sealed record AddCase(FloatingPosition Position, string Name, string Info, IIcon Icon, Option<Color> Colour = default, FloatingButtonHandlers Handlers = default) : FloatingButtonOp;
     public sealed record AddAnchoredCase(PointF Anchor, string Name, string Info, IIcon Icon, Option<Color> Colour = default, FloatingButtonHandlers Handlers = default) : FloatingButtonOp;
+    public sealed record PlaceRelativeCase(string AnchorName, PointF Offset, string Name, string Info, IIcon Icon, Option<Color> Colour = default, FloatingButtonHandlers Handlers = default) : FloatingButtonOp;
     // FloatingButtonCollection.Add returns void; AddNumeric attaches Add + FindByName + MakeNumeric
     // atomically and detaches via Close(name) regardless of upgrade-chain progress.
     public sealed record AddNumericCase(FloatingPosition Position, string Name, string Info, IIcon Icon, GhUiNumber Value, string ValueKey, Option<Color> Colour = default) : FloatingButtonOp;
@@ -166,7 +167,7 @@ public partial record InteractionOp {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct TooltipSnapshot(bool Visible, Option<Guid> OwnerToken);
+public readonly record struct TooltipSnapshot(bool Visible, Option<Guid> OwnerToken, Option<PointF> MouseLocationWhenShown = default);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct TooltipLayoutSnapshot(int MinimumWidth, int MaximumWidth, int MaximumHeight, int Padding, int DoublePadding, int IconSize);
@@ -175,7 +176,7 @@ public readonly record struct TooltipLayoutSnapshot(int MinimumWidth, int Maximu
 public readonly record struct FloatingButtonSnapshot(int Count, int NormalCount, int HiddenCount, int VisibleCount, Seq<string> Names);
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct FloatingButtonInfo(string Name, string Info, FloatingPosition Position, FloatingState State, bool Enabled, bool HasFocus, Color Colour, Option<PointF> Anchor);
+public readonly record struct FloatingButtonInfo(string Name, string Info, FloatingPosition Position, FloatingState State, bool Enabled, bool HasFocus, Color Colour, Option<PointF> Anchor, Option<decimal> NumericValue = default);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct InteractionSnapshot(int InteractionCount, int ResponsiveCount, bool HasFocus, Option<string> FocusNomen);
@@ -192,21 +193,32 @@ internal static class TooltipRail {
     private static readonly Op RailOp = Op.Of(name: nameof(TooltipRail));
 
     internal static GrasshopperUiIntent<TooltipLayoutSnapshot> Layout() =>
-        GhUi.Read(run: _ => RailOp.Attempt(body: ReadLayout, what: "Tooltip.Layout constants"));
+        GhUi.Read(run: _ =>
+            RailOp.Attempt(body: () => typeof(GhTooltip).Assembly.GetType(name: "Grasshopper2.UI.Tooltip.Layout", throwOnError: true)!, what: "Tooltip.Layout type")
+                .Bind(ReadLayout));
 
-    private static TooltipLayoutSnapshot ReadLayout() {
-        Type layoutType = typeof(GhTooltip).Assembly.GetType(name: "Grasshopper2.UI.Tooltip.Layout", throwOnError: true)!;
-        return new TooltipLayoutSnapshot(
-            MinimumWidth: ReadInt(type: layoutType, name: "MinimumWidth"),
-            MaximumWidth: ReadInt(type: layoutType, name: "MaximumWidth"),
-            MaximumHeight: ReadInt(type: layoutType, name: "MaximumHeight"),
-            Padding: ReadInt(type: layoutType, name: "Padding"),
-            DoublePadding: ReadInt(type: layoutType, name: "DoublePadding"),
-            IconSize: ReadInt(type: layoutType, name: "IconSize"));
-    }
+    private static Fin<TooltipLayoutSnapshot> ReadLayout(Type layoutType) =>
+        from minimumWidth in ReadInt(type: layoutType, name: "MinimumWidth")
+        from maximumWidth in ReadInt(type: layoutType, name: "MaximumWidth")
+        from maximumHeight in ReadInt(type: layoutType, name: "MaximumHeight")
+        from padding in ReadInt(type: layoutType, name: "Padding")
+        from doublePadding in ReadInt(type: layoutType, name: "DoublePadding")
+        from iconSize in ReadInt(type: layoutType, name: "IconSize")
+        select new TooltipLayoutSnapshot(
+            MinimumWidth: minimumWidth,
+            MaximumWidth: maximumWidth,
+            MaximumHeight: maximumHeight,
+            Padding: padding,
+            DoublePadding: doublePadding,
+            IconSize: iconSize);
 
-    private static int ReadInt(Type type, string name) =>
-        Convert.ToInt32(value: type.GetField(name: name, bindingAttr: BindingFlags.Public | BindingFlags.Static)!.GetValue(obj: null)!, provider: System.Globalization.CultureInfo.InvariantCulture);
+    // Optional(value as int?) drops the Convert.ToInt32 boxing path and fails closed when a constant is
+    // absent or non-int instead of throwing into the outer Attempt.
+    private static Fin<int> ReadInt(Type type, string name) =>
+        Optional(type.GetField(name: name, bindingAttr: BindingFlags.Public | BindingFlags.Static))
+            .Bind(field => Optional(field.GetValue(obj: null)))
+            .Bind(value => Optional(value as int?))
+            .ToFin(Fail: UiFault.MutationRejected(op: RailOp, detail: $"Tooltip.Layout.{name} is not a readable int constant"));
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -221,6 +233,9 @@ internal static class CanvasChrome {
 internal static class Tooltip {
     // Token gate prevents a stale Subscription's Dispose from hiding a later Show that supplanted it.
     private static readonly OwnedSubscription<int> Owner = new();
+    // Eto.Forms.Mouse.Position captured at Show time substitutes for the host-private
+    // Tooltip.Frame.MouseLocationWhenShown; Hide clears it so a stale snapshot reads None.
+    private static readonly Atom<Option<PointF>> ShownLocation = Atom(value: Option<PointF>.None);
 
     internal static GrasshopperUiIntent<CanvasChromeResult> Dispatch(TooltipOp op) =>
         op.Switch(
@@ -241,11 +256,12 @@ internal static class Tooltip {
 
     private static void HideNative() {
         Owner.Clear(key: 0);
+        _ = ShownLocation.Swap(static _ => Option<PointF>.None);
         GhTooltip.Hide();
     }
 
     private static TooltipSnapshot SnapshotNative() =>
-        new(Visible: GhTooltip.Visible, OwnerToken: Owner.Owner(key: 0));
+        new(Visible: GhTooltip.Visible, OwnerToken: Owner.Owner(key: 0), MouseLocationWhenShown: ShownLocation.Value);
 
     // Token gates Dispose: a stale Subscription only hides if its captured Guid is still the active
     // owner — a subsequent Show overwrites the token, leaving prior Subscriptions as no-ops.
@@ -255,7 +271,8 @@ internal static class Tooltip {
     private static Fin<Subscription> Resource(Action invoke) =>
         Owner.Bind(key: 0, attach: invoke, detach: _ => GhTooltip.Hide());
 
-    private static void ShowNative(TooltipOp.ShowCase show) =>
+    private static void ShowNative(TooltipOp.ShowCase show) {
+        _ = ShownLocation.Swap(static _ => Mouse.IsSupported ? Some(Mouse.Position) : Option<PointF>.None);
         show.Body.Switch(
             state: show,
             plainCase: static (s, _) => GhTooltip.Show(icon: s.Icon, caption: s.Caption, message: s.Message, warnings: s.Warnings, errors: s.Errors),
@@ -265,6 +282,7 @@ internal static class Tooltip {
                 (Action<EtoContext, Rectangle> paint, Size size) = p.Painter.Resolve();
                 GhTooltip.Show(icon: s.Icon, caption: s.Caption, message: s.Message, painter: paint, paintingSize: size, warnings: s.Warnings, errors: s.Errors);
             });
+    }
 }
 
 internal static class FloatingButton {
@@ -275,6 +293,7 @@ internal static class FloatingButton {
         op.Switch(
             addCase: static a => Add(a.Position, a.Name, a.Info, a.Icon, a.Colour, a.Handlers).BindFin(CanvasChromeResult.Of),
             addAnchoredCase: static a => AddAnchored(a.Anchor, a.Name, a.Info, a.Icon, a.Colour, a.Handlers).BindFin(CanvasChromeResult.Of),
+            placeRelativeCase: static p => PlaceRelative(p.AnchorName, p.Offset, p.Name, p.Info, p.Icon, p.Colour, p.Handlers).BindFin(CanvasChromeResult.Of),
             addNumericCase: static a => AddNumeric(a.Position, a.Name, a.Info, a.Icon, a.Value, a.ValueKey, a.Colour).BindFin(CanvasChromeResult.Of),
             modifyCase: static m => Modify(m.Name, m.Info, m.Icon, m.Colour, m.Anchor).Map(AsUnit),
             showNamedCase: static s => SetVisible(s.Names, visible: true).Map(AsUnit),
@@ -305,6 +324,26 @@ internal static class FloatingButton {
                 name: name,
                 attach: c => c.FloatingButtons.AddAnchored(
                     anchor: validAnchor, name: name, info: info,
+                    colour: ColourOf(colour), icon: icon,
+                    click: handlers.Click.IfNone(NoOp), mouseDown: handlers.MouseDown.IfNone(NoOp), mouseUp: handlers.MouseUp.IfNone(NoOp))).Run(scope: scope)
+            select sub);
+
+    // Resolves the named anchor button's live host Anchor point, offsets it, and re-anchors a new button
+    // there (FloatingButton.Anchor is the canonical PointF; PlaceRelative substitutes for host-private
+    // relative-placement APIs that are not exposed).
+    internal static GrasshopperUiIntent<Subscription> PlaceRelative(
+        string anchorName, PointF offset, string name, string info, IIcon icon,
+        Option<Color> colour, FloatingButtonHandlers handlers) =>
+        GhUi.Canvas(run: scope =>
+            from canvas in scope.NeedCanvas()
+            from validOffset in Op.Of(name: nameof(PlaceRelative)).AcceptPoint(value: offset, detail: "non-finite offset")
+            from anchor in Optional(canvas.FloatingButtons.FindByName(name: anchorName))
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PlaceRelative)), detail: $"anchor button '{anchorName}' not found"))
+            let point = new PointF(x: anchor.Anchor.X + validOffset.X, y: anchor.Anchor.Y + validOffset.Y)
+            from sub in Install(
+                name: name,
+                attach: c => c.FloatingButtons.AddAnchored(
+                    anchor: point, name: name, info: info,
                     colour: ColourOf(colour), icon: icon,
                     click: handlers.Click.IfNone(NoOp), mouseDown: handlers.MouseDown.IfNone(NoOp), mouseUp: handlers.MouseUp.IfNone(NoOp))).Run(scope: scope)
             select sub);
@@ -442,7 +481,9 @@ internal static class FloatingButton {
             Position: button.Position, State: button.State,
             Enabled: button.Enabled, HasFocus: button.HasFocus,
             Colour: button.Colour,
-            Anchor: button.Position == FloatingPosition.Anchored ? Some(button.Anchor) : Option<PointF>.None);
+            Anchor: button.Position == FloatingPosition.Anchored ? Some(button.Anchor) : Option<PointF>.None,
+            // NumericValue is null until MakeNumeric; project the host UiNumber.Value (decimal) through Option.
+            NumericValue: Optional(button.NumericValue).Map(static value => value.Value));
 
     private static Unit VisibleOn(GhCanvas canvas, Seq<string> names) { canvas.FloatingButtons.Show([.. names]); return unit; }
     private static Unit VisibleOff(GhCanvas canvas, Seq<string> names) { canvas.FloatingButtons.Hide([.. names]); return unit; }

@@ -10,6 +10,7 @@ using GhDocumentMethods = Grasshopper2.Doc.DocumentMethods;
 using GhEditor = Grasshopper2.UI.Editor;
 using GhObjectList = Grasshopper2.Doc.ObjectList;
 using GhOpenColorFamily = Eto.Drawing.OpenColor.Family;
+using GhSnippet = Grasshopper2.Framework.Snippet;
 using Op = Rasm.Domain.Op;
 
 namespace Rasm.Grasshopper.UI;
@@ -218,6 +219,8 @@ public partial record FindCriterion {
     public static FindCriterion Upstream(Guid parameterId) => new GraphCase(ParameterId: parameterId, Direction: WireTraversal.Upstream);
     public static FindCriterion Downstream(Guid parameterId) => new GraphCase(ParameterId: parameterId, Direction: WireTraversal.Downstream);
     public static FindCriterion ByName(string substring, bool caseInsensitive = true) => new ByNameCase(Substring: substring, CaseInsensitive: caseInsensitive);
+    // Host ObjectList.FindBySearch is a verified empty-array stub; Search is a name-substring alias over ByNameCase.
+    public static FindCriterion Search(string query, bool caseInsensitive = true) => new ByNameCase(Substring: query, CaseInsensitive: caseInsensitive);
 }
 
 [SkipUnionOps]
@@ -231,6 +234,7 @@ public partial record DocumentQuery {
     public sealed record GripCase(PointF Point, GripKind Kind) : DocumentQuery;
     public sealed record FindCase(FindCriterion Criterion) : DocumentQuery;
     public sealed record MetaNamesCase : DocumentQuery;
+    public sealed record MetaValuesCase : DocumentQuery;
     public sealed record UniverseCase : DocumentQuery;
 
     public static readonly DocumentQuery Snapshot = new SnapshotCase();
@@ -240,6 +244,7 @@ public partial record DocumentQuery {
     public static DocumentQuery Grip(PointF point, GripKind? kind = null) => new GripCase(Point: point, Kind: kind ?? GripKind.InletOrOutlet);
     public static DocumentQuery Find(FindCriterion criterion) => new FindCase(Criterion: criterion);
     public static readonly DocumentQuery MetaNames = new MetaNamesCase();
+    public static readonly DocumentQuery MetaValues = new MetaValuesCase();
     public static readonly DocumentQuery Universe = new UniverseCase();
 }
 
@@ -313,6 +318,7 @@ public partial record DocumentResult {
     public sealed record GripResult(Option<DocumentGripSnapshot> Grip) : DocumentResult;
     public sealed record FindResult(Seq<DocumentObjectSnapshot> Matches) : DocumentResult;
     public sealed record MetaNamesResult(Seq<MetaName> Names) : DocumentResult;
+    public sealed record MetaValuesResult(Map<MetaName, Seq<string>> Values) : DocumentResult;
     public sealed record UniverseResult(DocumentUniverseSnapshot Snapshot) : DocumentResult;
     public sealed record MutationResult(Snapshot<DocumentMutationDelta> Delta) : DocumentResult;
     public sealed record HistoryResult(DocumentHistorySnapshot Snapshot) : DocumentResult;
@@ -414,7 +420,8 @@ public partial record DropCue {
 public abstract partial record DocumentMutation {
     public sealed record TargetCase(ObjectScope Subject, DocumentTargetOp Op) : DocumentMutation;
     public sealed record ComposeCase(ObjectScope Subject, ComposeOp Op) : DocumentMutation;
-    public sealed record DropCase(Guid ProxyId, PointF Location) : DocumentMutation;
+    public sealed record DropCase(Guid ProxyId, PointF Location, Option<string> Init = default) : DocumentMutation;
+    public sealed record DropSnippetCase(string File, PointF Location) : DocumentMutation;
     public sealed record PlaceCase(ObjectSpec Object, PointF Location, DropCue Cue) : DocumentMutation;
     public sealed record AddDependencyCase(PointF Location) : DocumentMutation;
     public sealed record IsolateCase(IsolateOptions Options) : DocumentMutation;
@@ -425,7 +432,8 @@ public abstract partial record DocumentMutation {
     public static DocumentMutation Clipboard(ClipboardOp op) => Target(subject: ObjectScope.Selection, op: new DocumentTargetOp.ClipboardCase(Op: op));
     public static DocumentMutation Compose(ComposeOp op) => new ComposeCase(Subject: ObjectScope.Selection, Op: op);
     public static DocumentMutation Compose(ObjectScope subject, ComposeOp op) => new ComposeCase(Subject: subject, Op: op);
-    public static DocumentMutation Drop(Guid proxyId, PointF location) => new DropCase(ProxyId: proxyId, Location: location);
+    public static DocumentMutation Drop(Guid proxyId, PointF location, string? init = null) => new DropCase(ProxyId: proxyId, Location: location, Init: Optional(init));
+    public static DocumentMutation DropSnippet(string file, PointF location) => new DropSnippetCase(File: file, Location: location);
     public static DocumentMutation Place(ObjectSpec obj, PointF location, DropCue? cue = null) => new PlaceCase(Object: obj, Location: location, Cue: cue ?? DropCue.None);
     public static DocumentMutation AddDependency(PointF location) => new AddDependencyCase(Location: location);
     public static DocumentMutation Isolate(IsolateOptions options = default) => new IsolateCase(Options: options);
@@ -440,7 +448,16 @@ public abstract partial record DocumentMutation {
                 from proxy in Op.Of(name: nameof(Drop)).AcceptValue(value: drop.ProxyId)
                     .MapFail(static _ => UiFault.InvalidInput(op: Op.Of(name: nameof(Drop)), detail: "empty proxy id"))
                 from location in Op.Of(name: nameof(Drop)).AcceptPoint(value: drop.Location, detail: "non-finite location")
-                select DocumentMutationReceipt.From(changed: s.methods.DropObject(obj: proxy, location: location, actions: s.actions))),
+                let changed = drop.Init is { IsSome: true, Case: string init }
+                    ? s.methods.DropObject(obj: (proxy, init), location: location, actions: s.actions)
+                    : s.methods.DropObject(obj: proxy, location: location, actions: s.actions)
+                select DocumentMutationReceipt.From(changed: changed)),
+            dropSnippetCase: static (s, snippet) => (
+                from file in Op.Of(name: nameof(DropSnippet)).AcceptText(value: snippet.File)
+                from location in Op.Of(name: nameof(DropSnippet)).AcceptPoint(value: snippet.Location, detail: "non-finite location")
+                from changed in Try.lift(f: () => s.methods.DropSnippet(snippet: new GhSnippet(file: file), location: location, actions: s.actions)).Run()
+                    .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(DropSnippet)), detail: $"DropSnippet threw: {error.Message}"))
+                select DocumentMutationReceipt.From(changed: changed)),
             placeCase: static (s, place) => (
                 from spec in Optional(place.Object).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Place)), detail: "object spec is required"))
                 from location in Op.Of(name: nameof(Place)).AcceptPoint(value: place.Location, detail: "non-finite location")
@@ -645,6 +662,9 @@ internal static partial class Document {
                     .Map(matches => (DocumentResult)new DocumentResult.FindResult(Matches: matches))),
             metaNamesCase: static (s, _) =>
                 s.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.MetaNamesResult(Names: toSeq(objs.MetaNames()))),
+            metaValuesCase: static (s, _) =>
+                s.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.MetaValuesResult(
+                    Values: toMap(objs.MetaNamesAndValues().Select(static kv => (kv.Key, toSeq(kv.Value)))))),
             universeCase: static (_, _) =>
                 Universe().Map(snapshot => (DocumentResult)new DocumentResult.UniverseResult(Snapshot: snapshot)));
 

@@ -28,6 +28,14 @@ public sealed partial class CursorKind {
     public static readonly CursorKind VerticalSplit = new(key: 5, cursor: static _ => Cursors.VerticalSplit);
     public static readonly CursorKind HorizontalSplit = new(key: 6, cursor: static _ => Cursors.HorizontalSplit);
     public static readonly CursorKind SizeAll = new(key: 7, cursor: static _ => Cursors.SizeAll);
+    public static readonly CursorKind SizeLeft = new(key: 12, cursor: static _ => Cursors.SizeLeft);
+    public static readonly CursorKind SizeRight = new(key: 13, cursor: static _ => Cursors.SizeRight);
+    public static readonly CursorKind SizeTop = new(key: 14, cursor: static _ => Cursors.SizeTop);
+    public static readonly CursorKind SizeBottom = new(key: 15, cursor: static _ => Cursors.SizeBottom);
+    public static readonly CursorKind SizeTopLeft = new(key: 16, cursor: static _ => Cursors.SizeTopLeft);
+    public static readonly CursorKind SizeTopRight = new(key: 17, cursor: static _ => Cursors.SizeTopRight);
+    public static readonly CursorKind SizeBottomLeft = new(key: 18, cursor: static _ => Cursors.SizeBottomLeft);
+    public static readonly CursorKind SizeBottomRight = new(key: 19, cursor: static _ => Cursors.SizeBottomRight);
     public static readonly CursorKind NotAllowed = new(key: 8, cursor: static _ => Cursors.NotAllowed);
     // Wire cursors prefer the host's static override (Canvas.CursorWireIn/Out/Question) and fall back to
     // a stock cursor — folded into the item delegate so Resolve is a single uniform Cursor() call.
@@ -113,10 +121,14 @@ public partial record InputClipboardOp {
     public sealed record ReadCase : InputClipboardOp;
     public sealed record WriteCase(InputClipboardSnapshot Payload) : InputClipboardOp;
     public sealed record ClearCase : InputClipboardOp;
+    public sealed record WriteDataCase(Seq<byte> Data, string Type) : InputClipboardOp;
+    public sealed record ReadDataCase(string Type) : InputClipboardOp;
     public static readonly InputClipboardOp Read = new ReadCase();
     public static InputClipboardOp Write(string text) => new WriteCase(Payload: InputClipboardSnapshot.Of(text: text));
     public static InputClipboardOp Write(InputClipboardSnapshot payload) => new WriteCase(Payload: payload);
     public static readonly InputClipboardOp Clear = new ClearCase();
+    public static InputClipboardOp WriteData(byte[] data, string type) => new WriteDataCase(Data: toSeq(data), Type: type);
+    public static InputClipboardOp ReadData(string type) => new ReadDataCase(Type: type);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -138,13 +150,14 @@ public readonly record struct ToolbarSnapshot(int Count, bool Enabled, float Min
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct MenuSnapshot(int Count);
 
-public readonly record struct InputClipboardSnapshot(Option<string> Text, Option<string> Html, Option<Image> Image, Seq<Uri> Uris, Seq<string> Types) {
+public readonly record struct InputClipboardSnapshot(Option<string> Text, Option<string> Html, Option<Image> Image, Seq<Uri> Uris, Seq<string> Types, Option<byte[]> Data = default) {
     public static InputClipboardSnapshot Empty => new(
         Text: Option<string>.None,
         Html: Option<string>.None,
         Image: Option<Image>.None,
         Uris: Seq<Uri>(),
-        Types: Seq<string>());
+        Types: Seq<string>(),
+        Data: Option<byte[]>.None);
 
     public static InputClipboardSnapshot Of(string text) => Empty with { Text = Optional(text) };
 }
@@ -225,8 +238,10 @@ internal partial record UiCommandSurface {
     private UiCommandSurface() { }
     public sealed record ToolbarCase(Bar Bar) : UiCommandSurface;
     public sealed record MenuCase(ContextMenu Target) : UiCommandSurface;
+    public sealed record InputPanelCase(InputPanel Panel) : UiCommandSurface;
     public static UiCommandSurface Toolbar(Bar bar) => new ToolbarCase(Bar: bar);
     public static UiCommandSurface Menu(ContextMenu menu) => new MenuCase(Target: menu);
+    public static UiCommandSurface InputPanel(InputPanel panel) => new InputPanelCase(Panel: panel);
 }
 
 [GenerateUnionOps]
@@ -242,6 +257,10 @@ public partial record ToolbarItem {
     public sealed partial record SwatchInputCase(string Name, OpenColor.Family Family, Func<OpenColor.Family, Fin<Unit>> Changed) : ToolbarItem;
     public sealed partial record ColourBarsCase(string Name, OpenColor.Family Family, Func<OpenColor.Family, Fin<Unit>> Changed) : ToolbarItem;
     public sealed partial record SpacerCase(string Chapter, string Section) : ToolbarItem;
+    public sealed partial record LabelCase(string Caption) : ToolbarItem;
+    public sealed partial record CheckCase(string Name, bool State, Func<bool, Fin<Unit>> Changed) : ToolbarItem;
+    public sealed partial record TextCase(string Name, string Value, Func<string, Fin<Unit>> Changed) : ToolbarItem;
+    public sealed partial record SpectrumCase(string Name, Seq<OpenColor.Family> Palette, OpenColor.Family Initial, Func<OpenColor.Family, Fin<Unit>> Changed) : ToolbarItem;
 
     public static ToolbarItem Button(UiCommand command, bool closeOnActivate = true) => new ButtonCase(Command: command, CloseOnActivate: closeOnActivate);
     public static ToolbarItem Toggle(UiCommand command, bool state, Func<bool, Fin<Unit>> changed) => new ToggleCase(Command: command, State: state, Changed: changed);
@@ -252,13 +271,22 @@ public partial record ToolbarItem {
     public static ToolbarItem SwatchInput(string name, OpenColor.Family family, Func<OpenColor.Family, Fin<Unit>> changed) => new SwatchInputCase(Name: name, Family: family, Changed: changed);
     public static ToolbarItem ColourBars(string name, OpenColor.Family family, Func<OpenColor.Family, Fin<Unit>> changed) => new ColourBarsCase(Name: name, Family: family, Changed: changed);
     public static ToolbarItem Spacer(string chapter, string section) => new SpacerCase(Chapter: chapter, Section: section);
+    public static ToolbarItem Label(string text) => new LabelCase(Caption: text);
+    public static ToolbarItem Check(string name, bool state, Func<bool, Fin<Unit>> changed) => new CheckCase(Name: name, State: state, Changed: changed);
+    public static ToolbarItem Text(string name, string value, Func<string, Fin<Unit>> changed) => new TextCase(Name: name, Value: value, Changed: changed);
+    public static ToolbarItem Spectrum(string name, OpenColor.Family[] spectrum, OpenColor.Family initial, Func<OpenColor.Family, Fin<Unit>> changed) => new SpectrumCase(Name: name, Palette: toSeq(spectrum), Initial: initial, Changed: changed);
+
+    // Label/Check/Text are InputPanel-native widgets (no Bar/ContextMenu equivalent); they route to the
+    // InputPanel surface. Bar widgets (incl. Spectrum) route to the embedded bar.
+    internal bool IsPanelNative => this is LabelCase or CheckCase or TextCase;
 
     internal Fin<Unit> Apply(UiCommandSurface surface) =>
         Optional(surface)
             .ToFin(Fail: UiFault.MissingScope(field: nameof(UiCommandSurface)))
             .Bind(valid => valid.Switch(
                 toolbarCase: toolbar => ProjectToolbar(bar: toolbar.Bar),
-                menuCase: menu => ProjectMenu(menu: menu.Target)));
+                menuCase: menu => ProjectMenu(menu: menu.Target),
+                inputPanelCase: panel => ProjectPanel(panel: panel.Panel)));
 
     private Fin<Unit> ProjectToolbar(Bar bar) => Switch(
         state: bar,
@@ -329,7 +357,16 @@ public partial record ToolbarItem {
         spacerCase: static (bar, item) => SpacerCase.SelfOp.Attempt(body: () => {
             _ = bar.AddSpacer(chapterName: item.Chapter, sectionName: item.Section);
             return unit;
-        }, what: "AddSpacer"));
+        }, what: "AddSpacer"),
+        spectrumCase: static (bar, item) =>
+            from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: SpectrumCase.SelfOp, detail: "colour change delegate is required"))
+            from added in SpectrumCase.SelfOp.Attempt(
+                body: () => bar.AddColours(nomen: new Nomen(name: item.Name, info: item.Name), spectrum: [.. item.Palette], initial: item.Initial, assignment: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value))),
+                what: "AddColours")
+            select added,
+        labelCase: static (_, _) => ToolbarUnsupported(name: nameof(LabelCase)),
+        checkCase: static (_, _) => ToolbarUnsupported(name: nameof(CheckCase)),
+        textCase: static (_, _) => ToolbarUnsupported(name: nameof(TextCase)));
 
     private Fin<Unit> ProjectMenu(ContextMenu menu) => Switch(
         state: menu,
@@ -348,7 +385,11 @@ public partial record ToolbarItem {
         textInputCase: static (_, _) => MenuUnsupported(name: nameof(TextInputCase)),
         numberCase: static (_, _) => MenuUnsupported(name: nameof(NumberCase)),
         swatchInputCase: static (_, _) => MenuUnsupported(name: nameof(SwatchInputCase)),
-        colourBarsCase: static (_, _) => MenuUnsupported(name: nameof(ColourBarsCase)));
+        colourBarsCase: static (_, _) => MenuUnsupported(name: nameof(ColourBarsCase)),
+        labelCase: static (_, _) => MenuUnsupported(name: nameof(LabelCase)),
+        checkCase: static (_, _) => MenuUnsupported(name: nameof(CheckCase)),
+        textCase: static (_, _) => MenuUnsupported(name: nameof(TextCase)),
+        spectrumCase: static (_, _) => MenuUnsupported(name: nameof(SpectrumCase)));
 
     private static Unit PushCheckMenuItem(ContextMenu menu, UiCommand command, bool state, Func<bool, Fin<Unit>> changed) {
         CheckCommand menuCommand = new() {
@@ -374,6 +415,45 @@ public partial record ToolbarItem {
 
     private static Fin<Unit> MenuUnsupported(string name) =>
         Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{name} cannot be projected to a context menu"));
+
+    private static Fin<Unit> ToolbarUnsupported(string name) =>
+        Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{name} cannot be projected to a toolbar"));
+
+    private static Fin<Unit> PanelUnsupported(string name) =>
+        Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{name} cannot be projected to an input panel"));
+
+    // InputPanel-native projection: Label/Check/Text use the panel's own widgets; bar widgets route
+    // through the embedded bar instead (see Input.Panel(CommandPlan)) and are rejected here.
+    private Fin<Unit> ProjectPanel(InputPanel panel) => Switch(
+        state: panel,
+        labelCase: static (panel, item) => LabelCase.SelfOp.Attempt(body: () => {
+            _ = panel.AddLabel(text: item.Caption);
+            return unit;
+        }, what: "AddLabel"),
+        checkCase: static (panel, item) =>
+            from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: CheckCase.SelfOp, detail: "check change delegate is required"))
+            from added in CheckCase.SelfOp.Attempt(body: () => {
+                _ = panel.AddCheck(text: item.Name, @checked: item.State, checkedChanged: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)));
+                return unit;
+            }, what: "AddCheck")
+            select added,
+        textCase: static (panel, item) =>
+            from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: TextCase.SelfOp, detail: "text change delegate is required"))
+            from added in TextCase.SelfOp.Attempt(body: () => {
+                _ = panel.AddText(text: item.Value, textChanged: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)));
+                return unit;
+            }, what: "AddText")
+            select added,
+        buttonCase: static (_, _) => PanelUnsupported(name: nameof(ButtonCase)),
+        toggleCase: static (_, _) => PanelUnsupported(name: nameof(ToggleCase)),
+        sectionToggleCase: static (_, _) => PanelUnsupported(name: nameof(SectionToggleCase)),
+        radioCase: static (_, _) => PanelUnsupported(name: nameof(RadioCase)),
+        textInputCase: static (_, _) => PanelUnsupported(name: nameof(TextInputCase)),
+        numberCase: static (_, _) => PanelUnsupported(name: nameof(NumberCase)),
+        swatchInputCase: static (_, _) => PanelUnsupported(name: nameof(SwatchInputCase)),
+        colourBarsCase: static (_, _) => PanelUnsupported(name: nameof(ColourBarsCase)),
+        spacerCase: static (_, _) => PanelUnsupported(name: nameof(SpacerCase)),
+        spectrumCase: static (_, _) => PanelUnsupported(name: nameof(SpectrumCase)));
 
     private static Unit AddRadioToggle(Bar bar, UiCommand command, bool state, bool optional, Func<bool, Fin<Unit>> changed) {
         RadioToggle toggled = bar.AddRadioToggle(
@@ -500,7 +580,10 @@ internal static partial class Input {
     internal static GrasshopperUiIntent<InputPanelSnapshot> Panel(CommandPlan plan) =>
         Panel(populate: panel => Try.lift(f: () => panel.AddBar(drawCategoryLabels: false)).Run()
             .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Panel)), detail: $"InputPanel.AddBar threw: {error.Message}"))
-            .Bind(bar => plan.Items.TraverseM(item => item.Apply(surface: UiCommandSurface.Toolbar(bar: bar))).Map(static _ => unit).As()));
+            .Bind(bar =>
+                from native in plan.Items.Filter(static item => item.IsPanelNative).TraverseM(item => item.Apply(surface: UiCommandSurface.InputPanel(panel: panel))).As()
+                from barred in plan.Items.Filter(static item => !item.IsPanelNative).TraverseM(item => item.Apply(surface: UiCommandSurface.Toolbar(bar: bar))).As()
+                select unit));
 
     internal static GrasshopperUiIntent<ToolbarSnapshot> Toolbar(CommandPlan plan) =>
         Toolbar(populate: bar =>
@@ -565,6 +648,15 @@ internal static partial class Input {
                 clearCase: static _ => {
                     Eto.Forms.Clipboard.Instance.Clear();
                     return InputClipboardSnapshot.Empty;
+                },
+                writeDataCase: static d => {
+                    byte[] bytes = [.. d.Data];
+                    Eto.Forms.Clipboard.Instance.SetData(value: bytes, type: d.Type);
+                    return ClipboardSnapshotOf() with { Data = Some(bytes) };
+                },
+                readDataCase: static r => {
+                    Clipboard clipboard = Eto.Forms.Clipboard.Instance;
+                    return ClipboardSnapshotOf() with { Data = clipboard.Contains(type: r.Type) ? Some(clipboard.GetData(type: r.Type)) : Option<byte[]>.None };
                 }),
             what: "Clipboard op"));
 

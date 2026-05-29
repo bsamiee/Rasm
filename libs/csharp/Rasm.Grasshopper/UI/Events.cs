@@ -122,7 +122,7 @@ public sealed record DocumentEventPipe(
     }
 }
 
-public readonly record struct SolutionEventHandlers(EventHandler<SolutionIdEventArgs> About, EventHandler<SolutionEventArgs> Plain, EventHandler<SolutionExceptionEventArgs> Faulted) {
+public readonly record struct SolutionEventHandlers(EventHandler<SolutionIdEventArgs> About, EventHandler<SolutionEventArgs> Plain, EventHandler<SolutionExceptionEventArgs> Faulted, EventHandler Enabled) {
     internal static SolutionEventHandlers Empty => default;
 }
 
@@ -311,6 +311,15 @@ public static class SolutionEventKind {
         select: static e => e.Faulted,
         assign: static (left, right) => left with { Faulted = right },
         handler: static (kind, pipe) => (_, e) => pipe.PublishFaulted(kind: kind, args: e));
+
+    // EnabledChanged is a STATIC plain EventHandler on SolutionServer (sender/args always null) tracking the
+    // global SolutionServer.EnableSolutions toggle. It cannot reuse On<TArgs> (which requires
+    // EventHandler<TArgs>), so it binds the dedicated Enabled handler slot to the static event.
+    public static readonly SolutionEvent EnabledChanged = new(
+        Name: nameof(EnabledChanged),
+        Attach: static (_, handlers) => SolutionServer.EnabledChanged += handlers.Enabled,
+        Detach: static (_, handlers) => SolutionServer.EnabledChanged -= handlers.Enabled,
+        Build: static (kind, pipe) => SolutionEventHandlers.Empty with { Enabled = (_, _) => pipe.PublishPlain(kind: kind) });
 
     private static SolutionEvent OnPlain(string name, Action<SolutionServer, EventHandler<SolutionEventArgs>> attach, Action<SolutionServer, EventHandler<SolutionEventArgs>> detach) =>
         On(

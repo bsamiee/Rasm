@@ -82,9 +82,14 @@ public sealed partial class WireTraversal {
                 .OfType<IDocumentObject>());
 }
 
+// Optional per-edit arguments: connection endpoint indices (ConnectAt) and the omit-set for the
+// DisconnectAll*Except verbs. Default is the zero/empty carrier the index-free verbs ignore.
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct WireEditArgs(int SourceIndex = 0, int TargetIndex = 0, Seq<Guid> Omit = default);
+
 [SmartEnum<int>]
 public sealed partial class WireEdit {
-    private delegate Fin<int> WireEditRun(GhDocumentMethods methods, GhObjectList objects, IParameter source, IParameter target, ActionList actions);
+    private delegate Fin<int> WireEditRun(GhDocumentMethods methods, GhObjectList objects, IParameter source, IParameter target, ActionList actions, WireEditArgs args);
 
     // Disconnect-all verbs operate on one endpoint, so they never require a live source<->target pair.
     public bool RequiresConnectedPair { get; }
@@ -92,7 +97,7 @@ public sealed partial class WireEdit {
     public static readonly WireEdit Connect = new(
         key: 0,
         requiresConnectedPair: true,
-        apply: static (_, _, source, target, actions) =>
+        apply: static (_, _, source, target, actions, _) =>
             WireData.TryCreate(source: source, target: target, data: out WireData _)
                 ? Native(op: Op.Of(name: "Wire.Connect"), name: "Connections.Connect", run: () => Connections.Connect(source: source, target: target, undo: actions))
                 : Fin.Fail<int>(error: UiFault.MutationRejected(op: Op.Of(name: "Wire.Connect"), detail: "source and target are incompatible for a wire connection")));
@@ -100,7 +105,7 @@ public sealed partial class WireEdit {
     public static readonly WireEdit Disconnect = new(
         key: 1,
         requiresConnectedPair: true,
-        apply: static (_, objects, source, target, actions) =>
+        apply: static (_, objects, source, target, actions, _) =>
             from connected in Wire.RequireConnected(objects: objects, source: source, target: target, op: Op.Of(name: "Wire.Disconnect"))
             from changed in Native(op: Op.Of(name: "Wire.Disconnect"), name: "Connections.Disconnect", run: () => Connections.Disconnect(source: source, target: target, undo: actions))
             select changed);
@@ -108,7 +113,7 @@ public sealed partial class WireEdit {
     public static readonly WireEdit Delete = new(
         key: 2,
         requiresConnectedPair: true,
-        apply: static (methods, objects, source, target, actions) =>
+        apply: static (methods, objects, source, target, actions, _) =>
             from connected in Wire.RequireConnected(objects: objects, source: source, target: target, op: Op.Of(name: "Wire.Delete"))
             from changed in NativeCount(op: Op.Of(name: "Wire.Delete"), name: "DocumentMethods.DeleteObjects", run: () => methods.DeleteObjects(objects: [], wires: [new WireEnds(source: source.InstanceId, target: target.InstanceId)], actions: actions))
             select changed);
@@ -116,17 +121,37 @@ public sealed partial class WireEdit {
     public static readonly WireEdit DisconnectInputs = new(
         key: 3,
         requiresConnectedPair: false,
-        apply: static (_, _, _, target, actions) =>
+        apply: static (_, _, _, target, actions, _) =>
             NativeCount(op: Op.Of(name: "Wire.DisconnectInputs"), name: "Connections.DisconnectAllInputs", run: () => Connections.DisconnectAllInputs(target: target, undo: actions)));
 
     public static readonly WireEdit DisconnectOutputs = new(
         key: 4,
         requiresConnectedPair: false,
-        apply: static (_, _, source, _, actions) =>
+        apply: static (_, _, source, _, actions, _) =>
             NativeCount(op: Op.Of(name: "Wire.DisconnectOutputs"), name: "Connections.DisconnectAllOutputs", run: () => Connections.DisconnectAllOutputs(source: source, undo: actions)));
 
+    public static readonly WireEdit ConnectAt = new(
+        key: 5,
+        requiresConnectedPair: true,
+        apply: static (_, _, source, target, actions, args) =>
+            WireData.TryCreate(source: source, target: target, data: out WireData _)
+                ? Native(op: Op.Of(name: "Wire.ConnectAt"), name: "Connections.Connect", run: () => Connections.Connect(source: source, target: target, indexAtSource: args.SourceIndex, indexAtTarget: args.TargetIndex, undo: actions))
+                : Fin.Fail<int>(error: UiFault.MutationRejected(op: Op.Of(name: "Wire.ConnectAt"), detail: "source and target are incompatible for a wire connection")));
+
+    public static readonly WireEdit DisconnectInputsExcept = new(
+        key: 6,
+        requiresConnectedPair: false,
+        apply: static (_, _, _, target, actions, args) =>
+            NativeCount(op: Op.Of(name: "Wire.DisconnectInputsExcept"), name: "Connections.DisconnectAllInputsExcept", run: () => Connections.DisconnectAllInputsExcept(target: target, omissions: [.. args.Omit], undo: actions)));
+
+    public static readonly WireEdit DisconnectOutputsExcept = new(
+        key: 7,
+        requiresConnectedPair: false,
+        apply: static (_, _, source, _, actions, args) =>
+            NativeCount(op: Op.Of(name: "Wire.DisconnectOutputsExcept"), name: "Connections.DisconnectAllOutputsExcept", run: () => Connections.DisconnectAllOutputsExcept(source: source, omissions: [.. args.Omit], undo: actions)));
+
     [UseDelegateFromConstructor]
-    internal partial Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, IParameter source, IParameter target, ActionList actions);
+    internal partial Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, IParameter source, IParameter target, ActionList actions, WireEditArgs args);
 
     private static Fin<int> Native(Op op, string name, Func<bool> run) =>
         op.Attempt(body: run, what: name)
@@ -175,8 +200,9 @@ public sealed partial class GraphMetric {
             from objects in scope.NeedObjects()
             from result in Op.Of(name: nameof(SortedTopology)).Attempt(
                 body: () => {
-                    ConnectiveObject[] nodes = [.. ids.Choose(id => objects.Connectivity.Find(id, out ConnectiveObject? co) ? Optional(co) : Option<ConnectiveObject>.None)];
-                    ConnectiveObject[] sorted = objects.Connectivity.SortCausally(objects: nodes);
+                    Connectivity connectivity = objects.Connectivity;
+                    ConnectiveObject[] nodes = [.. ids.Choose(id => connectivity.Find(id, out ConnectiveObject? co) ? Optional(co) : Option<ConnectiveObject>.None)];
+                    ConnectiveObject[] sorted = connectivity.SortCausally(objects: nodes);
                     return (WireResult)new WireResult.SortedIdsResult(Ids: toSeq(sorted.Select(static co => co.Id)));
                 },
                 what: "Connectivity.SortCausally")
@@ -240,14 +266,14 @@ public partial record WireOp {
     public sealed partial record QueryCase(WireQuery Request) : WireOp;
     public sealed partial record SelectCase(WireSelectionOp Op) : WireOp;
     public sealed partial record SplitCase(WireSnapshot.ConnectedCase Wire, PointF Location) : WireOp;
-    public sealed partial record EditCase(WireSnapshot.ConnectedCase Wire, WireEdit Kind) : WireOp;
+    public sealed partial record EditCase(WireSnapshot.ConnectedCase Wire, WireEdit Kind, WireEditArgs Args = default) : WireOp;
     public sealed partial record InstallShapeCase(Type ShapeType) : WireOp;
     public sealed partial record OverlayPenCase(Pen Pen, MotionClock? Clock = null) : WireOp;
     public sealed partial record WirePaintObserveCase(MotionClock? Clock = null) : WireOp;
     public static WireOp Query(WireQuery query) => new QueryCase(Request: query);
     public static WireOp Select(WireSelectionOp op) => new SelectCase(Op: op);
     public static WireOp Split(WireSnapshot.ConnectedCase wire, PointF location) => new SplitCase(Wire: wire, Location: location);
-    public static WireOp Edit(WireSnapshot.ConnectedCase wire, WireEdit edit) => new EditCase(Wire: wire, Kind: edit);
+    public static WireOp Edit(WireSnapshot.ConnectedCase wire, WireEdit edit, WireEditArgs args = default) => new EditCase(Wire: wire, Kind: edit, Args: args);
     public static WireOp InstallShape(Type shapeType) => new InstallShapeCase(ShapeType: shapeType);
     public static WireOp OverlayPen(Pen pen, MotionClock? clock = null) => new OverlayPenCase(Pen: pen, Clock: clock);
     public static WireOp WirePaintObserve(MotionClock? clock = null) => new WirePaintObserveCase(Clock: clock);
@@ -312,7 +338,7 @@ internal static partial class Wire {
         queryCase: static q => Query(query: q.Request),
         selectCase: static s => Selection(op: s.Op).Map(static delta => (WireResult)new WireResult.SelectionCase(Delta: delta)),
         splitCase: static s => Split(wire: s.Wire, location: s.Location).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
-        editCase: static e => Edit(wire: e.Wire, edit: e.Kind).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
+        editCase: static e => Edit(wire: e.Wire, edit: e.Kind, args: e.Args).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
         installShapeCase: static i => InstallShape(shapeType: i.ShapeType).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
         overlayPenCase: static o => OverlayPen(pen: o.Pen, clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
         wirePaintObserveCase: static o => WirePaintObserve(clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)));
@@ -426,14 +452,14 @@ internal static partial class Wire {
                     what: "DocumentMethods.SplitWire")
                 select split);
 
-    internal static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> Edit(WireSnapshot.ConnectedCase wire, WireEdit edit) =>
+    internal static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> Edit(WireSnapshot.ConnectedCase wire, WireEdit edit, WireEditArgs args) =>
         MutateConnectedWire(
             op: Op.Of(name: string.Create(CultureInfo.InvariantCulture, $"Wire.{edit}")),
             wire: wire,
             requireConnectedPair: edit.RequiresConnectedPair,
             run: (methods, objs, source, target, actions) =>
                 from validEdit in Optional(edit).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Edit)), detail: "wire edit is required"))
-                from changed in validEdit.Apply(methods: methods, objects: objs, source: source, target: target, actions: actions)
+                from changed in validEdit.Apply(methods: methods, objects: objs, source: source, target: target, actions: actions, args: args)
                 select DocumentMutationReceipt.Count(changed: changed));
 
     private static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> MutateConnectedWire(

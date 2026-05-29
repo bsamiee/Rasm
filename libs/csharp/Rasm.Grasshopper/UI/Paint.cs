@@ -31,6 +31,23 @@ public sealed partial class SystemColorKind {
     internal partial Color Resolve();
 }
 
+// Icon render-state filter. Each case carries the IconContext colour-filter transform the host
+// applies during draw (WithDisabledFilter desaturates+compresses, WithGreyscaleFilter maps to
+// luminance, WithFadingFilter blends toward the icon background). None is identity.
+[SmartEnum<int>]
+public sealed partial class IconAdjust {
+    private const float FadeFactor = 0.5f;
+    private delegate IconContext AdjustSource(IconContext context);
+
+    public static readonly IconAdjust None = new(key: 0, apply: static context => context);
+    public static readonly IconAdjust Disabled = new(key: 1, apply: static context => context.WithDisabledFilter());
+    public static readonly IconAdjust Greyscale = new(key: 2, apply: static context => context.WithGreyscaleFilter());
+    public static readonly IconAdjust Faded = new(key: 3, apply: static context => context.WithFadingFilter(background: context.Background, factor: FadeFactor));
+
+    [UseDelegateFromConstructor]
+    internal partial IconContext Apply(IconContext context);
+}
+
 [SmartEnum<int>]
 public sealed partial class CanvasPaintPhase {
     private delegate Unit PaintWire(GhCanvas canvas, EventHandler<CanvasPaintEventArgs> handler);
@@ -304,17 +321,6 @@ file sealed class BoundedCache<TKey, TValue> where TKey : notnull {
         }
     }
 
-    internal int Count {
-        get { using (gate.EnterScope()) { return entries.Count; } }
-    }
-
-    internal Unit Clear() {
-        using (gate.EnterScope()) {
-            entries.Clear();
-            order.Clear();
-        }
-        return unit;
-    }
 }
 
 // Key includes FontDecoration explicitly — Eto.Drawing.Font equality excludes it. AppKit text APIs
@@ -350,9 +356,6 @@ file static class TextMeasure {
                 ft.MaximumSize = new SizeF(width: k.MaxWidth, height: k.MaxHeight);
                 return ft.Measure();
             });
-
-    internal static int Count => Cache.Count;
-    internal static Unit Clear() => Cache.Clear();
 }
 
 // Dedupes by (dashes array identity, quantized offset). Quantum 0.01 matches DashStyle.Equals
@@ -371,9 +374,6 @@ file static class DashStyleIntern {
             key: (DashesRef: dashesRef, Bucket: bucket),
             valueFactory: key => new DashStyle(offset: key.Bucket * Quantum, dashes: baseline.Dashes));
     }
-
-    internal static int Count => Cache.Count;
-    internal static Unit Clear() => Cache.Clear();
 }
 
 file static class SystemFonts {
@@ -506,12 +506,14 @@ public partial record DrawMark {
     public sealed partial record PathCase(IGraphicsPath Geometry, PaintStyle Style) : DrawMark;
     public sealed partial record TextCase(string Value, RectangleF Frame, PaintStyle Style, FormattedTextWrapMode Wrap, FormattedTextAlignment Alignment, FormattedTextTrimming Trimming) : DrawMark;
     public sealed partial record ImageCase(Image Value, RectangleF Frame, PaintStyle Style) : DrawMark;
-    public sealed partial record GhIconCase(IIcon Value, RectangleF Frame, PaintStyle Style) : DrawMark;
+    public sealed partial record GhIconCase(IIcon Value, RectangleF Frame, PaintStyle Style, IconAdjust Adjust) : DrawMark;
     public sealed partial record WireCase(PointF Source, PointF Target, WireKind Kind, PaintStyle Style) : DrawMark;
     public sealed partial record ArcCase(RectangleF Bounds, float StartAngle, float SweepAngle, PaintStyle Style) : DrawMark;
     public sealed partial record PieCase(RectangleF Bounds, float StartAngle, float SweepAngle, PaintStyle Style) : DrawMark;
     public sealed partial record PolylineCase(ReadOnlyMemory<PointF> Points, PaintStyle Style) : DrawMark;
     public sealed partial record PolygonCase(ReadOnlyMemory<PointF> Points, PaintStyle Style) : DrawMark;
+    public sealed partial record BezierCase(PointF Start, PointF Control1, PointF Control2, PointF End, PaintStyle Style) : DrawMark;
+    public sealed partial record CurveCase(ReadOnlyMemory<PointF> Points, float Tension, PaintStyle Style) : DrawMark;
     public sealed partial record CapsuleCase(Capsule Value, Parts Elements, Shade Shade) : DrawMark;
 
     public static DrawMark Line(PointF a, PointF b, Color colour, float thickness = 1f) =>
@@ -537,8 +539,8 @@ public partial record DrawMark {
         new TextCase(Value: value, Frame: frame, Style: PaintStyle.ForEdgeText(edge: colour, font: font), Wrap: wrap, Alignment: alignment, Trimming: trimming);
     public static DrawMark Image(Image value, RectangleF frame) =>
         new ImageCase(Value: value, Frame: frame, Style: PaintStyle.ForTransparent());
-    public static DrawMark IconGlyph(IIcon value, RectangleF frame, Color background) =>
-        new GhIconCase(Value: value, Frame: frame, Style: PaintStyle.ForTransparent(background: background));
+    public static DrawMark IconGlyph(IIcon value, RectangleF frame, Color background, IconAdjust? adjust = null) =>
+        new GhIconCase(Value: value, Frame: frame, Style: PaintStyle.ForTransparent(background: background), Adjust: adjust ?? IconAdjust.None);
     public static DrawMark WirePreview(PointF source, PointF target, WireKind kind = WireKind.Tentative) =>
         new WireCase(Source: source, Target: target, Kind: kind, Style: PaintStyle.ForTransparent());
     public static DrawMark Arc(RectangleF bounds, float startAngle, float sweepAngle, Color edge, float thickness = 1f) =>
@@ -549,6 +551,10 @@ public partial record DrawMark {
         new PolylineCase(Points: points, Style: PaintStyle.ForEdge(edge: edge, thickness: thickness));
     public static DrawMark Polygon(ReadOnlyMemory<PointF> points, Color edge, Option<Color> fill = default, float thickness = 1f) =>
         new PolygonCase(Points: points, Style: PaintStyle.ForEdge(edge: edge, fill: fill, thickness: thickness));
+    public static DrawMark Bezier(PointF start, PointF control1, PointF control2, PointF end, Color edge, float thickness = 1f) =>
+        new BezierCase(Start: start, Control1: control1, Control2: control2, End: end, Style: PaintStyle.ForEdge(edge: edge, thickness: thickness));
+    public static DrawMark Curve(ReadOnlyMemory<PointF> points, Color edge, float tension = 0.5f, Option<Color> fill = default, float thickness = 1f) =>
+        new CurveCase(Points: points, Tension: tension, Style: PaintStyle.ForEdge(edge: edge, fill: fill, thickness: thickness));
     public static DrawMark SystemArc(RectangleF bounds, float startAngle, float sweepAngle, SystemColorKind color, float thickness = 1f) {
         ArgumentNullException.ThrowIfNull(color);
         return new ArcCase(Bounds: bounds, StartAngle: startAngle, SweepAngle: sweepAngle, Style: PaintStyle.ForSystemColor(kind: color, thickness: thickness));
@@ -592,10 +598,10 @@ public partial record DrawMark {
                 return unit;
             }),
             ghIconCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(GhIconCase)), what: "icon draw", draw: _ => {
-                c.Value.Draw(context: new IconContext(
+                c.Value.Draw(context: c.Adjust.Apply(context: new IconContext(
                     context: Eto.Drawing.Context.CreateFromContent(graphics: s.Graphics),
                     frame: c.Frame,
-                    background: c.Style.Background));
+                    background: c.Style.Background)));
                 return unit;
             }),
             wireCase: static (s, w) => DrawStyled(scope: s, style: w.Style, op: Op.Of(name: nameof(WireCase)), what: "wire draw", draw: graphics => {
@@ -628,19 +634,33 @@ public partial record DrawMark {
                 g.DrawLines(pen, points);
                 return unit;
             }),
-            polygonCase: static (s, c) => DrawPathStyled(
+            polygonCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(PolygonCase)), what: "polygon draw", bounds: BoundsOf(points: c.Points), draw: g => {
+                PointF[] points = c.Points.Span.ToArray();
+                _ = c.Style.FillBrush.IfSome(source => { using Brush brush = source.CreateBrush(); g.FillPolygon(brush, points); });
+                _ = c.Style.FillBrush.IfNone(() => c.Style.Fill.IfSome(colour => { using SolidBrush brush = PaintStyle.Brush(colour); g.FillPolygon(brush, points); }));
+                using Pen pen = c.Style.Pen();
+                g.DrawPolygon(pen, points);
+                return unit;
+            }),
+            bezierCase: static (s, c) => DrawPathStyled(
                 scope: s,
                 style: c.Style,
-                op: Op.Of(name: nameof(PolygonCase)),
-                what: "polygon draw",
+                op: Op.Of(name: nameof(BezierCase)),
+                what: "bezier draw",
+                path: () => {
+                    GraphicsPath path = new();
+                    path.AddBezier(start: c.Start, control1: c.Control1, control2: c.Control2, end: c.End);
+                    return path;
+                }),
+            curveCase: static (s, c) => DrawPathStyled(
+                scope: s,
+                style: c.Style,
+                op: Op.Of(name: nameof(CurveCase)),
+                what: "curve draw",
                 bounds: BoundsOf(points: c.Points),
                 path: () => {
                     GraphicsPath path = new();
-                    PointF[] points = c.Points.Span.ToArray();
-                    if (points.Length > 0) {
-                        path.AddLines(points: points);
-                        path.CloseFigure();
-                    }
+                    path.AddCurve(points: c.Points.Span.ToArray(), tension: c.Tension);
                     return path;
                 }),
             capsuleCase: static (s, c) => Op.Of(name: nameof(CapsuleCase)).Attempt(body: () => {
