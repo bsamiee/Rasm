@@ -3,6 +3,7 @@ using DrawingIcon = System.Drawing.Icon;
 using DrawingSize = System.Drawing.Size;
 using GuidAttribute = System.Runtime.InteropServices.GuidAttribute;
 using ReflectionAssembly = System.Reflection.Assembly;
+using RhinoControls = Rhino.UI.Controls;
 
 namespace Rasm.Rhino.UI;
 
@@ -77,17 +78,17 @@ public abstract record UiChromeOp<T> {
                 from _ in Mode switch {
                     UiChromeFileMode.Open => from path in NonBlank(value: Path)
                                              from file in Optional(RhinoApp.ToolbarFiles.Open(path: path)).ToFin(Fail: op.InvalidResult())
-                                             from saved in SaveAfterOpen ? Bool(file.Save(), op) : Fin.Succ(value: unit)
+                                             from saved in SaveAfterOpen ? op.Confirm(file.Save()) : Fin.Succ(value: unit)
                                              select saved,
                     UiChromeFileMode.Close => from file in FindFile(fileId: FileId, path: Path, name: Name, ignoreCase: IgnoreCase)
-                                              from closed in Bool(file.Close(prompt: Prompt), op)
+                                              from closed in op.Confirm(file.Close(prompt: Prompt))
                                               select closed,
                     UiChromeFileMode.Save => from file in FindFile(fileId: FileId, path: Path, name: Name, ignoreCase: IgnoreCase)
-                                             from saved in Bool(file.Save(), op)
+                                             from saved in op.Confirm(file.Save())
                                              select saved,
                     UiChromeFileMode.SaveAs => from file in FindFile(fileId: FileId, path: Option<string>.None, name: Name, ignoreCase: IgnoreCase)
                                                from path in NonBlank(value: Path)
-                                               from saved in Bool(file.SaveAs(path: path), op)
+                                               from saved in op.Confirm(file.SaveAs(path: path))
                                                select saved,
                     _ => Fin.Fail<Unit>(error: op.InvalidInput()),
                 }
@@ -123,9 +124,6 @@ public abstract record UiChromeOp<T> {
                 });
     }
 
-    private static Fin<Unit> Bool(bool value, Op op) =>
-        value ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: op.InvalidResult());
-
     private static Fin<TBar> BuildBar<TBar>(IEnumerable<UiAction>? actions, RhinoDoc? document, string opName, Func<TBar> create, Action<TBar, Eto.Forms.Command> add) where TBar : class =>
         from validDocument in Op.Of(name: opName).Need(document)
         from validActions in Op.Of(name: opName).Need(actions).Map(static values => toSeq(values))
@@ -139,10 +137,9 @@ public abstract record UiChromeOp<T> {
             name.Bind(value => Optional(RhinoApp.ToolbarFiles.FindByName(name: value, ignoreCase: ignoreCase))));
 
     private static Fin<string> NonBlank(Option<string> value) =>
-        Op.Of(name: nameof(NonBlank)).Need(value).Bind(NonBlank);
-
-    private static Fin<string> NonBlank(string value) =>
-        Op.Of(name: nameof(NonBlank)).AcceptText(value: value).MapFail(_ => Op.Of(name: nameof(NonBlank)).InvalidInput());
+        Op.Of(name: nameof(NonBlank)).Need(value)
+          .Bind(text => Op.Of(name: nameof(NonBlank)).AcceptText(value: text)
+              .MapFail(_ => Op.Of(name: nameof(NonBlank)).InvalidInput()));
 
     private static Fin<PanelChromeSnapshot> Snapshot() {
         Seq<global::Rhino.UI.ToolbarFile> files = toSeq(RhinoApp.ToolbarFiles).Choose(Optional);
@@ -299,6 +296,30 @@ public abstract class RasmPanel : Panel, global::Rhino.UI.IPanel {
     }
 }
 
+public sealed class RasmSection : RhinoControls.EtoCollapsibleSection {
+    private readonly global::Rhino.UI.LocalizeStringPair caption;
+    private readonly int height;
+    private readonly bool expanded;
+
+    private RasmSection(global::Rhino.UI.LocalizeStringPair caption, int height, Control content, bool expanded) {
+        this.caption = caption;
+        this.height = height;
+        this.expanded = expanded;
+        Content = content;
+        global::Rhino.UI.EtoExtensions.UseRhinoStyle(content);
+    }
+
+    public override global::Rhino.UI.LocalizeStringPair Caption => caption;
+    public override int SectionHeight => height;
+    public override bool InitiallyExpanded => expanded;
+
+    public static Fin<RasmSection> Of(string caption, int sectionHeight, Control content, bool expanded = true, Option<string> local = default) =>
+        from text in Op.Of(name: nameof(RasmSection)).AcceptText(value: caption).MapFail(_ => Op.Of(name: nameof(RasmSection)).InvalidInput())
+        from valid in Op.Of(name: nameof(RasmSection)).Need(content)
+        from _ in guard(sectionHeight > 0, Op.Of(name: nameof(RasmSection)).InvalidInput())
+        select new RasmSection(caption: new global::Rhino.UI.LocalizeStringPair(text, local.IfNone(text)), height: sectionHeight, content: valid, expanded: expanded);
+}
+
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class PanelOp {
     public static UiIntent<T> Chrome<TPanel, T>(UiChromeOp<T> operation) where TPanel : RasmPanel =>
@@ -308,6 +329,16 @@ public static class PanelOp {
                 from result in valid.Run(document: scope.Document)
                 select result,
             interactive: Optional(operation).Map(static valid => valid.Interactive).IfNone(noneValue: true));
+
+    public static Fin<RhinoControls.EtoCollapsibleSectionHolder> Sections(IEnumerable<RasmSection> sections, bool scrollbars = true) =>
+        Op.Of(name: nameof(Sections)).Need(sections).Bind(src => toSeq(src) switch {
+            Seq<RasmSection> items when !items.IsEmpty => RhinoUi.Protect(valid: () => {
+                RhinoControls.EtoCollapsibleSectionHolder holder = new() { UseScrollbars = scrollbars };
+                _ = items.Iter(section => holder.Add(section: section));
+                return Fin.Succ(value: holder);
+            }),
+            _ => Fin.Fail<RhinoControls.EtoCollapsibleSectionHolder>(error: Op.Of(name: nameof(Sections)).InvalidResult()),
+        });
 
     public static UiIntent<Unit> Register<TPanel>(
         global::Rhino.PlugIns.PlugIn plugin,

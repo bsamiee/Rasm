@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import fcntl
 import fnmatch
 from itertools import chain
 import os
@@ -211,20 +212,26 @@ def _stage(
         def commit() -> Result[PackageArtifact, ProcessFault]:
             # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=atomic-package-stage ticket=QUALITY-R7
             # expires=2026-12-31 rationale=file-system-transaction-boundary
+            # `stage` is a sibling tempdir of package_dir (same filesystem), so os.replace is an atomic rename; an
+            # exclusive flock on a sibling lockfile serialises concurrent staging of the same slug. rename(2) needs the
+            # destination absent, so the live package_dir is rotated to `previous` first, then restored on failure.
+            lock = meta.package_dir.with_name(f".{meta.package_dir.name}.lock")
             try:
-                shutil.rmtree(previous, ignore_errors=True)
-                match meta.package_dir.exists():
-                    case True:
-                        shutil.move(str(meta.package_dir), str(previous))
-                    case False:
-                        pass
-                shutil.move(str(stage), str(meta.package_dir))
-                shutil.rmtree(previous, ignore_errors=True)
-                return Ok(PackageArtifact(meta.package_dir, meta))
+                with lock.open(mode="w", encoding="utf-8") as guard:
+                    fcntl.flock(guard.fileno(), fcntl.LOCK_EX)
+                    shutil.rmtree(previous, ignore_errors=True)
+                    match meta.package_dir.exists():
+                        case True:
+                            meta.package_dir.replace(previous)
+                        case False:
+                            pass
+                    stage.replace(meta.package_dir)
+                    shutil.rmtree(previous, ignore_errors=True)
+                    return Ok(PackageArtifact(meta.package_dir, meta))
             except OSError as exc:
                 match previous.exists() and not meta.package_dir.exists():
                     case True:
-                        shutil.move(str(previous), str(meta.package_dir))
+                        previous.replace(meta.package_dir)
                     case False:
                         pass
                 shutil.rmtree(stage, ignore_errors=True)

@@ -232,20 +232,35 @@ internal sealed class BridgeServer : IDisposable {
         bool priorCapture = RhinoApp.CommandWindowCaptureEnabled;
         string historyBefore = RhinoApp.CommandHistoryWindowText ?? string.Empty;
         RhinoApp.CommandWindowCaptureEnabled = true;
+        ConcurrentBag<BridgeFault> reportSink = [];
+        void OnExceptionReport(string source, Exception error) =>
+            reportSink.Add(item: BridgeFault.FromException(category: string.IsNullOrWhiteSpace(value: source) ? "exception-report" : source, error: error));
+        global::Rhino.Runtime.HostUtils.ExceptionReportDelegate onReport = OnExceptionReport;
         CodeOutcome outcome;
-        string commandText;
-        // BOUNDARY ADAPTER — RhinoApp command-window capture state must be restored around execution.
+        string[] commandStrings;
+        // BOUNDARY ADAPTER — capture the command window AND every HostUtils.OnExceptionReport around execution (the path
+        // RhinoApp.InvokeOnUiThread routes swallowed faults through); subscribe before, unsubscribe + restore in finally.
+        global::Rhino.Runtime.HostUtils.OnExceptionReport += onReport;
         try {
             outcome = CodeEngine.Run(request: request);
-            commandText = CommandWindowCapture(historyBefore: historyBefore);
+            commandStrings = CommandWindowCapture(historyBefore: historyBefore);
         } finally {
+            global::Rhino.Runtime.HostUtils.OnExceptionReport -= onReport;
             RhinoApp.CommandWindowCaptureEnabled = priorCapture;
         }
+        BridgeFault[] exceptionReports = [.. reportSink];
+        BridgeRuntimeDiagnostics diagnostics = new(
+            CommandWindow: commandStrings,
+            ExceptionReports: exceptionReports,
+            Gh: ReflectGrasshopperSolution(pluginIds: request.HostPlugins));
+        // Fault-surfacing fold: a swallowed exception report is a real failure even when the script itself did not throw.
+        PhaseStatus status = outcome.Status.IsOk && exceptionReports.Length > 0 ? PhaseStatus.Failed : outcome.Status;
+        BridgeFault? fault = outcome.Fault ?? (exceptionReports.Length > 0 ? exceptionReports[0] : null);
         Assembly self = typeof(BridgeServer).Assembly;
         AssemblyName name = self.GetName();
         BridgeReport.Execute report = new(
-            Status: outcome.Status,
-            Fault: outcome.Fault,
+            Status: status,
+            Fault: fault,
             DurationMs: outcome.DurationMs,
             ServerExecutionCancelable: false,
             BridgeAssemblyName: name.Name ?? "unknown",
@@ -257,18 +272,19 @@ internal sealed class BridgeServer : IDisposable {
                 ? new(Active: false, RuntimeSerialNumber: null, Name: null, Path: null, Modified: null, ModelAbsoluteTolerance: null, ModelUnitSystem: null)
                 : new(Active: true, RuntimeSerialNumber: document.RuntimeSerialNumber, Name: document.Name, Path: document.Path, Modified: document.Modified, ModelAbsoluteTolerance: document.ModelAbsoluteTolerance, ModelUnitSystem: document.ModelUnitSystem.ToString()),
             ReturnValue: outcome.ReturnValue,
-            References: request.References);
+            References: request.References,
+            Diagnostics: diagnostics);
         return BridgeWire.Reply(
             command: BridgeWire.Execute,
-            status: outcome.Status,
+            status: status,
             data: report,
             outputs: [
                 BridgeWire.Capture(source: BridgeWire.OutputStdout, text: outcome.Stdout, limit: BridgeWire.OutputLimit),
                 BridgeWire.Capture(source: BridgeWire.OutputStderr, text: outcome.Stderr, limit: BridgeWire.OutputLimit),
-                BridgeWire.Capture(source: BridgeWire.OutputRhinoCommand, text: commandText, limit: BridgeWire.OutputLimit),
+                BridgeWire.Capture(source: BridgeWire.OutputRhinoCommand, text: string.Concat(values: commandStrings), limit: BridgeWire.OutputLimit),
             ],
             diagnostics: [.. pluginDiagnostics, .. outcome.Diagnostics],
-            fault: outcome.Fault);
+            fault: fault);
     }
     private static IReadOnlyList<BridgeDiagnostic> EnsureHostPlugins(IReadOnlyList<string>? pluginIds) =>
         [.. (pluginIds ?? []).Select(LoadHostPlugin).OfType<BridgeDiagnostic>()];
@@ -286,14 +302,50 @@ internal sealed class BridgeServer : IDisposable {
             return new BridgeDiagnostic(Severity: "Error", Message: $"Host plugin {pluginId} load threw: {error.Message}", Category: "hostplugin");
         }
     }
-    private static string CommandWindowCapture(string historyBefore) {
+    private static string[] CommandWindowCapture(string historyBefore) {
         string[] captured = RhinoApp.CapturedCommandWindowStrings(clearBuffer: true);
         return captured.Length > 0
-            ? string.Concat(captured)
+            ? captured
             : (RhinoApp.CommandHistoryWindowText ?? string.Empty) switch {
-                string after when after.StartsWith(value: historyBefore, comparisonType: StringComparison.Ordinal) => after[historyBefore.Length..],
-                _ => string.Empty,
+                string after when after.Length > historyBefore.Length && after.StartsWith(value: historyBefore, comparisonType: StringComparison.Ordinal) => [after[historyBefore.Length..]],
+                _ => [],
             };
+    }
+
+    private static BridgeGhSolution? ReflectGrasshopperSolution(IReadOnlyList<string>? pluginIds) {
+        if (pluginIds is null || !pluginIds.Any(predicate: static id => string.Equals(a: id, b: BridgeWire.GrasshopperPluginId, comparisonType: StringComparison.Ordinal))) {
+            return null;
+        }
+        // BOUNDARY ADAPTER — read GH2 active-document/solution state by reflection so the bridge keeps zero compile-time
+        // Grasshopper2 reference; any shape drift collapses to a null/partial snapshot rather than a throw.
+        try {
+            Type? editorType = Type.GetType(typeName: "Grasshopper2.UI.Editor, Grasshopper2");
+            object? editor = editorType?.GetProperty(name: "Instance", bindingAttr: BindingFlags.Public | BindingFlags.Static)?.GetValue(obj: null);
+            object? canvas = editor is null ? null : editorType!.GetProperty(name: "Canvas", bindingAttr: BindingFlags.Public | BindingFlags.Instance)?.GetValue(obj: editor);
+            object? doc = canvas?.GetType().GetProperty(name: "Document", bindingAttr: BindingFlags.Public | BindingFlags.Instance)?.GetValue(obj: canvas);
+            if (doc is null) {
+                return new BridgeGhSolution(DocumentInPlay: false, ObjectCount: 0, WarningCount: null, ErrorCount: null, State: "none");
+            }
+            object? objects = doc.GetType().GetProperty(name: "Objects", bindingAttr: BindingFlags.Public | BindingFlags.Instance)?.GetValue(obj: doc);
+            int objectCount = objects switch {
+                System.Collections.ICollection collection => collection.Count,
+                System.Collections.IEnumerable enumerable => enumerable.Cast<object>().Count(),
+                _ => 0,
+            };
+            object? solution = doc.GetType().GetProperty(name: "Solution", bindingAttr: BindingFlags.Public | BindingFlags.Instance)?.GetValue(obj: doc);
+            object? serverState = solution?.GetType().GetProperty(name: "State", bindingAttr: BindingFlags.Public | BindingFlags.Instance)?.GetValue(obj: solution);
+            // ServerState is a class (no meaningful ToString); its `Phase` field is the SolutionPhase enum whose name is
+            // the truthful state (Idle/Running/...). Fall back to the type name only if the field shape ever drifts.
+            object? phase = serverState?.GetType().GetField(name: "Phase", bindingAttr: BindingFlags.Public | BindingFlags.Instance)?.GetValue(obj: serverState);
+            return new BridgeGhSolution(
+                DocumentInPlay: true,
+                ObjectCount: objectCount,
+                WarningCount: null,
+                ErrorCount: null,
+                State: phase?.ToString() ?? serverState?.GetType().Name ?? "none");
+        } catch (Exception error) when (NonFatal(error: error)) {
+            return null;
+        }
     }
 
     internal static BridgeReport.Quit Quit(RhinoDoc? document) {

@@ -30,6 +30,10 @@ internal static class CodeEngine {
         using global::Rhino.Runtime.Code.Execution.RunContext context = new(defaultOutputStream: false, defaultErrorStream: false) {
             CachePolicy = global::Rhino.Runtime.Code.Execution.CachePolicy.NeverCache,
             PreferBasePathResolution = false,
+            // The csx LangVersion is hard-pinned to C# 10 by RhinoCode (`RhinoCodePlatform.Rhino3D` `CSharp<TCode>.CSharpVersion`)
+            // and is NOT influenced by the .NET runtime TFM nor by any RunContext.Options key — only "csharp.compiler.optimize",
+            // "csharp.compiler.unsafe", and "csharp.resolver.isolate" are read. Scenarios must therefore stay C# 10-clean (no list
+            // patterns / collection expressions); when McNeel raises that constant a future Rhino auto-upgrades scenarios with no change here.
             Options = { ["csharp.resolver.isolate"] = true },
             OutputStream = stdout,
             ErrorStream = stderr,
@@ -70,14 +74,34 @@ internal static class CodeEngine {
         // BOUNDARY ADAPTER — RhinoCode compile/execute throws; collapse to outcome data.
         try {
             _ = Language.Value;
-            global::Rhino.Runtime.Code.Code? code = request.ScriptPath is string scriptPath && File.Exists(path: scriptPath)
-                ? global::Rhino.Runtime.Code.RhinoCode.RunScript(uri: new Uri(uriString: scriptPath), context: context)
-                : global::Rhino.Runtime.Code.RhinoCode.RunScript(text: request.Script, context: context);
+            global::Rhino.Runtime.Code.Code code = request.ScriptPath is string scriptPath && File.Exists(path: scriptPath)
+                ? global::Rhino.Runtime.Code.RhinoCode.CreateCode(uri: new Uri(uriString: scriptPath))
+                : global::Rhino.Runtime.Code.RhinoCode.CreateCode(text: request.Script);
+            AddHostReferences(code: code, pluginIds: request.HostPlugins);
+            _ = global::Rhino.Runtime.Code.RhinoCode.RunScript(code: code, context: context);
             return (Code: code, Error: null);
         } catch (Exception error) when (error is global::Rhino.Runtime.Code.Execution.CompileException or global::Rhino.Runtime.Code.Execution.ExecuteException || NonFatal(error: error)) {
             return (Code: null, Error: error);
         }
     }
+
+    // The isolated csx compiler auto-references the platform host set (Eto, RhinoCommon) but NOT plugin assemblies like
+    // Grasshopper2. For GH-aware scenarios, add the ALREADY-LOADED GH2 assemblies as identity-safe CompileReferences:
+    // ReferenceSet.Add(Assembly) → CompileReference.FromAssembly references the loaded object (compiles against its
+    // metadata, binds the default-ALC copy at runtime) — so GH2 types become nameable in scenarios with zero bridge
+    // compile-time GH2 dependency and without the collectible-ALC path-reload hazard that `#r "<gh2 path>"` would trigger.
+    private static void AddHostReferences(global::Rhino.Runtime.Code.Code code, IReadOnlyList<string> pluginIds) {
+        if (!pluginIds.Any(predicate: static id => string.Equals(a: id, b: BridgeWire.GrasshopperPluginId, comparisonType: StringComparison.Ordinal))) {
+            return;
+        }
+        Array.ForEach(
+            array: [.. AppDomain.CurrentDomain.GetAssemblies().Where(predicate: static assembly => IsGrasshopperReference(name: assembly.GetName().Name))],
+            action: assembly => _ = code.References.Add(item: global::Rhino.Runtime.Code.Execution.CompileReference.FromAssembly(assembly: assembly)));
+    }
+
+    private static bool IsGrasshopperReference(string? name) =>
+        string.Equals(a: name, b: "Grasshopper2", comparisonType: StringComparison.OrdinalIgnoreCase)
+        || string.Equals(a: name, b: "GrasshopperIO", comparisonType: StringComparison.OrdinalIgnoreCase);
     private static BridgeDiagnostic[] Diagnose(global::Rhino.Runtime.Code.Code? code, Exception? error) =>
         CompileFailure(error: error) switch {
             global::Rhino.Runtime.Code.Execution.CompileException compile => [.. compile.Diagnosis.Select(ToDiagnostic)],

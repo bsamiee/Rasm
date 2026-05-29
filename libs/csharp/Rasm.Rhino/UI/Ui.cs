@@ -48,10 +48,7 @@ public readonly record struct UiStatus(
                 _ => unit,
             };
             _ = status.CommandMessage.Iter(static value => RhinoApp.SetCommandPromptMessage(prompt: value));
-            _ = status.ClearMessage switch {
-                true => Op.Side(static () => global::Rhino.UI.StatusBar.ClearMessagePane()),
-                false => unit,
-            };
+            _ = Op.SideWhen(status.ClearMessage, static () => global::Rhino.UI.StatusBar.ClearMessagePane());
             _ = status.Message.Iter(static value => global::Rhino.UI.StatusBar.SetMessagePane(message: value));
             _ = status.Distance.Iter(static value => global::Rhino.UI.StatusBar.SetDistancePane(distance: value));
             _ = status.Number.Iter(static value => global::Rhino.UI.StatusBar.SetNumberPane(number: value));
@@ -100,19 +97,19 @@ public sealed partial record RhinoUi {
     public Fin<T> Use<T>(UiIntent<T> intent) =>
         Op.Of(name: nameof(Use)).Need(intent)
             .Bind(valid => (valid.Interactive && mode == RunMode.Scripted, valid.Scripted.Case) switch {
-                (true, Func<Scope, Fin<T>> scripted) => OnUiThread(run: () => scripted(arg: new Scope(Document: document, Mode: mode))),
+                (true, Func<Scope, Fin<T>> scripted) => Protect(valid: () => scripted(arg: new Scope(Document: document, Mode: mode))),
                 (true, _) => Fin.Fail<T>(error: Op.Of(name: nameof(Use)).InvalidInput()),
-                _ => OnUiThread(run: () => valid.Run(scope: new Scope(Document: document, Mode: mode))),
+                _ => Protect(valid: () => valid.Run(scope: new Scope(Document: document, Mode: mode))),
             });
 
     internal Seq<T> Windows<T>() where T : Window =>
         toSeq(global::Rhino.UI.EtoExtensions.WindowsFromDocument<T>(document));
 
-    internal static Fin<T> OnUiThread<T>(Func<Fin<T>> run, [CallerMemberName] string name = "") =>
-        Op.Of(name: name).Need(run)
-            .Bind(valid => RhinoApp.IsOnMainThread switch {
-                true => Catch(valid: valid, name: name),
-                false => Invoke(valid: valid, name: name),
+    internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
+        Op.Of(name: name).Need(valid)
+            .Bind(work => RhinoApp.IsOnMainThread switch {
+                true => Catch(valid: work, name: name),
+                false => Invoke(valid: work, name: name),
             });
 
     /// Domain rails (Blocks, Camera, …) call this once at the service edge.
@@ -128,7 +125,7 @@ public sealed partial record RhinoUi {
                 (false, _, _) => work(),
                 (_, RunMode.Scripted, _) => work(),
                 (_, _, true) => work(),
-                (_, _, false) => OnUiThread(run: work, name: name),
+                (_, _, false) => Protect(valid: work, name: name),
             });
 
     private static Fin<T> Invoke<T>(Func<Fin<T>> valid, string name) {
@@ -147,9 +144,6 @@ public sealed partial record RhinoUi {
             };
         });
     }
-
-    internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
-        OnUiThread(run: valid, name: name);
 
     internal static Fin<Unit> Enqueue(Action run, string name) =>
         Op.Of(name: name).Need(run)

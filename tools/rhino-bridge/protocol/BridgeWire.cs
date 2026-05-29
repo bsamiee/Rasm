@@ -121,11 +121,15 @@ public sealed record BridgeEndpoint(
     string BridgeAssemblyVersion,
     string BridgeAssemblyInformationalVersion,
     string RhinoVersion) {
-    public const double StartTimeToleranceSeconds = 2.0;
+    public const double StartTimeToleranceSeconds = 1.0;
     /// One liveness rule shared by client staleness validation and server endpoint-ownership: a recorded endpoint
     /// belongs to a Rhino incarnation identified by PID and process start time within <see cref="StartTimeToleranceSeconds"/>.
     public bool IsLiveFor(int rhinoPid, DateTimeOffset rhinoStartedAt) =>
         RhinoPid == rhinoPid && Math.Abs(value: (RhinoStartedAt - rhinoStartedAt).TotalSeconds) <= StartTimeToleranceSeconds;
+    /// Pipe-name handshake companion to <see cref="IsLiveFor"/>: the nonce-bearing pipe name a live Hello reports must
+    /// equal the on-disk record, so a recycled PID whose new incarnation rewrote a different nonce is rejected as stale.
+    public bool MatchesPipe(string? reportedPipeName) =>
+        !string.IsNullOrWhiteSpace(value: reportedPipeName) && string.Equals(a: PipeName, b: reportedPipeName, comparisonType: StringComparison.Ordinal);
 }
 
 public sealed record BridgeRequest(string Schema, string Command, int TimeoutMs, JsonElement? Payload);
@@ -163,7 +167,8 @@ public abstract record BridgeReport {
         BridgeRhinoCodeReport RhinoCode,
         BridgeDocumentReport Document,
         BridgeReturnValue? ReturnValue,
-        IReadOnlyList<string> References) : BridgeReport;
+        IReadOnlyList<string> References,
+        BridgeRuntimeDiagnostics Diagnostics) : BridgeReport;
     public sealed record Quit(
         PhaseStatus Status,
         BridgeFault? Fault,
@@ -171,6 +176,14 @@ public abstract record BridgeReport {
         bool ActiveDocument,
         bool Modified) : BridgeReport;
 }
+
+/// Truthful runtime evidence captured around in-Rhino execution: the command-window strings, every exception routed
+/// through <c>HostUtils.OnExceptionReport</c> (faults RhinoApp.InvokeOnUiThread would otherwise swallow), and a
+/// best-effort Grasshopper2 active-solution snapshot read by reflection (null when GH2 is not in play).
+public sealed record BridgeRuntimeDiagnostics(IReadOnlyList<string> CommandWindow, IReadOnlyList<BridgeFault> ExceptionReports, BridgeGhSolution? Gh);
+/// GH2 active-document/solution snapshot reflected without a compile-time Grasshopper2 reference. WarningCount/ErrorCount
+/// are best-effort (null when the per-object message accessor is unavailable); State is the solution server state string.
+public sealed record BridgeGhSolution(bool DocumentInPlay, int ObjectCount, int? WarningCount, int? ErrorCount, string State);
 
 public sealed record BridgePhase(
     string Phase,
@@ -324,6 +337,9 @@ public static class BridgeWire {
     /// Grasshopper-aware scenario compile surface: host-resolvable usings only (Eto). GH2 namespaces stay in scenario preamble when needed.
     public const string ScenarioHostUsings =
         "using Eto.Drawing;\n";
+    /// Explicit marker the client injects after a scenario's preamble; the body begins at the first such marker (or, as a
+    /// fallback, the first non-preamble line). Keeps preamble/body splitting deterministic instead of heuristic.
+    public const string ScenarioBodyMarker = "// --- [SCENARIO_BODY] ---";
     public static FrozenSet<string> CollisionWatchAssemblyNames { get; } = new[] {
         "FSharp.Core",
         "LanguageExt.Core",

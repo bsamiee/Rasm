@@ -33,6 +33,20 @@ _GIT_CHANGE_ARGS: Final[tuple[tuple[str, ...], ...]] = (
     ("diff", "--cached", "--name-only", "--diff-filter=ACDMRTUXB"),
     ("ls-files", "--others", "--exclude-standard"),
 )
+# Only build-graph verbs accept `--artifacts-path`/`--disable-build-servers`; tool-driver verbs
+# (`tool restore`, `stryker`, `format`, `sln`, ...) reject them and exit 1, so a scoped invocation
+# splices the flags solely for this set and otherwise carries only the isolation env.
+_ARTIFACT_SCOPED_VERBS: Final[frozenset[str]] = frozenset((
+    "build",
+    "clean",
+    "msbuild",
+    "pack",
+    "publish",
+    "restore",
+    "run",
+    "test",
+    "vstest",
+))
 
 
 # --- [MODELS] ----------------------------------------------------------------------------
@@ -168,19 +182,26 @@ def decode_json[T](payload: bytes | str, model: type[T]) -> Result[T, ProcessFau
 
 
 def dotnet(
-    *args: str, scope: ArtifactScope | None = None, cwd: Path | None = None, check: bool = True
+    *args: str,
+    scope: ArtifactScope | None = None,
+    cwd: Path | None = None,
+    check: bool = True,
+    timeout: float | None = None,
 ) -> Result[Completed, ProcessFault]:
     match scope:
-        case ArtifactScope() as active:
+        case ArtifactScope() as active if args and args[0] in _ARTIFACT_SCOPED_VERBS:
             separator = args.index("--") if "--" in args else len(args)
             return run(
                 ("dotnet", *args[:separator], *active.dotnet_flags, *args[separator:]),
                 cwd=cwd,
                 env=active.dotnet_env,
                 check=check,
+                timeout=timeout,
             )
+        case ArtifactScope() as active:
+            return run(("dotnet", *args), cwd=cwd, env=active.dotnet_env, check=check, timeout=timeout)
         case _:
-            return run(("dotnet", *args), cwd=cwd, env=None, check=check)
+            return run(("dotnet", *args), cwd=cwd, env=None, check=check, timeout=timeout)
 
 
 def dotnet_args(
@@ -243,7 +264,12 @@ def fold[T, U](
 
 
 def run(
-    argv: tuple[str, ...], *, cwd: Path | None = None, env: dict[str, str] | None = None, check: bool = False
+    argv: tuple[str, ...],
+    *,
+    cwd: Path | None = None,
+    env: dict[str, str] | None = None,
+    check: bool = False,
+    timeout: float | None = None,
 ) -> Result[Completed, ProcessFault]:
     async def _exec() -> Result[Completed, ProcessFault]:
         completed = await anyio.run_process(list(argv), cwd=str(cwd) if cwd else None, env=env, check=False)
@@ -257,7 +283,21 @@ def run(
             else Ok(outcome)
         )
 
-    return anyio.run(_exec)
+    async def _guarded() -> Result[Completed, ProcessFault]:
+        match timeout:
+            case None:
+                return await _exec()
+            case _ as limit:
+                # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=anyio-deadline ticket=QUALITY-R9
+                # expires=2026-12-31 rationale=subprocess-timeout-boundary
+                try:
+                    with anyio.fail_after(limit):
+                        return await _exec()
+                except TimeoutError:
+                    detail = f"timed out after {limit:g}s".encode()
+                    return Error(ProcessFault.fail(*argv, detail=detail, returncode=124))
+
+    return anyio.run(_guarded)
 
 
 def run_fold(scope: ArtifactScope, commands: tuple[tuple[str, ...], ...]) -> Result[None, ProcessFault]:

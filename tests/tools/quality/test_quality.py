@@ -64,7 +64,12 @@ def test_dotnet_scope_flags_precede_passthrough_args(monkeypatch: pytest.MonkeyP
     seen: list[tuple[str, ...]] = []
 
     def fake_run(
-        argv: tuple[str, ...], *, cwd: Path | None = None, env: dict[str, str] | None = None, check: bool = False
+        argv: tuple[str, ...],
+        *,
+        cwd: Path | None = None,
+        env: dict[str, str] | None = None,
+        check: bool = False,
+        timeout: float | None = None,
     ) -> Result[Completed, ProcessFault]:
         seen.append(argv)
         return Ok(Completed(argv=argv, returncode=0, stdout=b"", stderr=b""))
@@ -94,7 +99,12 @@ def test_api_search_returns_ripgrep_stdout(monkeypatch: pytest.MonkeyPatch, tmp_
     xml.write_text("<member name='Mesh' />")
 
     def fake_run(
-        argv: tuple[str, ...], *, cwd: Path | None = None, env: dict[str, str] | None = None, check: bool = False
+        argv: tuple[str, ...],
+        *,
+        cwd: Path | None = None,
+        env: dict[str, str] | None = None,
+        check: bool = False,
+        timeout: float | None = None,
     ) -> Result[Completed, ProcessFault]:
         return Ok(Completed(argv=argv, returncode=0, stdout=b"Mesh hit\n", stderr=b""))
 
@@ -105,7 +115,12 @@ def test_api_search_returns_ripgrep_stdout(monkeypatch: pytest.MonkeyPatch, tmp_
 
 def test_api_decompile_returns_ilspy_stdout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     def fake_run(
-        argv: tuple[str, ...], *, cwd: Path | None = None, env: dict[str, str] | None = None, check: bool = False
+        argv: tuple[str, ...],
+        *,
+        cwd: Path | None = None,
+        env: dict[str, str] | None = None,
+        check: bool = False,
+        timeout: float | None = None,
     ) -> Result[Completed, ProcessFault]:
         return Ok(Completed(argv=argv, returncode=0, stdout=b"class Mesh {}\n", stderr=b""))
 
@@ -134,11 +149,11 @@ def _invoke_verify(
     result_path = report_dir / "case.json"
 
     def fake_client_run(
-        settings: QualitySettings, scope: ArtifactScope, *args: str, check: bool = True
+        settings: QualitySettings, scope: ArtifactScope, *args: str, check: bool = True, timeout: float | None = None
     ) -> Result[Completed, ProcessFault]:
         _ = (settings, scope)
         calls.append(args)
-        kwargs_seen.append({"check": check})
+        kwargs_seen.append({"check": check, "timeout": timeout})
         match client_fault:
             case process.ProcessFault() as fault:
                 return Error(fault)
@@ -163,7 +178,7 @@ def test_verify_invoke_passes_status_through_single_call(
 
     assert result.status == status
     assert tuple(call[0] for call in calls) == ("check",)
-    assert kwargs_seen == ({"check": False},)
+    assert kwargs_seen == ({"check": False, "timeout": 180.0},)
 
 
 def test_verify_invoke_maps_client_fault_to_failed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -386,9 +401,14 @@ def test_package_finish_keeps_mode_and_slug_step_order(
         return Ok(Completed(argv=("bridge", *args), returncode=0, stdout=b'{"status":"ok"}', stderr=b""))
 
     def fake_run(
-        argv: tuple[str, ...], *, cwd: Path | None = None, env: dict[str, str] | None = None, check: bool = False
+        argv: tuple[str, ...],
+        *,
+        cwd: Path | None = None,
+        env: dict[str, str] | None = None,
+        check: bool = False,
+        timeout: float | None = None,
     ) -> Result[Completed, ProcessFault]:
-        _ = (cwd, env, check)
+        _ = (cwd, env, check, timeout)
         seen.append(argv[1])
         return Ok(Completed(argv=argv, returncode=0, stdout=b"", stderr=b""))
 

@@ -27,7 +27,6 @@ type Configuration = Literal["Debug", "Release"]
 _QUALITY: Final[str] = "quality"
 _ARTIFACTS: Final[str] = ".artifacts"
 _DEFAULT_RASM_TESTS: Final[Path] = Path("tests/csharp/libs/Rasm/Rasm.Tests.csproj")
-_DEFAULT_RHINO_APP: Final[Path] = Path("/Applications/RhinoWIP.app")
 _DOTNET_CLI: Final[str] = "dotnet-cli"
 _MARKER: Final[str] = "Workspace.slnx"
 CS_SUFFIXES: Final[frozenset[str]] = frozenset((
@@ -90,6 +89,7 @@ class QualitySettings(BaseSettings):
     mutation_target_framework: str = "net10.0"
     rhino_app: Path = Field(default_factory=lambda: QualitySettings._resolve_rhino_app())
     bridge_endpoint: Path = Field(default=Path.home() / ".rasm" / "rhino-bridge.json")
+    scenario_timeout_s: Annotated[float, Field(gt=0.0)] = 180.0
     configurations: str | None = None
     run_id: str = Field(
         default_factory=lambda: f"{datetime.now(tz=UTC).strftime('%Y-%m-%dT%H-%M-%S.%f')}-{os.getpid()}"
@@ -108,13 +108,35 @@ class QualitySettings(BaseSettings):
     def _anchor(cls, value: str | Path) -> Path:
         return cls.anchor(Path(value).expanduser())
 
+    @field_validator("rhino_app", mode="before")
+    @classmethod
+    def _require_rhino_app(cls, value: str | Path | None) -> Path:
+        return cls._coerce_rhino_bundle(Path(value).expanduser() if value else None, label=value)
+
     @classmethod
     def anchor(cls, start: Path) -> Path:
         cursor = start.expanduser().resolve()
         return next((parent for parent in (cursor, *cursor.parents) if (parent / _MARKER).is_file()), cursor)
 
     @staticmethod
-    def _resolve_rhino_app() -> Path:
+    def _rhino_listing() -> str:
+        candidates = sorted(app.name for app in Path("/Applications").glob("Rhino*.app") if app.is_dir())
+        return ", ".join(candidates) if candidates else "none found in /Applications"
+
+    @staticmethod
+    def _coerce_rhino_bundle(path: Path | None, *, label: object) -> Path:
+        match path:
+            case Path() as bundle if bundle.is_dir():
+                return bundle
+            case _:
+                raise ValueError(
+                    f"Rhino app bundle not found or not a directory: {label!r}. "
+                    f"Set RHINO_WIP_APP_PATH (or QUALITY_RHINO_APP) to a Rhino*.app bundle. "
+                    f"Candidates: {QualitySettings._rhino_listing()}"
+                )
+
+    @staticmethod
+    def _newest_rhino_app() -> Path | None:
         def bundle_version(app: Path) -> tuple[int, ...]:
             # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=plist-version-read ticket=QUALITY-R8
             # expires=2026-12-31 rationale=filesystem-ingress-boundary
@@ -124,20 +146,18 @@ class QualitySettings(BaseSettings):
                 return ()
             return tuple(int(part) for part in str(plist.get("CFBundleVersion", "")).split(".") if part.isdigit())
 
-        def newest() -> Path | None:
-            ranked = sorted(
-                (bundle_version(app), "WIP" in app.name, app)
-                for app in Path("/Applications").glob("Rhino*.app")
-                if app.is_dir()
-            )
-            return ranked[-1][2] if ranked else None
+        ranked = sorted(
+            (bundle_version(app), "WIP" in app.name, app)
+            for app in Path("/Applications").glob("Rhino*.app")
+            if app.is_dir()
+        )
+        return ranked[-1][2] if ranked else None
 
+    @staticmethod
+    def _resolve_rhino_app() -> Path:
         override = os.environ.get("RHINO_WIP_APP_PATH", "")  # noqa: TID251
-        match Path(override).expanduser() if override else None:
-            case Path() as explicit if explicit.is_dir():
-                return explicit
-            case _:
-                return newest() or _DEFAULT_RHINO_APP
+        candidate = Path(override).expanduser() if override else QualitySettings._newest_rhino_app()
+        return QualitySettings._coerce_rhino_bundle(candidate, label=override or "auto-discover")
 
     @property
     def solution(self) -> Path:
@@ -166,6 +186,11 @@ class QualitySettings(BaseSettings):
     @property
     def bridge_client(self) -> Path:
         return self.root / "tools/rhino-bridge/client/Rasm.RhinoBridge.Client.csproj"
+
+    @property
+    def bridge_client_ready(self) -> bool:
+        bin_dir = self.bridge_client.parent / "bin" / self.configuration
+        return any(bin_dir.glob("*/Rasm.RhinoBridge.Client.dll"))
 
     @property
     def scenario_kit_project(self) -> Path:

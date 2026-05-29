@@ -194,10 +194,15 @@ internal static class Program {
             return [];
         }
     }
-    private static void TryDelete(string path) {
-        // BOUNDARY ADAPTER — best-effort marker cleanup; a missing file or IO contention is non-fatal.
+    private static void TryDelete(string path) => TryDelete(path: path, retry: true);
+    private static void TryDelete(string path, bool retry) {
+        // BOUNDARY ADAPTER — best-effort marker cleanup; one retry covers a transient LaunchServices lock on a freshly
+        // written crash report (the failure mode that let a stale .ips survive and wedge the next cold open).
         try {
             File.Delete(path: path);
+        } catch (IOException) when (retry) {
+            Thread.Sleep(millisecondsTimeout: 50);
+            TryDelete(path: path, retry: false);
         } catch (Exception error) when (error is IOException or UnauthorizedAccessException or DirectoryNotFoundException) {
         }
     }
@@ -205,7 +210,7 @@ internal static class Program {
         // BOUNDARY ADAPTER — drop our endpoint record after a forced close so the next launch starts clean.
         try {
             BridgeEndpoint? current = BridgeWire.DeserializeEndpoint(json: File.ReadAllText(path: BridgeWire.EndpointPath, encoding: Encoding.UTF8));
-            if (current is { } active && active.IsLiveFor(rhinoPid: endpoint.RhinoPid, rhinoStartedAt: endpoint.RhinoStartedAt)) {
+            if (current is { } active && active.IsLiveFor(rhinoPid: endpoint.RhinoPid, rhinoStartedAt: endpoint.RhinoStartedAt) && active.MatchesPipe(reportedPipeName: endpoint.PipeName)) {
                 File.Delete(path: BridgeWire.EndpointPath);
             }
         } catch (Exception error) when (NonFatal(error: error)) {
@@ -235,11 +240,19 @@ internal static class Program {
                 timer.Stop();
                 return BridgePhase.Of(phase: PhaseLaunch, status: PhaseStatus.Failed, timer: timer, message: "RHINO_WIP_APP_PATH is unset; launch resolves the bundle through the quality operator. Set it to a Rhino*.app path.");
             }
+            // Hello failed but the recorded endpoint PID may still be alive and WEDGED (a macOS recovery/crash dialog
+            // blocking the named-pipe accept loop). `open` only activates an already-running app, so it cannot revive a
+            // wedge — force-close the stale incarnation and retire its endpoint first, then cold-open a clean one.
+            bool reclaimed = false;
+            if (TryReadEndpoint() is { } stale) {
+                reclaimed = await ForceCloseAsync(pid: stale.RhinoPid).ConfigureAwait(false);
+                RetireEndpoint(endpoint: stale);
+            }
             ClearLaunchRecoveryState();
             ProcessResult opened = await ProcessResult.RunAsync(fileName: "open", arguments: [appPath, "--args", "-nosplash"], timeout: TimeSpan.FromSeconds(value: 30.0)).ConfigureAwait(false);
             timer.Stop();
             return opened.ExitCode == 0
-                ? BridgePhase.Of(phase: PhaseLaunch, status: PhaseStatus.Ok, timer: timer, data: new { appPath }, outputs: opened.Outputs)
+                ? BridgePhase.Of(phase: PhaseLaunch, status: PhaseStatus.Ok, timer: timer, data: new { appPath, reclaimedWedgedEndpoint = reclaimed }, outputs: opened.Outputs)
                 : BridgePhase.Of(phase: PhaseLaunch, status: PhaseStatus.Failed, timer: timer, message: "Failed to open RhinoWIP.", outputs: opened.Outputs);
         }
     }
@@ -399,6 +412,7 @@ internal static class Program {
                     $"const string SCENARIO_NAME = \"{Escape(value: scenario)}\";",
                     $"const string CAPTURE_PATH = \"{Escape(value: capture)}\";",
                     BridgeWire.LanguageExtBootstrap,
+                    BridgeWire.ScenarioBodyMarker,
                 ]).Concat(script.Skip(count: bodyIndex))),
             references);
     }
@@ -435,15 +449,8 @@ internal static class Program {
         }
         return null;
     }
-    private static bool SourceScenarioPreambleLine(string line) =>
-        string.IsNullOrWhiteSpace(value: line)
-        || line.TrimStart().StartsWith(value: "//", comparisonType: StringComparison.Ordinal)
-        || SourceScenarioReferenceLine(line: line)
-        || line.TrimStart().StartsWith(value: "using ", comparisonType: StringComparison.Ordinal)
-        || line.TrimStart().StartsWith(value: "using static ", comparisonType: StringComparison.Ordinal);
-    private static bool SourceScenarioReferenceLine(string line) =>
-        line.TrimStart().StartsWith(value: "#r ", comparisonType: StringComparison.Ordinal)
-        || line.TrimStart().StartsWith(value: "#load ", comparisonType: StringComparison.Ordinal);
+    private static bool SourceScenarioPreambleLine(string line) => ScenarioLine.Classify(line: line).IsPreamble;
+    private static bool SourceScenarioReferenceLine(string line) => ScenarioLine.Classify(line: line) == ScenarioLine.ReferenceDirective;
     private static string ScenarioName(string scriptPath) =>
         Path.GetFileName(path: scriptPath).Replace(oldValue: ".verify.csx", newValue: string.Empty, comparisonType: StringComparison.OrdinalIgnoreCase);
     private static (string Script, IReadOnlyList<string> References) SmokeScript(ProjectBuild project, string resultPath) {
@@ -616,6 +623,38 @@ internal sealed partial class PhaseClassification {
             Program.PhaseLifecycle => Lifecycle,
             _ => Decisive,
         };
+}
+
+// One classifier for every scenario source line, replacing the scattered StartsWith chains. Preamble (blank / line
+// comment / import using / reference directive) is hoisted above the body; an explicit BodyMarker or the first Body
+// line begins the body. `using var`/`using (` are Body, not imports, so a leading dispose guard is never swallowed.
+[SmartEnum<int>]
+internal sealed partial class ScenarioLine {
+    public static readonly ScenarioLine Blank = new(key: 0);
+    public static readonly ScenarioLine LineComment = new(key: 1);
+    public static readonly ScenarioLine ImportUsing = new(key: 2);
+    public static readonly ScenarioLine ReferenceDirective = new(key: 3);
+    public static readonly ScenarioLine BodyMarker = new(key: 4);
+    public static readonly ScenarioLine Body = new(key: 5);
+
+    internal bool IsPreamble => Key <= ReferenceDirective.Key;
+
+    internal static ScenarioLine Classify(string line) {
+        string trimmed = line.TrimStart();
+        return trimmed switch {
+            "" => Blank,
+            _ when trimmed.StartsWith(value: BridgeWire.ScenarioBodyMarker, comparisonType: StringComparison.Ordinal) => BodyMarker,
+            _ when trimmed.StartsWith(value: "//", comparisonType: StringComparison.Ordinal) => LineComment,
+            _ when trimmed.StartsWith(value: "#r ", comparisonType: StringComparison.Ordinal) || trimmed.StartsWith(value: "#load ", comparisonType: StringComparison.Ordinal) => ReferenceDirective,
+            _ when IsImportUsing(trimmed: trimmed) => ImportUsing,
+            _ => Body,
+        };
+    }
+
+    private static bool IsImportUsing(string trimmed) =>
+        (trimmed.StartsWith(value: "using static ", comparisonType: StringComparison.Ordinal) || trimmed.StartsWith(value: "using ", comparisonType: StringComparison.Ordinal))
+        && !trimmed.StartsWith(value: "using var ", comparisonType: StringComparison.Ordinal)
+        && !trimmed.StartsWith(value: "using (", comparisonType: StringComparison.Ordinal);
 }
 
 internal readonly record struct PhaseAggregate(PhaseStatus Status, BridgeFault? Fault) {

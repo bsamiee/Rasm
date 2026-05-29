@@ -63,14 +63,18 @@ public static class UiIntent {
 
     public static UiIntent<T> Window<T>(Dialog<T> dialog, UiWindowMode mode = UiWindowMode.Modal) =>
         Request(name: nameof(Window), run: scope => Op.Of(name: nameof(Window)).Need(dialog).Bind(valid => mode switch {
-            UiWindowMode.SemiModal => Fin.Succ(value: global::Rhino.UI.EtoExtensions.ShowSemiModal(valid, scope.Document, parent: scope.Parent)),
+            UiWindowMode.SemiModal => (valid.DefaultButton, valid.AbortButton) switch {
+                (Button, Button) => Fin.Succ(value: global::Rhino.UI.EtoExtensions.ShowSemiModal(valid, scope.Document, parent: scope.Parent)),
+                _ => Fin.Fail<T>(error: Op.Of(name: nameof(Window)).InvalidInput()),
+            },
             UiWindowMode.Modal => Fin.Succ(value: valid.ShowModal(owner: scope.Parent)),
             _ => Fin.Fail<T>(error: Op.Of(name: nameof(Window)).InvalidInput()),
         }));
 
-    public static UiIntent<UiWindowHandle> Window(Form form) =>
+    public static UiIntent<UiWindowHandle> Window(Form form, bool restoreLocation = false) =>
         Request(name: nameof(Window), run: scope => Op.Of(name: nameof(Window)).Need(form).Map(valid => {
             global::Rhino.UI.EtoExtensions.UseRhinoStyle(valid);
+            _ = Op.SideWhen(restoreLocation, () => global::Rhino.UI.EtoExtensions.LocalizeAndRestore(window: valid));
             global::Rhino.UI.EtoExtensions.Show(valid, scope.Document);
             return new UiWindowHandle(DocumentSerialNumber: scope.Document.RuntimeSerialNumber, WindowType: valid.GetType().FullName ?? valid.GetType().Name, Title: valid.Title ?? string.Empty, Visible: valid.Visible);
         }));
@@ -87,8 +91,8 @@ public static class UiIntent {
     public static UiIntent<T> Progress<T>(UiProgressSpec spec, Func<UiProgress, Fin<T>> run) =>
         OfScope(scope => Op.Of(name: nameof(Progress)).Need(run).Bind(valid => UiProgress.Use(document: scope.Document, spec: spec, run: valid)));
 
-    public static UiIntent<T> Gumball<T>(UiGumballSpec spec, Func<UiGumball, Fin<T>> run) =>
-        OfScope(scope => Op.Of(name: nameof(Gumball)).Need(run).Bind(valid => UiGumball.Use(document: scope.Document, spec: spec, run: valid)), interactive: true);
+    public static UiIntent<T> Gumball<T>(UiGumballSpec spec, Func<UiGumball, Fin<T>> run, bool interactive = true) =>
+        OfScope(scope => Op.Of(name: nameof(Gumball)).Need(run).Bind(valid => UiGumball.Use(document: scope.Document, spec: spec, run: valid)), interactive: interactive);
 
     public static UiIntent<global::Rhino.UI.ShowMessageResult> Message(UiMessageSpec spec) =>
         Request(

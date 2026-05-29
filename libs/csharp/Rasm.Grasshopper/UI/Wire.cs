@@ -172,20 +172,25 @@ public sealed partial class WireEdit {
 public sealed partial class GraphMetric {
     private delegate Fin<WireResult> RunFn(GrasshopperUi.Scope scope, Seq<Guid> ids);
 
+    // Native Connectivity.IsLinear throws on an empty id set; an empty subgraph is definitively non-linear,
+    // so the library owns the degenerate case rather than surfacing the host throw to callers.
     public static readonly GraphMetric Linearity = new(
         key: 0,
         run: static (scope, ids) =>
-            from objects in scope.NeedObjects()
-            from result in Op.Of(name: nameof(Linearity)).Attempt(
-                body: () => {
-                    bool linear = objects.Connectivity.IsLinear(ids: [.. ids], first: out ConnectiveObject? start, last: out ConnectiveObject? end);
-                    return (WireResult)new WireResult.LinearityResult(Linearity: new WireLinearity(
-                        IsLinear: linear,
-                        Start: Optional(start?.Id).Filter(static g => g != Guid.Empty),
-                        End: Optional(end?.Id).Filter(static g => g != Guid.Empty)));
-                },
-                what: "Connectivity.IsLinear")
-            select result);
+            ids.IsEmpty
+                ? Fin.Succ(value: (WireResult)new WireResult.LinearityResult(Linearity: new WireLinearity(
+                    IsLinear: false, Start: Option<Guid>.None, End: Option<Guid>.None)))
+                : (from objects in scope.NeedObjects()
+                   from result in Op.Of(name: nameof(Linearity)).Attempt(
+                       body: () => {
+                           bool linear = objects.Connectivity.IsLinear(ids: [.. ids], first: out ConnectiveObject? start, last: out ConnectiveObject? end);
+                           return (WireResult)new WireResult.LinearityResult(Linearity: new WireLinearity(
+                               IsLinear: linear,
+                               Start: Optional(start?.Id).Filter(static g => g != Guid.Empty),
+                               End: Optional(end?.Id).Filter(static g => g != Guid.Empty)));
+                       },
+                       what: "Connectivity.IsLinear")
+                   select result));
     public static readonly GraphMetric Topology = new(
         key: 1,
         run: static (scope, ids) =>
