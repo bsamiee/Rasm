@@ -73,7 +73,7 @@ internal abstract partial record ClientVerb {
         foreach ((_, string synopsis) in Synopses) {
             Console.Error.WriteLine(value: $"  rhino-bridge-client {synopsis}");
         }
-        Console.Error.WriteLine(value: "Launch env: RHINO_WIP_APP_PATH=/Applications/RhinoWIP.app or RHINO_WIP_BUNDLE_ID=com.mcneel.rhinoceros.9");
+        Console.Error.WriteLine(value: "Launch env: RHINO_WIP_APP_PATH=/Applications/RhinoWIP.app (the quality operator resolves the newest installed bundle).");
         return 2;
     }
 }

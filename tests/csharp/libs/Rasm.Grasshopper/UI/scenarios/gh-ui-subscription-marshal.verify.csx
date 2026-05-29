@@ -1,6 +1,5 @@
 using System;
 using Rasm.Grasshopper.UI;
-using Rasm.TestKit.Scenarios;
 using Rhino;
 
 Scenario.Run("gh-ui-subscription-marshal", CAPTURE_PATH, (key, facts) => {

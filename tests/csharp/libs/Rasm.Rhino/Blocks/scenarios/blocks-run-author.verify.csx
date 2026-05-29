@@ -1,11 +1,9 @@
 using System;
 using Rasm.Rhino.Blocks;
-using Rasm.TestKit.Scenarios;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
 using Rhino.Geometry;
-using static LanguageExt.Prelude;
 
 Scenario.Run("blocks-run-author", CAPTURE_PATH, (key, facts) => {
     using DocumentScope scope = DocumentScope.Open();

@@ -1,15 +1,15 @@
 using Eto.Drawing;
 using Rasm.Grasshopper.UI;
-using Rasm.TestKit.Scenarios;
 using Rhino;
 
 Scenario.Run("gh-ui-p1-wiring-bundle", CAPTURE_PATH, (key, facts) => {
     GrasshopperUi ui = new();
     facts.Add("rhino.mainThread", RhinoApp.IsOnMainThread);
 
+    Probe.Expect(result: ui.Use(intent: GhUi.Editor(op: EditorOp.EnsureVisible)), label: "ensure grasshopper editor");
     EditorSnapshot preObserve = Probe.ExpectCase(
-        result: ui.Use(intent: GhUi.Editor(op: EditorOp.EnsureVisible)),
-        label: "ensure grasshopper editor",
+        result: ui.Use(intent: GhUi.Editor(op: EditorOp.State)),
+        label: "editor state before observe",
         select: static value => value switch {
             EditorResult.StateResult state => state.Snapshot,
             _ => Option<EditorSnapshot>.None,

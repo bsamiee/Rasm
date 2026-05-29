@@ -11,7 +11,6 @@ namespace Rasm.RhinoBridge.Client;
 
 // --- [COMPOSITION] ----------------------------------------------------------------------
 internal static class Program {
-    private const string DefaultRhinoWipBundleId = "com.mcneel.rhinoceros.9";
     internal const string PhaseBuild = "build";
     internal const string PhaseClean = "clean";
     internal const string PhaseConnect = "connect";
@@ -20,7 +19,6 @@ internal static class Program {
     internal const string PhaseLaunch = "launch";
     internal const string PhaseLifecycle = "lifecycle";
     internal const string PhaseResolve = "resolve";
-    private const PipeOptions PipePolicy = PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly;
     private static readonly Encoding OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
     private static readonly TimeSpan ProcessTimeout = TimeSpan.FromMinutes(value: 5.0);
     internal static string Configuration => Environment.GetEnvironmentVariable(variable: "CONFIGURATION") ?? "Release";
@@ -91,7 +89,7 @@ internal static class Program {
         BridgePhase launch = await LaunchPhaseAsync().ConfigureAwait(false);
         BridgePhase connect = await ConnectPhaseAsync(timeout: TransportTimeout).ConfigureAwait(false);
         BridgePhase execute = connect.Status.IsOk
-            ? await ExecutePhaseAsync(script: script, scriptPath: scriptFile, worktree: worktree, references: [], stageDirectory: null).ConfigureAwait(false)
+            ? await ExecutePhaseAsync(script: script, scriptPath: scriptFile, worktree: worktree, references: [], hostPlugins: [], stageDirectory: null).ConfigureAwait(false)
             : BridgePhase.Of(phase: PhaseExecute, status: PhaseStatus.Skipped, data: new { reason = "Bridge connect failed before script execution." });
         BridgeResult result = BridgeResult.From(command: "check", phases: [launch, connect, execute]);
         return PrintResult(result: result, path: resultPath);
@@ -133,14 +131,85 @@ internal static class Program {
             script: (projectBuild, reportPath) => ScenarioScriptAsync(project: projectBuild, scriptPath: scenarioPath, resultPath: reportPath)).ConfigureAwait(false);
     }
     internal static async Task<int> QuitAsync() {
-        BridgeEndpoint endpoint = ReadEndpoint();
-        BridgeReply reply = await SendAsync(request: BridgeWire.Request(command: BridgeWire.Quit), timeout: TransportTimeout).ConfigureAwait(false);
-        BridgeResult result = BridgeResult.From(command: "quit", phases: [BridgePhase.FromReply(phase: PhaseLifecycle, reply: reply)]);
-        int exitCode = PrintResult(result: result, path: null);
-        if (reply.Status.IsOk) {
-            _ = await WaitForExitAsync(pid: endpoint.RhinoPid, timeout: BridgeTimeouts.QuitWait).ConfigureAwait(false);
+        BridgeEndpoint? endpoint = TryReadEndpoint();
+        BridgePhase lifecycle = endpoint is { } live
+            ? await QuitPhaseAsync(endpoint: live).ConfigureAwait(false)
+            : BridgePhase.Of(phase: PhaseLifecycle, status: PhaseStatus.Ok, data: new { reason = "No live Rhino endpoint; nothing to quit." });
+        return PrintResult(result: BridgeResult.From(command: "quit", phases: [lifecycle]), path: null);
+    }
+    private static BridgeEndpoint? TryReadEndpoint() {
+        try {
+            return ReadEndpoint();
+        } catch (Exception error) when (NonFatal(error: error)) {
+            return null;
         }
-        return exitCode;
+    }
+    private static async Task<BridgePhase> QuitPhaseAsync(BridgeEndpoint endpoint) {
+        try {
+            BridgeReply reply = await SendAsync(request: BridgeWire.Request(command: BridgeWire.Quit), timeout: TransportTimeout).ConfigureAwait(false);
+            return reply.Status.IsOk && await WaitForExitAsync(pid: endpoint.RhinoPid, timeout: BridgeTimeouts.QuitWait).ConfigureAwait(false)
+                ? BridgePhase.FromReply(phase: PhaseLifecycle, reply: reply)
+                : await ForceQuitAsync(endpoint: endpoint, reason: $"Graceful quit did not close Rhino (status={reply.Status.Wire}); force-killed.").ConfigureAwait(false);
+        } catch (Exception error) when (NonFatal(error: error)) {
+            return await ForceQuitAsync(endpoint: endpoint, reason: $"Bridge unreachable for quit ({error.GetType().Name}); force-killed.").ConfigureAwait(false);
+        }
+    }
+    private static async Task<BridgePhase> ForceQuitAsync(BridgeEndpoint endpoint, string reason) {
+        bool closed = await ForceCloseAsync(pid: endpoint.RhinoPid).ConfigureAwait(false);
+        RetireEndpoint(endpoint: endpoint);
+        return BridgePhase.Of(phase: PhaseLifecycle, status: PhaseStatus.Ok, data: new { reason, pid = endpoint.RhinoPid, forced = true, closed });
+    }
+    private static async Task<bool> ForceCloseAsync(int pid) {
+        // SIGTERM lets AppKit run RhinoWIP's clean teardown (no crash/recovery marker); SIGKILL is the last resort if it hangs.
+        _ = await ProcessResult.RunAsync(fileName: "kill", arguments: ["-TERM", pid.ToString(provider: CultureInfo.InvariantCulture)], timeout: TimeSpan.FromSeconds(value: 10.0)).ConfigureAwait(false);
+        return await WaitForExitAsync(pid: pid, timeout: BridgeTimeouts.QuitWait).ConfigureAwait(false)
+            || (ForceKill(pid: pid) && await WaitForExitAsync(pid: pid, timeout: BridgeTimeouts.QuitWait).ConfigureAwait(false));
+    }
+    private static bool ForceKill(int pid) {
+        // BOUNDARY ADAPTER — SIGKILL a Rhino that ignored SIGTERM; an absent process counts as closed.
+        try {
+            using Process process = Process.GetProcessById(processId: pid);
+            process.Kill(entireProcessTree: true);
+            return true;
+        } catch (Exception error) when (error is ArgumentException or InvalidOperationException or Win32Exception or NotSupportedException) {
+            return true;
+        }
+    }
+    private static void ClearLaunchRecoveryState() {
+        // BOUNDARY ADAPTER — RhinoWIP's macOS recovery/crash prompts (autosave .rhl/doc + crash .ips reports) can block a
+        // headless launch after an unclean prior exit; clearing those disposable markers keeps every launch dialog-free.
+        if (!OperatingSystem.IsMacOS()) {
+            return;
+        }
+        string library = Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: "Library");
+        TryDelete(path: Path.Combine(path1: library, path2: "Autosave Information", path3: "Unsaved RhinoWIP Document.3dm.rhl"));
+        TryDelete(path: Path.Combine(path1: library, path2: "Autosave Information", path3: "Unsaved RhinoWIP Document.3dm"));
+        System.Array.ForEach(array: SafeReports(directory: Path.Combine(path1: library, path2: "Logs", path3: "DiagnosticReports")), action: TryDelete);
+    }
+    private static string[] SafeReports(string directory) {
+        // BOUNDARY ADAPTER — enumerate prior crash reports defensively; absence or permission denial yields an empty set.
+        try {
+            return Directory.Exists(path: directory) ? Directory.GetFiles(path: directory, searchPattern: "Rhinoceros-*.ips") : [];
+        } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
+            return [];
+        }
+    }
+    private static void TryDelete(string path) {
+        // BOUNDARY ADAPTER — best-effort marker cleanup; a missing file or IO contention is non-fatal.
+        try {
+            File.Delete(path: path);
+        } catch (Exception error) when (error is IOException or UnauthorizedAccessException or DirectoryNotFoundException) {
+        }
+    }
+    private static void RetireEndpoint(BridgeEndpoint endpoint) {
+        // BOUNDARY ADAPTER — drop our endpoint record after a forced close so the next launch starts clean.
+        try {
+            BridgeEndpoint? current = BridgeWire.DeserializeEndpoint(json: File.ReadAllText(path: BridgeWire.EndpointPath, encoding: Encoding.UTF8));
+            if (current is { } active && active.IsLiveFor(rhinoPid: endpoint.RhinoPid, rhinoStartedAt: endpoint.RhinoStartedAt)) {
+                File.Delete(path: BridgeWire.EndpointPath);
+            }
+        } catch (Exception error) when (NonFatal(error: error)) {
+        }
     }
     private static async Task<bool> WaitForExitAsync(int pid, TimeSpan timeout) {
         try {
@@ -162,11 +231,15 @@ internal static class Program {
             return BridgePhase.Of(phase: PhaseLaunch, status: PhaseStatus.Skipped, timer: timer, data: new { reason = "Existing bridge endpoint answered.", endpoint = live.Data });
         } catch (Exception error) when (NonFatal(error: error)) {
             string? appPath = Environment.GetEnvironmentVariable(variable: "RHINO_WIP_APP_PATH");
-            string bundleId = Environment.GetEnvironmentVariable(variable: "RHINO_WIP_BUNDLE_ID") ?? DefaultRhinoWipBundleId;
-            ProcessResult opened = await ProcessResult.RunAsync(fileName: "open", arguments: string.IsNullOrWhiteSpace(value: appPath) ? ["-b", bundleId, "--args", "-nosplash"] : [appPath, "--args", "-nosplash"], timeout: TimeSpan.FromSeconds(value: 30.0)).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(value: appPath)) {
+                timer.Stop();
+                return BridgePhase.Of(phase: PhaseLaunch, status: PhaseStatus.Failed, timer: timer, message: "RHINO_WIP_APP_PATH is unset; launch resolves the bundle through the quality operator. Set it to a Rhino*.app path.");
+            }
+            ClearLaunchRecoveryState();
+            ProcessResult opened = await ProcessResult.RunAsync(fileName: "open", arguments: [appPath, "--args", "-nosplash"], timeout: TimeSpan.FromSeconds(value: 30.0)).ConfigureAwait(false);
             timer.Stop();
             return opened.ExitCode == 0
-                ? BridgePhase.Of(phase: PhaseLaunch, status: PhaseStatus.Ok, timer: timer, data: new { bundleId, appPath }, outputs: opened.Outputs)
+                ? BridgePhase.Of(phase: PhaseLaunch, status: PhaseStatus.Ok, timer: timer, data: new { appPath }, outputs: opened.Outputs)
                 : BridgePhase.Of(phase: PhaseLaunch, status: PhaseStatus.Failed, timer: timer, message: "Failed to open RhinoWIP.", outputs: opened.Outputs);
         }
     }
@@ -192,11 +265,11 @@ internal static class Program {
         timer.Stop();
         return last with { DurationMs = (int)timer.ElapsedMilliseconds };
     }
-    private static async Task<BridgePhase> ExecutePhaseAsync(string script, string? scriptPath, string worktree, IReadOnlyList<string> references, string? stageDirectory) {
+    private static async Task<BridgePhase> ExecutePhaseAsync(string script, string? scriptPath, string worktree, IReadOnlyList<string> references, IReadOnlyList<string> hostPlugins, string? stageDirectory) {
         string stagedScript = scriptPath ?? StageScript(worktree: worktree, script: script, stageDirectory: stageDirectory);
         return await RequestPhaseAsync(
             phase: PhaseExecute,
-            request: BridgeWire.Request(command: BridgeWire.Execute, payload: new BridgeExecuteRequest(Script: script, ScriptPath: stagedScript, References: references), timeoutMs: (int)BridgeTimeouts.Transport.TotalMilliseconds)).ConfigureAwait(false);
+            request: BridgeWire.Request(command: BridgeWire.Execute, payload: new BridgeExecuteRequest(Script: script, ScriptPath: stagedScript, References: references, HostPlugins: hostPlugins), timeoutMs: (int)BridgeTimeouts.Transport.TotalMilliseconds)).ConfigureAwait(false);
     }
     private static async Task<BridgePhase> RequestPhaseAsync(string phase, BridgeRequest request) =>
         await PhaseAsync(phase: phase, work: async () => {
@@ -273,6 +346,7 @@ internal static class Program {
             ? await script(projectBuild, resultPath).ConfigureAwait(false)
             : null;
         bool canRun = checkScript is not null && build.Status.IsOk;
+        IReadOnlyList<string> hostPlugins = project?.IsGrasshopperAware == true ? [BridgeWire.GrasshopperPluginId] : [];
         BridgePhase launch = canRun ? await LaunchPhaseAsync().ConfigureAwait(false) : BridgePhase.Of(phase: PhaseLaunch, status: PhaseStatus.Skipped, data: new { reason = noRuntimeMessage });
         BridgePhase connect = canRun ? await ConnectPhaseAsync(timeout: TransportTimeout).ConfigureAwait(false) : BridgePhase.Of(phase: PhaseConnect, status: PhaseStatus.Skipped, data: new { reason = noRuntimeMessage });
         Task<BridgePhase> executeTask = (checkScript, connect.Status.IsOk, build.Status.IsOk) switch {
@@ -281,6 +355,7 @@ internal static class Program {
                 scriptPath: null,
                 worktree: worktree,
                 references: current.References,
+                hostPlugins: hostPlugins,
                 stageDirectory: Path.GetDirectoryName(path: resultPath)),
             (null, _, true) => Task.FromResult(BridgePhase.Of(phase: PhaseExecute, status: PhaseStatus.Unsupported, fault: BridgeFault.MessageOnly(category: PhaseStatus.Unsupported.Wire, message: noRuntimeMessage))),
             _ => Task.FromResult(BridgePhase.Of(phase: PhaseExecute, status: PhaseStatus.Skipped, data: new { reason = noRuntimeMessage })),
@@ -317,11 +392,14 @@ internal static class Program {
         return (
             string.Join(separator: Environment.NewLine, values: new[] {
                 ReferenceDirectives(references: references),
-            }.Concat(script.Take(count: bodyIndex)).Concat(project.IsGrasshopperAware ? [BridgeWire.ScenarioHostUsings] : []).Concat([
-                $"const string SCENARIO_NAME = \"{Escape(value: scenario)}\";",
-                $"const string CAPTURE_PATH = \"{Escape(value: capture)}\";",
-                BridgeWire.LanguageExtBootstrap,
-            ]).Concat(script.Skip(count: bodyIndex))),
+            }.Concat(script.Take(count: bodyIndex))
+                .Concat([BridgeWire.ScenarioBaseUsings])
+                .Concat(project.IsGrasshopperAware ? [BridgeWire.ScenarioHostUsings] : [])
+                .Concat([
+                    $"const string SCENARIO_NAME = \"{Escape(value: scenario)}\";",
+                    $"const string CAPTURE_PATH = \"{Escape(value: capture)}\";",
+                    BridgeWire.LanguageExtBootstrap,
+                ]).Concat(script.Skip(count: bodyIndex))),
             references);
     }
     private static IReadOnlyList<string> ScenarioScriptReferences(ProjectBuild project, string resultPath) =>
@@ -337,7 +415,7 @@ internal static class Program {
         if (worktreeRoot is null) {
             yield break;
         }
-        string framework = project.TargetFramework ?? "net10.0";
+        string framework = project.TargetFramework ?? throw new InvalidOperationException(message: "MSBuild did not return TargetFramework; scenario kit artifact resolution requires it.");
         string testKitArtifact = Path.Combine(paths: [worktreeRoot, "tests/csharp/_testkit/bin", project.Configuration, framework, "Rasm.TestKit.dll"]);
         if (File.Exists(path: testKitArtifact)) {
             yield return testKitArtifact;
@@ -438,7 +516,7 @@ internal static class Program {
     private static async Task<BridgeReply> SendAsync(BridgeRequest request, TimeSpan timeout) {
         using CancellationTokenSource cancellation = new(delay: timeout);
         BridgeEndpoint endpoint = ReadEndpoint();
-        using NamedPipeClientStream pipe = new(serverName: ".", pipeName: endpoint.PipeName, direction: PipeDirection.InOut, options: PipePolicy);
+        using NamedPipeClientStream pipe = new(serverName: ".", pipeName: endpoint.PipeName, direction: PipeDirection.InOut, options: BridgeWire.PipePolicy);
         await pipe.ConnectAsync(cancellationToken: cancellation.Token).ConfigureAwait(false);
         StreamWriter writer = new(stream: pipe, encoding: Encoding.UTF8, bufferSize: 4096, leaveOpen: true);
         using StreamReader reader = new(stream: pipe, encoding: Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 4096, leaveOpen: true);
@@ -463,7 +541,7 @@ internal static class Program {
         using Process process = Process.GetProcessById(processId: endpoint.RhinoPid);
         DateTimeOffset startedAt = new(dateTime: process.StartTime.ToUniversalTime());
         bool validPipe = endpoint.PipeName.Length <= 64 && endpoint.PipeName.StartsWith(value: string.Create(CultureInfo.InvariantCulture, $"rb-{endpoint.RhinoPid}-"), comparisonType: StringComparison.Ordinal);
-        return (process.HasExited, validPipe, Math.Abs(value: (startedAt - endpoint.RhinoStartedAt).TotalSeconds) <= 2.0) switch {
+        return (process.HasExited, validPipe, endpoint.IsLiveFor(rhinoPid: endpoint.RhinoPid, rhinoStartedAt: startedAt)) switch {
             (false, true, true) => endpoint,
             _ => throw new InvalidOperationException(message: $"Endpoint metadata is stale or unsupported: {BridgeWire.EndpointPath}"),
         };

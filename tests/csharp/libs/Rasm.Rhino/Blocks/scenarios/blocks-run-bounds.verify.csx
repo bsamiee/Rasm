@@ -1,13 +1,10 @@
 using System;
-using LanguageExt;
 using Rasm.Domain;
 using Rasm.Rhino.Blocks;
-using Rasm.TestKit.Scenarios;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
 using Rhino.Geometry;
-using static LanguageExt.Prelude;
 
 Scenario.Run("blocks-run-bounds", CAPTURE_PATH, (key, facts) => {
     using DocumentScope scope = DocumentScope.Open();

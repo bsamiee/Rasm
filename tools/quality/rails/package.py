@@ -17,9 +17,9 @@ from beartype import beartype
 from expression import Error, Ok, Result
 import msgspec
 
-from tools.quality.process import decode_json, dotnet, dotnet_rail, fd_args, fold, ProcessFault, run, Workspace
+from tools.quality.process import decode_json, dotnet_args, fd_args, fold, ProcessFault, run, run_fold, Workspace
 from tools.quality.rails.bridge import build_client, client_run, try_decode_bridge
-from tools.quality.settings import ArtifactScope, QualitySettings, RASM_BRIDGE_SLUG
+from tools.quality.settings import ArtifactScope, QualitySettings, RASM_BRIDGE_SLUG, YAK_DISTRIBUTION_GLOB, YAK_PLATFORM
 
 
 # --- [TYPES] ---------------------------------------------------------------------------
@@ -126,8 +126,8 @@ class PackageMeta(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
                 f"Refusing to clean unexpected output directory: {self.target_dir}",
             ),
             (
-                self.yak_platform == "mac" and fnmatch.fnmatch(self.package_pattern, "*-rh9_*-mac.yak"),
-                f"Package distribution must target Rhino 9 macOS for {slug}: {self.package_pattern}",
+                self.yak_platform == YAK_PLATFORM and fnmatch.fnmatch(self.package_pattern, YAK_DISTRIBUTION_GLOB),
+                f"Package distribution must match {YAK_DISTRIBUTION_GLOB} for {slug}: {self.package_pattern}",
             ),
             (self.yak_path.is_file() and os.access(self.yak_path, os.X_OK), f"Yak not executable at {self.yak_path}"),
         )
@@ -230,8 +230,21 @@ def _stage(
                 shutil.rmtree(stage, ignore_errors=True)
                 return Error(ProcessFault.fail("package", "stage", detail=str(exc)))
 
-        return dotnet_rail(
-            settings, scope, restore=meta.project, targets=(meta.project,), version=version, disable_parallel=True
+        return run_fold(
+            scope,
+            (
+                ("dotnet", *dotnet_args("restore", meta.project, disable_parallel=True)),
+                (
+                    "dotnet",
+                    *dotnet_args(
+                        "build",
+                        meta.project,
+                        configuration=settings.configuration,
+                        version=settings.version_props(version),
+                        serial=True,
+                    ),
+                ),
+            ),
         ).bind(
             lambda _: (
                 Ok(primary)
@@ -268,14 +281,17 @@ def _stage(
         )
 
     return (
-        dotnet(
-            "msbuild",
-            str(project),
-            f"-p:Configuration={settings.configuration}",
-            *settings.version_props(version),
-            *(f"-getProperty:{name}" for name in _META_PROPS),
-            "-nologo",
-            scope=scope,
+        run(
+            (
+                "dotnet",
+                "msbuild",
+                str(project),
+                f"-p:Configuration={settings.configuration}",
+                *settings.version_props(version),
+                *(f"-getProperty:{name}" for name in _META_PROPS),
+                "-nologo",
+            ),
+            env=scope.dotnet_env,
             check=True,
         )
         .bind(lambda done: decode_json(done.stdout, _MsbuildProps).map(lambda data: data.Properties))
@@ -285,16 +301,12 @@ def _stage(
 
 
 def _yak_argv(meta: PackageMeta, op: YakOp, *, version: str = "", package_file: Path | None = None) -> tuple[str, ...]:
-    yak = (str(meta.yak_path), op)
-    match op:
-        case "build":
-            return (*yak, "--platform", meta.yak_platform, "--version", version)
-        case "install":
-            return (*yak, str(package_file))
-        case "push":
-            return (*yak, *(("--source", meta.yak_push_source) if meta.yak_push_source else ()), str(package_file))
-        case unreachable:
-            assert_never(unreachable)
+    template: dict[YakOp, tuple[str, ...]] = {
+        "build": ("--platform", meta.yak_platform, "--version", version),
+        "install": (str(package_file),),
+        "push": (*(("--source", meta.yak_push_source) if meta.yak_push_source else ()), str(package_file)),
+    }
+    return (str(meta.yak_path), op, *template[op])
 
 
 @beartype

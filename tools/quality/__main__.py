@@ -35,18 +35,7 @@ type ApiCliOp = Literal["doctor", "path", "xml", "types", "decompile"]
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
-_API: Final[dict[ApiCliOp, tuple[api_rail.ApiOp, str | None]]] = {
-    "decompile": ("decompile", None),
-    "doctor": ("doctor", None),
-    "path": ("path", None),
-    "types": ("types", None),
-    "xml": ("search", "xml"),
-}
-_BRIDGE_CLIENT: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
-    ("doctor", ("doctor",)),
-    ("launch", ("launch",)),
-    ("quit", ("quit",)),
-)
+_BRIDGE_VERBS: Final[tuple[str, ...]] = ("doctor", "launch", "quit")
 _PACKAGE: Final[tuple[bridge_package.PackageMode, ...]] = ("deploy", "package", "publish")
 _PARAMETER = Parameter(show_default=False)
 _SELF_CLI: Final[tuple[str, ...]] = ("dotnet", "fd", "git")
@@ -112,12 +101,12 @@ def _package(mode: bridge_package.PackageMode, slug: str, version: str) -> int:
     )
 
 
-_API_OK: Final[dict[ApiCliOp, Callable[[bytes | str | None], int]]] = {
-    "decompile": _emit,
-    "doctor": lambda payload: _emit(payload if isinstance(payload, bytes) else b"", newline=True),
-    "path": lambda value: _emit(value.decode() if isinstance(value, bytes) else value, newline=True),
-    "types": _emit,
-    "xml": _emit,
+_API: Final[dict[ApiCliOp, tuple[api_rail.ApiOp, str | None, Callable[[bytes | str | None], int]]]] = {
+    "decompile": ("decompile", None, _emit),
+    "doctor": ("doctor", None, lambda payload: _emit(payload if isinstance(payload, bytes) else b"", newline=True)),
+    "path": ("path", None, lambda value: _emit(value.decode() if isinstance(value, bytes) else value, newline=True)),
+    "types": ("types", None, _emit),
+    "xml": ("search", "xml", _emit),
 }
 _STATIC_OK: Final[dict[static_rail.StaticOutcome, Callable[[], int]]] = {
     "done": lambda: 0,
@@ -133,21 +122,14 @@ def api_gate(
     pattern: str = "",
     type_name: str = "",
 ) -> int:
-    rail_op, phase = _API[op]
+    rail_op, phase, ok = _API[op]
     return rail(
         "api",
         phase or op,
         lambda s, sc: api_rail.api(
             s.rhino_app, rail_op, key, kind=kind, pattern=pattern, type_name=type_name, env=sc.dotnet_env
         ),
-        ok=_API_OK[op],
-    )
-
-
-@bridge.command
-def build(version: Annotated[str, Parameter(show_default=False)] = "") -> int:
-    return rail(
-        "bridge", "build", lambda s, sc: dotnet_rail(s, sc, restore=s.solution, targets=(s.solution,), version=version)
+        ok=ok,
     )
 
 
@@ -242,8 +224,8 @@ def verify(pattern: str) -> int:
 # --- [COMPOSITION] -----------------------------------------------------------------------
 
 
-for _bridge_name, _bridge_args in _BRIDGE_CLIENT:
-    bridge.command(name=_bridge_name)(partial(_bridge, *_bridge_args))
+for _verb in _BRIDGE_VERBS:
+    bridge.command(name=_verb)(partial(_bridge, _verb))
 
 for _package_mode in _PACKAGE:
     bridge.command(name=_package_mode)(partial(_package, _package_mode))

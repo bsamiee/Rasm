@@ -1,9 +1,6 @@
 using System;
-using LanguageExt;
 using Rasm.Grasshopper.UI;
-using Rasm.TestKit.Scenarios;
 using Rhino;
-using static LanguageExt.Prelude;
 
 Scenario.Run("gh-ui-events-core", CAPTURE_PATH, (key, facts) => {
     GrasshopperUi ui = new();

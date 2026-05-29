@@ -1,13 +1,10 @@
 using System;
 using System.IO;
-using LanguageExt;
 using Rasm.Rhino.Blocks;
 using Rasm.Rhino.Exchange;
-using Rasm.TestKit.Scenarios;
 using Rhino;
 using Rhino.Commands;
 using Rhino.FileIO;
-using static LanguageExt.Prelude;
 
 Scenario.Run("blocks-archive-validate-broken", CAPTURE_PATH, (key, facts) => {
     string root = Path.Combine(path1: Path.GetTempPath(), path2: $"RasmBroken{Guid.NewGuid():N}");

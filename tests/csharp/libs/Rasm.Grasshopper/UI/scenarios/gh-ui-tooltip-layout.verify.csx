@@ -1,6 +1,5 @@
 using System;
 using Rasm.Grasshopper.UI;
-using Rasm.TestKit.Scenarios;
 
 Scenario.Run("gh-ui-tooltip-layout", CAPTURE_PATH, (key, facts) => {
     TooltipLayoutSnapshot snap = Probe.Expect(

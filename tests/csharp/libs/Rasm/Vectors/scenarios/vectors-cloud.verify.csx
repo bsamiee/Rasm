@@ -1,15 +1,15 @@
 using System;
 using System.Linq;
-using LanguageExt;
 using Rasm.Domain;
-using Rasm.TestKit.Scenarios;
 using Rasm.Vectors;
 using Rhino;
 using Rhino.Geometry;
-using static LanguageExt.Prelude;
 using Dimension = Rasm.Vectors.Dimension;
 
 Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).ToFin(), "context");
+
+static T Project<T>(Fin<VectorIntent> intent, Context context, Op key, string label) =>
+    Probe.Expect(Probe.Expect(intent, $"{label}: intent").Project<T>(context: context, key: key), $"{label}: project");
 
 // --- [SCENARIO: vectors-cloud-shapes] ---------------------------------------------------
 Scenario.Run("vectors-cloud-shapes", CAPTURE_PATH, (key, facts) => {
@@ -28,9 +28,9 @@ Scenario.Run("vectors-cloud-shapes", CAPTURE_PATH, (key, facts) => {
         points: Seq(new Point3d(x: 1.0, y: 0.0, z: 0.0), new Point3d(x: 4.0, y: 0.0, z: 0.0), new Point3d(x: 4.0, y: 3.0, z: 0.0)),
         context: context,
         key: key), "target cluster");
-    double area = Probe.Project<double>(intent: VectorIntent.Cloud(cloud: ring, metric: VectorCloudMetric.Area, key: key), context: context, key: key, label: "area");
-    VectorCloudShape shape = Probe.Project<VectorCloudShape>(intent: VectorIntent.Cloud(cloud: ring, metric: VectorCloudMetric.Shape, key: key), context: context, key: key, label: "shape");
-    Vector3d spread = Probe.Project<Vector3d>(intent: VectorIntent.Cloud(cloud: cluster, metric: VectorCloudMetric.Spread, key: key), context: context, key: key, label: "spread");
+    double area = Project<double>(intent: VectorIntent.Cloud(cloud: ring, metric: VectorCloudMetric.Area, key: key), context: context, key: key, label: "area");
+    VectorCloudShape shape = Project<VectorCloudShape>(intent: VectorIntent.Cloud(cloud: ring, metric: VectorCloudMetric.Shape, key: key), context: context, key: key, label: "shape");
+    Vector3d spread = Project<Vector3d>(intent: VectorIntent.Cloud(cloud: cluster, metric: VectorCloudMetric.Spread, key: key), context: context, key: key, label: "spread");
     CloudTransportPolicy transportPolicy = Probe.Expect(CloudTransportPolicy.Of(regularization: 0.5, maxIterations: 64, massRelaxation: 1.0, key: key), "transport policy");
     SinkhornReceipt transport = Probe.Expect(Probe.Expect(VectorIntent.Transport(source: cluster, target: shifted, policy: transportPolicy, key: key), "transport intent").Project<SinkhornReceipt>(context: context, key: key), "transport");
     Probe.Require(Math.Abs(area - 2.0) <= 1.0e-6, $"area={area:R}");
@@ -52,7 +52,7 @@ Scenario.Run("vectors-cloud-neighborhood", CAPTURE_PATH, (key, facts) => {
     static Seq<Point3d> Grid(double step, Func<double, double, double> z) =>
         toSeq(from ix in Enumerable.Range(start: -2, count: 5) from iy in Enumerable.Range(start: -2, count: 5) let x = ix * step let y = iy * step select new Point3d(x: x, y: y, z: z(x, y)));
     CloudCurvatureResult CurvatureOf(Seq<Point3d> points, CloudMetricPolicy policy, string label) =>
-        Probe.Project<CloudCurvatureResult>(intent: VectorIntent.Cloud(cloud: Probe.Expect(VectorCloud.Cluster(points: points, context: context, key: key), $"{label} cluster"), metric: VectorCloudMetric.PrincipalCurvature, policy: Some(policy), key: key), context: context, key: key, label: label);
+        Project<CloudCurvatureResult>(intent: VectorIntent.Cloud(cloud: Probe.Expect(VectorCloud.Cluster(points: points, context: context, key: key), $"{label} cluster"), metric: VectorCloudMetric.PrincipalCurvature, policy: Some(policy), key: key), context: context, key: key, label: label);
     Dimension neighbors = Probe.Expect(key.AcceptValidated<Dimension>(candidate: 4), "neighbors");
     PositiveMagnitude gap = Probe.Expect(key.AcceptValidated<PositiveMagnitude>(candidate: 1.0e-8), "gap");
     PositiveMagnitude residual = Probe.Expect(key.AcceptValidated<PositiveMagnitude>(candidate: 1.0e-3), "residual");
@@ -75,8 +75,8 @@ Scenario.Run("vectors-cloud-neighborhood", CAPTURE_PATH, (key, facts) => {
     PointCloud duplicateCloud = new();
     duplicateCloud.AddRange(points: duplicatePoints);
     int[][] duplicateIds = RTree.PointCloudKNeighbors(pointcloud: duplicateCloud, needlePts: duplicatePoints, amount: 3).ToArray();
-    Seq<Vector3d> normals = Probe.Project<Seq<Vector3d>>(intent: VectorIntent.Cloud(cloud: cloud, metric: VectorCloudMetric.OrientedNormals, policy: Some(policy), key: key), context: context, key: key, label: "normals");
-    Seq<Vector3d> radiusNormals = Probe.Project<Seq<Vector3d>>(intent: VectorIntent.Cloud(cloud: cloud, metric: VectorCloudMetric.OrientedNormals, policy: Some(policy with { Neighborhood = policy.Neighborhood with { Radius = Some(radius) } }), key: key), context: context, key: key, label: "radius normals");
+    Seq<Vector3d> normals = Project<Seq<Vector3d>>(intent: VectorIntent.Cloud(cloud: cloud, metric: VectorCloudMetric.OrientedNormals, policy: Some(policy), key: key), context: context, key: key, label: "normals");
+    Seq<Vector3d> radiusNormals = Project<Seq<Vector3d>>(intent: VectorIntent.Cloud(cloud: cloud, metric: VectorCloudMetric.OrientedNormals, policy: Some(policy with { Neighborhood = policy.Neighborhood with { Radius = Some(radius) } }), key: key), context: context, key: key, label: "radius normals");
     Dimension curvatureNeighbors = Probe.Expect(key.AcceptValidated<Dimension>(candidate: 9), "curvature neighbors");
     CloudMetricPolicy curvaturePolicy = policy with { Neighborhood = policy.Neighborhood with { NeighborCount = curvatureNeighbors } };
     CloudMetricPolicy radiusCurvaturePolicy = curvaturePolicy with { Neighborhood = curvaturePolicy.Neighborhood with { Radius = Some(radius) } };
@@ -149,13 +149,13 @@ Scenario.Run("vectors-cloud-hull", CAPTURE_PATH, (key, facts) => {
             new Point3d(x: 2.0, y: 0.0, z: 0.0)),
         context: context,
         key: key), "collinear cluster");
-    CloudHullReceipt tooFewReceipt = Probe.Project<CloudHullReceipt>(intent: VectorIntent.Hull(source: tooFew, kind: CloudHullKind.Convex3D, key: key), context: context, key: key, label: "too few");
-    CloudHullReceipt coplanarReceipt = Probe.Project<CloudHullReceipt>(intent: VectorIntent.Hull(source: coplanar, kind: CloudHullKind.Convex3D, key: key), context: context, key: key, label: "coplanar");
-    CloudHullResult result = Probe.Project<CloudHullResult>(intent: VectorIntent.Hull(source: cloud, kind: CloudHullKind.Convex3D, key: key), context: context, key: key, label: "hull");
+    CloudHullReceipt tooFewReceipt = Project<CloudHullReceipt>(intent: VectorIntent.Hull(source: tooFew, kind: CloudHullKind.Convex3D, key: key), context: context, key: key, label: "too few");
+    CloudHullReceipt coplanarReceipt = Project<CloudHullReceipt>(intent: VectorIntent.Hull(source: coplanar, kind: CloudHullKind.Convex3D, key: key), context: context, key: key, label: "coplanar");
+    CloudHullResult result = Project<CloudHullResult>(intent: VectorIntent.Hull(source: cloud, kind: CloudHullKind.Convex3D, key: key), context: context, key: key, label: "hull");
     Mesh hull = Probe.Expect(result.Mesh.ToFin(Fail: key.InvalidResult()), "hull mesh");
-    CloudHullResult footprint = Probe.Project<CloudHullResult>(intent: VectorIntent.Hull(source: duplicateFootprint, kind: CloudHullKind.ConvexFootprint2D, key: key), context: context, key: key, label: "footprint");
-    CloudHullResult collinearFootprint = Probe.Project<CloudHullResult>(intent: VectorIntent.Hull(source: collinear, kind: CloudHullKind.ConvexFootprint2D, key: key), context: context, key: key, label: "collinear");
-    CloudHullReceipt alphaReceipt = Probe.Project<CloudHullReceipt>(intent: VectorIntent.Hull(source: cloud, kind: CloudHullKind.AlphaShape, key: key), context: context, key: key, label: "alpha");
+    CloudHullResult footprint = Project<CloudHullResult>(intent: VectorIntent.Hull(source: duplicateFootprint, kind: CloudHullKind.ConvexFootprint2D, key: key), context: context, key: key, label: "footprint");
+    CloudHullResult collinearFootprint = Project<CloudHullResult>(intent: VectorIntent.Hull(source: collinear, kind: CloudHullKind.ConvexFootprint2D, key: key), context: context, key: key, label: "collinear");
+    CloudHullReceipt alphaReceipt = Project<CloudHullReceipt>(intent: VectorIntent.Hull(source: cloud, kind: CloudHullKind.AlphaShape, key: key), context: context, key: key, label: "alpha");
     Probe.Require(tooFewReceipt.Status.Equals(CloudHullStatus.Rejected) && tooFewReceipt.NativeRouted && tooFewReceipt.ContainmentRejectedCount == 3, $"tooFew={tooFewReceipt}");
     Probe.Require(coplanarReceipt.Status.Equals(CloudHullStatus.Rejected) && coplanarReceipt.CoplanarRejected && coplanarReceipt.NativeRouted, $"coplanar={coplanarReceipt}");
     Probe.Require(result.Receipt.Status.Equals(CloudHullStatus.Completed), $"status={result.Receipt.Status}");

@@ -3,15 +3,15 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Threading;
-using LanguageExt;
 using Rasm.Domain;
-using Rasm.TestKit.Scenarios;
 using Rasm.Vectors;
 using Rhino;
 using Rhino.Geometry;
-using static LanguageExt.Prelude;
 
 Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).ToFin(), "context");
+
+static T Project<T>(Fin<VectorIntent> intent, Context context, Op key, string label) =>
+    Probe.Expect(Probe.Expect(intent, $"{label}: intent").Project<T>(context: context, key: key), $"{label}: project");
 
 // --- [SCENARIO: vectors-field-sdf-isosurface] -------------------------------------------
 Scenario.Run("vectors-field-sdf-isosurface", CAPTURE_PATH, (key, facts) => {
@@ -24,10 +24,10 @@ Scenario.Run("vectors-field-sdf-isosurface", CAPTURE_PATH, (key, facts) => {
             pose: Plane.WorldXY,
             key: key),
         "sphere field");
-    IsoSurfaceResult analyticIso = Probe.Project<IsoSurfaceResult>(
+    IsoSurfaceResult analyticIso = Project<IsoSurfaceResult>(
         intent: VectorIntent.IsoSurface(field: sphereField, bounds: isoBounds, resolution: 18, maxRootSteps: 16, key: key),
         context: context, key: key, label: "analytic iso");
-    IsoSurfaceReceipt nonCubicIso = Probe.Project<IsoSurfaceReceipt>(
+    IsoSurfaceReceipt nonCubicIso = Project<IsoSurfaceReceipt>(
         intent: VectorIntent.IsoSurface(field: sphereField, bounds: nonCubicBounds, resolution: 4, maxRootSteps: 12, key: key),
         context: context, key: key, label: "non-cubic iso");
     Mesh closedBox = Mesh.CreateFromBox(
@@ -38,7 +38,7 @@ Scenario.Run("vectors-field-sdf-isosurface", CAPTURE_PATH, (key, facts) => {
     MeshSpace boxSpace = Probe.Expect(MeshSpace.Of(native: closedBox, context: context, key: key), "box space");
     SdfMeshPolicy windingPolicy = Probe.Expect(SdfMeshPolicy.GeneralizedWinding(key: key), "winding policy");
     ScalarField boxField = Probe.Expect(ScalarField.SignedDistanceFromMesh(space: boxSpace, policy: windingPolicy, key: key), "box sdf");
-    IsoSurfaceResult meshIso = Probe.Project<IsoSurfaceResult>(
+    IsoSurfaceResult meshIso = Project<IsoSurfaceResult>(
         intent: VectorIntent.IsoSurface(field: boxField, bounds: isoBounds, resolution: 16, maxRootSteps: 16, key: key),
         context: context, key: key, label: "mesh iso");
     SdfSample meshSdf = Probe.Expect(boxField.SampleSdfDetailed(sample: new Point3d(x: 4.0, y: 0.0, z: 0.0), context: context, key: key), "mesh sdf sample");
@@ -71,7 +71,7 @@ Scenario.Run("vectors-field-sdf-isosurface", CAPTURE_PATH, (key, facts) => {
         .Bind(field => field.SampleSdfDetailed(sample: Point3d.Origin, context: context, key: key))
         .Match(Succ: static _ => false, Fail: static _ => true);
     SupportSpace sphereSupport = Probe.Expect(SupportSpace.Of(value: new Sphere(center: Point3d.Origin, radius: 3.0), key: key), "sphere support");
-    double containment = Probe.Project<double>(
+    double containment = Project<double>(
         intent: VectorIntent.Support(space: sphereSupport, sample: new Point3d(x: 4.0, y: 0.0, z: 0.0), projection: SupportProjection.ContainmentDistance, key: key),
         context: context, key: key, label: "support containment");
     Fin<VectorIntent> invalidIsoIntent = VectorIntent.IsoSurface(

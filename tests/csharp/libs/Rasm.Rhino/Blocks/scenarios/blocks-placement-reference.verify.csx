@@ -1,16 +1,13 @@
 using System;
 using System.IO;
-using LanguageExt;
 using Rasm.Rhino.Blocks;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Exchange;
-using Rasm.TestKit.Scenarios;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
 using Rhino.FileIO;
 using Rhino.Geometry;
-using static LanguageExt.Prelude;
 
 Scenario.Run("blocks-placement-reference", CAPTURE_PATH, (key, facts) => {
     using DocumentScope scope = DocumentScope.Open();

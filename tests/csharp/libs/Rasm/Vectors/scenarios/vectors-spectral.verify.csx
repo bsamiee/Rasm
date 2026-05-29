@@ -1,11 +1,8 @@
 using System;
-using LanguageExt;
 using Rasm.Domain;
-using Rasm.TestKit.Scenarios;
 using Rasm.Vectors;
 using Rhino;
 using Rhino.Geometry;
-using static LanguageExt.Prelude;
 using Dimension = Rasm.Vectors.Dimension;
 
 static Mesh Tetrahedron() {
@@ -35,6 +32,9 @@ static Mesh OpenSquare() {
 }
 
 Context context = Probe.Expect(Context.Of(units: Rhino.UnitSystem.Millimeters).ToFin(), "context");
+
+static T Project<T>(Fin<VectorIntent> intent, Context context, Op key, string label) =>
+    Probe.Expect(Probe.Expect(intent, $"{label}: intent").Project<T>(context: context, key: key), $"{label}: project");
 
 // --- [SCENARIO: vectors-spectral-dec] ---------------------------------------------------
 Scenario.Run("vectors-spectral-dec", CAPTURE_PATH, (key, facts) => {
@@ -83,17 +83,17 @@ Scenario.Run("vectors-spectral-dec", CAPTURE_PATH, (key, facts) => {
     }
     using Mesh native = Tetrahedron();
     MeshSpace space = Probe.Expect(MeshSpace.Of(native: native, context: context, key: key), "space");
-    DiscreteCalculus calculus = Probe.Project<DiscreteCalculus>(intent: VectorIntent.DiscreteCalculus(space: space, key: key), context: context, key: key, label: "dec");
+    DiscreteCalculus calculus = Project<DiscreteCalculus>(intent: VectorIntent.DiscreteCalculus(space: space, key: key), context: context, key: key, label: "dec");
     SpectralAssemblyReceipt receipt = calculus.Receipt;
     using Mesh openNative = OpenSquare();
     MeshSpace openSpace = Probe.Expect(MeshSpace.Of(native: openNative, context: context, key: key), "open space");
-    SpectralAssemblyReceipt openReceipt = Probe.Project<SpectralAssemblyReceipt>(intent: VectorIntent.DiscreteCalculus(space: openSpace, key: key), context: context, key: key, label: "open dec");
+    SpectralAssemblyReceipt openReceipt = Project<SpectralAssemblyReceipt>(intent: VectorIntent.DiscreteCalculus(space: openSpace, key: key), context: context, key: key, label: "open dec");
     using Mesh degenerateNative = DegenerateFaceMesh();
     MeshSpace degenerateSpace = Probe.Expect(MeshSpace.Of(native: degenerateNative, context: context, key: key), "degenerate space");
-    SpectralAssemblyReceipt degenerateReceipt = Probe.Project<SpectralAssemblyReceipt>(intent: VectorIntent.DiscreteCalculus(space: degenerateSpace, key: key), context: context, key: key, label: "degenerate dec");
+    SpectralAssemblyReceipt degenerateReceipt = Project<SpectralAssemblyReceipt>(intent: VectorIntent.DiscreteCalculus(space: degenerateSpace, key: key), context: context, key: key, label: "degenerate dec");
     using Mesh torusNative = TorusMesh(uCount: 8, vCount: 6);
     MeshSpace torusSpace = Probe.Expect(MeshSpace.Of(native: torusNative, context: context, key: key), "torus space");
-    TopologyReceipt torusTopology = Probe.Project<TopologyReceipt>(intent: VectorIntent.Topology(space: torusSpace, key: key), context: context, key: key, label: "torus topology");
+    TopologyReceipt torusTopology = Project<TopologyReceipt>(intent: VectorIntent.Topology(space: torusSpace, key: key), context: context, key: key, label: "torus topology");
     bool genusPositiveHodgeUnsupported = VectorField.Hodge(source: VectorField.Constant(value: Vector3d.XAxis), space: torusSpace, key: key)
         .Bind(field => VectorIntent.Probe(source: ExtractionProbe.Vector(source: field), sample: torusNative.Vertices[0], key: key))
         .Bind(intent => intent.Project<Vector3d>(context: context, key: key))

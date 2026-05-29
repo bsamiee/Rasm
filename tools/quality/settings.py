@@ -67,8 +67,9 @@ PROJECT_EXCLUDE_DIRS: Final[tuple[str, ...]] = (
     "tmp",
 )
 RASM_BRIDGE_SLUG: Final[str] = "rasm-bridge"
-SERIAL_BUILD: Final[tuple[str, ...]] = ("-maxcpucount:1", "-p:BuildInParallel=false")
 STATIC_FULL_TRIGGER_PREFIXES: Final[tuple[str, ...]] = ("tools/cs-analyzer/",)
+YAK_PLATFORM: Final[str] = "mac"
+YAK_DISTRIBUTION_GLOB: Final[str] = "*-rh9_*-mac.yak"
 
 
 # --- [MODELS] ----------------------------------------------------------------------------

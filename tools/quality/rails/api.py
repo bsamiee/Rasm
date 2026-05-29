@@ -90,6 +90,7 @@ def api(
     assembly = str(resources / assembly_name) if assembly_name else ""
     match op:
         case "doctor":
+            base_env = env or {}
             plist = rhino_app / "Contents/Info.plist"
             version = (
                 run(("plutil", "-extract", "CFBundleVersion", "raw", "-o", "-", str(plist)), check=False)
@@ -113,7 +114,7 @@ def api(
                 .default_with(lambda _: -1)
                 if rhino_code.is_file()
                 else -1
-                for overlay in (None, {**(env or {}), "DOTNET_ROLL_FORWARD": "Major"})
+                for overlay in (None, {**base_env, "DOTNET_ROLL_FORWARD": "Major"})
             )
 
             def asset(path: str, label: str) -> dict[str, str]:
@@ -123,7 +124,7 @@ def api(
                 msgspec.json.encode(
                     ApiDoctor(
                         rhino={"app": str(rhino_app), "version": version},
-                        ilspy={**ilspy_meta, "dotnet_root": (env or {}).get("DOTNET_ROOT", "hostfxr-probe")},
+                        ilspy={**ilspy_meta, "dotnet_root": base_env.get("DOTNET_ROOT", "hostfxr-probe")},
                         rhinocode={
                             "status": "ok" if rhino_code.is_file() else "missing",
                             "path": str(rhino_code),

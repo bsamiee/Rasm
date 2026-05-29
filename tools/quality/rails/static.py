@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import reduce
 from itertools import groupby
@@ -132,21 +133,24 @@ def _plan(settings: QualitySettings, scope: ArtifactScope) -> Result[StaticPlan,
         workspace.changed(),
         _ChangedRoute(),
     )
-    match routed.full:
-        case True:
-            return _projects(settings, workspace, "parity", scope=scope).map(
-                lambda rows: StaticPlan(scope="full", projects=rows)
-            )
-        case False:
-            match routed.projects:
-                case _ if not routed.projects:
-                    return Ok(StaticPlan(scope="changed", projects=()))
-                case _:
-                    return _projects(settings, workspace, "closure", tuple(sorted(routed.projects)), scope=scope).map(
-                        lambda rows: StaticPlan(
-                            scope="changed", projects=rows, format_groups=_format_groups(routed.format_routes)
-                        )
-                    )
+
+    def full() -> Result[StaticPlan, ProcessFault]:
+        return _projects(settings, workspace, "parity", scope=scope).map(
+            lambda rows: StaticPlan(scope="full", projects=rows)
+        )
+
+    def changed() -> Result[StaticPlan, ProcessFault]:
+        return _projects(settings, workspace, "closure", tuple(sorted(routed.projects)), scope=scope).map(
+            lambda rows: StaticPlan(scope="changed", projects=rows, format_groups=_format_groups(routed.format_routes))
+        )
+
+    plan_by_route: dict[tuple[bool, bool], Callable[[], Result[StaticPlan, ProcessFault]]] = {
+        (False, False): lambda: Ok(StaticPlan(scope="changed", projects=())),
+        (False, True): changed,
+        (True, False): full,
+        (True, True): full,
+    }
+    return plan_by_route[routed.full, bool(routed.projects)]()
 
 
 def _projects(

@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -119,7 +120,13 @@ public sealed record BridgeEndpoint(
     string BridgeAssemblyName,
     string BridgeAssemblyVersion,
     string BridgeAssemblyInformationalVersion,
-    string RhinoVersion);
+    string RhinoVersion) {
+    public const double StartTimeToleranceSeconds = 2.0;
+    /// One liveness rule shared by client staleness validation and server endpoint-ownership: a recorded endpoint
+    /// belongs to a Rhino incarnation identified by PID and process start time within <see cref="StartTimeToleranceSeconds"/>.
+    public bool IsLiveFor(int rhinoPid, DateTimeOffset rhinoStartedAt) =>
+        RhinoPid == rhinoPid && Math.Abs(value: (RhinoStartedAt - rhinoStartedAt).TotalSeconds) <= StartTimeToleranceSeconds;
+}
 
 public sealed record BridgeRequest(string Schema, string Command, int TimeoutMs, JsonElement? Payload);
 
@@ -212,7 +219,7 @@ public sealed record BridgePhase(
 }
 
 public sealed record BridgeAssemblyReport(string Name, PhaseStatus Status, bool Required, string? Version, string? InformationalVersion, string? Location, BridgeFault? Fault);
-public sealed record BridgeExecuteRequest(string Script, string? ScriptPath, IReadOnlyList<string> References);
+public sealed record BridgeExecuteRequest(string Script, string? ScriptPath, IReadOnlyList<string> References, IReadOnlyList<string> HostPlugins);
 public sealed record BridgeRhinoCodeReport(string CachePolicy, bool ResolverIsolated, bool PreferBasePathResolution);
 public sealed record BridgeDocumentReport(bool Active, uint? RuntimeSerialNumber, string? Name, string? Path, bool? Modified, double? ModelAbsoluteTolerance, string? ModelUnitSystem);
 public sealed record BridgeReturnValue(JsonElement Value, string Source);
@@ -243,14 +250,15 @@ public sealed record BridgeFault(string Category, string Message, string? Type =
 
 // --- [CONSTANTS] ------------------------------------------------------------------------
 public static class BridgeTimeouts {
-    public static TimeSpan Hello { get; } = TimeSpan.FromSeconds(value: 3.0);
-    public static TimeSpan Connect { get; } = EnvSeconds(name: "RASM_BRIDGE_CONNECT_TIMEOUT_S", fallback: 90.0);
-    public static TimeSpan Transport { get; } = EnvSeconds(name: "RASM_BRIDGE_TRANSPORT_TIMEOUT_S", fallback: 35.0);
-    public static TimeSpan QuitWait { get; } = TimeSpan.FromSeconds(value: 30.0);
-    public static TimeSpan Handshake { get; } = TimeSpan.FromSeconds(value: 2.0);
-    public static TimeSpan IdleDispatch { get; } = TimeSpan.FromMinutes(value: 5.0);
-    private static TimeSpan EnvSeconds(string name, double fallback) =>
-        double.TryParse(s: Environment.GetEnvironmentVariable(variable: name), style: NumberStyles.Float | NumberStyles.AllowThousands, provider: CultureInfo.InvariantCulture, result: out double seconds) && seconds > 0.0
+    // Every timeout flows through one env-overridable rule (RASM_BRIDGE_<NAME>_TIMEOUT_S, seconds, >0) — no fixed magic numbers.
+    public static TimeSpan Hello { get; } = EnvSeconds(suffix: "HELLO", fallback: 3.0);
+    public static TimeSpan Connect { get; } = EnvSeconds(suffix: "CONNECT", fallback: 90.0);
+    public static TimeSpan Transport { get; } = EnvSeconds(suffix: "TRANSPORT", fallback: 35.0);
+    public static TimeSpan QuitWait { get; } = EnvSeconds(suffix: "QUIT_WAIT", fallback: 30.0);
+    public static TimeSpan Handshake { get; } = EnvSeconds(suffix: "HANDSHAKE", fallback: 2.0);
+    public static TimeSpan IdleDispatch { get; } = EnvSeconds(suffix: "IDLE_DISPATCH", fallback: 300.0);
+    private static TimeSpan EnvSeconds(string suffix, double fallback) =>
+        double.TryParse(s: Environment.GetEnvironmentVariable(variable: $"RASM_BRIDGE_{suffix}_TIMEOUT_S"), style: NumberStyles.Float | NumberStyles.AllowThousands, provider: CultureInfo.InvariantCulture, result: out double seconds) && seconds > 0.0
             ? TimeSpan.FromSeconds(value: seconds)
             : TimeSpan.FromSeconds(value: fallback);
 }
@@ -267,6 +275,17 @@ public static class BridgeWire {
     public const string OutputRhinoCommand = "rhino.command";
     public const string OutputCommandStdout = "process.stdout";
     public const string OutputCommandStderr = "process.stderr";
+    public const PipeOptions PipePolicy = PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly;
+    public const int OutputLimit = 32768;
+    public const int ProcessOutputLimit = 16384;
+    /// Grasshopper2 plugin id (Rhino 9 `Grasshopper2Plugin.rhp`). GH-aware scenarios request it as a HostPlugin so the
+    /// in-Rhino bridge pre-loads GH2 into the default ALC before isolated execution — the isolated resolver then binds
+    /// the already-loaded assembly instead of illegally re-loading it into the collectible context.
+    public const string GrasshopperPluginId = "8307876d-a461-4daa-bb77-eb3715925513";
+    public static FrozenSet<string> FrameworkReferencePackMarkers { get; } = new[] {
+        "/packs/Microsoft.NETCore.App.Ref/",
+        "/packs/NETStandard.Library.Ref/",
+    }.ToFrozenSet(comparer: StringComparer.Ordinal);
     public static FrozenSet<string> HostAssemblyNames { get; } = new[] {
         "Eto",
         "Eto.macOS",
@@ -290,15 +309,21 @@ public static class BridgeWire {
         string.Equals(a: schema, b: Schema, comparisonType: StringComparison.Ordinal);
     public static bool IsHostAssemblyName(string? name) =>
         !string.IsNullOrWhiteSpace(value: name) && HostAssemblyNames.Contains(item: name);
+    public static bool IsFrameworkReferencePack(string? path) =>
+        !string.IsNullOrEmpty(value: path) && FrameworkReferencePackMarkers.Any(predicate: marker => path.Contains(value: marker, comparisonType: StringComparison.Ordinal));
     /// RhinoCode isolated #r order must initialize LanguageExt traits before staged Rasm assemblies touch HashMap keys.
     /// Staged Rasm assemblies must use primitive or built-in tuple HashMap keys only; custom record-struct keys fail under isolated resolver trait warmup.
     public const string LanguageExtBootstrap =
         "global::LanguageExt.HashMap<string, int> __rasmBridgeLanguageExtBootstrap = global::LanguageExt.HashMap<string, int>.Empty;\n"
         + "global::LanguageExt.HashMap<(uint Serial, System.Guid DefId), int> __rasmBridgeLanguageExtTupleBootstrap = global::LanguageExt.HashMap<(uint Serial, System.Guid DefId), int>.Empty;";
-    /// Grasshopper-aware scenario compile surface: host-resolvable usings only (Eto/Rhino/LanguageExt). GH2 namespaces stay in scenario preamble when needed.
+    /// Canonical base usings injected into every scenario so authors drop the repeated testkit/LanguageExt preamble.
+    public const string ScenarioBaseUsings =
+        "using LanguageExt;\n"
+        + "using static LanguageExt.Prelude;\n"
+        + "using Rasm.TestKit.Scenarios;\n";
+    /// Grasshopper-aware scenario compile surface: host-resolvable usings only (Eto). GH2 namespaces stay in scenario preamble when needed.
     public const string ScenarioHostUsings =
-        "using Eto.Drawing;\n"
-        + "using LanguageExt;\n";
+        "using Eto.Drawing;\n";
     public static FrozenSet<string> CollisionWatchAssemblyNames { get; } = new[] {
         "FSharp.Core",
         "LanguageExt.Core",

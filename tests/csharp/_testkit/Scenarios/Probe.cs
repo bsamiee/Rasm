@@ -1,7 +1,6 @@
 using System.Globalization;
 using Rasm.Domain;
 using Rasm.RhinoBridge.Protocol;
-using Rasm.Vectors;
 
 namespace Rasm.TestKit.Scenarios;
 
@@ -44,11 +43,6 @@ public static class Probe {
             result: select(arg: Expect(result: result, label: label)),
             label: string.Create(provider: CultureInfo.InvariantCulture, $"{label}: case"));
     }
-    public static TOut Project<TOut>(Fin<VectorIntent> intent, Context context, Op key, string label) =>
-        Expect(
-            result: Expect(result: intent, label: string.Create(provider: CultureInfo.InvariantCulture, $"{label}: intent"))
-                .Project<TOut>(context: context, key: key),
-            label: string.Create(provider: CultureInfo.InvariantCulture, $"{label}: project"));
 }
 
 public static class Scenario {
@@ -56,8 +50,9 @@ public static class Scenario {
         ArgumentNullException.ThrowIfNull(argument: theme);
         ArgumentNullException.ThrowIfNull(argument: capturePath);
         ArgumentNullException.ThrowIfNull(argument: body);
+        string scenePath = ScenePath(theme: theme, captureBase: capturePath);
         Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"scenario={theme}"));
-        Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"capture={capturePath}"));
+        Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"capture={scenePath}"));
         Op key = Op.Of(name: theme);
         FactBag bag = new();
         body(arg1: key, arg2: bag);
@@ -67,6 +62,13 @@ public static class Scenario {
         }
         return unit;
     }
+    // Each theme derives its own capture path from the shared bridge-injected base, so multi-Run files no longer overwrite a single PNG.
+    private static string ScenePath(string theme, string captureBase) =>
+        string.IsNullOrEmpty(value: captureBase)
+            ? string.Create(provider: CultureInfo.InvariantCulture, $"{theme}.png")
+            : Path.Combine(
+                path1: Path.GetDirectoryName(path: captureBase) ?? Directory.GetCurrentDirectory(),
+                path2: string.Create(provider: CultureInfo.InvariantCulture, $"{Path.GetFileNameWithoutExtension(path: captureBase)}.{theme}.png"));
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------

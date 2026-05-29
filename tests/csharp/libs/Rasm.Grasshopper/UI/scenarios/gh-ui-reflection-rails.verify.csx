@@ -1,6 +1,5 @@
 using System;
 using Rasm.Grasshopper.UI;
-using Rasm.TestKit.Scenarios;
 
 Scenario.Run("gh-ui-reflection-rails", CAPTURE_PATH, (key, facts) => {
     GrasshopperUi ui = new();

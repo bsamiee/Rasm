@@ -1,12 +1,9 @@
 using System;
-using LanguageExt;
 using Rasm.Rhino.Camera;
 using Rasm.Rhino.Commands;
-using Rasm.TestKit.Scenarios;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Geometry;
-using static LanguageExt.Prelude;
 
 Scenario.Run("camera-named-view-rail", CAPTURE_PATH, (key, facts) => {
     using DocumentScope scope = DocumentScope.Open();

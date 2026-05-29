@@ -56,8 +56,6 @@ internal sealed record BridgeCommandParse(BridgeCommand? Command, BridgeReply? F
 // --- [SERVICES] -------------------------------------------------------------------------
 internal sealed class BridgeServer : IDisposable {
     private const int PipeInstances = 4;
-    private const int OutputLimit = 32768;
-    private const PipeOptions PipePolicy = PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly;
     private readonly CancellationTokenSource cancellation = new();
     private readonly SemaphoreSlim clientGate = new(initialCount: 1, maxCount: 1);
     private readonly ConcurrentQueue<IdleJob> idleQueue = new();
@@ -230,6 +228,7 @@ internal sealed class BridgeServer : IDisposable {
                 .Select(static group => AssemblyReport(assembly: group.First()))
                 .OrderBy(static report => report.Name, StringComparer.Ordinal)]);
     internal static BridgeReply Execute(BridgeExecuteRequest request, RhinoDoc? document) {
+        IReadOnlyList<BridgeDiagnostic> pluginDiagnostics = EnsureHostPlugins(pluginIds: request.HostPlugins);
         bool priorCapture = RhinoApp.CommandWindowCaptureEnabled;
         string historyBefore = RhinoApp.CommandHistoryWindowText ?? string.Empty;
         RhinoApp.CommandWindowCaptureEnabled = true;
@@ -264,12 +263,28 @@ internal sealed class BridgeServer : IDisposable {
             status: outcome.Status,
             data: report,
             outputs: [
-                BridgeWire.Capture(source: BridgeWire.OutputStdout, text: outcome.Stdout, limit: OutputLimit),
-                BridgeWire.Capture(source: BridgeWire.OutputStderr, text: outcome.Stderr, limit: OutputLimit),
-                BridgeWire.Capture(source: BridgeWire.OutputRhinoCommand, text: commandText, limit: OutputLimit),
+                BridgeWire.Capture(source: BridgeWire.OutputStdout, text: outcome.Stdout, limit: BridgeWire.OutputLimit),
+                BridgeWire.Capture(source: BridgeWire.OutputStderr, text: outcome.Stderr, limit: BridgeWire.OutputLimit),
+                BridgeWire.Capture(source: BridgeWire.OutputRhinoCommand, text: commandText, limit: BridgeWire.OutputLimit),
             ],
-            diagnostics: outcome.Diagnostics,
+            diagnostics: [.. pluginDiagnostics, .. outcome.Diagnostics],
             fault: outcome.Fault);
+    }
+    private static IReadOnlyList<BridgeDiagnostic> EnsureHostPlugins(IReadOnlyList<string>? pluginIds) =>
+        [.. (pluginIds ?? []).Select(LoadHostPlugin).OfType<BridgeDiagnostic>()];
+    private static BridgeDiagnostic? LoadHostPlugin(string pluginId) {
+        // BOUNDARY ADAPTER — pre-load a host plugin (e.g. Grasshopper2) into the default ALC so the isolated RhinoCode
+        // resolver binds it by name instead of illegally re-loading it into the collectible context (COR_E_INVALIDOPERATION).
+        try {
+            return Guid.TryParse(input: pluginId, result: out Guid id) switch {
+                false => new BridgeDiagnostic(Severity: "Warning", Message: $"Ignored invalid host plugin id '{pluginId}'.", Category: "hostplugin"),
+                true when PlugIn.GetPlugInInfo(pluginId: id)?.IsLoaded == true => null,
+                true when PlugIn.LoadPlugIn(pluginId: id, loadQuietly: true, forceLoad: false) && PlugIn.GetPlugInInfo(pluginId: id)?.IsLoaded == true => null,
+                _ => new BridgeDiagnostic(Severity: "Error", Message: $"Host plugin {id} failed to load before execution.", Category: "hostplugin"),
+            };
+        } catch (Exception error) when (NonFatal(error: error)) {
+            return new BridgeDiagnostic(Severity: "Error", Message: $"Host plugin {pluginId} load threw: {error.Message}", Category: "hostplugin");
+        }
     }
     private static string CommandWindowCapture(string historyBefore) {
         string[] captured = RhinoApp.CapturedCommandWindowStrings(clearBuffer: true);
@@ -281,11 +296,14 @@ internal sealed class BridgeServer : IDisposable {
             };
     }
 
-    internal static BridgeReport.Quit Quit(RhinoDoc? document) =>
-        RhinoDoc.OpenDocuments().Any(static open => open.Modified) switch {
-            true => new(Status: PhaseStatus.Failed, Fault: BridgeFault.MessageOnly(category: "quit", message: "At least one Rhino document has unsaved changes; refusing automated quit."), RhinoPid: Environment.ProcessId, ActiveDocument: document is not null, Modified: true),
-            false => new(Status: PhaseStatus.Ok, Fault: null, RhinoPid: Environment.ProcessId, ActiveDocument: document is not null, Modified: false),
-        };
+    internal static BridgeReport.Quit Quit(RhinoDoc? document) {
+        // BOUNDARY ADAPTER — force-quit: this is a disposable test/diagnostic Rhino, so discard unsaved document state
+        // (mark clean) to bypass macOS save prompts before RhinoApp.Exit(false) closes the host.
+        RhinoDoc[] open = RhinoDoc.OpenDocuments();
+        bool hadModified = open.Any(static doc => doc.Modified);
+        Array.ForEach(array: open, action: static doc => doc.Modified = false);
+        return new(Status: PhaseStatus.Ok, Fault: null, RhinoPid: Environment.ProcessId, ActiveDocument: document is not null, Modified: hadModified);
+    }
     private void OnMain(Action<RhinoDoc?> work) {
         if (disposed) {
             return;
@@ -368,12 +386,12 @@ internal sealed class BridgeServer : IDisposable {
         BoundaryIO.Write(path: BridgeWire.EndpointPath, contents: BridgeWire.Serialize(endpoint: endpoint), encoding: Encoding.UTF8, restrict: BoundaryIO.RestrictFile);
     }
     private static NamedPipeServerStream CreatePipe(string pipeName) =>
-        new(pipeName, PipeDirection.InOut, maxNumberOfServerInstances: PipeInstances, transmissionMode: PipeTransmissionMode.Byte, options: PipePolicy);
+        new(pipeName, PipeDirection.InOut, maxNumberOfServerInstances: PipeInstances, transmissionMode: PipeTransmissionMode.Byte, options: BridgeWire.PipePolicy);
     private void DeleteEndpoint() {
         // BOUNDARY ADAPTER — cleanup is best-effort; do not propagate IO/JSON noise on shutdown.
         try {
             BridgeEndpoint? current = ReadEndpointMetadata();
-            if (current is { } active && active.RhinoPid == endpoint.RhinoPid && string.Equals(a: active.PipeName, b: endpoint.PipeName, comparisonType: StringComparison.Ordinal)) {
+            if (current is { } active && active.IsLiveFor(rhinoPid: endpoint.RhinoPid, rhinoStartedAt: endpoint.RhinoStartedAt)) {
                 File.Delete(path: BridgeWire.EndpointPath);
             }
         } catch (Exception error) when (error is IOException or JsonException or UnauthorizedAccessException) {

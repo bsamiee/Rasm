@@ -54,14 +54,11 @@ internal sealed record ProjectBuild(string ProjectPath, string Configuration, st
             .Concat(DepsReferences(targetPath: targetPath, targetDir: targetDir))
             .Concat(ItemPaths(root: root, itemName: "ReferencePath"))
             .Select(Path.GetFullPath)
-            .Where(static path => IsReferenceFile(path: path) && !IsFrameworkReferencePack(path: path))
+            .Where(static path => IsReferenceFile(path: path) && !BridgeWire.IsFrameworkReferencePack(path: path))
             .DistinctBy(static path => ReferenceIdentity(path: path), StringComparer.OrdinalIgnoreCase)];
     private static bool IsReferenceFile(string path) =>
         File.Exists(path: path)
         && (path.EndsWith(value: ".dll", comparisonType: StringComparison.OrdinalIgnoreCase) || path.EndsWith(value: ".rhp", comparisonType: StringComparison.OrdinalIgnoreCase));
-    private static bool IsFrameworkReferencePack(string path) =>
-        path.Contains(value: "/packs/Microsoft.NETCore.App.Ref/", comparisonType: StringComparison.Ordinal)
-        || path.Contains(value: "/packs/NETStandard.Library.Ref/", comparisonType: StringComparison.Ordinal);
     private static bool IsHostReference(string path) =>
         BridgeWire.IsHostAssemblyName(name: Path.GetFileNameWithoutExtension(path: path));
     private static string ReferenceIdentity(string path) {
@@ -129,10 +126,9 @@ internal sealed record SourceOwnerEvaluation(string ProjectPath, IReadOnlyList<s
 }
 
 internal sealed record ProcessResult(int ExitCode, string Stdout, string Stderr) {
-    private const int OutputLimit = 16384;
     internal IReadOnlyList<BridgeOutput> Outputs => [
-        BridgeWire.Capture(source: BridgeWire.OutputCommandStdout, text: Stdout, limit: OutputLimit),
-        BridgeWire.Capture(source: BridgeWire.OutputCommandStderr, text: Stderr, limit: OutputLimit),
+        BridgeWire.Capture(source: BridgeWire.OutputCommandStdout, text: Stdout, limit: BridgeWire.ProcessOutputLimit),
+        BridgeWire.Capture(source: BridgeWire.OutputCommandStderr, text: Stderr, limit: BridgeWire.ProcessOutputLimit),
     ];
     internal static async Task<ProcessResult> RunAsync(string fileName, IReadOnlyList<string> arguments, TimeSpan timeout, IReadOnlyDictionary<string, string>? environment = null) {
         ProcessStartInfo start = new() {

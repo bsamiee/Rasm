@@ -67,11 +67,11 @@ Run commands from repository root.
 | [INDEX] | [COMMAND] | [INTENT] |
 | :-----: | --------- | -------- |
 | **1** | `uv run python -m tools.quality bridge build-bridge` | Build protocol, plugin, and client in `Release`. |
-| **2** | `uv run python -m tools.quality bridge launch` | Idempotent: reuses an existing endpoint or opens RhinoWIP and verifies endpoint round trip. |
+| **2** | `uv run python -m tools.quality bridge launch` | Idempotent: reuses an existing endpoint or opens RhinoWIP and verifies endpoint round trip. Before a cold open it clears RhinoWIP's macOS recovery markers (autosave `.rhl`/doc, `Rhinoceros-*.ips` crash reports) so a prior unclean exit never blocks the headless launch with a "did not shut down correctly" dialog. |
 | **3** | `uv run python -m tools.quality bridge doctor` | Report live Rhino name/version, .NET `hostRuntime`, RhinoCode `scriptEngine` readiness, plugin identity, and required host assemblies with versions and resolved bundle paths. |
 | **4** | `uv run python -m tools.quality bridge check <target> [scenario.csx]` | Build or execute the target through the agent-first RhinoCode lane. |
 | **5** | `uv run python -m tools.quality bridge clean <target>` | Remove generated bridge check reports for one target. |
-| **6** | `uv run python -m tools.quality bridge quit` | Lifecycle-only safe Rhino exit when open documents have no unsaved changes. |
+| **6** | `uv run python -m tools.quality bridge quit` | Force-close the disposable bridge Rhino: marks open documents clean and exits without a save prompt; escalates to `SIGTERM` then `SIGKILL` if the bridge is unreachable, and reports `ok` when no live endpoint exists. |
 | **7** | `uv run python -m tools.quality bridge package rasm-bridge <version>` | Build bridge `.rhp`, run Yak in staged directory, and create a local package. |
 | **8** | `uv run python -m tools.quality bridge deploy rasm-bridge <version>` | Install the staged bridge package, refresh RhinoWIP via idempotent launch, and verify bridge health. Skips automated quit when no live bridge endpoint exists (Rhino already closed); retires stale `~/.rasm/rhino-bridge.json` before relaunch. |
 | **9** | `uv run python -m tools.quality bridge publish rasm-bridge <version>` | Build, install locally, then push to the configured Yak feed in one shot. |
@@ -146,12 +146,13 @@ Environment overrides:
 
 | [INDEX] | [VARIABLE] | [USE] |
 | :-----: | ---------- | ----- |
-| **1** | `RHINO_WIP_APP_PATH` | Target a specific RhinoWIP bundle for both launch and MSBuild reference resolution. Unset: the operator resolves the newest installed `/Applications/Rhino*.app` by `CFBundleVersion` (WIP-preferred). |
+| **1** | `RHINO_WIP_APP_PATH` | Target a specific RhinoWIP bundle for launch and MSBuild reference resolution. The operator always exports it from the resolved bundle; launch fails loud when it is unset. Unset at the operator: resolves the newest installed `/Applications/Rhino*.app` by `CFBundleVersion` (WIP-preferred). |
 | **2** | `QUALITY_RHINO_APP` | Operator-level RhinoWIP path; exported to the client and MSBuild as `RHINO_WIP_APP_PATH`. |
-| **3** | `RHINO_WIP_BUNDLE_ID` | Launch RhinoWIP by bundle identifier. |
-| **4** | `CONFIGURATION` | Build configuration for project checks (default `Release`). |
-| **5** | `RASM_BRIDGE_CONNECT_TIMEOUT_S` | Cold-launch connect deadline in seconds (default `90`). |
-| **6** | `RASM_BRIDGE_TRANSPORT_TIMEOUT_S` | Warm request/transport deadline in seconds (default `35`). |
+| **3** | `CONFIGURATION` | Build configuration for project checks (default `Release`). |
+| **4** | `RASM_BRIDGE_CONNECT_TIMEOUT_S` | Cold-launch connect deadline in seconds (default `90`). |
+| **5** | `RASM_BRIDGE_TRANSPORT_TIMEOUT_S` | Warm request/transport deadline in seconds (default `35`). |
+
+Every bridge timeout follows one env-overridable rule — `RASM_BRIDGE_<NAME>_TIMEOUT_S` (seconds, positive) for `HELLO`, `CONNECT`, `TRANSPORT`, `QUIT_WAIT`, `HANDSHAKE`, and `IDLE_DISPATCH`.
 
 ---
 ## [4][OUTPUT_CONTRACT]
@@ -199,7 +200,7 @@ Phase expectations:
 - `diagnostics`: RhinoCode compile diagnostics when available.
 - `lifecycle`: quit/restart status.
 
-Output blocks include `source`, `text`, `truncated`, `length`, and `limit`. Treat `truncated: true` as machine-actionable loss of detail.
+Output blocks include `source`, `text`, `truncated`, `length`, and `limit`. Treat `truncated: true` as machine-actionable loss of detail. Parse `outputs[]` by `source`: `execute` emits `stdout` and `stderr` (the script's console streams) plus `rhino.command` — the Rhino command-window history captured around execution via `RhinoApp.CommandWindowCaptureEnabled` with `CapturedCommandWindowStrings`/`CommandHistoryWindowText`, surfacing native command echoes a script triggers. Process-spawning phases (`resolve`, `build`) emit `process.stdout`/`process.stderr`. Every successful `execute` carries a `rhino.command` block (empty when no command ran).
 
 ### [4.1][SCRIPT_RETURNS]
 
@@ -247,7 +248,7 @@ Marker kinds:
 
 Host assemblies (`RhinoCommon`, `Rhino.UI`, `Eto`, `Grasshopper2`, `GrasshopperIO`, `RhinoCodePlatform.Rhino3D`, `Microsoft.macOS`, `System.Drawing.Common`) resolve from the installed RhinoWIP app bundle via `Directory.Build.props` HintPaths under `$(RhinoWipResourcesPath)` with `Private=false` — never from NuGet. The bundle path is the newest installed `/Applications/Rhino*.app` (see `RHINO_WIP_APP_PATH`), so compile and runtime bind the same versions Rhino loads; `bridge doctor` reports the resolved versions and paths.
 
-The client emits runtime reference projections from one evaluated project build. Generated RhinoCode scripts apply references by prepending `#r` directives before submission. References are ordered dependency-first: `FSharp.Core`, `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, transitive packages, `Rasm.dll`, scenario kit assemblies, then the target assembly last. Scenario scripts also inject a bridge-owned LanguageExt `HashMap` bootstrap so trait resolution completes before staged Rasm code touches custom `HashMap` keys under RhinoCode's isolated resolver. **Grasshopper-aware projects** (`IsGrasshopperAwareProject` or a `Grasshopper2.dll` reference) additionally receive bridge-owned `ScenarioHostUsings` (`Eto.Drawing`, `LanguageExt`) after the scenario preamble — host assemblies stay off `#r`; add explicit `using Grasshopper2.*` in scenario source when a rail needs GH2 surface types. **Rasm.Rhino HashMap policy:** use primitive, `string`, `Guid`, `uint`/`ulong`, or built-in value-tuple keys only in bridge-hot assemblies; do not use custom record-struct keys (for example `PreviewFingerprint`) inside `HashMap<,>` — they fail under isolated resolver trait warmup even when reference order is correct. Project/source scenario references are shadow-copied into artifact `refs/<content-hash>/` folders so repeated checks see fresh assembly paths without scenario-owned machine paths. `BridgeExecuteRequest.References` is reported metadata today; the plugin does not independently apply that field during execution.
+The client emits runtime reference projections from one evaluated project build, then applies them by prepending `#r` directives to the generated RhinoCode script before submission — references are client-applied, not plugin-applied. References are ordered dependency-first: `FSharp.Core`, `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, transitive packages, `Rasm.dll`, scenario kit assemblies, then the target assembly last. Scenario scripts also receive a bridge-owned base using-set (`ScenarioBaseUsings`: `LanguageExt`, `static LanguageExt.Prelude`, `Rasm.TestKit.Scenarios`) so authors drop that repeated preamble, plus a LanguageExt `HashMap` bootstrap so trait resolution completes before staged Rasm code touches custom `HashMap` keys under RhinoCode's isolated resolver. **Grasshopper-aware projects** (`IsGrasshopperAwareProject` or a `Grasshopper2.dll` reference) additionally receive bridge-owned `ScenarioHostUsings` (`Eto.Drawing`) after the scenario preamble, and the bridge pre-loads Grasshopper2 (`BridgeWire.GrasshopperPluginId`, via `PlugIn.LoadPlugIn` on the UI thread before execution) into the default ALC so GH2-backed `Rasm.Grasshopper.UI` rails resolve at runtime — host assemblies stay off `#r`. **Drive GH2 through `Rasm.Grasshopper.UI` wrapper types, not raw `Grasshopper2.*` types in scenario bodies**: a direct `using Grasshopper2.*` needs GH2 as a compile reference, and supplying it (`#r "Grasshopper2"`) forces the isolated resolver to bind a *separate* GH2 instance whose editor/canvas singletons differ from the host's, breaking runtime state. Scenarios that must construct raw GH2 input types cannot run under the isolated resolver. **Rasm.Rhino HashMap policy:** use primitive, `string`, `Guid`, `uint`/`ulong`, or built-in value-tuple keys only in bridge-hot assemblies; do not use custom record-struct keys (for example `PreviewFingerprint`) inside `HashMap<,>` — they fail under isolated resolver trait warmup even when reference order is correct. Project/source scenario references are shadow-copied into artifact `refs/<content-hash>/` folders so repeated checks see fresh assembly paths without scenario-owned machine paths. The `#r`-applied set is echoed in `BridgeExecuteRequest.References` and the execute report as provenance metadata; the plugin does not re-resolve that field independently during execution.
 
 API metadata lookup uses local sources in this order:
 1. RhinoWIP app-bundle XML when present — today only `RhinoCommon.xml` ships; `Eto`, `Grasshopper2`, `GrasshopperIO`, and `Rhino.UI` carry no bundle XML, so XML lookups for those report `missing`.

@@ -1,5 +1,4 @@
 using Rasm.Grasshopper.UI;
-using Rasm.TestKit.Scenarios;
 using Rhino;
 
 Scenario.Run("gh-ui-repaint-absorption", CAPTURE_PATH, (key, facts) => {

@@ -1,14 +1,14 @@
 using System;
 using Rasm.Grasshopper.UI;
-using Rasm.TestKit.Scenarios;
 using Rhino;
 
 Scenario.Run("gh-ui-wire-runtime", CAPTURE_PATH, (key, facts) => {
     GrasshopperUi ui = new();
 
+    Probe.Expect(result: ui.Use(intent: GhUi.Editor(op: EditorOp.EnsureVisible)), label: "ensure visible");
     EditorSnapshot editor = Probe.ExpectCase(
-        result: ui.Use(intent: GhUi.Editor(op: EditorOp.EnsureVisible)),
-        label: "ensure visible",
+        result: ui.Use(intent: GhUi.Editor(op: EditorOp.State)),
+        label: "editor state",
         select: static value => value switch {
             EditorResult.StateResult state => state.Snapshot,
             _ => Option<EditorSnapshot>.None,

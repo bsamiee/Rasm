@@ -20,11 +20,11 @@ Use bridge commands ONLY when static .NET gates cannot answer:
 
 ## Scenario kit usage
 
-`Rasm.TestKit.Scenarios` capsules (under `tests/csharp/_testkit/Scenarios/`) are bridge-staged automatically — no `#r` directive needed. Consume them via `using Rasm.TestKit.Scenarios;`. See `tests/csharp/AGENTS.md` for the catalog and migration patterns.
+`Rasm.TestKit.Scenarios` capsules (under `tests/csharp/_testkit/Scenarios/`) are bridge-staged automatically — no `#r` directive needed. The bridge injects `BridgeWire.ScenarioBaseUsings` (`LanguageExt`, `static LanguageExt.Prelude`, `Rasm.TestKit.Scenarios`) into every scenario, so authors omit those usings from the preamble. See `tests/csharp/AGENTS.md` for the catalog and migration patterns.
 
 Scenarios are authored via the polymorphic `Scenario.Run(theme, capturePath, (key, facts) => { … })` harness — it builds the `Op key`, emits the `scenario=`/`capture=` plain header, runs the body, and serializes the populated `FactBag` to a single `facts={json}` plain line plus a `rasm.rhino-bridge.evidence=facts={json}` marker. Inside the body, scenarios call `facts.Add(string key, object value);` as a void statement (no return value, no chaining required).
 
-Grasshopper-aware projects receive bridge-owned `BridgeWire.ScenarioHostUsings` (`Eto.Drawing`, `LanguageExt`) after the scenario preamble and before `LanguageExtBootstrap`. Host assemblies remain off `#r`; add explicit `using Grasshopper2.*` in scenario source only when a rail needs GH2 types.
+Grasshopper-aware projects receive bridge-owned `BridgeWire.ScenarioHostUsings` (`Eto.Drawing`) in addition to the base set, after the scenario preamble and before `LanguageExtBootstrap`, and the bridge pre-loads Grasshopper2 into the default ALC before execution so GH2-backed rails resolve at runtime. Host assemblies remain off `#r`. Drive GH2 through `Rasm.Grasshopper.UI` wrapper types — a raw `using Grasshopper2.*` plus direct GH2 types in the scenario body needs GH2 as a compile reference, which under the isolated resolver binds a separate GH2 instance and breaks the shared editor/canvas singletons; such scenarios cannot run on the isolated bridge.
 
 ## Parsing scenario evidence
 
@@ -46,7 +46,7 @@ uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Radyab.cspro
 rc=0
 uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Components/ExtractPoints.cs || rc=$?
 [[ "${rc}" == 3 ]]
-uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm/Vectors/scenarios/vectors-space-projection.verify.csx
+uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm/Vectors/scenarios
 ```
 
 For packaging changes, add:

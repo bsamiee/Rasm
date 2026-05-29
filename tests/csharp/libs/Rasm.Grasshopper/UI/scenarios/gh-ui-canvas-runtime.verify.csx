@@ -3,7 +3,6 @@ using System.Drawing;
 using Grasshopper2.Extensions;
 using Grasshopper2.UI.Flex;
 using Rasm.Grasshopper.UI;
-using Rasm.TestKit.Scenarios;
 using Rhino;
 
 Scenario.Run("gh-ui-canvas-runtime", CAPTURE_PATH, (key, facts) => {

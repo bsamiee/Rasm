@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using Rasm.TestKit.Scenarios;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.FileIO;

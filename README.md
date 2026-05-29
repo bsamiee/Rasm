@@ -21,7 +21,7 @@ RhinoWIP macOS workspace for first-party Rhino and Grasshopper products. Each ap
 | `tools/cs-analyzer`            | Local Roslyn analyzer project used by C# builds.                                         |
 | `tools/yak/<package>`          | Tracked Yak metadata for one package.                                                    |
 | `tools/quality`                | Typed quality operator: static, test, bridge, and API rails.                             |
-| `tools/rhino-bridge`             | In-Rhino bridge plugin, client, and protocol.                                            |
+| `tools/rhino-bridge`           | In-Rhino bridge plugin, client, and protocol.                                            |
 
 ## Build Policy
 

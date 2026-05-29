@@ -1,6 +1,5 @@
 using System;
 using Rasm.Rhino.Blocks;
-using Rasm.TestKit.Scenarios;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;

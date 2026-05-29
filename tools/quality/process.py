@@ -16,7 +16,7 @@ from beartype import beartype
 from expression import Error, Ok, Result
 import msgspec
 
-from tools.quality.settings import ArtifactScope, PROJECT_EXCLUDE_DIRS, QualitySettings, SERIAL_BUILD
+from tools.quality.settings import ArtifactScope, PROJECT_EXCLUDE_DIRS, QualitySettings
 
 
 # --- [TYPES] ---------------------------------------------------------------------------
@@ -197,7 +197,9 @@ def dotnet_args(
         case "restore":
             return ("restore", str(target), "--locked-mode", *(("--disable-parallel",) if disable_parallel else ()))
         case "build":
-            parallel = SERIAL_BUILD if serial else ((f"-maxcpucount:{max_cpu}",) if max_cpu else ())
+            cpu = 1 if serial else max_cpu
+            extra = ("-p:BuildInParallel=false",) if serial else ()
+            parallel = (f"-maxcpucount:{cpu}", *extra) if cpu is not None else ()
             return ("build", str(target), "--configuration", configuration, "--no-restore", *version, *parallel)
         case unreachable:
             assert_never(unreachable)
