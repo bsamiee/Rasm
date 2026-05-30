@@ -11,23 +11,23 @@
 
 <br>
 
-| [INDEX] | [CAPABILITY] | [RULE] |
-| :-----: | ------------ | ------ |
-| [1] | Factory generation | Use generated `Create`, `TryCreate`, `Validate`, or configured factory names directly. |
-| [2] | Custom validation errors | Convert generator errors once into Rasm `Error` or `Fault`. |
-| [3] | Comparers | Put string comparison policy on the generated declaration. |
-| [4] | Conversion operators | Enable only when interop removes boundary noise. |
-| [5] | Arithmetic operators | Use only where failure cannot be hidden. |
+| [INDEX] | [CAPABILITY]             | [RULE]                                                                                 |
+| :-----: | ------------------------ | -------------------------------------------------------------------------------------- |
+|   [1]   | Factory generation       | Use generated `Create`, `TryCreate`, `Validate`, or configured factory names directly. |
+|   [2]   | Custom validation errors | Convert generator errors once into Rasm `Error` or `Fault`.                            |
+|   [3]   | Comparers                | Put string comparison policy on the generated declaration.                             |
+|   [4]   | Conversion operators     | Enable only when interop removes boundary noise.                                       |
+|   [5]   | Arithmetic operators     | Use only where failure cannot be hidden.                                               |
 
 ### [1.1][ATTRIBUTE_PROPERTIES]
 
-| [INDEX] | [PROPERTY] | [USE] |
-| :-----: | ---------- | ----- |
-| [1] | `KeyMemberName = "Value"` | Branded scalar key field for equality and parsing |
-| [2] | `KeyMemberAccessModifier = AccessModifier.Public` | Expose key when boundary protocol requires it |
-| [3] | `[KeyMemberEqualityComparer<T>]` / `[KeyMemberComparer<T>]` | Ordinal or ignore-case key comparison |
-| [4] | `SkipFactoryMethods` | Custom `Fin` construction rail — rare |
-| [5] | `EqualityComparisonOperators` / `ComparisonOperators` | `[ValueObject<T>]` only — not `[ComplexValueObject]` |
+| [INDEX] | [PROPERTY]                                                  | [USE]                                                |
+| :-----: | ----------------------------------------------------------- | ---------------------------------------------------- |
+|   [1]   | `KeyMemberName = "Value"`                                   | Branded scalar key field for equality and parsing    |
+|   [2]   | `KeyMemberAccessModifier = AccessModifier.Public`           | Expose key when boundary protocol requires it        |
+|   [3]   | `[KeyMemberEqualityComparer<T>]` / `[KeyMemberComparer<T>]` | Ordinal or ignore-case key comparison                |
+|   [4]   | `SkipFactoryMethods`                                        | Custom `Fin` construction rail — rare                |
+|   [5]   | `EqualityComparisonOperators` / `ComparisonOperators`       | `[ValueObject<T>]` only — not `[ComplexValueObject]` |
 
 ---
 ## [2][COMPLEX_OBJECTS]
@@ -43,12 +43,12 @@ Use complex value objects for normalized ranges, sample windows, tolerance bundl
 
 <br>
 
-| [INDEX] | [OPTION] | [RASM_POLICY] |
-| :-----: | -------- | ------------- |
-| [1] | `SkipFactoryMethods` | Rare custom-rail choice; document lost generated surface. |
-| [2] | `AllowDefaultStructs` | Boundary-only; default values often hide invalid state. |
-| [3] | `NullInFactoryMethodsYieldsNull` | External binding only; domain absence uses `Option<T>`. |
-| [4] | `EmptyStringInFactoryMethodsYieldsNull` | Text boundary only with explicit protocol semantics. |
+| [INDEX] | [OPTION]                                | [RASM_POLICY]                                             |
+| :-----: | --------------------------------------- | --------------------------------------------------------- |
+|   [1]   | `SkipFactoryMethods`                    | Rare custom-rail choice; document lost generated surface. |
+|   [2]   | `AllowDefaultStructs`                   | Boundary-only; default values often hide invalid state.   |
+|   [3]   | `NullInFactoryMethodsYieldsNull`        | External binding only; domain absence uses `Option<T>`.   |
+|   [4]   | `EmptyStringInFactoryMethodsYieldsNull` | Text boundary only with explicit protocol semantics.      |
 
 ---
 ## [4][RAIL_BRIDGE]

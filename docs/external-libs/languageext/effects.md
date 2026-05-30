@@ -11,12 +11,12 @@
 
 <br>
 
-| [INDEX] | [RAIL] | [QUESTION] | [USE] |
-| :-----: | ------ | ---------- | ----- |
-| [1] | `Fin<T>` | Did one operation succeed or fail? | Native calls, value admission, projection. |
-| [2] | `Validation<Error,T>` | Which independent inputs failed? | Multi-input GH2, formula symbols, requirement sets. |
-| [3] | `Eff<RT,T>` | Which runtime context is needed? | Document, filesystem, clock, bridge. |
-| [4] | `IO<T>` | Which side-effect is deferred? | Resource, file, process, and host execution descriptions. |
+| [INDEX] | [RAIL]                | [QUESTION]                         | [USE]                                                     |
+| :-----: | --------------------- | ---------------------------------- | --------------------------------------------------------- |
+|   [1]   | `Fin<T>`              | Did one operation succeed or fail? | Native calls, value admission, projection.                |
+|   [2]   | `Validation<Error,T>` | Which inputs failed?               | Multi-input forms, symbols, requirement sets.             |
+|   [3]   | `Eff<RT,T>`           | Which runtime context is needed?   | Document, filesystem, clock, bridge.                      |
+|   [4]   | `IO<T>`               | Which side-effect is deferred?     | Resource, file, process, and host execution descriptions. |
 
 ---
 ## [2][RUNTIME_RECORD]
@@ -28,27 +28,16 @@ Use `Eff.runtime<RT>()` to read host capability records, then project with `Map`
 
 ---
 ## [3][SCHEDULE]
->**Dictum:** *Retry policy is algebra, not exception plumbing.*
+>**Dictum:** *Delay schedules belong on Eff decorators, hosted jobs, and IO retry — not pure Fin transforms.*
 
 <br>
 
-| [INDEX] | [SURFACE] | [USE] |
-| :-----: | --------- | ----- |
-| [1] | `Schedule.recurs`, `spaced`, `linear`, `exponential`, `fibonacci` | Bounded retry/repeat cadence. |
-| [2] | `upto`, `fixedInterval`, `windowed` | Time or count limits. |
-| [3] | `maxDelay`, `maxCumulativeDelay`, `jitter`, `decorrelate`, `resetAfter` | Host-friendly backoff shaping. |
-| [4] | `IO<T>.Retry`, `Repeat`, `Timeout`, `Fork`, `Finally`, `Bracket` | Resource and retry composition. |
+Schedule builders: `recurs`, `spaced`, `linear`, `exponential`, `fibonacci`, `upto`, `jitter`, `maxDelay`.
+Composition: `Schedule.a | Schedule.b`, `union`, `intersect`, `transformerA + transformerB` — full operator table in the same package doc set under operators §3.
+Eff recovery: `Prelude.catch(...)`, `Prelude.retry(schedule, eff)`, `IfFailEff` — not generic `eff1 | eff2`.
+IO: `IO<T>.Retry(Schedule)`, `Finally`, `Bracket`.
 
-Use schedule policy at composition boundaries only. Domain transforms stay pure and fallible through `Fin` or `Validation`.
-
-Schedule **composition** (LanguageExt):
-
-| [INDEX] | [FORM] | [MEANING] |
-| :-----: | ------ | --------- |
-| [1] | `transformerA + transformerB` | Chain `ScheduleTransformer` instances |
-| [2] | `union(policyA, policyB)` / `intersect(policy, Schedule.upto(duration))` | Prelude schedule combine — not C# `&` on `Schedule` |
-
-Eff recovery in v5: `Prelude.catch(...)` / `IfFailEff` — not generic `eff1 | eff2`. See `operators.md` and `combinators.md`.
+Pure domain `Fin`/`Validation` transforms avoid blocking delay schedules.
 
 ---
 ## [4][STATE]
@@ -56,13 +45,13 @@ Eff recovery in v5: `Prelude.catch(...)` / `IfFailEff` — not generic `eff1 | e
 
 <br>
 
-| [INDEX] | [SURFACE] | [USE] |
-| :-----: | --------- | ----- |
-| [1] | `Atom<T>` | UI/session state with validated transitions. |
-| [2] | `AtomHashMap`, `AtomSeq`, `AtomQue` | Host-owned concurrent collections. |
-| [3] | `Ref<T>` and STM | Coordinated mutable references under explicit transaction. |
+| [INDEX] | [SURFACE]                           | [USE]                                                      |
+| :-----: | ----------------------------------- | ---------------------------------------------------------- |
+|   [1]   | `Atom<T>`                           | UI/session state with validated transitions.               |
+|   [2]   | `AtomHashMap`, `AtomSeq`, `AtomQue` | Host-owned concurrent collections.                         |
+|   [3]   | `Ref<T>` and STM                    | Coordinated mutable references under explicit transaction. |
 
-Never use LanguageExt state to hide Rhino object lifetime, GH2 tree mutation, or ordinary domain accumulation.
+Never use LanguageExt state to hide native object lifetime, host tree mutation, or ordinary domain accumulation.
 
 ---
 ## [5][RECOVERY]
@@ -83,18 +72,16 @@ Never use LanguageExt state to hide Rhino object lifetime, GH2 tree mutation, or
 
 `Directory.Packages.props` pins `LanguageExt.Core 5.0.0-beta-77`. Verified deltas from v4 surface (against `~/.nuget/packages/languageext.core/5.0.0-beta-77/lib/net10.0/LanguageExt.Core.xml`):
 
-| [INDEX] | [V4_SURFACE] | [V5_REPLACEMENT] |
-| :-----: | ------------ | ---------------- |
-| [1] | `Aff<T>` / `Aff<RT, T>` | `Eff<RT, T>` + `IO.liftAsync` inside the async leg. |
-| [2] | `Resource<T>` top-level type | `IO<T>.Bracket(use, finally)`, `IO<T>.BracketFail`, `IO<T>.Finally`, `Prelude.use`. |
-| [3] | `HasX<RT>` runtime constraints | Concrete runtime records consumed via `Eff.runtime<RT>()`. |
-| [4] | `LanguageExt.Pipes` (Producer/Consumer/Pipe) | Gone with no replacement. Use `Atom<T>` + paint hook, `Channel<T>`, or process-static cache per use case. |
-| [5] | `StreamT<M, A>` | Gone with no replacement. Same alternatives as Pipes. |
-| [6] | `Sequence(...)` extension | `seq.Traverse(identity) >> lower` or unary `+`; use `.As()` for `Eff`/`IO`. |
-| [7] | Sequential `.Traverse` | `TraverseM` returns `K<F, Seq<B>>`; lower `Fin`/`Validation`/`Option` with `>> lower` or unary `+`, and lower `Eff`/`IO` with `.As()`. |
+| [INDEX] | [V4_SURFACE]                                 | [V5_REPLACEMENT]                                                            |
+| :-----: | -------------------------------------------- | --------------------------------------------------------------------------- |
+|   [1]   | `Aff<T>` / `Aff<RT, T>`                      | `Eff<RT, T>` + `IO.liftAsync` inside the async leg.                         |
+|   [2]   | `Resource<T>` top-level type                 | `IO<T>.Bracket`/`BracketFail`/`Finally`, `Prelude.use`.                     |
+|   [3]   | `HasX<RT>` runtime constraints               | Concrete runtime records consumed via `Eff.runtime<RT>()`.                  |
+|   [4]   | `LanguageExt.Pipes` (Producer/Consumer/Pipe) | Removed. `Atom<T>` + paint, `Channel<T>`, or process cache.                 |
+|   [5]   | `StreamT<M, A>`                              | Removed. Same alternatives as Pipes.                                        |
+|   [6]   | `Sequence(...)` extension                    | `seq.Traverse(identity) >> lower` or unary `+`; use `.As()` for `Eff`/`IO`. |
+|   [7]   | Sequential `.Traverse`                       | `TraverseM` → `K<F, Seq<B>>`; lower via `>> lower`, unary `+`, or `.As()`.  |
 
 **Validation monoid requirement (v5):** `Validation<E, A>` requires `E : Monoid<E>`. `Validation<Error, T>` works (`Error.Combine`); `Validation<string, T>` does NOT compile — use `StringM` or `Error`. Rasm forbids `Validation<Seq<Error>,T>` (`CSP0703`); GH UI uses `Validation<Seq<UiFault>,T>` — see `rasm.md`.
-
 **Atom surface (v5):** `Atom<T>.Swap`/`SwapMaybe`/`SwapIO`/`SwapMaybeIO`. **No `Subscribe`/`OnChange`/`Reset`** — react-to-state patterns use the host paint loop or polling. `Atom<TMetadata, T>` two-arg form threads metadata through swap functions without closure allocation.
-
 **Pattern matching:** Record-case patterns are faster than `.Match` and prefer-able for hot paths: `fin switch { Fin.Succ<int>(var x) => x, Fin.Fail<int>(var e) => 0 }`.

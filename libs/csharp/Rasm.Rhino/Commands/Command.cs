@@ -59,14 +59,9 @@ public sealed record PromptStage<TState, TValue>(
             _ => inputEvent.Kind switch {
                 CommandInputEventKind.Cancel or CommandInputEventKind.Exit => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Cancel()),
                 CommandInputEventKind.Undo => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Back()),
-                CommandInputEventKind.Nothing => (inputEvent.Result.Bind(static got => got.Option).Case, Optional(OptionLens).Case) switch {
-                    (CommandOptionValue selected, Func<CommandStageContext<TState>, CommandOptionValue, Fin<TState>> lens) =>
-                        from state in lens(arg1: context, arg2: selected)
-                        select (PromptTransition<TState>)new PromptTransition<TState>.Stay(State: state),
-                    _ => Optional(Enter)
-                        .Map(run => run(arg: context))
-                        .IfNone(Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Stay(State: context.State))),
-                },
+                CommandInputEventKind.Nothing => Optional(Enter)
+                    .Map(run => run(arg: context))
+                    .IfNone(Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Stay(State: context.State))),
                 CommandInputEventKind.Rejected => inputEvent.Result.ToFin(Fail: Op.Of(name: Name).InvalidResult()).Bind(got =>
                     Optional(Rejected)
                         .Map(run => run(arg1: context, arg2: got).Map(_ => (PromptTransition<TState>)new PromptTransition<TState>.Stay(State: context.State)))
@@ -238,6 +233,14 @@ public abstract class RasmCommand<TSelf> : Command where TSelf : RasmCommand<TSe
             Fault.Cancelled => Result.Cancel,
             Error error => Failure(name: EnglishName, message: error.Message),
         };
+
+    protected sealed override bool ReplayHistory(ReplayHistoryData replayData) =>
+        Replay(replayData: replayData).IfFail(error => {
+            RhinoApp.WriteLine(message: $"{EnglishName}: history replay failed: {error.Message}");
+            return false;
+        });
+
+    protected virtual Fin<bool> Replay(ReplayHistoryData replayData) => Fin.Succ(value: false);
 
     private static Result Failure(string name, string message) {
         RhinoApp.WriteLine(message: $"{name}: {message}");

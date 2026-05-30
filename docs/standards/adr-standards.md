@@ -17,15 +17,15 @@ description: Structural specification for Architecture Decision Records
 
 Markdown Any Decision Record (MADR) structure. Use seven sections in fixed order.
 
-| [INDEX] | [SECTION]              | [REQUIRED] | [CONTENT]                                                          |
-| :-----: | ---------------------- | :--------: | ------------------------------------------------------------------ |
-|   [1]   | **Title**              |    Yes     | `# ADR-NNNN: <Noun Phrase>`. Sequential numbering.                 |
-|   [2]   | **Status**             |    Yes     | Exactly one: Proposed, Accepted, Deprecated, Superseded, Rejected. |
-|   [3]   | **Context**            |    Yes     | Facts and forces. No narrative history.                            |
-|   [4]   | **Decision Drivers**   |    Yes     | Ranked list of forces influencing the decision.                    |
-|   [5]   | **Considered Options** |    Yes     | Minimum 2 options. Each with pros, cons, neutral impacts.          |
-|   [6]   | **Decision Outcome**   |    Yes     | Chosen option with justification linked to drivers.                |
-|   [7]   | **Consequences**       |    Yes     | Positive, negative, neutral — all explicit. No omissions.          |
+| [INDEX] | [SECTION]          | [REQUIRED] | [CONTENT]                                                          |
+| :-----: | ------------------ | :--------: | ------------------------------------------------------------------ |
+|   [1]   | Title              |    Yes     | `# ADR-NNNN: <Noun Phrase>`. Sequential numbering.                 |
+|   [2]   | Status             |    Yes     | Exactly one: Proposed, Accepted, Deprecated, Superseded, Rejected. |
+|   [3]   | Context            |    Yes     | Facts and forces. No narrative history.                            |
+|   [4]   | Decision Drivers   |    Yes     | Ranked list of forces influencing the decision.                    |
+|   [5]   | Considered Options |    Yes     | Minimum 2 options. Each with pros, cons, neutral impacts.          |
+|   [6]   | Decision Outcome   |    Yes     | Chosen option with justification linked to drivers.                |
+|   [7]   | Consequences       |    Yes     | Positive, negative, neutral — all explicit. No omissions.          |
 
 ### [1.1][NUMBERING]
 
@@ -33,13 +33,13 @@ Use sequential four-digit numbering: `ADR-0001`, `ADR-0002`. Gaps permitted (del
 
 ### [1.2][STATUS_TAXONOMY]
 
-| [INDEX] | [STATUS]       | [MEANING]                                   | [TRANSITION_TO]        |
-| :-----: | -------------- | ------------------------------------------- | ---------------------- |
-|   [1]   | **Proposed**   | Under review. Not yet binding.              | Accepted, Rejected     |
-|   [2]   | **Accepted**   | Binding. Implementation may proceed.        | Deprecated, Superseded |
-|   [3]   | **Deprecated** | No longer applicable. Context changed.      | —                      |
-|   [4]   | **Superseded** | Replaced by newer ADR. Backlink required.   | —                      |
-|   [5]   | **Rejected**   | Reviewed and declined. Reasoning preserved. | —                      |
+| [INDEX] | [STATUS]   | [MEANING]                                   | [TRANSITION_TO]        |
+| :-----: | ---------- | ------------------------------------------- | ---------------------- |
+|   [1]   | Proposed   | Under review. Not yet binding.              | Accepted, Rejected     |
+|   [2]   | Accepted   | Binding. Implementation may proceed.        | Deprecated, Superseded |
+|   [3]   | Deprecated | No longer applicable. Context changed.      | —                      |
+|   [4]   | Superseded | Replaced by newer ADR. Backlink required.   | —                      |
+|   [5]   | Rejected   | Reviewed and declined. Reasoning preserved. | —                      |
 
 [IMPORTANT]:
 1. [ALWAYS] **Supersession backlink:** `Superseded by [ADR-NNNN](./ADR-NNNN.md)` in Status section.
@@ -51,13 +51,13 @@ Use sequential four-digit numbering: `ADR-0001`, `ADR-0002`. Gaps permitted (del
 
 <br>
 
-| [INDEX] | [TYPE]                   | [EVALUATION_CRITERIA]                                           | [RISK_DIMENSIONS]                    |
-| :-----: | ------------------------ | --------------------------------------------------------------- | ------------------------------------ |
-|   [1]   | **Technology Selection** | Maturity, community, license, integration cost, migration path  | Vendor lock-in, EOL risk, skill gap  |
-|   [2]   | **Architecture Pattern** | Coupling reduction, testability, performance impact, complexity | Over-engineering, under-engineering  |
-|   [3]   | **Process Change**       | Team velocity impact, onboarding friction, rollback feasibility | Adoption resistance, tooling cost    |
-|   [4]   | **Security Boundary**    | Threat model coverage, compliance impact, audit trail           | False sense of security, performance |
-|   [5]   | **Infrastructure**       | Operational cost, scaling model, failure modes, observability   | Blast radius, recovery time          |
+| [INDEX] | [TYPE]               | [EVALUATION_CRITERIA]                                           | [RISK_DIMENSIONS]                    |
+| :-----: | -------------------- | --------------------------------------------------------------- | ------------------------------------ |
+|   [1]   | Technology Selection | Maturity, community, license, integration cost, migration path  | Vendor lock-in, EOL risk, skill gap  |
+|   [2]   | Architecture Pattern | Coupling reduction, testability, performance impact, complexity | Over-engineering, under-engineering  |
+|   [3]   | Process Change       | Team velocity impact, onboarding friction, rollback feasibility | Adoption resistance, tooling cost    |
+|   [4]   | Security Boundary    | Threat model coverage, compliance impact, audit trail           | False sense of security, performance |
+|   [5]   | Infrastructure       | Operational cost, scaling model, failure modes, observability   | Blast radius, recovery time          |
 
 ---
 ## [3][CONTENT_DISCIPLINE]

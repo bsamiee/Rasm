@@ -15,12 +15,12 @@ description: Structural specification for code documentation across C#, Python, 
 
 <br>
 
-| [INDEX] | [SIGNAL]           | [FIDELITY] | [IMPLICATION]                                          |
-| :-----: | ------------------ | :--------: | ------------------------------------------------------ |
-|   [1]   | **Type signature** |  Highest   | Compiler-verified. Never restate in documentation.     |
-|   [2]   | **Name**           |    High    | Self-documenting. Poor names require doc compensation. |
-|   [3]   | **Doc comment**    |   Medium   | Agent/human-readable. Covers intent and constraints.   |
-|   [4]   | **Inline comment** |    Low     | Last resort. Explains WHY, never WHAT.                 |
+| [INDEX] | [SIGNAL]       | [FIDELITY] | [IMPLICATION]                                          |
+| :-----: | -------------- | :--------: | ------------------------------------------------------ |
+|   [1]   | Type signature |  Highest   | Compiler-verified. Never restate in documentation.     |
+|   [2]   | Name           |    High    | Self-documenting. Poor names require doc compensation. |
+|   [3]   | Doc comment    |   Medium   | Agent/human-readable. Covers intent and constraints.   |
+|   [4]   | Inline comment |    Low     | Last resort. Explains WHY, never WHAT.                 |
 
 [IMPORTANT]:
 1. [ALWAYS] **Additive only:** Each documentation level adds information absent from levels above.
@@ -37,11 +37,11 @@ description: Structural specification for code documentation across C#, Python, 
 
 <br>
 
-| [INDEX] | [LANGUAGE]     | [FORMAT]          | [GENERATOR] | [STANDARD]                  |
-| :-----: | -------------- | ----------------- | ----------- | --------------------------- |
-|   [1]   | **C#**         | XML Documentation | DocFX       | Microsoft XML Documentation |
-|   [2]   | **Python**     | Google Style      | Sphinx      | google.github.io/styleguide |
-|   [3]   | **TypeScript** | TSDoc             | TypeDoc     | tsdoc.org                   |
+| [INDEX] | [LANGUAGE] | [FORMAT]          | [GENERATOR] | [STANDARD]                  |
+| :-----: | ---------- | ----------------- | ----------- | --------------------------- |
+|   [1]   | C#         | XML Documentation | DocFX       | Microsoft XML Documentation |
+|   [2]   | Python     | Google Style      | Sphinx      | google.github.io/styleguide |
+|   [3]   | TypeScript | TSDoc             | TypeDoc     | tsdoc.org                   |
 
 ---
 ## [3][STRUCTURE]
@@ -143,24 +143,24 @@ export const createOrderId = (
 
 ### [4.1][REQUIRED]
 
-| [INDEX] | [TARGET]                 | [DOCUMENTATION_REQUIRED]                                 |
-| :-----: | ------------------------ | -------------------------------------------------------- |
-|   [1]   | **Exported functions**   | Full doc comment with summary, params, returns.          |
-|   [2]   | **Exported types**       | Summary stating domain concept and invariants.           |
-|   [3]   | **Error types**          | Each variant: when it occurs, what the caller should do. |
-|   [4]   | **Effect-returning fns** | Both success and failure channel semantics.              |
-|   [5]   | **Smart constructors**   | Guard conditions, valid input ranges, failure modes.     |
-|   [6]   | **Module-level**         | One-line module purpose at file top.                     |
+| [INDEX] | [TARGET]             | [DOCUMENTATION_REQUIRED]                                 |
+| :-----: | -------------------- | -------------------------------------------------------- |
+|   [1]   | Exported functions   | Full doc comment with summary, params, returns.          |
+|   [2]   | Exported types       | Summary stating domain concept and invariants.           |
+|   [3]   | Error types          | Each variant: when it occurs, what the caller should do. |
+|   [4]   | Effect-returning fns | Both success and failure channel semantics.              |
+|   [5]   | Smart constructors   | Guard conditions, valid input ranges, failure modes.     |
+|   [6]   | Module-level         | One-line module purpose at file top.                     |
 
 ### [4.2][PROHIBITED]
 
-| [INDEX] | [TARGET]                    | [RATIONALE]                                            |
-| :-----: | --------------------------- | ------------------------------------------------------ |
-|   [1]   | **Private functions**       | Internal — callers are co-located; names suffice.      |
-|   [2]   | **Obvious accessors**       | `Name` property on `User` — type + name is complete.   |
-|   [3]   | **Type-restating comments** | Type signature already encodes this information.       |
-|   [4]   | **Control flow narration**  | Code shows sequence; comments show intent.             |
-|   [5]   | **Changelog in comments**   | Version control tracks history; comments track intent. |
+| [INDEX] | [TARGET]                | [RATIONALE]                                            |
+| :-----: | ----------------------- | ------------------------------------------------------ |
+|   [1]   | Private functions       | Internal — callers are co-located; names suffice.      |
+|   [2]   | Obvious accessors       | `Name` property on `User` — type + name is complete.   |
+|   [3]   | Type-restating comments | Type signature already encodes this information.       |
+|   [4]   | Control flow narration  | Code shows sequence; comments show intent.             |
+|   [5]   | Changelog in comments   | Version control tracks history; comments track intent. |
 
 ---
 ## [5][INLINE_COMMENTS]

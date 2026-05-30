@@ -3,7 +3,7 @@
 
 <br>
 
-EF Core persistence aligned with LanguageExt v5. DbContext access lifts into `Eff<RT,T>` via runtime records -- the persistence layer is an effectful shell around a relational kernel. Queries compose as `IQueryable<T>` expression trees that translate to SQL without materialization until boundaries. Value converters and owned-type configuration bridge the impedance mismatch between sealed DU hierarchies and relational columns. Repository algebras encode operations as data, eliminating method proliferation. All snippets assume `using static LanguageExt.Prelude;` and `using LanguageExt;`.
+EF Core persistence aligned with LanguageExt v5. **[NOT_IN_GRAPH]** until a persistence host pins EF packages — patterns below are schematic for bootstrap projects.
 
 ---
 ## [1][DBCONTEXT_AS_EFFECT]
@@ -331,7 +331,7 @@ public abstract record RepoQuery<TKey, TEntity, TResult> where TEntity : class {
 <br>
 
 - [ALWAYS] Wrap DbContext access in `Eff<RT,T>` via runtime record -- database operations are effects.
-- [ALWAYS] Validate all inbound DTOs via the FluentValidation boundary bridge before any persistence pipeline; see `validation.md` [11] for the `ValidationResult → Validation<Error,T>` contract.
+- [ALWAYS] Validate all inbound DTOs via the FluentValidation boundary bridge before any persistence pipeline; see `validation.md` [10] for the `ValidationResult → Validation<Error,T>` contract.
 - [ALWAYS] Compose queries as `IQueryable<T>` expression trees -- materialize to `Seq<T>` at boundaries via `toSeq(await query.ToListAsync(ct))`.
 - [ALWAYS] Use `ValueConverter<TModel, TProvider>` for domain primitive and DU column mapping.
 - [ALWAYS] Map value objects via `OwnsOne`/`OwnsMany` -- no identity, no `DbSet<T>`.

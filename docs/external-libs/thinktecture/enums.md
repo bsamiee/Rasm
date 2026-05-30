@@ -11,12 +11,12 @@
 
 <br>
 
-| [INDEX] | [SURFACE] | [USE] |
-| :-----: | --------- | ----- |
-| [1] | `Items` | Complete registry for derived maps and docs. |
-| [2] | `Get`, `TryGet` | Key admission at boundary edges. |
-| [3] | Key comparers | Protocol-specific string or scalar policy. |
-| [4] | Generated JSON/parse support | Only when an adopted boundary requires it. |
+| [INDEX] | [SURFACE]                    | [USE]                                        |
+| :-----: | ---------------------------- | -------------------------------------------- |
+|   [1]   | `Items`                      | Complete registry for derived maps and docs. |
+|   [2]   | `Get`, `TryGet`              | Key admission at boundary edges.             |
+|   [3]   | Key comparers                | Protocol-specific string or scalar policy.   |
+|   [4]   | Generated JSON/parse support | Only when an adopted boundary requires it.   |
 
 ---
 ## [2][BEHAVIOR]

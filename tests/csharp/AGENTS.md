@@ -1,19 +1,21 @@
 # [TESTING_MANIFEST]
 
-[REQUIRED]: Follow `/Users/bardiasamiee/Documents/99.Github/Rasm/CLAUDE.md`, `cs-testing`, and `coding-csharp` for every `.spec.cs` change.
+Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal policy; this file adds subtree deltas only.
+
+[REQUIRED]: Follow `CLAUDE.md`, `cs-testing`, and `coding-csharp` for every `.spec.cs` change.
 
 ## [1][CANONICAL_RAIL]
 
-- Use xUnit v3 + CsCheck through `/Users/bardiasamiee/Documents/99.Github/Rasm/tests/csharp/_testkit`.
+- Use xUnit v3 + CsCheck through `tests/csharp/_testkit`.
 - Read tool/API truth before using advanced features:
-  - `/Users/bardiasamiee/Documents/99.Github/Rasm/docs/testing-libs/xunit/api.md`
-  - `/Users/bardiasamiee/Documents/99.Github/Rasm/docs/testing-libs/cscheck/api.md`
-  - `/Users/bardiasamiee/Documents/99.Github/Rasm/docs/testing-libs/coverlet/api.md`
-  - `/Users/bardiasamiee/Documents/99.Github/Rasm/docs/testing-libs/stryker/api.md`
-  - `/Users/bardiasamiee/Documents/99.Github/Rasm/docs/testing-libs/verify/api.md`
-  - `/Users/bardiasamiee/Documents/99.Github/Rasm/docs/testing-libs/archunit/api.md`
-  - `/Users/bardiasamiee/Documents/99.Github/Rasm/docs/testing-libs/benchmarkdotnet/api.md`
-  - `/Users/bardiasamiee/Documents/99.Github/Rasm/docs/testing-libs/sharpfuzz/api.md`
+  - `docs/testing-libs/xunit/api.md`
+  - `docs/testing-libs/cscheck/api.md`
+  - `docs/testing-libs/coverlet/api.md`
+  - `docs/testing-libs/stryker/api.md`
+  - `docs/testing-libs/verify/api.md`
+  - `docs/testing-libs/archunit/api.md`
+  - `docs/testing-libs/benchmarkdotnet/api.md`
+  - `docs/testing-libs/sharpfuzz/api.md`
 - Keep specs law-matrix shaped: each test should cover a behavior family, oracle, failure rail, or metamorphic relation.
 - Build dense laws before adding facts: one generated sample should attack construction, projection, unsupported output, category, receipt, and an independent oracle when the owner exposes those axes.
 - Static xUnit owns pure-managed behavior; native Rhino/GH behavior belongs in `*.verify.csx` bridge scenarios.
@@ -21,7 +23,7 @@
 - Benchmarks and fuzz harnesses are separate executable rails, not xUnit specs.
 - Verify snapshots compare stable artifacts only; never snapshot current implementation output as a domain oracle.
 - Prove non-zero VSTest discovery before using Stryker survivor data; if Stryker reports zero tests while `uv run python -m tools.quality test run` finds tests, treat mutation output as tooling evidence, not code quality evidence.
-- Generated reports, corpora, mutation output, benchmark output, and transient test results belong under `/Users/bardiasamiee/Documents/99.Github/Rasm/.artifacts`; do not create local scratch roots such as `.remember`.
+- Generated reports, corpora, mutation output, benchmark output, and transient test results belong under `.artifacts`; do not create local scratch roots such as `.remember`.
 - If bridge execution reports `LanguageExt.*` value-type mismatch, `HashableResolve`/`OrdDefault` type-initializer failures, or already-loaded assembly identity failures, first verify `bridge check` is using staged `refs/<content-hash>/` paths, dependency-first `#r` order (`FSharp.Core` → `LanguageExt.Core` → transitive packages → `Rasm.dll` → target last), and the bridge-owned LanguageExt bootstrap before changing the scenario or static spec.
 
 ## [2][ORACLES]
@@ -53,24 +55,17 @@
 - The canonical `AcceptValue` extension hook for Rasm-defined types is the `IDomainValid` interface registered through `OpAcceptance.ValueValidity` reflection cache (see [[feedback_acceptvalue_validity_gap]]). New record/struct types that need `op.AcceptValue` support implement `IDomainValid { bool IsValid { get; } }` — do not extend the manual `ValidityOf` switch arm-by-arm.
 - Shared assembly context belongs in `[assembly: AssemblyFixture(typeof(T))]` plus constructor injection (xUnit v3 has no `IAssemblyFixture<T>` API). When ≥3 specs share the same `static readonly Context Model = Spec.SuccValue(Context.Of(...).ToFin())` block, promote to an `AssemblyFixture`-routed value.
 
-## [5][ANTI_PATTERNS]
+## [4][TEST_RAILS]
 
-- **Stub-receipt construction**: hand-building a record type (e.g., `IsoSurfaceReceipt`, `TopologyReceipt`, `SignedHeatReceipt`) then asserting its own fields is Grade D mirror coverage — the assertion reads what the test just wrote. Delete and migrate to a bridge scenario, OR add an `IsValid` predicate law that covers the conjunctive invariant via `TheoryData<Receipt, bool>` rows (one valid, each invariant individually broken).
-- **Filtered-generator `throw`**: `Gen.Int.Select(i => i > 0 ? new T(i) : throw new InvalidOperationException(...))` exhausts CsCheck's where-limit silently. Use `Gen.Int.Where(i => i > 0).Select(i => new T(i))`.
-- **Single-fixture distinct-detection blind spot**: a test that uses `[1.0, 1.0, 1.0]` cannot detect a swap between any two slots. Distinct-value product generators (`[7.0, 13.0, 3.0]`) are the minimum bar for swap-detecting laws.
-- **Hoisted `Op key` across `Switch` arms**: every `[Union].Switch` arm constructs its own `Op.Of(name: nameof(CaseName))` for diagnostic provenance (see [[feedback_per_arm_op_provenance]]). The Rasm analyzer enforces this via CSP0801; do not suppress.
-- **`TestContext.Current` ignored in long ForAll bodies**: every `Spec.ForAll`/`Spec.Cases`/`Spec.Metamorphic` should propagate `TestContext.Current.CancellationToken` into the body. The `Spec.*` adapters do this automatically — raw `Check.Sample` calls do not.
-- **Spec.ForAll(Gen.OneOfConst([A,B,C]))** is ONE Stryker mutation target. Converting to `[Theory][InlineData(A)][InlineData(B)][InlineData(C)]` (or `MemberData(...)` populated from `SmartEnum.Items`) gives N mutation targets, each individually killable. Convert when Stryker survivors include uncovered SmartEnum/Union cases.
+| Rail            | Path                         | Owns                                   |
+| :-------------- | :--------------------------- | :------------------------------------- |
+| `_testkit`      | `tests/csharp/_testkit`      | Spec, Gens, Numeric, scenario capsules |
+| `_architecture` | `tests/csharp/_architecture` | ArchUnitNET dependency laws            |
+| `_tooling`      | `tests/csharp/_tooling`      | Verify snapshot rail                   |
+| `_benchmarks`   | `tests/csharp/_benchmarks`   | BenchmarkDotNet hot-path measurement   |
+| `_fuzz`         | `tests/csharp/_fuzz`         | SharpFuzz parser/token harnesses       |
 
-## [6][BRIDGE_RAIL_OPERATIONS]
-
-- Each `uv run python -m tools.quality bridge verify <scenario>` invocation pays a 3-8s Rhino handshake. Group thematically related scenarios per `.verify.csx` file (e.g. `vectors-mesh-topology-and-validity.verify.csx` bundles topology census + naked-edge + validity guards) to amortize the handshake ~4×.
-- Populate runtime evidence inside the `Scenario.Run(theme, capturePath, (key, facts) => { … })` body via `facts.Add(string key, object value);` statements. The harness emits one `facts={json}` plain line plus one `rasm.rhino-bridge.evidence=facts={json}` marker on scope exit — that batched dictionary is the durable runtime fact channel; exception messages alone make failed scenarios hard to triage. The flush runs in `Scenario.Run`'s `try/finally`, so facts accumulated before a throw are emitted on FAILURE too (logs route to stderr, the machine JSON to stdout); `tools/quality/rails/bridge.py` decodes the per-scenario `phases[].outputs[source="stdout"]` evidence markers into facts/captures, so a failed scenario is triaged from its partial FactBag rather than the exception message alone. Do not call `BridgeMarker.EmitFact`/`EmitScenarioHeader` — those public emitters were dropped during the protocol-surface tightening.
-- Grasshopper-aware scenarios receive bridge-owned `ScenarioHostUsings` (`Eto.Drawing`, `LanguageExt`) after the scenario preamble — host assemblies stay off `#r`; add explicit `using Grasshopper2.*` in scenario source only when a rail needs GH2 types. Do not add production icon/motion shims.
-- Prefer `Probe.ExpectCase`, `Probe.ExpectRejectedContains`, and `FactBag.AddIfSome` over duplicated `switch`/`Match` boilerplate in GH UI scenarios.
-- If a scenario passes locally but fails in CI, first check loaded RhinoCommon/Grasshopper assembly identity (`bridge doctor` output) before changing the scenario. Host-package collisions are evidence, not noise.
-
-## [4][SUPPRESSIONS_AND_GATES]
+## [5][SUPPRESSIONS_AND_GATES]
 
 - Spec-local generator classes stay non-public unless discovery requires public visibility.
 - Do not add local xUnit/analyzer suppressions for style friction. Adjust folder-wide policy only when the rule conflicts with discovery or generated-code reality.
@@ -86,3 +81,22 @@
   - `uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm/Vectors/scenarios` when vector bridge scenarios changed; scenarios must not contain `#r` or `#load`.
   - `uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm.Grasshopper/UI/scenarios` when GH UI bridge scenarios changed; scenarios must not contain `#r` or `#load`.
   - `git diff --check`
+
+## [6][ANTI_PATTERNS]
+
+- **Stub-receipt construction**: hand-building a record type (e.g., `IsoSurfaceReceipt`, `TopologyReceipt`, `SignedHeatReceipt`) then asserting its own fields is Grade D mirror coverage — the assertion reads what the test just wrote. Delete and migrate to a bridge scenario, OR add an `IsValid` predicate law that covers the conjunctive invariant via `TheoryData<Receipt, bool>` rows (one valid, each invariant individually broken).
+- **Filtered-generator `throw`**: `Gen.Int.Select(i => i > 0 ? new T(i) : throw new InvalidOperationException(...))` exhausts CsCheck's where-limit silently. Use `Gen.Int.Where(i => i > 0).Select(i => new T(i))`.
+- **Single-fixture distinct-detection blind spot**: a test that uses `[1.0, 1.0, 1.0]` cannot detect a swap between any two slots. Distinct-value product generators (`[7.0, 13.0, 3.0]`) are the minimum bar for swap-detecting laws.
+- **Hoisted `Op key` across `Switch` arms**: every `[Union].Switch` arm constructs its own `Op.Of(name: nameof(CaseName))` for diagnostic provenance (see [[feedback_per_arm_op_provenance]]). The Rasm analyzer enforces this via CSP0801; do not suppress.
+- **`TestContext.Current` ignored in long ForAll bodies**: every `Spec.ForAll`/`Spec.Cases`/`Spec.Metamorphic` should propagate `TestContext.Current.CancellationToken` into the body. The `Spec.*` adapters do this automatically — raw `Check.Sample` calls do not.
+- **Spec.ForAll(Gen.OneOfConst([A,B,C]))** is ONE Stryker mutation target. Converting to `[Theory][InlineData(A)][InlineData(B)][InlineData(C)]` (or `MemberData(...)` populated from `SmartEnum.Items`) gives N mutation targets, each individually killable. Convert when Stryker survivors include uncovered SmartEnum/Union cases.
+
+## [7][BRIDGE_RAIL_OPERATIONS]
+
+Canonical routes: `tools/rhino-bridge/AGENTS.md` and `.claude/skills/cs-testing/references/bridge-runtime.md`.
+
+- Each `uv run python -m tools.quality bridge verify <scenario>` invocation pays a 3-8s Rhino handshake. Group thematically related scenarios per `.verify.csx` file to amortize the handshake.
+- Populate runtime evidence inside `Scenario.Run` via `facts.Add(string key, object value);` — do not call `BridgeMarker.EmitFact`/`EmitScenarioHeader`.
+- Grasshopper-aware scenarios receive bridge-owned `ScenarioHostUsings` (`Eto.Drawing` only). Drive GH2 through `Rasm.Grasshopper.UI` wrapper types — raw `Grasshopper2.*` in isolated bridge scenarios binds a separate GH2 instance.
+- Prefer `Probe.ExpectCase`, `Probe.ExpectRejectedContains`, and `FactBag.AddIfSome` over duplicated boilerplate in GH UI scenarios.
+- If a scenario passes locally but fails in CI, check loaded assembly identity (`bridge doctor`) before changing the scenario.

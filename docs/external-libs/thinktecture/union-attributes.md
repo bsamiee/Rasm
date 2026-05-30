@@ -13,16 +13,27 @@ Thinktecture `[Union]` generates case types, `.Switch()`, `.Map()` — **not** `
 
 <br>
 
-| [INDEX] | [ATTRIBUTE / PROPERTY] | [GENERATES / BEHAVIOR] |
-| :-----: | ---------------------- | ---------------------- |
-| [1] | `[Union]` | Case types, `.Switch()`, `.Map()` |
-| [2] | `[Union(SwitchMapStateParameterName = "ctx")]` | State-threaded `.Switch(ctx, …)` / `.Map(ctx, …)` — default name `"state"` |
-| [3] | `SwitchMethods` / `MapMethods` | `SwitchMapMethodsGeneration`: `None`, `Default`, `DefaultWithPartialOverloads` |
-| [4] | `[UnionSwitchMapOverload(StopAt = typeof(...))]` | Partial overloads for `StopAt` type and siblings — requires `DefaultWithPartialOverloads` |
-| [5] | `NestedUnionParameterNames` | `Default` vs `Simple` nested case parameter naming |
-| [6] | `FactoryMethodGeneration` on union base | `Default`, `None`, `Always` |
-| [7] | `ConversionFromValue` / `ConversionToValue` | Value conversion operators |
-| [8] | `SkipEqualityComparison`, `UseSingleBackingField`, `ConstructorAccessModifier` | Equality and ctor policy |
+| [INDEX] | [PROPERTY]                                 | [EFFECT]                                              |
+| :-----: | ------------------------------------------ | ----------------------------------------------------- |
+|   [1]   | `[Union]`                                  | Case types, `.Switch()`, `.Map()`                     |
+|   [2]   | `SwitchMapStateParameterName`              | State arg on `.Switch`/`.Map`; default `state`        |
+|   [3]   | `SwitchMethods`, `MapMethods`              | Dispatch generation level — `[ENUMS]` [3]             |
+|   [4]   | `[UnionSwitchMapOverload]`                 | Partial overloads at `StopAt`; requires `[ENUMS]` [3] |
+|   [5]   | `NestedUnionParameterNames`                | Nested-case param naming — `[ENUMS]` [5]              |
+|   [6]   | `FactoryMethodGeneration`                  | Case factory emission — `[ENUMS]` [6]                 |
+|   [7]   | `ConversionFromValue`, `ConversionToValue` | Value↔union operators — `[ENUMS]` [7]                 |
+|   [8]   | `[POLICY]`                                 | Equality, backing field, ctor access                  |
+
+[ENUMS]
+- [3] `SwitchMapMethodsGeneration`: None, Default, DefaultWithPartialOverloads
+- [5] `NestedUnionParameterNameGeneration`: Default (intermediate type names), Simple
+- [6] `FactoryMethodGeneration`: Default, None, Always
+- [7] `ConversionOperatorsGeneration`: None, Implicit, Explicit — `ConversionFromValue` default Implicit; `ConversionToValue` default Explicit
+
+[POLICY]
+- `SkipEqualityComparison` — omit generated equality comparers
+- `UseSingleBackingField` — one backing field shared by all cases
+- `ConstructorAccessModifier` — `UnionConstructorAccessModifier` Private, Internal, Public; default Public
 
 ```csharp
 [Union(
@@ -41,16 +52,16 @@ Ad-hoc unions: `[Union<T1,T2,...>]` and `[AdHocUnion(typeof(...))]` — up to fi
 
 <br>
 
-| [INDEX] | [ATTRIBUTE] | [ROLE] |
-| :-----: | ----------- | ------ |
-| [1] | `[ValueObject<T>]` | Single-field branded type; operator props `AdditionOperators`, `EqualityComparisonOperators`, … |
-| [2] | `[ComplexValueObject]` | Multi-field VO — **partial class/struct only** |
-| [3] | `[ValidationError]` / `[ValidationError<T>]` | Factory `ValidateFactoryArguments(ref TFault?, …)` |
-| [4] | `[KeyMemberEqualityComparer<TAccessor,TKey>]` | Custom key equality |
-| [5] | `[KeyMemberComparer<TAccessor,TKey>]` | Custom key ordering |
-| [6] | `[MemberEqualityComparer<TAccessor,TMember>]` | Complex VO member equality |
-| [7] | `[IgnoreMember]` | Exclude member from generated equality |
-| [8] | `[ObjectFactory]` / `[ObjectFactory<T>]` | Deserialization / EF / model-binding factories |
+| [INDEX] | [ATTRIBUTE]                                   | [ROLE]                                                      |
+| :-----: | --------------------------------------------- | ----------------------------------------------------------- |
+|   [1]   | `[ValueObject<T>]`                            | Single-field brand; operator props (`AdditionOperators`, …) |
+|   [2]   | `[ComplexValueObject]`                        | Multi-field VO — partial class/struct only                  |
+|   [3]   | `[ValidationError]`/`[ValidationError<T>]`    | `ValidateFactoryArguments(ref TFault?, …)`                  |
+|   [4]   | `[KeyMemberEqualityComparer<TAccessor,TKey>]` | Custom key equality                                         |
+|   [5]   | `[KeyMemberComparer<TAccessor,TKey>]`         | Custom key ordering                                         |
+|   [6]   | `[MemberEqualityComparer<TAccessor,TMember>]` | Complex VO member equality                                  |
+|   [7]   | `[IgnoreMember]`                              | Exclude member from generated equality                      |
+|   [8]   | `[ObjectFactory]`/`[ObjectFactory<T>]`        | Deser/EF/model-binding factories                            |
 
 `EquatableValueObject` is **absent** from 10.2.0 public API.
 
@@ -64,12 +75,12 @@ Set **`SerializationFrameworks = SerializationFrameworks.None`** on VOs and Smar
 
 <br>
 
-| [INDEX] | [ATTRIBUTE] | [ROLE] |
-| :-----: | ----------- | ------ |
-| [1] | `[SmartEnum]` | Keyless smart enum |
-| [2] | `[SmartEnum<TKey>]` | Keyed smart enum |
-| [3] | `SwitchMethods` / `MapMethods` / `SwitchMapStateParameterName` | Same generation knobs as unions |
-| [4] | `[UseDelegateFromConstructor(DelegateName = "…")]` | **SmartEnum only** — partial method implemented via delegate |
+| [INDEX] | [ATTRIBUTE]                                                | [ROLE]                            |
+| :-----: | ---------------------------------------------------------- | --------------------------------- |
+|   [1]   | `[SmartEnum]`                                              | Keyless smart enum                |
+|   [2]   | `[SmartEnum<TKey>]`                                        | Keyed smart enum                  |
+|   [3]   | `SwitchMethods`/`MapMethods`/`SwitchMapStateParameterName` | Same knobs as §1 unions           |
+|   [4]   | `[UseDelegateFromConstructor(DelegateName="…")]`           | SmartEnum delegate-backed partial |
 
 See `enums.md` for SmartEnum patterns.
 
@@ -80,7 +91,6 @@ See `enums.md` for SmartEnum patterns.
 <br>
 
 Use plain `abstract record` + manual `this switch` when:
-
 - Generic over state (`Transition<TState>`, `Request<T>`, …).
 - `allows ref struct` conflicts with generated case shapes.
 

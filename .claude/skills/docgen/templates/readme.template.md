@@ -14,7 +14,7 @@ Produces one README file at appropriate scope level. Section selection determine
 
 | [INDEX] | [PLACEHOLDER]         | [EXAMPLE]                                          |
 | :-----: | --------------------- | -------------------------------------------------- |
-|   [1]   | `${ProjectName}`      | `AcmePlatform`                                          |
+|   [1]   | `${ProjectName}`      | `AcmePlatform`                                     |
 |   [2]   | `${OneLiner}`         | `Type-safe configuration management for .NET`      |
 |   [3]   | `${CIBadgeURL}`       | `https://github.com/org/repo/actions/...badge.svg` |
 |   [4]   | `${CoverageURL}`      | `https://codecov.io/gh/org/repo`                   |

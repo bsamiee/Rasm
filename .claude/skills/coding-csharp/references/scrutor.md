@@ -3,7 +3,7 @@
 
 <br>
 
-Verified baseline: `Scrutor` v7+ (targeting `netstandard2.0`/`net8.0`/`net9.0`+; newer runtimes consume forward-compatibly). Extends the built-in Microsoft container via `Scan` + `Decorate`/`TryDecorate` on `IServiceCollection`. v6.0+ `AddClasses()` scans only public non-abstract classes by default; pass `publicOnly: false` to include internal types. Imports: `using Scrutor;` (`RegistrationStrategy`, `ReplacementBehavior`, `DecoratedService<T>`, `ServiceDescriptorAttribute`).
+Verified baseline: `Scrutor` **7.0.0** (**`[NOT_IN_GRAPH]`** until a bootstrap consumer pins it). TFMs: net462, netstandard2.0, net8.0, **net10.0**. Extends the built-in Microsoft container via `Scan` + `Decorate`/`TryDecorate` on `IServiceCollection`.
 
 ---
 ## [1][BOUNDED_DISCOVERY]
@@ -130,7 +130,7 @@ public static class OpenGenericDecoration {
 }
 ```
 
-[IMPORTANT]: Open generic decoration targets closed registrations compatible with the open definition. Decorators with type constraints (e.g., `where TCmd : IAccessRestricted`) silently skip non-matching closed types via `MakeGenericType` catch -- correct since v4.0.0 but allocates `ArgumentException` per mismatch at startup. Factory-based decoration bypasses `ValidateOnBuild` -- prefer type-based decoration where container validation matters.
+[IMPORTANT]: Open generic decoration targets closed registrations compatible with the open definition. Decorators with type constraints (e.g., `where TCmd : IAccessRestricted`) silently skip non-matching closed types via `MakeGenericType` catch -- correct since v4.0.0 but allocates `ArgumentException` per mismatch at startup. Open generic registrations are excluded from `ValidateOnBuild`. Use `DecorationStrategy` or factory decorate overloads when type-based match is insufficient.
 
 ---
 ## [4][EFF_DECORATOR]
@@ -138,7 +138,7 @@ public static class OpenGenericDecoration {
 
 <br>
 
-When domain services return `Eff<RT,T>` (CSP0504), decorators must compose via `Map`/`MapFail`/`Bind` within the pipeline. The runtime-record pattern threads dependencies via `Eff.runtime<RT>()` and property selection; do not introduce legacy capability-marker interfaces. `Retry` uses algebraic `Schedule` combinators per `effects.md` [8].
+When domain services return `Eff<RT,T>`, decorators must compose via `Map`/`MapFail`/`Bind` within the pipeline. The runtime-record pattern threads dependencies via `Eff.runtime<RT>()` and property selection; do not introduce legacy capability-marker interfaces. Retry uses `Prelude.retry(schedule, eff)` per `effects.md` [8].
 
 ```csharp
 namespace App.Bootstrap;
@@ -181,10 +181,11 @@ public sealed class RetryOrderDecorator : IOrderPipeline {
     private readonly IOrderPipeline _inner;
     public RetryOrderDecorator(IOrderPipeline inner) => _inner = inner;
     public Eff<OrderRuntime, OrderConfirmation> Execute(OrderRequest request) =>
-        _inner.Execute(request: request)
-            .Retry(schedule: Schedule.exponential(baseDelay: 100 * ms)
+        retry(
+            Schedule.exponential(seed: 100 * ms)
                 | Schedule.recurs(times: 3)
-                | Schedule.jitter(factor: 0.1));
+                | Schedule.jitter(factor: 0.1),
+            _inner.Execute(request: request));
 }
 
 // --- [REGISTRATION] ----------------------------------------------------------
@@ -247,6 +248,8 @@ public static class KeyedDiscovery {
 
 [IMPORTANT]: `WithServiceKey` returns `ILifetimeSelector` -- chain key BEFORE lifetime: `.AsImplementedInterfaces().WithServiceKey("key").WithScopedLifetime()`. Key selectors returning `null` produce non-keyed registrations, enabling conditional keying within a single scan block.
 
+[CRITICAL]: `RegistrationStrategy.Throw` with multiple keyed registrations sharing the same `ServiceType` throws on the second key — `HasRegistration` ignores keys. Use `Append` or separate scan blocks for multi-key same-interface registration. Public `Decorate<T>()` wraps only non-keyed registrations (`ServiceKey == null`); enum/object keyed services require manual decorate fold per key.
+
 ---
 ## [6][RULES]
 >**Dictum:** *Scrutor quality is determinism under change.*
@@ -254,7 +257,7 @@ public static class KeyedDiscovery {
 <br>
 
 - [ALWAYS] Bound scanning to explicit assemblies/namespaces via `FromDependencyContext` with predicates.
-- [ALWAYS] Choose `RegistrationStrategy` explicitly per `Scan` block -- CSP0406 enforces `UsingRegistrationStrategy` on every `Scan` call in composition-root and boundary scopes.
+- [ALWAYS] Choose `RegistrationStrategy` explicitly per `Scan` block -- every `Scan` in composition-root and boundary scopes must call `UsingRegistrationStrategy`.
 - [ALWAYS] Prefer `RegistrationStrategy.Throw` for strict modules; `Replace(...)` only with explicit override intent.
 - [ALWAYS] Validate provider build via `ValidateOnBuild = true` + `ValidateScopes = true`.
 - [ALWAYS] Capture `DecoratedService<T>` via `out` parameter when decorator order or underlying instances matter at runtime.
@@ -265,4 +268,4 @@ public static class KeyedDiscovery {
 - [NEVER] Pull compiler-generated types into scans unless `WithAttribute<CompilerGeneratedAttribute>()` explicitly documents that intent.
 - [NEVER] Mix broad scan blocks with ad-hoc manual overrides without explicit strategy boundaries.
 - [NEVER] Encode service-variant routing with imperative branching when keyed registration resolves it structurally.
-- [NEVER] Use factory-based decoration when type-based decoration suffices -- factories bypass `ValidateOnBuild`.
+- [NEVER] Use `RegistrationStrategy.Throw` on scans that register multiple keyed implementations of the same interface without `Append`.

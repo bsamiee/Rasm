@@ -1,7 +1,7 @@
 # [H1][CONCURRENCY]
 >**Dictum:** *Coordination is algebraic: bounded flow, cancellation, release, observed joins.*
 
-Concurrency in C# 14 / .NET 10 (`using static LanguageExt.Prelude;` assumed) is boundary architecture -- domain transforms stay pure; coordination belongs at the effectful shell. `Channel<T>` replaces queue-plus-lock patterns with bounded, backpressure-native fan-out; `Lock` (.NET 9+) and `SemaphoreSlim` gate synchronization at boundary sites exclusively. Cancellation threads explicitly as `CancellationToken` at adapter entry points, or implicitly via runtime-record property inside `Eff` chains; resource lifecycle is always `Bracket`/`IO.bracket` -- `try/finally` is a boundary-adapter exemption only.
+Concurrency in C# 14 / .NET 10 (`using static LanguageExt.Prelude;` assumed) is boundary architecture — domain transforms stay pure; coordination belongs at the effectful shell. **[Schematic]** hosted periodic work uses `repeat(Schedule, eff)` or `IO.Repeat` — not unpinned generic-host packages.
 
 ---
 ## [1][COORDINATION_ALGEBRA]
@@ -407,7 +407,7 @@ public static Eff<RT, string> Compute<RT>(Input input) =>
 
 // [CORRECT] -- Schedule-based repeating effect (effects.md [8])
 public static Eff<RT, Unit> PeriodicCleanup<RT>(Eff<RT, Unit> cleanup) =>
-    cleanup.Repeat(schedule: Schedule.spaced(spacing: 30 * sec));
+    repeat(Schedule.spaced(spacing: 30 * sec), cleanup);
 ```
 
 ---

@@ -11,12 +11,12 @@
 
 <br>
 
-| [INDEX] | [SOURCE] | [USE] |
-| :-----: | -------- | ----- |
-| [1] | `Directory.Packages.props` | Confirms `LanguageExt.Core` `5.0.0-beta-77`. |
-| [2] | `~/.nuget/packages/languageext.core/5.0.0-beta-77/lib/net10.0/LanguageExt.Core.xml` | Exact public API. |
-| [3] | `~/.nuget/packages/languageext.core/5.0.0-beta-77/languageext.core.nuspec` | Package metadata and source commit. |
-| [4] | NuGet and upstream docs | Secondary feature context. |
+| [INDEX] | [SOURCE]                                                                            | [USE]                                        |
+| :-----: | ----------------------------------------------------------------------------------- | -------------------------------------------- |
+|   [1]   | `Directory.Packages.props`                                                          | Confirms `LanguageExt.Core` `5.0.0-beta-77`. |
+|   [2]   | `~/.nuget/packages/languageext.core/5.0.0-beta-77/lib/net10.0/LanguageExt.Core.xml` | Exact public API.                            |
+|   [3]   | `~/.nuget/.../languageext.core.nuspec`                                              | Package metadata and source commit.          |
+|   [4]   | NuGet and upstream docs                                                             | Secondary feature context.                   |
 
 ---
 ## [2][SURFACE_MAP]
@@ -24,18 +24,18 @@
 
 <br>
 
-| [INDEX] | [SURFACE] | [OWNS] | [TYPICAL_USE] |
-| :-----: | --------- | ------ | ------------- |
-| [1] | `Option<T>` | Absence without failure. | Optional input after null/sentinel projection. |
-| [2] | `Fin<T>` | Synchronous fallible result. | Default local validation and native call admission. |
-| [3] | `Validation<Error,T>` | Independent error accumulation. | Parallel requirements and multi-field validation. |
-| [4] | `Eff<RT,T>` | Runtime-record effects with typed failure. | Host context, IO, and boundary work. |
-| [5] | `IO<T>` | Deferred side-effect and resource description. | Boundary execution before collapse into `Eff` or terminal result. |
-| [6] | `Schedule` | Retry, repeat, timeout, backoff algebra. | Composition-root resilience. |
-| [7] | `Seq<T>`, `Arr<T>` | Immutable traversal shapes. | Cross-module sequence and strict batch storage. |
-| [8] | `K<F,A>` and traits | Effect-polymorphic algorithms. | Advanced compression when one algorithm targets multiple carriers. |
-| [9] | `Atom<T>`, `Ref<T>` | Managed reactive state. | UI/session state — no Subscribe API in 5.0.0-beta-77. |
-| [10] | `HashMap<K,V>`, `HashSet<T>` | Immutable map/set. | Keyed memoization after key policy is explicit. |
+| [INDEX] | [SURFACE]                    | [OWNS]                                     | [TYPICAL_USE]                                         |
+| :-----: | ---------------------------- | ------------------------------------------ | ----------------------------------------------------- |
+|   [1]   | `Option<T>`                  | Absence without failure.                   | Optional input after null/sentinel projection.        |
+|   [2]   | `Fin<T>`                     | Synchronous fallible result.               | Default local validation and native call admission.   |
+|   [3]   | `Validation<Error,T>`        | Independent error accumulation.            | Parallel requirements and multi-field validation.     |
+|   [4]   | `Eff<RT,T>`                  | Runtime-record effects with typed failure. | Host context, IO, and boundary work.                  |
+|   [5]   | `IO<T>`                      | Deferred side-effect/resource description. | Boundary execution before `Eff` or terminal result.   |
+|   [6]   | `Schedule`                   | Retry, repeat, timeout, backoff algebra.   | Composition-root resilience.                          |
+|   [7]   | `Seq<T>`, `Arr<T>`           | Immutable traversal shapes.                | Cross-module sequence and strict batch storage.       |
+|   [8]   | `K<F,A>` and traits          | Effect-polymorphic algorithms.             | One algorithm, multiple carriers.                     |
+|   [9]   | `Atom<T>`, `Ref<T>`          | Managed reactive state.                    | UI/session state — no Subscribe API in 5.0.0-beta-77. |
+|  [10]   | `HashMap<K,V>`, `HashSet<T>` | Immutable map/set.                         | Keyed memoization after key policy is explicit.       |
 
 ---
 ## [3][ADVANCED_INDEX]
@@ -43,13 +43,15 @@
 
 <br>
 
-| [INDEX] | [FILE] | [OWNS] |
-| :-----: | ------ | ------ |
-| [1] | `operators.md` | `\|`, `&`, `+` disambiguation across Option, Schedule, Validation, Error, domain types |
-| [2] | `prelude.md` | Global static Prelude: `Some`, `Optional`, `guard`, `toSeq`, `unit`, `identity` |
-| [3] | `combinators.md` | `TraverseM` lowering, `Choose`, `BiBind`, `Atom.SwapMaybe`, recovery combinators |
-| [4] | `effects.md` | Rail selection, Schedule names, v5 deltas, Atom v5 surface |
-| [5] | `rasm.md` | Repo rail policy, boundary patterns, validation error shapes |
+| [INDEX] | [FILE]           | [OWNS]                                                                                      |
+| :-----: | ---------------- | ------------------------------------------------------------------------------------------- |
+|   [1]   | `operators.md`   | `\|`, `&`, `+` disambiguation across Schedule, Validation, Error, Eff/Finally, domain types |
+|   [2]   | `prelude.md`     | Global static Prelude: `Some`, `Optional`, `guard`, `toSeq`, `unit`, `identity`             |
+|   [3]   | `combinators.md` | `TraverseM` lowering, `Choose`, `BiBind`, `Atom.SwapMaybe`, recovery combinators            |
+|   [4]   | `effects.md`     | Rail selection, Schedule names, v5 deltas, Atom v5 surface                                  |
+|   [5]   | `rasm.md`        | Repo rail policy, boundary patterns, validation error shapes                                |
+|   [6]   | `traits.md`      | Effect-polymorphic traits, `K<F,A>` algorithms                                              |
+|   [7]   | `collections.md` | `Seq`, `Arr`, immutable collection patterns                                                 |
 
 ---
 ## [4][BOUNDARIES]

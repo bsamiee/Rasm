@@ -11,13 +11,13 @@
 
 <br>
 
-| [INDEX] | [RASM_PUBLIC_API] | [BACKEND] |
-| :-----: | ----------------- | --------- |
-| [1] | `DecomposeSvd`, `DecomposeLu`, `DecomposeQr`, `DecomposeCholesky` | MathNet factorizations |
-| [2] | `DecomposeEigenDetailed`, `SmallestEigenpairsDetailed` | MathNet EVD / custom LOBPCG |
-| [3] | `SolveDetailed` on sparse types | BiCgStab + preconditioner + stop criteria |
-| [4] | `CholeskySparse.Of` / `SolveDetailed` | **CSparse** `SparseCholesky` |
-| [5] | Cloud Sinkhorn / PCA | `DenseMatrixD`, symmetric EVD, `SortedArrayStatistics.Quantile` |
+| [INDEX] | [RASM_PUBLIC_API]                                                 | [BACKEND]                                                       |
+| :-----: | ----------------------------------------------------------------- | --------------------------------------------------------------- |
+|   [1]   | `DecomposeSvd`, `DecomposeLu`, `DecomposeQr`, `DecomposeCholesky` | MathNet factorizations                                          |
+|   [2]   | `DecomposeEigenDetailed`, `SmallestEigenpairsDetailed`            | MathNet EVD / custom LOBPCG                                     |
+|   [3]   | `SolveDetailed` on sparse types                                   | BiCgStab + preconditioner + stop criteria                       |
+|   [4]   | `CholeskySparse.Of` / `SolveDetailed`                             | CSparse `SparseCholesky`                                        |
+|   [5]   | Cloud Sinkhorn / PCA                                              | `DenseMatrixD`, symmetric EVD, `SortedArrayStatistics.Quantile` |
 
 Internal implementation types (`MatrixKernel`, `LobpcgCore`) are not public API.
 
@@ -29,19 +29,16 @@ RhinoCommon owns geometry; MathNet receives explicit coordinates after validity 
 
 <br>
 
-| [INDEX] | [TYPE] | [KIND] |
-| :-----: | ------ | ------ |
-| [1] | `SolveReceipt` | `readonly record struct` |
-| [2] | `SolvePath`, `SolveStop` | `[SmartEnum<int>]` |
-| [3] | `EigenSolveReceipt<TEigen,TVector>` | `readonly record struct` |
-| [4] | `EigenSolvePath`, `EigenSolveStop` | `[SmartEnum<int>]` |
+| [INDEX] | [TYPE]                              | [KIND]                   |
+| :-----: | ----------------------------------- | ------------------------ |
+|   [1]   | `SolveReceipt`                      | `readonly record struct` |
+|   [2]   | `SolvePath`, `SolveStop`            | `[SmartEnum<int>]`       |
+|   [3]   | `EigenSolveReceipt<TEigen,TVector>` | `readonly record struct` |
+|   [4]   | `EigenSolvePath`, `EigenSolveStop`  | `[SmartEnum<int>]`       |
 
 **SolvePath** members: `DenseLu`, `DenseQrLeastSquares`, `DenseCholesky`, `SparseBiCgStabDiagonal`, `SparseMathNetDirectFallback`, `SparseCholesky`.
-
 **SolveStop** members: `DirectSolved`, `LeastSquaresSolved`, `ResidualConverged`, `DirectFallbackSolved`.
-
 **EigenSolvePath** members: `DenseSymmetricEvd`, `DenseGeneralEvd`, `SparseLobpcg`, `SparseHermitianLobpcg`, `SparseGeneralizedCholeskyCongruence`.
-
 **EigenSolveStop** members: `DirectSolved`, `ResidualConverged`, `MaxIterationsExhausted`.
 
 MathNet solver type for sparse iterative: **`BiCgStab`** (spelling in MathNet API). Package id for sparse Cholesky co-primary: **`CSparse`** (not `CSparse.NET`).
@@ -52,13 +49,13 @@ MathNet solver type for sparse iterative: **`BiCgStab`** (spelling in MathNet AP
 
 <br>
 
-| [INDEX] | [FLOW] | [BACKEND] |
-| :-----: | ------ | --------- |
-| [1] | Dense direct | LU / Cholesky / QR via factorization |
-| [2] | Sparse iterative | `BiCgStab` + `DiagonalPreconditioner` + iterator stop criteria |
-| [3] | Sparse direct fallback | MathNet `A.Solve(b)` when iterative residual fails policy |
-| [4] | SPD sparse mesh/heat | CSparse Cholesky via `LaplacianCache` in `Mesh.cs` |
-| [5] | Partial eigen | `SmallestEigenpairsDetailed` → internal LOBPCG |
+| [INDEX] | [FLOW]                 | [BACKEND]                                                      |
+| :-----: | ---------------------- | -------------------------------------------------------------- |
+|   [1]   | Dense direct           | LU / Cholesky / QR via factorization                           |
+|   [2]   | Sparse iterative       | `BiCgStab` + `DiagonalPreconditioner` + iterator stop criteria |
+|   [3]   | Sparse direct fallback | MathNet `A.Solve(b)` when iterative residual fails policy      |
+|   [4]   | SPD sparse mesh/heat   | CSparse Cholesky via `LaplacianCache` in `Mesh.cs`             |
+|   [5]   | Partial eigen          | `SmallestEigenpairsDetailed` → internal LOBPCG                 |
 
 Document non-convergence and non-finite scalars as typed `Fin` failures at boundary — see `linear.md`.
 
@@ -77,10 +74,10 @@ Document non-convergence and non-finite scalars as typed `Fin` failures at bound
 
 <br>
 
-| [INDEX] | [SURFACE] | [STATUS] |
-| :-----: | --------- | -------- |
-| [1] | `MathNet.Symbolics` | Pinned; zero production `.cs` references |
-| [2] | Optimization / Integration / Interpolation | Named in `api.md`; unused in `libs/` |
-| [3] | Control providers | Named; unused until measured adoption |
+| [INDEX] | [SURFACE]                                  | [STATUS]                                 |
+| :-----: | ------------------------------------------ | ---------------------------------------- |
+|   [1]   | `MathNet.Symbolics`                        | Pinned; zero production `.cs` references |
+|   [2]   | Optimization / Integration / Interpolation | Named in `api.md`; unused in `libs/`     |
+|   [3]   | Control providers                          | Named; unused until measured adoption    |
 
 Mark future consumers explicitly when first call site lands.

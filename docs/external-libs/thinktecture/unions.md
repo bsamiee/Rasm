@@ -11,12 +11,12 @@
 
 <br>
 
-| [INDEX] | [SURFACE] | [USE] |
-| :-----: | --------- | ----- |
-| [1] | `[Union]` | Named record cases with domain meaning and payload. |
-| [2] | `[Union<T1,...>]` | Type-list cases where type identity is enough. |
-| [3] | `[Union<TypeParamRef1,...>]` | Generic member references. |
-| [4] | `[AdHocUnion(typeof(...))]` | Local compact choice across up to verified generated members. |
+| [INDEX] | [SURFACE]                    | [USE]                                                         |
+| :-----: | ---------------------------- | ------------------------------------------------------------- |
+|   [1]   | `[Union]`                    | Named record cases with domain meaning and payload.           |
+|   [2]   | `[Union<T1,...>]`            | Type-list cases where type identity is enough.                |
+|   [3]   | `[Union<TypeParamRef1,...>]` | Generic member references.                                    |
+|   [4]   | `[AdHocUnion(typeof(...))]`  | Local compact choice across up to verified generated members. |
 
 ---
 ## [2][DISPATCH]

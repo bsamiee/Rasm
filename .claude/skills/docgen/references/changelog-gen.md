@@ -80,12 +80,12 @@ Transform developer shorthand into user-observable behavior. Each example shows 
 
 When generating entries from commit history:
 
-| [INDEX] | [SOURCE]            | [PRIORITY] | [EXTRACTION]                                          |
-| :-----: | ------------------- | :--------: | ----------------------------------------------------- |
-|   [1]   | **PR title + body** |  Highest   | PR title → entry summary; body → detail if breaking.  |
-|   [2]   | **Commit subject**  |    High    | Conventional Commits prefix → category routing.       |
-|   [3]   | **Commit body**     |   Medium   | Extended description for context on complex changes.  |
-|   [4]   | **File diff scope** |    Low     | Changed files indicate affected module for scope tag. |
+| [INDEX] | [SOURCE]        | [PRIORITY] | [EXTRACTION]                                          |
+| :-----: | --------------- | :--------: | ----------------------------------------------------- |
+|   [1]   | PR title + body |  Highest   | PR title → entry summary; body → detail if breaking.  |
+|   [2]   | Commit subject  |    High    | Conventional Commits prefix → category routing.       |
+|   [3]   | Commit body     |   Medium   | Extended description for context on complex changes.  |
+|   [4]   | File diff scope |    Low     | Changed files indicate affected module for scope tag. |
 
 **Filtering heuristics:**
 - `feat:`, `feat!:` → Include; route per §3[CATEGORY_ROUTING].
@@ -115,14 +115,14 @@ When generating entries from commit history:
 
 <br>
 
-| [INDEX] | [SIGNAL]                                      |   [CATEGORY]   |
-| :-----: | --------------------------------------------- | :------------: |
-|   [1]   | New capability not previously available       |   **Added**    |
-|   [2]   | Existing behavior modified (non-breaking)     |  **Changed**   |
-|   [3]   | Feature scheduled for removal in future       | **Deprecated** |
-|   [4]   | Previously available capability removed       |  **Removed**   |
-|   [5]   | Incorrect behavior corrected                  |   **Fixed**    |
-|   [6]   | Vulnerability patched or security improvement |  **Security**  |
+| [INDEX] | [SIGNAL]                                      | [CATEGORY] |
+| :-----: | --------------------------------------------- | :--------: |
+|   [1]   | New capability not previously available       |   Added    |
+|   [2]   | Existing behavior modified (non-breaking)     |  Changed   |
+|   [3]   | Feature scheduled for removal in future       | Deprecated |
+|   [4]   | Previously available capability removed       |  Removed   |
+|   [5]   | Incorrect behavior corrected                  |   Fixed    |
+|   [6]   | Vulnerability patched or security improvement |  Security  |
 
 **Breaking change detection:** Semver MAJOR bump required when:
 - Public API function signature changes
@@ -138,12 +138,12 @@ When generating entries from commit history:
 
 Release notes differ from changelog entries:
 
-| [INDEX] | [DIMENSION]     | [CHANGELOG]                   | [RELEASE_NOTES]                       |
-| :-----: | --------------- | ----------------------------- | ------------------------------------- |
-|   [1]   | **Audience**    | Existing users tracking diffs | Broader audience including evaluators |
-|   [2]   | **Granularity** | Per-entry, per-category       | Grouped by theme/narrative            |
-|   [3]   | **Tone**        | Factual, terse                | Contextual, value-oriented            |
-|   [4]   | **Structure**   | Flat list per category        | Highlights → details → migration      |
+| [INDEX] | [DIMENSION] | [CHANGELOG]                   | [RELEASE_NOTES]                       |
+| :-----: | ----------- | ----------------------------- | ------------------------------------- |
+|   [1]   | Audience    | Existing users tracking diffs | Broader audience including evaluators |
+|   [2]   | Granularity | Per-entry, per-category       | Grouped by theme/narrative            |
+|   [3]   | Tone        | Factual, terse                | Contextual, value-oriented            |
+|   [4]   | Structure   | Flat list per category        | Highlights → details → migration      |
 
 ### [4.1][RELEASE_NOTE_STRUCTURE]
 
@@ -158,11 +158,11 @@ Release notes differ from changelog entries:
 
 <br>
 
-| [INDEX] | [BUMP]    | [TRIGGER]                                       |
-| :-----: | --------- | ----------------------------------------------- |
-|   [1]   | **MAJOR** | Breaking change — public API contract violated. |
-|   [2]   | **MINOR** | New capability — backward-compatible addition.  |
-|   [3]   | **PATCH** | Bug fix — backward-compatible correction.       |
+| [INDEX] | [BUMP] | [TRIGGER]                                       |
+| :-----: | ------ | ----------------------------------------------- |
+|   [1]   | MAJOR  | Breaking change — public API contract violated. |
+|   [2]   | MINOR  | New capability — backward-compatible addition.  |
+|   [3]   | PATCH  | Bug fix — backward-compatible correction.       |
 
 [IMPORTANT]:
 1. [ALWAYS] **Pre-1.0:** MINOR bumps may include breaking changes. Document explicitly.

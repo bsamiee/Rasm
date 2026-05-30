@@ -194,9 +194,14 @@ description: Whitespace and separator rules for document structure
 |   [4]   | Short labels  |   Center    | Categorical (≤10 chars). |
 
 [IMPORTANT]:
-- [ALWAYS] **Index:** Include `[INDEX]` column for all enumerable tables.
-- [ALWAYS] **Headers:** Use sigil format `[HEADER]` with UPPERCASE.
-- [ALWAYS] **Emphasis:** Bold first column for category emphasis.
+- [ALWAYS] Include `[INDEX]` as first column on every enumerable table; body cells `[1]`…`[n]`; center alignment.
+- [ALWAYS] Format remaining headers as `[RUBRIC]` sigils in UPPERCASE.
+- [ALWAYS] Use backticks for symbols, paths, and version pins; Title Case for category labels.
+- [NEVER] Use `**` emphasis inside table cells, including the index column.
+- [NEVER] Use plain-word headers (`Corpus`, `Signal`, …) on enumerable tables.
+
+[CRITICAL]:
+- [NEVER] Wrap index cells as `**[1]**`.
 
 ---
 ### [4.4][CODE_SPANS]
@@ -250,8 +255,8 @@ Content—elaboration continues here.                     ← Em-dash: inline ex
 
 ### [1.1][SUBSECTION]                                   ← H3: [N.M][LABEL] format
 
-**Term A** — First definition.<br>                      ← Inline <br>: tight grouping
-**Term B** — Second definition.                         ← No gap between related lines
+Term A — First definition.<br>                          ← Inline <br>: tight grouping
+Term B — Second definition.                             ← No gap between related lines
 
 ---                                                     ← H3 → H3: hard separator
 ### [1.2][SIBLING]

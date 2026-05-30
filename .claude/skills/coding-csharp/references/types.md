@@ -261,7 +261,7 @@ public sealed class DomainConverter<TDomain, TScalar> : ValueConverter<TDomain, 
 
 ## Decorator and Key Contract Types
 
-Without structural enforcement at the registration site, capability resolution is late-bound — a misspelled string key silently resolves to null at the injection site, and a Scrutor `Decorate` call silently skips every non-string-keyed descriptor because `GetDecoratorKey` returns null for enum keys, neither of which surfaces until the first exercised call path.
+Without structural enforcement at the registration site, capability resolution is late-bound — a misspelled string key silently resolves to null at the injection site, and a Scrutor `Decorate` call silently skips every non-string-keyed descriptor because stock decoration matches `string` keys only, neither of which surfaces until the first exercised call path.
 
 ```csharp
 namespace Infra.Storage;
@@ -286,5 +286,5 @@ public sealed class AuditStoreDecorator(IObjectStore inner, ITraceWriter traceWr
 ```
 
 - `[FromKeyedServices(StorageRegion.Primary)]` accepts `object?` — the compiler cannot verify alignment with the registered key type, but enum keys close the vocabulary: substituting `[FromKeyedServices("primary")]` admits typos that resolve to null silently at runtime.
-- Scrutor v7's `GetDecoratorKey` returns `null` for any non-`string` service key — `TryDecorate<IObjectStore, AuditStoreDecorator>()` silently skips all `StorageRegion`-keyed descriptors (no exception, no diagnostic), while `Decorate` throws `InvalidOperationException` only if zero undecorated descriptors remain; a `(StorageRegion, "raw")` composite sentinel at the composition root replicates Scrutor's two-descriptor delegation contract without the string-key constraint.
+- Scrutor v7 stock `Decorate`/`TryDecorate` match non-keyed (`ServiceKey == null`) descriptors only — enum/object keyed services need manual per-key decorate folds (see `composition.md`); `TryDecorate` silently skips when no undecoratable match exists
 - `Live` hoists the cancellation guard into a `static readonly` field, keeping both `Get` and `Put` expression-bodied on a single `Bind` chain without duplicating the guard.

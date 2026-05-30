@@ -1,4 +1,4 @@
-# [H1][MATHNET_RHINO]
+# [H1][HOST_RHINO]
 >**Dictum:** *RhinoCommon owns model geometry; MathNet executes selected numerical kernels.*
 
 <br>
@@ -11,13 +11,13 @@
 
 <br>
 
-| [INDEX] | [OWNER] | [EXAMPLES] |
-| :-----: | ------- | ---------- |
-| [1] | Rhino validity and tolerances | `RhinoMath`, `IsValid`, unset sentinels, distance/angle tolerance. |
-| [2] | Rhino transforms | `Transform`, `PlaneToPlane`, `ChangeBasis`, affine/rigid/similarity checks. |
-| [3] | Rhino curves and surfaces | Derivatives, tangents, frames, closest points, length parameters. |
-| [4] | Rhino meshes | Topology, normals, ngons, cleanup, closest points, remesh/reduce operations. |
-| [5] | MathNet | Higher-dimensional solves, fitting, symbolic formulas, statistics, diagnostics. |
+| [INDEX] | [OWNER]                       | [EXAMPLES]                                                                      |
+| :-----: | ----------------------------- | ------------------------------------------------------------------------------- |
+|   [1]   | Rhino validity and tolerances | `RhinoMath`, `IsValid`, unset sentinels, distance/angle tolerance.              |
+|   [2]   | Rhino transforms              | `Transform`, `PlaneToPlane`, `ChangeBasis`, affine/rigid/similarity checks.     |
+|   [3]   | Rhino curves and surfaces     | Derivatives, tangents, frames, closest points, length parameters.               |
+|   [4]   | Rhino meshes                  | Topology, normals, ngons, cleanup, closest points, remesh/reduce operations.    |
+|   [5]   | MathNet                       | Higher-dimensional solves, fitting, symbolic formulas, statistics, diagnostics. |
 
 ---
 ## [2][BOUNDARY]
@@ -42,6 +42,7 @@ When documenting Rhino 9/WIP members such as transform scale classification, vec
 <br>
 
 - Prefer Rhino analytic APIs for geometry/topology work.
-- Use MathNet when the operation is numerical algorithm work, not native modeling.
+- Use MathNet when the operation is numerical algorithm work, not native modeling — see `external-libs/mathnet/*.md` for numeric kernels.
 - Preserve Rhino sentinels as host facts; do not treat every unset value as generic failure.
 - Keep ownership/disposal policy outside MathNet data structures.
+- Plugin projects default `UseWorkspaceLibraries=false` — see `system-api-map/packages.md` §4; use `Eff.runtime<RT>()` and explicit factories per `external-libs/languageext/effects.md` §8, not Scrutor in command hot paths.

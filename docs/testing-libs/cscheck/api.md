@@ -11,12 +11,12 @@
 
 <br>
 
-| [INDEX] | [FACT] | [VALUE] |
-| :-----: | ------ | ------- |
-| [1] | Current pin | `CsCheck 4.7.0` |
-| [2] | Package TFM | `net8.0`, compatible with Rasm `net10.0` projects |
-| [3] | Notable current addition | `SampleModelBasedAsync` |
-| [4] | Rasm policy | `Spec.ForAll` owns seed/iter/time/thread precedence |
+| [INDEX] | [FACT]                   | [VALUE]                                             |
+| :-----: | ------------------------ | --------------------------------------------------- |
+|   [1]   | Current pin              | `CsCheck 4.7.0`                                     |
+|   [2]   | Package TFM              | `net8.0`, compatible with Rasm `net10.0` projects   |
+|   [3]   | Notable current addition | `SampleModelBasedAsync`                             |
+|   [4]   | Rasm policy              | `Spec.ForAll` owns seed/iter/time/thread precedence |
 
 [SOURCE] NuGet package page: https://www.nuget.org/packages/CsCheck/4.7.0
 
@@ -26,15 +26,15 @@
 
 <br>
 
-| [INDEX] | [API] | [USE] | [RASM_EXPOSURE] |
-| :-----: | --- | --- | --- |
-| [1] | `Check.Sample` / `SampleAsync` | Generated action, predicate, classifier checks. | `Spec.ForAll`; async only after real consumer. |
-| [2] | `Check.SampleModelBased` / `SampleModelBasedAsync` | Actual-vs-smaller-model stateful checks. | Add only with two stateful specs. |
-| [3] | `Check.SampleMetamorphic` | `GenMetamorphic<T>` operation rail. | Distinct from current `Spec.Metamorphic`. |
-| [4] | `Check.SampleParallel` | Parallel operations and shrinking. | `Spec.ConcurrentProfiled`; needs policy cleanup before broad use. |
-| [5] | `Check.Hash` | Hash regression for large stable artifacts. | No cache/path claim without current source proof. |
-| [6] | `Check.ChiSquared` | Generator distribution audit. | Testkit generator validation only. |
-| [7] | `Check.Faster` / `FasterAsync` | Statistical performance comparison. | Prefer BenchmarkDotNet for benchmark rail. |
+| [INDEX] | [API]                            | [USE]                                     | [RASM]                                          |
+| :-----: | -------------------------------- | ----------------------------------------- | ----------------------------------------------- |
+|   [1]   | `Check.Sample`(+Async)           | Action/predicate/classifier checks        | `Spec.ForAll`; async after consumer             |
+|   [2]   | `Check.SampleModelBased`(+Async) | Actual vs smaller model                   | Two stateful specs min.                         |
+|   [3]   | `Check.SampleMetamorphic`        | `GenMetamorphic<T>` ops                   | Not `Spec.Metamorphic`                          |
+|   [4]   | `Check.SampleParallel`           | Parallel ops + shrinking                  | `Spec.ConcurrentProfiled`; policy cleanup first |
+|   [5]   | `Check.Hash`                     | Hash regression on stable large artifacts | Source proof before cache/path claims           |
+|   [6]   | `Check.ChiSquared`               | Generator distribution audit              | Testkit gen validation only                     |
+|   [7]   | `Check.Faster`(+Async)           | Statistical perf comparison               | BenchmarkDotNet on benchmark rail               |
 
 ---
 ## [3][GEN_SURFACE]
@@ -42,14 +42,14 @@
 
 <br>
 
-| [INDEX] | [API] | [RASM_USE] |
-| :-----: | --- | ---------- |
-| [1] | `Gen.Select`, `SelectMany` | Product axes and dependent generation. |
-| [2] | `Gen.OneOfConst`, `OneOf`, `Frequency` | Case tables and edge bias. |
-| [3] | `Gen.Array`, `ArrayUnique`, `Array2D`, `List`, `Dictionary` | Collection domains before projection to `Seq<T>`. |
-| [4] | `Gen.Shuffle`, `ShuffleSelect` | Permutation and selection metamorphic laws. |
-| [5] | `Gen.Recursive` | Recursive structures only with explicit depth discipline. |
-| [6] | `Gen.Clone` | Identical streams for two-path comparisons. |
+| [INDEX] | [API]                                                       | [RASM_USE]                                                |
+| :-----: | ----------------------------------------------------------- | --------------------------------------------------------- |
+|   [1]   | `Gen.Select`, `SelectMany`                                  | Product axes and dependent generation.                    |
+|   [2]   | `Gen.OneOfConst`, `OneOf`, `Frequency`                      | Case tables and edge bias.                                |
+|   [3]   | `Gen.Array`, `ArrayUnique`, `Array2D`, `List`, `Dictionary` | Collection domains before `Seq<T>` projection.            |
+|   [4]   | `Gen.Shuffle`, `ShuffleSelect`                              | Permutation and selection metamorphic laws.               |
+|   [5]   | `Gen.Recursive`                                             | Recursive structures only with explicit depth discipline. |
+|   [6]   | `Gen.Clone`                                                 | Identical streams for two-path comparisons.               |
 
 ---
 ## [4][RASM_POLICY]
@@ -71,10 +71,14 @@
 
 CsCheck shrinking finds the minimal counterexample by repeatedly narrowing failed inputs. Two generator patterns break shrinking:
 
-| [BREAKS] | [PRESERVES] |
-| -------- | ----------- |
-| `Gen.Int.Select(i => i > 0 ? new T(i) : throw new ...)` | `Gen.Int.Where(i => i > 0).Select(i => new T(i))` |
-| `Gen.Select(Factory).Select(opt => opt.IfNone(() => throw new ...))` | `Gen.Select(Factory).Where(opt => opt.IsSome).Select(opt => opt.IfNone(default!))` |
+| [INDEX] | [ANTI_PATTERN]                   | [PATTERN]                                             |
+| :-----: | -------------------------------- | ----------------------------------------------------- |
+|   [1]   | `throw` inside `Select`          | Use `Where` then `Select` — see code block below      |
+|   [2]   | `throw` inside optional `Select` | Use `Where(opt => opt.IsSome)` — see code block below |
+
+[DETAIL]
+- [1] `Gen.Int.Select(i => i > 0 ? new T(i) : throw …)` → `Gen.Int.Where(i => i > 0).Select(i => new T(i))`
+- [2] `Gen.Select(Factory).Select(opt => opt.IfNone(() => throw …))` → `Gen.Select(Factory).Where(opt => opt.IsSome).Select(opt => opt.IfNone(default!))`
 
 The `throw` form fires CsCheck's `WhereLimit` (default 100); when exhausted CsCheck gives up with a generic "could not satisfy" message and no minimal counterexample. The `Where` form keeps shrinking on the satisfying subset.
 
@@ -96,17 +100,17 @@ public static readonly Gen<Dimension> Dimension =
 
 <br>
 
-| [INDEX] | [VAR] | [DEFAULT] | [USE] |
-| :-----: | ----- | --------- | ----- |
-| [1] | `CsCheck_Iter` | 100 | Per-property iteration count. |
-| [2] | `CsCheck_Time` | 0 (disabled) | Wall-clock budget in seconds (overrides Iter when set). |
-| [3] | `CsCheck_Threads` | 1 | Parallel sample workers (for `SampleParallel`). |
-| [4] | `CsCheck_Seed` | unset | Fixed seed for reproducible runs. |
-| [5] | `CsCheck_Replay` | 100 | Number of times to replay a failing seed for parallel reproduction. |
-| [6] | `CsCheck_Sigma` | 6.0 | Statistical significance for `Check.Faster`. |
-| [7] | `CsCheck_Timeout` | 30 | Per-sample timeout (seconds). |
-| [8] | `CsCheck_Ulps` | 0 | Allowed ULP slack for floating equality (off by default; tolerance lives in `Spec.EqualWithin`). |
-| [9] | `CsCheck_WhereLimit` | 100 | Filter rejection cap; lower → fail faster, higher → tolerate sparse-acceptance generators. |
+| [INDEX] | [VAR]                | [DEFAULT]    | [USE]                                                                                            |
+| :-----: | -------------------- | ------------ | ------------------------------------------------------------------------------------------------ |
+|   [1]   | `CsCheck_Iter`       | 100          | Per-property iteration count.                                                                    |
+|   [2]   | `CsCheck_Time`       | 0 (disabled) | Wall-clock budget in seconds (overrides Iter when set).                                          |
+|   [3]   | `CsCheck_Threads`    | 1            | Parallel sample workers (for `SampleParallel`).                                                  |
+|   [4]   | `CsCheck_Seed`       | unset        | Fixed seed for reproducible runs.                                                                |
+|   [5]   | `CsCheck_Replay`     | 100          | Number of times to replay a failing seed for parallel reproduction.                              |
+|   [6]   | `CsCheck_Sigma`      | 6.0          | Statistical significance for `Check.Faster`.                                                     |
+|   [7]   | `CsCheck_Timeout`    | 30           | Per-sample timeout (seconds).                                                                    |
+|   [8]   | `CsCheck_Ulps`       | 0            | Allowed ULP slack for floating equality (off by default; tolerance lives in `Spec.EqualWithin`). |
+|   [9]   | `CsCheck_WhereLimit` | 100          | Filter rejection cap; lower → fail faster, higher → tolerate sparse-acceptance generators.       |
 
 `Spec.ForAll` precedence: explicit args > env vars > package defaults. CI policy: tune `CsCheck_Iter=1000` and `CsCheck_Time=60` for nightly extended runs; keep PR validation at defaults. `CsCheck_Replay=10` for CI, default 100 for local repro.
 

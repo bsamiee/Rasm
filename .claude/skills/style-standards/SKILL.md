@@ -31,13 +31,13 @@ Govern file creation and modification in monorepo.
 
 **References:**
 
-| Domain     | File                                      |
-| ---------- | ----------------------------------------- |
-| Keywords   | [keywords.md](references/keywords.md)     |
-| Taxonomy   | [taxonomy.md](references/taxonomy.md)     |
-| Voice      | [voice.md](references/voice.md)           |
-| Formatting | [formatting.md](references/formatting.md) |
-| Validation | [validation.md](references/validation.md) |
+| [INDEX] | [DOMAIN]   | [FILE]                                    |
+| :-----: | ---------- | ----------------------------------------- |
+|   [1]   | Keywords   | [keywords.md](references/keywords.md)     |
+|   [2]   | Taxonomy   | [taxonomy.md](references/taxonomy.md)     |
+|   [3]   | Voice      | [voice.md](references/voice.md)           |
+|   [4]   | Formatting | [formatting.md](references/formatting.md) |
+|   [5]   | Validation | [validation.md](references/validation.md) |
 
 ---
 ## [1][TAXONOMY]
@@ -109,7 +109,7 @@ Separators encode hierarchy. Whitespace: semantic, not cosmetic. Patterns enable
 - `Spacing` - Place 1 blank after header. Place none after `---`. Place none between list items.
 - `Dividers` - Pad code separators `// --- [LABEL] ---` to column 80.
 - `Language` - Canonical code divider order is archetype-scoped: use TS_ENTITY/TS_SERVICE/TS_UTILITY for `.ts/.tsx`, C# canonical for `.cs`.
-- `Tables` - Include `[INDEX]` first column. Format headers as `[HEADER]` sigil. Align: center index, right numeric, left prose.
+- `Tables` - Include `[INDEX]` first column; format headers as `[RUBRIC]` sigils; align center index, right numeric, left prose; no `**` in table cells.
 
 **Best-Practices:**<br>
 - **Separator Prohibitions** - `---` between H2 and first H3 prohibited. `<br>` between sibling H3s prohibited.
@@ -120,7 +120,7 @@ Separators encode hierarchy. Whitespace: semantic, not cosmetic. Patterns enable
 - **Soft Breaks** - `<br>` required after Dictum and Preamble. Groups 2-3 related definitions inline.
 - **Case Taxonomy** - UPPERCASE: sigils, rubrics, keywords, section labels. Title Case: table cells. kebab-case: files.
 - **Directive Ordering** - `[IMPORTANT]:` precedes `[CRITICAL]:`. Within list: `[ALWAYS]` precedes `[NEVER]`.
-- **Table Styling** - First column bold for category anchoring.
+- **Table Styling** - Index column `[1]`…`[n]`; bracket rubric headers; no `**` emphasis in cells.
 
 [REFERENCE]: [→formatting.md](./references/formatting.md) — Structure, typeset, spacing, example
 

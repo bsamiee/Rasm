@@ -3,7 +3,7 @@
 
 <br>
 
-Structural quality checklist for auditing `.cs` modules against csharp-standards contracts. Use after scaffolding, editing, or reviewing any module. Items below are NOT enforced by the compiler or editorconfig -- they require human/agent judgment.
+Structural quality checklist for auditing `.cs` modules against csharp-standards contracts. Use after scaffolding, editing, or reviewing any module. Items below are not enforced by the compiler or editorconfig — apply judgment against the referenced contracts.
 
 ---
 ## [1][TYPE_INTEGRITY]
@@ -88,7 +88,7 @@ These checks apply ONLY to code annotated as hot-path or residing in performance
 ---
 ## [8][DETECTION_HEURISTICS]
 
-Concrete search patterns an agent can apply to any `.cs` file:
+Concrete search patterns for any `.cs` file:
 
 | [INDEX] | [SEARCH_FOR]                                             | [INDICATES]                    | [SEVERITY] |         [COVERAGE]         |
 | :-----: | :------------------------------------------------------- | :----------------------------- | :--------: | :------------------------: |
@@ -113,7 +113,7 @@ Concrete search patterns an agent can apply to any `.cs` file:
 | :-----: | :-------------------------- | :-------------------------------------------------------------- | :---------------------------------- |
 |   [1]   | **TYPE_INTEGRITY**          | Canonical types, smart constructors, sealed DUs, phantoms       | `types.md` [1], [4], [5]            |
 |   [2]   | **ERROR_SYMPTOMS**          | 14 symptom-cause-fix triples for structural diagnosis           | --                                  |
-|   [3]   | **EFFECT_INTEGRITY**        | Fin/Validation/Eff layering, no try/catch, no mid-Match         | `effects.md` [1], [4], [2]          |
+|   [3]   | **EFFECT_INTEGRITY**        | Fin/Validation/Eff layering, no try/catch, no mid-Match         | `effects.md` [1], [4], [2], [8]     |
 |   [4]   | **CONTROL_FLOW**            | Zero branching, exhaustive switch, no early-return guards       | `effects.md` [4], `patterns.md` [1] |
 |   [5]   | **SURFACE_QUALITY**         | No helper/arity/surface spam, no interface/null pollution       | `composition.md` [2], [5]           |
 |   [6]   | **DENSITY**                 | Concept-density pressure points, algebraic collapse-in-place, no wrapper spam, no file extraction | `patterns.md` [1]                   |
@@ -128,4 +128,13 @@ Concrete search patterns an agent can apply to any `.cs` file:
 
 - [ ] FluentValidation async rules (`MustAsync`, `CustomAsync`) execute via `ValidateAsync` only -- never `Validate` when async rules exist
 - [ ] RuleSets are boundary contracts (`IncludeRuleSets`) and map to `Validation<Error,T>` before entering domain pipelines
-- [ ] Bridge converts `ValidationResult` to `Validation<Error,T>` at boundary -- keep the adapter inline at the boundary or in the owning composition module; no template/helper-file proliferation
+- [ ] Bridge converts `ValidationResult` to `Validation<Error,T>` at boundary — keep the adapter inline at the boundary or in the owning composition module; no template/helper-file proliferation
+
+```csharp
+var result = await validator.ValidateAsync(dto, ct);
+var validated = result.Errors.Fold(
+    Validation<Error, ImportDto>.Success(dto),
+    (acc, f) => acc.Bind(_ => fail<Error, ImportDto>(Error.New(f.PropertyName, f.ErrorMessage))));
+from x in validated.ToEff()
+select /* domain pipeline */;
+```

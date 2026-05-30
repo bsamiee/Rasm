@@ -81,19 +81,19 @@ Single authority on documentation structure, content requirements, and generatio
 
 <br>
 
-| [INDEX] | [TASK]                    | [REFERENCES]        | [TEMPLATE]               | [STANDARDS_DOC]                 |
-| :-----: | ------------------------- | ------------------- | ------------------------ | ------------------------------- |
-|   [1]   | **README creation**       | readme-gen.md       | readme.template.md       | readme-standards.md             |
-|   [2]   | **README update**         | readme-gen.md       | —                        | readme-standards.md             |
-|   [3]   | **ADR creation**          | adr.md              | adr.template.md          | adr-standards.md                |
-|   [4]   | **ADR review**            | adr.md              | —                        | adr-standards.md                |
-|   [5]   | **Code documentation**    | code-docs.md        | —                        | code-documentation-standards.md |
-|   [6]   | **CONTRIBUTING creation** | contributing-gen.md | —                        | —                               |
-|   [7]   | **ARCHITECTURE creation** | architecture-gen.md | architecture.template.md | architecture-standards.md       |
-|   [8]   | **ARCHITECTURE update**   | architecture-gen.md | —                        | architecture-standards.md       |
-|   [9]   | **Changelog entry**       | changelog-gen.md    | —                        | changelog-standards.md          |
-|  [10]   | **Release notes**         | changelog-gen.md    | —                        | changelog-standards.md          |
-|  [11]   | **Doc validation/audit**  | validation.md       | —                        | (all applicable)                |
+| [INDEX] | [TASK]                | [REFERENCES]        | [TEMPLATE]               | [STANDARDS_DOC]                 |
+| :-----: | --------------------- | ------------------- | ------------------------ | ------------------------------- |
+|   [1]   | README creation       | readme-gen.md       | readme.template.md       | readme-standards.md             |
+|   [2]   | README update         | readme-gen.md       | —                        | readme-standards.md             |
+|   [3]   | ADR creation          | adr.md              | adr.template.md          | adr-standards.md                |
+|   [4]   | ADR review            | adr.md              | —                        | adr-standards.md                |
+|   [5]   | Code documentation    | code-docs.md        | —                        | code-documentation-standards.md |
+|   [6]   | CONTRIBUTING creation | contributing-gen.md | —                        | —                               |
+|   [7]   | ARCHITECTURE creation | architecture-gen.md | architecture.template.md | architecture-standards.md       |
+|   [8]   | ARCHITECTURE update   | architecture-gen.md | —                        | architecture-standards.md       |
+|   [9]   | Changelog entry       | changelog-gen.md    | —                        | changelog-standards.md          |
+|  [10]   | Release notes         | changelog-gen.md    | —                        | changelog-standards.md          |
+|  [11]   | Doc validation/audit  | validation.md       | —                        | (all applicable)                |
 
 ---
 ## [4][DECISION_TREES]
@@ -117,28 +117,28 @@ Single authority on documentation structure, content requirements, and generatio
 
 **README scope routing:**
 
-| [INDEX] | [CONTEXT]                                   |      [SCOPE]      | [REFERENCE_SECTION]      |
-| :-----: | ------------------------------------------- | :---------------: | ------------------------ |
-|   [1]   | Project root, full project documentation    |   Project root    | readme-gen.md §3.1 row 1 |
+| [INDEX] | [CONTEXT]                                    |      [SCOPE]      | [REFERENCE_SECTION]      |
+| :-----: | -------------------------------------------- | :---------------: | ------------------------ |
+|   [1]   | Project root, full project documentation     |   Project root    | readme-gen.md §3.1 row 1 |
 |   [2]   | Materialized package or app root in monorepo | Package/workspace | readme-gen.md §3.4       |
-|   [3]   | `src/modules/*` or bounded context boundary |  Module/feature   | readme-gen.md §3.1 row 3 |
-|   [4]   | `docs/` or directory with child `.md` files |   Directory hub   | readme-gen.md §3.3       |
+|   [3]   | `src/modules/*` or bounded context boundary  |  Module/feature   | readme-gen.md §3.1 row 3 |
+|   [4]   | `docs/` or directory with child `.md` files  |   Directory hub   | readme-gen.md §3.3       |
 
 **README audience routing:**
 
-| [INDEX] | [AUDIENCE]      | [SECTION_DEPTH]              | [EMPHASIS]           |
-| :-----: | --------------- | ---------------------------- | -------------------- |
-|   [1]   | **Evaluator**   | Title, Description, Badges   | Problem/solution fit |
-|   [2]   | **Adopter**     | + Install, Usage, License    | Time to first value  |
-|   [3]   | **Contributor** | + Architecture, Contributing | Orientation velocity |
+| [INDEX] | [AUDIENCE]  | [SECTION_DEPTH]              | [EMPHASIS]           |
+| :-----: | ----------- | ---------------------------- | -------------------- |
+|   [1]   | Evaluator   | Title, Description, Badges   | Problem/solution fit |
+|   [2]   | Adopter     | + Install, Usage, License    | Time to first value  |
+|   [3]   | Contributor | + Architecture, Contributing | Orientation velocity |
 
 **Code doc language routing:**
 
-| [INDEX] | [LANGUAGE]     | [FORMAT]          | [EFFECT_TYPE_DOCS]                      |
-| :-----: | -------------- | ----------------- | --------------------------------------- |
-|   [1]   | **C#**         | XML Documentation | `Fin<T>` success/failure in `<returns>` |
-|   [2]   | **Python**     | Google Style      | `Result[T,E]` in Returns section        |
-|   [3]   | **TypeScript** | TSDoc             | `Effect<A,E>` in `@returns` tag         |
+| [INDEX] | [LANGUAGE] | [FORMAT]          | [EFFECT_TYPE_DOCS]                      |
+| :-----: | ---------- | ----------------- | --------------------------------------- |
+|   [1]   | C#         | XML Documentation | `Fin<T>` success/failure in `<returns>` |
+|   [2]   | Python     | Google Style      | `Result[T,E]` in Returns section        |
+|   [3]   | TypeScript | TSDoc             | `Effect<A,E>` in `@returns` tag         |
 
 ---
 ## [5][ANTI_PATTERNS]

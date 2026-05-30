@@ -11,14 +11,14 @@
 
 <br>
 
-| [INDEX] | [FACT] | [VALUE] |
-| :-----: | ------ | ------- |
-| [1] | Tool | `dotnet-stryker 4.14.2` |
-| [2] | Project under mutation | `libs/csharp/Rasm/Rasm.csproj` |
-| [3] | Test project | `tests/csharp/libs/Rasm/Rasm.Tests.csproj` |
-| [4] | Default runner | `vstest` |
-| [5] | Output | `.artifacts/mutation/<slice>/<run-id>`; `tools.quality test run` logs this path on success |
-| [6] | MSBuild isolation | VSTest uses `.artifacts/agents/<pid>/`; Stryker follows in-process and writes project `obj/`/`bin/` |
+| [INDEX] | [FACT]                 | [VALUE]                                                                                             |
+| :-----: | ---------------------- | --------------------------------------------------------------------------------------------------- |
+|   [1]   | Tool                   | `dotnet-stryker 4.14.2`                                                                             |
+|   [2]   | Project under mutation | `libs/csharp/Rasm/Rasm.csproj`                                                                      |
+|   [3]   | Test project           | `tests/csharp/libs/Rasm/Rasm.Tests.csproj`                                                          |
+|   [4]   | Default runner         | `vstest`                                                                                            |
+|   [5]   | Output                 | `.artifacts/mutation/<slice>/<run-id>`; `tools.quality test run` logs this path on success          |
+|   [6]   | MSBuild isolation      | VSTest uses `.artifacts/agents/<pid>/`; Stryker follows in-process and writes project `obj/`/`bin/` |
 
 ---
 ## [2][PARALLELISM]
@@ -26,11 +26,11 @@
 
 <br>
 
-| [INDEX] | [RAIL] | [POLICY] |
-| :-----: | ------ | -------- |
-| [1] | `quality static`, focused `--target` test runs | Safe concurrently — per-invocation `--artifacts-path` under `.artifacts/agents/<pid>/`. |
-| [2] | Default `tools.quality test run` | VSTest then Stryker serially in one process — do not parallelize two default runs. |
-| [3] | `tools.quality bridge` | Serial — one live Rhino endpoint. |
+| [INDEX] | [RAIL]                                         | [POLICY]                                                               |
+| :-----: | ---------------------------------------------- | ---------------------------------------------------------------------- |
+|   [1]   | `quality static`, focused `--target` test runs | Concurrent-safe — `--artifacts-path` under `.artifacts/agents/<pid>/`. |
+|   [2]   | Default `tools.quality test run`               | VSTest then Stryker serially — no parallel default runs.               |
+|   [3]   | `tools.quality bridge`                         | Serial — one live Rhino endpoint.                                      |
 
 ---
 ## [3][RUNNER_DECISION]
@@ -38,11 +38,11 @@
 
 <br>
 
-| [INDEX] | [RUNNER] | [STATUS] | [ACTION] |
-| :-----: | -------- | -------- | -------- |
-| [1] | `vstest` | Current Rasm rail; `dotnet test` works. | Fix/diagnose Stryker zero-test discovery here first. |
-| [2] | `mtp` | Stryker preview; xUnit v3 supports it. | Requires replacing `xunit.v3.mtp-off` and proving all test projects. |
-| [3] | bridge | Runtime verification rail. | Never routed through Stryker. |
+| [INDEX] | [RUNNER] | [STATUS]                                | [ACTION]                                             |
+| :-----: | -------- | --------------------------------------- | ---------------------------------------------------- |
+|   [1]   | `vstest` | Current Rasm rail; `dotnet test` works. | Fix/diagnose Stryker zero-test discovery here first. |
+|   [2]   | `mtp`    | Stryker preview; xUnit v3 supports it.  | Replace `xunit.v3.mtp-off`; prove all test projects. |
+|   [3]   | bridge   | Runtime verification rail.              | Never routed through Stryker.                        |
 
 [SOURCE] Stryker config docs: https://stryker-mutator.io/docs/stryker-net/configuration/
 
@@ -89,11 +89,11 @@ Do NOT convert when the cases share oracle logic and the PBT body is the more ho
 
 <br>
 
-| [INDEX] | [CLASS] | [ACTION] |
-| :-----: | ------- | -------- |
-| [1] | Missing oracle | Add a Grade A/B oracle (closed-form, smaller model, metamorphic) that distinguishes the mutant. |
-| [2] | Equivalent mutant | Document; do not weaken oracle. |
-| [3] | Bridge-owned path | Add or strengthen `*.verify.csx` scenario; static spec cannot kill it. |
-| [4] | Product bug | Fix the production code; the mutation revealed a real defect. |
+| [INDEX] | [CLASS]           | [ACTION]                                                                                        |
+| :-----: | ----------------- | ----------------------------------------------------------------------------------------------- |
+|   [1]   | Missing oracle    | Add a Grade A/B oracle (closed-form, smaller model, metamorphic) that distinguishes the mutant. |
+|   [2]   | Equivalent mutant | Document; do not weaken oracle.                                                                 |
+|   [3]   | Bridge-owned path | Add or strengthen `*.verify.csx` scenario; static spec cannot kill it.                          |
+|   [4]   | Product bug       | Fix the production code; the mutation revealed a real defect.                                   |
 
 Do not chase a survivor by adding an assertion on the mutant's behavior — that is implementation mirror coverage (Grade F per `cs-testing/references/oracles-laws.md`).

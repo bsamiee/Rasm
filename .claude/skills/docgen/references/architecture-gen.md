@@ -43,15 +43,15 @@ One paragraph: business problem, system purpose, target audience; followed by Me
 
 Select diagram type by system topology:
 
-| [INDEX] | [TOPOLOGY]         | [DIAGRAM_TYPE] | [MERMAID_SYNTAX]       |
-| :-----: | ------------------ | -------------- | ---------------------- |
-|   [1]   | **Microservices**  | C4 Container   | `graph LR` with groups |
-|   [2]   | **Monolith**       | C4 Component   | `graph TD` with layers |
-|   [3]   | **Event-driven**   | Sequence       | `sequenceDiagram`      |
-|   [4]   | **Stateful flows** | State          | `stateDiagram-v2`      |
-|   [5]   | **Data-centric**   | ER             | `erDiagram`            |
+| [INDEX] | [TOPOLOGY]     | [DIAGRAM_TYPE] | [MERMAID_SYNTAX]       |
+| :-----: | -------------- | -------------- | ---------------------- |
+|   [1]   | Microservices  | C4 Container   | `graph LR` with groups |
+|   [2]   | Monolith       | C4 Component   | `graph TD` with layers |
+|   [3]   | Event-driven   | Sequence       | `sequenceDiagram`      |
+|   [4]   | Stateful flows | State          | `stateDiagram-v2`      |
+|   [5]   | Data-centric   | ER             | `erDiagram`            |
 
-Follow diagram with responsibility table: one row per bounded context, bold name, one-line responsibility statement.
+Follow diagram with responsibility table: one row per bounded context, module name, one-line responsibility statement.
 
 [IMPORTANT]:
 1. [ALWAYS] **Protocol labels:** Every edge in the diagram carries a protocol or interaction label.
@@ -97,11 +97,11 @@ System-level invariants — properties that hold regardless of state; format: nu
 
 <br>
 
-| [INDEX] | [SCOPE]           | [LOCATION]                            | [DEPTH]                                                |
-| :-----: | ----------------- | ------------------------------------- | ------------------------------------------------------ |
-|   [1]   | **System-level**  | `./ARCHITECTURE.md`                   | Full 7-section structure per architecture-standards.   |
-|   [2]   | **Package-level** | `<package-root>/ARCHITECTURE.md`      | Overview, component diagram, codemap; omit deployment. |
-|   [3]   | **Module-level**  | Inline in module README §Architecture | Single diagram + responsibility table.                 |
+| [INDEX] | [SCOPE]       | [LOCATION]                            | [DEPTH]                                                |
+| :-----: | ------------- | ------------------------------------- | ------------------------------------------------------ |
+|   [1]   | System-level  | `./ARCHITECTURE.md`                   | Full 7-section structure per architecture-standards.   |
+|   [2]   | Package-level | `<package-root>/ARCHITECTURE.md`      | Overview, component diagram, codemap; omit deployment. |
+|   [3]   | Module-level  | Inline in module README §Architecture | Single diagram + responsibility table.                 |
 
 ---
 ## [4][UPDATE_WORKFLOW]

@@ -2,13 +2,20 @@
 
 [REQUIRED]: Read and adhere to `CLAUDE.md`
 
+## [0][LOAD_ORDER]
+- **Cursor / Codex chain:** `CLAUDE.md` → root `AGENTS.md` → nearest nested `AGENTS.md` → matched `.cursor/rules/*.mdc` → skill by file type.
+- **Codex budget:** nested `AGENTS.md` chains concatenate toward a 32 KiB limit — keep nested files delta-only; offload encyclopedic detail to co-located `_ARCHITECTURE.md`.
+- **Optional local override:** gitignored `AGENTS.override.md` beside root or bridge AGENTS for machine-specific paths.
+
 ## [1][REQUIRED_STANDARDS]
 
 If reviewing, refining, editing, creating, or modifying X file type, use skill Y (required):
 - Typescript: `coding-ts`
 - C#: `coding-csharp`
+- C# tests (`.spec.cs`, `.verify.csx`, testkit): `cs-testing`
 - Python: `coding-python`
 - Bash/sh: `coding-bash`
+- SQL: `coding-pg`
 - Markdown/docs: `docgen` + `style-standards`
 
 ## [2][NAVIGATION_CONTEXT]
@@ -17,11 +24,28 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - Use structural search (`ast-grep`) for symbol-aware changes when available.
 - Use Nx topology (`nx graph`, affected commands, `nx-mcp`) before broad scans.
 - Read minimal file slices necessary for the current task.
+- Check `docs/system-api-map` before `System.*`, global using, or host-reference changes. `global.json` is absent; treat it as an optional trigger only if added later.
+- Read `docs/external-libs` and `docs/host` before adding packages or host SDK assumptions.
 - Navigation helpers:
   - `fd -H .`
   - `rg -n --hidden --glob '!.git' --glob '!node_modules' "<pattern>" <path>`
   - `pnpm exec ast-grep run --pattern "<structural-pattern>" <path>`
   - `ctags -R --exclude=.git --exclude=node_modules --exclude=dist --exclude=build --exclude=.nx .`
+
+| [INDEX] | [PATH]                         | [OWNS]                                                            |
+| :-----: | ------------------------------ | ----------------------------------------------------------------- |
+|   [1]   | `libs/csharp/Rasm`             | Domain, Analysis, Vectors geometry kernel                         |
+|   [2]   | `libs/csharp/Rasm.Rhino`       | RhinoWIP boundary — Commands, UI, Camera, Blocks, Exchange        |
+|   [3]   | `libs/csharp/Rasm.Grasshopper` | GH2 components, data, UI rails                                    |
+|   [4]   | `tests/csharp`                 | xUnit, CsCheck, testkit, bridge scenarios                         |
+|   [5]   | `tools/rhino-bridge`           | Live RhinoWIP runtime verification                                |
+|   [6]   | `docs/usage.md`                | Cross-stack owner ladder and proof hierarchy                      |
+|   [7]   | `docs/host/`                   | RhinoCommon and GH2 native SDK boundaries                         |
+|   [8]   | `docs/host-libraries.md`       | Composition-root packages — doc pins; not-in-graph until consumer |
+|   [9]   | `docs/system-api-map`          | BCL, `System.*`, package and host reference policy                |
+|  [10]   | `docs/external-libs`           | Approved product libraries                                        |
+|  [11]   | `docs/testing-libs`            | Test library APIs                                                 |
+|  [12]   | `docs/standards`               | Documentation voice and structure                                 |
 
 ## [3][LANGUAGE_POLICY]
 - ALWAYS: follow `CLAUDE.md` Effect-first approach.
@@ -38,11 +62,15 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - Route README, ADR, changelog, architecture, code documentation, and standards changes through `docgen`.
 - Route Markdown structure, headers, lists, tables, diagrams, separators, and voice changes through `style-standards`.
 - Keep documentation rooted in existing paths, commands, and configured tooling; remove invented or stale paths.
-- Use `docs/usage.md` for cross-stack owner precedence and proof hierarchy; use `docs/system-api-map` for BCL, `System.*`, package/reference, C# meta, and RhinoWIP host-reference policy; use `docs/external-libs` for approved product library APIs and `docs/testing-libs` for test-tool APIs.
+- Cross-stack owner precedence: `docs/usage.md` §1 and §5.
+- Product library API truth: `docs/external-libs`.
+- Host SDK boundaries: `docs/host/` (`README.md` → `rhino.md`, `gh2.md`).
+- Host composition adoption (Scrutor, EF, OTel…): `docs/host-libraries.md` — not-in-graph until a bootstrap consumer exists; pin truth in `Directory.Packages.props` and `docs/system-api-map/packages.md` §2.
+- BCL, packages, host references: `docs/system-api-map`.
+- Test-tool APIs: `docs/testing-libs`.
+- Universal C# enforcement snippets: `.claude/skills/coding-csharp/references/`; repo posture and XML-backed proof: `docs/external-libs/`. Do not duplicate skill bodies in docs leaves.
 
 ## [6][LIVE_RHINO_BRIDGE]
-- `tools/rhino-bridge` answers runtime questions that static .NET gates cannot. Architecture (operator CLI → client → protocol → in-Rhino plugin), command catalog, output contract, failure reading, and validation ladder live in `tools/rhino-bridge/README.md` and `tools/rhino-bridge/AGENTS.md`.
-- Agent-first scenario rail: `uv run python -m tools.quality bridge verify <scenario-or-glob>` for `*.verify.csx` files under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/`. Scenarios are source-only — no `#r`, no `#load`, no absolute paths.
-- Scenarios consume universal capsules from `Rasm.TestKit.Scenarios` (`Scenario.Run`, `FactBag`, `Probe`, `DocumentScope`, `Capture`). The bridge stages `Rasm.TestKit.dll` automatically; no manual reference setup. Author scenarios as `Scenario.Run("theme", CAPTURE_PATH, (key, facts) => { … });` with `facts.Add(string key, object value);` for per-fact evidence — the harness emits a single batched `facts={json}` plain line and a `rasm.rhino-bridge.evidence=facts={json}` marker on scope exit.
-- Diagnostic commands (via `uv run python -m tools.quality`): `bridge build`, `bridge build-bridge`, `bridge doctor`, `bridge check <target> [scenario]`, `bridge launch`, `bridge clean`, `bridge quit`, `bridge verify <glob>`. API metadata: `api doctor|path|xml|types|decompile`. Packaging: `bridge package|deploy|publish <slug> <ver>`.
-- Do not automate Rhino settings or template creation from this repo. Persistent startup is owned by the plugin `LoadTime.AtStartup`.
+- Runtime evidence and bridge operator routes: `CLAUDE.md` §5.2 and `tools/rhino-bridge/README.md`.
+- Canonical bridge agent deltas: `tools/rhino-bridge/AGENTS.md`.
+- Scenario authoring: `tests/csharp/AGENTS.md` §7 and `.claude/skills/cs-testing/references/bridge-runtime.md`.

@@ -67,12 +67,7 @@ public sealed record CommandSelection {
     public Seq<Guid> ObjectIds => Items.Map(static item => item.ObjectId).Distinct();
     public Seq<Guid> MutationObjectIds => Items.Map(static item => item.MutationObjectId).Distinct();
     internal Seq<Reference> ObjectTargets =>
-        Items.Fold(
-            (Seen: HashSet<(Guid ObjectId, uint RuntimeSerialNumber)>(), Targets: Seq<Reference>()),
-            static (state, item) => state.Seen.Contains((item.ObjectId, item.RuntimeSerialNumber)) switch {
-                true => state,
-                false => (Seen: state.Seen.Add((item.ObjectId, item.RuntimeSerialNumber)), Targets: Seq(item) + state.Targets),
-            }).Targets.Rev();
+        toSeq(Items.DistinctBy(static item => (item.ObjectId, item.RuntimeSerialNumber)));
 
     public Fin<Seq<T>> Project<T>(Func<Reference, Fin<T>> project) => Optional(project).ToFin(Fail: Op.Of(name: nameof(Project)).InvalidInput()).Bind(valid => Items.TraverseM(reference => valid(arg: reference)).As());
 
@@ -97,13 +92,13 @@ public sealed record CommandSelection {
 
     public Fin<TrimResult> Trimmed(CommandObjectSelection policy) =>
         from active in Optional(policy).ToFin(Fail: Op.Of(name: nameof(Trimmed)).InvalidInput())
-        let values = Items
+        let values = toSeq(Items
             .Filter(item => active.SubObjects || !item.IsSubObject)
             .Filter(item => item.Preselected || active.AlreadySelected || !item.Selected)
             .Filter(item => active.References || !item.IsReference)
             .Filter(item => active.Locked || !item.IsLocked)
             .Filter(item => !active.IgnoreGrips || !item.IsGrip)
-            .Distinct()
+            .DistinctBy(static item => (item.ObjectId, item.RuntimeSerialNumber, item.ComponentIndex.ComponentIndexType, item.ComponentIndex.Index)))
         select new TrimResult(Selection: new CommandSelection(document: Document, items: values), Accepted: values.Count, Rejected: Math.Max(0, Items.Count - values.Count));
 
     public readonly record struct TrimResult(CommandSelection Selection, int Accepted, int Rejected) {
@@ -171,7 +166,7 @@ public sealed record CommandSelection {
         // BOUNDARY ADAPTER — reconstructed ObjRefs are native disposable state around the selection call.
         try {
             references = Items.Map(reference => reference.ObjRef(document: document));
-            return references.TraverseM(reference => document.Objects.Select(reference, selected, policy.Highlight, policy.Persistent, policy.IgnoreGrips, policy.IgnoreLayerLocking, policy.IgnoreLayerVisibility) switch {
+            return references.TraverseM(reference => policy.Select((highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) => document.Objects.Select(reference, selected, highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility)) switch {
                 true => Fin.Succ(value: 1),
                 false => Fin.Fail<int>(error: op.InvalidResult()),
             }).As().Map(static values => values.Fold(initialState: 0, f: static (state, value) => state + value));
@@ -289,41 +284,31 @@ public sealed record CommandSelection {
             return Use(document: document, op: op, use: reference =>
                 from raw in Optional(reference.Geometry()).ToFin(Fail: op.InvalidResult())
                 from duplicate in Optional(raw.Duplicate()).ToFin(Fail: op.InvalidResult())
-                from typed in GeometrySource.Own(geometry: duplicate).Use(op: op, use: geometry => geometry switch {
+                from typed in duplicate switch {
                     TGeometry value => Fin.Succ(value: value),
                     _ => Fin.Fail<TGeometry>(error: op.InvalidResult()),
-                })
+                }
                 select typed);
         }
 
-        public Fin<T> Object<TObject, T>(RhinoDoc document, Func<TObject, Fin<T>> use) where TObject : RhinoObject =>
-            Part(document: document, op: Op.Of(name: nameof(Object)), project: static reference => Cast<TObject>(reference.Object()), use: use);
-
-        public Fin<T> Part<TPart, T>(RhinoDoc document, Func<TPart, Fin<T>> use) where TPart : class =>
-            Part(document: document, op: Op.Of(name: nameof(Part)), project: Project<TPart>, use: use);
-
-        public Fin<T> InstanceDefinitionPart<T>(RhinoDoc document, Func<RhinoObject, Fin<T>> use) =>
-            Part(document: document, op: Op.Of(name: nameof(InstanceDefinitionPart)), project: static reference => Cast<RhinoObject>(reference.InstanceDefinitionPart()), use: use);
-
-        private Fin<T> Part<TNative, T>(RhinoDoc document, Op op, Func<ObjRef, Option<TNative>> project, Func<TNative, Fin<T>> use) where TNative : class {
+        public Fin<T> Project<TPart, T>(RhinoDoc document, Func<TPart, Fin<T>> use) where TPart : class {
             Reference snapshot = this;
-            return Optional(project)
-                .ToFin(Fail: op.InvalidInput())
-                .Bind(projection => Optional(use)
-                    .ToFin(Fail: op.InvalidInput())
-                    .Bind(valid => snapshot.Use(document: document, op: op, use: reference => projection(arg: reference).ToFin(Fail: op.InvalidResult()).Bind(valid))));
+            Op op = Op.Of(name: nameof(Project));
+            return Optional(use).ToFin(Fail: op.InvalidInput())
+                .Bind(valid => snapshot.Use(document: document, op: op, use: reference => NativeOf<TPart>(reference: reference).ToFin(Fail: op.InvalidResult()).Bind(valid)));
         }
 
-        private static Option<TPart> Project<TPart>(ObjRef reference) where TPart : class =>
+        private static Option<TPart> NativeOf<TPart>(ObjRef reference) where TPart : class =>
             Optional(reference).Bind(valid => typeof(TPart) switch {
-                Type value when value == typeof(Brep) => Cast<TPart>(valid.Brep()),
-                Type value when value == typeof(BrepFace) => Cast<TPart>(valid.Face()),
-                Type value when value == typeof(BrepEdge) => Cast<TPart>(valid.Edge()),
-                Type value when value == typeof(BrepTrim) => Cast<TPart>(valid.Trim()),
-                Type value when value == typeof(SubD) => Cast<TPart>(valid.SubD()),
-                Type value when value == typeof(SubDFace) => Cast<TPart>(valid.SubDFace()),
-                Type value when value == typeof(SubDEdge) => Cast<TPart>(valid.SubDEdge()),
-                Type value when value == typeof(SubDVertex) => Cast<TPart>(valid.SubDVertex()),
+                Type v when v == typeof(Brep) => Cast<TPart>(valid.Brep()),
+                Type v when v == typeof(BrepFace) => Cast<TPart>(valid.Face()),
+                Type v when v == typeof(BrepEdge) => Cast<TPart>(valid.Edge()),
+                Type v when v == typeof(BrepTrim) => Cast<TPart>(valid.Trim()),
+                Type v when v == typeof(SubD) => Cast<TPart>(valid.SubD()),
+                Type v when v == typeof(SubDFace) => Cast<TPart>(valid.SubDFace()),
+                Type v when v == typeof(SubDEdge) => Cast<TPart>(valid.SubDEdge()),
+                Type v when v == typeof(SubDVertex) => Cast<TPart>(valid.SubDVertex()),
+                Type v when typeof(RhinoObject).IsAssignableFrom(c: v) => Cast<TPart>(valid.Object()),
                 _ => Option<TPart>.None,
             });
 

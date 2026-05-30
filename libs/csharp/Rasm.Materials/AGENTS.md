@@ -1,5 +1,7 @@
 # Rasm.Materials Agent Instructions
 
+Scope: `libs/csharp/Rasm.Materials/` only. Root `AGENTS.md` and `CLAUDE.md` own universal policy; this file adds subtree deltas only.
+
 ## Purpose
 
 `Rasm.Materials` is the architectural material catalogue plus pure material-owned layout data. It is not a geometry library and not a Rhino-aware module.

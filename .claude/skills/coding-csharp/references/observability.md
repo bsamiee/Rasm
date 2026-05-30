@@ -1,7 +1,7 @@
 # [H1][OBSERVABILITY]
 >**Dictum:** *Observability is one algebra; typed outcomes remain primary.*
 
-Observability in C# 14 / .NET 10 keeps `Fin<T>`, `Validation<Error,T>`, and `Eff<RT,T>` intact while projecting telemetry through one compositional surface. Canonical surfaces: `[LoggerMessage]`, `ActivitySource`, `Meter`, `TagList`, `LogContext`, Serilog OTLP sink, OpenTelemetry exporters.
+Observability in C# 14 / .NET 10 keeps `Fin<T>`, `Validation<Error,T>`, and `Eff<RT,T>` intact while projecting telemetry through one compositional surface. **[NOT_IN_GRAPH]** Serilog/OpenTelemetry/Http.Resilience until host packages are pinned. Canonical surfaces: `[LoggerMessage]`, `ActivitySource`, `Meter`, `TagList`, `LogContext`, Serilog OTLP sink, OpenTelemetry exporters.
 
 ---
 ## [1][SIGNAL_ALGEBRA]
@@ -166,7 +166,7 @@ public static class Observe {
                 return error;
             });
     /// Tap-style — returns error unchanged after emitting retry metric + log.
-    /// Designed for Polly OnRetry delegates.
+    /// Designed for Http.Resilience / standard resilience handler retry callbacks.
     public static Error RetryProjection(
         Error error, ILogger logger, string operation, int attempt) {
         Signals.Retries.Add(1,
@@ -325,7 +325,7 @@ public static class TelemetryBootstrap {
         // Callers must set the logger on every ResilienceContext before pipeline
         // execution -- without this, OnRetry delegates receive null from GetValue.
         // Usage: ResilienceContextSetup.Attach(context, logger) before Execute().
-        // RetryProjection + Polly composition
+        // RetryProjection + Microsoft.Extensions.Http.Resilience composition
         builder.Services.Scan(scan => scan
             .FromAssembliesOf(typeof(Signals), typeof(Observe))
             .AddClasses(classes => classes.InNamespaces("Domain.Observability"))
@@ -364,7 +364,7 @@ public static class TelemetryBootstrap {
 
 // --- [RESILIENCE_CONTEXT] ----------------------------------------------------
 
-// Typed property key for Polly ResilienceContext logger propagation.
+// Typed property key for resilience-context logger propagation.
 // Callers must invoke Attach() on every ResilienceContext before executing
 // the resilience pipeline -- without this, OnRetry delegates receive null.
 public static class ResilienceContextSetup {
@@ -388,4 +388,6 @@ public static class ResilienceContextSetup {
 - [NEVER] Collapse context early via mid-pipeline `.Match()` just for logging.
 - [NEVER] Instantiate telemetry identities inside handlers/services.
 - [NEVER] Hardcode exporter endpoints in domain modules.
+- [NEVER] Stack domain `Prelude.retry` and `AddStandardResilienceHandler` on the same hop — one retry owner per operation.
+- [ALWAYS] Call `ResilienceContextSetup.Attach(context, logger)` before executing outbound resilience pipelines when wiring `OnRetry`.
 - [ALWAYS] Register observability surfaces as singleton (ActivitySource/Meter are process-global identities); register domain services as scoped (hold per-request state and DI dependencies).

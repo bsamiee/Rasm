@@ -126,12 +126,12 @@ Per-document-type checklists for auditing documentation artifacts. Use after cre
 
 <br>
 
-| [INDEX] | [CHECKLIST_AREA]         | [WHAT_IT_VALIDATES]                                            | [REFERENCE]           |
-| :-----: | :----------------------- | :------------------------------------------------------------- | :-------------------- |
-|   [1]   | **README**               | Structure, audiences, sections, scope routing                  | `readme-gen.md`       |
-|   [2]   | **ADR**                  | Format, status, content discipline, lifecycle                  | `adr.md`              |
-|   [3]   | **CHANGELOG**            | Keep-a-Changelog format, semantic versioning, user-facing text | `changelog-gen.md`    |
-|   [4]   | **CODE_DOCUMENTATION**   | Coverage, format compliance, signal hierarchy                  | `code-docs.md`        |
-|   [5]   | **CONTRIBUTING**         | Workflow accuracy, CI alignment, setup reproducibility         | `contributing-gen.md` |
-|   [6]   | **ARCHITECTURE**         | Diagrams, codemap, decisions, cross-cutting concerns           | `architecture-gen.md` |
-|   [7]   | **DETECTION_HEURISTICS** | 10 grep-able patterns with severity classification             | —                     |
+| [INDEX] | [CHECKLIST_AREA]     | [WHAT_IT_VALIDATES]                                            | [REFERENCE]           |
+| :-----: | :------------------- | :------------------------------------------------------------- | :-------------------- |
+|   [1]   | README               | Structure, audiences, sections, scope routing                  | `readme-gen.md`       |
+|   [2]   | ADR                  | Format, status, content discipline, lifecycle                  | `adr.md`              |
+|   [3]   | CHANGELOG            | Keep-a-Changelog format, semantic versioning, user-facing text | `changelog-gen.md`    |
+|   [4]   | CODE_DOCUMENTATION   | Coverage, format compliance, signal hierarchy                  | `code-docs.md`        |
+|   [5]   | CONTRIBUTING         | Workflow accuracy, CI alignment, setup reproducibility         | `contributing-gen.md` |
+|   [6]   | ARCHITECTURE         | Diagrams, codemap, decisions, cross-cutting concerns           | `architecture-gen.md` |
+|   [7]   | DETECTION_HEURISTICS | 10 grep-able patterns with severity classification             | —                     |

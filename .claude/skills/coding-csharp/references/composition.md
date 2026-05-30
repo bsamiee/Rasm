@@ -156,7 +156,7 @@ public static class DecoratorChain {
 - `ValidateOnBuild = true` in `HostApplicationBuilderSettings` fires at `Build()` — catches unresolvable descriptors before first request; mandatory in all non-Development profiles
 - `ValidateScopes = true` catches scoped-inside-singleton captive dependencies at resolution time — enable unconditionally; build-time validator misses factory-resolved transients capturing scoped services
 - Descriptor count assertion at composition root end — expected cardinality vs `services.Count(d => d.ServiceType == typeof(T))` detects stale/duplicate registrations from scan drift
-- `DecoratedService<T>.GetRequiredDecoratedService<T>()` traversal at startup health check — verifies expected decorator depth and ordering, detecting silent `TryDecorate` skip on non-string keys
+- `provider.GetRequiredDecoratedService(decoratedHandle)` / `GetDecoratedServices(decoratedHandle)` at startup health check — verifies expected decorator depth and ordering, detecting silent `TryDecorate` skip on non-string keys
 - Configuration-bound profile assertion — `IHostEnvironment.EnvironmentName` must match vocabulary member; unknown values fail-fast at startup
 
 ## Rules

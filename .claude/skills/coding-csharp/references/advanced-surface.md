@@ -1,114 +1,118 @@
 # Advanced Surface
 
-Universal advanced capability reference for pinned library versions. **Not** basic `Map`/`Bind`/`Create`. Canonical detail: `docs/external-libs/`.
+Self-contained advanced capability reference for pinned library versions. **Not** basic `Map`/`Bind`/`Create`.
 
-Pin truth: `LanguageExt.Core` 5.0.0-beta-77, `Thinktecture.Runtime.Extensions` 10.2.0, `MathNet.Numerics` 6.0.0-beta2, `CSparse` 4.3.0, C# 14.0 / net10.0, `Microsoft.Net.Compilers.Toolset` 5.3.0.
-
----
-
-## Load With
-
-| Task | Read |
-| ---- | ---- |
-| Operators, Schedule, Kleisli, lowering | `docs/external-libs/languageext/operators.md`, `combinators.md` |
-| Effects, rails | `docs/external-libs/languageext/effects.md` |
-| Thinktecture attrs, unions, VOs | `docs/external-libs/thinktecture/union-attributes.md`, `objects.md` |
-| Sparse / dense numerics | `docs/external-libs/mathnet/sparse.md`, `linear.md` |
-| C# 14 language | `docs/external-libs/csharp/language.md` |
+Pin truth: `LanguageExt.Core` 5.0.0-beta-77, `Thinktecture.Runtime.Extensions` 10.2.0, `MathNet.Numerics` 6.0.0-beta2, `CSparse` 4.3.0, C# 14.0 / net10.0, `Microsoft.Net.Compilers.Toolset` 5.3.0. Host packages (Scrutor 7, etc.) are `[NOT_IN_GRAPH]` until pinned.
 
 ---
+## [1][LOAD_WITH]
 
-## LanguageExt Operators
-
-| Symbol | Carrier | Semantics |
-| ------ | ------- | --------- |
-| `>>` | `K<F,A>` | Kleisli bind / discard-first sequence |
-| `>>>` | `K<F,A>` | Applicative sequence |
-| `*` | `K<F,A>` | Functor map / applicative apply |
-| `>> lower` / `+k` | `K<F,A>` | Downcast to concrete rail (`Prelude.lower`) |
-| `\|` | `K<Validation<E,A>>` | Choice — first success wins |
-| `\|` | `Fallible` + `CatchM` | Catch / recovery |
-| `\|` | `Eff<RT,A>` + `Finally` | Finally composition — not peer-Eff choice |
-| `&` | `Validation<E,A>` | Applicative product — accumulate errors |
-| `+` | `Error` / monoid `E` | Error append |
-
-Schedule: `Schedule.a \| Schedule.b` (union), `union`/`intersect` Prelude functions, `ScheduleTransformer +`; intersect is **not** ASCII `&` on `Schedule`.
-
-**Absent from pinned XML:** `Decision`, `\|>`, `ComposeK`, `HyloM`, `FoldArrows`.
+| Task                            | Reference                                                            |
+| ------------------------------- | -------------------------------------------------------------------- |
+| Rails, Schedule boundary        | [effects.md](effects.md)                                             |
+| Folds, `K<F,A>`                 | [transforms.md](transforms.md)                                       |
+| Thinktecture attrs, unions, VOs | [objects.md](objects.md), [types.md](types.md)                       |
+| Scrutor scan/decorate           | [scrutor.md](scrutor.md)                                             |
+| EF, FluentValidation bridge     | [persistence.md](persistence.md), [validation.md](validation.md) §10 |
+| Serilog, OTel, Http resilience  | [observability.md](observability.md)                                 |
 
 ---
+## [2][LANGUAGEEXT_OPERATORS]
 
-## LanguageExt Combinators
+| Symbol                 | Carrier                 | Semantics                                   |
+| ---------------------- | ----------------------- | ------------------------------------------- |
+| `>>`                   | `K<F,A>`                | Kleisli bind / discard-first sequence       |
+| `>>>`                  | `K<F,A>`                | Applicative sequence                        |
+| `*`                    | `K<F,A>`                | Functor map / applicative apply             |
+| `>> lower` / unary `+` | `K<F,A>`                | Downcast to concrete rail (`Prelude.lower`) |
+| `\|`                   | `K<Validation<E,A>>`    | Choice — first success wins                 |
+| `\|`                   | `Fallible` + `CatchM`   | Catch / recovery                            |
+| `\|`                   | `Eff<RT,A>` + `Finally` | Finally composition — not peer-Eff choice   |
+| `&`                    | `Validation<E,A>`       | Applicative product — accumulate errors     |
+| `+`                    | `Error` / monoid `E`    | Error append                                |
 
-| Combinator | Notes |
-| ---------- | ----- |
-| `.TraverseM(f) >> lower` | Fin / Validation / Option lowering |
-| `.TraverseM(f).As()` | Eff / IO lowering |
-| `.Traverse(identity) >> lower` | Sequence replacement |
-| `.Choose(f)` | Filter-map to Option |
-| `.MapFail` / `.BindFail` / `.IfFail` | `IfFail` not on `Fin` — use `Match` / `BiBind` |
-| `.BiBind(Succ:, Fail:)` | Both branches |
-| `Validation.Apply` / `&` | Multi-field validation product |
-| `guard` / `Optional(…).ToFin` | Prelude guards |
-| `Try.lift<Fin<T>>().Run()` | Native boundary |
-| `Eff.runtime<RT>()` / `Reader.Asks` / `Prelude.liftEff` | Effects — not `Env.Asks` |
-| `Prelude.catch` / `IO.Retry(Schedule)` / `Prelude.retry` | Recovery |
-| `Atom.Swap` / `SwapMaybe` | State — Subscribe absent in 5.0.0-beta-77 |
+Schedule: `Schedule.a \| Schedule.b` (union), `union(a,b)` / `intersect(a,b)` Prelude functions, `ScheduleTransformer +`; intersect is **not** ASCII `&` on `Schedule`. Duration: `200 * LanguageExt.UnitsOfMeasure.ms`.
 
-`Validation<string,T>` is not supported — use `Validation<StringM,T>` or `Validation<Error,T>` (`CSP0703` forbids `Validation<Seq<Error>,T>` in domain/application/shared; GH UI uses `Validation<Seq<UiFault>,T>`).
+Eff recovery: `Prelude.catch`, `Prelude.retry(schedule, eff)`, `IfFailEff` — not `.Retry(schedule:)` on `Eff` (absent from pinned XML).
 
-Time units: `LanguageExt.UnitsOfMeasure.ms` (explicit import).
+**Absent from pinned XML:** `Decision`, `\|>`, `ComposeK`, `HyloM`, `FoldArrows`. Use LINQ `from..in..select` for monadic composition.
 
 ---
+## [3][LANGUAGEEXT_COMBINATORS]
 
-## Thinktecture Attributes
+| Combinator                                              | Notes                                          |
+| ------------------------------------------------------- | ---------------------------------------------- |
+| `.TraverseM(f) >> lower`                                | Fin / Validation / Option lowering             |
+| `.TraverseM(f).As()`                                    | Eff / IO lowering                              |
+| `.Traverse(identity) >> lower`                          | Sequence replacement (v4 `Sequence`)           |
+| `.Choose(f)`                                            | Filter-map to Option                           |
+| `.MapFail` / `.BindFail` / `.IfFail`                    | `IfFail` not on `Fin` — use `Match` / `BiBind` |
+| `.BiBind(Succ:, Fail:)`                                 | Both branches                                  |
+| `Validation.Apply` / `&`                                | Multi-field validation product                 |
+| `guard` / `Optional(…).ToFin`                           | Prelude guards                                 |
+| `Try.lift<Fin<T>>().Run()`                              | Native boundary                                |
+| `Eff.runtime<RT>()` / `Reader.Asks` / `Prelude.liftEff` | Effects                                        |
+| `Atom.Swap` / `SwapMaybe`                               | State — Subscribe absent in 5.0.0-beta-77      |
 
-| Attribute | Effect |
-| --------- | ------ |
-| `[Union(SwitchMapStateParameterName = "…")]` | State-threaded `.Switch` / `.Map` |
-| `SwitchMethods` / `MapMethods` | `SwitchMapMethodsGeneration` enum |
-| `[UnionSwitchMapOverload(StopAt = typeof(...))]` | Partial overload generation |
-| `[ValueObject<T>]` | Branded scalar |
-| `[ComplexValueObject]` | Multi-field VO — partial only |
-| `[ValidationError<TFault>]` | Typed factory validation |
-| `[SmartEnum]` / `[SmartEnum<TKey>]` | Total enum dispatch |
-| `[UseDelegateFromConstructor]` | SmartEnum delegate from ctor |
-| `[KeyMemberEqualityComparer<T>]` / `[MemberEqualityComparer<,>]` | Key/member equality |
-
-Thinktecture does **not** emit union `operator +`/`|` in 10.2.0. Set `SerializationFrameworks = None` when JSON integration packages are not pinned.
-
----
-
-## MathNet + CSparse
-
-| Surface | Owner |
-| ------- | ----- |
-| Dense factorizations, statistics, integration | MathNet |
-| `BiCgStab`, preconditioners, `Iterator<T>` | MathNet iterative |
-| `SparseCholesky`, AMD ordering, CSC solve | CSparse — `mathnet/sparse.md` §7–§10 |
-| CSR/CSC hybrid strategy | `mathnet/sparse.md` |
-
-Package id for direct sparse library: **`CSparse`**. No LOBPCG type in MathNet 6.0.0-beta2 XML.
+`Validation<string,T>` is not supported — use `Validation<StringM,T>` or `Validation<Error,T>`. Parallel fault channels at UI boundaries may use `Validation<Seq<TFault>,T>` with a dedicated fault type — not `Validation<Seq<Error>,T>` in domain.
 
 ---
+## [4][THINKTECTURE_ATTRIBUTES]
 
-## C# 14 Highlights
+| Attribute                                                        | Effect                            |
+| ---------------------------------------------------------------- | --------------------------------- |
+| `[Union(SwitchMapStateParameterName = "…")]`                     | State-threaded `.Switch` / `.Map` |
+| `SwitchMethods` / `MapMethods`                                   | `SwitchMapMethodsGeneration` enum |
+| `[UnionSwitchMapOverload(StopAt = typeof(...))]`                 | Partial overload generation       |
+| `[ValueObject<T>]`                                               | Branded scalar                    |
+| `[ComplexValueObject]`                                           | Multi-field VO — partial only     |
+| `[ValidationError<TFault>]`                                      | Typed factory validation          |
+| `[SmartEnum]` / `[SmartEnum<TKey>]`                              | Total enum dispatch               |
+| `[UseDelegateFromConstructor]`                                   | SmartEnum delegate from ctor      |
+| `[KeyMemberEqualityComparer<T>]` / `[MemberEqualityComparer<,>]` | Key/member equality               |
 
-| Feature | Use |
-| ------- | --- |
-| Extension blocks | Instance/static operators without wrappers |
-| Collection expressions | `[..a, ..b, x]` |
-| `params ReadOnlySpan<T>` | Arity-polymorphic APIs |
-| `field` keyword | Inline property validation |
-| Implicit span conversions | Array ↔ span overload resolution — audit ambiguous overload sets |
-| Null-conditional assignment | Boundary-only `target?.Prop = value` |
-| User-defined compound assignment | Domain monoid/receipt `+=` |
-| Switch / list patterns | Total value-returning dispatch |
+Thinktecture does **not** emit union `operator +`/`|` in 10.2.0. Set `SerializationFrameworks = None` when JSON integration packages are not pinned. `[SkipUnionOps]` / `[GenerateUnionOps]` control analyzer SelfOp emission on project unions — not hand union lattice operators.
 
-Full catalog: `docs/external-libs/csharp/language.md`.
+Generic or ref-struct constrained sums use plain `abstract record` + manual `switch` — not `[Union]`.
 
 ---
+## [5][MATHNET_CSPARSE]
 
-## Prompt Line
+| Surface                                       | Owner                        |
+| --------------------------------------------- | ---------------------------- |
+| Dense factorizations, statistics, integration | MathNet                      |
+| `BiCgStab`, preconditioners, `Iterator<T>`    | MathNet iterative            |
+| `SparseCholesky`, AMD ordering, CSC solve     | CSparse — SPD gate required  |
+| CSR/CSC hybrid strategy                       | CSparse + MathNet projection |
 
-Load `coding-csharp` → `references/advanced-surface.md`; language: `docs/external-libs/csharp/language.md`; libs: `docs/external-libs/languageext/` + `thinktecture/` (+ `mathnet/sparse.md` if numerics). **C#14:** extension blocks; `[..]` collection expressions; `params ReadOnlySpan<T>`; `field`/`required`; switch + list/property patterns. **LE/TT:** `>>` `>>>` `*` `&` `+`; `TraverseM >> lower` or `.As()` on Eff/IO; `.Choose` `.MapFail`/`.BindFail`/`.BiBind`; `guard` `Optional(…).ToFin` `Try.lift` `Atom.Swap`; `[Union(SwitchMapStateParameterName)]` `[ValueObject<T>]` `[ComplexValueObject]` `[ValidationError<T>]` `[SmartEnum<…>]`; Schedule `|` / `union` / `intersect`.
+Package id for direct sparse library: **`CSparse`**. No LOBPCG type in MathNet 6.0.0-beta2 XML. Prefer native geometry APIs for model semantics; MathNet for numerical kernels after explicit coordinate projection.
+
+---
+## [6][C14_HIGHLIGHTS]
+
+| Feature                          | Use                                        |
+| -------------------------------- | ------------------------------------------ |
+| Extension blocks                 | Instance/static operators without wrappers |
+| Collection expressions           | `[..a, ..b, x]`                            |
+| `params ReadOnlySpan<T>`         | Arity-polymorphic APIs                     |
+| `field` keyword                  | Inline property validation                 |
+| Implicit span conversions        | Audit ambiguous overload sets              |
+| Null-conditional assignment      | Boundary-only `target?.Prop = value`       |
+| User-defined compound assignment | Domain monoid/receipt `+=`                 |
+| Switch / list patterns           | Total value-returning dispatch             |
+
+---
+## [7][HOST_PACKAGES]
+
+**`[NOT_IN_GRAPH]`** until a bootstrap consumer pins packages.
+
+| Package             | Composition-root surface                                                 |
+| ------------------- | ------------------------------------------------------------------------ |
+| Scrutor 7           | `Scan`, `Decorate`, `WithServiceKey`, `DecoratedService<T>`              |
+| FluentValidation 11 | `ValidateAsync` → `Validation<Error,T>` at boundary                      |
+| NodaTime 3          | `IClock`, `Instant` on runtime record                                    |
+| EF Core 10          | `DbContext` on `RT`; `EnableRetryOnFailure` at persistence boundary only |
+| Serilog 4 / OTel 1  | Host registration; `[LoggerMessage]`, `ActivitySource`                   |
+| Http.Resilience 10  | `AddStandardResilienceHandler` on typed `HttpClient`                     |
+
+Detail: [scrutor.md](scrutor.md), [persistence.md](persistence.md), [observability.md](observability.md), [composition.md](composition.md).

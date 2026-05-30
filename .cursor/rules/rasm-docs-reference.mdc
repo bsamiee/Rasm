@@ -1,12 +1,12 @@
 ---
 description: Rasm reference docs: system API map, external libraries, testing libraries, and usage owner ladder
-globs: "docs/system-api-map/**/*.md,docs/external-libs/**/*.md,docs/testing-libs/**/*.md,docs/usage.md"
+globs: "docs/system-api-map/**/*.md,docs/external-libs/**/*.md,docs/testing-libs/**/*.md,docs/usage.md,docs/host/**/*.md,docs/host-libraries.md"
 alwaysApply: false
 ---
 
 # Rasm Reference Docs
 
-Read `.claude/skills/docgen/SKILL.md`, `.claude/skills/style-standards/SKILL.md`, `docs/AGENTS.md`, and nearest docs `AGENTS.md`.
+Read `.claude/skills/docgen/SKILL.md`, `.claude/skills/style-standards/SKILL.md`, and root `AGENTS.md` §5.
 
 ## Sources
 
@@ -20,6 +20,8 @@ Read `.claude/skills/docgen/SKILL.md`, `.claude/skills/style-standards/SKILL.md`
 - `docs/external-libs` owns approved product library APIs such as LanguageExt, Thinktecture, MathNet, RhinoCommon, GH2, and Eto.
 - `docs/testing-libs` owns xUnit v3, CsCheck, Verify, ArchUnitNET, coverlet, Stryker, BenchmarkDotNet, SharpFuzz, and bridge test APIs.
 - `docs/usage.md` owns the cross-stack implementation source-order ladder.
+- `docs/host` owns RhinoCommon and GH2 native SDK boundaries.
+- `docs/host-libraries.md` owns composition-root package adoption (not-in-graph until consumer).
 
 ## Rules
 

@@ -6,16 +6,22 @@ alwaysApply: false
 
 # Rasm Documentation
 
-Read `docgen` and `style-standards` before editing Markdown or `.mdc` files.
+Read `docgen`, `style-standards`, and `rasm-prose.mdc` before editing Markdown or `.mdc` files.
 
 ## Routing
 
-| Need | Source |
-| --- | --- |
-| README, ADR, changelog, architecture | `rasm-docs-architecture.mdc` + `docgen` |
-| Headers, lists, voice, separators | `style-standards` |
-| BCL, product libraries, testing APIs, usage ladder | `rasm-docs-reference.mdc` |
-| Cursor project rules | `.cursor/rules/README.md` + current Cursor Rules docs |
+| [INDEX] | [NEED]                                             |
+| :-----: | -------------------------------------------------- |
+|   [1]   | README, ADR, changelog, architecture               |
+|   [2]   | Headers, lists, voice, separators, prose leak bans |
+|   [3]   | BCL, product libraries, testing APIs, usage ladder |
+|   [4]   | Cursor project rules                               |
+
+[SOURCE]
+- [1] `rasm-docs-architecture.mdc` + `docgen`
+- [2] `style-standards` + `rasm-prose.mdc`
+- [3] `rasm-docs-reference.mdc`
+- [4] `.cursor/rules/README.md` + current Cursor Rules docs
 
 ## Rules
 

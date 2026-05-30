@@ -1,14 +1,12 @@
 ---
 name: coding-csharp
 description: >-
-  Enforces C# 14 + LanguageExt v5 functional/ROP style for the Rasm
-  Rhino/Grasshopper plugin. Use when writing, editing, reviewing, or refactoring
-  .cs modules. Drives polymorphic collapse (Thinktecture [Union]/[SmartEnum]/[ValueObject]),
-  greenfield API breaking over shims, dense algorithmic logic over flat structures,
-  singular OOP boundary capsules, unified Fin/Validation/Eff rails, and matching the
-  established RasmCommand/RhinoUi/RasmOverlay templates. Activates on concept-density
-  pressure points: 3 or more parallel types, 3 or more sibling factories, 3 or more
-  repeated switch arms, 3 or more single-call private helpers.
+  Enforces C# 14 + LanguageExt v5 functional/ROP style. Use when writing, editing,
+  reviewing, or refactoring .cs modules. Drives polymorphic collapse (Thinktecture
+  [Union]/[SmartEnum]/[ValueObject]), greenfield API breaking over shims, dense
+  algorithmic logic, singular OOP boundary capsules, and unified Fin/Validation/Eff
+  rails. Activates on concept-density pressure points: 3+ parallel types, 3+ sibling
+  factories, 3+ repeated switch arms, 3+ single-call private helpers.
 ---
 
 # [H1][CODING-CSHARP]
@@ -33,16 +31,16 @@ All code follows six governing principles:
 - **Programmatic logic**: named parameters at domain call sites, `SmartEnum<T>` over strings, bounded vocabularies
 - **Surface ownership**: one polymorphic entrypoint, `params ReadOnlySpan<T>` for arity collapse, no helpers
 - **Private integration**: module logic is the export's implementation, not its neighbor — `private`/`internal` members are nested types, closures, or inline compositions inside the public class/service, not standalone file-level declarations consumed by a single caller
-- **Cross-cutting composition**: Decorator composition for service-level AOP (host-supplied DI when present), `K<F,A>` for higher-kinded abstraction
+- **Cross-cutting composition**: Scrutor `Decorate` at composition root when a host container exists; otherwise runtime-record DI; `K<F,A>` for higher-kinded abstraction
 
 
 ## Architecture trinity
 
 Every module exhibits three layers — singular boundary, unified rails, dense FP internals.
 
-1. **Singular OOP boundary** — exactly one sealed boundary capsule per native-OOP integration point. The override surface is `sealed`; the only virtual surface returns `Fin<T>` (or `Eff<RT,T>`). Native disposables live inside `try…finally` blocks annotated `// BOUNDARY ADAPTER — reason`. Examples in this codebase: `RasmCommand<TSelf>.RunCommand` (Commands/Command.cs), `RhinoUi.Use<T>(UiIntent<T>)` (UI/Ui.cs), `RasmOverlay<TState>` (UI/Overlay.cs).
+1. **Singular OOP boundary** — exactly one sealed boundary capsule per native-OOP integration point. The override surface is `sealed`; the only virtual surface returns `Fin<T>` (or `Eff<RT,T>`). Native disposables live inside `try…finally` blocks annotated `// BOUNDARY ADAPTER — reason`.
 2. **Unified rails** — one rail per failure semantics within a file: `Fin<T>` (sync fallible), `Validation<Error,T>` (parallel accumulation), `Eff<RT,T>` (effectful), `IO<A>` (boundary effects). No mixing within the file. No raw `Task<T>` in domain. No `null` for absence. No `Exception` for control flow.
-3. **FP internal logic** — dense expression bodies, exhaustive `switch` on `[Union]`/`SmartEnum`, LINQ comprehensions (`from..in..select`) for multi-step monadic composition, `Atom<TState>` for managed state, host decision monoids (`OverlayDecision`, GH `Components.Decision`), polymorphic dispatch tables, fold algebras over recursive structures. Prefer one deep complex surface over many shallow loose ones.
+3. **FP internal logic** — dense expression bodies, exhaustive `switch` on `[Union]`/`SmartEnum`, LINQ comprehensions (`from..in..select`) for multi-step monadic composition, `Atom<TState>` for managed state, host decision monoids where needed, polymorphic dispatch tables, fold algebras over recursive structures. Prefer one deep complex surface over many shallow loose ones.
 
 
 ## Greenfield posture
@@ -58,17 +56,23 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 
 ## Conventions
 
-| Layer               | Library      | Owns                                                                                   |
-| ------------------- | ------------ | -------------------------------------------------------------------------------------- |
-| ROP / Effects       | LanguageExt  | `Fin<T>`, `Validation<Error,T>`, `Eff<RT,T>`, `IO<A>`, `K<F,A>`, `Option<T>`, `Seq<T>` |
-| Value objects / DUs | Thinktecture | `[ValueObject<T>]`, `[SmartEnum<T>]`, `[Union]`, generated dispatch                    |
-| Numerics / Symbolics | MathNet | Linear algebra, solvers, statistics, and symbolic formulas after Rhino/GH ownership is settled |
-| Scheduling          | LanguageExt  | `Schedule.exponential` / `spaced` / `jitter` / `recurs` / `upto` algebra               |
-| State               | LanguageExt  | `Atom<T>` validators, `Ref<T>` + `atomic` STM, `Bracket` resource scope                |
+| Layer                 | Library                                 | Owns                                                                                   |
+| --------------------- | --------------------------------------- | -------------------------------------------------------------------------------------- |
+| ROP / Effects         | LanguageExt                             | `Fin<T>`, `Validation<Error,T>`, `Eff<RT,T>`, `IO<A>`, `K<F,A>`, `Option<T>`, `Seq<T>` |
+| Value objects / DUs   | Thinktecture                            | `[ValueObject<T>]`, `[SmartEnum<T>]`, `[Union]`, generated dispatch                    |
+| Numerics / Symbolics  | MathNet, CSparse                        | Linear algebra, symbolic formulas, sparse SPD factorization                            |
+| Scheduling            | LanguageExt                             | `Schedule.exponential` / `spaced` / `jitter` / `recurs` / `upto` algebra               |
+| State                 | LanguageExt                             | `Atom<T>` validators, `Ref<T>` + `atomic` STM, `Bracket` resource scope                |
+| Composition (host)    | Scrutor 7 `[NOT_IN_GRAPH]`              | `Scan`, `Decorate`/`TryDecorate`, keyed registration — composition root only           |
+| Persistence (host)    | EF Core `[NOT_IN_GRAPH]`                | `DbContext`, repositories, value converters — effectful shell only                     |
+| Time (boundary)       | NodaTime `[NOT_IN_GRAPH]`               | `Instant`, `IClock`, zones — inject clock; no wall-clock in domain                     |
+| Validation (boundary) | FluentValidation `[NOT_IN_GRAPH]`       | DTO/rule sets — bridge to `Validation<Error,T>` before domain                          |
+| Observability (host)  | Serilog, OpenTelemetry `[NOT_IN_GRAPH]` | Logs, traces, metrics — host registration only                                         |
+| HTTP (host)           | Http.Resilience `[NOT_IN_GRAPH]`        | Outbound client resilience handlers — composition root only                            |
 
 - One library's error/option type per module — no mixing across libraries in same file.
-- Resilience is composition-root concern via verified LanguageExt recovery combinators + `Schedule` — never a domain primitive (no retry-as-policy library).
-- DI is host-supplied; this codebase favours runtime records over service-locator scans.
+- Domain retry/backoff: LanguageExt `Schedule` + `Prelude.retry` on `Eff<RT,T>` and `IO<A>` — lift pure `Fin` retry via re-invocation or boundary lift; not raw Polly in domain.
+- Prefer runtime-record `Eff.runtime<RT>()` in effectful pipelines; use Scrutor where `IServiceCollection` exists.
 
 
 ## Contracts
@@ -104,8 +108,8 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 - Expression-bodied members where body is a single expression. Primary constructors preferred.
 
 **Resources**
-- Time via host-injected clock (e.g. `IClock`), never direct `DateTime*`.
-- Retry/timeout/resilience via LanguageExt `Schedule` algebra and verified recovery combinators — composition root concern only.
+- Time via host-injected `IClock` (NodaTime), never direct `DateTime*` in domain.
+- Retry/timeout/resilience via LanguageExt `Schedule` in domain; HTTP client resilience via `Microsoft.Extensions.Http.Resilience` at host only.
 - `static` lambdas on hot-path closures — zero closure allocations.
 
 **Formatting**
@@ -117,103 +121,82 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 
 **Foundation** (always):
 
-| Reference                                 | Focus                                    |
-| ----------------------------------------- | ---------------------------------------- |
-| [validation.md](references/validation.md) | Compliance checklist and completion gate |
-| [patterns.md](references/patterns.md)     | Anti-pattern detection heuristics        |
-
-When working in Rasm, read `docs/system-api-map` and `docs/external-libs` after this skill for BCL/System, LanguageExt, Thinktecture, MathNet, RhinoWIP, and GH2 source-order policy. For operators, Prelude, combinator, and codegen-attribute lookups, load [advanced-surface.md](references/advanced-surface.md) first.
+| Reference                                             | Focus                                                       |
+| ----------------------------------------------------- | ----------------------------------------------------------- |
+| [validation.md](references/validation.md)             | Compliance checklist                                        |
+| [patterns.md](references/patterns.md)                 | Anti-pattern detection heuristics                           |
+| [advanced-surface.md](references/advanced-surface.md) | Operators, Thinktecture attrs, combinators, numerics, C# 14 |
 
 **Task-routed references**:
 
-| Reference                                       | Load when                              |
-| ----------------------------------------------- | -------------------------------------- |
-| [advanced-surface.md](references/advanced-surface.md) | Operators (`>>`/`*`/`|`/`&`), Thinktecture attrs, LE combinators, MathNet/CSparse, C# 14 |
-| [types.md](references/types.md)                 | C# types, generics, constraints        |
-| [objects.md](references/objects.md)             | Records, DU hierarchies, value objects |
-| [effects.md](references/effects.md)             | Fin/Validation/Eff/IO pipelines, ROP   |
-| [transforms.md](references/transforms.md)       | Folds, LINQ composition, K<F,A>        |
-| [composition.md](references/composition.md)     | DI topology and runtime-record wiring  |
-| [scrutor.md](references/scrutor.md)             | Scrutor scan/decorator composition     |
-| [persistence.md](references/persistence.md)     | EF Core, repositories                  |
-| [concurrency.md](references/concurrency.md)     | Channels, cancellation                 |
-| [observability.md](references/observability.md) | Serilog, OpenTelemetry                 |
-| [performance.md](references/performance.md)     | SIMD, Span, hot paths                  |
-| [diagnostics.md](references/diagnostics.md)     | Debugging, profiling                   |
+| Reference                                       | Load when                                          |
+| ----------------------------------------------- | -------------------------------------------------- |
+| [effects.md](references/effects.md)             | Fin/Validation/Eff/IO pipelines, Schedule boundary |
+| [transforms.md](references/transforms.md)       | Folds, LINQ composition, K<F,A>                    |
+| [types.md](references/types.md)                 | C# types, generics, keyed-service keys             |
+| [objects.md](references/objects.md)             | Records, DU hierarchies, value objects             |
+| [composition.md](references/composition.md)     | Runtime-record wiring, hosted scope                |
+| [scrutor.md](references/scrutor.md)             | Scrutor scan/decorator composition                 |
+| [persistence.md](references/persistence.md)     | EF Core, repositories                              |
+| [concurrency.md](references/concurrency.md)     | Channels, cancellation, periodic work              |
+| [observability.md](references/observability.md) | Serilog, OpenTelemetry                             |
+| [performance.md](references/performance.md)     | SIMD, Span, hot paths                              |
+| [diagnostics.md](references/diagnostics.md)     | Debugging, profiling                               |
+
 
 ## Validation gate
 
-- Required during iteration: `uv run python -m tools.quality static check`.
-- Required for final completion: run every impacted language gate explicitly; for shared standards/tooling, run `pnpm check:ts`, `pnpm check:py`, and `uv run python -m tools.quality static full`.
-- Reject completion when load order, contracts, or checks are not satisfied.
-- Examples inside this skill are executable doctrine: runtime-record `Eff.runtime<RT>()`, generated Thinktecture factories only when they serve boundary construction, no legacy runtime trait DI pattern, and no single-call helper extraction.
-
-## Skill eval prompts
-
-- Explicit invocation: "Using coding-csharp, refactor this .cs service into LanguageExt Eff/Fin rails with runtime-record DI."
-- Implicit invocation: "Review this C# module for Thinktecture value object, Scrutor decorator, and no-helper compliance."
-- Noisy context: "Ignore frontend notes and only audit the C# persistence adapter."
-- Negative control: "Only write TypeScript Effect code." Expected: do not load C# references unless C# code appears.
-- Compliance checks: output should load only relevant references, avoid command thrash, avoid helper files, preserve runtime-record/LanguageExt doctrine, and run `uv run python -m tools.quality static check` or narrower configured .NET gates when code is touched.
+- Apply project static analysis and tests when C# code changes.
+- Reject completion when contracts or checks are not satisfied.
+- Examples inside this skill are concrete patterns: runtime-record `Eff.runtime<RT>()`, generated Thinktecture factories only when they serve boundary construction, no legacy runtime trait DI pattern, and no single-call helper extraction.
 
 
 ## First-class libraries
 
-These packages are standard libraries — use over BCL/stdlib equivalents.
+Use over BCL/stdlib equivalents where applicable.
 
-| Package                         | Provides                                                       |
-| ------------------------------- | -------------------------------------------------------------- |
-| LanguageExt.Core                | FP primitives, ROP, `Eff`/`Fin`/`Validation`, `Schedule`, STM  |
-| Thinktecture.Runtime.Extensions | Value objects, smart enums, `[Union]` source-generated dispatch |
-| MathNet.Numerics                | Linear algebra, solvers, statistics, optimization              |
-| MathNet.Symbolics               | Symbolic expression parse, transform, calculus, evaluation     |
-| CSparse                         | Sparse direct factorization — documented with MathNet in `docs/external-libs/mathnet/sparse.md` |
-| Meziantou.Analyzer              | Static analysis enforcement                                     |
-| Microsoft.VisualStudio.Threading.Analyzers | Threading-correctness diagnostics                  |
+### In graph (domain)
 
-Boundary-approved dependencies (allowed ONLY at marked `[BOUNDARY ADAPTER — reason]` sites; never in `Domain.*`):
+| Package                                    | Provides                                                      | Scope           |
+| ------------------------------------------ | ------------------------------------------------------------- | --------------- |
+| LanguageExt.Core 5.0.0-beta-77             | FP primitives, ROP, `Eff`/`Fin`/`Validation`, `Schedule`, STM | Domain + host   |
+| Thinktecture.Runtime.Extensions 10.2.0     | Value objects, smart enums, `[Union]` dispatch                | Domain + host   |
+| MathNet.Numerics 6.0.0-beta2               | Linear algebra, solvers, statistics, optimization             | Domain numerics |
+| MathNet.Symbolics 0.25.0                   | Symbolic parse, transform, calculus, evaluation               | Domain numerics |
+| CSparse 4.3.0                              | Sparse direct factorization (with MathNet iterative paths)    | Domain numerics |
+| Meziantou.Analyzer                         | Static analysis enforcement                                   | Build           |
+| Microsoft.VisualStudio.Threading.Analyzers | Threading-correctness diagnostics                             | Build           |
 
-| Package | Boundary scope |
-| ------- | -------------- |
-| FluentValidation | HTTP/API boundary only — `ValidateAsync` results bridged to `Validation<Error,T>` before entering domain (see `validation.md [10][BOUNDARY_ADAPTER]`) |
-| Microsoft.Extensions.Http.Resilience (Polly wrapper) | Composition root only — `AddStandardResilienceHandler` for outbound HTTP (see `observability.md [4]`) |
-| NodaTime | Optional time-zone math at boundary; `IClock` injection covers timestamp needs (see `concurrency.md [5]`) |
-| Scrutor | Composition root only — `Scan`/`Decorate` for AOP, never inside domain modules |
+### `[NOT_IN_GRAPH]` host (composition root only)
 
-Polly raw and BenchmarkDotNet are intentionally absent. Retry/backoff inside domain is covered by LanguageExt `Schedule`; validation by `Validation<Error,T>` applicative; time inside domain by `IClock` injection; DI composition by runtime records (`Eff.runtime<RT>()`).
+Adopt only when a bootstrap consumer pins the package.
 
+| Package                                   | Provides                                                               | Scope                           |
+| ----------------------------------------- | ---------------------------------------------------------------------- | ------------------------------- |
+| Scrutor 7.0.0                             | `Scan`, `Decorate`/`TryDecorate`, `WithServiceKey`, keyed registration | Composition root                |
+| FluentValidation 11.x                     | Boundary DTO validation — bridge to `Validation<Error,T>`              | HTTP/API/config boundary        |
+| NodaTime 3.x                              | `Instant`, `IClock`, time zones                                        | Boundary + persistence adapters |
+| EF Core 10.x                              | Relational persistence, `IQueryable`, value converters                 | Persistence host projects       |
+| Serilog 4.x                               | Structured logging, enrichers, sinks                                   | Generic host                    |
+| OpenTelemetry 1.x                         | Traces, metrics, exporters                                             | Generic host                    |
+| Microsoft.Extensions.Http.Resilience 10.x | Outbound `HttpClient` resilience                                       | Composition root                |
 
-## Active-folder canonical templates
-
-When generating new code, structurally match these established surfaces. Read them as executable doctrine before writing analogous code.
-
-| Concern | Template | Key shape |
-|---------|----------|-----------|
-| Rhino command | `libs/csharp/Rasm.Rhino/Commands/Command.cs` `RasmCommand<TSelf>` | `sealed override RunCommand` → `Fin<T>` rail → `Match` at terminal boundary only |
-| Rhino UI operation | `libs/csharp/Rasm.Rhino/UI/Ui.cs` `RhinoUi.Use<T>(UiIntent<T>)` | One polymorphic intent surface with ~20 modality factories returning the same record |
-| Viewport overlay | `libs/csharp/Rasm.Rhino/UI/Overlay.cs` `RasmOverlay<TState>` | `Atom<TState>` confinement + `Apply(phase, args)` discriminated dispatch |
-| Document operation | `libs/csharp/Rasm.Rhino/Commands/Document.cs` `DocumentOp` | `[Union]` with ≥10 sealed cases + shared `DocumentReceipt` monoid |
-| GH document mutation | `libs/csharp/Rasm.Grasshopper/UI/Ui.cs` `DocumentMutationReceipt` | `operator +` receipt fold on document ops |
-| Selection algebra | `libs/csharp/Rasm.Rhino/Commands/Selection.cs` `CommandSelection.Reference.*` | Domain-vocabulary specializations over native return types — preserved, not collapsed |
-
-Replicate the patterns at these canonical surfaces; do not reinvent. Read the file table above as executable doctrine before writing analogous code.
+Polly raw is intentionally absent from domain guidance. BenchmarkDotNet belongs to dedicated measurement rails only — not domain hot-path doctrine. Domain retry: LanguageExt `Schedule` + `Prelude.retry` on `Eff`/`IO`; domain validation: `Validation<Error,T>`; domain time: `IClock`; container wiring: Scrutor when `IServiceCollection` exists, else runtime records.
 
 
 ## Advanced surface index
 
-Load [advanced-surface.md](references/advanced-surface.md) when prompts mention operators, codegen attributes, or non-basic library sugar. Universal routing (no repo-specific types):
+Load [advanced-surface.md](references/advanced-surface.md) when prompts mention operators, codegen attributes, or non-basic library sugar:
 
-| Concern | Primary symbols / attrs | Doc |
-| ------- | ----------------------- | --- |
-| Kleisli / applicative operators | `>>`, `>>>`, `*`, `Validation &`, `Error +` | `docs/external-libs/languageext/operators.md` |
-| Option / effect recovery | `.Choose`, `IfNone`, `Match` (not bare `Option<T> \| Option<T>`); `Prelude.catch`, `.Retry(schedule:)` | `operators.md`, `combinators.md` |
-| Schedule algebra | `union`, `intersect`, transformer `+` | `operators.md`, `prelude.md` |
-| State-threaded union dispatch | `[Union(SwitchMapStateParameterName = …)]` | `docs/external-libs/thinktecture/union-attributes.md` |
-| VO / complex VO / custom faults | `[ValueObject<T>]`, `[ComplexValueObject]`, `[ValidationError<T>]` | `thinktecture/objects.md`, `union-attributes.md` |
-| SmartEnum dispatch | `[SmartEnum]`, `[SmartEnum<TKey>]`, `[UseDelegateFromConstructor]` | `thinktecture/enums.md` |
-| Traverse v5 lowering | `.TraverseM(f).As()`, `.Choose`, `.BiBind` | `languageext/combinators.md` |
-| Atoms and guards | `Atom.Swap`, `guard`, `Optional(…).ToFin` | `combinators.md`, `prelude.md` |
-| Sparse numerics | `BiCgStab`, CSparse `SparseCholesky`, CSR/CSC hybrid | `mathnet/sparse.md` |
-| C# 14 expression substrate | extension blocks, collection expressions, `params ReadOnlySpan` | `csharp/language.md` |
-
-Repo-specific boundary patterns (Op rail, receipts, SelfOp policy): `docs/external-libs/*/rasm.md`.
+| Concern                         | Primary symbols / attrs                                            |
+| ------------------------------- | ------------------------------------------------------------------ |
+| Kleisli / applicative operators | `>>`, `>>>`, `*`, `Validation &`, `Error +`                        |
+| Option / effect recovery        | `.Choose`, `IfNone`, `Match`; `Prelude.catch`, `Prelude.retry`     |
+| Schedule algebra                | `\|`, `union`, `intersect`, transformer `+`                        |
+| State-threaded union dispatch   | `[Union(SwitchMapStateParameterName = …)]`                         |
+| VO / complex VO / custom faults | `[ValueObject<T>]`, `[ComplexValueObject]`, `[ValidationError<T>]` |
+| SmartEnum dispatch              | `[SmartEnum]`, `[SmartEnum<TKey>]`, `[UseDelegateFromConstructor]` |
+| Traverse v5 lowering            | `.TraverseM(f).As()`, `.Choose`, `.BiBind`                         |
+| Atoms and guards                | `Atom.Swap`, `guard`, `Optional(…).ToFin`                          |
+| Sparse numerics                 | `BiCgStab`, CSparse `SparseCholesky`, CSR/CSC hybrid               |
+| C# 14 expression substrate      | extension blocks, collection expressions, `params ReadOnlySpan`    |

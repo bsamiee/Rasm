@@ -14,7 +14,7 @@ Produces one ARCHITECTURE.md file at appropriate scope level. Section selection 
 
 | [INDEX] | [PLACEHOLDER]        | [EXAMPLE]                                           |
 | :-----: | -------------------- | --------------------------------------------------- |
-|   [1]   | `${SystemName}`      | `AcmePlatform`                                           |
+|   [1]   | `${SystemName}`      | `AcmePlatform`                                      |
 |   [2]   | `${ProblemDomain}`   | `Configuration management for distributed systems`  |
 |   [3]   | `${ExternalActor1}`  | `Web Client`                                        |
 |   [4]   | `${ExternalActor2}`  | `Mobile App`                                        |
@@ -59,11 +59,11 @@ graph LR
 
 <!-- Responsibility table: one row per component. -->
 
-| Component         | Responsibility                    |
-| ----------------- | --------------------------------- |
-| **${Component1}** | <!-- One-line responsibility. --> |
-| **${Component2}** | <!-- One-line responsibility. --> |
-| **${Component3}** | <!-- One-line responsibility. --> |
+| [INDEX] | [COMPONENT]   | [RESPONSIBILITY]                  |
+| :-----: | ------------- | --------------------------------- |
+|   [1]   | ${Component1} | <!-- One-line responsibility. --> |
+|   [2]   | ${Component2} | <!-- One-line responsibility. --> |
+|   [3]   | ${Component3} | <!-- One-line responsibility. --> |
 
 ## Codemap
 

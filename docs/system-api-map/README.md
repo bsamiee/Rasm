@@ -11,12 +11,12 @@
 
 <br>
 
-| [INDEX] | [FILE] | [QUESTION] |
-| :-----: | ------ | ---------- |
-| [1] | `bcl.md` | Which BCL/shared-framework API owns a primitive concern? |
-| [2] | `packages.md` | Which package state permits adoption or rejection? |
-| [3] | `replacements.md` | Which owner replaces repeated local machinery? |
-| [4] | `meta.md` | Which C# build/meta file owns language, analyzer, host wiring, and global usings? |
+| [INDEX] | [FILE]            | [QUESTION]                                                                        |
+| :-----: | ----------------- | --------------------------------------------------------------------------------- |
+|   [1]   | `bcl.md`          | Which BCL/shared-framework API owns a primitive concern?                          |
+|   [2]   | `packages.md`     | Which package state permits adoption or rejection?                                |
+|   [3]   | `replacements.md` | Which owner replaces repeated local machinery?                                    |
+|   [4]   | `meta.md`         | Which C# build/meta file owns language, analyzer, host wiring, and global usings? |
 
 ---
 ## [2][ROUTING]
@@ -24,16 +24,17 @@
 
 <br>
 
-| [INDEX] | [QUESTION] | [READ] |
-| :-----: | ---------- | ------ |
-| [1] | Cross-stack owner precedence | `../usage.md` §1 |
-| [2] | Proof hierarchy for API claims | `../usage.md` §5 |
-| [3] | Build props, analyzers, host refs, global usings | `meta.md` |
-| [4] | Package graph state / adoption | `packages.md` |
-| [5] | BCL API ownership | `bcl.md` |
-| [6] | Replace local machinery | `replacements.md` |
-| [7] | Product library APIs | `../external-libs/README.md` |
-| [8] | Test-tool APIs | `../testing-libs/xunit/api.md` |
+| [INDEX] | [QUESTION]                                       | [READ]                       |
+| :-----: | ------------------------------------------------ | ---------------------------- |
+|   [1]   | Cross-stack owner precedence                     | `../usage.md` §1             |
+|   [2]   | Proof hierarchy for API claims                   | `../usage.md` §5             |
+|   [3]   | Build props, analyzers, host refs, global usings | `meta.md`                    |
+|   [4]   | Package graph state / adoption                   | `packages.md`                |
+|   [5]   | BCL API ownership                                | `bcl.md`                     |
+|   [6]   | Replace local machinery                          | `replacements.md`            |
+|   [7]   | Product library APIs                             | `../external-libs/README.md` |
+|   [8]   | Test-tool APIs                                   | `../testing-libs/README.md`  |
+|   [9]   | Host composition packages                        | `../host-libraries.md` §8    |
 
 ---
 ## [3][ADOPTION]

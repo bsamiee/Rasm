@@ -39,7 +39,7 @@ Every overload is a separate compilation unit the JIT must specialize. One polym
 
 [ANTI-PATTERN]: `if (val < 0) throw new ArgumentException();`
 [CORRECT]: `return Fin.Fail<TransactionAmount>(Error.New(message: "Negative value"));`
-`throw` exits the function's declared return type via an invisible channel the caller cannot statically verify. `Fin<T>` makes failure a first-class value in the codomain -- callers handle both paths via `Bind`/`Map`/`Match`. See `effects.md [1]`.
+`throw` exits the function's declared return type via an invisible channel the caller cannot statically verify. `Fin<T>` makes failure a first-class value in the codomain -- callers handle both paths via `Bind`/`Map`/`Match`. See `effects.md` [1].
 
 **LINQ_HOT_PATH**
 
@@ -83,13 +83,13 @@ Each non-static lambda capturing an outer variable triggers a display class allo
     .Apply(static (validated, _) => validated)
     .ToFin();
 ```
-Sequential guards short-circuit on the first failure, hiding subsequent errors. `Validation<Error,T>` with applicative `.Apply()` evaluates all rules and accumulates every failure into a single error collection. See `effects.md [4]`.
+Sequential guards short-circuit on the first failure, hiding subsequent errors. `Validation<Error,T>` with applicative `.Apply()` evaluates all rules and accumulates every failure into a single error collection. See `effects.md` [4].
 
 **PREMATURE_MATCH_COLLAPSE**
 
 [ANTI-PATTERN]: Calling `.Match(Succ: ..., Fail: ...)` mid-pipeline to extract a value, then re-wrapping in `Fin<T>`.
 [CORRECT]: Use `.Map`/`.Bind`/`.BiMap` to transform within the monadic context; reserve `.Match` for the final program boundary.
-`Match` destroys the `Fin`/`Option`/`Either` context -- subsequent operations must reconstruct it, duplicating error handling and defeating composition. See `effects.md [1]`.
+`Match` destroys the `Fin`/`Option`/`Either` context -- subsequent operations must reconstruct it, duplicating error handling and defeating composition. See `effects.md` [1].
 
 **API_SURFACE_INFLATION**
 
@@ -101,7 +101,7 @@ Each sibling method duplicates authorization, logging, and error-handling logic.
 
 [ANTI-PATTERN]: Using `null` for "not found", "error", "uninitialized", and "default" interchangeably.
 [CORRECT]: `Option<T>` for "might not exist"; `Fin<T>` for "might fail with a reason".
-`null` collapses four distinct semantic states into one untyped value. Typed absence (`Option`) and typed failure (`Fin`) make each state explicit in the type system. See `effects.md [1]`.
+`null` collapses four distinct semantic states into one untyped value. Typed absence (`Option`) and typed failure (`Fin`) make each state explicit in the type system. See `effects.md` [1].
 
 **INTERFACE_POLLUTION**
 
@@ -168,27 +168,27 @@ public readonly record struct UserId<TState> {
 ## [2][QUICK_REFERENCE]
 >**Dictum:** *Symptoms point to structural causes; fixes are architectural.*
 
-| [INDEX] | [PATTERN]                | [SYMPTOM]                              | [FIX]                                                        |
-| :-----: | :----------------------- | :------------------------------------- | ------------------------------------------------------------ |
-|   [1]   | VAR_INFERENCE            | `var` hides codomain semantics         | Explicit `Fin<T>` / `Option<T>` type                         |
-|   [2]   | POSITIONAL_ARGS          | Unnamed arguments at call site         | Named parameters at every invocation                         |
-|   [3]   | IMPERATIVE_BRANCH        | `if`/`else`/`for`/`while` in domain    | `Option`/`ToFin` + monadic `Bind`                            |
-|   [4]   | OVERLOAD_SPAM            | Sibling method families                | `params ReadOnlySpan<T>` + monoid constraint                 |
-|   [5]   | EXCEPTION_CONTROL_FLOW   | `try`/`catch`/`throw` in domain code   | `Fin<T>` / `Eff<RT,T>` error channel                         |
-|   [6]   | LINQ_HOT_PATH            | IEnumerable LINQ on hot path           | `TensorPrimitives` / span processing                         |
-|   [7]   | MUTABLE_ACCUMULATOR      | `foreach` + mutable accumulator        | Tail-recursive fold / `Seq<T>.Choose`                        |
-|   [8]   | VARIABLE_REASSIGNMENT    | `value = Process(value)` re-binding    | `Map` / `Bind` / `Pipe` chains                               |
-|   [9]   | CLOSURE_CAPTURE_HOT_PATH | Lambda captures outer variable         | `static` lambda + tuple threading                            |
-|  [10]   | EARLY_RETURN_GUARDS      | Sequential `if (!valid) return` guards | `Validation<Error,T>` applicative `.Apply()`                 |
-|  [11]   | PREMATURE_MATCH_COLLAPSE | `.Match` called mid-pipeline           | `Map`/`Bind`/`BiMap` within context                          |
-|  [12]   | API_SURFACE_INFLATION    | `Get`/`GetMany`/`TryGet` siblings      | `Execute<R>(query)` algebra pattern                          |
-|  [13]   | NULL_ARCHITECTURE        | `null` for multiple semantic states    | `Option<T>` / `Fin<T>` typed absence                         |
-|  [14]   | INTERFACE_POLLUTION      | `IService` single implementation       | Runtime-record DI + constrained Scrutor scan policy          |
-|  [15]   | ANEMIC_DOMAIN            | Entity with only getters/setters       | Smart constructors + `with`-expressions                      |
-|  [16]   | GOD_FUNCTION             | Giant switch violating OCP             | `sealed abstract record` DU + `Fold` / `K<F,A>`              |
-|  [17]   | HELPER_SPAM              | `private` function, single call site   | Inline at call site or promote to owning type                |
-|  [18]   | DENSITY_OVER_VOLUME      | Repetitive arms, brute-force inline    | Fold algebra / `K<F,A>` generic pipeline                     |
-|  [19]   | PHANTOM_BYPASS           | Public ctor on phantom-parameterized   | Private ctor + `internal UnsafeWrap` factory                 |
-|  [20]   | DUAL_CANONICAL_SHAPE     | Two encodings for same domain concept  | One encoding per concept per bounded context                 |
+| [INDEX] | [PATTERN]                | [SYMPTOM]                                                       | [FIX]                                                              |
+| :-----: | :----------------------- | :-------------------------------------------------------------- | ------------------------------------------------------------------ |
+|   [1]   | VAR_INFERENCE            | `var` hides codomain semantics                                  | Explicit `Fin<T>` / `Option<T>` type                               |
+|   [2]   | POSITIONAL_ARGS          | Unnamed arguments at call site                                  | Named parameters at every invocation                               |
+|   [3]   | IMPERATIVE_BRANCH        | `if`/`else`/`for`/`while` in domain                             | `Option`/`ToFin` + monadic `Bind`                                  |
+|   [4]   | OVERLOAD_SPAM            | Sibling method families                                         | `params ReadOnlySpan<T>` + monoid constraint                       |
+|   [5]   | EXCEPTION_CONTROL_FLOW   | `try`/`catch`/`throw` in domain code                            | `Fin<T>` / `Eff<RT,T>` error channel                               |
+|   [6]   | LINQ_HOT_PATH            | IEnumerable LINQ on hot path                                    | `TensorPrimitives` / span processing                               |
+|   [7]   | MUTABLE_ACCUMULATOR      | `foreach` + mutable accumulator                                 | Tail-recursive fold / `Seq<T>.Choose`                              |
+|   [8]   | VARIABLE_REASSIGNMENT    | `value = Process(value)` re-binding                             | `Map` / `Bind` / `Pipe` chains                                     |
+|   [9]   | CLOSURE_CAPTURE_HOT_PATH | Lambda captures outer variable                                  | `static` lambda + tuple threading                                  |
+|  [10]   | EARLY_RETURN_GUARDS      | Sequential `if (!valid) return` guards                          | `Validation<Error,T>` applicative `.Apply()`                       |
+|  [11]   | PREMATURE_MATCH_COLLAPSE | `.Match` called mid-pipeline                                    | `Map`/`Bind`/`BiMap` within context                                |
+|  [12]   | API_SURFACE_INFLATION    | `Get`/`GetMany`/`TryGet` siblings                               | `Execute<R>(query)` algebra pattern                                |
+|  [13]   | NULL_ARCHITECTURE        | `null` for multiple semantic states                             | `Option<T>` / `Fin<T>` typed absence                               |
+|  [14]   | INTERFACE_POLLUTION      | `IService` single implementation                                | Runtime-record DI + constrained Scrutor scan policy                |
+|  [15]   | ANEMIC_DOMAIN            | Entity with only getters/setters                                | Smart constructors + `with`-expressions                            |
+|  [16]   | GOD_FUNCTION             | Giant switch violating OCP                                      | `sealed abstract record` DU + `Fold` / `K<F,A>`                    |
+|  [17]   | HELPER_SPAM              | `private` function, single call site                            | Inline at call site or promote to owning type                      |
+|  [18]   | DENSITY_OVER_VOLUME      | Repetitive arms, brute-force inline                             | Fold algebra / `K<F,A>` generic pipeline                           |
+|  [19]   | PHANTOM_BYPASS           | Public ctor on phantom-parameterized                            | Private ctor + `internal UnsafeWrap` factory                       |
+|  [20]   | DUAL_CANONICAL_SHAPE     | Two encodings for same domain concept                           | One encoding per concept per bounded context                       |
 |  [21]   | FILE_EXTRACTION_REFLEX   | Splitting one module into many files when concept density fires | Collapse cases into one [Union]/SmartEnum + fold; densify in place |
-|  [22]   | LEGACY_SHIM              | [Obsolete] / Adapt* / *Backcompat surfaces | Break the API, update all call sites in the same change |
+|  [22]   | LEGACY_SHIM              | [Obsolete] / Adapt* / *Backcompat surfaces                      | Break the API, update all call sites in the same change            |

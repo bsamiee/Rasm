@@ -75,13 +75,13 @@ Link to issue templates. State what constitutes a valid bug report vs. feature r
 
 <br>
 
-| [INDEX] | [TYPE]          | [ADDITIONAL_SECTIONS]                                                 |
-| :-----: | --------------- | --------------------------------------------------------------------- |
-|   [1]   | **Library**     | API design guidelines, backward compatibility policy                  |
-|   [2]   | **Service**     | Local infrastructure setup (Docker compose), seed data                |
-|   [3]   | **CLI**         | Argument parsing conventions, manual testing procedures               |
-|   [4]   | **Monorepo**    | Package-scoped contribution (which package, how to test in isolation) |
-|   [5]   | **Open source** | CLA/DCO requirements, code of conduct link, first-timer labels        |
+| [INDEX] | [TYPE]      | [ADDITIONAL_SECTIONS]                                                 |
+| :-----: | ----------- | --------------------------------------------------------------------- |
+|   [1]   | Library     | API design guidelines, backward compatibility policy                  |
+|   [2]   | Service     | Local infrastructure setup (Docker compose), seed data                |
+|   [3]   | CLI         | Argument parsing conventions, manual testing procedures               |
+|   [4]   | Monorepo    | Package-scoped contribution (which package, how to test in isolation) |
+|   [5]   | Open source | CLA/DCO requirements, code of conduct link, first-timer labels        |
 
 ---
 ## [4][VALIDATION]

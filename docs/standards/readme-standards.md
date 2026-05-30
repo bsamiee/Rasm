@@ -17,20 +17,20 @@ description: Structural specification for README documents
 
 Standard-README specification. Section order is fixed—never reorder.
 
-| [INDEX] | [SECTION]             | [REQUIRED]  | [CONTENT]                                                          |
-| :-----: | --------------------- | :---------: | ------------------------------------------------------------------ |
-|   [1]   | **Title**             |     Yes     | Project name. Single `#` H1. No tagline — that belongs in [3].     |
-|   [2]   | **Badges**            | Conditional | CI status, coverage, version, license. Omit if no CI.              |
-|   [3]   | **Description**       |     Yes     | One paragraph. What the project does, why it exists.               |
-|   [4]   | **Table of Contents** | Conditional | Required when >4 sections visible.                                 |
-|   [5]   | **Security**          | Conditional | Vulnerability reporting instructions. Required for public repos.   |
-|   [6]   | **Background**        | Conditional | Domain context, motivation, prior art. Required for novel domains. |
-|   [7]   | **Install**           |     Yes     | Exact commands. Prerequisites. Environment requirements.           |
-|   [8]   | **Usage**             |     Yes     | Minimum viable example — runnable, not comprehensive.              |
-|   [9]   | **API**               | Conditional | Public surface reference. Required for libraries.                  |
-|  [10]   | **Architecture**      | Conditional | System context + component overview. Required for services.        |
-|  [11]   | **Contributing**      | Conditional | Setup, conventions, PR workflow. Required for open-source.         |
-|  [12]   | **License**           |     Yes     | SPDX identifier. Link to LICENSE file.                             |
+| [INDEX] | [SECTION]         | [REQUIRED]  | [CONTENT]                                                          |
+| :-----: | ----------------- | :---------: | ------------------------------------------------------------------ |
+|   [1]   | Title             |     Yes     | Project name. Single `#` H1. No tagline — that belongs in [3].     |
+|   [2]   | Badges            | Conditional | CI status, coverage, version, license. Omit if no CI.              |
+|   [3]   | Description       |     Yes     | One paragraph. What the project does, why it exists.               |
+|   [4]   | Table of Contents | Conditional | Required when >4 sections visible.                                 |
+|   [5]   | Security          | Conditional | Vulnerability reporting instructions. Required for public repos.   |
+|   [6]   | Background        | Conditional | Domain context, motivation, prior art. Required for novel domains. |
+|   [7]   | Install           |     Yes     | Exact commands. Prerequisites. Environment requirements.           |
+|   [8]   | Usage             |     Yes     | Minimum viable example — runnable, not comprehensive.              |
+|   [9]   | API               | Conditional | Public surface reference. Required for libraries.                  |
+|  [10]   | Architecture      | Conditional | System context + component overview. Required for services.        |
+|  [11]   | Contributing      | Conditional | Setup, conventions, PR workflow. Required for open-source.         |
+|  [12]   | License           |     Yes     | SPDX identifier. Link to LICENSE file.                             |
 
 ---
 ## [2][AUDIENCES]
@@ -38,11 +38,11 @@ Standard-README specification. Section order is fixed—never reorder.
 
 <br>
 
-| [INDEX] | [TIER]          | [TIME_BUDGET] | [SECTIONS_REQUIRED]          | [DEPTH]                                     |
-| :-----: | --------------- | :-----------: | ---------------------------- | ------------------------------------------- |
-|   [1]   | **Evaluator**   |    30 sec     | Title, Description, Badges   | Scan-quality: can this solve my problem?    |
-|   [2]   | **Adopter**     |    10 min     | + Install, Usage, License    | Setup-quality: can I get this running?      |
-|   [3]   | **Contributor** |    30 min     | + Architecture, Contributing | Orientation-quality: where does my code go? |
+| [INDEX] | [TIER]      | [TIME_BUDGET] | [SECTIONS_REQUIRED]          | [DEPTH]                                     |
+| :-----: | ----------- | :-----------: | ---------------------------- | ------------------------------------------- |
+|   [1]   | Evaluator   |    30 sec     | Title, Description, Badges   | Scan-quality: can this solve my problem?    |
+|   [2]   | Adopter     |    10 min     | + Install, Usage, License    | Setup-quality: can I get this running?      |
+|   [3]   | Contributor |    30 min     | + Architecture, Contributing | Orientation-quality: where does my code go? |
 
 [IMPORTANT]:
 1. [ALWAYS] **Canonical order:** Preserve section order from §1; project type changes section presence and depth, not ordering.
@@ -86,10 +86,10 @@ System context diagram (C4 Level 1): project as single box with external depende
 
 | [INDEX] | [PROJECT_TYPE] | [EMPHASIS_SECTIONS]             | [ORDER_RULE]                               |
 | :-----: | -------------- | ------------------------------- | ------------------------------------------ |
-|   [1]   | **Library**    | Install, API, Usage             | Use canonical order; include API.          |
-|   [2]   | **Service**    | Architecture, Install, Usage    | Use canonical order; include Architecture. |
-|   [3]   | **CLI**        | Install, Usage                  | Use canonical order; emphasize commands.   |
-|   [4]   | **Monorepo**   | Architecture, Install, packages | Use canonical order; link package READMEs. |
+|   [1]   | Library        | Install, API, Usage             | Use canonical order; include API.          |
+|   [2]   | Service        | Architecture, Install, Usage    | Use canonical order; include Architecture. |
+|   [3]   | CLI            | Install, Usage                  | Use canonical order; emphasize commands.   |
+|   [4]   | Monorepo       | Architecture, Install, packages | Use canonical order; link package READMEs. |
 
 ---
 ## [5][VALIDATION]

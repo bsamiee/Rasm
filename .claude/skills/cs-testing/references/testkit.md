@@ -94,8 +94,6 @@ Do NOT add per-type arms to `ValidityOf` for cross-layer types — that would cr
 
 Architecture coverage: an `ArchUnitNET` test in `tests/csharp/_architecture/` enumerates all `[BoundaryAdapter]`-marked types and asserts each is reachable through `ValidityOf` (either via `IDomainValid` or explicit switch arm). Catches the entire `AcceptValue / ValidityOf` gap regression class once and forever.
 
-See also: `feedback_acceptvalue_validity_gap` memory.
-
 ---
 ## [7][ASSEMBLY_FIXTURE_PATTERN]
 >**Dictum:** *Shared assembly context is an attribute, not an interface.*

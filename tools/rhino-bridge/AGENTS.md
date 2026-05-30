@@ -1,5 +1,7 @@
 # Rhino Bridge Agent Guide
 
+Scope: `tools/rhino-bridge/` only. Root `AGENTS.md` and `CLAUDE.md` own universal policy; this file is the canonical bridge operator delta.
+
 Operator reference is `tools/rhino-bridge/README.md` (architecture, command catalog, output contract, reference policy, failure reading, update rules, validation gate). This file owns agent-specific routing — when to invoke, what NOT to invoke for, and the smallest validation ladder for bridge changes.
 
 ## When to invoke
@@ -21,7 +23,7 @@ Use bridge commands ONLY when static .NET gates cannot answer:
 
 ## Scenario kit usage
 
-`Rasm.TestKit.Scenarios` capsules (under `tests/csharp/_testkit/Scenarios/`) are bridge-staged automatically — no `#r` directive needed. The bridge injects `BridgeWire.ScenarioBaseUsings` (`LanguageExt`, `static LanguageExt.Prelude`, `Rasm.TestKit.Scenarios`) into every scenario, so authors omit those usings from the preamble. See `tests/csharp/AGENTS.md` for the catalog and migration patterns.
+`Rasm.TestKit.Scenarios` capsules (under `tests/csharp/_testkit/Scenarios/`) are bridge-staged automatically — no `#r` directive needed. The bridge injects `BridgeWire.ScenarioBaseUsings` into every scenario. Catalog and migration patterns: `tests/csharp/_testkit/Scenarios/` and `.claude/skills/cs-testing/references/bridge-runtime.md`.
 
 Scenarios are authored via the polymorphic `Scenario.Run(theme, capturePath, (key, facts) => { … })` harness — it builds the `Op key`, emits the `scenario=`/`capture=` plain header, runs the body, and serializes the populated `FactBag` to a single `facts={json}` plain line plus a `rasm.rhino-bridge.evidence=facts={json}` marker. Inside the body, scenarios call `facts.Add(string key, object value);` as a void statement (no return value, no chaining required).
 

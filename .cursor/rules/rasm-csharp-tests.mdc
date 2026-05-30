@@ -10,13 +10,20 @@ Read `.claude/skills/cs-testing/SKILL.md`, `tests/csharp/AGENTS.md`, and nearest
 
 ## Rail split
 
-| Rail | Owns |
-| --- | --- |
-| `rasm-csharp-specs.mdc` | Pure-managed xUnit/CsCheck behavior and law-matrix specs |
-| `rasm-testkit.mdc` | Shared generators, oracles, adapters, and scenario capsules |
-| `rasm-bridge-scenarios.mdc` | Native Rhino/GH2 runtime paths |
-| Architecture tests | Assembly dependency direction only |
-| Benchmarks and fuzz | Separate executables, not xUnit |
+| [INDEX] | [RAIL]                      |
+| :-----: | --------------------------- |
+|   [1]   | `rasm-csharp-specs.mdc`     |
+|   [2]   | `rasm-testkit.mdc`          |
+|   [3]   | `rasm-bridge-scenarios.mdc` |
+|   [4]   | Architecture tests          |
+|   [5]   | Benchmarks and fuzz         |
+
+[OWNS]
+- [1] Pure-managed xUnit/CsCheck behavior and law-matrix specs
+- [2] Shared generators, oracles, adapters, and scenario capsules
+- [3] Native Rhino/GH2 runtime paths
+- [4] Assembly dependency direction only
+- [5] Separate executables, not xUnit
 
 ## Shared Constraints
 

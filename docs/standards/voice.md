@@ -59,15 +59,24 @@ Universal standards for LLM-optimized context, documentation, and agentic instru
 
 [IMPORTANT] Punctuation tokens act as **attention sinks**—absorb 20-40% of attention weight despite minimal semantic content.
 
-| [INDEX] | [MARK]  | [COGNITIVE_FUNCTION] | [MECHANISM]                                                                          |
-| :-----: | :-----: | -------------------- | ------------------------------------------------------------------------------------ |
-|   [1]   |   `.`   | Hard Attention Reset | Information aggregation checkpoint. Context consolidates before next reasoning step. |
-|   [2]   |   `:`   | Attention Bridge     | Links entity to elaboration. Signals specification relationship.                     |
-|   [3]   |   `—`   | Inline Expansion     | Introduces elaboration without breaking attention flow.                              |
-|   [4]   |   `→`   | Conditional Flow     | Signals transformation, sequence progression, or causation.                          |
-|   [5]   | `` ` `` | Type Boundary        | Signals semantic shift to code/symbol domain. Anchors tokenizer.                     |
-|   [6]   |   `;`   | Clause Conjunction   | Joins independent but related clauses. Logical relationship marker.                  |
-|   [7]   |   `?`   | Attention Shift      | Triggers expectation state. Late-layer necessity for query resolution.               |
+| [INDEX] | [MARK]  | [COGNITIVE_FUNCTION] |
+| :-----: | :-----: | -------------------- |
+|   [1]   |   `.`   | Hard Attention Reset |
+|   [2]   |   `:`   | Attention Bridge     |
+|   [3]   |   `—`   | Inline Expansion     |
+|   [4]   |   `→`   | Conditional Flow     |
+|   [5]   | `` ` `` | Type Boundary        |
+|   [6]   |   `;`   | Clause Conjunction   |
+|   [7]   |   `?`   | Attention Shift      |
+
+[MECHANISM]
+- [1] Information aggregation checkpoint. Context consolidates before next reasoning step.
+- [2] Links entity to elaboration. Signals specification relationship.
+- [3] Introduces elaboration without breaking attention flow.
+- [4] Signals transformation, sequence progression, or causation.
+- [5] Signals semantic shift to code/symbol domain. Anchors tokenizer.
+- [6] Joins independent but related clauses. Logical relationship marker.
+- [7] Triggers expectation state. Late-layer necessity for query resolution.
 
 **Softmax Constraint:** Attention weights sum to 1 across positions. Models concentrate excess weight on punctuation to satisfy normalization; this preserves semantic token differentiation.
 
@@ -174,12 +183,12 @@ const normalizedHue = ((h % 360) + 360) % 360;
 
 Doc comment structure applies across languages. Language-specific format (XML, Google, TSDoc) defined in `code-documentation-standards.md` §3.
 
-| [INDEX] | [COMPONENT]  | [REQUIREMENT]                                                     |
-| :-----: | ------------ | ----------------------------------------------------------------- |
-|   [1]   | **Verb**     | Start with imperative verb — state operation, not implementation. |
-|   [2]   | **Object**   | State what is acted upon — domain entity, not code artifact.      |
-|   [3]   | **Context**  | Include domain invariants, guard conditions, failure semantics.   |
-|   [4]   | **Channels** | Effect-returning functions: document both success and failure.    |
+| [INDEX] | [COMPONENT] | [REQUIREMENT]                                                     |
+| :-----: | ----------- | ----------------------------------------------------------------- |
+|   [1]   | Verb        | Start with imperative verb — state operation, not implementation. |
+|   [2]   | Object      | State what is acted upon — domain entity, not code artifact.      |
+|   [3]   | Context     | Include domain invariants, guard conditions, failure semantics.   |
+|   [4]   | Channels    | Effect-returning functions: document both success and failure.    |
 
 [CRITICAL]:
 - [NEVER] Include type annotations in doc comments — type system is single source of truth.
@@ -193,14 +202,14 @@ Doc comment structure applies across languages. Language-specific format (XML, G
 
 <br>
 
-| [INDEX] | [KEYWORD]       | [COMPLIANCE] | [DEFINITION]                                              |
-| :-----: | :-------------- | :----------- | :-------------------------------------------------------- |
-|   [1]   | **`CRITICAL`**  | **99%**      | **Security/Data Risk.** Non-negotiable.                   |
-|   [2]   | **`NEVER`**     | **98%**      | **Negative Constraint.** Higher compliance than `ALWAYS`. |
-|   [3]   | **`MUST`**      | **95%**      | **Architecture Rule.** Binary verifiable.                 |
-|   [4]   | **`IMPORTANT`** | **92%**      | **Emphasis Marker.** Anthropic-recommended.               |
-|   [5]   | **`ALWAYS`**    | **90%**      | **Style Convention.** Consistency.                        |
-|   [6]   | **`[VERIFY]`**  | **Agentic**  | **Self-Correction.** Triggers agent verification.         |
+| [INDEX] | [KEYWORD]   | [COMPLIANCE] | [DEFINITION]                                          |
+| :-----: | :---------- | :----------- | :---------------------------------------------------- |
+|   [1]   | `CRITICAL`  | 99%          | Security/Data Risk. Non-negotiable.                   |
+|   [2]   | `NEVER`     | 98%          | Negative Constraint. Higher compliance than `ALWAYS`. |
+|   [3]   | `MUST`      | 95%          | Architecture Rule. Binary verifiable.                 |
+|   [4]   | `IMPORTANT` | 92%          | Emphasis Marker. Anthropic-recommended.               |
+|   [5]   | `ALWAYS`    | 90%          | Style Convention. Consistency.                        |
+|   [6]   | `[VERIFY]`  | Agentic      | Self-Correction. Triggers agent verification.         |
 
 [IMPORTANT] Max 2-3 keywords per section. Diminishing returns after 5.<br>
 [IMPORTANT] Positive framing outperforms negative by 8-15%. Negation blindness causes 39% accuracy.

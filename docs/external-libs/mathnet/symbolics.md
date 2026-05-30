@@ -11,12 +11,12 @@
 
 <br>
 
-| [INDEX] | [SOURCE] | [USE] |
-| :-----: | -------- | ----- |
-| [1] | `MathNet.Symbolics` `0.25.0` local XML/nuspec/DLL | API and package truth. |
-| [2] | Symbolics package source commit | Parse/format/evaluate implementation proof. |
-| [3] | `.deps.json`, assembly identity tools, `bridge check <project.csproj>` smoke probe | Runtime load proof — the internal smoke probe emits `returnValue.kind = "assemblyFreshness"` when no scenario is supplied. |
-| [4] | RhinoWIP/GH2 XML | Host projection and diagnostics. |
+| [INDEX] | [SOURCE]                                              | [USE]                                                                  |
+| :-----: | ----------------------------------------------------- | ---------------------------------------------------------------------- |
+|   [1]   | `MathNet.Symbolics` `0.25.0` local XML/nuspec/DLL     | API and package truth.                                                 |
+|   [2]   | Symbolics package source commit                       | Parse/format/evaluate implementation proof.                            |
+|   [3]   | `.deps.json`, identity tools, `bridge check <csproj>` | Runtime load proof — smoke emits `assemblyFreshness` without scenario. |
+|   [4]   | RhinoWIP/GH2 XML                                      | Host projection and diagnostics.                                       |
 
 ---
 ## [2][PARSE]
@@ -24,13 +24,13 @@
 
 <br>
 
-| [INDEX] | [SURFACE] | [POLICY] |
-| :-----: | --------- | -------- |
-| [1] | `SymbolicExpression.Parse` | Throwing parse; boundary adapter only. |
-| [2] | Implicit string conversion | Do not use in domain code. |
-| [3] | `Infix.Parse` | F# result-shaped parse; project into `Fin<Formula>`. |
-| [4] | `Infix.TryParse` | F# option-shaped parse; project absence into typed failure. |
-| [5] | `ParseOrUndefined` | Sentinel result; reject `Undefined` explicitly. |
+| [INDEX] | [SURFACE]                  | [POLICY]                                                    |
+| :-----: | -------------------------- | ----------------------------------------------------------- |
+|   [1]   | `SymbolicExpression.Parse` | Throwing parse; boundary adapter only.                      |
+|   [2]   | Implicit string conversion | Do not use in domain code.                                  |
+|   [3]   | `Infix.Parse`              | F# result-shaped parse; project into `Fin<Formula>`.        |
+|   [4]   | `Infix.TryParse`           | F# option-shaped parse; project absence into typed failure. |
+|   [5]   | `ParseOrUndefined`         | Sentinel result; reject `Undefined` explicitly.             |
 
 ---
 ## [3][EVALUATE_COMPILE]

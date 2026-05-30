@@ -11,12 +11,12 @@
 
 <br>
 
-| [INDEX] | [SOURCE] | [USE] |
-| :-----: | -------- | ----- |
-| [1] | `Directory.Packages.props` | Confirms `Thinktecture.Runtime.Extensions` `10.2.0`. |
-| [2] | `~/.nuget/packages/thinktecture.runtime.extensions/10.2.0/lib/net9.0/Thinktecture.Runtime.Extensions.xml` | Public generated support API. |
-| [3] | Package nuspec | Analyzer, refactoring, source-generator package closure. |
-| [4] | Official wiki and Context7 | Secondary source for generator behavior. |
+| [INDEX] | [SOURCE]                                           | [USE]                                                    |
+| :-----: | -------------------------------------------------- | -------------------------------------------------------- |
+|   [1]   | `Directory.Packages.props`                         | Confirms `Thinktecture.Runtime.Extensions` `10.2.0`.     |
+|   [2]   | `~/.nuget/.../Thinktecture.Runtime.Extensions.xml` | Public generated support API.                            |
+|   [3]   | Package nuspec                                     | Analyzer, refactoring, source-generator package closure. |
+|   [4]   | Official wiki and Context7                         | Secondary source for generator behavior.                 |
 
 ---
 ## [2][SURFACES]
@@ -24,14 +24,14 @@
 
 <br>
 
-| [INDEX] | [SURFACE] | [OWNS] | [RASM_USE] |
-| :-----: | --------- | ------ | ---------- |
-| [1] | `[ValueObject<T>]` | Primitive value admission. | Tolerances, identifiers, names, scalar boundaries. |
-| [2] | `[ComplexValueObject]` | Composite equality identity. | Ranges, sample windows, boundary descriptors. |
-| [3] | `[SmartEnum]`, `[SmartEnum<TKey>]` | Closed keyed registries with behavior. | Modes, metrics, port kinds, operation policies. |
-| [4] | `[Union]`, `[Union<T1,...>]` | Closed variants with payload. | Operation intent, result shape, UI/native state. |
-| [5] | `[AdHocUnion]` | Compact local alternatives. | Narrow value-level choices only. |
-| [6] | `[ObjectFactory<T>]` | Explicit external value conversion. | Serialization/model-binding only with real boundary need. |
+| [INDEX] | [SURFACE]                          | [OWNS]                                 | [RASM_USE]                                                |
+| :-----: | ---------------------------------- | -------------------------------------- | --------------------------------------------------------- |
+|   [1]   | `[ValueObject<T>]`                 | Primitive value admission.             | Tolerances, identifiers, names, scalar boundaries.        |
+|   [2]   | `[ComplexValueObject]`             | Composite equality identity.           | Ranges, sample windows, boundary descriptors.             |
+|   [3]   | `[SmartEnum]`, `[SmartEnum<TKey>]` | Closed keyed registries with behavior. | Modes, metrics, port kinds, operation policies.           |
+|   [4]   | `[Union]`, `[Union<T1,...>]`       | Closed variants with payload.          | Operation intent, result shape, UI/native state.          |
+|   [5]   | `[AdHocUnion]`                     | Compact local alternatives.            | Narrow value-level choices only.                          |
+|   [6]   | `[ObjectFactory<T>]`               | Explicit external value conversion.    | Serialization/model-binding only with real boundary need. |
 
 Attribute property detail: `objects.md` (value objects), `union-attributes.md` (union dispatch and operator policy), `enums.md` (`UseDelegateFromConstructor`).
 
@@ -41,13 +41,13 @@ Attribute property detail: `objects.md` (value objects), `union-attributes.md` (
 
 <br>
 
-| [INDEX] | [CONTRACT] | [USE] |
-| :-----: | ---------- | ----- |
-| [1] | `IObjectFactory<T>` | Generated object-factory marker. |
-| [2] | `IObjectFactory<T,TValue,TValidationError>` | Static factory/validation contract. |
-| [3] | `ISmartEnum<TKey>` | Keyed smart-enum contract. |
-| [4] | `ISmartEnum<T,TKey,TValidationError>` | Generic smart-enum contract with validation error type. |
-| [5] | `IValidationError<T>`, `ValidationError` | Generator validation error shape. |
+| [INDEX] | [CONTRACT]                                  | [USE]                                                   |
+| :-----: | ------------------------------------------- | ------------------------------------------------------- |
+|   [1]   | `IObjectFactory<T>`                         | Generated object-factory marker.                        |
+|   [2]   | `IObjectFactory<T,TValue,TValidationError>` | Static factory/validation contract.                     |
+|   [3]   | `ISmartEnum<TKey>`                          | Keyed smart-enum contract.                              |
+|   [4]   | `ISmartEnum<T,TKey,TValidationError>`       | Generic smart-enum contract with validation error type. |
+|   [5]   | `IValidationError<T>`, `ValidationError`    | Generator validation error shape.                       |
 
 ---
 ## [4][RULES]

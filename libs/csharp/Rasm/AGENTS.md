@@ -1,5 +1,7 @@
 # Rasm Agent Instructions
 
+Scope: `libs/csharp/Rasm/` only. Root `AGENTS.md` and `CLAUDE.md` own universal policy; this file adds subtree deltas only.
+
 ## Purpose
 
 `Rasm` is the foundational geometry kernel and higher-order concern library. It is not a thin Rhino API boundary and not a place for extracted wrappers.
@@ -44,19 +46,3 @@ Build reusable category logic for advanced downstream code: analysis, vectors, d
 - Keep native interop at boundary adapters. Convert nullable, bool, disposable, and native ownership semantics into typed rails immediately.
 - Prefer advanced C# and approved libraries when they reduce surface area or strengthen invariants. Use `LanguageExt` and `Thinktecture` to collapse behavior, not to decorate unchanged imperative code.
 - Use `docs/system-api-map` for BCL, `System.*`, and package/reference policy; use `docs/external-libs/mathnet` before writing numerical algorithms by hand. MathNet is for proven numeric/symbolic value, not decorative wrapping around unchanged logic.
-
-## Vectors Subsystem (Spectral + Mesh-Aware Field Algebra)
-
-`Vectors/Spectral.cs` is the substrate boundary owning three tightly-coupled concerns: DEC operator assembly (`DiscreteCalculus` carrying d0/d1/star0/star1/star2), the smallest-k eigenpair cache (`SpectralBasis` cached on `LaplacianCache`), and the `SpectralFilter` Union (`Heat | Wave | Biharmonic | Diffusion | CommuteTime | Identity`). Both `Mesh.MeshDescriptor` (single collapsed `SpectralCase`) and `Field.ScalarField.SpectralDistanceCase` route through `SpectralFilter.Apply`; duplicating the dispatch would force three identical implementations in Mesh, Field, and Cloud.
-
-`CSparse.NET 4.3.0` is added centrally in `Directory.Packages.props` and referenced only by `Rasm`. It backs `Matrix.CholeskySparse` (sparse SPD factorisation with AMD ordering and Span-based solve) for the vector-heat / log-map / spectral-shift-invert family. Without it those kernels would cost 50-150x one geodesic via BiCGStab; with it they cost ~3-4x.
-
-`Mesh.MeshLaplacian` SmartEnum admits three cases: `Cotangent`, `IntrinsicDelaunay`, `Robust`. `Robust` follows Sharp-Crane SGP 2020 -- unweld non-manifold edges into per-face tufts via `Mesh.UnweldEdge`, then run intrinsic Delaunay flips on the locally-manifold result. The cotangent weights on the tufted cover are guaranteed non-negative even when the input is non-manifold.
-
-`Field.cs` Union extensions (greenfield, no shims): `VectorField` gains `HodgeIrrotational`, `HodgeSolenoidal`, `VectorHeat`, `GeodesicTangent` cases plus `CrossField` extension with optional `Constraints` (Knoppel-Crane-Pinkall GODF 2013) and `Cones` (Crane-Desbrun-Schroeder trivial connections). `ScalarField` gains `SpectralDistance`, `LogMap`, `Stripe`, `SignedDistanceFromMesh` cases plus a `SdfMeshMethod` SmartEnum (`GeneralizedWindingNumber | SignedHeat`). All cases route through `MeshKernel` dispatch and reuse `LaplacianCache.Cholesky` + Hermitian connection Laplacian where applicable.
-
-`Cloud.cs` `VectorCloudMetric` SmartEnum gains `PrincipalCurvature` (local quadric fit -> shape operator eigendecomp), `Curvedness`, `ShapeIndex`. `CloudKernel.Sinkhorn` accepts `Option<PositiveMagnitude> massRelaxation`; `Some(lambda)` activates Chizat-Peyre-Schmitzer-Vialard 2018 unbalanced transport via the lambda/(lambda+reg) exponent. `Align.AlignKind` SmartEnum admits five cases: `Point`, `Plane`, `Symmetric` (Rusinkiewicz 2019), `Robust` (Welsch IRLS), `Generalized` (Segal-Haehnel-Thrun GICP 2009 with covariance-weighted residuals).
-
-`Atoms.Direction.ParallelTransport(Seq<Plane>)` discretely transports a unit vector along a frame chain via `Transform.PlaneToPlane`. `Modes.SurfaceProjection.ShapeOperator` projects Rhino native `SurfaceCurvature` into a `(k1, k2, e1, e2)` ValueTuple.
-
-Greenfield renames applied across the subsystem (no shims): `IterationCap` -> `MaxIterations`, `EigenpairCount` -> `Pairs`, `TargetEdge` -> `TargetLength`, `Sigma` -> `Spread`, `Unbiased` -> `Debiased`. `MeshDescriptor` collapses from three cases (HKS / WKS / ShapeDNA) to single `SpectralCase(SpectralFilter, Option<Seq<int>>)`; consumers migrate to `MeshDescriptor.Spectral(SpectralFilter.Heat(...), sources)`.

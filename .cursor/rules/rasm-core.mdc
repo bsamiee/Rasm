@@ -1,49 +1,26 @@
 ---
-description: Rasm repo router: canonical reads, current host baseline, skill routing, and separated quality gates
+description: Rasm Cursor router — read ladder, skill location, host baseline, quality pointer
 alwaysApply: true
 ---
 
 # Rasm Core
 
-Rasm is a RhinoWIP macOS monorepo targeting `.NET 10`, C# 14, GH2, Eto, and app-bundle host assemblies from `/Applications/RhinoWIP.app`.
+Rasm targets RhinoWIP on macOS, `.NET 10`, C# 14, GH2, and Eto host assemblies from `/Applications/RhinoWIP.app`.
 
 ## Required reads (in order)
 
-1. `CLAUDE.md` — manifest, dependency policy, universal constraints, quality gates, file sections
-2. Root `AGENTS.md` — navigation, language policy, documentation policy, live Rhino bridge
+1. `CLAUDE.md` — manifest, dependency policy, universal constraints, quality gates
+2. Root `AGENTS.md` — navigation, documentation policy, bridge pointer
 3. Nearest nested `AGENTS.md` for the folder under edit
 
-## Skill routing
+## Skills
 
-Use repo `.claude/skills/` first for Rasm procedures. Fall back to `~/.codex/skills/` only when repo skills do not cover a file type. Do not create Cursor skills.
+Use repo `.claude/skills/` only for procedures. Do not create Cursor skills. Fall back to `~/.codex/skills/` only when repo skills do not cover a file type.
 
-| File | Skill |
-| --- | --- |
-| Production `.cs` | `coding-csharp` |
-| `.spec.cs`, `.verify.csx`, testkit | `cs-testing` |
-| `.sh` | `coding-bash` |
-| `.md`, `.mdc` | `docgen` + `style-standards` |
-| `.ts`, `.tsx` | `coding-ts` |
-| `.py` | `coding-python` |
-| `.sql` | `coding-pg` |
+## Quality
 
-## Invariants
+See `CLAUDE.md` §5.2 for validation rails: `quality static check`, `quality test run`, `quality bridge verify`.
 
-- Collapse concept density into existing polymorphic owners before adding files, helpers, wrappers, or shims.
-- Keep OOP native boundaries small and singular; keep internals functional with `Fin`, `Validation`, `Eff`, `Option`, folds, and typed errors.
-- Treat C# as LanguageExt-first functional ROP; do not import TypeScript Effect patterns into C# rails.
-- Treat approved dependencies and local docs as implementation surfaces; do not hand-roll covered behavior.
-- Preserve macOS RhinoWIP/GH2 assumptions. Do not import GH1, Rhino 8, Windows, or global-memory guidance.
+## Rule edits
 
-## Quality Gates
-
-| Rail | Command |
-| --- | --- |
-| Static C# | `uv run python -m tools.quality static check` |
-| Full static, trigger files only | `uv run python -m tools.quality static full` |
-| Unit tests | `uv run python -m tools.quality test run [<filter>]` |
-| Rhino runtime | `uv run python -m tools.quality bridge verify <scenario-or-glob>` |
-
-`quality static`, focused `--target` test runs, and bridge dotnet routes in `tools.quality` isolate MSBuild scratch under `.artifacts/agents/<pid>/` and may run concurrently. Default `tools.quality test run` (managed `Rasm` target) runs VSTest then Stryker in one invocation — do not parallelize two default test runs. Bridge verify/check/package and live Rhino remain single-flight.
-
-Keep rails orthogonal. Trust `CSP####` analyzer findings and fix architecture rather than suppressing.
+After changing `.cursor/rules/*.mdc`, verify activation: Cmd+Shift+P → **Show Active Rules**.

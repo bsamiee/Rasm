@@ -34,7 +34,7 @@ public sealed class RhinoCommandContext {
         Optional(doc)
             .ToFin(Fail: Op.Of(name: nameof(RhinoCommandContext)).MissingContext())
             .Bind(document => document switch {
-                { IsAvailable: true, IsClosing: false, IsInitializing: false, IsOpening: false } =>
+                { IsAvailable: true, IsClosing: false, IsInitializing: false, IsOpening: false, IsCreating: false } =>
                     Context.Of(doc: document).ToFin().Map(domain => new RhinoCommandContext(document: document, mode: mode, domain: domain)),
                 _ => Fin.Fail<RhinoCommandContext>(error: Op.Of(name: nameof(RhinoCommandContext)).MissingContext()),
             });

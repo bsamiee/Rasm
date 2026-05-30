@@ -11,12 +11,12 @@
 
 <br>
 
-| [INDEX] | [PACKAGE] | [STATE] |
-| :-----: | --------- | ------- |
-| [1] | `Thinktecture.Runtime.Extensions` | Active central package. |
-| [2] | `.Analyzers` | Transitive analyzer package from runtime package. |
-| [3] | `.Refactorings` | Transitive refactoring package from runtime package. |
-| [4] | `.SourceGenerator` | Transitive source generator package from runtime package. |
+| [INDEX] | [PACKAGE]                         | [STATE]                                                   |
+| :-----: | --------------------------------- | --------------------------------------------------------- |
+|   [1]   | `Thinktecture.Runtime.Extensions` | Active central package.                                   |
+|   [2]   | `.Analyzers`                      | Transitive analyzer package from runtime package.         |
+|   [3]   | `.Refactorings`                   | Transitive refactoring package from runtime package.      |
+|   [4]   | `.SourceGenerator`                | Transitive source generator package from runtime package. |
 
 ---
 ## [2][CONFIG]
@@ -68,4 +68,4 @@ return target switch {
 
 Generic `[Union]` on `record<TState>` emits `Switch<TState, TResult>` overloads with `where TState : allows ref struct` (C# 13+). The constraint propagates and conflicts with `sealed record` consumers that use `TState` without the same allowance — keep generic transition unions as `abstract record` + virtual `switch (this)` instead of `[Union]`. Non-generic `[Union]` cases are unaffected.
 
-Union dispatch attributes (`SwitchMapStateParameterName`, `[SkipUnionOps]`, `[GenerateUnionOps]`) — see `union-attributes.md`.
+Union dispatch attributes (`SwitchMapStateParameterName`) — `union-attributes.md`. Union SelfOp emission (`[SkipUnionOps]`, `[GenerateUnionOps]`) — `rasm.md` §4.

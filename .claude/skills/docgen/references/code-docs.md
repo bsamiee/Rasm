@@ -108,23 +108,23 @@ Pattern: Name the Effect → state success channel → state error channel → n
 
 ### [3.1][REQUIRED_TARGETS]
 
-| [INDEX] | [TARGET]                    | [DOCUMENTATION_CONTENT]                                       |
-| :-----: | --------------------------- | ------------------------------------------------------------- |
-|   [1]   | **Exported function**       | Summary, all params, returns (dual-channel for effect types). |
-|   [2]   | **Exported type/interface** | Domain concept, invariants maintained by smart constructor.   |
-|   [3]   | **Error type variant**      | Trigger condition, caller recovery action.                    |
-|   [4]   | **Smart constructor**       | Guard conditions, valid input ranges, failure modes.          |
-|   [5]   | **Module file**             | One-line purpose at file top.                                 |
-|   [6]   | **Pipeline/composition**    | Data flow direction, transformation stages.                   |
+| [INDEX] | [TARGET]                | [DOCUMENTATION_CONTENT]                                       |
+| :-----: | ----------------------- | ------------------------------------------------------------- |
+|   [1]   | Exported function       | Summary, all params, returns (dual-channel for effect types). |
+|   [2]   | Exported type/interface | Domain concept, invariants maintained by smart constructor.   |
+|   [3]   | Error type variant      | Trigger condition, caller recovery action.                    |
+|   [4]   | Smart constructor       | Guard conditions, valid input ranges, failure modes.          |
+|   [5]   | Module file             | One-line purpose at file top.                                 |
+|   [6]   | Pipeline/composition    | Data flow direction, transformation stages.                   |
 
 ### [3.2][PROHIBITED_TARGETS]
 
-| [INDEX] | [TARGET]                    | [RATIONALE]                                         |
-| :-----: | --------------------------- | --------------------------------------------------- |
-|   [1]   | **Private functions**       | Internal; co-located callers; names suffice.        |
-|   [2]   | **Obvious accessors**       | Type + name is the complete contract.               |
-|   [3]   | **Type-restating comments** | Negative value — occupies attention with no signal. |
-|   [4]   | **Control flow narration**  | Code shows sequence; docs show intent.              |
+| [INDEX] | [TARGET]                | [RATIONALE]                                         |
+| :-----: | ----------------------- | --------------------------------------------------- |
+|   [1]   | Private functions       | Internal; co-located callers; names suffice.        |
+|   [2]   | Obvious accessors       | Type + name is the complete contract.               |
+|   [3]   | Type-restating comments | Negative value — occupies attention with no signal. |
+|   [4]   | Control flow narration  | Code shows sequence; docs show intent.              |
 
 ---
 ## [4][EFFECT_TYPE_PATTERNS]
@@ -132,13 +132,13 @@ Pattern: Name the Effect → state success channel → state error channel → n
 
 <br>
 
-| [INDEX] | [LANGUAGE]     | [EFFECT_TYPE]            | [SUCCESS_DOCS]              | [FAILURE_DOCS]                      |
-| :-----: | -------------- | ------------------------ | --------------------------- | ----------------------------------- |
-|   [1]   | **C#**         | `Fin<T>`                 | `Succ` payload and meaning  | `Fail` with `Error` invariant       |
-|   [2]   | **C#**         | `Validation<Error, T>`   | Valid state description     | Each `Error` variant trigger        |
-|   [3]   | **Python**     | `Result[T, E]`           | `Success` payload semantics | `Failure` variant enumeration       |
-|   [4]   | **TypeScript** | `Effect.Effect<A, E>`    | Success channel `A`         | Error channel `E` with tag matching |
-|   [5]   | **TypeScript** | `Effect.Effect<A, E, R>` | Success channel `A`         | Error `E` + required service `R`    |
+| [INDEX] | [LANGUAGE] | [EFFECT_TYPE]            | [SUCCESS_DOCS]              | [FAILURE_DOCS]                      |
+| :-----: | ---------- | ------------------------ | --------------------------- | ----------------------------------- |
+|   [1]   | C#         | `Fin<T>`                 | `Succ` payload and meaning  | `Fail` with `Error` invariant       |
+|   [2]   | C#         | `Validation<Error, T>`   | Valid state description     | Each `Error` variant trigger        |
+|   [3]   | Python     | `Result[T, E]`           | `Success` payload semantics | `Failure` variant enumeration       |
+|   [4]   | TypeScript | `Effect.Effect<A, E>`    | Success channel `A`         | Error channel `E` with tag matching |
+|   [5]   | TypeScript | `Effect.Effect<A, E, R>` | Success channel `A`         | Error `E` + required service `R`    |
 
 [IMPORTANT]:
 1. [ALWAYS] **Dual-channel:** Both success and failure documented — omitting either is a validation failure.

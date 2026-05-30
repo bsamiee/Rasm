@@ -11,12 +11,12 @@
 
 <br>
 
-| [INDEX] | [SURFACE] | [USE] |
-| :-----: | --------- | ----- |
-| [1] | `K<F,A>` | Effect-polymorphic value. |
-| [2] | `.As()` | Projection back to concrete carrier. |
-| [3] | `pure<F,A>`, `error<F,A>` | Generic success/failure construction. |
-| [4] | `Natural` | Carrier transformation between effect families. |
+| [INDEX] | [SURFACE]                 | [USE]                                           |
+| :-----: | ------------------------- | ----------------------------------------------- |
+|   [1]   | `K<F,A>`                  | Effect-polymorphic value.                       |
+|   [2]   | `.As()`                   | Projection back to concrete carrier.            |
+|   [3]   | `pure<F,A>`, `error<F,A>` | Generic success/failure construction.           |
+|   [4]   | `Natural`                 | Carrier transformation between effect families. |
 
 ---
 ## [2][CONSTRAINTS]
@@ -24,13 +24,13 @@
 
 <br>
 
-| [INDEX] | [TRAIT] | [MEANING] |
-| :-----: | ------- | --------- |
-| [1] | `Functor`, `Applicative`, `Monad` | Mapping, independent application, sequential binding. |
-| [2] | `Fallible`, `Choice`, `Alternative` | Failure and fallback. |
-| [3] | `Foldable`, `Traversable` | Structure-aware reduction and traversal. |
-| [4] | `MonadIO`, `MonadUnliftIO` | IO lifting and controlled host execution. |
-| [5] | `SemigroupK`, `MonoidK` | Carrier combination. |
+| [INDEX] | [TRAIT]                             | [MEANING]                                             |
+| :-----: | ----------------------------------- | ----------------------------------------------------- |
+|   [1]   | `Functor`, `Applicative`, `Monad`   | Mapping, independent application, sequential binding. |
+|   [2]   | `Fallible`, `Choice`, `Alternative` | Failure and fallback.                                 |
+|   [3]   | `Foldable`, `Traversable`           | Structure-aware reduction and traversal.              |
+|   [4]   | `MonadIO`, `MonadUnliftIO`          | IO lifting and controlled host execution.             |
+|   [5]   | `SemigroupK`, `MonoidK`             | Carrier combination.                                  |
 
 ---
 ## [3][TRANSFORMERS]

@@ -10,10 +10,14 @@ Read `libs/csharp/Rasm/AGENTS.md` before edits.
 
 ## Ownership
 
-| Folder | Owns |
-| --- | --- |
-| `Domain/` | `Context`, tolerances, geometry kind, coercion, ownership, validity, requirements, faults, stats, residuals, distributions, acceptance, and projection carriers. |
-| `Analysis/` | `Analyze`, `Operation<TGeometry,TOut>`, `IAspect`, and higher-order geometry analysis built on `Domain`. |
+| [INDEX] | [FOLDER]    |
+| :-----: | ----------- |
+|   [1]   | `Domain/`   |
+|   [2]   | `Analysis/` |
+
+[OWNS]
+- [1] `Context`, tolerances, geometry kind, coercion, ownership, validity, requirements, faults, stats, residuals, distributions, acceptance, and projection carriers
+- [2] `Analyze`, `Operation<TGeometry,TOut>`, `IAspect`, and higher-order geometry analysis built on `Domain`
 
 ## Rules
 

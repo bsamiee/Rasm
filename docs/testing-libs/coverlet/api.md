@@ -11,9 +11,9 @@
 
 <br>
 
-| [INDEX] | [PACKAGE] | [PIN] | [USE] |
-| :-----: | --------- | ----- | ----- |
-| [1] | `coverlet.msbuild` | `10.0.1` | `dotnet test /p:CollectCoverage=true` for managed test projects. |
+| [INDEX] | [PACKAGE]          | [PIN]    | [USE]                                                            |
+| :-----: | ------------------ | -------- | ---------------------------------------------------------------- |
+|   [1]   | `coverlet.msbuild` | `10.0.1` | `dotnet test /p:CollectCoverage=true` for managed test projects. |
 
 [SOURCE] NuGet package page: https://www.nuget.org/packages/coverlet.msbuild/10.0.1
 
@@ -23,16 +23,16 @@
 
 <br>
 
-| [INDEX] | [PROPERTY] | [RASM_POSTURE] |
-| :-----: | ---------- | -------------- |
-| [1] | `CollectCoverage` | Command-time opt-in. |
-| [2] | `CoverletOutput` | Centralized under `.artifacts/coverage/<project>/`. |
-| [3] | `CoverletOutputFormat` | `json,cobertura` for local and CI-readable output. |
-| [4] | `Include` / `Exclude` | Managed assemblies only; avoid bridge/runtime fiction. |
-| [5] | `ExcludeByFile` / `ExcludeByAttribute` | Generated and non-product exclusions. |
-| [6] | `Threshold*` | Do not hard-enable until static-vs-bridge ownership is proven. |
-| [7] | `MergeWith` | Future aggregation only after per-project maps are clean. |
-| [8] | `ExcludeAssembliesWithoutSources` | `None`; local proof shows `MissingAny` filters `Rasm` to an empty report. |
+| [INDEX] | [PROPERTY]                             | [RASM_POSTURE]                                                            |
+| :-----: | -------------------------------------- | ------------------------------------------------------------------------- |
+|   [1]   | `CollectCoverage`                      | Command-time opt-in.                                                      |
+|   [2]   | `CoverletOutput`                       | Centralized under `.artifacts/coverage/<project>/`.                       |
+|   [3]   | `CoverletOutputFormat`                 | `json,cobertura` for local and CI-readable output.                        |
+|   [4]   | `Include` / `Exclude`                  | Managed assemblies only; avoid bridge/runtime fiction.                    |
+|   [5]   | `ExcludeByFile` / `ExcludeByAttribute` | Generated and non-product exclusions.                                     |
+|   [6]   | `Threshold*`                           | Do not hard-enable until static-vs-bridge ownership is proven.            |
+|   [7]   | `MergeWith`                            | Future aggregation only after per-project maps are clean.                 |
+|   [8]   | `ExcludeAssembliesWithoutSources`      | `None`; local proof shows `MissingAny` filters `Rasm` to an empty report. |
 
 ---
 ## [3][RASM_SCOPE]
@@ -58,13 +58,13 @@ uv run python -m tools.quality test coverage
 
 <br>
 
-| [INDEX] | [CLASS] | [ACTION] |
-| :-----: | ------- | -------- |
-| [1] | Missing static law | Add a Grade A/B/C oracle to the owning spec. |
-| [2] | Bridge-owned runtime | Add or strengthen `*.verify.csx`; coverlet cannot reach the line. Mark with `[ExcludeFromCodeCoverage]` only after the scenario exists. |
-| [3] | Generated source | Exclude via `[ExcludeFromCodeCoverage]` on the generator or `ExcludeByFile=**/*.g.cs` MSBuild property. |
-| [4] | Defensive unreachable | Document inline (one-line comment naming the invariant that proves unreachability); do not test the unreachable arm. |
-| [5] | Dead code | Remove. |
+| [INDEX] | [CLASS]               | [ACTION]                                                                                                       |
+| :-----: | --------------------- | -------------------------------------------------------------------------------------------------------------- |
+|   [1]   | Missing static law    | Add a Grade A/B/C oracle to the owning spec.                                                                   |
+|   [2]   | Bridge-owned runtime  | Strengthen `*.verify.csx`; coverlet cannot reach line. `[ExcludeFromCodeCoverage]` only after scenario exists. |
+|   [3]   | Generated source      | `[ExcludeFromCodeCoverage]` on generator or `ExcludeByFile=**/*.g.cs`.                                         |
+|   [4]   | Defensive unreachable | One-line comment naming unreachability invariant; do not test the arm.                                         |
+|   [5]   | Dead code             | Remove.                                                                                                        |
 
 Anti-patterns:
 - Writing an `Assert.True(true)` test only to "cover" the line.

@@ -314,16 +314,16 @@ public static partial class SemVerValidation {
 
 [IMPORTANT]: `SearchValues<char>` + `ContainsAnyExcept` for fixed `length + allowed chars`. `[GeneratedRegex(..., RegexOptions.NonBacktracking)]` for structural grammar (groups/alternation/anchors). Use `IndexOfAnyExcept` only when callers need the failing position.
 
-**Enforcement**: CSP0607 (GeneratedRegexCharsetValidation) fires when `[GeneratedRegex]` is reducible to `SearchValues<char>`. Pair charset scans with `MemoryExtensions.ContainsAnyExcept` / `IndexOfAnyExcept` on spans — not `SearchValues` instance methods alone. Catalog: `docs/system-api-map/bcl.md` §1.
+**Enforcement**: CSP0607 (GeneratedRegexCharsetValidation) fires when `[GeneratedRegex]` is reducible to `SearchValues<char>`. Pair charset scans with `MemoryExtensions.ContainsAnyExcept` / `IndexOfAnyExcept` on spans — not `SearchValues` instance methods alone.
 
-| [INDEX] | [ANALYZER] | [SURFACE] |
-| :-----: | ---------- | --------- |
-| [1] | CA1862 | `string.Equals` with explicit `StringComparison` on identifiers |
-| [2] | CA1863 | Cached `CompositeFormat` for repeated format strings |
-| [3] | CA1870 | Cached `SearchValues<T>` instance |
-| [4] | CA1872 | `Convert.ToHexString` / `ToHexStringLower` |
-| [5] | CA1874 | `Regex.IsMatch` for boolean presence — not `Regex.Matches` count |
-| [6] | CA1875 | `Regex.Count` instead of `MatchCollection` allocation |
+| [INDEX] | [ANALYZER] | [SURFACE]                                                        |
+| :-----: | ---------- | ---------------------------------------------------------------- |
+|   [1]   | CA1862     | `string.Equals` with explicit `StringComparison` on identifiers  |
+|   [2]   | CA1863     | Cached `CompositeFormat` for repeated format strings             |
+|   [3]   | CA1870     | Cached `SearchValues<T>` instance                                |
+|   [4]   | CA1872     | `Convert.ToHexString` / `ToHexStringLower`                       |
+|   [5]   | CA1874     | `Regex.IsMatch` for boolean presence — not `Regex.Matches` count |
+|   [6]   | CA1875     | `Regex.Count` instead of `MatchCollection` allocation            |
 
 **Fin<T> hot-path escape** -- `Fin<T>` wraps `Either<Error, T>` with heap-allocated `Error`. On innermost loops (millions of iterations), use raw `bool` + `out T` for the kernel; lift to `Fin<T>` at the public surface. Pre-allocate `static readonly Error` fields for error messages:
 
@@ -405,7 +405,7 @@ public static class PerfGate {
 - [ALWAYS] `stackalloc` for small buffers; `ArrayPool` for large; `try/finally` for pool cleanup.
 - [ALWAYS] `MemoryExtensions.Sort`/`BinarySearch` over heap-based `SortedSet<T>` on hot paths.
 - [ALWAYS] `SearchValues<char>` + `ContainsAnyExcept`/`IndexOfAnyExcept` for fixed char-set validation hot paths (`length + allowed chars`).
-- [ALWAYS] Validate hot-path claims with BenchmarkDotNet before standardizing micro-optimizations.
+- [ALWAYS] Validate hot-path claims with BenchmarkDotNet in dedicated `_benchmarks` rails — not inside domain module guidance.
 - [ALWAYS] Use `unchecked { }` blocks around hot-path integer arithmetic when overflow semantics are intentional; project-wide `CheckForOverflowUnderflow` is enabled.
 - [NEVER] Return `Span<T>` backed by `stackalloc` -- consume within the declaring method.
 - [NEVER] `MemoryMarshal.Cast` on spans containing managed references -- runtime throws `ArgumentException`.

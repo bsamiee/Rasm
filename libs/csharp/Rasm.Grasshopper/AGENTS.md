@@ -1,5 +1,7 @@
 # Rasm.Grasshopper Agent Instructions
 
+Scope: `libs/csharp/Rasm.Grasshopper/` only. Root `AGENTS.md` and `CLAUDE.md` own universal policy; this file adds subtree deltas only.
+
 ## Purpose
 
 `Rasm.Grasshopper` is the canonical Grasshopper 2 boundary over `Rasm`. It is closer to `Rasm.Rhino` than to `Rasm`: it captures host API capability, preserves native semantics, and exposes a smaller, stronger boundary for plugin and UI code.
@@ -36,7 +38,7 @@ Build GH2-native component, data, and UI rails that let downstream apps stay thi
 - Preserve mutation semantics. Document, layout, and wire changes must flow through the existing mutation rail with undo, repaint, action commit, and snapshot behavior owned once.
 - Repaint is policy-driven: `RepaintRequest |` absorbs at `GrasshopperUi.Use` exit (`None` identity; `Canvas` beats `Scheduled`; `Object`+same-id idempotent). `CanvasOp.Invalidate` records policy only — never calls native invalidate directly.
 - Subscription teardown has three tagged semantics via `SubscriptionTeardown`: `RunAlways` (default `Atom`, LIFO, repeat detach), `DetachOnce` (`detachOnce: true`, pacer/timer guards), `TokenGated` (`OwnedSubscription` token match). Compose with `Subscription.PaintPacer` / `Subscription.DisposeOnce` instead of raw `|` when mixing paint hooks and chrome subscriptions.
-- `WireDrawnCache` validates a composite `WireDrawnStamp` (document hash, modifications, projection, draw inner frame). Pure viewport drift without `AfterWires` capture fails `Read` by design; subscribe `WirePaintObserve` or accept live `CaptureDrawn` fallback. Bridge scenarios need an open GH document, `EditorOp.EnsureVisible`, `WirePaintObserve` (or `OverlayPen`), and a completed `AfterWires` paint — `EnsureVisible` alone does not populate the cache in the same script turn.
+- `WireDrawnCache` validates a composite `WireDrawnStamp` (document hash, modifications, projection, draw inner frame). Pure viewport drift without `AfterWires` capture fails `Read` by design; subscribe `WirePaintObserve` or accept live `CaptureDrawn` fallback. Bridge scenarios need an open GH document, headless editor scope (`EditorOp.Show(visible:false)` → `GhEditor.Instance ?? new GhEditor()`), `WirePaintObserve` (or `OverlayPen`), and a completed `AfterWires` paint — never `ShowEditor` in isolated bridge scenarios.
 - Motion has two paths: canvas paint loop (`Animated<T>` + optional `Pacer`/`MotionClock`) vs CoreAnimation cosmetics (`CosmeticIntent` on `NSView.Layer`). Both honour `MotionAccessibility.ShouldReduceMotion`; spring integrator prefers `Pacer.LastTargetTimestamp` delta with `TimeProvider` fallback on first frame / MessageLoop. Cosmetics map through content→control locus before CALayer attach; decorative motion skips under reduce-motion or differentiate-without-color.
 - Use GH2/Eto/RhinoCommon only. Do not introduce WinForms, WPF, polling replacements for native events, or an Eto abstraction layer beside the current rail.
 - Use `docs/system-api-map` for GH2/Rhino/System API boundary decisions, especially host-provided assemblies versus NuGet packages. Use `docs/external-libs/mathnet` only where numerical or symbolic computation adds value; preserve GH2 tree, path, coverage, and ownership semantics.

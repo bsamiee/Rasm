@@ -11,9 +11,9 @@
 
 <br>
 
-| [INDEX] | [PACKAGE] | [PIN] | [USE] |
-| :-----: | --------- | ----- | ----- |
-| [1] | `BenchmarkDotNet` | `0.15.8` | Reproducible performance measurement. |
+| [INDEX] | [PACKAGE]         | [PIN]    | [USE]                                 |
+| :-----: | ----------------- | -------- | ------------------------------------- |
+|   [1]   | `BenchmarkDotNet` | `0.15.8` | Reproducible performance measurement. |
 
 [SOURCE] NuGet package page: https://www.nuget.org/packages/BenchmarkDotNet/0.15.8
 
@@ -23,14 +23,14 @@
 
 <br>
 
-| [INDEX] | [SURFACE] | [RASM_USE] |
-| :-----: | --------- | ---------- |
-| [1] | `ManualConfig` | Central benchmark config per benchmark project. |
-| [2] | `Job.Default` | Named release job for local repeatability. |
-| [3] | `MemoryDiagnoser` | Allocation pressure for hot paths. |
-| [4] | JSON exporters | Machine-readable output under `.artifacts/benchmarks`. |
-| [5] | `ExecutionValidator`, `JitOptimizationsValidator` | Fail invalid benchmark runs. |
-| [6] | `BenchmarkSwitcher` | CLI selection without extra scripts. |
+| [INDEX] | [SURFACE]                                         | [RASM_USE]                                             |
+| :-----: | ------------------------------------------------- | ------------------------------------------------------ |
+|   [1]   | `ManualConfig`                                    | Central benchmark config per benchmark project.        |
+|   [2]   | `Job.Default`                                     | Named release job for local repeatability.             |
+|   [3]   | `MemoryDiagnoser`                                 | Allocation pressure for hot paths.                     |
+|   [4]   | JSON exporters                                    | Machine-readable output under `.artifacts/benchmarks`. |
+|   [5]   | `ExecutionValidator`, `JitOptimizationsValidator` | Fail invalid benchmark runs.                           |
+|   [6]   | `BenchmarkSwitcher`                               | CLI selection without extra scripts.                   |
 
 [SOURCE] BenchmarkDotNet config docs: https://benchmarkdotnet.org/articles/configs/configs.html
 

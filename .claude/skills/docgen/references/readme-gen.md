@@ -49,12 +49,12 @@ Omit feature lists and "this project is a..." framing; state purpose directly.
 
 Per-environment installation with exact commands. Four required elements:
 
-| [INDEX] | [ELEMENT]                | [EXAMPLE]                          |
-| :-----: | ------------------------ | ---------------------------------- |
-|   [1]   | **Runtime prerequisite** | `Node.js >=20, pnpm >=9`           |
-|   [2]   | **Install command**      | `pnpm add @scope/package`          |
-|   [3]   | **Verification command** | `pnpm exec package-cli --version`  |
-|   [4]   | **Expected output**      | Version string or success sentinel |
+| [INDEX] | [ELEMENT]            | [EXAMPLE]                          |
+| :-----: | -------------------- | ---------------------------------- |
+|   [1]   | Runtime prerequisite | `Node.js >=20, pnpm >=9`           |
+|   [2]   | Install command      | `pnpm add @scope/package`          |
+|   [3]   | Verification command | `pnpm exec package-cli --version`  |
+|   [4]   | Expected output      | Version string or success sentinel |
 
 Each command is a standalone fenced code block; no prose wrapping around code. Prerequisites appear as bold inline before first command block.
 
@@ -68,10 +68,10 @@ Minimum viable example — the smallest working invocation demonstrating primary
 
 | [INDEX] | [PROJECT_TYPE] | [EXAMPLE_FORMAT]                                         |
 | :-----: | -------------- | -------------------------------------------------------- |
-|   [1]   | **Library**    | Import + function call + expected output as comment      |
-|   [2]   | **Service**    | `curl` request + JSON response                           |
-|   [3]   | **CLI**        | Command invocation + truncated output (first 5-10 lines) |
-|   [4]   | **Monorepo**   | Per-package example with cross-reference links           |
+|   [1]   | Library        | Import + function call + expected output as comment      |
+|   [2]   | Service        | `curl` request + JSON response                           |
+|   [3]   | CLI            | Command invocation + truncated output (first 5-10 lines) |
+|   [4]   | Monorepo       | Per-package example with cross-reference links           |
 
 ### [2.5][ARCHITECTURE]
 
@@ -79,14 +79,14 @@ C4 Level 1 (System Context): project as one box with external actors and depende
 
 **Diagram:** `mermaid` fenced code block showing `graph LR` with directional edges labeled by protocol (`REST`, `gRPC`, `events`); limit to 3-7 nodes representing top-level bounded contexts.
 
-**Responsibility table:** One row per module with bold module name; one-line responsibility statement.
+**Responsibility table:** One row per module with module name; one-line responsibility statement.
 
-| [INDEX] | [MODULE]         | [RESPONSIBILITY]                                       |
-| :-----: | ---------------- | ------------------------------------------------------ |
-|   [1]   | **Gateway**      | HTTP ingress, auth token validation, request routing.  |
-|   [2]   | **Identity**     | User registration, authentication, profile management. |
-|   [3]   | **Commerce**     | Order lifecycle, payment orchestration, inventory.     |
-|   [4]   | **Notification** | Email and push delivery triggered by domain events.    |
+| [INDEX] | [MODULE]     | [RESPONSIBILITY]                                       |
+| :-----: | ------------ | ------------------------------------------------------ |
+|   [1]   | Gateway      | HTTP ingress, auth token validation, request routing.  |
+|   [2]   | Identity     | User registration, authentication, profile management. |
+|   [3]   | Commerce     | Order lifecycle, payment orchestration, inventory.     |
+|   [4]   | Notification | Email and push delivery triggered by domain events.    |
 
 [CRITICAL]:
 - [NEVER] Nest Mermaid fences inside markdown fences — the Mermaid block stands alone.
@@ -102,13 +102,13 @@ C4 Level 1 (System Context): project as one box with external actors and depende
 
 Five scope levels determine section selection; depth; and target audience.
 
-| [INDEX] | [SCOPE]               | [LOCATION]                 | [AUDIENCE]              |
-| :-----: | --------------------- | -------------------------- | ----------------------- |
-|   [1]   | **Project root**      | `./README.md`              | Evaluator → Contributor |
-|   [2]   | **Package/workspace** | `<package-root>/README.md` | Adopter → Contributor   |
-|   [3]   | **Module/feature**    | `src/modules/*/README.md`  | Contributor             |
-|   [4]   | **Directory hub**     | `docs/README.md`           | Navigator               |
-|   [5]   | **Docs subsection**   | `docs/reference/README.md` | Navigator               |
+| [INDEX] | [SCOPE]           | [LOCATION]                 | [AUDIENCE]              |
+| :-----: | ----------------- | -------------------------- | ----------------------- |
+|   [1]   | Project root      | `./README.md`              | Evaluator → Contributor |
+|   [2]   | Package/workspace | `<package-root>/README.md` | Adopter → Contributor   |
+|   [3]   | Module/feature    | `src/modules/*/README.md`  | Contributor             |
+|   [4]   | Directory hub     | `docs/README.md`           | Navigator               |
+|   [5]   | Docs subsection   | `docs/reference/README.md` | Navigator               |
 
 **Section requirements per scope:**
 
@@ -164,12 +164,12 @@ Per-package READMEs in monorepo workspaces:
 
 Diátaxis framework classifies documentation into four quadrants. READMEs are primarily **Reference** documents with **How-To** elements.
 
-| [INDEX] | [QUADRANT]      | [PURPOSE]              | [README_APPLICATION]                                          |
-| :-----: | --------------- | ---------------------- | ------------------------------------------------------------- |
-|   [1]   | **Tutorial**    | Learning-oriented      | Not a README concern. Tutorials live in `docs/tutorials/`.    |
-|   [2]   | **How-To**      | Task-oriented          | Install and Usage sections. Step-by-step, assumes competence. |
-|   [3]   | **Reference**   | Information-oriented   | API, Configuration, Architecture sections. Lookup-focused.    |
-|   [4]   | **Explanation** | Understanding-oriented | Description, Background sections. Context and rationale.      |
+| [INDEX] | [QUADRANT]  | [PURPOSE]              | [README_APPLICATION]                                          |
+| :-----: | ----------- | ---------------------- | ------------------------------------------------------------- |
+|   [1]   | Tutorial    | Learning-oriented      | Not a README concern. Tutorials live in `docs/tutorials/`.    |
+|   [2]   | How-To      | Task-oriented          | Install and Usage sections. Step-by-step, assumes competence. |
+|   [3]   | Reference   | Information-oriented   | API, Configuration, Architecture sections. Lookup-focused.    |
+|   [4]   | Explanation | Understanding-oriented | Description, Background sections. Context and rationale.      |
 
 **Classification rules per README section:**
 
@@ -193,17 +193,17 @@ Package-level READMEs (scope [2] in §3.1) serve fundamentally different purpose
 
 Required sections for package/workspace READMEs in priority order:
 
-| [INDEX] | [SECTION]           | [CONTENT]                                                    |
-| :-----: | ------------------- | ------------------------------------------------------------ |
-|   [1]   | **Title**           | Package name matching `package.json` or `*.csproj` name.     |
-|   [2]   | **Purpose**         | One-two sentences: what capability this package provides.    |
-|   [3]   | **Ownership**       | Team name, point of contact, CODEOWNERS path.                |
-|   [4]   | **Dependencies**    | Internal (`@org/other-package`) and external, with versions. |
-|   [5]   | **API surface**     | Exported functions/types from the package entry point.       |
-|   [6]   | **Usage examples**  | 2-3 common invocation patterns importing the published name. |
-|   [7]   | **Important files** | Annotated listing of key source files and their purpose.     |
-|   [8]   | **Testing**         | Commands to run tests locally, coverage expectations.        |
-|   [9]   | **Build**           | Compilation commands if applicable. Omit for JIT packages.   |
+| [INDEX] | [SECTION]       | [CONTENT]                                                    |
+| :-----: | --------------- | ------------------------------------------------------------ |
+|   [1]   | Title           | Package name matching `package.json` or `*.csproj` name.     |
+|   [2]   | Purpose         | One-two sentences: what capability this package provides.    |
+|   [3]   | Ownership       | Team name, point of contact, CODEOWNERS path.                |
+|   [4]   | Dependencies    | Internal (`@org/other-package`) and external, with versions. |
+|   [5]   | API surface     | Exported functions/types from the package entry point.       |
+|   [6]   | Usage examples  | 2-3 common invocation patterns importing the published name. |
+|   [7]   | Important files | Annotated listing of key source files and their purpose.     |
+|   [8]   | Testing         | Commands to run tests locally, coverage expectations.        |
+|   [9]   | Build           | Compilation commands if applicable. Omit for JIT packages.   |
 
 ---
 ### [5.2][OWNERSHIP_SECTION]

@@ -11,14 +11,14 @@
 
 <br>
 
-| [INDEX] | [SOURCE] | [USE] |
-| :-----: | -------- | ----- |
-| [1] | `Directory.Packages.props` | Central package truth. |
-| [2] | `~/.nuget/packages/mathnet.numerics/6.0.0-beta2/lib/net8.0/MathNet.Numerics.xml` | Numerics API truth. |
-| [3] | `~/.nuget/packages/mathnet.symbolics/0.25.0/lib/net8.0/MathNet.Symbolics.xml` | Symbolics API truth. |
-| [4] | `CSparse` `4.3.0` / `CSparse.xml` | Sparse direct factorization — detail in `sparse.md` |
-| [5] | Package nuspec/DLL reflection | Dependency and public-type proof. |
-| [6] | Public MathNet docs | Topic map only; verify signatures locally. |
+| [INDEX] | [SOURCE]                                                                         | [USE]                                               |
+| :-----: | -------------------------------------------------------------------------------- | --------------------------------------------------- |
+|   [1]   | `Directory.Packages.props`                                                       | Central package truth.                              |
+|   [2]   | `~/.nuget/packages/mathnet.numerics/6.0.0-beta2/lib/net8.0/MathNet.Numerics.xml` | Numerics API truth.                                 |
+|   [3]   | `~/.nuget/packages/mathnet.symbolics/0.25.0/lib/net8.0/MathNet.Symbolics.xml`    | Symbolics API truth.                                |
+|   [4]   | `CSparse` `4.3.0` / `CSparse.xml`                                                | Sparse direct factorization — detail in `sparse.md` |
+|   [5]   | Package nuspec/DLL reflection                                                    | Dependency and public-type proof.                   |
+|   [6]   | Public MathNet docs                                                              | Topic map only; verify signatures locally.          |
 
 ---
 ## [2][OWNERSHIP]
@@ -26,16 +26,18 @@
 
 <br>
 
-| [INDEX] | [SURFACE] | [OWNS] | [NOT_OWN] |
-| :-----: | --------- | ------ | --------- |
-| [1] | `MathNet.Numerics.LinearAlgebra` | Matrices, vectors, decompositions, solvers. | Rhino geometry identity. |
-| [2] | `MathNet.Numerics.Optimization` | Minimizers, objective functions, convergence. | Domain failure rails. |
-| [3] | `MathNet.Numerics.Integration` | Numerical integration rules. | Rhino curve/surface semantic integration. |
-| [4] | `MathNet.Numerics.Interpolation` | Interpolation schemes. | GH2 tree/path structure. |
-| [5] | `MathNet.Numerics.Statistics` | Estimators and distributions. | Rasm result vocabulary. |
-| [6] | `MathNet.Symbolics` | Formula parse, transform, calculus, evaluate, compile. | Runtime load safety. |
+| [INDEX] | [SURFACE]                        | [OWNS]                                                 | [NOT_OWN]                                 |
+| :-----: | -------------------------------- | ------------------------------------------------------ | ----------------------------------------- |
+|   [1]   | `MathNet.Numerics.LinearAlgebra` | Matrices, vectors, decompositions, solvers.            | Rhino geometry identity.                  |
+|   [2]   | `MathNet.Numerics.Optimization`  | Minimizers, objective functions, convergence.          | Domain failure rails.                     |
+|   [3]   | `MathNet.Numerics.Integration`   | Numerical integration rules.                           | Rhino curve/surface semantic integration. |
+|   [4]   | `MathNet.Numerics.Interpolation` | Interpolation schemes.                                 | GH2 tree/path structure.                  |
+|   [5]   | `MathNet.Numerics.Statistics`    | Estimators and distributions.                          | Rasm result vocabulary.                   |
+|   [6]   | `MathNet.Symbolics`              | Formula parse, transform, calculus, evaluate, compile. | Runtime load safety.                      |
 
 **Adoption in production `libs/`:** Numerics via `Vectors/Matrix.cs`, `Cloud.cs`, and `Mesh.cs` (CSparse hybrid); detail in `rasm.md`. Symbolics, Optimization, Integration, and Interpolation are pinned but **not referenced** in production `.cs` files.
+
+Host geometry and GH2 data-access boundaries: `../../host/rhino.md`, `../../host/gh2.md`.
 
 ---
 ## [3][CONSTRUCTION]

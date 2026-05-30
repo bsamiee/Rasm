@@ -129,7 +129,14 @@
 **Alignment:** Center index, right numeric, left prose, center short labels (<=10 chars).
 
 [IMPORTANT]:
-- [ALWAYS] Include `[INDEX]` column. Use sigil format `[HEADER]` UPPERCASE. Bold first column.
+- [ALWAYS] Include `[INDEX]` as first column on every enumerable table; body cells `[1]`…`[n]`; center alignment.
+- [ALWAYS] Format remaining headers as `[RUBRIC]` sigils in UPPERCASE.
+- [ALWAYS] Use backticks for symbols, paths, and version pins; Title Case for category labels.
+- [NEVER] Use `**` emphasis inside table cells, including the index column.
+- [NEVER] Use plain-word headers on enumerable tables.
+
+[CRITICAL]:
+- [NEVER] Wrap index cells as `**[1]**`.
 
 ---
 ## [8][CODE_SPANS]
@@ -175,8 +182,8 @@
 
 ### [1.1][SUBSECTION]
 
-**Term A** -- First definition.<br>
-**Term B** -- Second definition.
+Term A -- First definition.<br>
+Term B -- Second definition.
 
 ---
 ## [2][SECOND_SECTION]

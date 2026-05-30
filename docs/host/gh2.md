@@ -1,4 +1,4 @@
-# [H1][MATHNET_GH2]
+# [H1][HOST_GH2]
 >**Dictum:** *GH2 owns data access, trees, coverage, diagnostics, and user-visible numerics.*
 
 <br>
@@ -39,3 +39,4 @@ Respect GH2 tolerance, unit system, scaling, numeric filters, and parameter acce
 - Preserve convergence/status/tolerance/residual when algorithms expose them.
 - Keep symbolic objects private unless output contract explicitly asks for infix, LaTeX, MathML, or formula text.
 - Never expose MathNet matrices/vectors directly as public GH2 data identity without a Rasm-owned shape.
+- Plugin projects default `UseWorkspaceLibraries=false` — see `system-api-map/packages.md` §4; use `Eff.runtime<RT>()` and explicit factories per `external-libs/languageext/effects.md` §8, not Scrutor in component hot paths.

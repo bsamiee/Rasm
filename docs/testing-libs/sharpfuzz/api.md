@@ -11,10 +11,10 @@
 
 <br>
 
-| [INDEX] | [PACKAGE] | [PIN] | [USE] |
-| :-----: | --------- | ----- | ----- |
-| [1] | `SharpFuzz` | `2.2.0` | In-process harness API. |
-| [2] | `SharpFuzz.CommandLine` | `2.2.0` | Local `sharpfuzz` instrumentation tool. |
+| [INDEX] | [PACKAGE]               | [PIN]   | [USE]                                   |
+| :-----: | ----------------------- | ------- | --------------------------------------- |
+|   [1]   | `SharpFuzz`             | `2.2.0` | In-process harness API.                 |
+|   [2]   | `SharpFuzz.CommandLine` | `2.2.0` | Local `sharpfuzz` instrumentation tool. |
 
 [SOURCE] NuGet package page: https://www.nuget.org/packages/SharpFuzz/2.2.0
 
@@ -24,14 +24,14 @@
 
 <br>
 
-| [INDEX] | [API] | [RASM_USE] |
-| :-----: | --- | ---------- |
-| [1] | `Fuzzer.OutOfProcess.Run(Action<string>, int)` | String grammar/token harnesses with explicit input length bounds. |
-| [2] | `Fuzzer.OutOfProcess.Run(Action<Stream>)` | Binary/stream decoder harnesses when string normalization is wrong. |
-| [3] | `Fuzzer.LibFuzzer.Run` | Span-based harnesses when native setup exists. |
-| [4] | `RunAndIgnoreExceptions` | Only for explicitly non-crashing parsers. |
-| [5] | corpus/crash dirs | File-based artifacts under `.artifacts/fuzz`. |
-| [6] | instrumentation CLI | Opt-in script/harness flow; never required by `tools.quality test run`. |
+| [INDEX] | [API]                                          | [RASM_USE]                                                              |
+| :-----: | ---------------------------------------------- | ----------------------------------------------------------------------- |
+|   [1]   | `Fuzzer.OutOfProcess.Run(Action<string>, int)` | String grammar/token harnesses with explicit input length bounds.       |
+|   [2]   | `Fuzzer.OutOfProcess.Run(Action<Stream>)`      | Binary/stream decoder harnesses when string normalization is wrong.     |
+|   [3]   | `Fuzzer.LibFuzzer.Run`                         | Span-based harnesses when native setup exists.                          |
+|   [4]   | `RunAndIgnoreExceptions`                       | Only for explicitly non-crashing parsers.                               |
+|   [5]   | corpus/crash dirs                              | File-based artifacts under `.artifacts/fuzz`.                           |
+|   [6]   | instrumentation CLI                            | Opt-in script/harness flow; never required by `tools.quality test run`. |
 
 ---
 ## [3][RASM_SCOPE]

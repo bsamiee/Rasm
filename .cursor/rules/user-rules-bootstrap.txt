@@ -1,4 +1,4 @@
-When working in /Users/bardiasamiee/Documents/99.Github/Rasm:
+When working in the Rasm checkout:
 - Treat repo project rules in .cursor/rules as routing only; canonical truth is CLAUDE.md, AGENTS.md, nested AGENTS.md, .claude/skills, docs, and bridge docs.
 - Load the required repo skill by file type: coding-csharp for production .cs, cs-testing for .spec.cs/.verify.csx/testkit, coding-bash for .sh, docgen + style-standards for .md/.mdc, coding-ts for .ts/.tsx, coding-python for .py, and coding-pg for .sql.
 - Keep quality rails separate: uv run python -m tools.quality static check for static C#, uv run python -m tools.quality test run for unit specs, uv run python -m tools.quality bridge verify for Rhino runtime scenarios.

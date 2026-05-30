@@ -17,14 +17,14 @@ description: Structural specification for Changelogs and Release Notes
 
 Based on [Keep a Changelog](https://keepachangelog.com/) with Semantic Versioning. Group entries by release version, categories within each release. Nx generates changelogs from conventional commits on main — `feat` maps to Added, `fix` to Fixed, `perf` to Changed. Other types (`refactor`, `docs`, `chore`, `ci`, `test`, `build`, `style`) are excluded from changelog output.
 
-| [INDEX] | [ELEMENT]            | [FORMAT]                                                               |
-| :-----: | -------------------- | ---------------------------------------------------------------------- |
-|   [1]   | **Title**            | `# Changelog` — fixed, no project name.                                |
-|   [2]   | **Version heading**  | `## [X.Y.Z] - YYYY-MM-DD` — semver + ISO 8601 date.                    |
-|   [3]   | **Unreleased**       | `## [Unreleased]` — accumulates entries before next release.           |
-|   [4]   | **Categories**       | H3 headings: Added, Changed, Deprecated, Removed, Fixed, Security.     |
-|   [5]   | **Entries**          | Bullet points. User-facing language. One change per bullet.            |
-|   [6]   | **Comparison links** | Footer: `[X.Y.Z]: https://github.com/org/repo/compare/vA.B.C...vX.Y.Z` |
+| [INDEX] | [ELEMENT]        | [FORMAT]                                                               |
+| :-----: | ---------------- | ---------------------------------------------------------------------- |
+|   [1]   | Title            | `# Changelog` — fixed, no project name.                                |
+|   [2]   | Version heading  | `## [X.Y.Z] - YYYY-MM-DD` — semver + ISO 8601 date.                    |
+|   [3]   | Unreleased       | `## [Unreleased]` — accumulates entries before next release.           |
+|   [4]   | Categories       | H3 headings: Added, Changed, Deprecated, Removed, Fixed, Security.     |
+|   [5]   | Entries          | Bullet points. User-facing language. One change per bullet.            |
+|   [6]   | Comparison links | Footer: `[X.Y.Z]: https://github.com/org/repo/compare/vA.B.C...vX.Y.Z` |
 
 ---
 ## [2][CATEGORIES]
@@ -32,14 +32,14 @@ Based on [Keep a Changelog](https://keepachangelog.com/) with Semantic Versionin
 
 <br>
 
-| [INDEX] | [CATEGORY]     | [WHEN_USED]                                    |
-| :-----: | -------------- | ---------------------------------------------- |
-|   [1]   | **Added**      | New features, new endpoints, new capabilities. |
-|   [2]   | **Changed**    | Behavior changes to existing functionality.    |
-|   [3]   | **Deprecated** | Features marked for future removal.            |
-|   [4]   | **Removed**    | Features deleted in this release.              |
-|   [5]   | **Fixed**      | Bug fixes to existing functionality.           |
-|   [6]   | **Security**   | Vulnerability patches, security improvements.  |
+| [INDEX] | [CATEGORY] | [WHEN_USED]                                    |
+| :-----: | ---------- | ---------------------------------------------- |
+|   [1]   | Added      | New features, new endpoints, new capabilities. |
+|   [2]   | Changed    | Behavior changes to existing functionality.    |
+|   [3]   | Deprecated | Features marked for future removal.            |
+|   [4]   | Removed    | Features deleted in this release.              |
+|   [5]   | Fixed      | Bug fixes to existing functionality.           |
+|   [6]   | Security   | Vulnerability patches, security improvements.  |
 
 [IMPORTANT]:
 1. [ALWAYS] **Omit empty categories:** Only include categories with entries.
@@ -82,11 +82,11 @@ Breaking changes receive special treatment within their category:
 
 <br>
 
-| [INDEX] | [BUMP]    | [TRIGGER]                                               |
-| :-----: | --------- | ------------------------------------------------------- |
-|   [1]   | **Major** | Breaking changes to public API or behavior.             |
-|   [2]   | **Minor** | New features, non-breaking additions.                   |
-|   [3]   | **Patch** | Bug fixes, security patches, documentation corrections. |
+| [INDEX] | [BUMP] | [TRIGGER]                                               |
+| :-----: | ------ | ------------------------------------------------------- |
+|   [1]   | Major  | Breaking changes to public API or behavior.             |
+|   [2]   | Minor  | New features, non-breaking additions.                   |
+|   [3]   | Patch  | Bug fixes, security patches, documentation corrections. |
 
 [CRITICAL]:
 - [NEVER] Release major version without at least one `**BREAKING:**` entry in changelog.

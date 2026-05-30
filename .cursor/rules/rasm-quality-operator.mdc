@@ -14,11 +14,16 @@ Read `.claude/skills/coding-python/SKILL.md` before editing `tools/quality/`.
 uv run python -m tools.quality <rail> <verb> [args…]
 ```
 
-| Rail | Command |
-| --- | --- |
-| Static C# | `quality static check` / `quality static full` |
-| Unit + mutation | `quality test run` / `list` / `coverage` |
-| Rhino bridge | `quality bridge …` / `quality api …` |
+| [INDEX] | [RAIL]          |
+| :-----: | --------------- |
+|   [1]   | Static C#       |
+|   [2]   | Unit + mutation |
+|   [3]   | Rhino bridge    |
+
+[COMMAND]
+- [1] `quality static check` / `quality static full`
+- [2] `quality test run` / `list` / `coverage`
+- [3] `quality bridge …` / `quality api …`
 
 `pnpm test:cs` and `pnpm verify:rhino` in `package.json` wrap the test and verify rails.
 
@@ -31,6 +36,4 @@ uv run python -m tools.quality <rail> <verb> [args…]
 
 ## Validation
 
-- Operator: `uv run python -m tools.quality self-test`
-- Python package: `pnpm check:py`
-- Unit tests: `uv run pytest tests/tools/quality/test_quality.py -q`
+See `CLAUDE.md` §5.2 for quality gates. Operator self-test: `uv run python -m tools.quality self-test`.

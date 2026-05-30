@@ -39,16 +39,16 @@ ARCHITECTURE.md summarizes and links to ADRs—never replaces them. ADRs record 
 
 Eight sections in fixed order. All required unless noted.
 
-| [INDEX] | [SECTION]                   | [REQUIRED]  | [CONTENT]                                                          |
-| :-----: | --------------------------- | :---------: | ------------------------------------------------------------------ |
-|   [1]   | **System Overview**         |     Yes     | Problem domain, high-level purpose, C4 Context diagram.            |
-|   [2]   | **High-Level Architecture** |     Yes     | Component/container diagram. 3-7 bounded contexts with data flow.  |
-|   [3]   | **Codemap**                 |     Yes     | Annotated directory structure mapping source to concepts.          |
-|   [4]   | **Key Design Decisions**    |     Yes     | Summarized decisions with links to ADRs.                           |
-|   [5]   | **Cross-Cutting Concerns**  |     Yes     | Auth, logging, error handling, caching, observability patterns.    |
-|   [6]   | **Invariants**              |     Yes     | Testable system properties with consequence if violated.           |
-|   [7]   | **External Dependencies**   | Conditional | Third-party services, integration points, protocols. If any exist. |
-|   [8]   | **Deployment Architecture** | Conditional | Infrastructure, environments, deployment topology. If applicable.  |
+| [INDEX] | [SECTION]               | [REQUIRED]  | [CONTENT]                                                          |
+| :-----: | ----------------------- | :---------: | ------------------------------------------------------------------ |
+|   [1]   | System Overview         |     Yes     | Problem domain, high-level purpose, C4 Context diagram.            |
+|   [2]   | High-Level Architecture |     Yes     | Component/container diagram. 3-7 bounded contexts with data flow.  |
+|   [3]   | Codemap                 |     Yes     | Annotated directory structure mapping source to concepts.          |
+|   [4]   | Key Design Decisions    |     Yes     | Summarized decisions with links to ADRs.                           |
+|   [5]   | Cross-Cutting Concerns  |     Yes     | Auth, logging, error handling, caching, observability patterns.    |
+|   [6]   | Invariants              |     Yes     | Testable system properties with consequence if violated.           |
+|   [7]   | External Dependencies   | Conditional | Third-party services, integration points, protocols. If any exist. |
+|   [8]   | Deployment Architecture | Conditional | Infrastructure, environments, deployment topology. If applicable.  |
 
 ---
 ## [3][SECTIONS]
@@ -69,13 +69,13 @@ One paragraph: what system does and what problem domain it operates in. Follow w
 
 Draw component or container diagram showing 3-7 bounded contexts with directional data flow. Give each component one-line responsibility statement. Use Mermaid `graph LR` or `graph TD`.
 
-| [INDEX] | [DIAGRAM_TYPE]   | [USE_WHEN]                                           |
-| :-----: | ---------------- | ---------------------------------------------------- |
-|   [1]   | **C4 Container** | Microservices, multi-process systems, polyglot apps  |
-|   [2]   | **C4 Component** | Monolith internals, single-service module boundaries |
-|   [3]   | **Sequence**     | Key runtime flows (auth, order lifecycle, sync)      |
-|   [4]   | **State**        | Stateful workflows, lifecycle transitions            |
-|   [5]   | **ER**           | Data models, aggregate relationships                 |
+| [INDEX] | [DIAGRAM_TYPE] | [USE_WHEN]                                           |
+| :-----: | -------------- | ---------------------------------------------------- |
+|   [1]   | C4 Container   | Microservices, multi-process systems, polyglot apps  |
+|   [2]   | C4 Component   | Monolith internals, single-service module boundaries |
+|   [3]   | Sequence       | Key runtime flows (auth, order lifecycle, sync)      |
+|   [4]   | State          | Stateful workflows, lifecycle transitions            |
+|   [5]   | ER             | Data models, aggregate relationships                 |
 
 [CRITICAL]:
 - [NEVER] Include implementation-level detail (class names, file paths) in high-level diagram—components represent bounded contexts, not code files.
@@ -113,13 +113,13 @@ Summarize architectural decisions with links to full ADRs. Each entry states dec
 
 Document patterns spanning multiple components:
 
-| [INDEX] | [CONCERN]          | [DOCUMENT]                             |
-| :-----: | ------------------ | -------------------------------------- |
-|   [1]   | **Authentication** | Auth mechanism, token flow, boundaries |
-|   [2]   | **Error handling** | Error types, propagation, boundaries   |
-|   [3]   | **Logging**        | Strategy, levels, structured format    |
-|   [4]   | **Observability**  | Metrics, traces, health checks         |
-|   [5]   | **Caching**        | Strategy, invalidation, boundaries     |
+| [INDEX] | [CONCERN]      | [DOCUMENT]                             |
+| :-----: | -------------- | -------------------------------------- |
+|   [1]   | Authentication | Auth mechanism, token flow, boundaries |
+|   [2]   | Error handling | Error types, propagation, boundaries   |
+|   [3]   | Logging        | Strategy, levels, structured format    |
+|   [4]   | Observability  | Metrics, traces, health checks         |
+|   [5]   | Caching        | Strategy, invalidation, boundaries     |
 
 ---
 ### [3.6][INVARIANTS]

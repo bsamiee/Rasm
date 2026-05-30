@@ -11,9 +11,9 @@
 
 <br>
 
-| [INDEX] | [PACKAGE] | [PIN] | [USE] |
-| :-----: | --------- | ----- | ----- |
-| [1] | `Verify.XunitV3` | `31.17.0` | xUnit v3 snapshot assertions. |
+| [INDEX] | [PACKAGE]        | [PIN]     | [USE]                         |
+| :-----: | ---------------- | --------- | ----------------------------- |
+|   [1]   | `Verify.XunitV3` | `31.17.0` | xUnit v3 snapshot assertions. |
 
 [SOURCE] NuGet package page: https://www.nuget.org/packages/Verify.XunitV3/31.17.0
 
@@ -23,13 +23,13 @@
 
 <br>
 
-| [INDEX] | [SURFACE] | [RASM_USE] |
-| :-----: | --------- | ---------- |
-| [1] | `VerifierSettings` | Add module-initializer scrubbers only when a snapshot contains machine-specific data. |
-| [2] | `VerifySettings` | Per-test path/name tweaks only when the artifact owner requires it. |
-| [3] | `Verifier.DerivePathInfo` | Keep snapshots beside owning specs or under a stable artifact directory. |
-| [4] | Scrubbers | Remove machine paths, timestamps, generated IDs, and runtime-specific noise. |
-| [5] | `Verify.Cli` | Review/accept received files manually; never auto-accept in scripts. |
+| [INDEX] | [SURFACE]                 | [RASM_USE]                                                                            |
+| :-----: | ------------------------- | ------------------------------------------------------------------------------------- |
+|   [1]   | `VerifierSettings`        | Add module-initializer scrubbers only when a snapshot contains machine-specific data. |
+|   [2]   | `VerifySettings`          | Per-test path/name tweaks only when the artifact owner requires it.                   |
+|   [3]   | `Verifier.DerivePathInfo` | Keep snapshots beside owning specs or under a stable artifact directory.              |
+|   [4]   | Scrubbers                 | Remove machine paths, timestamps, generated IDs, and runtime-specific noise.          |
+|   [5]   | `Verify.Cli`              | Review/accept received files manually; never auto-accept in scripts.                  |
 
 ---
 ## [3][RASM_SCOPE]
@@ -45,13 +45,20 @@ Use Verify for analyzer diagnostics, generated manifests, normalized bridge JSON
 
 <br>
 
-| [INDEX] | [USE_CASE] | [WHY_VERIFY_FITS] |
-| :-----: | ---------- | ----------------- |
-| [1] | `tools/cs-analyzer` rule diagnostics | Per-rule fixture produces a deterministic diagnostic message; Verify pins the exact text including parameter names. Drift catches accidental wording changes that break IDE quick-fix UX. |
-| [2] | SmartEnum catalog enumerations | When a public catalog (e.g., `CurveProjection.Items`) is API surface, snapshotting the list catches accidental case reorder/rename in code review. Pair with `Spec.SmartEnumKeysUnique` for runtime contract. |
-| [3] | Bridge JSON evidence files | Normalized `vectors-*-verify.csx` JSON output under `.artifacts/rhino/verify/` can be snapshot-asserted in `_tooling` after the bridge has stabilized. |
-| [4] | Generated source files | Roslyn source-generators (Thinktecture `[Union]`/`[SmartEnum]`/`[ValueObject]`) produce `*.g.cs` under `obj/`. Snapshotting select generated files catches breaking changes in source-generator behavior between Thinktecture upgrades. |
-| [5] | Package/config reports | Normalized output of `dotnet list package --vulnerable`, `dotnet restore --locked-mode` reports. |
+| [INDEX] | [USE_CASE]                           |
+| :-----: | ------------------------------------ |
+|   [1]   | `tools/cs-analyzer` rule diagnostics |
+|   [2]   | SmartEnum catalog enumerations       |
+|   [3]   | Bridge JSON evidence files           |
+|   [4]   | Generated source files               |
+|   [5]   | Package/config reports               |
+
+[WHY_VERIFY_FITS]
+- [1] Per-rule fixture produces deterministic diagnostic text; drift catches wording changes that break IDE quick-fix UX.
+- [2] When a public catalog is API surface, snapshotting the list catches accidental case reorder/rename in code review. Pair with `Spec.SmartEnumKeysUnique`.
+- [3] Normalized `vectors-*-verify.csx` JSON under `.artifacts/rhino/verify/` after bridge stabilizes.
+- [4] Snapshot select Thinktecture `*.g.cs` under `obj/` to catch source-generator behavior changes on upgrade.
+- [5] Normalized output of `dotnet list package --vulnerable`, `dotnet restore --locked-mode` reports.
 
 Anti-uses (Grade F):
 - Snapshotting `Matrix.spec.cs` SVD reconstruction output is not a law; the math IS the oracle.
