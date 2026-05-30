@@ -136,7 +136,7 @@ public readonly record struct FileResourceGraph(
             .As()
             .Bind(values => Stat.Of(values: values, key: op));
 
-    public Seq<FileIssue> Validate(FileArchiveSource source, IoScheduler scheduler) {
+    public Fin<Seq<FileIssue>> Validate(FileArchiveSource source, IoScheduler scheduler) {
         ArgumentNullException.ThrowIfNull(argument: scheduler);
         Option<string> folder = source switch {
             FileArchiveSource.Path path => Optional(IOPath.GetDirectoryName(path: path.Value.Path)),
@@ -150,7 +150,7 @@ public readonly record struct FileResourceGraph(
                 : folder.Map(root => IOPath.GetFullPath(path: IOPath.Combine(path1: root, path2: path))).IfNone(path)))
             .AsIterable()];
         return paths.Length switch {
-            0 => Seq<FileIssue>(),
+            0 => Fin.Succ(Seq<FileIssue>()),
             _ => scheduler.Filter(
                 source: paths,
                 predicate: static item => !File.Exists(path: item.Path),
@@ -162,13 +162,13 @@ public readonly record struct FileResourceGraph(
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class FileArchiveOps {
     internal static Fin<FileReport> Read(FileArchiveSource source, ArchiveProfile profile) =>
-        from archive in UseArchive(source: source, profile: profile, op: Op.Of(name: nameof(Read)), use: (endpoint, model, log) => Snapshot(source: source, model: model, profile: profile).Map(archive => (Endpoint: endpoint, Archive: archive, Log: log)))
+        from archive in UseArchive(source: source, profile: profile, op: Op.Of(name: nameof(Read)), use: (endpoint, model, log) => Snapshot(source: source, model: model, profile: profile).Map(result => (Endpoint: endpoint, result.Archive, result.Issues, Log: log)))
         select FileReport.Of(
             phase: FilePhase.ArchiveRead,
             source: archive.Endpoint,
             target: Option<FileEndpoint>.None,
             format: FormatOf(source: archive.Endpoint),
-            issues: IssueLog(log: archive.Log),
+            issues: archive.Issues + IssueLog(log: archive.Log),
             nativeLog: LogOption(log: archive.Log),
             archive: Some(archive.Archive));
 
@@ -228,8 +228,8 @@ internal static class FileArchiveOps {
             from extracted in toSeq(model.EmbeddedFiles)
                 .Filter(file => (ArchiveProfile.Full with { Embedded = update.Extract }).Includes(file: file.Filename))
                 .TraverseM(file => ExtractFile(file: file, folder: extractFolder, op: op).Map(static endpoint => endpoint.Path)).As()
-            from snapshot in Snapshot(source: new FileArchiveSource.Path(Value: output), model: model, profile: profile)
-            select (Endpoint: endpoint, ReadLog: readLog, WriteLog: writeLog, Archive: snapshot,
+            from snapshot in Snapshot(source: new FileArchiveSource.Path(output), model: model, profile: profile)
+            select (Endpoint: endpoint, ReadLog: readLog, WriteLog: writeLog, snapshot.Archive, SnapshotIssues: snapshot.Issues,
                 Receipt: DocumentReceipt.Empty with {
                     ResourceChanged = metadataChange + embedded + extracted.Map(static path => new DocumentResourceChange(Kind: DocumentResourceKind.EmbeddedFile, Name: path)),
                 }))
@@ -238,7 +238,7 @@ internal static class FileArchiveOps {
             source: result.Endpoint,
             target: Some(output),
             format: output.Format,
-            issues: IssueLog(log: result.ReadLog) + IssueLog(log: result.WriteLog),
+            issues: result.SnapshotIssues + IssueLog(log: result.ReadLog) + IssueLog(log: result.WriteLog),
             nativeLog: LogOption(log: string.Join(separator: System.Environment.NewLine, values: Seq(result.ReadLog, result.WriteLog).Filter(static value => !string.IsNullOrWhiteSpace(value: value)).AsIterable())),
             archive: Some(result.Archive),
             receipt: Some(result.Receipt));
@@ -250,9 +250,10 @@ internal static class FileArchiveOps {
                 .ToFin(Fail: Op.Of(name: nameof(Bytes)).InvalidResult()));
 
     internal static Fin<FileReport> Validate(FileArchiveSource source, ArchiveProfile profile, IoScheduler scheduler) =>
-        from result in UseArchive(source: source, profile: profile with { Projection = FileArchiveProjection.Graph }, op: Op.Of(name: nameof(Validate)), use: (endpoint, model, log) =>
-            Snapshot(source: source, model: model, profile: profile with { Projection = FileArchiveProjection.Graph })
-                .Map(archive => (Endpoint: endpoint, Archive: archive, Log: log, Issues: archive.Resources.Validate(source: archive.Source, scheduler: scheduler))))
+        from result in UseArchive(source: source, profile: profile with { Slice = ArchiveSlice.Resources, Projection = FileArchiveProjection.Graph }, op: Op.Of(name: nameof(Validate)), use: (endpoint, model, log) =>
+            from snapshot in Snapshot(source: source, model: model, profile: profile with { Slice = ArchiveSlice.Resources, Projection = FileArchiveProjection.Graph })
+            from resourceIssues in snapshot.Archive.Resources.Validate(source: snapshot.Archive.Source, scheduler: scheduler)
+            select (Endpoint: endpoint, snapshot.Archive, Issues: snapshot.Issues + resourceIssues, Log: log))
         select FileReport.Of(
             phase: FilePhase.ArchiveValidate,
             source: result.Endpoint,
@@ -298,17 +299,23 @@ internal static class FileArchiveOps {
                 select value)
         select result;
 
-    private static Fin<FileArchive> Snapshot(FileArchiveSource source, File3dmModel model, ArchiveProfile profile) =>
+    private static Fin<(FileArchive Archive, Seq<FileIssue> Issues)> Snapshot(FileArchiveSource source, File3dmModel model, ArchiveProfile profile) =>
         profile.Projection switch {
-            FileArchiveProjection.None => Fin.Fail<FileArchive>(error: Op.Of(name: nameof(Snapshot)).InvalidInput()),
+            FileArchiveProjection.None => Fin.Fail<(FileArchive Archive, Seq<FileIssue> Issues)>(error: Op.Of(name: nameof(Snapshot)).InvalidInput()),
             FileArchiveProjection projection =>
-                ((projection & FileArchiveProjection.Metadata) != FileArchiveProjection.None
+                from metadata in (projection & FileArchiveProjection.Metadata) != FileArchiveProjection.None
                     ? Metadata(source: source, model: model)
-                    : Fin.Succ(value: default(FileArchiveMetadata))).Map(metadata => new FileArchive(
+                    : Fin.Succ(value: default(FileArchiveMetadata))
+                from resources in (projection & FileArchiveProjection.Graph) != FileArchiveProjection.None
+                    ? Resources(model: model, source: source)
+                    : Fin.Succ(value: (Graph: default(FileResourceGraph), Issues: Seq<FileIssue>()))
+                select (
+                    Archive: new FileArchive(
                         Source: source,
                         Metadata: metadata,
-                        Resources: (projection & FileArchiveProjection.Graph) != FileArchiveProjection.None ? Resources(model: model, source: source) : default,
-                        Objects: (projection & FileArchiveProjection.Objects) != FileArchiveProjection.None ? Objects(model: model) : Seq<FileObjectManifest>())),
+                        Resources: resources.Graph,
+                        Objects: (projection & FileArchiveProjection.Objects) != FileArchiveProjection.None ? Objects(model: model) : Seq<FileObjectManifest>()),
+                    resources.Issues),
         };
 
     private static Option<FileFormat> FormatOf(Option<FileEndpoint> source) =>
@@ -317,34 +324,35 @@ internal static class FileArchiveOps {
             _ => Some(FileFormat.ThreeDm),
         };
 
-    private static (Blocks.Archive.Graph Graph, Seq<string> Linked) BlockArchiveResources(File3dmModel model, FileArchiveSource source, Op key) =>
-        source switch {
-            FileArchiveSource.Path path => BlockArchiveResources(model: model, archivePath: Some(path.Value.Path), key: key),
-            _ => BlockArchiveResources(model: model, archivePath: Option<string>.None, key: key),
-        };
-
-    private static (Blocks.Archive.Graph Graph, Seq<string> Linked) BlockArchiveResources(File3dmModel model, Option<string> archivePath, Op key) {
-        Blocks.Archive.Graph graph = archivePath
+    // Block-graph + linked-archive closure on the Fin rail: a failed graph build or broken closure surfaces as a
+    // FileReport issue instead of silently degrading to Graph.Empty / an empty link set (which masked missing blocks
+    // and unreadable archives). FileArchiveSource → archivePath discrimination lives at the Resources call site.
+    private static Fin<(Blocks.Archive.Graph Graph, Seq<string> Linked)> BlockArchiveResources(File3dmModel model, Option<string> archivePath, Op key) =>
+        from graph in archivePath
             .Map(path => Blocks.Archive.From(model: model, archivePath: Some(path), key: key))
             .IfNone(() => Blocks.Archive.From(model: model, key: key))
-            .IfFail(_ => Blocks.Archive.Graph.Empty);
-        Seq<string> linked = archivePath
+        from linked in archivePath
             .Map(path => Blocks.Archive.ValidateArchiveClosure(root: model, rootPath: path, key: key)
-                .Map(report => report.Edges.Map(static edge => edge.Link.Full.Value).Distinct())
-                .IfFail(_ => Seq<string>()))
-            .IfNone(() => toSeq(graph.LinkedArchives.AsEnumerable()).Map(static link => link.Stored));
-        return (Graph: graph, Linked: linked);
+                .Map(report => report.Edges.Map(static edge => edge.Link.Full.Value).Distinct()))
+            .IfNone(() => Fin.Succ(value: toSeq(graph.LinkedArchives.AsEnumerable()).Map(static link => link.Stored)))
+        select (Graph: graph, Linked: linked);
+
+    // Stage 1 (fallible): resolve the block-archive graph + linked-archive closure on the Fin rail, then project the pure resource graph.
+    private static Fin<(FileResourceGraph Graph, Seq<FileIssue> Issues)> Resources(File3dmModel model, FileArchiveSource source) {
+        Op key = Op.Of(name: nameof(Resources));
+        Option<string> archivePath = source switch {
+            FileArchiveSource.Path path => Some(path.Value.Path),
+            _ => Option<string>.None,
+        };
+        return BlockArchiveResources(model: model, archivePath: archivePath, key: key)
+            .Bind(resources => key.Catch(() => Fin.Succ(value: ResourceGraphOf(model: model, blockGraph: resources.Graph, linked: resources.Linked))))
+            .Match(
+                Succ: static graph => Fin.Succ(value: (Graph: graph, Issues: Seq<FileIssue>())),
+                Fail: static error => Fin.Succ(value: (Graph: default(FileResourceGraph), Issues: Seq(FileIssue.Native(message: error.Message)))));
     }
 
-    // FOLLOW-UP (pre-existing, surfaced by the Exchange bridge scenario once the sheet sections progressed): reading a
-    // 3dm that carries named-position / named-layer-state artifacts (from FileExchange.NamedPosition/NamedLayerState)
-    // NREs here. `fileObject.Geometry` is already null-guarded (Objects, below), so the unguarded access is most likely
-    // in `ObjectEdges` (layer/material/linetype/group lookups on a proxy object's Attributes) or the render-content /
-    // block-graph walk — NOT the geometry. To localize: temporarily wrap each sub-walk below in its own op.Catch and
-    // emit a granular `facts.Add` in the scenario, then `bridge verify` reports which walk faults (it now surfaces facts).
-    private static FileResourceGraph Resources(File3dmModel model, FileArchiveSource source) {
-        Op key = Op.Of(name: nameof(Resources));
-        (Blocks.Archive.Graph blockGraph, Seq<string> linked) = BlockArchiveResources(model: model, source: source, key: key);
+    // Stage 2 (pure projection): ResourceGraphOf stays pure; Resources owns graph/closure failure containment.
+    private static FileResourceGraph ResourceGraphOf(File3dmModel model, Blocks.Archive.Graph blockGraph, Seq<string> linked) {
         Seq<RenderContent> renderTree =
             toSeq(model.RenderMaterials).Map(static material => (RenderContent)material)
             + toSeq(model.RenderEnvironments).Map(static environment => (RenderContent)environment)
@@ -541,6 +549,10 @@ internal static class FileArchiveOps {
                 LastEditedBy: TextOption(value: model.LastEditedBy),
                 CreatedOn: DateTimeOption(value: createdOn),
                 LastEditedOn: DateTimeOption(value: lastEditedOn),
+                // Page-view count has NO in-memory accessor: File3dm.Views/NamedViews are the MODEL view tables
+                // (native ids 16/17) with no page discriminator on ViewInfo/ViewportInfo, and page records are only
+                // exposed by the static path-based ONX_Model_ReadPageViews. Do NOT "optimize" to model.Views.Count —
+                // that counts standard views, the wrong number. Bytes sources have no path, so page count is 0.
                 PageViews: source switch {
                     FileArchiveSource.Path path => toSeq(File3dmModel.ReadPageViews(path: path.Value.Path)).Count,
                     _ => 0,

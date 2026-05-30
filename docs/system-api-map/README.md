@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Use this folder before adding `System.*` packages, global usings, build metadata, BCL replacements, or host assembly references. Use `../external-libs/README.md` for product library APIs and `../testing-libs` for test-tool APIs.
+[IMPORTANT] Scope: BCL, shared-framework surfaces, package state, host references, build metadata. Cross-stack owner order: `../usage.md` §1. Product libraries: `../external-libs/README.md`. Test tools: `../testing-libs/xunit/api.md`. C# 14 language: `../external-libs/csharp/language.md`.
 
 ---
 ## [1][FILES]
@@ -16,31 +16,32 @@
 | [1] | `bcl.md` | Which BCL/shared-framework API owns a primitive concern? |
 | [2] | `packages.md` | Which package state permits adoption or rejection? |
 | [3] | `replacements.md` | Which owner replaces repeated local machinery? |
-| [4] | `meta.md` | Which C# build/meta file owns language, analyzer, and host wiring? |
+| [4] | `meta.md` | Which C# build/meta file owns language, analyzer, host wiring, and global usings? |
 
 ---
-## [2][PRECEDENCE]
->**Dictum:** *Owner selection precedes API selection.*
+## [2][ROUTING]
+>**Dictum:** *Route to one leaf; do not duplicate owner ladders here.*
 
 <br>
 
-| [INDEX] | [OWNER] | [CAPABILITY] |
-| :-----: | ------- | ------------ |
-| [1] | RhinoCommon | Geometry validity, tolerances, transforms, topology, model units. |
-| [2] | GH2 | Trees, access, coverage, diagnostics, user-facing numeric boundaries. |
-| [3] | MathNet | Linear algebra, solvers, fitting, statistics, symbolic formulas. |
-| [4] | BCL | Spans, regex generation, frozen lookups, generic math, time, diagnostics. |
-| [5] | LanguageExt | Rails, effects, immutable traversal, runtime records. |
-| [6] | Thinktecture | Generated value objects, smart enums, unions, dispatch. |
+| [INDEX] | [QUESTION] | [READ] |
+| :-----: | ---------- | ------ |
+| [1] | Cross-stack owner precedence | `../usage.md` §1 |
+| [2] | Proof hierarchy for API claims | `../usage.md` §5 |
+| [3] | Build props, analyzers, host refs, global usings | `meta.md` |
+| [4] | Package graph state / adoption | `packages.md` |
+| [5] | BCL API ownership | `bcl.md` |
+| [6] | Replace local machinery | `replacements.md` |
+| [7] | Product library APIs | `../external-libs/README.md` |
+| [8] | Test-tool APIs | `../testing-libs/xunit/api.md` |
 
 ---
-## [3][SOURCE_ORDER]
->**Dictum:** *Runtime claims require local build and host proof.*
+## [3][ADOPTION]
+>**Dictum:** *Shared-framework availability differs from measured production adoption.*
 
 <br>
 
-- Read `Directory.Build.props` before changing references, usings, analyzer posture, or RhinoWIP host assemblies.
-- Read `Directory.Packages.props` before naming package state.
-- Verify .NET and C# features against Microsoft Learn plus local `TargetFramework` and `LangVersion`.
-- Verify RhinoWIP/GH2 APIs with local XML/decompile before public docs.
-- Keep unadopted packages out of active guidance.
+- Distinguish in-box BCL from platform packages that still need an explicit `PackageReference` on first consumer (`packages.md` §1).
+- Keep unadopted packages out of active guidance until a measured consumer lands.
+- Verify RhinoWIP/GH2 APIs with local XML or decompile before public docs.
+- Reconcile package graph edits with `packages.md` and affected `docs/external-libs/**/api.md` version pins.

@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using Rasm.Analysis;
 using DrawingColor = System.Drawing.Color;
@@ -7,11 +9,23 @@ namespace Rasm.Rhino.UI;
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class MousePhase {
-    public static readonly MousePhase Move = new(0), MoveEnd = new(1), Down = new(2), DownEnd = new(3), Up = new(4), UpEnd = new(5), DoubleClick = new(6), Enter = new(7), Hover = new(8), Leave = new(9), Wheel = new(10);
+    // ViewportNative gates Rhino.UI.MouseCallback delivery: Wheel has no native On* hook (Eto-canvas only).
+    public static readonly MousePhase
+        Move = new(key: 0, viewportNative: true), MoveEnd = new(key: 1, viewportNative: true), Down = new(key: 2, viewportNative: true), DownEnd = new(key: 3, viewportNative: true),
+        Up = new(key: 4, viewportNative: true), UpEnd = new(key: 5, viewportNative: true), DoubleClick = new(key: 6, viewportNative: true), Enter = new(key: 7, viewportNative: true),
+        Hover = new(key: 8, viewportNative: true), Leave = new(key: 9, viewportNative: true), Wheel = new(key: 10, viewportNative: false);
+    public bool ViewportNative { get; }
 }
 [SmartEnum<int>]
 public sealed partial class OverlayPhase {
-    public static readonly OverlayPhase Enabled = new(0), Cull = new(1), PreDrawObjects = new(2), PreDrawObject = new(3), Foreground = new(4), Overlay = new(5), PostDraw = new(6), Bounds = new(7), ZoomBounds = new(8);
+    // Draws => pipeline paint phases; Bounding => bounding-box calculation phases. Self-classifying single source of truth.
+    public static readonly OverlayPhase
+        Enabled = new(key: 0, draws: false, bounding: false), Cull = new(key: 1, draws: false, bounding: false),
+        PreDrawObjects = new(key: 2, draws: false, bounding: false), PreDrawObject = new(key: 3, draws: false, bounding: false),
+        Foreground = new(key: 4, draws: true, bounding: false), Overlay = new(key: 5, draws: true, bounding: false), PostDraw = new(key: 6, draws: true, bounding: false),
+        Bounds = new(key: 7, draws: false, bounding: true), ZoomBounds = new(key: 8, draws: false, bounding: true);
+    public bool Draws { get; }
+    public bool Bounding { get; }
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -28,7 +42,7 @@ public readonly record struct MouseContext<TState>(MousePhase Phase, TState Stat
     public bool Shift => Args.ShiftKeyDown;
     public bool Control => Args.CtrlKeyDown;
     public Option<RhinoView> View => Optional(Args.View);
-    public Option<System.Drawing.Point> ViewportPoint => Args.ViewportPoint switch { { IsEmpty: false } point => Some(point), _ => Option<System.Drawing.Point>.None };
+    public Option<System.Drawing.Point> ViewportPoint => View.IsSome ? Some(Args.ViewportPoint) : Option<System.Drawing.Point>.None;   // top-left (0,0) is a valid pixel; gate on View presence, not IsEmpty
     public Option<Line> WorldLine =>
         (View.Case, ViewportPoint.Case) switch {
             (RhinoView view, System.Drawing.Point point) => Optional(view.Document).Case switch {
@@ -87,19 +101,28 @@ public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = defau
             .Map(static value => new OverlayDecision(DrawObject: Some(value)));
     public static OverlayDecision operator +(OverlayDecision left, OverlayDecision right) => Add(left: left, right: right);
     public static OverlayDecision Fold(Seq<OverlayDecision> decisions) => decisions.Fold(Ignore, static (state, decision) => state + decision);
-    // Right-biased per-field fold EXCEPT Bounds (unioned — overlays accumulate extent) and Draw/DrawObject (sequenced via
-    // Combine so both paints run); a right-set scalar field (Cull) overrides the left.
+    // Right-biased per-field fold EXCEPT Bounds (unioned — overlays accumulate extent) and Draw/DrawObject (fault-isolated
+    // via Combine so both paints ALWAYS run; a left paint fault no longer blanks later overlays — errors accumulate via `+`).
     public static OverlayDecision Add(OverlayDecision left, OverlayDecision right) => new(
         Bounds: (left.Bounds.Case, right.Bounds.Case) switch { (BoundingBox a, BoundingBox b) => Some(BoundingBox.Union(a, b)), _ => right.Bounds | left.Bounds },
         Cull: right.Cull | left.Cull,
         Draw: Combine(left: left.Draw, right: right.Draw),
         DrawObject: Combine(left: left.DrawObject, right: right.DrawObject));
 
+    // Method-boundary Match (CSP0705): projects a Fin<Unit> to its Error (Error.Empty when succeeded) for monoid accumulation.
+    private static Error ErrorOf(Fin<Unit> result) => result.Match(Succ: static _ => Error.Empty, Fail: static e => e);
+
     private static Option<Func<TArg, Fin<Unit>>> Combine<TArg>(Option<Func<TArg, Fin<Unit>>> left, Option<Func<TArg, Fin<Unit>>> right) =>
         (left.Case, right.Case) switch {
-            (Func<TArg, Fin<Unit>> a, Func<TArg, Fin<Unit>> b) => Some<Func<TArg, Fin<Unit>>>(arg => a(arg: arg).Bind(_ => b(arg: arg))),
+            (Func<TArg, Fin<Unit>> a, Func<TArg, Fin<Unit>> b) => Some<Func<TArg, Fin<Unit>>>(arg => (SafePaint(paint: a, arg: arg), SafePaint(paint: b, arg: arg)) switch {
+                ( { IsSucc: true }, { IsSucc: true }) => Fin.Succ(value: unit),
+                (Fin<Unit> ra, Fin<Unit> rb) => Fin.Fail<Unit>(error: ErrorOf(ra) + ErrorOf(rb)),
+            }),
             _ => right | left,
         };
+
+    private static Fin<Unit> SafePaint<TArg>(Func<TArg, Fin<Unit>> paint, TArg arg) =>
+        Op.Of(name: nameof(Combine)).Catch(() => paint(arg: arg));
     internal static Fin<BoundingBox> BoundsOf(object source, Op op) =>
         Analyze.Run(operation: Analyze.Bounds<object, BoundingBox>(aspect: Analysis.Bounds.AxisAligned), input: source)
             .ToFin()
@@ -162,6 +185,36 @@ public readonly record struct UiRenderState(bool OnTop = false, Option<bool> Dep
     }
 }
 
+// Where to run the world-space gradient axis through a geometry's bounds (LongestEdge avoids a degenerate near-flat axis).
+public enum UiGradientAxis { LongestEdge, Diagonal, X, Y, Z }
+
+// Data-driven gradient ramp for the Hatch/Mesh draw arms (false-color fields, draft-angle ramps): a stop sequence + an
+// axis selector resolved against the geometry bounds at draw time, so one style stays geometry-agnostic. Linear=false => radial.
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct UiGradient(Seq<ColorStop> Stops, bool Linear = true, float Repeat = 0f, UiGradientAxis Axis = UiGradientAxis.LongestEdge) {
+    public static UiGradient Of(DrawingColor from, DrawingColor to, bool linear = true, UiGradientAxis axis = UiGradientAxis.LongestEdge) =>
+        new(Stops: Seq(new ColorStop(from, 0d), new ColorStop(to, 1d)), Linear: linear, Axis: axis);
+
+    // Resolve (point1, point2) for the native DrawGradient* call; a sub-tolerance chosen extent (flat/planar geometry)
+    // falls back to the box diagonal so point1 never equals point2 (which silently produces no ramp).
+    internal (Point3d P1, Point3d P2) AxisOf(BoundingBox box) {
+        Point3d c = box.Center;
+        Vector3d d = box.Diagonal;
+        (Point3d P1, Point3d P2) pick = Axis switch {
+            UiGradientAxis.Diagonal => (box.Min, box.Max),
+            UiGradientAxis.X => (new Point3d(box.Min.X, c.Y, c.Z), new Point3d(box.Max.X, c.Y, c.Z)),
+            UiGradientAxis.Y => (new Point3d(c.X, box.Min.Y, c.Z), new Point3d(c.X, box.Max.Y, c.Z)),
+            UiGradientAxis.Z => (new Point3d(c.X, c.Y, box.Min.Z), new Point3d(c.X, c.Y, box.Max.Z)),
+            _ => (Math.Abs(d.X) >= Math.Abs(d.Y) && Math.Abs(d.X) >= Math.Abs(d.Z))
+                ? (new Point3d(box.Min.X, c.Y, c.Z), new Point3d(box.Max.X, c.Y, c.Z))
+                : Math.Abs(d.Y) >= Math.Abs(d.Z)
+                    ? (new Point3d(c.X, box.Min.Y, c.Z), new Point3d(c.X, box.Max.Y, c.Z))
+                    : (new Point3d(c.X, c.Y, box.Min.Z), new Point3d(c.X, c.Y, box.Max.Z)),
+        };
+        return pick.P1.DistanceTo(pick.P2) < RhinoMath.ZeroTolerance ? (box.Min, box.Max) : pick;
+    }
+}
+
 public readonly record struct UiPreviewStyle(
     Option<UiStroke> Stroke = default,
     Option<DrawingColor> Text = default,
@@ -174,74 +227,108 @@ public readonly record struct UiPreviewStyle(
     double Transparency = 0.55,
     bool FalseColor = false,
     UiRenderState Render = default,
+    double MarkerSize = 16.0,
+    Option<UiGradient> Gradient = default,
     bool Dotted = false) {
     internal OverlayPhase PhaseOrDefault => Phase.IfNone(OverlayPhase.PostDraw);
 
+    [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "Owned default DisplayMaterial is disposed in the method's terminal finally; caller-supplied materials are not owned.")]
     internal Fin<Unit> Draw(UiPreviewContext context, object geometry) {
-        int thickness = Thickness;
-        int wireDensity = WireDensity;
-        float pointRadius = PointRadius;
-        PointStyle pointStyle = PointStyle;
-        double transparency = Transparency;
-        bool falseColor = FalseColor;
-        UiRenderState render = Render;
-        bool dotted = Dotted;
-        Option<UiStroke> pen = Stroke;
+        UiPreviewStyle s = this;   // struct copy: nested closures cannot capture `this` on a readonly record struct
         DisplayPipeline pipeline = context.Display;
-        DrawingColor stroke = Stroke.Map(static value => value.Color).IfNone(() => context.Document.CreateDefaultAttributes().DrawColor(context.Document));
-        DrawingColor text = Text.IfNone(DrawingColor.White);
-        DisplayMaterial material = Material.IfNone(() => new DisplayMaterial(diffuse: stroke, transparency: transparency));
-        Fin<Unit> Paint(Action draw) => Fin.Succ(value: render.Scope(pipeline: pipeline, draw: draw));
+        DrawingColor stroke = s.Stroke.Map(static value => value.Color).IfNone(() => context.Document.CreateDefaultAttributes().DrawColor(context.Document));
+        DrawingColor text = s.Text.IfNone(DrawingColor.White);
+        (DisplayMaterial material, bool ownsMaterial) = s.Material.Case switch {
+            DisplayMaterial supplied => (supplied, false),
+            _ => (new DisplayMaterial(diffuse: stroke, transparency: s.Transparency), true),
+        };
+        Fin<Unit> Paint(Action draw) => Fin.Succ(value: s.Render.Scope(pipeline: pipeline, draw: draw));
         IEnumerable<Point3d> PolyPoints(Curve curve) {   // screen-anchored dotted sampling over the curve domain
             Interval domain = curve.Domain;
             return toSeq(Enumerable.Range(start: 0, count: 65)).Map(i => curve.PointAt(t: domain.ParameterAt(normalizedParameter: (double)i / 64)));
         }
         // line-likes route through native dotted calls when Dotted; else DisplayPen (dashed/halo) or the color overload.
-        Unit DrawCurveWithPen(Curve curve) => (dotted, pen.Case) switch {
+        Unit DrawCurveWithPen(Curve curve) => (s.Dotted, s.Stroke.Case) switch {
             (true, _) => Op.Side(() => pipeline.DrawDottedPolyline(points: PolyPoints(curve: curve), color: stroke, close: curve.IsClosed)),
             (false, UiStroke value) => Op.Side(() => pipeline.DrawCurve(curve: curve, pen: value.ToDisplayPen())),
-            (false, _) => Op.Side(() => pipeline.DrawCurve(curve: curve, color: stroke, thickness: thickness)),
+            (false, _) => Op.Side(() => pipeline.DrawCurve(curve: curve, color: stroke, thickness: s.Thickness)),
         };
         Fin<Unit> Lines(Curve curve) => Paint(() => _ = DrawCurveWithPen(curve: curve));                                          // caller-owned curve — never disposed here
         Fin<Unit> Owned(Func<Curve> make) => Paint(() => { using Curve managed = make(); _ = DrawCurveWithPen(curve: managed); });  // transient curve created + disposed in scope
         Fin<Unit> Shaded(Action shade, Action wires) => Paint(() => { shade(); wires(); });                                        // param order = draw order (shade beneath wires)
-        return geometry switch {
-            null => Fin.Fail<Unit>(error: Op.Of(name: nameof(Draw)).InvalidInput()),
-            Line line => Owned(() => new LineCurve(line)),
-            Arc arc => Owned(() => new ArcCurve(arc)),
-            Circle circle => Owned(() => new ArcCurve(circle)),
-            Polyline polyline => Owned(polyline.ToNurbsCurve),
-            Ellipse ellipse => Owned(() => ellipse.ToNurbsCurve()),
-            Curve curve => Lines(curve),
-            Mesh mesh => falseColor switch {
-                true => Paint(() => pipeline.DrawMeshFalseColors(mesh: mesh)),
-                false => Shaded(() => pipeline.DrawMeshShaded(mesh: mesh, material: material), () => pipeline.DrawMeshWires(mesh: mesh, color: stroke, thickness: thickness)),
-            },
-            Brep brep => Shaded(() => pipeline.DrawBrepShaded(brep: brep, material: material), () => pipeline.DrawBrepWires(brep: brep, color: stroke, wireDensity: wireDensity)),
-            SubD subd => Shaded(() => pipeline.DrawSubDShaded(subd: subd, material: material), () => pipeline.DrawSubDWires(subd: subd, color: stroke, thickness: thickness)),
-            Ray3d ray => Paint(() => pipeline.DrawArrow(line: new Line(from: ray.Position, to: ray.Position + ray.Direction), color: stroke)),
-            UiDirection direction => Paint(() => pipeline.DrawMarker(tip: direction.Tip, direction: direction.Direction, color: stroke, thickness: thickness)),
-            Sphere sphere => Paint(() => pipeline.DrawSphere(sphere: sphere, color: stroke, thickness: thickness)),
-            Cone cone => Paint(() => pipeline.DrawCone(cone: cone, color: stroke, thickness: thickness)),
-            Cylinder cylinder => Paint(() => pipeline.DrawCylinder(cylinder: cylinder, color: stroke, thickness: thickness)),
-            Torus torus => Paint(() => pipeline.DrawTorus(torus: torus, color: stroke, thickness: thickness)),
-            Box box => Paint(() => pipeline.DrawBox(box: box, color: stroke, thickness: thickness)),
-            BoundingBox box => Paint(() => pipeline.DrawBox(box, stroke, thickness)),
-            Extrusion extrusion => Paint(() => pipeline.DrawExtrusionWires(extrusion: extrusion, color: stroke, wireDensity: wireDensity)),
-            ClippingPlaneSurface clipping => Paint(() => pipeline.DrawClippingPlaneWires(clippingPlane: clipping, color: stroke)),
-            Surface surface => Paint(() => pipeline.DrawSurface(surface: surface, wireColor: stroke, wireDensity: wireDensity)),
-            // 10-arg native point glyph: stroke+fill, pixel diameter, native HiDPI auto-scale (replaces the under-called 4-arg overload).
-            Point point => Paint(() => pipeline.DrawPoint(point: point.Location, style: pointStyle, strokeColor: stroke, fillColor: stroke, radius: pointRadius, strokeWidth: thickness, secondarySize: 0f, rotationRadians: 0f, diameterIsInPixels: true, autoScaleForDpi: true)),
-            Point3d point => Paint(() => pipeline.DrawPoint(point: point, style: pointStyle, strokeColor: stroke, fillColor: stroke, radius: pointRadius, strokeWidth: thickness, secondarySize: 0f, rotationRadians: 0f, diameterIsInPixels: true, autoScaleForDpi: true)),
-            ConstructionPlane cp => Paint(() => pipeline.DrawConstructionPlane(constructionPlane: cp)),
-            PointCloud cloud => Paint(() => pipeline.DrawPointCloud(cloud: cloud, size: pointRadius, color: stroke)),
-            Hatch hatch => Paint(() => pipeline.DrawHatch(hatch: hatch, hatchColor: stroke, boundaryColor: stroke)),
-            TextDot dot => Paint(() => pipeline.DrawDot(dot: dot, fillColor: stroke, textColor: text, borderColor: stroke)),
-            TextEntity entity => Paint(() => pipeline.DrawText(text: entity, color: text)),
-            AnnotationBase annotation => Paint(() => pipeline.DrawAnnotation(annotation: annotation, color: text)),
-            Light light => Paint(() => pipeline.DrawLight(light: light, wireframeColor: stroke)),
-            _ => Fin.Succ(value: unit),
-        };
+        // Universal gradient: a set UiGradient routes shaded geometry through its render mesh -> DrawGradientMesh, hatches ->
+        // DrawGradientHatch, curves -> DrawGradientLines (one native call); geometry with no gradient substrate returns null
+        // and falls through to the solid arms below. Meshing is dynamic-aware (Fast while orbiting, Quality when settled) and
+        // every transient render mesh is disposed at the draw boundary. The axis comes from the SOURCE geometry bounds.
+        Option<Fin<Unit>> GradientPaint(UiGradient g) {
+            MeshingParameters mp = context.Mode.Dynamic ? MeshingParameters.FastRenderMesh : MeshingParameters.QualityRenderMesh;
+            Fin<Unit> MeshGradient(Mesh? m, BoundingBox box) =>
+                m is { IsValid: true } && m.Vertices.Count > 0
+                    ? Paint(() => { (Point3d p1, Point3d p2) = g.AxisOf(box); pipeline.DrawGradientMesh(mesh: m, stops: g.Stops.AsEnumerable(), point1: p1, point2: p2, linearGradient: g.Linear, repeat: g.Repeat); })
+                    : Fin.Succ(value: unit);   // degenerate render mesh: the style asked for a gradient, so no-op rather than fall to solid
+            // factory mirrors the file's Owned(Func<Curve>) idiom: the transient render mesh is disposed by the consuming `using`.
+            Fin<Unit> Meshed(Func<Mesh?> make, BoundingBox box) =>
+                Op.Of(name: nameof(Draw)).Catch(() => { using Mesh? managed = make(); return MeshGradient(m: managed, box: box); });
+            return geometry switch {
+                Mesh mesh => Some(MeshGradient(m: mesh, box: mesh.GetBoundingBox(accurate: false))),   // native mesh is caller-owned — never disposed here
+                Brep brep => Some(Meshed(make: () => Combine(Mesh.CreateFromBrep(brep: brep, meshingParameters: mp)), box: brep.GetBoundingBox(accurate: false))),
+                SubD subd => Some(Meshed(make: () => Mesh.CreateFromSubD(subd: subd, displayDensity: s.WireDensity > 0 ? Math.Clamp(s.WireDensity, 1, 6) : 3), box: subd.GetBoundingBox(accurate: false))),
+                Extrusion extrusion => Some(Meshed(make: () => Mesh.CreateFromExtrusion(extrusion: extrusion, meshingParameters: mp), box: extrusion.GetBoundingBox(accurate: false))),   // Extrusion : Surface — must precede Surface
+                Surface surface => Some(Meshed(make: () => Mesh.CreateFromSurface(surface: surface, meshingParameters: mp), box: surface.GetBoundingBox(accurate: false))),
+                Hatch hatch => Some(Paint(() => { (Point3d p1, Point3d p2) = g.AxisOf(hatch.GetBoundingBox(accurate: false)); pipeline.DrawGradientHatch(hatch: hatch, stops: g.Stops.AsEnumerable(), point1: p1, point2: p2, linearGradient: g.Linear, repeat: g.Repeat, boundaryThickness: s.Thickness, boundaryColor: stroke); })),
+                Curve curve => Some(Paint(() => {
+                    Seq<Point3d> pts = toSeq(PolyPoints(curve: curve));
+                    (Point3d p1, Point3d p2) = g.AxisOf(curve.GetBoundingBox(accurate: false));
+                    pipeline.DrawGradientLines(lines: pts.Zip(pts.Tail).Map(static pair => new Line(pair.Item1, pair.Item2)).AsEnumerable(), strokeWidth: s.Thickness, stops: g.Stops.AsEnumerable(), point1: p1, point2: p2, linearGradient: g.Linear, repeat: g.Repeat);
+                })),
+                _ => Option<Fin<Unit>>.None,
+            };
+
+            // BOUNDARY ADAPTER — fold Brep per-face render meshes into one owned mesh (returned to Meshed's `using`); source faces disposed here.
+            static Mesh? Combine(Mesh[]? parts) => parts is { Length: > 0 } faces ? Append(faces) : null;
+            static Mesh Append(Mesh[] faces) { Mesh joined = new(); joined.Append(meshes: faces); _ = toSeq(faces).Iter(static face => face.Dispose()); return joined; }
+        }
+        try {
+            return geometry switch {
+                null => Fin.Fail<Unit>(error: Op.Of(name: nameof(Draw)).InvalidInput()),
+                _ when s.Gradient.Bind(GradientPaint).Case is Fin<Unit> painted => painted,
+                Line line => Owned(() => new LineCurve(line)),
+                Arc arc => Owned(() => new ArcCurve(arc)),
+                Circle circle => Owned(() => new ArcCurve(circle)),
+                Polyline polyline => Owned(polyline.ToNurbsCurve),
+                Ellipse ellipse => Owned(() => ellipse.ToNurbsCurve()),
+                Curve curve => Lines(curve),
+                Mesh mesh => s.FalseColor
+                    ? Paint(() => pipeline.DrawMeshFalseColors(mesh: mesh))
+                    : Shaded(() => pipeline.DrawMeshShaded(mesh: mesh, material: material), () => pipeline.DrawMeshWires(mesh: mesh, color: stroke, thickness: s.Thickness)),
+                Brep brep => Shaded(() => pipeline.DrawBrepShaded(brep: brep, material: material), () => pipeline.DrawBrepWires(brep: brep, color: stroke, wireDensity: s.WireDensity)),
+                SubD subd => Shaded(() => pipeline.DrawSubDShaded(subd: subd, material: material), () => pipeline.DrawSubDWires(subd: subd, color: stroke, thickness: s.Thickness)),
+                Ray3d ray => Paint(() => pipeline.DrawArrow(line: new Line(from: ray.Position, to: ray.Position + ray.Direction), color: stroke, screenSize: s.MarkerSize, relativeSize: 0d)),
+                UiDirection direction => Paint(() => pipeline.DrawMarker(tip: direction.Tip, direction: direction.Direction, color: stroke, thickness: s.Thickness, size: s.MarkerSize, rotation: 0d)),
+                Sphere sphere => Paint(() => pipeline.DrawSphere(sphere: sphere, color: stroke, thickness: s.Thickness)),
+                Cone cone => Paint(() => pipeline.DrawCone(cone: cone, color: stroke, thickness: s.Thickness)),
+                Cylinder cylinder => Paint(() => pipeline.DrawCylinder(cylinder: cylinder, color: stroke, thickness: s.Thickness)),
+                Torus torus => Paint(() => pipeline.DrawTorus(torus: torus, color: stroke, thickness: s.Thickness)),
+                Box box => Paint(() => pipeline.DrawBox(box: box, color: stroke, thickness: s.Thickness)),
+                BoundingBox box => Paint(() => pipeline.DrawBox(box, stroke, s.Thickness)),
+                Extrusion extrusion => Paint(() => pipeline.DrawExtrusionWires(extrusion: extrusion, color: stroke, wireDensity: s.WireDensity)),
+                ClippingPlaneSurface clipping => Paint(() => pipeline.DrawClippingPlaneWires(clippingPlane: clipping, color: stroke)),
+                Surface surface => Paint(() => pipeline.DrawSurface(surface: surface, wireColor: stroke, wireDensity: s.WireDensity)),
+                // 10-arg native point glyph: stroke+fill, pixel diameter, native HiDPI auto-scale (replaces the under-called 4-arg overload).
+                Point point => Paint(() => pipeline.DrawPoint(point: point.Location, style: s.PointStyle, strokeColor: stroke, fillColor: stroke, radius: s.PointRadius, strokeWidth: s.Thickness, secondarySize: 0f, rotationRadians: 0f, diameterIsInPixels: true, autoScaleForDpi: true)),
+                Point3d point => Paint(() => pipeline.DrawPoint(point: point, style: s.PointStyle, strokeColor: stroke, fillColor: stroke, radius: s.PointRadius, strokeWidth: s.Thickness, secondarySize: 0f, rotationRadians: 0f, diameterIsInPixels: true, autoScaleForDpi: true)),
+                ConstructionPlane cp => Paint(() => pipeline.DrawConstructionPlane(constructionPlane: cp)),
+                PointCloud cloud => Paint(() => pipeline.DrawPointCloud(cloud: cloud, size: s.PointRadius, color: stroke)),
+                Hatch hatch => Paint(() => pipeline.DrawHatch(hatch: hatch, hatchColor: stroke, boundaryColor: stroke)),
+                TextDot dot => Paint(() => pipeline.DrawDot(dot: dot, fillColor: stroke, textColor: text, borderColor: stroke)),
+                TextEntity entity => Paint(() => pipeline.DrawText(text: entity, color: text)),
+                AnnotationBase annotation => Paint(() => pipeline.DrawAnnotation(annotation: annotation, color: text)),
+                Light light => Paint(() => pipeline.DrawLight(light: light, wireframeColor: stroke)),
+                _ => Fin.Succ(value: unit),
+            };
+        } finally {
+            _ = Op.SideWhen(ownsMaterial, material.Dispose);
+        }
     }
 }
 
@@ -260,6 +347,12 @@ internal sealed class ProjectionMemo {
     }
 }
 
+// Orthogonal pipeline-state discriminator: suppress transient chrome (tooltips, debug grips, snap guides) in exports.
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct UiRenderMode(bool Capturing, bool Printing, bool Dynamic, int NestLevel) {
+    public bool Decorative => !Capturing && !Printing;
+}
+
 public readonly record struct UiPreviewContext(
     RhinoDoc Document,
     OverlayPhase Phase,
@@ -268,8 +361,24 @@ public readonly record struct UiPreviewContext(
     Option<UiGumballSnapshot> Gumball,
     UiSpriteAtlas? Atlas = null) {
     internal ProjectionMemo? Memo { get; init; }   // conduit-supplied per-frame projection cache; internal so it stays off the public ctor surface
+    internal object? Args { get; init; }           // PreDrawObject event args for per-object restyle (As<DrawObjectEventArgs>)
     internal float DpiScale => Display.DpiScale;
     internal UiHudLayout Layout => UiHudLayout.Of(viewport: Viewport, dpiScale: Display.DpiScale);
+    public UiRenderMode Mode => new(Capturing: Display.IsInViewCapture, Printing: Display.IsPrinting, Dynamic: Display.IsDynamicDisplay, NestLevel: Display.NestLevel);
+    public Option<T> As<T>() where T : class => Optional(Args as T);
+
+    // Pixels-per-world-unit at a frustum point (perspective-correct); WorldSize converts a pixel size into the world
+    // length that keeps an on-screen grip/marker/dimension-tick zoom-invariant. Distinct from Screen's pixel coordinate.
+    public Fin<double> PixelScale(Point3d at) {
+        RhinoViewport viewport = Viewport;
+        return Op.Of(name: nameof(PixelScale)).Catch(() =>
+            viewport.GetWorldToScreenScale(pointInFrustum: at, pixelsPerUnit: out double ppu) && ppu > 0d
+                ? Fin.Succ(value: ppu) : Fin.Fail<double>(error: Op.Of(name: nameof(PixelScale)).InvalidResult()));
+    }
+    public Fin<double> WorldSize(Point3d at, float pixels) {
+        float dpi = DpiScale;   // struct lambdas cannot capture `this`
+        return PixelScale(at: at).Map(ppu => pixels * dpi / ppu);
+    }
 
     // World->screen for this frame's viewport; the conduit-owned memo (when present) caches per draw epoch so repeated
     // same-point projection is O(1). No clipping in the native xform — pair with Label's occlusion gate when needed.
@@ -292,9 +401,31 @@ public readonly record struct UiPreviewContext(
         return from visible in Camera.RhinoCamera.Live(document: document).RunValue(
                    operation: Camera.CameraOps.Query(query: scope => scope.Visible(source: new Camera.CameraSubject.AtPoint(Value: world))),
                    target: new Camera.ViewportTarget.Id(Value: viewport.Id))
-               from _ in guard(visible, Op.Of(name: nameof(Label)).InvalidResult())
-               from at in self.Screen(world: world)
-               from drawn in self.Mark(mark: new UiMark.Text(Value: text, At: at, Color: color ?? DrawingColor.White, Middle: anchor is UiAnchor.Center))
+               from drawn in visible switch {
+                   true => from at in self.Screen(world: world)
+                           from marked in self.Mark(mark: new UiMark.Text(Value: text, At: at, Color: color ?? DrawingColor.White, Anchor: anchor))
+                           select marked,
+                   false => Fin.Succ(value: unit),
+               }
+               select drawn;
+    }
+
+    // Subject overload: occlusion gates on the whole extent (a box/sphere label survives when its anchor pixel is
+    // behind-camera but the extent is visible) and anchors at the subject centroid. Wider domain, same invariant.
+    public Fin<Unit> Label(Camera.CameraSubject subject, string text, UiAnchor anchor = UiAnchor.TopCenter, DrawingColor? color = null) {
+        RhinoDoc document = Document;
+        RhinoViewport viewport = Viewport;
+        UiPreviewContext self = this;
+        return from visible in Camera.RhinoCamera.Live(document: document).RunValue(
+                   operation: Camera.CameraOps.Query(query: scope => scope.Visible(source: subject)),
+                   target: new Camera.ViewportTarget.Id(Value: viewport.Id))
+               from drawn in visible switch {
+                   true => from box in subject.BoundsOf(op: Op.Of(name: nameof(Label)))
+                           from at in self.Screen(world: box.Center)
+                           from marked in self.Mark(mark: new UiMark.Text(Value: text, At: at, Color: color ?? DrawingColor.White, Anchor: anchor))
+                           select marked,
+                   false => Fin.Succ(value: unit),
+               }
                select drawn;
     }
 
@@ -305,6 +436,9 @@ public readonly record struct UiPreviewContext(
 public readonly record struct InteractionGuard(MousePhase Phase, Option<global::Rhino.UI.MouseButton> Button = default) {
     internal bool Matches<TState>(MouseContext<TState> context) =>
         context.Phase == Phase && Button.Map(button => context.MouseButton == button).IfNone(true);
+    // A viewport guard keyed on a non-native phase (Wheel — no native MouseCallback On* hook) can never fire on the
+    // viewport rail; admit fails fast with a typed InvalidInput instead of silently never-matching.
+    internal Fin<Unit> AdmitViewport() => Phase.ViewportNative ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Op.Of(name: nameof(AdmitViewport)).InvalidInput());
 }
 
 // Plain abstract record (NOT [Union]): generic union types force `allows ref struct` under the source
@@ -320,10 +454,10 @@ public abstract record InteractionStep<TState> {
     // PhaseGuard mismatch → Fail(Cancelled) stops the fold; Snap projection-miss / off-window Debounce skip the step.
     internal Fin<MouseDecision<TState>> Apply(MouseContext<TState> context, MouseDecision<TState> current) =>
         this switch {
-            PhaseGuard guard => guard.Guard.Matches(context: context) switch {
+            PhaseGuard guard => guard.Guard.AdmitViewport().Bind(_ => guard.Guard.Matches(context: context) switch {
                 true => Fin.Succ(value: current),
                 false => Fin.Fail<MouseDecision<TState>>(error: new Fault.Cancelled()),
-            },
+            }),
             Snap snap => from point in context.Project(plane: snap.Plane) select current with { State = snap.Project(arg1: context, arg2: point) },
             Transition transition => Fin.Succ(value: current with { State = transition.Project(arg: context) }),
             Emit emit => emit.Effect(arg: context).Map(_ => current),
@@ -449,15 +583,20 @@ public sealed record UiViewportPreview {
     private readonly Func<UiPreviewContext, Fin<Unit>> draw;
     private readonly Func<Fin<OverlayDecision>> bounds;
     private readonly Func<Fin<Unit>> validate;
+    private readonly Func<OverlayPhase, bool> fires;   // declared phase gate; the ctor enforces it so a draw func can never fire off-phase
 
-    private UiViewportPreview(Func<UiPreviewContext, Fin<Unit>> draw, Func<Fin<OverlayDecision>> bounds, Func<Fin<Unit>> validate) {
-        this.draw = draw;
+    private UiViewportPreview(Func<UiPreviewContext, Fin<Unit>> draw, Func<Fin<OverlayDecision>> bounds, Func<Fin<Unit>> validate, Func<OverlayPhase, bool> fires) {
+        this.fires = fires;
+        this.draw = context => fires(arg: context.Phase) ? draw(arg: context) : Fin.Succ(value: unit);   // structural guard: off-phase is a no-op
         this.bounds = bounds;
         this.validate = validate;
     }
 
+    // Which phases this preview's draw fires on; the Conduit gates its per-phase OverlayDecision allocation on this.
+    internal bool Fires(OverlayPhase phase) => fires(arg: phase);
+
     public static UiViewportPreview Empty { get; } =
-        new(draw: _ => Fin.Succ(value: unit), bounds: static () => Fin.Succ(value: OverlayDecision.Ignore), validate: static () => Fin.Succ(value: unit));
+        new(draw: static _ => Fin.Succ(value: unit), bounds: static () => Fin.Succ(value: OverlayDecision.Ignore), validate: static () => Fin.Succ(value: unit), fires: static _ => false);
 
     public static UiViewportPreview Of<TGeometry>(IEnumerable<TGeometry> geometry, UiPreviewStyle style = default) where TGeometry : notnull {
         Fin<Seq<object>> items = Op.Of(name: nameof(UiViewportPreview)).Need(geometry)
@@ -468,19 +607,17 @@ public sealed record UiViewportPreview {
                 true => Fin.Fail<Seq<object>>(error: Op.Of(name: nameof(UiViewportPreview)).InvalidInput()),
             });
         return new(
-            draw: context => (context.Phase == style.PhaseOrDefault) switch {
-                true => from active in items
-                        from _ in active.TraverseM(item => style.Draw(context: context, geometry: item)).As()
-                        select unit,
-                _ => Fin.Succ(value: unit),
-            },
+            draw: context => from active in items
+                             from _ in active.TraverseM(item => style.Draw(context: context, geometry: item)).As()
+                             select unit,
             bounds: () => from active in items
                           from decision in active
                 .TraverseM(static item => OverlayDecision.BoundsOf(source: item, op: Op.Of(name: nameof(UiViewportPreview))).Bind(OverlayDecision.Include))
                 .As()
                 .Map(static decisions => decisions.Fold(OverlayDecision.Ignore, static (state, decision) => state + decision))
                           select decision,
-            validate: () => items.Map(static _ => unit));
+            validate: () => items.Map(static _ => unit),
+            fires: phase => phase == style.PhaseOrDefault);
     }
 
     public static UiViewportPreview FromSelection(Commands.CommandSelection selection, UiPreviewStyle style = default) {
@@ -492,32 +629,68 @@ public sealed record UiViewportPreview {
         return new(
             draw: context => preview.Bind(active => active.Draw(context: context)),
             bounds: () => preview.Bind(active => active.Bounds()),
-            validate: () => preview.Map(static _ => unit));
+            validate: () => preview.Map(static _ => unit),
+            fires: phase => phase == style.PhaseOrDefault);
     }
 
-    public static UiViewportPreview Draw(Func<UiPreviewContext, Fin<Unit>> draw, Func<Fin<OverlayDecision>> bounds) =>
+    // `fires` declares which phases the draw runs on (default: paint phases only — NOT PreDrawObject); the ctor enforces it
+    // structurally so a future preview cannot accidentally fire per-object-per-frame on the wrong phase.
+    public static UiViewportPreview Draw(Func<UiPreviewContext, Fin<Unit>> draw, Func<Fin<OverlayDecision>> bounds, Func<OverlayPhase, bool>? fires = null) =>
         new(
             draw: context => Op.Of(name: nameof(Draw)).Need(draw).Bind(valid => valid(arg: context)),
             bounds: () => Op.Of(name: nameof(Draw)).Need(bounds).Bind(valid => valid()),
             validate: () => Op.Of(name: nameof(Draw)).Need(draw)
                 .Bind(_ => Op.Of(name: nameof(Draw)).Need(bounds))
-                .Map(static _ => unit));
+                .Map(static _ => unit),
+            fires: fires ?? (static phase => phase.Draws));
 
     public static UiViewportPreview Hud(Func<UiPreviewContext, Fin<UiHud>> hud) =>
         Draw(
-            draw: context => (context.Phase == OverlayPhase.Foreground || context.Phase == OverlayPhase.Overlay) switch {
-                true => Op.Of(name: nameof(Hud)).Need(hud).Bind(valid => valid(arg: context)).Bind(h => h.Render(surface: new UiSurface.Pipeline(Display: context.Display, Atlas: context.Atlas))),
-                false => Fin.Succ(value: unit),
-            },
-            bounds: static () => Fin.Succ(value: OverlayDecision.Ignore));
+            // chrome (HUD) is suppressed in exports (ViewCapture/print) via UiRenderMode.Decorative.
+            draw: context => context.Mode.Decorative
+                ? Op.Of(name: nameof(Hud)).Need(hud).Bind(valid => valid(arg: context)).Bind(h => h.Render(surface: new UiSurface.Pipeline(Display: context.Display, Atlas: context.Atlas)))
+                : Fin.Succ(value: unit),
+            bounds: static () => Fin.Succ(value: OverlayDecision.Ignore),
+            fires: static phase => phase == OverlayPhase.Foreground || phase == OverlayPhase.Overlay);
+
+    // Per-object restyle (isolate / x-ray / section): a restyled object draws via UiPreviewStyle and suppresses its native
+    // draw (DrawObject = false). The ONLY preview that opts into the per-object PreDrawObject phase. Activates the
+    // producer-less PaintObject + PreDrawObject path.
+    public static UiViewportPreview Replace(Func<RhinoObject, Option<UiPreviewStyle>> restyle) =>
+        Replace(validRestyle: Op.Of(name: nameof(Replace)).Need(restyle));
+
+    private static UiViewportPreview Replace(Fin<Func<RhinoObject, Option<UiPreviewStyle>>> validRestyle) =>
+        new(
+            draw: context => from valid in validRestyle
+                             from result in context.As<DrawObjectEventArgs>().Case switch {
+                                 DrawObjectEventArgs target => valid(arg: target.RhinoObject).Case switch {
+                                     UiPreviewStyle style => style.Draw(context: context, geometry: target.RhinoObject.Geometry).Map(_ => { target.DrawObject = false; return unit; }),
+                                     _ => Fin.Succ(value: unit),
+                                 },
+                                 _ => Fin.Succ(value: unit),
+                             }
+                             select result,
+            bounds: static () => Fin.Succ(value: OverlayDecision.Ignore),
+            validate: () => validRestyle.Map(static _ => unit),
+            fires: static phase => phase == OverlayPhase.PreDrawObject);
 
     public static UiViewportPreview Add(UiViewportPreview left, UiViewportPreview right) =>
         (Optional(left).IfNone(Empty), Optional(right).IfNone(Empty)) switch {
             (UiViewportPreview a, UiViewportPreview b) => new(
-                draw: context => a.Draw(context: context).Bind(_ => b.Draw(context: context)),
+                draw: context => (SafeDraw(preview: a, context: context), SafeDraw(preview: b, context: context)) switch {
+                    ( { IsSucc: true }, { IsSucc: true }) => Fin.Succ(value: unit),
+                    (Fin<Unit> ra, Fin<Unit> rb) => Fin.Fail<Unit>(error: ErrorOf(result: ra) + ErrorOf(result: rb)),
+                },
                 bounds: () => from first in a.Bounds() from second in b.Bounds() select first + second,
-                validate: () => a.Validate().Bind(_ => b.Validate())),
+                validate: () => a.Validate().Bind(_ => b.Validate()),
+                fires: phase => a.Fires(phase: phase) || b.Fires(phase: phase)),
         };
+
+    private static Fin<Unit> SafeDraw(UiViewportPreview preview, UiPreviewContext context) =>
+        Op.Of(name: nameof(Add)).Catch(() => preview.Draw(context: context));
+
+    private static Error ErrorOf(Fin<Unit> result) =>
+        result.Match(Succ: static _ => Error.Empty, Fail: static e => e);
 
     public static UiViewportPreview operator +(UiViewportPreview left, UiViewportPreview right) =>
         Add(left: left, right: right);
@@ -551,19 +724,32 @@ public sealed record UiViewportPreview {
         private readonly UiSpriteAtlas atlas = new();
         private readonly ProjectionMemo memo = new();   // per-conduit world->screen cache threaded into each frame's context
 
+        // Gate the per-phase OverlayDecision allocation on the preview's declared `fires`: a non-Replace preview never
+        // builds the PaintObject closure on PreDrawObject, and a Replace preview never builds Paint on the draw phases.
         protected override Fin<OverlayDecision> Change(OverlayContext<UiViewportPreview> context) =>
-            context.Phase == OverlayPhase.Bounds || context.Phase == OverlayPhase.ZoomBounds
+            context.Phase.Bounding
                 ? context.State.Bounds()
-                : context.Phase == OverlayPhase.PostDraw || context.Phase == OverlayPhase.Foreground || context.Phase == OverlayPhase.Overlay
-                    ? context.Require<DrawEventArgs>()
-                        .Bind(args => OverlayDecision.Paint(draw: display => context.State.Draw(context: new UiPreviewContext(
-                            Document: document,
-                            Phase: context.Phase,
-                            Viewport: args.Viewport,
-                            Display: display,
-                            Gumball: gumball(),
-                            Atlas: atlas) { Memo = memo })))
-                    : Fin.Succ(value: OverlayDecision.Ignore);
+                : context.Phase == OverlayPhase.PreDrawObject
+                    ? context.State.Fires(phase: OverlayPhase.PreDrawObject)
+                        ? context.Require<DrawObjectEventArgs>()
+                            .Bind(_ => OverlayDecision.PaintObject(draw: target => context.State.Draw(context: new UiPreviewContext(
+                                Document: document,
+                                Phase: context.Phase,
+                                Viewport: target.Viewport,
+                                Display: target.Display,
+                                Gumball: gumball(),
+                                Atlas: atlas) { Memo = memo, Args = target })))
+                        : Fin.Succ(value: OverlayDecision.Ignore)
+                    : context.Phase.Draws && context.State.Fires(phase: context.Phase)
+                        ? context.Require<DrawEventArgs>()
+                            .Bind(args => OverlayDecision.Paint(draw: display => context.State.Draw(context: new UiPreviewContext(
+                                Document: document,
+                                Phase: context.Phase,
+                                Viewport: args.Viewport,
+                                Display: display,
+                                Gumball: gumball(),
+                                Atlas: atlas) { Memo = memo })))
+                        : Fin.Succ(value: OverlayDecision.Ignore);
 
         // BOUNDARY ADAPTER - sprite atlas GPU handles released with the conduit scope.
         protected override void Dispose(bool disposing) {
@@ -575,6 +761,16 @@ public sealed record UiViewportPreview {
     }
 }
 
+// Active-mode read (distinct from the GumballAxes [Flags] enable-mask): one (Verb, Axis) projection replaces a 24-arm
+// GumballMode switch at every downstream gizmo consumer.
+public enum GumballVerb { None, Menu, Translate, Scale, Rotate, Extrude, Cut }
+public enum GumballMotionAxis { None, Free, X, Y, Z, XY, YZ, ZX }
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct GumballAction(GumballVerb Verb, GumballMotionAxis Axis) {
+    public bool Active => Verb is not GumballVerb.None;
+    public bool Planar => Axis is GumballMotionAxis.XY or GumballMotionAxis.YZ or GumballMotionAxis.ZX;
+}
+
 public readonly record struct UiGumballSnapshot(
     Transform PreTransform,
     Transform GumballTransform,
@@ -582,8 +778,37 @@ public readonly record struct UiGumballSnapshot(
     global::Rhino.UI.Gumball.GumballMode Mode,
     bool InRelocate,
     Option<global::Rhino.UI.Gumball.GumballFrame> Frame = default) {
+    private static readonly GumballAction NoneAction = new(GumballVerb.None, GumballMotionAxis.None);
+    private static readonly FrozenDictionary<global::Rhino.UI.Gumball.GumballMode, GumballAction> Actions = Seq(
+            (global::Rhino.UI.Gumball.GumballMode.Menu, new GumballAction(GumballVerb.Menu, GumballMotionAxis.None)),
+            (global::Rhino.UI.Gumball.GumballMode.TranslateFree, new GumballAction(GumballVerb.Translate, GumballMotionAxis.Free)),
+            (global::Rhino.UI.Gumball.GumballMode.TranslateX, new GumballAction(GumballVerb.Translate, GumballMotionAxis.X)),
+            (global::Rhino.UI.Gumball.GumballMode.TranslateY, new GumballAction(GumballVerb.Translate, GumballMotionAxis.Y)),
+            (global::Rhino.UI.Gumball.GumballMode.TranslateZ, new GumballAction(GumballVerb.Translate, GumballMotionAxis.Z)),
+            (global::Rhino.UI.Gumball.GumballMode.TranslateXY, new GumballAction(GumballVerb.Translate, GumballMotionAxis.XY)),
+            (global::Rhino.UI.Gumball.GumballMode.TranslateYZ, new GumballAction(GumballVerb.Translate, GumballMotionAxis.YZ)),
+            (global::Rhino.UI.Gumball.GumballMode.TranslateZX, new GumballAction(GumballVerb.Translate, GumballMotionAxis.ZX)),
+            (global::Rhino.UI.Gumball.GumballMode.ScaleX, new GumballAction(GumballVerb.Scale, GumballMotionAxis.X)),
+            (global::Rhino.UI.Gumball.GumballMode.ScaleY, new GumballAction(GumballVerb.Scale, GumballMotionAxis.Y)),
+            (global::Rhino.UI.Gumball.GumballMode.ScaleZ, new GumballAction(GumballVerb.Scale, GumballMotionAxis.Z)),
+            (global::Rhino.UI.Gumball.GumballMode.ScaleXY, new GumballAction(GumballVerb.Scale, GumballMotionAxis.XY)),
+            (global::Rhino.UI.Gumball.GumballMode.ScaleYZ, new GumballAction(GumballVerb.Scale, GumballMotionAxis.YZ)),
+            (global::Rhino.UI.Gumball.GumballMode.ScaleZX, new GumballAction(GumballVerb.Scale, GumballMotionAxis.ZX)),
+            (global::Rhino.UI.Gumball.GumballMode.RotateX, new GumballAction(GumballVerb.Rotate, GumballMotionAxis.X)),
+            (global::Rhino.UI.Gumball.GumballMode.RotateY, new GumballAction(GumballVerb.Rotate, GumballMotionAxis.Y)),
+            (global::Rhino.UI.Gumball.GumballMode.RotateZ, new GumballAction(GumballVerb.Rotate, GumballMotionAxis.Z)),
+            (global::Rhino.UI.Gumball.GumballMode.ExtrudeX, new GumballAction(GumballVerb.Extrude, GumballMotionAxis.X)),
+            (global::Rhino.UI.Gumball.GumballMode.ExtrudeY, new GumballAction(GumballVerb.Extrude, GumballMotionAxis.Y)),
+            (global::Rhino.UI.Gumball.GumballMode.ExtrudeZ, new GumballAction(GumballVerb.Extrude, GumballMotionAxis.Z)),
+            (global::Rhino.UI.Gumball.GumballMode.CutX, new GumballAction(GumballVerb.Cut, GumballMotionAxis.X)),
+            (global::Rhino.UI.Gumball.GumballMode.CutY, new GumballAction(GumballVerb.Cut, GumballMotionAxis.Y)),
+            (global::Rhino.UI.Gumball.GumballMode.CutZ, new GumballAction(GumballVerb.Cut, GumballMotionAxis.Z)))
+        .ToFrozenDictionary(keySelector: static row => row.Item1, elementSelector: static row => row.Item2);
+
     public Fin<TGeometry> Apply<TGeometry>(TGeometry geometry, bool duplicate = true) where TGeometry : GeometryBase { Transform transform = TotalTransform; return from _ in guard(transform.IsValid, Op.Of(name: nameof(Apply)).InvalidInput()) from source in Op.Of(name: nameof(Apply)).Need(geometry) from target in duplicate switch { true => Optional(source.Duplicate() as TGeometry).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidResult()), false => Fin.Succ(value: source) } from __ in target.Transform(xform: transform) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Apply)).InvalidResult()) } select target; }
     public Fin<Seq<TGeometry>> Apply<TGeometry>(IEnumerable<TGeometry> geometry, bool duplicate = true) where TGeometry : GeometryBase { UiGumballSnapshot snapshot = this; return Op.Of(name: nameof(Apply)).Need(geometry).Bind(items => toSeq(items).TraverseM(item => snapshot.Apply(geometry: item, duplicate: duplicate)).As()); }
+
+    public GumballAction Action => Actions.GetValueOrDefault(key: Mode, defaultValue: NoneAction);
 }
 
 // One `|`-folded vocabulary over the 14 native appearance enable-bools — replaces hand-set bool-poking per call site.
@@ -671,22 +896,32 @@ public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDis
 
     public TState State => state.Value;
 
+    // Single disposed-gate rail; per-arm Op.Of(nameof(...)) provenance preserved at each call site.
+    private Fin<T> Live<T>(Op op, Func<Fin<T>> body) =>
+        from _ in guard(!disposed, op.InvalidInput())
+        from result in body()
+        select result;
+
     public Fin<Unit> Transition(Func<TState, TState> transition, RhinoDoc? document = null) =>
-        disposed switch { false => Op.Of(name: nameof(Transition)).Need(transition).Map(apply => { _ = state.Swap(f: apply); _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Transition)).InvalidInput()) };
+        Live(op: Op.Of(name: nameof(Transition)), body: () => Op.Of(name: nameof(Transition)).Need(transition)
+            .Map(apply => { _ = state.Swap(f: apply); _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }));
 
     public Fin<Unit> Enable(bool enabled = true, RhinoDoc? document = null) =>
-        disposed switch { false => Fin.Succ(value: Op.Side(() => { Enabled = enabled; _ = Optional(document).Iter(static doc => doc.Views.Redraw()); })), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Enable)).InvalidInput()) };
+        Live(op: Op.Of(name: nameof(Enable)), body: () => Fin.Succ(value: Op.Side(() => { Enabled = enabled; _ = Optional(document).Iter(static doc => doc.Views.Redraw()); })));
 
     public Fin<Unit> Filter(OverlayFilter filter, RhinoDoc? document = null) =>
-        disposed switch { false => filter.Apply(conduit: this).Map(_ => { _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Filter)).InvalidInput()) };
+        Live(op: Op.Of(name: nameof(Filter)), body: () => filter.Apply(conduit: this).Map(_ => { _ = Optional(document).Iter(static doc => doc.Views.Redraw()); return unit; }));
 
     public Fin<T> Use<T>(RhinoDoc document, Func<RasmOverlay<TState>, Fin<T>> run) =>
-        from validDocument in Op.Of(name: nameof(Use)).Need(document) from validRun in Op.Of(name: nameof(Use)).Need(run) from active in guard(!disposed, Op.Of(name: nameof(Use)).InvalidInput()) from result in RhinoUi.Protect(valid: () => {
+        from validDocument in Op.Of(name: nameof(Use)).Need(document)
+        from validRun in Op.Of(name: nameof(Use)).Need(run)
+        from result in Live(op: Op.Of(name: nameof(Use)), body: () => RhinoUi.Protect(valid: () => {
             Enabled = true;
             validDocument.Views.Redraw();
             // BOUNDARY ADAPTER - display conduit lifetime must be closed after the caller rail exits.
             try { return validRun(arg: this); } finally { Dispose(); validDocument.Views.Redraw(); }
-        }) select result;
+        }))
+        select result;
 
     public void Dispose() {
         Dispose(disposing: true);
@@ -770,13 +1005,31 @@ public sealed class UiGumball : IDisposable {
             InRelocate: conduit.InRelocate,
             Frame: Some(conduit.Gumball.Frame));   // live frame plane/scale-mode (downstream constraint/relocate reads it without re-deriving)
 
-    public Fin<bool> Pick(PickContext pick, GetPoint point) => from _ in guard(!disposed, Op.Of(name: nameof(Pick)).InvalidInput()) from validPick in Op.Of(name: nameof(Pick)).Need(pick) from validPoint in Op.Of(name: nameof(Pick)).Need(point) select conduit.PickGumball(pickContext: validPick, getPoint: validPoint);
+    public Fin<bool> Pick(PickContext pick, GetPoint point) =>
+        from _ in guard(!disposed, Op.Of(name: nameof(Pick)).InvalidInput())
+        from validPick in Op.Of(name: nameof(Pick)).Need(pick)
+        from validPoint in Op.Of(name: nameof(Pick)).Need(point)
+        from picked in RhinoUi.Protect(valid: () => Fin.Succ(value: conduit.PickGumball(pickContext: validPick, getPoint: validPoint)))
+        select picked;
+
+    // Single disposed+valid gate over the native UpdateGumball boundary (now Op.Catch-capsuled); both arms redraw on commit.
+    private Fin<bool> Drive(Op op, bool valid, Func<bool> update) =>
+        from _ in guard(!disposed && valid, op.InvalidInput())
+        from changed in op.Catch(() => { bool c = update(); document.Views.Redraw(); return Fin.Succ(value: c); })
+        select changed;
 
     public Fin<bool> Update(Point3d point, Line line) =>
-        from _ in guard(!disposed && point.IsValid && line.IsValid, Op.Of(name: nameof(Update)).InvalidInput()) from changed in Redraw(value: conduit.UpdateGumball(point: point, worldLine: line)) select changed;
+        Drive(op: Op.Of(name: nameof(Update)), valid: point.IsValid && line.IsValid, update: () => conduit.UpdateGumball(point: point, worldLine: line));
 
     public Fin<bool> Update(Plane frame) =>
-        from _ in guard(!disposed && frame.IsValid, Op.Of(name: nameof(Update)).InvalidInput()) from changed in Redraw(value: conduit.UpdateGumball(frame: frame)) select changed;
+        Drive(op: Op.Of(name: nameof(Update)), valid: frame.IsValid, update: () => conduit.UpdateGumball(frame: frame));
+
+    // Snap/grid/axis-lock constraint injection: pre-compose a transform applied before the gumball drag (closes the
+    // read/constrain/apply cycle alongside Snapshot's read and Update's apply).
+    public Fin<Unit> Constrain(Transform pre) =>
+        from _ in guard(!disposed && pre.IsValid, Op.Of(name: nameof(Constrain)).InvalidInput())
+        from done in RhinoUi.Protect(valid: () => Fin.Succ(value: Op.Side(() => { conduit.PreTransform = pre; document.Views.Redraw(); })))
+        select done;
 
     public Fin<Unit> Reconfigure(UiGumballSpec spec) =>
         from _ in guard(!disposed, Op.Of(name: nameof(Reconfigure)).InvalidInput())
@@ -797,7 +1050,10 @@ public sealed class UiGumball : IDisposable {
         select result;
 
     public Fin<Unit> CheckKeys() =>
-        disposed switch { false => Fin.Succ(value: Op.Side(conduit.CheckShiftAndControlKeys)), true => Fin.Fail<Unit>(error: Op.Of(name: nameof(CheckKeys)).InvalidInput()) };
+        disposed switch {
+            false => RhinoUi.Protect(valid: () => Fin.Succ(value: Op.Side(conduit.CheckShiftAndControlKeys))),
+            true => Fin.Fail<Unit>(error: Op.Of(name: nameof(CheckKeys)).InvalidInput()),
+        };
 
     public void Dispose() {
         _ = disposed switch {
@@ -848,11 +1104,6 @@ public sealed class UiGumball : IDisposable {
             conduit.Dispose();
         }
         return unit;
-    }
-
-    private Fin<bool> Redraw(bool value) {
-        document.Views.Redraw();
-        return Fin.Succ(value: value);
     }
 }
 

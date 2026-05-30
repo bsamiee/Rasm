@@ -79,6 +79,7 @@ public partial record LayoutArrangement {
     public sealed record AlignCase(Guid Anchor, Seq<Guid> Targets, OCD.Fixed Fix) : LayoutArrangement;
     public sealed record DistributeCase(LayoutAxis Axis, LayoutGap Gap, Seq<Guid> Ids, LayoutGapPolicy GapPolicy) : LayoutArrangement;
     public sealed record GridCase(int Rows, int Cols, LayoutGap Gap, Seq<Guid> Ids, LayoutGapPolicy GapPolicy) : LayoutArrangement;
+    public sealed record FlowCase(LayoutAxis Axis, LayoutGap Gap, Seq<Guid> Ids, LayoutGapPolicy GapPolicy) : LayoutArrangement;
 
     /// <summary>Align every target to the anchor's edge via <c>OCD.AlignObjects</c>; the anchor never moves.</summary>
     public static LayoutArrangement Align(Guid anchor, Seq<Guid> targets, OCD.Fixed fix = OCD.Fixed.None) =>
@@ -103,6 +104,11 @@ public partial record LayoutArrangement {
     /// <summary>Arrange ids into a rows×cols grid, reusing per-axis distribution to fix columns then rows.</summary>
     public static LayoutArrangement Grid(int rows, int cols, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy gapPolicy) =>
         new GridCase(Rows: rows, Cols: cols, Gap: gap, Ids: ids, GapPolicy: gapPolicy);
+
+    /// <summary>Distribute ids in causal (topology-sorted) order rather than spatial order — closes the
+    /// WireGraph-read → Layout-write loop by laying out a dataflow chain along the axis in dependency order.</summary>
+    public static LayoutArrangement Flow(LayoutAxis axis, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy? gapPolicy = null) =>
+        new FlowCase(Axis: axis, Gap: gap, Ids: ids, GapPolicy: gapPolicy ?? LayoutGapPolicy.Stretch);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -146,6 +152,11 @@ public readonly record struct SnappingPolicy(bool IncludeSelected = true, bool I
     // First enabled feedback setting's full guide style, if any — drives the live snap-guide cosmetic.
     internal Option<SnapGuideStyle> FeedbackStyle =>
         Settings.Choose(static s => s is SnapSetting.FeedbackCase { Enabled: true } feedback ? Some(feedback.Style) : Option<SnapGuideStyle>.None).Head;
+
+    // No-empty-constraint-set invariant on the type: a policy including neither selected nor unselected objects
+    // can never produce a snap, so it widens to "snap to everything" rather than silently returning no guide.
+    internal SnappingPolicy Effective =>
+        IncludeSelected || IncludeUnselected ? this : this with { IncludeSelected = true, IncludeUnselected = true };
 }
 
 [SkipUnionOps]
@@ -155,11 +166,13 @@ public partial record SnapProbe {
     public sealed record PointCase(Guid ObjectId, PointF Probe, float Radius = UiTolerance.PickRadius, SnappingPolicy Policy = default) : SnapProbe;
     public sealed record RectangleCase(Guid ObjectId, RectangleF Bounds, SnappingPolicy Policy = default) : SnapProbe;
     public sealed record ObjectCase(Guid ObjectId, SnappingPolicy Policy = default) : SnapProbe;
+    public sealed record GroupCase(Seq<Guid> ObjectIds, SnappingPolicy Policy = default) : SnapProbe;
 
     internal Option<SnapGuideStyle> FeedbackStyle => Switch(
         pointCase: static p => p.Policy.FeedbackStyle,
         rectangleCase: static r => r.Policy.FeedbackStyle,
-        objectCase: static o => o.Policy.FeedbackStyle);
+        objectCase: static o => o.Policy.FeedbackStyle,
+        groupCase: static g => g.Policy.FeedbackStyle);
 }
 
 [GenerateUnionOps]
@@ -220,7 +233,12 @@ internal static partial class Layout {
                 cols: grid.Cols,
                 gap: grid.Gap,
                 gapPolicy: grid.GapPolicy,
-                ids: [.. grid.Ids]));
+                ids: [.. grid.Ids]),
+            flowCase: static flow => Flow(
+                axis: flow.Axis,
+                gap: flow.Gap,
+                gapPolicy: flow.GapPolicy,
+                ids: [.. flow.Ids]));
 
     internal static GrasshopperUiIntent<LayoutSnapshot> Snapshot(Guid id) =>
         GhUi.Document(run: scope =>
@@ -237,10 +255,8 @@ internal static partial class Layout {
             undo: PivotUndo(noun: "Move", id: id),
             mutate: scope =>
                 Op.Of(name: nameof(Move)).AcceptPoint(value: new PointF(x: dx, y: dy), detail: "non-finite delta")
-                    .Bind(delta => ObjectOf(scope: scope, id: id).Bind(obj => scope.NeedDocument().Map(doc => {
-                        RectangleF snapLimit = scope.Canvas.Map(static canvas => canvas.VisibleFrame).IfNone(doc.Objects.AttributeBounds);
-                        return ApplyMove(obj: obj, document: doc, dx: delta.X, dy: delta.Y, snap: snap, snapVisibleLimit: snapLimit);
-                    }))));
+                    .Bind(delta => ObjectOf(scope: scope, id: id).Bind(obj => scope.NeedDocument().Map(doc =>
+                        ApplyMove(obj: obj, document: doc, dx: delta.X, dy: delta.Y, snap: snap, snapVisibleLimit: VisibleLimit(scope: scope, doc: doc))))));
 
     internal static GrasshopperUiIntent<Snapshot<LayoutMoveDelta>> Place(Guid id, PointF pivot) =>
         GrasshopperUi.Mutate(
@@ -258,24 +274,24 @@ internal static partial class Layout {
                     dx: valid.X - before.Pivot.X,
                     dy: valid.Y - before.Pivot.Y,
                     snap: false,
-                    snapVisibleLimit: doc.Objects.AttributeBounds));
+                    snapVisibleLimit: VisibleLimit(scope: scope, doc: doc)));
 
     internal static GrasshopperUiIntent<Snapshot<LayoutArrangeDelta>> Align(Guid anchor, OCD.Fixed fix = OCD.Fixed.None, params ReadOnlySpan<Guid> targets) {
         Guid[] snapshot = targets.ToArray();
-        return GhUi.Document(
-            repaint: RepaintRequest.Canvas,
-            run: scope => Optional(snapshot)
-                .Filter(static values => values.Length >= 1)
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Align)), detail: "Align requires an anchor and at least one target"))
-                .Bind(validTargets => scope.NeedDocument().Bind(doc => ObjectOf(scope: scope, id: anchor).Bind(anchorObj => {
-                    UndoGroup bag = new(verb: "Layout", noun: "Align");
-                    GrasshopperUi.Scope scoped = scope with { UndoGroup = Some(bag) };
-                    return toSeq(validTargets)
-                        .TraverseM(target => AlignOne(anchor: anchorObj, target: target, fix: fix).Run(scope: scoped).Map(static s => s.Payload)).As()
-                        .Bind(deltas => bag.Commit(document: doc).Map(_ => UiSnapshot.Of(
-                            payload: new LayoutArrangeDelta(Moves: deltas),
-                            ownerId: Some(doc.Hash))));
-                }))));
+        return GhUi.Group(
+            verb: "Layout",
+            noun: "Align",
+            body: GhUi.Document(
+                repaint: RepaintRequest.Canvas,
+                run: scope => Optional(snapshot)
+                    .Filter(static values => values.Length >= 1)
+                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Align)), detail: "Align requires an anchor and at least one target"))
+                    .Bind(validTargets => scope.NeedDocument().Bind(doc => ObjectOf(scope: scope, id: anchor).Bind(anchorObj =>
+                        toSeq(validTargets)
+                            .TraverseM(target => AlignOne(anchor: anchorObj, target: target, fix: fix).Run(scope: scope).Map(static s => s.Payload)).As()
+                            .Map(deltas => UiSnapshot.Of(
+                                payload: new LayoutArrangeDelta(Moves: deltas),
+                                ownerId: Some(doc.Hash))))))));
     }
 
     // OCD.AlignObjects moves b to a's edge, so each target aligns to the unchanging anchor; the per-target
@@ -295,20 +311,21 @@ internal static partial class Layout {
     // Shared apply rail for multi-object arrangements: open one UndoGroup, fold the computed moves through the
     // single Move primitive, then commit. Distribute and Grid feed it different per-axis move generators.
     private static GrasshopperUiIntent<Snapshot<LayoutArrangeDelta>> ArrangeMoves(string noun, int minimum, Func<GhObjectList, Seq<(Guid Id, float Dx, float Dy)>> compute) =>
-        GhUi.Document(
-            repaint: RepaintRequest.Canvas,
-            run: scope => scope.NeedDocument().Bind(doc => scope.NeedObjects().Bind(objs => {
-                UndoGroup bag = new(verb: "Layout", noun: noun);
-                GrasshopperUi.Scope scoped = scope with { UndoGroup = Some(bag) };
-                Seq<(Guid Id, float Dx, float Dy)> moves = compute(objs);
-                return Optional(moves)
-                    .Filter(values => values.Count >= minimum)
-                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: noun), detail: string.Create(CultureInfo.InvariantCulture, $"fewer than {minimum} supplied ids resolved to document objects")))
-                    .Bind(_ => moves.TraverseM(m => Move(id: m.Id, dx: m.Dx, dy: m.Dy, snap: false).Run(scope: scoped).Map(static s => s.Payload)).As())
-                    .Bind(deltas => bag.Commit(document: doc).Map(_ => UiSnapshot.Of(
-                        payload: new LayoutArrangeDelta(Moves: deltas),
-                        ownerId: Some(doc.Hash))));
-            })));
+        GhUi.Group(
+            verb: "Layout",
+            noun: noun,
+            body: GhUi.Document(
+                repaint: RepaintRequest.Canvas,
+                run: scope => scope.NeedDocument().Bind(doc => scope.NeedObjects().Bind(objs => {
+                    Seq<(Guid Id, float Dx, float Dy)> moves = compute(objs);
+                    return Optional(moves)
+                        .Filter(values => values.Count >= minimum)
+                        .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: noun), detail: string.Create(CultureInfo.InvariantCulture, $"fewer than {minimum} supplied ids resolved to document objects")))
+                        .Bind(_ => moves.TraverseM(m => Move(id: m.Id, dx: m.Dx, dy: m.Dy, snap: false).Run(scope: scope).Map(static s => s.Payload)).As())
+                        .Map(deltas => UiSnapshot.Of(
+                            payload: new LayoutArrangeDelta(Moves: deltas),
+                            ownerId: Some(doc.Hash)));
+                }))));
 
     internal static GrasshopperUiIntent<Snapshot<LayoutArrangeDelta>> Distribute(LayoutAxis axis, LayoutGap gap, LayoutGapPolicy gapPolicy, params ReadOnlySpan<Guid> ids) {
         Guid[] snapshot = ids.ToArray();
@@ -330,6 +347,24 @@ internal static partial class Layout {
             : GhUi.Document(run: _ => Fin.Fail<Snapshot<LayoutArrangeDelta>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Grid)), detail: "Grid requires rows>=1, cols>=1, and at least 2 ids")));
     }
 
+    // Causal flow: SortCausally orders ids by dataflow dependency before the existing distribution rail
+    // (preordered skips the bounds re-sort so the topological order is preserved along the axis).
+    internal static GrasshopperUiIntent<Snapshot<LayoutArrangeDelta>> Flow(LayoutAxis axis, LayoutGap gap, LayoutGapPolicy gapPolicy, params ReadOnlySpan<Guid> ids) {
+        Guid[] snapshot = ids.ToArray();
+        return snapshot.Length >= 2
+            ? ArrangeMoves(
+                noun: string.Create(CultureInfo.InvariantCulture, $"Flow {axis}"),
+                minimum: 2,
+                compute: objs => ComputeDistribution(objects: objs, ids: SortCausally(objects: objs, ids: toSeq(snapshot)), axis: axis, gap: gap, gapPolicy: gapPolicy, preordered: true))
+            : GhUi.Document(run: _ => Fin.Fail<Snapshot<LayoutArrangeDelta>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Flow)), detail: "Flow requires at least 2 ids")));
+    }
+
+    private static Seq<Guid> SortCausally(GhObjectList objects, Seq<Guid> ids) {
+        Connectivity connectivity = objects.Connectivity;
+        ConnectiveObject[] nodes = [.. ids.Choose(id => connectivity.Find(id, out ConnectiveObject? co) ? Optional(co) : Option<ConnectiveObject>.None)];
+        return toSeq(connectivity.SortCausally(objects: nodes).Select(static co => co.Id));
+    }
+
     internal static GrasshopperUiIntent<Option<SnappingSnapshot>> Snap(SnapProbe probe) =>
         GhUi.Document(run: scope =>
             from valid in Optional(probe).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "snap probe is required"))
@@ -346,7 +381,15 @@ internal static partial class Layout {
                     ObjectOf(scope: s, id: obj.ObjectId).Bind(target =>
                         from document in s.NeedDocument()
                         from canvas in s.NeedCanvas()
-                        select SnapCore(document: document, obj: target, policy: obj.Policy, visibleLimit: canvas.VisibleFrame, bounds: Option<RectangleF>.None)))
+                        select SnapCore(document: document, obj: target, policy: obj.Policy, visibleLimit: canvas.VisibleFrame, bounds: Option<RectangleF>.None)),
+                groupCase: static (s, g) =>
+                    from document in s.NeedDocument()
+                    from canvas in s.NeedCanvas()
+                    let members = g.ObjectIds.Choose(id => Optional(document.Objects.Find(instanceId: id)))
+                    from snapped in members.IsEmpty
+                        ? Fin.Fail<Option<SnappingSnapshot>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "group snap requires at least one resolvable member"))
+                        : Fin.Succ(value: SnapGroup(document: document, members: members, policy: g.Policy, visibleLimit: canvas.VisibleFrame))
+                    select snapped)
             from _ in EmitSnapGuide(scope: scope, probe: valid, snapshot: snapshot)
             select snapshot);
 
@@ -382,6 +425,11 @@ internal static partial class Layout {
 
     private static Fin<IDocumentObject> ObjectOf(GrasshopperUi.Scope scope, Guid id) =>
         UiRail.ResolveObject(scope: scope, id: id, op: Op.Of(name: nameof(ObjectOf)));
+
+    // Snap visible limit: the canvas frame when present, else the document's attribute bounds. Shared by Move
+    // and Place so the two never diverge on which frame constrains snapping.
+    private static RectangleF VisibleLimit(GrasshopperUi.Scope scope, GhDocument doc) =>
+        scope.Canvas.Map(static c => c.VisibleFrame).IfNone(doc.Objects.AttributeBounds);
 
     private static LayoutSnapshot SnapshotOf(IAttributes attributes) =>
         new(ObjectId: attributes.Owner.InstanceId,
@@ -419,7 +467,7 @@ internal static partial class Layout {
         SnappingPolicy policy,
         RectangleF visibleLimit,
         Option<RectangleF> bounds) {
-        SnappingPolicy active = ActivePolicy(policy: policy);
+        SnappingPolicy active = policy.Effective;
         SnappingConstraints constraints = SnappingConstraints.CreateFromDocument(
             document: document,
             includeSelected: active.IncludeSelected,
@@ -445,14 +493,19 @@ internal static partial class Layout {
         }
     }
 
-    // Widening invariant: a policy including neither selected nor unselected objects can never produce a snap
-    // constraint, so a fully-disabled policy is widened to include both — snapping degrades to "snap to
-    // everything" rather than silently returning no guide.
-    private static SnappingPolicy ActivePolicy(SnappingPolicy policy) =>
-        (policy.IncludeSelected || policy.IncludeUnselected) switch {
-            true => policy,
-            false => policy with { IncludeSelected = true, IncludeUnselected = true },
-        };
+    // Rigid multi-object snap: aggregate every member's bounds, snap the union rectangle against constraints
+    // that exclude all members, and return the shared delta the caller applies to every member.
+    private static Option<SnappingSnapshot> SnapGroup(GhDocument document, Seq<IDocumentObject> members, SnappingPolicy policy, RectangleF visibleLimit) {
+        SnappingPolicy active = policy.Effective;
+        RectangleF aggregate = members.Tail.Fold(members[0].Attributes.AggregateBounds, static (acc, m) => RectangleF.Union(rect1: acc, rect2: m.Attributes.AggregateBounds));
+        SnappingConstraints constraints = SnappingConstraints.CreateFromDocument(
+            document: document,
+            includeSelected: active.IncludeSelected,
+            includeUnselected: active.IncludeUnselected,
+            filter: new GuidSet([.. members.Map(static m => m.InstanceId)]));
+        constraints.SnapRectangle(target: aggregate, settings: active.Native, visibleLimit: visibleLimit, snapX: out SnappingAction snapX, snapY: out SnappingAction snapY);
+        return UiRail.SnapChannels(x: Optional(snapX), y: Optional(snapY));
+    }
 
     // OCD.AlignObjects exposes exactly four (Component|IParameter)² overloads — exhaustively keyed here
     // so unsupported pairs fail as typed UiFault without DLR/runtime-binder cost.
@@ -474,11 +527,12 @@ internal static partial class Layout {
         Seq<Guid> ids,
         LayoutAxis axis,
         LayoutGap gap,
-        LayoutGapPolicy gapPolicy) {
-        Seq<(Guid Id, RectangleF Bounds)> sorted = toSeq(ids
-            .Choose(id => Optional(objects.Find(instanceId: id)).Map(o => (Id: id, Bounds: o.Attributes.AggregateBounds)))
-            .OrderBy(s => axis.Origin(bounds: s.Bounds))
-            .ThenBy(s => s.Id));
+        LayoutGapPolicy gapPolicy,
+        bool preordered = false) {
+        Seq<(Guid Id, RectangleF Bounds)> resolved = ids.Choose(id => Optional(objects.Find(instanceId: id)).Map(o => (Id: id, Bounds: o.Attributes.AggregateBounds)));
+        Seq<(Guid Id, RectangleF Bounds)> sorted = preordered
+            ? resolved
+            : toSeq(resolved.OrderBy(s => axis.Origin(bounds: s.Bounds)).ThenBy(s => s.Id));
         return sorted.Count switch {
             < 2 => Seq<(Guid Id, float Dx, float Dy)>(),
             _ => DistributeMode.Of(gapPolicy: gapPolicy, sorted: sorted, axis: axis, gap: gap.Value)

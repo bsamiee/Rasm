@@ -39,21 +39,15 @@ public partial record ObjectScope {
             primaryCase: static (objs, _) => objs.Forwards,
             primaryAndSecondaryCase: static (objs, _) => objs.PrimaryAndSecondary);
 
-    internal Fin<Unit> RequireMutationScope(Op op, ScopeUse use) =>
-        this switch {
-            PrimaryCase or PrimaryAndSecondaryCase => use.RejectPrimary<Unit>(op: op),
-            _ => Fin.Succ(value: unit),
-        };
-
+    // Per-arm rejection is the single gate (feedback_per_arm_op_provenance): the primary arms own the reject,
+    // so no standalone pre-guard shadows them into unreachability.
     internal Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, DocumentTargetOp op, ActionList actions) =>
-        from _ in RequireMutationScope(op: Op.Of(name: nameof(ObjectScope)), use: ScopeUse.TargetMutation)
-        from changed in Switch(
+        Switch(
             state: (methods, objects, op, actions),
             selectionCase: static (s, _) => s.op.ApplySelected(methods: s.methods, actions: s.actions),
             objectsCase: static (s, target) => s.op.Apply(methods: s.methods, objects: s.objects, ids: target.Ids, actions: s.actions),
             primaryCase: static (_, _) => ScopeUse.TargetMutation.RejectPrimary<int>(op: Op.Of(name: nameof(ObjectScope))),
-            primaryAndSecondaryCase: static (_, _) => ScopeUse.TargetMutation.RejectPrimary<int>(op: Op.Of(name: nameof(ObjectScope))))
-        select changed;
+            primaryAndSecondaryCase: static (_, _) => ScopeUse.TargetMutation.RejectPrimary<int>(op: Op.Of(name: nameof(ObjectScope))));
 }
 
 [SmartEnum<int>]
@@ -152,11 +146,11 @@ public partial record ComposeOp {
         Switch(state: (methods, objects, targets, actions),
             groupCase: static (s, g) => {
                 string name = g.Name.IfNone(string.Empty);
-                GhOpenColorFamily? colour = g.Colour.Map(static c => (GhOpenColorFamily?)c).IfNone((GhOpenColorFamily?)null);
+                GhOpenColorFamily? colour = g.Colour.OrNullable();
                 return Fin.Succ(value: Optional(s.targets is null
                     ? s.methods.GroupSelection(name: name, colour: colour, actions: s.actions)
                     : s.methods.GroupObjects(objects: s.targets, name: name, colour: colour, actions: s.actions))
-                    .Map(static r => r.InstanceId).Filter(static id => id != Guid.Empty));
+                    .Map(static r => r.InstanceId).Bind(static id => id.NonEmpty()));
             },
             linkCase: static (s, link) => Link(state: s, kind: link.Kind));
 
@@ -166,7 +160,7 @@ public partial record ComposeOp {
         UiRail.PreflightCompose(
             op: kind.Op,
             check: () => kind.CanCreate(methods: state.methods, targets: state.targets ?? state.objects.SelectedObjects, whyNot: out string whyNot) ? (true, whyNot) : (false, whyNot))
-            .Map(_ => Optional(kind.Create(methods: state.methods, targets: state.targets, actions: state.actions)).Map(static c => c.InstanceId).Filter(static id => id != Guid.Empty));
+            .Map(_ => Optional(kind.Create(methods: state.methods, targets: state.targets, actions: state.actions)).Map(static c => c.InstanceId).Bind(static id => id.NonEmpty()));
 }
 
 [SmartEnum<int>]
@@ -216,16 +210,19 @@ public partial record FindCriterion {
     private FindCriterion() { }
     public sealed record NearPointCase(PointF Point, int MaxResults, float MaxDistance) : FindCriterion;
     public sealed record ByDrawOrderCase(bool Foreground, bool Background) : FindCriterion;
-    public sealed record GraphCase(Guid ParameterId, WireTraversal Direction, WireObjectLimit MaxObjects) : FindCriterion;
-    public sealed record ByNameCase(string Substring, bool CaseInsensitive) : FindCriterion;
+    public sealed record GraphCase(GraphKey Anchor, WireTraversal Direction, WireObjectLimit MaxObjects) : FindCriterion;
+    public sealed record ByNameCase(string Substring, bool CaseInsensitive, ObjectScope Scope) : FindCriterion;
 
     public static FindCriterion Near(PointF point, int maxResults = 16, float maxDistance = UiTolerance.PickRadius) => new NearPointCase(Point: point, MaxResults: maxResults, MaxDistance: maxDistance);
     public static FindCriterion DrawOrder(bool foreground = true, bool background = true) => new ByDrawOrderCase(Foreground: foreground, Background: background);
-    public static FindCriterion Upstream(Guid parameterId, WireObjectLimit? maxObjects = null) => new GraphCase(ParameterId: parameterId, Direction: WireTraversal.Upstream, MaxObjects: maxObjects ?? WireObjectLimit.Create(value: WireObjectLimit.DefaultCount));
-    public static FindCriterion Downstream(Guid parameterId, WireObjectLimit? maxObjects = null) => new GraphCase(ParameterId: parameterId, Direction: WireTraversal.Downstream, MaxObjects: maxObjects ?? WireObjectLimit.Create(value: WireObjectLimit.DefaultCount));
-    public static FindCriterion ByName(string substring, bool caseInsensitive = true) => new ByNameCase(Substring: substring, CaseInsensitive: caseInsensitive);
-    // Host ObjectList.FindBySearch is a verified empty-array stub; Search is a name-substring alias over ByNameCase.
-    public static FindCriterion Search(string query, bool caseInsensitive = true) => new ByNameCase(Substring: query, CaseInsensitive: caseInsensitive);
+    public static FindCriterion Upstream(Guid parameterId, WireObjectLimit? maxObjects = null) => Upstream(anchor: GraphKey.Parameter(id: parameterId), maxObjects: maxObjects);
+    public static FindCriterion Downstream(Guid parameterId, WireObjectLimit? maxObjects = null) => Downstream(anchor: GraphKey.Parameter(id: parameterId), maxObjects: maxObjects);
+    public static FindCriterion Upstream(GraphKey anchor, WireObjectLimit? maxObjects = null) => new GraphCase(Anchor: anchor, Direction: WireTraversal.Upstream, MaxObjects: maxObjects ?? WireObjectLimit.Create(value: WireObjectLimit.DefaultCount));
+    public static FindCriterion Downstream(GraphKey anchor, WireObjectLimit? maxObjects = null) => new GraphCase(Anchor: anchor, Direction: WireTraversal.Downstream, MaxObjects: maxObjects ?? WireObjectLimit.Create(value: WireObjectLimit.DefaultCount));
+    public static FindCriterion ByName(string substring, bool caseInsensitive = true, ObjectScope? scope = null) => new ByNameCase(Substring: substring, CaseInsensitive: caseInsensitive, Scope: scope ?? ObjectScope.Primary);
+    // Host ObjectList.FindBySearch is a verified empty-array stub; Search is a name-substring alias over ByNameCase
+    // that defaults to PrimaryAndSecondary scope (the "search everything" the host stub never delivered).
+    public static FindCriterion Search(string query, bool caseInsensitive = true) => new ByNameCase(Substring: query, CaseInsensitive: caseInsensitive, Scope: ObjectScope.PrimaryAndSecondary);
 }
 
 [SkipUnionOps]
@@ -261,13 +258,21 @@ public partial record DocumentOp {
     public sealed partial record MutateCase(Seq<DocumentMutation> Mutations, DocumentMutationPolicy Policy) : DocumentOp;
     public sealed partial record HistoryCase(DocumentHistory Request) : DocumentOp;
     public sealed partial record InspectCase(DocumentInspect Kind) : DocumentOp;
+    public sealed partial record SolutionCase(SolutionControl Control, SolutionMode Mode) : DocumentOp;
+    // Node-targeted rewind: the zero-arg DocumentHistory SmartEnum cannot carry a runtime ordinal, so a
+    // parameterized case resolves the central-sequence node at Ordinal and routes to History.Undo/Redo(Node).
+    public sealed partial record HistoryTargetCase(int Ordinal, bool Redo) : DocumentOp;
 
     public static DocumentOp Query(DocumentQuery query) => new QueryCase(Request: query);
-    public static DocumentOp Mutate(params DocumentMutation[] mutations) => new MutateCase(Mutations: toSeq(mutations), Policy: DocumentMutationPolicy.Default);
-    public static DocumentOp Mutate(DocumentMutationPolicy policy, params DocumentMutation[] mutations) => new MutateCase(Mutations: toSeq(mutations), Policy: policy);
+    public static DocumentOp Mutate(params ReadOnlySpan<DocumentMutation> mutations) =>
+        new MutateCase(Mutations: toSeq(mutations.ToArray()), Policy: DocumentMutationPolicy.Default);
+    public static DocumentOp Mutate(DocumentMutationPolicy policy, params ReadOnlySpan<DocumentMutation> mutations) =>
+        new MutateCase(Mutations: toSeq(mutations.ToArray()), Policy: policy);
     public static DocumentOp History(DocumentHistory history) => new HistoryCase(Request: history);
     public static DocumentOp Inspect(DocumentInspect kind) => new InspectCase(Kind: kind);
     public static readonly DocumentOp DependencyGraph = new InspectCase(Kind: DocumentInspect.DependencyGraph);
+    public static DocumentOp Solution(SolutionControl control, SolutionMode mode = SolutionMode.Regular) => new SolutionCase(Control: control, Mode: mode);
+    public static DocumentOp HistoryTarget(int ordinal, bool redo = false) => new HistoryTargetCase(Ordinal: ordinal, Redo: redo);
 
     internal GrasshopperUiPolicy UiPolicy => Switch(
         queryCase: static q => q.Request switch {
@@ -279,7 +284,9 @@ public partial record DocumentOp {
             var key when key == DocumentHistory.ShowHistory.Key => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.None),
             _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
         },
-        inspectCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None));
+        inspectCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
+        solutionCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
+        historyTargetCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas));
 }
 
 // Item-owned native invocation closes the if/throw dispatch hole — every item carries the
@@ -292,6 +299,22 @@ public sealed partial class DocumentInspect {
 
     [UseDelegateFromConstructor]
     internal partial Unit Invoke(GhDocumentMethods methods);
+}
+
+// Solution-server lifecycle verbs. Start/Stop are bridge-safe; the idle-loop-driven solver means a
+// blocking StartWait deadlocks on the bridge UI thread (reference_gh2_headless_solution_limits), so the
+// wait-to-settle variant stays a LIVE-host-only follow-up rather than a bridge-driven verb here.
+[SmartEnum<int>]
+public sealed partial class SolutionControl {
+    private delegate Fin<Unit> RunFn(SolutionServer server, SolutionMode mode);
+
+    public static readonly SolutionControl Start = new(key: 0, run: static (server, mode) =>
+        Op.Of(name: nameof(Start)).Attempt(body: () => { _ = server.Start(mode: mode); return unit; }, what: "SolutionServer.Start"));
+    public static readonly SolutionControl Stop = new(key: 1, run: static (server, _) =>
+        Op.Of(name: nameof(Stop)).Attempt(body: () => { server.Stop(); return unit; }, what: "SolutionServer.Stop"));
+
+    [UseDelegateFromConstructor]
+    internal partial Fin<Unit> Run(SolutionServer server, SolutionMode mode);
 }
 
 [SmartEnum<int>]
@@ -328,6 +351,7 @@ public partial record DocumentResult {
     public sealed record MutationResult(Snapshot<DocumentMutationDelta> Delta) : DocumentResult;
     public sealed record HistoryResult(DocumentHistorySnapshot Snapshot) : DocumentResult;
     public sealed record InspectResult(DocumentInspect Kind) : DocumentResult;
+    public sealed record SolutionResult(DocumentSnapshot Snapshot) : DocumentResult;
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -347,7 +371,13 @@ public readonly record struct DocumentSnapshot(Guid Hash, bool Modified, int Mod
 public readonly record struct DocumentUniverseSnapshot(Seq<DocumentSnapshot> Documents, int Count);
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct DocumentHistorySnapshot(bool IsEmpty, bool CanUndo, bool CanRedo, int UndoCount, int RedoCount);
+public readonly record struct DocumentHistoryNode(string Name, int Count);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentHistorySnapshot(bool IsEmpty, bool CanUndo, bool CanRedo, Seq<DocumentHistoryNode> UndoNodes = default, Seq<DocumentHistoryNode> RedoNodes = default) {
+    public int UndoCount => UndoNodes.Count;
+    public int RedoCount => RedoNodes.Count;
+}
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct DocumentObjectSnapshot(Guid Id, string Name, string DisplayName, bool Selected, string Activity, string Display, string Phase, string State, RectangleF Bounds, PointF Pivot);
@@ -440,6 +470,14 @@ public abstract partial record DocumentMutation {
     public sealed record PlaceCase(ObjectSpec Object, PointF Location, DropCue Cue) : DocumentMutation;
     public sealed record AddDependencyCase(PointF Location) : DocumentMutation;
     public sealed record IsolateCase(IsolateOptions Options) : DocumentMutation;
+    public sealed record MergeCase : DocumentMutation {
+        internal MergeCase(GhObjectList source, bool reinstateInputs, bool reinstateOutputs) =>
+            (Source, ReinstateInputs, ReinstateOutputs) = (source, reinstateInputs, reinstateOutputs);
+
+        internal GhObjectList Source { get; }
+        internal bool ReinstateInputs { get; }
+        internal bool ReinstateOutputs { get; }
+    }
 
     public static DocumentMutation Target(ObjectScope subject, DocumentTargetOp op) => new TargetCase(Subject: subject, Op: op);
     public static DocumentMutation Selection(SelectionOp op) => Target(subject: ObjectScope.Selection, op: new DocumentTargetOp.SelectionCase(Op: op));
@@ -452,6 +490,8 @@ public abstract partial record DocumentMutation {
     public static DocumentMutation Place(ObjectSpec obj, PointF location, DropCue? cue = null) => new PlaceCase(Object: obj, Location: location, Cue: cue ?? DropCue.None);
     public static DocumentMutation AddDependency(PointF location) => new AddDependencyCase(Location: location);
     public static DocumentMutation Isolate(IsolateOptions options = default) => new IsolateCase(Options: options);
+    // Clipboard/import other half: absorb a foreign object list into this document; ObjectList.Absorb repairs pins internally.
+    internal static DocumentMutation Merge(GhObjectList source, bool reinstateInputs = true, bool reinstateOutputs = true) => new MergeCase(source: source, reinstateInputs: reinstateInputs, reinstateOutputs: reinstateOutputs);
 
     internal Fin<DocumentMutationReceipt> Apply(GhDocumentMethods methods, GhObjectList objects, ActionList actions) =>
         Switch(
@@ -459,39 +499,52 @@ public abstract partial record DocumentMutation {
             targetCase: static (s, target) => target.Subject.Apply(methods: s.methods, objects: s.objects, op: target.Op, actions: s.actions).Map(static changed => DocumentMutationReceipt.Count(changed: changed)),
             composeCase: static (s, compose) => UiRail.ComposeDispatch(methods: s.methods, objects: s.objects, subject: compose.Subject, op: compose.Op, actions: s.actions)
                 .Map(static created => created.Map(static id => DocumentMutationReceipt.CreatedObject(id: id)).IfNone(DocumentMutationReceipt.None)),
-            dropCase: static (s, drop) => (
-                from proxy in Op.Of(name: nameof(Drop)).AcceptValue(value: drop.ProxyId)
-                    .MapFail(static _ => UiFault.InvalidInput(op: Op.Of(name: nameof(Drop)), detail: "empty proxy id"))
-                from location in Op.Of(name: nameof(Drop)).AcceptPoint(value: drop.Location, detail: "non-finite location")
-                let changed = drop.Init is { IsSome: true, Case: string init }
-                    ? s.methods.DropObject(obj: (proxy, init), location: location, actions: s.actions)
-                    : s.methods.DropObject(obj: proxy, location: location, actions: s.actions)
-                select DocumentMutationReceipt.From(changed: changed)),
-            dropSnippetCase: static (s, snippet) => (
-                from file in Op.Of(name: nameof(DropSnippet)).AcceptText(value: snippet.File)
-                from location in Op.Of(name: nameof(DropSnippet)).AcceptPoint(value: snippet.Location, detail: "non-finite location")
-                from changed in Try.lift(f: () => s.methods.DropSnippet(snippet: new GhSnippet(file: file), location: location, actions: s.actions)).Run()
-                    .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(DropSnippet)), detail: $"DropSnippet threw: {error.Message}"))
-                select DocumentMutationReceipt.From(changed: changed)),
-            placeCase: static (s, place) => (
-                from spec in Optional(place.Object).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Place)), detail: "object spec is required"))
-                from location in Op.Of(name: nameof(Place)).AcceptPoint(value: place.Location, detail: "non-finite location")
-                from obj in spec.Build(op: Op.Of(name: nameof(Place)))
-                from resolved in place.Cue.Resolve(objects: s.objects, op: Op.Of(name: nameof(Place)))
-                let native = (resolved.Source.IsSome || resolved.Target.IsSome) switch {
-                    true => s.methods.DropObject(
-                        obj: obj,
-                        location: location,
-                        sourceCue: resolved.Source.Map(static value => (IParameter?)value).IfNone((IParameter?)null),
-                        targetCue: resolved.Target.Map(static value => (IParameter?)value).IfNone((IParameter?)null),
-                        actions: s.actions),
-                    false => s.methods.DropObject(obj: obj, location: location, actions: s.actions),
-                }
-                select native ? DocumentMutationReceipt.CreatedObject(id: obj.InstanceId) : DocumentMutationReceipt.None),
+            dropCase: static (s, drop) => {
+                Op op = Op.Of(name: nameof(Drop));
+                return from proxy in op.AcceptValue(value: drop.ProxyId)
+                        .MapFail(static _ => UiFault.InvalidInput(op: Op.Of(name: nameof(Drop)), detail: "empty proxy id"))
+                       from location in op.AcceptPoint(value: drop.Location, detail: "non-finite location")
+                       let changed = drop.Init is { IsSome: true, Case: string init }
+                           ? s.methods.DropObject(obj: (proxy, init), location: location, actions: s.actions)
+                           : s.methods.DropObject(obj: proxy, location: location, actions: s.actions)
+                       from receipt in changed
+                           ? Fin.Succ(value: DocumentMutationReceipt.Count(changed: 1))
+                           : Fin.Fail<DocumentMutationReceipt>(error: UiFault.MutationRejected(op: op, detail: "DropObject rejected the proxy (unknown or incompatible)"))
+                       select receipt;
+            },
+            dropSnippetCase: static (s, snippet) => {
+                Op op = Op.Of(name: nameof(DropSnippet));
+                return from file in op.AcceptText(value: snippet.File)
+                       from location in op.AcceptPoint(value: snippet.Location, detail: "non-finite location")
+                       from changed in Try.lift(f: () => s.methods.DropSnippet(snippet: new GhSnippet(file: file), location: location, actions: s.actions)).Run()
+                           .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(DropSnippet)), detail: $"DropSnippet threw: {error.Message}"))
+                       select DocumentMutationReceipt.From(changed: changed);
+            },
+            placeCase: static (s, place) => {
+                Op op = Op.Of(name: nameof(Place));
+                return from spec in Optional(place.Object).ToFin(Fail: UiFault.InvalidInput(op: op, detail: "object spec is required"))
+                       from location in op.AcceptPoint(value: place.Location, detail: "non-finite location")
+                       from obj in spec.Build(op: op)
+                       from resolved in place.Cue.Resolve(objects: s.objects, op: op)
+                       let native = (resolved.Source.IsSome || resolved.Target.IsSome) switch {
+                           true => s.methods.DropObject(
+                               obj: obj,
+                               location: location,
+                               sourceCue: resolved.Source.OrNull(),
+                               targetCue: resolved.Target.OrNull(),
+                               actions: s.actions),
+                           false => s.methods.DropObject(obj: obj, location: location, actions: s.actions),
+                       }
+                       from receipt in native
+                           ? Fin.Succ(value: DocumentMutationReceipt.CreatedObject(id: obj.InstanceId))
+                           : Fin.Fail<DocumentMutationReceipt>(error: UiFault.MutationRejected(op: op, detail: "DropObject rejected the placed object (init parse or cue mismatch)"))
+                       select receipt;
+            },
             addDependencyCase: static (s, dependency) => Op.Of(name: nameof(AddDependency))
                 .AcceptPoint(value: dependency.Location, detail: "non-finite location")
                 .Map(valid => Optional(s.methods.AddDependency(location: valid, actions: s.actions))
                     .Map(static listen => listen.InstanceId)
+                    .Bind(static id => id.NonEmpty())
                     .Map(static id => DocumentMutationReceipt.CreatedObject(id: id))
                     .IfNone(DocumentMutationReceipt.None)),
             isolateCase: static (s, isolate) => (
@@ -508,7 +561,14 @@ public abstract partial record DocumentMutation {
                         actions: s.actions);
                     return unit;
                 }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Isolate)), detail: $"IsolateObject threw: {error.Message}"))
-                select DocumentMutationReceipt.From(changed: s.actions.Count > before)));
+                select DocumentMutationReceipt.From(changed: s.actions.Count > before)),
+            mergeCase: static (s, merge) => Op.Of(name: nameof(Merge)).Attempt(
+                body: () => {
+                    // ObjectList.Absorb already runs RepairPins internally (verified by decompile), so no second pass.
+                    int changed = s.objects.Absorb(other: merge.Source, reinstateInputs: merge.ReinstateInputs, reinstateOutputs: merge.ReinstateOutputs, actions: s.actions);
+                    return DocumentMutationReceipt.Count(changed: changed);
+                },
+                what: "ObjectList.Absorb"));
 }
 
 [SmartEnum<int>]
@@ -587,7 +647,7 @@ public abstract partial record DocumentTargetOp {
             deleteCase: static (s, delete) => Fin.Succ(value: UiRail.RunDelete(
                 methods: s.methods, targets: s.targets, dataOnly: delete.DataOnly, wires: delete.Wires, actions: s.actions)),
             colourCase: static (s, colour) => {
-                GhColour? value = colour.Override.Map(static c => (GhColour?)c).IfNone((GhColour?)null);
+                GhColour? value = colour.Override.OrNull();
                 return Fin.Succ(value: s.targets is null
                     ? s.methods.SetColourOverrideSelected(colour: value, actions: s.actions)
                     : s.methods.SetColourOverrideObjects(objects: s.targets, colour: value, actions: s.actions));
@@ -633,6 +693,23 @@ public sealed partial class DisplayPort {
     internal partial int Run(GhDocumentMethods methods, bool show, ActionList actions);
 }
 
+// --- [OPERATIONS] -------------------------------------------------------------------------
+// Native-boundary projections: OrNull/OrNullable collapse the `.Map(cast).IfNone(null)` ladders that
+// bridge Option<T> back to the host's nullable parameter surface; NonEmpty is the single Guid-sentinel
+// → Option rule shared by every host-id read. Inv invariant-stringifies snapshot fields once.
+internal static class OptionNativeExtensions {
+    internal static T? OrNull<T>(this Option<T> option) where T : class =>
+        option is { IsSome: true, Case: T value } ? value : null;
+    internal static T? OrNullable<T>(this Option<T> option) where T : struct =>
+        option is { IsSome: true, Case: T value } ? value : null;
+    internal static Option<Guid> NonEmpty(this Guid id) => id == Guid.Empty ? None : Some(id);
+    internal static Option<Guid> NonEmpty(this Guid? id) => id is Guid g && g != Guid.Empty ? Some(g) : None;
+}
+
+internal static class SnapshotFormatExtensions {
+    internal static string Inv<T>(this T value) => string.Create(CultureInfo.InvariantCulture, $"{value}");
+}
+
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Document {
     internal static Fin<DocumentResult> Dispatch(GrasshopperUi.Scope scope, DocumentOp op) =>
@@ -641,7 +718,27 @@ internal static partial class Document {
             queryCase: static (s, q) => Query(scope: s, query: q.Request),
             mutateCase: static (s, m) => Mutate(scope: s, mutations: m.Mutations, policy: m.Policy),
             historyCase: static (s, h) => h.Request.Run(scope: s),
-            inspectCase: static (s, i) => DispatchInspect(scope: s, kind: i.Kind));
+            inspectCase: static (s, i) => DispatchInspect(scope: s, kind: i.Kind),
+            solutionCase: static (s, sol) =>
+                from document in s.NeedDocument()
+                from objects in s.NeedObjects()
+                from _ in sol.Control.Run(server: document.Solution, mode: sol.Mode)
+                select (DocumentResult)new DocumentResult.SolutionResult(Snapshot: UiRail.DocumentSnapshotOf(document: document, objects: objects)),
+            historyTargetCase: static (s, t) =>
+                from document in s.NeedDocument()
+                from ordinal in t.Ordinal >= 0
+                    ? Fin.Succ(value: t.Ordinal)
+                    : Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentOp.HistoryTarget)), detail: "history ordinal must be non-negative"))
+                from node in toSeq(t.Redo ? document.Undo.CentralRedoSequence : document.Undo.CentralUndoSequence)
+                    .Skip(ordinal).Head
+                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentOp.HistoryTarget)), detail: string.Create(CultureInfo.InvariantCulture, $"no history node at ordinal {t.Ordinal}")))
+                from _ in Op.Of(name: nameof(DocumentOp.HistoryTarget)).Attempt(
+                    body: () => {
+                        _ = t.Redo ? Op.Side(() => document.Undo.Redo(node)) : Op.Side(() => document.Undo.Undo(node));
+                        return unit;
+                    },
+                    what: "History node target")
+                select (DocumentResult)new DocumentResult.HistoryResult(Snapshot: UiRail.HistorySnapshotOf(document: document)));
 
     private static Fin<DocumentResult> DispatchInspect(GrasshopperUi.Scope scope, DocumentInspect kind) =>
         from methods in scope.NeedMethods()
@@ -714,11 +811,11 @@ internal static partial class Document {
                 select toSeq(objs.FindNear<IDocumentObject>(locus: point, maxResults: maxResults, maxDistance: maxDistance)).Map(UiRail.DocumentObjectSnapshotOf),
             byDrawOrderCase: static (objs, d) =>
                 Fin.Succ(value: toSeq(objs.ObjectsByDrawOrder(includeForeground: d.Foreground, includeBackground: d.Background)).Map(UiRail.DocumentObjectSnapshotOf)),
-            graphCase: static (objs, graph) => Wire.GraphObjects(objects: objs, anchor: GraphKey.Parameter(id: graph.ParameterId), direction: graph.Direction, maxObjects: graph.MaxObjects)
+            graphCase: static (objs, graph) => Wire.GraphObjects(objects: objs, anchor: graph.Anchor, direction: graph.Direction, maxObjects: graph.MaxObjects)
                 .Map(matches => matches.Map(UiRail.DocumentObjectSnapshotOf)),
             byNameCase: static (objs, n) =>
                 Op.Of(name: nameof(FindCriterion.ByName)).AcceptText(value: n.Substring)
-                    .Map(text => toSeq(objs.Forwards)
+                    .Map(text => toSeq(n.Scope.Resolve(objects: objs))
                         .Filter(o => o.Nomen.Name.Contains(value: text, comparisonType: n.CaseInsensitive ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
                         .Map(UiRail.DocumentObjectSnapshotOf)));
 
@@ -729,18 +826,16 @@ internal static partial class Document {
                 .Map(document => UiRail.DocumentSnapshotOf(document: document, objects: document.Objects)))
             .Map(static snapshots => new DocumentUniverseSnapshot(Documents: snapshots, Count: snapshots.Count));
 
-    private static ParameterSnapshot ParameterSnapshotOf(IParameter parameter) {
-        static string Inv<T>(T value) => string.Create(CultureInfo.InvariantCulture, $"{value}");
-        return new(
+    private static ParameterSnapshot ParameterSnapshotOf(IParameter parameter) =>
+        new(
             Id: parameter.InstanceId,
             Name: parameter.Nomen.Name,
-            Kind: Inv(parameter.Kind),
-            Access: Inv(parameter.Access),
-            AccessVariability: Inv(parameter.AccessVariability),
-            Requirement: Inv(parameter.Requirement),
-            TypeFlavour: Inv(parameter.TypeFlavour),
+            Kind: parameter.Kind.Inv(),
+            Access: parameter.Access.Inv(),
+            AccessVariability: parameter.AccessVariability.Inv(),
+            Requirement: parameter.Requirement.Inv(),
+            TypeFlavour: parameter.TypeFlavour.Inv(),
             InputCount: parameter.Inputs.Count,
             OutputCount: parameter.Outputs.Count,
             HasColourOverride: parameter.ColourOverride is not null);
-    }
 }

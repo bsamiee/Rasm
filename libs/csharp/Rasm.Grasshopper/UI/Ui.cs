@@ -76,7 +76,6 @@ public partial record RepaintRequest {
             (ObjectCase l, ObjectCase r) when l.Id == r.Id => left,
             _ => Canvas,
         };
-    public static RepaintRequest BitwiseOr(RepaintRequest left, RepaintRequest right) => left | right;
 }
 
 // Auto: caller commits via UiRail.CommitActions OR native path records no undo (wire selection mirrors ObjectList.SelectWire).
@@ -175,7 +174,6 @@ public partial record Subscription : IDisposable {
                 Detach: detachOnce ? GuardDetach(detach: detach, detachOnce: true) : detach,
                 MarshalToUi: marshalToUi,
                 Teardown: teardown ?? (detachOnce ? SubscriptionTeardown.DetachOnce : SubscriptionTeardown.RunAlways)))
-            .Map(DisposeOnce)
             .MapFail(attachError => {
                 Error primary = UiFault.MutationRejected(op: Op.Of(name: nameof(Bind)), detail: $"attach failed: {attachError.Message}");
                 return Try.lift(f: () => { detach(); return unit; }).Run().Match(
@@ -204,8 +202,6 @@ internal readonly record struct DocumentMutationReceipt(int Changed, Seq<Guid> C
         new(Changed: changed, Created: created.Filter(static id => id != Guid.Empty));
     public static DocumentMutationReceipt Count(int changed) => new(Changed: changed, Created: Seq<Guid>());
     public static DocumentMutationReceipt From(bool changed) => changed ? Count(changed: 1) : None;
-    public static DocumentMutationReceipt CreatedFrom(Option<Guid> id) =>
-        id.Map(CreatedObject).IfNone(None);
     public static DocumentMutationReceipt CreatedObject(Guid id) =>
         id switch {
             Guid value when value != Guid.Empty => new(Changed: 1, Created: Seq(value)),
@@ -265,7 +261,6 @@ public readonly record struct GrasshopperUiPolicy(
             RequireCanvas: left.RequireCanvas || right.RequireCanvas,
             RequireDocument: left.RequireDocument || right.RequireDocument,
             Repaint: left.RepaintOrNone | right.RepaintOrNone);
-    public static GrasshopperUiPolicy BitwiseOr(GrasshopperUiPolicy left, GrasshopperUiPolicy right) => left | right;
 }
 
 internal readonly record struct IntentOutcome<T>(T Value, RepaintRequest Repaint);
@@ -383,12 +378,27 @@ public static partial class OpUiExtensions {
             : Fin.Fail<RectangleF>(error: UiFault.InvalidInput(op: op, detail: detail));
 
     [BoundaryAdapter, MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Fin<float> AcceptFinite(this Op op, float value, string detail = "non-finite value", bool requirePositive = false, bool nonNegative = false) =>
+    internal static Fin<float> AcceptFinite(this Op op, float value, string detail = "non-finite value", bool requirePositive = false, bool nonNegative = false, float min = float.NegativeInfinity) =>
         float.IsFinite(value)
         && (!requirePositive || value > 0f)
         && (!nonNegative || value >= 0f)
+        && value >= min
             ? Fin.Succ(value)
             : Fin.Fail<float>(error: UiFault.InvalidInput(op: op, detail: detail));
+
+    [BoundaryAdapter, MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Fin<T> AcceptFinite<T>(this Op op, T value, IMotionVector<T> vector, string detail) =>
+        Optional(vector)
+            .ToFin(Fail: UiFault.InvalidInput(op: op, detail: "vector is required"))
+            .Bind(valid => valid.IsFinite(value)
+                ? Fin.Succ(value)
+                : Fin.Fail<T>(error: UiFault.InvalidInput(op: op, detail: detail)));
+
+    // Single-delegate admission gate shared by every toolbar/menu/panel arm that requires a `Changed`
+    // callback; the noun forms the per-arm detail without a hand-rolled Optional(...).ToFin at each site.
+    [BoundaryAdapter]
+    internal static Fin<TDelegate> NeedChanged<TDelegate>(this Op op, TDelegate? changed, string noun) where TDelegate : class =>
+        Optional(changed).ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"{noun} change delegate is required"));
 
     // BOUNDARY ADAPTER — native GH2/Eto/Rhino throws → UiFault.MutationRejected.
     [BoundaryAdapter]
@@ -492,17 +502,20 @@ public readonly record struct CanvasSkin(Skin Effective, Skin Lit, Skin Dim) {
 
 [BoundaryAdapter]
 public sealed partial record GrasshopperUi {
-    private static readonly Atom<Option<Error>> HandlerFaultCell = Atom(value: Option<Error>.None);
+    private static readonly Atom<Seq<Error>> HandlerFaultSink = Atom(value: Seq<Error>());
 
+    internal static int HandlerFaultCount => HandlerFaultSink.Value.Count;
+
+    internal static Seq<Error> HandlerFaults => HandlerFaultSink.Value;
+
+    // Host-callback boundary: a faulted UI handler is swallowed because native callbacks have no return rail;
+    // keep the fault observable for bridge/spec validation and diagnostics.
     internal static Fin<Unit> Handler(Func<Fin<Unit>> valid) =>
         Protect(valid: valid).Match(
             Succ: static _ => Fin.Succ(value: unit),
-            Fail: error => {
-                _ = HandlerFaultCell.Swap(_ => Some(error));
-                return Fin.Succ(value: unit);
+            Fail: static error => HandlerFaultSink.Swap(faults => faults.Add(value: error)) switch {
+                _ => Fin.Succ(value: unit),
             });
-
-    public static Option<Error> TakeHandlerFault() => HandlerFaultCell.Swap(_ => Option<Error>.None);
 
     [StructLayout(LayoutKind.Auto)]
     internal readonly record struct Scope(Option<GhEditor> Editor, Option<GhCanvas> Canvas, Option<GhDocument> Document, Option<GhDocumentMethods> Methods, Option<GhObjectList> Objects, Option<CanvasSkin> Skin, Option<UndoGroup> UndoGroup, CancellationToken Cancellation) {

@@ -324,6 +324,6 @@ public static class Composition {
 - `BindFail` at composition boundary — sealed DU switch routes errors per variant, success identity implicit.
 - `[Union]` on `partial record` + `Switch<TState, TResult>` for exhaustive dispatch — state threading makes branch lambdas `static`, adding a variant breaks all call sites at compile time.
 - LINQ comprehension (`from..in..select`) for multi-step monadic composition — expression medium, not alternative syntax.
-- Kleisli `>>`/`<<` infix is not used in Rasm production; prefer `from..in` or trait arrows in `transforms.md` (schematic — zero `ComposeK` in `libs/csharp/`).
+- Kleisli `>>`/`<<` infix available on `K<F,A>` — prefer `from..in` for readability; `ComposeK`/`HyloM` are schematic in this file only (not shipped in LE beta-77 XML).
 - `static` lambdas on fold/Choose closures — prove zero capture.
 - `.Cons` + `.Rev()` in fold accumulators — never `.Add` (O(N) copy).

@@ -3,115 +3,138 @@
 
 <br>
 
-[IMPORTANT] Advanced combinators only. Rasm boundary extensions (`Op.Need`, `Op.Catch`, `AcceptValidated`) live in `rasm.md` §3 and `libs/csharp/Rasm/Domain/Validation.cs`.
+[IMPORTANT] Pin **`LanguageExt.Core` `5.0.0-beta-77`**. Verify members in local package XML before documenting new combinators.
 
 ---
-## [1][RAIL_TRANSFORMS]
+## [1][LOWERING]
+>**Dictum:** *K<F,A> is not F<A> in C# — lower explicitly.*
+
+<br>
+
+| [INDEX] | [CARRIER] | [LOWER AFTER TRAVERSEM] |
+| :-----: | --------- | ----------------------- |
+| [1] | `Fin` | `.TraverseM(f) >> lower` or unary `+` |
+| [2] | `Validation` | `.TraverseM(f) >> lower` |
+| [3] | `Option` | `.TraverseM(f) >> lower` |
+| [4] | `Eff` / `IO` | `.TraverseM(f).As()` |
+
+`Prelude.lower` and `k >> lower` are documented downcast operators in pinned XML.
+
+---
+## [2][RAIL_TRANSFORMS]
 >**Dictum:** *Transform success and failure without leaving the carrier.*
 
 <br>
 
-| [INDEX] | [COMBINATOR] | [RASM_USE] |
-| :-----: | ------------ | ---------- |
-| [1] | `.MapFail(f)` | heavy at boundaries |
-| [2] | `.BindFail(f)` | moderate |
-| [3] | `.IfFail(f)` | moderate |
-| [4] | `.BiBind(Succ:, Fail:)` | rare — `Blocks/Operations.cs` |
-| [5] | `.BiMap(succ, fail)` | exists in LE; **zero** production `.BiMap(` in libs |
-| [6] | `.ToFin()` / `.ToValidation()` / `.ToOption()` | heavy |
-| [7] | `.Match(Succ:, Fail:)` | common at host boundaries |
-
-Hot paths may use record-case `switch` on `Fin` where measured; `.Match` remains common at collapse sites.
+| [INDEX] | [COMBINATOR] | [CARRIERS] | [NOTES] |
+| :-----: | ------------ | ---------- | ------- |
+| [1] | `.MapFail(f)` | `Fin`, `Validation`, `Eff`, `Try` | Map failure value |
+| [2] | `.BindFail(f)` | `Fin`, `Validation`, `Try` | **Not** on `Eff` |
+| [3] | `.IfFail(f)` | `Validation`, `Try`, `Eff` | **Not** on `Fin` |
+| [4] | `.BiBind(Succ:, Fail:)` | `Fin`, `Validation` | Both branches |
+| [5] | `.BiMap(succ, fail)` | `Fin`, `Validation`, `Option` | Bifunctor map |
+| [6] | `.ToFin()` / `.ToValidation()` / `.ToOption()` | cross-rail | Boundary projection |
+| [7] | `.Match(Succ:, Fail:)` | `Fin`, `Option`, `Either` | Terminal collapse |
 
 ---
-## [2][APPLICATIVE]
+## [3][APPLICATIVE]
 >**Dictum:** *Independent failures accumulate; dependent steps bind.*
 
 <br>
 
 | [INDEX] | [FORM] | [USE] |
 | :-----: | ------ | ----- |
-| [1] | `(a,b,c,d).Apply(f).As()` | Domain + analysis validation |
-| [2] | `Validation<Error,T>` | Domain requirements |
-| [3] | `Validation<Seq<UiFault>,T>` | GH UI via `ValidateParallel` → `ToFin` |
-| [4] | `[ValidationError<TFault>]` on Thinktecture VOs | Factory returns `TFault?` |
+| [1] | `ValidationExtensions.Apply` chains | Multi-field validation |
+| [2] | `v1 & v2` | Validation product via operator |
+| [3] | `Validation<E,T>` where `E : Monoid<E>` | Parallel error accumulation |
 
-`Validation<string,T>` does **not** compile in v5.
+`Validation<string,T>` is **not supported** — use `StringM` or `Error`. Rasm forbids `Validation<Seq<Error>,T>` (`CSP0703`); see `rasm.md`.
 
 ---
-## [3][COLLECTION_TRAVERSAL]
+## [4][COLLECTION_TRAVERSAL]
 >**Dictum:** *Traverse keeps collection shape and failure rail together.*
 
 <br>
 
-| [INDEX] | [COMBINATOR] | [RASM_USE] |
-| :-----: | ------------ | ---------- |
-| [1] | `.TraverseM(f).As()` | **heavy** — `.As()` mandatory in v5 |
-| [2] | `.Traverse(identity).As()` | moderate — v4 `Sequence` replacement |
-| [3] | `.Choose(f)` | **heavy** — prefer over `.Filter().Map()` |
-| [4] | `.Fold(init, f)` | heavy |
-| [5] | `.Strict()` | moderate before boundary materialization |
-
-[CRITICAL] `TraverseM` returns `K<F, Seq<B>>`. Without `.As()`, the expression does not lower to `Fin<Seq<B>>`.
+| [INDEX] | [COMBINATOR] | [NOTES] |
+| :-----: | ------------ | ------- |
+| [1] | `.TraverseM(f) >> lower` | Fin / Validation / Option |
+| [2] | `.TraverseM(f).As()` | Eff / IO |
+| [3] | `.Traverse(identity) >> lower` | v4 `Sequence` replacement |
+| [4] | `.Choose(f)` | Filter-map to Option |
+| [5] | `.Fold(init, f)` | Immutable aggregation |
+| [6] | `.Strict()` | Materialize lazy sequences before boundary |
 
 `HashMap` algebra: `.AddOrUpdate`, `.Find`, `.Filter` — see `collections.md`.
 
 ---
-## [4][EFFECT_AND_RECOVERY]
->**Dictum:** *Host effects use runtime records; recovery is mostly unused in production.*
+## [5][EFFECT_AND_RECOVERY]
+>**Dictum:** *Host effects use runtime records; recovery is explicit.*
 
 <br>
 
-| [INDEX] | [COMBINATOR] | [RASM_USE] |
-| :-----: | ------------ | ---------- |
-| [1] | `Eff.runtime<RT>()` | Analysis (`Analyze.cs`) |
-| [2] | `Env.Asks` / `Eff.Lift` | Analysis + Exchange (`FileRuntime`) |
-| [3] | `.Run(env: runtime)` | Exchange file ops |
-| [4] | `Try.lift<Fin<T>>(f).Run()` | GH/Rhino native boundaries |
-| [5] | `Prelude.catch(...)` / `@catch` | **zero** production usage |
-| [6] | `.Retry(schedule:)` | **zero** production usage |
-
-Boundary exception capsule in Rasm: **`op.Catch(() => Fin<T>)`** — not LanguageExt `@catch`.
-
-Collapse recipe: `pipeline.Run(runtime).Run()` yields `Fin<T>` from `Eff<RT,T>`.
-
-`Fin<T>.ToEff<RT>()` is **not** a general Rasm pattern; internal lift exists for `Validation<Error,T>` on `Analyze.Env` only.
+| [INDEX] | [COMBINATOR] | [NOTES] |
+| :-----: | ------------ | ------- |
+| [1] | `Eff.runtime<RT>()` | Materialize effect with runtime record |
+| [2] | `Reader.Asks` / `Ask<R,A>` / `Prelude.liftEff` | Environment ask and pure lift |
+| [3] | `.Run` / `.RunAsync` / `.RunIO` | Collapse matrix — pick overload explicitly |
+| [4] | `Try.lift<Fin<T>>(f).Run()` | Exception capsule at native boundary |
+| [5] | `Prelude.catch` / `@catch` / `catchOf` / `catchOfFold` | Effect recovery |
+| [6] | `IO<T>.Retry(Schedule)` / `Prelude.retry` / `repeat` | Schedule-driven retry |
 
 ---
-## [5][STATE]
->**Dictum:** *Atoms react through host paint loops, not Subscribe APIs.*
+## [6][STATE]
+>**Dictum:** *Atoms swap; Subscribe APIs removed in 5.0.0-beta-77.*
 
 <br>
 
-| [INDEX] | [COMBINATOR] | [RASM_USE] |
-| :-----: | ------------ | ---------- |
-| [1] | `Atom<T>.Swap(f)` | heavy — Blocks, Wire, Interaction |
-| [2] | `Atom<T>.SwapMaybe(f)` | Motion/UI pacers |
-| [3] | `Atom<T>.SwapIO` / `SwapMaybeIO` | **zero** production usage |
-
-v5 **removed** `Subscribe`/`OnChange`/`Reset` on `Atom<T>`.
-
-Plain `Atom<HashMap<…>>` is used; `AtomHashMap`/`AtomSeq`/`AtomQue` types are **unused** in production.
+| [INDEX] | [COMBINATOR] | [NOTES] |
+| :-----: | ------------ | ------- |
+| [1] | `Atom<T>.Swap(f)` | Synchronous state transition |
+| [2] | `Atom<T>.SwapMaybe(f)` | Transition to `Option<T>` |
+| [3] | `Atom<T>.SwapIO` / `SwapMaybeIO` | IO-backed swap |
+| [4] | `AtomHashMap` / `AtomSeq` / `AtomQue` | Collection-shaped atoms |
 
 ---
-## [6][TRAITS_AND_ARROWS]
->**Dictum:** *Trait arrows are skill doctrine, not production libs.*
+## [7][PRELUDE_GUARDS]
+>**Dictum:** *Prelude guards short-circuit monadic chains.*
 
 <br>
 
-`ComposeK`, `HyloM`, `FoldArrows`, `FanoutK` appear in `.claude/skills/coding-csharp/references/transforms.md` as schematic patterns — **zero** matches in `libs/csharp/`. `Next.Loop` exists in LanguageExt v5 XML for trampolining.
+| [INDEX] | [MEMBER] | [USE] |
+| :-----: | -------- | ----- |
+| [1] | `guard(condition, error)` | Fail chain when condition false |
+| [2] | `guardnot(condition, error)` | Negated guard |
+| [3] | `Optional(x)` | Lift nullable/reference to `Option` |
+| [4] | `Some(x)` / `None` | Option constructors |
+| [5] | `identity` | `.Traverse(identity) >> lower` |
+| [6] | `toSeq` / `toHashMap` | Collection normalization |
 
-Use file-local `from..in` unless measured duplication proves trait abstraction.
+See `prelude.md` for full Prelude catalog.
 
 ---
-## [7][RULES]
->**Dictum:** *Choose combinator by failure semantics, not familiarity.*
+## [8][TRAITS]
+>**Dictum:** *Trait modules are opt-in abstraction.*
+
+<br>
+
+| [INDEX] | [SURFACE] | [NOTES] |
+| :-----: | --------- | ------- |
+| [1] | `Next.Loop` / `Next.Done` | Trampolining — in pinned XML |
+| [2] | `K<F,A>` + traits | Higher-kinded algorithms |
+| [3] | `ComposeK`, `HyloM`, `FoldArrows` | **Absent from pinned XML** |
+
+Use file-local `from..in` unless measured duplication proves trait abstraction. See `traits.md`.
+
+---
+## [9][RULES]
+>**Dictum:** *Choose combinator by failure semantics.*
 
 <br>
 
 - One fallible step → `Fin` + `Bind`/`Map`.
-- Independent fields → `Validation` + `.Apply().As()`.
+- Independent fields → `Validation` + `Apply` / `&`.
 - Host context → `Eff<RT,T>` + concrete runtime record.
-- Many fallible elements → `TraverseM` + `.As()`.
-- Optional merge → `Choose` or Option `\|`.
+- Many fallible elements → `TraverseM` + carrier-appropriate lowering.
+- Optional merge → `Choose` or validation `|`.
 - Do not create helper wrappers around combinators listed here.

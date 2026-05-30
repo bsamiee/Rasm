@@ -93,9 +93,8 @@ internal static class Output {
             Succ: source => group.Bind(binding => binding.Run(access: access, outputs: outputs, runtime: runtime, source: source)) switch {
                 Seq<object> transfers => group[0].Release(source: source, transfers: transfers),
             },
-            Fail: error => {
-                access.AddWarning(text: error.Category(), details: error.Message);
-                return group.Iter(binding => binding.Empty(access: access, outputs: outputs));
+            Fail: error => access.Emit(severity: Severity.Warning, text: error.Category(), details: error.Message) switch {
+                _ => group.Iter(binding => binding.Empty(access: access, outputs: outputs)),
             });
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -171,15 +170,15 @@ internal static class Output {
                 int count => string.Join(separator: Environment.NewLine, values: string.Create(CultureInfo.InvariantCulture, $"Unsupported source/output combinations: {count}").Cons(found.Map(static fault => fault.Message)).AsIterable()),
             }),
         };
-        _ = details.Iter(text => access.AddRemark(text: port.Name, details: text));
-        return Unit.Default;
+        return details switch {
+            { IsSome: true, Case: string text } => access.Emit(severity: Severity.Remark, text: port.Name, details: text),
+            _ => Unit.Default,
+        };
     }
-    private static Unit Warn(Port port, IDataAccess access, Error error) {
-        access.AddWarning(text: port.Name, details: error.Message);
-        return Unit.Default;
-    }
-    private static Unit RemarkEmpty<TOut>(Port<TOut> port, IDataAccess access, int slot) {
-        access.AddRemark(text: port.Name, details: "No result for sourced input.");
-        return Clear(port: port, access: access, slot: slot);
-    }
+    private static Unit Warn(Port port, IDataAccess access, Error error) =>
+        access.Emit(severity: Severity.Warning, text: port.Name, details: error.Message);
+    private static Unit RemarkEmpty<TOut>(Port<TOut> port, IDataAccess access, int slot) =>
+        access.Emit(severity: Severity.Remark, text: port.Name, details: "No result for sourced input.") switch {
+            _ => Clear(port: port, access: access, slot: slot),
+        };
 }

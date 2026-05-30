@@ -16,8 +16,9 @@
 | [1] | `Directory.Packages.props` | Central package truth. |
 | [2] | `~/.nuget/packages/mathnet.numerics/6.0.0-beta2/lib/net8.0/MathNet.Numerics.xml` | Numerics API truth. |
 | [3] | `~/.nuget/packages/mathnet.symbolics/0.25.0/lib/net8.0/MathNet.Symbolics.xml` | Symbolics API truth. |
-| [4] | Package nuspec/DLL reflection | Dependency and public-type proof. |
-| [5] | Public MathNet docs | Topic map only; verify signatures locally. |
+| [4] | `CSparse` `4.3.0` / `CSparse.xml` | Sparse direct factorization — detail in `sparse.md` |
+| [5] | Package nuspec/DLL reflection | Dependency and public-type proof. |
+| [6] | Public MathNet docs | Topic map only; verify signatures locally. |
 
 ---
 ## [2][OWNERSHIP]

@@ -94,9 +94,7 @@ public sealed record DocumentEventPipe(
         Publish(
             kind: kind,
             objects: toSeq(Objects.SelectedObjects.Select(UiRail.DocumentObjectSnapshotOf)),
-            wires: Optional(Objects.SelectedWires)
-                .Map(wires => toSeq(wires).Map(wire => Wire.SnapshotConnected(objects: Objects, wire: wire)))
-                .IfNone(Seq<WireSnapshot.ConnectedCase>()));
+            wires: Wire.SnapshotConnectedBatch(objects: Objects, document: Document, wires: Objects.SelectedWires ?? []));
 
     internal Unit PublishObject(DocumentEvent kind, Option<IDocumentObject> changed, Option<string> detail = default) =>
         Publish(

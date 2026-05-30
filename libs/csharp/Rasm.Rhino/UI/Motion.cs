@@ -163,7 +163,7 @@ public abstract partial record MotionClock {
     private MotionClock() { }
     public sealed record IdleLoopCase : MotionClock;
     public sealed record DisplayLinkCase(Option<CAFrameRateRange> Rate) : MotionClock;
-    public sealed record TimerCase(double IntervalSeconds) : MotionClock;
+    public sealed record TimerCase(double IntervalSeconds) : MotionClock { internal bool IsValid => double.IsFinite(IntervalSeconds) && IntervalSeconds >= 1.0 / 60.0; }
 
     public static readonly MotionClock IdleLoop = new IdleLoopCase();
     public static MotionClock DisplayLink(Option<CAFrameRateRange> rate = default) => new DisplayLinkCase(Rate: rate);
@@ -174,9 +174,9 @@ public abstract partial record MotionClock {
         from clock in Fin.Succ<MotionClock>(value: new DisplayLinkCase(Rate: Some(CAFrameRateRange.Create(minimum: min, maximum: max, preferred: preferred))))
         select clock;
     public static Fin<MotionClock> UITimer(double intervalSeconds = 1.0 / 60.0) =>
-        (double.IsFinite(intervalSeconds) && intervalSeconds >= 1.0 / 60.0) switch {
-            true => Fin.Succ<MotionClock>(value: new TimerCase(IntervalSeconds: intervalSeconds)),
-            false => Fin.Fail<MotionClock>(error: Op.Of(name: nameof(UITimer)).InvalidInput()),
+        new TimerCase(IntervalSeconds: intervalSeconds) switch {
+            { IsValid: true } c => Fin.Succ<MotionClock>(value: c),
+            _ => Fin.Fail<MotionClock>(error: Op.Of(name: nameof(UITimer)).InvalidInput()),
         };
 }
 
@@ -184,12 +184,22 @@ public abstract partial record MotionClock {
 public abstract partial record RedrawTarget {
     private RedrawTarget() { }
     public sealed record View(RhinoView Value) : RedrawTarget;
-    public sealed record Document(RhinoDoc Value) : RedrawTarget;
+    public sealed record Document(RhinoDoc Value, Option<RhinoView> Only = default) : RedrawTarget;
     public sealed record Canvas(Action Invalidate) : RedrawTarget;
 
+    // Document arm resolves to the SAME single view the DisplayLink paces (Only | ActiveView) and calls per-view
+    // RhinoView.Redraw() == CRhinoView_Redraw == InvalidateRect->WM_PAINT (non-blocking, OS-coalesced), keeping the painted
+    // surface identical to the paced surface (no all-views over-invalidation per 60-120Hz tick). Verdict from deep API/doc
+    // research: (1) RhinoDoc.RedrawAndReturnImmediately is a GH2 extension that just loops all views' Redraw() — adopting it
+    // would over-invalidate every viewport per tick; rejected. (2) No RedrawEnabled gate: CRhinoView_Redraw bypasses that doc
+    // flag by design, and overlay ticks are conduit-feedback paints (GetPoint-class), not the geometry-edit bursts the flag
+    // coalesces. The coalesced all-views ViewTable.Redraw(deferred:true) is the fallback ONLY when no view resolves (headless).
     internal Unit Repaint() => Switch(
         view: static v => Op.Side(() => v.Value.Redraw()),
-        document: static d => Op.Side(() => d.Value.Views.Redraw()),
+        document: static d => (d.Only | Optional(d.Value.Views.ActiveView)).Case switch {
+            RhinoView one => Op.Side(() => one.Redraw()),
+            _ => Op.Side(() => d.Value.Views.Redraw(deferred: true)),
+        },
         canvas: static c => Op.Side(() => c.Invalidate()));
 }
 
@@ -249,6 +259,8 @@ internal sealed class MotionVectorImpl<T>(T zero, double restEpsilon, Func<T, T,
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct MotionColor(double A, double R, double G, double B) {
+    public static MotionColor FromDrawing(DrawingColor c) => new(A: c.A, R: c.R, G: c.G, B: c.B);
+
     public DrawingColor Project() =>
         DrawingColor.FromArgb(alpha: Channel(value: A), red: Channel(value: R), green: Channel(value: G), blue: Channel(value: B));
 
@@ -256,21 +268,63 @@ public readonly record struct MotionColor(double A, double R, double G, double B
         Math.Clamp(value: (int)Math.Round(value), min: 0, max: 255);
 }
 
-internal sealed class MotionColorVector : IMotionVector<DrawingColor, MotionColor> {
+// Single working space: value AND velocity are MotionColor (double channels). Move stays in double space so sub-unit
+// spring velocity never byte-quantizes to zero (the never-rest defect); tween/pulse Lerp still routes through OKLab.
+internal sealed class MotionColorVector : IMotionVector<MotionColor, MotionColor> {
     public MotionColor ZeroVelocity { get; } = new(A: 0.0, R: 0.0, G: 0.0, B: 0.0);
-    public double RestEpsilon => 1.0;
-    public MotionColor Delta(DrawingColor from, DrawingColor target) =>
+    public double RestEpsilon => 0.5;                                  // half a code value in linear 0..255
+    public MotionColor Delta(MotionColor from, MotionColor target) =>
         new(A: target.A - from.A, R: target.R - from.R, G: target.G - from.G, B: target.B - from.B);
     public MotionColor Add(MotionColor a, MotionColor b) =>
         new(A: a.A + b.A, R: a.R + b.R, G: a.G + b.G, B: a.B + b.B);
     public MotionColor Scale(MotionColor value, double scalar) =>
         new(A: value.A * scalar, R: value.R * scalar, G: value.G * scalar, B: value.B * scalar);
-    public DrawingColor Move(DrawingColor value, MotionColor delta) =>
-        new MotionColor(A: value.A + delta.A, R: value.R + delta.R, G: value.G + delta.G, B: value.B + delta.B).Project();
+    public MotionColor Move(MotionColor value, MotionColor delta) =>
+        new(A: value.A + delta.A, R: value.R + delta.R, G: value.G + delta.G, B: value.B + delta.B);
     public double Norm(MotionColor value) =>
         Math.Max(Math.Max(Math.Abs(value.R), Math.Abs(value.G)), Math.Max(Math.Abs(value.B), Math.Abs(value.A)));
-    public DrawingColor Lerp(DrawingColor a, DrawingColor b, double t) =>
-        MotionVector.OklabInterpolate(a: a, b: b, factor: t);
+    public MotionColor Lerp(MotionColor a, MotionColor b, double t) =>
+        MotionColor.FromDrawing(MotionVector.OklabInterpolate(a: a.Project(), b: b.Project(), factor: t));
+}
+
+// SO(3) geodesic rotation: native Quaternion.Slerp for the orientation interpolant (NOT cellwise matrix lerp, which
+// shears). Move re-unitizes so accumulated spring integration stays on the unit hypersphere.
+internal sealed class MotionRotationVector : IMotionVector<Quaternion> {
+    public Quaternion ZeroVelocity { get; } = Quaternion.Zero;
+    public double RestEpsilon => 1e-4;
+    public Quaternion Delta(Quaternion from, Quaternion target) => target - from;
+    public Quaternion Add(Quaternion a, Quaternion b) => a + b;
+    public Quaternion Scale(Quaternion v, double s) => v * s;
+    public Quaternion Move(Quaternion v, Quaternion d) => Unit(v + d);
+    public double Norm(Quaternion v) => v.Length;
+    public Quaternion Lerp(Quaternion a, Quaternion b, double t) => Quaternion.Slerp(a, b, t);
+    private static Quaternion Unit(Quaternion q) { Quaternion r = q; _ = r.Unitize(); return r; }
+}
+
+// Rigid pose: decompose Transform -> (rotation quaternion, translation), slerp rotation + lerp translation, recompose.
+internal sealed class MotionPoseVector : IMotionVector<Transform, (Quaternion R, Vector3d T)> {
+    private static readonly MotionRotationVector Q = new();
+    public (Quaternion R, Vector3d T) ZeroVelocity => (Quaternion.Zero, Vector3d.Zero);
+    public double RestEpsilon => 1e-4;
+    public (Quaternion R, Vector3d T) Delta(Transform a, Transform b) {
+        (Quaternion ra, Vector3d ta) = Split(a);
+        (Quaternion rb, Vector3d tb) = Split(b);
+        return (rb - ra, tb - ta);
+    }
+    public (Quaternion R, Vector3d T) Add((Quaternion R, Vector3d T) a, (Quaternion R, Vector3d T) b) => (a.R + b.R, a.T + b.T);
+    public (Quaternion R, Vector3d T) Scale((Quaternion R, Vector3d T) v, double s) => (v.R * s, v.T * s);
+    public Transform Move(Transform value, (Quaternion R, Vector3d T) d) {
+        (Quaternion r, Vector3d t) = Split(value);
+        return Compose(Q.Move(r, d.R), t + d.T);
+    }
+    public double Norm((Quaternion R, Vector3d T) v) => Math.Max(v.R.Length, v.T.Length);
+    public Transform Lerp(Transform a, Transform b, double t) {
+        (Quaternion ra, Vector3d ta) = Split(a);
+        (Quaternion rb, Vector3d tb) = Split(b);
+        return Compose(Q.Lerp(ra, rb, t), new Vector3d(ta.X + ((tb.X - ta.X) * t), ta.Y + ((tb.Y - ta.Y) * t), ta.Z + ((tb.Z - ta.Z) * t)));
+    }
+    private static (Quaternion R, Vector3d T) Split(Transform m) => (m.GetQuaternion(out Quaternion q) ? q : Quaternion.Identity, new Vector3d(m[0, 3], m[1, 3], m[2, 3]));
+    private static Transform Compose(Quaternion r, Vector3d t) { Transform m = r.MatrixForm(); m[0, 3] = t.X; m[1, 3] = t.Y; m[2, 3] = t.Z; return m; }
 }
 
 public static class MotionVector {
@@ -310,6 +364,8 @@ public static class MotionVector {
         add: static (a, b) => a + b, sub: static (a, b) => a - b, scale: static (v, s) => v * s,
         norm: static v => v.Length,
         lerp: static (a, b, t) => a + ((b - a) * t));
+    // Cellwise lerp is correct for translation / uniform-scale / shear, but is NOT a rotation interpolant: the intermediate
+    // matrix is non-orthonormal and shears between orientations. Rigid orbit/gizmo consumers must use MotionVector.Pose.
     public static readonly IMotionVector<Transform> Matrix = Of(
         zero: Transform.ZeroTransformation, restEpsilon: MatrixRest,
         add: static (a, b) => Zip(a, b, static (x, y) => x + y),
@@ -317,7 +373,9 @@ public static class MotionVector {
         scale: static (v, s) => Map(v, x => x * s),
         norm: static v => toSeq(Enumerable.Range(start: 0, count: 16)).Fold(0.0, (acc, i) => Math.Max(val1: acc, val2: Math.Abs(value: v[i / 4, i % 4]))),
         lerp: static (a, b, t) => Zip(a, b, (x, y) => x + ((y - x) * t)));
-    public static readonly IMotionVector<DrawingColor, MotionColor> Color = new MotionColorVector();
+    public static readonly IMotionVector<MotionColor, MotionColor> Color = new MotionColorVector();
+    public static readonly IMotionVector<Quaternion> Rotation = new MotionRotationVector();
+    public static readonly IMotionVector<Transform, (Quaternion R, Vector3d T)> Pose = new MotionPoseVector();
 
     // BOUNDARY ADAPTER - Transform is a 4x4 value matrix; Fold threads it by value, mutating via indexer per cell.
     private static Transform Zip(Transform a, Transform b, Func<double, double, double> f) =>
@@ -377,11 +435,11 @@ internal static class Motion {
         return from validSink in Op.Of(name: nameof(Run)).Need(sink)
                from validSpec in Op.Of(name: nameof(Run)).Need(spec)
                from validClock in clock switch {
-                   MotionClock.TimerCase timer when !double.IsFinite(timer.IntervalSeconds) || timer.IntervalSeconds < 1.0 / 60.0 => Fin.Fail<MotionClock>(error: Op.Of(name: nameof(Run)).InvalidInput()),
+                   MotionClock.TimerCase { IsValid: false } => Fin.Fail<MotionClock>(error: Op.Of(name: nameof(Run)).InvalidInput()),
                    _ => Fin.Succ(value: clock),
                }
                from handle in ReduceMotion
-                   ? Settle(spec: validSpec, sink: validSink)
+                   ? Settle(spec: validSpec, sink: validSink, target: target)
                    : Dispatch(spec: validSpec, sink: validSink, target: target, clock: validClock, resolved: resolved)
                select handle;
     }
@@ -413,22 +471,23 @@ internal static class Motion {
             _ => Fin.Fail<MotionHandle<TValue, TVelocity>>(error: Op.Of(name: nameof(Run)).InvalidInput()),
         };
 
-    private static Fin<MotionHandle<TValue, TVelocity>> Settle<TValue, TVelocity>(MotionSpec<TValue, TVelocity> spec, Action<TValue> sink) {
+    private static Fin<MotionHandle<TValue, TVelocity>> Settle<TValue, TVelocity>(MotionSpec<TValue, TVelocity> spec, Action<TValue> sink, RedrawTarget target) {
         Fin<(TValue Terminal, IMotionVector<TValue, TVelocity> Vector)> resolved = spec switch {
             MotionSpec<TValue, TVelocity>.Spring s => Fin.Succ(value: (s.To, s.Vector)),
             MotionSpec<TValue, TVelocity>.Decay d => Fin.Succ(value: (d.From, d.Vector)),
             MotionSpec<TValue, TVelocity>.Tween t => Fin.Succ(value: (t.To, t.Vector)),
-            MotionSpec<TValue, TVelocity>.Pulse p => Fin.Succ(value: (p.To, p.Vector)),
+            MotionSpec<TValue, TVelocity>.Pulse p => Fin.Succ(value: ((p.Yoyo, p.Infinite, p.Cycles % 2) switch { (true, false, 0) => p.From, _ => p.To }, p.Vector)),
             MotionSpec<TValue, TVelocity>.Sequence q => Fin.Succ(value: (q.Steps.IsEmpty ? q.Start : q.Steps[q.Steps.Count - 1].Target, q.Vector)),
             _ => Fin.Fail<(TValue, IMotionVector<TValue, TVelocity>)>(error: Op.Of(name: nameof(Run)).InvalidInput()),
         };
         return resolved.Map(pair => {
             sink(pair.Terminal);
+            _ = target.Repaint();
             return new MotionHandle<TValue, TVelocity>(
                 disposer: Subscription.Empty,
                 wake: static () => Fin.Succ(value: unit),
                 steering: new MotionHandle<TValue, TVelocity>.Steering(
-                    Retarget: (toValue, _) => Fin.Succ(value: Op.Side(() => sink(toValue))),
+                    Retarget: (toValue, _) => Fin.Succ(value: Op.Side(() => { sink(toValue); _ = target.Repaint(); })),
                     Velocity: () => pair.Vector.ZeroVelocity));
         });
     }
@@ -489,14 +548,23 @@ internal static class Motion {
         }
     }
 
+    // One tick body shared by every driver: step the runner, repaint, and self-detach the pump on the rested edge.
+    private static Action Pulse<TState>(MotionRunner<TState> runner, RedrawTarget target, MotionPump pump) where TState : struct, IMotionState<TState> =>
+        () => _ = RhinoUi.Protect(valid: () => {
+            bool active = runner.Tick();
+            _ = target.Repaint();
+            _ = active ? unit : pump.Rest();
+            return Fin.Succ(value: unit);
+        }).IfFail(error => {
+            _ = Op.Side(() => RhinoApp.WriteLine(message: error.Message));
+            return pump.Rest();
+        });
+
     private static Fin<IDisposable> IdleDriver<TState>(MotionRunner<TState> runner, RedrawTarget target, MotionPump pump) where TState : struct, IMotionState<TState> =>
         // BOUNDARY ADAPTER - RhinoApp.Idle/MainLoop are native events; the handler self-detaches at rest (pump.Rest).
         Op.Of(name: nameof(Run)).Catch(() => {
-            void Tick(object? sender, EventArgs args) {
-                bool active = runner.Tick();
-                _ = target.Repaint();
-                _ = active ? unit : pump.Rest();
-            }
+            Action pulse = Pulse(runner: runner, target: target, pump: pump);
+            void Tick(object? sender, EventArgs args) => pulse();
             EventHandler handler = Tick;   // single delegate instance for symmetric +=/-=
             RhinoApp.Idle += handler;
             RhinoApp.MainLoop += handler;
@@ -510,11 +578,8 @@ internal static class Motion {
         // BOUNDARY ADAPTER - Eto.Forms.UITimer is a native fixed-interval clock; the handler self-detaches at rest (pump.Rest).
         Op.Of(name: nameof(Run)).Catch(() => {
             Eto.Forms.UITimer timer = new() { Interval = interval };
-            void Tick(object? sender, EventArgs args) {
-                bool active = runner.Tick();
-                _ = target.Repaint();
-                _ = active ? unit : pump.Rest();
-            }
+            Action pulse = Pulse(runner: runner, target: target, pump: pump);
+            void Tick(object? sender, EventArgs args) => pulse();
             timer.Elapsed += Tick;
             Subscription box = new(detachers: Seq(() => { timer.Elapsed -= Tick; timer.Stop(); timer.Dispose(); }));
             pump.Adopt(detacher: box);   // store + mark active BEFORE the initial tick can rest
@@ -524,13 +589,21 @@ internal static class Motion {
         });
 
     private static Fin<IDisposable> DisplayOrFallback<TState>(MotionRunner<TState> runner, RedrawTarget target, Option<CAFrameRateRange> rate, MotionPump pump) where TState : struct, IMotionState<TState> =>
-        (OperatingSystem.IsMacOSVersionAtLeast(major: 14), target) switch {
-            (true, RedrawTarget.View view) => Optional(Runtime.GetNSObject<NSView>(ptr: view.Value.Handle)).Case switch {
+        (OperatingSystem.IsMacOSVersionAtLeast(major: 14), ResolveView(target: target)) switch {
+            (true, { IsSome: true, Case: RhinoView rv }) => Optional(Runtime.GetNSObject<NSView>(ptr: rv.Handle)).Case switch {
                 NSView native => DisplayDriver(view: native, rate: rate, runner: runner, target: target, pump: pump),
                 _ => Caution(runner: runner, target: target, concern: "DisplayLink view exposes no native NSView", pump: pump),
             },
-            _ => Caution(runner: runner, target: target, concern: "DisplayLink requires a RhinoView on macOS 14+", pump: pump),
+            _ => Caution(runner: runner, target: target, concern: "DisplayLink requires a resolvable RhinoView on macOS 14+", pump: pump),
         };
+
+    // Resolve the vsync-bearing view: explicit View, a Document's Only view, or the document's ActiveView (so Document-bound
+    // overlay animations no longer silently fall to the idle clock when an NSView is reachable).
+    private static Option<RhinoView> ResolveView(RedrawTarget target) => target switch {
+        RedrawTarget.View v => Some(v.Value),
+        RedrawTarget.Document d => d.Only | Optional(d.Value.Views.ActiveView),
+        _ => Option<RhinoView>.None,
+    };
 
     private static Fin<IDisposable> Caution<TState>(MotionRunner<TState> runner, RedrawTarget target, string concern, MotionPump pump) where TState : struct, IMotionState<TState> {
         _ = Op.Side(() => RhinoApp.WriteLine(message: Op.Of(name: nameof(Run)).Caution(concern: concern).Message));
@@ -543,11 +616,7 @@ internal static class Motion {
         Op.Of(name: nameof(Run)).Catch(() => {
             Pacer pacer = Pacer.Start(
                 view: view,
-                onTick: () => {
-                    bool active = runner.Tick();
-                    _ = target.Repaint();
-                    _ = active ? unit : pump.Rest();
-                },
+                onTick: Pulse(runner: runner, target: target, pump: pump),
                 range: rate.IfNone(() => CAFrameRateRange.Create(minimum: 30f, maximum: 120f, preferred: 120f)));
             Subscription box = new(detachers: Seq(pacer.Dispose));
             pump.Adopt(detacher: box);
@@ -583,12 +652,33 @@ internal static class Motion {
 
         internal void Bind(Func<MotionPump, Fin<IDisposable>> attachFactory) => attach = attachFactory;
         internal Fin<Unit> Begin() => Op.Of(name: nameof(Run)).Need(attach).Bind(valid => valid(arg: this).Map(static _ => unit));
-        internal void Adopt(IDisposable detacher) { box = detacher; _ = Interlocked.CompareExchange(ref state, 1, 0); }
-        internal Unit Rest() => Interlocked.CompareExchange(ref state, 0, 1) == 1 ? Op.Side(() => box?.Dispose()) : unit;
+        internal void Adopt(Subscription detacher) {
+            _ = Volatile.Read(ref state) == 2
+                ? Op.Side(detacher.Dispose)
+                : Op.Side(() => {
+                    box = detacher;
+                    _ = Interlocked.CompareExchange(ref state, 1, 0);
+                    _ = Volatile.Read(ref state) == 2 && ReferenceEquals(objA: box, objB: detacher)
+                        ? Op.Side(() => {
+                            box = null;
+                            detacher.Dispose();
+                        })
+                        : unit;
+                });
+        }
+        internal Unit Rest() =>
+            Interlocked.CompareExchange(ref state, 0, 1) == 1
+                ? Op.Side(() => {
+                    IDisposable? live = Interlocked.Exchange(ref box, null);
+                    live?.Dispose();
+                })
+                : unit;
         internal Fin<Unit> Wake() =>
             attach is { } restart && Interlocked.CompareExchange(ref state, 1, 0) == 0
                 ? restart(arg: this).BiBind(
-                    Succ: static _ => Fin.Succ(value: unit),
+                    Succ: _ => Volatile.Read(ref state) == 2
+                        ? Fin.Fail<Unit>(error: Op.Of(name: nameof(Wake)).InvalidResult())
+                        : Fin.Succ(value: unit),
                     Fail: error => {
                         _ = Interlocked.CompareExchange(ref state, 0, 1);
                         return Fin.Fail<Unit>(error: error);
@@ -596,7 +686,10 @@ internal static class Motion {
                 : Fin.Succ(value: unit);
         public void Dispose() {
             _ = Interlocked.Exchange(ref state, 2);
-            _ = Op.Side(() => box?.Dispose());
+            _ = Op.Side(() => {
+                IDisposable? live = Interlocked.Exchange(ref box, null);
+                live?.Dispose();
+            });
         }
     }
 

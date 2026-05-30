@@ -56,8 +56,10 @@ public sealed record SpecBuilder {
     }
     public SpecBuilder Output<TOut>(Port<Shape> input, IAspect aspect, string name, string code, string info, Access access = Access.Item, Capability? policy = null, bool hidden = false) where TOut : notnull =>
         Output(binding: OutputBinding.Of<TOut>(input: input, aspect: aspect, name: name, code: code, info: info, access: access, policy: policy), hidden: hidden);
-    public SpecBuilder Output(OutputBinding binding, bool hidden = false) =>
-        this with { Outputs = Outputs.Add(value: new ComponentItem<OutputBinding>(Value: binding, Hidden: hidden)) };
+    public SpecBuilder Output(OutputBinding binding, bool hidden = false) {
+        ArgumentNullException.ThrowIfNull(argument: binding);
+        return this with { Outputs = Outputs.Add(value: new ComponentItem<OutputBinding>(Value: binding, Hidden: hidden)) };
+    }
     public SpecBuilder Threading(ThreadingState threading) => this with { ThreadingMode = threading };
     public SpecBuilder Icon(NameIconMode mode) => this with { IconMode = mode };
     public SpecBuilder Behaviour(ComponentUi ui) => this with { Ui = Ui + ui };
@@ -106,20 +108,40 @@ public abstract partial record ComponentValidationFault : Domain.Expected {
     public sealed record CodeLength(Side Side, string Port, string PortCode) : ComponentValidationFault;
     public sealed record PortCountExceeded(int Found, int Max) : ComponentValidationFault;
     public sealed record SourceNotDeclared(string Input) : ComponentValidationFault;
+    public sealed record IncompatibleCapability(Side Side, string Port, string Kind) : ComponentValidationFault;
+    public sealed record ComponentFault(string Component, ComponentValidationFault Fault) : ComponentValidationFault;
+    public sealed record CatalogPluginCount(string Assembly, int Found) : ComponentValidationFault;
+    public sealed record CatalogActivePluginMismatch(string Plugin) : ComponentValidationFault;
+    public sealed record CatalogPluginIdMismatch(string Plugin) : ComponentValidationFault;
+    public sealed record CatalogSatelliteNulls(string Plugin) : ComponentValidationFault;
+    public sealed record CatalogDocumentationMissing(string Plugin, string Folder) : ComponentValidationFault;
+    public sealed record CatalogMissingIoId(string Owner) : ComponentValidationFault;
+    public sealed record CatalogMissingNomen(string Component) : ComponentValidationFault;
+    public sealed record CatalogDuplicateKey(string Kind, string Value, string Owners) : ComponentValidationFault;
+    public sealed record PortKindTypeCollision(string ClrType, string Kinds) : ComponentValidationFault;
     public override string Category => "Component";
-    public override string Message => this switch {
-        MissingDefinition => "missing static ComponentSpec Definition",
-        ClosedSelfMismatch => "Component<TSelf> does not match concrete component type",
-        EmptyPorts fault => $"{fault.Side} ports are empty",
-        NullPort fault => $"{fault.Side} {fault.Index} is null",
-        DuplicateCode fault => $"duplicate {fault.Side} port code '{fault.PortCode}' on {fault.Ports}",
-        DuplicateName fault => $"duplicate {fault.Side} port name '{fault.Name}' on {fault.Ports}",
-        UnsupportedKind fault => $"{fault.Side} port '{fault.Port}' kind '{fault.Kind}' cannot register on {fault.Side}",
-        CodeLength fault => $"{fault.Side} port '{fault.Port}' code '{fault.PortCode}' must be {ComponentSpec.CodeMin}-{ComponentSpec.CodeMax} characters",
-        PortCountExceeded fault => $"output port count {fault.Found} exceeds {fault.Max}",
-        SourceNotDeclared fault => $"output input '{fault.Input}' is not a declared input port instance",
-        _ => "component validation fault",
-    };
+    public override string Message => Switch(
+        missingDefinition: static _ => "missing static ComponentSpec Definition",
+        closedSelfMismatch: static _ => "Component<TSelf> does not match concrete component type",
+        emptyPorts: static fault => $"{fault.Side} ports are empty",
+        nullPort: static fault => $"{fault.Side} {fault.Index} is null",
+        duplicateCode: static fault => $"duplicate {fault.Side} port code '{fault.PortCode}' on {fault.Ports}",
+        duplicateName: static fault => $"duplicate {fault.Side} port name '{fault.Name}' on {fault.Ports}",
+        unsupportedKind: static fault => $"{fault.Side} port '{fault.Port}' kind '{fault.Kind}' cannot register on {fault.Side}",
+        codeLength: static fault => $"{fault.Side} port '{fault.Port}' code '{fault.PortCode}' must be {ComponentSpec.CodeMin}-{ComponentSpec.CodeMax} characters",
+        portCountExceeded: static fault => $"output port count {fault.Found} exceeds {fault.Max}",
+        sourceNotDeclared: static fault => $"output input '{fault.Input}' is not a declared input port instance",
+        incompatibleCapability: static fault => $"{fault.Side} port '{fault.Port}' policy is incompatible with kind '{fault.Kind}'",
+        componentFault: static fault => $"{fault.Component}: {fault.Fault.Message}",
+        catalogPluginCount: static fault => $"{fault.Assembly}: expected one plugin type, found {fault.Found}",
+        catalogActivePluginMismatch: static fault => $"{fault.Plugin}: active plugin is not the assembly plugin type",
+        catalogPluginIdMismatch: static fault => $"{fault.Plugin}: plugin Id does not match IoId",
+        catalogSatelliteNulls: static fault => $"{fault.Plugin}: SatelliteAssemblies contains null entries",
+        catalogDocumentationMissing: static fault => $"{fault.Plugin}: DocumentationFolder does not exist: {fault.Folder}",
+        catalogMissingIoId: static fault => $"{fault.Owner}: missing IoId",
+        catalogMissingNomen: static fault => $"{fault.Component}: missing Nomen",
+        catalogDuplicateKey: static fault => $"duplicate {fault.Kind} '{fault.Value}' on {fault.Owners}",
+        portKindTypeCollision: static fault => $"PortKind CLR type collision for '{fault.ClrType}' on {fault.Kinds}; declare an explicit PortKind or add an explicit default policy");
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -175,9 +197,8 @@ public abstract class Component<TSelf> : ModularComponent, IRasmComponent where 
         _ = GrasshopperRuntime.Capture(access: access, inputs: cachedInputs, parameters: Parameters)
             .Match(
                 Succ: runtime => Output.Write(access: access, runtime: runtime, bindings: bindings, outputs: outputs),
-                Fail: error => {
-                    access.AddWarning(text: error.Category(), details: error.Message);
-                    return Output.Empty(access: access, bindings: bindings, outputs: outputs);
+                Fail: error => access.Emit(severity: Severity.Warning, text: error.Category(), details: error.Message) switch {
+                    _ => Output.Empty(access: access, bindings: bindings, outputs: outputs),
                 });
     }
     protected virtual void OnBeforeProcess(Solution solution) { }
@@ -213,37 +234,57 @@ public abstract class Plugin : GhPlugin {
         Seq<Type> components = types
             .Filter(static type => typeof(IRasmComponent).IsAssignableFrom(c: type) && !type.IsAbstract && !type.IsGenericTypeDefinition)
             .Distinct();
-        Seq<string> faults = ValidateCatalog(active: this, plugins: plugins, components: components, satellites: satellites, declaredSatellites: declaredSatellites)
-            .Concat(components.Bind(type => Validate(spec: type).Map(fault => $"{type.FullName}: {fault.Message}")));
+        Seq<ComponentValidationFault> faults = ValidateCatalog(active: this, plugins: plugins, components: components, satellites: satellites, declaredSatellites: declaredSatellites)
+            .Concat(components.Bind(type => Validate(spec: type).Map(fault => new ComponentValidationFault.ComponentFault(Component: type.FullName ?? type.Name, Fault: fault))));
         // BOUNDARY ADAPTER -- GH2 plugin-load entry; a mis-declared catalog is a fatal developer error surfaced fail-fast at load.
-        _ = faults.IsEmpty ? Unit.Default : throw new InvalidOperationException(message: string.Join(separator: "; ", values: faults));
+        _ = faults.IsEmpty ? Unit.Default : throw new InvalidOperationException(message: string.Join(separator: "; ", values: faults.Map(static fault => fault.Message)));
     }
-    private static Seq<string> ValidateCatalog(Plugin active, Seq<Type> plugins, Seq<Type> components, Assembly[] satellites, Seq<Assembly> declaredSatellites) {
+    private static Seq<ComponentValidationFault> ValidateCatalog(Plugin active, Seq<Type> plugins, Seq<Type> components, Assembly[] satellites, Seq<Assembly> declaredSatellites) {
         Type activeType = active.GetType();
         Option<Guid> IoIdOf(Type type) => Optional(type.GetCustomAttribute<IoIdAttribute>(inherit: false)).Map(static attr => attr.Id);
         Option<Nomen> NomenOf(Type type) => Optional(type.GetCustomAttribute<NomenAttribute>(inherit: false)).Map(static attr => attr.Nomen);
-        Seq<string> DuplicateTypes(Seq<Type> candidates, string key, Func<Type, string> project) =>
+        Seq<ComponentValidationFault> DuplicateTypes(Seq<Type> candidates, string key, Func<Type, string> project) =>
             toSeq(candidates.Map(type => (Type: type, Key: project(arg: type))).Filter(static item => !string.IsNullOrWhiteSpace(value: item.Key))
                 .GroupBy(keySelector: static item => item.Key, comparer: StringComparer.Ordinal)
                 .Where(static group => group.Skip(1).Any())
-                .Select(group => $"duplicate {key} '{group.Key}' on {string.Join(separator: ", ", values: group.Select(static item => item.Type.FullName))}"));
+                .Select(group => (ComponentValidationFault)new ComponentValidationFault.CatalogDuplicateKey(
+                    Kind: key,
+                    Value: group.Key,
+                    Owners: string.Join(separator: ", ", values: group.Select(static item => item.Type.FullName ?? item.Type.Name)))));
         Seq<Type> owners = plugins.Concat(components).ToSeq();
         bool declaredDocumentation = activeType.GetProperty(name: nameof(DocumentationFolder), bindingAttr: BindingFlags.Public | BindingFlags.Instance)?.DeclaringType switch {
             Type owner => owner != typeof(GhPlugin),
             _ => false,
         };
         return Seq(
-                plugins.Count == 1 ? Option<string>.None : Some($"{activeType.Assembly.GetName().Name}: expected one plugin type, found {plugins.Count}"),
-                plugins.Exists(type => type == activeType) ? Option<string>.None : Some($"{activeType.FullName}: active plugin is not the assembly plugin type"),
-                IoIdOf(type: activeType).Filter(id => id == active.Id).IsSome ? Option<string>.None : Some($"{activeType.FullName}: plugin Id does not match IoId"),
-                declaredSatellites.Count == satellites.Length ? Option<string>.None : Some($"{activeType.FullName}: SatelliteAssemblies contains null entries"),
-                declaredDocumentation && !string.IsNullOrWhiteSpace(value: active.DocumentationFolder) && !Directory.Exists(path: active.DocumentationFolder) ? Some($"{activeType.FullName}: DocumentationFolder does not exist: {active.DocumentationFolder}") : Option<string>.None)
+                plugins.Count == 1
+                    ? Option<ComponentValidationFault>.None
+                    : Some<ComponentValidationFault>(new ComponentValidationFault.CatalogPluginCount(Assembly: activeType.Assembly.GetName().Name ?? activeType.Name, Found: plugins.Count)),
+                plugins.Exists(type => type == activeType)
+                    ? Option<ComponentValidationFault>.None
+                    : Some<ComponentValidationFault>(new ComponentValidationFault.CatalogActivePluginMismatch(Plugin: activeType.FullName ?? activeType.Name)),
+                IoIdOf(type: activeType).Filter(id => id == active.Id).IsSome
+                    ? Option<ComponentValidationFault>.None
+                    : Some<ComponentValidationFault>(new ComponentValidationFault.CatalogPluginIdMismatch(Plugin: activeType.FullName ?? activeType.Name)),
+                declaredSatellites.Count == satellites.Length
+                    ? Option<ComponentValidationFault>.None
+                    : Some<ComponentValidationFault>(new ComponentValidationFault.CatalogSatelliteNulls(Plugin: activeType.FullName ?? activeType.Name)),
+                declaredDocumentation && !string.IsNullOrWhiteSpace(value: active.DocumentationFolder) && !Directory.Exists(path: active.DocumentationFolder)
+                    ? Some<ComponentValidationFault>(new ComponentValidationFault.CatalogDocumentationMissing(Plugin: activeType.FullName ?? activeType.Name, Folder: active.DocumentationFolder))
+                    : Option<ComponentValidationFault>.None)
             .Choose(identity)
-            .Concat(owners.Choose(type => IoIdOf(type: type).IsSome ? Option<string>.None : Some($"{type.FullName}: missing IoId")))
+            .Concat(owners.Choose(type => IoIdOf(type: type).IsSome
+                ? Option<ComponentValidationFault>.None
+                : Some<ComponentValidationFault>(new ComponentValidationFault.CatalogMissingIoId(Owner: type.FullName ?? type.Name))))
             .Concat(DuplicateTypes(candidates: owners, key: "IoId", project: type => IoIdOf(type: type).Map(static id => id.ToString()).IfNone(string.Empty)))
-            .Concat(components.Choose(type => NomenOf(type: type).IsSome ? Option<string>.None : Some($"{type.FullName}: missing Nomen")))
+            .Concat(components.Choose(type => NomenOf(type: type).IsSome
+                ? Option<ComponentValidationFault>.None
+                : Some<ComponentValidationFault>(new ComponentValidationFault.CatalogMissingNomen(Component: type.FullName ?? type.Name))))
             .Concat(DuplicateTypes(candidates: components, key: "Nomen", project: type => NomenOf(type: type).Map(static n => $"{n.Chapter}/{n.Section}/{n.Name}").IfNone(string.Empty)))
-            .Concat(DuplicateTypes(candidates: components, key: "category/name", project: type => NomenOf(type: type).Map(static n => $"{n.Chapter}/{n.Name}").IfNone(string.Empty)));
+            .Concat(DuplicateTypes(candidates: components, key: "category/name", project: type => NomenOf(type: type).Map(static n => $"{n.Chapter}/{n.Name}").IfNone(string.Empty)))
+            .Concat(PortKind.TypeCollisions.Map(static collision => (ComponentValidationFault)new ComponentValidationFault.PortKindTypeCollision(
+                ClrType: collision.Type.FullName ?? collision.Type.Name,
+                Kinds: string.Join(separator: ", ", values: collision.Kinds.Map(static kind => kind.ToString())))));
     }
     private static Seq<ComponentValidationFault> Validate(Type spec) =>
         spec.GetProperty(name: "Definition", bindingAttr: BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)?.GetValue(obj: null) switch {
@@ -273,7 +314,11 @@ public abstract class Plugin : GhPlugin {
             port.Kind.Supports(side: side.Side) ? Option<ComponentValidationFault>.None : Some<ComponentValidationFault>(new ComponentValidationFault.UnsupportedKind(Side: side.Side, Port: port.Name, Kind: port.Kind.ToString()))));
         Seq<ComponentValidationFault> codeLengths = sides.Bind(side => side.Ports.Choose(port =>
             port.Code.Length is >= ComponentSpec.CodeMin and <= ComponentSpec.CodeMax ? Option<ComponentValidationFault>.None : Some<ComponentValidationFault>(new ComponentValidationFault.CodeLength(Side: side.Side, Port: port.Name, PortCode: port.Code))));
-        return structural.Concat(sourceFaults).Concat(nullFaults).Concat(duplicates).Concat(sideSupport).Concat(codeLengths).ToSeq();
+        Seq<ComponentValidationFault> capabilityFaults = sides.Bind(side => side.Ports.Choose(port =>
+            port.Policy.CompatibleWith(kind: port.Kind)
+                ? Option<ComponentValidationFault>.None
+                : Some<ComponentValidationFault>(new ComponentValidationFault.IncompatibleCapability(Side: side.Side, Port: port.Name, Kind: port.Kind.ToString()))));
+        return structural.Concat(sourceFaults).Concat(nullFaults).Concat(duplicates).Concat(sideSupport).Concat(codeLengths).Concat(capabilityFaults).ToSeq();
     }
     private static bool ClosedComponentSelf(Type type) =>
         type.BaseType switch {

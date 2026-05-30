@@ -10,13 +10,15 @@ public abstract partial record IoScheduler {
     public sealed record Sequential : IoScheduler;
     public sealed record Parallel(int? MaxDegree = null) : IoScheduler;
 
-    internal Seq<TOut> Filter<TIn, TOut>(IEnumerable<TIn> source, Func<TIn, bool> predicate, Func<TIn, TOut> map) =>
+    internal Fin<Seq<TOut>> Filter<TIn, TOut>(IEnumerable<TIn> source, Func<TIn, bool> predicate, Func<TIn, TOut> map) =>
         Switch(
             (Source: source, Predicate: predicate, Map: map),
-            sequential: static (ctx, _) => toSeq(ctx.Source.Where(ctx.Predicate).Select(ctx.Map)),
-            parallel: static (ctx, par) => toSeq((par.MaxDegree is int max
-                ? ctx.Source.AsParallel().WithDegreeOfParallelism(max)
-                : ctx.Source.AsParallel()).Where(ctx.Predicate).Select(ctx.Map)));
+            sequential: static (ctx, _) => Fin.Succ(toSeq(ctx.Source.Where(ctx.Predicate).Select(ctx.Map))),
+            parallel: static (ctx, par) => par.MaxDegree switch {
+                int max when max <= 0 => Fin.Fail<Seq<TOut>>(error: Op.Of(name: nameof(IoScheduler)).InvalidInput()),
+                int max => Fin.Succ(toSeq(ctx.Source.AsParallel().WithDegreeOfParallelism(max).Where(ctx.Predicate).Select(ctx.Map))),
+                _ => Fin.Succ(toSeq(ctx.Source.AsParallel().Where(ctx.Predicate).Select(ctx.Map))),
+            });
 }
 
 public readonly record struct FileRuntime {

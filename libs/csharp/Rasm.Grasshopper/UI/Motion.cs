@@ -112,6 +112,12 @@ public partial record CosmeticIntent {
     private CosmeticIntent() { }
     public Option<Func<Unit>> Completion { get; init; }
     public Option<Easing> Keyframe { get; init; }
+    // GPU spring opt-in (additive, default None): when present the property animation is a CASpringAnimation
+    // driven by the SAME SpringConfig as the CPU spring, unifying CPU+GPU spring on one parameterization.
+    public Option<SpringConfig> Spring { get; init; }
+    // Co-animation opt-in (additive, default None): the child intents' animations are grouped onto the SAME
+    // layer as this intent under ONE completion delegate — children must target DISTINCT key-paths.
+    public Option<Seq<CosmeticIntent>> CoAnimate { get; init; }
     public sealed record PulseCase(RectangleF Bounds, Color Tint, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
     public sealed record GlowCase(RectangleF Bounds, Color Tint, float CornerRadius, float ShadowRadius, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false, GhMotion Easing = GhMotion.EaseInOut, float BorderWidth = 0f, Option<Color> BorderColor = default, float BlurRadius = 0f) : CosmeticIntent;
     public sealed record StrokeOnCase(ReadOnlyMemory<PointF> Polyline, Color Tint, float Thickness, GhDuration Duration, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
@@ -163,6 +169,9 @@ public interface IMotionVector<T> {
     public T Scale(T value, float scalar);
     public float Norm(T value);
     public T Interpolate(T value0, T value1, double factor);
+    // Opaque-T springs cannot otherwise reject a NaN target (NaN < eps is always false → infinite pump);
+    // the type owns per-component finiteness so the generic entrypoints can gate start/target.
+    public bool IsFinite(T value);
 }
 
 internal interface IMotionState<TSelf> where TSelf : struct, IMotionState<TSelf> {
@@ -287,21 +296,72 @@ public sealed partial class SpringPreset {
 
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct SpringRunnerState<T>(T Value, T Velocity, T Target, SpringConfig Config, IMotionVector<T> Vector, Action<T> Sink, TimeProvider Clock, long Timestamp) : IMotionState<SpringRunnerState<T>> {
-    // Semi-implicit Euler: F = -k·x - b·v ; a = F/m ; v += a·dt ; x += v·dt.
+    // Analytic damped-spring step (Juckett): exact cached coefficients for the current dt, so the integration
+    // is frame-rate-independent and unconditionally stable for any stiffness/mass — no dt clamp, and a single
+    // large dt teleports to the exact analytic state. The coefficients ARE ∂(pos,vel)/∂(pos0,vel0) at t=dt.
     public SpringRunnerState<T> Step(float frameDeltaSeconds) {
         long now = Clock.GetTimestamp();
         float dt = frameDeltaSeconds > 0f
-            ? Math.Min(val1: frameDeltaSeconds, val2: Motion.MaxFrameDelta)
-            : Math.Min(val1: (float)Clock.GetElapsedTime(startingTimestamp: Timestamp, endingTimestamp: now).TotalSeconds, val2: Motion.MaxFrameDelta);
+            ? frameDeltaSeconds
+            : (float)Clock.GetElapsedTime(startingTimestamp: Timestamp, endingTimestamp: now).TotalSeconds;
+        float omega0 = MathF.Sqrt(Config.Stiffness / Config.Mass);
+        float zeta = Config.Damping / (2f * MathF.Sqrt(Config.Stiffness * Config.Mass));
+        (float posPos, float posVel, float velPos, float velVel) = StepCoefficients(omega0: omega0, zeta: zeta, dt: dt);
         T displacement = Vector.Subtract(Value, Target);
-        T accel = Vector.Scale(
-            Vector.Add(
-                Vector.Scale(displacement, -Config.Stiffness),
-                Vector.Scale(Velocity, -Config.Damping)),
-            1f / Config.Mass);
-        T newVelocity = Vector.Add(Velocity, Vector.Scale(accel, dt));
-        T newValue = Vector.Add(Value, Vector.Scale(newVelocity, dt));
-        return this with { Value = newValue, Velocity = newVelocity, Timestamp = now };
+        T newDisplacement = Vector.Add(Vector.Scale(displacement, posPos), Vector.Scale(Velocity, posVel));
+        T newVelocity = Vector.Add(Vector.Scale(displacement, velPos), Vector.Scale(Velocity, velVel));
+        return this with { Value = Vector.Add(Target, newDisplacement), Velocity = newVelocity, Timestamp = now };
+    }
+
+    // Juckett's cached step coefficients per regime; an epsilon band on ζ classifies under/critical/over and
+    // a near-zero ω0 short-circuits to the identity step. Verified to machine precision against the continuous
+    // solution's partial derivatives (the overdamped velPos trailing *z2 is correct, not a *z1 typo).
+    private static (float PosPos, float PosVel, float VelPos, float VelVel) StepCoefficients(float omega0, float zeta, float dt) {
+        const float epsilon = 1e-4f;
+        float w0 = MathF.Max(0f, omega0);
+        float z = MathF.Max(0f, zeta);
+
+        static (float, float, float, float) Underdamped(float w0, float z, float dt) {
+            float oz = w0 * z;
+            float al = w0 * MathF.Sqrt(1f - (z * z));
+            float e = MathF.Exp(-oz * dt);
+            float cs = MathF.Cos(al * dt);
+            float sn = MathF.Sin(al * dt);
+            float ia = 1f / al;
+            float expSin = e * sn;
+            float expCos = e * cs;
+            float eOzSinOa = e * oz * sn * ia;
+            return (expCos + eOzSinOa, expSin * ia, (-expSin * al) - (oz * eOzSinOa), expCos - eOzSinOa);
+        }
+
+        static (float, float, float, float) Critical(float w0, float dt) {
+            float e = MathF.Exp(-w0 * dt);
+            float te = dt * e;
+            float tef = te * w0;
+            return (tef + e, te, -w0 * tef, e - tef);
+        }
+
+        static (float, float, float, float) Overdamped(float w0, float z, float dt) {
+            float za = -w0 * z;
+            float zb = w0 * MathF.Sqrt((z * z) - 1f);
+            float z1 = za - zb;
+            float z2 = za + zb;
+            float e1 = MathF.Exp(z1 * dt);
+            float e2 = MathF.Exp(z2 * dt);
+            float invTwoZb = 1f / (2f * zb);
+            float e1o = e1 * invTwoZb;
+            float e2o = e2 * invTwoZb;
+            float z1e1o = z1 * e1o;
+            float z2e2o = z2 * e2o;
+            return ((e1o * z2) - z2e2o + e2, e2o - e1o, (z1e1o - z2e2o + e2) * z2, z2e2o - z1e1o);
+        }
+
+        return (w0 < epsilon, z < 1f - epsilon, z > 1f + epsilon) switch {
+            (true, _, _) => (1f, 0f, 0f, 1f),
+            (_, true, _) => Underdamped(w0: w0, z: z, dt: dt),
+            (_, _, true) => Overdamped(w0: w0, z: z, dt: dt),
+            _ => Critical(w0: w0, dt: dt),
+        };
     }
 
     public Unit Emit() { Sink(Value); return unit; }
@@ -326,21 +386,39 @@ public sealed class SpringHandle<T> : IDisposable {
     public T CurrentTarget => cell.Value.Target;
     public bool IsConverged => !cell.Value.IsActive;
 
-    public Unit Retarget(T target, Option<T> initialVelocity = default) {
-        _ = cell.Swap(state => state with {
-            Target = target,
-            Velocity = initialVelocity.IfNone(state.Velocity),
-        });
-        wake();
-        return unit;
+    public Fin<Unit> Retarget(T target, Option<T> initialVelocity = default) {
+        SpringRunnerState<T> snapshot = cell.Value;
+        return from validTarget in Op.Of(name: nameof(Retarget)).AcceptFinite(value: target, vector: snapshot.Vector, detail: "spring target/velocity must be finite")
+               from validVelocity in initialVelocity
+                   .Map(value => Op.Of(name: nameof(Retarget)).AcceptFinite(value: value, vector: snapshot.Vector, detail: "spring target/velocity must be finite").Map(Some))
+                   .IfNone(Fin.Succ(value: Option<T>.None))
+               select Op.Side(() => {
+                   _ = cell.Swap(state => state with {
+                       Target = validTarget,
+                       Velocity = validVelocity.IfNone(state.Velocity),
+                   });
+                   wake();
+               });
     }
 
-    public Unit RetargetWhen(T target, Func<T, bool> shouldUpdate, Option<T> initialVelocity = default) {
-        _ = cell.SwapMaybe(state => shouldUpdate(state.Target)
-            ? Some(state with { Target = target, Velocity = initialVelocity.IfNone(state.Velocity) })
-            : Option<SpringRunnerState<T>>.None);
-        wake();
-        return unit;
+    public Fin<Unit> RetargetWhen(T target, Func<T, bool> shouldUpdate, Option<T> initialVelocity = default) {
+        SpringRunnerState<T> snapshot = cell.Value;
+        return from validUpdate in Optional(shouldUpdate).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(RetargetWhen)), detail: "predicate is required"))
+               from validTarget in Op.Of(name: nameof(RetargetWhen)).AcceptFinite(value: target, vector: snapshot.Vector, detail: "spring target/velocity must be finite")
+               from validVelocity in initialVelocity
+                   .Map(value => Op.Of(name: nameof(RetargetWhen)).AcceptFinite(value: value, vector: snapshot.Vector, detail: "spring target/velocity must be finite").Map(Some))
+                   .IfNone(Fin.Succ(value: Option<T>.None))
+               from result in validUpdate(arg: snapshot.Target) switch {
+                   false => Fin.Succ(value: unit),
+                   true => Fin.Succ(value: Op.Side(() => {
+                       _ = cell.Swap(state => state with {
+                           Target = validTarget,
+                           Velocity = validVelocity.IfNone(state.Velocity),
+                       });
+                       wake();
+                   })),
+               }
+               select result;
     }
 
     public void Dispose() => subscription.Dispose();
@@ -363,20 +441,49 @@ public sealed class PulseHandle<T> : IDisposable {
     public T CurrentTarget => cell.Value.To;
     public bool IsCycling => cell.Value.IsActive;
 
-    public Unit Retarget(T target, Option<int> cycles = default) {
-        _ = cell.Swap(state => state with {
-            From = state.Animated.ValueNow,
-            To = target,
-            CyclesRemaining = cycles.IfNone(state.CyclesRemaining),
-            Animated = Animated<T>.CreateUnfinished(
-                value0: state.Animated.ValueNow,
-                value1: target,
-                duration: Animators.DurationToTimeSpan(duration: state.Duration),
-                motion: state.Easing,
-                interpolator: state.Vector.Interpolate),
-        });
-        wake();
-        return unit;
+    public Fin<Unit> Retarget(T target, Option<int> cycles = default) {
+        PulseRunnerState<T> snapshot = cell.Value;
+        return from validTarget in Op.Of(name: nameof(Retarget)).AcceptFinite(value: target, vector: snapshot.Vector, detail: "pulse target must be finite")
+               select Op.Side(() => {
+                   _ = cell.Swap(state => state with {
+                       From = state.Animated.ValueNow,
+                       To = validTarget,
+                       CyclesRemaining = cycles.IfNone(state.CyclesRemaining),
+                       Animated = Animated<T>.CreateUnfinished(
+                           value0: state.Animated.ValueNow,
+                           value1: validTarget,
+                           duration: Animators.DurationToTimeSpan(duration: state.Duration),
+                           motion: state.Easing,
+                           interpolator: state.Vector.Interpolate),
+                   });
+                   wake();
+               });
+    }
+
+    // Symmetric with SpringHandle.RetargetWhen: only re-seed the curve when the predicate accepts the current
+    // target, so a stale retarget is a no-op rather than a restart.
+    public Fin<Unit> RetargetWhen(T target, Func<T, bool> shouldUpdate, Option<int> cycles = default) {
+        PulseRunnerState<T> snapshot = cell.Value;
+        return from validUpdate in Optional(shouldUpdate).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(RetargetWhen)), detail: "predicate is required"))
+               from validTarget in Op.Of(name: nameof(RetargetWhen)).AcceptFinite(value: target, vector: snapshot.Vector, detail: "pulse target must be finite")
+               from result in validUpdate(arg: snapshot.To) switch {
+                   false => Fin.Succ(value: unit),
+                   true => Fin.Succ(value: Op.Side(() => {
+                       _ = cell.Swap(state => state with {
+                           From = state.Animated.ValueNow,
+                           To = validTarget,
+                           CyclesRemaining = cycles.IfNone(state.CyclesRemaining),
+                           Animated = Animated<T>.CreateUnfinished(
+                               value0: state.Animated.ValueNow,
+                               value1: validTarget,
+                               duration: Animators.DurationToTimeSpan(duration: state.Duration),
+                               motion: state.Easing,
+                               interpolator: state.Vector.Interpolate),
+                       });
+                       wake();
+                   })),
+               }
+               select result;
     }
 
     public void Dispose() => subscription.Dispose();
@@ -415,7 +522,8 @@ public static class MotionVector {
         subtract: static (a, b) => a - b,
         scale: static (v, s) => v * s,
         norm: static v => Math.Abs(v),
-        interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
+        interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t),
+        isFinite: static v => float.IsFinite(v));
     public static readonly IMotionVector<double> Double = new MotionVectorImpl<double>(
         zero: 0.0,
         restEpsilon: ScalarRest,
@@ -423,23 +531,26 @@ public static class MotionVector {
         subtract: static (a, b) => a - b,
         scale: static (v, s) => v * s,
         norm: static v => (float)Math.Abs(v),
-        interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
+        interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t),
+        isFinite: static v => double.IsFinite(v));
     public static readonly IMotionVector<PointF> PointF = new MotionVectorImpl<PointF>(
         zero: Eto.Drawing.PointF.Empty,
         restEpsilon: PixelRest,
-        add: static (a, b) => new PointF(a.X + b.X, a.Y + b.Y),
-        subtract: static (a, b) => new PointF(a.X - b.X, a.Y - b.Y),
-        scale: static (v, s) => new PointF(v.X * s, v.Y * s),
-        norm: static v => MathF.Sqrt((v.X * v.X) + (v.Y * v.Y)),
-        interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
+        add: static (a, b) => a + b,
+        subtract: static (a, b) => a - b,
+        scale: static (v, s) => v * s,
+        norm: static v => v.Length,
+        interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t),
+        isFinite: static v => float.IsFinite(v.X) && float.IsFinite(v.Y));
     public static readonly IMotionVector<SizeF> SizeF = new MotionVectorImpl<SizeF>(
         zero: Eto.Drawing.SizeF.Empty,
         restEpsilon: PixelRest,
-        add: static (a, b) => new SizeF(a.Width + b.Width, a.Height + b.Height),
-        subtract: static (a, b) => new SizeF(a.Width - b.Width, a.Height - b.Height),
-        scale: static (v, s) => new SizeF(v.Width * s, v.Height * s),
+        add: static (a, b) => a + b,
+        subtract: static (a, b) => a - b,
+        scale: static (v, s) => v * s,
         norm: static v => MathF.Sqrt((v.Width * v.Width) + (v.Height * v.Height)),
-        interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
+        interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t),
+        isFinite: static v => float.IsFinite(v.Width) && float.IsFinite(v.Height));
     public static readonly IMotionVector<RectangleF> RectangleF = new MotionVectorImpl<RectangleF>(
         zero: Eto.Drawing.RectangleF.Empty,
         restEpsilon: PixelRest,
@@ -447,7 +558,8 @@ public static class MotionVector {
         subtract: static (a, b) => new RectangleF(a.X - b.X, a.Y - b.Y, a.Width - b.Width, a.Height - b.Height),
         scale: static (v, s) => new RectangleF(v.X * s, v.Y * s, v.Width * s, v.Height * s),
         norm: static v => Math.Max(Math.Max(Math.Abs(v.X), Math.Abs(v.Y)), Math.Max(Math.Abs(v.Width), Math.Abs(v.Height))),
-        interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
+        interpolate: static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t),
+        isFinite: static v => float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Width) && float.IsFinite(v.Height));
     public static readonly IMotionVector<Color> Color = ColorChannels(static (a, b, t) => Interpolators.Interpolate(value0: a, value1: b, factor: t));
     public static double Phase(TimeSpan period, TimeProvider? clock = null) {
         TimeProvider source = clock ?? TimeProvider.System;
@@ -473,7 +585,8 @@ public static class MotionVector {
             subtract: static (a, b) => new Color(red: a.R - b.R, green: a.G - b.G, blue: a.B - b.B, alpha: a.A - b.A),
             scale: static (v, s) => new Color(red: v.R * s, green: v.G * s, blue: v.B * s, alpha: v.A * s),
             norm: static v => Math.Max(Math.Max(Math.Abs(v.R), Math.Abs(v.G)), Math.Max(Math.Abs(v.B), Math.Abs(v.A))),
-            interpolate: interpolate);
+            interpolate: interpolate,
+            isFinite: static v => float.IsFinite(v.R) && float.IsFinite(v.G) && float.IsFinite(v.B) && float.IsFinite(v.A));
 
     private static Color HslInterpolate(Color a, Color b, double factor) {
         ColorHSL ha = a;
@@ -481,24 +594,37 @@ public static class MotionVector {
         float tf = (float)factor;
         // Shortest hue arc in [-180, +180].
         float hueDelta = ((hb.H - ha.H + 540f) % 360f) - 180f;
+        float alphaA = ha.A;
+        float alphaB = hb.A;
+        float aMix = alphaA + ((alphaB - alphaA) * tf);
+        // Premultiply S/L by alpha (hue is angular), mix, un-premultiply — no bleed from a transparent endpoint.
+        float sMix = (ha.S * alphaA) + (((hb.S * alphaB) - (ha.S * alphaA)) * tf);
+        float lMix = (ha.L * alphaA) + (((hb.L * alphaB) - (ha.L * alphaA)) * tf);
         return new ColorHSL(
             hue: ha.H + (hueDelta * tf),
-            saturation: ha.S + ((hb.S - ha.S) * tf),
-            luminance: ha.L + ((hb.L - ha.L) * tf),
-            alpha: ha.A + ((hb.A - ha.A) * tf));
+            saturation: aMix > 0f ? sMix / aMix : 0f,
+            luminance: aMix > 0f ? lMix / aMix : 0f,
+            alpha: aMix);
     }
 
     // --- [OKLAB CONVERSION] ----------------------------------------------------------------
     // Ottosson 2020: sRGB → linear → LMS → OKLab and back.
+    // Premultiplied-alpha mixing (CSS Color Level 4 §12.4): premultiply L/a/b by alpha before the mix and
+    // un-premultiply after, so a transparent endpoint contributes no colour (no hue bleed at aMix==0).
     private static Color OklabInterpolate(Color a, Color b, double factor) {
         (float la, float aa, float ba) = SrgbToOklab(a);
         (float lb, float ab, float bb) = SrgbToOklab(b);
         float tf = (float)factor;
-        (float L, float A, float B) mix = (
-            L: la + ((lb - la) * tf),
-            A: aa + ((ab - aa) * tf),
-            B: ba + ((bb - ba) * tf));
-        return OklabToSrgb(mix, alpha: a.A + ((b.A - a.A) * tf));
+        float alphaA = a.A;
+        float alphaB = b.A;
+        float aMix = alphaA + ((alphaB - alphaA) * tf);
+        float lMix = (la * alphaA) + (((lb * alphaB) - (la * alphaA)) * tf);
+        float aChMix = (aa * alphaA) + (((ab * alphaB) - (aa * alphaA)) * tf);
+        float bMix = (ba * alphaA) + (((bb * alphaB) - (ba * alphaA)) * tf);
+        (float L, float A, float B) mix = aMix > 0f
+            ? (L: lMix / aMix, A: aChMix / aMix, B: bMix / aMix)
+            : (L: 0f, A: 0f, B: 0f);
+        return OklabToSrgb(mix, alpha: aMix);
     }
 
     private static Color OklchInterpolate(Color a, Color b, double factor) {
@@ -511,11 +637,16 @@ public static class MotionVector {
         // Shortest hue arc in radians.
         float hueDelta = ((hb - ha + (3f * MathF.PI)) % (2f * MathF.PI)) - MathF.PI;
         float tf = (float)factor;
+        float alphaA = a.A;
+        float alphaB = b.A;
+        float aMix = alphaA + ((alphaB - alphaA) * tf);
         float hMix = ha + (hueDelta * tf);
-        float lMix = la + ((lb - la) * tf);
-        float cMix = ca + ((cb - ca) * tf);
-        (float L, float A, float B) mix = (L: lMix, A: cMix * MathF.Cos(hMix), B: cMix * MathF.Sin(hMix));
-        return OklabToSrgb(mix, alpha: a.A + ((b.A - a.A) * tf));
+        // Premultiply L and chroma by alpha (hue is angular, interpolated directly), then un-premultiply.
+        float lMix = (la * alphaA) + (((lb * alphaB) - (la * alphaA)) * tf);
+        float cMix = (ca * alphaA) + (((cb * alphaB) - (ca * alphaA)) * tf);
+        (float lcL, float lcC) = aMix > 0f ? (lMix / aMix, cMix / aMix) : (0f, 0f);
+        (float L, float A, float B) mix = (lcL, lcC * MathF.Cos(hMix), lcC * MathF.Sin(hMix));
+        return OklabToSrgb(mix, alpha: aMix);
     }
 
     private static (float L, float A, float B) SrgbToOklab(Color rgb) {
@@ -565,7 +696,8 @@ internal sealed class MotionVectorImpl<T>(
     Func<T, T, T> subtract,
     Func<T, float, T> scale,
     Func<T, float> norm,
-    Func<T, T, double, T> interpolate) : IMotionVector<T> {
+    Func<T, T, double, T> interpolate,
+    Func<T, bool> isFinite) : IMotionVector<T> {
     public T Zero { get; } = zero;
     public float RestEpsilon { get; } = restEpsilon;
     public T Add(T a, T b) => add(arg1: a, arg2: b);
@@ -573,6 +705,7 @@ internal sealed class MotionVectorImpl<T>(
     public T Scale(T value, float scalar) => scale(arg1: value, arg2: scalar);
     public float Norm(T value) => norm(arg: value);
     public T Interpolate(T value0, T value1, double factor) => interpolate(arg1: value0, arg2: value1, arg3: factor);
+    public bool IsFinite(T value) => isFinite(arg: value);
 }
 
 public static class Spark {
@@ -606,12 +739,7 @@ public static class Glyph {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static class Motion {
-    // dt clamp prevents spring blowup on debugger/GC stalls (33ms = 30fps floor).
-    internal const float MaxFrameDelta = 1f / 30f;
-    // Decorative GPU-chrome metrics: estimated glyph advance / line height (no CTFramesetter pass) and the
-    // default retina backing scale when a screen cannot be resolved.
-    private const float GlyphAdvanceRatio = 0.62f;
-    private const float LineHeightRatio = 1.4f;
+    // Default retina backing scale when a screen cannot be resolved.
     private const float RetinaScaleDefault = 2f;
 
     // Shared scaffold: NeedCanvas + PacerOption + Paint.Hook + bundle + initial wake. Variant services
@@ -667,6 +795,9 @@ internal static class Motion {
         GhUi.Canvas(run: scope =>
             from validVector in Optional(vector).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "vector is required"))
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "sink delegate is required"))
+            from _finite in validVector.IsFinite(target)
+                ? Fin.Succ(value: unit)
+                : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "spring target must be finite"))
             from canvas in scope.NeedCanvas()
             from _ in Op.Of(name: nameof(Spring)).Attempt(body: () => { validSink(target); return unit; }, what: "spring reduce-motion settle")
             let resolvedClock = timeSource ?? TimeProvider.System
@@ -685,6 +816,9 @@ internal static class Motion {
         GhUi.Canvas(run: scope =>
             from validVector in Optional(vector).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "vector is required"))
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "sink delegate is required"))
+            from _finite in validVector.IsFinite(start) && validVector.IsFinite(target) && initialVelocity.Map(value => validVector.IsFinite(value)).IfNone(true)
+                ? Fin.Succ(value: unit)
+                : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "spring start/target/velocity must be finite"))
             from canvas in scope.NeedCanvas()
             from pacer in PacerOption(canvas: canvas, clock: clock)
             let resolvedClock = timeSource ?? TimeProvider.System
@@ -699,9 +833,7 @@ internal static class Motion {
 
     internal static (Subscription Subscription, Action Wake) MotionBundleOf(
         Option<Pacer> pacer, Subscription sub, Grasshopper2.UI.Canvas.Canvas canvas) {
-        Action wake = pacer is { IsSome: true }
-            ? () => _ = PacerResume(pacer: pacer, canvas: canvas)
-            : canvas.ScheduleRedraw;
+        Action wake = canvas.ScheduleRedraw;
         return (Subscription: Subscription.DisposeOnce(sub), Wake: wake);
     }
 
@@ -729,9 +861,9 @@ internal static class Motion {
         Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer, string opName)
         where TState : struct, IMotionState<TState> {
         // One runner per pipeline, hoisted into the factory closure: wantingTicks / lastVsyncTimestamp
-        // must persist across frames or the Pacer.LastFrameTimestamp vsync-dt path never accumulates and
+        // must persist across frames or the Pacer.LastTargetTimestamp vsync-dt path never accumulates and
         // Resume re-fires every frame. The per-frame paint lambda only calls Tick on the captured runner.
-        MotionRunner<TState> runner = MotionRunner<TState>.Of(cell: cell, canvas: canvas, pacer: pacer, cancellation: default);
+        MotionRunner<TState> runner = MotionRunner<TState>.Of(cell: cell, canvas: canvas, pacer: pacer);
         return paintScope => Op.Of(name: opName).Attempt(
             body: () => { _ = runner.Tick(); return unit; },
             what: "motion tick");
@@ -743,26 +875,31 @@ internal static class Motion {
         GhUi.Canvas(run: scope =>
             from validVector in Optional(vector).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "vector is required"))
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "sink delegate is required"))
+            from _finite in validVector.IsFinite(start) && validVector.IsFinite(target)
+                ? Fin.Succ(value: unit)
+                : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "pulse start/target must be finite"))
             from validCycles in infinite
                 ? Fin.Succ(1)
                 : Optional(cycles).Filter(static c => c >= 1)
                     .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "cycles must be positive when not infinite"))
             from handle in (MotionAccessibility.ShouldReduceMotion
-                ? SettledPulse(target: target, duration: duration, easing: easing, yoyo: yoyo, infinite: infinite, vector: validVector, sink: validSink)
+                ? SettledPulse(start: start, target: target, duration: duration, easing: easing, yoyo: yoyo, infinite: infinite, vector: validVector, sink: validSink)
                 : AnimatedPulse(start: start, target: target, duration: duration, easing: easing, yoyo: yoyo, infinite: infinite, cycles: validCycles, vector: validVector, sink: validSink, clock: clock)).Run(scope: scope)
             select handle);
 
     private static GrasshopperUiIntent<PulseHandle<TValue>> SettledPulse<TValue>(
-        TValue target, GhDuration duration, GhMotion easing, bool yoyo, bool infinite,
+        TValue start, TValue target, GhDuration duration, GhMotion easing, bool yoyo, bool infinite,
         IMotionVector<TValue> vector, Action<TValue> sink) =>
+        // A yoyo's resting pose is its From (it returns to start); a one-way pulse rests at target.
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
-            from _ in Op.Of(name: nameof(Pulse)).Attempt(body: () => { sink(target); return unit; }, what: "pulse reduce-motion settle")
+            let rest = yoyo ? start : target
+            from _ in Op.Of(name: nameof(Pulse)).Attempt(body: () => { sink(rest); return unit; }, what: "pulse reduce-motion settle")
             select new PulseHandle<TValue>(
                 cell: Atom(new PulseRunnerState<TValue>(
                     Animated: Animated<TValue>.CreateUnfinished(
-                        value0: target, value1: target, duration: TimeSpan.Zero, motion: easing, interpolator: vector.Interpolate),
-                    From: target, To: target, Duration: duration, Easing: easing, Yoyo: yoyo, Infinite: infinite,
+                        value0: rest, value1: rest, duration: TimeSpan.Zero, motion: easing, interpolator: vector.Interpolate),
+                    From: rest, To: rest, Duration: duration, Easing: easing, Yoyo: yoyo, Infinite: infinite,
                     CyclesRemaining: 0, Vector: vector, Sink: sink)),
                 subscription: Subscription.Empty,
                 wake: canvas.ScheduleRedraw));
@@ -792,6 +929,12 @@ internal static class Motion {
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Sequence)), detail: "sink delegate is required"))
             from validSteps in Optional(steps).Filter(static s => s.Count > 0)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Sequence)), detail: "at least one step is required"))
+            from _finite in validVector.IsFinite(start) && validSteps.ForAll(s => validVector.IsFinite(s.Target))
+                ? Fin.Succ(value: unit)
+                : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Sequence)), detail: "sequence start/targets must be finite"))
+                // Boundary invariant: GH2 Animated.Chain short-circuits a step whose Target equals the prior value
+                // (Value1.Equals(target)), so a dwell step targeting the prior pose is silently dropped — epsilon
+                // perturbation is non-trivial for non-numeric TValue, so this is documented rather than worked around.
             let animated = validSteps.Fold(
                 initialState: Animated<TValue>.CreateFinished(start, validVector.Interpolate),
                 f: static (acc, step) => acc.Chain(step.Target, step.Duration, step.Motion))
@@ -902,6 +1045,23 @@ internal static class Motion {
     ];
 
     private static Fin<CosmeticIntent> PrepareCosmetic(Grasshopper2.UI.Canvas.Canvas canvas, CosmeticIntent intent) =>
+        from mapped in PrepareCosmeticCore(canvas: canvas, intent: intent)
+        from children in mapped.CoAnimate.Match(
+            Some: pending => pending.TraverseM(child => PrepareCosmetic(canvas: canvas, intent: child)).As().Map(prepared => Some(FlattenCoAnimations(children: prepared))),
+            None: () => Fin.Succ(value: Option<Seq<CosmeticIntent>>.None))
+        let prepared = mapped with { CoAnimate = children }
+        from __ in AcceptCoAnimationLayer(intent: prepared)
+        from _ in AcceptDistinctAnimationKeyPaths(intent: prepared)
+        select prepared;
+
+    private static Seq<CosmeticIntent> FlattenCoAnimations(Seq<CosmeticIntent> children) =>
+        children.Bind(child => {
+            CosmeticIntent current = child with { CoAnimate = Option<Seq<CosmeticIntent>>.None };
+            Seq<CosmeticIntent> nested = child.CoAnimate.IfNone(Seq<CosmeticIntent>());
+            return Seq(current) + FlattenCoAnimations(children: nested);
+        });
+
+    private static Fin<CosmeticIntent> PrepareCosmeticCore(Grasshopper2.UI.Canvas.Canvas canvas, CosmeticIntent intent) =>
         intent.Switch(
             pulseCase: static (c, p) => {
                 Op op = Op.Of(name: nameof(CosmeticIntent.PulseCase));
@@ -969,6 +1129,43 @@ internal static class Motion {
             },
             state: canvas);
 
+    private static Fin<Unit> AcceptDistinctAnimationKeyPaths(CosmeticIntent intent) {
+        Seq<string> paths = Seq(AnimationKeyPathOf(intent: intent)) + intent.CoAnimate.IfNone(Seq<CosmeticIntent>()).Map(AnimationKeyPathOf);
+        Seq<string> duplicates = toSeq(paths
+            .GroupBy(keySelector: static path => path, comparer: StringComparer.Ordinal)
+            .Where(static group => group.Skip(1).Any())
+            .Select(static group => group.Key));
+        return duplicates.IsEmpty
+            ? Fin.Succ(value: unit)
+            : Fin.Fail<Unit>(error: UiFault.InvalidInput(
+                op: Op.Of(name: nameof(CosmeticIntent.CoAnimate)),
+                detail: $"cosmetic co-animation key paths must be distinct: {string.Join(separator: ", ", values: duplicates.AsIterable())}"));
+    }
+
+    private static Fin<Unit> AcceptCoAnimationLayer(CosmeticIntent intent) {
+        string parent = AnimationKeyPathOf(intent: intent);
+        Seq<string> invalid = intent.CoAnimate.IfNone(Seq<CosmeticIntent>())
+            .Map(child => (Intent: child, Path: AnimationKeyPathOf(intent: child)))
+            .Filter(child => string.Equals(a: child.Path, b: "strokeEnd", comparisonType: StringComparison.Ordinal) && !string.Equals(a: parent, b: "strokeEnd", comparisonType: StringComparison.Ordinal))
+            .Map(static child => child.Intent.GetType().Name);
+        return invalid.IsEmpty
+            ? Fin.Succ(value: unit)
+            : Fin.Fail<Unit>(error: UiFault.InvalidInput(
+                op: Op.Of(name: nameof(CosmeticIntent.CoAnimate)),
+                detail: $"stroke co-animations require a stroke parent layer: {string.Join(separator: ", ", values: invalid.AsIterable())}"));
+    }
+
+    private static string AnimationKeyPathOf(CosmeticIntent intent) =>
+        intent.Switch(
+            pulseCase: static _ => "opacity",
+            glowCase: static _ => "shadowOpacity",
+            strokeOnCase: static _ => "strokeEnd",
+            gradientCase: static _ => "opacity",
+            textLayerCase: static _ => "opacity",
+            replicatorCase: static _ => "opacity",
+            emitterCase: static _ => "opacity",
+            snapGuideCase: static _ => "opacity");
+
     private static Fin<Unit> AcceptGradientPoints(Op op, CosmeticGradientPoints points, int colourCount) =>
         toSeq([
             points.Start.Map(start => AcceptNormalizedGradientPoint(op: op, point: start, label: nameof(CosmeticGradientPoints.Start))),
@@ -1007,6 +1204,16 @@ internal static class Motion {
             End: points.End.Map(static value => ToCGPoint(value)).IfNone(profileEnd));
     }
 
+    // Exact CoreText metrics via NSAttributedString (AppKit/Foundation already imported) — replaces the prior
+    // 0.62/1.4 glyph-advance/line-height estimate pairs. Main-thread/AppKit-bound, same as the CALayer path.
+    [SupportedOSPlatform("macos14.0")]
+    private static (float Width, float Height) MeasureText(string text, float fontSize, Option<string> family) {
+        NSFont font = (family is { IsSome: true, Case: string name } ? NSFont.FromFontName(name, fontSize) : null) ?? NSFont.SystemFontOfSize(fontSize)!;
+        using NSAttributedString attributed = new(str: text, font: font);
+        CGSize size = attributed.Size;
+        return (Width: MathF.Max(1f, (float)size.Width), Height: MathF.Max(1f, (float)size.Height));
+    }
+
     private static RectangleF MapCosmeticRect(Grasshopper2.UI.Canvas.Canvas canvas, RectangleF bounds) =>
         canvas.Map(rectangle: bounds, from: CoordinateSystem.Content, to: CoordinateSystem.Control);
 
@@ -1024,7 +1231,7 @@ internal static class Motion {
             return unit;
         }
         if (MotionAccessibility.ShouldSkipDecorativeMotion) {
-            return unit;
+            return intent.Completion.IfSome(static run => run());
         }
         CALayer layer = BuildCosmeticLayer(intent: intent);
         NFloat scale = Optional(view.Window?.Screen).Map(static screen => screen.BackingScaleFactor).IfNone((NFloat)RetinaScaleDefault);
@@ -1033,7 +1240,7 @@ internal static class Motion {
         layer.Name = key.ToString();
         return WithoutAnimation(() => {
             host.AddSublayer(layer: layer);
-            CAAnimation animation = BuildCosmeticAnimation(intent: intent);
+            CAAnimation animation = GroupOf(main: BuildCosmeticAnimation(intent: intent), intent: intent);
             animation.WeakDelegate = new CosmeticRemove(layer: layer, key: key, completion: intent.Completion);
             layer.AddAnimation(animation: animation, key: key);
         });
@@ -1046,20 +1253,15 @@ internal static class Motion {
             return unit;
         }
         string keyString = key.ToString();
-        return WithoutAnimation(() => {
-            foreach (CALayer sub in sublayers) {
-                if (!string.Equals(a: sub.Name, b: keyString, comparisonType: StringComparison.Ordinal)) {
-                    continue;
-                }
-                if (sub.AnimationForKey(key: keyString) is CAAnimation animation
-                    && animation.WeakDelegate is CosmeticRemove remove
-                    && !remove.TryClaim()) {
-                    continue;
-                }
+        return WithoutAnimation(() => _ = toSeq(sublayers)
+            .Filter(sub => string.Equals(a: sub.Name, b: keyString, comparisonType: StringComparison.Ordinal))
+            .Filter(sub => sub.AnimationForKey(key: keyString) is not CAAnimation animation
+                || animation.WeakDelegate is not CosmeticRemove remove
+                || remove.TryClaim())
+            .Iter(sub => {
                 sub.RemoveAnimation(key: keyString);
                 sub.RemoveFromSuperLayer();
-            }
-        });
+            }));
     }
 
     [SupportedOSPlatform("macos14.0")]
@@ -1151,9 +1353,7 @@ internal static class Motion {
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
         Justification = "CGColor/NSString ownership transfers to CALayer property graph for animation lifetime.")]
     private static CATextLayer CosmeticTextLayer(CosmeticIntent.TextLayerCase text) {
-        // A zero-bounds CATextLayer would not render at all, so floor each estimated dimension at 1.
-        float width = MathF.Max(1f, text.FontSize * GlyphAdvanceRatio * text.Text.Length);
-        float height = MathF.Max(1f, text.FontSize * LineHeightRatio);
+        (float width, float height) = MeasureText(text: text.Text, fontSize: text.FontSize, family: text.FontFamily);
         CATextLayer layer = new() {
             String = new NSString(text.Text),
             ForegroundColor = ToCGColor(text.Tint),
@@ -1259,8 +1459,7 @@ internal static class Motion {
             string text = label.Text.Length > 0
                 ? label.Text
                 : guide.Snapshot.Magnitude.ToString(format: style.MagnitudeFormat, provider: CultureInfo.InvariantCulture);
-            float width = MathF.Max(1f, style.LabelFontSize * GlyphAdvanceRatio * text.Length);
-            float height = MathF.Max(1f, style.LabelFontSize * LineHeightRatio);
+            (float width, float height) = MeasureText(text: text, fontSize: style.LabelFontSize, family: Option<string>.None);
             (CATextLayerAlignmentMode mode, float dx, float dy) = SnapLabelPlacement(anchor: label.Anchor, width: width, height: height);
             shape.AddSublayer(layer: new CATextLayer {
                 String = new NSString(text),
@@ -1296,11 +1495,47 @@ internal static class Motion {
     // fade/stroke eases via the five Core Animation media-timing curves (TimingName) with the in/out fade and
     // repetition from ApplyRepeat's AutoReverses (yoyo) + RepeatCount. A CosmeticIntent.Keyframe upgrades the
     // lifecycle to a CAKeyFrameAnimation sampling the full 46-curve Easing over [0,1] — additive, not default.
+    // Only the five plain curves map cleanly onto a CAMediaTimingFunction; the rich curve set (Bounce/Twang/
+    // Snap*/Delayed) auto-routes to a sampled keyframe animation that evaluates the exact GhMotion curve
+    // (MotionEquations.Blend) rather than folding to ease-in-ease-out. A manual Keyframe overrides the easing.
     [SupportedOSPlatform("macos14.0")]
-    private static CAPropertyAnimation PropertyAnimation(string path, GhDuration duration, float from, float to, GhMotion easing, Option<Easing> keyframe) =>
-        keyframe is { IsSome: true, Case: Easing curve }
-            ? KeyframeAnimation(path: path, duration: duration, from: from, to: to, easing: curve)
-            : BasicAnimation(path: path, duration: duration, from: from, to: to, easing: easing);
+    private static CAPropertyAnimation PropertyAnimation(string path, GhDuration duration, float from, float to, GhMotion easing, Option<Easing> keyframe, Option<SpringConfig> spring) =>
+        spring is { IsSome: true, Case: SpringConfig config }
+            ? SpringAnimation(path: path, from: from, to: to, config: config)
+            : keyframe is { IsSome: true, Case: Easing curve }
+                ? KeyframeAnimation(path: path, duration: duration, from: from, to: to, easing: curve)
+                : BasicTiming(easing: easing)
+                    ? BasicAnimation(path: path, duration: duration, from: from, to: to, easing: easing)
+                    : KeyframeFromMotion(path: path, duration: duration, from: from, to: to, motion: easing);
+
+    [SupportedOSPlatform("macos14.0")]
+    private static CASpringAnimation SpringAnimation(string path, float from, float to, SpringConfig config) {
+        CASpringAnimation anim = new() {
+            KeyPath = path,
+            Mass = config.Mass,
+            Stiffness = config.Stiffness,
+            Damping = config.Damping,
+        };
+        anim.Duration = anim.SettlingDuration;
+        anim.SetFrom(value: NSNumber.FromFloat(from));
+        anim.SetTo(value: NSNumber.FromFloat(to));
+        return anim;
+    }
+
+    private static bool BasicTiming(GhMotion easing) =>
+        easing is GhMotion.Linear or GhMotion.EaseIn or GhMotion.EaseOut or GhMotion.EaseInOut;
+
+    [SupportedOSPlatform("macos14.0")]
+    private static CAKeyFrameAnimation KeyframeFromMotion(string path, GhDuration duration, float from, float to, GhMotion motion) {
+        CAKeyFrameAnimation anim = CAKeyFrameAnimation.GetFromKeyPath(path: path);
+        anim.Duration = Animators.DurationToTimeSpan(duration: duration).TotalSeconds;
+        anim.CalculationMode = CAAnimation.AnimationLinear;
+        anim.Values = [.. Enumerable.Range(start: 0, count: KeyframeSamples + 1).Select(frame => {
+            double t = (double)frame / KeyframeSamples;
+            return (NSObject)NSNumber.FromFloat(from + ((to - from) * (float)MotionEquations.Blend(motion: motion, parameter: t)));
+        })];
+        return anim;
+    }
 
     [SupportedOSPlatform("macos14.0")]
     private static CABasicAnimation BasicAnimation(string path, GhDuration duration, float from, float to, GhMotion easing) {
@@ -1347,17 +1582,44 @@ internal static class Motion {
         return animation;
     }
 
+    // Wrap the main animation + each CoAnimate child's animation in a CAAnimationGroup on the same layer; the
+    // group's Duration is the longest child (CA clips to it) and one CosmeticRemove (attached upstream to the
+    // group) owns teardown, so RemovedOnCompletion stays false to avoid a truncated-spring flash.
+    [SupportedOSPlatform("macos14.0")]
+    private static CAAnimation GroupOf(CAAnimation main, CosmeticIntent intent) =>
+        intent.CoAnimate is { IsSome: true, Case: Seq<CosmeticIntent> children } && !children.IsEmpty
+            ? GroupAnimations(main: main, children: children)
+            : main;
+
+    [SupportedOSPlatform("macos14.0")]
+    private static CAAnimationGroup GroupAnimations(CAAnimation main, Seq<CosmeticIntent> children) {
+        Seq<CAAnimation> all = Seq(main) + children.Map(static child => BuildCosmeticAnimation(intent: child));
+        bool infinite = all.Exists(static animation => animation.RepeatCount == float.PositiveInfinity);
+        return new CAAnimationGroup {
+            Animations = [.. all],
+            Duration = all.Fold(0.0, (m, a) => Math.Max(m, infinite ? a.Duration : EffectiveDuration(animation: a))),
+            RepeatCount = infinite ? float.PositiveInfinity : 0f,
+            RemovedOnCompletion = false,
+        };
+    }
+
+    [SupportedOSPlatform("macos14.0")]
+    private static double EffectiveDuration(CAAnimation animation) =>
+        animation.RepeatCount == float.PositiveInfinity
+            ? double.PositiveInfinity
+            : animation.Duration * Math.Max(val1: 1d, val2: animation.RepeatCount <= 0f ? 1d : animation.RepeatCount) * (animation.AutoReverses ? 2d : 1d);
+
     [SupportedOSPlatform("macos14.0")]
     private static CAAnimation BuildCosmeticAnimation(CosmeticIntent intent) =>
         intent.Switch<CAAnimation>(
-            pulseCase: static p => ApplyRepeat(PropertyAnimation(path: "opacity", duration: p.Duration, from: 0f, to: p.Tint.A, easing: p.Easing, keyframe: p.Keyframe), cycles: p.Cycles, yoyo: p.Yoyo, infinite: p.Infinite),
-            glowCase: static g => ApplyRepeat(PropertyAnimation(path: "shadowOpacity", duration: g.Duration, from: 0f, to: g.Tint.A, easing: g.Easing, keyframe: g.Keyframe), cycles: g.Cycles, yoyo: g.Yoyo, infinite: g.Infinite),
-            strokeOnCase: static s => PropertyAnimation(path: "strokeEnd", duration: s.Duration, from: 0f, to: 1f, easing: s.Easing, keyframe: s.Keyframe),
-            gradientCase: static g => ApplyRepeat(PropertyAnimation(path: "opacity", duration: g.Duration, from: 0f, to: g.Colors.Map(static c => c.A).Fold(0f, static (m, a) => Math.Max(m, a)), easing: g.Easing, keyframe: g.Keyframe), cycles: g.Cycles, yoyo: g.Yoyo, infinite: g.Infinite),
-            textLayerCase: static t => ApplyRepeat(PropertyAnimation(path: "opacity", duration: t.Duration, from: 0f, to: t.Tint.A, easing: t.Easing, keyframe: t.Keyframe), cycles: t.Cycles, yoyo: t.Yoyo, infinite: t.Infinite),
-            replicatorCase: static r => ApplyRepeat(PropertyAnimation(path: "opacity", duration: r.Duration, from: 0f, to: r.Tint.A, easing: r.Easing, keyframe: r.Keyframe), cycles: 1, yoyo: true, infinite: false),
-            emitterCase: static e => ApplyRepeat(PropertyAnimation(path: "opacity", duration: e.Duration, from: 0f, to: e.Tint.A, easing: e.Easing, keyframe: e.Keyframe), cycles: 1, yoyo: true, infinite: false),
-            snapGuideCase: static g => ApplyRepeat(PropertyAnimation(path: "opacity", duration: g.Style.Duration, from: 0f, to: g.Style.Tint.A, easing: g.Style.Easing, keyframe: g.Keyframe), cycles: 1, yoyo: true, infinite: false));
+            pulseCase: static p => ApplyRepeat(PropertyAnimation(path: "opacity", duration: p.Duration, from: 0f, to: p.Tint.A, easing: p.Easing, keyframe: p.Keyframe, spring: p.Spring), cycles: p.Cycles, yoyo: p.Yoyo, infinite: p.Infinite),
+            glowCase: static g => ApplyRepeat(PropertyAnimation(path: "shadowOpacity", duration: g.Duration, from: 0f, to: g.Tint.A, easing: g.Easing, keyframe: g.Keyframe, spring: g.Spring), cycles: g.Cycles, yoyo: g.Yoyo, infinite: g.Infinite),
+            strokeOnCase: static s => PropertyAnimation(path: "strokeEnd", duration: s.Duration, from: 0f, to: 1f, easing: s.Easing, keyframe: s.Keyframe, spring: s.Spring),
+            gradientCase: static g => ApplyRepeat(PropertyAnimation(path: "opacity", duration: g.Duration, from: 0f, to: g.Colors.Map(static c => c.A).Fold(0f, static (m, a) => Math.Max(m, a)), easing: g.Easing, keyframe: g.Keyframe, spring: g.Spring), cycles: g.Cycles, yoyo: g.Yoyo, infinite: g.Infinite),
+            textLayerCase: static t => ApplyRepeat(PropertyAnimation(path: "opacity", duration: t.Duration, from: 0f, to: t.Tint.A, easing: t.Easing, keyframe: t.Keyframe, spring: t.Spring), cycles: t.Cycles, yoyo: t.Yoyo, infinite: t.Infinite),
+            replicatorCase: static r => ApplyRepeat(PropertyAnimation(path: "opacity", duration: r.Duration, from: 0f, to: r.Tint.A, easing: r.Easing, keyframe: r.Keyframe, spring: r.Spring), cycles: 1, yoyo: true, infinite: false),
+            emitterCase: static e => ApplyRepeat(PropertyAnimation(path: "opacity", duration: e.Duration, from: 0f, to: e.Tint.A, easing: e.Easing, keyframe: e.Keyframe, spring: e.Spring), cycles: 1, yoyo: true, infinite: false),
+            snapGuideCase: static g => ApplyRepeat(PropertyAnimation(path: "opacity", duration: g.Style.Duration, from: 0f, to: g.Style.Tint.A, easing: g.Style.Easing, keyframe: g.Keyframe, spring: g.Spring), cycles: 1, yoyo: true, infinite: false));
 
     private static CGRect ToCGRect(RectangleF r) => new(x: r.X, y: r.Y, width: r.Width, height: r.Height);
 
@@ -1413,30 +1675,26 @@ internal static class Motion {
         private readonly Atom<TState> cell;
         private readonly Grasshopper2.UI.Canvas.Canvas canvas;
         private readonly Option<Pacer> pacer;
-        private readonly CancellationToken cancellation;
         private readonly Func<TState, TState> stepCell;
         private float pendingDt;
         private int wantingTicks;
         private double lastVsyncTimestamp;
 
-        private MotionRunner(Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer, CancellationToken cancellation) {
+        private MotionRunner(Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer) {
             this.cell = cell;
             this.canvas = canvas;
             this.pacer = pacer;
-            this.cancellation = cancellation;
             // Re-reads mutable pendingDt each CAS attempt so a concurrent Retarget re-integrates against the
             // latest committed Target; a method-group form would freeze the receiver (IDE0200) and reallocate.
             stepCell = live => live.Step(frameDeltaSeconds: pendingDt);
         }
 
-        internal static MotionRunner<TState> Of(Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer = default, CancellationToken cancellation = default) =>
-            new(cell: cell, canvas: canvas, pacer: pacer, cancellation: cancellation);
+        internal static MotionRunner<TState> Of(Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer = default) =>
+            new(cell: cell, canvas: canvas, pacer: pacer);
 
-        // Step folded inside the CAS body; Emit/Wake act on the committed value Swap returns.
+        // Step folded inside the CAS body; Emit/Wake act on the committed value Swap returns. Teardown is
+        // Subscription-owned (the pump self-detaches on the rested edge), so no per-tick cancellation guard.
         internal Unit Tick() {
-            if (cancellation.IsCancellationRequested) {
-                return Sleep();
-            }
             pendingDt = ResolveFrameDelta();
             TState committed = cell.Swap(stepCell);
             _ = committed.Emit();
@@ -1448,7 +1706,7 @@ internal static class Motion {
             if (pacer is not { IsSome: true, Case: Pacer paced }) {
                 return 0f;
             }
-            double timestamp = paced.LastFrameTimestamp;
+            double timestamp = paced.LastTargetTimestamp;
             if (timestamp <= 0d || lastVsyncTimestamp <= 0d) {
                 if (timestamp > 0d) {
                     lastVsyncTimestamp = timestamp;
@@ -1496,6 +1754,7 @@ internal static class Motion {
         private readonly CAFrameRateRange? explicitRate;
         private CADisplayLink link;
         private double lastFrameTimestamp;
+        private double lastTargetTimestamp;
         private int refCount;
         private int active;
         private int disposed;
@@ -1522,9 +1781,7 @@ internal static class Motion {
 
         private static void OnScreenParametersChanged() {
             using (PoolGate.EnterScope()) {
-                foreach (KeyValuePair<Grasshopper2.UI.Canvas.Canvas, Pacer> entry in Pool) {
-                    entry.Value.RebindLink();
-                }
+                _ = toSeq(Pool).Iter(static entry => entry.Value.RebindLink());
             }
         }
 
@@ -1593,16 +1850,18 @@ internal static class Motion {
             previous.Invalidate();
         }
 
-        // sender.Timestamp = just-displayed host clock (mach_absolute_time, seconds). Exposed for
-        // integrators that want exact-vsync dt instead of paint-time TimeProvider drift. Volatile
-        // fences AArch64 reordering; 64-bit double is atomic on Apple Silicon.
+        // sender.Timestamp = just-displayed host clock; sender.TargetTimestamp = the host clock for the frame
+        // about to be displayed. Integrating dt across the TARGET pair (present-to-present) removes one frame
+        // of latency on ProMotion. Volatile fences AArch64 reordering; 64-bit double is atomic on Apple Silicon.
         [Export("tick:")]
         public void Tick(CADisplayLink sender) {
             Volatile.Write(ref lastFrameTimestamp, sender.Timestamp);
+            Volatile.Write(ref lastTargetTimestamp, sender.TargetTimestamp);
             canvas.ScheduleRedraw();
         }
 
         internal double LastFrameTimestamp => Volatile.Read(ref lastFrameTimestamp);
+        internal double LastTargetTimestamp => Volatile.Read(ref lastTargetTimestamp);
 
         internal Unit Resume() {
             if (Interlocked.Increment(ref active) == 1) {

@@ -128,7 +128,7 @@ When working in Rasm, read `docs/system-api-map` and `docs/external-libs` after 
 
 | Reference                                       | Load when                              |
 | ----------------------------------------------- | -------------------------------------- |
-| [advanced-surface.md](references/advanced-surface.md) | Operators (`+`/`|`/`&`), Thinktecture codegen attrs, advanced LE combinators, MathNet/CSparse paths |
+| [advanced-surface.md](references/advanced-surface.md) | Operators (`>>`/`*`/`|`/`&`), Thinktecture attrs, LE combinators, MathNet/CSparse, C# 14 |
 | [types.md](references/types.md)                 | C# types, generics, constraints        |
 | [objects.md](references/objects.md)             | Records, DU hierarchies, value objects |
 | [effects.md](references/effects.md)             | Fin/Validation/Eff/IO pipelines, ROP   |
@@ -167,6 +167,7 @@ These packages are standard libraries — use over BCL/stdlib equivalents.
 | Thinktecture.Runtime.Extensions | Value objects, smart enums, `[Union]` source-generated dispatch |
 | MathNet.Numerics                | Linear algebra, solvers, statistics, optimization              |
 | MathNet.Symbolics               | Symbolic expression parse, transform, calculus, evaluation     |
+| CSparse                         | Sparse direct factorization — documented with MathNet in `docs/external-libs/mathnet/sparse.md` |
 | Meziantou.Analyzer              | Static analysis enforcement                                     |
 | Microsoft.VisualStudio.Threading.Analyzers | Threading-correctness diagnostics                  |
 
@@ -200,16 +201,19 @@ Replicate the patterns at these canonical surfaces; do not reinvent. Read the fi
 
 ## Advanced surface index
 
-Load [advanced-surface.md](references/advanced-surface.md) when prompts mention operators, codegen attributes, or non-basic library sugar. Quick routing:
+Load [advanced-surface.md](references/advanced-surface.md) when prompts mention operators, codegen attributes, or non-basic library sugar. Universal routing (no repo-specific types):
 
 | Concern | Primary symbols / attrs | Doc |
 | ------- | ----------------------- | --- |
-| Domain lattice merge | Hand `operator \|` on `RepaintRequest`, `FileOverride<T>`, `Subscription` | `union-attributes.md` §2 |
-| Domain semigroup append | Hand `operator +` on `Requirement`, `VectorField`, receipts, `OverlayDecision` | `operators.md`, `advanced-surface.md` |
-| Option alternative | `Option \|` (disambiguate from Flags and domain lattice) | `operators.md` |
-| State-threaded union dispatch | `[Union(SwitchMapStateParameterName = …)]` | `union-attributes.md` §1 |
-| Union SelfOp policy | `[SkipUnionOps]`, `[GenerateUnionOps]` → per-case `Op SelfOp` | `union-attributes.md` §2 |
-| VO / complex VO / custom faults | `[ValueObject<T>]`, `[ComplexValueObject]`, `[ValidationError<T>]` | `objects.md`, `thinktecture/objects.md` |
-| Traverse v5 lowering | `.TraverseM(f).As()`, `.Choose` | `combinators.md` |
-| Op boundary | `Op.Need`, `Op.Catch`, `AcceptAll`, `[BoundaryAdapter]` | `languageext/rasm.md` §4 |
-| Numeric receipts | `SolveReceipt`, `SolvePath`/`SolveStop` SmartEnums | `mathnet/rasm.md` |
+| Kleisli / applicative operators | `>>`, `>>>`, `*`, `Validation &`, `Error +` | `docs/external-libs/languageext/operators.md` |
+| Option / effect recovery | `.Choose`, `IfNone`, `Match` (not bare `Option<T> \| Option<T>`); `Prelude.catch`, `.Retry(schedule:)` | `operators.md`, `combinators.md` |
+| Schedule algebra | `union`, `intersect`, transformer `+` | `operators.md`, `prelude.md` |
+| State-threaded union dispatch | `[Union(SwitchMapStateParameterName = …)]` | `docs/external-libs/thinktecture/union-attributes.md` |
+| VO / complex VO / custom faults | `[ValueObject<T>]`, `[ComplexValueObject]`, `[ValidationError<T>]` | `thinktecture/objects.md`, `union-attributes.md` |
+| SmartEnum dispatch | `[SmartEnum]`, `[SmartEnum<TKey>]`, `[UseDelegateFromConstructor]` | `thinktecture/enums.md` |
+| Traverse v5 lowering | `.TraverseM(f).As()`, `.Choose`, `.BiBind` | `languageext/combinators.md` |
+| Atoms and guards | `Atom.Swap`, `guard`, `Optional(…).ToFin` | `combinators.md`, `prelude.md` |
+| Sparse numerics | `BiCgStab`, CSparse `SparseCholesky`, CSR/CSC hybrid | `mathnet/sparse.md` |
+| C# 14 expression substrate | extension blocks, collection expressions, `params ReadOnlySpan` | `csharp/language.md` |
+
+Repo-specific boundary patterns (Op rail, receipts, SelfOp policy): `docs/external-libs/*/rasm.md`.

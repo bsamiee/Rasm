@@ -17,11 +17,28 @@
 | [2] | Strings or native enum mirrors. | `[SmartEnum<TKey>]` with item-owned behavior. |
 | [3] | Repeated switch/visitor cases. | `[Union]` with generated `Switch`/`Map`. |
 | [4] | Boundary conversion. | Generated factory plus LanguageExt rail bridge. |
-| [5] | Union SelfOp emission policy. | `[SkipUnionOps]` / `[GenerateUnionOps]` on `[Union]` — see `union-attributes.md`. |
+| [5] | Union SelfOp emission policy. | `[SkipUnionOps]` / `[GenerateUnionOps]` — see §4 below. |
 | [6] | Dispatch union with threaded runtime. | `[Union(SwitchMapStateParameterName = …)]`. |
 
 ---
-## [2][RHINO_GH2]
+## [4][UNION_OPS_POLICY]
+>**Dictum:** *CSP0802 governs SelfOp emission — not Thinktecture union operators.*
+
+<br>
+
+Defined in `libs/csharp/Rasm/Domain/Validation.cs`. Enforced by CSP0802 in `Rasm.Domain` and `Rasm.Analysis` namespaces only.
+
+| [INDEX] | [ATTRIBUTE] | [EFFECT] |
+| :-----: | ----------- | -------- |
+| [1] | `[GenerateUnionOps]` | Rasm source generator emits `internal static readonly Op SelfOp = Op.Of(name: nameof(Case))` per sealed case |
+| [2] | `[SkipUnionOps]` | Opt out of CSP0802 SelfOp requirement |
+
+**Not generated:** `operator +` or `operator |` on union types. Hand operators live on separate structs/records or plain types outside CSP0802 scope.
+
+Universal Thinktecture union attributes: `union-attributes.md`.
+
+---
+## [5][RHINO_GH2]
 >**Dictum:** *Generated shape describes intent; native APIs keep semantics.*
 
 <br>
@@ -32,7 +49,7 @@
 - Keep Rhino validity, GH2 tree/path semantics, and MathNet diagnostics in their owning layers.
 
 ---
-## [3][REJECTION]
+## [6][REJECTION]
 >**Dictum:** *Generated code is not a wrapper excuse.*
 
 <br>

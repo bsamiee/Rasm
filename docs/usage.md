@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] This guide stacks source-verified C# surfaces for new implementation work. It is not an API catalog; leaf docs own package and member detail.
+[IMPORTANT] Cross-stack implementation surface for new work. Leaf docs own package and member detail.
 
 ---
 ## [1][OWNER_LADDER]
@@ -15,8 +15,8 @@
 | :-----: | ------- | ------------ | ------ |
 | [1] | RhinoCommon | Geometry validity, tolerances, units, transforms, topology, curves, meshes. | `external-libs/mathnet/rhino.md`, local RhinoWIP XML |
 | [2] | GH2 | `IDataAccess`, trees, paths, coverage, diagnostics, user-visible numeric policy. | `external-libs/mathnet/gh2.md`, local GH2 XML |
-| [3] | MathNet | Linear algebra, solvers, fitting, optimization, statistics, formulas. | `external-libs/mathnet/*.md` |
-| [4] | BCL/System | Spans, generated regex, frozen lookup, generic math, runtime primitives, build metadata. | `system-api-map/*.md` |
+| [3] | MathNet | Linear algebra, solvers, fitting, optimization, statistics, symbolic formulas; CSparse at sparse direct factorization boundary. | `external-libs/mathnet/*.md` |
+| [4] | BCL/System | Spans, generated regex, frozen lookup, generic math, SIMD/tensors, time, channels, IO/buffers, diagnostics. | `system-api-map/bcl.md`, `system-api-map/replacements.md`, `system-api-map/meta.md`, `system-api-map/packages.md` |
 | [5] | LanguageExt | `Fin`, `Validation`, `Eff`, `IO`, `Schedule`, `Seq`, `K<F,A>`. | `external-libs/languageext/*.md` |
 | [6] | Thinktecture | Value objects, smart enums, unions, generated dispatch. | `external-libs/thinktecture/*.md` |
 
@@ -64,4 +64,13 @@
 
 <br>
 
-Use repo manifests for versions and references, local NuGet XML for package APIs, local RhinoWIP XML/decompile for host APIs, and official docs for current context. Performance and runtime-load claims require measured or load-context evidence before docs call them active.
+| [INDEX] | [SOURCE] | [OWNS] |
+| :-----: | -------- | ------ |
+| [1] | `Directory.Packages.props` | Pinned versions and central package state. |
+| [2] | `Directory.Build.props` | Package references, global usings, RhinoWIP/GH2 host references. |
+| [3] | Local NuGet XML / lockfiles | Exact API surface for pinned assets. |
+| [4] | RhinoWIP XML / decompile | RhinoCommon, GH2, Rhino.UI, Eto compile truth. |
+| [5] | `docs/system-api-map`, `docs/external-libs` | BCL and product-library policy after local proof. |
+| [6] | Official docs | Current context only when local proof is silent. |
+
+Performance and runtime-load claims require measured or load-context evidence before docs call them active.

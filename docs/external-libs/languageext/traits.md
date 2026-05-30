@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Use traits only when they remove real duplication. Runtime-record `Eff<RT,T>` remains the default host effect shape for Rasm.
+[IMPORTANT] Use traits only when they remove real duplication. Runtime-record `Eff<RT,T>` remains the default host effect shape.
 
 ---
 ## [1][CORE]
@@ -38,7 +38,7 @@
 
 <br>
 
-Use `OptionT`, `EitherT`, `FinT`, `ValidationT`, `ReaderT`, `StateT`, `WriterT`, `TryT`, `IdentityT`, `MapT`, and `MapM` only when nested effects are persistent structure. Prefer direct `Fin`, `Validation`, and `Eff` for normal Rasm code.
+Use `OptionT`, `EitherT`, `FinT`, `ValidationT`, `ReaderT`, `StateT`, `WriterT`, `TryT`, `IdentityT`, `ChronicleT`, `RWST` only when nested effects are persistent structure. Prefer direct `Fin`, `Validation`, and `Eff` for normal code.
 
 ---
 ## [4][DOMAIN_TRAITS]

@@ -5,8 +5,8 @@ namespace Rasm.Rhino.UI;
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct UiToast(RhinoView View, string Message, Option<int> TextHeight = default, Option<System.Drawing.PointF> Location = default) {
-    // ShowToast returns the view toast runtime serial number — surfaced for future dismissal/tracking.
-    internal Fin<uint> Apply() {
+    // ShowToast's uint return is the toast runtime serial, but no DismissToast(serial) API exists — there is nothing to track.
+    internal Fin<Unit> Apply() {
         RhinoView? target = View;
         string text = Message;
         Option<int> textHeight = TextHeight;
@@ -17,9 +17,9 @@ public readonly record struct UiToast(RhinoView View, string Message, Option<int
                    true => Fin.Fail<string>(error: Op.Of(name: nameof(Apply)).InvalidInput()),
                }
                select (textHeight.Case, location.Case) switch {
-                   (int height, System.Drawing.PointF point) when height > 0 => view.ShowToast(message, height, point),
-                   (int height, _) when height > 0 => view.ShowToast(message, height),
-                   _ => view.ShowToast(message),
+                   (int height, System.Drawing.PointF point) when height > 0 => Op.Side(() => view.ShowToast(message, height, point)),
+                   (int height, _) when height > 0 => Op.Side(() => view.ShowToast(message, height)),
+                   _ => Op.Side(() => view.ShowToast(message)),
                };
     }
 }
@@ -36,6 +36,8 @@ public readonly record struct UiStatus(
     bool ClearMessage = false,
     bool HideProgress = false) {
     // Single right-biased monoid fold; operator+ is the binary projection. ClearMessage/HideProgress accumulate (OR).
+    // Combine(Seq(left, right)) is right-biased (the right wins each `value | acc`) BECAUSE the fold visits left first,
+    // so `acc` already holds left when right is folded — do NOT flip `value | acc`.
     public static UiStatus operator +(UiStatus left, UiStatus right) => Combine(Seq(left, right));
     public static UiStatus Combine(Seq<UiStatus> statuses) =>
         statuses.Fold(new UiStatus(), static (acc, value) => new(
@@ -126,11 +128,7 @@ public sealed partial record RhinoUi {
         toSeq(global::Rhino.UI.EtoExtensions.WindowsFromDocument<T>(document));
 
     internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
-        Op.Of(name: name).Need(valid)
-            .Bind(work => RhinoApp.IsOnMainThread switch {
-                true => Catch(valid: work, name: name),
-                false => Invoke(valid: work, name: name),
-            });
+        Op.Of(name: name).Need(valid).Bind(work => RhinoApp.IsOnMainThread ? Op.Of(name: name).Catch(work) : Invoke(valid: work, name: name));
 
     /// Domain rails (Blocks, Camera, …) call this once at the service edge.
     /// Scripted RhinoCode runs inside a blocked main-thread idle handler; InvokeAndWait deadlocks there.
@@ -142,10 +140,8 @@ public sealed partial record RhinoUi {
         [CallerMemberName] string name = "") =>
         Op.Of(name: name).Need(run)
             .Bind(work => (uiBound, mode, RhinoApp.IsOnMainThread) switch {
-                (false, _, _) => work(),
-                (_, RunMode.Scripted, _) => work(),
-                (_, _, true) => work(),
-                (_, _, false) => Protect(valid: work, name: name),
+                (false, _, _) or (_, RunMode.Scripted, _) or (_, _, true) => Op.Of(name: name).Catch(work),   // direct-run arms now capsuled (no marshal); off-thread already proven false below
+                (_, _, false) => Invoke(valid: work, name: name),
             });
 
     private static Fin<T> Invoke<T>(Func<Fin<T>> valid, string name) {
@@ -171,9 +167,6 @@ public sealed partial record RhinoUi {
                 RhinoApp.InvokeOnUiThread(method: valid, args: []);
                 return unit;
             });
-
-    private static Fin<T> Catch<T>(Func<Fin<T>> valid, string name) =>
-        Op.Of(name: name).Catch(valid);
 }
 
 public sealed class UiProgress : IDisposable {
@@ -192,14 +185,14 @@ public sealed class UiProgress : IDisposable {
 
     public Fin<int> Update(UiProgressStep step) {
         int Commit(int value) { current = value; return value; }
-        Fin<int> Drive(int target, int rawPosition, string? label) =>
-            label switch {
-                string text => global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: text, position: rawPosition, absolute: step.Absolute),
-                _ => global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, position: rawPosition, absolute: step.Absolute),
-            } switch {
-                RhinoMath.UnsetIntIndex => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidResult()),
-                _ => Fin.Succ(value: Commit(target)),
+        // UpdateProgressMeter returns the PRIOR position, never a failure sentinel — commit unconditionally on the drive path.
+        Fin<int> Drive(int target, int rawPosition, string? label) {
+            _ = label switch {
+                string text => Op.Side(() => global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: text, position: rawPosition, absolute: step.Absolute)),
+                _ => Op.Side(() => global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, position: rawPosition, absolute: step.Absolute)),
             };
+            return Fin.Succ(value: Commit(target));
+        }
         return disposed switch {
             true => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
             false => (step.Position.Map(position => step.Absolute ? position : current + position).Case, step.Position.Case, step.Label.Case) switch {

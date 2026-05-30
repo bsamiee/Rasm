@@ -251,7 +251,8 @@ def _verify_expire(root: Path, ttl_seconds: float) -> Result[None, ProcessFault]
 
 @beartype
 def build_client(settings: QualitySettings, scope: ArtifactScope) -> Result[None, ProcessFault]:
-    return dotnet_build(settings, scope, restore=settings.bridge_client, targets=(settings.bridge_client,), serial=True)
+    # scoped=False keeps canonical bin/ so client_run --no-build and bridge_client_ready observe the same build output.
+    return dotnet_build(settings, scope, restore=settings.bridge_client, targets=(settings.bridge_client,), serial=True, scoped=False)
 
 
 @beartype

@@ -1,53 +1,119 @@
 # [H1][MATHNET_LINEAR]
->**Dictum:** *Linear algebra executes in MathNet and exits through Rasm diagnostics.*
+>**Dictum:** *Linear algebra executes in MathNet; diagnostics and receipts exit at the application boundary.*
 
 <br>
 
-[IMPORTANT] RhinoCommon owns spatial semantics. MathNet owns matrix/vector computation after Rasm selects coordinates, dimensions, and tolerance policy.
+[IMPORTANT] Pin **`MathNet.Numerics` `6.0.0-beta2`**. Verify solver and factorization names against local XML before documenting new call sites.
+
+Spatial geometry semantics belong to the host (RhinoCommon, etc.) — MathNet receives explicit coordinates, dimensions, and tolerance policy after validity projection.
 
 ---
-## [1][SURFACES]
+## [1][DENSE_SURFACES]
 >**Dictum:** *Choose the algorithm object by diagnostic need.*
 
 <br>
 
 | [INDEX] | [SURFACE] | [USE] |
 | :-----: | --------- | ----- |
-| [1] | Dense matrix/vector builders | Small to medium coordinate and basis problems. |
-| [2] | Sparse matrix/vector builders | Large sparse systems with explicit sparsity. |
-| [3] | `Cholesky`, `LU`, `QR`, `Svd`, `Evd` | Reusable factorization and diagnostic access. |
-| [4] | Direct `Solve` | Simple systems where factorization policy is not exposed. |
-| [5] | Iterative solvers and criteria | Large or sparse systems requiring status and iteration reporting. |
+| [1] | Dense matrix/vector builders | Small to medium coordinate and basis problems |
+| [2] | `Cholesky`, `LU`, `QR`, `Svd`, `Evd` | Reusable factorization and diagnostic access |
+| [3] | Direct `Solve` | Simple systems where factorization policy is not exposed |
+| [4] | User-defined factorizations (`UserCholesky`, `UserLU`, …) | Custom storage layouts |
 
-Rasm production paths (detail in `rasm.md`): `Svd`, `Lu`, `Qr`, `Cholesky`, `Evd`; sparse `BiCgStab` + `DiagonalPreconditioner`; custom `LobpcgCore`; CSparse `CholeskySparse` for SPD sparse systems.
+**Dense factorization families:** standard and `User*` variants for specialized storage — verify availability in pinned XML.
 
 ---
-## [2][ITERATIVE]
+## [2][SPARSE_SURFACES]
+>**Dictum:** *Sparse assembly and iteration live in MathNet; SPD direct Cholesky often delegates to CSparse.*
+
+<br>
+
+| [INDEX] | [SURFACE] | [USE] |
+| :-----: | --------- | ----- |
+| [1] | `SparseCompressedRowMatrixStorage` / sparse matrix types | CSR assembly, SpMV |
+| [2] | `OfIndexed`, builders, compress | Triplet → CSR normalization |
+| [3] | `BiCgStab` and Krylov family | Iterative nonsymmetric / general sparse |
+| [4] | Preconditioners (`DiagonalPreconditioner`, `ILU0Preconditioner`, `ILUTPPreconditioner`, `MILU0Preconditioner`) | Iterative acceleration |
+| [5] | `Iterator<T>` + stop criteria | Iteration control and status |
+| [6] | `CompositeSolver` | Solver composition |
+| [7] | Direct sparse `Solve` / sparse LU bridge | Fallback when iterative fails |
+
+Full sparse strategy and CSparse boundary: **`sparse.md`**.
+
+---
+## [3][ITERATIVE_CATALOG]
 >**Dictum:** *Iterative solvers return status, not just values.*
 
 <br>
 
-Document solver family, preconditioner, stop criteria, iteration count, residual, and final status. Verify exact solver names from pinned XML before use. Keep solver result shape Rasm-owned; never expose MathNet storage as GH2 output identity.
+| [INDEX] | [TYPE] | [ROLE] |
+| :-----: | ------ | ------ |
+| [1] | `BiCgStab` | Primary nonsymmetric Krylov |
+| [2] | `GpBiCg`, `TFQMR`, `MlkBiCgStab` | Alternative Krylov families |
+| [3] | `FailureStopCriterion` | Hard failure stop |
+| [4] | `DivergenceStopCriterion` | Relative residual blow-up guard |
+| [5] | `ResidualStopCriterion` | Target residual |
+| [6] | `IterationCountStopCriterion` | Max iterations |
 
-Verified iterative surfaces in Rasm `Matrix.cs`: `BiCgStab`, `DiagonalPreconditioner`, `FailureStopCriterion`, `DivergenceStopCriterion`, `ResidualStopCriterion`, `IterationCountStopCriterion`.
-
-Receipt types: **`SolveReceipt`** / **`EigenSolveReceipt<…>`** are records; **`SolvePath`**, **`SolveStop`**, **`EigenSolvePath`**, **`EigenSolveStop`** are `[SmartEnum<int>]` — see `rasm.md`.
+Document solver family, preconditioner, stop criteria, iteration count, residual, and final status in application receipts.
 
 ---
-## [3][RHINO_PROJECTION]
->**Dictum:** *Coordinates are projections from native geometry, not replacement geometry.*
+## [4][EIGEN_AND_OPTIMIZATION]
+>**Dictum:** *Partial eigen and optimization are MathNet-owned.*
 
 <br>
 
-- Admit `Point3d`, `Vector3d`, `Plane`, `Transform`, and mesh/curve samples through Rhino validity first.
-- Build MathNet matrices from explicit coordinate order and units.
-- Project results back through Rhino validity and tolerance checks.
-- Preserve non-convergence and non-finite scalars as typed failures.
+| [INDEX] | [DOMAIN] | [ENTRY SURFACES] |
+| :-----: | -------- | ---------------- |
+| [1] | Symmetric / general EVD | `Evd`, dense eigen APIs |
+| [2] | Partial eigen | Application-layer block iterative methods on sparse operators — **no LOBPCG type in MathNet XML** |
+| [3] | Statistics | `Statistics.*`, `SortedArrayStatistics` |
+| [4] | Optimization | `FindMinimum.*`, `BfgsMinimizer`, `NelderMeadSimplex`, trust-region family — verify XML |
+| [5] | Integration / interpolation | `Integrate`, spline APIs — verify XML |
+
+MathNet.Symbolics (`0.25.0`) is pinned separately — see `symbolics.md`.
 
 ---
-## [4][PERFORMANCE]
+## [5][SCALAR_NAMESPACES]
+>**Dictum:** *Four scalar namespaces coexist — pick one per module.*
+
+<br>
+
+| [INDEX] | [NAMESPACE] | [SCALAR] |
+| :-----: | ----------- | -------- |
+| [1] | `MathNet.Numerics.LinearAlgebra` | `double` / `float` |
+| [2] | `MathNet.Numerics.LinearAlgebra.Complex` | `Complex` |
+| [3] | `MathNet.Numerics.LinearAlgebra.Complex32` | `Complex32` |
+| [4] | `MathNet.Numerics.LinearAlgebra.Single` | `float` specialized |
+
+Do not mix scalar namespaces within one transform pipeline without explicit conversion.
+
+---
+## [6][BOUNDARY]
+>**Dictum:** *Numeric failure is fallible admission at the host edge.*
+
+<br>
+
+- Wrap native/MathNet throws in typed result rails at boundary only.
+- Preserve non-convergence and non-finite scalars as typed failures.
+- Never expose MathNet storage types as public host output identity.
+- Build matrices from explicit coordinate order and units.
+
+---
+## [7][PERFORMANCE]
 >**Dictum:** *Hot-path claims require measurement.*
 
 <br>
 
-Use MathNet vector and matrix operations for algorithmic linear algebra. Use BCL spans or tensor primitives only behind `docs/system-api-map/packages.md` adoption and measured proof. Do not replace MathNet solvers with primitive reductions.
+Use MathNet vector and matrix operations for algorithmic linear algebra. Use BCL spans or tensor primitives only behind `docs/system-api-map/packages.md` adoption and measured proof. Do not replace MathNet solvers with primitive reductions without profiling.
+
+---
+## [8][RULES]
+>**Dictum:** *Algorithm choice follows structure and diagnostic need.*
+
+<br>
+
+- Dense direct for small `n` or when factorization reuse dominates.
+- Sparse iterative when structure is uncertain or pattern changes frequently.
+- CSparse Cholesky when SPD and pattern-stable — see `sparse.md` §7–§10.
+- Cross-ref `api.md` for package-level entrypoints.

@@ -12,6 +12,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - Markdown/docs: `docgen` + `style-standards`
 
 ## [2][NAVIGATION_CONTEXT]
+- Cross-stack owner precedence and proof order: `docs/usage.md` §1 and §5 before leaf API docs.
 - Use `fd` for discovery, then `rg` for exact references.
 - Use structural search (`ast-grep`) for symbol-aware changes when available.
 - Use Nx topology (`nx graph`, affected commands, `nx-mcp`) before broad scans.
@@ -37,7 +38,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - Route README, ADR, changelog, architecture, code documentation, and standards changes through `docgen`.
 - Route Markdown structure, headers, lists, tables, diagrams, separators, and voice changes through `style-standards`.
 - Keep documentation rooted in existing paths, commands, and configured tooling; remove invented or stale paths.
-- Use `docs/system-api-map` for BCL, `System.*`, package/reference, C# meta, and RhinoWIP host-reference policy; use `docs/external-libs` for approved product library APIs and `docs/testing-libs` for test-tool APIs.
+- Use `docs/usage.md` for cross-stack owner precedence and proof hierarchy; use `docs/system-api-map` for BCL, `System.*`, package/reference, C# meta, and RhinoWIP host-reference policy; use `docs/external-libs` for approved product library APIs and `docs/testing-libs` for test-tool APIs.
 
 ## [6][LIVE_RHINO_BRIDGE]
 - `tools/rhino-bridge` answers runtime questions that static .NET gates cannot. Architecture (operator CLI → client → protocol → in-Rhino plugin), command catalog, output contract, failure reading, and validation ladder live in `tools/rhino-bridge/README.md` and `tools/rhino-bridge/AGENTS.md`.

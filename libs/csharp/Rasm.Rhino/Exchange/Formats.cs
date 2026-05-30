@@ -151,7 +151,7 @@ public sealed record FileFormat {
     public static FileFormat Vda { get; } = Native(key: "vda", extensions: Seq(".vda"), import: false, write: static _ => new FileVdaWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileVdaWriteOptions>(), FileVda.Write, "vdaWrite"));
     public static FileFormat Vrml { get; } = Native(key: "vrml", extensions: Seq(".wrl", ".vrml"), import: false, write: static profile => VrmlWriteOptions(profile: profile).ToDictionary(), directWrite: DirectWrite(static (profile, _) => VrmlWriteOptions(profile: profile), FileVrml.Write, "vrmlWrite"));
     public static FileFormat X3dv { get; } = Native(key: "x3dv", extensions: Seq(".x3dv"), import: false, write: static profile => X3dvWriteOptions(profile: profile).ToDictionary(), directWrite: DirectWrite(static (profile, _) => X3dvWriteOptions(profile: profile), FileX3dv.Write, "x3dvWrite"));
-    public static FileFormat Xaml { get; } = Native(key: "xaml", extensions: Seq(".xaml"), import: false, write: static profile => new FileXamlWriteOptions { UseExistingRenderMeshes = profile.Fidelity == FileFidelity.Model }.ToDictionary());
+    public static FileFormat Xaml { get; } = Native(key: "xaml", extensions: Seq(".xaml"), import: false, write: static profile => new FileXamlWriteOptions { UseExistingRenderMeshes = IsModel(profile.Fidelity) }.ToDictionary());
     public static FileFormat Xt { get; } = Native(key: "x_t", extensions: Seq(".x_t", ".x_b"), import: false, write: static _ => new FileX_TWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileX_TWriteOptions>(), FileX_T.Write, "x_tWrite"));
     public static FileFormat Raw { get; } = Native(key: "raw", extensions: Seq(".raw"), read: static _ => new FileRawReadOptions().ToDictionary(), write: static _ => new FileRawWriteOptions().ToDictionary(), directRead: DirectRead(NewRead<FileRawReadOptions>(), FileRaw.Read, "rawRead"), directWrite: DirectWrite(NewWrite<FileRawWriteOptions>(), FileRaw.Write, "rawWrite"));
     public static FileFormat Txt { get; } = Native(key: "txt", extensions: Seq(".txt"), read: static _ => new FileTxtReadOptions().ToDictionary(), write: static profile => TxtWriteOptions(profile: profile).ToDictionary(), directRead: DirectRead(NewRead<FileTxtReadOptions>(), FileTxt.Read, "txtRead"), directWrite: DirectWrite(static (profile, _) => TxtWriteOptions(profile: profile), FileTxt.Write, "txtWrite"));
@@ -209,27 +209,40 @@ public sealed record FileFormat {
 
     public static Fin<FileFormat> Of(string keyOrExtension) =>
         from key in FileEndpoint.NonBlank(value: keyOrExtension, op: Op.Of(name: nameof(Of)))
-        let extension = key.StartsWith('.') ? key : $".{key}"
-        let clean = key.TrimStart('.')
+        let extension = NormalizeExtension(value: key)
+        let clean = NormalizeKey(value: key)
         from format in (ByKey.TryGetValue(key: clean, value: out FileFormat? byKey)
                 ? Optional(byKey)
                 : ByExtension.TryGetValue(key: extension, value: out FileFormat? byExtension)
                     ? Optional(byExtension)
-                    : CustomCell.Value.Find(key: clean) | CustomByExtension(extension: extension))
+                    : CustomFormat(key: clean, extension: extension))
             .ToFin(Fail: Op.Of(name: nameof(Of)).InvalidInput())
         select format;
+
+    private static Option<FileFormat> CustomFormat(string key, string extension) =>
+        CustomCell.Value.Find(key: key).Match(
+            Some: Some,
+            None: () => CustomByExtension(extension: extension));
 
     private static Option<FileFormat> CustomByExtension(string extension) =>
         toSeq(CustomCell.Value.Values).Find(format => format.Extensions.Exists(value => string.Equals(a: value, b: extension, comparisonType: StringComparison.OrdinalIgnoreCase)));
 
+    private static string NormalizeKey(string value) =>
+        value.TrimStart('.').ToUpperInvariant();
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Globalization", "CA1308:Normalize strings to uppercase", Justification = "File extensions are public output spelling; format lookup remains case-insensitive, while generated paths use lower-invariant extensions.")]
+    private static string NormalizeExtension(string value) =>
+        (value.StartsWith('.') ? value : $".{value}").ToLowerInvariant();
+
     public static Fin<FileFormat> Custom(string key, Seq<string> extensions, FileCapability capability,
         Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? read = null,
         Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? write = null) =>
-        from validKey in FileEndpoint.NonBlank(value: key, op: Op.Of(name: nameof(Custom))).Map(static k => k.TrimStart('.'))
+        from validKey in FileEndpoint.NonBlank(value: key, op: Op.Of(name: nameof(Custom))).Map(static k => NormalizeKey(value: k))
         from exts in extensions.TraverseM(e => FileEndpoint.NonBlank(value: e, op: Op.Of(name: nameof(Custom)))
-            .Map(static t => t.StartsWith('.') ? t : $".{t}")).As().Map(static s => s.Distinct())
+            .Map(static t => NormalizeExtension(value: t))).As().Map(static s => s.Distinct())
         from _ in guard(!exts.IsEmpty && capability != FileCapability.None
             && !ByKey.ContainsKey(key: validKey) && !exts.Exists(ByExtension.ContainsKey)
+            && !exts.Exists(extension => CustomByExtension(extension: extension).IsSome)
             && CustomCell.Value.Find(key: validKey).IsNone, Op.Of(name: nameof(Custom)).InvalidInput())
         let format = new FileFormat(key: validKey, extensions: exts, capability: capability, scale: FileCapability.None,
             read: null, write: null, directRead: read, directWrite: write, directWriteOptions: write is not null)
@@ -286,59 +299,67 @@ public sealed record FileFormat {
                 : (import ? FileCapability.Import : FileCapability.None) | (export ? FileCapability.Export : FileCapability.None),
             scale: scale, read: read, write: write, directRead: directRead, directWrite: directWrite, directWriteOptions: directWriteOptions);
 
-    private delegate bool NativeReadCall<in TOptions>(string path, RhinoDoc doc, TOptions options);
-    private delegate bool NativeWriteCall<in TOptions>(string path, RhinoDoc doc, TOptions options);
-    private delegate WriteFileResult NativeResultWriteCall<in TOptions>(string filename, RhinoDoc doc, TOptions options);
-
     private static Func<FileProfile, FileReadOptions, TOptions> NewRead<TOptions>() where TOptions : new() =>
         static (_, _) => new TOptions();
 
     private static Func<FileProfile, FileWriteOptions, TOptions> NewWrite<TOptions>() where TOptions : new() =>
         static (_, _) => new TOptions();
 
-    private static Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>> DirectRead<TOptions>(Func<FileProfile, FileReadOptions, TOptions> options, NativeReadCall<TOptions> read, string name) =>
-        (profile, readOptions, document, source) => NativeBool(run: () => read(path: source.Path, doc: document, options: options(arg1: profile, arg2: readOptions)), op: Op.Of(name: name));
+    private static Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>> DirectRead<TOptions>(Func<FileProfile, FileReadOptions, TOptions> options, Func<string, RhinoDoc, TOptions, bool> read, string name) =>
+        (profile, readOptions, document, source) => NativeBool(run: () => read(arg1: source.Path, arg2: document, arg3: options(arg1: profile, arg2: readOptions)), op: Op.Of(name: name));
 
-    private static Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> DirectWrite<TOptions>(Func<FileProfile, FileWriteOptions, TOptions> options, NativeWriteCall<TOptions> write, string name) =>
-        (profile, writeOptions, document, target) => NativeBool(run: () => write(path: target.Path, doc: document, options: options(arg1: profile, arg2: writeOptions)), op: Op.Of(name: name));
+    private static Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> DirectWrite<TOptions>(Func<FileProfile, FileWriteOptions, TOptions> options, Func<string, RhinoDoc, TOptions, bool> write, string name) =>
+        (profile, writeOptions, document, target) => NativeBool(run: () => write(arg1: target.Path, arg2: document, arg3: options(arg1: profile, arg2: writeOptions)), op: Op.Of(name: name));
 
-    private static Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> DirectWriteResult<TOptions>(Func<FileProfile, FileWriteOptions, TOptions> options, NativeResultWriteCall<TOptions> write, string name) =>
-        (profile, writeOptions, document, target) => NativeWrite(result: write(filename: target.Path, doc: document, options: options(arg1: profile, arg2: writeOptions)), op: Op.Of(name: name));
+    private static Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> DirectWriteResult<TOptions>(Func<FileProfile, FileWriteOptions, TOptions> options, Func<string, RhinoDoc, TOptions, WriteFileResult> write, string name) =>
+        (profile, writeOptions, document, target) => NativeWrite(result: write(arg1: target.Path, arg2: document, arg3: options(arg1: profile, arg2: writeOptions)), op: Op.Of(name: name));
+
+    // Single-point fidelity/resource/grouping policy. Builders dispatch field values through these so a regime
+    // shift (what "Model" fidelity preserves, whether materials export) is edited once, not per format builder.
+    private static bool IsModel(FileFidelity fidelity) => fidelity == FileFidelity.Model;
+    private static bool IncludeMeasurements(FileFidelity fidelity) => fidelity != FileFidelity.GeometryOnly;
+    private static bool ShouldExportMaterials(FileResourcePolicy resources) => resources != FileResourcePolicy.Reference;
+    private static bool IsLayerGrouped(FileProfile profile) => profile.Grouping == FileGrouping.Layer || profile.Sort == FileSort.Layer;
+
+    // Draco quantization preset: (compression level, position bits, normal bits, texcoord bits). Small fidelity
+    // trades precision for size; every other fidelity uses the high-precision profile.
+    private static (int Compression, int BitsPos, int BitsNormal, int BitsTexCoord) DracoPreset(FileFidelity fidelity) =>
+        fidelity == FileFidelity.Small ? (10, 11, 8, 10) : (6, 14, 10, 12);
 
     private static File3dsWriteOptions ThreeDsWriteOptions(FileProfile profile) =>
-        new() { SaveViews = profile.Fidelity == FileFidelity.Model, SaveLights = profile.Fidelity == FileFidelity.Model };
+        new() { SaveViews = IsModel(profile.Fidelity), SaveLights = IsModel(profile.Fidelity) };
 
     private static FileAiWriteOptions AiWriteOptions(FileProfile profile) {
         FileAiWriteOptions options = new() {
-            PreserveModelScale = profile.Fidelity == FileFidelity.Model,
-            OrderLayers = profile.Grouping == FileGrouping.Layer || profile.Sort == FileSort.Layer,
+            PreserveModelScale = IsModel(profile.Fidelity),
+            OrderLayers = IsLayerGrouped(profile),
         };
         return profile.Scale.Map(scale => scale.Apply(options: options)).IfNone(options);
     }
 
     private static FileAiReadOptions AiReadOptions(FileProfile profile) {
-        FileAiReadOptions options = new() { PreserveModelScale = profile.Fidelity == FileFidelity.Model };
+        FileAiReadOptions options = new() { PreserveModelScale = IsModel(profile.Fidelity) };
         return profile.Scale.Map(scale => scale.Apply(options: options)).IfNone(options);
     }
 
     private static FileEpsReadOptions EpsReadOptions(FileProfile profile) {
-        FileEpsReadOptions options = new() { PreserveModelScale = profile.Fidelity == FileFidelity.Model };
+        FileEpsReadOptions options = new() { PreserveModelScale = IsModel(profile.Fidelity) };
         return profile.Scale.Map(scale => scale.Apply(options: options)).IfNone(options);
     }
 
     private static FileObjWriteOptions ObjWriteOptions(FileProfile profile, FileWriteOptions options) =>
         new(options) {
-            ObjectType = profile.Fidelity == FileFidelity.Model && !options.WriteGeometryOnly ? FileObjWriteOptions.GeometryType.Nurbs : FileObjWriteOptions.GeometryType.Mesh,
+            ObjectType = IsModel(profile.Fidelity) && !options.WriteGeometryOnly ? FileObjWriteOptions.GeometryType.Nurbs : FileObjWriteOptions.GeometryType.Mesh,
             ExportObjectNames = profile.Grouping == FileGrouping.ObjectName ? FileObjWriteOptions.ObjObjectNames.ObjectAsObject : FileObjWriteOptions.ObjObjectNames.NoObjects,
             ExportGroupNameLayerNames = profile.Grouping switch {
                 FileGrouping.Layer => FileObjWriteOptions.ObjGroupNames.LayerAsGroup,
                 FileGrouping.Block => FileObjWriteOptions.ObjGroupNames.GroupAsGroup,
                 _ => FileObjWriteOptions.ObjGroupNames.NoGroups,
             },
-            ExportMaterialDefinitions = profile.Resources != FileResourcePolicy.Reference && options.WriteUserData,
-            UseDisplayColorForMaterial = profile.Resources != FileResourcePolicy.Reference,
-            ExportTcs = profile.Resources != FileResourcePolicy.Reference,
-            ExportNormals = profile.Fidelity != FileFidelity.GeometryOnly,
+            ExportMaterialDefinitions = ShouldExportMaterials(profile.Resources) && options.WriteUserData,
+            UseDisplayColorForMaterial = ShouldExportMaterials(profile.Resources),
+            ExportTcs = ShouldExportMaterials(profile.Resources),
+            ExportNormals = IncludeMeasurements(profile.Fidelity),
             UseRenderMeshes = profile.Fidelity == FileFidelity.Small || options.IncludeRenderMeshes,
             SortObjGroups = profile.Sort is FileSort.Layer or FileSort.Block,
             MergeNestedGroupingNames = profile.Grouping == FileGrouping.Layer,
@@ -347,9 +368,9 @@ public sealed record FileFormat {
     private static FilePlyWriteOptions PlyWriteOptions(FileProfile profile, FileWriteOptions options) =>
         new(options) {
             ExportASCII = profile.Fidelity != FileFidelity.Small,
-            ExportDoubles = profile.Fidelity == FileFidelity.Model,
-            ExportNormals = profile.Fidelity != FileFidelity.GeometryOnly,
-            ExportColors = profile.Resources != FileResourcePolicy.Reference,
+            ExportDoubles = IsModel(profile.Fidelity),
+            ExportNormals = IncludeMeasurements(profile.Fidelity),
+            ExportColors = ShouldExportMaterials(profile.Resources),
             ExportMaterial = profile.Resources == FileResourcePolicy.Embed,
         };
 
@@ -357,8 +378,8 @@ public sealed record FileFormat {
         new() {
             FullLayerPath = profile.Grouping == FileGrouping.Layer,
             ExportSurfacesAs = profile.Fidelity == FileFidelity.GeometryOnly ? FileDwgWriteOptions.ExportSurfaceMode.Meshes : FileDwgWriteOptions.ExportSurfaceMode.Curves,
-            UseLWPolylines = profile.Fidelity != FileFidelity.Model,
-            ColorMethod = profile.Resources == FileResourcePolicy.Reference ? FileDwgWriteOptions.ColorMethodType.ACI : FileDwgWriteOptions.ColorMethodType.RGB,
+            UseLWPolylines = !IsModel(profile.Fidelity),
+            ColorMethod = ShouldExportMaterials(profile.Resources) ? FileDwgWriteOptions.ColorMethodType.RGB : FileDwgWriteOptions.ColorMethodType.ACI,
             UseColor = profile.Sort == FileSort.Material ? FileDwgWriteOptions.UseColorType.USEPRINT : FileDwgWriteOptions.UseColorType.USEDISPLAY,
         };
 
@@ -367,40 +388,42 @@ public sealed record FileFormat {
 
     private static FileFbxWriteOptions FbxWriteOptions(FileProfile profile) =>
         new() {
-            SaveObjectsAs = profile.Fidelity == FileFidelity.Model ? FileFbxWriteOptions.ObjectType.Nurbs : FileFbxWriteOptions.ObjectType.Mesh,
-            SaveViews = profile.Fidelity == FileFidelity.Model,
-            SaveLights = profile.Fidelity == FileFidelity.Model,
-            SaveVertexNormals = profile.Fidelity != FileFidelity.GeometryOnly,
+            SaveObjectsAs = IsModel(profile.Fidelity) ? FileFbxWriteOptions.ObjectType.Nurbs : FileFbxWriteOptions.ObjectType.Mesh,
+            SaveViews = IsModel(profile.Fidelity),
+            SaveLights = IsModel(profile.Fidelity),
+            SaveVertexNormals = IncludeMeasurements(profile.Fidelity),
         };
 
     private static FileSkpWriteOptions SkpWriteOptions(FileProfile profile) =>
         new() { GroupObjects = profile.Grouping is FileGrouping.Layer or FileGrouping.Block };
 
     private static FileVrmlWriteOptions VrmlWriteOptions(FileProfile profile) =>
-        new() { ExportTextureCoordinates = profile.Resources != FileResourcePolicy.Reference, ExportVertexNormals = profile.Fidelity == FileFidelity.Model };
+        new() { ExportTextureCoordinates = ShouldExportMaterials(profile.Resources), ExportVertexNormals = IsModel(profile.Fidelity) };
 
     private static FileX3dvWriteOptions X3dvWriteOptions(FileProfile profile) =>
-        new() { ExportTextureCoordinates = profile.Resources != FileResourcePolicy.Reference, ExportVertexNormals = profile.Fidelity == FileFidelity.Model };
+        new() { ExportTextureCoordinates = ShouldExportMaterials(profile.Resources), ExportVertexNormals = IsModel(profile.Fidelity) };
 
     private static FileTxtWriteOptions TxtWriteOptions(FileProfile profile) =>
         new() { SurroundWithDoubleQuotes = profile.Grouping != FileGrouping.Document };
 
-    private static FileGltfWriteOptions GltfWriteOptions(FileProfile profile) =>
-        new() {
-            ExportMaterials = profile.Resources != FileResourcePolicy.Reference,
+    private static FileGltfWriteOptions GltfWriteOptions(FileProfile profile) {
+        (int Compression, int BitsPos, int BitsNormal, int BitsTexCoord) draco = DracoPreset(profile.Fidelity);
+        return new() {
+            ExportMaterials = ShouldExportMaterials(profile.Resources),
             ExportLayers = profile.Grouping == FileGrouping.Layer,
-            ExportTextureCoordinates = profile.Resources != FileResourcePolicy.Reference,
-            ExportVertexNormals = profile.Fidelity != FileFidelity.GeometryOnly,
+            ExportTextureCoordinates = ShouldExportMaterials(profile.Resources),
+            ExportVertexNormals = IncludeMeasurements(profile.Fidelity),
             UseDracoCompression = profile.Fidelity == FileFidelity.Small,
-            DracoCompressionLevel = profile.Fidelity == FileFidelity.Small ? 10 : 6,
-            DracoQuantizationBitsPosition = profile.Fidelity == FileFidelity.Small ? 11 : 14,
-            DracoQuantizationBitsNormal = profile.Fidelity == FileFidelity.Small ? 8 : 10,
-            DracoQuantizationBitsTextureCoordinate = profile.Fidelity == FileFidelity.Small ? 10 : 12,
+            DracoCompressionLevel = draco.Compression,
+            DracoQuantizationBitsPosition = draco.BitsPos,
+            DracoQuantizationBitsNormal = draco.BitsNormal,
+            DracoQuantizationBitsTextureCoordinate = draco.BitsTexCoord,
         };
+    }
 
     private static FileUsdWriteOptions UsdWriteOptions(FileProfile profile) =>
         new() {
-            ForceMeshes = profile.Fidelity != FileFidelity.Model,
+            ForceMeshes = !IsModel(profile.Fidelity),
             IncludeUserStrings = profile.Grouping == FileGrouping.UserString,
             BlockHandling = profile.Resources switch {
                 FileResourcePolicy.Embed => USDExportBlockHandling.Embedded,
@@ -413,19 +436,19 @@ public sealed record FileFormat {
 
     private static FilePdfReadOptions PdfReadOptions(FileProfile profile) {
         FilePdfReadOptions options = new() {
-            PreserveModelScale = profile.Fidelity == FileFidelity.Model,
-            ImportFillsAsHatches = profile.Fidelity != FileFidelity.GeometryOnly,
-            LoadText = profile.Fidelity == FileFidelity.Model || profile.Grouping == FileGrouping.UserString,
+            PreserveModelScale = IsModel(profile.Fidelity),
+            ImportFillsAsHatches = IncludeMeasurements(profile.Fidelity),
+            LoadText = IsModel(profile.Fidelity) || profile.Grouping == FileGrouping.UserString,
         };
         return profile.Scale.Map(scale => scale.Apply(options: options)).IfNone(options);
     }
 
     private static FileCsvWriteOptions CsvOptions(FileProfile profile) {
-        bool layer = profile.Grouping == FileGrouping.Layer || profile.Sort == FileSort.Layer;
+        bool layer = IsLayerGrouped(profile);
         bool group = profile.Grouping == FileGrouping.Block || profile.Sort == FileSort.Block;
         bool material = profile.Grouping == FileGrouping.Material || profile.Sort == FileSort.Material;
         bool user = profile.Grouping == FileGrouping.UserString;
-        bool measured = profile.Fidelity != FileFidelity.GeometryOnly;
+        bool measured = IncludeMeasurements(profile.Fidelity);
         return new() {
             Header = true,
             LayerName = layer,

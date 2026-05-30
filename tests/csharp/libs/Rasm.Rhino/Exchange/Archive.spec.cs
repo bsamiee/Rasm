@@ -32,7 +32,8 @@ public sealed class FileResourceGraphLaws {
             textures: Seq("/rasm/missing-texture.png"),
             references: Seq("/rasm/missing-reference.jpg"));
 
-        Seq<FileIssue> issues = graph.Validate(source: Fixtures.Source, scheduler: new IoScheduler.Sequential());
+        Seq<FileIssue> issues = graph.Validate(source: Fixtures.Source, scheduler: new IoScheduler.Sequential())
+            .IfFail(error => throw new InvalidOperationException(message: error.Message));
 
         Assert.Equal(expected: 3, actual: issues.Count);
         Assert.All(collection: issues.AsEnumerable(), action: issue => Assert.Equal(expected: FileIssueCode.BrokenLink, actual: issue.Code));
@@ -45,19 +46,19 @@ public sealed class FileResourceGraphLaws {
             linked: Seq("  ", string.Empty),
             references: Seq(typeof(FileResourceGraphLaws).Assembly.Location));
 
-        Assert.True(condition: graph.Validate(source: Fixtures.Source, scheduler: new IoScheduler.Sequential()).IsEmpty);
+        Assert.True(condition: graph.Validate(source: Fixtures.Source, scheduler: new IoScheduler.Sequential()).IfFail(error => throw new InvalidOperationException(message: error.Message)).IsEmpty);
     }
 
     [Fact]
     public void ValidateYieldsNoIssuesWhenEveryChannelIsEmpty() =>
-        Assert.True(condition: Fixtures.Graph().Validate(source: Fixtures.Source, scheduler: new IoScheduler.Parallel()).IsEmpty);
+        Assert.True(condition: Fixtures.Graph().Validate(source: Fixtures.Source, scheduler: new IoScheduler.Parallel()).IfFail(error => throw new InvalidOperationException(message: error.Message)).IsEmpty);
 
     [Fact]
     public void SequentialAndParallelSchedulersFindTheSameBrokenLinkCount() {
         FileResourceGraph graph = Fixtures.Graph(linked: Seq("/rasm/a.3dm", "/rasm/b.3dm"), references: Seq("/rasm/c.jpg"));
         Assert.Equal(
-            expected: graph.Validate(source: Fixtures.Source, scheduler: new IoScheduler.Sequential()).Count,
-            actual: graph.Validate(source: Fixtures.Source, scheduler: new IoScheduler.Parallel()).Count);
+            expected: graph.Validate(source: Fixtures.Source, scheduler: new IoScheduler.Sequential()).IfFail(error => throw new InvalidOperationException(message: error.Message)).Count,
+            actual: graph.Validate(source: Fixtures.Source, scheduler: new IoScheduler.Parallel()).IfFail(error => throw new InvalidOperationException(message: error.Message)).Count);
     }
 
     [Fact]

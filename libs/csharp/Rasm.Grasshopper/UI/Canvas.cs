@@ -202,19 +202,18 @@ public readonly partial struct CanvasInteractionPolicy {
         ref Option<CanvasProjectionPolicy> projection,
         ref bool clearSnapFeedback) {
         Op op = Op.Of(name: nameof(CanvasInteractionPolicy));
-        bool centreInvalid = projection
-            .Bind(static policy => policy.Centre)
-            .Map(static centre => !float.IsFinite(centre.X) || !float.IsFinite(centre.Y))
-            .IfNone(noneValue: false);
-        bool zoomInvalid = projection
-            .Bind(static policy => policy.Zoom)
-            .Map(static zoom => !float.IsFinite(zoom) || zoom <= 0f)
-            .IfNone(noneValue: false);
-        Seq<string> errors = Seq(
-            centreInvalid ? "Projection.Centre must be finite." : "",
-            zoomInvalid ? "Projection.Zoom must be finite and > 0." : "")
-            .Filter(static message => !string.IsNullOrEmpty(message));
-        validationError = errors.IsEmpty ? null : UiFault.Create(op: op, message: string.Join("; ", errors));
+        Option<CanvasProjectionPolicy> proj = projection;
+        UiFault? fault = null;
+        _ = op.AcceptAll(
+                value: unit,
+                o => proj.Bind(static p => p.Centre) is { IsSome: true, Case: PointF centre }
+                    ? o.AcceptPoint(value: centre, detail: "Projection.Centre must be finite.").Map(static _ => unit)
+                    : Fin.Succ(unit),
+                o => proj.Bind(static p => p.Zoom) is { IsSome: true, Case: float zoom }
+                    ? o.AcceptFinite(value: zoom, detail: "Projection.Zoom must be finite and > 0.", requirePositive: true).Map(static _ => unit)
+                    : Fin.Succ(unit))
+            .IfFail(err => { fault = (UiFault)err; return unit; });
+        validationError = fault;
         _ = (allowPan, allowZoom, showTilesWhenEmpty, windowSelectObjects, windowSelectWires, windowSelectGroups, viewportDragging, actions, clearSnapFeedback);
     }
 
@@ -370,12 +369,20 @@ internal static partial class UiRail {
     // device-respecting bound per canvas, this constant is the architectural ceiling.
     internal const int MaxRenderDimension = 16384;
 
-    internal static int RenderDimensionLimit(GhCanvas canvas) =>
+    // Single ParentWindow-chain owner: RenderDimensionLimit and PixelScale both read logical pixel size and
+    // screen extent through this projector instead of duplicating the as-Control / ParentWindow / Screen walk.
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct WindowMetrics(float LogicalPixelSize, SizeF ScreenSize);
+
+    private static Option<WindowMetrics> WindowMetricsOf(GhCanvas canvas) =>
         Optional((canvas.ControlObject as Eto.Forms.Control)?.ParentWindow)
-            .Filter(static window => window.LogicalPixelSize > 0f)
-            .Map(window => {
-                SizeF screenSize = window.Screen.Bounds.Size;
-                int devicePixelMax = (int)MathF.Round(MathF.Max(screenSize.Width, screenSize.Height) * window.LogicalPixelSize);
+            .Filter(static w => w.LogicalPixelSize > 0f)
+            .Map(static w => new WindowMetrics(LogicalPixelSize: w.LogicalPixelSize, ScreenSize: w.Screen.Bounds.Size));
+
+    internal static int RenderDimensionLimit(GhCanvas canvas) =>
+        WindowMetricsOf(canvas: canvas)
+            .Map(static m => {
+                int devicePixelMax = (int)MathF.Round(MathF.Max(m.ScreenSize.Width, m.ScreenSize.Height) * m.LogicalPixelSize);
                 return Math.Min(MaxRenderDimension, devicePixelMax > 0 ? devicePixelMax : MaxRenderDimension);
             })
             .IfNone(MaxRenderDimension);
@@ -467,26 +474,19 @@ internal static partial class UiRail {
                 select (CanvasResult)new CanvasResult.InteractionResult(
                     Interaction: new CanvasInteractionSnapshot(Before: before, After: InteractionOf(canvas: canvas, document: scope.Document))),
             windowSelectCase: static (scope, ws) =>
-                scope.NeedObjects().Bind(objs => scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Map(doc => {
-                    WindowSelection selection = new WindowSelection(startPoint: new PointF(x: ws.Window.Left, y: ws.Window.Top))
-                        .Adapt(newEndPoint: new PointF(x: ws.Window.Right, y: ws.Window.Bottom));
-                    SelectionResult result = objs.WindowSelect(window: selection, mode: ToGhSelectionMode(mode: ws.Mode),
-                        considerForeground: (ws.Scope & CanvasWindowScope.Objects) == CanvasWindowScope.Objects,
-                        considerBackground: (ws.Scope & CanvasWindowScope.Groups) == CanvasWindowScope.Groups,
-                        considerWires: (ws.Scope & CanvasWindowScope.Wires) == CanvasWindowScope.Wires);
-                    return (CanvasResult)new CanvasResult.WindowResult(Window: new CanvasWindowSnapshot(
-                        Canvas: SnapshotOf(scope: scope, canvas: canvas, document: doc, objects: objs),
-                        SelectedCount: result.SelectedCount,
-                        DeselectedCount: result.DeselectedCount));
-                }))));
-
-    private static Grasshopper2.Extensions.SelectionMode ToGhSelectionMode(SelectionMode mode) =>
-        mode switch {
-            SelectionMode.Promote => Grasshopper2.Extensions.SelectionMode.Promote,
-            SelectionMode.Include => Grasshopper2.Extensions.SelectionMode.Include,
-            SelectionMode.Exclude => Grasshopper2.Extensions.SelectionMode.Exclude,
-            _ => Grasshopper2.Extensions.SelectionMode.Inverse,
-        };
+                Op.Of(name: nameof(CanvasOp.WindowSelect)).AcceptRect(value: ws.Window, detail: "non-finite window")
+                    .Bind(rect => scope.NeedObjects().Bind(objs => scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Map(doc => {
+                        WindowSelection selection = new WindowSelection(startPoint: new PointF(x: rect.Left, y: rect.Top))
+                            .Adapt(newEndPoint: new PointF(x: rect.Right, y: rect.Bottom));
+                        SelectionResult result = objs.WindowSelect(window: selection, mode: ws.Mode.Gh,
+                            considerForeground: (ws.Scope & CanvasWindowScope.Objects) == CanvasWindowScope.Objects,
+                            considerBackground: (ws.Scope & CanvasWindowScope.Groups) == CanvasWindowScope.Groups,
+                            considerWires: (ws.Scope & CanvasWindowScope.Wires) == CanvasWindowScope.Wires);
+                        return (CanvasResult)new CanvasResult.WindowResult(Window: new CanvasWindowSnapshot(
+                            Canvas: SnapshotOf(scope: scope, canvas: canvas, document: doc, objects: objs),
+                            SelectedCount: result.SelectedCount,
+                            DeselectedCount: result.DeselectedCount));
+                    })))));
 
     private readonly record struct ViewTarget(GhCanvas Canvas, GhDocument Document, GhObjectList Objects);
 
@@ -528,14 +528,14 @@ internal static partial class UiRail {
                     op: Op.Of(name: nameof(CanvasViewOp.Bounds)),
                     frame: _ => Fin.Succ(frame))
                 select result,
-            selectionCase: static (scope, f) => {
-                CanvasViewPolicy resolved = ResolveView(raw: f.Policy, defaultPadding: CanvasViewPolicy.SelectionFitPadding);
-                return NavigateView(
+            selectionCase: static (scope, f) =>
+                NavigateView(
                     scope: scope,
                     rawPolicy: f.Policy,
                     defaultPadding: CanvasViewPolicy.SelectionFitPadding,
                     op: Op.Of(name: nameof(CanvasViewOp.Selection)),
                     frame: target => {
+                        float padding = ResolveView(raw: f.Policy, defaultPadding: CanvasViewPolicy.SelectionFitPadding).Padding;
                         IEnumerable<IDocumentObject> targets = f.Ids
                             .Map(list => list.Choose(id => Optional(target.Objects.Find(instanceId: id))))
                             .IfNone(toSeq(target.Objects.SelectedObjects));
@@ -545,9 +545,8 @@ internal static partial class UiRail {
                                 value: aggregate,
                                 detail: "non-finite or zero-size aggregate",
                                 requirePositive: true)
-                                .Map(valid => RectangleF.Inflate(rectangle: valid, width: resolved.Padding, height: resolved.Padding)));
-                    });
-            },
+                                .Map(valid => RectangleF.Inflate(rectangle: valid, width: padding, height: padding)));
+                    }),
             fitCase: static (scope, ft) =>
                 NavigateView(
                     scope: scope,
@@ -568,23 +567,20 @@ internal static partial class UiRail {
                 select (CanvasResult)new CanvasResult.SnapshotResult(
                     Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document, objects: target.Objects)),
             projectionCase: static (scope, pr) =>
-                from zoom in Op.Of(name: nameof(CanvasViewOp.Projection)).Attempt(
-                    body: () => ZoomFactor.Create(pr.Zoom),
-                    what: nameof(ZoomFactor))
-                from _ in ApplyProjection(scope: scope, policy: new CanvasProjectionPolicy(Centre: Some(pr.Centre), Zoom: Some(zoom.Value)))
+                from _ in ApplyProjection(scope: scope, policy: new CanvasProjectionPolicy(Centre: Some(pr.Centre), Zoom: Some(pr.Zoom)))
                 from target in NeedViewTarget(scope)
                 select (CanvasResult)new CanvasResult.SnapshotResult(
                     Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document, objects: target.Objects)));
 
+    // Sole ZoomFactor admission across all three callers: the policy's zoom defaults to the live document
+    // zoom before the single Create, so projectionCase passes its raw zoom straight in (no pre-validation).
     private static Fin<Unit> ApplyProjection(GrasshopperUi.Scope scope, CanvasProjectionPolicy policy) =>
         from document in scope.NeedDocument()
         from canvas in scope.NeedCanvas()
         let centre = policy.Centre.IfNone(document.Projection.centre)
-        from zoom in policy.Zoom.Match(
-            Some: value => Op.Of(name: nameof(CanvasViewOp.Projection)).Attempt(body: () => ZoomFactor.Create(value), what: nameof(ZoomFactor)),
-            None: () => Op.Of(name: nameof(CanvasViewOp.Projection)).Attempt(
-                body: () => ZoomFactor.Create(document.Projection.zoom),
-                what: nameof(ZoomFactor)))
+        from zoom in Op.Of(name: nameof(CanvasViewOp.Projection)).Attempt(
+            body: () => ZoomFactor.Create(policy.Zoom.IfNone(document.Projection.zoom)),
+            what: nameof(ZoomFactor))
         from validCentre in Op.Of(name: nameof(CanvasViewOp.Projection)).AcceptPoint(value: centre, detail: "non-finite centre")
         from _ in Try.lift(f: () => {
             // Invariant: canvas.Projection (live FlexControl state) is the source of truth; document.Projection is
@@ -611,20 +607,16 @@ internal static partial class UiRail {
 
     internal static UiPixelScale PixelScale(GhCanvas canvas, Option<ControlGraphics> graphics = default) =>
         graphics
-            .Filter(static g => g.Content.PointsPerPixel > 0f)
-            .Map(static g => new UiPixelScale(
-                LogicalPixelSize: 1f / g.Content.PointsPerPixel,
-                PointsPerPixel: g.Content.PointsPerPixel,
+            .Filter(static g => g.Content.PointsPerPixel > 0f || g.ScreenScale > 0f)
+            .Map(g => new UiPixelScale(
+                LogicalPixelSize: g.ScreenScale > 0f ? g.ScreenScale : WindowMetricsOf(canvas: canvas).Map(static m => m.LogicalPixelSize).IfNone(1f),
+                PointsPerPixel: g.Content.PointsPerPixel > 0f ? g.Content.PointsPerPixel : 1f,
                 FromPaintGraphics: true))
             .IfNone(() => {
-                float logicalPixelSize = Optional(canvas.ControlObject as Eto.Forms.Control)
-                    .Bind(static control => Optional(control.ParentWindow))
-                    .Map(static window => window.LogicalPixelSize)
-                    .Filter(static value => value > 0f)
-                    .IfNone(1f);
+                float logicalPixelSize = WindowMetricsOf(canvas: canvas).Map(static m => m.LogicalPixelSize).IfNone(1f);
                 return new UiPixelScale(
                     LogicalPixelSize: logicalPixelSize,
-                    PointsPerPixel: logicalPixelSize > 0f ? 1f / logicalPixelSize : 1f,
+                    PointsPerPixel: 1f,
                     FromPaintGraphics: false);
             });
 
@@ -666,10 +658,12 @@ internal static partial class UiRail {
             return PickSnapshotOf(result: result);
         });
 
+    // Only an IInteraction carries a domain Nomen; a non-interaction focus projects to None rather than
+    // leaking its CLR type name (native-sentinel -> Option discipline).
     internal static Option<string> FocusNomenOf(GhCanvas canvas) =>
-        Optional(canvas.FocusObject).Map(static target => target switch {
-            IInteraction interaction => interaction.Nomen.Name,
-            _ => target.GetType().Name,
+        Optional(canvas.FocusObject).Bind(static target => target switch {
+            IInteraction interaction => Optional(interaction.Nomen.Name),
+            _ => Option<string>.None,
         });
 
     private static CanvasInteractionPolicy InteractionOf(GhCanvas canvas, Option<GhDocument> document = default) =>
@@ -700,9 +694,9 @@ internal static partial class UiRail {
         new(Kind: result.Kind, Point: Optional(result.Point),
             SelectedCount: result.SelectedCount, DeselectedCount: result.DeselectedCount,
             WireUnderPick: Optional(result.WireUnderPick).Filter(static wire => wire.Source != Guid.Empty && wire.Target != Guid.Empty),
-            ObjectUnderPick: Optional(result.ObjectUnderPick).Filter(static id => id != Guid.Empty),
-            InletUnderPick: Optional(result.InletUnderPick).Filter(static id => id != Guid.Empty),
-            OutletUnderPick: Optional(result.OutletUnderPick).Filter(static id => id != Guid.Empty));
+            ObjectUnderPick: result.ObjectUnderPick.NonEmpty(),
+            InletUnderPick: result.InletUnderPick.NonEmpty(),
+            OutletUnderPick: result.OutletUnderPick.NonEmpty());
 
     // FrameOf reads bounds directly; no Attributes.Layout() mutation during read.
     private static Option<RectangleF> FrameOf(IEnumerable<IDocumentObject> targets) =>
@@ -750,8 +744,7 @@ internal static partial class UiRail {
             verbCase: static (s, op) => op.Verb.Run(methods: s.methods, kind: op.Kind, behaviour: op.Behaviour, actions: s.actions));
 
     internal static Fin<Option<Guid>> ComposeDispatch(GhDocumentMethods methods, GhObjectList objects, ObjectScope subject, ComposeOp op, ActionList actions) =>
-        from _ in subject.RequireMutationScope(op: Op.Of(name: nameof(ComposeDispatch)), use: ScopeUse.Compose)
-        from created in subject.Switch(
+        subject.Switch(
             state: (methods, objects, op, actions),
             selectionCase: static (s, _) => s.op.Apply(methods: s.methods, objects: s.objects, targets: null, actions: s.actions),
             objectsCase: static (s, selected) => selected.Ids
@@ -760,8 +753,7 @@ internal static partial class UiRail {
                 .Map(static resolved => resolved.ToArray())
                 .Bind(targets => s.op.Apply(methods: s.methods, objects: s.objects, targets: targets, actions: s.actions)),
             primaryCase: static (_, _) => ScopeUse.Compose.RejectPrimary<Option<Guid>>(op: Op.Of(name: nameof(ComposeDispatch))),
-            primaryAndSecondaryCase: static (_, _) => ScopeUse.Compose.RejectPrimary<Option<Guid>>(op: Op.Of(name: nameof(ComposeDispatch))))
-        select created;
+            primaryAndSecondaryCase: static (_, _) => ScopeUse.Compose.RejectPrimary<Option<Guid>>(op: Op.Of(name: nameof(ComposeDispatch))));
 
     internal static Fin<IDocumentObject> ResolveObject(GhObjectList objects, Guid id, Op op) =>
         op.AcceptValue(value: id)
@@ -787,13 +779,23 @@ internal static partial class UiRail {
             (false, string whyNot) => Fin.Fail<Unit>(error: UiFault.MutationRejected(op: op, detail: string.IsNullOrWhiteSpace(value: whyNot) ? "pre-flight rejected" : whyNot)),
         };
 
-    internal static DocumentHistorySnapshot HistorySnapshotOf(GhDocument document) =>
-        new(
+    // Materialize the central undo/redo sequences once into node data: the same walk the count previously
+    // discarded now yields per-node (Name, Count) for node-targeted history navigation.
+    internal static DocumentHistorySnapshot HistorySnapshotOf(GhDocument document) {
+        Seq<DocumentHistoryNode> undoNodes = HistoryNodesOf(sequence: document.Undo.CentralUndoSequence);
+        Seq<DocumentHistoryNode> redoNodes = HistoryNodesOf(sequence: document.Undo.CentralRedoSequence);
+        return new(
             IsEmpty: document.Undo.IsEmpty,
             CanUndo: document.Undo.FirstUndo is not null,
             CanRedo: document.Undo.FirstRedo is not null,
-            UndoCount: document.Undo.CentralUndoSequence.Count(),
-            RedoCount: document.Undo.CentralRedoSequence.Count());
+            UndoNodes: undoNodes,
+            RedoNodes: redoNodes);
+    }
+
+    private static Seq<DocumentHistoryNode> HistoryNodesOf(IEnumerable<Node> sequence) =>
+        toSeq(sequence).Map(static node => new DocumentHistoryNode(
+            Name: Optional(node.Record?.Name.ToString()).IfNone(string.Empty),
+            Count: node.Record?.Count ?? 0));
 
     internal static Fin<Snapshot<DocumentMutationDelta>> RunMutation(
         GrasshopperUi.Scope scope,
@@ -821,9 +823,6 @@ internal static partial class UiRail {
                 return unit;
             }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(CommitActions)), detail: $"History.Do threw: {error.Message}")),
         };
-
-    internal static Fin<Unit> CommitActions(GhDocument document, Op op, ActionList actions) =>
-        CommitActions(document: document, name: VerbNounOf(op: op), actions: actions);
 
     internal static VerbNoun VerbNounOf(Op op) {
         string name = op.ToString();
@@ -853,8 +852,8 @@ internal static partial class UiRail {
 
     internal static DocumentObjectSnapshot DocumentObjectSnapshotOf(IDocumentObject obj) =>
         new(Id: obj.InstanceId, Name: obj.Nomen.Name, DisplayName: obj.DisplayName,
-            Selected: obj.Selected, Activity: string.Create(CultureInfo.InvariantCulture, $"{obj.Activity}"),
-            Display: string.Create(CultureInfo.InvariantCulture, $"{obj.Display}"), Phase: string.Create(CultureInfo.InvariantCulture, $"{obj.Phase}"), State: string.Create(CultureInfo.InvariantCulture, $"{obj.State}"),
+            Selected: obj.Selected, Activity: obj.Activity.Inv(),
+            Display: obj.Display.Inv(), Phase: obj.Phase.Inv(), State: obj.State.Inv(),
             Bounds: obj.Attributes.Bounds, Pivot: obj.Attributes.Pivot);
 
 }

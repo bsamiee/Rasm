@@ -29,7 +29,7 @@ Use `Traverse`, `TraverseM`, `Choose`, `Fold`, `FoldWhile`, `Map`, `Bind`, and `
 
 | [INDEX] | [COMBINATOR] | [PREFERENCE] |
 | :-----: | ------------ | ------------ |
-| [1] | `.TraverseM(f).As()` | Monadic batch — **`.As()` mandatory** in v5 |
+| [1] | `.TraverseM(f) >> lower` / unary `+`; `.TraverseM(f).As()` for `Eff`/`IO` | Monadic batch — carrier-qualified lowering in v5 |
 | [2] | `.Choose(f)` | Prefer over `.Filter().Map()` when output is `Option` |
 | [3] | `.Somes()` | Extract present options after `Choose` |
 | [4] | `.AddOrUpdate` / `.Find` | `HashMap` algebra — see `combinators.md` |

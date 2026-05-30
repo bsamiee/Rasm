@@ -1,6 +1,6 @@
 # Effects
 
-Effect type system for C# 14 / .NET 10. LanguageExt v5 per pinned Rasm `LanguageExt.Core`. Advanced operators and combinators: [advanced-surface.md](advanced-surface.md). External detail: `docs/external-libs/languageext/`.
+Effect type system for C# 14 / .NET 10. LanguageExt `5.0.0-beta-77`. Advanced operators and combinators: [advanced-surface.md](advanced-surface.md). External detail: `docs/external-libs/languageext/`.
 
 ---
 
@@ -8,73 +8,64 @@ Effect type system for C# 14 / .NET 10. LanguageExt v5 per pinned Rasm `Language
 
 | Rail | Owns | Boundary |
 | ---- | ---- | -------- |
-| `Fin<T>` | One fallible synchronous operation. | Native validity, value admission, MathNet result projection. |
+| `Fin<T>` | One fallible synchronous operation. | Native validity, value admission, numeric result projection. |
 | `Validation<Error,T>` | Independent accumulated failures. | Domain requirements, symbol sets. |
-| `Validation<Seq<UiFault>,T>` | Batched UI fault accumulation. | GH `ValidateParallel` → `ToFin`. |
-| `Eff<RT,T>` | Host context and effectful work. | Analysis `Env`, Exchange `FileRuntime`. |
+| `Validation<Seq<TFault>,T>` | Batched fault accumulation. | Parallel UI or form validation → `ToFin`. |
+| `Eff<RT,T>` | Host context and effectful work. | Document, filesystem, clock, bridge runtimes. |
 | `IO<A>` | Deferred side-effect/resource description. | Boundary execution before collapse. |
 
-Use LINQ composition, `Bind`, `Map`, `MapFail`, `BindFail`, and applicative `.Apply().As()` to stay in the rail. Collapse with `Match` or `Run` only at host boundaries.
+Use LINQ composition, `Bind`, `Map`, `MapFail`, `BindFail`, and applicative `Apply` / `&` to stay in the rail. Collapse with `Match` or `Run` only at host boundaries.
 
-`Validation<string,T>` does **not** compile in v5.
+`Validation<string,T>` is **not supported** — use `StringM` or `Validation<Error,T>`; not `Validation<Seq<Error>,T>` (`CSP0703`). GH UI parallel faults: `Validation<Seq<UiFault>,T>`.
 
 ---
 
 ## Runtime Records
 
-Read capability with `Eff.runtime<RT>()` or `Env.Asks` on a concrete sealed record. Rasm uses **`Analyze.Env`** (analysis) and **`FileRuntime`** (exchange via `Eff.Lift`).
+Read capability with `Eff.runtime<RT>()` or `Reader.Asks` / `Ask<R,A>` on a concrete sealed record.
 
 ```csharp
-public sealed record RhinoRuntime(Context Context, Op Op);
+public sealed record AppRuntime(Context Context, Op Op);
 
-public static Eff<RhinoRuntime, Context> ContextOf() =>
-    Eff.runtime<RhinoRuntime>().Map(static rt => rt.Context);
+public static Eff<AppRuntime, Context> ContextOf() =>
+    Eff.runtime<AppRuntime>().Map(static rt => rt.Context);
 ```
 
-Boundary collapse: `Fin<T> result = pipeline.Run(runtime).Run();`
+Boundary collapse: pick explicit `Run` / `RunAsync` / `RunIO` overload — do not assume `Run().Run()` always yields `Fin<T>`.
 
 ---
 
 ## Recovery And Schedule
 
-LanguageExt provides `Schedule` algebra, `Prelude.catch`, and `.Retry` — **zero production usage** in `libs/csharp/` today. Document for composition-root scaffolding only.
+LanguageExt provides `Schedule` algebra, `Prelude.catch`, `IO.Retry(Schedule)`, and `Prelude.retry`.
 
 When adopted:
 
-- Chain transformers: `policyA | policyB` on `ScheduleTransformer`
+- Schedule union: `Schedule.a | Schedule.b` or `union(a,b)`
 - Intersect bounds: `intersect(policy, Schedule.upto(duration))` — not C# `&`
-- Duration literals: `LanguageExt.UnitsOfMeasure.ms` (requires explicit import)
-
-Production native recovery: **`op.Catch(() => Fin<T>)`** and **`Try.lift<Fin<T>>().Run()`** at boundaries.
+- Transformer chain: `transformerA + transformerB`
+- Eff recovery: `Prelude.catch` / `@catch` / `IfFailEff` — not peer-Eff `|`
 
 ---
 
 ## Host Decision Monoids
 
-Not LanguageExt types:
-
-| Type | Use |
-| ---- | --- |
-| `OverlayDecision` | Rhino overlay allow/deny merge (`Ignore`, `operator +`) |
-| `Rasm.Grasshopper.Components.Decision` | Component input routing (`Pass`, `Handled`, `operator +`) |
+Application-defined monoids for host policy merge — not LanguageExt types. Pattern: identity element + `operator +` for semigroup append; use at composition boundaries only.
 
 ---
 
 ## State And Resources
 
-`Atom<T>.Swap` / `SwapMaybe` for UI, blocks, motion — **no** Subscribe API in v5 Atom.
+`Atom<T>.Swap` / `SwapMaybe` for managed reactive state — **no** Subscribe API in 5.0.0-beta-77.
 
-`IO<T>.Bracket`, `Prelude.use` exist in LE v5; unused in production `libs/`.
+`IO<T>.Bracket`, `Prelude.use` — resource scope in LanguageExt 5.0.0-beta-77.
 
 ---
 
 ## Rules
 
 - [ALWAYS] `Fin<T>` for local fallible work.
-- [ALWAYS] `Validation<Error,T>` or tuple `.Apply().As()` for independent fields.
-- [ALWAYS] `Eff<RT,T>` with concrete runtime records for host effects.
-- [ALWAYS] `.TraverseM(f).As()` for batch monadic traverse in v5.
-- [ALWAYS] `op.Catch` / `Try.lift` at native boundaries — not domain try/catch.
-- [NEVER] Collapse rails mid-pipeline.
-- [NEVER] use `Validation<string,T>` in v5.
-- [NEVER] document LanguageExt `Decision` — type does not exist in pinned package.
+- [ALWAYS] `Validation<Error,T>` or tuple `Apply` / `&` for independent fields.
+- [ALWAYS] `Eff<RT,T>` when host context is required.
+- [NEVER] Mix rails within one module file.
+- [NEVER] Use exceptions for domain control flow.

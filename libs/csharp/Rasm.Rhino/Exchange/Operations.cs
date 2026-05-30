@@ -118,7 +118,7 @@ public abstract partial record FileNamedPosition {
 public readonly record struct FilePositionReport(string Name, Guid Id, Seq<Guid> Objects);
 
 [Union]
-internal abstract partial record HeadlessExchange {
+public abstract partial record HeadlessExchange {
     private HeadlessExchange() { }
     public sealed record Create : HeadlessExchange;
     public sealed record CreateFromTemplate(FileEndpoint Template) : HeadlessExchange;
@@ -181,14 +181,13 @@ public static class FileOp {
             _ => Fin.Fail<FileReport>(error: Op.Of(name: nameof(Batch)).InvalidInput()),
         });
 
-    public static Eff<FileRuntime, T> Headless<T>(Eff<FileRuntime, T> body) =>
-        HeadlessOp(scope: new HeadlessExchange.Create(), body: body);
-
-    public static Eff<FileRuntime, T> Headless<T>(FileEndpoint source, FileProfile profile, Eff<FileRuntime, T> body) =>
-        HeadlessOp(scope: new HeadlessExchange.Open(Source: source, Profile: profile), body: body);
-
-    public static Eff<FileRuntime, T> HeadlessTemplate<T>(FileEndpoint template, Eff<FileRuntime, T> body) =>
-        HeadlessOp(scope: new HeadlessExchange.CreateFromTemplate(Template: template), body: body);
+    // One headless entry; the scope union discriminates empty-document / template / source-open. The scheduler
+    // threads from the active runtime, so callers bind a scope case rather than picking an overload.
+    public static Eff<FileRuntime, T> Headless<T>(HeadlessExchange scope, Eff<FileRuntime, T> body) =>
+        Lift(run: runtime =>
+            from active in Optional(scope).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidInput())
+            from result in HeadlessScope(scope: active, body: body, scheduler: runtime.Scheduler)
+            select result);
 
     public static Eff<FileRuntime, Seq<FileEndpoint>> Prompt(FilePrompt prompt) =>
         Lift(run: runtime =>
@@ -214,9 +213,6 @@ public static class FileOp {
                     Name: live.Document.NamedPositions.Name(id: id) ?? string.Empty,
                     Id: id,
                     Objects: toSeq(live.Document.NamedPositions.ObjectIds(id: id))))));
-
-    internal static Eff<FileRuntime, T> HeadlessOp<T>(HeadlessExchange scope, Eff<FileRuntime, T> body) =>
-        Lift(run: runtime => HeadlessScope(scope: scope, body: body, scheduler: runtime.Scheduler));
 
     private static Fin<FileReport> OpenCore(FileEndpoint source, FileProfile profile) =>
         from endpoint in source.Input(op: Op.Of(name: nameof(FileExchange.Open)))
@@ -323,7 +319,10 @@ public static class FileOp {
         select result;
 
     private static Fin<Unit> SnapshotScript(uint serial, string verb, string name, Op op) =>
-        op.Catch(() => op.Confirm(success: RhinoApp.RunScript(documentSerialNumber: serial, script: string.Create(CultureInfo.InvariantCulture, $"-_Snapshot {verb} _Name {name} _Enter"), echo: false)));
+        op.Catch(() => op.Confirm(success: RhinoApp.RunScript(documentSerialNumber: serial, script: string.Create(CultureInfo.InvariantCulture, $"-_Snapshot {verb} _Name {ScriptToken(value: name)} _Enter"), echo: false)));
+
+    private static string ScriptToken(string value) =>
+        string.Create(CultureInfo.InvariantCulture, $"\"{value.Replace(oldValue: "\"", newValue: "\\\"", comparisonType: StringComparison.Ordinal)}\"");
 
     // One mutation shell for every doc-resource edit: resolve live runtime, null-guard the change, run the typed
     // apply inside an undo-recorded commit, project the receipt onto the phase report. T : class so Optional binds.
@@ -371,23 +370,43 @@ public static class FileOp {
     private static Fin<DocumentReceipt> ExportTarget(RhinoDoc document, DocumentTarget target, FileEndpoint endpoint, FileProfile profile, Op op) =>
         // BOUNDARY ADAPTER — export selected mutates Rhino selection temporarily and must restore it.
         op.Catch(() => DocumentEdit.SelectedIds(document: document, op: op).Bind(before => {
+            const int persistentSelectionState = 2;
+            static bool Persistent(RhinoObject native) => native.IsSelected(checkSubObjects: false) == persistentSelectionState;
+            // Capture the prior persistence mode while the original selection still stands. Restore uses Select because SetSelectedObjects clears.
+            Seq<Guid> persistent = before.Filter(id => Optional(document.Objects.FindId(id)).Map(Persistent).IfNone(noneValue: false));
+            Seq<Guid> transient = before.Filter(id => !persistent.Exists(item => item == id));
+            Seq<(Seq<Guid> Ids, bool Persistent)> restore = Seq((transient, false), (persistent, true));
+            Fin<Unit> restored = Fin.Succ(value: unit);
+            Fin<DocumentReceipt> exported = Fin.Fail<DocumentReceipt>(error: op.InvalidResult());
             try {
                 // The `count == ids.Count` guard on SetSelectedObjects already confirms the full set was selected;
                 // a post-set ordered readback breaks on locked/grip ids Rhino refuses and on duplicate-id multisets.
-                return from ids in target.Ids(document: document, op: op)
-                       from _ in op.Confirm(success: document.Objects.UnselectAll(ignorePersistentSelections: false) >= 0)
-                       from __ in document.Objects.SetSelectedObjects(objectIds: ids.AsIterable(), syncHighlight: true, persistentSelect: false, ignoreGripsState: true, ignoreLayerLocking: false, ignoreLayerVisibility: false) switch {
-                           int count when count == ids.Count => Fin.Succ(value: unit),
-                           _ => Fin.Fail<Unit>(error: op.InvalidResult()),
-                       }
-                       from ___ in FileFormatProjection.Write(document: document, target: Some(endpoint), profile: profile, phase: FilePhase.Export, selected: true, op: op)
-                       select DocumentReceipt.Empty with { Selected = ids };
+                exported = from ids in target.Ids(document: document, op: op)
+                           from _ in op.Confirm(success: document.Objects.UnselectAll(ignorePersistentSelections: false) >= 0)
+                           from __ in document.Objects.SetSelectedObjects(objectIds: ids.AsIterable(), syncHighlight: true, persistentSelect: false, ignoreGripsState: true, ignoreLayerLocking: false, ignoreLayerVisibility: false) switch {
+                               int count when count == ids.Count => Fin.Succ(value: unit),
+                               _ => Fin.Fail<Unit>(error: op.InvalidResult()),
+                           }
+                           from ___ in FileFormatProjection.Write(document: document, target: Some(endpoint), profile: profile, phase: FilePhase.Export, selected: true, op: op)
+                           select DocumentReceipt.Empty with { Selected = ids };
             } finally {
-                _ = document.Objects.UnselectAll(ignorePersistentSelections: false);
-                _ = before.IsEmpty
-                    ? 0
-                    : document.Objects.SetSelectedObjects(objectIds: before.AsIterable(), syncHighlight: true, persistentSelect: true, ignoreGripsState: true, ignoreLayerLocking: false, ignoreLayerVisibility: false);
+                restored =
+                    op.Catch(() => op.Confirm(success: document.Objects.UnselectAll(ignorePersistentSelections: false) >= 0))
+                        .Bind(_ => restore.Filter(static item => !item.Ids.IsEmpty).TraverseM(item => op.Catch(() => {
+                            int count = document.Objects.Select(
+                                objectIds: item.Ids.AsIterable(),
+                                select: true,
+                                syncHighlight: true,
+                                persistentSelect: item.Persistent,
+                                ignoreGripsState: true,
+                                ignoreLayerLocking: false,
+                                ignoreLayerVisibility: false);
+                            return count == item.Ids.Count
+                                ? Fin.Succ(value: unit)
+                                : Fin.Fail<Unit>(error: op.InvalidResult());
+                        })).As().Map(static _ => unit));
             }
+            return exported.Bind(receipt => restored.Map(_ => receipt));
         }));
 
     private static Fin<(RhinoDoc Document, Context Domain, DocumentEdit Edit)> Live(FileRuntime runtime, Op op) =>

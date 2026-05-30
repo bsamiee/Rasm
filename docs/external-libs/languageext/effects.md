@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Rasm runtime effects use runtime records and `Eff.runtime<RT>()`. Boundary adapters may use statement control flow only with an explicit boundary marker in code.
+[IMPORTANT] Pin **`LanguageExt.Core` `5.0.0-beta-77`**. Runtime effects use concrete runtime records and `Eff.runtime<RT>()`. Boundary adapters may use statement control flow only with an explicit boundary marker in code.
 
 ---
 ## [1][RAILS]
@@ -15,7 +15,7 @@
 | :-----: | ------ | ---------- | ----- |
 | [1] | `Fin<T>` | Did one operation succeed or fail? | Native calls, value admission, projection. |
 | [2] | `Validation<Error,T>` | Which independent inputs failed? | Multi-input GH2, formula symbols, requirement sets. |
-| [3] | `Eff<RT,T>` | Which runtime context is needed? | Rhino docs, GH runtime, filesystem, clock, bridge. |
+| [3] | `Eff<RT,T>` | Which runtime context is needed? | Document, filesystem, clock, bridge. |
 | [4] | `IO<T>` | Which side-effect is deferred? | Resource, file, process, and host execution descriptions. |
 
 ---
@@ -41,12 +41,12 @@ Use `Eff.runtime<RT>()` to read host capability records, then project with `Map`
 
 Use schedule policy at composition boundaries only. Domain transforms stay pure and fallible through `Fin` or `Validation`.
 
-Schedule **composition** (LanguageExt; **unused in Rasm production**):
+Schedule **composition** (LanguageExt):
 
 | [INDEX] | [FORM] | [MEANING] |
 | :-----: | ------ | --------- |
-| [1] | `policyA \| policyB` | Chain transformers on `ScheduleTransformer` |
-| [2] | `intersect(policy, Schedule.upto(duration))` | Bound intersection — use `Prelude.intersect`, not C# `&` |
+| [1] | `transformerA + transformerB` | Chain `ScheduleTransformer` instances |
+| [2] | `union(policyA, policyB)` / `intersect(policy, Schedule.upto(duration))` | Prelude schedule combine — not C# `&` on `Schedule` |
 
 Eff recovery in v5: `Prelude.catch(...)` / `IfFailEff` — not generic `eff1 | eff2`. See `operators.md` and `combinators.md`.
 
@@ -90,10 +90,10 @@ Never use LanguageExt state to hide Rhino object lifetime, GH2 tree mutation, or
 | [3] | `HasX<RT>` runtime constraints | Concrete runtime records consumed via `Eff.runtime<RT>()`. |
 | [4] | `LanguageExt.Pipes` (Producer/Consumer/Pipe) | Gone with no replacement. Use `Atom<T>` + paint hook, `Channel<T>`, or process-static cache per use case. |
 | [5] | `StreamT<M, A>` | Gone with no replacement. Same alternatives as Pipes. |
-| [6] | `Sequence(...)` extension | `seq.Traverse(identity).As()`. |
-| [7] | Sequential `.Traverse` | `TraverseM` returns `K<F, Seq<B>>`; `.As()` lowering is MANDATORY to recover `Fin<Seq<B>>` / `Option<Seq<B>>`. |
+| [6] | `Sequence(...)` extension | `seq.Traverse(identity) >> lower` or unary `+`; use `.As()` for `Eff`/`IO`. |
+| [7] | Sequential `.Traverse` | `TraverseM` returns `K<F, Seq<B>>`; lower `Fin`/`Validation`/`Option` with `>> lower` or unary `+`, and lower `Eff`/`IO` with `.As()`. |
 
-**Validation monoid requirement (v5):** `Validation<E, A>` requires `E : Monoid<E>`. `Validation<Error, T>` works (`Error.Combine`); `Validation<string, T>` does NOT compile — use `StringM` or `Seq<Error>`.
+**Validation monoid requirement (v5):** `Validation<E, A>` requires `E : Monoid<E>`. `Validation<Error, T>` works (`Error.Combine`); `Validation<string, T>` does NOT compile — use `StringM` or `Error`. Rasm forbids `Validation<Seq<Error>,T>` (`CSP0703`); GH UI uses `Validation<Seq<UiFault>,T>` — see `rasm.md`.
 
 **Atom surface (v5):** `Atom<T>.Swap`/`SwapMaybe`/`SwapIO`/`SwapMaybeIO`. **No `Subscribe`/`OnChange`/`Reset`** — react-to-state patterns use the host paint loop or polling. `Atom<TMetadata, T>` two-arg form threads metadata through swap functions without closure allocation.
 

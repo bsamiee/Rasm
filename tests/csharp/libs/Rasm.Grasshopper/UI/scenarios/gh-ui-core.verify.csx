@@ -22,71 +22,72 @@ Scenario.Run("gh-ui-core", CAPTURE_PATH, (key, facts) => {
     facts.Add("editor.hasDocument", editor.HasDocument);
     Probe.Require(condition: editor.HasEditor, message: "headless Show(visible:false) creates the editor without a deferred abort");
 
+    Unit RunCanvasOps() {
+        DocumentMutation[] mutations = new[] {
+            DocumentMutation.Selection(op: SelectionOp.All),
+            DocumentMutation.Target(subject: ObjectScope.Selection, op: DocumentTargetOp.Delete()),
+            DocumentMutation.Place(obj: ObjectSpec.Toggle(name: "Rasm", state: true), location: new PointF(-80f, 0f)),
+            DocumentMutation.Place(obj: ObjectSpec.Toggle(name: "Core", state: false), location: new PointF(80f, 0f)),
+        };
+        DocumentMutationDelta populated = Probe.Expect(
+            result: ui.Use(intent: GhUi.Document(op: DocumentOp.Mutate(mutations: mutations))),
+            label: "populate canvas") switch {
+            DocumentResult.MutationResult value => value.Delta.Payload,
+            DocumentResult other => throw new InvalidOperationException(message: $"unexpected mutate result: {other.GetType().Name}"),
+        };
+        facts.Add("canvas.objectCount", populated.After.ObjectCount);
+        facts.Add("canvas.attributeBounds", populated.After.AttributeBounds.ToString());
+        Probe.Require(condition: populated.After.ObjectCount == 2 && populated.After.Modifications > 0, message: "clear-then-place lands exactly two toggles on the headless canvas and records modifications");
+
+        Probe.Expect(result: ui.Use(intent: GhUi.Canvas(op: CanvasOp.Invalidate(repaint: RepaintRequest.Solution))), label: "run solution");
+        DocumentSnapshot solved = Probe.Expect(result: ui.Use(intent: GhUi.Document(op: DocumentOp.Query(query: DocumentQuery.Snapshot))), label: "post-solution document") switch {
+            DocumentResult.SnapshotResult value => value.Snapshot,
+            DocumentResult other => throw new InvalidOperationException(message: $"unexpected document result: {other.GetType().Name}"),
+        };
+        facts.Add("solution.objectCount", solved.ObjectCount);
+        facts.Add("solution.modifications", solved.Modifications);
+        Probe.Require(condition: solved.ObjectCount == 2, message: "the document retains both objects after a headless solution pass");
+
+        CanvasSnapshot snapshot = Probe.Expect(result: ui.Use(intent: GhUi.Canvas(op: CanvasOp.Snapshot())), label: "canvas snapshot") switch {
+            CanvasResult.SnapshotResult value => value.Snapshot,
+            CanvasResult other => throw new InvalidOperationException(message: $"unexpected snapshot result: {other.GetType().Name}"),
+        };
+        facts.Add("canvas.logicalPixelSize", snapshot.LogicalPixelSize);
+
+        CanvasBitmap bitmap = Probe.Expect(
+            result: ui.Use(intent: GhUi.Canvas(op: CanvasOp.Render(width: 400, height: 200, layers: CanvasBitmapLayers.All))),
+            label: "offscreen render") switch {
+            CanvasResult.BitmapResult value => value.Bitmap,
+            CanvasResult other => throw new InvalidOperationException(message: $"unexpected render result: {other.GetType().Name}"),
+        };
+        facts.Add("render.width", bitmap.Width);
+        facts.Add("render.pngBytes", bitmap.Png.Length);
+        Probe.Require(condition: bitmap.Width == 400 && bitmap.Png.Length > 0, message: "offscreen render of the populated canvas produced PNG bytes");
+
+        DrawMark mark = DrawMark.Rectangle(bounds: new RectangleF(0f, 0f, 24f, 24f), edge: Colors.Crimson, fill: Some(Colors.SkyBlue), thickness: 2f);
+        Subscription drawSub = Probe.Expect(
+            result: ui.Use(intent: GhUi.Paint(request: new PaintRequest<Subscription>.Hook(Phase: CanvasPaintPhase.AfterObjects, Plan: new DrawPlan(Marks: Seq(mark))))),
+            label: "draw plan hook");
+        using (drawSub) { }
+        facts.Add("draw.hookAttached", true);
+        return unit;
+    }
+
+    Unit SkipCanvasOps() {
+        facts.Add("canvas.opsSkipped", "headless editor exposes no canvas (§1 gate)");
+        return unit;
+    }
+
     // §1 gate: canvas ops resolve only with a canvas. Some-branch failures throw (real regression); the None branch
     // records the skip explicitly so the evidence — not silence — reveals that the headless editor has no canvas.
-    _ = Optional(editor.HasCanvas).Filter(static has => has).Match(
-        Some: _ => {
-            // A freshly-opened GH editor holds an empty document, so Render would paint only the bare background.
-            // Populate it deterministically: clear whatever the long-lived bridge endpoint left, then place two
-            // toggles — exercising the document-mutation rail AND giving Render/DrawPlan real content to paint.
-            DocumentMutationDelta populated = Probe.Expect(
-                result: ui.Use(intent: GhUi.Document(op: DocumentOp.Mutate(
-                    DocumentMutation.Selection(op: SelectionOp.All),
-                    DocumentMutation.Target(subject: ObjectScope.Selection, op: DocumentTargetOp.Delete()),
-                    DocumentMutation.Place(obj: ObjectSpec.Toggle(name: "Rasm", state: true), location: new PointF(-80f, 0f)),
-                    DocumentMutation.Place(obj: ObjectSpec.Toggle(name: "Core", state: false), location: new PointF(80f, 0f))))),
-                label: "populate canvas") switch {
-                DocumentResult.MutationResult value => value.Delta.Payload,
-                DocumentResult other => throw new InvalidOperationException(message: $"unexpected mutate result: {other.GetType().Name}"),
-            };
-            facts.Add("canvas.objectCount", populated.After.ObjectCount);
-            facts.Add("canvas.attributeBounds", populated.After.AttributeBounds.ToString());
-            Probe.Require(condition: populated.After.ObjectCount == 2 && populated.After.Modifications > 0, message: "clear-then-place lands exactly two toggles on the headless canvas and records modifications");
-
-            // Something happening: drive a GH2 solution over the placed objects. The headless bridge never pumps the
-            // canvas idle loop, so this proves the document SOLVES without crashing the host — not synchronous settling.
-            Probe.Expect(result: ui.Use(intent: GhUi.Canvas(op: CanvasOp.Invalidate(repaint: RepaintRequest.Solution))), label: "run solution");
-            DocumentSnapshot solved = Probe.Expect(result: ui.Use(intent: GhUi.Document(op: DocumentOp.Query(query: DocumentQuery.Snapshot))), label: "post-solution document") switch {
-                DocumentResult.SnapshotResult value => value.Snapshot,
-                DocumentResult other => throw new InvalidOperationException(message: $"unexpected document result: {other.GetType().Name}"),
-            };
-            facts.Add("solution.objectCount", solved.ObjectCount);
-            facts.Add("solution.modifications", solved.Modifications);
-            Probe.Require(condition: solved.ObjectCount == 2, message: "the document retains both objects after a headless solution pass");
-
-            CanvasSnapshot snapshot = Probe.Expect(result: ui.Use(intent: GhUi.Canvas(op: CanvasOp.Snapshot())), label: "canvas snapshot") switch {
-                CanvasResult.SnapshotResult value => value.Snapshot,
-                CanvasResult other => throw new InvalidOperationException(message: $"unexpected snapshot result: {other.GetType().Name}"),
-            };
-            facts.Add("canvas.logicalPixelSize", snapshot.LogicalPixelSize);
-
-            // Offscreen render of the POPULATED canvas — proves the headless canvas rasterizes real content with no window.
-            CanvasBitmap bitmap = Probe.Expect(
-                result: ui.Use(intent: GhUi.Canvas(op: CanvasOp.Render(width: 400, height: 200, layers: CanvasBitmapLayers.All))),
-                label: "offscreen render") switch {
-                CanvasResult.BitmapResult value => value.Bitmap,
-                CanvasResult other => throw new InvalidOperationException(message: $"unexpected render result: {other.GetType().Name}"),
-            };
-            facts.Add("render.width", bitmap.Width);
-            facts.Add("render.pngBytes", bitmap.Png.Length);
-            Probe.Require(condition: bitmap.Width == 400 && bitmap.Png.Length > 0, message: "offscreen render of the populated canvas produced PNG bytes");
-
-            DrawMark mark = DrawMark.Rectangle(bounds: new RectangleF(0f, 0f, 24f, 24f), edge: Colors.Crimson, fill: Some(Colors.SkyBlue), thickness: 2f);
-            Subscription drawSub = Probe.Expect(
-                result: ui.Use(intent: GhUi.Paint(request: new PaintRequest<Subscription>.Hook(Phase: CanvasPaintPhase.AfterObjects, Plan: new DrawPlan(Marks: Seq(mark))))),
-                label: "draw plan hook");
-            using (drawSub) { }
-            facts.Add("draw.hookAttached", true);
-            return unit;
-        },
-        None: () => { facts.Add("canvas.opsSkipped", "headless editor exposes no canvas (§1 gate)"); return unit; });
+    _ = editor.HasCanvas ? RunCanvasOps() : SkipCanvasOps();
 
     facts.Add("iconAdjust.count", IconAdjust.Items.Count);
     Probe.Require(condition: IconAdjust.Items.Count == 4 && IconAdjust.None.Key == 0 && IconAdjust.Faded.Key == 3, message: "IconAdjust vocabulary");
     facts.Add("dialogPresentation.count", DialogPresentation.Items.Count);
     Probe.Require(condition: DialogPresentation.Items.Count == 2 && DialogPresentation.Modal.Key == 0 && DialogPresentation.AttachedSheet.Key == 1, message: "DialogPresentation vocabulary");
     facts.Add("graphMetric.count", GraphMetric.Items.Count);
-    Probe.Require(condition: GraphMetric.Items.Count == 3 && GraphMetric.Linearity.Key == 0 && GraphMetric.SortedTopology.Key == 2, message: "GraphMetric vocabulary");
+    Probe.Require(condition: GraphMetric.Items.Count == 5 && GraphMetric.Linearity.Key == 0 && GraphMetric.RelayCollapsed.Key == 3 && GraphMetric.Paths.Key == 4, message: "GraphMetric vocabulary");
     facts.Add("emitterShape.count", EmitterShape.Items.Count);
     Probe.Require(condition: EmitterShape.Items.Count == 6 && EmitterShape.Circle.Key == 4, message: "EmitterShape vocabulary");
 

@@ -191,11 +191,7 @@
         }
       },
       "rasm.rhinobridge.protocol": {
-        "type": "Project",
-        "dependencies": {
-          "LanguageExt.Core": "[5.0.0-beta-77, )",
-          "Thinktecture.Runtime.Extensions": "[10.2.0, )"
-        }
+        "type": "Project"
       },
       "rasm.testkit": {
         "type": "Project",

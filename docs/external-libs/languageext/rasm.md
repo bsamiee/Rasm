@@ -20,7 +20,7 @@
 | [5] | GH UI parallel checks with batched faults. | `Validation<Seq<UiFault>,T>` |
 | [6] | Thinktecture VO factory with custom fault type. | `[ValidationError<TFault>]` on generated `Validate` |
 
-[NEVER] Use `Validation<string,T>` — v5 requires `E : Monoid<E>`; use `StringM`, `Validation<Seq<Error>>`, or `Validation<Seq<UiFault>,T>` instead.
+[NEVER] Use `Validation<string,T>` — v5 requires `E : Monoid<E>`; use `StringM` or `Validation<Error,T>`. [NEVER] Use `Validation<Seq<Error>,T>` in domain/application/shared (`CSP0703`). GH UI parallel faults: `Validation<Seq<UiFault>,T>`.
 
 Global Prelude is injected from `Directory.Build.props`. See `prelude.md`.
 

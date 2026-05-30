@@ -4,6 +4,28 @@ using Grasshopper2.Types.Conversion;
 
 namespace Rasm.Grasshopper.Components;
 
+// --- [TYPES] ------------------------------------------------------------------------------
+[SmartEnum<string>]
+internal sealed partial class Severity {
+    private delegate Unit EmitDiagnostic(IDataAccess access, string text, string details);
+    public static readonly Severity Remark = new(key: nameof(Remark), emit: EmitRemark);
+    public static readonly Severity Warning = new(key: nameof(Warning), emit: EmitWarning);
+    public static readonly Severity Error = new(key: nameof(Error), emit: EmitError);
+    [UseDelegateFromConstructor] internal partial Unit Emit(IDataAccess access, string text, string details);
+    private static Unit EmitRemark(IDataAccess access, string text, string details) {
+        access.AddRemark(text: text, details: details);
+        return unit;
+    }
+    private static Unit EmitWarning(IDataAccess access, string text, string details) {
+        access.AddWarning(text: text, details: details);
+        return unit;
+    }
+    private static Unit EmitError(IDataAccess access, string text, string details) {
+        access.AddError(text: text, details: details);
+        return unit;
+    }
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Shape {
@@ -75,7 +97,9 @@ internal readonly record struct Flow<T>(Pear<T> Pear, Option<Site> Site) {
     internal Flow<TOut> Project<TOut>(TOut item, int index) => new(Pear: Pear<TOut>.Create(item: item, meta: Meta), Site: Site.Map(site => new Site(path: site.Path.AppendElement(site.Item), item: index)));
     internal Seq<Flow<TOut>> Project<TOut>(Seq<TOut> items) {
         Flow<T> source = this;
-        return items.Map((value, index) => source.Project(item: value, index: index));
+        return items.Count == 1
+            ? items.Map(value => source.Project(item: value))
+            : items.Map((value, index) => source.Project(item: value, index: index));
     }
 }
 internal readonly record struct TolerancePolicy(double Absolute, double Relative, double Angle, bool Reliable) {
@@ -133,7 +157,7 @@ internal static class Bridge {
             Succ: context => {
                 _ = tolerance.Reliable switch {
                     true => Unit.Default,
-                    false => Effect(action: () => access.AddRemark(text: "Tolerance", details: "Host supplied fallback tolerance values; using them because they are valid.")),
+                    false => access.Emit(severity: Severity.Remark, text: "Tolerance", details: "Host supplied fallback tolerance values; using them because they are valid."),
                 };
                 return Fin.Succ(Analyze.In(context: context));
             },
@@ -186,7 +210,7 @@ internal static class Bridge {
             internal override Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values) =>
                 values.Count switch {
                     1 => Effect(action: () => access.SetPear(index: slot, pear: values[0].Pear)) switch { _ => values.Map(static value => (object)value.Item!) },
-                    > 1 => Effect(action: () => access.AddError(text: name, details: $"Item output received {values.Count} values; use twig or tree access.")) switch { _ => Seq<object>() },
+                    > 1 => access.Emit(severity: Severity.Error, text: name, details: $"Item output received {values.Count} values; use twig or tree access.") switch { _ => Seq<object>() },
                     _ => Seq<object>(),
                 };
         }
@@ -220,19 +244,21 @@ internal static class Bridge {
             internal override Fin<Seq<Flow<T>>> Read(IDataAccess access, int slot, Port port) =>
                 Fin.Fail<Seq<Flow<T>>>(new UnsupportedAccess(Access: port.Access.ToString()));
             internal override Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values) =>
-                Effect(action: () => access.AddError(text: name, details: "Unsupported output access.")) switch { _ => Seq<object>() };
+                access.Emit(severity: Severity.Error, text: name, details: "Unsupported output access.") switch { _ => Seq<object>() };
         }
     }
     private static Unit Effect(Action action) {
         action();
         return Unit.Default;
     }
+    internal static Unit Emit(this IDataAccess access, Severity severity, string text, string details) =>
+        severity.Emit(access: access, text: text, details: details);
     private static int? TreePrefix(IDataAccess access, int slot) =>
         access.CoverageOut(index: slot) switch { { TwigIndex: >= 0 } coverage => coverage.TwigIndex, _ => null };
-    private static Fin<Analyze.Scope> Remark(IDataAccess access, Rhino.UnitSystem units) {
-        access.AddRemark(text: "Tolerance", details: "Host did not supply reliable tolerance; using default tolerance with document units.");
-        return Fin.Succ(Analyze.In(units: units == Rhino.UnitSystem.CustomUnits ? Rhino.UnitSystem.Millimeters : units));
-    }
+    private static Fin<Analyze.Scope> Remark(IDataAccess access, Rhino.UnitSystem units) =>
+        access.Emit(severity: Severity.Remark, text: "Tolerance", details: "Host did not supply reliable tolerance; using default tolerance with document units.") switch {
+            _ => Fin.Succ(Analyze.In(units: units == Rhino.UnitSystem.CustomUnits ? Rhino.UnitSystem.Millimeters : units)),
+        };
     private static Fin<Seq<Pear<TVal>>> Missing<TVal>(Port port) =>
         port.Requirement switch {
             Grasshopper2.Parameters.Requirement.MayBeMissing => Fin.Succ(Seq<Pear<TVal>>()),
@@ -243,12 +269,15 @@ internal static class Bridge {
     private static Seq<Leaf<T>> Leaves<T>(Seq<Flow<T>> values) =>
         values.Map((value, index) => new Leaf<T>(pear: value.Pear, site: value.Site.IfNone(new Site(path: new Grasshopper2.Data.Path(0), item: index))));
     private static Fin<Flow<Shape>> NormalizeFlow(IDataAccess access, Flow<object> source, Port port, double factor) =>
-        from shape in Shape.From(raw: source.Item).ToFin(new UnsupportedSource(Port: port.Name, SourceType: source.Item.GetType(), Hint: Shape.Accepted))
-        from result in factor switch {
-            double scale when Math.Abs(value: scale - 1.0) <= Rhino.RhinoMath.ZeroTolerance => Fin.Succ(source.Project(item: shape)),
-            _ => ScaleShape(access: access, source: source, shape: shape, factor: factor),
-        }
-        select result;
+        Optional(source.Item)
+            .ToFin(new MissingPortInput(Port: port.Name, Hint: Shape.Accepted))
+            .Bind(raw =>
+                from shape in Shape.From(raw: raw).ToFin(new UnsupportedSource(Port: port.Name, SourceType: raw.GetType(), Hint: Shape.Accepted))
+                from result in factor switch {
+                    double scale when Math.Abs(value: scale - 1.0) <= Rhino.RhinoMath.ZeroTolerance => Fin.Succ(source.Project(item: shape)),
+                    _ => ScaleShape(access: access, source: source, shape: shape, factor: factor),
+                }
+                select result);
     private static Fin<Flow<Shape>> ScaleShape(IDataAccess access, Flow<object> source, Shape shape, double factor) {
         Pear<object> pear = Pear<object>.Create(item: shape.Inner, meta: source.Meta);
         return Optional(access.TryTransform(value: pear, transformation: Transform.Scale(anchor: Point3d.Origin, scaleFactor: factor))).ToFin(new Fault.ComputationFailed(Label: "UnitScaling"))
@@ -257,9 +286,11 @@ internal static class Bridge {
                 false => Fin.Succ(transformed),
             })
             .Bind(transformed => shape.DisposeUnlessTransferred(outputs: Seq(transformed.Item)) switch {
-                // transformed.Item is already a validated GeometryBase from TryTransform; Create takes the direct path instead of re-running the broker chain.
-                _ => Shape.Create(value: transformed.Item)
-                .Map(scaled => new Flow<Shape>(Pear: Pear<Shape>.Create(item: scaled, meta: transformed.Meta), Site: source.Site)),
+                _ => Optional(transformed.Item as GeometryBase)
+                    .ToFin(new Fault.ComputationFailed(Label: "UnitScaling"))
+                    .Bind(geometry => Shape.Converted(raw: shape.Inner, value: geometry)
+                        .ToFin(new Fault.ComputationFailed(Label: "UnitScaling")))
+                    .Map(scaled => new Flow<Shape>(Pear: Pear<Shape>.Create(item: scaled, meta: transformed.Meta), Site: source.Site)),
             });
     }
     internal sealed class Progress(IDataAccess access) : IProgress<double> {

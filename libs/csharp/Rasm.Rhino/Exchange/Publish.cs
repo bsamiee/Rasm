@@ -1,5 +1,6 @@
 using System.Drawing.Imaging;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Rasm.Rhino.Camera;
 using Rasm.Rhino.Commands;
@@ -166,55 +167,84 @@ public sealed partial class FileRasterEncoding {
         format: () => FileFormat.Png,
         image: () => DrawingImageFormat.Png,
         compression: FileTiffCompression.Default,
-        encode: static (_, settings) => settings.PngDepth.Map(depth => Seq<(Encoder, long)>((Encoder.ColorDepth, depth))).IfNone(Seq<(Encoder, long)>()));
+        encode: static (_, settings) => settings.PngDepth.Map(depth => Seq(new FileRasterCodecParameter(Kind: FileRasterCodecKind.ColorDepth, Value: depth))).IfNone(Seq<FileRasterCodecParameter>()));
     public static readonly FileRasterEncoding Jpeg = new(
         key: 1,
         format: () => FileFormat.Jpeg,
         image: () => DrawingImageFormat.Jpeg,
         compression: FileTiffCompression.Default,
-        encode: static (_, settings) => Seq<(Encoder, long)>((Encoder.Quality, settings.JpegQuality)));
+        encode: static (_, settings) => Seq(new FileRasterCodecParameter(Kind: FileRasterCodecKind.Quality, Value: settings.JpegQuality)));
     public static readonly FileRasterEncoding Tiff = new(
         key: 2,
         format: () => FileFormat.Tiff,
         image: () => DrawingImageFormat.Tiff,
         compression: FileTiffCompression.Lzw,
-        encode: static (encoding, settings) => Seq<(Encoder, long)>((Encoder.Compression, (long)(settings.TiffCompression.IfNone(noneValue: encoding.Compression) switch {
-            FileTiffCompression.None => EncoderValue.CompressionNone,
-            FileTiffCompression.Ccitt3 => EncoderValue.CompressionCCITT3,
-            FileTiffCompression.Ccitt4 => EncoderValue.CompressionCCITT4,
-            FileTiffCompression.Rle => EncoderValue.CompressionRle,
-            _ => EncoderValue.CompressionLZW,
-        }))));
+        encode: static (encoding, settings) => Seq(new FileRasterCodecParameter(Kind: FileRasterCodecKind.Compression, Value: (long)settings.TiffCompression.IfNone(noneValue: encoding.Compression))));
     public static readonly FileRasterEncoding Bitmap = new(
         key: 3,
         format: () => FileFormat.Bmp,
         image: () => DrawingImageFormat.Bmp,
         compression: FileTiffCompression.Default,
-        encode: static (_, _) => Seq<(Encoder, long)>());
+        encode: static (_, _) => Seq<FileRasterCodecParameter>());
 
     private readonly Func<FileFormat> format;
     private readonly Func<DrawingImageFormat> image;
-    private readonly Func<FileRasterEncoding, FileRasterSettings, Seq<(Encoder Encoder, long Value)>> encode;
+    private readonly Func<FileRasterEncoding, FileRasterSettings, Seq<FileRasterCodecParameter>> encode;
 
     public FileFormat Format => format();
     public DrawingImageFormat Image => image();
     public FileTiffCompression Compression { get; }
 
-    internal Seq<(Encoder Encoder, long Value)> Parameters(FileRasterSettings settings) => encode(arg1: this, arg2: settings);
+    internal Seq<FileRasterCodecParameter> Parameters(FileRasterSettings settings) => encode(arg1: this, arg2: settings);
 }
+
+internal enum FileRasterCodecKind { Quality, ColorDepth, Compression }
+
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct FileRasterCodecParameter(FileRasterCodecKind Kind, long Value);
 
 public readonly record struct FileRasterSettings(
     long JpegQuality = FileSheetDefaults.DefaultJpegQuality,
     Option<FileTiffCompression> TiffCompression = default,
     Option<int> PngDepth = default,
     Option<double> ExifDpi = default,
-    bool Transparent = false);
+    bool Transparent = false) {
+    internal Fin<FileRasterSettings> Validate(FileRasterEncoding encoding, Op op) {
+        FileRasterSettings self = this;
+        return from _quality in encoding == FileRasterEncoding.Jpeg && self.JpegQuality is < 0L or > 100L ? Fin.Fail<Unit>(error: op.InvalidInput()) : Fin.Succ(value: unit)
+               from _depth in (encoding, self.PngDepth.Case) switch {
+                   (FileRasterEncoding value, int depth) when value == FileRasterEncoding.Png && depth > 0 => Fin.Succ(value: unit),
+                   (FileRasterEncoding value, int) when value == FileRasterEncoding.Png => Fin.Fail<Unit>(error: op.InvalidInput()),
+                   (_, int) => Fin.Succ(value: unit),
+                   _ => Fin.Succ(value: unit),
+               }
+               from _dpi in self.ExifDpi.Case switch {
+                   double dpi when RhinoMath.IsValidDouble(x: dpi) && dpi > 0d => Fin.Succ(value: unit),
+                   double => Fin.Fail<Unit>(error: op.InvalidInput()),
+                   _ => Fin.Succ(value: unit),
+               }
+               from _compression in self.TiffCompression.Case switch {
+                   FileTiffCompression value when encoding != FileRasterEncoding.Tiff || SupportedTiffCompression(value: value) => Fin.Succ(value: unit),
+                   FileTiffCompression => Fin.Fail<Unit>(error: op.InvalidInput()),
+                   _ => Fin.Succ(value: unit),
+               }
+               select self;
+    }
+
+    private static bool SupportedTiffCompression(FileTiffCompression value) =>
+        value is FileTiffCompression.Default or FileTiffCompression.None or FileTiffCompression.Lzw or FileTiffCompression.Ccitt3 or FileTiffCompression.Ccitt4 or FileTiffCompression.Rle;
+}
 
 public readonly record struct FilePdfPage(
     int WidthDots,
     int HeightDots,
     int Dpi,
-    Option<Func<FilePdf, int, Op, Fin<Unit>>> Annotate = default);
+    Option<Func<FilePdf, int, Op, Fin<Unit>>> Annotate = default) {
+    internal Fin<FilePdfPage> Validate(Op op) =>
+        WidthDots > 0 && HeightDots > 0 && Dpi > 0
+            ? Fin.Succ(value: this)
+            : Fin.Fail<FilePdfPage>(error: op.InvalidInput());
+}
 
 // Typed page-stamp algebra over the raw FilePdf draw primitives. Callers declare a `Seq<PdfStamp>` and call
 // `.Annotation()` to build the `Func<FilePdf,int,Op,Fin<Unit>>` the Pdf/FilePdfPage `Annotate` field expects —
@@ -262,7 +292,7 @@ internal readonly record struct FilePublishResult(
 public abstract partial record FilePublishTarget {
     private FilePublishTarget() { }
     // `Prefix`/`Suffix` interleave blank pages via `AddPage(w,h,dpi)`; captured views use `AddPage(ViewCaptureSettings)`.
-    // Per-page `Annotate` stamps cover/title pages; top-level `Annotate` applies to each captured view.
+    // Per-page `Annotate` stamps cover/title pages; top-level `Annotate` applies to prefix, captured, and suffix pages.
     public sealed record Pdf(
         FileEndpoint Target,
         Seq<FilePdfPage> Prefix = default,
@@ -288,7 +318,8 @@ public abstract partial record FilePublishTarget {
     private static Fin<FilePublishResult> WritePdf(Pdf target, Seq<FileViewPage> pages, bool layers, Op op) =>
         from endpoint in target.Target.WithFormat(format: FileFormat.Pdf).Output(op: op)
         from pdf in Optional(FilePdf.Create()).ToFin(Fail: op.InvalidResult())
-        from _prefix in target.Prefix.TraverseM(spec => AddBlankPdfPage(pdf: pdf, spec: spec, op: op)).As()
+        from _prefix in target.Prefix.TraverseM(spec => AddBlankPdfPage(pdf: pdf, spec: spec, op: op)
+            .Bind(page => op.Catch(() => target.Annotate.Map(annotate => annotate(arg1: pdf, arg2: page, arg3: op)).IfNone(Fin.Succ(value: unit))))).As()
         from sheets in pages.TraverseM(page =>
             from rendered in page.Render(render: owned => {
                 pdf.LayersAsOptionalContentGroups = layers && !page.Spec.Raster;
@@ -299,7 +330,8 @@ public abstract partial record FilePublishTarget {
             }, op: op)
             from annotated in op.Catch(() => target.Annotate.Map(annotate => annotate(arg1: pdf, arg2: rendered.Value, arg3: op)).IfNone(Fin.Succ(value: unit)))
             select rendered.Report).As()
-        from _suffix in target.Suffix.TraverseM(spec => AddBlankPdfPage(pdf: pdf, spec: spec, op: op)).As()
+        from _suffix in target.Suffix.TraverseM(spec => AddBlankPdfPage(pdf: pdf, spec: spec, op: op)
+            .Bind(page => op.Catch(() => target.Annotate.Map(annotate => annotate(arg1: pdf, arg2: page, arg3: op)).IfNone(Fin.Succ(value: unit))))).As()
         from _write in op.Catch(() => { pdf.Write(filename: endpoint.Path); return Fin.Succ(value: unit); })
         from _verify in VerifyFile(path: endpoint.Path, op: op)
         select new FilePublishResult(
@@ -308,13 +340,14 @@ public abstract partial record FilePublishTarget {
             Receipt: DocumentReceipt.Empty,
             Views: sheets);
 
-    private static Fin<Unit> AddBlankPdfPage(FilePdf pdf, FilePdfPage spec, Op op) =>
-        from index in op.Catch(() => pdf.AddPage(widthInDots: spec.WidthDots, heightInDots: spec.HeightDots, dotsPerInch: spec.Dpi) switch {
+    private static Fin<int> AddBlankPdfPage(FilePdf pdf, FilePdfPage spec, Op op) =>
+        from valid in spec.Validate(op: op)
+        from index in op.Catch(() => pdf.AddPage(widthInDots: valid.WidthDots, heightInDots: valid.HeightDots, dotsPerInch: valid.Dpi) switch {
             int value when value >= 0 => Fin.Succ(value: value),
             _ => Fin.Fail<int>(error: op.InvalidResult()),
         })
-        from annotated in op.Catch(() => spec.Annotate.Map(annotate => annotate(arg1: pdf, arg2: index, arg3: op)).IfNone(Fin.Succ(value: unit)))
-        select unit;
+        from annotated in op.Catch(() => valid.Annotate.Map(annotate => annotate(arg1: pdf, arg2: index, arg3: op)).IfNone(Fin.Succ(value: unit)))
+        select index;
 
     private static Fin<FilePublishResult> WritePrinter(Printer target, Seq<FileViewPage> pages, Op op) =>
         from name in FileEndpoint.NonBlank(value: target.Name, op: op)
@@ -339,8 +372,8 @@ public abstract partial record FilePublishTarget {
 
     private static Fin<FilePublishResult> WriteRaster(Raster target, Seq<FileViewPage> pages, Op op) {
         FileRasterEncoding encoding = target.ResolvedEncoding;
-        FileRasterSettings settings = target.Settings;
-        return CaptureViews(target: target.Target, format: encoding.Format, pages: pages, op: op,
+        return from settings in target.Settings.Validate(encoding: encoding, op: op)
+               from result in CaptureViews(target: target.Target, format: encoding.Format, pages: pages, op: op,
             render: (page, owned, path) => {
                 // Transparent output requires the instance ViewCapture path; the static ViewCaptureSettings
                 // path ignores alpha. It trades sheet layout/crop/scale for the alpha channel.
@@ -359,7 +392,8 @@ public abstract partial record FilePublishTarget {
                     bitmap?.Dispose();
                 }
             },
-            log: string.Create(CultureInfo.InvariantCulture, $"raster:{encoding.Key};quality:{settings.JpegQuality};views:{pages.Count}"));
+            log: string.Create(CultureInfo.InvariantCulture, $"raster:{encoding.Key};quality:{settings.JpegQuality};views:{pages.Count}"))
+               select result;
     }
 
     private static Fin<FilePublishResult> WriteSvg(Svg target, Seq<FileViewPage> pages, Op op) =>
@@ -403,22 +437,40 @@ public abstract partial record FilePublishTarget {
     private static Fin<Unit> SaveBitmap(DrawingBitmap bitmap, FileRasterEncoding encoding, FileRasterSettings settings, string path, Op op) =>
         op.Catch(() => {
             DrawingImageFormat image = encoding.Image;
-            Seq<(Encoder Encoder, long Value)> codecParams = encoding.Parameters(settings: settings);
-            ImageCodecInfo? codec = codecParams.IsEmpty
-                ? null
-                : toSeq(ImageCodecInfo.GetImageEncoders()).Find(c => c.FormatID == image.Guid).Case as ImageCodecInfo;
-            _ = codec switch {
-                ImageCodecInfo active => Op.Side(() => {
-                    EncoderParameter[] entries = [.. codecParams.AsIterable().Select(static pair => new EncoderParameter(pair.Encoder, pair.Value))];
-                    try {
-                        using EncoderParameters parameters = new(entries.Length) { Param = entries };
-                        bitmap.Save(filename: path, encoder: active, encoderParams: parameters);
-                    } finally {
-                        System.Array.ForEach(array: entries, action: static entry => entry.Dispose());
-                    }
-                }),
-                _ => Op.Side(() => bitmap.Save(filename: path, format: image)),
-            };
-            return VerifyFile(path: path, op: op);
+            Seq<FileRasterCodecParameter> codecParams = encoding.Parameters(settings: settings);
+            return (codecParams.IsEmpty
+                    ? Fin.Succ(value: Op.Side(() => bitmap.Save(filename: path, format: image)))
+                    : SaveBitmapWithCodec(bitmap: bitmap, image: image, parameters: codecParams, path: path, op: op))
+                .Bind(_ => VerifyFile(path: path, op: op));
         });
+
+    private static Fin<Unit> SaveBitmapWithCodec(DrawingBitmap bitmap, DrawingImageFormat image, Seq<FileRasterCodecParameter> parameters, string path, Op op) {
+        ImageCodecInfo? codec = toSeq(ImageCodecInfo.GetImageEncoders()).Find(c => c.FormatID == image.Guid).Case as ImageCodecInfo;
+        return codec switch {
+            ImageCodecInfo active => Fin.Succ(value: Op.Side(() => {
+                EncoderParameter[] entries = [.. parameters.AsIterable().Select(CodecParameter)];
+                try {
+                    using EncoderParameters native = new(entries.Length) { Param = entries };
+                    bitmap.Save(filename: path, encoder: active, encoderParams: native);
+                } finally {
+                    System.Array.ForEach(array: entries, action: static entry => entry.Dispose());
+                }
+            })),
+            _ => Fin.Fail<Unit>(error: op.InvalidResult()),
+        };
+    }
+
+    private static EncoderParameter CodecParameter(FileRasterCodecParameter parameter) =>
+        parameter.Kind switch {
+            FileRasterCodecKind.Quality => new EncoderParameter(Encoder.Quality, parameter.Value),
+            FileRasterCodecKind.ColorDepth => new EncoderParameter(Encoder.ColorDepth, parameter.Value),
+            FileRasterCodecKind.Compression => new EncoderParameter(Encoder.Compression, parameter.Value switch {
+                (long)FileTiffCompression.None => (long)EncoderValue.CompressionNone,
+                (long)FileTiffCompression.Ccitt3 => (long)EncoderValue.CompressionCCITT3,
+                (long)FileTiffCompression.Ccitt4 => (long)EncoderValue.CompressionCCITT4,
+                (long)FileTiffCompression.Rle => (long)EncoderValue.CompressionRle,
+                _ => (long)EncoderValue.CompressionLZW,
+            }),
+            _ => new EncoderParameter(Encoder.Quality, parameter.Value),
+        };
 }

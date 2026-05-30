@@ -99,36 +99,28 @@ public readonly partial struct OrderId {
 
 ```csharp
 [ComplexValueObject]
-[ValidationError<UiFault>]
+[ValidationError<DomainFault>]
 [StructLayout(LayoutKind.Auto)]
-public readonly partial struct SpringConfig {
+public readonly partial struct DampingConfig {
     public float Stiffness { get; }
     public float Damping { get; }
     public float Mass { get; }
 
-    [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
-        ref UiFault? validationError, ref float stiffness, ref float damping, ref float mass) {
-        Op op = Op.Of(name: nameof(SpringConfig));
-        UiFault? fault = null;
-        _ = op.AcceptAll(
-                value: unit,
-                o => float.IsFinite(stiffness) && stiffness > 0f
-                    ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(UiFault.InvalidInput(op: o, detail: $"Stiffness must be > 0 (got {stiffness:R}).")),
-                o => float.IsFinite(damping) && damping >= 0f
-                    ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(UiFault.InvalidInput(op: o, detail: $"Damping must be >= 0 (got {damping:R}).")),
-                o => float.IsFinite(mass) && mass > 0f
-                    ? Fin.Succ(unit)
-                    : Fin.Fail<Unit>(UiFault.InvalidInput(op: o, detail: $"Mass must be > 0 (got {mass:R}).")))
-            .IfFail(err => { fault = (UiFault)err; return unit; });
-        validationError = fault;
+        ref DomainFault? validationError,
+        ref float stiffness, ref float damping, ref float mass) {
+        validationError = (stiffness, damping, mass) switch {
+            var (s, _, _) when !float.IsFinite(s) || s <= 0f
+                => DomainFault.Invalid("Stiffness must be > 0."),
+            var (_, d, _) when !float.IsFinite(d) || d < 0f
+                => DomainFault.Invalid("Damping must be >= 0."),
+            var (_, _, m) when !float.IsFinite(m) || m <= 0f
+                => DomainFault.Invalid("Mass must be > 0."),
+            _ => null
+        };
     }
 }
 ```
-
-Production source: `libs/csharp/Rasm.Grasshopper/UI/Motion.cs`.
 
 ---
 ## [3][DOMAIN_BRIDGE]
@@ -147,11 +139,12 @@ using static LanguageExt.Prelude;
 public static class DomainBridge {
     // --- [PARSE_VALUE_OBJECT] ------------------------------------------------
     public static Fin<TValueObject> ParseValueObject<TValueObject, TKey>(TKey candidate)
-        where TValueObject : IValueObjectFactory<TValueObject, TKey, ValidationError> =>
-        TValueObject.TryCreate(candidate, out TValueObject value, out ValidationError? validationError) switch {
-            true => Fin.Succ(value),
-            false => Fin.Fail<TValueObject>(
-                Error.New(validationError?.Message ?? $"{typeof(TValueObject).Name} validation failed for '{candidate}'."))
+        where TValueObject : IObjectFactory<TValueObject, TKey, ValidationError> =>
+        TValueObject.Validate(value: candidate, provider: null, item: out TValueObject? value) switch {
+            null when value is not null => Fin.Succ(value),
+            ValidationError err => Fin.Fail<TValueObject>(
+                Error.New(err.Message ?? $"{typeof(TValueObject).Name} validation failed for '{candidate}'.")),
+            _ => Fin.Fail<TValueObject>(Error.New($"{typeof(TValueObject).Name} validation failed for '{candidate}'."))
         };
     // --- [PARSE_SMART_ENUM] --------------------------------------------------
     public static Fin<TEnum> ParseSmartEnum<TEnum, TKey>(TKey candidate)
@@ -308,9 +301,9 @@ public static class PaymentAdapter {
 ```
 
 [IMPORTANT]:
-- In v10, nested union case type names were simplified; bind to generated case names, not hand-authored aliases.
+- Bind to generated nested case names (Thinktecture 10.2.0); do not introduce parallel type aliases that shadow codegen symbols.
 - Regular unions are best serialized with polymorphic metadata (`JsonDerivedType`); ad-hoc unions use `[ObjectFactory<T>]` projection.
-- `Fin<T>.ToEff<RT>()` lifts Thinktecture dispatch results into effectful pipelines; `Bind`/`Map` compose downstream.
+- `Fin<T>.ToEff<RT>()` lifts dispatch results into effectful pipelines when host context is required.
 - Ad-hoc `Union<T1,...>` is for boundary adapter scenarios; regular `[Union]` is for domain variant hierarchies.
 
 ### [5.1][UNION_ADVANCED_ATTRIBUTES]
@@ -318,25 +311,27 @@ public static class PaymentAdapter {
 | Attribute | Use |
 | --------- | --- |
 | `[Union(SwitchMapStateParameterName = "…")]` | State-threaded `.Switch(ctx, …)` |
-| `[GenerateUnionOps]` (Rasm.Domain) | Emit per-case `Op SelfOp` — not `+`/`|` operators |
-| `[SkipUnionOps]` (Rasm.Domain) | Opt out of CSP0802 SelfOp requirement |
-| `[UseDelegateFromConstructor]` | SmartEnum or union-case delegate behavior |
+| `SwitchMethods` / `MapMethods` | Control generated switch/map overload set |
+| `[UnionSwitchMapOverload(StopAt = typeof(...))]` | Partial overload generation |
+| `[UseDelegateFromConstructor]` | SmartEnum delegate from ctor — see `enums.md` |
+
+Project SelfOp policy: `docs/external-libs/thinktecture/rasm.md` §4.
 
 State-threaded dispatch example:
 
 ```csharp
 [Union(SwitchMapStateParameterName = "context")]
-public abstract partial record FileSheetEdit;
+public abstract partial record CommandEdit;
 ```
 
-Generic or ref-struct constrained sums (`PromptTransition<T>`, `MotionSpec<T>`) use plain `abstract record` + manual `switch` — not `[Union]`. See `docs/external-libs/thinktecture/union-attributes.md`.
+Generic or ref-struct constrained sums use plain `abstract record` + manual `switch` — not `[Union]`. See `docs/external-libs/thinktecture/union-attributes.md`.
 
 Hand-written domain operators (separate from Thinktecture codegen):
 
-- `operator |` — absorption lattices: `RepaintRequest`, `Subscription`, `FileOverride<T>` (plain struct)
-- `operator +` — semigroup append: `Requirement`, `VectorField`, `OverlayDecision`, `DocumentMutationReceipt`
+- `operator |` — absorption lattices on policy/request types (merge by priority or idempotence)
+- `operator +` — semigroup append on receipts, requirements, field algebras
 
-Read the operator body before composing; laws differ per type.
+Read the operator body before composing; laws differ per type. Thinktecture does not generate these on `[Union]` types.
 
 ---
 ## [6][AGGREGATE_OBJECT_SHAPE]

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Extensions;
@@ -12,9 +13,18 @@ namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 // Library mirror of Grasshopper2.Extensions.SelectionMode — the single canonical selection-modifier
-// vocabulary, boundary-mapped at InputSelectionSource (GH2 -> library) and CanvasOp.WindowSelect
-// (library -> GH2) so public callers and scenarios never name the host enum.
-public enum SelectionMode { Promote, Include, Exclude, Inverse }
+// vocabulary; each item carries its host value so the GH2<->library mapping is item-owned projection
+// (Gh / FromGh), centralizing the Inverse fallback in FromGh. Public callers and
+// scenarios never name the host enum.
+[SmartEnum<int>]
+public sealed partial class SelectionMode {
+    public GhSelectionMode Gh { get; }
+    public static readonly SelectionMode Promote = new(key: 0, gh: GhSelectionMode.Promote);
+    public static readonly SelectionMode Include = new(key: 1, gh: GhSelectionMode.Include);
+    public static readonly SelectionMode Exclude = new(key: 2, gh: GhSelectionMode.Exclude);
+    public static readonly SelectionMode Inverse = new(key: 3, gh: GhSelectionMode.Inverse);
+    internal static SelectionMode FromGh(GhSelectionMode gh) => toSeq(Items).Find(m => m.Gh == gh).IfNone(Inverse);
+}
 [SmartEnum<int>]
 [ValidationError<UiFault>]
 public sealed partial class CursorKind {
@@ -42,6 +52,9 @@ public sealed partial class CursorKind {
     public static readonly CursorKind WireIn = new(key: 9, cursor: static _ => Optional(Grasshopper2.UI.Canvas.Canvas.CursorWireIn).IfNone(Cursors.Pointer));
     public static readonly CursorKind WireOut = new(key: 10, cursor: static _ => Optional(Grasshopper2.UI.Canvas.Canvas.CursorWireOut).IfNone(Cursors.Pointer));
     public static readonly CursorKind WireQuestion = new(key: 11, cursor: static _ => Optional(Grasshopper2.UI.Canvas.Canvas.CursorQuestion).IfNone(Cursors.Default));
+    // App-wide busy: the Eto cursor stays Default; CursorScope additionally engages a Rhino.UI.WaitCursor
+    // (the platform spinner) for this kind, restored when the scope disposes.
+    public static readonly CursorKind Wait = new(key: 20, cursor: static _ => Cursors.Default);
 
     [UseDelegateFromConstructor]
     internal partial Cursor Cursor(Grasshopper2.UI.Canvas.Canvas canvas);
@@ -54,12 +67,11 @@ public sealed partial class DialogPresentation {
     public static readonly DialogPresentation Modal = new(key: 0);
     public static readonly DialogPresentation AttachedSheet = new(key: 1);
 
+    // Exactly two presentations: Modal shows directly, AttachedSheet switches DisplayMode first.
     internal Option<TResult> Show<TResult>(Dialog<TResult> dialog, Control? parent) =>
-        Key switch {
-            var key when key == Modal.Key => Optional(dialog.ShowModal(owner: parent)),
-            var key when key == AttachedSheet.Key => Optional(Attached(dialog: dialog, parent: parent)),
-            _ => Option<TResult>.None,
-        };
+        this == Modal
+            ? Optional(dialog.ShowModal(owner: parent))
+            : Optional(Attached(dialog: dialog, parent: parent));
 
     private static TResult Attached<TResult>(Dialog<TResult> dialog, Control? parent) {
         dialog.DisplayMode = DialogDisplayMode.Attached;
@@ -101,17 +113,9 @@ public partial record InputSelectionSource {
     public static InputSelectionSource From(WindowSelectionEventArgs window) => new WindowCase(Source: window);
 
     internal SelectionMode Mode() => Switch(
-        controlCase: static c => Map(c.Source.SelectionMode()),
-        mouseCase: static m => Map(m.Source.SelectionMode()),
-        windowCase: static w => Map(w.Source.SelectionMode()));
-
-    private static SelectionMode Map(GhSelectionMode mode) =>
-        mode switch {
-            GhSelectionMode.Promote => SelectionMode.Promote,
-            GhSelectionMode.Include => SelectionMode.Include,
-            GhSelectionMode.Exclude => SelectionMode.Exclude,
-            _ => SelectionMode.Inverse,
-        };
+        controlCase: static c => SelectionMode.FromGh(gh: c.Source.SelectionMode()),
+        mouseCase: static m => SelectionMode.FromGh(gh: m.Source.SelectionMode()),
+        windowCase: static w => SelectionMode.FromGh(gh: w.Source.SelectionMode()));
 }
 
 [SkipUnionOps]
@@ -145,7 +149,7 @@ public readonly record struct InputSelectionSnapshot(SelectionMode Mode, InputMo
 public readonly record struct InputPanelSnapshot(int Count, string Category, bool Shown);
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct ToolbarSnapshot(int Count, bool Enabled, float MinimumWidth, float MaximumWidth, float Height);
+public readonly record struct ToolbarSnapshot(int Count, bool Enabled, int MinimumWidth, int MaximumWidth, int Height);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct MenuSnapshot(int Count);
@@ -329,7 +333,7 @@ public partial record ToolbarItem {
             op: RadioCase.SelfOp,
             detail: "radio change delegate is required"),
         textInputCase: static (bar, item) =>
-            from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: TextInputCase.SelfOp, detail: "text change delegate is required"))
+            from changed in TextInputCase.SelfOp.NeedChanged(item.Changed, noun: "text")
             from added in TextInputCase.SelfOp.Attempt(body: () => {
                 TextField field = bar.AddTextField(icon: default!, nomen: new Nomen(name: item.Name, info: item.Name), initial: item.Value, placeholder: item.Name);
                 field.TextChanged += (_, value) => _ = GrasshopperUi.Handler(valid: () => changed(arg: value));
@@ -343,13 +347,13 @@ public partial record ToolbarItem {
                 what: "NumberSlider")
             select added,
         swatchInputCase: static (bar, item) =>
-            from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: SwatchInputCase.SelfOp, detail: "colour change delegate is required"))
+            from changed in SwatchInputCase.SelfOp.NeedChanged(item.Changed, noun: "colour")
             from added in SwatchInputCase.SelfOp.Attempt(
                 body: () => bar.AddLifeColours(nomen: new Nomen(name: item.Name, info: item.Name), initial: item.Family, assignment: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value))),
                 what: "AddLifeColours")
             select added,
         colourBarsCase: static (bar, item) =>
-            from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: ColourBarsCase.SelfOp, detail: "colour change delegate is required"))
+            from changed in ColourBarsCase.SelfOp.NeedChanged(item.Changed, noun: "colour")
             from added in ColourBarsCase.SelfOp.Attempt(body: () => {
                 void Assign(OpenColor.Family value) => _ = GrasshopperUi.Handler(valid: () => changed(value));
                 Nomen nomen = new(name: $"{item.Name} {{family}}", info: $"{item.Name} {{family}}");
@@ -367,7 +371,7 @@ public partial record ToolbarItem {
             return unit;
         }, what: "AddSpacer"),
         spectrumCase: static (bar, item) =>
-            from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: SpectrumCase.SelfOp, detail: "colour change delegate is required"))
+            from changed in SpectrumCase.SelfOp.NeedChanged(item.Changed, noun: "colour")
             from added in SpectrumCase.SelfOp.Attempt(
                 body: () => bar.AddColours(nomen: new Nomen(name: item.Name, info: item.Name), spectrum: [.. item.Palette], initial: item.Initial, assignment: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value))),
                 what: "AddColours")
@@ -386,7 +390,7 @@ public partial record ToolbarItem {
             }),
             ToggleCase item =>
                 from command in Fin.Succ(item.Command)
-                from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: ToggleCase.SelfOp, detail: "toggle change delegate is required"))
+                from changed in ToggleCase.SelfOp.NeedChanged(item.Changed, noun: "toggle")
                 from added in ToggleCase.SelfOp.Attempt(body: () => PushCheckMenuItem(menu: menu, command: command, state: item.State, changed: changed), what: "menu toggle")
                 select added,
             SpacerCase => SpacerCase.SelfOp.Attempt(body: menu.AddSeparator, what: "AddSeparator"),
@@ -429,14 +433,14 @@ public partial record ToolbarItem {
                 return unit;
             }, what: "AddLabel"),
             CheckCase item =>
-                from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: CheckCase.SelfOp, detail: "check change delegate is required"))
+                from changed in CheckCase.SelfOp.NeedChanged(item.Changed, noun: "check")
                 from added in CheckCase.SelfOp.Attempt(body: () => {
                     _ = panel.AddCheck(text: item.Name, @checked: item.State, checkedChanged: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)));
                     return unit;
                 }, what: "AddCheck")
                 select added,
             TextCase item =>
-                from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: TextCase.SelfOp, detail: "text change delegate is required"))
+                from changed in TextCase.SelfOp.NeedChanged(item.Changed, noun: "text")
                 from added in TextCase.SelfOp.Attempt(body: () => {
                     _ = panel.AddText(text: item.Value, textChanged: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)));
                     return unit;
@@ -461,7 +465,6 @@ public partial record ToolbarItem {
 public readonly record struct CommandPlan(Seq<ToolbarItem> Items) {
     public static CommandPlan Empty => new(Items: Seq<ToolbarItem>());
     public static CommandPlan operator +(CommandPlan left, CommandPlan right) => new(Items: left.Items + right.Items);
-    public static CommandPlan Add(CommandPlan left, CommandPlan right) => left + right;
 }
 
 public abstract record InputRequest<T> : GhUiRequest<T> {
@@ -472,7 +475,7 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
     public sealed record ModifierStateCase : InputRequest<InputModifierSnapshot> { internal override Fin<InputModifierSnapshot> Apply(GrasshopperUi.Scope scope) => Input.ModifierState().Run(scope: scope); }
     public sealed record PointerStateCase : InputRequest<PointerSnapshot> { internal override Fin<PointerSnapshot> Apply(GrasshopperUi.Scope scope) => Input.PointerState().Run(scope: scope); }
     public sealed record Panel(Func<InputPanel, Fin<Unit>> Populate) : InputRequest<InputPanelSnapshot> { internal override Fin<InputPanelSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Panel(populate: Populate).Run(scope: scope); }
-    public sealed record Popup(Control Owner, PointF Location, RectangleF Screen, Func<InputPanel, Fin<Unit>> Populate) : InputRequest<InputPanelSnapshot> { internal override Fin<InputPanelSnapshot> Apply(GrasshopperUi.Scope scope) => Input.PopupPanel(owner: Owner, location: Location, screen: Screen, populate: Populate).Run(scope: scope); }
+    public sealed record Popup(Control Owner, PointF Location, RectangleF Screen, Func<InputPanel, Fin<Unit>> Populate) : InputRequest<Subscription> { internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Input.PopupPanel(owner: Owner, location: Location, screen: Screen, populate: Populate).Run(scope: scope); }
     public sealed record CommandBar(CommandPlan Plan) : InputRequest<ToolbarSnapshot> { internal override Fin<ToolbarSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Toolbar(plan: Plan).Run(scope: scope); }
     public sealed record CommandPanel(CommandPlan Plan) : InputRequest<InputPanelSnapshot> { internal override Fin<InputPanelSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Panel(plan: Plan).Run(scope: scope); }
     public sealed record MenuShow(CommandPlan Plan, Control Owner, PointF Location) : InputRequest<MenuSnapshot> { internal override Fin<MenuSnapshot> Apply(GrasshopperUi.Scope scope) => Input.ShowMenu(plan: Plan, owner: Owner, location: Location).Run(scope: scope); }
@@ -497,13 +500,21 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
     public sealed record PickColor(Color Initial, bool AllowAlpha = true) : InputRequest<Option<Color>> { internal override Fin<Option<Color>> Apply(GrasshopperUi.Scope scope) => Input.PickColor(initial: Initial, allowAlpha: AllowAlpha).Run(scope: scope); }
     public sealed record PickFont(Option<Font> Initial = default) : InputRequest<Option<Font>> { internal override Fin<Option<Font>> Apply(GrasshopperUi.Scope scope) => Input.PickFont(initial: Initial).Run(scope: scope); }
     public sealed record Notify(string Title, string Body, Option<Image> ContentImage = default) : InputRequest<Unit> { internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Input.Notify(title: Title, message: Body, contentImage: ContentImage).Run(scope: scope); }
+    // Single-field prompts via Rhino.UI.Dialogs — denser than an Eto Dialog<T> for one value; kept as two
+    // cases because the return domains differ (string vs double).
+    public sealed record EditPrompt(string Title, string Body, string Default = "", bool Multiline = false) : InputRequest<Option<string>> { internal override Fin<Option<string>> Apply(GrasshopperUi.Scope scope) => Input.EditPrompt(title: Title, message: Body, defaultText: Default, multiline: Multiline).Run(scope: scope); }
+    public sealed record NumberPrompt(string Title, string Body, double Default = 0d) : InputRequest<Option<double>> { internal override Fin<Option<double>> Apply(GrasshopperUi.Scope scope) => Input.NumberPrompt(title: Title, message: Body, initial: Default).Run(scope: scope); }
 }
 
 // Scope-restoring cursor capsule; disposing reinstates the canvas's prior Cursor. Use via
 // `using IDisposable _ = await GhUi.Input(new InputRequest<...>.CursorScope(...)).Use(...);`
 // or directly through `Input.CursorScope(kind)` when the surrounding scope is already typed.
-internal sealed class ScopedCursor(Grasshopper2.UI.Canvas.Canvas target, Cursor previous) : IDisposable {
-    public void Dispose() => target.Cursor = previous;
+internal sealed class ScopedCursor(Grasshopper2.UI.Canvas.Canvas target, Cursor previous, IDisposable? busy = null) : IDisposable {
+    // BOUNDARY ADAPTER — restore the canvas cursor and release any engaged busy-spinner exactly once.
+    public void Dispose() {
+        busy?.Dispose();
+        target.Cursor = previous;
+    }
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -538,19 +549,30 @@ internal static partial class Input {
                         Shown: false));
                 }));
 
-    internal static GrasshopperUiIntent<InputPanelSnapshot> PopupPanel(Control owner, PointF location, RectangleF screen, Func<InputPanel, Fin<Unit>> populate) =>
+    // Returns a dismissable Subscription whose detach closes the popup form (form captured in a closure cell,
+    // mirroring WireShapeInstall.Push) so the popup shares every other chrome op's Subscription lifetime.
+    internal static GrasshopperUiIntent<Subscription> PopupPanel(Control owner, PointF location, RectangleF screen, Func<InputPanel, Fin<Unit>> populate) =>
         GhUi.Read(run: _ =>
             from validOwner in Optional(owner).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null owner"))
             from validPopulate in Optional(populate).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null populate"))
             from validLocation in Op.Of(name: nameof(PopupPanel)).AcceptPoint(value: location, detail: "non-finite location")
             from validScreen in Op.Of(name: nameof(PopupPanel)).AcceptRect(value: screen, detail: "invalid screen bounds", requirePositive: true)
+            let clamped = new PointF(
+                x: Math.Clamp(value: validLocation.X, min: validScreen.Left, max: validScreen.Right),
+                y: Math.Clamp(value: validLocation.Y, min: validScreen.Top, max: validScreen.Bottom))
             let panel = new InputPanel()
             from populated in validPopulate(arg: panel)
-            let form = panel.ShowAsForm(validOwner, validLocation, validScreen)
-            select new InputPanelSnapshot(
-                Count: panel.Count,
-                Category: panel.Category ?? string.Empty,
-                Shown: form?.Visible ?? false));
+            from sub in PopupSubscription(panel: panel, owner: validOwner, location: clamped, screen: validScreen)
+            select sub);
+
+    private static Fin<Subscription> PopupSubscription(InputPanel panel, Control owner, PointF location, RectangleF screen) {
+        Form? form = null;
+        return Subscription.Bind(
+            attach: () => form = panel.ShowAsForm(owner, location, screen),
+            detach: () => form?.Close(),
+            marshalToUi: true,
+            detachOnce: true);
+    }
 
     internal static GrasshopperUiIntent<ToolbarSnapshot> Toolbar(Func<Bar, Fin<Unit>> populate) =>
         GhUi.Read(run: _ =>
@@ -598,12 +620,14 @@ internal static partial class Input {
                 return kind;
             })));
 
+    [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "WaitCursor ownership transfers to the returned ScopedCursor, which disposes it on scope teardown.")]
     internal static GrasshopperUiIntent<IDisposable> CursorScope(CursorKind kind) =>
         GhUi.Canvas(run: scope => scope.NeedCanvas().Bind(canvas =>
             kind.Resolve(canvas: canvas).Map(cursor => {
                 Cursor previous = canvas.Cursor;
                 canvas.Cursor = cursor;
-                return (IDisposable)new ScopedCursor(target: canvas, previous: previous);
+                IDisposable? busy = kind == CursorKind.Wait ? new Rhino.UI.WaitCursor() : null;
+                return (IDisposable)new ScopedCursor(target: canvas, previous: previous, busy: busy);
             })));
 
     internal static GrasshopperUiIntent<DialogResult> MessageDialog(string title, string message, MessageBoxType kind = MessageBoxType.Information, MessageBoxButtons buttons = MessageBoxButtons.OK, MessageBoxDefaultButton defaultButton = MessageBoxDefaultButton.Default) =>
@@ -682,10 +706,29 @@ internal static partial class Input {
                     : Option<Font>.None;
             }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(PickFont)), detail: $"FontDialog threw: {error.Message}")));
 
+    internal static GrasshopperUiIntent<Option<string>> EditPrompt(string title, string message, string defaultText, bool multiline) =>
+        GhUi.Read(run: _ =>
+            Op.Of(name: nameof(EditPrompt)).Attempt(
+                body: () => Rhino.UI.Dialogs.ShowEditBox(title: title, message: message, defaultText: defaultText, multiline: multiline, text: out string text)
+                    ? Optional(text)
+                    : Option<string>.None,
+                what: "Dialogs.ShowEditBox"));
+
+    internal static GrasshopperUiIntent<Option<double>> NumberPrompt(string title, string message, double initial) =>
+        GhUi.Read(run: _ =>
+            Op.Of(name: nameof(NumberPrompt)).Attempt(
+                body: () => {
+                    double number = initial;
+                    return Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref number)
+                        ? Some(number)
+                        : Option<double>.None;
+                },
+                what: "Dialogs.ShowNumberBox"));
+
     internal static GrasshopperUiIntent<Unit> Notify(string title, string message, Option<Image> contentImage) =>
         GhUi.Read(run: scope =>
             Try.lift(f: () => {
-                Notification notification = new() { Title = title, Message = message };
+                using Notification notification = new() { Title = title, Message = message };
                 _ = contentImage.Iter(image => notification.ContentImage = image);
                 notification.Show();
                 return unit;

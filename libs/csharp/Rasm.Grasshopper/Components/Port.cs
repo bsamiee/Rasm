@@ -18,34 +18,45 @@ public abstract partial record Capability {
     public sealed record Elective : Capability;
     public sealed record Hidden : Capability;
     public sealed record Category(string Name, Option<Color> Colour = default) : Capability;
-    public sealed record Preset(Seq<(int Value, string Label)> Choices, int Selected = 0) : Capability;
+    public sealed record Preset(Seq<(int Value, string Label)> Choices) : Capability;
     public sealed record Validate(Func<object, bool> Predicate, string Message) : Capability;
     public sealed record Many(Seq<Capability> Items) : Capability;
 
     public static Capability Empty => new Many(Items: Seq<Capability>());
     public static Capability operator +(Capability left, Capability right) => new Many(Items: Seq(left, right));
 
-    internal Fin<IParameter> Apply(IParameter parameter) => Switch(
-        vector: v => On<VectorParameter>(parameter: parameter, mutate: target => { target.UnitiseVectors = v.Unitise; target.ReverseVectors = v.Reverse; return unit; }),
-        angle: a => On<AngleParameter>(parameter: parameter, mutate: target => { target.EnforceKind = (int)a.Kind; target.ReduceAngles = a.Reduce; return unit; }),
-        index: i => On<IntegerParameter>(parameter: parameter, mutate: target => { target.IsIndex = true; target.Indexing = i.Indexing; return unit; }),
-        curve: c => On<CurveParameter>(parameter: parameter, mutate: target => { target.NormaliseDomains = c.Normalise; target.FlipCurves = c.Flip; return unit; }),
-        surface: s => On<SurfaceParameter>(parameter: parameter, mutate: target => { target.AcceptMeshes = s.AcceptMeshes; target.NormaliseDomains = s.Normalise; target.FlipSurfaces = s.Flip; return unit; }),
-        elective: _ => SetFlag(parameter: parameter, key: ModularComponent.__Optional, value: true),
-        hidden: _ => SetFlag(parameter: parameter, key: ModularComponent.__HideByDefault, value: true).Bind(p => SetFlag(parameter: p, key: ModularComponent.__Optional, value: true)),
-        category: c => SetText(parameter: parameter, key: ModularComponent.__Category, value: c.Name).Bind(p => c.Colour switch {
-            { IsSome: true, Case: Color colour } => SetTint(parameter: p, key: ModularComponent.__Colour, value: colour),
-            _ => Fin.Succ(p),
-        }),
-        preset: pr => On<IntegerParameter>(parameter: parameter, mutate: target => pr.Choices.Iter(choice => target.Presets.Add(name: choice.Label, info: string.Empty, value: choice.Value))),
-        validate: _ => Fin.Succ(parameter),
-        many: m => m.Items.Fold(Fin.Succ(parameter), static (state, capability) => state.Bind(capability.Apply)));
-
-    internal Seq<(Func<object, bool> Predicate, string Message)> Validators => this switch {
-        Validate validate => Seq((validate.Predicate, validate.Message)),
-        Many many => many.Items.Bind(static capability => capability.Validators),
-        _ => Seq<(Func<object, bool>, string)>(),
-    };
+    internal Fin<IParameter> Apply(IParameter parameter) => Projection.ApplyTo(parameter);
+    internal Seq<(Func<object, bool> Predicate, string Message)> Validators => Projection.Validators;
+    internal bool CompatibleWith(PortKind kind) => Projection.CompatibleWith(kind);
+    private Rule Projection => Switch(
+        vector: v => Rule.Mutating<VectorParameter>(
+            compatibleWith: static kind => kind == PortKind.Vector,
+            mutate: target => { target.UnitiseVectors = v.Unitise; target.ReverseVectors = v.Reverse; return unit; }),
+        angle: a => Rule.Mutating<AngleParameter>(
+            compatibleWith: static kind => kind == PortKind.Angle,
+            mutate: target => { target.EnforceKind = (int)a.Kind; target.ReduceAngles = a.Reduce; return unit; }),
+        index: i => Rule.Mutating<IntegerParameter>(
+            compatibleWith: static kind => kind == PortKind.Index || kind == PortKind.Integer,
+            mutate: target => { target.IsIndex = true; target.Indexing = i.Indexing; return unit; }),
+        curve: c => Rule.Mutating<CurveParameter>(
+            compatibleWith: static kind => kind == PortKind.Curve,
+            mutate: target => { target.NormaliseDomains = c.Normalise; target.FlipCurves = c.Flip; return unit; }),
+        surface: s => Rule.Mutating<SurfaceParameter>(
+            compatibleWith: static kind => kind == PortKind.Surface || kind == PortKind.Brep,
+            mutate: target => { target.AcceptMeshes = s.AcceptMeshes; target.NormaliseDomains = s.Normalise; target.FlipSurfaces = s.Flip; return unit; }),
+        elective: _ => Rule.Universal(applyTo: static parameter => OnCustom(parameter: parameter, write: values => values.Set(key: ModularComponent.__Optional, value: true))),
+        hidden: _ => Rule.Universal(applyTo: static parameter => OnCustom(parameter: parameter, write: values => values.Set(key: ModularComponent.__HideByDefault, value: true))
+            .Bind(p => OnCustom(parameter: p, write: values => values.Set(key: ModularComponent.__Optional, value: true)))),
+        category: c => Rule.Universal(applyTo: parameter => OnCustom(parameter: parameter, write: values => values.Set(key: ModularComponent.__Category, value: c.Name))
+            .Bind(p => c.Colour switch {
+                { IsSome: true, Case: Color colour } => OnCustom(parameter: p, write: values => values.Set(key: ModularComponent.__Colour, value: colour)),
+                _ => Fin.Succ(p),
+            })),
+        preset: pr => Rule.Mutating<IntegerParameter>(
+            compatibleWith: static kind => kind == PortKind.Integer || kind == PortKind.Index,
+            mutate: target => pr.Choices.Iter(choice => target.Presets.Add(name: choice.Label, info: string.Empty, value: choice.Value))),
+        validate: v => Rule.Universal(validators: Seq((v.Predicate, v.Message))),
+        many: m => m.Items.Fold(Rule.Universal(), static (rules, capability) => rules + capability.Projection));
 
     private static Fin<IParameter> On<TParam>(IParameter parameter, Func<TParam, Unit> mutate) where TParam : class =>
         parameter switch {
@@ -53,12 +64,33 @@ public abstract partial record Capability {
             TParam target => mutate(arg: target) switch { _ => Fin.Succ(parameter) },
             _ => Fin.Fail<IParameter>(Op.Of(name: nameof(Capability)).InvalidInput()),
         };
-    private static Fin<IParameter> SetFlag(IParameter parameter, string key, bool value) =>
-        On<IParameter>(parameter: parameter, mutate: target => { target.CustomValues.Set(key: key, value: value); return unit; });
-    private static Fin<IParameter> SetText(IParameter parameter, string key, string value) =>
-        On<IParameter>(parameter: parameter, mutate: target => { target.CustomValues.Set(key: key, value: value); return unit; });
-    private static Fin<IParameter> SetTint(IParameter parameter, string key, Color value) =>
-        On<IParameter>(parameter: parameter, mutate: target => { target.CustomValues.Set(key: key, value: value); return unit; });
+    private static Fin<IParameter> OnCustom(IParameter parameter, Action<Grasshopper2.Doc.KeyedValues> write) =>
+        On<IParameter>(parameter: parameter, mutate: target => { write(target.CustomValues); return unit; });
+
+    private readonly record struct Rule(
+        Func<IParameter, Fin<IParameter>> ApplyTo,
+        Seq<(Func<object, bool> Predicate, string Message)> Validators,
+        Func<PortKind, bool> CompatibleWith) {
+        internal static Rule Universal() =>
+            new(
+                ApplyTo: static parameter => Fin.Succ(parameter),
+                Validators: Seq<(Func<object, bool>, string)>(),
+                CompatibleWith: static _ => true);
+        internal static Rule Universal(Func<IParameter, Fin<IParameter>> applyTo) =>
+            Universal() with { ApplyTo = applyTo };
+        internal static Rule Universal(Seq<(Func<object, bool> Predicate, string Message)> validators) =>
+            Universal() with { Validators = validators };
+        internal static Rule Mutating<TParam>(Func<PortKind, bool> compatibleWith, Func<TParam, Unit> mutate) where TParam : class =>
+            new(
+                ApplyTo: parameter => On(parameter: parameter, mutate: mutate),
+                Validators: Seq<(Func<object, bool>, string)>(),
+                CompatibleWith: compatibleWith);
+        public static Rule operator +(Rule left, Rule right) =>
+            new(
+                ApplyTo: parameter => left.ApplyTo(parameter).Bind(p => right.ApplyTo(p)),
+                Validators: left.Validators.Concat(right.Validators),
+                CompatibleWith: kind => left.CompatibleWith(kind) && right.CompatibleWith(kind));
+    }
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -70,6 +102,7 @@ public sealed partial class PortKind {
     private delegate IParameter AddOut(OutputAdder adder, string name, string code, string info, Access access);
     public static readonly PortKind Path = Of<Grasshopper2.Data.Path>(key: nameof(Path), input: static (a, n, c, i, x, r) => a.AddPath(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddPath(name: n, code: c, info: i, access: x));
     public static readonly PortKind Site = Of<Site>(key: nameof(Site), input: static (a, n, c, i, x, r) => a.AddSite(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddSite(name: n, code: c, info: i, access: x));
+    public static readonly PortKind Topological = Of<Guid>(key: nameof(Topological), input: static (a, n, c, i, x, r) => a.AddTopological(name: n, code: c, info: i));
     public static readonly PortKind Colour = Of<Grasshopper2.Types.Colour.Colour>(key: nameof(Colour), input: static (a, n, c, i, x, r) => a.AddColour(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddColour(name: n, code: c, info: i, access: x));
     public static readonly PortKind Point = Of<Point3d>(key: nameof(Point), input: static (a, n, c, i, x, r) => a.AddPoint(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddPoint(name: n, code: c, info: i, access: x));
     public static readonly PortKind Vector = Of<Vector3d>(key: nameof(Vector), input: static (a, n, c, i, x, r) => a.AddVector(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddVector(name: n, code: c, info: i, access: x), policy: new Capability.Vector(Unitise: true));
@@ -90,11 +123,14 @@ public sealed partial class PortKind {
     public static readonly PortKind Graph = Of<Grasshopper2.Types.Graphs.Graph>(key: nameof(Graph), input: static (a, n, c, i, x, r) => a.AddGraph(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddGraph(name: n, code: c, info: i, access: x));
     public static readonly PortKind Field = Of<Grasshopper2.Types.Fields.Field>(key: nameof(Field), input: static (a, n, c, i, x, r) => a.AddField(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddField(name: n, code: c, info: i, access: x));
     public static readonly PortKind Function = Of<Grasshopper2.Types.Functions.Function>(key: nameof(Function), input: static (a, n, c, i, x, r) => a.AddFunction(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddFunction(name: n, code: c, info: i, access: x));
+    public static readonly PortKind Tuple = Of<Grasshopper2.Types.NTuple>(key: nameof(Tuple), input: static (a, n, c, i, x, r) => a.AddTuple(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddTuple(name: n, code: c, info: i, access: x));
     public static readonly PortKind Integer = Of<int>(key: nameof(Integer), input: static (a, n, c, i, x, r) => a.AddInteger(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddInteger(name: n, code: c, info: i, access: x));
     public static readonly PortKind Index = Of<int>(key: nameof(Index), input: static (a, n, c, i, x, r) => a.AddIndex(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddInteger(name: n, code: c, info: i, access: x), policy: new Capability.Index());
     public static readonly PortKind Interval = Of<Interval>(key: nameof(Interval), input: static (a, n, c, i, x, r) => a.AddInterval(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddInterval(name: n, code: c, info: i, access: x));
     public static readonly PortKind Angle = Of<Angle>(key: nameof(Angle), input: static (a, n, c, i, x, r) => a.AddAngle(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddAngle(name: n, code: c, info: i, access: x), policy: new Capability.Angle(Reduce: true));
     public static readonly PortKind Number = Of<double>(key: nameof(Number), input: static (a, n, c, i, x, r) => a.AddNumber(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddNumber(name: n, code: c, info: i, access: x));
+    public static readonly PortKind Complex = Of<System.Numerics.Complex>(key: nameof(Complex), input: static (a, n, c, i, x, r) => a.AddComplex(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddComplex(name: n, code: c, info: i, access: x));
+    public static readonly PortKind Numeric = Of<object>(key: nameof(Numeric), input: static (a, n, c, i, x, r) => a.AddNumeric(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddNumeric(name: n, code: c, info: i, access: x));
     public static readonly PortKind Guid = Of<Guid>(key: nameof(Guid), output: static (a, n, c, i, x) => a.AddGuid(name: n, code: c, info: i, access: x));
     public static readonly PortKind Random = Of<Grasshopper2.Types.Random.RandomEngine>(key: nameof(Random), input: static (a, n, c, i, x, r) => a.AddRandom(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddRandom(name: n, code: c, info: i, access: x));
     public static readonly PortKind ContinuousDistribution = Of<Grasshopper2.Types.Random.ContinuousDistribution>(key: nameof(ContinuousDistribution), input: static (a, n, c, i, x, r) => a.AddContinuous(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddContinuous(name: n, code: c, info: i, access: x));
@@ -102,9 +138,26 @@ public sealed partial class PortKind {
     public static readonly PortKind Boolean = Of<bool>(key: nameof(Boolean), input: static (a, n, c, i, x, r) => a.AddBoolean(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddBoolean(name: n, code: c, info: i, access: x));
     public static readonly PortKind Text = Of<string>(key: nameof(Text), input: static (a, n, c, i, x, r) => a.AddText(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddText(name: n, code: c, info: i, access: x));
     public static readonly PortKind TextPattern = Of<string>(key: nameof(TextPattern), input: static (a, n, c, i, x, r) => a.AddTextPattern(name: n, code: c, info: i, access: x, requirement: r));
+    public static readonly PortKind Gradient = Of<Grasshopper2.Types.Colour.Gradient>(key: nameof(Gradient), input: static (a, n, c, i, x, r) => a.AddGradient(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddGradient(name: n, code: c, info: i, access: x));
+    public static readonly PortKind DateTime = Of<DateTime>(key: nameof(DateTime), input: static (a, n, c, i, x, r) => a.AddDateTime(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddDateTime(name: n, code: c, info: i, access: x));
+    public static readonly PortKind TimeSpan = Of<TimeSpan>(key: nameof(TimeSpan), input: static (a, n, c, i, x, r) => a.AddTimeSpan(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddTimeSpan(name: n, code: c, info: i, access: x));
+#pragma warning disable CS0618
+    public static readonly PortKind Language = Of<Grasshopper2.Types.Linguistic.Language>(key: nameof(Language), input: static (a, n, c, i, x, r) => a.AddLanguage(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddLanguage(name: n, code: c, info: i, access: x));
+#pragma warning restore CS0618
+    public static readonly PortKind MetaName = Of<MetaName>(key: nameof(MetaName), input: static (a, n, c, i, x, r) => a.AddMetaName(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddMetaName(name: n, code: c, info: i, access: x));
+    public static readonly PortKind MetaData = Of<MetaData>(key: nameof(MetaData), input: static (a, n, c, i, x, r) => a.AddMetaData(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddMetaData(name: n, code: c, info: i, access: x));
     public static readonly PortKind Mesh = Of<Mesh>(key: nameof(Mesh), input: static (a, n, c, i, x, r) => a.AddMesh(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddMesh(name: n, code: c, info: i, access: x));
     public static readonly PortKind Polyline = Of<Polyline>(key: nameof(Polyline), input: static (a, n, c, i, x, r) => a.AddPolyline(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddPolyline(name: n, code: c, info: i, access: x));
     public static readonly PortKind Generic = Of<object>(key: nameof(Generic), input: static (a, n, c, i, x, r) => a.AddGeneric(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddGeneric(name: n, code: c, info: i, access: x));
+    public static readonly PortKind Triangle = Of<Triangle>(key: nameof(Triangle), input: static (a, n, c, i, x, r) => a.AddTriangle(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddTriangle(name: n, code: c, info: i, access: x));
+    public static readonly PortKind Tube = Of<Tube>(key: nameof(Tube), input: static (a, n, c, i, x, r) => a.AddTube(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddTube(name: n, code: c, info: i, access: x));
+    public static readonly PortKind Region = Of<Grasshopper2.Types.Shapes.Region>(key: nameof(Region), input: static (a, n, c, i, x, r) => a.AddRegion(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddRegion(name: n, code: c, info: i, access: x));
+    public static readonly PortKind CurveLocus = Of<CurveLocus>(key: nameof(CurveLocus), input: static (a, n, c, i, x, r) => a.AddCurveLocus(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddCurveLocus(name: n, code: c, info: i, access: x));
+    public static readonly PortKind SurfaceLocus = Of<SurfaceLocus>(key: nameof(SurfaceLocus), input: static (a, n, c, i, x, r) => a.AddSurfaceLocus(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddSurfaceLocus(name: n, code: c, info: i, access: x));
+    public static readonly PortKind MeshFacet = Of<MeshFace>(key: nameof(MeshFacet), input: static (a, n, c, i, x, r) => a.AddMeshFacet(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddMeshFacet(name: n, code: c, info: i, access: x));
+    public static readonly PortKind NPoint = Of<Grasshopper2.Types.Coordinates.NPoint>(key: nameof(NPoint), input: static (a, n, c, i, x, r) => a.AddNPoint(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddNPoint(name: n, code: c, info: i, access: x));
+    public static readonly PortKind UvPoint = Of<Point2d>(key: nameof(UvPoint), input: static (a, n, c, i, x, r) => a.AddUvPoint(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddUvPoint(name: n, code: c, info: i, access: x));
+    public static readonly PortKind Deform = Of<Deform>(key: nameof(Deform), input: static (a, n, c, i, x, r) => a.AddDeform(name: n, code: c, info: i, access: x, requirement: r), output: static (a, n, c, i, x) => a.AddDeform(name: n, code: c, info: i, access: x));
     public Type Type { get; }
     public Type WireType { get; }
     internal bool SupportsInput { get; }
@@ -112,9 +165,14 @@ public sealed partial class PortKind {
     internal Capability DefaultPolicy { get; }
     [UseDelegateFromConstructor] private partial IParameter AddInput(InputAdder adder, string name, string code, string info, Access access, Requirement requirement);
     [UseDelegateFromConstructor] private partial IParameter AddOutput(OutputAdder adder, string name, string code, string info, Access access);
-    // Declaration order is the tie-break for kinds sharing a CLR type: Integer wins int (Index is opt-in via explicit kind), Text wins string (over TextPattern).
-    private static readonly Lazy<FrozenDictionary<Type, PortKind>> ByType = new(valueFactory: static () =>
-        Items.GroupBy(keySelector: static kind => kind.Type).ToFrozenDictionary(keySelector: static group => group.Key, elementSelector: static group => group.First()));
+    private static readonly Lazy<FrozenDictionary<(Type Type, Side Side), PortKind>> ByType = new(valueFactory: static () =>
+        TypeSideGroups
+            .Choose(static group => TypeDefault(type: group.Type, side: group.Side, kinds: group.Kinds).Map(kind => (group.Type, group.Side, Kind: kind)))
+            .ToFrozenDictionary(keySelector: static item => (item.Type, item.Side), elementSelector: static item => item.Kind));
+    internal static Seq<(Type Type, Seq<PortKind> Kinds)> TypeCollisions =>
+        TypeSideGroups.Choose(static group => TypeDefault(type: group.Type, side: group.Side, kinds: group.Kinds).IsSome
+            ? Option<(Type Type, Seq<PortKind> Kinds)>.None
+            : Some((group.Type, group.Kinds)));
     public static Option<PortKind> From(Type type) => From(type: type, side: Side.Input);
     internal static Option<PortKind> From(Type type, Side side) {
         ArgumentNullException.ThrowIfNull(argument: type);
@@ -122,7 +180,7 @@ public sealed partial class PortKind {
             ? Some(Generic)
             : type.IsEnum && System.Enum.GetUnderlyingType(enumType: type) == typeof(int) && !type.IsDefined(attributeType: typeof(FlagsAttribute), inherit: false)
                 ? EnumKind(type: type)
-            : ByType.Value.TryGetValue(key: type, value: out PortKind? kind) && kind.Supports(side: side) ? Some(kind) : Option<PortKind>.None;
+            : ByType.Value.TryGetValue(key: (type, side), value: out PortKind? kind) ? Some(kind) : Option<PortKind>.None;
     }
     public static PortKind Enum<T>(T initial) where T : struct, Enum =>
         (System.Enum.GetUnderlyingType(enumType: typeof(T)), typeof(T).IsDefined(attributeType: typeof(FlagsAttribute), inherit: false)) switch {
@@ -158,7 +216,9 @@ public sealed partial class PortKind {
         ArgumentNullException.ThrowIfNull(argument: port);
         return Apply(parameter: AddOutput(adder: adder.RegularAdder, name: port.Name, code: port.Code, info: port.Info, access: port.Access), policy: hidden ? port.Policy + new Capability.Hidden() : port.Policy);
     }
-    private static IParameter Apply(IParameter parameter, Capability policy) => policy.Apply(parameter: parameter).IfFail(parameter);
+    // BOUNDARY ADAPTER -- component specs are developer contracts; incompatible policies must not degrade native registration silently.
+    private static IParameter Apply(IParameter parameter, Capability policy) =>
+        policy.Apply(parameter: parameter).IfFail(error => throw new InvalidOperationException(message: error.Message));
     private static PortKind Of<T>(string key, AddIn? input = null, AddOut? output = null, Type? wireType = null, Capability? policy = null) =>
         new(
             key: key,
@@ -174,6 +234,24 @@ public sealed partial class PortKind {
         throw new NotSupportedException(message: $"Port kind does not support input registration: {name}.");
     private static IParameter Unsupported(OutputAdder adder, string name, string code, string info, Access access) =>
         throw new NotSupportedException(message: $"Port kind does not support output registration: {name}.");
+    private static Seq<(Type Type, Seq<PortKind> Kinds)> TypeGroups =>
+        toSeq(Items.GroupBy(keySelector: static kind => kind.Type).Select(static group => (Type: group.Key, Kinds: toSeq(group))));
+    private static Seq<(Type Type, Side Side, Seq<PortKind> Kinds)> TypeSideGroups =>
+        toSeq(TypeGroups.Bind(static group => Seq(Side.Input, Side.Output)
+            .Map(side => (group.Type, Side: side, Kinds: group.Kinds.Filter(kind => kind.Supports(side: side))))
+            .Filter(static group => !group.Kinds.IsEmpty)));
+    private static Option<PortKind> TypeDefault(Type type, Side side, Seq<PortKind> kinds) =>
+        ExplicitTypeDefault(type: type, side: side).Match(
+            Some: kind => kinds.Exists(candidate => candidate == kind) ? Some(kind) : Option<PortKind>.None,
+            None: () => kinds.Count == 1 ? kinds.Head : Option<PortKind>.None);
+    private static Option<PortKind> ExplicitTypeDefault(Type type, Side side) =>
+        type == typeof(int)
+            ? Some(Integer)
+            : type == typeof(string) ? Some(Text)
+            : type == typeof(object) ? Some(Generic)
+            : type == typeof(Guid) && side == Side.Input ? Some(Topological)
+            : type == typeof(Guid) && side == Side.Output ? Some(Guid)
+            : Option<PortKind>.None;
     private static PortKind EnumDefault<T>() where T : struct, Enum {
         T[] values = System.Enum.GetValues<T>();
         return Enum(initial: values.Length > 0 ? values[0] : default);

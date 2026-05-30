@@ -1,78 +1,87 @@
 # [H1][LANGUAGEEXT_OPERATORS]
->**Dictum:** *The same symbol can mean different algebras; disambiguate the carrier before composing.*
+>**Dictum:** *Operators encode algebra on a carrier; identify the carrier before composing.*
 
 <br>
 
-[IMPORTANT] Rasm pins `LanguageExt.Core` `5.0.0-beta-77`. Verify overload semantics in local XML before documenting new operator uses. Hand-written `operator +`/`|` on Rasm structs are **not** LanguageExt operators — see `../thinktecture/union-attributes.md`.
+[IMPORTANT] Pin **`LanguageExt.Core` `5.0.0-beta-77`**. Verify overload semantics in local package XML.
+
+Hand-written domain `operator +`/`|` on application types are **not** LanguageExt operators.
 
 ---
-## [1][DISAMBIGUATION]
->**Dictum:** *Four `|` families and three `+` families coexist in Rasm C#.*
+## [1][KLEISLI_AND_APPLICATIVE]
+>**Dictum:** *Bind sequences dependent steps; star and triple-angle sequence independent applicative steps.*
 
 <br>
 
-| [INDEX] | [CARRIER] | [SYMBOL] | [SEMANTICS] | [RASM_PRODUCTION] |
-| :-----: | --------- | -------- | ----------- | ----------------- |
-| [1] | `Option<T>` | `\|` | LanguageExt alternative (verify bias in pinned XML) | moderate |
-| [2] | `[Flags]` enum | `\|` | Bitwise OR on capability masks | common |
-| [3] | Rasm struct/record | `\|` | Hand-written absorption lattice (`RepaintRequest`, `Subscription`, `FileOverride<T>`) | heavy |
-| [4] | `Schedule` / `ScheduleTransformer` | `\|` | Chain retry transformers via `op_Addition` | **unused in libs/** |
-| [5] | `Validation<E,A>` | `&` | Applicative product (`op_BitwiseAnd` in XML) | **unused** — prefer tuple `.Apply().As()` |
-| [6] | `Error` | `+` | Monoid append when folding faults (`Ui.cs` fault fold) | GH UI boundary |
-| [7] | Rasm struct/record | `+` | Hand semigroup append (`Requirement`, `VectorField`, receipts, plans) | heavy |
+| [INDEX] | [SYMBOL] | [CARRIER] | [SEMANTICS] |
+| :-----: | -------- | --------- | ----------- |
+| [1] | `>>` | `K<F,A>` monads | Kleisli bind / discard-first sequence |
+| [2] | `>>>` | `K<F,A>` applicatives | Applicative sequence (independent steps) |
+| [3] | `*` | `K<F,A>` | Functor map / applicative apply |
+| [4] | `>> lower` / unary `+` | `K<F,A>` | Downcast via `Prelude.lower` |
+| [5] | `&` | `Validation<E,A>` | Applicative product — accumulate errors |
+| [6] | `+` | `Error` / monoid `E` | Append errors in validation folds |
 
-[NEVER] Conflate Rasm lattice `\|` with LanguageExt `Option |` or `[Flags] |`.
+Prefer tuple `.Apply(f)` with explicit lowering, or `Validation` `&`, when independent fields compose.
+
+`Validation<string,T>` is **not supported** — error type needs `Semigroup`/`Monoid` (use `StringM` or `Error`). Rasm forbids `Validation<Seq<Error>,T>` (`CSP0703`); see `rasm.md`.
 
 ---
-## [2][SCHEDULE_ALGEBRA]
->**Dictum:** *Retry policy is LanguageExt surface; Rasm production does not use it yet.*
+## [2][CHOICE_CATCH_FINALLY]
+>**Dictum:** *Pipe meaning depends on carrier — not a single alternative algebra.*
+
+<br>
+
+| [INDEX] | [CARRIER] | [SYMBOL] | [SEMANTICS] |
+| :-----: | --------- | -------- | ----------- |
+| [1] | `K<Validation<E,A>>` | `\|` | Choice — first success wins |
+| [2] | `Fallible` + `CatchM` | `\|` | Catch when predicate matches |
+| [3] | `Eff<RT,A>` + `Finally` | `\|` | Run finally after main effect |
+| [4] | `[Flags]` enum | `\|` | Bitwise OR — unrelated to LanguageExt |
+
+**Not documented as bare `Option<T> | Option<T>` alternative** in pinned XML — use `Choose`, `IfNone`, `Match`, or `Alternative` trait methods.
+
+Eff recovery: **`Prelude.catch(...)`**, **`IfFailEff`**, **`IfFail`** — not unconstrained `eff1 | eff2`.
+
+---
+## [3][SCHEDULE_ALGEBRA]
+>**Dictum:** *Retry policy composes with union, intersect, pipe, and transformer chain.*
 
 <br>
 
 | [INDEX] | [EXPRESSION] | [MEANING] |
 | :-----: | ------------ | --------- |
-| [1] | `Schedule.exponential(...) \| Schedule.jitter(...) \| Schedule.recurs(...)` | Chain transformers via `\|` on `ScheduleTransformer` |
-| [2] | `intersect(policy, Schedule.upto(duration))` | Bound intersection — **not** C# `&` on `Schedule` |
-| [3] | `200 * LanguageExt.UnitsOfMeasure.ms` | Duration literals require `UnitsOfMeasure` import (not global in Rasm) |
+| [1] | `Schedule.a \| Schedule.b` | Schedule union (documented in Schedule type remarks) |
+| [2] | `union(scheduleA, scheduleB)` / `intersect(policy, Schedule.upto(duration))` | Prelude combine |
+| [3] | `transformerA + transformerB` | Chain `ScheduleTransformer` instances |
+| [4] | `append`, `interleave`, `take`, `skip`, `tail`, `map`, `filter`, `bind` | Additional Prelude schedule transforms |
+| [5] | `200 * LanguageExt.UnitsOfMeasure.ms` | Duration literals — import **`LanguageExt.UnitsOfMeasure`** |
 
-Schedule operators belong at composition boundaries only. Domain transforms stay on `Fin` or `Validation`. Zero `@catch`, `.Retry(`, or `Schedule` usage in production `libs/csharp/` today.
+Schedule intersect uses **`intersect(...)`** or documented fullwidth intersect glyph in XML examples — **not** ASCII `&` on `Schedule`.
 
-Eff recovery in LanguageExt v5 uses **`Prelude.catch(...)`** / `IfFailEff`, not arbitrary `eff1 | eff2`. XML binds `Eff |` to `Finally` composition — see local `LanguageExt.Core.xml`.
+Pair with `IO<T>.Retry(Schedule)`, `Prelude.retry` / `repeat`, or `@catch` at effect boundaries.
 
 ---
-## [3][OPTION_AND_VALIDATION]
->**Dictum:** *Product and alternative answer different failure questions.*
+## [4][NOT_IN_PINNED_XML]
+>**Dictum:** *Absence in XML is absence in API.*
 
 <br>
 
-| [INDEX] | [FORM] | [USE] |
-| :-----: | ------ | ----- |
-| [1] | `optA \| optB` | Optional host projection merge |
-| [2] | `(a,b,c).Apply(f).As()` | **Preferred** applicative product for independent fields |
-| [3] | `v1 & v2` | Validation product — exists in LE; Rasm uses `.Apply()` instead |
+| [INDEX] | [CLAIM] | [STATUS] |
+| :-----: | ------- | -------- |
+| [1] | LanguageExt `Decision` type | **Absent** |
+| [2] | `\|>` pipeline operator | **Absent** |
+| [3] | `ComposeK`, `HyloM`, `FoldArrows` as shipped Prelude | **Absent** — schematic patterns only |
 
-`Validation<string,T>` does **not** compile in v5. Use `Validation<Error,T>`, `StringM`, or `Validation<Seq<UiFault>,T>` per `effects.md` and `rasm.md`.
-
----
-## [4][NOT_USED_IN_RASM]
->**Dictum:** *Absence is architectural, not ignorance.*
-
-<br>
-
-| [INDEX] | [SURFACE] | [RASM_SUBSTITUTE] |
-| :-----: | --------- | ----------------- |
-| [1] | Kleisli `>>` / `<<` | LINQ `from..in..select`; trait arrows in skill `transforms.md` only |
-| [2] | Mapster `.Adapt<T>()` | Thinktecture factories; one GH2 native `.Adapt` at boundary |
-| [3] | `\|>` pipeline operator | Not in LanguageExt v5 Rasm graph |
-| [4] | LanguageExt `Decision` type | **Does not exist** in beta-77 XML — use Rasm `OverlayDecision` or GH `Components.Decision` |
+Use LINQ `from..in..select` for monadic composition. **`Next.Loop`** exists for trampolining.
 
 ---
 ## [5][RULES]
->**Dictum:** *Operators encode algebra; document the carrier before the symbol.*
+>**Dictum:** *Document carrier before symbol.*
 
 <br>
 
-- Verify every LanguageExt operator claim against pinned `LanguageExt.Core.xml`.
-- Keep hand `\|`/`+` on domain types explicit in the owning type.
-- Cross-reference `combinators.md` for method-form equivalents.
-- Cross-reference `../thinktecture/union-attributes.md` for Rasm `[SkipUnionOps]` / `[GenerateUnionOps]` (SelfOp emission — not Thinktecture union ops).
+- Verify every operator claim against pinned `LanguageExt.Core.xml`.
+- Disambiguate hand domain operators from LanguageExt and from `[Flags]`.
+- Cross-reference `combinators.md` for method-form equivalents and lowering (`>> lower`, `.As()`).
+- Cross-reference `effects.md` for rail selection.

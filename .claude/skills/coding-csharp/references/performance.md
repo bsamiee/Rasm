@@ -1,7 +1,7 @@
 # [H1][PERFORMANCE]
 >**Dictum:** *Performance is structural; align types with the JIT; make allocation-freedom normal-form.*
 
-Value-typed domain atoms align with JIT struct promotion, span-based APIs eliminate allocation, SIMD intrinsics replace branching, NativeAOT makes trimming a first-class constraint. Span-based parsing via `ISpanParsable<TSelf>` is canonicalized in `algorithms.md` [4] `SpanParsing.ParseSpannable` -- see there for the `Fin<T>`-wrapped `TryParse` factory using `CultureInfo.InvariantCulture`. Smart constructors in `types.md` [3] use `Domain.Make`/`Domain.Require` for non-span validation. Performance characteristics: zero allocation via method-group delegate binding.
+Value-typed domain atoms align with JIT struct promotion, span-based APIs eliminate allocation, SIMD intrinsics replace branching, NativeAOT makes trimming a first-class constraint. Span kernels and `Fin<T>` lifting are owned by [7][SPAN_ALGORITHMS] and [7A][CHARSET_VALIDATION] below. Smart constructors in `types.md` own `DomainType<TSelf, TScalar>.From` plus `guard`-based admission. Transform-level traversal and static-resolution rules live in `transforms.md`. Performance characteristics: zero allocation via method-group delegate binding.
 
 ---
 ## [1][SIMD_TENSOR]
@@ -279,7 +279,7 @@ public static class SpanAlgorithms {
 }
 ```
 
-[IMPORTANT]: `SeparateEither` uses `.Cons` (O(1) prepend) + `.Rev()` at the fold boundary -- never `.Add` which is O(N) array-double-and-copy inside fold accumulators. Static lambda on the fold body prevents closure capture. See `algorithms.md` [8] for the general rule against `Seq.Add` in folds. For zero-copy reinterpretation (`MemoryMarshal.Cast`), see [2].
+[IMPORTANT]: `SeparateEither` uses `.Cons` (O(1) prepend) + `.Rev()` at the fold boundary -- never `.Add` which is O(N) array-double-and-copy inside fold accumulators. Static lambda on the fold body prevents closure capture. `transforms.md` owns the traversal-fusion rule for `.Cons` + `.Rev()` folds. For zero-copy reinterpretation (`MemoryMarshal.Cast`), see [2].
 
 ---
 ## [7A][CHARSET_VALIDATION]
@@ -314,7 +314,17 @@ public static partial class SemVerValidation {
 
 [IMPORTANT]: `SearchValues<char>` + `ContainsAnyExcept` for fixed `length + allowed chars`. `[GeneratedRegex(..., RegexOptions.NonBacktracking)]` for structural grammar (groups/alternation/anchors). Use `IndexOfAnyExcept` only when callers need the failing position.
 
-**Enforcement**: CSP0607 (GeneratedRegexCharsetValidation) fires when `[GeneratedRegex]` is reducible to `SearchValues<char>`. CA1870 (UseSearchValuesInstance) enforces cached instance.<br>
+**Enforcement**: CSP0607 (GeneratedRegexCharsetValidation) fires when `[GeneratedRegex]` is reducible to `SearchValues<char>`. Pair charset scans with `MemoryExtensions.ContainsAnyExcept` / `IndexOfAnyExcept` on spans — not `SearchValues` instance methods alone. Catalog: `docs/system-api-map/bcl.md` §1.
+
+| [INDEX] | [ANALYZER] | [SURFACE] |
+| :-----: | ---------- | --------- |
+| [1] | CA1862 | `string.Equals` with explicit `StringComparison` on identifiers |
+| [2] | CA1863 | Cached `CompositeFormat` for repeated format strings |
+| [3] | CA1870 | Cached `SearchValues<T>` instance |
+| [4] | CA1872 | `Convert.ToHexString` / `ToHexStringLower` |
+| [5] | CA1874 | `Regex.IsMatch` for boolean presence — not `Regex.Matches` count |
+| [6] | CA1875 | `Regex.Count` instead of `MatchCollection` allocation |
+
 **Fin<T> hot-path escape** -- `Fin<T>` wraps `Either<Error, T>` with heap-allocated `Error`. On innermost loops (millions of iterations), use raw `bool` + `out T` for the kernel; lift to `Fin<T>` at the public surface. Pre-allocate `static readonly Error` fields for error messages:
 
 ```csharp

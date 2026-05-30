@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Rasm.Rhino.Commands;
 using Rhino.FileIO;
 using IODirectory = System.IO.Directory;
+using IOFile = System.IO.File;
 using IOPath = System.IO.Path;
 using ObjectTypeFilter = Rhino.FileIO.File3dm.ObjectTypeFilter;
 using TableTypeFilter = Rhino.FileIO.File3dm.TableTypeFilter;
@@ -10,7 +11,7 @@ using TableTypeFilter = Rhino.FileIO.File3dm.TableTypeFilter;
 namespace Rasm.Rhino.Exchange;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public enum FilePromptMode { OpenOne, OpenMany, Save, Folder }
+public enum FilePromptMode { OpenSingle, OpenMultiple, Save, Folder }
 public enum FileOverwritePolicy { Fail, Replace }
 public enum FileDirectoryPolicy { Create, Existing }
 public enum FileCollisionPolicy { Preserve, AppendNumber, Replace }
@@ -179,7 +180,7 @@ public sealed record FilePrompt {
     public FileWritePolicy Write { get; }
 
     public static Fin<FilePrompt> Open(string title, string filter = "", bool multiple = false, Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default) =>
-        Create(mode: multiple ? FilePromptMode.OpenMany : FilePromptMode.OpenOne, title: title, filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: FilePhase.Import) : filter, fileName: fileName, initialDirectory: initialDirectory, defaultExtension: defaultExtension);
+        Create(mode: multiple ? FilePromptMode.OpenMultiple : FilePromptMode.OpenSingle, title: title, filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: FilePhase.Import) : filter, fileName: fileName, initialDirectory: initialDirectory, defaultExtension: defaultExtension);
 
     public static Fin<FilePrompt> Save(string title, string filter = "", Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default, FileWritePolicy write = default, FilePhase? phase = null) {
         FilePhase active = phase ?? FilePhase.Export;
@@ -318,7 +319,7 @@ public sealed record FileEndpoint {
         };
 
     internal Fin<FileEndpoint> Input(Op op) =>
-        IOPath.Exists(path: Path) switch {
+        IOFile.Exists(path: Path) switch {
             true => Fin.Succ(value: this),
             false => Fin.Fail<FileEndpoint>(error: op.InvalidInput()),
         };
@@ -360,7 +361,7 @@ public sealed record FileEndpoint {
     }
 
     private Fin<FileEndpoint> ResolveCollision(Op op) =>
-        (Name.Collision, Write.Normalized.Overwrite, Exists(path: Path)) switch {
+        (Name.Collision, Write.Normalized.Overwrite, IOPath.Exists(path: Path)) switch {
             (_, FileOverwritePolicy.Replace, _) => Fin.Succ(value: this),
             (FileCollisionPolicy.Replace, _, _) => Fin.Succ(value: this),
             (FileCollisionPolicy.AppendNumber, _, true) => NextAvailable(op: op),
@@ -371,7 +372,7 @@ public sealed record FileEndpoint {
     private Fin<FileEndpoint> NextAvailable(Op op) =>
         toSeq(Enumerable.Range(start: 1, count: MaxCollisionAttempts))
             .Map(index => WithPath(path: NumberedPath(path: Path, index: index)))
-            .Find(static endpoint => !Exists(path: endpoint.Path))
+            .Find(static endpoint => !IOPath.Exists(path: endpoint.Path))
             .ToFin(Fail: op.InvalidInput());
 
     private static Fin<string> NormalizePath(string path, Op op) =>
@@ -379,21 +380,15 @@ public sealed record FileEndpoint {
 
     private static string ApplyExtension(string path, Option<FileFormat> format, FileNamePolicy name) =>
         name.Extension.Case switch {
-            string extension => ExtensionPath(path: path, extension: extension),
+            string extension => string.IsNullOrWhiteSpace(value: extension) switch {
+                false => IOPath.ChangeExtension(path: path, extension: extension.TrimStart('.')),
+                true => path,
+            },
             _ => format.Case switch {
                 FileFormat known => known.EnsureExtension(path: path),
                 _ => path,
             },
         };
-
-    private static string ExtensionPath(string path, string extension) =>
-        string.IsNullOrWhiteSpace(value: extension) switch {
-            false => IOPath.ChangeExtension(path: path, extension: extension.TrimStart('.')),
-            true => path,
-        };
-
-    private static bool Exists(string path) =>
-        IOPath.Exists(path: path);
 
     internal static string NumberedPath(string path, int index) =>
         IOPath.Combine(

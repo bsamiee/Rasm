@@ -43,24 +43,29 @@ public sealed class OklabInterpolationLaws {
     [Fact]
     public void LerpEndpointsRoundTripThroughOklab() =>
         Spec.ForAll(MotionCases.Color.Select(MotionCases.Color), ((DrawingColor A, DrawingColor B) p) => {
-            Spec.Holds(condition: MotionCases.ChannelsClose(MotionVector.Color.Lerp(a: p.A, b: p.B, t: 0.0), p.A), label: $"Lerp@0 != A ({p.A}->{p.B})");
-            Spec.Holds(condition: MotionCases.ChannelsClose(MotionVector.Color.Lerp(a: p.A, b: p.B, t: 1.0), p.B), label: $"Lerp@1 != B ({p.A}->{p.B})");
+            MotionColor a = MotionColor.FromDrawing(p.A);
+            MotionColor b = MotionColor.FromDrawing(p.B);
+            Spec.Holds(condition: MotionCases.ChannelsClose(MotionVector.Color.Lerp(a: a, b: b, t: 0.0).Project(), p.A), label: $"Lerp@0 != A ({p.A}->{p.B})");
+            Spec.Holds(condition: MotionCases.ChannelsClose(MotionVector.Color.Lerp(a: a, b: b, t: 1.0).Project(), p.B), label: $"Lerp@1 != B ({p.A}->{p.B})");
         });
 
     [Fact]
     public void LerpOfAColourWithItselfIsThatColour() =>
-        Spec.ForAll(MotionCases.Color.Select(MotionCases.Unit), ((DrawingColor C, double T) p) =>
-            Spec.Holds(condition: MotionCases.ChannelsClose(MotionVector.Color.Lerp(a: p.C, b: p.C, t: p.T), p.C), label: $"Lerp({p.C},{p.C},{p.T}) drifted"));
+        Spec.ForAll(MotionCases.Color.Select(MotionCases.Unit), ((DrawingColor C, double T) p) => {
+            MotionColor c = MotionColor.FromDrawing(p.C);
+            Spec.Holds(condition: MotionCases.ChannelsClose(MotionVector.Color.Lerp(a: c, b: c, t: p.T).Project(), p.C), label: $"Lerp({p.C},{p.C},{p.T}) drifted");
+        });
 }
 
 public sealed class ColorMotionVectorLaws {
+    // Single working space: Delta -> signed MotionColor velocity, Move integrates in double space (no byte clamp), Project at the boundary.
     [Fact]
-    public void ColorDeltaPreservesSignedVelocityUntilProjection() {
-        DrawingColor white = DrawingColor.FromArgb(alpha: 255, red: 255, green: 255, blue: 255);
-        DrawingColor black = DrawingColor.FromArgb(alpha: 0, red: 0, green: 0, blue: 0);
+    public void ColorDeltaMovesToTargetInDoubleSpace() {
+        MotionColor white = MotionColor.FromDrawing(DrawingColor.FromArgb(alpha: 255, red: 255, green: 255, blue: 255));
+        MotionColor black = MotionColor.FromDrawing(DrawingColor.FromArgb(alpha: 0, red: 0, green: 0, blue: 0));
         MotionColor velocity = MotionVector.Color.Delta(from: white, target: black);
         Spec.Holds(condition: velocity.A < 0.0 && velocity.R < 0.0 && velocity.G < 0.0 && velocity.B < 0.0, label: "color velocity was clamped before integration");
-        Spec.Holds(condition: MotionCases.ChannelsClose(MotionVector.Color.Move(value: white, delta: velocity), black), label: "signed velocity did not project to the target color");
+        Spec.Holds(condition: MotionCases.ChannelsClose(MotionVector.Color.Move(value: white, delta: velocity).Project(), DrawingColor.FromArgb(alpha: 0, red: 0, green: 0, blue: 0)), label: "signed velocity did not move to the target color");
     }
 
     [Fact]
@@ -68,6 +73,22 @@ public sealed class ColorMotionVectorLaws {
         Spec.Fail(MotionClock.UITimer(intervalSeconds: 0.0));
         Spec.Fail(MotionClock.UITimer(intervalSeconds: double.NaN));
         Spec.Succ(MotionClock.UITimer(intervalSeconds: 1.0 / 60.0));
+    }
+}
+
+public sealed class ColorSpringRestLaws {
+    private static SpringRunnerState<MotionColor, MotionColor> Seed(MotionColor from, MotionColor to, MotionCases.TickClock clock) =>
+        new(Value: from, Velocity: MotionVector.Color.ZeroVelocity, Target: to, Config: SpringConfig.Tuned(response: 0.3f, dampingFraction: 1.0f, mass: 1f), Vector: MotionVector.Color, Sink: static _ => { }, Clock: clock, Timestamp: clock.GetTimestamp());
+
+    // Regression law for the never-rest defect: in double working space the sub-unit spring velocity no longer
+    // byte-quantizes to zero, so a critically-damped color spring reaches rest in finite time and lands on the target.
+    [Fact]
+    public void ColorSpringReachesRest() {
+        MotionCases.TickClock clock = new(step: TimeSpan.TicksPerSecond / 60);
+        SpringRunnerState<MotionColor, MotionColor> stepped = Seed(from: MotionColor.FromDrawing(DrawingColor.White), to: MotionColor.FromDrawing(DrawingColor.Black), clock: clock);
+        _ = toSeq(Enumerable.Range(start: 0, count: 1200)).Iter(_ => stepped = stepped.Step());
+        Spec.Holds(condition: !stepped.IsActive, label: $"color spring never rested (dist={MotionVector.Color.Distance(stepped.Value, stepped.Target)}, |v|={MotionVector.Color.Norm(stepped.Velocity)})");
+        Spec.Holds(condition: MotionCases.ChannelsClose(stepped.Value.Project(), DrawingColor.Black), label: "rested color is not the target");
     }
 }
 

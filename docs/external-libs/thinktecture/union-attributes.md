@@ -1,78 +1,96 @@
 # [H1][THINKTECTURE_UNION_ATTRIBUTES]
->**Dictum:** *Union attributes control Thinktecture dispatch; Rasm attributes control SelfOp emission.*
+>**Dictum:** *Union attributes control generated dispatch shape.*
 
 <br>
 
-[IMPORTANT] Rasm pins `Thinktecture.Runtime.Extensions` `10.2.0`. Thinktecture `[Union]` generates `.Switch()`/`.Map()` — **not** `operator +`/`|` in TT 10.2.0. Rasm `[SkipUnionOps]` / `[GenerateUnionOps]` are **Rasm.Domain** analyzer attributes — see `tools/cs-analyzer/Generators/UnionOpsGenerator.cs`.
+[IMPORTANT] Pin **`Thinktecture.Runtime.Extensions` `10.2.0`**. Verify attribute properties in local package XML.
+
+Thinktecture `[Union]` generates case types, `.Switch()`, `.Map()` — **not** `operator +`/`|` on the union type in 10.2.0.
 
 ---
-## [1][THINKTECTURE_UNION_ATTRIBUTES]
+## [1][UNION_ATTRIBUTES]
 >**Dictum:** *Generated dispatch replaces repeated switch arms.*
 
 <br>
 
-| [INDEX] | [ATTRIBUTE / PROPERTY] | [GENERATES] |
-| :-----: | ---------------------- | ----------- |
+| [INDEX] | [ATTRIBUTE / PROPERTY] | [GENERATES / BEHAVIOR] |
+| :-----: | ---------------------- | ---------------------- |
 | [1] | `[Union]` | Case types, `.Switch()`, `.Map()` |
-| [2] | `[Union(SwitchMapStateParameterName = "ctx")]` | State-threaded `.Switch(ctx, case => …)` |
-| [3] | `SwitchMapMethodsGeneration` + overload attrs | Partial custom switch overload set |
-| [4] | `[UseDelegateFromConstructor]` | Delegate on SmartEnum items **or** union case partials |
-
-Common `SwitchMapStateParameterName` values in production: `ctx`, `context`, `state`, `scope`, `viewport`, `runtime`, `settings`, `page`, `owner`.
-
-Example (actual parameter name):
+| [2] | `[Union(SwitchMapStateParameterName = "ctx")]` | State-threaded `.Switch(ctx, …)` / `.Map(ctx, …)` — default name `"state"` |
+| [3] | `SwitchMethods` / `MapMethods` | `SwitchMapMethodsGeneration`: `None`, `Default`, `DefaultWithPartialOverloads` |
+| [4] | `[UnionSwitchMapOverload(StopAt = typeof(...))]` | Partial overloads for `StopAt` type and siblings — requires `DefaultWithPartialOverloads` |
+| [5] | `NestedUnionParameterNames` | `Default` vs `Simple` nested case parameter naming |
+| [6] | `FactoryMethodGeneration` on union base | `Default`, `None`, `Always` |
+| [7] | `ConversionFromValue` / `ConversionToValue` | Value conversion operators |
+| [8] | `SkipEqualityComparison`, `UseSingleBackingField`, `ConstructorAccessModifier` | Equality and ctor policy |
 
 ```csharp
-[Union(SwitchMapStateParameterName = "context")]
-public abstract partial record FileSheetEdit { /* cases */ }
+[Union(
+    SwitchMapStateParameterName = "context",
+    SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads,
+    MapMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
+[UnionSwitchMapOverload(StopAt = typeof(FailureCase))]
+public abstract partial record Command { /* cases */ }
 ```
 
-(`FileSheetEdit` — `Rasm.Rhino/Exchange/Sheets.cs`.)
+Ad-hoc unions: `[Union<T1,T2,...>]` and `[AdHocUnion(typeof(...))]` — up to five members with per-slot `T{n}Name`, `T{n}IsStateless`, `T{n}IsNullableReferenceType`.
 
 ---
-## [2][RASM_UNION_OPS_ATTRIBUTES]
->**Dictum:** *CSP0802 governs SelfOp emission — not Thinktecture union operators.*
+## [2][VALUE_OBJECT_ATTRIBUTES]
+>**Dictum:** *Value objects enforce boundary invariants at construction.*
 
 <br>
 
-Defined in `libs/csharp/Rasm/Domain/Validation.cs`. Enforced by CSP0802 in `Rasm.Domain` and `Rasm.Analysis` namespaces only.
+| [INDEX] | [ATTRIBUTE] | [ROLE] |
+| :-----: | ----------- | ------ |
+| [1] | `[ValueObject<T>]` | Single-field branded type; operator props `AdditionOperators`, `EqualityComparisonOperators`, … |
+| [2] | `[ComplexValueObject]` | Multi-field VO — **partial class/struct only** |
+| [3] | `[ValidationError]` / `[ValidationError<T>]` | Factory `ValidateFactoryArguments(ref TFault?, …)` |
+| [4] | `[KeyMemberEqualityComparer<TAccessor,TKey>]` | Custom key equality |
+| [5] | `[KeyMemberComparer<TAccessor,TKey>]` | Custom key ordering |
+| [6] | `[MemberEqualityComparer<TAccessor,TMember>]` | Complex VO member equality |
+| [7] | `[IgnoreMember]` | Exclude member from generated equality |
+| [8] | `[ObjectFactory]` / `[ObjectFactory<T>]` | Deserialization / EF / model-binding factories |
 
-| [INDEX] | [ATTRIBUTE] | [EFFECT] |
-| :-----: | ----------- | -------- |
-| [1] | `[GenerateUnionOps]` | Rasm source generator emits `internal static readonly Op SelfOp = Op.Of(name: nameof(Case))` per sealed case |
-| [2] | `[SkipUnionOps]` | Opt out of CSP0802 SelfOp requirement; signals hand-composed semantics elsewhere |
+`EquatableValueObject` is **absent** from 10.2.0 public API.
 
-**Not generated:** `operator +` or `operator |` on union types. Hand operators live on **separate structs/records** or plain types:
+Bridge Thinktecture validation once into LanguageExt rails at the boundary — see `objects.md`.
 
-| [INDEX] | [TYPE] | [OPERATOR] | `[SkipUnionOps]` |
-| :-----: | ------ | ---------- | ---------------- |
-| [1] | `RepaintRequest`, GH `Subscription` | hand `\|` | yes |
-| [2] | `FileOverride<T>` | hand `\|` | **no** — plain struct, not `[Union]` |
-| [3] | `RedrawRequest`, Blocks `Subscription` (Rhino) | hand `\|` | **no** |
-| [4] | `VectorField`, `ScalarField` | hand `+/-/ *` | **no** — `Rasm.Vectors` out of CSP0802 scope |
-
-`[GenerateUnionOps]` production unions include: `Fault`, GH `CanvasOp`, `DocumentOp`, `WireOp`, `WireQuery`, `LayoutOp`, `EditorOp`, `ToolbarItem`, `DrawMark`.
+Set **`SerializationFrameworks = SerializationFrameworks.None`** on VOs and SmartEnums when JSON/MessagePack integration packages are not pinned — core generator defaults to `All`.
 
 ---
-## [3][WHEN_NOT_TO_USE_UNION]
+## [3][SMART_ENUM_ATTRIBUTES]
+>**Dictum:** *Smart enums replace stringly constants with total dispatch.*
+
+<br>
+
+| [INDEX] | [ATTRIBUTE] | [ROLE] |
+| :-----: | ----------- | ------ |
+| [1] | `[SmartEnum]` | Keyless smart enum |
+| [2] | `[SmartEnum<TKey>]` | Keyed smart enum |
+| [3] | `SwitchMethods` / `MapMethods` / `SwitchMapStateParameterName` | Same generation knobs as unions |
+| [4] | `[UseDelegateFromConstructor(DelegateName = "…")]` | **SmartEnum only** — partial method implemented via delegate |
+
+See `enums.md` for SmartEnum patterns.
+
+---
+## [4][WHEN_NOT_TO_USE_UNION]
 >**Dictum:** *Generic or ref-struct constraints block Thinktecture union codegen.*
 
 <br>
 
 Use plain `abstract record` + manual `this switch` when:
 
-- Generic over state (`PromptTransition<TState>`, `MotionSpec<TValue>`, `InteractionStep<TState>`, `GhUiRequest<T>`, …).
+- Generic over state (`Transition<TState>`, `Request<T>`, …).
 - `allows ref struct` conflicts with generated case shapes.
 
-Document the escape hatch in the owning module.
-
 ---
-## [4][RULES]
+## [5][RULES]
 >**Dictum:** *Dispatch attributes are architecture, not decoration.*
 
 <br>
 
-- Read Rasm Skip/Generate before assuming SelfOp exists on union cases.
 - Prefer `SwitchMapStateParameterName` over duplicating context in every case payload.
 - Keep exhaustive dispatch: generated `.Switch` / `.Map` or manual total `switch`.
-- Bridge Thinktecture validation once into LanguageExt rails — see `objects.md` §5.1.
+- Hand `operator +`/`|` on domain types are **application-defined** — not generated by Thinktecture.
+- Cross-reference `unions.md`, `objects.md`, `sourcegen.md`.

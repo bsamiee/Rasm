@@ -26,11 +26,7 @@ public partial record EditorOp {
     // to hand it (the (null, openEditor:false) arm yields a null editor) — so the op would fail before its body
     // could construct the editor. Read lets the body open it headlessly (createVisible:false stays offscreen,
     // never arming the StatusBar visible-paint NPE); the resulting canvas is read back via State.
-    internal GrasshopperUiPolicy UiPolicy => Switch(
-        showCase: static _ => GrasshopperUiPolicy.Read,
-        stateCase: static _ => GrasshopperUiPolicy.Read,
-        shellCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true),
-        beginRhinoGetterCase: static _ => GrasshopperUiPolicy.Read);
+    internal GrasshopperUiPolicy UiPolicy => this is ShellCase ? GrasshopperUiPolicy.Canvas(openEditor: true) : GrasshopperUiPolicy.Read;
 }
 
 [SkipUnionOps]
@@ -90,16 +86,24 @@ internal static partial class Editor {
         };
     }
 
+    // Process-static layout defaults shared by Shell and State snapshots; the only genuinely shareable
+    // reads (the chrome flags below differ — post-mutation in Shell, pre-mutation instance state in State).
+    private static (string Initial, Seq<string> Defined) LayoutDefaults() =>
+        (Initial: GhEditor.InitialLayout, Defined: toSeq(GhEditor.DefinedLayouts));
+
     private static EditorResult.ShellResult ShellResultOf(GhEditor current, EditorOp.ShellCase shell, Option<GhCanvas> canvas) {
+        // Ordering invariant: chrome writes MUST precede the snapshot reads — ShellResultOf reports the
+        // POST-mutation Collapsed/ShowNotes/ShowUndoHistory, unlike SnapshotEditor's pre-mutation capture.
         _ = shell.Collapsed.Iter(value => current.Collapsed = value);
         _ = shell.ShowNotes.Iter(value => current.ShowNotes = value);
         _ = canvas.Iter(c => shell.ShowUndoHistory.Iter(value => c.ShowUndoHistory = value));
+        (string initial, Seq<string> defined) = LayoutDefaults();
         return new EditorResult.ShellResult(Snapshot: Snapshot.Of(new EditorShellSnapshot(
             Collapsed: current.Collapsed,
             ShowNotes: current.ShowNotes,
             ShowUndoHistory: canvas.Map(static c => c.ShowUndoHistory).IfNone(false),
-            InitialLayout: GhEditor.InitialLayout,
-            DefinedLayouts: toSeq(GhEditor.DefinedLayouts))));
+            InitialLayout: initial,
+            DefinedLayouts: defined)));
     }
 
     // Optional(GhEditor.Instance) discharges the "running" vs "not yet shown" branches polymorphically;
@@ -108,8 +112,7 @@ internal static partial class Editor {
         Fin.Succ<EditorResult>(value: new EditorResult.StateResult(Snapshot: SnapshotEditor(editor: Optional(GhEditor.Instance))));
 
     private static EditorSnapshot SnapshotEditor(Option<GhEditor> editor) {
-        string layout = GhEditor.InitialLayout;
-        Seq<string> definedLayouts = toSeq(GhEditor.DefinedLayouts);
+        (string layout, Seq<string> definedLayouts) = LayoutDefaults();
         return editor.Match(
             Some: e => new EditorSnapshot(
                 HasEditor: true,
@@ -131,6 +134,9 @@ internal static partial class Editor {
     // failure (GhEditor rail). Splitting the rails keeps the caller's diagnosis unambiguous.
     private static Fin<EditorResult> DispatchRhinoGetter(EditorOp.BeginRhinoGetterCase getter) =>
         from document in Optional(getter.Document).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(EditorOp.BeginRhinoGetter)), detail: "RhinoDoc is required"))
+        from _ in Rhino.Input.RhinoGet.InGet(doc: document)
+            ? Fin.Fail<Unit>(error: UiFault.GhEditor(detail: "a Rhino command-line getter is already active"))
+            : Fin.Succ(value: unit)
         from started in Try.lift(f: () => GhEditor.BeginRhinoGetter(doc: document)).Run().MapFail(static error => UiFault.GhEditor(detail: $"{nameof(EditorOp.BeginRhinoGetter)}: {error.Message}"))
         from valid in started
             ? Fin.Succ(value: EditorResult.Unit)

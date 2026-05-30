@@ -1,6 +1,8 @@
 using Rasm.Rhino.UI;
 using Rasm.TestKit;
 using Rhino.DocObjects;
+using Rhino.Geometry;
+using GumballMode = Rhino.UI.Gumball.GumballMode;
 
 namespace Rasm.Rhino.Tests.UI;
 
@@ -62,4 +64,32 @@ public sealed class OverlayDecisionFoldLaws {
     [Fact]
     public void FoldOfEmptyIsIgnore() =>
         Assert.Equal(expected: OverlayDecision.Ignore, actual: OverlayDecision.Fold(Seq<OverlayDecision>()));
+}
+
+public sealed class GumballActionLaws {
+    private static UiGumballSnapshot Snapshot(GumballMode mode) =>
+        new(
+            PreTransform: Transform.Identity,
+            GumballTransform: Transform.Identity,
+            TotalTransform: Transform.Identity,
+            Mode: mode,
+            InRelocate: false);
+
+    [Fact]
+    public void NativeModesProjectThroughActionTable() {
+        Seq<(GumballMode Mode, GumballVerb Verb, GumballMotionAxis Axis)> cases = Seq(
+            (GumballMode.Menu, GumballVerb.Menu, GumballMotionAxis.None),
+            (GumballMode.TranslateFree, GumballVerb.Translate, GumballMotionAxis.Free),
+            (GumballMode.TranslateXY, GumballVerb.Translate, GumballMotionAxis.XY),
+            (GumballMode.ScaleZ, GumballVerb.Scale, GumballMotionAxis.Z),
+            (GumballMode.RotateY, GumballVerb.Rotate, GumballMotionAxis.Y),
+            (GumballMode.ExtrudeX, GumballVerb.Extrude, GumballMotionAxis.X),
+            (GumballMode.CutZ, GumballVerb.Cut, GumballMotionAxis.Z));
+
+        _ = cases.Iter(static row => {
+            GumballAction action = Snapshot(mode: row.Mode).Action;
+            Spec.Holds(condition: action.Verb == row.Verb && action.Axis == row.Axis, label: $"{row.Mode} mapped to {action}");
+        });
+        Spec.Holds(condition: !Snapshot(mode: GumballMode.None).Action.Active, label: "None mode did not fall back to inactive action");
+    }
 }

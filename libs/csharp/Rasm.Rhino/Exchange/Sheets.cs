@@ -66,13 +66,13 @@ public abstract partial record FileScale {
     // then persists it so a re-queried DetailGeometry.PageToModelRatio / GetFormattedScale round-trips — this is the
     // geometry-commit rail, NOT CommitViewportChanges (which flushes only the camera snapshot) and NOT Objects.Replace
     // (which rejects detail geometry). SetScale requires a parallel projection, so coerce a perspective detail first.
-    internal Fin<Unit> Apply(DetailViewObject detail, RhinoDoc document, Op op) =>
+    internal Fin<DetailViewObject> Apply(DetailViewObject detail, RhinoDoc document, Op op) =>
         from spec in Resolve(document: document, op: op)
         from parallel in EnsureParallel(detail: detail, op: op)
         from _ in op.Confirm(success:
             parallel.DetailGeometry.SetScale(modelLength: spec.ModelLength, modelUnits: spec.ModelUnit, pageLength: spec.PageLength, pageUnits: spec.PageUnit)
             && parallel.CommitChanges())
-        select unit;
+        select parallel;
 
     // SetScale rejects perspective details; coerce the viewport to parallel + persist it via CommitViewportChanges,
     // then re-query the live object (the commit rebinds the object serial, leaving the pre-coercion handle stale).
@@ -339,6 +339,7 @@ internal static partial class SheetOps {
     // is the only public surface that preserves identity. PageNumber is a writable property.
     private static Fin<DocumentReceipt> ReorderSheets(RhinoDoc document, Seq<string> sheetNames, Op op) =>
         from names in sheetNames.TraverseM(name => FileEndpoint.NonBlank(value: name, op: op)).As()
+        from unique in RequireUniqueSheetNames(names: names, op: op)
         from pages in names.TraverseM(name => Sheet(document: document, name: name, op: op)).As()
         from _ in op.Catch(() => {
             _ = pages.AsIterable().Select((page, index) => (Page: page, Index: index)).Iter(static item => item.Page.PageNumber = item.Index);
@@ -350,9 +351,17 @@ internal static partial class SheetOps {
             ResourceChanged = pages.Map(static page => new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: page.PageName)),
         };
 
+    private static Fin<Unit> RequireUniqueSheetNames(Seq<string> names, Op op) =>
+        toSeq(names.GroupBy(keySelector: static name => name, comparer: StringComparer.OrdinalIgnoreCase).Where(static row => row.Skip(1).Any())).IsEmpty
+            ? Fin.Succ(value: unit)
+            : Fin.Fail<Unit>(error: op.InvalidInput());
+
     private static Fin<DocumentReceipt> AddDetail(RhinoDoc document, string sheetName, FileDetailSpec spec, Op op) =>
         from page in Sheet(document: document, name: sheetName, op: op)
         from name in FileEndpoint.NonBlank(value: spec.Name, op: op)
+        from displayMode in spec.DisplayMode
+            .Map(id => Optional(DisplayModeDescription.GetDisplayMode(id: id)).ToFin(Fail: op.InvalidInput()).Map(Some))
+            .IfNone(Fin.Succ(value: Option<DisplayModeDescription>.None))
         from receipt in op.Catch(() => {
             // BOUNDARY ADAPTER — native CRhinoPageView::AddDetailView allocates the detail against the page's
             // realized window and returns null unless the page is the active/displayed view. Activate + redraw to
@@ -362,20 +371,29 @@ internal static partial class SheetOps {
                 document.Views.ActiveView = page;
                 page.SetPageAsActive();
                 document.Views.Redraw();
-                // DisplayMode is a viewport edit (CommitViewportChanges); IsProjectionLocked + scale are geometry edits
-                // (CommitChanges). Commit the viewport first so its m_viewport re-snapshot cannot clobber the pending
-                // geometry edit; the scale's Apply folds IsProjectionLocked + SetScale into one geometry CommitChanges.
+                // DisplayMode is a viewport edit (CommitViewportChanges); scale + IsProjectionLocked are geometry edits.
+                // scale.Apply re-queries the detail after coercion rebinds the object serial, so bind that fresh handle
+                // (scaledDetail) before setting IsProjectionLocked + the final geometry CommitChanges — setting the lock
+                // on the pre-coercion handle would be discarded by Apply's re-query.
                 return from detail in Optional(page.AddDetailView(title: name, corner0: spec.Corner, corner1: spec.Opposite, initialProjection: spec.Projection)).ToFin(Fail: op.InvalidResult())
-                       from named in Name(document: document, detail: detail, name: name, op: op)
-                       from display in spec.DisplayMode.Map(id => op.Catch(() => {
-                           _ = Optional(DisplayModeDescription.GetDisplayMode(id: id)).Iter(mode => detail.Viewport.DisplayMode = mode);
-                           _ = detail.CommitViewportChanges();
-                           return Fin.Succ(value: unit);
-                       })).IfNone(Fin.Succ(value: unit))
-                       from locked in op.Catch(() => { detail.DetailGeometry.IsProjectionLocked = spec.ProjectionLocked; return Fin.Succ(value: unit); })
-                       from scaled in spec.Scale.Map(scale => scale.Apply(detail: detail, document: document, op: op)).IfNone(op.Catch(() => op.Confirm(success: detail.CommitChanges())))
+                       from named in op.Catch(() => {
+                           ObjectAttributes attributes = detail.Attributes.Duplicate();
+                           attributes.Name = name;
+                           return op.Confirm(success: document.Objects.ModifyAttributes(objectId: detail.Id, newAttributes: attributes, quiet: true));
+                       })
+                       from display in displayMode.Map(mode =>
+                           from applied in op.Catch(() => {
+                               detail.Viewport.DisplayMode = mode;
+                               _ = detail.CommitViewportChanges();
+                               return Fin.Succ(value: unit);
+                           })
+                           select applied).IfNone(Fin.Succ(value: unit))
+                       from scaledDetail in spec.Scale.Map(scale => scale.Apply(detail: detail, document: document, op: op))
+                           .IfNone(Fin.Succ(value: detail))
+                       from locked in op.Catch(() => { scaledDetail.DetailGeometry.IsProjectionLocked = spec.ProjectionLocked; return Fin.Succ(value: unit); })
+                       from committed in op.Catch(() => op.Confirm(success: scaledDetail.CommitChanges()))
                        select DocumentReceipt.Empty with {
-                           Created = Seq(detail.Id),
+                           Created = Seq(scaledDetail.Id),
                            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: name)),
                        };
             } finally {
@@ -402,10 +420,10 @@ internal static partial class SheetOps {
     // DetailName None ⇒ scale every detail on the sheet (batch).
     private static Fin<DocumentReceipt> ScaleDetail(RhinoDoc document, string sheetName, Option<string> detailName, FileScale scale, Op op) =>
         from page in Sheet(document: document, name: sheetName, op: op)
-        from details in Details(page: page, name: detailName, op: op)
+        from details in ResolveDetailsOrAll(page: page, name: detailName, op: op)
         from changed in details.TraverseM(detail =>
-            from _ in scale.Apply(detail: detail, document: document, op: op)
-            select detail.Id).As()
+            from scaled in scale.Apply(detail: detail, document: document, op: op)
+            select scaled.Id).As()
         select DocumentReceipt.Empty with {
             AttributeChanged = changed,
             ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: sheetName)),
@@ -455,7 +473,7 @@ internal static partial class SheetOps {
     private static Fin<DocumentReceipt> ApplyLayerOverride(RhinoDoc document, string sheetName, Option<string> detailName, Seq<FileLayerOverride> overrides, Op op) =>
         from page in Sheet(document: document, name: sheetName, op: op)
         from _valid in guard(!overrides.IsEmpty, op.InvalidInput())
-        from details in Details(page: page, name: detailName, op: op)
+        from details in ResolveDetailsOrAll(page: page, name: detailName, op: op)
         from applied in details.TraverseM(detail =>
             overrides.TraverseM(entry =>
                 from path in FileEndpoint.NonBlank(value: entry.LayerPath, op: op)
@@ -488,13 +506,14 @@ internal static partial class SheetOps {
     private static Fin<DocumentReceipt> Configure(RhinoDoc document, SheetQuery query, FileSheetConfig config, Op op) =>
         from pages in query.Resolve(document: document, op: op)
         from _valid in guard(!pages.IsEmpty, op.InvalidInput())
+        from _groupMeta in guard(config.Group.IsSome || (config.GroupDescription.IsNone && config.UserStrings.IsEmpty), op.InvalidInput())
         from groupSlot in config.Group.Case switch {
             string groupName => ResolveOrCreateGroup(document: document, groupName: groupName, pages: pages, op: op).Map(Some),
             _ => Fin.Succ(value: Option<PageViewGroup>.None),
         }
+        from _units in config.PageUnits.Map(units => op.Catch(() => Fin.Succ(value: Op.Side(() => document.AdjustPageUnitSystem(newUnitSystem: units, scale: true))))).IfNone(Fin.Succ(value: unit))
         from perPage in pages.TraverseM(page => ConfigurePage(document: document, page: page, config: config, op: op)).As()
         from _meta in groupSlot.Map(active => ApplyGroupMeta(pageGroup: active, config: config, op: op)).IfNone(Fin.Succ(value: unit))
-        from _units in config.PageUnits.Map(units => op.Catch(() => Fin.Succ(value: Op.Side(() => document.AdjustPageUnitSystem(newUnitSystem: units, scale: true))))).IfNone(Fin.Succ(value: unit))
         select DocumentReceipt.Empty with {
             AttributeChanged = perPage,
             ResourceChanged = pages.Map(static page => new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: page.PageName))
@@ -511,7 +530,6 @@ internal static partial class SheetOps {
             from label in FileEndpoint.NonBlank(value: Substitute(pattern: pattern, value: item.Value), op: op)
             from _ in op.Catch(() => {
                 item.Page.PageName = label;
-                item.Page.PageNumber = item.Value;
                 return Fin.Succ(value: unit);
             })
             from details in numbering.DetailPattern.Map(dp => NumberDetails(document: document, page: item.Page, pattern: dp, op: op)).IfNone(Fin.Succ(value: Seq<Guid>()))
@@ -562,8 +580,14 @@ internal static partial class SheetOps {
         from _scaled in config.DetailScale.Map(scale => ScaleAllDetails(document: document, page: page, scale: scale, op: op)).IfNone(Fin.Succ(value: unit))
         select page.MainViewport.Id;
 
+    // Mirror ScaleDetail: a configure that requests a detail scale on a page with no details is a no-op the caller
+    // did not intend, so fail explicitly rather than letting TraverseM succeed vacuously on the empty sequence.
     private static Fin<Unit> ScaleAllDetails(RhinoDoc document, RhinoPageView page, FileScale scale, Op op) =>
-        toSeq(page.GetDetailViews()).TraverseM(detail => scale.Apply(detail: detail, document: document, op: op)).As().Map(static _ => unit);
+        toSeq(page.GetDetailViews()) switch {
+            Seq<DetailViewObject> details when !details.IsEmpty =>
+                details.TraverseM(detail => scale.Apply(detail: detail, document: document, op: op)).As().Map(static _ => unit),
+            _ => Fin.Fail<Unit>(error: op.InvalidResult()),
+        };
 
     private static Fin<Unit> ApplyGroupMeta(PageViewGroup pageGroup, FileSheetConfig config, Op op) =>
         op.Catch(() => {
@@ -631,7 +655,7 @@ internal static partial class SheetOps {
             .Filter(layer => !layer.IsDeleted && layer.HasPerViewportSettings(viewportId: viewportId))
             .Map(static layer => layer.FullPath);
         return new FileDetailReport(
-            Name: string.IsNullOrEmpty(value: detail.Attributes.Name) ? detail.Viewport.Name ?? string.Empty : detail.Attributes.Name,
+            Name: GetDetailName(detail: detail).IfNone(string.Empty),
             Scale: FileScale.Format(detail: detail),
             Projection: ProjectionOf(detail: detail),
             ViewportId: viewportId,
@@ -682,21 +706,22 @@ internal static partial class SheetOps {
         from page in Resolve(source: document.Views.GetPageViews(), match: view => string.Equals(a: view.PageName, b: valid, comparisonType: StringComparison.OrdinalIgnoreCase), op: op)
         select page;
 
-    // AddDetailView stores the title only as the detail's viewport name; AddDetail mirrors it to Attributes.Name.
-    // Match either so details named through either rail (or created elsewhere) resolve.
+    // Display projection only (the detail report's Name): prefer the Rasm-stable Attributes.Name that AddDetail
+    // authors, fall back to the viewport title. NOT a match key — see Detail.
+    private static Option<string> GetDetailName(DetailViewObject detail) =>
+        Optional(detail.Attributes?.Name).Filter(static value => !string.IsNullOrEmpty(value: value))
+        | Optional(detail.Viewport?.Name).Filter(static value => !string.IsNullOrEmpty(value: value));
+
+    // A detail carries two INDEPENDENT name strings: Attributes.Name (the object label AddDetail mirrors) and
+    // Viewport.Name (the projection title AddDetailView/native _Detail write, and the field Rhino's own
+    // RhinoPageView.SetActiveDetail matches on). Foreign 3dm layouts can populate either or both, divergently — so
+    // match EITHER. A prefer-one projection (GetDetailName) would silently miss details identified by the other field.
     private static Fin<DetailViewObject> Detail(RhinoPageView page, string name, Op op) =>
         Resolve(source: page.GetDetailViews(), match: detail =>
             string.Equals(a: detail.Attributes.Name, b: name, comparisonType: StringComparison.OrdinalIgnoreCase)
             || string.Equals(a: detail.Viewport.Name, b: name, comparisonType: StringComparison.OrdinalIgnoreCase), op: op);
 
-    private static Fin<Unit> Name(RhinoDoc document, DetailViewObject detail, string name, Op op) =>
-        op.Catch(() => {
-            ObjectAttributes attributes = detail.Attributes.Duplicate();
-            attributes.Name = name;
-            return op.Confirm(success: document.Objects.ModifyAttributes(objectId: detail.Id, newAttributes: attributes, quiet: true));
-        });
-
-    private static Fin<Seq<DetailViewObject>> Details(RhinoPageView page, Option<string> name, Op op) =>
+    private static Fin<Seq<DetailViewObject>> ResolveDetailsOrAll(RhinoPageView page, Option<string> name, Op op) =>
         name.Case switch {
             string detailName => Detail(page: page, name: detailName, op: op).Map(Seq),
             _ => toSeq(page.GetDetailViews()) switch {
