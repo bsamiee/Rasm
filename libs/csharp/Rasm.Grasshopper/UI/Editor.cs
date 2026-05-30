@@ -12,21 +12,23 @@ public partial record EditorOp {
     private EditorOp() { }
     public sealed partial record ShowCase(bool Visible, Option<string> Layout) : EditorOp;
     public sealed partial record StateCase : EditorOp;
-    public sealed partial record EnsureVisibleCase : EditorOp;
     public sealed partial record ShellCase(Option<bool> Collapsed, Option<bool> ShowNotes, Option<bool> ShowUndoHistory, Option<string> Layout) : EditorOp;
     public sealed partial record BeginRhinoGetterCase(RhinoDoc Document) : EditorOp;
 
     public static EditorOp Show(bool visible = true, string? layout = null) => new ShowCase(Visible: visible, Layout: Optional(layout));
     public static readonly EditorOp State = new StateCase();
-    public static readonly EditorOp EnsureVisible = new EnsureVisibleCase();
     public static EditorOp Shell(Option<bool> collapsed = default, Option<bool> showNotes = default, Option<bool> showUndoHistory = default, Option<string> layout = default) =>
         new ShellCase(Collapsed: collapsed, ShowNotes: showNotes, ShowUndoHistory: showUndoHistory, Layout: layout);
     public static EditorOp BeginRhinoGetter(RhinoDoc document) => new BeginRhinoGetterCase(Document: document);
 
+    // Show OPENS the editor via its body (GhEditor.ShowEditor, a scope-free static call); it needs nothing
+    // from the scope. A Canvas policy would set RequireCanvas, and in a cold host Scope.Resolve has no canvas
+    // to hand it (the (null, openEditor:false) arm yields a null editor) — so the op would fail before its body
+    // could construct the editor. Read lets the body open it headlessly (createVisible:false stays offscreen,
+    // never arming the StatusBar visible-paint NPE); the resulting canvas is read back via State.
     internal GrasshopperUiPolicy UiPolicy => Switch(
-        showCase: static s => GrasshopperUiPolicy.Canvas(openEditor: s.Visible),
+        showCase: static _ => GrasshopperUiPolicy.Read,
         stateCase: static _ => GrasshopperUiPolicy.Read,
-        ensureVisibleCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true),
         shellCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true),
         beginRhinoGetterCase: static _ => GrasshopperUiPolicy.Read);
 }
@@ -52,21 +54,32 @@ internal static partial class Editor {
     internal static Fin<EditorResult> Dispatch(EditorOp op) => op.Switch(
         showCase: static show => ShowEditor(visible: show.Visible, layoutRules: show.Layout.IfNone(string.Empty), errorTag: nameof(EditorOp.Show)),
         stateCase: static _ => DispatchState(),
-        ensureVisibleCase: static _ => ShowEditor(visible: true, layoutRules: string.Empty, errorTag: nameof(EditorOp.EnsureVisible)),
         shellCase: static shell => ShowEditor(visible: true, layoutRules: shell.Layout.IfNone(string.Empty), errorTag: nameof(EditorOp.Shell), shell: Some(shell)),
         beginRhinoGetterCase: static getter => DispatchRhinoGetter(getter: getter));
 
-    // Show/EnsureVisible/Shell share GhEditor.ShowEditor; Shell projects EditorShellSnapshot after optional chrome writes.
+    // Show/Shell share OpenEditor; Shell projects EditorShellSnapshot after optional chrome writes.
     private static Fin<EditorResult> ShowEditor(
         bool visible,
         string layoutRules,
         string errorTag,
         Option<EditorOp.ShellCase> shell = default) =>
-        Try.lift(f: () => GhEditor.ShowEditor(createVisible: visible, layoutRules: layoutRules)).Run()
+        Try.lift(f: () => OpenEditor(visible: visible, layoutRules: layoutRules)).Run()
             .MapFail(error => UiFault.GhEditor(detail: $"{errorTag}: {error.Message}"))
             .Bind(current => shell.Match(
                 Some: s => ApplyShell(current: current, shell: s),
                 None: () => Fin.Succ(value: EditorResult.Unit)));
+
+    // GH2's ShowEditor ALWAYS calls Form.Show() — even createVisible:false orders the window on-screen offscreen and
+    // hides it on the Shown event. That Show schedules an AppKit DrawRect that paints the StatusBar, whose status-icon
+    // palette (AbstractIcon.FromName("StatusExpired")) resolves null under programmatic PlugIn.LoadPlugIn, so
+    // StatusBar.DrawStateField dereferences null and SIGABRTs the host ~8s later (StatusBar.cs:1016). A headless
+    // request therefore must NEVER show the form: construct the singleton — whose ctor builds the Canvas — and leave it
+    // un-shown so no view is ever realized for paint. Canvas.DrawToBitmap rasterizes into its own bitmap independently
+    // of window visibility, so every canvas op still works. Visible requests keep the real GhEditor.ShowEditor path.
+    private static GhEditor OpenEditor(bool visible, string layoutRules) =>
+        visible
+            ? GhEditor.ShowEditor(createVisible: true, layoutRules: layoutRules)
+            : GhEditor.Instance ?? new GhEditor();
 
     private static Fin<EditorResult> ApplyShell(GhEditor current, EditorOp.ShellCase shell) {
         Option<GhCanvas> canvas = Optional(current.Canvas);

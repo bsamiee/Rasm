@@ -113,8 +113,7 @@ public sealed class DistributionLaws {
 }
 
 public sealed class SampleMomentLaws {
-    // INDEPENDENT ORACLE: Numeric.CovarianceUpper re-derives equal-weight mean + upper-triangular covariance from Point3d rows;
-    // SampleMoment.Of folds the same moments over Arr<double> rows via a disjoint path. Coords bounded so centered covariance stays in tolerance.
+    // Independent Numeric.CovarianceUpper oracle vs SampleMoment.Of over bounded Point3d clouds.
     private static readonly Gen<Seq<Point3d>> BoundedCloud = Gens.NonEmptyArray(
         Gen.Double[-12.0, 12.0].Select(Gen.Double[-12.0, 12.0], Gen.Double[-12.0, 12.0], static (double x, double y, double z) => new Point3d(x: x, y: y, z: z)), max: 24)
         .Select(static rows => toSeq(rows));

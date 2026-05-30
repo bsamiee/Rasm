@@ -18,8 +18,8 @@ from beartype import beartype
 from expression import Error, Ok, Result
 import msgspec
 
-from tools.quality.process import decode_json, dotnet_args, fd_args, fold, ProcessFault, run, run_fold, Workspace
-from tools.quality.rails.bridge import build_client, client_run, try_decode_bridge
+from tools.quality.process import decode_json, dotnet_build, fd_args, fold, ProcessFault, run, Workspace
+from tools.quality.rails.bridge import build_client, client_quit, client_refresh
 from tools.quality.settings import ArtifactScope, QualitySettings, RASM_BRIDGE_SLUG, YAK_DISTRIBUTION_GLOB, YAK_PLATFORM
 
 
@@ -89,9 +89,7 @@ class PackageMeta(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
     project_dir: Path = Path()
 
     @classmethod
-    def from_props(
-        cls, project: Path, props: dict[str, str], settings: QualitySettings, slug: str
-    ) -> Result[PackageMeta, ProcessFault]:
+    def from_props(cls, project: Path, props: dict[str, str], settings: QualitySettings, slug: str) -> Result[PackageMeta, ProcessFault]:
         missing = tuple(name for name in _META_PROPS if name != "YakPushSource" and not props.get(name))
         match missing:
             case ():
@@ -117,10 +115,7 @@ class PackageMeta(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
         root = settings.root.resolve()
         expected_target = (self.project_dir / "bin" / settings.configuration / self.target_framework).resolve()
         checks = (
-            (
-                evaluated_slug == slug,
-                f"Package slug mismatch for {self.project}: expected {slug}, evaluated {evaluated_slug}",
-            ),
+            (evaluated_slug == slug, f"Package slug mismatch for {self.project}: expected {slug}, evaluated {evaluated_slug}"),
             (self.target_ext == ".rhp", f"Package project must emit .rhp for {slug}: {self.project}"),
             (
                 self.target_dir.resolve().is_relative_to(root) and self.target_dir.resolve() == expected_target,
@@ -132,9 +127,7 @@ class PackageMeta(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
             ),
             (self.yak_path.is_file() and os.access(self.yak_path, os.X_OK), f"Yak not executable at {self.yak_path}"),
         )
-        return next(
-            (Error(ProcessFault.fail("package", slug, detail=detail)) for ok, detail in checks if not ok), Ok(self)
-        )
+        return next((Error(ProcessFault.fail("package", slug, detail=detail)) for ok, detail in checks if not ok), Ok(self))
 
 
 class PackageArtifact(msgspec.Struct, frozen=True):
@@ -164,31 +157,13 @@ def _finish(
                     return Error(ProcessFault.fail("package", artifact.meta.package_pattern, detail=detail))
 
             def yak(op: YakOp) -> Result[None, ProcessFault]:
-                return run(
-                    _yak_argv(artifact.meta, op, package_file=package_file), cwd=artifact.meta.package_dir, check=True
-                ).map(lambda _: None)
+                return run(_yak_argv(artifact.meta, op, package_file=package_file), cwd=artifact.meta.package_dir, check=True).map(lambda _: None)
 
             step: dict[PackageStepKind, Callable[[], Result[None, ProcessFault]]] = {
                 "install": lambda: yak("install"),
                 "push": lambda: yak("push"),
-                "quit": lambda: client_run(settings, scope, "quit", check=False).bind(
-                    lambda run: (
-                        try_decode_bridge(run.stdout)
-                        .filter_with(
-                            lambda decoded: decoded.status == "ok",
-                            lambda decoded: ProcessFault.fail(
-                                "quit",
-                                returncode=1,
-                                detail=run.stderr
-                                or (decoded.fault.message.encode() if decoded.fault else b"quit refused"),
-                            ),
-                        )
-                        .map(lambda _: None)
-                    )
-                ),
-                "refresh": lambda: client_run(settings, scope, "launch").bind(
-                    lambda _: client_run(settings, scope, "doctor").map(lambda _: None)
-                ),
+                "quit": lambda: client_quit(settings, scope),
+                "refresh": lambda: client_refresh(settings, scope),
             }
 
             steps = _PACKAGE_STEPS.get((mode, slug == RASM_BRIDGE_SLUG), ())
@@ -198,9 +173,7 @@ def _finish(
             assert_never(unreachable)
 
 
-def _stage(
-    settings: QualitySettings, scope: ArtifactScope, project: Path, slug: str, version: str
-) -> Result[PackageArtifact, ProcessFault]:
+def _stage(settings: QualitySettings, scope: ArtifactScope, project: Path, slug: str, version: str) -> Result[PackageArtifact, ProcessFault]:
     def build(meta: PackageMeta) -> Result[PackageArtifact, ProcessFault]:
         shutil.rmtree(meta.target_dir, ignore_errors=True)
         meta.package_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -210,11 +183,7 @@ def _stage(
         manifest = meta.manifest_dir / "manifest.yml"
 
         def commit() -> Result[PackageArtifact, ProcessFault]:
-            # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=atomic-package-stage ticket=QUALITY-R7
-            # expires=2026-12-31 rationale=file-system-transaction-boundary
-            # `stage` is a sibling tempdir of package_dir (same filesystem), so os.replace is an atomic rename; an
-            # exclusive flock on a sibling lockfile serialises concurrent staging of the same slug. rename(2) needs the
-            # destination absent, so the live package_dir is rotated to `previous` first, then restored on failure.
+            # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=atomic-package-stage — flock + rotate package_dir to previous before os.replace.
             lock = meta.package_dir.with_name(f".{meta.package_dir.name}.lock")
             try:
                 with lock.open(mode="w", encoding="utf-8") as guard:
@@ -237,42 +206,19 @@ def _stage(
                 shutil.rmtree(stage, ignore_errors=True)
                 return Error(ProcessFault.fail("package", "stage", detail=str(exc)))
 
-        return run_fold(
-            scope,
-            (
-                ("dotnet", *dotnet_args("restore", meta.project, disable_parallel=True)),
-                (
-                    "dotnet",
-                    *dotnet_args(
-                        "build",
-                        meta.project,
-                        configuration=settings.configuration,
-                        version=settings.version_props(version),
-                        serial=True,
-                    ),
-                ),
-            ),
+        return dotnet_build(
+            settings, scope, restore=meta.project, targets=(meta.project,), version=version, disable_parallel=True, serial=True, scoped=False
         ).bind(
             lambda _: (
                 Ok(primary)
-                .filter_with(
-                    lambda _: manifest.is_file(),
-                    lambda _: ProcessFault.fail("package", detail=f"Missing Yak manifest: {manifest}"),
-                )
-                .filter_with(
-                    lambda path: path.is_file(),
-                    lambda _: ProcessFault.fail("package", detail=b"Missing primary artifact"),
-                )
+                .filter_with(lambda _: manifest.is_file(), lambda _: ProcessFault.fail("package", detail=f"Missing Yak manifest: {manifest}"))
+                .filter_with(lambda path: path.is_file(), lambda _: ProcessFault.fail("package", detail=b"Missing primary artifact"))
                 .bind(
                     lambda _: (
                         tuple(
                             shutil.copy2(path, stage / path.name)
                             for path in chain(
-                                (
-                                    meta.manifest_dir / name
-                                    for name in _MANIFEST_FILES
-                                    if (meta.manifest_dir / name).is_file()
-                                ),
+                                (meta.manifest_dir / name for name in _MANIFEST_FILES if (meta.manifest_dir / name).is_file()),
                                 (
                                     path
                                     for path in meta.target_dir.iterdir()
@@ -330,11 +276,7 @@ def run_package_rail(
             case (True, None):
                 return Ok(project)
             case (True, _):
-                return Error(
-                    ProcessFault.fail(
-                        "package", slug, detail=f"Expected one package project for {slug}, found duplicate"
-                    )
-                )
+                return Error(ProcessFault.fail("package", slug, detail=f"Expected one package project for {slug}, found duplicate"))
             case _:
                 return Ok(found)
 
@@ -347,9 +289,5 @@ def run_package_rail(
                 else Ok(selected)
             )
         )
-        .bind(
-            lambda project: _stage(settings, scope, project, slug, version).bind(
-                lambda artifact: _finish(settings, scope, mode, slug, artifact)
-            )
-        )
+        .bind(lambda project: _stage(settings, scope, project, slug, version).bind(lambda artifact: _finish(settings, scope, mode, slug, artifact)))
     )

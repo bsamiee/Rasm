@@ -12,23 +12,29 @@ using Op = Rasm.Domain.Op;
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+// Theme-reactive: each kind resolves from the live paint Skin (GH2 Shades/Canvasses tokens) when one is
+// supplied, falling back to the Eto system palette for tokens GH2 does not model (LinkText) and for
+// construction sites that resolve before a canvas Skin is known (Option<Skin>.None).
 [SmartEnum<int>]
 public sealed partial class SystemColorKind {
-    private delegate Color ColorSource();
+    private delegate Color ColorSource(Option<Skin> skin);
 
-    public static readonly SystemColorKind ControlText = new(key: 0, resolve: static () => SystemColors.ControlText);
-    public static readonly SystemColorKind Control = new(key: 1, resolve: static () => SystemColors.Control);
-    public static readonly SystemColorKind ControlBackground = new(key: 2, resolve: static () => SystemColors.ControlBackground);
-    public static readonly SystemColorKind WindowBackground = new(key: 3, resolve: static () => SystemColors.WindowBackground);
-    public static readonly SystemColorKind Highlight = new(key: 4, resolve: static () => SystemColors.Highlight);
-    public static readonly SystemColorKind HighlightText = new(key: 5, resolve: static () => SystemColors.HighlightText);
-    public static readonly SystemColorKind Selection = new(key: 6, resolve: static () => SystemColors.Selection);
-    public static readonly SystemColorKind SelectionText = new(key: 7, resolve: static () => SystemColors.SelectionText);
-    public static readonly SystemColorKind DisabledText = new(key: 8, resolve: static () => SystemColors.DisabledText);
-    public static readonly SystemColorKind LinkText = new(key: 9, resolve: static () => SystemColors.LinkText);
+    public static readonly SystemColorKind ControlText = new(key: 0, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Normal].Text, SystemColors.ControlText));
+    public static readonly SystemColorKind Control = new(key: 1, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Normal].Slab, SystemColors.Control));
+    public static readonly SystemColorKind ControlBackground = new(key: 2, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Normal].Apex, SystemColors.ControlBackground));
+    public static readonly SystemColorKind WindowBackground = new(key: 3, resolve: static skin => Token(skin, static s => s.Canvasses[CanvasKind.Normal].Background, SystemColors.WindowBackground));
+    public static readonly SystemColorKind Highlight = new(key: 4, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.NormalSelected].Apex, SystemColors.Highlight));
+    public static readonly SystemColorKind HighlightText = new(key: 5, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.NormalSelected].Text, SystemColors.HighlightText));
+    public static readonly SystemColorKind Selection = new(key: 6, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.NormalSelected].Slab, SystemColors.Selection));
+    public static readonly SystemColorKind SelectionText = new(key: 7, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.NormalSelected].TextY, SystemColors.SelectionText));
+    public static readonly SystemColorKind DisabledText = new(key: 8, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Disabled].Text, SystemColors.DisabledText));
+    public static readonly SystemColorKind LinkText = new(key: 9, resolve: static _ => SystemColors.LinkText);
+
+    private static Color Token(Option<Skin> skin, Func<Skin, Color> fromSkin, Color fallback) =>
+        skin.Match(Some: fromSkin, None: () => fallback);
 
     [UseDelegateFromConstructor]
-    internal partial Color Resolve();
+    internal partial Color Resolve(Option<Skin> skin);
 }
 
 // Icon render-state filter. Each case carries the IconContext colour-filter transform the host
@@ -222,9 +228,8 @@ public readonly partial struct PaintStyle {
         validationError = fault;
     }
 
-    // Eto 2.11 lacks Pen.DashOffset setter; DashStyle is sealed-immutable. DashStyleIntern deduplicates
-    // quantized-offset DashStyle instances while each disposable Pen/Brush remains caller-owned.
-    // EdgeSource owns pen construction; EdgeBrush selects brush-backed strokes, FillBrush owns fills only.
+    // Eto 2.11 has no Pen.DashOffset setter and DashStyle is sealed-immutable, so DashStyleIntern dedups
+    // quantized-offset DashStyle instances; EdgeSource/EdgeBrush/FillBrush keep each Pen/Brush caller-owned.
     internal Pen Pen() {
         DashStyle dash = OffsetDash();
         Color edgeColour = Edge;
@@ -276,8 +281,8 @@ public readonly partial struct PaintStyle {
     internal static PaintStyle ForTransparent(Color background = default) =>
         CreateEdge(edge: Colors.Transparent, background: background);
 
-    internal static PaintStyle ForSystemColor(SystemColorKind kind, Option<Color> fill = default, float thickness = 1f) =>
-        CreateEdge(edge: kind.Resolve(), fill: fill, thickness: thickness);
+    internal static PaintStyle ForSystemColor(SystemColorKind kind, Option<Skin> skin = default, Option<Color> fill = default, float thickness = 1f) =>
+        CreateEdge(edge: kind.Resolve(skin: skin), fill: fill, thickness: thickness);
 
     internal Unit Assign(Graphics graphics) {
         graphics.AntiAlias = AntiAlias;
@@ -443,6 +448,15 @@ public partial record FillSource {
             linearCase: static l => new LinearGradientBrush(startColor: l.Start, endColor: l.End, startPoint: l.From, endPoint: l.To) { Wrap = l.Wrap },
             radialCase: static r => new RadialGradientBrush(startColor: r.Centre, endColor: r.Edge, center: r.Origin, gradientOrigin: r.Focus, radius: r.Radius) { Wrap = r.Wrap },
             textureCase: static t => new TextureBrush(image: t.Source, opacity: t.Opacity));
+
+    // Per-frame fill paths reuse one brush per FillSource (structural key) instead of rebuilding each paint;
+    // Eto brush Dispose is inert, so a shared cached brush is safe and never needs disposal. Mirrors TextMeasure.
+    internal Brush CachedBrush() => FillBrushCache.Of(source: this);
+}
+
+file static class FillBrushCache {
+    private static readonly BoundedCache<FillSource, Brush> Cache = new(capacity: 256);
+    internal static Brush Of(FillSource source) => Cache.GetOrAdd(key: source, valueFactory: static s => s.CreateBrush());
 }
 
 [SkipUnionOps]
@@ -508,7 +522,7 @@ public partial record DrawMark {
     public sealed partial record ImageCase(Image Value, RectangleF Frame, PaintStyle Style) : DrawMark;
     public sealed partial record GhIconCase(IIcon Value, RectangleF Frame, PaintStyle Style, IconAdjust Adjust) : DrawMark;
     public sealed partial record WireCase(PointF Source, PointF Target, WireKind Kind, PaintStyle Style) : DrawMark;
-    public sealed partial record ArcCase(RectangleF Bounds, float StartAngle, float SweepAngle, PaintStyle Style) : DrawMark;
+    public sealed partial record ArcCase(RectangleF Bounds, float StartAngle, float SweepAngle, PaintStyle Style, Option<SystemColorKind> SystemColor = default) : DrawMark;
     public sealed partial record PieCase(RectangleF Bounds, float StartAngle, float SweepAngle, PaintStyle Style) : DrawMark;
     public sealed partial record PolylineCase(ReadOnlyMemory<PointF> Points, PaintStyle Style) : DrawMark;
     public sealed partial record PolygonCase(ReadOnlyMemory<PointF> Points, PaintStyle Style) : DrawMark;
@@ -557,7 +571,7 @@ public partial record DrawMark {
         new CurveCase(Points: points, Tension: tension, Style: PaintStyle.ForEdge(edge: edge, fill: fill, thickness: thickness));
     public static DrawMark SystemArc(RectangleF bounds, float startAngle, float sweepAngle, SystemColorKind color, float thickness = 1f) {
         ArgumentNullException.ThrowIfNull(color);
-        return new ArcCase(Bounds: bounds, StartAngle: startAngle, SweepAngle: sweepAngle, Style: PaintStyle.ForSystemColor(kind: color, thickness: thickness));
+        return new ArcCase(Bounds: bounds, StartAngle: startAngle, SweepAngle: sweepAngle, Style: PaintStyle.ForSystemColor(kind: color, thickness: thickness), SystemColor: Some(color));
     }
     public static DrawMark DrawCapsule(Capsule capsule, Shade shade, Parts elements = Parts.All) =>
         new CapsuleCase(Value: capsule, Elements: elements, Shade: shade);
@@ -618,7 +632,9 @@ public partial record DrawMark {
                 return unit;
             }),
             arcCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(ArcCase)), what: "arc draw", bounds: c.Bounds, draw: g => {
-                using Pen pen = c.Style.Pen();
+                using Pen pen = (c.SystemColor is { IsSome: true, Case: SystemColorKind kind }
+                    ? PaintStyle.ForSystemColor(kind: kind, skin: Some(s.Skin), thickness: c.Style.Thickness)
+                    : c.Style).Pen();
                 g.DrawArc(pen, c.Bounds, c.StartAngle, c.SweepAngle);
                 return unit;
             }),
@@ -636,7 +652,7 @@ public partial record DrawMark {
             }),
             polygonCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(PolygonCase)), what: "polygon draw", bounds: BoundsOf(points: c.Points), draw: g => {
                 PointF[] points = c.Points.Span.ToArray();
-                _ = c.Style.FillBrush.IfSome(source => { using Brush brush = source.CreateBrush(); g.FillPolygon(brush, points); });
+                _ = c.Style.FillBrush.IfSome(source => g.FillPolygon(source.CachedBrush(), points));
                 _ = c.Style.FillBrush.IfNone(() => c.Style.Fill.IfSome(colour => { using SolidBrush brush = PaintStyle.Brush(colour); g.FillPolygon(brush, points); }));
                 using Pen pen = c.Style.Pen();
                 g.DrawPolygon(pen, points);
@@ -707,10 +723,7 @@ public partial record DrawMark {
             : Fin.Succ(unit);
 
     private static Unit DrawShape(PaintStyle style, Graphics graphics, PaintShape shape) {
-        _ = style.FillBrush.IfSome(source => {
-            using Brush brush = source.CreateBrush();
-            shape.Fill(graphics, brush);
-        });
+        _ = style.FillBrush.IfSome(source => shape.Fill(graphics, source.CachedBrush()));
         _ = style.FillBrush.IfNone(() => style.Fill.IfSome(colour => {
             using SolidBrush brush = PaintStyle.Brush(colour);
             shape.Fill(graphics, brush);

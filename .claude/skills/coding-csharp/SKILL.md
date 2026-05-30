@@ -42,7 +42,7 @@ Every module exhibits three layers — singular boundary, unified rails, dense F
 
 1. **Singular OOP boundary** — exactly one sealed boundary capsule per native-OOP integration point. The override surface is `sealed`; the only virtual surface returns `Fin<T>` (or `Eff<RT,T>`). Native disposables live inside `try…finally` blocks annotated `// BOUNDARY ADAPTER — reason`. Examples in this codebase: `RasmCommand<TSelf>.RunCommand` (Commands/Command.cs), `RhinoUi.Use<T>(UiIntent<T>)` (UI/Ui.cs), `RasmOverlay<TState>` (UI/Overlay.cs).
 2. **Unified rails** — one rail per failure semantics within a file: `Fin<T>` (sync fallible), `Validation<Error,T>` (parallel accumulation), `Eff<RT,T>` (effectful), `IO<A>` (boundary effects). No mixing within the file. No raw `Task<T>` in domain. No `null` for absence. No `Exception` for control flow.
-3. **FP internal logic** — dense expression bodies, exhaustive `switch` on `[Union]`/`SmartEnum`, LINQ comprehensions (`from..in..select`) for multi-step monadic composition, `Atom<TState>` for managed state, monoidal `Decision` records (`+` operator + `Empty`/`Ignore` identity), polymorphic dispatch tables, fold algebras over recursive structures. Prefer one deep complex surface over many shallow loose ones.
+3. **FP internal logic** — dense expression bodies, exhaustive `switch` on `[Union]`/`SmartEnum`, LINQ comprehensions (`from..in..select`) for multi-step monadic composition, `Atom<TState>` for managed state, host decision monoids (`OverlayDecision`, GH `Components.Decision`), polymorphic dispatch tables, fold algebras over recursive structures. Prefer one deep complex surface over many shallow loose ones.
 
 
 ## Greenfield posture
@@ -122,12 +122,13 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 | [validation.md](references/validation.md) | Compliance checklist and completion gate |
 | [patterns.md](references/patterns.md)     | Anti-pattern detection heuristics        |
 
-When working in Rasm, read `docs/system-api-map` and `docs/external-libs` after this skill for BCL/System, LanguageExt, Thinktecture, MathNet, RhinoWIP, and GH2 source-order policy.
+When working in Rasm, read `docs/system-api-map` and `docs/external-libs` after this skill for BCL/System, LanguageExt, Thinktecture, MathNet, RhinoWIP, and GH2 source-order policy. For operators, Prelude, combinator, and codegen-attribute lookups, load [advanced-surface.md](references/advanced-surface.md) first.
 
 **Task-routed references**:
 
 | Reference                                       | Load when                              |
 | ----------------------------------------------- | -------------------------------------- |
+| [advanced-surface.md](references/advanced-surface.md) | Operators (`+`/`|`/`&`), Thinktecture codegen attrs, advanced LE combinators, MathNet/CSparse paths |
 | [types.md](references/types.md)                 | C# types, generics, constraints        |
 | [objects.md](references/objects.md)             | Records, DU hierarchies, value objects |
 | [effects.md](references/effects.md)             | Fin/Validation/Eff/IO pipelines, ROP   |
@@ -191,6 +192,24 @@ When generating new code, structurally match these established surfaces. Read th
 | Rhino UI operation | `libs/csharp/Rasm.Rhino/UI/Ui.cs` `RhinoUi.Use<T>(UiIntent<T>)` | One polymorphic intent surface with ~20 modality factories returning the same record |
 | Viewport overlay | `libs/csharp/Rasm.Rhino/UI/Overlay.cs` `RasmOverlay<TState>` | `Atom<TState>` confinement + `Apply(phase, args)` discriminated dispatch |
 | Document operation | `libs/csharp/Rasm.Rhino/Commands/Document.cs` `DocumentOp` | `[Union]` with ≥10 sealed cases + shared `DocumentReceipt` monoid |
+| GH document mutation | `libs/csharp/Rasm.Grasshopper/UI/Ui.cs` `DocumentMutationReceipt` | `operator +` receipt fold on document ops |
 | Selection algebra | `libs/csharp/Rasm.Rhino/Commands/Selection.cs` `CommandSelection.Reference.*` | Domain-vocabulary specializations over native return types — preserved, not collapsed |
 
 Replicate the patterns at these canonical surfaces; do not reinvent. Read the file table above as executable doctrine before writing analogous code.
+
+
+## Advanced surface index
+
+Load [advanced-surface.md](references/advanced-surface.md) when prompts mention operators, codegen attributes, or non-basic library sugar. Quick routing:
+
+| Concern | Primary symbols / attrs | Doc |
+| ------- | ----------------------- | --- |
+| Domain lattice merge | Hand `operator \|` on `RepaintRequest`, `FileOverride<T>`, `Subscription` | `union-attributes.md` §2 |
+| Domain semigroup append | Hand `operator +` on `Requirement`, `VectorField`, receipts, `OverlayDecision` | `operators.md`, `advanced-surface.md` |
+| Option alternative | `Option \|` (disambiguate from Flags and domain lattice) | `operators.md` |
+| State-threaded union dispatch | `[Union(SwitchMapStateParameterName = …)]` | `union-attributes.md` §1 |
+| Union SelfOp policy | `[SkipUnionOps]`, `[GenerateUnionOps]` → per-case `Op SelfOp` | `union-attributes.md` §2 |
+| VO / complex VO / custom faults | `[ValueObject<T>]`, `[ComplexValueObject]`, `[ValidationError<T>]` | `objects.md`, `thinktecture/objects.md` |
+| Traverse v5 lowering | `.TraverseM(f).As()`, `.Choose` | `combinators.md` |
+| Op boundary | `Op.Need`, `Op.Catch`, `AcceptAll`, `[BoundaryAdapter]` | `languageext/rasm.md` §4 |
+| Numeric receipts | `SolveReceipt`, `SolvePath`/`SolveStop` SmartEnums | `mathnet/rasm.md` |

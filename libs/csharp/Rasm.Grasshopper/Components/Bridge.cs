@@ -40,12 +40,18 @@ public readonly record struct Shape {
                 Fail: _ => lease.Iter(static disposable => disposable.Dispose()) switch { _ => Option<Shape>.None });
         });
     internal static Option<Shape> From(object raw) => Brokers.Choose(convert => convert(arg: raw)).Head;
-    private static readonly Seq<Func<object, Option<Shape>>> Brokers = toSeq(new Func<object, Option<Shape>>[] {
-        static raw => AsShape(value: raw),
-        static raw => Converted(raw: raw, value: CurveBroker.ToRhinoCurve(raw)),
-        static raw => SurfaceShape(raw: raw),
-        static raw => ConversionShape(raw: raw),
-    });
+    public static Unit RegisterBroker<T>(Func<T, Option<object>> convert) where T : class {
+        ArgumentNullException.ThrowIfNull(argument: convert);
+        _ = Extensions.Swap(brokers => brokers.Add(value: raw => raw is T typed ? convert(arg: typed).Bind(candidate => Create(value: candidate).ToOption()) : Option<Shape>.None));
+        return unit;
+    }
+    private static readonly Atom<Seq<Func<object, Option<Shape>>>> Extensions = Atom(value: Seq<Func<object, Option<Shape>>>());
+    private static Seq<Func<object, Option<Shape>>> Brokers =>
+        Seq<Func<object, Option<Shape>>>(
+            static raw => AsShape(value: raw),
+            static raw => Converted(raw: raw, value: CurveBroker.ToRhinoCurve(raw)),
+            static raw => SurfaceShape(raw: raw),
+            static raw => ConversionShape(raw: raw)) + Extensions.Value;
     private static Option<Shape> AsShape(object? value) => Optional(value).Bind(static candidate => Create(value: candidate).ToOption());
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000", Justification = "Shape owns converted Rhino geometry and disposes it after output transfer.")]
     private static Option<Shape> SurfaceShape(object raw) =>
@@ -72,6 +78,27 @@ internal readonly record struct Flow<T>(Pear<T> Pear, Option<Site> Site) {
         return items.Map((value, index) => source.Project(item: value, index: index));
     }
 }
+internal readonly record struct TolerancePolicy(double Absolute, double Relative, double Angle, bool Reliable) {
+    internal static TolerancePolicy Read(IDataAccess access) {
+        bool lengthReliable = access.GetTolerance(absoluteTolerance: out double absolute, relativeTolerance: out double relative);
+        bool angleReliable = access.GetTolerance(angularTolerance: out Angle angle);
+        return new(Absolute: absolute, Relative: relative, Angle: angle.Radians, Reliable: lengthReliable && angleReliable);
+    }
+}
+internal readonly record struct UnitPolicy(Rhino.UnitSystem System, Fin<double> Scale) {
+    internal static UnitPolicy Read(IDataAccess access) {
+        _ = access.GetUnitSystem(unitSystem: out UnitSystem units);
+        Rhino.UnitSystem system = units.System switch {
+            Rhino.UnitSystem.Unset or Rhino.UnitSystem.None => Rhino.UnitSystem.Millimeters,
+            Rhino.UnitSystem known => known,
+        };
+        return new(System: system, Scale: (access.GetUnitScaling(unitSystemScaling: out double scale), scale) switch {
+            (true, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) && factor > Rhino.RhinoMath.ZeroTolerance => Fin.Succ(factor),
+            (false, _) => Fin.Succ(1.0),
+            _ => Fin.Fail<double>(new Fault.ComputationFailed(Label: "UnitScaling")),
+        });
+    }
+}
 
 // --- [ERRORS] -----------------------------------------------------------------------------
 [BoundaryAdapter]
@@ -89,33 +116,33 @@ internal sealed record UnsupportedAccess(string Access) : Domain.Expected {
     public override string Message => $"Unsupported input access: {Access}.";
     public override string Category => "Access";
 }
+[BoundaryAdapter]
+internal sealed record InvalidPortValue(string Port, string Detail) : Domain.Expected {
+    public override string Message => $"{Port} value rejected: {Detail}.";
+    public override string Category => "Validation";
+}
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 internal static class Bridge {
     internal static Fin<Analyze.Scope> Scope(this IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
-        _ = access.GetUnitSystem(unitSystem: out UnitSystem units);
-        Rhino.UnitSystem system = units.System switch {
-            Rhino.UnitSystem.Unset or Rhino.UnitSystem.None => Rhino.UnitSystem.Millimeters,
-            Rhino.UnitSystem known => known,
-        };
-        bool lengthReliable = access.GetTolerance(absoluteTolerance: out double absolute, relativeTolerance: out double relative);
-        bool angleReliable = access.GetTolerance(angularTolerance: out Angle angle);
-        return Analyze.In(absolute: absolute, relative: relative, angle: angle.Radians, units: system).Context.Match(
+        UnitPolicy units = UnitPolicy.Read(access: access);
+        TolerancePolicy tolerance = TolerancePolicy.Read(access: access);
+        return Analyze.In(absolute: tolerance.Absolute, relative: tolerance.Relative, angle: tolerance.Angle, units: units.System).Context.Match(
             Succ: context => {
-                _ = (lengthReliable && angleReliable) switch {
+                _ = tolerance.Reliable switch {
                     true => Unit.Default,
                     false => Effect(action: () => access.AddRemark(text: "Tolerance", details: "Host supplied fallback tolerance values; using them because they are valid.")),
                 };
                 return Fin.Succ(Analyze.In(context: context));
             },
-            Fail: _ => Remark(access: access, units: system));
+            Fail: _ => Remark(access: access, units: units.System));
     }
     internal static Fin<Seq<Flow<Shape>>> ReadShape(this IDataAccess access, int slot, Port port) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: port);
-        return from factor in UnitScale(access: access)
+        return from factor in UnitPolicy.Read(access: access).Scale
                from values in Read<object>(access: access, slot: slot, port: port)
                from normalized in values.TraverseM(sourced => NormalizeFlow(access: access, source: sourced, port: port, factor: factor)).As()
                select normalized;
@@ -123,51 +150,78 @@ internal static class Bridge {
     internal static Fin<Seq<Flow<TVal>>> Read<TVal>(this IDataAccess access, int slot, Port port) {
         ArgumentNullException.ThrowIfNull(argument: access);
         ArgumentNullException.ThrowIfNull(argument: port);
-        return port.Kind.RequiresWire<TVal>() switch {
-            true => ReadNative<int>(access: access, slot: slot, port: port).Bind(values => values.TraverseM(port.Kind.Decode<TVal>).As()),
-            false => ReadNative<TVal>(access: access, slot: slot, port: port),
-        };
+        return (port.Kind.RequiresWire<TVal>()
+            ? Channel<int>.For(access: port.Access).Read(access: access, slot: slot, port: port).Bind(wired => wired.TraverseM(port.Kind.Decode<TVal>).As())
+            : Channel<TVal>.For(access: port.Access).Read(access: access, slot: slot, port: port))
+            .Bind(values => Validate(values: values, port: port));
     }
     internal static Seq<object> Write<TOut>(this IDataAccess access, int slot, Port<TOut> port, Seq<Flow<TOut>> values) =>
-        port.Kind.RequiresWire<TOut>() switch {
-            true => WriteNative(access: access, slot: slot, name: port.Name, targetAccess: port.Access, values: values.Map(static value => PortKind.Encode(value))),
-            false => WriteNative(access: access, slot: slot, name: port.Name, targetAccess: port.Access, values: values),
+        port.Kind.RequiresWire<TOut>()
+            ? Channel<int>.For(access: port.Access).Write(access: access, slot: slot, name: port.Name, values: values.Map(static value => PortKind.Encode(value)))
+            : Channel<TOut>.For(access: port.Access).Write(access: access, slot: slot, name: port.Name, values: values);
+    private static Fin<Seq<Flow<TVal>>> Validate<TVal>(Seq<Flow<TVal>> values, Port port) =>
+        port.Policy.Validators.IsEmpty
+            ? Fin.Succ(values)
+            : values.TraverseM(value => port.Policy.Validators
+                .Find(predicate: rule => !rule.Predicate(arg: value.Item!))
+                .Map(static rule => rule.Message) switch {
+                    { IsSome: true, Case: string message } => Fin.Fail<Flow<TVal>>(new InvalidPortValue(Port: port.Name, Detail: message)),
+                    _ => Fin.Succ(value),
+                }).As();
+    internal abstract record Channel<T> {
+        internal abstract Fin<Seq<Flow<T>>> Read(IDataAccess access, int slot, Port port);
+        internal abstract Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values);
+        internal static Channel<T> For(Access access) => access switch {
+            Access.Item => ItemChannel.Instance,
+            Access.Twig => TwigChannel.Instance,
+            Access.Tree => TreeChannel.Instance,
+            _ => UnsupportedChannel.Instance,
         };
-    private static Fin<Seq<Flow<TVal>>> ReadNative<TVal>(IDataAccess access, int slot, Port port) =>
-        port.Access switch {
-            Access.Item => access.GetPears(index: slot, pears: out Pear<TVal>[] pears) switch {
-                true => FlowPears(port: port, pears: pears.Select(static pear => (Pear: pear, Site: Option<Site>.None))),
-                _ => MissingFlow<TVal>(port: port),
-            },
-            Access.Twig => access.GetTwig(index: slot, twig: out Twig<TVal> twig) switch {
-                true => FlowPears(port: port, pears: twig.Pears.Select(static pear => (Pear: pear, Site: Option<Site>.None))),
-                _ => MissingFlow<TVal>(port: port),
-            },
-            Access.Tree => access.GetTree(index: slot, tree: out Tree<TVal> tree) switch {
-                true => FlowPears(port: port, pears: tree.EnumerateLeaves().Select(static leaf => (leaf.Pear, Site: Some(leaf.Site)))),
-                _ => MissingFlow<TVal>(port: port),
-            },
-            _ => Fin.Fail<Seq<Flow<TVal>>>(new UnsupportedAccess(Access: port.Access.ToString())),
-        };
-    private static Seq<object> WriteNative<TOut>(IDataAccess access, int slot, string name, Access targetAccess, Seq<Flow<TOut>> values) {
-        Seq<object> transferred = values.Map(static value => (object)value.Item!);
-        return targetAccess switch {
-            Access.Item => values.Count switch {
-                1 => Effect(action: () => access.SetPear(index: slot, pear: values[0].Pear)) switch { _ => transferred },
-                > 1 => Effect(action: () => access.AddError(text: name, details: $"Item output received {values.Count} values; use twig or tree access.")) switch { _ => Seq<object>() },
-                _ => Effect(action: () => access.SetPear(index: slot, pear: null!)) switch { _ => transferred },
-            },
-            Access.Twig => Effect(action: () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.Map(static value => value.Pear).AsIterable()))) switch { _ => transferred },
-            Access.Tree => Effect(action: () => {
-                ITree tree = values.Count switch {
-                    0 => Garden.TreeEmpty<TOut>(),
-                    _ when values.Exists(static value => value.Site.IsSome) => Garden.TreeFromLeaves(leaves: Leaves(values: values).AsIterable()),
-                    _ => Garden.TreeFromPears(pears: values.Map(static value => value.Pear).AsIterable()),
+        internal sealed record ItemChannel : Channel<T> {
+            internal static readonly ItemChannel Instance = new();
+            internal override Fin<Seq<Flow<T>>> Read(IDataAccess access, int slot, Port port) =>
+                access.GetPears(index: slot, pears: out Pear<T>[] pears)
+                    ? FlowPears(port: port, pears: pears.Select(static pear => (Pear: pear, Site: Option<Site>.None)))
+                    : MissingFlow<T>(port: port);
+            internal override Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values) =>
+                values.Count switch {
+                    1 => Effect(action: () => access.SetPear(index: slot, pear: values[0].Pear)) switch { _ => values.Map(static value => (object)value.Item!) },
+                    > 1 => Effect(action: () => access.AddError(text: name, details: $"Item output received {values.Count} values; use twig or tree access.")) switch { _ => Seq<object>() },
+                    _ => Seq<object>(),
                 };
-                access.SetTree(index: slot, tree: TreePrefix(access: access, slot: slot) is int prefix ? tree.WithPathPrefix(element: prefix) : tree);
-            }) switch { _ => transferred, },
-            _ => Effect(action: () => access.AddError(text: name, details: $"Unsupported output access: {targetAccess}.")) switch { _ => Seq<object>() },
-        };
+        }
+        internal sealed record TwigChannel : Channel<T> {
+            internal static readonly TwigChannel Instance = new();
+            internal override Fin<Seq<Flow<T>>> Read(IDataAccess access, int slot, Port port) =>
+                access.GetTwig(index: slot, twig: out Twig<T> twig)
+                    ? FlowPears(port: port, pears: twig.Pears.Select(static pear => (Pear: pear, Site: Option<Site>.None)))
+                    : MissingFlow<T>(port: port);
+            internal override Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values) =>
+                Effect(action: () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.Map(static value => value.Pear).AsIterable()))) switch { _ => values.Map(static value => (object)value.Item!) };
+        }
+        internal sealed record TreeChannel : Channel<T> {
+            internal static readonly TreeChannel Instance = new();
+            internal override Fin<Seq<Flow<T>>> Read(IDataAccess access, int slot, Port port) =>
+                access.GetTree(index: slot, tree: out Tree<T> tree)
+                    ? FlowPears(port: port, pears: tree.EnumerateLeaves().Select(static leaf => (leaf.Pear, Site: Some(leaf.Site))))
+                    : MissingFlow<T>(port: port);
+            internal override Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values) =>
+                Effect(action: () => {
+                    ITree tree = values.Count switch {
+                        0 => Garden.TreeEmpty<T>(),
+                        _ when values.Exists(static value => value.Site.IsSome) => Garden.TreeFromLeaves(leaves: Leaves(values: values).AsIterable()),
+                        _ => Garden.TreeFromPears(pears: values.Map(static value => value.Pear).AsIterable()),
+                    };
+                    access.SetTree(index: slot, tree: TreePrefix(access: access, slot: slot) is int prefix ? tree.WithPathPrefix(element: prefix) : tree);
+                }) switch { _ => values.Map(static value => (object)value.Item!) };
+        }
+        internal sealed record UnsupportedChannel : Channel<T> {
+            internal static readonly UnsupportedChannel Instance = new();
+            internal override Fin<Seq<Flow<T>>> Read(IDataAccess access, int slot, Port port) =>
+                Fin.Fail<Seq<Flow<T>>>(new UnsupportedAccess(Access: port.Access.ToString()));
+            internal override Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values) =>
+                Effect(action: () => access.AddError(text: name, details: "Unsupported output access.")) switch { _ => Seq<object>() };
+        }
     }
     private static Unit Effect(Action action) {
         action();
@@ -191,11 +245,11 @@ internal static class Bridge {
     private static Fin<Flow<Shape>> NormalizeFlow(IDataAccess access, Flow<object> source, Port port, double factor) =>
         from shape in Shape.From(raw: source.Item).ToFin(new UnsupportedSource(Port: port.Name, SourceType: source.Item.GetType(), Hint: Shape.Accepted))
         from result in factor switch {
-            double factor when Math.Abs(value: factor - 1.0) <= Rhino.RhinoMath.ZeroTolerance => Fin.Succ(source.Project(item: shape)),
-            _ => ScaleShape(access: access, source: source, shape: shape, port: port, factor: factor),
+            double scale when Math.Abs(value: scale - 1.0) <= Rhino.RhinoMath.ZeroTolerance => Fin.Succ(source.Project(item: shape)),
+            _ => ScaleShape(access: access, source: source, shape: shape, factor: factor),
         }
         select result;
-    private static Fin<Flow<Shape>> ScaleShape(IDataAccess access, Flow<object> source, Shape shape, Port port, double factor) {
+    private static Fin<Flow<Shape>> ScaleShape(IDataAccess access, Flow<object> source, Shape shape, double factor) {
         Pear<object> pear = Pear<object>.Create(item: shape.Inner, meta: source.Meta);
         return Optional(access.TryTransform(value: pear, transformation: Transform.Scale(anchor: Point3d.Origin, scaleFactor: factor))).ToFin(new Fault.ComputationFailed(Label: "UnitScaling"))
             .Bind(transformed => ReferenceEquals(objA: transformed, objB: pear) switch {
@@ -203,17 +257,11 @@ internal static class Bridge {
                 false => Fin.Succ(transformed),
             })
             .Bind(transformed => shape.DisposeUnlessTransferred(outputs: Seq(transformed.Item)) switch {
-                _ => Shape.From(raw: transformed.Item)
-                .ToFin(new UnsupportedSource(Port: port.Name, SourceType: transformed.Item.GetType(), Hint: Shape.Accepted))
+                // transformed.Item is already a validated GeometryBase from TryTransform; Create takes the direct path instead of re-running the broker chain.
+                _ => Shape.Create(value: transformed.Item)
                 .Map(scaled => new Flow<Shape>(Pear: Pear<Shape>.Create(item: scaled, meta: transformed.Meta), Site: source.Site)),
             });
     }
-    private static Fin<double> UnitScale(IDataAccess access) =>
-        (access.GetUnitScaling(unitSystemScaling: out double scale), scale) switch {
-            (true, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) && factor > Rhino.RhinoMath.ZeroTolerance => Fin.Succ(factor),
-            (false, _) => Fin.Succ(1.0),
-            _ => Fin.Fail<double>(new Fault.ComputationFailed(Label: "UnitScaling")),
-        };
     internal sealed class Progress(IDataAccess access) : IProgress<double> {
         public void Report(double value) => access.SetProgress(percentage: (int)Rhino.RhinoMath.Clamp(value: value switch {
             >= 0.0 and <= 1.0 => value * 100.0,

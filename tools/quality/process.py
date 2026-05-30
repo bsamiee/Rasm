@@ -33,20 +33,8 @@ _GIT_CHANGE_ARGS: Final[tuple[tuple[str, ...], ...]] = (
     ("diff", "--cached", "--name-only", "--diff-filter=ACDMRTUXB"),
     ("ls-files", "--others", "--exclude-standard"),
 )
-# Only build-graph verbs accept `--artifacts-path`/`--disable-build-servers`; tool-driver verbs
-# (`tool restore`, `stryker`, `format`, `sln`, ...) reject them and exit 1, so a scoped invocation
-# splices the flags solely for this set and otherwise carries only the isolation env.
-_ARTIFACT_SCOPED_VERBS: Final[frozenset[str]] = frozenset((
-    "build",
-    "clean",
-    "msbuild",
-    "pack",
-    "publish",
-    "restore",
-    "run",
-    "test",
-    "vstest",
-))
+# Build-graph verbs only: scoped invocations splice `--artifacts-path`/`--disable-build-servers`; tool-driver verbs reject them.
+_ARTIFACT_SCOPED_VERBS: Final[frozenset[str]] = frozenset(("build", "clean", "msbuild", "pack", "publish", "restore", "run", "test", "vstest"))
 
 
 # --- [MODELS] ----------------------------------------------------------------------------
@@ -116,9 +104,7 @@ class Workspace:
 
     def owner(self, index: ProjectIndex, file: Path) -> Result[Path, ProcessFault]:
         ranked = tuple(
-            index[directory]
-            for directory in (file.parent, *file.parent.parents)
-            if directory.is_relative_to(self.root) and directory in index
+            index[directory] for directory in (file.parent, *file.parent.parents) if directory.is_relative_to(self.root) and directory in index
         )
         match ranked:
             case (project,):
@@ -126,11 +112,7 @@ class Workspace:
             case ():
                 return Error(ProcessFault.fail("resolve", str(file), detail=b"No owning project found"))
             case _:
-                return Error(
-                    ProcessFault.fail(
-                        "resolve", str(file), detail=f"Expected one owning project for {file}, found {len(ranked)}"
-                    )
-                )
+                return Error(ProcessFault.fail("resolve", str(file), detail=f"Expected one owning project for {file}, found {len(ranked)}"))
 
     def owner_rel(self, index: ProjectIndex, file: Path) -> str | None:
         return self.owner(index, file).map(lambda project: str(project.relative_to(self.root))).default_value(None)
@@ -142,8 +124,7 @@ class Workspace:
                 pass
             case _:
                 return None
-        # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=xml-etree-csproj ticket=QUALITY-R5
-        # expires=2026-12-31 rationale=stdlib-xml-boundary
+        # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=xml-etree-csproj ticket=QUALITY-R5 expires=2026-12-31 rationale=stdlib-xml-boundary
         try:
             node = ET.parse(target).getroot()  # noqa: S314
         except ET.ParseError:
@@ -151,16 +132,7 @@ class Workspace:
         return (
             node
             if not tag
-            else next(
-                (
-                    value.strip()
-                    for child in node.iter()
-                    if child.tag.rpartition("}")[-1] == tag
-                    for value in (child.text,)
-                    if value
-                ),
-                None,
-            )
+            else next((value.strip() for child in node.iter() if child.tag.rpartition("}")[-1] == tag for value in (child.text,) if value), None)
         )
 
 
@@ -173,8 +145,7 @@ def decode_json[T](payload: bytes | str, model: type[T]) -> Result[T, ProcessFau
             pass
         case str() as text:
             raw = text.encode()
-    # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=msgspec-decode ticket=QUALITY-R4
-    # expires=2026-12-31 rationale=library-decode-boundary
+    # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=msgspec-decode ticket=QUALITY-R4 expires=2026-12-31 rationale=library-decode-boundary
     try:
         return Ok(msgspec.json.decode(raw, type=model))
     except msgspec.DecodeError as exc:
@@ -182,21 +153,14 @@ def decode_json[T](payload: bytes | str, model: type[T]) -> Result[T, ProcessFau
 
 
 def dotnet(
-    *args: str,
-    scope: ArtifactScope | None = None,
-    cwd: Path | None = None,
-    check: bool = True,
-    timeout: float | None = None,
+    *args: str, scope: ArtifactScope | None = None, cwd: Path | None = None, check: bool = True, timeout: float | None = None, scoped: bool = True
 ) -> Result[Completed, ProcessFault]:
+    # scoped=True splices artifact flags for build-graph verbs; scoped=False keeps default bin/ for scenario-kit and yak staging.
     match scope:
-        case ArtifactScope() as active if args and args[0] in _ARTIFACT_SCOPED_VERBS:
+        case ArtifactScope() as active if scoped and args and args[0] in _ARTIFACT_SCOPED_VERBS:
             separator = args.index("--") if "--" in args else len(args)
             return run(
-                ("dotnet", *args[:separator], *active.dotnet_flags, *args[separator:]),
-                cwd=cwd,
-                env=active.dotnet_env,
-                check=check,
-                timeout=timeout,
+                ("dotnet", *args[:separator], *active.dotnet_flags, *args[separator:]), cwd=cwd, env=active.dotnet_env, check=check, timeout=timeout
             )
         case ArtifactScope() as active:
             return run(("dotnet", *args), cwd=cwd, env=active.dotnet_env, check=check, timeout=timeout)
@@ -226,29 +190,32 @@ def dotnet_args(
             assert_never(unreachable)
 
 
-def dotnet_fold(scope: ArtifactScope, commands: tuple[tuple[str, ...], ...]) -> Result[None, ProcessFault]:
-    return fold(commands, None, lambda _, command: dotnet(*command, scope=scope, check=True).map(lambda _: None))
-
-
 @beartype
-def dotnet_rail(
+def dotnet_build(
     settings: QualitySettings,
     scope: ArtifactScope,
     *,
-    restore: Path,
-    targets: tuple[Path, ...],
+    restore: str | Path,
+    targets: tuple[str | Path, ...],
+    configurations: tuple[str, ...] = (),
     version: str = "",
     disable_parallel: bool = False,
+    serial: bool = False,
+    max_cpu: int | None = None,
+    scoped: bool = True,
 ) -> Result[None, ProcessFault]:
+    # restore then build over configurations x targets; fold dotnet commands and short-circuit on first failure.
+    configs = configurations or (settings.configuration,)
     version_args = settings.version_props(version)
     commands = (
         dotnet_args("restore", restore, disable_parallel=disable_parallel),
         *(
-            dotnet_args("build", target, configuration=settings.configuration, version=version_args, serial=True)
+            dotnet_args("build", target, configuration=configuration, version=version_args, serial=serial, max_cpu=max_cpu)
+            for configuration in configs
             for target in targets
         ),
     )
-    return dotnet_fold(scope, commands)
+    return fold(commands, None, lambda _, command: dotnet(*command, scope=scope, scoped=scoped, check=True).map(lambda _: None))
 
 
 def fd_args(extension: FdExtension, pattern: str = ".", *roots: str | Path, exclude: bool = True) -> tuple[str, ...]:
@@ -257,39 +224,25 @@ def fd_args(extension: FdExtension, pattern: str = ".", *roots: str | Path, excl
     return ("fd", "-H", "-e", extension, pattern, *paths, *excludes)
 
 
-def fold[T, U](
-    items: tuple[T, ...], init: U, step: Callable[[U, T], Result[U, ProcessFault]]
-) -> Result[U, ProcessFault]:
+def fold[T, U](items: tuple[T, ...], init: U, step: Callable[[U, T], Result[U, ProcessFault]]) -> Result[U, ProcessFault]:
     return reduce(lambda acc, item: acc.bind(lambda value: step(value, item)), items, Ok(init))
 
 
 def run(
-    argv: tuple[str, ...],
-    *,
-    cwd: Path | None = None,
-    env: dict[str, str] | None = None,
-    check: bool = False,
-    timeout: float | None = None,
+    argv: tuple[str, ...], *, cwd: Path | None = None, env: dict[str, str] | None = None, check: bool = False, timeout: float | None = None
 ) -> Result[Completed, ProcessFault]:
     async def _exec() -> Result[Completed, ProcessFault]:
         completed = await anyio.run_process(list(argv), cwd=str(cwd) if cwd else None, env=env, check=False)
-        outcome = Completed(
-            argv=argv, returncode=completed.returncode, stdout=completed.stdout, stderr=completed.stderr
-        )
+        outcome = Completed(argv=argv, returncode=completed.returncode, stdout=completed.stdout, stderr=completed.stderr)
         detail = b"\n".join(filter(None, (completed.stderr, completed.stdout)))
-        return (
-            Error(ProcessFault.fail(*argv, detail=detail, returncode=completed.returncode))
-            if completed.returncode != 0 and check
-            else Ok(outcome)
-        )
+        return Error(ProcessFault.fail(*argv, detail=detail, returncode=completed.returncode)) if completed.returncode != 0 and check else Ok(outcome)
 
     async def _guarded() -> Result[Completed, ProcessFault]:
         match timeout:
             case None:
                 return await _exec()
             case _ as limit:
-                # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=anyio-deadline ticket=QUALITY-R9
-                # expires=2026-12-31 rationale=subprocess-timeout-boundary
+                # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=anyio-deadline
                 try:
                     with anyio.fail_after(limit):
                         return await _exec()
@@ -298,7 +251,3 @@ def run(
                     return Error(ProcessFault.fail(*argv, detail=detail, returncode=124))
 
     return anyio.run(_guarded)
-
-
-def run_fold(scope: ArtifactScope, commands: tuple[tuple[str, ...], ...]) -> Result[None, ProcessFault]:
-    return fold(commands, None, lambda _, command: run(command, env=scope.dotnet_env, check=True).map(lambda _: None))

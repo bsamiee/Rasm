@@ -228,8 +228,16 @@ public readonly partial struct UiCommand {
     internal bool EffectiveEnabled() =>
         Enabled && CanExecute.Map(can => GrasshopperUi.Protect(valid: can).IfFail(_ => false)).IfNone(noneValue: true);
 
+    // icon.DrawToBitmap rasterizes a GH2 IIcon whose embedded resource can be unresolved under programmatic plugin
+    // load (the same null-icon class that crashed the editor StatusBar) — guard both the throw and a null bitmap so a
+    // missing icon degrades to "no menu image" instead of propagating out of command construction.
+    private const int MenuIconExtent = 16;
     internal Option<Image> MenuImage =>
-        Image | Icon.Map(static icon => (Image)icon.DrawToBitmap(size: new Size(width: 16, height: 16), padding: 0, background: Colors.Transparent));
+        Image | Icon.Bind(static icon =>
+            Op.Of(name: nameof(MenuImage))
+                .Attempt(body: () => icon.DrawToBitmap(size: new Size(width: MenuIconExtent, height: MenuIconExtent), padding: 0, background: Colors.Transparent), what: "icon.DrawToBitmap")
+                .Map(bitmap => Optional<Image>(bitmap))
+                .IfFail(Option<Image>.None));
 }
 
 [SkipUnionOps]
@@ -364,32 +372,26 @@ public partial record ToolbarItem {
                 body: () => bar.AddColours(nomen: new Nomen(name: item.Name, info: item.Name), spectrum: [.. item.Palette], initial: item.Initial, assignment: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value))),
                 what: "AddColours")
             select added,
-        labelCase: static (_, _) => ToolbarUnsupported(name: nameof(LabelCase)),
-        checkCase: static (_, _) => ToolbarUnsupported(name: nameof(CheckCase)),
-        textCase: static (_, _) => ToolbarUnsupported(name: nameof(TextCase)));
+        labelCase: static (_, _) => Reject(item: nameof(LabelCase), surface: "a toolbar"),
+        checkCase: static (_, _) => Reject(item: nameof(CheckCase), surface: "a toolbar"),
+        textCase: static (_, _) => Reject(item: nameof(TextCase), surface: "a toolbar"));
 
-    private Fin<Unit> ProjectMenu(ContextMenu menu) => Switch(
-        state: menu,
-        buttonCase: static (menu, item) => Fin.Succ(item.Command).Map(command => {
-            menu.Items.Add(item: command.ToMenuItem());
-            return unit;
-        }),
-        toggleCase: static (menu, item) =>
-            from command in Fin.Succ(item.Command)
-            from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: ToggleCase.SelfOp, detail: "toggle change delegate is required"))
-            from added in ToggleCase.SelfOp.Attempt(body: () => PushCheckMenuItem(menu: menu, command: command, state: item.State, changed: changed), what: "menu toggle")
-            select added,
-        spacerCase: static (menu, _) => SpacerCase.SelfOp.Attempt(body: menu.AddSeparator, what: "AddSeparator"),
-        sectionToggleCase: static (_, _) => MenuUnsupported(name: nameof(SectionToggleCase)),
-        radioCase: static (_, _) => MenuUnsupported(name: nameof(RadioCase)),
-        textInputCase: static (_, _) => MenuUnsupported(name: nameof(TextInputCase)),
-        numberCase: static (_, _) => MenuUnsupported(name: nameof(NumberCase)),
-        swatchInputCase: static (_, _) => MenuUnsupported(name: nameof(SwatchInputCase)),
-        colourBarsCase: static (_, _) => MenuUnsupported(name: nameof(ColourBarsCase)),
-        labelCase: static (_, _) => MenuUnsupported(name: nameof(LabelCase)),
-        checkCase: static (_, _) => MenuUnsupported(name: nameof(CheckCase)),
-        textCase: static (_, _) => MenuUnsupported(name: nameof(TextCase)),
-        spectrumCase: static (_, _) => MenuUnsupported(name: nameof(SpectrumCase)));
+    // Restrictive surface: only Button/Toggle/Spacer project to a context menu; everything else (including any
+    // future ToolbarItem case) defaults to Reject, which is the correct conservative default for a menu.
+    private Fin<Unit> ProjectMenu(ContextMenu menu) =>
+        this switch {
+            ButtonCase item => Fin.Succ(item.Command).Map(command => {
+                menu.Items.Add(item: command.ToMenuItem());
+                return unit;
+            }),
+            ToggleCase item =>
+                from command in Fin.Succ(item.Command)
+                from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: ToggleCase.SelfOp, detail: "toggle change delegate is required"))
+                from added in ToggleCase.SelfOp.Attempt(body: () => PushCheckMenuItem(menu: menu, command: command, state: item.State, changed: changed), what: "menu toggle")
+                select added,
+            SpacerCase => SpacerCase.SelfOp.Attempt(body: menu.AddSeparator, what: "AddSeparator"),
+            _ => Reject(item: GetType().Name, surface: "a context menu"),
+        };
 
     private static Unit PushCheckMenuItem(ContextMenu menu, UiCommand command, bool state, Func<bool, Fin<Unit>> changed) {
         CheckCommand menuCommand = new() {
@@ -413,47 +415,35 @@ public partial record ToolbarItem {
         from validChanged in Optional(changed).ToFin(Fail: UiFault.InvalidInput(op: op, detail: detail))
         select AddRadioToggle(bar: bar, command: command, state: state, optional: optional, changed: validChanged);
 
-    private static Fin<Unit> MenuUnsupported(string name) =>
-        Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{name} cannot be projected to a context menu"));
+    // Unified projection rejection across all three surfaces; surface is the human phrase ("a toolbar" /
+    // "a context menu" / "an input panel").
+    private static Fin<Unit> Reject(string item, string surface) =>
+        Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{item} cannot be projected to {surface}"));
 
-    private static Fin<Unit> ToolbarUnsupported(string name) =>
-        Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{name} cannot be projected to a toolbar"));
-
-    private static Fin<Unit> PanelUnsupported(string name) =>
-        Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{name} cannot be projected to an input panel"));
-
-    // InputPanel-native projection: Label/Check/Text use the panel's own widgets; bar widgets route
-    // through the embedded bar instead (see Input.Panel(CommandPlan)) and are rejected here.
-    private Fin<Unit> ProjectPanel(InputPanel panel) => Switch(
-        state: panel,
-        labelCase: static (panel, item) => LabelCase.SelfOp.Attempt(body: () => {
-            _ = panel.AddLabel(text: item.Caption);
-            return unit;
-        }, what: "AddLabel"),
-        checkCase: static (panel, item) =>
-            from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: CheckCase.SelfOp, detail: "check change delegate is required"))
-            from added in CheckCase.SelfOp.Attempt(body: () => {
-                _ = panel.AddCheck(text: item.Name, @checked: item.State, checkedChanged: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)));
+    // Restrictive surface: only the panel-native widgets (Label/Check/Text) project here; bar widgets route
+    // through the embedded bar (Input.Panel(CommandPlan)) and any other case Rejects.
+    private Fin<Unit> ProjectPanel(InputPanel panel) =>
+        this switch {
+            LabelCase item => LabelCase.SelfOp.Attempt(body: () => {
+                _ = panel.AddLabel(text: item.Caption);
                 return unit;
-            }, what: "AddCheck")
-            select added,
-        textCase: static (panel, item) =>
-            from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: TextCase.SelfOp, detail: "text change delegate is required"))
-            from added in TextCase.SelfOp.Attempt(body: () => {
-                _ = panel.AddText(text: item.Value, textChanged: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)));
-                return unit;
-            }, what: "AddText")
-            select added,
-        buttonCase: static (_, _) => PanelUnsupported(name: nameof(ButtonCase)),
-        toggleCase: static (_, _) => PanelUnsupported(name: nameof(ToggleCase)),
-        sectionToggleCase: static (_, _) => PanelUnsupported(name: nameof(SectionToggleCase)),
-        radioCase: static (_, _) => PanelUnsupported(name: nameof(RadioCase)),
-        textInputCase: static (_, _) => PanelUnsupported(name: nameof(TextInputCase)),
-        numberCase: static (_, _) => PanelUnsupported(name: nameof(NumberCase)),
-        swatchInputCase: static (_, _) => PanelUnsupported(name: nameof(SwatchInputCase)),
-        colourBarsCase: static (_, _) => PanelUnsupported(name: nameof(ColourBarsCase)),
-        spacerCase: static (_, _) => PanelUnsupported(name: nameof(SpacerCase)),
-        spectrumCase: static (_, _) => PanelUnsupported(name: nameof(SpectrumCase)));
+            }, what: "AddLabel"),
+            CheckCase item =>
+                from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: CheckCase.SelfOp, detail: "check change delegate is required"))
+                from added in CheckCase.SelfOp.Attempt(body: () => {
+                    _ = panel.AddCheck(text: item.Name, @checked: item.State, checkedChanged: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)));
+                    return unit;
+                }, what: "AddCheck")
+                select added,
+            TextCase item =>
+                from changed in Optional(item.Changed).ToFin(Fail: UiFault.InvalidInput(op: TextCase.SelfOp, detail: "text change delegate is required"))
+                from added in TextCase.SelfOp.Attempt(body: () => {
+                    _ = panel.AddText(text: item.Value, textChanged: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)));
+                    return unit;
+                }, what: "AddText")
+                select added,
+            _ => Reject(item: GetType().Name, surface: "an input panel"),
+        };
 
     private static Unit AddRadioToggle(Bar bar, UiCommand command, bool state, bool optional, Func<bool, Fin<Unit>> changed) {
         RadioToggle toggled = bar.AddRadioToggle(

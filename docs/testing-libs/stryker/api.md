@@ -17,7 +17,7 @@
 | [2] | Project under mutation | `libs/csharp/Rasm/Rasm.csproj` |
 | [3] | Test project | `tests/csharp/libs/Rasm/Rasm.Tests.csproj` |
 | [4] | Default runner | `vstest` |
-| [5] | Output | `.artifacts/mutation/<slice>/<run-id>` |
+| [5] | Output | `.artifacts/mutation/<slice>/<run-id>`; `tools.quality test run` logs this path on success |
 | [6] | MSBuild isolation | VSTest uses `.artifacts/agents/<pid>/`; Stryker follows in-process and writes project `obj/`/`bin/` |
 
 ---

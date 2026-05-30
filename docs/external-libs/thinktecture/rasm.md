@@ -17,6 +17,8 @@
 | [2] | Strings or native enum mirrors. | `[SmartEnum<TKey>]` with item-owned behavior. |
 | [3] | Repeated switch/visitor cases. | `[Union]` with generated `Switch`/`Map`. |
 | [4] | Boundary conversion. | Generated factory plus LanguageExt rail bridge. |
+| [5] | Union SelfOp emission policy. | `[SkipUnionOps]` / `[GenerateUnionOps]` on `[Union]` — see `union-attributes.md`. |
+| [6] | Dispatch union with threaded runtime. | `[Union(SwitchMapStateParameterName = …)]`. |
 
 ---
 ## [2][RHINO_GH2]

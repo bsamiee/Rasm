@@ -8,9 +8,7 @@ using Dimension = Rasm.Vectors.Dimension;
 namespace Rasm.Tests.Vectors;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// Ring/polyline shape metrics route to the bridge rail because they invoke RhinoCommon native
-// code. The static surface owns metric metadata, pure cluster admission/projection, mass
-// normalization, and managed Sinkhorn receipt rails.
+// BRIDGE-DEFERRED: ring/polyline native metrics; static owns metadata, cluster admission/projection, mass normalization, Sinkhorn receipts.
 internal static class CloudMetricGens {
     public static readonly Context Model = Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: UnitSystem.Millimeters).ToFin(), label: "cloud context");
     public static readonly VectorCloudMetric[] All = [

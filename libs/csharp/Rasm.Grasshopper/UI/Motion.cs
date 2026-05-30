@@ -1,9 +1,11 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using AppKit;
 using CoreAnimation;
 using CoreGraphics;
+using CoreImage;
 using Foundation;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.UI.Animation;
@@ -14,6 +16,7 @@ using ObjCRuntime;
 using GhDuration = Grasshopper2.UI.Animation.Duration;
 using GhMotion = Grasshopper2.UI.Animation.Motion;
 using GhState = Grasshopper2.UI.Animation.State;
+using GhTextAnchor = Grasshopper2.Extensions.TextAnchor;
 using Op = Rasm.Domain.Op;
 using ZoomThreshold = Grasshopper2.UI.ZoomThreshold;
 
@@ -23,9 +26,6 @@ namespace Rasm.Grasshopper.UI;
 internal static class MotionAccessibility {
     internal static bool ShouldReduceMotion =>
         NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion;
-
-    internal static bool ShouldIncreaseContrast =>
-        NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldIncreaseContrast;
 
     internal static bool ShouldDifferentiateWithoutColor =>
         NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldDifferentiateWithoutColor;
@@ -58,33 +58,101 @@ public sealed partial class GradientKind {
     internal int ProfileIndex => Key;
 }
 
-// CALayer gradient points are normalized to the layer frame (0,0)–(1,1). Omit both to use the profile row for Kind.
+// CAEmitterLayer geometry. Each case lazily yields the kCAEmitterLayer* NSString so type-load never
+// touches CoreAnimation off the GPU path (Resolve fires only inside the macOS14-gated layer builder).
+[SmartEnum<int>]
+public sealed partial class EmitterShape {
+    private delegate NSString NameSource();
+
+    public static readonly EmitterShape Point = new(key: 0, resolve: static () => CAEmitterLayer.ShapePoint);
+    public static readonly EmitterShape Line = new(key: 1, resolve: static () => CAEmitterLayer.ShapeLine);
+    public static readonly EmitterShape Rectangle = new(key: 2, resolve: static () => CAEmitterLayer.ShapeRectangle);
+    public static readonly EmitterShape Cuboid = new(key: 3, resolve: static () => CAEmitterLayer.ShapeCuboid);
+    public static readonly EmitterShape Circle = new(key: 4, resolve: static () => CAEmitterLayer.ShapeCircle);
+    public static readonly EmitterShape Sphere = new(key: 5, resolve: static () => CAEmitterLayer.ShapeSphere);
+
+    [UseDelegateFromConstructor]
+    internal partial NSString Resolve();
+}
+
+// CALayer gradient points are normalized to the layer frame (0,0)–(1,1). Omit Start/End to use the profile
+// row for Kind. Locations (when present) must match the colour count and ascend through [0,1].
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct CosmeticGradientPoints(Option<PointF> Start = default, Option<PointF> End = default) {
+public readonly record struct CosmeticGradientPoints(Option<PointF> Start = default, Option<PointF> End = default, Option<ReadOnlyMemory<float>> Locations = default) {
     public static CosmeticGradientPoints ConicSweep(PointF end) => new(End: Some(end));
     public static CosmeticGradientPoints Conic(PointF center, PointF sweep) => new(Start: Some(center), End: Some(sweep));
+    public static CosmeticGradientPoints Stops(ReadOnlyMemory<float> locations) => new(Locations: Some(locations));
+}
+
+// Downstream-tunable snap-guide presentation. Mirrors SnappingGecko's per-mode axes (colour / thickness /
+// line-pattern); the label font + magnitude format are our Figma/Sketch-style superset (SnappingGecko draws
+// no labels). Empty Dashes renders a SOLID line (GH2's own native snap feedback is solid); the dashed factory
+// is the default — our deliberate additive distinction from the native solid drag-feedback, so the two never
+// read as the same guide when both are visible.
+public readonly record struct SnapGuideStyle(
+    Color Tint,
+    float Thickness = 1f,
+    float LabelFontSize = 11f,
+    string MagnitudeFormat = "0.#",
+    GhDuration Duration = GhDuration.Normal,
+    GhMotion Easing = GhMotion.EaseInOut,
+    ReadOnlyMemory<float> Dashes = default) {
+    internal static readonly ReadOnlyMemory<float> DashedPattern = new[] { 4f, 4f };
+    public static SnapGuideStyle Dashed(Color tint) => new(Tint: tint, Dashes: DashedPattern);
+    public static SnapGuideStyle Solid(Color tint) => new(Tint: tint);
 }
 
 // Fire-and-forget GPU chrome on CALayer; no mid-flight retarget — dispose and re-issue to change bounds/tint/path.
+// Easing picks the Core Animation media-timing curve for the fade/stroke lifecycle (TimingName); set Keyframe to
+// drive the full 46-curve Easing via a sampled CAKeyFrameAnimation instead. Completion fires once on natural
+// animation end (never on explicit dispose), after the layer strips.
 [SkipUnionOps]
 [Union]
 public partial record CosmeticIntent {
     private CosmeticIntent() { }
-    public sealed record PulseCase(RectangleF Bounds, Color Tint, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false) : CosmeticIntent;
-    public sealed record GlowCase(RectangleF Bounds, Color Tint, float CornerRadius, float ShadowRadius, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false) : CosmeticIntent;
-    public sealed record StrokeOnCase(ReadOnlyMemory<PointF> Polyline, Color Tint, float Thickness, GhDuration Duration) : CosmeticIntent;
+    public Option<Func<Unit>> Completion { get; init; }
+    public Option<Easing> Keyframe { get; init; }
+    public sealed record PulseCase(RectangleF Bounds, Color Tint, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
+    public sealed record GlowCase(RectangleF Bounds, Color Tint, float CornerRadius, float ShadowRadius, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false, GhMotion Easing = GhMotion.EaseInOut, float BorderWidth = 0f, Option<Color> BorderColor = default, float BlurRadius = 0f) : CosmeticIntent;
+    public sealed record StrokeOnCase(ReadOnlyMemory<PointF> Polyline, Color Tint, float Thickness, GhDuration Duration, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
     public sealed record GradientCase(
         RectangleF Bounds,
-        Color Start,
-        Color End,
+        Seq<Color> Colors,
         GradientKind Kind,
         GhDuration Duration,
         CosmeticGradientPoints Points = default,
         int Cycles = 1,
         bool Yoyo = true,
-        bool Infinite = false) : CosmeticIntent;
-    public sealed record TextLayerCase(string Text, PointF Origin, Color Tint, float FontSize, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false) : CosmeticIntent;
-    public sealed record ReplicatorCase(RectangleF SourceBounds, int Count, float Spacing, Color Tint, GhDuration Duration, float InstanceDelay = 0f, float InstanceAlphaOffset = 0f, Option<Color> InstanceColour = default, float Rotation = 0f) : CosmeticIntent;
+        bool Infinite = false,
+        GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
+    public sealed record TextLayerCase(string Text, PointF Origin, Color Tint, float FontSize, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false, Option<string> FontFamily = default, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
+    public sealed record ReplicatorCase(RectangleF SourceBounds, int Count, float Spacing, Color Tint, GhDuration Duration, float InstanceDelay = 0f, float InstanceAlphaOffset = 0f, Option<Color> InstanceColour = default, float Rotation = 0f, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
+    public sealed record EmitterCase(
+        RectangleF Bounds,
+        Color Tint,
+        GhDuration Duration,
+        EmitterShape Shape,
+        float BirthRate = 20f,
+        float Lifetime = 1.4f,
+        float Velocity = 40f,
+        float Scale = 0.2f,
+        float ScaleSpeed = -0.12f,
+        float AlphaSpeed = -0.7f,
+        float ColorRange = 0.1f,
+        float LifetimeRangeRatio = 0.3f,
+        float VelocityRangeRatio = 0.5f,
+        float ScaleRangeRatio = 0.5f,
+        float EmissionRange = MathF.Tau,
+        GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
+    public sealed record SnapGuideCase(SnappingSnapshot Snapshot, SnapGuideStyle Style) : CosmeticIntent;
+
+    // Common entry: two-colour gradient. Seq overload below carries arbitrary multi-stop palettes.
+    public static CosmeticIntent Gradient(RectangleF bounds, Color start, Color end, GradientKind kind, GhDuration duration, CosmeticGradientPoints points = default, GhMotion easing = GhMotion.EaseInOut, int cycles = 1, bool yoyo = true, bool infinite = false) =>
+        new GradientCase(Bounds: bounds, Colors: Seq(start, end), Kind: kind, Duration: duration, Points: points, Cycles: cycles, Yoyo: yoyo, Infinite: infinite, Easing: easing);
+    public static CosmeticIntent Gradient(RectangleF bounds, Seq<Color> colors, GradientKind kind, GhDuration duration, CosmeticGradientPoints points = default, GhMotion easing = GhMotion.EaseInOut, int cycles = 1, bool yoyo = true, bool infinite = false) =>
+        new GradientCase(Bounds: bounds, Colors: colors, Kind: kind, Duration: duration, Points: points, Cycles: cycles, Yoyo: yoyo, Infinite: infinite, Easing: easing);
+    public static CosmeticIntent Emitter(RectangleF bounds, Color tint, GhDuration duration, EmitterShape? shape = null, float birthRate = 20f, float lifetime = 1.4f, float velocity = 40f, GhMotion easing = GhMotion.EaseInOut) =>
+        new EmitterCase(Bounds: bounds, Tint: tint, Duration: duration, Shape: shape ?? EmitterShape.Circle, BirthRate: birthRate, Lifetime: lifetime, Velocity: velocity, Easing: easing);
 }
 
 public interface IMotionVector<T> {
@@ -256,6 +324,7 @@ public sealed class SpringHandle<T> : IDisposable {
     public T CurrentValue => cell.Value.Value;
     public T CurrentVelocity => cell.Value.Velocity;
     public T CurrentTarget => cell.Value.Target;
+    public bool IsConverged => !cell.Value.IsActive;
 
     public Unit Retarget(T target, Option<T> initialVelocity = default) {
         _ = cell.Swap(state => state with {
@@ -292,6 +361,7 @@ public sealed class PulseHandle<T> : IDisposable {
 
     public T CurrentValue => cell.Value.Animated.ValueNow;
     public T CurrentTarget => cell.Value.To;
+    public bool IsCycling => cell.Value.IsActive;
 
     public Unit Retarget(T target, Option<int> cycles = default) {
         _ = cell.Swap(state => state with {
@@ -538,6 +608,11 @@ public static class Glyph {
 internal static class Motion {
     // dt clamp prevents spring blowup on debugger/GC stalls (33ms = 30fps floor).
     internal const float MaxFrameDelta = 1f / 30f;
+    // Decorative GPU-chrome metrics: estimated glyph advance / line height (no CTFramesetter pass) and the
+    // default retina backing scale when a screen cannot be resolved.
+    private const float GlyphAdvanceRatio = 0.62f;
+    private const float LineHeightRatio = 1.4f;
+    private const float RetinaScaleDefault = 2f;
 
     // Shared scaffold: NeedCanvas + PacerOption + Paint.Hook + bundle + initial wake. Variant services
     // (Spring exposing a cell, etc.) consume RunPipeline directly with their own canvas/pacer setup.
@@ -831,37 +906,30 @@ internal static class Motion {
             pulseCase: static (c, p) => {
                 Op op = Op.Of(name: nameof(CosmeticIntent.PulseCase));
                 return op.AcceptRect(value: p.Bounds, detail: "non-finite pulse bounds")
-                    .Map<CosmeticIntent>(_ => new CosmeticIntent.PulseCase(
-                        Bounds: MapCosmeticRect(canvas: c, bounds: p.Bounds), Tint: p.Tint, Duration: p.Duration, Cycles: p.Cycles, Yoyo: p.Yoyo, Infinite: p.Infinite));
+                    .Map<CosmeticIntent>(_ => p with { Bounds = MapCosmeticRect(canvas: c, bounds: p.Bounds) });
             },
             glowCase: static (c, g) => {
                 Op op = Op.Of(name: nameof(CosmeticIntent.GlowCase));
                 return op.AcceptRect(value: g.Bounds, detail: "non-finite glow bounds")
                     .Bind(_ => op.AcceptFinite(value: g.CornerRadius, detail: "non-finite corner radius"))
                     .Bind(_ => op.AcceptFinite(value: g.ShadowRadius, detail: "non-finite shadow radius"))
-                    .Map<CosmeticIntent>(_ => new CosmeticIntent.GlowCase(
-                        Bounds: MapCosmeticRect(canvas: c, bounds: g.Bounds), Tint: g.Tint, CornerRadius: g.CornerRadius, ShadowRadius: g.ShadowRadius, Duration: g.Duration, Cycles: g.Cycles, Yoyo: g.Yoyo, Infinite: g.Infinite));
+                    .Bind(_ => op.AcceptFinite(value: g.BorderWidth, detail: "non-finite border width", nonNegative: true))
+                    .Bind(_ => op.AcceptFinite(value: g.BlurRadius, detail: "non-finite blur radius", nonNegative: true))
+                    .Map<CosmeticIntent>(_ => g with { Bounds = MapCosmeticRect(canvas: c, bounds: g.Bounds) });
             },
             strokeOnCase: static (c, s) => {
                 Op op = Op.Of(name: nameof(CosmeticIntent.StrokeOnCase));
                 return op.AcceptFinite(value: s.Thickness, detail: "non-positive thickness", requirePositive: true)
-                    .Map<CosmeticIntent>(_ => new CosmeticIntent.StrokeOnCase(
-                        Polyline: MapCosmeticPolyline(canvas: c, polyline: s.Polyline), Tint: s.Tint, Thickness: s.Thickness, Duration: s.Duration));
+                    .Map<CosmeticIntent>(_ => s with { Polyline = MapCosmeticPolyline(canvas: c, polyline: s.Polyline) });
             },
             gradientCase: static (c, g) => {
                 Op op = Op.Of(name: nameof(CosmeticIntent.GradientCase));
                 return op.AcceptRect(value: g.Bounds, detail: "non-finite gradient bounds")
-                    .Bind(_ => AcceptGradientPoints(op: op, points: g.Points))
-                    .Map<CosmeticIntent>(_ => new CosmeticIntent.GradientCase(
-                        Bounds: MapCosmeticRect(canvas: c, bounds: g.Bounds),
-                        Start: g.Start,
-                        End: g.End,
-                        Kind: g.Kind,
-                        Duration: g.Duration,
-                        Points: g.Points,
-                        Cycles: g.Cycles,
-                        Yoyo: g.Yoyo,
-                        Infinite: g.Infinite));
+                    .Bind(_ => g.Colors.Count >= 2
+                        ? Fin.Succ(unit)
+                        : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: op, detail: $"gradient requires at least two colours (got {g.Colors.Count})")))
+                    .Bind(_ => AcceptGradientPoints(op: op, points: g.Points, colourCount: g.Colors.Count))
+                    .Map<CosmeticIntent>(_ => g with { Bounds = MapCosmeticRect(canvas: c, bounds: g.Bounds) });
             },
             textLayerCase: static (c, t) => {
                 Op op = Op.Of(name: nameof(CosmeticIntent.TextLayerCase));
@@ -869,30 +937,62 @@ internal static class Motion {
                     .Filter(static text => text.Length > 0)
                     .ToFin(Fail: UiFault.InvalidInput(op: op, detail: "text is required"))
                     .Bind(_ => op.AcceptFinite(value: t.FontSize, detail: "non-positive font size", requirePositive: true))
-                    .Map<CosmeticIntent>(_ => new CosmeticIntent.TextLayerCase(
-                        Text: t.Text, Origin: c.Map(point: t.Origin, from: CoordinateSystem.Content, to: CoordinateSystem.Control), Tint: t.Tint, FontSize: t.FontSize, Duration: t.Duration, Cycles: t.Cycles, Yoyo: t.Yoyo, Infinite: t.Infinite));
+                    .Map<CosmeticIntent>(_ => t with { Origin = c.Map(point: t.Origin, from: CoordinateSystem.Content, to: CoordinateSystem.Control) });
             },
             replicatorCase: static (c, r) => {
                 Op op = Op.Of(name: nameof(CosmeticIntent.ReplicatorCase));
                 return r.Count > 0
                     ? op.AcceptRect(value: r.SourceBounds, detail: "non-finite replicator bounds")
                         .Bind(_ => op.AcceptFinite(value: r.Spacing, detail: "non-finite replicator spacing"))
-                        .Map<CosmeticIntent>(_ => new CosmeticIntent.ReplicatorCase(
-                            SourceBounds: MapCosmeticRect(canvas: c, bounds: r.SourceBounds), Count: r.Count, Spacing: r.Spacing, Tint: r.Tint, Duration: r.Duration,
-                            InstanceDelay: r.InstanceDelay, InstanceAlphaOffset: r.InstanceAlphaOffset, InstanceColour: r.InstanceColour, Rotation: r.Rotation))
+                        .Map<CosmeticIntent>(_ => r with { SourceBounds = MapCosmeticRect(canvas: c, bounds: r.SourceBounds) })
                     : Fin.Fail<CosmeticIntent>(error: UiFault.InvalidInput(op: op, detail: "replicator count must be positive"));
+            },
+            emitterCase: static (c, e) => {
+                Op op = Op.Of(name: nameof(CosmeticIntent.EmitterCase));
+                return op.AcceptRect(value: e.Bounds, detail: "non-finite emitter bounds")
+                    .Bind(_ => op.AcceptFinite(value: e.BirthRate, detail: "birth rate must be finite and positive", requirePositive: true))
+                    .Bind(_ => op.AcceptFinite(value: e.Lifetime, detail: "lifetime must be finite and positive", requirePositive: true))
+                    .Map<CosmeticIntent>(_ => e with { Bounds = MapCosmeticRect(canvas: c, bounds: e.Bounds) });
+            },
+            snapGuideCase: static (c, sg) => {
+                Op op = Op.Of(name: nameof(CosmeticIntent.SnapGuideCase));
+                return op.AcceptFinite(value: sg.Style.Thickness, detail: "thickness must be finite and positive", requirePositive: true)
+                    .Map<CosmeticIntent>(_ => sg with {
+                        Snapshot = sg.Snapshot with {
+                            Lines = sg.Snapshot.Lines.Map(line => new LineF(
+                                start: c.Map(point: line.Start, from: CoordinateSystem.Content, to: CoordinateSystem.Control),
+                                end: c.Map(point: line.End, from: CoordinateSystem.Content, to: CoordinateSystem.Control))),
+                            XLabel = sg.Snapshot.XLabel.Map(l => l with { Point = c.Map(point: l.Point, from: CoordinateSystem.Content, to: CoordinateSystem.Control) }),
+                            YLabel = sg.Snapshot.YLabel.Map(l => l with { Point = c.Map(point: l.Point, from: CoordinateSystem.Content, to: CoordinateSystem.Control) }),
+                        },
+                    });
             },
             state: canvas);
 
-    private static Fin<Unit> AcceptGradientPoints(Op op, CosmeticGradientPoints points) =>
+    private static Fin<Unit> AcceptGradientPoints(Op op, CosmeticGradientPoints points, int colourCount) =>
         toSeq([
             points.Start.Map(start => AcceptNormalizedGradientPoint(op: op, point: start, label: nameof(CosmeticGradientPoints.Start))),
             points.End.Map(end => AcceptNormalizedGradientPoint(op: op, point: end, label: nameof(CosmeticGradientPoints.End))),
+            points.Locations.Map(locations => AcceptGradientStops(op: op, locations: locations, colourCount: colourCount)),
         ])
             .Somes()
             .Fold(
                 initialState: Fin.Succ(unit),
                 f: static (acc, step) => acc.Bind(_ => step));
+
+    // CAGradientLayer.Locations must align 1:1 with Colors and ascend monotonically through [0,1].
+    private static Fin<Unit> AcceptGradientStops(Op op, ReadOnlyMemory<float> locations, int colourCount) {
+        float[] stops = locations.Span.ToArray();
+        return stops.Length == colourCount
+            ? toSeq(stops)
+                .Fold(
+                    initialState: Fin.Succ(float.NegativeInfinity),
+                    f: (acc, stop) => acc.Bind(previous => stop is >= 0f and <= 1f && stop >= previous
+                        ? Fin.Succ(stop)
+                        : Fin.Fail<float>(error: UiFault.InvalidInput(op: op, detail: $"gradient stops must ascend through [0,1] (got {stop:R} after {previous:R})"))))
+                .Map(static _ => unit)
+            : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: op, detail: $"gradient stop count {stops.Length} must equal colour count {colourCount}"));
+    }
 
     private static Fin<Unit> AcceptNormalizedGradientPoint(Op op, PointF point, string label) =>
         op.AcceptPoint(value: point, detail: $"non-finite {label}")
@@ -926,13 +1026,17 @@ internal static class Motion {
         if (MotionAccessibility.ShouldSkipDecorativeMotion) {
             return unit;
         }
-        CALayer layer = BuildCosmeticLayer(view: view, intent: intent);
+        CALayer layer = BuildCosmeticLayer(intent: intent);
+        NFloat scale = Optional(view.Window?.Screen).Map(static screen => screen.BackingScaleFactor).IfNone((NFloat)RetinaScaleDefault);
+        layer.ContentsScale = scale;
+        _ = (layer.Sublayers is { } sublayers ? toSeq(sublayers) : Seq<CALayer>()).Iter(sub => sub.ContentsScale = scale);
         layer.Name = key.ToString();
-        host.AddSublayer(layer: layer);
-        CAAnimation animation = BuildCosmeticAnimation(intent: intent);
-        animation.WeakDelegate = new CosmeticRemove(layer: layer, key: key);
-        layer.AddAnimation(animation: animation, key: key);
-        return unit;
+        return WithoutAnimation(() => {
+            host.AddSublayer(layer: layer);
+            CAAnimation animation = BuildCosmeticAnimation(intent: intent);
+            animation.WeakDelegate = new CosmeticRemove(layer: layer, key: key, completion: intent.Completion);
+            layer.AddAnimation(animation: animation, key: key);
+        });
     }
 
     // Mutual-exclusion claim: TryClaim wins exactly once across explicit-dispose vs AnimationStopped.
@@ -959,14 +1063,16 @@ internal static class Motion {
     }
 
     [SupportedOSPlatform("macos14.0")]
-    private static CALayer BuildCosmeticLayer(NSView view, CosmeticIntent intent) =>
+    private static CALayer BuildCosmeticLayer(CosmeticIntent intent) =>
         intent.Switch<CALayer>(
             pulseCase: CosmeticPulseLayer,
             glowCase: CosmeticGlowLayer,
             strokeOnCase: CosmeticStrokeLayer,
             gradientCase: CosmeticGradientLayer,
-            textLayerCase: text => CosmeticTextLayer(view: view, text: text),
-            replicatorCase: CosmeticReplicatorLayer);
+            textLayerCase: CosmeticTextLayer,
+            replicatorCase: CosmeticReplicatorLayer,
+            emitterCase: CosmeticEmitterLayer,
+            snapGuideCase: CosmeticSnapGuideLayer);
 
     [SupportedOSPlatform("macos14.0")]
     private static CAShapeLayer CosmeticPulseLayer(CosmeticIntent.PulseCase pulse) {
@@ -980,33 +1086,39 @@ internal static class Motion {
     }
 
     [SupportedOSPlatform("macos14.0")]
+    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
+        Justification = "CGColor/CGPath/CIFilter ownership transfers to the CAShapeLayer property graph for the animation lifetime.")]
     private static CAShapeLayer CosmeticGlowLayer(CosmeticIntent.GlowCase glow) {
         CGRect rect = ToCGRect(glow.Bounds);
         CGPath path = new();
         path.AddRoundedRect(transform: CGAffineTransform.MakeIdentity(), rect: rect, cornerWidth: glow.CornerRadius, cornerHeight: glow.CornerRadius);
-        return new CAShapeLayer {
+        CAShapeLayer shape = new() {
             Frame = rect,
             Path = path,
             StrokeColor = ToCGColor(glow.Tint),
             LineWidth = 0f,
+            CornerRadius = glow.CornerRadius,
+            BorderWidth = glow.BorderWidth,
             ShadowColor = ToCGColor(glow.Tint),
             ShadowRadius = glow.ShadowRadius,
             ShadowOffset = CGSize.Empty,
             ShadowPath = path,
             ShadowOpacity = 0f,
         };
+        _ = glow.BorderColor.IfSome(colour => shape.BorderColor = ToCGColor(colour));
+        _ = Optional(glow.BlurRadius).Filter(static radius => radius > 0f).IfSome(radius => shape.Filters = [new CIGaussianBlur { Radius = radius }]);
+        return shape;
     }
 
     [SupportedOSPlatform("macos14.0")]
     private static CAShapeLayer CosmeticStrokeLayer(CosmeticIntent.StrokeOnCase stroke) {
         CGPath path = new();
-        ReadOnlySpan<PointF> points = stroke.Polyline.Span;
-        if (points.Length > 0) {
-            path.MoveToPoint(point: ToCGPoint(points[0]));
-            for (int i = 1; i < points.Length; i++) {
-                path.AddLineToPoint(point: ToCGPoint(points[i]));
-            }
-        }
+        // Fold the polyline into the CGPath: first point opens the subpath (MoveTo), the rest extend it (LineTo).
+        _ = toSeq(stroke.Polyline.ToArray()).Fold(true, (first, point) => {
+            CGPoint cg = ToCGPoint(point);
+            _ = first ? Op.Side(() => path.MoveToPoint(point: cg)) : Op.Side(() => path.AddLineToPoint(point: cg));
+            return false;
+        });
         return new CAShapeLayer {
             Path = path,
             StrokeColor = ToCGColor(stroke.Tint),
@@ -1022,28 +1134,35 @@ internal static class Motion {
     private static CAGradientLayer CosmeticGradientLayer(CosmeticIntent.GradientCase gradient) {
         (CAGradientLayerType type, _, _) = CosmeticGradientProfile[gradient.Kind.ProfileIndex];
         (CGPoint start, CGPoint end) = ResolveGradientPoints(kind: gradient.Kind, points: gradient.Points);
-        return new CAGradientLayer {
+        CAGradientLayer layer = new() {
             Frame = ToCGRect(gradient.Bounds),
-            Colors = [ToCGColor(gradient.Start), ToCGColor(gradient.End)],
+            Colors = [.. gradient.Colors.Map(static c => ToCGColor(c))],
             LayerType = type,
             StartPoint = start,
             EndPoint = end,
             Opacity = 0f,
         };
+        _ = gradient.Points.Locations.IfSome(locations =>
+            layer.Locations = [.. toSeq(locations.Span.ToArray()).Map(static stop => NSNumber.FromFloat(stop))]);
+        return layer;
     }
 
     [SupportedOSPlatform("macos14.0")]
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
         Justification = "CGColor/NSString ownership transfers to CALayer property graph for animation lifetime.")]
-    private static CATextLayer CosmeticTextLayer(NSView view, CosmeticIntent.TextLayerCase text) {
+    private static CATextLayer CosmeticTextLayer(CosmeticIntent.TextLayerCase text) {
+        // A zero-bounds CATextLayer would not render at all, so floor each estimated dimension at 1.
+        float width = MathF.Max(1f, text.FontSize * GlyphAdvanceRatio * text.Text.Length);
+        float height = MathF.Max(1f, text.FontSize * LineHeightRatio);
         CATextLayer layer = new() {
             String = new NSString(text.Text),
             ForegroundColor = ToCGColor(text.Tint),
             FontSize = text.FontSize,
-            ContentsScale = view.Window?.Screen?.BackingScaleFactor ?? 2f,
             Opacity = 0f,
-            Position = ToCGPoint(text.Origin),
+            Frame = new CGRect(x: text.Origin.X, y: text.Origin.Y, width: width, height: height),
         };
+        // CATextLayer exposes no managed Font setter; KVC "font" accepts a family name resolved at size FontSize.
+        _ = text.FontFamily.IfSome(family => layer.SetValueForKey(value: new NSString(family), key: (NSString)"font"));
         return layer;
     }
 
@@ -1057,14 +1176,16 @@ internal static class Motion {
         path.AddRect(rect: rect);
         source.Path = path;
         source.FillColor = ToCGColor(replicate.Tint);
+        // Per-instance transform composes translation (spacing along X) with rotation about Z; either degenerates
+        // to identity when its parameter is zero, so the Concat covers spaced, fanned, and spiral replications.
         CAReplicatorLayer replicator = new() {
             Frame = rect,
             InstanceCount = replicate.Count,
             InstanceDelay = replicate.InstanceDelay,
             InstanceAlphaOffset = replicate.InstanceAlphaOffset,
-            InstanceTransform = replicate.Rotation != 0f
-                ? CATransform3D.MakeRotation(angle: replicate.Rotation, x: 0, y: 0, z: 1)
-                : CATransform3D.MakeTranslation(tx: replicate.Spacing, ty: 0, tz: 0),
+            InstanceTransform = CATransform3D
+                .MakeTranslation(tx: replicate.Spacing, ty: 0, tz: 0)
+                .Concat(b: CATransform3D.MakeRotation(angle: replicate.Rotation, x: 0, y: 0, z: 1)),
             Opacity = 0f,
         };
         _ = replicate.InstanceColour.IfSome(colour => replicator.InstanceColor = ToCGColor(colour));
@@ -1072,17 +1193,150 @@ internal static class Motion {
         return replicator;
     }
 
-    // Reduce-motion is short-circuited upstream in CosmeticAttach (ShouldSkipDecorativeMotion). FadeAnimation
-    // is the StrokeEndAnimation shape (CABasicAnimation 0->alpha); the in/out fade and repetition come from
-    // ApplyRepeat's AutoReverses (yoyo) + RepeatCount, so the keyframe-array form is no longer needed.
     [SupportedOSPlatform("macos14.0")]
-    private static CABasicAnimation FadeAnimation(string path, GhDuration duration, float alpha) {
+    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
+        Justification = "CGColor/CAEmitterCell ownership transfers to the host CAEmitterLayer property graph for animation lifetime.")]
+    private static CAEmitterLayer CosmeticEmitterLayer(CosmeticIntent.EmitterCase emit) {
+        CGRect rect = ToCGRect(emit.Bounds);
+        CAEmitterCell cell = new() {
+            BirthRate = emit.BirthRate,
+            LifeTime = emit.Lifetime,
+            LifetimeRange = emit.Lifetime * emit.LifetimeRangeRatio,
+            Velocity = emit.Velocity,
+            VelocityRange = emit.Velocity * emit.VelocityRangeRatio,
+            EmissionRange = emit.EmissionRange,
+            Scale = emit.Scale,
+            ScaleRange = emit.Scale * emit.ScaleRangeRatio,
+            ScaleSpeed = emit.ScaleSpeed,
+            AlphaSpeed = emit.AlphaSpeed,
+            Color = ToCGColor(emit.Tint),
+            RedRange = emit.ColorRange,
+            GreenRange = emit.ColorRange,
+            BlueRange = emit.ColorRange,
+        };
+        CAEmitterLayer layer = new() {
+            Frame = rect,
+            Shape = emit.Shape.Resolve(),
+            Mode = CAEmitterLayer.ModeSurface,
+            Size = new CGSize(width: rect.Width, height: rect.Height),
+            Cells = [cell],
+            Opacity = 0f,
+        };
+        // emitterPosition has no managed setter; centre it in the layer via KVC so particles spawn across Bounds.
+        layer.SetValueForKey(value: NSValue.FromCGPoint(new CGPoint(x: rect.Width / 2.0, y: rect.Height / 2.0)), key: (NSString)"emitterPosition");
+        return layer;
+    }
+
+    // Bridges Layout.Snap output to a fire-and-forget overlay: dashed guide lines as a CAShapeLayer plus an
+    // optional distance label sublayer at LabelPoint (lines are already mapped to control space upstream).
+    [SupportedOSPlatform("macos14.0")]
+    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
+        Justification = "CGPath/CGColor/NSNumber ownership transfers to the CAShapeLayer (and its text sublayer) for the animation lifetime.")]
+    private static CAShapeLayer CosmeticSnapGuideLayer(CosmeticIntent.SnapGuideCase guide) {
+        SnapGuideStyle style = guide.Style;
+        CGPath path = new();
+        _ = guide.Snapshot.Lines.Iter(line => {
+            path.MoveToPoint(point: ToCGPoint(line.Start));
+            path.AddLineToPoint(point: ToCGPoint(line.End));
+        });
+        CAShapeLayer shape = new() {
+            Path = path,
+            StrokeColor = ToCGColor(style.Tint),
+            FillColor = null,
+            LineWidth = style.Thickness,
+            Opacity = 0f,
+        };
+        // Empty Dashes => solid line (matches GH2's native solid feedback + SnappingGecko 'Solid'); a non-empty
+        // pattern dashes the guide. Hoisting the dash to the style is the downstream-tunable line-pattern axis.
+        _ = style.Dashes.Length > 0
+            ? Op.Side(() => shape.LineDashPattern = [.. toSeq(style.Dashes.ToArray()).Map(static d => NSNumber.FromFloat(d))])
+            : unit;
+        // GH2 keeps X/Y as two independent labelled actions; render one label sublayer per present channel,
+        // each at its own LabelPoint. The carried Anchor (a 3x3 compass) drives both the text AlignmentMode and
+        // the frame-origin shift so the anchor corner sits at the channel's point. Each label falls back to the
+        // snap magnitude when its text is blank. Sublayer opacity stays 1 so the parent's opacity drives the fade.
+        _ = Seq(guide.Snapshot.XLabel, guide.Snapshot.YLabel).Somes().Iter(label => {
+            string text = label.Text.Length > 0
+                ? label.Text
+                : guide.Snapshot.Magnitude.ToString(format: style.MagnitudeFormat, provider: CultureInfo.InvariantCulture);
+            float width = MathF.Max(1f, style.LabelFontSize * GlyphAdvanceRatio * text.Length);
+            float height = MathF.Max(1f, style.LabelFontSize * LineHeightRatio);
+            (CATextLayerAlignmentMode mode, float dx, float dy) = SnapLabelPlacement(anchor: label.Anchor, width: width, height: height);
+            shape.AddSublayer(layer: new CATextLayer {
+                String = new NSString(text),
+                ForegroundColor = ToCGColor(style.Tint),
+                FontSize = style.LabelFontSize,
+                TextAlignmentMode = mode,
+                Frame = new CGRect(x: label.Point.X + dx, y: label.Point.Y + dy, width: width, height: height),
+            });
+        });
+        return shape;
+    }
+
+    // TextAnchor (3x3 compass) -> (AlignmentMode, frame-origin shift) so the label's anchor corner lands on
+    // LabelPoint. Horizontal {Left|Middle|Right} picks the alignment + x-shift {0,-w/2,-w}; vertical
+    // {Upper|Centre|Lower} shifts y {0,-h/2,-h} (control space, y grows down). No anchor => top-left at origin.
+    private static (CATextLayerAlignmentMode Mode, float Dx, float Dy) SnapLabelPlacement(Option<GhTextAnchor> anchor, float width, float height) =>
+        anchor is { IsSome: true, Case: GhTextAnchor value }
+            ? value switch {
+                GhTextAnchor.UpperLeft => (CATextLayerAlignmentMode.Left, 0f, 0f),
+                GhTextAnchor.CentreLeft => (CATextLayerAlignmentMode.Left, 0f, -height / 2f),
+                GhTextAnchor.LowerLeft => (CATextLayerAlignmentMode.Left, 0f, -height),
+                GhTextAnchor.UpperMiddle => (CATextLayerAlignmentMode.Center, -width / 2f, 0f),
+                GhTextAnchor.CentreMiddle => (CATextLayerAlignmentMode.Center, -width / 2f, -height / 2f),
+                GhTextAnchor.LowerMiddle => (CATextLayerAlignmentMode.Center, -width / 2f, -height),
+                GhTextAnchor.UpperRight => (CATextLayerAlignmentMode.Right, -width, 0f),
+                GhTextAnchor.CentreRight => (CATextLayerAlignmentMode.Right, -width, -height / 2f),
+                GhTextAnchor.LowerRight => (CATextLayerAlignmentMode.Right, -width, -height),
+                _ => (CATextLayerAlignmentMode.Left, 0f, 0f),
+            }
+            : (CATextLayerAlignmentMode.Left, 0f, 0f);
+
+    // Reduce-motion is short-circuited upstream in CosmeticAttach (ShouldSkipDecorativeMotion). The default
+    // fade/stroke eases via the five Core Animation media-timing curves (TimingName) with the in/out fade and
+    // repetition from ApplyRepeat's AutoReverses (yoyo) + RepeatCount. A CosmeticIntent.Keyframe upgrades the
+    // lifecycle to a CAKeyFrameAnimation sampling the full 46-curve Easing over [0,1] — additive, not default.
+    [SupportedOSPlatform("macos14.0")]
+    private static CAPropertyAnimation PropertyAnimation(string path, GhDuration duration, float from, float to, GhMotion easing, Option<Easing> keyframe) =>
+        keyframe is { IsSome: true, Case: Easing curve }
+            ? KeyframeAnimation(path: path, duration: duration, from: from, to: to, easing: curve)
+            : BasicAnimation(path: path, duration: duration, from: from, to: to, easing: easing);
+
+    [SupportedOSPlatform("macos14.0")]
+    private static CABasicAnimation BasicAnimation(string path, GhDuration duration, float from, float to, GhMotion easing) {
         CABasicAnimation anim = CABasicAnimation.FromKeyPath(path: path);
         anim.Duration = Animators.DurationToTimeSpan(duration: duration).TotalSeconds;
-        anim.SetFrom(value: NSNumber.FromFloat(0f));
-        anim.SetTo(value: NSNumber.FromFloat(alpha));
+        anim.SetFrom(value: NSNumber.FromFloat(from));
+        anim.SetTo(value: NSNumber.FromFloat(to));
+        anim.TimingFunction = CAMediaTimingFunction.FromName(name: TimingName(easing: easing));
         return anim;
     }
+
+    private const int KeyframeSamples = 60;
+
+    // Penner closed-form sampled at KeyframeSamples steps, linearly interpolated between samples; KeyTimes are
+    // left unset so Core Animation spreads the values uniformly across [0,1] — the curve shape is the Values.
+    [SupportedOSPlatform("macos14.0")]
+    private static CAKeyFrameAnimation KeyframeAnimation(string path, GhDuration duration, float from, float to, Easing easing) {
+        CAKeyFrameAnimation anim = CAKeyFrameAnimation.GetFromKeyPath(path: path);
+        anim.Duration = Animators.DurationToTimeSpan(duration: duration).TotalSeconds;
+        anim.CalculationMode = CAAnimation.AnimationLinear;
+        anim.Values = [.. Enumerable.Range(start: 0, count: KeyframeSamples + 1).Select(frame => {
+            double t = (double)frame / KeyframeSamples;
+            return (NSObject)NSNumber.FromFloat(from + ((to - from) * (float)easing.Apply(t: t)));
+        })];
+        return anim;
+    }
+
+    // GH2's rich easing vocabulary collapses onto the five media-timing curves; the GPU layer cannot host
+    // Penner closed-forms, so non-linear in/out variants fold to ease-in-ease-out (Keyframe escapes this).
+    private static NSString TimingName(GhMotion easing) =>
+        easing switch {
+            GhMotion.Linear or GhMotion.LinearDelayed => CAMediaTimingFunction.Linear,
+            GhMotion.EaseIn or GhMotion.EaseInDelayed or GhMotion.SnapIn or GhMotion.SnapInDelayed => CAMediaTimingFunction.EaseIn,
+            GhMotion.EaseOut or GhMotion.EaseOutDelayed or GhMotion.SnapOut or GhMotion.SnapOutDelayed => CAMediaTimingFunction.EaseOut,
+            _ => CAMediaTimingFunction.EaseInEaseOut,
+        };
 
     // RepeatCount is float on CAMediaTiming; infinite => PositiveInfinity. AutoReverses gives the
     // fade-out half of each cycle (default yoyo=true preserves the prior 0->alpha->0 pulse shape).
@@ -1094,23 +1348,16 @@ internal static class Motion {
     }
 
     [SupportedOSPlatform("macos14.0")]
-    private static CABasicAnimation StrokeEndAnimation(GhDuration duration) {
-        CABasicAnimation anim = CABasicAnimation.FromKeyPath(path: "strokeEnd");
-        anim.Duration = Animators.DurationToTimeSpan(duration: duration).TotalSeconds;
-        anim.SetFrom(value: NSNumber.FromFloat(0f));
-        anim.SetTo(value: NSNumber.FromFloat(1f));
-        return anim;
-    }
-
-    [SupportedOSPlatform("macos14.0")]
     private static CAAnimation BuildCosmeticAnimation(CosmeticIntent intent) =>
         intent.Switch<CAAnimation>(
-            pulseCase: static p => ApplyRepeat(FadeAnimation(path: "opacity", duration: p.Duration, alpha: p.Tint.A), cycles: p.Cycles, yoyo: p.Yoyo, infinite: p.Infinite),
-            glowCase: static g => ApplyRepeat(FadeAnimation(path: "shadowOpacity", duration: g.Duration, alpha: g.Tint.A), cycles: g.Cycles, yoyo: g.Yoyo, infinite: g.Infinite),
-            strokeOnCase: static s => StrokeEndAnimation(duration: s.Duration),
-            gradientCase: static g => ApplyRepeat(FadeAnimation(path: "opacity", duration: g.Duration, alpha: Math.Max(g.Start.A, g.End.A)), cycles: g.Cycles, yoyo: g.Yoyo, infinite: g.Infinite),
-            textLayerCase: static t => ApplyRepeat(FadeAnimation(path: "opacity", duration: t.Duration, alpha: t.Tint.A), cycles: t.Cycles, yoyo: t.Yoyo, infinite: t.Infinite),
-            replicatorCase: static r => ApplyRepeat(FadeAnimation(path: "opacity", duration: r.Duration, alpha: r.Tint.A), cycles: 1, yoyo: true, infinite: false));
+            pulseCase: static p => ApplyRepeat(PropertyAnimation(path: "opacity", duration: p.Duration, from: 0f, to: p.Tint.A, easing: p.Easing, keyframe: p.Keyframe), cycles: p.Cycles, yoyo: p.Yoyo, infinite: p.Infinite),
+            glowCase: static g => ApplyRepeat(PropertyAnimation(path: "shadowOpacity", duration: g.Duration, from: 0f, to: g.Tint.A, easing: g.Easing, keyframe: g.Keyframe), cycles: g.Cycles, yoyo: g.Yoyo, infinite: g.Infinite),
+            strokeOnCase: static s => PropertyAnimation(path: "strokeEnd", duration: s.Duration, from: 0f, to: 1f, easing: s.Easing, keyframe: s.Keyframe),
+            gradientCase: static g => ApplyRepeat(PropertyAnimation(path: "opacity", duration: g.Duration, from: 0f, to: g.Colors.Map(static c => c.A).Fold(0f, static (m, a) => Math.Max(m, a)), easing: g.Easing, keyframe: g.Keyframe), cycles: g.Cycles, yoyo: g.Yoyo, infinite: g.Infinite),
+            textLayerCase: static t => ApplyRepeat(PropertyAnimation(path: "opacity", duration: t.Duration, from: 0f, to: t.Tint.A, easing: t.Easing, keyframe: t.Keyframe), cycles: t.Cycles, yoyo: t.Yoyo, infinite: t.Infinite),
+            replicatorCase: static r => ApplyRepeat(PropertyAnimation(path: "opacity", duration: r.Duration, from: 0f, to: r.Tint.A, easing: r.Easing, keyframe: r.Keyframe), cycles: 1, yoyo: true, infinite: false),
+            emitterCase: static e => ApplyRepeat(PropertyAnimation(path: "opacity", duration: e.Duration, from: 0f, to: e.Tint.A, easing: e.Easing, keyframe: e.Keyframe), cycles: 1, yoyo: true, infinite: false),
+            snapGuideCase: static g => ApplyRepeat(PropertyAnimation(path: "opacity", duration: g.Style.Duration, from: 0f, to: g.Style.Tint.A, easing: g.Style.Easing, keyframe: g.Keyframe), cycles: 1, yoyo: true, infinite: false));
 
     private static CGRect ToCGRect(RectangleF r) => new(x: r.X, y: r.Y, width: r.Width, height: r.Height);
 
@@ -1118,11 +1365,20 @@ internal static class Motion {
 
     private static CGColor ToCGColor(Color c) => new(red: c.R, green: c.G, blue: c.B, alpha: c.A);
 
+    // Implicit CATransaction with actions disabled; Dispose commits. Lets WithoutAnimation be a using-scope
+    // rather than an explicit try/finally.
+    private readonly struct CATransactionScope : IDisposable {
+        internal static CATransactionScope Begin() {
+            CATransaction.Begin();
+            CATransaction.DisableActions = true;
+            return default;
+        }
+        public void Dispose() => CATransaction.Commit();
+    }
+
     private static Unit WithoutAnimation(Action body) {
-        CATransaction.Begin();
-        CATransaction.DisableActions = true;
-        try { body(); } finally { CATransaction.Commit(); }
-        return unit;
+        using CATransactionScope _ = CATransactionScope.Begin();
+        return Op.Side(body);
     }
 
     // Exchange-on-stripped is symmetric with CosmeticStrip.TryClaim — whichever path wins owns the strip.
@@ -1130,11 +1386,13 @@ internal static class Motion {
     private sealed class CosmeticRemove : CAAnimationDelegate {
         private readonly CALayer layer;
         private readonly string key;
+        private readonly Option<Func<Unit>> completion;
         private int stripped;
 
-        internal CosmeticRemove(CALayer layer, NSString key) {
+        internal CosmeticRemove(CALayer layer, NSString key, Option<Func<Unit>> completion) {
             this.layer = layer;
             this.key = key.ToString();
+            this.completion = completion;
         }
 
         public override void AnimationStopped(CAAnimation animation, bool finished) {
@@ -1145,6 +1403,7 @@ internal static class Motion {
                 layer.RemoveAnimation(key: key);
                 layer.RemoveFromSuperLayer();
             });
+            _ = completion.IfSome(run => run());
         }
 
         internal bool TryClaim() => Interlocked.Exchange(ref stripped, 1) == 0;
@@ -1165,9 +1424,8 @@ internal static class Motion {
             this.canvas = canvas;
             this.pacer = pacer;
             this.cancellation = cancellation;
-            // Cached once so the per-frame Swap allocates no closure; the block re-reads mutable pendingDt
-            // each CAS attempt, so a concurrent SpringHandle.Retarget forces re-integration against the
-            // latest committed Target on retry (a method-group form would freeze the receiver, IDE0200).
+            // Re-reads mutable pendingDt each CAS attempt so a concurrent Retarget re-integrates against the
+            // latest committed Target; a method-group form would freeze the receiver (IDE0200) and reallocate.
             stepCell = live => live.Step(frameDeltaSeconds: pendingDt);
         }
 

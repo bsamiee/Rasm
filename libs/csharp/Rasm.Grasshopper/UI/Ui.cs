@@ -146,28 +146,22 @@ public partial record Subscription : IDisposable {
         GC.SuppressFinalize(obj: this);
     }
 
-    protected virtual void Dispose(bool disposing) {
-        if (!disposing) {
-            return;
-        }
-        _ = Switch(
-            atomCase: static a => a.MarshalToUi
-                ? GrasshopperUi.DetachOnUiThread(run: a.Detach)
-                : GrasshopperUi.Protect(valid: () => { a.Detach(); return Fin.Succ(value: unit); }),
-            compositeCase: static c => { _ = c.Members.Iter(static s => s.Dispose()); return Fin.Succ(value: unit); },
-            emptyCase: static _ => Fin.Succ(value: unit));
-    }
+    protected virtual void Dispose(bool disposing) =>
+        _ = disposing
+            ? Switch(
+                atomCase: static a => a.MarshalToUi
+                    ? GrasshopperUi.DetachOnUiThread(run: a.Detach)
+                    : GrasshopperUi.Protect(valid: () => { a.Detach(); return Fin.Succ(value: unit); }),
+                compositeCase: static c => { _ = c.Members.Iter(static s => s.Dispose()); return Fin.Succ(value: unit); },
+                emptyCase: static _ => Fin.Succ(value: unit))
+            : Fin.Succ(value: unit);
 
     internal static System.Action GuardDetach(System.Action detach, bool detachOnce) {
         if (!detachOnce) {
             return detach;
         }
         int gate = 0;
-        return () => {
-            if (Interlocked.Exchange(ref gate, 1) == 0) {
-                detach();
-            }
-        };
+        return () => _ = Interlocked.Exchange(ref gate, 1) == 0 ? Op.Side(detach) : unit;
     }
 
     internal static Fin<Subscription> Bind(
@@ -512,15 +506,11 @@ public sealed partial record GrasshopperUi {
 
     [StructLayout(LayoutKind.Auto)]
     internal readonly record struct Scope(Option<GhEditor> Editor, Option<GhCanvas> Canvas, Option<GhDocument> Document, Option<GhDocumentMethods> Methods, Option<GhObjectList> Objects, Option<CanvasSkin> Skin, Option<UndoGroup> UndoGroup, CancellationToken Cancellation) {
+        [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "AcquireEditor yields GH2's process-static Editor singleton (Editor.Instance); it is owned for the host lifetime and must never be disposed here — disposing would tear down the live editor and its canvas.")]
         internal static Fin<Scope> Resolve(GrasshopperUiPolicy policy, CancellationToken cancellation, Option<UndoGroup> undo = default) =>
             cancellation.IsCancellationRequested
                 ? Fin.Fail<Scope>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Resolve))))
-                : Fin.Succ(value: (GhEditor.Instance, policy.OpenEditor) switch {
-                    (GhEditor current, true) when !current.Visible => GhEditor.ShowEditor(createVisible: true),
-                    (GhEditor current, _) => current,
-                    (null, true) => GhEditor.ShowEditor(createVisible: true),
-                    _ => null,
-                }).Map(editor => {
+                : Fin.Succ(value: AcquireEditor(openEditor: policy.OpenEditor)).Map(editor => {
                     GhCanvas? canvas = editor?.Canvas;
                     GhDocument? document = editor?.Documents.Current ?? canvas?.Document;
                     return new Scope(
@@ -537,6 +527,17 @@ public sealed partial record GrasshopperUi {
                     (_, true) => Fin.Fail<Scope>(error: UiFault.MissingScope(field: nameof(Document))),
                     _ => Fin.Succ(value: scope),
                 });
+
+        // Never force GhEditor.ShowEditor: it always Form.Show()s, which paints the StatusBar and SIGABRTs the host
+        // under programmatic plugin load (see Editor.OpenEditor). When an op requires the editor, construct the
+        // singleton HEADLESS — the ctor builds the Canvas, no window is realized; ownership is GH2's process-static
+        // _instance (returned here, never disposed). Ops that want a visible window Show it in their dispatch body.
+        private static GhEditor? AcquireEditor(bool openEditor) =>
+            (GhEditor.Instance, openEditor) switch {
+                (GhEditor current, _) => current,
+                (null, true) => new GhEditor(),
+                _ => null,
+            };
 
         internal Fin<GhCanvas> NeedCanvas([CallerMemberName] string name = "") =>
             Canvas.ToFin(Fail: UiFault.MissingScope(field: nameof(Canvas)));

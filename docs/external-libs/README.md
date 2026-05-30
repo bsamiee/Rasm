@@ -27,9 +27,9 @@
 
 | [INDEX] | [LIBRARY] | [OWNER] | [FILES] |
 | :-----: | --------- | ------- | ------- |
-| [1] | LanguageExt | Rails, effects, immutable collections, effect-polymorphic algorithms. | `languageext/api.md`, `effects.md`, `collections.md`, `traits.md`, `rasm.md` |
-| [2] | Thinktecture | Generated value objects, smart enums, unions, dispatch. | `thinktecture/api.md`, `objects.md`, `enums.md`, `unions.md`, `sourcegen.md`, `rasm.md` |
-| [3] | MathNet | Numerical algorithms, linear algebra, symbolic expressions. | `mathnet/api.md`, `linear.md`, `symbolics.md`, `rhino.md`, `gh2.md` |
+| [1] | LanguageExt | Rails, effects, immutable collections, effect-polymorphic algorithms. | `languageext/api.md`, `effects.md`, `collections.md`, `combinators.md`, `operators.md`, `prelude.md`, `traits.md`, `rasm.md` |
+| [2] | Thinktecture | Generated value objects, smart enums, unions, dispatch. | `thinktecture/api.md`, `objects.md`, `enums.md`, `unions.md`, `union-attributes.md`, `sourcegen.md`, `rasm.md` |
+| [3] | MathNet | Numerical algorithms, linear algebra, symbolic expressions. | `mathnet/api.md`, `linear.md`, `rasm.md`, `symbolics.md`, `rhino.md`, `gh2.md` |
 
 ---
 ## [3][RULES]

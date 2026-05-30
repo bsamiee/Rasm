@@ -1,7 +1,6 @@
 {
     "$schema": "https://json.schemastore.org/claude-code-settings.json",
     "effortLevel": "xhigh",
-    "ultracode": true,
     "alwaysThinkingEnabled": true,
     "showThinkingSummaries": true,
     "skillListingBudgetFraction": 0.02,
@@ -19,7 +18,7 @@
     ],
     "permissions": {
         "allow": [
-            "Bash",
+            "Bash(*)",
             "Read",
             "Write",
             "Edit",
@@ -45,9 +44,7 @@
             "ExitWorktree",
             "ListMcpResourcesTool",
             "ReadMcpResourceTool"
-        ],
-        "deny": ["Bash(rm)", "Bash(rm:*)"],
-        "defaultMode": "acceptEdits"
+        ]
     },
     "attribution": {
         "commit": "",

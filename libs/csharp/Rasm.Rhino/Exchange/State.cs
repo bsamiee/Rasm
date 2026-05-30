@@ -1,11 +1,7 @@
-using System.Drawing.Imaging;
 using System.Globalization;
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using Rasm.Rhino.Commands;
 using Rhino.FileIO;
-using DrawingColor = System.Drawing.Color;
-using DrawingImageFormat = System.Drawing.Imaging.ImageFormat;
 using IODirectory = System.IO.Directory;
 using IOPath = System.IO.Path;
 using ObjectTypeFilter = Rhino.FileIO.File3dm.ObjectTypeFilter;
@@ -55,6 +51,7 @@ public sealed partial class FilePhase {
     public static readonly FilePhase ArchiveValidate = new(key: 16, requires: FileCapability.None);
     public static readonly FilePhase Batch = new(key: 17, requires: FileCapability.None);
     public static readonly FilePhase SheetEdit = new(key: 18, requires: FileCapability.None);
+    public static readonly FilePhase NamedPosition = new(key: 19, requires: FileCapability.None);
 
     public FileCapability Requires { get; }
 
@@ -131,60 +128,9 @@ public sealed partial class FileVectorUnit {
     internal FileEpsReadOptions.Units Eps { get; }
 }
 
-[SmartEnum<int>]
-public sealed partial class FileRasterEncoding {
-    public static readonly FileRasterEncoding Png = new(
-        key: 0,
-        format: () => FileFormat.Png,
-        image: () => DrawingImageFormat.Png,
-        compression: FileTiffCompression.Default,
-        encode: static (_, settings) => settings.PngDepth.Map(depth => Seq<(Encoder, long)>((Encoder.ColorDepth, depth))).IfNone(Seq<(Encoder, long)>()));
-    public static readonly FileRasterEncoding Jpeg = new(
-        key: 1,
-        format: () => FileFormat.Jpeg,
-        image: () => DrawingImageFormat.Jpeg,
-        compression: FileTiffCompression.Default,
-        encode: static (_, settings) => Seq<(Encoder, long)>((Encoder.Quality, settings.JpegQuality)));
-    public static readonly FileRasterEncoding Tiff = new(
-        key: 2,
-        format: () => FileFormat.Tiff,
-        image: () => DrawingImageFormat.Tiff,
-        compression: FileTiffCompression.Lzw,
-        encode: static (encoding, settings) => Seq<(Encoder, long)>((Encoder.Compression, (long)(settings.TiffCompression.IfNone(noneValue: encoding.Compression) switch {
-            FileTiffCompression.None => EncoderValue.CompressionNone,
-            FileTiffCompression.Ccitt3 => EncoderValue.CompressionCCITT3,
-            FileTiffCompression.Ccitt4 => EncoderValue.CompressionCCITT4,
-            FileTiffCompression.Rle => EncoderValue.CompressionRle,
-            _ => EncoderValue.CompressionLZW,
-        }))));
-    public static readonly FileRasterEncoding Bitmap = new(
-        key: 3,
-        format: () => FileFormat.Bmp,
-        image: () => DrawingImageFormat.Bmp,
-        compression: FileTiffCompression.Default,
-        encode: static (_, _) => Seq<(Encoder, long)>());
-
-    private readonly Func<FileFormat> format;
-    private readonly Func<DrawingImageFormat> image;
-    private readonly Func<FileRasterEncoding, FileRasterSettings, Seq<(Encoder Encoder, long Value)>> encode;
-
-    public FileFormat Format => format();
-    public DrawingImageFormat Image => image();
-    public FileTiffCompression Compression { get; }
-
-    internal Seq<(Encoder Encoder, long Value)> Parameters(FileRasterSettings settings) => encode(arg1: this, arg2: settings);
-}
-
-public readonly record struct FileRasterSettings(
-    long JpegQuality = FileSheetDefaults.DefaultJpegQuality,
-    Option<FileTiffCompression> TiffCompression = default,
-    Option<int> PngDepth = default,
-    Option<double> ExifDpi = default);
-
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct FileNamePolicy(FileCollisionPolicy Collision = FileCollisionPolicy.Preserve, Option<string> Extension = default) {
     public static FileNamePolicy Default => default;
-    internal FileNamePolicy Normalized => this;
 }
 
 public readonly record struct FileWritePolicy(
@@ -296,18 +242,18 @@ public sealed record FilePrompt {
         };
 
     private static FileNamePolicy PromptName(FileNamePolicy name, Option<string> defaultExtension) =>
-        name.Normalized.Extension.Case switch {
-            string => name.Normalized,
+        name.Extension.Case switch {
+            string => name,
             _ => defaultExtension.Case switch {
-                string value => name.Normalized with { Extension = Some(value) },
-                _ => name.Normalized,
+                string value => name with { Extension = Some(value) },
+                _ => name,
             },
         };
 }
 
 public sealed record FileEndpoint {
     private FileEndpoint(string path, Option<FileFormat> format, FileNamePolicy name, FileWritePolicy write, Option<string> relative) =>
-        (Path, Format, Name, Write, Relative) = (path, format, name.Normalized, write.Normalized, relative);
+        (Path, Format, Name, Write, Relative) = (path, format, name, write.Normalized, relative);
 
     public string Path { get; }
     public Option<FileFormat> Format { get; }
@@ -414,7 +360,7 @@ public sealed record FileEndpoint {
     }
 
     private Fin<FileEndpoint> ResolveCollision(Op op) =>
-        (Name.Normalized.Collision, Write.Normalized.Overwrite, Exists(path: Path)) switch {
+        (Name.Collision, Write.Normalized.Overwrite, Exists(path: Path)) switch {
             (_, FileOverwritePolicy.Replace, _) => Fin.Succ(value: this),
             (FileCollisionPolicy.Replace, _, _) => Fin.Succ(value: this),
             (FileCollisionPolicy.AppendNumber, _, true) => NextAvailable(op: op),
@@ -432,7 +378,7 @@ public sealed record FileEndpoint {
         op.Catch(() => Fin.Succ(value: IOPath.GetFullPath(path: path)));
 
     private static string ApplyExtension(string path, Option<FileFormat> format, FileNamePolicy name) =>
-        name.Normalized.Extension.Case switch {
+        name.Extension.Case switch {
             string extension => ExtensionPath(path: path, extension: extension),
             _ => format.Case switch {
                 FileFormat known => known.EnsureExtension(path: path),
@@ -545,129 +491,6 @@ public sealed record ArchiveUpdate(
     Seq<FileEndpoint> Embed = default,
     Seq<string> Extract = default);
 
-public sealed record FilePublish(FilePublishTarget Target, Seq<FileSheet> Sheets, FileProfile Profile, bool Layers = true, Option<string> Snapshot = default) {
-    public FilePublish WithSnapshot(string name) =>
-        this with { Snapshot = string.IsNullOrWhiteSpace(value: name) ? Option<string>.None : Some(name.Trim()) };
-}
-
-internal static class FileSheetDefaults {
-    internal const double DefaultPublishDpi = 300.0;
-    internal const long DefaultJpegQuality = 90L;
-}
-
-public sealed partial record FileSheet(
-    Option<Guid> Id = default,
-    Option<string> Name = default,
-    Option<string> Group = default,
-    double Dpi = FileSheetDefaults.DefaultPublishDpi,
-    bool PrintWidths = true,
-    bool Raster = false,
-    ViewCaptureSettings.ColorMode Color = ViewCaptureSettings.ColorMode.DisplayColor,
-    Option<CaptureDecor> Decor = default,
-    Option<Func<RhinoPageView, bool>> Predicate = default) {
-    internal Fin<ViewCaptureSettings> Settings(RhinoPageView page, Op op) =>
-        from active in Optional(page).ToFin(Fail: op.InvalidInput())
-        from dpi in (double.IsFinite(d: Dpi), Dpi) switch {
-            (true, > 0.0) => Fin.Succ(value: Dpi),
-            _ => Fin.Fail<double>(error: op.InvalidInput()),
-        }
-        let settings = new ViewCaptureSettings(sourcePageView: active, dpi: dpi) {
-            UsePrintWidths = PrintWidths,
-            RasterMode = Raster,
-            OutputColor = Color,
-        }
-        from configured in Decor.Map(decor => ApplyDecor(decor: decor, settings: settings, page: active, op: op)).IfNone(Fin.Succ(value: settings))
-        from ready in configured.IsValid
-            ? Fin.Succ(value: configured)
-            : Fin.Fail<ViewCaptureSettings>(error: op.InvalidResult())
-        select ready;
-
-    private static Fin<ViewCaptureSettings> ApplyDecor(CaptureDecor decor, ViewCaptureSettings settings, RhinoPageView page, Op op) =>
-        from active in Optional(settings).ToFin(Fail: op.InvalidInput())
-        from sheet in Optional(page).ToFin(Fail: op.InvalidInput())
-        let projected = decor with {
-            UsePrintWidths = active.UsePrintWidths,
-            OutputColor = active.OutputColor,
-            HeaderText = decor.HeaderText.Map(value => Interpolate(template: value, document: sheet.Document, page: sheet)),
-            FooterText = decor.FooterText.Map(value => Interpolate(template: value, document: sheet.Document, page: sheet)),
-        }
-        from _ in projected.Apply(settings: active, op: op)
-        select active;
-
-    private static string Interpolate(string template, RhinoDoc document, RhinoPageView page) {
-        int total = document.Views.GetPageViews()?.Length ?? 0;
-        return string.IsNullOrEmpty(value: template)
-            ? template
-            : TokenPattern().Replace(input: template, evaluator: match => match.Groups["key"].Value switch {
-                "page" => page.PageName ?? string.Empty,
-                "index" => (page.PageNumber + 1).ToString(provider: CultureInfo.InvariantCulture),
-                "total" => total.ToString(provider: CultureInfo.InvariantCulture),
-                string key => document.Strings.GetValue(key: key) ?? match.Value,
-            });
-    }
-
-    [GeneratedRegex(pattern: "\\{(?<key>[^{}]+)\\}", options: RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture, matchTimeoutMilliseconds: 250)]
-    private static partial Regex TokenPattern();
-}
-
-public readonly record struct FileSheetSize(UnitSystem Units, Option<double> Width = default, Option<double> Height = default) {
-    internal Fin<Option<(double Width, double Height)>> Create(RhinoDoc document, Op op) {
-        FileSheetSize self = this;
-        return (self.Width.Case, self.Height.Case) switch {
-            (double w, double h) => Resolve(value: (Width: w, Height: h), units: self.Units, document: document, op: op).Map(value => Some(value: value)),
-            (double, _) or (_, double) => Fin.Fail<Option<(double Width, double Height)>>(error: op.InvalidInput()),
-            _ => Fin.Succ(value: Option<(double Width, double Height)>.None),
-        };
-    }
-
-    internal Fin<(Option<double> Width, Option<double> Height)> Resize(RhinoDoc document, Op op) {
-        FileSheetSize self = this;
-        return from resolvedWidth in self.Width.Case switch {
-            double value => Resolve(value: value, units: self.Units, document: document, op: op).Map(value => Some(value: value)),
-            _ => Fin.Succ(value: Option<double>.None),
-        }
-               from resolvedHeight in self.Height.Case switch {
-                   double value => Resolve(value: value, units: self.Units, document: document, op: op).Map(value => Some(value: value)),
-                   _ => Fin.Succ(value: Option<double>.None),
-               }
-               select (Width: resolvedWidth, Height: resolvedHeight);
-    }
-
-    private static Fin<(double Width, double Height)> Resolve((double Width, double Height) value, UnitSystem units, RhinoDoc document, Op op) =>
-        from resolvedWidth in Resolve(value: value.Width, units: units, document: document, op: op)
-        from resolvedHeight in Resolve(value: value.Height, units: units, document: document, op: op)
-        select (Width: resolvedWidth, Height: resolvedHeight);
-
-    private static Fin<double> Resolve(double value, UnitSystem units, RhinoDoc document, Op op) =>
-        from active in Optional(document).ToFin(Fail: op.InvalidInput())
-        from valid in guard(
-            units is not UnitSystem.None and not UnitSystem.Unset and not UnitSystem.CustomUnits
-            && active.PageUnitSystem is not UnitSystem.None and not UnitSystem.Unset and not UnitSystem.CustomUnits
-            && RhinoMath.IsValidDouble(x: value) && value > 0.0,
-            op.InvalidInput())
-        let scale = RhinoMath.UnitScale(units, active.PageUnitSystem)
-        let resolved = value * scale
-        from validResult in guard(
-            RhinoMath.IsValidDouble(x: scale) && scale > 0.0 && RhinoMath.IsValidDouble(x: resolved) && resolved > 0.0,
-            op.InvalidResult())
-        select resolved;
-}
-
-public readonly record struct FileSheetSpec(
-    string Name,
-    Option<FileSheetSize> Size = default,
-    Option<string> Group = default,
-    Option<string> Description = default);
-
-public readonly record struct FileDetailSpec(
-    string Name,
-    Point2d Corner,
-    Point2d Opposite,
-    DefinedViewportProjection Projection = DefinedViewportProjection.Top,
-    bool ProjectionLocked = true,
-    Option<Guid> DisplayMode = default,
-    Option<FileDetailScale> Scale = default);
-
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct FileOverride<T>(Option<T> Value = default, bool Inherit = false) {
     public static FileOverride<T> operator |(FileOverride<T> left, FileOverride<T> right) =>
@@ -696,67 +519,16 @@ public static class FileOverride {
     public static FileOverride<T> Clear<T>() => new(Inherit: true);
 }
 
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct FileLayerOverrideSpec(
-    FileOverride<DrawingColor> Color = default,
-    FileOverride<bool> Visible = default,
-    FileOverride<bool> PersistentVisible = default,
-    FileOverride<DrawingColor> PlotColor = default,
-    FileOverride<double> PlotWeight = default) {
-    public static FileLayerOverrideSpec operator |(FileLayerOverrideSpec left, FileLayerOverrideSpec right) =>
-        new(
-            Color: left.Color | right.Color,
-            Visible: left.Visible | right.Visible,
-            PersistentVisible: left.PersistentVisible | right.PersistentVisible,
-            PlotColor: left.PlotColor | right.PlotColor,
-            PlotWeight: left.PlotWeight | right.PlotWeight);
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct FileDetailScale(double ModelLength, LengthUnit ModelUnit, double PageLength, LengthUnit PageUnit) {
-    internal Fin<Unit> Apply(DetailView geometry, Op op) {
-        FileDetailScale self = this;
-        return from active in Optional(geometry).ToFin(Fail: op.InvalidInput())
-               from valid in guard(
-                   RhinoMath.IsValidDouble(x: self.ModelLength) && self.ModelLength > 0.0
-                   && RhinoMath.IsValidDouble(x: self.PageLength) && self.PageLength > 0.0
-                   && self.ModelUnit != LengthUnit.None && self.PageUnit != LengthUnit.None,
-                   op.InvalidInput())
-               from applied in op.Confirm(success: active.SetScale(modelLength: self.ModelLength, modelUnits: self.ModelUnit, pageLength: self.PageLength, pageUnits: self.PageUnit))
-               select applied;
-    }
-}
-
-[Union(SwitchMapStateParameterName = "context")]
-public abstract partial record FileSheetEdit {
-    private FileSheetEdit() { }
-    public sealed record Create(FileSheetSpec Spec) : FileSheetEdit;
-    public sealed record Remove(string SheetName) : FileSheetEdit;
-    public sealed record Duplicate(string SheetName, bool WithGeometry = true) : FileSheetEdit;
-    public sealed record Rename(string SheetName, string NewName) : FileSheetEdit;
-    public sealed record Reorder(Seq<string> SheetNames) : FileSheetEdit;
-    public sealed record AddDetail(string SheetName, FileDetailSpec Spec) : FileSheetEdit;
-    public sealed record Resize(string SheetName, Option<FileSheetSize> Size = default, Option<string> Description = default) : FileSheetEdit;
-    public sealed record ScaleDetail(string SheetName, string DetailName, FileDetailScale Scale) : FileSheetEdit;
-    public sealed record Import(FileEndpoint Source, Guid SourceViewportId, string Name) : FileSheetEdit;
-    public sealed record RemoveDetail(string SheetName, string DetailName) : FileSheetEdit;
-    public sealed record ActivateDetail(string SheetName, Option<string> DetailName) : FileSheetEdit;
-    public sealed record LayerOverride(string SheetName, string DetailName, string LayerPath, FileLayerOverrideSpec Spec) : FileSheetEdit;
-    public sealed record ClippingOverride(string SheetName, string DetailName, BoundingBox Box) : FileSheetEdit;
-}
-
-internal readonly record struct FileSheetPage(RhinoPageView Page, FileSheet Sheet);
-
-public readonly record struct FileSheetReport(string PageName, Option<string> Scale, int DetailCount);
-
-internal readonly record struct FilePublishResult(Option<FileEndpoint> Target, Option<FileFormat> Format, DocumentReceipt Receipt, Seq<FileSheetReport> Sheets = default, Seq<FileIssue> Issues = default, Option<string> NativeLog = default);
+// `Value None` deletes the key; `Section None` targets the flat (unsectioned) document-string table.
+public readonly record struct FileUserString(string Key, Option<string> Section = default, Option<string> Value = default);
 
 public readonly record struct FileArchiveMetadataPatch(
     Option<string> Notes,
     Option<string> ApplicationName,
     Option<string> ApplicationUrl,
     Option<string> ApplicationDetails,
-    Option<string> StartComments = default);
+    Option<string> StartComments = default,
+    Seq<FileUserString> UserStrings = default);
 
 public readonly record struct FileObjectManifest(
     Guid Id,
@@ -776,12 +548,12 @@ public sealed record FileReport(
     Option<string> NativeLog,
     Option<FileArchive> Archive = default,
     Seq<FileReport> Children = default,
-    Seq<FileSheetReport> Sheets = default) {
+    Seq<FileViewReport> Views = default) {
     public static FileReport Empty(FilePhase phase) =>
-        new(Source: Option<FileEndpoint>.None, Target: Option<FileEndpoint>.None, Format: Option<FileFormat>.None, Phase: phase, Receipt: Option<DocumentReceipt>.None, Issues: Seq<FileIssue>(), NativeLog: Option<string>.None, Children: Seq<FileReport>(), Sheets: Seq<FileSheetReport>());
+        new(Source: Option<FileEndpoint>.None, Target: Option<FileEndpoint>.None, Format: Option<FileFormat>.None, Phase: phase, Receipt: Option<DocumentReceipt>.None, Issues: Seq<FileIssue>(), NativeLog: Option<string>.None, Children: Seq<FileReport>(), Views: Seq<FileViewReport>());
 
-    internal static FileReport Of(FilePhase phase, Option<FileEndpoint> source = default, Option<FileEndpoint> target = default, Option<FileFormat> format = default, Option<DocumentReceipt> receipt = default, Seq<FileIssue> issues = default, Option<string> nativeLog = default, Option<FileArchive> archive = default, Seq<FileReport> children = default, Seq<FileSheetReport> sheets = default) =>
-        new(Source: source, Target: target, Format: format, Phase: phase, Receipt: receipt, Issues: issues.IsEmpty ? Seq<FileIssue>() : issues, NativeLog: nativeLog, Archive: archive, Children: children.IsEmpty ? Seq<FileReport>() : children, Sheets: sheets.IsEmpty ? Seq<FileSheetReport>() : sheets);
+    internal static FileReport Of(FilePhase phase, Option<FileEndpoint> source = default, Option<FileEndpoint> target = default, Option<FileFormat> format = default, Option<DocumentReceipt> receipt = default, Seq<FileIssue> issues = default, Option<string> nativeLog = default, Option<FileArchive> archive = default, Seq<FileReport> children = default, Seq<FileViewReport> views = default) =>
+        new(Source: source, Target: target, Format: format, Phase: phase, Receipt: receipt, Issues: issues.IsEmpty ? Seq<FileIssue>() : issues, NativeLog: nativeLog, Archive: archive, Children: children.IsEmpty ? Seq<FileReport>() : children, Views: views.IsEmpty ? Seq<FileViewReport>() : views);
 }
 
 // --- [COMPOSITION] ------------------------------------------------------------------------

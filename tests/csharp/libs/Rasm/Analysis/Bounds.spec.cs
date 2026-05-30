@@ -6,9 +6,7 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Analysis;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// BRIDGE-DEFERRED (*.verify.csx): every Bounds Operation EVALUATION reads live native geometry (Ritter/Welzl fits,
-// metrics, PrincipalFrameOf). Static rail owns: the Bounds union catalog + 15 payload-transporting factories and
-// Operation<TGeom,TOut> dispatch (pure typeof + CanBound/CanPrincipal reflection); Run rejects at Supported() pre-Apply.
+// BRIDGE-DEFERRED: native Bounds evaluation; static owns catalog, factories, Operation dispatch (Run rejects pre-Apply).
 internal static class BoundsGens {
     // Copy a World basis + managed Origin setter; new Plane(origin, normal) axis derivation P/Invokes.
     public static readonly Op Key = Op.Of(name: "bounds-test");
@@ -55,8 +53,7 @@ public sealed class BoundsUnionCatalogLaws {
 }
 
 public sealed class BoundsOutputDispatchLaws {
-    // INDEPENDENT support oracle: re-derives each case's documented TOut via closed reflection (CanBound /
-    // GeometryBase assignability / CanPrincipal), distinct from production's Switch arm; catches a swapped TOut or guard.
+    // Independent support oracle via CanBound/CanPrincipal reflection, distinct from production's Switch arm.
     [Fact]
     public void SingularOutputCasesPinTheirDocumentedProjectionAndRejectForeignOutput() =>
         Spec.SupportMatrix(
@@ -129,8 +126,7 @@ public sealed class BoundsOutputDispatchLaws {
 
 // --- [EDGE_CASES] ---------------------------------------------------------------------------
 public sealed class BoundsRejectionRailLaws {
-    // Reject rail surfaces WITHOUT native: Run fails at Supported() pre-Apply. Foreign output → Fault.Unsupported with
-    // the exact (geometry, output) pair; null aspect → Input category via Aspect's Reject(InvalidInput).
+    // Reject rail pre-native: foreign output -> Unsupported pair; null aspect -> Input via Reject(InvalidInput).
     [Fact]
     public void ForeignOutputOperationRunRejectsWithUnsupportedTypePair() =>
         Spec.Invalid(Analyze.Run(operation: Bounds.AxisAligned.Operation<Mesh, Box>(), input: default(Mesh)!),

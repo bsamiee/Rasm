@@ -5,9 +5,7 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Domain;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// BRIDGE-DEFERRED (*.verify.csx): GeometryKernel.* coercion/sampling/closest, TopologyProjection, Lease<T>, ClosestHit
-// native source, RayQuery.IsValid (Vector3d.IsTiny P/Invoke), IntersectionHit.Along(Curve…). Static rail owns the
-// Kind/Topology/IntersectionKind catalogs, Kind.Of(Type) factory + capability lattice, and IntersectionHit construction/validity/projection.
+// BRIDGE-DEFERRED: native GeometryKernel/coercion/closest; static owns Kind/Topology catalogs, capability lattice, IntersectionHit construction.
 internal static class GeometryGens {
     public static readonly Op Key = Op.Of(name: "geometry-test");
     // Distinct per-channel values so a Start<->End or OverlapA<->OverlapB swap is observable.

@@ -154,6 +154,10 @@ public readonly record struct CaptureDecor(
     Option<string> HeaderText = default,
     Option<string> FooterText = default,
     Option<CaptureLayout> Layout = default) {
+    // Publish default preserves the historical `FileSheet` behavior (print widths on) now that the
+    // publish spec no longer carries duplicate print-width/color knobs — decor is the single source.
+    public static CaptureDecor Publish { get; } = new(UsePrintWidths: true);
+
     internal Fin<Unit> Apply(ViewCaptureSettings settings, Op op) {
         CaptureDecor self = this;
         return from active in Optional(settings).ToFin(Fail: op.InvalidInput())

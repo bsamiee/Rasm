@@ -5,9 +5,7 @@ using Rhino;
 namespace Rasm.Tests.Domain;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// BRIDGE-DEFERRED (*.verify.csx): Context.Of(UnitSystem) accept path (RhinoMath.UnitScale P/Invoke) + Context.Of(RhinoDoc?).
-// Static rail owns the three [ValueObject<double>] tolerances, Context.Of(double…) validation/accumulation, and the
-// Custom/Unset/None reject path (short-circuits before UnitScale).
+// BRIDGE-DEFERRED: Context.Of(UnitSystem/RhinoDoc); static owns tolerance validation and Custom/Unset/None reject before UnitScale.
 internal static class ContextGens {
     public static readonly Op Key = Op.Of(name: "context-test");
     public static readonly Gen<double> AbsoluteValid = Gen.Frequency(

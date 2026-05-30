@@ -60,8 +60,7 @@ public static class Gens {
     public static readonly Gen<(Vector3d A, Vector3d B)> VecPair = NonZeroVec.Select(NonZeroVec, static (Vector3d a, Vector3d b) => (A: a, B: b));
     public static readonly Gen<(Vector3d A, Vector3d B)> UnitVecPair = UnitVec.Select(UnitVec, static (Vector3d a, Vector3d b) => (A: a, B: b));
     public static readonly Gen<Plane> Plane = Point.Select(UnitVec, static (Point3d origin, Vector3d normal) => new Plane(origin: origin, normal: normal));
-    // Static-rail safe: copy-ctor from a World basis + Origin setter are IL-verified managed, unlike new Plane(origin, normal) which P/Invokes.
-    // Three distinct bases give distinct axis triples for swap detection.
+    // Managed Plane copy-ctor + Origin (not new Plane(origin, normal)); three bases for swap detection.
     public static readonly Gen<Plane> ManagedPlane = Point.Select(
         Gen.OneOfConst(Rhino.Geometry.Plane.WorldXY, Rhino.Geometry.Plane.WorldZX, Rhino.Geometry.Plane.WorldYZ),
         static (Point3d origin, Plane basis) => new Plane(other: basis) { Origin = origin });

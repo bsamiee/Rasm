@@ -49,8 +49,7 @@ Scenario.Run("camera-named-view-rail", CAPTURE_PATH, (key, facts) => {
         "stack push");
     facts.Add("stack.push.redraw", pushed.RedrawRequested);
     Probe.Require(pushed.RedrawRequested, "push requests redraw");
-    // PopViewProjection returns false when the popped projection is unchanged from current
-    // (push + immediate pop) — a benign no-op, not a failure. Push above already proves true -> redraw.
+    // Immediate pop after push is a benign no-op when projection is unchanged (push above proves redraw on push).
     CameraChangeReceipt popped = Probe.Expect(
         camera.RunValue(operation: CameraOps.Change(new CameraEdit.StackMove(Move: CameraStackOp.ViewPop)), target: target),
         "stack pop after push");

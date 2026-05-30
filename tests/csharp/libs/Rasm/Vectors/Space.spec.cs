@@ -22,9 +22,7 @@ internal static class SpaceGens {
 }
 
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
-// Brep/Mesh containment, surface sampling, and span vector materialization project through
-// Rhino native geometry and belong in bridge scenarios. The static rail owns typed admission
-// and option-gated failures that return before native dispatch.
+// BRIDGE-DEFERRED: Brep/Mesh containment and sampling; static owns typed admission and pre-native option-gated failures.
 public sealed class SupportProjectionLaws {
     [Fact]
     public void KeysAreDistinctAndGeneratorEmitsDeclaredCases() {

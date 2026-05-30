@@ -6,9 +6,7 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Analysis;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// BRIDGE-DEFERRED (*.verify.csx): point extraction + spread (FitPlaneToPoints/eigen/Stat.Of) evaluate live native
-// geometry + Vector3d.Unitize/IsTiny. Static rail owns: SpreadAspect catalog, Points union catalog, and
-// Operation<TGeom,TOut> dispatch vs an independent (case×geometry×output) oracle.
+// BRIDGE-DEFERRED: native point extraction/spread; static owns SpreadAspect/Points catalogs and (case x geometry x output) oracle.
 internal static class PointsGens {
     public static readonly Op Key = Op.Of(name: "points-test");
     public static readonly Seq<Vector3d> Directions = Seq(new Vector3d(x: 1.0, y: 0.0, z: 0.0), new Vector3d(x: 0.0, y: 2.0, z: -3.0));
@@ -49,9 +47,7 @@ public sealed class PointsUnionCatalogLaws {
 }
 
 public sealed class PointsPointExtractionDispatchLaws {
-    // Each extraction case requires TOut==Point3d and gates geometry on a distinct Kind predicate (Quadrants/Extrema
-    // ->CanCurveForm, EdgeMidpoints->CanReadEdges, Vertices->CanReadVertices, ControlPoints->CanReadControlPoints).
-    // Oracle is the Geometry.cs Kind topology truth table, independent of the production type-switch.
+    // Extraction cases gate on Kind predicates; oracle is the Geometry.cs topology table, not the production switch.
     [Fact]
     public void EachExtractionCaseHonorsItsOwnReadabilityPredicateUnderPoint3d() =>
         Spec.SupportMatrix(
@@ -78,8 +74,7 @@ public sealed class PointsPointExtractionDispatchLaws {
 }
 
 public sealed class PointsSpreadDispatchLaws {
-    // SpreadCase gates on s.Aspect.Output==typeof(TOut) AND CanReadVertices(TGeometry); Mesh is vertex-readable,
-    // Surface is not, so a matched output succeeds only over Mesh and every mismatched (aspect×output) pair rejects.
+    // SpreadCase requires vertex-readable geometry (Mesh yes, Surface no) plus matching aspect output type.
     [Fact]
     public void MatchedAspectOutputBuildsOverVertexGeometryAndMismatchRejects() =>
         Spec.SupportMatrix(

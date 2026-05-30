@@ -17,6 +17,7 @@
 | [2] | `Arr<T>` | Strict immutable indexed batch. | Stable materialized outputs. |
 | [3] | `Iterable<T>` | Trait-enabled enumerable carrier. | Advanced generic traversal only. |
 | [4] | `HashMap<K,V>` | Immutable lookup. | Domain maps after key policy is explicit. |
+| [5] | `HashSet<T>` | Immutable set. | Block graphs, format capability sets. |
 
 ---
 ## [2][TRAVERSAL]
@@ -25,6 +26,15 @@
 <br>
 
 Use `Traverse`, `TraverseM`, `Choose`, `Fold`, `FoldWhile`, `Map`, `Bind`, and `Flatten()` to keep failure and collection shape together. Prefer one traversal that validates, projects, and accumulates over repeated filter-map passes.
+
+| [INDEX] | [COMBINATOR] | [PREFERENCE] |
+| :-----: | ------------ | ------------ |
+| [1] | `.TraverseM(f).As()` | Monadic batch — **`.As()` mandatory** in v5 |
+| [2] | `.Choose(f)` | Prefer over `.Filter().Map()` when output is `Option` |
+| [3] | `.Somes()` | Extract present options after `Choose` |
+| [4] | `.AddOrUpdate` / `.Find` | `HashMap` algebra — see `combinators.md` |
+
+Full combinator inventory: `combinators.md`.
 
 ---
 ## [3][INTEROP]

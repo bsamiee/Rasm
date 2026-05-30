@@ -6,9 +6,7 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Analysis;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// BRIDGE-DEFERRED (*.verify.csx): Tree.* build native RTree, Search/Overlaps run native callbacks, NearestPoints
-// calls native KNeighbors. Static rail owns: the Probe union catalog, Tree.ValidatePoints (TraverseM over
-// Point3d.IsValid → all-valid or first-invalid Input fault), and Tree.PointPairs vs an independent sorted oracle.
+// BRIDGE-DEFERRED: native Tree.*; static owns Probe catalog, ValidatePoints, and PointPairs vs an independent sorted oracle.
 internal static class SpatialGens {
     public static readonly Op Key = Op.Of(name: "spatial-test");
     public static readonly Point3d[] InvalidPoints =

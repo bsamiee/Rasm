@@ -41,6 +41,15 @@ Use `Eff.runtime<RT>()` to read host capability records, then project with `Map`
 
 Use schedule policy at composition boundaries only. Domain transforms stay pure and fallible through `Fin` or `Validation`.
 
+Schedule **composition** (LanguageExt; **unused in Rasm production**):
+
+| [INDEX] | [FORM] | [MEANING] |
+| :-----: | ------ | --------- |
+| [1] | `policyA \| policyB` | Chain transformers on `ScheduleTransformer` |
+| [2] | `intersect(policy, Schedule.upto(duration))` | Bound intersection — use `Prelude.intersect`, not C# `&` |
+
+Eff recovery in v5: `Prelude.catch(...)` / `IfFailEff` — not generic `eff1 | eff2`. See `operators.md` and `combinators.md`.
+
 ---
 ## [4][STATE]
 >**Dictum:** *Managed state belongs to hosts, not domain transforms.*

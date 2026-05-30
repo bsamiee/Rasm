@@ -128,6 +128,7 @@ public readonly record struct CameraScope(
     RhinoViewport Viewport,
     Option<DetailViewObject> Detail = default) {
     private static readonly Op WorldToScreenScaleKey = Op.Of(name: nameof(WorldToScreenScale));
+    private static readonly Op ScreenPointKey = Op.Of(name: nameof(ScreenPoint));
 
     internal static CameraScope Of(RhinoDoc document, RhinoView view, RhinoViewport viewport) =>
         new(
@@ -195,6 +196,21 @@ public readonly record struct CameraScope(
                        _ => Fin.Fail<double>(error: WorldToScreenScaleKey.InvalidResult()),
                    }))
                select scale;
+    }
+
+    // World->screen via the native World->Screen xform (no clipping: behind-camera points still project to in-frustum
+    // pixels). Callers needing occlusion pair this with Visible/Depth. No native WorldToScreen on RhinoViewport.
+    public Fin<System.Drawing.PointF> ScreenPoint(Point3d point) {
+        CameraScope self = this;
+        return from _ in guard(point.IsValid, ScreenPointKey.InvalidInput())
+               from screen in self.Probe(project: vp => ScreenPointKey.Catch(() => {
+                   Transform xform = vp.GetTransform(sourceSystem: CoordinateSystem.World, destinationSystem: CoordinateSystem.Screen);
+                   Point3d projected = xform * point;
+                   return xform.IsValid && projected.IsValid
+                       ? Fin.Succ(value: new System.Drawing.PointF((float)projected.X, (float)projected.Y))
+                       : Fin.Fail<System.Drawing.PointF>(error: ScreenPointKey.InvalidResult());
+               }))
+               select screen;
     }
 
     public Fin<Unit> ApplyRedraw(RedrawRequest request) {
@@ -346,28 +362,32 @@ public sealed record CameraSnapshot : IDisposable {
                 ViewportInfo captured = snapshotProjection;
                 using ViewInfo info = new(viewport);
                 CameraDof dof = CameraDof.Read(view: info);
-                return from frustum in CameraFrustum.Of(viewport: viewport, op: OfKey)
-                       from frame in CameraFrame.Of(viewport: viewport)
-                       select new CameraSnapshot(
-                           scope: scope,
-                           frame: frame,
-                           frustum: frustum,
-                           projection: captured,
-                           constructionPlane: viewport.ConstructionPlane(),
-                           displayMode: viewport.DisplayMode,
-                           screenPort: captured.ScreenPort,
-                           size: viewport.Size,
-                           lockedProjection: viewport.LockedProjection,
-                           mode: viewport switch {
-                               { IsTwoPointPerspectiveProjection: true } => CameraMode.TwoPointPerspective,
-                               { IsPerspectiveProjection: true } => CameraMode.Perspective,
-                               _ => CameraMode.Parallel,
-                           },
-                           lensLength: viewport.Camera35mmLensLength,
-                           cameraAngle: viewport.CameraAngle,
-                           dof: dof,
-                           documentSerial: scope.Document.RuntimeSerialNumber,
-                           changeSerial: viewport.ChangeCounter);
+                return (from frustum in CameraFrustum.Of(viewport: viewport, op: OfKey)
+                        from frame in CameraFrame.Of(viewport: viewport)
+                        select new CameraSnapshot(
+                            scope: scope,
+                            frame: frame,
+                            frustum: frustum,
+                            projection: captured,
+                            constructionPlane: viewport.ConstructionPlane(),
+                            displayMode: viewport.DisplayMode,
+                            screenPort: captured.ScreenPort,
+                            size: viewport.Size,
+                            lockedProjection: viewport.LockedProjection,
+                            mode: viewport switch {
+                                { IsTwoPointPerspectiveProjection: true } => CameraMode.TwoPointPerspective,
+                                { IsPerspectiveProjection: true } => CameraMode.Perspective,
+                                _ => CameraMode.Parallel,
+                            },
+                            lensLength: viewport.Camera35mmLensLength,
+                            cameraAngle: viewport.CameraAngle,
+                            dof: dof,
+                            documentSerial: scope.Document.RuntimeSerialNumber,
+                            changeSerial: viewport.ChangeCounter))
+                    .BindFail(error => {
+                        captured.Dispose();
+                        return Fin.Fail<CameraSnapshot>(error: error);
+                    });
             } catch {
                 snapshotProjection?.Dispose();
                 throw;

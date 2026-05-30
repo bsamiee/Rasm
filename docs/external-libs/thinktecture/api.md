@@ -33,6 +33,8 @@
 | [5] | `[AdHocUnion]` | Compact local alternatives. | Narrow value-level choices only. |
 | [6] | `[ObjectFactory<T>]` | Explicit external value conversion. | Serialization/model-binding only with real boundary need. |
 
+Attribute property detail: `objects.md` (value objects), `union-attributes.md` (union dispatch and operator policy), `enums.md` (`UseDelegateFromConstructor`).
+
 ---
 ## [3][PUBLIC_CONTRACTS]
 >**Dictum:** *Generic constraints use real generated interfaces.*

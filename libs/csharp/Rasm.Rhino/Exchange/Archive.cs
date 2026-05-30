@@ -201,7 +201,15 @@ internal static class FileArchiveOps {
                     _ = patch.ApplicationUrl.Map(value => model.ApplicationUrl = value);
                     _ = patch.ApplicationDetails.Map(value => model.ApplicationDetails = value);
                     _ = patch.StartComments.Map(value => model.StartSectionComments = value);
-                    return Fin.Succ(value: Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Metadata, Name: "metadata")));
+                    // `Value None` deletes; `Section None` targets the flat key table. SetString returns the prior value (discarded).
+                    _ = patch.UserStrings.Fold(unit, (_, entry) => (entry.Section.Case, entry.Value.Case) switch {
+                        (string section, string value) => Op.Side(() => model.Strings.SetString(section: section, entry: entry.Key, value: value)),
+                        (string section, _) => Op.Side(() => model.Strings.Delete(section: section, entry: entry.Key)),
+                        (_, string value) => Op.Side(() => model.Strings.SetString(key: entry.Key, value: value)),
+                        _ => Op.Side(() => model.Strings.Delete(key: entry.Key)),
+                    });
+                    return Fin.Succ(value: Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Metadata, Name: "metadata"))
+                        + patch.UserStrings.Map(static entry => new DocumentResourceChange(Kind: DocumentResourceKind.Text, Name: entry.Key)));
                 }),
                 _ => Fin.Succ(value: Seq<DocumentResourceChange>()),
             }
@@ -328,6 +336,12 @@ internal static class FileArchiveOps {
         return (Graph: graph, Linked: linked);
     }
 
+    // FOLLOW-UP (pre-existing, surfaced by the Exchange bridge scenario once the sheet sections progressed): reading a
+    // 3dm that carries named-position / named-layer-state artifacts (from FileExchange.NamedPosition/NamedLayerState)
+    // NREs here. `fileObject.Geometry` is already null-guarded (Objects, below), so the unguarded access is most likely
+    // in `ObjectEdges` (layer/material/linetype/group lookups on a proxy object's Attributes) or the render-content /
+    // block-graph walk — NOT the geometry. To localize: temporarily wrap each sub-walk below in its own op.Catch and
+    // emit a granular `facts.Add` in the scenario, then `bridge verify` reports which walk faults (it now surfaces facts).
     private static FileResourceGraph Resources(File3dmModel model, FileArchiveSource source) {
         Op key = Op.Of(name: nameof(Resources));
         (Blocks.Archive.Graph blockGraph, Seq<string> linked) = BlockArchiveResources(model: model, source: source, key: key);
@@ -421,19 +435,23 @@ internal static class FileArchiveOps {
     }
 
     private static Seq<FileObjectManifest> Objects(File3dmModel model) =>
-        toSeq(model.Objects).Map(fileObject => new FileObjectManifest(
-            Id: fileObject.Attributes.ObjectId,
-            Name: TextOption(value: fileObject.Attributes.Name),
-            Layer: TextOption(value: model.AllLayers.FindIndex(index: fileObject.Attributes.LayerIndex)?.FullPath),
-            ObjectType: fileObject.Geometry.ObjectType,
-            Material: MaterialOf(model: model, fileObject: fileObject).Bind(material => TextOption(value: material.Name)),
-            UserStrings: (fileObject.Attributes.GetUserStrings()?.AllKeys switch {
-                string[] keys => toSeq(keys).Choose(static value => TextOption(value: value)),
-                _ => Seq<string>(),
-            }) + (fileObject.Geometry.GetUserStrings()?.AllKeys switch {
-                string[] keys => toSeq(keys).Choose(static value => TextOption(value: value)),
-                _ => Seq<string>(),
-            })));
+        toSeq(model.Objects).Map(fileObject => {
+            // File3dmObject.Geometry returns null when the native geometry pointer is zero (GeometryBase.CreateGeometryHelper); proxy objects (named-position snapshots) carry no realized geometry.
+            Option<GeometryBase> geometry = Optional(fileObject.Geometry);
+            return new FileObjectManifest(
+                Id: fileObject.Attributes.ObjectId,
+                Name: TextOption(value: fileObject.Attributes.Name),
+                Layer: TextOption(value: model.AllLayers.FindIndex(index: fileObject.Attributes.LayerIndex)?.FullPath),
+                ObjectType: geometry.Map(static g => g.ObjectType).IfNone(ObjectType.None),
+                Material: MaterialOf(model: model, fileObject: fileObject).Bind(material => TextOption(value: material.Name)),
+                UserStrings: (fileObject.Attributes.GetUserStrings()?.AllKeys switch {
+                    string[] keys => toSeq(keys).Choose(static value => TextOption(value: value)),
+                    _ => Seq<string>(),
+                }) + (geometry.Bind(static g => Optional(g.GetUserStrings()?.AllKeys)).Case switch {
+                    string[] keys => toSeq(keys).Choose(static value => TextOption(value: value)),
+                    _ => Seq<string>(),
+                }));
+        });
 
     private static Seq<FileResourceEntry> ManifestEntries(File3dmModel model) =>
         toSeq(Enum.GetValues<ModelComponentType>())
@@ -508,6 +526,7 @@ internal static class FileArchiveOps {
             DateTime createdOn = model.Created;
             DateTime lastEditedOn = model.LastEdited;
             DrawingBitmap? preview = model.GetPreviewImage();
+            bool hasPreview = preview is not null;
             preview?.Dispose();
             File3dmSettings settings = model.Settings;
             using EarthAnchorPoint? anchor = model.EarthAnchorPoint;
@@ -526,7 +545,7 @@ internal static class FileArchiveOps {
                     FileArchiveSource.Path path => toSeq(File3dmModel.ReadPageViews(path: path.Value.Path)).Count,
                     _ => 0,
                 },
-                Preview: preview is not null,
+                Preview: hasPreview,
                 ModelUnits: settings.ModelUnitSystem == UnitSystem.None ? Option<UnitSystem>.None : Some(settings.ModelUnitSystem),
                 PageUnits: settings.PageUnitSystem == UnitSystem.None ? Option<UnitSystem>.None : Some(settings.PageUnitSystem),
                 ModelAbsoluteTolerance: settings.ModelAbsoluteTolerance > 0.0 ? Some(settings.ModelAbsoluteTolerance) : Option<double>.None,

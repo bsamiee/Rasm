@@ -6,15 +6,11 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Analysis;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// BRIDGE-DEFERRED (*.verify.csx): MassKind.Compute/Aggregate, PrincipalFrameOf, Analyze.{Length,Centroid,MassCentroid}Of,
-// MassPropertyExtract over native *MassProperties objects. Static rail owns: the Measure union catalog, the
-// MassProperty/MassKind catalogs (per-case Output + Suffix/Label/Requirement + moment truth table vs an independent
-// oracle), and Operation<TGeom,TOut> dispatch (Run rejects at Supported() pre-native).
+// BRIDGE-DEFERRED: native mass/centroid paths; static owns Measure catalog, MassProperty/MassKind metadata, moment oracle, Operation dispatch pre-native.
 internal static class MeasureGens {
     public static readonly Op Key = Op.Of(name: "measure-test");
     public static readonly MassKind[] MassKinds = [.. MassKind.Items.Where(static k => k.Key != MassKind.None.Key)];
-    // Independent moment oracle: re-derives First/Second/Product per (property,kind) from property semantics, not
-    // production's stored predicates. First above Magnitude; Second adds the Length-error case; Product is inertia-only.
+    // Independent moment oracle from property semantics (First/Second/Product), not production's stored predicates.
     public static bool ExpectFirst(MassProperty p) => p.Key is not (0 or 1);
     public static bool ExpectSecond(MassProperty p, MassKind k) => p.Key switch {
         0 => false,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -23,9 +24,7 @@ if TYPE_CHECKING:
 def _scope(tmp_path: Path, rail: str = "static") -> ArtifactScope:
     scope_path = tmp_path / ".artifacts" / "quality" / rail
     scope_path.mkdir(parents=True, exist_ok=True)
-    return ArtifactScope(
-        root=tmp_path, rail=rail, scope_path=scope_path, dotnet_env={"DOTNET_CLI_HOME": str(scope_path / "dotnet-cli")}
-    )
+    return ArtifactScope(root=tmp_path, rail=rail, scope_path=scope_path, dotnet_env={"DOTNET_CLI_HOME": str(scope_path / "dotnet-cli")})
 
 
 def test_discover_root_finds_workspace(tmp_path: Path) -> None:
@@ -64,12 +63,7 @@ def test_dotnet_scope_flags_precede_passthrough_args(monkeypatch: pytest.MonkeyP
     seen: list[tuple[str, ...]] = []
 
     def fake_run(
-        argv: tuple[str, ...],
-        *,
-        cwd: Path | None = None,
-        env: dict[str, str] | None = None,
-        check: bool = False,
-        timeout: float | None = None,
+        argv: tuple[str, ...], *, cwd: Path | None = None, env: dict[str, str] | None = None, check: bool = False, timeout: float | None = None
     ) -> Result[Completed, ProcessFault]:
         seen.append(argv)
         return Ok(Completed(argv=argv, returncode=0, stdout=b"", stderr=b""))
@@ -99,12 +93,7 @@ def test_api_search_returns_ripgrep_stdout(monkeypatch: pytest.MonkeyPatch, tmp_
     xml.write_text("<member name='Mesh' />")
 
     def fake_run(
-        argv: tuple[str, ...],
-        *,
-        cwd: Path | None = None,
-        env: dict[str, str] | None = None,
-        check: bool = False,
-        timeout: float | None = None,
+        argv: tuple[str, ...], *, cwd: Path | None = None, env: dict[str, str] | None = None, check: bool = False, timeout: float | None = None
     ) -> Result[Completed, ProcessFault]:
         return Ok(Completed(argv=argv, returncode=0, stdout=b"Mesh hit\n", stderr=b""))
 
@@ -115,28 +104,17 @@ def test_api_search_returns_ripgrep_stdout(monkeypatch: pytest.MonkeyPatch, tmp_
 
 def test_api_decompile_returns_ilspy_stdout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     def fake_run(
-        argv: tuple[str, ...],
-        *,
-        cwd: Path | None = None,
-        env: dict[str, str] | None = None,
-        check: bool = False,
-        timeout: float | None = None,
+        argv: tuple[str, ...], *, cwd: Path | None = None, env: dict[str, str] | None = None, check: bool = False, timeout: float | None = None
     ) -> Result[Completed, ProcessFault]:
         return Ok(Completed(argv=argv, returncode=0, stdout=b"class Mesh {}\n", stderr=b""))
 
     monkeypatch.setattr(api, "run", fake_run)
 
-    assert api.api(tmp_path, "decompile", "rhino-common", type_name="Rhino.Geometry.Mesh").default_value("") == (
-        "class Mesh {}\n"
-    )
+    assert api.api(tmp_path, "decompile", "rhino-common", type_name="Rhino.Geometry.Mesh").default_value("") == ("class Mesh {}\n")
 
 
 def _invoke_verify(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    status: bridge.BridgeStatus = "ok",
-    *,
-    client_fault: process.ProcessFault | None = None,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, status: bridge.BridgeStatus = "ok", *, client_fault: process.ProcessFault | None = None
 ) -> tuple[bridge.BridgeResult, tuple[tuple[str, ...], ...], tuple[dict[str, object], ...]]:
     calls: list[tuple[str, ...]] = []
     kwargs_seen: list[dict[str, object]] = []
@@ -163,17 +141,11 @@ def _invoke_verify(
 
     monkeypatch.setattr(bridge, "client_run", fake_client_run)
 
-    return (
-        bridge._verify_invoke(settings, scope, report_dir, tmp_path / "Rasm.csproj", scenario),
-        tuple(calls),
-        tuple(kwargs_seen),
-    )
+    return (bridge._verify_invoke(settings, scope, report_dir, tmp_path / "Rasm.csproj", scenario), tuple(calls), tuple(kwargs_seen))
 
 
 @pytest.mark.parametrize("status", ["ok", "failed", "unsupported", "skipped", "busy", "timeout"])
-def test_verify_invoke_passes_status_through_single_call(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, status: bridge.BridgeStatus
-) -> None:
+def test_verify_invoke_passes_status_through_single_call(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, status: bridge.BridgeStatus) -> None:
     result, calls, kwargs_seen = _invoke_verify(monkeypatch, tmp_path, status)
 
     assert result.status == status
@@ -182,9 +154,7 @@ def test_verify_invoke_passes_status_through_single_call(
 
 
 def test_verify_invoke_maps_client_fault_to_failed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    result, calls, _ = _invoke_verify(
-        monkeypatch, tmp_path, client_fault=process.ProcessFault.fail("bridge", detail=b"boom", returncode=9)
-    )
+    result, calls, _ = _invoke_verify(monkeypatch, tmp_path, client_fault=process.ProcessFault.fail("bridge", detail=b"boom", returncode=9))
 
     assert result.status == "failed"
     assert result.fault is not None
@@ -198,15 +168,28 @@ def test_verify_discover_returns_directory_matches(monkeypatch: pytest.MonkeyPat
     scenario = scenarios / "case.verify.csx"
     scenario.write_text("// scenario")
 
-    def fake_paths(
-        self: process.Workspace, args: tuple[str, ...], *, cwd: Path | None = None, suffix: str = ""
-    ) -> tuple[Path, ...]:
+    def fake_paths(self: process.Workspace, args: tuple[str, ...], *, cwd: Path | None = None, suffix: str = "") -> tuple[Path, ...]:
         _ = (self, args, cwd, suffix)
         return (scenario,)
 
     monkeypatch.setattr(process.Workspace, "paths", fake_paths)
 
     assert bridge._verify_discover(process.Workspace(tmp_path), tmp_path, str(scenarios)) == (scenario,)
+
+
+def test_verify_expire_removes_stale_report_dirs(tmp_path: Path) -> None:
+    root = tmp_path / ".artifacts/rhino/verify"
+    stale = root / "stale"
+    fresh = root / "fresh"
+    stale.mkdir(parents=True)
+    fresh.mkdir()
+    os.utime(stale, (1.0, 1.0))
+
+    result = bridge._verify_expire(root, 300.0)
+
+    assert result.is_ok()
+    assert not stale.exists()
+    assert fresh.exists()
 
 
 def test_decode_bridge_result_accepts_camel_case_wire() -> None:
@@ -306,9 +289,7 @@ def test_static_changed_ignores_python_analyzer_fixture(monkeypatch: pytest.Monk
 def test_focused_test_target_skips_mutation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     seen: list[tuple[str, ...]] = []
 
-    def fake_dotnet(
-        *args: str, scope: ArtifactScope | None = None, cwd: Path | None = None, check: bool = True
-    ) -> Result[Completed, ProcessFault]:
+    def fake_dotnet(*args: str, scope: ArtifactScope | None = None, cwd: Path | None = None, check: bool = True) -> Result[Completed, ProcessFault]:
         seen.append(args)
         return Ok(Completed(argv=("dotnet", *args), returncode=0, stdout=b"", stderr=b""))
 
@@ -320,13 +301,51 @@ def test_focused_test_target_skips_mutation(monkeypatch: pytest.MonkeyPatch, tmp
     assert tuple(command[0] for command in seen) == ("test",)
 
 
+def test_default_test_target_treats_stryker_zero_discovery_as_diagnostic(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    seen: list[tuple[str, ...]] = []
+
+    def fake_dotnet(*args: str, scope: ArtifactScope | None = None, cwd: Path | None = None, check: bool = True) -> Result[Completed, ProcessFault]:
+        _ = (scope, cwd, check)
+        seen.append(args)
+        match args[0]:
+            case "stryker":
+                return Ok(Completed(argv=("dotnet", *args), returncode=1, stdout=b"Number of tests found: 0\nNo test result reported.\n", stderr=b""))
+            case _:
+                return Ok(Completed(argv=("dotnet", *args), returncode=0, stdout=b"", stderr=b""))
+
+    monkeypatch.setattr(test, "dotnet", fake_dotnet)
+    settings = QualitySettings(root=tmp_path)
+    scope = _scope(tmp_path)
+
+    assert test.run_test_rail(settings, scope, "run").is_ok()
+    assert tuple(command[0] for command in seen) == ("test", "tool", "stryker")
+    stryker = seen[-1]
+    assert stryker[stryker.index("--output") + 1] == str(settings.mutation_output_dir)
+
+
+def test_default_test_target_keeps_real_stryker_failure(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def fake_dotnet(*args: str, scope: ArtifactScope | None = None, cwd: Path | None = None, check: bool = True) -> Result[Completed, ProcessFault]:
+        _ = (scope, cwd, check)
+        match args[0]:
+            case "stryker":
+                return Ok(Completed(argv=("dotnet", *args), returncode=1, stdout=b"mutation infrastructure failed", stderr=b""))
+            case _:
+                return Ok(Completed(argv=("dotnet", *args), returncode=0, stdout=b"", stderr=b""))
+
+    monkeypatch.setattr(test, "dotnet", fake_dotnet)
+    settings = QualitySettings(root=tmp_path)
+    scope = _scope(tmp_path)
+
+    result = test.run_test_rail(settings, scope, "run")
+
+    assert result.is_error()
+    assert "mutation infrastructure failed" in result.error.message
+
+
 def test_package_duplicate_slug_fails_before_staging(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     (tmp_path / "apps").mkdir()
     (tmp_path / "tools").mkdir()
-    projects = (
-        tmp_path / "tools/rhino-bridge/plugin/Rasm.RhinoBridge.Plugin.csproj",
-        tmp_path / "apps/grasshopper/Radyab/Radyab.csproj",
-    )
+    projects = (tmp_path / "tools/rhino-bridge/plugin/Rasm.RhinoBridge.Plugin.csproj", tmp_path / "apps/grasshopper/Radyab/Radyab.csproj")
 
     class FakeWorkspace:
         def __init__(self, root: Path) -> None:
@@ -348,30 +367,21 @@ def test_package_duplicate_slug_fails_before_staging(monkeypatch: pytest.MonkeyP
     result = package.run_package_rail(settings, scope, "package", "rasm-bridge", "0.0.0")
 
     assert result == Error(
-        process.ProcessFault(
-            argv=("package", "rasm-bridge"),
-            returncode=2,
-            stderr=b"Expected one package project for rasm-bridge, found duplicate",
-        )
+        process.ProcessFault(argv=("package", "rasm-bridge"), returncode=2, stderr=b"Expected one package project for rasm-bridge, found duplicate")
     )
 
 
 @pytest.mark.parametrize(
     "mode, slug, push_source, expected",
     [
-        ("deploy", "rasm-bridge", "", ("quit", "install", "launch", "doctor")),
+        ("deploy", "rasm-bridge", "", ("quit", "install", "refresh")),
         ("deploy", "other", "", ("install",)),
         ("publish", "other", "yak-feed", ("install", "push")),
-        ("publish", "rasm-bridge", "yak-feed", ("quit", "install", "launch", "doctor", "push")),
+        ("publish", "rasm-bridge", "yak-feed", ("quit", "install", "refresh", "push")),
     ],
 )
 def test_package_finish_keeps_mode_and_slug_step_order(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    mode: package.PackageMode,
-    slug: str,
-    push_source: str,
-    expected: tuple[str, ...],
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, mode: package.PackageMode, slug: str, push_source: str, expected: tuple[str, ...]
 ) -> None:
     seen: list[str] = []
     package_file = tmp_path / "stage/package.yak"
@@ -393,27 +403,20 @@ def test_package_finish_keeps_mode_and_slug_step_order(
     settings = QualitySettings(root=tmp_path)
     scope = _scope(tmp_path)
 
-    def fake_client_run(
-        settings: QualitySettings, scope: ArtifactScope, *args: str, check: bool = True
-    ) -> Result[Completed, ProcessFault]:
-        _ = (settings, scope, check)
-        seen.append(args[0])
-        return Ok(Completed(argv=("bridge", *args), returncode=0, stdout=b'{"status":"ok"}', stderr=b""))
-
     def fake_run(
-        argv: tuple[str, ...],
-        *,
-        cwd: Path | None = None,
-        env: dict[str, str] | None = None,
-        check: bool = False,
-        timeout: float | None = None,
+        argv: tuple[str, ...], *, cwd: Path | None = None, env: dict[str, str] | None = None, check: bool = False, timeout: float | None = None
     ) -> Result[Completed, ProcessFault]:
         _ = (cwd, env, check, timeout)
         seen.append(argv[1])
         return Ok(Completed(argv=argv, returncode=0, stdout=b"", stderr=b""))
 
+    def fake_client_step(name: str) -> Result[None, ProcessFault]:
+        seen.append(name)
+        return Ok(None)
+
     monkeypatch.setattr(package, "build_client", lambda *_: Ok(None))
-    monkeypatch.setattr(package, "client_run", fake_client_run)
+    monkeypatch.setattr(package, "client_quit", lambda *_: fake_client_step(name="quit"))
+    monkeypatch.setattr(package, "client_refresh", lambda *_: fake_client_step(name="refresh"))
     monkeypatch.setattr(package, "run", fake_run)
 
     assert package._finish(settings, scope, mode, slug, artifact).is_ok()

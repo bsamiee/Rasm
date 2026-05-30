@@ -1,19 +1,10 @@
-using System.Globalization;
 using System.Reflection;
-using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
-using Grasshopper2.Doc.Attributes;
 using Grasshopper2.UI.Icon;
 using Grasshopper2.UI.InputPanel;
-using Grasshopper2.UI.Primitives;
-using Grasshopper2.UI.Skinning;
 using GrasshopperIO;
-using GhComponent = Grasshopper2.Components.Component;
 using GhPlugin = Grasshopper2.Framework.Plugin;
-using UiContext = Eto.Drawing.Context;
-using UiResponse = Grasshopper2.UI.Flex.Response;
-using UiShape = Grasshopper2.UI.Skinning.Shape;
 
 namespace Rasm.Grasshopper.Components;
 
@@ -37,201 +28,51 @@ internal interface IRasmComponent {
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct ComponentItem<T>(T Value, bool Hidden = false);
 
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct ComponentUi {
-    private readonly Seq<StepOp> ops;
-
-    private ComponentUi(Seq<StepOp> ops) => this.ops = ops;
-
-    public static ComponentUi Empty => default;
-
-    public static ComponentUi operator +(ComponentUi left, ComponentUi right) =>
-        Add(left: left, right: right);
-
-    public static ComponentUi Add(ComponentUi left, ComponentUi right) =>
-        new(ops: left.ops + right.ops);
-
-    public static ComponentUi Of(Func<Callback, Fin<Decision>> run) =>
-        new(ops: Seq(new StepOp(Run: run)));
-
-    public static ComponentUi When(Phase phase, Func<Callback, Fin<Decision>> run) =>
-        Of(run: context => context.Kind == phase ? run(arg: context) : Fin.Succ(value: Decision.Pass));
-
-    internal IAttributes Attributes(GhComponent owner) =>
-        ops.IsEmpty ? new ComponentAttributes(owner: owner) : new RasmAttributes(owner: owner, ui: this);
-
-    internal Fin<Unit> Append(GhComponent owner, InputPanel panel) =>
-        Run(context: new Callback.Panel(Owner: owner, Value: panel)).Map(static _ => unit);
-
-    internal Fin<Decision> Run(Callback context) {
-        Seq<StepOp> current = ops;
-        return Try.lift<Fin<Decision>>(f: () => current.Fold(Fin.Succ(value: Decision.Pass), (state, op) =>
-                state.Bind(decision => decision.IsTerminal ? Fin.Succ(value: decision) : op.Run(arg: context).Map(next => decision + next))))
-            .Run()
-            .MapFail(error => Op.Of(name: nameof(Run)).InvalidResult() + error)
-            .Bind(static result => result);
-    }
-
-    public enum Phase {
-        Layout,
-        DrawForeground,
-        InputPanel,
-        ContextMenu,
-        Cursor,
-        Hover,
-        MouseDown,
-        MouseMove,
-        MouseUp,
-        MouseSingleClick,
-        MouseDoubleClick,
-        KeyDown,
-        KeyUp,
-    }
-
-    public abstract record Callback(GhComponent Owner) {
-        public abstract Phase Kind { get; }
-
-        public sealed record Bounds(GhComponent Owner, UiShape Shape) : Callback(Owner: Owner) {
-            public override Phase Kind => Phase.Layout;
-        }
-
-        public sealed record Draw(GhComponent Owner, UiContext Context, Skin Skin, Capsule Capsule, Shade Shade) : Callback(Owner: Owner) {
-            public override Phase Kind => Phase.DrawForeground;
-        }
-
-        public sealed record Panel(GhComponent Owner, InputPanel Value) : Callback(Owner: Owner) {
-            public override Phase Kind => Phase.InputPanel;
-        }
-
-        public sealed record Menu(GhComponent Owner, ContextMenu Value) : Callback(Owner: Owner) {
-            public override Phase Kind => Phase.ContextMenu;
-        }
-
-        public sealed record Pointer(Phase Requested, GhComponent Owner, PointF ContentPoint, Option<PointF> ControlPoint = default) : Callback(Owner: Owner) {
-            public override Phase Kind => Requested;
-        }
-
-        public sealed record Mouse(Phase Requested, GhComponent Owner, MouseEventArgs Args) : Callback(Owner: Owner) {
-            public override Phase Kind => Requested;
-            public PointF Point => Args.Location;
-        }
-
-        public sealed record Key(Phase Requested, GhComponent Owner, KeyEventArgs Args) : Callback(Owner: Owner) {
-            public override Phase Kind => Requested;
-        }
-    }
-
-    [StructLayout(LayoutKind.Auto)]
-    public readonly record struct Decision(
-        Option<RectangleF> Bounds,
-        Option<UiResponse> Response,
-        Option<Cursor> Cursor,
-        Option<bool> Hover,
-        bool IsTerminal) {
-        public static Decision Pass => default;
-        public static Decision Handled => new(Bounds: None, Response: Optional(UiResponse.Handled), Cursor: None, Hover: None, IsTerminal: true);
-        public static Decision Capture => new(Bounds: None, Response: Optional(UiResponse.Capture), Cursor: None, Hover: None, IsTerminal: true);
-        public static Decision Release => new(Bounds: None, Response: Optional(UiResponse.Release), Cursor: None, Hover: None, IsTerminal: true);
-        public static Decision WithBounds(RectangleF bounds) => new(Bounds: Optional(bounds), Response: None, Cursor: None, Hover: None, IsTerminal: false);
-        public static Decision WithCursor(Cursor cursor) => new(Bounds: None, Response: None, Cursor: Optional(cursor), Hover: None, IsTerminal: false);
-        public static Decision WithHover(bool value) => new(Bounds: None, Response: None, Cursor: None, Hover: Optional(value), IsTerminal: false);
-
-        public static Decision operator +(Decision left, Decision right) =>
-            Add(left: left, right: right);
-
-        public static Decision Add(Decision left, Decision right) =>
-            new(
-                Bounds: right.Bounds | left.Bounds,
-                Response: left.Response | right.Response,
-                Cursor: right.Cursor | left.Cursor,
-                Hover: right.Hover | left.Hover,
-                IsTerminal: left.IsTerminal || right.IsTerminal);
-    }
-
-    [StructLayout(LayoutKind.Auto)]
-    private readonly record struct StepOp(Func<Callback, Fin<Decision>> Run);
-
-    [BoundaryAdapter]
-    private sealed class RasmAttributes :
-        ComponentAttributes,
-        IContextMenuAware,
-        ICursorAwareAttributes,
-        IMouseHoverAttributes {
-        private readonly ComponentUi ui;
-
-        internal RasmAttributes(GhComponent owner, ComponentUi ui) : base(owner: owner) =>
-            this.ui = ui;
-
-        protected override void LayoutBounds(UiShape shape) {
-            base.LayoutBounds(shape: shape);
-            _ = ui.Run(context: new Callback.Bounds(Owner: Owner, Shape: shape)).Map(decision => {
-                Bounds = decision.Bounds.IfNone(Bounds);
-                return unit;
-            });
-        }
-
-        protected override void DrawForegroundDecorations(UiContext context, Skin skin, Capsule capsule, Shade shade) {
-            base.DrawForegroundDecorations(context: context, skin: skin, capsule: capsule, shade: shade);
-            _ = ui.Run(context: new Callback.Draw(Owner: Owner, Context: context, Skin: skin, Capsule: capsule, Shade: shade));
-        }
-
-        void IContextMenuAware.AppendToMenu(ContextMenu menu) =>
-            _ = ui.Run(context: new Callback.Menu(Owner: Owner, Value: menu));
-
-        Cursor ICursorAwareAttributes.CursorAt(PointF point) =>
-            ui.Run(context: new Callback.Pointer(Requested: Phase.Cursor, Owner: Owner, ContentPoint: point))
-                .Map(decision => decision.Cursor.IfNone(Cursors.Default))
-                .IfFail(_ => Cursors.Default);
-
-        bool IMouseHoverAttributes.RespondToMouseHover(PointF controlPoint, PointF contentPoint) =>
-            ui.Run(context: new Callback.Pointer(Requested: Phase.Hover, Owner: Owner, ContentPoint: contentPoint, ControlPoint: Optional(controlPoint)))
-                .Map(decision => decision.Hover.IfNone(noneValue: false))
-                .IfFail(_ => false);
-
-        protected override UiResponse HandleMouseDown(MouseEventArgs e) => Respond(phase: Phase.MouseDown, mouse: e);
-        protected override UiResponse HandleMouseMove(MouseEventArgs e) => Respond(phase: Phase.MouseMove, mouse: e);
-        protected override UiResponse HandleMouseUp(MouseEventArgs e) => Respond(phase: Phase.MouseUp, mouse: e);
-        protected override UiResponse HandleSingleClick(MouseEventArgs e) => Respond(phase: Phase.MouseSingleClick, mouse: e);
-        protected override UiResponse HandleDoubleClick(MouseEventArgs e) => Respond(phase: Phase.MouseDoubleClick, mouse: e);
-        protected override UiResponse HandleKeyDown(KeyEventArgs e) => Respond(phase: Phase.KeyDown, key: e);
-        protected override UiResponse HandleKeyUp(KeyEventArgs e) => Respond(phase: Phase.KeyUp, key: e);
-
-        private UiResponse Respond(Phase phase, MouseEventArgs mouse) =>
-            ui.Run(context: new Callback.Mouse(Requested: phase, Owner: Owner, Args: mouse))
-                .Map(decision => decision.Response.IfNone(UiResponse.Ignored))
-                .IfFail(_ => UiResponse.Ignored);
-
-        private UiResponse Respond(Phase phase, KeyEventArgs key) =>
-            ui.Run(context: new Callback.Key(Requested: phase, Owner: Owner, Args: key))
-                .Map(decision => decision.Response.IfNone(UiResponse.Ignored))
-                .IfFail(_ => UiResponse.Ignored);
+public readonly record struct ComponentSpec(
+    Seq<ComponentItem<Port>> Inputs,
+    Seq<ComponentItem<OutputBinding>> Outputs,
+    NameIconMode IconMode = NameIconMode.Application,
+    ThreadingState Threading = ThreadingState.MultiThreaded,
+    ComponentUi Ui = default) {
+    internal const int MaxOutputs = 24;
+    internal const int CodeMin = 1;
+    internal const int CodeMax = 2;
+    public static ComponentSpec Define(Func<SpecBuilder, SpecBuilder> configure) {
+        ArgumentNullException.ThrowIfNull(argument: configure);
+        return configure(arg: SpecBuilder.Empty).Build();
     }
 }
 
-public readonly record struct ComponentSpec(Seq<ComponentItem<Port>> Inputs, Seq<ComponentItem<OutputBinding>> Outputs, NameIconMode IconMode = NameIconMode.Application, ThreadingState Threading = ThreadingState.MultiThreaded, ComponentUi Ui = default) {
-    public static ComponentSpec Of(Seq<OutputBinding> outputs, Seq<ComponentItem<Port>> inputs = default, NameIconMode iconMode = NameIconMode.Application, ThreadingState threading = ThreadingState.MultiThreaded, ComponentUi ui = default) =>
-        Of(
-            outputs: outputs.Map(static binding => new ComponentItem<OutputBinding>(Value: binding)),
-            inputs: inputs,
-            iconMode: iconMode,
-            threading: threading,
-            ui: ui);
-    public static ComponentSpec Of(Seq<ComponentItem<OutputBinding>> outputs, Seq<ComponentItem<Port>> inputs = default, NameIconMode iconMode = NameIconMode.Application, ThreadingState threading = ThreadingState.MultiThreaded, ComponentUi ui = default) {
-        Seq<ComponentItem<Port>> declared = inputs
-            .Concat(outputs.Choose(static output => Optional(output.Value).Map(static found => new ComponentItem<Port>(Value: found.Input))))
+public sealed record SpecBuilder {
+    public static SpecBuilder Empty => new();
+    private Seq<ComponentItem<Port>> Inputs { get; init; }
+    private Seq<ComponentItem<OutputBinding>> Outputs { get; init; }
+    private NameIconMode IconMode { get; init; } = NameIconMode.Application;
+    private ThreadingState ThreadingMode { get; init; } = ThreadingState.MultiThreaded;
+    private ComponentUi Ui { get; init; } = ComponentUi.Empty;
+    public SpecBuilder Input(Port port, bool hidden = false) {
+        ArgumentNullException.ThrowIfNull(argument: port);
+        return this with { Inputs = Inputs.Add(value: new ComponentItem<Port>(Value: port, Hidden: hidden)) };
+    }
+    public SpecBuilder Output<TOut>(Port<Shape> input, IAspect aspect, string name, string code, string info, Access access = Access.Item, Capability? policy = null, bool hidden = false) where TOut : notnull =>
+        Output(binding: OutputBinding.Of<TOut>(input: input, aspect: aspect, name: name, code: code, info: info, access: access, policy: policy), hidden: hidden);
+    public SpecBuilder Output(OutputBinding binding, bool hidden = false) =>
+        this with { Outputs = Outputs.Add(value: new ComponentItem<OutputBinding>(Value: binding, Hidden: hidden)) };
+    public SpecBuilder Threading(ThreadingState threading) => this with { ThreadingMode = threading };
+    public SpecBuilder Icon(NameIconMode mode) => this with { IconMode = mode };
+    public SpecBuilder Behaviour(ComponentUi ui) => this with { Ui = Ui + ui };
+    internal ComponentSpec Build() {
+        Seq<ComponentItem<Port>> declared = Inputs
+            .Concat(Outputs.Choose(static output => Optional(output.Value).Map(static binding => new ComponentItem<Port>(Value: binding.Input))))
             .Fold(Seq<ComponentItem<Port>>(), static (found, item) => found.Exists(input => ReferenceEquals(objA: input.Value, objB: item.Value)) switch {
                 true => found,
                 false => item.Cons(found),
             })
             .Rev();
-        return new(
-            Inputs: declared,
-            Outputs: outputs,
-            IconMode: iconMode,
-            Threading: threading,
-            Ui: ui);
+        return new ComponentSpec(Inputs: declared, Outputs: Outputs, IconMode: IconMode, Threading: ThreadingMode, Ui: Ui);
     }
 }
+
 internal readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.Scope Scope, Hints Hints, IProgress<double> Progress, CancellationToken Cancellation) {
     internal static Fin<GrasshopperRuntime> Capture(IDataAccess access, Seq<(Port Port, IParameter Parameter)> inputs, ComponentParameters parameters) {
         ArgumentNullException.ThrowIfNull(argument: access);
@@ -249,12 +90,100 @@ internal readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.S
             .ToFin(new MissingPortInput(Port: port.Name))
             .Bind(slot => access.ReadShape(slot: slot, port: port));
     }
-    internal Fin<Seq<Flow<TVal>>> Read<TVal>(Port<TVal> port) {
-        IDataAccess access = Access;
-        return Hints.Slot(port: port)
-            .ToFin(new MissingPortInput(Port: port.Name))
-            .Bind(slot => access.Read<TVal>(slot: slot, port: port));
+}
+
+// --- [ERRORS] -----------------------------------------------------------------------------
+[Union]
+public abstract partial record ComponentValidationFault : Domain.Expected {
+    private ComponentValidationFault() { }
+    public sealed record MissingDefinition : ComponentValidationFault;
+    public sealed record ClosedSelfMismatch : ComponentValidationFault;
+    public sealed record EmptyPorts(Side Side) : ComponentValidationFault;
+    public sealed record NullPort(Side Side, int Index) : ComponentValidationFault;
+    public sealed record DuplicateCode(Side Side, string PortCode, string Ports) : ComponentValidationFault;
+    public sealed record DuplicateName(Side Side, string Name, string Ports) : ComponentValidationFault;
+    public sealed record UnsupportedKind(Side Side, string Port, string Kind) : ComponentValidationFault;
+    public sealed record CodeLength(Side Side, string Port, string PortCode) : ComponentValidationFault;
+    public sealed record PortCountExceeded(int Found, int Max) : ComponentValidationFault;
+    public sealed record SourceNotDeclared(string Input) : ComponentValidationFault;
+    public override string Category => "Component";
+    public override string Message => this switch {
+        MissingDefinition => "missing static ComponentSpec Definition",
+        ClosedSelfMismatch => "Component<TSelf> does not match concrete component type",
+        EmptyPorts fault => $"{fault.Side} ports are empty",
+        NullPort fault => $"{fault.Side} {fault.Index} is null",
+        DuplicateCode fault => $"duplicate {fault.Side} port code '{fault.PortCode}' on {fault.Ports}",
+        DuplicateName fault => $"duplicate {fault.Side} port name '{fault.Name}' on {fault.Ports}",
+        UnsupportedKind fault => $"{fault.Side} port '{fault.Port}' kind '{fault.Kind}' cannot register on {fault.Side}",
+        CodeLength fault => $"{fault.Side} port '{fault.Port}' code '{fault.PortCode}' must be {ComponentSpec.CodeMin}-{ComponentSpec.CodeMax} characters",
+        PortCountExceeded fault => $"output port count {fault.Found} exceeds {fault.Max}",
+        SourceNotDeclared fault => $"output input '{fault.Input}' is not a declared input port instance",
+        _ => "component validation fault",
+    };
+}
+
+// --- [SERVICES] ---------------------------------------------------------------------------
+public abstract class Component<TSelf> : ModularComponent, IRasmComponent where TSelf : Component<TSelf>, IComponentDefinition<TSelf> {
+    private Seq<(Port Port, IParameter Parameter)> cachedInputs;
+    private Seq<(Port Port, IParameter Parameter)> cachedOutputs;
+    protected Component() : base(nomen: Self.GetCustomAttribute<NomenAttribute>()?.Nomen ?? new Nomen(name: Self.Name, info: string.Empty)) {
+        ComponentSpec spec = Spec;
+        IconMode = spec.IconMode;
+        Threading = spec.Threading;
     }
+    private static Type Self => typeof(TSelf);
+    public ComponentSpec Spec => TSelf.Definition;
+    protected override IIcon IconInternal => IconAttribute.Resolve(owner: Self, fallback: base.IconInternal);
+    // BOUNDARY ADAPTER -- GH2 asks for canvas attributes; Rasm installs the component UI rail when specified.
+    protected override IAttributes CreateAttributes() => Spec.Ui.Attributes(owner: this);
+    public override void AppendToInputPanel(InputPanel panel) {
+        base.AppendToInputPanel(panel: panel);
+        // BOUNDARY ADAPTER -- GH2 owns the input panel; Rasm appends through the same component UI rail.
+        _ = Spec.Ui.Append(owner: this, panel: panel);
+    }
+    protected override void AddInputs(ModularInputAdder inputs) {
+        ArgumentNullException.ThrowIfNull(argument: inputs);
+        cachedInputs = Spec.Inputs.Map(pair => (
+            Port: pair.Value,
+            Parameter: pair.Value.Kind.Bind(adder: inputs, port: pair.Value, hidden: pair.Hidden)));
+    }
+    protected override void AddOutputs(ModularOutputAdder outputs) {
+        ArgumentNullException.ThrowIfNull(argument: outputs);
+        cachedOutputs = Spec.Outputs.Map(pair => (
+            pair.Value.Port,
+            Parameter: pair.Value.Port.Kind.Bind(adder: outputs, port: pair.Value.Port, hidden: pair.Hidden)));
+    }
+    protected override void BeforeProcess(Solution solution) {
+        base.BeforeProcess(solution: solution);
+        OnBeforeProcess(solution: solution);
+    }
+    protected override void PreProcess(Solution solution) {
+        base.PreProcess(solution: solution);
+        OnPreProcess(solution: solution);
+    }
+    protected override void PostProcess(Solution solution, FleetingCustomData customData) {
+        OnPostProcess(solution: solution);
+        base.PostProcess(solution: solution, customData: customData);
+    }
+    protected override ITree PostProcessTree(ITree tree, int index, Solution solution) =>
+        OnPostProcessTree(tree: base.PostProcessTree(tree: tree, index: index, solution: solution), index: index, solution: solution);
+    // BOUNDARY ADAPTER -- GH2 solve is synchronous; cancellation flows through Solution.Token, progress through Bridge.Progress.
+    protected override void Process(IDataAccess access) {
+        ArgumentNullException.ThrowIfNull(argument: access);
+        Hints outputs = Hints.Capture(ports: cachedOutputs, index: Parameters.IndexOfOutput);
+        Seq<OutputBinding> bindings = Spec.Outputs.Map(static output => output.Value);
+        _ = GrasshopperRuntime.Capture(access: access, inputs: cachedInputs, parameters: Parameters)
+            .Match(
+                Succ: runtime => Output.Write(access: access, runtime: runtime, bindings: bindings, outputs: outputs),
+                Fail: error => {
+                    access.AddWarning(text: error.Category(), details: error.Message);
+                    return Output.Empty(access: access, bindings: bindings, outputs: outputs);
+                });
+    }
+    protected virtual void OnBeforeProcess(Solution solution) { }
+    protected virtual void OnPreProcess(Solution solution) { }
+    protected virtual void OnPostProcess(Solution solution) { }
+    protected virtual ITree OnPostProcessTree(ITree tree, int index, Solution solution) => tree;
 }
 
 // --- [COMPOSITION] ------------------------------------------------------------------------
@@ -285,7 +214,8 @@ public abstract class Plugin : GhPlugin {
             .Filter(static type => typeof(IRasmComponent).IsAssignableFrom(c: type) && !type.IsAbstract && !type.IsGenericTypeDefinition)
             .Distinct();
         Seq<string> faults = ValidateCatalog(active: this, plugins: plugins, components: components, satellites: satellites, declaredSatellites: declaredSatellites)
-            .Concat(components.Bind(Validate));
+            .Concat(components.Bind(type => Validate(spec: type).Map(fault => $"{type.FullName}: {fault.Message}")));
+        // BOUNDARY ADAPTER -- GH2 plugin-load entry; a mis-declared catalog is a fatal developer error surfaced fail-fast at load.
         _ = faults.IsEmpty ? Unit.Default : throw new InvalidOperationException(message: string.Join(separator: "; ", values: faults));
     }
     private static Seq<string> ValidateCatalog(Plugin active, Seq<Type> plugins, Seq<Type> components, Assembly[] satellites, Seq<Assembly> declaredSatellites) {
@@ -315,34 +245,35 @@ public abstract class Plugin : GhPlugin {
             .Concat(DuplicateTypes(candidates: components, key: "Nomen", project: type => NomenOf(type: type).Map(static n => $"{n.Chapter}/{n.Section}/{n.Name}").IfNone(string.Empty)))
             .Concat(DuplicateTypes(candidates: components, key: "category/name", project: type => NomenOf(type: type).Map(static n => $"{n.Chapter}/{n.Name}").IfNone(string.Empty)));
     }
-    private static Seq<string> Validate(Type spec) =>
+    private static Seq<ComponentValidationFault> Validate(Type spec) =>
         spec.GetProperty(name: "Definition", bindingAttr: BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)?.GetValue(obj: null) switch {
             ComponentSpec probe => Validate(spec: spec, probe: probe),
-            _ => Seq($"{spec.FullName}: missing static ComponentSpec Definition"),
+            _ => Seq<ComponentValidationFault>(new ComponentValidationFault.MissingDefinition()),
         };
-    private static Seq<string> Validate(Type spec, ComponentSpec probe) {
+    private static Seq<ComponentValidationFault> Validate(Type spec, ComponentSpec probe) {
         Seq<Port> inputs = probe.Inputs.Choose(static pair => Optional(pair.Value));
         Seq<Port> outputs = probe.Outputs.Choose(static pair => Optional(pair.Value)).Map(static binding => binding.Port);
-        Seq<(string Label, Side Side, Seq<Port> Ports)> sides = Seq((Label: "input", Side: Side.Input, Ports: inputs), (Label: "output", Side: Side.Output, Ports: outputs));
-        Seq<string> structural = toSeq(Seq(
-            ClosedComponentSelf(type: spec) ? null : $"{spec.FullName}: Component<TSelf> does not match concrete component type",
-            inputs.IsEmpty ? $"{spec.FullName}: Inputs is empty" : null,
-            outputs.IsEmpty ? $"{spec.FullName}: Outputs is empty" : null).Choose(Optional));
-        Seq<string> sourceFaults = probe.Outputs.Choose(pair => Optional(pair.Value)
+        Seq<(Side Side, Seq<Port> Ports)> sides = Seq((Side: Side.Input, Ports: inputs), (Side: Side.Output, Ports: outputs));
+        Seq<ComponentValidationFault> structural = Seq(
+            ClosedComponentSelf(type: spec) ? Option<ComponentValidationFault>.None : Some<ComponentValidationFault>(new ComponentValidationFault.ClosedSelfMismatch()),
+            inputs.IsEmpty ? Some<ComponentValidationFault>(new ComponentValidationFault.EmptyPorts(Side: Side.Input)) : Option<ComponentValidationFault>.None,
+            outputs.IsEmpty ? Some<ComponentValidationFault>(new ComponentValidationFault.EmptyPorts(Side: Side.Output)) : Option<ComponentValidationFault>.None,
+            outputs.Count > ComponentSpec.MaxOutputs ? Some<ComponentValidationFault>(new ComponentValidationFault.PortCountExceeded(Found: outputs.Count, Max: ComponentSpec.MaxOutputs)) : Option<ComponentValidationFault>.None)
+            .Choose(identity);
+        Seq<ComponentValidationFault> sourceFaults = probe.Outputs.Choose(pair => Optional(pair.Value)
             .Bind(binding => inputs.Exists(input => ReferenceEquals(objA: input, objB: binding.Input))
-                ? Option<string>.None
-                : Some($"{spec.FullName}: output input '{binding.Input.Name}' is not a declared input port instance")));
-        Seq<string> nullFaults = NullsAt(spec: spec, side: "input", count: probe.Inputs.Count, missing: i => probe.Inputs[i].Value is null)
-            .Concat(NullsAt(spec: spec, side: "output", count: probe.Outputs.Count, missing: i => probe.Outputs[i].Value is null));
-        Seq<string> duplicates = sides.Bind(side =>
-            Duplicates(spec: spec, side: side.Label, ports: side.Ports, key: "code", project: static port => port.Code, label: static port => port.Name)
-                .Concat(Duplicates(spec: spec, side: side.Label, ports: side.Ports, key: "name", project: static port => port.Name, label: static port => port.Code)));
-        Seq<string> sideSupport = sides.Bind(side => side.Ports.Choose(port =>
-            port.Kind.Supports(side: side.Side) ? Option<string>.None : Some($"{spec.FullName}: {side.Label} port '{port.Name}' kind '{port.Kind}' cannot register on {side.Side}")));
-        Seq<string> portCount = outputs.Count > 24 ? Seq($"{spec.FullName}: output port count {outputs.Count} exceeds 24") : Seq<string>();
-        Seq<string> codeLengths = sides.Bind(side => side.Ports.Choose(port =>
-            port.Code.Length is > 0 and <= 2 ? Option<string>.None : Some($"{spec.FullName}: {side.Label} port '{port.Name}' code '{port.Code}' must be 1-2 characters")));
-        return structural.Concat(sourceFaults).Concat(nullFaults).Concat(duplicates).Concat(sideSupport).Concat(portCount).Concat(codeLengths).ToSeq();
+                ? Option<ComponentValidationFault>.None
+                : Some<ComponentValidationFault>(new ComponentValidationFault.SourceNotDeclared(Input: binding.Input.Name))));
+        Seq<ComponentValidationFault> nullFaults = NullsAt(side: Side.Input, count: probe.Inputs.Count, missing: index => probe.Inputs[index].Value is null)
+            .Concat(NullsAt(side: Side.Output, count: probe.Outputs.Count, missing: index => probe.Outputs[index].Value is null));
+        Seq<ComponentValidationFault> duplicates = sides.Bind(side =>
+            Duplicates(side: side.Side, ports: side.Ports, project: static port => port.Code, label: static port => port.Name, make: static (side, key, ports) => new ComponentValidationFault.DuplicateCode(Side: side, PortCode: key, Ports: ports))
+                .Concat(Duplicates(side: side.Side, ports: side.Ports, project: static port => port.Name, label: static port => port.Code, make: static (side, key, ports) => new ComponentValidationFault.DuplicateName(Side: side, Name: key, Ports: ports))));
+        Seq<ComponentValidationFault> sideSupport = sides.Bind(side => side.Ports.Choose(port =>
+            port.Kind.Supports(side: side.Side) ? Option<ComponentValidationFault>.None : Some<ComponentValidationFault>(new ComponentValidationFault.UnsupportedKind(Side: side.Side, Port: port.Name, Kind: port.Kind.ToString()))));
+        Seq<ComponentValidationFault> codeLengths = sides.Bind(side => side.Ports.Choose(port =>
+            port.Code.Length is >= ComponentSpec.CodeMin and <= ComponentSpec.CodeMax ? Option<ComponentValidationFault>.None : Some<ComponentValidationFault>(new ComponentValidationFault.CodeLength(Side: side.Side, Port: port.Name, PortCode: port.Code))));
+        return structural.Concat(sourceFaults).Concat(nullFaults).Concat(duplicates).Concat(sideSupport).Concat(codeLengths).ToSeq();
     }
     private static bool ClosedComponentSelf(Type type) =>
         type.BaseType switch {
@@ -350,12 +281,12 @@ public abstract class Plugin : GhPlugin {
             Type parent => ClosedComponentSelf(type: parent),
             _ => false,
         };
-    private static Seq<string> NullsAt(Type spec, string side, int count, Func<int, bool> missing) =>
-        toSeq(Enumerable.Range(start: 0, count: count).Where(predicate: missing.Invoke).Select(index => string.Create(CultureInfo.InvariantCulture, $"{spec.FullName}: {side} {index} is null")));
-    private static Seq<string> Duplicates(Type spec, string side, Seq<Port> ports, string key, Func<Port, string> project, Func<Port, string> label) =>
+    private static Seq<ComponentValidationFault> NullsAt(Side side, int count, Func<int, bool> missing) =>
+        toSeq(Enumerable.Range(start: 0, count: count).Where(predicate: missing.Invoke).Select(index => (ComponentValidationFault)new ComponentValidationFault.NullPort(Side: side, Index: index)));
+    private static Seq<ComponentValidationFault> Duplicates(Side side, Seq<Port> ports, Func<Port, string> project, Func<Port, string> label, Func<Side, string, string, ComponentValidationFault> make) =>
         toSeq(ports.GroupBy(keySelector: project, comparer: StringComparer.Ordinal)
             .Where(static group => group.Skip(1).Any())
-            .Select(group => $"{spec.FullName}: duplicate {side} port {key} '{group.Key}' on {string.Join(separator: ", ", values: group.Select(label))}"));
+            .Select(group => make(arg1: side, arg2: group.Key, arg3: string.Join(separator: ", ", values: group.Select(label)))));
 }
 public abstract class Plugin<TSelf> : Plugin where TSelf : Plugin<TSelf> {
     protected Plugin() : base(id: IdOf(), nomen: NomenOf(), version: Self.Assembly.GetName().Version) { }
@@ -368,65 +299,4 @@ public abstract class Plugin<TSelf> : Plugin where TSelf : Plugin<TSelf> {
             .IfNone(() => new Nomen(
                 name: Self.Assembly.GetName().Name ?? Self.Name,
                 info: Self.Assembly.GetCustomAttribute<AssemblyDescriptionAttribute>()?.Description ?? string.Empty));
-}
-public abstract class Component<TSelf> : ModularComponent, IRasmComponent where TSelf : Component<TSelf>, IComponentDefinition<TSelf> {
-    private Seq<(Port Port, IParameter Parameter)> cachedInputs;
-    private Seq<(Port Port, IParameter Parameter)> cachedOutputs;
-    protected Component() : base(nomen: Self.GetCustomAttribute<NomenAttribute>()?.Nomen ?? new Nomen(name: Self.Name, info: string.Empty)) {
-        ComponentSpec spec = Spec;
-        IconMode = spec.IconMode;
-        Threading = spec.Threading;
-    }
-    private static Type Self => typeof(TSelf);
-    public ComponentSpec Spec => TSelf.Definition;
-    protected override IIcon IconInternal => IconAttribute.Resolve(owner: Self, fallback: base.IconInternal);
-    // BOUNDARY ADAPTER -- GH2 asks for canvas attributes; Rasm installs the component UI rail when specified.
-    protected override IAttributes CreateAttributes() => Spec.Ui.Attributes(owner: this);
-    public override void AppendToInputPanel(InputPanel panel) {
-        base.AppendToInputPanel(panel: panel);
-        // BOUNDARY ADAPTER -- GH2 owns the input panel; Rasm appends through the same component UI rail.
-        _ = Spec.Ui.Append(owner: this, panel: panel);
-    }
-    protected override void AddInputs(ModularInputAdder inputs) {
-        ArgumentNullException.ThrowIfNull(argument: inputs);
-        cachedInputs = Spec.Inputs.Map(pair => (
-            Port: pair.Value,
-            Parameter: pair.Value.Kind.Bind(adder: inputs, name: pair.Value.Name, code: pair.Value.Code, info: pair.Value.Info, access: pair.Value.Access, requirement: pair.Value.Requirement, policy: pair.Value.Policy, hidden: pair.Hidden)));
-    }
-    protected override void AddOutputs(ModularOutputAdder outputs) {
-        ArgumentNullException.ThrowIfNull(argument: outputs);
-        cachedOutputs = Spec.Outputs.Map(pair => (
-            pair.Value.Port,
-            Parameter: pair.Value.Port.Kind.Bind(adder: outputs, name: pair.Value.Port.Name, code: pair.Value.Port.Code, info: pair.Value.Port.Info, access: pair.Value.Port.Access, policy: pair.Value.Port.Policy, hidden: pair.Hidden)));
-    }
-    protected override void BeforeProcess(Solution solution) {
-        base.BeforeProcess(solution: solution);
-        OnBeforeProcess(solution: solution);
-    }
-    protected override void PreProcess(Solution solution) {
-        base.PreProcess(solution: solution);
-        OnPreProcess(solution: solution);
-    }
-    protected override void PostProcess(Solution solution, FleetingCustomData customData) {
-        OnPostProcess(solution: solution);
-        base.PostProcess(solution: solution, customData: customData);
-    }
-    protected override ITree PostProcessTree(ITree tree, int index, Solution solution) =>
-        OnPostProcessTree(tree: base.PostProcessTree(tree: tree, index: index, solution: solution), index: index, solution: solution);
-    protected override void Process(IDataAccess access) {
-        ArgumentNullException.ThrowIfNull(argument: access);
-        Hints outputs = Hints.Capture(ports: cachedOutputs, index: Parameters.IndexOfOutput);
-        Seq<OutputBinding> bindings = Spec.Outputs.Map(static output => output.Value);
-        _ = GrasshopperRuntime.Capture(access: access, inputs: cachedInputs, parameters: Parameters)
-            .Match(
-                Succ: runtime => Output.Write(access: access, runtime: runtime, bindings: bindings, outputs: outputs),
-                Fail: error => {
-                    access.AddWarning(text: error.Category(), details: error.Message);
-                    return Output.Empty(access: access, bindings: bindings, outputs: outputs);
-                });
-    }
-    protected virtual void OnBeforeProcess(Solution solution) { }
-    protected virtual void OnPreProcess(Solution solution) { }
-    protected virtual void OnPostProcess(Solution solution) { }
-    protected virtual ITree OnPostProcessTree(ITree tree, int index, Solution solution) => tree;
 }

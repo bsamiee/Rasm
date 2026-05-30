@@ -6,11 +6,7 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Analysis;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// BRIDGE-DEFERRED (*.verify.csx): every MeshSampleKind.Sample + MeshMetric.Measure/Shape reads a live native Mesh;
-// NakedEdges/Outline/AtVisiblePolygon defer to the bridge. Static rail owns: the Meshes union catalog, the
-// MeshSampleGroup/MeshSampleKind/MeshMetric catalogs (keys + Label/Inspect + Group↔Kinds partition oracle),
-// MeshMetric.None InvalidInput, and Operation<TGeom,TOut> dispatch (Run rejects at Supported() pre-native).
-// Outline's eager plane.IsValid probe is native → not asserted here.
+// BRIDGE-DEFERRED: native MeshSample/Metric; static owns Meshes catalog, sample/metric metadata, Group partition oracle, Operation dispatch pre-native.
 internal static class MeshGens {
     public static readonly Op Key = Op.Of(name: "mesh-test");
 }
@@ -25,8 +21,7 @@ public sealed class MeshSampleGroupCatalogLaws {
             Assert.Equal(expected: g.Key == 3, actual: g.Inspect);
         });
     }
-    // INDEPENDENT PARTITION ORACLE: re-derive Group membership by filtering the full catalog. Per-Kind Group equality
-    // plus partition sizes summing to the catalog catches any Kind reassigned to the wrong Group.
+    // Independent partition oracle: re-derive Group membership from the full catalog; sizes must sum to the catalog.
     [Fact]
     public void GroupKindsPartitionsTheKindCatalogExactly() {
         Seq<MeshSampleKind> all = toSeq(MeshSampleKind.Items);
@@ -102,8 +97,7 @@ public sealed class MeshesDispatchLaws {
             ("FaceShape Mesh→MeshFaceShape", static () => Meshes.FaceShape.Operation<Mesh, MeshFaceShape>().IsSupported, true),
             ("FaceShape Mesh→MeshMetricSample", static () => Meshes.FaceShape.Operation<Mesh, MeshMetricSample>().IsSupported, false),
             ("FaceShape Mesh→int", static () => Meshes.FaceShape.Operation<Mesh, int>().IsSupported, false));
-    // Untyped MeshLift arms carry no typeof guard, so support is unconditional at construction; native projection
-    // narrows at Apply. Outline's eager plane.IsValid probe is native → bridge-deferred, not asserted here.
+    // MeshLift support is unconditional at construction; native projection narrows at Apply (Outline plane.IsValid is bridge-deferred).
     [Fact]
     public void UntypedLiftedCasesBuildRegardlessOfDeclaredOutput() =>
         Spec.SupportMatrix(

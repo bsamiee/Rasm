@@ -4,11 +4,7 @@ using System.Runtime.Loader;
 namespace Rasm.TestKit;
 
 // --- [SERVICES] -------------------------------------------------------------------------
-// RhinoWIP host assemblies (Eto, Grasshopper2, GrasshopperIO, Microsoft.macOS, Rhino.UI, …) are referenced
-// Private=false, so they never land in unit-test output. Resolve them from the running RhinoWIP bundle at
-// load time — copy-local would strand their native siblings. Registered once from ContextFixture (the
-// assembly fixture). The quality tooling injects RHINO_WIP_APP_PATH; a bare `dotnet test` falls back to the
-// newest /Applications/Rhino*.app (WIP preferred).
+// Resolve Private=false RhinoWIP host assemblies from RHINO_WIP_APP_PATH (or newest /Applications/Rhino*.app) at load time.
 internal static class HostBundle {
     internal static void Register() =>
         AssemblyLoadContext.Default.Resolving += static (context, name) => Resolve(context: context, name: name);

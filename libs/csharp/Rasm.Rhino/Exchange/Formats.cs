@@ -61,11 +61,17 @@ public sealed record FileFormat {
             _ => NativeBool(run: () => document.WriteFile(path: target.Path, options: options), op: Op.Of(name: $"{Key}Write")),
         };
 
+    // Selected export must stay non-interactive. OBJ/PLY (`directWriteOptions`) own typed writers (FileObj/FilePly.Write)
+    // that read `WriteSelectedObjectsOnly` + Suppress* from the embedded FileWriteOptions, so route selected export
+    // through them — `ExportSelected` with their empty options dictionary otherwise raises the native "Choose ... option"
+    // command prompt that blocks scripted/headless sessions. Dictionary-driven formats (STL, etc.) keep `ExportSelected`,
+    // which forces Suppress* internally and reads its complete options dictionary, so it is already non-interactive.
     internal Fin<Unit> Export(FileWriteOptions options, RhinoDoc document, FileEndpoint target, FileProfile profile) =>
-        (this == ThreeDm, options.WriteSelectedObjectsOnly, directWriteOptions || options.Xform.IsIdentity, directWriteCall) switch {
-            (true, _, _, _) => NativeBool(run: () => document.Write3dmFile(path: target.Path, options: options), op: Op.Of(name: $"{Key}Export")),
-            (false, false, true, Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> write) => write(arg1: profile, arg2: options, arg3: document, arg4: target),
-            (false, true, _, _) => NativeBool(run: () => document.ExportSelected(filePath: target.Path, options: options.OptionsDictionary), op: Op.Of(name: $"{Key}Export")),
+        (this == ThreeDm, options.WriteSelectedObjectsOnly, directWriteOptions, directWriteOptions || options.Xform.IsIdentity, directWriteCall) switch {
+            (true, _, _, _, _) => NativeBool(run: () => document.Write3dmFile(path: target.Path, options: options), op: Op.Of(name: $"{Key}Export")),
+            (false, true, true, _, Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> write) => write(arg1: profile, arg2: options, arg3: document, arg4: target),
+            (false, true, _, _, _) => NativeBool(run: () => document.ExportSelected(filePath: target.Path, options: options.OptionsDictionary), op: Op.Of(name: $"{Key}Export")),
+            (false, false, _, true, Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> write) => write(arg1: profile, arg2: options, arg3: document, arg4: target),
             _ => NativeBool(run: () => document.Export(filePath: target.Path, options: options.OptionsDictionary), op: Op.Of(name: $"{Key}Export")),
         };
 
@@ -177,19 +183,29 @@ public sealed record FileFormat {
     public static FileFormat Tiff { get; } = new(key: "tiff", extensions: Seq(".tif", ".tiff"), capability: FileCapability.Raster, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
     public static FileFormat Bmp { get; } = new(key: "bmp", extensions: Seq(".bmp"), capability: FileCapability.Raster, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
 
-    public static Seq<FileFormat> Known { get; } = Seq(ThreeDm, ThreeDs, ThreeMf, Ai, Amf, Obj, Ply, Cd, Dgn, Dst, Dwg, Eps, Stl, Stp, Fbx, Ghs, Gts, Iges, Lwo, Nwd, Pov, Sat, Skp, Slc, Sw, Udo, Vda, Vrml, X3dv, Xaml, Xt, Raw, Txt, Csv, Gltf, Usd, Pdf, Svg, Png, Jpeg, Tiff, Bmp);
+    private static Seq<FileFormat> BuiltIn { get; } = Seq(ThreeDm, ThreeDs, ThreeMf, Ai, Amf, Obj, Ply, Cd, Dgn, Dst, Dwg, Eps, Stl, Stp, Fbx, Ghs, Gts, Iges, Lwo, Nwd, Pov, Sat, Skp, Slc, Sw, Udo, Vda, Vrml, X3dv, Xaml, Xt, Raw, Txt, Csv, Gltf, Usd, Pdf, Svg, Png, Jpeg, Tiff, Bmp);
+
+    // Custom formats register into a process-static STM cell and join the built-in base. Built-ins win on
+    // collision (rejected at registration), so the frozen `ByKey`/`ByExtension` lookups stay over built-ins;
+    // `Detect`/`Of`/`Known`/`Filter` consult the custom set after. Custom read/write delegates flow through the
+    // same `FileFormatProjection.Import`/`Write` pipeline as built-ins via `directRead`/`directWrite`.
+    private static readonly Atom<HashMap<string, FileFormat>> CustomCell = Atom(HashMap<string, FileFormat>());
+
+    public static Seq<FileFormat> Known => BuiltIn + toSeq(CustomCell.Value.Values);
 
     private static FrozenDictionary<string, FileFormat> ByKey { get; } =
-        Known.AsIterable().ToFrozenDictionary(keySelector: static format => format.Key, elementSelector: static format => format, comparer: StringComparer.OrdinalIgnoreCase);
+        BuiltIn.AsIterable().ToFrozenDictionary(keySelector: static format => format.Key, elementSelector: static format => format, comparer: StringComparer.OrdinalIgnoreCase);
 
     private static FrozenDictionary<string, FileFormat> ByExtension { get; } =
-        Known.Bind(static format => format.Extensions.Map(extension => (Extension: extension, Format: format)))
+        BuiltIn.Bind(static format => format.Extensions.Map(extension => (Extension: extension, Format: format)))
             .AsIterable()
             .ToFrozenDictionary(keySelector: static item => item.Extension, elementSelector: static item => item.Format, comparer: StringComparer.OrdinalIgnoreCase);
 
     public static Option<FileFormat> Detect(string path) =>
         Optional(IOPath.GetExtension(path: path))
-            .Bind(extension => ByExtension.TryGetValue(key: extension, value: out FileFormat? format) ? Optional(format) : Option<FileFormat>.None);
+            .Bind(extension => ByExtension.TryGetValue(key: extension, value: out FileFormat? format)
+                ? Optional(format)
+                : CustomByExtension(extension: extension));
 
     public static Fin<FileFormat> Of(string keyOrExtension) =>
         from key in FileEndpoint.NonBlank(value: keyOrExtension, op: Op.Of(name: nameof(Of)))
@@ -199,23 +215,26 @@ public sealed record FileFormat {
                 ? Optional(byKey)
                 : ByExtension.TryGetValue(key: extension, value: out FileFormat? byExtension)
                     ? Optional(byExtension)
-                    : Option<FileFormat>.None)
+                    : CustomCell.Value.Find(key: clean) | CustomByExtension(extension: extension))
             .ToFin(Fail: Op.Of(name: nameof(Of)).InvalidInput())
         select format;
 
-    public static Fin<FileFormat> Custom(string key, Seq<string> extensions, FileCapability capability) =>
-        from validKey in FileEndpoint.NonBlank(value: key, op: Op.Of(name: nameof(Custom)))
-        from jsonBlocked in validKey.TrimStart('.').Equals(value: "json", comparisonType: StringComparison.OrdinalIgnoreCase)
-            ? Fin.Fail<Unit>(error: Op.Of(name: nameof(Custom)).Unsupported(geometryType: typeof(FileFormat), outputType: typeof(FileFormat)))
-            : Fin.Succ(value: unit)
-        from validExtensions in extensions.TraverseM(extension =>
-            FileEndpoint.NonBlank(value: extension, op: Op.Of(name: nameof(Custom)))
-                .Bind(text => text.TrimStart('.').Equals(value: "json", comparisonType: StringComparison.OrdinalIgnoreCase)
-                    ? Fin.Fail<string>(error: Op.Of(name: nameof(Custom)).Unsupported(geometryType: typeof(FileFormat), outputType: typeof(FileFormat)))
-                    : Fin.Succ(value: text.StartsWith('.') ? text : $".{text}"))).As()
-        from _ in guard(!validExtensions.IsEmpty && capability != FileCapability.None, Op.Of(name: nameof(Custom)).InvalidInput())
-        from __ in guard(!ByKey.ContainsKey(key: validKey.TrimStart('.')) && !validExtensions.Exists(ByExtension.ContainsKey), Op.Of(name: nameof(Custom)).InvalidInput())
-        select new FileFormat(key: validKey.TrimStart('.'), extensions: validExtensions.Distinct(), capability: capability, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
+    private static Option<FileFormat> CustomByExtension(string extension) =>
+        toSeq(CustomCell.Value.Values).Find(format => format.Extensions.Exists(value => string.Equals(a: value, b: extension, comparisonType: StringComparison.OrdinalIgnoreCase)));
+
+    public static Fin<FileFormat> Custom(string key, Seq<string> extensions, FileCapability capability,
+        Func<FileProfile, FileReadOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? read = null,
+        Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>>? write = null) =>
+        from validKey in FileEndpoint.NonBlank(value: key, op: Op.Of(name: nameof(Custom))).Map(static k => k.TrimStart('.'))
+        from exts in extensions.TraverseM(e => FileEndpoint.NonBlank(value: e, op: Op.Of(name: nameof(Custom)))
+            .Map(static t => t.StartsWith('.') ? t : $".{t}")).As().Map(static s => s.Distinct())
+        from _ in guard(!exts.IsEmpty && capability != FileCapability.None
+            && !ByKey.ContainsKey(key: validKey) && !exts.Exists(ByExtension.ContainsKey)
+            && CustomCell.Value.Find(key: validKey).IsNone, Op.Of(name: nameof(Custom)).InvalidInput())
+        let format = new FileFormat(key: validKey, extensions: exts, capability: capability, scale: FileCapability.None,
+            read: null, write: null, directRead: read, directWrite: write, directWriteOptions: write is not null)
+        from __ in Fin.Succ(value: Op.Side(() => CustomCell.Swap(map => map.AddOrUpdate(key: validKey, value: format))))
+        select format;
 
     public static string Filter(FilePhase phase, Seq<FileFormat> formats = default) =>
         (formats.IsEmpty ? Known : formats)

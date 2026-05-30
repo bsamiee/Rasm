@@ -26,7 +26,6 @@ internal abstract record BridgeCommand {
         request switch {
             null => BridgeCommandParse.Fail(command: BridgeWire.Hello, message: "Request payload was empty or invalid."),
             { Command: null or "" } => BridgeCommandParse.Fail(command: BridgeWire.Hello, message: "Request command was missing."),
-            { } current when !BridgeWire.IsCurrent(schema: current.Schema) => BridgeCommandParse.Fail(command: current.Command, message: $"Unsupported schema '{current.Schema}'."),
             { Command: BridgeWire.Hello } => BridgeCommandParse.Ok(command: new Hello()),
             { Command: BridgeWire.Doctor } => BridgeCommandParse.Ok(command: new Doctor()),
             { Command: BridgeWire.Execute } => ParseExecute(request: request),
@@ -80,7 +79,6 @@ internal sealed class BridgeServer : IDisposable {
         AssemblyName bridgeName = bridgeAssembly.GetName();
         string pipeSuffix = Guid.NewGuid().ToString(format: "N")[..8];
         BridgeEndpoint metadata = new(
-            Schema: BridgeWire.Schema,
             PipeName: string.Create(provider: CultureInfo.InvariantCulture, $"rb-{Environment.ProcessId}-{pipeSuffix}"),
             RhinoPid: Environment.ProcessId,
             RhinoStartedAt: new DateTimeOffset(dateTime: process.StartTime.ToUniversalTime()),
@@ -170,33 +168,24 @@ internal sealed class BridgeServer : IDisposable {
     private async Task HandlePipeAsync(Stream pipe, CancellationToken token) {
         bool acquired = await clientGate.WaitAsync(timeout: TimeSpan.Zero, cancellationToken: token).ConfigureAwait(false);
         if (!acquired) {
-            await WriteAsync(pipe: pipe, reply: BridgeWire.Reply(command: BridgeWire.Hello, status: PhaseStatus.Busy, fault: BridgeFault.MessageOnly(category: "transport", message: "Another bridge client is active.")), token: token).ConfigureAwait(false);
+            await BridgeWire.WriteMessageAsync(stream: pipe, message: BridgeWire.Reply(command: BridgeWire.Hello, status: PhaseStatus.Busy, fault: BridgeFault.MessageOnly(category: "transport", message: "Another bridge client is active.")), token: token).ConfigureAwait(false);
             return;
         }
         try {
-            using StreamReader reader = new(stream: pipe, encoding: Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 4096, leaveOpen: true);
             using CancellationTokenSource handshake = CancellationTokenSource.CreateLinkedTokenSource(token);
-            handshake.CancelAfter(delay: BridgeTimeouts.Handshake);
-            string? line = await reader.ReadLineAsync(cancellationToken: handshake.Token).ConfigureAwait(false);
-            BridgeReply reply = string.IsNullOrWhiteSpace(value: line)
-                ? BridgeWire.Reply(command: BridgeWire.Hello, status: PhaseStatus.Failed, fault: BridgeFault.MessageOnly(category: "protocol", message: "Bridge clients must send a hello or command request."))
-                : await ParseRequestAsync(json: line, token: token).ConfigureAwait(false);
-            await WriteAsync(pipe: pipe, reply: reply, token: token).ConfigureAwait(false);
-            if (reply is { Command: BridgeWire.Quit, Status.IsOk: true }) {
-                OnMain(work: static _ => RhinoApp.Exit(false));
-            }
+            handshake.CancelAfter(delay: TimeoutPolicy.Default.Handshake);
+            BridgeRequest? request = await BridgeWire.ReadMessageAsync<BridgeRequest>(stream: pipe, token: handshake.Token).ConfigureAwait(false);
+            BridgeReply reply = request is null
+                ? BridgeWire.Reply(command: BridgeWire.Hello, status: PhaseStatus.Failed, fault: BridgeFault.MessageOnly(category: "protocol", message: "Bridge clients must send a request frame."))
+                : await HandleRequestAsync(request: request, token: token).ConfigureAwait(false);
+            await BridgeWire.WriteMessageAsync(stream: pipe, message: reply, token: token).ConfigureAwait(false);
+            // Quit marks docs clean only — RhinoApp.Exit self-SIGABRTs from this idle frame; the client owns termination.
         } catch (OperationCanceledException) when (!token.IsCancellationRequested) {
-            await WriteAsync(pipe: pipe, reply: BridgeWire.Reply(command: BridgeWire.Hello, status: PhaseStatus.Timeout, fault: BridgeFault.MessageOnly(category: "protocol", message: "Bridge client did not send a request before the handshake deadline.")), token: CancellationToken.None).ConfigureAwait(false);
+            await BridgeWire.WriteMessageAsync(stream: pipe, message: BridgeWire.Reply(command: BridgeWire.Hello, status: PhaseStatus.Timeout, fault: BridgeFault.MessageOnly(category: "protocol", message: "Bridge client did not send a request frame before the handshake deadline.")), token: CancellationToken.None).ConfigureAwait(false);
+        } catch (JsonException error) {
+            await BridgeWire.WriteMessageAsync(stream: pipe, message: BridgeWire.Reply(command: BridgeWire.Hello, status: PhaseStatus.Failed, fault: BridgeFault.FromException(category: "protocol", error: error)), token: CancellationToken.None).ConfigureAwait(false);
         } finally {
             _ = !disposed && clientGate.Release() > 0;
-        }
-    }
-    private async Task<BridgeReply> ParseRequestAsync(string json, CancellationToken token) {
-        // BOUNDARY ADAPTER — request envelope may be malformed.
-        try {
-            return await HandleRequestAsync(request: JsonSerializer.Deserialize<BridgeRequest>(json: json, options: BridgeWire.CompactJson), token: token).ConfigureAwait(false);
-        } catch (JsonException error) {
-            return BridgeWire.Reply(command: BridgeWire.Hello, status: PhaseStatus.Failed, fault: BridgeFault.FromException(category: "protocol", error: error));
         }
     }
     private Task<BridgeReply> HandleRequestAsync(BridgeRequest? request, CancellationToken token) =>
@@ -238,8 +227,7 @@ internal sealed class BridgeServer : IDisposable {
         global::Rhino.Runtime.HostUtils.ExceptionReportDelegate onReport = OnExceptionReport;
         CodeOutcome outcome;
         string[] commandStrings;
-        // BOUNDARY ADAPTER — capture the command window AND every HostUtils.OnExceptionReport around execution (the path
-        // RhinoApp.InvokeOnUiThread routes swallowed faults through); subscribe before, unsubscribe + restore in finally.
+        // BOUNDARY ADAPTER — capture command window and OnExceptionReport (InvokeOnUiThread swallowed faults) around execution.
         global::Rhino.Runtime.HostUtils.OnExceptionReport += onReport;
         try {
             outcome = CodeEngine.Run(request: request);
@@ -253,7 +241,7 @@ internal sealed class BridgeServer : IDisposable {
             CommandWindow: commandStrings,
             ExceptionReports: exceptionReports,
             Gh: ReflectGrasshopperSolution(pluginIds: request.HostPlugins));
-        // Fault-surfacing fold: a swallowed exception report is a real failure even when the script itself did not throw.
+        // Swallowed exception reports fail the phase even when the script did not throw.
         PhaseStatus status = outcome.Status.IsOk && exceptionReports.Length > 0 ? PhaseStatus.Failed : outcome.Status;
         BridgeFault? fault = outcome.Fault ?? (exceptionReports.Length > 0 ? exceptionReports[0] : null);
         Assembly self = typeof(BridgeServer).Assembly;
@@ -289,8 +277,7 @@ internal sealed class BridgeServer : IDisposable {
     private static IReadOnlyList<BridgeDiagnostic> EnsureHostPlugins(IReadOnlyList<string>? pluginIds) =>
         [.. (pluginIds ?? []).Select(LoadHostPlugin).OfType<BridgeDiagnostic>()];
     private static BridgeDiagnostic? LoadHostPlugin(string pluginId) {
-        // BOUNDARY ADAPTER — pre-load a host plugin (e.g. Grasshopper2) into the default ALC so the isolated RhinoCode
-        // resolver binds it by name instead of illegally re-loading it into the collectible context (COR_E_INVALIDOPERATION).
+        // BOUNDARY ADAPTER — pre-load host plugin into default ALC so isolated RhinoCode binds, not re-loads (COR_E_INVALIDOPERATION).
         try {
             return Guid.TryParse(input: pluginId, result: out Guid id) switch {
                 false => new BridgeDiagnostic(Severity: "Warning", Message: $"Ignored invalid host plugin id '{pluginId}'.", Category: "hostplugin"),
@@ -316,8 +303,7 @@ internal sealed class BridgeServer : IDisposable {
         if (pluginIds is null || !pluginIds.Any(predicate: static id => string.Equals(a: id, b: BridgeWire.GrasshopperPluginId, comparisonType: StringComparison.Ordinal))) {
             return null;
         }
-        // BOUNDARY ADAPTER — read GH2 active-document/solution state by reflection so the bridge keeps zero compile-time
-        // Grasshopper2 reference; any shape drift collapses to a null/partial snapshot rather than a throw.
+        // BOUNDARY ADAPTER — GH2 snapshot via reflection (zero compile-time GH2 ref); shape drift yields null/partial, not throw.
         try {
             Type? editorType = Type.GetType(typeName: "Grasshopper2.UI.Editor, Grasshopper2");
             object? editor = editorType?.GetProperty(name: "Instance", bindingAttr: BindingFlags.Public | BindingFlags.Static)?.GetValue(obj: null);
@@ -334,8 +320,7 @@ internal sealed class BridgeServer : IDisposable {
             };
             object? solution = doc.GetType().GetProperty(name: "Solution", bindingAttr: BindingFlags.Public | BindingFlags.Instance)?.GetValue(obj: doc);
             object? serverState = solution?.GetType().GetProperty(name: "State", bindingAttr: BindingFlags.Public | BindingFlags.Instance)?.GetValue(obj: solution);
-            // ServerState is a class (no meaningful ToString); its `Phase` field is the SolutionPhase enum whose name is
-            // the truthful state (Idle/Running/...). Fall back to the type name only if the field shape ever drifts.
+            // ServerState.Phase enum name is the truthful state; fall back to the type name if the field shape drifts.
             object? phase = serverState?.GetType().GetField(name: "Phase", bindingAttr: BindingFlags.Public | BindingFlags.Instance)?.GetValue(obj: serverState);
             return new BridgeGhSolution(
                 DocumentInPlay: true,
@@ -349,8 +334,7 @@ internal sealed class BridgeServer : IDisposable {
     }
 
     internal static BridgeReport.Quit Quit(RhinoDoc? document) {
-        // BOUNDARY ADAPTER — force-quit: this is a disposable test/diagnostic Rhino, so discard unsaved document state
-        // (mark clean) to bypass macOS save prompts before RhinoApp.Exit(false) closes the host.
+        // BOUNDARY ADAPTER — mark docs clean before client SIGTERM; host never calls RhinoApp.Exit (self-SIGABRT from idle).
         RhinoDoc[] open = RhinoDoc.OpenDocuments();
         bool hadModified = open.Any(static doc => doc.Modified);
         Array.ForEach(array: open, action: static doc => doc.Modified = false);
@@ -389,7 +373,7 @@ internal sealed class BridgeServer : IDisposable {
         TaskCompletionSource<BridgeReply> completion = new(creationOptions: TaskCreationOptions.RunContinuationsAsynchronously);
         idleQueue.Enqueue(item: new IdleJob(Work: doc => SafeDispatch(work: work, command: command, document: doc), Completion: completion));
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
-        timeout.CancelAfter(delay: BridgeTimeouts.IdleDispatch);
+        timeout.CancelAfter(delay: TimeoutPolicy.Default.IdleDispatch);
         try {
             return await completion.Task.WaitAsync(cancellationToken: timeout.Token).ConfigureAwait(false);
         } catch (OperationCanceledException) {
@@ -425,14 +409,6 @@ internal sealed class BridgeServer : IDisposable {
         && Path.GetRelativePath(relativeTo: Path.GetFullPath(path: root), path: Path.GetFullPath(path: path)) is string relative
         && !relative.StartsWith(value: "..", comparisonType: StringComparison.Ordinal)
         && !Path.IsPathRooted(path: relative);
-    private static async Task WriteAsync(Stream pipe, BridgeReply reply, CancellationToken token) {
-        StreamWriter writer = new(stream: pipe, encoding: Encoding.UTF8, bufferSize: 4096, leaveOpen: true);
-        await using (writer.ConfigureAwait(false)) {
-            string payload = BridgeWire.Serialize(reply: reply);
-            await writer.WriteLineAsync(buffer: payload.AsMemory(), cancellationToken: token).ConfigureAwait(false);
-            await writer.FlushAsync(cancellationToken: token).ConfigureAwait(false);
-        }
-    }
     private static void WriteEndpoint(BridgeEndpoint endpoint) {
         BoundaryIO.RestrictDirectory(path: BridgeWire.EndpointDirectory);
         BoundaryIO.Write(path: BridgeWire.EndpointPath, contents: BridgeWire.Serialize(endpoint: endpoint), encoding: Encoding.UTF8, restrict: BoundaryIO.RestrictFile);

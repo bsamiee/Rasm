@@ -26,6 +26,10 @@
 
 Use generated `Switch` and `Map` directly. Prefer state-threaded overloads and `static` lambdas where they remove closure allocations. Partial overload generation is an explicit customization with `SwitchMapMethodsGeneration` and overload attributes; default Rasm guidance is exhaustive dispatch.
 
+State-threaded dispatch: `[Union(SwitchMapStateParameterName = "…")]` — see `union-attributes.md` §1.
+
+Rasm SelfOp policy: `[SkipUnionOps]` / `[GenerateUnionOps]` emit or skip per-case `Op SelfOp` — **not** Thinktecture union operators. Hand `operator +`/`|` may exist on separate types. See `union-attributes.md` §2.
+
 ---
 ## [3][BOUNDARIES]
 >**Dictum:** *A union boundary chooses one wire model.*

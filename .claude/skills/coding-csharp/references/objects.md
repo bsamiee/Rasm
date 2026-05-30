@@ -18,8 +18,9 @@ Effect orchestration lives in `effects.md`; polymorphic compression lives in `co
 |   [1]   | **Constrained scalar (Email, Amount, Id)**       | `[ValueObject<T>]`        |
 |   [2]   | **Closed behavioral set (status/type/strategy)** | `[SmartEnum<T>]`          |
 |   [3]   | **Closed variant payload space**                 | `[Union]`                 |
-|   [4]   | **Identity-bearing lifecycle object**            | `sealed record` aggregate |
-|   [5]   | **Stack-confined parser/workspace**              | `readonly ref struct`     |
+|   [4]   | **Multi-field invariant bundle**                 | `[ComplexValueObject]`    |
+|   [5]   | **Identity-bearing lifecycle object**            | `sealed record` aggregate |
+|   [6]   | **Stack-confined parser/workspace**              | `readonly ref struct`     |
 
 [IMPORTANT]:
 - [1] Use generated `TryCreate` as the external ingress gate for simple boundary wrappers; use custom `Fin<T>` factories only when algebraic interfaces, normalization, or domain-specific error rails require them.
@@ -85,6 +86,49 @@ public readonly partial struct OrderId {
 - `Create` is for trusted internal construction; `TryCreate` is the boundary gate.
 - Never expose primitives in public domain signatures once a value object exists.
 - `SkipFactoryMethods = true` belongs to algebraic domain atoms whose construction must return a custom `Fin<T>` rail; do not disable generated factories for simple HTTP/JSON/EF wrappers.
+
+### [2.1][COMPLEX_VALUE_OBJECT]
+
+`[ComplexValueObject]` models multi-field invariants (ranges, paint styles, spring configs, `Dim3`).
+
+- Requires `partial class` or `partial struct` — **never** `record` / `record struct`.
+- Properties are `{ get; }` only; constructor is generated private.
+- `ValidateFactoryArguments(ref ValidationError?, ref TField, …)` — all params `ref`, camelCase property names.
+- No ordering operators on complex VOs; hand-write `IComparable<T>` if needed.
+- `[ValidationError<TFault>]` routes factory validation into custom fault types without per-site `MapFail`.
+
+```csharp
+[ComplexValueObject]
+[ValidationError<UiFault>]
+[StructLayout(LayoutKind.Auto)]
+public readonly partial struct SpringConfig {
+    public float Stiffness { get; }
+    public float Damping { get; }
+    public float Mass { get; }
+
+    [BoundaryAdapter]
+    static partial void ValidateFactoryArguments(
+        ref UiFault? validationError, ref float stiffness, ref float damping, ref float mass) {
+        Op op = Op.Of(name: nameof(SpringConfig));
+        UiFault? fault = null;
+        _ = op.AcceptAll(
+                value: unit,
+                o => float.IsFinite(stiffness) && stiffness > 0f
+                    ? Fin.Succ(unit)
+                    : Fin.Fail<Unit>(UiFault.InvalidInput(op: o, detail: $"Stiffness must be > 0 (got {stiffness:R}).")),
+                o => float.IsFinite(damping) && damping >= 0f
+                    ? Fin.Succ(unit)
+                    : Fin.Fail<Unit>(UiFault.InvalidInput(op: o, detail: $"Damping must be >= 0 (got {damping:R}).")),
+                o => float.IsFinite(mass) && mass > 0f
+                    ? Fin.Succ(unit)
+                    : Fin.Fail<Unit>(UiFault.InvalidInput(op: o, detail: $"Mass must be > 0 (got {mass:R}).")))
+            .IfFail(err => { fault = (UiFault)err; return unit; });
+        validationError = fault;
+    }
+}
+```
+
+Production source: `libs/csharp/Rasm.Grasshopper/UI/Motion.cs`.
 
 ---
 ## [3][DOMAIN_BRIDGE]
@@ -269,6 +313,31 @@ public static class PaymentAdapter {
 - `Fin<T>.ToEff<RT>()` lifts Thinktecture dispatch results into effectful pipelines; `Bind`/`Map` compose downstream.
 - Ad-hoc `Union<T1,...>` is for boundary adapter scenarios; regular `[Union]` is for domain variant hierarchies.
 
+### [5.1][UNION_ADVANCED_ATTRIBUTES]
+
+| Attribute | Use |
+| --------- | --- |
+| `[Union(SwitchMapStateParameterName = "…")]` | State-threaded `.Switch(ctx, …)` |
+| `[GenerateUnionOps]` (Rasm.Domain) | Emit per-case `Op SelfOp` — not `+`/`|` operators |
+| `[SkipUnionOps]` (Rasm.Domain) | Opt out of CSP0802 SelfOp requirement |
+| `[UseDelegateFromConstructor]` | SmartEnum or union-case delegate behavior |
+
+State-threaded dispatch example:
+
+```csharp
+[Union(SwitchMapStateParameterName = "context")]
+public abstract partial record FileSheetEdit;
+```
+
+Generic or ref-struct constrained sums (`PromptTransition<T>`, `MotionSpec<T>`) use plain `abstract record` + manual `switch` — not `[Union]`. See `docs/external-libs/thinktecture/union-attributes.md`.
+
+Hand-written domain operators (separate from Thinktecture codegen):
+
+- `operator |` — absorption lattices: `RepaintRequest`, `Subscription`, `FileOverride<T>` (plain struct)
+- `operator +` — semigroup append: `Requirement`, `VectorField`, `OverlayDecision`, `DocumentMutationReceipt`
+
+Read the operator body before composing; laws differ per type.
+
 ---
 ## [6][AGGREGATE_OBJECT_SHAPE]
 >**Dictum:** *Aggregates own transitions; callers consume typed constructors and `with`-expression codomains.*
@@ -354,6 +423,8 @@ public readonly ref struct Utf8Window(ReadOnlySpan<byte> source) {
 |   [1]   | Primitive obsession in signatures             | Value object canonicalization + DomainBridge  | [2], [3]  |
 |   [2]   | Enum/switch sprawl                            | SmartEnum + exhaustive generated behavior     | [4]       |
 |   [3]   | Variant ambiguity via nullable fields         | Union + exhaustive `Switch`/`Map`             | [5]       |
-|   [4]   | Mutable aggregate drift                       | Sealed record + `with`-expression transitions | [6]       |
-|   [5]   | Stack-only type leaking into domain contracts | `ref struct` isolation + conversion bridge    | [7]       |
-|   [6]   | Dual object representations per concept       | Collapse to one canonical shape               | [1], [8]  |
+|   [4]   | Multi-field VO without scalar key             | `[ComplexValueObject]` + `[ValidationError<T>]` | [2.1]   |
+|   [5]   | Union lattice vs append semantics             | `[SkipUnionOps]` + hand `operator |`          | [5.1]     |
+|   [6]   | Mutable aggregate drift                       | Sealed record + `with`-expression transitions | [6]       |
+|   [7]   | Stack-only type leaking into domain contracts | `ref struct` isolation + conversion bridge    | [7]       |
+|   [8]   | Dual object representations per concept       | Collapse to one canonical shape               | [1], [8]  |

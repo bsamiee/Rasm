@@ -206,8 +206,7 @@ public sealed class SubscriptionBindLaws {
     }
     [Fact]
     public void DoubleFaultProducesManyErrorsCarryingBothCauses() =>
-        // Spec.FailMany factors out the Fail + IsType<ManyErrors> + count + per-substring check so any future
-        // Error.+ rail (paint hook failures, document mutation rollbacks) reuses the same template.
+        // Spec.FailMany centralizes ManyErrors count + substring checks for Error.+ rails.
         Spec.FailMany(
             result: Subscription.Bind(
                 attach: static () => throw new InvalidOperationException(message: "attach-boom"),

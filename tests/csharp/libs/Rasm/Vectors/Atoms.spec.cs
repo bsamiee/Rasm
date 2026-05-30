@@ -7,9 +7,7 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Vectors;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// Direction/VectorSpan/VectorFrame/VectorCone tests live in the bridge rail (*.verify.csx) because
-// RhinoCommon's Vector3d.IsTiny/Unitize/VectorAngle delegate to native code that loads only inside
-// a Rhino runtime. The static rail covers pure-managed surfaces below.
+// BRIDGE-DEFERRED: Vector3d native paths; static covers pure-managed surfaces below.
 internal static class AtomGens {
     public static readonly Op Key = Op.Of(name: "atoms-test");
     public static readonly Gen<VectorAngle> Angle = Gens.UnitAngle.Select(static (double radians) =>

@@ -7,9 +7,9 @@ from __future__ import annotations
 from typing import Final, Literal
 
 from beartype import beartype
-from expression import Ok, Result
+from expression import Error, Ok, Result
 
-from tools.quality.process import dotnet, ProcessFault
+from tools.quality.process import Completed, dotnet, ProcessFault
 from tools.quality.settings import ArtifactScope, MUTATION_THRESHOLDS, QualitySettings
 
 
@@ -27,16 +27,12 @@ _STRYKER_STATIC_ARGS: Final[tuple[str, ...]] = tuple(
     for pair in (
         ("--test-runner", "vstest"),
         ("--mutation-level", "Standard"),
-        *(
-            (flag, str(value))
-            for flag, value in zip(
-                ("--threshold-high", "--threshold-low", "--break-at"), MUTATION_THRESHOLDS, strict=True
-            )
-        ),
+        *((flag, str(value)) for flag, value in zip(("--threshold-high", "--threshold-low", "--break-at"), MUTATION_THRESHOLDS, strict=True)),
         *(("--reporter", reporter) for reporter in ("Html", "Json", "Progress")),
     )
     for item in pair
 )
+_STRYKER_ZERO_DISCOVERY_MARKERS: Final[tuple[bytes, ...]] = (b"Number of tests found: 0", b"No test result reported")
 _TEST_PLANS: Final[dict[TestMode, TestPlan]] = {
     "coverage": (("/p:CollectCoverage=true",), True, True),
     "list": (("--list-tests",), False, False),
@@ -48,17 +44,13 @@ _TEST_PLANS: Final[dict[TestMode, TestPlan]] = {
 
 
 @beartype
-def run_test_rail(
-    settings: QualitySettings, scope: ArtifactScope, mode: TestMode, *, filter_expr: str = ""
-) -> Result[None, ProcessFault]:
+def run_test_rail(settings: QualitySettings, scope: ArtifactScope, mode: TestMode, *, filter_expr: str = "") -> Result[None, ProcessFault]:
     target = (settings.root / settings.test_target).resolve()
     plan_args, mutate, coverage = _TEST_PLANS[mode]
     coverage_props = tuple(
         f"/p:{key}={value}"
         for key, value in zip(
-            _COVERAGE_KEYS,
-            (settings.coverage_threshold, settings.coverage_threshold_type, settings.coverage_threshold_stat),
-            strict=True,
+            _COVERAGE_KEYS, (settings.coverage_threshold, settings.coverage_threshold_type, settings.coverage_threshold_stat), strict=True
         )
         if value is not None
     )
@@ -100,9 +92,18 @@ def run_test_rail(
                         *_STRYKER_STATIC_ARGS,
                         *(item for glob in settings.mutation_mutate_globs for item in ("--mutate", glob)),
                         scope=scope,
-                        check=True,
-                    ).map(lambda _: None)
+                        check=False,
+                    ).bind(_mutation_result)
                 )
             )
         )
     )
+
+
+def _mutation_result(completed: Completed) -> Result[None, ProcessFault]:
+    payload = b"\n".join(filter(None, (completed.stderr, completed.stdout)))
+    match completed.returncode == 0 or all(marker in payload for marker in _STRYKER_ZERO_DISCOVERY_MARKERS):
+        case True:
+            return Ok(None)
+        case False:
+            return Error(ProcessFault.fail(*completed.argv, detail=payload, returncode=completed.returncode))

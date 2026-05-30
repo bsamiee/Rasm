@@ -1,6 +1,6 @@
 # Effects
 
-Effect type system for C# 14 / .NET 10. LanguageExt v5 is used as verified in the pinned Rasm `LanguageExt.Core` package. `Fin<T>` carries synchronous failure, `Validation<Error,T>` accumulates independent failures, `Eff<RT,T>` carries runtime-record effects, and `IO<A>` describes boundary work before execution.
+Effect type system for C# 14 / .NET 10. LanguageExt v5 per pinned Rasm `LanguageExt.Core`. Advanced operators and combinators: [advanced-surface.md](advanced-surface.md). External detail: `docs/external-libs/languageext/`.
 
 ---
 
@@ -9,59 +9,72 @@ Effect type system for C# 14 / .NET 10. LanguageExt v5 is used as verified in th
 | Rail | Owns | Boundary |
 | ---- | ---- | -------- |
 | `Fin<T>` | One fallible synchronous operation. | Native validity, value admission, MathNet result projection. |
-| `Validation<Error,T>` | Independent accumulated failures. | GH2 inputs, symbol sets, requirement groups. |
-| `Eff<RT,T>` | Host context and effectful work. | Rhino docs, GH runtime, filesystem, bridge, clock. |
-| `IO<A>` | Deferred side-effect/resource description. | File/process/resource execution before collapse. |
+| `Validation<Error,T>` | Independent accumulated failures. | Domain requirements, symbol sets. |
+| `Validation<Seq<UiFault>,T>` | Batched UI fault accumulation. | GH `ValidateParallel` → `ToFin`. |
+| `Eff<RT,T>` | Host context and effectful work. | Analysis `Env`, Exchange `FileRuntime`. |
+| `IO<A>` | Deferred side-effect/resource description. | Boundary execution before collapse. |
 
-Use LINQ composition, `Bind`, `Map`, `MapFail`, `BiMap`, `Flatten`, and applicative `Apply` to stay in the rail. Collapse with `Match` or `Run` only at host boundaries.
+Use LINQ composition, `Bind`, `Map`, `MapFail`, `BindFail`, and applicative `.Apply().As()` to stay in the rail. Collapse with `Match` or `Run` only at host boundaries.
+
+`Validation<string,T>` does **not** compile in v5.
 
 ---
 
 ## Runtime Records
 
-Runtime records are plain sealed records passed to `Eff`. Read runtime capability with `Eff.runtime<RT>()`, then project with `Map` or bind into the next effect. Keep runtime records concrete and small; do not introduce service locators or container-only abstractions.
+Read capability with `Eff.runtime<RT>()` or `Env.Asks` on a concrete sealed record. Rasm uses **`Analyze.Env`** (analysis) and **`FileRuntime`** (exchange via `Eff.Lift`).
 
 ```csharp
-namespace Domain.Effects;
-
 public sealed record RhinoRuntime(Context Context, Op Op);
 
-public static class RuntimeRail
-{
-    public static Eff<RhinoRuntime, Context> ContextOf() =>
-        Eff.runtime<RhinoRuntime>()
-            .Map(static (RhinoRuntime runtime) => runtime.Context);
-}
+public static Eff<RhinoRuntime, Context> ContextOf() =>
+    Eff.runtime<RhinoRuntime>().Map(static rt => rt.Context);
 ```
 
-`static` lambdas remain preferred for zero-capture projections. Runtime records own dependencies; dependency containers may create records but must not leak into domain transforms.
+Boundary collapse: `Fin<T> result = pipeline.Run(runtime).Run();`
 
 ---
 
 ## Recovery And Schedule
 
-`Schedule` is the retry/repeat/backoff algebra. Use verified LanguageExt recovery combinators from local XML and keep recovery at the composition boundary. Domain code returns typed failures; boundary code maps host exceptions once into `Error`.
+LanguageExt provides `Schedule` algebra, `Prelude.catch`, and `.Retry` — **zero production usage** in `libs/csharp/` today. Document for composition-root scaffolding only.
 
-`Schedule.recurs`, `spaced`, `linear`, `exponential`, `fibonacci`, `upto`, `fixedInterval`, `windowed`, `maxDelay`, `maxCumulativeDelay`, `jitter`, `decorrelate`, and `resetAfter` are first-class policy values. Use them only when a real boundary operation needs retry or repeat semantics.
+When adopted:
+
+- Chain transformers: `policyA | policyB` on `ScheduleTransformer`
+- Intersect bounds: `intersect(policy, Schedule.upto(duration))` — not C# `&`
+- Duration literals: `LanguageExt.UnitsOfMeasure.ms` (requires explicit import)
+
+Production native recovery: **`op.Catch(() => Fin<T>)`** and **`Try.lift<Fin<T>>().Run()`** at boundaries.
+
+---
+
+## Host Decision Monoids
+
+Not LanguageExt types:
+
+| Type | Use |
+| ---- | --- |
+| `OverlayDecision` | Rhino overlay allow/deny merge (`Ignore`, `operator +`) |
+| `Rasm.Grasshopper.Components.Decision` | Component input routing (`Pass`, `Handled`, `operator +`) |
 
 ---
 
 ## State And Resources
 
-`Atom<T>` and `Ref<T>` are host-state tools, not domain accumulation tools. Use them for UI, bridge, subscription, or session state. Keep Rhino-owned mutable geometry and GH2 mutable trees out of long-lived atoms unless ownership is explicit and disposal/transfer policy is documented.
+`Atom<T>.Swap` / `SwapMaybe` for UI, blocks, motion — **no** Subscribe API in v5 Atom.
 
-`IO<T>.Bracket`, `Finally`, and resource-style composition describe lifetime at boundaries. Prefer scoped projection over storing native mutable resources.
+`IO<T>.Bracket`, `Prelude.use` exist in LE v5; unused in production `libs/`.
 
 ---
 
 ## Rules
 
 - [ALWAYS] `Fin<T>` for local fallible work.
-- [ALWAYS] `Validation<Error,T>` for independent input accumulation.
-- [ALWAYS] `Eff<RT,T>` with runtime records for host effects.
-- [ALWAYS] `IO<A>` for boundary side-effect descriptions.
-- [ALWAYS] `Schedule` for boundary retry/repeat/backoff.
-- [NEVER] Use raw exceptions as domain control flow.
+- [ALWAYS] `Validation<Error,T>` or tuple `.Apply().As()` for independent fields.
+- [ALWAYS] `Eff<RT,T>` with concrete runtime records for host effects.
+- [ALWAYS] `.TraverseM(f).As()` for batch monadic traverse in v5.
+- [ALWAYS] `op.Catch` / `Try.lift` at native boundaries — not domain try/catch.
 - [NEVER] Collapse rails mid-pipeline.
-- [NEVER] introduce legacy runtime trait DI or service-location patterns.
-- [NEVER] use host state to hide normal immutable domain transforms.
+- [NEVER] use `Validation<string,T>` in v5.
+- [NEVER] document LanguageExt `Decision` — type does not exist in pinned package.

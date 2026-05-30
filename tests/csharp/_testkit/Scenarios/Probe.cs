@@ -55,10 +55,16 @@ public static class Scenario {
         Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"capture={scenePath}"));
         Op key = Op.Of(name: theme);
         FactBag bag = new();
-        body(arg1: key, arg2: bag);
-        IReadOnlyDictionary<string, object> snapshot = bag.Snapshot();
-        if (snapshot.Count > 0) {
-            BridgeMarker.EmitFacts(facts: snapshot);
+        bag.Add(key: "scenario.capturePath", value: scenePath);
+        // BOUNDARY ADAPTER — flush partial facts even when the body throws; a failed Probe must not erase the
+        // diagnostic trail leading to it. The failing assertion is surfaced separately as the bridge execute fault.
+        try {
+            body(arg1: key, arg2: bag);
+        } finally {
+            IReadOnlyDictionary<string, object> snapshot = bag.Snapshot();
+            if (snapshot.Count > 0) {
+                BridgeMarker.EmitFacts(facts: snapshot);
+            }
         }
         return unit;
     }

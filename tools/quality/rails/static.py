@@ -15,7 +15,7 @@ from typing import assert_never, Final, Literal
 from beartype import beartype
 from expression import Error, Ok, Result
 
-from tools.quality.process import dotnet_args, dotnet_fold, ProcessFault, ProjectIndex, run, run_fold, Workspace
+from tools.quality.process import dotnet, dotnet_build, fold, ProcessFault, ProjectIndex, run, Workspace
 from tools.quality.settings import (
     ArtifactScope,
     CS_SUFFIXES,
@@ -36,10 +36,7 @@ type StaticScope = Literal["changed", "full"]
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
 _FORMAT_COMMON: Final[tuple[str, ...]] = ("--verify-no-changes",)
-_FORMAT_ARGS: Final[dict[str, tuple[str, ...]]] = {
-    "style": (*_FORMAT_COMMON, "--severity", "error"),
-    "whitespace": _FORMAT_COMMON,
-}
+_FORMAT_ARGS: Final[dict[str, tuple[str, ...]]] = {"style": (*_FORMAT_COMMON, "--severity", "error"), "whitespace": _FORMAT_COMMON}
 _ORPHAN_FULL_SUFFIXES: Final[tuple[str, ...]] = (".cs", ".props", ".targets")
 
 
@@ -67,22 +64,14 @@ def _format_commands(root: Path, settings: QualitySettings, plan: StaticPlan) ->
     match plan.scope:
         case "full":
             solution = str(settings.solution)
-            return tuple(("dotnet", "format", kind, solution, *_FORMAT_ARGS[kind]) for kind in _FORMAT_ARGS)
+            return tuple(("format", kind, solution, *_FORMAT_ARGS[kind]) for kind in _FORMAT_ARGS)
         case "changed":
             return tuple(
                 command
                 for project, files in plan.format_groups
                 for command in (
-                    ("dotnet", "format", "style", str(root / project), "--include", *files, *_FORMAT_ARGS["style"]),
-                    (
-                        "dotnet",
-                        "format",
-                        "whitespace",
-                        str(root / project),
-                        "--include",
-                        *files,
-                        *_FORMAT_ARGS["whitespace"],
-                    ),
+                    ("format", "style", str(root / project), "--include", *files, *_FORMAT_ARGS["style"]),
+                    ("format", "whitespace", str(root / project), "--include", *files, *_FORMAT_ARGS["whitespace"]),
                 )
             )
         case unreachable:
@@ -90,10 +79,7 @@ def _format_commands(root: Path, settings: QualitySettings, plan: StaticPlan) ->
 
 
 def _format_groups(routes: tuple[tuple[str, str], ...]) -> tuple[tuple[str, tuple[str, ...]], ...]:
-    return tuple(
-        (project, tuple(file for _, file in files))
-        for project, files in groupby(sorted(routes, key=itemgetter(0)), key=itemgetter(0))
-    )
+    return tuple((project, tuple(file for _, file in files)) for project, files in groupby(sorted(routes, key=itemgetter(0)), key=itemgetter(0)))
 
 
 def _gate_plan(
@@ -110,17 +96,15 @@ def _gate_plan(
         case ("full", _):
             targets = (str(settings.solution),)
     configurations = settings.static_configurations(mode)
-    commands = (
-        dotnet_args("restore", settings.solution),
-        *(
-            dotnet_args("build", target, configuration=configuration, max_cpu=settings.dotnet_max_cpu)
-            for configuration in configurations
-            for target in targets
-        ),
-    )
     return (
-        dotnet_fold(scope, commands)
-        .bind(lambda _: run_fold(scope, _format_commands(root, settings, plan)))
+        dotnet_build(settings, scope, restore=settings.solution, targets=targets, configurations=configurations, max_cpu=settings.dotnet_max_cpu)
+        .bind(
+            lambda _: fold(
+                _format_commands(root, settings, plan),
+                None,
+                lambda _, command: dotnet(*command, scope=scope, scoped=False, check=True).map(lambda _: None),
+            )
+        )
         .map(lambda _: "done")
     )
 
@@ -129,15 +113,11 @@ def _plan(settings: QualitySettings, scope: ArtifactScope) -> Result[StaticPlan,
     workspace = Workspace(settings.root)
     index = workspace.index()
     routed = reduce(
-        lambda acc, file: _route_step(acc, file, index=index, workspace=workspace, root=settings.root),
-        workspace.changed(),
-        _ChangedRoute(),
+        lambda acc, file: _route_step(acc, file, index=index, workspace=workspace, root=settings.root), workspace.changed(), _ChangedRoute()
     )
 
     def full() -> Result[StaticPlan, ProcessFault]:
-        return _projects(settings, workspace, "parity", scope=scope).map(
-            lambda rows: StaticPlan(scope="full", projects=rows)
-        )
+        return _projects(settings, workspace, "parity", scope=scope).map(lambda rows: StaticPlan(scope="full", projects=rows))
 
     def changed() -> Result[StaticPlan, ProcessFault]:
         return _projects(settings, workspace, "closure", tuple(sorted(routed.projects)), scope=scope).map(
@@ -154,12 +134,7 @@ def _plan(settings: QualitySettings, scope: ArtifactScope) -> Result[StaticPlan,
 
 
 def _projects(
-    settings: QualitySettings,
-    workspace: Workspace,
-    mode: ProjectMode,
-    seeds: tuple[str, ...] = (),
-    *,
-    scope: ArtifactScope,
+    settings: QualitySettings, workspace: Workspace, mode: ProjectMode, seeds: tuple[str, ...] = (), *, scope: ArtifactScope
 ) -> Result[tuple[str, ...], ProcessFault]:
     root = settings.root
     rows = workspace.projects()
@@ -176,9 +151,7 @@ def _projects(
                 if delta == ()
                 else Error(
                     ProcessFault.fail(
-                        "static",
-                        "solution-parity",
-                        detail=f"Workspace.slnx project parity failed:\n{'\n'.join(f'- {item}' for item in delta)}",
+                        "static", "solution-parity", detail=f"Workspace.slnx project parity failed:\n{'\n'.join(f'- {item}' for item in delta)}"
                     )
                 )
             )
@@ -213,11 +186,7 @@ def _projects(
             expanded = reduce(
                 lambda current, _: (
                     current
-                    | frozenset(
-                        candidate
-                        for candidate, references in graph.items()
-                        if candidate not in current and current.intersection(references)
-                    )
+                    | frozenset(candidate for candidate, references in graph.items() if candidate not in current and current.intersection(references))
                 ),
                 range(len(graph)),
                 frozenset(seeds),
@@ -227,9 +196,7 @@ def _projects(
             assert_never(unreachable)
 
 
-def _route_step(
-    acc: _ChangedRoute, file: str, *, index: ProjectIndex, workspace: Workspace, root: Path
-) -> _ChangedRoute:
+def _route_step(acc: _ChangedRoute, file: str, *, index: ProjectIndex, workspace: Workspace, root: Path) -> _ChangedRoute:
     ignored = not file.endswith(".csproj") and any(file.startswith(prefix) for prefix in IGNORE_FIXTURE_PREFIXES)
     full_trigger = file in FULL_TRIGGER_FILES or file.startswith(STATIC_FULL_TRIGGER_PREFIXES)
     relevant = full_trigger or file.endswith(".csproj") or Path(file).suffix in CS_SUFFIXES
@@ -245,9 +212,7 @@ def _route_step(
                     return _ChangedRoute(
                         acc.projects | {owner},
                         full=acc.full,
-                        format_routes=(*acc.format_routes, (owner, file))
-                        if file.endswith(".cs")
-                        else acc.format_routes,
+                        format_routes=(*acc.format_routes, (owner, file)) if file.endswith(".cs") else acc.format_routes,
                     )
                 case None if file.endswith(_ORPHAN_FULL_SUFFIXES):
                     return _ChangedRoute(acc.projects, full=True, format_routes=acc.format_routes)
@@ -256,7 +221,5 @@ def _route_step(
 
 
 @beartype
-def run_static_rail(
-    settings: QualitySettings, scope: ArtifactScope, mode: StaticScope
-) -> Result[StaticOutcome, ProcessFault]:
+def run_static_rail(settings: QualitySettings, scope: ArtifactScope, mode: StaticScope) -> Result[StaticOutcome, ProcessFault]:
     return _plan(settings, scope).bind(lambda plan: _gate_plan(plan, settings, scope, settings.root, mode))

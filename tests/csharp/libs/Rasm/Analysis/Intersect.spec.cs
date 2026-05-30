@@ -6,11 +6,7 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Analysis;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// BRIDGE-DEFERRED (*.verify.csx): every Intersection.* compute, GeometryKernel.CurveForm/BrepForm, Curve
-// distance/closest/tangent, mesh self-intersection, and the Analyze.* evaluator pipelines P/Invoke rhcommon_c;
-// SegmentInterval/OnFiniteLine are private (no entrypoint). Static rail owns: IntersectionResult construction, the
-// CanProject truth table, Project<TOut> dispatch, the pure unordered:true Supports/Shape tables, CanSelfIntersect,
-// and CanDeviation. Hits routes to IntersectionHit (Domain/Geometry.spec).
+// BRIDGE-DEFERRED: native Intersection.* / Analyze.*; static owns result construction, CanProject, unordered:true Supports/Shape, CanSelfIntersect, CanDeviation.
 internal static class IntersectGens {
     public static readonly Op Key = Op.Of(name: "intersect-test");
     // Distinct per-element payloads so a verbatim-echo swap (e.g. Values[0]<->Values[1]) is observable.
@@ -56,8 +52,7 @@ public sealed class IntersectionResultProjectionLaws {
 }
 
 public sealed class IntersectionResultCanProjectLaws {
-    // IntersectionResult is internal: a [Theory]/MemberData row leaks it through a public signature (CS0051/53), so
-    // iterate a PRIVATE case table via Spec.Cases (the law body has internal access).
+    // IntersectionResult is internal — use a private case table via Spec.Cases, not public Theory/MemberData rows.
     private static readonly (IntersectionResult Case, Type Native)[] Rows = [
         (IntersectGens.LinesCase, typeof(Line)), (IntersectGens.PointsCase, typeof(Point3d)), (IntersectGens.IntervalsCase, typeof(Interval))];
     private static readonly Type[] NativeChannels = [typeof(Line), typeof(Point3d), typeof(Interval), typeof(Polyline)];
@@ -74,9 +69,7 @@ public sealed class IntersectionResultCanProjectLaws {
 }
 
 public sealed class IntersectionShapeSupportConsistencyLaws {
-    // BRIDGE-DEFERRED: unordered:false and any no-direct-match pair force a full IntersectionCases scan into
-    // coercion-probing predicates that P/Invoke rhcommon_c; static rail owns the pure unordered:true rail
-    // (direct-case resolution, argument-swap recovery, wildcard).
+    // BRIDGE-DEFERRED: unordered:false scans native IntersectionCases; static owns unordered:true direct/swap/wildcard resolution.
     private static readonly (Type Left, Type Right, Type Output)[] DirectShapes = [
         (typeof(Line), typeof(Line), typeof(Point3d)), (typeof(Plane), typeof(Plane), typeof(Line)),
         (typeof(Line), typeof(BoundingBox), typeof(Interval)), (typeof(Mesh), typeof(Plane), typeof(Polyline)),

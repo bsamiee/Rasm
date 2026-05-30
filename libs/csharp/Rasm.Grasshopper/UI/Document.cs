@@ -2,6 +2,7 @@ using System.Globalization;
 using Grasshopper2.Doc;
 using Grasshopper2.Extensions;
 using Grasshopper2.Parameters.Special;
+using Grasshopper2.SpecialObjects;
 using Grasshopper2.UI.Slider;
 using Grasshopper2.Undo;
 using GhColour = Grasshopper2.Types.Colour.Colour;
@@ -40,8 +41,7 @@ public partial record ObjectScope {
 
     internal Fin<Unit> RequireMutationScope(Op op, ScopeUse use) =>
         this switch {
-            PrimaryCase or PrimaryAndSecondaryCase =>
-                Fin.Fail<Unit>(error: UiFault.InvalidInput(op: op, detail: use.RejectsPrimaryDetail())),
+            PrimaryCase or PrimaryAndSecondaryCase => use.RejectPrimary<Unit>(op: op),
             _ => Fin.Succ(value: unit),
         };
 
@@ -51,8 +51,8 @@ public partial record ObjectScope {
             state: (methods, objects, op, actions),
             selectionCase: static (s, _) => s.op.ApplySelected(methods: s.methods, actions: s.actions),
             objectsCase: static (s, target) => s.op.Apply(methods: s.methods, objects: s.objects, ids: target.Ids, actions: s.actions),
-            primaryCase: static (_, _) => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ObjectScope)), detail: ScopeUse.TargetMutation.RejectsPrimaryDetail())),
-            primaryAndSecondaryCase: static (_, _) => Fin.Fail<int>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ObjectScope)), detail: ScopeUse.TargetMutation.RejectsPrimaryDetail())))
+            primaryCase: static (_, _) => ScopeUse.TargetMutation.RejectPrimary<int>(op: Op.Of(name: nameof(ObjectScope))),
+            primaryAndSecondaryCase: static (_, _) => ScopeUse.TargetMutation.RejectPrimary<int>(op: Op.Of(name: nameof(ObjectScope))))
         select changed;
 }
 
@@ -64,6 +64,11 @@ internal sealed partial class ScopeUse {
 
     [UseDelegateFromConstructor]
     internal partial string RejectsPrimaryDetail();
+
+    // Single rejection projection shared by every primary-scope guard arm (ObjectScope.Apply,
+    // UiRail.ComposeDispatch, Layout.Measure, RequireMutationScope) so the failure construction lives once.
+    internal Fin<T> RejectPrimary<T>(Op op) =>
+        Fin.Fail<T>(error: UiFault.InvalidInput(op: op, detail: RejectsPrimaryDetail()));
 }
 
 [SmartEnum<int>]
@@ -211,13 +216,13 @@ public partial record FindCriterion {
     private FindCriterion() { }
     public sealed record NearPointCase(PointF Point, int MaxResults, float MaxDistance) : FindCriterion;
     public sealed record ByDrawOrderCase(bool Foreground, bool Background) : FindCriterion;
-    public sealed record GraphCase(Guid ParameterId, WireTraversal Direction) : FindCriterion;
+    public sealed record GraphCase(Guid ParameterId, WireTraversal Direction, WireObjectLimit MaxObjects) : FindCriterion;
     public sealed record ByNameCase(string Substring, bool CaseInsensitive) : FindCriterion;
 
-    public static FindCriterion Near(PointF point, int maxResults = 16, float maxDistance = 32f) => new NearPointCase(Point: point, MaxResults: maxResults, MaxDistance: maxDistance);
+    public static FindCriterion Near(PointF point, int maxResults = 16, float maxDistance = UiTolerance.PickRadius) => new NearPointCase(Point: point, MaxResults: maxResults, MaxDistance: maxDistance);
     public static FindCriterion DrawOrder(bool foreground = true, bool background = true) => new ByDrawOrderCase(Foreground: foreground, Background: background);
-    public static FindCriterion Upstream(Guid parameterId) => new GraphCase(ParameterId: parameterId, Direction: WireTraversal.Upstream);
-    public static FindCriterion Downstream(Guid parameterId) => new GraphCase(ParameterId: parameterId, Direction: WireTraversal.Downstream);
+    public static FindCriterion Upstream(Guid parameterId, WireObjectLimit? maxObjects = null) => new GraphCase(ParameterId: parameterId, Direction: WireTraversal.Upstream, MaxObjects: maxObjects ?? WireObjectLimit.Create(value: WireObjectLimit.DefaultCount));
+    public static FindCriterion Downstream(Guid parameterId, WireObjectLimit? maxObjects = null) => new GraphCase(ParameterId: parameterId, Direction: WireTraversal.Downstream, MaxObjects: maxObjects ?? WireObjectLimit.Create(value: WireObjectLimit.DefaultCount));
     public static FindCriterion ByName(string substring, bool caseInsensitive = true) => new ByNameCase(Substring: substring, CaseInsensitive: caseInsensitive);
     // Host ObjectList.FindBySearch is a verified empty-array stub; Search is a name-substring alias over ByNameCase.
     public static FindCriterion Search(string query, bool caseInsensitive = true) => new ByNameCase(Substring: query, CaseInsensitive: caseInsensitive);
@@ -359,10 +364,17 @@ public partial record ObjectSpec {
     private ObjectSpec() { }
     public sealed record SliderCase(string Name, UiNumber Number, Option<string> Format, GripShape Shape, Color Colour) : ObjectSpec;
     public sealed record ToggleCase(string Name, bool State) : ObjectSpec;
+    // ScribbleObject (Grasshopper2.SpecialObjects) is a DocumentObject — placed through the same DropObject
+    // path as Slider/Toggle. Panel/ValueList are deliberately excluded: their host types (DataPanelObject /
+    // ValueListObject) derive from Parameter (dataflow insertion differs) and ValueListItem is internal, so
+    // neither can be populated or placed cleanly through the IDocumentObject drop surface.
+    public sealed record ScribbleCase(string Text, GhOpenColorFamily Colour, int Angle) : ObjectSpec;
 
     public static ObjectSpec Slider(string name, UiNumber number, string? format = null, GripShape shape = GripShape.Label, Color? colour = null) =>
         new SliderCase(Name: name, Number: number, Format: Optional(format), Shape: shape, Colour: colour ?? Colors.Crimson);
     public static ObjectSpec Toggle(string name, bool state) => new ToggleCase(Name: name, State: state);
+    public static ObjectSpec Scribble(string text, GhOpenColorFamily colour = GhOpenColorFamily.Gray, int angle = 0) =>
+        new ScribbleCase(Text: text, Colour: colour, Angle: angle);
 
     internal Fin<IDocumentObject> Build(Op op) =>
         Switch(
@@ -377,7 +389,10 @@ public partial record ObjectSpec {
                 },
             toggleCase: static (key, t) =>
                 from name in key.AcceptText(value: t.Name)
-                select (IDocumentObject)new ToggleObject(state: t.State) { UserName = name });
+                select (IDocumentObject)new ToggleObject(state: t.State) { UserName = name },
+            scribbleCase: static (key, s) =>
+                from text in key.AcceptText(value: s.Text)
+                select (IDocumentObject)new ScribbleObject(text: text) { TextColour = s.Colour, TextAngle = s.Angle });
 }
 
 [SkipUnionOps]
@@ -699,7 +714,7 @@ internal static partial class Document {
                 select toSeq(objs.FindNear<IDocumentObject>(locus: point, maxResults: maxResults, maxDistance: maxDistance)).Map(UiRail.DocumentObjectSnapshotOf),
             byDrawOrderCase: static (objs, d) =>
                 Fin.Succ(value: toSeq(objs.ObjectsByDrawOrder(includeForeground: d.Foreground, includeBackground: d.Background)).Map(UiRail.DocumentObjectSnapshotOf)),
-            graphCase: static (objs, graph) => Wire.TraverseObjects(objects: objs, startParameterId: graph.ParameterId, direction: graph.Direction)
+            graphCase: static (objs, graph) => Wire.GraphObjects(objects: objs, anchor: GraphKey.Parameter(id: graph.ParameterId), direction: graph.Direction, maxObjects: graph.MaxObjects)
                 .Map(matches => matches.Map(UiRail.DocumentObjectSnapshotOf)),
             byNameCase: static (objs, n) =>
                 Op.Of(name: nameof(FindCriterion.ByName)).AcceptText(value: n.Substring)
@@ -714,16 +729,18 @@ internal static partial class Document {
                 .Map(document => UiRail.DocumentSnapshotOf(document: document, objects: document.Objects)))
             .Map(static snapshots => new DocumentUniverseSnapshot(Documents: snapshots, Count: snapshots.Count));
 
-    private static ParameterSnapshot ParameterSnapshotOf(IParameter parameter) =>
-        new(
+    private static ParameterSnapshot ParameterSnapshotOf(IParameter parameter) {
+        static string Inv<T>(T value) => string.Create(CultureInfo.InvariantCulture, $"{value}");
+        return new(
             Id: parameter.InstanceId,
             Name: parameter.Nomen.Name,
-            Kind: string.Create(CultureInfo.InvariantCulture, $"{parameter.Kind}"),
-            Access: string.Create(CultureInfo.InvariantCulture, $"{parameter.Access}"),
-            AccessVariability: string.Create(CultureInfo.InvariantCulture, $"{parameter.AccessVariability}"),
-            Requirement: string.Create(CultureInfo.InvariantCulture, $"{parameter.Requirement}"),
-            TypeFlavour: string.Create(CultureInfo.InvariantCulture, $"{parameter.TypeFlavour}"),
+            Kind: Inv(parameter.Kind),
+            Access: Inv(parameter.Access),
+            AccessVariability: Inv(parameter.AccessVariability),
+            Requirement: Inv(parameter.Requirement),
+            TypeFlavour: Inv(parameter.TypeFlavour),
             InputCount: parameter.Inputs.Count,
             OutputCount: parameter.Outputs.Count,
             HasColourOverride: parameter.ColourOverride is not null);
+    }
 }

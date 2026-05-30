@@ -67,3 +67,5 @@ return target switch {
 ```
 
 Generic `[Union]` on `record<TState>` emits `Switch<TState, TResult>` overloads with `where TState : allows ref struct` (C# 13+). The constraint propagates and conflicts with `sealed record` consumers that use `TState` without the same allowance — keep generic transition unions as `abstract record` + virtual `switch (this)` instead of `[Union]`. Non-generic `[Union]` cases are unaffected.
+
+Union dispatch attributes (`SwitchMapStateParameterName`, `[SkipUnionOps]`, `[GenerateUnionOps]`) — see `union-attributes.md`.

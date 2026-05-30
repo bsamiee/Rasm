@@ -4,9 +4,7 @@ using Rhino;
 namespace Rasm.TestKit;
 
 // --- [SERVICES] -----------------------------------------------------------------------------
-// Singular fixture surface for the entire testkit. Add new assembly-fixture types here so consumers see one
-// canonical home; register each via Directory.Build.props with `[assembly: AssemblyFixture(typeof(...))]`.
-// xUnit v3 has no IAssemblyFixture<T> — fixture types stand on their own, injected via test-class ctor.
+// Assembly fixtures register via Directory.Build.props `[assembly: AssemblyFixture(typeof(...))]`; inject through test-class ctor.
 public sealed class ContextFixture {
     public ContextFixture() {
         HostBundle.Register();

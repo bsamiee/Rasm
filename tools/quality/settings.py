@@ -29,18 +29,7 @@ _ARTIFACTS: Final[str] = ".artifacts"
 _DEFAULT_RASM_TESTS: Final[Path] = Path("tests/csharp/libs/Rasm/Rasm.Tests.csproj")
 _DOTNET_CLI: Final[str] = "dotnet-cli"
 _MARKER: Final[str] = "Workspace.slnx"
-CS_SUFFIXES: Final[frozenset[str]] = frozenset((
-    ".cs",
-    ".csproj",
-    ".props",
-    ".targets",
-    ".json",
-    ".resx",
-    ".ico",
-    ".ghicon",
-    ".yml",
-    ".yaml",
-))
+CS_SUFFIXES: Final[frozenset[str]] = frozenset((".cs", ".csproj", ".props", ".targets", ".json", ".resx", ".ico", ".ghicon", ".yml", ".yaml"))
 FULL_CONFIGURATIONS: Final[tuple[Configuration, Configuration]] = ("Debug", "Release")
 FULL_TRIGGER_FILES: Final[frozenset[str]] = frozenset((
     "Directory.Build.props",
@@ -90,10 +79,9 @@ class QualitySettings(BaseSettings):
     rhino_app: Path = Field(default_factory=lambda: QualitySettings._resolve_rhino_app())
     bridge_endpoint: Path = Field(default=Path.home() / ".rasm" / "rhino-bridge.json")
     scenario_timeout_s: Annotated[float, Field(gt=0.0)] = 180.0
+    verify_retention_seconds: Annotated[float, Field(gt=0.0)] = 300.0
     configurations: str | None = None
-    run_id: str = Field(
-        default_factory=lambda: f"{datetime.now(tz=UTC).strftime('%Y-%m-%dT%H-%M-%S.%f')}-{os.getpid()}"
-    )
+    run_id: str = Field(default_factory=lambda: f"{datetime.now(tz=UTC).strftime('%Y-%m-%dT%H-%M-%S.%f')}-{os.getpid()}")
     coverage_threshold: float | None = None
     coverage_threshold_type: str | None = None
     coverage_threshold_stat: str | None = None
@@ -138,19 +126,14 @@ class QualitySettings(BaseSettings):
     @staticmethod
     def _newest_rhino_app() -> Path | None:
         def bundle_version(app: Path) -> tuple[int, ...]:
-            # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=plist-version-read ticket=QUALITY-R8
-            # expires=2026-12-31 rationale=filesystem-ingress-boundary
+            # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=plist-read ticket=QUALITY-R8 expires=2026-12-31 rationale=fs-ingress
             try:
                 plist = plistlib.loads((app / "Contents" / "Info.plist").read_bytes())
             except OSError, plistlib.InvalidFileException:
                 return ()
             return tuple(int(part) for part in str(plist.get("CFBundleVersion", "")).split(".") if part.isdigit())
 
-        ranked = sorted(
-            (bundle_version(app), "WIP" in app.name, app)
-            for app in Path("/Applications").glob("Rhino*.app")
-            if app.is_dir()
-        )
+        ranked = sorted((bundle_version(app), "WIP" in app.name, app) for app in Path("/Applications").glob("Rhino*.app") if app.is_dir())
         return ranked[-1][2] if ranked else None
 
     @staticmethod
@@ -199,15 +182,15 @@ class QualitySettings(BaseSettings):
     @property
     def bridge_projects(self) -> tuple[Path, ...]:
         base = self.root / "tools/rhino-bridge"
-        return (
-            base / "protocol/Rasm.RhinoBridge.Protocol.csproj",
-            base / "plugin/Rasm.RhinoBridge.Plugin.csproj",
-            self.bridge_client,
-        )
+        return (base / "protocol/Rasm.RhinoBridge.Protocol.csproj", base / "plugin/Rasm.RhinoBridge.Plugin.csproj", self.bridge_client)
+
+    @property
+    def bridge_verify_root(self) -> Path:
+        return self.artifact_root / "rhino" / "verify"
 
     @property
     def bridge_verify_dir(self) -> Path:
-        return self.artifact_root / "rhino" / "verify" / self.run_id
+        return self.bridge_verify_root / self.run_id
 
     def static_configurations(self, scope: Literal["changed", "full"]) -> tuple[Configuration, ...]:
         raw = self.configurations
@@ -274,6 +257,4 @@ class ArtifactScope:
     def open(cls, settings: QualitySettings, rail: str) -> Iterator[ArtifactScope]:
         scope_path = settings.artifact_root / _QUALITY / rail
         (scope_path / _DOTNET_CLI).mkdir(parents=True, exist_ok=True)
-        yield ArtifactScope(
-            root=settings.root, rail=rail, scope_path=scope_path, dotnet_env=settings.dotnet_env(scope_path, rail=rail)
-        )
+        yield ArtifactScope(root=settings.root, rail=rail, scope_path=scope_path, dotnet_env=settings.dotnet_env(scope_path, rail=rail))

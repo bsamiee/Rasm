@@ -75,7 +75,7 @@ Run commands from repository root.
 | **7** | `uv run python -m tools.quality bridge package rasm-bridge <version>` | Build bridge `.rhp`, run Yak in staged directory, and create a local package. |
 | **8** | `uv run python -m tools.quality bridge deploy rasm-bridge <version>` | Install the staged bridge package, refresh RhinoWIP via idempotent launch, and verify bridge health. Skips automated quit when no live bridge endpoint exists (Rhino already closed); retires stale `~/.rasm/rhino-bridge.json` before relaunch. |
 | **9** | `uv run python -m tools.quality bridge publish rasm-bridge <version>` | Build, install locally, then push to the configured Yak feed in one shot. |
-| **10** | `uv run python -m tools.quality bridge verify <scenario-or-glob>` | Convenience rail for source-only scenarios; resolves owning project, routes through `bridge check`. |
+| **10** | `uv run python -m tools.quality bridge verify <scenario-or-glob>` | Convenience rail for source-only scenarios; resolves owning project, routes through `bridge check`, writes JSON/PNG evidence under `.artifacts/rhino/verify/<run-id>`, and prunes prior verify bundles older than the retention window. |
 | **11** | `uv run python -m tools.quality api doctor` | Report local RhinoWIP API XML, ILSpy, and RhinoCode metadata availability. |
 | **12** | `uv run python -m tools.quality api path <key> [assembly\|xml]` | Print the resolved assembly or XML path for an API reference key. |
 | **13** | `uv run python -m tools.quality api xml <key> <pattern>` | Search the resolved XML documentation with `rg`. |
@@ -149,8 +149,9 @@ Environment overrides:
 | **1** | `RHINO_WIP_APP_PATH` | Target a specific RhinoWIP bundle for launch and MSBuild reference resolution. The operator always exports it from the resolved bundle; launch fails loud when it is unset. Unset at the operator: resolves the newest installed `/Applications/Rhino*.app` by `CFBundleVersion` (WIP-preferred). |
 | **2** | `QUALITY_RHINO_APP` | Operator-level RhinoWIP path; exported to the client and MSBuild as `RHINO_WIP_APP_PATH`. |
 | **3** | `CONFIGURATION` | Build configuration for project checks (default `Release`). |
-| **4** | `RASM_BRIDGE_CONNECT_TIMEOUT_S` | Cold-launch connect deadline in seconds (default `90`). |
-| **5** | `RASM_BRIDGE_TRANSPORT_TIMEOUT_S` | Warm request/transport deadline in seconds (default `35`). |
+| **4** | `QUALITY_VERIFY_RETENTION_SECONDS` | Verify report/capture retention window in seconds (default `300`); the operator prunes stale verify bundles on each verify run. |
+| **5** | `RASM_BRIDGE_CONNECT_TIMEOUT_S` | Cold-launch connect deadline in seconds (default `90`). |
+| **6** | `RASM_BRIDGE_TRANSPORT_TIMEOUT_S` | Warm request/transport deadline in seconds (default `35`). |
 
 Every bridge timeout follows one env-overridable rule — `RASM_BRIDGE_<NAME>_TIMEOUT_S` (seconds, positive) for `HELLO`, `CONNECT`, `TRANSPORT`, `QUIT_WAIT`, `HANDSHAKE`, and `IDLE_DISPATCH`.
 

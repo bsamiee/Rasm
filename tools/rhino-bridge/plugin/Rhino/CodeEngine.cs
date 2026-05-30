@@ -12,9 +12,7 @@ internal sealed record CodeOutcome(
     IReadOnlyList<BridgeDiagnostic> Diagnostics);
 
 // --- [SERVICES] -------------------------------------------------------------------------
-// Sole boundary for the undocumented RhinoCodePlatform / Rhino.Runtime.Code surface. A WIP build that
-// shifts these signatures breaks exactly this file; Readiness() turns a runtimeconfig/runtime mismatch
-// into a loud diagnostic instead of an opaque execute failure.
+// Sole RhinoCodePlatform/Rhino.Runtime.Code boundary — WIP signature drift breaks here; Readiness() surfaces mismatch early.
 internal static class CodeEngine {
     private static readonly Lazy<bool> Language = new(
         valueFactory: static () => {
@@ -30,10 +28,7 @@ internal static class CodeEngine {
         using global::Rhino.Runtime.Code.Execution.RunContext context = new(defaultOutputStream: false, defaultErrorStream: false) {
             CachePolicy = global::Rhino.Runtime.Code.Execution.CachePolicy.NeverCache,
             PreferBasePathResolution = false,
-            // The csx LangVersion is hard-pinned to C# 10 by RhinoCode (`RhinoCodePlatform.Rhino3D` `CSharp<TCode>.CSharpVersion`)
-            // and is NOT influenced by the .NET runtime TFM nor by any RunContext.Options key — only "csharp.compiler.optimize",
-            // "csharp.compiler.unsafe", and "csharp.resolver.isolate" are read. Scenarios must therefore stay C# 10-clean (no list
-            // patterns / collection expressions); when McNeel raises that constant a future Rhino auto-upgrades scenarios with no change here.
+            // RhinoCode pins csx to C# 10 (CSharpVersion); only compiler/resolver options apply — scenarios stay C# 10-clean.
             Options = { ["csharp.resolver.isolate"] = true },
             OutputStream = stdout,
             ErrorStream = stderr,
@@ -85,11 +80,7 @@ internal static class CodeEngine {
         }
     }
 
-    // The isolated csx compiler auto-references the platform host set (Eto, RhinoCommon) but NOT plugin assemblies like
-    // Grasshopper2. For GH-aware scenarios, add the ALREADY-LOADED GH2 assemblies as identity-safe CompileReferences:
-    // ReferenceSet.Add(Assembly) → CompileReference.FromAssembly references the loaded object (compiles against its
-    // metadata, binds the default-ALC copy at runtime) — so GH2 types become nameable in scenarios with zero bridge
-    // compile-time GH2 dependency and without the collectible-ALC path-reload hazard that `#r "<gh2 path>"` would trigger.
+    // GH2: add already-loaded assemblies as CompileReference.FromAssembly — nameable in scenarios without `#r` collectible reload.
     private static void AddHostReferences(global::Rhino.Runtime.Code.Code code, IReadOnlyList<string> pluginIds) {
         if (!pluginIds.Any(predicate: static id => string.Equals(a: id, b: BridgeWire.GrasshopperPluginId, comparisonType: StringComparison.Ordinal))) {
             return;

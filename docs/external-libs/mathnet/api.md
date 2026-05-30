@@ -34,6 +34,8 @@
 | [5] | `MathNet.Numerics.Statistics` | Estimators and distributions. | Rasm result vocabulary. |
 | [6] | `MathNet.Symbolics` | Formula parse, transform, calculus, evaluate, compile. | Runtime load safety. |
 
+**Adoption in production `libs/`:** Numerics via `Vectors/Matrix.cs`, `Cloud.cs`, and `Mesh.cs` (CSparse hybrid); detail in `rasm.md`. Symbolics, Optimization, Integration, and Interpolation are pinned but **not referenced** in production `.cs` files.
+
 ---
 ## [3][CONSTRUCTION]
 >**Dictum:** *Use public builders and keep storage internal.*

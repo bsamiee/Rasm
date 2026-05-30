@@ -26,6 +26,8 @@
 
 Use delegate-backed constructor members when each item owns behavior such as metric projection, port policy, field blend, display mode, or host capability gate. Prefer generated `Switch`/`Map` or item delegates over external dictionaries and repeated switch arms.
 
+`[UseDelegateFromConstructor]` on SmartEnum items injects constructor-selected delegates (e.g. `MatrixNormKind`, `MeshLaplacian`, wire traversal policy). Prefer `static` factory helpers + initializer expressions for dense case tables — see `objects.md` §5.2.
+
 ---
 ## [3][RASM_POLICY]
 >**Dictum:** *Smart enums replace strings, loose enums, and side maps.*

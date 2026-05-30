@@ -19,6 +19,8 @@
 | [4] | Direct `Solve` | Simple systems where factorization policy is not exposed. |
 | [5] | Iterative solvers and criteria | Large or sparse systems requiring status and iteration reporting. |
 
+Rasm production paths (detail in `rasm.md`): `Svd`, `Lu`, `Qr`, `Cholesky`, `Evd`; sparse `BiCgStab` + `DiagonalPreconditioner`; custom `LobpcgCore`; CSparse `CholeskySparse` for SPD sparse systems.
+
 ---
 ## [2][ITERATIVE]
 >**Dictum:** *Iterative solvers return status, not just values.*
@@ -26,6 +28,10 @@
 <br>
 
 Document solver family, preconditioner, stop criteria, iteration count, residual, and final status. Verify exact solver names from pinned XML before use. Keep solver result shape Rasm-owned; never expose MathNet storage as GH2 output identity.
+
+Verified iterative surfaces in Rasm `Matrix.cs`: `BiCgStab`, `DiagonalPreconditioner`, `FailureStopCriterion`, `DivergenceStopCriterion`, `ResidualStopCriterion`, `IterationCountStopCriterion`.
+
+Receipt types: **`SolveReceipt`** / **`EigenSolveReceipt<…>`** are records; **`SolvePath`**, **`SolveStop`**, **`EigenSolvePath`**, **`EigenSolveStop`** are `[SmartEnum<int>]` — see `rasm.md`.
 
 ---
 ## [3][RHINO_PROJECTION]

@@ -19,6 +19,16 @@
 | [4] | Conversion operators | Enable only when interop removes boundary noise. |
 | [5] | Arithmetic operators | Use only where failure cannot be hidden. |
 
+### [1.1][ATTRIBUTE_PROPERTIES]
+
+| [INDEX] | [PROPERTY] | [USE] |
+| :-----: | ---------- | ----- |
+| [1] | `KeyMemberName = "Value"` | Branded scalar key field for equality and parsing |
+| [2] | `KeyMemberAccessModifier = AccessModifier.Public` | Expose key when boundary protocol requires it |
+| [3] | `[KeyMemberEqualityComparer<T>]` / `[KeyMemberComparer<T>]` | Ordinal or ignore-case key comparison |
+| [4] | `SkipFactoryMethods` | Custom `Fin` construction rail — rare |
+| [5] | `EqualityComparisonOperators` / `ComparisonOperators` | `[ValueObject<T>]` only — not `[ComplexValueObject]` |
+
 ---
 ## [2][COMPLEX_OBJECTS]
 >**Dictum:** *Composite identity belongs in the generated type when fields form one concept.*

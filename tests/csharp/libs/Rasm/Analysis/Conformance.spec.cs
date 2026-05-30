@@ -6,9 +6,7 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Analysis;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// BRIDGE-DEFERRED (*.verify.csx): Conformance.Samples/SampleResiduals/DistanceFor + Run(...).Apply (P/Invoke rhcommon_c).
-// Static rail owns: ConformanceMetric catalog (NON-uniform per-case Output), AcceptsTarget vs an independent oracle,
-// factory→(Metric,Count), dispatch (Run rejects at Supported() pre-native), Project<TOut> over hand-built ResidualSamples.
+// BRIDGE-DEFERRED: native Conformance apply; static owns metric catalog, AcceptsTarget oracle, factory dispatch, Project over ResidualSamples.
 internal static class ConformanceGens {
     public static readonly Op Key = Op.Of(name: "conformance-test");
     public static readonly Type[] OutputsByKey =

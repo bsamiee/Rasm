@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import shutil
 from typing import assert_never, Final, Literal
 
 from beartype import beartype
@@ -36,14 +37,8 @@ class ApiDoctor(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
 
 _API: Final[dict[ApiKey, ApiSpec]] = {
     "eto": ("Eto.dll", "Eto.xml"),
-    "gh2": (
-        "ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll",
-        "ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.xml",
-    ),
-    "gh2-io": (
-        "ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll",
-        "ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.xml",
-    ),
+    "gh2": ("ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll", "ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.xml"),
+    "gh2-io": ("ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll", "ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.xml"),
     "rhino-code": ("Rhino.Runtime.Code.dll", ""),
     "rhino-code-remote": ("Rhino.Runtime.Code.Remote.dll", ""),
     "rhino-common": ("RhinoCommon.dll", "RhinoCommon.xml"),
@@ -61,16 +56,18 @@ def _api_xml_path(rhino_app: Path, key: ApiKey) -> tuple[str, str]:
     return (primary, "primary") if primary and Path(primary).is_file() else (primary, "missing")
 
 
-def _with_dotnet_apphost(
-    argv: tuple[str, ...], *, env: dict[str, str] | None = None, check: bool = True
-) -> Result[Completed, ProcessFault]:
-    dotnet_bin = (env or {}).get("DOTNET_ROOT", "")
+def _with_dotnet_apphost(argv: tuple[str, ...], *, env: dict[str, str] | None = None, check: bool = True) -> Result[Completed, ProcessFault]:
+    # ilspycmd is a framework-dependent apphost; without a DOTNET_ROOT pointing at a runtime it
+    # aborts (exit 131). Resolve from env, then the `dotnet` on PATH, then the macOS install root,
+    # accepting only a root that actually carries a shared/ runtime dir.
+    dotnet = shutil.which("dotnet")
+    candidates = ((env or {}).get("DOTNET_ROOT", ""), str(Path(dotnet).resolve().parent) if dotnet else "", "/usr/local/share/dotnet")
     overlay: dict[str, str] | None
-    match Path(dotnet_bin) if dotnet_bin else Path():
-        case path if path.is_dir():
-            overlay = {**(env or {}), "DOTNET_ROOT": str(path), "DOTNET_MULTILEVEL_LOOKUP": "0"}
-        case _:
+    match next((root for root in candidates if root and (Path(root) / "shared").is_dir()), ""):
+        case "":
             overlay = env
+        case root:
+            overlay = {**(env or {}), "DOTNET_ROOT": root, "DOTNET_MULTILEVEL_LOOKUP": "0"}
     return run(argv, env=overlay, check=check)
 
 
@@ -99,19 +96,12 @@ def api(
             )
             ilspy_meta = (
                 _with_dotnet_apphost(("ilspycmd", "--version"), env=env, check=False)
-                .map(
-                    lambda done: {
-                        "status": "ok" if done.returncode == 0 else "failed",
-                        "version": done.text.strip() or "unavailable",
-                    }
-                )
+                .map(lambda done: {"status": "ok" if done.returncode == 0 else "failed", "version": done.text.strip() or "unavailable"})
                 .default_with(lambda _: {"status": "failed", "version": "unavailable"})
             )
             rhino_code = rhino_app / "Contents/Resources/bin/rhinocode"
             direct, roll = (
-                run((str(rhino_code), "list", "--json"), env=overlay, check=False)
-                .map(lambda done: done.returncode)
-                .default_with(lambda _: -1)
+                run((str(rhino_code), "list", "--json"), env=overlay, check=False).map(lambda done: done.returncode).default_with(lambda _: -1)
                 if rhino_code.is_file()
                 else -1
                 for overlay in (None, {**base_env, "DOTNET_ROLL_FORWARD": "Major"})
@@ -150,10 +140,7 @@ def api(
                 case "xml":
                     path, _ = _api_xml_path(rhino_app, key)
                     missing = f"Missing API XML for {key}: {path}"
-            return Ok(path).filter_with(
-                lambda value: bool(value) and Path(value).is_file(),
-                lambda _: ProcessFault.fail("api", key, detail=missing),
-            )
+            return Ok(path).filter_with(lambda value: bool(value) and Path(value).is_file(), lambda _: ProcessFault.fail("api", key, detail=missing))
         case "search":
             return api(rhino_app, "path", key, kind="xml", env=env).bind(
                 lambda xml: (
@@ -165,15 +152,10 @@ def api(
         case "types":
             return (
                 _with_dotnet_apphost(("ilspycmd", "-l", "cisde", assembly), env=env, check=True)
-                .filter_with(
-                    lambda done: not pattern or pattern in done.text,
-                    lambda _: ProcessFault.fail("api", key, detail=b"No types matched"),
-                )
+                .filter_with(lambda done: not pattern or pattern in done.text, lambda _: ProcessFault.fail("api", key, detail=b"No types matched"))
                 .map(lambda done: done.text)
             )
         case "decompile":
-            return _with_dotnet_apphost(("ilspycmd", "-t", type_name, assembly), env=env, check=True).map(
-                lambda done: done.text
-            )
+            return _with_dotnet_apphost(("ilspycmd", "-t", type_name, assembly), env=env, check=True).map(lambda done: done.text)
         case unreachable:
             assert_never(unreachable)

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Eto.Forms;
 using Grasshopper2.Doc;
 using Grasshopper2.Undo;
@@ -588,41 +589,23 @@ internal static partial class Events {
                 detach: () => kind.Detach(doc.Undo, events))
             select sub);
 
+    // UITimer.Interval is seconds (sub-ms quantum); intervals below the Eto loop tick coalesce. Lifecycle
+    // transfers to the returned Subscription — the detachOnce-guarded detach stops/unsubscribes/disposes the
+    // timer exactly once, so Subscription.GuardDetach owns run-once (no per-scope Interlocked gate needed).
+    [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope",
+        Justification = "UITimer ownership transfers to the returned Subscription; the detachOnce-guarded detach stops, unsubscribes, and disposes it exactly once.")]
     private static GrasshopperUiIntent<Subscription> SubscribeTimer(TimeSpan interval, Func<Fin<Unit>> handler) =>
         GhUi.Read(run: scope =>
             from validInterval in Optional(interval).Filter(static value => value > TimeSpan.Zero)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeTimer)), detail: "interval must be positive"))
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeTimer)), detail: "null handler"))
-            let scope2 = new TimerScope(interval: validInterval, tick: () => GrasshopperUi.Handler(valid: valid).Ignore())
+            let timer = new UITimer { Interval = validInterval.TotalSeconds }
+            let tick = (EventHandler<EventArgs>)((_, _) => GrasshopperUi.Handler(valid: valid).Ignore())
             from sub in BindMarshaled(
-                attach: scope2.Start,
-                detach: scope2.Dispose,
+                attach: () => { timer.Elapsed += tick; timer.Start(); },
+                detach: () => { timer.Stop(); timer.Elapsed -= tick; timer.Dispose(); },
                 detachOnce: true)
             select sub);
-
-    // Idempotent UITimer lifecycle wrapper. Attaches Elapsed handler on Start; Dispose is gated by
-    // Interlocked.Exchange so a double Subscription.Dispose (or rollback after Start success) is safe.
-    private sealed class TimerScope : IDisposable {
-        private readonly UITimer timer;
-        private readonly EventHandler<EventArgs> tick;
-        private int disposed;
-
-        internal TimerScope(TimeSpan interval, System.Action tick) {
-            timer = new UITimer { Interval = interval.TotalSeconds };
-            this.tick = (_, _) => tick();
-        }
-
-        internal void Start() { timer.Elapsed += tick; timer.Start(); }
-
-        public void Dispose() {
-            if (Interlocked.Exchange(ref disposed, 1) == 1) {
-                return;
-            }
-            timer.Stop();
-            timer.Elapsed -= tick;
-            timer.Dispose();
-        }
-    }
 
     private static GrasshopperUiIntent<Subscription> SubscribeControl(Control source, ControlEvent kind, Func<ControlEventSnapshot, Fin<Unit>> handler) =>
         GhUi.Read(run: scope =>
@@ -658,6 +641,9 @@ internal static partial class Events {
     internal static Fin<Subscription> BindMarshaled(System.Action attach, System.Action detach, bool detachOnce = false) =>
         Subscription.Bind(attach: attach, detach: detach, marshalToUi: true, detachOnce: detachOnce);
 
+    // Fire-on-subscribe asymmetry: unlike the Document/Solution/Undo subscribers (plain BindMarshaled, no
+    // initial publish), the Eto state events (modifiers, logical pixel size) push the current value once at
+    // attach so the handler observes the live state immediately rather than only on the next change.
     private static Fin<Subscription> BindEtoChanged(System.Action attach, System.Action detach, System.Action initialTick) =>
         BindMarshaled(
             attach: () => {

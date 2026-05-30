@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Globalization;
@@ -112,7 +113,6 @@ public abstract record BridgeMarker {
 }
 
 public sealed record BridgeEndpoint(
-    string Schema,
     string PipeName,
     int RhinoPid,
     DateTimeOffset RhinoStartedAt,
@@ -122,20 +122,17 @@ public sealed record BridgeEndpoint(
     string BridgeAssemblyInformationalVersion,
     string RhinoVersion) {
     public const double StartTimeToleranceSeconds = 1.0;
-    /// One liveness rule shared by client staleness validation and server endpoint-ownership: a recorded endpoint
-    /// belongs to a Rhino incarnation identified by PID and process start time within <see cref="StartTimeToleranceSeconds"/>.
+    /// Liveness: PID + process start time within <see cref="StartTimeToleranceSeconds"/>.
     public bool IsLiveFor(int rhinoPid, DateTimeOffset rhinoStartedAt) =>
         RhinoPid == rhinoPid && Math.Abs(value: (RhinoStartedAt - rhinoStartedAt).TotalSeconds) <= StartTimeToleranceSeconds;
-    /// Pipe-name handshake companion to <see cref="IsLiveFor"/>: the nonce-bearing pipe name a live Hello reports must
-    /// equal the on-disk record, so a recycled PID whose new incarnation rewrote a different nonce is rejected as stale.
+    /// Staleness: Hello pipe name must match the on-disk record (guards recycled PID with a new nonce).
     public bool MatchesPipe(string? reportedPipeName) =>
         !string.IsNullOrWhiteSpace(value: reportedPipeName) && string.Equals(a: PipeName, b: reportedPipeName, comparisonType: StringComparison.Ordinal);
 }
 
-public sealed record BridgeRequest(string Schema, string Command, int TimeoutMs, JsonElement? Payload);
+public sealed record BridgeRequest(string Command, int TimeoutMs, JsonElement? Payload);
 
 public sealed record BridgeReply(
-    string Schema,
     string Command,
     PhaseStatus Status,
     JsonElement? Data,
@@ -177,12 +174,9 @@ public abstract record BridgeReport {
         bool Modified) : BridgeReport;
 }
 
-/// Truthful runtime evidence captured around in-Rhino execution: the command-window strings, every exception routed
-/// through <c>HostUtils.OnExceptionReport</c> (faults RhinoApp.InvokeOnUiThread would otherwise swallow), and a
-/// best-effort Grasshopper2 active-solution snapshot read by reflection (null when GH2 is not in play).
+/// Command-window strings, <c>HostUtils.OnExceptionReport</c> faults, and optional GH2 snapshot (reflection; null when GH2 absent).
 public sealed record BridgeRuntimeDiagnostics(IReadOnlyList<string> CommandWindow, IReadOnlyList<BridgeFault> ExceptionReports, BridgeGhSolution? Gh);
-/// GH2 active-document/solution snapshot reflected without a compile-time Grasshopper2 reference. WarningCount/ErrorCount
-/// are best-effort (null when the per-object message accessor is unavailable); State is the solution server state string.
+/// GH2 solution snapshot via reflection; counts are best-effort; State is the solution server phase name.
 public sealed record BridgeGhSolution(bool DocumentInPlay, int ObjectCount, int? WarningCount, int? ErrorCount, string State);
 
 public sealed record BridgePhase(
@@ -262,22 +256,28 @@ public sealed record BridgeFault(string Category, string Message, string? Type =
 }
 
 // --- [CONSTANTS] ------------------------------------------------------------------------
-public static class BridgeTimeouts {
-    // Every timeout flows through one env-overridable rule (RASM_BRIDGE_<NAME>_TIMEOUT_S, seconds, >0) — no fixed magic numbers.
-    public static TimeSpan Hello { get; } = EnvSeconds(suffix: "HELLO", fallback: 3.0);
-    public static TimeSpan Connect { get; } = EnvSeconds(suffix: "CONNECT", fallback: 90.0);
-    public static TimeSpan Transport { get; } = EnvSeconds(suffix: "TRANSPORT", fallback: 35.0);
-    public static TimeSpan QuitWait { get; } = EnvSeconds(suffix: "QUIT_WAIT", fallback: 30.0);
-    public static TimeSpan Handshake { get; } = EnvSeconds(suffix: "HANDSHAKE", fallback: 2.0);
-    public static TimeSpan IdleDispatch { get; } = EnvSeconds(suffix: "IDLE_DISPATCH", fallback: 300.0);
-    private static TimeSpan EnvSeconds(string suffix, double fallback) =>
-        double.TryParse(s: Environment.GetEnvironmentVariable(variable: $"RASM_BRIDGE_{suffix}_TIMEOUT_S"), style: NumberStyles.Float | NumberStyles.AllowThousands, provider: CultureInfo.InvariantCulture, result: out double seconds) && seconds > 0.0
-            ? TimeSpan.FromSeconds(value: seconds)
-            : TimeSpan.FromSeconds(value: fallback);
+// All bridge timeouts scale via RASM_BRIDGE_TIMEOUT_SCALE (>0, default 1.0) instead of per-timeout env knobs.
+public sealed record TimeoutPolicy(TimeSpan Hello, TimeSpan Connect, TimeSpan Transport, TimeSpan QuitWait, TimeSpan Handshake, TimeSpan IdleDispatch, TimeSpan LivenessSettle) {
+    public static TimeoutPolicy Default { get; } = Scaled(scale: EnvScale());
+    private static TimeoutPolicy Scaled(double scale) =>
+        new(
+            Hello: Seconds(seconds: 3.0, scale: scale),
+            Connect: Seconds(seconds: 90.0, scale: scale),
+            Transport: Seconds(seconds: 35.0, scale: scale),
+            QuitWait: Seconds(seconds: 30.0, scale: scale),
+            Handshake: Seconds(seconds: 2.0, scale: scale),
+            IdleDispatch: Seconds(seconds: 300.0, scale: scale),
+            // Settle past the GH2 deferred-paint window so a scenario that destabilises the host (e.g. a
+            // StatusBar paint NPE on a shown editor) is caught by the post-execute liveness probe.
+            LivenessSettle: Seconds(seconds: 4.0, scale: scale));
+    private static TimeSpan Seconds(double seconds, double scale) => TimeSpan.FromSeconds(value: seconds * scale);
+    private static double EnvScale() =>
+        double.TryParse(s: Environment.GetEnvironmentVariable(variable: "RASM_BRIDGE_TIMEOUT_SCALE"), style: NumberStyles.Float | NumberStyles.AllowThousands, provider: CultureInfo.InvariantCulture, result: out double scale) && scale > 0.0
+            ? scale
+            : 1.0;
 }
 
 public static class BridgeWire {
-    public const string Schema = "rasm.rhino-bridge.v1";
     public const string ReturnPrefix = BridgeMarker.Prefix + "return=";
     public const string Hello = "hello";
     public const string Doctor = "doctor";
@@ -291,9 +291,7 @@ public static class BridgeWire {
     public const PipeOptions PipePolicy = PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly;
     public const int OutputLimit = 32768;
     public const int ProcessOutputLimit = 16384;
-    /// Grasshopper2 plugin id (Rhino 9 `Grasshopper2Plugin.rhp`). GH-aware scenarios request it as a HostPlugin so the
-    /// in-Rhino bridge pre-loads GH2 into the default ALC before isolated execution — the isolated resolver then binds
-    /// the already-loaded assembly instead of illegally re-loading it into the collectible context.
+    /// GH2 plugin id — pre-load into default ALC before isolated execution so the resolver binds, not re-loads, GH2.
     public const string GrasshopperPluginId = "8307876d-a461-4daa-bb77-eb3715925513";
     public static FrozenSet<string> FrameworkReferencePackMarkers { get; } = new[] {
         "/packs/Microsoft.NETCore.App.Ref/",
@@ -318,14 +316,11 @@ public static class BridgeWire {
     public static JsonSerializerOptions PrettyJson { get; } = Options(writeIndented: true);
     public static string EndpointDirectory => Path.Combine(path1: Environment.GetFolderPath(folder: Environment.SpecialFolder.UserProfile), path2: ".rasm");
     public static string EndpointPath => Path.Combine(path1: EndpointDirectory, path2: "rhino-bridge.json");
-    public static bool IsCurrent(string? schema) =>
-        string.Equals(a: schema, b: Schema, comparisonType: StringComparison.Ordinal);
     public static bool IsHostAssemblyName(string? name) =>
         !string.IsNullOrWhiteSpace(value: name) && HostAssemblyNames.Contains(item: name);
     public static bool IsFrameworkReferencePack(string? path) =>
         !string.IsNullOrEmpty(value: path) && FrameworkReferencePackMarkers.Any(predicate: marker => path.Contains(value: marker, comparisonType: StringComparison.Ordinal));
-    /// RhinoCode isolated #r order must initialize LanguageExt traits before staged Rasm assemblies touch HashMap keys.
-    /// Staged Rasm assemblies must use primitive or built-in tuple HashMap keys only; custom record-struct keys fail under isolated resolver trait warmup.
+    /// Bootstrap LanguageExt traits before staged Rasm assemblies; use primitive/tuple HashMap keys only under isolated warmup.
     public const string LanguageExtBootstrap =
         "global::LanguageExt.HashMap<string, int> __rasmBridgeLanguageExtBootstrap = global::LanguageExt.HashMap<string, int>.Empty;\n"
         + "global::LanguageExt.HashMap<(uint Serial, System.Guid DefId), int> __rasmBridgeLanguageExtTupleBootstrap = global::LanguageExt.HashMap<(uint Serial, System.Guid DefId), int>.Empty;";
@@ -337,8 +332,7 @@ public static class BridgeWire {
     /// Grasshopper-aware scenario compile surface: host-resolvable usings only (Eto). GH2 namespaces stay in scenario preamble when needed.
     public const string ScenarioHostUsings =
         "using Eto.Drawing;\n";
-    /// Explicit marker the client injects after a scenario's preamble; the body begins at the first such marker (or, as a
-    /// fallback, the first non-preamble line). Keeps preamble/body splitting deterministic instead of heuristic.
+    /// Injected after preamble; body starts here or at the first non-preamble line.
     public const string ScenarioBodyMarker = "// --- [SCENARIO_BODY] ---";
     public static FrozenSet<string> CollisionWatchAssemblyNames { get; } = new[] {
         "FSharp.Core",
@@ -363,19 +357,41 @@ public static class BridgeWire {
             };
     }
     public static BridgeRequest Request<TPayload>(string command, TPayload payload, int timeoutMs = 15000) =>
-        new(Schema: Schema, Command: command, TimeoutMs: timeoutMs, Payload: JsonSerializer.SerializeToElement(value: payload, options: CompactJson));
+        new(Command: command, TimeoutMs: timeoutMs, Payload: JsonSerializer.SerializeToElement(value: payload, options: CompactJson));
     public static BridgeRequest Request(string command, int timeoutMs = 15000) =>
-        new(Schema: Schema, Command: command, TimeoutMs: timeoutMs, Payload: null);
-    public static string Serialize(BridgeRequest request) =>
-        JsonSerializer.Serialize(value: request, options: CompactJson);
-    public static string Serialize(BridgeReply reply) =>
-        JsonSerializer.Serialize(value: reply, options: CompactJson);
+        new(Command: command, TimeoutMs: timeoutMs, Payload: null);
     public static string Serialize(BridgeEndpoint endpoint) =>
         JsonSerializer.Serialize(value: endpoint, options: CompactJson);
-    public static BridgeReply? DeserializeReply(string json) =>
-        JsonSerializer.Deserialize<BridgeReply>(json: json, options: CompactJson);
     public static BridgeEndpoint? DeserializeEndpoint(string json) =>
         JsonSerializer.Deserialize<BridgeEndpoint>(json: json, options: CompactJson);
+    // Length-prefixed UTF-8 JSON frames; lengths outside [0, MaxFrameBytes] fault without unbounded allocation.
+    public const int MaxFrameBytes = 64 * 1024 * 1024;
+    public static async Task WriteMessageAsync<TMessage>(Stream stream, TMessage message, CancellationToken token) {
+        ArgumentNullException.ThrowIfNull(argument: stream);
+        byte[] payload = JsonSerializer.SerializeToUtf8Bytes(value: message, options: CompactJson);
+        byte[] frame = new byte[sizeof(int) + payload.Length];
+        BinaryPrimitives.WriteInt32LittleEndian(destination: frame, value: payload.Length);
+        payload.CopyTo(array: frame, index: sizeof(int));
+        await stream.WriteAsync(buffer: frame, cancellationToken: token).ConfigureAwait(false);
+        await stream.FlushAsync(cancellationToken: token).ConfigureAwait(false);
+    }
+    public static async Task<TMessage?> ReadMessageAsync<TMessage>(Stream stream, CancellationToken token) {
+        ArgumentNullException.ThrowIfNull(argument: stream);
+        byte[] prefix = new byte[sizeof(int)];
+        int header = await stream.ReadAtLeastAsync(buffer: prefix, minimumBytes: prefix.Length, throwOnEndOfStream: false, cancellationToken: token).ConfigureAwait(false);
+        // BOUNDARY ADAPTER — a clean EOF before any prefix bytes means the peer closed without sending; yield default.
+        if (header < prefix.Length) {
+            return default;
+        }
+        byte[] payload = new byte[FrameLength(prefix: prefix)];
+        await stream.ReadExactlyAsync(buffer: payload, cancellationToken: token).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<TMessage>(utf8Json: payload, options: CompactJson);
+    }
+    private static int FrameLength(ReadOnlySpan<byte> prefix) =>
+        BinaryPrimitives.ReadInt32LittleEndian(source: prefix) switch {
+            >= 0 and <= MaxFrameBytes and int length => length,
+            int invalid => throw new InvalidOperationException(message: $"Bridge frame length {invalid.ToString(provider: CultureInfo.InvariantCulture)} is outside [0, {MaxFrameBytes.ToString(provider: CultureInfo.InvariantCulture)}]."),
+        };
     public static BridgeOutput Capture(string source, string text, int limit) {
         ArgumentNullException.ThrowIfNull(argument: source);
         ArgumentNullException.ThrowIfNull(argument: text);
@@ -392,7 +408,6 @@ public static class BridgeWire {
         IReadOnlyList<BridgeDiagnostic>? diagnostics = null,
         BridgeFault? fault = null) =>
         new(
-            Schema: Schema,
             Command: command,
             Status: status,
             Data: data is null ? null : JsonSerializer.SerializeToElement(value: data, options: CompactJson),

@@ -366,10 +366,8 @@ public readonly record struct CanvasWindowSnapshot(CanvasSnapshot Canvas, int Se
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class UiRail {
-    // Quartz hard ceiling — beyond 16384×16384 the framework silently downsamples (Apple WWDC22
-    // CoreGraphics session). Per-canvas effective max derives from the host window's screen pixel
-    // dimensions; capped at the architectural ceiling. The static constant remains the upper bound,
-    // RenderDimensionLimit() returns the device-respecting bound for any concrete Canvas.
+    // Quartz silently downsamples beyond 16384² (WWDC22 CoreGraphics); RenderDimensionLimit derives the
+    // device-respecting bound per canvas, this constant is the architectural ceiling.
     internal const int MaxRenderDimension = 16384;
 
     internal static int RenderDimensionLimit(GhCanvas canvas) =>
@@ -589,6 +587,9 @@ internal static partial class UiRail {
                 what: nameof(ZoomFactor)))
         from validCentre in Op.Of(name: nameof(CanvasViewOp.Projection)).AcceptPoint(value: centre, detail: "non-finite centre")
         from _ in Try.lift(f: () => {
+            // Invariant: canvas.Projection (live FlexControl state) is the source of truth; document.Projection is
+            // GH2's cached copy. A throw between the two assigns leaves the cache stale, but the next navigate/paint
+            // re-syncs from the canvas — the partial state self-heals rather than corrupting the view.
             canvas.Projection = canvas.Projection.SetZoom(zoom: zoom.Value).SetCentre(centre: validCentre, frame: canvas.VisibleFrame);
             document.Projection = (validCentre, zoom.Value);
             return unit;
@@ -730,11 +731,9 @@ internal static partial class UiRail {
                 Dx: snap.X.Map(static action => action.ΔX).IfNone(0f),
                 Dy: snap.Y.Map(static action => action.ΔY).IfNone(0f),
                 Magnitude: snap.X.Map(static action => action.Magnitude).IfNone(0f) + snap.Y.Map(static action => action.Magnitude).IfNone(0f),
-                XLabel: snap.X.Map(static action => action.LabelText).IfNone(string.Empty),
-                YLabel: snap.Y.Map(static action => action.LabelText).IfNone(string.Empty),
-                Lines: snap.X.Map(static action => toSeq(action.Lines)).IfNone(Seq<LineF>()) + snap.Y.Map(static action => toSeq(action.Lines)).IfNone(Seq<LineF>()),
-                LabelPoint: snap.X.Map(static action => action.LabelPoint) | snap.Y.Map(static action => action.LabelPoint),
-                LabelAnchor: snap.X.Map(static action => action.LabelAnchor) | snap.Y.Map(static action => action.LabelAnchor)));
+                XLabel: snap.X.Map(static action => new SnapLabel(Text: action.LabelText, Point: action.LabelPoint, Anchor: Some(action.LabelAnchor))),
+                YLabel: snap.Y.Map(static action => new SnapLabel(Text: action.LabelText, Point: action.LabelPoint, Anchor: Some(action.LabelAnchor))),
+                Lines: snap.X.Map(static action => toSeq(action.Lines)).IfNone(Seq<LineF>()) + snap.Y.Map(static action => toSeq(action.Lines)).IfNone(Seq<LineF>())));
 
     internal static Fin<int> SelectionDispatch(GhDocumentMethods methods, SelectionOp op) =>
         op.Switch(
@@ -760,8 +759,8 @@ internal static partial class UiRail {
                 .As()
                 .Map(static resolved => resolved.ToArray())
                 .Bind(targets => s.op.Apply(methods: s.methods, objects: s.objects, targets: targets, actions: s.actions)),
-            primaryCase: static (_, _) => Fin.Fail<Option<Guid>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ComposeDispatch)), detail: ScopeUse.Compose.RejectsPrimaryDetail())),
-            primaryAndSecondaryCase: static (_, _) => Fin.Fail<Option<Guid>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ComposeDispatch)), detail: ScopeUse.Compose.RejectsPrimaryDetail())))
+            primaryCase: static (_, _) => ScopeUse.Compose.RejectPrimary<Option<Guid>>(op: Op.Of(name: nameof(ComposeDispatch))),
+            primaryAndSecondaryCase: static (_, _) => ScopeUse.Compose.RejectPrimary<Option<Guid>>(op: Op.Of(name: nameof(ComposeDispatch))))
         select created;
 
     internal static Fin<IDocumentObject> ResolveObject(GhObjectList objects, Guid id, Op op) =>

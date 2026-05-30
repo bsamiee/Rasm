@@ -17,14 +17,8 @@ from expression import Result
 import msgspec
 import structlog
 
-from tools.quality.process import Completed, dotnet_rail, ProcessFault
-from tools.quality.rails import (
-    api as api_rail,
-    bridge as bridge_rail,
-    package as bridge_package,
-    static as static_rail,
-    test as test_rail,
-)
+from tools.quality.process import Completed, dotnet_build, ProcessFault
+from tools.quality.rails import api as api_rail, bridge as bridge_rail, package as bridge_package, static as static_rail, test as test_rail
 from tools.quality.settings import ArtifactScope, QualitySettings
 
 
@@ -39,14 +33,9 @@ _BRIDGE_VERBS: Final[tuple[str, ...]] = ("doctor", "launch", "quit")
 _PACKAGE: Final[tuple[bridge_package.PackageMode, ...]] = ("deploy", "package", "publish")
 _PARAMETER = Parameter(show_default=False)
 _SELF_CLI: Final[tuple[str, ...]] = ("dotnet", "fd", "git")
-_STATIC: Final[dict[str, tuple[str, static_rail.StaticScope]]] = {
-    "check": ("check", "changed"),
-    "full": ("full", "full"),
-}
+_STATIC: Final[dict[str, tuple[str, static_rail.StaticScope]]] = {"check": ("check", "changed"), "full": ("full", "full")}
 api = App(name="api", help="RhinoWIP API metadata.", default_parameter=_PARAMETER)
-app = App(
-    name="quality", help="Rasm typed quality operator.", default_parameter=_PARAMETER, result_action="return_value"
-)
+app = App(name="quality", help="Rasm typed quality operator.", default_parameter=_PARAMETER, result_action="return_value")
 bridge = App(name="bridge", help="Rhino bridge gate.", default_parameter=_PARAMETER)
 log = structlog.get_logger("quality")
 static = App(name="static", help="Static C# gate.", default_parameter=_PARAMETER)
@@ -72,12 +61,7 @@ def _bridge_on_ok(completed: Completed) -> int:
         case b"":
             return completed.returncode
         case payload:
-            return (
-                bridge_rail
-                .try_decode_bridge(payload)
-                .map(lambda result: result.exit_code)
-                .default_with(lambda _: completed.returncode)
-            )
+            return bridge_rail.try_decode_bridge(payload).map(lambda result: result.exit_code).default_with(lambda _: completed.returncode)
 
 
 def _emit(payload: str | bytes | None, code: int = 0, *, newline: bool = False) -> int:
@@ -116,28 +100,20 @@ _STATIC_OK: Final[dict[static_rail.StaticOutcome, Callable[[], int]]] = {
 
 @api.default
 def api_gate(
-    op: ApiCliOp,
-    key: api_rail.ApiKey = "rhino-common",
-    kind: api_rail.ApiPathKind = "assembly",
-    pattern: str = "",
-    type_name: str = "",
+    op: ApiCliOp, key: api_rail.ApiKey = "rhino-common", kind: api_rail.ApiPathKind = "assembly", pattern: str = "", type_name: str = ""
 ) -> int:
     rail_op, phase, ok = _API[op]
     return rail(
         "api",
         phase or op,
-        lambda s, sc: api_rail.api(
-            s.rhino_app, rail_op, key, kind=kind, pattern=pattern, type_name=type_name, env=sc.dotnet_env
-        ),
+        lambda s, sc: api_rail.api(s.rhino_app, rail_op, key, kind=kind, pattern=pattern, type_name=type_name, env=sc.dotnet_env),
         ok=ok,
     )
 
 
 @bridge.command(name="build-bridge")
 def build_bridge_cmd() -> int:
-    return rail(
-        "bridge", "build-bridge", lambda s, sc: dotnet_rail(s, sc, restore=s.solution, targets=s.bridge_projects)
-    )
+    return rail("bridge", "build-bridge", lambda s, sc: dotnet_build(s, sc, restore=s.solution, targets=s.bridge_projects, serial=True))
 
 
 @bridge.command
@@ -163,17 +139,8 @@ def rail[T](
     with structlog.contextvars.bound_contextvars(rail=rail_name, phase=phase):
         with ArtifactScope.open(cfg, rail_name) as scope:
             on_ok = ok or (lambda _: 0)
-            code = (
-                execute(cfg, scope)
-                .map(on_ok)
-                .default_with(lambda fault: (sys.stderr.write(f"{fault.message}\n"), fault.returncode or 1)[1])
-            )
-        log.info(
-            "phase",
-            status="ok" if code == 0 else "failed",
-            exit_code=code,
-            duration_ms=(time.perf_counter() - started) * 1000,
-        )
+            code = execute(cfg, scope).map(on_ok).default_with(lambda fault: (sys.stderr.write(f"{fault.message}\n"), fault.returncode or 1)[1])
+        log.info("phase", status="ok" if code == 0 else "failed", exit_code=code, duration_ms=(time.perf_counter() - started) * 1000)
         return code
 
 
@@ -194,12 +161,7 @@ def self_test_cmd() -> int:
 @static.default
 def static_gate(mode: Literal["check", "full"]) -> int:
     phase, scope = _STATIC[mode]
-    return rail(
-        "static",
-        phase,
-        lambda s, sc: static_rail.run_static_rail(s, sc, scope),
-        ok=lambda outcome: _STATIC_OK[outcome](),
-    )
+    return rail("static", phase, lambda s, sc: static_rail.run_static_rail(s, sc, scope), ok=lambda outcome: _STATIC_OK[outcome]())
 
 
 @test_app.default
@@ -207,18 +169,54 @@ def unit_gate(mode: Literal["run", "list", "coverage"], filter_expr: str = "", t
     cfg = QualitySettings()
     settings = cfg if target is None else cfg.model_copy(update={"test_target": target})
     return rail(
-        "test", mode, lambda s, sc: test_rail.run_test_rail(s, sc, mode, filter_expr=filter_expr), settings=settings
+        "test",
+        mode,
+        lambda s, sc: test_rail.run_test_rail(s, sc, mode, filter_expr=filter_expr),
+        settings=settings,
+        ok=lambda _: _test_render(settings, mode),
     )
+
+
+def _merge_facts(facts: tuple[dict[str, object], ...]) -> dict[str, object]:
+    return {key: value for block in facts for key, value in block.items()}
+
+
+def _verify_render(summary: bridge_rail.VerifyReport) -> int:
+    for scenario in summary.scenarios:
+        log.info(
+            "scenario",
+            name=scenario.name,
+            status=scenario.status,
+            report=scenario.report_path,
+            captures=tuple(capture.get("path") for capture in scenario.captures),
+            facts=_merge_facts(scenario.facts),
+            fault=scenario.fault.message if scenario.fault is not None else None,
+            exception_reports=len(scenario.exception_reports),
+            stdout_truncated=scenario.stdout_truncated or None,
+        )
+    log.info(
+        "verify",
+        ok=summary.summary.ok,
+        failed=summary.summary.failed,
+        total=summary.summary.total,
+        report_dir=summary.report_dir,
+        expires_in_seconds=summary.expires_in_seconds,
+    )
+    return _emit(msgspec.json.encode(summary), 0 if summary.failed == 0 else 1, newline=True)
+
+
+def _test_render(settings: QualitySettings, mode: test_rail.TestMode) -> int:
+    log.info(
+        "test",
+        results=str(settings.test_results_dir),
+        mutation=str(settings.mutation_output_dir) if mode != "list" and settings.mutation_eligible else None,
+    )
+    return 0
 
 
 @bridge.command
 def verify(pattern: str) -> int:
-    return rail(
-        "bridge",
-        "verify",
-        lambda s, sc: bridge_rail.run_verify(s, sc, pattern),
-        ok=lambda summary: _emit(msgspec.json.encode(summary), 0 if summary.failed == 0 else 1, newline=True),
-    )
+    return rail("bridge", "verify", lambda s, sc: bridge_rail.run_verify(s, sc, pattern), ok=_verify_render)
 
 
 # --- [COMPOSITION] -----------------------------------------------------------------------
@@ -236,11 +234,9 @@ for _rail_app in (static, test_app, bridge, api):
 
 def main(argv: list[str] | None = None) -> int:
     structlog.configure(
-        processors=[
-            structlog.contextvars.merge_contextvars,
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.dev.ConsoleRenderer(),
-        ],
+        processors=[structlog.contextvars.merge_contextvars, structlog.processors.TimeStamper(fmt="iso"), structlog.dev.ConsoleRenderer()],
+        # Logs/diagnostics to stderr; machine payloads (rail JSON, _emit) stay alone on stdout.
+        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
         cache_logger_on_first_use=True,
     )
     return app(sys.argv[1:] if argv is None else argv) or 0

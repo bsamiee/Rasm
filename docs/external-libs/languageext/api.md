@@ -35,9 +35,24 @@
 | [7] | `Seq<T>`, `Arr<T>` | Immutable traversal shapes. | Cross-module sequence and strict batch storage. |
 | [8] | `K<F,A>` and traits | Effect-polymorphic algorithms. | Advanced compression when one algorithm targets multiple carriers. |
 | [9] | `Atom<T>`, `Ref<T>` | Managed host state. | UI, bridge, subscription, or session state only. |
+| [10] | `HashMap<K,V>`, `HashSet<T>` | Immutable map/set. | Blocks, exchange, mesh memo keys after key policy is explicit. |
 
 ---
-## [3][BOUNDARIES]
+## [3][ADVANCED_INDEX]
+>**Dictum:** *Operator and combinator detail lives in sibling files.*
+
+<br>
+
+| [INDEX] | [FILE] | [OWNS] |
+| :-----: | ------ | ------ |
+| [1] | `operators.md` | `\|`, `&`, `+` disambiguation across Option, Schedule, Validation, Error, domain types |
+| [2] | `prelude.md` | Global static Prelude: `Some`, `Optional`, `guard`, `toSeq`, `unit`, `identity` |
+| [3] | `combinators.md` | `TraverseM`+`.As()`, `Choose`, `Op.Catch`, `BiBind`, `Atom.SwapMaybe`, production-weighted LE surface |
+| [4] | `effects.md` | Rail selection, Schedule names, v5 deltas, Atom v5 surface |
+| [5] | `rasm.md` | Repo rail policy, boundary patterns, validation error shapes |
+
+---
+## [4][BOUNDARIES]
 >**Dictum:** *Rasm collapses effects only where hosts require concrete output.*
 
 <br>

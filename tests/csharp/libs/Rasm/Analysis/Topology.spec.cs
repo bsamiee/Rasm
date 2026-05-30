@@ -6,9 +6,7 @@ using Rhino.Geometry;
 namespace Rasm.Tests.Analysis;
 
 // --- [CONSTANTS] ----------------------------------------------------------------------------
-// BRIDGE-DEFERRED (*.verify.csx): every topology scalar (Euler/Genus/BoundaryLoops/Manifold/…) evaluates a live
-// native Mesh/Brep. Static rail owns: the Topologies union catalog, the TopologyScalar catalog (Manifold→bool else
-// int), Operation<TGeom,TOut> dispatch vs an independent oracle, and the Euler V-E+F closed form over MeshFixture.
+// BRIDGE-DEFERRED: native topology scalars; static owns Topologies/TopologyScalar catalogs, Operation dispatch, Euler V-E+F over MeshFixture.
 internal static class TopologyGens {
     public static readonly Op Key = Op.Of(name: "topology-test");
     public static readonly Gen<Topologies> ScalarAspects = Gen.OneOfConst([.. TopologyScalar.Items.Select(static Topologies (s) => new Topologies.ScalarCase(Scalar: s))]);
@@ -121,8 +119,7 @@ public sealed class TopologyAspectDispatchLaws {
 
 // --- [EDGE_CASES] ---------------------------------------------------------------------------
 public sealed class EulerCharacteristicOracleLaws {
-    // INDEPENDENT ORACLE: production EulerOf reads a native Mesh and is bridge-deferred; here V-E+F is re-derived over
-    // pure MeshFixture index data, a closed-form path distinct from the production type-switch and the bridge predictor.
+    // Independent Euler V-E+F over MeshFixture index data (production EulerOf is bridge-deferred).
     [Theory]
     [MemberData(nameof(Surfaces))]
     public void EulerCharacteristicMatchesClosedFormOverFixtureIndices(Gens.MeshFixture fixture, int expectedChi) {

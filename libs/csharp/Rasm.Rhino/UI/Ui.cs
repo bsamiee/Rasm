@@ -5,13 +5,22 @@ namespace Rasm.Rhino.UI;
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct UiToast(RhinoView View, string Message, Option<int> TextHeight = default, Option<System.Drawing.PointF> Location = default) {
-    internal Unit Apply() {
-        UiToast toast = this;
-        return Op.Side(() => _ = (toast.TextHeight.Case, toast.Location.Case) switch {
-            (int height, System.Drawing.PointF point) when height > 0 => toast.View.ShowToast(toast.Message, height, point),
-            (int height, _) when height > 0 => toast.View.ShowToast(toast.Message, height),
-            _ => toast.View.ShowToast(toast.Message),
-        });
+    // ShowToast returns the view toast runtime serial number — surfaced for future dismissal/tracking.
+    internal Fin<uint> Apply() {
+        RhinoView? target = View;
+        string text = Message;
+        Option<int> textHeight = TextHeight;
+        Option<System.Drawing.PointF> location = Location;
+        return from view in Op.Of(name: nameof(Apply)).Need(target)
+               from message in string.IsNullOrWhiteSpace(value: text) switch {
+                   false => Fin.Succ(value: text.Trim()),
+                   true => Fin.Fail<string>(error: Op.Of(name: nameof(Apply)).InvalidInput()),
+               }
+               select (textHeight.Case, location.Case) switch {
+                   (int height, System.Drawing.PointF point) when height > 0 => view.ShowToast(message, height, point),
+                   (int height, _) when height > 0 => view.ShowToast(message, height),
+                   _ => view.ShowToast(message),
+               };
     }
 }
 
@@ -24,14 +33,22 @@ public readonly record struct UiStatus(
     Option<double> Number = default,
     Option<Point3d> Point = default,
     Seq<UiToast> Toasts = default,
-    bool ClearMessage = false) {
-    public static UiStatus operator +(UiStatus left, UiStatus right) => Add(left: left, right: right);
-    public static UiStatus Add(UiStatus left, UiStatus right) =>
-        new(Prompt: right.Prompt | left.Prompt, PromptDefault: right.PromptDefault | left.PromptDefault, CommandMessage: right.CommandMessage | left.CommandMessage, Message: right.Message | (right.ClearMessage ? Option<string>.None : left.Message), Distance: right.Distance | left.Distance, Number: right.Number | left.Number, Point: right.Point | left.Point, Toasts: left.Toasts + right.Toasts, ClearMessage: left.ClearMessage || right.ClearMessage);
-    public static UiStatus Add(params UiStatus[] statuses) =>
-        Optional(statuses)
-            .Map(static values => toSeq(values).Fold(initialState: new UiStatus(), f: static (state, value) => state + value))
-            .IfNone(new UiStatus());
+    bool ClearMessage = false,
+    bool HideProgress = false) {
+    // Single right-biased monoid fold; operator+ is the binary projection. ClearMessage/HideProgress accumulate (OR).
+    public static UiStatus operator +(UiStatus left, UiStatus right) => Combine(Seq(left, right));
+    public static UiStatus Combine(Seq<UiStatus> statuses) =>
+        statuses.Fold(new UiStatus(), static (acc, value) => new(
+            Prompt: value.Prompt | acc.Prompt,
+            PromptDefault: value.PromptDefault | acc.PromptDefault,
+            CommandMessage: value.CommandMessage | acc.CommandMessage,
+            Message: value.Message | (value.ClearMessage ? Option<string>.None : acc.Message),
+            Distance: value.Distance | acc.Distance,
+            Number: value.Number | acc.Number,
+            Point: value.Point | acc.Point,
+            Toasts: acc.Toasts + value.Toasts,
+            ClearMessage: acc.ClearMessage || value.ClearMessage,
+            HideProgress: acc.HideProgress || value.HideProgress));
 
     public static UiStatus Script(string message) =>
         string.IsNullOrWhiteSpace(value: message) switch {
@@ -53,8 +70,8 @@ public readonly record struct UiStatus(
             _ = status.Distance.Iter(static value => global::Rhino.UI.StatusBar.SetDistancePane(distance: value));
             _ = status.Number.Iter(static value => global::Rhino.UI.StatusBar.SetNumberPane(number: value));
             _ = status.Point.Iter(static value => global::Rhino.UI.StatusBar.SetPointPane(point: value));
-            _ = status.Toasts.Iter(static value => value.Apply());
-            return Fin.Succ(value: unit);
+            _ = Op.SideWhen(status.HideProgress, static () => global::Rhino.UI.StatusBar.HideProgressMeter());
+            return status.Toasts.TraverseM(static value => value.Apply()).As().Map(static _ => unit);
         });
     }
 }
@@ -95,12 +112,15 @@ public sealed partial record RhinoUi {
     }
 
     public Fin<T> Use<T>(UiIntent<T> intent) =>
-        Op.Of(name: nameof(Use)).Need(intent)
-            .Bind(valid => (valid.Interactive && mode == RunMode.Scripted, valid.Scripted.Case) switch {
-                (true, Func<Scope, Fin<T>> scripted) => Protect(valid: () => scripted(arg: new Scope(Document: document, Mode: mode))),
-                (true, _) => Fin.Fail<T>(error: Op.Of(name: nameof(Use)).InvalidInput()),
-                _ => Protect(valid: () => valid.Run(scope: new Scope(Document: document, Mode: mode))),
-            });
+        Op.Of(name: nameof(Use)).Need(intent).Bind(valid => {
+            Scope scope = new(Document: document, Mode: mode);
+            Func<Fin<T>> work = (valid.Interactive && mode == RunMode.Scripted, valid.Scripted.Case) switch {
+                (true, Func<Scope, Fin<T>> scripted) => () => scripted(arg: scope),
+                (true, _) => () => Fin.Fail<T>(error: Op.Of(name: nameof(Use)).InvalidInput()),
+                _ => () => valid.Run(scope: scope),
+            };
+            return DispatchThread(uiBound: valid.Interactive, mode: mode, run: work, name: nameof(Use));
+        });
 
     internal Seq<T> Windows<T>() where T : Window =>
         toSeq(global::Rhino.UI.EtoExtensions.WindowsFromDocument<T>(document));
