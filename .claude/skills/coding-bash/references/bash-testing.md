@@ -459,11 +459,10 @@ import subprocess
 from hypothesis import given, settings, assume
 from hypothesis import strategies as st
 
+
 def run_bash(script: str, stdin: str = "") -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["bash", "-c", script], input=stdin,
-        capture_output=True, text=True, timeout=5,
-    )
+    return subprocess.run(["bash", "-c", script], input=stdin, capture_output=True, text=True, timeout=5)
+
 
 @given(items=st.lists(st.integers(min_value=0, max_value=999), min_size=1, max_size=50))
 @settings(max_examples=200)
@@ -473,6 +472,7 @@ def test_sort_idempotent(items: list[int]):
     once = run_bash("sort -n", stdin=stdin)
     twice = run_bash("sort -n", stdin=once.stdout)
     assert once.stdout == twice.stdout
+
 
 @given(line=st.from_regex(r"[a-zA-Z0-9_.@-]{1,100}", fullmatch=True))
 @settings(max_examples=300)

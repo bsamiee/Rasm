@@ -2,8 +2,6 @@
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
-from __future__ import annotations
-
 from pathlib import Path
 import shutil
 from typing import assert_never, Final, Literal
@@ -57,9 +55,6 @@ def _api_xml_path(rhino_app: Path, key: ApiKey) -> tuple[str, str]:
 
 
 def _with_dotnet_apphost(argv: tuple[str, ...], *, env: dict[str, str] | None = None, check: bool = True) -> Result[Completed, ProcessFault]:
-    # ilspycmd is a framework-dependent apphost; without a DOTNET_ROOT pointing at a runtime it
-    # aborts (exit 131). Resolve from env, then the `dotnet` on PATH, then the macOS install root,
-    # accepting only a root that actually carries a shared/ runtime dir.
     dotnet = shutil.which("dotnet")
     candidates = ((env or {}).get("DOTNET_ROOT", ""), str(Path(dotnet).resolve().parent) if dotnet else "", "/usr/local/share/dotnet")
     overlay: dict[str, str] | None
@@ -133,13 +128,11 @@ def api(
                 )
             )
         case "path":
-            match kind:
-                case "assembly":
-                    path = assembly
-                    missing = f"Missing API assembly for {key}: {assembly}"
-                case "xml":
-                    path, _ = _api_xml_path(rhino_app, key)
-                    missing = f"Missing API XML for {key}: {path}"
+            xml_path, _ = _api_xml_path(rhino_app, key)
+            path, missing = {
+                "assembly": (assembly, f"Missing API assembly for {key}: {assembly}"),
+                "xml": (xml_path, f"Missing API XML for {key}: {xml_path}"),
+            }[kind]
             return Ok(path).filter_with(lambda value: bool(value) and Path(value).is_file(), lambda _: ProcessFault.fail("api", key, detail=missing))
         case "search":
             return api(rhino_app, "path", key, kind="xml", env=env).bind(

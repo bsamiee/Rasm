@@ -2,8 +2,6 @@
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
-from __future__ import annotations
-
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import reduce
@@ -65,9 +63,10 @@ class ProcessFault:
     def fail(*argv: str, detail: str | bytes, returncode: int = 2) -> ProcessFault:
         match detail:
             case bytes() as stderr:
-                return ProcessFault(argv=argv, returncode=returncode, stderr=stderr)
+                pass
             case text:
-                return ProcessFault(argv=argv, returncode=returncode, stderr=text.encode())
+                stderr = text.encode()
+        return ProcessFault(argv=argv, returncode=returncode, stderr=stderr)
 
     @property
     def message(self) -> str:
@@ -204,7 +203,6 @@ def dotnet_build(
     max_cpu: int | None = None,
     scoped: bool = True,
 ) -> Result[None, ProcessFault]:
-    # restore then build over configurations x targets; fold dotnet commands and short-circuit on first failure.
     configs = configurations or (settings.configuration,)
     version_args = settings.version_props(version)
     commands = (

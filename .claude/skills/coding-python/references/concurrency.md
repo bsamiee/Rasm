@@ -18,33 +18,52 @@ from anyio.lowlevel import checkpoint
 from expression import Error, Ok, Option, Result, pipe
 from expression.collections import Block, block
 
+
 @dataclass(frozen=True, slots=True)
-class Timeout: index: int; budget: float
+class Timeout:
+    index: int
+    budget: float
+
 
 async def bounded_pipeline[T, U](
-    items: Block[T], process: Callable[[T], Coroutine[None, None, U]],
-    acknowledge: Callable[[U], Awaitable[None]], concurrency: int = 10, budget: float = 30.0,
+    items: Block[T],
+    process: Callable[[T], Coroutine[None, None, U]],
+    acknowledge: Callable[[U], Awaitable[None]],
+    concurrency: int = 10,
+    budget: float = 30.0,
 ) -> Block[Result[U, Timeout | Exception]]:
     limiter = CapacityLimiter(concurrency)
     tx, rx = anyio.create_memory_object_stream[tuple[int, Result[U, Timeout | Exception]]](items.length)
+
     async def _worker(idx: int, item: T, sender: ObjectSendStream[tuple[int, Result[U, Timeout | Exception]]]) -> None:
         r: Result[U, Exception] | None = None
         async with limiter:
             with anyio.move_on_after(budget):
                 # BOUNDARY ADAPTER — async process may raise; typed cancellation via sentinel
-                try: r = Ok(await process(item))
-                except Exception as exc: r = Error(exc)  # noqa: BLE001
+                try:
+                    r = Ok(await process(item))
+                except Exception as exc:
+                    r = Error(exc)  # noqa: BLE001
                 await checkpoint()
         match r:
-            case None: await sender.send((idx, Error(Timeout(idx, budget)))); return
+            case None:
+                await sender.send((idx, Error(Timeout(idx, budget))))
+                return
             case Ok(value):
                 # BOUNDARY ADAPTER — anyio cancellation protocol requires try/except
                 try:
-                    with CancelScope(shield=True): await acknowledge(value)
-                except get_cancelled_exc_class(): await sender.send((idx, r)); raise
-                except Exception as exc: await sender.send((idx, Error(exc))); return  # noqa: BLE001
-            case _: pass
+                    with CancelScope(shield=True):
+                        await acknowledge(value)
+                except get_cancelled_exc_class():
+                    await sender.send((idx, r))
+                    raise
+                except Exception as exc:
+                    await sender.send((idx, Error(exc)))
+                    return  # noqa: BLE001
+            case _:
+                pass
         await sender.send((idx, r))
+
     async with create_task_group() as tg:
         pipe(items.indexed(), block.fold(lambda _, iv: tg.start_soon(_worker, iv[0], iv[1], tx), None))
     await tx.aclose()
@@ -58,8 +77,7 @@ async def bounded_pipeline[T, U](
 
 ```python
 async def pipeline_stage[TIn, TOut](
-    receive: ObjectReceiveStream[TIn], send: ObjectSendStream[TOut],
-    transform: Callable[[TIn], Awaitable[TOut]], limiter: CapacityLimiter,
+    receive: ObjectReceiveStream[TIn], send: ObjectSendStream[TOut], transform: Callable[[TIn], Awaitable[TOut]], limiter: CapacityLimiter
 ) -> None:
     async with send:
         async for item in receive:
@@ -97,28 +115,32 @@ from pydantic import BaseModel
 # --- [CONSTANTS] --------------------------------------------------------------
 
 # ContextVar: immutable snapshot replacement (free-threading safe)
-_request_metrics: ContextVar[tuple[tuple[str, int], ...]] = ContextVar(
-    "request_metrics", default=(),
-)
+_request_metrics: ContextVar[tuple[tuple[str, int], ...]] = ContextVar("request_metrics", default=())
 
 # --- [FUNCTIONS] --------------------------------------------------------------
+
 
 def record_metric(name: str, value: int) -> None:
     current: tuple[tuple[str, int], ...] = _request_metrics.get()
     _request_metrics.set((*current, (name, value)))
 
+
 def read_metrics() -> tuple[tuple[str, int], ...]:
     return _request_metrics.get()
+
 
 # threading.Lock: genuinely shared cross-thread mutable state
 _registry_lock: Final[threading.Lock] = threading.Lock()
 _service_registry: dict[str, str] = {}
 
+
 def register_service(name: str, endpoint: str) -> None:
     with _registry_lock:
         _service_registry[name] = endpoint
 
+
 # --- [CLASSES] ----------------------------------------------------------------
+
 
 # Frozen models: inherently thread-safe
 class WorkItem(BaseModel, frozen=True):
@@ -146,18 +168,20 @@ import msgspec
 from expression import Error, Ok, Result
 from pydantic import BaseModel, TypeAdapter
 
+
 class IngressPayload(BaseModel, frozen=True):
     account_id: str
     amount_cents: int
 
+
 _adapter: TypeAdapter[IngressPayload] = TypeAdapter(IngressPayload)
+
 
 def _decode_on_worker(payload: bytes) -> bytes:
     raw: object = msgspec.json.decode(payload)
     validated: IngressPayload = _adapter.validate_python(raw)
-    return msgspec.json.encode(
-        {"account_id": validated.account_id, "cents": validated.amount_cents},
-    )
+    return msgspec.json.encode({"account_id": validated.account_id, "cents": validated.amount_cents})
+
 
 def decode_batch_isolated(payloads: tuple[bytes, ...], max_workers: int = 4) -> Result[tuple[bytes, ...], Exception]:
     # BOUNDARY ADAPTER — InterpreterPoolExecutor may raise NotShareableError
@@ -188,21 +212,27 @@ from collections.abc import Callable, Coroutine
 from expression import Error, Ok, Result
 from expression.collections import Block
 
+
 class RetryableError(Exception):
     def __init__(self, operation: str) -> None:
         super().__init__(operation)
         self.operation: str = operation
 
+
 class FatalError(Exception):
     """Non-recoverable failure; propagate immediately."""
 
+
 type Processor[T] = Callable[[T], Coroutine[None, None, None]]
+
 
 async def resilient_batch[T](items: Block[T], process: Processor[T]) -> Block[Result[T, Exception]]:
     tx, rx = anyio.create_memory_object_stream[Result[T, Exception]](items.length)
+
     async def _attempt(item: T) -> None:
         await process(item)  # may raise RetryableError or FatalError
         await tx.send(Ok(item))
+
     # BOUNDARY ADAPTER — except* required; TaskGroup surfaces concurrent failures
     # as ExceptionGroup; no Result-based alternative for multi-task failure
     try:

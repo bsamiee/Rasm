@@ -31,6 +31,7 @@ type Frontmatter = dict[str, str]
 type ParseState = tuple[Frontmatter, str | None, list[str]]
 type Handler = tuple[Callable[[dict], tuple[str, ...]], Callable[[str, dict], dict]]
 
+
 class SkillEntry(NamedTuple):
     name: str
     trigger: str
@@ -46,11 +47,13 @@ class SkillEntry(NamedTuple):
 from dataclasses import dataclass, field
 import re
 
+
 @dataclass(frozen=True, slots=True)
 class _B:
     timeout: int = 60
     blocked: frozenset[str] = frozenset(("rm -rf", "sudo"))
     field_re: re.Pattern[str] = field(default_factory=lambda: re.compile(r"^([^:]+):(.*)$"))
+
 
 B: Final[_B] = _B()
 DEBUG: Final[bool] = os.environ.get("CLAUDE_HOOK_DEBUG", "").lower() in ("1", "true")
@@ -71,6 +74,8 @@ handlers: dict[str, Handler] = {
 
 # Decorator registration
 _tools: dict[str, tuple[Callable, dict]] = {}
+
+
 def tool(**cfg: Any) -> Callable[[Callable], Callable]:
     return lambda fn: (_tools.__setitem__(fn.__name__, (fn, {"method": "POST", **cfg})), fn)[1]
 ```
@@ -95,13 +100,19 @@ def _fold_line(state: ParseState, line: str) -> ParseState:
         case _:
             return state
 
+
 # Exhaustive matching with assert_never
 type Action = Literal["allow", "block", "ask"]
+
+
 def handle(action: Action) -> int:
     match action:
-        case "allow" | "ask": return 0
-        case "block": return 2
-        case _ as unreachable: assert_never(unreachable)
+        case "allow" | "ask":
+            return 0
+        case "block":
+            return 2
+        case _ as unreachable:
+            assert_never(unreachable)
 ```
 
 ---

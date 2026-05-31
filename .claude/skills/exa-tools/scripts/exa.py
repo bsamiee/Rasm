@@ -110,9 +110,7 @@ def main() -> int:
             fn, argc = entry
             match cmd_args:
                 case _ if len(cmd_args) < argc:
-                    sys.stdout.write(
-                        f"Usage: exa.py {cmd_name} {' '.join(f'<arg{index + 1}>' for index in range(argc))}\n"
-                    )
+                    sys.stdout.write(f"Usage: exa.py {cmd_name} {' '.join(f'<arg{index + 1}>' for index in range(argc))}\n")
                     return 1
                 case _:
                     try:
@@ -121,12 +119,7 @@ def main() -> int:
                         return 0 if result["status"] == "success" else 1
                     except httpx.HTTPStatusError as error:
                         sys.stdout.write(
-                            json.dumps({
-                                "status": "error",
-                                "code": error.response.status_code,
-                                "message": error.response.text[:200],
-                            })
-                            + "\n"
+                            json.dumps({"status": "error", "code": error.response.status_code, "message": error.response.text[:200]}) + "\n"
                         )
                         return 1
                     except httpx.RequestError as error:

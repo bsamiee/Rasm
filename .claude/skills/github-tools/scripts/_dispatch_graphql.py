@@ -64,19 +64,8 @@ GRAPHQL_CMDS: Final[dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]]]
         (),
         ("limit",),
         (
-            lambda a: (
-                "gh",
-                "api",
-                "graphql",
-                "-f",
-                DISCUSSION_LIST_QUERY,
-                *_repo_vars(),
-                "-F",
-                f"limit={a.get('limit', '30')}",
-            ),
-            lambda o, a: {
-                "discussions": _json(o).get("data", {}).get("repository", {}).get("discussions", {}).get("nodes", [])
-            },
+            lambda a: ("gh", "api", "graphql", "-f", DISCUSSION_LIST_QUERY, *_repo_vars(), "-F", f"limit={a.get('limit', '30')}"),
+            lambda o, a: {"discussions": _json(o).get("data", {}).get("repository", {}).get("discussions", {}).get("nodes", [])},
         ),
     ),
     "discussion-view": (
@@ -84,10 +73,7 @@ GRAPHQL_CMDS: Final[dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]]]
         (),
         (
             lambda a: ("gh", "api", "graphql", "-f", DISCUSSION_VIEW_QUERY, *_repo_vars(), "-F", f"num={a['number']}"),
-            lambda o, a: {
-                "number": a["number"],
-                "discussion": _json(o).get("data", {}).get("repository", {}).get("discussion", {}),
-            },
+            lambda o, a: {"number": a["number"], "discussion": _json(o).get("data", {}).get("repository", {}).get("discussion", {})},
         ),
     ),
     "discussion-category-list": (
@@ -95,13 +81,7 @@ GRAPHQL_CMDS: Final[dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]]]
         (),
         (
             lambda a: ("gh", "api", "graphql", "-f", DISCUSSION_CATEGORY_LIST_QUERY, *_repo_vars()),
-            lambda o, a: {
-                "categories": _json(o)
-                .get("data", {})
-                .get("repository", {})
-                .get("discussionCategories", {})
-                .get("nodes", [])
-            },
+            lambda o, a: {"categories": _json(o).get("data", {}).get("repository", {}).get("discussionCategories", {}).get("nodes", [])},
         ),
     ),
     "discussion-create": (

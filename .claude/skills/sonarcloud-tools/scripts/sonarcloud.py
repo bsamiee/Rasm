@@ -68,14 +68,7 @@ def main() -> int:
                 sys.stdout.write(json.dumps(result, indent=2) + "\n")
                 return 0 if result["status"] == "success" else 1
             except httpx.HTTPStatusError as error:
-                sys.stdout.write(
-                    json.dumps({
-                        "status": "error",
-                        "code": error.response.status_code,
-                        "message": error.response.text[:200],
-                    })
-                    + "\n"
-                )
+                sys.stdout.write(json.dumps({"status": "error", "code": error.response.status_code, "message": error.response.text[:200]}) + "\n")
                 return 1
             except httpx.RequestError as error:
                 sys.stdout.write(json.dumps({"status": "error", "message": str(error)}) + "\n")
@@ -89,14 +82,7 @@ def main() -> int:
                 sys.stdout.write(json.dumps(result, indent=2) + "\n")
                 return 0 if result["status"] == "success" else 1
             except httpx.HTTPStatusError as error:
-                sys.stdout.write(
-                    json.dumps({
-                        "status": "error",
-                        "code": error.response.status_code,
-                        "message": error.response.text[:200],
-                    })
-                    + "\n"
-                )
+                sys.stdout.write(json.dumps({"status": "error", "code": error.response.status_code, "message": error.response.text[:200]}) + "\n")
                 return 1
             except httpx.RequestError as error:
                 sys.stdout.write(json.dumps({"status": "error", "message": str(error)}) + "\n")
@@ -109,14 +95,7 @@ def main() -> int:
                 sys.stdout.write(json.dumps(result, indent=2) + "\n")
                 return 0 if result["status"] == "success" else 1
             except httpx.HTTPStatusError as error:
-                sys.stdout.write(
-                    json.dumps({
-                        "status": "error",
-                        "code": error.response.status_code,
-                        "message": error.response.text[:200],
-                    })
-                    + "\n"
-                )
+                sys.stdout.write(json.dumps({"status": "error", "code": error.response.status_code, "message": error.response.text[:200]}) + "\n")
                 return 1
             except httpx.RequestError as error:
                 sys.stdout.write(json.dumps({"status": "error", "message": str(error)}) + "\n")
@@ -129,14 +108,7 @@ def main() -> int:
                 sys.stdout.write(json.dumps(result, indent=2) + "\n")
                 return 0 if result["status"] == "success" else 1
             except httpx.HTTPStatusError as error:
-                sys.stdout.write(
-                    json.dumps({
-                        "status": "error",
-                        "code": error.response.status_code,
-                        "message": error.response.text[:200],
-                    })
-                    + "\n"
-                )
+                sys.stdout.write(json.dumps({"status": "error", "code": error.response.status_code, "message": error.response.text[:200]}) + "\n")
                 return 1
             except httpx.RequestError as error:
                 sys.stdout.write(json.dumps({"status": "error", "message": str(error)}) + "\n")
@@ -149,14 +121,7 @@ def main() -> int:
                 sys.stdout.write(json.dumps(result, indent=2) + "\n")
                 return 0 if result["status"] == "success" else 1
             except httpx.HTTPStatusError as error:
-                sys.stdout.write(
-                    json.dumps({
-                        "status": "error",
-                        "code": error.response.status_code,
-                        "message": error.response.text[:200],
-                    })
-                    + "\n"
-                )
+                sys.stdout.write(json.dumps({"status": "error", "code": error.response.status_code, "message": error.response.text[:200]}) + "\n")
                 return 1
             except httpx.RequestError as error:
                 sys.stdout.write(json.dumps({"status": "error", "message": str(error)}) + "\n")
@@ -169,14 +134,7 @@ def main() -> int:
                 sys.stdout.write(json.dumps(result, indent=2) + "\n")
                 return 0 if result["status"] == "success" else 1
             except httpx.HTTPStatusError as error:
-                sys.stdout.write(
-                    json.dumps({
-                        "status": "error",
-                        "code": error.response.status_code,
-                        "message": error.response.text[:200],
-                    })
-                    + "\n"
-                )
+                sys.stdout.write(json.dumps({"status": "error", "code": error.response.status_code, "message": error.response.text[:200]}) + "\n")
                 return 1
             except httpx.RequestError as error:
                 sys.stdout.write(json.dumps({"status": "error", "message": str(error)}) + "\n")

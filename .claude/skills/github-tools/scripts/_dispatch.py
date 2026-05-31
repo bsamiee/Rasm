@@ -28,9 +28,7 @@ def project_env() -> Env | None:
 def _edit_flags(args: JsonMap) -> tuple[str, ...]:
     """Build edit flags for title/body/labels."""
     return tuple(
-        f"--{key}={value}"
-        for key, value in (("title", args.get("title")), ("body", args.get("body")), ("add-label", args.get("labels")))
-        if value
+        f"--{key}={value}" for key, value in (("title", args.get("title")), ("body", args.get("body")), ("add-label", args.get("labels"))) if value
     )
 
 
@@ -63,13 +61,7 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
         ("number",),
         (),
         (
-            lambda a: (
-                "gh",
-                "issue",
-                "view",
-                str(a["number"]),
-                "--json=number,title,body,state,labels,comments,author,createdAt",
-            ),
+            lambda a: ("gh", "issue", "view", str(a["number"]), "--json=number,title,body,state,labels,comments,author,createdAt"),
             lambda o, a: {"number": a["number"], "issue": _json(o)},
         ),
     ),
@@ -77,37 +69,20 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
         ("title",),
         ("body",),
         (
-            lambda a: (
-                "gh",
-                "issue",
-                "create",
-                f"--title={a['title']}",
-                f"--body={a.get('body', '')}",
-                "--json=number,url",
-            ),
+            lambda a: ("gh", "issue", "create", f"--title={a['title']}", f"--body={a.get('body', '')}", "--json=number,url"),
             lambda o, a: {"created": _json(o)},
         ),
     ),
     "issue-comment": (
         ("number", "body"),
         (),
-        (
-            lambda a: ("gh", "issue", "comment", str(a["number"]), f"--body={a['body']}"),
-            lambda o, a: {"number": a["number"], "commented": True},
-        ),
+        (lambda a: ("gh", "issue", "comment", str(a["number"]), f"--body={a['body']}"), lambda o, a: {"number": a["number"], "commented": True}),
     ),
-    "issue-close": (
-        ("number",),
-        (),
-        (lambda a: ("gh", "issue", "close", str(a["number"])), lambda o, a: {"number": a["number"], "closed": True}),
-    ),
+    "issue-close": (("number",), (), (lambda a: ("gh", "issue", "close", str(a["number"])), lambda o, a: {"number": a["number"], "closed": True})),
     "issue-edit": (
         ("number",),
         ("title", "body", "labels"),
-        (
-            lambda a: ("gh", "issue", "edit", str(a["number"]), *_edit_flags(a)),
-            lambda o, a: {"number": a["number"], "edited": True},
-        ),
+        (lambda a: ("gh", "issue", "edit", str(a["number"]), *_edit_flags(a)), lambda o, a: {"number": a["number"], "edited": True}),
     ),
     "issue-reopen": (
         ("number",),
@@ -138,13 +113,7 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
         ("number",),
         (),
         (
-            lambda a: (
-                "gh",
-                "pr",
-                "view",
-                str(a["number"]),
-                "--json=number,title,body,state,headRefName,baseRefName,commits,files,reviews,comments",
-            ),
+            lambda a: ("gh", "pr", "view", str(a["number"]), "--json=number,title,body,state,headRefName,baseRefName,commits,files,reviews,comments"),
             lambda o, a: {"number": a["number"], "pull": _json(o)},
         ),
     ),
@@ -164,18 +133,11 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
             lambda o, a: {"created": _json(o)},
         ),
     ),
-    "pr-diff": (
-        ("number",),
-        (),
-        (lambda a: ("gh", "pr", "diff", str(a["number"]), "--patch"), lambda o, a: {"number": a["number"], "diff": o}),
-    ),
+    "pr-diff": (("number",), (), (lambda a: ("gh", "pr", "diff", str(a["number"]), "--patch"), lambda o, a: {"number": a["number"], "diff": o})),
     "pr-files": (
         ("number",),
         (),
-        (
-            lambda a: ("gh", "pr", "view", str(a["number"]), "--json=files"),
-            lambda o, a: {"number": a["number"], "files": _json(o).get("files", [])},
-        ),
+        (lambda a: ("gh", "pr", "view", str(a["number"]), "--json=files"), lambda o, a: {"number": a["number"], "files": _json(o).get("files", [])}),
     ),
     "pr-checks": (
         ("number",),
@@ -188,57 +150,29 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
     "pr-merge": (
         ("number",),
         (),
-        (
-            lambda a: ("gh", "pr", "merge", str(a["number"]), "--squash", "--delete-branch"),
-            lambda o, a: {"number": a["number"], "merged": True},
-        ),
+        (lambda a: ("gh", "pr", "merge", str(a["number"]), "--squash", "--delete-branch"), lambda o, a: {"number": a["number"], "merged": True}),
     ),
     "pr-review": (
         ("number", "event"),
         ("body",),
         (
-            lambda a: (
-                "gh",
-                "pr",
-                "review",
-                str(a["number"]),
-                f"--{a['event'].lower()}",
-                f"--body={a.get('body', '')}",
-            ),
+            lambda a: ("gh", "pr", "review", str(a["number"]), f"--{a['event'].lower()}", f"--body={a.get('body', '')}"),
             lambda o, a: {"number": a["number"], "event": a["event"], "reviewed": True},
         ),
     ),
     "pr-edit": (
         ("number",),
         ("title", "body", "labels"),
-        (
-            lambda a: ("gh", "pr", "edit", str(a["number"]), *_edit_flags(a)),
-            lambda o, a: {"number": a["number"], "edited": True},
-        ),
+        (lambda a: ("gh", "pr", "edit", str(a["number"]), *_edit_flags(a)), lambda o, a: {"number": a["number"], "edited": True}),
     ),
-    "pr-close": (
-        ("number",),
-        (),
-        (lambda a: ("gh", "pr", "close", str(a["number"])), lambda o, a: {"number": a["number"], "closed": True}),
-    ),
-    "pr-ready": (
-        ("number",),
-        (),
-        (lambda a: ("gh", "pr", "ready", str(a["number"])), lambda o, a: {"number": a["number"], "ready": True}),
-    ),
+    "pr-close": (("number",), (), (lambda a: ("gh", "pr", "close", str(a["number"])), lambda o, a: {"number": a["number"], "closed": True})),
+    "pr-ready": (("number",), (), (lambda a: ("gh", "pr", "ready", str(a["number"])), lambda o, a: {"number": a["number"], "ready": True})),
     # --- Workflows ---
-    "workflow-list": (
-        (),
-        (),
-        (lambda a: ("gh", "workflow", "list", "--json=id,name,path,state"), lambda o, a: {"workflows": _json(o)}),
-    ),
+    "workflow-list": ((), (), (lambda a: ("gh", "workflow", "list", "--json=id,name,path,state"), lambda o, a: {"workflows": _json(o)})),
     "workflow-view": (
         ("workflow",),
         (),
-        (
-            lambda a: ("gh", "workflow", "view", a["workflow"], "--yaml"),
-            lambda o, a: {"workflow": a["workflow"], "yaml": o},
-        ),
+        (lambda a: ("gh", "workflow", "view", a["workflow"], "--yaml"), lambda o, a: {"workflow": a["workflow"], "yaml": o}),
     ),
     "workflow-run": (
         ("workflow",),
@@ -266,13 +200,7 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
         ("run_id",),
         (),
         (
-            lambda a: (
-                "gh",
-                "run",
-                "view",
-                str(a["run_id"]),
-                "--json=databaseId,displayTitle,status,conclusion,jobs,createdAt,updatedAt",
-            ),
+            lambda a: ("gh", "run", "view", str(a["run_id"]), "--json=databaseId,displayTitle,status,conclusion,jobs,createdAt,updatedAt"),
             lambda o, a: {"run_id": a["run_id"], "run": _json(o)},
         ),
     ),
@@ -280,29 +208,16 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
         ("run_id",),
         ("failed",),
         (
-            lambda a: (
-                "gh",
-                "run",
-                "view",
-                str(a["run_id"]),
-                "--log-failed" if a.get("failed") == "failed" else "--log",
-            ),
+            lambda a: ("gh", "run", "view", str(a["run_id"]), "--log-failed" if a.get("failed") == "failed" else "--log"),
             lambda o, a: {"run_id": a["run_id"], "logs": o},
         ),
     ),
     "run-rerun": (
         ("run_id",),
         (),
-        (
-            lambda a: ("gh", "run", "rerun", str(a["run_id"]), "--failed"),
-            lambda o, a: {"run_id": a["run_id"], "rerun": True},
-        ),
+        (lambda a: ("gh", "run", "rerun", str(a["run_id"]), "--failed"), lambda o, a: {"run_id": a["run_id"], "rerun": True}),
     ),
-    "run-cancel": (
-        ("run_id",),
-        (),
-        (lambda a: ("gh", "run", "cancel", str(a["run_id"])), lambda o, a: {"run_id": a["run_id"], "cancelled": True}),
-    ),
+    "run-cancel": (("run_id",), (), (lambda a: ("gh", "run", "cancel", str(a["run_id"])), lambda o, a: {"run_id": a["run_id"], "cancelled": True})),
     # --- Search ---
     "search-repos": (
         ("query",),
@@ -323,14 +238,7 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
         ("query",),
         ("limit",),
         (
-            lambda a: (
-                "gh",
-                "search",
-                "code",
-                a["query"],
-                f"--limit={a.get('limit', DEFAULT_LIMIT)}",
-                "--json=path,repository,textMatches",
-            ),
+            lambda a: ("gh", "search", "code", a["query"], f"--limit={a.get('limit', DEFAULT_LIMIT)}", "--json=path,repository,textMatches"),
             lambda o, a: {"query": a["query"], "matches": _json(o)},
         ),
     ),
@@ -338,14 +246,7 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
         ("query",),
         ("limit",),
         (
-            lambda a: (
-                "gh",
-                "search",
-                "issues",
-                a["query"],
-                f"--limit={a.get('limit', DEFAULT_LIMIT)}",
-                "--json=number,title,repository,state,url",
-            ),
+            lambda a: ("gh", "search", "issues", a["query"], f"--limit={a.get('limit', DEFAULT_LIMIT)}", "--json=number,title,repository,state,url"),
             lambda o, a: {"query": a["query"], "issues": _json(o)},
         ),
     ),
@@ -362,14 +263,7 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
         ("project",),
         ("owner",),
         (
-            lambda a: (
-                "gh",
-                "project",
-                "view",
-                str(a["project"]),
-                f"--owner={a.get('owner', DEFAULT_OWNER)}",
-                FORMAT_JSON,
-            ),
+            lambda a: ("gh", "project", "view", str(a["project"]), f"--owner={a.get('owner', DEFAULT_OWNER)}", FORMAT_JSON),
             lambda o, a: {"project": a["project"], "details": _json(o)},
         ),
     ),
@@ -377,14 +271,7 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
         ("project",),
         ("owner",),
         (
-            lambda a: (
-                "gh",
-                "project",
-                "item-list",
-                str(a["project"]),
-                f"--owner={a.get('owner', DEFAULT_OWNER)}",
-                FORMAT_JSON,
-            ),
+            lambda a: ("gh", "project", "item-list", str(a["project"]), f"--owner={a.get('owner', DEFAULT_OWNER)}", FORMAT_JSON),
             lambda o, a: {"project": a["project"], "items": _json(o)},
         ),
     ),
@@ -392,14 +279,7 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
         ("title",),
         ("owner",),
         (
-            lambda a: (
-                "gh",
-                "project",
-                "create",
-                f"--owner={a.get('owner', DEFAULT_OWNER)}",
-                f"--title={a['title']}",
-                FORMAT_JSON,
-            ),
+            lambda a: ("gh", "project", "create", f"--owner={a.get('owner', DEFAULT_OWNER)}", f"--title={a['title']}", FORMAT_JSON),
             lambda o, a: {"created": _json(o)},
         ),
     ),
@@ -423,15 +303,7 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
         ("project", "url"),
         ("owner",),
         (
-            lambda a: (
-                "gh",
-                "project",
-                "item-add",
-                str(a["project"]),
-                f"--owner={a.get('owner', DEFAULT_OWNER)}",
-                f"--url={a['url']}",
-                FORMAT_JSON,
-            ),
+            lambda a: ("gh", "project", "item-add", str(a["project"]), f"--owner={a.get('owner', DEFAULT_OWNER)}", f"--url={a['url']}", FORMAT_JSON),
             lambda o, a: {"project": a["project"], "item": _json(o)},
         ),
     ),
@@ -439,14 +311,7 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
         ("project",),
         ("owner",),
         (
-            lambda a: (
-                "gh",
-                "project",
-                "field-list",
-                str(a["project"]),
-                f"--owner={a.get('owner', DEFAULT_OWNER)}",
-                FORMAT_JSON,
-            ),
+            lambda a: ("gh", "project", "field-list", str(a["project"]), f"--owner={a.get('owner', DEFAULT_OWNER)}", FORMAT_JSON),
             lambda o, a: {"project": a["project"], "fields": _json(o)},
         ),
     ),
@@ -455,13 +320,7 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
         (),
         ("limit",),
         (
-            lambda a: (
-                "gh",
-                "release",
-                "list",
-                f"--limit={a.get('limit', DEFAULT_LIMIT)}",
-                "--json=tagName,name,isDraft,isPrerelease,publishedAt",
-            ),
+            lambda a: ("gh", "release", "list", f"--limit={a.get('limit', DEFAULT_LIMIT)}", "--json=tagName,name,isDraft,isPrerelease,publishedAt"),
             lambda o, a: {"releases": _json(o)},
         ),
     ),
@@ -469,13 +328,7 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
         ("tag",),
         (),
         (
-            lambda a: (
-                "gh",
-                "release",
-                "view",
-                a["tag"],
-                "--json=tagName,name,body,isDraft,isPrerelease,publishedAt,assets",
-            ),
+            lambda a: ("gh", "release", "view", a["tag"], "--json=tagName,name,body,isDraft,isPrerelease,publishedAt,assets"),
             lambda o, a: {"tag": a["tag"], "release": _json(o)},
         ),
     ),
@@ -484,41 +337,22 @@ CMDS: dict[str, tuple[tuple[str, ...], tuple[str, ...], Handler]] = {
         (),
         ("limit",),
         (
-            lambda a: (
-                "gh",
-                "cache",
-                "list",
-                f"--limit={a.get('limit', DEFAULT_LIMIT)}",
-                "--json=id,key,sizeInBytes,createdAt,lastAccessedAt",
-            ),
+            lambda a: ("gh", "cache", "list", f"--limit={a.get('limit', DEFAULT_LIMIT)}", "--json=id,key,sizeInBytes,createdAt,lastAccessedAt"),
             lambda o, a: {"caches": _json(o)},
         ),
     ),
     "cache-delete": (
         ("cache_key",),
         (),
-        (
-            lambda a: ("gh", "cache", "delete", a["cache_key"], "--confirm"),
-            lambda o, a: {"cache_key": a["cache_key"], "deleted": True},
-        ),
+        (lambda a: ("gh", "cache", "delete", a["cache_key"], "--confirm"), lambda o, a: {"cache_key": a["cache_key"], "deleted": True}),
     ),
-    "label-list": (
-        (),
-        (),
-        (lambda a: ("gh", "label", "list", "--json=name,description,color"), lambda o, a: {"labels": _json(o)}),
-    ),
+    "label-list": ((), (), (lambda a: ("gh", "label", "list", "--json=name,description,color"), lambda o, a: {"labels": _json(o)})),
     # --- Utility ---
     "repo-view": (
         (),
         ("repo",),
         (
-            lambda a: (
-                "gh",
-                "repo",
-                "view",
-                a.get("repo", ""),
-                "--json=name,description,defaultBranchRef,stargazerCount,url",
-            ),
+            lambda a: ("gh", "repo", "view", a.get("repo", ""), "--json=name,description,defaultBranchRef,stargazerCount,url"),
             lambda o, a: {"repo": _json(o)},
         ),
     ),

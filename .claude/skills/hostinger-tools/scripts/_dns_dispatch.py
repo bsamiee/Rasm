@@ -15,9 +15,7 @@ type Handler = tuple[CmdBuilder, OutputFormatter]
 # --- [FORMATTERS] -------------------------------------------------------------
 def _list_fmt(key: str) -> OutputFormatter:
     """Create list formatter extracting array from response."""
-    return lambda response, _: {
-        key: response if isinstance(response, list) else response.get("data", response.get(key, response))
-    }
+    return lambda response, _: {key: response if isinstance(response, list) else response.get("data", response.get(key, response))}
 
 
 def _item_fmt(key: str) -> OutputFormatter:
@@ -35,17 +33,11 @@ DNS_HANDLERS: Final[dict[str, Handler]] = {
     # --- DNS ---
     "dns-records": (
         lambda args: ("GET", f"/api/dns/v1/zones/{args['domain']}", None),
-        lambda response, args: {
-            "domain": args["domain"],
-            "records": response if isinstance(response, list) else response.get("zone", response),
-        },
+        lambda response, args: {"domain": args["domain"], "records": response if isinstance(response, list) else response.get("zone", response)},
     ),
     "dns-snapshots": (
         lambda args: ("GET", f"/api/dns/v1/snapshots/{args['domain']}", None),
-        lambda response, args: {
-            "domain": args["domain"],
-            "snapshots": response if isinstance(response, list) else response.get("data", response),
-        },
+        lambda response, args: {"domain": args["domain"], "snapshots": response if isinstance(response, list) else response.get("data", response)},
     ),
     # --- DOMAINS ---
     "domain-list": (lambda _: ("GET", "/api/domains/v1/portfolio", None), _list_fmt("domains")),
@@ -54,11 +46,7 @@ DNS_HANDLERS: Final[dict[str, Handler]] = {
         lambda response, args: {"domain": args["domain"], "details": response},
     ),
     "domain-check": (
-        lambda args: (
-            "POST",
-            "/api/domains/v1/availability",
-            {"domain": args["domain"], "tlds": str(args["tlds"]).split(",")},
-        ),
+        lambda args: ("POST", "/api/domains/v1/availability", {"domain": args["domain"], "tlds": str(args["tlds"]).split(",")}),
         lambda response, args: {
             "domain": args["domain"],
             "availability": response if isinstance(response, list) else response.get("results", response),
@@ -91,11 +79,7 @@ DNS_HANDLERS: Final[dict[str, Handler]] = {
             f"/api/domains/v1/portfolio/{args['domain']}/forwarding",
             {"redirect_url": args["redirect_url"], "redirect_type": args["redirect_type"]},
         ),
-        lambda response, args: {
-            "domain": args["domain"],
-            "created": "error" not in str(response),
-            "forwarding": response,
-        },
+        lambda response, args: {"domain": args["domain"], "created": "error" not in str(response), "forwarding": response},
     ),
     "domain-forwarding-delete": (
         lambda args: ("DELETE", f"/api/domains/v1/portfolio/{args['domain']}/forwarding", None),
@@ -115,10 +99,7 @@ DNS_HANDLERS: Final[dict[str, Handler]] = {
         lambda response, args: {"domain": args["domain"], "nameservers_set": "error" not in str(response)},
     ),
     # --- WHOIS ---
-    "whois-list": (
-        lambda args: ("GET", f"/api/domains/v1/whois{'?tld=' + args['tld'] if args.get('tld') else ''}", None),
-        _list_fmt("profiles"),
-    ),
+    "whois-list": (lambda args: ("GET", f"/api/domains/v1/whois{'?tld=' + args['tld'] if args.get('tld') else ''}", None), _list_fmt("profiles")),
     "whois-view": (lambda args: ("GET", f"/api/domains/v1/whois/{args['id']}", None), _item_fmt("profile")),
     "whois-create": (
         lambda args: (
@@ -128,9 +109,7 @@ DNS_HANDLERS: Final[dict[str, Handler]] = {
                 "tld": args["tld"],
                 "entity_type": args["entity_type"],
                 "country": args["country"],
-                "whois_details": json.loads(args["whois_details"])
-                if isinstance(args["whois_details"], str)
-                else args["whois_details"],
+                "whois_details": json.loads(args["whois_details"]) if isinstance(args["whois_details"], str) else args["whois_details"],
             },
         ),
         lambda response, args: {"tld": args["tld"], "created": response.get("id"), "profile": response},
@@ -138,9 +117,6 @@ DNS_HANDLERS: Final[dict[str, Handler]] = {
     "whois-delete": (lambda args: ("DELETE", f"/api/domains/v1/whois/{args['id']}", None), _action_fmt("deleted")),
     "whois-usage": (
         lambda args: ("GET", f"/api/domains/v1/whois/{args['id']}/usage", None),
-        lambda response, args: {
-            "id": args["id"],
-            "domains": response if isinstance(response, list) else response.get("domains", response),
-        },
+        lambda response, args: {"id": args["id"], "domains": response if isinstance(response, list) else response.get("domains", response)},
     ),
 }

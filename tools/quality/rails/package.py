@@ -2,8 +2,6 @@
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
-from __future__ import annotations
-
 from collections.abc import Callable
 import fcntl
 import fnmatch
@@ -93,7 +91,7 @@ class PackageMeta(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
         missing = tuple(name for name in _META_PROPS if name != "YakPushSource" and not props.get(name))
         match missing:
             case ():
-                meta = cls(
+                return cls(
                     project=project,
                     manifest_dir=Path(props["YakManifestDirectory"]),
                     target_dir=Path(props["TargetDir"]),
@@ -106,8 +104,7 @@ class PackageMeta(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
                     package_pattern=props["YakPackagePattern"],
                     target_framework=props["TargetFramework"],
                     project_dir=Path(props["MSBuildProjectDirectory"]),
-                )
-                return meta.validate(settings, slug, props["YakPackageSlug"])
+                ).validate(settings, slug, props["YakPackageSlug"])
             case names:
                 return Error(ProcessFault.fail("package", detail=f"Missing MSBuild properties: {', '.join(names)}"))
 
@@ -165,7 +162,6 @@ def _finish(
                 "quit": lambda: client_quit(settings, scope),
                 "refresh": lambda: client_refresh(settings, scope),
             }
-
             steps = _PACKAGE_STEPS.get((mode, slug == RASM_BRIDGE_SLUG), ())
             prelude = build_client(settings, scope) if _CLIENT_STEPS.intersection(steps) else Ok(None)
             return prelude.bind(lambda _: fold(steps, None, lambda _, kind: step[kind]()))
@@ -177,10 +173,12 @@ def _stage(settings: QualitySettings, scope: ArtifactScope, project: Path, slug:
     def build(meta: PackageMeta) -> Result[PackageArtifact, ProcessFault]:
         shutil.rmtree(meta.target_dir, ignore_errors=True)
         meta.package_dir.parent.mkdir(parents=True, exist_ok=True)
-        stage = Path(tempfile.mkdtemp(prefix=f"{meta.package_dir.name}.", dir=meta.package_dir.parent))
-        previous = meta.package_dir.with_name(f"{meta.package_dir.name}.previous.{os.getpid()}")
-        primary = meta.target_dir / f"{meta.assembly_name}{meta.target_ext}"
-        manifest = meta.manifest_dir / "manifest.yml"
+        stage, previous, primary, manifest = (
+            Path(tempfile.mkdtemp(prefix=f"{meta.package_dir.name}.", dir=meta.package_dir.parent)),
+            meta.package_dir.with_name(f"{meta.package_dir.name}.previous.{os.getpid()}"),
+            meta.target_dir / f"{meta.assembly_name}{meta.target_ext}",
+            meta.manifest_dir / "manifest.yml",
+        )
 
         def commit() -> Result[PackageArtifact, ProcessFault]:
             # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=atomic-package-stage — flock + rotate package_dir to previous before os.replace.

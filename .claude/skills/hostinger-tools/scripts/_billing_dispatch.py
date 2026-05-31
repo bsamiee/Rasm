@@ -14,9 +14,7 @@ type Handler = tuple[CmdBuilder, OutputFormatter]
 # --- [FORMATTERS] -------------------------------------------------------------
 def _list_fmt(key: str) -> OutputFormatter:
     """Create list formatter extracting array from response."""
-    return lambda response, _: {
-        key: response if isinstance(response, list) else response.get("data", response.get(key, response))
-    }
+    return lambda response, _: {key: response if isinstance(response, list) else response.get("data", response.get(key, response))}
 
 
 def _action_fmt(action: str) -> OutputFormatter:
@@ -28,22 +26,12 @@ def _action_fmt(action: str) -> OutputFormatter:
 BILLING_HANDLERS: Final[dict[str, Handler]] = {
     # --- BILLING ---
     "billing-catalog": (
-        lambda args: (
-            "GET",
-            f"/api/billing/v1/catalog{'?category=' + args['category'] if args.get('category') else ''}",
-            None,
-        ),
+        lambda args: ("GET", f"/api/billing/v1/catalog{'?category=' + args['category'] if args.get('category') else ''}", None),
         _list_fmt("items"),
     ),
     "billing-payment-methods": (lambda _: ("GET", "/api/billing/v1/payment-methods", None), _list_fmt("methods")),
-    "billing-payment-method-set-default": (
-        lambda args: ("PUT", f"/api/billing/v1/payment-methods/{args['id']}/default", None),
-        _action_fmt("set"),
-    ),
-    "billing-payment-method-delete": (
-        lambda args: ("DELETE", f"/api/billing/v1/payment-methods/{args['id']}", None),
-        _action_fmt("deleted"),
-    ),
+    "billing-payment-method-set-default": (lambda args: ("PUT", f"/api/billing/v1/payment-methods/{args['id']}/default", None), _action_fmt("set")),
+    "billing-payment-method-delete": (lambda args: ("DELETE", f"/api/billing/v1/payment-methods/{args['id']}", None), _action_fmt("deleted")),
     "billing-subscriptions": (lambda _: ("GET", "/api/billing/v1/subscriptions", None), _list_fmt("subscriptions")),
     "billing-subscription-cancel": (
         lambda args: ("DELETE", f"/api/billing/v1/subscriptions/{args['id']}", None),
@@ -72,8 +60,5 @@ BILLING_HANDLERS: Final[dict[str, Handler]] = {
         ),
         lambda response, args: {"domain": args["domain"], "created": "error" not in str(response), "website": response},
     ),
-    "hosting-datacenters-list": (
-        lambda args: ("GET", f"/api/hosting/v1/orders/{args['order_id']}/data-centers", None),
-        _list_fmt("datacenters"),
-    ),
+    "hosting-datacenters-list": (lambda args: ("GET", f"/api/hosting/v1/orders/{args['order_id']}/data-centers", None), _list_fmt("datacenters")),
 }

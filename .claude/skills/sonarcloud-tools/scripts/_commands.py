@@ -14,8 +14,7 @@ BASE_URL: Final = "https://sonarcloud.io/api"
 ORG: Final = environ.get("SONARCLOUD_ORG", "")
 PROJECT: Final = environ.get("SONARCLOUD_PROJECT", "")
 DEFAULT_METRICS: Final = (
-    "ncloc,coverage,bugs,vulnerabilities,code_smells,duplicated_lines_density,"
-    "security_hotspots,reliability_rating,security_rating,sqale_rating"
+    "ncloc,coverage,bugs,vulnerabilities,code_smells,duplicated_lines_density,security_hotspots,reliability_rating,security_rating,sqale_rating"
 )
 DEFAULT_STATUSES: Final = "OPEN,CONFIRMED,REOPENED"
 
@@ -48,10 +47,7 @@ def _config_error() -> JsonMap | None:
         case (True, True):
             return None
         case _:
-            return {
-                "status": "error",
-                "message": "Set SONARCLOUD_ORG and SONARCLOUD_PROJECT before running SonarCloud commands.",
-            }
+            return {"status": "error", "message": "Set SONARCLOUD_ORG and SONARCLOUD_PROJECT before running SonarCloud commands."}
 
 
 # --- [COMMANDS] ---------------------------------------------------------------
@@ -164,8 +160,7 @@ def measures(metrics: str, get_fn: GetFn) -> JsonMap:
         "project": data["component"]["key"],
         "name": data["component"]["name"],
         "metrics": {
-            measure["metric"]: measure.get("value", measure.get("period", {}).get("value", "N/A"))
-            for measure in data["component"]["measures"]
+            measure["metric"]: measure.get("value", measure.get("period", {}).get("value", "N/A")) for measure in data["component"]["measures"]
         },
     }
 
@@ -198,10 +193,7 @@ def analyses(page_size: str, get_fn: GetFn) -> JsonMap:
             {
                 "key": analysis["key"],
                 "date": analysis["date"],
-                "events": [
-                    {"category": event["category"], "name": event.get("name", "")}
-                    for event in analysis.get("events", [])
-                ],
+                "events": [{"category": event["category"], "name": event.get("name", "")} for event in analysis.get("events", [])],
             }
             for analysis in data["analyses"]
         ],

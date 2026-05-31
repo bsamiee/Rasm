@@ -70,17 +70,11 @@ def _is_pos(value: Any) -> bool:
 
 # --- [DISPATCH_TABLES] --------------------------------------------------------
 checks: dict[str, Check] = {
-    "root_required": lambda data: [
-        f"missing root.{key}" for key in ("name", "nodes", "connections") if key not in data
-    ],
+    "root_required": lambda data: [f"missing root.{key}" for key in ("name", "nodes", "connections") if key not in data],
     "root_types": lambda data: [
         *(["root.name must be string"] if "name" in data and not isinstance(data["name"], str) else []),
         *(["root.nodes must be array"] if "nodes" in data and not isinstance(data["nodes"], list) else []),
-        *(
-            ["root.connections must be object"]
-            if "connections" in data and not isinstance(data["connections"], dict)
-            else []
-        ),
+        *(["root.connections must be object"] if "connections" in data and not isinstance(data["connections"], dict) else []),
     ],
     "node_required": lambda data: [
         f"node[{index}] missing {key}"
@@ -93,12 +87,12 @@ checks: dict[str, Check] = {
         for index, node in enumerate(data.get("nodes", []))
         if "id" in node and not _is_uuid(node["id"])
     ],
-    "node_id_unique": lambda data: (
-        lambda ids: [f"duplicate node.id: {identifier}" for identifier in ids if ids.count(identifier) > 1][:1]
-    )([node.get("id") for node in data.get("nodes", []) if "id" in node]),
-    "node_name_unique": lambda data: (
-        lambda names: [f"duplicate node.name: {name}" for name in names if names.count(name) > 1][:1]
-    )([node.get("name") for node in data.get("nodes", []) if "name" in node]),
+    "node_id_unique": lambda data: (lambda ids: [f"duplicate node.id: {identifier}" for identifier in ids if ids.count(identifier) > 1][:1])([
+        node.get("id") for node in data.get("nodes", []) if "id" in node
+    ]),
+    "node_name_unique": lambda data: (lambda names: [f"duplicate node.name: {name}" for name in names if names.count(name) > 1][:1])([
+        node.get("name") for node in data.get("nodes", []) if "name" in node
+    ]),
     "node_position": lambda data: [
         f"node[{index}].position must be [x,y]: {node.get('position')}"
         for index, node in enumerate(data.get("nodes", []))
@@ -136,15 +130,8 @@ checks: dict[str, Check] = {
         )
     )(data.get("settings", {})),
     "settings_exec_order_ai": lambda data: (
-        lambda has_ai, settings: (
-            ["AI workflow requires settings.executionOrder='v1'"]
-            if has_ai and settings.get("executionOrder") != "v1"
-            else []
-        )
-    )(
-        any(node.get("type", "").startswith("@n8n/n8n-nodes-langchain") for node in data.get("nodes", [])),
-        data.get("settings", {}),
-    ),
+        lambda has_ai, settings: ["AI workflow requires settings.executionOrder='v1'"] if has_ai and settings.get("executionOrder") != "v1" else []
+    )(any(node.get("type", "").startswith("@n8n/n8n-nodes-langchain") for node in data.get("nodes", [])), data.get("settings", {})),
 }
 
 

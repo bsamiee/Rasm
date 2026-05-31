@@ -69,10 +69,7 @@ if result.ok:
 ```
 [CORRECT]:
 ```python
-result: Result[ProcessedOrder, DomainError] = process_order(
-    candidate=raw_input,
-    max_amount=Decimal("10000.00"),
-)
+result: Result[ProcessedOrder, DomainError] = process_order(candidate=raw_input, max_amount=Decimal("10000.00"))
 # result is Success(ProcessedOrder(...)) or Failure(DomainError.InvalidAmount(...))
 ```
 Pseudocode examples teach wrong API. Examples must use actual function signatures, actual types, actual error representations. Readers should extract examples into test files and execute them.

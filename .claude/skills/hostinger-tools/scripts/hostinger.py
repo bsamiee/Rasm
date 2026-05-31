@@ -58,47 +58,19 @@ COMMANDS: Final[dict[str, dict[str, str]]] = {
     "vps-action-view": {"desc": "View action details", "opts": "--id NUM --action-id NUM", "req": "--id --action-id"},
     "vps-hostname-set": {"desc": "Set VPS hostname", "opts": "--id NUM --hostname TEXT", "req": "--id --hostname"},
     "vps-hostname-reset": {"desc": "Reset VPS hostname", "opts": "--id NUM", "req": "--id"},
-    "vps-nameservers-set": {
-        "desc": "Set VPS nameservers",
-        "opts": "--id NUM --ns1 TEXT [--ns2 TEXT]",
-        "req": "--id --ns1",
-    },
+    "vps-nameservers-set": {"desc": "Set VPS nameservers", "opts": "--id NUM --ns1 TEXT [--ns2 TEXT]", "req": "--id --ns1"},
     "vps-password-set": {"desc": "Set root password", "opts": "--id NUM --password TEXT", "req": "--id --password"},
-    "vps-panel-password-set": {
-        "desc": "Set panel password",
-        "opts": "--id NUM --password TEXT",
-        "req": "--id --password",
-    },
-    "vps-ptr-create": {
-        "desc": "Create PTR record",
-        "opts": "--id NUM --ip-id NUM --domain TEXT",
-        "req": "--id --ip-id --domain",
-    },
+    "vps-panel-password-set": {"desc": "Set panel password", "opts": "--id NUM --password TEXT", "req": "--id --password"},
+    "vps-ptr-create": {"desc": "Create PTR record", "opts": "--id NUM --ip-id NUM --domain TEXT", "req": "--id --ip-id --domain"},
     "vps-ptr-delete": {"desc": "Delete PTR record", "opts": "--id NUM --ip-id NUM", "req": "--id --ip-id"},
-    "vps-recovery-start": {
-        "desc": "Start recovery mode",
-        "opts": "--id NUM --root-password TEXT",
-        "req": "--id --root-password",
-    },
+    "vps-recovery-start": {"desc": "Start recovery mode", "opts": "--id NUM --root-password TEXT", "req": "--id --root-password"},
     "vps-recovery-stop": {"desc": "Stop recovery mode", "opts": "--id NUM", "req": "--id"},
-    "vps-recreate": {
-        "desc": "Recreate VPS",
-        "opts": "--id NUM --template-id NUM [--password TEXT]",
-        "req": "--id --template-id",
-    },
+    "vps-recreate": {"desc": "Recreate VPS", "opts": "--id NUM --template-id NUM [--password TEXT]", "req": "--id --template-id"},
     "docker-list": {"desc": "List Docker projects", "opts": "--id NUM", "req": "--id"},
     "docker-view": {"desc": "View Docker project", "opts": "--id NUM --project NAME", "req": "--id --project"},
-    "docker-containers": {
-        "desc": "List project containers",
-        "opts": "--id NUM --project NAME",
-        "req": "--id --project",
-    },
+    "docker-containers": {"desc": "List project containers", "opts": "--id NUM --project NAME", "req": "--id --project"},
     "docker-logs": {"desc": "Get project logs", "opts": "--id NUM --project NAME", "req": "--id --project"},
-    "docker-create": {
-        "desc": "Create Docker project",
-        "opts": "--id NUM --project NAME --content TEXT",
-        "req": "--id --project --content",
-    },
+    "docker-create": {"desc": "Create Docker project", "opts": "--id NUM --project NAME --content TEXT", "req": "--id --project --content"},
     "docker-start": {"desc": "Start project", "opts": "--id NUM --project NAME", "req": "--id --project"},
     "docker-stop": {"desc": "Stop project", "opts": "--id NUM --project NAME", "req": "--id --project"},
     "docker-restart": {"desc": "Restart project", "opts": "--id NUM --project NAME", "req": "--id --project"},
@@ -108,21 +80,9 @@ COMMANDS: Final[dict[str, dict[str, str]]] = {
     "firewall-view": {"desc": "View firewall", "opts": "--id NUM", "req": "--id"},
     "firewall-create": {"desc": "Create firewall", "opts": "--name TEXT", "req": "--name"},
     "firewall-delete": {"desc": "Delete firewall", "opts": "--id NUM", "req": "--id"},
-    "firewall-activate": {
-        "desc": "Activate firewall",
-        "opts": "--firewall-id NUM --vps-id NUM",
-        "req": "--firewall-id --vps-id",
-    },
-    "firewall-deactivate": {
-        "desc": "Deactivate firewall",
-        "opts": "--firewall-id NUM --vps-id NUM",
-        "req": "--firewall-id --vps-id",
-    },
-    "firewall-sync": {
-        "desc": "Sync firewall rules",
-        "opts": "--firewall-id NUM --vps-id NUM",
-        "req": "--firewall-id --vps-id",
-    },
+    "firewall-activate": {"desc": "Activate firewall", "opts": "--firewall-id NUM --vps-id NUM", "req": "--firewall-id --vps-id"},
+    "firewall-deactivate": {"desc": "Deactivate firewall", "opts": "--firewall-id NUM --vps-id NUM", "req": "--firewall-id --vps-id"},
+    "firewall-sync": {"desc": "Sync firewall rules", "opts": "--firewall-id NUM --vps-id NUM", "req": "--firewall-id --vps-id"},
     "firewall-rule-create": {
         "desc": "Create firewall rule",
         "opts": "--id NUM --protocol TEXT --port TEXT --source TEXT --source-detail TEXT",
@@ -142,11 +102,7 @@ COMMANDS: Final[dict[str, dict[str, str]]] = {
     "script-list": {"desc": "List post-install scripts", "opts": "", "req": ""},
     "script-view": {"desc": "View script", "opts": "--id NUM", "req": "--id"},
     "script-create": {"desc": "Create script", "opts": "--name TEXT --content TEXT", "req": "--name --content"},
-    "script-update": {
-        "desc": "Update script",
-        "opts": "--id NUM --name TEXT --content TEXT",
-        "req": "--id --name --content",
-    },
+    "script-update": {"desc": "Update script", "opts": "--id NUM --name TEXT --content TEXT", "req": "--id --name --content"},
     "script-delete": {"desc": "Delete script", "opts": "--id NUM", "req": "--id"},
     "snapshot-view": {"desc": "Get VPS snapshot", "opts": "--id NUM", "req": "--id"},
     "snapshot-create": {"desc": "Create snapshot", "opts": "--id NUM", "req": "--id"},
@@ -169,11 +125,7 @@ COMMANDS: Final[dict[str, dict[str, str]]] = {
     "billing-auto-renewal-disable": {"desc": "Disable auto-renewal", "opts": "--id TEXT", "req": "--id"},
     "hosting-orders-list": {"desc": "List hosting orders", "opts": "", "req": ""},
     "hosting-websites-list": {"desc": "List websites", "opts": "", "req": ""},
-    "hosting-website-create": {
-        "desc": "Create website",
-        "opts": "--domain NAME --order-id NUM [--datacenter CODE]",
-        "req": "--domain --order-id",
-    },
+    "hosting-website-create": {"desc": "Create website", "opts": "--domain NAME --order-id NUM [--datacenter CODE]", "req": "--domain --order-id"},
     "hosting-datacenters-list": {"desc": "List available datacenters", "opts": "--order-id NUM", "req": "--order-id"},
     "domain-lock-enable": {"desc": "Enable domain lock", "opts": "--domain NAME", "req": "--domain"},
     "domain-lock-disable": {"desc": "Disable domain lock", "opts": "--domain NAME", "req": "--domain"},
@@ -387,17 +339,10 @@ def main() -> int:
         case [command, *rest]:
             opts = _parse_flags(tuple(rest))
             if missing := _validate_args(command, opts):
-                sys.stdout.write(
-                    json.dumps(_usage_error(f"Missing required: {', '.join(missing)}", command), indent=2) + "\n"
-                )
+                sys.stdout.write(json.dumps(_usage_error(f"Missing required: {', '.join(missing)}", command), indent=2) + "\n")
                 return 1
             if not os.environ.get(DEFAULTS.token_env):
-                sys.stdout.write(
-                    json.dumps(
-                        {"status": "error", "message": f"Missing {DEFAULTS.token_env} environment variable"}, indent=2
-                    )
-                    + "\n"
-                )
+                sys.stdout.write(json.dumps({"status": "error", "message": f"Missing {DEFAULTS.token_env} environment variable"}, indent=2) + "\n")
                 return 1
 
             builder, formatter = handlers[command]

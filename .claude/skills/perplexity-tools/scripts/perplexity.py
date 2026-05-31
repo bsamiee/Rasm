@@ -46,9 +46,7 @@ type CommandRegistry = dict[str, CommandEntry]
 CMDS: Final[CommandRegistry] = {}
 
 
-def cmd(
-    name: str, argc: int, model: str, timeout: int = TIMEOUT
-) -> Callable[[Callable[..., JsonMap]], Callable[..., JsonMap]]:
+def cmd(name: str, argc: int, model: str, timeout: int = TIMEOUT) -> Callable[[Callable[..., JsonMap]], Callable[..., JsonMap]]:
     """Register command with required arg count, model, and timeout."""
 
     def register(fn: Callable[..., JsonMap]) -> Callable[..., JsonMap]:
@@ -104,12 +102,7 @@ def pro(query: str) -> JsonMap:
 def research(query: str, strip: str = "") -> JsonMap:
     """Deep research with optional thinking removal."""
     response = _post(MODEL_RESEARCH, [{"role": "user", "content": query}], TIMEOUT_DEEP)
-    return {
-        "status": "success",
-        "query": query,
-        "response": _strip_think(_content(response), strip == "strip"),
-        "citations": _citations(response),
-    }
+    return {"status": "success", "query": query, "response": _strip_think(_content(response), strip == "strip"), "citations": _citations(response)}
 
 
 @cmd("reason", 1, MODEL_REASON, TIMEOUT_DEEP)
@@ -135,9 +128,7 @@ def main() -> int:
             fn, argc, _, _ = entry
             match cmd_args:
                 case _ if len(cmd_args) < argc:
-                    sys.stdout.write(
-                        f"Usage: perplexity.py {cmd_name} {' '.join(f'<arg{index + 1}>' for index in range(argc))}\n"
-                    )
+                    sys.stdout.write(f"Usage: perplexity.py {cmd_name} {' '.join(f'<arg{index + 1}>' for index in range(argc))}\n")
                     return 1
                 case _:
                     try:
@@ -146,12 +137,7 @@ def main() -> int:
                         return 0 if result["status"] == "success" else 1
                     except httpx.HTTPStatusError as error:
                         sys.stdout.write(
-                            json.dumps({
-                                "status": "error",
-                                "code": error.response.status_code,
-                                "message": error.response.text[:200],
-                            })
-                            + "\n"
+                            json.dumps({"status": "error", "code": error.response.status_code, "message": error.response.text[:200]}) + "\n"
                         )
                         return 1
                     except httpx.RequestError as error:

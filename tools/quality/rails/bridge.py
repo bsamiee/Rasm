@@ -2,8 +2,6 @@
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
-from __future__ import annotations
-
 from pathlib import Path
 import re
 import shutil
@@ -81,17 +79,21 @@ class BridgeResult(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, re
 
     @property
     def diagnostics(self) -> BridgeRuntimeDiagnostics | None:
-        for phase in self.phases:
-            if phase.phase == "execute" and (data := phase.data) and (raw := data.get("diagnostics")):
-                return msgspec.convert(raw, type=BridgeRuntimeDiagnostics, strict=False)
-        return None
+        def convert(phase: BridgePhase) -> BridgeRuntimeDiagnostics | None:
+            match phase:
+                case BridgePhase(phase="execute", data=dict() as data) if raw := data.get("diagnostics"):
+                    return msgspec.convert(raw, type=BridgeRuntimeDiagnostics, strict=False)
+                case _:
+                    return None
+
+        return next((diagnostics for phase in self.phases if (diagnostics := convert(phase)) is not None), None)
 
     @property
     def execute_stdout(self) -> tuple[str, bool]:
-        for phase in self.phases:
-            if phase.phase == "execute":
-                return next(((out.text, out.truncated) for out in phase.outputs if out.source == "stdout"), ("", False))
-        return "", False
+        return next(
+            ((out.text, out.truncated) for phase in self.phases if phase.phase == "execute" for out in phase.outputs if out.source == "stdout"),
+            ("", False),
+        )
 
     @property
     def facts(self) -> tuple[dict[str, object], ...]:
@@ -336,6 +338,7 @@ def run_verify(settings: QualitySettings, scope: ArtifactScope, pattern: str) ->
                 )
 
             seed: tuple[BridgeResult, ...] = ()
+
             return (
                 _verify_expire(report_root, settings.verify_retention_seconds)
                 .bind(lambda _: ensure_report_dir())

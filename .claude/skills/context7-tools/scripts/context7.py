@@ -77,10 +77,7 @@ def _search(lib: str, query: str = "") -> list[JsonMap]:
 
 def _pick(matches: list[JsonMap]) -> JsonMap | None:
     """Select best match: VIP first, then highest benchmark score."""
-    return next(
-        (match for match in matches if match.get("vip")),
-        max(matches, key=lambda match: match.get("benchmarkScore", 0), default=None),
-    )
+    return next((match for match in matches if match.get("vip")), max(matches, key=lambda match: match.get("benchmarkScore", 0), default=None))
 
 
 # --- [COMMANDS] ---------------------------------------------------------------
@@ -89,12 +86,7 @@ def resolve(lib: str, query: str = "") -> str:
     """Resolve library -> JSON list of matching IDs with scores."""
     return json.dumps(
         [
-            {
-                "id": match["id"],
-                "title": match.get("title", ""),
-                "score": match.get("benchmarkScore", 0),
-                "vip": match.get("vip", False),
-            }
+            {"id": match["id"], "title": match.get("title", ""), "score": match.get("benchmarkScore", 0), "vip": match.get("vip", False)}
             for match in _search(lib, query)[:5]
         ],
         indent=2,
@@ -130,9 +122,7 @@ def main() -> int:
             fn, argc = entry
             match cmd_args:
                 case _ if len(cmd_args) < argc:
-                    sys.stdout.write(
-                        f"Usage: context7.py {cmd_name} {' '.join(f'<arg{index + 1}>' for index in range(argc))}\n"
-                    )
+                    sys.stdout.write(f"Usage: context7.py {cmd_name} {' '.join(f'<arg{index + 1}>' for index in range(argc))}\n")
                     return 1
                 case _:
                     try:

@@ -66,9 +66,14 @@ _debug = lambda msg: DEBUG and print(f"[hook] {msg}", file=sys.stderr)
 ```python
 import json
 from typing import Final
+
 WRAPPER: Final = "context"
+
+
 def build_response(content: str) -> dict[str, object]:
     return {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": f"<{WRAPPER}>\n{content}\n</{WRAPPER}>"}}
+
+
 print(json.dumps(build_response("Project uses Effect. Follow CLAUDE.md.")))
 ```
 
@@ -77,9 +82,13 @@ print(json.dumps(build_response("Project uses Effect. Follow CLAUDE.md.")))
 ```python
 from pathlib import Path
 import os
+
+
 def cache_to_env(key: str, value: str) -> None:
     env_file = os.environ.get("CLAUDE_ENV_FILE")
     _ = env_file and Path(env_file).open("a").write(f"export {key}={value}\n")
+
+
 # Usage: cache computed values for session duration
 cache_to_env("SKILL_COUNT", str(len(skills)))
 ```

@@ -65,12 +65,7 @@ def extract(opts: JsonMap, post_fn: PostFn) -> JsonMap:
         "include_favicon": opts.get("include_favicon", False),
     }
     response = post_fn("/extract", body)
-    return {
-        "status": "success",
-        "urls": url_list,
-        "results": response.get("results", []),
-        "failed": response.get("failed_results", []),
-    }
+    return {"status": "success", "urls": url_list, "results": response.get("results", []), "failed": response.get("failed_results", [])}
 
 
 def crawl(opts: JsonMap, post_fn: PostFn) -> JsonMap:

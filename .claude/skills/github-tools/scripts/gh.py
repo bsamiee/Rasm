@@ -87,9 +87,7 @@ def main() -> int:
             all_params = required + optional
 
             if len(cmd_args) < len(required):
-                usage_args = (
-                    f"{' '.join(f'<{param}>' for param in required)} {' '.join(f'[{param}]' for param in optional)}"
-                )
+                usage_args = f"{' '.join(f'<{param}>' for param in required)} {' '.join(f'[{param}]' for param in optional)}"
                 sys.stdout.write(f"Usage: gh.py {cmd_name} {usage_args}\n")
                 return 1
 
@@ -97,11 +95,7 @@ def main() -> int:
             env = project_env() if cmd_name.startswith("project-") else None
             ok, out = run_command(builder(opts), env)
 
-            result = (
-                {"status": "success", **formatter(out, opts)}
-                if ok
-                else {"status": "error", "message": f"{cmd_name} failed", "stderr": out}
-            )
+            result = {"status": "success", **formatter(out, opts)} if ok else {"status": "error", "message": f"{cmd_name} failed", "stderr": out}
             sys.stdout.write(json.dumps(result, indent=2) + "\n")
             return 0 if ok else 1
 

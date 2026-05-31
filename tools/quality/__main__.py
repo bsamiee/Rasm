@@ -2,15 +2,13 @@
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
-from __future__ import annotations
-
 from collections.abc import Callable
 from functools import partial
 from pathlib import Path
 import shutil
 import sys
 import time
-from typing import Annotated, Final, Literal
+from typing import Final, Literal
 
 from cyclopts import App, Parameter
 from expression import Result
@@ -117,7 +115,7 @@ def build_bridge_cmd() -> int:
 
 
 @bridge.command
-def check(target: str, scenario: Annotated[str, Parameter(show_default=False)] = "") -> int:
+def check(target: str, scenario: str = "") -> int:
     return _bridge("check", target, *((scenario,) if scenario else ()))
 
 
@@ -177,10 +175,6 @@ def unit_gate(mode: Literal["run", "list", "coverage"], filter_expr: str = "", t
     )
 
 
-def _merge_facts(facts: tuple[dict[str, object], ...]) -> dict[str, object]:
-    return {key: value for block in facts for key, value in block.items()}
-
-
 def _verify_render(summary: bridge_rail.VerifyReport) -> int:
     for scenario in summary.scenarios:
         log.info(
@@ -189,7 +183,7 @@ def _verify_render(summary: bridge_rail.VerifyReport) -> int:
             status=scenario.status,
             report=scenario.report_path,
             captures=tuple(capture.get("path") for capture in scenario.captures),
-            facts=_merge_facts(scenario.facts),
+            facts={key: value for block in scenario.facts for key, value in block.items()},
             fault=scenario.fault.message if scenario.fault is not None else None,
             exception_reports=len(scenario.exception_reports),
             stdout_truncated=scenario.stdout_truncated or None,
@@ -234,12 +228,12 @@ for _rail_app in (static, test_app, bridge, api):
 
 def main(argv: list[str] | None = None) -> int:
     structlog.configure(
-        processors=[structlog.contextvars.merge_contextvars, structlog.processors.TimeStamper(fmt="iso"), structlog.dev.ConsoleRenderer()],
+        processors=(structlog.contextvars.merge_contextvars, structlog.processors.TimeStamper(fmt="iso"), structlog.dev.ConsoleRenderer()),
         # Logs/diagnostics to stderr; machine payloads (rail JSON, _emit) stay alone on stdout.
         logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
         cache_logger_on_first_use=True,
     )
-    return app(sys.argv[1:] if argv is None else argv) or 0
+    return (app() if argv is None else app(argv)) or 0
 
 
 if __name__ == "__main__":

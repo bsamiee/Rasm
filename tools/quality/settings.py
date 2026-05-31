@@ -2,8 +2,6 @@
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
-from __future__ import annotations
-
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -133,8 +131,10 @@ class QualitySettings(BaseSettings):
                 return ()
             return tuple(int(part) for part in str(plist.get("CFBundleVersion", "")).split(".") if part.isdigit())
 
-        ranked = sorted((bundle_version(app), "WIP" in app.name, app) for app in Path("/Applications").glob("Rhino*.app") if app.is_dir())
-        return ranked[-1][2] if ranked else None
+        return max(
+            ((bundle_version(app), "WIP" in app.name, app) for app in Path("/Applications").glob("Rhino*.app") if app.is_dir()),
+            default=((), False, None),
+        )[2]
 
     @staticmethod
     def _resolve_rhino_app() -> Path:
@@ -220,12 +220,7 @@ class QualitySettings(BaseSettings):
         return (f"/p:Version={version}", f"/p:InformationalVersion={version}") if version else ()
 
     def dotnet_env(self, scope_path: Path, *, rail: str = "") -> dict[str, str]:
-        overlay: dict[str, str] = {"DOTNET_CLI_HOME": str(scope_path / _DOTNET_CLI)}
-        match rail:
-            case "static":
-                pass
-            case _:
-                overlay["MSBUILDDISABLENODEREUSE"] = "1"
+        overlay = {"DOTNET_CLI_HOME": str(scope_path / _DOTNET_CLI)} | ({} if rail == "static" else {"MSBUILDDISABLENODEREUSE": "1"})
         return {**os.environ, **overlay, "RHINO_WIP_APP_PATH": str(self.rhino_app)}  # noqa: TID251
 
     def _artifact_dir(self, kind: Literal["test", "mutation"]) -> Path:

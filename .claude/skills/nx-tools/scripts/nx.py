@@ -142,9 +142,7 @@ def docs(topic: str = "") -> JsonMap:
     """View Nx command documentation."""
     args = (topic, "--help") if topic else ("--help",)
     ok, out = _run(*args)
-    return (
-        {"status": "success", "topic": topic or "general", "docs": out} if ok else {"status": "error", "message": out}
-    )
+    return {"status": "success", "topic": topic or "general", "docs": out} if ok else {"status": "error", "message": out}
 
 
 # --- [ENTRY_POINT] ------------------------------------------------------------
@@ -155,9 +153,7 @@ def main() -> int:
             fn, argc = entry
             match cmd_args:
                 case _ if len(cmd_args) < argc:
-                    sys.stdout.write(
-                        f"Usage: nx.py {cmd_name} {' '.join(f'<arg{index + 1}>' for index in range(argc))}\n"
-                    )
+                    sys.stdout.write(f"Usage: nx.py {cmd_name} {' '.join(f'<arg{index + 1}>' for index in range(argc))}\n")
                     return 1
                 case _:
                     try:

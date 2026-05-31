@@ -16,34 +16,38 @@ from typing import Final, Literal, assert_never
 from expression import Ok, Option, Result, curry_flip, pipe
 from expression.collections import Block, block
 
+
 @dataclass(frozen=True, slots=True)
 class Defect:
-    axis: str; measured: float; limit: float
+    axis: str
+    measured: float
+    limit: float
+
 
 _EMPTY: Final[Block[Defect]] = block.empty()
+
 
 @curry_flip(1)
 def accumulate[T](mode: Literal["par", "seq"], checks: Block[Result[T, Block[Defect]]]) -> Result[Block[T], Block[Defect]]:
     match mode:
         case "seq":
-            return pipe(checks, block.fold(
-                lambda acc, r: acc.bind(lambda vs: r.map(lambda v: vs + block.of(v))),
-                Ok(block.empty())))
+            return pipe(checks, block.fold(lambda acc, r: acc.bind(lambda vs: r.map(lambda v: vs + block.of(v))), Ok(block.empty())))
         case "par":
-            oks, errs = pipe(checks, block.fold(
-                lambda acc, r: (
-                    acc[0] + r.map(block.of).default_value(block.empty()),
-                    acc[1] + r.swap().default_value(_EMPTY)),
-                (block.empty(), _EMPTY)))
+            oks, errs = pipe(
+                checks,
+                block.fold(
+                    lambda acc, r: (acc[0] + r.map(block.of).default_value(block.empty()), acc[1] + r.swap().default_value(_EMPTY)),
+                    (block.empty(), _EMPTY),
+                ),
+            )
             return Option.Some(oks).filter(lambda _: errs.length == 0).to_result(errs)
         case _ as unreachable:
             assert_never(unreachable)
 
+
 @curry_flip(1)
 def boundary(specs: Block[tuple[str, float, float]], samples: Block[float]) -> tuple[float, Block[Defect]]:
-    gate = lambda spec, v: Ok(v).filter_with(
-        lambda x: spec[1] <= x <= spec[2],
-        lambda _: block.of(Defect(spec[0], v, spec[2])))
+    gate = lambda spec, v: Ok(v).filter_with(lambda x: spec[1] <= x <= spec[2], lambda _: block.of(Defect(spec[0], v, spec[2])))
     result = pipe(block.of_seq(zip(specs, samples)), block.map(lambda sv: gate(*sv)), accumulate("par"))
     energy = result.to_option().map(lambda vs: pipe(vs, block.fold(lambda a, x: fma(x, x, a), 0.0))).default_value(0.0)
     return energy, result.swap().default_value(_EMPTY)
@@ -67,26 +71,26 @@ from expression.collections import Block, block
 
 type Kleisli[A, B, E] = Callable[[A], Result[B, E]]
 
+
 @dataclass(frozen=True, slots=True)
 class Witness[A, B]:
-    prior: A; mid: B
+    prior: A
+    mid: B
+
 
 def compose_k[A, B, C, E, F, G](
-    f: Kleisli[A, B, E], g: Kleisli[B, C, F],
-    lift_f: Callable[[A, E], G], lift_g: Callable[[B, F], G]
+    f: Kleisli[A, B, E], g: Kleisli[B, C, F], lift_f: Callable[[A, E], G], lift_g: Callable[[B, F], G]
 ) -> Kleisli[A, tuple[C, Witness[A, B]], G]:
-    return lambda a: f(a).map_error(lambda e: lift_f(a, e)).bind(
-        lambda b: g(b).map_error(lambda e: lift_g(b, e)).map(lambda c: (c, Witness(a, b))))
+    return lambda a: f(a).map_error(lambda e: lift_f(a, e)).bind(lambda b: g(b).map_error(lambda e: lift_g(b, e)).map(lambda c: (c, Witness(a, b))))
+
 
 @effect.result[float, tuple[str, Block[float], float]]()
 def pipeline(spectrum: Block[float], noise_floor: float, threshold: float):
-    rms = yield from Ok(sqrt(pipe(
-        spectrum, block.fold(lambda a, x: fma(x, x, a), 0.0)
-    ) / max(spectrum.length, 1))).filter_with(
-        lambda v: v > noise_floor, lambda v: ("rms_gate", spectrum, v))
+    rms = yield from Ok(sqrt(pipe(spectrum, block.fold(lambda a, x: fma(x, x, a), 0.0)) / max(spectrum.length, 1))).filter_with(
+        lambda v: v > noise_floor, lambda v: ("rms_gate", spectrum, v)
+    )
     normed = pipe(spectrum, block.map(lambda x: x / rms))
-    peak = yield from Ok(pipe(normed, block.fold(max, 0.0))).filter_with(
-        lambda v: v > threshold, lambda v: ("peak_gate", normed, v))
+    peak = yield from Ok(pipe(normed, block.fold(max, 0.0))).filter_with(lambda v: v > threshold, lambda v: ("peak_gate", normed, v))
     return fma(peak, rms, 0.0)
 ```
 
@@ -107,36 +111,46 @@ from anyio import Semaphore, create_task_group, move_on_after
 from expression import Error, Ok, Option, Result, pipe
 from expression.collections import Block, block
 
-@dataclass(frozen=True, slots=True)
-class Deadline: elapsed: float; budget: float
 
 @dataclass(frozen=True, slots=True)
-class Saturated[E]: remaining: int; last: E
+class Deadline:
+    elapsed: float
+    budget: float
+
+
+@dataclass(frozen=True, slots=True)
+class Saturated[E]:
+    remaining: int
+    last: E
+
 
 async def _with_backoff[T, E](
-    fn: Callable[[], Coroutine[None, None, Result[T, E]]], sem: Semaphore,
-    budget: float, pred: Callable[[E], bool], n: int, d: float, w: float,
+    fn: Callable[[], Coroutine[None, None, Result[T, E]]], sem: Semaphore, budget: float, pred: Callable[[E], bool], n: int, d: float, w: float
 ) -> Result[T, Deadline | Saturated[E]]:
     r: Result[T, E] | None = None
     with move_on_after(budget - w):
         async with sem:
             r = await fn()
     match r:
-        case None: return Error(Deadline(w, budget))
-        case Ok(v): return Ok(v)
-        case Error(e) if n <= 0 or not pred(e): return Error(Saturated(n, e))
+        case None:
+            return Error(Deadline(w, budget))
+        case Ok(v):
+            return Ok(v)
+        case Error(e) if n <= 0 or not pred(e):
+            return Error(Saturated(n, e))
         case _:
             await anyio.sleep(d)
-            return await _with_backoff(
-                fn, sem, budget, pred, n - 1, d * (1 + 5**0.5) / 2, w + d)
+            return await _with_backoff(fn, sem, budget, pred, n - 1, d * (1 + 5**0.5) / 2, w + d)
+
 
 async def fanout[T, E](
-    tasks: Block[Callable[[], Coroutine[None, None, Result[T, E]]]],
-    sem: Semaphore, budget: float, retries: int, pred: Callable[[E], bool],
+    tasks: Block[Callable[[], Coroutine[None, None, Result[T, E]]]], sem: Semaphore, budget: float, retries: int, pred: Callable[[E], bool]
 ) -> Result[Block[T], Block[Deadline | Saturated[E]]]:
     tx, rx = anyio.create_memory_object_stream[Result[T, Deadline | Saturated[E]]](tasks.length)
+
     async def _go(f: Callable[[], Coroutine[None, None, Result[T, E]]]) -> None:
         await tx.send(await _with_backoff(f, sem, budget, pred, retries, 0.1, 0.0))
+
     async with create_task_group() as tg:
         pipe(tasks, block.fold(lambda _, f: tg.start_soon(_go, f), None))
     await tx.aclose()
@@ -166,21 +180,25 @@ from expression.collections import Map, block
 type Scope = Map[type, object]
 _scope: ContextVar[Scope] = ContextVar("_scope", default=Map.empty())
 
+
 @dataclass(frozen=True, slots=True)
 class Missing[C]:
     capability: type[C]
 
+
 def ask[C](cap: type[C]) -> Generator[Result[C, Missing[C]], C, C]:
     return (yield _scope.get().try_find(cap).map(Ok).default_value(Error(Missing(cap))))
 
+
 def scoped[T](thunk: Callable[[], T], *caps: object) -> T:
-    scope = pipe(block.of_seq(caps), block.fold(
-        lambda s, c: s.add(type(c), c), _scope.get()))
+    scope = pipe(block.of_seq(caps), block.fold(lambda s, c: s.add(type(c), c), _scope.get()))
     return copy_context().run(lambda: (_scope.set(scope), thunk())[1])
+
 
 @runtime_checkable
 class SensorBus(Protocol):
     def read(self, channel: int) -> Result[float, str]: ...
+
 
 @effect.result[float, Missing[SensorBus] | str]()
 def run(channel: int):
@@ -206,35 +224,51 @@ from expression.collections import Block, Map, block
 
 type Anomaly = Drift | Spike | Dropout
 
-@dataclass(frozen=True, slots=True)
-class Drift: channel: int; offset: float
 
 @dataclass(frozen=True, slots=True)
-class Spike: channel: int; magnitude: float
+class Drift:
+    channel: int
+    offset: float
+
 
 @dataclass(frozen=True, slots=True)
-class Dropout: channel: int
+class Spike:
+    channel: int
+    magnitude: float
+
+
+@dataclass(frozen=True, slots=True)
+class Dropout:
+    channel: int
+
 
 @dataclass(frozen=True, slots=True)
 class CircuitOpen:
-    fault_type: type[Anomaly]; count: int
+    fault_type: type[Anomaly]
+    count: int
+
 
 type Strategy = Callable[[Anomaly], Result[float, Anomaly]]
 
+
 @curry_flip(2)
 def gate(counts: Map[type, int], threshold: int, anomaly: Anomaly) -> Result[Anomaly, CircuitOpen]:
-    return counts.try_find(type(anomaly)).filter(lambda n: n >= threshold).map(
-        lambda n: CircuitOpen(type(anomaly), n)).to_result(anomaly).swap()
+    return counts.try_find(type(anomaly)).filter(lambda n: n >= threshold).map(lambda n: CircuitOpen(type(anomaly), n)).to_result(anomaly).swap()
+
 
 def route(anomaly: Anomaly, base: Result[float, Anomaly]) -> Result[float, Anomaly]:
     match anomaly:
-        case Drift(offset=o): return base.map(lambda v: v - o)
-        case Spike(magnitude=m): return base.filter_with(lambda v: abs(v) < abs(m), lambda _: anomaly)
-        case Dropout(): return Error(anomaly)
-        case _ as unreachable: assert_never(unreachable)
+        case Drift(offset=o):
+            return base.map(lambda v: v - o)
+        case Spike(magnitude=m):
+            return base.filter_with(lambda v: abs(v) < abs(m), lambda _: anomaly)
+        case Dropout():
+            return Error(anomaly)
+        case _ as unreachable:
+            assert_never(unreachable)
 
-def recover(anomaly: Anomaly, strategies: Block[Strategy],
-            counts: Map[type, int], threshold: int) -> Result[float, Anomaly | CircuitOpen]:
+
+def recover(anomaly: Anomaly, strategies: Block[Strategy], counts: Map[type, int], threshold: int) -> Result[float, Anomaly | CircuitOpen]:
     compose = lambda a: pipe(strategies, block.fold(lambda acc, s: acc.or_else_with(lambda: s(a)), Error(a)))
     return pipe(anomaly, gate(counts, threshold), lambda r: r.bind(lambda a: route(a, compose(a))))
 ```
@@ -256,41 +290,67 @@ from pydantic import TypeAdapter
 
 from expression import Error, Ok, Result, curry_flip, pipe
 
+
 @dataclass(frozen=True, slots=True)
 class Surface:
     transport: Literal["http", "cli", "worker"]
     qualifier: str
 
+
 @dataclass(frozen=True, slots=True)
 class SensorFault:
-    channel: int; code: Literal["drift", "spike", "dropout", "malformed"]; detail: str = ""
+    channel: int
+    code: Literal["drift", "spike", "dropout", "malformed"]
+    detail: str = ""
 
-class Egress  (msgspec.Struct, frozen=True, gc=False, tag_field="t"): ...
-class Problem (Egress, tag="http"):   uri:  str;  status:  int; title: str
-class Exit    (Egress, tag="cli"):    code: int;  message: str
-class Envelope(Egress, tag="worker"): key:  str;  reason:  str
+
+class Egress(msgspec.Struct, frozen=True, gc=False, tag_field="t"): ...
+
+
+class Problem(Egress, tag="http"):
+    uri: str
+    status: int
+    title: str
+
+
+class Exit(Egress, tag="cli"):
+    code: int
+    message: str
+
+
+class Envelope(Egress, tag="worker"):
+    key: str
+    reason: str
+
 
 @curry_flip(1)
 def collapse(surface: Surface, fault: SensorFault) -> Problem | Exit | Envelope:
     codes = ("drift", "spike", "dropout", "malformed")
     rank, label = codes.index(fault.code), fault.code.upper()
     match surface.transport:
-        case "http": return Problem(f"urn:sensor:{fault.channel}:{fault.code}", 502 + rank, label)
-        case "cli": return Exit(70 + rank, label)
-        case "worker": return Envelope(f"{surface.qualifier}.{fault.code}", f"ch{fault.channel}")
-        case _ as unreachable: assert_never(unreachable)
+        case "http":
+            return Problem(f"urn:sensor:{fault.channel}:{fault.code}", 502 + rank, label)
+        case "cli":
+            return Exit(70 + rank, label)
+        case "worker":
+            return Envelope(f"{surface.qualifier}.{fault.code}", f"ch{fault.channel}")
+        case _ as unreachable:
+            assert_never(unreachable)
+
 
 @curry_flip(1)
 def validate[T](adapter: TypeAdapter[T], raw: bytes) -> Result[T, SensorFault]:
     # BOUNDARY ADAPTER — pydantic deserialization boundary
-    try: return Ok(adapter.validate_json(raw))
-    except Exception as exc: return Error(SensorFault(channel=-1, code="malformed", detail=str(exc)))
+    try:
+        return Ok(adapter.validate_json(raw))
+    except Exception as exc:
+        return Error(SensorFault(channel=-1, code="malformed", detail=str(exc)))
 
-def ingest[T, R](adapter: TypeAdapter[T], surface: Surface,
-    transform: Callable[[T], Result[R, SensorFault]],
-    raw: bytes) -> Result[R, Problem | Exit | Envelope]:
-    return pipe(raw, validate(adapter),
-                lambda r: r.bind(transform).map_error(collapse(surface)))
+
+def ingest[T, R](
+    adapter: TypeAdapter[T], surface: Surface, transform: Callable[[T], Result[R, SensorFault]], raw: bytes
+) -> Result[R, Problem | Exit | Envelope]:
+    return pipe(raw, validate(adapter), lambda r: r.bind(transform).map_error(collapse(surface)))
 ```
 
 `Surface` carries a `qualifier` field (HTTP version string, AMQP queue name, empty for CLI) that `collapse` threads into transport-specific constructors — `Envelope` composes `qualifier` with `fault.code` as the routing key, while HTTP and CLI arms discard it structurally. The positional invariant `("drift", "spike", "dropout").index(fault.code)` is type-safe: `code`'s `Literal` constraint makes `ValueError` structurally unreachable — `rank` and `label` pre-compute the index and uppercase projection once before the match, eliminating duplication and feeding HTTP status (`502 + rank`) and POSIX exit code (`70 + rank`) via arithmetic offset. `@curry_flip(1)` on both `collapse` and `validate` enables uniform partial-application style: `collapse(surface)` and `validate(adapter)` each bind their config argument first, producing unary functions that slot directly into `map_error` and `pipe` respectively. `ingest` is the composition root: `bind(transform)` chains the domain function on the success rail, `map_error(collapse(surface))` projects faults to egress on the error rail — callers receive `Result[R, Problem | Exit | Envelope]` with zero access to `SensorFault` internals.

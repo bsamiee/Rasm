@@ -2,12 +2,11 @@
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
-from __future__ import annotations
-
+from collections.abc import Generator
 from typing import Final, Literal
 
 from beartype import beartype
-from expression import Error, Ok, Result
+from expression import effect, Error, Ok, Result
 
 from tools.quality.process import Completed, dotnet, ProcessFault
 from tools.quality.settings import ArtifactScope, MUTATION_THRESHOLDS, QualitySettings
@@ -54,8 +53,10 @@ def run_test_rail(settings: QualitySettings, scope: ArtifactScope, mode: TestMod
         )
         if value is not None
     )
-    return (
-        dotnet(
+
+    @effect.result[None, ProcessFault]()
+    def run() -> Generator[None]:
+        yield from dotnet(
             "test",
             str(target),
             "--configuration",
@@ -66,38 +67,34 @@ def run_test_rail(settings: QualitySettings, scope: ArtifactScope, mode: TestMod
             *(("--filter", filter_expr) if filter_expr else ()),
             scope=scope,
             check=True,
-        )
-        .map(lambda _: None)
-        .bind(
-            lambda _: (
-                Ok(None)
-                if not mutate or not settings.mutation_eligible
-                else dotnet("tool", "restore", "--tool-manifest", str(settings.dotnet_tools_manifest), scope=scope)
-                .map(lambda _: None)
-                .bind(
-                    lambda _: dotnet(
-                        "stryker",
-                        "--solution",
-                        str(settings.solution),
-                        "--project",
-                        settings.mutation_project.name,
-                        "--test-project",
-                        str(settings.root / settings.mutation_test_project),
-                        "--configuration",
-                        settings.configuration,
-                        "--target-framework",
-                        settings.mutation_target_framework,
-                        "--output",
-                        str(settings.mutation_output_dir),
-                        *_STRYKER_STATIC_ARGS,
-                        *(item for glob in settings.mutation_mutate_globs for item in ("--mutate", glob)),
-                        scope=scope,
-                        check=False,
-                    ).bind(_mutation_result)
-                )
-            )
-        )
-    )
+        ).map(lambda _: None)
+        match mutate and settings.mutation_eligible:
+            case False:
+                return
+            case True:
+                yield from dotnet("tool", "restore", "--tool-manifest", str(settings.dotnet_tools_manifest), scope=scope).map(lambda _: None)
+                yield from dotnet(
+                    "stryker",
+                    "--solution",
+                    str(settings.solution),
+                    "--project",
+                    settings.mutation_project.name,
+                    "--test-project",
+                    str(settings.root / settings.mutation_test_project),
+                    "--configuration",
+                    settings.configuration,
+                    "--target-framework",
+                    settings.mutation_target_framework,
+                    "--output",
+                    str(settings.mutation_output_dir),
+                    *_STRYKER_STATIC_ARGS,
+                    *(item for glob in settings.mutation_mutate_globs for item in ("--mutate", glob)),
+                    scope=scope,
+                    check=False,
+                ).bind(_mutation_result)
+                return
+
+    return run()
 
 
 def _mutation_result(completed: Completed) -> Result[None, ProcessFault]:

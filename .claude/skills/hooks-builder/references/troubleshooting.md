@@ -50,11 +50,13 @@ from typing import Final
 
 LOCK: Final = Path("/tmp/claude-hook.lock")
 
+
 def _acquire_lock() -> bool:
     with contextlib.suppress(BlockingIOError):
         fcntl.flock(LOCK.open("w"), fcntl.LOCK_EX | fcntl.LOCK_NB)
         return True
     return False
+
 
 _acquire_lock() or sys.exit(0)  # Another instance running
 ```

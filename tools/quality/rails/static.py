@@ -2,8 +2,6 @@
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
-from __future__ import annotations
-
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import reduce
@@ -146,14 +144,11 @@ def _projects(
                 .default_with(lambda _: ())
             )
             delta = (*sorted(frozenset(rows) - listed), *sorted(listed - frozenset(rows)))
-            return (
-                Ok(rows)
-                if delta == ()
-                else Error(
-                    ProcessFault.fail(
-                        "static", "solution-parity", detail=f"Workspace.slnx project parity failed:\n{'\n'.join(f'- {item}' for item in delta)}"
-                    )
-                )
+            return Ok(rows).filter_with(
+                lambda _: delta == (),
+                lambda _: ProcessFault.fail(
+                    "static", "solution-parity", detail=f"Workspace.slnx project parity failed:\n{'\n'.join(f'- {item}' for item in delta)}"
+                ),
             )
         case "closure":
 

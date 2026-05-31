@@ -35,23 +35,11 @@ type JsonValue = Any
 type JsonMap = dict[str, JsonValue]
 type PostFn = Callable[..., JsonMap]
 
-BOOL_FLAGS: Final = frozenset({
-    "include_images",
-    "include_image_descriptions",
-    "include_raw_content",
-    "include_favicon",
-    "allow_external",
-})
+BOOL_FLAGS: Final = frozenset({"include_images", "include_image_descriptions", "include_raw_content", "include_favicon", "allow_external"})
 
 INT_FLAGS: Final = frozenset({"max_results", "days", "max_depth", "max_breadth", "limit"})
 
-REQUIRED: Final[dict[str, str]] = {
-    "search": "query",
-    "extract": "urls",
-    "crawl": "url",
-    "map": "url",
-    "research": "query",
-}
+REQUIRED: Final[dict[str, str]] = {"search": "query", "extract": "urls", "crawl": "url", "map": "url", "research": "query"}
 
 
 # --- [FUNCTIONS] --------------------------------------------------------------
@@ -86,9 +74,7 @@ def _parse_flags(args: tuple[str, ...]) -> JsonMap:
                 raw = arg[2:].replace("-", "_")
                 match raw.split("=", 1):
                     case [key, val]:
-                        return _FlagState(
-                            opts={**state.opts, key: int(val) if key in INT_FLAGS else val}, skip_next=False
-                        )
+                        return _FlagState(opts={**state.opts, key: int(val) if key in INT_FLAGS else val}, skip_next=False)
                     case [key] if key in BOOL_FLAGS:
                         return _FlagState(opts={**state.opts, key: True}, skip_next=False)
                     case [key]:
@@ -130,14 +116,7 @@ def main() -> int:
                 sys.stdout.write(json.dumps(result, indent=2) + "\n")
                 return 0 if result["status"] == "success" else 1
             except httpx.HTTPStatusError as error:
-                sys.stdout.write(
-                    json.dumps({
-                        "status": "error",
-                        "code": error.response.status_code,
-                        "message": error.response.text[:200],
-                    })
-                    + "\n"
-                )
+                sys.stdout.write(json.dumps({"status": "error", "code": error.response.status_code, "message": error.response.text[:200]}) + "\n")
                 return 1
             except httpx.RequestError as error:
                 sys.stdout.write(json.dumps({"status": "error", "message": str(error)}) + "\n")
