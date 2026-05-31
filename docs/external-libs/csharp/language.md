@@ -4,8 +4,8 @@
 <br>
 
 [IMPORTANT] Pin C# 14.0 on net10.0 (`LangVersion`, `TargetFramework`, `Nullable=enable`, `ImplicitUsings=enable`).
-Compiler toolset: `Microsoft.Net.Compilers.Toolset` 5.3.0 (global compile).
-Analyzer authoring: `Microsoft.CodeAnalysis.CSharp` 5.3.0, `Microsoft.CodeAnalysis.Analyzers` 5.3.0.
+Compiler toolset: .NET 10 SDK compiler (global compile).
+Analyzer authoring: `Microsoft.CodeAnalysis.CSharp` 5.0.0, `Microsoft.CodeAnalysis.Analyzers` 3.11.0.
 Do not use `LangVersion=preview` / `latest`.
 
 Route BCL and host-reference policy through `docs/system-api-map`. Owns language features at the pinned version.
@@ -19,8 +19,8 @@ Route BCL and host-reference policy through `docs/system-api-map`. Owns language
 | [INDEX] | [SOURCE]                   | [OWNS]                                                               |
 | :-----: | -------------------------- | -------------------------------------------------------------------- |
 |   [1]   | `Directory.Build.props`    | `net10.0`, `LangVersion=14.0`, nullable, implicit usings, analyzers. |
-|   [2]   | Central package manifest   | Compiler toolset + Analyzer packages                                 |
-|   [3]   | .NET 10 SDK / Roslyn 5.3.0 | Compiler feature set for C# 14.                                      |
+|   [2]   | Central package manifest   | Analyzer and Roslyn analyzer-authoring packages                       |
+|   [3]   | .NET 10 SDK / Roslyn 5.0.0 | Compiler feature set for C# 14.                                      |
 
 ---
 ## [2][C14_NEW]

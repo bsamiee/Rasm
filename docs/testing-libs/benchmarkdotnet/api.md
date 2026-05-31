@@ -45,5 +45,5 @@ Use BenchmarkDotNet for pure managed hot paths such as numeric kernels, generate
 Run the local rail directly:
 
 ```bash
-dotnet run --project tests/csharp/_benchmarks/Rasm.Benchmarks.csproj --configuration Release -- --filter *
+dotnet run --project tests/csharp/_benchmarks/Rasm.Benchmarks.csproj --configuration Release -- --list flat
 ```

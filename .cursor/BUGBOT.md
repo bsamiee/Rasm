@@ -1,6 +1,6 @@
 # Rasm Bugbot Guidance
 
-PR review only — behavioral regressions, host-boundary mistakes, missing validation, stale vocabulary. Defer formatting and CSP violations to `tools/cs-analyzer`; do not nitpick grammar on docs.
+PR review only — behavioral regressions, host-boundary mistakes, missing validation, and command drift. Defer formatting and CSP violations to `tools/cs-analyzer`; do not nitpick grammar on docs.
 
 ## Context
 
@@ -23,7 +23,7 @@ Full gate policy: [`CLAUDE.md`](../CLAUDE.md) §5.2, [`docs/usage.md`](../docs/u
 
 **Blocking (request changes):**
 
-- Stale bridge or quality commands — see [stale-rejections.md](bugbot/stale-rejections.md)
+- Non-canonical bridge or quality commands — see [stale-rejections.md](bugbot/stale-rejections.md)
 - `#r`, `#load`, or absolute paths in `*.verify.csx`
 - Conflating static, test, and bridge rails in one invocation
 - Secrets or credentials in committed config
@@ -66,7 +66,7 @@ Name file and line. Suggest the proving command (`static check`, `test run`, `br
 - [Bridge operator](rules/rasm-rhino-bridge.mdc)
 - [Quality operator](rules/rasm-quality-operator.mdc)
 
-## Stale guidance
+## Canonical Guidance
 
 Canonical list: [bugbot/stale-rejections.md](bugbot/stale-rejections.md)
 

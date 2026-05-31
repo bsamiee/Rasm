@@ -1,9 +1,9 @@
 # [H1][STRYKER_API]
->**Dictum:** *Mutation scores the managed law suite after discovery works.*
+>**Dictum:** *Mutation scores the managed law suite only when explicitly requested.*
 
 <br>
 
-[IMPORTANT] Rasm uses `dotnet-stryker 4.14.2` through `.config/dotnet-tools.json` and `tools.quality test run`. Default managed `tools.quality test run` executes VSTest first, then Stryker on the `Rasm` project/test pair. Stryker remains diagnostic until its VSTest path discovers non-zero tests while plain VSTest does.
+[IMPORTANT] Rasm uses `dotnet-stryker 4.14.2` through `.config/dotnet-tools.json` and `tools.quality test run --mutation changed|full`. Default `tools.quality test run` is unit-only. Stryker runs with the MTP runner against the `Rasm` project/test pair, and zero-test discovery fails the rail.
 
 ---
 ## [1][LOCAL_RAIL]
@@ -11,40 +11,42 @@
 
 <br>
 
-| [INDEX] | [FACT]                 | [VALUE]                                                                                             |
-| :-----: | ---------------------- | --------------------------------------------------------------------------------------------------- |
-|   [1]   | Tool                   | `dotnet-stryker 4.14.2`                                                                             |
-|   [2]   | Project under mutation | `libs/csharp/Rasm/Rasm.csproj`                                                                      |
-|   [3]   | Test project           | `tests/csharp/libs/Rasm/Rasm.Tests.csproj`                                                          |
-|   [4]   | Default runner         | `vstest`                                                                                            |
-|   [5]   | Output                 | `.artifacts/mutation/<slice>/<run-id>`; `tools.quality test run` logs this path on success          |
-|   [6]   | MSBuild isolation      | VSTest uses `.artifacts/agents/<pid>/`; Stryker follows in-process and writes project `obj/`/`bin/` |
+| [INDEX] | [FACT]                 | [VALUE]                                                                                    |
+| :-----: | ---------------------- | ------------------------------------------------------------------------------------------ |
+|   [1]   | Tool                   | `dotnet-stryker 4.14.2`                                                                    |
+|   [2]   | Tool restore           | `.config/dotnet-tools.json` through `dotnet tool restore`                                  |
+|   [3]   | Project under mutation | `libs/csharp/Rasm/Rasm.csproj`                                                             |
+|   [4]   | Test project           | `tests/csharp/libs/Rasm/Rasm.Tests.csproj`                                                 |
+|   [5]   | Runner                 | `mtp`                                                                                      |
+|   [6]   | Output                 | `.artifacts/mutation/<slice>/<run-id>`                                                     |
+|   [7]   | Lock                   | `.artifacts/locks/mutation.lock`; lock contention fails fast instead of silent queueing     |
 
 ---
-## [2][PARALLELISM]
->**Dictum:** *Mutation follows VSTest in one test invocation.*
+## [2][MUTATION_MODES]
+>**Dictum:** *Expensive proof must be explicit.*
 
 <br>
 
-| [INDEX] | [RAIL]                                         | [POLICY]                                                               |
-| :-----: | ---------------------------------------------- | ---------------------------------------------------------------------- |
-|   [1]   | `quality static`, focused `--target` test runs | Concurrent-safe — `--artifacts-path` under `.artifacts/agents/<pid>/`. |
-|   [2]   | Default `tools.quality test run`               | VSTest then Stryker serially — no parallel default runs.               |
-|   [3]   | `tools.quality bridge`                         | Serial — one live Rhino endpoint.                                      |
+| [INDEX] | [MODE]    | [COMMAND]                                                | [POLICY]                                      |
+| :-----: | --------- | -------------------------------------------------------- | --------------------------------------------- |
+|   [1]   | `off`     | `uv run python -m tools.quality test run`                | Unit-only default.                            |
+|   [2]   | `changed` | `uv run python -m tools.quality test run --mutation changed` | Mutate changed managed files under `libs/csharp/Rasm`. |
+|   [3]   | `full`    | `uv run python -m tools.quality test run --mutation full` | Full managed mutation with strict thresholds. |
+
+`list` and `coverage` do not mutate. Focused `--target` runs are unit-only unless mutation remains on the default managed Rasm pair.
 
 ---
-## [3][RUNNER_DECISION]
->**Dictum:** *MTP is a migration, not a retry flag.*
+## [3][PARALLELISM]
+>**Dictum:** *Unit tests isolate; mutation serializes.*
 
 <br>
 
-| [INDEX] | [RUNNER] | [STATUS]                                | [ACTION]                                             |
-| :-----: | -------- | --------------------------------------- | ---------------------------------------------------- |
-|   [1]   | `vstest` | Current Rasm rail; `dotnet test` works. | Fix/diagnose Stryker zero-test discovery here first. |
-|   [2]   | `mtp`    | Stryker preview; xUnit v3 supports it.  | Replace `xunit.v3.mtp-off`; prove all test projects. |
-|   [3]   | bridge   | Runtime verification rail.              | Never routed through Stryker.                        |
-
-[SOURCE] Stryker config docs: https://stryker-mutator.io/docs/stryker-net/configuration/
+| [INDEX] | [RAIL]                         | [POLICY]                                                                     |
+| :-----: | ------------------------------ | ---------------------------------------------------------------------------- |
+|   [1]   | `quality static`               | Concurrent-safe through run-scoped artifacts.                                 |
+|   [2]   | `tools.quality test run`       | MTP unit execution through run-scoped artifacts.                              |
+|   [3]   | `--mutation changed|full`      | One mutation process; fail fast when `.artifacts/locks/mutation.lock` is held. |
+|   [4]   | `tools.quality bridge`         | Serial — one live Rhino endpoint.                                             |
 
 ---
 ## [4][METRICS]
@@ -52,10 +54,9 @@
 
 <br>
 
-- Mutation score is meaningful only after non-zero test discovery.
+- Mutation score is meaningful only after non-zero test discovery; zero Stryker discovery fails the rail.
 - Target `95%` on the eligible managed slice after runner proof.
-- Use staged thresholds: discovery with the lowest CLI-accepted thresholds, report-only survivor taxonomy, then `high 95 / low 90 / break 85`; move `break-at` toward `95` only after equivalent/runtime-owned mutants are classified.
-- Stryker requires `threshold-low >= break-at`; use `1/1/1` for discovery diagnostics when avoiding threshold failure.
+- Enforced thresholds are `high 95 / low 90 / break 85`.
 - Classify every survivor as missing oracle, equivalent mutant, bridge-owned path, or product bug.
 - Do not mutate `libs/csharp/Rasm.Rhino`, `libs/csharp/Rasm.Grasshopper`, plugin apps, bridge tools, or `*.verify.csx`.
 
@@ -65,7 +66,9 @@
 
 <br>
 
-Keep script-owned settings while mutation targets one project. Add `stryker-config.*` only when config-only options such as `coverage-analysis`, executable excludes, or multi-project orchestration become necessary.
+Keep Python operator-owned settings while mutation targets one project. Add `stryker-config.*` only when config-only options such as coverage analysis, executable excludes, or multi-project orchestration become necessary.
+
+[SOURCE] Stryker config docs: https://stryker-mutator.io/docs/stryker-net/configuration/
 
 ---
 ## [6][THEORY_AS_STRYKER_ENABLER]
@@ -73,15 +76,13 @@ Keep script-owned settings while mutation targets one project. Add `stryker-conf
 
 <br>
 
-Stryker mutates each test method body and asks "does any test fail?". A `Spec.ForAll(Gen.OneOfConst([A,B,C]), ...)` body is ONE method, ONE mutation target — Stryker kills the mutation if any of the three cases catches it, then moves on. Survivors that affect only case `B` are invisible.
-
-A `[Theory][InlineData(A)][InlineData(B)][InlineData(C)]` becomes THREE separately-tracked entry points. Stryker can now report "survivor in case B" specifically, enabling targeted oracle improvements.
+Stryker mutates each test method body and asks "does any test fail?". A `Spec.ForAll(Gen.OneOfConst([A,B,C]), ...)` body is ONE method, ONE mutation target. A `[Theory][InlineData(A)][InlineData(B)][InlineData(C)]` becomes THREE separately-tracked entry points.
 
 Convert when:
-- Stryker survivor analysis points at a SmartEnum / Union case the PBT host happens to under-sample.
-- The CI mutation budget cannot afford to re-run the full PBT body per mutant (Theory rows are independent and parallelize better).
+- Stryker survivor analysis points at a SmartEnum or Union case the PBT host under-samples.
+- The CI mutation budget cannot afford to re-run the full PBT body per mutant.
 
-Do NOT convert when the cases share oracle logic and the PBT body is the more honest representation (per-case Theory rows would be copy-paste).
+Do not convert when the cases share oracle logic and the PBT body is the more honest representation.
 
 ---
 ## [7][SURVIVOR_TAXONOMY]
@@ -91,9 +92,9 @@ Do NOT convert when the cases share oracle logic and the PBT body is the more ho
 
 | [INDEX] | [CLASS]           | [ACTION]                                                                                        |
 | :-----: | ----------------- | ----------------------------------------------------------------------------------------------- |
-|   [1]   | Missing oracle    | Add a Grade A/B oracle (closed-form, smaller model, metamorphic) that distinguishes the mutant. |
+|   [1]   | Missing oracle    | Add a Grade A/B oracle that distinguishes the mutant.                                            |
 |   [2]   | Equivalent mutant | Document; do not weaken oracle.                                                                 |
 |   [3]   | Bridge-owned path | Add or strengthen `*.verify.csx` scenario; static spec cannot kill it.                          |
-|   [4]   | Product bug       | Fix the production code; the mutation revealed a real defect.                                   |
+|   [4]   | Product bug       | Fix the production code; mutation revealed a real defect.                                       |
 
-Do not chase a survivor by adding an assertion on the mutant's behavior — that is implementation mirror coverage (Grade F per `cs-testing/references/oracles-laws.md`).
+Do not chase a survivor by adding an assertion on the mutant's behavior.

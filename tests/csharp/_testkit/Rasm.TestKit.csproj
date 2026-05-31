@@ -19,7 +19,4 @@
         </Reference>
     </ItemGroup>
 
-    <ItemGroup>
-        <PackageReference Include="System.Drawing.Common" ExcludeAssets="runtime" />
-    </ItemGroup>
 </Project>

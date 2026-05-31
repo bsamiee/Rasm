@@ -24,7 +24,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - Use structural search (`ast-grep`) for symbol-aware changes when available.
 - Use Nx topology (`nx graph`, affected commands, `nx-mcp`) before broad scans.
 - Read minimal file slices necessary for the current task.
-- Check `docs/system-api-map` before `System.*`, global using, or host-reference changes. `global.json` is absent; treat it as an optional trigger only if added later.
+- Check `docs/system-api-map` before `System.*`, global using, or host-reference changes. `global.json` is present and owns .NET 10 MTP runner selection; treat edits as full-static triggers.
 - Read `docs/external-libs` and `docs/host` before adding packages or host SDK assumptions.
 - Navigation helpers:
   - `fd -H .`

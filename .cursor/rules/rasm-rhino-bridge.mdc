@@ -30,7 +30,7 @@ Read `tools/rhino-bridge/README.md`, `tools/rhino-bridge/AGENTS.md`, and `.claud
 - Bridge build/check/package/verify routes run serially; one live Rhino endpoint handles one client.
 - `bridge check <source.cs>` without a scenario can exit `3` as truthful unsupported runtime evidence after build proof.
 - RhinoCode scenarios are diagnostics and verification, not publishing foundations.
-- Do not use stale commands or concepts: `load-smoke`, `StartScriptServer`, job JSON, `tests/rhino`, or `pnpm check:cs`.
+- Use bridge-owned scenario routing, endpoint metadata, and `tools.quality` commands for all runtime proof.
 
 ## Scenario kit
 

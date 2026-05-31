@@ -483,6 +483,19 @@ public sealed class RuleBehaviorTests {
                 }
             }
             """),
+        new("CSP0802", File(scope: "Domain/Models", type: "UnqualifiedUnionOps"), """
+            namespace Thinktecture {
+                public sealed class UnionAttribute : System.Attribute { }
+            }
+
+            namespace Domain.Models {
+                [Thinktecture.Union]
+                public abstract record UnqualifiedUnionOps {
+                    private UnqualifiedUnionOps() { }
+                    public sealed record Value : UnqualifiedUnionOps;
+                }
+            }
+            """),
     ];
 
     [Theory]

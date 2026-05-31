@@ -37,7 +37,7 @@ Bridge markers are the structured wire contract. Use `Rasm.RhinoBridge.Protocol.
 
 ## Validation ladder for bridge changes
 
-Run serially in this order. `quality static` and focused `--target` test runs may run concurrently — they isolate MSBuild artifacts per invocation under `.artifacts/agents/<pid>/`. Default `tools.quality test run` executes VSTest then Stryker in one invocation; do not parallelize two default test runs. Bridge build/check/package/verify routes and live Rhino remain single-flight (one endpoint; Yak packaging writes project `bin/` outputs).
+Run serially in this order. `quality static` and MTP test runs may run concurrently — they isolate MSBuild artifacts per invocation under `.artifacts/quality/<rail>/<run-id>/`. Default `tools.quality test run` is unit-only; explicit Stryker mutation fails fast on `.artifacts/locks/mutation.lock`. Bridge build/check/package/verify routes and live Rhino remain single-flight (one endpoint; Yak packaging writes project `bin/` outputs).
 
 ```bash
 uv run python -m tools.quality self-test

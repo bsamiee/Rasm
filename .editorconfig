@@ -11,12 +11,12 @@ indent_size = 4
 [*.{ts,tsx,js,jsx,mts,cts}]
 indent_style = space
 indent_size = 4
-max_line_length = 120
+max_line_length = 150
 
 [*.py]
 indent_style = space
 indent_size = 4
-max_line_length = 120
+max_line_length = 150
 
 [*.cs]
 # --- [NAMESPACE_AND_IMPORTS] -----------------------------------------------
@@ -333,7 +333,6 @@ dotnet_diagnostic.IDE0280.severity = error                                    # 
 dotnet_diagnostic.IDE0330.severity = error                                    # Prefer System.Threading.Lock over object-based locking.
 dotnet_diagnostic.IDE0340.severity = error                                    # Use unbound generic types in nameof for generic type names.
 dotnet_diagnostic.IDE0360.severity = error                                    # Simplify property accessors to expression-bodied form when trivial.
-dotnet_diagnostic.IDE0370.severity = error                                    # Remove unnecessary suppression attributes/pragmas.
 dotnet_diagnostic.IDE0380.severity = error                                    # Remove unnecessary unsafe modifiers.
 dotnet_diagnostic.IDE1005.severity = error                                    # Prefer null-conditional delegate invocation (?.Invoke).
 

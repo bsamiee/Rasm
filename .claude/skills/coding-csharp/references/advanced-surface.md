@@ -2,7 +2,7 @@
 
 Self-contained advanced capability reference for pinned library versions. **Not** basic `Map`/`Bind`/`Create`.
 
-Pin truth: `LanguageExt.Core` 5.0.0-beta-77, `Thinktecture.Runtime.Extensions` 10.2.0, `MathNet.Numerics` 6.0.0-beta2, `CSparse` 4.3.0, C# 14.0 / net10.0, `Microsoft.Net.Compilers.Toolset` 5.3.0. Host packages (Scrutor 7, etc.) are `[NOT_IN_GRAPH]` until pinned.
+Pin truth: `LanguageExt.Core` 5.0.0-beta-77, `Thinktecture.Runtime.Extensions` 10.2.0, `MathNet.Numerics` 6.0.0-beta2, `CSparse` 4.3.0, C# 14.0 / net10.0, .NET 10 SDK compiler. Host packages (Scrutor 7, etc.) are `[NOT_IN_GRAPH]` until pinned.
 
 ---
 ## [1][LOAD_WITH]

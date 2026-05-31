@@ -15,8 +15,8 @@ internal static class OverlayFilterCases {
         Gen.OneOfConst(Option<ActiveSpace>.None, Some(ActiveSpace.ModelSpace), Some(ActiveSpace.PageSpace)),
         static (geometry, space) => new OverlayFilter(Geometry: geometry, Space: space));
 
-    // Field-wise oracle bypassing LanguageExt equality resolution (which throws on the native Viewport/enum payloads
-    // under VSTest): compare boxed option contents with built-in enum equality. The monoid is over these scalar fields.
+    // Field-wise oracle bypassing LanguageExt equality resolution (which throws on native Viewport/enum payloads
+    // under the managed test runner): compare boxed option contents with built-in enum equality. The monoid is over these scalar fields.
     private static bool OptEq<T>(Option<T> x, Option<T> y) where T : struct, Enum =>
         (x.Case, y.Case) switch {
             (T xv, T yv) => EqualityComparer<T>.Default.Equals(xv, yv),

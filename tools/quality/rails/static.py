@@ -100,7 +100,7 @@ def _gate_plan(
             lambda _: fold(
                 _format_commands(root, settings, plan),
                 None,
-                lambda _, command: dotnet(*command, scope=scope, scoped=False, check=True).map(lambda _: None),
+                lambda _, command: dotnet(*command, scope=scope, scoped=False, check=True, mode="stream").map(lambda _: None),
             )
         )
         .map(lambda _: "done")

@@ -6,7 +6,7 @@ Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal poli
 
 ## [1][CANONICAL_RAIL]
 
-- Use xUnit v3 + CsCheck through `tests/csharp/_testkit`.
+- Use xUnit v3/MTP + CsCheck through `tests/csharp/_testkit`.
 - Read tool/API truth before using advanced features:
   - `docs/testing-libs/xunit/api.md`
   - `docs/testing-libs/cscheck/api.md`
@@ -23,7 +23,7 @@ Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal poli
 - Architecture tests own assembly dependency direction only; code-shape rules stay in `tools/cs-analyzer`.
 - Benchmarks and fuzz harnesses are separate executable rails, not xUnit specs.
 - Verify snapshots compare stable artifacts only; never snapshot current implementation output as a domain oracle.
-- Prove non-zero VSTest discovery before using Stryker survivor data; if Stryker reports zero tests while `uv run python -m tools.quality test run` finds tests, treat mutation output as tooling evidence, not code quality evidence.
+- Prove non-zero Stryker discovery before using survivor data; if Stryker reports zero tests after MTP unit execution passes, treat the mutation rail as failed tooling evidence, not code quality evidence.
 - Generated reports, corpora, mutation output, benchmark output, and transient test results belong under `.artifacts`; do not create local scratch roots such as `.remember`.
 - If bridge execution reports `LanguageExt.*` value-type mismatch, `HashableResolve`/`OrdDefault` type-initializer failures, or already-loaded assembly identity failures, first verify `bridge check` is using staged `refs/<content-hash>/` paths, dependency-first `#r` order (`FSharp.Core` → `LanguageExt.Core` → transitive packages → `Rasm.dll` → target last), and the bridge-owned LanguageExt bootstrap before changing the scenario or static spec.
 
@@ -77,8 +77,8 @@ Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal poli
   - `uv run python -m tools.quality test run`
   - `uv run python -m tools.quality test run --target tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj` when GH2 managed specs changed.
   - `uv run python -m tools.quality test run --target tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj` when Rhino managed specs changed.
-  - `dotnet test tests/csharp/_architecture/Rasm.Architecture.Tests.csproj --configuration Debug` when architecture laws changed.
-  - `dotnet test tests/csharp/_tooling/Rasm.TestingTools.Tests.csproj --configuration Release` when stable testing-rail snapshots changed.
+  - `uv run python -m tools.quality test run --target tests/csharp/_architecture/Rasm.Architecture.Tests.csproj` when architecture laws changed.
+  - `uv run python -m tools.quality test run --target tests/csharp/_tooling/Rasm.TestingTools.Tests.csproj` when stable testing-rail snapshots changed.
   - `dotnet run --project tests/csharp/_benchmarks/Rasm.Benchmarks.csproj --configuration Release -- --list flat` when benchmark projects or config changed.
   - `printf 'running,1000,240,0,modular,9.525,9.525,concave' | dotnet run --project tests/csharp/_fuzz/Rasm.Fuzz.csproj --configuration Release` when fuzz harnesses changed.
   - `uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm/Vectors/scenarios` when vector bridge scenarios changed; scenarios must not contain `#r` or `#load`.

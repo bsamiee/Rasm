@@ -14,11 +14,11 @@
 
 ## [2][MUTATION]
 
-- Use Stryker only after it discovers non-zero tests.
+- Use Stryker only through explicit `tools.quality test run --mutation changed|full`; zero discovery fails the rail.
 - Target 95% for eligible managed code, never for Rhino/GH runtime rails.
 - Classify survivors as missing oracle, equivalent mutant, bridge-owned path, or product bug.
 - Improve existing laws before adding branch-by-branch tests.
-- Use the lowest CLI-accepted thresholds for diagnostics before enforcing thresholds; `dotnet-stryker 4.14.2` rejects `--break-at 0`.
+- Use `--mutation changed` for bounded diagnostics before enforcing full mutation; full thresholds remain `95/90/85`.
 
 ---
 ## [3][THEORY_EXPANSION_AS_STRYKER_ENABLER]

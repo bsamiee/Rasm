@@ -2,15 +2,14 @@
 
 Flag any reintroduction of these patterns in code, docs, or comments. Do not duplicate this list in nested BUGBOT files — link here from the root hub.
 
-## Bridge operator (removed)
+## Bridge operator
 
-- `scripts/rhino.sh`, `scripts/check-cs.sh`, `scripts/test.sh`, `scripts/mutate-cs.sh`
-- `pnpm check:cs`, `pnpm run check:cs:runtime`
-- `load-smoke`, `StartScriptServer`, `bridge check-source`
-- Job JSON under `tools/rhino-bridge/jobs/`
-- `tests/rhino` scenario paths
-- `BridgeMarker.EmitFact`, `EmitScenarioHeader`
-- Per-fact `Console.WriteLine("key=value")` in scenarios (use batched `facts.Add` + `BridgeMarker.Scan`)
+- Use `uv run python -m tools.quality bridge verify <path-or-glob>` for runtime proof.
+- Use `uv run python -m tools.quality static check|full` for build, format, and analyzer proof.
+- Use `uv run python -m tools.quality test run [<filter>]` for managed MTP unit tests.
+- Use `uv run python -m tools.quality test run --mutation changed|full` for explicit mutation.
+- Keep bridge scenarios under `tests/csharp/libs/<Project>/<MirrorPath>/scenarios`.
+- Emit scenario facts through `facts.Add(...)` inside `Scenario.Run`.
 
 ## Host platform (out of scope)
 

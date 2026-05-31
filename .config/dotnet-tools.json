@@ -5,10 +5,6 @@
         "dotnet-stryker": {
             "version": "4.14.2",
             "commands": ["dotnet-stryker"]
-        },
-        "sharpfuzz.commandline": {
-            "version": "2.2.0",
-            "commands": ["sharpfuzz"]
         }
     }
 }

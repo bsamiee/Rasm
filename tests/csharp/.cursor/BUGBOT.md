@@ -17,7 +17,7 @@ When this PR touches `*.spec.cs`, `_testkit/**`, or `*.verify.csx`.
 
 ## Leave alone
 
-- Stryker zero-test diagnostic output — tooling evidence, not product weakness ([`AGENTS.md`](../AGENTS.md) §4)
+- Explicit `--mutation off` runs — default managed tests are unit-only by design ([`AGENTS.md`](../AGENTS.md) §4)
 
 ## Owners
 

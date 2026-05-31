@@ -42,7 +42,7 @@ Use ArchUnitNET for assembly/package direction, dependency cycles, and high-leve
 Run architecture laws in Debug so dependency metadata is not optimized away:
 
 ```bash
-dotnet test tests/csharp/_architecture/Rasm.Architecture.Tests.csproj --configuration Debug
+uv run python -m tools.quality test run --target tests/csharp/_architecture/Rasm.Architecture.Tests.csproj
 ```
 
 ---

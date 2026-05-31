@@ -19,27 +19,28 @@
     </ItemGroup>
 
     <ItemGroup Label="Rhino UI Compile Surface">
-        <PackageVersion Include="System.Drawing.Common" Version="10.0.0" />
+        <PackageVersion Include="System.Drawing.Common" Version="10.0.8" />
     </ItemGroup>
 
     <ItemGroup Label="Analyzers">
         <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.14.15" />
-        <PackageVersion Include="Meziantou.Analyzer" Version="3.0.87" />
-        <PackageVersion Include="Microsoft.Net.Compilers.Toolset" Version="5.3.0" />
-        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
-        <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.3.0" />
+        <PackageVersion Include="Meziantou.Analyzer" Version="3.0.98" />
+        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+        <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
     </ItemGroup>
 
     <ItemGroup Label="Test Stack">
-        <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
-        <PackageVersion Include="xunit.v3.mtp-off" Version="3.2.2" />
+        <PackageVersion Include="xunit.v3.mtp-v2" Version="3.2.2" />
         <PackageVersion Include="xunit.v3.assert" Version="3.2.2" />
         <PackageVersion Include="xunit.v3.common" Version="3.2.2" />
         <PackageVersion Include="xunit.v3.extensibility.core" Version="3.2.2" />
-        <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
         <PackageVersion Include="CsCheck" Version="4.7.0" />
-        <PackageVersion Include="coverlet.msbuild" Version="10.0.1" />
-        <PackageVersion Include="Verify.XunitV3" Version="31.17.0" />
+        <PackageVersion Include="coverlet.MTP" Version="10.0.1" />
+        <PackageVersion Include="Microsoft.Testing.Extensions.Telemetry" Version="2.2.3" />
+        <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport.Abstractions" Version="2.2.3" />
+        <PackageVersion Include="Microsoft.Testing.Platform" Version="2.2.3" />
+        <PackageVersion Include="Microsoft.Testing.Platform.MSBuild" Version="2.2.3" />
+        <PackageVersion Include="Verify.XunitV3" Version="31.18.0" />
         <PackageVersion Include="TngTech.ArchUnitNET.xUnitV3" Version="0.13.3" />
         <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
         <PackageVersion Include="SharpFuzz" Version="2.2.0" />

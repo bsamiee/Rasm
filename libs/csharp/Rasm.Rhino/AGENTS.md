@@ -30,7 +30,7 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 ## API Ownership Rules
 
 - Verify risky Rhino behavior against RhinoWIP `RhinoCommon.xml`, decompile evidence when XML is absent, and `uv run python -m tools.quality api doctor`.
-- Use `uv run python -m tools.quality ...` for API, static, test, and bridge rails in this checkout. Treat older `scripts/rhino.sh` guidance as stale unless the script exists locally.
+- Use `uv run python -m tools.quality ...` for API, static, test, and bridge rails in this checkout.
 - Treat `uv run python -m tools.quality static check` as changed-file routing, not target-only validation. If dirty siblings fail, report them as outside scope and pair target proof with target build, target format, target `git diff --check`, and relevant bridge scenarios.
 - For new category roadmaps, verify every named Rhino member through local XML/decompile evidence before presenting it as available. List false, obsolete, internal, and missing APIs directly in the roadmap.
 - Member existence is not value equivalence. A member that compiles can still return a different quantity than the one it is claimed to replace — `File3dm.Views` counts model views, not layout page views. Verify return SEMANTICS by decompiling the backing native call or table, never by confirming the member resolves.

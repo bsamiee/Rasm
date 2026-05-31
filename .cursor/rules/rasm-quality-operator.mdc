@@ -31,7 +31,7 @@ uv run python -m tools.quality <rail> <verb> [args…]
 
 - Keep orthogonal rails separate — static, unit/mutation, and Rhino runtime never merge.
 - Per-rail MSBuild cache: `.artifacts/quality/<rail>/` via `ArtifactScope`; static keeps build servers and node reuse enabled. No flock, stamp files, or global coordinators.
-- Default `quality test run` (managed `Rasm` target) runs VSTest then Stryker in one invocation — do not parallelize two default test runs.
+- Default `quality test run` (managed `Rasm` target) runs MTP unit tests only. Stryker is explicit through `--mutation changed|full` and fail-fast on the mutation lock.
 - Bridge verify/check/package and live Rhino remain single-flight. See `tools/rhino-bridge/AGENTS.md`.
 
 ## Validation

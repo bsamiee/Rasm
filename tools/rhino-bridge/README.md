@@ -323,9 +323,9 @@ Run after bridge changes. Run the validation ladder serially in listed order.
 
 | [INDEX] | [RAIL]                                                                   | [PARALLELISM]                                          |
 | :-----: | ------------------------------------------------------------------------ | ------------------------------------------------------ |
-|   [1]   | `quality static check`, focused `--target` tests                         | Concurrent; MSBuild under `.artifacts/agents/<pid>/`   |
+|   [1]   | `quality static check`, focused `--target` tests                         | Concurrent; MSBuild under `.artifacts/quality/<rail>/<run-id>/` |
 |   [2]   | `bridge build-bridge`, `check`, `verify`, `package`, `deploy`, `publish` | Serial; one Rhino endpoint; Yak writes project `bin/`  |
-|   [3]   | Default `quality test run` (managed `Rasm`)                              | VSTest+Stryker one shot; no parallel default test runs |
+|   [3]   | Default `quality test run` (managed `Rasm`)                              | MTP unit tests only; explicit mutation fails fast on `.artifacts/locks/mutation.lock` |
 
 Never parallelize bridge commands or live Rhino sessions with each other.
 

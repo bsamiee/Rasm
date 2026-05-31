@@ -65,7 +65,7 @@ all = "error"
 error-on-warning = true
 
 [[tool.ty.overrides]]
-include = ["tools/quality/rails/package.py"]    # Yak package staging uses POSIX flock; ty's all-platform stubs omit fcntl members.
+include = ["tools/quality/rails/package.py"]    # POSIX flock; ty all-platform stubs omit fcntl members.
 
 [tool.ty.overrides.rules]
 possibly-missing-attribute = "ignore"

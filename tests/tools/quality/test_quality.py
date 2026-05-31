@@ -42,6 +42,14 @@ def test_settings_defaults() -> None:
     assert settings.solution.name == "Workspace.slnx"
 
 
+def test_artifact_scope_is_run_scoped(tmp_path: Path) -> None:
+    settings = QualitySettings(root=tmp_path, run_id="run-1")
+
+    with ArtifactScope.open(settings, "test") as scope:
+        assert scope.path == tmp_path / ".artifacts" / "quality" / "test" / "run-1"
+        assert scope.dotnet_env["DOTNET_CLI_HOME"] == str(scope.path / "dotnet-cli")
+
+
 @pytest.mark.parametrize(
     "env_key, expected",
     [
@@ -63,8 +71,15 @@ def test_dotnet_scope_flags_precede_passthrough_args(monkeypatch: pytest.MonkeyP
     seen: list[tuple[str, ...]] = []
 
     def fake_run(
-        argv: tuple[str, ...], *, cwd: Path | None = None, env: dict[str, str] | None = None, check: bool = False, timeout: float | None = None
+        argv: tuple[str, ...],
+        *,
+        cwd: Path | None = None,
+        env: dict[str, str] | None = None,
+        check: bool = False,
+        timeout: float | None = None,
+        mode: process.ProcessMode = "capture",
     ) -> Result[Completed, ProcessFault]:
+        _ = (cwd, env, check, timeout, mode)
         seen.append(argv)
         return Ok(Completed(argv=argv, returncode=0, stdout=b"", stderr=b""))
 
@@ -93,8 +108,15 @@ def test_api_search_returns_ripgrep_stdout(monkeypatch: pytest.MonkeyPatch, tmp_
     xml.write_text("<member name='Mesh' />")
 
     def fake_run(
-        argv: tuple[str, ...], *, cwd: Path | None = None, env: dict[str, str] | None = None, check: bool = False, timeout: float | None = None
+        argv: tuple[str, ...],
+        *,
+        cwd: Path | None = None,
+        env: dict[str, str] | None = None,
+        check: bool = False,
+        timeout: float | None = None,
+        mode: process.ProcessMode = "capture",
     ) -> Result[Completed, ProcessFault]:
+        _ = (argv, cwd, env, check, timeout, mode)
         return Ok(Completed(argv=argv, returncode=0, stdout=b"Mesh hit\n", stderr=b""))
 
     monkeypatch.setattr(api, "run", fake_run)
@@ -104,8 +126,15 @@ def test_api_search_returns_ripgrep_stdout(monkeypatch: pytest.MonkeyPatch, tmp_
 
 def test_api_decompile_returns_ilspy_stdout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     def fake_run(
-        argv: tuple[str, ...], *, cwd: Path | None = None, env: dict[str, str] | None = None, check: bool = False, timeout: float | None = None
+        argv: tuple[str, ...],
+        *,
+        cwd: Path | None = None,
+        env: dict[str, str] | None = None,
+        check: bool = False,
+        timeout: float | None = None,
+        mode: process.ProcessMode = "capture",
     ) -> Result[Completed, ProcessFault]:
+        _ = (cwd, env, check, timeout, mode)
         return Ok(Completed(argv=argv, returncode=0, stdout=b"class Mesh {}\n", stderr=b""))
 
     monkeypatch.setattr(api, "run", fake_run)
@@ -289,7 +318,16 @@ def test_static_changed_ignores_python_analyzer_fixture(monkeypatch: pytest.Monk
 def test_focused_test_target_skips_mutation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     seen: list[tuple[str, ...]] = []
 
-    def fake_dotnet(*args: str, scope: ArtifactScope | None = None, cwd: Path | None = None, check: bool = True) -> Result[Completed, ProcessFault]:
+    def fake_dotnet(
+        *args: str,
+        scope: ArtifactScope | None = None,
+        cwd: Path | None = None,
+        check: bool = True,
+        timeout: float | None = None,
+        scoped: bool = True,
+        mode: process.ProcessMode = "capture",
+    ) -> Result[Completed, ProcessFault]:
+        _ = (scope, cwd, check, timeout, scoped, mode)
         seen.append(args)
         return Ok(Completed(argv=("dotnet", *args), returncode=0, stdout=b"", stderr=b""))
 
@@ -299,16 +337,62 @@ def test_focused_test_target_skips_mutation(monkeypatch: pytest.MonkeyPatch, tmp
 
     assert test.run_test_rail(settings, scope, "run").is_ok()
     assert tuple(command[0] for command in seen) == ("test",)
+    assert seen[0][:3] == ("test", "--project", str(tmp_path / "tests/tools/cs-analyzer/CsAnalyzer.Tests.csproj"))
 
 
-def test_default_test_target_treats_stryker_zero_discovery_as_diagnostic(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_default_test_target_runs_stryker_under_lock_with_bounded_concurrency(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     seen: list[tuple[str, ...]] = []
+    workdirs: list[Path | None] = []
 
-    def fake_dotnet(*args: str, scope: ArtifactScope | None = None, cwd: Path | None = None, check: bool = True) -> Result[Completed, ProcessFault]:
-        _ = (scope, cwd, check)
+    def fake_dotnet(
+        *args: str,
+        scope: ArtifactScope | None = None,
+        cwd: Path | None = None,
+        check: bool = True,
+        timeout: float | None = None,
+        scoped: bool = True,
+        mode: process.ProcessMode = "capture",
+    ) -> Result[Completed, ProcessFault]:
+        _ = (scope, check, timeout, scoped, mode)
         seen.append(args)
+        workdirs.append(cwd)
+        return Ok(Completed(argv=("dotnet", *args), returncode=0, stdout=b"", stderr=b""))
+
+    monkeypatch.setattr(test, "dotnet", fake_dotnet)
+    settings = QualitySettings(root=tmp_path, mutation_max_cpu=2)
+    scope = _scope(tmp_path)
+
+    assert test.run_test_rail(settings, scope, "run", mutation="full").is_ok()
+    assert tuple(command[0] for command in seen) == ("test", "tool", "tool")
+    stryker = seen[-1]
+    assert stryker[:4] == ("tool", "run", "dotnet-stryker", "--")
+    assert "--solution" not in stryker
+    assert stryker[stryker.index("--test-runner") + 1] == "mtp"
+    assert stryker[stryker.index("--output") + 1] == str(settings.mutation_output_dir)
+    assert stryker[stryker.index("--concurrency") + 1] == "2"
+    assert tuple(stryker[index + 1] for index, value in enumerate(stryker) if value == "--mutate") == (
+        "**/*.cs",
+        "!**/bin/**/*.cs",
+        "!**/obj/**/*.cs",
+    )
+    assert workdirs[-1] == tmp_path / "libs/csharp/Rasm"
+    assert settings.mutation_lock.parent.is_dir()
+    assert not settings.mutation_lock.exists()
+
+
+def test_default_test_target_fails_stryker_zero_discovery(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def fake_dotnet(
+        *args: str,
+        scope: ArtifactScope | None = None,
+        cwd: Path | None = None,
+        check: bool = True,
+        timeout: float | None = None,
+        scoped: bool = True,
+        mode: process.ProcessMode = "capture",
+    ) -> Result[Completed, ProcessFault]:
+        _ = (scope, cwd, check, timeout, scoped, mode)
         match args[0]:
-            case "stryker":
+            case "tool" if args[1] == "run":
                 return Ok(Completed(argv=("dotnet", *args), returncode=1, stdout=b"Number of tests found: 0\nNo test result reported.\n", stderr=b""))
             case _:
                 return Ok(Completed(argv=("dotnet", *args), returncode=0, stdout=b"", stderr=b""))
@@ -317,17 +401,25 @@ def test_default_test_target_treats_stryker_zero_discovery_as_diagnostic(monkeyp
     settings = QualitySettings(root=tmp_path)
     scope = _scope(tmp_path)
 
-    assert test.run_test_rail(settings, scope, "run").is_ok()
-    assert tuple(command[0] for command in seen) == ("test", "tool", "stryker")
-    stryker = seen[-1]
-    assert stryker[stryker.index("--output") + 1] == str(settings.mutation_output_dir)
+    result = test.run_test_rail(settings, scope, "run", mutation="full")
+
+    assert result.is_error()
+    assert "Stryker discovered zero tests" in result.error.message
 
 
 def test_default_test_target_keeps_real_stryker_failure(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    def fake_dotnet(*args: str, scope: ArtifactScope | None = None, cwd: Path | None = None, check: bool = True) -> Result[Completed, ProcessFault]:
-        _ = (scope, cwd, check)
+    def fake_dotnet(
+        *args: str,
+        scope: ArtifactScope | None = None,
+        cwd: Path | None = None,
+        check: bool = True,
+        timeout: float | None = None,
+        scoped: bool = True,
+        mode: process.ProcessMode = "capture",
+    ) -> Result[Completed, ProcessFault]:
+        _ = (scope, cwd, check, timeout, scoped, mode)
         match args[0]:
-            case "stryker":
+            case "tool" if args[1] == "run":
                 return Ok(Completed(argv=("dotnet", *args), returncode=1, stdout=b"mutation infrastructure failed", stderr=b""))
             case _:
                 return Ok(Completed(argv=("dotnet", *args), returncode=0, stdout=b"", stderr=b""))
@@ -336,7 +428,7 @@ def test_default_test_target_keeps_real_stryker_failure(monkeypatch: pytest.Monk
     settings = QualitySettings(root=tmp_path)
     scope = _scope(tmp_path)
 
-    result = test.run_test_rail(settings, scope, "run")
+    result = test.run_test_rail(settings, scope, "run", mutation="full")
 
     assert result.is_error()
     assert "mutation infrastructure failed" in result.error.message
@@ -404,9 +496,15 @@ def test_package_finish_keeps_mode_and_slug_step_order(
     scope = _scope(tmp_path)
 
     def fake_run(
-        argv: tuple[str, ...], *, cwd: Path | None = None, env: dict[str, str] | None = None, check: bool = False, timeout: float | None = None
+        argv: tuple[str, ...],
+        *,
+        cwd: Path | None = None,
+        env: dict[str, str] | None = None,
+        check: bool = False,
+        timeout: float | None = None,
+        mode: process.ProcessMode = "capture",
     ) -> Result[Completed, ProcessFault]:
-        _ = (cwd, env, check, timeout)
+        _ = (cwd, env, check, timeout, mode)
         seen.append(argv[1])
         return Ok(Completed(argv=argv, returncode=0, stdout=b"", stderr=b""))
 

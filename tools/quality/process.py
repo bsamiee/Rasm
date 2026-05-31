@@ -6,10 +6,12 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import reduce
 from pathlib import Path
-from typing import assert_never, Final, Literal
+import sys
+from typing import assert_never, Final, Literal, Protocol
 import xml.etree.ElementTree as ET  # noqa: S405
 
 import anyio
+from anyio.abc import ByteReceiveStream
 from beartype import beartype
 from expression import Error, Ok, Result
 import msgspec
@@ -21,7 +23,14 @@ from tools.quality.settings import ArtifactScope, PROJECT_EXCLUDE_DIRS, QualityS
 
 type DotnetOp = Literal["restore", "build"]
 type FdExtension = Literal["csproj", "csx"]
+type ProcessMode = Literal["capture", "stream"]
 type ProjectIndex = Mapping[Path, Path]
+
+
+class ByteWriter(Protocol):
+    def write(self, data: bytes) -> object: ...
+
+    def flush(self) -> object: ...
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
@@ -32,7 +41,8 @@ _GIT_CHANGE_ARGS: Final[tuple[tuple[str, ...], ...]] = (
     ("ls-files", "--others", "--exclude-standard"),
 )
 # Build-graph verbs only: scoped invocations splice `--artifacts-path`/`--disable-build-servers`; tool-driver verbs reject them.
-_ARTIFACT_SCOPED_VERBS: Final[frozenset[str]] = frozenset(("build", "clean", "msbuild", "pack", "publish", "restore", "run", "test", "vstest"))
+_ARTIFACT_SCOPED_VERBS: Final[frozenset[str]] = frozenset(("build", "clean", "msbuild", "pack", "publish", "restore", "run", "test"))
+_PIPE: Final[int] = -1
 
 
 # --- [MODELS] ----------------------------------------------------------------------------
@@ -152,19 +162,24 @@ def decode_json[T](payload: bytes | str, model: type[T]) -> Result[T, ProcessFau
 
 
 def dotnet(
-    *args: str, scope: ArtifactScope | None = None, cwd: Path | None = None, check: bool = True, timeout: float | None = None, scoped: bool = True
+    *args: str,
+    scope: ArtifactScope | None = None,
+    cwd: Path | None = None,
+    check: bool = True,
+    timeout: float | None = None,
+    scoped: bool = True,
+    mode: ProcessMode = "capture",
 ) -> Result[Completed, ProcessFault]:
     # scoped=True splices artifact flags for build-graph verbs; scoped=False keeps default bin/ for scenario-kit and yak staging.
     match scope:
         case ArtifactScope() as active if scoped and args and args[0] in _ARTIFACT_SCOPED_VERBS:
             separator = args.index("--") if "--" in args else len(args)
-            return run(
-                ("dotnet", *args[:separator], *active.dotnet_flags, *args[separator:]), cwd=cwd, env=active.dotnet_env, check=check, timeout=timeout
-            )
+            command = ("dotnet", *args[:separator], *active.dotnet_flags, *args[separator:])
+            return run(command, cwd=cwd, env=active.dotnet_env, check=check, timeout=timeout, mode=mode)
         case ArtifactScope() as active:
-            return run(("dotnet", *args), cwd=cwd, env=active.dotnet_env, check=check, timeout=timeout)
+            return run(("dotnet", *args), cwd=cwd, env=active.dotnet_env, check=check, timeout=timeout, mode=mode)
         case _:
-            return run(("dotnet", *args), cwd=cwd, env=None, check=check, timeout=timeout)
+            return run(("dotnet", *args), cwd=cwd, env=None, check=check, timeout=timeout, mode=mode)
 
 
 def dotnet_args(
@@ -202,6 +217,7 @@ def dotnet_build(
     serial: bool = False,
     max_cpu: int | None = None,
     scoped: bool = True,
+    mode: ProcessMode = "stream",
 ) -> Result[None, ProcessFault]:
     configs = configurations or (settings.configuration,)
     version_args = settings.version_props(version)
@@ -213,7 +229,7 @@ def dotnet_build(
             for target in targets
         ),
     )
-    return fold(commands, None, lambda _, command: dotnet(*command, scope=scope, scoped=scoped, check=True).map(lambda _: None))
+    return fold(commands, None, lambda _, command: dotnet(*command, scope=scope, scoped=scoped, check=True, mode=mode).map(lambda _: None))
 
 
 def fd_args(extension: FdExtension, pattern: str = ".", *roots: str | Path, exclude: bool = True) -> tuple[str, ...]:
@@ -227,13 +243,28 @@ def fold[T, U](items: tuple[T, ...], init: U, step: Callable[[U, T], Result[U, P
 
 
 def run(
-    argv: tuple[str, ...], *, cwd: Path | None = None, env: dict[str, str] | None = None, check: bool = False, timeout: float | None = None
+    argv: tuple[str, ...],
+    *,
+    cwd: Path | None = None,
+    env: dict[str, str] | None = None,
+    check: bool = False,
+    timeout: float | None = None,
+    mode: ProcessMode = "capture",
 ) -> Result[Completed, ProcessFault]:
-    async def _exec() -> Result[Completed, ProcessFault]:
-        completed = await anyio.run_process(list(argv), cwd=str(cwd) if cwd else None, env=env, check=False)
-        outcome = Completed(argv=argv, returncode=completed.returncode, stdout=completed.stdout, stderr=completed.stderr)
+    def _outcome(completed: Completed) -> Result[Completed, ProcessFault]:
         detail = b"\n".join(filter(None, (completed.stderr, completed.stdout)))
-        return Error(ProcessFault.fail(*argv, detail=detail, returncode=completed.returncode)) if completed.returncode != 0 and check else Ok(outcome)
+        return (
+            Error(ProcessFault.fail(*argv, detail=detail, returncode=completed.returncode)) if completed.returncode != 0 and check else Ok(completed)
+        )
+
+    async def _exec() -> Result[Completed, ProcessFault]:
+        match mode:
+            case "capture":
+                completed = await anyio.run_process(list(argv), cwd=str(cwd) if cwd else None, env=env, check=False)
+                return _outcome(Completed(argv=argv, returncode=completed.returncode, stdout=completed.stdout, stderr=completed.stderr))
+            case "stream":
+                streamed = await _stream(argv, cwd=cwd, env=env)
+                return streamed.bind(_outcome)
 
     async def _guarded() -> Result[Completed, ProcessFault]:
         match timeout:
@@ -249,3 +280,31 @@ def run(
                     return Error(ProcessFault.fail(*argv, detail=detail, returncode=124))
 
     return anyio.run(_guarded)
+
+
+async def _stream(argv: tuple[str, ...], *, cwd: Path | None, env: dict[str, str] | None) -> Result[Completed, ProcessFault]:
+    stdout: list[bytes] = []
+    stderr: list[bytes] = []
+    process = await anyio.open_process(list(argv), cwd=str(cwd) if cwd else None, env=env, stdout=_PIPE, stderr=_PIPE)
+
+    async def collect(stream: ByteReceiveStream | None, sink: list[bytes], target: ByteWriter) -> None:
+        match stream:
+            case None:
+                return
+            case _:
+                async for chunk in stream:
+                    sink.append(chunk)
+                    target.write(chunk)
+                    target.flush()
+
+    try:
+        async with anyio.create_task_group() as group:
+            group.start_soon(collect, process.stdout, stdout, sys.stdout.buffer)
+            group.start_soon(collect, process.stderr, stderr, sys.stderr.buffer)
+            returncode = await process.wait()
+    except BaseException:
+        process.kill()
+        with anyio.CancelScope(shield=True):
+            await process.wait()
+        raise
+    return Ok(Completed(argv=argv, returncode=returncode, stdout=b"".join(stdout), stderr=b"".join(stderr)))

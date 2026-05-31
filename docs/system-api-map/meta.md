@@ -19,6 +19,7 @@
 |   [4]   | `.editorconfig`            |
 |   [5]   | `Workspace.slnx`           |
 |   [6]   | `packages.lock.json`       |
+|   [7]   | `global.json`              |
 
 [OWNS]
 - [1] Target framework, language version, analyzer posture, global usings, project classification, RhinoWIP/GH2 host references, generated assembly metadata.
@@ -27,6 +28,7 @@
 - [4] Analyzer/style severity and code formatting policy.
 - [5] Broad solution graph.
 - [6] Locked restore graph per project.
+- [7] .NET CLI runner selection for MTP tests; no SDK pin.
 
 ---
 ## [2][LANGUAGE_AND_ANALYZERS]
@@ -38,7 +40,7 @@
 
 | [INDEX] | [LAYER]               | [PACKAGE / SURFACE]                                                 | [SCOPE]                               |
 | :-----: | --------------------- | ------------------------------------------------------------------- | ------------------------------------- |
-|   [1]   | Compile toolset       | `Microsoft.Net.Compilers.Toolset` 5.3.0                             | All projects                          |
+|   [1]   | Compile toolset       | .NET 10 SDK compiler                                                 | All projects                          |
 |   [2]   | Third-party analyzers | `Meziantou.Analyzer`, `Microsoft.VisualStudio.Threading.Analyzers`  | All projects except analyzer island   |
 |   [3]   | Local analyzer        | `tools/cs-analyzer/CsAnalyzer.csproj`                               | Project analyzer ref; CSP#### catalog |
 |   [4]   | Roslyn authoring      | `Microsoft.CodeAnalysis.CSharp`, `Microsoft.CodeAnalysis.Analyzers` | `CsAnalyzer` and tests only           |

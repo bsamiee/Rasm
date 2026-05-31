@@ -1,9 +1,9 @@
 # [H1][XUNIT_API]
->**Dictum:** *xUnit owns execution; Rasm owns laws and oracles.*
+>**Dictum:** *xUnit owns MTP discovery; Rasm owns laws and oracles.*
 
 <br>
 
-[IMPORTANT] Rasm uses xUnit v3 on the VSTest rail. `Directory.Build.props` injects runnable test packages and generates per-project `obj/xunit.runner.json`; there is no root runner file.
+[IMPORTANT] Rasm uses xUnit v3 through .NET 10 Microsoft Testing Platform. Root `global.json` selects the MTP runner; `Directory.Build.props` injects `xunit.v3.mtp-v2` and generates per-project `obj/xunit.runner.json`. There is no root runner file and no retired adapter.
 
 ---
 ## [1][PACKAGE_MODE]
@@ -11,20 +11,19 @@
 
 <br>
 
-| [INDEX] | [PACKAGE]                     | [PIN]    | [STATE]          | [USE]                                                               |
-| :-----: | ----------------------------- | -------- | ---------------- | ------------------------------------------------------------------- |
-|   [1]   | `xunit.v3.mtp-off`            | `3.2.2`  | Shared           | xUnit v3; MTP disabled                                              |
-|   [2]   | `xunit.runner.visualstudio`   | `3.1.5`  | Shared           | VSTest adapter for `dotnet test`                                    |
-|   [3]   | `xunit.v3.assert`             | `3.2.2`  | Shared (testkit) | Assertions, serializer APIs                                         |
-|   [4]   | `xunit.v3.common`             | `3.2.2`  | Shared (testkit) | Common v3 abstractions                                              |
-|   [5]   | `xunit.v3.extensibility.core` | `3.2.2`  | Shared (testkit) | Pipeline startup and extensibility APIs                             |
-|   [6]   | `xunit.analyzers`             | `1.27.0` | Transitive lock  | xUnit transitive; central pin only if in `Directory.Packages.props` |
+| [INDEX] | [PACKAGE]                     | [PIN]   | [STATE]          | [USE]                                      |
+| :-----: | ----------------------------- | ------- | ---------------- | ------------------------------------------ |
+|   [1]   | `xunit.v3.mtp-v2`             | `3.2.2` | Shared           | xUnit v3 MTP discovery and execution       |
+|   [2]   | `xunit.v3.assert`             | `3.2.2` | Shared (testkit) | Assertions and serializer APIs             |
+|   [3]   | `xunit.v3.common`             | `3.2.2` | Shared (testkit) | Common v3 abstractions                     |
+|   [4]   | `xunit.v3.extensibility.core` | `3.2.2` | Shared (testkit) | Pipeline startup and extensibility APIs    |
+|   [5]   | `xunit.analyzers`             | lock    | Transitive       | xUnit analyzer diagnostics through package |
 
-[SOURCE] xUnit v3.2.2 release notes: https://xunit.net/releases/v3/3.2.2
+[SOURCE] xUnit MTP docs: https://xunit.net/docs/getting-started/v3/microsoft-testing-platform
 
 ---
 ## [2][DISCOVERY]
->**Dictum:** *Generated tests must remain stable under VSTest.*
+>**Dictum:** *Generated tests must remain stable under MTP.*
 
 <br>
 
@@ -36,9 +35,7 @@
 |   [4]   | `MatrixTheoryData<T1..T15>`                    | Rare cartesian rows; prefer `Gen.Select` for broad axes     |
 |   [5]   | `preEnumerateTheories`                         | Rasm runner JSON; stable inputs; no runtime-random rows     |
 
-[SOURCE] API namespace list: https://api.xunit.net/v3/3.2.2/Xunit.html
-
-Use `TheoryDataRow` metadata only when the row itself is part of the test contract: `WithTrait`, `WithTimeout`, `WithSkip`, `WithExplicit`, or `WithTestDisplayName`. Prefer plain `TheoryData` for ordinary value rows.
+MTP commands use `dotnet test --project <csproj>` or `uv run python -m tools.quality test ...`; positional project paths are invalid in MTP mode.
 
 ---
 ## [3][FIXTURES_CONTEXT]
@@ -54,7 +51,7 @@ Use `TheoryDataRow` metadata only when the row itself is part of the test contra
 |   [4]   | `ITestOutputHelper`                        | Diagnostics only; do not replace assertions           |
 |   [5]   | `TestContext.Current.CancellationToken`    | Long loops, async checks, shrink-heavy work           |
 
-Assembly fixtures use public parameterless constructors, initialize before assembly test execution, inject by exact fixture type, and clean up through `DisposeAsync` or `Dispose`. They are for immutable shared context, not per-test mutable state.
+Assembly fixtures use public parameterless constructors, initialize before assembly test execution, inject by exact fixture type, and clean up through `DisposeAsync` or `Dispose`.
 
 ---
 ## [4][ASSERTIONS]
@@ -68,14 +65,19 @@ Assembly fixtures use public parameterless constructors, initialize before assem
 - Avoid `Assert.Skip`; bridge-owned native behavior belongs in `*.verify.csx`.
 
 ---
-## [5][MTP_BOUNDARY]
->**Dictum:** *VSTest and MTP are migration rails, not flags.*
+## [5][MTP_FILTERS]
+>**Dictum:** *Filters belong to the runner that owns discovery.*
 
 <br>
 
-Rasm currently chooses `xunit.v3.mtp-off` and VSTest. Stryker MTP diagnostics require a deliberate package/runner migration, not only `--test-runner mtp`. A future MTP migration must update central packages, runner configuration, Stryker diagnostics, coverlet expectations, and prove `dotnet test` discovery for every runnable project.
+| [INDEX] | [INPUT]            | [MTP_FLAG]          | [RASM_ROUTE]                       |
+| :-----: | ------------------ | ------------------- | ---------------------------------- |
+|   [1]   | `/assembly/...`    | `--filter-query`    | xUnit query language               |
+|   [2]   | `Category=Algebra` | `--filter-trait`    | Trait filter when traits exist     |
+|   [3]   | `SomeSpec`         | `--filter-class`    | Class-shaped spec/law names        |
+|   [4]   | `SomeLaw`          | `--filter-method`   | Method-shaped focused law names    |
 
-[SOURCE] xUnit MTP docs: https://xunit.net/docs/getting-started/v3/microsoft-testing-platform
+`tools.quality test` maps single filter text to MTP-native query, trait, class, or method flags.
 
 ---
 ## [6][THEORY_DATA_FROM_SMARTENUM]
@@ -85,76 +87,18 @@ Rasm currently chooses `xunit.v3.mtp-off` and VSTest. Stryker MTP diagnostics re
 
 When a `[Theory]` should cover every case of a `[SmartEnum<int>]` or `[Union]`, build `TheoryData` from the closed-set `Items` property rather than enumerating `[InlineData]` rows. Adding a new case auto-extends coverage; no spec maintenance is required.
 
-```csharp
-public static TheoryData<SdfKind> AllSdfPrimitives() =>
-    SdfKind.Items.Fold(new TheoryData<SdfKind>(), (data, kind) => { data.Add(kind); return data; });
-
-[Theory]
-[MemberData(nameof(AllSdfPrimitives))]
-public void SdfPrimitiveSatisfiesClosedFormAtKnownPoints(SdfKind kind) =>
-    Spec.ForAll(GenInputFor(kind), input => { /* assert closed-form */ });
-```
-
-`MatrixTheoryData<T1,T2>` for 2-5 axis Cartesian products is cheaper than nested `Gen.Select` when each row should produce a separately-tracked test ID for CI triage.
-
-Cross-reference: this pattern is also a Stryker enabler — see `docs/testing-libs/stryker/api.md [5][THEORY_AS_STRYKER_ENABLER]`.
+Cross-reference: this pattern is also a Stryker enabler — see `docs/testing-libs/stryker/api.md [6][THEORY_AS_STRYKER_ENABLER]`.
 
 ---
-## [7][TRAIT_BASED_FILTERING]
->**Dictum:** *Test categorization beats run-everything CI.*
-
-<br>
-
-| [INDEX] | [TRAIT_VALUE]                         | [PURPOSE]                                         |
-| :-----: | ------------------------------------- | ------------------------------------------------- |
-|   [1]   | `[Trait("Category", "Algebra")]`      | Identity, metamorphic laws                        |
-|   [2]   | `[Trait("Category", "Projection")]`   | Output-direction dispatch laws                    |
-|   [3]   | `[Trait("Category", "Rail")]`         | `Fin`/`Validation`/`Option` failure-category laws |
-|   [4]   | `[Trait("Category", "Numeric")]`      | Residual, reconstruction, conditioning laws       |
-|   [5]   | `[Trait("Category", "Construction")]` | Factory boundary, default-struct laws             |
-|   [6]   | `[Trait("Category", "Runtime")]`      | Bridge-owned behavior (static classification)     |
-|   [7]   | `[Trait("Stryker", "Survivor")]`      | Post-Stryker survivor regression                  |
-
-Filter the current VSTest rail via `dotnet test --filter "Category=Algebra"` or `dotnet test --filter "Category=Algebra|Category=Numeric"`. xUnit/MTP query filters such as `--filter-trait` and `--filter-query` belong only to a deliberate MTP migration.
-
----
-## [8][ASSERT_MULTIPLE_FOR_RECEIPTS]
->**Dictum:** *Batch receipt invariants; report all failures at once.*
-
-<br>
-
-When asserting N invariants over the same receipt (e.g., `TopologyReceipt`, `SpectralAssemblyReceipt`, `SignedHeatReceipt`), wrap in `Assert.Multiple` so a failed invariant does not mask sibling failures:
-
-```csharp
-Assert.Multiple(
-    () => Spec.Holds(receipt.AdmittedFaceCount >= 0, "non-negative admitted"),
-    () => Spec.Holds(receipt.SkippedDegenerateFaces <= receipt.FaceCount, "skipped bounded"),
-    () => Spec.Holds(receipt.Genus.IsNone || receipt.HarmonicDimension == 2 * receipt.Genus.IfNone(0), "Euler-genus"),
-    () => Spec.Holds(receipt.BoundaryCompositionResidual <= RhinoMath.SqrtEpsilon, "D1∘D0 = 0"));
-```
-
-Reserved for receipt-invariant blocks; do not chain unrelated assertions.
-
----
-## [9][TEST_CONTEXT_CANCELLATION]
+## [7][TEST_CONTEXT_CANCELLATION]
 >**Dictum:** *Long-running properties must respect `TestContext.Current.CancellationToken`.*
 
 <br>
 
-`Spec.ForAll` reads `TestContext.Current.CancellationToken` and propagates into the property body. Raw `Check.Sample` calls do not. `TestContext.Current` is a snapshot; read it at the use site and do not cache it across samples. Pattern for any spec that may iterate thousands of times:
-
-```csharp
-public void LawObeysCancellation() =>
-    Spec.ForAll(gen, candidate => {
-        TestContext.Current.CancellationToken.ThrowIfCancellationRequested();
-        /* heavy assertion */
-    });
-```
-
-For long synchronous CsCheck samples (>30s under default Iter), add `[Trait("LongRunning", "true")]` and let CI partition skip them on PR validation.
+`Spec.ForAll` reads `TestContext.Current.CancellationToken` and propagates into the property body. Raw `Check.Sample` calls do not. Read `TestContext.Current` at the use site and do not cache it across samples.
 
 ---
-## [10][CUSTOM_TEST_PIPELINE_HOOKS]
+## [8][CUSTOM_TEST_PIPELINE_HOOKS]
 >**Dictum:** *Pre-test assembly setup belongs to `ITestPipelineStartup`.*
 
 <br>
@@ -165,4 +109,4 @@ For long synchronous CsCheck samples (>30s under default Iter), add `[Trait("Lon
 |   [2]   | `BeforeAfterTestAttribute`                      | Per-test interception when an assertion-visible hook is needed |
 |   [3]   | `[assembly: AssemblyFixture(typeof(T))]` + ctor | Shared immutables; thread-shared; no per-test mutation         |
 
-Avoid `IXunitTestCollectionRunner` overrides; they break VSTest discovery in subtle ways.
+Avoid custom collection runner overrides; they break discovery in subtle ways.

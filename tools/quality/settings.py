@@ -25,6 +25,15 @@ type Configuration = Literal["Debug", "Release"]
 _QUALITY: Final[str] = "quality"
 _ARTIFACTS: Final[str] = ".artifacts"
 _DEFAULT_RASM_TESTS: Final[Path] = Path("tests/csharp/libs/Rasm/Rasm.Tests.csproj")
+_RUNNABLE_TESTS: Final[tuple[Path, ...]] = (
+    Path("tests/csharp/_architecture/Rasm.Architecture.Tests.csproj"),
+    Path("tests/csharp/_tooling/Rasm.TestingTools.Tests.csproj"),
+    Path("tests/csharp/libs/Rasm/Rasm.Tests.csproj"),
+    Path("tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj"),
+    Path("tests/csharp/libs/Rasm.Materials/Rasm.Materials.Tests.csproj"),
+    Path("tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj"),
+    Path("tests/tools/cs-analyzer/CsAnalyzer.Tests.csproj"),
+)
 _DOTNET_CLI: Final[str] = "dotnet-cli"
 _MARKER: Final[str] = "Workspace.slnx"
 CS_SUFFIXES: Final[frozenset[str]] = frozenset((".cs", ".csproj", ".props", ".targets", ".json", ".resx", ".ico", ".ghicon", ".yml", ".yaml"))
@@ -70,12 +79,15 @@ class QualitySettings(BaseSettings):
     configuration: Configuration = "Release"
     static_configuration: Configuration = "Debug"
     dotnet_max_cpu: Annotated[int, Field(ge=1, le=64)] = 4
+    mutation_max_cpu: Annotated[int, Field(ge=1, le=64)] = 2
     test_target: Path = Field(default=_DEFAULT_RASM_TESTS)
     mutation_project: Path = Field(default=Path("libs/csharp/Rasm/Rasm.csproj"))
     mutation_test_project: Path = Field(default=_DEFAULT_RASM_TESTS)
     mutation_target_framework: str = "net10.0"
     rhino_app: Path = Field(default_factory=lambda: QualitySettings._resolve_rhino_app())
     bridge_endpoint: Path = Field(default=Path.home() / ".rasm" / "rhino-bridge.json")
+    test_timeout_s: Annotated[float, Field(gt=0.0)] = 300.0
+    mutation_timeout_s: Annotated[float, Field(gt=0.0)] = 1200.0
     scenario_timeout_s: Annotated[float, Field(gt=0.0)] = 180.0
     verify_retention_seconds: Annotated[float, Field(gt=0.0)] = 300.0
     configurations: str | None = None
@@ -150,6 +162,9 @@ class QualitySettings(BaseSettings):
     def mutation_eligible(self) -> bool:
         return (self.root / self.test_target).resolve() == (self.root / self.mutation_test_project).resolve()
 
+    def test_targets(self, *, all_targets: bool) -> tuple[Path, ...]:
+        return _RUNNABLE_TESTS if all_targets else (self.test_target,)
+
     @property
     def test_slice(self) -> str:
         return self.test_target.stem
@@ -165,6 +180,10 @@ class QualitySettings(BaseSettings):
     @property
     def mutation_output_dir(self) -> Path:
         return self._artifact_dir("mutation")
+
+    @property
+    def mutation_lock(self) -> Path:
+        return self.artifact_root / "locks" / "mutation.lock"
 
     @property
     def bridge_client(self) -> Path:
@@ -212,8 +231,7 @@ class QualitySettings(BaseSettings):
 
     @property
     def mutation_mutate_globs(self) -> tuple[str, ...]:
-        base = self.root / self.mutation_project.parent
-        return (f"{base}/**/*.cs", f"!{base}/**/bin/**/*.cs", f"!{base}/**/obj/**/*.cs")
+        return ("**/*.cs", "!**/bin/**/*.cs", "!**/obj/**/*.cs")
 
     @staticmethod
     def version_props(version: str = "") -> tuple[str, ...]:
@@ -250,6 +268,6 @@ class ArtifactScope:
     @classmethod
     @contextmanager
     def open(cls, settings: QualitySettings, rail: str) -> Iterator[ArtifactScope]:
-        scope_path = settings.artifact_root / _QUALITY / rail
+        scope_path = settings.artifact_root / _QUALITY / rail / settings.run_id
         (scope_path / _DOTNET_CLI).mkdir(parents=True, exist_ok=True)
         yield ArtifactScope(root=settings.root, rail=rail, scope_path=scope_path, dotnet_env=settings.dotnet_env(scope_path, rail=rail))

@@ -13,7 +13,7 @@ description: >-
 
 <br>
 
-Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` for scripts, and `docgen` + `style-standards` for Markdown. The canonical unit rail is xUnit v3/VSTest + CsCheck + `Rasm.TestKit`; native Rhino/GH runtime behavior belongs in `*.verify.csx` bridge scenarios.
+Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` for scripts, and `docgen` + `style-standards` for Markdown. The canonical unit rail is xUnit v3/MTP + CsCheck + `Rasm.TestKit`; native Rhino/GH runtime behavior belongs in `*.verify.csx` bridge scenarios.
 
 ---
 ## [1][WORKFLOW]
@@ -42,7 +42,7 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 | [1] | Static spec | `tests/csharp/libs/<Project>/<MirrorPath>/<Source>.spec.cs` | Pure managed constructors, smart enums, unions, matrix/math rails, `Fin`/`Validation`, deterministic algorithms. |
 | [2] | Testkit | `tests/csharp/_testkit` | Universal law adapters, reusable generators, independent numeric oracles, serializers. |
 | [3] | Bridge scenario | `tests/csharp/libs/<Project>/<MirrorPath>/scenarios/*.verify.csx` | RhinoCommon/GH runtime APIs, native geometry validity, UI marshaling, document/canvas behavior. |
-| [4] | Mutation | `tools.quality test run` (default managed target) | VSTest then Stryker survivor discovery for `libs/csharp/Rasm` and its tests. |
+| [4] | Mutation | `tools.quality test run --mutation changed|full` (default managed target) | Explicit Stryker MTP survivor discovery for `libs/csharp/Rasm` and its tests. |
 | [5] | Architecture | `tests/csharp/_architecture` | Assembly dependency direction and cycle laws. |
 | [6] | Tooling snapshot | `tests/csharp/_tooling` | Stable generated/config artifacts through Verify. |
 | [7] | Benchmark | `tests/csharp/_benchmarks` | Managed hot-path measurement outside xUnit. |
@@ -117,10 +117,10 @@ The bridge injects `SCENARIO_NAME` and `CAPTURE_PATH` before execution. Do not d
 
 | [INDEX] | [TOOL] | [DOC] | [LOCAL_USE] |
 | :-----: | ------ | ----- | ----------- |
-| [1] | xUnit v3 | `docs/testing-libs/xunit/api.md` | VSTest rail, assertions, fixtures, `TheoryData<T1..T15>`, generated runner JSON. |
+| [1] | xUnit v3 | `docs/testing-libs/xunit/api.md` | MTP rail, assertions, fixtures, `TheoryData<T1..T15>`, generated runner JSON. |
 | [2] | CsCheck | `docs/testing-libs/cscheck/api.md` | `Gen`, `Sample`, shrink/replay, model/metamorphic/parallel/perf APIs. |
 | [3] | coverlet | `docs/testing-libs/coverlet/api.md` | Opt-in managed coverage map. |
-| [4] | Stryker.NET | `docs/testing-libs/stryker/api.md` | Mutation through default `tools.quality test run` after VSTest. |
+| [4] | Stryker.NET | `docs/testing-libs/stryker/api.md` | Explicit mutation through `tools.quality test run --mutation changed|full`. |
 | [5] | Verify | `docs/testing-libs/verify/api.md` | Stable artifact snapshots only. |
 | [6] | ArchUnitNET | `docs/testing-libs/archunit/api.md` | Assembly boundary laws. |
 | [7] | BenchmarkDotNet | `docs/testing-libs/benchmarkdotnet/api.md` | Benchmark console projects. |
@@ -133,7 +133,7 @@ Current local truth:
 - xUnit typed theory rows/data exist through arity 15.
 - `Spec.Metamorphic` is a path/oracle wrapper over `Spec.ForAll`, not CsCheck `SampleMetamorphic`.
 - Do not claim a `Check.Hash` cache path without inspecting the current package/source.
-- Treat Stryker as diagnostic until its runner discovers non-zero tests; the managed target is 95% after discovery proof.
+- Treat Stryker zero discovery as a failed mutation rail; the managed target is 95% after discovery proof.
 
 ---
 ## [6][VALIDATION]
@@ -149,13 +149,13 @@ dotnet restore Workspace.slnx --locked-mode
 dotnet tool restore
 uv run python -m tools.quality static full
 uv run python -m tools.quality test run
-dotnet test tests/csharp/libs/Rasm/Rasm.Tests.csproj --configuration Release /p:CollectCoverage=true
+uv run python -m tools.quality test coverage
 uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm/Vectors/scenarios
 uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm.Grasshopper/UI/scenarios
 git diff --check
 ```
 
-Default `tools.quality test run` executes VSTest then Stryker on the managed `Rasm` pair. Focused `--target` runs skip mutation.
+Default `tools.quality test run` executes MTP unit tests only. Use `--mutation changed` or `--mutation full` for Stryker on the managed `Rasm` pair.
 
 Bridge ownership proof:
 

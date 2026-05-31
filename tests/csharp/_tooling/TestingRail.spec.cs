@@ -5,9 +5,9 @@ public sealed class TestingRailSnapshotLaws {
     [Fact]
     public Task TestingRailManifestIsStableAsync() =>
         Verify(new {
-            Unit = "xUnit v3/VSTest + CsCheck",
-            Coverage = "coverlet managed opt-in",
-            Mutation = "Stryker diagnostic until non-zero discovery",
+            Unit = "xUnit v3/MTP + CsCheck",
+            Coverage = "coverlet.MTP managed opt-in",
+            Mutation = "Stryker MTP explicit changed/full modes",
             Snapshot = "Verify stable artifacts only",
             Architecture = "ArchUnitNET boundary laws",
             Benchmark = "BenchmarkDotNet tests/csharp executable measurement rail",

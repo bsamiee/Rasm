@@ -1,7 +1,6 @@
 using ArchUnitNET.Fluent;
 using ArchUnitNET.Loader;
 using ArchUnitNET.xUnitV3;
-using Rasm.Domain;
 using Rasm.Grasshopper.UI;
 using Rasm.Materials.Bricks;
 using Rasm.Rhino.Camera;

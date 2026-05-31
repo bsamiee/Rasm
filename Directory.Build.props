@@ -76,8 +76,10 @@
         <SkipLocalCSharpAnalyzerReference Condition="'$(SkipLocalCSharpAnalyzerReference)' == ''">false</SkipLocalCSharpAnalyzerReference>
         <SkipBoundaryExemptionContracts Condition="'$(SkipBoundaryExemptionContracts)' == '' and ('$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true' or '$(IsRhinoUiAwareProject)' == 'true' or '$(IsTestProject)' == 'true' or '$(IsTestKitProject)' == 'true' or '$(IsRhinoBridgeProject)' == 'true')">true</SkipBoundaryExemptionContracts>
         <SkipBoundaryExemptionContracts Condition="'$(SkipBoundaryExemptionContracts)' == ''">false</SkipBoundaryExemptionContracts>
-        <UseWorkspaceLibraries Condition="'$(UseWorkspaceLibraries)' == '' and ('$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsRhinoBridgeProject)' == 'true')">false</UseWorkspaceLibraries>
+        <UseWorkspaceLibraries Condition="'$(UseWorkspaceLibraries)' == '' and ('$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true')">false</UseWorkspaceLibraries>
         <UseWorkspaceLibraries Condition="'$(UseWorkspaceLibraries)' == ''">true</UseWorkspaceLibraries>
+        <NeedsSystemDrawingCompilePackage Condition="'$(NeedsSystemDrawingCompilePackage)' == '' and ('$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true' or '$(IsTestKitProject)' == 'true')">true</NeedsSystemDrawingCompilePackage>
+        <NeedsSystemDrawingCompilePackage Condition="'$(NeedsSystemDrawingCompilePackage)' == ''">false</NeedsSystemDrawingCompilePackage>
     </PropertyGroup>
 
     <PropertyGroup Label="Restore and CI">
@@ -123,17 +125,11 @@
     </ItemGroup>
 
     <ItemGroup Label="Test Runner SDK" Condition="'$(IsTestProject)' == 'true'">
-        <PackageReference Include="Microsoft.NET.Test.Sdk" PrivateAssets="all" />
-        <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all">
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
-        <PackageReference Include="coverlet.msbuild" PrivateAssets="all">
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
+        <PackageReference Include="coverlet.MTP" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup Label="Test Framework (Runnable)" Condition="'$(IsTestProject)' == 'true'">
-        <PackageReference Include="xunit.v3.mtp-off" PrivateAssets="all" />
+        <PackageReference Include="xunit.v3.mtp-v2" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup Label="Test Framework (Library)" Condition="'$(IsTestKitProject)' == 'true'">
@@ -157,7 +153,8 @@
     </ItemGroup>
 
     <PropertyGroup Label="Test Runtime Config" Condition="'$(IsTestProject)' == 'true'">
-        <TestingPlatformDotnetTestSupport>false</TestingPlatformDotnetTestSupport>
+        <OutputType>Exe</OutputType>
+        <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
         <_XunitRunnerJsonContent>{"$schema":"https://xunit.net/schema/v3.1/xunit.runner.schema.json","parallelAlgorithm":"conservative","preEnumerateTheories":true,"longRunningTestSeconds":30,"printMaxEnumerableLength":64,"printMaxObjectDepth":4}</_XunitRunnerJsonContent>
     </PropertyGroup>
 
@@ -195,16 +192,16 @@
     <PropertyGroup Label="Coverage" Condition="'$(IsTestProject)' == 'true'">
         <CoverletOutputFormat>json,cobertura</CoverletOutputFormat>
         <CoverletOutput>$(MSBuildThisFileDirectory).artifacts/coverage/$(MSBuildProjectName)/</CoverletOutput>
-        <Include>[Rasm*]*,[Foundation.CSharp.Analyzers]*,[Radyab]*</Include>
-        <Exclude>[*Tests]*,[*TestKit]*</Exclude>
-        <ExcludeAssembliesWithoutSources>None</ExcludeAssembliesWithoutSources>
-        <ExcludeByFile>**/obj/**;**/*.Generated.cs;**/*.g.cs</ExcludeByFile>
-        <ExcludeByAttribute>System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute,System.CodeDom.Compiler.GeneratedCodeAttribute,System.Runtime.CompilerServices.CompilerGeneratedAttribute</ExcludeByAttribute>
-        <SingleHit>false</SingleHit>
-        <UseSourceLink>false</UseSourceLink>
-        <SkipAutoProps>true</SkipAutoProps>
-        <DeterministicReport>true</DeterministicReport>
-        <IncludeTestAssembly>false</IncludeTestAssembly>
+        <CoverletInclude>[Rasm*]*,[Foundation.CSharp.Analyzers]*,[Radyab]*</CoverletInclude>
+        <CoverletExclude>[*Tests]*,[*TestKit]*</CoverletExclude>
+        <CoverletExcludeAssembliesWithoutSources>None</CoverletExcludeAssembliesWithoutSources>
+        <CoverletExcludeByFile>**/obj/**;**/*.Generated.cs;**/*.g.cs</CoverletExcludeByFile>
+        <CoverletExcludeByAttribute>System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute,System.CodeDom.Compiler.GeneratedCodeAttribute,System.Runtime.CompilerServices.CompilerGeneratedAttribute</CoverletExcludeByAttribute>
+        <CoverletSingleHit>false</CoverletSingleHit>
+        <CoverletUseSourceLink>false</CoverletUseSourceLink>
+        <CoverletSkipAutoProps>true</CoverletSkipAutoProps>
+        <CoverletDeterministicReport>true</CoverletDeterministicReport>
+        <CoverletIncludeTestAssembly>false</CoverletIncludeTestAssembly>
     </PropertyGroup>
 
     <ItemGroup Label="Global Workspace Usings" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and '$(UseWorkspaceLibraries)' == 'true'">
@@ -278,33 +275,38 @@
     <ItemGroup Label="Rhino UI Libraries" Condition="'$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <Reference Include="Rhino.UI">
             <HintPath>$(RhinoUiReferencePath)</HintPath>
-            <Private>false</Private>
+            <Private Condition="'$(IsTestProject)' == 'true'">true</Private>
+            <Private Condition="'$(IsTestProject)' != 'true'">false</Private>
         </Reference>
         <Reference Include="System.Drawing.Common">
             <HintPath>$(SystemDrawingCommonReferencePath)</HintPath>
-            <Private>false</Private>
+            <Private Condition="'$(IsTestProject)' == 'true'">true</Private>
+            <Private Condition="'$(IsTestProject)' != 'true'">false</Private>
         </Reference>
     </ItemGroup>
 
-    <ItemGroup Label="Rhino UI Compile Packages" Condition="'$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
+    <ItemGroup Label="Rhino UI Compile Packages" Condition="'$(NeedsSystemDrawingCompilePackage)' == 'true'">
         <PackageReference Include="System.Drawing.Common" ExcludeAssets="runtime" />
     </ItemGroup>
 
     <ItemGroup Label="Grasshopper Libraries" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <Reference Include="Grasshopper2">
             <HintPath>$(Grasshopper2ReferencePath)</HintPath>
-            <Private>false</Private>
+            <Private Condition="'$(IsTestProject)' == 'true'">true</Private>
+            <Private Condition="'$(IsTestProject)' != 'true'">false</Private>
         </Reference>
         <Reference Include="GrasshopperIO">
             <HintPath>$(GrasshopperIoReferencePath)</HintPath>
-            <Private>false</Private>
+            <Private Condition="'$(IsTestProject)' == 'true'">true</Private>
+            <Private Condition="'$(IsTestProject)' != 'true'">false</Private>
         </Reference>
     </ItemGroup>
 
     <ItemGroup Label="Eto UI Libraries" Condition="'$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <Reference Include="Eto">
             <HintPath>$(EtoReferencePath)</HintPath>
-            <Private>false</Private>
+            <Private Condition="'$(IsTestProject)' == 'true'">true</Private>
+            <Private Condition="'$(IsTestProject)' != 'true'">false</Private>
         </Reference>
     </ItemGroup>
 
@@ -314,7 +316,8 @@
     <ItemGroup Label="Microsoft.macOS Bindings" Condition="'$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">
         <Reference Include="Microsoft.macOS">
             <HintPath>$(MicrosoftMacOSReferencePath)</HintPath>
-            <Private>false</Private>
+            <Private Condition="'$(IsTestProject)' == 'true'">true</Private>
+            <Private Condition="'$(IsTestProject)' != 'true'">false</Private>
         </Reference>
     </ItemGroup>
 
@@ -327,10 +330,6 @@
             <HintPath>$(RhinoCodePlatformReferencePath)</HintPath>
             <Private>false</Private>
         </Reference>
-    </ItemGroup>
-
-    <ItemGroup Label="Compiler Toolset">
-        <PackageReference Include="Microsoft.Net.Compilers.Toolset" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup Label="Analyzer Packages" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true'">

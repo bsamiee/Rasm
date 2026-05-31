@@ -8,7 +8,7 @@ from pathlib import Path
 import shutil
 import sys
 import time
-from typing import Final, Literal
+from typing import Annotated, Final, Literal
 
 from cyclopts import App, Parameter
 from expression import Result
@@ -163,15 +163,22 @@ def static_gate(mode: Literal["check", "full"]) -> int:
 
 
 @test_app.default
-def unit_gate(mode: Literal["run", "list", "coverage"], filter_expr: str = "", target: Path | None = None) -> int:
+def unit_gate(
+    mode: Literal["run", "list", "coverage"],
+    filter_expr: str = "",
+    target: Path | None = None,
+    all_targets: Annotated[bool | None, Parameter(name="--all")] = None,
+    mutation: test_rail.MutationMode = "off",
+) -> int:
     cfg = QualitySettings()
     settings = cfg if target is None else cfg.model_copy(update={"test_target": target})
+    all_runnable = all_targets is True
     return rail(
         "test",
         mode,
-        lambda s, sc: test_rail.run_test_rail(s, sc, mode, filter_expr=filter_expr),
+        lambda s, sc: test_rail.run_test_rail(s, sc, mode, all_targets=all_runnable, filter_expr=filter_expr, mutation=mutation),
         settings=settings,
-        ok=lambda _: _test_render(settings, mode),
+        ok=lambda _: _test_render(settings, mode, all_targets=all_runnable, mutation=mutation),
     )
 
 
@@ -199,11 +206,13 @@ def _verify_render(summary: bridge_rail.VerifyReport) -> int:
     return _emit(msgspec.json.encode(summary), 0 if summary.failed == 0 else 1, newline=True)
 
 
-def _test_render(settings: QualitySettings, mode: test_rail.TestMode) -> int:
+def _test_render(settings: QualitySettings, mode: test_rail.TestMode, *, all_targets: bool, mutation: test_rail.MutationMode) -> int:
     log.info(
         "test",
         results=str(settings.test_results_dir),
-        mutation=str(settings.mutation_output_dir) if mode != "list" and settings.mutation_eligible else None,
+        all=all_targets or None,
+        mutation=mutation if mode == "run" else None,
+        mutation_output=str(settings.mutation_output_dir) if mode == "run" and mutation != "off" and settings.mutation_eligible else None,
     )
     return 0
 

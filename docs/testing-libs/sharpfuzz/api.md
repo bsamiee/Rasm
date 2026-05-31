@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] `SharpFuzz 2.2.0` is the latest observed package but is older than the preferred freshness window. Keep it isolated in `tests/csharp/_fuzz` behind harness proof and do not make it a normal test gate.
+[IMPORTANT] `SharpFuzz 2.2.0` is isolated in `tests/csharp/_fuzz` behind harness proof and does not run in the normal managed test gate.
 
 ---
 ## [1][PACKAGE]
@@ -11,10 +11,9 @@
 
 <br>
 
-| [INDEX] | [PACKAGE]               | [PIN]   | [USE]                                   |
-| :-----: | ----------------------- | ------- | --------------------------------------- |
-|   [1]   | `SharpFuzz`             | `2.2.0` | In-process harness API.                 |
-|   [2]   | `SharpFuzz.CommandLine` | `2.2.0` | Local `sharpfuzz` instrumentation tool. |
+| [INDEX] | [PACKAGE]   | [PIN]   | [USE]                   |
+| :-----: | ----------- | ------- | ----------------------- |
+|   [1]   | `SharpFuzz` | `2.2.0` | In-process harness API. |
 
 [SOURCE] NuGet package page: https://www.nuget.org/packages/SharpFuzz/2.2.0
 
@@ -31,7 +30,7 @@
 |   [3]   | `Fuzzer.LibFuzzer.Run`                         | Span-based harnesses when native setup exists.                          |
 |   [4]   | `RunAndIgnoreExceptions`                       | Only for explicitly non-crashing parsers.                               |
 |   [5]   | corpus/crash dirs                              | File-based artifacts under `.artifacts/fuzz`.                           |
-|   [6]   | instrumentation CLI                            | Opt-in script/harness flow; never required by `tools.quality test run`. |
+|   [6]   | instrumentation CLI                            | Not in the local tool manifest until a first-class fuzz rail needs it. |
 
 ---
 ## [3][RASM_SCOPE]
