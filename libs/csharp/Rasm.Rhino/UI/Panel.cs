@@ -306,6 +306,7 @@ public abstract partial record PanelEvent {
 
     public abstract Guid Id { get; }
     // ShowPanelEventArgs exposes only `bool Show` — the 4-valued ShowPanelReason is unreachable on this rail (recovered on the IPanel rail via OnReveal/OnConceal).
+    public sealed record None(Guid Id, Option<uint> DocumentSerial) : PanelEvent { public override Guid Id { get; } = Id; }
     public sealed record Shown(Guid Id, Option<uint> DocumentSerial) : PanelEvent { public override Guid Id { get; } = Id; }
     public sealed record Hidden(Guid Id, Option<uint> DocumentSerial) : PanelEvent { public override Guid Id { get; } = Id; }
     public sealed record Closed(Guid Id, Option<uint> DocumentSerial) : PanelEvent { public override Guid Id { get; } = Id; }
@@ -506,13 +507,24 @@ public static class PanelOp {
             let serial = scope.Document.RuntimeSerialNumber
             from subscription in RhinoUi.Protect(valid: () => {
                 Subscription? box = null;   // forward ref so an `until` match can self-detach mid-run
-                Fin<Unit> Fire(PanelEvent host) =>
-                    valid(arg: host).Map(_ => Optional(until).Filter(predicate => predicate(arg: host)).Iter(_ => box?.Dispose()));
-                Func<TArgs, Fin<Unit>> Gate<TArgs>(Func<TArgs, Guid> idOf, Func<TArgs, uint> serialOf, Func<TArgs, PanelEvent> make) =>
-                    args => idOf(arg: args) == panel.Id && serialOf(arg: args) == serial ? Fire(host: make(arg: args)) : Fin.Succ(value: unit);
-                box = Subscription.Attach(active: true, h => global::Rhino.UI.Panels.Show += h, h => global::Rhino.UI.Panels.Show -= h, Gate<global::Rhino.UI.ShowPanelEventArgs>(idOf: static args => args.PanelId, serialOf: static args => args.DocumentSerialNumber, make: static args => args.Show ? new PanelEvent.Shown(Id: args.PanelId, DocumentSerial: Some(args.DocumentSerialNumber)) : new PanelEvent.Hidden(Id: args.PanelId, DocumentSerial: Some(args.DocumentSerialNumber))))
-                    | Subscription.Attach(active: true, h => global::Rhino.UI.Panels.Closed += h, h => global::Rhino.UI.Panels.Closed -= h, Gate<global::Rhino.UI.PanelEventArgs>(idOf: static args => args.PanelId, serialOf: static args => args.DocumentSerialNumber, make: static args => new PanelEvent.Closed(Id: args.PanelId, DocumentSerial: Some(args.DocumentSerialNumber))));
-                return Fin.Succ(value: box);
+                Fin<Unit> Fire(WatchPayload.Panel host, uint documentSerial) {
+                    PanelEvent local = host.State switch {
+                        WatchPanelState.Shown => new PanelEvent.Shown(Id: host.Id, DocumentSerial: Some(documentSerial)),
+                        WatchPanelState.Hidden => new PanelEvent.Hidden(Id: host.Id, DocumentSerial: Some(documentSerial)),
+                        WatchPanelState.Closed => new PanelEvent.Closed(Id: host.Id, DocumentSerial: Some(documentSerial)),
+                        _ => new PanelEvent.None(Id: host.Id, DocumentSerial: Some(documentSerial)),
+                    };
+                    return valid(arg: local).Map(_ => Optional(until).Filter(predicate => predicate(arg: local)).Iter(_ => box?.Dispose()));
+                }
+                Fin<Unit> Deliver(WatchEvent native) =>
+                    native.Panel.Case switch {
+                        WatchPayload.Panel host when host.Id == panel.Id && native.DocumentSerialNumber == serial => Fire(host: host, documentSerial: native.DocumentSerialNumber),
+                        _ => Fin.Succ(value: unit),
+                    };
+                return WatchBus.Subscribe(
+                    target: new WatchTarget.Document(Value: scope.Document),
+                    spec: new WatchSpec(Sink: Deliver, Phases: Seq(WatchPhase.PanelShown, WatchPhase.PanelHidden, WatchPhase.PanelClosed)))
+                    .Map(active => { box = active; return active; });
             })
             from result in RhinoUi.Protect(valid: () => {
                 // BOUNDARY ADAPTER — native panel-event detach must close after the scoped body exits (including throw).

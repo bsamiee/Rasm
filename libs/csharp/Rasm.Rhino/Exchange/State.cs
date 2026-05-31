@@ -17,8 +17,7 @@ public enum FileDirectoryPolicy { Create, Existing }
 public enum FileCollisionPolicy { Preserve, AppendNumber, Replace }
 public enum FileFidelity { Model, Small, GeometryOnly }
 public enum FileResourcePolicy { Reference, Embed, Copy }
-public enum FileGrouping { Document, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
-public enum FileSort { Stable, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
+public enum FileAxis { Stable, Document, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
 public enum FileTiffCompression { Default, None, Lzw, Ccitt3, Ccitt4, Rle }
 
 [Flags]
@@ -92,7 +91,6 @@ public sealed partial class FileIssueCode {
     public static readonly FileIssueCode AlreadyOpen = new(key: "already-open");
     public static readonly FileIssueCode BatchFailure = new(key: "batch-failure");
     public static readonly FileIssueCode EmptyArchive = new(key: "empty-archive");
-    public static readonly FileIssueCode WatchFailure = new(key: "watch-failure");
     public static readonly FileIssueCode BrokenLink = new(key: "broken-link");
 }
 
@@ -399,31 +397,34 @@ public sealed record FileEndpoint {
 }
 
 public sealed record FileProfile {
-    private FileProfile(FileFidelity fidelity, FileResourcePolicy resources, FileGrouping grouping, FileSort sort, Option<FileFormat> format, Option<FileVectorScale> scale) =>
-        (Fidelity, Resources, Grouping, Sort, Format, Scale) = (fidelity, resources, grouping, sort, format, scale);
+    private FileProfile(FileFidelity fidelity, FileResourcePolicy resources, FileAxis group, FileAxis order, Option<FileFormat> format, Option<FileVectorScale> scale) =>
+        (Fidelity, Resources, Group, Order, Format, Scale) = (fidelity, resources, group, order, format, scale);
 
     public FileFidelity Fidelity { get; }
     public FileResourcePolicy Resources { get; }
-    public FileGrouping Grouping { get; }
-    public FileSort Sort { get; }
+    public FileAxis Group { get; }
+    public FileAxis Order { get; }
     public Option<FileFormat> Format { get; }
     public Option<FileVectorScale> Scale { get; }
 
-    public static FileProfile Model { get; } = new(fidelity: FileFidelity.Model, resources: FileResourcePolicy.Reference, grouping: FileGrouping.Document, sort: FileSort.Stable, format: Option<FileFormat>.None, scale: Option<FileVectorScale>.None);
+    public static FileProfile Model { get; } = new(fidelity: FileFidelity.Model, resources: FileResourcePolicy.Reference, group: FileAxis.Document, order: FileAxis.Stable, format: Option<FileFormat>.None, scale: Option<FileVectorScale>.None);
 
-    public FileProfile With(FileFidelity? fidelity = null, FileResourcePolicy? resources = null, FileGrouping? grouping = null, FileSort? sort = null, FileOverride<FileFormat> format = default, FileOverride<FileVectorScale> scale = default) =>
+    public FileProfile With(FileFidelity? fidelity = null, FileResourcePolicy? resources = null, FileAxis? group = null, FileAxis? order = null, FileOverride<FileFormat> format = default, FileOverride<FileVectorScale> scale = default) =>
         new(
             fidelity: fidelity ?? Fidelity,
             resources: resources ?? Resources,
-            grouping: grouping ?? Grouping,
-            sort: sort ?? Sort,
+            group: group ?? Group,
+            order: order ?? Order,
             format: format.Patch(current: Format),
             scale: scale.Patch(current: Scale));
 
     internal Fin<Unit> Validate(FilePhase phase, Op op) =>
-        phase == FilePhase.Import || phase == FilePhase.Headless || phase == FilePhase.Export || phase == FilePhase.WriteFile
+        from _group in Group == FileAxis.Stable ? Fin.Fail<Unit>(error: op.InvalidInput()) : Fin.Succ(value: unit)
+        from _order in Order == FileAxis.Document ? Fin.Fail<Unit>(error: op.InvalidInput()) : Fin.Succ(value: unit)
+        from _scale in phase == FilePhase.Import || phase == FilePhase.Headless || phase == FilePhase.Export || phase == FilePhase.WriteFile
             ? Scale.Map(value => value.Validate(op: op).Map(static _ => unit)).IfNone(Fin.Succ(value: unit))
-            : Fin.Succ(value: unit);
+            : Fin.Succ(value: unit)
+        select unit;
 }
 
 [StructLayout(LayoutKind.Auto)]

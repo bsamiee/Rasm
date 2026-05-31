@@ -73,14 +73,16 @@ public static class Archive {
     private sealed record ClosureState(
         Seq<LinkedArchiveEdge> Edges,
         Seq<ArchivePath> Broken,
-        Seq<Seq<ArchivePath>> Cycles) {
-        public static ClosureState Empty { get; } = new(Edges: Seq<LinkedArchiveEdge>(), Broken: Seq<ArchivePath>(), Cycles: Seq<Seq<ArchivePath>>());
+        Seq<Seq<ArchivePath>> Cycles,
+        Seq<ArchivePath> Truncated) {
+        public static ClosureState Empty { get; } = new(Edges: Seq<LinkedArchiveEdge>(), Broken: Seq<ArchivePath>(), Cycles: Seq<Seq<ArchivePath>>(), Truncated: Seq<ArchivePath>());
         public ArchiveClosureReport Report(ClosureValidationPolicy policy) =>
             new(
-                Valid: Broken.IsEmpty && (!policy.DetectCycles || Cycles.IsEmpty),
+                Valid: Broken.IsEmpty && Truncated.IsEmpty && (!policy.DetectCycles || Cycles.IsEmpty),
                 Edges: Edges,
                 Broken: Broken,
-                Cycles: Cycles);
+                Cycles: Cycles,
+                Truncated: Truncated);
     }
     private static Fin<ClosureState> WalkClosure(
         File3dm model,
@@ -94,7 +96,7 @@ public static class Archive {
         string here = IOPath.GetFullPath(path: path);
         bool onStack = stack.Any(item => string.Equals(a: item, b: here, comparisonType: StringComparison.OrdinalIgnoreCase));
         return (depth > policy.MaxDepth, onStack, visited.Contains(key: here)) switch {
-            (true, _, _) => Fin.Succ(state),
+            (true, _, _) => Fin.Succ(state with { Truncated = state.Truncated + BrokenPath(here: here, key: key) }),
             (_, true, _) when policy.DetectCycles => Fin.Succ(state with {
                 Cycles = state.Cycles + CyclePath(stack: stack, cycleAt: here, key: key),
             }),
@@ -154,7 +156,7 @@ public static class Archive {
             ? ReadNestedArchive(toFull: toFull, next: next, depth: depth, stack: stack, visited: visited, policy: policy, key: key)
             : Fin.Succ(next with { Broken = next.Broken + BrokenPath(here: toFull, key: key) });
     }
-    // BOUNDARY ADAPTER — File3dm.Read owns native archive lifetime.
+    // BOUNDARY ADAPTER — File3dm.ReadWithLog owns native archive lifetime and preserves archive diagnostics.
     private static Fin<ClosureState> ReadNestedArchive(
         string toFull,
         ClosureState next,
@@ -164,7 +166,7 @@ public static class Archive {
         ClosureValidationPolicy policy,
         Op key) =>
         key.Catch(() => {
-            using File3dm? child = File3dm.Read(path: toFull);
+            using File3dm? child = File3dm.ReadWithLog(path: toFull, errorLog: out _);
             return child switch {
                 null => Fin.Succ(next with { Broken = next.Broken + BrokenPath(here: toFull, key: key) }),
                 File3dm model => WalkClosure(

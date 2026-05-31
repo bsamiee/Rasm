@@ -43,10 +43,6 @@ public readonly record struct PageMetadata(
     // A properties page that REPLACES a built-in category (Material/Light/Dimension/NamedView/View/...): the host swaps it in.
     public static PageMetadata Replacing(global::Rhino.UI.PropertyPageType pageType, Option<string> localTitle = default, Option<string> iconResource = default, int index = -1) =>
         new(LocalTitle: localTitle, IconResource: iconResource, Index: index, PageType: Some(pageType));
-    public static PageMetadata Material(Option<string> title = default, Option<string> icon = default) => Replacing(pageType: global::Rhino.UI.PropertyPageType.Material, localTitle: title, iconResource: icon);
-    public static PageMetadata Light(Option<string> title = default, Option<string> icon = default) => Replacing(pageType: global::Rhino.UI.PropertyPageType.Light, localTitle: title, iconResource: icon);
-    public static PageMetadata Dimension(Option<string> title = default, Option<string> icon = default) => Replacing(pageType: global::Rhino.UI.PropertyPageType.Dimension, localTitle: title, iconResource: icon);
-    public static PageMetadata View(Option<string> title = default, Option<string> icon = default) => Replacing(pageType: global::Rhino.UI.PropertyPageType.View, localTitle: title, iconResource: icon);
 }
 
 // Stacked-dialog navigation/dirty algebra (options pages only — ObjectPropertiesPage is NOT a StackedDialogPage).

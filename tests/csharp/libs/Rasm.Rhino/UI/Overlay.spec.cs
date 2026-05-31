@@ -131,14 +131,14 @@ public sealed class GumballActionLaws {
 
     [Fact]
     public void NativeModesProjectThroughActionTable() {
-        Seq<(GumballMode Mode, GumballVerb Verb, GumballMotionAxis Axis)> cases = Seq(
-            (GumballMode.Menu, GumballVerb.Menu, GumballMotionAxis.None),
-            (GumballMode.TranslateFree, GumballVerb.Translate, GumballMotionAxis.Free),
-            (GumballMode.TranslateXY, GumballVerb.Translate, GumballMotionAxis.XY),
-            (GumballMode.ScaleZ, GumballVerb.Scale, GumballMotionAxis.Z),
-            (GumballMode.RotateY, GumballVerb.Rotate, GumballMotionAxis.Y),
-            (GumballMode.ExtrudeX, GumballVerb.Extrude, GumballMotionAxis.X),
-            (GumballMode.CutZ, GumballVerb.Cut, GumballMotionAxis.Z));
+        Seq<(GumballMode Mode, GumballVerb Verb, GumballAxis Axis)> cases = Seq(
+            (GumballMode.Menu, GumballVerb.Menu, GumballAxis.None),
+            (GumballMode.TranslateFree, GumballVerb.Translate, GumballAxis.Free),
+            (GumballMode.TranslateXY, GumballVerb.Translate, GumballAxis.XY),
+            (GumballMode.ScaleZ, GumballVerb.Scale, GumballAxis.Z),
+            (GumballMode.RotateY, GumballVerb.Rotate, GumballAxis.Y),
+            (GumballMode.ExtrudeX, GumballVerb.Extrude, GumballAxis.X),
+            (GumballMode.CutZ, GumballVerb.Cut, GumballAxis.Z));
 
         _ = cases.Iter(static row => {
             GumballAction action = Snapshot(mode: row.Mode).Action;

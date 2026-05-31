@@ -5,6 +5,7 @@ namespace Rasm.Rhino.Events;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 public enum DeferralPolicy { Immediate, Idle }
+public enum WatchPanelState { Shown, Hidden, Closed }
 
 [Union]
 public abstract partial record WatchTarget {
@@ -53,7 +54,10 @@ public sealed partial class WatchPhase {
         UnitsChanged = new(key: 23, bind: On<UnitsChangedWithScalingEventArgs>(h => RhinoDoc.UnitsChangedWithScaling += h, h => RhinoDoc.UnitsChangedWithScaling -= h, static (a, doc) => Gate(serial: a.DocumentSerialNumber, watched: doc, payload: WatchPayload.Document.Units(args: a)))),
         UserStringChanged = new(key: 24, bind: On<RhinoDoc.UserStringChangedArgs>(h => RhinoDoc.UserStringChanged += h, h => RhinoDoc.UserStringChanged -= h, static (a, doc) => Gate(eventDoc: a.Document, watched: doc, payload: WatchPayload.Document.UserString(args: a)))),
         ObjectUndeleted = new(key: 25, bind: On<RhinoObjectEventArgs>(h => RhinoDoc.UndeleteRhinoObject += h, h => RhinoDoc.UndeleteRhinoObject -= h, static (a, doc) => Object(a: a, doc: doc))),
-        ObjectPurged = new(key: 26, bind: On<RhinoObjectEventArgs>(h => RhinoDoc.PurgeRhinoObject += h, h => RhinoDoc.PurgeRhinoObject -= h, static (a, doc) => Object(a: a, doc: doc)));
+        ObjectPurged = new(key: 26, bind: On<RhinoObjectEventArgs>(h => RhinoDoc.PurgeRhinoObject += h, h => RhinoDoc.PurgeRhinoObject -= h, static (a, doc) => Object(a: a, doc: doc))),
+        PanelShown = new(key: 27, bind: PanelShow(show: true)),
+        PanelHidden = new(key: 28, bind: PanelShow(show: false)),
+        PanelClosed = new(key: 29, bind: PanelClose());
 
     [UseDelegateFromConstructor] internal partial Subscription Bind(WatchTarget target, Func<WatchEnvelope, Fin<Unit>> deliver);
 
@@ -69,6 +73,20 @@ public sealed partial class WatchPhase {
 
     private static Func<WatchTarget, Func<WatchEnvelope, Fin<Unit>>, Subscription> View(Action<EventHandler<ViewEventArgs>> subscribe, Action<EventHandler<ViewEventArgs>> unsubscribe) =>
         On(subscribe: subscribe, unsubscribe: unsubscribe, project: static (ViewEventArgs a, WatchTarget target) => Optional(a.View).Bind(view => Gate(eventDoc: view.Document, watched: target, payload: new WatchPayload.View(Value: view))));
+
+    private static Func<WatchTarget, Func<WatchEnvelope, Fin<Unit>>, Subscription> PanelShow(bool show) =>
+        On<global::Rhino.UI.ShowPanelEventArgs>(
+            subscribe: h => global::Rhino.UI.Panels.Show += h,
+            unsubscribe: h => global::Rhino.UI.Panels.Show -= h,
+            project: (a, target) => a.Show == show
+                ? Gate(serial: a.DocumentSerialNumber, watched: target, payload: new WatchPayload.Panel(Id: a.PanelId, State: show ? WatchPanelState.Shown : WatchPanelState.Hidden))
+                : Option<WatchEnvelope>.None);
+
+    private static Func<WatchTarget, Func<WatchEnvelope, Fin<Unit>>, Subscription> PanelClose() =>
+        On<global::Rhino.UI.PanelEventArgs>(
+            subscribe: h => global::Rhino.UI.Panels.Closed += h,
+            unsubscribe: h => global::Rhino.UI.Panels.Closed -= h,
+            project: static (a, target) => Gate(serial: a.DocumentSerialNumber, watched: target, payload: new WatchPayload.Panel(Id: a.PanelId, State: WatchPanelState.Closed)));
 
     // ViewportProjectionChanged is a draw conduit that fires repeatedly per logical change; a per-subscription
     // ChangeCounter debounce (fresh Atom per Subscribe) collapses the storm to one edge per counter advance — the same
@@ -202,6 +220,7 @@ public abstract partial record WatchPayload {
     public sealed record LayerEvent(LayerTableEventType Event, int Index, Option<Layer> Old, Option<Layer> Next) : WatchPayload;
     public sealed record Viewport(Guid Id, uint ChangeCounter) : WatchPayload;
     public sealed record DisplayMode(Guid ViewportId, Guid Old, Guid Next) : WatchPayload;
+    public sealed record Panel(Guid Id, WatchPanelState State) : WatchPayload;
     public sealed record Document(
         Option<string> FileName = default,
         Option<bool> Merge = default,
@@ -235,6 +254,7 @@ public abstract partial record WatchPayload {
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct WatchEvent(WatchPhase Phase, uint DocumentSerialNumber, Option<RhinoDoc> Document, WatchPayload Payload) {
     public Option<RhinoView> View => Payload is WatchPayload.View value ? Some(value: value.Value) : Option<RhinoView>.None;
+    public Option<WatchPayload.Panel> Panel => Payload is WatchPayload.Panel value ? Some(value: value) : Option<WatchPayload.Panel>.None;
     public Seq<Guid> ObjectIds => Payload.ObjectIds;
 }
 

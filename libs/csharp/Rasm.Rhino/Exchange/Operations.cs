@@ -1,6 +1,5 @@
 using System.Globalization;
 using Rasm.Rhino.Commands;
-using Rasm.Rhino.Events;
 using Rasm.Rhino.UI;
 using Rhino.Collections;
 using Rhino.DocObjects.Tables;
@@ -188,9 +187,6 @@ public static class FileOp {
             from ui in runtime.Ui.ToFin(Fail: Op.Of(name: nameof(Prompt)).MissingContext())
             from result in ui.Use(intent: UiIntent.ExchangeFile(prompt: active))
             select result);
-
-    public static Eff<FileRuntime, IDisposable> Subscribe(WatchTarget target, WatchSpec watch) =>
-        Lift(run: _ => WatchBus.Subscribe(target: target, spec: watch).Map<IDisposable>(static active => active));
 
     // Read concerns — different return shape, so they cannot fold into the Fin<DocumentReceipt> mutation unions.
     public static Eff<FileRuntime, Seq<FileSheetReport>> Sheets(SheetQuery query) =>
@@ -413,12 +409,12 @@ public static class FileOp {
 
 // `GetModelToEarthTransform(LengthUnit)` is canonical; the `UnitSystem` overload is `[Obsolete]`.
 // `SyncSun` encodes the Sun.North↔ModelNorth invariant `_SetGeoLocation` does not honour.
-public static class FileEarthOps {
+public readonly partial record struct FileGeoLocation {
     public static Fin<Option<FileGeoLocation>> Read(RhinoDoc document) {
         Op op = Op.Of(name: nameof(Read));
         return Optional(document).ToFin(Fail: op.InvalidInput()).Bind(active => op.Catch(() => {
             using EarthAnchorPoint? anchor = active.EarthAnchorPoint;
-            return Fin.Succ(value: FileGeoLocation.From(anchor: anchor));
+            return Fin.Succ(value: From(anchor: anchor));
         }));
     }
 

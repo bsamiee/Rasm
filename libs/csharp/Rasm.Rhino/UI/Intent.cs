@@ -272,10 +272,10 @@ public static partial class UiIntent {
         };
 }
 
-public static class UiPreview {
-    public static UiIntent<T> Of<T>(string name, Func<RhinoDoc, RunMode, Fin<T>> run, bool interactive = false) {
-        Op operation = Op.Of(name: string.IsNullOrWhiteSpace(value: name) ? nameof(UiPreview) : name);
-        return UiIntent.OfScope(
+public static partial class UiIntent {
+    private static UiIntent<T> Of<T>(string name, Func<RhinoDoc, RunMode, Fin<T>> run, bool interactive = false) {
+        Op operation = Op.Of(name: string.IsNullOrWhiteSpace(value: name) ? nameof(UiIntent) : name);
+        return OfScope(
             run: scope => operation.Need(run).Bind(valid => valid(arg1: scope.Document, arg2: scope.Mode)),
             interactive: interactive);
     }
@@ -359,8 +359,8 @@ public static class UiPreview {
         Of(name: nameof(Capture), run: (_, _) => recipe.Render(
             view: view,
             viewport: recipe.Viewport(view: view),
-            fallbackDpi: 96d,
-            fallbackDecor: new CaptureDecor(),
+            fallbackDpi: CaptureRecipe.ScreenDpi,
+            fallbackDecor: CaptureRecipe.ScreenDecor,
             rewrite: static (decor, _) => decor,
             project: static settings => Project(op: Op.Of(name: nameof(Capture)), native: () => ViewCapture.CaptureToBitmap(settings: settings)),
             op: Op.Of(name: nameof(Capture))));
@@ -369,14 +369,14 @@ public static class UiPreview {
         Of(name: nameof(CaptureSvg), run: (_, _) => recipe.Render(
             view: view,
             viewport: recipe.Viewport(view: view),
-            fallbackDpi: 96d,
-            fallbackDecor: new CaptureDecor(),
+            fallbackDpi: CaptureRecipe.ScreenDpi,
+            fallbackDecor: CaptureRecipe.ScreenDecor,
             rewrite: static (decor, _) => decor,
             project: static settings => Project(op: Op.Of(name: nameof(CaptureSvg)), native: () => ViewCapture.CaptureToSvg(settings: settings)),
             op: Op.Of(name: nameof(CaptureSvg))));
 
     public static UiIntent<Color4f> Color(UiColorSpec spec, bool allowAlpha = false) =>
-        UiIntent.Dialog((parent, _) => Op.Of(name: nameof(Color)).Catch(() => {
+        Dialog((parent, _) => Op.Of(name: nameof(Color)).Catch(() => {
             Color4f color = spec.Initial;
             global::Rhino.UI.NamedColorList? named = spec.Named.Case switch { global::Rhino.UI.NamedColorList v => v, _ => null };
             return global::Rhino.UI.Dialogs.ShowColorDialog(parent: parent, color: ref color, allowAlpha: allowAlpha, namedColorList: named, colorCallback: spec.Changed)

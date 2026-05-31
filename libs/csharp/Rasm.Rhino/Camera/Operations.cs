@@ -91,32 +91,28 @@ public abstract partial record CameraProjection {
     private CameraProjection() { }
 
     public sealed record Parallel(bool SymmetricFrustum = true) : CameraProjection;
-    public sealed record PerspectiveAuto(bool SymmetricFrustum = true, double LensLength = 50.0) : CameraProjection;
-    public sealed record PerspectiveTargeted(double TargetDistance, bool SymmetricFrustum = true, double LensLength = 50.0) : CameraProjection;
+    public sealed record Perspective(Option<double> TargetDistance = default, bool SymmetricFrustum = true, double LensLength = 50.0) : CameraProjection;
     public sealed record TwoPointPerspective(double LensLength = 50.0, Option<(Vector3d Up, double TargetDistance)> Target = default) : CameraProjection;
     public sealed record ParallelReflected : CameraProjection;
-
-    // Native ChangeToPerspectiveProjection has two arities (auto-target vs explicit target distance); the factory
-    // discriminates on the nullable so callers stay terse while the cases keep the arity split type-visible.
-    public static CameraProjection Perspective(double? targetDistance = null, bool symmetric = true, double lens = 50.0) =>
-        targetDistance is double distance
-            ? new PerspectiveTargeted(TargetDistance: distance, SymmetricFrustum: symmetric, LensLength: lens)
-            : new PerspectiveAuto(SymmetricFrustum: symmetric, LensLength: lens);
 
     internal Fin<Unit> Use(RhinoViewport viewport, Op op) =>
         Optional(viewport).ToFin(Fail: op.InvalidInput()).Bind(active => Switch(
             (Viewport: active, Op: op),
             parallel: static (ctx, p) => ctx.Op.Confirm(success: ctx.Viewport.ChangeToParallelProjection(symmetricFrustum: p.SymmetricFrustum)),
-            perspectiveAuto: static (ctx, p) => ctx.Op.Confirm(success: ctx.Viewport.ChangeToPerspectiveProjection(symmetricFrustum: p.SymmetricFrustum, lensLength: p.LensLength)),
-            perspectiveTargeted: static (ctx, p) => ctx.Op.Confirm(success: ctx.Viewport.ChangeToPerspectiveProjection(targetDistance: p.TargetDistance, symmetricFrustum: p.SymmetricFrustum, lensLength: p.LensLength)),
-            twoPointPerspective: static (ctx, p) => ctx.Op.Confirm(success: p.Target.Case switch {
-                (Vector3d up, double distance) => ctx.Viewport.ChangeToTwoPointPerspectiveProjection(lensLength: p.LensLength, up: up, targetDistance: distance),
-                _ => ctx.Viewport.ChangeToTwoPointPerspectiveProjection(lensLength: p.LensLength),
-            }),
+            perspective: static (ctx, p) => ctx.Op.Confirm(success: ctx.Viewport.ChangeToPerspectiveProjection(
+                targetDistance: p.TargetDistance.IfNone(RhinoMath.UnsetValue),
+                symmetricFrustum: p.SymmetricFrustum,
+                lensLength: p.LensLength)),
+            twoPointPerspective: static (ctx, p) => ctx.Op.Confirm(success: ctx.Viewport.ChangeToTwoPointPerspectiveProjection(
+                lensLength: p.LensLength,
+                up: p.Target.Map(static item => item.Up).IfNone(Vector3d.Zero),
+                targetDistance: p.Target.Map(static item => item.TargetDistance).IfNone(RhinoMath.UnsetValue))),
             parallelReflected: static (ctx, _) => ctx.Op.Confirm(success: ctx.Viewport.ChangeToParallelReflectedProjection())));
 }
 
 public readonly record struct NamedRestorePolicy(bool CPlane = true, bool Projection = true, bool Clipping = true, bool Display = true) {
+    public static NamedRestorePolicy Default { get; } = new(CPlane: true, Projection: true, Clipping: true, Display: true);
+
     internal Fin<T> Use<T>(Func<Fin<T>> run) {
         NamedRestorePolicy self = this;
         Op op = Op.Of(name: nameof(NamedRestorePolicy));
@@ -148,14 +144,31 @@ public readonly record struct NamedRestorePolicy(bool CPlane = true, bool Projec
     }
 }
 
+[SmartEnum<int>]
+public sealed partial class CameraRestoreMode {
+    public static readonly CameraRestoreMode
+        Speed = new(
+            key: 0,
+            restore: static (views, index, viewport, amount, delay) =>
+                amount > 0.0 && views.RestoreAnimatedConstantSpeed(index, viewport, amount, delay)),
+        Time = new(
+            key: 1,
+            restore: static (views, index, viewport, amount, delay) =>
+                amount > 0.0 && Math.Abs(amount - Math.Round(amount, MidpointRounding.ToEven)) <= RhinoMath.ZeroTolerance
+                && Math.Round(amount, MidpointRounding.ToEven) <= int.MaxValue
+                && views.RestoreAnimatedConstantTime(index, viewport, (int)Math.Round(amount, MidpointRounding.ToEven), delay));
+
+    [UseDelegateFromConstructor]
+    internal partial bool Restore(global::Rhino.DocObjects.Tables.NamedViewTable views, int index, RhinoViewport viewport, double amount, int delayMilliseconds);
+}
+
 [Union(SwitchMapStateParameterName = "context")]
 public abstract partial record CameraPath {
     private CameraPath() { }
 
     public sealed record Instant : CameraPath;
     public sealed record MatchAspect : CameraPath;
-    public sealed record ConstantSpeed(double UnitsPerFrame, int DelayMilliseconds) : CameraPath;
-    public sealed record ConstantTime(int Frames, int DelayMilliseconds) : CameraPath;
+    public sealed record Animated(CameraRestoreMode Mode, double Amount, int DelayMilliseconds) : CameraPath;
 
     internal Fin<RedrawRequest> Restore(CameraScope scope, int index) =>
         Switch(
@@ -164,10 +177,10 @@ public abstract partial record CameraPath {
                 .Map(_ => CameraScope.RedrawFor(scope: ctx.Scope)),
             matchAspect: static (ctx, _) => Op.Of(name: nameof(Restore)).Confirm(success: ctx.Scope.Document.NamedViews.RestoreWithAspectRatio(index: ctx.Index, viewport: ctx.Scope.Viewport))
                 .Map(_ => CameraScope.RedrawFor(scope: ctx.Scope)),
-            constantSpeed: static (ctx, path) => Op.Of(name: nameof(Restore)).Confirm(success: ctx.Scope.Document.NamedViews.RestoreAnimatedConstantSpeed(ctx.Index, ctx.Scope.Viewport, path.UnitsPerFrame, path.DelayMilliseconds))
-                .Map(_ => (RedrawRequest)new RedrawRequest.Deferred()),
-            constantTime: static (ctx, path) => Op.Of(name: nameof(Restore)).Confirm(success: ctx.Scope.Document.NamedViews.RestoreAnimatedConstantTime(ctx.Index, ctx.Scope.Viewport, path.Frames, path.DelayMilliseconds))
-                .Map(_ => (RedrawRequest)new RedrawRequest.Deferred()));
+            animated: static (ctx, path) =>
+                from mode in Optional(path.Mode).ToFin(Fail: Op.Of(name: nameof(Restore)).InvalidInput())
+                from restored in Op.Of(name: nameof(Restore)).Confirm(success: mode.Restore(ctx.Scope.Document.NamedViews, ctx.Index, ctx.Scope.Viewport, path.Amount, path.DelayMilliseconds))
+                select (RedrawRequest)new RedrawRequest.Deferred());
 
     internal Fin<CameraPath> RequireSynchronous(Op op) =>
         this switch {
@@ -423,10 +436,10 @@ public static class CameraOps {
             select CameraOutcomeCreate.Value(value: frame),
             UiBound: false);
 
-    public static CameraOp<Unit> RestoreNamed(string name, CameraPath? path = null, NamedRestorePolicy restore = default) =>
+    public static CameraOp<Unit> RestoreNamed(string name, CameraPath? path = null, NamedRestorePolicy? restore = null) =>
         new(Run: scope =>
             from index in NamedIndex(document: scope.Document, name: name, op: Op.Of(name: nameof(RestoreNamed)))
-            from redraw in restore.Use(run: () => (path ?? new CameraPath.Instant()).Restore(scope: scope, index: index))
+            from redraw in (restore ?? NamedRestorePolicy.Default).Use(run: () => (path ?? new CameraPath.Instant()).Restore(scope: scope, index: index))
             select CameraOutcomeCreate.Value(value: unit, redraw: redraw));
 
     public static CameraOp<Commands.DocumentResourceChange> RenameNamed(string current, string next) =>
@@ -447,8 +460,8 @@ public static class CameraOps {
         new(Run: scope => recipe.Render(
                 view: scope.View,
                 viewport: Some(value: scope.Viewport),
-                fallbackDpi: 96d,
-                fallbackDecor: new CaptureDecor(),
+                fallbackDpi: CaptureRecipe.ScreenDpi,
+                fallbackDecor: CaptureRecipe.ScreenDecor,
                 rewrite: static (decor, _) => decor,
                 project: static settings => Optional(ViewCapture.CaptureToBitmap(settings: settings)).ToFin(Fail: Op.Of(name: nameof(CaptureBitmap)).InvalidResult()),
                 op: Op.Of(name: nameof(CaptureBitmap)))
@@ -458,8 +471,8 @@ public static class CameraOps {
         new(Run: scope => recipe.Render(
                 view: scope.View,
                 viewport: Some(value: scope.Viewport),
-                fallbackDpi: 96d,
-                fallbackDecor: new CaptureDecor(),
+                fallbackDpi: CaptureRecipe.ScreenDpi,
+                fallbackDecor: CaptureRecipe.ScreenDecor,
                 rewrite: static (decor, _) => decor,
                 project: static settings => Optional(ViewCapture.CaptureToSvg(settings: settings)).ToFin(Fail: Op.Of(name: nameof(CaptureSvg)).InvalidResult()),
                 op: Op.Of(name: nameof(CaptureSvg)))

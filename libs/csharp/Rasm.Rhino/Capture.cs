@@ -17,6 +17,9 @@ public readonly record struct CaptureRecipe(
     Option<double> Dpi = default,
     bool Raster = false,
     Option<CaptureDecor> Decor = default) {
+    internal const double ScreenDpi = 96d;
+    internal static CaptureDecor ScreenDecor => new();
+
     internal Fin<T> Render<T>(
         RhinoView view,
         Option<RhinoViewport> viewport,

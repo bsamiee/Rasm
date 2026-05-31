@@ -352,7 +352,8 @@ public sealed record ArchiveClosureReport(
     bool Valid,
     Seq<Archive.LinkedArchiveEdge> Edges,
     Seq<ArchivePath> Broken,
-    Seq<Seq<ArchivePath>> Cycles);
+    Seq<Seq<ArchivePath>> Cycles,
+    Seq<ArchivePath> Truncated = default);
 
 public sealed record BlockFilter(
     Option<Seq<string>> Archives = default,

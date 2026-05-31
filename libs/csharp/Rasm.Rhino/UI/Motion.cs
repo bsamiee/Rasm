@@ -114,11 +114,12 @@ internal readonly record struct SpringRunnerState<TValue, TVelocity>(TValue Valu
     public bool IsActive => !((Vector.Distance(Value, Target) < Vector.RestEpsilon) && (Vector.Norm(Velocity) < Vector.RestEpsilon));
 }
 
-// One tween type covers both single Tween (empty Rest) and Sequence (Rest = remaining steps, advanced at boundaries).
-internal readonly record struct TweenRunnerState<TValue, TVelocity>(TValue From, TValue To, TimeSpan Duration, Easing Easing, Seq<(TValue Target, TimeSpan Duration, Easing Easing)> Rest, IMotionVector<TValue, TVelocity> Vector, Action<TValue> Sink, TimeProvider Clock, long Start) : IMotionState<TweenRunnerState<TValue, TVelocity>> {
-    public TweenRunnerState<TValue, TVelocity> Step() =>
-        (Clock.GetElapsedTime(startingTimestamp: Start).TotalSeconds >= Duration.TotalSeconds, Rest.IsEmpty) switch {
-            (true, false) => this with { From = To, To = Rest[0].Target, Duration = Rest[0].Duration, Easing = Rest[0].Easing, Rest = Rest.Tail, Start = Clock.GetTimestamp() },
+// Timed runner covers Tween, Sequence, and Pulse. Rest drives one-shot sequences; yoyo/cycles drive repeating pulses.
+internal readonly record struct TimedRunnerState<TValue, TVelocity>(TValue From, TValue To, TimeSpan Duration, Easing Easing, Seq<(TValue Target, TimeSpan Duration, Easing Easing)> Rest, bool Yoyo, bool Infinite, int CyclesRemaining, IMotionVector<TValue, TVelocity> Vector, Action<TValue> Sink, TimeProvider Clock, long Start) : IMotionState<TimedRunnerState<TValue, TVelocity>> {
+    public TimedRunnerState<TValue, TVelocity> Step() =>
+        (Elapsed, Rest.IsEmpty, Infinite || CyclesRemaining > 0) switch {
+            (true, false, _) => this with { From = To, To = Rest[0].Target, Duration = Rest[0].Duration, Easing = Rest[0].Easing, Rest = Rest.Tail, Start = Clock.GetTimestamp() },
+            (true, true, true) => this with { From = Yoyo ? To : From, To = Yoyo ? From : To, CyclesRemaining = Infinite ? CyclesRemaining : CyclesRemaining - 1, Start = Clock.GetTimestamp() },
             _ => this,
         };
     public Unit Emit() {
@@ -127,22 +128,8 @@ internal readonly record struct TweenRunnerState<TValue, TVelocity>(TValue From,
         Sink(Vector.Lerp(a: From, b: To, t: Easing.Apply(t: t)));
         return unit;
     }
-    public bool IsActive => !Rest.IsEmpty || Clock.GetElapsedTime(startingTimestamp: Start).TotalSeconds < Duration.TotalSeconds;
-}
-
-internal readonly record struct PulseRunnerState<TValue, TVelocity>(TValue From, TValue To, TimeSpan Duration, Easing Easing, bool Yoyo, bool Infinite, int CyclesRemaining, IMotionVector<TValue, TVelocity> Vector, Action<TValue> Sink, TimeProvider Clock, long Start) : IMotionState<PulseRunnerState<TValue, TVelocity>> {
-    public PulseRunnerState<TValue, TVelocity> Step() =>
-        (Clock.GetElapsedTime(startingTimestamp: Start).TotalSeconds >= Duration.TotalSeconds && (Infinite || CyclesRemaining > 0)) switch {
-            true => this with { From = Yoyo ? To : From, To = Yoyo ? From : To, CyclesRemaining = Infinite ? CyclesRemaining : CyclesRemaining - 1, Start = Clock.GetTimestamp() },
-            false => this,
-        };
-    public Unit Emit() {
-        double total = Duration.TotalSeconds;
-        double t = total <= 0d ? 1d : Math.Clamp(value: Clock.GetElapsedTime(startingTimestamp: Start).TotalSeconds / total, min: 0d, max: 1d);
-        Sink(Vector.Lerp(a: From, b: To, t: Easing.Apply(t: t)));
-        return unit;
-    }
-    public bool IsActive => Infinite || CyclesRemaining > 0 || Clock.GetElapsedTime(startingTimestamp: Start).TotalSeconds < Duration.TotalSeconds;
+    public bool IsActive => !Rest.IsEmpty || Infinite || CyclesRemaining > 0 || !Elapsed;
+    private bool Elapsed => Clock.GetElapsedTime(startingTimestamp: Start).TotalSeconds >= Duration.TotalSeconds;
 }
 
 // Inertial decay: v *= e^(-friction*dt) each step; x += v*dt. Rests once |v| drops below the vector epsilon.
@@ -476,11 +463,11 @@ internal static class Motion {
                     Retarget: (_, velocity) => Fin.Succ(value: Op.Side(() => cell.Swap(state => state with { Velocity = velocity.IfNone(state.Velocity) }))),
                     Velocity: () => cell.Value.Velocity)),
             MotionSpec<TValue, TVelocity>.Tween t => Drive(
-                initial: MakeTween(spec: t, sink: sink, clock: resolved), target: target, clock: clock, steering: ReseedTween(vector: t.Vector)),
+                initial: MakeTimed(from: t.From, to: t.To, duration: t.Duration, easing: t.Easing, rest: Seq<(TValue, TimeSpan, Easing)>(), yoyo: false, infinite: false, cycles: 0, vector: t.Vector, sink: sink, clock: resolved), target: target, clock: clock, steering: ReseedTimed(vector: t.Vector)),
             MotionSpec<TValue, TVelocity>.Pulse p => Drive(
-                initial: MakePulse(spec: p, sink: sink, clock: resolved), target: target, clock: clock, steering: ReseedPulse(vector: p.Vector)),
+                initial: MakeTimed(from: p.From, to: p.To, duration: p.Duration, easing: p.Easing, rest: Seq<(TValue, TimeSpan, Easing)>(), yoyo: p.Yoyo, infinite: p.Infinite, cycles: Math.Max(val1: 0, val2: p.Cycles - 1), vector: p.Vector, sink: sink, clock: resolved), target: target, clock: clock, steering: ReseedTimed(vector: p.Vector)),
             MotionSpec<TValue, TVelocity>.Sequence q => Drive(
-                initial: MakeSequence(spec: q, sink: sink, clock: resolved), target: target, clock: clock, steering: ReseedTween(vector: q.Vector)),
+                initial: MakeSequence(spec: q, sink: sink, clock: resolved), target: target, clock: clock, steering: ReseedTimed(vector: q.Vector)),
             _ => Fin.Fail<MotionHandle<TValue, TVelocity>>(error: Op.Of(name: nameof(Run)).InvalidInput()),
         };
 
@@ -507,33 +494,32 @@ internal static class Motion {
 
     private static SpringRunnerState<T, TV> MakeSpring<T, TV>(MotionSpec<T, TV>.Spring spec, Action<T> sink, TimeProvider clock) =>
         new(Value: spec.From, Velocity: spec.InitialVelocity.IfNone(spec.Vector.ZeroVelocity), Target: spec.To, Config: spec.Config, Vector: spec.Vector, Sink: sink, Clock: clock, Timestamp: clock.GetTimestamp());
-    private static TweenRunnerState<T, TV> MakeTween<T, TV>(MotionSpec<T, TV>.Tween spec, Action<T> sink, TimeProvider clock) =>
-        new(From: spec.From, To: spec.To, Duration: spec.Duration, Easing: spec.Easing, Rest: Seq<(T, TimeSpan, Easing)>(), Vector: spec.Vector, Sink: sink, Clock: clock, Start: clock.GetTimestamp());
-    private static PulseRunnerState<T, TV> MakePulse<T, TV>(MotionSpec<T, TV>.Pulse spec, Action<T> sink, TimeProvider clock) =>
-        new(From: spec.From, To: spec.To, Duration: spec.Duration, Easing: spec.Easing, Yoyo: spec.Yoyo, Infinite: spec.Infinite, CyclesRemaining: Math.Max(val1: 0, val2: spec.Cycles - 1), Vector: spec.Vector, Sink: sink, Clock: clock, Start: clock.GetTimestamp());
-    private static TweenRunnerState<T, TV> MakeSequence<T, TV>(MotionSpec<T, TV>.Sequence spec, Action<T> sink, TimeProvider clock) =>
+    private static TimedRunnerState<T, TV> MakeSequence<T, TV>(MotionSpec<T, TV>.Sequence spec, Action<T> sink, TimeProvider clock) =>
         spec.Steps.IsEmpty
-            ? new(From: spec.Start, To: spec.Start, Duration: TimeSpan.Zero, Easing: Easing.Linear, Rest: Seq<(T, TimeSpan, Easing)>(), Vector: spec.Vector, Sink: sink, Clock: clock, Start: clock.GetTimestamp())
-            : new(From: spec.Start, To: spec.Steps[0].Target, Duration: spec.Steps[0].Duration, Easing: spec.Steps[0].Easing, Rest: spec.Steps.Tail, Vector: spec.Vector, Sink: sink, Clock: clock, Start: clock.GetTimestamp());
+            ? MakeTimed(from: spec.Start, to: spec.Start, duration: TimeSpan.Zero, easing: Easing.Linear, rest: Seq<(T, TimeSpan, Easing)>(), yoyo: false, infinite: false, cycles: 0, vector: spec.Vector, sink: sink, clock: clock)
+            : MakeTimed(from: spec.Start, to: spec.Steps[0].Target, duration: spec.Steps[0].Duration, easing: spec.Steps[0].Easing, rest: spec.Steps.Tail, yoyo: false, infinite: false, cycles: 0, vector: spec.Vector, sink: sink, clock: clock);
+    private static TimedRunnerState<T, TV> MakeTimed<T, TV>(
+        T from,
+        T to,
+        TimeSpan duration,
+        Easing easing,
+        Seq<(T Target, TimeSpan Duration, Easing Easing)> rest,
+        bool yoyo,
+        bool infinite,
+        int cycles,
+        IMotionVector<T, TV> vector,
+        Action<T> sink,
+        TimeProvider clock) =>
+        new(From: from, To: to, Duration: duration, Easing: easing, Rest: rest, Yoyo: yoyo, Infinite: infinite, CyclesRemaining: cycles, Vector: vector, Sink: sink, Clock: clock, Start: clock.GetTimestamp());
     private static DecayRunnerState<T, TV> MakeDecay<T, TV>(MotionSpec<T, TV>.Decay spec, Action<T> sink, TimeProvider clock) =>
         new(Value: spec.From, Velocity: spec.Velocity, Friction: spec.Friction, Vector: spec.Vector, Sink: sink, Clock: clock, Timestamp: clock.GetTimestamp());
 
-    // Tween/Sequence live-steer: re-seed From <- the current interpolated value, To <- the new target, restart the clock.
-    private static Func<Atom<TweenRunnerState<T, TV>>, MotionHandle<T, TV>.Steering> ReseedTween<T, TV>(IMotionVector<T, TV> vector) =>
+    private static Func<Atom<TimedRunnerState<T, TV>>, MotionHandle<T, TV>.Steering> ReseedTimed<T, TV>(IMotionVector<T, TV> vector) =>
         cell => new MotionHandle<T, TV>.Steering(
             Retarget: (toValue, _) => Fin.Succ(value: Op.Side(() => cell.Swap(state => state with {
                 From = state.Vector.Lerp(a: state.From, b: state.To, t: state.Easing.Apply(t: Progress(duration: state.Duration, start: state.Start, clock: state.Clock))),
                 To = toValue,
                 Rest = Seq<(T, TimeSpan, Easing)>(),
-                Start = state.Clock.GetTimestamp(),
-            }))),
-            Velocity: () => vector.ZeroVelocity);
-
-    private static Func<Atom<PulseRunnerState<T, TV>>, MotionHandle<T, TV>.Steering> ReseedPulse<T, TV>(IMotionVector<T, TV> vector) =>
-        cell => new MotionHandle<T, TV>.Steering(
-            Retarget: (toValue, _) => Fin.Succ(value: Op.Side(() => cell.Swap(state => state with {
-                From = state.Vector.Lerp(a: state.From, b: state.To, t: state.Easing.Apply(t: Progress(duration: state.Duration, start: state.Start, clock: state.Clock))),
-                To = toValue,
                 Start = state.Clock.GetTimestamp(),
             }))),
             Velocity: () => vector.ZeroVelocity);

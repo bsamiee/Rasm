@@ -13,14 +13,8 @@ using IOFileInfo = System.IO.FileInfo;
 
 namespace Rasm.Rhino.Exchange;
 
-// --- [CONSTANTS] --------------------------------------------------------------------------
-internal static class FileSheetDefaults {
-    internal const double DefaultPublishDpi = 300.0;
-    internal const long DefaultJpegQuality = 90L;
-}
-
 // --- [MODELS] -----------------------------------------------------------------------------
-public sealed record FilePublish(FilePublishTarget Target, Seq<FileView> Views, FileProfile Profile, bool Layers = true, Option<string> Snapshot = default) {
+public sealed record FilePublish(FilePublishTarget Target, Seq<FileView> Views, bool Layers = true, Option<string> Snapshot = default) {
     public FilePublish WithSnapshot(string name) =>
         this with { Snapshot = string.IsNullOrWhiteSpace(value: name) ? Option<string>.None : Some(name.Trim()) };
 }
@@ -43,8 +37,8 @@ public abstract partial record FileViewSource {
             (Doc: document, Spec: spec, Op: op),
             pages: static (ctx, source) => ResolvePages(document: ctx.Doc, source: source, spec: ctx.Spec, op: ctx.Op),
             named: static (ctx, source) => ResolveNamed(document: ctx.Doc, source: source, spec: ctx.Spec, op: ctx.Op),
-            viewport: static (ctx, source) => source.Target.ResolveMany(document: ctx.Doc, op: ctx.Op)
-                .Map(scopes => scopes.Map(scope => FileViewPage.Model(view: scope.View, spec: ctx.Spec, prepare: static _ => Fin.Succ(value: unit)))));
+            viewport: static (ctx, source) => source.Target.Resolve(document: ctx.Doc, op: ctx.Op)
+                .Map(scopes => scopes.Map(scope => FileViewPage.Model(view: scope.View, viewport: Some(scope.Viewport), spec: ctx.Spec, prepare: static _ => Fin.Succ(value: unit)))));
 
     private static Fin<Seq<FileViewPage>> ResolvePages(RhinoDoc document, Pages source, FileView spec, Op op) =>
         from pages in source.Query.Resolve(document: document, op: op)
@@ -56,9 +50,10 @@ public abstract partial record FileViewSource {
     // would re-resolve the scope and nest a second UI dispatch for nothing.
     private static Fin<Seq<FileViewPage>> ResolveNamed(RhinoDoc document, Named source, FileView spec, Op op) =>
         from _ in guard(!source.Names.IsEmpty, op.InvalidInput())
-        from scope in source.Target.Resolve(document: document, op: op)
+        from scopes in source.Target.Resolve(document: document, op: op)
+        from scope in RhinoCamera.SingleScope(scopes: scopes, op: op)
         from pages in source.Names.TraverseM(name => FileEndpoint.NonBlank(value: name, op: op).Map(valid =>
-            FileViewPage.Model(view: scope.View, spec: spec,
+            FileViewPage.Model(view: scope.View, viewport: Some(scope.Viewport), spec: spec,
                 prepare: key => (source.Path.Case switch {
                     CameraPath restore => restore.RequireSynchronous(op: key).Map<CameraPath?>(static value => value),
                     _ => Fin.Succ<CameraPath?>(value: null),
@@ -71,17 +66,17 @@ public abstract partial record FileViewSource {
         select pages;
 }
 
-internal sealed record FileViewPage(RhinoView Target, FileView Spec, Func<Op, Fin<Unit>> Prepare) {
+internal sealed record FileViewPage(RhinoView Target, Option<RhinoViewport> Viewport, FileView Spec, Func<Op, Fin<Unit>> Prepare) {
     internal static FileViewPage Layout(RhinoPageView page, FileView spec) =>
-        new(Target: page, Spec: spec, Prepare: static _ => Fin.Succ(value: unit));
+        new(Target: page, Viewport: Option<RhinoViewport>.None, Spec: spec, Prepare: static _ => Fin.Succ(value: unit));
 
-    internal static FileViewPage Model(RhinoView view, FileView spec, Func<Op, Fin<Unit>> prepare) =>
-        new(Target: view, Spec: spec, Prepare: prepare);
+    internal static FileViewPage Model(RhinoView view, Option<RhinoViewport> viewport, FileView spec, Func<Op, Fin<Unit>> prepare) =>
+        new(Target: view, Viewport: viewport, Spec: spec, Prepare: prepare);
 
     // Prepare runs FIRST (named-view restore reframes the viewport), then settings build off the framed view.
     internal Fin<ViewCaptureSettings> Settings(Op op) =>
         from _ in Prepare(arg: op)
-        from settings in Spec.Open(view: Target, op: op)
+        from settings in Spec.Open(view: Target, viewport: Viewport, op: op)
         select settings;
 
     // Single owner of "prepare view + capture rail + report"; CaptureRecipe owns settings construction/disposal.
@@ -90,13 +85,13 @@ internal sealed record FileViewPage(RhinoView Target, FileView Spec, Func<Op, Fi
     // (SendToPrinter needs them all alive at once) and still uses Settings/Open.
     internal Fin<(T Value, FileViewReport Report)> Render<T>(Func<ViewCaptureSettings, Fin<T>> render, Op op) =>
         from _ in Prepare(arg: op)
-        from result in Spec.Render(view: Target, project: settings => render(arg: settings).Map(value => (Value: value, Report: ReportOf(settings: settings))), op: op)
+        from result in Spec.Render(view: Target, viewport: Viewport, project: settings => render(arg: settings).Map(value => (Value: value, Report: ReportOf(settings: settings))), op: op)
         select result;
 
     internal FileViewReport ReportOf(ViewCaptureSettings settings) =>
         Target switch {
-            RhinoPageView page => PageReportOf(page: page),
-            RhinoView view => new FileViewReport(Name: view.MainViewport.Name ?? string.Empty, Scale: ScaleOf(settings: settings, view: view), DetailCount: 0),
+            RhinoPageView page when Viewport.IsNone => PageReportOf(page: page),
+            RhinoView view => new FileViewReport(Name: Viewport.Map(static viewport => viewport.Name).IfNone(view.MainViewport.Name ?? string.Empty), Scale: ScaleOf(settings: settings, view: view), DetailCount: 0),
             _ => new FileViewReport(Name: string.Empty, Scale: Option<string>.None, DetailCount: 0),
         };
 
@@ -122,28 +117,36 @@ public readonly record struct FileViewReport(string Name, Option<string> Scale, 
 public sealed partial record FileView(
     FileViewSource Source,
     CaptureRecipe Recipe = default) {
-    internal Fin<ViewCaptureSettings> Open(RhinoView view, Op op) =>
+    internal const double DefaultDpi = 300.0;
+
+    internal Fin<ViewCaptureSettings> Open(RhinoView view, Option<RhinoViewport> viewport, Op op) =>
         from active in Optional(view).ToFin(Fail: op.InvalidInput())
         from settings in Recipe.Open(
             view: active,
-            viewport: Recipe.Viewport(view: active),
-            fallbackDpi: FileSheetDefaults.DefaultPublishDpi,
+            viewport: ViewportFor(view: active, viewport: viewport),
+            fallbackDpi: DefaultDpi,
             fallbackDecor: CaptureDecor.Publish,
             rewrite: RewriteDecor,
             op: op)
         select settings;
 
-    internal Fin<T> Render<T>(RhinoView view, Func<ViewCaptureSettings, Fin<T>> project, Op op) =>
+    internal Fin<T> Render<T>(RhinoView view, Option<RhinoViewport> viewport, Func<ViewCaptureSettings, Fin<T>> project, Op op) =>
         from active in Optional(view).ToFin(Fail: op.InvalidInput())
         from result in Recipe.Render(
             view: active,
-            viewport: Recipe.Viewport(view: active),
-            fallbackDpi: FileSheetDefaults.DefaultPublishDpi,
+            viewport: ViewportFor(view: active, viewport: viewport),
+            fallbackDpi: DefaultDpi,
             fallbackDecor: CaptureDecor.Publish,
             rewrite: RewriteDecor,
             project: project,
             op: op)
         select result;
+
+    private Option<RhinoViewport> ViewportFor(RhinoView view, Option<RhinoViewport> viewport) =>
+        viewport.Case switch {
+            RhinoViewport active => Some(active),
+            _ => Recipe.Viewport(view: view),
+        };
 
     internal Fin<DrawingBitmap> TransparentBitmap(RhinoView view, ViewCaptureSettings settings, Op op) =>
         Recipe.TransparentBitmap(
@@ -222,11 +225,13 @@ internal enum FileRasterCodecKind { Quality, ColorDepth, Compression }
 internal readonly record struct FileRasterCodecParameter(FileRasterCodecKind Kind, long Value);
 
 public readonly record struct FileRasterSettings(
-    long JpegQuality = FileSheetDefaults.DefaultJpegQuality,
+    long JpegQuality = FileRasterSettings.DefaultJpegQuality,
     Option<FileTiffCompression> TiffCompression = default,
     Option<int> PngDepth = default,
     Option<double> ExifDpi = default,
     bool Transparent = false) {
+    internal const long DefaultJpegQuality = 90L;
+
     internal Fin<FileRasterSettings> Validate(FileRasterEncoding encoding, Op op) {
         FileRasterSettings self = this;
         return from _quality in encoding == FileRasterEncoding.Jpeg && self.JpegQuality is < 0L or > 100L ? Fin.Fail<Unit>(error: op.InvalidInput()) : Fin.Succ(value: unit)
@@ -260,16 +265,15 @@ public readonly record struct FilePdfPage(
     int WidthDots,
     int HeightDots,
     int Dpi,
-    Option<Func<FilePdf, int, Op, Fin<Unit>>> Annotate = default) {
+    Seq<PdfStamp> Stamps = default) {
     internal Fin<FilePdfPage> Validate(Op op) =>
         WidthDots > 0 && HeightDots > 0 && Dpi > 0
             ? Fin.Succ(value: this)
             : Fin.Fail<FilePdfPage>(error: op.InvalidInput());
 }
 
-// Typed page-stamp algebra over the raw FilePdf draw primitives. Callers declare a `Seq<PdfStamp>` and call
-// `.Annotation()` to build the `Func<FilePdf,int,Op,Fin<Unit>>` the Pdf/FilePdfPage `Annotate` field expects —
-// replacing hand-rolled Font/Color/PointF plumbing per title block, page number, scale bar, or logo.
+// Typed page-stamp algebra over the raw FilePdf draw primitives. Callers pass `Seq<PdfStamp>` to publish targets
+// and blank pages, replacing hand-rolled Font/Color/PointF plumbing per title block, page number, scale bar, or logo.
 [Union(SwitchMapStateParameterName = "ctx")]
 public abstract partial record PdfStamp {
     private PdfStamp() { }
@@ -293,11 +297,9 @@ public abstract partial record PdfStamp {
                 pageNumber: ctx.Page, from: s.From, to: s.To, strokeColor: s.Stroke, strokeWidth: s.Width)))),
             image: static (ctx, s) => ctx.Op.Catch(() => Fin.Succ(value: Op.Side(() => ctx.Pdf.DrawBitmap(
                 pageNumber: ctx.Page, bitmap: s.Bitmap, left: s.X, top: s.Y, width: s.Width, height: s.Height, rotationInDegrees: s.AngleDegrees)))));
-}
 
-public static class PdfStamps {
-    public static Func<FilePdf, int, Op, Fin<Unit>> Annotation(this Seq<PdfStamp> stamps) =>
-        (pdf, page, op) => stamps.TraverseM(stamp => stamp.Draw(pdf: pdf, page: page, op: op)).As().Map(static _ => unit);
+    internal static Fin<Unit> DrawAll(Seq<PdfStamp> stamps, FilePdf pdf, int page, Op op) =>
+        stamps.TraverseM(stamp => stamp.Draw(pdf: pdf, page: page, op: op)).As().Map(static _ => unit);
 }
 
 internal readonly record struct FilePublishResult(
@@ -318,10 +320,10 @@ public abstract partial record FilePublishTarget {
         FileEndpoint Target,
         Seq<FilePdfPage> Prefix = default,
         Seq<FilePdfPage> Suffix = default,
-        Option<Func<FilePdf, int, Op, Fin<Unit>>> Annotate = default) : FilePublishTarget;
+        Seq<PdfStamp> Annotate = default) : FilePublishTarget;
     public sealed record Printer(string Name, int Copies = 1) : FilePublishTarget;
-    public sealed record Raster(FileEndpoint Target, FileRasterEncoding? Encoding = null, FileRasterSettings Settings = default) : FilePublishTarget {
-        internal FileRasterEncoding ResolvedEncoding => Encoding ?? FileRasterEncoding.Png;
+    public sealed record Raster(FileEndpoint Target, Option<FileRasterEncoding> Encoding = default, FileRasterSettings Settings = default) : FilePublishTarget {
+        internal FileRasterEncoding ResolvedEncoding => Encoding.IfNone(FileRasterEncoding.Png);
     }
     public sealed record Svg(FileEndpoint Target) : FilePublishTarget;
 
@@ -340,7 +342,7 @@ public abstract partial record FilePublishTarget {
         from endpoint in target.Target.WithFormat(format: FileFormat.Pdf).Output(op: op)
         from pdf in Optional(FilePdf.Create()).ToFin(Fail: op.InvalidResult())
         from _prefix in target.Prefix.TraverseM(spec => AddBlankPdfPage(pdf: pdf, spec: spec, op: op)
-            .Bind(page => op.Catch(() => target.Annotate.Map(annotate => annotate(arg1: pdf, arg2: page, arg3: op)).IfNone(Fin.Succ(value: unit))))).As()
+            .Bind(page => AnnotatePage(pdf: pdf, page: page, stamps: target.Annotate, op: op))).As()
         from sheets in pages.TraverseM(page =>
             from rendered in page.Render(render: owned => {
                 pdf.LayersAsOptionalContentGroups = layers && !page.Spec.Recipe.Raster;
@@ -349,10 +351,10 @@ public abstract partial record FilePublishTarget {
                     _ => Fin.Fail<int>(error: op.InvalidResult()),
                 };
             }, op: op)
-            from annotated in op.Catch(() => target.Annotate.Map(annotate => annotate(arg1: pdf, arg2: rendered.Value, arg3: op)).IfNone(Fin.Succ(value: unit)))
+            from annotated in AnnotatePage(pdf: pdf, page: rendered.Value, stamps: target.Annotate, op: op)
             select rendered.Report).As()
         from _suffix in target.Suffix.TraverseM(spec => AddBlankPdfPage(pdf: pdf, spec: spec, op: op)
-            .Bind(page => op.Catch(() => target.Annotate.Map(annotate => annotate(arg1: pdf, arg2: page, arg3: op)).IfNone(Fin.Succ(value: unit))))).As()
+            .Bind(page => AnnotatePage(pdf: pdf, page: page, stamps: target.Annotate, op: op))).As()
         from _write in op.Catch(() => { pdf.Write(filename: endpoint.Path); return Fin.Succ(value: unit); })
         from _verify in VerifyFile(path: endpoint.Path, op: op)
         select new FilePublishResult(
@@ -367,8 +369,11 @@ public abstract partial record FilePublishTarget {
             int value when value >= 0 => Fin.Succ(value: value),
             _ => Fin.Fail<int>(error: op.InvalidResult()),
         })
-        from annotated in op.Catch(() => valid.Annotate.Map(annotate => annotate(arg1: pdf, arg2: index, arg3: op)).IfNone(Fin.Succ(value: unit)))
+        from annotated in AnnotatePage(pdf: pdf, page: index, stamps: valid.Stamps, op: op)
         select index;
+
+    private static Fin<Unit> AnnotatePage(FilePdf pdf, int page, Seq<PdfStamp> stamps, Op op) =>
+        PdfStamp.DrawAll(stamps: stamps, pdf: pdf, page: page, op: op);
 
     private static Fin<FilePublishResult> WritePrinter(Printer target, Seq<FileViewPage> pages, Op op) =>
         from name in FileEndpoint.NonBlank(value: target.Name, op: op)

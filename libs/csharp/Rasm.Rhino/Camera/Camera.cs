@@ -121,13 +121,14 @@ public sealed class RhinoCamera {
     public Fin<CameraScope> Scope(ViewportTarget target) =>
         from active in ActiveDocument
         from valid in Optional(target).ToFin(Fail: ScopeKey.InvalidInput())
-        from scope in valid.Resolve(document: active, op: ScopeKey)
+        from scopes in valid.Resolve(document: active, op: ScopeKey)
+        from scope in SingleScope(scopes: scopes, op: ScopeKey)
         select scope;
 
     public Fin<Seq<CameraScope>> Scopes(ViewportTarget target) =>
         from active in ActiveDocument
         from valid in Optional(target).ToFin(Fail: ScopeKey.InvalidInput())
-        from scopes in valid.ResolveMany(document: active, op: ScopeKey)
+        from scopes in valid.Resolve(document: active, op: ScopeKey)
         select scopes;
 
     public Fin<T> In<T>(ViewportTarget target, Func<CameraScope, Fin<T>> use) =>
@@ -201,4 +202,9 @@ public sealed class RhinoCamera {
         from outcome in operation.Run(arg: scope)
         from _ in outcome.Redraw.ApplyTo(scope: scope)
         select outcome with { Redraw = RedrawRequest.Empty };
+
+    internal static Fin<CameraScope> SingleScope(Seq<CameraScope> scopes, Op op) =>
+        scopes.Count == 1
+            ? Fin.Succ(value: scopes[0])
+            : Fin.Fail<CameraScope>(error: op.InvalidInput());
 }

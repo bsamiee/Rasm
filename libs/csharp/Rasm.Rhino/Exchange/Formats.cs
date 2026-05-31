@@ -322,7 +322,7 @@ public sealed record FileFormat {
     private static bool IsModel(FileFidelity fidelity) => fidelity == FileFidelity.Model;
     private static bool IncludeMeasurements(FileFidelity fidelity) => fidelity != FileFidelity.GeometryOnly;
     private static bool ShouldExportMaterials(FileResourcePolicy resources) => resources != FileResourcePolicy.Reference;
-    private static bool IsLayerGrouped(FileProfile profile) => profile.Grouping == FileGrouping.Layer || profile.Sort == FileSort.Layer;
+    private static bool IsLayerGrouped(FileProfile profile) => profile.Group == FileAxis.Layer || profile.Order == FileAxis.Layer;
 
     // Draco quantization preset: (compression level, position bits, normal bits, texcoord bits). Small fidelity
     // trades precision for size; every other fidelity uses the high-precision profile.
@@ -353,10 +353,10 @@ public sealed record FileFormat {
     private static FileObjWriteOptions ObjWriteOptions(FileProfile profile, FileWriteOptions options) =>
         new(options) {
             ObjectType = IsModel(profile.Fidelity) && !options.WriteGeometryOnly ? FileObjWriteOptions.GeometryType.Nurbs : FileObjWriteOptions.GeometryType.Mesh,
-            ExportObjectNames = profile.Grouping == FileGrouping.ObjectName ? FileObjWriteOptions.ObjObjectNames.ObjectAsObject : FileObjWriteOptions.ObjObjectNames.NoObjects,
-            ExportGroupNameLayerNames = profile.Grouping switch {
-                FileGrouping.Layer => FileObjWriteOptions.ObjGroupNames.LayerAsGroup,
-                FileGrouping.Block => FileObjWriteOptions.ObjGroupNames.GroupAsGroup,
+            ExportObjectNames = profile.Group == FileAxis.ObjectName ? FileObjWriteOptions.ObjObjectNames.ObjectAsObject : FileObjWriteOptions.ObjObjectNames.NoObjects,
+            ExportGroupNameLayerNames = profile.Group switch {
+                FileAxis.Layer => FileObjWriteOptions.ObjGroupNames.LayerAsGroup,
+                FileAxis.Block => FileObjWriteOptions.ObjGroupNames.GroupAsGroup,
                 _ => FileObjWriteOptions.ObjGroupNames.NoGroups,
             },
             ExportMaterialDefinitions = ShouldExportMaterials(profile.Resources) && options.WriteUserData,
@@ -364,8 +364,8 @@ public sealed record FileFormat {
             ExportTcs = ShouldExportMaterials(profile.Resources),
             ExportNormals = IncludeMeasurements(profile.Fidelity),
             UseRenderMeshes = profile.Fidelity == FileFidelity.Small || options.IncludeRenderMeshes,
-            SortObjGroups = profile.Sort is FileSort.Layer or FileSort.Block,
-            MergeNestedGroupingNames = profile.Grouping == FileGrouping.Layer,
+            SortObjGroups = profile.Order is FileAxis.Layer or FileAxis.Block,
+            MergeNestedGroupingNames = profile.Group == FileAxis.Layer,
         };
 
     private static FilePlyWriteOptions PlyWriteOptions(FileProfile profile, FileWriteOptions options) =>
@@ -379,11 +379,11 @@ public sealed record FileFormat {
 
     private static FileDwgWriteOptions DwgWriteOptions(FileProfile profile) =>
         new() {
-            FullLayerPath = profile.Grouping == FileGrouping.Layer,
+            FullLayerPath = profile.Group == FileAxis.Layer,
             ExportSurfacesAs = profile.Fidelity == FileFidelity.GeometryOnly ? FileDwgWriteOptions.ExportSurfaceMode.Meshes : FileDwgWriteOptions.ExportSurfaceMode.Curves,
             UseLWPolylines = !IsModel(profile.Fidelity),
             ColorMethod = ShouldExportMaterials(profile.Resources) ? FileDwgWriteOptions.ColorMethodType.RGB : FileDwgWriteOptions.ColorMethodType.ACI,
-            UseColor = profile.Sort == FileSort.Material ? FileDwgWriteOptions.UseColorType.USEPRINT : FileDwgWriteOptions.UseColorType.USEDISPLAY,
+            UseColor = profile.Order == FileAxis.Material ? FileDwgWriteOptions.UseColorType.USEPRINT : FileDwgWriteOptions.UseColorType.USEDISPLAY,
         };
 
     private static FileStlWriteOptions StlWriteOptions() =>
@@ -398,7 +398,7 @@ public sealed record FileFormat {
         };
 
     private static FileSkpWriteOptions SkpWriteOptions(FileProfile profile) =>
-        new() { GroupObjects = profile.Grouping is FileGrouping.Layer or FileGrouping.Block };
+        new() { GroupObjects = profile.Group is FileAxis.Layer or FileAxis.Block };
 
     private static FileVrmlWriteOptions VrmlWriteOptions(FileProfile profile) =>
         new() { ExportTextureCoordinates = ShouldExportMaterials(profile.Resources), ExportVertexNormals = IsModel(profile.Fidelity) };
@@ -407,13 +407,13 @@ public sealed record FileFormat {
         new() { ExportTextureCoordinates = ShouldExportMaterials(profile.Resources), ExportVertexNormals = IsModel(profile.Fidelity) };
 
     private static FileTxtWriteOptions TxtWriteOptions(FileProfile profile) =>
-        new() { SurroundWithDoubleQuotes = profile.Grouping != FileGrouping.Document };
+        new() { SurroundWithDoubleQuotes = profile.Group != FileAxis.Document };
 
     private static FileGltfWriteOptions GltfWriteOptions(FileProfile profile) {
         (int Compression, int BitsPos, int BitsNormal, int BitsTexCoord) draco = DracoPreset(profile.Fidelity);
         return new() {
             ExportMaterials = ShouldExportMaterials(profile.Resources),
-            ExportLayers = profile.Grouping == FileGrouping.Layer,
+            ExportLayers = profile.Group == FileAxis.Layer,
             ExportTextureCoordinates = ShouldExportMaterials(profile.Resources),
             ExportVertexNormals = IncludeMeasurements(profile.Fidelity),
             UseDracoCompression = profile.Fidelity == FileFidelity.Small,
@@ -427,30 +427,30 @@ public sealed record FileFormat {
     private static FileUsdWriteOptions UsdWriteOptions(FileProfile profile) =>
         new() {
             ForceMeshes = !IsModel(profile.Fidelity),
-            IncludeUserStrings = profile.Grouping == FileGrouping.UserString,
+            IncludeUserStrings = profile.Group == FileAxis.UserString,
             BlockHandling = profile.Resources switch {
                 FileResourcePolicy.Embed => USDExportBlockHandling.Embedded,
                 FileResourcePolicy.Copy => USDExportBlockHandling.SeparateFiles,
                 _ => USDExportBlockHandling.Ignore,
             },
-            DefaultLayer = profile.Grouping == FileGrouping.Layer ? "Layers" : "World",
-            ModelName = profile.Grouping == FileGrouping.Document ? string.Empty : "Model",
+            DefaultLayer = profile.Group == FileAxis.Layer ? "Layers" : "World",
+            ModelName = profile.Group == FileAxis.Document ? string.Empty : "Model",
         };
 
     private static FilePdfReadOptions PdfReadOptions(FileProfile profile) {
         FilePdfReadOptions options = new() {
             PreserveModelScale = IsModel(profile.Fidelity),
             ImportFillsAsHatches = IncludeMeasurements(profile.Fidelity),
-            LoadText = IsModel(profile.Fidelity) || profile.Grouping == FileGrouping.UserString,
+            LoadText = IsModel(profile.Fidelity) || profile.Group == FileAxis.UserString,
         };
         return profile.Scale.Map(scale => scale.Apply(options: options)).IfNone(options);
     }
 
     private static FileCsvWriteOptions CsvOptions(FileProfile profile) {
         bool layer = IsLayerGrouped(profile);
-        bool group = profile.Grouping == FileGrouping.Block || profile.Sort == FileSort.Block;
-        bool material = profile.Grouping == FileGrouping.Material || profile.Sort == FileSort.Material;
-        bool user = profile.Grouping == FileGrouping.UserString;
+        bool group = profile.Group == FileAxis.Block || profile.Order == FileAxis.Block;
+        bool material = profile.Group == FileAxis.Material || profile.Order == FileAxis.Material;
+        bool user = profile.Group == FileAxis.UserString;
         bool measured = IncludeMeasurements(profile.Fidelity);
         return new() {
             Header = true,
@@ -460,9 +460,9 @@ public sealed record FileFormat {
             LayerHierarchy = layer,
             GroupName = group,
             GroupIndexes = group,
-            ObjectName = profile.Grouping == FileGrouping.ObjectName || profile.Sort == FileSort.ObjectName,
+            ObjectName = profile.Group == FileAxis.ObjectName || profile.Order == FileAxis.ObjectName,
             ObjectID = true,
-            ObjectColor = profile.Sort == FileSort.ObjectType,
+            ObjectColor = profile.Order == FileAxis.ObjectType,
             ObjectMaterial = material,
             ObjectDescription = user,
             SurroundPointsWithDoubleQuotes = true,

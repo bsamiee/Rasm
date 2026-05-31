@@ -40,12 +40,16 @@ public sealed record CommandPickPolicy(
     bool SubObjects = false,
     Option<Transform> Transform = default,
     bool UpdateClippingPlanes = true) {
-    internal Fin<T> Use<T>(Func<PickContext, Fin<T>> use) =>
+    internal Fin<T> Use<T>(RhinoDoc document, Func<PickContext, Fin<T>> use) =>
         from valid in Optional(use).ToFin(Fail: Op.Of(name: nameof(CommandPickPolicy)).InvalidInput())
-        from gate in guard(!UpdateClippingPlanes || View.IsSome, Op.Of(name: nameof(CommandPickPolicy)).InvalidInput())
+        from targetView in View.Case switch {
+            RhinoView value => Fin.Succ(value: Some(value)),
+            _ when !UpdateClippingPlanes => Fin.Succ(value: Option<RhinoView>.None),
+            _ => Optional(document).Bind(static doc => Optional(doc.Views.ActiveView)).ToFin(Fail: Op.Of(name: nameof(CommandPickPolicy)).InvalidInput()).Map(Some),
+        }
         from result in UI.RhinoUi.Protect(valid: () => {
             using PickContext context = new();
-            _ = View.Iter(active => context.View = active);
+            _ = targetView.Iter(active => context.View = active);
             _ = PickLine.Iter(line => context.PickLine = line);
             context.PickStyle = PickStyle;
             context.PickMode = PickMode;
@@ -125,7 +129,7 @@ public sealed record CommandSelection {
 
     public static Fin<CommandSelection> Pick(RhinoDoc document, CommandPickPolicy policy) =>
         Optional(policy).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
-            .Bind(valid => valid.Use(use: context => PickWith(document: document, context: context, updateClippingPlanes: valid.UpdateClippingPlanes)));
+            .Bind(valid => valid.Use(document: document, use: context => PickWith(document: document, context: context, updateClippingPlanes: valid.UpdateClippingPlanes)));
 
     public static Fin<CommandSelection> Pick(RhinoDoc document, PickContext context) =>
         PickWith(document: document, context: context, updateClippingPlanes: true);
@@ -247,12 +251,14 @@ public sealed record CommandSelection {
         }
 
         internal static Option<Reference> Of(GetPoint getter) =>
-            Optional(getter)
-                .Bind(valid => Optional(valid.PointOnObject())
-                    .Bind(reference => {
-                        using ObjRef owned = reference;
-                        return Optional(owned.Document).Map(document => Of(document: document, reference: owned, preselected: false));
-                    }));
+            Optional(getter).Bind(valid => {
+                using ObjRef? reference = valid.PointOnObject();
+                return Of(reference: Optional(reference));
+            });
+
+        internal static Option<Reference> Of(Option<ObjRef> reference) =>
+            reference.Bind(active =>
+                Optional(active.Document).Map(document => Of(document: document, reference: active, preselected: false)));
 
         internal ObjRef ObjRef(RhinoDoc document) {
             ArgumentNullException.ThrowIfNull(argument: document);

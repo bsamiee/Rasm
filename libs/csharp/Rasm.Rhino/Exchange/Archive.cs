@@ -47,7 +47,7 @@ public readonly record struct FileArchiveMetadata(
     Option<string> StartComments = default);
 
 // EarthAnchorPoint getters allocate per call; storing the wrapper past File3dm.Dispose dangles m_ptr — project scalars + KML triple here.
-public readonly record struct FileGeoLocation(
+public readonly partial record struct FileGeoLocation(
     Option<double> Latitude,
     Option<double> Longitude,
     Option<double> Elevation,
@@ -343,7 +343,8 @@ internal static class FileArchiveOps {
                     Issues: report.Valid
                         ? Seq<FileIssue>()
                         : report.Broken.Map(static path => FileIssue.Of(code: FileIssueCode.BrokenLink, message: $"broken linked archive: {path.Value}"))
-                          + report.Cycles.Map(static cycle => FileIssue.Native(message: $"linked archive cycle: {string.Join(separator: " -> ", values: cycle.Map(static path => path.Value).AsIterable())}")))),
+                          + report.Cycles.Map(static cycle => FileIssue.Native(message: $"linked archive cycle: {string.Join(separator: " -> ", values: cycle.Map(static path => path.Value).AsIterable())}"))
+                          + report.Truncated.Map(static path => FileIssue.Native(message: $"linked archive validation truncated: {path.Value}")))),
             _ => Fin.Succ(value: (
                 Linked: toSeq(graph.LinkedArchives.AsEnumerable()).Map(static link => link.Stored),
                 Issues: Seq<FileIssue>())),

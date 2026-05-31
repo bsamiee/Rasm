@@ -245,7 +245,8 @@ public sealed class BlockRailLaws {
             Valid: true,
             Edges: Seq<Archive.LinkedArchiveEdge>(),
             Broken: Seq<ArchivePath>(),
-            Cycles: Seq<Seq<ArchivePath>>()));
+            Cycles: Seq<Seq<ArchivePath>>(),
+            Truncated: Seq<ArchivePath>()));
         BlockOutcome receipt = new BlockOutcome.Receipt(Value: MutationReceipt.Named(name: name.Value));
         BlockOutcome boundsOutcome = new BlockOutcome.Bounds(Value: BoundingBox.Empty);
         AttributeCell cell = new(
@@ -295,4 +296,3 @@ public sealed class BlockRailLaws {
         _ = Assert.IsType<DependencyTarget.InUse>(@object: new DependencyTarget.InUse(Scope: ReferenceScope.Top));
     }
 }
-

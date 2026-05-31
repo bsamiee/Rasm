@@ -16,34 +16,30 @@ public abstract partial record ViewportTarget {
     public sealed record View(RhinoView Value) : ViewportTarget;
     public sealed record Many(Seq<ViewportTarget> Targets) : ViewportTarget;
 
-    internal Fin<CameraScope> Resolve(RhinoDoc document, Op op) =>
+    internal Fin<Seq<CameraScope>> Resolve(RhinoDoc document, Op op) =>
         Switch(
             (Document: document, Op: op),
             current: static (ctx, _) =>
                 from view in Optional(ctx.Document.Views.ActiveView).ToFin(Fail: ctx.Op.MissingContext())
-                select CameraScope.Of(document: ctx.Document, view: view, viewport: view.ActiveViewport),
+                select Seq(CameraScope.Of(document: ctx.Document, view: view, viewport: view.ActiveViewport)),
             id: static (ctx, target) =>
                 target.Value switch {
                     Guid id when id != Guid.Empty =>
                         Optional(ctx.Document.Views.Find(mainViewportId: id)).Case switch {
-                            RhinoView view => Fin.Succ(value: CameraScope.Of(document: ctx.Document, view: view, viewport: view.MainViewport)),
+                            RhinoView view => Fin.Succ(value: Seq(CameraScope.Of(document: ctx.Document, view: view, viewport: view.MainViewport))),
                             _ => CameraScope.FindDetail(document: ctx.Document, id: id)
                                 .Map(row => CameraScope.Of(document: ctx.Document, view: row.Page, viewport: row.Detail.Viewport))
+                                .Map(scope => Seq(scope))
                                 .ToFin(Fail: ctx.Op.MissingContext()),
                         },
-                    _ => Fin.Fail<CameraScope>(error: ctx.Op.InvalidInput()),
+                    _ => Fin.Fail<Seq<CameraScope>>(error: ctx.Op.InvalidInput()),
                 },
             view: static (ctx, target) =>
                 from view in Optional(target.Value).ToFin(Fail: ctx.Op.InvalidInput())
                 from _ in guard(view.Document?.RuntimeSerialNumber == ctx.Document.RuntimeSerialNumber, ctx.Op.InvalidInput())
-                select CameraScope.Of(document: ctx.Document, view: view, viewport: view.ActiveViewport),
-            many: static (ctx, target) => Fin.Fail<CameraScope>(error: ctx.Op.InvalidInput()));
-
-    internal Fin<Seq<CameraScope>> ResolveMany(RhinoDoc document, Op op) =>
-        this switch {
-            Many many => many.Targets.TraverseM(target => target.Resolve(document: document, op: op)).As(),
-            _ => Resolve(document: document, op: op).Map(scope => toSeq([scope])),
-        };
+                select Seq(CameraScope.Of(document: ctx.Document, view: view, viewport: view.ActiveViewport)),
+            many: static (ctx, target) => target.Targets.TraverseM(target => target.Resolve(document: ctx.Document, op: ctx.Op)).As()
+                .Map(static scopes => scopes.Bind(static item => item)));
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -223,6 +219,77 @@ public readonly record struct CameraScope(
         scope.Detail.IsSome ? new RedrawRequest.DetailCommit() : new RedrawRequest.View();
 
     public Fin<Unit> Redraw() => ApplyRedraw(request: RedrawFor(scope: this));
+
+    private static class DetailIndexCache {
+        private const int MaxDocuments = 8;
+
+        private readonly record struct Row(RhinoPageView Page, DetailViewObject Detail);
+
+        private readonly record struct Entry(int PageCount, int DetailCount, uint UndoSerial, HashMap<Guid, Row> ById);
+
+        private static readonly Atom<(Seq<uint> Order, HashMap<uint, Entry> Entries)> Cell =
+            Atom(value: (Order: Seq<uint>(), Entries: HashMap<uint, Entry>()));
+
+        internal static Option<(RhinoPageView Page, DetailViewObject Detail)> Find(RhinoDoc document, Guid id) {
+            uint serial = document.RuntimeSerialNumber;
+            (int pageCount, int detailCount, uint undoSerial) = Stamp(document: document);
+            (_, HashMap<uint, Entry> entries) = Cell.Value;
+            return entries.Find(key: serial) is { IsSome: true, Case: Entry hit }
+                && hit.PageCount == pageCount
+                && hit.DetailCount == detailCount
+                && hit.UndoSerial == undoSerial
+                ? hit.ById.Find(key: id).Map(row => (row.Page, row.Detail))
+                : InsertAndFind(document: document, serial: serial, pageCount: pageCount, detailCount: detailCount, undoSerial: undoSerial, id: id);
+        }
+
+        private static (int PageCount, int DetailCount, uint UndoSerial) Stamp(RhinoDoc document) =>
+            (
+                PageCount: document.Views.PageViewCount,
+                DetailCount: toSeq(document.Views.GetPageViews() ?? [])
+                    .Fold(0, static (count, page) => count + (page.GetDetailViews()?.Length ?? 0)),
+                UndoSerial: document.NextUndoRecordSerialNumber);
+
+        private static HashMap<Guid, Row> Build(RhinoDoc document) =>
+            toSeq(document.Views.GetPageViews() ?? [])
+                .Bind(static page => toSeq(page.GetDetailViews()).Map(detail => (Page: page, Detail: detail)))
+                .Fold(
+                    initialState: HashMap<Guid, Row>(),
+                    f: static (map, row) => {
+                        Row value = new(Page: row.Page, Detail: row.Detail);
+                        return map
+                            .AddOrUpdate(key: row.Detail.Id, value: value)
+                            .AddOrUpdate(key: row.Detail.Viewport.Id, value: value);
+                    });
+
+        private static Option<(RhinoPageView Page, DetailViewObject Detail)> InsertAndFind(
+            RhinoDoc document,
+            uint serial,
+            int pageCount,
+            int detailCount,
+            uint undoSerial,
+            Guid id) {
+            HashMap<Guid, Row> index = Build(document: document);
+            _ = Cell.Swap(f: state => Touch(state: state, serial: serial, pageCount: pageCount, detailCount: detailCount, undoSerial: undoSerial, index: index));
+            return index.Find(key: id).Map(row => (row.Page, row.Detail));
+        }
+
+        private static (Seq<uint> Order, HashMap<uint, Entry> Entries) Touch(
+            (Seq<uint> Order, HashMap<uint, Entry> Entries) state,
+            uint serial,
+            int pageCount,
+            int detailCount,
+            uint undoSerial,
+            HashMap<Guid, Row> index) {
+            Seq<uint> merged = state.Order.Filter(h => h != serial) + Seq(serial);
+            int skip = merged.Count > MaxDocuments ? merged.Count - MaxDocuments : 0;
+            Seq<uint> promoted = toSeq(merged.Skip(count: skip));
+            LanguageExt.HashSet<uint> keep = toHashSet(promoted);
+            HashMap<uint, Entry> entries = state.Entries
+                .AddOrUpdate(key: serial, value: new Entry(PageCount: pageCount, DetailCount: detailCount, UndoSerial: undoSerial, ById: index))
+                .Filter((key, _) => keep.Find(key: key).IsSome);
+            return (Order: promoted, Entries: entries);
+        }
+    }
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -436,76 +503,5 @@ public sealed record CameraSnapshot : IDisposable {
                 throw;
             }
         });
-    }
-}
-
-file static class DetailIndexCache {
-    private const int MaxDocuments = 8;
-
-    private readonly record struct Row(RhinoPageView Page, DetailViewObject Detail);
-
-    private readonly record struct Entry(int PageCount, int DetailCount, uint UndoSerial, HashMap<Guid, Row> ById);
-
-    private static readonly Atom<(Seq<uint> Order, HashMap<uint, Entry> Entries)> Cell =
-        Atom(value: (Order: Seq<uint>(), Entries: HashMap<uint, Entry>()));
-
-    internal static Option<(RhinoPageView Page, DetailViewObject Detail)> Find(RhinoDoc document, Guid id) {
-        uint serial = document.RuntimeSerialNumber;
-        (int pageCount, int detailCount, uint undoSerial) = Stamp(document: document);
-        (_, HashMap<uint, Entry> entries) = Cell.Value;
-        return entries.Find(key: serial) is { IsSome: true, Case: Entry hit }
-            && hit.PageCount == pageCount
-            && hit.DetailCount == detailCount
-            && hit.UndoSerial == undoSerial
-            ? hit.ById.Find(key: id).Map(row => (row.Page, row.Detail))
-            : InsertAndFind(document: document, serial: serial, pageCount: pageCount, detailCount: detailCount, undoSerial: undoSerial, id: id);
-    }
-
-    private static (int PageCount, int DetailCount, uint UndoSerial) Stamp(RhinoDoc document) =>
-        (
-            PageCount: document.Views.PageViewCount,
-            DetailCount: toSeq(document.Views.GetPageViews() ?? [])
-                .Fold(0, static (count, page) => count + (page.GetDetailViews()?.Length ?? 0)),
-            UndoSerial: document.NextUndoRecordSerialNumber);
-
-    private static HashMap<Guid, Row> Build(RhinoDoc document) =>
-        toSeq(document.Views.GetPageViews() ?? [])
-            .Bind(static page => toSeq(page.GetDetailViews()).Map(detail => (Page: page, Detail: detail)))
-            .Fold(
-                initialState: HashMap<Guid, Row>(),
-                f: static (map, row) => {
-                    Row value = new(Page: row.Page, Detail: row.Detail);
-                    return map
-                        .AddOrUpdate(key: row.Detail.Id, value: value)
-                        .AddOrUpdate(key: row.Detail.Viewport.Id, value: value);
-                });
-
-    private static Option<(RhinoPageView Page, DetailViewObject Detail)> InsertAndFind(
-        RhinoDoc document,
-        uint serial,
-        int pageCount,
-        int detailCount,
-        uint undoSerial,
-        Guid id) {
-        HashMap<Guid, Row> index = Build(document: document);
-        _ = Cell.Swap(f: state => Touch(state: state, serial: serial, pageCount: pageCount, detailCount: detailCount, undoSerial: undoSerial, index: index));
-        return index.Find(key: id).Map(row => (row.Page, row.Detail));
-    }
-
-    private static (Seq<uint> Order, HashMap<uint, Entry> Entries) Touch(
-        (Seq<uint> Order, HashMap<uint, Entry> Entries) state,
-        uint serial,
-        int pageCount,
-        int detailCount,
-        uint undoSerial,
-        HashMap<Guid, Row> index) {
-        Seq<uint> merged = state.Order.Filter(h => h != serial) + Seq(serial);
-        int skip = merged.Count > MaxDocuments ? merged.Count - MaxDocuments : 0;
-        Seq<uint> promoted = toSeq(merged.Skip(count: skip));
-        LanguageExt.HashSet<uint> keep = toHashSet(promoted);
-        HashMap<uint, Entry> entries = state.Entries
-            .AddOrUpdate(key: serial, value: new Entry(PageCount: pageCount, DetailCount: detailCount, UndoSerial: undoSerial, ById: index))
-            .Filter((key, _) => keep.Find(key: key).IsSome);
-        return (Order: promoted, Entries: entries);
     }
 }

@@ -74,10 +74,10 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 ### Operation rails
 
 - `FileCapability` is `[Flags]` (`Import | Export | Archive | Publish`). `FilePhase.Allows(capability)` is one bitwise check: `Requires == None || (Requires & capability) != None`.
-- `FileRasterEncoding` is `[SmartEnum<int>]` carrying `(Format, Image, Compression)`. `FilePublishTarget.Raster(Target, Encoding, Settings)` accepts `FileRasterSettings`.
+- `FileRasterEncoding` is `[SmartEnum<int>]` carrying `(Format, Image, Compression)`. `FilePublishTarget.Raster(Target, Option<Encoding>, Settings)` accepts `FileRasterSettings`.
 - `FileOp.Do(new FileExchange.ArchiveValidate(...))` invokes `FileResourceGraph.Validate(source, scheduler)` through the injected `IoScheduler`.
 - `FilePublishTarget.Pdf(Target, Prefix, Suffix, Annotate)` sequences prefix blank pages, captured sheet pages, then suffix blank pages.
-- `PdfStamp` is a `[Union]` over raw `FilePdf` draw primitives; build `Annotate` with `Seq<PdfStamp>(...).Annotation()`.
+- `PdfStamp` is a `[Union]` over raw `FilePdf` draw primitives; pass `Seq<PdfStamp>` through `Annotate` / `FilePdfPage.Stamps`.
 - `FileSheetEdit` operations populate the correct `DocumentReceipt` slot.
 - `FileScale` is a `[Union]` with GEOMETRY-commit persistence via `DetailGeometry.SetScale(...) && detail.CommitChanges()`.
 - `SheetQuery` is the sole page-matching rail: conjunctive filter resolved once in `Sheets.cs`.

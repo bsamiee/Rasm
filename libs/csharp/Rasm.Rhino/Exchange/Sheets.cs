@@ -406,12 +406,7 @@ internal static partial class SheetOps {
         from page in Sheet(document: document, name: sheetName, op: op)
         from resolved in size.Map(value => value.Resize(document: document, op: op)).IfNone(Fin.Succ(value: (Width: Option<double>.None, Height: Option<double>.None)))
         from requested in resolved.Width.IsSome || resolved.Height.IsSome || description.IsSome ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: op.InvalidInput())
-        from resized in op.Catch(() => {
-            _ = resolved.Width.Iter(value => page.PageWidth = value);
-            _ = resolved.Height.Iter(value => page.PageHeight = value);
-            _ = description.Iter(value => page.Description = value);
-            return Fin.Succ(value: unit);
-        })
+        from resized in ApplyPageConfig(page: page, size: resolved, description: description, op: op)
         select DocumentReceipt.Empty with {
             AttributeChanged = Seq(page.MainViewport.Id),
             ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: page.PageName)),
@@ -556,10 +551,7 @@ internal static partial class SheetOps {
         };
 
     private static Fin<Seq<(Guid OldId, Guid NewId)>> ArrangePage(RhinoDoc document, RhinoPageView page, FileDetailGrid grid, Op op) {
-        Seq<DetailViewObject> ordered = toSeq(toSeq(page.GetDetailViews())
-            .Filter(detail => grid.Where.Map(predicate => predicate(arg: detail)).IfNone(noneValue: true))
-            .OrderByDescending(static detail => MinCorner(detail: detail).Y)
-            .ThenBy(static detail => MinCorner(detail: detail).X));
+        Seq<DetailViewObject> ordered = OrderedDetails(page: page, where: grid.Where);
         return ordered.Map((detail, index) => (Detail: detail, Index: index)).TraverseM(item => op.Catch(() => {
             (double currentX, double currentY) = MinCorner(detail: item.Detail);
             int column = item.Index % grid.Columns;
@@ -571,14 +563,17 @@ internal static partial class SheetOps {
 
     private static Fin<Guid> ConfigurePage(RhinoDoc document, RhinoPageView page, FileSheetConfig config, Op op) =>
         from resized in config.Size.Map(value => value.Resize(document: document, op: op)).IfNone(Fin.Succ(value: (Width: Option<double>.None, Height: Option<double>.None)))
-        from _applied in op.Catch(() => {
-            _ = resized.Width.Iter(value => page.PageWidth = value);
-            _ = resized.Height.Iter(value => page.PageHeight = value);
-            _ = config.Description.Iter(value => page.Description = value);
-            return Fin.Succ(value: unit);
-        })
+        from _applied in ApplyPageConfig(page: page, size: resized, description: config.Description, op: op)
         from _scaled in config.DetailScale.Map(scale => ScaleAllDetails(document: document, page: page, scale: scale, op: op)).IfNone(Fin.Succ(value: unit))
         select page.MainViewport.Id;
+
+    private static Fin<Unit> ApplyPageConfig(RhinoPageView page, (Option<double> Width, Option<double> Height) size, Option<string> description, Op op) =>
+        op.Catch(() => {
+            _ = size.Width.Iter(value => page.PageWidth = value);
+            _ = size.Height.Iter(value => page.PageHeight = value);
+            _ = description.Iter(value => page.Description = value);
+            return Fin.Succ(value: unit);
+        });
 
     // Mirror ScaleDetail: a configure that requests a detail scale on a page with no details is a no-op the caller
     // did not intend, so fail explicitly rather than letting TraverseM succeed vacuously on the empty sequence.
@@ -614,9 +609,7 @@ internal static partial class SheetOps {
         select resolved;
 
     private static Fin<Seq<Guid>> NumberDetails(RhinoDoc document, RhinoPageView page, string pattern, Op op) {
-        Seq<DetailViewObject> ordered = toSeq(toSeq(page.GetDetailViews())
-            .OrderByDescending(static detail => MinCorner(detail: detail).Y)
-            .ThenBy(static detail => MinCorner(detail: detail).X));
+        Seq<DetailViewObject> ordered = OrderedDetails(page: page, where: Option<Func<DetailViewObject, bool>>.None);
         return ordered.Map((detail, index) => (Detail: detail, Value: index + 1)).TraverseM(item =>
             from label in FileEndpoint.NonBlank(value: Substitute(pattern: pattern, value: item.Value), op: op)
             from attributes in Optional(item.Detail.Attributes?.Duplicate()).ToFin(Fail: op.InvalidResult())
@@ -688,6 +681,12 @@ internal static partial class SheetOps {
         };
         return (box.Min.X, box.Min.Y);
     }
+
+    private static Seq<DetailViewObject> OrderedDetails(RhinoPageView page, Option<Func<DetailViewObject, bool>> where) =>
+        toSeq(toSeq(page.GetDetailViews())
+            .Filter(detail => where.Map(predicate => predicate(arg: detail)).IfNone(noneValue: true))
+            .OrderByDescending(static detail => MinCorner(detail: detail).Y)
+            .ThenBy(static detail => MinCorner(detail: detail).X));
 
     private static string Substitute(string pattern, int value) =>
         NumberPattern().Replace(input: pattern, evaluator: match =>

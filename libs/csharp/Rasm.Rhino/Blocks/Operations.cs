@@ -1,5 +1,4 @@
 using Rasm.Rhino.Commands;
-using Rasm.Rhino.Events;
 using Rasm.Rhino.Exchange;
 using Rhino.Collections;
 using Rhino.DocObjects.Custom;
@@ -436,10 +435,16 @@ internal static partial class Operations {
             purge: static (c, _) => c.Key.Confirm(success: c.Owner.Document.InstanceDefinitions.Purge(idefIndex: c.Index)),
             updateSourceArchive: static (c, m) => CommitSourceArchive(
                 owner: c.Owner, index: c.Index, source: m.Source, policy: m.Policy, reload: m.Reload, key: c.Key),
-            reloadFromFile: static (c, m) => m.Source.Input(op: c.Key).Bind(endpoint => c.Key.Confirm(
-                success: c.Owner.Document.InstanceDefinitions.UpdateLinkedInstanceDefinition(
-                    idefIndex: c.Index, filename: endpoint.Path,
-                    updateNestedLinks: m.Policy.UpdateNestedLinks, quiet: m.Policy.Quiet))),
+            reloadFromFile: static (c, m) =>
+                from endpoint in m.Source.Input(op: c.Key)
+                from _linked in ReloadLinked(
+                    owner: c.Owner,
+                    index: c.Index,
+                    loadPath: endpoint.Path,
+                    updateNestedLinks: m.Policy.UpdateNestedLinks,
+                    quiet: m.Policy.Quiet,
+                    key: c.Key)
+                select _linked,
             export: static (c, m) => m.Target.Output(op: c.Key).Bind(endpoint => c.Key.Confirm(
                 success: c.Owner.Document.InstanceDefinitions.Export(idefIndex: c.Index, filename: endpoint.Path))));
 
@@ -899,7 +904,7 @@ internal static partial class Operations {
     private static Fin<MutationReceipt> PerformBakeArchive(RhinoBlocks owner, FileEndpoint source, BakePolicy policy, Op key) =>
         from endpoint in source.Input(op: key)
         from result in key.Catch(() => {
-            using File3dm? model = File3dm.Read(path: endpoint.Path);
+            using File3dm? model = File3dm.ReadWithLog(path: endpoint.Path, errorLog: out _);
             return from active in Optional(model).ToFin(Fail: key.InvalidInput())
                    from report in Archive.ValidateArchiveClosure(root: active, rootPath: endpoint.Path, key: key)
                    from _gate in report switch {
@@ -918,7 +923,7 @@ internal static partial class Operations {
     private static Fin<BlockOutcome> PerformValidateArchiveClosure(FileEndpoint source, ClosureValidationPolicy? policy, Op key) =>
         from endpoint in source.Input(op: key)
         from report in key.Catch(() => {
-            using File3dm? model = File3dm.Read(path: endpoint.Path);
+            using File3dm? model = File3dm.ReadWithLog(path: endpoint.Path, errorLog: out _);
             return Optional(model).ToFin(Fail: key.InvalidInput())
                 .Bind(active => Archive.ValidateArchiveClosure(root: active, rootPath: endpoint.Path, policy: policy, key: key));
         })
@@ -1311,62 +1316,6 @@ internal static partial class Operations {
             DefaultValue: field.DefaultValue)));
     }
 
-    internal static Fin<Subscription> AttachWatch(RhinoBlocks owner, ArchivePath path, WatchPolicy policy) {
-        Op key = Op.Of(name: nameof(AttachWatch));
-        return key.Catch(() => {
-            string dir = IOPath.GetDirectoryName(path: path.Value) ?? string.Empty;
-            string filter = IOPath.GetFileName(path: path.Value);
-            FileSystemWatcher watcher = new(path: dir, filter: filter) {
-                NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite,
-            };
-            try {
-                WatchContext ctx = new(Owner: owner, Path: path, Policy: policy, LastFired: Atom(value: DateTimeOffset.MinValue), Watcher: watcher);
-                void OnChange(object sender, FileSystemEventArgs args) => OnWatchChanged(ctx: ctx);
-                void OnRename(object sender, RenamedEventArgs args) => OnWatchChanged(ctx: ctx);
-                FileSystemEventHandler change = OnChange;   // single delegate identity for symmetric +=/-=
-                RenamedEventHandler rename = OnRename;
-                watcher.Changed += change;
-                watcher.Created += change;
-                watcher.Deleted += change;
-                watcher.Renamed += rename;
-                watcher.EnableRaisingEvents = true;
-                Seq<Action> detachers = Seq(
-                    () => watcher.Changed -= change,
-                    () => watcher.Created -= change,
-                    () => watcher.Deleted -= change,
-                    () => watcher.Renamed -= rename);
-                return Fin.Succ(value: Subscription.Watch(watcher: watcher, detachers: detachers));
-            } catch (IOException ex) {
-                watcher.Dispose();
-                return Fin.Fail<Subscription>(error: key.InvalidResult(detail: ex.Message));
-            } catch (UnauthorizedAccessException ex) {
-                watcher.Dispose();
-                return Fin.Fail<Subscription>(error: key.InvalidResult(detail: ex.Message));
-            }
-        });
-    }
-
-    private static void OnWatchChanged(WatchContext ctx) {
-        DateTimeOffset now = ctx.Policy.EffectiveClock.GetUtcNow();
-        bool accepted = false;
-        _ = ctx.LastFired.Swap(f: last => {
-            accepted = now - last >= ctx.Policy.Debounce;
-            return accepted ? now : last;
-        });
-        if (!accepted) return;
-        // A watcher can fire after its document closed; never enqueue refresh work on a dead doc.
-        _ = ctx.Owner.Document switch {
-            { IsAvailable: true, IsClosing: false } doc => IdlePump.Enqueue(document: doc, work: live => RefreshLinkedDocument(
-                doc: live,
-                filter: BlockFilter.ArchivesOnly(Seq(ctx.Path.Value)),
-                policy: LinkRefreshPolicy.Changed,
-                batch: BatchPolicy.Default,
-                key: Op.Of(name: nameof(BlockOp.RefreshLinks)))),
-            _ => unit,
-        };
-    }
-
-    private sealed record WatchContext(RhinoBlocks Owner, ArchivePath Path, WatchPolicy Policy, Atom<DateTimeOffset> LastFired, FileSystemWatcher Watcher);
 }
 
 // --- [COMPOSITION] [CONTENT INDEX] --------------------------------------------------------

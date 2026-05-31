@@ -39,12 +39,4 @@ public sealed class RhinoCommandContext {
                 _ => Fin.Fail<RhinoCommandContext>(error: Op.Of(name: nameof(RhinoCommandContext)).MissingContext()),
             });
 
-    public Fin<CommandGet<TValue>> Get<TValue>(params CommandInputPolicy[] policies) => Input.Get(request: CommandInputs.Get<TValue>(policies: policies));
-
-    public Fin<RhinoCommandContext> Require(RunMode mode, string? name = null) =>
-        (Mode == mode) switch {
-            true => Fin.Succ(value: this),
-            _ => Fin.Fail<RhinoCommandContext>(error: Op.Of(name: string.IsNullOrWhiteSpace(value: name) ? nameof(Require) : name).InvalidInput()),
-        };
-
 }

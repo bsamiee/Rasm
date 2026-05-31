@@ -48,8 +48,7 @@ Scenario.Run("exchange", CAPTURE_PATH, (key, facts) => {
     FileEndpoint allPdf = Probe.Expect(FileEndpoint.From(path: Path.Combine(work, "all-pages.pdf")), "all-pages endpoint");
     FileReport publishAll = Probe.Expect(files.Run(FileOp.Do(new FileExchange.Publish(new FilePublish(
         Target: new FilePublishTarget.Pdf(Target: allPdf),
-        Views: Seq<FileView>(),
-        Profile: FileProfile.Model)))), "publish all layout pages", facts);
+        Views: Seq<FileView>())))), "publish all layout pages", facts);
     facts.Add("publish.all.views", publishAll.Views.Count);
     Probe.Require(publishAll.Views.Count == 2, "filterless Pages() captured both layout pages (A1, not just page one)");
     Probe.Require(File.Exists(Path.Combine(work, "all-pages.pdf")), "all-pages.pdf written");
@@ -60,11 +59,10 @@ Scenario.Run("exchange", CAPTURE_PATH, (key, facts) => {
         new PdfStamp.Line(From: new DrawingPointF(36f, 48f), To: new DrawingPointF(220f, 48f), Stroke: DrawingColor.Black, Width: 1f));
     FileEndpoint mixedPdf = Probe.Expect(FileEndpoint.From(path: Path.Combine(work, "mixed.pdf")), "mixed endpoint");
     FileReport publishMixed = Probe.Expect(files.Run(FileOp.Do(new FileExchange.Publish(new FilePublish(
-        Target: new FilePublishTarget.Pdf(Target: mixedPdf, Annotate: Some(stamps.Annotation())),
+        Target: new FilePublishTarget.Pdf(Target: mixedPdf, Annotate: stamps),
         Views: Seq(
             new FileView(Source: new FileViewSource.Pages(Query: new SheetQuery(Name: Some(sheetAName))), Recipe: new CaptureRecipe(Dpi: Some(72.0))),
             new FileView(Source: new FileViewSource.Pages(Query: new SheetQuery(Name: Some(sheetBName))), Recipe: new CaptureRecipe(Dpi: Some(72.0), Raster: true))),
-        Profile: FileProfile.Model,
         Layers: true)))), "publish mixed raster+vector pdf", facts);
     facts.Add("publish.mixed.views", publishMixed.Views.Count);
     Probe.Require(publishMixed.Views.Count == 2, "mixed publish emitted both pages");
@@ -74,8 +72,7 @@ Scenario.Run("exchange", CAPTURE_PATH, (key, facts) => {
     FileEndpoint namedPdf = Probe.Expect(FileEndpoint.From(path: Path.Combine(work, "named-view.pdf")), "named endpoint");
     FileReport publishNamed = Probe.Expect(files.Run(FileOp.Do(new FileExchange.Publish(new FilePublish(
         Target: new FilePublishTarget.Pdf(Target: namedPdf),
-        Views: Seq(new FileView(Source: new FileViewSource.Named(Names: Seq(namedView), Target: new ViewportTarget.View(modelView)), Recipe: new CaptureRecipe(Dpi: Some(72.0)))),
-        Profile: FileProfile.Model)))), "publish named view", facts);
+        Views: Seq(new FileView(Source: new FileViewSource.Named(Names: Seq(namedView), Target: new ViewportTarget.View(modelView)), Recipe: new CaptureRecipe(Dpi: Some(72.0)))))))), "publish named view", facts);
     facts.Add("publish.named.views", publishNamed.Views.Count);
     Probe.Require(publishNamed.Views.Count == 1, "named-view publish emitted one page (A2 direct-scope restore)");
     Probe.Require(File.Exists(Path.Combine(work, "named-view.pdf")), "named-view.pdf written");
@@ -191,13 +188,13 @@ Scenario.Run("exchange", CAPTURE_PATH, (key, facts) => {
         ModelBasePoint: Some(Point3d.Origin), ModelNorth: Some(new Vector3d(0.0, 1.0, 0.0)), ModelEast: Some(new Vector3d(1.0, 0.0, 0.0)),
         Name: Some("RasmAnchor"), Description: Option<string>.None,
         KmlHeadingDegrees: Option<double>.None, KmlTiltDegrees: Option<double>.None, KmlRollDegrees: Option<double>.None);
-    DocumentReceipt anchorReceipt = Probe.Expect(FileEarthOps.Set(document: doc, location: location), "earth anchor set", facts);
+    DocumentReceipt anchorReceipt = Probe.Expect(FileGeoLocation.Set(document: doc, location: location), "earth anchor set", facts);
     Probe.Require(anchorReceipt.ResourceChanged.Exists(change => change.Kind == DocumentResourceKind.EarthAnchor), "earth anchor receipt");
-    DocumentReceipt sunReceipt = Probe.Expect(FileEarthOps.SyncSun(document: doc), "sync sun", facts);
+    DocumentReceipt sunReceipt = Probe.Expect(FileGeoLocation.SyncSun(document: doc), "sync sun", facts);
     Probe.Require(sunReceipt.ResourceChanged.Exists(change => change.Kind == DocumentResourceKind.Sun), "sun synced from model north");
     Seq<Point3d> probePts = Seq(new Point3d(5.0, 5.0, 0.0), new Point3d(-3.0, 7.0, 2.0));
-    Seq<(double Latitude, double Longitude, double Elevation)> earth = Probe.Expect(FileEarthOps.ProjectToEarth(document: doc, points: probePts, modelUnits: LengthUnit.Meters), "project to earth", facts);
-    Seq<Point3d> back = Probe.Expect(FileEarthOps.ProjectToModel(document: doc, coordinates: earth, modelUnits: LengthUnit.Meters), "project to model", facts);
+    Seq<(double Latitude, double Longitude, double Elevation)> earth = Probe.Expect(FileGeoLocation.ProjectToEarth(document: doc, points: probePts, modelUnits: LengthUnit.Meters), "project to earth", facts);
+    Seq<Point3d> back = Probe.Expect(FileGeoLocation.ProjectToModel(document: doc, coordinates: earth, modelUnits: LengthUnit.Meters), "project to model", facts);
     Probe.Require(back.Count == probePts.Count, "round-trip preserves point count");
     double maxError = Math.Max(probePts[0].DistanceTo(back[0]), probePts[1].DistanceTo(back[1]));
     facts.Add("earth.roundtrip.maxError", maxError);

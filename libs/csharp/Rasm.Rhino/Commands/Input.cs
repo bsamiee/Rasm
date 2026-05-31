@@ -30,7 +30,8 @@ public readonly record struct CommandPoint(
             RhinoViewport value when getter.GetPlanarConstraint(vp: ref value, plane: out Plane plane) => Some((Viewport: value, Plane: plane)),
             _ => Option<(RhinoViewport Viewport, Plane Plane)>.None,
         };
-        return new(Point: raw is GetResult.Point ? Some(getter.Point()) : Option<Point3d>.None, WindowPoint: raw is GetResult.Point or GetResult.Point2d ? Some(getter.Point2d()) : Option<DrawingPoint>.None, View: Optional(getter.View()), Reference: CommandSelection.Reference.Of(getter: getter), NumberPreview: getter.NumberPreview(number: out double number) ? Some(number) : Option<double>.None, Osnap: getter.OsnapEventType, BasePoint: getter.TryGetBasePoint(out Point3d basePoint) ? Some(basePoint) : Option<Point3d>.None, PlanarConstraint: constraint, SnapPoints: toSeq(getter.GetSnapPoints()), ConstructionPoints: toSeq(getter.GetConstructionPoints()), OnGeometry: PointOnGeometry.Of(getter: getter));
+        using ObjRef? reference = getter.PointOnObject();
+        return new(Point: raw is GetResult.Point ? Some(getter.Point()) : Option<Point3d>.None, WindowPoint: raw is GetResult.Point or GetResult.Point2d ? Some(getter.Point2d()) : Option<DrawingPoint>.None, View: Optional(getter.View()), Reference: CommandSelection.Reference.Of(reference: Optional(reference)), NumberPreview: getter.NumberPreview(number: out double number) ? Some(number) : Option<double>.None, Osnap: getter.OsnapEventType, BasePoint: getter.TryGetBasePoint(out Point3d basePoint) ? Some(basePoint) : Option<Point3d>.None, PlanarConstraint: constraint, SnapPoints: toSeq(getter.GetSnapPoints()), ConstructionPoints: toSeq(getter.GetConstructionPoints()), OnGeometry: PointOnGeometry.Of(reference: Optional(reference)));
     }
 }
 
@@ -47,20 +48,18 @@ public abstract partial record PointOnGeometry {
             onSurface: static value => value.Surface.PointAt(u: value.U, v: value.V),
             onBrep: static value => value.Face.PointAt(u: value.U, v: value.V));
 
-    internal static Option<PointOnGeometry> Of(GetPoint getter) =>
-        Optional(getter)
-            .Bind(valid => Optional(valid.PointOnObject()).Bind(reference => {
-                using ObjRef owned = reference;
-                Curve? curve = owned.CurveParameter(parameter: out double t);
-                Surface? surface = owned.SurfaceParameter(u: out double u, v: out double v);
-                BrepFace? face = owned.Face();
-                return (curve, surface, face) switch {
-                    (Curve c, _, _) when RhinoMath.IsValidDouble(x: t) => Some<PointOnGeometry>(new OnCurve(Curve: c, T: t)),
-                    (_, _, BrepFace f) when RhinoMath.IsValidDouble(x: u) && RhinoMath.IsValidDouble(x: v) => Some<PointOnGeometry>(new OnBrep(Face: f, U: u, V: v)),
-                    (_, Surface s, _) when RhinoMath.IsValidDouble(x: u) && RhinoMath.IsValidDouble(x: v) => Some<PointOnGeometry>(new OnSurface(Surface: s, U: u, V: v)),
-                    _ => Option<PointOnGeometry>.None,
-                };
-            }));
+    internal static Option<PointOnGeometry> Of(Option<ObjRef> reference) =>
+        reference.Bind(active => {
+            Curve? curve = active.CurveParameter(parameter: out double t);
+            Surface? surface = active.SurfaceParameter(u: out double u, v: out double v);
+            BrepFace? face = active.Face();
+            return (curve, surface, face) switch {
+                (Curve c, _, _) when RhinoMath.IsValidDouble(x: t) => Some<PointOnGeometry>(new OnCurve(Curve: c, T: t)),
+                (_, _, BrepFace f) when RhinoMath.IsValidDouble(x: u) && RhinoMath.IsValidDouble(x: v) => Some<PointOnGeometry>(new OnBrep(Face: f, U: u, V: v)),
+                (_, Surface s, _) when RhinoMath.IsValidDouble(x: u) && RhinoMath.IsValidDouble(x: v) => Some<PointOnGeometry>(new OnSurface(Surface: s, U: u, V: v)),
+                _ => Option<PointOnGeometry>.None,
+            };
+        });
 }
 
 public readonly record struct CommandPointConstraint {
@@ -81,28 +80,12 @@ public readonly record struct CommandPointConstraint {
                 .As()
             select unit);
 
-    public static CommandPointConstraint Between(Point3d from, Point3d to) => Of(getter => getter.Constrain(from: from, to: to));
-    public static CommandPointConstraint AlongLine(Line value) => Of(getter => getter.Constrain(line: value));
-    public static CommandPointConstraint AlongArc(Arc value) => Of(getter => getter.Constrain(arc: value));
-    public static CommandPointConstraint AlongCircle(Circle value) => Of(getter => getter.Constrain(circle: value));
-    public static CommandPointConstraint InPlane(Plane value, bool allowElevator = true) => Of(getter => getter.Constrain(value, allowElevator));
-    public static CommandPointConstraint OnSphere(Sphere value) => Of(getter => getter.Constrain(sphere: value));
-    public static CommandPointConstraint OnCylinder(Cylinder value) => Of(getter => getter.Constrain(cylinder: value));
-    public static CommandPointConstraint OnCurve(Curve value, bool allowPickingPointOffObject = false) => Of(getter => getter.Constrain(curve: value, allowPickingPointOffObject: allowPickingPointOffObject));
-    public static CommandPointConstraint OnSurface(Surface value, bool allowPickingPointOffObject = false) => Of(getter => getter.Constrain(surface: value, allowPickingPointOffObject: allowPickingPointOffObject));
-    public static CommandPointConstraint OnBrep(Brep value, int wireDensity = 1, int faceIndex = -1, bool allowPickingPointOffObject = false) => Of(getter => getter.Constrain(brep: value, wireDensity: wireDensity, faceIndex: faceIndex, allowPickingPointOffObject: allowPickingPointOffObject));
-    public static CommandPointConstraint OnMesh(Mesh value, bool allowPickingPointOffObject = false) => Of(getter => getter.Constrain(mesh: value, allowPickingPointOffObject: allowPickingPointOffObject));
-    public static CommandPointConstraint OnConstructionPlane(bool throughBasePoint = true) => Of(getter => getter.ConstrainToConstructionPlane(throughBasePoint: throughBasePoint));
-    public static CommandPointConstraint AddConstructionPoint(Point3d value) => Of(getter => { _ = getter.AddConstructionPoint(value); return true; });
-    public static CommandPointConstraint OnTargetPlane() => Of(static g => { g.ConstrainToTargetPlane(); return true; });
-    public static CommandPointConstraint OnVirtualCPlaneIntersection(Plane value) => Of(getter => getter.ConstrainToVirtualCPlaneIntersection(plane: value));
-    public static CommandPointConstraint Clear() => Of(static g => { g.ClearConstraints(); return true; });
     internal Fin<Unit> Apply(GetPoint getter) =>
         Optional(apply)
             .ToFin(Fail: Op.Of(name: nameof(CommandPointConstraint)).InvalidInput())
             .Bind(valid => valid(arg: getter));
 
-    private static CommandPointConstraint Of(Func<GetPoint, bool> apply) =>
+    public static CommandPointConstraint Of(Func<GetPoint, bool> apply) =>
         new(getter => Optional(apply).ToFin(Fail: Op.Of(name: nameof(CommandPointConstraint)).InvalidInput())
             .Bind(valid => valid(arg: getter) ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Op.Of(name: nameof(CommandPointConstraint)).InvalidInput())));
 }
@@ -385,56 +368,12 @@ public sealed record CommandInputPolicy {
             .Map(static valid => new CommandInputPolicy(objectSelection: Some(valid)))
             .IfNone(Empty);
 
-    public static CommandInputPolicy Point(
-        bool onMouseUp = false,
-        bool twoDimensional = false,
-        Option<global::Rhino.UI.CursorStyle> cursor = default,
-        Option<bool> objectSnapCursors = default,
-        Option<Point3d> basePoint = default,
-        bool drawLineFromBasePoint = false,
-        bool snapToCurves = false,
-        bool permitConstraintOptions = true,
-        bool noRedrawOnExit = false,
-        bool permitFromOption = true,
-        bool permitTabMode = true,
-        int permitElevatorMode = 0,
-        IEnumerable<Point3d>? snapPoints = null,
-        IEnumerable<Point3d>? constructionPoints = null,
-        IEnumerable<CommandPointConstraint>? constraints = null,
-        Option<double> distanceFromBasePoint = default,
-        Option<bool> permitOrthoSnap = default,
-        Option<bool> permitObjectSnap = default,
-        Option<Color> dynamicDrawColor = default,
-        Option<(bool Enabled, bool Ends)> curveSnapTangent = default,
-        Option<(bool Enabled, bool Ends)> curveSnapPerp = default,
-        Option<(bool Enabled, bool Reverse)> curveSnapArrow = default,
-        bool clearConstraints = false) =>
-        new(point: Some(DefaultPointSpec with {
-            OnMouseUp = onMouseUp,
-            TwoDimensional = twoDimensional,
-            Cursor = cursor,
-            ObjectSnapCursors = objectSnapCursors,
-            BasePoint = basePoint,
-            DrawLineFromBasePoint = drawLineFromBasePoint,
-            SnapToCurves = snapToCurves,
-            PermitConstraintOptions = permitConstraintOptions,
-            NoRedrawOnExit = noRedrawOnExit,
-            PermitFromOption = permitFromOption,
-            PermitTabMode = permitTabMode,
-            PermitElevatorMode = permitElevatorMode,
-            SnapPoints = Optional(snapPoints).Map(static points => toSeq(points)).IfNone(Seq<Point3d>()),
-            ConstructionPoints = Optional(constructionPoints).Map(static points => toSeq(points)).IfNone(Seq<Point3d>()),
-            Constraints = Optional(constraints).Map(static values => toSeq(values)).IfNone(Seq<CommandPointConstraint>()),
-            DistanceFromBasePoint = distanceFromBasePoint,
-            PermitOrthoSnap = permitOrthoSnap,
-            PermitObjectSnap = permitObjectSnap,
-            DynamicDrawColor = dynamicDrawColor,
-            CurveSnapTangent = curveSnapTangent,
-            CurveSnapPerp = curveSnapPerp,
-            CurveSnapArrow = curveSnapArrow,
-            ClearConstraints = clearConstraints,
-        }));
-    public static CommandInputPolicy Bounds<T>(Option<T> lower = default, Option<T> upper = default, bool strictlyLower = false, bool strictlyUpper = false) where T : IComparable<T> => new(bounds: Some(new LimitSpec(Lower: lower.Map(static value => (object)value), Upper: upper.Map(static value => (object)value), StrictlyLower: strictlyLower, StrictlyUpper: strictlyUpper)));
+    public static CommandInputPolicy Point(PointSpec spec) =>
+        Optional(spec).Map(active => new CommandInputPolicy(point: Some(active))).IfNone(Empty);
+    public static CommandInputPolicy Point(Func<PointSpec, PointSpec> update) =>
+        Optional(update).Map(active => Point(spec: active(arg: DefaultPointSpec))).IfNone(Empty);
+    public static CommandInputPolicy Bounds<T>(Option<T> lower = default, Option<T> upper = default, bool strictlyLower = false, bool strictlyUpper = false) where T : IComparable<T> =>
+        new(bounds: Some(Limit(lower: lower, upper: upper, strictlyLower: strictlyLower, strictlyUpper: strictlyUpper)));
     public static CommandInputPolicy Number() => new(scalar: Some(new Scalar(Kind: ScalarKind.Number, LengthUnits: Option<UnitSystem>.None, AngleUnits: Option<AngleUnitSystem>.None)));
     public static CommandInputPolicy Number<T>(Option<T> lower = default, Option<T> upper = default, bool strictlyLower = false, bool strictlyUpper = false) where T : IComparable<T> => Bounds(lower: lower, upper: upper, strictlyLower: strictlyLower, strictlyUpper: strictlyUpper) + Number();
     public static CommandInputPolicy Length(Option<UnitSystem> units = default) => new(scalar: Some(new Scalar(Kind: ScalarKind.Length, LengthUnits: units, AngleUnits: Option<AngleUnitSystem>.None)));
@@ -475,10 +414,13 @@ public sealed record CommandInputPolicy {
             _ => Option<Func<CommandPointEvent, Fin<Unit>>>.None,
         };
     internal enum ScalarKind { Number, Length, Angle }
-    internal sealed record PointSpec(bool OnMouseUp, bool TwoDimensional, Option<global::Rhino.UI.CursorStyle> Cursor, Option<bool> ObjectSnapCursors, Option<Point3d> BasePoint, bool DrawLineFromBasePoint, bool SnapToCurves, bool PermitConstraintOptions, bool NoRedrawOnExit, bool PermitFromOption, bool PermitTabMode, int PermitElevatorMode, Seq<Point3d> SnapPoints, Seq<Point3d> ConstructionPoints, Seq<CommandPointConstraint> Constraints, Option<double> DistanceFromBasePoint, Option<bool> PermitOrthoSnap, Option<bool> PermitObjectSnap, Option<Color> DynamicDrawColor, Option<(bool Enabled, bool Ends)> CurveSnapTangent, Option<(bool Enabled, bool Ends)> CurveSnapPerp, Option<(bool Enabled, bool Reverse)> CurveSnapArrow, bool ClearConstraints);
-    internal static PointSpec DefaultPointSpec { get; } = new(OnMouseUp: false, TwoDimensional: false, Cursor: Option<global::Rhino.UI.CursorStyle>.None, ObjectSnapCursors: Option<bool>.None, BasePoint: Option<Point3d>.None, DrawLineFromBasePoint: false, SnapToCurves: false, PermitConstraintOptions: true, NoRedrawOnExit: false, PermitFromOption: true, PermitTabMode: true, PermitElevatorMode: 0, SnapPoints: Seq<Point3d>(), ConstructionPoints: Seq<Point3d>(), Constraints: Seq<CommandPointConstraint>(), DistanceFromBasePoint: Option<double>.None, PermitOrthoSnap: Option<bool>.None, PermitObjectSnap: Option<bool>.None, DynamicDrawColor: Option<Color>.None, CurveSnapTangent: Option<(bool Enabled, bool Ends)>.None, CurveSnapPerp: Option<(bool Enabled, bool Ends)>.None, CurveSnapArrow: Option<(bool Enabled, bool Reverse)>.None, ClearConstraints: false);
+    public sealed record PointSpec(bool OnMouseUp, bool TwoDimensional, Option<global::Rhino.UI.CursorStyle> Cursor, Option<bool> ObjectSnapCursors, Option<Point3d> BasePoint, bool DrawLineFromBasePoint, bool SnapToCurves, bool PermitConstraintOptions, bool NoRedrawOnExit, bool PermitFromOption, bool PermitTabMode, int PermitElevatorMode, Seq<Point3d> SnapPoints, Seq<Point3d> ConstructionPoints, Seq<CommandPointConstraint> Constraints, Option<double> DistanceFromBasePoint, Option<bool> PermitOrthoSnap, Option<bool> PermitObjectSnap, Option<Color> DynamicDrawColor, Option<(bool Enabled, bool Ends)> CurveSnapTangent, Option<(bool Enabled, bool Ends)> CurveSnapPerp, Option<(bool Enabled, bool Reverse)> CurveSnapArrow, bool ClearConstraints);
+    public static PointSpec DefaultPointSpec { get; } = new(OnMouseUp: false, TwoDimensional: false, Cursor: Option<global::Rhino.UI.CursorStyle>.None, ObjectSnapCursors: Option<bool>.None, BasePoint: Option<Point3d>.None, DrawLineFromBasePoint: false, SnapToCurves: false, PermitConstraintOptions: true, NoRedrawOnExit: false, PermitFromOption: true, PermitTabMode: true, PermitElevatorMode: 0, SnapPoints: Seq<Point3d>(), ConstructionPoints: Seq<Point3d>(), Constraints: Seq<CommandPointConstraint>(), DistanceFromBasePoint: Option<double>.None, PermitOrthoSnap: Option<bool>.None, PermitObjectSnap: Option<bool>.None, DynamicDrawColor: Option<Color>.None, CurveSnapTangent: Option<(bool Enabled, bool Ends)>.None, CurveSnapPerp: Option<(bool Enabled, bool Ends)>.None, CurveSnapArrow: Option<(bool Enabled, bool Reverse)>.None, ClearConstraints: false);
     internal sealed record Scalar(ScalarKind Kind, Option<UnitSystem> LengthUnits, Option<AngleUnitSystem> AngleUnits);
-    internal sealed record LimitSpec(Option<object> Lower, Option<object> Upper, bool StrictlyLower, bool StrictlyUpper) {
+    public static LimitSpec Limit<T>(Option<T> lower = default, Option<T> upper = default, bool strictlyLower = false, bool strictlyUpper = false) where T : IComparable<T> =>
+        new(Lower: lower.Map(static value => (object)value), Upper: upper.Map(static value => (object)value), StrictlyLower: strictlyLower, StrictlyUpper: strictlyUpper);
+
+    public sealed record LimitSpec(Option<object> Lower, Option<object> Upper, bool StrictlyLower, bool StrictlyUpper) {
         internal Fin<(Option<TValue> Lower, Option<TValue> Upper)> Project<TValue>(Op op) where TValue : IComparable<TValue> => (Lower.Bind(ScalarBound<TValue>), Upper.Bind(ScalarBound<TValue>)) switch { (Option<TValue> lower, _) when Lower.IsSome && !lower.IsSome => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (_, Option<TValue> upper) when Upper.IsSome && !upper.IsSome => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (Option<TValue> lower, Option<TValue> upper) when lower.Case is TValue left && upper.Case is TValue right && left.CompareTo(other: right) > 0 => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (Option<TValue> lower, Option<TValue> upper) when lower.Case is TValue left && upper.Case is TValue right && left.CompareTo(other: right) == 0 && (StrictlyLower || StrictlyUpper) => Fin.Fail<(Option<TValue> Lower, Option<TValue> Upper)>(error: op.InvalidInput()), (Option<TValue> lower, Option<TValue> upper) => Fin.Succ(value: (Lower: lower, Upper: upper)) };
         internal Option<TValue> Accept<TValue>(TValue value) where TValue : IComparable<TValue> =>
             Project<TValue>(op: Op.Of(name: nameof(LimitSpec))).ToOption().Bind(bounds => bounds switch {

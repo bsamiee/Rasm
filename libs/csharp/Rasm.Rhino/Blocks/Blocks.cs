@@ -4,6 +4,7 @@ using Rasm.Rhino.Commands;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.UI;
 using Rhino.DocObjects.Tables;
+using IOPath = System.IO.Path;
 namespace Rasm.Rhino.Blocks;
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -52,10 +53,67 @@ public sealed class RhinoBlocks {
     public Fin<Subscription> Watch(ArchivePath path, WatchPolicy? policy = null) =>
         (policy ?? WatchPolicy.Default)
             .Admit(key: Op.Of(name: nameof(Watch)))
-            .Bind(valid => Operations.AttachWatch(owner: this, path: path, policy: valid));
+            .Bind(valid => AttachWatch(path: path, policy: valid));
 
     internal Fin<PreviewHandle> AcquirePreview(InstanceDefinition definition, PreviewSpec spec, Op key) =>
         PreviewVault.Acquire(doc: Document, def: definition, spec: spec, key: key);
+
+    private Fin<Subscription> AttachWatch(ArchivePath path, WatchPolicy policy) {
+        Op key = Op.Of(name: nameof(Watch));
+        return key.Catch(() => {
+            string dir = IOPath.GetDirectoryName(path: path.Value) ?? string.Empty;
+            string filter = IOPath.GetFileName(path: path.Value);
+            FileSystemWatcher watcher = new(path: dir, filter: filter) {
+                NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite,
+            };
+            try {
+                WatchContext ctx = new(Owner: this, Path: path, Policy: policy, LastFired: Atom(value: DateTimeOffset.MinValue));
+                void OnChange(object sender, FileSystemEventArgs args) => OnWatchChanged(ctx: ctx);
+                void OnRename(object sender, RenamedEventArgs args) => OnWatchChanged(ctx: ctx);
+                FileSystemEventHandler change = OnChange;   // single delegate identity for symmetric +=/-=
+                RenamedEventHandler rename = OnRename;
+                watcher.Changed += change;
+                watcher.Created += change;
+                watcher.Deleted += change;
+                watcher.Renamed += rename;
+                watcher.EnableRaisingEvents = true;
+                return Fin.Succ(value: Subscription.Watch(
+                    watcher: watcher,
+                    detachers: Seq(
+                        () => watcher.Changed -= change,
+                        () => watcher.Created -= change,
+                        () => watcher.Deleted -= change,
+                        () => watcher.Renamed -= rename)));
+            } catch (IOException ex) {
+                watcher.Dispose();
+                return Fin.Fail<Subscription>(error: key.InvalidResult(detail: ex.Message));
+            } catch (UnauthorizedAccessException ex) {
+                watcher.Dispose();
+                return Fin.Fail<Subscription>(error: key.InvalidResult(detail: ex.Message));
+            }
+        });
+    }
+
+    private static void OnWatchChanged(WatchContext ctx) {
+        DateTimeOffset now = ctx.Policy.EffectiveClock.GetUtcNow();
+        bool accepted = false;
+        _ = ctx.LastFired.Swap(f: last => {
+            accepted = now - last >= ctx.Policy.Debounce;
+            return accepted ? now : last;
+        });
+        if (!accepted) return;
+        _ = ctx.Owner.Document switch {
+            { IsAvailable: true, IsClosing: false } doc => IdlePump.Enqueue(document: doc, work: live => Operations.RefreshLinkedDocument(
+                doc: live,
+                filter: BlockFilter.ArchivesOnly(Seq(ctx.Path.Value)),
+                policy: LinkRefreshPolicy.Changed,
+                batch: BatchPolicy.Default,
+                key: Op.Of(name: nameof(BlockOp.RefreshLinks)))),
+            _ => unit,
+        };
+    }
+
+    private sealed record WatchContext(RhinoBlocks Owner, ArchivePath Path, WatchPolicy Policy, Atom<DateTimeOffset> LastFired);
 }
 
 // --- [COMPOSITION] [CACHE] ----------------------------------------------------------------

@@ -36,8 +36,8 @@ public sealed record PromptStage<TState, TValue>(
     Func<TState, CommandInputRequest<TValue>> Input,
     Func<TState, Seq<CommandInputPolicy>> Policies,
     Func<CommandStageContext<TState>, CommandGet<TValue>, Fin<PromptTransition<TState>>> Receive,
-    Func<PromptPreviewContext<TState>, Option<UiViewportPreview>>? Preview = null,
-    Func<PromptGumballContext<TState>, Fin<Option<PromptTransition<TState>>>>? Gumball = null,
+    Func<PromptEventContext<TState>, Option<UiViewportPreview>>? Preview = null,
+    Func<PromptEventContext<TState>, Fin<Option<PromptTransition<TState>>>>? Gumball = null,
     Func<CommandStageContext<TState>, CommandOptionValue, Fin<TState>>? OptionLens = null,
     Func<CommandStageContext<TState>, Fin<PromptTransition<TState>>>? Enter = null,
     Func<CommandStageContext<TState>, CommandGet<TValue>, Fin<Unit>>? Rejected = null) : CommandStage<TState>(Name) {
@@ -82,7 +82,7 @@ public sealed record PromptStage<TState, TValue>(
 
     private Seq<CommandInputPolicy> PreviewPolicy(CommandStageContext<TState> context) =>
         Optional(Preview)
-            .Map(preview => Seq(CommandInputPolicy.PointEvents(pointEvent => (pointEvent.Display.IsSome, preview(arg: new PromptPreviewContext<TState>(Stage: context, Event: pointEvent)).Case) switch {
+            .Map(preview => Seq(CommandInputPolicy.PointEvents(pointEvent => (pointEvent.Display.IsSome, preview(arg: new PromptEventContext<TState>(Stage: context, Event: pointEvent)).Case) switch {
                 (true, UiViewportPreview active) => pointEvent.Preview(preview: active),
                 _ => Fin.Succ(value: unit),
             }, phases: CommandPointEventPhase.Preview)))
@@ -90,7 +90,7 @@ public sealed record PromptStage<TState, TValue>(
 
     private Seq<CommandInputPolicy> GumballPolicy(CommandStageContext<TState> context, Atom<Option<PromptTransition<TState>>> transition) =>
         Optional(Gumball)
-            .Map(project => Seq(CommandInputPolicy.PointEvents(pointEvent => project(arg: new PromptGumballContext<TState>(Stage: context, Event: pointEvent)).Map(next => next.Iter(value => {
+            .Map(project => Seq(CommandInputPolicy.PointEvents(pointEvent => project(arg: new PromptEventContext<TState>(Stage: context, Event: pointEvent)).Map(next => next.Iter(value => {
                 _ = transition.Swap(_ => Some(value));
                 _ = pointEvent.Getter.InterruptMouseMove();
             })))))
@@ -135,7 +135,7 @@ public readonly record struct CommandCommitContext<TState>(RhinoCommandContext C
     public UI.RhinoUi Ui => Context.Ui;
 }
 
-public readonly record struct PromptPreviewContext<TState>(CommandStageContext<TState> Stage, CommandPointEvent Event) {
+public readonly record struct PromptEventContext<TState>(CommandStageContext<TState> Stage, CommandPointEvent Event) {
     public TState State => Stage.State;
     public RhinoCommandContext Context => Stage.Context;
     public Option<Point3d> Point => Event.Point;
@@ -145,12 +145,6 @@ public readonly record struct PromptPreviewContext<TState>(CommandStageContext<T
         GetPoint getter => CommandSelection.Reference.Of(getter: getter),
         _ => Option<CommandSelection.Reference>.None,
     };
-}
-
-public readonly record struct PromptGumballContext<TState>(CommandStageContext<TState> Stage, CommandPointEvent Event) {
-    public TState State => Stage.State;
-    public RhinoCommandContext Context => Stage.Context;
-    public Option<Point3d> Point => Event.Point;
     public Option<UiGumballSnapshot> Snapshot => Event.GumballSnapshot;
     public Fin<bool> Pick(PickContext pick) => Event.PickGumball(pick: pick);
     public Fin<bool> Update(Line worldLine) => Event.UpdateGumball(worldLine: worldLine);
