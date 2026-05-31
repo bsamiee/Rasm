@@ -124,6 +124,32 @@ public sealed class BoundsOutputDispatchLaws {
           Bounds.EnclosingCylinder(axis: BoundsGens.Axis, count: BoundsGens.Count).Operation<Mesh, BoundingBox>().IsSupported)];
 }
 
+public sealed class BoundsManagedProjectionLaws {
+    [Fact]
+    public void BoxMetricsMatchClosedFormBoundingBoxAndBoxOracles() {
+        BoundingBox bounds = new(min: new Point3d(x: -1.0, y: -2.0, z: -3.0), max: new Point3d(x: 3.0, y: 4.0, z: 9.0));
+        Spec.Valid(Analyze.In(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).Run(operation: Bounds.Area.Operation<BoundingBox, double>(), input: bounds),
+            then: area => Spec.Equal(left: area.Head.IfNone(0.0), right: bounds.Area, tolerance: 1.0e-12, what: "bounding box area"));
+        Spec.Valid(Analyze.In(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).Run(operation: Bounds.Volume.Operation<BoundingBox, double>(), input: bounds),
+            then: volume => Spec.Equal(left: volume.Head.IfNone(0.0), right: bounds.Volume, tolerance: 1.0e-12, what: "bounding box volume"));
+        Spec.Valid(Analyze.In(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).Run(operation: Bounds.Diagonal.Operation<BoundingBox, double>(), input: bounds),
+            then: diagonal => Spec.Equal(left: diagonal.Head.IfNone(0.0), right: bounds.Diagonal.Length, tolerance: 1.0e-12, what: "bounds diagonal"));
+        Spec.Valid(Analyze.In(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).Run(operation: Bounds.AspectRatio.Operation<BoundingBox, double>(), input: bounds),
+            then: ratio => Spec.Equal(left: ratio.Head.IfNone(0.0), right: 3.0, tolerance: 1.0e-12, what: "bounding box aspect ratio"));
+    }
+
+    [Fact]
+    public void EdgesAndCornerUniquenessProjectExpectedStaticBoxTopology() {
+        BoundingBox bounds = new(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0));
+        Spec.Valid(Analyze.In(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).Run(operation: Bounds.Edges.Operation<BoundingBox, Line>(), input: bounds),
+            then: edges => Assert.Equal(expected: 12, actual: edges.Count));
+        Spec.Valid(Analyze.In(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).Run(operation: Bounds.Corners(unique: true).Operation<BoundingBox, Point3d>(), input: new BoundingBox(min: Point3d.Origin, max: Point3d.Origin)),
+            then: corners => Assert.Single(collection: corners));
+        Spec.Valid(Analyze.In(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).Run(operation: Bounds.Corners(unique: false).Operation<BoundingBox, Point3d>(), input: new BoundingBox(min: Point3d.Origin, max: Point3d.Origin)),
+            then: corners => Assert.Equal(expected: 8, actual: corners.Count));
+    }
+}
+
 // --- [EDGE_CASES] ---------------------------------------------------------------------------
 public sealed class BoundsRejectionRailLaws {
     // Reject rail pre-native: foreign output -> Unsupported pair; null aspect -> Input via Reject(InvalidInput).

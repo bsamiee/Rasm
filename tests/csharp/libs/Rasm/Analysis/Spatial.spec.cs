@@ -41,6 +41,24 @@ public sealed class ProbeUnionCatalogLaws {
         });
 }
 
+public sealed class ProbeValidationLaws {
+    [Fact]
+    public void InvalidProbeParametersRejectBeforeNativeNeighborSearch() {
+        Spec.FailCategory(result: Spatial.NearestPoints(points: [Point3d.Origin], needles: [Point3d.Origin], probe: Probe.Nearest(count: 0)).Run(ContextFixtureValue), category: "Input");
+        Spec.FailCategory(result: Spatial.NearestPoints(points: [Point3d.Origin], needles: [Point3d.Origin], probe: Probe.Within(distance: 0.0)).Run(ContextFixtureValue), category: "Input");
+        Spec.FailCategory(result: Spatial.NearestPoints(points: [Point3d.Origin], needles: [Point3d.Origin], probe: Probe.Within(distance: double.NaN)).Run(ContextFixtureValue), category: "Input");
+    }
+
+    [Fact]
+    public void InvalidPointInputsRejectBeforeProbeEvaluation() {
+        Spec.FailCategory(result: Spatial.NearestPoints(points: [Point3d.Unset], needles: [Point3d.Origin], probe: Probe.Nearest(count: 1)).Run(ContextFixtureValue), category: "Input");
+        Spec.FailCategory(result: Spatial.NearestPoints(points: [Point3d.Origin], needles: [Point3d.Unset], probe: Probe.Within(distance: 1.0)).Run(ContextFixtureValue), category: "Input");
+    }
+
+    private static readonly Context ContextFixtureValue =
+        Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "spatial context");
+}
+
 public sealed class ValidatePointsGuardLaws {
     [Fact]
     public void AllValidPointsProjectSameArityAndSequenceVerbatim() =>

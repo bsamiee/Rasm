@@ -533,8 +533,14 @@ internal static class Interaction {
                 _ = GrasshopperUi.Handler(valid: () => valid(arg: new MouseHoverSnapshot(ControlPoint: e.ControlPoint, ContentPoint: e.ContentPoint))))
             let token = new StrongBox<Guid>()
             from sub in Subscription.Bind(
-                attach: () => { token.Value = HoverDelayInstall.Enter(canvas: canvas, delay: validDelay); canvas.MouseHover += onHover; },
-                detach: () => { canvas.MouseHover -= onHover; HoverDelayInstall.Exit(canvas: canvas, token: token.Value); },
+                attach: () => {
+                    token.Value = CanvasPropertyLease.Enter(canvas: canvas, slot: nameof(GhCanvas.MouseHoverDelay), value: validDelay, get: static c => c.MouseHoverDelay, set: static (c, value) => c.MouseHoverDelay = value);
+                    canvas.MouseHover += onHover;
+                },
+                detach: () => {
+                    canvas.MouseHover -= onHover;
+                    CanvasPropertyLease.Exit<TimeSpan>(canvas: canvas, slot: nameof(GhCanvas.MouseHoverDelay), token: token.Value, set: static (c, value) => c.MouseHoverDelay = value);
+                },
                 marshalToUi: true)
             select sub);
 
@@ -590,39 +596,52 @@ internal sealed class OwnedSubscription<TKey> {
     }
 }
 
-// Per-canvas MouseHoverDelay ownership keyed by RuntimeHelpers.GetHashCode(canvas): the identity hash is stable
+// Per-canvas property ownership keyed by RuntimeHelpers.GetHashCode(canvas): the identity hash is stable
 // for the canvas's lifetime and avoids retaining the live canvas from the static atom.
-file static class HoverDelayInstall {
+internal static class CanvasPropertyLease {
     [StructLayout(LayoutKind.Auto)]
-    private readonly record struct Entry(Guid Token, TimeSpan Delay);
+    private readonly record struct Entry<T>(Guid Token, T Value);
 
     [StructLayout(LayoutKind.Auto)]
-    private readonly record struct State(TimeSpan Baseline, Seq<Entry> Entries);
+    private readonly record struct State<T>(T Baseline, Seq<Entry<T>> Entries);
 
-    private static readonly Atom<HashMap<int, State>> Stacks = Atom(value: HashMap<int, State>());
+    private static readonly Atom<HashMap<int, object>> Stacks = Atom(value: HashMap<int, object>());
 
-    internal static Guid Enter(GhCanvas canvas, TimeSpan delay) {
+    internal static Guid Enter<T>(GhCanvas canvas, string slot, T value, Func<GhCanvas, T> get, Action<GhCanvas, T> set) {
         Guid token = Guid.NewGuid();
-        int key = RuntimeHelpers.GetHashCode(canvas);
+        int key = Key(canvas: canvas, slot: slot);
         _ = Stacks.Swap(map => map.AddOrUpdate(
             key: key,
-            Some: state => state with { Entries = state.Entries + new Entry(Token: token, Delay: delay) },
-            None: () => new State(Baseline: canvas.MouseHoverDelay, Entries: Seq(new Entry(Token: token, Delay: delay)))));
-        canvas.MouseHoverDelay = delay;
+            Some: state => state is State<T> typed ? typed with { Entries = typed.Entries + new Entry<T>(Token: token, Value: value) } : new State<T>(Baseline: get(arg: canvas), Entries: Seq(new Entry<T>(Token: token, Value: value))),
+            None: () => new State<T>(Baseline: get(arg: canvas), Entries: Seq(new Entry<T>(Token: token, Value: value)))));
+        set(arg1: canvas, arg2: value);
         return token;
     }
 
-    // BOUNDARY ADAPTER — token removal restores the top remaining delay even when disposals are non-LIFO.
-    internal static void Exit(GhCanvas canvas, Guid token) {
-        int key = RuntimeHelpers.GetHashCode(canvas);
-        TimeSpan restore = canvas.MouseHoverDelay;
+    internal static bool IsTop<T>(GhCanvas canvas, string slot, Guid token, T value) {
+        int key = Key(canvas: canvas, slot: slot);
+        return Stacks.Value.Find(key: key)
+            .Map(state => state is State<T> typed
+                && !typed.Entries.IsEmpty
+                && typed.Entries.Last().Token == token
+                && EqualityComparer<T>.Default.Equals(x: typed.Entries.Last().Value, y: value))
+            .IfNone(false);
+    }
+
+    // BOUNDARY ADAPTER — token removal restores the top remaining value even when disposals are non-LIFO.
+    internal static void Exit<T>(GhCanvas canvas, string slot, Guid token, Action<GhCanvas, T> set) {
+        int key = Key(canvas: canvas, slot: slot);
+        Option<T> restore = Option<T>.None;
         _ = Stacks.Swap(map => map.Find(key).Match(
             Some: state => {
-                Seq<Entry> kept = state.Entries.Filter(entry => entry.Token != token);
-                restore = kept.IsEmpty ? state.Baseline : kept.Last().Delay;
-                return kept.IsEmpty ? map.Remove(key) : map.SetItem(key, state with { Entries = kept });
+                State<T> typed = (State<T>)state;
+                Seq<Entry<T>> kept = typed.Entries.Filter(entry => entry.Token != token);
+                restore = Some(kept.IsEmpty ? typed.Baseline : kept.Last().Value);
+                return kept.IsEmpty ? map.Remove(key) : map.SetItem(key, typed with { Entries = kept });
             },
             None: () => map));
-        canvas.MouseHoverDelay = restore;
+        _ = restore.Iter(value => set(arg1: canvas, arg2: value));
     }
+
+    private static int Key(GhCanvas canvas, string slot) => HashCode.Combine(RuntimeHelpers.GetHashCode(o: canvas), slot);
 }

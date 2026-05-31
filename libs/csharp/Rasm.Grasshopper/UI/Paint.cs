@@ -854,13 +854,13 @@ internal static partial class Paint {
                     clock: clock ?? MotionClock.MessageLoop,
                     adoptedPacer: pacer,
                     ownsPacerLifecycle: false,
-                    sustainMouseRedraw: enabled ? () => RedrawOnMouseMoveInstall.IsTop(canvas: canvas, token: token.Value) : null).Run(scope: scope)
+                    sustainMouseRedraw: enabled ? () => CanvasPropertyLease.IsTop(canvas: canvas, slot: nameof(GhCanvas.RedrawOnMouseMove), token: token.Value, value: true) : null).Run(scope: scope)
                 from arm in Events.BindMarshaled(
                     attach: () => {
-                        token.Value = RedrawOnMouseMoveInstall.Enter(canvas: canvas, enabled: enabled);
+                        token.Value = CanvasPropertyLease.Enter(canvas: canvas, slot: nameof(GhCanvas.RedrawOnMouseMove), value: enabled, get: static c => c.RedrawOnMouseMove, set: static (c, value) => c.RedrawOnMouseMove = value);
                         _ = Motion.PacerResume(pacer: pacer, canvas: canvas);
                     },
-                    detach: () => RedrawOnMouseMoveInstall.Exit(canvas: canvas, token: token.Value))
+                    detach: () => CanvasPropertyLease.Exit<bool>(canvas: canvas, slot: nameof(GhCanvas.RedrawOnMouseMove), token: token.Value, set: static (c, value) => c.RedrawOnMouseMove = value))
                 select Subscription.DisposeOnce(Subscription.PaintPacer(
                     paintHook: sustain | arm,
                     pacerRelease: () => _ = Motion.PacerRelease(pacer: pacer))));
@@ -903,45 +903,4 @@ internal static partial class Paint {
                 },
                 marshalToUi: true)
             select sub);
-}
-
-file static class RedrawOnMouseMoveInstall {
-    [StructLayout(LayoutKind.Auto)]
-    private readonly record struct Entry(Guid Token, bool Enabled);
-
-    [StructLayout(LayoutKind.Auto)]
-    private readonly record struct State(bool Baseline, Seq<Entry> Entries);
-
-    private static readonly Atom<HashMap<int, State>> Stacks = Atom(value: HashMap<int, State>());
-
-    internal static Guid Enter(GhCanvas canvas, bool enabled) {
-        Guid token = Guid.NewGuid();
-        int key = RuntimeHelpers.GetHashCode(canvas);
-        _ = Stacks.Swap(map => map.AddOrUpdate(
-            key: key,
-            Some: state => state with { Entries = state.Entries + new Entry(Token: token, Enabled: enabled) },
-            None: () => new State(Baseline: canvas.RedrawOnMouseMove, Entries: Seq(new Entry(Token: token, Enabled: enabled)))));
-        canvas.RedrawOnMouseMove = enabled;
-        return token;
-    }
-
-    internal static bool IsTop(GhCanvas canvas, Guid token) {
-        int key = RuntimeHelpers.GetHashCode(canvas);
-        return Stacks.Value.Find(key: key)
-            .Map(state => !state.Entries.IsEmpty && state.Entries.Last().Token == token && state.Entries.Last().Enabled)
-            .IfNone(false);
-    }
-
-    internal static void Exit(GhCanvas canvas, Guid token) {
-        int key = RuntimeHelpers.GetHashCode(canvas);
-        bool restore = canvas.RedrawOnMouseMove;
-        _ = Stacks.Swap(map => map.Find(key).Match(
-            Some: state => {
-                Seq<Entry> kept = state.Entries.Filter(entry => entry.Token != token);
-                restore = kept.IsEmpty ? state.Baseline : kept.Last().Enabled;
-                return kept.IsEmpty ? map.Remove(key) : map.SetItem(key, state with { Entries = kept });
-            },
-            None: () => map));
-        canvas.RedrawOnMouseMove = restore;
-    }
 }

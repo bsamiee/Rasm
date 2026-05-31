@@ -7,6 +7,7 @@ using Grasshopper2.SpecialObjects;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Slider;
 using Grasshopper2.Undo;
+using Grasshopper2.Undo.Actions;
 using GhColour = Grasshopper2.Types.Colour.Colour;
 using GhDocument = Grasshopper2.Doc.Document;
 using GhDocumentMethods = Grasshopper2.Doc.DocumentMethods;
@@ -46,7 +47,7 @@ public partial record ObjectScope {
     internal Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, DocumentTargetOp op, ActionList actions) =>
         Switch(
             state: (methods, objects, op, actions),
-            selectionCase: static (s, _) => s.op.ApplySelected(methods: s.methods, actions: s.actions),
+            selectionCase: static (s, _) => s.op.ApplySelected(methods: s.methods, objects: s.objects, actions: s.actions),
             objectsCase: static (s, target) => s.op.Apply(methods: s.methods, objects: s.objects, ids: target.Ids, actions: s.actions),
             primaryCase: static (_, _) => ScopeUse.TargetMutation.RejectPrimary<int>(op: Op.Of(name: nameof(ObjectScope))),
             primaryAndSecondaryCase: static (_, _) => ScopeUse.TargetMutation.RejectPrimary<int>(op: Op.Of(name: nameof(ObjectScope))));
@@ -471,12 +472,8 @@ public partial record DocumentReview {
             return from left in op.AcceptText(value: compare.Left)
                    from right in op.AcceptText(value: compare.Right)
                    from subscription in Subscription.Bind(
-                       attach: () => {
-                           form = DiffCanvas.ShowFileCompareForm(fileA: left, fileB: right, includeTextualComparison: compare.IncludeText);
-                           if (form is null) {
-                               throw new InvalidOperationException(message: "DiffCanvas did not create a comparison form.");
-                           }
-                       },
+                       attach: () => form = DiffCanvas.ShowFileCompareForm(fileA: left, fileB: right, includeTextualComparison: compare.IncludeText)
+                           ?? throw new InvalidOperationException(message: "DiffCanvas did not create a comparison form."),
                        detach: () => form?.Close(),
                        marshalToUi: true,
                        detachOnce: true)
@@ -709,38 +706,52 @@ public abstract partial record DocumentMutation {
 
 [SmartEnum<int>]
 public sealed partial class DocumentTargetVerb {
-    private delegate int RunSelectedFn(GhDocumentMethods methods, ActionList actions);
-    private delegate int RunObjectsFn(GhDocumentMethods methods, IDocumentObject[] targets, ActionList actions);
+    private delegate int RunSelectedFn(GhDocumentMethods methods, GhObjectList objects, ActionList actions);
+    private delegate int RunObjectsFn(GhDocumentMethods methods, GhObjectList objects, IDocumentObject[] targets, ActionList actions);
 
     public static readonly DocumentTargetVerb Show = new(
         key: 0,
-        runSelected: static (m, a) => m.ShowSelected(actions: a),
-        runObjects: static (m, t, a) => m.ShowObjects(objects: t, actions: a));
+        runSelected: static (m, _, a) => m.ShowSelected(actions: a),
+        runObjects: static (m, _, t, a) => m.ShowObjects(objects: t, actions: a));
     public static readonly DocumentTargetVerb Hide = new(
         key: 1,
-        runSelected: static (m, a) => m.HideSelected(actions: a),
-        runObjects: static (m, t, a) => m.HideObjects(objects: t, actions: a));
+        runSelected: static (m, _, a) => m.HideSelected(actions: a),
+        runObjects: static (m, _, t, a) => m.HideObjects(objects: t, actions: a));
     public static readonly DocumentTargetVerb ToggleVisibility = new(
         key: 2,
-        runSelected: static (m, a) => m.ToggleDisplaySelected(actions: a),
-        runObjects: static (m, t, a) => m.ToggleDisplayObjects(objects: t, actions: a));
+        runSelected: static (m, _, a) => m.ToggleDisplaySelected(actions: a),
+        runObjects: static (m, _, t, a) => m.ToggleDisplayObjects(objects: t, actions: a));
     public static readonly DocumentTargetVerb Enable = new(
         key: 3,
-        runSelected: static (m, a) => m.EnableSelected(actions: a),
-        runObjects: static (m, t, a) => m.EnableObjects(objects: t, actions: a));
+        runSelected: static (_, objects, actions) => SetActivity(targets: objects.SelectedObjects, activity: ObjectActivity.Enabled, actions: actions),
+        runObjects: static (_, _, targets, actions) => SetActivity(targets: targets, activity: ObjectActivity.Enabled, actions: actions));
     public static readonly DocumentTargetVerb Disable = new(
         key: 4,
-        runSelected: static (m, a) => m.DisableSelected(actions: a),
-        runObjects: static (m, t, a) => m.DisableObjects(objects: t, actions: a));
+        runSelected: static (_, objects, actions) => SetActivity(targets: objects.SelectedObjects, activity: ObjectActivity.Disabled, actions: actions),
+        runObjects: static (_, _, targets, actions) => SetActivity(targets: targets, activity: ObjectActivity.Disabled, actions: actions));
 
     [UseDelegateFromConstructor]
-    private partial int RunSelected(GhDocumentMethods methods, ActionList actions);
+    private partial int RunSelected(GhDocumentMethods methods, GhObjectList objects, ActionList actions);
 
     [UseDelegateFromConstructor]
-    private partial int RunObjects(GhDocumentMethods methods, IDocumentObject[] targets, ActionList actions);
+    private partial int RunObjects(GhDocumentMethods methods, GhObjectList objects, IDocumentObject[] targets, ActionList actions);
 
-    internal int Run(GhDocumentMethods methods, IDocumentObject[]? targets, ActionList actions) =>
-        targets is null ? RunSelected(methods: methods, actions: actions) : RunObjects(methods: methods, targets: targets, actions: actions);
+    internal int Run(GhDocumentMethods methods, GhObjectList objects, IDocumentObject[]? targets, ActionList actions) =>
+        targets is null ? RunSelected(methods: methods, objects: objects, actions: actions) : RunObjects(methods: methods, objects: objects, targets: targets, actions: actions);
+
+    private static int SetActivity(IEnumerable<IDocumentObject> targets, ObjectActivity activity, ActionList actions) =>
+        toSeq(targets).Fold(
+            initialState: 0,
+            f: (count, obj) => obj.Activity == activity
+                ? count
+                : count + ApplyActivity(obj: obj, activity: activity, actions: actions));
+
+    private static int ApplyActivity(IDocumentObject obj, ObjectActivity activity, ActionList actions) {
+        actions.Add(new ObjectActivityAction(obj));
+        obj.Activity = activity;
+        obj.Expire();
+        return 1;
+    }
 }
 
 [SkipUnionOps]
@@ -765,20 +776,20 @@ public abstract partial record DocumentTargetOp {
         ids.TraverseM(id => Optional(objects.Find(instanceId: id))
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ObjectScope)), detail: $"object {id} not found")))
         .Map(static resolved => resolved.ToArray())
-        .Bind(targets => Dispatch(methods: methods, actions: actions, targets: targets)).As();
+        .Bind(targets => Dispatch(methods: methods, objects: objects, actions: actions, targets: targets)).As();
 
-    internal Fin<int> ApplySelected(GhDocumentMethods methods, ActionList actions) =>
-        Dispatch(methods: methods, actions: actions, targets: null);
+    internal Fin<int> ApplySelected(GhDocumentMethods methods, GhObjectList objects, ActionList actions) =>
+        Dispatch(methods: methods, objects: objects, actions: actions, targets: null);
 
     // Non-null `targets` → *Objects(targets, actions); null → *Selected(actions). Null sentinel
     // over Option<T> because CSP0705 forbids Option.Match inside the Switch arms below.
-    private Fin<int> Dispatch(GhDocumentMethods methods, ActionList actions, IDocumentObject[]? targets) =>
+    private Fin<int> Dispatch(GhDocumentMethods methods, GhObjectList objects, ActionList actions, IDocumentObject[]? targets) =>
         Switch(
-            state: (methods, targets, actions),
+            state: (methods, objects, targets, actions),
             verbCase: static (s, v) => Op.Of(name: nameof(DocumentTargetVerb)).Attempt(
-                body: () => v.Verb.Run(methods: s.methods, targets: s.targets, actions: s.actions),
+                body: () => v.Verb.Run(methods: s.methods, objects: s.objects, targets: s.targets, actions: s.actions),
                 what: "DocumentTargetVerb"),
-            selectionCase: static (s, selection) => UiRail.SelectionDispatch(methods: s.methods, op: selection.Op),
+            selectionCase: static (s, selection) => UiRail.SelectionDispatch(methods: s.methods, objects: s.objects, op: selection.Op),
             displayCase: static (s, display) => Op.Of(name: nameof(DisplayPort)).Attempt(
                 body: () => display.Port.Run(methods: s.methods, show: display.Change.IsShow, actions: s.actions),
                 what: "DisplayPort"),
@@ -928,12 +939,29 @@ internal static partial class Document {
         from result in valid.Switch(
             verbCase: (clipboard) => clipboard.Verb == ClipboardVerb.Copy
                 ? CopyClipboard(scope: scope, clipboard: clipboard)
+                : clipboard.Verb == ClipboardVerb.PasteGh1Xml
+                    ? UiRail.RunDocumentMutation(
+                        scope: scope,
+                        op: Op.Of(name: nameof(ClipboardOp.PasteGh1Xml)),
+                        mutate: PasteGh1Clipboard)
                 : UiRail.RunDocumentMutation(
                     scope: scope,
                     op: Op.Of(name: string.Create(CultureInfo.InvariantCulture, $"Clipboard.{clipboard.Verb}")),
                     mutate: (methods, _, actions) => clipboard.Verb.Run(methods: methods, kind: clipboard.Kind, behaviour: clipboard.Behaviour, actions: actions)
                         .Map(DocumentMutationReceipt.Count)))
         select result;
+
+    private static Fin<DocumentMutationReceipt> PasteGh1Clipboard(GhDocumentMethods methods, GhObjectList objects, ActionList actions) =>
+        Op.Of(name: nameof(ClipboardOp.PasteGh1Xml)).Attempt(body: () => {
+            System.Collections.Generic.HashSet<Guid> before = [.. objects.Forwards.Select(static obj => obj.InstanceId)];
+            bool pasted = methods.PasteGrasshopper1XmlFromClipboard(actions: actions);
+            Seq<IDocumentObject> created = toSeq(objects.Forwards)
+                .Filter(obj => obj.InstanceId != Guid.Empty && !before.Contains(obj.InstanceId));
+            _ = created.Iter(obj => actions.Add(new CreateObjectAction(obj: obj)));
+            return DocumentMutationReceipt.Of(
+                changed: Math.Max(val1: created.Count, val2: pasted ? 1 : 0),
+                created: created.Map(static obj => obj.InstanceId));
+        }, what: "DocumentMethods.PasteGrasshopper1XmlFromClipboard");
 
     private static Fin<Snapshot<DocumentMutationDelta>> CopyClipboard(GrasshopperUi.Scope scope, ClipboardOp.VerbCase clipboard) =>
         from methods in scope.NeedMethods()

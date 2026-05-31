@@ -141,6 +141,29 @@ public sealed class ConformanceProjectionOracleLaws {
         Spec.Succ(Conformance.SignedResidual(count: 3).Project<ResidualSample>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
             then: static all => Assert.Equal(expected: ConformanceGens.Residuals, actual: all));
     }
+
+    [Fact]
+    public void SummaryWithinToleranceContainmentAndDistributionProjectIndependentResidualContracts() {
+        Spec.Succ(Conformance.WithinTolerance(count: 3).Project<bool>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
+            then: static within => Assert.Equal(expected: Seq(false), actual: within));
+        Spec.Succ(Conformance.Summary(count: 3).Project<Stat>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
+            then: static summary => {
+                Stat stat = summary.Head.IfNone(default(Stat));
+                Assert.Equal(expected: 3, actual: stat.Count);
+                Spec.Equal(left: stat.Minimum, right: 2.0, tolerance: 0.0, what: "summary min");
+                Spec.Equal(left: stat.Maximum, right: 7.0, tolerance: 0.0, what: "summary max");
+                Spec.Equal(left: stat.Mean, right: 4.0, tolerance: 1.0e-12, what: "summary mean");
+            });
+        Spec.Succ(Conformance.Containment(count: 3).Project<ResidualSample>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
+            then: static all => Assert.Equal(expected: ConformanceGens.Residuals, actual: all));
+        Spec.Succ(Conformance.Distribution(3, 0.0, 50.0, 100.0).Project<Distribution>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
+            then: static distributions => {
+                Distribution distribution = distributions.Head.IfNone(default(Distribution));
+                Assert.Equal(expected: [0.0, 50.0, 100.0], actual: [.. distribution.Percentiles.Map(static p => p.Percentile).AsIterable()]);
+                Assert.Equal(expected: [2.0, 3.0, 7.0], actual: [.. distribution.Percentiles.Map(static p => p.Value).AsIterable()]);
+            });
+    }
+
     [Fact]
     public void ForeignOutputTypeProjectsUnsupportedCategory() =>
         Spec.FailCategory(Conformance.Distance(count: 3).Project<Plane>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model), category: "Unsupported");

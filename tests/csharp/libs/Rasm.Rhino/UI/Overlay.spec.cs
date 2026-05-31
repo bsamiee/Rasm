@@ -1,5 +1,6 @@
 using Rasm.Rhino.UI;
 using Rasm.TestKit;
+using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Geometry;
 using GumballMode = Rhino.UI.Gumball.GumballMode;
@@ -64,6 +65,59 @@ public sealed class OverlayDecisionFoldLaws {
     [Fact]
     public void FoldOfEmptyIsIgnore() =>
         Assert.Equal(expected: OverlayDecision.Ignore, actual: OverlayDecision.Fold(Seq<OverlayDecision>()));
+
+    [Fact]
+    public void BoundsUnionAndPaintCompositionAccumulateIndependentDecisions() {
+        int paints = 0;
+        OverlayDecision left = OverlayDecision.Include(new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1, y: 1, z: 1)))
+            .IfFail(error => throw new InvalidOperationException(message: error.Message))
+            + OverlayDecision.Paint(draw: _ => { paints++; return Fin.Succ(value: unit); })
+                .IfFail(error => throw new InvalidOperationException(message: error.Message));
+        OverlayDecision right = OverlayDecision.Include(new BoundingBox(min: new Point3d(x: 2, y: 2, z: 2), max: new Point3d(x: 3, y: 3, z: 3)))
+            .IfFail(error => throw new InvalidOperationException(message: error.Message))
+            + OverlayDecision.Paint(draw: _ => { paints++; return Fin.Succ(value: unit); })
+                .IfFail(error => throw new InvalidOperationException(message: error.Message));
+        OverlayDecision merged = left + right;
+
+        Spec.Some(merged.Bounds, bounds => {
+            Assert.Equal(expected: Point3d.Origin, actual: bounds.Min);
+            Assert.Equal(expected: new Point3d(x: 3, y: 3, z: 3), actual: bounds.Max);
+        });
+        Spec.Some(merged.Draw, draw => Spec.Succ(result: draw(arg: null!), then: static _ => { }));
+        Assert.Equal(expected: 2, actual: paints);
+    }
+}
+
+public sealed class OverlayPhaseLaws {
+    [Fact]
+    public void PhaseCatalogClassifiesDrawAndBoundingLifecycle() {
+        Spec.Cases(items: OverlayPhase.Items, key: static phase => phase.Key, law: static phase => {
+            bool draws = phase == OverlayPhase.Foreground || phase == OverlayPhase.Overlay || phase == OverlayPhase.PostDraw;
+            bool bounds = phase == OverlayPhase.Bounds || phase == OverlayPhase.ZoomBounds;
+            Assert.Equal(expected: draws, actual: phase.Draws);
+            Assert.Equal(expected: bounds, actual: phase.Bounding);
+        });
+    }
+
+    [Fact]
+    public void MouseWheelIsTheOnlyNonViewportNativeMousePhase() {
+        Spec.Cases(items: MousePhase.Items, key: static phase => phase.Key, law: static phase =>
+            Assert.Equal(expected: phase != MousePhase.Wheel, actual: phase.ViewportNative));
+    }
+}
+
+public sealed class UiGradientAxisLaws {
+    [Fact]
+    public void LongestEdgeSelectsDominantAxisAndExplicitAxesProjectThroughBoundsCentre() {
+        BoundingBox box = new(min: new Point3d(x: 0, y: 10, z: 20), max: new Point3d(x: 2, y: 18, z: 23));
+        (Point3d y0, Point3d y1) = UiGradient.Of(from: System.Drawing.Color.Red, to: System.Drawing.Color.Blue).AxisOf(box: box);
+        (Point3d x0, Point3d x1) = new UiGradient(Stops: Seq<ColorStop>(), Axis: UiGradientAxis.X).AxisOf(box: box);
+
+        Assert.Equal(expected: new Point3d(x: 1, y: 10, z: 21.5), actual: y0);
+        Assert.Equal(expected: new Point3d(x: 1, y: 18, z: 21.5), actual: y1);
+        Assert.Equal(expected: new Point3d(x: 0, y: 14, z: 21.5), actual: x0);
+        Assert.Equal(expected: new Point3d(x: 2, y: 14, z: 21.5), actual: x1);
+    }
 }
 
 public sealed class GumballActionLaws {

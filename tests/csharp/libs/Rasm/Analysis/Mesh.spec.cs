@@ -41,6 +41,15 @@ public sealed class MeshSampleKindCatalogLaws {
         Spec.Cases(items: all, key: static k => k.Key, law: static k =>
             Assert.Contains(expected: k.Group, collection: MeshSampleGroup.Items));
     }
+
+    [Fact]
+    public void GroupKeyBandsRemainDenseWithinTheirReservedRanges() =>
+        Assert.Multiple(
+            () => Assert.Equal(expected: [0], actual: [.. MeshSampleGroup.None.Kinds.Map(static k => k.Key).AsIterable()]),
+            () => Assert.Equal(expected: [1, 2, 3, 4, 5, 6], actual: [.. MeshSampleGroup.Validity.Kinds.Map(static k => k.Key).AsIterable()]),
+            () => Assert.Equal(expected: [10, 11, 12, 13, 14, 15, 16], actual: [.. MeshSampleGroup.Count.Kinds.Map(static k => k.Key).AsIterable()]),
+            () => Assert.Equal(expected: [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32], actual: [.. MeshSampleGroup.Defect.Kinds.Map(static k => k.Key).AsIterable()]),
+            () => Assert.Equal(expected: [40, 41, 42, 43, 44], actual: [.. MeshSampleGroup.Quality.Kinds.Map(static k => k.Key).AsIterable()]));
 }
 
 public sealed class MeshMetricCatalogLaws {
@@ -121,4 +130,5 @@ public sealed class MeshesDispatchLaws {
                 Assert.Equal(expected: typeof(MeshFaceShape), actual: fault.OutputType);
             });
     }
+
 }

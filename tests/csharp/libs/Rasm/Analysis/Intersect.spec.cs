@@ -21,6 +21,14 @@ internal static class IntersectGens {
     public static readonly IntersectionResult LinesCase = new IntersectionResult.Lines(Values: Lines);
     public static readonly IntersectionResult PointsCase = new IntersectionResult.Points(Values: Points);
     public static readonly IntersectionResult IntervalsCase = new IntersectionResult.Intervals(Values: Intervals);
+    public static readonly Seq<(Polyline Curve, IntersectionKind Kind)> PolylineHits = Seq(
+        (Curve: new Polyline([new Point3d(x: 0.0, y: 0.0, z: 0.0), new Point3d(x: 1.0, y: 2.0, z: 3.0)]), Kind: IntersectionKind.Curve),
+        (Curve: new Polyline([new Point3d(x: 5.0, y: 7.0, z: 11.0), new Point3d(x: 13.0, y: 17.0, z: 19.0)]), Kind: IntersectionKind.Overlap));
+    public static readonly Seq<IntersectionHit> Hits = Seq(
+        IntersectionHit.At(point: Points[0], tangency: IntersectionTangency.Tangent),
+        IntersectionHit.Overlap(start: Points[1], end: Points[2], overlapA: Intervals[0], overlapB: Intervals[1]));
+    public static readonly IntersectionResult PolylinesCase = new IntersectionResult.Polylines(Values: PolylineHits);
+    public static readonly IntersectionResult HitsCase = new IntersectionResult.Hits(Values: Hits);
 }
 
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
@@ -49,22 +57,31 @@ public sealed class IntersectionResultProjectionLaws {
         Spec.FailUnsupportedFor(result: IntersectGens.PointsCase.Project<Line>(key: IntersectGens.Key), geometryType: typeof(IntersectionResult.Points), outputType: typeof(Line));
         Spec.FailCategory(result: IntersectGens.IntervalsCase.Project<double>(key: IntersectGens.Key), category: "Unsupported");
     }
+
+    [Fact]
+    public void PolylineAndHitCasesProjectIndependentPayloadChannels() {
+        Spec.Succ(result: IntersectGens.PolylinesCase.Project<IntersectionKind>(key: IntersectGens.Key),
+            then: static kinds => Assert.Equal(expected: IntersectGens.PolylineHits.Map(static hit => hit.Kind), actual: kinds));
+        Spec.Succ(result: IntersectGens.HitsCase.Project<Point3d>(key: IntersectGens.Key),
+            then: static points => Assert.Equal(expected: Seq(IntersectGens.Points[0], IntersectGens.Points[1], IntersectGens.Points[2]), actual: points));
+        Spec.Succ(result: IntersectGens.HitsCase.Project<IntersectionTangency>(key: IntersectGens.Key),
+            then: static tangencies => Assert.Equal(expected: Seq(IntersectionTangency.Tangent, IntersectionTangency.Unknown), actual: tangencies));
+    }
 }
 
 public sealed class IntersectionResultCanProjectLaws {
     // IntersectionResult is internal — use a private case table via Spec.Cases, not public Theory/MemberData rows.
-    private static readonly (IntersectionResult Case, Type Native)[] Rows = [
-        (IntersectGens.LinesCase, typeof(Line)), (IntersectGens.PointsCase, typeof(Point3d)), (IntersectGens.IntervalsCase, typeof(Interval))];
-    private static readonly Type[] NativeChannels = [typeof(Line), typeof(Point3d), typeof(Interval), typeof(Polyline)];
+    private static readonly (IntersectionResult Case, Type[] Accepted, Type[] Rejected)[] Rows = [
+        (IntersectGens.LinesCase, [typeof(Line), typeof(IntersectionKind)], [typeof(Point3d), typeof(Interval), typeof(Polyline), typeof(double)]),
+        (IntersectGens.PointsCase, [typeof(Point3d), typeof(IntersectionKind)], [typeof(Line), typeof(Interval), typeof(Polyline), typeof(double)]),
+        (IntersectGens.IntervalsCase, [typeof(Interval), typeof(IntersectionKind)], [typeof(Line), typeof(Point3d), typeof(Polyline), typeof(double)]),
+        (IntersectGens.PolylinesCase, [typeof(Polyline), typeof(IntersectionKind)], [typeof(Line), typeof(Point3d), typeof(Interval), typeof(double)]),
+        (IntersectGens.HitsCase, [typeof(IntersectionHit), typeof(Curve), typeof(Point3d), typeof(Interval), typeof(IntersectionKind), typeof(IntersectionTangency)], [typeof(Line), typeof(Polyline), typeof(double)])];
     [Fact]
     public void CanProjectAcceptsNativeAndKindAndRejectsForeignChannels() =>
-        Spec.Cases(items: Rows, key: static r => r.Native, law: static r => {
-            Spec.Holds(condition: r.Case.CanProject(output: r.Native), label: $"CanProject native {r.Native.Name}");
-            Spec.Holds(condition: r.Case.CanProject(output: typeof(IntersectionKind)), label: "CanProject IntersectionKind");
-            Spec.Holds(condition: !r.Case.CanProject(output: typeof(double)), label: "rejects double");
-            Spec.Holds(condition: !r.Case.CanProject(output: typeof(Plane)), label: "rejects Plane");
-            _ = toSeq(NativeChannels).Filter(channel => channel != r.Native)
-                .Iter(channel => Spec.Holds(condition: !r.Case.CanProject(output: channel), label: $"{r.Native.Name} rejects foreign {channel.Name}"));
+        Spec.Cases(items: Rows, key: static r => r.Case.GetType(), law: static r => {
+            _ = toSeq(r.Accepted).Iter(channel => Spec.Holds(condition: r.Case.CanProject(output: channel), label: $"{r.Case.GetType().Name} accepts {channel.Name}"));
+            _ = toSeq(r.Rejected).Iter(channel => Spec.Holds(condition: !r.Case.CanProject(output: channel), label: $"{r.Case.GetType().Name} rejects {channel.Name}"));
         });
 }
 

@@ -81,23 +81,23 @@ public sealed partial class DialogPresentation {
 
 [SmartEnum<int>]
 public sealed partial class FileDialogMode {
-    private delegate Seq<string> DialogRun(Control? parent, Option<string> initialPath, FileFilter[] filters, bool multiSelect, Option<string> title);
+    private delegate PathDialogSnapshot DialogRun(Control? parent, PathDialogSpec spec);
 
     public static readonly FileDialogMode Open = new(
         key: 0,
-        run: static (parent, initialPath, filters, multi, title) =>
-            Input.RunFileDialog(dialog: new OpenFileDialog { MultiSelect = multi }, parent: parent, initialPath: initialPath, filters: filters, title: title));
+        run: static (parent, spec) =>
+            Input.RunFileDialog(dialog: new OpenFileDialog { MultiSelect = spec.MultiSelect }, parent: parent, spec: spec));
     public static readonly FileDialogMode Save = new(
         key: 1,
-        run: static (parent, initialPath, filters, _, title) =>
-            Input.RunFileDialog(dialog: new SaveFileDialog(), parent: parent, initialPath: initialPath, filters: filters, title: title));
+        run: static (parent, spec) =>
+            Input.RunFileDialog(dialog: new SaveFileDialog(), parent: parent, spec: spec));
     public static readonly FileDialogMode Folder = new(
         key: 2,
-        run: static (parent, initialPath, _, _, title) =>
-            Input.RunFolderDialog(parent: parent, initialPath: initialPath, title: title));
+        run: static (parent, spec) =>
+            Input.RunFolderDialog(parent: parent, spec: spec));
 
     [UseDelegateFromConstructor]
-    internal partial Seq<string> Run(Control? parent, Option<string> initialPath, FileFilter[] filters, bool multiSelect, Option<string> title);
+    internal partial PathDialogSnapshot Run(Control? parent, PathDialogSpec spec);
 }
 
 [SkipUnionOps]
@@ -128,18 +128,16 @@ public partial record InputSelectionSource {
 [Union]
 public partial record InputClipboardOp {
     private InputClipboardOp() { }
-    public sealed record ReadCase : InputClipboardOp;
+    public sealed record ReadCase(Seq<string> DataTypes = default) : InputClipboardOp;
     public sealed record WriteCase(InputClipboardSnapshot Payload) : InputClipboardOp;
     public sealed record ClearCase : InputClipboardOp;
-    public sealed record WriteDataCase(Option<ReadOnlyMemory<byte>> Data, string Type) : InputClipboardOp;
-    public sealed record ReadDataCase(string Type) : InputClipboardOp;
     public static readonly InputClipboardOp Read = new ReadCase();
     public static InputClipboardOp Write(string text) => new WriteCase(Payload: InputClipboardSnapshot.Of(text: text));
     public static InputClipboardOp Write(InputClipboardSnapshot payload) => new WriteCase(Payload: payload);
     public static readonly InputClipboardOp Clear = new ClearCase();
     public static InputClipboardOp WriteData(byte[]? data, string type) =>
-        new WriteDataCase(Data: Optional(data).Map(static bytes => new ReadOnlyMemory<byte>(bytes)), Type: type);
-    public static InputClipboardOp ReadData(string type) => new ReadDataCase(Type: type);
+        Write(payload: InputClipboardSnapshot.Empty with { Data = Seq(new InputClipboardDataEntry(Type: type, Bytes: Optional(data).Map(static bytes => bytes.ToArray()))) });
+    public static InputClipboardOp ReadData(string type) => new ReadCase(DataTypes: Seq(type));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -162,19 +160,49 @@ public readonly record struct ToolbarSnapshot(int Count, bool Enabled, int Minim
 public readonly record struct MenuSnapshot(int Count);
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct InputClipboardSnapshot(Option<string> Text, Option<string> Html, Option<Image> Image, Seq<Uri> Uris, Seq<string> Types, Option<byte[]> Data = default) {
+public readonly record struct InputClipboardDataEntry(string Type, Option<byte[]> Bytes = default);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct InputClipboardSnapshot(Option<string> Text, Option<string> Html, Option<Image> Image, Seq<Uri> Uris, Seq<string> Types, Seq<InputClipboardDataEntry> Data = default) {
     public static InputClipboardSnapshot Empty => new(
         Text: Option<string>.None,
         Html: Option<string>.None,
         Image: Option<Image>.None,
         Uris: Seq<Uri>(),
         Types: Seq<string>(),
-        Data: Option<byte[]>.None);
+        Data: Seq<InputClipboardDataEntry>());
 
     public static InputClipboardSnapshot Of(string text) => Empty with { Text = Optional(text) };
 }
 
 public readonly record struct FileFilter(string Name, Seq<string> Extensions);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PathDialogSpec(
+    FileDialogMode Mode,
+    Option<string> InitialPath = default,
+    Seq<FileFilter> Filters = default,
+    bool MultiSelect = false,
+    Option<string> Title = default,
+    Option<int> FilterIndex = default,
+    Option<bool> CheckFileExists = default);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PathDialogSnapshot(Seq<string> Paths, int FilterIndex, Option<string> FilterName, bool Accepted) {
+    public static PathDialogSnapshot Cancelled => new(Paths: Seq<string>(), FilterIndex: -1, FilterName: Option<string>.None, Accepted: false);
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct UiNumberRange(Option<double> Minimum = default, Option<double> Maximum = default) {
+    internal Option<(double Minimum, double Maximum)> Bounds {
+        get {
+            Option<double> minimum = Minimum;
+            Option<double> maximum = Maximum;
+            return minimum.Bind(min => maximum.Map(max => (Minimum: min, Maximum: max)))
+                .Filter(static bounds => double.IsFinite(bounds.Minimum) && double.IsFinite(bounds.Maximum) && bounds.Minimum <= bounds.Maximum);
+        }
+    }
+}
 
 [ComplexValueObject(DefaultStringComparison = StringComparison.Ordinal)]
 [ValidationError<UiFault>]
@@ -497,7 +525,7 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
         internal override Fin<IDisposable> Apply(GrasshopperUi.Scope scope) => Input.CursorScope(kind: Kind).Run(scope: scope);
     }
     public sealed record Message(string Title, string Body, MessageBoxType Kind = MessageBoxType.Information, MessageBoxButtons Buttons = MessageBoxButtons.OK, MessageBoxDefaultButton Default = MessageBoxDefaultButton.Default) : InputRequest<DialogResult> { internal override Fin<DialogResult> Apply(GrasshopperUi.Scope scope) => Input.MessageDialog(title: Title, message: Body, kind: Kind, buttons: Buttons, defaultButton: Default).Run(scope: scope); }
-    public sealed record File(FileDialogMode Mode, Option<string> InitialPath, Seq<FileFilter> Filters, bool MultiSelect = false, Option<string> Title = default) : InputRequest<Seq<string>> { internal override Fin<Seq<string>> Apply(GrasshopperUi.Scope scope) => Input.FileDialog(mode: Mode, initialPath: InitialPath, multiSelect: MultiSelect, title: Title, filters: [.. Filters]).Run(scope: scope); }
+    public sealed record File(PathDialogSpec Spec) : InputRequest<PathDialogSnapshot> { internal override Fin<PathDialogSnapshot> Apply(GrasshopperUi.Scope scope) => Input.FileDialog(spec: Spec).Run(scope: scope); }
     public sealed record Clipboard(InputClipboardOp Op) : InputRequest<InputClipboardSnapshot> { internal override Fin<InputClipboardSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Clipboard(op: Op).Run(scope: scope); }
     // Typed modal dialog. The Configure delegate is responsible for installing widgets, wiring
     // a confirmation Button that invokes dialog.Close(result), and returning Fin.Succ once setup
@@ -507,11 +535,11 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
     }
     public sealed record PickColor(Color Initial, bool AllowAlpha = true) : InputRequest<Option<Color>> { internal override Fin<Option<Color>> Apply(GrasshopperUi.Scope scope) => Input.PickColor(initial: Initial, allowAlpha: AllowAlpha).Run(scope: scope); }
     public sealed record PickFont(Option<Font> Initial = default) : InputRequest<Option<Font>> { internal override Fin<Option<Font>> Apply(GrasshopperUi.Scope scope) => Input.PickFont(initial: Initial).Run(scope: scope); }
-    public sealed record Notify(string Title, string Body, Option<Image> ContentImage = default) : InputRequest<Unit> { internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Input.Notify(title: Title, message: Body, contentImage: ContentImage).Run(scope: scope); }
+    public sealed record Notify(string Title, string Body, Option<Image> ContentImage = default, bool TrayIndicator = false) : InputRequest<Unit> { internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Input.Notify(title: Title, message: Body, contentImage: ContentImage, trayIndicator: TrayIndicator).Run(scope: scope); }
     // Single-field prompts via Rhino.UI.Dialogs — denser than an Eto Dialog<T> for one value; kept as two
     // cases because the return domains differ (string vs double).
     public sealed record EditPrompt(string Title, string Body, string Default = "", bool Multiline = false) : InputRequest<Option<string>> { internal override Fin<Option<string>> Apply(GrasshopperUi.Scope scope) => Input.EditPrompt(title: Title, message: Body, defaultText: Default, multiline: Multiline).Run(scope: scope); }
-    public sealed record NumberPrompt(string Title, string Body, double Default = 0d) : InputRequest<Option<double>> { internal override Fin<Option<double>> Apply(GrasshopperUi.Scope scope) => Input.NumberPrompt(title: Title, message: Body, initial: Default).Run(scope: scope); }
+    public sealed record NumberPrompt(string Title, string Body, double Default = 0d, UiNumberRange Range = default) : InputRequest<Option<double>> { internal override Fin<Option<double>> Apply(GrasshopperUi.Scope scope) => Input.NumberPrompt(title: Title, message: Body, initial: Default, range: Range).Run(scope: scope); }
 }
 
 // Scope-restoring cursor capsule; disposing reinstates the canvas's prior Cursor. Use via
@@ -522,6 +550,40 @@ internal sealed class ScopedCursor(Grasshopper2.UI.Canvas.Canvas target, Cursor 
     public void Dispose() {
         busy?.Dispose();
         target.Cursor = previous;
+    }
+}
+
+file static class WaitCursorLease {
+    private static readonly Lock Sync = new();
+    private static Rhino.UI.WaitCursor? cursor;
+    private static int count;
+
+    [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "WaitCursor ownership is retained in the static lease and released when the last token exits.")]
+    internal static IDisposable Enter() {
+        lock (Sync) {
+            cursor ??= new Rhino.UI.WaitCursor();
+            count++;
+        }
+        return new Token();
+    }
+
+    private sealed class Token : IDisposable {
+        private int disposed;
+
+        public void Dispose() {
+            if (Interlocked.Exchange(ref disposed, 1) == 1) {
+                return;
+            }
+            Rhino.UI.WaitCursor? release = null;
+            lock (Sync) {
+                count = Math.Max(0, count - 1);
+                if (count == 0) {
+                    release = cursor;
+                    cursor = null;
+                }
+            }
+            release?.Dispose();
+        }
     }
 }
 
@@ -636,7 +698,7 @@ internal static partial class Input {
             kind.Resolve(canvas: canvas).Map(cursor => {
                 Cursor previous = canvas.Cursor;
                 canvas.Cursor = cursor;
-                IDisposable? busy = kind == CursorKind.Wait ? new Rhino.UI.WaitCursor() : null;
+                IDisposable? busy = kind == CursorKind.Wait ? WaitCursorLease.Enter() : null;
                 return (IDisposable)new ScopedCursor(target: canvas, previous: previous, busy: busy);
             })));
 
@@ -651,9 +713,9 @@ internal static partial class Input {
                 defaultButton: defaultButton))
             .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(MessageDialog)), detail: $"MessageBox.Show threw: {error.Message}")));
 
-    internal static GrasshopperUiIntent<Seq<string>> FileDialog(FileDialogMode mode, Option<string> initialPath = default, bool multiSelect = false, Option<string> title = default, params FileFilter[] filters) =>
+    internal static GrasshopperUiIntent<PathDialogSnapshot> FileDialog(PathDialogSpec spec) =>
         GhUi.Read(run: scope =>
-            Try.lift(f: () => mode.Run(parent: DialogParent(scope: scope), initialPath: initialPath, filters: filters, multiSelect: multiSelect, title: title))
+            Try.lift(f: () => spec.Mode.Run(parent: DialogParent(scope: scope), spec: spec))
                 .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(FileDialog)), detail: $"FileDialog.ShowDialog threw: {error.Message}")));
 
     internal static GrasshopperUiIntent<InputClipboardSnapshot> Clipboard(InputClipboardOp op) =>
@@ -661,11 +723,13 @@ internal static partial class Input {
             Optional(op)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Clipboard)), detail: "clipboard op is required"))
                 .Bind(valid => valid.Switch(
-                    readCase: static _ =>
+                    readCase: static r =>
+                        from types in ClipboardDataTypes(op: Op.Of(name: nameof(InputClipboardOp.Read)), types: r.DataTypes)
                         from clipboard in NeedClipboard(op: Op.Of(name: nameof(InputClipboardOp.Read)))
-                        from snapshot in Op.Of(name: nameof(InputClipboardOp.Read)).Attempt(body: () => ClipboardSnapshotOf(clipboard: clipboard), what: "Clipboard snapshot")
+                        from snapshot in Op.Of(name: nameof(InputClipboardOp.Read)).Attempt(body: () => ClipboardSnapshotOf(clipboard: clipboard, dataTypes: types), what: "Clipboard snapshot")
                         select snapshot,
                     writeCase: static w =>
+                        from data in ClipboardPayloadData(op: Op.Of(name: nameof(InputClipboardOp.Write)), data: w.Payload.Data)
                         from clipboard in NeedClipboard(op: Op.Of(name: nameof(InputClipboardOp.Write)))
                         from snapshot in Op.Of(name: nameof(InputClipboardOp.Write)).Attempt(body: () => {
                             clipboard.Clear();
@@ -673,7 +737,8 @@ internal static partial class Input {
                             _ = w.Payload.Html.Iter(html => clipboard.Html = html);
                             _ = w.Payload.Image.Iter(image => clipboard.Image = image);
                             _ = w.Payload.Uris.IsEmpty ? unit : Optional(w.Payload.Uris.ToArray()).Iter(uris => clipboard.Uris = uris);
-                            return ClipboardSnapshotOf(clipboard: clipboard);
+                            _ = data.Iter(entry => entry.Bytes.Iter(bytes => clipboard.SetData(value: bytes, type: entry.Type)));
+                            return ClipboardSnapshotOf(clipboard: clipboard, dataTypes: data.Map(static entry => entry.Type));
                         }, what: "Clipboard write")
                         select snapshot,
                     clearCase: static _ =>
@@ -682,24 +747,6 @@ internal static partial class Input {
                             clipboard.Clear();
                             return InputClipboardSnapshot.Empty;
                         }, what: "Clipboard.Clear")
-                        select snapshot,
-                    writeDataCase: static d =>
-                        from data in d.Data.ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(InputClipboardOp.WriteData)), detail: "data is required"))
-                        from type in Op.Of(name: nameof(InputClipboardOp.WriteData)).AcceptText(value: d.Type)
-                        from clipboard in NeedClipboard(op: Op.Of(name: nameof(InputClipboardOp.WriteData)))
-                        from snapshot in Op.Of(name: nameof(InputClipboardOp.WriteData)).Attempt(body: () => {
-                            byte[] bytes = data.ToArray();
-                            clipboard.Clear();
-                            clipboard.SetData(value: bytes, type: type);
-                            return ClipboardSnapshotOf(clipboard: clipboard) with { Data = Some(bytes) };
-                        }, what: "Clipboard.SetData")
-                        select snapshot,
-                    readDataCase: static r =>
-                        from type in Op.Of(name: nameof(InputClipboardOp.ReadData)).AcceptText(value: r.Type)
-                        from clipboard in NeedClipboard(op: Op.Of(name: nameof(InputClipboardOp.ReadData)))
-                        from snapshot in Op.Of(name: nameof(InputClipboardOp.ReadData)).Attempt(
-                            body: () => ClipboardSnapshotOf(clipboard: clipboard) with { Data = clipboard.Contains(type: type) ? Optional(clipboard.GetData(type: type)) : Option<byte[]>.None },
-                            what: "Clipboard.GetData")
                         select snapshot)));
 
     internal static GrasshopperUiIntent<Option<TResult>> Dialog<TResult>(Func<Dialog<Option<TResult>>, Fin<Unit>> configure, string title, Option<DialogPresentation> presentation) =>
@@ -742,36 +789,52 @@ internal static partial class Input {
                     : Option<string>.None,
                 what: "Dialogs.ShowEditBox"));
 
-    internal static GrasshopperUiIntent<Option<double>> NumberPrompt(string title, string message, double initial) =>
+    internal static GrasshopperUiIntent<Option<double>> NumberPrompt(string title, string message, double initial, UiNumberRange range = default) =>
         GhUi.Read(run: _ =>
             Op.Of(name: nameof(NumberPrompt)).Attempt(
                 body: () => {
                     double number = initial;
-                    return Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref number)
+                    bool accepted = range.Bounds is { IsSome: true, Case: ValueTuple<double, double> bounds }
+                        ? Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref number, minimum: bounds.Item1, maximum: bounds.Item2)
+                        : Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref number);
+                    return accepted
                         ? Some(number)
                         : Option<double>.None;
                 },
                 what: "Dialogs.ShowNumberBox"));
 
-    internal static GrasshopperUiIntent<Unit> Notify(string title, string message, Option<Image> contentImage) =>
+    internal static GrasshopperUiIntent<Unit> Notify(string title, string message, Option<Image> contentImage, bool trayIndicator) =>
         GhUi.Read(run: scope =>
             Try.lift(f: () => {
+                using TrayIndicator? indicator = trayIndicator ? new TrayIndicator { Title = title, Visible = true } : null;
                 using Notification notification = new() { Title = title, Message = message };
                 _ = contentImage.Iter(image => notification.ContentImage = image);
-                notification.Show();
+                notification.Show(indicator: indicator);
                 return unit;
             }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Notify)), detail: $"Notification threw: {error.Message}")));
 
     private static Fin<Clipboard> NeedClipboard(Op op) =>
         Optional(Eto.Forms.Clipboard.Instance).ToFin(Fail: UiFault.MutationRejected(op: op, detail: "Eto Clipboard.Instance is not initialized"));
 
-    private static InputClipboardSnapshot ClipboardSnapshotOf(Clipboard clipboard) =>
+    private static Fin<Seq<string>> ClipboardDataTypes(Op op, Seq<string> types) =>
+        types.TraverseM(op.AcceptText).As();
+
+    private static Fin<Seq<InputClipboardDataEntry>> ClipboardPayloadData(Op op, Seq<InputClipboardDataEntry> data) =>
+        data.TraverseM(entry =>
+            from type in op.AcceptText(value: entry.Type)
+            from bytes in entry.Bytes.ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"clipboard data payload for {type} is required"))
+            select new InputClipboardDataEntry(Type: type, Bytes: Some(bytes))).As();
+
+    private static InputClipboardSnapshot ClipboardSnapshotOf(Clipboard clipboard, Seq<string> dataTypes = default) =>
         new(
-            Text: Optional(clipboard.Text),
-            Html: Optional(clipboard.Html),
-            Image: Optional(clipboard.Image),
-            Uris: toSeq(clipboard.Uris ?? []),
-            Types: toSeq(clipboard.Types ?? []));
+            Text: clipboard.ContainsText ? Optional(clipboard.Text) : Option<string>.None,
+            Html: clipboard.ContainsHtml ? Optional(clipboard.Html) : Option<string>.None,
+            Image: clipboard.ContainsImage ? Optional(clipboard.Image) : Option<Image>.None,
+            Uris: clipboard.ContainsUris ? toSeq(clipboard.Uris ?? []) : Seq<Uri>(),
+            Types: toSeq(clipboard.Types ?? []),
+            Data: dataTypes.Bind(type => clipboard.Contains(type: type)
+                ? Seq(new InputClipboardDataEntry(Type: type, Bytes: Optional(clipboard.GetData(type: type))))
+                : Seq<InputClipboardDataEntry>()));
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
     internal static InputModifierSnapshot ModifierOf(Keys keys) =>
@@ -782,9 +845,9 @@ internal static partial class Input {
             scope.Canvas.Map(static c => (Control?)c.ControlObject)
                 .IfNone(() => (Control?)(Rhino.UI.RhinoEtoApp.MainWindowForOwner ?? Rhino.UI.RhinoEtoApp.MainWindow)));
 
-    internal static Seq<string> RunFileDialog(FileDialog dialog, Control? parent, Option<string> initialPath, FileFilter[] filters, Option<string> title) {
+    internal static PathDialogSnapshot RunFileDialog(FileDialog dialog, Control? parent, PathDialogSpec spec) {
         using FileDialog owned = dialog;
-        _ = initialPath.Filter(static path => !string.IsNullOrWhiteSpace(path))
+        _ = spec.InitialPath.Filter(static path => !string.IsNullOrWhiteSpace(path))
             .IfSome(path => {
                 string fullPath = System.IO.Path.GetFullPath(path: path);
                 string directory = Directory.Exists(path: fullPath) ? fullPath : System.IO.Path.GetDirectoryName(path: fullPath) ?? string.Empty;
@@ -795,29 +858,36 @@ internal static partial class Input {
                     .Filter(file => !string.IsNullOrWhiteSpace(value: file) && !Directory.Exists(path: fullPath))
                     .IfSome(file => owned.FileName = file);
             });
-        _ = title.IfSome(value => owned.Title = value);
-        _ = toSeq(filters).Iter(f => owned.Filters.Add(item: new Eto.Forms.FileFilter(name: f.Name, extensions: [.. f.Extensions])));
+        _ = spec.Title.IfSome(value => owned.Title = value);
+        _ = spec.CheckFileExists.IfSome(value => owned.CheckFileExists = value);
+        _ = toSeq(spec.Filters).Iter(f => owned.Filters.Add(item: new Eto.Forms.FileFilter(name: f.Name, extensions: [.. f.Extensions])));
+        _ = spec.FilterIndex.IfSome(index => owned.CurrentFilterIndex = index);
         DialogResult result = owned.ShowDialog(parent: parent);
-        return result switch {
+        Seq<string> paths = result switch {
             DialogResult.Ok when owned is OpenFileDialog { MultiSelect: true } open => toSeq(open.Filenames),
             DialogResult.Ok => Seq(owned.FileName),
             _ => Seq<string>(),
         };
+        return new PathDialogSnapshot(
+            Paths: paths,
+            FilterIndex: owned.CurrentFilterIndex,
+            FilterName: toSeq(spec.Filters).Skip(owned.CurrentFilterIndex).Head.Map(static f => f.Name),
+            Accepted: result == DialogResult.Ok);
     }
 
     // SelectFolderDialog : CommonDialog (NOT FileDialog) — separate dispatch (per Eto verification).
-    internal static Seq<string> RunFolderDialog(Control? parent, Option<string> initialPath, Option<string> title) {
+    internal static PathDialogSnapshot RunFolderDialog(Control? parent, PathDialogSpec spec) {
         using SelectFolderDialog dialog = new();
-        _ = initialPath.Filter(static path => !string.IsNullOrWhiteSpace(path)).IfSome(path => {
+        _ = spec.InitialPath.Filter(static path => !string.IsNullOrWhiteSpace(path)).IfSome(path => {
             string fullPath = System.IO.Path.GetFullPath(path: path);
             string directory = Directory.Exists(path: fullPath) ? fullPath : System.IO.Path.GetDirectoryName(path: fullPath) ?? fullPath;
             dialog.Directory = directory;
         });
-        _ = title.IfSome(value => dialog.Title = value);
+        _ = spec.Title.IfSome(value => dialog.Title = value);
         DialogResult result = dialog.ShowDialog(parent: parent);
         return result switch {
-            DialogResult.Ok => Seq(dialog.Directory),
-            _ => Seq<string>(),
+            DialogResult.Ok => new PathDialogSnapshot(Paths: Seq(dialog.Directory), FilterIndex: -1, FilterName: Option<string>.None, Accepted: true),
+            _ => PathDialogSnapshot.Cancelled,
         };
     }
 }

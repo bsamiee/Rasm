@@ -600,16 +600,16 @@ internal static partial class UiRail {
                     op: Op.Of(name: nameof(CanvasViewOp.Selection)),
                     frame: target => {
                         float padding = ResolveView(raw: f.Policy, defaultPadding: CanvasViewPolicy.SelectionFitPadding).Padding;
-                        IEnumerable<IDocumentObject> targets = f.Ids
-                            .Map(list => list.Choose(id => Optional(target.Objects.Find(instanceId: id))))
-                            .IfNone(toSeq(target.Objects.SelectedObjects));
-                        return FrameOf(targets: targets)
+                        Fin<Seq<IDocumentObject>> targets = f.Ids
+                            .Map(list => list.TraverseM(id => ResolveObject(objects: target.Objects, id: id, op: Op.Of(name: nameof(CanvasViewOp.Selection)))).As())
+                            .IfNone(Fin.Succ(value: toSeq(target.Objects.SelectedObjects)));
+                        return targets.Bind(resolved => FrameOf(targets: resolved)
                             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasViewOp.Selection)), detail: "no target objects"))
                             .Bind(aggregate => Op.Of(name: nameof(CanvasViewOp.Selection)).AcceptRect(
                                 value: aggregate,
                                 detail: "non-finite or zero-size aggregate",
                                 requirePositive: true)
-                                .Map(valid => RectangleF.Inflate(rectangle: valid, width: padding, height: padding)));
+                                .Map(valid => RectangleF.Inflate(rectangle: valid, width: padding, height: padding))));
                     }),
             fitCase: static (scope, ft) =>
                 NavigateView(
@@ -730,17 +730,7 @@ internal static partial class UiRail {
             float radius = tolerance.Value;
             Seq<PointF> probes = radius <= 0f
                 ? Seq(content)
-                : [
-                    content,
-                    new PointF(x: content.X - radius, y: content.Y),
-                    new PointF(x: content.X + radius, y: content.Y),
-                    new PointF(x: content.X, y: content.Y - radius),
-                    new PointF(x: content.X, y: content.Y + radius),
-                    new PointF(x: content.X - radius, y: content.Y - radius),
-                    new PointF(x: content.X + radius, y: content.Y - radius),
-                    new PointF(x: content.X - radius, y: content.Y + radius),
-                    new PointF(x: content.X + radius, y: content.Y + radius),
-                ];
+                : ProbeLattice(centre: content, radius: radius);
             SelectionResult Resolve(PointF probe) => canvas.ResolvePick(
                 point: probe,
                 includeGrips: (policy & CanvasPickPolicy.Grips) == CanvasPickPolicy.Grips,
@@ -874,14 +864,55 @@ internal static partial class UiRail {
                 YLabel: snap.Y.Map(static action => new SnapLabel(Text: action.LabelText, Point: action.LabelPoint, Anchor: Some(action.LabelAnchor))),
                 Lines: snap.X.Map(static action => toSeq(action.Lines)).IfNone(Seq<LineF>()) + snap.Y.Map(static action => toSeq(action.Lines)).IfNone(Seq<LineF>())));
 
-    internal static Fin<int> SelectionDispatch(GhDocumentMethods methods, SelectionOp op) =>
+    internal static Fin<int> SelectionDispatch(GhDocumentMethods methods, GhObjectList objects, SelectionOp op) =>
         op.Switch(
-            state: methods,
-            allCase: static (m, _) => Op.Of(name: nameof(SelectionOp.All)).Attempt(body: m.SelectAll, what: "DocumentMethods.SelectAll"),
-            noneCase: static (m, _) => Op.Of(name: nameof(SelectionOp.None)).Attempt(body: m.DeselectAll, what: "DocumentMethods.DeselectAll"),
-            invertCase: static (m, _) => Op.Of(name: nameof(SelectionOp.Invert)).Attempt(body: m.InvertSelection, what: "DocumentMethods.InvertSelection"),
-            growCase: static (m, g) => Op.Of(name: nameof(SelectionOp.Grow)).Attempt(body: () => m.GrowSelection(upstream: g.Upstream, downstream: g.Downstream), what: "DocumentMethods.GrowSelection"),
-            shiftCase: static (m, s) => Op.Of(name: nameof(SelectionOp.Shift)).Attempt(body: () => m.ShiftSelection(upstream: s.Upstream), what: "DocumentMethods.ShiftSelection"));
+            state: (methods, objects),
+            allCase: static (s, _) => Op.Of(name: nameof(SelectionOp.All)).Attempt(body: s.methods.SelectAll, what: "DocumentMethods.SelectAll"),
+            noneCase: static (s, _) => Op.Of(name: nameof(SelectionOp.None)).Attempt(body: s.methods.DeselectAll, what: "DocumentMethods.DeselectAll"),
+            invertCase: static (s, _) => Op.Of(name: nameof(SelectionOp.Invert)).Attempt(body: s.methods.InvertSelection, what: "DocumentMethods.InvertSelection"),
+            growCase: static (s, g) => GraphSelection(op: Op.Of(name: nameof(SelectionOp.Grow)), objects: s.objects, upstream: g.Upstream, downstream: g.Downstream, replace: false),
+            shiftCase: static (s, shift) => GraphSelection(op: Op.Of(name: nameof(SelectionOp.Shift)), objects: s.objects, upstream: shift.Upstream, downstream: !shift.Upstream, replace: true));
+
+    private static Seq<PointF> ProbeLattice(PointF centre, float radius) =>
+        toSeq(Enumerable.Range(start: -1, count: 3)
+            .SelectMany(dx => Enumerable.Range(start: -1, count: 3)
+                .Select(dy => (Dx: dx, Dy: dy, Point: new PointF(x: centre.X + (dx * radius), y: centre.Y + (dy * radius)))))
+            .OrderBy(static probe => Math.Abs(probe.Dx) + Math.Abs(probe.Dy))
+            .Select(static probe => probe.Point));
+
+    private static Fin<int> GraphSelection(Op op, GhObjectList objects, bool upstream, bool downstream, bool replace) =>
+        op.Attempt(body: () => {
+            System.Collections.Generic.HashSet<Guid> next = replace ? [] : [.. objects.SelectedObjects.Select(static obj => obj.InstanceId)];
+            Seq<IDocumentObject> selected = toSeq(objects.SelectedObjects);
+            foreach (IDocumentObject obj in selected) {
+                _ = Op.SideWhen(upstream, () => AddImmediate(objects: objects, owner: obj.InstanceId, upstream: true, selected: next));
+                _ = Op.SideWhen(downstream, () => AddImmediate(objects: objects, owner: obj.InstanceId, upstream: false, selected: next));
+            }
+            int changed = 0;
+            _ = Op.SideWhen(replace, () => {
+                foreach (IDocumentObject obj in selected.Filter(obj => !next.Contains(obj.InstanceId))) {
+                    obj.Selection = ObjectSelection.Unselected;
+                    changed++;
+                }
+            });
+            foreach (Guid id in next) {
+                if (objects.Find(instanceId: id) is { Selection: not ObjectSelection.Selected } obj) {
+                    obj.Selection = ObjectSelection.Selected;
+                    changed++;
+                }
+            }
+            return changed;
+        }, what: "Connectivity selection expansion");
+
+    private static Unit AddImmediate(GhObjectList objects, Guid owner, bool upstream, System.Collections.Generic.HashSet<Guid> selected) {
+        IEnumerable<ConnectiveObject> nodes = upstream
+            ? objects.Connectivity.FindImmediateInputs(owner)
+            : objects.Connectivity.FindImmediateOutputs(owner);
+        foreach (ConnectiveObject node in nodes) {
+            _ = selected.Add(item: node.Id);
+        }
+        return unit;
+    }
 
     internal static Fin<Option<Guid>> ComposeDispatch(GhDocumentMethods methods, GhObjectList objects, ObjectScope subject, ComposeOp op, ActionList actions) =>
         subject.Switch(
@@ -960,9 +991,7 @@ internal static partial class UiRail {
             ? Fin.Succ(value: unit)
             : scope.UndoGroup is { IsSome: true, Case: UndoGroup bag }
                 ? Try.lift(f: () => {
-                    foreach (Grasshopper2.Undo.Action action in actions.Actions) {
-                        _ = bag.Add(action: action);
-                    }
+                    _ = bag.Add(list: actions);
                     return unit;
                 }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(CommitActions)), detail: $"UndoGroup add threw: {error.Message}"))
                 : CommitActions(document: document, name: name, actions: actions);
@@ -1004,7 +1033,7 @@ internal static partial class UiRail {
         Optional(wires).Map(static w => toSeq(w)).IfNone(Seq<WireEnds>());
 
     internal static DocumentSnapshot DocumentSnapshotOf(GhDocument document, GhObjectList objects) {
-        Seq<WireEnds> allWires = WiresOrEmpty(wires: objects.AllWires);
+        Seq<WireEnds> allWires = Wire.AllWireEnds(objects: objects);
         Seq<WireEnds> selectedWires = WiresOrEmpty(wires: objects.SelectedWires);
         int wireCount = allWires.Count(wire => Wire.IsConnected(objects: objects, wire: wire));
         int selectedWireCount = selectedWires.Count(wire => Wire.IsConnected(objects: objects, wire: wire));

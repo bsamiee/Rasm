@@ -14,7 +14,6 @@ using GhEditor = Grasshopper2.UI.Editor;
 using GhObjectList = Grasshopper2.Doc.ObjectList;
 using Op = Rasm.Domain.Op;
 using SolutionMode = Grasshopper2.Doc.SolutionMode;
-using UndoAction = Grasshopper2.Undo.Action;
 
 namespace Rasm.Grasshopper.UI;
 
@@ -203,16 +202,14 @@ public readonly record struct LayoutArrangeDelta(Seq<LayoutMoveDelta> Moves) {
     public int Count => Moves.Count;
 }
 
-public readonly record struct UndoEntry(VerbNoun Name, Seq<UndoAction> Actions) {
-    internal ActionList AsList() => new([.. Actions]);
-}
+public readonly record struct UndoEntry(VerbNoun Name, ActionList Actions);
 
 internal sealed class UndoGroup {
-    private readonly List<UndoAction> actions = [];
+    private readonly ActionList actions = ActionList.Empty;
     public VerbNoun Name { get; private set; }
     internal UndoGroup(string verb, string noun) => Name = (verb, noun);
-    internal Unit Add(UndoAction action) {
-        actions.Add(item: action);
+    internal Unit Add(ActionList list) {
+        actions.Add(list);
         return unit;
     }
     // Nested labels concatenate via VerbNoun so History preserves grouped provenance.
@@ -220,10 +217,10 @@ internal sealed class UndoGroup {
         Name += (verb, noun);
         return unit;
     }
-    internal UndoEntry ToEntry() => new(Name: Name, Actions: toSeq(actions));
+    internal UndoEntry ToEntry() => new(Name: Name, Actions: actions);
     internal Fin<Unit> Commit(GhDocument document) {
         UndoEntry entry = ToEntry();
-        return UiRail.CommitActions(document: document, name: entry.Name, actions: entry.AsList());
+        return UiRail.CommitActions(document: document, name: entry.Name, actions: entry.Actions);
     }
 }
 

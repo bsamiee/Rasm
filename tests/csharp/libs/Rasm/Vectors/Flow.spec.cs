@@ -119,6 +119,10 @@ public sealed class TerminationLaws {
 public sealed class IntegratorKindLaws {
     [Fact]
     public void TableauMetadataIsCoherent() {
+        Spec.SmartEnumCatalogMatches(production: IntegratorKind.Items, expectedKeys: [0, 1, 2, 3, 4, 5, 6, 7, 8], key: static k => k.Key);
+        Spec.SmartEnumCatalogMatches(production: StreamlineStopKind.Items, expectedKeys: [0, 1, 2], key: static k => k.Key);
+        Spec.SmartEnumCatalogMatches(production: TraceEventKind.Items, expectedKeys: [0, 1], key: static k => k.Key);
+        Spec.SmartEnumCatalogMatches(production: TraceEventStatus.Items, expectedKeys: [0, 1, 2, 3], key: static k => k.Key);
         Spec.ForAll(FlowGens.Adaptive, k => Assert.True(k.IsAdaptive));
         Spec.ForAll(FlowGens.NonAdaptive, k => Assert.False(k.IsAdaptive));
         Spec.ForAll(FlowGens.Integrator, k => {

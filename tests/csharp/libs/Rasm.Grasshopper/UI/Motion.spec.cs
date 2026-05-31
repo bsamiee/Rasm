@@ -1,5 +1,6 @@
 using Grasshopper2.UI.Animation;
 using Rasm.Grasshopper.UI;
+using Rasm.TestKit;
 using GhDuration = Grasshopper2.UI.Animation.Duration;
 using GhMotion = Grasshopper2.UI.Animation.Motion;
 
@@ -56,6 +57,13 @@ public sealed class SpringHandleConvergenceLaws {
         Assert.True(condition: handle.IsConverged);
         Assert.False(condition: rested.Step(frameDeltaSeconds: 1f / 120f).IsActive);
     }
+
+    [Fact]
+    public void RetargetRejectsNonFiniteTargetsBeforeWakingRunner() {
+        using SpringHandle<float> handle = HandleGens.Spring(value: 0f, velocity: 0f, target: 1f);
+        Spec.FailCategory(result: handle.Retarget(target: float.NaN), category: "Input");
+        Assert.Equal(expected: 1f, actual: handle.CurrentTarget);
+    }
 }
 
 public sealed class PulseHandleCyclingLaws {
@@ -72,6 +80,62 @@ public sealed class PulseHandleCyclingLaws {
     public void IsCyclingTracksActivity(int cyclesRemaining, bool infinite, bool cycling) {
         using PulseHandle<float> handle = HandleGens.Pulse(cyclesRemaining: cyclesRemaining, infinite: infinite);
         Assert.Equal(expected: cycling, actual: handle.IsCycling);
+    }
+}
+
+public sealed class SpringConfigLaws {
+    public static TheoryData<float, float, float> InvalidCases => new() {
+        { 0f, 1f, 1f },
+        { -1f, 1f, 1f },
+        { float.NaN, 1f, 1f },
+        { 1f, -0.01f, 1f },
+        { 1f, float.PositiveInfinity, 1f },
+        { 1f, 1f, 0f },
+        { 1f, 1f, float.NegativeInfinity },
+    };
+
+    [Theory]
+    [MemberData(nameof(InvalidCases))]
+    public void RejectsNonPhysicalParameters(float stiffness, float damping, float mass) =>
+        Assert.False(condition: SpringConfig.TryCreate(stiffness: stiffness, damping: damping, mass: mass, obj: out _));
+
+    [Fact]
+    public void ResponseFactoryMatchesClosedFormOscillatorParameters() {
+        SpringConfig config = SpringConfig.Response(response: 0.5f, dampingFraction: 0.75f, mass: 2f);
+        float omega = (float)(2.0 * Math.PI) / 0.5f;
+
+        Assert.Equal(expected: omega * omega * 2f, actual: config.Stiffness, tolerance: 1e-4f);
+        Assert.Equal(expected: 4f * (float)Math.PI * 0.75f * 2f / 0.5f, actual: config.Damping, tolerance: 1e-5f);
+        Assert.Equal(expected: 2f, actual: config.Mass);
+    }
+
+    [Fact]
+    public void PresetCatalogContainsFinitePositiveSpringConfigurations() =>
+        Spec.Cases(items: SpringPreset.Items, key: static preset => preset.Key, law: static preset => {
+            Assert.True(condition: preset.Config.Stiffness > 0f && float.IsFinite(preset.Config.Stiffness));
+            Assert.True(condition: preset.Config.Damping >= 0f && float.IsFinite(preset.Config.Damping));
+            Assert.True(condition: preset.Config.Mass > 0f && float.IsFinite(preset.Config.Mass));
+        });
+}
+
+public sealed class MotionVectorLaws {
+    [Fact]
+    public void FloatVectorObeysBasicLinearSpaceLaws() =>
+        Spec.ForAll(Gen.Double[start: -1000.0, finish: 1000.0].Select(Gen.Double[start: -1000.0, finish: 1000.0], static (double a, double b) => ((float)a, (float)b)), static tuple => {
+            (float a, float b) = tuple;
+            Assert.Equal(expected: a, actual: MotionVector.Float.Add(a: a, b: MotionVector.Float.Zero));
+            Assert.Equal(expected: a - b, actual: MotionVector.Float.Subtract(a: a, b: b));
+            Assert.Equal(expected: Math.Abs(a - b), actual: MotionVector.Float.Norm(value: MotionVector.Float.Subtract(a: a, b: b)));
+            Assert.Equal(expected: a, actual: MotionVector.Float.Interpolate(value0: a, value1: b, factor: 0.0), tolerance: 1e-4f);
+            Assert.Equal(expected: b, actual: MotionVector.Float.Interpolate(value0: a, value1: b, factor: 1.0), tolerance: 1e-4f);
+        });
+
+    [Fact]
+    public void CompositeVectorsRejectNonFiniteComponents() {
+        Assert.False(condition: MotionVector.PointF.IsFinite(value: new PointF(x: float.NaN, y: 0f)));
+        Assert.False(condition: MotionVector.SizeF.IsFinite(value: new SizeF(width: 1f, height: float.PositiveInfinity)));
+        Assert.False(condition: MotionVector.RectangleF.IsFinite(value: new RectangleF(x: 0f, y: 0f, width: 1f, height: float.NaN)));
+        Assert.True(condition: MotionVector.Color.IsFinite(value: Colors.White));
     }
 }
 

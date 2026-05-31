@@ -149,6 +149,23 @@ public sealed class SubscriptionTeardownLaws {
 }
 
 public sealed class RepaintRequestAbsorptionLaws {
+    public static TheoryData<RepaintRequest, RepaintRequest, Type> PriorityCases => new() {
+        { RepaintRequest.None, RepaintRequest.Scheduled, typeof(RepaintRequest.ScheduledCase) },
+        { RepaintRequest.Scheduled, RepaintRequest.Canvas, typeof(RepaintRequest.CanvasCase) },
+        { RepaintRequest.Canvas, RepaintRequest.Object(id: Guid.NewGuid()), typeof(RepaintRequest.CanvasCase) },
+        { RepaintRequest.Scheduled, RepaintRequest.Region(bounds: new RectangleF(x: 0f, y: 0f, width: 1f, height: 1f)), typeof(RepaintRequest.ScheduledCase) },
+        { RepaintRequest.Object(id: Guid.NewGuid()), RepaintRequest.Object(id: Guid.NewGuid()), typeof(RepaintRequest.CanvasCase) },
+        { RepaintRequest.Solution, RepaintRequest.Canvas, typeof(RepaintRequest.SolutionCase) },
+        { RepaintRequest.Display, RepaintRequest.Canvas, typeof(RepaintRequest.DisplayCase) },
+        { RepaintRequest.Solution, RepaintRequest.Display, typeof(RepaintRequest.SolutionAndDisplayCase) },
+        { RepaintRequest.SolutionAndDisplay, RepaintRequest.None, typeof(RepaintRequest.SolutionAndDisplayCase) },
+    };
+
+    [Theory]
+    [MemberData(nameof(PriorityCases))]
+    public void AbsorptionPriorityIsStable(RepaintRequest left, RepaintRequest right, Type expected) =>
+        Assert.IsType(expectedType: expected, @object: left | right);
+
     [Fact]
     public void CanvasBeatsScheduled() {
         RepaintRequest merged = RepaintRequest.Scheduled | RepaintRequest.Canvas;
@@ -163,7 +180,37 @@ public sealed class RepaintRequestAbsorptionLaws {
     public void SameObjectIdIsIdempotent() {
         Guid id = Guid.NewGuid();
         RepaintRequest merged = RepaintRequest.Object(id: id) | RepaintRequest.Object(id: id);
-        _ = Assert.IsType<RepaintRequest.ObjectCase>(@object: merged);
+        RepaintRequest.ObjectCase result = Assert.IsType<RepaintRequest.ObjectCase>(@object: merged);
+        Assert.Equal(expected: id, actual: result.Id);
+    }
+    [Fact]
+    public void RegionsUnionInsteadOfEscalatingToCanvas() {
+        RepaintRequest.RegionCase result = Assert.IsType<RepaintRequest.RegionCase>(
+            @object: RepaintRequest.Region(bounds: new RectangleF(x: 0f, y: 0f, width: 4f, height: 4f))
+                | RepaintRequest.Region(bounds: new RectangleF(x: 2f, y: 2f, width: 4f, height: 4f)));
+        Assert.Equal(expected: new RectangleF(x: 0f, y: 0f, width: 6f, height: 6f), actual: result.Bounds);
+    }
+}
+
+public sealed class GrasshopperUiPolicyLaws {
+    [Fact]
+    public void PolicyJoinOrsScopeRequirementsAndAbsorbsRepaint() {
+        GrasshopperUiPolicy merged =
+            GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled)
+            | GrasshopperUiPolicy.Document(repaint: RepaintRequest.Object(id: Guid.NewGuid()));
+
+        Assert.True(condition: merged.RequireCanvas);
+        Assert.True(condition: merged.RequireDocument);
+        _ = Assert.IsType<RepaintRequest.ScheduledCase>(@object: merged.RepaintOrNone);
+    }
+
+    [Fact]
+    public void ReadPolicyIsPureAndCarriesNoneRepaintIdentity() {
+        GrasshopperUiPolicy policy = GrasshopperUiPolicy.Read;
+        Assert.False(condition: policy.OpenEditor);
+        Assert.False(condition: policy.RequireCanvas);
+        Assert.False(condition: policy.RequireDocument);
+        _ = Assert.IsType<RepaintRequest.NoneCase>(@object: policy.RepaintOrNone);
     }
 }
 

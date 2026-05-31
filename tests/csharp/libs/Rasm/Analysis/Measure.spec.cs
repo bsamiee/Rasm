@@ -18,6 +18,8 @@ internal static class MeasureGens {
         _ => true,
     };
     public static bool ExpectProduct(MassProperty p) => p.Key >= 5;
+    public static readonly Context Model =
+        Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: Rhino.UnitSystem.Millimeters).ToFin(), label: "measure context");
 }
 
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
@@ -147,5 +149,26 @@ public sealed class MeasureDispatchLaws {
                 Assert.Equal(expected: typeof(Mesh), actual: fault.GeometryType);
                 Assert.Equal(expected: typeof(double), actual: fault.OutputType);
             });
+    }
+}
+
+public sealed class MeasureManagedProjectionLaws {
+    [Fact]
+    public void LengthOfPrimitiveCurveCarriersMatchesClosedForms() {
+        Line line = new(from: Point3d.Origin, to: new Point3d(x: 3.0, y: 4.0, z: 12.0));
+        Spec.Succ(result: Analyze.LengthOf(geometry: line, context: MeasureGens.Model, op: MeasureGens.Key),
+            then: length => Spec.Equal(left: length, right: 13.0, tolerance: 1.0e-12, what: "line length"));
+    }
+
+    [Fact]
+    public void CentroidOfManagedPointLineAndBoxCarriersMatchesClosedForms() {
+        Line line = new(from: new Point3d(x: -1.0, y: 2.0, z: 5.0), to: new Point3d(x: 3.0, y: 6.0, z: 9.0));
+        BoundingBox box = new(min: new Point3d(x: -2.0, y: 4.0, z: 10.0), max: new Point3d(x: 8.0, y: 14.0, z: 20.0));
+        Spec.Succ(result: Analyze.CentroidOf(geometry: line, context: MeasureGens.Model, op: MeasureGens.Key),
+            then: point => Spec.Equal(left: point, right: line.PointAt(t: 0.5), tolerance: 1.0e-12, what: "line centroid"));
+        Spec.Succ(result: Analyze.CentroidOf(geometry: box, context: MeasureGens.Model, op: MeasureGens.Key),
+            then: point => Spec.Equal(left: point, right: box.Center, tolerance: 1.0e-12, what: "box centroid"));
+        Spec.Succ(result: Analyze.CentroidOf(geometry: new Point3d(x: 7.0, y: 11.0, z: 13.0), context: MeasureGens.Model, op: MeasureGens.Key),
+            then: point => Spec.Equal(left: point, right: new Point3d(x: 7.0, y: 11.0, z: 13.0), tolerance: 0.0, what: "point centroid"));
     }
 }

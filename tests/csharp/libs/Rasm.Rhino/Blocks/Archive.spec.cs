@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
 using Rasm.Rhino.Blocks;
+using Rasm.Rhino.Commands;
+using Rasm.Rhino.Exchange;
 using Rhino.Geometry;
 
 namespace Rasm.Rhino.Tests.Blocks;
@@ -36,4 +38,28 @@ public sealed class BlockArchivePlanLaws {
             Source: Option<ArchiveLink>.None,
             MemberIds: members,
             Live: Option<LiveStats>.None);
+
+    [Fact]
+    public void GraphProjectsResourceEntriesAndEdgesForDefinitionsMembersInstancesAndLinks() {
+        ArchiveLink link = ArchiveLink.Resolve(raw: "/tmp/source.3dm", anchorDirectory: Option<string>.None)
+            .IfFail(error => throw new InvalidOperationException(message: error.Message));
+        Guid member = Guid.Parse(input: "8983d56c-7e2f-41bf-b365-4c2863f4c82c");
+        Definition linked = DefinitionOf(name: "linked", id: Guid.Parse(input: "41035b57-1928-432d-831d-04a56c442048"), members: [member]) with {
+            Source = Some(link),
+        };
+        Archive.Graph graph = new(
+            Definitions: [linked],
+            Instances: [new Archive.Instance(ObjectId: Guid.Parse(input: "a69c611a-fef8-4b16-a571-bc7bd8f841c5"), ParentDefId: linked.Id, Xform: Transform.Identity)],
+            LinkedArchives: [link]);
+
+        Seq<FileResourceEntry> entries = Archive.ToFileResourceEntries(graph: graph);
+        Seq<FileResourceEdge> edges = Archive.ToFileResourceEdges(graph: graph);
+
+        _ = Assert.Single(collection: entries);
+        Assert.Equal(expected: "linked", actual: entries[0].Name.IfNone(""));
+        Assert.Equal(expected: link.Stored, actual: entries[0].Path.IfNone(""));
+        Assert.Contains(collection: edges, filter: static edge => edge.Role.Equals(FileResourceRole.Member));
+        Assert.Contains(collection: edges, filter: static edge => edge.Role.Equals(FileResourceRole.Instance));
+        Assert.Contains(collection: edges, filter: static edge => edge.Role.Equals(FileResourceRole.Linked));
+    }
 }

@@ -1368,14 +1368,17 @@ internal static class Motion {
 
     [SupportedOSPlatform("macos14.0")]
     private static CAShapeLayer CosmeticStrokeLayer(CosmeticIntent.StrokeOnCase stroke) {
+        Seq<PointF> points = toSeq(stroke.Polyline.ToArray());
+        RectangleF frame = PathFrame(points: points).IfNone(RectangleF.Empty);
         CGPath path = new();
         // Fold the polyline into the CGPath: first point opens the subpath (MoveTo), the rest extend it (LineTo).
-        _ = toSeq(stroke.Polyline.ToArray()).Fold(true, (first, point) => {
-            CGPoint cg = ToCGPoint(point);
+        _ = points.Fold(true, (first, point) => {
+            CGPoint cg = LocalPoint(point: point, frame: frame);
             _ = first ? Op.Side(() => path.MoveToPoint(point: cg)) : Op.Side(() => path.AddLineToPoint(point: cg));
             return false;
         });
         return new CAShapeLayer {
+            Frame = ToCGRect(frame),
             Path = path,
             StrokeColor = ToCGColor(stroke.Tint),
             LineWidth = stroke.Thickness,
@@ -1489,12 +1492,16 @@ internal static class Motion {
         Justification = "CGPath/CGColor/NSNumber ownership transfers to the CAShapeLayer (and its text sublayer) for the animation lifetime.")]
     private static CAShapeLayer CosmeticSnapGuideLayer(CosmeticIntent.SnapGuideCase guide) {
         SnapGuideStyle style = guide.Style;
+        Seq<SnapLabel> labels = Seq(guide.Snapshot.XLabel, guide.Snapshot.YLabel).Somes();
+        Seq<PointF> points = guide.Snapshot.Lines.Bind(static line => Seq(line.Start, line.End)) + labels.Map(static label => label.Point);
+        RectangleF frame = PathFrame(points: points).IfNone(RectangleF.Empty);
         CGPath path = new();
         _ = guide.Snapshot.Lines.Iter(line => {
-            path.MoveToPoint(point: ToCGPoint(line.Start));
-            path.AddLineToPoint(point: ToCGPoint(line.End));
+            path.MoveToPoint(point: LocalPoint(point: line.Start, frame: frame));
+            path.AddLineToPoint(point: LocalPoint(point: line.End, frame: frame));
         });
         CAShapeLayer shape = new() {
+            Frame = ToCGRect(frame),
             Path = path,
             StrokeColor = ToCGColor(style.Tint),
             FillColor = null,
@@ -1510,18 +1517,19 @@ internal static class Motion {
         // each at its own LabelPoint. The carried Anchor (a 3x3 compass) drives both the text AlignmentMode and
         // the frame-origin shift so the anchor corner sits at the channel's point. Each label falls back to the
         // snap magnitude when its text is blank. Sublayer opacity stays 1 so the parent's opacity drives the fade.
-        _ = Seq(guide.Snapshot.XLabel, guide.Snapshot.YLabel).Somes().Iter(label => {
+        _ = labels.Iter(label => {
             string text = label.Text.Length > 0
                 ? label.Text
                 : guide.Snapshot.Magnitude.ToString(format: style.MagnitudeFormat, provider: CultureInfo.InvariantCulture);
             (float width, float height) = MeasureText(text: text, fontSize: style.LabelFontSize, family: Option<string>.None);
             (CATextLayerAlignmentMode mode, float dx, float dy) = SnapLabelPlacement(anchor: label.Anchor, width: width, height: height);
+            CGPoint local = LocalPoint(point: label.Point, frame: frame);
             shape.AddSublayer(layer: new CATextLayer {
                 String = new NSString(text),
                 ForegroundColor = ToCGColor(style.Tint),
                 FontSize = style.LabelFontSize,
                 TextAlignmentMode = mode,
-                Frame = new CGRect(x: label.Point.X + dx, y: label.Point.Y + dy, width: width, height: height),
+                Frame = new CGRect(x: local.X + dx, y: local.Y + dy, width: width, height: height),
             });
         });
         return shape;
@@ -1682,6 +1690,15 @@ internal static class Motion {
 
     private static CGPoint ToCGPoint(PointF p) => new(x: p.X, y: p.Y);
 
+    private static CGPoint LocalPoint(PointF point, RectangleF frame) => new(x: point.X - frame.X, y: point.Y - frame.Y);
+
+    private static Option<RectangleF> PathFrame(Seq<PointF> points) =>
+        points.Head.Map(first => points.Tail.Fold(
+            initialState: new RectangleF(x: first.X, y: first.Y, width: 0f, height: 0f),
+            f: static (bounds, point) => RectangleF.Union(
+                rect1: bounds,
+                rect2: new RectangleF(x: point.X, y: point.Y, width: 0f, height: 0f))));
+
     private static CGColor ToCGColor(Color c) => new(red: c.R, green: c.G, blue: c.B, alpha: c.A);
 
     // Implicit CATransaction with actions disabled; Dispose commits. Lets WithoutAnimation be a using-scope
@@ -1824,7 +1841,7 @@ internal static class Motion {
 #pragma warning restore IDE0028
         private static readonly Lock PoolGate = new();
         private static readonly Lock ObserverGate = new();
-        private static IDisposable? screenChangeObserver;
+        private static NSObject? screenChangeObserver;
 
         private readonly Grasshopper2.UI.Canvas.Canvas canvas;
         private readonly NSView view;
@@ -1850,9 +1867,7 @@ internal static class Motion {
                 if (screenChangeObserver is not null) {
                     return;
                 }
-                _ = NotificationSubscription.Of(
-                    (NSApplication.DidChangeScreenParametersNotification, static _ => OnScreenParametersChanged(), NSOperationQueue.MainQueue))
-                    .IfSucc(static observer => screenChangeObserver = observer);
+                screenChangeObserver = NSApplication.Notifications.ObserveDidChangeScreenParameters(static (_, _) => OnScreenParametersChanged());
             }
         }
 
@@ -1995,37 +2010,4 @@ internal static class Motion {
         }
     }
 
-    // NSNotificationCenter retains the observer until `removeObserver:` lands; Dispose alone leaks it.
-    [SupportedOSPlatform("macos14.0")]
-    internal sealed class NotificationSubscription : IDisposable {
-        private readonly Seq<Action> detachers;
-        private int disposed;
-
-        private NotificationSubscription(Seq<Action> detachers) => this.detachers = detachers;
-
-        internal static Fin<IDisposable> Of(params (NSString Name, Action<NSNotification> Handler, NSOperationQueue? Queue)[] subscriptions) =>
-            Op.Of(name: nameof(NotificationSubscription)).Attempt(
-                body: () => (IDisposable)new NotificationSubscription(
-                    detachers: toSeq(subscriptions).Map(Attach).Strict()),
-                what: "observer attach");
-
-        private static Action Attach((NSString Name, Action<NSNotification> Handler, NSOperationQueue? Queue) sub) {
-            NSObject observer = NSNotificationCenter.DefaultCenter.AddObserver(
-                name: sub.Name.ToString(),
-                obj: null,
-                queue: sub.Queue ?? NSOperationQueue.MainQueue,
-                handler: sub.Handler);
-            return () => {
-                NSNotificationCenter.DefaultCenter.RemoveObserver(observer: observer);
-                observer.Dispose();
-            };
-        }
-
-        public void Dispose() {
-            if (Interlocked.Exchange(ref disposed, 1) == 1) {
-                return;
-            }
-            _ = detachers.Iter(detach => detach());
-        }
-    }
 }

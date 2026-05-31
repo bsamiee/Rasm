@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using Eto.Forms;
+using Grasshopper2;
 using Grasshopper2.Doc;
 using Grasshopper2.UI.Flex;
 using Grasshopper2.Undo;
@@ -147,13 +148,15 @@ public sealed partial class CanvasEvent {
             .Map(static e => new CanvasWindowDelta(Window: e.Window, Mode: InputSelectionSource.From(window: e).Mode().IfFail(SelectionMode.Inverse)));
 }
 
-public readonly record struct DocumentEventHandlers(EventHandler<DocumentModifiedEventArgs> Modified, EventHandler<DocumentStateEventArgs> State, EventHandler<AfterAddObjectEventArgs> Added, EventHandler<AfterRemoveObjectEventArgs> Removed, EventHandler<ObjectEventArgs> Expired, EventHandler<ObjectEventArgs> Selection, EventHandler<ObjectEventArgs> Enabled, EventHandler<ObjectEventArgs> Relevance, EventHandler<ObjectEventArgs> Layout, EventHandler<ObjectEventArgs> Display, EventHandler<ObjectNameEventArgs> Name, EventHandler<ObjectGuidEventArgs> Id) {
+internal readonly record struct DocumentEventHandlers(EventHandler<DocumentModifiedEventArgs> Modified, EventHandler<DocumentStateEventArgs> State, EventHandler<BeforeAfterEventArgs<GhDocument, IDocumentParent>> Parent, EventHandler<UndoEventArgs> Undo, EventHandler<AfterAddObjectEventArgs> Added, EventHandler<AfterRemoveObjectEventArgs> Removed, EventHandler<ObjectEventArgs> Expired, EventHandler<ObjectEventArgs> Selection, EventHandler<ObjectEventArgs> Enabled, EventHandler<ObjectEventArgs> Relevance, EventHandler<ObjectEventArgs> Layout, EventHandler<ObjectEventArgs> Display, EventHandler<ObjectNameEventArgs> Name, EventHandler<ObjectGuidEventArgs> Id) {
     internal static DocumentEventHandlers Combine(Seq<DocumentEventHandlers> handlers) =>
         handlers.Fold(
             initialState: Empty,
             f: static (left, right) => new DocumentEventHandlers(
                 Modified: left.Modified + right.Modified,
                 State: left.State + right.State,
+                Parent: left.Parent + right.Parent,
+                Undo: left.Undo + right.Undo,
                 Added: left.Added + right.Added,
                 Removed: left.Removed + right.Removed,
                 Expired: left.Expired + right.Expired,
@@ -242,7 +245,7 @@ public sealed record DocumentEventPipe(
     }
 }
 
-public readonly record struct SolutionEventHandlers(EventHandler<SolutionIdEventArgs> About, EventHandler<SolutionEventArgs> Plain, EventHandler<SolutionExceptionEventArgs> Faulted, EventHandler Enabled) {
+internal readonly record struct SolutionEventHandlers(EventHandler<SolutionIdEventArgs> About, EventHandler<SolutionEventArgs> Plain, EventHandler<SolutionExceptionEventArgs> Faulted, EventHandler Enabled) {
     internal static SolutionEventHandlers Empty => default;
 }
 
@@ -302,7 +305,7 @@ public sealed record SolutionEventPipe(SolutionServer Server, GhDocument Documen
             faultType: Optional(args.Exception?.GetType().FullName));
 }
 
-public readonly record struct UndoEventHandlers(EventHandler<UndoEventArgs> Plain, EventHandler<UndoNodeEventArgs> Node, EventHandler<UndoNodeMovedEventArgs> Moved) {
+internal readonly record struct UndoEventHandlers(EventHandler<UndoEventArgs> Plain, EventHandler<UndoNodeEventArgs> Node, EventHandler<UndoNodeMovedEventArgs> Moved) {
     internal static UndoEventHandlers Empty => default;
 }
 
@@ -364,7 +367,7 @@ public sealed record UndoEventPipe(History History, GhDocument Document, Func<Un
             nodeCount: Optional(args.Nodes).Map(static nodes => nodes.Length));
 }
 
-public readonly record struct ControlEventHandlers(EventHandler<EventArgs> Plain, EventHandler<KeyEventArgs> Key, EventHandler<TextInputEventArgs> Text, EventHandler<MouseEventArgs> Mouse, EventHandler<DragEventArgs> Drag) {
+internal readonly record struct ControlEventHandlers(EventHandler<EventArgs> Plain, EventHandler<KeyEventArgs> Key, EventHandler<TextInputEventArgs> Text, EventHandler<MouseEventArgs> Mouse, EventHandler<DragEventArgs> Drag) {
     internal static ControlEventHandlers Empty => default;
 }
 
@@ -411,6 +414,19 @@ public sealed record ControlEventPipe(Control Source, Func<ControlEventSnapshot,
 public static class DocumentEventKind {
     public static readonly DocumentEvent Modified = OnModified(nameof(Modified), static (d, h) => d.ModifiedChanged += h, static (d, h) => d.ModifiedChanged -= h);
     public static readonly DocumentEvent StateChanged = OnState(nameof(StateChanged), static (d, h) => d.StateChanged += h, static (d, h) => d.StateChanged -= h);
+    public static readonly DocumentEvent ParentChanged = OnParent(nameof(ParentChanged), static (d, h) => d.ParentChanged += h, static (d, h) => d.ParentChanged -= h);
+    public static readonly DocumentEvent UndoTopologyChanged = OnUndoTopology(
+        name: nameof(UndoTopologyChanged),
+        attach: static (d, h) => {
+            d.Undo.Modified += h;
+            d.Undo.Undone += h;
+            d.Undo.Redone += h;
+        },
+        detach: static (d, h) => {
+            d.Undo.Modified -= h;
+            d.Undo.Undone -= h;
+            d.Undo.Redone -= h;
+        });
     public static readonly DocumentEvent ObjectAdded = OnObject(nameof(ObjectAdded), static (o, h) => o.ObjectAdded += h, static (o, h) => o.ObjectAdded -= h, static h => h.Added, static (h, next) => h with { Added = next }, static e => e.Object);
     public static readonly DocumentEvent ObjectRemoved = OnObject(nameof(ObjectRemoved), static (o, h) => o.ObjectRemoved += h, static (o, h) => o.ObjectRemoved -= h, static h => h.Removed, static (h, next) => h with { Removed = next }, static e => e.Object);
     public static readonly DocumentEvent ObjectExpired = OnObject(nameof(ObjectExpired), static (o, h) => o.ObjectExpired += h, static (o, h) => o.ObjectExpired -= h, static h => h.Expired, static (h, next) => h with { Expired = next }, static e => e.Object);
@@ -429,7 +445,7 @@ public static class DocumentEventKind {
     public static readonly DocumentEvent AnyChanged = DocumentEvent.Composite(
         name: nameof(AnyChanged),
         Modified, StateChanged, ObjectAdded, ObjectRemoved, ObjectExpired, ObjectName, Selection,
-        ObjectEnabled, ObjectRelevance, ObjectLayout, ObjectDisplay, ObjectInstanceId);
+        ObjectEnabled, ObjectRelevance, ObjectLayout, ObjectDisplay, ObjectInstanceId, ParentChanged, UndoTopologyChanged);
 
     private static DocumentEvent OnModified(string name, Action<GhDocument, EventHandler<DocumentModifiedEventArgs>> attach, Action<GhDocument, EventHandler<DocumentModifiedEventArgs>> detach) =>
         new(Name: name,
@@ -441,6 +457,16 @@ public static class DocumentEventKind {
             Attach: (owner, handlers) => attach(arg1: owner.Doc, arg2: handlers.State),
             Detach: (owner, handlers) => detach(arg1: owner.Doc, arg2: handlers.State),
             Build: static (kind, pipe) => DocumentEventHandlers.Empty with { State = (_, e) => pipe.PublishDetail(kind: kind, detail: Some($"{e.Oldstate}->{e.NewState}")) });
+    private static DocumentEvent OnParent(string name, Action<GhDocument, EventHandler<BeforeAfterEventArgs<GhDocument, IDocumentParent>>> attach, Action<GhDocument, EventHandler<BeforeAfterEventArgs<GhDocument, IDocumentParent>>> detach) =>
+        new(Name: name,
+            Attach: (owner, handlers) => attach(arg1: owner.Doc, arg2: handlers.Parent),
+            Detach: (owner, handlers) => detach(arg1: owner.Doc, arg2: handlers.Parent),
+            Build: static (kind, pipe) => DocumentEventHandlers.Empty with { Parent = (_, e) => pipe.PublishDetail(kind: kind, detail: Some($"{e.Old?.GetType().Name}->{e.New?.GetType().Name}")) });
+    private static DocumentEvent OnUndoTopology(string name, Action<GhDocument, EventHandler<UndoEventArgs>> attach, Action<GhDocument, EventHandler<UndoEventArgs>> detach) =>
+        new(Name: name,
+            Attach: (owner, handlers) => attach(arg1: owner.Doc, arg2: handlers.Undo),
+            Detach: (owner, handlers) => detach(arg1: owner.Doc, arg2: handlers.Undo),
+            Build: static (kind, pipe) => DocumentEventHandlers.Empty with { Undo = (_, e) => pipe.PublishDetail(kind: kind, detail: Optional(e.History?.GetType().Name)) });
     private static DocumentEvent OnObject<TArgs>(
         string name,
         Action<GhObjectList, EventHandler<TArgs>> attach,

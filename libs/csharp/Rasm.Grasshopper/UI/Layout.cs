@@ -3,6 +3,7 @@ using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
 using Grasshopper2.Extensions;
 using Grasshopper2.UI.Canvas;
+using Grasshopper2.UI.Skinning;
 using Grasshopper2.Undo;
 using Grasshopper2.Undo.Actions;
 using GhDocument = Grasshopper2.Doc.Document;
@@ -171,10 +172,7 @@ public readonly record struct SnappingPolicy(bool IncludeSelected = true, bool I
             .Head
             .IfNone(true);
 
-    // No-empty-constraint-set invariant on the type: a policy including neither selected nor unselected objects
-    // can never produce a snap, so it widens to "snap to everything" rather than silently returning no guide.
-    internal SnappingPolicy Effective =>
-        IncludeSelected || IncludeUnselected ? this : this with { IncludeSelected = true, IncludeUnselected = true };
+    internal SnappingPolicy Effective => this;
 }
 
 [SkipUnionOps]
@@ -481,7 +479,8 @@ internal static partial class Layout {
     private static LayoutMoveDelta ApplyMove(IDocumentObject obj, GhDocument document, PointF delta, Option<SnappingPolicy> snap, RectangleF visibleLimit, Option<(SizeF Cell, PointF Origin)> grid, ActionList actions) {
         actions.Add(new PivotAction(obj: obj));
         IAttributes attributes = obj.Attributes;
-        RectangleF bounds = attributes.AggregateBounds;
+        attributes.Layout(shape: Shape.Default);
+        RectangleF bounds = snap.Map(policy => TargetBounds(attributes: attributes, policy: policy.Effective)).IfNone(attributes.AggregateBounds);
         Option<SnappingSnapshot> snapped = snap.Bind(policy => attributes.Snappable
             ? SnapRectangle(
                 document: document, obj: obj,
@@ -500,6 +499,9 @@ internal static partial class Layout {
             After: SnapshotOf(attributes: attributes),
             Snap: snapped);
     }
+
+    private static RectangleF TargetBounds(IAttributes attributes, SnappingPolicy policy) =>
+        policy.UseAggregateWireBounds ? attributes.AggregateBounds : attributes.Bounds;
 
     private static Option<SnappingSnapshot> SnapRectangle(GhDocument document, IDocumentObject obj, RectangleF bounds, SnappingPolicy policy, RectangleF visibleLimit, Option<(SizeF Cell, PointF Origin)> grid) =>
         SnapCore(document: document, obj: obj, policy: policy, visibleLimit: visibleLimit, bounds: Some(bounds), grid: grid);

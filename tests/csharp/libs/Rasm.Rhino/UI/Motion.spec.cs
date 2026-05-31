@@ -76,6 +76,43 @@ public sealed class ColorMotionVectorLaws {
     }
 }
 
+public sealed class SpringConfigAndSpecLaws {
+    [Fact]
+    public void ResponseFactoryValidatesPhysicalParametersAndMatchesClosedForm() {
+        Spec.Fail(SpringConfig.Response(response: 0f, dampingFraction: 1f));
+        Spec.Fail(SpringConfig.Response(response: 1f, dampingFraction: -0.1f));
+        Spec.Fail(SpringConfig.Response(response: 1f, dampingFraction: 1f, mass: 0f));
+        Spec.Succ(SpringConfig.Response(response: 0.5f, dampingFraction: 0.75f, mass: 2f), config => {
+            float omega = (float)(2.0 * Math.PI) / 0.5f;
+            Assert.Equal(expected: omega * omega * 2f, actual: config.Stiffness, tolerance: 1e-4f);
+            Assert.Equal(expected: 4f * (float)Math.PI * 0.75f * 2f / 0.5f, actual: config.Damping, tolerance: 1e-5f);
+            Assert.Equal(expected: 2f, actual: config.Mass);
+        });
+    }
+
+    [Fact]
+    public void MotionSpecFactoriesPreserveVectorAndTimingPayloads() {
+        MotionSpec<double, double>.Spring spring = MotionSpec.Spring(from: 0.0, to: 10.0, config: SpringPreset.Standard.Config, vector: MotionVector.Double, initialVelocity: Some(2.0));
+        MotionSpec<double, double>.Tween tween = MotionSpec.Tween(from: 0.0, to: 1.0, duration: TimeSpan.FromSeconds(value: 2), easing: Easing.QuadIn, vector: MotionVector.Double);
+        MotionSpec<double, double>.Sequence sequence = MotionSpec.Sequence(start: 0.0, steps: Seq((Target: 1.0, Duration: TimeSpan.FromSeconds(value: 1), Easing: Easing.Linear)), vector: MotionVector.Double);
+
+        Assert.Equal(expected: 10.0, actual: spring.To);
+        Assert.Equal(expected: 2.0, actual: spring.InitialVelocity.IfNone(0.0));
+        Assert.Equal(expected: TimeSpan.FromSeconds(value: 2), actual: tween.Duration);
+        Assert.Equal(expected: Easing.QuadIn, actual: tween.Easing);
+        _ = Assert.Single(collection: sequence.Steps);
+    }
+
+    [Fact]
+    public void SpringPresetLabelsAreNonEmptyAndUnique() {
+        Assert.Equal(expected: SpringPreset.Items.Count, actual: SpringPreset.Items.Select(static preset => preset.Label).Distinct(comparer: StringComparer.Ordinal).Count());
+        Assert.All(collection: SpringPreset.Items, action: static preset => {
+            Assert.False(condition: string.IsNullOrWhiteSpace(value: preset.Label));
+            Assert.True(condition: preset.Config.Stiffness > 0f && preset.Config.Mass > 0f);
+        });
+    }
+}
+
 public sealed class ColorSpringRestLaws {
     private static SpringRunnerState<MotionColor, MotionColor> Seed(MotionColor from, MotionColor to, MotionCases.TickClock clock) =>
         new(Value: from, Velocity: MotionVector.Color.ZeroVelocity, Target: to, Config: SpringConfig.Tuned(response: 0.3f, dampingFraction: 1.0f, mass: 1f), Vector: MotionVector.Color, Sink: static _ => { }, Clock: clock, Timestamp: clock.GetTimestamp());

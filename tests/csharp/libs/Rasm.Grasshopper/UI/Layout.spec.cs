@@ -51,6 +51,14 @@ public sealed class LayoutAxisLaws {
             Assert.Equal(expected: 0f, actual: LayoutAxis.Horizontal.Delta(cursor: r.Left, bounds: r).Dx);
             Assert.Equal(expected: 0f, actual: LayoutAxis.Vertical.Delta(cursor: r.Top, bounds: r).Dy);
         });
+
+    [Fact]
+    public void OffsetSelectsTheAxisComponent() =>
+        Spec.ForAll(LayoutGens.Coord.Select(LayoutGens.Coord), static tuple => {
+            (float dx, float dy) = tuple;
+            Assert.Equal(expected: dx, actual: LayoutAxis.Horizontal.Offset(dx: dx, dy: dy));
+            Assert.Equal(expected: dy, actual: LayoutAxis.Vertical.Offset(dx: dx, dy: dy));
+        });
 }
 
 public sealed class LayoutGapLaws {
@@ -112,5 +120,86 @@ public sealed class LayoutArrangementLaws {
             @object: LayoutArrangement.Align(anchor: anchor, targets: Seq(Guid.NewGuid(), Guid.NewGuid())));
         Assert.Equal(expected: anchor, actual: align.Anchor);
         Assert.Equal(expected: 2, actual: align.Targets.Count);
+    }
+
+    [Fact]
+    public void FlowDefaultsToStretchPolicyAndPreservesCausalIds() {
+        LayoutArrangement.FlowCase flow = Assert.IsType<LayoutArrangement.FlowCase>(
+            @object: LayoutArrangement.Flow(axis: LayoutAxis.Horizontal, gap: LayoutGap.Create(value: 2f), ids: Quad));
+        Assert.Same(expected: LayoutGapPolicy.Stretch, actual: flow.GapPolicy);
+        Assert.Equal(expected: Quad, actual: flow.Ids);
+        Assert.Same(expected: LayoutAxis.Horizontal, actual: flow.Axis);
+    }
+}
+
+public sealed class SnappingPolicyLaws {
+    [Fact]
+    public void EffectiveDoesNotWidenEmptyDocumentConstraintSet() {
+        SnappingPolicy policy = new(IncludeSelected: false, IncludeUnselected: false);
+        SnappingPolicy effective = policy.Effective;
+        Assert.False(condition: effective.IncludeSelected);
+        Assert.False(condition: effective.IncludeUnselected);
+    }
+
+    [Fact]
+    public void FeedbackAndWireBoundsSettingsProjectFirstEnabledPolicy() {
+        SnapGuideStyle first = SnapGuideStyle.Dashed(tint: Colors.Red);
+        SnapGuideStyle second = SnapGuideStyle.Solid(tint: Colors.Blue);
+        SnappingPolicy policy = new(Settings: Seq<SnapSetting>(
+            new SnapSetting.FeedbackCase(Enabled: false, Style: second),
+            new SnapSetting.FeedbackCase(Enabled: true, Style: first),
+            new SnapSetting.FeedbackCase(Enabled: true, Style: second),
+            new SnapSetting.WireBoundsCase(Aggregate: false)));
+
+        Spec.Some(policy.FeedbackStyle, style => Assert.Equal(expected: first, actual: style));
+        Assert.False(condition: policy.UseAggregateWireBounds);
+        Assert.Equal(expected: first, actual: new SnapProbe.ObjectCase(ObjectId: Guid.NewGuid(), Policy: policy).FeedbackStyle.IfNone(second));
+    }
+
+    [Fact]
+    public void SnapProbeCasesProjectFeedbackStyleUniformly() {
+        SnapGuideStyle style = SnapGuideStyle.Solid(tint: Colors.Green);
+        SnappingPolicy policy = new(Settings: Seq<SnapSetting>(new SnapSetting.FeedbackCase(Enabled: true, Style: style)));
+        SnapProbe[] probes = [
+            new SnapProbe.PointCase(ObjectId: Guid.NewGuid(), Probe: PointF.Empty, Policy: policy),
+            new SnapProbe.RectangleCase(ObjectId: Guid.NewGuid(), Bounds: new RectangleF(x: 0f, y: 0f, width: 1f, height: 1f), Policy: policy),
+            new SnapProbe.ObjectCase(ObjectId: Guid.NewGuid(), Policy: policy),
+            new SnapProbe.GroupCase(ObjectIds: Seq(Guid.NewGuid(), Guid.NewGuid()), Policy: policy),
+        ];
+
+        Assert.All(collection: probes, action: probe => Assert.Equal(expected: style, actual: probe.FeedbackStyle.IfNone(SnapGuideStyle.Dashed(tint: Colors.Red))));
+    }
+}
+
+public sealed class LayoutSnapshotLaws {
+    [Fact]
+    public void DerivedGeometryUsesBoundsAndAggregateBoundsIndependently() {
+        LayoutSnapshot snapshot = new(
+            ObjectId: Guid.NewGuid(),
+            Pivot: new PointF(x: 1f, y: 2f),
+            Bounds: new RectangleF(x: 10f, y: 20f, width: 30f, height: 40f),
+            AggregateBounds: new RectangleF(x: 5f, y: 15f, width: 50f, height: 60f),
+            Snappable: true);
+
+        Assert.Equal(expected: new SizeF(width: 30f, height: 40f), actual: snapshot.Size);
+        Assert.Equal(expected: new SizeF(width: 50f, height: 60f), actual: snapshot.AggregateSize);
+        Assert.Equal(expected: new PointF(x: 25f, y: 40f), actual: snapshot.Centre);
+        Assert.Equal(expected: new PointF(x: 30f, y: 45f), actual: snapshot.AggregateCentre);
+    }
+}
+
+public sealed class LayoutOpPolicyLaws {
+    [Fact]
+    public void LayoutOperationPoliciesSeparateReadOnlyAndMutationRepaints() {
+        Guid id = Guid.NewGuid();
+        LayoutOp.MeasureCase measure = new(Scope: new ObjectScope.ObjectsCase(Ids: Seq(id)));
+        LayoutOp.ArrangeCase arrange = new(Arrangement: LayoutArrangement.DistributeStretch(axis: LayoutAxis.Horizontal, gap: LayoutGap.Create(value: 8f), ids: Seq(id)));
+        LayoutOp.SnapCase snap = new(Probe: new SnapProbe.ObjectCase(ObjectId: id));
+        Assert.True(condition: measure.UiPolicy.RequireCanvas && measure.UiPolicy.RequireDocument);
+        Assert.True(condition: arrange.UiPolicy.RequireCanvas && arrange.UiPolicy.RequireDocument);
+        Assert.True(condition: snap.UiPolicy.RequireCanvas && snap.UiPolicy.RequireDocument);
+        _ = Assert.IsType<RepaintRequest.NoneCase>(@object: measure.UiPolicy.RepaintOrNone);
+        _ = Assert.IsType<RepaintRequest.CanvasCase>(@object: arrange.UiPolicy.RepaintOrNone);
+        _ = Assert.IsType<RepaintRequest.NoneCase>(@object: snap.UiPolicy.RepaintOrNone);
     }
 }

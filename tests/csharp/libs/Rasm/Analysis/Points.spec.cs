@@ -110,4 +110,9 @@ public sealed class PointsUnsupportedRailLaws {
             Assert.False(condition: f.Aspect.Operation<int, Point3d>().IsSupported);
             Assert.False(condition: f.Aspect.Operation<string, Plane>().IsSupported);
         });
+
+    [Fact]
+    public void NullAspectRejectsWithInputCategoryBeforeGeometryEvaluation() =>
+        Spec.Invalid(Analyze.Run(operation: Analyze.Points<Mesh, Point3d>(sampling: null!), input: default(Mesh)!),
+            then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
 }

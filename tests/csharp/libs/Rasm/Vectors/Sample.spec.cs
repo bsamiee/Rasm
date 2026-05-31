@@ -21,6 +21,8 @@ internal static class SampleGens {
     public static readonly Gen<(double Radius, int Count, int Iterations, int Capacity)> Payloads =
         Gens.Positive.Select(Gen.Int[start: 1, finish: 32], Gen.Int[start: 33, finish: 64], Gen.Int[start: 65, finish: 96],
             static (double radius, int count, int iterations, int capacity) => (Radius: radius, Count: count, Iterations: iterations, Capacity: capacity));
+    public static readonly Seq<(Point3d Point, double Mass)> WeightedPoints =
+        Seq((new Point3d(x: 0.0, y: 0.0, z: 0.0), 7.0), (new Point3d(x: 1.0, y: 0.0, z: 0.0), 13.0), (new Point3d(x: 0.0, y: 1.0, z: 0.0), 3.0));
     public static VectorCloud Cloud(Option<Seq<double>> mass = default) =>
         Cloud(points: Points, mass: mass);
     public static VectorCloud Cloud(Seq<Point3d> points, Option<Seq<double>> mass = default) =>
@@ -63,6 +65,11 @@ public sealed class SampleKindFactoryLaws {
                 SampleKind.SampleEliminationCase elimination = Assert.IsType<SampleKind.SampleEliminationCase>(@object: kind);
                 Assert.Equal(expected: (p.Count, 5, 8.0, 0.65, 1.5, 17), actual: (elimination.Count.Value, elimination.OversampleFactor.Value, elimination.Alpha.Value, elimination.Beta.Value, elimination.Gamma.Value, elimination.Seed));
             });
+            Spec.Succ(SampleKind.Weighted(points: SampleGens.WeightedPoints, key: SampleGens.Key), then: kind => {
+                SampleKind.WeightedCase weighted = Assert.IsType<SampleKind.WeightedCase>(@object: kind);
+                Assert.Equal(expected: SampleGens.WeightedPoints.Count, actual: weighted.Points.Count);
+                Spec.Equal(left: weighted.Points.Map(static item => item.Mass).Fold(initialState: 0.0, f: static (sum, mass) => sum + mass), right: 23.0, tolerance: 0.0, what: "distinct weighted mass");
+            });
         });
         Spec.ForAll(SampleGens.NonPositiveInt, n => {
             Spec.FailCategory(SampleKind.Farthest(count: n, key: SampleGens.Key), category: "Tolerance");
@@ -86,6 +93,10 @@ public sealed class SampleKindFactoryLaws {
         Spec.FailCategory(SampleKind.SampleElimination(count: 2, oversampleFactor: 1, alpha: 8.0, beta: 0.65, gamma: 1.5, seed: 17, key: SampleGens.Key), category: "Input");
         Spec.FailCategory(SampleKind.SampleElimination(count: 2, oversampleFactor: 5, alpha: 8.0, beta: 1.1, gamma: 1.5, seed: 17, key: SampleGens.Key), category: "Input");
         Spec.FailCategory(SampleKind.Explicit(points: Seq<Point3d>(), key: SampleGens.Key), category: "Input");
+        Spec.FailCategory(SampleKind.Weighted(points: Seq<(Point3d Point, double Mass)>(), key: SampleGens.Key), category: "Input");
+        Spec.FailCategory(SampleKind.Weighted(points: Seq((Point3d.Origin, -1.0)), key: SampleGens.Key), category: "Input");
+        Spec.SmartEnumCatalogMatches(production: SampleAlgorithmKind.Items, expectedKeys: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], key: static kind => kind.Key);
+        Spec.SmartEnumCatalogMatches(production: SampleStopKind.Items, expectedKeys: [0, 1, 2, 3], key: static kind => kind.Key);
     }
     [Fact]
     public void ExplicitSamplesProjectExactOutputsThroughIntentDomainRail() {

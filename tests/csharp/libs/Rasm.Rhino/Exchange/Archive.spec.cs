@@ -50,6 +50,16 @@ public sealed class FileResourceGraphLaws {
     }
 
     [Fact]
+    public void ValidateResolvesRelativeResourcesAgainstArchiveFolder() {
+        string assemblyPath = typeof(FileResourceGraphLaws).Assembly.Location;
+        FileArchiveSource source = new FileArchiveSource.Path(
+            Value: FileEndpoint.From(path: assemblyPath).IfFail(error => throw new InvalidOperationException(message: error.Message)));
+        FileResourceGraph graph = Fixtures.Graph(references: Seq(Path.GetFileName(path: assemblyPath)));
+
+        Assert.True(condition: graph.Validate(source: source, scheduler: new IoScheduler.Sequential()).IfFail(error => throw new InvalidOperationException(message: error.Message)).IsEmpty);
+    }
+
+    [Fact]
     public void ValidateYieldsNoIssuesWhenEveryChannelIsEmpty() =>
         Assert.True(condition: Fixtures.Graph().Validate(source: Fixtures.Source, scheduler: new IoScheduler.Parallel()).IfFail(error => throw new InvalidOperationException(message: error.Message)).IsEmpty);
 
@@ -65,6 +75,7 @@ public sealed class FileResourceGraphLaws {
     public void SummaryAcceptsNonNegativeCountsAndRejectsNegatives() {
         Assert.True(condition: Fixtures.Graph(objects: 7).Summary(op: Op.Of(name: nameof(SummaryAcceptsNonNegativeCountsAndRejectsNegatives))).IsSucc);
         Assert.True(condition: (Fixtures.Graph() with { Objects = -1 }).Summary(op: Op.Of(name: nameof(SummaryAcceptsNonNegativeCountsAndRejectsNegatives))).IsFail);
+        Assert.True(condition: (Fixtures.Graph() with { Relations = -1 }).Summary(op: Op.Of(name: nameof(SummaryAcceptsNonNegativeCountsAndRejectsNegatives))).IsFail);
     }
 }
 
