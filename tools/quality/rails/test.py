@@ -4,9 +4,11 @@
 
 from collections.abc import Generator
 from contextlib import contextmanager
-import fcntl
+from dataclasses import dataclass
+from importlib import import_module
 import os
 from pathlib import Path
+from types import ModuleType
 from typing import Final, Literal
 
 from beartype import beartype
@@ -22,6 +24,29 @@ from tools.quality.settings import ArtifactScope, MUTATION_THRESHOLDS, QualitySe
 type MutationMode = Literal["off", "changed", "full"]
 type TestMode = Literal["run", "list", "coverage"]
 type TestPlan = tuple[tuple[str, ...], bool]
+
+
+@dataclass(frozen=True, slots=True)
+class _PosixLock:
+    module: ModuleType
+    exclusive: int
+    nonblock: int
+    unlock: int
+
+    def flock(self, fd: int, operation: int, /) -> None:
+        match getattr(self.module, "flock", None):
+            case action if callable(action):
+                action(fd, operation)
+            case _:
+                raise RuntimeError("fcntl.flock is unavailable")
+
+
+def _posix_flag(module: ModuleType, name: str) -> int:
+    match getattr(module, name, None):
+        case int() as value:
+            return value
+        case _:
+            raise RuntimeError(f"fcntl.{name} is unavailable")
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
@@ -59,6 +84,13 @@ _STRYKER_ZERO_DISCOVERY_DETAIL: Final[bytes] = (
     b"Stryker discovered zero tests after MTP unit execution. Mutation is not a valid quality signal until Stryker discovers tests."
 )
 _TEST_PLANS: Final[dict[TestMode, TestPlan]] = {"coverage": (_COVERLET_ARGS, False), "list": (("--list-tests",), False), "run": ((), True)}
+_POSIX_MODULE: Final = import_module("fcntl")
+_POSIX_LOCK: Final = _PosixLock(
+    module=_POSIX_MODULE,
+    exclusive=_posix_flag(_POSIX_MODULE, "LOCK_EX"),
+    nonblock=_posix_flag(_POSIX_MODULE, "LOCK_NB"),
+    unlock=_posix_flag(_POSIX_MODULE, "LOCK_UN"),
+)
 log = structlog.get_logger("quality.test")
 
 
@@ -178,7 +210,7 @@ def _run_mutation(settings: QualitySettings, scope: ArtifactScope, mode: Mutatio
 def _mutation_lock(settings: QualitySettings) -> Generator[None]:
     settings.mutation_lock.parent.mkdir(parents=True, exist_ok=True)
     with settings.mutation_lock.open(mode="a+", encoding="utf-8") as guard:
-        fcntl.flock(guard.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        _POSIX_LOCK.flock(guard.fileno(), _POSIX_LOCK.exclusive | _POSIX_LOCK.nonblock)
         guard.seek(0)
         owner = guard.read()
         if owner.strip():
@@ -190,7 +222,7 @@ def _mutation_lock(settings: QualitySettings) -> Generator[None]:
         try:
             yield
         finally:
-            fcntl.flock(guard.fileno(), fcntl.LOCK_UN)
+            _POSIX_LOCK.flock(guard.fileno(), _POSIX_LOCK.unlock)
             settings.mutation_lock.unlink(missing_ok=True)
 
 

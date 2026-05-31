@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import fcntl
 import os
 from pathlib import Path
 import shutil
@@ -265,6 +264,35 @@ def test_decode_bridge_result_accepts_camel_case_wire() -> None:
     assert result.fault is not None
     assert result.fault.stack_trace == "trace"
     assert result.phases == (bridge.BridgePhase(phase="check", status="ok", duration_ms=1.5),)
+
+
+def test_bridge_client_run_uses_canonical_no_build_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    client = tmp_path / "tools/rhino-bridge/client/bin/Release/net10.0/Rasm.RhinoBridge.Client.dll"
+    client.parent.mkdir(parents=True)
+    client.write_text(data="", encoding="utf-8")
+    settings = QualitySettings(root=tmp_path)
+    scope = _scope(tmp_path, rail="bridge")
+    seen: list[tuple[tuple[str, ...], bool]] = []
+
+    def fake_dotnet(
+        *args: str,
+        scope: ArtifactScope | None = None,
+        cwd: Path | None = None,
+        check: bool = True,
+        timeout: float | None = None,
+        scoped: bool = True,
+        mode: process.ProcessMode = "capture",
+    ) -> Result[Completed, ProcessFault]:
+        _ = (scope, cwd, check, timeout, mode)
+        seen.append((args, scoped))
+        return Ok(Completed(argv=("dotnet", *args), returncode=0, stdout=b"{}", stderr=b""))
+
+    monkeypatch.setattr(bridge, "dotnet", fake_dotnet)
+
+    assert bridge.client_run(settings, scope, "doctor", check=False, timeout=12.0).is_ok()
+    assert seen == [
+        (("run", "--no-build", "--project", str(settings.bridge_client), "--configuration", settings.configuration, "--", "doctor"), False)
+    ]
 
 
 def test_verify_summary_lifts_first_failure_to_report_root(tmp_path: Path) -> None:
@@ -612,11 +640,11 @@ def test_default_test_target_rejects_live_mutation_lock(monkeypatch: pytest.Monk
     settings = QualitySettings(root=tmp_path)
     settings.mutation_lock.parent.mkdir(parents=True)
     with settings.mutation_lock.open(mode="a+", encoding="utf-8") as lock:
-        fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        test._POSIX_LOCK.flock(lock.fileno(), test._POSIX_LOCK.exclusive | test._POSIX_LOCK.nonblock)
         try:
             result = test.run_test_rail(settings, _scope(tmp_path), "run", mutation="full")
         finally:
-            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+            test._POSIX_LOCK.flock(lock.fileno(), test._POSIX_LOCK.unlock)
 
     assert result.is_error()
     assert "mutation lock is already held" in result.error.message

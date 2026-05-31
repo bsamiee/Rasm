@@ -286,6 +286,7 @@ def client_run(
                 "--",
                 *args,
                 scope=scope,
+                scoped=False,
                 check=check,
                 timeout=timeout,
             )
