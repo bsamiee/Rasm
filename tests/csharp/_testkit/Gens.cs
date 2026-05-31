@@ -23,7 +23,7 @@ public static class Gens {
         (2, Gen.Const(value: 1.0)),
         (1, Gen.Const(value: RhinoMath.ZeroTolerance)),
         (1, Gen.Const(value: 1.0 - RhinoMath.ZeroTolerance)));
-    public static readonly Gen<double> UnitInterior = Gen.Double[start: double.Epsilon, finish: 1.0 - double.Epsilon];
+    public static readonly Gen<double> UnitInterior = Gen.Double[start: RhinoMath.ZeroTolerance, finish: 1.0 - RhinoMath.ZeroTolerance];
     public static readonly Gen<double> UnitAngle = Gen.Frequency(
         (90, Gen.Double[start: 0.0, finish: RhinoMath.TwoPI]),
         (10, Gen.OneOfConst(0.0, RhinoMath.Epsilon * 2.0, Math.PI, RhinoMath.TwoPI - RhinoMath.ZeroTolerance, RhinoMath.TwoPI)));

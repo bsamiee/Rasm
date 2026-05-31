@@ -198,7 +198,7 @@ public abstract partial record MeshSegmentation {
     public static Fin<MeshSegmentation> DescriptorClusters(MeshDescriptor descriptor, int eigenpairs, int regionCount, int maxIterations, double tolerance, Op? key = null) =>
         key.OrDefault() switch { Op op => from active in Optional(descriptor).ToFin(op.InvalidInput()) from _ in guard(active.IsValid, op.InvalidInput()) from pairs in op.AcceptValidated<Dimension>(candidate: eigenpairs) from regions in op.AcceptValidated<Dimension>(candidate: regionCount) from __ in regionCount > 1 ? Fin.Succ(unit) : Fin.Fail<Unit>(op.InvalidInput()) from cap in op.AcceptValidated<Dimension>(candidate: maxIterations) from eps in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance) select (MeshSegmentation)new DescriptorClustersCase(Descriptor: active, Eigenpairs: pairs, RegionCount: regions, MaxIterations: cap, Tolerance: eps) };
     private static Fin<Arr<double>> AdmitScalars(Arr<double> values, Op key) =>
-        values.Count == 0
+        values.Count == 0 || !values.AsIterable().All(RhinoMath.IsValidDouble)
             ? Fin.Fail<Arr<double>>(key.InvalidInput())
             : Fin.Succ(values);
 }

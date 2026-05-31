@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Rasm uses `Verify.XunitV3 31.17.0` in `tests/csharp/_tooling` only with concrete snapshot-worthy tests. Do not use Verify for algebraic laws, numeric behavior, or Rhino/GH native truth.
+[IMPORTANT] Rasm uses `Verify.XunitV3 31.18.0` in `tests/csharp/_tooling` only with concrete snapshot-worthy tests. Do not use Verify for algebraic laws, numeric behavior, or Rhino/GH native truth.
 
 ---
 ## [1][PACKAGE]
@@ -13,9 +13,9 @@
 
 | [INDEX] | [PACKAGE]        | [PIN]     | [USE]                         |
 | :-----: | ---------------- | --------- | ----------------------------- |
-|   [1]   | `Verify.XunitV3` | `31.17.0` | xUnit v3 snapshot assertions. |
+|   [1]   | `Verify.XunitV3` | `31.18.0` | xUnit v3 snapshot assertions. |
 
-[SOURCE] NuGet package page: https://www.nuget.org/packages/Verify.XunitV3/31.17.0
+[SOURCE] NuGet package page: https://www.nuget.org/packages/Verify.XunitV3/31.18.0
 
 ---
 ## [2][SETTINGS]

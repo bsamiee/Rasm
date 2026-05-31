@@ -72,8 +72,11 @@ public sealed class MeshSegmentationLaws {
         _ = Assert.IsType<MeshSegmentation.DescriptorClustersCase>(@object: Spec.SuccValue(MeshSegmentation.DescriptorClusters(descriptor: descriptor, eigenpairs: 2, regionCount: 2, maxIterations: 16, tolerance: 1.0e-9, key: MeshGens.Key), label: "clusters"));
         Spec.FailCategory(MeshSegmentation.ScalarThreshold(values: [], threshold: 0.0, key: MeshGens.Key), category: "Input");
         Spec.FailCategory(MeshSegmentation.ScalarThreshold(values: [0.0], threshold: double.NaN, key: MeshGens.Key), category: "Input");
+        Spec.FailCategory(MeshSegmentation.ScalarThreshold(values: [double.NaN, double.PositiveInfinity], threshold: 0.0, key: MeshGens.Key), category: "Input");
+        Spec.FailCategory(MeshSegmentation.ScalarBands(values: [0.0, double.NegativeInfinity], bandCount: 2, key: MeshGens.Key), category: "Input");
         Spec.FailCategory(MeshSegmentation.ScalarBands(values: [0.0], bandCount: 1, key: MeshGens.Key), category: "Input");
         Spec.FailCategory(MeshSegmentation.SeededRegionGrow(values: [0.0], seedFaces: Seq<int>(), tolerance: 0.2, maxIterations: 16, key: MeshGens.Key), category: "Input");
+        Spec.FailCategory(MeshSegmentation.SeededRegionGrow(values: [double.NaN], seedFaces: Seq(0), tolerance: 0.2, maxIterations: 16, key: MeshGens.Key), category: "Input");
         Spec.FailCategory(MeshSegmentation.DescriptorClusters(descriptor: descriptor, eigenpairs: 2, regionCount: 1, maxIterations: 16, tolerance: 1.0e-9, key: MeshGens.Key), category: "Input");
     }
 }

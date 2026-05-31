@@ -181,6 +181,14 @@ public sealed class FieldIntegratorLaws {
         Spec.FailCategory(FlowKernel.ProjectTrace<Seq<Point3d>>(trace: FlowGens.Trace(stop: StreamlineStopKind.Terminated) with { AcceptedSteps = 0 }, key: FlowGens.Key), category: "Result");
     }
     [Fact]
+    public void AdaptiveRejectBudgetRecordsTheRejectThatExhaustsTheBudget() {
+        StreamlineState state = FlowGens.State(trail: Seq(Point3d.Origin), current: Point3d.Origin, h: 1.0, arc: 0.0, steps: 0);
+        StreamlineState exhausted = state.Reject(rejected: new StreamlineStep.RejectedCase(SuggestedStep: 0.5, Error: Some(2.0)), rejectBudget: 1);
+        Assert.Equal(expected: 1, actual: exhausted.Rejects);
+        Assert.Equal(expected: 1, actual: exhausted.RejectedSteps);
+        Spec.Some(exhausted.Stop, stop => Assert.Equal(expected: StreamlineStopKind.RejectBudgetExhausted, actual: stop));
+    }
+    [Fact]
     public void ConstantFieldTraceIsExactAndArcLengthMatchesFoldOracle() {
         PositiveMagnitude step = Spec.SuccValue(FlowGens.Key.AcceptValidated<PositiveMagnitude>(candidate: 0.25), label: "trace step");
         Termination stop = Spec.SuccValue(Termination.Steps(count: 4, key: FlowGens.Key), label: "trace stop");

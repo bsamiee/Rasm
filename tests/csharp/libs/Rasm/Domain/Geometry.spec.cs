@@ -151,5 +151,7 @@ public sealed class IntersectionHitLaws {
         IntersectionHit invalid = IntersectionHit.Overlap(start: new Point3d(x: double.NaN, y: 0.0, z: 0.0), end: GeometryGens.End, overlapA: GeometryGens.OverlapA, overlapB: GeometryGens.OverlapB);
         Assert.False(condition: invalid.IsValid);
         Assert.False(condition: IntersectionHit.At(point: new Point3d(x: 0.0, y: double.PositiveInfinity, z: 0.0)).IsValid);
+        Spec.FailCategory(result: IntersectionHit.Project<IntersectionKind>(hits: Seq(invalid), key: GeometryGens.Key), category: "Result");
+        Spec.FailCategory(result: IntersectionHit.Project<IntersectionTangency>(hits: Seq(invalid), key: GeometryGens.Key), category: "Result");
     }
 }

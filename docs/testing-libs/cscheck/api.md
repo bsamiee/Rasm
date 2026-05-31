@@ -151,7 +151,7 @@ public static GenOperation<Atom<HashMap<int, int>>, Dictionary<int, int>> SetOp(
 - A factory-routed generator filters >20% of inputs — verify the surviving distribution isn't skewed away from the boundary cases the test depends on.
 - A SmartEnum case sweep with case-specific frequencies — verify rarely-fired cases still fire often enough to exercise their per-case oracle in `Spec.Cases`.
 
-Audit lives in `tests/csharp/_testkit/Gens.spec.cs` (a generator self-test), not in spec files.
+Audit lives in `tests/csharp/libs/Rasm/TestKit/Gens.spec.cs` (a generator self-test), not in product spec files.
 
 ---
 ## [9][PARALLEL_CHECKS]

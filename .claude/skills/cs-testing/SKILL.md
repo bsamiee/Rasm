@@ -1,7 +1,7 @@
 ---
 name: cs-testing
 description: >-
-  Builds and reviews dense law-matrix C# specs for Rasm using xUnit v3, CsCheck,
+  Builds and reviews dense adversarial law-matrix C# specs for Rasm using xUnit v3, CsCheck,
   Rasm.TestKit, coverlet, Stryker, Verify, ArchUnitNET, BenchmarkDotNet,
   SharpFuzz, and Rhino/GH bridge scenarios. Use when creating, refactoring, or
   validating C# tests, testkit code, test docs, benchmark/fuzz harnesses, or
@@ -9,15 +9,15 @@ description: >-
 ---
 
 # [H1][CS_TESTING]
->**Dictum:** *A test is a law with an independent oracle, not a mirror of the implementation.*
+>**Dictum:** *A test is an adversarial law with an independent oracle, not confirmation of current output.*
 
 <br>
 
-Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` for scripts, and `docgen` + `style-standards` for Markdown. The canonical unit rail is xUnit v3/MTP + CsCheck + `Rasm.TestKit`; native Rhino/GH runtime behavior belongs in `*.verify.csx` bridge scenarios.
+Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` for scripts, and `docgen` + `style-standards` for Markdown. The canonical unit rail is xUnit v3/MTP + CsCheck + `Rasm.TestKit`; native Rhino/GH runtime behavior belongs in `*.verify.csx` bridge scenarios. Managed tests attempt falsification through independent oracles, mutation-visible rows, failure categories, model/metamorphic relations, receipt tampering, and raw-payload laws.
 
 ---
 ## [1][WORKFLOW]
->**Dictum:** *Classify first; write fewer, stronger laws second.*
+>**Dictum:** *Classify first; falsify with fewer, stronger laws second.*
 
 <br>
 
@@ -101,7 +101,7 @@ The bridge injects `SCENARIO_NAME` and `CAPTURE_PATH` before execution. Do not d
 | [7] | Polymorphic-first | Before writing a second `[Fact]` that shares setup with an existing one, reach for a polymorphic pattern from [density-axes.md `[4][POLYMORPHIC_PATTERNS]`](references/density-axes.md). |
 
 [CRITICAL]:
-- A spec is not "world-class" because it has many facts. It is strong when one generated domain attacks construction, projection, unsupported outputs, failure categories, receipt invariants, and an independent oracle without mirroring production code.
+- A spec is not strong because it has many facts. It is strong when one generated domain attacks construction, projection, unsupported outputs, failure categories, receipt invariants, and an independent oracle without mirroring production code.
 - A real oracle predicts behavior from another source of truth: closed-form math, conservation, fixture geometry, category contract, runtime bridge observation, or documented external behavior. A law varies a behavior family enough to catch swapped inputs, missing validation, unsupported outputs, and receipt drift.
 - Use distinct generated payload values when a source function transports or dispatches multiple inputs. Equal or placeholder payloads hide swaps and ignored branches.
 - Allow 225 LOC, and exceptionally 300 LOC, only when each added line buys a real oracle, boundary, bridge classification, or product-bug guard that cannot be compressed through `Spec`, `Gens`, `Numeric`, local arrays, or product generators. Specs that exceed 225 LOC must document the per-section LOC delta justifying the overage (e.g., Matrix spec at 300-350 LOC owns SVD/QR/LU/Cholesky/Eigen reconstruction + 5 SmartEnum dispatch paths + 8 norm laws).

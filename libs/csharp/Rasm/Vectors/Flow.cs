@@ -207,7 +207,7 @@ internal readonly record struct StreamlineState(Seq<Point3d> Trail, Point3d Curr
         };
     internal StreamlineState Reject(StreamlineStep.RejectedCase rejected, int rejectBudget) =>
         Step(suggested: rejected.SuggestedStep, error: rejected.Error) with {
-            Rejects = (Rejects + 1 >= rejectBudget) switch { true => Rejects, false => Rejects + 1 },
+            Rejects = Rejects + 1,
             RejectedSteps = RejectedSteps + 1,
             Stop = (Rejects + 1 >= rejectBudget) switch { true => Some(StreamlineStopKind.RejectBudgetExhausted), false => Stop },
         };
