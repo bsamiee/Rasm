@@ -554,6 +554,42 @@ def test_focused_test_target_skips_mutation(monkeypatch: pytest.MonkeyPatch, tmp
     assert seen[0][:3] == ("test", "--project", str(tmp_path / "tests/tools/cs-analyzer/CsAnalyzer.Tests.csproj"))
 
 
+def test_all_test_targets_use_solution_discovery(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    seen: list[tuple[str, ...]] = []
+
+    def fake_dotnet(
+        *args: str,
+        scope: ArtifactScope | None = None,
+        cwd: Path | None = None,
+        check: bool = True,
+        timeout: float | None = None,
+        scoped: bool = True,
+        mode: process.ProcessMode = "capture",
+    ) -> Result[Completed, ProcessFault]:
+        _ = (scope, cwd, check, timeout, scoped, mode)
+        seen.append(args)
+        return Ok(Completed(argv=("dotnet", *args), returncode=0, stdout=b"", stderr=b""))
+
+    monkeypatch.setattr(test, "dotnet", fake_dotnet)
+    settings = QualitySettings(root=tmp_path)
+
+    assert test.run_test_rail(settings, _scope(tmp_path), "list", all_targets=True).is_ok()
+    assert seen == [
+        (
+            "test",
+            "--solution",
+            str(tmp_path / "Workspace.slnx"),
+            "--configuration",
+            settings.configuration,
+            "--results-directory",
+            str(tmp_path / ".artifacts/test/all" / settings.run_id),
+            "--minimum-expected-tests",
+            "1",
+            "--list-tests",
+        )
+    ]
+
+
 def test_default_test_target_runs_stryker_under_lock_with_bounded_concurrency(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     seen: list[tuple[str, ...]] = []
     workdirs: list[Path | None] = []

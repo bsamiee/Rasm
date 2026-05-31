@@ -221,8 +221,6 @@ public readonly record struct CameraScope(
     public Fin<Unit> Redraw() => ApplyRedraw(request: RedrawFor(scope: this));
 
     private static class DetailIndexCache {
-        private const int MaxDocuments = 8;
-
         private readonly record struct Row(RhinoPageView Page, DetailViewObject Detail);
 
         private readonly record struct Entry(int PageCount, int DetailCount, uint UndoSerial, HashMap<Guid, Row> ById);
@@ -281,7 +279,7 @@ public readonly record struct CameraScope(
             uint undoSerial,
             HashMap<Guid, Row> index) {
             Seq<uint> merged = state.Order.Filter(h => h != serial) + Seq(serial);
-            int skip = merged.Count > MaxDocuments ? merged.Count - MaxDocuments : 0;
+            int skip = merged.Count > CameraDefaults.DetailCacheDocuments ? merged.Count - CameraDefaults.DetailCacheDocuments : 0;
             Seq<uint> promoted = toSeq(merged.Skip(count: skip));
             LanguageExt.HashSet<uint> keep = toHashSet(promoted);
             HashMap<uint, Entry> entries = state.Entries

@@ -220,7 +220,7 @@ def _verify_render(summary: bridge_rail.VerifyReport) -> int:
 def _test_render(settings: QualitySettings, mode: test_rail.TestMode, *, all_targets: bool, mutation: test_rail.MutationMode) -> int:
     log.info(
         "test",
-        results=str(settings.test_results_dir),
+        results=str(settings.test_results(all_targets=all_targets)),
         all=all_targets or None,
         mutation=mutation if mode == "run" else None,
         mutation_output=str(settings.mutation_output_dir) if mode == "run" and mutation != "off" and settings.mutation_eligible else None,

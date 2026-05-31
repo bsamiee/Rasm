@@ -2,6 +2,8 @@ using Rasm.Rhino.UI;
 
 namespace Rasm.Rhino.Camera;
 
+internal static class CameraDefaults { internal const double LensLength = 50.0, FramePadding = 1.1; internal const int DetailCacheDocuments = 8; }
+
 // --- [TYPES] ------------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "scope")]
 public abstract partial record RedrawRequest {

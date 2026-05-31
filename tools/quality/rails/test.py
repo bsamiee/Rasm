@@ -111,11 +111,14 @@ def run_test_rail(
 
     @effect.result[None, ProcessFault]()
     def run() -> Generator[None]:
-        for target in settings.test_targets(all_targets=all_targets):
-            active = settings.model_copy(update={"test_target": target})
-            yield from dotnet(
-                *_test_args(active, plan_args, filter_expr), scope=scope, scoped=False, check=True, timeout=settings.test_timeout_s, mode="stream"
-            ).map(lambda _: None)
+        yield from dotnet(
+            *_test_args(settings, plan_args, filter_expr, all_targets=all_targets),
+            scope=scope,
+            scoped=False,
+            check=True,
+            timeout=settings.test_timeout_s,
+            mode="stream",
+        ).map(lambda _: None)
         match can_mutate and mutation != "off":
             case True:
                 yield from _run_mutation(settings, scope, mutation).map(lambda _: None)
@@ -125,15 +128,19 @@ def run_test_rail(
     return run()
 
 
-def _test_args(settings: QualitySettings, plan_args: tuple[str, ...], filter_expr: str) -> tuple[str, ...]:
+def _test_args(settings: QualitySettings, plan_args: tuple[str, ...], filter_expr: str, *, all_targets: bool) -> tuple[str, ...]:
+    match all_targets:
+        case True:
+            target_args = ("--solution", str(settings.solution))
+        case False:
+            target_args = ("--project", str((settings.root / settings.test_target).resolve()))
     return (
         "test",
-        "--project",
-        str((settings.root / settings.test_target).resolve()),
+        *target_args,
         "--configuration",
         settings.configuration,
         "--results-directory",
-        str(settings.test_results_dir),
+        str(settings.test_results(all_targets=all_targets)),
         "--minimum-expected-tests",
         "1",
         *plan_args,

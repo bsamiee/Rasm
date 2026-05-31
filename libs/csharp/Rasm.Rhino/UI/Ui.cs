@@ -164,7 +164,10 @@ public sealed partial record RhinoUi {
     internal static Fin<Unit> Enqueue(Action run, string name) =>
         Op.Of(name: name).Need(run)
             .Map(valid => {
-                RhinoApp.InvokeOnUiThread(method: valid, args: []);
+                RhinoApp.InvokeOnUiThread(method: () => _ = Op.Of(name: name).Catch(() => {
+                    valid();
+                    return Fin.Succ(value: unit);
+                }).IfFail(error => RhinoApp.WriteLine($"Rasm UI enqueue failed: {error.Message}")), args: []);
                 return unit;
             });
 }

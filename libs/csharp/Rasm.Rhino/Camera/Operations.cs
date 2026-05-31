@@ -91,8 +91,8 @@ public abstract partial record CameraProjection {
     private CameraProjection() { }
 
     public sealed record Parallel(bool SymmetricFrustum = true) : CameraProjection;
-    public sealed record Perspective(Option<double> TargetDistance = default, bool SymmetricFrustum = true, double LensLength = 50.0) : CameraProjection;
-    public sealed record TwoPointPerspective(double LensLength = 50.0, Option<(Vector3d Up, double TargetDistance)> Target = default) : CameraProjection;
+    public sealed record Perspective(Option<double> TargetDistance = default, bool SymmetricFrustum = true, double LensLength = CameraDefaults.LensLength) : CameraProjection;
+    public sealed record TwoPointPerspective(double LensLength = CameraDefaults.LensLength, Option<(Vector3d Up, double TargetDistance)> Target = default) : CameraProjection;
     public sealed record ParallelReflected : CameraProjection;
 
     internal Fin<Unit> Use(RhinoViewport viewport, Op op) =>
@@ -196,7 +196,7 @@ public abstract partial record CameraEdit {
     public sealed record Native(Func<RhinoViewport, bool> Run) : CameraEdit;
     public sealed record Frame(CameraFrame Value) : CameraEdit;
     public sealed record NavigateLookAt(Point3d From, Point3d At, Option<Vector3d> UpAxis = default) : CameraEdit;
-    public sealed record SubjectFrame(CameraSubject Subject, FramePaddingMode Mode, double Amount = 1.1) : CameraEdit;
+    public sealed record SubjectFrame(CameraSubject Subject, FramePaddingMode Mode, double Amount = CameraDefaults.FramePadding) : CameraEdit;
     public sealed record Location(Point3d Value, bool UpdateTarget = true) : CameraEdit;
     public sealed record Target(Point3d Value, bool UpdateLocation = true) : CameraEdit;
     public sealed record Direction(Vector3d Value, bool UpdateTarget = true) : CameraEdit;
@@ -241,22 +241,27 @@ file static class CameraEditKernel {
             navigateLookAt: static (ctx, value) => from frame in CameraFrame.LookAt(location: value.From, target: value.At, up: value.UpAxis)
                                                    from _ in frame.Apply(viewport: ctx.Viewport, op: Op.Of(name: nameof(CameraEdit.NavigateLookAt)))
                                                    select CameraScope.RedrawFor(scope: ctx),
-            subjectFrame: static (ctx, value) => from bounds in value.Subject.BoundsOf(op: Op.Of(name: nameof(CameraEdit.SubjectFrame)))
-                                                 let box = InflateBox(source: bounds, mode: value.Mode, amount: value.Amount)
+            subjectFrame: static (ctx, value) => from amount in ValidDouble(value: value.Amount, op: Op.Of(name: nameof(CameraEdit.SubjectFrame)), positive: true)
+                                                 from bounds in value.Subject.BoundsOf(op: Op.Of(name: nameof(CameraEdit.SubjectFrame)))
+                                                 let box = InflateBox(source: bounds, mode: value.Mode, amount: amount)
                                                  from _ in guard(box.IsValid, Op.Of(name: nameof(CameraEdit.SubjectFrame)).InvalidInput())
                                                  from __ in Op.Of(name: nameof(CameraEdit.SubjectFrame)).Confirm(success: ctx.Viewport.ZoomBoundingBox(box: box))
                                                  select CameraScope.RedrawFor(scope: ctx),
-            location: static (ctx, value) => Side(scope: ctx, apply: vp => vp.SetCameraLocation(cameraLocation: value.Value, updateTargetLocation: value.UpdateTarget)),
-            target: static (ctx, value) => Side(scope: ctx, apply: vp => vp.SetCameraTarget(targetLocation: value.Value, updateCameraLocation: value.UpdateLocation)),
+            location: static (ctx, value) => from point in ValidPoint(value: value.Value, op: Op.Of(name: nameof(CameraEdit.Location)))
+                                             from redraw in Side(scope: ctx, apply: vp => vp.SetCameraLocation(cameraLocation: point, updateTargetLocation: value.UpdateTarget))
+                                             select redraw,
+            target: static (ctx, value) => from point in ValidPoint(value: value.Value, op: Op.Of(name: nameof(CameraEdit.Target)))
+                                           from redraw in Side(scope: ctx, apply: vp => vp.SetCameraTarget(targetLocation: point, updateCameraLocation: value.UpdateLocation))
+                                           select redraw,
             direction: static (ctx, value) => WithDirection(scope: ctx, value: value.Value, op: Op.Of(name: nameof(CameraEdit.Direction)),
                 apply: dir => Side(scope: ctx, apply: vp => vp.SetCameraDirection(cameraDirection: dir, updateTargetLocation: value.UpdateTarget))),
             up: static (ctx, value) => WithDirection(scope: ctx, value: value.Value, op: Op.Of(name: nameof(CameraEdit.Up)),
                 apply: dir => Side(scope: ctx, apply: vp => vp.CameraUp = dir)),
-            lens: static (ctx, value) => from _ in guard(value.Millimeters > 0, Op.Of(name: nameof(CameraEdit.Lens)).InvalidInput())
-                                         from redraw in Side(scope: ctx, apply: vp => vp.Camera35mmLensLength = value.Millimeters)
+            lens: static (ctx, value) => from millimeters in ValidDouble(value: value.Millimeters, op: Op.Of(name: nameof(CameraEdit.Lens)), positive: true)
+                                         from redraw in Side(scope: ctx, apply: vp => vp.Camera35mmLensLength = millimeters)
                                          select redraw,
-            angle: static (ctx, value) => from _ in guard(value.Radians > 0, Op.Of(name: nameof(CameraEdit.Angle)).InvalidInput())
-                                          from redraw in Side(scope: ctx, apply: vp => vp.CameraAngle = value.Radians)
+            angle: static (ctx, value) => from radians in ValidDouble(value: value.Radians, op: Op.Of(name: nameof(CameraEdit.Angle)), positive: true)
+                                          from redraw in Side(scope: ctx, apply: vp => vp.CameraAngle = radians)
                                           select redraw,
             defined: static (ctx, value) => Result(scope: ctx, apply: vp => vp.SetProjection(projection: value.Projection, viewName: value.Name, updateConstructionPlane: value.UpdateConstructionPlane), Op.Of(name: nameof(CameraEdit.Defined))),
             snapshot: static (ctx, value) => ApplyProjection(scope: ctx, apply: (_, _) => Fin.Succ(value: value.Projection), updateTarget: value.UpdateTarget),
@@ -289,11 +294,15 @@ file static class CameraEditKernel {
             zoomWindow: static (ctx, value) => Result(scope: ctx, apply: vp => vp.ZoomWindow(rect: value.Window), Op.Of(name: nameof(CameraEdit.ZoomWindow))),
             rotate: static (ctx, value) => WithDirection(scope: ctx, value: value.Axis, op: Op.Of(name: nameof(CameraEdit.Rotate)),
                 apply: dir => Result(scope: ctx, apply: vp => vp.Rotate(angleRadians: value.Radians, rotationAxis: dir, rotationCenter: value.Center), Op.Of(name: nameof(CameraEdit.Rotate)))),
-            magnify: static (ctx, value) => Result(scope: ctx, apply: vp => value.FixedPoint.Case switch {
-                DrawingPoint p => vp.Magnify(magnificationFactor: value.Factor, mode: value.LensMode, fixedScreenPoint: p),
-                _ => vp.Magnify(magnificationFactor: value.Factor, mode: value.LensMode),
-            }, Op.Of(name: nameof(CameraEdit.Magnify))),
-            keyboard: static (ctx, value) => Result(scope: ctx, apply: vp => value.Move.Apply(viewport: vp, leftRight: value.LeftRight, amount: value.Amount), Op.Of(name: nameof(CameraEdit.Keyboard))),
+            magnify: static (ctx, value) => from factor in ValidDouble(value: value.Factor, op: Op.Of(name: nameof(CameraEdit.Magnify)), positive: true)
+                                            from redraw in Result(scope: ctx, apply: vp => value.FixedPoint.Case switch {
+                                                DrawingPoint p => vp.Magnify(magnificationFactor: factor, mode: value.LensMode, fixedScreenPoint: p),
+                                                _ => vp.Magnify(magnificationFactor: factor, mode: value.LensMode),
+                                            }, Op.Of(name: nameof(CameraEdit.Magnify)))
+                                            select redraw,
+            keyboard: static (ctx, value) => from amount in ValidDouble(value: value.Amount, op: Op.Of(name: nameof(CameraEdit.Keyboard)))
+                                             from redraw in Result(scope: ctx, apply: vp => value.Move.Apply(viewport: vp, leftRight: value.LeftRight, amount: amount), Op.Of(name: nameof(CameraEdit.Keyboard)))
+                                             select redraw,
             mouse: static (ctx, value) => Result(scope: ctx, apply: vp => value.Move.Apply(viewport: vp, previous: value.PreviousPoint, current: value.CurrentPoint), Op.Of(name: nameof(CameraEdit.Mouse))),
             mouseLens: static (ctx, value) => Result(scope: ctx, apply: vp => vp.MouseAdjustLensLength(mousePreviousPoint: value.PreviousPoint, mouseCurrentPoint: value.CurrentPoint, moveTarget: value.MoveTarget), Op.Of(name: nameof(CameraEdit.MouseLens))),
             stackMove: static (ctx, value) => Fin.Succ(value: value.Move.Apply(viewport: ctx.Viewport, plane: value.Plane)
@@ -313,6 +322,12 @@ file static class CameraEditKernel {
         box.Inflate(xAmount: box.Diagonal.X * factor, yAmount: box.Diagonal.Y * factor, zAmount: box.Diagonal.Z * factor);
         return box;
     }
+
+    private static Fin<Point3d> ValidPoint(Point3d value, Op op) =>
+        value.IsValid ? Fin.Succ(value: value) : Fin.Fail<Point3d>(error: op.InvalidInput());
+
+    private static Fin<double> ValidDouble(double value, Op op, bool positive = false) =>
+        (!positive || value > 0.0) && RhinoMath.IsValidDouble(x: value) ? Fin.Succ(value: value) : Fin.Fail<double>(error: op.InvalidInput());
 
     private static Fin<RedrawRequest> ApplyProjection(
         CameraScope scope,

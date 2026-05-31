@@ -353,7 +353,8 @@ public sealed record ArchiveClosureReport(
     Seq<Archive.LinkedArchiveEdge> Edges,
     Seq<ArchivePath> Broken,
     Seq<Seq<ArchivePath>> Cycles,
-    Seq<ArchivePath> Truncated = default);
+    Seq<ArchivePath> Truncated = default,
+    Seq<string> NativeLog = default);
 
 public sealed record BlockFilter(
     Option<Seq<string>> Archives = default,
@@ -649,35 +650,38 @@ public sealed record AuthorSpec(
     Point3d BasePoint,
     UpdatePolicy Update,
     LayerStyle Layer,
-    MetadataPatch Metadata) {
+    MetadataPatch Metadata,
+    Option<FileEndpoint> Source = default) {
 
     public static Fin<AuthorSpec> Of(
         DefinitionName name,
         Point3d basePoint,
         UpdatePolicy? update = null,
         LayerStyle? layer = null,
+        Option<FileEndpoint> source = default,
         MetadataPatch? metadata = null,
         Op? key = null) {
         Op op = key.OrDefault();
         UpdatePolicy policy = update ?? UpdatePolicy.Static;
         LayerStyle style = layer ?? (policy == UpdatePolicy.Linked ? LayerStyle.Reference : LayerStyle.None);
-        return (basePoint.IsValid, style.AppliesTo(policy: policy)) switch {
-            (true, true) => Fin.Succ(value: new AuthorSpec(
+        return (basePoint.IsValid, style.AppliesTo(policy: policy), policy.IsLinked, source.Case) switch {
+            (true, true, true, FileEndpoint) or (true, true, false, not FileEndpoint) => Fin.Succ(value: new AuthorSpec(
                 Name: name,
                 BasePoint: basePoint,
                 Update: policy,
                 Layer: style,
-                Metadata: metadata ?? MetadataPatch.Empty)),
+                Metadata: metadata ?? MetadataPatch.Empty,
+                Source: source)),
             _ => Fin.Fail<AuthorSpec>(error: op.InvalidInput()),
         };
     }
 
     public Fin<AuthorSpec> Admit(Op key) =>
-        Of(name: Name, basePoint: BasePoint, update: Update, layer: Layer, metadata: Metadata, key: key);
+        Of(name: Name, basePoint: BasePoint, update: Update, layer: Layer, source: Source, metadata: Metadata, key: key);
 
     private static readonly (Func<AuthorSpec, InstanceDefinition, DefinitionId, bool> When, Func<DefinitionId, AuthorSpec, InstanceDefinition, BlockDiagnostic> Make)[] CreateDiagnosticRules = [
         (static (spec, _, _) => !spec.Metadata.UserStrings.IsEmpty, static (id, _, _) => BlockDiagnostic.SilentUserStrings(id: id)),
-        (static (spec, _, _) => spec.Update != UpdatePolicy.Static, static (id, spec, _) => new BlockDiagnostic.SourceArchiveRequired(Id: id, Requested: spec.Update)),
+        (static (spec, live, _) => spec.Update.IsLinked && Definition.NonBlank(value: live.SourceArchive).IsNone, static (id, spec, _) => new BlockDiagnostic.SourceArchiveRequired(Id: id, Requested: spec.Update)),
         (static (spec, live, _) => live.LayerStyle != spec.Layer.Native, static (id, _, live) => new BlockDiagnostic.LinkedSetterIgnored(Id: id, Actual: UpdatePolicy.FromNative(native: live.UpdateType))),
     ];
 

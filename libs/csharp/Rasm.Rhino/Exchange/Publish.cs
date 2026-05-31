@@ -345,11 +345,16 @@ public abstract partial record FilePublishTarget {
             .Bind(page => AnnotatePage(pdf: pdf, page: page, stamps: target.Annotate, op: op))).As()
         from sheets in pages.TraverseM(page =>
             from rendered in page.Render(render: owned => {
+                bool restore = pdf.LayersAsOptionalContentGroups;
                 pdf.LayersAsOptionalContentGroups = layers && !page.Spec.Recipe.Raster;
-                return pdf.AddPage(settings: owned) switch {
-                    int value when value >= 0 => Fin.Succ(value: value),
-                    _ => Fin.Fail<int>(error: op.InvalidResult()),
-                };
+                try {
+                    return pdf.AddPage(settings: owned) switch {
+                        int value when value >= 0 => Fin.Succ(value: value),
+                        _ => Fin.Fail<int>(error: op.InvalidResult()),
+                    };
+                } finally {
+                    pdf.LayersAsOptionalContentGroups = restore;
+                }
             }, op: op)
             from annotated in AnnotatePage(pdf: pdf, page: rendered.Value, stamps: target.Annotate, op: op)
             select rendered.Report).As()

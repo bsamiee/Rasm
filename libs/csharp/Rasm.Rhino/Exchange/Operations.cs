@@ -19,8 +19,7 @@ public abstract partial record FileExchange {
     public sealed record Write3dmFile(FileEndpoint Target, FileProfile Profile) : FileExchange;
     public sealed record SaveTemplate(FileEndpoint Target, FileProfile Profile) : FileExchange;
     public sealed record Publish(FilePublish Spec) : FileExchange;
-    public sealed record NamedLayerState(FileLayerState Change) : FileExchange;
-    public sealed record NamedPosition(FileNamedPosition Change) : FileExchange;
+    public sealed record NativeTable(FileNativeTable Change) : FileExchange;
     public sealed record ArchiveRead(FileArchiveSource Source, ArchiveProfile Profile) : FileExchange;
     public sealed record ArchiveExtract(FileArchiveSource Source, FileEndpoint Target, ArchiveProfile Profile) : FileExchange;
     public sealed record ArchiveUpdate(FileArchiveSource Source, FileEndpoint Target, Exchange.ArchiveUpdate Update, ArchiveProfile Profile) : FileExchange;
@@ -30,89 +29,75 @@ public abstract partial record FileExchange {
 }
 
 [Union(SwitchMapStateParameterName = "state")]
-public abstract partial record FileLayerState {
-    private FileLayerState() { }
-    public sealed record Save(string Name, Option<Guid> Viewport = default) : FileLayerState;
-    public sealed record Restore(string Name, RestoreLayerProperties Properties, Option<Guid> Viewport = default) : FileLayerState;
-    public sealed record Rename(string Name, string Next) : FileLayerState;
-    public sealed record Delete(string Name) : FileLayerState;
-    public sealed record Import(FileEndpoint Source) : FileLayerState;
+public abstract partial record FileNativeTable {
+    private FileNativeTable() { }
+    public sealed record SaveLayerState(string Name, Option<Guid> Viewport = default) : FileNativeTable;
+    public sealed record RestoreLayerState(string Name, RestoreLayerProperties Properties, Option<Guid> Viewport = default) : FileNativeTable;
+    public sealed record RenameLayerState(string Name, string Next) : FileNativeTable;
+    public sealed record DeleteLayerState(string Name) : FileNativeTable;
+    public sealed record ImportLayerState(FileEndpoint Source) : FileNativeTable;
+    public sealed record SavePosition(string Name, DocumentTarget Objects) : FileNativeTable;
+    public sealed record RestorePosition(string Name) : FileNativeTable;
+    public sealed record UpdatePosition(string Name) : FileNativeTable;
+    public sealed record RenamePosition(string Name, string Next) : FileNativeTable;
+    public sealed record DeletePosition(string Name) : FileNativeTable;
+    public sealed record AppendPosition(string Name, DocumentTarget Objects) : FileNativeTable;
+
+    internal FilePhase Phase => this is SaveLayerState or RestoreLayerState or RenameLayerState or DeleteLayerState or ImportLayerState ? FilePhase.NamedLayerState : FilePhase.NamedPosition;
 
     internal Fin<DocumentResourceChange> Apply(RhinoDoc document, Op op) =>
         Switch(
             (Document: document, Op: op),
-            save: static (state, change) =>
+            saveLayerState: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
-                from _ in state.Document.NamedLayerStates.Save(name: name, viewportId: change.Viewport.IfNone(Guid.Empty)) switch {
-                    >= 0 => Fin.Succ(value: unit),
-                    _ => Fin.Fail<Unit>(error: state.Op.InvalidResult()),
-                }
-                select new DocumentResourceChange(Kind: DocumentResourceKind.NamedLayerState, Name: name),
-            restore: static (state, change) =>
+                from _ in state.Document.NamedLayerStates.Save(name: name, viewportId: change.Viewport.IfNone(Guid.Empty)) switch { >= 0 => Fin.Succ(value: unit), _ => Fin.Fail<Unit>(error: state.Op.InvalidResult()) }
+                select Changed(kind: DocumentResourceKind.NamedLayerState, name: name),
+            restoreLayerState: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
                 from _ in state.Op.Confirm(success: state.Document.NamedLayerStates.Restore(name: name, properties: change.Properties, viewportId: change.Viewport.IfNone(Guid.Empty)))
-                select new DocumentResourceChange(Kind: DocumentResourceKind.NamedLayerState, Name: name),
-            rename: static (state, change) =>
+                select Changed(kind: DocumentResourceKind.NamedLayerState, name: name),
+            renameLayerState: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
                 from next in FileEndpoint.NonBlank(value: change.Next, op: state.Op)
                 from _ in state.Op.Confirm(success: state.Document.NamedLayerStates.Rename(oldName: name, newName: next))
-                select new DocumentResourceChange(Kind: DocumentResourceKind.NamedLayerState, Name: next),
-            delete: static (state, change) =>
+                select Changed(kind: DocumentResourceKind.NamedLayerState, name: next),
+            deleteLayerState: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
                 from _ in state.Op.Confirm(success: state.Document.NamedLayerStates.Delete(name: name))
-                select new DocumentResourceChange(Kind: DocumentResourceKind.NamedLayerState, Name: name),
-            import: static (state, change) =>
+                select Changed(kind: DocumentResourceKind.NamedLayerState, name: name),
+            importLayerState: static (state, change) =>
                 from source in change.Source.Input(op: state.Op)
-                from _ in state.Document.NamedLayerStates.Import(filename: source.Path) switch {
-                    >= 0 => Fin.Succ(value: unit),
-                    _ => Fin.Fail<Unit>(error: state.Op.InvalidResult()),
-                }
-                select new DocumentResourceChange(Kind: DocumentResourceKind.NamedLayerState, Name: source.Path));
-}
-
-[Union(SwitchMapStateParameterName = "state")]
-public abstract partial record FileNamedPosition {
-    private FileNamedPosition() { }
-    public sealed record Save(string Name, DocumentTarget Objects) : FileNamedPosition;
-    public sealed record Restore(string Name) : FileNamedPosition;
-    public sealed record Update(string Name) : FileNamedPosition;
-    public sealed record Rename(string Name, string Next) : FileNamedPosition;
-    public sealed record Delete(string Name) : FileNamedPosition;
-    public sealed record Append(string Name, DocumentTarget Objects) : FileNamedPosition;
-
-    internal Fin<DocumentResourceChange> Apply(RhinoDoc document, Op op) =>
-        Switch(
-            (Document: document, Op: op),
-            save: static (state, change) =>
+                from _ in state.Document.NamedLayerStates.Import(filename: source.Path) switch { >= 0 => Fin.Succ(value: unit), _ => Fin.Fail<Unit>(error: state.Op.InvalidResult()) }
+                select Changed(kind: DocumentResourceKind.NamedLayerState, name: source.Path),
+            savePosition: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
                 from ids in change.Objects.Ids(document: state.Document, op: state.Op)
-                from _ in state.Document.NamedPositions.Save(name: name, objectIds: ids.AsIterable()) switch {
-                    Guid id when id != Guid.Empty => Fin.Succ(value: unit),
-                    _ => Fin.Fail<Unit>(error: state.Op.InvalidResult()),
-                }
-                select new DocumentResourceChange(Kind: DocumentResourceKind.NamedPosition, Name: name),
-            restore: static (state, change) =>
+                from _ in state.Document.NamedPositions.Save(name: name, objectIds: ids.AsIterable()) switch { Guid id when id != Guid.Empty => Fin.Succ(value: unit), _ => Fin.Fail<Unit>(error: state.Op.InvalidResult()) }
+                select Changed(kind: DocumentResourceKind.NamedPosition, name: name),
+            restorePosition: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
                 from _ in state.Op.Confirm(success: state.Document.NamedPositions.Restore(name: name))
-                select new DocumentResourceChange(Kind: DocumentResourceKind.NamedPosition, Name: name),
-            update: static (state, change) =>
+                select Changed(kind: DocumentResourceKind.NamedPosition, name: name),
+            updatePosition: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
                 from _ in state.Op.Confirm(success: state.Document.NamedPositions.Update(name: name))
-                select new DocumentResourceChange(Kind: DocumentResourceKind.NamedPosition, Name: name),
-            rename: static (state, change) =>
+                select Changed(kind: DocumentResourceKind.NamedPosition, name: name),
+            renamePosition: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
                 from next in FileEndpoint.NonBlank(value: change.Next, op: state.Op)
                 from _ in state.Op.Confirm(success: state.Document.NamedPositions.Rename(oldName: name, name: next))
-                select new DocumentResourceChange(Kind: DocumentResourceKind.NamedPosition, Name: next),
-            delete: static (state, change) =>
+                select Changed(kind: DocumentResourceKind.NamedPosition, name: next),
+            deletePosition: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
                 from _ in state.Op.Confirm(success: state.Document.NamedPositions.Delete(name: name))
-                select new DocumentResourceChange(Kind: DocumentResourceKind.NamedPosition, Name: name),
-            append: static (state, change) =>
+                select Changed(kind: DocumentResourceKind.NamedPosition, name: name),
+            appendPosition: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
                 from ids in change.Objects.Ids(document: state.Document, op: state.Op)
                 from _ in state.Op.Confirm(success: state.Document.NamedPositions.Append(name: name, objectIds: ids.AsIterable()))
-                select new DocumentResourceChange(Kind: DocumentResourceKind.NamedPosition, Name: name));
+                select Changed(kind: DocumentResourceKind.NamedPosition, name: name));
+
+    private static DocumentResourceChange Changed(DocumentResourceKind kind, string name) => new(Kind: kind, Name: name);
 }
 
 public readonly record struct FilePositionReport(string Name, Guid Id, Seq<Guid> Objects);
@@ -140,15 +125,14 @@ public static class FileOp {
                 runtime,
                 open: static (_, open) => OpenCore(source: open.Source, profile: open.Profile),
                 import: static (runtime, import) => ImportCore(runtime: runtime, source: import.Source, profile: import.Profile),
-                export: static (runtime, export) => ExportCore(runtime: runtime, target: export.Target, objects: export.Objects, profile: export.Profile),
+                export: static (runtime, export) => WriteCore(runtime: runtime, target: Some(export.Target), objects: export.Objects, profile: export.Profile, phase: FilePhase.Export),
                 save: static (runtime, _) => WriteCore(runtime: runtime, target: Option<FileEndpoint>.None, profile: FileProfile.Model, phase: FilePhase.Save),
                 saveAs: static (runtime, saveAs) => WriteCore(runtime: runtime, target: Some(saveAs.Target), profile: saveAs.Profile, phase: FilePhase.SaveAs),
                 writeFile: static (runtime, write) => WriteCore(runtime: runtime, target: Some(write.Target), profile: write.Profile, phase: FilePhase.WriteFile),
                 write3dmFile: static (runtime, write) => WriteCore(runtime: runtime, target: Some(write.Target), profile: write.Profile, phase: FilePhase.Write3dmFile),
                 saveTemplate: static (runtime, template) => WriteCore(runtime: runtime, target: Some(template.Target), profile: template.Profile, phase: FilePhase.SaveTemplate),
                 publish: static (runtime, publish) => PublishCore(runtime: runtime, publish: publish.Spec),
-                namedLayerState: static (runtime, state) => Commit(runtime: runtime, phase: FilePhase.NamedLayerState, name: nameof(FileExchange.NamedLayerState), change: state.Change, apply: static (document, change, op) => change.Apply(document: document, op: op).Map(static changed => DocumentReceipt.Empty with { ResourceChanged = Seq(changed) })),
-                namedPosition: static (runtime, state) => Commit(runtime: runtime, phase: FilePhase.NamedPosition, name: nameof(FileExchange.NamedPosition), change: state.Change, apply: static (document, change, op) => change.Apply(document: document, op: op).Map(static changed => DocumentReceipt.Empty with { ResourceChanged = Seq(changed) })),
+                nativeTable: static (runtime, state) => Commit(runtime: runtime, phase: state.Change.Phase, name: nameof(FileExchange.NativeTable), change: state.Change, apply: static (document, change, op) => change.Apply(document: document, op: op).Map(static changed => DocumentReceipt.Empty with { ResourceChanged = Seq(changed) })),
                 archiveRead: static (_, archive) => FileArchiveOps.Read(source: archive.Source, profile: archive.Profile),
                 archiveExtract: static (_, archive) => FileArchiveOps.Extract(source: archive.Source, target: archive.Target, profile: archive.Profile),
                 archiveUpdate: static (_, archive) => FileArchiveOps.Update(source: archive.Source, target: archive.Target, update: archive.Update, profile: archive.Profile),
@@ -234,20 +218,7 @@ public static class FileOp {
                 select DocumentReceipt.Empty with { Created = after.Filter(id => !before.Exists(item => item == id)) })
         select FileReport.Of(phase: FilePhase.Import, source: Some(endpoint), target: Option<FileEndpoint>.None, format: FileFormatProjection.Resolve(endpoint: endpoint, profile: profile), receipt: Some(receipt));
 
-    private static Fin<FileReport> ExportCore(FileRuntime runtime, FileEndpoint target, Option<DocumentTarget> objects, FileProfile profile) =>
-        from live in Live(runtime: runtime, op: Op.Of(name: nameof(FileExchange.Export)))
-        from endpoint in target.Output(op: Op.Of(name: nameof(FileExchange.Export)))
-        from receipt in live.Edit.Commit(
-            name: nameof(FileExchange.Export),
-            redraw: DocumentRedraw.None,
-            undoRecorded: false,
-            run: (document, _, op) => objects.Case switch {
-                DocumentTarget selection => ExportTarget(document: document, target: selection, endpoint: endpoint, profile: profile, op: op),
-                _ => FileFormatProjection.Write(document: document, target: Some(endpoint), profile: profile, phase: FilePhase.Export, selected: false, op: op).Map(static _ => DocumentReceipt.Empty),
-            })
-        select FileReport.Of(phase: FilePhase.Export, source: Option<FileEndpoint>.None, target: Some(endpoint), format: FileFormatProjection.Resolve(endpoint: endpoint, profile: profile), receipt: Some(receipt));
-
-    private static Fin<FileReport> WriteCore(FileRuntime runtime, Option<FileEndpoint> target, FileProfile profile, FilePhase phase) {
+    private static Fin<FileReport> WriteCore(FileRuntime runtime, Option<FileEndpoint> target, FileProfile profile, FilePhase phase, Option<DocumentTarget> objects = default) {
         Op op = Op.Of(name: nameof(WriteCore));
         bool archive = phase == FilePhase.SaveAs || phase == FilePhase.Write3dmFile || phase == FilePhase.SaveTemplate;
         return from live in Live(runtime: runtime, op: op)
@@ -260,7 +231,10 @@ public static class FileOp {
                    name: nameof(WriteCore),
                    redraw: DocumentRedraw.None,
                    undoRecorded: false,
-                   run: (document, _, inner) => FileFormatProjection.Write(document: document, target: endpoint, profile: profile, phase: phase, selected: false, op: inner).Map(static _ => DocumentReceipt.Empty))
+                   run: (document, _, inner) => (phase == FilePhase.Export, objects.Case, endpoint.Case) switch {
+                       (true, DocumentTarget selection, FileEndpoint output) => ExportTarget(document: document, target: selection, endpoint: output, profile: profile, op: inner),
+                       _ => FileFormatProjection.Write(document: document, target: endpoint, profile: profile, phase: phase, selected: false, op: inner).Map(static _ => DocumentReceipt.Empty),
+                   })
                select FileReport.Of(
                    phase: phase,
                    target: endpoint,

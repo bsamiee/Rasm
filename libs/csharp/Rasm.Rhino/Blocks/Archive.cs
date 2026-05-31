@@ -74,15 +74,17 @@ public static class Archive {
         Seq<LinkedArchiveEdge> Edges,
         Seq<ArchivePath> Broken,
         Seq<Seq<ArchivePath>> Cycles,
-        Seq<ArchivePath> Truncated) {
-        public static ClosureState Empty { get; } = new(Edges: Seq<LinkedArchiveEdge>(), Broken: Seq<ArchivePath>(), Cycles: Seq<Seq<ArchivePath>>(), Truncated: Seq<ArchivePath>());
+        Seq<ArchivePath> Truncated,
+        Seq<string> NativeLog) {
+        public static ClosureState Empty { get; } = new(Edges: Seq<LinkedArchiveEdge>(), Broken: Seq<ArchivePath>(), Cycles: Seq<Seq<ArchivePath>>(), Truncated: Seq<ArchivePath>(), NativeLog: Seq<string>());
         public ArchiveClosureReport Report(ClosureValidationPolicy policy) =>
             new(
                 Valid: Broken.IsEmpty && Truncated.IsEmpty && (!policy.DetectCycles || Cycles.IsEmpty),
                 Edges: Edges,
                 Broken: Broken,
                 Cycles: Cycles,
-                Truncated: Truncated);
+                Truncated: Truncated,
+                NativeLog: NativeLog);
     }
     private static Fin<ClosureState> WalkClosure(
         File3dm model,
@@ -166,16 +168,20 @@ public static class Archive {
         ClosureValidationPolicy policy,
         Op key) =>
         key.Catch(() => {
-            using File3dm? child = File3dm.ReadWithLog(path: toFull, errorLog: out _);
+            using File3dm? child = File3dm.ReadWithLog(path: toFull, errorLog: out string errorLog);
+            ClosureState logged = Optional(errorLog)
+                .Filter(static log => !string.IsNullOrWhiteSpace(value: log))
+                .Map(log => next with { NativeLog = next.NativeLog + log })
+                .IfNone(next);
             return child switch {
-                null => Fin.Succ(next with { Broken = next.Broken + BrokenPath(here: toFull, key: key) }),
+                null => Fin.Succ(logged with { Broken = logged.Broken + BrokenPath(here: toFull, key: key) }),
                 File3dm model => WalkClosure(
                     model: model,
                     path: toFull,
                     depth: depth + 1,
                     stack: stack,
                     visited: visited,
-                    state: next,
+                    state: logged,
                     policy: policy,
                     key: key),
             };

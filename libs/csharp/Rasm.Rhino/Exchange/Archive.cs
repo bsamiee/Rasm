@@ -35,7 +35,7 @@ public readonly record struct FileArchiveMetadata(
     Option<string> LastEditedBy,
     Option<DateTime> CreatedOn,
     Option<DateTime> LastEditedOn,
-    int PageViews,
+    Option<int> PageViews,
     bool Preview,
     Option<UnitSystem> ModelUnits = default,
     Option<UnitSystem> PageUnits = default,
@@ -614,13 +614,10 @@ internal static class FileArchiveOps {
                 LastEditedBy: TextOption(value: model.LastEditedBy),
                 CreatedOn: createdOn,
                 LastEditedOn: lastEditedOn,
-                // Page-view count has NO in-memory accessor: File3dm.Views/NamedViews are the MODEL view tables
-                // (native ids 16/17) with no page discriminator on ViewInfo/ViewportInfo, and page records are only
-                // exposed by the static path-based ONX_Model_ReadPageViews. Do NOT "optimize" to model.Views.Count —
-                // that counts standard views, the wrong number. Bytes sources have no path, so page count is 0.
+                // Page-view count has no in-memory accessor; bytes sources have no path, so page count is unknown.
                 PageViews: source switch {
-                    FileArchiveSource.Path path => Rows(File3dmModel.ReadPageViews(path: path.Value.Path)).Count,
-                    _ => 0,
+                    FileArchiveSource.Path path => Some(Rows(File3dmModel.ReadPageViews(path: path.Value.Path)).Count),
+                    _ => Option<int>.None,
                 },
                 Preview: hasPreview,
                 ModelUnits: settings.ModelUnitSystem == UnitSystem.None ? Option<UnitSystem>.None : Some(settings.ModelUnitSystem),

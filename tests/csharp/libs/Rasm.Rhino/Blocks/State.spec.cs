@@ -87,6 +87,15 @@ public sealed class BlockPolicyLaws {
             Spec.Succ(valid.Admit(key: BlockStateCases.Key), then: admitted =>
                 Assert.Equal(expected: LinkReloadPolicy.ShallowVerbose, actual: admitted.EffectiveReload));
             Spec.Fail((valid with { Update = UpdatePolicy.Static }).Admit(key: BlockStateCases.Key));
+            DefinitionName author = DefinitionName.Create(value: "LinkedAuthor");
+            Spec.Fail(AuthorSpec.Of(name: author, basePoint: Point3d.Origin, update: UpdatePolicy.Linked, key: BlockStateCases.Key));
+            Spec.Fail(AuthorSpec.Of(name: author, basePoint: Point3d.Origin, update: UpdatePolicy.Static, source: Some(endpoint), key: BlockStateCases.Key));
+            Spec.Succ(
+                AuthorSpec.Of(name: author, basePoint: Point3d.Origin, update: UpdatePolicy.Linked, source: Some(endpoint), key: BlockStateCases.Key),
+                then: spec => {
+                    Assert.Equal(expected: UpdatePolicy.Linked, actual: spec.Update);
+                    Assert.Equal(expected: endpoint.Path, actual: spec.Source.Map(static value => value.Path).IfNone(string.Empty));
+                });
         });
     }
 }

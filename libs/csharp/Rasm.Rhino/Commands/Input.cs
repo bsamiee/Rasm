@@ -50,9 +50,11 @@ public abstract partial record PointOnGeometry {
 
     internal static Option<PointOnGeometry> Of(Option<ObjRef> reference) =>
         reference.Bind(active => {
-            Curve? curve = active.CurveParameter(parameter: out double t);
-            Surface? surface = active.SurfaceParameter(u: out double u, v: out double v);
-            BrepFace? face = active.Face();
+            double t = double.NaN, u = double.NaN, v = double.NaN;
+            bool picked = active.SelectionMethod() == SelectionMethod.MousePick;
+            Curve? curve = picked ? active.CurveParameter(parameter: out t) : null;
+            Surface? surface = picked ? active.SurfaceParameter(u: out u, v: out v) : null;
+            BrepFace? face = picked ? active.Face() : null;
             return (curve, surface, face) switch {
                 (Curve c, _, _) when RhinoMath.IsValidDouble(x: t) => Some<PointOnGeometry>(new OnCurve(Curve: c, T: t)),
                 (_, _, BrepFace f) when RhinoMath.IsValidDouble(x: u) && RhinoMath.IsValidDouble(x: v) => Some<PointOnGeometry>(new OnBrep(Face: f, U: u, V: v)),

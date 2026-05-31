@@ -159,13 +159,13 @@ Scenario.Run("exchange", CAPTURE_PATH, (key, facts) => {
 
     // --- 6) named layer state + named object position round-trip (B3) ---
     string layerState = $"RasmLayerState{Guid.NewGuid():N}";
-    DocumentReceipt layerReceipt = Probe.ExpectSome(Probe.Expect(files.Run(FileOp.Do(new FileExchange.NamedLayerState(new FileLayerState.Save(Name: layerState)))), "named layer state save", facts).Receipt, "layer state receipt");
+    DocumentReceipt layerReceipt = Probe.ExpectSome(Probe.Expect(files.Run(FileOp.Do(new FileExchange.NativeTable(new FileNativeTable.SaveLayerState(Name: layerState)))), "named layer state save", facts).Receipt, "layer state receipt");
     Probe.Require(layerReceipt.ResourceChanged.Exists(change => change.Kind == DocumentResourceKind.NamedLayerState), "layer state saved");
     string position = $"RasmPosition{Guid.NewGuid():N}";
     DocumentTarget positionTarget = Probe.Expect(DocumentTarget.Objects(objectIds: Seq(boxId)), "position target");
-    DocumentReceipt posSaveReceipt = Probe.ExpectSome(Probe.Expect(files.Run(FileOp.Do(new FileExchange.NamedPosition(new FileNamedPosition.Save(Name: position, Objects: positionTarget)))), "named position save", facts).Receipt, "position save receipt");
+    DocumentReceipt posSaveReceipt = Probe.ExpectSome(Probe.Expect(files.Run(FileOp.Do(new FileExchange.NativeTable(new FileNativeTable.SavePosition(Name: position, Objects: positionTarget)))), "named position save", facts).Receipt, "position save receipt");
     Probe.Require(posSaveReceipt.ResourceChanged.Exists(change => change.Kind == DocumentResourceKind.NamedPosition), "named position saved (B3)");
-    DocumentReceipt posRestoreReceipt = Probe.ExpectSome(Probe.Expect(files.Run(FileOp.Do(new FileExchange.NamedPosition(new FileNamedPosition.Restore(Name: position)))), "named position restore", facts).Receipt, "position restore receipt");
+    DocumentReceipt posRestoreReceipt = Probe.ExpectSome(Probe.Expect(files.Run(FileOp.Do(new FileExchange.NativeTable(new FileNativeTable.RestorePosition(Name: position)))), "named position restore", facts).Receipt, "position restore receipt");
     Probe.Require(posRestoreReceipt.ResourceChanged.Count == 1, "named position restore receipt");
     Probe.Require(toSeq(doc.NamedPositions.Names).Contains(position), "named position present in document table");
     // read entrypoints — separate Eff surfaces (different return shape than the mutation unions)
@@ -178,7 +178,7 @@ Scenario.Run("exchange", CAPTURE_PATH, (key, facts) => {
     Brep box2 = Brep.CreateFromBox(new Box(Plane.WorldXY, new Interval(30.0, 50.0), new Interval(30.0, 50.0), new Interval(0.0, 10.0))) ?? throw new InvalidOperationException(message: "box2 brep");
     Guid box2Id = doc.Objects.AddBrep(brep: box2);
     DocumentTarget appendTarget = Probe.Expect(DocumentTarget.Objects(objectIds: Seq(box2Id)), "append target");
-    DocumentReceipt appendReceipt = Probe.ExpectSome(Probe.Expect(files.Run(FileOp.Do(new FileExchange.NamedPosition(new FileNamedPosition.Append(Name: position, Objects: appendTarget)))), "named position append", facts).Receipt, "append receipt");
+    DocumentReceipt appendReceipt = Probe.ExpectSome(Probe.Expect(files.Run(FileOp.Do(new FileExchange.NativeTable(new FileNativeTable.AppendPosition(Name: position, Objects: appendTarget)))), "named position append", facts).Receipt, "append receipt");
     Probe.Require(appendReceipt.ResourceChanged.Exists(change => change.Kind == DocumentResourceKind.NamedPosition), "Append updates the named position (B-addendum)");
 
     // --- 7) earth anchor set + sun sync + projection round-trip ---

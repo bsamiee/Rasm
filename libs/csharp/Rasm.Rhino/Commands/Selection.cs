@@ -137,6 +137,11 @@ public sealed record CommandSelection {
     private static Fin<CommandSelection> PickWith(RhinoDoc document, PickContext context, bool updateClippingPlanes) =>
         from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
         from validContext in Optional(context).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
+        from _view in updateClippingPlanes && validContext.View is null
+            ? Optional(validDocument.Views.ActiveView)
+                .ToFin(Fail: Op.Of(name: nameof(Pick)).MissingContext())
+                .Map(view => { validContext.View = view; return unit; })
+            : Fin.Succ(value: unit)
         from selection in UI.RhinoUi.Protect(valid: () => {
             _ = Op.SideWhen(updateClippingPlanes, validContext.UpdateClippingPlanes);
             return Optional(validDocument.Objects.PickObjects(pickContext: validContext)).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidResult()).Bind(references => references switch { { Length: > 0 } values => Fin.Succ(value: From(document: validDocument, references: toSeq(values), preselected: Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>())), _ => Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(Pick)).InvalidResult()) });

@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using Rasm.Analysis;
 using DrawingColor = System.Drawing.Color;
+using GumballMode = Rhino.UI.Gumball.GumballMode;
 
 namespace Rasm.Rhino.UI;
 
@@ -35,8 +36,8 @@ public readonly record struct MouseContext<TState>(MousePhase Phase, TState Stat
     public bool Cancelled => Args.Cancel;
     public bool CanCancelNative => Phase == MousePhase.Move || Phase == MousePhase.Down || Phase == MousePhase.Up || Phase == MousePhase.DoubleClick;
     public Point2d CursorLocation => global::Rhino.UI.MouseCursor.Location;
-    public global::Rhino.UI.Gumball.GumballMode GumballMode => Args.IsOverGumball();
-    public bool IsOverGumball => GumballMode != global::Rhino.UI.Gumball.GumballMode.None;
+    public GumballMode GumballMode => Args.IsOverGumball();
+    public bool IsOverGumball => GumballMode != GumballMode.None;
     public global::Rhino.UI.MouseButton MouseButton => Args.MouseButton;
     public bool Shift => Args.ShiftKeyDown;
     public bool Control => Args.CtrlKeyDown;
@@ -775,49 +776,36 @@ public sealed record UiViewportPreview {
     }
 }
 
-// Active-mode read (distinct from the GumballAxes [Flags] enable-mask): one (Verb, Axis) projection replaces a 24-arm
-// GumballMode switch at every downstream gizmo consumer.
+// Active-mode read, distinct from the GumballAxes enable mask.
 public enum GumballVerb { None, Menu, Translate, Scale, Rotate, Extrude, Cut }
 public enum GumballAxis { None, Free, X, Y, Z, XY, YZ, ZX }
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct GumballAction(GumballVerb Verb, GumballAxis Axis) {
+    private static readonly Seq<(GumballMode Mode, GumballAction Action)> Modes =
+        Rows(GumballVerb.Menu, [(GumballMode.Menu, GumballAxis.None)])
+        + Rows(GumballVerb.Translate, [(GumballMode.TranslateFree, GumballAxis.Free), (GumballMode.TranslateX, GumballAxis.X), (GumballMode.TranslateY, GumballAxis.Y), (GumballMode.TranslateZ, GumballAxis.Z), (GumballMode.TranslateXY, GumballAxis.XY), (GumballMode.TranslateYZ, GumballAxis.YZ), (GumballMode.TranslateZX, GumballAxis.ZX)])
+        + Rows(GumballVerb.Scale, [(GumballMode.ScaleX, GumballAxis.X), (GumballMode.ScaleY, GumballAxis.Y), (GumballMode.ScaleZ, GumballAxis.Z), (GumballMode.ScaleXY, GumballAxis.XY), (GumballMode.ScaleYZ, GumballAxis.YZ), (GumballMode.ScaleZX, GumballAxis.ZX)])
+        + Rows(GumballVerb.Rotate, [(GumballMode.RotateX, GumballAxis.X), (GumballMode.RotateY, GumballAxis.Y), (GumballMode.RotateZ, GumballAxis.Z)])
+        + Rows(GumballVerb.Extrude, [(GumballMode.ExtrudeX, GumballAxis.X), (GumballMode.ExtrudeY, GumballAxis.Y), (GumballMode.ExtrudeZ, GumballAxis.Z)])
+        + Rows(GumballVerb.Cut, [(GumballMode.CutX, GumballAxis.X), (GumballMode.CutY, GumballAxis.Y), (GumballMode.CutZ, GumballAxis.Z)]);
+
     public bool Active => Verb is not GumballVerb.None;
     public bool Planar => Axis is GumballAxis.XY or GumballAxis.YZ or GumballAxis.ZX;
 
-    internal static GumballAction Of(global::Rhino.UI.Gumball.GumballMode mode) =>
-        mode switch {
-            global::Rhino.UI.Gumball.GumballMode.Menu => new(Verb: GumballVerb.Menu, Axis: GumballAxis.None),
-            global::Rhino.UI.Gumball.GumballMode.TranslateFree => new(Verb: GumballVerb.Translate, Axis: GumballAxis.Free),
-            global::Rhino.UI.Gumball.GumballMode.TranslateX => new(Verb: GumballVerb.Translate, Axis: GumballAxis.X),
-            global::Rhino.UI.Gumball.GumballMode.TranslateY => new(Verb: GumballVerb.Translate, Axis: GumballAxis.Y),
-            global::Rhino.UI.Gumball.GumballMode.TranslateZ => new(Verb: GumballVerb.Translate, Axis: GumballAxis.Z),
-            global::Rhino.UI.Gumball.GumballMode.TranslateXY => new(Verb: GumballVerb.Translate, Axis: GumballAxis.XY),
-            global::Rhino.UI.Gumball.GumballMode.TranslateYZ => new(Verb: GumballVerb.Translate, Axis: GumballAxis.YZ),
-            global::Rhino.UI.Gumball.GumballMode.TranslateZX => new(Verb: GumballVerb.Translate, Axis: GumballAxis.ZX),
-            global::Rhino.UI.Gumball.GumballMode.ScaleX => new(Verb: GumballVerb.Scale, Axis: GumballAxis.X),
-            global::Rhino.UI.Gumball.GumballMode.ScaleY => new(Verb: GumballVerb.Scale, Axis: GumballAxis.Y),
-            global::Rhino.UI.Gumball.GumballMode.ScaleZ => new(Verb: GumballVerb.Scale, Axis: GumballAxis.Z),
-            global::Rhino.UI.Gumball.GumballMode.ScaleXY => new(Verb: GumballVerb.Scale, Axis: GumballAxis.XY),
-            global::Rhino.UI.Gumball.GumballMode.ScaleYZ => new(Verb: GumballVerb.Scale, Axis: GumballAxis.YZ),
-            global::Rhino.UI.Gumball.GumballMode.ScaleZX => new(Verb: GumballVerb.Scale, Axis: GumballAxis.ZX),
-            global::Rhino.UI.Gumball.GumballMode.RotateX => new(Verb: GumballVerb.Rotate, Axis: GumballAxis.X),
-            global::Rhino.UI.Gumball.GumballMode.RotateY => new(Verb: GumballVerb.Rotate, Axis: GumballAxis.Y),
-            global::Rhino.UI.Gumball.GumballMode.RotateZ => new(Verb: GumballVerb.Rotate, Axis: GumballAxis.Z),
-            global::Rhino.UI.Gumball.GumballMode.ExtrudeX => new(Verb: GumballVerb.Extrude, Axis: GumballAxis.X),
-            global::Rhino.UI.Gumball.GumballMode.ExtrudeY => new(Verb: GumballVerb.Extrude, Axis: GumballAxis.Y),
-            global::Rhino.UI.Gumball.GumballMode.ExtrudeZ => new(Verb: GumballVerb.Extrude, Axis: GumballAxis.Z),
-            global::Rhino.UI.Gumball.GumballMode.CutX => new(Verb: GumballVerb.Cut, Axis: GumballAxis.X),
-            global::Rhino.UI.Gumball.GumballMode.CutY => new(Verb: GumballVerb.Cut, Axis: GumballAxis.Y),
-            global::Rhino.UI.Gumball.GumballMode.CutZ => new(Verb: GumballVerb.Cut, Axis: GumballAxis.Z),
-            _ => new(Verb: GumballVerb.None, Axis: GumballAxis.None),
-        };
+    internal static GumballAction Of(GumballMode mode) =>
+        Modes.Find(row => row.Mode == mode)
+            .Map(static row => row.Action)
+            .IfNone(new GumballAction(Verb: GumballVerb.None, Axis: GumballAxis.None));
+
+    private static Seq<(GumballMode Mode, GumballAction Action)> Rows(GumballVerb verb, (GumballMode Mode, GumballAxis Axis)[] items) =>
+        toSeq(items).Map(item => (item.Mode, new GumballAction(Verb: verb, Axis: item.Axis)));
 }
 
 public readonly record struct UiGumballSnapshot(
     Transform PreTransform,
     Transform GumballTransform,
     Transform TotalTransform,
-    global::Rhino.UI.Gumball.GumballMode Mode,
+    GumballMode Mode,
     bool InRelocate,
     Option<global::Rhino.UI.Gumball.GumballFrame> Frame = default) {
     public Fin<TGeometry> Apply<TGeometry>(TGeometry geometry, bool duplicate = true) where TGeometry : GeometryBase { Transform transform = TotalTransform; return from _ in guard(transform.IsValid, Op.Of(name: nameof(Apply)).InvalidInput()) from source in Op.Of(name: nameof(Apply)).Need(geometry) from target in duplicate switch { true => Optional(source.Duplicate() as TGeometry).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidResult()), false => Fin.Succ(value: source) } from __ in target.Transform(xform: transform) switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Apply)).InvalidResult()) } select target; }

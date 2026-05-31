@@ -364,6 +364,10 @@ internal static class IdlePump {
             .Map(item => item.Document is { IsAvailable: true, IsClosing: false }
                 ? Op.Of(name: nameof(Drain)).Catch(() => item.Work(arg: item.Document))
                 : Fin.Succ(value: DocumentReceipt.Empty))
+            .Map(result => result.MapFail(error => {
+                RhinoApp.WriteLine($"Rasm block idle refresh failed: {error.Message}");
+                return error;
+            }))
             .ToSeq();
         return drained.Count;
     }

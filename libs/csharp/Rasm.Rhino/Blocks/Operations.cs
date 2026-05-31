@@ -10,16 +10,44 @@ using TextFields = Rhino.Runtime.TextFields;
 namespace Rasm.Rhino.Blocks;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+[Union(SwitchMapStateParameterName = "ctx")]
+public abstract partial record TableMutation {
+    private TableMutation() { }
+    public sealed record Rename(DefinitionName NewName) : TableMutation;
+    public sealed record Delete(DeletionPolicy Policy) : TableMutation;
+    public sealed record Undelete() : TableMutation;
+    public sealed record UndoModify() : TableMutation;
+    public sealed record Purge() : TableMutation;
+    public sealed record UpdateSourceArchive(FileEndpoint Source, UpdatePolicy Policy, LinkReloadPolicy Reload) : TableMutation;
+    public sealed record ReloadFromFile(FileEndpoint Source, LinkReloadPolicy Policy) : TableMutation;
+    public sealed record Export(FileEndpoint Target) : TableMutation;
+
+    internal bool IncludeDeleted => this is Undelete;
+
+    internal Fin<Unit> Confirm(MutateCtx ctx) => Switch(ctx,
+        rename: static (c, m) => c.Key.Confirm(success: c.Owner.Document.InstanceDefinitions.Modify(idefIndex: c.Index, newName: m.NewName.Value, newDescription: c.Snap.Description.IfNone(noneValue: string.Empty), quiet: true)),
+        delete: static (c, m) => c.Key.Confirm(success: c.Owner.Document.InstanceDefinitions.Delete(idefIndex: c.Index, deleteReferences: m.Policy.DeleteReferences, quiet: m.Policy.Quiet)),
+        undelete: static (c, _) => c.Key.Confirm(success: c.Owner.Document.InstanceDefinitions.Undelete(idefIndex: c.Index)),
+        undoModify: static (c, _) => c.Key.Confirm(success: c.Owner.Document.InstanceDefinitions.UndoModify(idefIndex: c.Index)),
+        purge: static (c, _) => c.Key.Confirm(success: c.Owner.Document.InstanceDefinitions.Purge(idefIndex: c.Index)),
+        updateSourceArchive: static (c, m) => Operations.CommitSourceArchive(owner: c.Owner, index: c.Index, source: m.Source, policy: m.Policy, reload: m.Reload, key: c.Key),
+        reloadFromFile: static (c, m) => from endpoint in m.Source.Input(op: c.Key)
+                                         from _linked in Operations.ReloadLinked(owner: c.Owner, index: c.Index, loadPath: endpoint.Path, updateNestedLinks: m.Policy.UpdateNestedLinks, quiet: m.Policy.Quiet, key: c.Key)
+                                         select _linked,
+        export: static (c, m) => m.Target.Output(op: c.Key).Bind(endpoint => c.Key.Confirm(success: c.Owner.Document.InstanceDefinitions.Export(idefIndex: c.Index, filename: endpoint.Path))));
+
+    internal MutationReceipt Project(Definition snap) =>
+        this is Delete or Undelete or Purge ? MutationReceipt.Lifecycle(id: snap.Id.Value, name: snap.Name.Value) : MutationReceipt.Named(name: snap.Name.Value);
+}
+internal readonly record struct MutateCtx(RhinoBlocks Owner, int Index, Definition Snap, Op Key);
+
 [Union(SwitchMapStateParameterName = "owner")]
 public abstract partial record BlockOp {
     private BlockOp() { }
     public sealed record Author(AuthorSpec Spec, Members Source, ConflictPolicy Conflict) : BlockOp;
     public sealed record AddOrReuse(AuthorSpec Spec, Members Source) : BlockOp;
     public sealed record Modify(DefinitionRef Ref, Option<Members> Source = default, MetadataPatch? Patch = null) : BlockOp;
-    public sealed record Rename(DefinitionRef Ref, DefinitionName NewName) : BlockOp;
-    public sealed record Delete(DefinitionRef Ref, DeletionPolicy Policy) : BlockOp;
-    public sealed record Undelete(DefinitionRef Ref) : BlockOp;
-    public sealed record UndoModify(DefinitionRef Ref) : BlockOp;
+    public sealed record Table(DefinitionRef Ref, TableMutation Mutation) : BlockOp;
     public sealed record Purge(Option<DefinitionRef> Ref = default, Option<DefinitionPrefix> Prefix = default) : BlockOp;
     public sealed record Compact(CompactPolicy? Policy = null) : BlockOp;
     public sealed record Place(DefinitionRef Ref, Seq<Placement> At, BatchPolicy? Policy = null) : BlockOp;
@@ -27,17 +55,14 @@ public abstract partial record BlockOp {
     public sealed record TransformInstance(Guid InstanceId, Transform Xform, TransformPolicy? Mode = null) : BlockOp;
     public sealed record ExplodeIntoDocument(Guid InstanceId, ExplodePolicy Policy) : BlockOp;
     public sealed record CreateArchiveLinks(Seq<FileEndpoint> Sources, LinkCreatePolicy? Policy = null) : BlockOp;
-    public sealed record UpdateSourceArchive(DefinitionRef Ref, FileEndpoint Source, UpdatePolicy Policy, LinkReloadPolicy? Reload = null) : BlockOp;
     public sealed record BatchRelink(Seq<LinkMap> Maps, BatchPolicy? Policy = null) : BlockOp;
     public sealed record RefreshLinks(BlockFilter? Filter = null, LinkRefreshPolicy? Policy = null, BatchPolicy? Batch = null) : BlockOp;
-    public sealed record ReloadFromFile(DefinitionRef Ref, FileEndpoint Source, LinkReloadPolicy? Policy = null) : BlockOp;
     public sealed record DetachLinked(BlockFilter? Filter = null) : BlockOp;
     public sealed record ActivateLinkedLayer(BlockFilter? Filter = null) : BlockOp;
     public sealed record LinkedUpdatePolicy(LinkedPolicy Policy) : BlockOp;
     public sealed record SkipNestedLinked(DefinitionRef Ref, bool Value) : BlockOp;
     public sealed record BakeArchive(FileEndpoint Source, BakePolicy? Policy = null) : BlockOp;
     public sealed record ValidateArchiveClosure(FileEndpoint Source, ClosureValidationPolicy? Policy = null) : BlockOp;
-    public sealed record Export(DefinitionRef Ref, FileEndpoint Target) : BlockOp;
     public sealed record ExportAttributes(DefinitionRef Ref, FileEndpoint Target) : BlockOp;
     public sealed record SnapshotBlock(DefinitionRef Ref, SnapshotName Name) : BlockOp;
     public sealed record AllocateName(Option<string> Seed) : BlockOp;
@@ -78,10 +103,7 @@ internal static partial class Operations {
             author: static (o, x) => RunMut(name: nameof(BlockOp.Author), body: k => PerformAuthor(owner: o, spec: x.Spec, source: x.Source, conflict: x.Conflict, key: k)),
             addOrReuse: static (o, x) => RunMut(name: nameof(BlockOp.AddOrReuse), body: k => PerformAddOrReuse(owner: o, spec: x.Spec, source: x.Source, key: k)),
             modify: static (o, x) => RunMut(name: nameof(BlockOp.Modify), body: k => PerformModify(owner: o, refer: x.Ref, source: x.Source, patch: x.Patch ?? MetadataPatch.Empty, key: k)),
-            rename: static (o, x) => RunMut(name: nameof(BlockOp.Rename), body: k => Mutate(owner: o, refer: x.Ref, mutation: new TableMutation.Rename(NewName: x.NewName), key: k)),
-            delete: static (o, x) => RunMut(name: nameof(BlockOp.Delete), body: k => Mutate(owner: o, refer: x.Ref, mutation: new TableMutation.Delete(Policy: x.Policy), key: k)),
-            undelete: static (o, x) => RunMut(name: nameof(BlockOp.Undelete), body: k => Mutate(owner: o, refer: x.Ref, mutation: new TableMutation.Undelete(), key: k)),
-            undoModify: static (o, x) => RunMut(name: nameof(BlockOp.UndoModify), body: k => Mutate(owner: o, refer: x.Ref, mutation: new TableMutation.UndoModify(), key: k)),
+            table: static (o, x) => RunMut(name: nameof(BlockOp.Table), body: k => Mutate(owner: o, refer: x.Ref, mutation: x.Mutation, key: k)),
             purge: static (o, x) => RunMut(name: nameof(BlockOp.Purge), body: k => PerformPurge(owner: o, refer: x.Ref, prefix: x.Prefix, key: k)),
             compact: static (o, x) => RunMut(name: nameof(BlockOp.Compact), body: k => PerformCompact(owner: o, policy: x.Policy ?? CompactPolicy.UndoAware, key: k)),
             place: static (o, x) => RunMut(name: nameof(BlockOp.Place), body: k => PerformPlace(owner: o, refer: x.Ref, at: x.At, policy: x.Policy ?? BatchPolicy.Default, key: k)),
@@ -89,17 +111,14 @@ internal static partial class Operations {
             transformInstance: static (o, x) => RunMut(name: nameof(BlockOp.TransformInstance), body: k => PerformTransformInstance(owner: o, instanceId: x.InstanceId, xform: x.Xform, mode: x.Mode ?? TransformPolicy.Copy, key: k)),
             explodeIntoDocument: static (o, x) => RunMut(name: nameof(BlockOp.ExplodeIntoDocument), body: k => PerformExplodeIntoDocument(owner: o, instanceId: x.InstanceId, policy: x.Policy, key: k)),
             createArchiveLinks: static (o, x) => RunMut(name: nameof(BlockOp.CreateArchiveLinks), body: k => PerformCreateArchiveLinks(owner: o, sources: x.Sources, policy: x.Policy ?? LinkCreatePolicy.Default, key: k)),
-            updateSourceArchive: static (o, x) => RunMut(name: nameof(BlockOp.UpdateSourceArchive), body: k => Mutate(owner: o, refer: x.Ref, mutation: new TableMutation.UpdateSourceArchive(Source: x.Source, Policy: x.Policy, Reload: x.Reload ?? LinkReloadPolicy.NestedQuiet), key: k)),
             batchRelink: static (o, x) => RunMut(name: nameof(BlockOp.BatchRelink), body: k => PerformBatchRelink(owner: o, maps: x.Maps, policy: x.Policy ?? BatchPolicy.Default, key: k)),
             refreshLinks: static (o, x) => RunMut(name: nameof(BlockOp.RefreshLinks), body: k => PerformRefreshLinks(owner: o, filter: x.Filter ?? BlockFilter.All, policy: x.Policy ?? LinkRefreshPolicy.All, batch: x.Batch ?? BatchPolicy.Default, key: k)),
-            reloadFromFile: static (o, x) => RunMut(name: nameof(BlockOp.ReloadFromFile), body: k => Mutate(owner: o, refer: x.Ref, mutation: new TableMutation.ReloadFromFile(Source: x.Source, Policy: x.Policy ?? LinkReloadPolicy.NestedQuiet), key: k)),
             detachLinked: static (o, x) => RunMut(name: nameof(BlockOp.DetachLinked), body: k => PerformLinkedFilter(owner: o, filter: x.Filter ?? BlockFilter.All, policy: LinkRefreshPolicy.All, batch: BatchPolicy.Default, key: k, worker: DetachLinkedDefinition)),
             activateLinkedLayer: static (o, x) => RunMut(name: nameof(BlockOp.ActivateLinkedLayer), body: k => PerformLinkedFilter(owner: o, filter: x.Filter ?? BlockFilter.All, policy: LinkRefreshPolicy.All, batch: BatchPolicy.Default, key: k, worker: ApplyLinkedLayerStyle)),
             linkedUpdatePolicy: static (o, x) => RunMut(name: nameof(BlockOp.LinkedUpdatePolicy), body: k => PerformLinkedUpdatePolicy(owner: o, policy: x.Policy, key: k)),
             skipNestedLinked: static (o, x) => RunMut(name: nameof(BlockOp.SkipNestedLinked), body: k => PerformSkipNestedLinked(owner: o, refer: x.Ref, value: x.Value, key: k)),
             bakeArchive: static (o, x) => RunMut(name: nameof(BlockOp.BakeArchive), body: k => PerformBakeArchive(owner: o, source: x.Source, policy: x.Policy ?? BakePolicy.Default, key: k)),
             validateArchiveClosure: static (o, x) => RunQry(name: nameof(BlockOp.ValidateArchiveClosure), body: k => PerformValidateArchiveClosure(source: x.Source, policy: x.Policy, key: k)),
-            export: static (o, x) => RunMut(name: nameof(BlockOp.Export), body: k => Mutate(owner: o, refer: x.Ref, mutation: new TableMutation.Export(Target: x.Target), key: k)),
             exportAttributes: static (o, x) => RunMut(name: nameof(BlockOp.ExportAttributes), body: k => PerformExportAttributes(owner: o, refer: x.Ref, target: x.Target, key: k)),
             snapshotBlock: static (o, x) => RunMut(name: nameof(BlockOp.SnapshotBlock), body: k => PerformSnapshotBlock(owner: o, refer: x.Ref, name: x.Name, key: k)),
             allocateName: static (o, x) => RunQry(name: nameof(BlockOp.AllocateName), body: k => PerformAllocateName(owner: o, seed: x.Seed, key: k)),
@@ -201,8 +220,7 @@ internal static partial class Operations {
     private static Fin<MutationReceipt> PerformAuthor(RhinoBlocks owner, AuthorSpec spec, Members source, ConflictPolicy conflict, Op key) =>
         spec.Admit(key: key).Bind(admitted =>
             ResolveSnap(table: owner.Document.InstanceDefinitions, refer: DefinitionRef.Of(admitted.Name), key: key).Match(
-                Fail: _ => Reify(doc: owner.Document, source: source, key: key)
-                    .Bind(provided => AddNew(owner: owner, spec: admitted, members: provided, key: key)),
+                Fail: _ => AddNew(owner: owner, spec: admitted, source: source, key: key),
                 Succ: existing => ResolveConflict(owner: owner, existing: existing, spec: admitted, source: source, conflict: conflict, key: key)));
 
     private static Fin<MutationReceipt> ResolveConflict(RhinoBlocks owner, Definition existing, AuthorSpec spec, Members source, ConflictPolicy conflict, Op key) =>
@@ -216,14 +234,13 @@ internal static partial class Operations {
             fail: static s => Fin.Succ(value: MutationReceipt.Of(
                 receipt: DocumentReceipt.Empty,
                 diagnostics: Seq<BlockDiagnostic>(new BlockDiagnostic.ConflictFailed(Name: s.Existing.Name, Existing: s.Existing.Id)))),
-            rename: static s => Reify(doc: s.Owner.Document, source: s.Source, key: s.Key)
-                .Bind(provided => AddNew(
+            rename: static s => AddNew(
                     owner: s.Owner,
                     spec: s.Spec with {
                         Name = DefinitionName.From(value: s.Owner.Document.InstanceDefinitions.GetUnusedInstanceDefinitionName(root: s.Spec.Name.Value)).IfFail(_ => s.Spec.Name),
                     },
-                    members: provided,
-                    key: s.Key)));
+                    source: s.Source,
+                    key: s.Key));
 
     private static Fin<Members.Provided> Reify(RhinoDoc doc, Members source, Op key) =>
         source.Switch(
@@ -275,11 +292,30 @@ internal static partial class Operations {
                 toSeq([(ObjectId: nested.Id, Reference: new InstanceReferenceGeometry(instanceDefinitionId: inst.Id, transform: nested.InstanceXform))])).IfNone(Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>()),
             onReference: (reference, memberId, _) => toSeq([(ObjectId: memberId, Reference: (InstanceReferenceGeometry)reference.Duplicate())]));
 
-    private static Fin<MutationReceipt> AddNew(RhinoBlocks owner, AuthorSpec spec, Members.Provided members, Op key) =>
+    private static Fin<MutationReceipt> AddNew(RhinoBlocks owner, AuthorSpec spec, Members source, Op key) =>
+        spec.Source.Case switch {
+            FileEndpoint endpoint => AddLinked(owner: owner, spec: spec, endpoint: endpoint, key: key),
+            _ => Reify(doc: owner.Document, source: source, key: key)
+                .Bind(provided => AddStatic(owner: owner, spec: spec, members: provided, key: key)),
+        };
+
+    private static Fin<MutationReceipt> AddStatic(RhinoBlocks owner, AuthorSpec spec, Members.Provided members, Op key) =>
         AddDefinition(table: owner.Document.InstanceDefinitions, spec: spec, members: members) switch {
             int idx when idx >= 0 => ApplyCreateState(table: owner.Document.InstanceDefinitions, idx: idx, spec: spec, members: members, key: key),
             _ => Fin.Fail<MutationReceipt>(error: key.InvalidResult()),
         };
+
+    private static Fin<MutationReceipt> AddLinked(RhinoBlocks owner, AuthorSpec spec, FileEndpoint endpoint, Op key) =>
+        from source in endpoint.Input(op: key)
+        from policy in new LinkCreatePolicy(Update: spec.Update, Layer: spec.Layer, Reload: LinkReloadPolicy.NestedQuiet).Admit(key: key)
+        from link in CreateAndAttach(owner: owner, source: source, policy: policy, key: key, name: Some(spec.Name))
+        from id in DefinitionId.From(value: link.Id, key: key)
+        from snap in ResolveSnap(table: owner.Document.InstanceDefinitions, refer: DefinitionRef.Of(id), key: key)
+        from _ in spec.Metadata.IsEmpty ? Fin.Succ(value: unit) : CommitMetadata(table: owner.Document.InstanceDefinitions, snap: snap, patch: spec.Metadata, key: key)
+        from live in Optional(owner.Document.InstanceDefinitions.Find(instanceId: link.Id, ignoreDeletedInstanceDefinitions: true)).ToFin(Fail: key.InvalidResult())
+        select MutationReceipt.Of(
+            receipt: DocumentReceipt.Empty with { ResourceChanged = Seq(link.Change) },
+            diagnostics: spec.CreateDiagnostics(id: snap.Id, live: live));
 
     private static int AddDefinition(InstanceDefinitionTable table, AuthorSpec spec, Members.Provided members) {
         string description = spec.Metadata.Description.IfNone(noneValue: string.Empty);
@@ -347,7 +383,7 @@ internal static partial class Operations {
                 Some: id => Fin.Succ(value: MutationReceipt.Of(
                     receipt: DocumentReceipt.Empty,
                     diagnostics: Seq<BlockDiagnostic>(new BlockDiagnostic.ReusedExisting(Existing: id)))),
-                None: () => AddNew(owner: owner, spec: spec, members: provided, key: key));
+                None: () => AddStatic(owner: owner, spec: spec, members: provided, key: key));
     }
 
     private static Fin<MutationReceipt> ReplaceGeometry(RhinoBlocks owner, Definition existing, AuthorSpec spec, Members.Provided members, Op key) =>
@@ -361,8 +397,11 @@ internal static partial class Operations {
 
     private static Fin<MutationReceipt> PerformAddOrReuse(RhinoBlocks owner, AuthorSpec spec, Members source, Op key) =>
         spec.Admit(key: key)
-            .Bind(admitted => Reify(doc: owner.Document, source: source, key: key)
-                .Bind(provided => LookupByContent(owner: owner, provided: provided, spec: admitted, key: key)));
+            .Bind(admitted => admitted.Source.Case switch {
+                FileEndpoint => AddNew(owner: owner, spec: admitted, source: source, key: key),
+                _ => Reify(doc: owner.Document, source: source, key: key)
+                    .Bind(provided => LookupByContent(owner: owner, provided: provided, spec: admitted, key: key)),
+            });
 
     private static Fin<MutationReceipt> PerformModify(RhinoBlocks owner, DefinitionRef refer, Option<Members> source, MetadataPatch patch, Op key) =>
         from pair in Resolve(table: owner.Document.InstanceDefinitions, refer: refer, key: key)
@@ -407,52 +446,7 @@ internal static partial class Operations {
         select unit;
 
     // ---- [TABLE MUTATION] ----------------------------------------------------------------
-    private readonly record struct MutateCtx(RhinoBlocks Owner, int Index, Definition Snap, Op Key);
     private readonly record struct ExplodedPiece(RhinoObject Piece, ObjectAttributes Attrs, Transform Transform);
-
-    [Union(SwitchMapStateParameterName = "ctx")]
-    private abstract partial record TableMutation {
-        private TableMutation() { }
-        public sealed record Rename(DefinitionName NewName) : TableMutation;
-        public sealed record Delete(DeletionPolicy Policy) : TableMutation;
-        public sealed record Undelete() : TableMutation;
-        public sealed record UndoModify() : TableMutation;
-        public sealed record Purge() : TableMutation;
-        public sealed record UpdateSourceArchive(FileEndpoint Source, UpdatePolicy Policy, LinkReloadPolicy Reload) : TableMutation;
-        public sealed record ReloadFromFile(FileEndpoint Source, LinkReloadPolicy Policy) : TableMutation;
-        public sealed record Export(FileEndpoint Target) : TableMutation;
-
-        public bool IncludeDeleted => this is Undelete;
-
-        public Fin<Unit> Confirm(MutateCtx ctx) => Switch(ctx,
-            rename: static (c, m) => c.Key.Confirm(success: c.Owner.Document.InstanceDefinitions.Modify(
-                idefIndex: c.Index, newName: m.NewName.Value,
-                newDescription: c.Snap.Description.IfNone(noneValue: string.Empty), quiet: true)),
-            delete: static (c, m) => c.Key.Confirm(success: c.Owner.Document.InstanceDefinitions.Delete(
-                idefIndex: c.Index, deleteReferences: m.Policy.DeleteReferences, quiet: m.Policy.Quiet)),
-            undelete: static (c, _) => c.Key.Confirm(success: c.Owner.Document.InstanceDefinitions.Undelete(idefIndex: c.Index)),
-            undoModify: static (c, _) => c.Key.Confirm(success: c.Owner.Document.InstanceDefinitions.UndoModify(idefIndex: c.Index)),
-            purge: static (c, _) => c.Key.Confirm(success: c.Owner.Document.InstanceDefinitions.Purge(idefIndex: c.Index)),
-            updateSourceArchive: static (c, m) => CommitSourceArchive(
-                owner: c.Owner, index: c.Index, source: m.Source, policy: m.Policy, reload: m.Reload, key: c.Key),
-            reloadFromFile: static (c, m) =>
-                from endpoint in m.Source.Input(op: c.Key)
-                from _linked in ReloadLinked(
-                    owner: c.Owner,
-                    index: c.Index,
-                    loadPath: endpoint.Path,
-                    updateNestedLinks: m.Policy.UpdateNestedLinks,
-                    quiet: m.Policy.Quiet,
-                    key: c.Key)
-                select _linked,
-            export: static (c, m) => m.Target.Output(op: c.Key).Bind(endpoint => c.Key.Confirm(
-                success: c.Owner.Document.InstanceDefinitions.Export(idefIndex: c.Index, filename: endpoint.Path))));
-
-        public MutationReceipt Project(Definition snap) => this switch {
-            Delete or Undelete or Purge => MutationReceipt.Lifecycle(id: snap.Id.Value, name: snap.Name.Value),
-            _ => MutationReceipt.Named(name: snap.Name.Value),
-        };
-    }
 
     // ---- [MANAGE] [MUTATION] -------------------------------------------------------------
     private static Fin<MutationReceipt> Mutate(RhinoBlocks owner, DefinitionRef refer, TableMutation mutation, Op key) =>
@@ -621,11 +615,12 @@ internal static partial class Operations {
             .TraverseM(identity).As()
         select links;
 
-    private static Fin<CreatedLink> CreateAndAttach(RhinoBlocks owner, FileEndpoint source, LinkCreatePolicy policy, Op key) {
+    private static Fin<CreatedLink> CreateAndAttach(RhinoBlocks owner, FileEndpoint source, LinkCreatePolicy policy, Op key, Option<DefinitionName> name = default) {
         string filename = source.Path;
         int idx = AddLinkPlaceholder(
             table: owner.Document.InstanceDefinitions,
-            name: owner.Document.InstanceDefinitions.GetUnusedInstanceDefinitionName(root: IOPath.GetFileNameWithoutExtension(path: filename)));
+            name: name.Map(static value => value.Value).IfNone(() =>
+                owner.Document.InstanceDefinitions.GetUnusedInstanceDefinitionName(root: IOPath.GetFileNameWithoutExtension(path: filename))));
         return idx < 0
             ? Fin.Fail<CreatedLink>(error: key.InvalidResult(detail: nameof(InstanceDefinitionTable.Add)))
             : ModifyAndRefreshLinked(
@@ -770,7 +765,7 @@ internal static partial class Operations {
                             .Map(_ => InvalidateWith(doc: doc, defId: live.Id, value: live))))
             .As()
         select refreshed;
-    private static Fin<Unit> CommitSourceArchive(
+    internal static Fin<Unit> CommitSourceArchive(
         RhinoBlocks owner,
         int index,
         FileEndpoint source,
@@ -805,7 +800,7 @@ internal static partial class Operations {
                 .Bind(live => ConfirmAttached(key: key, live: live, modifyReported: reported)))
             .Bind(_ => ReloadLinked(
                 owner: owner, index: index, loadPath: loadPath, updateNestedLinks: updateNestedLinks, quiet: quiet, key: key)));
-    private static Fin<Unit> ReloadLinked(RhinoBlocks owner, int index, string loadPath, bool updateNestedLinks, bool quiet, Op key) {
+    internal static Fin<Unit> ReloadLinked(RhinoBlocks owner, int index, string loadPath, bool updateNestedLinks, bool quiet, Op key) {
         InstanceDefinitionTable defs = owner.Document.InstanceDefinitions;
         Fin<InstanceDefinition> atIndex() => Optional(defs[index]).ToFin(Fail: key.InvalidResult(detail: nameof(InstanceDefinitionTable)));
         static bool Attached(InstanceDefinition live) =>
@@ -896,6 +891,7 @@ internal static partial class Operations {
             basePoint: Point3d.Origin,
             update: pair.Snap.Live.Map(static live => live.Update).IfNone(UpdatePolicy.Static),
             layer: pair.Snap.Live.Map(static live => live.Layer).IfNone(LayerStyle.None),
+            source: pair.Snap.Source.Bind(static link => link.ToEndpoint().ToOption()),
             metadata: MetadataPatch.Empty,
             key: key).Bind(s => s.Admit(key: key))
         from receipt in PerformAuthor(owner: owner, spec: admitted, source: provided, conflict: conflict, key: key)

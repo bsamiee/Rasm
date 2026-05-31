@@ -18,6 +18,7 @@ using Rhino.Geometry;
 // the cull is proven through Visible, not ScreenPoint.
 Scenario.Run("ui-projection-hud", CAPTURE_PATH, (key, facts) => {
     using DocumentScope scope = DocumentScope.Open();
+    scope.Clear();
     facts.Add("mainThread", RhinoApp.IsOnMainThread);
 
     // Frame a box centred on the origin so a known world point lands on-screen and the camera frustum is well-defined.

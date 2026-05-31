@@ -315,6 +315,9 @@ public readonly record struct DocumentReceipt(Seq<Guid> Created, Seq<Guid> Repla
     public static DocumentReceipt Add(DocumentReceipt left, DocumentReceipt right) =>
         new(Created: left.Created + right.Created, Replaced: left.Replaced + right.Replaced, Deleted: left.Deleted + right.Deleted, Transformed: left.Transformed + right.Transformed, Selected: left.Selected + right.Selected, Unselected: left.Unselected + right.Unselected, Hidden: left.Hidden + right.Hidden, Locked: left.Locked + right.Locked, Flashed: left.Flashed + right.Flashed, AttributeChanged: left.AttributeChanged + right.AttributeChanged, LifecycleChanged: left.LifecycleChanged + right.LifecycleChanged, ResourceChanged: left.ResourceChanged + right.ResourceChanged, UndoRecords: left.UndoRecords + right.UndoRecords, CustomUndo: left.CustomUndo + right.CustomUndo);
 
+    internal static DocumentReceipt SelectionDelta(Seq<Guid> before, Seq<Guid> after) =>
+        Empty with { Selected = after.Filter(id => !before.Exists(item => item == id)), Unselected = before.Filter(id => !after.Exists(item => item == id)) };
+
     private static Seq<(string Name, Func<DocumentReceipt, int> Count)> Counters { get; } = Seq<(string, Func<DocumentReceipt, int>)>(
         ("created", static r => r.Created.Count), ("replaced", static r => r.Replaced.Count), ("deleted", static r => r.Deleted.Count), ("transformed", static r => r.Transformed.Count), ("selected", static r => r.Selected.Count), ("unselected", static r => r.Unselected.Count), ("hidden", static r => r.Hidden.Count), ("locked", static r => r.Locked.Count), ("flashed", static r => r.Flashed.Count), ("attributes", static r => r.AttributeChanged.Count), ("lifecycle", static r => r.LifecycleChanged.Count), ("resources", static r => r.ResourceChanged.Count), ("undo", static r => r.UndoRecords.Count), ("custom undo", static r => r.CustomUndo.Count));
 
@@ -426,10 +429,7 @@ public abstract partial record DocumentOp {
                         _ => Fin.Fail<Unit>(error: ctx.Op.InvalidResult()),
                     }
                 from after in DocumentEdit.SelectedIds(document: ctx.Document, op: ctx.Op)
-                select DocumentReceipt.Empty with {
-                    Selected = after.Filter(id => !before.Exists(item => item == id)),
-                    Unselected = before.Filter(id => !after.Exists(item => item == id)),
-                },
+                select DocumentReceipt.SelectionDelta(before: before, after: after),
             unselectAll: static (ctx, edit) =>
                 from before in DocumentEdit.SelectedIds(document: ctx.Document, op: ctx.Op)
                 from count in ctx.Document.Objects.UnselectAll(ignorePersistentSelections: edit.IgnorePersistentSelections) switch {
@@ -437,7 +437,7 @@ public abstract partial record DocumentOp {
                     _ => Fin.Fail<int>(error: ctx.Op.InvalidResult()),
                 }
                 from after in DocumentEdit.SelectedIds(document: ctx.Document, op: ctx.Op)
-                select DocumentReceipt.Empty with { Unselected = before.Filter(id => !after.Exists(item => item == id)) },
+                select DocumentReceipt.SelectionDelta(before: before, after: after),
             objectState: static (ctx, edit) =>
                 from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
                 from ids in target.Ids(document: ctx.Document, op: ctx.Op)
@@ -445,8 +445,8 @@ public abstract partial record DocumentOp {
                     bool value => from before in DocumentEdit.SelectedIds(document: ctx.Document, op: ctx.Op)
                                   from _ in target.Select(document: ctx.Document, selected: value, policy: edit.SelectionPolicy ?? DocumentSelectionPolicy.Default, op: ctx.Op)
                                   from after in DocumentEdit.SelectedIds(document: ctx.Document, op: ctx.Op)
-                                  select (Selected: after.Filter(id => !before.Exists(item => item == id)), Unselected: before.Filter(id => !after.Exists(item => item == id))),
-                    _ => Fin.Succ(value: (Selected: Seq<Guid>(), Unselected: Seq<Guid>())),
+                                  select DocumentReceipt.SelectionDelta(before: before, after: after),
+                    _ => Fin.Succ(value: DocumentReceipt.Empty),
                 }
                 from hidden in edit.Hidden.Case switch {
                     bool value => DocumentEdit.ApplyState(ids: ids, document: ctx.Document, op: ctx.Op,
@@ -462,9 +462,7 @@ public abstract partial record DocumentOp {
                         apply: id => value ? ctx.Document.Objects.Lock(objectId: id, ignoreLayerMode: true) : ctx.Document.Objects.Unlock(objectId: id, ignoreLayerMode: true)),
                     _ => Fin.Succ(value: Seq<Guid>()),
                 }
-                select DocumentReceipt.Empty with {
-                    Selected = selection.Selected,
-                    Unselected = selection.Unselected,
+                select selection with {
                     Hidden = hidden,
                     Locked = locked,
                 },

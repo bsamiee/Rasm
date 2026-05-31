@@ -462,8 +462,8 @@ public static class PanelOp {
             Guid dock = activeScope ? global::Rhino.UI.Panels.PanelDockBar(panelId: panel.Id) : Guid.Empty;
             return Fin.Succ(value: new PanelSnapshot<TPanel>(
                 PanelId: panel.Id,
-                Visible: global::Rhino.UI.Panels.IsPanelVisible(panelId: panel.Id, isSelectedTab: false),
-                Selected: global::Rhino.UI.Panels.IsPanelVisible(panelId: panel.Id, isSelectedTab: true),
+                Visible: activeScope && global::Rhino.UI.Panels.IsPanelVisible(panelId: panel.Id, isSelectedTab: false),
+                Selected: activeScope && global::Rhino.UI.Panels.IsPanelVisible(panelId: panel.Id, isSelectedTab: true),
                 Instances: instances,
                 OpenPanelIds: open,
                 DockBarId: dock == Guid.Empty ? Option<Guid>.None : Some(dock),
@@ -475,9 +475,10 @@ public static class PanelOp {
 
     // O(2 P/Invoke) visibility poll for reactive dashboards (vs the full Snapshot); 2-bool tuple, not a rich PanelSnapshot.
     public static UiIntent<(bool Visible, bool Selected)> Visible<TPanel>() where TPanel : RasmPanel =>
-        Bind<TPanel, (bool Visible, bool Selected)>(run: (_, panel) => RhinoUi.Protect(valid: () => Fin.Succ(value: (
-            Visible: global::Rhino.UI.Panels.IsPanelVisible(panelType: panel.Type, isSelectedTab: false),
-            Selected: global::Rhino.UI.Panels.IsPanelVisible(panelType: panel.Type, isSelectedTab: true)))), interactive: false);
+        Bind<TPanel, (bool Visible, bool Selected)>(run: (scope, panel) => RhinoUi.Protect(valid: () => {
+            bool activeScope = ReferenceEquals(RhinoDoc.ActiveDoc, scope.Document);
+            return Fin.Succ(value: (Visible: activeScope && global::Rhino.UI.Panels.IsPanelVisible(panelType: panel.Type, isSelectedTab: false), Selected: activeScope && global::Rhino.UI.Panels.IsPanelVisible(panelType: panel.Type, isSelectedTab: true)));
+        }), interactive: false);
 
     // RAISE one-shot: routes the PanelEvent vocabulary back through native OnShowPanel/OnClosePanel so the Watch rail
     // becomes bridge/VSTest-verifiable (the only deterministic event injector). Opposite data flow from Watch's SUBSCRIBE.

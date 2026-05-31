@@ -25,15 +25,6 @@ type Configuration = Literal["Debug", "Release"]
 _QUALITY: Final[str] = "quality"
 _ARTIFACTS: Final[str] = ".artifacts"
 _DEFAULT_RASM_TESTS: Final[Path] = Path("tests/csharp/libs/Rasm/Rasm.Tests.csproj")
-_RUNNABLE_TESTS: Final[tuple[Path, ...]] = (
-    Path("tests/csharp/_architecture/Rasm.Architecture.Tests.csproj"),
-    Path("tests/csharp/_tooling/Rasm.TestingTools.Tests.csproj"),
-    Path("tests/csharp/libs/Rasm/Rasm.Tests.csproj"),
-    Path("tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj"),
-    Path("tests/csharp/libs/Rasm.Materials/Rasm.Materials.Tests.csproj"),
-    Path("tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj"),
-    Path("tests/tools/cs-analyzer/CsAnalyzer.Tests.csproj"),
-)
 _DOTNET_CLI: Final[str] = "dotnet-cli"
 _MARKER: Final[str] = "Workspace.slnx"
 CS_SUFFIXES: Final[frozenset[str]] = frozenset((".cs", ".csproj", ".props", ".targets", ".json", ".resx", ".ico", ".ghicon", ".yml", ".yaml"))
@@ -162,9 +153,6 @@ class QualitySettings(BaseSettings):
     def mutation_eligible(self) -> bool:
         return (self.root / self.test_target).resolve() == (self.root / self.mutation_test_project).resolve()
 
-    def test_targets(self, *, all_targets: bool) -> tuple[Path, ...]:
-        return _RUNNABLE_TESTS if all_targets else (self.test_target,)
-
     @property
     def test_slice(self) -> str:
         return self.test_target.stem
@@ -175,7 +163,10 @@ class QualitySettings(BaseSettings):
 
     @property
     def test_results_dir(self) -> Path:
-        return self._artifact_dir("test")
+        return self.test_results(all_targets=False)
+
+    def test_results(self, *, all_targets: bool) -> Path:
+        return self._artifact_dir(kind="test", slice_name="all" if all_targets else self.test_slice)
 
     @property
     def mutation_output_dir(self) -> Path:
@@ -241,8 +232,8 @@ class QualitySettings(BaseSettings):
         overlay = {"DOTNET_CLI_HOME": str(scope_path / _DOTNET_CLI)} | ({} if rail == "static" else {"MSBUILDDISABLENODEREUSE": "1"})
         return {**os.environ, **overlay, "RHINO_WIP_APP_PATH": str(self.rhino_app)}  # noqa: TID251
 
-    def _artifact_dir(self, kind: Literal["test", "mutation"]) -> Path:
-        return self.artifact_root / kind / self.test_slice / self.run_id
+    def _artifact_dir(self, kind: Literal["test", "mutation"], slice_name: str | None = None) -> Path:
+        return self.artifact_root / kind / (slice_name or self.test_slice) / self.run_id
 
 
 @dataclass(frozen=True, slots=True)
