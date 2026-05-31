@@ -46,3 +46,14 @@
 - Keep unadopted packages out of active guidance until a measured consumer lands.
 - Verify RhinoWIP/GH2 APIs with local XML or decompile before public docs.
 - Reconcile package graph edits with `packages.md` and affected `docs/external-libs/**/api.md` version pins.
+
+---
+## [4][TEST_CONSUMERS]
+>**Dictum:** *Test boundary code follows System API ownership; test tools stay separate.*
+
+<br>
+
+- Route serializers, fuzz parsers, bridge probes, host loaders, filesystem evidence, and capture code through `bcl.md` and `replacements.md`.
+- Route xUnit, CsCheck, Verify, Stryker, ArchUnitNET, BenchmarkDotNet, and SharpFuzz APIs through `../testing-libs/`.
+- Treat `.verify.csx` scenarios as staged runtime source. Compile-time global usings in `meta.md` do not define scenario runtime usings.
+- Keep `ConcurrentDictionary`, `Interlocked`, `Directory`, `Path`, `Console.WriteLine`, and `System.Drawing` inside explicit test, tool, or bridge boundary adapters.

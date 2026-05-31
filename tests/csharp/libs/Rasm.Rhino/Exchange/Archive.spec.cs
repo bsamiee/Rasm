@@ -1,5 +1,6 @@
 using Rasm.Domain;
 using Rasm.Rhino.Exchange;
+using Rasm.TestKit;
 
 namespace Rasm.Rhino.Tests.Exchange;
 
@@ -73,9 +74,13 @@ public sealed class FileResourceGraphLaws {
 
     [Fact]
     public void SummaryAcceptsNonNegativeCountsAndRejectsNegatives() {
-        Assert.True(condition: Fixtures.Graph(objects: 7).Summary(op: Op.Of(name: nameof(SummaryAcceptsNonNegativeCountsAndRejectsNegatives))).IsSucc);
-        Assert.True(condition: (Fixtures.Graph() with { Objects = -1 }).Summary(op: Op.Of(name: nameof(SummaryAcceptsNonNegativeCountsAndRejectsNegatives))).IsFail);
-        Assert.True(condition: (Fixtures.Graph() with { Relations = -1 }).Summary(op: Op.Of(name: nameof(SummaryAcceptsNonNegativeCountsAndRejectsNegatives))).IsFail);
+        Op op = Op.Of(name: nameof(SummaryAcceptsNonNegativeCountsAndRejectsNegatives));
+        Spec.Succ(Fixtures.Graph(objects: 7).Summary(op: op), then: summary => {
+            Assert.Equal(expected: 19, actual: summary.Count);
+            Spec.Equal(left: summary.Maximum, right: 7.0, tolerance: 0.0, what: "archive summary max");
+        });
+        Spec.FailCategory((Fixtures.Graph() with { Objects = -1 }).Summary(op: op), category: "Result");
+        Spec.FailCategory((Fixtures.Graph() with { Relations = -1 }).Summary(op: op), category: "Result");
     }
 }
 
@@ -88,21 +93,43 @@ public sealed class FileArchiveProjectionLaws {
     [InlineData("  padded  ", true, "padded")]
     public void TextOptionProjectsBlankToNoneAndTrimsValues(string? value, bool some, string expected) {
         Option<string> projected = FileArchiveOps.TextOption(value: value);
-        Assert.Equal(expected: some, actual: projected.IsSome);
-        _ = projected.IfSome(text => Assert.Equal(expected: expected, actual: text));
+        if (some) {
+            Spec.Some(result: projected, then: text => Assert.Equal(expected: expected, actual: text));
+            return;
+        }
+        Spec.None(result: projected);
     }
 
     [Fact]
     public void GuidOptionProjectsEmptyToNoneAndKeepsRealIds() {
         Guid id = Guid.Parse(input: "8983d56c-7e2f-41bf-b365-4c2863f4c82c");
-        Assert.True(condition: FileArchiveOps.GuidOption(value: Guid.Empty).IsNone);
-        Assert.Equal(expected: id, actual: FileArchiveOps.GuidOption(value: id).IfNone(Guid.Empty));
+        Spec.None(result: FileArchiveOps.GuidOption(value: Guid.Empty));
+        Spec.Some(result: FileArchiveOps.GuidOption(value: id), then: actual => Assert.Equal(expected: id, actual: actual));
     }
 
     [Fact]
     public void DateTimeOptionProjectsMinValueToNoneAndKeepsRealStamps() {
         DateTime stamp = new(year: 2026, month: 5, day: 29, hour: 12, minute: 0, second: 0, kind: DateTimeKind.Utc);
-        Assert.True(condition: FileArchiveOps.DateTimeOption(value: DateTime.MinValue).IsNone);
-        Assert.Equal(expected: stamp, actual: FileArchiveOps.DateTimeOption(value: stamp).IfNone(DateTime.MinValue));
+        Spec.None(result: FileArchiveOps.DateTimeOption(value: DateTime.MinValue));
+        Spec.Some(result: FileArchiveOps.DateTimeOption(value: stamp), then: actual => Assert.Equal(expected: stamp, actual: actual));
+    }
+}
+
+public sealed class FileFormatCustomLaws {
+    [Fact]
+    public void CustomFormatsJoinKnownLookupDetectionAndFiltersWithoutInventingJsonBuiltIn() {
+        string suffix = Guid.NewGuid().ToString(format: "N");
+        string key = $"rasmcustom{suffix}";
+        string extension = $".rc{suffix[..8]}";
+
+        Spec.Succ(FileFormat.Custom(key: key, extensions: Seq(extension), capability: FileCapability.Import), then: custom => {
+            Assert.Equal(expected: key.ToUpperInvariant(), actual: custom.Key);
+            Spec.Some(result: FileFormat.Of(keyOrExtension: key).ToOption(), then: actual => Assert.Same(expected: custom, actual: actual));
+            Spec.Some(result: FileFormat.Detect(path: $"fixture{extension}"), then: actual => Assert.Same(expected: custom, actual: actual));
+            Assert.Contains(expected: custom, collection: FileFormat.Known);
+            Assert.Contains(expectedSubstring: $"*.{extension.TrimStart('.')}", actualString: FileFormat.Filter(phase: FilePhase.Import, formats: Seq(custom)), comparisonType: StringComparison.Ordinal);
+        });
+        Spec.FailCategory(FileFormat.Of(keyOrExtension: "json"), category: "Input");
+        Spec.None(result: FileFormat.Detect(path: "model.json"));
     }
 }

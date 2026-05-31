@@ -31,13 +31,10 @@ public sealed class VectorIntentFactoryLaws {
                 then: intent => Spec.Equal(left: Assert.IsType<VectorIntent.LerpCase>(@object: intent).Parameter.Value, right: t, tolerance: 0.0, what: "lerp t"));
             Spec.Succ(VectorIntent.Pose(from: Plane.WorldXY, to: Plane.WorldZX, t: t, mode: MotionInterpolation.Linear, key: IntentGens.Key),
                 then: intent => Spec.Equal(left: Assert.IsType<VectorIntent.PoseCase>(@object: intent).Parameter.Value, right: t, tolerance: 0.0, what: "pose t"));
-            Spec.Succ(VectorIntent.Slerp(a: IntentGens.X, b: IntentGens.Y, t: t, key: IntentGens.Key),
-                then: intent => Spec.Equal(left: Assert.IsType<VectorIntent.SlerpCase>(@object: intent).Parameter.Value, right: t, tolerance: 0.0, what: "slerp t"));
         });
         Spec.ForAll(IntentGens.OutsideUnit, t => {
             Spec.Fail(VectorIntent.Lerp(a: Vector3d.XAxis, b: Vector3d.YAxis, t: t, key: IntentGens.Key));
             Spec.Fail(VectorIntent.Pose(from: Plane.WorldXY, to: Plane.WorldZX, t: t, mode: MotionInterpolation.Linear, key: IntentGens.Key));
-            Spec.Fail(VectorIntent.Slerp(a: IntentGens.X, b: IntentGens.Y, t: t, key: IntentGens.Key));
         });
     }
     [Fact]
@@ -114,5 +111,13 @@ public sealed class VectorIntentShapeLaws {
         Spec.Succ(cloudMetric.Project<SymmetricMatrix>(context: IntentGens.Model, key: IntentGens.Key), then: matrix =>
             Spec.Equal(left: toSeq(matrix.Upper.AsIterable()), right: toSeq(Numeric.CovarianceUpper(points: IntentGens.ClusterPoints).AsIterable()), tolerance: 1.0e-12, what: "intent covariance"));
         Spec.FailCategory(cloudMetric.Project<Point3d>(context: IntentGens.Model, key: IntentGens.Key), category: "Unsupported");
+    }
+}
+
+public sealed class VectorIntentAdmissionLaws {
+    [Fact]
+    public void SlerpRejectsDefaultDirectionsWithoutNativeProjection() {
+        Spec.FailCategory(VectorIntent.Slerp(a: default, b: IntentGens.Y, t: 0.5, key: IntentGens.Key), category: "Input");
+        Spec.FailCategory(VectorIntent.Slerp(a: IntentGens.X, b: default, t: 0.5, key: IntentGens.Key), category: "Input");
     }
 }

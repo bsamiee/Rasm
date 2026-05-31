@@ -296,8 +296,10 @@ public abstract partial record VectorIntent {
         key.OrDefault().AcceptValidated<UnitInterval>(candidate: t)
             .Map(unit => (VectorIntent)new LerpCase(A: a, B: b, Parameter: unit));
     public static Fin<VectorIntent> Slerp(Direction a, Direction b, double t, Op? key = null) =>
-        key.OrDefault().AcceptValidated<UnitInterval>(candidate: t)
-            .Map(unit => (VectorIntent)new SlerpCase(A: a, B: b, Parameter: unit));
+        from _ in a.Value is { IsValid: true } && a.Value.Length > RhinoMath.ZeroTolerance ? Fin.Succ(unit) : Fin.Fail<Unit>(key.OrDefault().InvalidInput())
+        from __ in b.Value is { IsValid: true } && b.Value.Length > RhinoMath.ZeroTolerance ? Fin.Succ(unit) : Fin.Fail<Unit>(key.OrDefault().InvalidInput())
+        from unit in key.OrDefault().AcceptValidated<UnitInterval>(candidate: t)
+        select (VectorIntent)new SlerpCase(A: a, B: b, Parameter: unit);
     public static VectorIntent ProjectOnto(Vector3d value, Plane target) =>
         new ProjectOntoCase(Value: value, Target: target);
     public static VectorIntent Mirror(Vector3d value, Plane across) =>

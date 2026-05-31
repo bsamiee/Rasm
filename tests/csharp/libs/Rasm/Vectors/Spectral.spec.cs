@@ -103,6 +103,7 @@ public sealed class SpectralFilterLaws {
     [Fact]
     public void SourceRailRejectsEmptyOrOutOfRangePairwiseInputs() {
         Spec.FailCategory(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.Basis, sources: Some(Seq<int>()), key: SpectralGens.Key), category: "Input");
+        Spec.FailCategory(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.Basis, sources: Some(Seq(0, 0)), key: SpectralGens.Key), category: "Input");
         Spec.FailCategory(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.Basis, sources: Some(Seq(3)), key: SpectralGens.Key), category: "Input");
         Spec.FailCategory(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.Basis, sources: Some(Seq(-1)), key: SpectralGens.Key), category: "Input");
         Assert.True(condition: SpectralGens.OverflowBasis.IsValid);

@@ -363,7 +363,7 @@ file static class DashStyleIntern {
     private static readonly BoundedCache<(int DashesRef, int Bucket), DashStyle> Cache = new(capacity: 4096);
 
     internal static DashStyle WithOffset(DashStyle baseline, float offset) {
-        int bucket = (int)MathF.Round(offset / Quantum);
+        int bucket = (int)MathF.Round(offset / Quantum, MidpointRounding.ToEven);
         if (bucket == 0) {
             return baseline;
         }

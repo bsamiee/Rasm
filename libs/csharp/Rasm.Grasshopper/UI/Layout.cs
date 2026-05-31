@@ -583,7 +583,7 @@ internal static partial class Layout {
     }
 
     private static (float Delta, float Line, string Label) GridAxis(float value, float origin, float cell, int radius) {
-        float line = origin + (MathF.Round(x: (value - origin) / cell) * cell);
+        float line = origin + (MathF.Round((value - origin) / cell, MidpointRounding.ToEven) * cell);
         float delta = line - value;
         return MathF.Abs(x: delta) <= radius
             ? (Delta: delta, Line: line, Label: string.Create(CultureInfo.InvariantCulture, $"grid {cell:0.###}"))

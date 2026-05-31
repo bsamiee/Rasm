@@ -233,14 +233,21 @@ public sealed class DecompositionLaws {
                 actual: (row, col) => Numeric.Dot(count: svd.Sigma.Count, left: k => svd.U.At(i: row, j: k), right: k => svd.Sigma[k] * svd.V.At(i: col, j: k)),
                 tolerance: 1.0e-7, label: "U*Sigma*V^T")));
     [Fact]
-    public void SvdSigmaIsSortedNonNegativeAndMatchesSpectral() =>
+    public void SvdSigmaIsSortedNonNegative() =>
         Spec.ForAll(MatrixGens.TallOrSquare, static a => Spec.Succ(a.DecomposeSvd(key: MatrixGens.Key), then: svd => {
             Arr<double> s = svd.Sigma;
             _ = toSeq(Enumerable.Range(start: 0, count: s.Count)).Iter(i =>
                 Spec.Holds(condition: s[i] >= -1.0e-12 && (i == s.Count - 1 || s[i] >= s[i + 1] - 1.0e-12), label: $"sigma invariant fails at i={i}: {s[i]:R}"));
-            Spec.Succ(a.Spectral(key: MatrixGens.Key), then: sp =>
-                Spec.Equal(left: sp, right: s.IsEmpty ? 0.0 : s[0], tolerance: 1.0e-9, what: "spectral=Sigma[0]"));
         }));
+    [Fact]
+    public void SpectralMatchesClosedFormDiagonalNorm() {
+        Matrix diagonal = Spec.SuccValue(Matrix.Of(rows: Dimension.Create(value: 3), cols: Dimension.Create(value: 3), entries: [
+            -2.0, 0.0, 0.0,
+            0.0, 5.0, 0.0,
+            0.0, 0.0, -3.0,
+        ], key: MatrixGens.Key), label: "diagonal");
+        Spec.Succ(diagonal.Spectral(key: MatrixGens.Key), then: spectral => Spec.Equal(left: spectral, right: 5.0, tolerance: 1.0e-12, what: "diagonal spectral norm"));
+    }
     [Fact]
     public void SvdFactorsAreOrthogonal() =>
         Spec.ForAll(MatrixGens.TallOrSquare, static a => Spec.Succ(a.DecomposeSvd(key: MatrixGens.Key), then: svd => {

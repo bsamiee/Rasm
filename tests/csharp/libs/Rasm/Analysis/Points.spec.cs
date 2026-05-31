@@ -97,13 +97,14 @@ public sealed class PointsSpreadDispatchLaws {
 // --- [EDGE_CASES] ---------------------------------------------------------------------------
 public sealed class PointsUnsupportedRailLaws {
     [Fact]
-    public void UnsupportedFaultCarriesStableCategoryAndExactTypePair() {
-        Error fault = PointsGens.Key.Unsupported(geometryType: typeof(Mesh), outputType: typeof(Plane));
-        Assert.Equal(expected: "Unsupported", actual: fault.Category());
-        Fault.Unsupported unsupported = Assert.IsType<Fault.Unsupported>(@object: fault);
-        Assert.Equal(expected: typeof(Mesh), actual: unsupported.GeometryType);
-        Assert.Equal(expected: typeof(Plane), actual: unsupported.OutputType);
-    }
+    public void UnsupportedOperationCarriesStableCategoryAndExactTypePair() =>
+        Spec.Invalid(Analyze.Run(operation: Points.Spread(aspect: SpreadAspect.Frame).Operation<Mesh, Stat>(), input: default(Mesh)!),
+            then: static error => {
+                Assert.Equal(expected: "Unsupported", actual: error.Category());
+                Fault.Unsupported unsupported = Assert.IsType<Fault.Unsupported>(@object: error);
+                Assert.Equal(expected: typeof(Mesh), actual: unsupported.GeometryType);
+                Assert.Equal(expected: typeof(Stat), actual: unsupported.OutputType);
+            });
     [Fact]
     public void ForeignGeometryRejectsEveryCaseRegardlessOfOutput() =>
         Spec.Cases(items: PointsGens.Factories, key: static f => f.Label, law: static f => {
@@ -114,5 +115,9 @@ public sealed class PointsUnsupportedRailLaws {
     [Fact]
     public void NullAspectRejectsWithInputCategoryBeforeGeometryEvaluation() =>
         Spec.Invalid(Analyze.Run(operation: Analyze.Points<Mesh, Point3d>(sampling: null!), input: default(Mesh)!),
+            then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
+    [Fact]
+    public void NullSpreadAspectRejectsWithInputCategoryBeforeGeometryEvaluation() =>
+        Spec.Invalid(Analyze.Run(operation: Points.Spread(aspect: null!).Operation<Mesh, Plane>(), input: default(Mesh)!),
             then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
 }

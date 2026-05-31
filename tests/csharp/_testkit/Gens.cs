@@ -132,7 +132,7 @@ public static class Gens {
 
     // --- [FIELD_FIXTURES] ------------------------------------------------------------------
     public static readonly Gen<(SdfKind Kind, ImmutableDictionary<string, double> Parameters, Plane Pose)> PrimitiveFixture =
-        SdfKinds.Select(Plane, static (SdfKind kind, Plane pose) =>
+        SdfKinds.Select(ManagedPlane, static (SdfKind kind, Plane pose) =>
             (Kind: kind, Parameters: kind.RequiredKeys.Fold(ImmutableDictionary<string, double>.Empty, static (acc, key) => acc.Add(key, 1.0)), Pose: pose));
     public static readonly Gen<BoundingBox> AdmissibleBoundingBox = NonEmptyBbox;
     public static readonly Gen<(int Nx, int Ny, int Nz)> GridResolution = Gen.Int[2, 32].Select(Gen.Int[2, 32], Gen.Int[2, 32],
@@ -233,8 +233,9 @@ public static class Gens {
         SpdWithSpectrum(n: n, eigenvalues: Gen.Const(value: new Arr<double>([.. toSeq(Enumerable.Range(0, n)).Map(k => 1.0 + ((kappa - 1.0) * k / Math.Max(val1: n - 1, val2: 1)))])));
 
     // --- [POLYMORPHIC_TUPLES] --------------------------------------------------------------
-    public static Gen<(T A, T B, T C)> DistinctTriple<T>(Gen<T> element) =>
-        (element ?? throw new ArgumentNullException(nameof(element))).Select(element, element, static (T a, T b, T c) => (A: a, B: b, C: c));
+    public static Gen<(T A, T B, T C)> DistinctTriple<T>(Gen<T> element) where T : notnull =>
+        (element ?? throw new ArgumentNullException(nameof(element))).ArrayUnique[3, 3]
+        .Select(static values => (A: values[0], B: values[1], C: values[2]));
 
     // --- [DIRECTION_AND_FRAME] -------------------------------------------------------------
     public static readonly Gen<Vector3d> AngularDirection = UnitAngle.Select(UnitClosed,
@@ -253,7 +254,10 @@ public static class Gens {
 
     // --- [METAMORPHIC_HELPERS] ------------------------------------------------------------
     public static Gen<Vector3d> Translate(double maxMagnitude = 100.0) =>
-        Vec.Where(v => v.Length <= maxMagnitude);
+        Gen.Double[start: -Math.Abs(maxMagnitude), finish: Math.Abs(maxMagnitude)].Select(
+            Gen.Double[start: -Math.Abs(maxMagnitude), finish: Math.Abs(maxMagnitude)],
+            Gen.Double[start: -Math.Abs(maxMagnitude), finish: Math.Abs(maxMagnitude)],
+            static (double x, double y, double z) => new Vector3d(x: x, y: y, z: z));
     public static readonly Gen<double> Scale = Gen.Frequency(
         (80, Positive),
         (20, Gen.OneOfConst(0.5, 1.0, 2.0, 10.0)));

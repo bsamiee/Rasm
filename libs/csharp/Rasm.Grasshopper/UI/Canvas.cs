@@ -425,7 +425,7 @@ internal static partial class UiRail {
     internal static int RenderDimensionLimit(GhCanvas canvas) =>
         WindowMetricsOf(canvas: canvas)
             .Map(static m => {
-                int devicePixelMax = (int)MathF.Round(MathF.Max(m.ScreenSize.Width, m.ScreenSize.Height) * m.LogicalPixelSize);
+                int devicePixelMax = (int)MathF.Round(MathF.Max(m.ScreenSize.Width, m.ScreenSize.Height) * m.LogicalPixelSize, MidpointRounding.ToEven);
                 return Math.Min(MaxRenderDimension, devicePixelMax > 0 ? devicePixelMax : MaxRenderDimension);
             })
             .IfNone(MaxRenderDimension);

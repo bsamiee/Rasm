@@ -80,12 +80,12 @@ public partial record Bounds : IAspect {
                     from result in state.Accept(value: box).ToEff()
                     select result)
             : PrincipalKey.Unsupported<TGeometry, TOut>(),
-        centerCase: static _ => typeof(TOut) == typeof(Point3d)
+        centerCase: static _ => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanBound(source: typeof(TGeometry), includeSphere: true)
             ? Analysis.Operation<TGeometry, Point3d>.Build(
                 key: CenterKey, state: CenterKey,
                 evaluator: static (op, geometry) => geometry.BoundsOf(op: op).Bind(b => op.Accept(value: b.Center)).ToEff()).As<TGeometry, TOut>(key: CenterKey)
             : CenterKey.Unsupported<TGeometry, TOut>(),
-        cornersCase: static c => typeof(TOut) == typeof(Point3d)
+        cornersCase: static c => typeof(TOut) == typeof(Point3d) && GeometryKernel.CanBound(source: typeof(TGeometry), includeSphere: true)
             ? Analysis.Operation<TGeometry, Point3d>.Build(
                 key: CornersKey, requiresContext: c.Unique, state: (Key: CornersKey, c.Unique),
                 evaluator: static (state, geometry) =>

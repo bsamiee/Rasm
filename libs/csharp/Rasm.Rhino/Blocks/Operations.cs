@@ -853,11 +853,11 @@ internal static partial class Operations {
         Op key) =>
         key.Confirm(success: RhinoApp.RunScript(
                 documentSerialNumber: owner.Document.RuntimeSerialNumber,
-                script: string.Join(separator: " ", values: (Seq(command)
+                script: string.Join(separator: ' ', values: (Seq(command)
                     + args.Map(static arg => $"_{arg.Name} \"{(arg.Value ?? string.Empty)
                         .Replace(oldValue: "\"", newValue: "\"\"", comparisonType: StringComparison.Ordinal)
-                        .Replace(oldValue: "\r", newValue: " ", comparisonType: StringComparison.Ordinal)
-                        .Replace(oldValue: "\n", newValue: " ", comparisonType: StringComparison.Ordinal)}\"")
+                        .Replace(oldChar: '\r', newChar: ' ')
+                        .Replace(oldChar: '\n', newChar: ' ')}\"")
                     + Seq("_Enter")).AsIterable()),
                 echo: owner.RunScriptEcho))
             .Map(_ => MutationReceipt.Named(name: snap.Name.Value));
@@ -1186,7 +1186,7 @@ internal static partial class Operations {
             int digits = instance.Attributes.Space == ActiveSpace.PageSpace
                 ? doc.PageDistanceDisplayPrecision
                 : doc.ModelDistanceDisplayPrecision;
-            return Math.Round(axis(arg: instance.InsertionPoint), digits).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return Math.Round(axis(arg: instance.InsertionPoint), digits, MidpointRounding.ToEven).ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
 
         return from pair in Resolve(table: owner.Document.InstanceDefinitions, refer: refer, key: key)

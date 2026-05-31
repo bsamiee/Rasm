@@ -90,5 +90,5 @@ public sealed class FactBag {
         ArgumentNullException.ThrowIfNull(argument: serialize);
         _ = value.IfSome(v => Add(key: key, value: serialize(arg: v)));
     }
-    internal IReadOnlyDictionary<string, object> Snapshot() => facts;
+    internal IReadOnlyDictionary<string, object> Snapshot() => new Dictionary<string, object>(dictionary: facts, comparer: StringComparer.Ordinal);
 }

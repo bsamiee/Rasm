@@ -11,13 +11,14 @@
 
 <br>
 
-| [INDEX] | [PACKAGE]                   | [PIN]    | [STATE]          | [USE]                                                               |
-| :-----: | --------------------------- | -------- | ---------------- | ------------------------------------------------------------------- |
-|   [1]   | `xunit.v3.mtp-off`          | `3.2.2`  | Shared           | xUnit v3; MTP disabled                                              |
-|   [2]   | `xunit.runner.visualstudio` | `3.1.5`  | Shared           | VSTest adapter for `dotnet test`                                    |
-|   [3]   | `xunit.v3.assert`           | `3.2.2`  | Shared (testkit) | Assertions, serializer APIs                                         |
-|   [4]   | `xunit.v3.common`           | `3.2.2`  | Shared (testkit) | Common v3 abstractions                                              |
-|   [5]   | `xunit.analyzers`           | `1.27.0` | Transitive lock  | xUnit transitive; central pin only if in `Directory.Packages.props` |
+| [INDEX] | [PACKAGE]                     | [PIN]    | [STATE]          | [USE]                                                               |
+| :-----: | ----------------------------- | -------- | ---------------- | ------------------------------------------------------------------- |
+|   [1]   | `xunit.v3.mtp-off`            | `3.2.2`  | Shared           | xUnit v3; MTP disabled                                              |
+|   [2]   | `xunit.runner.visualstudio`   | `3.1.5`  | Shared           | VSTest adapter for `dotnet test`                                    |
+|   [3]   | `xunit.v3.assert`             | `3.2.2`  | Shared (testkit) | Assertions, serializer APIs                                         |
+|   [4]   | `xunit.v3.common`             | `3.2.2`  | Shared (testkit) | Common v3 abstractions                                              |
+|   [5]   | `xunit.v3.extensibility.core` | `3.2.2`  | Shared (testkit) | Pipeline startup and extensibility APIs                             |
+|   [6]   | `xunit.analyzers`             | `1.27.0` | Transitive lock  | xUnit transitive; central pin only if in `Directory.Packages.props` |
 
 [SOURCE] xUnit v3.2.2 release notes: https://xunit.net/releases/v3/3.2.2
 
@@ -31,11 +32,13 @@
 | :-----: | ---------------------------------------------- | ----------------------------------------------------------- |
 |   [1]   | `[Fact]`, `[Theory]`                           | Own-line attributes; CsCheck facts over large theory tables |
 |   [2]   | `TheoryData<T1..T15>`/`TheoryDataRow<T1..T15>` | Small explicit edge matrices only                           |
-|   [3]   | `ITheoryDataRow`                               | Row metadata when display/skip/timeout is the contract      |
+|   [3]   | `ITheoryDataRow`                               | Row metadata when display/skip/timeout/traits are contract  |
 |   [4]   | `MatrixTheoryData<T1..T15>`                    | Rare cartesian rows; prefer `Gen.Select` for broad axes     |
 |   [5]   | `preEnumerateTheories`                         | Rasm runner JSON; stable inputs; no runtime-random rows     |
 
 [SOURCE] API namespace list: https://api.xunit.net/v3/3.2.2/Xunit.html
+
+Use `TheoryDataRow` metadata only when the row itself is part of the test contract: `WithTrait`, `WithTimeout`, `WithSkip`, `WithExplicit`, or `WithTestDisplayName`. Prefer plain `TheoryData` for ordinary value rows.
 
 ---
 ## [3][FIXTURES_CONTEXT]
@@ -50,6 +53,8 @@
 |   [3]   | `IAsyncLifetime`                           | Async setup/cleanup when boundary is async            |
 |   [4]   | `ITestOutputHelper`                        | Diagnostics only; do not replace assertions           |
 |   [5]   | `TestContext.Current.CancellationToken`    | Long loops, async checks, shrink-heavy work           |
+
+Assembly fixtures use public parameterless constructors, initialize before assembly test execution, inject by exact fixture type, and clean up through `DisposeAsync` or `Dispose`. They are for immutable shared context, not per-test mutable state.
 
 ---
 ## [4][ASSERTIONS]
@@ -110,7 +115,7 @@ Cross-reference: this pattern is also a Stryker enabler — see `docs/testing-li
 |   [6]   | `[Trait("Category", "Runtime")]`      | Bridge-owned behavior (static classification)     |
 |   [7]   | `[Trait("Stryker", "Survivor")]`      | Post-Stryker survivor regression                  |
 
-Filter via `dotnet test --filter "Category=Algebra"` or `dotnet test --filter "Category=Algebra|Category=Numeric"`. Pair with CI matrix jobs for fast PR validation (Construction + Rail) vs. nightly extended runs (Numeric + Algebra + Projection + Runtime).
+Filter the current VSTest rail via `dotnet test --filter "Category=Algebra"` or `dotnet test --filter "Category=Algebra|Category=Numeric"`. xUnit/MTP query filters such as `--filter-trait` and `--filter-query` belong only to a deliberate MTP migration.
 
 ---
 ## [8][ASSERT_MULTIPLE_FOR_RECEIPTS]
@@ -136,7 +141,7 @@ Reserved for receipt-invariant blocks; do not chain unrelated assertions.
 
 <br>
 
-`Spec.ForAll` reads `TestContext.Current.CancellationToken` and propagates into the property body. Raw `Check.Sample` calls do not. Pattern for any spec that may iterate thousands of times:
+`Spec.ForAll` reads `TestContext.Current.CancellationToken` and propagates into the property body. Raw `Check.Sample` calls do not. `TestContext.Current` is a snapshot; read it at the use site and do not cache it across samples. Pattern for any spec that may iterate thousands of times:
 
 ```csharp
 public void LawObeysCancellation() =>
@@ -154,10 +159,10 @@ For long synchronous CsCheck samples (>30s under default Iter), add `[Trait("Lon
 
 <br>
 
-| [INDEX] | [HOOK]                                          | [USE_CASE]                                              |
-| :-----: | ----------------------------------------------- | ------------------------------------------------------- |
-|   [1]   | `ITestPipelineStartup`                          | Invariant culture; warm `RhinoMath`; native probe paths |
-|   [2]   | `IAfterTestStarting`                            | Stamp `TestContext` with seed/iter for shrink replay    |
-|   [3]   | `[assembly: AssemblyFixture(typeof(T))]` + ctor | Shared immutables; thread-shared; no per-test mutation  |
+| [INDEX] | [HOOK]                                          | [USE_CASE]                                                     |
+| :-----: | ----------------------------------------------- | -------------------------------------------------------------- |
+|   [1]   | `ITestPipelineStartup`                          | Invariant culture; warm `RhinoMath`; native probe paths        |
+|   [2]   | `BeforeAfterTestAttribute`                      | Per-test interception when an assertion-visible hook is needed |
+|   [3]   | `[assembly: AssemblyFixture(typeof(T))]` + ctor | Shared immutables; thread-shared; no per-test mutation         |
 
 Avoid `IXunitTestCollectionRunner` overrides; they break VSTest discovery in subtle ways.

@@ -16,6 +16,7 @@ Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal poli
   - `docs/testing-libs/archunit/api.md`
   - `docs/testing-libs/benchmarkdotnet/api.md`
   - `docs/testing-libs/sharpfuzz/api.md`
+- Read `docs/system-api-map/README.md` before changing serializers, fuzz parsers, bridge probes, host loaders, filesystem evidence, capture code, or System API usage in tests.
 - Keep specs law-matrix shaped: each test should cover a behavior family, oracle, failure rail, or metamorphic relation.
 - Build dense laws before adding facts: one generated sample should attack construction, projection, unsupported output, category, receipt, and an independent oracle when the owner exposes those axes.
 - Static xUnit owns pure-managed behavior; native Rhino/GH behavior belongs in `*.verify.csx` bridge scenarios.
@@ -40,6 +41,7 @@ Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal poli
 - For numeric/domain code, prefer an independent scalar loop, small fixture geometry, or algebraic identity over reusing the production method with different spelling.
 - A real oracle predicts behavior from another source of truth: closed-form math, conservation law, fixture geometry, category contract, external documented runtime behavior, or a bridge observation. A law states an invariant over a behavior family and varies enough axes to catch swapped inputs, missing validation, unsupported outputs, and receipt drift.
 - A useful failing test is preserved by fixing the production owner first. Only weaken or delete the law after proving the expected value was circular or the behavior is bridge-owned.
+- Do not use `.IsSucc`, `.IsFail`, `.IsSome`, or `.IsNone` as primary proof. Use `Spec.Succ`, `Spec.FailCategory`, `Spec.Valid`, `Spec.Invalid`, `Spec.Some`, or `Spec.None`; use direct rail peeking only as a supplemental invariant.
 
 ## [3][TESTKIT]
 
@@ -51,9 +53,10 @@ Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal poli
 - Promote only anti-circular value: reusable finite point sets, centroid/covariance/distance oracles, row-major residuals, Hermitian matvec/residuals, and stable serializers are valid candidates once multiple specs need them.
 - Treat `_testkit` additions as higher-order testing capability, not extraction. New surface should replace repeated spec logic with a stronger oracle, generator, serializer, or law adapter that immediately improves multiple owners.
 - Do not promote benchmark, fuzz, bridge, or one-off fixture adapters into `_testkit`; those rails have their own executable owners.
-- Filtered generators must use `Gen.Where(...).Select(...)` or `Gen.Select(Try.lift).Where(IsSucc).Select(Get)` — never `Select+throw`. The `throw` form breaks CsCheck shrinking (`CsCheck_WhereLimit` exhausts at 100 with no useful message); the `Where` form preserves shrink minimality. Every factory-routed value-object generator follows this rule.
+- Filtered generators must use `Gen.Where(...).Select(...)` or `Gen.Select(Try.lift).Where(IsSucc).Select(Get)` — never `Select+throw`. The `throw` form converts rejected candidates into property failures instead of filtered generation; the `Where` form preserves shrink minimality. Every factory-routed value-object generator follows this rule.
 - The canonical `AcceptValue` extension hook for Rasm-defined types is the `IDomainValid` interface registered through `OpAcceptance.ValueValidity` reflection cache (see [[feedback_acceptvalue_validity_gap]]). New record/struct types that need `op.AcceptValue` support implement `IDomainValid { bool IsValid { get; } }` — do not extend the manual `ValidityOf` switch arm-by-arm.
 - Shared assembly context belongs in `[assembly: AssemblyFixture(typeof(T))]` plus constructor injection (xUnit v3 has no `IAssemblyFixture<T>` API). When ≥3 specs share the same `static readonly Context Model = Spec.SuccValue(Context.Of(...).ToFin())` block, promote to an `AssemblyFixture`-routed value.
+- Boundary test code may use BCL/file/runtime APIs rejected in product domain only when the file owns that boundary: `_fuzz` parsers, `_testkit` serializers, bridge scenario probes, capture artifacts, and host-bundle resolution. Keep those exceptions local and do not copy them into domain specs.
 
 ## [4][TEST_RAILS]
 
@@ -86,6 +89,8 @@ Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal poli
 
 - **Stub-receipt construction**: hand-building a record type (e.g., `IsoSurfaceReceipt`, `TopologyReceipt`, `SignedHeatReceipt`) then asserting its own fields is Grade D mirror coverage — the assertion reads what the test just wrote. Delete and migrate to a bridge scenario, OR add an `IsValid` predicate law that covers the conjunctive invariant via `TheoryData<Receipt, bool>` rows (one valid, each invariant individually broken).
 - **Filtered-generator `throw`**: `Gen.Int.Select(i => i > 0 ? new T(i) : throw new InvalidOperationException(...))` exhausts CsCheck's where-limit silently. Use `Gen.Int.Where(i => i > 0).Select(i => new T(i))`.
+- **Primary rail peeking**: `.IsSucc` / `.IsFail` / `.IsSome` as the assertion. Use `Spec` rail helpers so category, code, and diagnostic contracts stay visible.
+- **Shape-only constructor proof**: `Assert.IsType` over a value the test just constructed. Keep it only when paired with payload projection, admission, dispatch, or bridge evidence.
 - **Single-fixture distinct-detection blind spot**: a test that uses `[1.0, 1.0, 1.0]` cannot detect a swap between any two slots. Distinct-value product generators (`[7.0, 13.0, 3.0]`) are the minimum bar for swap-detecting laws.
 - **Hoisted `Op key` across `Switch` arms**: every `[Union].Switch` arm constructs its own `Op.Of(name: nameof(CaseName))` for diagnostic provenance (see [[feedback_per_arm_op_provenance]]). The Rasm analyzer enforces this via CSP0801; do not suppress.
 - **`TestContext.Current` ignored in long ForAll bodies**: every `Spec.ForAll`/`Spec.Cases`/`Spec.Metamorphic` should propagate `TestContext.Current.CancellationToken` into the body. The `Spec.*` adapters do this automatically — raw `Check.Sample` calls do not.

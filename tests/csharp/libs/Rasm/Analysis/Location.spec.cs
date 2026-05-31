@@ -103,4 +103,23 @@ public sealed class LocationRejectionRailLaws {
             Analyze.Run(operation: LocationAspect.CurvatureExtrema(count: -3, mode: CurvatureMode.Scalar(metric: ScalarMetric.Magnitude), direction: ExtremumDirection.Maximum).Operation<Curve, Point3d>(), input: default(Curve)!),
             then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
     }
+
+    [Fact]
+    public void InvalidDivideInputsRejectBeforeNativeEvaluation() {
+        Spec.Invalid(
+            Analyze.Run(operation: LocationAspect.DivideByCount(count: 0).Operation<Curve, Point3d>(), input: default(Curve)!),
+            then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
+        Spec.Invalid(
+            Analyze.Run(operation: LocationAspect.DivideByCount(count: -2).Operation<Curve, Point3d>(), input: default(Curve)!),
+            then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
+        Spec.Invalid(
+            Analyze.Run(operation: LocationAspect.DivideByLength(length: 0.0).Operation<Curve, Point3d>(), input: default(Curve)!),
+            then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
+        Spec.Invalid(
+            Analyze.Run(operation: LocationAspect.DivideByLength(length: double.NaN).Operation<Curve, Point3d>(), input: default(Curve)!),
+            then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
+        Spec.Invalid(
+            Analyze.Run(operation: LocationAspect.DivideByLength(length: double.PositiveInfinity).Operation<Curve, Point3d>(), input: default(Curve)!),
+            then: static error => Assert.Equal(expected: "Input", actual: error.Category()));
+    }
 }

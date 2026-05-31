@@ -143,12 +143,9 @@ public readonly record struct VectorSpan {
     internal Fin<(double X, double Y)> Components(Plane frame, Op key) {
         Vector3d value = Value;
         return key.AcceptValue(value: frame).Bind(validFrame =>
-            Vector3d.Decompose(v: value, a: validFrame.XAxis, b: validFrame.YAxis, x: out double x, y: out double y) switch {
-                true => (key.AcceptValue(value: x), key.AcceptValue(value: y))
-                    .Apply(static (validX, validY) => (X: validX, Y: validY))
-                    .As(),
-                false => Fin.Fail<(double X, double Y)>(error: key.InvalidResult()),
-            });
+            (key.AcceptValue(value: value * validFrame.XAxis), key.AcceptValue(value: value * validFrame.YAxis))
+            .Apply(static (x, y) => (X: x, Y: y))
+            .As());
     }
     internal Fin<TOut> Project<TOut>(Op key) => typeof(TOut) switch {
         Type t when t == typeof(Direction) => Direction.Project<TOut>(key: key),

@@ -27,8 +27,9 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 4. Select laws from [oracles-laws.md](references/oracles-laws.md) and density axes from [density-axes.md](references/density-axes.md).
 5. Reuse `Rasm.TestKit` contracts from [testkit.md](references/testkit.md).
 6. Check raw tool API in `docs/testing-libs` before using unfamiliar APIs.
-7. Write the spec from [unit-pbt.spec.template.md](templates/unit-pbt.spec.template.md).
-8. Validate with the smallest targeted build/test first, then the full C# gates.
+7. Check `docs/system-api-map` before changing serializers, fuzz parsers, bridge probes, host loaders, filesystem evidence, capture code, or System API usage in tests.
+8. Write the spec from [unit-pbt.spec.template.md](templates/unit-pbt.spec.template.md).
+9. Validate with the smallest targeted build/test first, then the full C# gates.
 
 ---
 ## [2][RAILS]
@@ -53,10 +54,14 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 - Do not add test-specific shared helpers. Promote only universal higher-order capability with at least two real consumers.
 - Treat testkit additions as law/oracle/generator functionality, not extraction. Shared code must replace repeated spec logic with stronger evidence, not shorter spelling.
 - Treat shape-only assertions as Grade D unless paired with a Grade A/B oracle or a durable Grade C failure/category rail.
+- Delete or replace shape-only assertions that only inspect values constructed inside the same test.
 - Pair every declared `Output`/accepted `TOut` surface with an actual projection law. Metadata-only output checks do not prove dispatch.
 - Public union cases, record structs, and policy records that bypass factory methods need default-invalid/raw-payload laws or must be made unconstructable by design.
 - Mixed guards must preserve categories: invalid input stays `Input`/`Tolerance`; unsupported capability stays `Unsupported`.
 - Paired raw/domain outputs both need laws, for example `Vector3d` and `Direction`, receipt and geometry, scalar and value-object projections.
+- Do not use `.IsSucc`, `.IsFail`, `.IsSome`, or `.IsNone` as primary proof; use `Spec.Succ`, `Spec.FailCategory`, `Spec.Valid`, `Spec.Invalid`, `Spec.Some`, or `Spec.None`.
+- Classify each Stryker survivor before test edits: missing oracle, equivalent mutant, bridge-owned path, or product bug.
+- Keep `ConcurrentDictionary`, `Interlocked`, `Directory`, `Path`, `Console.WriteLine`, and `System.Drawing` inside explicit test/tool/bridge boundary adapters.
 - For `Rasm.Vectors`, the canonical bridge-vs-static rail list lives in [bridge-runtime.md `[2][RULES]`](references/bridge-runtime.md); static specs own pure MathNet/Spectral/factory/failure laws and managed input guards, every other native success belongs in bridge scenarios per that authoritative list.
 
 ---

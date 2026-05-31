@@ -266,7 +266,7 @@ public readonly record struct MotionColor(double A, double R, double G, double B
         DrawingColor.FromArgb(alpha: Channel(value: A), red: Channel(value: R), green: Channel(value: G), blue: Channel(value: B));
 
     private static int Channel(double value) =>
-        Math.Clamp(value: (int)Math.Round(value), min: 0, max: 255);
+        Math.Clamp(value: (int)Math.Round(value, MidpointRounding.ToEven), min: 0, max: 255);
 }
 
 // Single working space: value AND velocity are MotionColor (double channels). Move stays in double space so sub-unit
@@ -383,7 +383,7 @@ public static class MotionVector {
         toSeq(Enumerable.Range(start: 0, count: 16)).Fold(Transform.ZeroTransformation, (acc, i) => { acc[i / 4, i % 4] = f(arg1: a[i / 4, i % 4], arg2: b[i / 4, i % 4]); return acc; });
     private static Transform Map(Transform a, Func<double, double> f) =>
         toSeq(Enumerable.Range(start: 0, count: 16)).Fold(Transform.ZeroTransformation, (acc, i) => { acc[i / 4, i % 4] = f(arg: a[i / 4, i % 4]); return acc; });
-    private static int Channel(float normalized) => Math.Clamp(value: (int)Math.Round(normalized * 255f), min: 0, max: 255);
+    private static int Channel(float normalized) => Math.Clamp(value: (int)Math.Round(normalized * 255f, MidpointRounding.ToEven), min: 0, max: 255);
 
     // OKLab constants MUST match Rasm.Grasshopper.UI.MotionVector verbatim (Ottosson 2020 / CSS Color Level 4).
     internal static DrawingColor OklabInterpolate(DrawingColor a, DrawingColor b, double factor) {
@@ -391,7 +391,7 @@ public static class MotionVector {
         (float lb, float ab, float bb) = SrgbToOklab(b);
         float tf = (float)factor;
         (float L, float A, float B) mix = (L: la + ((lb - la) * tf), A: aa + ((ab - aa) * tf), B: ba + ((bb - ba) * tf));
-        return OklabToSrgb(mix, alpha: (int)Math.Round(a.A + ((b.A - a.A) * factor)));
+        return OklabToSrgb(mix, alpha: (int)Math.Round(a.A + ((b.A - a.A) * factor), MidpointRounding.ToEven));
     }
     private static (float L, float A, float B) SrgbToOklab(DrawingColor rgb) {
         float r = SrgbToLinear(rgb.R / 255f);

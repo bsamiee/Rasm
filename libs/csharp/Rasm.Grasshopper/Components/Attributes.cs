@@ -434,8 +434,8 @@ public readonly record struct ComponentUi {
                 Maximum: new SizeF(width: 4096f, height: 4096f));
             internal SizeF Clamp(SizeF value) =>
                 new(
-                    width: Math.Clamp(value: MathF.Round(x: value.Width), min: Minimum.Width, max: Maximum.Width),
-                    height: Math.Clamp(value: MathF.Round(x: value.Height), min: Minimum.Height, max: Maximum.Height));
+                    width: Math.Clamp(value: MathF.Round(value.Width, MidpointRounding.ToEven), min: Minimum.Width, max: Maximum.Width),
+                    height: Math.Clamp(value: MathF.Round(value.Height, MidpointRounding.ToEven), min: Minimum.Height, max: Maximum.Height));
         }
     }
 }

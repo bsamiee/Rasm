@@ -31,8 +31,8 @@
 |   [1]   | `Check.Sample`(+Async)           | Action/predicate/classifier checks        | `Spec.ForAll`; async after consumer             |
 |   [2]   | `Check.SampleModelBased`(+Async) | Actual vs smaller model                   | Two stateful specs min.                         |
 |   [3]   | `Check.SampleMetamorphic`        | `GenMetamorphic<T>` ops                   | Not `Spec.Metamorphic`                          |
-|   [4]   | `Check.SampleParallel`           | Parallel ops + shrinking                  | `Spec.ConcurrentProfiled`; policy cleanup first |
-|   [5]   | `Check.Hash`                     | Hash regression on stable large artifacts | Source proof before cache/path claims           |
+|   [4]   | `Gen<T>.SampleParallel`          | Parallel ops + shrinking                  | `Spec.ConcurrentProfiled`; policy cleanup first |
+|   [5]   | `Check.Hash`                     | Hash regression on stable large artifacts | Stable tool artifacts only                      |
 |   [6]   | `Check.ChiSquared`               | Generator distribution audit              | Testkit gen validation only                     |
 |   [7]   | `Check.Faster`(+Async)           | Statistical perf comparison               | BenchmarkDotNet on benchmark rail               |
 
@@ -46,10 +46,12 @@
 | :-----: | ----------------------------------------------------------- | --------------------------------------------------------- |
 |   [1]   | `Gen.Select`, `SelectMany`                                  | Product axes and dependent generation.                    |
 |   [2]   | `Gen.OneOfConst`, `OneOf`, `Frequency`                      | Case tables and edge bias.                                |
-|   [3]   | `Gen.Array`, `ArrayUnique`, `Array2D`, `List`, `Dictionary` | Collection domains before `Seq<T>` projection.            |
+|   [3]   | `Gen.Array`, `ArrayUnique`, `Array2D`, `List`, `Dictionary`, `HashSet`, `SortedDictionary` | Collection domains before `Seq<T>` projection. |
 |   [4]   | `Gen.Shuffle`, `ShuffleSelect`                              | Permutation and selection metamorphic laws.               |
 |   [5]   | `Gen.Recursive`                                             | Recursive structures only with explicit depth discipline. |
 |   [6]   | `Gen.Clone`                                                 | Identical streams for two-path comparisons.               |
+|   [7]   | `Gen.Enum<T>`, `FrequencyConst`, nullable/null generators   | Closed-set and edge-bias domains.                         |
+|   [8]   | `Gen.Operation`, `GenOperationAsync`, `GenMetamorphic`      | Stateful, async, and paired-operation laws.               |
 
 ---
 ## [4][RASM_POLICY]
@@ -62,6 +64,7 @@
 - `Spec.Regression` records a durable shrunk seed only after product behavior is classified.
 - Use model-based APIs only when the model is smaller than production: list log, scalar receipt, set/map reference, or finite state machine.
 - Do not promote spec-local generators until two specs share the same domain shape.
+- Use `Check.Hash` only for stable tool artifacts. The cache lives under local app data `CsCheck`, keyed by caller file path/member/hash; `expected: 0` discovers by throwing, and decimal/significant-figure rounding is supported.
 
 ---
 ## [5][SHRINKING_DISCIPLINE]
@@ -80,7 +83,7 @@ CsCheck shrinking finds the minimal counterexample by repeatedly narrowing faile
 - [1] `Gen.Int.Select(i => i > 0 ? new T(i) : throw …)` → `Gen.Int.Where(i => i > 0).Select(i => new T(i))`
 - [2] `Gen.Select(Factory).Select(opt => opt.IfNone(() => throw …))` → `Gen.Select(Factory).Where(opt => opt.IsSome).Select(opt => opt.IfNone(default!))`
 
-The `throw` form fires CsCheck's `WhereLimit` (default 100); when exhausted CsCheck gives up with a generic "could not satisfy" message and no minimal counterexample. The `Where` form keeps shrinking on the satisfying subset.
+The `throw` form converts rejected generated values into property failures instead of filtered generation. `WhereLimit` applies to `Gen.Where`; keep `Where` predicates broad enough to preserve shrinkable satisfying values.
 
 `Try.lift` pattern for factories returning `Fin`:
 
@@ -100,17 +103,17 @@ public static readonly Gen<Dimension> Dimension =
 
 <br>
 
-| [INDEX] | [VAR]                | [DEFAULT]    | [USE]                                                                                            |
-| :-----: | -------------------- | ------------ | ------------------------------------------------------------------------------------------------ |
-|   [1]   | `CsCheck_Iter`       | 100          | Per-property iteration count.                                                                    |
-|   [2]   | `CsCheck_Time`       | 0 (disabled) | Wall-clock budget in seconds (overrides Iter when set).                                          |
-|   [3]   | `CsCheck_Threads`    | 1            | Parallel sample workers (for `SampleParallel`).                                                  |
-|   [4]   | `CsCheck_Seed`       | unset        | Fixed seed for reproducible runs.                                                                |
-|   [5]   | `CsCheck_Replay`     | 100          | Number of times to replay a failing seed for parallel reproduction.                              |
-|   [6]   | `CsCheck_Sigma`      | 6.0          | Statistical significance for `Check.Faster`.                                                     |
-|   [7]   | `CsCheck_Timeout`    | 30           | Per-sample timeout (seconds).                                                                    |
-|   [8]   | `CsCheck_Ulps`       | 0            | Allowed ULP slack for floating equality (off by default; tolerance lives in `Spec.EqualWithin`). |
-|   [9]   | `CsCheck_WhereLimit` | 100          | Filter rejection cap; lower → fail faster, higher → tolerate sparse-acceptance generators.       |
+| [INDEX] | [VAR]                | [DEFAULT]       | [USE]                                                                                            |
+| :-----: | -------------------- | --------------- | ------------------------------------------------------------------------------------------------ |
+|   [1]   | `CsCheck_Iter`       | 100             | Per-property iteration count.                                                                    |
+|   [2]   | `CsCheck_Time`       | -1              | Wall-clock budget in seconds; package default disables time override.                            |
+|   [3]   | `CsCheck_Threads`    | processor count | Parallel sample workers.                                                                         |
+|   [4]   | `CsCheck_Seed`       | unset           | Fixed seed for reproducible runs.                                                                |
+|   [5]   | `CsCheck_Replay`     | 100             | Number of times to replay a failing seed for parallel reproduction.                              |
+|   [6]   | `CsCheck_Sigma`      | 6.0             | Statistical significance for `Check.Faster`.                                                     |
+|   [7]   | `CsCheck_Timeout`    | 60              | Per-sample timeout (seconds).                                                                    |
+|   [8]   | `CsCheck_Ulps`       | 4               | Package floating equality slack; Rasm tolerance lives in `Spec.EqualWithin`.                     |
+|   [9]   | `CsCheck_WhereLimit` | 100             | Filter rejection cap; lower → fail faster, higher → tolerate sparse-acceptance generators.       |
 
 `Spec.ForAll` precedence: explicit args > env vars > package defaults. CI policy: tune `CsCheck_Iter=1000` and `CsCheck_Time=60` for nightly extended runs; keep PR validation at defaults. `CsCheck_Replay=10` for CI, default 100 for local repro.
 
@@ -120,7 +123,7 @@ public static readonly Gen<Dimension> Dimension =
 
 <br>
 
-`Check.SampleModelBased(initial, model_initial, ops...)` traces `(actual, model)` pairs through a sequence of `GenOperation<TActual, TModel>` steps and asserts equivalence at every step. Use when:
+`Check.SampleModelBased` takes `Gen<(Actual, Model)>` plus `GenOperation<Actual, Model>` operations, applies a generated operation sequence, and asserts actual/model equivalence after transitions. `SampleModelBasedAsync` uses `Gen<Task<(Actual, Model)>>` plus `GenOperationAsync<Actual, Model>`. Use when:
 
 - Actual implementation is `Atom<T>` or `ConcurrentDictionary` — model is `Dictionary<T>` or `Seq<T>`.
 - Actual is a state-threaded `[Union].Switch` dispatcher — model is a `Map<Key, T>`.
@@ -142,7 +145,7 @@ public static GenOperation<Atom<HashMap<int, int>>, Dictionary<int, int>> SetOp(
 
 <br>
 
-`Check.ChiSquared(observed, expected, sigma)` audits a generator's distribution against expected frequencies. Use when:
+`Check.ChiSquared(observed, expected, sigma)` audits a generator's distribution against expected frequencies. Expected bucket counts must all be greater than `5`; observed and expected arrays must have the same length. Sigma defaults to `6`. Use when:
 
 - An edge-biased `Gen.Frequency` ships with 90/10 weights — verify the tail actually fires 10% of the time across 10k samples.
 - A factory-routed generator filters >20% of inputs — verify the surviving distribution isn't skewed away from the boundary cases the test depends on.
@@ -156,13 +159,13 @@ Audit lives in `tests/csharp/_testkit/Gens.spec.cs` (a generator self-test), not
 
 <br>
 
-`Check.SampleParallel` runs the generated operations concurrently and asserts a linearizable history exists. `Spec.ConcurrentProfiled` wraps this and emits `Causal.Profile` output to `ITestOutputHelper`. Use for:
+`Gen<T>.SampleParallel` runs generated operations concurrently and asserts a linearizable history exists. `Spec.ConcurrentProfiled` wraps this and emits `Causal.Profile` output to `ITestOutputHelper`. Use for:
 
 - `Atom<T>` swap contention (closure-free `applyScratch` patterns).
 - Process-static cache races (`ConcurrentDictionary` + `[ThreadStatic]`).
 - `SmartEnum.Items` lazy initialization under first-access concurrency.
 
-Pair with `Check.Sample(seed: ...)` after the first parallel failure to reproduce deterministically.
+Replay `SampleParallel` failures with the emitted parallel seed, including any thread-id bracket suffix. Do not translate a parallel failure into a plain `Check.Sample` seed unless the package output says the sequential sample also fails.
 
 [SOURCE] CsCheck causal profiling: https://github.com/AnthonyLloyd/CsCheck#parallel-sampling
 
@@ -172,7 +175,7 @@ Pair with `Check.Sample(seed: ...)` after the first parallel failure to reproduc
 
 <br>
 
-`Check.Faster(slow, fast, sigma)` compares two implementations across generated inputs and reports a sigma confidence that `fast < slow`. Use only for:
+`Check.Faster(faster, slower, sigma)` compares two implementations across generated inputs and reports confidence that the first implementation is faster. Use only for:
 
 - Regression detection (e.g., Yuksel WSE O(n²) allocation regression on Sample.cs at `n ≥ candidate_count × MeshScale`).
 - A/B-style algorithmic choice during refactor (e.g., Cholesky vs LU on the same SPD generator).

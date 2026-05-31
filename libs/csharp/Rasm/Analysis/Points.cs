@@ -71,15 +71,17 @@ public partial record Points : IAspect {
                                                     from result in op.Accept(values: points).ToEff()
                                                     select result).As<TGeometry, TOut>(key: ControlPointsKey)
             : ControlPointsKey.Unsupported<TGeometry, TOut>(),
-        spreadCase: static s => s.Aspect.Output == typeof(TOut) && GeometryKernel.CanReadVertices(type: typeof(TGeometry))
-            ? Analysis.Operation<TGeometry, TOut>.Build(
-                key: SpreadKey, requiresContext: true, state: (Key: SpreadKey, s.Aspect),
-                evaluator: static (state, geometry) =>
-                    from context in Env.Asks
-                    from points in GeometryKernel.VerticesOf(source: geometry, key: state.Key).ToEff()
-                    from result in Analyze.SpreadProject<TOut>(aspect: state.Aspect, points: points, geometry: geometry, context: context, op: state.Key).ToEff()
-                    select result)
-            : SpreadKey.Unsupported<TGeometry, TOut>());
+        spreadCase: static s => Optional(s.Aspect).Match(
+            Some: aspect => aspect.Output == typeof(TOut) && GeometryKernel.CanReadVertices(type: typeof(TGeometry))
+                ? Analysis.Operation<TGeometry, TOut>.Build(
+                    key: SpreadKey, requiresContext: true, state: (Key: SpreadKey, Aspect: aspect),
+                    evaluator: static (state, geometry) =>
+                        from context in Env.Asks
+                        from points in GeometryKernel.VerticesOf(source: geometry, key: state.Key).ToEff()
+                        from result in Analyze.SpreadProject<TOut>(aspect: state.Aspect, points: points, geometry: geometry, context: context, op: state.Key).ToEff()
+                        select result)
+                : SpreadKey.Unsupported<TGeometry, TOut>(),
+            None: () => Analysis.Operation<TGeometry, TOut>.Reject(key: SpreadKey, fault: SpreadKey.InvalidInput())));
     private static Fin<Seq<Vector3d>> DirectionsFor(Option<Seq<Vector3d>> custom, bool planar, Context context, Op key) =>
         VectorIntent.Axes(values: custom, planar: planar).Project<Seq<Vector3d>>(context: context, key: key);
 }

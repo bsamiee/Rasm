@@ -74,10 +74,10 @@ public sealed class BoundsOutputDispatchLaws {
             ("Edges Mesh→Line", static () => Bounds.Edges.Operation<Mesh, Line>().IsSupported, false),
             ("Edges BoundingBox→Point3d", static () => Bounds.Edges.Operation<BoundingBox, Point3d>().IsSupported, false));
     [Fact]
-    public void CenterAndCornersProjectPoint3dForAnyGeometryAndRejectForeignOutput() {
+    public void CenterAndCornersProjectPoint3dOnlyForBoundableGeometryAndRejectForeignOutput() {
         Spec.Cases(items: AnyGeometryPoint3d, key: static g => g.Label, law: static g => {
-            Assert.True(condition: g.Center);
-            Assert.True(condition: g.Corners);
+            Assert.Equal(expected: g.Expected, actual: g.Center);
+            Assert.Equal(expected: g.Expected, actual: g.Corners);
         });
         Assert.False(condition: Bounds.Center.Operation<Mesh, Box>().IsSupported);
         Assert.False(condition: Bounds.Corners(unique: true).Operation<Mesh, double>().IsSupported);
@@ -104,11 +104,10 @@ public sealed class BoundsOutputDispatchLaws {
             Assert.False(condition: e.PlaneHull);
             Assert.False(condition: e.ForeignOutput);
         });
-    // Center/Corners carry no geometry guard — TOut==Point3d alone suffices.
-    public static readonly (string Label, bool Center, bool Corners)[] AnyGeometryPoint3d =
-        [("Mesh", Bounds.Center.Operation<Mesh, Point3d>().IsSupported, Bounds.Corners(unique: true).Operation<Mesh, Point3d>().IsSupported),
-         ("Plane", Bounds.Center.Operation<Plane, Point3d>().IsSupported, Bounds.Corners(unique: false).Operation<Plane, Point3d>().IsSupported),
-         ("Point3d", Bounds.Center.Operation<Point3d, Point3d>().IsSupported, Bounds.Corners(unique: true).Operation<Point3d, Point3d>().IsSupported)];
+    public static readonly (string Label, bool Center, bool Corners, bool Expected)[] AnyGeometryPoint3d =
+        [("Mesh", Bounds.Center.Operation<Mesh, Point3d>().IsSupported, Bounds.Corners(unique: true).Operation<Mesh, Point3d>().IsSupported, true),
+         ("Plane", Bounds.Center.Operation<Plane, Point3d>().IsSupported, Bounds.Corners(unique: false).Operation<Plane, Point3d>().IsSupported, false),
+         ("Point3d", Bounds.Center.Operation<Point3d, Point3d>().IsSupported, Bounds.Corners(unique: true).Operation<Point3d, Point3d>().IsSupported, true)];
     public static readonly (string Label, Bounds Aspect)[] Metrics =
         [("Area", Bounds.Area), ("Volume", Bounds.Volume), ("Diagonal", Bounds.Diagonal), ("AspectRatio", Bounds.AspectRatio)];
     // Hull TOut is invariant per case, so pre-project to bool triples; a lossy Operation<_,object> cast would re-Reject every arm.

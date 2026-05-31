@@ -47,6 +47,14 @@ public static class Spec {
         Causal.Profile(action: () => { Cancel(); init.SampleParallel(operations); }).Output(output: writeLine);
     public static void Metamorphic<T, TResult>(Gen<T> gen, Func<T, TResult> path, Func<T, TResult> oracle, Func<TResult, TResult, bool>? eq = null, string? seed = null, long? iter = null, int? time = null, int? threads = null) =>
         ForAll(gen: gen, property: value => _ = EqOrThrow(left: path(value), right: oracle(value), predicate: eq), seed: seed, iter: iter, time: time, threads: threads);
+    public static void Metamorphic<TSource, TFollow, TObserved>(Gen<(TSource Source, TFollow Follow)> gen, Func<TSource, TObserved> observeSource, Func<TFollow, TObserved> observeFollow,
+        Func<TSource, TFollow, TObserved, TObserved, bool> relation, string? label = null, string? seed = null, long? iter = null, int? time = null, int? threads = null) =>
+        ForAll(gen: gen, property: sample => {
+            TObserved source = observeSource(sample.Source);
+            TObserved follow = observeFollow(sample.Follow);
+            Holds(condition: relation(arg1: sample.Source, arg2: sample.Follow, arg3: source, arg4: follow),
+                label: label ?? $"Metamorphic relation failed: source={source}; followup={follow}");
+        }, seed: seed, iter: iter, time: time, threads: threads);
     public static void Regression<T>(Gen<T> gen, Action<T> property, string seed) =>
         ForAll(gen: gen, property: property, seed: seed, iter: 1);
 
@@ -214,6 +222,40 @@ public static class Spec {
             _ = c.SupportedOuts.AsIterable().Iter(t => Succ(result: runProjection(c.Case, t)));
             _ = c.UnsupportedOuts.AsIterable().Iter(t => FailCategory(result: runProjection(c.Case, t), category: "Unsupported"));
         });
+    public sealed record ValidityCase<T>(string Label, T Value, bool Expected);
+    public static void ValidityMatrix<T>(IReadOnlyList<ValidityCase<T>> cases, Func<T, bool> valid) {
+        ArgumentNullException.ThrowIfNull(argument: cases);
+        ArgumentNullException.ThrowIfNull(argument: valid);
+        _ = cases.AsIterable().Iter(c => {
+            Cancel();
+            bool actual = valid(arg: c.Value);
+            Holds(condition: actual == c.Expected, label: $"{c.Label}: expected {c.Expected}, got {actual}");
+        });
+    }
+    public static void ValidityMatrix<T>(IReadOnlyList<(string Label, T Value, bool Expected)> cases, Func<T, bool> valid) =>
+        ValidityMatrix(cases: [.. cases.Select(static c => new ValidityCase<T>(Label: c.Label, Value: c.Value, Expected: c.Expected))], valid: valid);
+    public static void OutputPartition<T>(IReadOnlyList<T> items, Func<T, Type> output, params (Type Output, int Count)[] expected) {
+        ArgumentNullException.ThrowIfNull(argument: items);
+        ArgumentNullException.ThrowIfNull(argument: output);
+        (string Output, int Count)[] actual = [.. items.GroupBy(keySelector: output)
+            .Select(static g => (Output: g.Key.FullName ?? g.Key.Name, Count: g.Count()))
+            .OrderBy(static row => row.Output, StringComparer.Ordinal)];
+        (string Output, int Count)[] want = [.. expected
+            .Select(static row => (Output: row.Output.FullName ?? row.Output.Name, row.Count))
+            .OrderBy(static row => row.Output, StringComparer.Ordinal)];
+        Assert.Equal(expected: want, actual: actual);
+    }
+    public sealed record SupportOracleCase<TCase>(string Label, TCase Case, Type Geometry, Type Output, Func<bool> Probe);
+    public static void SupportOracle<TCase>(IReadOnlyList<SupportOracleCase<TCase>> cases, Func<TCase, Type, Type, bool> expected) {
+        ArgumentNullException.ThrowIfNull(argument: cases);
+        ArgumentNullException.ThrowIfNull(argument: expected);
+        _ = cases.AsIterable().Iter(c => {
+            Cancel();
+            bool actual = c.Probe();
+            bool want = expected(arg1: c.Case, arg2: c.Geometry, arg3: c.Output);
+            Holds(condition: actual == want, label: $"{c.Label}: expected support {want}, got {actual}");
+        });
+    }
     public sealed record ProjectionMatrixCase<TIntent>(string Label, TIntent Intent, Type SupportedOut, Func<object, bool> Oracle, Type UnsupportedOut);
     public static void ProjectionMatrix<TIntent>(IReadOnlyList<ProjectionMatrixCase<TIntent>> cases, Context context, Op key, Func<TIntent, Context, Op, Type, Fin<object>> project) =>
         _ = cases.AsIterable().Iter(c => {

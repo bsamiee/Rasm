@@ -138,7 +138,8 @@ internal static class SpectralCore {
     internal static Fin<SpectralDescriptor> EvaluateFilteredDetailed(SpectralBasis basis, Option<Seq<int>> sources, SpectralFilter filter, SpectralDescriptorPolicy policy, Op key) {
         int n = basis.VertexCount;
         int[] sourceSet = sources is { IsSome: true, Case: Seq<int> values } ? [.. values.AsIterable()] : [];
-        if (n == 0 || (sources.IsSome && sourceSet.Length == 0) || sourceSet.Any(s => s < 0 || s >= n)) return Fin.Fail<SpectralDescriptor>(error: key.InvalidInput());
+        if (n == 0 || (sources.IsSome && sourceSet.Length == 0) || sourceSet.Any(s => s < 0 || s >= n) || sourceSet.Distinct().Count() != sourceSet.Length)
+            return Fin.Fail<SpectralDescriptor>(error: key.InvalidInput());
         if (!basis.Eigenvectors.ForAll(phi => phi.Count == n)) return Fin.Fail<SpectralDescriptor>(error: key.InvalidResult());
         int zeroModeCount = basis.Eigenvalues.AsIterable().Count(static lambda => lambda <= RhinoMath.SqrtEpsilon);
         double firstNonZero = basis.Eigenvalues.AsIterable().FirstOrDefault(static lambda => lambda > RhinoMath.SqrtEpsilon);

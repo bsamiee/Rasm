@@ -28,16 +28,24 @@ public sealed class GeometrySerializer : IXunitSerializer {
         ArgumentNullException.ThrowIfNull(argument: serializedValue);
         return (type, serializedValue.Split(separator: ';')) switch {
             (Type t, [string x, string y, string z]) when t == typeof(Point3d) =>
-                new Point3d(x: Parse(x), y: Parse(y), z: Parse(z)),
+                new Point3d(x: Parse(component: x, serializedValue: serializedValue), y: Parse(component: y, serializedValue: serializedValue),
+                    z: Parse(component: z, serializedValue: serializedValue)),
             (Type t, [string x, string y, string z]) when t == typeof(Vector3d) =>
-                new Vector3d(x: Parse(x), y: Parse(y), z: Parse(z)),
+                new Vector3d(x: Parse(component: x, serializedValue: serializedValue), y: Parse(component: y, serializedValue: serializedValue),
+                    z: Parse(component: z, serializedValue: serializedValue)),
             (Type t, [string mx, string my, string mz, string xx, string xy, string xz]) when t == typeof(BoundingBox) =>
-                new BoundingBox(min: new Point3d(x: Parse(mx), y: Parse(my), z: Parse(mz)), max: new Point3d(x: Parse(xx), y: Parse(xy), z: Parse(xz))),
+                new BoundingBox(
+                    min: new Point3d(x: Parse(component: mx, serializedValue: serializedValue), y: Parse(component: my, serializedValue: serializedValue),
+                        z: Parse(component: mz, serializedValue: serializedValue)),
+                    max: new Point3d(x: Parse(component: xx, serializedValue: serializedValue), y: Parse(component: xy, serializedValue: serializedValue),
+                        z: Parse(component: xz, serializedValue: serializedValue))),
             _ => throw new FormatException($"GeometrySerializer cannot deserialize '{serializedValue}' as '{type.FullName}'"),
         };
     }
     private static string Join(params double[] components) =>
         string.Join(separator: ';', values: components.Select(static d => d.ToString(format: "R", provider: CultureInfo.InvariantCulture)));
-    private static double Parse(string component) =>
-        double.Parse(s: component, provider: CultureInfo.InvariantCulture);
+    private static double Parse(string component, string serializedValue) =>
+        double.TryParse(s: component, style: NumberStyles.Float, provider: CultureInfo.InvariantCulture, result: out double value)
+            ? value
+            : throw new FormatException($"GeometrySerializer cannot parse component '{component}' in '{serializedValue}'");
 }

@@ -293,12 +293,14 @@ dotnet_diagnostic.MA0035.severity = error                                     # 
 dotnet_diagnostic.MA0040.severity = none                                      # Covered by CA2016 to avoid duplicate CancellationToken-forwarding diagnostics.
 dotnet_diagnostic.MA0042.severity = error                                     # Ban blocking calls in async-capable methods.
 dotnet_diagnostic.MA0080.severity = error                                     # Require WithCancellation in async enumeration flows.
+dotnet_diagnostic.MA0089.severity = error                                     # Prefer char overloads for single-character string operations.
 dotnet_diagnostic.MA0100.severity = error                                     # Ensure tasks complete before resource disposal boundaries.
 dotnet_diagnostic.MA0110.severity = error                                     # Prefer Regex source generator for constant patterns.
 dotnet_diagnostic.MA0134.severity = none                                      # Covered by VSTHRD110 to avoid duplicate async-observation diagnostics.
 dotnet_diagnostic.MA0155.severity = none                                      # Covered by VSTHRD100 to avoid duplicate async-void diagnostics.
 dotnet_diagnostic.MA0158.severity = error                                     # Prefer System.Threading.Lock over object lock guards.
 dotnet_diagnostic.MA0166.severity = error                                     # Forward TimeProvider when overloads support it.
+dotnet_diagnostic.MA0193.severity = error                                     # Require explicit midpoint rounding semantics.
 MA0032.allowOverloadsWithOptionalParameters = false                           # Require token-aware overload usage even when optional params exist.
 dotnet_code_quality_unused_parameters = all                                   # Enforce unused-parameter analysis for all member visibilities.
 
@@ -331,6 +333,8 @@ dotnet_diagnostic.IDE0280.severity = error                                    # 
 dotnet_diagnostic.IDE0330.severity = error                                    # Prefer System.Threading.Lock over object-based locking.
 dotnet_diagnostic.IDE0340.severity = error                                    # Use unbound generic types in nameof for generic type names.
 dotnet_diagnostic.IDE0360.severity = error                                    # Simplify property accessors to expression-bodied form when trivial.
+dotnet_diagnostic.IDE0370.severity = error                                    # Remove unnecessary suppression attributes/pragmas.
+dotnet_diagnostic.IDE0380.severity = error                                    # Remove unnecessary unsafe modifiers.
 dotnet_diagnostic.IDE1005.severity = error                                    # Prefer null-conditional delegate invocation (?.Invoke).
 
 [tests/**/*.cs]

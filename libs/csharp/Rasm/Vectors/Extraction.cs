@@ -280,9 +280,9 @@ public abstract partial record ExtractionDomain {
     private static ScalarIsolinePointKey KeyOf(Point3d point, double tolerance) {
         double scale = 1.0 / Math.Max(val1: tolerance, val2: RhinoMath.SqrtEpsilon);
         return new ScalarIsolinePointKey(
-            X: (long)Math.Round(a: point.X * scale),
-            Y: (long)Math.Round(a: point.Y * scale),
-            Z: (long)Math.Round(a: point.Z * scale));
+            X: (long)Math.Round(point.X * scale, MidpointRounding.ToEven),
+            Y: (long)Math.Round(point.Y * scale, MidpointRounding.ToEven),
+            Z: (long)Math.Round(point.Z * scale, MidpointRounding.ToEven));
     }
     private static Fin<CurveBatch> CurvesFromCloud(VectorCloud.ClusterCase cloud, ContourPolicy policy, Context context, Op key) =>
         key.Catch(() => policy.Switch(

@@ -359,7 +359,7 @@ internal static class CloudKernel {
         ring.Count switch {
             < 3 => Fin.Fail<int>(key.InvalidInput()),
             _ => key.AcceptValue(value: (int)Math.Round(ring.Map((v, i) => (V0: v - query, V1: ring[(i + 1) % ring.Count] - query))
-                .Fold(initialState: 0.0, f: (sum, pair) => sum + Vector3d.VectorAngle(v1: pair.V0, v2: pair.V1, vNormal: planeNormal)) / RhinoMath.TwoPI)),
+                .Fold(initialState: 0.0, f: (sum, pair) => sum + Vector3d.VectorAngle(v1: pair.V0, v2: pair.V1, vNormal: planeNormal)) / RhinoMath.TwoPI, MidpointRounding.ToEven)),
         };
     internal static Fin<TOut> Winding<TOut>(VectorCloud cloud, Point3d query, Op key) =>
         cloud switch {

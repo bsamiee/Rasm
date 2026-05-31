@@ -10,8 +10,12 @@ namespace Rasm.Tests.Vectors;
 // BRIDGE-DEFERRED: Vector3d native paths; static covers pure-managed surfaces below.
 internal static class AtomGens {
     public static readonly Op Key = Op.Of(name: "atoms-test");
-    public static readonly Gen<VectorAngle> Angle = Gens.UnitAngle.Select(static (double radians) =>
-        VectorAngle.TryCreate(value: radians, obj: out VectorAngle v) ? v : throw new InvalidOperationException("generator invariant broken: angle"));
+    public static readonly Gen<VectorAngle> Angle = Gens.UnitAngle
+        .Where(static radians => VectorAngle.TryCreate(value: radians, obj: out _))
+        .Select(static radians => {
+            _ = VectorAngle.TryCreate(value: radians, obj: out VectorAngle angle);
+            return angle;
+        });
     public static readonly Gen<SignedAxis> Axis = Gen.OneOfConst(SignedAxis.PositiveX, SignedAxis.NegativeX, SignedAxis.PositiveY, SignedAxis.NegativeY, SignedAxis.PositiveZ, SignedAxis.NegativeZ);
     public static readonly BoundarySense[] Senses = [BoundarySense.Toward, BoundarySense.Away];
     public static readonly SignedAxis[] Axes = [SignedAxis.NegativeX, SignedAxis.PositiveX, SignedAxis.NegativeY, SignedAxis.PositiveY, SignedAxis.NegativeZ, SignedAxis.PositiveZ];
@@ -35,8 +39,8 @@ public sealed class VectorAngleProps {
     }
     [Fact]
     public void ValueRoundtripsThroughFactory() =>
-        Spec.Roundtrip(AtomGens.Angle, forward: static (VectorAngle a) => a.Value, back: static (double r) =>
-            VectorAngle.TryCreate(value: r, obj: out VectorAngle v) ? v : throw new InvalidOperationException("roundtrip lost value"));
+        Spec.ValueObjectRoundtrip(validGen: Gens.UnitAngle, tryCreate: static (double value, out VectorAngle angle) => VectorAngle.TryCreate(value: value, obj: out angle),
+            read: static angle => angle.Value);
     [Fact]
     public void ProjectionOwnsSelfScalarAndUnsupportedRails() =>
         Spec.ForAll(AtomGens.Angle, static angle => {
@@ -64,8 +68,8 @@ public sealed class PositiveMagnitudeProps {
     }
     [Fact]
     public void ValueRoundtripsThroughFactory() =>
-        Spec.Roundtrip(Gens.PositiveMagnitude, forward: static (PositiveMagnitude m) => m.Value, back: static (double x) =>
-            PositiveMagnitude.TryCreate(value: x, obj: out PositiveMagnitude m) ? m : throw new InvalidOperationException("roundtrip lost value"));
+        Spec.ValueObjectRoundtrip(validGen: Gens.PositiveMagnitudeScalar, tryCreate: static (double value, out PositiveMagnitude magnitude) => PositiveMagnitude.TryCreate(value: value, obj: out magnitude),
+            read: static magnitude => magnitude.Value);
 }
 
 public sealed class UnitIntervalProps {
@@ -89,8 +93,8 @@ public sealed class UnitIntervalProps {
     }
     [Fact]
     public void ValueRoundtripsThroughFactory() =>
-        Spec.Roundtrip(Gens.UnitInterval, forward: static (UnitInterval u) => u.Value, back: static (double x) =>
-            UnitInterval.TryCreate(value: x, obj: out UnitInterval u) ? u : throw new InvalidOperationException("roundtrip lost value"));
+        Spec.ValueObjectRoundtrip(validGen: Gens.UnitClosed, tryCreate: static (double value, out UnitInterval interval) => UnitInterval.TryCreate(value: value, obj: out interval),
+            read: static interval => interval.Value);
 }
 
 public sealed class DimensionProps {

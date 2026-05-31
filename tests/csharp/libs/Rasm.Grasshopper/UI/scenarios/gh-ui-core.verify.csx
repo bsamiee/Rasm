@@ -87,7 +87,7 @@ Scenario.Run("gh-ui-core", CAPTURE_PATH, (key, facts) => {
     facts.Add("dialogPresentation.count", DialogPresentation.Items.Count);
     Probe.Require(condition: DialogPresentation.Items.Count == 2 && DialogPresentation.Modal.Key == 0 && DialogPresentation.AttachedSheet.Key == 1, message: "DialogPresentation vocabulary");
     facts.Add("graphMetric.count", GraphMetric.Items.Count);
-    Probe.Require(condition: GraphMetric.Items.Count == 5 && GraphMetric.Linearity.Key == 0 && GraphMetric.RelayCollapsed.Key == 3 && GraphMetric.Paths.Key == 4, message: "GraphMetric vocabulary");
+    Probe.Require(condition: GraphMetric.Items.Count == 6 && GraphMetric.Linearity.Key == 0 && GraphMetric.RelayCollapsed.Key == 3 && GraphMetric.Paths.Key == 4 && GraphMetric.Integrity.Key == 5, message: "GraphMetric vocabulary");
     facts.Add("emitterShape.count", EmitterShape.Items.Count);
     Probe.Require(condition: EmitterShape.Items.Count == 6 && EmitterShape.Circle.Key == 4, message: "EmitterShape vocabulary");
 

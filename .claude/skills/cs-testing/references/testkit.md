@@ -5,12 +5,12 @@
 
 ## [1][FILES]
 
-| [INDEX] | [FILE] | [OWNS] |
-| :-----: | ------ | ------ |
-| [1] | `Spec.cs` | Law adapters, CsCheck sample policy, `Fin`/`Validation`/`Option` assertions, equality/tolerance assertions. |
-| [2] | `Gens.cs` | Reusable primitive, geometry, value-object, context, and rail generators consumed by multiple specs. |
-| [3] | `Numeric.cs` | Independent row-major numerical oracles for matrix/vector laws. |
-| [4] | `RhinoGeometrySerializer.cs` | xUnit serializer for pure data display. |
+| [INDEX] | [FILE]          | [OWNS]                                                                                                      |
+| :-----: | --------------- | ----------------------------------------------------------------------------------------------------------- |
+|   [1]   | `Spec.cs`       | Law adapters, CsCheck sample policy, `Fin`/`Validation`/`Option` assertions, equality/tolerance assertions. |
+|   [2]   | `Gens.cs`       | Reusable primitive, geometry, value-object, context, and rail generators consumed by multiple specs.        |
+|   [3]   | `Numeric.cs`    | Independent row-major numerical oracles for matrix/vector laws.                                             |
+|   [4]   | `Serializer.cs` | xUnit serializer for pure data display.                                                                     |
 
 ---
 ## [2][SPEC_CONTRACT]
@@ -19,6 +19,7 @@
 - Use `Spec.Metamorphic` when expected values come from an independent path.
 - Treat `Spec.Metamorphic` as a path/oracle law wrapper; it is not CsCheck `SampleMetamorphic`.
 - Use `Spec.Valid` / `Spec.Invalid` for `Validation<Error,T>` and `Spec.Succ` / `Spec.Fail` for `Fin<T>`.
+- Do not use `.IsSucc`, `.IsFail`, `.IsSome`, or `.IsNone` as primary assertions; preserve category/code diagnostics through `Spec`.
 - Use `Spec.EqualWithin`, `NearEqual`, and `SeqEqualWithin` for generated numeric comparisons.
 - Use `Numeric.*` for matrix expected values when testing `Matrix`.
 - Add model-based, async, snapshot, benchmark, or fuzz adapters only when two concrete consumers exist.
@@ -47,9 +48,9 @@
 
 CsCheck shrinking finds minimal counterexamples by narrowing failed inputs. Two patterns break it:
 
-| [BREAKS] | [PRESERVES] |
-| -------- | ----------- |
-| `Gen.Int.Select(i => i > 0 ? new T(i) : throw new ...)` | `Gen.Int.Where(i => i > 0).Select(i => new T(i))` |
+| [BREAKS]                                                             | [PRESERVES]                                                                        |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `Gen.Int.Select(i => i > 0 ? new T(i) : throw new ...)`              | `Gen.Int.Where(i => i > 0).Select(i => new T(i))`                                  |
 | `Gen.Select(Factory).Select(opt => opt.IfNone(() => throw new ...))` | `Gen.Select(Factory).Where(opt => opt.IsSome).Select(opt => opt.IfNone(default!))` |
 
 For factory-routed value-objects returning `Fin<T>` / `TryCreate(out T)`:
@@ -62,7 +63,7 @@ public static readonly Gen<Dimension> Dimension =
         .Select(opt => opt.IfNone(default(Vectors.Dimension)));
 ```
 
-The `throw` form fires CsCheck's `CsCheck_WhereLimit` (default 100); when exhausted CsCheck gives up with a generic message and no minimal counterexample. The `Where` form keeps shrinking on the satisfying subset.
+The `throw` form turns rejected candidates into property failures instead of filtered generation. `WhereLimit` applies to `Gen.Where`; keep predicates broad enough to preserve shrinkable satisfying values.
 
 [SOURCE] CsCheck README on `Where` shrinking semantics.
 

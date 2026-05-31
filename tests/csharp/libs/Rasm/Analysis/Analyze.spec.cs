@@ -22,7 +22,7 @@ internal static class AnalyzeGens {
         Operation<int, int>.Build(
             key: Key,
             requiresContext: true,
-            evaluator: static _ => Env.Asks.Map(static context => Seq((int)Math.Round(a: context.Absolute.Value * 1_000.0))).As());
+            evaluator: static _ => Env.Asks.Map(static context => Seq((int)Math.Round(context.Absolute.Value * 1_000.0, MidpointRounding.ToEven))).As());
     public static Operation<string, int> StringEcho() =>
         Operation<string, int>.Build(
             key: Key,
