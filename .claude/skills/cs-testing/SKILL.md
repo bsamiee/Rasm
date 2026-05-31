@@ -29,7 +29,7 @@ Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` 
 6. Check raw tool API in `docs/testing-libs` before using unfamiliar APIs.
 7. Check `docs/system-api-map` before changing serializers, fuzz parsers, bridge probes, host loaders, filesystem evidence, capture code, or System API usage in tests.
 8. Write the spec from [unit-pbt.spec.template.md](templates/unit-pbt.spec.template.md).
-9. Validate with the smallest targeted build/test first, then the full C# gates.
+9. Validate with scoped cleanup first, then targeted build/test proof for touched rails.
 
 ---
 ## [2][RAILS]
@@ -141,18 +141,14 @@ Current local truth:
 
 <br>
 
-Use the repo gate ladder appropriate to the touched surface:
+Use the repo gate appropriate to the touched surface:
 
 ```bash
-dotnet restore Workspace.slnx
-dotnet restore Workspace.slnx --locked-mode
-dotnet tool restore
-uv run python -m tools.quality static full
+uv run python -m tools.quality static check
+uv run python -m tools.quality static build
 uv run python -m tools.quality test run
-uv run python -m tools.quality test coverage
 uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm/Vectors/scenarios
 uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm.Grasshopper/UI/scenarios
-git diff --check
 ```
 
 Default `tools.quality test run` executes MTP unit tests only. Use `--mutation changed` or `--mutation full` for Stryker on the managed `Rasm` pair.

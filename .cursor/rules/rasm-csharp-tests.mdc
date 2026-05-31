@@ -34,4 +34,4 @@ Read `.claude/skills/cs-testing/SKILL.md`, `tests/csharp/AGENTS.md`, and nearest
 
 ## Validation ladder
 
-Run `uv run python -m tools.quality test run` for managed specs. Use `uv run python -m tools.quality test run --target <csproj>` for non-default projects. Run `uv run python -m tools.quality bridge verify <scenario-or-glob>` only for bridge-owned runtime behavior.
+Run `uv run python -m tools.quality static check` for changed C# test files before managed specs. Run `uv run python -m tools.quality static build` when compile/analyzer proof is needed. Run `uv run python -m tools.quality test run` for default managed specs. Use `uv run python -m tools.quality test run --target <csproj>` for non-default projects. Run `uv run python -m tools.quality bridge verify <scenario-or-glob>` only for bridge-owned runtime behavior.

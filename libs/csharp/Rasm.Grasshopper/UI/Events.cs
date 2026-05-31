@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Eto.Forms;
 using Grasshopper2;
 using Grasshopper2.Doc;
@@ -822,8 +821,6 @@ internal static partial class Events {
     // UITimer.Interval is seconds (sub-ms quantum); intervals below the Eto loop tick coalesce. Lifecycle
     // transfers to the returned Subscription — the detachOnce-guarded detach stops/unsubscribes/disposes the
     // timer exactly once, so Subscription.GuardDetach owns run-once (no per-scope Interlocked gate needed).
-    [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope",
-        Justification = "UITimer ownership transfers to the returned Subscription; the detachOnce-guarded detach stops, unsubscribes, and disposes it exactly once.")]
     private static GrasshopperUiIntent<Subscription> SubscribeTimer(TimeSpan interval, Func<Fin<Unit>> handler) =>
         GhUi.Read(run: scope =>
             from validInterval in Optional(interval).Filter(static value => value > TimeSpan.Zero)

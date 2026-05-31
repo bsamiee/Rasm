@@ -17,7 +17,7 @@ Use bridge commands ONLY when static .NET gates cannot answer:
 ## When NOT to invoke
 
 - Synthetic unit tests, mocked Rhino/Grasshopper, or coverage probes — use xUnit + `Rasm.TestKit` (`docs/testing-libs/`).
-- C# analyzer/format failures already covered by `uv run python -m tools.quality static check`.
+- Managed cleanup is covered by `uv run python -m tools.quality static check`; compile/analyzer proof is covered by `uv run python -m tools.quality static build`.
 - Long-running UI-thread experiments — RhinoCode execution is not server-cancelable.
 - Rhino settings / template / preference automation — owned by `LoadTime.AtStartup` plugin lifecycle.
 
@@ -35,17 +35,17 @@ Grasshopper-aware projects receive bridge-owned `BridgeWire.ScenarioHostUsings` 
 
 Bridge markers are the structured wire contract. Use `Rasm.RhinoBridge.Protocol.BridgeMarker.Scan(string stdout) -> IReadOnlyList<BridgeMarker>` to extract them; filter on `BridgeMarker.Evidence` for the `facts` payload and `BridgeMarker.Returned` for `execute.data.returnValue`-equivalent envelopes. Do not parse individual `key=value` plain lines — the legacy per-fact emission was removed during the scenario migration. The plain `facts={json}` line is duplicate human-readable noise; rely on the prefixed Evidence marker.
 
-## Validation ladder for bridge changes
+## Validation for bridge changes
 
-Run serially in this order. `quality static` and MTP test runs may run concurrently — they isolate MSBuild artifacts per invocation under `.artifacts/quality/<rail>/<run-id>/`. Default `tools.quality test run` is unit-only; explicit Stryker mutation fails fast on `.artifacts/locks/mutation.lock`. Bridge build/check/package/verify routes and live Rhino remain single-flight (one endpoint; Yak packaging writes project `bin/` outputs).
+Select the touched rail. `quality static check`, `quality static build`, and MTP test runs may run concurrently — they isolate MSBuild artifacts per invocation under `.artifacts/quality/<rail>/<run-id>/`. Bridge build/check/package/verify routes and live Rhino remain single-flight.
 
 ```bash
 uv run python -m tools.quality self-test
 pnpm check:py
 uv run pytest tests/tools/quality/test_quality.py -q
-git diff --check -- tools/rhino-bridge
 uv run python -m tools.quality bridge build-bridge
 uv run python -m tools.quality static check
+uv run python -m tools.quality static build
 uv run python -m tools.quality bridge doctor
 uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Radyab.csproj
 rc=0

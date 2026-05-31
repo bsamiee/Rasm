@@ -146,10 +146,9 @@ Docs-only refinement gate:
 - Targeted `uv run python -m tools.quality api xml rhino-common "<symbol>"` for every newly named Rhino member.
 - `uv run python -m tools.quality api decompile rhino-common "<type>"` where XML is missing or ambiguous.
 - Exact XML/decompile checks for rejected 2D types and hidden/internal mesh members.
-- `git diff --check -- libs/csharp/Rasm.Rhino/Construction/ROADMAP.md`.
 
 Future implementation gate:
-- `dotnet build libs/csharp/Rasm.Rhino/Rasm.Rhino.csproj --no-restore`.
 - `uv run python -m tools.quality static check`.
+- `uv run python -m tools.quality static build`.
 
 Runtime Rhino verification is required only when construction behavior needs native document/runtime mutation beyond static compile proof.

@@ -25,7 +25,6 @@ public static class UiInput {
     extension<TState>(IUiInput<TState> input) {
         public MouseDecision<TState> Pass => MouseDecision.Pass(input.State);
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1716:Identifiers should not match keywords", Justification = "Next is canonical UI decision vocabulary across MouseContext/MouseDecision; this is a C#-only codebase.")]
         public MouseDecision<TState> Next(TState state, bool cancel = false, Option<string> toolTip = default) =>
             MouseDecision.Next(state, cancel, toolTip);
 

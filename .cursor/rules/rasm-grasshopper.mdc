@@ -23,4 +23,4 @@ Read `libs/csharp/Rasm.Grasshopper/AGENTS.md` and verify GH2 APIs through local 
 
 ## Validation
 
-Use `uv run python -m tools.quality static check`; add managed GH tests or `uv run python -m tools.quality bridge verify <scenario-or-glob>` when behavior crosses those rails.
+Use `uv run python -m tools.quality static check` for cleanup. Add `uv run python -m tools.quality static build`, managed GH tests, or `uv run python -m tools.quality bridge verify <scenario-or-glob>` when compile, managed behavior, or runtime behavior crosses those rails.

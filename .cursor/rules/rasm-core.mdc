@@ -19,7 +19,7 @@ Use repo `.claude/skills/` only for procedures. Do not create Cursor skills. Fal
 
 ## Quality
 
-See `CLAUDE.md` §5.2 for validation rails: `quality static check`, `quality test run`, `quality bridge verify`.
+See `CLAUDE.md` §5.2 for validation rails: `quality static check`, `quality static build`, `quality test run`, `quality bridge verify`.
 
 ## Rule edits
 

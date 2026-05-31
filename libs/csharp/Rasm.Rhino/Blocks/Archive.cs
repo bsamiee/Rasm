@@ -325,6 +325,29 @@ public static class Archive {
         ImmutableArray<Definition> defArray = [.. definitions];
         return new Graph(Definitions: defArray, Instances: instances, LinkedArchives: linkedArchives);
     }
+    private static Graph Compose(File3dm active, Seq<Definition> definitions, Option<string> anchorDirectory, Op key) {
+        Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> topLevel = Rows(() => active.Objects)
+            .Choose(o => Native(() => o.Geometry).Bind(geometry => geometry switch {
+                InstanceReferenceGeometry { ParentIdefId: var parentId } r when parentId != Guid.Empty =>
+                    Native(() => o.Attributes).Map(attributes => (attributes.ObjectId, Reference: r)),
+                _ => Option<(Guid ObjectId, InstanceReferenceGeometry Reference)>.None,
+            }));
+        Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> memberRefs = definitions.Bind((Definition snap) =>
+            toSeq(snap.MemberIds).Bind((Guid memberId) =>
+                Native(() => active.Objects)
+                    .Bind(objects => Native(() => objects.FindId(id: memberId))).Case switch {
+                        File3dmObject member when Native(() => member.Geometry).Case is InstanceReferenceGeometry reference =>
+                            Seq((ObjectId: memberId, Reference: (InstanceReferenceGeometry)reference.Duplicate())),
+                        _ => Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>(),
+                    }));
+        LanguageExt.HashSet<Guid> memberIds = definitions
+            .Bind(static definition => toSeq(definition.MemberIds))
+            .Fold(LanguageExt.HashSet<Guid>.Empty, static (ids, id) => ids.Add(key: id));
+        return ComposeFrom(
+            definitions: definitions,
+            source: _ => topLevel.Filter(instance => !memberIds.Contains(key: instance.ObjectId)) + memberRefs,
+            linkedArchives: LinkedArchives(definitions: definitions, model: Some(active), anchorDirectory: anchorDirectory, key: key));
+    }
     public static Graph Subgraph(InstanceDefinitionTable table, Seq<Definition> definitions, Definition anchor) {
         ArgumentNullException.ThrowIfNull(argument: anchor);
         HashMap<Guid, Definition> lookup = Lookup(definitions: definitions);
@@ -403,41 +426,14 @@ public static class Archive {
         Rows(() => model.AllInstanceDefinitions)
             .Choose(def => Definition.NonBlank(value: def.SourceArchive)
                 .Bind(raw => ArchiveLink.Resolve(raw: raw, anchorDirectory: anchorDirectory, key: key).ToOption()));
-    private static Graph Compose(File3dm active, Seq<Definition> definitions, Option<string> anchorDirectory, Op key) {
-        Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> topLevel = Rows(() => active.Objects)
-            .Choose(o => Native(() => o.Geometry).Bind(geometry => geometry switch {
-                InstanceReferenceGeometry { ParentIdefId: var parentId } r when parentId != Guid.Empty =>
-                    Native(() => o.Attributes).Map(attributes => (attributes.ObjectId, Reference: r)),
-                _ => Option<(Guid ObjectId, InstanceReferenceGeometry Reference)>.None,
-            }));
-        Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> memberRefs = definitions.Bind((Definition snap) =>
-            toSeq(snap.MemberIds).Bind((Guid memberId) =>
-                Native(() => active.Objects)
-                    .Bind(objects => Native(() => objects.FindId(id: memberId))).Case switch {
-                        File3dmObject member when Native(() => member.Geometry).Case is InstanceReferenceGeometry reference =>
-                            Seq((ObjectId: memberId, Reference: (InstanceReferenceGeometry)reference.Duplicate())),
-                        _ => Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>(),
-                    }));
-        LanguageExt.HashSet<Guid> memberIds = definitions
-            .Bind(static definition => toSeq(definition.MemberIds))
-            .Fold(LanguageExt.HashSet<Guid>.Empty, static (ids, id) => ids.Add(key: id));
-        return ComposeFrom(
-            definitions: definitions,
-            source: _ => topLevel.Filter(instance => !memberIds.Contains(key: instance.ObjectId)) + memberRefs,
-            linkedArchives: LinkedArchives(definitions: definitions, model: Some(active), anchorDirectory: anchorDirectory, key: key));
-    }
 
     private static Seq<T> Rows<T>(IEnumerable<T>? source) =>
         source is null ? Seq<T>() : toSeq(source).Filter(static item => item is not null);
     private static Seq<T> Rows<T>(Func<IEnumerable<T>?> read) =>
         Native(read: read).Map(source => Rows(source: source)).IfNone(Seq<T>());
-    private static Option<T> Native<T>(Func<T> read) {
-        try {
-            return Optional(read()).Filter(static value => value is not null);
-        } catch (NullReferenceException) {
-            return Option<T>.None;
-        }
-    }
+    private static Option<T> Native<T>(Func<T?> read)
+        where T : class =>
+        Optional(read());
     // ---- [BAKE PLAN] (Speckle topological-sort pattern) ----------------------------------
     /// Topologically-sorted bake order; depth = longest (def -> nested-def) chain.
     /// Cycle-safe via visiting set; nested-def lookup pre-built so the walk is O(N + E).

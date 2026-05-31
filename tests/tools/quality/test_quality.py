@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import shutil
 from typing import TYPE_CHECKING
 
 from expression import Error, Ok
 import msgspec
 import pytest
 
-from tools.quality import process
+from tools.quality import __main__ as quality_main, process
 from tools.quality.__main__ import main
 from tools.quality.process import Completed
 from tools.quality.rails import api, bridge, package, static, test
@@ -63,8 +64,38 @@ def test_settings_test_target_env_contract(monkeypatch: pytest.MonkeyPatch, env_
     assert QualitySettings().test_target == expected
 
 
-def test_self_test_exit_zero() -> None:
+def test_self_test_exit_zero(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    solution = tmp_path / "Workspace.slnx"
+    target = tmp_path / "tests/csharp/libs/Rasm/Rasm.Tests.csproj"
+    manifest = tmp_path / ".config/dotnet-tools.json"
+    yak = tmp_path / "RhinoWIP.app/Contents/Resources/bin/yak"
+
+    def touch(path: Path) -> Path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("", encoding="utf-8")
+        return path
+
+    tuple(touch(path) for path in (solution, target, manifest, yak))
+
+    settings = QualitySettings(root=tmp_path, test_target=target.relative_to(tmp_path))
+    settings = settings.model_copy(update={"rhino_app": tmp_path / "RhinoWIP.app"})
+
+    monkeypatch.setattr(quality_main, "QualitySettings", lambda: settings)
+    monkeypatch.setattr(shutil, "which", lambda _cmd: "/bin/tool")
+    monkeypatch.setattr(os, "access", lambda _path, _mode: True)
+
     assert main(["self-test"]) == 0
+
+
+def test_self_test_reports_missing_runtime_tools(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    settings = QualitySettings(root=tmp_path, test_target=Path("missing.csproj"))
+    settings = settings.model_copy(update={"rhino_app": tmp_path / "RhinoWIP.app"})
+
+    monkeypatch.setattr(quality_main, "QualitySettings", lambda: settings)
+    monkeypatch.setattr(shutil, "which", lambda cmd: None if cmd in {"rg", "ilspycmd"} else "/bin/tool")
+
+    assert main(["self-test"]) == 2
+    assert "ilspycmd" in capsys.readouterr().err
 
 
 def test_dotnet_scope_flags_precede_passthrough_args(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -235,6 +266,27 @@ def test_decode_bridge_result_accepts_camel_case_wire() -> None:
     assert result.phases == (bridge.BridgePhase(phase="check", status="ok", duration_ms=1.5),)
 
 
+def test_verify_summary_lifts_first_failure_to_report_root(tmp_path: Path) -> None:
+    report_dir = tmp_path / "verify"
+    report_dir.mkdir()
+    result = bridge._verify_summary(
+        report_dir,
+        (
+            bridge.BridgeResult(status="ok", report_path="first.verify.json"),
+            bridge.BridgeResult(status="failed", report_path="second.verify.json", fault=bridge.BridgeFault(message="boom")),
+            bridge.BridgeResult(status="failed", report_path="third.verify.json"),
+        ),
+        300.0,
+    ).default_value(bridge.VerifyReport(bridge.VerifySummaryCounts(ok=0, failed=0, total=0)))
+
+    assert result.failed == 2
+    assert result.first_failure is not None
+    assert result.first_failure.name == "second.verify"
+    assert result.first_failure.fault is not None
+    assert result.first_failure.fault.message == "boom"
+    assert msgspec.json.decode((report_dir / "summary.json").read_bytes())["first_failure"]["name"] == "second.verify"
+
+
 def test_static_changed_routes_cs_relevant_file_to_owner(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     project = tmp_path / "libs/csharp/Rasm/Rasm.csproj"
 
@@ -272,7 +324,7 @@ def test_static_changed_routes_cs_relevant_file_to_owner(monkeypatch: pytest.Mon
     assert plan.projects == ("libs/csharp/Rasm/Rasm.csproj",)
 
 
-def test_static_full_skips_without_changes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_static_changed_skips_without_changes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     class FakeWorkspace:
         def __init__(self, root: Path) -> None:
             self.root = root
@@ -291,6 +343,46 @@ def test_static_full_skips_without_changes(monkeypatch: pytest.MonkeyPatch, tmp_
     plan = static._plan(QualitySettings(root=tmp_path), scope).default_value(static.StaticPlan("full", ("x",)))
 
     assert plan == static.StaticPlan(scope="changed", projects=())
+
+
+def test_static_full_forces_solution_plan_without_changes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    project = "libs/csharp/Rasm/Rasm.csproj"
+
+    class FakeWorkspace:
+        def __init__(self, root: Path) -> None:
+            self.root = root
+
+        @staticmethod
+        def index() -> process.ProjectIndex:
+            return {}
+
+        @staticmethod
+        def changed() -> tuple[str, ...]:
+            return ()
+
+        @staticmethod
+        def projects() -> tuple[str, ...]:
+            return (project,)
+
+    def fake_run(
+        argv: tuple[str, ...],
+        *,
+        cwd: Path | None = None,
+        env: dict[str, str] | None = None,
+        check: bool = False,
+        timeout: float | None = None,
+        mode: process.ProcessMode = "capture",
+    ) -> Result[Completed, ProcessFault]:
+        _ = (argv, cwd, env, check, timeout, mode)
+        return Ok(Completed(argv=("dotnet", "sln", "list"), returncode=0, stdout=f"{project}\n".encode(), stderr=b""))
+
+    monkeypatch.setattr(static, "Workspace", FakeWorkspace)
+    monkeypatch.setattr(static, "run", fake_run)
+    scope = _scope(tmp_path)
+
+    plan = static._plan(QualitySettings(root=tmp_path), scope, "full").default_value(static.StaticPlan("changed", ()))
+
+    assert plan == static.StaticPlan(scope="full", projects=(project,))
 
 
 def test_static_changed_ignores_python_analyzer_fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -313,6 +405,99 @@ def test_static_changed_ignores_python_analyzer_fixture(monkeypatch: pytest.Monk
     plan = static._plan(QualitySettings(root=tmp_path), scope).default_value(static.StaticPlan("full", ("x",)))
 
     assert plan == static.StaticPlan(scope="changed", projects=())
+
+
+def test_static_check_applies_scoped_format_without_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    seen: list[tuple[str, ...]] = []
+
+    def fake_dotnet(
+        *args: str,
+        scope: ArtifactScope | None = None,
+        cwd: Path | None = None,
+        check: bool = True,
+        timeout: float | None = None,
+        scoped: bool = True,
+        mode: process.ProcessMode = "capture",
+    ) -> Result[Completed, ProcessFault]:
+        _ = (scope, cwd, check, timeout, scoped, mode)
+        seen.append(args)
+        return Ok(Completed(argv=("dotnet", *args), returncode=0, stdout=b"", stderr=b""))
+
+    def fail_build(*args: object, **kwargs: object) -> Result[None, ProcessFault]:
+        _ = (args, kwargs)
+        pytest.fail("static check must not run build")
+
+    monkeypatch.setattr(
+        static,
+        "_plan",
+        lambda _settings, _scope: Ok(
+            static.StaticPlan(
+                scope="changed",
+                projects=("libs/csharp/Rasm/Rasm.csproj",),
+                format_groups=(("libs/csharp/Rasm/Rasm.csproj", ("libs/csharp/Rasm/Vectors/Space.cs",)),),
+            )
+        ),
+    )
+    monkeypatch.setattr(static, "dotnet", fake_dotnet)
+    monkeypatch.setattr(static, "dotnet_build", fail_build)
+
+    assert static.run_static_rail(QualitySettings(root=tmp_path), _scope(tmp_path), "check").is_ok()
+    assert seen == [
+        ("format", "whitespace", str(tmp_path / "libs/csharp/Rasm/Rasm.csproj"), "--include", "libs/csharp/Rasm/Vectors/Space.cs", "--no-restore"),
+        (
+            "format",
+            "style",
+            str(tmp_path / "libs/csharp/Rasm/Rasm.csproj"),
+            "--include",
+            "libs/csharp/Rasm/Vectors/Space.cs",
+            "--severity",
+            "error",
+            "--no-restore",
+        ),
+        (
+            "format",
+            "analyzers",
+            str(tmp_path / "libs/csharp/Rasm/Rasm.csproj"),
+            "--include",
+            "libs/csharp/Rasm/Vectors/Space.cs",
+            "--severity",
+            "error",
+            "--no-restore",
+        ),
+    ]
+
+
+def test_static_build_runs_routed_build_without_format(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    seen: list[tuple[Path, tuple[str | Path, ...], tuple[str, ...]]] = []
+
+    def fake_dotnet_build(
+        settings: QualitySettings,
+        scope: ArtifactScope,
+        *,
+        restore: str | Path,
+        targets: tuple[str | Path, ...],
+        configurations: tuple[str, ...] = (),
+        version: str = "",
+        disable_parallel: bool = False,
+        serial: bool = False,
+        max_cpu: int | None = None,
+        scoped: bool = True,
+        mode: process.ProcessMode = "stream",
+    ) -> Result[None, ProcessFault]:
+        _ = (settings, scope, version, disable_parallel, serial, max_cpu, scoped, mode)
+        seen.append((Path(restore), targets, configurations))
+        return Ok(None)
+
+    def fail_dotnet(*args: object, **kwargs: object) -> Result[Completed, ProcessFault]:
+        _ = (args, kwargs)
+        pytest.fail("static build must not run format")
+
+    monkeypatch.setattr(static, "_plan", lambda _settings, _scope: Ok(static.StaticPlan(scope="changed", projects=("libs/csharp/Rasm/Rasm.csproj",))))
+    monkeypatch.setattr(static, "dotnet_build", fake_dotnet_build)
+    monkeypatch.setattr(static, "dotnet", fail_dotnet)
+
+    assert static.run_static_rail(QualitySettings(root=tmp_path), _scope(tmp_path), "build").is_ok()
+    assert seen == [(tmp_path / "Workspace.slnx", (str(tmp_path / "libs/csharp/Rasm/Rasm.csproj"),), ("Debug",))]
 
 
 def test_focused_test_target_skips_mutation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

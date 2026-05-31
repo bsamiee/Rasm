@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Extensions;
@@ -558,7 +557,6 @@ file static class WaitCursorLease {
     private static Rhino.UI.WaitCursor? cursor;
     private static int count;
 
-    [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "WaitCursor ownership is retained in the static lease and released when the last token exits.")]
     internal static IDisposable Enter() {
         lock (Sync) {
             cursor ??= new Rhino.UI.WaitCursor();
@@ -692,7 +690,6 @@ internal static partial class Input {
                 return kind;
             })));
 
-    [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "WaitCursor ownership transfers to the returned ScopedCursor, which disposes it on scope teardown.")]
     internal static GrasshopperUiIntent<IDisposable> CursorScope(CursorKind kind) =>
         GhUi.Canvas(run: scope => scope.NeedCanvas().Bind(canvas =>
             kind.Resolve(canvas: canvas).Map(cursor => {

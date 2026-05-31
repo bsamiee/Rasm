@@ -53,6 +53,7 @@ Run C# quality gates:
 
 ```bash
 uv run python -m tools.quality static check
+uv run python -m tools.quality static build
 ```
 
 Build Rhino artifacts:

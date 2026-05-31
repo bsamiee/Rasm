@@ -140,6 +140,7 @@ class VerifyReport(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
     summary: VerifySummaryCounts
     report_dir: str = ""
     expires_in_seconds: float = 0.0
+    first_failure: VerifyScenario | None = None
     scenarios: tuple[VerifyScenario, ...] = ()
 
     @property
@@ -223,6 +224,7 @@ def _verify_summary(report_dir: Path, results: tuple[BridgeResult, ...], ttl_sec
         summary=VerifySummaryCounts(ok=ok, failed=len(scenarios) - ok, total=len(scenarios), exception_reports=reports),
         report_dir=str(report_dir),
         expires_in_seconds=ttl_seconds,
+        first_failure=next((scenario for scenario in scenarios if scenario.status != "ok"), None),
         scenarios=scenarios,
     )
     # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=artifact-write

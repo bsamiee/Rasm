@@ -27,7 +27,7 @@ Scripts are transient diagnostic entrypoints for current code and real Rhino API
 Avoid it for:
 - Synthetic unit-test suites.
 - Mocked Rhino or Grasshopper behavior.
-- Pure C# analyzer failures already covered by `uv run python -m tools.quality static check`.
+- Managed cleanup already covered by `uv run python -m tools.quality static check`; compile/analyzer proof belongs to `uv run python -m tools.quality static build`.
 - Long-running UI-thread experiments that require server-side cancellation.
 
 ---
@@ -178,6 +178,8 @@ Top-level fields:
 - `phases`: ordered phase evidence.
 - `fault`: top-level failure when authoritative phases fail, time out, are busy, or are unsupported.
 
+`bridge verify <scenario-or-glob>` emits aggregate JSON with `summary`, `report_dir`, `expires_in_seconds`, `first_failure`, and `scenarios`. It does not fail fast; `first_failure` lifts the earliest non-`ok` scenario to the report root while preserving all scenario evidence.
+
 Read order:
 1. Inspect top-level `status`.
 2. Inspect top-level `fault.category` and `fault.message` when present.
@@ -315,15 +317,15 @@ API metadata lookup uses local sources in this order:
 
 ---
 ## [8][VALIDATION]
->**Dictum:** *Validation requires static gates plus live Rhino evidence.*
+>**Dictum:** *Validation selects static cleanup, build proof, or live Rhino evidence by rail.*
 
 <br>
 
-Run after bridge changes. Run the validation ladder serially in listed order.
+Run after bridge changes. Keep live Rhino commands serial.
 
 | [INDEX] | [RAIL]                                                                   | [PARALLELISM]                                          |
 | :-----: | ------------------------------------------------------------------------ | ------------------------------------------------------ |
-|   [1]   | `quality static check`, focused `--target` tests                         | Concurrent; MSBuild under `.artifacts/quality/<rail>/<run-id>/` |
+|   [1]   | `quality static check`, `quality static build`, focused `--target` tests | Concurrent; MSBuild under `.artifacts/quality/<rail>/<run-id>/` |
 |   [2]   | `bridge build-bridge`, `check`, `verify`, `package`, `deploy`, `publish` | Serial; one Rhino endpoint; Yak writes project `bin/`  |
 |   [3]   | Default `quality test run` (managed `Rasm`)                              | MTP unit tests only; explicit mutation fails fast on `.artifacts/locks/mutation.lock` |
 
@@ -333,7 +335,6 @@ Never parallelize bridge commands or live Rhino sessions with each other.
 uv run python -m tools.quality self-test
 pnpm check:py
 uv run pytest tests/tools/quality/test_quality.py -q
-git diff --check -- tools/rhino-bridge
 uv run python -m tools.quality api doctor
 uv run python -m tools.quality api path rhino-common xml
 uv run python -m tools.quality api xml rhino-common Mesh
@@ -341,6 +342,7 @@ uv run python -m tools.quality api types rhino-ui Panels
 uv run python -m tools.quality api decompile rhino-ui Rhino.UI.DataSerializer
 uv run python -m tools.quality bridge build-bridge
 uv run python -m tools.quality static check
+uv run python -m tools.quality static build
 uv run python -m tools.quality bridge doctor
 uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Radyab.csproj
 rc=0

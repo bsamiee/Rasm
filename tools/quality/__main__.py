@@ -4,6 +4,7 @@
 
 from collections.abc import Callable
 from functools import partial
+import os
 from pathlib import Path
 import shutil
 import sys
@@ -23,6 +24,7 @@ from tools.quality.settings import ArtifactScope, QualitySettings
 # --- [TYPES] ---------------------------------------------------------------------------
 
 type ApiCliOp = Literal["doctor", "path", "xml", "types", "decompile"]
+type StaticCliOp = Literal["check", "build", "full"]
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
@@ -30,8 +32,12 @@ type ApiCliOp = Literal["doctor", "path", "xml", "types", "decompile"]
 _BRIDGE_VERBS: Final[tuple[str, ...]] = ("doctor", "launch", "quit")
 _PACKAGE: Final[tuple[bridge_package.PackageMode, ...]] = ("deploy", "package", "publish")
 _PARAMETER = Parameter(show_default=False)
-_SELF_CLI: Final[tuple[str, ...]] = ("dotnet", "fd", "git")
-_STATIC: Final[dict[str, tuple[str, static_rail.StaticScope]]] = {"check": ("check", "changed"), "full": ("full", "full")}
+_SELF_CLI: Final[tuple[str, ...]] = ("dotnet", "fd", "git", "ilspycmd", "rg")
+_STATIC: Final[dict[StaticCliOp, tuple[str, static_rail.StaticMode]]] = {
+    "check": ("check", "check"),
+    "build": ("build", "build"),
+    "full": ("full", "full"),
+}
 api = App(name="api", help="RhinoWIP API metadata.", default_parameter=_PARAMETER)
 app = App(name="quality", help="Rasm typed quality operator.", default_parameter=_PARAMETER, result_action="return_value")
 bridge = App(name="bridge", help="Rhino bridge gate.", default_parameter=_PARAMETER)
@@ -146,20 +152,23 @@ def rail[T](
 def self_test_cmd() -> int:
     settings = QualitySettings()
     missing = tuple(cmd for cmd in _SELF_CLI if shutil.which(cmd) is None)
-    paths = (settings.solution, settings.root / settings.test_target, settings.dotnet_tools_manifest)
-    match (missing, all(path.is_file() for path in paths)):
-        case ([], True):
+    missing_paths = tuple(
+        str(path) for path in (settings.solution, settings.root / settings.test_target, settings.dotnet_tools_manifest) if not path.is_file()
+    )
+    yak = settings.rhino_app / "Contents/Resources/bin/yak"
+    match (missing, missing_paths, yak.is_file() and os.access(yak, os.X_OK)):
+        case ((), (), True):
             sys.stdout.write("quality: self-test passed\n")
             return 0
         case _:
-            sys.stderr.write(f"quality: self-test failed missing={missing}\n")
+            sys.stderr.write(f"quality: self-test failed missing={missing} paths={missing_paths} yak={yak}\n")
             return 2
 
 
 @static.default
-def static_gate(mode: Literal["check", "full"]) -> int:
-    phase, scope = _STATIC[mode]
-    return rail("static", phase, lambda s, sc: static_rail.run_static_rail(s, sc, scope), ok=lambda outcome: _STATIC_OK[outcome]())
+def static_gate(mode: StaticCliOp) -> int:
+    phase, rail_mode = _STATIC[mode]
+    return rail("static", phase, lambda s, sc: static_rail.run_static_rail(s, sc, rail_mode), ok=lambda outcome: _STATIC_OK[outcome]())
 
 
 @test_app.default
@@ -202,6 +211,8 @@ def _verify_render(summary: bridge_rail.VerifyReport) -> int:
         total=summary.summary.total,
         report_dir=summary.report_dir,
         expires_in_seconds=summary.expires_in_seconds,
+        first_failure=summary.first_failure.name if summary.first_failure is not None else None,
+        first_failure_status=summary.first_failure.status if summary.first_failure is not None else None,
     )
     return _emit(msgspec.json.encode(summary), 0 if summary.failed == 0 else 1, newline=True)
 

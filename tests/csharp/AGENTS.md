@@ -72,8 +72,9 @@ Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal poli
 
 - Spec-local generator classes stay non-public unless discovery requires public visibility.
 - Do not add local xUnit/analyzer suppressions for style friction. Adjust folder-wide policy only when the rule conflicts with discovery or generated-code reality.
-- Validation ladder for test changes:
-  - `dotnet build tests/csharp/libs/Rasm/Rasm.Tests.csproj --configuration Debug --no-restore`
+- Validation routes for test changes:
+  - `uv run python -m tools.quality static check`
+  - `uv run python -m tools.quality static build`
   - `uv run python -m tools.quality test run`
   - `uv run python -m tools.quality test run --target tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj` when GH2 managed specs changed.
   - `uv run python -m tools.quality test run --target tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj` when Rhino managed specs changed.
@@ -83,7 +84,6 @@ Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal poli
   - `printf 'running,1000,240,0,modular,9.525,9.525,concave' | dotnet run --project tests/csharp/_fuzz/Rasm.Fuzz.csproj --configuration Release` when fuzz harnesses changed.
   - `uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm/Vectors/scenarios` when vector bridge scenarios changed; scenarios must not contain `#r` or `#load`.
   - `uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm.Grasshopper/UI/scenarios` when GH UI bridge scenarios changed; scenarios must not contain `#r` or `#load`.
-  - `git diff --check`
 
 ## [6][ANTI_PATTERNS]
 

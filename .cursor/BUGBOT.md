@@ -1,6 +1,6 @@
 # Rasm Bugbot Guidance
 
-PR review only — behavioral regressions, host-boundary mistakes, missing validation, and command drift. Defer formatting and CSP violations to `tools/cs-analyzer`; do not nitpick grammar on docs.
+PR review only — behavioral regressions, host-boundary mistakes, missing validation, and command drift. Defer formatting and CSP violations to `tools.quality static check|build`; do not nitpick grammar on docs.
 
 ## Context
 
@@ -13,7 +13,7 @@ RhinoWIP on macOS, `.NET 10`, C# 14, GH2, Eto, central package management. Three
 |   [3]   | Rhino runtime   |
 
 [COMMAND]
-- [1] `uv run python -m tools.quality static check`
+- [1] `uv run python -m tools.quality static check|build`
 - [2] `uv run python -m tools.quality test run`
 - [3] `uv run python -m tools.quality bridge verify <scenario-or-glob>`
 
@@ -43,7 +43,7 @@ Full gate policy: [`CLAUDE.md`](../CLAUDE.md) §5.2, [`docs/usage.md`](../docs/u
 
 ## Tone
 
-Name file and line. Suggest the proving command (`static check`, `test run`, `bridge verify`). No vague “consider adding tests” without naming the rail.
+Name file and line. Suggest the proving command (`static check`, `static build`, `test run`, `bridge verify`). No vague “consider adding tests” without naming the rail.
 
 ## Scoped review (nested)
 

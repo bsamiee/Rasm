@@ -8,13 +8,15 @@
 | [INDEX] | [COMMAND] | [USE] |
 | :-----: | --------- | ----- |
 | [1] | `dotnet restore Workspace.slnx --locked-mode` | Package graph proof. |
-| [2] | `uv run python -m tools.quality static full` | Build/analyzer/source-generation proof. |
-| [3] | `uv run python -m tools.quality test run` | Default managed target: MTP unit tests only. |
-| [4] | `uv run python -m tools.quality test run --all --mutation off` | All runnable MTP test projects. |
-| [5] | `uv run python -m tools.quality test coverage` | Managed coverlet.MTP map. |
-| [6] | `uv run python -m tools.quality test run --mutation changed` | Changed-file Stryker MTP mutation. |
-| [7] | `uv run python -m tools.quality test run --mutation full` | Full managed Stryker MTP mutation. |
-| [8] | `uv run python -m tools.quality test run --target <project>` | Focused MTP project run. |
+| [2] | `uv run python -m tools.quality static check` | Scoped whitespace/style/analyzer cleanup. |
+| [3] | `uv run python -m tools.quality static build` | Routed build/analyzer/source-generation proof. |
+| [4] | `uv run python -m tools.quality static full` | Full-solution build/analyzer proof for trigger files. |
+| [5] | `uv run python -m tools.quality test run` | Default managed target: MTP unit tests only. |
+| [6] | `uv run python -m tools.quality test run --all --mutation off` | All runnable MTP test projects. |
+| [7] | `uv run python -m tools.quality test coverage` | Managed coverlet.MTP map. |
+| [8] | `uv run python -m tools.quality test run --mutation changed` | Changed-file Stryker MTP mutation. |
+| [9] | `uv run python -m tools.quality test run --mutation full` | Full managed Stryker MTP mutation. |
+| [10] | `uv run python -m tools.quality test run --target <project>` | Focused MTP project run. |
 
 `quality static` and MTP test runs isolate MSBuild output under `.artifacts/quality/<rail>/<run-id>/`. Mutation is explicit and fail-fast on `.artifacts/locks/mutation.lock`.
 

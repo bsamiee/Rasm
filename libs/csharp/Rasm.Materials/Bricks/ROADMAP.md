@@ -118,7 +118,7 @@ Use static validation for this slice:
 rg -n "<stale external-layout ownership tokens>" libs/csharp/Rasm.Materials
 rg -n "<host drawing/runtime type tokens>" libs/csharp/Rasm.Materials/Bricks
 uv run python -m tools.quality static check
-git diff --check
+uv run python -m tools.quality static build
 ```
 
 Do not run runtime host checks for this pure materials folder.

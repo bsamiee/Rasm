@@ -1,4 +1,4 @@
-"""Changed-file and full-workspace static C# gate: restore, build, format, and analyzer routing."""
+"""Changed-file cleanup and explicit C# build proof routing."""
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
@@ -27,14 +27,18 @@ from tools.quality.settings import (
 # --- [TYPES] ---------------------------------------------------------------------------
 
 type ProjectMode = Literal["parity", "closure"]
+type StaticMode = Literal["check", "build", "full"]
 type StaticOutcome = Literal["skip", "done"]
 type StaticScope = Literal["changed", "full"]
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
-_FORMAT_COMMON: Final[tuple[str, ...]] = ("--verify-no-changes",)
-_FORMAT_ARGS: Final[dict[str, tuple[str, ...]]] = {"style": (*_FORMAT_COMMON, "--severity", "error"), "whitespace": _FORMAT_COMMON}
+_FORMAT_ARGS: Final[dict[str, tuple[str, ...]]] = {
+    "whitespace": ("--no-restore",),
+    "style": ("--severity", "error", "--no-restore"),
+    "analyzers": ("--severity", "error", "--no-restore"),
+}
 _ORPHAN_FULL_SUFFIXES: Final[tuple[str, ...]] = (".cs", ".props", ".targets")
 
 
@@ -65,12 +69,9 @@ def _format_commands(root: Path, settings: QualitySettings, plan: StaticPlan) ->
             return tuple(("format", kind, solution, *_FORMAT_ARGS[kind]) for kind in _FORMAT_ARGS)
         case "changed":
             return tuple(
-                command
+                ("format", kind, str(root / project), "--include", *files, *_FORMAT_ARGS[kind])
                 for project, files in plan.format_groups
-                for command in (
-                    ("format", "style", str(root / project), "--include", *files, *_FORMAT_ARGS["style"]),
-                    ("format", "whitespace", str(root / project), "--include", *files, *_FORMAT_ARGS["whitespace"]),
-                )
+                for kind in _FORMAT_ARGS
             )
         case unreachable:
             assert_never(unreachable)
@@ -80,7 +81,7 @@ def _format_groups(routes: tuple[tuple[str, str], ...]) -> tuple[tuple[str, tupl
     return tuple((project, tuple(file for _, file in files)) for project, files in groupby(sorted(routes, key=itemgetter(0)), key=itemgetter(0)))
 
 
-def _gate_plan(
+def _build_plan(
     plan: StaticPlan, settings: QualitySettings, scope: ArtifactScope, root: Path, mode: StaticScope
 ) -> Result[StaticOutcome, ProcessFault]:
     targets: tuple[str, ...] = ()
@@ -94,20 +95,24 @@ def _gate_plan(
         case ("full", _):
             targets = (str(settings.solution),)
     configurations = settings.static_configurations(mode)
-    return (
-        dotnet_build(settings, scope, restore=settings.solution, targets=targets, configurations=configurations, max_cpu=settings.dotnet_max_cpu)
-        .bind(
-            lambda _: fold(
+    return dotnet_build(
+        settings, scope, restore=settings.solution, targets=targets, configurations=configurations, max_cpu=settings.dotnet_max_cpu
+    ).map(lambda _: "done")
+
+
+def _check_plan(plan: StaticPlan, settings: QualitySettings, scope: ArtifactScope, root: Path) -> Result[StaticOutcome, ProcessFault]:
+    match (plan.scope, plan.format_groups):
+        case ("changed", ()):
+            return Ok("skip")
+        case _:
+            return fold(
                 _format_commands(root, settings, plan),
                 None,
                 lambda _, command: dotnet(*command, scope=scope, scoped=False, check=True, mode="stream").map(lambda _: None),
-            )
-        )
-        .map(lambda _: "done")
-    )
+            ).map(lambda _: "done")
 
 
-def _plan(settings: QualitySettings, scope: ArtifactScope) -> Result[StaticPlan, ProcessFault]:
+def _plan(settings: QualitySettings, scope: ArtifactScope, mode: StaticScope = "changed") -> Result[StaticPlan, ProcessFault]:
     workspace = Workspace(settings.root)
     index = workspace.index()
     routed = reduce(
@@ -121,6 +126,14 @@ def _plan(settings: QualitySettings, scope: ArtifactScope) -> Result[StaticPlan,
         return _projects(settings, workspace, "closure", tuple(sorted(routed.projects)), scope=scope).map(
             lambda rows: StaticPlan(scope="changed", projects=rows, format_groups=_format_groups(routed.format_routes))
         )
+
+    match mode:
+        case "full":
+            return full()
+        case "changed":
+            pass
+        case unreachable:
+            assert_never(unreachable)
 
     plan_by_route: dict[tuple[bool, bool], Callable[[], Result[StaticPlan, ProcessFault]]] = {
         (False, False): lambda: Ok(StaticPlan(scope="changed", projects=())),
@@ -216,5 +229,13 @@ def _route_step(acc: _ChangedRoute, file: str, *, index: ProjectIndex, workspace
 
 
 @beartype
-def run_static_rail(settings: QualitySettings, scope: ArtifactScope, mode: StaticScope) -> Result[StaticOutcome, ProcessFault]:
-    return _plan(settings, scope).bind(lambda plan: _gate_plan(plan, settings, scope, settings.root, mode))
+def run_static_rail(settings: QualitySettings, scope: ArtifactScope, mode: StaticMode) -> Result[StaticOutcome, ProcessFault]:
+    match mode:
+        case "check":
+            return _plan(settings, scope).bind(lambda plan: _check_plan(plan, settings, scope, settings.root))
+        case "build":
+            return _plan(settings, scope).bind(lambda plan: _build_plan(plan, settings, scope, settings.root, "changed"))
+        case "full":
+            return _plan(settings, scope, "full").bind(lambda plan: _build_plan(plan, settings, scope, settings.root, "full"))
+        case unreachable:
+            assert_never(unreachable)

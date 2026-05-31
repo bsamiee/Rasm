@@ -1341,8 +1341,6 @@ internal static class Motion {
     }
 
     [SupportedOSPlatform("macos14.0")]
-    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
-        Justification = "CGColor/CGPath/CIFilter ownership transfers to the CAShapeLayer property graph for the animation lifetime.")]
     private static CAShapeLayer CosmeticGlowLayer(CosmeticIntent.GlowCase glow) {
         CGRect rect = ToCGRect(glow.Bounds);
         CGRect local = LocalCGRect(frame: rect);
@@ -1388,8 +1386,6 @@ internal static class Motion {
     }
 
     [SupportedOSPlatform("macos14.0")]
-    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
-        Justification = "CGColor/NSString ownership transfers to CALayer property graph for animation lifetime.")]
     private static CAGradientLayer CosmeticGradientLayer(CosmeticIntent.GradientCase gradient) {
         (CAGradientLayerType type, _, _) = CosmeticGradientProfile[gradient.Kind.ProfileIndex];
         (CGPoint start, CGPoint end) = ResolveGradientPoints(kind: gradient.Kind, points: gradient.Points);
@@ -1488,8 +1484,6 @@ internal static class Motion {
     // Bridges Layout.Snap output to a fire-and-forget overlay: dashed guide lines as a CAShapeLayer plus an
     // optional distance label sublayer at LabelPoint (lines are already mapped to control space upstream).
     [SupportedOSPlatform("macos14.0")]
-    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
-        Justification = "CGPath/CGColor/NSNumber ownership transfers to the CAShapeLayer (and its text sublayer) for the animation lifetime.")]
     private static CAShapeLayer CosmeticSnapGuideLayer(CosmeticIntent.SnapGuideCase guide) {
         SnapGuideStyle style = guide.Style;
         Seq<SnapLabel> labels = Seq(guide.Snapshot.XLabel, guide.Snapshot.YLabel).Somes();

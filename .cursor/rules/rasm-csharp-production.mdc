@@ -30,4 +30,4 @@ Target RhinoWIP on macOS, GH2, Eto, and app-bundle references from `Directory.Bu
 
 ## Validation
 
-Run `uv run python -m tools.quality static check` once at the end of a coherent C# change set. Run `full` only when trigger build/config files change.
+Run `uv run python -m tools.quality static check` after each coherent C# edit batch. Run `uv run python -m tools.quality static build` when compile/analyzer proof is needed. Run `full` only when trigger build/config files change.

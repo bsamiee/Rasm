@@ -19,7 +19,7 @@ Route BCL and host-reference policy through `docs/system-api-map`. Owns language
 | [INDEX] | [SOURCE]                   | [OWNS]                                                               |
 | :-----: | -------------------------- | -------------------------------------------------------------------- |
 |   [1]   | `Directory.Build.props`    | `net10.0`, `LangVersion=14.0`, nullable, implicit usings, analyzers. |
-|   [2]   | Central package manifest   | Analyzer and Roslyn analyzer-authoring packages                       |
+|   [2]   | Central package manifest   | Analyzer and Roslyn analyzer-authoring packages                      |
 |   [3]   | .NET 10 SDK / Roslyn 5.0.0 | Compiler feature set for C# 14.                                      |
 
 ---
