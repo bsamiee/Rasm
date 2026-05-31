@@ -329,7 +329,7 @@ public sealed partial class ConstraintPolicy {
     internal Fin<Unit> AdmitValues(HashMap<string, string> values, Seq<InstanceAttributeField> schema, Op key) =>
         Key switch {
             0 => values
-                .Filter((k, _) => !schema.Any(field => string.Equals(a: field.Key, b: k, comparisonType: StringComparison.Ordinal)))
+                .Filter((k, _) => !schema.Any(field => string.Equals(a: field.Key, b: k, comparisonType: StringComparison.OrdinalIgnoreCase)))
                 .IsEmpty
                 ? Fin.Succ(value: unit)
                 : Fin.Fail<Unit>(error: key.InvalidInput()),
@@ -915,15 +915,17 @@ public readonly record struct LiveStats(
 
     internal static LiveStats From(InstanceDefinition active) {
         _ = active.UseCount(topLevelReferenceCount: out int top, nestedReferenceCount: out int nested);
+        UpdatePolicy update = UpdatePolicy.FromNative(native: active.UpdateType);
         return new LiveStats(
             Units: active.UnitSystem,
-            Update: UpdatePolicy.FromNative(native: active.UpdateType),
+            Update: update,
             Layer: LayerStyle.FromNative(native: active.LayerStyle),
             Archive: ArchiveStatus.FromNative(native: active.ArchiveFileStatus),
             IsDeleted: active.IsDeleted,
             IsTenuous: active.IsTenuous,
             IsReference: active.IsReference,
-            SkipNestedLinked: active.SkipNestedLinkedDefinitions,
+            // SkipNestedLinkedDefinitions is only meaningful for linked definitions; mask it to false for static defs.
+            SkipNestedLinked: update.IsLinked && active.SkipNestedLinkedDefinitions,
             DeletedName: Definition.NonBlank(value: active.DeletedName),
             MemberCount: active.ObjectCount,
             UseCountTop: top,

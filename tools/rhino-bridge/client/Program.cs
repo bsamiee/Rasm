@@ -497,7 +497,9 @@ internal static class Program {
     private static (string Script, IReadOnlyList<string> References) SmokeScript(ProjectBuild project, string resultPath) {
         IReadOnlyList<string> scriptReferences = ScriptReferences(project: project, resultPath: resultPath);
         string references = ReferenceDirectives(references: scriptReferences);
-        string target = scriptReferences[0];
+        string targetFile = Path.GetFileName(path: project.TargetPath);
+        string target = scriptReferences.FirstOrDefault(predicate: reference => string.Equals(a: Path.GetFileName(path: reference), b: targetFile, comparisonType: StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException(message: $"Staged references did not include target assembly '{targetFile}'.");
         string sourceTarget = project.TargetPath;
         string nonce = Guid.NewGuid().ToString(format: "N");
         return (

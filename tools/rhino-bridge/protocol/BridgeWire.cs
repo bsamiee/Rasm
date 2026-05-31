@@ -427,7 +427,9 @@ public static class BridgeWire {
         ArgumentNullException.ThrowIfNull(argument: nonce);
         string escTarget = Escape(value: targetPath);
         string escSource = Escape(value: sourceTargetPath);
-        string watchNames = JsonSerializer.Serialize(value: CollisionWatchAssemblyNames, options: CompactJson);
+        string watchNames = string.Join(
+            separator: ", ",
+            values: CollisionWatchAssemblyNames.Select(selector: name => $"\"{Escape(value: name)}\""));
         return string.Join(separator: Environment.NewLine, values: new[] {
             "using System;",
             "using System.IO;",
@@ -439,15 +441,15 @@ public static class BridgeWire {
             $"string targetLocation = Path.GetFullPath(\"{escTarget}\");",
             $"string sourceTargetLocation = Path.GetFullPath(\"{escSource}\");",
             $"string nonce = \"{nonce}\";",
-            $"string[] watchNames = {watchNames};",
+            $"string[] watchNames = new[] {{ {watchNames} }};",
             "StringComparison pathCmp = OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;",
             "object Probe() {",
             "  AssemblyName targetName = AssemblyName.GetAssemblyName(targetLocation);",
             "  Assembly loaded = Assembly.LoadFile(targetLocation);",
             "  Assembly[] domain = AppDomain.CurrentDomain.GetAssemblies();",
             "  Assembly[] matches = Array.FindAll(domain, a => string.Equals(a.GetName().Name, targetName.Name, StringComparison.Ordinal));",
-            "  Assembly? target = Array.Find(matches, a => ReferenceEquals(a, loaded) || (!string.IsNullOrWhiteSpace(a.Location) && string.Equals(Path.GetFullPath(a.Location), targetLocation, pathCmp)));",
-            "  Assembly? stale = Array.Find(matches, a => !ReferenceEquals(a, target));",
+            "  Assembly target = Array.Find(matches, a => ReferenceEquals(a, loaded) || (!string.IsNullOrWhiteSpace(a.Location) && string.Equals(Path.GetFullPath(a.Location), targetLocation, pathCmp)));",
+            "  Assembly stale = Array.Find(matches, a => !ReferenceEquals(a, target));",
             "  var dependencyCollisions = watchNames",
             "    .Select(name => (Name: name, Hits: Array.FindAll(domain, a => string.Equals(a.GetName().Name, name, StringComparison.OrdinalIgnoreCase))))",
             "    .Where(entry => entry.Hits.Length > 1)",
@@ -476,7 +478,7 @@ public static class BridgeWire {
             "Assembly[] postProbe = AppDomain.CurrentDomain.GetAssemblies();",
             "AssemblyName postName = AssemblyName.GetAssemblyName(targetLocation);",
             "Assembly[] postMatches = Array.FindAll(postProbe, a => string.Equals(a.GetName().Name, postName.Name, StringComparison.Ordinal));",
-            "Assembly? postTarget = Array.Find(postMatches, a => !string.IsNullOrWhiteSpace(a.Location) && string.Equals(Path.GetFullPath(a.Location), targetLocation, pathCmp));",
+            "Assembly postTarget = Array.Find(postMatches, a => !string.IsNullOrWhiteSpace(a.Location) && string.Equals(Path.GetFullPath(a.Location), targetLocation, pathCmp));",
             "_ = postTarget ?? throw new InvalidOperationException($\"RhinoCode did not load target assembly through isolated #r reference. target={targetLocation}\");",
             $"Console.WriteLine(\"{BridgeMarker.Prefix}nonce={nonce}\");",
             $"Console.Error.WriteLine(\"{BridgeMarker.Prefix}stderr={nonce}\");",

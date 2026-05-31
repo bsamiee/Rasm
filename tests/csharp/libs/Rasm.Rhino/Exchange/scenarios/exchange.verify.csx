@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Rasm.Rhino;
 using Rasm.Rhino.Camera;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Exchange;
@@ -61,8 +62,8 @@ Scenario.Run("exchange", CAPTURE_PATH, (key, facts) => {
     FileReport publishMixed = Probe.Expect(files.Run(FileOp.Do(new FileExchange.Publish(new FilePublish(
         Target: new FilePublishTarget.Pdf(Target: mixedPdf, Annotate: Some(stamps.Annotation())),
         Views: Seq(
-            new FileView(Source: new FileViewSource.Pages(Query: new SheetQuery(Name: Some(sheetAName))), Dpi: 72.0, Raster: false),
-            new FileView(Source: new FileViewSource.Pages(Query: new SheetQuery(Name: Some(sheetBName))), Dpi: 72.0, Raster: true)),
+            new FileView(Source: new FileViewSource.Pages(Query: new SheetQuery(Name: Some(sheetAName))), Recipe: new CaptureRecipe(Dpi: Some(72.0))),
+            new FileView(Source: new FileViewSource.Pages(Query: new SheetQuery(Name: Some(sheetBName))), Recipe: new CaptureRecipe(Dpi: Some(72.0), Raster: true))),
         Profile: FileProfile.Model,
         Layers: true)))), "publish mixed raster+vector pdf", facts);
     facts.Add("publish.mixed.views", publishMixed.Views.Count);
@@ -73,7 +74,7 @@ Scenario.Run("exchange", CAPTURE_PATH, (key, facts) => {
     FileEndpoint namedPdf = Probe.Expect(FileEndpoint.From(path: Path.Combine(work, "named-view.pdf")), "named endpoint");
     FileReport publishNamed = Probe.Expect(files.Run(FileOp.Do(new FileExchange.Publish(new FilePublish(
         Target: new FilePublishTarget.Pdf(Target: namedPdf),
-        Views: Seq(new FileView(Source: new FileViewSource.Named(Names: Seq(namedView), Target: new ViewportTarget.View(modelView)), Dpi: 72.0)),
+        Views: Seq(new FileView(Source: new FileViewSource.Named(Names: Seq(namedView), Target: new ViewportTarget.View(modelView)), Recipe: new CaptureRecipe(Dpi: Some(72.0)))),
         Profile: FileProfile.Model)))), "publish named view", facts);
     facts.Add("publish.named.views", publishNamed.Views.Count);
     Probe.Require(publishNamed.Views.Count == 1, "named-view publish emitted one page (A2 direct-scope restore)");

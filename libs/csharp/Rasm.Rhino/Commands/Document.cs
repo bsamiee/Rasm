@@ -442,10 +442,10 @@ public abstract partial record DocumentOp {
                 from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
                 from ids in target.Ids(document: ctx.Document, op: ctx.Op)
                 from selection in edit.Selected.Case switch {
-                    bool value => target.Select(document: ctx.Document, selected: value, policy: edit.SelectionPolicy ?? DocumentSelectionPolicy.Default, op: ctx.Op).Map(_ => value switch {
-                        true => (Selected: ids, Unselected: Seq<Guid>()),
-                        false => (Selected: Seq<Guid>(), Unselected: ids),
-                    }),
+                    bool value => from before in DocumentEdit.SelectedIds(document: ctx.Document, op: ctx.Op)
+                                  from _ in target.Select(document: ctx.Document, selected: value, policy: edit.SelectionPolicy ?? DocumentSelectionPolicy.Default, op: ctx.Op)
+                                  from after in DocumentEdit.SelectedIds(document: ctx.Document, op: ctx.Op)
+                                  select (Selected: after.Filter(id => !before.Exists(item => item == id)), Unselected: before.Filter(id => !after.Exists(item => item == id))),
                     _ => Fin.Succ(value: (Selected: Seq<Guid>(), Unselected: Seq<Guid>())),
                 }
                 from hidden in edit.Hidden.Case switch {

@@ -793,9 +793,7 @@ public readonly record struct PaintSkinSnapshot(Option<CanvasSkin> Appearance) {
 
 public abstract record PaintRequest<T> : GhUiRequest<T> {
     public sealed record Skin : PaintRequest<PaintSkinSnapshot> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(); internal override Fin<PaintSkinSnapshot> Apply(GrasshopperUi.Scope scope) => Paint.Skin().Run(scope: scope); }
-    public sealed record Hook(CanvasPaintPhase Phase, DrawPlan Plan, MotionClock? Clock = null) : PaintRequest<Subscription> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(); internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.Hook(phase: Phase, paint: Plan.Apply, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
     public sealed record RedrawOnMouseMove(bool Enabled = true, MotionClock? Clock = null) : PaintRequest<Subscription> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Canvas); internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.RedrawOnMouseMove(enabled: Enabled, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
-    public sealed record SolutionOverlay(DrawPlan Plan, MotionClock? Clock = null) : PaintRequest<Subscription> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled); internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.Hook(phase: CanvasPaintPhase.AfterObjects, paint: Plan.Apply, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
     public sealed record FloatingDrawable(DrawPlan Plan, Size Size, Option<string> Title = default) : PaintRequest<Subscription> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
         internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.FloatingDrawable(plan: Plan, size: Size, title: Title).Run(scope: scope);
@@ -813,7 +811,7 @@ internal static partial class Paint {
         MotionClock clock,
         Option<Motion.Pacer> adoptedPacer = default,
         bool ownsPacerLifecycle = true,
-        bool sustainMouseRedraw = false) =>
+        Func<bool>? sustainMouseRedraw = null) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from valid in Optional(paint).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hook)), detail: "null paint callback"))
@@ -828,7 +826,7 @@ internal static partial class Paint {
                     Skin: args.Skin) {
                     Background = Optional(args as CanvasBackgroundPaintEventArgs),
                 })).Ignore();
-                _ = Op.SideWhen(sustainMouseRedraw, () => canvas.RedrawOnMouseMove = true);
+                _ = Op.SideWhen(sustainMouseRedraw?.Invoke() == true, () => canvas.RedrawOnMouseMove = true);
             })
             from paintSub in Subscription.Bind(
                 attach: () => {
@@ -849,20 +847,20 @@ internal static partial class Paint {
             run: scope =>
                 from canvas in scope.NeedCanvas()
                 from pacer in Motion.PacerOption(canvas: canvas, clock: clock ?? MotionClock.MessageLoop)
-                let priorEnabled = canvas.RedrawOnMouseMove
+                let token = new StrongBox<Guid>()
                 from sustain in Hook(
                     phase: CanvasPaintPhase.AfterWires,
                     paint: static _ => Fin.Succ(value: unit),
                     clock: clock ?? MotionClock.MessageLoop,
                     adoptedPacer: pacer,
                     ownsPacerLifecycle: false,
-                    sustainMouseRedraw: enabled).Run(scope: scope)
+                    sustainMouseRedraw: enabled ? () => RedrawOnMouseMoveInstall.IsTop(canvas: canvas, token: token.Value) : null).Run(scope: scope)
                 from arm in Events.BindMarshaled(
                     attach: () => {
-                        canvas.RedrawOnMouseMove = enabled;
+                        token.Value = RedrawOnMouseMoveInstall.Enter(canvas: canvas, enabled: enabled);
                         _ = Motion.PacerResume(pacer: pacer, canvas: canvas);
                     },
-                    detach: () => canvas.RedrawOnMouseMove = priorEnabled)
+                    detach: () => RedrawOnMouseMoveInstall.Exit(canvas: canvas, token: token.Value))
                 select Subscription.DisposeOnce(Subscription.PaintPacer(
                     paintHook: sustain | arm,
                     pacerRelease: () => _ = Motion.PacerRelease(pacer: pacer))));
@@ -874,11 +872,12 @@ internal static partial class Paint {
             from validPlan in Optional(plan).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(FloatingDrawable)), detail: "null draw plan"))
             from validWidth in Op.Of(name: nameof(FloatingDrawable)).AcceptFinite(value: size.Width, detail: "width must be finite and positive", requirePositive: true)
             from validHeight in Op.Of(name: nameof(FloatingDrawable)).AcceptFinite(value: size.Height, detail: "height must be finite and positive", requirePositive: true)
+            from app in GrasshopperUi.NeedApplication(op: Op.Of(name: nameof(FloatingDrawable)))
             let validSize = new Size(width: (int)Math.Ceiling(validWidth), height: (int)Math.Ceiling(validHeight))
             let owner = Optional(canvas.ControlObject as Control).Bind(static control => Optional(control.ParentWindow))
             let screenScale = UiRail.PixelScale(canvas: canvas).LogicalPixelSize
             let drawable = new Drawable { Size = validSize }
-            let form = new FloatingForm(owner: owner) {
+            let form = new FloatingForm(app: app, owner: owner) {
                 Content = drawable,
                 Size = validSize,
                 Title = title.IfNone(string.Empty),
@@ -904,4 +903,45 @@ internal static partial class Paint {
                 },
                 marshalToUi: true)
             select sub);
+}
+
+file static class RedrawOnMouseMoveInstall {
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct Entry(Guid Token, bool Enabled);
+
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct State(bool Baseline, Seq<Entry> Entries);
+
+    private static readonly Atom<HashMap<int, State>> Stacks = Atom(value: HashMap<int, State>());
+
+    internal static Guid Enter(GhCanvas canvas, bool enabled) {
+        Guid token = Guid.NewGuid();
+        int key = RuntimeHelpers.GetHashCode(canvas);
+        _ = Stacks.Swap(map => map.AddOrUpdate(
+            key: key,
+            Some: state => state with { Entries = state.Entries + new Entry(Token: token, Enabled: enabled) },
+            None: () => new State(Baseline: canvas.RedrawOnMouseMove, Entries: Seq(new Entry(Token: token, Enabled: enabled)))));
+        canvas.RedrawOnMouseMove = enabled;
+        return token;
+    }
+
+    internal static bool IsTop(GhCanvas canvas, Guid token) {
+        int key = RuntimeHelpers.GetHashCode(canvas);
+        return Stacks.Value.Find(key: key)
+            .Map(state => !state.Entries.IsEmpty && state.Entries.Last().Token == token && state.Entries.Last().Enabled)
+            .IfNone(false);
+    }
+
+    internal static void Exit(GhCanvas canvas, Guid token) {
+        int key = RuntimeHelpers.GetHashCode(canvas);
+        bool restore = canvas.RedrawOnMouseMove;
+        _ = Stacks.Swap(map => map.Find(key).Match(
+            Some: state => {
+                Seq<Entry> kept = state.Entries.Filter(entry => entry.Token != token);
+                restore = kept.IsEmpty ? state.Baseline : kept.Last().Enabled;
+                return kept.IsEmpty ? map.Remove(key) : map.SetItem(key, state with { Entries = kept });
+            },
+            None: () => map));
+        canvas.RedrawOnMouseMove = restore;
+    }
 }

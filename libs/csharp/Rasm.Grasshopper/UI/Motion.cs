@@ -374,11 +374,13 @@ public sealed class SpringHandle<T> : IDisposable {
     private readonly Atom<SpringRunnerState<T>> cell;
     private readonly Subscription subscription;
     private readonly Action wake;
+    private readonly bool settled;
 
-    internal SpringHandle(Atom<SpringRunnerState<T>> cell, Subscription subscription, Action wake) {
+    internal SpringHandle(Atom<SpringRunnerState<T>> cell, Subscription subscription, Action wake, bool settled = false) {
         this.cell = cell;
         this.subscription = subscription;
         this.wake = wake;
+        this.settled = settled;
     }
 
     public T CurrentValue => cell.Value.Value;
@@ -392,13 +394,23 @@ public sealed class SpringHandle<T> : IDisposable {
                from validVelocity in initialVelocity
                    .Map(value => Op.Of(name: nameof(Retarget)).AcceptFinite(value: value, vector: snapshot.Vector, detail: "spring target/velocity must be finite").Map(Some))
                    .IfNone(Fin.Succ(value: Option<T>.None))
-               select Op.Side(() => {
-                   _ = cell.Swap(state => state with {
-                       Target = validTarget,
-                       Velocity = validVelocity.IfNone(state.Velocity),
+               select settled
+                   ? Op.Side(() => {
+                       _ = cell.Swap(state => state with {
+                           Value = validTarget,
+                           Target = validTarget,
+                           Velocity = validVelocity.IfNone(state.Vector.Zero),
+                           Timestamp = state.Clock.GetTimestamp(),
+                       });
+                       snapshot.Sink(validTarget);
+                   })
+                   : Op.Side(() => {
+                       _ = cell.Swap(state => state with {
+                           Target = validTarget,
+                           Velocity = validVelocity.IfNone(state.Velocity),
+                       });
+                       wake();
                    });
-                   wake();
-               });
     }
 
     public Fin<Unit> RetargetWhen(T target, Func<T, bool> shouldUpdate, Option<T> initialVelocity = default) {
@@ -410,13 +422,23 @@ public sealed class SpringHandle<T> : IDisposable {
                    .IfNone(Fin.Succ(value: Option<T>.None))
                from result in validUpdate(arg: snapshot.Target) switch {
                    false => Fin.Succ(value: unit),
-                   true => Fin.Succ(value: Op.Side(() => {
-                       _ = cell.Swap(state => state with {
-                           Target = validTarget,
-                           Velocity = validVelocity.IfNone(state.Velocity),
-                       });
-                       wake();
-                   })),
+                   true => Fin.Succ(value: settled
+                       ? Op.Side(() => {
+                           _ = cell.Swap(state => state with {
+                               Value = validTarget,
+                               Target = validTarget,
+                               Velocity = validVelocity.IfNone(state.Vector.Zero),
+                               Timestamp = state.Clock.GetTimestamp(),
+                           });
+                           snapshot.Sink(validTarget);
+                       })
+                       : Op.Side(() => {
+                           _ = cell.Swap(state => state with {
+                               Target = validTarget,
+                               Velocity = validVelocity.IfNone(state.Velocity),
+                           });
+                           wake();
+                       })),
                }
                select result;
     }
@@ -430,11 +452,13 @@ public sealed class PulseHandle<T> : IDisposable {
     private readonly Atom<PulseRunnerState<T>> cell;
     private readonly Subscription subscription;
     private readonly Action wake;
+    private readonly bool settled;
 
-    internal PulseHandle(Atom<PulseRunnerState<T>> cell, Subscription subscription, Action wake) {
+    internal PulseHandle(Atom<PulseRunnerState<T>> cell, Subscription subscription, Action wake, bool settled = false) {
         this.cell = cell;
         this.subscription = subscription;
         this.wake = wake;
+        this.settled = settled;
     }
 
     public T CurrentValue => cell.Value.Animated.ValueNow;
@@ -444,31 +468,9 @@ public sealed class PulseHandle<T> : IDisposable {
     public Fin<Unit> Retarget(T target, Option<int> cycles = default) {
         PulseRunnerState<T> snapshot = cell.Value;
         return from validTarget in Op.Of(name: nameof(Retarget)).AcceptFinite(value: target, vector: snapshot.Vector, detail: "pulse target must be finite")
-               select Op.Side(() => {
-                   _ = cell.Swap(state => state with {
-                       From = state.Animated.ValueNow,
-                       To = validTarget,
-                       CyclesRemaining = cycles.IfNone(state.CyclesRemaining),
-                       Animated = Animated<T>.CreateUnfinished(
-                           value0: state.Animated.ValueNow,
-                           value1: validTarget,
-                           duration: Animators.DurationToTimeSpan(duration: state.Duration),
-                           motion: state.Easing,
-                           interpolator: state.Vector.Interpolate),
-                   });
-                   wake();
-               });
-    }
-
-    // Symmetric with SpringHandle.RetargetWhen: only re-seed the curve when the predicate accepts the current
-    // target, so a stale retarget is a no-op rather than a restart.
-    public Fin<Unit> RetargetWhen(T target, Func<T, bool> shouldUpdate, Option<int> cycles = default) {
-        PulseRunnerState<T> snapshot = cell.Value;
-        return from validUpdate in Optional(shouldUpdate).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(RetargetWhen)), detail: "predicate is required"))
-               from validTarget in Op.Of(name: nameof(RetargetWhen)).AcceptFinite(value: target, vector: snapshot.Vector, detail: "pulse target must be finite")
-               from result in validUpdate(arg: snapshot.To) switch {
-                   false => Fin.Succ(value: unit),
-                   true => Fin.Succ(value: Op.Side(() => {
+               select settled
+                   ? Op.Side(() => SettlePulse(snapshot: snapshot, target: validTarget))
+                   : Op.Side(() => {
                        _ = cell.Swap(state => state with {
                            From = state.Animated.ValueNow,
                            To = validTarget,
@@ -481,9 +483,51 @@ public sealed class PulseHandle<T> : IDisposable {
                                interpolator: state.Vector.Interpolate),
                        });
                        wake();
-                   })),
+                   });
+    }
+
+    // Symmetric with SpringHandle.RetargetWhen: only re-seed the curve when the predicate accepts the current
+    // target, so a stale retarget is a no-op rather than a restart.
+    public Fin<Unit> RetargetWhen(T target, Func<T, bool> shouldUpdate, Option<int> cycles = default) {
+        PulseRunnerState<T> snapshot = cell.Value;
+        return from validUpdate in Optional(shouldUpdate).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(RetargetWhen)), detail: "predicate is required"))
+               from validTarget in Op.Of(name: nameof(RetargetWhen)).AcceptFinite(value: target, vector: snapshot.Vector, detail: "pulse target must be finite")
+               from result in validUpdate(arg: snapshot.To) switch {
+                   false => Fin.Succ(value: unit),
+                   true => Fin.Succ(value: settled
+                       ? Op.Side(() => SettlePulse(snapshot: snapshot, target: validTarget))
+                       : Op.Side(() => {
+                           _ = cell.Swap(state => state with {
+                               From = state.Animated.ValueNow,
+                               To = validTarget,
+                               CyclesRemaining = cycles.IfNone(state.CyclesRemaining),
+                               Animated = Animated<T>.CreateUnfinished(
+                                   value0: state.Animated.ValueNow,
+                                   value1: validTarget,
+                                   duration: Animators.DurationToTimeSpan(duration: state.Duration),
+                                   motion: state.Easing,
+                                   interpolator: state.Vector.Interpolate),
+                           });
+                           wake();
+                       })),
                }
                select result;
+    }
+
+    private void SettlePulse(PulseRunnerState<T> snapshot, T target) {
+        T rest = snapshot.Yoyo ? snapshot.From : target;
+        _ = cell.Swap(state => state with {
+            From = rest,
+            To = rest,
+            CyclesRemaining = 0,
+            Animated = Animated<T>.CreateUnfinished(
+                value0: rest,
+                value1: rest,
+                duration: TimeSpan.Zero,
+                motion: state.Easing,
+                interpolator: state.Vector.Interpolate),
+        });
+        snapshot.Sink(rest);
     }
 
     public void Dispose() => subscription.Dispose();
@@ -808,7 +852,8 @@ internal static class Motion {
                     Target: target, Config: config, Vector: validVector, Sink: validSink,
                     Clock: resolvedClock, Timestamp: resolvedClock.GetTimestamp())),
                 subscription: Subscription.Empty,
-                wake: canvas.ScheduleRedraw));
+                wake: canvas.ScheduleRedraw,
+                settled: true));
 
     private static GrasshopperUiIntent<SpringHandle<TValue>> AnimatedSpring<TValue>(
         TValue start, TValue target, SpringConfig config, IMotionVector<TValue> vector,
@@ -902,7 +947,8 @@ internal static class Motion {
                     From: rest, To: rest, Duration: duration, Easing: easing, Yoyo: yoyo, Infinite: infinite,
                     CyclesRemaining: 0, Vector: vector, Sink: sink)),
                 subscription: Subscription.Empty,
-                wake: canvas.ScheduleRedraw));
+                wake: canvas.ScheduleRedraw,
+                settled: true));
 
     private static GrasshopperUiIntent<PulseHandle<TValue>> AnimatedPulse<TValue>(
         TValue start, TValue target, GhDuration duration, GhMotion easing, bool yoyo, bool infinite, int cycles,
@@ -974,8 +1020,10 @@ internal static class Motion {
             run: scope =>
                 from canvas in scope.NeedCanvas()
                 from valid in Optional(instance).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Sparkle)), detail: "sparkle is required"))
-                from _ in Try.lift(f: () => { canvas.AddSparkle(sparkle: valid); return unit; }).Run()
-                    .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Sparkle)), detail: $"AddSparkle threw: {error.Message}"))
+                from _ in MotionAccessibility.ShouldSkipDecorativeMotion
+                    ? Fin.Succ(value: unit)
+                    : Try.lift(f: () => { canvas.AddSparkle(sparkle: valid); return unit; }).Run()
+                        .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Sparkle)), detail: $"AddSparkle threw: {error.Message}"))
                 select unit);
 
     internal static GrasshopperUiIntent<Subscription> Theme(
@@ -1241,7 +1289,9 @@ internal static class Motion {
         return WithoutAnimation(() => {
             host.AddSublayer(layer: layer);
             CAAnimation animation = GroupOf(main: BuildCosmeticAnimation(intent: intent), intent: intent);
-            animation.WeakDelegate = new CosmeticRemove(layer: layer, key: key, completion: intent.Completion);
+            CosmeticRemove remove = new(layer: layer, key: key, completion: intent.Completion);
+            _ = CosmeticDelegateStore.Retain(layer: layer, key: remove.Key, remove: remove);
+            animation.WeakDelegate = remove;
             layer.AddAnimation(animation: animation, key: key);
         });
     }
@@ -1255,11 +1305,12 @@ internal static class Motion {
         string keyString = key.ToString();
         return WithoutAnimation(() => _ = toSeq(sublayers)
             .Filter(sub => string.Equals(a: sub.Name, b: keyString, comparisonType: StringComparison.Ordinal))
-            .Filter(sub => sub.AnimationForKey(key: keyString) is not CAAnimation animation
-                || animation.WeakDelegate is not CosmeticRemove remove
-                || remove.TryClaim())
+            .Filter(sub => CosmeticDelegateStore.Find(layer: sub, key: keyString)
+                .Map(remove => remove.TryClaim())
+                .IfNone(true))
             .Iter(sub => {
                 sub.RemoveAnimation(key: keyString);
+                _ = CosmeticDelegateStore.Release(layer: sub, key: keyString);
                 sub.RemoveFromSuperLayer();
             }));
     }
@@ -1278,9 +1329,11 @@ internal static class Motion {
 
     [SupportedOSPlatform("macos14.0")]
     private static CAShapeLayer CosmeticPulseLayer(CosmeticIntent.PulseCase pulse) {
-        CAShapeLayer shape = new() { Frame = ToCGRect(pulse.Bounds) };
+        CGRect frame = ToCGRect(pulse.Bounds);
+        CGRect local = LocalCGRect(frame: frame);
+        CAShapeLayer shape = new() { Frame = frame };
         CGPath path = new();
-        path.AddRect(rect: ToCGRect(pulse.Bounds));
+        path.AddRect(rect: local);
         shape.Path = path;
         shape.FillColor = ToCGColor(pulse.Tint);
         shape.Opacity = 0f;
@@ -1292,8 +1345,9 @@ internal static class Motion {
         Justification = "CGColor/CGPath/CIFilter ownership transfers to the CAShapeLayer property graph for the animation lifetime.")]
     private static CAShapeLayer CosmeticGlowLayer(CosmeticIntent.GlowCase glow) {
         CGRect rect = ToCGRect(glow.Bounds);
+        CGRect local = LocalCGRect(frame: rect);
         CGPath path = new();
-        path.AddRoundedRect(transform: CGAffineTransform.MakeIdentity(), rect: rect, cornerWidth: glow.CornerRadius, cornerHeight: glow.CornerRadius);
+        path.AddRoundedRect(transform: CGAffineTransform.MakeIdentity(), rect: local, cornerWidth: glow.CornerRadius, cornerHeight: glow.CornerRadius);
         CAShapeLayer shape = new() {
             Frame = rect,
             Path = path,
@@ -1371,9 +1425,10 @@ internal static class Motion {
         Justification = "CGPath ownership transfers to CAShapeLayer hosted by CAReplicatorLayer.")]
     private static CAReplicatorLayer CosmeticReplicatorLayer(CosmeticIntent.ReplicatorCase replicate) {
         CGRect rect = ToCGRect(replicate.SourceBounds);
-        CAShapeLayer source = new();
+        CGRect local = LocalCGRect(frame: rect);
+        CAShapeLayer source = new() { Frame = local };
         CGPath path = new();
-        path.AddRect(rect: rect);
+        path.AddRect(rect: local);
         source.Path = path;
         source.FillColor = ToCGColor(replicate.Tint);
         // Per-instance transform composes translation (spacing along X) with rotation about Z; either degenerates
@@ -1623,6 +1678,8 @@ internal static class Motion {
 
     private static CGRect ToCGRect(RectangleF r) => new(x: r.X, y: r.Y, width: r.Width, height: r.Height);
 
+    private static CGRect LocalCGRect(CGRect frame) => new(x: 0, y: 0, width: frame.Width, height: frame.Height);
+
     private static CGPoint ToCGPoint(PointF p) => new(x: p.X, y: p.Y);
 
     private static CGColor ToCGColor(Color c) => new(red: c.R, green: c.G, blue: c.B, alpha: c.A);
@@ -1647,28 +1704,50 @@ internal static class Motion {
     [SupportedOSPlatform("macos14.0")]
     private sealed class CosmeticRemove : CAAnimationDelegate {
         private readonly CALayer layer;
-        private readonly string key;
         private readonly Option<Func<Unit>> completion;
         private int stripped;
 
         internal CosmeticRemove(CALayer layer, NSString key, Option<Func<Unit>> completion) {
             this.layer = layer;
-            this.key = key.ToString();
+            Key = key.ToString();
             this.completion = completion;
         }
+
+        internal string Key { get; }
 
         public override void AnimationStopped(CAAnimation animation, bool finished) {
             if (Interlocked.Exchange(ref stripped, 1) == 1) {
                 return;
             }
             _ = WithoutAnimation(() => {
-                layer.RemoveAnimation(key: key);
+                layer.RemoveAnimation(key: Key);
+                _ = CosmeticDelegateStore.Release(layer: layer, key: Key);
                 layer.RemoveFromSuperLayer();
             });
             _ = completion.IfSome(run => run());
         }
 
         internal bool TryClaim() => Interlocked.Exchange(ref stripped, 1) == 0;
+    }
+
+    private static class CosmeticDelegateStore {
+        private static readonly Atom<HashMap<(int Layer, string Key), CosmeticRemove>> Delegates = Atom(value: HashMap<(int Layer, string Key), CosmeticRemove>());
+
+        internal static Option<CosmeticRemove> Find(CALayer layer, string key) =>
+            Delegates.Value.Find(key: StoreKey(layer: layer, key: key));
+
+        internal static Unit Retain(CALayer layer, string key, CosmeticRemove remove) {
+            _ = Delegates.Swap(map => map.SetItem(StoreKey(layer: layer, key: key), remove));
+            return unit;
+        }
+
+        internal static Unit Release(CALayer layer, string key) {
+            _ = Delegates.Swap(map => map.Remove(key: StoreKey(layer: layer, key: key)));
+            return unit;
+        }
+
+        private static (int Layer, string Key) StoreKey(CALayer layer, string key) =>
+            (Layer: RuntimeHelpers.GetHashCode(layer), Key: key);
     }
 
     internal sealed class MotionRunner<TState> where TState : struct, IMotionState<TState> {
@@ -1703,19 +1782,17 @@ internal static class Motion {
         }
 
         private float ResolveFrameDelta() {
+            const float fallback = 1f / 60f;
             if (pacer is not { IsSome: true, Case: Pacer paced }) {
                 return 0f;
             }
             double timestamp = paced.LastTargetTimestamp;
-            if (timestamp <= 0d || lastVsyncTimestamp <= 0d) {
-                if (timestamp > 0d) {
-                    lastVsyncTimestamp = timestamp;
-                }
-                return 0f;
+            if (!double.IsFinite(timestamp) || timestamp <= 0d) {
+                return fallback;
             }
-            float delta = (float)(timestamp - lastVsyncTimestamp);
+            double delta = lastVsyncTimestamp > 0d ? timestamp - lastVsyncTimestamp : fallback;
             lastVsyncTimestamp = timestamp;
-            return delta;
+            return double.IsFinite(delta) && delta > 0d && delta < 1d ? (float)delta : fallback;
         }
 
         // Pacer Resume only on 0→1 edge; ScheduleRedraw fallback relies on Eto coalescing.
@@ -1846,6 +1923,8 @@ internal static class Motion {
         private void RebindLink() {
             CADisplayLink replacement = BindLink(view: view, range: ResolveRange(view: view, explicitRate: explicitRate));
             CADisplayLink previous = Interlocked.Exchange(ref link, replacement);
+            Volatile.Write(ref lastFrameTimestamp, 0d);
+            Volatile.Write(ref lastTargetTimestamp, 0d);
             replacement.Paused = active <= 0;
             previous.Invalidate();
         }

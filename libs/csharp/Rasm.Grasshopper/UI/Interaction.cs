@@ -63,14 +63,8 @@ public partial record TooltipOp {
     public sealed record StatusCase : TooltipOp;
     public sealed record LayoutCase : TooltipOp;
 
-    public static TooltipOp Show(IIcon icon, string caption, string message, bool warnings = false, bool errors = false) =>
-        new ShowCase(Icon: icon, Caption: caption, Message: message, Body: TooltipBody.Plain, Warnings: warnings, Errors: errors);
-    public static TooltipOp ShowItems(IIcon icon, string caption, string message, GhLazyStrings items, bool warnings = false, bool errors = false) =>
-        new ShowCase(Icon: icon, Caption: caption, Message: message, Body: TooltipBody.FromItems(items: items), Warnings: warnings, Errors: errors);
-    public static TooltipOp ShowPanes(IIcon icon, string caption, string message, Seq<GhLazyStrings> panes, bool warnings = false, bool errors = false) =>
-        new ShowCase(Icon: icon, Caption: caption, Message: message, Body: TooltipBody.FromPanes(panes: panes), Warnings: warnings, Errors: errors);
-    public static TooltipOp ShowPainter(IIcon icon, string caption, string message, TooltipPainter painter, bool warnings = false, bool errors = false) =>
-        new ShowCase(Icon: icon, Caption: caption, Message: message, Body: TooltipBody.FromPainter(painter: painter), Warnings: warnings, Errors: errors);
+    public static TooltipOp Show(IIcon icon, string caption, string message, TooltipBody? body = null, bool warnings = false, bool errors = false) =>
+        new ShowCase(Icon: icon, Caption: caption, Message: message, Body: body ?? TooltipBody.Plain, Warnings: warnings, Errors: errors);
 
     internal GrasshopperUiPolicy UiPolicy => Switch(
         showCase: static _ => GrasshopperUiPolicy.Canvas(),
@@ -119,6 +113,7 @@ public partial record CanvasChromeResult {
     internal static CanvasChromeResult Status(FloatingButtonSnapshot snapshot) => new FloatingButtonStatusCase(Snapshot: snapshot);
 }
 
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct FloatingButtonHandlers(
     Option<FloatingButtonHandler> Click = default,
     Option<FloatingButtonHandler> MouseDown = default,
@@ -126,14 +121,48 @@ public readonly record struct FloatingButtonHandlers(
 
 [SkipUnionOps]
 [Union]
+public partial record FloatingPlacement {
+    private FloatingPlacement() { }
+    public sealed record PositionCase(FloatingPosition Value) : FloatingPlacement;
+    public sealed record AnchorCase(PointF Point) : FloatingPlacement;
+    public sealed record RelativeCase(string AnchorName, PointF Offset) : FloatingPlacement;
+
+    public static FloatingPlacement Position(FloatingPosition value) => new PositionCase(Value: value);
+    public static FloatingPlacement Anchor(PointF point) => new AnchorCase(Point: point);
+    public static FloatingPlacement Relative(string anchorName, PointF offset) => new RelativeCase(AnchorName: anchorName, Offset: offset);
+
+    internal Fin<(FloatingPosition Position, Option<PointF> Anchor)> Resolve(GhCanvas canvas) =>
+        Switch(
+            state: canvas,
+            positionCase: static (_, p) => Fin.Succ(value: (Position: p.Value, Anchor: Option<PointF>.None)),
+            anchorCase: static (_, a) => Op.Of(name: nameof(Anchor)).AcceptPoint(value: a.Point, detail: "non-finite anchor")
+                .Map(point => (Position: FloatingPosition.Anchored, Anchor: Some(point))),
+            relativeCase: static (canvas, r) =>
+                from anchorName in Op.Of(name: nameof(Relative)).AcceptText(value: r.AnchorName)
+                from validOffset in Op.Of(name: nameof(Relative)).AcceptPoint(value: r.Offset, detail: "non-finite offset")
+                from anchor in Optional(canvas.FloatingButtons.FindByName(name: anchorName))
+                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Relative)), detail: $"anchor button '{anchorName}' not found"))
+                select (Position: FloatingPosition.Anchored, Anchor: Some(new PointF(x: anchor.Anchor.X + validOffset.X, y: anchor.Anchor.Y + validOffset.Y))));
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FloatingNumeric(GhUiNumber Value, string ValueKey, Option<Func<decimal, Fin<Unit>>> Changed = default);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FloatingButtonSpec(
+    FloatingPlacement Placement,
+    string Name,
+    string Info,
+    IIcon Icon,
+    Option<Color> Colour = default,
+    FloatingButtonHandlers Handlers = default,
+    Option<FloatingNumeric> Numeric = default);
+
+[SkipUnionOps]
+[Union]
 public partial record FloatingButtonOp {
     private FloatingButtonOp() { }
-    public sealed record AddCase(FloatingPosition Position, string Name, string Info, IIcon Icon, Option<Color> Colour = default, FloatingButtonHandlers Handlers = default) : FloatingButtonOp;
-    public sealed record AddAnchoredCase(PointF Anchor, string Name, string Info, IIcon Icon, Option<Color> Colour = default, FloatingButtonHandlers Handlers = default) : FloatingButtonOp;
-    public sealed record PlaceRelativeCase(string AnchorName, PointF Offset, string Name, string Info, IIcon Icon, Option<Color> Colour = default, FloatingButtonHandlers Handlers = default) : FloatingButtonOp;
-    // FloatingButtonCollection.Add returns void; AddNumeric attaches Add + FindByName + MakeNumeric
-    // atomically and detaches via Close(name) regardless of upgrade-chain progress.
-    public sealed record AddNumericCase(FloatingPosition Position, string Name, string Info, IIcon Icon, GhUiNumber Value, string ValueKey, Option<Color> Colour = default, Option<Func<decimal, Fin<Unit>>> Changed = default) : FloatingButtonOp;
+    public sealed record AddCase(FloatingButtonSpec Spec) : FloatingButtonOp;
     public sealed record ModifyCase(string Name, Option<string> Info = default, Option<IIcon> Icon = default, Option<Color> Colour = default, Option<(PointF Point, bool Immediate)> Anchor = default) : FloatingButtonOp;
     public sealed record ShowNamedCase(Seq<string> Names) : FloatingButtonOp;
     public sealed record HideNamedCase(Seq<string> Names) : FloatingButtonOp;
@@ -142,6 +171,8 @@ public partial record FloatingButtonOp {
     public sealed record FindByNameCase(string Name) : FloatingButtonOp;
     public sealed record FindByPointCase(PointF ControlPoint) : FloatingButtonOp;
     public sealed record StatusCase : FloatingButtonOp;
+
+    public static FloatingButtonOp Add(FloatingButtonSpec spec) => new AddCase(Spec: spec);
 }
 
 [SkipUnionOps]
@@ -155,7 +186,6 @@ public partial record InteractionOp {
     public sealed record HoverCase(TimeSpan Delay, Func<MouseHoverSnapshot, Fin<Unit>> Handler) : InteractionOp;
     public sealed record ContextMenuCase(Func<ContextMenuSnapshot, Fin<Unit>> Handler) : InteractionOp;
     public sealed record StatusCase : InteractionOp;
-    public sealed record ModifierWatchCase(Func<InputModifierSnapshot, Fin<Unit>> Handler) : InteractionOp;
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -278,10 +308,7 @@ internal static class FloatingButton {
 
     internal static GrasshopperUiIntent<CanvasChromeResult> Dispatch(FloatingButtonOp op) =>
         op.Switch(
-            addCase: static a => Add(a.Position, a.Name, a.Info, a.Icon, a.Colour, a.Handlers).Map(CanvasChromeResult.Sub),
-            addAnchoredCase: static a => AddAnchored(a.Anchor, a.Name, a.Info, a.Icon, a.Colour, a.Handlers).Map(CanvasChromeResult.Sub),
-            placeRelativeCase: static p => PlaceRelative(p.AnchorName, p.Offset, p.Name, p.Info, p.Icon, p.Colour, p.Handlers).Map(CanvasChromeResult.Sub),
-            addNumericCase: static a => AddNumeric(a.Position, a.Name, a.Info, a.Icon, a.Value, a.ValueKey, a.Colour, a.Changed).Map(CanvasChromeResult.Sub),
+            addCase: static a => Add(a.Spec).Map(CanvasChromeResult.Sub),
             modifyCase: static m => Modify(m.Name, m.Info, m.Icon, m.Colour, m.Anchor).Map(static _ => CanvasChromeResult.UnitInstance),
             showNamedCase: static s => SetVisible(s.Names, visible: true).Map(static _ => CanvasChromeResult.UnitInstance),
             hideNamedCase: static h => SetVisible(h.Names, visible: false).Map(static _ => CanvasChromeResult.UnitInstance),
@@ -291,88 +318,57 @@ internal static class FloatingButton {
             findByPointCase: static f => FindByPoint(f.ControlPoint).Map(CanvasChromeResult.Found),
             statusCase: static _ => SnapshotNow().Map(CanvasChromeResult.Status));
 
-    // Single attach for all three placement entry points: an anchored placement re-anchors at the resolved
-    // point via AddAnchored, a positioned one docks via Add — the colour/icon/handler plumbing lives once here.
-    private static GrasshopperUiIntent<Subscription> AttachButton(
-        string name, string info, IIcon icon, Option<Color> colour, FloatingButtonHandlers handlers,
-        FloatingPosition position = default, Option<PointF> anchor = default) =>
-        Install(name: name, attach: canvas => {
-            Color? resolvedColour = ColourOf(colour);
-            FloatingButtonHandler click = handlers.Click.IfNone(NoOp);
-            FloatingButtonHandler mouseDown = handlers.MouseDown.IfNone(NoOp);
-            FloatingButtonHandler mouseUp = handlers.MouseUp.IfNone(NoOp);
-            _ = anchor is { IsSome: true, Case: PointF point }
-                ? Op.Side(() => canvas.FloatingButtons.AddAnchored(anchor: point, name: name, info: info, colour: resolvedColour, icon: icon, click: click, mouseDown: mouseDown, mouseUp: mouseUp))
-                : Op.Side(() => canvas.FloatingButtons.Add(position: position, name: name, info: info, colour: resolvedColour, icon: icon, click: click, mouseDown: mouseDown, mouseUp: mouseUp));
-        });
-
-    internal static GrasshopperUiIntent<Subscription> Add(
-        FloatingPosition position, string name, string info, IIcon icon,
-        Option<Color> colour, FloatingButtonHandlers handlers) =>
-        AttachButton(name: name, info: info, icon: icon, colour: colour, handlers: handlers, position: position);
-
-    internal static GrasshopperUiIntent<Subscription> AddAnchored(
-        PointF anchor, string name, string info, IIcon icon,
-        Option<Color> colour, FloatingButtonHandlers handlers) =>
-        GhUi.Canvas(run: scope =>
-            from validAnchor in Op.Of(name: nameof(AddAnchored)).AcceptPoint(value: anchor, detail: "non-finite anchor")
-            from sub in AttachButton(name: name, info: info, icon: icon, colour: colour, handlers: handlers, anchor: Some(validAnchor)).Run(scope: scope)
-            select sub);
-
-    // Resolves the named anchor button's live host Anchor point, offsets it, and re-anchors a new button
-    // there (FloatingButton.Anchor is the canonical PointF; PlaceRelative substitutes for host-private
-    // relative-placement APIs that are not exposed).
-    internal static GrasshopperUiIntent<Subscription> PlaceRelative(
-        string anchorName, PointF offset, string name, string info, IIcon icon,
-        Option<Color> colour, FloatingButtonHandlers handlers) =>
+    internal static GrasshopperUiIntent<Subscription> Add(FloatingButtonSpec spec) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
-            from validOffset in Op.Of(name: nameof(PlaceRelative)).AcceptPoint(value: offset, detail: "non-finite offset")
-            from anchor in Optional(canvas.FloatingButtons.FindByName(name: anchorName))
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PlaceRelative)), detail: $"anchor button '{anchorName}' not found"))
-            let point = new PointF(x: anchor.Anchor.X + validOffset.X, y: anchor.Anchor.Y + validOffset.Y)
-            from sub in AttachButton(name: name, info: info, icon: icon, colour: colour, handlers: handlers, anchor: Some(point)).Run(scope: scope)
+            from placement in Optional(spec.Placement).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Add)), detail: "placement is required"))
+            from icon in Optional(spec.Icon).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Add)), detail: "icon is required"))
+            from name in Op.Of(name: nameof(Add)).AcceptText(value: spec.Name)
+            from _duplicate in Optional(canvas.FloatingButtons.FindByName(name: name)).IsNone
+                ? Fin.Succ(unit)
+                : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Add)), detail: $"button '{name}' already exists"))
+            from resolved in placement.Resolve(canvas: canvas)
+            from sub in AttachButton(
+                canvas: canvas,
+                spec: spec with { Name = name, Info = spec.Info ?? string.Empty, Icon = icon },
+                position: resolved.Position,
+                anchor: resolved.Anchor)
             select sub);
 
-    // The plan-flagged silent fail: FindByName returning null after Add() leaves the button registered
-    // but un-numerified. The throw propagates through Subscription.Bind's Try.lift wrapper and surfaces
-    // as a typed UiFault — caller sees explicit registration failure instead of a half-built control.
-    internal static GrasshopperUiIntent<Subscription> AddNumeric(
-        FloatingPosition position, string name, string info, IIcon icon,
-        GhUiNumber value, string valueKey, Option<Color> colour, Option<Func<decimal, Fin<Unit>>> changed) =>
-        GhUi.Canvas(run: scope =>
-            scope.NeedCanvas().Bind(canvas =>
-                Op.Of(name: nameof(AddNumeric)).Attempt(
-                    body: () => {
-                        canvas.FloatingButtons.Add(
-                            position: position, name: name, info: info,
-                            colour: ColourOf(colour), icon: icon,
-                            click: NoOp, mouseDown: NoOp, mouseUp: NoOp);
-                        return unit;
-                    },
-                    what: "FloatingButton.Add")
-                .Bind(_ => Optional(canvas.FloatingButtons.FindByName(name: name)).Match(
-                    Some: Fin.Succ,
-                    None: () => {
-                        canvas.FloatingButtons.Close(name);
-                        return Fin.Fail<NativeFloatingButton>(error: UiFault.MutationRejected(
-                            op: Op.Of(name: nameof(AddNumeric)),
-                            detail: $"FloatingButton '{name}' was not registered after Add()."));
-                    }))
-                .Bind(registered => Op.Of(name: nameof(AddNumeric)).Attempt(
-                    body: () => { registered.MakeNumeric(number: value, valueKey: valueKey); return unit; },
-                    what: "MakeNumeric").Map(_ => registered))
-                // Numeric chrome was write-only; subscribe ValueChanged inside the token-gated Resource so the
-                // edit callback detaches symmetrically with Close (the button reads its own NumericValue).
-                .Bind(registered => {
-                    EventHandler<FloatingButtonEventArgs<GhUiNumber>>? handler = changed is { IsSome: true, Case: Func<decimal, Fin<Unit>> sink }
+    private static Fin<Subscription> AttachButton(
+        GhCanvas canvas,
+        FloatingButtonSpec spec,
+        FloatingPosition position,
+        Option<PointF> anchor) {
+        NativeFloatingButton? registered = null;
+        EventHandler<FloatingButtonEventArgs<GhUiNumber>>? changed = null;
+        return Resource(
+            name: spec.Name,
+            canvas: canvas,
+            attach: () => {
+                Color? colour = ColourOf(colour: spec.Colour);
+                FloatingButtonHandler click = spec.Handlers.Click.IfNone(NoOp);
+                FloatingButtonHandler mouseDown = spec.Handlers.MouseDown.IfNone(NoOp);
+                FloatingButtonHandler mouseUp = spec.Handlers.MouseUp.IfNone(NoOp);
+                _ = anchor is { IsSome: true, Case: PointF point }
+                    ? Op.Side(() => canvas.FloatingButtons.AddAnchored(anchor: point, name: spec.Name, info: spec.Info, colour: colour, icon: spec.Icon, click: click, mouseDown: mouseDown, mouseUp: mouseUp))
+                    : Op.Side(() => canvas.FloatingButtons.Add(position: position, name: spec.Name, info: spec.Info, colour: colour, icon: spec.Icon, click: click, mouseDown: mouseDown, mouseUp: mouseUp));
+                registered = canvas.FloatingButtons.FindByName(name: spec.Name)
+                    ?? throw new InvalidOperationException(message: $"FloatingButton '{spec.Name}' was not registered after Add().");
+                _ = spec.Numeric.Iter(numeric => {
+                    registered.MakeNumeric(number: numeric.Value, valueKey: numeric.ValueKey);
+                    changed = numeric.Changed is { IsSome: true, Case: Func<decimal, Fin<Unit>> sink }
                         ? (_, _) => _ = GrasshopperUi.Handler(valid: () => registered.NumericValue is GhUiNumber current ? sink(arg: current.Value) : Fin.Succ(value: unit))
                         : null;
-                    return Resource(
-                        name: name, canvas: canvas,
-                        attach: () => _ = Optional(handler).Iter(h => registered.ValueChanged += h),
-                        detach: _ => Optional(handler).Iter(h => registered.ValueChanged -= h));
-                })));
+                    _ = Optional(changed).Iter(handler => registered.ValueChanged += handler);
+                });
+            },
+            detach: _ => {
+                if (registered is not null && changed is not null) {
+                    registered.ValueChanged -= changed;
+                }
+            });
+    }
 
     internal static GrasshopperUiIntent<Unit> Modify(
         string name,
@@ -469,12 +465,6 @@ internal static class FloatingButton {
                 what: "FloatingButtonCollection snapshot")
             select snap);
 
-    private static GrasshopperUiIntent<Subscription> Install(string name, Action<GhCanvas> attach) =>
-        GhUi.Canvas(run: scope =>
-            from canvas in scope.NeedCanvas()
-            from sub in Resource(name: name, canvas: canvas, attach: () => attach(canvas))
-            select sub);
-
     private static Fin<Subscription> Resource(string name, GhCanvas canvas, Action attach, Action<string>? detach = null) =>
         Owners.Bind(
             key: name,
@@ -506,8 +496,7 @@ internal static class Interaction {
             registerCase: static r => Register(r.Responsive, r.System).Map(CanvasChromeResult.Sub),
             hoverCase: static h => Hover(h.Delay, h.Handler).Map(CanvasChromeResult.Sub),
             contextMenuCase: static c => ContextMenu(c.Handler).Map(CanvasChromeResult.Sub),
-            statusCase: static _ => SnapshotNow().Map(static snap => (CanvasChromeResult)new CanvasChromeResult.InteractionStatusCase(Snapshot: snap)),
-            modifierWatchCase: static m => GhUi.Event(uiEvent: UiEvent.KeyboardModifiers(handler: m.Handler)).Map(CanvasChromeResult.Sub));
+            statusCase: static _ => SnapshotNow().Map(static snap => (CanvasChromeResult)new CanvasChromeResult.InteractionStatusCase(Snapshot: snap)));
 
     // PushInteraction only pushes onto FlexControl._focus; the interaction self-terminates by popping
     // itself when complete. There is no public pop-by-reference (UnregisterIResponsive no-ops on an
@@ -536,12 +525,16 @@ internal static class Interaction {
     internal static GrasshopperUiIntent<Subscription> Hover(TimeSpan delay, Func<MouseHoverSnapshot, Fin<Unit>> handler) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
+            from validDelay in delay > TimeSpan.Zero
+                ? Fin.Succ(value: delay)
+                : Fin.Fail<TimeSpan>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Hover)), detail: "hover delay must be positive"))
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hover)), detail: "handler is required"))
             let onHover = (EventHandler<MouseHoverEventArgs>)((_, e) =>
                 _ = GrasshopperUi.Handler(valid: () => valid(arg: new MouseHoverSnapshot(ControlPoint: e.ControlPoint, ContentPoint: e.ContentPoint))))
+            let token = new StrongBox<Guid>()
             from sub in Subscription.Bind(
-                attach: () => { HoverDelayInstall.Enter(canvas: canvas, delay: delay); canvas.MouseHover += onHover; },
-                detach: () => { canvas.MouseHover -= onHover; HoverDelayInstall.Exit(canvas: canvas); },
+                attach: () => { token.Value = HoverDelayInstall.Enter(canvas: canvas, delay: validDelay); canvas.MouseHover += onHover; },
+                detach: () => { canvas.MouseHover -= onHover; HoverDelayInstall.Exit(canvas: canvas, token: token.Value); },
                 marshalToUi: true)
             select sub);
 
@@ -597,27 +590,39 @@ internal sealed class OwnedSubscription<TKey> {
     }
 }
 
-// Per-canvas MouseHoverDelay LIFO stack so nested Hover subscriptions restore the prior delay on exit. Keyed
-// by RuntimeHelpers.GetHashCode(canvas): the identity hash is stable for the canvas's lifetime and is never
-// reused while the canvas is alive, so it identifies the live canvas without retaining a reference to it.
+// Per-canvas MouseHoverDelay ownership keyed by RuntimeHelpers.GetHashCode(canvas): the identity hash is stable
+// for the canvas's lifetime and avoids retaining the live canvas from the static atom.
 file static class HoverDelayInstall {
-    private static readonly Atom<HashMap<int, Seq<TimeSpan>>> Stacks = Atom(value: HashMap<int, Seq<TimeSpan>>());
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct Entry(Guid Token, TimeSpan Delay);
 
-    internal static void Enter(GhCanvas canvas, TimeSpan delay) {
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct State(TimeSpan Baseline, Seq<Entry> Entries);
+
+    private static readonly Atom<HashMap<int, State>> Stacks = Atom(value: HashMap<int, State>());
+
+    internal static Guid Enter(GhCanvas canvas, TimeSpan delay) {
+        Guid token = Guid.NewGuid();
         int key = RuntimeHelpers.GetHashCode(canvas);
-        TimeSpan prior = canvas.MouseHoverDelay;
-        _ = Stacks.Swap(map => map.AddOrUpdate(key, stack => stack + prior, () => Seq(prior)));
+        _ = Stacks.Swap(map => map.AddOrUpdate(
+            key: key,
+            Some: state => state with { Entries = state.Entries + new Entry(Token: token, Delay: delay) },
+            None: () => new State(Baseline: canvas.MouseHoverDelay, Entries: Seq(new Entry(Token: token, Delay: delay)))));
         canvas.MouseHoverDelay = delay;
+        return token;
     }
 
-    // BOUNDARY ADAPTER — Atom.Swap captures the prior stack entry for LIFO restore across concurrent subscriptions.
-    internal static void Exit(GhCanvas canvas) {
+    // BOUNDARY ADAPTER — token removal restores the top remaining delay even when disposals are non-LIFO.
+    internal static void Exit(GhCanvas canvas, Guid token) {
         int key = RuntimeHelpers.GetHashCode(canvas);
-        HashMap<int, Seq<TimeSpan>> prior = Stacks.Swap(map =>
-            map.Find(key).Match(
-                Some: stack => stack.IsEmpty ? map : stack.Init.IsEmpty ? map.Remove(key) : map.SetItem(key, stack.Init),
-                None: () => map));
-        Seq<TimeSpan> oldStack = prior.Find(key).IfNone(Seq<TimeSpan>());
-        canvas.MouseHoverDelay = oldStack.IsEmpty ? canvas.MouseHoverDelay : oldStack.Last();
+        TimeSpan restore = canvas.MouseHoverDelay;
+        _ = Stacks.Swap(map => map.Find(key).Match(
+            Some: state => {
+                Seq<Entry> kept = state.Entries.Filter(entry => entry.Token != token);
+                restore = kept.IsEmpty ? state.Baseline : kept.Last().Delay;
+                return kept.IsEmpty ? map.Remove(key) : map.SetItem(key, state with { Entries = kept });
+            },
+            None: () => map));
+        canvas.MouseHoverDelay = restore;
     }
 }

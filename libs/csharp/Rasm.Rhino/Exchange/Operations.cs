@@ -1,5 +1,6 @@
 using System.Globalization;
 using Rasm.Rhino.Commands;
+using Rasm.Rhino.Events;
 using Rasm.Rhino.UI;
 using Rhino.Collections;
 using Rhino.DocObjects.Tables;
@@ -125,14 +126,6 @@ public abstract partial record HeadlessExchange {
     public sealed record Open(FileEndpoint Source, FileProfile Profile) : HeadlessExchange;
 }
 
-public sealed record FileWatch(
-    Option<Action<DocumentOpenEventArgs>> OnBeginOpen = default,
-    Option<Action<DocumentOpenEventArgs>> OnEndOpen = default,
-    Option<Action<DocumentSaveEventArgs>> OnBeginSave = default,
-    Option<Action<DocumentSaveEventArgs>> OnEndSave = default,
-    Option<Action<DocumentEventArgs>> OnClose = default,
-    Option<Action<DocumentEventArgs>> OnNew = default);
-
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class FileOp {
     internal static Eff<FileRuntime, T> Lift<T>(Func<FileRuntime, Fin<T>> run) =>
@@ -196,8 +189,8 @@ public static class FileOp {
             from result in ui.Use(intent: UiIntent.ExchangeFile(prompt: active))
             select result);
 
-    public static Eff<FileRuntime, IDisposable> Subscribe(FileWatch watch) =>
-        Lift(run: _ => FileWatchSubscription.Of(watch: watch));
+    public static Eff<FileRuntime, IDisposable> Subscribe(WatchTarget target, WatchSpec watch) =>
+        Lift(run: _ => WatchBus.Subscribe(target: target, spec: watch).Map<IDisposable>(static active => active));
 
     // Read concerns — different return shape, so they cannot fold into the Fin<DocumentReceipt> mutation unions.
     public static Eff<FileRuntime, Seq<FileSheetReport>> Sheets(SheetQuery query) =>
@@ -523,28 +516,4 @@ public static class FileEarthOps {
                     _ => Fin.Fail<T>(error: op.InvalidInput()),
                 });
         }));
-}
-
-internal sealed class FileWatchSubscription : IDisposable {
-    private readonly Seq<Action> detachers;
-    private FileWatchSubscription(Seq<Action> detachers) => this.detachers = detachers;
-
-    internal static Fin<IDisposable> Of(FileWatch watch) =>
-        Optional(watch).ToFin(Fail: Op.Of(name: nameof(FileWatchSubscription)).InvalidInput())
-            .Map<IDisposable>(active => new FileWatchSubscription(detachers:
-                Attach(handler: active.OnBeginOpen, add: static h => RhinoDoc.BeginOpenDocument += h, remove: static h => RhinoDoc.BeginOpenDocument -= h)
-                + Attach(handler: active.OnEndOpen, add: static h => RhinoDoc.EndOpenDocument += h, remove: static h => RhinoDoc.EndOpenDocument -= h)
-                + Attach(handler: active.OnBeginSave, add: static h => RhinoDoc.BeginSaveDocument += h, remove: static h => RhinoDoc.BeginSaveDocument -= h)
-                + Attach(handler: active.OnEndSave, add: static h => RhinoDoc.EndSaveDocument += h, remove: static h => RhinoDoc.EndSaveDocument -= h)
-                + Attach(handler: active.OnClose, add: static h => RhinoDoc.CloseDocument += h, remove: static h => RhinoDoc.CloseDocument -= h)
-                + Attach(handler: active.OnNew, add: static h => RhinoDoc.NewDocument += h, remove: static h => RhinoDoc.NewDocument -= h)));
-
-    private static Seq<Action> Attach<TArgs>(Option<Action<TArgs>> handler, Action<EventHandler<TArgs>> add, Action<EventHandler<TArgs>> remove) where TArgs : EventArgs =>
-        handler.Map(action => {
-            void Wrapper(object? _, TArgs args) => action(args);
-            add(Wrapper);
-            return Seq(() => remove(Wrapper));
-        }).IfNone(Seq<Action>());
-
-    public void Dispose() => detachers.Iter(detach => detach()).Ignore();
 }

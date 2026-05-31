@@ -286,7 +286,18 @@ public readonly record struct UiPreviewStyle(
 
             // BOUNDARY ADAPTER — fold Brep per-face render meshes into one owned mesh (returned to Meshed's `using`); source faces disposed here.
             static Mesh? Combine(Mesh[]? parts) => parts is { Length: > 0 } faces ? Append(faces) : null;
-            static Mesh Append(Mesh[] faces) { Mesh joined = new(); joined.Append(meshes: faces); _ = toSeq(faces).Iter(static face => face.Dispose()); return joined; }
+            static Mesh Append(Mesh[] faces) {
+                Mesh joined = new();
+                try {
+                    joined.Append(meshes: faces);
+                    return joined;
+                } catch {
+                    joined.Dispose();
+                    throw;
+                } finally {
+                    _ = toSeq(faces).Iter(static face => face.Dispose());
+                }
+            }
         }
         try {
             return geometry switch {
@@ -553,6 +564,10 @@ public sealed record UiViewportInteraction<TState>(
                             ownsToolTip = true;
                             global::Rhino.UI.MouseCursor.SetToolTip(tooltip: tooltip);
                         }),
+                        _ when ownsToolTip => Op.Side(() => {
+                            ownsToolTip = false;
+                            global::Rhino.UI.MouseCursor.SetToolTip(tooltip: string.Empty);
+                        }),
                         _ => unit,
                     };
                     args.Cancel = context.CanCancelNative switch {
@@ -561,10 +576,10 @@ public sealed record UiViewportInteraction<TState>(
                     };
                     return unit;
                 })
-                .Match(Succ: static _ => unit, Fail: error => {
+                .Match(Succ: static _ => unit, Fail: error => error is Fault.Cancelled ? unit : ((Func<Unit>)(() => {
                     RhinoApp.WriteLine(message: $"{nameof(UiViewportInteraction<>)}: {error}");
                     return Disable();
-                });
+                }))());
         }
 
         private Unit Disable() {

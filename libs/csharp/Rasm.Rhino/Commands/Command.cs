@@ -85,7 +85,7 @@ public sealed record PromptStage<TState, TValue>(
             .Map(preview => Seq(CommandInputPolicy.PointEvents(pointEvent => (pointEvent.Display.IsSome, preview(arg: new PromptPreviewContext<TState>(Stage: context, Event: pointEvent)).Case) switch {
                 (true, UiViewportPreview active) => pointEvent.Preview(preview: active),
                 _ => Fin.Succ(value: unit),
-            })))
+            }, phases: CommandPointEventPhase.Preview)))
             .IfNone(Seq<CommandInputPolicy>());
 
     private Seq<CommandInputPolicy> GumballPolicy(CommandStageContext<TState> context, Atom<Option<PromptTransition<TState>>> transition) =>

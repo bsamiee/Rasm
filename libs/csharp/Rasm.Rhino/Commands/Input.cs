@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
+using Rasm.Rhino.Events;
 using Color = System.Drawing.Color;
 using DrawingPoint = System.Drawing.Point;
 using DrawingRectangle = System.Drawing.Rectangle;
@@ -47,9 +48,19 @@ public abstract partial record PointOnGeometry {
             onBrep: static value => value.Face.PointAt(u: value.U, v: value.V));
 
     internal static Option<PointOnGeometry> Of(GetPoint getter) =>
-        Optional(getter.PointOnCurve(t: out double t)).Map(curve => (PointOnGeometry)new OnCurve(Curve: curve, T: t))
-        | Optional(getter.PointOnSurface(u: out double u, v: out double v)).Map(surface => (PointOnGeometry)new OnSurface(Surface: surface, U: u, V: v))
-        | Optional(getter.PointOnBrep(u: out double bu, v: out double bv)).Map(face => (PointOnGeometry)new OnBrep(Face: face, U: bu, V: bv));
+        Optional(getter)
+            .Bind(valid => Optional(valid.PointOnObject()).Bind(reference => {
+                using ObjRef owned = reference;
+                Curve? curve = owned.CurveParameter(parameter: out double t);
+                Surface? surface = owned.SurfaceParameter(u: out double u, v: out double v);
+                BrepFace? face = owned.Face();
+                return (curve, surface, face) switch {
+                    (Curve c, _, _) when RhinoMath.IsValidDouble(x: t) => Some<PointOnGeometry>(new OnCurve(Curve: c, T: t)),
+                    (_, _, BrepFace f) when RhinoMath.IsValidDouble(x: u) && RhinoMath.IsValidDouble(x: v) => Some<PointOnGeometry>(new OnBrep(Face: f, U: u, V: v)),
+                    (_, Surface s, _) when RhinoMath.IsValidDouble(x: u) && RhinoMath.IsValidDouble(x: v) => Some<PointOnGeometry>(new OnSurface(Surface: s, U: u, V: v)),
+                    _ => Option<PointOnGeometry>.None,
+                };
+            }));
 }
 
 public readonly record struct CommandPointConstraint {
@@ -281,6 +292,7 @@ public sealed record CommandInputPolicy {
         Seq<Action<GetObject>> objectActions = default,
         Seq<Action<GetPoint>> pointActions = default,
         Option<Func<CommandPointEvent, Fin<Unit>>> pointEvents = default,
+        CommandPointEventPhase pointEventPhases = CommandPointEventPhase.None,
         Option<UiGumball> gumball = default,
         Seq<CommandOption> options = default,
         Option<PointSpec> point = default,
@@ -294,13 +306,14 @@ public sealed record CommandInputPolicy {
         bool fullFrameRedraw = false,
         bool literalText = false,
         CommandInputAccept accept = CommandInputAccept.None) {
-        BaseActions = baseActions; ObjectActions = objectActions; PointActions = pointActions; PointEvent = pointEvents; Gumball = gumball; OptionList = options; PointMode = point; TransformMode = transform; ScalarMode = scalar; LimitsMode = bounds; BoxMode = box; ObjectSelection = objectSelection; PromptText = prompt; ColorSeed = colorSeed; FullFrameRedrawDuringGet = fullFrameRedraw; IsLiteralText = literalText; AcceptModes = accept;
+        BaseActions = baseActions; ObjectActions = objectActions; PointActions = pointActions; PointEvent = pointEvents; PointEventPhases = pointEventPhases; Gumball = gumball; OptionList = options; PointMode = point; TransformMode = transform; ScalarMode = scalar; LimitsMode = bounds; BoxMode = box; ObjectSelection = objectSelection; PromptText = prompt; ColorSeed = colorSeed; FullFrameRedrawDuringGet = fullFrameRedraw; IsLiteralText = literalText; AcceptModes = accept;
     }
 
     private Seq<Action<GetBaseClass>> BaseActions { get; }
     private Seq<Action<GetObject>> ObjectActions { get; }
     private Seq<Action<GetPoint>> PointActions { get; }
     internal Option<Func<CommandPointEvent, Fin<Unit>>> PointEvent { get; }
+    internal CommandPointEventPhase PointEventPhases { get; }
     internal Option<UiGumball> Gumball { get; }
     internal Seq<CommandOption> OptionList { get; }
     internal Option<PointSpec> PointMode { get; }
@@ -361,10 +374,10 @@ public sealed record CommandInputPolicy {
             accept: modes);
     public static CommandInputPolicy TransparentCommands(bool enabled = true) => Configure<GetBaseClass>(apply: getter => getter.EnableTransparentCommands(enable: enabled));
     public static CommandInputPolicy Options(params CommandOption[] values) => new(options: toSeq(values));
-    public static CommandInputPolicy PointEvents(Func<CommandPointEvent, Fin<Unit>> change, bool fullFrameRedraw = false) =>
-        Optional(change).Map(apply => new CommandInputPolicy(pointEvents: Some(apply), fullFrameRedraw: fullFrameRedraw)).IfNone(Empty);
+    public static CommandInputPolicy PointEvents(Func<CommandPointEvent, Fin<Unit>> change, CommandPointEventPhase phases = CommandPointEventPhase.All, bool fullFrameRedraw = false) =>
+        Optional(change).Map(apply => new CommandInputPolicy(pointEvents: Some(apply), pointEventPhases: phases, fullFrameRedraw: fullFrameRedraw)).IfNone(Empty);
     public static CommandInputPolicy PointGumball(UiGumball gumball) =>
-        Optional(gumball).Map(active => new CommandInputPolicy(gumball: Some(active), pointEvents: Some<Func<CommandPointEvent, Fin<Unit>>>(static _ => Fin.Succ(value: unit)))).IfNone(Empty);
+        Optional(gumball).Map(active => new CommandInputPolicy(gumball: Some(active), pointEvents: Some<Func<CommandPointEvent, Fin<Unit>>>(static _ => Fin.Succ(value: unit)), pointEventPhases: CommandPointEventPhase.All)).IfNone(Empty);
     public static CommandInputPolicy Transform(Func<RhinoViewport, Point3d, Transform> calculate) =>
         Optional(calculate).Map(project => new CommandInputPolicy(transform: Some(project))).IfNone(Empty);
     public static CommandInputPolicy Objects(CommandObjectSelection selection) =>
@@ -435,7 +448,7 @@ public sealed record CommandInputPolicy {
     public static CommandInputPolicy Add(CommandInputPolicy left, CommandInputPolicy right) {
         ArgumentNullException.ThrowIfNull(argument: left);
         ArgumentNullException.ThrowIfNull(argument: right);
-        return new(baseActions: left.BaseActions + right.BaseActions, objectActions: left.ObjectActions + right.ObjectActions, pointActions: left.PointActions + right.PointActions, pointEvents: Compose(left.PointEvent, right.PointEvent), gumball: Pick(left.Gumball, right.Gumball), options: left.OptionList + right.OptionList, point: Pick(left.PointMode, right.PointMode), transform: Pick(left.TransformMode, right.TransformMode), scalar: Pick(left.ScalarMode, right.ScalarMode), bounds: Pick(left.LimitsMode, right.LimitsMode), box: Pick(left.BoxMode, right.BoxMode), objectSelection: Pick(left.ObjectSelection, right.ObjectSelection), prompt: Pick(left.PromptText, right.PromptText), colorSeed: Pick(left.ColorSeed, right.ColorSeed), fullFrameRedraw: left.FullFrameRedrawDuringGet || right.FullFrameRedrawDuringGet, literalText: left.IsLiteralText || right.IsLiteralText, accept: left.AcceptModes | right.AcceptModes);
+        return new(baseActions: left.BaseActions + right.BaseActions, objectActions: left.ObjectActions + right.ObjectActions, pointActions: left.PointActions + right.PointActions, pointEvents: Compose(left.PointEvent, right.PointEvent), pointEventPhases: left.PointEventPhases | right.PointEventPhases, gumball: Pick(left.Gumball, right.Gumball), options: left.OptionList + right.OptionList, point: Pick(left.PointMode, right.PointMode), transform: Pick(left.TransformMode, right.TransformMode), scalar: Pick(left.ScalarMode, right.ScalarMode), bounds: Pick(left.LimitsMode, right.LimitsMode), box: Pick(left.BoxMode, right.BoxMode), objectSelection: Pick(left.ObjectSelection, right.ObjectSelection), prompt: Pick(left.PromptText, right.PromptText), colorSeed: Pick(left.ColorSeed, right.ColorSeed), fullFrameRedraw: left.FullFrameRedrawDuringGet || right.FullFrameRedrawDuringGet, literalText: left.IsLiteralText || right.IsLiteralText, accept: left.AcceptModes | right.AcceptModes);
     }
 
     internal static CommandInputPolicy Merge(Seq<CommandInputPolicy> policies) =>
@@ -477,8 +490,8 @@ public sealed record CommandInputPolicy {
         private static Option<TValue> ScalarBound<TValue>(object value) where TValue : IComparable<TValue> =>
             value switch {
                 TValue typed => Some(typed),
-                double d when typeof(TValue) == typeof(double) && double.IsFinite(d) => Some((TValue)(object)d),
-                double d when typeof(TValue) == typeof(int) && double.IsFinite(d) && Math.Truncate(d) == d && d >= int.MinValue && d <= int.MaxValue => Some((TValue)(object)(int)d),
+                double d when typeof(TValue) == typeof(double) && RhinoMath.IsValidDouble(x: d) => Some((TValue)(object)d),
+                double d when typeof(TValue) == typeof(int) && RhinoMath.IsValidDouble(x: d) && Math.Truncate(d) == d && d >= int.MinValue && d <= int.MaxValue => Some((TValue)(object)(int)d),
                 int i when typeof(TValue) == typeof(double) => Some((TValue)(object)(double)i),
                 _ => Option<TValue>.None,
             };
@@ -529,7 +542,17 @@ public sealed record CommandInputPolicy {
         select unit;
 }
 
-public enum CommandPointEventPhase { MouseMove, MouseDown, DynamicDraw, PostDrawObjects }
+[Flags]
+public enum CommandPointEventPhase {
+    None = 0,
+    MouseMove = 1,
+    MouseDown = 2,
+    DynamicDraw = 4,
+    PostDrawObjects = 8,
+    Preview = DynamicDraw | PostDrawObjects,
+    Input = MouseMove | MouseDown,
+    All = MouseMove | MouseDown | DynamicDraw | PostDrawObjects,
+}
 
 [Flags] public enum PointerButtons { None = 0, Left = 1, Right = 2, Middle = 4 }
 [Flags] public enum PointerModifiers { None = 0, Shift = 1, Control = 2 }
@@ -687,7 +710,7 @@ public static class CommandInputs {
                     CommandSelection.TrimResult trim => (Value: trim.Require(policy: selection).ToOption().Bind(Cast<T>), Trim: Some(trim)),
                     _ => (Value: Option<T>.None, Trim: Option<CommandSelection.TrimResult>.None),
                 },
-                transition: static (getter, raw, selected) => raw is GetResult.Option ? ((Func<(bool Continue, Option<CommandOptionValue> Selected)>)(() => { getter.EnablePreSelect(enable: false, ignoreUnacceptablePreselectedObjects: true); return (Continue: true, Selected: selected); }))() : (Continue: false, Selected: selected)),
+                transition: static (getter, raw, selected) => raw is GetResult.Option ? ((Func<(bool Continue, Option<CommandOptionValue> Selected)>)(() => { getter.EnablePreSelect(enable: false, ignoreUnacceptablePreselectedObjects: true); return (Continue: false, Selected: selected); }))() : (Continue: false, Selected: selected)),
         };
 
     private static CommandInputRequest<T> Point<T>(CommandInputPolicy policy) {
@@ -736,10 +759,17 @@ public static class CommandInputs {
             Atom<Option<Error>> eventFault = Atom(Option<Error>.None);
             return from configured in configure is Func<TGetter, Fin<Unit>> apply ? apply(arg: getter) : Fin.Succ(value: unit)
                    from applied in policy.Apply(getter: getter)
-                   from events in getter is GetPoint point ? BindPointEvents(document: valid.Document, getter: point, events: policy.PointEvent, gumball: policy.Gumball, fullFrameRedraw: policy.FullFrameRedrawDuringGet, fault: eventFault) : Fin.Succ(value: unit)
-                   from result in CommandOption.Bind(options: policy.OptionList, getter: getter).Bind(scope => {
-                       using CommandOption.Scope active = scope;
-                       return ReadLoop(getter: getter, scope: active, receive: () => receive(arg: getter), project: (g, raw) => project(arg1: valid, arg2: g, arg3: raw), selected: Option<CommandOptionValue>.None, acceptUndo: policy.AcceptsUndo, transition: transition ?? (static (_, _, selected) => (Continue: false, Selected: selected)));
+                   from pointEvents in getter is GetPoint point ? BindPointEvents(document: valid.Document, getter: point, events: policy.PointEvent, phases: policy.PointEventPhases, gumball: policy.Gumball, fullFrameRedraw: policy.FullFrameRedrawDuringGet, fault: eventFault) : Fin.Succ(value: Subscription.Nothing)
+                   from result in Fin.Succ(value: unit).Bind(_ => {
+                       // BOUNDARY ADAPTER — point-event detachers must close even when option binding fails, before the getter disposes.
+                       try {
+                           return CommandOption.Bind(options: policy.OptionList, getter: getter).Bind(scope => {
+                               using CommandOption.Scope active = scope;
+                               return ReadLoop(getter: getter, scope: active, receive: () => receive(arg: getter), project: (g, raw) => project(arg1: valid, arg2: g, arg3: raw), selected: Option<CommandOptionValue>.None, acceptUndo: policy.AcceptsUndo, transition: transition ?? (static (_, _, selected) => (Continue: false, Selected: selected)));
+                           });
+                       } finally {
+                           pointEvents.Dispose();
+                       }
                    })
                    from checkedResult in eventFault.Value.Case switch {
                        Error error => Fin.Fail<CommandInputEvent<T>>(error: error),
@@ -748,28 +778,31 @@ public static class CommandInputs {
                    select checkedResult;
         })), rebind: null, scripted: (input, token) => Script<T>(input: input, token: token, policy: policy));
 
-    private static Fin<Unit> BindPointEvents(RhinoDoc document, GetPoint getter, Option<Func<CommandPointEvent, Fin<Unit>>> events, Option<UiGumball> gumball, bool fullFrameRedraw, Atom<Option<Error>> fault) =>
+    private static Fin<Subscription> BindPointEvents(RhinoDoc document, GetPoint getter, Option<Func<CommandPointEvent, Fin<Unit>>> events, CommandPointEventPhase phases, Option<UiGumball> gumball, bool fullFrameRedraw, Atom<Option<Error>> fault) =>
         events.Map(change => {
+            CommandPointEventPhase activePhases = phases | (fullFrameRedraw ? CommandPointEventPhase.PostDrawObjects : CommandPointEventPhase.None);
             Unit Apply(CommandPointEvent pointEvent) =>
                 UI.RhinoUi.Protect(valid: () => change(arg: pointEvent)).Match(Succ: static _ => unit, Fail: error => {
                     _ = fault.Swap(_ => Some(error));
                     _ = getter.InterruptMouseMove();
                     return unit;
                 });
-            Unit Subscribe<TArgs>(Action<EventHandler<TArgs>> register, CommandPointEventPhase phase, Func<TArgs, (Option<GetPointMouseEventArgs> Mouse, Option<GetPointDrawEventArgs> Draw, Option<DrawEventArgs> Post)> project) {
-                register((_, args) => {
+            Subscription Sub<TArgs>(Action<EventHandler<TArgs>> add, Action<EventHandler<TArgs>> remove, CommandPointEventPhase phase, Func<TArgs, (Option<GetPointMouseEventArgs> Mouse, Option<GetPointDrawEventArgs> Draw, Option<DrawEventArgs> Post)> project) =>
+                Subscription.Attach<TArgs>(active: (activePhases & phase) == phase, subscribe: add, unsubscribe: remove, handle: args => {
                     (Option<GetPointMouseEventArgs> mouse, Option<GetPointDrawEventArgs> draw, Option<DrawEventArgs> post) = project(arg: args);
                     _ = Apply(pointEvent: new CommandPointEvent(Phase: phase, Document: document, Getter: getter, Mouse: mouse, Draw: draw, PostDraw: post, Gumball: gumball));
+                    return Fin.Succ(value: unit);
                 });
-                return unit;
-            }
-            _ = Subscribe<GetPointMouseEventArgs>(h => getter.MouseMove += h, CommandPointEventPhase.MouseMove, static a => (Some(a), Option<GetPointDrawEventArgs>.None, Option<DrawEventArgs>.None));
-            _ = Subscribe<GetPointMouseEventArgs>(h => getter.MouseDown += h, CommandPointEventPhase.MouseDown, static a => (Some(a), Option<GetPointDrawEventArgs>.None, Option<DrawEventArgs>.None));
-            _ = Subscribe<GetPointDrawEventArgs>(h => getter.DynamicDraw += h, CommandPointEventPhase.DynamicDraw, static a => (Option<GetPointMouseEventArgs>.None, Some(a), Option<DrawEventArgs>.None));
-            _ = fullFrameRedraw ? Subscribe<DrawEventArgs>(h => getter.PostDrawObjects += h, CommandPointEventPhase.PostDrawObjects, static a => (Option<GetPointMouseEventArgs>.None, Option<GetPointDrawEventArgs>.None, Some(a))) : unit;
-            getter.FullFrameRedrawDuringGet = fullFrameRedraw;
-            return unit;
-        }).Map(Fin.Succ).IfNone(Fin.Succ(value: unit));
+            bool postDraw = (activePhases & CommandPointEventPhase.PostDrawObjects) == CommandPointEventPhase.PostDrawObjects;
+            getter.FullFrameRedrawDuringGet = postDraw;
+            return Fin.Succ(value:
+                Sub<GetPointMouseEventArgs>(h => getter.MouseMove += h, h => getter.MouseMove -= h, CommandPointEventPhase.MouseMove, static a => (Some(a), Option<GetPointDrawEventArgs>.None, Option<DrawEventArgs>.None))
+                | Sub<GetPointMouseEventArgs>(h => getter.MouseDown += h, h => getter.MouseDown -= h, CommandPointEventPhase.MouseDown, static a => (Some(a), Option<GetPointDrawEventArgs>.None, Option<DrawEventArgs>.None))
+                | Sub<GetPointDrawEventArgs>(h => getter.DynamicDraw += h, h => getter.DynamicDraw -= h, CommandPointEventPhase.DynamicDraw, static a => (Option<GetPointMouseEventArgs>.None, Some(a), Option<DrawEventArgs>.None))
+                | (postDraw
+                    ? Sub<DrawEventArgs>(h => getter.PostDrawObjects += h, h => getter.PostDrawObjects -= h, CommandPointEventPhase.PostDrawObjects, static a => (Option<GetPointMouseEventArgs>.None, Option<GetPointDrawEventArgs>.None, Some(a)))
+                    : Subscription.Nothing));
+        }).IfNone(Fin.Succ(value: Subscription.Nothing));
 
     private static Fin<CommandInputEvent<T>> ReadLoop<TGetter, T>(
         TGetter getter,
@@ -820,9 +853,11 @@ public static class CommandInputs {
     private static Fin<CommandInputEvent<T>> Script<T>(CommandInput input, string token, CommandInputPolicy? policy = null) =>
         from source in Optional(input).ToFin(Fail: Op.Of(name: nameof(Script)).InvalidInput())
         from text in Optional(token).ToFin(Fail: Op.Of(name: nameof(Script)).InvalidInput())
-        from result in CommandOption.Script(options: Optional(policy).IfNone(CommandInputPolicy.Empty).OptionList, token: text).Case switch {
+        let activePolicy = Optional(policy).IfNone(CommandInputPolicy.Empty)
+        from options in CommandOption.Validate(options: activePolicy.OptionList, op: Op.Of(name: nameof(Script)))
+        from result in CommandOption.Script(options: options, token: text).Case switch {
             CommandOptionValue option => Fin.Succ(value: CommandGet<T>.ScriptOption(option: option)),
-            _ => from value in ScriptValue<T>(input: source, text: text, policy: Optional(policy).IfNone(CommandInputPolicy.Empty)).ToFin(Fail: Op.Of(name: nameof(Script)).InvalidResult())
+            _ => from value in ScriptValue<T>(input: source, text: text, policy: activePolicy).ToFin(Fail: Op.Of(name: nameof(Script)).InvalidResult())
                  select CommandGet<T>.Native(result: Result.Success, value: Some(value)),
         }
         select CommandInputEvent<T>.Of(result: result);
@@ -910,7 +945,11 @@ public static class CommandInputs {
 
     private static Option<double> ParseNumber(string text) { StringParserSettings results = null!; return StringParser.ParseNumber(expression: text, max_count: text.Length, settings_in: StringParserSettings.DefaultParseSettings, settings_out: ref results, answer: out double value) == text.Length ? Some(value) : Option<double>.None; }
 
-    private static Option<double> ParseLength(string text, UnitSystem units) { LengthValue value = LengthValue.Create(s: text, ps: StringParserSettings.DefaultParseSettings, parsedAll: out bool parsedAll); try { return parsedAll && !value.IsUnset() ? Some(value.Length(units: units)) : Option<double>.None; } finally { value.Dispose(); } }
+    private static Option<double> ParseLength(string text, UnitSystem units) {
+        // BOUNDARY ADAPTER — LengthValue is native disposable state; `using` releases it on every return path.
+        using LengthValue value = LengthValue.Create(s: text, ps: StringParserSettings.DefaultParseSettings, parsedAll: out bool parsedAll);
+        return parsedAll && !value.IsUnset() ? Some(value.Length(units: units)) : Option<double>.None;
+    }
 
     private static Option<double> ParseAngle(string text, AngleUnitSystem units) { StringParserSettings results = null!; AngleUnitSystem parsed = AngleUnitSystem.None; return StringParser.ParseAngleExpession(text, 0, text.Length, StringParserSettings.DefaultParseSettings, units, out double value, ref results, ref parsed) == text.Length ? Some(value) : Option<double>.None; }
 

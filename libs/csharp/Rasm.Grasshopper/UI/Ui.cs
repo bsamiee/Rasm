@@ -78,19 +78,6 @@ public partial record RepaintRequest {
         };
 }
 
-// Auto: caller commits via UiRail.CommitActions OR native path records no undo (wire selection mirrors ObjectList.SelectWire).
-// Manual: caller-supplied record delegate captures the action list.
-[SkipUnionOps]
-[Union]
-internal partial record UndoStrategy {
-    private UndoStrategy() { }
-    public sealed record AutoCase : UndoStrategy;
-    public sealed record ManualCase(Func<GrasshopperUi.Scope, UndoEntry> Record) : UndoStrategy;
-
-    public static readonly UndoStrategy Auto = new AutoCase();
-    public static UndoStrategy Manual(Func<GrasshopperUi.Scope, UndoEntry> record) => new ManualCase(Record: record);
-}
-
 [SmartEnum<int>]
 public sealed partial class SubscriptionTeardown {
     public static readonly SubscriptionTeardown RunAlways = new(key: 0);
@@ -315,9 +302,17 @@ public abstract record GhUiRequest<T> {
 
 // One generic request collapses the per-file CanvasRequest/DocumentRequest/... `Run` wrappers:
 // PolicyOf reads the op's policy, DispatchOf routes to the owning service's dispatch.
-internal sealed record OpRequest<TOp, TResult>(TOp Op, Func<TOp, GrasshopperUiPolicy> PolicyOf, Func<GrasshopperUi.Scope, TOp, Fin<TResult>> DispatchOf) : GhUiRequest<TResult> {
-    internal override GrasshopperUiPolicy Policy => PolicyOf(arg: Op);
-    internal override Fin<TResult> Apply(GrasshopperUi.Scope scope) => DispatchOf(arg1: scope, arg2: Op);
+internal sealed record OpRequest<TOp, TResult>(TOp Request, Func<TOp, GrasshopperUiPolicy> PolicyOf, Func<GrasshopperUi.Scope, TOp, Fin<TResult>> DispatchOf) : GhUiRequest<TResult> {
+    internal override GrasshopperUiPolicy Policy =>
+        Optional(PolicyOf)
+            .Bind(policy => Optional(Request).Map(policy))
+            .IfNone(GrasshopperUiPolicy.Read);
+
+    internal override Fin<TResult> Apply(GrasshopperUi.Scope scope) =>
+        from validOp in Optional(Request).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: typeof(TOp).Name), detail: "request op is required"))
+        from dispatch in Optional(DispatchOf).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: typeof(TOp).Name), detail: "dispatch delegate is required"))
+        from result in dispatch(arg1: scope, arg2: validOp)
+        select result;
 }
 
 // --- [ERRORS] -----------------------------------------------------------------------------
@@ -452,19 +447,19 @@ public static class GhUi {
                 run: _ => Fin.Fail<T>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Apply)), detail: "request is required")),
                 policy: GrasshopperUiPolicy.Read));
 
-    public static GrasshopperUiIntent<CanvasResult> Canvas(CanvasOp op) => Apply(request: new OpRequest<CanvasOp, CanvasResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UiRail.CanvasDispatch(scope: scope, op: o)));
-    public static GrasshopperUiIntent<DocumentResult> Document(DocumentOp op) => Apply(request: new OpRequest<DocumentOp, DocumentResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.Document.Dispatch(scope: scope, op: o)));
-    public static GrasshopperUiIntent<EditorResult> Editor(EditorOp op) => Apply(request: new OpRequest<EditorOp, EditorResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (_, o) => UI.Editor.Dispatch(op: o)));
-    public static GrasshopperUiIntent<LayoutResult> Layout(LayoutOp op) => Apply(request: new OpRequest<LayoutOp, LayoutResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.Layout.Dispatch(scope: scope, op: o)));
-    public static GrasshopperUiIntent<WireResult> Wire(WireOp op) => Apply(request: new OpRequest<WireOp, WireResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.Wire.Dispatch(op: o).Run(scope: scope)));
+    public static GrasshopperUiIntent<CanvasResult> Canvas(CanvasOp op) => Apply(request: new OpRequest<CanvasOp, CanvasResult>(Request: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UiRail.CanvasDispatch(scope: scope, op: o)));
+    public static GrasshopperUiIntent<DocumentResult> Document(DocumentOp op) => Apply(request: new OpRequest<DocumentOp, DocumentResult>(Request: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.Document.Dispatch(scope: scope, op: o)));
+    public static GrasshopperUiIntent<EditorResult> Editor(EditorOp op) => Apply(request: new OpRequest<EditorOp, EditorResult>(Request: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (_, o) => UI.Editor.Dispatch(op: o)));
+    public static GrasshopperUiIntent<LayoutResult> Layout(LayoutOp op) => Apply(request: new OpRequest<LayoutOp, LayoutResult>(Request: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.Layout.Dispatch(scope: scope, op: o)));
+    public static GrasshopperUiIntent<WireResult> Wire(WireOp op) => Apply(request: new OpRequest<WireOp, WireResult>(Request: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.Wire.Dispatch(op: o).Run(scope: scope)));
     public static GrasshopperUiIntent<T> Input<T>(InputRequest<T> request) => Apply(request: request);
     public static GrasshopperUiIntent<T> Paint<T>(PaintRequest<T> request) => Apply(request: request);
     public static GrasshopperUiIntent<T> Motion<T>(MotionRequest<T> request) => Apply(request: request);
-    public static GrasshopperUiIntent<CanvasChromeResult> CanvasChrome(CanvasChromeOp op) => Apply(request: new OpRequest<CanvasChromeOp, CanvasChromeResult>(Op: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.CanvasChrome.Dispatch(op: o).Run(scope: scope)));
+    public static GrasshopperUiIntent<CanvasChromeResult> CanvasChrome(CanvasChromeOp op) => Apply(request: new OpRequest<CanvasChromeOp, CanvasChromeResult>(Request: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.CanvasChrome.Dispatch(op: o).Run(scope: scope)));
     public static GrasshopperUiIntent<CanvasChromeResult> Tooltip(TooltipOp op) => CanvasChrome(CanvasChromeOp.Tooltip(op: op));
     public static GrasshopperUiIntent<CanvasChromeResult> FloatingButton(FloatingButtonOp op) => CanvasChrome(CanvasChromeOp.FloatingButton(op: op));
     public static GrasshopperUiIntent<CanvasChromeResult> Interaction(InteractionOp op) => CanvasChrome(CanvasChromeOp.Interaction(op: op));
-    public static GrasshopperUiIntent<Subscription> Event(UiEvent uiEvent) => Apply(request: new OpRequest<UiEvent, Subscription>(Op: uiEvent, PolicyOf: static e => e.UiPolicy, DispatchOf: static (scope, e) => Events.Subscribe(uiEvent: e).Run(scope: scope)));
+    public static GrasshopperUiIntent<Subscription> Event(UiEvent uiEvent) => Apply(request: new OpRequest<UiEvent, Subscription>(Request: uiEvent, PolicyOf: static e => e.UiPolicy, DispatchOf: static (scope, e) => Events.Subscribe(uiEvent: e).Run(scope: scope)));
 
     public static GrasshopperUiIntent<T> Group<T>(string verb, string noun, GrasshopperUiIntent<T> body) =>
         Optional(body).Match(
@@ -504,9 +499,14 @@ public readonly record struct CanvasSkin(Skin Effective, Skin Lit, Skin Dim) {
 public sealed partial record GrasshopperUi {
     private static readonly Atom<Seq<Error>> HandlerFaultSink = Atom(value: Seq<Error>());
 
-    internal static int HandlerFaultCount => HandlerFaultSink.Value.Count;
+    public static int HandlerFaultCount => HandlerFaultSink.Value.Count;
 
-    internal static Seq<Error> HandlerFaults => HandlerFaultSink.Value;
+    public static Seq<Error> HandlerFaults => HandlerFaultSink.Value;
+
+    public static Unit ClearHandlerFaults() {
+        _ = HandlerFaultSink.Swap(static _ => Seq<Error>());
+        return unit;
+    }
 
     // Host-callback boundary: a faulted UI handler is swallowed because native callbacks have no return rail;
     // keep the fault observable for bridge/spec validation and diagnostics.
@@ -579,44 +579,6 @@ public sealed partial record GrasshopperUi {
                     value: outcome.Value))
         select result;
 
-    internal static GrasshopperUiIntent<Snapshot<TDelta>> Mutate<TDelta>(
-        Op op,
-        Func<Scope, Fin<TDelta>> mutate,
-        UndoStrategy undo,
-        RepaintRequest? repaint = null) =>
-            GhUi.Document(
-                repaint: repaint,
-                run: scope =>
-                    from delta in Optional(mutate).ToFin(Fail: UiFault.InvalidInput(op: op, detail: "null delegate")).Bind(m => m(arg: scope))
-                    from _ in RecordUndo(scope: scope, op: op, undo: undo)
-                    select Snapshot.Of(payload: delta, ownerId: scope.Document.Map(d => d.Hash)));
-
-    // Cancellation is re-checked between recording the manual undo entry and History.Do, so a cancel
-    // cannot leave the document mutated without a matching undo entry.
-    private static Fin<Unit> RecordUndo(Scope scope, Op op, UndoStrategy undo) =>
-        undo switch {
-            UndoStrategy.AutoCase => Fin.Succ(value: unit),
-            UndoStrategy.ManualCase manual =>
-                from document in scope.NeedDocument()
-                from entry in Try.lift(f: () => manual.Record(arg: scope))
-                    .Run()
-                    .MapFail(error => UiFault.MutationRejected(op: op, detail: $"manual undo recording threw: {error.Message}"))
-                from _cancel in scope.Cancellation.IsCancellationRequested
-                    ? Fin.Fail<Unit>(error: UiFault.MutationRejected(op: op, detail: "cancelled before undo recording; document mutated without undo entry"))
-                    : Fin.Succ(value: unit)
-                from committed in Try.lift(f: () => {
-                    _ = scope.UndoGroup
-                        .Map(bag => entry.Actions.Iter(action => bag.Add(action: action)))
-                        .IfNone(() => Optional(entry)
-                            .Filter(static e => e.Actions.Count > 0)
-                            .Map(e => { document.Undo.Do(name: e.Name, actions: e.AsList()); return unit; })
-                            .IfNone(unit));
-                    return unit;
-                }).Run().MapFail(error => UiFault.MutationRejected(op: op, detail: $"History.Do threw: {error.Message}"))
-                select committed,
-            _ => Fin.Fail<Unit>(error: UiFault.MutationRejected(op: op, detail: "unknown undo strategy")),
-        };
-
     internal static Fin<T> OnUiThread<T>(Func<Fin<T>> run, CancellationToken cancellation = default) =>
         Optional(run)
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(OnUiThread)), detail: "null delegate"))
@@ -627,24 +589,32 @@ public sealed partial record GrasshopperUi {
             });
 
     private static Fin<T> Marshal<T>(Func<Fin<T>> valid, CancellationToken cancellation) =>
-        Try.lift<Fin<T>>(f: () => cancellation.IsCancellationRequested
-            ? Fin.Fail<T>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Marshal))))
-            : Application.Instance.Invoke(func: () => Protect(valid: valid)))
+        from app in NeedApplication(op: Op.Of(name: nameof(Marshal)))
+        from result in Try.lift<Fin<T>>(f: () => cancellation.IsCancellationRequested
+                ? Fin.Fail<T>(error: UiFault.Cancelled(op: Op.Of(name: nameof(Marshal))))
+                : app.Invoke(func: () => Protect(valid: valid)))
             .Run()
             .MapFail(error => UiFault.ThreadMarshal(detail: $"Application.Invoke threw: {error.Message}"))
-            .Bind(static result => result);
+            .Bind(static result => result)
+        select result;
 
     internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
         Try.lift<Fin<T>>(f: valid).Run().MapFail(error => UiFault.ThreadMarshal(detail: $"{name}: {error.Message}")).Bind(static result => result);
 
     internal static Fin<Unit> DetachOnUiThread(System.Action run) =>
         Optional(run).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DetachOnUiThread)), detail: "null delegate"))
-            .Bind(valid => RhinoApp.IsOnMainThread
-                ? Protect(valid: () => { valid(); return Fin.Succ(value: unit); })
-                : Try.lift(f: () => {
-                    Application.Instance.AsyncInvoke(action: () => Protect(valid: () => { valid(); return Fin.Succ(value: unit); }).Ignore());
-                    return unit;
-                }).Run().MapFail(error => UiFault.ThreadMarshal(detail: $"AsyncInvoke threw: {error.Message}")));
+            .Bind(valid =>
+                RhinoApp.IsOnMainThread
+                    ? Protect(valid: () => { valid(); return Fin.Succ(value: unit); })
+                    : from app in NeedApplication(op: Op.Of(name: nameof(DetachOnUiThread)))
+                      from result in Try.lift(f: () => {
+                          app.AsyncInvoke(action: () => Handler(valid: () => Protect(valid: () => { valid(); return Fin.Succ(value: unit); })));
+                          return unit;
+                      }).Run().MapFail(error => UiFault.ThreadMarshal(detail: $"AsyncInvoke threw: {error.Message}"))
+                      select result);
+
+    internal static Fin<Application> NeedApplication(Op op) =>
+        Optional(Application.Instance).ToFin(Fail: UiFault.ThreadMarshal(detail: $"{op}: Eto Application.Instance is not initialized"));
 
     internal static T Repaint<T>(Scope scope, GrasshopperUiPolicy policy, T value) {
         _ = policy.RepaintOrNone.ApplyTo(scope: scope);
@@ -658,10 +628,10 @@ public sealed partial record GrasshopperUi {
 
 // Lightweight Eto panel host for DrawPlan outside the GH canvas paint cycle.
 internal sealed class FloatingForm : Form {
-    internal FloatingForm(Option<Window> owner) {
+    internal FloatingForm(Application app, Option<Window> owner) {
         ShowInTaskbar = false;
         Resizable = false;
         WindowStyle = WindowStyle.Default;
-        Owner = owner.IfNone(() => Application.Instance.MainForm);
+        Owner = owner.IfNone(() => app.MainForm);
     }
 }

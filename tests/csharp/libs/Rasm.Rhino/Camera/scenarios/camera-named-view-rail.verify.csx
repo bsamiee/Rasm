@@ -1,4 +1,5 @@
 using System;
+using Rasm.Rhino;
 using Rasm.Rhino.Camera;
 using Rasm.Rhino.Commands;
 using Rhino;
@@ -88,7 +89,7 @@ Scenario.Run("camera-named-view-rail", CAPTURE_PATH, (key, facts) => {
     scope.Active.Views.Redraw();
     System.Drawing.Bitmap raster = Probe.Expect(
         camera.RunValue(
-            operation: CameraOps.CaptureBitmap(new CameraCapture(Size: new System.Drawing.Size(width: 320, height: 240), Dpi: 96, Raster: true)),
+            operation: CameraOps.CaptureBitmap(new CaptureRecipe(Size: Some(new System.Drawing.Size(width: 320, height: 240)), Dpi: Some(96d), Raster: true)),
             target: target),
         "raster capture");
     using (raster) {
@@ -97,20 +98,35 @@ Scenario.Run("camera-named-view-rail", CAPTURE_PATH, (key, facts) => {
         Probe.Require(raster.Width > 0 && raster.Height > 0, "raster bitmap non-empty");
     }
 
-    // --- four-flag named restore policy is authoritative (A2) ---
-    Probe.Expect(
-        camera.RunValue(
-            operation: CameraOps.RestoreNamed(name: viewName, restore: new NamedRestorePolicy(CPlane: true, Projection: true, Clipping: true, Display: true)),
-            target: target),
-        "restore named with four-flag policy");
-    facts.Add("restore.cplane", Rhino.ApplicationSettings.ViewSettings.DefinedViewSetCPlane);
-    facts.Add("restore.projection", Rhino.ApplicationSettings.ViewSettings.DefinedViewSetProjection);
-    facts.Add("restore.clipping", Rhino.ApplicationSettings.ViewSettings.DefinedViewSetClippingPlanes);
-    facts.Add("restore.display", Rhino.ApplicationSettings.ViewSettings.DefinedViewSetDisplayMode);
-    Probe.Require(
-        Rhino.ApplicationSettings.ViewSettings.DefinedViewSetCPlane
-            && Rhino.ApplicationSettings.ViewSettings.DefinedViewSetProjection
-            && Rhino.ApplicationSettings.ViewSettings.DefinedViewSetClippingPlanes
-            && Rhino.ApplicationSettings.ViewSettings.DefinedViewSetDisplayMode,
-        "all four restore flags set authoritatively");
+    // --- four-flag named restore policy is scoped to the native restore call (A2) ---
+    bool savedCPlane = Rhino.ApplicationSettings.ViewSettings.DefinedViewSetCPlane;
+    bool savedProjection = Rhino.ApplicationSettings.ViewSettings.DefinedViewSetProjection;
+    bool savedClipping = Rhino.ApplicationSettings.ViewSettings.DefinedViewSetClippingPlanes;
+    bool savedDisplay = Rhino.ApplicationSettings.ViewSettings.DefinedViewSetDisplayMode;
+    try {
+        Rhino.ApplicationSettings.ViewSettings.DefinedViewSetCPlane = false;
+        Rhino.ApplicationSettings.ViewSettings.DefinedViewSetProjection = false;
+        Rhino.ApplicationSettings.ViewSettings.DefinedViewSetClippingPlanes = false;
+        Rhino.ApplicationSettings.ViewSettings.DefinedViewSetDisplayMode = false;
+        Probe.Expect(
+            camera.RunValue(
+                operation: CameraOps.RestoreNamed(name: viewName, restore: new NamedRestorePolicy(CPlane: true, Projection: true, Clipping: true, Display: true)),
+                target: target),
+            "restore named with four-flag policy");
+        facts.Add("restore.cplane.after", Rhino.ApplicationSettings.ViewSettings.DefinedViewSetCPlane);
+        facts.Add("restore.projection.after", Rhino.ApplicationSettings.ViewSettings.DefinedViewSetProjection);
+        facts.Add("restore.clipping.after", Rhino.ApplicationSettings.ViewSettings.DefinedViewSetClippingPlanes);
+        facts.Add("restore.display.after", Rhino.ApplicationSettings.ViewSettings.DefinedViewSetDisplayMode);
+        Probe.Require(
+            !Rhino.ApplicationSettings.ViewSettings.DefinedViewSetCPlane
+                && !Rhino.ApplicationSettings.ViewSettings.DefinedViewSetProjection
+                && !Rhino.ApplicationSettings.ViewSettings.DefinedViewSetClippingPlanes
+                && !Rhino.ApplicationSettings.ViewSettings.DefinedViewSetDisplayMode,
+            "restore policy restores global flags after native restore");
+    } finally {
+        Rhino.ApplicationSettings.ViewSettings.DefinedViewSetCPlane = savedCPlane;
+        Rhino.ApplicationSettings.ViewSettings.DefinedViewSetProjection = savedProjection;
+        Rhino.ApplicationSettings.ViewSettings.DefinedViewSetClippingPlanes = savedClipping;
+        Rhino.ApplicationSettings.ViewSettings.DefinedViewSetDisplayMode = savedDisplay;
+    }
 });

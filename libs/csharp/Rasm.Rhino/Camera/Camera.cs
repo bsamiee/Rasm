@@ -12,6 +12,8 @@ public abstract partial record RedrawRequest {
     public sealed record DetailCommit : RedrawRequest;
     public sealed record Deferred : RedrawRequest;
 
+    // Base-typed no-op accessor (distinct role from the `None` case): folds, ternary seeds, and default redraws need
+    // a `RedrawRequest`-typed value, which `new None()` (case-typed) cannot supply without a cast at every site.
     public static RedrawRequest Empty { get; } = new None();
 
     public static RedrawRequest operator |(RedrawRequest left, RedrawRequest right) =>

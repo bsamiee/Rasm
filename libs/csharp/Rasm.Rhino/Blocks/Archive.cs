@@ -30,7 +30,7 @@ public static class Archive {
             .Bind(active => op.Catch(() => Build(active: active, anchorDirectory: anchor, op: op)));
     }
     private static Fin<Graph> Build(File3dm active, Option<string> anchorDirectory, Op op) =>
-        from defs in toSeq(active.AllInstanceDefinitions)
+        from defs in Rows(() => active.AllInstanceDefinitions)
             .Map(geo => Definition.From(definition: geo, anchorDirectory: anchorDirectory, key: op))
             .TraverseM(identity).As()
         select Compose(active: active, definitions: defs, anchorDirectory: anchorDirectory, key: op);
@@ -127,7 +127,6 @@ public static class Archive {
             Succ: graph => ArchivePath.From(value: here, key: key).Match(
                 Fail: _ => Fin.Succ(state),
                 Succ: anchorPath => toSeq(graph.LinkedArchives)
-                    .Filter(link => !visited.Contains(key: IOPath.GetFullPath(path: link.Full.Value)))
                     .Fold(
                         initialState: Fin.Succ(state),
                         f: (stateFin, link) => stateFin.Bind(acc => WalkEdge(
@@ -310,7 +309,7 @@ public static class Archive {
                         ? (leaf, parentXform) => leaf.Geometry is GeometryBase g
                             ? Seq(new DefinitionWalkNode(
                                 Reach: Option<ReachInsert>.None,
-                                Flat: Some(new FlatPiece(Geometry: g, Composed: parentXform, Path: frame.Path))))
+                                Flat: Some(new FlatPiece(Geometry: g, Composed: parentXform, Path: nextPath))))
                             : Seq<DefinitionWalkNode>()
                         : null);
         }).IfNone(Seq<DefinitionWalkNode>());
@@ -401,27 +400,43 @@ public static class Archive {
                 nested: nested);
     }
     internal static Seq<ArchiveLink> LinkedSources(File3dm model, Option<string> anchorDirectory, Op key) =>
-        toSeq(model.AllInstanceDefinitions)
+        Rows(() => model.AllInstanceDefinitions)
             .Choose(def => Definition.NonBlank(value: def.SourceArchive)
                 .Bind(raw => ArchiveLink.Resolve(raw: raw, anchorDirectory: anchorDirectory, key: key).ToOption()));
     private static Graph Compose(File3dm active, Seq<Definition> definitions, Option<string> anchorDirectory, Op key) {
-        Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> topLevel = toSeq(active.Objects)
-            .Choose(o => o.Geometry switch {
+        Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> topLevel = Rows(() => active.Objects)
+            .Choose(o => Native(() => o.Geometry).Bind(geometry => geometry switch {
                 InstanceReferenceGeometry { ParentIdefId: var parentId } r when parentId != Guid.Empty =>
-                    Some((o.Attributes.ObjectId, Reference: r)),
+                    Native(() => o.Attributes).Map(attributes => (attributes.ObjectId, Reference: r)),
                 _ => Option<(Guid ObjectId, InstanceReferenceGeometry Reference)>.None,
-            });
+            }));
         Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)> memberRefs = definitions.Bind((Definition snap) =>
             toSeq(snap.MemberIds).Bind((Guid memberId) =>
-                Optional(active.Objects.FindId(id: memberId)).Case switch {
-                    File3dmObject member when member.Geometry is InstanceReferenceGeometry reference =>
-                        Seq((ObjectId: memberId, Reference: (InstanceReferenceGeometry)reference.Duplicate())),
-                    _ => Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>(),
-                }));
+                Native(() => active.Objects)
+                    .Bind(objects => Native(() => objects.FindId(id: memberId))).Case switch {
+                        File3dmObject member when Native(() => member.Geometry).Case is InstanceReferenceGeometry reference =>
+                            Seq((ObjectId: memberId, Reference: (InstanceReferenceGeometry)reference.Duplicate())),
+                        _ => Seq<(Guid ObjectId, InstanceReferenceGeometry Reference)>(),
+                    }));
+        LanguageExt.HashSet<Guid> memberIds = definitions
+            .Bind(static definition => toSeq(definition.MemberIds))
+            .Fold(LanguageExt.HashSet<Guid>.Empty, static (ids, id) => ids.Add(key: id));
         return ComposeFrom(
             definitions: definitions,
-            source: _ => topLevel + memberRefs,
+            source: _ => topLevel.Filter(instance => !memberIds.Contains(key: instance.ObjectId)) + memberRefs,
             linkedArchives: LinkedArchives(definitions: definitions, model: Some(active), anchorDirectory: anchorDirectory, key: key));
+    }
+
+    private static Seq<T> Rows<T>(IEnumerable<T>? source) =>
+        source is null ? Seq<T>() : toSeq(source).Filter(static item => item is not null);
+    private static Seq<T> Rows<T>(Func<IEnumerable<T>?> read) =>
+        Native(read: read).Map(source => Rows(source: source)).IfNone(Seq<T>());
+    private static Option<T> Native<T>(Func<T> read) {
+        try {
+            return Optional(read()).Filter(static value => value is not null);
+        } catch (NullReferenceException) {
+            return Option<T>.None;
+        }
     }
     // ---- [BAKE PLAN] (Speckle topological-sort pattern) ----------------------------------
     /// Topologically-sorted bake order; depth = longest (def -> nested-def) chain.

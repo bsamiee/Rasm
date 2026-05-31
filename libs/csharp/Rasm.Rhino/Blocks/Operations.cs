@@ -1,4 +1,5 @@
 using Rasm.Rhino.Commands;
+using Rasm.Rhino.Events;
 using Rasm.Rhino.Exchange;
 using Rhino.Collections;
 using Rhino.DocObjects.Custom;
@@ -33,6 +34,8 @@ public abstract partial record BlockOp {
     public sealed record ReloadFromFile(DefinitionRef Ref, FileEndpoint Source, LinkReloadPolicy? Policy = null) : BlockOp;
     public sealed record DetachLinked(BlockFilter? Filter = null) : BlockOp;
     public sealed record ActivateLinkedLayer(BlockFilter? Filter = null) : BlockOp;
+    public sealed record LinkedUpdatePolicy(LinkedPolicy Policy) : BlockOp;
+    public sealed record SkipNestedLinked(DefinitionRef Ref, bool Value) : BlockOp;
     public sealed record BakeArchive(FileEndpoint Source, BakePolicy? Policy = null) : BlockOp;
     public sealed record ValidateArchiveClosure(FileEndpoint Source, ClosureValidationPolicy? Policy = null) : BlockOp;
     public sealed record Export(DefinitionRef Ref, FileEndpoint Target) : BlockOp;
@@ -93,6 +96,8 @@ internal static partial class Operations {
             reloadFromFile: static (o, x) => RunMut(name: nameof(BlockOp.ReloadFromFile), body: k => Mutate(owner: o, refer: x.Ref, mutation: new TableMutation.ReloadFromFile(Source: x.Source, Policy: x.Policy ?? LinkReloadPolicy.NestedQuiet), key: k)),
             detachLinked: static (o, x) => RunMut(name: nameof(BlockOp.DetachLinked), body: k => PerformLinkedFilter(owner: o, filter: x.Filter ?? BlockFilter.All, policy: LinkRefreshPolicy.All, batch: BatchPolicy.Default, key: k, worker: DetachLinkedDefinition)),
             activateLinkedLayer: static (o, x) => RunMut(name: nameof(BlockOp.ActivateLinkedLayer), body: k => PerformLinkedFilter(owner: o, filter: x.Filter ?? BlockFilter.All, policy: LinkRefreshPolicy.All, batch: BatchPolicy.Default, key: k, worker: ApplyLinkedLayerStyle)),
+            linkedUpdatePolicy: static (o, x) => RunMut(name: nameof(BlockOp.LinkedUpdatePolicy), body: k => PerformLinkedUpdatePolicy(owner: o, policy: x.Policy, key: k)),
+            skipNestedLinked: static (o, x) => RunMut(name: nameof(BlockOp.SkipNestedLinked), body: k => PerformSkipNestedLinked(owner: o, refer: x.Ref, value: x.Value, key: k)),
             bakeArchive: static (o, x) => RunMut(name: nameof(BlockOp.BakeArchive), body: k => PerformBakeArchive(owner: o, source: x.Source, policy: x.Policy ?? BakePolicy.Default, key: k)),
             validateArchiveClosure: static (o, x) => RunQry(name: nameof(BlockOp.ValidateArchiveClosure), body: k => PerformValidateArchiveClosure(source: x.Source, policy: x.Policy, key: k)),
             export: static (o, x) => RunMut(name: nameof(BlockOp.Export), body: k => Mutate(owner: o, refer: x.Ref, mutation: new TableMutation.Export(Target: x.Target), key: k)),
@@ -394,10 +399,10 @@ internal static partial class Operations {
             quiet: true))
         from strings in ApplyUserStringsWhenPresent(table: table, idx: idx, strings: patch.UserStrings, key: key)
         from dict in patch.UserDictionary.Case is ArchivableDictionary d
-            ? Optional(table[idx]).ToFin(Fail: key.InvalidResult()).Map(live => {
+            ? Optional(table[idx]).ToFin(Fail: key.InvalidResult()).Bind(_ => {
                 UserDictionary updated = new();
-                _ = updated.Dictionary.ReplaceContentsWith(source: d);
-                return key.Confirm(success: table.Modify(idefIndex: idx, userData: updated, quiet: true));
+                return key.Confirm(success: updated.Dictionary.ReplaceContentsWith(source: d))
+                    .Bind(_ => key.Confirm(success: table.Modify(idefIndex: idx, userData: updated, quiet: true)));
             })
             : Fin.Succ(value: unit)
         select unit;
@@ -595,23 +600,29 @@ internal static partial class Operations {
         };
 
     // ---- [LINK] --------------------------------------------------------------------------
+    private readonly record struct CreatedLink(Guid Id, DocumentResourceChange Change);
+
     private static Fin<MutationReceipt> PerformCreateArchiveLinks(RhinoBlocks owner, Seq<FileEndpoint> sources, LinkCreatePolicy policy, Op key) =>
+        from links in CreateArchiveLinks(owner: owner, sources: sources, policy: policy, key: key)
+        select MutationReceipt.Of(receipt: DocumentReceipt.Empty with { ResourceChanged = links.Map(static link => link.Change) });
+
+    private static Fin<Seq<CreatedLink>> CreateArchiveLinks(RhinoBlocks owner, Seq<FileEndpoint> sources, LinkCreatePolicy policy, Op key) =>
         from admitted in policy.Admit(key: key)
-        from changes in sources
+        from links in sources
             .Map(endpoint => key.Catch(() =>
                 from source in endpoint.Input(op: key)
-                from change in CreateAndAttach(owner: owner, source: source, policy: admitted, key: key)
-                select change))
+                from link in CreateAndAttach(owner: owner, source: source, policy: admitted, key: key)
+                select link))
             .TraverseM(identity).As()
-        select MutationReceipt.Of(receipt: DocumentReceipt.Empty with { ResourceChanged = changes });
+        select links;
 
-    private static Fin<DocumentResourceChange> CreateAndAttach(RhinoBlocks owner, FileEndpoint source, LinkCreatePolicy policy, Op key) {
+    private static Fin<CreatedLink> CreateAndAttach(RhinoBlocks owner, FileEndpoint source, LinkCreatePolicy policy, Op key) {
         string filename = source.Path;
         int idx = AddLinkPlaceholder(
             table: owner.Document.InstanceDefinitions,
             name: owner.Document.InstanceDefinitions.GetUnusedInstanceDefinitionName(root: IOPath.GetFileNameWithoutExtension(path: filename)));
         return idx < 0
-            ? Fin.Fail<DocumentResourceChange>(error: key.InvalidResult(detail: nameof(InstanceDefinitionTable.Add)))
+            ? Fin.Fail<CreatedLink>(error: key.InvalidResult(detail: nameof(InstanceDefinitionTable.Add)))
             : ModifyAndRefreshLinked(
                     owner: owner, index: idx, source: source,
                     policy: policy.EffectiveUpdate,
@@ -623,20 +634,37 @@ internal static partial class Operations {
                     Fail: error => RollbackLink(owner: owner, idx: idx, error: error));
     }
 
-    private static Fin<DocumentResourceChange> RollbackLink(RhinoBlocks owner, int idx, Error error) {
+    private static Fin<CreatedLink> RollbackLink(RhinoBlocks owner, int idx, Error error) {
         _ = owner.Document.InstanceDefinitions.Delete(idefIndex: idx, deleteReferences: true, quiet: true);
         _ = owner.Document.InstanceDefinitions.Purge(idefIndex: idx);
         _ = ContentIndex.EvictDoc(serial: owner.Document.RuntimeSerialNumber);
-        return Fin.Fail<DocumentResourceChange>(error);
+        return Fin.Fail<CreatedLink>(error);
     }
 
-    private static DocumentResourceChange FinalizeLink(RhinoBlocks owner, int index, LayerStyle layer, string filename) {
+    private static CreatedLink FinalizeLink(RhinoBlocks owner, int index, LayerStyle layer, string filename) {
         InstanceDefinition live = owner.Document.InstanceDefinitions[index];
         live.LayerStyle = layer.Native;
         _ = InvalidateDefinition(defId: live.Id, doc: Some(value: owner.Document));
         _ = ContentIndex.EvictDoc(serial: owner.Document.RuntimeSerialNumber);
-        return new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: live.Name ?? filename);
+        return new CreatedLink(Id: live.Id, Change: new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: live.Name ?? filename));
     }
+
+    private static Fin<MutationReceipt> PerformLinkedUpdatePolicy(RhinoBlocks owner, LinkedPolicy policy, Op key) =>
+        from active in Optional(policy).ToFin(Fail: key.InvalidInput())
+        from _ in key.Catch(() => {
+            owner.Document.LinkedInstanceDefinitionUpdate = active.Native;
+            return Fin.Succ(value: unit);
+        })
+        select MutationReceipt.Empty;
+
+    private static Fin<MutationReceipt> PerformSkipNestedLinked(RhinoBlocks owner, DefinitionRef refer, bool value, Op key) =>
+        from pair in Resolve(table: owner.Document.InstanceDefinitions, refer: refer, key: key)
+        from _linked in UpdatePolicy.FromNative(native: pair.Live.UpdateType).RequireLinked(key: key)
+        from _changed in key.Catch(() => {
+            pair.Live.SkipNestedLinkedDefinitions = value;
+            return Fin.Succ(value: unit);
+        })
+        select InvalidateWith(doc: owner.Document, defId: pair.Live.Id, value: MutationReceipt.Named(name: pair.Snap.Name.Value));
 
     private static Fin<MutationReceipt> PerformLinkedFilter(
         RhinoBlocks owner,
@@ -775,14 +803,18 @@ internal static partial class Operations {
     private static Fin<Unit> ReloadLinked(RhinoBlocks owner, int index, string loadPath, bool updateNestedLinks, bool quiet, Op key) {
         InstanceDefinitionTable defs = owner.Document.InstanceDefinitions;
         Fin<InstanceDefinition> atIndex() => Optional(defs[index]).ToFin(Fail: key.InvalidResult(detail: nameof(InstanceDefinitionTable)));
+        static bool Attached(InstanceDefinition live) =>
+            UpdatePolicy.FromNative(native: live.UpdateType).IsLinked
+            && Definition.NonBlank(value: live.SourceArchive).IsSome
+            && ArchiveStatus.FromNative(native: live.ArchiveFileStatus).CanRefresh;
         Seq<Func<InstanceDefinition, bool>> loaders = Seq(
             live => defs.UpdateLinkedInstanceDefinition(idefIndex: index, filename: Definition.NonBlank(value: live.SourceArchive).IfNone(noneValue: loadPath), updateNestedLinks: updateNestedLinks, quiet: quiet),
             defs.RefreshLinkedBlock);
         return loaders
-            .Fold(atIndex().Map(static live => live.ObjectCount >= 1),
+            .Fold(Fin.Succ(value: false),
                 (acc, loader) => acc.Bind(done => done
                     ? Fin.Succ(value: true)
-                    : atIndex().Bind(live => Fin.Succ(value: loader(live))).Bind(_ => atIndex().Map(static reread => reread.ObjectCount >= 1))))
+                    : atIndex().Bind(live => Fin.Succ(value: loader(live))).Bind(_ => atIndex().Map(Attached))))
             .Bind(done => done ? Fin.Succ(value: unit) : ConfirmNative(key: key, step: nameof(InstanceDefinitionTable.RefreshLinkedBlock), success: false));
     }
     private static Fin<MutationReceipt> PerformExportAttributes(RhinoBlocks owner, DefinitionRef refer, FileEndpoint target, Op key) =>
@@ -866,40 +898,60 @@ internal static partial class Operations {
 
     private static Fin<MutationReceipt> PerformBakeArchive(RhinoBlocks owner, FileEndpoint source, BakePolicy policy, Op key) =>
         from endpoint in source.Input(op: key)
-        from model in key.Catch(() => Optional(File3dm.Read(path: endpoint.Path)).ToFin(Fail: key.InvalidInput()))
-        from report in Archive.ValidateArchiveClosure(root: model, rootPath: endpoint.Path, key: key)
-        from _gate in report switch {
-            { Valid: true } => Fin.Succ(value: unit),
-            _ => Fin.Fail<Unit>(error: key.InvalidResult(detail: nameof(BlockOp.BakeArchive))),
-        }
-        from closure in Fin.Succ(value: report.Edges)
-        from graph in Archive.From(model: model, archivePath: Some(endpoint.Path), key: key)
-        from linked in BakeArchiveLinks(owner: owner, closure: closure, policy: policy, key: key)
-        from authored in BakeArchiveDefinitions(owner: owner, model: model, graph: graph, policy: policy, key: key)
-        from placed in policy.RestoreInstancesWhen(place: () => BakeArchiveInstances(owner: owner, graph: graph, key: key))
-        select linked + authored + placed;
+        from result in key.Catch(() => {
+            using File3dm? model = File3dm.Read(path: endpoint.Path);
+            return from active in Optional(model).ToFin(Fail: key.InvalidInput())
+                   from report in Archive.ValidateArchiveClosure(root: active, rootPath: endpoint.Path, key: key)
+                   from _gate in report switch {
+                       { Valid: true } => Fin.Succ(value: unit),
+                       _ => Fin.Fail<Unit>(error: key.InvalidResult(detail: nameof(BlockOp.BakeArchive))),
+                   }
+                   from closure in Fin.Succ(value: report.Edges)
+                   from graph in Archive.From(model: active, archivePath: Some(endpoint.Path), key: key)
+                   from linked in BakeArchiveLinks(owner: owner, graph: graph, closure: closure, policy: policy, key: key)
+                   from authored in BakeArchiveDefinitions(owner: owner, model: active, graph: graph, policy: policy, liveByArchiveId: linked.LiveByArchiveId, key: key)
+                   from placed in policy.RestoreInstancesWhen(place: () => BakeArchiveInstances(owner: owner, graph: graph, key: key))
+                   select linked.Receipt + authored + placed;
+        })
+        select result;
 
     private static Fin<BlockOutcome> PerformValidateArchiveClosure(FileEndpoint source, ClosureValidationPolicy? policy, Op key) =>
         from endpoint in source.Input(op: key)
-        from model in key.Catch(() => Optional(File3dm.Read(path: endpoint.Path)).ToFin(Fail: key.InvalidInput()))
-        from report in Archive.ValidateArchiveClosure(root: model, rootPath: endpoint.Path, policy: policy, key: key)
+        from report in key.Catch(() => {
+            using File3dm? model = File3dm.Read(path: endpoint.Path);
+            return Optional(model).ToFin(Fail: key.InvalidInput())
+                .Bind(active => Archive.ValidateArchiveClosure(root: active, rootPath: endpoint.Path, policy: policy, key: key));
+        })
         select (BlockOutcome)new BlockOutcome.ClosureReport(Value: report);
 
-    private static Fin<MutationReceipt> BakeArchiveLinks(RhinoBlocks owner, Seq<Archive.LinkedArchiveEdge> closure, BakePolicy policy, Op key) =>
+    private sealed record ArchiveLinkBake(MutationReceipt Receipt, HashMap<Guid, Guid> LiveByArchiveId);
+
+    private static Fin<ArchiveLinkBake> BakeArchiveLinks(RhinoBlocks owner, Archive.Graph graph, Seq<Archive.LinkedArchiveEdge> closure, BakePolicy policy, Op key) =>
         toSeq(closure
             .Filter(static edge => edge.Depth == 0)
-            .Map(static edge => edge.Link)
-            .DistinctBy(static link => link.Full.Value))
-            .TraverseM(link => link.ToEndpoint())
+            .DistinctBy(static edge => edge.Link.Full.Value))
+            .TraverseM(edge => edge.Link.ToEndpoint().Map(endpoint => (Edge: edge, Endpoint: endpoint)))
             .As()
             .Bind(sources => sources.IsEmpty
-                ? Fin.Succ(value: MutationReceipt.Empty)
-                : PerformCreateArchiveLinks(owner: owner, sources: sources, policy: policy.EffectiveLink, key: key));
+                ? Fin.Succ(value: new ArchiveLinkBake(Receipt: MutationReceipt.Empty, LiveByArchiveId: HashMap<Guid, Guid>()))
+                : CreateArchiveLinks(owner: owner, sources: sources.Map(static source => source.Endpoint), policy: policy.EffectiveLink, key: key)
+                    .Map(links => {
+                        Archive.LinkedArchiveEdge[] edgeRows = [.. sources.Map(static source => source.Edge)];
+                        CreatedLink[] liveRows = [.. links];
+                        HashMap<string, Guid> liveByPath = toSeq(Enumerable.Range(start: 0, count: liveRows.Length))
+                            .Fold(HashMap<string, Guid>(), (map, index) => map.AddOrUpdate(key: edgeRows[index].Link.Full.Value, value: liveRows[index].Id));
+                        HashMap<Guid, Guid> liveByArchiveId = toSeq(graph.Definitions)
+                            .Choose(definition => definition.Source.Bind(link => liveByPath.Find(key: link.Full.Value).Map(live => (ArchiveId: definition.Id.Value, LiveId: live))))
+                            .Fold(HashMap<Guid, Guid>(), static (map, link) => map.AddOrUpdate(key: link.ArchiveId, value: link.LiveId));
+                        return new ArchiveLinkBake(
+                            Receipt: MutationReceipt.Of(receipt: DocumentReceipt.Empty with { ResourceChanged = links.Map(static link => link.Change) }),
+                            LiveByArchiveId: liveByArchiveId);
+                    }));
 
-    private static Fin<MutationReceipt> BakeArchiveDefinitions(RhinoBlocks owner, File3dm model, Archive.Graph graph, BakePolicy policy, Op key) {
+    private static Fin<MutationReceipt> BakeArchiveDefinitions(RhinoBlocks owner, File3dm model, Archive.Graph graph, BakePolicy policy, HashMap<Guid, Guid> liveByArchiveId, Op key) {
         Seq<Definition> plan = Archive.BakePlan(graph: graph).Filter(static def => !def.IsLinked);
         return plan.Fold(
-            Fin.Succ(value: new BakeArchiveState(Receipt: MutationReceipt.Empty, LiveByArchiveId: HashMap<Guid, Guid>())),
+            Fin.Succ(value: new BakeArchiveState(Receipt: MutationReceipt.Empty, LiveByArchiveId: liveByArchiveId)),
             (stateFin, definition) => stateFin.Bind(state =>
                 BakeArchiveDefinition(
                         owner: owner,
@@ -951,6 +1003,7 @@ internal static partial class Operations {
         graph.Instances.IsEmpty
             ? Fin.Succ(value: MutationReceipt.Empty)
             : toSeq(graph.Instances)
+                .Filter(instance => !toSeq(graph.Definitions).Bind(static definition => toSeq(definition.MemberIds)).Exists(id => id == instance.ObjectId))
                 .Map(instance =>
                     from archiveDef in toSeq(graph.Definitions).Find(d => d.Id == instance.ParentDefId).ToFin(Fail: key.InvalidInput())
                     from live in Optional(owner.Document.InstanceDefinitions.Find(instanceDefinitionName: archiveDef.Name.Value)).ToFin(Fail: key.InvalidInput())
@@ -1128,22 +1181,43 @@ internal static partial class Operations {
         from admitted in spec.Admit(key: key)
         from handle in owner.AcquirePreview(definition: pair.Live, spec: admitted, key: key)
         select (BlockOutcome)new BlockOutcome.Preview(Handle: handle);
-    private static Fin<BlockOutcome> PerformTextFields(RhinoBlocks owner, DefinitionRef refer, Option<Guid> instanceId, Op key) =>
-        from pair in Resolve(table: owner.Document.InstanceDefinitions, refer: refer, key: key)
-        let blockName = pair.Snap.Name.Value
-        let instanceToken = instanceId.Map(static id => id.ToString()).IfNone(noneValue: blockName)
-        let fields = (toSeq([
-                ("BlockName", TextFields.BlockName(blockName)),
-                ("BlockInstanceCount", TextFields.BlockInstanceCount(blockName).ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                ("BlockDescription", TextFields.BlockDescription(blockName)),
-                ("BlockInstanceName", TextFields.BlockInstanceName(instanceToken)),
-                ("InsertionX", TextFields.BlockInsertionCoordinate(instanceToken, Axis.X.Value)),
-                ("InsertionY", TextFields.BlockInsertionCoordinate(instanceToken, Axis.Y.Value)),
-                ("InsertionZ", TextFields.BlockInsertionCoordinate(instanceToken, Axis.Z.Value)),
-            ]) + toSeq(TextFields.GetInstanceAttributeFields(idef: pair.Live) ?? [])
-                .Map(field => ($"Attribute:{field.Key}", TextFields.BlockAttributeText(key: field.Key, prompt: field.Prompt, defaultValue: field.DefaultValue))))
-            .Fold(HashMap<string, string>(), static (m, p) => m.AddOrUpdate(key: p.Item1, value: p.Item2))
-        select (BlockOutcome)new BlockOutcome.Texts(Fields: fields);
+    private static Fin<BlockOutcome> PerformTextFields(RhinoBlocks owner, DefinitionRef refer, Option<Guid> instanceId, Op key) {
+        static string Coordinate(RhinoDoc doc, InstanceObject instance, Func<Point3d, double> axis) {
+            int digits = instance.Attributes.Space == ActiveSpace.PageSpace
+                ? doc.PageDistanceDisplayPrecision
+                : doc.ModelDistanceDisplayPrecision;
+            return Math.Round(axis(arg: instance.InsertionPoint), digits).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        return from pair in Resolve(table: owner.Document.InstanceDefinitions, refer: refer, key: key)
+               from instance in instanceId.Case switch {
+                   Guid id => Optional(owner.Document.Objects.FindId(id: id) as InstanceObject)
+                       .Filter(inst => inst.InstanceDefinition?.Id == pair.Live.Id)
+                       .ToFin(Fail: key.InvalidInput())
+                       .Map(Some),
+                   _ => Fin.Succ(value: Option<InstanceObject>.None),
+               }
+               let blockName = pair.Snap.Name.Value
+               let schema = toSeq(TextFields.GetInstanceAttributeFields(idef: pair.Live) ?? [])
+               let definitionFields = Seq(
+                   ("BlockInstanceCount", (pair.Live.GetReferences(wheretoLook: ReferenceScope.Top.Native)?.Length ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                   ("BlockDescription", pair.Live.Description ?? string.Empty))
+               let instanceFields = instance
+                   .Map(inst => Seq(
+                       ("BlockName", blockName),
+                       ("BlockInstanceName", Definition.NonBlank(value: inst.Attributes.Name).IfNone(blockName)),
+                       ("InsertionX", Coordinate(doc: owner.Document, instance: inst, axis: static point => point.X)),
+                       ("InsertionY", Coordinate(doc: owner.Document, instance: inst, axis: static point => point.Y)),
+                       ("InsertionZ", Coordinate(doc: owner.Document, instance: inst, axis: static point => point.Z))))
+                   .IfNone(Seq<(string, string)>())
+               let attributeFields = schema.Map(field => ($"Attribute:{field.Key}", instance
+                   .Bind(inst => Optional(inst.Attributes.GetUserString(key: field.Key)))
+                   .Filter(static value => !string.IsNullOrEmpty(value))
+                   .IfNone(field.DefaultValue ?? string.Empty)))
+               let fields = (definitionFields + instanceFields + attributeFields)
+                   .Fold(HashMap<string, string>(), static (m, p) => m.AddOrUpdate(key: p.Item1, value: p.Item2))
+               select (BlockOutcome)new BlockOutcome.Texts(Fields: fields);
+    }
 
     private static Fin<BlockOutcome> PerformAttributeFields(RhinoBlocks owner, DefinitionRef refer, Op key) =>
         from pair in Resolve(table: owner.Document.InstanceDefinitions, refer: refer, key: key)
@@ -1196,7 +1270,10 @@ internal static partial class Operations {
         ReferenceScope scope,
         Op key) =>
         instanceId.Case switch {
-            Guid id => Optional(objects.FindId(id: id) as InstanceObject).ToFin(Fail: key.InvalidInput()).Map(inst => Seq(inst)),
+            Guid id => Optional(objects.FindId(id: id) as InstanceObject)
+                .Filter(inst => inst.InstanceDefinition?.Id == live.Id)
+                .ToFin(Fail: key.InvalidInput())
+                .Map(inst => Seq(inst)),
             _ => Fin.Succ(value: LiveRefs(live: live, scope: scope)),
         };
 
@@ -1246,12 +1323,19 @@ internal static partial class Operations {
                 WatchContext ctx = new(Owner: owner, Path: path, Policy: policy, LastFired: Atom(value: DateTimeOffset.MinValue), Watcher: watcher);
                 void OnChange(object sender, FileSystemEventArgs args) => OnWatchChanged(ctx: ctx);
                 void OnRename(object sender, RenamedEventArgs args) => OnWatchChanged(ctx: ctx);
-                watcher.Changed += OnChange;
-                watcher.Created += OnChange;
-                watcher.Deleted += OnChange;
-                watcher.Renamed += OnRename;
+                FileSystemEventHandler change = OnChange;   // single delegate identity for symmetric +=/-=
+                RenamedEventHandler rename = OnRename;
+                watcher.Changed += change;
+                watcher.Created += change;
+                watcher.Deleted += change;
+                watcher.Renamed += rename;
                 watcher.EnableRaisingEvents = true;
-                return Fin.Succ(value: Subscription.Of(detach: ctx.Watcher.Dispose));
+                Seq<Action> detachers = Seq(
+                    () => watcher.Changed -= change,
+                    () => watcher.Created -= change,
+                    () => watcher.Deleted -= change,
+                    () => watcher.Renamed -= rename);
+                return Fin.Succ(value: Subscription.Watch(watcher: watcher, detachers: detachers));
             } catch (IOException ex) {
                 watcher.Dispose();
                 return Fin.Fail<Subscription>(error: key.InvalidResult(detail: ex.Message));
@@ -1264,14 +1348,22 @@ internal static partial class Operations {
 
     private static void OnWatchChanged(WatchContext ctx) {
         DateTimeOffset now = ctx.Policy.EffectiveClock.GetUtcNow();
-        DateTimeOffset prior = ctx.LastFired.Swap(f: last => now - last >= ctx.Policy.Debounce ? now : last);
-        if (now - prior < ctx.Policy.Debounce) return;
-        _ = IdlePump.Enqueue(document: ctx.Owner.Document, work: doc => RefreshLinkedDocument(
-            doc: doc,
-            filter: BlockFilter.ArchivesOnly(Seq(ctx.Path.Value)),
-            policy: LinkRefreshPolicy.Changed,
-            batch: BatchPolicy.Default,
-            key: Op.Of(name: nameof(BlockOp.RefreshLinks))));
+        bool accepted = false;
+        _ = ctx.LastFired.Swap(f: last => {
+            accepted = now - last >= ctx.Policy.Debounce;
+            return accepted ? now : last;
+        });
+        if (!accepted) return;
+        // A watcher can fire after its document closed; never enqueue refresh work on a dead doc.
+        _ = ctx.Owner.Document switch {
+            { IsAvailable: true, IsClosing: false } doc => IdlePump.Enqueue(document: doc, work: live => RefreshLinkedDocument(
+                doc: live,
+                filter: BlockFilter.ArchivesOnly(Seq(ctx.Path.Value)),
+                policy: LinkRefreshPolicy.Changed,
+                batch: BatchPolicy.Default,
+                key: Op.Of(name: nameof(BlockOp.RefreshLinks)))),
+            _ => unit,
+        };
     }
 
     private sealed record WatchContext(RhinoBlocks Owner, ArchivePath Path, WatchPolicy Policy, Atom<DateTimeOffset> LastFired, FileSystemWatcher Watcher);
@@ -1345,4 +1437,3 @@ internal static class ContentIndex {
                 .Bind(provided => Op.Of(name: nameof(ContentIndex)).Catch(() => Fin.Succ(value: BlockContentHash.Of(members: provided).Value)).ToOption()
                     .Map(hash => (Key: hash, Value: id))));
 }
-

@@ -4,6 +4,7 @@ using AppKit;
 using CoreAnimation;
 using Foundation;
 using ObjCRuntime;
+using Rasm.Rhino.Events;
 using DrawingColor = System.Drawing.Color;
 using DrawingPointF = System.Drawing.PointF;
 
@@ -484,7 +485,7 @@ internal static class Motion {
             sink(pair.Terminal);
             _ = target.Repaint();
             return new MotionHandle<TValue, TVelocity>(
-                disposer: Subscription.Empty,
+                disposer: Subscription.Nothing,
                 wake: static () => Fin.Succ(value: unit),
                 steering: new MotionHandle<TValue, TVelocity>.Steering(
                     Retarget: (toValue, _) => Fin.Succ(value: Op.Side(() => { sink(toValue); _ = target.Repaint(); })),
@@ -568,7 +569,7 @@ internal static class Motion {
             EventHandler handler = Tick;   // single delegate instance for symmetric +=/-=
             RhinoApp.Idle += handler;
             RhinoApp.MainLoop += handler;
-            Subscription box = new(detachers: Seq(() => RhinoApp.Idle -= handler, () => RhinoApp.MainLoop -= handler));
+            Subscription box = Subscription.Of(detachers: Seq(() => RhinoApp.Idle -= handler, () => RhinoApp.MainLoop -= handler));
             pump.Adopt(detacher: box);   // store + mark active BEFORE the initial tick can rest
             _ = runner.Tick();   // initial emit of the start value
             return Fin.Succ<IDisposable>(value: box);
@@ -581,7 +582,7 @@ internal static class Motion {
             Action pulse = Pulse(runner: runner, target: target, pump: pump);
             void Tick(object? sender, EventArgs args) => pulse();
             timer.Elapsed += Tick;
-            Subscription box = new(detachers: Seq(() => { timer.Elapsed -= Tick; timer.Stop(); timer.Dispose(); }));
+            Subscription box = Subscription.Of(detach: () => { timer.Elapsed -= Tick; timer.Stop(); timer.Dispose(); });
             pump.Adopt(detacher: box);   // store + mark active BEFORE the initial tick can rest
             timer.Start();
             _ = runner.Tick();   // initial emit of the start value
@@ -618,7 +619,7 @@ internal static class Motion {
                 view: view,
                 onTick: Pulse(runner: runner, target: target, pump: pump),
                 range: rate.IfNone(() => CAFrameRateRange.Create(minimum: 30f, maximum: 120f, preferred: 120f)));
-            Subscription box = new(detachers: Seq(pacer.Dispose));
+            Subscription box = Subscription.Of(detach: pacer.Dispose);
             pump.Adopt(detacher: box);
             _ = runner.Tick();
             return Fin.Succ<IDisposable>(value: box);

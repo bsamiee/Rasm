@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using Rasm.Rhino.Commands;
+using Rasm.Rhino.Events;
 using Rasm.Rhino.UI;
 using Rhino.DocObjects.Tables;
 namespace Rasm.Rhino.Blocks;
@@ -53,55 +54,8 @@ public sealed class RhinoBlocks {
             .Admit(key: Op.Of(name: nameof(Watch)))
             .Bind(valid => Operations.AttachWatch(owner: this, path: path, policy: valid));
 
-    public Fin<Unit> SetLinkedPolicy(LinkedPolicy policy, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Catch(() => {
-            Document.LinkedInstanceDefinitionUpdate = policy.Native;
-            return Fin.Succ(value: unit);
-        });
-    }
-    public Fin<Unit> SetSkipNestedLinked(DefinitionRef refer, bool value, Op? key = null) {
-        Op op = key.OrDefault();
-        return Use(refer: refer, project: def => op.Catch(() => {
-            def.SkipNestedLinkedDefinitions = value;
-            return Fin.Succ(value: unit);
-        }), key: op);
-    }
-
     internal Fin<PreviewHandle> AcquirePreview(InstanceDefinition definition, PreviewSpec spec, Op key) =>
         PreviewVault.Acquire(doc: Document, def: definition, spec: spec, key: key);
-}
-
-// --- [TYPES] [SUBSCRIPTION] ---------------------------------------------------------------
-[Union]
-[SuppressMessage(category: "Design", checkId: "CA1063", Justification = "[Union]-generated case records are sealed; Dispose dispatches polymorphically over the closed sum.")]
-[SuppressMessage(category: "Usage", checkId: "CA1816", Justification = "No finalizer on Union cases; SuppressFinalize unnecessary.")]
-public abstract partial record Subscription : IDisposable {
-    private Subscription() { }
-    public sealed record Empty() : Subscription;
-    public sealed record Atomic(Action Detach) : Subscription;
-    public sealed record Composite(Seq<Subscription> Members) : Subscription;
-
-    public void Dispose() {
-        // BOUNDARY ADAPTER — IDisposable requires terminal imperative dispatch.
-        switch (this) {
-            case Empty: break;
-            case Atomic a: a.Detach(); break;
-            case Composite c: _ = c.Members.Iter(static m => m.Dispose()); break;
-        }
-    }
-    public static Subscription operator |(Subscription a, Subscription b) =>
-        (a, b) switch {
-            (Empty, _) => b,
-            (_, Empty) => a,
-            (Composite ca, Composite cb) => new Composite(Members: ca.Members + cb.Members),
-            (Composite ca, _) => new Composite(Members: ca.Members.Add(value: b)),
-            (_, Composite cb) => new Composite(Members: Seq(a) + cb.Members),
-            _ => new Composite(Members: Seq(a, b)),
-        };
-
-    public static Subscription Of(Action detach) => new Atomic(Detach: detach);
-    public static readonly Subscription Nothing = new Empty();
 }
 
 // --- [COMPOSITION] [CACHE] ----------------------------------------------------------------
@@ -150,8 +104,8 @@ internal sealed class RefCache<TKey, TValue>(
         });
         return after.Entries.Find(key: key).Bind(e => Fresh(key: key, entry: e, state: after) ? Some(value: e.Value) : Option<TValue>.None);
     }
-    internal (TValue Selected, bool Cached, TValue? RejectDispose) Store(TKey key, TValue rendered) {
-        TValue selected = rendered;
+    internal (Option<TValue> Selected, bool Cached, TValue? RejectDispose) Store(TKey key, TValue rendered) {
+        Option<TValue> selected = Option<TValue>.None;
         TValue? rejectDispose = default;
         bool cached = false;
         _ = atom.Swap(f: s => {
@@ -161,12 +115,12 @@ internal sealed class RefCache<TKey, TValue>(
                 ? (rejectDispose = rendered, s).Item2
                 : s.Entries.Find(key: key) switch {
                     { IsSome: true, Case: Entry e } when Fresh(key: key, entry: e, state: s) =>
-                        (selected = e.Value, rejectDispose = rendered, cached = true,
+                        (selected = Some(e.Value), rejectDispose = rendered, cached = true,
                          s with { Entries = s.Entries.AddOrUpdate(key: key, value: e with { RefCount = e.RefCount + 1 }) }).Item4,
                     { IsSome: true, Case: Entry e } when e.Stale && e.RefCount > 0 =>
                         (rejectDispose = rendered, s).Item2,
-                    _ => (cached = true,
-                          s with { Entries = s.Entries.AddOrUpdate(key: key, value: new Entry(Value: rendered, VersionAtInsert: current, RefCount: 1, Stale: false)) }).Item2,
+                    _ => (selected = Some(rendered), cached = true,
+                          s with { Entries = s.Entries.AddOrUpdate(key: key, value: new Entry(Value: rendered, VersionAtInsert: current, RefCount: 1, Stale: false)) }).Item3,
                 };
         });
         return (selected, cached, rejectDispose);
@@ -276,7 +230,7 @@ internal static class PreviewVault {
     private static Fin<PreviewHandle> Render(InstanceDefinition def, PreviewSpec spec, (uint Serial, Guid DefId, ulong Spec, uint Version) key, Op op) =>
         op.Catch(() => spec.ResolvedMode.Resolve(op: op).Bind(displayId =>
             RenderNative(def: def, spec: spec, displayId: displayId) switch {
-                Bitmap bmp => Fin.Succ(value: StoreRendered(key: key, rendered: bmp)),
+                Bitmap bmp => StoreRendered(key: key, rendered: bmp),
                 _ => Fin.Fail<PreviewHandle>(error: op.InvalidResult()),
             }));
 
@@ -299,12 +253,13 @@ internal static class PreviewVault {
         };
     }
 
-    private static PreviewHandle StoreRendered((uint Serial, Guid DefId, ulong Spec, uint Version) key, Bitmap rendered) {
-        (Bitmap selected, bool cached, Bitmap? rejectDispose) = store.Store(key: key, rendered: rendered);
+    private static Fin<PreviewHandle> StoreRendered((uint Serial, Guid DefId, ulong Spec, uint Version) key, Bitmap rendered) {
+        (Option<Bitmap> selected, bool cached, Bitmap? rejectDispose) = store.Store(key: key, rendered: rendered);
         rejectDispose?.Dispose();
-        return cached
-            ? Handle(key: key, bitmap: selected)
-            : new PreviewHandle(bitmap: selected, release: static handle => handle.Bitmap.Dispose());
+        return selected.ToFin(Fail: Op.Of(name: nameof(StoreRendered)).InvalidResult())
+            .Map(bitmap => cached
+                ? Handle(key: key, bitmap: bitmap)
+                : new PreviewHandle(bitmap: bitmap, release: static handle => handle.Bitmap.Dispose()));
     }
 
     private static PreviewHandle Handle((uint Serial, Guid DefId, ulong Spec, uint Version) key, Bitmap bitmap) =>
@@ -348,34 +303,40 @@ internal static class IdlePump {
         long start = clock.GetTimestamp();
         Seq<Fin<DocumentReceipt>> drained = queue.Value
             .TakeWhile(_ => clock.GetElapsedTime(startingTimestamp: start) < budget)
-            .Map(item => Op.Of(name: nameof(Drain)).Catch(() => item.Work(arg: item.Document)))
+            .Map(item => item.Document is { IsAvailable: true, IsClosing: false }
+                ? Op.Of(name: nameof(Drain)).Catch(() => item.Work(arg: item.Document))
+                : Fin.Succ(value: DocumentReceipt.Empty))
             .ToSeq();
         return drained.Count;
     }
 }
 
 // --- [COMPOSITION] [EVENTS] ---------------------------------------------------------------
+// Idef-table events route through the reusable Events.EventDispatcher; this bridge supplies only the
+// idef-specific projection, the cache-invalidation prologue, the idle-deferral via IdlePump, and the
+// document-close cache eviction. The re-entrancy guard + per-serial routing live in the dispatcher.
 internal static class EventBridge {
-    private static readonly Atom<HashMap<uint, Seq<Subscriber>>> bySerial =
-        Atom(value: HashMap<uint, Seq<Subscriber>>());
-    private static int hooked;
-    private static readonly Atom<LanguageExt.HashSet<int>> dispatching = Atom(value: LanguageExt.HashSet<int>.Empty);
+    private static readonly EventDispatcher<InstanceDefinitionTableEventArgs, BlockTableEvent> Dispatcher = new(
+        hook: static h => RhinoDoc.InstanceDefinitionTableEvent += h,
+        project: static args => (Serial: args.Document?.RuntimeSerialNumber ?? 0u, Event: BlockTableEvent.From(args: args)),
+        prologue: static (serial, snapshot) => Invalidate(serial: serial, snapshot: snapshot),
+        defer: static (serial, work) => Optional(RhinoDoc.FromRuntimeSerialNumber(serialNumber: serial))
+            .Iter(doc => IdlePump.Enqueue(document: doc, work: _ => { work(); return Fin.Succ(value: DocumentReceipt.Empty); })));
+    private static int closeHooked;
 
     internal static Subscription Attach(RhinoDoc doc, Action<BlockTableEvent> handler, BlockSubscriptionPolicy policy) {
         EnsureHook();
-        Subscriber sub = new(Id: Guid.NewGuid(), Handler: handler, Policy: policy);
-        uint serial = doc.RuntimeSerialNumber;
-        _ = bySerial.Swap(f: map => map.AddOrUpdate(key: serial, value: map.Find(key: serial) switch {
-            { IsSome: true, Case: Seq<Subscriber> existing } => existing.Add(value: sub),
-            _ => Seq(sub),
-        }));
-        return Subscription.Of(detach: () => Detach(serial: serial, id: sub.Id));
+        return Dispatcher.Register(
+            serial: doc.RuntimeSerialNumber,
+            filter: policy.Filter.Case switch { Func<BlockTableEvent, bool> pred => pred, _ => static _ => true },
+            sink: handler,
+            deferral: policy.DeferToIdle ? DeferralPolicy.Idle : DeferralPolicy.Immediate);
     }
 
     internal static void EnsureHook() {
-        // BOUNDARY ADAPTER — Interlocked owns one-time Rhino event subscription.
-        if (Interlocked.CompareExchange(location1: ref hooked, value: 1, comparand: 0) != 0) return;
-        RhinoDoc.InstanceDefinitionTableEvent += static (_, args) => Dispatch(args: args);
+        // BOUNDARY ADAPTER — touching Dispatcher self-hooks the idef event; Interlocked owns the one-time CloseDocument cleanup.
+        _ = Dispatcher;
+        if (Interlocked.CompareExchange(location1: ref closeHooked, value: 1, comparand: 0) != 0) return;
         RhinoDoc.CloseDocument += static (_, args) => OnDocClose(serial: args.DocumentSerialNumber);
     }
 
@@ -383,59 +344,17 @@ internal static class EventBridge {
         _ = SnapshotVault.EvictDoc(serial: serial);
         _ = PreviewVault.EvictDoc(serial: serial);
         _ = ContentIndex.EvictDoc(serial: serial);
-        if (bySerial.Swap(f: map => map.Remove(key: serial)).IsEmpty)
-            _ = dispatching.Swap(f: static _ => []);
-        return unit;
-    }
-    private static void Dispatch(InstanceDefinitionTableEventArgs args) {
-        int tid = System.Environment.CurrentManagedThreadId;
-        // BOUNDARY ADAPTER — Rhino events can re-enter while subscribers mutate the table.
-        if (dispatching.Value.Contains(key: tid)) return;
-        _ = dispatching.Swap(f: set => set.Add(key: tid));
-        try {
-            uint serial = args.Document?.RuntimeSerialNumber ?? 0u;
-            BlockTableEvent snapshot = BlockTableEvent.From(args: args);
-            _ = Invalidate(document: args.Document, serial: serial, snapshot: snapshot);
-            Seq<Subscriber> subs = bySerial.Value.Find(key: serial).IfNone(noneValue: Seq<Subscriber>());
-            if (subs.IsEmpty) return;
-            _ = subs
-                .Filter(s => s.Policy.Filter switch {
-                    { IsSome: true, Case: Func<BlockTableEvent, bool> pred } => pred(arg: snapshot),
-                    _ => true,
-                })
-                .Iter(s => Deliver(sub: s, snapshot: snapshot, serial: serial));
-        } finally { _ = dispatching.Swap(f: set => set.Remove(key: tid)); }
+        return Dispatcher.DropSerial(serial: serial);
     }
 
-    private static void Deliver(Subscriber sub, BlockTableEvent snapshot, uint serial) {
-        void Run() => _ = Op.Of(name: nameof(Deliver)).Catch(() => {
-            sub.Handler(obj: snapshot);
-            return Fin.Succ(value: unit);
-        });
-        if (!sub.Policy.DeferToIdle) { Run(); return; }
-        RhinoDoc? doc = RhinoDoc.FromRuntimeSerialNumber(serialNumber: serial);
-        if (doc is null) return;
-        _ = IdlePump.Enqueue(document: doc, work: _ => { Run(); return Fin.Succ(value: DocumentReceipt.Empty); });
-    }
-
-    private static Unit Detach(uint serial, Guid id) {
-        _ = bySerial.Swap(f: map => map.Find(key: serial) switch {
-            { IsSome: true, Case: Seq<Subscriber> existing } =>
-                map.AddOrUpdate(key: serial, value: existing.Filter(s => s.Id != id)),
-            _ => map,
-        });
-        return unit;
-    }
-    private static Unit Invalidate(RhinoDoc? document, uint serial, BlockTableEvent snapshot) {
+    private static Unit Invalidate(uint serial, BlockTableEvent snapshot) {
         if (snapshot.Kind == InstanceDefinitionTableEventType.Sorted) return unit;
+        RhinoDoc? document = RhinoDoc.FromRuntimeSerialNumber(serialNumber: serial);
         _ = ContentIndex.Invalidate(serial: serial, doc: document, snapshot: snapshot);
         return Seq(snapshot.Old, snapshot.New)
             .Choose(static candidate => candidate)
             .Map(static d => d.Id.Value)
             .Distinct()
-            .Iter(defId => Operations.InvalidateDefinition(
-                defId: defId, doc: Optional(RhinoDoc.FromRuntimeSerialNumber(serialNumber: serial))));
+            .Iter(defId => Operations.InvalidateDefinition(defId: defId, doc: Optional(document)));
     }
-
-    private sealed record Subscriber(Guid Id, Action<BlockTableEvent> Handler, BlockSubscriptionPolicy Policy);
 }

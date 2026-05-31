@@ -41,7 +41,9 @@ public sealed record CommandPickPolicy(
     Option<Transform> Transform = default,
     bool UpdateClippingPlanes = true) {
     internal Fin<T> Use<T>(Func<PickContext, Fin<T>> use) =>
-        Optional(use).ToFin(Fail: Op.Of(name: nameof(CommandPickPolicy)).InvalidInput()).Bind(valid => UI.RhinoUi.Protect(valid: () => {
+        from valid in Optional(use).ToFin(Fail: Op.Of(name: nameof(CommandPickPolicy)).InvalidInput())
+        from gate in guard(!UpdateClippingPlanes || View.IsSome, Op.Of(name: nameof(CommandPickPolicy)).InvalidInput())
+        from result in UI.RhinoUi.Protect(valid: () => {
             using PickContext context = new();
             _ = View.Iter(active => context.View = active);
             _ = PickLine.Iter(line => context.PickLine = line);
@@ -50,9 +52,9 @@ public sealed record CommandPickPolicy(
             context.PickGroupsEnabled = PickGroups;
             context.SubObjectSelectionEnabled = SubObjects;
             _ = Transform.Iter(active => context.SetPickTransform(active));
-            _ = Op.SideWhen(UpdateClippingPlanes, context.UpdateClippingPlanes);
             return valid(arg: context);
-        }));
+        })
+        select result;
 }
 
 public sealed record CommandSelection {
@@ -122,13 +124,20 @@ public sealed record CommandSelection {
     }
 
     public static Fin<CommandSelection> Pick(RhinoDoc document, CommandPickPolicy policy) =>
-        Optional(policy)
-            .ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
-            .Bind(valid => valid.Use(context => Pick(document: document, context: context)));
+        Optional(policy).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
+            .Bind(valid => valid.Use(use: context => PickWith(document: document, context: context, updateClippingPlanes: valid.UpdateClippingPlanes)));
 
     public static Fin<CommandSelection> Pick(RhinoDoc document, PickContext context) =>
-        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()) from validContext in Optional(context).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
-        from selection in UI.RhinoUi.Protect(valid: () => Optional(validDocument.Objects.PickObjects(pickContext: validContext)).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidResult()).Bind(references => references switch { { Length: > 0 } values => Fin.Succ(value: From(document: validDocument, references: toSeq(values), preselected: Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>())), _ => Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(Pick)).InvalidResult()) })) select selection;
+        PickWith(document: document, context: context, updateClippingPlanes: true);
+
+    private static Fin<CommandSelection> PickWith(RhinoDoc document, PickContext context, bool updateClippingPlanes) =>
+        from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
+        from validContext in Optional(context).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
+        from selection in UI.RhinoUi.Protect(valid: () => {
+            _ = Op.SideWhen(updateClippingPlanes, validContext.UpdateClippingPlanes);
+            return Optional(validDocument.Objects.PickObjects(pickContext: validContext)).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidResult()).Bind(references => references switch { { Length: > 0 } values => Fin.Succ(value: From(document: validDocument, references: toSeq(values), preselected: Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>())), _ => Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(Pick)).InvalidResult()) });
+        })
+        select selection;
 
     internal static CommandSelection From(RhinoDoc document, Seq<ObjRef> references, Seq<(Guid ObjectId, ComponentIndex ComponentIndex)> preselected) {
         ArgumentNullException.ThrowIfNull(argument: document);
@@ -279,23 +288,25 @@ public sealed record CommandSelection {
                 .Bind(static serial => Optional(RhinoView.FromRuntimeSerialNumber(serialNumber: serial)))
                 .ToFin(Fail: Op.Of(name: nameof(View)).MissingContext());
 
+        // Single typed extractor over an ObjRef: the Brep/SubD component family + RhinoObject via native typed
+        // accessors, plus a GeometryBase fallback; a miss is a typed failure rather than a silent None. Geometry and
+        // Project are projections over it — Geometry owns the result (duplicate, survives ObjRef disposal); Project
+        // consumes the native projection in-scope before the surrounding `using ObjRef` releases it.
+        internal static Fin<T> Extract<T>(ObjRef reference, Op op) where T : class =>
+            NativeOf<T>(reference: reference).ToFin(Fail: op.InvalidResult(detail: $"{typeof(T).Name} not extractable"));
+
         public Fin<TGeometry> Geometry<TGeometry>(RhinoDoc document) where TGeometry : GeometryBase {
             Op op = Op.Of(name: nameof(Geometry));
             return Use(document: document, op: op, use: reference =>
-                from raw in Optional(reference.Geometry()).ToFin(Fail: op.InvalidResult())
-                from duplicate in Optional(raw.Duplicate()).ToFin(Fail: op.InvalidResult())
-                from typed in duplicate switch {
-                    TGeometry value => Fin.Succ(value: value),
-                    _ => Fin.Fail<TGeometry>(error: op.InvalidResult()),
-                }
-                select typed);
+                Extract<TGeometry>(reference: reference, op: op)
+                    .Bind(geometry => Optional(geometry.Duplicate() as TGeometry).ToFin(Fail: op.InvalidResult())));
         }
 
         public Fin<T> Project<TPart, T>(RhinoDoc document, Func<TPart, Fin<T>> use) where TPart : class {
             Reference snapshot = this;
             Op op = Op.Of(name: nameof(Project));
             return Optional(use).ToFin(Fail: op.InvalidInput())
-                .Bind(valid => snapshot.Use(document: document, op: op, use: reference => NativeOf<TPart>(reference: reference).ToFin(Fail: op.InvalidResult()).Bind(valid)));
+                .Bind(valid => snapshot.Use(document: document, op: op, use: reference => Extract<TPart>(reference: reference, op: op).Bind(valid)));
         }
 
         private static Option<TPart> NativeOf<TPart>(ObjRef reference) where TPart : class =>
@@ -308,7 +319,18 @@ public sealed record CommandSelection {
                 Type v when v == typeof(SubDFace) => Cast<TPart>(valid.SubDFace()),
                 Type v when v == typeof(SubDEdge) => Cast<TPart>(valid.SubDEdge()),
                 Type v when v == typeof(SubDVertex) => Cast<TPart>(valid.SubDVertex()),
-                Type v when typeof(RhinoObject).IsAssignableFrom(c: v) => Cast<TPart>(valid.Object()),
+                Type v when v == typeof(ClippingPlaneSurface) => Cast<TPart>(valid.ClippingPlaneSurface()),
+                Type v when v == typeof(Curve) => Cast<TPart>(valid.Curve()),
+                Type v when v == typeof(Surface) => Cast<TPart>(valid.Surface()),
+                Type v when v == typeof(Mesh) => Cast<TPart>(valid.Mesh()),
+                Type v when v == typeof(Point) => Cast<TPart>(valid.Point()),
+                Type v when v == typeof(PointCloud) => Cast<TPart>(valid.PointCloud()),
+                Type v when v == typeof(TextDot) => Cast<TPart>(valid.TextDot()),
+                Type v when v == typeof(TextEntity) => Cast<TPart>(valid.TextEntity()),
+                Type v when v == typeof(Light) => Cast<TPart>(valid.Light()),
+                Type v when v == typeof(Hatch) => Cast<TPart>(valid.Hatch()),
+                Type v when typeof(RhinoObject).IsAssignableFrom(c: v) => Cast<TPart>(valid.InstanceDefinitionPart()) | Cast<TPart>(valid.Object()),
+                Type v when typeof(GeometryBase).IsAssignableFrom(c: v) => Cast<TPart>(valid.Geometry()),
                 _ => Option<TPart>.None,
             });
 

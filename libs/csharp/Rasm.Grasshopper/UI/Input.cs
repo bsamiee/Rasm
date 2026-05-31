@@ -68,12 +68,12 @@ public sealed partial class DialogPresentation {
     public static readonly DialogPresentation AttachedSheet = new(key: 1);
 
     // Exactly two presentations: Modal shows directly, AttachedSheet switches DisplayMode first.
-    internal Option<TResult> Show<TResult>(Dialog<TResult> dialog, Control? parent) =>
+    internal Option<TResult> Show<TResult>(Dialog<Option<TResult>> dialog, Control? parent) =>
         this == Modal
-            ? Optional(dialog.ShowModal(owner: parent))
-            : Optional(Attached(dialog: dialog, parent: parent));
+            ? dialog.ShowModal(owner: parent)
+            : Attached(dialog: dialog, parent: parent);
 
-    private static TResult Attached<TResult>(Dialog<TResult> dialog, Control? parent) {
+    private static Option<TResult> Attached<TResult>(Dialog<Option<TResult>> dialog, Control? parent) {
         dialog.DisplayMode = DialogDisplayMode.Attached;
         return dialog.ShowModal(owner: parent);
     }
@@ -112,10 +112,16 @@ public partial record InputSelectionSource {
     public static InputSelectionSource From(MouseEventArgs mouse) => new MouseCase(Source: mouse);
     public static InputSelectionSource From(WindowSelectionEventArgs window) => new WindowCase(Source: window);
 
-    internal SelectionMode Mode() => Switch(
-        controlCase: static c => SelectionMode.FromGh(gh: c.Source.SelectionMode()),
-        mouseCase: static m => SelectionMode.FromGh(gh: m.Source.SelectionMode()),
-        windowCase: static w => SelectionMode.FromGh(gh: w.Source.SelectionMode()));
+    internal Fin<SelectionMode> Mode() => Switch(
+        controlCase: static c => Optional(c.Source)
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(InputSelectionSource)), detail: "null control"))
+            .Map(static source => SelectionMode.FromGh(gh: source.SelectionMode())),
+        mouseCase: static m => Optional(m.Source)
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(InputSelectionSource)), detail: "null mouse event"))
+            .Map(static source => SelectionMode.FromGh(gh: source.SelectionMode())),
+        windowCase: static w => Optional(w.Source)
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(InputSelectionSource)), detail: "null window selection event"))
+            .Map(static source => SelectionMode.FromGh(gh: source.SelectionMode())));
 }
 
 [SkipUnionOps]
@@ -125,13 +131,14 @@ public partial record InputClipboardOp {
     public sealed record ReadCase : InputClipboardOp;
     public sealed record WriteCase(InputClipboardSnapshot Payload) : InputClipboardOp;
     public sealed record ClearCase : InputClipboardOp;
-    public sealed record WriteDataCase(Seq<byte> Data, string Type) : InputClipboardOp;
+    public sealed record WriteDataCase(Option<ReadOnlyMemory<byte>> Data, string Type) : InputClipboardOp;
     public sealed record ReadDataCase(string Type) : InputClipboardOp;
     public static readonly InputClipboardOp Read = new ReadCase();
     public static InputClipboardOp Write(string text) => new WriteCase(Payload: InputClipboardSnapshot.Of(text: text));
     public static InputClipboardOp Write(InputClipboardSnapshot payload) => new WriteCase(Payload: payload);
     public static readonly InputClipboardOp Clear = new ClearCase();
-    public static InputClipboardOp WriteData(byte[] data, string type) => new WriteDataCase(Data: toSeq(data), Type: type);
+    public static InputClipboardOp WriteData(byte[]? data, string type) =>
+        new WriteDataCase(Data: Optional(data).Map(static bytes => new ReadOnlyMemory<byte>(bytes)), Type: type);
     public static InputClipboardOp ReadData(string type) => new ReadDataCase(Type: type);
 }
 
@@ -154,6 +161,7 @@ public readonly record struct ToolbarSnapshot(int Count, bool Enabled, int Minim
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct MenuSnapshot(int Count);
 
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct InputClipboardSnapshot(Option<string> Text, Option<string> Html, Option<Image> Image, Seq<Uri> Uris, Seq<string> Types, Option<byte[]> Data = default) {
     public static InputClipboardSnapshot Empty => new(
         Text: Option<string>.None,
@@ -494,7 +502,7 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
     // Typed modal dialog. The Configure delegate is responsible for installing widgets, wiring
     // a confirmation Button that invokes dialog.Close(result), and returning Fin.Succ once setup
     // is complete. macOS: DisplayMode.Attached presents as a sheet on the parent window.
-    public sealed record Dialog<TResult>(Func<Eto.Forms.Dialog<TResult>, Fin<Unit>> Configure, string Title = "", Option<DialogPresentation> Presentation = default) : InputRequest<Option<TResult>> {
+    public sealed record Dialog<TResult>(Func<Eto.Forms.Dialog<Option<TResult>>, Fin<Unit>> Configure, string Title = "", Option<DialogPresentation> Presentation = default) : InputRequest<Option<TResult>> {
         internal override Fin<Option<TResult>> Apply(GrasshopperUi.Scope scope) => Input.Dialog(configure: Configure, title: Title, presentation: Presentation).Run(scope: scope);
     }
     public sealed record PickColor(Color Initial, bool AllowAlpha = true) : InputRequest<Option<Color>> { internal override Fin<Option<Color>> Apply(GrasshopperUi.Scope scope) => Input.PickColor(initial: Initial, allowAlpha: AllowAlpha).Run(scope: scope); }
@@ -523,7 +531,9 @@ internal static partial class Input {
         GhUi.Read(run: _ =>
             Optional(source)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Selection)), detail: "null source"))
-                .Map(valid => new InputSelectionSnapshot(Mode: valid.Mode(), Modifiers: ModifierOf(keys: Keyboard.Modifiers))));
+                .Bind(valid =>
+                    from mode in valid.Mode()
+                    select new InputSelectionSnapshot(Mode: mode, Modifiers: ModifierOf(keys: Keyboard.Modifiers))));
 
     internal static GrasshopperUiIntent<InputModifierSnapshot> Modifiers(Keys keys) =>
         GhUi.Read(run: _ => Fin.Succ(value: ModifierOf(keys: keys)));
@@ -647,42 +657,60 @@ internal static partial class Input {
                 .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(FileDialog)), detail: $"FileDialog.ShowDialog threw: {error.Message}")));
 
     internal static GrasshopperUiIntent<InputClipboardSnapshot> Clipboard(InputClipboardOp op) =>
-        GhUi.Read(run: _scope => Op.Of(name: nameof(Clipboard)).Attempt(
-            body: () => op.Switch(
-                readCase: static _ => ClipboardSnapshotOf(),
-                writeCase: static w => {
-                    Clipboard clipboard = Eto.Forms.Clipboard.Instance;
-                    clipboard.Clear();
-                    _ = w.Payload.Text.Iter(text => clipboard.Text = text);
-                    _ = w.Payload.Html.Iter(html => clipboard.Html = html);
-                    _ = w.Payload.Image.Iter(image => clipboard.Image = image);
-                    _ = w.Payload.Uris.IsEmpty ? unit : Optional(w.Payload.Uris.ToArray()).Iter(uris => clipboard.Uris = uris);
-                    return ClipboardSnapshotOf();
-                },
-                clearCase: static _ => {
-                    Eto.Forms.Clipboard.Instance.Clear();
-                    return InputClipboardSnapshot.Empty;
-                },
-                writeDataCase: static d => {
-                    byte[] bytes = [.. d.Data];
-                    Eto.Forms.Clipboard.Instance.SetData(value: bytes, type: d.Type);
-                    return ClipboardSnapshotOf() with { Data = Some(bytes) };
-                },
-                readDataCase: static r => {
-                    Clipboard clipboard = Eto.Forms.Clipboard.Instance;
-                    return ClipboardSnapshotOf() with { Data = clipboard.Contains(type: r.Type) ? Some(clipboard.GetData(type: r.Type)) : Option<byte[]>.None };
-                }),
-            what: "Clipboard op"));
+        GhUi.Read(run: _scope =>
+            Optional(op)
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Clipboard)), detail: "clipboard op is required"))
+                .Bind(valid => valid.Switch(
+                    readCase: static _ =>
+                        from clipboard in NeedClipboard(op: Op.Of(name: nameof(InputClipboardOp.Read)))
+                        from snapshot in Op.Of(name: nameof(InputClipboardOp.Read)).Attempt(body: () => ClipboardSnapshotOf(clipboard: clipboard), what: "Clipboard snapshot")
+                        select snapshot,
+                    writeCase: static w =>
+                        from clipboard in NeedClipboard(op: Op.Of(name: nameof(InputClipboardOp.Write)))
+                        from snapshot in Op.Of(name: nameof(InputClipboardOp.Write)).Attempt(body: () => {
+                            clipboard.Clear();
+                            _ = w.Payload.Text.Iter(text => clipboard.Text = text);
+                            _ = w.Payload.Html.Iter(html => clipboard.Html = html);
+                            _ = w.Payload.Image.Iter(image => clipboard.Image = image);
+                            _ = w.Payload.Uris.IsEmpty ? unit : Optional(w.Payload.Uris.ToArray()).Iter(uris => clipboard.Uris = uris);
+                            return ClipboardSnapshotOf(clipboard: clipboard);
+                        }, what: "Clipboard write")
+                        select snapshot,
+                    clearCase: static _ =>
+                        from clipboard in NeedClipboard(op: Op.Of(name: nameof(InputClipboardOp.Clear)))
+                        from snapshot in Op.Of(name: nameof(InputClipboardOp.Clear)).Attempt(body: () => {
+                            clipboard.Clear();
+                            return InputClipboardSnapshot.Empty;
+                        }, what: "Clipboard.Clear")
+                        select snapshot,
+                    writeDataCase: static d =>
+                        from data in d.Data.ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(InputClipboardOp.WriteData)), detail: "data is required"))
+                        from type in Op.Of(name: nameof(InputClipboardOp.WriteData)).AcceptText(value: d.Type)
+                        from clipboard in NeedClipboard(op: Op.Of(name: nameof(InputClipboardOp.WriteData)))
+                        from snapshot in Op.Of(name: nameof(InputClipboardOp.WriteData)).Attempt(body: () => {
+                            byte[] bytes = data.ToArray();
+                            clipboard.Clear();
+                            clipboard.SetData(value: bytes, type: type);
+                            return ClipboardSnapshotOf(clipboard: clipboard) with { Data = Some(bytes) };
+                        }, what: "Clipboard.SetData")
+                        select snapshot,
+                    readDataCase: static r =>
+                        from type in Op.Of(name: nameof(InputClipboardOp.ReadData)).AcceptText(value: r.Type)
+                        from clipboard in NeedClipboard(op: Op.Of(name: nameof(InputClipboardOp.ReadData)))
+                        from snapshot in Op.Of(name: nameof(InputClipboardOp.ReadData)).Attempt(
+                            body: () => ClipboardSnapshotOf(clipboard: clipboard) with { Data = clipboard.Contains(type: type) ? Optional(clipboard.GetData(type: type)) : Option<byte[]>.None },
+                            what: "Clipboard.GetData")
+                        select snapshot)));
 
-    internal static GrasshopperUiIntent<Option<TResult>> Dialog<TResult>(Func<Dialog<TResult>, Fin<Unit>> configure, string title, Option<DialogPresentation> presentation) =>
+    internal static GrasshopperUiIntent<Option<TResult>> Dialog<TResult>(Func<Dialog<Option<TResult>>, Fin<Unit>> configure, string title, Option<DialogPresentation> presentation) =>
         GhUi.Read(run: scope =>
             from validConfigure in Optional(configure).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Dialog)), detail: "null configure delegate"))
             from result in RunDialog(scope: scope, title: title, presentation: presentation.IfNone(DialogPresentation.Modal), configure: validConfigure)
             select result);
 
-    private static Fin<Option<TResult>> RunDialog<TResult>(GrasshopperUi.Scope scope, string title, DialogPresentation presentation, Func<Dialog<TResult>, Fin<Unit>> configure) =>
+    private static Fin<Option<TResult>> RunDialog<TResult>(GrasshopperUi.Scope scope, string title, DialogPresentation presentation, Func<Dialog<Option<TResult>>, Fin<Unit>> configure) =>
         Try.lift<Fin<Option<TResult>>>(f: () => {
-            using Dialog<TResult> dialog = new() { Title = title };
+            using Dialog<Option<TResult>> dialog = new() { Title = title };
             Rhino.UI.EtoExtensions.UseRhinoStyle(dialog);
             return configure(arg: dialog).Map(_ => presentation.Show(dialog: dialog, parent: DialogParent(scope: scope)));
         }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Dialog)), detail: $"Dialog<T> threw: {error.Message}")).Bind(static r => r);
@@ -734,15 +762,16 @@ internal static partial class Input {
                 return unit;
             }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Notify)), detail: $"Notification threw: {error.Message}")));
 
-    private static InputClipboardSnapshot ClipboardSnapshotOf() {
-        Clipboard clipboard = Eto.Forms.Clipboard.Instance;
-        return new(
+    private static Fin<Clipboard> NeedClipboard(Op op) =>
+        Optional(Eto.Forms.Clipboard.Instance).ToFin(Fail: UiFault.MutationRejected(op: op, detail: "Eto Clipboard.Instance is not initialized"));
+
+    private static InputClipboardSnapshot ClipboardSnapshotOf(Clipboard clipboard) =>
+        new(
             Text: Optional(clipboard.Text),
             Html: Optional(clipboard.Html),
             Image: Optional(clipboard.Image),
             Uris: toSeq(clipboard.Uris ?? []),
             Types: toSeq(clipboard.Types ?? []));
-    }
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
     internal static InputModifierSnapshot ModifierOf(Keys keys) =>
@@ -755,12 +784,17 @@ internal static partial class Input {
 
     internal static Seq<string> RunFileDialog(FileDialog dialog, Control? parent, Option<string> initialPath, FileFilter[] filters, Option<string> title) {
         using FileDialog owned = dialog;
-        // Empty-string Uri throws — fail closed before `new Uri(...)` when the resolved path is empty
-        // (Path.GetDirectoryName can return null/empty for relative paths or root volumes).
         _ = initialPath.Filter(static path => !string.IsNullOrWhiteSpace(path))
-            .Bind(path => Optional(Directory.Exists(path: path) ? path : System.IO.Path.GetDirectoryName(path: path))
-                .Filter(static resolved => !string.IsNullOrWhiteSpace(resolved)))
-            .IfSome(resolved => owned.Directory = new Uri(uriString: resolved));
+            .IfSome(path => {
+                string fullPath = System.IO.Path.GetFullPath(path: path);
+                string directory = Directory.Exists(path: fullPath) ? fullPath : System.IO.Path.GetDirectoryName(path: fullPath) ?? string.Empty;
+                _ = Optional(directory)
+                    .Filter(static resolved => !string.IsNullOrWhiteSpace(resolved))
+                    .IfSome(resolved => owned.Directory = new Uri(uriString: resolved));
+                _ = Optional(System.IO.Path.GetFileName(path: fullPath))
+                    .Filter(file => !string.IsNullOrWhiteSpace(value: file) && !Directory.Exists(path: fullPath))
+                    .IfSome(file => owned.FileName = file);
+            });
         _ = title.IfSome(value => owned.Title = value);
         _ = toSeq(filters).Iter(f => owned.Filters.Add(item: new Eto.Forms.FileFilter(name: f.Name, extensions: [.. f.Extensions])));
         DialogResult result = owned.ShowDialog(parent: parent);
@@ -774,7 +808,11 @@ internal static partial class Input {
     // SelectFolderDialog : CommonDialog (NOT FileDialog) — separate dispatch (per Eto verification).
     internal static Seq<string> RunFolderDialog(Control? parent, Option<string> initialPath, Option<string> title) {
         using SelectFolderDialog dialog = new();
-        _ = initialPath.Filter(static path => !string.IsNullOrWhiteSpace(path)).IfSome(path => dialog.Directory = path);
+        _ = initialPath.Filter(static path => !string.IsNullOrWhiteSpace(path)).IfSome(path => {
+            string fullPath = System.IO.Path.GetFullPath(path: path);
+            string directory = Directory.Exists(path: fullPath) ? fullPath : System.IO.Path.GetDirectoryName(path: fullPath) ?? fullPath;
+            dialog.Directory = directory;
+        });
         _ = title.IfSome(value => dialog.Title = value);
         DialogResult result = dialog.ShowDialog(parent: parent);
         return result switch {

@@ -1,4 +1,5 @@
 using Eto.Forms;
+using Rasm.Rhino.Events;
 using DrawingIcon = System.Drawing.Icon;
 using DrawingSize = System.Drawing.Size;
 using GuidAttribute = System.Runtime.InteropServices.GuidAttribute;
@@ -498,19 +499,19 @@ public static class PanelOp {
             select registered, interactive: false);
 
     public static UiIntent<T> Watch<TPanel, T>(Func<PanelEvent, Fin<Unit>> change, Func<Fin<T>> run, Func<PanelEvent, bool>? until = null) where TPanel : RasmPanel =>
-        UiIntent.OfScope(run: _ =>
+        UiIntent.OfScope(run: scope =>
             from panel in RasmPanel.PanelIdentityOf<TPanel>()
             from valid in Op.Of(name: nameof(Watch)).Need(change)
             from body in Op.Of(name: nameof(Watch)).Need(run)
+            let serial = scope.Document.RuntimeSerialNumber
             from subscription in RhinoUi.Protect(valid: () => {
                 Subscription? box = null;   // forward ref so an `until` match can self-detach mid-run
                 Fin<Unit> Fire(PanelEvent host) =>
                     valid(arg: host).Map(_ => Optional(until).Filter(predicate => predicate(arg: host)).Iter(_ => box?.Dispose()));
-                Func<TArgs, Fin<Unit>> Gate<TArgs>(Func<TArgs, Guid> idOf, Func<TArgs, PanelEvent> make) =>
-                    args => idOf(arg: args) == panel.Id ? Fire(host: make(arg: args)) : Fin.Succ(value: unit);
-                box = new Subscription(detachers:
-                    Subscriptions.Attach(active: true, h => global::Rhino.UI.Panels.Show += h, h => global::Rhino.UI.Panels.Show -= h, Gate<global::Rhino.UI.ShowPanelEventArgs>(idOf: static args => args.PanelId, make: static args => args.Show ? new PanelEvent.Shown(Id: args.PanelId, DocumentSerial: Some(args.DocumentSerialNumber)) : new PanelEvent.Hidden(Id: args.PanelId, DocumentSerial: Some(args.DocumentSerialNumber))))
-                    + Subscriptions.Attach(active: true, h => global::Rhino.UI.Panels.Closed += h, h => global::Rhino.UI.Panels.Closed -= h, Gate<global::Rhino.UI.PanelEventArgs>(idOf: static args => args.PanelId, make: static args => new PanelEvent.Closed(Id: args.PanelId, DocumentSerial: Some(args.DocumentSerialNumber)))));
+                Func<TArgs, Fin<Unit>> Gate<TArgs>(Func<TArgs, Guid> idOf, Func<TArgs, uint> serialOf, Func<TArgs, PanelEvent> make) =>
+                    args => idOf(arg: args) == panel.Id && serialOf(arg: args) == serial ? Fire(host: make(arg: args)) : Fin.Succ(value: unit);
+                box = Subscription.Attach(active: true, h => global::Rhino.UI.Panels.Show += h, h => global::Rhino.UI.Panels.Show -= h, Gate<global::Rhino.UI.ShowPanelEventArgs>(idOf: static args => args.PanelId, serialOf: static args => args.DocumentSerialNumber, make: static args => args.Show ? new PanelEvent.Shown(Id: args.PanelId, DocumentSerial: Some(args.DocumentSerialNumber)) : new PanelEvent.Hidden(Id: args.PanelId, DocumentSerial: Some(args.DocumentSerialNumber))))
+                    | Subscription.Attach(active: true, h => global::Rhino.UI.Panels.Closed += h, h => global::Rhino.UI.Panels.Closed -= h, Gate<global::Rhino.UI.PanelEventArgs>(idOf: static args => args.PanelId, serialOf: static args => args.DocumentSerialNumber, make: static args => new PanelEvent.Closed(Id: args.PanelId, DocumentSerial: Some(args.DocumentSerialNumber))));
                 return Fin.Succ(value: box);
             })
             from result in RhinoUi.Protect(valid: () => {

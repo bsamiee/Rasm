@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Reflection;
+using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
 using Grasshopper2.UI.Animation;
@@ -31,6 +33,20 @@ public enum CanvasWindowScope {
 public enum CanvasPickPolicy {
     None = 0, Grips = 1, Foreground = 2, Background = 4, Wires = 8, Recursive = 16,
     All = Grips | Foreground | Background | Wires | Recursive,
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasWindow(PointF Start, PointF End) {
+    public static CanvasWindow FromRect(RectangleF rect) =>
+        new(Start: new PointF(x: rect.Left, y: rect.Top), End: new PointF(x: rect.Right, y: rect.Bottom));
+
+    internal Fin<WindowSelection> Selection(Op op) {
+        PointF start = Start;
+        PointF end = End;
+        return op.AcceptPoint(value: start, detail: "non-finite window start")
+            .Bind(validStart => op.AcceptPoint(value: end, detail: "non-finite window end")
+                .Map(validEnd => new WindowSelection(startPoint: validStart).Adapt(newEndPoint: validEnd)));
+    }
 }
 
 [SkipUnionOps]
@@ -94,12 +110,14 @@ public partial record CanvasOp {
     public sealed partial record FocusCase : CanvasOp;
     public sealed partial record DetailCase : CanvasOp;
     public sealed partial record ActionsCase : CanvasOp;
-    public sealed partial record RenderCase(int Width, int Height, CanvasBitmapLayers Layers) : CanvasOp;
+    public sealed partial record RenderCase(CanvasRenderPolicy Policy) : CanvasOp;
     public sealed partial record PickMapCase : CanvasOp;
     public sealed partial record ViewCase(CanvasViewOp Request) : CanvasOp;
     public sealed partial record SnapFeedbackCase(bool Clear) : CanvasOp;
     public sealed partial record InteractionCase(CanvasInteractionPolicy Policy) : CanvasOp;
-    public sealed partial record WindowSelectCase(RectangleF Window, SelectionMode Mode, CanvasWindowScope Scope) : CanvasOp;
+    public sealed partial record WindowSelectCase(CanvasWindow Window, SelectionMode Mode, CanvasWindowScope Scope) : CanvasOp;
+    public sealed partial record InlineEditCase(RectangleF Frame, string Initial, Func<string, Fin<Unit>> Apply, Option<Func<Fin<Unit>>> Cancel) : CanvasOp;
+    public sealed partial record ValueEditorCase(AbstractParameter Parameter, Control Control) : CanvasOp;
 
     public static CanvasOp Snapshot(bool openEditor = false) => new SnapshotCase(OpenEditor: openEditor);
     public static CanvasOp Pick(PointF point, CoordinateSystem source = CoordinateSystem.Content, CanvasPickPolicy policy = CanvasPickPolicy.All) =>
@@ -112,14 +130,21 @@ public partial record CanvasOp {
     public static readonly CanvasOp Focus = new FocusCase();
     public static readonly CanvasOp Detail = new DetailCase();
     public static CanvasOp Actions() => new ActionsCase();
-    public static CanvasOp Render(int width, int height, CanvasBitmapLayers layers = CanvasBitmapLayers.All) => new RenderCase(Width: width, Height: height, Layers: layers);
+    public static CanvasOp Render(CanvasRenderPolicy policy) => new RenderCase(Policy: policy);
+    public static CanvasOp Render(int width, int height, CanvasBitmapLayers layers = CanvasBitmapLayers.All, DrawPlan overlay = default) =>
+        Render(policy: new CanvasRenderPolicy(Width: width, Height: height, Layers: Some(layers), Overlay: overlay));
     public static readonly CanvasOp PickMap = new PickMapCase();
     public static CanvasOp View(CanvasViewOp view) => new ViewCase(Request: view);
     public static CanvasOp SnapFeedback(bool clear = false) => new SnapFeedbackCase(Clear: clear);
     public static CanvasOp Interaction(CanvasInteractionPolicy policy) => new InteractionCase(Policy: policy);
-    // De-GH2 surface: callers pass an Eto RectangleF content-space window; dispatch builds the native
-    // WindowSelection (start.Adapt(end)) and maps the library SelectionMode internally.
-    public static CanvasOp WindowSelect(RectangleF window, SelectionMode mode, CanvasWindowScope scope = CanvasWindowScope.ObjectsAndWires) => new WindowSelectCase(Window: window, Mode: mode, Scope: scope);
+    public static CanvasOp WindowSelect(CanvasWindow window, SelectionMode mode, CanvasWindowScope scope = CanvasWindowScope.ObjectsAndWires) =>
+        new WindowSelectCase(Window: window, Mode: mode, Scope: scope);
+    public static CanvasOp WindowSelect(RectangleF window, SelectionMode mode, CanvasWindowScope scope = CanvasWindowScope.ObjectsAndWires) =>
+        WindowSelect(window: CanvasWindow.FromRect(rect: window), mode: mode, scope: scope);
+    public static CanvasOp InlineEdit(RectangleF frame, string initial, Func<string, Fin<Unit>> apply, Func<Fin<Unit>>? cancel = null) =>
+        new InlineEditCase(Frame: frame, Initial: initial, Apply: apply, Cancel: Optional(cancel));
+    public static CanvasOp ValueEditor(AbstractParameter parameter, Control control) =>
+        new ValueEditorCase(Parameter: parameter, Control: control);
 
     // GH2 ObjectList.WindowSelect(..., considerForeground, considerBackground, considerWires):
     // CanvasWindowScope.Groups maps to considerBackground (objects below wires); canvas flag is WindowSelectGroups.
@@ -139,7 +164,9 @@ public partial record CanvasOp {
         interactionCase: static i => i.Policy.Projection.IsSome
             ? GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas)
             : GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Canvas),
-        windowSelectCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas));
+        windowSelectCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
+        inlineEditCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true),
+        valueEditorCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true));
 }
 
 [SkipUnionOps]
@@ -337,6 +364,22 @@ public readonly record struct CanvasSnapFeedbackSnapshot(Option<SnappingSnapshot
 public readonly record struct CanvasBitmap(int Width, int Height, ReadOnlyMemory<byte> Png);
 
 [StructLayout(LayoutKind.Auto)]
+public readonly record struct CanvasRenderPolicy(
+    int Width,
+    int Height,
+    Option<CanvasBitmapLayers> Layers = default,
+    DrawPlan Overlay = default) {
+    internal CanvasBitmapLayers EffectiveLayers => Layers.IfNone(CanvasBitmapLayers.All);
+
+    public static CanvasRenderPolicy operator |(CanvasRenderPolicy left, CanvasRenderPolicy right) =>
+        new(
+            Width: right.Width > 0 ? right.Width : left.Width,
+            Height: right.Height > 0 ? right.Height : left.Height,
+            Layers: right.Layers.IsSome ? right.Layers : left.Layers,
+            Overlay: left.Overlay + right.Overlay);
+}
+
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasMappedLocus(CanvasLocus Source, CanvasLocus Target, CoordinateSystem From, CoordinateSystem To);
 
 [StructLayout(LayoutKind.Auto)]
@@ -375,7 +418,7 @@ internal static partial class UiRail {
     private readonly record struct WindowMetrics(float LogicalPixelSize, SizeF ScreenSize);
 
     private static Option<WindowMetrics> WindowMetricsOf(GhCanvas canvas) =>
-        Optional((canvas.ControlObject as Eto.Forms.Control)?.ParentWindow)
+        Optional((canvas.ControlObject as Control)?.ParentWindow)
             .Filter(static w => w.LogicalPixelSize > 0f)
             .Map(static w => new WindowMetrics(LogicalPixelSize: w.LogicalPixelSize, ScreenSize: w.Screen.Bounds.Size));
 
@@ -433,17 +476,19 @@ internal static partial class UiRail {
             renderCase: static (scope, r) =>
                 scope.NeedCanvas().Bind(canvas => {
                     int limit = RenderDimensionLimit(canvas: canvas);
-                    return Optional((r.Width, r.Height))
-                        .Filter(dim => dim.Width > 0 && dim.Width <= limit && dim.Height > 0 && dim.Height <= limit)
+                    CanvasRenderPolicy policy = r.Policy;
+                    return Optional(policy)
+                        .Filter(static p => p.Width > 0)
+                        .Filter(p => p.Width <= limit && p.Height > 0 && p.Height <= limit)
                         .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasOp.Render)), detail: $"dimensions out of [1, {limit}]"))
-                        .Bind(dim => EncodeBitmap(
-                            bitmap: canvas.DrawToBitmap(
-                                width: dim.Width, height: dim.Height,
-                                drawBackground: (r.Layers & CanvasBitmapLayers.Background) == CanvasBitmapLayers.Background,
-                                drawWires: (r.Layers & CanvasBitmapLayers.Wires) == CanvasBitmapLayers.Wires,
-                                drawMessages: (r.Layers & CanvasBitmapLayers.Messages) == CanvasBitmapLayers.Messages),
-                            width: dim.Width, height: dim.Height,
-                            op: Op.Of(name: nameof(CanvasOp.Render))));
+                        .Bind(valid =>
+                            from bitmap in RenderBitmap(canvas: canvas, policy: valid)
+                            from encoded in EncodeBitmap(
+                                bitmap: bitmap,
+                                width: valid.Width,
+                                height: valid.Height,
+                                op: Op.Of(name: nameof(CanvasOp.Render)))
+                            select encoded);
                 }),
             pickMapCase: static (scope, _) =>
                 scope.NeedCanvas().Bind(canvas => EncodeBitmap(bitmap: canvas.DrawPickMap(), width: 0, height: 0, op: Op.Of(name: nameof(CanvasOp.PickMap)))),
@@ -474,19 +519,38 @@ internal static partial class UiRail {
                 select (CanvasResult)new CanvasResult.InteractionResult(
                     Interaction: new CanvasInteractionSnapshot(Before: before, After: InteractionOf(canvas: canvas, document: scope.Document))),
             windowSelectCase: static (scope, ws) =>
-                Op.Of(name: nameof(CanvasOp.WindowSelect)).AcceptRect(value: ws.Window, detail: "non-finite window")
-                    .Bind(rect => scope.NeedObjects().Bind(objs => scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Map(doc => {
-                        WindowSelection selection = new WindowSelection(startPoint: new PointF(x: rect.Left, y: rect.Top))
-                            .Adapt(newEndPoint: new PointF(x: rect.Right, y: rect.Bottom));
-                        SelectionResult result = objs.WindowSelect(window: selection, mode: ws.Mode.Gh,
-                            considerForeground: (ws.Scope & CanvasWindowScope.Objects) == CanvasWindowScope.Objects,
-                            considerBackground: (ws.Scope & CanvasWindowScope.Groups) == CanvasWindowScope.Groups,
-                            considerWires: (ws.Scope & CanvasWindowScope.Wires) == CanvasWindowScope.Wires);
-                        return (CanvasResult)new CanvasResult.WindowResult(Window: new CanvasWindowSnapshot(
+                ws.Window.Selection(op: Op.Of(name: nameof(CanvasOp.WindowSelect)))
+                    .Bind(selection => scope.NeedObjects().Bind(objs => scope.NeedCanvas().Bind(canvas => scope.NeedDocument().Bind(doc =>
+                        from result in Op.Of(name: nameof(CanvasOp.WindowSelect)).Attempt(
+                            body: () => objs.WindowSelect(
+                                window: selection,
+                                mode: ws.Mode.Gh,
+                                considerForeground: (ws.Scope & CanvasWindowScope.Objects) == CanvasWindowScope.Objects,
+                                considerBackground: (ws.Scope & CanvasWindowScope.Groups) == CanvasWindowScope.Groups,
+                                considerWires: (ws.Scope & CanvasWindowScope.Wires) == CanvasWindowScope.Wires),
+                            what: "ObjectList.WindowSelect")
+                        select (CanvasResult)new CanvasResult.WindowResult(Window: new CanvasWindowSnapshot(
                             Canvas: SnapshotOf(scope: scope, canvas: canvas, document: doc, objects: objs),
                             SelectedCount: result.SelectedCount,
-                            DeselectedCount: result.DeselectedCount));
-                    })))));
+                            DeselectedCount: result.DeselectedCount)))))),
+            inlineEditCase: static (scope, edit) =>
+                from canvas in scope.NeedCanvas()
+                from frame in Op.Of(name: nameof(CanvasOp.InlineEdit)).AcceptRect(value: edit.Frame, detail: "invalid inline editor frame", requirePositive: true)
+                from apply in Optional(edit.Apply).ToFin(Fail: UiFault.InvalidInput(op: CanvasOp.InlineEditCase.SelfOp, detail: "apply callback is required"))
+                from _ in Op.Of(name: nameof(CanvasOp.InlineEdit)).Attempt(body: () => {
+                    System.Action? cancel = edit.Cancel is { IsSome: true, Case: Func<Fin<Unit>> run }
+                        ? () => GrasshopperUi.Handler(valid: run).Ignore()
+                        : null;
+                    canvas.ShowInlineEditor(frame: frame, initial: edit.Initial ?? string.Empty, apply: text => InlineResult(text: text, apply: apply), cancel: cancel);
+                    return unit;
+                }, what: "Canvas.ShowInlineEditor")
+                select CanvasResult.Unit,
+            valueEditorCase: static (scope, edit) =>
+                from canvas in scope.NeedCanvas()
+                from parameter in Optional(edit.Parameter).ToFin(Fail: UiFault.InvalidInput(op: CanvasOp.ValueEditorCase.SelfOp, detail: "parameter is required"))
+                from control in Optional(edit.Control).ToFin(Fail: UiFault.InvalidInput(op: CanvasOp.ValueEditorCase.SelfOp, detail: "control is required"))
+                from _ in ShowValueEditor(canvas: canvas, parameter: parameter, control: control)
+                select CanvasResult.Unit);
 
     private readonly record struct ViewTarget(GhCanvas Canvas, GhDocument Document, GhObjectList Objects);
 
@@ -561,9 +625,7 @@ internal static partial class UiRail {
                         viewportCase: static (state, _) => Fin.Succ(state.Canvas.VisibleFrame))),
             positionCase: static (scope, pos) =>
                 from target in NeedViewTarget(scope)
-                from _ in Op.Of(name: nameof(CanvasViewOp.Position)).Attempt(
-                    body: () => { target.Canvas.Navigate(position: pos.Where, duration: pos.Duration); return unit; },
-                    what: "FlexControl.Navigate(ContentPosition)")
+                from _ in NavigatePosition(target: target, position: pos.Where, duration: pos.Duration)
                 select (CanvasResult)new CanvasResult.SnapshotResult(
                     Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document, objects: target.Objects)),
             projectionCase: static (scope, pr) =>
@@ -592,7 +654,32 @@ internal static partial class UiRail {
         }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(CanvasViewOp.Projection)), detail: $"projection assign threw: {error.Message}"))
         select unit;
 
-    private static CanvasViewPolicy ResolveView(CanvasViewPolicy raw, float defaultPadding = CanvasViewPolicy.DefaultPadding) {
+    private static Fin<Unit> NavigatePosition(ViewTarget target, ContentPosition position, GhDuration duration) =>
+        Op.Of(name: nameof(CanvasViewOp.Position)).Attempt(body: () => {
+            RectangleF content = target.Canvas.ContentBounds.IsEmpty ? target.Canvas.VisibleFrame : target.Canvas.ContentBounds;
+            RectangleF frame = target.Canvas.VisibleFrame;
+            RectangleF region = position switch {
+                ContentPosition.Top => new RectangleF(x: frame.X, y: content.Top, width: frame.Width, height: frame.Height),
+                ContentPosition.Bottom => new RectangleF(x: frame.X, y: content.Bottom - frame.Height, width: frame.Width, height: frame.Height),
+                ContentPosition.Left => new RectangleF(x: content.Left, y: frame.Y, width: frame.Width, height: frame.Height),
+                ContentPosition.Right => new RectangleF(x: content.Right - frame.Width, y: frame.Y, width: frame.Width, height: frame.Height),
+                ContentPosition.Centre => RectangleF.FromCenter(center: content.Center, size: frame.Size),
+                ContentPosition.TopLeft => new RectangleF(x: content.Left, y: content.Top, width: frame.Width, height: frame.Height),
+                ContentPosition.TopRight => new RectangleF(x: content.Right - frame.Width, y: content.Top, width: frame.Width, height: frame.Height),
+                ContentPosition.BottomLeft => new RectangleF(x: content.Left, y: content.Bottom - frame.Height, width: frame.Width, height: frame.Height),
+                ContentPosition.BottomRight => new RectangleF(x: content.Right - frame.Width, y: content.Bottom - frame.Height, width: frame.Width, height: frame.Height),
+                ContentPosition.Fit => content,
+                ContentPosition.HundredPercent => RectangleF.FromCenter(center: frame.Center, size: target.Canvas.InnerBounds.Size),
+                _ => frame,
+            };
+            target.Canvas.Navigate(
+                frame: region,
+                zoomLimits: (CanvasViewPolicy.DefaultMinimumZoom, position == ContentPosition.Fit ? 1f : CanvasViewPolicy.DefaultMaximumZoom),
+                duration: duration);
+            return unit;
+        }, what: "FlexControl.Navigate(RectangleF)");
+
+    internal static CanvasViewPolicy ResolveView(CanvasViewPolicy raw, float defaultPadding = CanvasViewPolicy.DefaultPadding) {
         TimeSpan duration = raw.Duration == default ? Animators.DurationToTimeSpan(duration: GhDuration.Normal) : raw.Duration;
         float minimum = float.IsFinite(raw.MinimumZoom) && raw.MinimumZoom > 0f ? raw.MinimumZoom : CanvasViewPolicy.DefaultMinimumZoom;
         float maximum = float.IsFinite(raw.MaximumZoom) && raw.MaximumZoom >= minimum ? raw.MaximumZoom : Math.Max(minimum, CanvasViewPolicy.DefaultMaximumZoom);
@@ -640,22 +727,32 @@ internal static partial class UiRail {
     internal static Fin<CanvasPickSnapshot> PickAt(GrasshopperUi.Scope scope, PointF point, CoordinateSystem source, CanvasPickPolicy policy, PickTolerance tolerance) =>
         scope.NeedCanvas().Map(canvas => {
             PointF content = source == CoordinateSystem.Content ? point : canvas.Map(point: point, from: source, to: CoordinateSystem.Content);
-            RectangleF pickBounds = tolerance.Value <= 0f
-                ? new RectangleF(x: content.X, y: content.Y, width: 0f, height: 0f)
-                : RectangleF.Inflate(
-                    rectangle: new RectangleF(x: content.X, y: content.Y, width: 0f, height: 0f),
-                    width: tolerance.Value,
-                    height: tolerance.Value);
-            SelectionResult result = canvas.ResolvePick(
-                point: new PointF(
-                    x: pickBounds.X + (pickBounds.Width * 0.5f),
-                    y: pickBounds.Y + (pickBounds.Height * 0.5f)),
+            float radius = tolerance.Value;
+            Seq<PointF> probes = radius <= 0f
+                ? Seq(content)
+                : [
+                    content,
+                    new PointF(x: content.X - radius, y: content.Y),
+                    new PointF(x: content.X + radius, y: content.Y),
+                    new PointF(x: content.X, y: content.Y - radius),
+                    new PointF(x: content.X, y: content.Y + radius),
+                    new PointF(x: content.X - radius, y: content.Y - radius),
+                    new PointF(x: content.X + radius, y: content.Y - radius),
+                    new PointF(x: content.X - radius, y: content.Y + radius),
+                    new PointF(x: content.X + radius, y: content.Y + radius),
+                ];
+            SelectionResult Resolve(PointF probe) => canvas.ResolvePick(
+                point: probe,
                 includeGrips: (policy & CanvasPickPolicy.Grips) == CanvasPickPolicy.Grips,
                 includeForeground: (policy & CanvasPickPolicy.Foreground) == CanvasPickPolicy.Foreground,
                 includeBackground: (policy & CanvasPickPolicy.Background) == CanvasPickPolicy.Background,
                 includeWires: (policy & CanvasPickPolicy.Wires) == CanvasPickPolicy.Wires,
                 recursive: (policy & CanvasPickPolicy.Recursive) == CanvasPickPolicy.Recursive);
-            return PickSnapshotOf(result: result);
+            return probes
+                .Map(Resolve)
+                .Find(static pick => pick.Kind != Pick.None)
+                .Map(PickSnapshotOf)
+                .IfNone(PickSnapshotOf(result: Resolve(probe: content)));
         });
 
     // Only an IInteraction carries a domain Nomen; a non-interaction focus projects to None rather than
@@ -706,6 +803,54 @@ internal static partial class UiRail {
                 Some: bounds => Some(RectangleF.Union(rect1: bounds, rect2: obj.Attributes.AggregateBounds)),
                 None: () => Some(obj.Attributes.AggregateBounds)));
 
+    private static Grasshopper2.Parsing.Result<Unit> InlineResult(string text, Func<string, Fin<Unit>> apply) =>
+        GrasshopperUi.Protect(valid: () => apply(arg: text)).Match(
+            Succ: _ => Grasshopper2.Parsing.Result<Unit>.Succeed(value: unit, underlying: text),
+            Fail: error => Grasshopper2.Parsing.Result<Unit>.Fail(error: error.Message, underlying: text));
+
+    private static readonly Lazy<Fin<MethodInfo>> ShowValueEditorPopup = new(() =>
+        Optional(typeof(GhCanvas).GetMethod(
+                name: "ShowValueEditorPopup",
+                bindingAttr: BindingFlags.Instance | BindingFlags.NonPublic,
+                binder: null,
+                types: [typeof(AbstractParameter), typeof(Control)],
+                modifiers: null))
+            .ToFin(Fail: UiFault.MutationRejected(op: Op.Of(name: nameof(CanvasOp.ValueEditor)), detail: "Canvas.ShowValueEditorPopup(AbstractParameter, Control) not found")));
+
+    private static Fin<Unit> ShowValueEditor(GhCanvas canvas, AbstractParameter parameter, Control control) =>
+        from method in ShowValueEditorPopup.Value
+        from _ in Op.Of(name: nameof(CanvasOp.ValueEditor)).Attempt(body: () => {
+            _ = method.Invoke(obj: canvas, parameters: [parameter, control]);
+            return unit;
+        }, what: "Canvas.ShowValueEditorPopup")
+        select unit;
+
+    private static Fin<Bitmap> RenderBitmap(GhCanvas canvas, CanvasRenderPolicy policy) =>
+        Op.Of(name: nameof(CanvasOp.Render)).Attempt(body: () => {
+            string? fault = null;
+            CanvasBitmapLayers layers = policy.EffectiveLayers;
+            EventHandler<CanvasPaintEventArgs>? handler = policy.Overlay.Marks.IsEmpty
+                ? null
+                : (_, args) => _ = policy.Overlay.Apply(scope: new PaintScope(
+                    Phase: CanvasPaintPhase.AfterObjects,
+                    Graphics: args.Graphics,
+                    Skin: args.Skin)).IfFail(error => { fault = error.Message; return unit; });
+            _ = Optional(handler).Iter(h => CanvasPaintPhase.AfterObjects.Attach(canvas: canvas, handler: h));
+            try {
+                Bitmap bitmap = canvas.DrawToBitmap(
+                    width: policy.Width,
+                    height: policy.Height,
+                    drawBackground: (layers & CanvasBitmapLayers.Background) == CanvasBitmapLayers.Background,
+                    drawWires: (layers & CanvasBitmapLayers.Wires) == CanvasBitmapLayers.Wires,
+                    drawMessages: (layers & CanvasBitmapLayers.Messages) == CanvasBitmapLayers.Messages);
+                return string.IsNullOrEmpty(value: fault)
+                    ? bitmap
+                    : throw new InvalidOperationException(message: fault);
+            } finally {
+                _ = Optional(handler).Iter(h => CanvasPaintPhase.AfterObjects.Detach(canvas: canvas, handler: h));
+            }
+        }, what: "Canvas.DrawToBitmap");
+
     private static Fin<CanvasResult> EncodeBitmap(Bitmap? bitmap, int width, int height, Op op) =>
         Optional(bitmap)
             .ToFin(Fail: UiFault.MutationRejected(op: op, detail: "DrawToBitmap returned null"))
@@ -732,16 +877,11 @@ internal static partial class UiRail {
     internal static Fin<int> SelectionDispatch(GhDocumentMethods methods, SelectionOp op) =>
         op.Switch(
             state: methods,
-            allCase: static (m, _) => Fin.Succ(value: m.SelectAll()),
-            noneCase: static (m, _) => Fin.Succ(value: m.DeselectAll()),
-            invertCase: static (m, _) => Fin.Succ(value: m.InvertSelection()),
-            growCase: static (m, g) => Fin.Succ(value: m.GrowSelection(upstream: g.Upstream, downstream: g.Downstream)),
-            shiftCase: static (m, s) => Fin.Succ(value: m.ShiftSelection(upstream: s.Upstream)));
-
-    internal static Fin<int> ClipboardDispatch(GhDocumentMethods methods, ClipboardOp op, ActionList actions) =>
-        op.Switch(
-            state: (methods, actions),
-            verbCase: static (s, op) => op.Verb.Run(methods: s.methods, kind: op.Kind, behaviour: op.Behaviour, actions: s.actions));
+            allCase: static (m, _) => Op.Of(name: nameof(SelectionOp.All)).Attempt(body: m.SelectAll, what: "DocumentMethods.SelectAll"),
+            noneCase: static (m, _) => Op.Of(name: nameof(SelectionOp.None)).Attempt(body: m.DeselectAll, what: "DocumentMethods.DeselectAll"),
+            invertCase: static (m, _) => Op.Of(name: nameof(SelectionOp.Invert)).Attempt(body: m.InvertSelection, what: "DocumentMethods.InvertSelection"),
+            growCase: static (m, g) => Op.Of(name: nameof(SelectionOp.Grow)).Attempt(body: () => m.GrowSelection(upstream: g.Upstream, downstream: g.Downstream), what: "DocumentMethods.GrowSelection"),
+            shiftCase: static (m, s) => Op.Of(name: nameof(SelectionOp.Shift)).Attempt(body: () => m.ShiftSelection(upstream: s.Upstream), what: "DocumentMethods.ShiftSelection"));
 
     internal static Fin<Option<Guid>> ComposeDispatch(GhDocumentMethods methods, GhObjectList objects, ObjectScope subject, ComposeOp op, ActionList actions) =>
         subject.Switch(
@@ -765,7 +905,7 @@ internal static partial class UiRail {
         scope.NeedObjects().Bind(objs => ResolveObject(objects: objs, id: id, op: op));
 
     internal static int RunDelete(GhDocumentMethods methods, IDocumentObject[]? targets, bool dataOnly, Seq<WireEnds> wires, ActionList actions) =>
-        DocumentDeleteMode.Resolve(targets: targets, dataOnly: dataOnly, wires: wires).Run(methods: methods, targets: targets, wires: wires, actions: actions);
+        DocumentDeleteMode.Resolve(targets: targets, dataOnly: dataOnly).Run(methods: methods, targets: targets, wires: wires, actions: actions);
 
     internal static Fin<ClipboardKind> ValidateClipboard(string name, ClipboardKind clipboard) =>
         clipboard switch {
@@ -797,23 +937,51 @@ internal static partial class UiRail {
             Name: Optional(node.Record?.Name.ToString()).IfNone(string.Empty),
             Count: node.Record?.Count ?? 0));
 
-    internal static Fin<Snapshot<DocumentMutationDelta>> RunMutation(
+    internal static Fin<Snapshot<TDelta>> RunMutation<TDelta>(
         GrasshopperUi.Scope scope,
         Op op,
-        Func<GhDocumentMethods, GhObjectList, ActionList, Fin<DocumentMutationReceipt>> mutate,
-        DocumentMutationPolicy policy) =>
+        Func<GhDocumentMethods, GhDocument, GhObjectList, ActionList, Fin<(DocumentMutationReceipt Receipt, TDelta Payload)>> mutate) =>
         from methods in scope.NeedMethods()
         from document in scope.NeedDocument()
         from objects in scope.NeedObjects()
         let actions = ActionList.Empty
-        from receipt in mutate(arg1: methods, arg2: objects, arg3: actions).Bind(result => result.Changed switch {
-            >= 0 => Fin.Succ(value: result),
-            _ => Fin.Fail<DocumentMutationReceipt>(error: UiFault.MutationRejected(op: op, detail: string.Create(CultureInfo.InvariantCulture, $"count={result.Changed}"))),
-        })
-        from _ in CommitActions(document: document, name: VerbNounOf(op: op), actions: actions)
-        select Snapshot.Of(
-            payload: new DocumentMutationDelta(Changed: receipt.Changed, After: DocumentSnapshotOf(document: document, objects: objects), Created: receipt.Created),
-            ownerId: Some(document.Hash));
+        from mutation in Optional(mutate)
+            .ToFin(Fail: UiFault.InvalidInput(op: op, detail: "mutation delegate is required"))
+            .Bind(run => run(arg1: methods, arg2: document, arg3: objects, arg4: actions))
+        from receipt in mutation.Receipt.Changed switch {
+            >= 0 => Fin.Succ(value: mutation.Receipt),
+            _ => Fin.Fail<DocumentMutationReceipt>(error: UiFault.MutationRejected(op: op, detail: string.Create(CultureInfo.InvariantCulture, $"count={mutation.Receipt.Changed}"))),
+        }
+        from _ in CommitActions(scope: scope, document: document, name: VerbNounOf(op: op), actions: actions)
+        select Snapshot.Of(payload: mutation.Payload, ownerId: Some(document.Hash));
+
+    internal static Fin<Unit> CommitActions(GrasshopperUi.Scope scope, GhDocument document, VerbNoun name, ActionList actions) =>
+        actions.Count <= 0
+            ? Fin.Succ(value: unit)
+            : scope.UndoGroup is { IsSome: true, Case: UndoGroup bag }
+                ? Try.lift(f: () => {
+                    foreach (Grasshopper2.Undo.Action action in actions.Actions) {
+                        _ = bag.Add(action: action);
+                    }
+                    return unit;
+                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(CommitActions)), detail: $"UndoGroup add threw: {error.Message}"))
+                : CommitActions(document: document, name: name, actions: actions);
+
+    internal static Fin<Snapshot<DocumentMutationDelta>> RunDocumentMutation(
+        GrasshopperUi.Scope scope,
+        Op op,
+        Func<GhDocumentMethods, GhObjectList, ActionList, Fin<DocumentMutationReceipt>> mutate) =>
+        RunMutation(
+            scope: scope,
+            op: op,
+            mutate: (methods, document, objects, actions) =>
+                from receipt in mutate(arg1: methods, arg2: objects, arg3: actions)
+                select (
+                    Receipt: receipt,
+                    Payload: new DocumentMutationDelta(
+                        Changed: receipt.Changed,
+                        After: DocumentSnapshotOf(document: document, objects: objects),
+                        Created: receipt.Created)));
 
     internal static Fin<Unit> CommitActions(GhDocument document, VerbNoun name, ActionList actions) =>
         actions.Count switch {

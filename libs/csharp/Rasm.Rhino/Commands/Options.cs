@@ -39,7 +39,7 @@ public readonly record struct CommandOptionValue {
     public Option<T> As<T>(string key) => Is(key: key) ? As<T>() : Option<T>.None;
     public Fin<T> Require<T>() => As<T>().ToFin(Fail: Op.Of(name: nameof(CommandOptionValue)).InvalidResult());
     public Fin<T> Require<T>(string key) => As<T>(key: key).ToFin(Fail: Op.Of(name: nameof(CommandOptionValue)).InvalidResult());
-    public bool Is(string key) => string.Equals(a: Key, b: key, comparisonType: StringComparison.Ordinal);
+    public bool Is(string key) => string.Equals(a: Key, b: key, comparisonType: StringComparison.OrdinalIgnoreCase);
 }
 
 public readonly record struct CommandOptionPolicy(
@@ -163,6 +163,13 @@ public abstract record CommandOption {
     internal abstract Option<CommandOptionValue> Script(string token);
     internal static Option<CommandOptionValue> Script(Seq<CommandOption> options, string token) =>
         options.Choose(option => option.Script(token: token)).Head;
+    internal static Fin<Seq<CommandOption>> Validate(Seq<CommandOption> options, Op op) {
+        CommandOption[] rows = [.. options];
+        return rows.All(static option => option is not null && CommandLineOption.IsValidOptionName(optionName: option.Name))
+            && rows.Select(static option => option.Name).Distinct(comparer: StringComparer.OrdinalIgnoreCase).Count() == rows.Length
+            ? Fin.Succ(value: options)
+            : Fin.Fail<Seq<CommandOption>>(error: op.InvalidInput());
+    }
     internal static Option<Color> ColorValue(string text) =>
         Optional(text)
             .Map(static value => value.Trim())
@@ -194,15 +201,14 @@ public abstract record CommandOption {
     internal static Fin<Scope> Bind(Seq<CommandOption> options, GetBaseClass getter) =>
         Optional(getter)
             .ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
-            .Bind(g => options.Map(static option => option.Name).Distinct().Count == options.Count
-                ? options.Fold(Fin.Succ(value: Seq<Bound>()), (state, option) =>
+            .Bind(g => Validate(options: options, op: Op.Of(name: nameof(CommandOption)))
+                .Bind(active => active.Fold(Fin.Succ(value: Seq<Bound>()), (state, option) =>
                     state.Bind(bounds => option.Add(getter: g).Match(
                         Succ: bound => Fin.Succ(value: bounds + Seq(bound)),
                         Fail: error => {
                             _ = bounds.Iter(static bound => bound.Release());
                             return Fin.Fail<Seq<Bound>>(error: error);
-                        })))
-                : Fin.Fail<Seq<Bound>>(error: Op.Of(name: nameof(CommandOption)).InvalidInput()))
+                        })))))
             .Map(static bounds => new Scope(bounds: bounds));
 
     private static Fin<TNative> BoundedOption<TValue, TNative>(
@@ -272,10 +278,10 @@ public abstract record CommandOption {
                 (int equal and > 0, _) => Some(equal),
                 (_, int colon and > 0) => Some(colon),
                 _ => Option<int>.None,
-            }).Bind(index => string.Equals(a: value[..index], b: name, comparisonType: StringComparison.Ordinal) ? Some((Key: name, Value: value[(index + 1)..].Trim())) : Option<(string Key, string Value)>.None));
+            }).Bind(index => string.Equals(a: value[..index], b: name, comparisonType: StringComparison.OrdinalIgnoreCase) ? Some((Key: name, Value: value[(index + 1)..].Trim())) : Option<(string Key, string Value)>.None));
 
     private static Option<string> ScriptName(string name, string token) =>
-        Optional(token).Map(static value => value.Trim()).Bind(value => string.Equals(a: value, b: name, comparisonType: StringComparison.Ordinal) ? Some(name) : Option<string>.None);
+        Optional(token).Map(static value => value.Trim()).Bind(value => string.Equals(a: value, b: name, comparisonType: StringComparison.OrdinalIgnoreCase) ? Some(name) : Option<string>.None);
 
     internal static Option<bool> BoolValue(string value, string off = "No", string on = "Yes") =>
         value switch {

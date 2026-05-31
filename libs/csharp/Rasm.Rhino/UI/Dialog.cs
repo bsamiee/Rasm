@@ -42,13 +42,6 @@ public readonly record struct UiLayerResult(Seq<int> LayerIndices, bool SetCurre
 }
 public readonly record struct UiMessageSpec(string Message, string Title, global::Rhino.UI.ShowMessageButton Buttons = default, global::Rhino.UI.ShowMessageIcon Icon = default, global::Rhino.UI.ShowMessageDefaultButton DefaultButton = default, global::Rhino.UI.ShowMessageOptions Options = default, global::Rhino.UI.ShowMessageMode Mode = default);
 public readonly record struct UiColorSpec(Color4f Initial, Option<global::Rhino.UI.NamedColorList> Named = default, global::Rhino.UI.Dialogs.OnColorChangedEvent? Changed = null);
-public readonly record struct UiCapturePolicy(double Dpi = 96d) {
-    public static UiCapturePolicy Default { get; } = new(Dpi: 96d);
-
-    internal UiCapturePolicy Admitted =>
-        Dpi <= 0d && this == default ? Default : this;
-}
-
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class UiIntent {
     public static UiIntent<T> Of<T>(Func<RhinoDoc, RunMode, Fin<T>> run) =>
@@ -362,26 +355,25 @@ public static class UiPreview {
     // Single native-resource->Fin boundary: projects a nullable native element (Bitmap / Point2f[][] / XmlDocument) to a Fin.
     private static Fin<T> Project<T>(Op op, Func<T?> native) where T : class => Optional(native()).ToFin(Fail: op.InvalidResult());
 
-    public static UiIntent<DrawingBitmap> Capture(RhinoView view, Option<DrawingSize> size = default, CaptureDecor decor = default, UiCapturePolicy policy = default) =>
-        Of(name: nameof(Capture), run: (_, _) => Render(view: view, size: size, decor: decor, policy: policy, op: Op.Of(name: nameof(Capture)),
-            project: static settings => Project(op: Op.Of(name: nameof(Capture)), native: () => ViewCapture.CaptureToBitmap(settings: settings))));
+    public static UiIntent<DrawingBitmap> Capture(RhinoView view, CaptureRecipe recipe = default) =>
+        Of(name: nameof(Capture), run: (_, _) => recipe.Render(
+            view: view,
+            viewport: recipe.Viewport(view: view),
+            fallbackDpi: 96d,
+            fallbackDecor: new CaptureDecor(),
+            rewrite: static (decor, _) => decor,
+            project: static settings => Project(op: Op.Of(name: nameof(Capture)), native: () => ViewCapture.CaptureToBitmap(settings: settings)),
+            op: Op.Of(name: nameof(Capture))));
 
-    public static UiIntent<XmlDocument> CaptureSvg(RhinoView view, Option<DrawingSize> size = default, CaptureDecor decor = default, UiCapturePolicy policy = default) =>
-        Of(name: nameof(CaptureSvg), run: (_, _) => Render(view: view, size: size, decor: decor, policy: policy, op: Op.Of(name: nameof(CaptureSvg)),
-            project: static settings => Project(op: Op.Of(name: nameof(CaptureSvg)), native: () => ViewCapture.CaptureToSvg(settings: settings))));
-
-    // BOUNDARY ADAPTER — ViewCaptureSettings is a disposable Rhino boundary object; the static capture projectors do not own it.
-    private static Fin<T> Render<T>(RhinoView view, Option<DrawingSize> size, CaptureDecor decor, UiCapturePolicy policy, Op op, Func<ViewCaptureSettings, Fin<T>> project) =>
-        from validView in op.Need(view)
-        let capture = policy.Admitted
-        from _ in guard(capture.Dpi > 0d, op.InvalidInput())
-        from result in RhinoUi.Protect(valid: () => {
-            using ViewCaptureSettings settings = new(sourceView: validView, mediaSize: size.IfNone(() => validView.ActiveViewport.Size), dpi: capture.Dpi);
-            return from configured in decor.Apply(settings: settings, op: op)
-                   from projected in project(arg: settings)
-                   select projected;
-        })
-        select result;
+    public static UiIntent<XmlDocument> CaptureSvg(RhinoView view, CaptureRecipe recipe = default) =>
+        Of(name: nameof(CaptureSvg), run: (_, _) => recipe.Render(
+            view: view,
+            viewport: recipe.Viewport(view: view),
+            fallbackDpi: 96d,
+            fallbackDecor: new CaptureDecor(),
+            rewrite: static (decor, _) => decor,
+            project: static settings => Project(op: Op.Of(name: nameof(CaptureSvg)), native: () => ViewCapture.CaptureToSvg(settings: settings)),
+            op: Op.Of(name: nameof(CaptureSvg))));
 
     public static UiIntent<Color4f> Color(UiColorSpec spec, bool allowAlpha = false) =>
         UiIntent.Dialog((parent, _) => Op.Of(name: nameof(Color)).Catch(() => {

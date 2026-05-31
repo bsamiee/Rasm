@@ -231,6 +231,9 @@ public readonly record struct CameraFrame(Plane Frame, Point3d Target) {
     private static readonly Op LookAtKey = Op.Of(name: nameof(LookAt));
 
     public Point3d Location => Frame.Origin;
+
+    /// <remarks>Rhino's camera looks down the negative frame Z (-Z-forward); the view direction is therefore the
+    /// negated frame Z axis. Callers building a look-at frame from a direction must invert this sign accordingly.</remarks>
     public Vector3d Direction => -Frame.ZAxis;
     public Vector3d Up => Frame.YAxis;
 
@@ -346,6 +349,46 @@ public sealed record CameraSnapshot : IDisposable {
     // `ChangeCounter` (uint) advances per viewport mutation; doc serial guards reopen + uint wrap.
     public bool IsStale =>
         Scope.Document.RuntimeSerialNumber != DocumentSerial || Scope.Viewport.ChangeCounter != ChangeSerial;
+
+    // Frozen-projection queries: each answers against the captured ViewportInfo/Frame/Frustum, so a snapshot
+    // consumer reasons about the moment of capture without re-borrowing (and re-reading) the live viewport.
+    public Fin<System.Drawing.PointF> ScreenPoint(Point3d point) {
+        ViewportInfo captured = Projection;
+        Op op = Op.Of(name: nameof(ScreenPoint));
+        return from _ in guard(point.IsValid, op.InvalidInput())
+               from screen in op.Catch(() => {
+                   Transform xform = captured.GetXform(sourceSystem: CoordinateSystem.World, destinationSystem: CoordinateSystem.Screen);
+                   Point3d projected = xform * point;
+                   return xform.IsValid && projected.IsValid
+                       ? Fin.Succ(value: new System.Drawing.PointF((float)projected.X, (float)projected.Y))
+                       : Fin.Fail<System.Drawing.PointF>(error: op.InvalidResult());
+               })
+               select screen;
+    }
+
+    public Fin<CameraDepth> Depth(CameraSubject source) {
+        CameraFrame frame = Frame;
+        Op op = Op.Of(name: nameof(Depth));
+        return Optional(source).ToFin(Fail: op.InvalidInput())
+            .Bind(valid => valid.BoundsOf(op: op))
+            .Bind(bounds => bounds.IsValid ? Fin.Succ(value: DepthOf(frame: frame, bounds: bounds)) : Fin.Fail<CameraDepth>(error: op.InvalidResult()));
+    }
+
+    // Conservative: tests the world subject box against the frustum's world bounding box (an over-approximation of
+    // the true frustum volume), so a true answer is "potentially in view" — never a false negative.
+    public Fin<bool> IsVisible(BoundingBox box) {
+        BoundingBox frustum = Frustum.Bounds;
+        return box.IsValid && frustum.IsValid
+            ? Fin.Succ(value: BoundingBox.Intersection(a: frustum, b: box).IsValid)
+            : Fin.Fail<bool>(error: Op.Of(name: nameof(IsVisible)).InvalidInput());
+    }
+
+    private static CameraDepth DepthOf(CameraFrame frame, BoundingBox bounds) {
+        (double near, double far) = toSeq(bounds.GetCorners())
+            .Map(corner => (corner - frame.Location) * frame.Direction)
+            .Fold((Near: double.MaxValue, Far: double.MinValue), static (acc, depth) => (Near: Math.Min(val1: acc.Near, val2: depth), Far: Math.Max(val1: acc.Far, val2: depth)));
+        return new CameraDepth(Near: near, Far: far);
+    }
 
     public void Dispose() {
         projection.Dispose();

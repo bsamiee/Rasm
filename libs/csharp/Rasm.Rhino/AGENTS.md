@@ -18,6 +18,7 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 
 ## Category Folders
 
+- Root files own cross-cutting rails. `Events.cs` owns document/view/object/panel watch subscription through `WatchBus`. `Capture.cs` owns `ViewCaptureSettings` construction through `CaptureRecipe`.
 - `Commands/` owns staged command execution, command input, document mutation receipts, selection, options, prompt flow, and command-visible transactions.
 - `UI/` owns Eto/Rhino UI integration: dialogs, panels, overlays, mouse callbacks, progress, gumball-style interaction, and UI-thread protection.
 - `Camera/` owns viewport target resolution, live camera state, camera mutation, projections, frustums, named views, capture, and sequencing.
@@ -30,6 +31,7 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 
 - Verify risky Rhino behavior against RhinoWIP `RhinoCommon.xml`, decompile evidence when XML is absent, and `uv run python -m tools.quality api doctor`.
 - Use `uv run python -m tools.quality ...` for API, static, test, and bridge rails in this checkout. Treat older `scripts/rhino.sh` guidance as stale unless the script exists locally.
+- Treat `uv run python -m tools.quality static check` as changed-file routing, not target-only validation. If dirty siblings fail, report them as outside scope and pair target proof with target build, target format, target `git diff --check`, and relevant bridge scenarios.
 - For new category roadmaps, verify every named Rhino member through local XML/decompile evidence before presenting it as available. List false, obsolete, internal, and missing APIs directly in the roadmap.
 - Member existence is not value equivalence. A member that compiles can still return a different quantity than the one it is claimed to replace — `File3dm.Views` counts model views, not layout page views. Verify return SEMANTICS by decompiling the backing native call or table, never by confirming the member resolves.
 - Treat RhinoWIP 9 as target. Do not rely on older public examples unless current local API evidence confirms semantics.
@@ -48,6 +50,8 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 ## Implementation Rules
 
 - Read existing folder files before editing. Extend canonical owners before creating new files or types.
+- Route document/view/object/panel watches through `WatchBus`; do not add folder-local watcher rails or restore `UI/Watch.cs`.
+- Route camera, UI, and Exchange capture setup through `CaptureRecipe`; do not duplicate `ViewCaptureSettings` constructor choice, viewport binding, DPI/decor validation, raster mode, or disposal.
 - Preserve Rhino native coherence. For example, camera location, target, direction, up vector, projection, and detail commit behavior must stay aligned unless an operation explicitly represents a lower-level native apply.
 - Convert native return shapes at the boundary: nullable to `Option`/`Fin`, bool failure to `Fin<Unit>`, resource lifetimes to scoped projection, document mutations to existing receipt vocabulary.
 - Keep block and construction value internal: idempotency, batch receipts, dependency graphs, source/link policy, overload selection, framed bounds, typed output projection, and native diagnostics belong behind the category rail.
@@ -56,7 +60,7 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 
 ## UI Folder Boundary Guidance
 
-- `UI/` owns Rhino/Eto thread dispatch, dialog and page semantics, panel lifecycle, RUI menu state, watch event projection, overlay conduits, retained canvas state, motion clocks, and drawing-resource lifetimes.
+- `UI/` owns Rhino/Eto thread dispatch, dialog and page semantics, panel lifecycle, RUI menu state, overlay conduits, retained canvas state, motion clocks, and drawing-resource lifetimes. Root `Events.cs` owns watch projection.
 - Keep `RhinoUi.Use` as the sole UI dispatch edge. Route interactive work through `DispatchThread`; use `RhinoUi.Protect` for native callbacks and user delegates that run inside paint, Eto input, or RUI update events.
 - Model native UI events as typed unions with native identities. Gate view events by `RhinoView.Document.RuntimeSerialNumber`; avoid optional bags that mix unrelated view, document, object, selection, replacement, attributes, and layer payloads.
 - Treat `RuiUpdateUi.RegisterMenuItem` as process-lifetime native registration. Dedupe by `(file, menu, item)` and swap stored callbacks; no unregister rail exists in RhinoWIP.
@@ -78,6 +82,7 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 - `FileScale` is a `[Union]` with GEOMETRY-commit persistence via `DetailGeometry.SetScale(...) && detail.CommitChanges()`.
 - `SheetQuery` is the sole page-matching rail: conjunctive filter resolved once in `Sheets.cs`.
 - `FileOp.Do(new FileExchange.NamedPosition(...))` wraps `RhinoDoc.NamedPositions`.
+- Exchange capture and watch call sites consume `CaptureRecipe` and `WatchBus`. Do not rebuild capture settings, filesystem watches, or document watches in Exchange.
 - Linked-block refresh is not an Exchange concern; `Blocks/` owns it as `BlockOp.RefreshLinks`.
 - `FileFormat.Custom(...)` registers into process-static STM; dialog plug-in registration belongs to the consuming `.rhp`.
 

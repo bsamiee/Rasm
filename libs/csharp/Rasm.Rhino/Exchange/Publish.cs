@@ -59,12 +59,15 @@ public abstract partial record FileViewSource {
         from scope in source.Target.Resolve(document: document, op: op)
         from pages in source.Names.TraverseM(name => FileEndpoint.NonBlank(value: name, op: op).Map(valid =>
             FileViewPage.Model(view: scope.View, spec: spec,
-                prepare: _ => CameraOps.RestoreNamed(
+                prepare: key => (source.Path.Case switch {
+                    CameraPath restore => restore.RequireSynchronous(op: key).Map<CameraPath?>(static value => value),
+                    _ => Fin.Succ<CameraPath?>(value: null),
+                }).Bind(path => CameraOps.RestoreNamed(
                         name: valid,
-                        path: source.Path.Case switch { CameraPath restore => restore, _ => null },
+                        path: path,
                         restore: source.Restore)
                     .Run(arg: scope)
-                    .Bind(outcome => outcome.Redraw.ApplyTo(scope: scope))))).As()
+                    .Bind(outcome => outcome.Redraw.ApplyTo(scope: scope)))))).As()
         select pages;
 }
 
@@ -78,19 +81,16 @@ internal sealed record FileViewPage(RhinoView Target, FileView Spec, Func<Op, Fi
     // Prepare runs FIRST (named-view restore reframes the viewport), then settings build off the framed view.
     internal Fin<ViewCaptureSettings> Settings(Op op) =>
         from _ in Prepare(arg: op)
-        from settings in Spec.Build(view: Target, op: op)
+        from settings in Spec.Open(view: Target, op: op)
         select settings;
 
-    // Single owner of "build settings (runs Prepare) + dispose"; PDF/Raster/SVG render through here.
+    // Single owner of "prepare view + capture rail + report"; CaptureRecipe owns settings construction/disposal.
     // The per-page report is built while the settings are still alive (model scale is only resolvable then),
     // so the realized scale is reported instead of being lost after disposal. Printer collects settings itself
-    // (SendToPrinter needs them all alive at once) and builds the report via ReportOf directly.
+    // (SendToPrinter needs them all alive at once) and still uses Settings/Open.
     internal Fin<(T Value, FileViewReport Report)> Render<T>(Func<ViewCaptureSettings, Fin<T>> render, Op op) =>
-        from settings in Settings(op: op)
-        from result in op.Catch(() => {
-            using ViewCaptureSettings owned = settings;
-            return render(arg: owned).Map(value => (Value: value, Report: ReportOf(settings: owned)));
-        })
+        from _ in Prepare(arg: op)
+        from result in Spec.Render(view: Target, project: settings => render(arg: settings).Map(value => (Value: value, Report: ReportOf(settings: settings))), op: op)
         select result;
 
     internal FileViewReport ReportOf(ViewCaptureSettings settings) =>
@@ -121,26 +121,43 @@ public readonly record struct FileViewReport(string Name, Option<string> Scale, 
 
 public sealed partial record FileView(
     FileViewSource Source,
-    double Dpi = FileSheetDefaults.DefaultPublishDpi,
-    bool Raster = false,
-    Option<CaptureDecor> Decor = default) {
-    internal Fin<ViewCaptureSettings> Build(RhinoView view, Op op) =>
+    CaptureRecipe Recipe = default) {
+    internal Fin<ViewCaptureSettings> Open(RhinoView view, Op op) =>
         from active in Optional(view).ToFin(Fail: op.InvalidInput())
-        from dpi in (double.IsFinite(d: Dpi), Dpi) switch {
-            (true, > 0.0) => Fin.Succ(value: Dpi),
-            _ => Fin.Fail<double>(error: op.InvalidInput()),
-        }
-        let settings = active switch {
-            RhinoPageView page => new ViewCaptureSettings(sourcePageView: page, dpi: dpi),
-            _ => new ViewCaptureSettings(sourceView: active, mediaSize: active.Size, dpi: dpi),
-        }
-        from _raster in Fin.Succ(value: Op.Side(() => settings.RasterMode = Raster))
-        from _decor in (Decor.IfNone(noneValue: CaptureDecor.Publish) with {
-            HeaderText = Decor.Bind(static decor => decor.HeaderText).Map(text => Interpolate(template: text, document: active.Document, view: active)),
-            FooterText = Decor.Bind(static decor => decor.FooterText).Map(text => Interpolate(template: text, document: active.Document, view: active)),
-        }).Apply(settings: settings, op: op)
-        from ready in settings.IsValid ? Fin.Succ(value: settings) : Fin.Fail<ViewCaptureSettings>(error: op.InvalidResult())
-        select ready;
+        from settings in Recipe.Open(
+            view: active,
+            viewport: Recipe.Viewport(view: active),
+            fallbackDpi: FileSheetDefaults.DefaultPublishDpi,
+            fallbackDecor: CaptureDecor.Publish,
+            rewrite: RewriteDecor,
+            op: op)
+        select settings;
+
+    internal Fin<T> Render<T>(RhinoView view, Func<ViewCaptureSettings, Fin<T>> project, Op op) =>
+        from active in Optional(view).ToFin(Fail: op.InvalidInput())
+        from result in Recipe.Render(
+            view: active,
+            viewport: Recipe.Viewport(view: active),
+            fallbackDpi: FileSheetDefaults.DefaultPublishDpi,
+            fallbackDecor: CaptureDecor.Publish,
+            rewrite: RewriteDecor,
+            project: project,
+            op: op)
+        select result;
+
+    internal Fin<DrawingBitmap> TransparentBitmap(RhinoView view, ViewCaptureSettings settings, Op op) =>
+        Recipe.TransparentBitmap(
+            view: view,
+            settings: settings,
+            fallbackDecor: CaptureDecor.Publish with { UsePrintWidths = false },
+            rewrite: RewriteDecor,
+            op: op);
+
+    private static CaptureDecor RewriteDecor(CaptureDecor decor, RhinoView target) =>
+        decor with {
+            HeaderText = decor.HeaderText.Map(text => Interpolate(template: text, document: target.Document, view: target)),
+            FooterText = decor.FooterText.Map(text => Interpolate(template: text, document: target.Document, view: target)),
+        };
 
     private static string Interpolate(string template, RhinoDoc document, RhinoView view) {
         int total = document.Views.GetPageViews()?.Length ?? 0;
@@ -194,6 +211,7 @@ public sealed partial class FileRasterEncoding {
     public FileFormat Format => format();
     public DrawingImageFormat Image => image();
     public FileTiffCompression Compression { get; }
+    internal bool SupportsAlpha => this == Png || this == Tiff;
 
     internal Seq<FileRasterCodecParameter> Parameters(FileRasterSettings settings) => encode(arg1: this, arg2: settings);
 }
@@ -228,6 +246,9 @@ public readonly record struct FileRasterSettings(
                    FileTiffCompression => Fin.Fail<Unit>(error: op.InvalidInput()),
                    _ => Fin.Succ(value: unit),
                }
+               from _alpha in self.Transparent && !encoding.SupportsAlpha
+                   ? Fin.Fail<Unit>(error: op.InvalidInput())
+                   : Fin.Succ(value: unit)
                select self;
     }
 
@@ -322,7 +343,7 @@ public abstract partial record FilePublishTarget {
             .Bind(page => op.Catch(() => target.Annotate.Map(annotate => annotate(arg1: pdf, arg2: page, arg3: op)).IfNone(Fin.Succ(value: unit))))).As()
         from sheets in pages.TraverseM(page =>
             from rendered in page.Render(render: owned => {
-                pdf.LayersAsOptionalContentGroups = layers && !page.Spec.Raster;
+                pdf.LayersAsOptionalContentGroups = layers && !page.Spec.Recipe.Raster;
                 return pdf.AddPage(settings: owned) switch {
                     int value when value >= 0 => Fin.Succ(value: value),
                     _ => Fin.Fail<int>(error: op.InvalidResult()),
@@ -377,13 +398,13 @@ public abstract partial record FilePublishTarget {
             render: (page, owned, path) => {
                 // Transparent output requires the instance ViewCapture path; the static ViewCaptureSettings
                 // path ignores alpha. It trades sheet layout/crop/scale for the alpha channel.
-                DrawingBitmap? bitmap = settings.Transparent
-                    ? CaptureTransparent(view: page.Target, built: owned, decor: page.Spec.Decor.IfNone(noneValue: CaptureDecor.Publish))
-                    : ViewCapture.CaptureToBitmap(settings: owned);
+                DrawingBitmap? bitmap = null;
                 try {
-                    return Optional(bitmap)
-                        .ToFin(Fail: op.InvalidResult())
+                    return (settings.Transparent
+                        ? page.Spec.TransparentBitmap(view: page.Target, settings: owned, op: op)
+                        : Optional(ViewCapture.CaptureToBitmap(settings: owned)).ToFin(Fail: op.InvalidResult()))
                         .Map(active => {
+                            bitmap = active;
                             _ = settings.ExifDpi.Iter(dpi => active.SetResolution(xDpi: (float)dpi, yDpi: (float)dpi));
                             return active;
                         })
@@ -405,17 +426,6 @@ public abstract partial record FilePublishTarget {
                     return VerifyFile(path: path, op: op);
                 })),
             log: string.Create(CultureInfo.InvariantCulture, $"svg;views:{pages.Count}"));
-
-    // Instance capture honours `TransparentBackground`; runs inside FileViewPage.Render's op.Catch so a throw rails.
-    private static DrawingBitmap? CaptureTransparent(RhinoView view, ViewCaptureSettings built, CaptureDecor decor) =>
-        new ViewCapture {
-            Width = built.MediaSize.Width,
-            Height = built.MediaSize.Height,
-            TransparentBackground = true,
-            DrawGrid = decor.DrawGrid,
-            DrawAxes = decor.DrawAxis,
-            ScaleScreenItems = true,
-        }.CaptureToBitmap(sourceView: view);
 
     private static Fin<FilePublishResult> CaptureViews(FileEndpoint target, FileFormat format, Seq<FileViewPage> pages, Op op, Func<FileViewPage, ViewCaptureSettings, string, Fin<Unit>> render, string log) =>
         from endpoint in target.WithFormat(format: format).Output(op: op)
