@@ -19,7 +19,8 @@
 |   [4]   | Test project           | `tests/csharp/libs/Rasm/Rasm.Tests.csproj`                                                 |
 |   [5]   | Runner                 | `mtp`                                                                                      |
 |   [6]   | Output                 | `.artifacts/mutation/<slice>/<run-id>`                                                     |
-|   [7]   | Lock                   | `.artifacts/locks/mutation.lock`; lock contention fails fast instead of silent queueing     |
+|   [7]   | Lock                   | `.artifacts/locks/mutation.lock`; live advisory contention fails fast                       |
+|   [8]   | Timeout                | `1200s` whole-process guard in `tools.quality`; Stryker owns per-mutant execution timing    |
 
 ---
 ## [2][MUTATION_MODES]
@@ -45,8 +46,10 @@
 | :-----: | ------------------------------ | ---------------------------------------------------------------------------- |
 |   [1]   | `quality static`               | Concurrent-safe through run-scoped artifacts.                                 |
 |   [2]   | `tools.quality test run`       | MTP unit execution through run-scoped artifacts.                              |
-|   [3]   | `--mutation changed|full`      | One mutation process; fail fast when `.artifacts/locks/mutation.lock` is held. |
+|   [3]   | `--mutation changed|full`      | One mutation process; fail fast when advisory lock is held. |
 |   [4]   | `tools.quality bridge`         | Serial — one live Rhino endpoint.                                             |
+
+Unlocked lock files are stale and reusable. The quality tool rewrites them before launching Stryker.
 
 ---
 ## [4][METRICS]
@@ -59,6 +62,7 @@
 - Enforced thresholds are `high 95 / low 90 / break 85`.
 - Classify every survivor as missing oracle, equivalent mutant, bridge-owned path, or product bug.
 - Do not mutate `libs/csharp/Rasm.Rhino`, `libs/csharp/Rasm.Grasshopper`, plugin apps, bridge tools, or `*.verify.csx`.
+- Treat slow runs with selected mutants, timeouts, and non-zero discovery as real mutation results, not hangs.
 
 ---
 ## [5][CONFIG]

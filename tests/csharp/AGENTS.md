@@ -4,6 +4,11 @@ Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal poli
 
 [REQUIRED]: Follow `CLAUDE.md`, `cs-testing`, and `coding-csharp` for every `.spec.cs` change.
 
+[CRITICAL]:
+- Build adversarial laws, not confirmation checks. Expected values come from independent math, smaller models, metamorphic relations, failure categories, or bridge evidence.
+- Investigate every failing test before editing it. Classify failure as test bug, product bug, native-boundary leak, tooling/runtime issue, or equivalent mutant.
+- Keep Rhino/GH native behavior out of static xUnit on macOS. Use bridge scenarios for runtime behavior that can cross into `rhcommon_c`.
+
 ## [1][CANONICAL_RAIL]
 
 - Use xUnit v3/MTP + CsCheck through `tests/csharp/_testkit`.
@@ -24,7 +29,7 @@ Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal poli
 - Benchmarks and fuzz harnesses are separate executable rails, not xUnit specs.
 - Verify snapshots compare stable artifacts only; never snapshot current implementation output as a domain oracle.
 - Prove non-zero Stryker discovery before using survivor data; if Stryker reports zero tests after MTP unit execution passes, treat the mutation rail as failed tooling evidence, not code quality evidence.
-- Generated reports, corpora, mutation output, benchmark output, and transient test results belong under `.artifacts`; do not create local scratch roots such as `.remember`.
+- Generated reports, corpora, mutation output, benchmark output, and transient test results belong under `.artifacts`.
 - If bridge execution reports `LanguageExt.*` value-type mismatch, `HashableResolve`/`OrdDefault` type-initializer failures, or already-loaded assembly identity failures, first verify `bridge check` is using staged `refs/<content-hash>/` paths, dependency-first `#r` order (`FSharp.Core` → `LanguageExt.Core` → transitive packages → `Rasm.dll` → target last), and the bridge-owned LanguageExt bootstrap before changing the scenario or static spec.
 
 ## [2][ORACLES]

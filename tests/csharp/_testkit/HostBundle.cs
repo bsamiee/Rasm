@@ -5,9 +5,14 @@ namespace Rasm.TestKit;
 
 // --- [SERVICES] -------------------------------------------------------------------------
 // Resolve Private=false RhinoWIP host assemblies from RHINO_WIP_APP_PATH (or newest /Applications/Rhino*.app) at load time.
-internal static class HostBundle {
-    internal static void Register() =>
-        AssemblyLoadContext.Default.Resolving += static (context, name) => Resolve(context: context, name: name);
+public static class HostBundle {
+    private static int registered;
+    public static int RegistrationCount => Volatile.Read(location: ref registered);
+    public static void Register() {
+        if (Interlocked.Exchange(location1: ref registered, value: 1) == 0) {
+            AssemblyLoadContext.Default.Resolving += static (context, name) => Resolve(context: context, name: name);
+        }
+    }
     private static Assembly? Resolve(AssemblyLoadContext context, AssemblyName name) =>
         // BOUNDARY ADAPTER — native loader callback; probe the RhinoWIP bundle for Private=false host assemblies.
         name.Name is string assembly

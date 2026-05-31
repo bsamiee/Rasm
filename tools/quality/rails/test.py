@@ -3,6 +3,9 @@
 # --- [IMPORTS] ------------------------------------------------------------------------
 
 from collections.abc import Generator
+from contextlib import contextmanager
+import fcntl
+import os
 from pathlib import Path
 from typing import Final, Literal
 
@@ -136,12 +139,8 @@ def _run_mutation(settings: QualitySettings, scope: ArtifactScope, mode: Mutatio
             return Ok(None)
         case _:
             pass
-    acquired = False
     try:
-        settings.mutation_lock.parent.mkdir(parents=True, exist_ok=True)
-        with settings.mutation_lock.open(mode="x", encoding="utf-8") as guard:
-            acquired = True
-            guard.write(f"{settings.run_id}\n")
+        with _mutation_lock(settings):
             return dotnet("tool", "restore", "--tool-manifest", str(settings.dotnet_tools_manifest), scope=scope).bind(
                 lambda _: dotnet(
                     "tool",
@@ -169,12 +168,29 @@ def _run_mutation(settings: QualitySettings, scope: ArtifactScope, mode: Mutatio
                     mode="stream",
                 ).bind(_mutation_result)
             )
-    except FileExistsError:
+    except BlockingIOError:
         return Error(ProcessFault.fail("stryker", "lock", detail=f"mutation lock is already held: {settings.mutation_lock}"))
     except OSError as exc:
         return Error(ProcessFault.fail("stryker", "lock", detail=str(exc)))
-    finally:
-        if acquired:
+
+
+@contextmanager
+def _mutation_lock(settings: QualitySettings) -> Generator[None]:
+    settings.mutation_lock.parent.mkdir(parents=True, exist_ok=True)
+    with settings.mutation_lock.open(mode="a+", encoding="utf-8") as guard:
+        fcntl.flock(guard.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        guard.seek(0)
+        owner = guard.read()
+        if owner.strip():
+            log.info("mutation", status="recovered-stale-lock", lock=str(settings.mutation_lock), owner=owner.strip())
+        guard.seek(0)
+        guard.truncate()
+        guard.write(f"run_id={settings.run_id}\npid={os.getpid()}\n")
+        guard.flush()
+        try:
+            yield
+        finally:
+            fcntl.flock(guard.fileno(), fcntl.LOCK_UN)
             settings.mutation_lock.unlink(missing_ok=True)
 
 

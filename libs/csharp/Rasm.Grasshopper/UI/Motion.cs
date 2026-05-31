@@ -268,13 +268,13 @@ public readonly partial struct SpringConfig {
         validationError = fault;
     }
 
-    public static SpringConfig Response(float response, float dampingFraction, float mass = 1f) {
-        float twoPiOverR = (float)(2.0 * Math.PI) / response;
-        return Create(
-            stiffness: twoPiOverR * twoPiOverR * mass,
-            damping: 4f * (float)Math.PI * dampingFraction * mass / response,
-            mass: mass);
-    }
+    public static SpringConfig Response(float response, float dampingFraction, float mass = 1f) =>
+        float.IsFinite(response) && response > 0f && float.IsFinite(dampingFraction) && dampingFraction >= 0f && float.IsFinite(mass) && mass > 0f
+            ? Create(
+                stiffness: (float)(2.0 * Math.PI) / response * ((float)(2.0 * Math.PI) / response) * mass,
+                damping: 4f * (float)Math.PI * dampingFraction * mass / response,
+                mass: mass)
+            : Create(stiffness: response, damping: dampingFraction, mass: mass);
 
 }
 [SmartEnum<int>]

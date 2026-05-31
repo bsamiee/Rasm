@@ -156,10 +156,10 @@ public readonly record struct OverlayFilter(Option<ObjectType> Geometry = defaul
             _ = filter.Space.Iter(value => valid.SpaceFilter = value);
             _ = filter.Selection.Iter(value => valid.SetSelectionFilter(on: value.On, checkSubObjects: value.CheckSubObjects));
             _ = filter.ObjectIds.Map(static ids => ids.Filter(static id => id != Guid.Empty).Distinct()).Iter(ids => valid.SetObjectIdFilter(ids: ids.AsIterable()));
-            _ = Op.SideWhen(!filter.Unbind, () => filter.Viewport.Iter(value => {
+            _ = filter.Viewport.Iter(value => {
                 valid.UnbindAll();
                 _ = value.Exclusive ? Op.Side(() => valid.ExclusiveBind(viewport: value.Viewport)) : Op.Side(() => valid.Bind(viewport: value.Viewport));
-            }));
+            });
             return unit;
         });
     }

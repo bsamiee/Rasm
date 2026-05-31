@@ -53,6 +53,10 @@ public sealed class CommandOptionScriptLaws {
             Spec.Some(value.ListIndex, actual => Assert.Equal(expected: 1, actual: actual));
         });
     }
+
+    [Fact]
+    public void ScriptedChoicesCannotBypassInvalidDeclarationState() =>
+        Spec.None(CommandOption.Choice(name: "Mode", values: ["Add", "Move"], label: static value => value, policy: new CommandOptionPolicy(Current: 7)).Script(token: "Mode=Move"));
 }
 
 public sealed class CommandOptionProjectionLaws {

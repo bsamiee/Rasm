@@ -98,6 +98,7 @@ public sealed class PortFactoryLaws {
     public void ExplicitKindMustAcceptTheDeclaredTypeOnTheRequestedSide() {
         _ = Assert.Throws<ArgumentException>(
             testCode: static () => Port.Of<int>(name: "Vector", code: "V", info: "bad", kind: PortKind.Vector));
+        Assert.Same(expected: PortKind.Generic, actual: Port.Of<int>(name: "Any", code: "A", info: "generic", kind: PortKind.Generic).Kind);
         Assert.Same(expected: PortKind.Generic, actual: Port.Shape().Kind);
     }
 }

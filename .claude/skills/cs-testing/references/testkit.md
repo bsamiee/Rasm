@@ -20,7 +20,7 @@
 - Treat `Spec.Metamorphic` as a path/oracle law wrapper; it is not CsCheck `SampleMetamorphic`.
 - Use `Spec.Valid` / `Spec.Invalid` for `Validation<Error,T>` and `Spec.Succ` / `Spec.Fail` for `Fin<T>`.
 - Do not use `.IsSucc`, `.IsFail`, `.IsSome`, or `.IsNone` as primary assertions; preserve category/code diagnostics through `Spec`.
-- Use `Spec.EqualWithin`, `NearEqual`, and `SeqEqualWithin` for generated numeric comparisons.
+- Use `Spec.Equal`, `Spec.EqualSignAmbiguous`, and `Approx.Equal` for generated numeric comparisons.
 - Use `Numeric.*` for matrix expected values when testing `Matrix`.
 - Add model-based, async, snapshot, benchmark, or fuzz adapters only when two concrete consumers exist.
 

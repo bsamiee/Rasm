@@ -78,9 +78,9 @@ Run commands from repository root. Prefix: `uv run python -m tools.quality`.
 |  [10]   | `bridge verify <scenario-or-glob>`     | Scenario verify rail — `[INTENT]` [10]                    |
 |  [11]   | `api doctor`                           | RhinoWIP XML, ILSpy, RhinoCode metadata                   |
 |  [12]   | `api path <key> [assembly\|xml]`       | Resolved assembly or XML path for API key                 |
-|  [13]   | `api xml <key> <pattern>`              | Search resolved XML with `rg`                             |
-|  [14]   | `api types <key> [pattern]`            | List assembly types via ILSpy; optional filter            |
-|  [15]   | `api decompile <key> <type>`           | Decompile type when bundle XML absent                     |
+|  [13]   | `api xml <key> <xml\|assembly> <pattern>` | Search resolved XML with `rg`                          |
+|  [14]   | `api types <key> <assembly\|xml> [pattern]` | List assembly types via ILSpy; optional filter       |
+|  [15]   | `api decompile <key> <assembly\|xml> <pattern> <type>` | Decompile type when bundle XML absent     |
 
 [INTENT]
 - [2] Before cold open, clears macOS recovery markers (`.rhl`/doc autosave, `Rhinoceros-*.ips`) so unclean exit never blocks headless launch with a recovery dialog.
@@ -124,21 +124,25 @@ uv run python -m tools.quality api doctor
 
 Expected result: tab-separated evidence for RhinoWIP app version, ILSpy host status, RhinoCode direct and roll-forward status, and each API key's assembly/XML state.
 
-Search RhinoCommon XML (the only bundle-shipped XML):
+Search bundle XML:
 
 ```bash
-uv run python -m tools.quality api xml rhino-common Mesh
+uv run python -m tools.quality api xml rhino-common xml Mesh
+uv run python -m tools.quality api xml gh2 xml Document
 ```
 
-Expected result: `rg` matches from the resolved `RhinoCommon.xml` path. `Eto`, `Grasshopper2`, and `GrasshopperIO` carry no bundle XML — use `api types` or `api decompile` for those.
+Expected result: `rg` matches from resolved XML paths when the bundle ships XML. Current RhinoWIP includes RhinoCommon, GH2, and GH2-IO XML. Eto and Rhino.UI XML are absent; use `api types` or `api decompile` for those.
 
 Inspect Rhino UI metadata when XML is absent:
 
 ```bash
-uv run python -m tools.quality api decompile rhino-ui Rhino.UI.DataSerializer
+uv run python -m tools.quality api types eto assembly Forms
+uv run python -m tools.quality api decompile rhino-ui assembly "" Rhino.UI.DataSerializer
 ```
 
 Expected result: decompiled C# from `Rhino.UI.dll` through ILSpy using a normalized .NET apphost environment.
+
+Piping long API output into tools such as `head` can close stdout early and print a benign `BrokenPipeError`. Re-run without the pipe when the command result matters.
 
 ### [3.2][OPTIONS]
 
@@ -263,8 +267,8 @@ Host assemblies (`RhinoCommon`, `Rhino.UI`, `Eto`, `Grasshopper2`, `GrasshopperI
 The client emits runtime reference projections from one evaluated project build, then applies them by prepending `#r` directives to the generated RhinoCode script before submission — references are client-applied, not plugin-applied. References are ordered dependency-first: `FSharp.Core`, `LanguageExt.Core`, `Thinktecture.Runtime.Extensions`, transitive packages, `Rasm.dll`, scenario kit assemblies, then the target assembly last. Scenario scripts also receive a bridge-owned base using-set (`ScenarioBaseUsings`: `LanguageExt`, `static LanguageExt.Prelude`, `Rasm.TestKit.Scenarios`) so authors drop that repeated preamble, plus a LanguageExt `HashMap` bootstrap so trait resolution completes before staged Rasm code touches custom `HashMap` keys under RhinoCode's isolated resolver. **Grasshopper-aware projects** (`IsGrasshopperAwareProject` or a `Grasshopper2.dll` reference) additionally receive bridge-owned `ScenarioHostUsings` (`Eto.Drawing`) after the scenario preamble, and the bridge pre-loads Grasshopper2 (`BridgeWire.GrasshopperPluginId`, via `PlugIn.LoadPlugIn` on the UI thread before execution) into the default ALC so GH2-backed `Rasm.Grasshopper.UI` rails resolve at runtime — host assemblies stay off `#r`. **Drive GH2 through `Rasm.Grasshopper.UI` wrapper types, not raw `Grasshopper2.*` types in scenario bodies**: a direct `using Grasshopper2.*` needs GH2 as a compile reference, and supplying it (`#r "Grasshopper2"`) forces the isolated resolver to bind a *separate* GH2 instance whose editor/canvas singletons differ from the host's, breaking runtime state. Scenarios that must construct raw GH2 input types cannot run under the isolated resolver. **Rasm.Rhino HashMap policy:** use primitive, `string`, `Guid`, `uint`/`ulong`, or built-in value-tuple keys only in bridge-hot assemblies; do not use custom record-struct keys (for example `PreviewFingerprint`) inside `HashMap<,>` — they fail under isolated resolver trait warmup even when reference order is correct. Project/source scenario references are shadow-copied into artifact `refs/<content-hash>/` folders so repeated checks see fresh assembly paths without scenario-owned machine paths. The `#r`-applied set is echoed in `BridgeExecuteRequest.References` and the execute report as provenance metadata; the plugin does not re-resolve that field independently during execution.
 
 API metadata lookup uses local sources in this order:
-1. RhinoWIP app-bundle XML when present — today only `RhinoCommon.xml` ships; `Eto`, `Grasshopper2`, `GrasshopperIO`, and `Rhino.UI` carry no bundle XML, so XML lookups for those report `missing`.
-2. ILSpy `types`/`decompile` for assemblies without XML, for example `Rhino.UI.dll`, `Eto.dll`, and `Grasshopper2.dll`.
+1. RhinoWIP app-bundle XML when present. Current local evidence includes RhinoCommon, GH2, and GH2-IO XML; Eto and Rhino.UI XML report `missing`.
+2. ILSpy `types`/`decompile` for assemblies without XML, for example `Rhino.UI.dll` and `Eto.dll`.
 3. `api doctor` reports `rhinocode` CLI availability as environment evidence only; the in-process `execute` rail, not the CLI, is the runtime authority.
 
 | [INDEX] | [REFERENCE_SET]                   | [USE]                                                                 |
@@ -337,9 +341,10 @@ pnpm check:py
 uv run pytest tests/tools/quality/test_quality.py -q
 uv run python -m tools.quality api doctor
 uv run python -m tools.quality api path rhino-common xml
-uv run python -m tools.quality api xml rhino-common Mesh
-uv run python -m tools.quality api types rhino-ui Panels
-uv run python -m tools.quality api decompile rhino-ui Rhino.UI.DataSerializer
+uv run python -m tools.quality api xml rhino-common xml Mesh
+uv run python -m tools.quality api xml gh2 xml Document
+uv run python -m tools.quality api types rhino-ui assembly Panels
+uv run python -m tools.quality api decompile rhino-ui assembly "" Rhino.UI.DataSerializer
 uv run python -m tools.quality bridge build-bridge
 uv run python -m tools.quality static check
 uv run python -m tools.quality static build

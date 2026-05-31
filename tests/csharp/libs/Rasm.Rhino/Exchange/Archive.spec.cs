@@ -67,9 +67,23 @@ public sealed class FileResourceGraphLaws {
     [Fact]
     public void SequentialAndParallelSchedulersFindTheSameBrokenLinkCount() {
         FileResourceGraph graph = Fixtures.Graph(linked: Seq("/rasm/a.3dm", "/rasm/b.3dm"), references: Seq("/rasm/c.jpg"));
+        static (string Message, FileIssueCode Code)[] Expected(Seq<FileIssue> issues) =>
+            [.. issues.Map(static issue => (issue.Message, issue.Code)).OrderBy(static issue => issue.Message, StringComparer.Ordinal)];
         Assert.Equal(
-            expected: graph.Validate(source: Fixtures.Source, scheduler: new IoScheduler.Sequential()).IfFail(error => throw new InvalidOperationException(message: error.Message)).Count,
-            actual: graph.Validate(source: Fixtures.Source, scheduler: new IoScheduler.Parallel()).IfFail(error => throw new InvalidOperationException(message: error.Message)).Count);
+            expected: Expected(graph.Validate(source: Fixtures.Source, scheduler: new IoScheduler.Sequential()).IfFail(error => throw new InvalidOperationException(message: error.Message))),
+            actual: Expected(graph.Validate(source: Fixtures.Source, scheduler: new IoScheduler.Parallel()).IfFail(error => throw new InvalidOperationException(message: error.Message))));
+    }
+
+    [Fact]
+    public void ValidateRejectsNullSourceAndDeduplicatesAfterPathNormalization() {
+        string root = Path.GetTempPath();
+        string raw = "rasm-missing-normalized.3dm";
+        FileResourceGraph graph = Fixtures.Graph(linked: Seq(raw, Path.Combine(path1: root, path2: raw)));
+        FileArchiveSource source = new FileArchiveSource.Path(
+            Value: FileEndpoint.From(path: Path.Combine(path1: root, path2: "archive.3dm")).IfFail(error => throw new InvalidOperationException(message: error.Message)));
+
+        Spec.FailCategory(graph.Validate(source: null!, scheduler: new IoScheduler.Sequential()), category: "Input");
+        _ = Assert.Single(collection: graph.Validate(source: source, scheduler: new IoScheduler.Sequential()).IfFail(error => throw new InvalidOperationException(message: error.Message)).AsEnumerable());
     }
 
     [Fact]
@@ -131,5 +145,7 @@ public sealed class FileFormatCustomLaws {
         });
         Spec.FailCategory(FileFormat.Of(keyOrExtension: "json"), category: "Input");
         Spec.None(result: FileFormat.Detect(path: "model.json"));
+        Spec.FailCategory(FileFormat.Custom(key: "json", extensions: Seq(".rjson"), capability: FileCapability.Import), category: "Input");
+        Spec.FailCategory(FileFormat.Custom(key: $"rasmjson{suffix}", extensions: Seq(".json"), capability: FileCapability.Import), category: "Input");
     }
 }

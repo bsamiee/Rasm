@@ -435,6 +435,7 @@ internal static class Motion {
         // WCAG reduced-motion (macOS 14+): snap to the terminal value once and return an inert handle.
         return from validSink in Op.Of(name: nameof(Run)).Need(sink)
                from validSpec in Op.Of(name: nameof(Run)).Need(spec)
+               from _ in Admit(spec: validSpec)
                from validClock in clock switch {
                    MotionClock.TimerCase { IsValid: false } => Fin.Fail<MotionClock>(error: Op.Of(name: nameof(Run)).InvalidInput()),
                    _ => Fin.Succ(value: clock),
@@ -444,6 +445,17 @@ internal static class Motion {
                    : Dispatch(spec: validSpec, sink: validSink, target: target, clock: validClock, resolved: resolved)
                select handle;
     }
+
+    private static Fin<Unit> Admit<TValue, TVelocity>(MotionSpec<TValue, TVelocity> spec) =>
+        spec switch {
+            MotionSpec<TValue, TVelocity>.Tween t when t.Duration > TimeSpan.Zero => Fin.Succ(value: unit),
+            MotionSpec<TValue, TVelocity>.Pulse { Duration: TimeSpan duration, Infinite: true } when duration > TimeSpan.Zero => Fin.Succ(value: unit),
+            MotionSpec<TValue, TVelocity>.Pulse { Duration: TimeSpan duration, Cycles: > 0 } when duration > TimeSpan.Zero => Fin.Succ(value: unit),
+            MotionSpec<TValue, TVelocity>.Sequence q when q.Steps.ForAll(static step => step.Duration > TimeSpan.Zero) => Fin.Succ(value: unit),
+            MotionSpec<TValue, TVelocity>.Decay d when double.IsFinite(d.Friction) && d.Friction > 0d => Fin.Succ(value: unit),
+            MotionSpec<TValue, TVelocity>.Spring => Fin.Succ(value: unit),
+            _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Run)).InvalidInput()),
+        };
 
     private static bool ReduceMotion =>
         OperatingSystem.IsMacOSVersionAtLeast(major: 14) && ShouldReduceMotion();

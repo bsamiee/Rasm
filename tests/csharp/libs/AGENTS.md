@@ -4,6 +4,11 @@ Scope: `tests/csharp/libs/` only. Root `AGENTS.md` and `CLAUDE.md` own universal
 
 [REQUIRED]: Follow `tests/csharp/AGENTS.md` before editing library specs.
 
+[CRITICAL]:
+- Replace shape-only tests with law matrices that vary construction, projection, unsupported output, failure category, and at least one independent oracle when the source exposes those axes.
+- Delete tests that assert values built inside the same test unless they guard a durable failure rail or dispatch contract.
+- Fix product owners when adversarial laws expose real bugs. Do not weaken a law into current-output confirmation.
+
 ## [1][OWNERSHIP]
 
 - Mirror source ownership: one spec file should target one owning source file or one tight source concern.

@@ -44,18 +44,18 @@ public sealed class <Concept>Laws {
     [Fact]
     public void MetamorphicTransformsHoldOverSameInput() =>
         Spec.ForAll(<Source>Gens.<Input>, input => {
-            var translated = <Sut>(input.Translate(<delta>));
-            var scaled = <Sut>(input.Scale(<k>));
-            var original = <Sut>(input);
-            Spec.NearEqual(translated, original.Translate(<delta>));
-            Spec.EqualWithin(scaled.Magnitude, <k> * original.Magnitude, tolerance: 1e-9, "scale invariance");
+            TOutput translated = <Sut>(input.Translate(<delta>));
+            TOutput scaled = <Sut>(input.Scale(<k>));
+            TOutput original = <Sut>(input);
+            Spec.Equal(translated.Point, original.Translate(<delta>).Point, tolerance: 1e-9, what: "translation invariance");
+            Spec.Equal(scaled.Magnitude, <k> * original.Magnitude, tolerance: 1e-9, what: "scale invariance");
         });
 
     // Pattern [13]: reference loop oracle for numeric algorithms.
     [Fact]
     public void NumericMatchesIndependentReferenceLoop() =>
         Spec.ForAll(<Source>Gens.<MatrixInput>, m => {
-            var actual = <Sut>(m);
+            TMatrix actual = <Sut>(m);
             Numeric.<Operation>(rows: m.Rows.Value, cols: m.Cols.Value,
                 expected: (i, j) => /* independent O(n³) loop */,
                 actual: (i, j) => actual.At(i, j),
@@ -66,8 +66,8 @@ public sealed class <Concept>Laws {
     [Fact]
     public void TransportPreservesDistinctChannels() =>
         Spec.ForAll(<Source>Gens.<DistinctTriple>, tuple => {
-            var (a, b, c) = tuple;
-            var result = <Sut>(a, b, c);
+            (TValue a, TValue b, TValue c) = tuple;
+            TResult result = <Sut>(a, b, c);
             Spec.Holds(result.A == a, "channel A");
             Spec.Holds(result.B == b, "channel B");
             Spec.Holds(result.C == c, "channel C");
@@ -94,7 +94,7 @@ public sealed class <Concept>ClosedFormLaws {
                 "box" => /* box formula */,
                 _ => throw new UnreachableException()
             };
-            Spec.EqualWithin(<Sut>(item, input), expected, tolerance: 1e-9, item.Key);
+            Spec.Equal(<Sut>(item, input), expected, tolerance: 1e-9, what: item.Key);
         });
 }
 ```
@@ -116,7 +116,7 @@ public sealed class <Concept>SpdMatrixInvariants {
             // Invariant 3: positive determinant
             Spec.Holds(m.Determinant() > 0.0, "positive det");
             // Invariant 4: all eigenvalues > 0
-            var pairs = m.DecomposeEigen();
+            EigenPair[] pairs = m.DecomposeEigen();
             Spec.Holds(pairs.All(p => p.Eigenvalue > -RhinoMath.SqrtEpsilon), "eigenvalues positive");
             // Invariant 5: Cholesky succeeds
             Spec.Succ(m.DecomposeCholesky());

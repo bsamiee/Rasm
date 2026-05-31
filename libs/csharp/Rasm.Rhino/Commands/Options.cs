@@ -150,9 +150,13 @@ public abstract record CommandOption {
             from bound in Added(getter: getter, index: bind(arg1: getter, arg2: OptionName(english: validName, localName: localName), arg3: nonEmpty, arg4: labels, arg5: index), native: null, snapshot: g => capture(arg1: validName, arg2: g, arg3: nonEmpty), varies: varies)
             select bound,
             ScriptToken: token =>
-                from pair in ScriptPair(name: name, token: token)
-                from index in toSeq(Enumerable.Range(start: 0, count: values.Count)).Find(i => string.Equals(a: label(arg: values[i]), b: pair.Value, comparisonType: StringComparison.Ordinal) || string.Equals(a: values[i]?.ToString(), b: pair.Value, comparisonType: StringComparison.Ordinal))
-                select Scripted(key: name, value: Some((object)values[index]!), listIndex: Some(index), optionType: CommandLineOptionType.List, stringValue: Some(pair.Value)));
+                (from items in values.TraverseM(value => Optional(value).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())).As()
+                 from labels in items.TraverseM(value => Optional(label(arg: value)).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput()).Bind(ValidValue)).As()
+                 from nonEmpty in NonEmpty(values: items)
+                 from _ in ValidIndex(index: current, count: nonEmpty.Count, error: Op.Of(name: nameof(CommandOption)).InvalidInput())
+                 from pair in ScriptPair(name: name, token: token).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
+                 from index in toSeq(Enumerable.Range(start: 0, count: nonEmpty.Count)).Find(i => string.Equals(a: labels[i], b: pair.Value, comparisonType: StringComparison.Ordinal) || string.Equals(a: nonEmpty[i]?.ToString(), b: pair.Value, comparisonType: StringComparison.Ordinal)).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
+                 select Scripted(key: name, value: Some((object)nonEmpty[index]!), listIndex: Some(index), optionType: CommandLineOptionType.List, stringValue: Some(pair.Value))).ToOption());
     private static Case Ref<TNative, TValue>(string name, Func<Fin<TNative>> create, Option<string> prompt, Option<string> localName, RefOptionBinder<TNative> bind, Func<TNative, TValue> current, Func<string, Option<CommandOptionValue>> script, bool varies) where TNative : IDisposable =>
         new(Name: name, AddToGetter: (getter, validName) => create().Bind(native => {
             int index = bind(getter, OptionName(english: validName, localName: localName), ref native, prompt);
@@ -255,7 +259,10 @@ public abstract record CommandOption {
         };
 
     private static Fin<string> ValidValue(string value) =>
-        guard(CommandLineOption.IsValidOptionValueName(optionValue: value), Op.Of(name: nameof(CommandOption)).InvalidInput())
+        guard(
+                !string.IsNullOrWhiteSpace(value: value)
+                && value.All(static character => !char.IsControl(c: character) && !char.IsWhiteSpace(c: character) && character is not '=' and not ':'),
+                Op.Of(name: nameof(CommandOption)).InvalidInput())
             .Bind(_ => Fin.Succ(value: value));
 
     private static CommandOptionValue Scripted(string key, Option<object> value, Option<int> listIndex, CommandLineOptionType optionType, Option<string> stringValue) =>

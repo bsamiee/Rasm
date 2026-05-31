@@ -192,7 +192,7 @@ public sealed partial class PortKind {
                 output: static (a, n, c, i, x) => a.AddEnum<T>(name: n, code: c, info: i, access: x),
                 wireType: typeof(int)),
         };
-    internal bool Accepts(Type type, Side side) => Type == type && Supports(side: side);
+    internal bool Accepts(Type type, Side side) => (this == Generic || Type == type) && Supports(side: side);
     internal bool Supports(Side side) => side switch {
         Side.Input => SupportsInput,
         Side.Output => SupportsOutput,

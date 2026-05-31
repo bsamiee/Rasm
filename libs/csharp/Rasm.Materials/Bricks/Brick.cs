@@ -539,6 +539,7 @@ public readonly partial struct Dim3 {
             (false, _, _) => new BrickFault.InvalidDimension(Detail: string.Create(provider: CultureInfo.InvariantCulture, $"WidthMm must be positive and finite (got {widthMm:R}).")),
             (_, false, _) => new BrickFault.InvalidDimension(Detail: string.Create(provider: CultureInfo.InvariantCulture, $"HeightMm must be positive and finite (got {heightMm:R}).")),
             (_, _, false) => new BrickFault.InvalidDimension(Detail: string.Create(provider: CultureInfo.InvariantCulture, $"LengthMm must be positive and finite (got {lengthMm:R}).")),
+            _ when !double.IsFinite(widthMm * heightMm * lengthMm) => new BrickFault.InvalidDimension(Detail: "VolumeMm3 must be finite."),
             _ => null,
         };
 }

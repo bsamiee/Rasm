@@ -6,6 +6,14 @@ namespace Rasm.Tests.TestKit;
 // --- [LAWS] ---------------------------------------------------------------------------------
 public sealed class GeneratorLaws {
     [Fact]
+    public void PlaneGeneratorsUseManagedOrthonormalBases() =>
+        Spec.ForAll(Gens.ManagedPlane.Select(Gens.Plane, Gens.OrthonormalFrame, static (managed, plane, frame) => (Managed: managed, Plane: plane, Frame: frame)), sample => {
+            Spec.Holds(condition: Numeric.OrthonormalBasisCheck(a: sample.Managed.XAxis, b: sample.Managed.YAxis, c: sample.Managed.ZAxis), label: "managed plane basis");
+            Spec.Holds(condition: Numeric.OrthonormalBasisCheck(a: sample.Plane.XAxis, b: sample.Plane.YAxis, c: sample.Plane.ZAxis), label: "plane basis");
+            Spec.Holds(condition: Numeric.OrthonormalBasisCheck(a: sample.Frame.XAxis, b: sample.Frame.YAxis, c: sample.Frame.ZAxis), label: "frame basis");
+        });
+
+    [Fact]
     public void UnitInteriorNeverEmitsClosedBoundaryValues() =>
         Spec.ForAll(Gens.UnitInterior, value =>
             Spec.Holds(

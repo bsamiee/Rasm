@@ -105,8 +105,8 @@ Cross-reference: this pattern is also a Stryker enabler — see `docs/testing-li
 
 | [INDEX] | [HOOK]                                          | [USE_CASE]                                                     |
 | :-----: | ----------------------------------------------- | -------------------------------------------------------------- |
-|   [1]   | `ITestPipelineStartup`                          | Invariant culture; warm `RhinoMath`; native probe paths        |
+|   [1]   | `ITestPipelineStartup`                          | Invariant culture and managed assembly setup only              |
 |   [2]   | `BeforeAfterTestAttribute`                      | Per-test interception when an assertion-visible hook is needed |
 |   [3]   | `[assembly: AssemblyFixture(typeof(T))]` + ctor | Shared immutables; thread-shared; no per-test mutation         |
 
-Avoid custom collection runner overrides; they break discovery in subtle ways.
+Do not use pipeline startup to warm Rhino/GH native APIs in static tests. Native probes belong in bridge scenarios. Avoid custom collection runner overrides; they break discovery in subtle ways.

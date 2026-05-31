@@ -6,6 +6,13 @@ namespace Rasm.Tests.TestKit;
 // --- [LAWS] ---------------------------------------------------------------------------------
 public sealed class FixtureLaws {
     [Fact]
+    public void HostBundleRegistrationIsIdempotentAcrossFixtureConstruction() {
+        _ = new ContextFixture();
+        _ = new ContextFixture();
+        Assert.Equal(expected: 1, actual: HostBundle.RegistrationCount);
+    }
+
+    [Fact]
     public void ContextFixtureMaterializesDistinctUnitContexts() {
         ContextFixture fixture = new();
         Assert.Equal(expected: UnitSystem.Millimeters, actual: fixture.Mm.Units);

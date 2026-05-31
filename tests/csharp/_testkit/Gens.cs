@@ -59,11 +59,11 @@ public static class Gens {
     public static readonly Gen<Vector3d> UnitVec = NonZeroVec.Select(static (Vector3d v) => v / v.Length);
     public static readonly Gen<(Vector3d A, Vector3d B)> VecPair = NonZeroVec.Select(NonZeroVec, static (Vector3d a, Vector3d b) => (A: a, B: b));
     public static readonly Gen<(Vector3d A, Vector3d B)> UnitVecPair = UnitVec.Select(UnitVec, static (Vector3d a, Vector3d b) => (A: a, B: b));
-    public static readonly Gen<Plane> Plane = Point.Select(UnitVec, static (Point3d origin, Vector3d normal) => new Plane(origin: origin, normal: normal));
     // Managed Plane copy-ctor + Origin (not new Plane(origin, normal)); three bases for swap detection.
     public static readonly Gen<Plane> ManagedPlane = Point.Select(
         Gen.OneOfConst(Rhino.Geometry.Plane.WorldXY, Rhino.Geometry.Plane.WorldZX, Rhino.Geometry.Plane.WorldYZ),
         static (Point3d origin, Plane basis) => new Plane(other: basis) { Origin = origin });
+    public static readonly Gen<Plane> Plane = ManagedPlane;
     public static readonly Gen<Line> Line = Point.Select(Point, static (Point3d a, Point3d b) => new Line(from: a, to: b));
     public static readonly Gen<BoundingBox> Bbox = Point.Select(Point, static (Point3d a, Point3d b) => new BoundingBox(
         min: new Point3d(x: Math.Min(val1: a.X, val2: b.X), y: Math.Min(val1: a.Y, val2: b.Y), z: Math.Min(val1: a.Z, val2: b.Z)),
@@ -243,8 +243,7 @@ public static class Gens {
             double phi = polar * Math.PI;
             return new Vector3d(x: Math.Sin(a: phi) * Math.Cos(d: azimuth), y: Math.Sin(a: phi) * Math.Sin(a: azimuth), z: Math.Cos(d: phi));
         });
-    public static readonly Gen<Plane> OrthonormalFrame = Point.Select(UnitVecPair,
-        static (Point3d origin, (Vector3d A, Vector3d B) axes) => new Plane(origin: origin, xDirection: axes.A, yDirection: axes.B));
+    public static readonly Gen<Plane> OrthonormalFrame = ManagedPlane;
 
     // --- [CLOUD_FIXTURES] -----------------------------------------------------------------
     public static Gen<Seq<Point3d>> PointCloudClustered(int clusters = 3, int perCluster = 10, double spread = 0.1) =>

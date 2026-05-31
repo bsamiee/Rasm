@@ -1075,9 +1075,11 @@ file static class WireShapeInstall {
     // Guard the throwing static setter (same as Push) so a UI-thread detach throw cannot silently corrupt the
     // static via the swallowing InvokeOnUiThread.
     private static void Pop() {
-        Seq<Type> remaining = Stack.Swap(static stack => stack.IsEmpty ? stack : stack.Init);
+        Seq<Type> before = Stack.Value;
+        Type restore = before.IsEmpty ? DefaultShape : before.Last();
+        _ = Stack.Swap(static stack => stack.IsEmpty ? stack : stack.Init);
         _ = Op.Of(name: nameof(WireShapeInstall)).Attempt(
-            body: () => { WireShape.ShapeType = remaining.IsEmpty ? DefaultShape : remaining.Last(); return unit; },
+            body: () => { WireShape.ShapeType = restore; return unit; },
             what: nameof(Pop)).Ignore();
     }
 }

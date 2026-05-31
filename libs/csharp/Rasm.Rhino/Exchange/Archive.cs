@@ -138,25 +138,29 @@ public readonly record struct FileResourceGraph(
             .Bind(values => Stat.Of(values: values, key: op));
 
     public Fin<Seq<FileIssue>> Validate(FileArchiveSource source, IoScheduler scheduler) {
+        Fin<FileArchiveSource> activeSource = Optional(source).ToFin(Fail: Op.Of(name: nameof(Validate)).InvalidInput());
         Fin<IoScheduler> activeScheduler = Optional(scheduler).ToFin(Fail: Op.Of(name: nameof(Validate)).InvalidInput());
-        Option<string> folder = source switch {
+        Option<string> folder = Optional(source).Bind(value => value switch {
             FileArchiveSource.Path path => Optional(IOPath.GetDirectoryName(path: path.Value.Path)),
             _ => Option<string>.None,
-        };
-        (string Raw, string Path)[] paths = [.. (LinkedBlockArchives + RenderTextureFiles + FileReferences)
-            .Distinct()
+        });
+        (string Raw, string Path)[] normalized = [.. (LinkedBlockArchives + RenderTextureFiles + FileReferences)
             .Filter(static path => !string.IsNullOrWhiteSpace(value: path))
             .Map(path => (Raw: path, Path: IOPath.IsPathRooted(path: path)
                 ? path
                 : folder.Map(root => IOPath.GetFullPath(path: IOPath.Combine(path1: root, path2: path))).IfNone(path)))
             .AsIterable()];
-        return paths.Length switch {
-            0 => Fin.Succ(Seq<FileIssue>()),
-            _ => activeScheduler.Bind(valid => valid.Filter(
+        (string Raw, string Path)[] paths = [.. Enumerable.GroupBy(source: normalized, keySelector: static item => item.Path, comparer: StringComparer.OrdinalIgnoreCase)
+            .Select(static group => group.First())];
+        return from _ in activeSource
+               from issues in paths.Length switch {
+                   0 => Fin.Succ(Seq<FileIssue>()),
+                   _ => activeScheduler.Bind(valid => valid.Filter(
                     source: paths,
                     predicate: static item => !File.Exists(path: item.Path),
                     map: static item => FileIssue.Of(code: FileIssueCode.BrokenLink, message: $"missing linked resource: {item.Raw} -> {item.Path}"))),
-        };
+               }
+               select issues;
     }
 }
 

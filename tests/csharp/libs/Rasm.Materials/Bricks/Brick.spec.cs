@@ -132,6 +132,14 @@ public sealed class BrickValueObjectLaws {
         });
 
     [Fact]
+    public void DimensionValueObjectsRejectFiniteDimensionsWhoseVolumeOverflows() {
+        Exception dim = Assert.ThrowsAny<Exception>(testCode: static () => {
+            _ = Dim3.Create(widthMm: double.MaxValue, heightMm: 2.0, lengthMm: 2.0);
+        });
+        Assert.Contains(expectedSubstring: "VolumeMm3 must be finite", actualString: dim.Message, comparisonType: StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ValidDimensionObjectsExposeClosedFormDerivedValues() =>
         Spec.ForAll(BrickCatalogGens.PositiveFinite.Select(BrickCatalogGens.PositiveFinite, BrickCatalogGens.PositiveFinite), static tuple => {
             Dim3 dims = Dim3.Create(widthMm: tuple.Item1, heightMm: tuple.Item2, lengthMm: tuple.Item3);

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fcntl
 import os
 from pathlib import Path
 import shutil
@@ -563,6 +564,63 @@ def test_default_test_target_runs_stryker_under_lock_with_bounded_concurrency(mo
     assert workdirs[-1] == tmp_path / "libs/csharp/Rasm"
     assert settings.mutation_lock.parent.is_dir()
     assert not settings.mutation_lock.exists()
+
+
+def test_default_test_target_recovers_stale_mutation_lock(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    seen: list[tuple[str, ...]] = []
+
+    def fake_dotnet(
+        *args: str,
+        scope: ArtifactScope | None = None,
+        cwd: Path | None = None,
+        check: bool = True,
+        timeout: float | None = None,
+        scoped: bool = True,
+        mode: process.ProcessMode = "capture",
+    ) -> Result[Completed, ProcessFault]:
+        _ = (scope, cwd, check, timeout, scoped, mode)
+        seen.append(args)
+        return Ok(Completed(argv=("dotnet", *args), returncode=0, stdout=b"", stderr=b""))
+
+    monkeypatch.setattr(test, "dotnet", fake_dotnet)
+    settings = QualitySettings(root=tmp_path)
+    settings.mutation_lock.parent.mkdir(parents=True)
+    settings.mutation_lock.write_text(data="", encoding="utf-8")
+
+    assert test.run_test_rail(settings, _scope(tmp_path), "run", mutation="full").is_ok()
+    assert tuple(command[0] for command in seen) == ("test", "tool", "tool")
+    assert not settings.mutation_lock.exists()
+
+
+def test_default_test_target_rejects_live_mutation_lock(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    seen: list[tuple[str, ...]] = []
+
+    def fake_dotnet(
+        *args: str,
+        scope: ArtifactScope | None = None,
+        cwd: Path | None = None,
+        check: bool = True,
+        timeout: float | None = None,
+        scoped: bool = True,
+        mode: process.ProcessMode = "capture",
+    ) -> Result[Completed, ProcessFault]:
+        _ = (scope, cwd, check, timeout, scoped, mode)
+        seen.append(args)
+        return Ok(Completed(argv=("dotnet", *args), returncode=0, stdout=b"", stderr=b""))
+
+    monkeypatch.setattr(test, "dotnet", fake_dotnet)
+    settings = QualitySettings(root=tmp_path)
+    settings.mutation_lock.parent.mkdir(parents=True)
+    with settings.mutation_lock.open(mode="a+", encoding="utf-8") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        try:
+            result = test.run_test_rail(settings, _scope(tmp_path), "run", mutation="full")
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+    assert result.is_error()
+    assert "mutation lock is already held" in result.error.message
+    assert tuple(command[0] for command in seen) == ("test",)
 
 
 def test_default_test_target_fails_stryker_zero_discovery(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

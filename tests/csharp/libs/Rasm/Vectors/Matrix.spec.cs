@@ -28,8 +28,11 @@ internal static class MatrixGens {
             static (int n, double[] buf) => MakeMatrix(rows: n, cols: n, buffer: buf));
     public static readonly Gen<Matrix> NonSingularSquare = Square.Select(static (Matrix a) => {
         int n = a.Rows.Value;
-        return toSeq(Enumerable.Range(start: 0, count: n)).Fold(initialState: a,
-            f: (m, i) => m.With(i: i, j: i, value: 1.0 + toSeq(Enumerable.Range(start: 0, count: n)).Fold(initialState: 0.0, f: (sum, j) => sum + Math.Abs(value: i == j ? 0.0 : m.At(i: i, j: j)))));
+        return MakeMatrix(rows: n, cols: n, buffer: [.. Enumerable.Range(start: 0, count: n * n).Select(idx => {
+            int i = idx / n;
+            int j = idx % n;
+            return Numeric.Dot(count: n, left: k => a.At(i: k, j: i), right: k => a.At(i: k, j: j)) + (i == j ? n : 0.0);
+        })]);
     });
     public static readonly Gen<SymmetricMatrix> Spd = Square.Select(static (Matrix a) => {
         int n = a.Rows.Value;

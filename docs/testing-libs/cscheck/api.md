@@ -64,7 +64,7 @@
 - `Spec.Regression` records a durable shrunk seed only after product behavior is classified.
 - Use model-based APIs only when the model is smaller than production: list log, scalar receipt, set/map reference, or finite state machine.
 - Do not promote spec-local generators until two specs share the same domain shape.
-- Use `Check.Hash` only for stable tool artifacts. The cache lives under local app data `CsCheck`, keyed by caller file path/member/hash; `expected: 0` discovers by throwing, and decimal/significant-figure rounding is supported.
+- Use `Check.Hash` only for stable tool artifacts. Treat cache location and key shape as package-owned details unless current source inspection proves them.
 
 ---
 ## [5][SHRINKING_DISCIPLINE]
@@ -112,7 +112,7 @@ public static readonly Gen<Dimension> Dimension =
 |   [5]   | `CsCheck_Replay`     | 100             | Number of times to replay a failing seed for parallel reproduction.                              |
 |   [6]   | `CsCheck_Sigma`      | 6.0             | Statistical significance for `Check.Faster`.                                                     |
 |   [7]   | `CsCheck_Timeout`    | 60              | Per-sample timeout (seconds).                                                                    |
-|   [8]   | `CsCheck_Ulps`       | 4               | Package floating equality slack; Rasm tolerance lives in `Spec.EqualWithin`.                     |
+|   [8]   | `CsCheck_Ulps`       | 4               | Package floating equality slack; Rasm tolerance lives in `Spec.Equal` and `Approx.Equal`.        |
 |   [9]   | `CsCheck_WhereLimit` | 100             | Filter rejection cap; lower → fail faster, higher → tolerate sparse-acceptance generators.       |
 
 `Spec.ForAll` precedence: explicit args > env vars > package defaults. CI policy: tune `CsCheck_Iter=1000` and `CsCheck_Time=60` for nightly extended runs; keep PR validation at defaults. `CsCheck_Replay=10` for CI, default 100 for local repro.
@@ -145,7 +145,7 @@ public static GenOperation<Atom<HashMap<int, int>>, Dictionary<int, int>> SetOp(
 
 <br>
 
-`Check.ChiSquared(observed, expected, sigma)` audits a generator's distribution against expected frequencies. Expected bucket counts must all be greater than `5`; observed and expected arrays must have the same length. Sigma defaults to `6`. Use when:
+`Check.ChiSquared(expected, actual, sigma)` audits a generator's distribution against expected frequencies. Expected bucket counts must all be greater than `5`; expected and actual arrays must have the same length. Sigma defaults to `6`. Use when:
 
 - An edge-biased `Gen.Frequency` ships with 90/10 weights — verify the tail actually fires 10% of the time across 10k samples.
 - A factory-routed generator filters >20% of inputs — verify the surviving distribution isn't skewed away from the boundary cases the test depends on.

@@ -190,6 +190,8 @@ public sealed record FileFormat {
     // `Detect`/`Of`/`Known`/`Filter` consult the custom set after. Custom read/write delegates flow through the
     // same `FileFormatProjection.Import`/`Write` pipeline as built-ins via `directRead`/`directWrite`.
     private static readonly Atom<HashMap<string, FileFormat>> CustomCell = Atom(HashMap<string, FileFormat>());
+    private static readonly FrozenSet<string> ReservedKeys = new[] { "JSON" }.ToFrozenSet(comparer: StringComparer.OrdinalIgnoreCase);
+    private static readonly FrozenSet<string> ReservedExtensions = new[] { ".json" }.ToFrozenSet(comparer: StringComparer.OrdinalIgnoreCase);
 
     public static Seq<FileFormat> Known => BuiltIn + toSeq(CustomCell.Value.Values);
 
@@ -241,6 +243,7 @@ public sealed record FileFormat {
         from exts in extensions.TraverseM(e => FileEndpoint.NonBlank(value: e, op: Op.Of(name: nameof(Custom)))
             .Map(static t => NormalizeExtension(value: t))).As().Map(static s => s.Distinct())
         from _ in guard(!exts.IsEmpty && capability != FileCapability.None
+            && !ReservedKeys.Contains(item: validKey) && !exts.Exists(ReservedExtensions.Contains)
             && !ByKey.ContainsKey(key: validKey) && !exts.Exists(ByExtension.ContainsKey)
             && !exts.Exists(extension => CustomByExtension(extension: extension).IsSome)
             && CustomCell.Value.Find(key: validKey).IsNone, Op.Of(name: nameof(Custom)).InvalidInput())

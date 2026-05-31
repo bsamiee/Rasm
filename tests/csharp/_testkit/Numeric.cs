@@ -8,9 +8,12 @@ namespace Rasm.TestKit;
 public static class Numeric {
     public static double Sum(Seq<double> values) =>
         values.Fold(initialState: 0.0, f: static (sum, value) => sum + value);
+    public static bool IsTiny(Vector3d value, double tolerance = RhinoMath.ZeroTolerance) =>
+        (value.X * value.X) + (value.Y * value.Y) + (value.Z * value.Z) <= tolerance * tolerance;
     public static Point3d Centroid(Seq<Point3d> points) =>
         WeightedCentroid(points: points, weights: toSeq(Enumerable.Repeat(element: 1.0 / points.Count, count: points.Count)));
     private static Point3d WeightedCentroid(Seq<Point3d> points, Seq<double> weights) {
+        Assert.Equal(expected: points.Count, actual: weights.Count);
         (double x, double y, double z, double w) = toSeq(Enumerable.Range(start: 0, count: Math.Min(val1: points.Count, val2: weights.Count)))
             .Fold(initialState: (X: 0.0, Y: 0.0, Z: 0.0, W: 0.0), f: (state, i) => (
                 X: state.X + (points[index: i].X * weights[index: i]),
@@ -23,6 +26,7 @@ public static class Numeric {
     }
     public static Arr<double> CovarianceUpper(Seq<Point3d> points, Option<Seq<double>> weights = default) {
         Seq<double> mass = weights.IfNone(toSeq(Enumerable.Repeat(element: 1.0 / points.Count, count: points.Count)));
+        Assert.Equal(expected: points.Count, actual: mass.Count);
         Point3d mean = WeightedCentroid(points: points, weights: mass);
         return new Arr<double>([
             WeightedMoment(points: points, weights: mass, mean: mean, left: static p => p.X, right: static p => p.X),
@@ -105,7 +109,7 @@ public static class Numeric {
         0.5 * Vector3d.CrossProduct(a: b - a, b: c - a).Length;
     // Rodrigues axis-angle rotation matrix.
     public static double[][] RotationMatrix(Vector3d axis, double angle) {
-        Vector3d k = axis.IsTiny() ? Vector3d.ZAxis : axis / axis.Length;
+        Vector3d k = IsTiny(value: axis) ? Vector3d.ZAxis : axis / axis.Length;
         double c = Math.Cos(d: angle), s = Math.Sin(a: angle), t = 1.0 - c;
         return [
             [c + (t * k.X * k.X),       (t * k.X * k.Y) - (s * k.Z), (t * k.X * k.Z) + (s * k.Y)],
@@ -113,7 +117,7 @@ public static class Numeric {
             [(t * k.X * k.Z) - (s * k.Y), (t * k.Y * k.Z) + (s * k.X), c + (t * k.Z * k.Z)]];
     }
     public static double AngularDistance(Vector3d a, Vector3d b) =>
-        Math.Acos(d: Math.Clamp(value: a.IsTiny() || b.IsTiny() ? 1.0 : a * b / (a.Length * b.Length), min: -1.0, max: 1.0));
+        Math.Acos(d: Math.Clamp(value: IsTiny(value: a) || IsTiny(value: b) ? 1.0 : a * b / (a.Length * b.Length), min: -1.0, max: 1.0));
 
     // --- [MATRIX_ORACLES] -----------------------------------------------------------------
     // Column Gram entry (M^T M)[r,c].

@@ -19,6 +19,8 @@
 - Classify survivors as missing oracle, equivalent mutant, bridge-owned path, or product bug.
 - Improve existing laws before adding branch-by-branch tests.
 - Use `--mutation changed` for bounded diagnostics before enforcing full mutation; full thresholds remain `95/90/85`.
+- The quality wrapper applies a whole-process timeout. Stryker owns mutant scheduling; selected mutants plus timed-out mutants mean the rail ran.
+- Mutation uses an advisory lock. Live contention fails fast; unlocked stale lock files are reused automatically.
 
 ---
 ## [3][THEORY_EXPANSION_AS_STRYKER_ENABLER]
