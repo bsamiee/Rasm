@@ -74,17 +74,7 @@ class ModuleFacts:
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
-EXCLUDED_DIRS = frozenset({
-    ".artifacts",
-    ".cache",
-    ".git",
-    ".nx",
-    ".venv",
-    "coverage",
-    "node_modules",
-    "test-results",
-    "tmp",
-})
+EXCLUDED_DIRS = frozenset({".artifacts", ".cache", ".git", ".nx", ".venv", "coverage", "node_modules", "test-results", "tmp"})
 EXCLUDED_PREFIXES = (("tests", "tools", "ast-grep"),)
 BOUNDARY_EXEMPTION = re.compile(
     r"#\s*RASM_BOUNDARY_EXEMPTION:\s+"
@@ -95,18 +85,7 @@ BOUNDARY_EXEMPTION = re.compile(
     r"rationale=(?P<rationale>\S.+)"
 )
 BOUNDARY_REASONS = frozenset({"protocol-required", "cleanup-finally", "cancellation-guard", "adapter-normalization"})
-FALLIBLE_PREFIXES = (
-    "try_",
-    "parse_",
-    "load_",
-    "fetch_",
-    "read_",
-    "decode_",
-    "validate_",
-    "ensure_",
-    "resolve_",
-    "find_",
-)
+FALLIBLE_PREFIXES = ("try_", "parse_", "load_", "fetch_", "read_", "decode_", "validate_", "ensure_", "resolve_", "find_")
 MODEL_DECORATORS = frozenset({"dataclass", "pydantic.dataclasses.dataclass"})
 PYDANTIC_MODEL_BASES = frozenset({
     "BaseModel",
@@ -118,26 +97,11 @@ PYDANTIC_MODEL_BASES = frozenset({
 })
 MSGSPEC_MODEL_BASES = frozenset({"Struct", "msgspec.Struct"})
 MODEL_BASES = PYDANTIC_MODEL_BASES | MSGSPEC_MODEL_BASES
-PYDANTIC_CONFIG_CALLS = frozenset({
-    "ConfigDict",
-    "pydantic.ConfigDict",
-    "SettingsConfigDict",
-    "pydantic_settings.SettingsConfigDict",
-})
+PYDANTIC_CONFIG_CALLS = frozenset({"ConfigDict", "pydantic.ConfigDict", "SettingsConfigDict", "pydantic_settings.SettingsConfigDict"})
 CLASSVAR_NAMES = frozenset({"ClassVar"})
 EFFECT_BUILDER_DECORATORS = frozenset({"effect.result", "effect.async_result", "result", "async_result"})
 ERASED_NAMES = frozenset({"Any", "object"})
-MUTABLE_FIELD_NAMES = frozenset({
-    "dict",
-    "list",
-    "set",
-    "Dict",
-    "List",
-    "Set",
-    "MutableMapping",
-    "MutableSequence",
-    "MutableSet",
-})
+MUTABLE_FIELD_NAMES = frozenset({"dict", "list", "set", "Dict", "List", "Set", "MutableMapping", "MutableSequence", "MutableSet"})
 PRIMITIVE_NAMES = frozenset({"bool", "float", "int", "str", "tuple"})
 RAIL_NAMES = frozenset({"Option", "Result"})
 RAIL_ESCAPE_METHODS = frozenset({"unwrap", "value_or"})
@@ -193,9 +157,7 @@ class ModuleAnalyzer(cst.CSTVisitor):
 
     def facts(self) -> ModuleFacts:
         """Project mutable visitor state into immutable analyzer facts."""
-        return ModuleFacts(
-            tuple(self.diagnostics), tuple(self.private_functions), tuple(self.private_calls), tuple(self.models)
-        )
+        return ModuleFacts(tuple(self.diagnostics), tuple(self.private_functions), tuple(self.private_calls), tuple(self.models))
 
     def _in_domain_or_application(self) -> bool:
         return self.scope in DOMAIN_SCOPES
@@ -219,17 +181,11 @@ class ModuleAnalyzer(cst.CSTVisitor):
             case _:
                 pass
         match node.func:
-            case cst.Attribute(attr=cst.Name(value=str(method))) if (
-                self._in_domain_or_application() and method in RAIL_ESCAPE_METHODS
-            ):
+            case cst.Attribute(attr=cst.Name(value=str(method))) if self._in_domain_or_application() and method in RAIL_ESCAPE_METHODS:
                 self._report(RuleId.rail_escape, node, f"{method} collapses rails in {self.scope.value} scope.")
-            case cst.Attribute(attr=cst.Name(value="or_else_with")) if (
-                self._in_domain_or_application() and self.effect_builder_depth > 0
-            ):
+            case cst.Attribute(attr=cst.Name(value="or_else_with")) if self._in_domain_or_application() and self.effect_builder_depth > 0:
                 self._report(
-                    RuleId.recovery_inside_effect,
-                    node,
-                    "or_else_with recovery belongs at the composition boundary, outside the effect builder.",
+                    RuleId.recovery_inside_effect, node, "or_else_with recovery belongs at the composition boundary, outside the effect builder."
                 )
             case _:
                 return
@@ -240,9 +196,7 @@ class ModuleAnalyzer(cst.CSTVisitor):
                 self._check_model_policy(node)
                 if shape:
                     position = self.get_metadata(PositionProvider, node)
-                    self.models.append(
-                        ModelFact(node.name.value, self.path, position.start.line, position.start.column + 1, shape)
-                    )
+                    self.models.append(ModelFact(node.name.value, self.path, position.start.line, position.start.column + 1, shape))
             case _:
                 return
 
@@ -268,10 +222,7 @@ class ModuleAnalyzer(cst.CSTVisitor):
                 self._report(
                     RuleId.mutable_model_field,
                     field.node,
-                    (
-                        f"{node.name.value}.{field.name} uses mutable annotation "
-                        f"{self.module.code_for_node(field.annotation)}."
-                    ),
+                    (f"{node.name.value}.{field.name} uses mutable annotation {self.module.code_for_node(field.annotation)}."),
                 )
 
     def _check_boundary_exemption(self, node: cst.CSTNode, construct: str) -> None:
@@ -280,11 +231,7 @@ class ModuleAnalyzer(cst.CSTVisitor):
             case True:
                 return
             case False:
-                self._report(
-                    RuleId.boundary_exemption,
-                    node,
-                    f"{construct} requires rule/reason/ticket/expiry/rationale metadata.",
-                )
+                self._report(RuleId.boundary_exemption, node, f"{construct} requires rule/reason/ticket/expiry/rationale metadata.")
 
     def _check_public_signature(self, node: cst.FunctionDef) -> None:
         primitive = next(
@@ -297,11 +244,7 @@ class ModuleAnalyzer(cst.CSTVisitor):
         )
         match primitive:
             case str(value):
-                self._report(
-                    RuleId.primitive_signature,
-                    node,
-                    f"{node.name.value} exposes primitive, erased, or mutable annotation {value}.",
-                )
+                self._report(RuleId.primitive_signature, node, f"{node.name.value} exposes primitive, erased, or mutable annotation {value}.")
             case None:
                 return
 
@@ -330,9 +273,7 @@ def analyze_paths(root: Path, paths: Sequence[Path]) -> tuple[Diagnostic, ...]:
     diagnostics = tuple(diagnostic for facts in module_facts for diagnostic in facts.diagnostics)
     return tuple(
         sorted(
-            diagnostics
-            + _single_use_private_function_diagnostics(module_facts)
-            + _duplicate_model_shape_diagnostics(module_facts),
+            diagnostics + _single_use_private_function_diagnostics(module_facts) + _duplicate_model_shape_diagnostics(module_facts),
             key=lambda value: (value.path.as_posix(), value.line, value.column, value.rule_id.value),
         )
     )
@@ -345,12 +286,7 @@ def classify_scope(path: Path, root: Path) -> Scope:
     tool = any(parts[: len(prefix)] == prefix for prefix in TOOLING_ROOTS) or (
         len(parts) > 3 and parts[0] == ".claude" and parts[1] == "skills" and "scripts" in part_set
     )
-    match (
-        tool,
-        bool({"adapters", "boundary", "boundaries"} & part_set),
-        "domain" in part_set,
-        "application" in part_set,
-    ):
+    match (tool, bool({"adapters", "boundary", "boundaries"} & part_set), "domain" in part_set, "application" in part_set):
         case (True, _, _, _):
             return Scope.tooling
         case (_, True, _, _):
@@ -369,9 +305,7 @@ def _analyze_file(root: Path, path: Path) -> ModuleFacts:
         source = resolved.read_text(encoding="utf-8")
         module = cst.parse_module(source)
     except cst.ParserSyntaxError as error:
-        return ModuleFacts(
-            (diagnostic(RuleId.parse, resolved, error.raw_line, error.raw_column + 1, error.message),), (), (), ()
-        )
+        return ModuleFacts((diagnostic(RuleId.parse, resolved, error.raw_line, error.raw_column + 1, error.message),), (), (), ())
     except OSError as error:
         return ModuleFacts((diagnostic(RuleId.parse, resolved, 1, 1, str(error)),), (), (), ())
     analyzer = ModuleAnalyzer(resolved, root, module, source.splitlines())
@@ -382,12 +316,7 @@ def _analyze_file(root: Path, path: Path) -> ModuleFacts:
 def _discover_python_files(root: Path, paths: Sequence[Path]) -> tuple[Path, ...]:
     anchors = paths or (root,)
     return tuple(
-        sorted({
-            path.resolve()
-            for anchor in anchors
-            for path in _expand_anchor(root, anchor)
-            if path.suffix == ".py" and not _excluded(path, root)
-        })
+        sorted({path.resolve() for anchor in anchors for path in _expand_anchor(root, anchor) if path.suffix == ".py" and not _excluded(path, root)})
     )
 
 
@@ -410,9 +339,7 @@ def _walk_python_files(root: Path) -> Iterator[Path]:
 
 def _excluded(path: Path, root: Path) -> bool:
     parts = _relative_parts(path, root)
-    return bool(
-        EXCLUDED_DIRS.intersection(parts) or any(parts[: len(prefix)] == prefix for prefix in EXCLUDED_PREFIXES)
-    )
+    return bool(EXCLUDED_DIRS.intersection(parts) or any(parts[: len(prefix)] == prefix for prefix in EXCLUDED_PREFIXES))
 
 
 def _relative_parts(path: Path, root: Path) -> tuple[str, ...]:
@@ -457,9 +384,7 @@ def _function_fact(visitor: ModuleAnalyzer, node: cst.FunctionDef) -> FunctionFa
 
 def _function_annotations(node: cst.FunctionDef) -> tuple[cst.CSTNode, ...]:
     params = (*node.params.posonly_params, *node.params.params, *node.params.kwonly_params)
-    star_params = tuple(
-        param for param in (node.params.star_arg, node.params.star_kwarg) if isinstance(param, cst.Param)
-    )
+    star_params = tuple(param for param in (node.params.star_arg, node.params.star_kwarg) if isinstance(param, cst.Param))
     param_annotations = tuple(param.annotation.annotation for param in (*params, *star_params) if param.annotation)
     return_annotation = (node.returns.annotation,) if node.returns else ()
     return param_annotations + return_annotation
@@ -480,11 +405,7 @@ def _decorator_name(node: cst.CSTNode) -> str:
 
 
 def _function_is_effect_builder(node: cst.FunctionDef) -> bool:
-    return bool(
-        EFFECT_BUILDER_DECORATORS.intersection(
-            frozenset(_decorator_name(decorator.decorator) for decorator in node.decorators)
-        )
-    )
+    return bool(EFFECT_BUILDER_DECORATORS.intersection(frozenset(_decorator_name(decorator.decorator) for decorator in node.decorators)))
 
 
 def _dotted_name(node: cst.CSTNode) -> str:
@@ -519,13 +440,9 @@ def _annotation_contains(node: cst.CSTNode, names: frozenset[str], *, nested: bo
                 )
             )
         case cst.BinaryOperation(left=left, operator=cst.BitOr(), right=right):
-            return _annotation_contains(left, names, nested=nested, none=none) or _annotation_contains(
-                right, names, nested=nested, none=none
-            )
+            return _annotation_contains(left, names, nested=nested, none=none) or _annotation_contains(right, names, nested=nested, none=none)
         case cst.Tuple(elements=elements):
-            return nested and any(
-                _annotation_contains(element.value, names, nested=nested, none=none) for element in elements
-            )
+            return nested and any(_annotation_contains(element.value, names, nested=nested, none=none) for element in elements)
         case _:
             return False
 
@@ -555,9 +472,7 @@ def _model_fields(node: cst.ClassDef) -> tuple[ModelField, ...]:
 
 def _model_field(statement: cst.CSTNode) -> ModelField | None:
     match statement:
-        case cst.SimpleStatementLine(
-            body=(cst.AnnAssign(target=cst.Name(value=str(name)), annotation=annotation) as assignment,)
-        ):
+        case cst.SimpleStatementLine(body=(cst.AnnAssign(target=cst.Name(value=str(name)), annotation=annotation) as assignment,)):
             return ModelField(name, annotation.annotation, assignment)
         case _:
             return None
@@ -567,11 +482,7 @@ def _model_immutability_violation(node: cst.ClassDef) -> str | None:
     dataclass = _is_dataclass_model(node)
     pydantic = _model_has_base(node, PYDANTIC_MODEL_BASES)
     msgspec = _model_has_base(node, MSGSPEC_MODEL_BASES)
-    match (
-        dataclass and not _dataclass_is_frozen_slots(node),
-        pydantic and not _pydantic_is_frozen(node),
-        msgspec and not _msgspec_is_frozen(node),
-    ):
+    match (dataclass and not _dataclass_is_frozen_slots(node), pydantic and not _pydantic_is_frozen(node), msgspec and not _msgspec_is_frozen(node)):
         case (True, _, _):
             return f"{node.name.value} dataclass models require @dataclass(frozen=True, slots=True)."
         case (_, True, _):
@@ -583,9 +494,7 @@ def _model_immutability_violation(node: cst.ClassDef) -> str | None:
 
 
 def _is_dataclass_model(node: cst.ClassDef) -> bool:
-    return bool(
-        MODEL_DECORATORS.intersection(frozenset(_decorator_name(decorator.decorator) for decorator in node.decorators))
-    )
+    return bool(MODEL_DECORATORS.intersection(frozenset(_decorator_name(decorator.decorator) for decorator in node.decorators)))
 
 
 def _model_has_base(node: cst.ClassDef, bases: frozenset[str]) -> bool:
@@ -626,12 +535,7 @@ def _pydantic_configdict_is_frozen(node: cst.ClassDef) -> bool:
 def _model_configdict_call(statement: cst.CSTNode) -> cst.Call | None:
     match statement:
         case cst.SimpleStatementLine(
-            body=(
-                cst.Assign(
-                    targets=(cst.AssignTarget(target=cst.Name(value="model_config")),),
-                    value=cst.Call(func=func) as call,
-                ),
-            )
+            body=(cst.Assign(targets=(cst.AssignTarget(target=cst.Name(value="model_config")),), value=cst.Call(func=func) as call),)
         ) if _dotted_name(func) in PYDANTIC_CONFIG_CALLS:
             return call
         case _:
@@ -639,9 +543,7 @@ def _model_configdict_call(statement: cst.CSTNode) -> cst.Call | None:
 
 
 def _call_has_true_keyword(args: Sequence[cst.Arg], name: str) -> bool:
-    return any(
-        isinstance(arg.keyword, cst.Name) and arg.keyword.value == name and _is_true_literal(arg.value) for arg in args
-    )
+    return any(isinstance(arg.keyword, cst.Name) and arg.keyword.value == name and _is_true_literal(arg.value) for arg in args)
 
 
 def _is_true_literal(node: cst.CSTNode) -> bool:
@@ -657,11 +559,7 @@ def _annotation_key(node: cst.CSTNode, module: cst.Module) -> str:
         case cst.Name() | cst.Attribute():
             return _annotation_head_name(node)
         case cst.Subscript(value=value, slice=slices):
-            values = ",".join(
-                _annotation_key(element.slice.value, module)
-                for element in slices
-                if isinstance(element.slice, cst.Index)
-            )
+            values = ",".join(_annotation_key(element.slice.value, module) for element in slices if isinstance(element.slice, cst.Index))
             return f"{_annotation_key(value, module)}[{values}]"
         case cst.BinaryOperation(left=left, operator=cst.BitOr(), right=right):
             return "|".join(sorted((_annotation_key(left, module), _annotation_key(right, module))))
@@ -685,13 +583,7 @@ def _flow_construct(node: cst.CSTNode) -> str:
 
 def _single_use_private_function_diagnostics(module_facts: Sequence[ModuleFacts]) -> tuple[Diagnostic, ...]:
     return tuple(
-        diagnostic(
-            RuleId.single_use_private,
-            function.path,
-            function.line,
-            function.column,
-            f"{function.name} has exactly one same-module call.",
-        )
+        diagnostic(RuleId.single_use_private, function.path, function.line, function.column, f"{function.name} has exactly one same-module call.")
         for facts in module_facts
         for calls in (Counter(facts.private_calls),)
         for function in facts.private_functions
@@ -707,13 +599,7 @@ def _duplicate_model_shape_diagnostics(module_facts: Sequence[ModuleFacts]) -> t
         )
     )
     return tuple(
-        diagnostic(
-            RuleId.duplicate_model,
-            model.path,
-            model.line,
-            model.column,
-            f"{model.name} duplicates {group[0].name} in {group[0].path.name}.",
-        )
+        diagnostic(RuleId.duplicate_model, model.path, model.line, model.column, f"{model.name} duplicates {group[0].name} in {group[0].path.name}.")
         for _, grouped in groupby(models, key=attrgetter("shape"))
         for group in (tuple(grouped),)
         if len(group) > 1

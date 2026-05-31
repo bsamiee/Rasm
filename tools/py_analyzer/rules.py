@@ -115,61 +115,40 @@ class Diagnostic:
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
 RULES: Final[Mapping[RuleId, Rule]] = MappingProxyType({
-    RuleId.parse: Rule(
-        "AnalyzerInput", RuleCategory.infrastructure, "Analyzer could not parse or read this Python file."
-    ),
+    RuleId.parse: Rule("AnalyzerInput", RuleCategory.infrastructure, "Analyzer could not parse or read this Python file."),
     RuleId.domain_flow: Rule(
         "DomainImperativeFlow",
         RuleCategory.functional,
         "Domain/application flow uses imperative control; use match/case, folds, dispatch tables, or Result rails.",
     ),
     RuleId.boundary_exemption: Rule(
-        "BoundaryExemptionGovernance",
-        RuleCategory.governance,
-        "Boundary imperative flow requires exact RASM_BOUNDARY_EXEMPTION metadata.",
+        "BoundaryExemptionGovernance", RuleCategory.governance, "Boundary imperative flow requires exact RASM_BOUNDARY_EXEMPTION metadata."
     ),
     RuleId.primitive_signature: Rule(
         "PrimitivePublicSignature",
         RuleCategory.type_discipline,
-        (
-            "Public domain/application signatures must use typed atoms or models instead of primitive, "
-            "erased, or mutable annotation leakage."
-        ),
+        ("Public domain/application signatures must use typed atoms or models instead of primitive, erased, or mutable annotation leakage."),
     ),
     RuleId.fallible_return: Rule(
-        "FallibleReturnRail",
-        RuleCategory.functional,
-        "Fallible domain/application functions must return Result[T, E] or Option[T].",
+        "FallibleReturnRail", RuleCategory.functional, "Fallible domain/application functions must return Result[T, E] or Option[T]."
     ),
     RuleId.single_use_private: Rule(
-        "SingleUsePrivateFunction",
-        RuleCategory.surface,
-        "Private module-level function has one call site; inline it into the owning public surface.",
+        "SingleUsePrivateFunction", RuleCategory.surface, "Private module-level function has one call site; inline it into the owning public surface."
     ),
     RuleId.duplicate_model: Rule(
-        "DuplicateModelShape",
-        RuleCategory.type_discipline,
-        "Domain/application models cannot duplicate the same field shape across modules.",
+        "DuplicateModelShape", RuleCategory.type_discipline, "Domain/application models cannot duplicate the same field shape across modules."
     ),
     RuleId.rail_escape: Rule(
-        "RailEscape",
-        RuleCategory.functional,
-        "Domain/application code must not collapse Result/Option rails before a boundary.",
+        "RailEscape", RuleCategory.functional, "Domain/application code must not collapse Result/Option rails before a boundary."
     ),
     RuleId.model_immutability: Rule(
-        "ModelImmutability",
-        RuleCategory.type_discipline,
-        "Domain/application models must declare frozen runtime shape policy.",
+        "ModelImmutability", RuleCategory.type_discipline, "Domain/application models must declare frozen runtime shape policy."
     ),
     RuleId.mutable_model_field: Rule(
-        "MutableModelField",
-        RuleCategory.type_discipline,
-        "Domain/application model fields must use immutable container annotations.",
+        "MutableModelField", RuleCategory.type_discipline, "Domain/application model fields must use immutable container annotations."
     ),
     RuleId.recovery_inside_effect: Rule(
-        "RecoveryInsideEffectBuilder",
-        RuleCategory.functional,
-        "Effect result builders must not perform recovery inside the builder body.",
+        "RecoveryInsideEffectBuilder", RuleCategory.functional, "Effect result builders must not perform recovery inside the builder body."
     ),
 })
 
@@ -180,6 +159,4 @@ RULES: Final[Mapping[RuleId, Rule]] = MappingProxyType({
 def diagnostic(rule_id: RuleId, path: Path, line: int, column: int, detail: str) -> Diagnostic:
     """Create a stable error diagnostic from a rule id and location."""
     rule = RULES[rule_id]
-    return Diagnostic(
-        rule_id, Severity.error, path.resolve(), line, column, rule.title, f"{rule.message} {detail}", rule.category
-    )
+    return Diagnostic(rule_id, Severity.error, path.resolve(), line, column, rule.title, f"{rule.message} {detail}", rule.category)

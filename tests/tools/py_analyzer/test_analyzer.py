@@ -85,55 +85,29 @@ def test_rule_catalog_has_one_entry_per_rule() -> None:
 )
 def test_rule_cases_emit_exact_diagnostic(tmp_path: Path, relative: str, source: str, expected: DiagnosticRow) -> None:
     write_module(
-        tmp_path,
-        "src/domain/models_a.py",
-        "from dataclasses import dataclass\n\n@dataclass(frozen=True, slots=True)\nclass A:\n    value: UserId\n",
+        tmp_path, "src/domain/models_a.py", "from dataclasses import dataclass\n\n@dataclass(frozen=True, slots=True)\nclass A:\n    value: UserId\n"
     )
     path = write_module(tmp_path, relative, source)
-    rows = tuple(
-        row for row in diagnostic_rows(tmp_path, (path, tmp_path / "src/domain/models_a.py")) if row[1] == relative
-    )
+    rows = tuple(row for row in diagnostic_rows(tmp_path, (path, tmp_path / "src/domain/models_a.py")) if row[1] == relative)
     assert rows == (expected,)
 
 
 @pytest.mark.parametrize(
     "header",
     [
-        (
-            "# RASM_BOUNDARY_EXEMPTION: rule=PYS9999 reason=protocol-required ticket=RASM-123 "
-            "expires=2999-01-01 rationale=external protocol gate"
-        ),
-        (
-            "# RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=bad-reason ticket=RASM-123 "
-            "expires=2999-01-01 rationale=external protocol gate"
-        ),
-        (
-            "# RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=protocol-required ticket=bad-ticket "
-            "expires=2999-01-01 rationale=external protocol gate"
-        ),
-        (
-            "# RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=protocol-required ticket=RASM-123 "
-            "expires=2000-01-01 rationale=external protocol gate"
-        ),
-        (
-            "# RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=protocol-required ticket=RASM-123 "
-            "expires=2026-99-99 rationale=external protocol gate"
-        ),
-        (
-            "# RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=protocol-required ticket=RASM-123 "
-            "expires=2999-01-01 rationale="
-        ),
+        ("# RASM_BOUNDARY_EXEMPTION: rule=PYS9999 reason=protocol-required ticket=RASM-123 expires=2999-01-01 rationale=external protocol gate"),
+        ("# RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=bad-reason ticket=RASM-123 expires=2999-01-01 rationale=external protocol gate"),
+        ("# RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=protocol-required ticket=bad-ticket expires=2999-01-01 rationale=external protocol gate"),
+        ("# RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=protocol-required ticket=RASM-123 expires=2000-01-01 rationale=external protocol gate"),
+        ("# RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=protocol-required ticket=RASM-123 expires=2026-99-99 rationale=external protocol gate"),
+        ("# RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=protocol-required ticket=RASM-123 expires=2999-01-01 rationale="),
     ],
 )
 def test_invalid_boundary_exemptions_emit_governance(tmp_path: Path, header: str) -> None:
     path = write_module(
-        tmp_path,
-        "src/adapters/http.py",
-        f"{header}\ndef run(value: object) -> bool:\n    if value:\n        return True\n    return False\n",
+        tmp_path, "src/adapters/http.py", f"{header}\ndef run(value: object) -> bool:\n    if value:\n        return True\n    return False\n"
     )
-    assert diagnostic_rows(tmp_path, (path,)) == (
-        ("PYS0002", "src/adapters/http.py", 3, 5, "BoundaryExemptionGovernance", "Governance"),
-    )
+    assert diagnostic_rows(tmp_path, (path,)) == (("PYS0002", "src/adapters/http.py", 3, 5, "BoundaryExemptionGovernance", "Governance"),)
 
 
 def test_boundary_exemption_window_is_enforced(tmp_path: Path) -> None:
@@ -147,9 +121,7 @@ def test_boundary_exemption_window_is_enforced(tmp_path: Path) -> None:
         "        return True\n"
         "    return False\n",
     )
-    assert diagnostic_rows(tmp_path, (path,)) == (
-        ("PYS0002", "src/adapters/http.py", 6, 5, "BoundaryExemptionGovernance", "Governance"),
-    )
+    assert diagnostic_rows(tmp_path, (path,)) == (("PYS0002", "src/adapters/http.py", 6, 5, "BoundaryExemptionGovernance", "Governance"),)
 
 
 def test_valid_boundary_exemption_suppresses_governance(tmp_path: Path) -> None:
@@ -178,11 +150,7 @@ def test_valid_boundary_exemption_suppresses_governance(tmp_path: Path) -> None:
     ],
 )
 def test_scope_matrix(tmp_path: Path, relative: str, expected_rule: str) -> None:
-    path = write_module(
-        tmp_path,
-        relative,
-        "def run(value: Input) -> Output:\n    if value:\n        return Output()\n    return Output()\n",
-    )
+    path = write_module(tmp_path, relative, "def run(value: Input) -> Output:\n    if value:\n        return Output()\n    return Output()\n")
     rows = diagnostic_rows(tmp_path, (path,))
     assert tuple(row[0] for row in rows) == ((expected_rule,) if expected_rule else ())
 
@@ -227,27 +195,19 @@ def test_result_and_option_are_valid_fallible_rails(tmp_path: Path, source: str)
         ),
     ],
 )
-def test_rail_escape_emits_in_domain_application(
-    tmp_path: Path, relative: str, source: str, expected: DiagnosticRow
-) -> None:
+def test_rail_escape_emits_in_domain_application(tmp_path: Path, relative: str, source: str, expected: DiagnosticRow) -> None:
     path = write_module(tmp_path, relative, source)
     assert diagnostic_rows(tmp_path, (path,)) == (expected,)
 
 
 def test_default_value_is_not_blanket_rail_escape(tmp_path: Path) -> None:
-    path = write_module(
-        tmp_path,
-        "src/domain/rail.py",
-        "def run(value: Option[User]) -> User:\n    return value.default_value(User())\n",
-    )
+    path = write_module(tmp_path, "src/domain/rail.py", "def run(value: Option[User]) -> User:\n    return value.default_value(User())\n")
     assert diagnostic_rows(tmp_path, (path,)) == ()
 
 
 @pytest.mark.parametrize("relative", ["src/boundary/rail.py", PY_ANALYZER_SAMPLE])
 def test_rail_escape_scope_boundaries(tmp_path: Path, relative: str) -> None:
-    path = write_module(
-        tmp_path, relative, "def run(value: Result[User, DomainError]) -> User:\n    return value.unwrap()\n"
-    )
+    path = write_module(tmp_path, relative, "def run(value: Result[User, DomainError]) -> User:\n    return value.unwrap()\n")
     assert diagnostic_rows(tmp_path, (path,)) == ()
 
 
@@ -303,15 +263,7 @@ def test_typed_atoms_and_models_do_not_emit_primitive_signature(tmp_path: Path) 
             ),
             (),
         ),
-        (
-            (
-                "def _normalize(value: UserInput) -> UserInput:\n"
-                "    return value\n\n"
-                "def run(value: UserInput) -> UserInput:\n"
-                "    return value\n"
-            ),
-            (),
-        ),
+        (("def _normalize(value: UserInput) -> UserInput:\n    return value\n\ndef run(value: UserInput) -> UserInput:\n    return value\n"), ()),
         (
             (
                 "from typing import overload\n\n"
@@ -340,22 +292,10 @@ def test_single_use_private_function_cases(tmp_path: Path, source: str, expected
             "from dataclasses import dataclass\n\n@dataclass(frozen=True)\nclass User:\n    value: UserId\n",
             ("PYS0008", "src/domain/model.py", 4, 1, "ModelImmutability", "TypeDiscipline"),
         ),
-        (
-            "class User(BaseModel):\n    value: UserId\n",
-            ("PYS0008", "src/domain/model.py", 1, 1, "ModelImmutability", "TypeDiscipline"),
-        ),
-        (
-            "class User(msgspec.Struct):\n    value: UserId\n",
-            ("PYS0008", "src/domain/model.py", 1, 1, "ModelImmutability", "TypeDiscipline"),
-        ),
-        (
-            "class User(RootModel):\n    root: UserId\n",
-            ("PYS0008", "src/domain/model.py", 1, 1, "ModelImmutability", "TypeDiscipline"),
-        ),
-        (
-            "class Settings(BaseSettings):\n    value: UserId\n",
-            ("PYS0008", "src/domain/model.py", 1, 1, "ModelImmutability", "TypeDiscipline"),
-        ),
+        ("class User(BaseModel):\n    value: UserId\n", ("PYS0008", "src/domain/model.py", 1, 1, "ModelImmutability", "TypeDiscipline")),
+        ("class User(msgspec.Struct):\n    value: UserId\n", ("PYS0008", "src/domain/model.py", 1, 1, "ModelImmutability", "TypeDiscipline")),
+        ("class User(RootModel):\n    root: UserId\n", ("PYS0008", "src/domain/model.py", 1, 1, "ModelImmutability", "TypeDiscipline")),
+        ("class Settings(BaseSettings):\n    value: UserId\n", ("PYS0008", "src/domain/model.py", 1, 1, "ModelImmutability", "TypeDiscipline")),
     ],
 )
 def test_model_immutability_diagnostics(tmp_path: Path, source: str, expected: DiagnosticRow) -> None:
@@ -406,32 +346,17 @@ def test_mutable_model_field_diagnostics(tmp_path: Path, annotation: str) -> Non
     path = write_module(
         tmp_path,
         "src/domain/model.py",
-        (
-            "from dataclasses import dataclass\n\n"
-            "@dataclass(frozen=True, slots=True)\n"
-            "class User:\n"
-            f"    value: {annotation}\n"
-        ),
+        (f"from dataclasses import dataclass\n\n@dataclass(frozen=True, slots=True)\nclass User:\n    value: {annotation}\n"),
     )
-    assert diagnostic_rows(tmp_path, (path,)) == (
-        ("PYS0009", "src/domain/model.py", 5, 5, "MutableModelField", "TypeDiscipline"),
-    )
+    assert diagnostic_rows(tmp_path, (path,)) == (("PYS0009", "src/domain/model.py", 5, 5, "MutableModelField", "TypeDiscipline"),)
 
 
-@pytest.mark.parametrize(
-    "annotation",
-    ["tuple[UserId, ...]", "frozenset[UserId]", "Mapping[str, UserId]", "Sequence[UserId]", "Block[UserId]"],
-)
+@pytest.mark.parametrize("annotation", ["tuple[UserId, ...]", "frozenset[UserId]", "Mapping[str, UserId]", "Sequence[UserId]", "Block[UserId]"])
 def test_immutable_model_field_annotations_pass(tmp_path: Path, annotation: str) -> None:
     path = write_module(
         tmp_path,
         "src/domain/model.py",
-        (
-            "from dataclasses import dataclass\n\n"
-            "@dataclass(frozen=True, slots=True)\n"
-            "class User:\n"
-            f"    value: {annotation}\n"
-        ),
+        (f"from dataclasses import dataclass\n\n@dataclass(frozen=True, slots=True)\nclass User:\n    value: {annotation}\n"),
     )
     assert diagnostic_rows(tmp_path, (path,)) == ()
 
@@ -450,32 +375,19 @@ def test_classvar_model_field_is_ignored_for_mutability_and_shape(tmp_path: Path
         ),
     )
     model_b = write_module(
-        tmp_path,
-        "src/domain/models_b.py",
-        "from dataclasses import dataclass\n\n@dataclass(frozen=True, slots=True)\nclass B:\n    value: UserId\n",
+        tmp_path, "src/domain/models_b.py", "from dataclasses import dataclass\n\n@dataclass(frozen=True, slots=True)\nclass B:\n    value: UserId\n"
     )
-    assert diagnostic_rows(tmp_path, (model_a, model_b)) == (
-        ("PYS0006", "src/domain/models_b.py", 4, 1, "DuplicateModelShape", "TypeDiscipline"),
-    )
+    assert diagnostic_rows(tmp_path, (model_a, model_b)) == (("PYS0006", "src/domain/models_b.py", 4, 1, "DuplicateModelShape", "TypeDiscipline"),)
 
 
-@pytest.mark.parametrize(
-    "decorator",
-    ["effect.result", "effect.async_result", "result", "async_result", "effect.result[User, DomainError]()"],
-)
+@pytest.mark.parametrize("decorator", ["effect.result", "effect.async_result", "result", "async_result", "effect.result[User, DomainError]()"])
 def test_recovery_inside_effect_builder_emits(tmp_path: Path, decorator: str) -> None:
     path = write_module(
         tmp_path,
         "src/domain/effect.py",
-        (
-            f"@{decorator}\n"
-            "def run(value: Result[User, DomainError]) -> Result[User, DomainError]:\n"
-            "    return value.or_else_with(recover)\n"
-        ),
+        (f"@{decorator}\ndef run(value: Result[User, DomainError]) -> Result[User, DomainError]:\n    return value.or_else_with(recover)\n"),
     )
-    assert diagnostic_rows(tmp_path, (path,)) == (
-        ("PYS0010", "src/domain/effect.py", 3, 12, "RecoveryInsideEffectBuilder", "FunctionalDiscipline"),
-    )
+    assert diagnostic_rows(tmp_path, (path,)) == (("PYS0010", "src/domain/effect.py", 3, 12, "RecoveryInsideEffectBuilder", "FunctionalDiscipline"),)
 
 
 @pytest.mark.parametrize(
@@ -483,26 +395,15 @@ def test_recovery_inside_effect_builder_emits(tmp_path: Path, decorator: str) ->
     [
         (
             "src/domain/effect.py",
-            (
-                "def run(value: Result[User, DomainError]) -> Result[User, DomainError]:\n"
-                "    return value.or_else_with(recover)\n"
-            ),
+            ("def run(value: Result[User, DomainError]) -> Result[User, DomainError]:\n    return value.or_else_with(recover)\n"),
         ),
         (
             "src/boundary/effect.py",
-            (
-                "@effect.result\n"
-                "def run(value: Result[User, DomainError]) -> Result[User, DomainError]:\n"
-                "    return value.or_else_with(recover)\n"
-            ),
+            ("@effect.result\ndef run(value: Result[User, DomainError]) -> Result[User, DomainError]:\n    return value.or_else_with(recover)\n"),
         ),
         (
             "src/domain/effect.py",
-            (
-                "@effect.result\n"
-                "def run(value: Result[User, DomainError]) -> Result[User, DomainError]:\n"
-                "    return value.map(transform)\n"
-            ),
+            ("@effect.result\ndef run(value: Result[User, DomainError]) -> Result[User, DomainError]:\n    return value.map(transform)\n"),
         ),
     ],
 )
@@ -513,19 +414,13 @@ def test_recovery_inside_effect_builder_allowed_cases(tmp_path: Path, relative: 
 
 def test_duplicate_model_shape_scope_boundaries(tmp_path: Path) -> None:
     domain_a = write_module(
-        tmp_path,
-        "src/domain/models_a.py",
-        "from dataclasses import dataclass\n\n@dataclass(frozen=True, slots=True)\nclass A:\n    value: UserId\n",
+        tmp_path, "src/domain/models_a.py", "from dataclasses import dataclass\n\n@dataclass(frozen=True, slots=True)\nclass A:\n    value: UserId\n"
     )
     domain_b = write_module(
-        tmp_path,
-        "src/domain/models_b.py",
-        "from dataclasses import dataclass\n\n@dataclass(frozen=True, slots=True)\nclass B:\n    value: UserId\n",
+        tmp_path, "src/domain/models_b.py", "from dataclasses import dataclass\n\n@dataclass(frozen=True, slots=True)\nclass B:\n    value: UserId\n"
     )
     neutral = write_module(
-        tmp_path,
-        "src/neutral/models_c.py",
-        "from dataclasses import dataclass\n\n@dataclass(frozen=True, slots=True)\nclass C:\n    value: UserId\n",
+        tmp_path, "src/neutral/models_c.py", "from dataclasses import dataclass\n\n@dataclass(frozen=True, slots=True)\nclass C:\n    value: UserId\n"
     )
     assert diagnostic_rows(tmp_path, (domain_a, domain_b, neutral)) == (
         ("PYS0006", "src/domain/models_b.py", 4, 1, "DuplicateModelShape", "TypeDiscipline"),
@@ -559,9 +454,7 @@ def test_ast_grep_fixture_tree_is_pruned_before_semantic_analysis(tmp_path: Path
 
 
 def test_output_formats(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    write_module(
-        tmp_path, "src/domain/flow.py", "def run(value: Input) -> Output:\n    if value:\n        return Output()\n"
-    )
+    write_module(tmp_path, "src/domain/flow.py", "def run(value: Input) -> Output:\n    if value:\n        return Output()\n")
     assert main(("check", "--root", tmp_path.as_posix(), "--format", "text")) == 1
     assert "src/domain/flow.py:2:5: PYS0001 DomainImperativeFlow:" in capsys.readouterr().out
     assert main(("check", "--root", tmp_path.as_posix(), "--format", "json")) == 1
@@ -577,9 +470,7 @@ def test_output_formats(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
         "category": "FunctionalDiscipline",
     }
     assert main(("check", "--root", tmp_path.as_posix(), "--format", "github")) == 1
-    assert (
-        "::error file=src/domain/flow.py,line=2,col=5,title=PYS0001 DomainImperativeFlow::" in capsys.readouterr().out
-    )
+    assert "::error file=src/domain/flow.py,line=2,col=5,title=PYS0001 DomainImperativeFlow::" in capsys.readouterr().out
 
 
 def test_github_output_escapes_properties_and_message(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -599,9 +490,7 @@ def test_github_output_escapes_properties_and_message(tmp_path: Path, capsys: py
         tmp_path,
         OutputFormat.github,
     )
-    assert capsys.readouterr().out == (
-        "::error file=src/domain/a%2Cb%3Ac.py,line=1,col=1,title=PYS0001 Title%2CWith%3AProperty::body %25%0D%0A\n"
-    )
+    assert capsys.readouterr().out == ("::error file=src/domain/a%2Cb%3Ac.py,line=1,col=1,title=PYS0001 Title%2CWith%3AProperty::body %25%0D%0A\n")
 
 
 def test_typeguard_is_banned_by_ruff_config() -> None:

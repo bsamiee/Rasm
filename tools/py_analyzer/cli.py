@@ -55,9 +55,7 @@ def emit(diagnostics: Sequence[Diagnostic], root: Path, output_format: OutputFor
                 )
             )
         case OutputFormat.json:
-            sys.stdout.buffer.write(
-                msgspec.json.encode([diagnostic.as_json(resolved_root) for diagnostic in diagnostics]) + b"\n"
-            )
+            sys.stdout.buffer.write(msgspec.json.encode([diagnostic.as_json(resolved_root) for diagnostic in diagnostics]) + b"\n")
         case OutputFormat.github:
 
             def escape(value: str, *, is_property: bool = False) -> str:
@@ -92,11 +90,7 @@ def _invocation_errors(root: Path, paths: Sequence[Path]) -> tuple[str, ...]:
         f"py-analyzer: --root does not exist: {root}" if not root.exists() else "",
         f"py-analyzer: --root is not a directory: {root}" if root.exists() and not root.is_dir() else "",
     )
-    path_errors = tuple(
-        f"py-analyzer: path does not exist: {path}"
-        for path in (_anchor(root, path) for path in paths)
-        if not path.exists()
-    )
+    path_errors = tuple(f"py-analyzer: path does not exist: {path}" for path in (_anchor(root, path) for path in paths) if not path.exists())
     return tuple(error for error in (*root_errors, *path_errors) if error)
 
 
