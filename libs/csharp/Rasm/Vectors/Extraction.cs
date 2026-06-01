@@ -357,21 +357,19 @@ public abstract partial record ExtractionProbe {
                       select typeof(TOut) == typeof(TangentLogMapResult) ? (TOut)(object)result : (TOut)(object)result.Receipt
                     : from vector in probe.Source.SampleVector(sample: state.Sample, context: state.Context, key: state.Key)
                       from output in typeof(TOut) switch {
-                          Type t when t == typeof(Vector3d) => Extraction.Accept<TOut, Vector3d>(value: vector, key: state.Key),
-                          Type t when t == typeof(double) => Extraction.Accept<TOut, double>(value: vector.Length, key: state.Key),
+                          Type t when t == typeof(Vector3d) => AtomProjection.Value<Vector3d, TOut>(value: vector, key: state.Key, owner: typeof(VectorCase)),
+                          Type t when t == typeof(double) => AtomProjection.Value<double, TOut>(value: vector.Length, key: state.Key, owner: typeof(VectorCase)),
                           _ => VectorSpan.Of(anchor: state.Sample, vector: vector, context: state.Context, key: state.Key).Bind(span => span.Project<TOut>(key: state.Key)),
                       }
                       select output,
             scalarCase: static (state, probe) =>
                 from value in probe.Source.SampleScalar(sample: state.Sample, context: state.Context, key: state.Key)
-                from output in typeof(TOut) == typeof(double)
-                    ? Extraction.Accept<TOut, double>(value: value, key: state.Key)
-                    : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(ScalarCase), outputType: typeof(TOut)))
+                from output in AtomProjection.Value<double, TOut>(value: value, key: state.Key, owner: typeof(ScalarCase))
                 select output,
             tensorCase: static (state, probe) =>
                 from tensor in probe.Source.SampleTensor(sample: state.Sample, context: state.Context, key: state.Key)
                 from output in typeof(TOut) switch {
-                    Type t when t == typeof(SymmetricMatrix) => Fin.Succ((TOut)(object)tensor),
+                    Type t when t == typeof(SymmetricMatrix) => AtomProjection.Self<SymmetricMatrix, TOut>(value: tensor, key: state.Key, owner: typeof(TensorCase)),
                     Type t when t == typeof(Seq<(double Eigenvalue, Direction Eigenvector)>) =>
                         probe.Source.PrincipalDirections(sample: state.Sample, context: state.Context, key: state.Key).Map(static p => (TOut)(object)p),
                     _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(TensorCase), outputType: typeof(TOut))),
@@ -433,7 +431,7 @@ internal abstract partial record Extraction {
             isoSurfaceCase: static (state, extraction) =>
                 from result in extraction.Field.IsoSurfaceAttemptDetailed(bounds: extraction.Bounds, resolution: extraction.Resolution, maxRootSteps: extraction.MaxRootSteps, context: state.Context, key: state.Key)
                 from output in typeof(TOut) switch {
-                    Type t when t.Equals(typeof(Mesh)) => result.Receipt.Valid ? Accept<TOut, Mesh>(value: result.Mesh, key: state.Key) : Fin.Fail<TOut>(state.Key.InvalidResult()),
+                    Type t when t.Equals(typeof(Mesh)) => result.Receipt.Valid ? AtomProjection.Value<Mesh, TOut>(value: result.Mesh, key: state.Key, owner: typeof(IsoSurfaceCase)) : Fin.Fail<TOut>(state.Key.InvalidResult()),
                     Type t when t == typeof(IsoSurfaceReceipt) => Fin.Succ((TOut)(object)result.Receipt),
                     Type t when t == typeof(IsoSurfaceResult) => Fin.Succ((TOut)(object)result),
                     Type t when t == typeof(ExtractionReceipt) => ExtractionReceipt.Of(status: result.Receipt.Valid ? ExtractionStatus.Complete : ExtractionStatus.Approximate, attempted: 1, emitted: result.Receipt.Valid ? 1 : 0, nativeRouted: result.Receipt.NativeRouted, toleranceSource: result.Receipt.FixedTolerance.IsSome ? ToleranceSource.RhinoDefault : ToleranceSource.NotApplicable, tolerance: result.Receipt.FixedTolerance, parallelCallback: result.Receipt.ParallelCallback, key: state.Key, isoSurface: Some(result.Receipt)).Map(static receipt => (TOut)(object)receipt),
@@ -443,13 +441,11 @@ internal abstract partial record Extraction {
             glyphCase: static (state, extraction) => ProjectSamples<TOut, Line, (VectorField, PositiveMagnitude)>(
                 kind: extraction.Policy.Kind, domain: extraction.Domain, context: state.Context, key: state.Key, state: (extraction.Field, extraction.Policy.Scale),
                 sample: static (sampleState, point, model, op) => ExtractionProbe.Vector(source: sampleState.Item1).Project<VectorSpan>(sample: point, context: model, key: op).Map(span => new Line(span.Anchor, span.Anchor + (sampleState.Item2.Value * span.Value))),
-                project: static (glyphs, op) => typeof(TOut) == typeof(Seq<Line>) ? op.Accept(values: glyphs.AsIterable()).Map(static value => (TOut)(object)value) : Fin.Fail<TOut>(error: op.Unsupported(geometryType: typeof(GlyphCase), outputType: typeof(TOut)))),
+                project: static (glyphs, op) => AtomProjection.Values<Line, TOut>(values: glyphs.AsIterable(), key: op, owner: typeof(GlyphCase))),
             sampleGridCase: static (state, extraction) => ProjectSamples<TOut, (Point3d, double), ScalarField>(
                 kind: extraction.Policy.Kind, domain: extraction.Domain, context: state.Context, key: state.Key, state: extraction.Field,
                 sample: static (source, point, model, op) => source.SampleScalar(sample: point, context: model, key: op).Map(value => (Point: point, Value: value)),
-                project: static (samples, op) => typeof(TOut) == typeof(Seq<(Point3d Point, double Value)>)
-                    ? samples.ForAll(static sample => sample.Item1.IsValid && RhinoMath.IsValidDouble(x: sample.Item2)) ? Fin.Succ((TOut)(object)samples) : Fin.Fail<TOut>(error: op.InvalidResult())
-                    : Fin.Fail<TOut>(error: op.Unsupported(geometryType: typeof(SampleGridCase), outputType: typeof(TOut)))),
+                project: static (samples, op) => AtomProjection.Custom<Seq<(Point3d Point, double Value)>, TOut>(value: samples, admitted: samples.ForAll(static sample => sample.Item1.IsValid && RhinoMath.IsValidDouble(x: sample.Item2)), key: op, owner: typeof(SampleGridCase))),
             streamBundleCase: static (state, extraction) => ProjectSamples<TOut, StreamlineTrace, (VectorField, StreamBundlePolicy)>(
                 kind: extraction.Policy.Kind, domain: extraction.Domain, context: state.Context, key: state.Key, state: (extraction.Field, extraction.Policy),
                 sample: static (sampleState, seed, model, op) => FlowKernel.Trace<StreamlineTrace>(source: sampleState.Item1, seed: seed, initialStep: sampleState.Item2.InitialStep, integrator: sampleState.Item2.Integrator, termination: sampleState.Item2.Termination, context: model, key: op),
@@ -461,8 +457,8 @@ internal abstract partial record Extraction {
                 }));
     private static Fin<TOut> ProjectCurves<TOut>(CurveBatch batch, Op key) =>
         typeof(TOut) switch {
-            Type t when t == typeof(Seq<Curve>) => key.Accept(values: batch.Curves.AsIterable()).Map(static value => (TOut)(object)value),
-            Type t when t == typeof(ExtractionReceipt) => Accept<TOut, ExtractionReceipt>(value: batch.Receipt, key: key),
+            Type t when t == typeof(Seq<Curve>) => AtomProjection.Values<Curve, TOut>(values: batch.Curves.AsIterable(), key: key, owner: typeof(ContourPolicy)),
+            Type t when t == typeof(ExtractionReceipt) => AtomProjection.Value<ExtractionReceipt, TOut>(value: batch.Receipt, key: key, owner: typeof(Extraction)),
             Type t when t == typeof(ScalarIsolineResult) => batch.ScalarIsoline.ToFin(Fail: key.Unsupported(geometryType: typeof(ContourPolicy), outputType: typeof(ScalarIsolineResult))).Map(static value => (TOut)(object)value),
             Type t when t == typeof(ScalarIsolineReceipt) => batch.ScalarIsoline.ToFin(Fail: key.Unsupported(geometryType: typeof(ContourPolicy), outputType: typeof(ScalarIsolineReceipt))).Map(static value => (TOut)(object)value.Receipt),
             _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(Extraction), outputType: typeof(TOut))),
@@ -474,8 +470,6 @@ internal abstract partial record Extraction {
             ? Receipt<TOut>(attempted: samples.Receipt.Attempted, emitted: items.Count, nativeRouted: false, toleranceSource: ToleranceSource.NotApplicable, tolerance: Option<double>.None, parallelCallback: false, key: key, sample: Some(samples.Receipt))
             : project(items, key)
         select output;
-    internal static Fin<TOut> Accept<TOut, TValue>(TValue value, Op key) =>
-        key.AcceptValue(value: value).Map(static accepted => (TOut)(object)accepted!);
     private static Fin<TOut> Receipt<TOut>(int attempted, int emitted, bool nativeRouted, ToleranceSource toleranceSource, Option<double> tolerance, bool parallelCallback, Op key, Option<SampleReceipt> sample = default) =>
         ExtractionReceipt.Of(status: ExtractionStatus.Complete, attempted: attempted, emitted: emitted, nativeRouted: nativeRouted, toleranceSource: toleranceSource, tolerance: tolerance, parallelCallback: parallelCallback, key: key, sample: sample)
             .Map(static receipt => (TOut)(object)receipt);

@@ -118,6 +118,10 @@ internal static class AnalyzerDispatcher {
                 FlowRules.CheckImperativeConditional(context, scope, conditional);
                 FlowRules.CheckEarlyReturnGuardChain(context, scope, conditional);
                 FlowRules.CheckGuardableFinConditional(context, scope, conditional);
+                FlowRules.CheckManualGenericProjectionGate(context, scope, conditional);
+                return;
+            case (_, ISwitchExpressionOperation switchExpression):
+                FlowRules.CheckManualGenericProjectionGate(context, scope, switchExpression);
                 return;
             case (_, ILoopOperation loop):
                 FlowRules.CheckImperativeLoop(context, scope);

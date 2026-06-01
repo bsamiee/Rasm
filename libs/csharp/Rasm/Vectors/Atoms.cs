@@ -4,15 +4,19 @@ namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 internal static class AtomProjection {
-    internal static Fin<TOut> Self<TSelf, TOut>(TSelf value, Op key) => typeof(TOut) == typeof(TSelf) ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(TSelf), outputType: typeof(TOut)));
-    internal static Fin<TOut> Value<TValue, TOut>(TValue value, Op key) =>
+    internal static Fin<TOut> Self<TSelf, TOut>(TSelf value, Op key, Type? owner = null) => typeof(TOut) == typeof(TSelf) ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: key.Unsupported(geometryType: owner ?? typeof(TSelf), outputType: typeof(TOut)));
+    internal static Fin<TOut> Value<TValue, TOut>(TValue value, Op key, Type? owner = null) =>
         typeof(TOut) == typeof(TValue)
             ? key.AcceptValue(value: value).Map(static accepted => (TOut)(object)accepted!)
-            : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(TValue), outputType: typeof(TOut)));
-    internal static Fin<TOut> Custom<TValue, TOut>(TValue value, bool admitted, Op key) =>
+            : Fin.Fail<TOut>(error: key.Unsupported(geometryType: owner ?? typeof(TValue), outputType: typeof(TOut)));
+    internal static Fin<TOut> Values<TValue, TOut>(IEnumerable<TValue> values, Op key, Type? owner = null) =>
+        typeof(TOut) == typeof(Seq<TValue>)
+            ? key.Accept(values: values).Map(static accepted => (TOut)(object)accepted!)
+            : Fin.Fail<TOut>(error: key.Unsupported(geometryType: owner ?? typeof(TValue), outputType: typeof(TOut)));
+    internal static Fin<TOut> Custom<TValue, TOut>(TValue value, bool admitted, Op key, Type? owner = null) =>
         typeof(TOut) == typeof(TValue)
             ? admitted ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: key.InvalidResult())
-            : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(TValue), outputType: typeof(TOut)));
+            : Fin.Fail<TOut>(error: key.Unsupported(geometryType: owner ?? typeof(TValue), outputType: typeof(TOut)));
     internal static Fin<TOut> SelfOrValue<TSelf, TValue, TOut>(TSelf self, TValue value, Op key) => typeof(TOut) == typeof(TValue) ? Value<TValue, TOut>(value: value, key: key) : Self<TSelf, TOut>(value: self, key: key);
     internal static Fin<TOut> Raw<TOut>(object raw, Option<Context> context, Op key, Type owner, bool admitsVectorMagnitude = false) =>
         (raw, typeof(TOut)) switch {

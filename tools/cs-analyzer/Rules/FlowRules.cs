@@ -112,6 +112,16 @@ internal static class FlowRules {
             (true, true, true, false) => Diagnostic.Create(RuleCatalog.CSP0739, context.Operation.Syntax.GetLocation()),
             _ => null,
         });
+    internal static void CheckManualGenericProjectionGate(OperationAnalysisContext context, ScopeInfo scope, IConditionalOperation conditional) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsManualGenericProjectionGate(conditional, context.ContainingSymbol)) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0743, context.Operation.Syntax.GetLocation()),
+            _ => null,
+        });
+    internal static void CheckManualGenericProjectionGate(OperationAnalysisContext context, ScopeInfo scope, ISwitchExpressionOperation switchExpression) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsManualGenericProjectionGate(switchExpression, context.ContainingSymbol)) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0743, context.Operation.Syntax.GetLocation()),
+            _ => null,
+        });
 
     // --- [PRECEDENCE_RULES] ---------------------------------------------------
 

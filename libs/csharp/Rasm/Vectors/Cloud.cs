@@ -516,9 +516,7 @@ internal static class CloudKernel {
             VectorCloud.RingCase ring =>
                 from normal in RingNormalOf(ring: ring, key: key)
                 from winding in PlanarWindingOf(ring: ring.Vertices, planeNormal: normal, query: query, key: key)
-                from output in typeof(TOut) == typeof(int)
-                    ? Fin.Succ((TOut)(object)winding)
-                    : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(VectorCloud.RingCase), outputType: typeof(TOut)))
+                from output in AtomProjection.Self<int, TOut>(value: winding, key: key, owner: typeof(VectorCloud.RingCase))
                 select output,
             _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: cloud.GetType(), outputType: typeof(int))),
         };

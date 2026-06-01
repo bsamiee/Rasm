@@ -58,9 +58,7 @@ public abstract partial record VectorIntent {
                 .TraverseM(axis => Vectors.Direction.Of(value: axis, context: state.Context, key: state.Key).Map(static direction => direction.Value))
                 .As()
             from _ in guard(!axes.IsEmpty, state.Key.InvalidInput())
-            from output in typeof(TOut) == typeof(Seq<Vector3d>)
-                ? Fin.Succ((TOut)(object)axes)
-                : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(AxesCase), outputType: typeof(TOut)))
+            from output in AtomProjection.Self<Seq<Vector3d>, TOut>(value: axes, key: state.Key, owner: typeof(AxesCase))
             select output,
         angularCase: static (state, intent) =>
             from angle in VectorAngle.Of(a: intent.A, b: intent.B, context: state.Context, pivot: intent.Pivot, key: state.Key)
@@ -83,9 +81,7 @@ public abstract partial record VectorIntent {
         componentsCase: static (state, intent) =>
             from span in VectorSpan.Of(anchor: intent.Anchor, vector: intent.Value, context: state.Context, key: state.Key)
             from components in span.Components(frame: intent.Basis, key: state.Key)
-            from output in typeof(TOut) == typeof(ValueTuple<double, double>)
-                ? Fin.Succ((TOut)(object)components)
-                : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(VectorSpan), outputType: typeof(TOut)))
+            from output in AtomProjection.Self<ValueTuple<double, double>, TOut>(value: components, key: state.Key, owner: typeof(VectorSpan))
             select output,
         relationCase: static (state, intent) =>
             from relation in VectorRelation.Of(a: intent.A, b: intent.B, context: state.Context, key: state.Key)
@@ -135,9 +131,8 @@ public abstract partial record VectorIntent {
         surfaceCase: static (state, intent) => intent.SurfaceSource.Sample<TOut>(projection: intent.Mode, u: intent.U, v: intent.V, key: state.Key),
         poseCase: static (state, intent) =>
             from pose in intent.Mode.Interpolate(a: intent.From, b: intent.To, t: intent.Parameter)
-            from output in typeof(TOut) == typeof(Plane)
-                ? FieldNabla.Plane(basis: pose, key: state.Key).Map(static v => (TOut)(object)v)
-                : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(PoseCase), outputType: typeof(TOut)))
+            from output in FieldNabla.Plane(basis: pose, key: state.Key)
+                .Bind(plane => AtomProjection.Self<Plane, TOut>(value: plane, key: state.Key, owner: typeof(PoseCase)))
             select output,
         flattenCase: static (state, intent) =>
             from result in MeshKernel.ParameterizeFlattenDetailed(space: intent.Space, key: state.Key)

@@ -34,6 +34,7 @@ public sealed class DomainStandardsAnalyzer : DiagnosticAnalyzer {
                 OperationKind.ObjectCreation,
                 OperationKind.AnonymousFunction,
                 OperationKind.Conditional,
+                OperationKind.SwitchExpression,
                 OperationKind.Loop,
                 OperationKind.Try,
                 OperationKind.Throw,

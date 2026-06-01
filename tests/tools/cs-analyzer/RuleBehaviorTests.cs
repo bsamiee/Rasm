@@ -805,6 +805,32 @@ public sealed class RuleBehaviorTests {
                 }
             }
             """),
+        new("CSP0743", File(scope: "Domain/Services", type: "ManualGenericProjectionGate"), """
+            namespace LanguageExt {
+                public sealed class Fin<T> { }
+                public static class Fin {
+                    public static Fin<T> Succ<T>(T value) => new();
+                    public static Fin<T> Fail<T>(LanguageExt.Common.Error error) => new();
+                }
+            }
+
+            namespace LanguageExt.Common {
+                public class Error { }
+            }
+
+            namespace Domain.Services {
+                public sealed class Op {
+                    public LanguageExt.Common.Error Unsupported(System.Type geometryType, System.Type outputType) => new();
+                }
+                public sealed class ManualGenericProjectionGate {
+                    public LanguageExt.Fin<TOut> Project<TOut>(Item value, Op op) =>
+                        typeof(TOut) == typeof(Item)
+                            ? LanguageExt.Fin.Succ((TOut)(object)value)
+                            : LanguageExt.Fin.Fail<TOut>(op.Unsupported(typeof(Item), typeof(TOut)));
+                }
+                public readonly record struct Item(int Value);
+            }
+            """),
         new("CSP0802", File(scope: "Domain/Models", type: "UnqualifiedUnionOps"), """
             namespace Thinktecture {
                 public sealed class UnionAttribute : System.Attribute { }
@@ -2715,6 +2741,170 @@ public sealed class RuleBehaviorTests {
                 """).ConfigureAwait(true);
 
         Assert.DoesNotContain(expected: "CSP0742", collection: ids);
+    }
+
+    [Fact]
+    public async Task SwitchExpressionEmitsManualGenericProjectionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/SwitchProjectionGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Fin<T> { }
+                    public sealed class Seq<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(LanguageExt.Common.Error error) => new();
+                    }
+                }
+
+                namespace LanguageExt.Common {
+                    public class Error { }
+                }
+
+                namespace Domain.Services {
+                    public sealed class Op {
+                        public LanguageExt.Common.Error Unsupported(System.Type geometryType, System.Type outputType) => new();
+                    }
+                    public sealed class SwitchProjectionGate {
+                        public LanguageExt.Fin<TOut> Project<TOut>(LanguageExt.Seq<int> values, Op op) =>
+                            typeof(TOut) switch {
+                                System.Type t when t == typeof(LanguageExt.Seq<int>) => LanguageExt.Fin.Succ((TOut)(object)values),
+                                _ => LanguageExt.Fin.Fail<TOut>(op.Unsupported(typeof(SwitchProjectionGate), typeof(TOut))),
+                            };
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0743", collection: ids);
+    }
+
+    [Fact]
+    public async Task AcceptValueMapEmitsManualGenericProjectionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/AcceptValueProjectionGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Fin<T> {
+                        public Fin<TOut> Map<TOut>(System.Func<T, TOut> map) => new();
+                    }
+                    public static class Fin {
+                        public static Fin<T> Fail<T>(LanguageExt.Common.Error error) => new();
+                    }
+                }
+
+                namespace LanguageExt.Common {
+                    public class Error { }
+                }
+
+                namespace Domain.Services {
+                    public sealed class Op {
+                        public LanguageExt.Fin<int> AcceptValue(int value) => new();
+                        public LanguageExt.Common.Error Unsupported(System.Type geometryType, System.Type outputType) => new();
+                    }
+                    public sealed class AcceptValueProjectionGate {
+                        public LanguageExt.Fin<TOut> Project<TOut>(int value, Op op) =>
+                            typeof(TOut) == typeof(int)
+                                ? op.AcceptValue(value).Map(static accepted => (TOut)(object)accepted)
+                                : LanguageExt.Fin.Fail<TOut>(op.Unsupported(typeof(int), typeof(TOut)));
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0743", collection: ids);
+    }
+
+    [Fact]
+    public async Task ProjectionOwnerDoesNotEmitManualGenericProjectionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/AtomProjection.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(LanguageExt.Common.Error error) => new();
+                    }
+                }
+
+                namespace LanguageExt.Common {
+                    public class Error { }
+                }
+
+                namespace Domain.Services {
+                    public sealed class Op {
+                        public LanguageExt.Common.Error Unsupported(System.Type geometryType, System.Type outputType) => new();
+                    }
+                    public static class AtomProjection {
+                        public static LanguageExt.Fin<TOut> Self<TSelf, TOut>(TSelf value, Op op) =>
+                            typeof(TOut) == typeof(TSelf)
+                                ? LanguageExt.Fin.Succ((TOut)(object)value!)
+                                : LanguageExt.Fin.Fail<TOut>(op.Unsupported(typeof(TSelf), typeof(TOut)));
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0743", collection: ids);
+    }
+
+    [Fact]
+    public async Task OptionBoundaryCastDoesNotEmitManualGenericProjectionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Integration/OptionBoundaryProjection.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Option<T> { }
+                    public static class Option {
+                        public static Option<T> Some<T>(T value) => new();
+                        public static Option<T> None<T>() => new();
+                    }
+                }
+
+                namespace Integration {
+                    public sealed class OptionBoundaryProjection {
+                        public LanguageExt.Option<TOut> Project<TOut>(object value) =>
+                            value is TOut typed ? LanguageExt.Option.Some(typed) : LanguageExt.Option.None<TOut>();
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0743", collection: ids);
+    }
+
+    [Fact]
+    public async Task MultiOutputReceiptSwitchDoesNotEmitManualGenericProjectionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/MultiOutputReceiptSwitch.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(LanguageExt.Common.Error error) => new();
+                    }
+                }
+
+                namespace LanguageExt.Common {
+                    public class Error { }
+                }
+
+                namespace Domain.Services {
+                    public sealed class Op {
+                        public LanguageExt.Common.Error Unsupported(System.Type geometryType, System.Type outputType) => new();
+                    }
+                    public readonly record struct Result(int Value);
+                    public readonly record struct Receipt(int Count);
+                    public sealed class MultiOutputReceiptSwitch {
+                        public LanguageExt.Fin<TOut> Project<TOut>(Result result, Receipt receipt, Op op) =>
+                            typeof(TOut) switch {
+                                System.Type t when t == typeof(Result) => LanguageExt.Fin.Succ((TOut)(object)result),
+                                System.Type t when t == typeof(Receipt) => LanguageExt.Fin.Succ((TOut)(object)receipt),
+                                _ => LanguageExt.Fin.Fail<TOut>(op.Unsupported(typeof(MultiOutputReceiptSwitch), typeof(TOut))),
+                            };
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0743", collection: ids);
     }
 
     public static TheoryData<string, string, string> RuleCases() =>

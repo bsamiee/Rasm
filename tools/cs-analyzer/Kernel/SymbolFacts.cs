@@ -468,6 +468,22 @@ internal static class SymbolFacts {
         && IsLanguageExtFinType(invocation.Type)
         && invocation.Arguments.Length > 0
         && IsLanguageExtCommonErrorType(UnwrapValue(invocation.Arguments[0].Value)?.Type);
+    internal static bool IsManualGenericProjectionGate(IConditionalOperation conditional, ISymbol? containingSymbol) =>
+        TryProjectionTypeParameter(type: conditional.Type, parameter: out ITypeParameterSymbol? parameter)
+        && !IsProjectionOwner(symbol: containingSymbol)
+        && conditional.WhenFalse is IOperation whenFalse
+        && ContainsTypeof(operation: conditional.Condition, parameter: parameter)
+        && HasProjectionAndUnsupported(success: conditional.WhenTrue, failure: whenFalse, parameter: parameter);
+    internal static bool IsManualGenericProjectionGate(ISwitchExpressionOperation switchExpression, ISymbol? containingSymbol) {
+        if (!TryProjectionTypeParameter(type: switchExpression.Type, parameter: out ITypeParameterSymbol? parameter)
+            || IsProjectionOwner(symbol: containingSymbol)
+            || !ContainsTypeof(operation: switchExpression.Value, parameter: parameter)) {
+            return false;
+        }
+        int projectionArms = switchExpression.Arms.Count(arm => ContainsObjectMediatedCast(operation: arm.Value, parameter: parameter));
+        int unsupportedArms = switchExpression.Arms.Count(arm => ContainsUnsupportedFailure(operation: arm.Value, parameter: parameter));
+        return projectionArms == 1 && unsupportedArms == 1;
+    }
     internal static bool IsLanguageExtUnitType(ITypeSymbol? type) =>
         type is INamedTypeSymbol unitType
         && unitType.Name == "Unit"
@@ -611,6 +627,40 @@ internal static class SymbolFacts {
             _ => false,
         };
     }
+    private static bool TryProjectionTypeParameter(ITypeSymbol? type, out ITypeParameterSymbol parameter) {
+        parameter = null!;
+        if (type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Fin`1", TypeArguments.Length: 1 } fin
+            && fin.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal)
+            && fin.TypeArguments[0] is ITypeParameterSymbol typeParameter) {
+            parameter = typeParameter;
+            return true;
+        }
+        return false;
+    }
+    private static bool IsProjectionOwner(ISymbol? symbol) =>
+        symbol is IMethodSymbol method
+        && (method.ContainingType?.Name is "AtomProjection" or "OpAcceptance"
+            || method.Name is "Self" or "Value" or "Values" or "Custom" or "AcceptResults");
+    private static bool HasProjectionAndUnsupported(IOperation success, IOperation failure, ITypeParameterSymbol parameter) =>
+        (ContainsObjectMediatedCast(operation: success, parameter: parameter) && ContainsUnsupportedFailure(operation: failure, parameter: parameter))
+        || (ContainsObjectMediatedCast(operation: failure, parameter: parameter) && ContainsUnsupportedFailure(operation: success, parameter: parameter));
+    private static bool ContainsTypeof(IOperation operation, ITypeParameterSymbol parameter) =>
+        operation.DescendantsAndSelf()
+            .OfType<ITypeOfOperation>()
+            .Any(typeOf => SymbolEqualityComparer.Default.Equals(typeOf.TypeOperand, parameter));
+    private static bool ContainsObjectMediatedCast(IOperation operation, ITypeParameterSymbol parameter) =>
+        operation.DescendantsAndSelf()
+            .OfType<IConversionOperation>()
+            .Any(conversion => SymbolEqualityComparer.Default.Equals(conversion.Type, parameter) && IsObjectBridge(operation: conversion.Operand));
+    private static bool IsObjectBridge(IOperation operation) =>
+        operation.Type?.SpecialType == SpecialType.System_Object
+        || (operation is IConversionOperation conversion && IsObjectBridge(operation: conversion.Operand));
+    private static bool ContainsUnsupportedFailure(IOperation operation, ITypeParameterSymbol parameter) =>
+        operation.DescendantsAndSelf()
+            .OfType<IInvocationOperation>()
+            .Any(invocation => IsLanguageExtFinFailureInvocation(invocation)
+                && invocation.DescendantsAndSelf().OfType<IInvocationOperation>().Any(static nested => nested.TargetMethod.Name == "Unsupported")
+                && ContainsTypeof(operation: invocation, parameter: parameter));
     private static bool SameReference(SemanticModel model, ExpressionSyntax left, ExpressionSyntax right) =>
         (ReferencedSymbol(model: model, expression: left), ReferencedSymbol(model: model, expression: right)) switch {
             (ISymbol a, ISymbol b) => SymbolEqualityComparer.Default.Equals(a, b),
