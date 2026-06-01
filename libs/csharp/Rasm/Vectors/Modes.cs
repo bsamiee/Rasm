@@ -92,10 +92,12 @@ public sealed partial class SurfaceProjection {
               select (Point: validPoint, Du: du, Dv: dv)
             : Fin.Fail<(Point3d Point, Vector3d Du, Vector3d Dv)>(key.InvalidResult());
     private static Fin<Plane> OrientedFrame(Surface surface, Point2d uv, Plane frame, Op key) =>
-        frame.IsValid
-            ? GeometryKernel.NormalAt(surface: surface, uv: uv, key: key)
-                .Bind(normal => key.AcceptValue(value: frame.ZAxis * normal >= 0.0 ? frame : new Plane(origin: frame.Origin, xDirection: frame.XAxis, yDirection: -frame.YAxis)))
-            : Fin.Fail<Plane>(key.InvalidResult());
+        from validFrame in FieldNabla.Plane(basis: frame, key: key)
+        from normal in GeometryKernel.NormalAt(surface: surface, uv: uv, key: key)
+        from oriented in FieldNabla.Plane(
+            basis: validFrame.ZAxis * normal >= 0.0 ? validFrame : new Plane(origin: validFrame.Origin, xDirection: validFrame.XAxis, yDirection: -validFrame.YAxis),
+            key: key)
+        select oriented;
     private static Fin<SymmetricMatrix> ShapeOperatorOf(SurfaceCurvature curvature, Context context, Op key) {
         double k0 = curvature.Kappa(direction: 0);
         double k1 = curvature.Kappa(direction: 1);

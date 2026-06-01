@@ -32,6 +32,7 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 - Verify risky Rhino behavior against RhinoWIP `RhinoCommon.xml`, decompile evidence when XML is absent, and `uv run python -m tools.quality api doctor`.
 - Use `uv run python -m tools.quality ...` for API, static, test, and bridge rails in this checkout.
 - Treat `uv run python -m tools.quality static check` as changed-file cleanup, not compile proof. Use `uv run python -m tools.quality static build` for routed compile/analyzer proof and bridge scenarios for Rhino runtime behavior.
+- For prepared API-proof plans, implement first. Re-verify native claims only when touched code, compile output, or API uncertainty requires it.
 - For new category roadmaps, verify every named Rhino member through local XML/decompile evidence before presenting it as available. List false, obsolete, internal, and missing APIs directly in the roadmap.
 - Member existence is not value equivalence. A member that compiles can still return a different quantity than the one it is claimed to replace — `File3dm.Views` counts model views, not layout page views. Verify return SEMANTICS by decompiling the backing native call or table, never by confirming the member resolves.
 - Treat RhinoWIP 9 as target. Do not rely on older public examples unless current local API evidence confirms semantics.
@@ -46,12 +47,15 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 - Do not split one concern across owner classes, managers, helpers, compatibility shims, or parallel rails.
 - Do not hardcode project policy as invisible constants. Prefer caller-provided values, named policies, native defaults, or explicit default records. Values like `96` DPI belong in a documented capture policy or caller input, not buried in logic.
 - Do not remove functionality to reduce LOC. Collapse repeated ownership and preserve capability through denser operations.
+- Do not reduce LOC by stripping comments mechanically. Delete comments only when stale, wrong, or restating code.
+- Audit old rails after collapse. Search constructor parameter names, owner names, factory prefixes, and wrapper names; a passing compile can still hide a dual paradigm.
 
 ## Implementation Rules
 
 - Read existing folder files before editing. Extend canonical owners before creating new files or types.
 - Route document/view/object/panel watches through `WatchBus`; do not add folder-local watcher rails or restore `UI/Watch.cs`.
 - Route camera, UI, and Exchange capture setup through `CaptureRecipe`; do not duplicate `ViewCaptureSettings` constructor choice, viewport binding, DPI/decor validation, raster mode, or disposal.
+- Keep `CommandInputPolicy` case-row based. Fold prompt, options, point, transform, scalar, bounds, selection, point events, gumball, and text mode into one internal state rail.
 - Preserve Rhino native coherence. For example, camera location, target, direction, up vector, projection, and detail commit behavior must stay aligned unless an operation explicitly represents a lower-level native apply.
 - Convert native return shapes at the boundary: nullable to `Option`/`Fin`, bool failure to `Fin<Unit>`, resource lifetimes to scoped projection, document mutations to existing receipt vocabulary.
 - Keep block and construction value internal: idempotency, batch receipts, dependency graphs, source/link policy, overload selection, framed bounds, typed output projection, and native diagnostics belong behind the category rail.

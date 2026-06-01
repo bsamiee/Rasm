@@ -5,167 +5,7 @@ using DrawingSize = System.Drawing.Size;
 
 namespace Rasm.Rhino;
 
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CaptureMargins(UnitSystem Units, double Left, double Top, double Right, double Bottom);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CaptureOffset(UnitSystem Units, bool FromMargin, double X, double Y, ViewCaptureSettings.AnchorLocation Anchor);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CaptureRecipe(
-    Option<DrawingSize> Size = default,
-    Option<double> Dpi = default,
-    bool Raster = false,
-    Option<CaptureDecor> Decor = default) {
-    internal const double ScreenDpi = 96d;
-    internal static CaptureDecor ScreenDecor => new();
-
-    internal Fin<T> Render<T>(
-        RhinoView view,
-        Option<RhinoViewport> viewport,
-        double fallbackDpi,
-        CaptureDecor fallbackDecor,
-        Func<CaptureDecor, RhinoView, CaptureDecor> rewrite,
-        Func<ViewCaptureSettings, Fin<T>> project,
-        Op op) {
-        CaptureRecipe self = this;
-        return Optional(project).ToFin(Fail: op.InvalidInput())
-            .Bind(validProject => self.Use(
-                view: view,
-                viewport: viewport,
-                fallbackDpi: fallbackDpi,
-                fallbackDecor: fallbackDecor,
-                rewrite: rewrite,
-                project: (_, _, settings) => validProject(arg: settings),
-                op: op));
-    }
-
-    internal Fin<ViewCaptureSettings> Open(
-        RhinoView view,
-        Option<RhinoViewport> viewport,
-        double fallbackDpi,
-        CaptureDecor fallbackDecor,
-        Func<CaptureDecor, RhinoView, CaptureDecor> rewrite,
-        Op op) {
-        CaptureRecipe self = this;
-        return from activeView in op.Need(view)
-               from validRewrite in Optional(rewrite).ToFin(Fail: op.InvalidInput())
-               from dpi in CaptureMeasure.Required(value: self.Dpi.IfNone(fallbackDpi), positive: true, op: op)
-               from opened in UI.RhinoUi.Protect(valid: () => {
-                   ViewCaptureSettings? settings = null;
-                   try {
-                       settings = self.Create(view: activeView, viewport: viewport, dpi: dpi);
-                       return self.Configure(view: activeView, viewport: viewport, fallbackDecor: fallbackDecor, rewrite: validRewrite, settings: settings, op: op)
-                           .Map(_ => {
-                               ViewCaptureSettings result = settings;
-                               settings = null;
-                               return result;
-                           });
-                   } finally {
-                       settings?.Dispose();
-                   }
-               })
-               select opened;
-    }
-
-    internal Fin<DrawingBitmap> TransparentBitmap(
-        RhinoView view,
-        ViewCaptureSettings settings,
-        CaptureDecor fallbackDecor,
-        Func<CaptureDecor, RhinoView, CaptureDecor> rewrite,
-        Op op) {
-        CaptureRecipe self = this;
-        return op.Need(view).Bind(activeView =>
-            op.Need(settings).Bind(activeSettings =>
-                Optional(rewrite).ToFin(Fail: op.InvalidInput()).Bind(validRewrite => {
-                    CaptureDecor decor = validRewrite(arg1: self.Decor.IfNone(fallbackDecor), arg2: activeView);
-                    return AcceptTransparent(view: activeView, decor: decor, op: op)
-                        .Bind(_ => UI.RhinoUi.Protect(valid: () => Optional(new ViewCapture {
-                            Width = activeSettings.MediaSize.Width,
-                            Height = activeSettings.MediaSize.Height,
-                            TransparentBackground = true,
-                            DrawGrid = decor.DrawGrid,
-                            DrawAxes = decor.DrawAxis,
-                            ScaleScreenItems = true,
-                        }.CaptureToBitmap(sourceView: activeView)).ToFin(Fail: op.InvalidResult())));
-                })));
-    }
-
-    internal Option<RhinoViewport> Viewport(RhinoView view) {
-        CaptureRecipe self = this;
-        return Optional(view).Bind(active => active is RhinoPageView && self.Size.IsNone
-            ? Option<RhinoViewport>.None
-            : Some(active.ActiveViewport));
-    }
-
-    private Fin<T> Use<T>(
-        RhinoView view,
-        Option<RhinoViewport> viewport,
-        double fallbackDpi,
-        CaptureDecor fallbackDecor,
-        Func<CaptureDecor, RhinoView, CaptureDecor> rewrite,
-        Func<CaptureDecor, RhinoView, ViewCaptureSettings, Fin<T>> project,
-        Op op) {
-        CaptureRecipe self = this;
-        return from activeView in op.Need(view)
-               from validRewrite in Optional(rewrite).ToFin(Fail: op.InvalidInput())
-               from validProject in Optional(project).ToFin(Fail: op.InvalidInput())
-               from dpi in CaptureMeasure.Required(value: self.Dpi.IfNone(fallbackDpi), positive: true, op: op)
-               from result in UI.RhinoUi.Protect(valid: () => {
-                   ViewCaptureSettings? settings = null;
-                   try {
-                       settings = self.Create(view: activeView, viewport: viewport, dpi: dpi);
-                       return self.Configure(view: activeView, viewport: viewport, fallbackDecor: fallbackDecor, rewrite: validRewrite, settings: settings, op: op)
-                           .Bind(decor => validProject(arg1: decor, arg2: activeView, arg3: settings));
-                   } finally {
-                       settings?.Dispose();
-                   }
-               })
-               select result;
-    }
-
-    private ViewCaptureSettings Create(RhinoView view, Option<RhinoViewport> viewport, double dpi) {
-        ViewCaptureSettings settings = view is RhinoPageView page && viewport.IsNone && Size.IsNone
-            ? new ViewCaptureSettings(sourcePageView: page, dpi: dpi)
-            : new ViewCaptureSettings(sourceView: view, mediaSize: Size.IfNone(() => viewport.Map(static active => active.Size).IfNone(() => view.ActiveViewport.Size)), dpi: dpi);
-        settings.Document = view.Document;
-        return settings;
-    }
-
-    private Fin<CaptureDecor> Configure(
-        RhinoView view,
-        Option<RhinoViewport> viewport,
-        CaptureDecor fallbackDecor,
-        Func<CaptureDecor, RhinoView, CaptureDecor> rewrite,
-        ViewCaptureSettings settings,
-        Op op) {
-        CaptureRecipe self = this;
-        CaptureDecor decor = rewrite(arg1: self.Decor.IfNone(fallbackDecor), arg2: view);
-        _ = viewport.Iter(settings.SetViewport);
-        settings.RasterMode = self.Raster;
-        return decor.Apply(settings: settings, op: op)
-            .Bind(_ => settings.IsValid ? Fin.Succ(value: decor) : Fin.Fail<CaptureDecor>(error: op.InvalidResult()));
-    }
-
-    private static Fin<Unit> AcceptTransparent(RhinoView view, CaptureDecor decor, Op op) =>
-        view is not RhinoPageView && decor.SupportsTransparentBitmap
-            ? Fin.Succ(value: unit)
-            : Fin.Fail<Unit>(error: op.InvalidInput());
-}
-
-file static class CaptureMeasure {
-    internal static Fin<double> Required(double value, bool positive, Op op) =>
-        RhinoMath.IsValidDouble(x: value) && (!positive || value > 0.0)
-            ? Fin.Succ(value: value)
-            : Fin.Fail<double>(error: op.InvalidInput());
-
-    internal static Fin<Option<double>> Optional(Option<double> source, bool positive, Op op) =>
-        source.Case switch {
-            double value => Required(value: value, positive: positive, op: op).Map(static admitted => Some(admitted)),
-            _ => Fin.Succ(value: Option<double>.None),
-        };
-}
-
+// --- [TYPES] ------------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "settings")]
 public abstract partial record CaptureArea {
     private CaptureArea() { }
@@ -216,38 +56,83 @@ public abstract partial record CaptureScaleMode {
         Switch(
             (Settings: settings, Op: op),
             ratio: static (ctx, mode) =>
-                CaptureMeasure.Required(value: mode.Scale, positive: true, op: ctx.Op)
+                CaptureMeasure.Positive(value: mode.Scale, op: ctx.Op)
                     .Map(scale => Op.Side(() => ctx.Settings.SetModelScaleToValue(scale: scale))),
             fit: static (ctx, _) => Fin.Succ(value: Op.Side(() => ctx.Settings.SetModelScaleToFit(promptOnChange: false))));
 }
 
+// --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct CaptureScale(
-    Option<CaptureScaleMode> Mode = default,
-    Option<double> Horizontal = default,
-    Option<double> Vertical = default,
-    Option<double> PrintWidth = default,
-    Option<bool> Thickness = default,
-    Option<bool> MatchLinetype = default,
-    Option<bool> PageLinetypes = default) {
-    internal Fin<Unit> Apply(ViewCaptureSettings settings, Op op) {
-        CaptureScale self = this;
-        return from active in Optional(settings).ToFin(Fail: op.InvalidInput())
-               from modeApplied in self.Mode.Map(value => value.Apply(settings: active, op: op)).IfNone(Fin.Succ(value: unit))
-               from horizontalApplied in ApplyDouble(self.Horizontal, op, value => active.HorizontalScale = value)
-               from verticalApplied in ApplyDouble(self.Vertical, op, value => active.VerticalScale = value)
-               from widthApplied in ApplyDouble(self.PrintWidth, op, value => active.DefaultPrintWidthMillimeters = value)
-               from flags in Fin.Succ(value: Op.Side(() => {
-                   _ = self.Thickness.Iter(value => active.ApplyDisplayModeThicknessScales = value);
-                   _ = self.MatchLinetype.Iter(value => active.MatchLinetypePatternDefinition = value);
-                   _ = self.PageLinetypes.Iter(value => active.LinetypeWidthUnitsArePageLengths = value);
-               }))
-               select flags;
-    }
+public readonly record struct CaptureDecor(
+    bool DrawBackground = true,
+    bool DrawGrid = false,
+    bool DrawAxis = false,
+    bool DrawLockedObjects = true,
+    bool DrawSelectedObjectsOnly = false,
+    bool DrawMargins = false,
+    bool DrawClippingPlanes = true,
+    bool DrawLights = true,
+    bool DrawWallpaper = true,
+    bool DrawBackgroundBitmap = false,
+    bool UsePrintWidths = false,
+    ViewCaptureSettings.ColorMode OutputColor = ViewCaptureSettings.ColorMode.DisplayColor,
+    Option<double> WireThicknessScale = default,
+    Option<double> PointSizeMillimeters = default,
+    Option<double> ArrowheadSizeMillimeters = default,
+    Option<double> TextDotPointSize = default,
+    Option<string> HeaderText = default,
+    Option<string> FooterText = default,
+    Option<CaptureLayout> Layout = default) {
+    public static CaptureDecor Publish { get; } = new(UsePrintWidths: true);
 
-    private static Fin<Unit> ApplyDouble(Option<double> source, Op op, Action<double> apply) =>
-        CaptureMeasure.Optional(source: source, positive: true, op: op)
-            .Map(value => value.Iter(apply));
+    internal bool SupportsTransparentBitmap =>
+        DrawLockedObjects
+        && !DrawSelectedObjectsOnly
+        && !DrawMargins
+        && DrawClippingPlanes
+        && DrawLights
+        && DrawWallpaper
+        && !DrawBackgroundBitmap
+        && !UsePrintWidths
+        && OutputColor == ViewCaptureSettings.ColorMode.DisplayColor
+        && WireThicknessScale.IsNone
+        && PointSizeMillimeters.IsNone
+        && ArrowheadSizeMillimeters.IsNone
+        && TextDotPointSize.IsNone
+        && HeaderText.IsNone
+        && FooterText.IsNone
+        && Layout.IsNone;
+
+    internal Fin<Unit> Apply(ViewCaptureSettings settings, Op op) {
+        CaptureDecor self = this;
+        return from active in Optional(settings).ToFin(Fail: op.InvalidInput())
+               from wire in CaptureMeasure.OptionalPositive(source: self.WireThicknessScale, op: op)
+               from point in CaptureMeasure.OptionalFinite(source: self.PointSizeMillimeters, op: op)
+               from arrow in CaptureMeasure.OptionalPositive(source: self.ArrowheadSizeMillimeters, op: op)
+               from dot in CaptureMeasure.OptionalPositive(source: self.TextDotPointSize, op: op)
+               from configured in Fin.Succ(value: Op.Side(() => {
+                   active.DrawBackground = self.DrawBackground;
+                   active.DrawGrid = self.DrawGrid;
+                   active.DrawAxis = self.DrawAxis;
+                   active.DrawLockedObjects = self.DrawLockedObjects;
+                   active.DrawSelectedObjectsOnly = self.DrawSelectedObjectsOnly;
+                   active.DrawMargins = self.DrawMargins;
+                   active.DrawClippingPlanes = self.DrawClippingPlanes;
+                   active.DrawLights = self.DrawLights;
+                   active.DrawWallpaper = self.DrawWallpaper;
+                   active.DrawBackgroundBitmap = self.DrawBackgroundBitmap;
+                   active.UsePrintWidths = self.UsePrintWidths;
+                   active.OutputColor = self.OutputColor;
+                   _ = wire.Iter(value => active.WireThicknessScale = value);
+                   _ = point.Iter(value => active.PointSizeMillimeters = value);
+                   _ = arrow.Iter(value => active.ArrowheadSizeMillimeters = value);
+                   _ = dot.Iter(value => active.TextDotPointSize = value);
+                   _ = self.HeaderText.Iter(value => active.HeaderText = value);
+                   _ = self.FooterText.Iter(value => active.FooterText = value);
+               }))
+               from layout in self.Layout.Map(value => value.Apply(settings: active, op: op)).IfNone(Fin.Succ(value: unit))
+               select layout;
+    }
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -288,76 +173,204 @@ public readonly record struct CaptureLayout(
 }
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct CaptureDecor(
-    bool DrawBackground = true,
-    bool DrawGrid = false,
-    bool DrawAxis = false,
-    bool DrawLockedObjects = true,
-    bool DrawSelectedObjectsOnly = false,
-    bool DrawMargins = false,
-    bool DrawClippingPlanes = true,
-    bool DrawLights = true,
-    bool DrawWallpaper = true,
-    bool DrawBackgroundBitmap = false,
-    bool UsePrintWidths = false,
-    ViewCaptureSettings.ColorMode OutputColor = ViewCaptureSettings.ColorMode.DisplayColor,
-    Option<double> WireThicknessScale = default,
-    Option<double> PointSizeMillimeters = default,
-    Option<double> ArrowheadSizeMillimeters = default,
-    Option<double> TextDotPointSize = default,
-    Option<string> HeaderText = default,
-    Option<string> FooterText = default,
-    Option<CaptureLayout> Layout = default) {
-    // Publish default preserves the historical `FileSheet` behavior (print widths on) now that the
-    // publish spec no longer carries duplicate print-width/color knobs — decor is the single source.
-    public static CaptureDecor Publish { get; } = new(UsePrintWidths: true);
+public readonly record struct CaptureMargins(UnitSystem Units, double Left, double Top, double Right, double Bottom);
 
-    internal bool SupportsTransparentBitmap =>
-        DrawLockedObjects
-        && !DrawSelectedObjectsOnly
-        && !DrawMargins
-        && DrawClippingPlanes
-        && DrawLights
-        && DrawWallpaper
-        && !DrawBackgroundBitmap
-        && !UsePrintWidths
-        && OutputColor == ViewCaptureSettings.ColorMode.DisplayColor
-        && WireThicknessScale.IsNone
-        && PointSizeMillimeters.IsNone
-        && ArrowheadSizeMillimeters.IsNone
-        && TextDotPointSize.IsNone
-        && HeaderText.IsNone
-        && FooterText.IsNone
-        && Layout.IsNone;
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CaptureOffset(UnitSystem Units, bool FromMargin, double X, double Y, ViewCaptureSettings.AnchorLocation Anchor);
 
-    internal Fin<Unit> Apply(ViewCaptureSettings settings, Op op) {
-        CaptureDecor self = this;
-        return from active in Optional(settings).ToFin(Fail: op.InvalidInput())
-               from wire in CaptureMeasure.Optional(source: self.WireThicknessScale, positive: true, op: op)
-               from point in CaptureMeasure.Optional(source: self.PointSizeMillimeters, positive: false, op: op)
-               from arrow in CaptureMeasure.Optional(source: self.ArrowheadSizeMillimeters, positive: true, op: op)
-               from dot in CaptureMeasure.Optional(source: self.TextDotPointSize, positive: true, op: op)
-               from configured in Fin.Succ(value: Op.Side(() => {
-                   active.DrawBackground = self.DrawBackground;
-                   active.DrawGrid = self.DrawGrid;
-                   active.DrawAxis = self.DrawAxis;
-                   active.DrawLockedObjects = self.DrawLockedObjects;
-                   active.DrawSelectedObjectsOnly = self.DrawSelectedObjectsOnly;
-                   active.DrawMargins = self.DrawMargins;
-                   active.DrawClippingPlanes = self.DrawClippingPlanes;
-                   active.DrawLights = self.DrawLights;
-                   active.DrawWallpaper = self.DrawWallpaper;
-                   active.DrawBackgroundBitmap = self.DrawBackgroundBitmap;
-                   active.UsePrintWidths = self.UsePrintWidths;
-                   active.OutputColor = self.OutputColor;
-                   _ = wire.Iter(value => active.WireThicknessScale = value);
-                   _ = point.Iter(value => active.PointSizeMillimeters = value);
-                   _ = arrow.Iter(value => active.ArrowheadSizeMillimeters = value);
-                   _ = dot.Iter(value => active.TextDotPointSize = value);
-                   _ = self.HeaderText.Iter(value => active.HeaderText = value);
-                   _ = self.FooterText.Iter(value => active.FooterText = value);
-               }))
-               from layout in self.Layout.Map(value => value.Apply(settings: active, op: op)).IfNone(Fin.Succ(value: unit))
-               select layout;
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CaptureRecipe(
+    Option<DrawingSize> Size = default,
+    Option<double> Dpi = default,
+    bool Raster = false,
+    Option<CaptureDecor> Decor = default) {
+    private readonly Policy policy;
+    internal const double ScreenDpi = 96d;
+    internal static CaptureDecor ScreenDecor => new();
+
+    private CaptureRecipe(Option<DrawingSize> size, Option<double> dpi, bool raster, Option<CaptureDecor> decor, Policy policy)
+        : this(Size: size, Dpi: dpi, Raster: raster, Decor: decor) =>
+        this.policy = policy;
+
+    internal CaptureRecipe WithPolicy(double fallbackDpi, CaptureDecor fallbackDecor, Func<CaptureDecor, RhinoView, CaptureDecor> rewrite) =>
+        new(size: Size, dpi: Dpi, raster: Raster, decor: Decor, policy: new Policy(FallbackDpi: Some(fallbackDpi), FallbackDecor: Some(fallbackDecor), DecorRewrite: Some(rewrite)));
+
+    internal Fin<T> Render<T>(
+        RhinoView view,
+        Option<RhinoViewport> viewport,
+        Func<ViewCaptureSettings, Fin<T>> project,
+        Op op) {
+        CaptureRecipe self = this;
+        return Optional(project).ToFin(Fail: op.InvalidInput())
+            .Bind(validProject => self.Use(
+                view: view,
+                viewport: viewport,
+                project: (_, _, settings) => validProject(arg: settings),
+                op: op));
     }
+
+    internal Fin<ViewCaptureSettings> Open(
+        RhinoView view,
+        Option<RhinoViewport> viewport,
+        Op op) {
+        CaptureRecipe self = this;
+        return from activeView in op.Need(view)
+               from validRewrite in self.Rewrite(op: op)
+               from dpi in CaptureMeasure.Positive(value: self.Dpi.IfNone(self.policy.FallbackDpi.IfNone(ScreenDpi)), op: op)
+               from opened in UI.RhinoUi.Protect(valid: () => {
+                   ViewCaptureSettings? settings = null;
+                   try {
+                       settings = self.Create(view: activeView, viewport: viewport, dpi: dpi);
+                       return self.Configure(view: activeView, viewport: viewport, rewrite: validRewrite, settings: settings, op: op)
+                           .Map(_ => {
+                               ViewCaptureSettings result = settings;
+                               settings = null;
+                               return result;
+                           });
+                   } finally {
+                       settings?.Dispose();
+                   }
+               })
+               select opened;
+    }
+
+    internal Fin<DrawingBitmap> TransparentBitmap(
+        RhinoView view,
+        ViewCaptureSettings settings,
+        Op op) {
+        CaptureRecipe self = this;
+        return op.Need(view).Bind(activeView =>
+            op.Need(settings).Bind(activeSettings =>
+                self.Rewrite(op: op).Bind(validRewrite => {
+                    CaptureDecor decor = validRewrite(arg1: self.Decor.IfNone(self.policy.FallbackDecor.IfNone(ScreenDecor)), arg2: activeView);
+                    return AcceptTransparent(view: activeView, decor: decor, op: op)
+                        .Bind(_ => UI.RhinoUi.Protect(valid: () => Optional(new ViewCapture {
+                            Width = activeSettings.MediaSize.Width,
+                            Height = activeSettings.MediaSize.Height,
+                            TransparentBackground = true,
+                            DrawGrid = decor.DrawGrid,
+                            DrawAxes = decor.DrawAxis,
+                            ScaleScreenItems = true,
+                        }.CaptureToBitmap(sourceView: activeView)).ToFin(Fail: op.InvalidResult())));
+                })));
+    }
+
+    internal Option<RhinoViewport> Viewport(RhinoView view) {
+        CaptureRecipe self = this;
+        return Optional(view).Bind(active => active is RhinoPageView && self.Size.IsNone
+            ? Option<RhinoViewport>.None
+            : Some(active.ActiveViewport));
+    }
+
+    private Fin<T> Use<T>(
+        RhinoView view,
+        Option<RhinoViewport> viewport,
+        Func<CaptureDecor, RhinoView, ViewCaptureSettings, Fin<T>> project,
+        Op op) {
+        CaptureRecipe self = this;
+        return from activeView in op.Need(view)
+               from validRewrite in self.Rewrite(op: op)
+               from validProject in Optional(project).ToFin(Fail: op.InvalidInput())
+               from dpi in CaptureMeasure.Positive(value: self.Dpi.IfNone(self.policy.FallbackDpi.IfNone(ScreenDpi)), op: op)
+               from result in UI.RhinoUi.Protect(valid: () => {
+                   ViewCaptureSettings? settings = null;
+                   try {
+                       settings = self.Create(view: activeView, viewport: viewport, dpi: dpi);
+                       return self.Configure(view: activeView, viewport: viewport, rewrite: validRewrite, settings: settings, op: op)
+                           .Bind(decor => validProject(arg1: decor, arg2: activeView, arg3: settings));
+                   } finally {
+                       settings?.Dispose();
+                   }
+               })
+               select result;
+    }
+
+    private ViewCaptureSettings Create(RhinoView view, Option<RhinoViewport> viewport, double dpi) {
+        ViewCaptureSettings settings = view is RhinoPageView page && viewport.IsNone && Size.IsNone
+            ? new ViewCaptureSettings(sourcePageView: page, dpi: dpi)
+            : new ViewCaptureSettings(sourceView: view, mediaSize: Size.IfNone(() => viewport.Map(static active => active.Size).IfNone(() => view.ActiveViewport.Size)), dpi: dpi);
+        settings.Document = view.Document;
+        return settings;
+    }
+
+    private Fin<CaptureDecor> Configure(
+        RhinoView view,
+        Option<RhinoViewport> viewport,
+        Func<CaptureDecor, RhinoView, CaptureDecor> rewrite,
+        ViewCaptureSettings settings,
+        Op op) {
+        CaptureRecipe self = this;
+        CaptureDecor decor = rewrite(arg1: self.Decor.IfNone(self.policy.FallbackDecor.IfNone(ScreenDecor)), arg2: view);
+        _ = viewport.Iter(settings.SetViewport);
+        settings.RasterMode = self.Raster;
+        return decor.Apply(settings: settings, op: op)
+            .Bind(_ => settings.IsValid ? Fin.Succ(value: decor) : Fin.Fail<CaptureDecor>(error: op.InvalidResult()));
+    }
+
+    private Fin<Func<CaptureDecor, RhinoView, CaptureDecor>> Rewrite(Op op) =>
+        Fin.Succ(value: policy.DecorRewrite.IfNone(static () => static (decor, _) => decor));
+
+    private static Fin<Unit> AcceptTransparent(RhinoView view, CaptureDecor decor, Op op) =>
+        view is not RhinoPageView && decor.SupportsTransparentBitmap
+            ? Fin.Succ(value: unit)
+            : Fin.Fail<Unit>(error: op.InvalidInput());
+
+    private readonly record struct Policy(
+        Option<double> FallbackDpi = default,
+        Option<CaptureDecor> FallbackDecor = default,
+        Option<Func<CaptureDecor, RhinoView, CaptureDecor>> DecorRewrite = default);
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CaptureScale(
+    Option<CaptureScaleMode> Mode = default,
+    Option<double> Horizontal = default,
+    Option<double> Vertical = default,
+    Option<double> PrintWidth = default,
+    Option<bool> Thickness = default,
+    Option<bool> MatchLinetype = default,
+    Option<bool> PageLinetypes = default) {
+    internal Fin<Unit> Apply(ViewCaptureSettings settings, Op op) {
+        CaptureScale self = this;
+        return from active in Optional(settings).ToFin(Fail: op.InvalidInput())
+               from modeApplied in self.Mode.Map(value => value.Apply(settings: active, op: op)).IfNone(Fin.Succ(value: unit))
+               from horizontalApplied in ApplyDouble(self.Horizontal, op, value => active.HorizontalScale = value)
+               from verticalApplied in ApplyDouble(self.Vertical, op, value => active.VerticalScale = value)
+               from widthApplied in ApplyDouble(self.PrintWidth, op, value => active.DefaultPrintWidthMillimeters = value)
+               from flags in Fin.Succ(value: Op.Side(() => {
+                   _ = self.Thickness.Iter(value => active.ApplyDisplayModeThicknessScales = value);
+                   _ = self.MatchLinetype.Iter(value => active.MatchLinetypePatternDefinition = value);
+                   _ = self.PageLinetypes.Iter(value => active.LinetypeWidthUnitsArePageLengths = value);
+               }))
+               select flags;
+    }
+
+    private static Fin<Unit> ApplyDouble(Option<double> source, Op op, Action<double> apply) =>
+        CaptureMeasure.OptionalPositive(source: source, op: op)
+            .Map(value => value.Iter(apply));
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+file static class CaptureMeasure {
+    internal static Fin<double> Finite(double value, Op op) =>
+        RhinoMath.IsValidDouble(x: value)
+            ? Fin.Succ(value: value)
+            : Fin.Fail<double>(error: op.InvalidInput());
+
+    internal static Fin<double> Positive(double value, Op op) =>
+        RhinoMath.IsValidDouble(x: value) && value > 0.0
+            ? Fin.Succ(value: value)
+            : Fin.Fail<double>(error: op.InvalidInput());
+
+    internal static Fin<Option<double>> OptionalFinite(Option<double> source, Op op) =>
+        source.Case switch {
+            double value => Finite(value: value, op: op).Map(static admitted => Some(admitted)),
+            _ => Fin.Succ(value: Option<double>.None),
+        };
+
+    internal static Fin<Option<double>> OptionalPositive(Option<double> source, Op op) =>
+        source.Case switch {
+            double value => Positive(value: value, op: op).Map(static admitted => Some(admitted)),
+            _ => Fin.Succ(value: Option<double>.None),
+        };
 }

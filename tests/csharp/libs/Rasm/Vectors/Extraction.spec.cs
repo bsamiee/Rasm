@@ -24,8 +24,6 @@ public sealed class ExtractionProjectionLaws {
             then: domain => Assert.IsType<ExtractionDomain.SupportCase>(@object: domain));
         Spec.FailCategory(ExtractionDomain.Of(value: null, context: ExtractionGens.Model, key: ExtractionGens.Key), category: "Input");
         Spec.FailCategory(ExtractionDomain.Cloud(value: null!, key: ExtractionGens.Key), category: "Input");
-        Spec.FailCategory(ContourPolicy.Plane(section: Plane.Unset, key: ExtractionGens.Key), category: "Input");
-        Spec.Succ(ContourPolicy.Plane(section: Plane.WorldXY, key: ExtractionGens.Key));
         SampleKind samples = Spec.SuccValue(SampleKind.Explicit(points: ExtractionGens.Samples, key: ExtractionGens.Key), label: "explicit samples");
         Spec.Succ(GridPolicy.Of(kind: samples, key: ExtractionGens.Key));
         Spec.FailCategory(GridPolicy.Of(kind: null!, key: ExtractionGens.Key), category: "Input");
@@ -93,5 +91,7 @@ public sealed class ExtractionProjectionLaws {
         Spec.Succ(ContourPolicy.SurfaceIso(status: IsoStatus.North, parameter: double.NaN, key: ExtractionGens.Key));
         Spec.FailCategory(ContourPolicy.SurfaceIso(status: IsoStatus.None, parameter: 0.5, key: ExtractionGens.Key), category: "Input");
         Spec.FailCategory(ContourPolicy.SurfaceIso(status: IsoStatus.X, parameter: double.NaN, key: ExtractionGens.Key), category: "Input");
+        Spec.FailCategory(new ContourPolicy.MeshScalarCase(Values: [double.NaN], Levels: Seq(0.0)).Admit(key: ExtractionGens.Key), category: "Input");
+        Spec.FailCategory(new ContourPolicy.AxisCase(Start: Point3d.Origin, End: Point3d.Origin, Interval: Spec.SuccValue(ExtractionGens.Key.AcceptValidated<PositiveMagnitude>(candidate: 1.0), label: "axis interval")).Admit(key: ExtractionGens.Key), category: "Input");
     }
 }

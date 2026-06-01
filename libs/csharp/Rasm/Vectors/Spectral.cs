@@ -199,22 +199,16 @@ internal static class SpectralCore {
     private static Fin<Seq<SpectralRank>> RankNormalized(SpectralDescriptor query, Seq<SpectralDescriptor> candidates, SpectralRankingPolicy policy, Op key) {
         int valueCount = query.Values.Count;
         if (valueCount <= 0 || candidates.Exists(candidate => candidate.Values.Count != valueCount)) return Fin.Fail<Seq<SpectralRank>>(key.InvalidInput());
-        SpectralRank[] ranks = [.. candidates.AsIterable().Select((candidate, index) => new SpectralRank(Index: index, Distance: DistanceOf(a: query.Values, b: candidate.Values, count: valueCount, kind: policy.Distance), Descriptor: candidate)).OrderBy(static rank => rank.Distance).ThenBy(static rank => rank.Index)];
+        double[] queryValues = [.. query.Values.AsIterable()];
+        SpectralRank[] ranks = [.. candidates.AsIterable().Select((candidate, index) => new SpectralRank(Index: index, Distance: DistanceOf(a: queryValues, b: [.. candidate.Values.AsIterable()], kind: policy.Distance), Descriptor: candidate)).OrderBy(static rank => rank.Distance).ThenBy(static rank => rank.Index)];
         return ranks.All(static rank => RhinoMath.IsValidDouble(x: rank.Distance)) ? Fin.Succ(toSeq(ranks)) : Fin.Fail<Seq<SpectralRank>>(key.InvalidResult());
     }
-    private static double DistanceOf(Arr<double> a, Arr<double> b, int count, SpectralDistanceKind kind) =>
+    private static double DistanceOf(double[] a, double[] b, SpectralDistanceKind kind) =>
         kind switch {
-            SpectralDistanceKind k when k.Equals(SpectralDistanceKind.Manhattan) => Enumerable.Range(start: 0, count: count).Sum(i => Math.Abs(value: a[index: i] - b[index: i])),
-            SpectralDistanceKind k when k.Equals(SpectralDistanceKind.Cosine) => CosineDistance(a: a, b: b, count: count),
-            _ => Math.Sqrt(d: Enumerable.Range(start: 0, count: count).Sum(i => (a[index: i] - b[index: i]) * (a[index: i] - b[index: i]))),
+            SpectralDistanceKind k when k.Equals(SpectralDistanceKind.Manhattan) => MathNet.Numerics.Distance.Manhattan(a, b),
+            SpectralDistanceKind k when k.Equals(SpectralDistanceKind.Cosine) => MathNet.Numerics.Distance.Cosine(a, b),
+            _ => MathNet.Numerics.Distance.Euclidean(a, b),
         };
-    private static double CosineDistance(Arr<double> a, Arr<double> b, int count) {
-        double dot = 0.0;
-        double an = 0.0;
-        double bn = 0.0;
-        for (int i = 0; i < count; i++) { dot += a[index: i] * b[index: i]; an += a[index: i] * a[index: i]; bn += b[index: i] * b[index: i]; }
-        return an <= RhinoMath.SqrtEpsilon || bn <= RhinoMath.SqrtEpsilon ? 1.0 : 1.0 - (dot / Math.Sqrt(d: an * bn));
-    }
     private static Fin<double[]> NormalizeValues(double[] values, SpectralDescriptorPolicy policy, Op key) {
         if (!values.All(RhinoMath.IsValidDouble)) return Fin.Fail<double[]>(key.InvalidResult());
         if (policy.EnergyNormalization.Equals(SpectralEnergyNormalization.Raw)) return Fin.Succ(values);

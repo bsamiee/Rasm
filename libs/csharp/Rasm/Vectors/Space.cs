@@ -45,7 +45,8 @@ public sealed partial class SupportProjection {
             accepts: static output => output == typeof(T),
             projectRaw: state =>
                 from value in choose(arg: state.Hit).ToFin(Fail: state.Key.InvalidResult())
-                select (object)value!,
+                from accepted in Accept(state: state, value: value)
+                select accepted,
             capability: capability);
     private static SupportProjection SpanOf(int key, double sign) =>
         new(key: key, capability: static (_, _) => true, accepts: static output => output == typeof(VectorSpan) || output == typeof(Vector3d) || output == typeof(Line) || output == typeof(double),
@@ -63,7 +64,15 @@ public sealed partial class SupportProjection {
         Vectors.Direction.Of(value: vector, context: state.Context, key: state.Key)
             .Bind(direction => state.Output == typeof(Direction) ? Accept(state: state, value: direction) : Accept(state: state, value: direction.Value));
     private static Fin<object> Accept<T>(SupportProjectionState state, T value) =>
-        state.Key.AcceptValue(value: value).Map(static accepted => (object)accepted!);
+        state.Output != typeof(T)
+            ? Fin.Fail<object>(error: state.Key.Unsupported(geometryType: typeof(T), outputType: state.Output))
+            : value switch {
+                Direction direction => Fin.Succ((object)direction),
+                VectorSpan span => Fin.Succ((object)span),
+                ClosestHit hit when hit.IsValid => Fin.Succ((object)hit),
+                Plane plane => FieldNabla.Plane(basis: plane, key: state.Key).Map(static accepted => (object)accepted),
+                _ => state.Key.AcceptValue(value: value).Map(static accepted => (object)accepted!),
+            };
 }
 
 internal readonly record struct SupportProjectionState(SupportSpace Space, ClosestHit Hit, Point3d Sample, Context Context, Op Key, Type Output);
@@ -97,20 +106,15 @@ public sealed record SupportSpace {
             _ => from source in Optional(value).ToFin(op.InvalidInput())
                  let type = source.GetType()
                  from _ in guard(type != typeof(object) && type != typeof(GeometryBase) && GeometryKernel.CanClosest(type: type), op.Unsupported(type, typeof(ClosestHit)))
-                 from valid in SupportIsValid(source: source).ToFin(op.InvalidInput())
-                 from __ in guard(valid, op.InvalidInput())
+                 from __ in SupportIsValid(source: source, key: op)
                  select new SupportSpace(value: source),
         };
     }
-    private static Option<bool> SupportIsValid(object source) =>
+    private static Fin<Unit> SupportIsValid(object source, Op key) =>
         source switch {
-            Plane plane => Some(PointIsFinite(point: plane.Origin) && VectorIsFinite(vector: plane.XAxis) && VectorIsFinite(vector: plane.YAxis) && VectorIsFinite(vector: plane.ZAxis)),
-            _ => OpAcceptance.ValidityOf(source: source),
+            Plane plane => FieldNabla.Plane(basis: plane, key: key).Map(static _ => unit),
+            _ => OpAcceptance.ValidityOf(source: source).Filter(static valid => valid).Map(static _ => unit).ToFin(key.InvalidInput()),
         };
-    private static bool PointIsFinite(Point3d point) =>
-        RhinoMath.IsValidDouble(x: point.X) && RhinoMath.IsValidDouble(x: point.Y) && RhinoMath.IsValidDouble(x: point.Z);
-    private static bool VectorIsFinite(Vector3d vector) =>
-        RhinoMath.IsValidDouble(x: vector.X) && RhinoMath.IsValidDouble(x: vector.Y) && RhinoMath.IsValidDouble(x: vector.Z);
     internal Fin<ClosestHit> Closest(Point3d sample, Op key) =>
         Value switch {
             VectorCloud.ClusterCase cluster => cluster.ClosestVertex(sample: sample, key: key),

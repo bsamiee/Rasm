@@ -48,11 +48,11 @@ public readonly record struct Shape {
     internal static Fin<Shape> Create(object? value) => Create(value: value, owned: Option<IDisposable>.None);
     private static Fin<Shape> Create(object? value, Option<IDisposable> owned) =>
         Optional(value)
-            .ToFin(new MissingPortInput(Port: nameof(Shape), Hint: Accepted))
+            .ToFin(new PortFault.MissingInput(Port: nameof(Shape), Hint: Some(Accepted)))
             .Bind(raw => raw switch {
                 Shape shape => Fin.Succ(shape),
                 object candidate when Domain.Kind.Of(type: candidate.GetType()).IsSome => Op.Create(value: nameof(Shape)).AcceptValue(value: candidate).Map(valid => new Shape(inner: valid, owned: owned.Filter(owner => ReferenceEquals(objA: owner, objB: valid)))),
-                object candidate => Fin.Fail<Shape>(new UnsupportedSource(Port: nameof(Shape), SourceType: candidate.GetType(), Hint: Accepted)),
+                object candidate => Fin.Fail<Shape>(new PortFault.UnsupportedSource(Port: nameof(Shape), SourceType: candidate.GetType(), Hint: Some(Accepted))),
             });
     internal static Option<Shape> Converted(object raw, GeometryBase? value) =>
         Optional(value).Bind(converted => {
@@ -116,34 +116,43 @@ internal readonly record struct UnitPolicy(Rhino.UnitSystem System, Fin<double> 
             Rhino.UnitSystem.Unset or Rhino.UnitSystem.None => Rhino.UnitSystem.Millimeters,
             Rhino.UnitSystem known => known,
         };
-        return new(System: system, Scale: (access.GetUnitScaling(unitSystemScaling: out double scale), scale) switch {
-            (true, double factor) when Rhino.RhinoMath.IsValidDouble(x: factor) && factor > Rhino.RhinoMath.ZeroTolerance => Fin.Succ(factor),
+        // A connected pin with an invalid factor self-heals to 1.0 with a Warning (mirrors the tolerance fallback),
+        // so Scale is always Succ and ReadShape never short-circuits on unit scaling.
+        Fin<double> scale = (access.GetUnitScaling(unitSystemScaling: out double factor), factor) switch {
+            (true, double valid) when Rhino.RhinoMath.IsValidDouble(x: valid) && valid > Rhino.RhinoMath.ZeroTolerance => Fin.Succ(valid),
             (false, _) => Fin.Succ(1.0),
-            _ => Fin.Fail<double>(new Fault.ComputationFailed(Label: "UnitScaling")),
-        });
+            _ => access.Emit(severity: Severity.Warning, text: "UnitScaling", details: $"Invalid unit scaling factor {factor}; using 1.0.") switch { _ => Fin.Succ(1.0) },
+        };
+        return new(System: system, Scale: scale);
     }
 }
 
 // --- [ERRORS] -----------------------------------------------------------------------------
+// One [Union] collapses the four parallel port faults; generated Switch drives Category/Message.
+[Union]
 [BoundaryAdapter]
-internal sealed record MissingPortInput(string Port, string? Hint = null) : Domain.Expected {
-    public override string Message => Hint switch { string h => $"{Port} input is required. Connect: {h}.", _ => $"{Port} input is required." };
-    public override string Category => "Input";
-}
-[BoundaryAdapter]
-internal sealed record UnsupportedSource(string Port, Type SourceType, string? Hint = null) : Domain.Expected {
-    public override string Message => Hint switch { string h => $"{Port} input type '{SourceType.Name}' is not supported. Connect: {h}.", _ => $"{Port} input type '{SourceType.Name}' is not supported." };
-    public override string Category => "Input";
-}
-[BoundaryAdapter]
-internal sealed record UnsupportedAccess(string Access) : Domain.Expected {
-    public override string Message => $"Unsupported input access: {Access}.";
-    public override string Category => "Access";
-}
-[BoundaryAdapter]
-internal sealed record InvalidPortValue(string Port, string Detail) : Domain.Expected {
-    public override string Message => $"{Port} value rejected: {Detail}.";
-    public override string Category => "Validation";
+internal abstract partial record PortFault : Domain.Expected {
+    private PortFault() { }
+    public sealed record MissingInput(string Port, Option<string> Hint) : PortFault;
+    public sealed record UnsupportedSource(string Port, Type SourceType, Option<string> Hint) : PortFault;
+    public sealed record UnsupportedAccess(string Access) : PortFault;
+    public sealed record InvalidValue(string Port, string Detail) : PortFault;
+    public override string Category => Switch(
+        missingInput: static _ => "Input",
+        unsupportedSource: static _ => "Input",
+        unsupportedAccess: static _ => "Access",
+        invalidValue: static _ => "Validation");
+    public override string Message => Switch(
+        missingInput: static f => f.Hint.Match(Some: h => $"{f.Port} input is required. Connect: {h}.", None: () => $"{f.Port} input is required."),
+        unsupportedSource: static f => f.Hint.Match(Some: h => $"{f.Port} input type '{f.SourceType.Name}' is not supported. Connect: {h}.", None: () => $"{f.Port} input type '{f.SourceType.Name}' is not supported."),
+        unsupportedAccess: static f => $"Unsupported input access: {f.Access}.",
+        invalidValue: static f => $"{f.Port} value rejected: {f.Detail}.");
+    // Wiring faults stay recoverable (Warning); genuine compute/scope faults are Errors. Shared by Component.Process + Output.RunGroup.
+    internal static Severity SeverityOf(Error error) =>
+        error switch {
+            MissingInput or UnsupportedSource or UnsupportedAccess => Severity.Warning,
+            _ => Severity.Error,
+        };
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -189,7 +198,7 @@ internal static class Bridge {
             : values.TraverseM(value => port.Policy.Validators
                 .Find(predicate: rule => !rule.Predicate(arg: value.Item!))
                 .Map(static rule => rule.Message) switch {
-                    { IsSome: true, Case: string message } => Fin.Fail<Flow<TVal>>(new InvalidPortValue(Port: port.Name, Detail: message)),
+                    { IsSome: true, Case: string message } => Fin.Fail<Flow<TVal>>(new PortFault.InvalidValue(Port: port.Name, Detail: message)),
                     _ => Fin.Succ(value),
                 }).As();
     internal abstract record Channel<T> {
@@ -201,15 +210,21 @@ internal static class Bridge {
             Access.Tree => TreeChannel.Instance,
             _ => UnsupportedChannel.Instance,
         };
+        // Run the native Set side-effect, then project written values to transfer-evidence objects (one place).
+        private static Seq<object> Commit(Action set, Seq<Flow<T>> values) {
+            set();
+            return values.Map(static value => (object)value.Item!);
+        }
         internal sealed record ItemChannel : Channel<T> {
             internal static readonly ItemChannel Instance = new();
-            internal override Fin<Seq<Flow<T>>> Read(IDataAccess access, int slot, Port port) =>
-                access.GetPears(index: slot, pears: out Pear<T>[] pears)
-                    ? FlowPears(port: port, pears: pears.Select(static pear => (Pear: pear, Site: Option<Site>.None)))
-                    : MissingFlow<T>(port: port);
+            // GH2 contract: GetPears always returns true (XML "Always true"); empty arrays flow through FlowPears -> MissingFlow.
+            internal override Fin<Seq<Flow<T>>> Read(IDataAccess access, int slot, Port port) {
+                _ = access.GetPears(index: slot, pears: out Pear<T>[] pears);
+                return FlowPears(port: port, pears: pears.Select(static pear => (Pear: pear, Site: Option<Site>.None)));
+            }
             internal override Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values) =>
                 values.Count switch {
-                    1 => Effect(action: () => access.SetPear(index: slot, pear: values[0].Pear)) switch { _ => values.Map(static value => (object)value.Item!) },
+                    1 => Commit(set: () => access.SetPear(index: slot, pear: values[0].Pear), values: values),
                     > 1 => access.Emit(severity: Severity.Error, text: name, details: $"Item output received {values.Count} values; use twig or tree access.") switch { _ => Seq<object>() },
                     _ => Seq<object>(),
                 };
@@ -221,7 +236,7 @@ internal static class Bridge {
                     ? FlowPears(port: port, pears: twig.Pears.Select(static pear => (Pear: pear, Site: Option<Site>.None)))
                     : MissingFlow<T>(port: port);
             internal override Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values) =>
-                Effect(action: () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.Map(static value => value.Pear).AsIterable()))) switch { _ => values.Map(static value => (object)value.Item!) };
+                Commit(set: () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.Map(static value => value.Pear).AsIterable())), values: values);
         }
         internal sealed record TreeChannel : Channel<T> {
             internal static readonly TreeChannel Instance = new();
@@ -230,26 +245,22 @@ internal static class Bridge {
                     ? FlowPears(port: port, pears: tree.EnumerateLeaves().Select(static leaf => (leaf.Pear, Site: Some(leaf.Site))))
                     : MissingFlow<T>(port: port);
             internal override Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values) =>
-                Effect(action: () => {
+                Commit(set: () => {
                     ITree tree = values.Count switch {
                         0 => Garden.TreeEmpty<T>(),
                         _ when values.Exists(static value => value.Site.IsSome) => Garden.TreeFromLeaves(leaves: Leaves(values: values).AsIterable()),
                         _ => Garden.TreeFromPears(pears: values.Map(static value => value.Pear).AsIterable()),
                     };
                     access.SetTree(index: slot, tree: TreePrefix(access: access, slot: slot) is int prefix ? tree.WithPathPrefix(element: prefix) : tree);
-                }) switch { _ => values.Map(static value => (object)value.Item!) };
+                }, values: values);
         }
         internal sealed record UnsupportedChannel : Channel<T> {
             internal static readonly UnsupportedChannel Instance = new();
             internal override Fin<Seq<Flow<T>>> Read(IDataAccess access, int slot, Port port) =>
-                Fin.Fail<Seq<Flow<T>>>(new UnsupportedAccess(Access: port.Access.ToString()));
+                Fin.Fail<Seq<Flow<T>>>(new PortFault.UnsupportedAccess(Access: port.Access.ToString()));
             internal override Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values) =>
                 access.Emit(severity: Severity.Error, text: name, details: "Unsupported output access.") switch { _ => Seq<object>() };
         }
-    }
-    private static Unit Effect(Action action) {
-        action();
-        return Unit.Default;
     }
     internal static Unit Emit(this IDataAccess access, Severity severity, string text, string details) =>
         severity.Emit(access: access, text: text, details: details);
@@ -261,8 +272,9 @@ internal static class Bridge {
         };
     private static Fin<Seq<Pear<TVal>>> Missing<TVal>(Port port) =>
         port.Requirement switch {
-            Grasshopper2.Parameters.Requirement.MayBeMissing => Fin.Succ(Seq<Pear<TVal>>()),
-            _ => Fin.Fail<Seq<Pear<TVal>>>(new MissingPortInput(Port: port.Name)),
+            // GH2 contract: Process runs for MayBeNull/MayBeMissing even when the input is absent.
+            Grasshopper2.Parameters.Requirement.MayBeMissing or Grasshopper2.Parameters.Requirement.MayBeNull => Fin.Succ(Seq<Pear<TVal>>()),
+            _ => Fin.Fail<Seq<Pear<TVal>>>(new PortFault.MissingInput(Port: port.Name, Hint: None)),
         };
     private static Fin<Seq<Flow<TVal>>> MissingFlow<TVal>(Port port) =>
         Missing<TVal>(port: port).Map(static pears => pears.Map(static pear => new Flow<TVal>(Pear: pear, Site: Option<Site>.None)));
@@ -270,9 +282,9 @@ internal static class Bridge {
         values.Map((value, index) => new Leaf<T>(pear: value.Pear, site: value.Site.IfNone(new Site(path: new Grasshopper2.Data.Path(0), item: index))));
     private static Fin<Flow<Shape>> NormalizeFlow(IDataAccess access, Flow<object> source, Port port, double factor) =>
         Optional(source.Item)
-            .ToFin(new MissingPortInput(Port: port.Name, Hint: Shape.Accepted))
+            .ToFin(new PortFault.MissingInput(Port: port.Name, Hint: Some(Shape.Accepted)))
             .Bind(raw =>
-                from shape in Shape.From(raw: raw).ToFin(new UnsupportedSource(Port: port.Name, SourceType: raw.GetType(), Hint: Shape.Accepted))
+                from shape in Shape.From(raw: raw).ToFin(new PortFault.UnsupportedSource(Port: port.Name, SourceType: raw.GetType(), Hint: Some(Shape.Accepted)))
                 from result in factor switch {
                     double scale when Math.Abs(value: scale - 1.0) <= Rhino.RhinoMath.ZeroTolerance => Fin.Succ(source.Project(item: shape)),
                     _ => ScaleShape(access: access, source: source, shape: shape, factor: factor),

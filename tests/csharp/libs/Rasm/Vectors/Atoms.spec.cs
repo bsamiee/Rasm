@@ -141,3 +141,15 @@ public sealed class VectorRelationLaws {
         });
     }
 }
+
+public sealed class AtomProjectionLaws {
+    [Fact]
+    public void RawProjectionKeepsVectorOwnedMatrixValuesOffDomainAcceptValue() {
+        VectorMatrix matrix = Spec.SuccValue(VectorMatrix.Of(rows: Dim.Create(value: 2), cols: Dim.Create(value: 2), entries: [1.0, 0.0, 0.0, 1.0], key: AtomGens.Key), label: "raw matrix");
+        SymmetricMatrix symmetric = Spec.SuccValue(SymmetricMatrix.Of(dim: Dim.Create(value: 2), upper: [2.0, 0.25, 3.0], key: AtomGens.Key), label: "raw symmetric");
+        Spec.Succ(AtomProjection.Raw<VectorMatrix>(raw: matrix, context: Option<Context>.None, key: AtomGens.Key, owner: typeof(VectorMatrix)),
+            then: projected => Assert.Equal(expected: matrix, actual: projected));
+        Spec.Succ(AtomProjection.Raw<SymmetricMatrix>(raw: symmetric, context: Option<Context>.None, key: AtomGens.Key, owner: typeof(SymmetricMatrix)),
+            then: projected => Assert.Equal(expected: symmetric, actual: projected));
+    }
+}

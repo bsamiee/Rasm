@@ -6,14 +6,6 @@ using EtoColor = Eto.Drawing.Color;
 namespace Rasm.Rhino.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public enum KeyPhase { Down, Up }
-public enum SystemFontKind { Default, Bold, Label, Menu, MenuBar, Message, Palette, Status, TitleBar, ToolTip, User }
-public enum UiAnchor { TopLeft, TopCenter, TopRight, MiddleLeft, Center, MiddleRight, BottomLeft, BottomCenter, BottomRight }
-
-// One decision vocabulary across the canvas input rails (record structs cannot share a base record). The interface
-// declares ONLY the abstract surface; Pass/Next/Hint are C# 14 extension members (UiInput) so they resolve on a concrete
-// struct receiver (ctx.Pass) — unlike default interface members, which require an interface-typed receiver — while
-// staying shared and reusable over any IUiInput<TState> (Func<IUiInput<TState>, ...>).
 public interface IUiInput<TState> {
     public TState State { get; }
     public bool Shift { get; }
@@ -21,26 +13,106 @@ public interface IUiInput<TState> {
     public bool Alt { get; }
 }
 
-public static class UiInput {
-    extension<TState>(IUiInput<TState> input) {
-        public MouseDecision<TState> Pass => MouseDecision.Pass(input.State);
+public enum KeyPhase { Down, Up }
 
-        public MouseDecision<TState> Next(TState state, bool cancel = false, Option<string> toolTip = default) =>
-            MouseDecision.Next(state, cancel, toolTip);
-
-        public MouseDecision<TState> Hint(string value) => MouseDecision.Hint(input.State, value);
+[Union]
+public abstract partial record SpriteSource {
+    private SpriteSource() { }
+    public sealed record Memory(DrawingBitmap Bitmap) : SpriteSource;
+    public sealed record Path(string Value) : SpriteSource;
+    internal DisplayBitmap Load() => Switch(
+        memory: static m => new DisplayBitmap(bitmap: m.Bitmap),
+        path: static p => DisplayBitmap.Load(path: p.Value));
+    internal DrawingColor AveragePixel() => Switch(
+        memory: static m => Average(m.Bitmap),
+        path: static p => { using DrawingBitmap loaded = new(p.Value); return Average(loaded); });
+    private static DrawingColor Average(DrawingBitmap source) {
+        using DrawingBitmap one = new(1, 1);
+        using System.Drawing.Graphics graphics = System.Drawing.Graphics.FromImage(one);
+        graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+        graphics.DrawImage(source, new System.Drawing.Rectangle(0, 0, 1, 1));
+        return one.GetPixel(0, 0);
     }
+    internal Eto.Drawing.Bitmap ToEtoBitmap() => Switch(
+        memory: static m => {
+            using MemoryStream stream = new();
+            m.Bitmap.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
+            stream.Position = 0;
+            return new Eto.Drawing.Bitmap(stream);
+        },
+        path: static p => new Eto.Drawing.Bitmap(p.Value));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Shared sRGB->Eto color projection — file-internal so UiStroke/UiFill/UiSurface all reach it.
-internal static class DrawingConvert {
-    internal static EtoColor ToEto(this DrawingColor color) => EtoColor.FromArgb(color.R, color.G, color.B, color.A);
+public enum SystemFontKind { Default, Bold, Label, Menu, MenuBar, Message, Palette, Status, TitleBar, ToolTip, User }
+
+public enum UiAnchor { TopLeft, TopCenter, TopRight, MiddleLeft, Center, MiddleRight, BottomLeft, BottomCenter, BottomRight }
+
+[Union]
+public abstract partial record UiCurveSeg {    // screen-space (px) path segment
+    private UiCurveSeg() { }
+    public sealed record Line(System.Drawing.PointF From, System.Drawing.PointF To) : UiCurveSeg;
+    public sealed record Arc(System.Drawing.RectangleF Bounds, float StartAngle, float SweepAngle) : UiCurveSeg;
+    public sealed record Bezier(System.Drawing.PointF Start, System.Drawing.PointF Control1, System.Drawing.PointF Control2, System.Drawing.PointF End) : UiCurveSeg;
+    internal Unit AddTo(Eto.Drawing.GraphicsPath path) => Switch(
+        line: l => Op.Side(() => path.AddLine(l.From.X, l.From.Y, l.To.X, l.To.Y)),
+        arc: a => Op.Side(() => path.AddArc(a.Bounds.X, a.Bounds.Y, a.Bounds.Width, a.Bounds.Height, a.StartAngle, a.SweepAngle)),
+        bezier: b => Op.Side(() => path.AddBezier(new Eto.Drawing.PointF(b.Start.X, b.Start.Y), new Eto.Drawing.PointF(b.Control1.X, b.Control1.Y), new Eto.Drawing.PointF(b.Control2.X, b.Control2.Y), new Eto.Drawing.PointF(b.End.X, b.End.Y))));
+    internal Option<Curve> ToCurve() => Switch(
+        line: static l => Some<Curve>(new LineCurve(new global::Rhino.Geometry.Line(new Point3d(l.From.X, l.From.Y, 0d), new Point3d(l.To.X, l.To.Y, 0d)))),
+        arc: static a => (a.Bounds.Width / 2f, a.Bounds.Height / 2f) switch {
+            (float rx, float ry) when rx > 0f && Math.Abs(rx - ry) < 1e-3f => Some<Curve>(new ArcCurve(new global::Rhino.Geometry.Arc(
+                new Circle(new Plane(new Point3d(a.Bounds.X + rx, a.Bounds.Y + ry, 0d), Vector3d.ZAxis), rx),
+                new Interval(a.StartAngle * Math.PI / 180.0, (a.StartAngle + a.SweepAngle) * Math.PI / 180.0)))),
+            _ => Option<Curve>.None,
+        },
+        bezier: static b => Some<Curve>(new BezierCurve([new Point3d(b.Start.X, b.Start.Y, 0d), new Point3d(b.Control1.X, b.Control1.Y, 0d), new Point3d(b.Control2.X, b.Control2.Y, 0d), new Point3d(b.End.X, b.End.Y, 0d)]).ToNurbsCurve()));
+    internal Seq<System.Drawing.PointF> Sample(int steps) => Switch(
+        line: static l => Seq(l.From, l.To),
+        arc: a => toSeq(Enumerable.Range(start: 0, count: steps + 1)).Map(i => {
+            double angle = (a.StartAngle + (a.SweepAngle * i / steps)) * Math.PI / 180.0;
+            float rx = a.Bounds.Width / 2f;
+            float ry = a.Bounds.Height / 2f;
+            return new System.Drawing.PointF(a.Bounds.X + rx + (float)(rx * Math.Cos(angle)), a.Bounds.Y + ry + (float)(ry * Math.Sin(angle)));
+        }),
+        bezier: b => toSeq(Enumerable.Range(start: 0, count: steps + 1)).Map(i => {
+            float t = (float)i / steps;
+            float u = 1f - t;
+            return new System.Drawing.PointF(
+                (u * u * u * b.Start.X) + (3f * u * u * t * b.Control1.X) + (3f * u * t * t * b.Control2.X) + (t * t * t * b.End.X),
+                (u * u * u * b.Start.Y) + (3f * u * u * t * b.Control1.Y) + (3f * u * t * t * b.Control2.Y) + (t * t * t * b.End.Y));
+        }));
 }
 
-// One polymorphic font: family-with-style/decoration OR a platform system preset. Collapses the loose
-// (int Height, Option<string> Font) pair carried by UiSurface.Text/MeasureText/UiMark.Text into a single home;
-// mirrors the Rasm.Grasshopper.UI.UiFont shape (cross-root unification deferred — separate bounded contexts).
+[Union]
+public abstract partial record UiFill {
+    private UiFill() { }
+    public sealed record Solid(DrawingColor Color, Option<float> Opacity = default) : UiFill;
+    public sealed record Linear(DrawingColor Start, DrawingColor End, System.Drawing.PointF From, System.Drawing.PointF To, Option<float> Opacity = default) : UiFill;
+    public sealed record Radial(DrawingColor Start, DrawingColor End, System.Drawing.PointF Center, System.Drawing.PointF Origin, System.Drawing.SizeF Radius, Option<float> Opacity = default) : UiFill;
+    public sealed record Texture(SpriteSource Image, Option<float> Opacity = default) : UiFill;
+
+    internal DrawingColor Primary => Switch(   // screen rail degrades gradient -> first stop, texture -> mean pixel
+        solid: static s => s.Color,
+        linear: static l => l.Start,
+        radial: static r => r.Start,
+        texture: static t => t.Image.AveragePixel());
+    private static float Alpha(Option<float> opacity) =>
+        opacity.Map(static value => Math.Clamp(value: value, min: 0f, max: 1f)).IfNone(1f);
+
+    private static DrawingColor Fade(DrawingColor c, Option<float> o) =>
+        o.IsSome ? DrawingColor.FromArgb((int)(c.A * Alpha(opacity: o)), c.R, c.G, c.B) : c;
+
+    internal Unit UseBrush(Action<Eto.Drawing.Brush> paint) => Switch(
+        solid: s => Op.Side(() => { using Eto.Drawing.Brush brush = new Eto.Drawing.SolidBrush(Fade(s.Color, s.Opacity).ToEto()); paint(brush); }),
+        linear: l => Op.Side(() => { using Eto.Drawing.Brush brush = new Eto.Drawing.LinearGradientBrush(Fade(l.Start, l.Opacity).ToEto(), Fade(l.End, l.Opacity).ToEto(), new Eto.Drawing.PointF(l.From.X, l.From.Y), new Eto.Drawing.PointF(l.To.X, l.To.Y)); paint(brush); }),
+        radial: r => Op.Side(() => { using Eto.Drawing.Brush brush = new Eto.Drawing.RadialGradientBrush(Fade(r.Start, r.Opacity).ToEto(), Fade(r.End, r.Opacity).ToEto(), new Eto.Drawing.PointF(r.Center.X, r.Center.Y), new Eto.Drawing.PointF(r.Origin.X, r.Origin.Y), new Eto.Drawing.SizeF(r.Radius.Width, r.Radius.Height)); paint(brush); }),
+        texture: t => Op.Side(() => {
+            using Eto.Drawing.Bitmap bitmap = t.Image.ToEtoBitmap();
+            using Eto.Drawing.Brush brush = new Eto.Drawing.TextureBrush(bitmap) { Opacity = Alpha(opacity: t.Opacity) };
+            paint(brush);
+        }));
+}
+
 [Union]
 public abstract partial record UiFont {
     private const float AverageGlyphWidthRatio = 0.6f;
@@ -63,7 +135,6 @@ public abstract partial record UiFont {
             width: Math.Max(val1: height * MinimumGlyphWidthRatio, val2: value.Length * height * AverageGlyphWidthRatio),
             height: height * LineBoxHeightRatio);
     }
-    // BOUNDARY ADAPTER — Eto font resolved from family metrics or platform preset (SystemFonts verified surface); caller-owned, disposed per use.
     internal Eto.Drawing.Font ToEto() => Switch(
         familyCase: static f => new Eto.Drawing.Font(f.Name, f.Size, f.Style, f.Decoration),
         systemCase: static s => s.Kind switch {
@@ -81,386 +152,6 @@ public abstract partial record UiFont {
         });
 }
 
-public readonly record struct UiStroke(DrawingColor Color, float Width = 1f, Seq<float> Dashes = default, float Halo = 0f, DrawingColor HaloColor = default, Eto.Drawing.PenLineJoin Join = Eto.Drawing.PenLineJoin.Miter, Eto.Drawing.PenLineCap Cap = Eto.Drawing.PenLineCap.Square, float Miter = 10f) {
-    public static UiStroke Of(DrawingColor color, float width = 1f) => new(Color: color, Width: width);
-
-    // BOUNDARY ADAPTER — Eto.Drawing.Pen is a mutable boundary object; DashStyle/join/cap are property setters.
-    internal Eto.Drawing.Pen ToPen() {
-        Seq<float> dashes = Dashes;   // struct lambdas cannot capture `this`
-        Eto.Drawing.Pen pen = new(Color.ToEto(), Width) { LineJoin = Join, LineCap = Cap, MiterLimit = Miter };
-        _ = Op.SideWhen(!dashes.IsEmpty, () => pen.DashStyle = new Eto.Drawing.DashStyle(0f, [.. dashes]));
-        return pen;
-    }
-
-    // BOUNDARY ADAPTER — DisplayPen is a mutable boundary object; cap/join map Eto vocab to Rhino styles (DisplayPen has no MiterLimit).
-    internal DisplayPen ToDisplayPen() {
-        Seq<float> dashes = Dashes;
-        DisplayPen pen = new() {
-            Color = Color,
-            Thickness = Width,
-            HaloThickness = Halo,
-            HaloColor = HaloColor.IsEmpty switch { true => Color, false => HaloColor },
-            CapStyle = Cap switch { Eto.Drawing.PenLineCap.Butt => LineCapStyle.Flat, Eto.Drawing.PenLineCap.Round => LineCapStyle.Round, _ => LineCapStyle.Square },
-            JoinStyle = Join switch { Eto.Drawing.PenLineJoin.Bevel => LineJoinStyle.Bevel, Eto.Drawing.PenLineJoin.Round => LineJoinStyle.Round, _ => LineJoinStyle.Miter },
-        };
-        _ = Op.SideWhen(!dashes.IsEmpty, () => pen.SetPattern(dashesAndGaps: dashes.AsEnumerable()));
-        return pen;
-    }
-}
-
-[Union]
-public abstract partial record UiFill {
-    private UiFill() { }
-    public sealed record Solid(DrawingColor Color, Option<float> Opacity = default) : UiFill;
-    public sealed record Linear(DrawingColor Start, DrawingColor End, System.Drawing.PointF From, System.Drawing.PointF To, Option<float> Opacity = default) : UiFill;
-    public sealed record Radial(DrawingColor Start, DrawingColor End, System.Drawing.PointF Center, System.Drawing.PointF Origin, System.Drawing.SizeF Radius, Option<float> Opacity = default) : UiFill;
-    public sealed record Texture(SpriteSource Image, Option<float> Opacity = default) : UiFill;
-
-    internal DrawingColor Primary => Switch(   // screen rail degrades gradient -> first stop, texture -> mean pixel
-        solid: static s => s.Color,
-        linear: static l => l.Start,
-        radial: static r => r.Start,
-        texture: static t => t.Image.AveragePixel());
-
-    // Eto gradient brushes expose no Opacity; pre-multiply alpha into the stop colours so one opacity contract holds
-    // across all four arms on both the Canvas (Eto) and Pipeline rails (None => unchanged colour).
-    private static float Alpha(Option<float> opacity) =>
-        opacity.Map(static value => Math.Clamp(value: value, min: 0f, max: 1f)).IfNone(1f);
-
-    private static DrawingColor Fade(DrawingColor c, Option<float> o) =>
-        o.IsSome ? DrawingColor.FromArgb((int)(c.A * Alpha(opacity: o)), c.R, c.G, c.B) : c;
-
-    internal Unit UseBrush(Action<Eto.Drawing.Brush> paint) => Switch(
-        solid: s => Op.Side(() => { using Eto.Drawing.Brush brush = new Eto.Drawing.SolidBrush(Fade(s.Color, s.Opacity).ToEto()); paint(brush); }),
-        linear: l => Op.Side(() => { using Eto.Drawing.Brush brush = new Eto.Drawing.LinearGradientBrush(Fade(l.Start, l.Opacity).ToEto(), Fade(l.End, l.Opacity).ToEto(), new Eto.Drawing.PointF(l.From.X, l.From.Y), new Eto.Drawing.PointF(l.To.X, l.To.Y)); paint(brush); }),
-        radial: r => Op.Side(() => { using Eto.Drawing.Brush brush = new Eto.Drawing.RadialGradientBrush(Fade(r.Start, r.Opacity).ToEto(), Fade(r.End, r.Opacity).ToEto(), new Eto.Drawing.PointF(r.Center.X, r.Center.Y), new Eto.Drawing.PointF(r.Origin.X, r.Origin.Y), new Eto.Drawing.SizeF(r.Radius.Width, r.Radius.Height)); paint(brush); }),
-        texture: t => Op.Side(() => {
-            using Eto.Drawing.Bitmap bitmap = t.Image.ToEtoBitmap();
-            using Eto.Drawing.Brush brush = new Eto.Drawing.TextureBrush(bitmap) { Opacity = Alpha(opacity: t.Opacity) };
-            paint(brush);
-        }));
-}
-
-[Union]
-public abstract partial record SpriteSource {
-    private SpriteSource() { }
-    public sealed record Memory(DrawingBitmap Bitmap) : SpriteSource;
-    public sealed record Path(string Value) : SpriteSource;
-
-    // BOUNDARY ADAPTER — DisplayBitmap is a native GPU resource constructed from a managed bitmap or file.
-    internal DisplayBitmap Load() => Switch(
-        memory: static m => new DisplayBitmap(bitmap: m.Bitmap),
-        path: static p => DisplayBitmap.Load(path: p.Value));
-
-    // screen rail degrades a texture fill to its mean colour (1x1 bilinear downsample).
-    internal DrawingColor AveragePixel() => Switch(
-        memory: static m => Average(m.Bitmap),
-        path: static p => { using DrawingBitmap loaded = new(p.Value); return Average(loaded); });
-
-    // BOUNDARY ADAPTER — System.Drawing 1x1 downsample yields the mean pixel; transient surfaces disposed in scope.
-    private static DrawingColor Average(DrawingBitmap source) {
-        using DrawingBitmap one = new(1, 1);
-        using System.Drawing.Graphics graphics = System.Drawing.Graphics.FromImage(one);
-        graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-        graphics.DrawImage(source, new System.Drawing.Rectangle(0, 0, 1, 1));
-        return one.GetPixel(0, 0);
-    }
-
-    // BOUNDARY ADAPTER — Eto canvas sprite round-trips through PNG; UiSpriteAtlas caches the decode per scope.
-    internal Eto.Drawing.Bitmap ToEtoBitmap() => Switch(
-        memory: static m => {
-            using MemoryStream stream = new();
-            m.Bitmap.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
-            stream.Position = 0;
-            return new Eto.Drawing.Bitmap(stream);
-        },
-        path: static p => new Eto.Drawing.Bitmap(p.Value));
-}
-
-[Union]
-public abstract partial record UiSpritePlace {
-    private UiSpritePlace() { }
-    public sealed record Screen(System.Drawing.PointF At) : UiSpritePlace;
-    public sealed record World(Point3d At) : UiSpritePlace;
-    public sealed record Cloud(Seq<Point3d> At, Option<Seq<DrawingColor>> Colors = default) : UiSpritePlace;   // one GPU batch (instanced draw-list)
-
-    internal System.Drawing.PointF Anchor => Switch(   // canvas rail has no projection — world/cloud degrade to (X,Y) of the first point
-        screen: static s => s.At,
-        world: static w => new System.Drawing.PointF((float)w.At.X, (float)w.At.Y),
-        cloud: static cl => cl.At.IsEmpty ? System.Drawing.PointF.Empty : new System.Drawing.PointF((float)cl.At[0].X, (float)cl.At[0].Y));
-}
-
-public readonly record struct UiSprite(SpriteSource Source, UiSpritePlace Place, float Size = 1f, Option<(BlendMode Source, BlendMode Destination)> Blend = default, Option<DrawingColor> Tint = default);
-
-public sealed class UiSpriteAtlas : IDisposable {
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<SpriteSource, DisplayBitmap> cache = new();
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<SpriteSource, Eto.Drawing.Bitmap> etoCache = new();
-    private int disposed;
-
-    public static UiSpriteAtlas Empty => new();
-
-    // BOUNDARY ADAPTER — native DisplayBitmap GPU handles are cached for the overlay/canvas scope lifetime.
-    internal Option<DisplayBitmap> Resolve(SpriteSource source) =>
-        Volatile.Read(ref disposed) == 0
-            ? Optional(cache.GetOrAdd(key: source, valueFactory: static key => key.Load()))
-            : Option<DisplayBitmap>.None;
-
-    // BOUNDARY ADAPTER — Eto canvas bitmaps decoded once per scope (replaces the per-paint PNG round-trip).
-    internal Option<Eto.Drawing.Bitmap> ResolveEto(SpriteSource source) =>
-        Volatile.Read(ref disposed) == 0
-            ? Optional(etoCache.GetOrAdd(key: source, valueFactory: static key => key.ToEtoBitmap()))
-            : Option<Eto.Drawing.Bitmap>.None;
-
-    // BOUNDARY ADAPTER — every cached GPU/canvas bitmap must be released on scope teardown.
-    public void Dispose() {
-        _ = Interlocked.Exchange(ref disposed, 1) == 1
-            ? unit
-            : Op.Side(() => {
-                _ = toSeq(cache.Values).Iter(static bitmap => bitmap.Dispose());
-                _ = toSeq(etoCache.Values).Iter(static bitmap => bitmap.Dispose());
-            });
-        GC.SuppressFinalize(obj: this);
-    }
-}
-
-// Right-biased monoid over the three Eto Graphics quality knobs (None inherits the left; Some overrides). Canvas-only:
-// the Pipeline rail exposes no Graphics. AntiAlias is the native bool toggle (no Eto enum); the other two are Eto enums.
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct UiRenderHint(
-    Option<bool> AntiAlias = default,
-    Option<Eto.Drawing.ImageInterpolation> Interpolation = default,
-    Option<Eto.Drawing.PixelOffsetMode> PixelOffset = default) {
-    public static UiRenderHint HighQuality => new(AntiAlias: true, Interpolation: Eto.Drawing.ImageInterpolation.High, PixelOffset: Eto.Drawing.PixelOffsetMode.None);
-    public static UiRenderHint operator +(UiRenderHint l, UiRenderHint r) => new(
-        AntiAlias: r.AntiAlias.IsSome ? r.AntiAlias : l.AntiAlias,
-        Interpolation: r.Interpolation.IsSome ? r.Interpolation : l.Interpolation,
-        PixelOffset: r.PixelOffset.IsSome ? r.PixelOffset : l.PixelOffset);
-    // BOUNDARY ADAPTER — Eto.Drawing.Graphics quality is per-instance mutable; only the explicitly-set knobs are pushed.
-    internal Unit Apply(Eto.Drawing.Graphics g) {
-        Option<bool> antiAlias = AntiAlias;   // struct lambdas cannot capture `this`
-        Option<Eto.Drawing.ImageInterpolation> interpolation = Interpolation;
-        Option<Eto.Drawing.PixelOffsetMode> pixelOffset = PixelOffset;
-        return Op.Side(() => {
-            _ = antiAlias.Iter(v => g.AntiAlias = v);
-            _ = interpolation.Iter(v => g.ImageInterpolation = v);
-            _ = pixelOffset.Iter(v => g.PixelOffsetMode = v);
-        });
-    }
-}
-
-[Union]
-public abstract partial record UiSurface {
-    private UiSurface() { }
-    public sealed record Pipeline(DisplayPipeline Display, UiSpriteAtlas? Atlas = null) : UiSurface;   // viewport screen-space 2D (Atlas optional)
-    public sealed record Canvas(Eto.Drawing.Graphics Graphics, UiSpriteAtlas? Atlas = null) : UiSurface;   // Eto Drawable (Atlas caches decoded sprites)
-
-    internal Unit Text(string value, System.Drawing.PointF at, DrawingColor color, UiFont font, UiAnchor anchor) => Switch(
-        pipeline: p => Op.Side(() => {
-            System.Drawing.Rectangle box = p.Display.Measure2dText(text: value, definitionPoint: Point2d.Origin, middleJustified: false, rotationRadians: 0d, height: font.Height, fontFace: font.Face);
-            System.Drawing.PointF origin = TextOrigin(anchor: anchor, at: at, size: new System.Drawing.SizeF(box.Width, box.Height));
-            p.Display.Draw2dText(text: value, color: color, screenCoordinate: new Point2d(origin.X, origin.Y), middleJustified: false, height: font.Height, fontface: font.Face);
-        }),
-        // BOUNDARY ADAPTER — transient Eto font disposed in scope after the canvas draw.
-        canvas: c => Op.Side(() => {
-            using Eto.Drawing.Font face = font.ToEto();
-            Eto.Drawing.SizeF measured = c.Graphics.MeasureString(face, value);
-            System.Drawing.PointF origin = TextOrigin(anchor: anchor, at: at, size: new System.Drawing.SizeF(measured.Width, measured.Height));
-            c.Graphics.DrawText(face, color.ToEto(), origin.X, origin.Y, value);
-        }));
-    internal Unit Stroke(System.Drawing.PointF from, System.Drawing.PointF to, UiStroke stroke) => Switch(
-        pipeline: p => Op.Side(() => p.Display.Draw2dLine(from: from, to: to, color: stroke.Color, thickness: stroke.Width)),
-        canvas: c => Op.Side(() => {
-            using Eto.Drawing.Pen pen = stroke.ToPen();
-            c.Graphics.DrawLine(pen, new Eto.Drawing.PointF(from.X, from.Y), new Eto.Drawing.PointF(to.X, to.Y));
-        }));
-    internal Unit Path(Seq<System.Drawing.PointF> points, UiStroke stroke, Option<UiFill> fill, bool closed) => Switch(
-        // screen rail: one native polyline call (N->1), honouring UiStroke.Dashes (was dropped by the per-segment Zip).
-        pipeline: p => Polyline(display: p.Display, pts: points, stroke: stroke, closed: closed),
-        // BOUNDARY ADAPTER — Eto polygon/polyline need a materialized PointF[]; fill precedes stroke.
-        canvas: c => Op.Side(() => {
-            Eto.Drawing.PointF[] eto = [.. points.Map(static p => new Eto.Drawing.PointF(p.X, p.Y))];
-            _ = Op.SideWhen(closed, () => fill.Iter(f => f.UseBrush(paint: brush => c.Graphics.FillPolygon(brush, eto))));
-            using Eto.Drawing.Pen pen = stroke.ToPen();
-            _ = closed switch { true => Op.Side(() => c.Graphics.DrawPolygon(pen, eto)), false => Op.Side(() => c.Graphics.DrawLines(pen, eto)) };
-        }));
-    internal Unit Box(System.Drawing.Rectangle bounds, UiStroke stroke, UiFill fill, float corner) => Switch(
-        // native float-stroke rounded rectangle (Draw2dRectangle truncated float Width to int — thin strokes vanished).
-        pipeline: p => Op.Side(() => p.Display.DrawRoundedRectangle(
-            center: new System.Drawing.PointF(bounds.X + (bounds.Width / 2f), bounds.Y + (bounds.Height / 2f)),
-            pixelWidth: bounds.Width, pixelHeight: bounds.Height, cornerRadius: corner,
-            strokeColor: stroke.Color, strokeWidth: stroke.Width, fillColor: fill.Primary)),
-        // BOUNDARY ADAPTER — Eto graphics commands run sequentially; fill then stroke (rounded path when corner > 0).
-        canvas: c => Op.Side(() => {
-            using Eto.Drawing.Pen pen = stroke.ToPen();
-            Eto.Drawing.RectangleF rect = new(bounds.X, bounds.Y, bounds.Width, bounds.Height);
-            _ = fill.UseBrush(paint: brush => _ = corner > 0f
-                ? Op.Side(() => {
-                    Eto.Drawing.IGraphicsPath path = Eto.Drawing.GraphicsPath.GetRoundRect(rect, corner);
-                    try {
-                        c.Graphics.FillPath(brush, path);
-                        c.Graphics.DrawPath(pen, path);
-                    } finally {
-                        _ = Optional(path as IDisposable).Iter(static disposable => disposable.Dispose());
-                    }
-                })
-                : Op.Side(() => { c.Graphics.FillRectangle(brush, rect); c.Graphics.DrawRectangle(pen, rect); }));
-        }));
-    internal Unit Sprite(UiSprite sprite) => Switch(
-        pipeline: p => Optional(p.Atlas).Bind(atlas => atlas.Resolve(source: sprite.Source)).Iter(bitmap => Draw(display: p.Display, bitmap: bitmap, sprite: sprite)),
-        // BOUNDARY ADAPTER — canvas sprite resolves through the scope atlas (decode-once); no per-paint allocation.
-        canvas: c => Optional(c.Atlas).Bind(atlas => atlas.ResolveEto(source: sprite.Source)).Iter(image => Op.Side(() => c.Graphics.DrawImage(image, new Eto.Drawing.PointF(sprite.Place.Anchor.X, sprite.Place.Anchor.Y)))));
-
-    internal Unit Curve(Seq<UiCurveSeg> segs, UiStroke stroke, Option<UiFill> fill, bool closed) => Switch(
-        // screen rail: native NURBS PolyCurve via DisplayPen (halo/cap/join/pattern) when expressible; polyline fan otherwise.
-        pipeline: p => CurvePipeline(display: p.Display, segs: segs, stroke: stroke, closed: closed),
-        // BOUNDARY ADAPTER — Eto GraphicsPath aggregates segments; fill precedes stroke.
-        canvas: c => Op.Side(() => {
-            using Eto.Drawing.GraphicsPath path = new();
-            _ = segs.Iter(seg => seg.AddTo(path));
-            _ = Op.SideWhen(closed, path.CloseFigure);
-            _ = Op.SideWhen(closed, () => fill.Iter(f => f.UseBrush(paint: brush => c.Graphics.FillPath(brush, path))));
-            using Eto.Drawing.Pen pen = stroke.ToPen();
-            c.Graphics.DrawPath(pen, path);
-        }));
-    internal Fin<System.Drawing.SizeF> MeasureText(string value, UiFont font) => Switch(
-        // viewport rail: native glyph metrics (replaces the height*0.6 estimate).
-        pipeline: p => {
-            System.Drawing.Rectangle box = p.Display.Measure2dText(text: value, definitionPoint: Point2d.Origin, middleJustified: false, rotationRadians: 0d, height: font.Height, fontFace: font.Face);
-            return Fin.Succ(value: new System.Drawing.SizeF(box.Width, box.Height));
-        },
-        // BOUNDARY ADAPTER — Eto MeasureString queries platform font metrics; transient face disposed in scope.
-        canvas: c => {
-            using Eto.Drawing.Font face = font.ToEto();
-            Eto.Drawing.SizeF measured = c.Graphics.MeasureString(face, value);
-            return Fin.Succ(value: new System.Drawing.SizeF(measured.Width, measured.Height));
-        });
-    internal Fin<Unit> Clip(System.Drawing.RectangleF region, Func<Fin<Unit>> draw) => Switch(
-        // screen 2d rail has no scissor stack — best-effort: draw unclipped.
-        pipeline: _ => draw(),
-        // BOUNDARY ADAPTER — clip must reset even if the inner draw throws.
-        canvas: c => {
-            c.Graphics.SetClip(new Eto.Drawing.RectangleF(region.X, region.Y, region.Width, region.Height));
-            try { return draw(); } finally { c.Graphics.ResetClip(); }
-        });
-    internal Fin<Unit> Transform(System.Drawing.PointF translate, float scale, float rotation, Func<Fin<Unit>> draw) => Switch(
-        // screen 2d rail has no transform stack — draw at identity.
-        pipeline: _ => draw(),
-        // BOUNDARY ADAPTER — saved transform state restores on scope exit (including throw).
-        canvas: c => {
-            using IDisposable state = c.Graphics.SaveTransformState();
-            c.Graphics.TranslateTransform(translate.X, translate.Y);
-            c.Graphics.ScaleTransform(scale);
-            c.Graphics.RotateTransform(rotation);
-            return draw();
-        });
-
-    internal static System.Drawing.PointF TextOrigin(UiAnchor anchor, System.Drawing.PointF at, System.Drawing.SizeF size) {
-        float x = anchor switch {
-            UiAnchor.TopLeft or UiAnchor.MiddleLeft or UiAnchor.BottomLeft => at.X,
-            UiAnchor.TopCenter or UiAnchor.Center or UiAnchor.BottomCenter => at.X - (size.Width / 2f),
-            _ => at.X - size.Width,
-        };
-        float y = anchor switch {
-            UiAnchor.TopLeft or UiAnchor.TopCenter or UiAnchor.TopRight => at.Y,
-            UiAnchor.MiddleLeft or UiAnchor.Center or UiAnchor.MiddleRight => at.Y - (size.Height / 2f),
-            _ => at.Y - size.Height,
-        };
-        return new System.Drawing.PointF(x, y);
-    }
-
-    // BOUNDARY ADAPTER — DisplayBitmap blend state and DrawSprite(s) are native viewport side effects.
-    private static Unit Draw(DisplayPipeline display, DisplayBitmap bitmap, UiSprite sprite) {
-        (BlendMode source, BlendMode destination) = sprite.Blend.IfNone((BlendMode.SourceAlpha, BlendMode.OneMinusSourceAlpha));
-        bitmap.SetBlendFunction(source: source, destination: destination);
-        DrawingColor tint = sprite.Tint.IfNone(DrawingColor.White);
-        return sprite.Place.Switch(
-            screen: s => Op.Side(() => display.DrawSprite(bitmap: bitmap, screenLocation: new Point2d(s.At.X, s.At.Y), size: sprite.Size, blendColor: tint)),
-            world: w => Op.Side(() => display.DrawSprite(bitmap: bitmap, worldLocation: w.At, size: sprite.Size, blendColor: tint, sizeInWorldSpace: true)),
-            // BOUNDARY ADAPTER — transient per-frame instanced draw-list; one DrawSprites GPU batch for the whole point field.
-            cloud: cl => Op.Side(() => {
-                DisplayBitmapDrawList list = new();
-                _ = cl.Colors.Case switch {
-                    Seq<DrawingColor> cs => Op.Side(() => list.SetPoints(points: cl.At.AsEnumerable(), colors: cs.AsEnumerable())),
-                    _ => Op.Side(() => list.SetPoints(points: cl.At.AsEnumerable(), blendColor: tint)),
-                };
-                _ = list.Sort(cameraDirection: display.Viewport.CameraDirection);
-                display.DrawSprites(bitmap: bitmap, items: list, size: sprite.Size, sizeInWorldSpace: true);
-            }));
-    }
-
-    // Screen px (x,y) map to world (x,y,0) only inside a balanced 2D projection scope.
-    private static Unit Polyline(DisplayPipeline display, Seq<System.Drawing.PointF> pts, UiStroke stroke, bool closed) =>
-        pts.IsEmpty ? unit : Op.Side(() => {
-            Seq<Point3d> world = pts.Map(static q => new Point3d(q.X, q.Y, 0d));
-            using PolylineCurve curve = new(points: (closed ? world.Add(world[0]) : world).AsEnumerable());
-            _ = new UiRenderState(Screen2d: true).Scope(pipeline: display, draw: () => display.DrawCurve(curve: curve, pen: stroke.ToDisplayPen()));
-        });
-
-    // BOUNDARY ADAPTER — transient PolyCurve drawn via DisplayPen (halo/cap/join/pattern) when every segment is
-    // NURBS-expressible; otherwise the polyline fan. Intermediate native curves are copied into the PolyCurve, then disposed.
-    private static Unit CurvePipeline(DisplayPipeline display, Seq<UiCurveSeg> segs, UiStroke stroke, bool closed) {
-        Seq<Curve> parts = toSeq(segs.Choose(static seg => seg.ToCurve()));
-        return parts.Count == segs.Count && !parts.IsEmpty
-            ? Op.Side(() => {
-                try {
-                    using PolyCurve poly = new();
-                    _ = parts.Iter(part => poly.Append(part));
-                    _ = Op.SideWhen(closed, () => poly.Append(new Line(poly.PointAtEnd, poly.PointAtStart)));
-                    _ = new UiRenderState(Screen2d: true).Scope(pipeline: display, draw: () => display.DrawCurve(curve: poly, pen: stroke.ToDisplayPen()));
-                } finally {
-                    _ = parts.Iter(static part => part.Dispose());
-                }
-            })
-            : Op.Side(() => {
-                _ = parts.Iter(static part => part.Dispose());
-                _ = Polyline(display: display, pts: segs.Bind(static seg => seg.Sample(steps: 24)), stroke: stroke, closed: closed);
-            });
-    }
-}
-
-[Union]
-public abstract partial record UiCurveSeg {    // screen-space (px) path segment
-    private UiCurveSeg() { }
-    public sealed record Line(System.Drawing.PointF From, System.Drawing.PointF To) : UiCurveSeg;
-    public sealed record Arc(System.Drawing.RectangleF Bounds, float StartAngle, float SweepAngle) : UiCurveSeg;
-    public sealed record Bezier(System.Drawing.PointF Start, System.Drawing.PointF Control1, System.Drawing.PointF Control2, System.Drawing.PointF End) : UiCurveSeg;
-
-    // BOUNDARY ADAPTER — append onto the mutable Eto path (canvas rail).
-    internal Unit AddTo(Eto.Drawing.GraphicsPath path) => Switch(
-        line: l => Op.Side(() => path.AddLine(l.From.X, l.From.Y, l.To.X, l.To.Y)),
-        arc: a => Op.Side(() => path.AddArc(a.Bounds.X, a.Bounds.Y, a.Bounds.Width, a.Bounds.Height, a.StartAngle, a.SweepAngle)),
-        bezier: b => Op.Side(() => path.AddBezier(new Eto.Drawing.PointF(b.Start.X, b.Start.Y), new Eto.Drawing.PointF(b.Control1.X, b.Control1.Y), new Eto.Drawing.PointF(b.Control2.X, b.Control2.Y), new Eto.Drawing.PointF(b.End.X, b.End.Y))));
-
-    // NURBS projection for the native DrawCurve(DisplayPen) rail: line / cubic-bezier always; circular arc when the
-    // bounds are square (elliptical arcs return None and the caller falls back to the polyline fan).
-    internal Option<Curve> ToCurve() => Switch(
-        line: static l => Some<Curve>(new LineCurve(new global::Rhino.Geometry.Line(new Point3d(l.From.X, l.From.Y, 0d), new Point3d(l.To.X, l.To.Y, 0d)))),
-        arc: static a => (a.Bounds.Width / 2f, a.Bounds.Height / 2f) switch {
-            (float rx, float ry) when rx > 0f && Math.Abs(rx - ry) < 1e-3f => Some<Curve>(new ArcCurve(new global::Rhino.Geometry.Arc(
-                new Circle(new Plane(new Point3d(a.Bounds.X + rx, a.Bounds.Y + ry, 0d), Vector3d.ZAxis), rx),
-                new Interval(a.StartAngle * Math.PI / 180.0, (a.StartAngle + a.SweepAngle) * Math.PI / 180.0)))),
-            _ => Option<Curve>.None,
-        },
-        bezier: static b => Some<Curve>(new BezierCurve([new Point3d(b.Start.X, b.Start.Y, 0d), new Point3d(b.Control1.X, b.Control1.Y, 0d), new Point3d(b.Control2.X, b.Control2.Y, 0d), new Point3d(b.End.X, b.End.Y, 0d)]).ToNurbsCurve()));
-
-    // screen rail (pipeline): sample to a polyline fan (no native 2d arc/bezier).
-    internal Seq<System.Drawing.PointF> Sample(int steps) => Switch(
-        line: static l => Seq(l.From, l.To),
-        arc: a => toSeq(Enumerable.Range(start: 0, count: steps + 1)).Map(i => {
-            double angle = (a.StartAngle + (a.SweepAngle * i / steps)) * Math.PI / 180.0;
-            float rx = a.Bounds.Width / 2f;
-            float ry = a.Bounds.Height / 2f;
-            return new System.Drawing.PointF(a.Bounds.X + rx + (float)(rx * Math.Cos(angle)), a.Bounds.Y + ry + (float)(ry * Math.Sin(angle)));
-        }),
-        bezier: b => toSeq(Enumerable.Range(start: 0, count: steps + 1)).Map(i => {
-            float t = (float)i / steps;
-            float u = 1f - t;
-            return new System.Drawing.PointF(
-                (u * u * u * b.Start.X) + (3f * u * u * t * b.Control1.X) + (3f * u * t * t * b.Control2.X) + (t * t * t * b.End.X),
-                (u * u * u * b.Start.Y) + (3f * u * u * t * b.Control1.Y) + (3f * u * t * t * b.Control2.Y) + (t * t * t * b.End.Y));
-        }));
-}
-
 [Union]
 public abstract partial record UiMark {    // screen-space (px), backend-neutral
     private UiMark() { }
@@ -470,8 +161,6 @@ public abstract partial record UiMark {    // screen-space (px), backend-neutral
     public sealed record Curve(Seq<UiCurveSeg> Segs, UiStroke Pen, Option<UiFill> Fill = default, bool Closed = false) : UiMark;
     public sealed record Box(System.Drawing.Rectangle Bounds, UiStroke Outline, UiFill Fill, float Corner = 0f) : UiMark;
     public sealed record Sprite(UiSprite Value) : UiMark;
-
-    // state-threaded Switch keeps the six arms static (zero closure alloc on the render hot path).
     internal Fin<Unit> Render(UiSurface surface) =>
         RhinoUi.Protect(valid: () => Fin.Succ(value: Switch(surface,
             text: static (UiSurface surf, Text t) => surf.Text(t.Value, t.At, t.Color, t.Font ?? UiFont.Default, t.Anchor),
@@ -480,9 +169,6 @@ public abstract partial record UiMark {    // screen-space (px), backend-neutral
             curve: static (UiSurface surf, Curve c) => surf.Curve(c.Segs, c.Pen, c.Fill, c.Closed),
             box: static (UiSurface surf, Box b) => surf.Box(b.Bounds, b.Outline, b.Fill, b.Corner),
             sprite: static (UiSurface surf, Sprite s) => surf.Sprite(s.Value))));
-
-    // Second polymorphic Switch over the same six cases: hit-test a cursor point (hud.Marks.Find(m => m.Hit(cursor)))
-    // — replaces every interactive overlay's hand-rolled point-in-polygon / distance-to-segment math.
     internal bool Hit(System.Drawing.PointF p, float tolerance = 4f) {
         using Eto.Drawing.GraphicsPath path = new();
         Eto.Drawing.PointF q = new(p.X, p.Y);
@@ -518,6 +204,188 @@ public abstract partial record UiMark {    // screen-space (px), backend-neutral
     }
 }
 
+[Union]
+public abstract partial record UiSpritePlace {
+    private UiSpritePlace() { }
+    public sealed record Screen(System.Drawing.PointF At) : UiSpritePlace;
+    public sealed record World(Point3d At) : UiSpritePlace;
+    public sealed record Cloud(Seq<Point3d> At, Option<Seq<DrawingColor>> Colors = default) : UiSpritePlace;   // one GPU batch (instanced draw-list)
+
+    internal System.Drawing.PointF Anchor => Switch(   // canvas rail has no projection — world/cloud degrade to (X,Y) of the first point
+        screen: static s => s.At,
+        world: static w => new System.Drawing.PointF((float)w.At.X, (float)w.At.Y),
+        cloud: static cl => cl.At.IsEmpty ? System.Drawing.PointF.Empty : new System.Drawing.PointF((float)cl.At[0].X, (float)cl.At[0].Y));
+}
+
+[Union]
+public abstract partial record UiSurface {
+    private UiSurface() { }
+    public sealed record Pipeline(DisplayPipeline Display, UiSpriteAtlas? Atlas = null) : UiSurface;   // viewport screen-space 2D (Atlas optional)
+    public sealed record Canvas(Eto.Drawing.Graphics Graphics, UiSpriteAtlas? Atlas = null) : UiSurface;   // Eto Drawable (Atlas caches decoded sprites)
+
+    internal Unit Text(string value, System.Drawing.PointF at, DrawingColor color, UiFont font, UiAnchor anchor) => Switch(
+        pipeline: p => Op.Side(() => {
+            System.Drawing.Rectangle box = p.Display.Measure2dText(text: value, definitionPoint: Point2d.Origin, middleJustified: false, rotationRadians: 0d, height: font.Height, fontFace: font.Face);
+            System.Drawing.PointF origin = TextOrigin(anchor: anchor, at: at, size: new System.Drawing.SizeF(box.Width, box.Height));
+            p.Display.Draw2dText(text: value, color: color, screenCoordinate: new Point2d(origin.X, origin.Y), middleJustified: false, height: font.Height, fontface: font.Face);
+        }),
+        canvas: c => Op.Side(() => {
+            using Eto.Drawing.Font face = font.ToEto();
+            Eto.Drawing.SizeF measured = c.Graphics.MeasureString(face, value);
+            System.Drawing.PointF origin = TextOrigin(anchor: anchor, at: at, size: new System.Drawing.SizeF(measured.Width, measured.Height));
+            c.Graphics.DrawText(face, color.ToEto(), origin.X, origin.Y, value);
+        }));
+    internal Unit Stroke(System.Drawing.PointF from, System.Drawing.PointF to, UiStroke stroke) => Switch(
+        pipeline: p => Op.Side(() => p.Display.Draw2dLine(from: from, to: to, color: stroke.Color, thickness: stroke.Width)),
+        canvas: c => Op.Side(() => {
+            using Eto.Drawing.Pen pen = stroke.ToPen();
+            c.Graphics.DrawLine(pen, new Eto.Drawing.PointF(from.X, from.Y), new Eto.Drawing.PointF(to.X, to.Y));
+        }));
+    internal Unit Path(Seq<System.Drawing.PointF> points, UiStroke stroke, Option<UiFill> fill, bool closed) => Switch(
+        pipeline: p => Polyline(display: p.Display, pts: points, stroke: stroke, closed: closed),
+        canvas: c => Op.Side(() => {
+            Eto.Drawing.PointF[] eto = [.. points.Map(static p => new Eto.Drawing.PointF(p.X, p.Y))];
+            _ = Op.SideWhen(closed, () => fill.Iter(f => f.UseBrush(paint: brush => c.Graphics.FillPolygon(brush, eto))));
+            using Eto.Drawing.Pen pen = stroke.ToPen();
+            _ = closed switch { true => Op.Side(() => c.Graphics.DrawPolygon(pen, eto)), false => Op.Side(() => c.Graphics.DrawLines(pen, eto)) };
+        }));
+    internal Unit Box(System.Drawing.Rectangle bounds, UiStroke stroke, UiFill fill, float corner) => Switch(
+        pipeline: p => Op.Side(() => p.Display.DrawRoundedRectangle(
+            center: new System.Drawing.PointF(bounds.X + (bounds.Width / 2f), bounds.Y + (bounds.Height / 2f)),
+            pixelWidth: bounds.Width, pixelHeight: bounds.Height, cornerRadius: corner,
+            strokeColor: stroke.Color, strokeWidth: stroke.Width, fillColor: fill.Primary)),
+        canvas: c => Op.Side(() => {
+            using Eto.Drawing.Pen pen = stroke.ToPen();
+            Eto.Drawing.RectangleF rect = new(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+            _ = fill.UseBrush(paint: brush => _ = corner > 0f
+                ? Op.Side(() => {
+                    Eto.Drawing.IGraphicsPath path = Eto.Drawing.GraphicsPath.GetRoundRect(rect, corner);
+                    try {
+                        c.Graphics.FillPath(brush, path);
+                        c.Graphics.DrawPath(pen, path);
+                    } finally {
+                        _ = Optional(path as IDisposable).Iter(static disposable => disposable.Dispose());
+                    }
+                })
+                : Op.Side(() => { c.Graphics.FillRectangle(brush, rect); c.Graphics.DrawRectangle(pen, rect); }));
+        }));
+    internal Unit Sprite(UiSprite sprite) => Switch(
+        pipeline: p => Optional(p.Atlas).Bind(atlas => atlas.Resolve(source: sprite.Source)).Iter(bitmap => Draw(display: p.Display, bitmap: bitmap, sprite: sprite)),
+        canvas: c => Optional(c.Atlas).Bind(atlas => atlas.ResolveEto(source: sprite.Source)).Iter(image => Op.Side(() => c.Graphics.DrawImage(image, new Eto.Drawing.PointF(sprite.Place.Anchor.X, sprite.Place.Anchor.Y)))));
+
+    internal Unit Curve(Seq<UiCurveSeg> segs, UiStroke stroke, Option<UiFill> fill, bool closed) => Switch(
+        pipeline: p => CurvePipeline(display: p.Display, segs: segs, stroke: stroke, closed: closed),
+        canvas: c => Op.Side(() => {
+            using Eto.Drawing.GraphicsPath path = new();
+            _ = segs.Iter(seg => seg.AddTo(path));
+            _ = Op.SideWhen(closed, path.CloseFigure);
+            _ = Op.SideWhen(closed, () => fill.Iter(f => f.UseBrush(paint: brush => c.Graphics.FillPath(brush, path))));
+            using Eto.Drawing.Pen pen = stroke.ToPen();
+            c.Graphics.DrawPath(pen, path);
+        }));
+    internal Fin<System.Drawing.SizeF> MeasureText(string value, UiFont font) => Switch(
+        pipeline: p => {
+            System.Drawing.Rectangle box = p.Display.Measure2dText(text: value, definitionPoint: Point2d.Origin, middleJustified: false, rotationRadians: 0d, height: font.Height, fontFace: font.Face);
+            return Fin.Succ(value: new System.Drawing.SizeF(box.Width, box.Height));
+        },
+        canvas: c => {
+            using Eto.Drawing.Font face = font.ToEto();
+            Eto.Drawing.SizeF measured = c.Graphics.MeasureString(face, value);
+            return Fin.Succ(value: new System.Drawing.SizeF(measured.Width, measured.Height));
+        });
+    internal Fin<Unit> Clip(System.Drawing.RectangleF region, Func<Fin<Unit>> draw) => Switch(
+        pipeline: _ => draw(),
+        canvas: c => {
+            c.Graphics.SetClip(new Eto.Drawing.RectangleF(region.X, region.Y, region.Width, region.Height));
+            try { return draw(); } finally { c.Graphics.ResetClip(); }
+        });
+    internal Fin<Unit> Transform(System.Drawing.PointF translate, float scale, float rotation, Func<Fin<Unit>> draw) => Switch(
+        pipeline: _ => draw(),
+        canvas: c => {
+            using IDisposable state = c.Graphics.SaveTransformState();
+            c.Graphics.TranslateTransform(translate.X, translate.Y);
+            c.Graphics.ScaleTransform(scale);
+            c.Graphics.RotateTransform(rotation);
+            return draw();
+        });
+
+    internal static System.Drawing.PointF TextOrigin(UiAnchor anchor, System.Drawing.PointF at, System.Drawing.SizeF size) {
+        float x = anchor switch {
+            UiAnchor.TopLeft or UiAnchor.MiddleLeft or UiAnchor.BottomLeft => at.X,
+            UiAnchor.TopCenter or UiAnchor.Center or UiAnchor.BottomCenter => at.X - (size.Width / 2f),
+            _ => at.X - size.Width,
+        };
+        float y = anchor switch {
+            UiAnchor.TopLeft or UiAnchor.TopCenter or UiAnchor.TopRight => at.Y,
+            UiAnchor.MiddleLeft or UiAnchor.Center or UiAnchor.MiddleRight => at.Y - (size.Height / 2f),
+            _ => at.Y - size.Height,
+        };
+        return new System.Drawing.PointF(x, y);
+    }
+    private static Unit Draw(DisplayPipeline display, DisplayBitmap bitmap, UiSprite sprite) {
+        (BlendMode source, BlendMode destination) = sprite.Blend.IfNone((BlendMode.SourceAlpha, BlendMode.OneMinusSourceAlpha));
+        bitmap.SetBlendFunction(source: source, destination: destination);
+        DrawingColor tint = sprite.Tint.IfNone(DrawingColor.White);
+        return sprite.Place.Switch(
+            screen: s => Op.Side(() => display.DrawSprite(bitmap: bitmap, screenLocation: new Point2d(s.At.X, s.At.Y), size: sprite.Size, blendColor: tint)),
+            world: w => Op.Side(() => display.DrawSprite(bitmap: bitmap, worldLocation: w.At, size: sprite.Size, blendColor: tint, sizeInWorldSpace: true)),
+            cloud: cl => Op.Side(() => {
+                DisplayBitmapDrawList list = new();
+                _ = cl.Colors.Case switch {
+                    Seq<DrawingColor> cs => Op.Side(() => list.SetPoints(points: cl.At.AsEnumerable(), colors: cs.AsEnumerable())),
+                    _ => Op.Side(() => list.SetPoints(points: cl.At.AsEnumerable(), blendColor: tint)),
+                };
+                _ = list.Sort(cameraDirection: display.Viewport.CameraDirection);
+                display.DrawSprites(bitmap: bitmap, items: list, size: sprite.Size, sizeInWorldSpace: true);
+            }));
+    }
+    private static Unit Polyline(DisplayPipeline display, Seq<System.Drawing.PointF> pts, UiStroke stroke, bool closed) =>
+        pts.IsEmpty ? unit : Op.Side(() => {
+            Seq<Point3d> world = pts.Map(static q => new Point3d(q.X, q.Y, 0d));
+            using PolylineCurve curve = new(points: (closed ? world.Add(world[0]) : world).AsEnumerable());
+            _ = new UiRenderState(Screen2d: true).Scope(pipeline: display, draw: () => display.DrawCurve(curve: curve, pen: stroke.ToDisplayPen()));
+        });
+    private static Unit CurvePipeline(DisplayPipeline display, Seq<UiCurveSeg> segs, UiStroke stroke, bool closed) {
+        Seq<Curve> parts = toSeq(segs.Choose(static seg => seg.ToCurve()));
+        return parts.Count == segs.Count && !parts.IsEmpty
+            ? Op.Side(() => {
+                try {
+                    using PolyCurve poly = new();
+                    _ = parts.Iter(part => poly.Append(part));
+                    _ = Op.SideWhen(closed, () => poly.Append(new Line(poly.PointAtEnd, poly.PointAtStart)));
+                    _ = new UiRenderState(Screen2d: true).Scope(pipeline: display, draw: () => display.DrawCurve(curve: poly, pen: stroke.ToDisplayPen()));
+                } finally {
+                    _ = parts.Iter(static part => part.Dispose());
+                }
+            })
+            : Op.Side(() => {
+                _ = parts.Iter(static part => part.Dispose());
+                _ = Polyline(display: display, pts: segs.Bind(static seg => seg.Sample(steps: 24)), stroke: stroke, closed: closed);
+            });
+    }
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+public readonly record struct UiCanvasContext<TState>(MousePhase Phase, TState State, Eto.Forms.MouseEventArgs Args) : IUiInput<TState> {
+    public Eto.Drawing.PointF Location => Args.Location;
+    public bool Shift => Args.Modifiers.HasFlag(Eto.Forms.Keys.Shift);
+    public bool Control => Args.Modifiers.HasFlag(Eto.Forms.Keys.Control);
+    public bool Alt => Args.Modifiers.HasFlag(Eto.Forms.Keys.Alt);
+    public Eto.Drawing.SizeF Scroll => Args.Delta;
+    public Eto.Forms.MouseButtons Buttons => Args.Buttons;
+    public bool Primary => Args.Buttons.HasFlag(Eto.Forms.MouseButtons.Primary);
+    public bool Secondary => Args.Buttons.HasFlag(Eto.Forms.MouseButtons.Alternate);
+    public bool Middle => Args.Buttons.HasFlag(Eto.Forms.MouseButtons.Middle);
+    public float Pressure => Args.Pressure;
+}
+
+public readonly record struct UiCanvasKey<TState>(KeyPhase Phase, TState State, Eto.Forms.KeyEventArgs Args) : IUiInput<TState> {
+    public bool Shift => Args.Shift;
+    public bool Control => Args.Control;
+    public bool Alt => Args.Alt;
+    public Eto.Forms.Keys Key => Args.Key;
+}
+
 public readonly record struct UiHud(Seq<UiMark> Marks) {
     public static UiHud Empty => new(Seq<UiMark>());
     public static UiHud operator +(UiHud left, UiHud right) => new(left.Marks + right.Marks);
@@ -525,8 +393,6 @@ public readonly record struct UiHud(Seq<UiMark> Marks) {
     internal Fin<Unit> Render(UiSurface surface) => Marks.TraverseM(mark => mark.Render(surface: surface)).As().Map(static _ => unit);
 }
 
-// Pure DPI-aware HUD placement: viewport rect + DpiScale -> anchored screen point for measured content. A distinct
-// input set from UiHud's mark list (forcing the viewport rect through every mark is wrong) — its own single-concern home.
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct UiHudLayout(System.Drawing.RectangleF Bounds, float DpiScale = 1f) {
     public static UiHudLayout Of(RhinoViewport viewport, float dpiScale) {
@@ -545,9 +411,6 @@ public readonly record struct UiHudLayout(System.Drawing.RectangleF Bounds, floa
                 : Bounds.Bottom - content.Height - m;
         return new System.Drawing.PointF(x, y);
     }
-
-    // Place + carve: returns the placed region AND the layout with that band removed, so multi-element HUDs compose
-    // immutably (top anchors shrink from the top, bottom anchors from the bottom; middle anchors leave Bounds intact).
     public (System.Drawing.RectangleF Region, UiHudLayout Remaining) Stack(UiAnchor anchor, System.Drawing.SizeF content, float margin = 8f) {
         System.Drawing.PointF at = Place(anchor: anchor, content: content, margin: margin);
         System.Drawing.RectangleF region = new(at.X, at.Y, content.Width, content.Height);
@@ -559,10 +422,6 @@ public readonly record struct UiHudLayout(System.Drawing.RectangleF Bounds, floa
         };
         return (region, this with { Bounds = remaining });
     }
-
-    // Non-overlap is per-EDGE-GROUP, not global: only top/bottom anchors carve Remaining, so a Center/Middle* item (which
-    // leaves Bounds intact) interleaved between top items can legitimately overlap them. Callers mixing edges must read
-    // the contract as "non-overlapping within each of {top*, bottom*}", and keep middle anchors out of stacked groups.
     public static (Seq<System.Drawing.RectangleF> Regions, UiHudLayout Final) StackMany(UiHudLayout layout, Seq<(UiAnchor Anchor, System.Drawing.SizeF Size)> items) =>
         items.Fold((Seq<System.Drawing.RectangleF>(), layout), static (acc, item) => {
             (System.Drawing.RectangleF region, UiHudLayout remaining) = acc.Item2.Stack(anchor: item.Anchor, content: item.Size);
@@ -570,25 +429,51 @@ public readonly record struct UiHudLayout(System.Drawing.RectangleF Bounds, floa
         });
 }
 
-public readonly record struct UiCanvasContext<TState>(MousePhase Phase, TState State, Eto.Forms.MouseEventArgs Args) : IUiInput<TState> {
-    public Eto.Drawing.PointF Location => Args.Location;
-    public bool Shift => Args.Modifiers.HasFlag(Eto.Forms.Keys.Shift);
-    public bool Control => Args.Modifiers.HasFlag(Eto.Forms.Keys.Control);
-    public bool Alt => Args.Modifiers.HasFlag(Eto.Forms.Keys.Alt);
-    public Eto.Drawing.SizeF Scroll => Args.Delta;
-    // Button discriminator parity with the viewport InteractionGuard rail.
-    public Eto.Forms.MouseButtons Buttons => Args.Buttons;
-    public bool Primary => Args.Buttons.HasFlag(Eto.Forms.MouseButtons.Primary);
-    public bool Secondary => Args.Buttons.HasFlag(Eto.Forms.MouseButtons.Alternate);
-    public bool Middle => Args.Buttons.HasFlag(Eto.Forms.MouseButtons.Middle);
-    public float Pressure => Args.Pressure;
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct UiRenderHint(
+    Option<bool> AntiAlias = default,
+    Option<Eto.Drawing.ImageInterpolation> Interpolation = default,
+    Option<Eto.Drawing.PixelOffsetMode> PixelOffset = default) {
+    public static UiRenderHint HighQuality => new(AntiAlias: true, Interpolation: Eto.Drawing.ImageInterpolation.High, PixelOffset: Eto.Drawing.PixelOffsetMode.None);
+    public static UiRenderHint operator +(UiRenderHint l, UiRenderHint r) => new(
+        AntiAlias: r.AntiAlias.IsSome ? r.AntiAlias : l.AntiAlias,
+        Interpolation: r.Interpolation.IsSome ? r.Interpolation : l.Interpolation,
+        PixelOffset: r.PixelOffset.IsSome ? r.PixelOffset : l.PixelOffset);
+    internal Unit Apply(Eto.Drawing.Graphics g) {
+        Option<bool> antiAlias = AntiAlias;   // struct lambdas cannot capture `this`
+        Option<Eto.Drawing.ImageInterpolation> interpolation = Interpolation;
+        Option<Eto.Drawing.PixelOffsetMode> pixelOffset = PixelOffset;
+        return Op.Side(() => {
+            _ = antiAlias.Iter(v => g.AntiAlias = v);
+            _ = interpolation.Iter(v => g.ImageInterpolation = v);
+            _ = pixelOffset.Iter(v => g.PixelOffsetMode = v);
+        });
+    }
 }
 
-public readonly record struct UiCanvasKey<TState>(KeyPhase Phase, TState State, Eto.Forms.KeyEventArgs Args) : IUiInput<TState> {
-    public bool Shift => Args.Shift;
-    public bool Control => Args.Control;
-    public bool Alt => Args.Alt;
-    public Eto.Forms.Keys Key => Args.Key;
+public readonly record struct UiSprite(SpriteSource Source, UiSpritePlace Place, float Size = 1f, Option<(BlendMode Source, BlendMode Destination)> Blend = default, Option<DrawingColor> Tint = default);
+
+public readonly record struct UiStroke(DrawingColor Color, float Width = 1f, Seq<float> Dashes = default, float Halo = 0f, DrawingColor HaloColor = default, Eto.Drawing.PenLineJoin Join = Eto.Drawing.PenLineJoin.Miter, Eto.Drawing.PenLineCap Cap = Eto.Drawing.PenLineCap.Square, float Miter = 10f) {
+    public static UiStroke Of(DrawingColor color, float width = 1f) => new(Color: color, Width: width);
+    internal Eto.Drawing.Pen ToPen() {
+        Seq<float> dashes = Dashes;   // struct lambdas cannot capture `this`
+        Eto.Drawing.Pen pen = new(Color.ToEto(), Width) { LineJoin = Join, LineCap = Cap, MiterLimit = Miter };
+        _ = Op.SideWhen(!dashes.IsEmpty, () => pen.DashStyle = new Eto.Drawing.DashStyle(0f, [.. dashes]));
+        return pen;
+    }
+    internal DisplayPen ToDisplayPen() {
+        Seq<float> dashes = Dashes;
+        DisplayPen pen = new() {
+            Color = Color,
+            Thickness = Width,
+            HaloThickness = Halo,
+            HaloColor = HaloColor.IsEmpty switch { true => Color, false => HaloColor },
+            CapStyle = Cap switch { Eto.Drawing.PenLineCap.Butt => LineCapStyle.Flat, Eto.Drawing.PenLineCap.Round => LineCapStyle.Round, _ => LineCapStyle.Square },
+            JoinStyle = Join switch { Eto.Drawing.PenLineJoin.Bevel => LineJoinStyle.Bevel, Eto.Drawing.PenLineJoin.Round => LineJoinStyle.Round, _ => LineJoinStyle.Miter },
+        };
+        _ = Op.SideWhen(!dashes.IsEmpty, () => pen.SetPattern(dashesAndGaps: dashes.AsEnumerable()));
+        return pen;
+    }
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -637,17 +522,57 @@ public sealed class UiCanvas<TState> : Eto.Forms.Drawable {
 
     private Unit Pointer(MousePhase phase, Eto.Forms.MouseEventArgs args) =>
         Optional(mouse).Iter(handler => Commit(() => handler(new UiCanvasContext<TState>(Phase: phase, State: state.Value, Args: args)), handled: cancel => args.Handled = cancel));
-
-    // BOUNDARY ADAPTER — Atom state swap + Eto.Forms Invalidate are boundary side effects; terminal Match collapses to Unit at the void override boundary.
     private Unit Commit(Func<Fin<MouseDecision<TState>>> run, Action<bool> handled) =>
         RhinoUi.Protect(valid: run).Map(d => { _ = state.Swap(_ => d.State); ToolTip = d.ToolTip.IfNone(string.Empty); handled(d.Cancel); Invalidate(); return unit; })
-            .Match(Succ: static _ => unit, Fail: static _ => unit);
-
-    // BOUNDARY ADAPTER — the scope sprite atlas releases its cached GPU/canvas bitmaps with the drawable.
+            .Match(Succ: static _ => unit, Fail: error => {
+                if (error is not Fault.Cancelled) RhinoApp.WriteLine($"Rasm canvas commit failed: {error.Message}");
+                return unit;
+            });
     protected override void Dispose(bool disposing) {
         if (disposing) {
             atlas.Dispose();
         }
         base.Dispose(disposing);
     }
+}
+
+public sealed class UiSpriteAtlas : IDisposable {
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<SpriteSource, DisplayBitmap> cache = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<SpriteSource, Eto.Drawing.Bitmap> etoCache = new();
+    private int disposed;
+
+    public static UiSpriteAtlas Empty => new();
+    internal Option<DisplayBitmap> Resolve(SpriteSource source) =>
+        Volatile.Read(ref disposed) == 0
+            ? Optional(cache.GetOrAdd(key: source, valueFactory: static key => key.Load()))
+            : Option<DisplayBitmap>.None;
+    internal Option<Eto.Drawing.Bitmap> ResolveEto(SpriteSource source) =>
+        Volatile.Read(ref disposed) == 0
+            ? Optional(etoCache.GetOrAdd(key: source, valueFactory: static key => key.ToEtoBitmap()))
+            : Option<Eto.Drawing.Bitmap>.None;
+    public void Dispose() {
+        _ = Interlocked.Exchange(ref disposed, 1) == 1
+            ? unit
+            : Op.Side(() => {
+                _ = toSeq(cache.Values).Iter(static bitmap => bitmap.Dispose());
+                _ = toSeq(etoCache.Values).Iter(static bitmap => bitmap.Dispose());
+            });
+        GC.SuppressFinalize(obj: this);
+    }
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static class UiInput {
+    extension<TState>(IUiInput<TState> input) {
+        public MouseDecision<TState> Pass => MouseDecision.Pass(input.State);
+
+        public MouseDecision<TState> Next(TState state, bool cancel = false, Option<string> toolTip = default) =>
+            MouseDecision.Next(state, cancel, toolTip);
+
+        public MouseDecision<TState> Hint(string value) => MouseDecision.Hint(input.State, value);
+    }
+}
+
+internal static class DrawingConvert {
+    internal static EtoColor ToEto(this DrawingColor color) => EtoColor.FromArgb(color.R, color.G, color.B, color.A);
 }

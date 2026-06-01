@@ -1,36 +1,6 @@
 namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct PickLocation(Option<double> CurveParameter, Option<Point2d> SurfaceParameter) {
-    internal static Option<PickLocation> Of(ObjRef reference, SelectionMethod selectionMethod) {
-        ArgumentNullException.ThrowIfNull(argument: reference);
-        Option<double> curve = selectionMethod switch {
-            SelectionMethod.MousePick => reference.CurveParameter(parameter: out double curveParameter) switch {
-                Curve when RhinoMath.IsValidDouble(x: curveParameter) => Some(curveParameter),
-                _ => Option<double>.None,
-            },
-            _ => Option<double>.None,
-        };
-        Option<Point2d> surface = selectionMethod switch {
-            SelectionMethod.MousePick => reference.SurfaceParameter(u: out double surfaceU, v: out double surfaceV) switch {
-                Surface => new Point2d(x: surfaceU, y: surfaceV),
-                _ => Point2d.Unset,
-            } switch {
-                Point2d point when point.IsValid => Some(point),
-                _ => Option<Point2d>.None,
-            },
-            _ => Option<Point2d>.None,
-        };
-        return Of(curve: curve, surface: surface);
-    }
-
-    private static Option<PickLocation> Of(Option<double> curve, Option<Point2d> surface) =>
-        (curve.IsSome || surface.IsSome) switch {
-            true => Some(new PickLocation(CurveParameter: curve, SurfaceParameter: surface)),
-            false => Option<PickLocation>.None,
-        };
-}
-
 public sealed record CommandPickPolicy(
     Option<RhinoView> View = default,
     Option<Line> PickLine = default,
@@ -61,6 +31,37 @@ public sealed record CommandPickPolicy(
         select result;
 }
 
+public readonly record struct PickLocation(Option<double> CurveParameter, Option<Point2d> SurfaceParameter) {
+    internal static Option<PickLocation> Of(ObjRef reference, SelectionMethod selectionMethod) {
+        ArgumentNullException.ThrowIfNull(argument: reference);
+        Option<double> curve = selectionMethod switch {
+            SelectionMethod.MousePick => reference.CurveParameter(parameter: out double curveParameter) switch {
+                Curve when RhinoMath.IsValidDouble(x: curveParameter) => Some(curveParameter),
+                _ => Option<double>.None,
+            },
+            _ => Option<double>.None,
+        };
+        Option<Point2d> surface = selectionMethod switch {
+            SelectionMethod.MousePick => reference.SurfaceParameter(u: out double surfaceU, v: out double surfaceV) switch {
+                Surface => new Point2d(x: surfaceU, y: surfaceV),
+                _ => Point2d.Unset,
+            } switch {
+                Point2d point when point.IsValid => Some(point),
+                _ => Option<Point2d>.None,
+            },
+            _ => Option<Point2d>.None,
+        };
+        return Of(curve: curve, surface: surface);
+    }
+
+    private static Option<PickLocation> Of(Option<double> curve, Option<Point2d> surface) =>
+        (curve.IsSome || surface.IsSome) switch {
+            true => Some(new PickLocation(CurveParameter: curve, SurfaceParameter: surface)),
+            false => Option<PickLocation>.None,
+        };
+}
+
+// --- [SERVICES] ---------------------------------------------------------------------------
 public sealed record CommandSelection {
     private CommandSelection(RhinoDoc document, Seq<Reference> items) {
         ArgumentNullException.ThrowIfNull(argument: document);
@@ -128,13 +129,49 @@ public sealed record CommandSelection {
     }
 
     public static Fin<CommandSelection> Pick(RhinoDoc document, CommandPickPolicy policy) =>
-        Optional(policy).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
-            .Bind(valid => valid.Use(document: document, use: context => PickWith(document: document, context: context, updateClippingPlanes: valid.UpdateClippingPlanes)));
+        SelectionSource.Of(policy: policy).Read(document: document);
 
     public static Fin<CommandSelection> Pick(RhinoDoc document, PickContext context) =>
-        PickWith(document: document, context: context, updateClippingPlanes: true);
+        SelectionSource.Of(context: context, updateClippingPlanes: true).Read(document: document);
 
-    private static Fin<CommandSelection> PickWith(RhinoDoc document, PickContext context, bool updateClippingPlanes) =>
+    internal static Fin<CommandSelection> FromGetter(RhinoDoc document, GetObject getter, GetResult raw) =>
+        SelectionSource.Of(getter: getter, raw: raw).Read(document: document);
+
+    private abstract record SelectionSource {
+        private SelectionSource() { }
+        internal abstract Fin<CommandSelection> Read(RhinoDoc document);
+
+        internal static SelectionSource Of(CommandPickPolicy policy) => new PickPolicySource(policy);
+        internal static SelectionSource Of(PickContext context, bool updateClippingPlanes) => new PickContextSource(context, updateClippingPlanes);
+        internal static SelectionSource Of(GetObject getter, GetResult raw) => new GetterSource(getter, raw);
+
+        private sealed record PickPolicySource(CommandPickPolicy Policy) : SelectionSource {
+            internal override Fin<CommandSelection> Read(RhinoDoc document) =>
+                from valid in Optional(Policy).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
+                from selection in valid.Use(document: document, use: context => Of(context: context, updateClippingPlanes: valid.UpdateClippingPlanes).Read(document: document))
+                select selection;
+        }
+
+        private sealed record PickContextSource(PickContext Context, bool UpdateClippingPlanes) : SelectionSource {
+            internal override Fin<CommandSelection> Read(RhinoDoc document) =>
+                PickWith(document: document, context: Context, updateClippingPlanes: UpdateClippingPlanes);
+        }
+
+        private sealed record GetterSource(GetObject Getter, GetResult Raw) : SelectionSource {
+            internal override Fin<CommandSelection> Read(RhinoDoc document) =>
+                Raw is GetResult.Object && Getter.Objects() is ObjRef[] references
+                    ? Fin.Succ(value: From(
+                        document: document,
+                        references: toSeq(references),
+                        preselected: Getter.ObjectsWerePreselected
+                            ? toSeq(references)
+                                .Filter(static reference => Optional(reference.Object()).Map(static item => item.IsSelected(checkSubObjects: true) > 0).IfNone(noneValue: false))
+                                .Map(static reference => (reference.ObjectId, reference.GeometryComponentIndex))
+                            : Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>()))
+                    : Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(FromGetter)).InvalidResult());
+        }
+
+        private static Fin<CommandSelection> PickWith(RhinoDoc document, PickContext context, bool updateClippingPlanes) =>
         from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
         from validContext in Optional(context).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
         from _view in updateClippingPlanes && validContext.View is null
@@ -147,11 +184,11 @@ public sealed record CommandSelection {
             return Optional(validDocument.Objects.PickObjects(pickContext: validContext)).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidResult()).Bind(references => references switch { { Length: > 0 } values => Fin.Succ(value: From(document: validDocument, references: toSeq(values), preselected: Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>())), _ => Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(Pick)).InvalidResult()) });
         })
         select selection;
+    }
 
     internal static CommandSelection From(RhinoDoc document, Seq<ObjRef> references, Seq<(Guid ObjectId, ComponentIndex ComponentIndex)> preselected) {
         ArgumentNullException.ThrowIfNull(argument: document);
         ObjRef[] source = [.. references];
-        // BOUNDARY ADAPTER — ObjRef is native disposable state; snapshots must release it even when Rhino accessors throw.
         try {
             Reference[] snapshots = [.. toSeq(source).Map(reference => Reference.Of(
                 document: document,
@@ -181,7 +218,6 @@ public sealed record CommandSelection {
     private Fin<int> SelectNative(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) {
         ArgumentNullException.ThrowIfNull(argument: document);
         Seq<ObjRef> references = Seq<ObjRef>();
-        // BOUNDARY ADAPTER — reconstructed ObjRefs are native disposable state around the selection call.
         try {
             references = Items.Map(reference => reference.ObjRef(document: document));
             return references.TraverseM(reference => policy.Select((highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) => document.Objects.Select(reference, selected, highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility)) switch {
@@ -298,11 +334,6 @@ public sealed record CommandSelection {
             SelectionViewRuntimeSerialNumber
                 .Bind(static serial => Optional(RhinoView.FromRuntimeSerialNumber(serialNumber: serial)))
                 .ToFin(Fail: Op.Of(name: nameof(View)).MissingContext());
-
-        // Single typed extractor over an ObjRef: the Brep/SubD component family + RhinoObject via native typed
-        // accessors, plus a GeometryBase fallback; a miss is a typed failure rather than a silent None. Geometry and
-        // Project are projections over it — Geometry owns the result (duplicate, survives ObjRef disposal); Project
-        // consumes the native projection in-scope before the surrounding `using ObjRef` releases it.
         internal static Fin<T> Extract<T>(ObjRef reference, Op op) where T : class =>
             NativeOf<T>(reference: reference).ToFin(Fail: op.InvalidResult(detail: $"{typeof(T).Name} not extractable"));
 

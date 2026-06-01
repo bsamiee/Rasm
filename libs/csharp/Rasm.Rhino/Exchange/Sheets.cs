@@ -1,13 +1,174 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using Rasm.Rhino.Camera;
 using Rasm.Rhino.Commands;
 using DetailViewGeometry = Rhino.Geometry.DetailView;
 using DrawingColor = System.Drawing.Color;
 
 namespace Rasm.Rhino.Exchange;
 
+// --- [TYPES] ------------------------------------------------------------------------------
+[Union(SwitchMapStateParameterName = "ctx")]
+public abstract partial record FileScale {
+    private FileScale() { }
+    public sealed record Ratio(double Model, double Page) : FileScale;
+    public sealed record Lengths(double ModelLength, LengthUnit ModelUnit, double PageLength, LengthUnit PageUnit) : FileScale;
+    public sealed record Named(string Value) : FileScale;
+    internal Fin<DetailViewObject> Apply(DetailViewObject detail, RhinoDoc document, Op op) =>
+        from spec in Resolve(document: document, op: op)
+        from parallel in EnsureParallel(detail: detail, op: op)
+        from _ in op.Confirm(success:
+            parallel.DetailGeometry.SetScale(modelLength: spec.ModelLength, modelUnits: spec.ModelUnit, pageLength: spec.PageLength, pageUnits: spec.PageUnit)
+            && parallel.CommitChanges())
+        select parallel;
+    private static Fin<DetailViewObject> EnsureParallel(DetailViewObject detail, Op op) =>
+        detail.DetailGeometry is { IsParallelProjection: true }
+            ? Fin.Succ(value: detail)
+            : op.Catch(() => {
+                using ViewportInfo info = new(detail.Viewport);
+                _ = info.ChangeToParallelProjection(symmetricFrustum: true);
+                _ = detail.Viewport.SetViewProjection(projection: info, updateTargetLocation: false);
+                _ = detail.CommitViewportChanges();
+                return Optional(detail.ParentPageView)
+                    .Bind(page => toSeq(page.GetDetailViews()).Find(found => found.Id == detail.Id))
+                    .ToFin(Fail: op.InvalidResult());
+            });
+
+    internal Fin<(double ModelLength, LengthUnit ModelUnit, double PageLength, LengthUnit PageUnit)> Resolve(RhinoDoc document, Op op) =>
+        Switch(
+            (Doc: document, Op: op),
+            ratio: static (ctx, r) =>
+                from m in Positive(value: r.Model, op: ctx.Op)
+                from p in Positive(value: r.Page, op: ctx.Op)
+                let modelUnit = LengthUnit.FromKnownUnitSystem(knownUnitSystem: ctx.Doc.ModelUnitSystem)
+                let pageUnit = LengthUnit.FromKnownUnitSystem(knownUnitSystem: ctx.Doc.PageUnitSystem)
+                select (ModelLength: m, ModelUnit: modelUnit, PageLength: p, PageUnit: pageUnit),
+            lengths: static (ctx, l) =>
+                from m in Positive(value: l.ModelLength, op: ctx.Op)
+                from p in Positive(value: l.PageLength, op: ctx.Op)
+                from _ in guard(Defined(unit: l.ModelUnit) && Defined(unit: l.PageUnit), ctx.Op.InvalidInput())
+                select (ModelLength: m, l.ModelUnit, PageLength: p, l.PageUnit),
+            named: static (ctx, n) => ParseNamed(
+                value: n.Value,
+                modelFallback: LengthUnit.FromKnownUnitSystem(knownUnitSystem: ctx.Doc.ModelUnitSystem),
+                pageFallback: LengthUnit.FromKnownUnitSystem(knownUnitSystem: ctx.Doc.PageUnitSystem),
+                op: ctx.Op));
+    private static Fin<(double, LengthUnit, double, LengthUnit)> ParseNamed(string value, LengthUnit modelFallback, LengthUnit pageFallback, Op op) =>
+        from text in FileEndpoint.NonBlank(value: value, op: op)
+        from tuple in op.Catch(() => {
+            using ScaleValue scale = ScaleValue.Create(s: text, ps: StringParserSettings.DefaultParseSettings);
+            return scale is { } sv && !sv.IsUnset()
+                ? op.Catch(() => {
+                    using LengthValue page = sv.LeftLengthValue();
+                    using LengthValue model = sv.RightLengthValue();
+                    return Fin.Succ(value: (model.Length(units: model.Units), UnitOr(unit: model.Units, fallback: modelFallback), page.Length(units: page.Units), UnitOr(unit: page.Units, fallback: pageFallback)));
+                })
+                : Fin.Fail<(double, LengthUnit, double, LengthUnit)>(error: op.InvalidInput());
+        })
+        from valid in guard(RhinoMath.IsValidDouble(x: tuple.Item1) && tuple.Item1 > 0.0 && RhinoMath.IsValidDouble(x: tuple.Item3) && tuple.Item3 > 0.0, op.InvalidResult())
+        select tuple;
+
+    private static LengthUnit UnitOr(LengthUnit unit, LengthUnit fallback) =>
+        LengthUnit.IsNone(unit: unit) || LengthUnit.IsUnset(unit: unit) ? fallback : unit;
+
+    internal static Option<string> Format(DetailViewObject detail) =>
+        detail.GetFormattedScale(format: DetailViewObject.ScaleFormat.OneToModelLength, value: out string formatted)
+            ? FileArchiveOps.TextOption(value: formatted) : Option<string>.None;
+
+    private static bool Defined(LengthUnit unit) => !LengthUnit.IsNone(unit: unit) && !LengthUnit.IsUnset(unit: unit);
+
+    private static Fin<double> Positive(double value, Op op) =>
+        RhinoMath.IsValidDouble(x: value) && value > 0.0 ? Fin.Succ(value: value) : Fin.Fail<double>(error: op.InvalidInput());
+}
+
+[Union(SwitchMapStateParameterName = "context")]
+public abstract partial record FileSheetEdit {
+    private FileSheetEdit() { }
+    public sealed record Create(FileSheetSpec Spec) : FileSheetEdit;
+    public sealed record Remove(string SheetName) : FileSheetEdit;
+    public sealed record Duplicate(string SheetName, bool WithGeometry = true) : FileSheetEdit;
+    public sealed record Rename(string SheetName, string NewName) : FileSheetEdit;
+    public sealed record Reorder(Seq<string> SheetNames) : FileSheetEdit;
+    public sealed record AddDetail(string SheetName, FileDetailSpec Spec) : FileSheetEdit;
+    public sealed record Resize(string SheetName, Option<FileSheetSize> Size = default, Option<string> Description = default) : FileSheetEdit;
+    public sealed record ScaleDetail(string SheetName, Option<string> DetailName, FileScale Scale) : FileSheetEdit;
+    public sealed record Import(FileEndpoint Source, Guid SourceViewportId, string Name) : FileSheetEdit;
+    public sealed record RemoveDetail(string SheetName, string DetailName) : FileSheetEdit;
+    public sealed record ActivateDetail(string SheetName, Option<string> DetailName) : FileSheetEdit;
+    public sealed record LayerOverride(string SheetName, Option<string> DetailName, Seq<FileLayerOverride> Overrides) : FileSheetEdit;
+    public sealed record ClippingOverride(string SheetName, string DetailName, BoundingBox Box) : FileSheetEdit;
+    public sealed record FrameDetail(string SheetName, Option<string> DetailName, Seq<CameraEdit> Edits, Option<FileScale> Scale = default, Option<BoundingBox> Clipping = default) : FileSheetEdit;
+    public sealed record Configure(SheetQuery Query, FileSheetConfig Config) : FileSheetEdit;
+    public sealed record Number(SheetQuery Query, FileNumbering Numbering) : FileSheetEdit;
+    public sealed record ArrangeDetails(SheetQuery Query, FileDetailGrid Grid) : FileSheetEdit;
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
+public readonly record struct FileDetailGrid(int Columns, double SpacingX, double SpacingY, Point2d Origin = default, Option<Func<DetailViewObject, bool>> Where = default);
+
+public readonly record struct FileDetailReport(
+    string Name,
+    Option<string> Scale,
+    DefinedViewportProjection Projection,
+    Guid ViewportId,
+    bool Active,
+    double PageToModelRatio,
+    Transform WorldToPage,
+    Transform PageToWorld,
+    Option<double> PaperLengthPerModelUnit,
+    Option<double> ModelLengthPerPaperUnit,
+    Seq<string> OverriddenLayers);
+
+public readonly record struct FileDetailSpec(
+    string Name,
+    Point2d Corner,
+    Point2d Opposite,
+    DefinedViewportProjection Projection = DefinedViewportProjection.Top,
+    bool ProjectionLocked = true,
+    Option<Guid> DisplayMode = default,
+    Option<FileScale> Scale = default,
+    Seq<CameraEdit> View = default);
+
+public readonly record struct FileLayerOverride(string LayerPath, FileLayerOverrideSpec Spec);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FileLayerOverrideSpec(
+    FileOverride<DrawingColor> Color = default,
+    FileOverride<bool> Visible = default,
+    FileOverride<bool> PersistentVisible = default,
+    FileOverride<DrawingColor> PlotColor = default,
+    FileOverride<double> PlotWeight = default) {
+    public static FileLayerOverrideSpec operator |(FileLayerOverrideSpec left, FileLayerOverrideSpec right) =>
+        new(
+            Color: left.Color | right.Color,
+            Visible: left.Visible | right.Visible,
+            PersistentVisible: left.PersistentVisible | right.PersistentVisible,
+            PlotColor: left.PlotColor | right.PlotColor,
+            PlotWeight: left.PlotWeight | right.PlotWeight);
+    internal bool IsReset =>
+        Color.Value.IsNone && Visible.Value.IsNone && PersistentVisible.Value.IsNone && PlotColor.Value.IsNone && PlotWeight.Value.IsNone;
+}
+
+public readonly record struct FileNumbering(string SheetPattern, int Start = 1, Option<string> DetailPattern = default);
+
+public readonly record struct FileSheetConfig(
+    Option<FileSheetSize> Size = default,
+    Option<string> Group = default,
+    Option<string> Description = default,
+    Option<FileScale> DetailScale = default,
+    Option<UnitSystem> PageUnits = default,
+    Seq<FileUserString> UserStrings = default,
+    Option<string> GroupDescription = default);
+
+public readonly record struct FileSheetReport(
+    string Name,
+    int Number,
+    Option<(double Width, double Height)> Size,
+    Seq<string> Groups,
+    Seq<FileDetailReport> Details,
+    Seq<(string Group, Seq<FileUserString> Strings)> GroupMetadata);
+
 public readonly record struct FileSheetSize(UnitSystem Units, Option<double> Width = default, Option<double> Height = default) {
     internal Fin<Option<(double Width, double Height)>> Create(RhinoDoc document, Op op) {
         FileSheetSize self = this;
@@ -51,131 +212,12 @@ public readonly record struct FileSheetSize(UnitSystem Units, Option<double> Wid
         select resolved;
 }
 
-// Polymorphic detail-scale algebra. One `SetScale` rail absorbs unitless ratio, explicit length pair, and
-// natively-parsed named scales ("1:100", "1/4\"=1'-0\"") — a second scale mode is a discriminator, not a knob.
-// Native `Rhino.ScaleValue`/`LengthValue` own the parsing; `LengthUnit` is a readonly struct, not an enum.
-[Union(SwitchMapStateParameterName = "ctx")]
-public abstract partial record FileScale {
-    private FileScale() { }
-    public sealed record Ratio(double Model, double Page) : FileScale;
-    public sealed record Lengths(double ModelLength, LengthUnit ModelUnit, double PageLength, LengthUnit PageUnit) : FileScale;
-    public sealed record Named(string Value) : FileScale;
-
-    // One SetScale rail for ratio/length/named scales. `SetScale`'s NonConstPointer() promotes the detail geometry into
-    // RhinoObject.m_edited_geometry; the detail's `CommitChanges()` (routed to CRhinoDetailObject_InternalCommitChanges)
-    // then persists it so a re-queried DetailGeometry.PageToModelRatio / GetFormattedScale round-trips — this is the
-    // geometry-commit rail, NOT CommitViewportChanges (which flushes only the camera snapshot) and NOT Objects.Replace
-    // (which rejects detail geometry). SetScale requires a parallel projection, so coerce a perspective detail first.
-    internal Fin<DetailViewObject> Apply(DetailViewObject detail, RhinoDoc document, Op op) =>
-        from spec in Resolve(document: document, op: op)
-        from parallel in EnsureParallel(detail: detail, op: op)
-        from _ in op.Confirm(success:
-            parallel.DetailGeometry.SetScale(modelLength: spec.ModelLength, modelUnits: spec.ModelUnit, pageLength: spec.PageLength, pageUnits: spec.PageUnit)
-            && parallel.CommitChanges())
-        select parallel;
-
-    // SetScale rejects perspective details; coerce the viewport to parallel + persist it via CommitViewportChanges,
-    // then re-query the live object (the commit rebinds the object serial, leaving the pre-coercion handle stale).
-    private static Fin<DetailViewObject> EnsureParallel(DetailViewObject detail, Op op) =>
-        detail.DetailGeometry is { IsParallelProjection: true }
-            ? Fin.Succ(value: detail)
-            : op.Catch(() => {
-                ViewportInfo info = new(detail.Viewport);
-                _ = info.ChangeToParallelProjection(symmetricFrustum: true);
-                _ = detail.Viewport.SetViewProjection(projection: info, updateTargetLocation: false);
-                _ = detail.CommitViewportChanges();
-                return Optional(detail.ParentPageView)
-                    .Bind(page => toSeq(page.GetDetailViews()).Find(found => found.Id == detail.Id))
-                    .ToFin(Fail: op.InvalidResult());
-            });
-
-    internal Fin<(double ModelLength, LengthUnit ModelUnit, double PageLength, LengthUnit PageUnit)> Resolve(RhinoDoc document, Op op) =>
-        Switch(
-            (Doc: document, Op: op),
-            ratio: static (ctx, r) =>
-                from m in Positive(value: r.Model, op: ctx.Op)
-                from p in Positive(value: r.Page, op: ctx.Op)
-                let units = LengthUnit.FromKnownUnitSystem(knownUnitSystem: ctx.Doc.ModelUnitSystem)
-                select (ModelLength: m, ModelUnit: units, PageLength: p, PageUnit: units),
-            lengths: static (ctx, l) =>
-                from m in Positive(value: l.ModelLength, op: ctx.Op)
-                from p in Positive(value: l.PageLength, op: ctx.Op)
-                from _ in guard(Defined(unit: l.ModelUnit) && Defined(unit: l.PageUnit), ctx.Op.InvalidInput())
-                select (ModelLength: m, l.ModelUnit, PageLength: p, l.PageUnit),
-            named: static (ctx, n) => ParseNamed(value: n.Value, fallback: LengthUnit.FromKnownUnitSystem(knownUnitSystem: ctx.Doc.ModelUnitSystem), op: ctx.Op));
-
-    // `ScaleValue.LeftLengthValue()` is the drawing/page side, `RightLengthValue()` the real/model side; native
-    // wrappers are IDisposable, so the tuple is materialized (LengthUnit is a value) before the `using` disposes.
-    // Unitless ratios ("1:100", "1:50") parse to LengthUnit.None on both sides — substitute the doc model unit (units
-    // cancel for a pure ratio) so SetScale accepts them; united scales ("1/4\"=1'-0\"") keep their parsed units.
-    private static Fin<(double, LengthUnit, double, LengthUnit)> ParseNamed(string value, LengthUnit fallback, Op op) =>
-        from text in FileEndpoint.NonBlank(value: value, op: op)
-        from tuple in op.Catch(() => {
-            // DefaultParseSettings (a shared const, Dispose inert) enables Rhino's standard rational/feet-inch/scale
-            // parsing — `new StringParserSettings()` (ON_ParseSettings_New) is a separate, ambiguous native seed.
-            using ScaleValue scale = ScaleValue.Create(s: text, ps: StringParserSettings.DefaultParseSettings);
-            return scale is { } sv && !sv.IsUnset()
-                ? op.Catch(() => {
-                    using LengthValue page = sv.LeftLengthValue();
-                    using LengthValue model = sv.RightLengthValue();
-                    return Fin.Succ(value: (model.Length(units: model.Units), UnitOr(unit: model.Units, fallback: fallback), page.Length(units: page.Units), UnitOr(unit: page.Units, fallback: fallback)));
-                })
-                : Fin.Fail<(double, LengthUnit, double, LengthUnit)>(error: op.InvalidInput());
-        })
-        from valid in guard(RhinoMath.IsValidDouble(x: tuple.Item1) && tuple.Item1 > 0.0 && RhinoMath.IsValidDouble(x: tuple.Item3) && tuple.Item3 > 0.0, op.InvalidResult())
-        select tuple;
-
-    private static LengthUnit UnitOr(LengthUnit unit, LengthUnit fallback) =>
-        LengthUnit.IsNone(unit: unit) || LengthUnit.IsUnset(unit: unit) ? fallback : unit;
-
-    internal static Option<string> Format(DetailViewObject detail) =>
-        detail.GetFormattedScale(format: DetailViewObject.ScaleFormat.OneToModelLength, value: out string formatted)
-            ? FileArchiveOps.TextOption(value: formatted) : Option<string>.None;
-
-    private static bool Defined(LengthUnit unit) => !LengthUnit.IsNone(unit: unit) && !LengthUnit.IsUnset(unit: unit);
-
-    private static Fin<double> Positive(double value, Op op) =>
-        RhinoMath.IsValidDouble(x: value) && value > 0.0 ? Fin.Succ(value: value) : Fin.Fail<double>(error: op.InvalidInput());
-}
-
 public readonly record struct FileSheetSpec(
     string Name,
     Option<FileSheetSize> Size = default,
     Option<string> Group = default,
     Option<string> Description = default);
 
-public readonly record struct FileDetailSpec(
-    string Name,
-    Point2d Corner,
-    Point2d Opposite,
-    DefinedViewportProjection Projection = DefinedViewportProjection.Top,
-    bool ProjectionLocked = true,
-    Option<Guid> DisplayMode = default,
-    Option<FileScale> Scale = default);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct FileLayerOverrideSpec(
-    FileOverride<DrawingColor> Color = default,
-    FileOverride<bool> Visible = default,
-    FileOverride<bool> PersistentVisible = default,
-    FileOverride<DrawingColor> PlotColor = default,
-    FileOverride<double> PlotWeight = default) {
-    public static FileLayerOverrideSpec operator |(FileLayerOverrideSpec left, FileLayerOverrideSpec right) =>
-        new(
-            Color: left.Color | right.Color,
-            Visible: left.Visible | right.Visible,
-            PersistentVisible: left.PersistentVisible | right.PersistentVisible,
-            PlotColor: left.PlotColor | right.PlotColor,
-            PlotWeight: left.PlotWeight | right.PlotWeight);
-
-    // Nothing to set ⇒ the only meaningful action is a bulk per-viewport reset (Layer.DeletePerViewportSettings).
-    internal bool IsReset =>
-        Color.Value.IsNone && Visible.Value.IsNone && PersistentVisible.Value.IsNone && PlotColor.Value.IsNone && PlotWeight.Value.IsNone;
-}
-
-public readonly record struct FileLayerOverride(string LayerPath, FileLayerOverrideSpec Spec);
-
-// Conjunctive page filter. One resolution rail consumed by SheetOps batch verbs and Publish.FileViewSource.Pages.
 public readonly record struct SheetQuery(Option<Guid> Id = default, Option<string> Name = default, Option<string> Group = default, Option<Func<RhinoPageView, bool>> Where = default) {
     public static SheetQuery All => default;
 
@@ -195,54 +237,8 @@ public readonly record struct SheetQuery(Option<Guid> Id = default, Option<strin
     }
 }
 
-public readonly record struct FileSheetConfig(
-    Option<FileSheetSize> Size = default,
-    Option<string> Group = default,
-    Option<string> Description = default,
-    Option<FileScale> DetailScale = default,
-    Option<UnitSystem> PageUnits = default,
-    Seq<FileUserString> UserStrings = default,
-    Option<string> GroupDescription = default);
-
-public readonly record struct FileNumbering(string SheetPattern, int Start = 1, Option<string> DetailPattern = default);
-
-public readonly record struct FileDetailGrid(int Columns, double SpacingX, double SpacingY, Point2d Origin = default, Option<Func<DetailViewObject, bool>> Where = default);
-
-[Union(SwitchMapStateParameterName = "context")]
-public abstract partial record FileSheetEdit {
-    private FileSheetEdit() { }
-    public sealed record Create(FileSheetSpec Spec) : FileSheetEdit;
-    public sealed record Remove(string SheetName) : FileSheetEdit;
-    public sealed record Duplicate(string SheetName, bool WithGeometry = true) : FileSheetEdit;
-    public sealed record Rename(string SheetName, string NewName) : FileSheetEdit;
-    public sealed record Reorder(Seq<string> SheetNames) : FileSheetEdit;
-    public sealed record AddDetail(string SheetName, FileDetailSpec Spec) : FileSheetEdit;
-    public sealed record Resize(string SheetName, Option<FileSheetSize> Size = default, Option<string> Description = default) : FileSheetEdit;
-    public sealed record ScaleDetail(string SheetName, Option<string> DetailName, FileScale Scale) : FileSheetEdit;
-    public sealed record Import(FileEndpoint Source, Guid SourceViewportId, string Name) : FileSheetEdit;
-    public sealed record RemoveDetail(string SheetName, string DetailName) : FileSheetEdit;
-    public sealed record ActivateDetail(string SheetName, Option<string> DetailName) : FileSheetEdit;
-    public sealed record LayerOverride(string SheetName, Option<string> DetailName, Seq<FileLayerOverride> Overrides) : FileSheetEdit;
-    public sealed record ClippingOverride(string SheetName, string DetailName, BoundingBox Box) : FileSheetEdit;
-    public sealed record Configure(SheetQuery Query, FileSheetConfig Config) : FileSheetEdit;
-    public sealed record Number(SheetQuery Query, FileNumbering Numbering) : FileSheetEdit;
-    public sealed record ArrangeDetails(SheetQuery Query, FileDetailGrid Grid) : FileSheetEdit;
-}
-
-public readonly record struct FileDetailReport(string Name, Option<string> Scale, DefinedViewportProjection Projection, Guid ViewportId, Seq<string> OverriddenLayers);
-
-public readonly record struct FileSheetReport(
-    string Name,
-    int Number,
-    Option<(double Width, double Height)> Size,
-    Seq<string> Groups,
-    Seq<FileDetailReport> Details,
-    Seq<(string Group, Seq<FileUserString> Strings)> GroupMetadata);
-
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static partial class SheetOps {
-    // Best-effort standard-view classification: DefinedViewportProjection has no native readback, so the parallel
-    // axis-aligned look direction is matched against Rhino's world-view convention; non-axis parallel ⇒ None.
     private static readonly Seq<(Vector3d Direction, DefinedViewportProjection Projection)> AxisTable = Seq(
         (new Vector3d(0.0, 0.0, -1.0), DefinedViewportProjection.Top),
         (new Vector3d(0.0, 0.0, 1.0), DefinedViewportProjection.Bottom),
@@ -267,6 +263,7 @@ internal static partial class SheetOps {
             activateDetail: static (ctx, e) => ActivateDetail(document: ctx.Document, sheetName: e.SheetName, detailName: e.DetailName, op: ctx.Op),
             layerOverride: static (ctx, e) => ApplyLayerOverride(document: ctx.Document, sheetName: e.SheetName, detailName: e.DetailName, overrides: e.Overrides, op: ctx.Op),
             clippingOverride: static (ctx, e) => ApplyClippingOverride(document: ctx.Document, sheetName: e.SheetName, detailName: e.DetailName, box: e.Box, op: ctx.Op),
+            frameDetail: static (ctx, e) => FrameDetail(document: ctx.Document, sheetName: e.SheetName, detailName: e.DetailName, edits: e.Edits, scale: e.Scale, clipping: e.Clipping, op: ctx.Op),
             configure: static (ctx, e) => Configure(document: ctx.Document, query: e.Query, config: e.Config, op: ctx.Op),
             number: static (ctx, e) => Number(document: ctx.Document, query: e.Query, numbering: e.Numbering, op: ctx.Op),
             arrangeDetails: static (ctx, e) => ArrangeDetails(document: ctx.Document, query: e.Query, grid: e.Grid, op: ctx.Op));
@@ -334,9 +331,6 @@ internal static partial class SheetOps {
             AttributeChanged = Seq(page.MainViewport.Id),
             ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: name)),
         };
-
-    // BOUNDARY ADAPTER — RhinoCommon exposes no ViewTable.Reorder/MoveTo; rebinding page numbers
-    // is the only public surface that preserves identity. PageNumber is a writable property.
     private static Fin<DocumentReceipt> ReorderSheets(RhinoDoc document, Seq<string> sheetNames, Op op) =>
         from names in sheetNames.TraverseM(name => FileEndpoint.NonBlank(value: name, op: op)).As()
         from unique in RequireUniqueSheetNames(names: names, op: op)
@@ -363,18 +357,11 @@ internal static partial class SheetOps {
             .Map(id => Optional(DisplayModeDescription.GetDisplayMode(id: id)).ToFin(Fail: op.InvalidInput()).Map(Some))
             .IfNone(Fin.Succ(value: Option<DisplayModeDescription>.None))
         from receipt in op.Catch(() => {
-            // BOUNDARY ADAPTER — native CRhinoPageView::AddDetailView allocates the detail against the page's
-            // realized window and returns null unless the page is the active/displayed view. Activate + redraw to
-            // realize the window, run the full detail lifecycle (including scale) while active, then restore.
             RhinoView? prior = document.Views.ActiveView;
             try {
                 document.Views.ActiveView = page;
                 page.SetPageAsActive();
                 document.Views.Redraw();
-                // DisplayMode is a viewport edit (CommitViewportChanges); scale + IsProjectionLocked are geometry edits.
-                // scale.Apply re-queries the detail after coercion rebinds the object serial, so bind that fresh handle
-                // (scaledDetail) before setting IsProjectionLocked + the final geometry CommitChanges — setting the lock
-                // on the pre-coercion handle would be discarded by Apply's re-query.
                 return from detail in Optional(page.AddDetailView(title: name, corner0: spec.Corner, corner1: spec.Opposite, initialProjection: spec.Projection)).ToFin(Fail: op.InvalidResult())
                        from named in op.Catch(() => {
                            ObjectAttributes attributes = detail.Attributes.Duplicate();
@@ -392,8 +379,9 @@ internal static partial class SheetOps {
                            .IfNone(Fin.Succ(value: detail))
                        from locked in op.Catch(() => { scaledDetail.DetailGeometry.IsProjectionLocked = spec.ProjectionLocked; return Fin.Succ(value: unit); })
                        from committed in op.Catch(() => op.Confirm(success: scaledDetail.CommitChanges()))
+                       from framed in ApplyDetailView(document: document, page: page, detail: scaledDetail, edits: spec.View)
                        select DocumentReceipt.Empty with {
-                           Created = Seq(scaledDetail.Id),
+                           Created = Seq(framed.Id),
                            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: name)),
                        };
             } finally {
@@ -411,18 +399,8 @@ internal static partial class SheetOps {
             AttributeChanged = Seq(page.MainViewport.Id),
             ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: page.PageName)),
         };
-
-    // DetailName None ⇒ scale every detail on the sheet (batch).
     private static Fin<DocumentReceipt> ScaleDetail(RhinoDoc document, string sheetName, Option<string> detailName, FileScale scale, Op op) =>
-        from page in Sheet(document: document, name: sheetName, op: op)
-        from details in ResolveDetailsOrAll(page: page, name: detailName, op: op)
-        from changed in details.TraverseM(detail =>
-            from scaled in scale.Apply(detail: detail, document: document, op: op)
-            select scaled.Id).As()
-        select DocumentReceipt.Empty with {
-            AttributeChanged = changed,
-            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: sheetName)),
-        };
+        FrameDetail(document: document, sheetName: sheetName, detailName: detailName, edits: Seq<CameraEdit>(), scale: Some(scale), clipping: Option<BoundingBox>.None, op: op);
 
     private static Fin<DocumentReceipt> ImportSheet(RhinoDoc document, FileEndpoint source, Guid sourceViewportId, string name, Op op) =>
         from endpoint in source.Input(op: op)
@@ -463,41 +441,67 @@ internal static partial class SheetOps {
             AttributeChanged = target.Map(Seq).IfNone(Seq(page.MainViewport.Id)),
             ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: detailName.IfNone(sheetName))),
         };
-
-    // N layers per detail; DetailName None ⇒ every detail. Empty/all-inherit spec ⇒ bulk per-viewport reset.
     private static Fin<DocumentReceipt> ApplyLayerOverride(RhinoDoc document, string sheetName, Option<string> detailName, Seq<FileLayerOverride> overrides, Op op) =>
-        from page in Sheet(document: document, name: sheetName, op: op)
         from _valid in guard(!overrides.IsEmpty, op.InvalidInput())
-        from details in ResolveDetailsOrAll(page: page, name: detailName, op: op)
-        from applied in details.TraverseM(detail =>
+        from receipt in MutateDetails(document: document, sheetName: sheetName, detailName: detailName, op: op, mutate: (_, detail) =>
             overrides.TraverseM(entry =>
                 from path in FileEndpoint.NonBlank(value: entry.LayerPath, op: op)
                 from layer in Layer(document: document, path: path, op: op)
                 from _ in entry.Spec.IsReset
                     ? op.Catch(() => Fin.Succ(value: Op.Side(() => layer.DeletePerViewportSettings(viewportId: detail.Viewport.Id))))
                     : op.Catch(() => ApplySpec(layer: layer, viewportId: detail.Viewport.Id, spec: entry.Spec))
-                select path).As().Map(paths => (DetailId: detail.Id, Paths: paths))).As()
-        select DocumentReceipt.Empty with {
-            AttributeChanged = applied.Map(static item => item.DetailId).Distinct(),
-            ResourceChanged = applied.Bind(static item => item.Paths).Distinct().Map(static path => new DocumentResourceChange(Kind: DocumentResourceKind.Layer, Name: path))
-                + Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: sheetName)),
-        };
+                select path).As()
+                .Map(paths => (detail.Id, Resources: paths.Distinct().Map(static path => new DocumentResourceChange(Kind: DocumentResourceKind.Layer, Name: path)))))
+        select receipt;
 
     private static Fin<DocumentReceipt> ApplyClippingOverride(RhinoDoc document, string sheetName, string detailName, BoundingBox box, Op op) =>
-        from page in Sheet(document: document, name: sheetName, op: op)
         from name in FileEndpoint.NonBlank(value: detailName, op: op)
         from validBox in op.AcceptValue(value: box)
-        from detail in Detail(page: page, name: name, op: op)
+        from receipt in FrameDetail(document: document, sheetName: sheetName, detailName: Some(name), edits: Seq<CameraEdit>(), scale: Option<FileScale>.None, clipping: Some(validBox), op: op)
+        select receipt;
+
+    private static Fin<DocumentReceipt> FrameDetail(RhinoDoc document, string sheetName, Option<string> detailName, Seq<CameraEdit> edits, Option<FileScale> scale, Option<BoundingBox> clipping, Op op) =>
+        from admitted in Optional(edits).ToFin(Fail: op.InvalidInput()).Map(static source => toSeq(source))
+        from requested in guard(!admitted.IsEmpty || scale.IsSome || clipping.IsSome, op.InvalidInput())
+        from receipt in MutateDetails(document: document, sheetName: sheetName, detailName: detailName, op: op, mutate: (page, detail) =>
+            from scaled in scale.Map(value => value.Apply(detail: detail, document: document, op: op)).IfNone(Fin.Succ(value: detail))
+            from clipped in clipping.Map(box => ApplyClipping(detail: scaled, box: box, op: op)).IfNone(Fin.Succ(value: scaled))
+            from viewed in ApplyDetailView(document: document, page: page, detail: clipped, edits: admitted)
+            select (viewed.Id, Resources: Seq<DocumentResourceChange>()))
+        select receipt;
+
+    private static Fin<DocumentReceipt> MutateDetails(
+        RhinoDoc document,
+        string sheetName,
+        Option<string> detailName,
+        Op op,
+        Func<RhinoPageView, DetailViewObject, Fin<(Guid Id, Seq<DocumentResourceChange> Resources)>> mutate) =>
+        from page in Sheet(document: document, name: sheetName, op: op)
+        from validMutate in Optional(mutate).ToFin(Fail: op.InvalidInput())
+        from details in ResolveDetailsOrAll(page: page, name: detailName, op: op)
+        from changed in details.TraverseM(detail => validMutate(arg1: page, arg2: detail)).As()
+        select DocumentReceipt.Empty with {
+            AttributeChanged = changed.Map(static item => item.Id).Distinct(),
+            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: sheetName))
+                + changed.Bind(static item => item.Resources).Distinct(),
+        };
+
+    private static Fin<DetailViewObject> ApplyClipping(DetailViewObject detail, BoundingBox box, Op op) =>
+        from validBox in op.AcceptValue(value: box)
         from applied in op.Catch(() => {
             detail.Viewport.SetClippingPlanes(box: validBox);
             return Commit(detail: detail, op: op);
         })
-        select DocumentReceipt.Empty with {
-            AttributeChanged = Seq(detail.Id),
-            ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: name)),
-        };
+        select detail;
 
-    // Page-wide propagation: size/description/detail-scale per matched page; group + user-strings + page-units once.
+    private static Fin<DetailViewObject> ApplyDetailView(RhinoDoc document, RhinoPageView page, DetailViewObject detail, Seq<CameraEdit> edits) {
+        CameraScope scope = new(Document: document, View: page, Viewport: detail.Viewport, Detail: Some(detail));
+        return edits.IsEmpty
+            ? Fin.Succ(value: detail)
+            : from changes in CameraOps.Change(edits: edits.AsIterable(), redrawEach: false).Run(arg: scope)
+              from redraw in changes.Redraw.ApplyTo(scope: scope)
+              select detail;
+    }
     private static Fin<DocumentReceipt> Configure(RhinoDoc document, SheetQuery query, FileSheetConfig config, Op op) =>
         from pages in query.Resolve(document: document, op: op)
         from _valid in guard(!pages.IsEmpty, op.InvalidInput())
@@ -514,8 +518,6 @@ internal static partial class SheetOps {
             ResourceChanged = pages.Map(static page => new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: page.PageName))
                 + config.Group.Map(name => Seq(new DocumentResourceChange(Kind: DocumentResourceKind.PageViewGroup, Name: name))).IfNone(Seq<DocumentResourceChange>()),
         };
-
-    // Pattern-driven auto-numbering across the ordered set; optional DetailPattern renames details by grid position.
     private static Fin<DocumentReceipt> Number(RhinoDoc document, SheetQuery query, FileNumbering numbering, Op op) =>
         from pattern in FileEndpoint.NonBlank(value: numbering.SheetPattern, op: op)
         from pages in query.Resolve(document: document, op: op)
@@ -533,9 +535,6 @@ internal static partial class SheetOps {
             AttributeChanged = numbered.Map(static n => n.Page) + numbered.Bind(static n => n.Details),
             ResourceChanged = numbered.Map(static n => new DocumentResourceChange(Kind: DocumentResourceKind.Layout, Name: n.Label)),
         };
-
-    // GATED — verify (bridge) that ObjectTable.Transform moves the detail's page window, not its model contents,
-    // before relying on this. Row-major grid placement by page-space translation of each matched detail.
     private static Fin<DocumentReceipt> ArrangeDetails(RhinoDoc document, SheetQuery query, FileDetailGrid grid, Op op) =>
         from _cols in guard(grid.Columns > 0, op.InvalidInput())
         from pages in query.Resolve(document: document, op: op)
@@ -574,9 +573,6 @@ internal static partial class SheetOps {
             _ = description.Iter(value => page.Description = value);
             return Fin.Succ(value: unit);
         });
-
-    // Mirror ScaleDetail: a configure that requests a detail scale on a page with no details is a no-op the caller
-    // did not intend, so fail explicitly rather than letting TraverseM succeed vacuously on the empty sequence.
     private static Fin<Unit> ScaleAllDetails(RhinoDoc document, RhinoPageView page, FileScale scale, Op op) =>
         toSeq(page.GetDetailViews()) switch {
             Seq<DetailViewObject> details when !details.IsEmpty =>
@@ -652,8 +648,21 @@ internal static partial class SheetOps {
             Scale: FileScale.Format(detail: detail),
             Projection: ProjectionOf(detail: detail),
             ViewportId: viewportId,
+            Active: detail.IsActive,
+            PageToModelRatio: detail.DetailGeometry.PageToModelRatio,
+            WorldToPage: detail.WorldToPageTransform,
+            PageToWorld: detail.PageToWorldTransform,
+            PaperLengthPerModelUnit: Length(value: 1.0, convert: detail.TryGetPaperLength),
+            ModelLengthPerPaperUnit: Length(value: 1.0, convert: detail.TryGetModelLength),
             OverriddenLayers: overridden);
     }
+
+    private static Option<double> Length(double value, TryLength convert) =>
+        convert(modelLength: value, result: out double result) && RhinoMath.IsValidDouble(x: result) && result > 0.0
+            ? Some(result)
+            : Option<double>.None;
+
+    private delegate bool TryLength(double modelLength, out double result);
 
     private static Seq<FileUserString> UserStringsOf(PageViewGroup pageGroup) {
         System.Collections.Specialized.NameValueCollection strings = pageGroup.GetUserStrings();
@@ -704,17 +713,9 @@ internal static partial class SheetOps {
         from valid in FileEndpoint.NonBlank(value: name, op: op)
         from page in Resolve(source: document.Views.GetPageViews(), match: view => string.Equals(a: view.PageName, b: valid, comparisonType: StringComparison.OrdinalIgnoreCase), op: op)
         select page;
-
-    // Display projection only (the detail report's Name): prefer the Rasm-stable Attributes.Name that AddDetail
-    // authors, fall back to the viewport title. NOT a match key — see Detail.
     private static Option<string> GetDetailName(DetailViewObject detail) =>
         Optional(detail.Attributes?.Name).Filter(static value => !string.IsNullOrEmpty(value: value))
         | Optional(detail.Viewport?.Name).Filter(static value => !string.IsNullOrEmpty(value: value));
-
-    // A detail carries two INDEPENDENT name strings: Attributes.Name (the object label AddDetail mirrors) and
-    // Viewport.Name (the projection title AddDetailView/native _Detail write, and the field Rhino's own
-    // RhinoPageView.SetActiveDetail matches on). Foreign 3dm layouts can populate either or both, divergently — so
-    // match EITHER. A prefer-one projection (GetDetailName) would silently miss details identified by the other field.
     private static Fin<DetailViewObject> Detail(RhinoPageView page, string name, Op op) =>
         Resolve(source: page.GetDetailViews(), match: detail =>
             string.Equals(a: detail.Attributes.Name, b: name, comparisonType: StringComparison.OrdinalIgnoreCase)
@@ -734,11 +735,6 @@ internal static partial class SheetOps {
             int index when index >= 0 => Optional(document.Layers[index]).ToFin(Fail: op.InvalidInput()),
             _ => Fin.Fail<Layer>(error: op.InvalidInput()),
         };
-
-    // BOUNDARY ADAPTER — CommitViewportChanges flushes the detail's viewport snapshot (CRhinoDetailViewObject_
-    // CommitViewportChanges over the lazily-built m_viewport) and returns false when nothing is pending: a freshly
-    // created detail, or a geometry-only SetScale that lives on the detail geometry rather than the viewport. That
-    // is not an operation failure — the detail exists and renders — so the commit is best-effort, not a gate.
     private static Fin<Unit> Commit(DetailViewObject detail, Op op) =>
         op.Catch(() => { _ = detail.CommitViewportChanges(); return Fin.Succ(value: unit); });
 }

@@ -97,9 +97,9 @@ public sealed class LayoutArrangementLaws {
     [Fact]
     public void DistributeStretchAndFixedSelectDistinctPolicies() {
         LayoutArrangement.DistributeCase stretch = Assert.IsType<LayoutArrangement.DistributeCase>(
-            @object: LayoutArrangement.DistributeStretch(axis: LayoutAxis.Horizontal, gap: LayoutGap.Create(value: 8f), ids: Quad));
+            @object: LayoutArrangement.Distribute(axis: LayoutAxis.Horizontal, gap: LayoutGap.Create(value: 8f), ids: Quad));
         LayoutArrangement.DistributeCase @fixed = Assert.IsType<LayoutArrangement.DistributeCase>(
-            @object: LayoutArrangement.DistributeFixed(axis: LayoutAxis.Vertical, gap: LayoutGap.Create(value: 8f), ids: Quad));
+            @object: LayoutArrangement.Distribute(axis: LayoutAxis.Vertical, gap: LayoutGap.Create(value: 8f), ids: Quad, gapPolicy: LayoutGapPolicy.Fixed));
         Assert.Same(expected: LayoutGapPolicy.Stretch, actual: stretch.GapPolicy);
         Assert.Same(expected: LayoutGapPolicy.Fixed, actual: @fixed.GapPolicy);
         Assert.Same(expected: LayoutAxis.Horizontal, actual: stretch.Axis);
@@ -136,9 +136,8 @@ public sealed class SnappingPolicyLaws {
     [Fact]
     public void EffectiveDoesNotWidenEmptyDocumentConstraintSet() {
         SnappingPolicy policy = new(IncludeSelected: false, IncludeUnselected: false);
-        SnappingPolicy effective = policy.Effective;
-        Assert.False(condition: effective.IncludeSelected);
-        Assert.False(condition: effective.IncludeUnselected);
+        Assert.False(condition: policy.IncludeSelected);
+        Assert.False(condition: policy.IncludeUnselected);
     }
 
     [Fact]
@@ -193,7 +192,7 @@ public sealed class LayoutOpPolicyLaws {
     public void LayoutOperationPoliciesSeparateReadOnlyAndMutationRepaints() {
         Guid id = Guid.NewGuid();
         LayoutOp.MeasureCase measure = new(Scope: new ObjectScope.ObjectsCase(Ids: Seq(id)));
-        LayoutOp.ArrangeCase arrange = new(Arrangement: LayoutArrangement.DistributeStretch(axis: LayoutAxis.Horizontal, gap: LayoutGap.Create(value: 8f), ids: Seq(id)));
+        LayoutOp.ArrangeCase arrange = new(Arrangement: LayoutArrangement.Distribute(axis: LayoutAxis.Horizontal, gap: LayoutGap.Create(value: 8f), ids: Seq(id)));
         LayoutOp.SnapCase snap = new(Probe: new SnapProbe.ObjectCase(ObjectId: id));
         Assert.True(condition: measure.UiPolicy.RequireCanvas && measure.UiPolicy.RequireDocument);
         Assert.True(condition: arrange.UiPolicy.RequireCanvas && arrange.UiPolicy.RequireDocument);

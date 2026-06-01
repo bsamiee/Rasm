@@ -8,7 +8,7 @@ namespace Rasm.Grasshopper.UI;
 // --- [TYPES] ------------------------------------------------------------------------------
 [GenerateUnionOps]
 [Union]
-public partial record EditorOp {
+public partial record EditorOp : IUiOp {
     private EditorOp() { }
     public sealed partial record ShowCase(bool Visible, Option<string> Layout) : EditorOp;
     public sealed partial record StateCase : EditorOp;
@@ -26,7 +26,7 @@ public partial record EditorOp {
     // to hand it (the (null, openEditor:false) arm yields a null editor) — so the op would fail before its body
     // could construct the editor. Read lets the body open it headlessly (createVisible:false stays offscreen,
     // never arming the StatusBar visible-paint NPE); the resulting canvas is read back via State.
-    internal GrasshopperUiPolicy UiPolicy => this is ShellCase ? GrasshopperUiPolicy.Canvas(openEditor: true) : GrasshopperUiPolicy.Read;
+    public GrasshopperUiPolicy UiPolicy => this is ShellCase ? GrasshopperUiPolicy.Canvas(openEditor: true) : GrasshopperUiPolicy.Read;
 }
 
 [SkipUnionOps]
@@ -48,22 +48,10 @@ public readonly record struct EditorShellSnapshot(bool Collapsed, bool ShowNotes
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Editor {
     internal static Fin<EditorResult> Dispatch(EditorOp op) => op.Switch(
-        showCase: static show => ShowEditor(visible: show.Visible, layoutRules: show.Layout.IfNone(string.Empty), errorTag: nameof(EditorOp.Show)),
+        showCase: static show => ShowEditor(visible: show.Visible, layoutRules: show.Layout.IfNone(string.Empty), op: Op.Of(name: nameof(EditorOp.Show))),
         stateCase: static _ => DispatchState(),
-        shellCase: static shell => ShowEditor(visible: true, layoutRules: shell.Layout.IfNone(string.Empty), errorTag: nameof(EditorOp.Shell), shell: Some(shell)),
+        shellCase: static shell => ShowEditor(visible: true, layoutRules: shell.Layout.IfNone(string.Empty), op: Op.Of(name: nameof(EditorOp.Shell)), shell: Some(shell)),
         beginRhinoGetterCase: static getter => DispatchRhinoGetter(getter: getter));
-
-    // Show/Shell share OpenEditor; Shell projects EditorShellSnapshot after optional chrome writes.
-    private static Fin<EditorResult> ShowEditor(
-        bool visible,
-        string layoutRules,
-        string errorTag,
-        Option<EditorOp.ShellCase> shell = default) =>
-        Try.lift(f: () => OpenEditor(visible: visible, layoutRules: layoutRules)).Run()
-            .MapFail(error => UiFault.GhEditor(detail: $"{errorTag}: {error.Message}"))
-            .Bind(current => shell.Match(
-                Some: s => ApplyShell(current: current, shell: s),
-                None: () => Fin.Succ(value: EditorResult.Unit)));
 
     // GH2's ShowEditor ALWAYS calls Form.Show() — even createVisible:false orders the window on-screen offscreen and
     // hides it on the Shown event. That Show schedules an AppKit DrawRect that paints the StatusBar, whose status-icon
@@ -72,16 +60,23 @@ internal static partial class Editor {
     // request therefore must NEVER show the form: construct the singleton — whose ctor builds the Canvas — and leave it
     // un-shown so no view is ever realized for paint. Canvas.DrawToBitmap rasterizes into its own bitmap independently
     // of window visibility, so every canvas op still works. Visible requests keep the real GhEditor.ShowEditor path.
-    private static GhEditor OpenEditor(bool visible, string layoutRules) =>
-        visible
-            ? GhEditor.ShowEditor(createVisible: true, layoutRules: layoutRules)
-            : GhEditor.Instance ?? new GhEditor();
+    // Shell projects EditorShellSnapshot after optional chrome writes; op.Attempt re-rails any native throw to GhEditor.
+    private static Fin<EditorResult> ShowEditor(bool visible, string layoutRules, Op op, Option<EditorOp.ShellCase> shell = default) =>
+        op.Attempt(
+            body: () => visible
+                ? GhEditor.ShowEditor(createVisible: true, layoutRules: layoutRules)
+                : GhEditor.Instance ?? new GhEditor(),
+            what: "open editor")
+        .MapFail(error => UiFault.GhEditor(op: op, detail: error.Message))
+        .Bind(current => shell.Match(
+            Some: s => ApplyShell(current: current, shell: s),
+            None: () => Fin.Succ(value: EditorResult.Unit)));
 
     private static Fin<EditorResult> ApplyShell(GhEditor current, EditorOp.ShellCase shell) {
         Option<GhCanvas> canvas = Optional(current.Canvas);
         bool requiresHistory = shell.ShowUndoHistory.IfNone(false);
         return (requiresHistory, canvas.IsSome) switch {
-            (true, false) => Fin.Fail<EditorResult>(error: UiFault.GhEditor(detail: "ShowUndoHistory requires an active canvas")),
+            (true, false) => Fin.Fail<EditorResult>(error: UiFault.GhEditor(op: Op.Of(name: nameof(EditorOp.Shell)), detail: "ShowUndoHistory requires an active canvas")),
             _ => Fin.Succ<EditorResult>(ShellResultOf(current: current, shell: shell, canvas: canvas)),
         };
     }
@@ -98,14 +93,17 @@ internal static partial class Editor {
         _ = shell.ShowNotes.Iter(value => current.ShowNotes = value);
         _ = canvas.Iter(c => shell.ShowUndoHistory.Iter(value => c.ShowUndoHistory = value));
         (string initial, Seq<string> defined) = LayoutDefaults();
-        return new EditorResult.ShellResult(Snapshot: Snapshot.Of(new EditorShellSnapshot(
-            Collapsed: current.Collapsed,
-            ShowNotes: current.ShowNotes,
-            ShowUndoHistory: canvas.Map(static c => c.ShowUndoHistory).IfNone(false),
-            InitialLayout: initial,
-            DefinedLayouts: defined)));
+        return new EditorResult.ShellResult(Snapshot: new Snapshot<EditorShellSnapshot>(
+            OwnerId: Option<Guid>.None,
+            Payload: new EditorShellSnapshot(
+                Collapsed: current.Collapsed,
+                ShowNotes: current.ShowNotes,
+                ShowUndoHistory: canvas.Map(static c => c.ShowUndoHistory).IfNone(false),
+                InitialLayout: initial,
+                DefinedLayouts: defined)));
     }
 
+    // --- [OPERATIONS] -------------------------------------------------------------------------
     // Optional(GhEditor.Instance) discharges the "running" vs "not yet shown" branches polymorphically;
     // shared InitialLayout + DefinedLayouts hoisted once instead of duplicated across arms.
     private static Fin<EditorResult> DispatchState() =>
@@ -130,16 +128,17 @@ internal static partial class Editor {
                 MostRecentCount: e.MostRecentCount),
             None: () => new EditorSnapshot(InitialLayout: layout, DefinedLayouts: definedLayouts));
     }
-    // Null RhinoDoc is bad input (InvalidInput rail); a non-null doc that GH2 refuses is a getter-state
-    // failure (GhEditor rail). Splitting the rails keeps the caller's diagnosis unambiguous.
-    private static Fin<EditorResult> DispatchRhinoGetter(EditorOp.BeginRhinoGetterCase getter) =>
-        from document in Optional(getter.Document).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(EditorOp.BeginRhinoGetter)), detail: "RhinoDoc is required"))
-        from _ in Rhino.Input.RhinoGet.InGet(doc: document)
-            ? Fin.Fail<Unit>(error: UiFault.GhEditor(detail: "a Rhino command-line getter is already active"))
-            : Fin.Succ(value: unit)
-        from started in Try.lift(f: () => GhEditor.BeginRhinoGetter(doc: document)).Run().MapFail(static error => UiFault.GhEditor(detail: $"{nameof(EditorOp.BeginRhinoGetter)}: {error.Message}"))
-        from valid in started
-            ? Fin.Succ(value: EditorResult.Unit)
-            : Fin.Fail<EditorResult>(error: UiFault.GhEditor(detail: "Rhino getter is already active or no document can receive it"))
-        select valid;
+    // Null RhinoDoc is bad input (InvalidInput rail). BeginRhinoGetter returns false on BOTH an active command-line
+    // getter (RhinoGet.InGet) AND a pending getter timer, so one native-result-driven GhEditor rail covers both —
+    // the prior RhinoGet.InGet pre-check only saw the former and duplicated the diagnostic.
+    private static Fin<EditorResult> DispatchRhinoGetter(EditorOp.BeginRhinoGetterCase getter) {
+        Op op = Op.Of(name: nameof(EditorOp.BeginRhinoGetter));
+        return from document in Optional(getter.Document).ToFin(Fail: UiFault.InvalidInput(op: op, detail: "RhinoDoc is required"))
+               from started in op.Attempt(body: () => GhEditor.BeginRhinoGetter(doc: document), what: "begin Rhino getter")
+                   .MapFail(error => UiFault.GhEditor(op: op, detail: error.Message))
+               from valid in started
+                   ? Fin.Succ(value: EditorResult.Unit)
+                   : Fin.Fail<EditorResult>(error: UiFault.GhEditor(op: op, detail: "a Rhino getter is already active (command-line getter or pending getter timer)"))
+               select valid;
+    }
 }

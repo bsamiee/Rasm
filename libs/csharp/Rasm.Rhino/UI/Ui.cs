@@ -4,24 +4,19 @@ using Eto.Forms;
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct UiToast(RhinoView View, string Message, Option<int> TextHeight = default, Option<System.Drawing.PointF> Location = default) {
-    // ShowToast's uint return is the toast runtime serial, but no DismissToast(serial) API exists — there is nothing to track.
-    internal Fin<Unit> Apply() {
-        RhinoView? target = View;
-        string text = Message;
-        Option<int> textHeight = TextHeight;
-        Option<System.Drawing.PointF> location = Location;
-        return from view in Op.Of(name: nameof(Apply)).Need(target)
-               from message in string.IsNullOrWhiteSpace(value: text) switch {
-                   false => Fin.Succ(value: text.Trim()),
-                   true => Fin.Fail<string>(error: Op.Of(name: nameof(Apply)).InvalidInput()),
-               }
-               select (textHeight.Case, location.Case) switch {
-                   (int height, System.Drawing.PointF point) when height > 0 => Op.Side(() => view.ShowToast(message, height, point)),
-                   (int height, _) when height > 0 => Op.Side(() => view.ShowToast(message, height)),
-                   _ => Op.Side(() => view.ShowToast(message)),
-               };
-    }
+public readonly record struct UiProgressSpec(
+    int Lower,
+    int Upper,
+    string Label,
+    bool EmbedLabel = true,
+    bool ShowPercentComplete = true);
+
+public readonly record struct UiProgressStep(
+    Option<int> Position = default,
+    Option<string> Label = default,
+    bool Absolute = true) {
+    public static UiProgressStep Relative(int delta = 1, string? label = null) =>
+        new(Position: Some(delta), Label: Optional(label), Absolute: false);
 }
 
 public readonly record struct UiStatus(
@@ -35,9 +30,6 @@ public readonly record struct UiStatus(
     Seq<UiToast> Toasts = default,
     bool ClearMessage = false,
     bool HideProgress = false) {
-    // Single right-biased monoid fold; operator+ is the binary projection. ClearMessage/HideProgress accumulate (OR).
-    // Combine(Seq(left, right)) is right-biased (the right wins each `value | acc`) BECAUSE the fold visits left first,
-    // so `acc` already holds left when right is folded — do NOT flip `value | acc`.
     public static UiStatus operator +(UiStatus left, UiStatus right) => Combine(Seq(left, right));
     public static UiStatus Combine(Seq<UiStatus> statuses) =>
         statuses.Fold(new UiStatus(), static (acc, value) => new(
@@ -78,21 +70,24 @@ public readonly record struct UiStatus(
     }
 }
 
-public readonly record struct UiProgressSpec(
-    int Lower,
-    int Upper,
-    string Label,
-    bool EmbedLabel = true,
-    bool ShowPercentComplete = true);
-
-public readonly record struct UiProgressStep(
-    Option<int> Position = default,
-    Option<string> Label = default,
-    bool Absolute = true) {
-    public static UiProgressStep Relative(int delta = 1, string? label = null) =>
-        new(Position: Some(delta), Label: Optional(label), Absolute: false);
+public readonly record struct UiToast(RhinoView View, string Message, Option<int> TextHeight = default, Option<System.Drawing.PointF> Location = default) {
+    internal Fin<Unit> Apply() {
+        RhinoView? target = View;
+        string text = Message;
+        Option<int> textHeight = TextHeight;
+        Option<System.Drawing.PointF> location = Location;
+        return from view in Op.Of(name: nameof(Apply)).Need(target)
+               from message in string.IsNullOrWhiteSpace(value: text) switch {
+                   false => Fin.Succ(value: text.Trim()),
+                   true => Fin.Fail<string>(error: Op.Of(name: nameof(Apply)).InvalidInput()),
+               }
+               select (textHeight.Case, location.Case) switch {
+                   (int height, System.Drawing.PointF point) when height > 0 => Op.Side(() => view.ShowToast(message, height, point)),
+                   (int height, _) when height > 0 => Op.Side(() => view.ShowToast(message, height)),
+                   _ => Op.Side(() => view.ShowToast(message)),
+               };
+    }
 }
-
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed partial record RhinoUi {
@@ -129,10 +124,6 @@ public sealed partial record RhinoUi {
 
     internal static Fin<T> Protect<T>(Func<Fin<T>> valid, [CallerMemberName] string name = "") =>
         Op.Of(name: name).Need(valid).Bind(work => RhinoApp.IsOnMainThread ? Op.Of(name: name).Catch(work) : Invoke(valid: work, name: name));
-
-    /// Domain rails (Blocks, Camera, …) call this once at the service edge.
-    /// Scripted RhinoCode runs inside a blocked main-thread idle handler; InvokeAndWait deadlocks there.
-    /// Native table/object mutations succeed on the script thread — marshal only for interactive off-thread callers.
     internal static Fin<T> DispatchThread<T>(
         bool uiBound,
         RunMode mode,
@@ -188,7 +179,6 @@ public sealed class UiProgress : IDisposable {
 
     public Fin<int> Update(UiProgressStep step) {
         int Commit(int value) { current = value; return value; }
-        // UpdateProgressMeter returns the PRIOR position, never a failure sentinel — commit unconditionally on the drive path.
         Fin<int> Drive(int target, int rawPosition, string? label) {
             _ = label switch {
                 string text => Op.Side(() => global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: text, position: rawPosition, absolute: step.Absolute)),
@@ -238,7 +228,6 @@ public sealed class UiProgress : IDisposable {
         from validRun in Op.Of(name: nameof(UiProgress)).Need(run)
         from scope in Start(document: document, spec: spec)
         from result in RhinoUi.Protect(valid: () => {
-            // BOUNDARY ADAPTER - native status meter must hide even when caller rail fails.
             try { return validRun(arg: scope); } finally { scope.Dispose(); }
         })
         select result;

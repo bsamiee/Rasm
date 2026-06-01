@@ -19,7 +19,8 @@ internal static class HandleGens {
         new(cell: Atom(new PulseRunnerState<float>(
                 Animated: Animated<float>.CreateFinished(0f, MotionVector.Float.Interpolate),
                 From: 0f, To: 1f, Duration: GhDuration.Fast, Easing: GhMotion.Linear, Yoyo: false,
-                Infinite: infinite, CyclesRemaining: cyclesRemaining, Vector: MotionVector.Float, Sink: static _ => { })),
+                Infinite: infinite, CyclesRemaining: cyclesRemaining, Vector: MotionVector.Float, Sink: static _ => { },
+                Canvas: null!)),
             subscription: Subscription.Empty,
             wake: static () => { });
 }
@@ -101,7 +102,9 @@ public sealed class SpringConfigLaws {
 
     [Fact]
     public void ResponseFactoryMatchesClosedFormOscillatorParameters() {
-        SpringConfig config = SpringConfig.Response(response: 0.5f, dampingFraction: 0.75f, mass: 2f);
+        SpringConfig config = Spec.SuccValue(
+            result: SpringConfig.Response(response: 0.5f, dampingFraction: 0.75f, mass: 2f),
+            label: nameof(SpringConfig.Response));
         float omega = (float)(2.0 * Math.PI) / 0.5f;
 
         Assert.Equal(expected: omega * omega * 2f, actual: config.Stiffness, tolerance: 1e-4f);

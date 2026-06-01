@@ -2,68 +2,7 @@ using Color = System.Drawing.Color;
 
 namespace Rasm.Rhino.Commands;
 
-// --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct CommandOptionValue {
-    internal CommandOptionValue(
-        int index,
-        string key,
-        string name,
-        Option<object> value,
-        Option<int> listIndex,
-        CommandLineOptionType optionType,
-        Option<string> englishName,
-        Option<string> localName,
-        Option<string> stringValue) {
-        Index = index;
-        Key = key;
-        Name = name;
-        Value = value;
-        ListIndex = listIndex;
-        OptionType = optionType;
-        EnglishName = englishName;
-        LocalName = localName;
-        StringValue = stringValue;
-    }
-
-    internal int Index { get; }
-    public string Key { get; }
-    public string Name { get; }
-    public Option<object> Value { get; }
-    public Option<int> ListIndex { get; }
-    public CommandLineOptionType OptionType { get; }
-    public Option<string> EnglishName { get; }
-    public Option<string> LocalName { get; }
-    public Option<string> StringValue { get; }
-
-    public Option<T> As<T>() => Value.Bind(static value => value is T typed ? Some(typed) : Option<T>.None);
-    public Option<T> As<T>(string key) => Is(key: key) ? As<T>() : Option<T>.None;
-    public Fin<T> Require<T>() => As<T>().ToFin(Fail: Op.Of(name: nameof(CommandOptionValue)).InvalidResult());
-    public Fin<T> Require<T>(string key) => As<T>(key: key).ToFin(Fail: Op.Of(name: nameof(CommandOptionValue)).InvalidResult());
-    public bool Is(string key) => string.Equals(a: Key, b: key, comparisonType: StringComparison.OrdinalIgnoreCase);
-}
-
-public readonly record struct CommandOptionPolicy(
-    string? ValueName = null,
-    string? LocalName = null,
-    string? LocalValueName = null,
-    bool Hidden = false,
-    bool Varies = false,
-    string? Prompt = null,
-    string Off = "No",
-    string On = "Yes",
-    bool AllowEmpty = false,
-    int Current = 0,
-    Option<double> Lower = default,
-    Option<double> Upper = default) {
-    public static CommandOptionPolicy Default { get; } = new(Off: "No", On: "Yes");
-
-    internal CommandInputPolicy.LimitSpec Bounds => CommandInputPolicy.Limit(lower: Lower, upper: Upper);
-    internal CommandOptionPolicy Normalized => this with {
-        Off = string.IsNullOrWhiteSpace(value: Off) ? Default.Off : Off,
-        On = string.IsNullOrWhiteSpace(value: On) ? Default.On : On,
-    };
-}
-
+// --- [TYPES] ------------------------------------------------------------------------------
 public abstract record CommandOption {
     private CommandOption(string name) => Name = name;
 
@@ -146,7 +85,6 @@ public abstract record CommandOption {
 
     private static int EnumBind<T>(GetBaseClass getter, global::Rhino.UI.LocalizeStringPair localized, Seq<T> items, Seq<string> _, int index) {
         T[] include = [.. items];
-        // BOUNDARY ADAPTER — native AddOptionEnumList<T> is constrained `where T : struct, IConvertible`, but Choice<T> is unconstrained (it also serves string); the enum write crosses the constraint via dynamic. Runs once per options bind, never on a per-event path.
         return index >= 0 && index < items.Count ? getter.AddOptionEnumList(englishOptionName: localized.English, defaultValue: (dynamic)items[index]!, include: include) : -1;
     }
 
@@ -166,11 +104,46 @@ public abstract record CommandOption {
                  from pair in ScriptPair(name: name, token: token).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
                  from index in toSeq(Enumerable.Range(start: 0, count: nonEmpty.Count)).Find(i => string.Equals(a: labels[i], b: pair.Value, comparisonType: StringComparison.Ordinal) || string.Equals(a: nonEmpty[i]?.ToString(), b: pair.Value, comparisonType: StringComparison.Ordinal)).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
                  select Scripted(key: name, value: Some((object)nonEmpty[index]!), listIndex: Some(index), optionType: CommandLineOptionType.List, stringValue: Some(pair.Value))).ToOption());
+    private readonly record struct NativeOptionRow<TNative, TValue>(
+        string Name,
+        Func<Fin<TNative>> Create,
+        Option<string> Prompt,
+        Option<string> LocalName,
+        RefOptionBinder<TNative> Bind,
+        Func<TNative, TValue> Current,
+        Func<string, Option<CommandOptionValue>> Script,
+        bool Varies) where TNative : IDisposable {
+        internal Case ToCase() {
+            string name = Name;
+            Func<Fin<TNative>> create = Create;
+            Option<string> prompt = Prompt;
+            Option<string> localName = LocalName;
+            RefOptionBinder<TNative> bind = Bind;
+            Func<TNative, TValue> current = Current;
+            Func<string, Option<CommandOptionValue>> script = Script;
+            bool varies = Varies;
+            return new(Name: name, AddToGetter: (getter, validName) => create().Bind(native => {
+                int index = bind(getter, OptionName(english: validName, localName: localName), ref native, prompt);
+                return Added(
+                    getter: getter,
+                    index: index,
+                    native: native,
+                    snapshot: g => Fin.Succ(value: Snapshot(key: validName, name: validName, getter: g, value: Some((object)current(arg: native)!), listIndex: Option<int>.None)),
+                    varies: varies);
+            }), ScriptToken: script);
+        }
+    }
+
     private static Case Ref<TNative, TValue>(string name, Func<Fin<TNative>> create, Option<string> prompt, Option<string> localName, RefOptionBinder<TNative> bind, Func<TNative, TValue> current, Func<string, Option<CommandOptionValue>> script, bool varies) where TNative : IDisposable =>
-        new(Name: name, AddToGetter: (getter, validName) => create().Bind(native => {
-            int index = bind(getter, OptionName(english: validName, localName: localName), ref native, prompt);
-            return Added(getter: getter, index: index, native: native, snapshot: g => Fin.Succ(value: Snapshot(key: validName, name: validName, getter: g, value: Some((object)current(arg: native)!), listIndex: Option<int>.None)), varies: varies);
-        }), ScriptToken: script);
+        new NativeOptionRow<TNative, TValue>(
+            Name: name,
+            Create: create,
+            Prompt: prompt,
+            LocalName: localName,
+            Bind: bind,
+            Current: current,
+            Script: script,
+            Varies: varies).ToCase();
 
     internal abstract Fin<Bound> Add(GetBaseClass getter);
     internal abstract Option<CommandOptionValue> Script(string token);
@@ -377,4 +350,66 @@ public abstract record CommandOption {
             GC.SuppressFinalize(obj: this);
         }
     }
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+public readonly record struct CommandOptionPolicy(
+    string? ValueName = null,
+    string? LocalName = null,
+    string? LocalValueName = null,
+    bool Hidden = false,
+    bool Varies = false,
+    string? Prompt = null,
+    string Off = "No",
+    string On = "Yes",
+    bool AllowEmpty = false,
+    int Current = 0,
+    Option<double> Lower = default,
+    Option<double> Upper = default) {
+    public static CommandOptionPolicy Default { get; } = new(Off: "No", On: "Yes");
+
+    internal CommandInputPolicy.LimitSpec Bounds => CommandInputPolicy.Limit(lower: Lower, upper: Upper);
+    internal CommandOptionPolicy Normalized => this with {
+        Off = string.IsNullOrWhiteSpace(value: Off) ? Default.Off : Off,
+        On = string.IsNullOrWhiteSpace(value: On) ? Default.On : On,
+    };
+}
+
+public readonly record struct CommandOptionValue {
+    internal CommandOptionValue(
+        int index,
+        string key,
+        string name,
+        Option<object> value,
+        Option<int> listIndex,
+        CommandLineOptionType optionType,
+        Option<string> englishName,
+        Option<string> localName,
+        Option<string> stringValue) {
+        Index = index;
+        Key = key;
+        Name = name;
+        Value = value;
+        ListIndex = listIndex;
+        OptionType = optionType;
+        EnglishName = englishName;
+        LocalName = localName;
+        StringValue = stringValue;
+    }
+
+    internal int Index { get; }
+    public string Key { get; }
+    public string Name { get; }
+    public Option<object> Value { get; }
+    public Option<int> ListIndex { get; }
+    public CommandLineOptionType OptionType { get; }
+    public Option<string> EnglishName { get; }
+    public Option<string> LocalName { get; }
+    public Option<string> StringValue { get; }
+
+    public Option<T> As<T>() => Value.Bind(static value => value is T typed ? Some(typed) : Option<T>.None);
+    public Option<T> As<T>(string key) => Is(key: key) ? As<T>() : Option<T>.None;
+    public Fin<T> Require<T>() => As<T>().ToFin(Fail: Op.Of(name: nameof(CommandOptionValue)).InvalidResult());
+    public Fin<T> Require<T>(string key) => As<T>(key: key).ToFin(Fail: Op.Of(name: nameof(CommandOptionValue)).InvalidResult());
+    public bool Is(string key) => string.Equals(a: Key, b: key, comparisonType: StringComparison.OrdinalIgnoreCase);
 }

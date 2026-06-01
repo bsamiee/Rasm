@@ -1,30 +1,60 @@
 using System.Runtime.InteropServices;
 using Rhino.DocObjects.Tables;
+using IODirectory = System.IO.Directory;
+using IOPath = System.IO.Path;
 
 namespace Rasm.Rhino.Events;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 public enum DeferralPolicy { Immediate, Idle }
+
 public enum WatchPanelState { Shown, Hidden, Closed }
 
 [Union]
-public abstract partial record WatchTarget {
-    private WatchTarget() { }
-    public sealed record Document(RhinoDoc Value) : WatchTarget;
-    public sealed record AllDocuments : WatchTarget;
+public abstract partial record WatchPayload {
+    private WatchPayload() { }
+
+    public sealed record View(RhinoView Value) : WatchPayload;
+    public sealed record Objects(Seq<Guid> Ids) : WatchPayload;
+    public sealed record Selection(Seq<Guid> Ids, int Count) : WatchPayload;
+    public sealed record Replace(Guid Old, Option<Guid> New) : WatchPayload;
+    public sealed record Attributes(Option<Guid> Object) : WatchPayload;
+    public sealed record LayerEvent(LayerTableEventType Event, int Index, Option<Layer> Old, Option<Layer> Next) : WatchPayload;
+    public sealed record Viewport(Guid Id, uint ChangeCounter) : WatchPayload;
+    public sealed record DisplayMode(Guid ViewportId, Guid Old, Guid Next) : WatchPayload;
+    public sealed record PageView(uint SerialNumber, Option<Guid> OldActiveDetailId, Option<Guid> NewActiveDetailId) : WatchPayload;
+    public sealed record Panel(Guid Id, WatchPanelState State) : WatchPayload;
+    public sealed record Document(
+        Option<string> FileName = default,
+        Option<bool> Merge = default,
+        Option<bool> Reference = default,
+        Option<bool> ExportSelected = default,
+        Option<double> Scale = default,
+        Option<string> UserStringKey = default) : WatchPayload {
+        internal static Document Open(DocumentOpenEventArgs args) =>
+            new(FileName: Optional(args.FileName), Merge: Some(args.Merge), Reference: Some(args.Reference));
+
+        internal static Document Save(DocumentSaveEventArgs args) =>
+            new(FileName: Optional(args.FileName), ExportSelected: Some(args.ExportSelected));
+
+        internal static Document Units(UnitsChangedWithScalingEventArgs args) =>
+            new(Scale: Some(args.Scale));
+
+        internal static Document UserString(RhinoDoc.UserStringChangedArgs args) =>
+            new(UserStringKey: Optional(args.Key));
+    }
+
+    public Seq<Guid> ObjectIds =>
+        this switch {
+            Objects value => value.Ids,
+            Selection value => value.Ids,
+            Replace value => value.New.ToSeq().Add(value.Old),
+            Attributes value => value.Object.ToSeq(),
+            PageView value => value.OldActiveDetailId.ToSeq() + value.NewActiveDetailId.ToSeq(),
+            _ => Seq<Guid>(),
+        };
 }
 
-public sealed record WatchSpec(
-    Func<WatchEvent, Fin<Unit>> Sink,
-    Seq<WatchPhase> Phases = default,
-    DeferralPolicy Deferral = DeferralPolicy.Immediate);
-
-internal readonly record struct WatchEnvelope(uint DocumentSerialNumber, Option<RhinoDoc> Document, WatchPayload Payload);
-
-// Every phase owns its native-event binding (the `bind` delegate captures the +=/-= pair + the args->payload
-// projection, doc-serial gated). Subscribe is then a fold over the requested phases — no per-event boilerplate. Native
-// viewport deltas (DisplayPipeline.ViewportProjectionChanged/DisplayModeChanged since 6.18, RhinoView.Rename since 5.0)
-// fold in beside the doc/object/layer events through the same surface.
 [SmartEnum<int>]
 public sealed partial class WatchPhase {
     public static readonly WatchPhase
@@ -57,16 +87,14 @@ public sealed partial class WatchPhase {
         ObjectPurged = new(key: 26, bind: On<RhinoObjectEventArgs>(h => RhinoDoc.PurgeRhinoObject += h, h => RhinoDoc.PurgeRhinoObject -= h, static (a, doc) => Object(a: a, doc: doc))),
         PanelShown = new(key: 27, bind: PanelShow(show: true)),
         PanelHidden = new(key: 28, bind: PanelShow(show: false)),
-        PanelClosed = new(key: 29, bind: PanelClose());
+        PanelClosed = new(key: 29, bind: PanelClose()),
+        PageSpace = new(key: 30, bind: On<PageViewSpaceChangeEventArgs>(h => RhinoPageView.PageViewSpaceChange += h, h => RhinoPageView.PageViewSpaceChange -= h, static (a, doc) => PageSpacePayload(args: a, watched: doc))),
+        PageProperties = new(key: 31, bind: On<PageViewPropertiesChangeEventArgs>(h => RhinoPageView.PageViewPropertiesChange += h, h => RhinoPageView.PageViewPropertiesChange -= h, static (a, doc) => PagePropertiesPayload(args: a, watched: doc)));
 
     [UseDelegateFromConstructor] internal partial Subscription Bind(WatchTarget target, Func<WatchEnvelope, Fin<Unit>> deliver);
 
     internal static Fin<Subscription> Subscribe(RhinoDoc document, Seq<WatchPhase> phases, Func<WatchEvent, Fin<Unit>> sink) =>
         WatchBus.Subscribe(target: new WatchTarget.Document(Value: document), spec: new WatchSpec(Sink: sink, Phases: phases));
-
-    // --- [BINDERS] --------------------------------------------------------------------------
-    // One generic native-event binder: attach the +=/-= pair, project each firing to an Option<WatchPayload> (None =
-    // not for this document => suppressed), deliver the Some. The view family shares one projection across five events.
     private static Func<WatchTarget, Func<WatchEnvelope, Fin<Unit>>, Subscription> On<TArgs>(Action<EventHandler<TArgs>> subscribe, Action<EventHandler<TArgs>> unsubscribe, Func<TArgs, WatchTarget, Option<WatchEnvelope>> project) =>
         (target, deliver) => Subscription.Attach(active: true, subscribe: subscribe, unsubscribe: unsubscribe, handle: (TArgs a) =>
             project(arg1: a, arg2: target).Case switch { WatchEnvelope payload => deliver(arg: payload), _ => Fin.Succ(value: unit) });
@@ -87,10 +115,6 @@ public sealed partial class WatchPhase {
             subscribe: h => global::Rhino.UI.Panels.Closed += h,
             unsubscribe: h => global::Rhino.UI.Panels.Closed -= h,
             project: static (a, target) => Gate(serial: a.DocumentSerialNumber, watched: target, payload: new WatchPayload.Panel(Id: a.PanelId, State: WatchPanelState.Closed)));
-
-    // ViewportProjectionChanged is a draw conduit that fires repeatedly per logical change; a per-subscription
-    // ChangeCounter debounce (fresh Atom per Subscribe) collapses the storm to one edge per counter advance — the same
-    // counter CameraSnapshot.IsStale reads. Stateful, so it cannot reuse the stateless On<> projection.
     private static Func<WatchTarget, Func<WatchEnvelope, Fin<Unit>>, Subscription> Projection(Action<EventHandler<DrawEventArgs>> subscribe, Action<EventHandler<DrawEventArgs>> unsubscribe) =>
         (target, deliver) => {
             Atom<HashMap<Guid, uint>> seen = Atom(value: HashMap<Guid, uint>());
@@ -137,8 +161,48 @@ public sealed partial class WatchPhase {
 
     private static Option<WatchEnvelope> Object(RhinoObjectEventArgs a, WatchTarget doc) =>
         Gate(eventDoc: a.TheObject?.Document, watched: doc, payload: new WatchPayload.Objects(Ids: Seq(a.ObjectId)));
+
+    private static Option<WatchEnvelope> PageSpacePayload(PageViewSpaceChangeEventArgs args, WatchTarget watched) =>
+        Optional(args.PageView).Bind(page =>
+            Gate(eventDoc: page.Document, watched: watched, payload: new WatchPayload.PageView(
+                SerialNumber: page.RuntimeSerialNumber,
+                OldActiveDetailId: OptionalDetail(value: args.OldActiveDetailId),
+                NewActiveDetailId: OptionalDetail(value: args.NewActiveDetailId))));
+
+    private static Option<WatchEnvelope> PagePropertiesPayload(PageViewPropertiesChangeEventArgs args, WatchTarget watched) =>
+        Gate(serial: args.DocumentSerialNumber, watched: watched, payload: new WatchPayload.PageView(
+            SerialNumber: args.PageViewSerialNumber,
+            OldActiveDetailId: Option<Guid>.None,
+            NewActiveDetailId: Option<Guid>.None));
+
+    private static Option<Guid> OptionalDetail(Guid value) =>
+        value == Guid.Empty ? Option<Guid>.None : Some(value);
 }
 
+[Union]
+public abstract partial record WatchTarget {
+    private WatchTarget() { }
+    public sealed record Document(RhinoDoc Value) : WatchTarget;
+    public sealed record AllDocuments : WatchTarget;
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct WatchEvent(WatchPhase Phase, uint DocumentSerialNumber, Option<RhinoDoc> Document, WatchPayload Payload) {
+    public Option<RhinoView> View => Payload is WatchPayload.View value ? Some(value: value.Value) : Option<RhinoView>.None;
+    public Option<WatchPayload.Panel> Panel => Payload is WatchPayload.Panel value ? Some(value: value) : Option<WatchPayload.Panel>.None;
+    public Option<WatchPayload.PageView> PageView => Payload is WatchPayload.PageView value ? Some(value: value) : Option<WatchPayload.PageView>.None;
+    public Seq<Guid> ObjectIds => Payload.ObjectIds;
+}
+
+public sealed record WatchSpec(
+    Func<WatchEvent, Fin<Unit>> Sink,
+    Seq<WatchPhase> Phases = default,
+    DeferralPolicy Deferral = DeferralPolicy.Immediate);
+
+internal readonly record struct WatchEnvelope(uint DocumentSerialNumber, Option<RhinoDoc> Document, WatchPayload Payload);
+
+// --- [SERVICES] ---------------------------------------------------------------------------
 public static class WatchBus {
     public static Fin<Subscription> Subscribe(WatchTarget target, WatchSpec spec) =>
         from activeTarget in Optional(target).ToFin(Fail: Op.Of(name: nameof(WatchBus)).InvalidInput())
@@ -154,14 +218,68 @@ public static class WatchBus {
                     DocumentSerialNumber: payload.DocumentSerialNumber,
                     Document: payload.Document,
                     Payload: payload.Payload)))));
+
+    public static Fin<Subscription> SubscribeFile(string path, TimeSpan debounce, TimeProvider clock, Func<Fin<Unit>> sink) {
+        Op op = Op.Of(name: nameof(SubscribeFile));
+        return from activePath in Optional(path)
+                   .Filter(static value => !string.IsNullOrWhiteSpace(value: value))
+                   .ToFin(Fail: op.InvalidInput())
+               from activeClock in Optional(clock).ToFin(Fail: op.InvalidInput())
+               from activeSink in Optional(sink).ToFin(Fail: op.InvalidInput())
+               from _ in debounce > TimeSpan.Zero
+                   ? Fin.Succ(value: unit)
+                   : Fin.Fail<Unit>(error: op.InvalidInput())
+               from sub in op.Catch(() => AttachFile(path: activePath, debounce: debounce, clock: activeClock, sink: activeSink, op: op))
+               select sub;
+    }
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Subscription owns and disposes the watcher after successful attachment.")]
+    private static Fin<Subscription> AttachFile(string path, TimeSpan debounce, TimeProvider clock, Func<Fin<Unit>> sink, Op op) {
+        string fullPath = IOPath.GetFullPath(path: path);
+        string dir = IOPath.GetDirectoryName(path: fullPath) ?? string.Empty;
+        string filter = IOPath.GetFileName(path: fullPath);
+        if (string.IsNullOrWhiteSpace(value: dir) || !IODirectory.Exists(path: dir)) return Fin.Fail<Subscription>(error: op.InvalidInput());
+        FileSystemWatcher watcher = new(path: dir, filter: filter) {
+            NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite,
+        };
+        try {
+            Atom<DateTimeOffset> lastFired = Atom(value: DateTimeOffset.MinValue);
+            Fin<Unit> Fire() {
+                DateTimeOffset now = clock.GetUtcNow();
+                bool accepted = false;
+                _ = lastFired.Swap(f: last => {
+                    accepted = now - last >= debounce;
+                    return accepted ? now : last;
+                });
+                return accepted ? sink() : Fin.Succ(value: unit);
+            }
+            void OnChange(object sender, FileSystemEventArgs args) => _ = UI.RhinoUi.Protect(valid: Fire);
+            void OnRename(object sender, RenamedEventArgs args) => _ = UI.RhinoUi.Protect(valid: Fire);
+            FileSystemEventHandler change = OnChange;
+            RenamedEventHandler rename = OnRename;
+            watcher.Changed += change;
+            watcher.Created += change;
+            watcher.Deleted += change;
+            watcher.Renamed += rename;
+            watcher.EnableRaisingEvents = true;
+            return Fin.Succ(value: Subscription.Watch(
+                watcher: watcher,
+                detachers: Seq(
+                    () => watcher.Changed -= change,
+                    () => watcher.Created -= change,
+                    () => watcher.Deleted -= change,
+                    () => watcher.Renamed -= rename)));
+        } catch (IOException ex) {
+            watcher.Dispose();
+            return Fin.Fail<Subscription>(error: op.InvalidResult(detail: ex.Message));
+        } catch (UnauthorizedAccessException ex) {
+            watcher.Dispose();
+            return Fin.Fail<Subscription>(error: op.InvalidResult(detail: ex.Message));
+        }
+    }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Canonical reactive-lifecycle capsule for the whole assembly. A subscription is an identity-lived RESOURCE, not a
-// value — so it is a sealed class with reference equality (two subscriptions to the same event are distinct), never a
-// record (which would drag the captured FileSystemWatcher / detacher state into structural equality). Teardown runs
-// exactly once via Interlocked.Exchange of the detacher to null; composition (`|`) chains disposal; the native-event
-// binding factory (Attach) and FileSystemWatcher factory (Watch) live on the same surface.
+// --- [COMPOSITION] ------------------------------------------------------------------------
 public sealed class Subscription : IDisposable {
     private Action? detach;
     private Subscription(Action? detach) => this.detach = detach;
@@ -181,22 +299,15 @@ public sealed class Subscription : IDisposable {
     }
 
     public void Dispose() {
-        // BOUNDARY ADAPTER — Interlocked.Exchange makes the detacher run exactly once across double-Dispose / concurrent callers.
         Action? captured = Interlocked.Exchange(location1: ref detach, value: null);
         _ = captured is null ? unit : UI.RhinoUi.Protect(valid: () => { captured(); return Fin.Succ(value: unit); });
     }
-
-    // BOUNDARY ADAPTER — native static events need one delegate identity for symmetric +=/-=; the handler is
-    // Protect-wrapped so a faulting sink never escapes native dispatch. Inactive yields the shared no-op Nothing.
     public static Subscription Attach<TArgs>(bool active, Action<EventHandler<TArgs>> subscribe, Action<EventHandler<TArgs>> unsubscribe, Func<TArgs, Fin<Unit>> handle) {
         void Handle(object? sender, TArgs args) => _ = UI.RhinoUi.Protect(valid: () => handle(arg: args));
         EventHandler<TArgs> handler = Handle;   // single delegate instance for symmetric +=/-=
         _ = Op.SideWhen(active, () => subscribe(handler));
         return active ? Of(detach: () => unsubscribe(handler)) : Nothing;
     }
-
-    // BOUNDARY ADAPTER — FileSystemWatcher teardown: explicit -= detach + EnableRaisingEvents=false before Dispose,
-    // the defensive sequence FileSystemWatcher.Dispose() alone omits. The watcher is closure-captured, never compared.
     public static Subscription Watch(FileSystemWatcher watcher, Seq<Action> detachers) =>
         Of(Seq(() => {
             _ = detachers.Iter(static run =>
@@ -206,93 +317,6 @@ public sealed class Subscription : IDisposable {
         }));
 }
 
-// The variant payload of a WatchEvent — the envelope (phase + document) is flat on WatchEvent, so only the
-// genuinely-discriminated data lives here, with one ObjectIds fold over the id-bearing cases.
-[Union]
-public abstract partial record WatchPayload {
-    private WatchPayload() { }
-
-    public sealed record View(RhinoView Value) : WatchPayload;
-    public sealed record Objects(Seq<Guid> Ids) : WatchPayload;
-    public sealed record Selection(Seq<Guid> Ids, int Count) : WatchPayload;
-    public sealed record Replace(Guid Old, Option<Guid> New) : WatchPayload;
-    public sealed record Attributes(Option<Guid> Object) : WatchPayload;
-    public sealed record LayerEvent(LayerTableEventType Event, int Index, Option<Layer> Old, Option<Layer> Next) : WatchPayload;
-    public sealed record Viewport(Guid Id, uint ChangeCounter) : WatchPayload;
-    public sealed record DisplayMode(Guid ViewportId, Guid Old, Guid Next) : WatchPayload;
-    public sealed record Panel(Guid Id, WatchPanelState State) : WatchPayload;
-    public sealed record Document(
-        Option<string> FileName = default,
-        Option<bool> Merge = default,
-        Option<bool> Reference = default,
-        Option<bool> ExportSelected = default,
-        Option<double> Scale = default,
-        Option<string> UserStringKey = default) : WatchPayload {
-        internal static Document Open(DocumentOpenEventArgs args) =>
-            new(FileName: Optional(args.FileName), Merge: Some(args.Merge), Reference: Some(args.Reference));
-
-        internal static Document Save(DocumentSaveEventArgs args) =>
-            new(FileName: Optional(args.FileName), ExportSelected: Some(args.ExportSelected));
-
-        internal static Document Units(UnitsChangedWithScalingEventArgs args) =>
-            new(Scale: Some(args.Scale));
-
-        internal static Document UserString(RhinoDoc.UserStringChangedArgs args) =>
-            new(UserStringKey: Optional(args.Key));
-    }
-
-    public Seq<Guid> ObjectIds =>
-        this switch {
-            Objects value => value.Ids,
-            Selection value => value.Ids,
-            Replace value => value.New.ToSeq().Add(value.Old),
-            Attributes value => value.Object.ToSeq(),
-            _ => Seq<Guid>(),
-        };
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct WatchEvent(WatchPhase Phase, uint DocumentSerialNumber, Option<RhinoDoc> Document, WatchPayload Payload) {
-    public Option<RhinoView> View => Payload is WatchPayload.View value ? Some(value: value.Value) : Option<RhinoView>.None;
-    public Option<WatchPayload.Panel> Panel => Payload is WatchPayload.Panel value ? Some(value: value) : Option<WatchPayload.Panel>.None;
-    public Seq<Guid> ObjectIds => Payload.ObjectIds;
-}
-
-internal static class WatchIdle {
-    private static readonly Atom<Seq<Func<Fin<Unit>>>> Queue = Atom(value: Seq<Func<Fin<Unit>>>());
-    private static int hooked;
-
-    internal static Fin<Unit> Deliver(DeferralPolicy deferral, Func<Fin<Unit>> run) =>
-        from valid in Optional(run).ToFin(Fail: Op.Of(name: nameof(WatchIdle)).InvalidInput())
-        from delivered in deferral switch {
-            DeferralPolicy.Idle => Enqueue(run: valid),
-            _ => valid(),
-        }
-        select delivered;
-
-    private static Fin<Unit> Enqueue(Func<Fin<Unit>> run) {
-        EnsureHook();
-        _ = Queue.Swap(f: current => current.Add(value: run));
-        return Fin.Succ(value: unit);
-    }
-
-    private static void EnsureHook() {
-        if (Interlocked.CompareExchange(location1: ref hooked, value: 1, comparand: 0) != 0) return;
-        RhinoApp.Idle += static (_, _) => Drain();
-    }
-
-    private static void Drain() {
-        Seq<Func<Fin<Unit>>> pending = Queue.Value;
-        _ = Queue.Swap(f: current => toSeq(current.Skip(count: pending.Count)));
-        _ = pending.Iter(static run => _ = UI.RhinoUi.Protect(valid: run));
-    }
-}
-
-// --- [SERVICES] ---------------------------------------------------------------------------
-// Reusable re-entrant event dispatch: one-time native hook (Interlocked), thread-id re-entrancy guard
-// (Atom<HashSet<int>>), per-serial subscriber routing with snapshot-before-iter, pluggable deferral. The native-event
-// projection, the once-per-event prologue (e.g. cache invalidation) and the idle scheduler are injected, so this
-// surface stays free of any document/table/receipt coupling — block-table and future hooks reuse the guard.
 internal sealed class EventDispatcher<TRaw, TEvent> {
     private readonly record struct Entry(Guid Id, Func<TEvent, bool> Filter, Action<TEvent> Sink, DeferralPolicy Deferral);
 
@@ -326,14 +350,12 @@ internal sealed class EventDispatcher<TRaw, TEvent> {
     }
 
     private void EnsureHook(Action<EventHandler<TRaw>> hook) =>
-        // BOUNDARY ADAPTER — Interlocked owns the one-time native event subscription.
         _ = Interlocked.CompareExchange(location1: ref hooked, value: 1, comparand: 0) != 0
             ? unit
             : Op.Side(() => hook((_, raw) => OnEvent(raw: raw)));
 
     private void OnEvent(TRaw raw) {
         int tid = System.Environment.CurrentManagedThreadId;
-        // BOUNDARY ADAPTER — native events can re-enter while subscribers mutate the underlying table.
         _ = reentrant.Value.Contains(key: tid)
             ? unit
             : UI.RhinoUi.Protect(valid: () => { _ = Dispatch(tid: tid, raw: raw); return Fin.Succ(value: unit); });
@@ -341,7 +363,6 @@ internal sealed class EventDispatcher<TRaw, TEvent> {
 
     private Unit Dispatch(int tid, TRaw raw) {
         _ = reentrant.Swap(f: set => set.Add(key: tid));
-        // BOUNDARY ADAPTER — the re-entrancy tid must clear even when a subscriber sink throws past Protect.
         try {
             (uint serial, TEvent ev) = project(arg: raw);
             prologue(arg1: serial, arg2: ev);
@@ -366,5 +387,35 @@ internal sealed class EventDispatcher<TRaw, TEvent> {
             _ => map,
         });
         return unit;
+    }
+}
+
+internal static class WatchIdle {
+    private static readonly Atom<Seq<Func<Fin<Unit>>>> Queue = Atom(value: Seq<Func<Fin<Unit>>>());
+    private static int hooked;
+
+    internal static Fin<Unit> Deliver(DeferralPolicy deferral, Func<Fin<Unit>> run) =>
+        from valid in Optional(run).ToFin(Fail: Op.Of(name: nameof(WatchIdle)).InvalidInput())
+        from delivered in deferral switch {
+            DeferralPolicy.Idle => Enqueue(run: valid),
+            _ => valid(),
+        }
+        select delivered;
+
+    private static Fin<Unit> Enqueue(Func<Fin<Unit>> run) {
+        EnsureHook();
+        _ = Queue.Swap(f: current => current.Add(value: run));
+        return Fin.Succ(value: unit);
+    }
+
+    private static void EnsureHook() {
+        if (Interlocked.CompareExchange(location1: ref hooked, value: 1, comparand: 0) != 0) return;
+        RhinoApp.Idle += static (_, _) => Drain();
+    }
+
+    private static void Drain() {
+        Seq<Func<Fin<Unit>>> pending = Queue.Value;
+        _ = Queue.Swap(f: current => toSeq(current.Skip(count: pending.Count)));
+        _ = pending.Iter(static run => _ = UI.RhinoUi.Protect(valid: run));
     }
 }

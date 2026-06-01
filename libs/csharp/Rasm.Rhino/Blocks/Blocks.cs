@@ -4,8 +4,10 @@ using Rasm.Rhino.Commands;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.UI;
 using Rhino.DocObjects.Tables;
-using IOPath = System.IO.Path;
 namespace Rasm.Rhino.Blocks;
+
+// --- [TYPES] ------------------------------------------------------------------------------
+internal enum RefCacheMode { Snapshot, Preview }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed class RhinoBlocks {
@@ -17,8 +19,6 @@ public sealed class RhinoBlocks {
 
     public RhinoDoc Document { get; }
     public RunMode Mode { get; }
-
-    /// RhinoCommon echo: Interactive surfaces scripted tokens in the command output window; Scripted stays silent.
     internal bool RunScriptEcho => Mode == RunMode.Interactive;
 
     public static RhinoBlocks Live(RhinoDoc document, RunMode mode = RunMode.Interactive) =>
@@ -41,8 +41,6 @@ public sealed class RhinoBlocks {
     public Fin<Unit> ScheduleIdle(Func<RhinoDoc, Fin<DocumentReceipt>> work, Op? key = null) =>
         Optional(work).ToFin(Fail: key.OrDefault().InvalidInput())
             .Map(valid => { _ = IdlePump.Enqueue(document: Document, work: valid); return unit; });
-
-    /// Bounded native capsule: resolves the definition then projects under Op.Catch.
     public Fin<T> Use<T>(DefinitionRef refer, Func<InstanceDefinition, Fin<T>> project, Op? key = null) {
         Op op = key.OrDefault();
         return Optional(project).ToFin(Fail: op.InvalidInput())
@@ -53,71 +51,25 @@ public sealed class RhinoBlocks {
     public Fin<Subscription> Watch(ArchivePath path, WatchPolicy? policy = null) =>
         (policy ?? WatchPolicy.Default)
             .Admit(key: Op.Of(name: nameof(Watch)))
-            .Bind(valid => AttachWatch(path: path, policy: valid));
+            .Bind(valid => WatchBus.SubscribeFile(
+                path: path.Value,
+                debounce: valid.Debounce,
+                clock: valid.EffectiveClock,
+                sink: () => Document switch {
+                    { IsAvailable: true, IsClosing: false } doc =>
+                        Fin.Succ(value: IdlePump.Enqueue(document: doc, work: live => Operations.RefreshLinkedDocument(
+                            doc: live,
+                            filter: BlockFilter.ArchivesOnly(Seq(path.Value)),
+                            policy: LinkRefreshPolicy.Changed,
+                            batch: BatchPolicy.Default,
+                            key: Op.Of(name: nameof(BlockOp.RefreshLinks))))),
+                    _ => Fin.Succ(value: unit),
+                }));
 
     internal Fin<PreviewHandle> AcquirePreview(InstanceDefinition definition, PreviewSpec spec, Op key) =>
         PreviewVault.Acquire(doc: Document, def: definition, spec: spec, key: key);
-
-    private Fin<Subscription> AttachWatch(ArchivePath path, WatchPolicy policy) {
-        Op key = Op.Of(name: nameof(Watch));
-        return key.Catch(() => {
-            string dir = IOPath.GetDirectoryName(path: path.Value) ?? string.Empty;
-            string filter = IOPath.GetFileName(path: path.Value);
-            FileSystemWatcher watcher = new(path: dir, filter: filter) {
-                NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite,
-            };
-            try {
-                WatchContext ctx = new(Owner: this, Path: path, Policy: policy, LastFired: Atom(value: DateTimeOffset.MinValue));
-                void OnChange(object sender, FileSystemEventArgs args) => OnWatchChanged(ctx: ctx);
-                void OnRename(object sender, RenamedEventArgs args) => OnWatchChanged(ctx: ctx);
-                FileSystemEventHandler change = OnChange;   // single delegate identity for symmetric +=/-=
-                RenamedEventHandler rename = OnRename;
-                watcher.Changed += change;
-                watcher.Created += change;
-                watcher.Deleted += change;
-                watcher.Renamed += rename;
-                watcher.EnableRaisingEvents = true;
-                return Fin.Succ(value: Subscription.Watch(
-                    watcher: watcher,
-                    detachers: Seq(
-                        () => watcher.Changed -= change,
-                        () => watcher.Created -= change,
-                        () => watcher.Deleted -= change,
-                        () => watcher.Renamed -= rename)));
-            } catch (IOException ex) {
-                watcher.Dispose();
-                return Fin.Fail<Subscription>(error: key.InvalidResult(detail: ex.Message));
-            } catch (UnauthorizedAccessException ex) {
-                watcher.Dispose();
-                return Fin.Fail<Subscription>(error: key.InvalidResult(detail: ex.Message));
-            }
-        });
-    }
-
-    private static void OnWatchChanged(WatchContext ctx) {
-        DateTimeOffset now = ctx.Policy.EffectiveClock.GetUtcNow();
-        bool accepted = false;
-        _ = ctx.LastFired.Swap(f: last => {
-            accepted = now - last >= ctx.Policy.Debounce;
-            return accepted ? now : last;
-        });
-        if (!accepted) return;
-        _ = ctx.Owner.Document switch {
-            { IsAvailable: true, IsClosing: false } doc => IdlePump.Enqueue(document: doc, work: live => Operations.RefreshLinkedDocument(
-                doc: live,
-                filter: BlockFilter.ArchivesOnly(Seq(ctx.Path.Value)),
-                policy: LinkRefreshPolicy.Changed,
-                batch: BatchPolicy.Default,
-                key: Op.Of(name: nameof(BlockOp.RefreshLinks)))),
-            _ => unit,
-        };
-    }
-
-    private sealed record WatchContext(RhinoBlocks Owner, ArchivePath Path, WatchPolicy Policy, Atom<DateTimeOffset> LastFired);
 }
 
-// --- [COMPOSITION] [CACHE] ----------------------------------------------------------------
-internal enum RefCacheMode { Snapshot, Preview }
 internal sealed class RefCache<TKey, TValue>(
     RefCacheMode mode,
     Func<TKey, Guid> versionId,
@@ -245,26 +197,7 @@ internal sealed class RefCache<TKey, TValue>(
     }
 }
 
-internal static class SnapshotVault {
-    private static readonly RefCache<(uint Serial, Guid DefId), Definition> store = new(
-        mode: RefCacheMode.Snapshot,
-        versionId: static k => k.DefId,
-        versionTag: null,
-        docSerial: static k => k.Serial,
-        dispose: null);
-
-    internal static Option<Definition> Find(uint docSerial, DefinitionId id) =>
-        store.Find(key: (Serial: docSerial, DefId: id.Value));
-
-    internal static Unit Upsert(uint docSerial, Definition definition) {
-        _ = store.Insert(key: (Serial: docSerial, DefId: definition.Id.Value), value: definition);
-        return unit;
-    }
-
-    internal static Unit Invalidate(Guid defId) => store.InvalidateDef(defId: defId);
-    internal static Unit EvictDoc(uint serial) => store.EvictDoc(serial: serial);
-}
-
+// --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class PreviewVault {
     private static readonly RefCache<(uint Serial, Guid DefId, ulong Spec, uint Version), Bitmap> store = new(
         mode: RefCacheMode.Preview,
@@ -286,28 +219,33 @@ internal static class PreviewVault {
         (Serial: doc.RuntimeSerialNumber, DefId: def.Id, Spec: spec.Fingerprint.Value, Version: store.VersionOf(id: def.Id));
 
     private static Fin<PreviewHandle> Render(InstanceDefinition def, PreviewSpec spec, (uint Serial, Guid DefId, ulong Spec, uint Version) key, Op op) =>
-        op.Catch(() => spec.ResolvedMode.Resolve(op: op).Bind(displayId =>
-            RenderNative(def: def, spec: spec, displayId: displayId) switch {
-                Bitmap bmp => StoreRendered(key: key, rendered: bmp),
-                _ => Fin.Fail<PreviewHandle>(error: op.InvalidResult()),
-            }));
+        op.Catch(() =>
+            from displayId in spec.ResolvedMode.Resolve(op: op)
+            from rendered in RenderNative(def: def, spec: spec, displayId: displayId, op: op)
+            from stored in StoreRendered(key: key, rendered: rendered)
+            select stored);
 
-    private static Bitmap? RenderNative(InstanceDefinition def, PreviewSpec spec, Guid displayId) {
+    private static Fin<Bitmap> RenderNative(InstanceDefinition def, PreviewSpec spec, Guid displayId, Op op) {
         Size size = new(width: spec.Width, height: spec.Height);
         return spec.HighlightMemberId.Case switch {
-            Guid memberId => def.CreatePreviewBitmap(
-                definitionObjectId: memberId,
-                viewportProjection: spec.Projection,
-                displayMode: DisplayModeRef.NativeMode(displayId: displayId),
-                bitmapSize: size,
-                applyDpiScaling: spec.ApplyDpiScaling),
-            _ => def.CreatePreviewBitmap(
-                displayModeId: displayId,
-                viewportProjection: spec.Projection,
-                isometricCamera: spec.Camera,
-                drawDecorations: spec.DrawDecorations,
-                bitmapSize: size,
-                applyDpiScaling: spec.ApplyDpiScaling),
+            Guid memberId =>
+                from displayMode in DisplayModeRef.NativeMode(displayId: displayId, op: op)
+                from bitmap in Optional(def.CreatePreviewBitmap(
+                        definitionObjectId: memberId,
+                        viewportProjection: spec.Projection,
+                        displayMode: displayMode,
+                        bitmapSize: size,
+                        applyDpiScaling: spec.ApplyDpiScaling))
+                    .ToFin(Fail: op.InvalidResult())
+                select bitmap,
+            _ => Optional(def.CreatePreviewBitmap(
+                    displayModeId: displayId,
+                    viewportProjection: spec.Projection,
+                    isometricCamera: spec.Camera,
+                    drawDecorations: spec.DrawDecorations,
+                    bitmapSize: size,
+                    applyDpiScaling: spec.ApplyDpiScaling))
+                .ToFin(Fail: op.InvalidResult()),
         };
     }
 
@@ -327,56 +265,27 @@ internal static class PreviewVault {
     internal static Unit EvictDoc(uint serial) => store.EvictDoc(serial: serial);
 }
 
-// --- [COMPOSITION] [IDLE] -----------------------------------------------------------------
-internal static class IdlePump {
-    private static readonly Atom<Seq<(RhinoDoc Document, Func<RhinoDoc, Fin<DocumentReceipt>> Work)>> queue =
-        Atom(value: Seq<(RhinoDoc, Func<RhinoDoc, Fin<DocumentReceipt>>)>());
-    private static int hooked;
+internal static class SnapshotVault {
+    private static readonly RefCache<(uint Serial, Guid DefId), Definition> store = new(
+        mode: RefCacheMode.Snapshot,
+        versionId: static k => k.DefId,
+        versionTag: null,
+        docSerial: static k => k.Serial,
+        dispose: null);
 
-    private static readonly TimeSpan DefaultBudget = TimeSpan.FromMilliseconds(value: 8);
-    private static TimeProvider clock = TimeProvider.System;
-    private static TimeSpan budget = DefaultBudget;
+    internal static Option<Definition> Find(uint docSerial, DefinitionId id) =>
+        store.Find(key: (Serial: docSerial, DefId: id.Value));
 
-    internal static void ConfigureClock(TimeProvider provider) => clock = provider ?? TimeProvider.System;
-
-    internal static void ConfigureBudget(TimeSpan value) => budget = value > TimeSpan.Zero ? value : DefaultBudget;
-
-    internal static Unit Enqueue(RhinoDoc document, Func<RhinoDoc, Fin<DocumentReceipt>> work) {
-        EnsureHook();
-        _ = queue.Swap(f: current => current.Add(value: (document, work)));
+    internal static Unit Upsert(uint docSerial, Definition definition) {
+        _ = store.Insert(key: (Serial: docSerial, DefId: definition.Id.Value), value: definition);
         return unit;
     }
 
-    internal static void EnsureHook() {
-        // BOUNDARY ADAPTER — Interlocked owns one-time Rhino idle subscription.
-        if (Interlocked.CompareExchange(location1: ref hooked, value: 1, comparand: 0) != 0) return;
-        RhinoApp.Idle += static (_, _) => Drain();
-    }
-
-    private static void Drain() {
-        int taken = DrainUntilDeadline(budget: budget);
-        _ = queue.Swap(f: live => toSeq(live.Skip(count: taken)));
-    }
-    private static int DrainUntilDeadline(TimeSpan budget) {
-        long start = clock.GetTimestamp();
-        Seq<Fin<DocumentReceipt>> drained = queue.Value
-            .TakeWhile(_ => clock.GetElapsedTime(startingTimestamp: start) < budget)
-            .Map(item => item.Document is { IsAvailable: true, IsClosing: false }
-                ? Op.Of(name: nameof(Drain)).Catch(() => item.Work(arg: item.Document))
-                : Fin.Succ(value: DocumentReceipt.Empty))
-            .Map(result => result.MapFail(error => {
-                RhinoApp.WriteLine($"Rasm block idle refresh failed: {error.Message}");
-                return error;
-            }))
-            .ToSeq();
-        return drained.Count;
-    }
+    internal static Unit Invalidate(Guid defId) => store.InvalidateDef(defId: defId);
+    internal static Unit EvictDoc(uint serial) => store.EvictDoc(serial: serial);
 }
 
-// --- [COMPOSITION] [EVENTS] ---------------------------------------------------------------
-// Idef-table events route through the reusable Events.EventDispatcher; this bridge supplies only the
-// idef-specific projection, the cache-invalidation prologue, the idle-deferral via IdlePump, and the
-// document-close cache eviction. The re-entrancy guard + per-serial routing live in the dispatcher.
+// --- [COMPOSITION] ------------------------------------------------------------------------
 internal static class EventBridge {
     private static readonly EventDispatcher<InstanceDefinitionTableEventArgs, BlockTableEvent> Dispatcher = new(
         hook: static h => RhinoDoc.InstanceDefinitionTableEvent += h,
@@ -396,7 +305,6 @@ internal static class EventBridge {
     }
 
     internal static void EnsureHook() {
-        // BOUNDARY ADAPTER — touching Dispatcher self-hooks the idef event; Interlocked owns the one-time CloseDocument cleanup.
         _ = Dispatcher;
         if (Interlocked.CompareExchange(location1: ref closeHooked, value: 1, comparand: 0) != 0) return;
         RhinoDoc.CloseDocument += static (_, args) => OnDocClose(serial: args.DocumentSerialNumber);
@@ -418,5 +326,49 @@ internal static class EventBridge {
             .Map(static d => d.Id.Value)
             .Distinct()
             .Iter(defId => Operations.InvalidateDefinition(defId: defId, doc: Optional(document)));
+    }
+}
+
+internal static class IdlePump {
+    private static readonly Atom<Seq<(RhinoDoc Document, Func<RhinoDoc, Fin<DocumentReceipt>> Work)>> queue =
+        Atom(value: Seq<(RhinoDoc, Func<RhinoDoc, Fin<DocumentReceipt>>)>());
+    private static int hooked;
+
+    private static readonly TimeSpan DefaultBudget = TimeSpan.FromMilliseconds(value: 8);
+    private static TimeProvider clock = TimeProvider.System;
+    private static TimeSpan budget = DefaultBudget;
+
+    internal static void ConfigureClock(TimeProvider provider) => clock = provider ?? TimeProvider.System;
+
+    internal static void ConfigureBudget(TimeSpan value) => budget = value > TimeSpan.Zero ? value : DefaultBudget;
+
+    internal static Unit Enqueue(RhinoDoc document, Func<RhinoDoc, Fin<DocumentReceipt>> work) {
+        EnsureHook();
+        _ = queue.Swap(f: current => current.Add(value: (document, work)));
+        return unit;
+    }
+
+    internal static void EnsureHook() {
+        if (Interlocked.CompareExchange(location1: ref hooked, value: 1, comparand: 0) != 0) return;
+        RhinoApp.Idle += static (_, _) => Drain();
+    }
+
+    private static void Drain() {
+        int taken = DrainUntilDeadline(budget: budget);
+        _ = queue.Swap(f: live => toSeq(live.Skip(count: taken)));
+    }
+    private static int DrainUntilDeadline(TimeSpan budget) {
+        long start = clock.GetTimestamp();
+        Seq<Fin<DocumentReceipt>> drained = queue.Value
+            .TakeWhile(_ => clock.GetElapsedTime(startingTimestamp: start) < budget)
+            .Map(item => item.Document is { IsAvailable: true, IsClosing: false }
+                ? Op.Of(name: nameof(Drain)).Catch(() => item.Work(arg: item.Document))
+                : Fin.Succ(value: DocumentReceipt.Empty))
+            .Map(result => result.MapFail(error => {
+                RhinoApp.WriteLine($"Rasm block idle refresh failed: {error.Message}");
+                return error;
+            }))
+            .ToSeq();
+        return drained.Count;
     }
 }

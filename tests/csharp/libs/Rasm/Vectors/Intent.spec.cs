@@ -26,16 +26,15 @@ internal static class IntentGens {
 public sealed class VectorIntentFactoryLaws {
     [Fact]
     public void InterpolationFactoriesValidateUnitInterval() {
-        Spec.ForAll(Gens.UnitClosed, t => {
-            Spec.Succ(VectorIntent.Lerp(a: Vector3d.XAxis, b: Vector3d.YAxis, t: t, key: IntentGens.Key),
-                then: intent => Spec.Equal(left: Assert.IsType<VectorIntent.LerpCase>(@object: intent).Parameter.Value, right: t, tolerance: 0.0, what: "lerp t"));
-            Spec.Succ(VectorIntent.Pose(from: Plane.WorldXY, to: Plane.WorldZX, t: t, mode: MotionInterpolation.Linear, key: IntentGens.Key),
-                then: intent => Spec.Equal(left: Assert.IsType<VectorIntent.PoseCase>(@object: intent).Parameter.Value, right: t, tolerance: 0.0, what: "pose t"));
-        });
-        Spec.ForAll(IntentGens.OutsideUnit, t => {
-            Spec.Fail(VectorIntent.Lerp(a: Vector3d.XAxis, b: Vector3d.YAxis, t: t, key: IntentGens.Key));
-            Spec.Fail(VectorIntent.Pose(from: Plane.WorldXY, to: Plane.WorldZX, t: t, mode: MotionInterpolation.Linear, key: IntentGens.Key));
-        });
+        Spec.ForAll(Gens.UnitClosed, t => Spec.Succ(VectorIntent.Lerp(a: Vector3d.XAxis, b: Vector3d.YAxis, t: t, key: IntentGens.Key),
+                then: intent => Spec.Equal(left: Assert.IsType<VectorIntent.LerpCase>(@object: intent).Parameter.Value, right: t, tolerance: 0.0, what: "lerp t")));
+        Spec.ForAll(IntentGens.OutsideUnit, t => Spec.Fail(VectorIntent.Lerp(a: Vector3d.XAxis, b: Vector3d.YAxis, t: t, key: IntentGens.Key)));
+    }
+    [Fact]
+    public void ReferenceFactoriesRejectNullAndDefaultConstructorBypassInputs() {
+        Spec.FailCategory(VectorIntent.Axis(axis: null!, key: IntentGens.Key), category: "Input");
+        Spec.FailCategory(VectorIntent.Cone(cone: default, mode: null!, key: IntentGens.Key), category: "Input");
+        Spec.FailCategory(VectorIntent.Bounce(incident: default, surface: null!, sample: Point3d.Origin, key: IntentGens.Key), category: "Input");
     }
     [Fact]
     public void CloudTransportFeatureAndDescriptorFactoriesGateInvalidInputs() {
@@ -66,7 +65,7 @@ public sealed class VectorIntentShapeLaws {
         _ = Assert.IsType<VectorIntent.ExtractionCase>(@object: Spec.SuccValue(VectorIntent.Probe(source: ExtractionProbe.Scalar(source: ScalarField.Constant(value: 1.0)), sample: Point3d.Origin, key: IntentGens.Key), label: "scalar probe"));
         _ = Assert.IsType<VectorIntent.ExtractionCase>(@object: Spec.SuccValue(VectorIntent.Contour(
             domain: IntentGens.CloudDomain,
-            policy: Spec.SuccValue(ContourPolicy.Plane(section: Plane.WorldXY, key: IntentGens.Key), label: "contour plane"),
+            policy: Spec.SuccValue(ContourPolicy.Axis(start: Point3d.Origin, end: new Point3d(x: 1.0, y: 0.0, z: 0.0), interval: 0.5, key: IntentGens.Key), label: "contour axis"),
             key: IntentGens.Key), label: "contour intent"));
         _ = Assert.IsType<VectorIntent.ExtractionCase>(@object: Spec.SuccValue(VectorIntent.Glyph(
             field: VectorField.Constant(value: Vector3d.XAxis),
@@ -95,7 +94,7 @@ public sealed class VectorIntentShapeLaws {
         Spec.FailCategory(VectorIntent.Streamline(field: VectorField.Constant(value: Vector3d.XAxis), seed: Point3d.Origin, initialStep: 0.1, termination: null!, key: IntentGens.Key), category: "Input");
         Spec.FailCategory(VectorIntent.IsoSurface(field: null!, bounds: new BoundingBox(min: Point3d.Origin, max: new Point3d(x: 1.0, y: 1.0, z: 1.0)), resolution: 2, maxRootSteps: 1, key: IntentGens.Key), category: "Input");
         Spec.FailCategory(VectorIntent.IsoSurface(field: ScalarField.Constant(value: 0.0), bounds: BoundingBox.Empty, resolution: 1, maxRootSteps: 0, key: IntentGens.Key), category: "Input");
-        Spec.FailCategory(VectorIntent.Contour(domain: null!, policy: Spec.SuccValue(ContourPolicy.Plane(section: Plane.WorldXY, key: IntentGens.Key), label: "contour policy"), key: IntentGens.Key), category: "Input");
+        Spec.FailCategory(VectorIntent.Contour(domain: null!, policy: Spec.SuccValue(ContourPolicy.Axis(start: Point3d.Origin, end: new Point3d(x: 1.0, y: 0.0, z: 0.0), interval: 0.5, key: IntentGens.Key), label: "contour policy"), key: IntentGens.Key), category: "Input");
         Spec.FailCategory(VectorIntent.Sample(domain: IntentGens.CloudDomain, kind: null!, key: IntentGens.Key), category: "Input");
         Spec.FailCategory(VectorIntent.SampleGrid(field: ScalarField.Constant(value: 1.0), domain: IntentGens.CloudDomain, policy: default, key: IntentGens.Key), category: "Input");
     }
@@ -111,6 +110,18 @@ public sealed class VectorIntentShapeLaws {
         Spec.Succ(cloudMetric.Project<SymmetricMatrix>(context: IntentGens.Model, key: IntentGens.Key), then: matrix =>
             Spec.Equal(left: toSeq(matrix.Upper.AsIterable()), right: toSeq(Numeric.CovarianceUpper(points: IntentGens.ClusterPoints).AsIterable()), tolerance: 1.0e-12, what: "intent covariance"));
         Spec.FailCategory(cloudMetric.Project<Point3d>(context: IntentGens.Model, key: IntentGens.Key), category: "Unsupported");
+        VectorIntent support = Spec.SuccValue(VectorIntent.Support(
+            space: Spec.SuccValue(SupportSpace.Of(value: new Point3d(x: 1.0, y: 0.0, z: 0.0), key: IntentGens.Key), label: "support point"),
+            sample: Point3d.Origin,
+            projection: SupportProjection.Span,
+            key: IntentGens.Key), label: "support span");
+        Spec.Succ(support.Project<VectorSpan>(context: IntentGens.Model, key: IntentGens.Key), then: span =>
+            Spec.Equal(left: span.Value, right: Vector3d.XAxis, tolerance: 0.0));
+        VectorIntent align = Spec.SuccValue(VectorIntent.Align(source: IntentGens.Cluster, target: IntentGens.Cluster, kind: AlignKind.Point, key: IntentGens.Key), label: "align intent");
+        Spec.Succ(align.Project<AlignmentReceipt>(context: IntentGens.Model, key: IntentGens.Key), then: receipt => {
+            Assert.Equal(expected: AlignmentStopKind.Converged, actual: receipt.Stop);
+            Assert.Equal(expected: AlignKind.Point, actual: receipt.Kind);
+        });
     }
 }
 

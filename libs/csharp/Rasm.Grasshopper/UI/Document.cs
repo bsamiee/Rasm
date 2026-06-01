@@ -78,13 +78,9 @@ internal sealed partial class DocumentDeleteMode {
     [UseDelegateFromConstructor]
     internal partial int Run(GhDocumentMethods methods, IDocumentObject[]? targets, Seq<WireEnds> wires, ActionList actions);
 
+    // Key bit-packing: bit1 = targets present (0 selection, 2 objects), bit0 = full (0 data-only, 1 full).
     internal static DocumentDeleteMode Resolve(IDocumentObject[]? targets, bool dataOnly) =>
-        (targets, dataOnly) switch {
-            (null, true) => SelectionDataOnly,
-            (null, false) => SelectionFull,
-            (_, true) => ObjectsDataOnly,
-            (_, false) => ObjectsFull,
-        };
+        Get((targets is null ? 0 : 2) | (dataOnly ? 0 : 1));
 }
 
 [SkipUnionOps]
@@ -220,7 +216,8 @@ public partial record FindCriterion {
     public sealed record GraphCase(GraphKey Anchor, WireTraversal Direction, WireObjectLimit MaxObjects) : FindCriterion;
     public sealed record ByNameCase(string Substring, bool CaseInsensitive, ObjectScope Scope) : FindCriterion;
 
-    public static FindCriterion Near(PointF point, int maxResults = 16, float maxDistance = UiTolerance.PickRadius) => new NearPointCase(Point: point, MaxResults: maxResults, MaxDistance: maxDistance);
+    // 32f mirrors Layout.PickRadius.Default; a compile-time default cannot reference the static-readonly value object.
+    public static FindCriterion Near(PointF point, int maxResults = 16, float maxDistance = 32f) => new NearPointCase(Point: point, MaxResults: maxResults, MaxDistance: maxDistance);
     public static FindCriterion DrawOrder(bool foreground = true, bool background = true) => new ByDrawOrderCase(Foreground: foreground, Background: background);
     public static FindCriterion Upstream(Guid parameterId, WireObjectLimit? maxObjects = null) => Upstream(anchor: GraphKey.Parameter(id: parameterId), maxObjects: maxObjects);
     public static FindCriterion Downstream(Guid parameterId, WireObjectLimit? maxObjects = null) => Downstream(anchor: GraphKey.Parameter(id: parameterId), maxObjects: maxObjects);
@@ -245,6 +242,9 @@ public partial record DocumentQuery {
     public sealed record MetaNamesCase : DocumentQuery;
     public sealed record MetaValuesCase : DocumentQuery;
     public sealed record UniverseCase : DocumentQuery;
+    public sealed record DisplayStateCase : DocumentQuery;
+    public sealed record NotesCase : DocumentQuery;
+    public sealed record CustomValueCase(string Key, string DefaultValue) : DocumentQuery;
 
     public static readonly DocumentQuery Snapshot = new SnapshotCase();
     public static DocumentQuery Objects(ObjectScope scope) => new ObjectsCase(Scope: scope);
@@ -255,11 +255,14 @@ public partial record DocumentQuery {
     public static readonly DocumentQuery MetaNames = new MetaNamesCase();
     public static readonly DocumentQuery MetaValues = new MetaValuesCase();
     public static readonly DocumentQuery Universe = new UniverseCase();
+    public static readonly DocumentQuery DisplayState = new DisplayStateCase();
+    public static readonly DocumentQuery Notes = new NotesCase();
+    public static DocumentQuery CustomValue(string key, string defaultValue = "") => new CustomValueCase(Key: key, DefaultValue: defaultValue);
 }
 
 [GenerateUnionOps]
 [Union]
-public partial record DocumentOp {
+public partial record DocumentOp : IUiOp {
     private DocumentOp() { }
     public sealed partial record QueryCase(DocumentQuery Request) : DocumentOp;
     public sealed partial record MutateCase(Seq<DocumentMutation> Mutations, DocumentMutationPolicy Policy) : DocumentOp;
@@ -269,6 +272,7 @@ public partial record DocumentOp {
     public sealed partial record SolutionCase(SolutionControl Control, SolutionMode Mode) : DocumentOp;
     public sealed partial record MarkCase(DocumentMark Request) : DocumentOp;
     public sealed partial record ReviewCase(DocumentReview Request) : DocumentOp;
+    public sealed partial record FileCase(DocumentFileOp Op) : DocumentOp;
 
     public static DocumentOp Query(DocumentQuery query) => new QueryCase(Request: query);
     public static DocumentOp Mutate(params ReadOnlySpan<DocumentMutation> mutations) =>
@@ -282,10 +286,11 @@ public partial record DocumentOp {
     public static DocumentOp Solution(SolutionControl control, SolutionMode mode = SolutionMode.Regular) => new SolutionCase(Control: control, Mode: mode);
     public static DocumentOp Mark(DocumentMark mark) => new MarkCase(Request: mark);
     public static DocumentOp Review(DocumentReview review) => new ReviewCase(Request: review);
+    public static DocumentOp File(DocumentFileOp op) => new FileCase(Op: op);
 
-    internal GrasshopperUiPolicy UiPolicy => Switch(
+    public GrasshopperUiPolicy UiPolicy => Switch(
         queryCase: static q => q.Request switch {
-            DocumentQuery.UniverseCase => GrasshopperUiPolicy.Read,
+            DocumentQuery.UniverseCase => GrasshopperUiPolicy.Canvas(openEditor: true, repaint: RepaintRequest.None),
             _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
         },
         mutateCase: static m => GrasshopperUiPolicy.Document(repaint: m.Policy.RepaintOrDefault),
@@ -297,7 +302,21 @@ public partial record DocumentOp {
         inspectCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
         solutionCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
         markCase: static m => m.Request.UiPolicy,
-        reviewCase: static r => r.Request.Policy);
+        reviewCase: static r => r.Request.Policy,
+        fileCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None));
+}
+
+// [ASSUMED] Document.File.{HasPath,Path} — verified present (FileUtility) via gh2 decompile.
+[SmartEnum<int>]
+public sealed partial class DocumentFileOp {
+    public static readonly DocumentFileOp QueryPath = new(key: 0, run: static document =>
+        Op.Of(name: nameof(QueryPath)).Attempt(
+            body: () => (DocumentResult)new DocumentResult.FileResult(
+                Snapshot: new DocumentFileSnapshot(HasPath: document.File.HasPath, Path: document.File.Path ?? string.Empty)),
+            what: "Document.File"));
+
+    [UseDelegateFromConstructor]
+    internal partial Fin<DocumentResult> Run(GhDocument document);
 }
 
 // Item-owned native invocation closes the if/throw dispatch hole — every item carries the
@@ -317,15 +336,26 @@ public sealed partial class DocumentInspect {
 // wait-to-settle variant stays a LIVE-host-only follow-up rather than a bridge-driven verb here.
 [SmartEnum<int>]
 public sealed partial class SolutionControl {
-    private delegate Fin<Unit> RunFn(SolutionServer server, SolutionMode mode);
+    private delegate Fin<Unit> RunFn(SolutionServer server, GhDocument document, SolutionMode mode);
 
-    public static readonly SolutionControl Start = new(key: 0, run: static (server, mode) =>
-        Op.Of(name: nameof(Start)).Attempt(body: () => { _ = server.Start(mode: mode); return unit; }, what: "SolutionServer.Start"));
-    public static readonly SolutionControl Stop = new(key: 1, run: static (server, _) =>
+    public static readonly SolutionControl Start = new(key: 0, run: static (server, document, mode) =>
+        Op.Of(name: nameof(Start)).Attempt(body: () => {
+            // BOUNDARY ADAPTER -- fire-and-forget solve: observe the discarded Task so a faulted solver surfaces instead of going unobserved.
+            Task pending = server.Start(mode: mode);
+            _ = pending.ContinueWith(
+                static t => Op.Side(() => throw t.Exception!.GetBaseException()),
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            return unit;
+        }, what: "SolutionServer.Start"));
+    public static readonly SolutionControl Stop = new(key: 1, run: static (server, _, _) =>
         Op.Of(name: nameof(Stop)).Attempt(body: () => { server.Stop(); return unit; }, what: "SolutionServer.Stop"));
+    public static readonly SolutionControl Close = new(key: 2, run: static (_, document, _) =>
+        Op.Of(name: nameof(Close)).Attempt(body: () => { document.Close(); return unit; }, what: "Document.Close"));
 
     [UseDelegateFromConstructor]
-    internal partial Fin<Unit> Run(SolutionServer server, SolutionMode mode);
+    internal partial Fin<Unit> Run(SolutionServer server, GhDocument document, SolutionMode mode);
 }
 
 [GenerateUnionOps]
@@ -384,6 +414,9 @@ public partial record DocumentResult {
     public sealed record SolutionResult(DocumentSnapshot Snapshot) : DocumentResult;
     public sealed record MarkResult(DocumentMarkSnapshot Snapshot) : DocumentResult;
     public sealed record ReviewResult(DocumentReviewSnapshot Snapshot, Subscription Subscription) : DocumentResult;
+    public sealed record DisplayStateResult(DocumentDisplaySnapshot Snapshot) : DocumentResult;
+    public sealed record NotesResult(string Value) : DocumentResult;
+    public sealed record FileResult(DocumentFileSnapshot Snapshot) : DocumentResult;
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -432,26 +465,110 @@ public partial record DocumentMarkFocus {
                 select new NamedView(category: s.Category, name: s.Name, frame: frame));
 }
 
-[SkipUnionOps]
-[Union]
+[GenerateUnionOps]
+[Union(SwitchMapStateParameterName = "scope")]
 public partial record DocumentMark {
     private DocumentMark() { }
-    public sealed record ListCase(Option<string> Category) : DocumentMark;
-    public sealed record SaveCase(string Name, string Category, DocumentMarkFocus Focus) : DocumentMark;
-    public sealed record RemoveCase(string Name) : DocumentMark;
-    public sealed record RecallCase(string Name, CanvasViewPolicy View, bool SelectObjects) : DocumentMark;
+    public sealed partial record ListCase(Option<string> Category) : DocumentMark;
+    public sealed partial record SaveCase(string Name, string Category, DocumentMarkFocus Focus) : DocumentMark;
+    public sealed partial record RemoveCase(string Name) : DocumentMark;
+    public sealed partial record RecallCase(string Name, CanvasViewPolicy View) : DocumentMark;
+    public sealed partial record RenameCase(string OldName, string NewName) : DocumentMark;
 
     public static DocumentMark List(string? category = null) => new ListCase(Category: Optional(category));
     public static DocumentMark Save(string name, DocumentMarkFocus focus, string category = "") => new SaveCase(Name: name, Category: category, Focus: focus);
     public static DocumentMark Remove(string name) => new RemoveCase(Name: name);
-    public static DocumentMark Recall(string name, CanvasViewPolicy policy = default, bool selectObjects = false) =>
-        new RecallCase(Name: name, View: policy, SelectObjects: selectObjects);
+    public static DocumentMark Recall(string name, CanvasViewPolicy policy = default) => new RecallCase(Name: name, View: policy);
+    public static DocumentMark Rename(string oldName, string newName) => new RenameCase(OldName: oldName, NewName: newName);
 
     internal GrasshopperUiPolicy UiPolicy => Switch(
         listCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
         saveCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
         removeCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
-        recallCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas));
+        recallCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
+        renameCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None));
+
+    internal Fin<DocumentResult> Apply(GrasshopperUi.Scope scope) =>
+        Switch(
+            scope: scope,
+            listCase: static (s, list) =>
+                from document in s.NeedDocument()
+                select (DocumentResult)new DocumentResult.MarkResult(Snapshot: MarkSnapshot(document: document, category: list.Category)),
+            saveCase: static (s, save) =>
+                from document in s.NeedDocument()
+                from name in Op.Of(name: nameof(Save)).AcceptText(value: save.Name)
+                from focus in Optional(save.Focus).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Save)), detail: "mark focus is required"))
+                from view in focus.Build(scope: s, category: save.Category, name: name)
+                let overwriting = toSeq(document.NamedViews.OrderedViews).Exists(v => string.Equals(a: v.Name, b: name, comparisonType: StringComparison.OrdinalIgnoreCase))
+                from changed in Op.Of(name: nameof(Save)).Attempt(body: () => document.NamedViews.Add(view: view), what: "NamedViews.Add")
+                from _ in changed
+                    ? Op.Of(name: nameof(Save)).Attempt(body: () => { document.Modify(); return unit; }, what: "Document.Modify")
+                    : Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(Save)), detail: "NamedViews.Add rejected the mark"))
+                select (DocumentResult)new DocumentResult.MarkResult(Snapshot: MarkSnapshot(document: document, category: Optional(save.Category), name: Some(name), changed: !overwriting)),
+            removeCase: static (s, remove) =>
+                from document in s.NeedDocument()
+                from name in Op.Of(name: nameof(Remove)).AcceptText(value: remove.Name)
+                from changed in Op.Of(name: nameof(Remove)).Attempt(body: () => document.NamedViews.Remove(name: name), what: "NamedViews.Remove")
+                from _ in changed
+                    ? Op.Of(name: nameof(Remove)).Attempt(body: () => { document.Modify(); return unit; }, what: "Document.Modify")
+                    : Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(Remove)), detail: $"mark '{name}' not found"))
+                select (DocumentResult)new DocumentResult.MarkResult(Snapshot: MarkSnapshot(document: document, category: default, name: Some(name), changed: changed)),
+            recallCase: static (s, recall) =>
+                from document in s.NeedDocument()
+                from canvas in s.NeedCanvas()
+                from objects in s.NeedObjects()
+                from methods in s.NeedMethods()
+                from name in Op.Of(name: nameof(Recall)).AcceptText(value: recall.Name)
+                from view in FindNamedView(document: document, name: name, op: Op.Of(name: nameof(Recall)))
+                from frame in Op.Of(name: nameof(Recall)).Attempt(body: () => {
+                    bool resolved = view.ResolveRectangle(document, out RectangleF rectangle);
+                    return resolved ? rectangle : RectangleF.Empty;
+                }, what: "NamedView.ResolveRectangle")
+                from baseFrame in Op.Of(name: nameof(Recall)).AcceptRect(value: frame, detail: "invalid mark frame", requirePositive: true)
+                let policy = UiRail.ResolveView(raw: recall.View)
+                let validFrame = RectangleF.Inflate(rectangle: baseFrame, width: policy.Padding, height: policy.Padding)
+                from _ in Op.Of(name: nameof(Recall)).Attempt(body: () => {
+                    canvas.Navigate(frame: validFrame, zoomLimits: (policy.MinimumZoom, policy.MaximumZoom), duration: policy.Duration);
+                    // BOUNDARY ADAPTER -- selection is unconditional on recall: clear then re-select the mark's objects.
+                    _ = methods.DeselectAll();
+                    _ = Optional(view.Objects).Map(static ids => toSeq(ids)).IfNone(Seq<Guid>())
+                        .Choose(id => Optional(objects.Find(instanceId: id)))
+                        .Iter(static obj => obj.Selection = ObjectSelection.Selected);
+                    return unit;
+                }, what: "DocumentMark.Recall")
+                select (DocumentResult)new DocumentResult.MarkResult(Snapshot: MarkSnapshot(document: document, category: default, name: Some(name), frame: Some(validFrame))),
+            renameCase: static (s, rename) =>
+                from document in s.NeedDocument()
+                from oldName in Op.Of(name: nameof(Rename)).AcceptText(value: rename.OldName)
+                from newName in Op.Of(name: nameof(Rename)).AcceptText(value: rename.NewName)
+                from view in FindNamedView(document: document, name: oldName, op: Op.Of(name: nameof(Rename)))
+                from changed in Op.Of(name: nameof(Rename)).Attempt(body: () => {
+                    // BOUNDARY ADAPTER -- NamedView is immutable; rename clones into a fresh view then atomically swaps.
+                    NamedView renamed = Optional(view.Frame) is { IsSome: true, Case: RectangleF box }
+                        ? new NamedView(category: view.Category, name: newName, frame: box)
+                        : new NamedView(category: view.Category, name: newName, objects: view.Objects);
+                    bool removed = document.NamedViews.Remove(name: oldName);
+                    bool added = removed && document.NamedViews.Add(view: renamed);
+                    _ = added ? Op.Side(() => document.Modify()) : unit;
+                    return added;
+                }, what: "NamedViews.Rename")
+                from _ in changed
+                    ? Fin.Succ(value: unit)
+                    : Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(Rename)), detail: $"rename of mark '{oldName}' rejected"))
+                select (DocumentResult)new DocumentResult.MarkResult(Snapshot: MarkSnapshot(document: document, category: default, name: Some(newName), changed: changed)));
+
+    private static DocumentMarkSnapshot MarkSnapshot(GhDocument document, Option<string> category, Option<string> name = default, Option<RectangleF> frame = default, bool changed = false) {
+        Seq<NamedView> views = toSeq(document.NamedViews.OrderedViews);
+        Seq<string> names = category is { IsSome: true, Case: string c }
+            ? views.Filter(view => string.Equals(a: view.Category, b: c, comparisonType: StringComparison.OrdinalIgnoreCase)).Map(static view => view.Name)
+            : views.Map(static view => view.Name);
+        return new DocumentMarkSnapshot(Names: names, Name: name, Frame: frame, Changed: changed);
+    }
+
+    private static Fin<NamedView> FindNamedView(GhDocument document, string name, Op op) =>
+        toSeq(document.NamedViews.OrderedViews)
+            .Find(view => string.Equals(a: view.Name, b: name, comparisonType: StringComparison.OrdinalIgnoreCase))
+            .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"mark '{name}' not found"));
 }
 
 [SkipUnionOps]
@@ -516,6 +633,12 @@ public readonly record struct ParameterSnapshot(Guid Id, string Name, string Kin
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct DocumentGripSnapshot(Guid Parameter, bool InletWithinRange, bool OutletWithinRange);
 
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentDisplaySnapshot(bool Enabled, bool DrawWires, bool DrawMeshes, TimeSpan Throttling, string RuleSetName);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentFileSnapshot(bool HasPath, string Path);
+
 [SkipUnionOps]
 [Union]
 public partial record ObjectSpec {
@@ -539,8 +662,7 @@ public partial record ObjectSpec {
             state: op,
             sliderCase: static (key, s) =>
                 from name in key.AcceptText(value: s.Name)
-                from number in Optional(s.Number).ToFin(Fail: UiFault.InvalidInput(op: key, detail: "slider number is required"))
-                select (IDocumentObject)new NumberSliderObject(userName: name, number: number) {
+                select (IDocumentObject)new NumberSliderObject(userName: name, number: s.Number) {
                     GripColour = s.Colour,
                     GripDisplay = s.Shape,
                     GripFormat = s.Format.IfNone("{0}"),
@@ -598,6 +720,8 @@ public abstract partial record DocumentMutation {
     public sealed record PlaceCase(ObjectSpec Object, PointF Location, DropCue Cue) : DocumentMutation;
     public sealed record AddDependencyCase(PointF Location) : DocumentMutation;
     public sealed record IsolateCase(IsolateOptions Options) : DocumentMutation;
+    public sealed record MigrateCase(Seq<Guid> Ids, PointF Location) : DocumentMutation;
+    public sealed record SplitWireCase(Guid Source, Guid TargetId, string Name, PointF Location) : DocumentMutation;
     public sealed record MergeCase : DocumentMutation {
         internal MergeCase(GhObjectList source, bool reinstateInputs, bool reinstateOutputs) =>
             (Source, ReinstateInputs, ReinstateOutputs) = (source, reinstateInputs, reinstateOutputs);
@@ -617,6 +741,8 @@ public abstract partial record DocumentMutation {
     public static DocumentMutation Place(ObjectSpec obj, PointF location, DropCue? cue = null) => new PlaceCase(Object: obj, Location: location, Cue: cue ?? DropCue.None);
     public static DocumentMutation AddDependency(PointF location) => new AddDependencyCase(Location: location);
     public static DocumentMutation Isolate(IsolateOptions options = default) => new IsolateCase(Options: options);
+    public static DocumentMutation Migrate(Seq<Guid> ids, PointF location) => new MigrateCase(Ids: ids, Location: location);
+    public static DocumentMutation SplitWire(Guid source, Guid target, string name, PointF location) => new SplitWireCase(Source: source, TargetId: target, Name: name, Location: location);
     // Clipboard/import other half: absorb a foreign object list into this document; ObjectList.Absorb repairs pins internally.
     internal static DocumentMutation Merge(GhObjectList source, bool reinstateInputs = true, bool reinstateOutputs = true) => new MergeCase(source: source, reinstateInputs: reinstateInputs, reinstateOutputs: reinstateOutputs);
 
@@ -695,6 +821,33 @@ public abstract partial record DocumentMutation {
                     return unit;
                 }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Isolate)), detail: $"IsolateObject threw: {error.Message}"))
                 select DocumentMutationReceipt.From(changed: s.actions.Count > before)),
+            migrateCase: static (s, migrate) => {
+                Op op = Op.Of(name: nameof(Migrate));
+                return from location in op.AcceptPoint(value: migrate.Location, detail: "non-finite location")
+                       from objects in migrate.Ids.TraverseM(id => Optional(s.objects.Find(instanceId: id))
+                           .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"object {id} not found"))).As()
+                       from remap in op.Attempt(
+                           body: () => s.methods.MigrateObjects(objects: objects, location: location, actions: s.actions),
+                           what: "DocumentMethods.MigrateObjects")
+                       select DocumentMutationReceipt.Of(changed: remap.Count, created: toSeq(remap.Values));
+            },
+            splitWireCase: static (s, split) => {
+                Op op = Op.Of(name: nameof(SplitWire));
+                return from name in op.AcceptText(value: split.Name)
+                       from location in op.AcceptPoint(value: split.Location, detail: "non-finite location")
+                       from source in Optional(s.objects.FindParameter(instanceId: split.Source))
+                           .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"source parameter {split.Source} not found"))
+                       from target in Optional(s.objects.FindParameter(instanceId: split.TargetId))
+                           .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"target parameter {split.TargetId} not found"))
+                       from receipt in op.Attempt(
+                           body: () => {
+                               // BOUNDARY ADAPTER -- SplitWire reports the inserted Shout/Listen pair through out-params.
+                               bool changed = s.methods.SplitWire(source: source, target: target, name: name, location: location, shout: out Shout? shout, listen: out Listen? listen, actions: s.actions);
+                               return DocumentMutationReceipt.Of(changed: changed ? 1 : 0, created: Seq(shout?.InstanceId ?? Guid.Empty, listen?.InstanceId ?? Guid.Empty));
+                           },
+                           what: "DocumentMethods.SplitWire")
+                       select receipt;
+            },
             mergeCase: static (s, merge) => Op.Of(name: nameof(Merge)).Attempt(
                 body: () => {
                     // ObjectList.Absorb already runs RepairPins internally (verified by decompile), so no second pass.
@@ -744,13 +897,14 @@ public sealed partial class DocumentTargetVerb {
             initialState: 0,
             f: (count, obj) => obj.Activity == activity
                 ? count
-                : count + ApplyActivity(obj: obj, activity: activity, actions: actions));
+                : ApplyActivity(count: count, obj: obj, activity: activity, actions: actions));
 
-    private static int ApplyActivity(IDocumentObject obj, ObjectActivity activity, ActionList actions) {
+    private static int ApplyActivity(int count, IDocumentObject obj, ObjectActivity activity, ActionList actions) {
+        // BOUNDARY ADAPTER -- GH2 mutation: record the undoable action then flip + expire the object in place.
         actions.Add(new ObjectActivityAction(obj));
         obj.Activity = activity;
         obj.Expire();
-        return 1;
+        return count + 1;
     }
 }
 
@@ -762,6 +916,7 @@ public abstract partial record DocumentTargetOp {
     public sealed record DisplayCase(DisplayPort Port, VisibilityChange Change) : DocumentTargetOp;
     public sealed record DeleteCase(bool DataOnly, Seq<WireEnds> Wires) : DocumentTargetOp;
     public sealed record ColourCase(Option<GhColour> Override) : DocumentTargetOp;
+    public sealed record NudgeCase(int Dx, int Dy) : DocumentTargetOp;
 
     public static readonly DocumentTargetOp Show = new VerbCase(Verb: DocumentTargetVerb.Show);
     public static readonly DocumentTargetOp Hide = new VerbCase(Verb: DocumentTargetVerb.Hide);
@@ -771,6 +926,11 @@ public abstract partial record DocumentTargetOp {
     public static DocumentTargetOp Delete(bool dataOnly = false, Seq<WireEnds> wires = default) => new DeleteCase(DataOnly: dataOnly, Wires: wires);
     public static DocumentTargetOp Style(GhColour colour) => new ColourCase(Override: Some(colour));
     public static readonly DocumentTargetOp ClearStyle = new ColourCase(Override: Option<GhColour>.None);
+    public static DocumentTargetOp Nudge(int dx, int dy) => new NudgeCase(Dx: dx, Dy: dy);
+    public static readonly DocumentTargetOp NudgeLeft = new NudgeCase(Dx: -1, Dy: 0);
+    public static readonly DocumentTargetOp NudgeRight = new NudgeCase(Dx: 1, Dy: 0);
+    public static readonly DocumentTargetOp NudgeUp = new NudgeCase(Dx: 0, Dy: -1);
+    public static readonly DocumentTargetOp NudgeDown = new NudgeCase(Dx: 0, Dy: 1);
 
     internal Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, Seq<Guid> ids, ActionList actions) =>
         ids.TraverseM(id => Optional(objects.Find(instanceId: id))
@@ -803,7 +963,11 @@ public abstract partial record DocumentTargetOp {
                         ? s.methods.SetColourOverrideSelected(colour: value, actions: s.actions)
                         : s.methods.SetColourOverrideObjects(objects: s.targets, colour: value, actions: s.actions),
                     what: "DocumentMethods.SetColourOverride");
-            });
+            },
+            // BOUNDARY ADAPTER -- MoveSelection nudges the live selection by pixel offsets; it owns its own history.
+            nudgeCase: static (s, nudge) => Op.Of(name: nameof(NudgeCase)).Attempt(
+                body: () => s.methods.MoveSelection(xOffset: nudge.Dx, yOffset: nudge.Dy),
+                what: "DocumentMethods.MoveSelection"));
 }
 
 [SmartEnum<int>]
@@ -880,10 +1044,11 @@ internal static partial class Document {
             solutionCase: static (s, sol) =>
                 from document in s.NeedDocument()
                 from objects in s.NeedObjects()
-                from _ in sol.Control.Run(server: document.Solution, mode: sol.Mode)
+                from _ in sol.Control.Run(server: document.Solution, document: document, mode: sol.Mode)
                 select (DocumentResult)new DocumentResult.SolutionResult(Snapshot: UiRail.DocumentSnapshotOf(document: document, objects: objects)),
-            markCase: static (s, m) => ApplyMark(scope: s, mark: m.Request),
-            reviewCase: static (s, r) => r.Request.Apply(scope: s));
+            markCase: static (s, m) => m.Request.Apply(scope: s),
+            reviewCase: static (s, r) => r.Request.Apply(scope: s),
+            fileCase: static (s, f) => s.NeedDocument().Bind(document => f.Op.Run(document: document)));
 
     private static Fin<DocumentResult> DispatchInspect(GrasshopperUi.Scope scope, DocumentInspect kind) =>
         from methods in scope.NeedMethods()
@@ -923,33 +1088,42 @@ internal static partial class Document {
                 s.NeedObjects().Map(objs => (DocumentResult)new DocumentResult.MetaValuesResult(
                     Values: toMap(objs.MetaNamesAndValues().Select(static kv => (kv.Key, toSeq(kv.Value)))))),
             universeCase: static (_, _) =>
-                Universe().Map(snapshot => (DocumentResult)new DocumentResult.UniverseResult(Snapshot: snapshot)));
+                Universe().Map(snapshot => (DocumentResult)new DocumentResult.UniverseResult(Snapshot: snapshot)),
+            displayStateCase: static (s, _) =>
+                s.NeedDocument().Map(doc => (DocumentResult)new DocumentResult.DisplayStateResult(Snapshot: new DocumentDisplaySnapshot(
+                    Enabled: doc.Display.Enabled,
+                    DrawWires: doc.Display.DrawWires,
+                    DrawMeshes: doc.Display.DrawMeshes,
+                    Throttling: doc.Display.Throttling,
+                    RuleSetName: doc.Display.CurrentRuleSetName))),
+            notesCase: static (s, _) =>
+                s.NeedDocument().Map(doc => (DocumentResult)new DocumentResult.NotesResult(Value: doc.Notes)),
+            customValueCase: static (s, custom) =>
+                from key in Op.Of(name: nameof(DocumentQuery.CustomValue)).AcceptText(value: custom.Key)
+                from doc in s.NeedDocument()
+                select (DocumentResult)new DocumentResult.NotesResult(Value: doc.CustomValues.Get(key: key, @default: custom.DefaultValue)));
 
-    private static Fin<DocumentResult> Mutate(GrasshopperUi.Scope scope, Seq<DocumentMutation> mutations, DocumentMutationPolicy policy) {
-        _ = policy;
-        return UiRail.RunDocumentMutation(scope: scope, op: DocumentOp.MutateCase.SelfOp,
+    // policy.Repaint is consumed by DocumentOp.UiPolicy (mutateCase → Document(repaint: Policy.RepaintOrDefault)); this body owns mutation only.
+    private static Fin<DocumentResult> Mutate(GrasshopperUi.Scope scope, Seq<DocumentMutation> mutations, DocumentMutationPolicy policy) =>
+        UiRail.RunDocumentMutation(scope: scope, op: DocumentOp.MutateCase.SelfOp,
             mutate: (methods, objects, actions) => mutations.TraverseM(m => m.Apply(methods: methods, objects: objects, actions: actions))
                 .Map(static receipts => receipts.Fold(initialState: DocumentMutationReceipt.None, f: static (sum, receipt) => sum + receipt)).As()
             )
             .Map(static delta => (DocumentResult)new DocumentResult.MutationResult(Delta: delta));
-    }
 
     private static Fin<Snapshot<DocumentMutationDelta>> RunClipboard(GrasshopperUi.Scope scope, ClipboardOp op) =>
-        from valid in Optional(op).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(RunClipboard)), detail: "clipboard op is required"))
-        from result in valid.Switch(
-            verbCase: (clipboard) => clipboard.Verb == ClipboardVerb.Copy
-                ? CopyClipboard(scope: scope, clipboard: clipboard)
-                : clipboard.Verb == ClipboardVerb.PasteGh1Xml
-                    ? UiRail.RunDocumentMutation(
-                        scope: scope,
-                        op: Op.Of(name: nameof(ClipboardOp.PasteGh1Xml)),
-                        mutate: PasteGh1Clipboard)
-                : UiRail.RunDocumentMutation(
-                    scope: scope,
+        op.Switch(
+            state: scope,
+            // Copy snapshots without mutating; PasteGh1Xml tracks created ids; Cut/Paste run the generic verb. Exhaustive over the four verb keys.
+            verbCase: static (s, clipboard) => clipboard.Verb.Key switch {
+                0 => CopyClipboard(scope: s, clipboard: clipboard),
+                3 => UiRail.RunDocumentMutation(scope: s, op: Op.Of(name: nameof(ClipboardOp.PasteGh1Xml)), mutate: PasteGh1Clipboard),
+                _ => UiRail.RunDocumentMutation(
+                    scope: s,
                     op: Op.Of(name: string.Create(CultureInfo.InvariantCulture, $"Clipboard.{clipboard.Verb}")),
                     mutate: (methods, _, actions) => clipboard.Verb.Run(methods: methods, kind: clipboard.Kind, behaviour: clipboard.Behaviour, actions: actions)
-                        .Map(DocumentMutationReceipt.Count)))
-        select result;
+                        .Map(DocumentMutationReceipt.Count)),
+            });
 
     private static Fin<DocumentMutationReceipt> PasteGh1Clipboard(GhDocumentMethods methods, GhObjectList objects, ActionList actions) =>
         Op.Of(name: nameof(ClipboardOp.PasteGh1Xml)).Attempt(body: () => {
@@ -973,16 +1147,20 @@ internal static partial class Document {
             ? Fin.Succ(value: unit)
             : Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(ClipboardOp.Copy)), detail: "copy returned false"))
         let receipt = DocumentMutationReceipt.Count(changed: 0)
-        select Snapshot.Of(
-            payload: new DocumentMutationDelta(
+        select new Snapshot<DocumentMutationDelta>(
+            Payload: new DocumentMutationDelta(
                 Changed: receipt.Changed,
                 After: UiRail.DocumentSnapshotOf(document: document, objects: objects),
                 Created: receipt.Created),
-            ownerId: Some(document.Hash));
+            OwnerId: Some(document.Hash));
 
     internal static Fin<DocumentResult> MutateHistory(GrasshopperUi.Scope scope, Op op, Action<GhDocument> run) =>
         from document in scope.NeedDocument()
+        let before = document.Modifications
         from _ in Try.lift(f: () => { run(document); return unit; }).Run().MapFail(error => UiFault.MutationRejected(op: op, detail: error.Message))
+        from changed in document.Modifications == before
+            ? Fin.Fail<Unit>(error: UiFault.MutationRejected(op: op, detail: "nothing to undo/redo/clear"))
+            : Fin.Succ(value: unit)
         select (DocumentResult)new DocumentResult.HistoryResult(Snapshot: UiRail.HistorySnapshotOf(document: document));
 
     internal static Fin<DocumentResult> ShowHistory(GrasshopperUi.Scope scope) =>
@@ -1001,89 +1179,24 @@ internal static partial class Document {
         from node in toSeq(redo ? document.Undo.CentralRedoSequence : document.Undo.CentralUndoSequence)
             .Skip(validOrdinal).Head
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentHistory.Target)), detail: string.Create(CultureInfo.InvariantCulture, $"no history node at ordinal {ordinal}")))
+        from _gate in (node.IsRoot, node.Record.State == (redo ? Grasshopper2.Undo.State.Redo : Grasshopper2.Undo.State.Undo)) switch {
+            (true, _) => Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentHistory.Target)), detail: "root history node cannot be replayed")),
+            (_, false) => Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(DocumentHistory.Target)), detail: redo ? "history node is not in a redoable state" : "history node is not in an undoable state")),
+            _ => Fin.Succ(value: unit),
+        }
         from _ in Op.Of(name: nameof(DocumentHistory.Target)).Attempt(
             body: () => {
-                _ = redo ? Op.Side(() => document.Undo.Redo(node)) : Op.Side(() => document.Undo.Undo(node));
+                // BOUNDARY ADAPTER -- direction-dispatched native replay; one Attempt wraps the chosen action.
+                (redo ? (Action<Node>)document.Undo.Redo : document.Undo.Undo)(node);
                 return unit;
             },
             what: "History node target")
         select (DocumentResult)new DocumentResult.HistoryResult(Snapshot: UiRail.HistorySnapshotOf(document: document));
 
-    private static Fin<DocumentResult> ApplyMark(GrasshopperUi.Scope scope, DocumentMark mark) =>
-        Optional(mark)
-            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ApplyMark)), detail: "document mark request is required"))
-            .Bind(valid => valid switch {
-                DocumentMark.ListCase list =>
-                    from document in scope.NeedDocument()
-                    select (DocumentResult)new DocumentResult.MarkResult(Snapshot: MarkSnapshot(document: document, category: list.Category)),
-                DocumentMark.SaveCase save =>
-                    from document in scope.NeedDocument()
-                    from name in Op.Of(name: nameof(DocumentMark.Save)).AcceptText(value: save.Name)
-                    from focus in Optional(save.Focus).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentMark.Save)), detail: "mark focus is required"))
-                    from view in focus.Build(scope: scope, category: save.Category, name: name)
-                    from changed in Op.Of(name: nameof(DocumentMark.Save)).Attempt(body: () => document.NamedViews.Add(view: view), what: "NamedViews.Add")
-                    from receipt in CommitNamedView(document: document, changed: changed, op: Op.Of(name: nameof(DocumentMark.Save)), detail: "NamedViews.Add rejected the mark")
-                    select (DocumentResult)new DocumentResult.MarkResult(Snapshot: MarkSnapshot(document: document, category: Optional(save.Category), name: Some(name), changed: receipt)),
-                DocumentMark.RemoveCase remove =>
-                    from document in scope.NeedDocument()
-                    from name in Op.Of(name: nameof(DocumentMark.Remove)).AcceptText(value: remove.Name)
-                    from changed in Op.Of(name: nameof(DocumentMark.Remove)).Attempt(body: () => document.NamedViews.Remove(name: name), what: "NamedViews.Remove")
-                    from receipt in CommitNamedView(document: document, changed: changed, op: Op.Of(name: nameof(DocumentMark.Remove)), detail: $"mark '{name}' not found")
-                    select (DocumentResult)new DocumentResult.MarkResult(Snapshot: MarkSnapshot(document: document, category: default, name: Some(name), changed: receipt)),
-                DocumentMark.RecallCase recall =>
-                    from document in scope.NeedDocument()
-                    from canvas in scope.NeedCanvas()
-                    from objects in scope.NeedObjects()
-                    from methods in scope.NeedMethods()
-                    from name in Op.Of(name: nameof(DocumentMark.Recall)).AcceptText(value: recall.Name)
-                    from view in FindMark(document: document, name: name)
-                    from frame in Op.Of(name: nameof(DocumentMark.Recall)).Attempt(body: () => {
-                        bool resolved = view.ResolveRectangle(document, out RectangleF rectangle);
-                        return resolved ? rectangle : RectangleF.Empty;
-                    }, what: "NamedView.ResolveRectangle")
-                    from baseFrame in Op.Of(name: nameof(DocumentMark.Recall)).AcceptRect(value: frame, detail: "invalid mark frame", requirePositive: true)
-                    let policy = UiRail.ResolveView(raw: recall.View)
-                    let validFrame = RectangleF.Inflate(rectangle: baseFrame, width: policy.Padding, height: policy.Padding)
-                    from _ in Op.Of(name: nameof(DocumentMark.Recall)).Attempt(body: () => {
-                        canvas.Navigate(frame: validFrame, zoomLimits: (policy.MinimumZoom, policy.MaximumZoom), duration: policy.Duration);
-                        _ = Op.SideWhen(recall.SelectObjects, () => SelectMarkObjects(methods: methods, objects: objects, view: view));
-                        return unit;
-                    }, what: "DocumentMark.Recall")
-                    select (DocumentResult)new DocumentResult.MarkResult(Snapshot: MarkSnapshot(document: document, category: default, name: Some(name), frame: Some(validFrame))),
-                _ => Fin.Fail<DocumentResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ApplyMark)), detail: "unknown document mark")),
-            });
-
-    private static DocumentMarkSnapshot MarkSnapshot(GhDocument document, Option<string> category, Option<string> name = default, Option<RectangleF> frame = default, bool changed = false) {
-        Seq<NamedView> views = toSeq(document.NamedViews.OrderedViews);
-        Seq<string> names = category is { IsSome: true, Case: string c }
-            ? views.Filter(view => string.Equals(a: view.Category, b: c, comparisonType: StringComparison.OrdinalIgnoreCase)).Map(static view => view.Name)
-            : views.Map(static view => view.Name);
-        return new DocumentMarkSnapshot(Names: names, Name: name, Frame: frame, Changed: changed);
-    }
-
-    private static Fin<NamedView> FindMark(GhDocument document, string name) =>
-        toSeq(document.NamedViews.OrderedViews)
-            .Find(view => string.Equals(a: view.Name, b: name, comparisonType: StringComparison.OrdinalIgnoreCase))
-            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(FindMark)), detail: $"mark '{name}' not found"));
-
-    private static Fin<bool> CommitNamedView(GhDocument document, bool changed, Op op, string detail) =>
-        changed
-            ? op.Attempt(body: () => { document.Modify(); return true; }, what: "Document.Modify")
-            : Fin.Fail<bool>(error: UiFault.MutationRejected(op: op, detail: detail));
-
-    private static Unit SelectMarkObjects(GhDocumentMethods methods, GhObjectList objects, NamedView view) {
-        _ = methods.DeselectAll();
-        _ = Optional(view.Objects)
-            .Map(static ids => toSeq(ids))
-            .IfNone(Seq<Guid>())
-            .Choose(id => Optional(objects.Find(instanceId: id)))
-            .Iter(static obj => obj.Selection = ObjectSelection.Selected);
-        return unit;
-    }
-
     private static Fin<Seq<DocumentObjectSnapshot>> Find(GhObjectList objects, FindCriterion criterion) =>
         criterion.Switch(
             state: objects,
+            // FindNear ranks by bounding-box edge distance (0 inside the box), nearest first, capped at maxResults/maxDistance.
             nearPointCase: static (objs, n) =>
                 from point in Op.Of(name: nameof(Find)).AcceptPoint(value: n.Point, detail: "non-finite point")
                 from maxResults in Optional(n.MaxResults).Filter(static count => count > 0)

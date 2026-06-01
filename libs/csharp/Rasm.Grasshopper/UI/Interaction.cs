@@ -76,20 +76,24 @@ public partial record TooltipOp {
 
 [SkipUnionOps]
 [Union]
-public partial record CanvasChromeOp {
+public partial record CanvasChromeOp : IUiOp {
     private CanvasChromeOp() { }
     public sealed record TooltipCase(TooltipOp Op) : CanvasChromeOp;
     public sealed record FloatingButtonCase(FloatingButtonOp Op) : CanvasChromeOp;
     public sealed record InteractionCase(InteractionOp Op) : CanvasChromeOp;
+    public sealed record ComposeCase(Seq<CanvasChromeOp> Ops) : CanvasChromeOp;
 
     public static CanvasChromeOp Tooltip(TooltipOp op) => new TooltipCase(Op: op);
     public static CanvasChromeOp FloatingButton(FloatingButtonOp op) => new FloatingButtonCase(Op: op);
     public static CanvasChromeOp Interaction(InteractionOp op) => new InteractionCase(Op: op);
+    public static CanvasChromeOp Compose(params CanvasChromeOp[] ops) => new ComposeCase(Ops: toSeq(ops));
 
-    internal GrasshopperUiPolicy UiPolicy => Switch(
+    // Compose folds each child policy into the union; an empty compose reads.
+    public GrasshopperUiPolicy UiPolicy => Switch(
         tooltipCase: static t => t.Op.UiPolicy,
         floatingButtonCase: static _ => GrasshopperUiPolicy.Canvas(),
-        interactionCase: static _ => GrasshopperUiPolicy.Canvas());
+        interactionCase: static _ => GrasshopperUiPolicy.Canvas(),
+        composeCase: static c => c.Ops.Fold(GrasshopperUiPolicy.Read, static (acc, child) => acc | child.UiPolicy));
 }
 
 [SkipUnionOps]
@@ -183,7 +187,7 @@ public partial record InteractionOp {
     public sealed record RegisterCase(IResponsive Responsive, CoordinateSystem System) : InteractionOp;
     // Hover/ContextMenu: GH2 emits MouseHover / PopulateContextMenu — handler may mutate the
     // menu.Items collection or read the hover point.
-    public sealed record HoverCase(TimeSpan Delay, Func<MouseHoverSnapshot, Fin<Unit>> Handler) : InteractionOp;
+    public sealed record HoverCase(Option<TimeSpan> Delay, Func<MouseHoverSnapshot, Fin<Unit>> Handler) : InteractionOp;
     public sealed record ContextMenuCase(Func<ContextMenuSnapshot, Fin<Unit>> Handler) : InteractionOp;
     public sealed record StatusCase : InteractionOp;
 }
@@ -246,7 +250,19 @@ internal static class CanvasChrome {
         op.Switch(
             tooltipCase: static t => Tooltip.Dispatch(op: t.Op),
             floatingButtonCase: static f => FloatingButton.Dispatch(op: f.Op),
-            interactionCase: static i => Interaction.Dispatch(op: i.Op));
+            interactionCase: static i => Interaction.Dispatch(op: i.Op),
+            composeCase: static c => Compose(ops: c.Ops));
+
+    // Compose threads every child Dispatch; each must yield a Subscription so the leases fold via `|` into
+    // one disposable. A non-Subscription child (status/find/layout) breaks the contract and short-circuits.
+    private static GrasshopperUiIntent<CanvasChromeResult> Compose(Seq<CanvasChromeOp> ops) =>
+        GhUi.Canvas(run: scope =>
+            ops.TraverseM(child => Dispatch(op: child).Run(scope: scope)).As()
+                .Bind(static results => results
+                    .TraverseM(static result => result is CanvasChromeResult.SubscriptionCase sub
+                        ? Fin.Succ(value: sub.Subscription)
+                        : Fin.Fail<Subscription>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Compose)), detail: "every composed op must yield a subscription"))).As()
+                    .Map(static subs => CanvasChromeResult.Sub(subscription: subs.Fold(Subscription.Empty, static (acc, sub) => acc | sub)))));
 }
 
 internal static class Tooltip {
@@ -324,9 +340,9 @@ internal static class FloatingButton {
             from placement in Optional(spec.Placement).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Add)), detail: "placement is required"))
             from icon in Optional(spec.Icon).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Add)), detail: "icon is required"))
             from name in Op.Of(name: nameof(Add)).AcceptText(value: spec.Name)
-            from _duplicate in Optional(canvas.FloatingButtons.FindByName(name: name)).IsNone
-                ? Fin.Succ(unit)
-                : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Add)), detail: $"button '{name}' already exists"))
+            from _duplicate in canvas.FloatingButtons.IsDefined(name: name)
+                ? Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Add)), detail: $"button '{name}' already exists"))
+                : Fin.Succ(unit)
             from resolved in placement.Resolve(canvas: canvas)
             from sub in AttachButton(
                 canvas: canvas,
@@ -346,13 +362,12 @@ internal static class FloatingButton {
             name: spec.Name,
             canvas: canvas,
             attach: () => {
-                Color? colour = ColourOf(colour: spec.Colour);
+                Color? colour = spec.Colour.Map(static picked => (Color?)picked).IfNone((Color?)null);
                 FloatingButtonHandler click = spec.Handlers.Click.IfNone(NoOp);
                 FloatingButtonHandler mouseDown = spec.Handlers.MouseDown.IfNone(NoOp);
                 FloatingButtonHandler mouseUp = spec.Handlers.MouseUp.IfNone(NoOp);
-                _ = anchor is { IsSome: true, Case: PointF point }
-                    ? Op.Side(() => canvas.FloatingButtons.AddAnchored(anchor: point, name: spec.Name, info: spec.Info, colour: colour, icon: spec.Icon, click: click, mouseDown: mouseDown, mouseUp: mouseUp))
-                    : Op.Side(() => canvas.FloatingButtons.Add(position: position, name: spec.Name, info: spec.Info, colour: colour, icon: spec.Icon, click: click, mouseDown: mouseDown, mouseUp: mouseUp));
+                _ = anchor.Map(point => Op.Side(() => canvas.FloatingButtons.AddAnchored(anchor: point, name: spec.Name, info: spec.Info, colour: colour, icon: spec.Icon, click: click, mouseDown: mouseDown, mouseUp: mouseUp)))
+                    .IfNone(() => Op.Side(() => canvas.FloatingButtons.Add(position: position, name: spec.Name, info: spec.Info, colour: colour, icon: spec.Icon, click: click, mouseDown: mouseDown, mouseUp: mouseUp)));
                 registered = canvas.FloatingButtons.FindByName(name: spec.Name)
                     ?? throw new InvalidOperationException(message: $"FloatingButton '{spec.Name}' was not registered after Add().");
                 _ = spec.Numeric.Iter(numeric => {
@@ -380,7 +395,9 @@ internal static class FloatingButton {
             from canvas in scope.NeedCanvas()
             from _found in Optional(canvas.FloatingButtons.FindByName(name: name))
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Modify)), detail: $"button '{name}' not found"))
-            from validAnchor in ValidateAnchor(anchor: anchor)
+            from validAnchor in anchor.Match(
+                Some: a => Op.Of(name: nameof(Modify)).AcceptPoint(value: a.Point, detail: "non-finite anchor").Map(p => Some((Point: p, a.Immediate))),
+                None: () => Fin.Succ(Option<(PointF Point, bool Immediate)>.None))
             from _ in Seq(
                 ModifyField(value: info, mutate: v => canvas.FloatingButtons.ModifyInfo(name: name, buttonInfo: v), field: "ModifyInfo"),
                 ModifyField(value: icon, mutate: v => canvas.FloatingButtons.ModifyIcon(name: name, icon: v), field: "ModifyIcon"),
@@ -392,14 +409,9 @@ internal static class FloatingButton {
     // Each present field self-names its own Op.Attempt so a single failed mutation short-circuits the
     // TraverseM with the precise field; an absent field is a no-op Succ.
     private static Fin<Unit> ModifyField<T>(Option<T> value, Action<T> mutate, string field) =>
-        value is { IsSome: true, Case: T present }
-            ? Op.Of(name: nameof(Modify)).Attempt(body: () => mutate(present), what: field)
-            : Fin.Succ(value: unit);
-
-    private static Fin<Option<(PointF Point, bool Immediate)>> ValidateAnchor(Option<(PointF Point, bool Immediate)> anchor) =>
-        anchor.Match(
-            Some: a => Op.Of(name: nameof(Modify)).AcceptPoint(value: a.Point, detail: "non-finite anchor").Map(p => Some((Point: p, a.Immediate))),
-            None: () => Fin.Succ(Option<(PointF Point, bool Immediate)>.None));
+        value.Match(
+            Some: present => Op.Of(name: nameof(Modify)).Attempt(body: () => mutate(present), what: field),
+            None: static () => Fin.Succ(value: unit));
 
     internal static GrasshopperUiIntent<Unit> SetVisible(Seq<string> names, bool visible) =>
         GhUi.Canvas(run: scope =>
@@ -474,9 +486,6 @@ internal static class FloatingButton {
                 canvas.FloatingButtons.Close(target);
             });
 
-    private static Color? ColourOf(Option<Color> colour) =>
-        colour is { IsSome: true, Case: Color picked } ? picked : null;
-
     private static FloatingButtonInfo InfoOf(NativeFloatingButton button) =>
         new(Name: button.Name, Info: button.Info,
             Position: button.Position, State: button.State,
@@ -522,24 +531,29 @@ internal static class Interaction {
                 marshalToUi: true)
             select sub);
 
-    internal static GrasshopperUiIntent<Subscription> Hover(TimeSpan delay, Func<MouseHoverSnapshot, Fin<Unit>> handler) =>
+    // Delay None inherits the canvas's current MouseHoverDelay (GH2 exposes no default constant); an explicit
+    // delay must be positive and is leased so the prior value restores on detach.
+    internal static GrasshopperUiIntent<Subscription> Hover(Option<TimeSpan> delay, Func<MouseHoverSnapshot, Fin<Unit>> handler) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
-            from validDelay in delay > TimeSpan.Zero
-                ? Fin.Succ(value: delay)
-                : Fin.Fail<TimeSpan>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Hover)), detail: "hover delay must be positive"))
+            from validDelay in delay.Match(
+                Some: requested => requested > TimeSpan.Zero
+                    ? Fin.Succ(value: Some(requested))
+                    : Fin.Fail<Option<TimeSpan>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Hover)), detail: "hover delay must be positive")),
+                None: () => Fin.Succ(value: Option<TimeSpan>.None))
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hover)), detail: "handler is required"))
             let onHover = (EventHandler<MouseHoverEventArgs>)((_, e) =>
                 _ = GrasshopperUi.Handler(valid: () => valid(arg: new MouseHoverSnapshot(ControlPoint: e.ControlPoint, ContentPoint: e.ContentPoint))))
-            let token = new StrongBox<Guid>()
+            // Single-element array carries the lease token across attach/detach without a StrongBox allocation.
+            let token = new Guid[1]
             from sub in Subscription.Bind(
                 attach: () => {
-                    token.Value = CanvasPropertyLease.Enter(canvas: canvas, slot: nameof(GhCanvas.MouseHoverDelay), value: validDelay, get: static c => c.MouseHoverDelay, set: static (c, value) => c.MouseHoverDelay = value);
+                    _ = validDelay.Iter(value => token[0] = CanvasPropertyLease.Enter(canvas: canvas, slot: nameof(GhCanvas.MouseHoverDelay), value: value, get: static c => c.MouseHoverDelay, set: static (c, leased) => c.MouseHoverDelay = leased));
                     canvas.MouseHover += onHover;
                 },
                 detach: () => {
                     canvas.MouseHover -= onHover;
-                    CanvasPropertyLease.Exit<TimeSpan>(canvas: canvas, slot: nameof(GhCanvas.MouseHoverDelay), token: token.Value, set: static (c, value) => c.MouseHoverDelay = value);
+                    _ = validDelay.Iter(_unused => CanvasPropertyLease.Exit<TimeSpan>(canvas: canvas, slot: nameof(GhCanvas.MouseHoverDelay), token: token[0], set: static (c, leased) => c.MouseHoverDelay = leased));
                 },
                 marshalToUi: true)
             select sub);
@@ -581,9 +595,11 @@ internal sealed class OwnedSubscription<TKey> {
     internal Fin<Subscription> Bind(TKey key, Action attach, Action<TKey> detach) {
         Guid token = Guid.NewGuid();
         return Subscription.Bind(
+            // Register the token only after attach() commits so a throwing attach never orphans an ownership slot
+            // whose detach gate would then leak.
             attach: () => {
-                _ = owners.Swap(map => map.SetItem(key, token));
                 attach();
+                _ = owners.Swap(map => map.SetItem(key, token));
             },
             detach: () => _ = owners.Value.Find(key: key)
                     .Filter(held => held == token)
@@ -629,17 +645,19 @@ internal static class CanvasPropertyLease {
     }
 
     // BOUNDARY ADAPTER — token removal restores the top remaining value even when disposals are non-LIFO.
+    // A foreign-T slot (hash collision on a differently-typed lease) pattern-matches None and is left untouched
+    // rather than InvalidCastException-ing on a bare (State<T>) cast.
     internal static void Exit<T>(GhCanvas canvas, string slot, Guid token, Action<GhCanvas, T> set) {
         int key = Key(canvas: canvas, slot: slot);
         Option<T> restore = Option<T>.None;
-        _ = Stacks.Swap(map => map.Find(key).Match(
-            Some: state => {
-                State<T> typed = (State<T>)state;
-                Seq<Entry<T>> kept = typed.Entries.Filter(entry => entry.Token != token);
-                restore = Some(kept.IsEmpty ? typed.Baseline : kept.Last().Value);
-                return kept.IsEmpty ? map.Remove(key) : map.SetItem(key, typed with { Entries = kept });
-            },
-            None: () => map));
+        _ = Stacks.Swap(map => map.Find(key)
+            .Bind(state => state is State<T> typed ? Some((Typed: typed, Kept: typed.Entries.Filter(entry => entry.Token != token))) : Option<(State<T> Typed, Seq<Entry<T>> Kept)>.None)
+            .Match(
+                Some: pair => {
+                    restore = Some(pair.Kept.IsEmpty ? pair.Typed.Baseline : pair.Kept.Last().Value);
+                    return pair.Kept.IsEmpty ? map.Remove(key) : map.SetItem(key, pair.Typed with { Entries = pair.Kept });
+                },
+                None: () => map));
         _ = restore.Iter(value => set(arg1: canvas, arg2: value));
     }
 

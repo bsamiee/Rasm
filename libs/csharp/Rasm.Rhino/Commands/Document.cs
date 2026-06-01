@@ -1,352 +1,7 @@
 namespace Rasm.Rhino.Commands;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class DocumentResourceKind {
-    public static readonly DocumentResourceKind Object = new(key: 0, componentType: ModelComponentType.ModelGeometry);
-    public static readonly DocumentResourceKind Layer = new(key: 1, componentType: ModelComponentType.Layer);
-    public static readonly DocumentResourceKind Material = new(key: 2, componentType: ModelComponentType.Material);
-    public static readonly DocumentResourceKind Group = new(key: 3, componentType: ModelComponentType.Group);
-    public static readonly DocumentResourceKind Block = new(key: 4, componentType: ModelComponentType.InstanceDefinition);
-    public static readonly DocumentResourceKind View = new(key: 5, componentType: ModelComponentType.Unset);
-    public static readonly DocumentResourceKind NamedView = new(key: 6, componentType: ModelComponentType.Unset);
-    public static readonly DocumentResourceKind Layout = new(key: 7, componentType: ModelComponentType.Unset);
-    public static readonly DocumentResourceKind NamedLayerState = new(key: 8, componentType: ModelComponentType.Unset);
-    public static readonly DocumentResourceKind Linetype = new(key: 9, componentType: ModelComponentType.LinePattern);
-    public static readonly DocumentResourceKind DimensionStyle = new(key: 10, componentType: ModelComponentType.DimStyle);
-    public static readonly DocumentResourceKind Hatch = new(key: 11, componentType: ModelComponentType.HatchPattern);
-    public static readonly DocumentResourceKind ConstructionPlane = new(key: 12, componentType: ModelComponentType.Unset);
-    public static readonly DocumentResourceKind Image = new(key: 13, componentType: ModelComponentType.Image);
-    public static readonly DocumentResourceKind TextureMapping = new(key: 14, componentType: ModelComponentType.TextureMapping);
-    public static readonly DocumentResourceKind TextStyle = new(key: 15, componentType: ModelComponentType.TextStyle);
-    public static readonly DocumentResourceKind RenderLight = new(key: 16, componentType: ModelComponentType.RenderLight);
-    public static readonly DocumentResourceKind HistoryRecord = new(key: 17, componentType: ModelComponentType.HistoryRecord);
-    public static readonly DocumentResourceKind SectionStyle = new(key: 18, componentType: ModelComponentType.SectionStyle);
-    public static readonly DocumentResourceKind Markup = new(key: 19, componentType: ModelComponentType.Markup);
-    public static readonly DocumentResourceKind PageViewGroup = new(key: 20, componentType: ModelComponentType.PageViewGroup);
-    public static readonly DocumentResourceKind RenderContent = new(key: 21, componentType: ModelComponentType.RenderContent);
-    public static readonly DocumentResourceKind RenderMaterial = new(key: 22, componentType: ModelComponentType.Unset);
-    public static readonly DocumentResourceKind RenderEnvironment = new(key: 23, componentType: ModelComponentType.Unset);
-    public static readonly DocumentResourceKind RenderTexture = new(key: 24, componentType: ModelComponentType.Unset);
-    public static readonly DocumentResourceKind FileReference = new(key: 25, componentType: ModelComponentType.Unset);
-    public static readonly DocumentResourceKind EmbeddedFile = new(key: 26, componentType: ModelComponentType.EmbeddedFile);
-    public static readonly DocumentResourceKind Metadata = new(key: 27, componentType: ModelComponentType.Unset);
-    public static readonly DocumentResourceKind Text = new(key: 28, componentType: ModelComponentType.Unset);
-    public static readonly DocumentResourceKind EarthAnchor = new(key: 29, componentType: ModelComponentType.Unset);
-    public static readonly DocumentResourceKind Sun = new(key: 30, componentType: ModelComponentType.Unset);
-    public static readonly DocumentResourceKind NamedPosition = new(key: 31, componentType: ModelComponentType.Unset);
-
-    public ModelComponentType ComponentType { get; }
-
-    public static Option<DocumentResourceKind> ForComponentType(ModelComponentType type) =>
-        type == ModelComponentType.Unset
-            ? Option<DocumentResourceKind>.None
-            : Items.AsIterable().Find(kind => kind.ComponentType == type);
-}
-
-[SmartEnum<string>]
-public sealed partial class FileResourceRole {
-    public static readonly FileResourceRole Layer = new(key: "layer");
-    public static readonly FileResourceRole Material = new(key: "material");
-    public static readonly FileResourceRole Linetype = new(key: "linetype");
-    public static readonly FileResourceRole Group = new(key: "group");
-    public static readonly FileResourceRole Block = new(key: "block");
-    public static readonly FileResourceRole Instance = new(key: "instance");
-    public static readonly FileResourceRole Member = new(key: "member");
-    public static readonly FileResourceRole Linked = new(key: "linked");
-    public static readonly FileResourceRole Texture = new(key: "texture");
-    public static readonly FileResourceRole Child = new(key: "child");
-}
-
 public enum DocumentLifecycle { Purge, Undelete }
-
-// --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct DocumentSelectionPolicy(bool Highlight, bool IgnoreGrips, bool Persistent, bool IgnoreLayerLocking, bool IgnoreLayerVisibility) {
-    public static DocumentSelectionPolicy Default { get; } = new(Highlight: true, IgnoreGrips: true, Persistent: true, IgnoreLayerLocking: false, IgnoreLayerVisibility: false);
-
-    internal T Select<T>(Func<bool, bool, bool, bool, bool, T> native) =>
-        native(arg1: Highlight, arg2: Persistent, arg3: IgnoreGrips, arg4: IgnoreLayerLocking, arg5: IgnoreLayerVisibility);
-}
-
-internal abstract record GeometrySource {
-    private GeometrySource() { }
-    internal abstract Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use);
-
-    internal static Fin<GeometrySource> From(object source) {
-        Op op = Op.Of(name: nameof(GeometrySource));
-        return Optional(source).ToFin(Fail: op.InvalidInput()).Bind(value => value switch {
-            Surface surface when surface.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => surface.ToBrep())),
-            GeometryBase geometry => Fin.Succ<GeometrySource>(value: new Borrowed(geometry)),
-            Point3d point when point.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => new Point(location: point))),
-            Line line when line.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => new LineCurve(line: line))),
-            Circle circle when circle.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => new ArcCurve(circle: circle))),
-            Arc arc when arc.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => new ArcCurve(arc: arc))),
-            Ellipse ellipse when ellipse.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => ellipse.ToNurbsCurve())),
-            Polyline polyline when polyline.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => new PolylineCurve(polyline))),
-            Rectangle3d rect when rect.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => rect.ToNurbsCurve())),
-            Box box when box.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => box.ToBrep())),
-            BoundingBox bounds when bounds.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => bounds.ToBrep())),
-            Sphere sphere when sphere.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => sphere.ToBrep())),
-            Cylinder cyl when cyl.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => cyl.ToBrep(capBottom: true, capTop: true))),
-            Cone cone when cone.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => cone.ToBrep(capBottom: true))),
-            Torus torus when torus.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => torus.ToBrep())),
-            _ => Fin.Fail<GeometrySource>(error: op.InvalidInput()),
-        });
-    }
-
-    internal static GeometrySource Own(GeometryBase geometry) => new Owned(() => geometry);
-
-    private sealed record Borrowed(GeometryBase Geometry) : GeometrySource {
-        internal override Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use) =>
-            op.Catch(() => from geometry in Optional(Geometry).ToFin(Fail: op.InvalidInput())
-                           from valid in Optional(use).ToFin(Fail: op.InvalidInput())
-                           from result in valid(arg: geometry)
-                           select result);
-    }
-    private sealed record Owned(Func<GeometryBase> Build) : GeometrySource {
-        internal override Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use) =>
-            op.Catch(() => Optional(use).ToFin(Fail: op.InvalidInput()).Bind(valid => {
-                using GeometryBase owned = Build();
-                return valid(arg: owned);
-            }));
-    }
-}
-
-[Union]
-public abstract partial record DocumentTarget {
-    private DocumentTarget() { }
-
-    public sealed record SelectionCase(CommandSelection Value) : DocumentTarget;
-    public sealed record ReferenceCase(CommandSelection.Reference Value) : DocumentTarget;
-    public sealed record ObjectsCase(Seq<Guid> Values) : DocumentTarget;
-    public sealed record FilterCase(ObjectEnumeratorSettings Settings) : DocumentTarget;
-    public sealed record PredicateCase(ObjectEnumeratorSettings Settings, Func<RhinoDoc, RhinoObject, bool> Predicate) : DocumentTarget;
-    public sealed record PickCase(CommandPickPolicy Policy) : DocumentTarget;
-
-    public static Fin<DocumentTarget> Selection(CommandSelection selection) =>
-        Optional(selection).ToFin(Fail: Op.Of(name: nameof(DocumentTarget)).InvalidInput()).Map(value => (DocumentTarget)new SelectionCase(value));
-
-    public static Fin<DocumentTarget> Reference(CommandSelection.Reference reference) =>
-        reference.ObjectId switch {
-            Guid id when id != Guid.Empty => Fin.Succ<DocumentTarget>(value: new ReferenceCase(reference)),
-            _ => Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(DocumentTarget)).InvalidInput()),
-        };
-
-    public static Fin<DocumentTarget> Objects(IEnumerable<Guid> objectIds) =>
-        TargetIds(ids: objectIds, op: Op.Of(name: nameof(DocumentTarget))).Map(ids => (DocumentTarget)new ObjectsCase(ids));
-
-    public static Fin<DocumentTarget> Filter(ObjectEnumeratorSettings settings) =>
-        Optional(settings).ToFin(Fail: Op.Of(name: nameof(DocumentTarget)).InvalidInput()).Map(value => (DocumentTarget)new FilterCase(value));
-
-    public static Fin<DocumentTarget> Layer(int layerIndex) =>
-        layerIndex switch {
-            >= 0 => Filter(settings: QuerySettings(configure: s => s.LayerIndexFilter = layerIndex)),
-            _ => Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(Layer)).InvalidInput()),
-        };
-
-    public static Fin<DocumentTarget> UserString(string key, Option<string> value = default) =>
-        DocumentEdit.NonBlank(value: key, op: Op.Of(name: nameof(UserString))).Map(valid => (DocumentTarget)new PredicateCase(QuerySettings(), Attribute(test: (attributes, _) =>
-            Optional(attributes.GetUserString(key: valid)).Map(stored => value.Case switch {
-                string expected => string.Equals(a: stored, b: expected, comparisonType: StringComparison.Ordinal),
-                _ => !string.IsNullOrEmpty(value: stored),
-            }).IfNone(noneValue: false))));
-
-    public static Fin<DocumentTarget> DrawColor(System.Drawing.Color color) =>
-        color.IsEmpty switch {
-            false => Fin.Succ<DocumentTarget>(value: new PredicateCase(QuerySettings(), Attribute(test: (attributes, document) => attributes.DrawColor(document: document) == color))),
-            true => Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(DrawColor)).InvalidInput()),
-        };
-
-    public static Fin<DocumentTarget> ClippingPlanes() =>
-        Filter(settings: QuerySettings(configure: s => s.ObjectTypeFilter = ObjectType.ClipPlane));
-
-    public static Fin<DocumentTarget> Pick(CommandPickPolicy policy) =>
-        Optional(policy).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()).Map(value => (DocumentTarget)new PickCase(value));
-
-    internal Fin<int> Select(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) =>
-        Use(document: document, op: op,
-            selection: value => value.SelectInto(document: document, selected: selected, policy: policy, op: op),
-            reference: value => value.Use(document: document, op: op, use: native => op.Confirm(success: policy.Select((highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) => document.Objects.Select(native, selected, highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility))).Map(static _ => 1)),
-            objects: ids => policy.Select((highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) => document.Objects.Select(ids.AsIterable(), selected, highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility)) switch {
-                int value when value == ids.Count => Fin.Succ(value: value),
-                _ => Fin.Fail<int>(error: op.InvalidResult()),
-            });
-
-    internal Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
-        Use(document: document, op: op,
-            selection: value => value.ObjectTargets.TraverseM(reference => reference.Use(document: document, op: op, use: native => op.Confirm(success: document.Objects.Delete(native, quiet, ignoreModes)))).As().Map(static _ => unit),
-            reference: value => value.Use(document: document, op: op, use: native => op.Confirm(success: document.Objects.Delete(native, quiet, ignoreModes))),
-            objects: ids => DeleteIds(document: document, ids: ids, quiet: quiet, ignoreModes: ignoreModes, op: op));
-
-    internal Fin<Unit> Replace(RhinoDoc document, object replacement, bool ignoreModes, Op op) =>
-        Use(document: document, op: op,
-            selection: value => value.Single().Bind(reference => reference.Use(document: document, op: op, use: native => ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objref: native, geometry: geometry, ignoreModes: ignoreModes)))),
-            reference: value => value.Use(document: document, op: op, use: native => ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objref: native, geometry: geometry, ignoreModes: ignoreModes))),
-            objects: ids => TargetIds(ids: ids, op: op).Bind(target => target.Count switch {
-                1 => ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objectId: target[0], geometry: geometry, ignoreModes: ignoreModes)),
-                _ => Fin.Fail<Unit>(error: op.InvalidInput()),
-            }));
-
-    internal Fin<Seq<Guid>> Ids(RhinoDoc document, Op op) =>
-        Use(document: document, op: op,
-            selection: static value => Fin.Succ(value: value.MutationObjectIds),
-            reference: value => value.Use(document: document, op: op, use: native => native.ObjectId switch {
-                Guid id when id != Guid.Empty => Fin.Succ(value: Seq(id)),
-                _ => Fin.Fail<Seq<Guid>>(error: op.InvalidResult()),
-            }),
-            objects: static ids => Fin.Succ(value: ids));
-
-    internal Fin<Seq<(Guid Id, uint RuntimeSerialNumber)>> RuntimeTargets(RhinoDoc document, Op op) =>
-        Use(document: document, op: op,
-            selection: value => value.ObjectTargets.TraverseM(reference => reference.Use(document: document, op: op, use: _ => Fin.Succ(value: (Id: reference.MutationObjectId, reference.RuntimeSerialNumber)))).As(),
-            reference: value => value.Use(document: document, op: op, use: _ => Fin.Succ(value: Seq((Id: value.MutationObjectId, value.RuntimeSerialNumber)))),
-            objects: ids => ids.TraverseM(id => Optional(document.Objects.FindId(id)).ToFin(Fail: op.InvalidResult()).Map(native => (Id: id, native.RuntimeSerialNumber))).As());
-
-    internal Fin<Seq<Guid>> Transform(RhinoDoc document, Transform transform, bool deleteOriginal, Op op) =>
-        Use(document: document, op: op,
-            selection: selection => selection.ObjectTargets.TraverseM(reference => reference.Use(document: document, op: op, use: native => IdResult(id: document.Objects.Transform(objref: native, xform: transform, deleteOriginal: deleteOriginal), op: op))).As(),
-            reference: reference => reference.Use(document: document, op: op, use: native => IdResult(id: document.Objects.Transform(objref: native, xform: transform, deleteOriginal: deleteOriginal), op: op).Map(static id => Seq(id))),
-            objects: ids => ids.TraverseM(id => IdResult(id: document.Objects.Transform(objectId: id, xform: transform, deleteOriginal: deleteOriginal), op: op)).As());
-
-    internal Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) =>
-        Switch(
-            (Doc: document, Op: op, S: selection, R: reference, O: objects),
-            selectionCase: static (ctx, c) => (c.Value, ctx.Doc) switch {
-                (CommandSelection value, RhinoDoc doc) when value.Document.RuntimeSerialNumber == doc.RuntimeSerialNumber => ctx.S(arg: value),
-                _ => Fin.Fail<T>(error: ctx.Op.InvalidInput()),
-            },
-            referenceCase: static (ctx, c) => c.Value.Use(document: ctx.Doc, op: ctx.Op, use: _ => ctx.R(arg: c.Value)),
-            objectsCase: static (ctx, c) => ctx.O(arg: c.Values),
-            filterCase: static (ctx, c) => Optional(ctx.Doc).ToFin(Fail: ctx.Op.InvalidInput()).Bind(valid => toSeq(valid.Objects.GetObjectIdList(settings: c.Settings)).Distinct() switch {
-                Seq<Guid> ids when !ids.IsEmpty => ctx.O(arg: ids),
-                _ => Fin.Fail<T>(error: ctx.Op.InvalidResult()),
-            }),
-            predicateCase: static (ctx, c) =>
-                from validDocument in Optional(ctx.Doc).ToFin(Fail: ctx.Op.InvalidInput())
-                from predicate in Optional(c.Predicate).ToFin(Fail: ctx.Op.InvalidInput())
-                from ids in toSeq(validDocument.Objects.GetObjectList(settings: c.Settings))
-                    .Filter(native => predicate(arg1: validDocument, arg2: native))
-                    .Map(static native => native.Id)
-                    .Distinct() switch {
-                        Seq<Guid> values when !values.IsEmpty => Fin.Succ(value: values),
-                        _ => Fin.Fail<Seq<Guid>>(error: ctx.Op.InvalidResult()),
-                    }
-                from result in ctx.O(arg: ids)
-                select result,
-            pickCase: static (ctx, c) =>
-                from picked in CommandSelection.Pick(document: ctx.Doc, policy: c.Policy)
-                from result in ctx.S(arg: picked)
-                select result);
-
-    private static ObjectEnumeratorSettings QuerySettings(Action<ObjectEnumeratorSettings>? configure = null) {
-        ObjectEnumeratorSettings settings = new() { NormalObjects = true, LockedObjects = true, HiddenObjects = true };
-        configure?.Invoke(obj: settings);
-        return settings;
-    }
-
-    private static Func<RhinoDoc, RhinoObject, bool> Attribute(Func<ObjectAttributes, RhinoDoc, bool> test) =>
-        (document, native) => Optional(native.Attributes).Map(attributes => test(arg1: attributes, arg2: document)).IfNone(noneValue: false);
-
-    private static Fin<Seq<Guid>> TargetIds(IEnumerable<Guid> ids, Op op) =>
-        Optional(ids)
-            .ToFin(Fail: op.InvalidInput())
-            .Bind(values => toSeq(values)
-                .TraverseM(id => id switch {
-                    Guid value when value != Guid.Empty => Fin.Succ(value: value),
-                    _ => Fin.Fail<Guid>(error: op.InvalidInput()),
-                })
-                .As())
-            .Bind(values => values.Distinct() switch {
-                Seq<Guid> target when !target.IsEmpty => Fin.Succ(value: target),
-                _ => Fin.Fail<Seq<Guid>>(error: op.InvalidInput()),
-            });
-
-    private static Fin<Unit> DeleteIds(RhinoDoc document, IEnumerable<Guid> ids, bool quiet, bool ignoreModes, Op op) =>
-        TargetIds(ids: ids, op: op)
-            .Bind(target => ignoreModes switch {
-                false => document.Objects.Delete(target.AsIterable(), quiet) switch {
-                    int count when count == target.Count => Fin.Succ(value: unit),
-                    _ => Fin.Fail<Unit>(error: op.InvalidResult()),
-                },
-                true => target
-                    .TraverseM(id => Optional(document.Objects.FindId(id))
-                        .ToFin(Fail: op.InvalidResult())
-                        .Bind(native => native.IsDeleted switch {
-                            false => op.Confirm(success: document.Objects.Delete(native, quiet, ignoreModes: true)),
-                            true => Fin.Fail<Unit>(error: op.InvalidResult()),
-                        }))
-                    .Map(static _ => unit),
-            });
-
-    internal static Fin<Guid> IdResult(Guid id, Op op) => id switch { Guid value when value != Guid.Empty => Fin.Succ(value: value), _ => Fin.Fail<Guid>(error: op.InvalidResult()) };
-
-    private static Fin<Unit> ReplaceGeometry(object replacement, Op op, Func<GeometryBase, bool> use) =>
-        from valid in Optional(use).ToFin(Fail: op.InvalidInput())
-        from geometry in GeometrySource.From(source: replacement)
-        from result in geometry.Use(op: op, use: native => op.Confirm(success: valid(arg: native)))
-        select result;
-}
-
-public readonly record struct DocumentRedraw(bool Enabled, bool SuppressDuringCommit = false) {
-    public static DocumentRedraw After { get; } = new(Enabled: true);
-    public static DocumentRedraw None { get; } = new(Enabled: false);
-}
-
-public sealed record DocumentTransaction(
-    string Name,
-    Seq<DocumentOp> Operations,
-    DocumentRedraw Redraw,
-    Seq<DocumentCustomUndo> CustomUndo = default,
-    bool UndoRecorded = true) {
-    public static DocumentTransaction Batch(string name, params DocumentOp[] operations) =>
-        new(Name: name, Operations: toSeq(operations), Redraw: DocumentRedraw.After);
-
-    public DocumentTransaction WithoutUndo() =>
-        this with { UndoRecorded = false };
-
-    public DocumentTransaction WithRedraw(DocumentRedraw redraw) =>
-        this with { Redraw = redraw };
-}
-public readonly record struct DocumentReceipt(Seq<Guid> Created, Seq<Guid> Replaced, Seq<Guid> Deleted, Seq<Guid> Transformed, Seq<Guid> Selected, Seq<Guid> Unselected, Seq<Guid> Hidden, Seq<Guid> Locked, Seq<Guid> Flashed, Seq<Guid> AttributeChanged, Seq<Guid> LifecycleChanged, Seq<DocumentResourceChange> ResourceChanged, Seq<uint> UndoRecords, Seq<string> CustomUndo) {
-    public static DocumentReceipt Empty { get; } = new(Created: Seq<Guid>(), Replaced: Seq<Guid>(), Deleted: Seq<Guid>(), Transformed: Seq<Guid>(), Selected: Seq<Guid>(), Unselected: Seq<Guid>(), Hidden: Seq<Guid>(), Locked: Seq<Guid>(), Flashed: Seq<Guid>(), AttributeChanged: Seq<Guid>(), LifecycleChanged: Seq<Guid>(), ResourceChanged: Seq<DocumentResourceChange>(), UndoRecords: Seq<uint>(), CustomUndo: Seq<string>());
-    public static DocumentReceipt operator +(DocumentReceipt left, DocumentReceipt right) =>
-        Add(left: left, right: right);
-
-    public static DocumentReceipt Add(DocumentReceipt left, DocumentReceipt right) =>
-        new(Created: left.Created + right.Created, Replaced: left.Replaced + right.Replaced, Deleted: left.Deleted + right.Deleted, Transformed: left.Transformed + right.Transformed, Selected: left.Selected + right.Selected, Unselected: left.Unselected + right.Unselected, Hidden: left.Hidden + right.Hidden, Locked: left.Locked + right.Locked, Flashed: left.Flashed + right.Flashed, AttributeChanged: left.AttributeChanged + right.AttributeChanged, LifecycleChanged: left.LifecycleChanged + right.LifecycleChanged, ResourceChanged: left.ResourceChanged + right.ResourceChanged, UndoRecords: left.UndoRecords + right.UndoRecords, CustomUndo: left.CustomUndo + right.CustomUndo);
-
-    internal static DocumentReceipt SelectionDelta(Seq<Guid> before, Seq<Guid> after) =>
-        Empty with { Selected = after.Filter(id => !before.Exists(item => item == id)), Unselected = before.Filter(id => !after.Exists(item => item == id)) };
-
-    private static Seq<(string Name, Func<DocumentReceipt, int> Count)> Counters { get; } = Seq<(string, Func<DocumentReceipt, int>)>(
-        ("created", static r => r.Created.Count), ("replaced", static r => r.Replaced.Count), ("deleted", static r => r.Deleted.Count), ("transformed", static r => r.Transformed.Count), ("selected", static r => r.Selected.Count), ("unselected", static r => r.Unselected.Count), ("hidden", static r => r.Hidden.Count), ("locked", static r => r.Locked.Count), ("flashed", static r => r.Flashed.Count), ("attributes", static r => r.AttributeChanged.Count), ("lifecycle", static r => r.LifecycleChanged.Count), ("resources", static r => r.ResourceChanged.Count), ("undo", static r => r.UndoRecords.Count), ("custom undo", static r => r.CustomUndo.Count));
-
-    public UI.UiStatus Status(string verb) {
-        DocumentReceipt self = this;
-        Seq<(string Name, int Count)> changes = Counters.Map(entry => (entry.Name, Count: entry.Count(arg: self))).Filter(static change => change.Count > 0);
-        return UI.UiStatus.Script(message: changes.IsEmpty switch {
-            true => $"{verb}: no document changes",
-            false => $"{verb}: {string.Join(separator: ", ", values: changes.Map(static change => $"{change.Name} {change.Count}").AsIterable())}",
-        });
-    }
-}
-
-public readonly record struct DocumentResourceChange(DocumentResourceKind Kind, string Name);
-public readonly record struct DocumentCustomUndo(string Name, EventHandler<CustomUndoEventArgs> Undo, Option<object> Data = default) {
-    internal Fin<string> Register(RhinoDoc document, Op op) {
-        string label = Name;
-        EventHandler<CustomUndoEventArgs> handler = Undo;
-        Option<object> data = Data;
-        return from validDocument in Optional(document).ToFin(Fail: op.InvalidInput())
-               from name in DocumentEdit.NonBlank(value: label, op: op)
-               from undo in Optional(handler).ToFin(Fail: op.InvalidInput())
-               from _ in UI.RhinoUi.Protect(valid: () => data.Case switch {
-                   object tag => op.Confirm(success: validDocument.AddCustomUndoEvent(description: name, handler: undo, tag: tag)),
-                   _ => op.Confirm(success: validDocument.AddCustomUndoEvent(description: name, handler: undo)),
-               })
-               select name;
-    }
-}
 
 [Union(SwitchMapStateParameterName = "context")]
 public abstract partial record DocumentOp {
@@ -367,6 +22,7 @@ public abstract partial record DocumentOp {
         DocumentSelectionPolicy? SelectionPolicy = null) : DocumentOp;
     public sealed record Flash(DocumentTarget Target, bool UseSelectionColor = true) : DocumentOp;
     public sealed record Lifecycle(DocumentTarget Target, DocumentLifecycle Change) : DocumentOp;
+    public sealed record Resource(DocumentResourceKind Kind, string Name, Func<RhinoDoc, Op, Fin<Unit>> Change) : DocumentOp;
 
     internal Fin<DocumentReceipt> Apply(RhinoDoc document, Context domain, Op op) =>
         Switch(
@@ -489,9 +145,377 @@ public abstract partial record DocumentOp {
                     },
                     _ => Fin.Fail<Guid>(error: ctx.Op.InvalidInput()),
                 }).As()
-                select DocumentReceipt.Empty with { LifecycleChanged = changed });
+                select DocumentReceipt.Empty with { LifecycleChanged = changed },
+            resource: static (ctx, edit) =>
+                from kind in Optional(edit.Kind).ToFin(Fail: ctx.Op.InvalidInput())
+                from name in DocumentEdit.NonBlank(value: edit.Name, op: ctx.Op)
+                from change in Optional(edit.Change).ToFin(Fail: ctx.Op.InvalidInput())
+                from _ in change(arg1: ctx.Document, arg2: ctx.Op)
+                select DocumentReceipt.Empty with {
+                    ResourceChanged = Seq(new DocumentResourceChange(Kind: kind, Name: name)),
+                });
 
     internal bool RecordsUndo => this is not Flash;
+}
+
+[SmartEnum<int>]
+public sealed partial class DocumentResourceKind {
+    public static readonly DocumentResourceKind Object = new(key: 0, componentType: ModelComponentType.ModelGeometry);
+    public static readonly DocumentResourceKind Layer = new(key: 1, componentType: ModelComponentType.Layer);
+    public static readonly DocumentResourceKind Material = new(key: 2, componentType: ModelComponentType.Material);
+    public static readonly DocumentResourceKind Group = new(key: 3, componentType: ModelComponentType.Group);
+    public static readonly DocumentResourceKind Block = new(key: 4, componentType: ModelComponentType.InstanceDefinition);
+    public static readonly DocumentResourceKind View = new(key: 5, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind NamedView = new(key: 6, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind Layout = new(key: 7, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind NamedLayerState = new(key: 8, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind Linetype = new(key: 9, componentType: ModelComponentType.LinePattern);
+    public static readonly DocumentResourceKind DimensionStyle = new(key: 10, componentType: ModelComponentType.DimStyle);
+    public static readonly DocumentResourceKind Hatch = new(key: 11, componentType: ModelComponentType.HatchPattern);
+    public static readonly DocumentResourceKind ConstructionPlane = new(key: 12, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind Image = new(key: 13, componentType: ModelComponentType.Image);
+    public static readonly DocumentResourceKind TextureMapping = new(key: 14, componentType: ModelComponentType.TextureMapping);
+    public static readonly DocumentResourceKind TextStyle = new(key: 15, componentType: ModelComponentType.TextStyle);
+    public static readonly DocumentResourceKind RenderLight = new(key: 16, componentType: ModelComponentType.RenderLight);
+    public static readonly DocumentResourceKind HistoryRecord = new(key: 17, componentType: ModelComponentType.HistoryRecord);
+    public static readonly DocumentResourceKind SectionStyle = new(key: 18, componentType: ModelComponentType.SectionStyle);
+    public static readonly DocumentResourceKind Markup = new(key: 19, componentType: ModelComponentType.Markup);
+    public static readonly DocumentResourceKind PageViewGroup = new(key: 20, componentType: ModelComponentType.PageViewGroup);
+    public static readonly DocumentResourceKind RenderContent = new(key: 21, componentType: ModelComponentType.RenderContent);
+    public static readonly DocumentResourceKind RenderMaterial = new(key: 22, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind RenderEnvironment = new(key: 23, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind RenderTexture = new(key: 24, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind FileReference = new(key: 25, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind EmbeddedFile = new(key: 26, componentType: ModelComponentType.EmbeddedFile);
+    public static readonly DocumentResourceKind Metadata = new(key: 27, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind Text = new(key: 28, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind EarthAnchor = new(key: 29, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind Sun = new(key: 30, componentType: ModelComponentType.Unset);
+    public static readonly DocumentResourceKind NamedPosition = new(key: 31, componentType: ModelComponentType.Unset);
+
+    public ModelComponentType ComponentType { get; }
+
+    public static Option<DocumentResourceKind> ForComponentType(ModelComponentType type) =>
+        type == ModelComponentType.Unset
+            ? Option<DocumentResourceKind>.None
+            : Items.AsIterable().Find(kind => kind.ComponentType == type);
+}
+
+[Union]
+public abstract partial record DocumentTarget {
+    private DocumentTarget() { }
+
+    public sealed record SelectionCase(CommandSelection Value) : DocumentTarget;
+    public sealed record ReferenceCase(CommandSelection.Reference Value) : DocumentTarget;
+    public sealed record ObjectsCase(Seq<Guid> Values) : DocumentTarget;
+    public sealed record FilterCase(ObjectEnumeratorSettings Settings) : DocumentTarget;
+    public sealed record PredicateCase(ObjectEnumeratorSettings Settings, Func<RhinoDoc, RhinoObject, bool> Predicate) : DocumentTarget;
+    public sealed record PickCase(CommandPickPolicy Policy) : DocumentTarget;
+
+    public static Fin<DocumentTarget> Selection(CommandSelection selection) =>
+        Optional(selection).ToFin(Fail: Op.Of(name: nameof(DocumentTarget)).InvalidInput()).Map(value => (DocumentTarget)new SelectionCase(value));
+
+    public static Fin<DocumentTarget> Reference(CommandSelection.Reference reference) =>
+        reference.ObjectId switch {
+            Guid id when id != Guid.Empty => Fin.Succ<DocumentTarget>(value: new ReferenceCase(reference)),
+            _ => Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(DocumentTarget)).InvalidInput()),
+        };
+
+    public static Fin<DocumentTarget> Objects(IEnumerable<Guid> objectIds) =>
+        TargetIds(ids: objectIds, op: Op.Of(name: nameof(DocumentTarget))).Map(ids => (DocumentTarget)new ObjectsCase(ids));
+
+    public static Fin<DocumentTarget> Filter(ObjectEnumeratorSettings settings) =>
+        Optional(settings).ToFin(Fail: Op.Of(name: nameof(DocumentTarget)).InvalidInput()).Map(value => (DocumentTarget)new FilterCase(value));
+
+    public static Fin<DocumentTarget> Layer(int layerIndex) =>
+        layerIndex switch {
+            >= 0 => Filter(settings: QuerySettings(configure: s => s.LayerIndexFilter = layerIndex)),
+            _ => Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(Layer)).InvalidInput()),
+        };
+
+    public static Fin<DocumentTarget> UserString(string key, Option<string> value = default) =>
+        DocumentEdit.NonBlank(value: key, op: Op.Of(name: nameof(UserString))).Map(valid => (DocumentTarget)new PredicateCase(QuerySettings(), Attribute(test: (attributes, _) =>
+            Optional(attributes.GetUserString(key: valid)).Map(stored => value.Case switch {
+                string expected => string.Equals(a: stored, b: expected, comparisonType: StringComparison.Ordinal),
+                _ => !string.IsNullOrEmpty(value: stored),
+            }).IfNone(noneValue: false))));
+
+    public static Fin<DocumentTarget> DrawColor(System.Drawing.Color color) =>
+        color.IsEmpty switch {
+            false => Fin.Succ<DocumentTarget>(value: new PredicateCase(QuerySettings(), Attribute(test: (attributes, document) => attributes.DrawColor(document: document) == color))),
+            true => Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(DrawColor)).InvalidInput()),
+        };
+
+    public static Fin<DocumentTarget> Region(BoundingBox bounds, bool fullyInside = false, bool accurate = true) =>
+        bounds.IsValid
+            ? Fin.Succ<DocumentTarget>(value: new PredicateCase(QuerySettings(), (document, native) =>
+                Optional(native.Geometry).Map(geometry => geometry.GetBoundingBox(accurate: accurate)).Filter(static box => box.IsValid).Map(box =>
+                    fullyInside
+                        ? Contains(region: bounds, box: box)
+                        : BoundingBox.Intersection(a: bounds, b: box).IsValid).IfNone(noneValue: false)))
+            : Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(Region)).InvalidInput());
+
+    public static Fin<DocumentTarget> ClippingPlanes() =>
+        Filter(settings: QuerySettings(configure: s => s.ObjectTypeFilter = ObjectType.ClipPlane));
+
+    public static Fin<DocumentTarget> Pick(CommandPickPolicy policy) =>
+        Optional(policy).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()).Map(value => (DocumentTarget)new PickCase(value));
+
+    internal Fin<int> Select(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) =>
+        Use(document: document, op: op,
+            selection: value => value.SelectInto(document: document, selected: selected, policy: policy, op: op),
+            reference: value => value.Use(document: document, op: op, use: native => op.Confirm(success: policy.Select((highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) => document.Objects.Select(native, selected, highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility))).Map(static _ => 1)),
+            objects: ids => policy.Select((highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) => document.Objects.Select(ids.AsIterable(), selected, highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility)) switch {
+                int value when value == ids.Count => Fin.Succ(value: value),
+                _ => Fin.Fail<int>(error: op.InvalidResult()),
+            });
+
+    internal Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
+        Use(document: document, op: op,
+            selection: value => value.ObjectTargets.TraverseM(reference => reference.Use(document: document, op: op, use: native => op.Confirm(success: document.Objects.Delete(native, quiet, ignoreModes)))).As().Map(static _ => unit),
+            reference: value => value.Use(document: document, op: op, use: native => op.Confirm(success: document.Objects.Delete(native, quiet, ignoreModes))),
+            objects: ids => DeleteIds(document: document, ids: ids, quiet: quiet, ignoreModes: ignoreModes, op: op));
+
+    internal Fin<Unit> Replace(RhinoDoc document, object replacement, bool ignoreModes, Op op) =>
+        Use(document: document, op: op,
+            selection: value => value.Single().Bind(reference => reference.Use(document: document, op: op, use: native => ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objref: native, geometry: geometry, ignoreModes: ignoreModes)))),
+            reference: value => value.Use(document: document, op: op, use: native => ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objref: native, geometry: geometry, ignoreModes: ignoreModes))),
+            objects: ids => TargetIds(ids: ids, op: op).Bind(target => target.Count switch {
+                1 => ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objectId: target[0], geometry: geometry, ignoreModes: ignoreModes)),
+                _ => Fin.Fail<Unit>(error: op.InvalidInput()),
+            }));
+
+    internal Fin<Seq<Guid>> Ids(RhinoDoc document, Op op) =>
+        Use(document: document, op: op,
+            selection: static value => Fin.Succ(value: value.MutationObjectIds),
+            reference: value => value.Use(document: document, op: op, use: native => native.ObjectId switch {
+                Guid id when id != Guid.Empty => Fin.Succ(value: Seq(id)),
+                _ => Fin.Fail<Seq<Guid>>(error: op.InvalidResult()),
+            }),
+            objects: static ids => Fin.Succ(value: ids));
+
+    internal Fin<Seq<(Guid Id, uint RuntimeSerialNumber)>> RuntimeTargets(RhinoDoc document, Op op) =>
+        Use(document: document, op: op,
+            selection: value => value.ObjectTargets.TraverseM(reference => reference.Use(document: document, op: op, use: _ => Fin.Succ(value: (Id: reference.MutationObjectId, reference.RuntimeSerialNumber)))).As(),
+            reference: value => value.Use(document: document, op: op, use: _ => Fin.Succ(value: Seq((Id: value.MutationObjectId, value.RuntimeSerialNumber)))),
+            objects: ids => ids.TraverseM(id => Optional(document.Objects.FindId(id)).ToFin(Fail: op.InvalidResult()).Map(native => (Id: id, native.RuntimeSerialNumber))).As());
+
+    internal Fin<Seq<Guid>> Transform(RhinoDoc document, Transform transform, bool deleteOriginal, Op op) =>
+        Use(document: document, op: op,
+            selection: selection => selection.ObjectTargets.TraverseM(reference => reference.Use(document: document, op: op, use: native => IdResult(id: document.Objects.Transform(objref: native, xform: transform, deleteOriginal: deleteOriginal), op: op))).As(),
+            reference: reference => reference.Use(document: document, op: op, use: native => IdResult(id: document.Objects.Transform(objref: native, xform: transform, deleteOriginal: deleteOriginal), op: op).Map(static id => Seq(id))),
+            objects: ids => ids.TraverseM(id => IdResult(id: document.Objects.Transform(objectId: id, xform: transform, deleteOriginal: deleteOriginal), op: op)).As());
+
+    internal Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) =>
+        Switch(
+            (Doc: document, Op: op, S: selection, R: reference, O: objects),
+            selectionCase: static (ctx, c) => (c.Value, ctx.Doc) switch {
+                (CommandSelection value, RhinoDoc doc) when value.Document.RuntimeSerialNumber == doc.RuntimeSerialNumber => ctx.S(arg: value),
+                _ => Fin.Fail<T>(error: ctx.Op.InvalidInput()),
+            },
+            referenceCase: static (ctx, c) => c.Value.Use(document: ctx.Doc, op: ctx.Op, use: _ => ctx.R(arg: c.Value)),
+            objectsCase: static (ctx, c) => ctx.O(arg: c.Values),
+            filterCase: static (ctx, c) => Optional(ctx.Doc).ToFin(Fail: ctx.Op.InvalidInput()).Bind(valid => toSeq(valid.Objects.GetObjectIdList(settings: c.Settings)).Distinct() switch {
+                Seq<Guid> ids when !ids.IsEmpty => ctx.O(arg: ids),
+                _ => Fin.Fail<T>(error: ctx.Op.InvalidResult()),
+            }),
+            predicateCase: static (ctx, c) =>
+                from validDocument in Optional(ctx.Doc).ToFin(Fail: ctx.Op.InvalidInput())
+                from predicate in Optional(c.Predicate).ToFin(Fail: ctx.Op.InvalidInput())
+                from ids in toSeq(validDocument.Objects.GetObjectList(settings: c.Settings))
+                    .Filter(native => predicate(arg1: validDocument, arg2: native))
+                    .Map(static native => native.Id)
+                    .Distinct() switch {
+                        Seq<Guid> values when !values.IsEmpty => Fin.Succ(value: values),
+                        _ => Fin.Fail<Seq<Guid>>(error: ctx.Op.InvalidResult()),
+                    }
+                from result in ctx.O(arg: ids)
+                select result,
+            pickCase: static (ctx, c) =>
+                from picked in CommandSelection.Pick(document: ctx.Doc, policy: c.Policy)
+                from result in ctx.S(arg: picked)
+                select result);
+
+    private static ObjectEnumeratorSettings QuerySettings(Action<ObjectEnumeratorSettings>? configure = null) {
+        ObjectEnumeratorSettings settings = new() { NormalObjects = true, LockedObjects = true, HiddenObjects = true };
+        configure?.Invoke(obj: settings);
+        return settings;
+    }
+
+    private static Func<RhinoDoc, RhinoObject, bool> Attribute(Func<ObjectAttributes, RhinoDoc, bool> test) =>
+        (document, native) => Optional(native.Attributes).Map(attributes => test(arg1: attributes, arg2: document)).IfNone(noneValue: false);
+
+    private static bool Contains(BoundingBox region, BoundingBox box) =>
+        box.Min.X >= region.Min.X && box.Min.Y >= region.Min.Y && box.Min.Z >= region.Min.Z
+        && box.Max.X <= region.Max.X && box.Max.Y <= region.Max.Y && box.Max.Z <= region.Max.Z;
+
+    private static Fin<Seq<Guid>> TargetIds(IEnumerable<Guid> ids, Op op) =>
+        Optional(ids)
+            .ToFin(Fail: op.InvalidInput())
+            .Bind(values => toSeq(values)
+                .TraverseM(id => id switch {
+                    Guid value when value != Guid.Empty => Fin.Succ(value: value),
+                    _ => Fin.Fail<Guid>(error: op.InvalidInput()),
+                })
+                .As())
+            .Bind(values => values.Distinct() switch {
+                Seq<Guid> target when !target.IsEmpty => Fin.Succ(value: target),
+                _ => Fin.Fail<Seq<Guid>>(error: op.InvalidInput()),
+            });
+
+    private static Fin<Unit> DeleteIds(RhinoDoc document, IEnumerable<Guid> ids, bool quiet, bool ignoreModes, Op op) =>
+        TargetIds(ids: ids, op: op)
+            .Bind(target => ignoreModes switch {
+                false => document.Objects.Delete(target.AsIterable(), quiet) switch {
+                    int count when count == target.Count => Fin.Succ(value: unit),
+                    _ => Fin.Fail<Unit>(error: op.InvalidResult()),
+                },
+                true => target
+                    .TraverseM(id => Optional(document.Objects.FindId(id))
+                        .ToFin(Fail: op.InvalidResult())
+                        .Bind(native => native.IsDeleted switch {
+                            false => op.Confirm(success: document.Objects.Delete(native, quiet, ignoreModes: true)),
+                            true => Fin.Fail<Unit>(error: op.InvalidResult()),
+                        }))
+                    .Map(static _ => unit),
+            });
+
+    internal static Fin<Guid> IdResult(Guid id, Op op) => id switch { Guid value when value != Guid.Empty => Fin.Succ(value: value), _ => Fin.Fail<Guid>(error: op.InvalidResult()) };
+
+    private static Fin<Unit> ReplaceGeometry(object replacement, Op op, Func<GeometryBase, bool> use) =>
+        from valid in Optional(use).ToFin(Fail: op.InvalidInput())
+        from geometry in GeometrySource.From(source: replacement)
+        from result in geometry.Use(op: op, use: native => op.Confirm(success: valid(arg: native)))
+        select result;
+}
+
+[SmartEnum<string>]
+public sealed partial class FileResourceRole {
+    public static readonly FileResourceRole Layer = new(key: "layer");
+    public static readonly FileResourceRole Material = new(key: "material");
+    public static readonly FileResourceRole Linetype = new(key: "linetype");
+    public static readonly FileResourceRole Group = new(key: "group");
+    public static readonly FileResourceRole Block = new(key: "block");
+    public static readonly FileResourceRole Instance = new(key: "instance");
+    public static readonly FileResourceRole Member = new(key: "member");
+    public static readonly FileResourceRole Linked = new(key: "linked");
+    public static readonly FileResourceRole Texture = new(key: "texture");
+    public static readonly FileResourceRole Child = new(key: "child");
+}
+
+internal abstract record GeometrySource {
+    private GeometrySource() { }
+    internal abstract Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use);
+
+    internal static Fin<GeometrySource> From(object source) {
+        Op op = Op.Of(name: nameof(GeometrySource));
+        return Optional(source).ToFin(Fail: op.InvalidInput()).Bind(value => value switch {
+            Surface surface when surface.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => surface.ToBrep())),
+            GeometryBase geometry => Fin.Succ<GeometrySource>(value: new Borrowed(geometry)),
+            Point3d point when point.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => new Point(location: point))),
+            Line line when line.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => new LineCurve(line: line))),
+            Circle circle when circle.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => new ArcCurve(circle: circle))),
+            Arc arc when arc.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => new ArcCurve(arc: arc))),
+            Ellipse ellipse when ellipse.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => ellipse.ToNurbsCurve())),
+            Polyline polyline when polyline.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => new PolylineCurve(polyline))),
+            Rectangle3d rect when rect.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => rect.ToNurbsCurve())),
+            Box box when box.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => box.ToBrep())),
+            BoundingBox bounds when bounds.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => bounds.ToBrep())),
+            Sphere sphere when sphere.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => sphere.ToBrep())),
+            Cylinder cyl when cyl.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => cyl.ToBrep(capBottom: true, capTop: true))),
+            Cone cone when cone.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => cone.ToBrep(capBottom: true))),
+            Torus torus when torus.IsValid => Fin.Succ<GeometrySource>(value: new Owned(() => torus.ToBrep())),
+            _ => Fin.Fail<GeometrySource>(error: op.InvalidInput()),
+        });
+    }
+
+    internal static GeometrySource Own(GeometryBase geometry) => new Owned(() => geometry);
+
+    private sealed record Borrowed(GeometryBase Geometry) : GeometrySource {
+        internal override Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use) =>
+            op.Catch(() => from geometry in Optional(Geometry).ToFin(Fail: op.InvalidInput())
+                           from valid in Optional(use).ToFin(Fail: op.InvalidInput())
+                           from result in valid(arg: geometry)
+                           select result);
+    }
+    private sealed record Owned(Func<GeometryBase> Build) : GeometrySource {
+        internal override Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use) =>
+            op.Catch(() => Optional(use).ToFin(Fail: op.InvalidInput()).Bind(valid => {
+                using GeometryBase owned = Build();
+                return valid(arg: owned);
+            }));
+    }
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+public readonly record struct DocumentCustomUndo(string Name, EventHandler<CustomUndoEventArgs> Undo, Option<object> Data = default) {
+    internal Fin<string> Register(RhinoDoc document, Op op) {
+        string label = Name;
+        EventHandler<CustomUndoEventArgs> handler = Undo;
+        Option<object> data = Data;
+        return from validDocument in Optional(document).ToFin(Fail: op.InvalidInput())
+               from name in DocumentEdit.NonBlank(value: label, op: op)
+               from undo in Optional(handler).ToFin(Fail: op.InvalidInput())
+               from _ in UI.RhinoUi.Protect(valid: () => data.Case switch {
+                   object tag => op.Confirm(success: validDocument.AddCustomUndoEvent(description: name, handler: undo, tag: tag)),
+                   _ => op.Confirm(success: validDocument.AddCustomUndoEvent(description: name, handler: undo)),
+               })
+               select name;
+    }
+}
+
+public readonly record struct DocumentReceipt(Seq<Guid> Created, Seq<Guid> Replaced, Seq<Guid> Deleted, Seq<Guid> Transformed, Seq<Guid> Selected, Seq<Guid> Unselected, Seq<Guid> Hidden, Seq<Guid> Locked, Seq<Guid> Flashed, Seq<Guid> AttributeChanged, Seq<Guid> LifecycleChanged, Seq<DocumentResourceChange> ResourceChanged, Seq<uint> UndoRecords, Seq<string> CustomUndo) {
+    public static DocumentReceipt Empty { get; } = new(Created: Seq<Guid>(), Replaced: Seq<Guid>(), Deleted: Seq<Guid>(), Transformed: Seq<Guid>(), Selected: Seq<Guid>(), Unselected: Seq<Guid>(), Hidden: Seq<Guid>(), Locked: Seq<Guid>(), Flashed: Seq<Guid>(), AttributeChanged: Seq<Guid>(), LifecycleChanged: Seq<Guid>(), ResourceChanged: Seq<DocumentResourceChange>(), UndoRecords: Seq<uint>(), CustomUndo: Seq<string>());
+    public static DocumentReceipt operator +(DocumentReceipt left, DocumentReceipt right) =>
+        Add(left: left, right: right);
+
+    public static DocumentReceipt Add(DocumentReceipt left, DocumentReceipt right) =>
+        new(Created: left.Created + right.Created, Replaced: left.Replaced + right.Replaced, Deleted: left.Deleted + right.Deleted, Transformed: left.Transformed + right.Transformed, Selected: left.Selected + right.Selected, Unselected: left.Unselected + right.Unselected, Hidden: left.Hidden + right.Hidden, Locked: left.Locked + right.Locked, Flashed: left.Flashed + right.Flashed, AttributeChanged: left.AttributeChanged + right.AttributeChanged, LifecycleChanged: left.LifecycleChanged + right.LifecycleChanged, ResourceChanged: left.ResourceChanged + right.ResourceChanged, UndoRecords: left.UndoRecords + right.UndoRecords, CustomUndo: left.CustomUndo + right.CustomUndo);
+
+    internal static DocumentReceipt SelectionDelta(Seq<Guid> before, Seq<Guid> after) =>
+        Empty with { Selected = after.Filter(id => !before.Exists(item => item == id)), Unselected = before.Filter(id => !after.Exists(item => item == id)) };
+
+    private static Seq<(string Name, Func<DocumentReceipt, int> Count)> Counters { get; } = Seq<(string, Func<DocumentReceipt, int>)>(
+        ("created", static r => r.Created.Count), ("replaced", static r => r.Replaced.Count), ("deleted", static r => r.Deleted.Count), ("transformed", static r => r.Transformed.Count), ("selected", static r => r.Selected.Count), ("unselected", static r => r.Unselected.Count), ("hidden", static r => r.Hidden.Count), ("locked", static r => r.Locked.Count), ("flashed", static r => r.Flashed.Count), ("attributes", static r => r.AttributeChanged.Count), ("lifecycle", static r => r.LifecycleChanged.Count), ("resources", static r => r.ResourceChanged.Count), ("undo", static r => r.UndoRecords.Count), ("custom undo", static r => r.CustomUndo.Count));
+
+    public UI.UiStatus Status(string verb) {
+        DocumentReceipt self = this;
+        Seq<(string Name, int Count)> changes = Counters.Map(entry => (entry.Name, Count: entry.Count(arg: self))).Filter(static change => change.Count > 0);
+        return UI.UiStatus.Script(message: changes.IsEmpty switch {
+            true => $"{verb}: no document changes",
+            false => $"{verb}: {string.Join(separator: ", ", values: changes.Map(static change => $"{change.Name} {change.Count}").AsIterable())}",
+        });
+    }
+}
+
+public readonly record struct DocumentRedraw(bool Enabled, bool SuppressDuringCommit = false) {
+    public static DocumentRedraw After { get; } = new(Enabled: true);
+    public static DocumentRedraw None { get; } = new(Enabled: false);
+}
+
+public readonly record struct DocumentResourceChange(DocumentResourceKind Kind, string Name);
+
+public readonly record struct DocumentSelectionPolicy(bool Highlight, bool IgnoreGrips, bool Persistent, bool IgnoreLayerLocking, bool IgnoreLayerVisibility) {
+    public static DocumentSelectionPolicy Default { get; } = new(Highlight: true, IgnoreGrips: true, Persistent: true, IgnoreLayerLocking: false, IgnoreLayerVisibility: false);
+
+    internal T Select<T>(Func<bool, bool, bool, bool, bool, T> native) =>
+        native(arg1: Highlight, arg2: Persistent, arg3: IgnoreGrips, arg4: IgnoreLayerLocking, arg5: IgnoreLayerVisibility);
+}
+
+public sealed record DocumentTransaction(
+    string Name,
+    Seq<DocumentOp> Operations,
+    DocumentRedraw Redraw,
+    Seq<DocumentCustomUndo> CustomUndo = default,
+    bool UndoRecorded = true) {
+    public static DocumentTransaction Batch(string name, params DocumentOp[] operations) =>
+        new(Name: name, Operations: toSeq(operations), Redraw: DocumentRedraw.After);
+
+    public DocumentTransaction WithoutUndo() =>
+        this with { UndoRecorded = false };
+
+    public DocumentTransaction WithRedraw(DocumentRedraw redraw) =>
+        this with { Redraw = redraw };
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------

@@ -60,12 +60,6 @@ public sealed record FileFormat {
             (true, Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> write) => write(arg1: profile, arg2: options, arg3: document, arg4: target),
             _ => NativeBool(run: () => document.WriteFile(path: target.Path, options: options), op: Op.Of(name: $"{Key}Write")),
         };
-
-    // Selected export must stay non-interactive. OBJ/PLY (`directWriteOptions`) own typed writers (FileObj/FilePly.Write)
-    // that read `WriteSelectedObjectsOnly` + Suppress* from the embedded FileWriteOptions, so route selected export
-    // through them — `ExportSelected` with their empty options dictionary otherwise raises the native "Choose ... option"
-    // command prompt that blocks scripted/headless sessions. Dictionary-driven formats (STL, etc.) keep `ExportSelected`,
-    // which forces Suppress* internally and reads its complete options dictionary, so it is already non-interactive.
     internal Fin<Unit> Export(FileWriteOptions options, RhinoDoc document, FileEndpoint target, FileProfile profile) =>
         (this == ThreeDm, options.WriteSelectedObjectsOnly, directWriteOptions, directWriteOptions || options.Xform.IsIdentity, directWriteCall) switch {
             (true, _, _, _, _) => NativeBool(run: () => document.Write3dmFile(path: target.Path, options: options), op: Op.Of(name: $"{Key}Export")),
@@ -184,11 +178,6 @@ public sealed record FileFormat {
     public static FileFormat Bmp { get; } = new(key: "bmp", extensions: Seq(".bmp"), capability: FileCapability.Raster, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
 
     private static Seq<FileFormat> BuiltIn { get; } = Seq(ThreeDm, ThreeDs, ThreeMf, Ai, Amf, Obj, Ply, Cd, Dgn, Dst, Dwg, Eps, Stl, Stp, Fbx, Ghs, Gts, Iges, Lwo, Nwd, Pov, Sat, Skp, Slc, Sw, Udo, Vda, Vrml, X3dv, Xaml, Xt, Raw, Txt, Csv, Gltf, Usd, Pdf, Svg, Png, Jpeg, Tiff, Bmp);
-
-    // Custom formats register into a process-static STM cell and join the built-in base. Built-ins win on
-    // collision (rejected at registration), so the frozen `ByKey`/`ByExtension` lookups stay over built-ins;
-    // `Detect`/`Of`/`Known`/`Filter` consult the custom set after. Custom read/write delegates flow through the
-    // same `FileFormatProjection.Import`/`Write` pipeline as built-ins via `directRead`/`directWrite`.
     private static readonly Atom<HashMap<string, FileFormat>> CustomCell = Atom(HashMap<string, FileFormat>());
     private static readonly FrozenSet<string> ReservedKeys = new[] { "JSON" }.ToFrozenSet(comparer: StringComparer.OrdinalIgnoreCase);
     private static readonly FrozenSet<string> ReservedExtensions = new[] { ".json" }.ToFrozenSet(comparer: StringComparer.OrdinalIgnoreCase);
@@ -316,16 +305,10 @@ public sealed record FileFormat {
 
     private static Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> DirectWriteResult<TOptions>(Func<FileProfile, FileWriteOptions, TOptions> options, Func<string, RhinoDoc, TOptions, WriteFileResult> write, string name) =>
         (profile, writeOptions, document, target) => NativeWrite(result: write(arg1: target.Path, arg2: document, arg3: options(arg1: profile, arg2: writeOptions)), op: Op.Of(name: name));
-
-    // Single-point fidelity/resource/grouping policy. Builders dispatch field values through these so a regime
-    // shift (what "Model" fidelity preserves, whether materials export) is edited once, not per format builder.
     private static bool IsModel(FileFidelity fidelity) => fidelity == FileFidelity.Model;
     private static bool IncludeMeasurements(FileFidelity fidelity) => fidelity != FileFidelity.GeometryOnly;
     private static bool ShouldExportMaterials(FileResourcePolicy resources) => resources != FileResourcePolicy.Reference;
     private static bool IsLayerGrouped(FileProfile profile) => profile.Group == FileAxis.Layer || profile.Order == FileAxis.Layer;
-
-    // Draco quantization preset: (compression level, position bits, normal bits, texcoord bits). Small fidelity
-    // trades precision for size; every other fidelity uses the high-precision profile.
     private static (int Compression, int BitsPos, int BitsNormal, int BitsTexCoord) DracoPreset(FileFidelity fidelity) =>
         fidelity == FileFidelity.Small ? (10, 11, 8, 10) : (6, 14, 10, 12);
 

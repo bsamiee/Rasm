@@ -284,6 +284,9 @@ public sealed class DecompositionLaws {
         Spec.Succ(matrix.SolveDetailed(rhs: rhs, key: MatrixGens.Key), then: receipt => AssertDenseSolve(receipt: receipt, path: SolvePath.DenseLu));
         Spec.Succ(matrix.DecomposeLu(key: MatrixGens.Key).Bind(lu => lu.SolveDetailed(rhs: rhs, key: MatrixGens.Key)), then: receipt => AssertDenseSolve(receipt: receipt, path: SolvePath.DenseLu));
         Spec.Succ(spd.DecomposeCholesky(key: MatrixGens.Key).Bind(cholesky => cholesky.SolveDetailed(rhs: rhs, key: MatrixGens.Key)), then: receipt => AssertDenseSolve(receipt: receipt, path: SolvePath.DenseCholesky));
+        Spec.FailCategory(matrix.SolveDetailed(rhs: [1.0], key: MatrixGens.Key), category: "Input");
+        Matrix rectangular = Spec.SuccValue(Matrix.Of(rows: Dimension.Create(value: 2), cols: Dimension.Create(value: 3), entries: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0], key: MatrixGens.Key), label: "rectangular dense solve guard");
+        Spec.FailCategory(rectangular.SolveDetailed(rhs: [1.0, 2.0], key: MatrixGens.Key), category: "Input");
         static void AssertDenseSolve(SolveReceipt receipt, SolvePath path) {
             Assert.Equal(expected: path, actual: receipt.Path);
             Assert.Equal(expected: SolveStop.DirectSolved, actual: receipt.Stop);
@@ -343,6 +346,15 @@ public sealed class DecompositionLaws {
         Assert.False(condition: MatrixKernel.SolveInputIsValid(rows: 2, rhs: [1.0, double.NaN]));
         Spec.FailCategory(MatrixKernel.GeneralizedEigenpairsDetailed(stiffness: stiffness, mass: invalidMass, k: 1, key: MatrixGens.Key), category: "Input");
         Spec.FailCategory(stiffness.Multiply(vector: [1.0, double.NaN, 1.0], key: MatrixGens.Key), category: "Input");
+        Spec.Succ(stiffness.Multiply(vector: [1.0, 2.0, 3.0], key: MatrixGens.Key), then: output => {
+            foreach (double value in output.AsIterable()) Assert.True(condition: Rhino.RhinoMath.IsValidDouble(x: value));
+        });
+        SparseHermitian hermitian = Spec.SuccValue(SparseHermitian.FromTriplets(order: Dimension.Create(value: 2), upperTriplets: [(0, 0, new System.Numerics.Complex(real: 2.0, imaginary: 0.0)), (0, 1, new System.Numerics.Complex(real: 0.25, imaginary: 0.5)), (1, 1, new System.Numerics.Complex(real: 3.0, imaginary: 0.0))], key: MatrixGens.Key), label: "hermitian matvec");
+        Spec.Succ(hermitian.Multiply(vector: [new System.Numerics.Complex(real: 1.0, imaginary: 0.0), new System.Numerics.Complex(real: 0.0, imaginary: 1.0)], key: MatrixGens.Key),
+            then: output => {
+                foreach (System.Numerics.Complex value in output.AsIterable())
+                    Assert.True(condition: Rhino.RhinoMath.IsValidDouble(x: value.Real) && Rhino.RhinoMath.IsValidDouble(x: value.Imaginary));
+            });
         Spec.FailCategory(SparseHermitian.FromTriplets(order: Dimension.Create(value: 2), upperTriplets: [(0, 0, new System.Numerics.Complex(real: 1.0, imaginary: 1.0))], key: MatrixGens.Key), category: "Input");
     }
 }

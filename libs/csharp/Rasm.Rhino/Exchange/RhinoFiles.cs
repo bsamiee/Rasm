@@ -3,7 +3,7 @@ using Rasm.Rhino.UI;
 
 namespace Rasm.Rhino.Exchange;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "ctx")]
 public abstract partial record IoScheduler {
     private IoScheduler() { }
@@ -21,6 +21,7 @@ public abstract partial record IoScheduler {
             });
 }
 
+// --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct FileRuntime {
     internal FileRuntime(Option<RhinoDoc> document, RunMode mode, Option<Context> domain, Option<DocumentEdit> edit, Option<RhinoUi> ui, IoScheduler scheduler) =>
         (Document, Mode, Domain, Edit, Ui, Scheduler) = (document, mode, domain, edit, ui, scheduler);

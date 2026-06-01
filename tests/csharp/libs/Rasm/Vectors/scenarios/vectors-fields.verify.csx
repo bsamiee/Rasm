@@ -127,16 +127,24 @@ Scenario.Run("vectors-field-sdf-isosurface", CAPTURE_PATH, (key, facts) => {
 // --- [SCENARIO: vectors-atoms-frame] ----------------------------------------------------
 Scenario.Run("vectors-atoms-frame", CAPTURE_PATH, (key, facts) => {
     Direction x = Probe.Expect(Direction.Of(value: new Vector3d(x: 4.0, y: 0.0, z: 0.0), context: context, key: key), "direction x");
-    Vector3d axisX = Probe.Expect(VectorIntent.Axis(axis: SignedAxis.PositiveX).Project<Vector3d>(context: context, key: key), "axis x");
+    Vector3d axisX = Probe.Expect(Probe.Expect(VectorIntent.Axis(axis: SignedAxis.PositiveX, key: key), "axis intent").Project<Vector3d>(context: context, key: key), "axis x");
     Plane frame = Probe.Expect(VectorIntent.Frame(origin: Point3d.Origin, normal: Vector3d.ZAxis, xHint: Some(Vector3d.XAxis)).Project<Plane>(context: context, key: key), "frame");
     (double ComponentX, double ComponentY) components = Probe.Expect(
         VectorIntent.Components(anchor: Point3d.Origin, value: new Vector3d(x: 3.0, y: 4.0, z: 0.0), frame: Plane.WorldXY)
             .Project<ValueTuple<double, double>>(context: context, key: key),
         "components projection");
     VectorCone cone = Probe.Expect(VectorCone.Of(apex: Point3d.Origin, axis: Vector3d.ZAxis, halfAngleRadians: Math.PI / 6.0, context: context, key: key), "cone");
-    Vector3d coneAxis = Probe.Expect(VectorIntent.Cone(cone: cone, mode: ConeProjection.Axis).Project<Vector3d>(context: context, key: key), "cone axis");
+    Vector3d coneAxis = Probe.Expect(Probe.Expect(VectorIntent.Cone(cone: cone, mode: ConeProjection.Axis, key: key), "cone intent").Project<Vector3d>(context: context, key: key), "cone axis");
     bool containsAxis = Probe.Expect(cone.Contains(query: Vector3d.ZAxis, context: context, key: key), "cone contains axis");
     bool rejectsOpposite = Probe.Expect(cone.Contains(query: -Vector3d.ZAxis, context: context, key: key), "cone rejects opposite");
+    bool angleFrameAccepted = VectorIntent.Angular(a: Vector3d.XAxis, b: Vector3d.YAxis, pivot: AnglePivot.Frame(frame: Plane.WorldXY))
+        .Project<double>(context: context, key: key)
+        .Match(Succ: static angle => RhinoMath.IsValidDouble(x: angle), Fail: static _ => false);
+    bool angleFrameRejected = VectorIntent.Angular(a: Vector3d.XAxis, b: Vector3d.YAxis, pivot: AnglePivot.Frame(frame: Plane.Unset))
+        .Project<double>(context: context, key: key)
+        .Match(Succ: static _ => false, Fail: static _ => true);
+    bool contourPlaneAccepted = ContourPolicy.Plane(section: Plane.WorldXY, key: key).Match(Succ: static _ => true, Fail: static _ => false);
+    bool contourPlaneRejected = ContourPolicy.Plane(section: Plane.Unset, key: key).Match(Succ: static _ => false, Fail: static _ => true);
     Probe.Require(Math.Abs(x.Value.Length - 1.0) <= 1.0e-12, $"direction length={x.Value.Length:R}");
     Probe.Require(axisX.IsParallelTo(other: Vector3d.XAxis) == 1, $"axisX={axisX}");
     Probe.Require(frame.IsValid && Vector3d.AreOrthonormal(x: frame.XAxis, y: frame.YAxis, z: frame.ZAxis), $"frame={frame}");
@@ -144,11 +152,14 @@ Scenario.Run("vectors-atoms-frame", CAPTURE_PATH, (key, facts) => {
         $"components={components}");
     Probe.Require(coneAxis.IsParallelTo(other: Vector3d.ZAxis) == 1, $"coneAxis={coneAxis}");
     Probe.Require(containsAxis && !rejectsOpposite, "cone containment rail inverted");
+    Probe.Require(angleFrameAccepted && angleFrameRejected && contourPlaneAccepted && contourPlaneRejected, "canonical plane admission failed");
     facts.Add("direction", x.Value.ToString());
     facts.Add("axis.x", axisX.ToString());
     facts.Add("frame.z", frame.ZAxis.ToString());
     facts.Add("components", $"{components.ComponentX:R},{components.ComponentY:R}");
     facts.Add("cone.axis", coneAxis.ToString());
+    facts.Add("angle.frameAccepted", angleFrameAccepted);
+    facts.Add("contourPlaneAccepted", contourPlaneAccepted);
 });
 
 // --- [SCENARIO: vectors-space-projection] -----------------------------------------------
@@ -157,20 +168,27 @@ Scenario.Run("vectors-space-projection", CAPTURE_PATH, (key, facts) => {
     Point3d sample = new(x: 7.0, y: 0.0, z: 0.0);
     Point3d closest = Probe.Expect(Probe.Expect(VectorIntent.Support(space: sphere, sample: sample, projection: SupportProjection.Closest, key: key), "closest intent").Project<Point3d>(context: context, key: key), "closest point");
     double distance = Probe.Expect(Probe.Expect(VectorIntent.Support(space: sphere, sample: sample, projection: SupportProjection.Distance, key: key), "distance intent").Project<double>(context: context, key: key), "distance");
+    Direction direction = Probe.Expect(Probe.Expect(VectorIntent.Support(space: sphere, sample: sample, projection: SupportProjection.Direction, key: key), "direction intent").Project<Direction>(context: context, key: key), "support direction");
     Vector3d inward = Probe.Expect(Probe.Expect(VectorIntent.Support(space: sphere, sample: sample, projection: SupportProjection.Span, key: key), "toward span intent").Project<Vector3d>(context: context, key: key), "toward span");
     Vector3d outward = Probe.Expect(Probe.Expect(VectorIntent.Support(space: sphere, sample: sample, projection: SupportProjection.SignedSpanAway, key: key), "away span intent").Project<Vector3d>(context: context, key: key), "away span");
     bool closestVectorRejected = Probe.Expect(VectorIntent.Support(space: sphere, sample: sample, projection: SupportProjection.Closest, key: key), "closest vector intent").Project<Vector3d>(context: context, key: key)
         .Match(Succ: static _ => false, Fail: static _ => true);
     Point2d uv = Probe.Expect(Probe.Expect(VectorIntent.Support(space: sphere, sample: sample, projection: SupportProjection.Uv, key: key), "uv intent").Project<Point2d>(context: context, key: key), "uv");
+    bool planeSupportAccepted = SupportSpace.Of(value: Plane.WorldXY, key: key).Match(Succ: static _ => true, Fail: static _ => false);
+    bool planeSupportRejected = SupportSpace.Of(value: Plane.Unset, key: key).Match(Succ: static _ => false, Fail: static _ => true);
     Probe.Require(closest.DistanceTo(new Point3d(x: 5.0, y: 0.0, z: 0.0)) <= 1.0e-6, $"closest={closest}");
     Probe.Require(Math.Abs(distance - 2.0) <= 1.0e-6, $"distance={distance:R}");
+    Probe.Require(direction.Value.X < 0.0 && Math.Abs(direction.Value.Length - 1.0) <= 1.0e-6, $"direction={direction.Value}");
     Probe.Require(inward.X < 0.0 && Math.Abs(inward.Length - 2.0) <= 1.0e-6, $"inward={inward}");
     Probe.Require(outward.X > 0.0 && Math.Abs(outward.Length - 2.0) <= 1.0e-6, $"outward={outward}");
     Probe.Require(closestVectorRejected, "closest projection must reject unsupported vector output");
     Probe.Require(RhinoMath.IsValidDouble(uv.X) && RhinoMath.IsValidDouble(uv.Y), $"uv={uv}");
+    Probe.Require(planeSupportAccepted && planeSupportRejected, "support plane admission did not use canonical plane rail");
     facts.Add("closest", closest.ToString());
     facts.Add("distance", distance.ToString("F6", System.Globalization.CultureInfo.InvariantCulture));
+    facts.Add("direction", direction.Value.ToString());
     facts.Add("span.toward", inward.ToString());
     facts.Add("span.away", outward.ToString());
     facts.Add("uv", uv.ToString());
+    facts.Add("planeSupportAccepted", planeSupportAccepted);
 });

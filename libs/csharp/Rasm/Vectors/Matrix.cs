@@ -62,12 +62,12 @@ public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double>
     public Fin<QrResult> DecomposeQr(Op? key = null) => MatrixKernel.Qr(matrix: this, key: key.OrDefault());
     public double Frobenius => MatrixNormKind.Frobenius.Compute(matrix: this);
     public Fin<double> Norm(MatrixNormKind kind, Op? key = null) =>
-        kind is null ? Fin.Fail<double>(error: key.OrDefault().InvalidInput()) : Fin.Succ(kind.Compute(matrix: this));
+        kind is null ? Fin.Fail<double>(error: key.OrDefault().InvalidInput()) : key.OrDefault().AcceptValue(value: kind.Compute(matrix: this));
     public Fin<double> Trace(Op? key = null) => Rows.Value != Cols.Value ? Fin.Fail<double>(key.OrDefault().InvalidInput()) : key.OrDefault().AcceptValue(value: MatrixKernel.ToMathNet(this).Trace());
     public Fin<double> Determinant(Op? key = null) =>
         MatrixKernel.Determinant(matrix: this, key: key.OrDefault());
     public Fin<double> Spectral(Op? key = null) =>
-        DecomposeSvd(key: key.OrDefault()).Map(static svd => svd.Sigma.IsEmpty ? 0.0 : svd.Sigma[0]);
+        DecomposeSvd(key: key.OrDefault()).Bind(svd => key.OrDefault().AcceptValue(value: svd.Sigma.IsEmpty ? 0.0 : svd.Sigma[0]));
     public Fin<SolveReceipt> SolveDetailed(Arr<double> rhs, Op? key = null) =>
         MatrixKernel.Solve(matrix: this, rhs: rhs, key: key.OrDefault());
     public Fin<SolveReceipt> LeastSquaresDetailed(Arr<double> rhs, Op? key = null) =>
@@ -115,7 +115,7 @@ public readonly record struct SparseMatrix(Dimension Rows, Dimension Cols, Arr<i
     public bool IsValid => RowPtr.Count == Rows.Value + 1 && ColInd.Count == Values.Count && Values.All(RhinoMath.IsValidDouble) && RowPtr[0] == 0 && RowPtr[Rows.Value] == Values.Count && RowPointersAreMonotone(RowPtr) && RowColumnsAreStrict(rowPtr: RowPtr, colInd: ColInd, minCol: static _ => 0, maxCol: Cols.Value);
     public int NonZeros => Values.Count;
     public static Fin<SparseMatrix> FromTriplets(Dimension rows, Dimension cols, IEnumerable<(int Row, int Col, double Value)> triplets, Op? key = null) { Op op = key.OrDefault(); return Optional(triplets).ToFin(op.InvalidInput()).Bind(active => MatrixKernel.AssembleSparse(rows: rows, cols: cols, triplets: active, op: op)); }
-    public Fin<Arr<double>> Multiply(Arr<double> vector, Op? key = null) => !IsValid || vector.Count != Cols.Value || vector.AsIterable().Any(static value => !RhinoMath.IsValidDouble(x: value)) ? Fin.Fail<Arr<double>>(key.OrDefault().InvalidInput()) : Fin.Succ(MatrixKernel.SparseMatVec(self: this, x: vector));
+    public Fin<Arr<double>> Multiply(Arr<double> vector, Op? key = null) => !IsValid || vector.Count != Cols.Value || vector.AsIterable().Any(static value => !RhinoMath.IsValidDouble(x: value)) ? Fin.Fail<Arr<double>>(key.OrDefault().InvalidInput()) : MatrixKernel.SparseMatVec(self: this, x: vector, key: key.OrDefault());
     public Matrix ToDense() => MatrixKernel.SparseToDense(self: this);
     public Fin<Arr<double>> Solve(Arr<double> rhs, Op? key = null) =>
         SolveDetailed(rhs: rhs, key: key.OrDefault()).Map(static result => result.Solution);
@@ -225,7 +225,7 @@ public readonly record struct SparseHermitian(Dimension Order, Arr<int> RowPtr, 
     public bool IsValid => RowPtr.Count == Order.Value + 1 && ColInd.Count == Values.Count && Values.All(static c => RhinoMath.IsValidDouble(c.Real) && RhinoMath.IsValidDouble(c.Imaginary)) && RowPtr[0] == 0 && RowPtr[Order.Value] == Values.Count && SparseMatrix.RowPointersAreMonotone(RowPtr) && SparseMatrix.RowColumnsAreStrict(rowPtr: RowPtr, colInd: ColInd, minCol: static row => row, maxCol: Order.Value) && DiagonalIsReal;
     public int NonZeros => Values.Count;
     public static Fin<SparseHermitian> FromTriplets(Dimension order, IEnumerable<(int Row, int Col, Complex Value)> upperTriplets, Op? key = null) { Op op = key.OrDefault(); return Optional(upperTriplets).ToFin(op.InvalidInput()).Bind(active => MatrixKernel.AssembleHermitian(order: order, triplets: active, op: op)); }
-    public Fin<Arr<Complex>> Multiply(Arr<Complex> vector, Op? key = null) => !IsValid || vector.Count != Order.Value || vector.AsIterable().Any(static value => !RhinoMath.IsValidDouble(x: value.Real) || !RhinoMath.IsValidDouble(x: value.Imaginary)) ? Fin.Fail<Arr<Complex>>(key.OrDefault().InvalidInput()) : Fin.Succ(MatrixKernel.HermitianMatVec(self: this, x: vector));
+    public Fin<Arr<Complex>> Multiply(Arr<Complex> vector, Op? key = null) => !IsValid || vector.Count != Order.Value || vector.AsIterable().Any(static value => !RhinoMath.IsValidDouble(x: value.Real) || !RhinoMath.IsValidDouble(x: value.Imaginary)) ? Fin.Fail<Arr<Complex>>(key.OrDefault().InvalidInput()) : MatrixKernel.HermitianMatVec(self: this, x: vector, key: key.OrDefault());
     public Fin<EigenSolveReceipt<double, Arr<Complex>>> SmallestEigenpairsDetailed(int k, double tolerance, int maxIterations = 200, Op? key = null) =>
         MatrixKernel.LobpcgHermitian(matrix: this, k: k, tolerance: tolerance, maxIterations: maxIterations, key: key.OrDefault());
     private bool DiagonalIsReal {
@@ -310,8 +310,10 @@ internal static class MatrixKernel {
         (b - a.Multiply(x)).L2Norm() / Math.Max(val1: 1.0, val2: b.L2Norm());
     internal static bool SolveInputIsValid(int rows, Arr<double> rhs) =>
         rhs.Count == rows && rhs.All(RhinoMath.IsValidDouble);
-    private static bool DenseSolveInputIsValid(Matrix source, Arr<double> rhs) =>
-        source.IsValid && SolveInputIsValid(rows: source.Rows.Value, rhs: rhs);
+    private static Fin<SolveReceipt> DenseSolveGated(Matrix source, Arr<double> rhs, Op key, bool square, Func<Matrix, Arr<double>, Op, Fin<SolveReceipt>> solve) =>
+        !source.IsValid || !SolveInputIsValid(rows: source.Rows.Value, rhs: rhs) || (square && source.Rows.Value != source.Cols.Value)
+            ? Fin.Fail<SolveReceipt>(key.InvalidInput())
+            : solve(source, rhs, key);
     internal static double SparseResidual(SparseMatrix matrix, Arr<double> solution, Arr<double> rhs) =>
         RelativeResidual(a: ToMathNetSparse(s: matrix), x: DenseVectorD.OfArray([.. solution.AsIterable()]), b: DenseVectorD.OfArray([.. rhs.AsIterable()]));
     internal static Fin<double> SparseSymmetricResidual(SparseMatrix matrix, Arr<double> solution, Arr<double> rhs, Op key) =>
@@ -368,26 +370,30 @@ internal static class MatrixKernel {
         };
 
     // --- [DENSE_DECOMPOSITIONS] -------------------------------------------------------------
-    internal static Fin<SvdResult> Svd(Matrix matrix, Op key) => key.Catch(() => {
+    internal static Fin<SvdResult> Svd(Matrix matrix, Op key) => !matrix.IsValid ? Fin.Fail<SvdResult>(key.InvalidInput()) : key.Catch(() => {
         MathNet.Numerics.LinearAlgebra.Factorization.Svd<double> svd = ToMathNet(matrix).Svd(computeVectors: true);
-        return Fin.Succ(new SvdResult(U: FromMathNet(svd.U, matrix.Rows, matrix.Rows), Sigma: ArrFromVector(svd.S), V: FromMathNet(svd.VT.Transpose(), matrix.Cols, matrix.Cols), Rank: svd.Rank));
+        SvdResult result = new(U: FromMathNet(svd.U, matrix.Rows, matrix.Rows), Sigma: ArrFromVector(svd.S), V: FromMathNet(svd.VT.Transpose(), matrix.Cols, matrix.Cols), Rank: svd.Rank);
+        return result.IsValid ? Fin.Succ(result) : Fin.Fail<SvdResult>(key.InvalidResult());
     });
     internal static Fin<LuResult> Lu(Matrix matrix, Op key) =>
-        matrix.Rows.Value != matrix.Cols.Value
+        !matrix.IsValid || matrix.Rows.Value != matrix.Cols.Value
             ? Fin.Fail<LuResult>(key.InvalidInput())
             : key.Catch(() => {
                 MathNet.Numerics.LinearAlgebra.Factorization.LU<double> lu = ToMathNet(matrix).LU();
-                return Fin.Succ(new LuResult(source: matrix, determinant: lu.Determinant, factor: lu));
+                LuResult result = new(source: matrix, determinant: lu.Determinant, factor: lu);
+                return result.IsValid ? Fin.Succ(result) : Fin.Fail<LuResult>(key.InvalidResult());
             });
-    internal static Fin<QrResult> Qr(Matrix matrix, Op key) => key.Catch(() => {
+    internal static Fin<QrResult> Qr(Matrix matrix, Op key) => !matrix.IsValid ? Fin.Fail<QrResult>(key.InvalidInput()) : key.Catch(() => {
         MathNet.Numerics.LinearAlgebra.Factorization.QR<double> qr = ToMathNet(matrix).QR(MathNet.Numerics.LinearAlgebra.Factorization.QRMethod.Full);
-        return Fin.Succ(new QrResult(Q: FromMathNet(qr.Q, matrix.Rows, matrix.Rows), R: FromMathNet(qr.R, matrix.Rows, matrix.Cols)));
+        QrResult result = new(Q: FromMathNet(qr.Q, matrix.Rows, matrix.Rows), R: FromMathNet(qr.R, matrix.Rows, matrix.Cols));
+        return result.IsValid ? Fin.Succ(result) : Fin.Fail<QrResult>(key.InvalidResult());
     });
     internal static Fin<CholeskyResult> Cholesky(SymmetricMatrix matrix, Op key) =>
-        key.Catch(() => {
+        !matrix.IsValid ? Fin.Fail<CholeskyResult>(key.InvalidInput()) : key.Catch(() => {
             Matrix source = matrix.ToDense();
             MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> factor = ToMathNet(source).Cholesky();
-            return Fin.Succ(new CholeskyResult(l: FromMathNet(factor.Factor, matrix.Dimension, matrix.Dimension), source: source, factor: factor));
+            CholeskyResult result = new(l: FromMathNet(factor.Factor, matrix.Dimension, matrix.Dimension), source: source, factor: factor);
+            return result.IsValid ? Fin.Succ(result) : Fin.Fail<CholeskyResult>(key.InvalidResult());
         });
     internal static Fin<EigenSolveReceipt<double, Arr<double>>> SymmetricEigen(SymmetricMatrix matrix, Op key) =>
         !matrix.IsValid
@@ -414,30 +420,26 @@ internal static class MatrixKernel {
                 return EigenReceiptOf(pairs: pairs, path: EigenSolvePath.DenseGeneralEvd, stop: EigenSolveStop.DirectSolved, requestedPairs: n, maxResidual: ComplexEigenResidual(a: mathNet, pairs: pairs), key: key);
             });
     internal static Fin<SolveReceipt> Solve(Matrix matrix, Arr<double> rhs, Op key) =>
-        !DenseSolveInputIsValid(source: matrix, rhs: rhs) || matrix.Rows.Value != matrix.Cols.Value
-            ? Fin.Fail<SolveReceipt>(error: key.InvalidInput())
-            : Lu(matrix: matrix, key: key).Bind(lu => LuSolve(lu: lu, rhs: rhs, key: key));
+        DenseSolveGated(source: matrix, rhs: rhs, key: key, square: true, solve: static (source, right, op) => Lu(matrix: source, key: op).Bind(lu => LuSolve(lu: lu, rhs: right, key: op)));
     internal static Fin<SolveReceipt> LeastSquares(Matrix matrix, Arr<double> rhs, Op key) =>
-        !DenseSolveInputIsValid(source: matrix, rhs: rhs)
-            ? Fin.Fail<SolveReceipt>(error: key.InvalidInput())
-            : key.Catch(() => {
-                Matrix<double> design = ToMathNet(matrix);
-                MathNet.Numerics.LinearAlgebra.Factorization.QR<double> qr = design.QR(MathNet.Numerics.LinearAlgebra.Factorization.QRMethod.Full);
-                return DenseSolve(source: matrix, rhs: rhs, key: key, path: SolvePath.DenseQrLeastSquares, stop: SolveStop.LeastSquaresSolved, solve: new Func<LinearVector, LinearVector>(qr.Solve), fullRank: Some(qr.IsFullRank));
-            });
+        DenseSolveGated(source: matrix, rhs: rhs, key: key, square: false, solve: static (source, right, op) => op.Catch(() => {
+            Matrix<double> design = ToMathNet(source);
+            MathNet.Numerics.LinearAlgebra.Factorization.QR<double> qr = design.QR(MathNet.Numerics.LinearAlgebra.Factorization.QRMethod.Full);
+            return DenseSolve(source: source, rhs: right, key: op, path: SolvePath.DenseQrLeastSquares, stop: SolveStop.LeastSquaresSolved, solve: new Func<LinearVector, LinearVector>(qr.Solve), fullRank: Some(qr.IsFullRank));
+        }));
     internal static Fin<SolveReceipt> LuSolve(LuResult lu, Arr<double> rhs, Op key) =>
-        !lu.IsValid || !DenseSolveInputIsValid(source: lu.Source, rhs: rhs) || lu.Source.Rows.Value != lu.Source.Cols.Value
+        !lu.IsValid
             ? Fin.Fail<SolveReceipt>(key.InvalidInput())
-            : DenseSolve(source: lu.Source, rhs: rhs, key: key, path: SolvePath.DenseLu, stop: SolveStop.DirectSolved, solve: new Func<LinearVector, LinearVector>(lu.Factor.Solve));
+            : DenseSolveGated(source: lu.Source, rhs: rhs, key: key, square: true, solve: (_, right, op) => DenseSolve(source: lu.Source, rhs: right, key: op, path: SolvePath.DenseLu, stop: SolveStop.DirectSolved, solve: new Func<LinearVector, LinearVector>(lu.Factor.Solve)));
     internal static Fin<double> Determinant(Matrix matrix, Op key) =>
-        matrix.Rows.Value != matrix.Cols.Value
+        !matrix.IsValid || matrix.Rows.Value != matrix.Cols.Value
             ? Fin.Fail<double>(error: key.InvalidInput())
-            : key.Catch(() => Fin.Succ(ToMathNet(matrix).Determinant()));
+            : key.Catch(() => key.AcceptValue(value: ToMathNet(matrix).Determinant()));
     // --- [DENSE_CHOLESKY_SOLVE] -------------------------------------------------------------
     internal static Fin<SolveReceipt> CholeskySolve(CholeskyResult cholesky, Arr<double> rhs, Op key) =>
-        !cholesky.IsValid || !DenseSolveInputIsValid(source: cholesky.Source, rhs: rhs) || cholesky.Source.Rows.Value != cholesky.Source.Cols.Value
+        !cholesky.IsValid
             ? Fin.Fail<SolveReceipt>(key.InvalidInput())
-            : DenseSolve(source: cholesky.Source, rhs: rhs, key: key, path: SolvePath.DenseCholesky, stop: SolveStop.DirectSolved, solve: new Func<LinearVector, LinearVector>(cholesky.Factor.Solve), fullRank: Some(true));
+            : DenseSolveGated(source: cholesky.Source, rhs: rhs, key: key, square: true, solve: (_, right, op) => DenseSolve(source: cholesky.Source, rhs: right, key: op, path: SolvePath.DenseCholesky, stop: SolveStop.DirectSolved, solve: new Func<LinearVector, LinearVector>(cholesky.Factor.Solve), fullRank: Some(true)));
     private static Fin<SolveReceipt> DenseSolve(Matrix source, Arr<double> rhs, Op key, SolvePath path, SolveStop stop, Func<LinearVector, LinearVector> solve, Option<bool> fullRank = default) =>
         key.Catch(() => {
             Matrix<double> a = ToMathNet(source);
@@ -489,16 +491,22 @@ internal static class MatrixKernel {
     }
 
     // --- [SPARSE_OPERATIONS] ----------------------------------------------------------------
-    internal static Arr<double> SparseMatVec(SparseMatrix self, Arr<double> x) =>
-        ArrFromVector(ToMathNetSparse(s: self).Multiply(DenseVectorD.OfArray([.. x.AsIterable()])));
+    internal static Fin<Arr<double>> SparseMatVec(SparseMatrix self, Arr<double> x, Op key) =>
+        ArrFromVector(ToMathNetSparse(s: self).Multiply(DenseVectorD.OfArray([.. x.AsIterable()]))) switch {
+            Arr<double> result when result.ForAll(RhinoMath.IsValidDouble) => Fin.Succ(result),
+            _ => Fin.Fail<Arr<double>>(key.InvalidResult()),
+        };
     internal static void AddHermitianRealBlockTriplets(List<(int Row, int Col, double Value)> triplets, int order, int i, int j, double real, double imaginary, double diagonal) =>
         triplets.AddRange([
             (i, i, diagonal), (j, j, diagonal), (i + order, i + order, diagonal), (j + order, j + order, diagonal),
             (i, j, real), (j, i, real), (i + order, j + order, real), (j + order, i + order, real),
             (i, j + order, -imaginary), (j + order, i, -imaginary), (i + order, j, imaginary), (j, i + order, imaginary),
         ]);
-    internal static Arr<Complex> HermitianMatVec(SparseHermitian self, Arr<Complex> x) =>
-        ArrFromComplexVector(ToMathNetHermitian(s: self).Multiply(DenseVectorC.OfArray([.. x.AsIterable()])));
+    internal static Fin<Arr<Complex>> HermitianMatVec(SparseHermitian self, Arr<Complex> x, Op key) =>
+        ArrFromComplexVector(ToMathNetHermitian(s: self).Multiply(DenseVectorC.OfArray([.. x.AsIterable()]))) switch {
+            Arr<Complex> result when result.ForAll(static value => RhinoMath.IsValidDouble(x: value.Real) && RhinoMath.IsValidDouble(x: value.Imaginary)) => Fin.Succ(result),
+            _ => Fin.Fail<Arr<Complex>>(key.InvalidResult()),
+        };
     internal static Matrix SparseToDense(SparseMatrix self) =>
         FromMathNet(m: ToMathNetSparse(s: self), rows: self.Rows, cols: self.Cols);
     internal static Fin<SolveReceipt> SparseSolve(SparseMatrix matrix, Arr<double> rhs, Op key) =>

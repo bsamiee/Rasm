@@ -44,5 +44,7 @@ Build reusable category logic for advanced downstream code: analysis, vectors, d
 - Model category intent as typed data. Convert many primitive parameters into compact intent records, smart enums, or union cases when that reduces ceremony and clarifies semantics.
 - Keep operation internals functional. Use `Fin<T>`, `Validation`, `Eff`, `Option`, `Seq`, `TraverseM`, folds, projections, and typed failures.
 - Keep native interop at boundary adapters. Convert nullable, bool, disposable, and native ownership semantics into typed rails immediately.
+- Preserve Rhino predicate semantics. Verify substitutions against local API evidence and runtime behavior before replacing native calls with algebraic approximations.
+- Keep native runtime proof out of managed unit specs. Managed specs own factories, failure categories, and deterministic algorithms; bridge scenarios own successful Rhino mesh, plane, unwrap, remesh, SDF, and validity behavior.
 - Prefer advanced C# and approved libraries when they reduce surface area or strengthen invariants. Use `LanguageExt` and `Thinktecture` to collapse behavior, not to decorate unchanged imperative code.
 - Use `docs/system-api-map` for BCL, `System.*`, and package/reference policy; use `docs/external-libs/mathnet` before writing numerical algorithms by hand. MathNet is for proven numeric/symbolic value, not decorative wrapping around unchanged logic.

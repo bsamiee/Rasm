@@ -4,7 +4,7 @@ using BlocksApi = Rasm.Rhino.Blocks;
 
 namespace Rasm.Rhino.Commands;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [SERVICES] ---------------------------------------------------------------------------
 public sealed class RhinoCommandContext {
     private RhinoCommandContext(RhinoDoc document, RunMode mode, Context domain) {
         Document = document;

@@ -71,15 +71,13 @@ public abstract partial record Capability {
         Func<IParameter, Fin<IParameter>> ApplyTo,
         Seq<(Func<object, bool> Predicate, string Message)> Validators,
         Func<PortKind, bool> CompatibleWith) {
-        internal static Rule Universal() =>
+        internal static Rule Universal(
+            Func<IParameter, Fin<IParameter>>? applyTo = null,
+            Seq<(Func<object, bool> Predicate, string Message)> validators = default) =>
             new(
-                ApplyTo: static parameter => Fin.Succ(parameter),
-                Validators: Seq<(Func<object, bool>, string)>(),
+                ApplyTo: applyTo ?? (static (IParameter parameter) => Fin.Succ(parameter)),
+                Validators: validators,
                 CompatibleWith: static _ => true);
-        internal static Rule Universal(Func<IParameter, Fin<IParameter>> applyTo) =>
-            Universal() with { ApplyTo = applyTo };
-        internal static Rule Universal(Seq<(Func<object, bool> Predicate, string Message)> validators) =>
-            Universal() with { Validators = validators };
         internal static Rule Mutating<TParam>(Func<PortKind, bool> compatibleWith, Func<TParam, Unit> mutate) where TParam : class =>
             new(
                 ApplyTo: parameter => On(parameter: parameter, mutate: mutate),
@@ -244,14 +242,15 @@ public sealed partial class PortKind {
         ExplicitTypeDefault(type: type, side: side).Match(
             Some: kind => kinds.Exists(candidate => candidate == kind) ? Some(kind) : Option<PortKind>.None,
             None: () => kinds.Count == 1 ? kinds.Head : Option<PortKind>.None);
+    private static readonly FrozenDictionary<(Type Type, Side Side), PortKind> ExplicitDefaults =
+        new Dictionary<(Type, Side), PortKind> {
+            [(typeof(int), Side.Input)] = Integer, [(typeof(int), Side.Output)] = Integer,
+            [(typeof(string), Side.Input)] = Text, [(typeof(string), Side.Output)] = Text,
+            [(typeof(object), Side.Input)] = Generic, [(typeof(object), Side.Output)] = Generic,
+            [(typeof(Guid), Side.Input)] = Topological, [(typeof(Guid), Side.Output)] = Guid,
+        }.ToFrozenDictionary();
     private static Option<PortKind> ExplicitTypeDefault(Type type, Side side) =>
-        type == typeof(int)
-            ? Some(Integer)
-            : type == typeof(string) ? Some(Text)
-            : type == typeof(object) ? Some(Generic)
-            : type == typeof(Guid) && side == Side.Input ? Some(Topological)
-            : type == typeof(Guid) && side == Side.Output ? Some(Guid)
-            : Option<PortKind>.None;
+        ExplicitDefaults.TryGetValue(key: (type, side), value: out PortKind? kind) ? Some(kind) : Option<PortKind>.None;
     private static PortKind EnumDefault<T>() where T : struct, Enum {
         T[] values = System.Enum.GetValues<T>();
         return Enum(initial: values.Length > 0 ? values[0] : default);

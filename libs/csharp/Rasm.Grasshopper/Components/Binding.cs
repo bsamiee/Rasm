@@ -93,7 +93,8 @@ internal static class Output {
             Succ: source => group.Bind(binding => binding.Run(access: access, outputs: outputs, runtime: runtime, source: source)) switch {
                 Seq<object> transfers => group[0].Release(source: source, transfers: transfers),
             },
-            Fail: error => access.Emit(severity: Severity.Warning, text: error.Category(), details: error.Message) switch {
+            // Wiring faults stay recoverable (Warning); a genuine compute/scope failure surfaces as Error.
+            Fail: error => access.Emit(severity: PortFault.SeverityOf(error: error), text: error.Category(), details: error.Message) switch {
                 _ => group.Iter(binding => binding.Empty(access: access, outputs: outputs)),
             });
 
@@ -114,7 +115,7 @@ internal static class Output {
                          from resolved in operation(arg: runtime)
                          from projection in Project(source: source, operation: resolved, lift: lift, detach: detach).Run(env: new Env(Context: context, Progress: runtime.Progress, Cancellation: runtime.Cancellation))
                          select projection.Values.IsEmpty switch {
-                             true when projection.Unsupported.IsEmpty => RemarkEmpty(port: port, access: access, slot: slot) switch { _ => Seq<object>() },
+                             true when projection.Unsupported.IsEmpty => access.Emit(severity: Severity.Remark, text: port.Name, details: "No result for sourced input.") switch { _ => Clear(port: port, access: access, slot: slot) switch { _ => Seq<object>() } },
                              true => RemarkUnsupported(port: port, access: access, faults: projection.Unsupported) switch { _ => Clear(port: port, access: access, slot: slot) switch { _ => Seq<object>() } },
                              false => RemarkUnsupported(port: port, access: access, faults: projection.Unsupported) switch { _ => Drain(port: port, slot: slot, values: projection.Values, access: access) },
                          })
@@ -137,9 +138,11 @@ internal static class Output {
         Func<Flow<object>, Flow<TOut>, Flow<TOut>> detach) where TOut : notnull =>
         operation.IsAggregate switch {
             true => from items in operation.Apply(geometry: source.Map(flow => lift(arg: flow)))
-                    let result = source.Fold(items.Map(item => new Flow<TOut>(
+                    let merged = items.Map(item => new Flow<TOut>(
                         Pear: Pear<TOut>.Create(item: item, meta: MetaData.FindCommonData(source.Map(static flow => flow.Meta).AsIterable())),
-                        Site: Option<Site>.None)), (acc, flow) => acc.Map(output => detach(arg1: flow, arg2: output)))
+                        Site: Option<Site>.None))
+                    // Aggregate output detaches once against the representative (first) source, not N times across all sources.
+                    let result = source.Head.Map(head => merged.Map(output => detach(arg1: head, arg2: output))).IfNone(merged)
                     select new Projection<TOut>(Values: result, Unsupported: Seq<Fault.Unsupported>()),
             false => from values in source.TraverseM(flow => operation.Apply(geometry: Seq(lift(arg: flow)))
                          .Map(items => new Projection<TOut>(Values: flow.Project(items: items).Map(output => detach(arg1: flow, arg2: output)), Unsupported: Seq<Fault.Unsupported>()))
@@ -177,8 +180,4 @@ internal static class Output {
     }
     private static Unit Warn(Port port, IDataAccess access, Error error) =>
         access.Emit(severity: Severity.Warning, text: port.Name, details: error.Message);
-    private static Unit RemarkEmpty<TOut>(Port<TOut> port, IDataAccess access, int slot) =>
-        access.Emit(severity: Severity.Remark, text: port.Name, details: "No result for sourced input.") switch {
-            _ => Clear(port: port, access: access, slot: slot),
-        };
 }

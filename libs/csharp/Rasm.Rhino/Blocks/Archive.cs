@@ -8,9 +8,9 @@ using Rhino.FileIO;
 using IOPath = System.IO.Path;
 using LxHashSet = LanguageExt.HashSet;
 namespace Rasm.Rhino.Blocks;
+
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Archive {
-    // ---- [MODELS] (nested under Archive — same archival concern) -------------------------
     public sealed record Graph(
         ImmutableArray<Definition> Definitions,
         ImmutableArray<Instance> Instances,
@@ -22,7 +22,6 @@ public static class Archive {
     [StructLayout(LayoutKind.Auto)]
     public readonly record struct LinkedArchiveEdge(ArchivePath FromPath, ArchiveLink Link, ArchivePath ToPath, int Depth);
     internal const int LinkedArchiveClosureMaxDepth = 64;
-    // ---- [BUILD] -------------------------------------------------------------------------
     public static Fin<Graph> From(File3dm model, Op? key = null, Option<string> archivePath = default) {
         Op op = key.OrDefault();
         Option<string> anchor = archivePath.Bind(static path => BlockPaths.ArchiveAnchor(archivePath: Some(path)));
@@ -34,10 +33,6 @@ public static class Archive {
             .Map(geo => Definition.From(definition: geo, anchorDirectory: anchorDirectory, key: op))
             .TraverseM(identity).As()
         select Compose(active: active, definitions: defs, anchorDirectory: anchorDirectory, key: op);
-
-    /// Transitive linked-archive walk; each hop resolves `SourceArchive` against `dirname(containing file)`.
-    /// Fails when <see cref="ValidateArchiveClosure"/> reports broken links or cycles.
-    /// Callers needing partial edge lists on broken archives must use <see cref="ValidateArchiveClosure"/> and read <see cref="ArchiveClosureReport.Edges"/> even when <see cref="ArchiveClosureReport.Valid"/> is false.
     public static Fin<Seq<LinkedArchiveEdge>> LinkedArchiveClosure(
         File3dm root,
         string rootPath,
@@ -47,9 +42,6 @@ public static class Archive {
             .Bind(report => report.Valid
                 ? Fin.Succ(value: report.Edges)
                 : Fin.Fail<Seq<LinkedArchiveEdge>>(error: key.OrDefault().InvalidResult(detail: nameof(LinkedArchiveClosure))));
-
-    /// Read-only linked-archive closure audit: existence, readability, and cycle detection without document mutation.
-    /// Always returns discovered <see cref="ArchiveClosureReport.Edges"/> before validity is evaluated; broken or cyclic archives still populate partial edge lists.
     public static Fin<ArchiveClosureReport> ValidateArchiveClosure(
         File3dm root,
         string rootPath,
@@ -158,7 +150,6 @@ public static class Archive {
             ? ReadNestedArchive(toFull: toFull, next: next, depth: depth, stack: stack, visited: visited, policy: policy, key: key)
             : Fin.Succ(next with { Broken = next.Broken + BrokenPath(here: toFull, key: key) });
     }
-    // BOUNDARY ADAPTER — File3dm.ReadWithLog owns native archive lifetime and preserves archive diagnostics.
     private static Fin<ClosureState> ReadNestedArchive(
         string toFull,
         ClosureState next,
@@ -228,7 +219,6 @@ public static class Archive {
         definitions.Fold(
             initialState: HashMap<Guid, Definition>(),
             f: (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: def));
-    // --- [WALK] -----------------------------------------------------------------------------
     public readonly record struct DefinitionWalkFrame(
         Transform Composed,
         ImmutableArray<DefinitionId> Path,
@@ -362,7 +352,6 @@ public static class Archive {
         LanguageExt.HashSet<Guid> reachable = Reachable(defId: anchor.Id.Value, lookup: lookup, table: table);
         return ComposeLive(table: table, definitions: definitions.Filter(def => reachable.Contains(key: def.Id.Value)));
     }
-    // ---- [AUDIT GRAPH] (Blocks.AuditGraph — document dependency audit) -------------------
     public static Fin<AuditGraph> Audit(InstanceDefinitionTable table, Op key) {
         ArgumentNullException.ThrowIfNull(argument: table);
         Option<string> anchor = BlockPaths.DocAnchor(document: table.Document);
@@ -373,20 +362,20 @@ public static class Archive {
                 (Nodes: acc.Nodes + pair.Node, Edges: acc.Edges + pair.Edges));
         return Fin.Succ(value: new AuditGraph(Nodes: [.. nodes], Edges: [.. edges]));
     }
-
-    /// Single-pass edge projection: members + linked-archive + top/nested inserts share the same `From`.
     private static Option<(AuditGraph.Node Node, Seq<AuditGraph.Edge> Edges)> ProjectAudit(
         InstanceDefinition definition,
         Option<string> anchorDirectory,
         Op key) =>
-        Definition.From(definition: definition, anchorDirectory: anchorDirectory, key: key).ToOption().Map(def => (
-            Node: def.ToAuditNode(),
-            Edges: toSeq(def.MemberIds).Map(id => new AuditGraph.Edge(From: def.Id, Kind: BlockEdgeKind.Member, To: new EdgeTarget.ObjectId(Id: id)))
-                + def.Source.Map(link => Seq(new AuditGraph.Edge(From: def.Id, Kind: BlockEdgeKind.LinkedArchive, To: new EdgeTarget.ArchiveTarget(Path: link.Full)))).IfNone(Seq<AuditGraph.Edge>())
-                + toSeq(definition.GetReferences(wheretoLook: ReferenceScope.TopAndNested.Native) ?? [])
-                    .Filter(static inst => inst is not null)
-                    .Map(inst => new AuditGraph.Edge(From: def.Id, Kind: BlockEdgeKind.InstanceInsert, To: new EdgeTarget.ObjectId(Id: inst!.Id)))));
-    // ---- [LIVE GRAPH] (Archive.Graph — bake/plan topology) --------------------------------
+        Definition.From(definition: definition, anchorDirectory: anchorDirectory, key: key).ToOption().Map(def => {
+            Seq<MemberVisit> visits = Operations.VisitDefinitionMembers(def: definition, composed: Transform.Identity);
+            return (
+                Node: def.ToAuditNode(),
+                Edges: visits.Map(visit => new AuditGraph.Edge(From: def.Id, Kind: BlockEdgeKind.Member, To: new EdgeTarget.ObjectId(Id: visit.ObjectId)))
+                    + def.Source.Map(link => Seq(new AuditGraph.Edge(From: def.Id, Kind: BlockEdgeKind.LinkedArchive, To: new EdgeTarget.ArchiveTarget(Path: link.Full)))).IfNone(Seq<AuditGraph.Edge>())
+                    + toSeq(definition.GetReferences(wheretoLook: ReferenceScope.TopAndNested.Native) ?? [])
+                        .Filter(static inst => inst is not null)
+                        .Map(inst => new AuditGraph.Edge(From: def.Id, Kind: BlockEdgeKind.InstanceInsert, To: new EdgeTarget.ObjectId(Id: inst!.Id))));
+        });
     public static Fin<Graph> LiveGraph(InstanceDefinitionTable table, Option<Definition> anchor, Op key) {
         ArgumentNullException.ThrowIfNull(argument: table);
         return Definition.List(table: table)
@@ -397,8 +386,6 @@ public static class Archive {
                 _ => ComposeLive(table: table, definitions: definitions),
             });
     }
-
-    /// Topologically ordered linked definitions intersecting candidates; BakePlan rank drives refresh order.
     public static Fin<Seq<InstanceDefinition>> LinkedRefreshOrder(InstanceDefinitionTable table, Seq<InstanceDefinition> candidates, Op key) {
         ArgumentNullException.ThrowIfNull(argument: table);
         return LiveGraph(table: table, anchor: Option<Definition>.None, key: key)
@@ -442,9 +429,6 @@ public static class Archive {
     private static Option<T> Native<T>(Func<T?> read)
         where T : class =>
         Optional(read());
-    // ---- [BAKE PLAN] (Speckle topological-sort pattern) ----------------------------------
-    /// Topologically-sorted bake order; depth = longest (def -> nested-def) chain.
-    /// Cycle-safe via visiting set; nested-def lookup pre-built so the walk is O(N + E).
     public static Seq<Definition> BakePlan(Graph graph) {
         ArgumentNullException.ThrowIfNull(argument: graph);
         FrozenDictionary<Guid, DefinitionId> instanceByObject = graph.Instances.Length == 0
@@ -472,7 +456,6 @@ public static class Archive {
                     .DefaultIfEmpty(defaultValue: 0)
                     .Max(),
         };
-    // ---- [PROJECTIONS] -------------------------------------------------------------------
     public static Seq<FileResourceEntry> ToFileResourceEntries(Graph graph) {
         ArgumentNullException.ThrowIfNull(argument: graph);
         return toSeq(graph.Definitions).Map(static d => new FileResourceEntry(

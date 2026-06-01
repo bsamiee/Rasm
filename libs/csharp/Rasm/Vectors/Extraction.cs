@@ -63,7 +63,7 @@ public readonly record struct StreamBundlePolicy {
         Op op = key.OrDefault();
         return from validKind in SampleKind.Admit(value: kind, key: op)
                from validIntegrator in FieldIntegrator.Admit(value: integrator, key: op)
-               from validTermination in Optional(termination).ToFin(op.InvalidInput())
+               from validTermination in Termination.Admit(value: termination, key: op)
                from _ in guard(initialStep.Value > RhinoMath.ZeroTolerance, op.InvalidInput())
                select new StreamBundlePolicy(kind: validKind, initialStep: initialStep, integrator: validIntegrator, termination: validTermination);
     }
@@ -101,10 +101,21 @@ public abstract partial record ContourPolicy {
     internal Fin<ContourPolicy> Admit(Op key) =>
         Switch(
             state: key,
-            planeCase: static (op, policy) => Plane(section: policy.Section, key: op),
-            axisCase: static (op, policy) => Axis(start: policy.Start, end: policy.End, interval: policy.Interval.Value, key: op),
-            surfaceIsoCase: static (op, policy) => SurfaceIso(status: policy.Status, parameter: policy.Parameter, key: op),
-            meshScalarCase: static (op, policy) => MeshScalar(values: policy.Values, levels: policy.Levels, key: op));
+            planeCase: static (op, policy) => FieldNabla.Plane(basis: policy.Section, key: op).Map(_ => (ContourPolicy)policy),
+            axisCase: static (op, policy) => from start in FieldNabla.Finite(point: policy.Start, key: op)
+                                             from end in FieldNabla.Finite(point: policy.End, key: op)
+                                             from vector in FieldNabla.Finite(vector: policy.End - policy.Start, key: op)
+                                             from step in FieldNabla.Positive(value: policy.Interval, key: op)
+                                             from span in guard((policy.End - policy.Start).Length > RhinoMath.ZeroTolerance, op.InvalidInput())
+                                             select (ContourPolicy)policy,
+            surfaceIsoCase: static (op, policy) => (policy.Status, policy.Parameter) switch {
+                (IsoStatus.X or IsoStatus.Y, double parameter) when RhinoMath.IsValidDouble(x: parameter) => Fin.Succ<ContourPolicy>(policy),
+                (IsoStatus.North or IsoStatus.East or IsoStatus.South or IsoStatus.West, _) => Fin.Succ<ContourPolicy>(policy),
+                _ => Fin.Fail<ContourPolicy>(op.InvalidInput()),
+            },
+            meshScalarCase: static (op, policy) => policy.Values.Count > 0 && !policy.Levels.IsEmpty && policy.Values.All(RhinoMath.IsValidDouble) && policy.Levels.ForAll(RhinoMath.IsValidDouble)
+                ? Fin.Succ<ContourPolicy>(policy)
+                : Fin.Fail<ContourPolicy>(op.InvalidInput()));
 }
 
 [Union]
@@ -116,7 +127,7 @@ public abstract partial record ExtractionDomain {
     public static Fin<ExtractionDomain> Support(SupportSpace value, Op? key = null) =>
         Optional(value).ToFin(key.OrDefault().InvalidInput()).Map(valid => (ExtractionDomain)new SupportCase(value: valid));
     public static Fin<ExtractionDomain> Mesh(MeshSpace value, Op? key = null) =>
-        Optional(value.Native).ToFin(key.OrDefault().InvalidInput()).Map(_ => (ExtractionDomain)new MeshCase(value: value));
+        FieldNabla.MeshNative(space: value, key: key.OrDefault()).Map(_ => (ExtractionDomain)new MeshCase(value: value));
     public static Fin<ExtractionDomain> Cloud(VectorCloud value, Op? key = null) =>
         VectorCloud.Admit(value: value, key: key.OrDefault()).Map(static valid => (ExtractionDomain)new CloudCase(value: valid));
     public static Fin<ExtractionDomain> Of(object? value, Context context, Op? key = null) {

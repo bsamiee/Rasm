@@ -50,20 +50,28 @@ public abstract partial record SampleKind {
                select (SampleKind)new SampleEliminationCase(count: c, oversampleFactor: oversample, alpha: a, beta: b, gamma: g, seed: seed);
     }
     internal Fin<SampleKind> Admit(Op key) => this switch {
-        ExplicitCase c => Explicit(points: c.Points, key: key),
-        PoissonDiskCase c => PoissonDisk(radius: c.Radius.Value, key: key),
-        FarthestCase c => Farthest(count: c.Count.Value, key: key),
-        OptimizeCase c => Optimize(count: c.Count.Value, iterations: c.Iterations.Value, key: key),
-        LloydCase c => Lloyd(count: c.Count.Value, iterations: c.Iterations.Value, key: key),
-        CapacityCase c => Capacity(count: c.Count.Value, capacity: c.Limit.Value, key: key),
-        WeightedCase c => Weighted(points: c.Points, key: key),
-        SampleEliminationCase c => SampleElimination(count: c.Count.Value, oversampleFactor: c.OversampleFactor.Value, alpha: c.Alpha.Value, beta: c.Beta.Value, gamma: c.Gamma.Value, seed: c.Seed, key: key),
-        ScalarDensityCase c => ScalarDensity(density: c.Density, count: c.Count.Value, key: key),
-        AdaptiveCase c => Adaptive(density: c.Density, count: c.Count.Value, minSpacing: c.MinSpacing.Value, key: key),
+        ExplicitCase c => c.Points.IsEmpty ? Fin.Fail<SampleKind>(key.InvalidInput()) : Fin.Succ(this),
+        PoissonDiskCase c => FieldNabla.Positive(value: c.Radius, key: key).Map(_ => this),
+        FarthestCase c => FieldNabla.Dimension(value: c.Count, key: key).Map(_ => this),
+        OptimizeCase c => from count in FieldNabla.Dimension(value: c.Count, key: key) from iterations in FieldNabla.Dimension(value: c.Iterations, key: key) select this,
+        LloydCase c => from count in FieldNabla.Dimension(value: c.Count, key: key) from iterations in FieldNabla.Dimension(value: c.Iterations, key: key) select this,
+        CapacityCase c => from count in FieldNabla.Dimension(value: c.Count, key: key) from limit in FieldNabla.Dimension(value: c.Limit, key: key) select this,
+        WeightedCase c => c.Points.IsEmpty
+            ? Fin.Fail<SampleKind>(key.InvalidInput())
+            : CloudKernel.MassOf(mass: new Arr<double>([.. c.Points.AsIterable().Select(static item => item.Mass)]), count: c.Points.Count, key: key).Map(_ => this),
+        SampleEliminationCase c => from count in FieldNabla.Dimension(value: c.Count, key: key)
+                                   from oversample in FieldNabla.Dimension(value: c.OversampleFactor, key: key)
+                                   from a in FieldNabla.Positive(value: c.Alpha, key: key)
+                                   from b in FieldNabla.Positive(value: c.Beta, key: key)
+                                   from g in FieldNabla.Positive(value: c.Gamma, key: key)
+                                   from valid in guard(c.OversampleFactor.Value > 1 && c.Beta.Value <= 1.0, key.InvalidInput())
+                                   select this,
+        ScalarDensityCase c => from density in FieldNabla.NotNull(value: c.Density, key: key) from count in FieldNabla.Dimension(value: c.Count, key: key) select this,
+        AdaptiveCase c => from density in FieldNabla.NotNull(value: c.Density, key: key) from count in FieldNabla.Dimension(value: c.Count, key: key) from spacing in FieldNabla.Positive(value: c.MinSpacing, key: key) select this,
         _ => Fin.Fail<SampleKind>(key.InvalidInput()),
     };
     internal static Fin<SampleKind> Admit(SampleKind value, Op key) =>
-        Optional(value).ToFin(key.InvalidInput()).Bind(kind => kind.Admit(key: key));
+        FieldNabla.NotNull(value: value, key: key).Bind(kind => kind.Admit(key: key));
     internal Fin<SampleResult> Evaluate(ExtractionDomain domain, Context context, Op key) =>
         Admit(key: key).Bind(kind => SampleKernel.Sample(kind: kind, domain: domain, context: context, key: key));
     internal (Option<int> Count, Option<int> Iterations, double MeshScale, bool Density, SampleAlgorithmKind Algorithm) Request => this switch { ExplicitCase => (Option<int>.None, Option<int>.None, 0.0, false, SampleAlgorithmKind.Explicit), PoissonDiskCase => (Option<int>.None, Option<int>.None, 0.0, false, SampleAlgorithmKind.CandidateRadiusFilter), FarthestCase c => (Some(c.Count.Value), Option<int>.None, 1.0, false, SampleAlgorithmKind.FarthestCandidate), OptimizeCase c => (Some(c.Count.Value), Some(c.Iterations.Value), 1.0, false, SampleAlgorithmKind.FarthestOptimize), LloydCase c => (Some(c.Count.Value), Some(c.Iterations.Value), 1.0, false, SampleAlgorithmKind.LloydCandidateRelaxation), CapacityCase c => (Some(c.Count.Value), Option<int>.None, c.Limit.Value, false, SampleAlgorithmKind.CapacityCandidateRelaxation), WeightedCase => (Option<int>.None, Option<int>.None, 0.0, false, SampleAlgorithmKind.WeightedMassPropagation), SampleEliminationCase c => (Some(c.Count.Value), Option<int>.None, c.OversampleFactor.Value, false, SampleAlgorithmKind.YukselWeightedSampleElimination), ScalarDensityCase c => (Some(c.Count.Value), Option<int>.None, 8.0, true, SampleAlgorithmKind.ScalarDensityPriority), AdaptiveCase c => (Some(c.Count.Value), Option<int>.None, 12.0, true, SampleAlgorithmKind.AdaptivePriority), _ => (Option<int>.None, Option<int>.None, 0.0, false, SampleAlgorithmKind.Explicit) };

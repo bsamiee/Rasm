@@ -141,12 +141,21 @@ public partial record Subscription : IDisposable {
                 emptyCase: static _ => Fin.Succ(value: unit))
             : Fin.Succ(value: unit);
 
-    internal static System.Action GuardDetach(System.Action detach, bool detachOnce) {
-        if (!detachOnce) {
-            return detach;
-        }
-        int gate = 0;
-        return () => _ = Interlocked.Exchange(ref gate, 1) == 0 ? Op.Side(detach) : unit;
+    internal static System.Action GuardDetach(System.Action detach, bool detachOnce) =>
+        detachOnce switch {
+            false => detach,
+            true => Latch(detach: detach),
+        };
+
+    // Atom.Swap is CAS-atomic: the first caller observes the prior false and fires detach, every later caller
+    // observes true and no-ops — replaces the Interlocked.Exchange(ref gate) mutable-int gate.
+    private static System.Action Latch(System.Action detach) {
+        Atom<bool> fired = Prelude.Atom(value: false);
+        return () => {
+            Option<bool> previous = None;
+            _ = fired.Swap(current => { previous = Some(current); return true; });
+            _ = !previous.IfNone(true) ? Op.Side(detach) : unit;
+        };
     }
 
     internal static Fin<Subscription> Bind(
@@ -175,11 +184,6 @@ public readonly record struct Snapshot<T>(Option<Guid> OwnerId, T Payload) {
         ArgumentNullException.ThrowIfNull(argument: project);
         return new(OwnerId: OwnerId, Payload: project(arg: Payload));
     }
-}
-
-public static class Snapshot {
-    public static Snapshot<T> Of<T>(T payload, Option<Guid> ownerId = default) =>
-        new(OwnerId: ownerId, Payload: payload);
 }
 
 internal readonly record struct DocumentMutationReceipt(int Changed, Seq<Guid> Created) {
@@ -285,10 +289,12 @@ public sealed record GrasshopperUiIntent<T> {
                 select new IntentOutcome<TOut>(Value: right.Value, Repaint: left.Repaint | right.Repaint),
             policy: Policy);
 
-    public GrasshopperUiIntent<TOut> BindFin<TOut>(Func<T, Fin<TOut>> bind) =>
+    public GrasshopperUiIntent<TOut> BindFin<TOut>(Func<T, Fin<TOut>> bind, RepaintRequest? repaint = null) =>
         new(
             execute: scope => execute(arg: scope).Bind(outcome => bind(arg: outcome.Value).Map(value =>
-                new IntentOutcome<TOut>(Value: value, Repaint: outcome.Repaint))),
+                new IntentOutcome<TOut>(
+                    Value: value,
+                    Repaint: repaint is { } extra ? outcome.Repaint | extra : outcome.Repaint))),
             policy: Policy);
 }
 
@@ -321,7 +327,7 @@ public abstract partial record UiFault : Expected, IValidationError<UiFault> {
     public sealed record MissingScopeCase(string Field) : UiFault;
     public sealed record InvalidInputCase(Op Op, string Detail) : UiFault;
     public sealed record MutationRejectedCase(Op Op, string Detail) : UiFault;
-    public sealed record GhEditorCase(string Detail) : UiFault;
+    public sealed record GhEditorCase(Op Op, string Detail) : UiFault;
     public sealed record ThreadMarshalCase(string Detail) : UiFault;
     public sealed record CancelledCase(Op Op) : UiFault;
 
@@ -329,7 +335,7 @@ public abstract partial record UiFault : Expected, IValidationError<UiFault> {
         missingScopeCase: static m => $"GrasshopperUi scope field '{m.Field}' required but absent.",
         invalidInputCase: static i => $"Op '{i.Op}' rejected input: {i.Detail}.",
         mutationRejectedCase: static r => $"Op '{r.Op}' rejected by Grasshopper2: {r.Detail}.",
-        ghEditorCase: static e => $"Grasshopper editor operation failed: {e.Detail}.",
+        ghEditorCase: static e => $"Op '{e.Op}' editor operation failed: {e.Detail}.",
         threadMarshalCase: static t => $"UI-thread marshal failed: {t.Detail}.",
         cancelledCase: static c => $"Op '{c.Op}' cancelled.");
 
@@ -344,7 +350,7 @@ public abstract partial record UiFault : Expected, IValidationError<UiFault> {
     public static UiFault MissingScope(string field) => new MissingScopeCase(Field: field);
     public static UiFault InvalidInput(Op op, string detail) => new InvalidInputCase(Op: op, Detail: detail);
     public static UiFault MutationRejected(Op op, string detail) => new MutationRejectedCase(Op: op, Detail: detail);
-    public static UiFault GhEditor(string detail) => new GhEditorCase(Detail: detail);
+    public static UiFault GhEditor(Op op, string detail) => new GhEditorCase(Op: op, Detail: detail);
     public static UiFault ThreadMarshal(string detail) => new ThreadMarshalCase(Detail: detail);
     public static UiFault Cancelled(Op op) => new CancelledCase(Op: op);
 
@@ -434,6 +440,10 @@ public static partial class OpUiExtensions {
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
+internal interface IUiOp {
+    public GrasshopperUiPolicy UiPolicy { get; }
+}
+
 public static class GhUi {
     public static GrasshopperUiIntent<T> Apply<T>(GhUiRequest<T> request) =>
         Optional(request).Match(
@@ -444,19 +454,25 @@ public static class GhUi {
                 run: _ => Fin.Fail<T>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Apply)), detail: "request is required")),
                 policy: GrasshopperUiPolicy.Read));
 
-    public static GrasshopperUiIntent<CanvasResult> Canvas(CanvasOp op) => Apply(request: new OpRequest<CanvasOp, CanvasResult>(Request: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UiRail.CanvasDispatch(scope: scope, op: o)));
-    public static GrasshopperUiIntent<DocumentResult> Document(DocumentOp op) => Apply(request: new OpRequest<DocumentOp, DocumentResult>(Request: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.Document.Dispatch(scope: scope, op: o)));
-    public static GrasshopperUiIntent<EditorResult> Editor(EditorOp op) => Apply(request: new OpRequest<EditorOp, EditorResult>(Request: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (_, o) => UI.Editor.Dispatch(op: o)));
-    public static GrasshopperUiIntent<LayoutResult> Layout(LayoutOp op) => Apply(request: new OpRequest<LayoutOp, LayoutResult>(Request: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.Layout.Dispatch(scope: scope, op: o)));
-    public static GrasshopperUiIntent<WireResult> Wire(WireOp op) => Apply(request: new OpRequest<WireOp, WireResult>(Request: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.Wire.Dispatch(op: o).Run(scope: scope)));
+    // One generic forwarder collapses the 13 bespoke Apply(new OpRequest(...)) factories: PolicyOf is the shared
+    // IUiOp.UiPolicy projector, DispatchOf is the per-op route. Public names + arities are unchanged.
+    private static GrasshopperUiIntent<TResult> Forward<TOp, TResult>(TOp op, Func<GrasshopperUi.Scope, TOp, Fin<TResult>> dispatch)
+        where TOp : IUiOp =>
+        Apply(request: new OpRequest<TOp, TResult>(Request: op, PolicyOf: static o => o.UiPolicy, DispatchOf: dispatch));
+
+    public static GrasshopperUiIntent<CanvasResult> Canvas(CanvasOp op) => Forward(op: op, dispatch: static (scope, o) => UiRail.CanvasDispatch(scope: scope, op: o));
+    public static GrasshopperUiIntent<DocumentResult> Document(DocumentOp op) => Forward(op: op, dispatch: static (scope, o) => UI.Document.Dispatch(scope: scope, op: o));
+    public static GrasshopperUiIntent<EditorResult> Editor(EditorOp op) => Forward(op: op, dispatch: static (_, o) => UI.Editor.Dispatch(op: o));
+    public static GrasshopperUiIntent<LayoutResult> Layout(LayoutOp op) => Forward(op: op, dispatch: static (scope, o) => UI.Layout.Dispatch(scope: scope, op: o));
+    public static GrasshopperUiIntent<WireResult> Wire(WireOp op) => Forward(op: op, dispatch: static (scope, o) => UI.Wire.Dispatch(op: o).Run(scope: scope));
+    public static GrasshopperUiIntent<CanvasChromeResult> CanvasChrome(CanvasChromeOp op) => Forward(op: op, dispatch: static (scope, o) => UI.CanvasChrome.Dispatch(op: o).Run(scope: scope));
+    public static GrasshopperUiIntent<Subscription> Event(UiEvent uiEvent) => Forward(op: uiEvent, dispatch: static (scope, e) => Events.Subscribe(uiEvent: e).Run(scope: scope));
     public static GrasshopperUiIntent<T> Input<T>(InputRequest<T> request) => Apply(request: request);
     public static GrasshopperUiIntent<T> Paint<T>(PaintRequest<T> request) => Apply(request: request);
     public static GrasshopperUiIntent<T> Motion<T>(MotionRequest<T> request) => Apply(request: request);
-    public static GrasshopperUiIntent<CanvasChromeResult> CanvasChrome(CanvasChromeOp op) => Apply(request: new OpRequest<CanvasChromeOp, CanvasChromeResult>(Request: op, PolicyOf: static o => o.UiPolicy, DispatchOf: static (scope, o) => UI.CanvasChrome.Dispatch(op: o).Run(scope: scope)));
     public static GrasshopperUiIntent<CanvasChromeResult> Tooltip(TooltipOp op) => CanvasChrome(CanvasChromeOp.Tooltip(op: op));
     public static GrasshopperUiIntent<CanvasChromeResult> FloatingButton(FloatingButtonOp op) => CanvasChrome(CanvasChromeOp.FloatingButton(op: op));
     public static GrasshopperUiIntent<CanvasChromeResult> Interaction(InteractionOp op) => CanvasChrome(CanvasChromeOp.Interaction(op: op));
-    public static GrasshopperUiIntent<Subscription> Event(UiEvent uiEvent) => Apply(request: new OpRequest<UiEvent, Subscription>(Request: uiEvent, PolicyOf: static e => e.UiPolicy, DispatchOf: static (scope, e) => Events.Subscribe(uiEvent: e).Run(scope: scope)));
 
     public static GrasshopperUiIntent<T> Group<T>(string verb, string noun, GrasshopperUiIntent<T> body) =>
         Optional(body).Match(
@@ -475,6 +491,17 @@ public static class GhUi {
             None: () => Document(
                 run: _ => Fin.Fail<T>(
                     error: UiFault.InvalidInput(op: Op.Of(name: nameof(Group)), detail: "body is required"))));
+
+    // Fans N unit intents into one undo entry via Bind-fold over the single-body Group; empty folds to a no-op.
+    public static GrasshopperUiIntent<Unit> Group(string verb, string noun, Seq<GrasshopperUiIntent<Unit>> body) =>
+        Group(
+            verb: verb,
+            noun: noun,
+            body: body.IsEmpty
+                ? Read(run: static _ => Fin.Succ(value: unit))
+                : body.Tail.Fold(
+                    initialState: body.Head.IfNone(Read(run: static _ => Fin.Succ(value: unit))),
+                    f: static (acc, next) => acc.Bind(_ => next)));
 
     internal static GrasshopperUiIntent<T> Read<T>(Func<GrasshopperUi.Scope, Fin<T>> run) =>
         new(run: run, policy: GrasshopperUiPolicy.Read);

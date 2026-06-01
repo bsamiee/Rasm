@@ -85,7 +85,7 @@ public sealed class TerminationLaws {
         Spec.Succ(Termination.RegionThreshold(region: ScalarField.Constant(value: 1.0), threshold: 0.5, key: FlowGens.Key),
             then: t => Spec.Succ(t.Evaluate(state: state, currentSample: Vector3d.XAxis, context: FlowGens.Model, key: FlowGens.Key),
                 then: decision => { Assert.False(condition: decision.Stop); Assert.True(condition: decision.Event.IsNone); }));
-        Spec.Succ(SupportSpace.Of(value: Plane.WorldYZ, key: FlowGens.Key),
+        Spec.Succ(SupportSpace.Of(value: new Sphere(center: Point3d.Origin, radius: 1.0), key: FlowGens.Key),
             then: s => Spec.Succ(Termination.CrossSurface(surface: s, key: FlowGens.Key)));
         Spec.Succ(SupportSpace.Of(value: new Point3d(x: 0.0, y: 0.0, z: 0.0), key: FlowGens.Key),
             then: s => Spec.Fail(Termination.CrossSurface(surface: s, key: FlowGens.Key)));
@@ -93,6 +93,8 @@ public sealed class TerminationLaws {
         Spec.Fail(Termination.RegionThreshold(region: ScalarField.Constant(value: 1.0), threshold: double.NaN, key: FlowGens.Key));
         Spec.FailCategory(Termination.RegionThreshold(region: ScalarField.Constant(value: 1.0), threshold: 0.0, maxLocalizationIterations: 0, key: FlowGens.Key), category: "Input");
         Spec.Fail(Termination.CrossSurface(surface: null!, key: FlowGens.Key));
+        Spec.FailCategory(new Termination.StepCountCase(Count: 0).Admit(key: FlowGens.Key), category: "Input");
+        Spec.FailCategory(new Termination.RegionThresholdCase(Region: null!, Threshold: 0.0, MaxLocalizationIterations: 1).Admit(key: FlowGens.Key), category: "Input");
     }
     [Fact]
     public void RegionEventsDistinguishEndpointTouchesFromBracketCrossings() {
@@ -164,6 +166,10 @@ public sealed class FieldIntegratorLaws {
         Spec.ForAll(Gen.Int[-100, -1], m => Spec.FailCategory(FieldIntegrator.Adaptive(kind: IntegratorKind.DormandPrince, tolerance: 1.0e-6, maxRejects: m, key: FlowGens.Key), category: "Input"));
         Spec.ForAll(FlowGens.NonAdaptive, k => Spec.FailCategory(FieldIntegrator.Adaptive(kind: k, tolerance: 1.0e-6, maxRejects: 3, key: FlowGens.Key), category: "Unsupported"));
         Spec.ForAll(FlowGens.NonAdaptive, k => Spec.FailCategory(FieldIntegrator.Adaptive(kind: k, tolerance: 1.0e-6, maxRejects: -1, key: FlowGens.Key), category: "Input"));
+        PositiveMagnitude tolerance = Spec.SuccValue(FlowGens.Key.AcceptValidated<PositiveMagnitude>(candidate: 1.0e-6), label: "adaptive tolerance");
+        Spec.FailCategory(new FieldIntegrator.FixedCase(kind: IntegratorKind.DormandPrince).Admit(key: FlowGens.Key), category: "Unsupported");
+        Spec.FailCategory(new FieldIntegrator.AdaptiveCase(kind: IntegratorKind.RK4, tolerance: tolerance, maxRejects: 1).Admit(key: FlowGens.Key), category: "Unsupported");
+        Spec.FailCategory(new FieldIntegrator.AdaptiveCase(kind: IntegratorKind.DormandPrince, tolerance: tolerance, maxRejects: -1).Admit(key: FlowGens.Key), category: "Input");
     }
     [Fact]
     public void FixedAndTraceReceiptsExposeBoundedStops() {

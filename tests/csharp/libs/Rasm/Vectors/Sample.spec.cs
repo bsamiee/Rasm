@@ -95,6 +95,7 @@ public sealed class SampleKindFactoryLaws {
         Spec.FailCategory(SampleKind.Explicit(points: Seq<Point3d>(), key: SampleGens.Key), category: "Input");
         Spec.FailCategory(SampleKind.Weighted(points: Seq<(Point3d Point, double Mass)>(), key: SampleGens.Key), category: "Input");
         Spec.FailCategory(SampleKind.Weighted(points: Seq((Point3d.Origin, -1.0)), key: SampleGens.Key), category: "Input");
+        Spec.FailCategory(SampleKind.Admit(value: new SampleKind.SampleEliminationCase(count: Dim.Create(value: 2), oversampleFactor: Dim.Create(value: 1), alpha: Spec.SuccValue(SampleGens.Key.AcceptValidated<PositiveMagnitude>(candidate: 1.0), label: "alpha"), beta: Spec.SuccValue(SampleGens.Key.AcceptValidated<PositiveMagnitude>(candidate: 0.5), label: "beta"), gamma: Spec.SuccValue(SampleGens.Key.AcceptValidated<PositiveMagnitude>(candidate: 1.0), label: "gamma"), seed: 17), key: SampleGens.Key), category: "Input");
         Spec.SmartEnumCatalogMatches(production: SampleAlgorithmKind.Items, expectedKeys: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], key: static kind => kind.Key);
         Spec.SmartEnumCatalogMatches(production: SampleStopKind.Items, expectedKeys: [0, 1, 2, 3], key: static kind => kind.Key);
     }

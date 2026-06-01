@@ -34,7 +34,7 @@ public readonly record struct ComponentSpec(
     NameIconMode IconMode = NameIconMode.Application,
     ThreadingState Threading = ThreadingState.MultiThreaded,
     ComponentUi Ui = default) {
-    internal const int MaxOutputs = 24;
+    internal const int MaxOutputs = 24; // Rasm grip-layout/UX convention, not a native OutputAdder cap.
     internal const int CodeMin = 1;
     internal const int CodeMax = 2;
     public static ComponentSpec Define(Func<SpecBuilder, SpecBuilder> configure) {
@@ -89,7 +89,7 @@ internal readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.S
     internal Fin<Seq<Flow<Shape>>> Shape(Port<Shape> port) {
         IDataAccess access = Access;
         return Hints.Slot(port: port)
-            .ToFin(new MissingPortInput(Port: port.Name))
+            .ToFin(new PortFault.MissingInput(Port: port.Name, Hint: None))
             .Bind(slot => access.ReadShape(slot: slot, port: port));
     }
 }
@@ -197,7 +197,8 @@ public abstract class Component<TSelf> : ModularComponent, IRasmComponent where 
         _ = GrasshopperRuntime.Capture(access: access, inputs: cachedInputs, parameters: Parameters)
             .Match(
                 Succ: runtime => Output.Write(access: access, runtime: runtime, bindings: bindings, outputs: outputs),
-                Fail: error => access.Emit(severity: Severity.Warning, text: error.Category(), details: error.Message) switch {
+                // Wiring faults stay recoverable (Warning + empty); a genuine compute/scope failure surfaces as Error.
+                Fail: error => access.Emit(severity: PortFault.SeverityOf(error: error), text: error.Category(), details: error.Message) switch {
                     _ => Output.Empty(access: access, bindings: bindings, outputs: outputs),
                 });
     }
@@ -235,7 +236,11 @@ public abstract class Plugin : GhPlugin {
             .Filter(static type => typeof(IRasmComponent).IsAssignableFrom(c: type) && !type.IsAbstract && !type.IsGenericTypeDefinition)
             .Distinct();
         Seq<ComponentValidationFault> faults = ValidateCatalog(active: this, plugins: plugins, components: components, satellites: satellites, declaredSatellites: declaredSatellites)
-            .Concat(components.Bind(type => Validate(spec: type).Map(fault => new ComponentValidationFault.ComponentFault(Component: type.FullName ?? type.Name, Fault: fault))));
+            .Concat(components.Bind(type =>
+                (type.GetProperty(name: "Definition", bindingAttr: BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)?.GetValue(obj: null) switch {
+                    ComponentSpec probe => Validate(spec: type, probe: probe),
+                    _ => Seq<ComponentValidationFault>(new ComponentValidationFault.MissingDefinition()),
+                }).Map(fault => new ComponentValidationFault.ComponentFault(Component: type.FullName ?? type.Name, Fault: fault))));
         // BOUNDARY ADAPTER -- GH2 plugin-load entry; a mis-declared catalog is a fatal developer error surfaced fail-fast at load.
         _ = faults.IsEmpty ? Unit.Default : throw new InvalidOperationException(message: string.Join(separator: "; ", values: faults.Map(static fault => fault.Message)));
     }
@@ -256,23 +261,15 @@ public abstract class Plugin : GhPlugin {
             Type owner => owner != typeof(GhPlugin),
             _ => false,
         };
-        return Seq(
-                plugins.Count == 1
-                    ? Option<ComponentValidationFault>.None
-                    : Some<ComponentValidationFault>(new ComponentValidationFault.CatalogPluginCount(Assembly: activeType.Assembly.GetName().Name ?? activeType.Name, Found: plugins.Count)),
-                plugins.Exists(type => type == activeType)
-                    ? Option<ComponentValidationFault>.None
-                    : Some<ComponentValidationFault>(new ComponentValidationFault.CatalogActivePluginMismatch(Plugin: activeType.FullName ?? activeType.Name)),
-                IoIdOf(type: activeType).Filter(id => id == active.Id).IsSome
-                    ? Option<ComponentValidationFault>.None
-                    : Some<ComponentValidationFault>(new ComponentValidationFault.CatalogPluginIdMismatch(Plugin: activeType.FullName ?? activeType.Name)),
-                declaredSatellites.Count == satellites.Length
-                    ? Option<ComponentValidationFault>.None
-                    : Some<ComponentValidationFault>(new ComponentValidationFault.CatalogSatelliteNulls(Plugin: activeType.FullName ?? activeType.Name)),
-                declaredDocumentation && !string.IsNullOrWhiteSpace(value: active.DocumentationFolder) && !Directory.Exists(path: active.DocumentationFolder)
-                    ? Some<ComponentValidationFault>(new ComponentValidationFault.CatalogDocumentationMissing(Plugin: activeType.FullName ?? activeType.Name, Folder: active.DocumentationFolder))
-                    : Option<ComponentValidationFault>.None)
-            .Choose(identity)
+        // One declarative rule table: each fault is constructed lazily only when its guard fails.
+        Seq<(bool Valid, Func<ComponentValidationFault> Fault)> rules = Seq<(bool, Func<ComponentValidationFault>)>(
+            (plugins.Count == 1, () => new ComponentValidationFault.CatalogPluginCount(Assembly: activeType.Assembly.GetName().Name ?? activeType.Name, Found: plugins.Count)),
+            (plugins.Exists(type => type == activeType), () => new ComponentValidationFault.CatalogActivePluginMismatch(Plugin: activeType.FullName ?? activeType.Name)),
+            (IoIdOf(type: activeType).Filter(id => id == active.Id).IsSome, () => new ComponentValidationFault.CatalogPluginIdMismatch(Plugin: activeType.FullName ?? activeType.Name)),
+            (declaredSatellites.Count == satellites.Length, () => new ComponentValidationFault.CatalogSatelliteNulls(Plugin: activeType.FullName ?? activeType.Name)),
+            (!(declaredDocumentation && !string.IsNullOrWhiteSpace(value: active.DocumentationFolder) && !Directory.Exists(path: active.DocumentationFolder)),
+                () => new ComponentValidationFault.CatalogDocumentationMissing(Plugin: activeType.FullName ?? activeType.Name, Folder: active.DocumentationFolder)));
+        return rules.Choose(static rule => rule.Valid ? Option<ComponentValidationFault>.None : Some(rule.Fault()))
             .Concat(owners.Choose(type => IoIdOf(type: type).IsSome
                 ? Option<ComponentValidationFault>.None
                 : Some<ComponentValidationFault>(new ComponentValidationFault.CatalogMissingIoId(Owner: type.FullName ?? type.Name))))
@@ -286,11 +283,6 @@ public abstract class Plugin : GhPlugin {
                 ClrType: collision.Type.FullName ?? collision.Type.Name,
                 Kinds: string.Join(separator: ", ", values: collision.Kinds.Map(static kind => kind.ToString())))));
     }
-    private static Seq<ComponentValidationFault> Validate(Type spec) =>
-        spec.GetProperty(name: "Definition", bindingAttr: BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)?.GetValue(obj: null) switch {
-            ComponentSpec probe => Validate(spec: spec, probe: probe),
-            _ => Seq<ComponentValidationFault>(new ComponentValidationFault.MissingDefinition()),
-        };
     private static Seq<ComponentValidationFault> Validate(Type spec, ComponentSpec probe) {
         Seq<Port> inputs = probe.Inputs.Choose(static pair => Optional(pair.Value));
         Seq<Port> outputs = probe.Outputs.Choose(static pair => Optional(pair.Value)).Map(static binding => binding.Port);

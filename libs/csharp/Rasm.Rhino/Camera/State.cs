@@ -7,59 +7,6 @@ namespace Rasm.Rhino.Camera;
 // --- [TYPES] ------------------------------------------------------------------------------
 public enum CameraMode { Perspective, Parallel, TwoPointPerspective }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-[Union(SwitchMapStateParameterName = "context")]
-public abstract partial record ViewportTarget {
-    private ViewportTarget() { }
-    public sealed record Current : ViewportTarget;
-    public sealed record Id(Guid Value) : ViewportTarget;
-    public sealed record View(RhinoView Value) : ViewportTarget;
-    public sealed record Many(Seq<ViewportTarget> Targets) : ViewportTarget;
-
-    internal Fin<Seq<CameraScope>> Resolve(RhinoDoc document, Op op) =>
-        Switch(
-            (Document: document, Op: op),
-            current: static (ctx, _) =>
-                from view in Optional(ctx.Document.Views.ActiveView).ToFin(Fail: ctx.Op.MissingContext())
-                select Seq(CameraScope.Of(document: ctx.Document, view: view, viewport: view.ActiveViewport)),
-            id: static (ctx, target) =>
-                target.Value switch {
-                    Guid id when id != Guid.Empty =>
-                        Optional(ctx.Document.Views.Find(mainViewportId: id)).Case switch {
-                            RhinoView view => Fin.Succ(value: Seq(CameraScope.Of(document: ctx.Document, view: view, viewport: view.MainViewport))),
-                            _ => CameraScope.FindDetail(document: ctx.Document, id: id)
-                                .Map(row => CameraScope.Of(document: ctx.Document, view: row.Page, viewport: row.Detail.Viewport))
-                                .Map(scope => Seq(scope))
-                                .ToFin(Fail: ctx.Op.MissingContext()),
-                        },
-                    _ => Fin.Fail<Seq<CameraScope>>(error: ctx.Op.InvalidInput()),
-                },
-            view: static (ctx, target) =>
-                from view in Optional(target.Value).ToFin(Fail: ctx.Op.InvalidInput())
-                from _ in guard(view.Document?.RuntimeSerialNumber == ctx.Document.RuntimeSerialNumber, ctx.Op.InvalidInput())
-                select Seq(CameraScope.Of(document: ctx.Document, view: view, viewport: view.ActiveViewport)),
-            many: static (ctx, target) => target.Targets.TraverseM(target => target.Resolve(document: ctx.Document, op: ctx.Op)).As()
-                .Map(static scopes => scopes.Bind(static item => item)));
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CameraDepth(double Near, double Far);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CameraDof(ViewInfoFocalBlurModes Mode, double Distance, double Aperture, double Jitter, uint SampleCount) {
-    internal static CameraDof Read(ViewInfo view) =>
-        new(Mode: view.FocalBlurMode, Distance: view.FocalBlurDistance, Aperture: view.FocalBlurAperture, Jitter: view.FocalBlurJitter, SampleCount: view.FocalBlurSampleCount);
-
-    internal Unit Write(ViewInfo view) {
-        view.FocalBlurMode = Mode;
-        view.FocalBlurDistance = Distance;
-        view.FocalBlurAperture = Aperture;
-        view.FocalBlurJitter = Jitter;
-        view.FocalBlurSampleCount = SampleCount;
-        return unit;
-    }
-}
-
 [Union(SwitchMapStateParameterName = "viewport")]
 public abstract partial record CameraSubject {
     private static readonly Op DepthKey = Op.Of(name: nameof(Depth));
@@ -114,6 +61,123 @@ public abstract partial record CameraSubject {
                 : Fin.Fail<bool>(error: VisibleKey.InvalidInput()),
             _ => self.BoundsOf(op: VisibleKey).Map(bbox => viewport.IsVisible(bbox: bbox)),
         });
+    }
+}
+
+[Union(SwitchMapStateParameterName = "context")]
+public abstract partial record ViewportTarget {
+    private ViewportTarget() { }
+    public sealed record Current : ViewportTarget;
+    public sealed record Id(Guid Value) : ViewportTarget;
+    public sealed record View(RhinoView Value) : ViewportTarget;
+    public sealed record Many(Seq<ViewportTarget> Targets) : ViewportTarget;
+
+    internal Fin<Seq<CameraScope>> Resolve(RhinoDoc document, Op op) =>
+        Switch(
+            (Document: document, Op: op),
+            current: static (ctx, _) =>
+                from view in Optional(ctx.Document.Views.ActiveView).ToFin(Fail: ctx.Op.MissingContext())
+                select Seq(CameraScope.Of(document: ctx.Document, view: view, viewport: view.ActiveViewport)),
+            id: static (ctx, target) =>
+                target.Value switch {
+                    Guid id when id != Guid.Empty =>
+                        Optional(ctx.Document.Views.Find(mainViewportId: id)).Case switch {
+                            RhinoView view => Fin.Succ(value: Seq(CameraScope.Of(document: ctx.Document, view: view, viewport: view.MainViewport))),
+                            _ => CameraScope.FindDetail(document: ctx.Document, id: id)
+                                .Map(row => CameraScope.Of(document: ctx.Document, view: row.Page, viewport: row.Detail.Viewport))
+                                .Map(scope => Seq(scope))
+                                .ToFin(Fail: ctx.Op.MissingContext()),
+                        },
+                    _ => Fin.Fail<Seq<CameraScope>>(error: ctx.Op.InvalidInput()),
+                },
+            view: static (ctx, target) =>
+                from view in Optional(target.Value).ToFin(Fail: ctx.Op.InvalidInput())
+                from _ in guard(view.Document?.RuntimeSerialNumber == ctx.Document.RuntimeSerialNumber, ctx.Op.InvalidInput())
+                select Seq(CameraScope.Of(document: ctx.Document, view: view, viewport: view.ActiveViewport)),
+            many: static (ctx, target) => target.Targets.TraverseM(target => target.Resolve(document: ctx.Document, op: ctx.Op)).As()
+                .Map(static scopes => scopes.Bind(static item => item)));
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CameraDepth(double Near, double Far);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CameraDof(ViewInfoFocalBlurModes Mode, double Distance, double Aperture, double Jitter, uint SampleCount) {
+    internal static CameraDof Read(ViewInfo view) =>
+        new(Mode: view.FocalBlurMode, Distance: view.FocalBlurDistance, Aperture: view.FocalBlurAperture, Jitter: view.FocalBlurJitter, SampleCount: view.FocalBlurSampleCount);
+
+    internal Unit Write(ViewInfo view) {
+        view.FocalBlurMode = Mode;
+        view.FocalBlurDistance = Distance;
+        view.FocalBlurAperture = Aperture;
+        view.FocalBlurJitter = Jitter;
+        view.FocalBlurSampleCount = SampleCount;
+        return unit;
+    }
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CameraFrame(Plane Frame, Point3d Target) {
+    private static readonly Op OfKey = Op.Of(name: nameof(Of));
+    private static readonly Op LookAtKey = Op.Of(name: nameof(LookAt));
+
+    public Point3d Location => Frame.Origin;
+    public Vector3d Direction => -Frame.ZAxis;
+    public Vector3d Up => Frame.YAxis;
+
+    public static Fin<CameraFrame> Of(RhinoViewport viewport) =>
+        Optional(viewport).ToFin(Fail: OfKey.InvalidInput())
+            .Bind(valid => valid.GetCameraFrame(frame: out Plane plane) switch {
+                true => Fin.Succ(value: new CameraFrame(Frame: plane, Target: valid.CameraTarget)),
+                false => Fin.Fail<CameraFrame>(error: OfKey.InvalidResult()),
+            });
+
+    public static Fin<CameraFrame> LookAt(Point3d location, Point3d target, Option<Vector3d> up = default) =>
+        from direction in (location.IsValid, target.IsValid, target - location) switch {
+            (true, true, Vector3d d) when d.Length > RhinoMath.ZeroTolerance => Fin.Succ(value: d),
+            _ => Fin.Fail<Vector3d>(error: LookAtKey.InvalidInput()),
+        }
+        let resolved = up.Filter(static value => value.IsValid && value.Length > RhinoMath.ZeroTolerance)
+                         .IfNone(() => ViewportInfo.CalculateCameraUpDirection(location: location, direction: direction, angle: 0.0))
+        let plane = new Plane(origin: location, xDirection: Vector3d.CrossProduct(direction, resolved), yDirection: resolved)
+        from _ in guard(plane.IsValid, LookAtKey.InvalidResult())
+        select new CameraFrame(Frame: plane, Target: target);
+
+    internal Fin<Unit> Apply(RhinoViewport viewport, Op op) {
+        Plane frame = Frame;
+        Point3d target = Target;
+        return Optional(viewport).ToFin(Fail: op.InvalidInput()).Map(valid => {
+            valid.SetCameraLocations(targetLocation: target, cameraLocation: frame.Origin);
+            valid.SetCameraDirection(cameraDirection: -frame.ZAxis, updateTargetLocation: true);
+            valid.CameraUp = frame.YAxis;
+            return unit;
+        });
+    }
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CameraFrustum(
+    double Left,
+    double Right,
+    double Bottom,
+    double Top,
+    double Near,
+    double Far,
+    double Aspect,
+    BoundingBox Bounds) {
+    public static Fin<CameraFrustum> Of(RhinoViewport viewport, Op op) =>
+        Optional(viewport).ToFin(Fail: op.InvalidInput()).Bind(valid =>
+            valid.GetFrustum(left: out double left, right: out double right, bottom: out double bottom, top: out double top, nearDistance: out double near, farDistance: out double far) switch {
+                true => Fin.Succ(value: new CameraFrustum(Left: left, Right: right, Bottom: bottom, Top: top, Near: near, Far: far, Aspect: valid.FrustumAspect, Bounds: valid.GetFrustumBoundingBox())),
+                false => Fin.Fail<CameraFrustum>(error: op.InvalidResult()),
+            });
+
+    internal Fin<ViewportInfo> Apply(ViewportInfo projection, Op op) {
+        CameraFrustum self = this;
+        return from valid in Optional(projection).ToFin(Fail: op.InvalidInput())
+               from _ in op.Confirm(success: valid.SetFrustum(left: self.Left, right: self.Right, bottom: self.Bottom, top: self.Top, nearDistance: self.Near, farDistance: self.Far))
+               select valid;
     }
 }
 
@@ -193,18 +257,12 @@ public readonly record struct CameraScope(
                    }))
                select scale;
     }
-
-    // World->screen via the native World->Screen xform (no clipping: behind-camera points still project to in-frustum
-    // pixels). Callers needing occlusion pair this with Visible/Depth. No native WorldToScreen on RhinoViewport.
     public Fin<System.Drawing.PointF> ScreenPoint(Point3d point) {
         CameraScope self = this;
         return from _ in guard(point.IsValid, ScreenPointKey.InvalidInput())
                from screen in self.Probe(project: vp => ScreenPointKey.Catch(() => {
                    Transform xform = vp.GetTransform(sourceSystem: CoordinateSystem.World, destinationSystem: CoordinateSystem.Screen);
-                   Point3d projected = xform * point;
-                   return xform.IsValid && projected.IsValid
-                       ? Fin.Succ(value: new System.Drawing.PointF((float)projected.X, (float)projected.Y))
-                       : Fin.Fail<System.Drawing.PointF>(error: ScreenPointKey.InvalidResult());
+                   return ProjectScreen(xform: xform, point: point, op: ScreenPointKey);
                }))
                select screen;
     }
@@ -219,6 +277,13 @@ public readonly record struct CameraScope(
         scope.Detail.IsSome ? new RedrawRequest.DetailCommit() : new RedrawRequest.View();
 
     public Fin<Unit> Redraw() => ApplyRedraw(request: RedrawFor(scope: this));
+
+    internal static Fin<System.Drawing.PointF> ProjectScreen(Transform xform, Point3d point, Op op) {
+        Point3d projected = xform * point;
+        return xform.IsValid && projected.IsValid
+            ? Fin.Succ(value: new System.Drawing.PointF((float)projected.X, (float)projected.Y))
+            : Fin.Fail<System.Drawing.PointF>(error: op.InvalidResult());
+    }
 
     private static class DetailIndexCache {
         private readonly record struct Row(RhinoPageView Page, DetailViewObject Detail);
@@ -290,73 +355,6 @@ public readonly record struct CameraScope(
     }
 }
 
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CameraFrame(Plane Frame, Point3d Target) {
-    private static readonly Op OfKey = Op.Of(name: nameof(Of));
-    private static readonly Op LookAtKey = Op.Of(name: nameof(LookAt));
-
-    public Point3d Location => Frame.Origin;
-
-    /// <remarks>Rhino's camera looks down the negative frame Z (-Z-forward); the view direction is therefore the
-    /// negated frame Z axis. Callers building a look-at frame from a direction must invert this sign accordingly.</remarks>
-    public Vector3d Direction => -Frame.ZAxis;
-    public Vector3d Up => Frame.YAxis;
-
-    public static Fin<CameraFrame> Of(RhinoViewport viewport) =>
-        Optional(viewport).ToFin(Fail: OfKey.InvalidInput())
-            .Bind(valid => valid.GetCameraFrame(frame: out Plane plane) switch {
-                true => Fin.Succ(value: new CameraFrame(Frame: plane, Target: valid.CameraTarget)),
-                false => Fin.Fail<CameraFrame>(error: OfKey.InvalidResult()),
-            });
-
-    public static Fin<CameraFrame> LookAt(Point3d location, Point3d target, Option<Vector3d> up = default) =>
-        from direction in (location.IsValid, target.IsValid, target - location) switch {
-            (true, true, Vector3d d) when d.Length > RhinoMath.ZeroTolerance => Fin.Succ(value: d),
-            _ => Fin.Fail<Vector3d>(error: LookAtKey.InvalidInput()),
-        }
-        let resolved = up.Filter(static value => value.IsValid && value.Length > RhinoMath.ZeroTolerance)
-                         .IfNone(() => ViewportInfo.CalculateCameraUpDirection(location: location, direction: direction, angle: 0.0))
-        let plane = new Plane(origin: location, xDirection: Vector3d.CrossProduct(direction, resolved), yDirection: resolved)
-        from _ in guard(plane.IsValid, LookAtKey.InvalidResult())
-        select new CameraFrame(Frame: plane, Target: target);
-
-    internal Fin<Unit> Apply(RhinoViewport viewport, Op op) {
-        Plane frame = Frame;
-        Point3d target = Target;
-        return Optional(viewport).ToFin(Fail: op.InvalidInput()).Map(valid => {
-            valid.SetCameraLocations(targetLocation: target, cameraLocation: frame.Origin);
-            valid.SetCameraDirection(cameraDirection: -frame.ZAxis, updateTargetLocation: true);
-            valid.CameraUp = frame.YAxis;
-            return unit;
-        });
-    }
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct CameraFrustum(
-    double Left,
-    double Right,
-    double Bottom,
-    double Top,
-    double Near,
-    double Far,
-    double Aspect,
-    BoundingBox Bounds) {
-    public static Fin<CameraFrustum> Of(RhinoViewport viewport, Op op) =>
-        Optional(viewport).ToFin(Fail: op.InvalidInput()).Bind(valid =>
-            valid.GetFrustum(left: out double left, right: out double right, bottom: out double bottom, top: out double top, nearDistance: out double near, farDistance: out double far) switch {
-                true => Fin.Succ(value: new CameraFrustum(Left: left, Right: right, Bottom: bottom, Top: top, Near: near, Far: far, Aspect: valid.FrustumAspect, Bounds: valid.GetFrustumBoundingBox())),
-                false => Fin.Fail<CameraFrustum>(error: op.InvalidResult()),
-            });
-
-    internal Fin<ViewportInfo> Apply(ViewportInfo projection, Op op) {
-        CameraFrustum self = this;
-        return from valid in Optional(projection).ToFin(Fail: op.InvalidInput())
-               from _ in op.Confirm(success: valid.SetFrustum(left: self.Left, right: self.Right, bottom: self.Bottom, top: self.Top, nearDistance: self.Near, farDistance: self.Far))
-               select valid;
-    }
-}
-
 public sealed record CameraSnapshot : IDisposable {
     private static readonly Op OfKey = Op.Of(name: nameof(CameraSnapshot));
     private readonly ViewportInfo projection;
@@ -410,23 +408,15 @@ public sealed record CameraSnapshot : IDisposable {
     public CameraDof Dof { get; }
     public uint DocumentSerial { get; }
     public uint ChangeSerial { get; }
-
-    // `ChangeCounter` (uint) advances per viewport mutation; doc serial guards reopen + uint wrap.
     public bool IsStale =>
         Scope.Document.RuntimeSerialNumber != DocumentSerial || Scope.Viewport.ChangeCounter != ChangeSerial;
-
-    // Frozen-projection queries: each answers against the captured ViewportInfo/Frame/Frustum, so a snapshot
-    // consumer reasons about the moment of capture without re-borrowing (and re-reading) the live viewport.
     public Fin<System.Drawing.PointF> ScreenPoint(Point3d point) {
         ViewportInfo captured = Projection;
         Op op = Op.Of(name: nameof(ScreenPoint));
         return from _ in guard(point.IsValid, op.InvalidInput())
                from screen in op.Catch(() => {
                    Transform xform = captured.GetXform(sourceSystem: CoordinateSystem.World, destinationSystem: CoordinateSystem.Screen);
-                   Point3d projected = xform * point;
-                   return xform.IsValid && projected.IsValid
-                       ? Fin.Succ(value: new System.Drawing.PointF((float)projected.X, (float)projected.Y))
-                       : Fin.Fail<System.Drawing.PointF>(error: op.InvalidResult());
+                   return CameraScope.ProjectScreen(xform: xform, point: point, op: op);
                })
                select screen;
     }
@@ -438,14 +428,25 @@ public sealed record CameraSnapshot : IDisposable {
             .Bind(valid => valid.BoundsOf(op: op))
             .Bind(bounds => bounds.IsValid ? Fin.Succ(value: DepthOf(frame: frame, bounds: bounds)) : Fin.Fail<CameraDepth>(error: op.InvalidResult()));
     }
-
-    // Conservative: tests the world subject box against the frustum's world bounding box (an over-approximation of
-    // the true frustum volume), so a true answer is "potentially in view" — never a false negative.
     public Fin<bool> IsVisible(BoundingBox box) {
         BoundingBox frustum = Frustum.Bounds;
         return box.IsValid && frustum.IsValid
             ? Fin.Succ(value: BoundingBox.Intersection(a: frustum, b: box).IsValid)
             : Fin.Fail<bool>(error: Op.Of(name: nameof(IsVisible)).InvalidInput());
+    }
+
+    internal Fin<RedrawRequest> Restore(bool updateTarget = true) {
+        CameraSnapshot self = this;
+        Op op = Op.Of(name: nameof(Restore));
+        return UI.RhinoUi.Protect(valid: () =>
+            from _ in guard(self.Scope.Document.RuntimeSerialNumber == self.DocumentSerial, op.InvalidInput())
+            from restored in op.Confirm(success: self.Scope.Viewport.SetViewProjection(projection: self.Projection, updateTargetLocation: updateTarget))
+            from applied in Fin.Succ(value: Op.Side(() => {
+                self.Scope.Viewport.SetConstructionPlane(plane: self.ConstructionPlane);
+                self.Scope.Viewport.DisplayMode = self.DisplayMode;
+                self.Scope.Viewport.LockedProjection = self.LockedProjection;
+            }))
+            select CameraScope.RedrawFor(scope: self.Scope));
     }
 
     private static CameraDepth DepthOf(CameraFrame frame, BoundingBox bounds) {
@@ -463,7 +464,6 @@ public sealed record CameraSnapshot : IDisposable {
     internal static Fin<CameraSnapshot> Of(CameraScope scope) {
         RhinoViewport viewport = scope.Viewport;
         return OfKey.Catch(() => {
-            // BOUNDARY ADAPTER — ViewportInfo ctor may throw; disposal on exception prevents native leak.
             ViewportInfo? snapshotProjection = null;
             try {
                 snapshotProjection = new ViewportInfo(rhinoViewport: viewport);

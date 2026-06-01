@@ -6,7 +6,7 @@ using Rhino.DocObjects.Tables;
 
 namespace Rasm.Rhino.Exchange;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "runtime")]
 public abstract partial record FileExchange {
     private FileExchange() { }
@@ -100,8 +100,6 @@ public abstract partial record FileNativeTable {
     private static DocumentResourceChange Changed(DocumentResourceKind kind, string name) => new(Kind: kind, Name: name);
 }
 
-public readonly record struct FilePositionReport(string Name, Guid Id, Seq<Guid> Objects);
-
 [Union]
 public abstract partial record HeadlessExchange {
     private HeadlessExchange() { }
@@ -109,6 +107,108 @@ public abstract partial record HeadlessExchange {
     public sealed record CreateFromTemplate(FileEndpoint Template) : HeadlessExchange;
     public sealed record Open(FileEndpoint Source, FileProfile Profile) : HeadlessExchange;
 }
+
+// --- [MODELS] -----------------------------------------------------------------------------
+public readonly partial record struct FileGeoLocation {
+    public static Fin<Option<FileGeoLocation>> Read(RhinoDoc document) {
+        Op op = Op.Of(name: nameof(Read));
+        return Optional(document).ToFin(Fail: op.InvalidInput()).Bind(active => op.Catch(() => {
+            using EarthAnchorPoint? anchor = active.EarthAnchorPoint;
+            return Fin.Succ(value: From(anchor: anchor));
+        }));
+    }
+
+    public static Fin<DocumentReceipt> Set(RhinoDoc document, FileGeoLocation location) {
+        Op op = Op.Of(name: nameof(Set));
+        return Optional(document).ToFin(Fail: op.InvalidInput()).Bind(active => op.Catch(() => {
+            using EarthAnchorPoint anchor = new();
+            _ = location.Latitude.Iter(value => anchor.EarthBasepointLatitude = value);
+            _ = location.Longitude.Iter(value => anchor.EarthBasepointLongitude = value);
+            _ = location.Elevation.Iter(value => anchor.EarthBasepointElevation = value);
+            anchor.EarthBasepointElevationCoordinateSystem = location.ElevationCoordinateSystem;
+            _ = location.ModelBasePoint.Iter(value => anchor.ModelBasePoint = value);
+            _ = location.ModelNorth.Iter(value => anchor.ModelNorth = value);
+            _ = location.ModelEast.Iter(value => anchor.ModelEast = value);
+            _ = location.Name.Iter(value => anchor.Name = value);
+            _ = location.Description.Iter(value => anchor.Description = value);
+            active.EarthAnchorPoint = anchor;
+            return Fin.Succ(value: DocumentReceipt.Empty with {
+                ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.EarthAnchor, Name: location.Name.IfNone(noneValue: "earth-anchor"))),
+            });
+        }));
+    }
+    public static Fin<Seq<(double Latitude, double Longitude, double Elevation)>> ProjectToEarth(RhinoDoc document, Seq<Point3d> points, LengthUnit modelUnits) =>
+        UseAnchor(document: document, op: Op.Of(name: nameof(ProjectToEarth)), requireEarth: true, use: (anchor, op) => {
+            Transform xform = anchor.GetModelToEarthTransform(modelUnits: modelUnits);
+            return xform.IsValid switch {
+                false => Fin.Fail<Seq<(double, double, double)>>(error: op.InvalidResult()),
+                true => Fin.Succ(value: points.Map(point => {
+                    Point3d projected = point;
+                    projected.Transform(xform: xform);
+                    return (projected.X, projected.Y, projected.Z);
+                })),
+            };
+        });
+
+    public static Fin<Seq<Point3d>> ProjectToModel(RhinoDoc document, Seq<(double Latitude, double Longitude, double Elevation)> coordinates, LengthUnit modelUnits) =>
+        UseAnchor(document: document, op: Op.Of(name: nameof(ProjectToModel)), requireEarth: true, use: (anchor, op) => {
+            Transform xform = anchor.GetModelToEarthTransform(modelUnits: modelUnits);
+            return xform.TryGetInverse(inverseTransform: out Transform inverse) switch {
+                false => Fin.Fail<Seq<Point3d>>(error: op.InvalidResult()),
+                true => Fin.Succ(value: coordinates.Map(coordinate => {
+                    Point3d earth = new(x: coordinate.Latitude, y: coordinate.Longitude, z: coordinate.Elevation);
+                    earth.Transform(xform: inverse);
+                    return earth;
+                })),
+            };
+        });
+
+    public static Fin<Plane> Compass(RhinoDoc document) =>
+        UseAnchor(document: document, op: Op.Of(name: nameof(Compass)), requireModel: true, use: static (anchor, op) =>
+            anchor.GetModelCompass() switch {
+                Plane plane when plane.IsValid => Fin.Succ(value: plane),
+                _ => Fin.Fail<Plane>(error: op.InvalidResult()),
+            });
+
+    public static Fin<Plane> AnchorPlane(RhinoDoc document) =>
+        UseAnchor(document: document, op: Op.Of(name: nameof(AnchorPlane)), requireModel: true, use: static (anchor, op) =>
+            anchor.GetEarthAnchorPlane(anchorNorth: out _) switch {
+                Plane plane when plane.IsValid => Fin.Succ(value: plane),
+                _ => Fin.Fail<Plane>(error: op.InvalidResult()),
+            });
+
+    public static Fin<Transform> OrientPlane(RhinoDoc document, Plane source) =>
+        UseAnchor(document: document, op: Op.Of(name: nameof(OrientPlane)), requireModel: true, use: (anchor, op) => {
+            Plane target = anchor.GetEarthAnchorPlane(anchorNorth: out _);
+            return (source.IsValid, target.IsValid) switch {
+                (true, true) => Fin.Succ(value: Transform.PlaneToPlane(plane0: source, plane1: target)),
+                _ => Fin.Fail<Transform>(error: op.InvalidInput()),
+            };
+        });
+    public static Fin<DocumentReceipt> SyncSun(RhinoDoc document) =>
+        UseAnchor(document: document, op: Op.Of(name: nameof(SyncSun)), requireEarth: true, requireModel: true, use: (anchor, op) => op.Catch(() => {
+            global::Rhino.Render.Sun sun = document.RenderSettings.Sun;
+            Vector3d north = anchor.ModelNorth;
+            sun.Latitude = anchor.EarthBasepointLatitude;
+            sun.Longitude = anchor.EarthBasepointLongitude;
+            sun.North = Math.Atan2(y: north.Y, x: north.X) * (180.0 / Math.PI);
+            return Fin.Succ(value: DocumentReceipt.Empty with {
+                ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Sun, Name: "sun")),
+            });
+        }));
+
+    private static Fin<T> UseAnchor<T>(RhinoDoc document, Op op, Func<EarthAnchorPoint, Op, Fin<T>> use, bool requireEarth = false, bool requireModel = false) =>
+        Optional(document).ToFin(Fail: op.InvalidInput()).Bind(active => op.Catch(() => {
+            using EarthAnchorPoint? anchor = active.EarthAnchorPoint;
+            return Optional(anchor).ToFin(Fail: op.InvalidResult()).Bind(valid =>
+                (requireEarth && !valid.EarthLocationIsSet(), requireModel && !valid.ModelLocationIsSet()) switch {
+                    (false, false) => use(arg1: valid, arg2: op),
+                    _ => Fin.Fail<T>(error: op.InvalidInput()),
+                });
+        }));
+}
+
+public readonly record struct FilePositionReport(string Name, Guid Id, Seq<Guid> Objects);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class FileOp {
@@ -156,9 +256,6 @@ public static class FileOp {
                 })).As().Map(reports => FileReport.Of(phase: FilePhase.Batch, issues: reports.Bind(static report => report.Issues), children: reports)),
             _ => Fin.Fail<FileReport>(error: Op.Of(name: nameof(Batch)).InvalidInput()),
         });
-
-    // One headless entry; the scope union discriminates empty-document / template / source-open. The scheduler
-    // threads from the active runtime, so callers bind a scope case rather than picking an overload.
     public static Eff<FileRuntime, T> Headless<T>(HeadlessExchange scope, Eff<FileRuntime, T> body) =>
         Lift(run: runtime =>
             from active in Optional(scope).ToFin(Fail: Op.Of(name: nameof(Headless)).InvalidInput())
@@ -172,7 +269,21 @@ public static class FileOp {
             from result in ui.Use(intent: UiIntent.ExchangeFile(prompt: active))
             select result);
 
-    // Read concerns — different return shape, so they cannot fold into the Fin<DocumentReceipt> mutation unions.
+    public static Eff<FileRuntime, FileReport> PublishPlan(FilePublish publish) =>
+        Lift(run: runtime =>
+            from live in Live(runtime: runtime, op: Op.Of(name: nameof(PublishPlan)))
+            from active in Optional(publish).ToFin(Fail: Op.Of(name: nameof(PublishPlan)).InvalidInput())
+            let views = active.Views.IsEmpty ? Seq(new FileView(Source: new FileViewSource.Pages())) : active.Views
+            from pages in views.TraverseM(view => view.Source.Resolve(document: live.Document, spec: view, op: Op.Of(name: nameof(PublishPlan)))).As().Map(static groups => groups.Bind(static items => items))
+            from _ in guard(!pages.IsEmpty, Op.Of(name: nameof(PublishPlan)).InvalidInput())
+            from reports in pages.TraverseM(page => PageReport(page: page, op: Op.Of(name: nameof(PublishPlan)))).As()
+            select FileReport.Of(
+                phase: FilePhase.Publish,
+                target: PublishTarget(target: active.Target),
+                format: PublishFormat(target: active.Target),
+                issues: PublishIssues(target: active.Target),
+                nativeLog: Some(string.Create(CultureInfo.InvariantCulture, $"publish-plan;views:{pages.Count};layers:{active.Layers};snapshot:{active.Snapshot.IsSome}")),
+                views: reports));
     public static Eff<FileRuntime, Seq<FileSheetReport>> Sheets(SheetQuery query) =>
         Lift(run: runtime => Live(runtime: runtime, op: Op.Of(name: nameof(Sheets))).Bind(live => SheetOps.Inspect(document: live.Document, query: query, op: Op.Of(name: nameof(Sheets)))));
 
@@ -260,8 +371,39 @@ public static class FileOp {
                select FileReport.Of(phase: FilePhase.Publish, target: result.Target, format: result.Format, issues: result.Issues, nativeLog: result.NativeLog, receipt: Some(result.Receipt), views: result.Views);
     }
 
-    // SnapshotTable exposes only `Names[]`; save/restore/delete route through `RhinoApp.RunScript("-_Snapshot ...")`.
-    // Guid-N sentinel preserves the user's snapshot table across the restore-target body bracket.
+    private static Fin<FileViewReport> PageReport(FileViewPage page, Op op) =>
+        from settings in page.Settings(op: op)
+        from report in op.Catch(() => {
+            try {
+                return Fin.Succ(value: page.ReportOf(settings: settings));
+            } finally {
+                settings.Dispose();
+            }
+        })
+        select report;
+
+    private static Option<FileEndpoint> PublishTarget(FilePublishTarget target) =>
+        target switch {
+            FilePublishTarget.Pdf value => Some(value.Target),
+            FilePublishTarget.Raster value => Some(value.Target),
+            FilePublishTarget.Svg value => Some(value.Target),
+            _ => Option<FileEndpoint>.None,
+        };
+
+    private static Option<FileFormat> PublishFormat(FilePublishTarget target) =>
+        target switch {
+            FilePublishTarget.Pdf => Some(FileFormat.Pdf),
+            FilePublishTarget.Raster value => Some(value.ResolvedEncoding.Format),
+            FilePublishTarget.Svg => Some(FileFormat.Svg),
+            _ => Option<FileFormat>.None,
+        };
+
+    private static Seq<FileIssue> PublishIssues(FilePublishTarget target) =>
+        target switch {
+            FilePublishTarget.Pdf => Seq(FileIssue.Native(message: "RhinoCommon FilePdf exposes no public metadata, bookmark, outline, encryption, or password surface.")),
+            FilePublishTarget.Raster value when value.Settings.Transparent && !value.ResolvedEncoding.SupportsAlpha => Seq(FileIssue.Native(message: "Transparent raster output requires PNG or TIFF encoding.")),
+            _ => Seq<FileIssue>(),
+        };
     private static Fin<T> InSnapshot<T>(RhinoDoc document, string snapshotName, Op op, Func<Fin<T>> body) =>
         from target in FileEndpoint.NonBlank(value: snapshotName, op: op)
         from _exists in toSeq(document.Snapshots.Names).Exists(name => string.Equals(a: name, b: target, comparisonType: StringComparison.Ordinal))
@@ -286,9 +428,6 @@ public static class FileOp {
 
     private static string ScriptToken(string value) =>
         string.Create(CultureInfo.InvariantCulture, $"\"{value.Replace(oldValue: "\"", newValue: "\\\"", comparisonType: StringComparison.Ordinal)}\"");
-
-    // One mutation shell for every doc-resource edit: resolve live runtime, null-guard the change, run the typed
-    // apply inside an undo-recorded commit, project the receipt onto the phase report. T : class so Optional binds.
     private static Fin<FileReport> Commit<T>(FileRuntime runtime, FilePhase phase, string name, T change, Func<RhinoDoc, T, Op, Fin<DocumentReceipt>> apply) where T : class =>
         from live in Live(runtime: runtime, op: Op.Of(name: name))
         from active in Optional(change).ToFin(Fail: Op.Of(name: name).InvalidInput())
@@ -331,19 +470,15 @@ public static class FileOp {
         });
 
     private static Fin<DocumentReceipt> ExportTarget(RhinoDoc document, DocumentTarget target, FileEndpoint endpoint, FileProfile profile, Op op) =>
-        // BOUNDARY ADAPTER — export selected mutates Rhino selection temporarily and must restore it.
         op.Catch(() => DocumentEdit.SelectedIds(document: document, op: op).Bind(before => {
             const int persistentSelectionState = 2;
             static bool Persistent(RhinoObject native) => native.IsSelected(checkSubObjects: false) == persistentSelectionState;
-            // Capture the prior persistence mode while the original selection still stands. Restore uses Select because SetSelectedObjects clears.
             Seq<Guid> persistent = before.Filter(id => Optional(document.Objects.FindId(id)).Map(Persistent).IfNone(noneValue: false));
             Seq<Guid> transient = before.Filter(id => !persistent.Exists(item => item == id));
             Seq<(Seq<Guid> Ids, bool Persistent)> restore = Seq((transient, false), (persistent, true));
             Fin<Unit> restored = Fin.Succ(value: unit);
             Fin<DocumentReceipt> exported = Fin.Fail<DocumentReceipt>(error: op.InvalidResult());
             try {
-                // The `count == ids.Count` guard on SetSelectedObjects already confirms the full set was selected;
-                // a post-set ordered readback breaks on locked/grip ids Rhino refuses and on duplicate-id multisets.
                 exported = from ids in target.Ids(document: document, op: op)
                            from _ in op.Confirm(success: document.Objects.UnselectAll(ignorePersistentSelections: false) >= 0)
                            from __ in document.Objects.SetSelectedObjects(objectIds: ids.AsIterable(), syncHighlight: true, persistentSelect: false, ignoreGripsState: true, ignoreLayerLocking: false, ignoreLayerVisibility: false) switch {
@@ -377,113 +512,4 @@ public static class FileOp {
             (RhinoDoc document, Context domain, DocumentEdit edit) => Fin.Succ(value: (document, domain, edit)),
             _ => Fin.Fail<(RhinoDoc Document, Context Domain, DocumentEdit Edit)>(error: op.MissingContext()),
         };
-}
-
-// --- [COMPOSITION] ------------------------------------------------------------------------
-
-// `GetModelToEarthTransform(LengthUnit)` is canonical; the `UnitSystem` overload is `[Obsolete]`.
-// `SyncSun` encodes the Sun.North↔ModelNorth invariant `_SetGeoLocation` does not honour.
-public readonly partial record struct FileGeoLocation {
-    public static Fin<Option<FileGeoLocation>> Read(RhinoDoc document) {
-        Op op = Op.Of(name: nameof(Read));
-        return Optional(document).ToFin(Fail: op.InvalidInput()).Bind(active => op.Catch(() => {
-            using EarthAnchorPoint? anchor = active.EarthAnchorPoint;
-            return Fin.Succ(value: From(anchor: anchor));
-        }));
-    }
-
-    public static Fin<DocumentReceipt> Set(RhinoDoc document, FileGeoLocation location) {
-        Op op = Op.Of(name: nameof(Set));
-        return Optional(document).ToFin(Fail: op.InvalidInput()).Bind(active => op.Catch(() => {
-            using EarthAnchorPoint anchor = new();
-            _ = location.Latitude.Iter(value => anchor.EarthBasepointLatitude = value);
-            _ = location.Longitude.Iter(value => anchor.EarthBasepointLongitude = value);
-            _ = location.Elevation.Iter(value => anchor.EarthBasepointElevation = value);
-            anchor.EarthBasepointElevationCoordinateSystem = location.ElevationCoordinateSystem;
-            _ = location.ModelBasePoint.Iter(value => anchor.ModelBasePoint = value);
-            _ = location.ModelNorth.Iter(value => anchor.ModelNorth = value);
-            _ = location.ModelEast.Iter(value => anchor.ModelEast = value);
-            _ = location.Name.Iter(value => anchor.Name = value);
-            _ = location.Description.Iter(value => anchor.Description = value);
-            active.EarthAnchorPoint = anchor;
-            return Fin.Succ(value: DocumentReceipt.Empty with {
-                ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.EarthAnchor, Name: location.Name.IfNone(noneValue: "earth-anchor"))),
-            });
-        }));
-    }
-
-    // `GetModelToEarthTransform` maps model XYZ -> earth frame `E.x=latitude°, E.y=longitude°, E.z=elevation(m)`;
-    // the `(Latitude, Longitude, Elevation)` tuple labels mirror that frame and are NOT transposed.
-    public static Fin<Seq<(double Latitude, double Longitude, double Elevation)>> ProjectToEarth(RhinoDoc document, Seq<Point3d> points, LengthUnit modelUnits) =>
-        UseAnchor(document: document, op: Op.Of(name: nameof(ProjectToEarth)), requireEarth: true, use: (anchor, op) => {
-            Transform xform = anchor.GetModelToEarthTransform(modelUnits: modelUnits);
-            return xform.IsValid switch {
-                false => Fin.Fail<Seq<(double, double, double)>>(error: op.InvalidResult()),
-                true => Fin.Succ(value: points.Map(point => {
-                    Point3d projected = point;
-                    projected.Transform(xform: xform);
-                    return (projected.X, projected.Y, projected.Z);
-                })),
-            };
-        });
-
-    public static Fin<Seq<Point3d>> ProjectToModel(RhinoDoc document, Seq<(double Latitude, double Longitude, double Elevation)> coordinates, LengthUnit modelUnits) =>
-        UseAnchor(document: document, op: Op.Of(name: nameof(ProjectToModel)), requireEarth: true, use: (anchor, op) => {
-            Transform xform = anchor.GetModelToEarthTransform(modelUnits: modelUnits);
-            return xform.TryGetInverse(inverseTransform: out Transform inverse) switch {
-                false => Fin.Fail<Seq<Point3d>>(error: op.InvalidResult()),
-                true => Fin.Succ(value: coordinates.Map(coordinate => {
-                    Point3d earth = new(x: coordinate.Latitude, y: coordinate.Longitude, z: coordinate.Elevation);
-                    earth.Transform(xform: inverse);
-                    return earth;
-                })),
-            };
-        });
-
-    public static Fin<Plane> Compass(RhinoDoc document) =>
-        UseAnchor(document: document, op: Op.Of(name: nameof(Compass)), requireModel: true, use: static (anchor, op) =>
-            anchor.GetModelCompass() switch {
-                Plane plane when plane.IsValid => Fin.Succ(value: plane),
-                _ => Fin.Fail<Plane>(error: op.InvalidResult()),
-            });
-
-    public static Fin<Plane> AnchorPlane(RhinoDoc document) =>
-        UseAnchor(document: document, op: Op.Of(name: nameof(AnchorPlane)), requireModel: true, use: static (anchor, op) =>
-            anchor.GetEarthAnchorPlane(anchorNorth: out _) switch {
-                Plane plane when plane.IsValid => Fin.Succ(value: plane),
-                _ => Fin.Fail<Plane>(error: op.InvalidResult()),
-            });
-
-    public static Fin<Transform> OrientPlane(RhinoDoc document, Plane source) =>
-        UseAnchor(document: document, op: Op.Of(name: nameof(OrientPlane)), requireModel: true, use: (anchor, op) => {
-            Plane target = anchor.GetEarthAnchorPlane(anchorNorth: out _);
-            return (source.IsValid, target.IsValid) switch {
-                (true, true) => Fin.Succ(value: Transform.PlaneToPlane(plane0: source, plane1: target)),
-                _ => Fin.Fail<Transform>(error: op.InvalidInput()),
-            };
-        });
-
-    // `Sun.North` is degrees on world XY; project from `ModelNorth` via `Atan2(Y, X)` so sun studies
-    // reflect anchor-defined true north. `_SetGeoLocation` does NOT — call SyncSun after.
-    public static Fin<DocumentReceipt> SyncSun(RhinoDoc document) =>
-        UseAnchor(document: document, op: Op.Of(name: nameof(SyncSun)), requireEarth: true, requireModel: true, use: (anchor, op) => op.Catch(() => {
-            global::Rhino.Render.Sun sun = document.RenderSettings.Sun;
-            Vector3d north = anchor.ModelNorth;
-            sun.Latitude = anchor.EarthBasepointLatitude;
-            sun.Longitude = anchor.EarthBasepointLongitude;
-            sun.North = Math.Atan2(y: north.Y, x: north.X) * (180.0 / Math.PI);
-            return Fin.Succ(value: DocumentReceipt.Empty with {
-                ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Sun, Name: "sun")),
-            });
-        }));
-
-    private static Fin<T> UseAnchor<T>(RhinoDoc document, Op op, Func<EarthAnchorPoint, Op, Fin<T>> use, bool requireEarth = false, bool requireModel = false) =>
-        Optional(document).ToFin(Fail: op.InvalidInput()).Bind(active => op.Catch(() => {
-            using EarthAnchorPoint? anchor = active.EarthAnchorPoint;
-            return Optional(anchor).ToFin(Fail: op.InvalidResult()).Bind(valid =>
-                (requireEarth && !valid.EarthLocationIsSet(), requireModel && !valid.ModelLocationIsSet()) switch {
-                    (false, false) => use(arg1: valid, arg2: op),
-                    _ => Fin.Fail<T>(error: op.InvalidInput()),
-                });
-        }));
 }

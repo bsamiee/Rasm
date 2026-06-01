@@ -11,29 +11,6 @@ using DrawingPointF = System.Drawing.PointF;
 namespace Rasm.Rhino.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public interface IMotionVector<TValue, TVelocity> {
-    public TVelocity ZeroVelocity { get; }
-    public double RestEpsilon { get; }
-    public TVelocity Delta(TValue from, TValue target);
-    public TVelocity Add(TVelocity a, TVelocity b);
-    public TVelocity Scale(TVelocity value, double scalar);
-    public TValue Move(TValue value, TVelocity delta);
-    public double Norm(TVelocity value);
-    public TValue Lerp(TValue a, TValue b, double t);   // replaces GH2 Interpolate
-    public double Distance(TValue a, TValue b) => Norm(Delta(from: a, target: b));   // default: ‖b−a‖ — one call for rest/settle predicates
-}
-
-public interface IMotionVector<T> : IMotionVector<T, T> {
-}
-
-internal interface IMotionState<TSelf> where TSelf : struct, IMotionState<TSelf> {
-    public TSelf Step();
-    public Unit Emit();
-    public bool IsActive { get; }
-}
-
-// --- [MODELS] -----------------------------------------------------------------------------
-// Robert Penner closed-form curves (easings.net). GH2 native-blended curves dropped; pure Func<double,double>.
 [SmartEnum<int>]
 public sealed partial class Easing {
     private const double BackC1 = 1.70158;
@@ -66,19 +43,81 @@ public sealed partial class Easing {
         };
 }
 
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct SpringConfig(float Stiffness, float Damping, float Mass) {
-    internal const double MaxDt = 1.0 / 30.0;   // dt clamp prevents spring blowup on GC/debugger stalls (30fps floor); single location
+public interface IMotionVector<TValue, TVelocity> {
+    public TVelocity ZeroVelocity { get; }
+    public double RestEpsilon { get; }
+    public TVelocity Delta(TValue from, TValue target);
+    public TVelocity Add(TVelocity a, TVelocity b);
+    public TVelocity Scale(TVelocity value, double scalar);
+    public TValue Move(TValue value, TVelocity delta);
+    public double Norm(TVelocity value);
+    public TValue Lerp(TValue a, TValue b, double t);   // replaces GH2 Interpolate
+    public double Distance(TValue a, TValue b) => Norm(Delta(from: a, target: b));   // default: ‖b−a‖ — one call for rest/settle predicates
+}
 
-    public static Fin<SpringConfig> Response(float response, float dampingFraction, float mass = 1f) =>
-        from _ in guard(float.IsFinite(response) && response > 0f && float.IsFinite(dampingFraction) && dampingFraction >= 0f && float.IsFinite(mass) && mass > 0f, Op.Of(name: nameof(Response)).InvalidInput())
-        from config in Fin.Succ(value: Tuned(response: response, dampingFraction: dampingFraction, mass: mass))
-        select config;
+public interface IMotionVector<T> : IMotionVector<T, T> {
+}
 
-    internal static SpringConfig Tuned(float response, float dampingFraction, float mass) {
-        float twoPiOverR = (float)(2.0 * Math.PI) / response;
-        return new SpringConfig(Stiffness: twoPiOverR * twoPiOverR * mass, Damping: 4f * (float)Math.PI * dampingFraction * mass / response, Mass: mass);
+[Union]
+public abstract partial record MotionClock {
+    private MotionClock() { }
+    public sealed record IdleLoopCase : MotionClock;
+    public sealed record DisplayLinkCase(Option<CAFrameRateRange> Rate) : MotionClock;
+    public sealed record TimerCase(double IntervalSeconds) : MotionClock { internal bool IsValid => double.IsFinite(IntervalSeconds) && IntervalSeconds >= 1.0 / 60.0; }
+
+    public static readonly MotionClock IdleLoop = new IdleLoopCase();
+    public static MotionClock DisplayLink(Option<CAFrameRateRange> rate = default) => new DisplayLinkCase(Rate: rate);
+    [SupportedOSPlatform("macos14.0")]
+    public static Fin<MotionClock> DisplayLink(float min, float max, float preferred) =>
+        from _ in guard(min > 0f && max >= min && preferred >= min && preferred <= max, Op.Of(name: nameof(DisplayLink)).InvalidInput())
+        from clock in Fin.Succ<MotionClock>(value: new DisplayLinkCase(Rate: Some(CAFrameRateRange.Create(minimum: min, maximum: max, preferred: preferred))))
+        select clock;
+    public static Fin<MotionClock> UITimer(double intervalSeconds = 1.0 / 60.0) =>
+        new TimerCase(IntervalSeconds: intervalSeconds) switch {
+            { IsValid: true } c => Fin.Succ<MotionClock>(value: c),
+            _ => Fin.Fail<MotionClock>(error: Op.Of(name: nameof(UITimer)).InvalidInput()),
+        };
+}
+
+public abstract record MotionSpec<TValue, TVelocity> {
+    private MotionSpec() { }
+    public sealed record Spring(TValue From, TValue To, SpringConfig Config, IMotionVector<TValue, TVelocity> Vector, Option<TVelocity> InitialVelocity = default) : MotionSpec<TValue, TVelocity> {
+        internal override TOut Fold<TOut>(Func<Spring, TOut> spring, Func<Tween, TOut> tween, Func<Pulse, TOut> pulse, Func<Sequence, TOut> sequence, Func<Decay, TOut> decay) => spring(arg: this);
     }
+    public sealed record Tween(TValue From, TValue To, TimeSpan Duration, Easing Easing, IMotionVector<TValue, TVelocity> Vector) : MotionSpec<TValue, TVelocity> {
+        internal override TOut Fold<TOut>(Func<Spring, TOut> spring, Func<Tween, TOut> tween, Func<Pulse, TOut> pulse, Func<Sequence, TOut> sequence, Func<Decay, TOut> decay) => tween(arg: this);
+    }
+    public sealed record Pulse(TValue From, TValue To, TimeSpan Duration, Easing Easing, IMotionVector<TValue, TVelocity> Vector, int Cycles = 1, bool Yoyo = false, bool Infinite = false) : MotionSpec<TValue, TVelocity> {
+        internal override TOut Fold<TOut>(Func<Spring, TOut> spring, Func<Tween, TOut> tween, Func<Pulse, TOut> pulse, Func<Sequence, TOut> sequence, Func<Decay, TOut> decay) => pulse(arg: this);
+    }
+    public sealed record Sequence(TValue Start, Seq<(TValue Target, TimeSpan Duration, Easing Easing)> Steps, IMotionVector<TValue, TVelocity> Vector) : MotionSpec<TValue, TVelocity> {
+        internal override TOut Fold<TOut>(Func<Spring, TOut> spring, Func<Tween, TOut> tween, Func<Pulse, TOut> pulse, Func<Sequence, TOut> sequence, Func<Decay, TOut> decay) => sequence(arg: this);
+    }
+    public sealed record Decay(TValue From, TVelocity Velocity, double Friction, IMotionVector<TValue, TVelocity> Vector) : MotionSpec<TValue, TVelocity> {
+        internal override TOut Fold<TOut>(Func<Spring, TOut> spring, Func<Tween, TOut> tween, Func<Pulse, TOut> pulse, Func<Sequence, TOut> sequence, Func<Decay, TOut> decay) => decay(arg: this);
+    }
+
+    internal abstract TOut Fold<TOut>(
+        Func<Spring, TOut> spring,
+        Func<Tween, TOut> tween,
+        Func<Pulse, TOut> pulse,
+        Func<Sequence, TOut> sequence,
+        Func<Decay, TOut> decay);
+}
+
+[Union]
+public abstract partial record RedrawTarget {
+    private RedrawTarget() { }
+    public sealed record View(RhinoView Value) : RedrawTarget;
+    public sealed record Document(RhinoDoc Value, Option<RhinoView> Only = default) : RedrawTarget;
+    public sealed record Canvas(Action Invalidate) : RedrawTarget;
+    internal Unit Repaint() => Switch(
+        view: static v => Op.Side(() => v.Value.Redraw()),
+        document: static d => (d.Only | Optional(d.Value.Views.ActiveView)).Case switch {
+            RhinoView one => Op.Side(() => one.Redraw()),
+            _ => Op.Side(() => d.Value.Views.Redraw(deferred: true)),
+        },
+        canvas: static c => Op.Side(() => c.Invalidate()));
 }
 
 [SmartEnum<int>]
@@ -99,7 +138,50 @@ public sealed partial class SpringPreset {
         new(key: key, config: SpringConfig.Tuned(response: response, dampingFraction: dampingFraction, mass: 1f), label: label);
 }
 
-// Semi-implicit Euler: F = -k·x - b·v ; a = F/m ; v += a·dt ; x += v·dt. TimeProvider-injected for FakeTimeProvider tests.
+internal interface IMotionState<TSelf> where TSelf : struct, IMotionState<TSelf> {
+    public TSelf Step();
+    public Unit Emit();
+    public bool IsActive { get; }
+}
+
+// --- [MODELS] -----------------------------------------------------------------------------
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct MotionColor(double A, double R, double G, double B) {
+    public static MotionColor FromDrawing(DrawingColor c) => new(A: c.A, R: c.R, G: c.G, B: c.B);
+
+    public DrawingColor Project() =>
+        DrawingColor.FromArgb(alpha: Channel(value: A), red: Channel(value: R), green: Channel(value: G), blue: Channel(value: B));
+
+    private static int Channel(double value) =>
+        Math.Clamp(value: (int)Math.Round(value, MidpointRounding.ToEven), min: 0, max: 255);
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct SpringConfig(float Stiffness, float Damping, float Mass) {
+    internal const double MaxDt = 1.0 / 30.0;   // dt clamp prevents spring blowup on GC/debugger stalls (30fps floor); single location
+
+    public static Fin<SpringConfig> Response(float response, float dampingFraction, float mass = 1f) =>
+        from _ in guard(float.IsFinite(response) && response > 0f && float.IsFinite(dampingFraction) && dampingFraction >= 0f && float.IsFinite(mass) && mass > 0f, Op.Of(name: nameof(Response)).InvalidInput())
+        from config in Fin.Succ(value: Tuned(response: response, dampingFraction: dampingFraction, mass: mass))
+        select config;
+
+    internal static SpringConfig Tuned(float response, float dampingFraction, float mass) {
+        float twoPiOverR = (float)(2.0 * Math.PI) / response;
+        return new SpringConfig(Stiffness: twoPiOverR * twoPiOverR * mass, Damping: 4f * (float)Math.PI * dampingFraction * mass / response, Mass: mass);
+    }
+}
+
+internal readonly record struct DecayRunnerState<TValue, TVelocity>(TValue Value, TVelocity Velocity, double Friction, IMotionVector<TValue, TVelocity> Vector, Action<TValue> Sink, TimeProvider Clock, long Timestamp) : IMotionState<DecayRunnerState<TValue, TVelocity>> {
+    public DecayRunnerState<TValue, TVelocity> Step() {
+        long now = Clock.GetTimestamp();
+        double dt = Math.Min(val1: Clock.GetElapsedTime(startingTimestamp: Timestamp, endingTimestamp: now).TotalSeconds, val2: SpringConfig.MaxDt);
+        TVelocity velocity = Vector.Scale(Velocity, Math.Exp(-Friction * dt));
+        return this with { Value = Vector.Move(value: Value, delta: Vector.Scale(velocity, dt)), Velocity = velocity, Timestamp = now };
+    }
+    public Unit Emit() { Sink(Value); return unit; }
+    public bool IsActive => Vector.Norm(Velocity) >= Vector.RestEpsilon;
+}
+
 internal readonly record struct SpringRunnerState<TValue, TVelocity>(TValue Value, TVelocity Velocity, TValue Target, SpringConfig Config, IMotionVector<TValue, TVelocity> Vector, Action<TValue> Sink, TimeProvider Clock, long Timestamp) : IMotionState<SpringRunnerState<TValue, TVelocity>> {
     public SpringRunnerState<TValue, TVelocity> Step() {
         long now = Clock.GetTimestamp();
@@ -114,7 +196,6 @@ internal readonly record struct SpringRunnerState<TValue, TVelocity>(TValue Valu
     public bool IsActive => !((Vector.Distance(Value, Target) < Vector.RestEpsilon) && (Vector.Norm(Velocity) < Vector.RestEpsilon));
 }
 
-// Timed runner covers Tween, Sequence, and Pulse. Rest drives one-shot sequences; yoyo/cycles drive repeating pulses.
 internal readonly record struct TimedRunnerState<TValue, TVelocity>(TValue From, TValue To, TimeSpan Duration, Easing Easing, Seq<(TValue Target, TimeSpan Duration, Easing Easing)> Rest, bool Yoyo, bool Infinite, int CyclesRemaining, IMotionVector<TValue, TVelocity> Vector, Action<TValue> Sink, TimeProvider Clock, long Start) : IMotionState<TimedRunnerState<TValue, TVelocity>> {
     public TimedRunnerState<TValue, TVelocity> Step() =>
         (Elapsed, Rest.IsEmpty, Infinite || CyclesRemaining > 0) switch {
@@ -132,88 +213,7 @@ internal readonly record struct TimedRunnerState<TValue, TVelocity>(TValue From,
     private bool Elapsed => Clock.GetElapsedTime(startingTimestamp: Start).TotalSeconds >= Duration.TotalSeconds;
 }
 
-// Inertial decay: v *= e^(-friction*dt) each step; x += v*dt. Rests once |v| drops below the vector epsilon.
-internal readonly record struct DecayRunnerState<TValue, TVelocity>(TValue Value, TVelocity Velocity, double Friction, IMotionVector<TValue, TVelocity> Vector, Action<TValue> Sink, TimeProvider Clock, long Timestamp) : IMotionState<DecayRunnerState<TValue, TVelocity>> {
-    public DecayRunnerState<TValue, TVelocity> Step() {
-        long now = Clock.GetTimestamp();
-        double dt = Math.Min(val1: Clock.GetElapsedTime(startingTimestamp: Timestamp, endingTimestamp: now).TotalSeconds, val2: SpringConfig.MaxDt);
-        TVelocity velocity = Vector.Scale(Velocity, Math.Exp(-Friction * dt));
-        return this with { Value = Vector.Move(value: Value, delta: Vector.Scale(velocity, dt)), Velocity = velocity, Timestamp = now };
-    }
-    public Unit Emit() { Sink(Value); return unit; }
-    public bool IsActive => Vector.Norm(Velocity) >= Vector.RestEpsilon;
-}
-
-// IdleLoop = RhinoApp.Idle+MainLoop coalesced ~60Hz (always available). DisplayLink = CADisplayLink vsync (macOS 14+).
-// UITimer = Eto.Forms.UITimer cross-platform fixed-interval clock (deterministic; no macOS-14 floor, no idle coupling).
-[Union]
-public abstract partial record MotionClock {
-    private MotionClock() { }
-    public sealed record IdleLoopCase : MotionClock;
-    public sealed record DisplayLinkCase(Option<CAFrameRateRange> Rate) : MotionClock;
-    public sealed record TimerCase(double IntervalSeconds) : MotionClock { internal bool IsValid => double.IsFinite(IntervalSeconds) && IntervalSeconds >= 1.0 / 60.0; }
-
-    public static readonly MotionClock IdleLoop = new IdleLoopCase();
-    public static MotionClock DisplayLink(Option<CAFrameRateRange> rate = default) => new DisplayLinkCase(Rate: rate);
-    // Validated bounds -> CAFrameRateRange at spec-time (invalid ranges fail the rail); macOS 14+ like the rest of the DisplayLink path.
-    [SupportedOSPlatform("macos14.0")]
-    public static Fin<MotionClock> DisplayLink(float min, float max, float preferred) =>
-        from _ in guard(min > 0f && max >= min && preferred >= min && preferred <= max, Op.Of(name: nameof(DisplayLink)).InvalidInput())
-        from clock in Fin.Succ<MotionClock>(value: new DisplayLinkCase(Rate: Some(CAFrameRateRange.Create(minimum: min, maximum: max, preferred: preferred))))
-        select clock;
-    public static Fin<MotionClock> UITimer(double intervalSeconds = 1.0 / 60.0) =>
-        new TimerCase(IntervalSeconds: intervalSeconds) switch {
-            { IsValid: true } c => Fin.Succ<MotionClock>(value: c),
-            _ => Fin.Fail<MotionClock>(error: Op.Of(name: nameof(UITimer)).InvalidInput()),
-        };
-}
-
-[Union]
-public abstract partial record RedrawTarget {
-    private RedrawTarget() { }
-    public sealed record View(RhinoView Value) : RedrawTarget;
-    public sealed record Document(RhinoDoc Value, Option<RhinoView> Only = default) : RedrawTarget;
-    public sealed record Canvas(Action Invalidate) : RedrawTarget;
-
-    // Document arm resolves to the SAME single view the DisplayLink paces (Only | ActiveView) and calls per-view
-    // RhinoView.Redraw() == CRhinoView_Redraw == InvalidateRect->WM_PAINT (non-blocking, OS-coalesced), keeping the painted
-    // surface identical to the paced surface (no all-views over-invalidation per 60-120Hz tick). Verdict from deep API/doc
-    // research: (1) RhinoDoc.RedrawAndReturnImmediately is a GH2 extension that just loops all views' Redraw() — adopting it
-    // would over-invalidate every viewport per tick; rejected. (2) No RedrawEnabled gate: CRhinoView_Redraw bypasses that doc
-    // flag by design, and overlay ticks are conduit-feedback paints (GetPoint-class), not the geometry-edit bursts the flag
-    // coalesces. The coalesced all-views ViewTable.Redraw(deferred:true) is the fallback ONLY when no view resolves (headless).
-    internal Unit Repaint() => Switch(
-        view: static v => Op.Side(() => v.Value.Redraw()),
-        document: static d => (d.Only | Optional(d.Value.Views.ActiveView)).Case switch {
-            RhinoView one => Op.Side(() => one.Redraw()),
-            _ => Op.Side(() => d.Value.Views.Redraw(deferred: true)),
-        },
-        canvas: static c => Op.Side(() => c.Invalidate()));
-}
-
-// Plain abstract record (NOT [Union]): generic union forces `allows ref struct` under the source generator,
-// incompatible with record cases (see Commands/Command.cs PromptTransition). Motion.Run matches cases directly.
-public abstract record MotionSpec<TValue, TVelocity> {
-    private MotionSpec() { }
-    public sealed record Spring(TValue From, TValue To, SpringConfig Config, IMotionVector<TValue, TVelocity> Vector, Option<TVelocity> InitialVelocity = default) : MotionSpec<TValue, TVelocity>;
-    public sealed record Tween(TValue From, TValue To, TimeSpan Duration, Easing Easing, IMotionVector<TValue, TVelocity> Vector) : MotionSpec<TValue, TVelocity>;
-    public sealed record Pulse(TValue From, TValue To, TimeSpan Duration, Easing Easing, IMotionVector<TValue, TVelocity> Vector, int Cycles = 1, bool Yoyo = false, bool Infinite = false) : MotionSpec<TValue, TVelocity>;
-    public sealed record Sequence(TValue Start, Seq<(TValue Target, TimeSpan Duration, Easing Easing)> Steps, IMotionVector<TValue, TVelocity> Vector) : MotionSpec<TValue, TVelocity>;
-    // Inertial deceleration: no target, friction-driven velocity decay (v *= e^(-friction*dt)); rest when |v| < ε.
-    public sealed record Decay(TValue From, TVelocity Velocity, double Friction, IMotionVector<TValue, TVelocity> Vector) : MotionSpec<TValue, TVelocity>;
-}
-
-public static class MotionSpec {   // inference-friendly factories: MotionSpec.Spring(...) infers TValue
-    public static MotionSpec<T, TV>.Spring Spring<T, TV>(T from, T to, SpringConfig config, IMotionVector<T, TV> vector, Option<TV> initialVelocity = default) => new(From: from, To: to, Config: config, Vector: vector, InitialVelocity: initialVelocity);
-    public static MotionSpec<T, TV>.Tween Tween<T, TV>(T from, T to, TimeSpan duration, Easing easing, IMotionVector<T, TV> vector) => new(From: from, To: to, Duration: duration, Easing: easing, Vector: vector);
-    public static MotionSpec<T, TV>.Pulse Pulse<T, TV>(T from, T to, TimeSpan duration, Easing easing, IMotionVector<T, TV> vector, int cycles = 1, bool yoyo = false, bool infinite = false) => new(From: from, To: to, Duration: duration, Easing: easing, Vector: vector, Cycles: cycles, Yoyo: yoyo, Infinite: infinite);
-    public static MotionSpec<T, TV>.Sequence Sequence<T, TV>(T start, Seq<(T Target, TimeSpan Duration, Easing Easing)> steps, IMotionVector<T, TV> vector) => new(Start: start, Steps: steps, Vector: vector);
-    public static MotionSpec<T, TV>.Decay Decay<T, TV>(T from, TV velocity, double friction, IMotionVector<T, TV> vector) => new(From: from, Velocity: velocity, Friction: friction, Vector: vector);
-}
-
-// Live-steerable, disposable handle over a running motion. Retarget CASes the runner Atom, then re-attaches the
-// driver ONLY on the rested edge (no per-frame re-subscribe while active, no leak). Mirrors the sleep/wake of
-// Rasm.Grasshopper.UI.SpringHandle; IDisposable so bare fire-and-forget sites compile.
+// --- [SERVICES] ---------------------------------------------------------------------------
 public sealed class MotionHandle<TValue, TVelocity> : IDisposable {
     internal readonly record struct Steering(Func<TValue, Option<TVelocity>, Fin<Unit>> Retarget, Func<TVelocity> Velocity);
 
@@ -233,31 +233,6 @@ public sealed class MotionHandle<TValue, TVelocity> : IDisposable {
     public void Dispose() => disposer.Dispose();
 }
 
-// --- [VECTORS] ----------------------------------------------------------------------------
-internal sealed class MotionVectorImpl<T>(T zero, double restEpsilon, Func<T, T, T> add, Func<T, T, T> subtract, Func<T, double, T> scale, Func<T, double> norm, Func<T, T, double, T> lerp) : IMotionVector<T> {
-    public T ZeroVelocity { get; } = zero;
-    public double RestEpsilon { get; } = restEpsilon;
-    public T Add(T a, T b) => add(arg1: a, arg2: b);
-    public T Delta(T from, T target) => subtract(arg1: target, arg2: from);
-    public T Scale(T value, double scalar) => scale(arg1: value, arg2: scalar);
-    public T Move(T value, T delta) => add(arg1: value, arg2: delta);
-    public double Norm(T value) => norm(arg: value);
-    public T Lerp(T a, T b, double t) => lerp(arg1: a, arg2: b, arg3: t);
-}
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct MotionColor(double A, double R, double G, double B) {
-    public static MotionColor FromDrawing(DrawingColor c) => new(A: c.A, R: c.R, G: c.G, B: c.B);
-
-    public DrawingColor Project() =>
-        DrawingColor.FromArgb(alpha: Channel(value: A), red: Channel(value: R), green: Channel(value: G), blue: Channel(value: B));
-
-    private static int Channel(double value) =>
-        Math.Clamp(value: (int)Math.Round(value, MidpointRounding.ToEven), min: 0, max: 255);
-}
-
-// Single working space: value AND velocity are MotionColor (double channels). Move stays in double space so sub-unit
-// spring velocity never byte-quantizes to zero (the never-rest defect); tween/pulse Lerp still routes through OKLab.
 internal sealed class MotionColorVector : IMotionVector<MotionColor, MotionColor> {
     public MotionColor ZeroVelocity { get; } = new(A: 0.0, R: 0.0, G: 0.0, B: 0.0);
     public double RestEpsilon => 0.5;                                  // half a code value in linear 0..255
@@ -275,21 +250,6 @@ internal sealed class MotionColorVector : IMotionVector<MotionColor, MotionColor
         MotionColor.FromDrawing(MotionVector.OklabInterpolate(a: a.Project(), b: b.Project(), factor: t));
 }
 
-// SO(3) geodesic rotation: native Quaternion.Slerp for the orientation interpolant (NOT cellwise matrix lerp, which
-// shears). Move re-unitizes so accumulated spring integration stays on the unit hypersphere.
-internal sealed class MotionRotationVector : IMotionVector<Quaternion> {
-    public Quaternion ZeroVelocity { get; } = Quaternion.Zero;
-    public double RestEpsilon => 1e-4;
-    public Quaternion Delta(Quaternion from, Quaternion target) => target - from;
-    public Quaternion Add(Quaternion a, Quaternion b) => a + b;
-    public Quaternion Scale(Quaternion v, double s) => v * s;
-    public Quaternion Move(Quaternion v, Quaternion d) => Unit(v + d);
-    public double Norm(Quaternion v) => v.Length;
-    public Quaternion Lerp(Quaternion a, Quaternion b, double t) => Quaternion.Slerp(a, b, t);
-    private static Quaternion Unit(Quaternion q) { Quaternion r = q; _ = r.Unitize(); return r; }
-}
-
-// Rigid pose: decompose Transform -> (rotation quaternion, translation), slerp rotation + lerp translation, recompose.
 internal sealed class MotionPoseVector : IMotionVector<Transform, (Quaternion R, Vector3d T)> {
     private static readonly MotionRotationVector Q = new();
     public (Quaternion R, Vector3d T) ZeroVelocity => (Quaternion.Zero, Vector3d.Zero);
@@ -315,13 +275,60 @@ internal sealed class MotionPoseVector : IMotionVector<Transform, (Quaternion R,
     private static Transform Compose(Quaternion r, Vector3d t) { Transform m = r.MatrixForm(); m[0, 3] = t.X; m[1, 3] = t.Y; m[2, 3] = t.Z; return m; }
 }
 
+internal sealed class MotionRotationVector : IMotionVector<Quaternion> {
+    public Quaternion ZeroVelocity { get; } = Quaternion.Zero;
+    public double RestEpsilon => 1e-4;
+    public Quaternion Delta(Quaternion from, Quaternion target) => target - from;
+    public Quaternion Add(Quaternion a, Quaternion b) => a + b;
+    public Quaternion Scale(Quaternion v, double s) => v * s;
+    public Quaternion Move(Quaternion v, Quaternion d) => Unit(v + d);
+    public double Norm(Quaternion v) => v.Length;
+    public Quaternion Lerp(Quaternion a, Quaternion b, double t) => Quaternion.Slerp(a, b, t);
+    private static Quaternion Unit(Quaternion q) { Quaternion r = q; _ = r.Unitize(); return r; }
+}
+
+internal sealed class MotionVectorImpl<T>(T zero, double restEpsilon, Func<T, T, T> add, Func<T, T, T> subtract, Func<T, double, T> scale, Func<T, double> norm, Func<T, T, double, T> lerp) : IMotionVector<T> {
+    public T ZeroVelocity { get; } = zero;
+    public double RestEpsilon { get; } = restEpsilon;
+    public T Add(T a, T b) => add(arg1: a, arg2: b);
+    public T Delta(T from, T target) => subtract(arg1: target, arg2: from);
+    public T Scale(T value, double scalar) => scale(arg1: value, arg2: scalar);
+    public T Move(T value, T delta) => add(arg1: value, arg2: delta);
+    public double Norm(T value) => norm(arg: value);
+    public T Lerp(T a, T b, double t) => lerp(arg1: a, arg2: b, arg3: t);
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+public static class MotionRail {
+    public static Fin<MotionHandle<TValue, TVelocity>> Animate<TState, TValue, TVelocity>(this UiCanvas<TState> canvas, MotionSpec<TValue, TVelocity> spec, Action<TValue> sink, MotionClock? clock = null, TimeProvider? timeSource = null) =>
+        Op.Of(name: nameof(Animate)).Need(canvas).Bind(valid => Motion.Run(spec: spec, sink: sink, target: new RedrawTarget.Canvas(valid.Invalidate), clock: clock ?? MotionClock.IdleLoop, timeSource: timeSource));
+
+    public static Fin<MotionHandle<TValue, TVelocity>> Animate<TState, TValue, TVelocity>(this RasmOverlay<TState> overlay, RhinoDoc document, MotionSpec<TValue, TVelocity> spec, Func<TState, TValue, TState> transition, MotionClock? clock = null, TimeProvider? timeSource = null) =>
+        from validOverlay in Op.Of(name: nameof(Animate)).Need(overlay)
+        from validDocument in Op.Of(name: nameof(Animate)).Need(document)
+        from validTransition in Op.Of(name: nameof(Animate)).Need(transition)
+        from handle in Motion.Run(
+            spec: spec,
+            sink: value => _ = validOverlay.Transition(transition: state => validTransition(arg1: state, arg2: value), document: validDocument),
+            target: new RedrawTarget.Document(Value: validDocument),
+            clock: clock ?? MotionClock.IdleLoop,
+            timeSource: timeSource)
+        select handle;
+}
+
+public static class MotionSpec {   // inference-friendly factories: MotionSpec.Spring(...) infers TValue
+    public static MotionSpec<T, TV>.Spring Spring<T, TV>(T from, T to, SpringConfig config, IMotionVector<T, TV> vector, Option<TV> initialVelocity = default) => new(From: from, To: to, Config: config, Vector: vector, InitialVelocity: initialVelocity);
+    public static MotionSpec<T, TV>.Tween Tween<T, TV>(T from, T to, TimeSpan duration, Easing easing, IMotionVector<T, TV> vector) => new(From: from, To: to, Duration: duration, Easing: easing, Vector: vector);
+    public static MotionSpec<T, TV>.Pulse Pulse<T, TV>(T from, T to, TimeSpan duration, Easing easing, IMotionVector<T, TV> vector, int cycles = 1, bool yoyo = false, bool infinite = false) => new(From: from, To: to, Duration: duration, Easing: easing, Vector: vector, Cycles: cycles, Yoyo: yoyo, Infinite: infinite);
+    public static MotionSpec<T, TV>.Sequence Sequence<T, TV>(T start, Seq<(T Target, TimeSpan Duration, Easing Easing)> steps, IMotionVector<T, TV> vector) => new(Start: start, Steps: steps, Vector: vector);
+    public static MotionSpec<T, TV>.Decay Decay<T, TV>(T from, TV velocity, double friction, IMotionVector<T, TV> vector) => new(From: from, Velocity: velocity, Friction: friction, Vector: vector);
+}
+
 public static class MotionVector {
     private const double ScalarRest = 0.001;
     private const double PixelRest = 0.5;
     private const double SpatialRest = 0.001;
     private const double MatrixRest = 1e-4;
-
-    // One inferred factory feeds every per-type field (T fixed by `zero`); concrete return (CA1859) — fields widen to IMotionVector<T>.
     private static MotionVectorImpl<T> Of<T>(T zero, double restEpsilon, Func<T, T, T> add, Func<T, T, T> sub, Func<T, double, T> scale, Func<T, double> norm, Func<T, T, double, T> lerp) =>
         new(zero: zero, restEpsilon: restEpsilon, add: add, subtract: sub, scale: scale, norm: norm, lerp: lerp);
 
@@ -352,8 +359,6 @@ public static class MotionVector {
         add: static (a, b) => a + b, sub: static (a, b) => a - b, scale: static (v, s) => v * s,
         norm: static v => v.Length,
         lerp: static (a, b, t) => a + ((b - a) * t));
-    // Cellwise lerp is correct for translation / uniform-scale / shear, but is NOT a rotation interpolant: the intermediate
-    // matrix is non-orthonormal and shears between orientations. Rigid orbit/gizmo consumers must use MotionVector.Pose.
     public static readonly IMotionVector<Transform> Matrix = Of(
         zero: Transform.ZeroTransformation, restEpsilon: MatrixRest,
         add: static (a, b) => Zip(a, b, static (x, y) => x + y),
@@ -364,15 +369,11 @@ public static class MotionVector {
     public static readonly IMotionVector<MotionColor, MotionColor> Color = new MotionColorVector();
     public static readonly IMotionVector<Quaternion> Rotation = new MotionRotationVector();
     public static readonly IMotionVector<Transform, (Quaternion R, Vector3d T)> Pose = new MotionPoseVector();
-
-    // BOUNDARY ADAPTER - Transform is a 4x4 value matrix; Fold threads it by value, mutating via indexer per cell.
     private static Transform Zip(Transform a, Transform b, Func<double, double, double> f) =>
         toSeq(Enumerable.Range(start: 0, count: 16)).Fold(Transform.ZeroTransformation, (acc, i) => { acc[i / 4, i % 4] = f(arg1: a[i / 4, i % 4], arg2: b[i / 4, i % 4]); return acc; });
     private static Transform Map(Transform a, Func<double, double> f) =>
         toSeq(Enumerable.Range(start: 0, count: 16)).Fold(Transform.ZeroTransformation, (acc, i) => { acc[i / 4, i % 4] = f(arg: a[i / 4, i % 4]); return acc; });
     private static int Channel(float normalized) => Math.Clamp(value: (int)Math.Round(normalized * 255f, MidpointRounding.ToEven), min: 0, max: 255);
-
-    // OKLab constants MUST match Rasm.Grasshopper.UI.MotionVector verbatim (Ottosson 2020 / CSS Color Level 4).
     internal static DrawingColor OklabInterpolate(DrawingColor a, DrawingColor b, double factor) {
         (float la, float aa, float ba) = SrgbToOklab(a);
         (float lb, float ab, float bb) = SrgbToOklab(b);
@@ -415,11 +416,14 @@ public static class MotionVector {
     private static float LinearToSrgb(float c) => c <= 0.0031308f ? 12.92f * c : (1.055f * MathF.Pow(c, 1f / 2.4f)) - 0.055f;
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
+public static partial class UiViewportRequest {
+    public static UiIntent<MotionHandle<TValue, TVelocity>> Animate<TValue, TVelocity>(MotionSpec<TValue, TVelocity> spec, RhinoView view, Action<TValue> sink, MotionClock? clock = null, TimeProvider? timeSource = null) =>
+        UiIntent.OfScope(run: _ => Motion.Run(spec: spec, sink: sink, target: new RedrawTarget.View(view), clock: clock ?? MotionClock.IdleLoop, timeSource: timeSource), interactive: false);
+}
+
 internal static class Motion {
     internal static Fin<MotionHandle<TValue, TVelocity>> Run<TValue, TVelocity>(MotionSpec<TValue, TVelocity> spec, Action<TValue> sink, RedrawTarget target, MotionClock clock, TimeProvider? timeSource = null) {
         TimeProvider resolved = timeSource ?? TimeProvider.System;
-        // WCAG reduced-motion (macOS 14+): snap to the terminal value once and return an inert handle.
         return from validSink in Op.Of(name: nameof(Run)).Need(sink)
                from validSpec in Op.Of(name: nameof(Run)).Need(spec)
                from _ in Admit(spec: validSpec)
@@ -434,15 +438,12 @@ internal static class Motion {
     }
 
     private static Fin<Unit> Admit<TValue, TVelocity>(MotionSpec<TValue, TVelocity> spec) =>
-        spec switch {
-            MotionSpec<TValue, TVelocity>.Tween t when t.Duration > TimeSpan.Zero => Fin.Succ(value: unit),
-            MotionSpec<TValue, TVelocity>.Pulse { Duration: TimeSpan duration, Infinite: true } when duration > TimeSpan.Zero => Fin.Succ(value: unit),
-            MotionSpec<TValue, TVelocity>.Pulse { Duration: TimeSpan duration, Cycles: > 0 } when duration > TimeSpan.Zero => Fin.Succ(value: unit),
-            MotionSpec<TValue, TVelocity>.Sequence q when q.Steps.ForAll(static step => step.Duration > TimeSpan.Zero) => Fin.Succ(value: unit),
-            MotionSpec<TValue, TVelocity>.Decay d when double.IsFinite(d.Friction) && d.Friction > 0d => Fin.Succ(value: unit),
-            MotionSpec<TValue, TVelocity>.Spring => Fin.Succ(value: unit),
-            _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Run)).InvalidInput()),
-        };
+        spec.Fold(
+            spring: static _ => Fin.Succ(value: unit),
+            tween: static t => t.Duration > TimeSpan.Zero ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Op.Of(name: nameof(Run)).InvalidInput()),
+            pulse: static p => p.Duration > TimeSpan.Zero && (p.Infinite || p.Cycles > 0) ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Op.Of(name: nameof(Run)).InvalidInput()),
+            sequence: static q => q.Steps.ForAll(static step => step.Duration > TimeSpan.Zero) ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Op.Of(name: nameof(Run)).InvalidInput()),
+            decay: static d => double.IsFinite(d.Friction) && d.Friction > 0d ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Op.Of(name: nameof(Run)).InvalidInput()));
 
     private static bool ReduceMotion =>
         OperatingSystem.IsMacOSVersionAtLeast(major: 14) && ShouldReduceMotion();
@@ -451,35 +452,31 @@ internal static class Motion {
     private static bool ShouldReduceMotion() => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion;
 
     private static Fin<MotionHandle<TValue, TVelocity>> Dispatch<TValue, TVelocity>(MotionSpec<TValue, TVelocity> spec, Action<TValue> sink, RedrawTarget target, MotionClock clock, TimeProvider resolved) =>
-        spec switch {
-            MotionSpec<TValue, TVelocity>.Spring s => Drive(
+        spec.Fold(
+            spring: s => Drive(
                 initial: MakeSpring(spec: s, sink: sink, clock: resolved), target: target, clock: clock,
                 steering: cell => new MotionHandle<TValue, TVelocity>.Steering(
                     Retarget: (toValue, velocity) => Fin.Succ(value: Op.Side(() => cell.Swap(state => state with { Target = toValue, Velocity = velocity.IfNone(state.Velocity) }))),
                     Velocity: () => cell.Value.Velocity)),
-            MotionSpec<TValue, TVelocity>.Decay d => Drive(
+            decay: d => Drive(
                 initial: MakeDecay(spec: d, sink: sink, clock: resolved), target: target, clock: clock,
                 steering: cell => new MotionHandle<TValue, TVelocity>.Steering(
                     Retarget: (_, velocity) => Fin.Succ(value: Op.Side(() => cell.Swap(state => state with { Velocity = velocity.IfNone(state.Velocity) }))),
                     Velocity: () => cell.Value.Velocity)),
-            MotionSpec<TValue, TVelocity>.Tween t => Drive(
+            tween: t => Drive(
                 initial: MakeTimed(from: t.From, to: t.To, duration: t.Duration, easing: t.Easing, rest: Seq<(TValue, TimeSpan, Easing)>(), yoyo: false, infinite: false, cycles: 0, vector: t.Vector, sink: sink, clock: resolved), target: target, clock: clock, steering: ReseedTimed(vector: t.Vector)),
-            MotionSpec<TValue, TVelocity>.Pulse p => Drive(
+            pulse: p => Drive(
                 initial: MakeTimed(from: p.From, to: p.To, duration: p.Duration, easing: p.Easing, rest: Seq<(TValue, TimeSpan, Easing)>(), yoyo: p.Yoyo, infinite: p.Infinite, cycles: Math.Max(val1: 0, val2: p.Cycles - 1), vector: p.Vector, sink: sink, clock: resolved), target: target, clock: clock, steering: ReseedTimed(vector: p.Vector)),
-            MotionSpec<TValue, TVelocity>.Sequence q => Drive(
-                initial: MakeSequence(spec: q, sink: sink, clock: resolved), target: target, clock: clock, steering: ReseedTimed(vector: q.Vector)),
-            _ => Fin.Fail<MotionHandle<TValue, TVelocity>>(error: Op.Of(name: nameof(Run)).InvalidInput()),
-        };
+            sequence: q => Drive(
+                initial: MakeSequence(spec: q, sink: sink, clock: resolved), target: target, clock: clock, steering: ReseedTimed(vector: q.Vector)));
 
     private static Fin<MotionHandle<TValue, TVelocity>> Settle<TValue, TVelocity>(MotionSpec<TValue, TVelocity> spec, Action<TValue> sink, RedrawTarget target) {
-        Fin<(TValue Terminal, IMotionVector<TValue, TVelocity> Vector)> resolved = spec switch {
-            MotionSpec<TValue, TVelocity>.Spring s => Fin.Succ(value: (s.To, s.Vector)),
-            MotionSpec<TValue, TVelocity>.Decay d => Fin.Succ(value: (d.From, d.Vector)),
-            MotionSpec<TValue, TVelocity>.Tween t => Fin.Succ(value: (t.To, t.Vector)),
-            MotionSpec<TValue, TVelocity>.Pulse p => Fin.Succ(value: ((p.Yoyo, p.Infinite, p.Cycles % 2) switch { (true, false, 0) => p.From, _ => p.To }, p.Vector)),
-            MotionSpec<TValue, TVelocity>.Sequence q => Fin.Succ(value: (q.Steps.IsEmpty ? q.Start : q.Steps[q.Steps.Count - 1].Target, q.Vector)),
-            _ => Fin.Fail<(TValue, IMotionVector<TValue, TVelocity>)>(error: Op.Of(name: nameof(Run)).InvalidInput()),
-        };
+        Fin<(TValue Terminal, IMotionVector<TValue, TVelocity> Vector)> resolved = spec.Fold(
+            spring: static s => Fin.Succ(value: (s.To, s.Vector)),
+            tween: static t => Fin.Succ(value: (t.To, t.Vector)),
+            pulse: static p => Fin.Succ(value: ((p.Yoyo, p.Infinite, p.Cycles % 2) switch { (true, false, 0) => p.From, _ => p.To }, p.Vector)),
+            sequence: static q => Fin.Succ(value: (q.Steps.IsEmpty ? q.Start : q.Steps[q.Steps.Count - 1].Target, q.Vector)),
+            decay: static d => Fin.Succ(value: (d.From, d.Vector)));
         return resolved.Map(pair => {
             sink(pair.Terminal);
             _ = target.Repaint();
@@ -535,7 +532,6 @@ internal static class Motion {
             idleLoopCase: _ => IdleDriver(runner: runner, target: target, pump: p),
             displayLinkCase: link => DisplayOrFallback(runner: runner, target: target, rate: link.Rate, pump: p),
             timerCase: timer => UiTimerDriver(runner: runner, target: target, interval: timer.IntervalSeconds, pump: p)));
-        // BOUNDARY ADAPTER - pump ownership transfers to the handle on success; dispose it if Begin never attached a driver.
         try {
             return pump.Begin().Map(_ => {
                 MotionPump owned = pump!;
@@ -546,8 +542,6 @@ internal static class Motion {
             pump?.Dispose();
         }
     }
-
-    // One tick body shared by every driver: step the runner, repaint, and self-detach the pump on the rested edge.
     private static Action Pulse<TState>(MotionRunner<TState> runner, RedrawTarget target, MotionPump pump) where TState : struct, IMotionState<TState> =>
         () => _ = RhinoUi.Protect(valid: () => {
             bool active = runner.Tick();
@@ -560,7 +554,6 @@ internal static class Motion {
         });
 
     private static Fin<IDisposable> IdleDriver<TState>(MotionRunner<TState> runner, RedrawTarget target, MotionPump pump) where TState : struct, IMotionState<TState> =>
-        // BOUNDARY ADAPTER - RhinoApp.Idle/MainLoop are native events; the handler self-detaches at rest (pump.Rest).
         Op.Of(name: nameof(Run)).Catch(() => {
             Action pulse = Pulse(runner: runner, target: target, pump: pump);
             void Tick(object? sender, EventArgs args) => pulse();
@@ -574,7 +567,6 @@ internal static class Motion {
         });
 
     private static Fin<IDisposable> UiTimerDriver<TState>(MotionRunner<TState> runner, RedrawTarget target, double interval, MotionPump pump) where TState : struct, IMotionState<TState> =>
-        // BOUNDARY ADAPTER - Eto.Forms.UITimer is a native fixed-interval clock; the handler self-detaches at rest (pump.Rest).
         Op.Of(name: nameof(Run)).Catch(() => {
             Eto.Forms.UITimer timer = new() { Interval = interval };
             Action pulse = Pulse(runner: runner, target: target, pump: pump);
@@ -595,9 +587,6 @@ internal static class Motion {
             },
             _ => Caution(runner: runner, target: target, concern: "DisplayLink requires a resolvable RhinoView on macOS 14+", pump: pump),
         };
-
-    // Resolve the vsync-bearing view: explicit View, a Document's Only view, or the document's ActiveView (so Document-bound
-    // overlay animations no longer silently fall to the idle clock when an NSView is reachable).
     private static Option<RhinoView> ResolveView(RedrawTarget target) => target switch {
         RedrawTarget.View v => Some(v.Value),
         RedrawTarget.Document d => d.Only | Optional(d.Value.Views.ActiveView),
@@ -611,7 +600,6 @@ internal static class Motion {
 
     [SupportedOSPlatform("macos14.0")]
     private static Fin<IDisposable> DisplayDriver<TState>(NSView view, Option<CAFrameRateRange> rate, MotionRunner<TState> runner, RedrawTarget target, MotionPump pump) where TState : struct, IMotionState<TState> =>
-        // BOUNDARY ADAPTER - the view-bound CADisplayLink Pacer is a native NSObject driving the integration each vsync.
         Op.Of(name: nameof(Run)).Catch(() => {
             Pacer pacer = Pacer.Start(
                 view: view,
@@ -640,10 +628,6 @@ internal static class Motion {
             return committed.IsActive;
         }
     }
-
-    // Sleep/wake coordinator (mirrors GH SpringHandle): the driver self-detaches at rest because the global
-    // RhinoApp.Idle/MainLoop must not fire forever and fire-and-forget motions stay clean; Retarget re-attaches a
-    // fresh driver ONLY on the rested edge (CAS 0->1), so an active follow never re-subscribes per frame.
     private sealed class MotionPump : IDisposable {
         private Func<MotionPump, Fin<IDisposable>>? attach;   // takes the pump (not a captured local) so reattach survives ownership-transfer null-out
         private IDisposable? box;
@@ -691,8 +675,6 @@ internal static class Motion {
             });
         }
     }
-
-    // View-bound CADisplayLink (WWDC23 displayLink(target:selector:)) auto-tracks the display; tick drives the runner.
     [SupportedOSPlatform("macos14.0")]
     private sealed class Pacer : NSObject {
         private static readonly Selector TickSelector = new("tick:");
@@ -712,8 +694,6 @@ internal static class Motion {
 
         [Export("tick:")]
         public void Tick(CADisplayLink sender) => onTick();
-
-        // BOUNDARY ADAPTER - invalidate the view-vended link before dispose to break the run-loop retain cycle.
         protected override void Dispose(bool disposing) {
             if (Interlocked.Exchange(ref disposed, 1) == 0 && disposing) {
                 link.Paused = true;
@@ -723,28 +703,4 @@ internal static class Motion {
             base.Dispose(disposing);
         }
     }
-}
-
-// --- [COMPOSITION] ------------------------------------------------------------------------
-public static partial class UiViewportRequest {
-    // display-only animation -> interactive:false so it drives in Scripted/bridge (see UI display-vs-interaction rule).
-    public static UiIntent<MotionHandle<TValue, TVelocity>> Animate<TValue, TVelocity>(MotionSpec<TValue, TVelocity> spec, RhinoView view, Action<TValue> sink, MotionClock? clock = null, TimeProvider? timeSource = null) =>
-        UiIntent.OfScope(run: _ => Motion.Run(spec: spec, sink: sink, target: new RedrawTarget.View(view), clock: clock ?? MotionClock.IdleLoop, timeSource: timeSource), interactive: false);
-}
-
-public static class MotionRail {
-    public static Fin<MotionHandle<TValue, TVelocity>> Animate<TState, TValue, TVelocity>(this UiCanvas<TState> canvas, MotionSpec<TValue, TVelocity> spec, Action<TValue> sink, MotionClock? clock = null, TimeProvider? timeSource = null) =>
-        Op.Of(name: nameof(Animate)).Need(canvas).Bind(valid => Motion.Run(spec: spec, sink: sink, target: new RedrawTarget.Canvas(valid.Invalidate), clock: clock ?? MotionClock.IdleLoop, timeSource: timeSource));
-
-    public static Fin<MotionHandle<TValue, TVelocity>> Animate<TState, TValue, TVelocity>(this RasmOverlay<TState> overlay, RhinoDoc document, MotionSpec<TValue, TVelocity> spec, Func<TState, TValue, TState> transition, MotionClock? clock = null, TimeProvider? timeSource = null) =>
-        from validOverlay in Op.Of(name: nameof(Animate)).Need(overlay)
-        from validDocument in Op.Of(name: nameof(Animate)).Need(document)
-        from validTransition in Op.Of(name: nameof(Animate)).Need(transition)
-        from handle in Motion.Run(
-            spec: spec,
-            sink: value => _ = validOverlay.Transition(transition: state => validTransition(arg1: state, arg2: value), document: validDocument),
-            target: new RedrawTarget.Document(Value: validDocument),
-            clock: clock ?? MotionClock.IdleLoop,
-            timeSource: timeSource)
-        select handle;
 }

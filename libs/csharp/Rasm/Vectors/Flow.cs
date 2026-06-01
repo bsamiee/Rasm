@@ -144,10 +144,20 @@ public abstract partial record FieldIntegrator {
     internal Fin<FieldIntegrator> Admit(Op key) =>
         Switch(
             state: key,
-            fixedCase: static (op, integrator) => Fixed(kind: integrator.Kind, key: op),
-            adaptiveCase: static (op, integrator) => Adaptive(kind: integrator.Kind, tolerance: integrator.Tolerance.Value, maxRejects: integrator.MaxRejects, key: op));
+            fixedCase: static (op, integrator) =>
+                from kind in FieldNabla.NotNull(value: integrator.Kind, key: op)
+                from tableau in kind.Tableau.Admit(key: op)
+                from fixedKind in guard(!kind.IsAdaptive, op.Unsupported(geometryType: kind.GetType(), outputType: typeof(FixedCase)))
+                select (FieldIntegrator)integrator,
+            adaptiveCase: static (op, integrator) =>
+                from kind in FieldNabla.NotNull(value: integrator.Kind, key: op)
+                from tableau in kind.Tableau.Admit(key: op)
+                from rejects in guard(integrator.MaxRejects >= 0, op.InvalidInput())
+                from adaptiveKind in guard(kind.IsAdaptive, op.Unsupported(geometryType: kind.GetType(), outputType: typeof(AdaptiveCase)))
+                from tolerance in FieldNabla.Positive(value: integrator.Tolerance, key: op)
+                select (FieldIntegrator)integrator);
     internal static Fin<FieldIntegrator> Admit(FieldIntegrator value, Op key) =>
-        Optional(value).ToFin(key.InvalidInput()).Bind(integrator => integrator.Admit(key: key));
+        FieldNabla.NotNull(value: value, key: key).Bind(integrator => integrator.Admit(key: key));
     internal static Fin<FieldIntegrator> AdmitOrFixed(FieldIntegrator? value, Op key) =>
         value is null ? Fixed(kind: IntegratorKind.RK4, key: key) : Admit(value: value, key: key);
     internal int RejectBudget => Switch(
@@ -259,6 +269,24 @@ public abstract partial record Termination {
         key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: candidate).Map(create);
     private static Fin<int> LocalizationIterations(int candidate, Op key) =>
         candidate > 0 ? Fin.Succ(candidate) : Fin.Fail<int>(key.InvalidInput());
+    internal Fin<Termination> Admit(Op key) => Switch(
+        state: key,
+        stepCountCase: static (op, termination) => termination.Count > 0 ? Fin.Succ<Termination>(termination) : Fin.Fail<Termination>(op.InvalidInput()),
+        arcLengthCase: static (op, termination) => FieldNabla.Positive(value: termination.Length, key: op).Map(_ => (Termination)termination),
+        magnitudeFloorCase: static (op, termination) => FieldNabla.Positive(value: termination.Threshold, key: op).Map(_ => (Termination)termination),
+        crossSurfaceCase: static (op, termination) =>
+            from surface in FieldNabla.NotNull(value: termination.Surface, key: op)
+            from iterations in LocalizationIterations(candidate: termination.MaxLocalizationIterations, key: op)
+            from admits in guard(GeometryKernel.CanClosest(type: surface.SourceType) && surface.CanSignedDistance, op.Unsupported(geometryType: surface.SourceType, outputType: typeof(double)))
+            select (Termination)termination,
+        regionThresholdCase: static (op, termination) =>
+            from region in FieldNabla.NotNull(value: termination.Region, key: op)
+            from iterations in LocalizationIterations(candidate: termination.MaxLocalizationIterations, key: op)
+            from threshold in FieldNabla.Finite(value: termination.Threshold, key: op)
+            select (Termination)termination,
+        loopDetectedCase: static (op, termination) => FieldNabla.Positive(value: termination.ClosureRadius, key: op).Map(_ => (Termination)termination));
+    internal static Fin<Termination> Admit(Termination value, Op key) =>
+        FieldNabla.NotNull(value: value, key: key).Bind(termination => termination.Admit(key: key));
     private static Fin<(bool Stop, Option<TraceEvent> Event)> Decision(bool stop) =>
         Fin.Succ((Stop: stop, Event: Option<TraceEvent>.None));
     internal Fin<(bool Stop, Option<TraceEvent> Event)> Evaluate(StreamlineState state, Vector3d currentSample, Context context, Op key) => Switch(
@@ -348,7 +376,8 @@ internal static class FlowKernel {
 
     internal static Fin<TOut> Trace<TOut>(VectorField source, Point3d seed, PositiveMagnitude initialStep, FieldIntegrator integrator, Termination termination, Context context, Op key) =>
         from activeIntegrator in FieldIntegrator.Admit(value: integrator, key: key)
-        from state in TraceState(source: source, seed: seed, initialStep: initialStep, integrator: activeIntegrator, termination: termination, context: context, key: key)
+        from activeTermination in Termination.Admit(value: termination, key: key)
+        from state in TraceState(source: source, seed: seed, initialStep: initialStep, integrator: activeIntegrator, termination: activeTermination, context: context, key: key)
         let trace = ToTrace(state: state, integrator: activeIntegrator)
         from output in ProjectTrace<TOut>(trace: trace, key: key)
         select output;

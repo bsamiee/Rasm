@@ -16,15 +16,15 @@ internal static class MeshGens {
         cols: Dim2,
         triplets: [(0, 0, 1.0), (1, 1, 1.0)],
         key: Key), label: "identity sparse");
-    public static readonly MeshLaplacian[] Laplacians = [MeshLaplacian.Cotangent, MeshLaplacian.IntrinsicDelaunay, MeshLaplacian.Robust];
+    public static readonly MeshLaplacian[] Laplacians = [MeshLaplacian.Cotangent, MeshLaplacian.IntrinsicDelaunay];
 }
 
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
 public sealed class MeshCatalogLaws {
     [Fact]
-    public void LaplacianCatalogKeysAreDistinctAndRobustIsClassified() {
+    public void LaplacianCatalogKeysAreDistinctAndExecutable() {
         Spec.SmartEnumKeysUnique(items: MeshGens.Laplacians, key: static kind => kind.Key);
-        Assert.Contains(expected: MeshLaplacian.Robust, collection: MeshGens.Laplacians);
+        Assert.DoesNotContain(collection: MeshGens.Laplacians, filter: static kind => kind.Key > MeshLaplacian.IntrinsicDelaunay.Key);
     }
 }
 
@@ -144,7 +144,7 @@ public sealed class MeshTopologyAndSdfLaws {
         Assert.Equal(expected: SdfMeshStatus.BoundarySourceSignedHeat, actual: SdfMeshMethod.BoundarySignedHeat.Status);
         Assert.Equal(expected: SdfMeshDomain.SurfaceMesh, actual: SdfMeshMethod.GeneralizedWindingNumber.Domain);
         Spec.SmartEnumKeysUnique(items: [SdfMeshStatus.ApproximateSignClosestDistance, SdfMeshStatus.BoundarySourceSignedHeat, SdfMeshStatus.ClosedSurfaceSignedHeat], key: static status => status.Key);
-        Spec.SmartEnumKeysUnique(items: [SdfMeshDomain.SurfaceMesh, SdfMeshDomain.BoundarySource, SdfMeshDomain.VolumeGrid, SdfMeshDomain.VolumeTet], key: static domain => domain.Key);
+        Spec.SmartEnumKeysUnique(items: [SdfMeshDomain.SurfaceMesh, SdfMeshDomain.BoundarySource, SdfMeshDomain.VolumeGrid], key: static domain => domain.Key);
     }
     [Fact]
     public void ClosedSignedHeatPolicyAndReceiptsExposeVolumeGridWithoutFallback() {

@@ -20,7 +20,7 @@ namespace Rasm.Grasshopper.Components;
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct ComponentUi {
+public readonly partial record struct ComponentUi {
     private readonly Seq<StepOp> ops;
 
     private ComponentUi(Seq<StepOp> ops) => this.ops = ops;
@@ -37,7 +37,7 @@ public readonly record struct ComponentUi {
         new(ops: Seq(new StepOp(Phase: None, Run: run)));
 
     public static ComponentUi When(Phase phase, Func<Callback, Fin<Decision>> run) =>
-        new(ops: Seq(new StepOp(Phase: Some(phase), Run: context => context.Kind == phase ? run(arg: context) : Fin.Succ(value: Decision.Pass))));
+        new(ops: Seq(new StepOp(Phase: Some(phase), Run: context => phase.Matches(context: context) ? run(arg: context) : Fin.Succ(value: Decision.Pass))));
 
     internal IAttributes Attributes(GhComponent owner) =>
         ops.IsEmpty
@@ -61,94 +61,65 @@ public readonly record struct ComponentUi {
     private bool Supports(Phase phase) =>
         ops.Exists(op => op.Phase.Match(Some: candidate => candidate == phase, None: () => false));
 
-    public enum Phase {
-        Layout,
-        DrawForeground,
-        InputPanel,
-        ContextMenu,
-        Cursor,
-        Hover,
-        MouseDown,
-        MouseMove,
-        MouseUp,
-        MouseSingleClick,
-        MouseDoubleClick,
-        KeyDown,
-        KeyUp,
-        Resize,
-        Tooltip,
+    // Each phase self-dispatches via a Matches delegate against the Callback shape; replaces the per-case Kind override.
+    [SmartEnum<int>]
+    public sealed partial class Phase {
+        public static readonly Phase Layout = new(key: 0, matches: static ctx => ctx is Callback.Bounds);
+        public static readonly Phase DrawForeground = new(key: 1, matches: static ctx => ctx is Callback.Draw);
+        public static readonly Phase InputPanel = new(key: 2, matches: static ctx => ctx is Callback.Panel);
+        public static readonly Phase ContextMenu = new(key: 3, matches: static ctx => ctx is Callback.Menu);
+        public static readonly Phase Cursor = new(key: 4, matches: static ctx => ctx is Callback.Pointer.Cursor);
+        public static readonly Phase Hover = new(key: 5, matches: static ctx => ctx is Callback.Pointer.Hover);
+        public static readonly Phase MouseDown = new(key: 6, matches: static ctx => ctx is Callback.Mouse.Down);
+        public static readonly Phase MouseMove = new(key: 7, matches: static ctx => ctx is Callback.Mouse.Move);
+        public static readonly Phase MouseUp = new(key: 8, matches: static ctx => ctx is Callback.Mouse.Up);
+        public static readonly Phase MouseSingleClick = new(key: 9, matches: static ctx => ctx is Callback.Mouse.SingleClick);
+        public static readonly Phase MouseDoubleClick = new(key: 10, matches: static ctx => ctx is Callback.Mouse.DoubleClick);
+        public static readonly Phase KeyDown = new(key: 11, matches: static ctx => ctx is Callback.Key.Down);
+        public static readonly Phase KeyUp = new(key: 12, matches: static ctx => ctx is Callback.Key.Up);
+        public static readonly Phase Resize = new(key: 13, matches: static ctx => ctx is Callback.Frame);
+        public static readonly Phase Tooltip = new(key: 14, matches: static ctx => ctx is Callback.Tip);
+        [UseDelegateFromConstructor] internal partial bool Matches(Callback context);
     }
 
     public abstract record Callback(GhComponent Owner) {
-        public abstract Phase Kind { get; }
+        public sealed record Bounds(GhComponent Owner, UiShape Shape) : Callback(Owner: Owner);
 
-        public sealed record Bounds(GhComponent Owner, UiShape Shape) : Callback(Owner: Owner) {
-            public override Phase Kind => Phase.Layout;
-        }
+        public sealed record Draw(GhComponent Owner, UiContext Context, Skin Skin, Capsule Capsule, Shade Shade) : Callback(Owner: Owner);
 
-        public sealed record Draw(GhComponent Owner, UiContext Context, Skin Skin, Capsule Capsule, Shade Shade) : Callback(Owner: Owner) {
-            public override Phase Kind => Phase.DrawForeground;
-        }
+        public sealed record Panel(GhComponent Owner, InputPanel Value) : Callback(Owner: Owner);
 
-        public sealed record Panel(GhComponent Owner, InputPanel Value) : Callback(Owner: Owner) {
-            public override Phase Kind => Phase.InputPanel;
-        }
-
-        public sealed record Menu(GhComponent Owner, ContextMenu Value) : Callback(Owner: Owner) {
-            public override Phase Kind => Phase.ContextMenu;
-        }
+        public sealed record Menu(GhComponent Owner, ContextMenu Value) : Callback(Owner: Owner);
 
         public abstract record Pointer(GhComponent Owner, PointF ContentPoint, Option<PointF> ControlPoint = default) : Callback(Owner: Owner) {
-            public sealed record Cursor(GhComponent Owner, PointF ContentPoint) : Pointer(Owner: Owner, ContentPoint: ContentPoint) {
-                public override Phase Kind => Phase.Cursor;
-            }
+            public sealed record Cursor(GhComponent Owner, PointF ContentPoint) : Pointer(Owner: Owner, ContentPoint: ContentPoint);
 
-            public sealed record Hover(GhComponent Owner, PointF ContentPoint, PointF Control) : Pointer(Owner: Owner, ContentPoint: ContentPoint, ControlPoint: Optional(Control)) {
-                public override Phase Kind => Phase.Hover;
-            }
+            public sealed record Hover(GhComponent Owner, PointF ContentPoint, PointF Control) : Pointer(Owner: Owner, ContentPoint: ContentPoint, ControlPoint: Optional(Control));
         }
 
         public abstract record Mouse(GhComponent Owner, MouseEventArgs Args) : Callback(Owner: Owner) {
-            public sealed record Down(GhComponent Owner, MouseEventArgs Args) : Mouse(Owner: Owner, Args: Args) {
-                public override Phase Kind => Phase.MouseDown;
-            }
+            public sealed record Down(GhComponent Owner, MouseEventArgs Args) : Mouse(Owner: Owner, Args: Args);
 
-            public sealed record Move(GhComponent Owner, MouseEventArgs Args) : Mouse(Owner: Owner, Args: Args) {
-                public override Phase Kind => Phase.MouseMove;
-            }
+            public sealed record Move(GhComponent Owner, MouseEventArgs Args) : Mouse(Owner: Owner, Args: Args);
 
-            public sealed record Up(GhComponent Owner, MouseEventArgs Args) : Mouse(Owner: Owner, Args: Args) {
-                public override Phase Kind => Phase.MouseUp;
-            }
+            public sealed record Up(GhComponent Owner, MouseEventArgs Args) : Mouse(Owner: Owner, Args: Args);
 
-            public sealed record SingleClick(GhComponent Owner, MouseEventArgs Args) : Mouse(Owner: Owner, Args: Args) {
-                public override Phase Kind => Phase.MouseSingleClick;
-            }
+            public sealed record SingleClick(GhComponent Owner, MouseEventArgs Args) : Mouse(Owner: Owner, Args: Args);
 
-            public sealed record DoubleClick(GhComponent Owner, MouseEventArgs Args) : Mouse(Owner: Owner, Args: Args) {
-                public override Phase Kind => Phase.MouseDoubleClick;
-            }
+            public sealed record DoubleClick(GhComponent Owner, MouseEventArgs Args) : Mouse(Owner: Owner, Args: Args);
 
             public PointF Point => Args.Location;
         }
 
         public abstract record Key(GhComponent Owner, KeyEventArgs Args) : Callback(Owner: Owner) {
-            public sealed record Down(GhComponent Owner, KeyEventArgs Args) : Key(Owner: Owner, Args: Args) {
-                public override Phase Kind => Phase.KeyDown;
-            }
+            public sealed record Down(GhComponent Owner, KeyEventArgs Args) : Key(Owner: Owner, Args: Args);
 
-            public sealed record Up(GhComponent Owner, KeyEventArgs Args) : Key(Owner: Owner, Args: Args) {
-                public override Phase Kind => Phase.KeyUp;
-            }
+            public sealed record Up(GhComponent Owner, KeyEventArgs Args) : Key(Owner: Owner, Args: Args);
         }
 
-        public sealed record Frame(GhComponent Owner, SizeF Current) : Callback(Owner: Owner) {
-            public override Phase Kind => Phase.Resize;
-        }
+        public sealed record Frame(GhComponent Owner, SizeF Current) : Callback(Owner: Owner);
 
-        public sealed record Tip(GhComponent Owner, PointF Point, ObjectSolutionState State) : Callback(Owner: Owner) {
-            public override Phase Kind => Phase.Tooltip;
-        }
+        public sealed record Tip(GhComponent Owner, PointF Point, ObjectSolutionState State) : Callback(Owner: Owner);
     }
 
     public abstract record TooltipDetail {
@@ -268,21 +239,16 @@ public readonly record struct ComponentUi {
                 .IfFail(_ => fallback);
         }
 
-        protected override UiResponse HandleMouseDown(MouseEventArgs e) => Respond(mouse: new Callback.Mouse.Down(Owner: Owner, Args: e));
-        protected override UiResponse HandleMouseMove(MouseEventArgs e) => Respond(mouse: new Callback.Mouse.Move(Owner: Owner, Args: e));
-        protected override UiResponse HandleMouseUp(MouseEventArgs e) => Respond(mouse: new Callback.Mouse.Up(Owner: Owner, Args: e));
-        protected override UiResponse HandleSingleClick(MouseEventArgs e) => Respond(mouse: new Callback.Mouse.SingleClick(Owner: Owner, Args: e));
-        protected override UiResponse HandleDoubleClick(MouseEventArgs e) => Respond(mouse: new Callback.Mouse.DoubleClick(Owner: Owner, Args: e));
-        protected override UiResponse HandleKeyDown(KeyEventArgs e) => Respond(key: new Callback.Key.Down(Owner: Owner, Args: e));
-        protected override UiResponse HandleKeyUp(KeyEventArgs e) => Respond(key: new Callback.Key.Up(Owner: Owner, Args: e));
+        protected override UiResponse HandleMouseDown(MouseEventArgs e) => Respond(context: new Callback.Mouse.Down(Owner: Owner, Args: e));
+        protected override UiResponse HandleMouseMove(MouseEventArgs e) => Respond(context: new Callback.Mouse.Move(Owner: Owner, Args: e));
+        protected override UiResponse HandleMouseUp(MouseEventArgs e) => Respond(context: new Callback.Mouse.Up(Owner: Owner, Args: e));
+        protected override UiResponse HandleSingleClick(MouseEventArgs e) => Respond(context: new Callback.Mouse.SingleClick(Owner: Owner, Args: e));
+        protected override UiResponse HandleDoubleClick(MouseEventArgs e) => Respond(context: new Callback.Mouse.DoubleClick(Owner: Owner, Args: e));
+        protected override UiResponse HandleKeyDown(KeyEventArgs e) => Respond(context: new Callback.Key.Down(Owner: Owner, Args: e));
+        protected override UiResponse HandleKeyUp(KeyEventArgs e) => Respond(context: new Callback.Key.Up(Owner: Owner, Args: e));
 
-        private UiResponse Respond(Callback.Mouse mouse) =>
-            ui.Run(context: mouse)
-                .Map(decision => decision.Response.IfNone(UiResponse.Ignored))
-                .IfFail(_ => UiResponse.Ignored);
-
-        private UiResponse Respond(Callback.Key key) =>
-            ui.Run(context: key)
+        private UiResponse Respond(Callback context) =>
+            ui.Run(context: context)
                 .Map(decision => decision.Response.IfNone(UiResponse.Ignored))
                 .IfFail(_ => UiResponse.Ignored);
     }
@@ -368,22 +334,11 @@ public readonly record struct ComponentUi {
                     resize.Maximum,
                     SnappingConstraints.CreateFromDocument(Owner.Document, Owner.InstanceId),
                     SnappingSettings.Current) switch {
-                        GhResizingFrame frame when frame.Begin(mouse: args.Location, edges: ResizeEdges()) => Some(ArmResize(frame: frame)),
-                        _ => DisarmResize(response: Option<UiResponse>.None),
+                        GhResizingFrame frame when frame.Begin(mouse: args.Location, edges: ResizeEdges()) =>
+                            Op.Side(() => { resizer = frame; resizeUndo = new ResizeAction(obj: Owner); }) switch { _ => Some(UiResponse.Capture) },
+                        _ => Op.Side(() => { resizer = null; resizeUndo = null; }) switch { _ => Option<UiResponse>.None },
                     }
                 : Option<UiResponse>.None;
-
-        private UiResponse ArmResize(GhResizingFrame frame) {
-            resizer = frame;
-            resizeUndo = new ResizeAction(obj: Owner);
-            return UiResponse.Capture;
-        }
-
-        private Option<UiResponse> DisarmResize(Option<UiResponse> response) {
-            resizer = null;
-            resizeUndo = null;
-            return response;
-        }
 
         private Option<UiResponse> ContinueResize(MouseEventArgs args) =>
             (args.Buttons, resizer) switch {
@@ -405,9 +360,12 @@ public readonly record struct ComponentUi {
             };
 
         private UiResponse CommitResize() {
-            Editor.Instance.Canvas.SnapXAction = null;
-            Editor.Instance.Canvas.SnapYAction = null;
-            Owner.Document?.Undo.Do((verb: "Resize", noun: Owner.Nomen.Name), resizeUndo);
+            // Editor.Instance is null when no editor is running, and Document may be null mid-drag; guard both.
+            _ = Optional(Editor.Instance).Iter(editor => Optional(editor.Canvas).Iter(canvas => {
+                canvas.SnapXAction = null;
+                canvas.SnapYAction = null;
+            }));
+            _ = Optional(Owner.Document).Iter(document => document.Undo.Do((verb: "Resize", noun: Owner.Nomen.Name), resizeUndo));
             resizeUndo = null;
             resizer = null;
             return UiResponse.Release;

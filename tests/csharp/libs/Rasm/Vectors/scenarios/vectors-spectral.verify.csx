@@ -88,6 +88,11 @@ Scenario.Run("vectors-spectral-dec", CAPTURE_PATH, (key, facts) => {
     using Mesh openNative = OpenSquare();
     MeshSpace openSpace = Probe.Expect(MeshSpace.Of(native: openNative, context: context, key: key), "open space");
     SpectralAssemblyReceipt openReceipt = Project<SpectralAssemblyReceipt>(intent: VectorIntent.DiscreteCalculus(space: openSpace, key: key), context: context, key: key, label: "open dec");
+    FlattenResult flatten = Project<FlattenResult>(intent: VectorIntent.Flatten(space: openSpace, key: key), context: context, key: key, label: "flatten result");
+    FlattenReceipt flattenReceipt = Project<FlattenReceipt>(intent: VectorIntent.Flatten(space: openSpace, key: key), context: context, key: key, label: "flatten receipt");
+    RemeshKind simplify = Probe.Expect(RemeshKind.Simplify(parameters: new ReduceMeshParameters { DesiredPolygonCount = 1 }, key: key), "simplify kind");
+    RemeshResult remesh = Project<RemeshResult>(intent: VectorIntent.Remesh(space: openSpace, kind: simplify, key: key), context: context, key: key, label: "remesh result");
+    RemeshReceipt remeshReceipt = Project<RemeshReceipt>(intent: VectorIntent.Remesh(space: openSpace, kind: simplify, key: key), context: context, key: key, label: "remesh receipt");
     using Mesh degenerateNative = DegenerateFaceMesh();
     MeshSpace degenerateSpace = Probe.Expect(MeshSpace.Of(native: degenerateNative, context: context, key: key), "degenerate space");
     SpectralAssemblyReceipt degenerateReceipt = Project<SpectralAssemblyReceipt>(intent: VectorIntent.DiscreteCalculus(space: degenerateSpace, key: key), context: context, key: key, label: "degenerate dec");
@@ -105,11 +110,16 @@ Scenario.Run("vectors-spectral-dec", CAPTURE_PATH, (key, facts) => {
     Probe.Require(receipt.Genus.Map(static genus => genus == 0).IfNone(false), $"genus={receipt.Genus}");
     Probe.Require(receipt.BoundaryEdgeCount == 0 && receipt.BoundaryComponentCount == 0 && receipt.NonManifoldEdgeCount == 0 && receipt.EulerCharacteristic == 2 && receipt.TopologyEulerValidated, $"closed.topology={receipt}");
     Probe.Require(openReceipt.BoundaryEdgeCount > 0 && openReceipt.BoundaryComponentCount > 0 && openReceipt.HarmonicDimension == 0, $"open.receipt={openReceipt}");
+    Probe.Require(flatten.Mesh.IsValid && flatten.Receipt.Valid && flattenReceipt.Valid, $"flatten={flattenReceipt}");
+    Probe.Require(flattenReceipt.EdgeLengthDistortionRms.Map(static rms => RhinoMath.IsValidDouble(x: rms) && rms >= 0.0).IfNone(false), $"flatten.distortion={flattenReceipt.EdgeLengthDistortionRms}");
+    Probe.Require(remesh.Mesh.IsValid && remesh.Receipt.Status.Equals(RemeshStatus.Completed) && remeshReceipt.Status.Equals(RemeshStatus.Completed), $"remesh={remeshReceipt}");
     Probe.Require(degenerateReceipt.Kind.Equals(SpectralAssemblyKind.Dec) && degenerateReceipt.SkippedDegenerateFaces > 0, $"degenerate.receipt={degenerateReceipt}");
     Probe.Require(torusTopology.Genus.Map(static genus => genus > 0).IfNone(false) && genusPositiveHodgeUnsupported, $"torus.topology={torusTopology}");
     facts.Add("dec.nonzeros", receipt.NonZeros);
     facts.Add("dec.d1d0", receipt.BoundaryCompositionResidual);
     facts.Add("open.boundaryEdges", openReceipt.BoundaryEdgeCount);
+    facts.Add("flatten.distortion", flattenReceipt.EdgeLengthDistortionRms.IfNone(-1.0));
+    facts.Add("remesh.faces", remeshReceipt.PostFaceCount);
     facts.Add("torus.genus", torusTopology.Genus.IfNone(-1));
 });
 

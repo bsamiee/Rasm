@@ -58,6 +58,19 @@ public sealed partial class GradientKind {
     internal int ProfileIndex => Key;
 }
 
+// NSHapticFeedbackManager patterns (AppKit). ToNative projects to the native enum at the boundary so the
+// case carries a Rasm-stable vocabulary rather than the Foundation type.
+[SmartEnum<int>]
+public sealed partial class HapticPattern {
+    internal NSHapticFeedbackPattern Native { get; }
+
+    public static readonly HapticPattern Alignment = new(key: 0, native: NSHapticFeedbackPattern.Alignment);
+    public static readonly HapticPattern Level = new(key: 1, native: NSHapticFeedbackPattern.LevelChange);
+    public static readonly HapticPattern Generic = new(key: 2, native: NSHapticFeedbackPattern.Generic);
+
+    internal NSHapticFeedbackPattern ToNative() => Native;
+}
+
 // CAEmitterLayer geometry. Each case lazily yields the kCAEmitterLayer* NSString so type-load never
 // touches CoreAnimation off the GPU path (Resolve fires only inside the macOS14-gated layer builder).
 [SmartEnum<int>]
@@ -73,6 +86,36 @@ public sealed partial class EmitterShape {
 
     [UseDelegateFromConstructor]
     internal partial NSString Resolve();
+}
+
+// CAEmitterCell behavioural archetype: the seven per-particle scale/alpha/colour/range ratios that distinguish
+// a crisp spark burst from a drifting smoke plume or a tumbling confetti shower. Bounds/tint/duration/birth/
+// lifetime/velocity stay on EmitterCase; the profile owns only the derived dynamics.
+[SmartEnum<int>]
+public sealed partial class EmitterProfile {
+    public float Scale { get; }
+    public float ScaleSpeed { get; }
+    public float AlphaSpeed { get; }
+    public float ColorRange { get; }
+    public float LifetimeRangeRatio { get; }
+    public float VelocityRangeRatio { get; }
+    public float ScaleRangeRatio { get; }
+
+    public static readonly EmitterProfile Spark = new(key: 0, scale: 0.2f, scaleSpeed: -0.12f, alphaSpeed: -0.7f, colorRange: 0.1f, lifetimeRangeRatio: 0.3f, velocityRangeRatio: 0.5f, scaleRangeRatio: 0.5f);
+    public static readonly EmitterProfile Smoke = new(key: 1, scale: 0.5f, scaleSpeed: 0.4f, alphaSpeed: -0.5f, colorRange: 0.05f, lifetimeRangeRatio: 0.5f, velocityRangeRatio: 0.3f, scaleRangeRatio: 0.4f);
+    public static readonly EmitterProfile Confetti = new(key: 2, scale: 0.3f, scaleSpeed: -0.05f, alphaSpeed: -0.4f, colorRange: 0.4f, lifetimeRangeRatio: 0.4f, velocityRangeRatio: 0.7f, scaleRangeRatio: 0.6f);
+}
+
+// CALayer.CompositingFilter blend, resolved via CIFilter.FromName. FilterName is the Core Image filter the
+// glow layer composites with against the canvas behind it (screen = additive lighten, multiply = darken, etc.).
+[SmartEnum<int>]
+public sealed partial class BlendMode {
+    public string FilterName { get; }
+
+    public static readonly BlendMode Screen = new(key: 0, filterName: "CIScreenBlendMode");
+    public static readonly BlendMode Multiply = new(key: 1, filterName: "CIMultiplyBlendMode");
+    public static readonly BlendMode Addition = new(key: 2, filterName: "CIAdditionCompositing");
+    public static readonly BlendMode Overlay = new(key: 3, filterName: "CIOverlayBlendMode");
 }
 
 // CALayer gradient points are normalized to the layer frame (0,0)–(1,1). Omit Start/End to use the profile
@@ -113,13 +156,15 @@ public partial record CosmeticIntent {
     public Option<Func<Unit>> Completion { get; init; }
     public Option<Easing> Keyframe { get; init; }
     // GPU spring opt-in (additive, default None): when present the property animation is a CASpringAnimation
-    // driven by the SAME SpringConfig as the CPU spring, unifying CPU+GPU spring on one parameterization.
+    // driven by the SAME SpringConfig (stiffness/damping/mass) as the CPU spring. The GPU spring always starts
+    // from rest (InitialVelocity = 0) — it does NOT carry the CPU runner's live velocity, so the two share the
+    // parameterization but not the launch state.
     public Option<SpringConfig> Spring { get; init; }
     // Co-animation opt-in (additive, default None): the child intents' animations are grouped onto the SAME
     // layer as this intent under ONE completion delegate — children must target DISTINCT key-paths.
     public Option<Seq<CosmeticIntent>> CoAnimate { get; init; }
     public sealed record PulseCase(RectangleF Bounds, Color Tint, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
-    public sealed record GlowCase(RectangleF Bounds, Color Tint, float CornerRadius, float ShadowRadius, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false, GhMotion Easing = GhMotion.EaseInOut, float BorderWidth = 0f, Option<Color> BorderColor = default, float BlurRadius = 0f) : CosmeticIntent;
+    public sealed record GlowCase(RectangleF Bounds, Color Tint, float CornerRadius, float ShadowRadius, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false, GhMotion Easing = GhMotion.EaseInOut, float BorderWidth = 0f, Option<Color> BorderColor = default, float BlurRadius = 0f, Option<BlendMode> Blend = default) : CosmeticIntent;
     public sealed record StrokeOnCase(ReadOnlyMemory<PointF> Polyline, Color Tint, float Thickness, GhDuration Duration, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
     public sealed record GradientCase(
         RectangleF Bounds,
@@ -138,27 +183,43 @@ public partial record CosmeticIntent {
         Color Tint,
         GhDuration Duration,
         EmitterShape Shape,
+        EmitterProfile Profile,
         float BirthRate = 20f,
         float Lifetime = 1.4f,
         float Velocity = 40f,
-        float Scale = 0.2f,
-        float ScaleSpeed = -0.12f,
-        float AlphaSpeed = -0.7f,
-        float ColorRange = 0.1f,
-        float LifetimeRangeRatio = 0.3f,
-        float VelocityRangeRatio = 0.5f,
-        float ScaleRangeRatio = 0.5f,
         float EmissionRange = MathF.Tau,
+        float EmissionLongitude = 0f,
+        float Spin = 0f,
+        Option<Seq<Color>> Palette = default,
         GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
     public sealed record SnapGuideCase(SnappingSnapshot Snapshot, SnapGuideStyle Style) : CosmeticIntent;
+    // Non-visual tactile feedback on the Force Touch trackpad — no CALayer, fired once at attach (skipped
+    // under reduce-motion). Pattern maps to the three NSHapticFeedbackPattern values.
+    public sealed record HapticCase(HapticPattern Pattern) : CosmeticIntent;
 
     // Common entry: two-colour gradient. Seq overload below carries arbitrary multi-stop palettes.
     public static CosmeticIntent Gradient(RectangleF bounds, Color start, Color end, GradientKind kind, GhDuration duration, CosmeticGradientPoints points = default, GhMotion easing = GhMotion.EaseInOut, int cycles = 1, bool yoyo = true, bool infinite = false) =>
         new GradientCase(Bounds: bounds, Colors: Seq(start, end), Kind: kind, Duration: duration, Points: points, Cycles: cycles, Yoyo: yoyo, Infinite: infinite, Easing: easing);
     public static CosmeticIntent Gradient(RectangleF bounds, Seq<Color> colors, GradientKind kind, GhDuration duration, CosmeticGradientPoints points = default, GhMotion easing = GhMotion.EaseInOut, int cycles = 1, bool yoyo = true, bool infinite = false) =>
         new GradientCase(Bounds: bounds, Colors: colors, Kind: kind, Duration: duration, Points: points, Cycles: cycles, Yoyo: yoyo, Infinite: infinite, Easing: easing);
-    public static CosmeticIntent Emitter(RectangleF bounds, Color tint, GhDuration duration, EmitterShape? shape = null, float birthRate = 20f, float lifetime = 1.4f, float velocity = 40f, GhMotion easing = GhMotion.EaseInOut) =>
-        new EmitterCase(Bounds: bounds, Tint: tint, Duration: duration, Shape: shape ?? EmitterShape.Circle, BirthRate: birthRate, Lifetime: lifetime, Velocity: velocity, Easing: easing);
+    public static CosmeticIntent Emitter(RectangleF bounds, Color tint, GhDuration duration, EmitterShape? shape = null, EmitterProfile? profile = null, float birthRate = 20f, float lifetime = 1.4f, float velocity = 40f, GhMotion easing = GhMotion.EaseInOut) =>
+        new EmitterCase(Bounds: bounds, Tint: tint, Duration: duration, Shape: shape ?? EmitterShape.Circle, Profile: profile ?? EmitterProfile.Spark, BirthRate: birthRate, Lifetime: lifetime, Velocity: velocity, Easing: easing);
+}
+
+// The three native FlexControl.Navigate targets: a point + zoom limits, a frame + zoom limits, or a semantic
+// CanvasPosition (the canonical Rasm wrapper over the host ContentPosition; the host frames it itself, no caller
+// zoom limits). MotionRequest.Navigate carries one.
+[SkipUnionOps]
+[Union]
+public partial record NavigateTarget {
+    private NavigateTarget() { }
+    public sealed record PointCase(PointF Centre) : NavigateTarget;
+    public sealed record FrameCase(RectangleF Region) : NavigateTarget;
+    public sealed record PositionCase(CanvasPosition Where) : NavigateTarget;
+
+    public static NavigateTarget Point(PointF centre) => new PointCase(Centre: centre);
+    public static NavigateTarget Frame(RectangleF frame) => new FrameCase(Region: frame);
+    public static NavigateTarget Position(CanvasPosition position) => new PositionCase(Where: position);
 }
 
 public interface IMotionVector<T> {
@@ -226,14 +287,13 @@ public abstract record MotionRequest<T> : GhUiRequest<T> {
     public sealed record Spring<TValue>(TValue From, TValue To, SpringConfig Config, IMotionVector<TValue> Vector, Action<TValue> Sink, Option<TValue> InitialVelocity = default, TimeProvider? TimeSource = null, MotionClock? Clock = null) : MotionRequest<SpringHandle<TValue>> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<SpringHandle<TValue>> Apply(GrasshopperUi.Scope scope) => Motion.Spring(start: From, target: To, config: Config, vector: Vector, sink: Sink, initialVelocity: InitialVelocity, timeSource: TimeSource, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
     public sealed record Pulse<TValue>(TValue From, TValue To, GhDuration Duration, GhMotion Easing, IMotionVector<TValue> Vector, Action<TValue> Sink, int Cycles = 1, bool Yoyo = false, bool Infinite = false, MotionClock? Clock = null) : MotionRequest<PulseHandle<TValue>> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<PulseHandle<TValue>> Apply(GrasshopperUi.Scope scope) => Motion.Pulse(start: From, target: To, duration: Duration, easing: Easing, cycles: Cycles, yoyo: Yoyo, infinite: Infinite, vector: Vector, sink: Sink, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
     public sealed record Stroke(AnimatedPath Path, GhDuration Duration, GhMotion Easing, PaintStyle Style, PointF Origin, float Scale = 1f, float Angle = 0f, MotionClock? Clock = null) : MotionRequest<Subscription> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Stroke(path: Path, duration: Duration, easing: Easing, style: Style, origin: Origin, scale: Scale, angle: Angle, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
-    public sealed record Sparkle(ISparkle Instance) : MotionRequest<Unit> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Motion.Sparkle(instance: Instance).Run(scope: scope); }
     public sealed record Theme(Skin From, Skin To, GhDuration Duration, GhMotion Easing, Action<Skin> Sink, MotionClock? Clock = null) : MotionRequest<Subscription> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Theme(start: From, target: To, duration: Duration, easing: Easing, sink: Sink, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
-    public sealed record Navigate(PointF Centre, GhDuration Duration, float MinZoom = CanvasViewPolicy.DefaultMinimumZoom, float MaxZoom = CanvasViewPolicy.DefaultMaximumZoom) : MotionRequest<Unit> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(); internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Motion.Navigate(centre: Centre, duration: Duration, minZoom: MinZoom, maxZoom: MaxZoom).Run(scope: scope); }
+    public sealed record Navigate(NavigateTarget Target, GhDuration Duration, float MinZoom = CanvasViewPolicy.DefaultMinimumZoom, float MaxZoom = CanvasViewPolicy.DefaultMaximumZoom) : MotionRequest<Unit> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(); internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Motion.Navigate(target: Target, duration: Duration, minZoom: MinZoom, maxZoom: MaxZoom).Run(scope: scope); }
     public sealed record ZoomGate(ZoomThreshold Threshold, Action<float> Sink, MotionClock? Clock = null) : MotionRequest<Subscription> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.ZoomGate(threshold: Threshold, sink: Sink, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
     public sealed record Cosmetic(CosmeticIntent Intent) : MotionRequest<Subscription> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(); internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Cosmetic(intent: Intent).Run(scope: scope); }
-    // Multi-step tween: folds (target, duration, motion) steps through Animated<T>.Chain into one
-    // Animated curve, then drives it as a single Motion.Tween (no per-step subscription chaining; GH2
-    // exposes Chain, not Then).
+    // Multi-step tween: folds (target, duration, motion) steps through the native Animated<T> operator +
+    // ((value, motion, duration)) into one Animated curve, then drives it as a single Motion.Tween (no
+    // per-step subscription chaining; GH2 exposes the append operator + / Chain, not Then).
     public sealed record Sequence<TValue>(TValue Start, Seq<(TValue Target, GhDuration Duration, GhMotion Motion)> Steps, IMotionVector<TValue> Vector, Action<TValue> Sink, MotionClock? Clock = null) : MotionRequest<Subscription> { internal override GrasshopperUiPolicy Policy => ScheduledCanvas; internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Motion.Sequence(start: Start, steps: Steps, vector: Vector, sink: Sink, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
 }
 
@@ -268,13 +328,20 @@ public readonly partial struct SpringConfig {
         validationError = fault;
     }
 
-    public static SpringConfig Response(float response, float dampingFraction, float mass = 1f) =>
-        float.IsFinite(response) && response > 0f && float.IsFinite(dampingFraction) && dampingFraction >= 0f && float.IsFinite(mass) && mass > 0f
-            ? Create(
+    // Response-space parameterisation (period + damping fraction) folded onto stiffness/damping. Validation
+    // names its own axes so a rejected response/dampingFraction/mass reports the offending parameter, then the
+    // derived Create runs only on the success rail (the inputs are pre-proven finite/positive so it never throws).
+    public static Fin<SpringConfig> Response(float response, float dampingFraction, float mass = 1f) =>
+        Op.Of(name: nameof(Response))
+            .AcceptAll(
+                value: unit,
+                o => o.AcceptFinite(value: response, detail: "spring response must be finite and > 0", requirePositive: true).Map(static _ => unit),
+                o => o.AcceptFinite(value: dampingFraction, detail: "spring damping fraction must be finite and >= 0", nonNegative: true).Map(static _ => unit),
+                o => o.AcceptFinite(value: mass, detail: "spring mass must be finite and > 0", requirePositive: true).Map(static _ => unit))
+            .Map(_ => Create(
                 stiffness: (float)(2.0 * Math.PI) / response * ((float)(2.0 * Math.PI) / response) * mass,
                 damping: 4f * (float)Math.PI * dampingFraction * mass / response,
-                mass: mass)
-            : Create(stiffness: response, damping: dampingFraction, mass: mass);
+                mass: mass));
 
 }
 [SmartEnum<int>]
@@ -290,8 +357,11 @@ public sealed partial class SpringPreset {
     public static readonly SpringPreset Snappier = Of(key: 6, response: 0.25f, dampingFraction: 0.85f);
     public static readonly SpringPreset Sluggish = Of(key: 7, response: 1.00f, dampingFraction: 1.20f);
 
+    // Preset literals are statically valid; the Fin is unwrapped at type-load (a rejected literal is a coding
+    // error, not a recoverable runtime fault) via IfFail onto an unreachable identity config.
     private static SpringPreset Of(int key, float response, float dampingFraction) =>
-        new(key: key, config: SpringConfig.Response(response: response, dampingFraction: dampingFraction));
+        new(key: key, config: SpringConfig.Response(response: response, dampingFraction: dampingFraction)
+            .IfFail(static _ => SpringConfig.Create(stiffness: 1f, damping: 1f, mass: 1f)));
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -388,30 +458,8 @@ public sealed class SpringHandle<T> : IDisposable {
     public T CurrentTarget => cell.Value.Target;
     public bool IsConverged => !cell.Value.IsActive;
 
-    public Fin<Unit> Retarget(T target, Option<T> initialVelocity = default) {
-        SpringRunnerState<T> snapshot = cell.Value;
-        return from validTarget in Op.Of(name: nameof(Retarget)).AcceptFinite(value: target, vector: snapshot.Vector, detail: "spring target/velocity must be finite")
-               from validVelocity in initialVelocity
-                   .Map(value => Op.Of(name: nameof(Retarget)).AcceptFinite(value: value, vector: snapshot.Vector, detail: "spring target/velocity must be finite").Map(Some))
-                   .IfNone(Fin.Succ(value: Option<T>.None))
-               select settled
-                   ? Op.Side(() => {
-                       _ = cell.Swap(state => state with {
-                           Value = validTarget,
-                           Target = validTarget,
-                           Velocity = validVelocity.IfNone(state.Vector.Zero),
-                           Timestamp = state.Clock.GetTimestamp(),
-                       });
-                       snapshot.Sink(validTarget);
-                   })
-                   : Op.Side(() => {
-                       _ = cell.Swap(state => state with {
-                           Target = validTarget,
-                           Velocity = validVelocity.IfNone(state.Velocity),
-                       });
-                       wake();
-                   });
-    }
+    public Fin<Unit> Retarget(T target, Option<T> initialVelocity = default) =>
+        RetargetWhen(target: target, shouldUpdate: static _ => true, initialVelocity: initialVelocity);
 
     public Fin<Unit> RetargetWhen(T target, Func<T, bool> shouldUpdate, Option<T> initialVelocity = default) {
         SpringRunnerState<T> snapshot = cell.Value;
@@ -465,26 +513,8 @@ public sealed class PulseHandle<T> : IDisposable {
     public T CurrentTarget => cell.Value.To;
     public bool IsCycling => cell.Value.IsActive;
 
-    public Fin<Unit> Retarget(T target, Option<int> cycles = default) {
-        PulseRunnerState<T> snapshot = cell.Value;
-        return from validTarget in Op.Of(name: nameof(Retarget)).AcceptFinite(value: target, vector: snapshot.Vector, detail: "pulse target must be finite")
-               select settled
-                   ? Op.Side(() => SettlePulse(snapshot: snapshot, target: validTarget))
-                   : Op.Side(() => {
-                       _ = cell.Swap(state => state with {
-                           From = state.Animated.ValueNow,
-                           To = validTarget,
-                           CyclesRemaining = cycles.IfNone(state.CyclesRemaining),
-                           Animated = Animated<T>.CreateUnfinished(
-                               value0: state.Animated.ValueNow,
-                               value1: validTarget,
-                               duration: Animators.DurationToTimeSpan(duration: state.Duration),
-                               motion: state.Easing,
-                               interpolator: state.Vector.Interpolate),
-                       });
-                       wake();
-                   });
-    }
+    public Fin<Unit> Retarget(T target, Option<int> cycles = default) =>
+        RetargetWhen(target: target, shouldUpdate: static _ => true, cycles: cycles);
 
     // Symmetric with SpringHandle.RetargetWhen: only re-seed the curve when the predicate accepts the current
     // target, so a stale retarget is a no-op rather than a restart.
@@ -534,9 +564,13 @@ public sealed class PulseHandle<T> : IDisposable {
 }
 
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct PulseRunnerState<T>(Animated<T> Animated, T From, T To, GhDuration Duration, GhMotion Easing, bool Yoyo, bool Infinite, int CyclesRemaining, IMotionVector<T> Vector, Action<T> Sink) : IMotionState<PulseRunnerState<T>> {
-    public PulseRunnerState<T> Step(float _) =>
-        (Animated.State == GhState.Finished, Infinite || CyclesRemaining > 0) switch {
+internal readonly record struct PulseRunnerState<T>(Animated<T> Animated, T From, T To, GhDuration Duration, GhMotion Easing, bool Yoyo, bool Infinite, int CyclesRemaining, IMotionVector<T> Vector, Action<T> Sink, Grasshopper2.UI.Canvas.Canvas Canvas) : IMotionState<PulseRunnerState<T>> {
+    // GH2's Animated curve only advances when evaluated against the canvas clock (Canvas.Animate), exactly as
+    // Tween/Stroke drive their curves. Tick the curve FIRST so State/ValueNow reflect the current frame, then
+    // fold the cycle transition off the freshly-advanced state.
+    public PulseRunnerState<T> Step(float delta) {
+        _ = Canvas.Animate(animated: Animated);
+        return (Animated.State == GhState.Finished, Infinite || CyclesRemaining > 0) switch {
             (true, true) => this with {
                 Animated = Animated<T>.CreateUnfinished(
                     value0: Yoyo ? Animated.Value1 : From,
@@ -548,6 +582,7 @@ internal readonly record struct PulseRunnerState<T>(Animated<T> Animated, T From
             },
             _ => this,
         };
+    }
 
     public Unit Emit() { Sink(Animated.ValueNow); return unit; }
 
@@ -767,6 +802,8 @@ public static class Spark {
         new NoticeSparkle(notice: notice, location: location, attachedToContent: attachedToContent);
     public static ISparkle NoticeAnchored(NoticeType notice, Func<PointF> location, bool attachedToContent = true) =>
         new NoticeSparkle(notice: notice, location: location, attachedToContent: attachedToContent);
+    public static ISparkle FacePath(GraphicsPath face, bool attachedToContent = false) =>
+        new FaceSparkle(face: face, attachedToContent: attachedToContent);
 }
 
 public static class Glyph {
@@ -785,6 +822,10 @@ public static class Glyph {
 internal static class Motion {
     // Default retina backing scale when a screen cannot be resolved.
     private const float RetinaScaleDefault = 2f;
+    // GPU keyframe sampling density for the sampled-curve CAKeyFrameAnimation path.
+    private const int KeyframeSamples = 60;
+    // CPU fallback refresh when no Pacer vsync timestamp is available (Eto coalesces near this rate).
+    private const float DefaultRefreshHz = 60f;
 
     // Shared scaffold: NeedCanvas + PacerOption + Paint.Hook + bundle + initial wake. Variant services
     // (Spring exposing a cell, etc.) consume RunPipeline directly with their own canvas/pacer setup.
@@ -819,62 +860,53 @@ internal static class Motion {
                         return unit;
                     }
                     validSink(canvas.Animate(animated: animated));
-                    return PauseWhenFinished(state: animated.State, pacer: pacer);
+                    return pacer.PauseWhen(finished: animated.State == GhState.Finished);
                 }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Tween)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
             select result);
 
     internal static GrasshopperUiIntent<SpringHandle<TValue>> Spring<TValue>(
         TValue start, TValue target, SpringConfig config, IMotionVector<TValue> vector,
         Action<TValue> sink, Option<TValue> initialVelocity, TimeProvider? timeSource, MotionClock clock) =>
-        MotionAccessibility.ShouldReduceMotion
-            ? SettledSpring(
-                target: target, config: config, vector: vector, sink: sink, timeSource: timeSource)
-            : AnimatedSpring(
-                start: start, target: target, config: config, vector: vector, sink: sink,
-                initialVelocity: initialVelocity, timeSource: timeSource, clock: clock);
-
-    private static GrasshopperUiIntent<SpringHandle<TValue>> SettledSpring<TValue>(
-        TValue target, SpringConfig config, IMotionVector<TValue> vector,
-        Action<TValue> sink, TimeProvider? timeSource) =>
         GhUi.Canvas(run: scope =>
             from validVector in Optional(vector).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "vector is required"))
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "sink delegate is required"))
-            from _finite in validVector.IsFinite(target)
-                ? Fin.Succ(value: unit)
-                : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "spring target must be finite"))
+            from _finite in Op.Of(name: nameof(Spring)).AcceptAll(
+                value: unit,
+                o => o.AcceptFinite(value: start, vector: validVector, detail: "spring start must be finite").Map(static _ => unit),
+                o => o.AcceptFinite(value: target, vector: validVector, detail: "spring target must be finite").Map(static _ => unit),
+                o => initialVelocity.Map(value => o.AcceptFinite(value: value, vector: validVector, detail: "spring velocity must be finite").Map(static _ => unit)).IfNone(Fin.Succ(unit)))
             from canvas in scope.NeedCanvas()
-            from _ in Op.Of(name: nameof(Spring)).Attempt(body: () => { validSink(target); return unit; }, what: "spring reduce-motion settle")
             let resolvedClock = timeSource ?? TimeProvider.System
-            select new SpringHandle<TValue>(
-                cell: Atom(new SpringRunnerState<TValue>(
-                    Value: target,
-                    Velocity: validVector.Zero,
-                    Target: target, Config: config, Vector: validVector, Sink: validSink,
-                    Clock: resolvedClock, Timestamp: resolvedClock.GetTimestamp())),
-                subscription: Subscription.Empty,
-                wake: canvas.ScheduleRedraw,
-                settled: true));
+            let restState = new SpringRunnerState<TValue>(
+                Value: target, Velocity: validVector.Zero, Target: target, Config: config, Vector: validVector,
+                Sink: validSink, Clock: resolvedClock, Timestamp: resolvedClock.GetTimestamp())
+            let liveState = new SpringRunnerState<TValue>(
+                Value: start, Velocity: initialVelocity.IfNone(validVector.Zero), Target: target, Config: config,
+                Vector: validVector, Sink: validSink, Clock: resolvedClock, Timestamp: resolvedClock.GetTimestamp())
+            from handle in RunOrSettle(
+                canvas: canvas, opName: nameof(Spring), clock: clock,
+                restState: restState, liveState: liveState, restEmit: () => validSink(target),
+                handle: static (cell, sub, wake, settled) => new SpringHandle<TValue>(cell: cell, subscription: sub, wake: wake, settled: settled)).Run(scope: scope)
+            select handle);
 
-    private static GrasshopperUiIntent<SpringHandle<TValue>> AnimatedSpring<TValue>(
-        TValue start, TValue target, SpringConfig config, IMotionVector<TValue> vector,
-        Action<TValue> sink, Option<TValue> initialVelocity, TimeProvider? timeSource, MotionClock clock) =>
+    // Shared reduce-motion fork for the runner-cell families (Spring, Pulse): under reduce-motion emit the rest
+    // pose and return a settled handle over an Atom-confined rest cell (Subscription.Empty, no pacer); otherwise
+    // adopt the pacer, run the RunnerPaint pipeline over the live cell, and return the live handle. The per-family
+    // validation, rest/live state construction, and handle factory are supplied by the caller.
+    private static GrasshopperUiIntent<THandle> RunOrSettle<TState, THandle>(
+        Grasshopper2.UI.Canvas.Canvas canvas, string opName, MotionClock clock,
+        TState restState, TState liveState, Action restEmit,
+        Func<Atom<TState>, Subscription, Action, bool, THandle> handle)
+        where TState : struct, IMotionState<TState> =>
         GhUi.Canvas(run: scope =>
-            from validVector in Optional(vector).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "vector is required"))
-            from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "sink delegate is required"))
-            from _finite in validVector.IsFinite(start) && validVector.IsFinite(target) && initialVelocity.Map(value => validVector.IsFinite(value)).IfNone(true)
-                ? Fin.Succ(value: unit)
-                : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Spring)), detail: "spring start/target/velocity must be finite"))
-            from canvas in scope.NeedCanvas()
-            from pacer in PacerOption(canvas: canvas, clock: clock)
-            let resolvedClock = timeSource ?? TimeProvider.System
-            let cell = Atom(new SpringRunnerState<TValue>(
-                Value: start,
-                Velocity: initialVelocity.IfNone(validVector.Zero),
-                Target: target, Config: config, Vector: validVector, Sink: validSink,
-                Clock: resolvedClock, Timestamp: resolvedClock.GetTimestamp()))
-            from bundle in RunPipeline(canvas: canvas, pacer: pacer, opName: nameof(Spring), phase: CanvasPaintPhase.BeforeBackground, clock: clock,
-                paint: RunnerPaint(cell: cell, canvas: canvas, pacer: pacer, opName: nameof(Spring))).Run(scope: scope)
-            select new SpringHandle<TValue>(cell: cell, subscription: bundle.Subscription, wake: bundle.Wake));
+            MotionAccessibility.ShouldReduceMotion
+                ? from _ in Op.Of(name: opName).Attempt(body: () => { restEmit(); return unit; }, what: $"{opName} reduce-motion settle")
+                  select handle(arg1: Atom(restState), arg2: Subscription.Empty, arg3: canvas.ScheduleRedraw, arg4: true)
+                : from pacer in PacerOption(canvas: canvas, clock: clock)
+                  let cell = Atom(liveState)
+                  from bundle in RunPipeline(canvas: canvas, pacer: pacer, opName: opName, phase: CanvasPaintPhase.BeforeBackground, clock: clock,
+                      paint: RunnerPaint(cell: cell, canvas: canvas, pacer: pacer, opName: opName)).Run(scope: scope)
+                  select handle(arg1: cell, arg2: bundle.Subscription, arg3: bundle.Wake, arg4: false));
 
     internal static (Subscription Subscription, Action Wake) MotionBundleOf(
         Option<Pacer> pacer, Subscription sub, Grasshopper2.UI.Canvas.Canvas canvas) {
@@ -891,16 +923,19 @@ internal static class Motion {
                 ? Fin.Succ(Option<Pacer>.None)
                 : Pacer.For(canvas: c, rate: d.Rate.ToNullable()).Map(Some));
 
-    internal static Unit PacerResume(Option<Pacer> pacer, Grasshopper2.UI.Canvas.Canvas canvas) =>
-        pacer is { IsSome: true, Case: Pacer p } ? Op.Side(() => p.Resume()) : Op.Side(canvas.ScheduleRedraw);
+    // One unwrap of the Option<Pacer> sentinel for the three lifecycle verbs: ResumeOr falls back to a manual
+    // redraw when no vsync Pacer is adopted, ReleaseOnce pauses+releases the pooled link, PauseWhen idles the
+    // link on the curve's rested edge. The MotionRunner Wake/Sleep keep their own Interlocked edge guards.
+    extension(Option<Pacer> pacer) {
+        internal Unit ResumeOr(Grasshopper2.UI.Canvas.Canvas canvas) =>
+            pacer is { IsSome: true, Case: Pacer p } ? Op.Side(() => p.Resume()) : Op.Side(canvas.ScheduleRedraw);
 
-    internal static Unit PacerRelease(Option<Pacer> pacer) =>
-        pacer is { IsSome: true, Case: Pacer p } ? Op.Side(() => { _ = p.Pause(); _ = p.Release(); }) : unit;
+        internal Unit ReleaseOnce() =>
+            pacer is { IsSome: true, Case: Pacer p } ? Op.Side(() => { _ = p.Pause(); _ = p.Release(); }) : unit;
 
-    internal static Unit PauseWhenFinished(GhState state, Option<Pacer> pacer) =>
-        state == GhState.Finished && pacer is { IsSome: true, Case: Pacer p }
-            ? p.Pause()
-            : unit;
+        internal Unit PauseWhen(bool finished) =>
+            finished && pacer is { IsSome: true, Case: Pacer p } ? p.Pause() : unit;
+    }
 
     private static Func<PaintScope, Fin<Unit>> RunnerPaint<TState>(
         Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer, string opName)
@@ -920,52 +955,30 @@ internal static class Motion {
         GhUi.Canvas(run: scope =>
             from validVector in Optional(vector).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "vector is required"))
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "sink delegate is required"))
-            from _finite in validVector.IsFinite(start) && validVector.IsFinite(target)
-                ? Fin.Succ(value: unit)
-                : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "pulse start/target must be finite"))
+            from _finite in Op.Of(name: nameof(Pulse)).AcceptAll(
+                value: unit,
+                o => o.AcceptFinite(value: start, vector: validVector, detail: "pulse start must be finite").Map(static _ => unit),
+                o => o.AcceptFinite(value: target, vector: validVector, detail: "pulse target must be finite").Map(static _ => unit))
             from validCycles in infinite
                 ? Fin.Succ(1)
                 : Optional(cycles).Filter(static c => c >= 1)
                     .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Pulse)), detail: "cycles must be positive when not infinite"))
-            from handle in (MotionAccessibility.ShouldReduceMotion
-                ? SettledPulse(start: start, target: target, duration: duration, easing: easing, yoyo: yoyo, infinite: infinite, vector: validVector, sink: validSink)
-                : AnimatedPulse(start: start, target: target, duration: duration, easing: easing, yoyo: yoyo, infinite: infinite, cycles: validCycles, vector: validVector, sink: validSink, clock: clock)).Run(scope: scope)
-            select handle);
-
-    private static GrasshopperUiIntent<PulseHandle<TValue>> SettledPulse<TValue>(
-        TValue start, TValue target, GhDuration duration, GhMotion easing, bool yoyo, bool infinite,
-        IMotionVector<TValue> vector, Action<TValue> sink) =>
-        // A yoyo's resting pose is its From (it returns to start); a one-way pulse rests at target.
-        GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
+                // A yoyo's resting pose is its From (it returns to start); a one-way pulse rests at target.
             let rest = yoyo ? start : target
-            from _ in Op.Of(name: nameof(Pulse)).Attempt(body: () => { sink(rest); return unit; }, what: "pulse reduce-motion settle")
-            select new PulseHandle<TValue>(
-                cell: Atom(new PulseRunnerState<TValue>(
-                    Animated: Animated<TValue>.CreateUnfinished(
-                        value0: rest, value1: rest, duration: TimeSpan.Zero, motion: easing, interpolator: vector.Interpolate),
-                    From: rest, To: rest, Duration: duration, Easing: easing, Yoyo: yoyo, Infinite: infinite,
-                    CyclesRemaining: 0, Vector: vector, Sink: sink)),
-                subscription: Subscription.Empty,
-                wake: canvas.ScheduleRedraw,
-                settled: true));
-
-    private static GrasshopperUiIntent<PulseHandle<TValue>> AnimatedPulse<TValue>(
-        TValue start, TValue target, GhDuration duration, GhMotion easing, bool yoyo, bool infinite, int cycles,
-        IMotionVector<TValue> vector, Action<TValue> sink, MotionClock clock) =>
-        GhUi.Canvas(run: scope =>
-            from canvas in scope.NeedCanvas()
-            from pacer in PacerOption(canvas: canvas, clock: clock)
-            let cell = Atom(new PulseRunnerState<TValue>(
-                Animated: Animated<TValue>.CreateUnfinished(
-                    value0: start, value1: target,
-                    duration: Animators.DurationToTimeSpan(duration: duration),
-                    motion: easing, interpolator: vector.Interpolate),
+            let restState = new PulseRunnerState<TValue>(
+                Animated: Animated<TValue>.CreateUnfinished(value0: rest, value1: rest, duration: TimeSpan.Zero, motion: easing, interpolator: validVector.Interpolate),
+                From: rest, To: rest, Duration: duration, Easing: easing, Yoyo: yoyo, Infinite: infinite,
+                CyclesRemaining: 0, Vector: validVector, Sink: validSink, Canvas: canvas)
+            let liveState = new PulseRunnerState<TValue>(
+                Animated: Animated<TValue>.CreateUnfinished(value0: start, value1: target, duration: Animators.DurationToTimeSpan(duration: duration), motion: easing, interpolator: validVector.Interpolate),
                 From: start, To: target, Duration: duration, Easing: easing, Yoyo: yoyo, Infinite: infinite,
-                CyclesRemaining: cycles - 1, Vector: vector, Sink: sink))
-            from bundle in RunPipeline(canvas: canvas, pacer: pacer, opName: nameof(Pulse), phase: CanvasPaintPhase.BeforeBackground, clock: clock,
-                paint: RunnerPaint(cell: cell, canvas: canvas, pacer: pacer, opName: nameof(Pulse))).Run(scope: scope)
-            select new PulseHandle<TValue>(cell: cell, subscription: bundle.Subscription, wake: bundle.Wake));
+                CyclesRemaining: validCycles - 1, Vector: validVector, Sink: validSink, Canvas: canvas)
+            from handle in RunOrSettle(
+                canvas: canvas, opName: nameof(Pulse), clock: clock,
+                restState: restState, liveState: liveState, restEmit: () => validSink(rest),
+                handle: static (cell, sub, wake, settled) => new PulseHandle<TValue>(cell: cell, subscription: sub, wake: wake, settled: settled)).Run(scope: scope)
+            select handle);
 
     internal static GrasshopperUiIntent<Subscription> Sequence<TValue>(
         TValue start, Seq<(TValue Target, GhDuration Duration, GhMotion Motion)> steps,
@@ -975,15 +988,14 @@ internal static class Motion {
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Sequence)), detail: "sink delegate is required"))
             from validSteps in Optional(steps).Filter(static s => s.Count > 0)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Sequence)), detail: "at least one step is required"))
-            from _finite in validVector.IsFinite(start) && validSteps.ForAll(s => validVector.IsFinite(s.Target))
-                ? Fin.Succ(value: unit)
-                : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Sequence)), detail: "sequence start/targets must be finite"))
+            from _finite in Op.Of(name: nameof(Sequence)).AcceptFinite(value: start, vector: validVector, detail: "sequence start must be finite")
+                .Bind(_ => validSteps.TraverseM(s => Op.Of(name: nameof(Sequence)).AcceptFinite(value: s.Target, vector: validVector, detail: "sequence targets must be finite")).As().Map(static _ => unit))
                 // Boundary invariant: GH2 Animated.Chain short-circuits a step whose Target equals the prior value
                 // (Value1.Equals(target)), so a dwell step targeting the prior pose is silently dropped — epsilon
                 // perturbation is non-trivial for non-numeric TValue, so this is documented rather than worked around.
             let animated = validSteps.Fold(
                 initialState: Animated<TValue>.CreateFinished(start, validVector.Interpolate),
-                f: static (acc, step) => acc.Chain(step.Target, step.Duration, step.Motion))
+                f: static (acc, step) => acc + (value: step.Target, motion: step.Motion, duration: step.Duration))
             from sub in Tween(animated: animated, sink: validSink, clock: clock).Run(scope: scope)
             select sub);
 
@@ -1009,22 +1021,10 @@ internal static class Motion {
                         using Pen pen = style.Pen();
                         Animated<double> animated = MotionAccessibility.ShouldReduceMotion ? settled : progress;
                         validPath.Draw(paintScope.Graphics.Content, pen, canvas.Animate(animated: animated), validOrigin, validScale, validAngle);
-                        return MotionAccessibility.ShouldReduceMotion ? unit : PauseWhenFinished(state: progress.State, pacer: pacer);
+                        return MotionAccessibility.ShouldReduceMotion ? unit : pacer.PauseWhen(finished: progress.State == GhState.Finished);
                     }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Stroke)), detail: $"draw threw: {error.Message}"));
                 }).Run(scope: scope)
             select result);
-
-    internal static GrasshopperUiIntent<Unit> Sparkle(ISparkle instance) =>
-        GhUi.Canvas(
-            repaint: RepaintRequest.Scheduled,
-            run: scope =>
-                from canvas in scope.NeedCanvas()
-                from valid in Optional(instance).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Sparkle)), detail: "sparkle is required"))
-                from _ in MotionAccessibility.ShouldSkipDecorativeMotion
-                    ? Fin.Succ(value: unit)
-                    : Try.lift(f: () => { canvas.AddSparkle(sparkle: valid); return unit; }).Run()
-                        .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Sparkle)), detail: $"AddSparkle threw: {error.Message}"))
-                select unit);
 
     internal static GrasshopperUiIntent<Subscription> Theme(
         Skin start, Skin target, GhDuration duration, GhMotion easing, Action<Skin> sink, MotionClock clock) =>
@@ -1037,37 +1037,53 @@ internal static class Motion {
             sink: sink,
             clock: clock);
 
-    internal static GrasshopperUiIntent<Unit> Navigate(PointF centre, GhDuration duration, float minZoom, float maxZoom) =>
+    internal static GrasshopperUiIntent<Unit> Navigate(NavigateTarget target, GhDuration duration, float minZoom, float maxZoom) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from document in scope.NeedDocument()
-            from validCentre in Op.Of(name: nameof(Navigate)).AcceptPoint(value: centre, detail: "non-finite centre")
             from validMin in Op.Of(name: nameof(Navigate)).AcceptFinite(value: minZoom, detail: "min zoom must be finite and positive", requirePositive: true)
             from validMax in Op.Of(name: nameof(Navigate)).AcceptFinite(value: maxZoom, detail: "max zoom must be finite and positive", requirePositive: true)
             from _ in validMax >= validMin
                 ? Fin.Succ(value: unit)
                 : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Navigate)), detail: "max zoom below min zoom"))
-            from __ in MotionAccessibility.ShouldReduceMotion
-                ? Op.Of(name: nameof(Navigate)).Attempt(body: () => {
-                    float zoom = Math.Clamp(value: document.Projection.zoom, min: validMin, max: validMax);
-                    canvas.Projection = canvas.Projection.SetZoom(zoom: zoom).SetCentre(centre: validCentre, frame: canvas.VisibleFrame);
-                    document.Projection = (validCentre, zoom);
-                    return unit;
-                }, what: "navigate reduce-motion snap")
-                : Try.lift(f: () => {
-                    canvas.Navigate(point: validCentre, zoomLimits: (validMin, validMax), duration: duration);
-                    return unit;
-                }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Navigate)), detail: $"navigate threw: {error.Message}"))
-            select unit);
+                // Reduce-motion collapses the tween to an Abrupt (0ms) host frame; the Point case additionally snaps
+                // the document projection so the persisted centre/zoom matches the host's framing immediately.
+            let effectiveDuration = MotionAccessibility.ShouldReduceMotion ? GhDuration.Abrupt : duration
+            from result in target.Switch(
+                pointCase: p =>
+                    from validCentre in Op.Of(name: nameof(Navigate)).AcceptPoint(value: p.Centre, detail: "non-finite centre")
+                    from __ in MotionAccessibility.ShouldReduceMotion
+                        ? Op.Of(name: nameof(Navigate)).Attempt(body: () => {
+                            float zoom = Math.Clamp(value: document.Projection.zoom, min: validMin, max: validMax);
+                            canvas.Projection = canvas.Projection.SetZoom(zoom: zoom).SetCentre(centre: validCentre, frame: canvas.VisibleFrame);
+                            document.Projection = (validCentre, zoom);
+                            return unit;
+                        }, what: "navigate reduce-motion snap")
+                        : Op.Of(name: nameof(Navigate)).Attempt(body: () => { canvas.Navigate(point: validCentre, zoomLimits: (validMin, validMax), duration: duration); return unit; }, what: "navigate")
+                    select unit,
+                frameCase: f =>
+                    Op.Of(name: nameof(Navigate)).AcceptRect(value: f.Region, detail: "non-finite frame")
+                        .Bind(validFrame => Op.Of(name: nameof(Navigate)).Attempt(body: () => { canvas.Navigate(frame: validFrame, zoomLimits: (validMin, validMax), duration: effectiveDuration); return unit; }, what: "navigate frame")),
+                positionCase: pos =>
+                    Op.Of(name: nameof(Navigate)).Attempt(body: () => { canvas.Navigate(position: pos.Where.Native, duration: effectiveDuration); return unit; }, what: "navigate position"))
+            select result);
 
     internal static GrasshopperUiIntent<Subscription> ZoomGate(ZoomThreshold threshold, Action<float> sink, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ZoomGate)), detail: "sink delegate is required"))
+                // Edge-coalesce: the paint phase fires every frame, but the zoom factor only changes on actual zoom.
+                // A closure-local last-value Atom suppresses re-emits within the float rest epsilon so the sink sees
+                // one event per perceptible zoom delta, not one per frame.
+            let lastValue = Atom(Option<float>.None)
             from sub in Paint.Hook(
                 phase: CanvasPaintPhase.BeforeBackground,
                 paint: paintScope => Try.lift(f: () => {
-                    validSink(canvas.AnimatedZoomFactor(threshold: threshold));
+                    float now = canvas.AnimatedZoomFactor(threshold: threshold);
+                    Option<float> previous = lastValue.Value;
+                    _ = previous.Filter(prev => MathF.Abs(prev - now) <= MotionVector.Float.RestEpsilon).IsSome
+                        ? unit
+                        : Op.Side(() => { _ = lastValue.Swap(_ => Some(now)); validSink(now); });
                     return unit;
                 }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(ZoomGate)), detail: $"tick threw: {error.Message}")),
                 clock: clock).Run(scope: scope)
@@ -1175,6 +1191,7 @@ internal static class Motion {
                         },
                     });
             },
+            hapticCase: static (_, h) => Fin.Succ<CosmeticIntent>(h),
             state: canvas);
 
     private static Fin<Unit> AcceptDistinctAnimationKeyPaths(CosmeticIntent intent) {
@@ -1203,16 +1220,26 @@ internal static class Motion {
                 detail: $"stroke co-animations require a stroke parent layer: {string.Join(separator: ", ", values: invalid.AsIterable())}"));
     }
 
-    private static string AnimationKeyPathOf(CosmeticIntent intent) =>
+    // One descriptor per case folds the former AnimationKeyPathOf + BuildCosmeticAnimation switches: KeyPath
+    // drives both the distinctness gate and the property animation, To is the per-case opacity ceiling (the
+    // animated property's alpha source), Cycles/Yoyo/Infinite drive ApplyRepeat. strokeEnd is the lone non-
+    // repeating arm (Repeat=false); haptic is non-visual (never reaches a layer). Keyframe/Spring live on the
+    // CosmeticIntent base and are read directly at build time.
+    private readonly record struct CosmeticAnimSpec(string KeyPath, float To, int Cycles, bool Yoyo, bool Infinite, GhDuration Duration, GhMotion Easing, bool Repeat = true);
+
+    private static CosmeticAnimSpec AnimSpecOf(CosmeticIntent intent) =>
         intent.Switch(
-            pulseCase: static _ => "opacity",
-            glowCase: static _ => "shadowOpacity",
-            strokeOnCase: static _ => "strokeEnd",
-            gradientCase: static _ => "opacity",
-            textLayerCase: static _ => "opacity",
-            replicatorCase: static _ => "opacity",
-            emitterCase: static _ => "opacity",
-            snapGuideCase: static _ => "opacity");
+            pulseCase: static p => new CosmeticAnimSpec(KeyPath: "opacity", To: p.Tint.A, Cycles: p.Cycles, Yoyo: p.Yoyo, Infinite: p.Infinite, Duration: p.Duration, Easing: p.Easing),
+            glowCase: static g => new CosmeticAnimSpec(KeyPath: "shadowOpacity", To: g.Tint.A, Cycles: g.Cycles, Yoyo: g.Yoyo, Infinite: g.Infinite, Duration: g.Duration, Easing: g.Easing),
+            strokeOnCase: static s => new CosmeticAnimSpec(KeyPath: "strokeEnd", To: 1f, Cycles: 1, Yoyo: false, Infinite: false, Duration: s.Duration, Easing: s.Easing, Repeat: false),
+            gradientCase: static g => new CosmeticAnimSpec(KeyPath: "opacity", To: g.Colors.Map(static c => c.A).Fold(0f, static (m, a) => Math.Max(m, a)), Cycles: g.Cycles, Yoyo: g.Yoyo, Infinite: g.Infinite, Duration: g.Duration, Easing: g.Easing),
+            textLayerCase: static t => new CosmeticAnimSpec(KeyPath: "opacity", To: t.Tint.A, Cycles: t.Cycles, Yoyo: t.Yoyo, Infinite: t.Infinite, Duration: t.Duration, Easing: t.Easing),
+            replicatorCase: static r => new CosmeticAnimSpec(KeyPath: "opacity", To: r.Tint.A, Cycles: 1, Yoyo: true, Infinite: false, Duration: r.Duration, Easing: r.Easing),
+            emitterCase: static e => new CosmeticAnimSpec(KeyPath: "opacity", To: e.Tint.A, Cycles: 1, Yoyo: true, Infinite: false, Duration: e.Duration, Easing: e.Easing),
+            snapGuideCase: static g => new CosmeticAnimSpec(KeyPath: "opacity", To: g.Style.Tint.A, Cycles: 1, Yoyo: true, Infinite: false, Duration: g.Style.Duration, Easing: g.Style.Easing),
+            hapticCase: static _ => new CosmeticAnimSpec(KeyPath: "haptic", To: 0f, Cycles: 1, Yoyo: false, Infinite: false, Duration: GhDuration.Normal, Easing: GhMotion.Linear, Repeat: false));
+
+    private static string AnimationKeyPathOf(CosmeticIntent intent) => AnimSpecOf(intent: intent).KeyPath;
 
     private static Fin<Unit> AcceptGradientPoints(Op op, CosmeticGradientPoints points, int colourCount) =>
         toSeq([
@@ -1274,6 +1301,10 @@ internal static class Motion {
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
         Justification = "CAShapeLayer ownership transfers to host CALayer via AddSublayer; disposal happens on Subscription detach or animation completion delegate.")]
     private static Unit CosmeticAttach(NSView view, CosmeticIntent intent, NSString key) {
+        if (intent is CosmeticIntent.HapticCase haptic) {
+            _ = PerformHaptic(pattern: haptic.Pattern);
+            return intent.Completion.IfSome(static run => run());
+        }
         view.WantsLayer = true;
         if (view.Layer is not CALayer host) {
             return unit;
@@ -1284,7 +1315,10 @@ internal static class Motion {
         CALayer layer = BuildCosmeticLayer(intent: intent);
         NFloat scale = Optional(view.Window?.Screen).Map(static screen => screen.BackingScaleFactor).IfNone((NFloat)RetinaScaleDefault);
         layer.ContentsScale = scale;
-        _ = (layer.Sublayers is { } sublayers ? toSeq(sublayers) : Seq<CALayer>()).Iter(sub => sub.ContentsScale = scale);
+        // DrawsAsynchronously offloads the layer's content rasterization to a background thread — a safe perf hint
+        // for the fire-and-forget overlay path. Applied to the host layer and any sublayers alongside ContentsScale.
+        layer.DrawsAsynchronously = true;
+        _ = (layer.Sublayers is { } sublayers ? toSeq(sublayers) : Seq<CALayer>()).Iter(sub => { sub.ContentsScale = scale; sub.DrawsAsynchronously = true; });
         layer.Name = key.ToString();
         return WithoutAnimation(() => {
             host.AddSublayer(layer: layer);
@@ -1317,7 +1351,7 @@ internal static class Motion {
 
     [SupportedOSPlatform("macos14.0")]
     private static CALayer BuildCosmeticLayer(CosmeticIntent intent) =>
-        intent.Switch<CALayer>(
+        intent.Switch(
             pulseCase: CosmeticPulseLayer,
             glowCase: CosmeticGlowLayer,
             strokeOnCase: CosmeticStrokeLayer,
@@ -1325,7 +1359,9 @@ internal static class Motion {
             textLayerCase: CosmeticTextLayer,
             replicatorCase: CosmeticReplicatorLayer,
             emitterCase: CosmeticEmitterLayer,
-            snapGuideCase: CosmeticSnapGuideLayer);
+            snapGuideCase: CosmeticSnapGuideLayer,
+            // HapticCase carries no CALayer; CosmeticAttach short-circuits it before BuildCosmeticLayer is reached.
+            hapticCase: static _ => new CALayer());
 
     [SupportedOSPlatform("macos14.0")]
     private static CAShapeLayer CosmeticPulseLayer(CosmeticIntent.PulseCase pulse) {
@@ -1361,6 +1397,9 @@ internal static class Motion {
         };
         _ = glow.BorderColor.IfSome(colour => shape.BorderColor = ToCGColor(colour));
         _ = Optional(glow.BlurRadius).Filter(static radius => radius > 0f).IfSome(radius => shape.Filters = [new CIGaussianBlur { Radius = radius }]);
+        // CompositingFilter blends the glow against the canvas behind it; CIFilter.FromName is nullable, so the
+        // Choose drops an unresolved filter name rather than nulling the property.
+        _ = glow.Blend.Bind(mode => Optional(CIFilter.FromName(name: mode.FilterName))).IfSome(filter => shape.CompositingFilter = filter);
         return shape;
     }
 
@@ -1430,8 +1469,6 @@ internal static class Motion {
         path.AddRect(rect: local);
         source.Path = path;
         source.FillColor = ToCGColor(replicate.Tint);
-        // Per-instance transform composes translation (spacing along X) with rotation about Z; either degenerates
-        // to identity when its parameter is zero, so the Concat covers spaced, fanned, and spiral replications.
         CAReplicatorLayer replicator = new() {
             Frame = rect,
             InstanceCount = replicate.Count,
@@ -1452,28 +1489,39 @@ internal static class Motion {
         Justification = "CGColor/CAEmitterCell ownership transfers to the host CAEmitterLayer property graph for animation lifetime.")]
     private static CAEmitterLayer CosmeticEmitterLayer(CosmeticIntent.EmitterCase emit) {
         CGRect rect = ToCGRect(emit.Bounds);
-        CAEmitterCell cell = new() {
-            BirthRate = emit.BirthRate,
-            LifeTime = emit.Lifetime,
-            LifetimeRange = emit.Lifetime * emit.LifetimeRangeRatio,
-            Velocity = emit.Velocity,
-            VelocityRange = emit.Velocity * emit.VelocityRangeRatio,
-            EmissionRange = emit.EmissionRange,
-            Scale = emit.Scale,
-            ScaleRange = emit.Scale * emit.ScaleRangeRatio,
-            ScaleSpeed = emit.ScaleSpeed,
-            AlphaSpeed = emit.AlphaSpeed,
-            Color = ToCGColor(emit.Tint),
-            RedRange = emit.ColorRange,
-            GreenRange = emit.ColorRange,
-            BlueRange = emit.ColorRange,
-        };
+        EmitterProfile profile = emit.Profile;
+        // A Palette spawns one cell per colour (each a tinted variant of the profile); absent a palette one cell
+        // carries the base tint. CAEmitterCell.EmissionLongitude/Spin have managed setters (verified), unlike
+        // emitterPosition which still needs KVC.
+        Seq<Color> tints = emit.Palette.Filter(static p => !p.IsEmpty).IfNone(Seq(emit.Tint));
+        Seq<CAEmitterCell> cells = tints.Map(tint => {
+            CAEmitterCell cell = new() {
+                BirthRate = emit.BirthRate,
+                LifeTime = emit.Lifetime,
+                LifetimeRange = emit.Lifetime * profile.LifetimeRangeRatio,
+                Velocity = emit.Velocity,
+                VelocityRange = emit.Velocity * profile.VelocityRangeRatio,
+                EmissionRange = emit.EmissionRange,
+                EmissionLongitude = emit.EmissionLongitude,
+                Spin = emit.Spin,
+                SpinRange = MathF.Abs(emit.Spin) * profile.ScaleRangeRatio,
+                Scale = profile.Scale,
+                ScaleRange = profile.Scale * profile.ScaleRangeRatio,
+                ScaleSpeed = profile.ScaleSpeed,
+                AlphaSpeed = profile.AlphaSpeed,
+                Color = ToCGColor(tint),
+                RedRange = profile.ColorRange,
+                GreenRange = profile.ColorRange,
+                BlueRange = profile.ColorRange,
+            };
+            return cell;
+        });
         CAEmitterLayer layer = new() {
             Frame = rect,
             Shape = emit.Shape.Resolve(),
             Mode = CAEmitterLayer.ModeSurface,
             Size = new CGSize(width: rect.Width, height: rect.Height),
-            Cells = [cell],
+            Cells = [.. cells],
             Opacity = 0f,
         };
         // emitterPosition has no managed setter; centre it in the layer via KVC so particles spawn across Bounds.
@@ -1572,6 +1620,8 @@ internal static class Motion {
             Mass = config.Mass,
             Stiffness = config.Stiffness,
             Damping = config.Damping,
+            // GPU spring launches from rest; the CPU runner's live velocity is not threaded into the GPU layer.
+            InitialVelocity = 0f,
         };
         anim.Duration = anim.SettlingDuration;
         anim.SetFrom(value: NSNumber.FromFloat(from));
@@ -1603,8 +1653,6 @@ internal static class Motion {
         anim.TimingFunction = CAMediaTimingFunction.FromName(name: TimingName(easing: easing));
         return anim;
     }
-
-    private const int KeyframeSamples = 60;
 
     // Penner closed-form sampled at KeyframeSamples steps, linearly interpolated between samples; KeyTimes are
     // left unset so Core Animation spreads the values uniformly across [0,1] — the curve shape is the Values.
@@ -1650,7 +1698,7 @@ internal static class Motion {
 
     [SupportedOSPlatform("macos14.0")]
     private static CAAnimationGroup GroupAnimations(CAAnimation main, Seq<CosmeticIntent> children) {
-        Seq<CAAnimation> all = Seq(main) + children.Map(static child => BuildCosmeticAnimation(intent: child));
+        Seq<CAAnimation> all = Seq(main) + children.Map(static child => (CAAnimation)BuildCosmeticAnimation(intent: child));
         bool infinite = all.Exists(static animation => animation.RepeatCount == float.PositiveInfinity);
         return new CAAnimationGroup {
             Animations = [.. all],
@@ -1666,17 +1714,15 @@ internal static class Motion {
             ? double.PositiveInfinity
             : animation.Duration * Math.Max(val1: 1d, val2: animation.RepeatCount <= 0f ? 1d : animation.RepeatCount) * (animation.AutoReverses ? 2d : 1d);
 
+    // Data-driven from AnimSpecOf: one PropertyAnimation built off the descriptor, then ApplyRepeat unless the
+    // descriptor opts out (strokeEnd's single-shot stroke; haptic never reaches here). Keyframe/Spring read off
+    // the CosmeticIntent base preserve the per-case curve-upgrade and GPU-spring opt-ins.
     [SupportedOSPlatform("macos14.0")]
-    private static CAAnimation BuildCosmeticAnimation(CosmeticIntent intent) =>
-        intent.Switch<CAAnimation>(
-            pulseCase: static p => ApplyRepeat(PropertyAnimation(path: "opacity", duration: p.Duration, from: 0f, to: p.Tint.A, easing: p.Easing, keyframe: p.Keyframe, spring: p.Spring), cycles: p.Cycles, yoyo: p.Yoyo, infinite: p.Infinite),
-            glowCase: static g => ApplyRepeat(PropertyAnimation(path: "shadowOpacity", duration: g.Duration, from: 0f, to: g.Tint.A, easing: g.Easing, keyframe: g.Keyframe, spring: g.Spring), cycles: g.Cycles, yoyo: g.Yoyo, infinite: g.Infinite),
-            strokeOnCase: static s => PropertyAnimation(path: "strokeEnd", duration: s.Duration, from: 0f, to: 1f, easing: s.Easing, keyframe: s.Keyframe, spring: s.Spring),
-            gradientCase: static g => ApplyRepeat(PropertyAnimation(path: "opacity", duration: g.Duration, from: 0f, to: g.Colors.Map(static c => c.A).Fold(0f, static (m, a) => Math.Max(m, a)), easing: g.Easing, keyframe: g.Keyframe, spring: g.Spring), cycles: g.Cycles, yoyo: g.Yoyo, infinite: g.Infinite),
-            textLayerCase: static t => ApplyRepeat(PropertyAnimation(path: "opacity", duration: t.Duration, from: 0f, to: t.Tint.A, easing: t.Easing, keyframe: t.Keyframe, spring: t.Spring), cycles: t.Cycles, yoyo: t.Yoyo, infinite: t.Infinite),
-            replicatorCase: static r => ApplyRepeat(PropertyAnimation(path: "opacity", duration: r.Duration, from: 0f, to: r.Tint.A, easing: r.Easing, keyframe: r.Keyframe, spring: r.Spring), cycles: 1, yoyo: true, infinite: false),
-            emitterCase: static e => ApplyRepeat(PropertyAnimation(path: "opacity", duration: e.Duration, from: 0f, to: e.Tint.A, easing: e.Easing, keyframe: e.Keyframe, spring: e.Spring), cycles: 1, yoyo: true, infinite: false),
-            snapGuideCase: static g => ApplyRepeat(PropertyAnimation(path: "opacity", duration: g.Style.Duration, from: 0f, to: g.Style.Tint.A, easing: g.Style.Easing, keyframe: g.Keyframe, spring: g.Spring), cycles: 1, yoyo: true, infinite: false));
+    private static CAPropertyAnimation BuildCosmeticAnimation(CosmeticIntent intent) {
+        CosmeticAnimSpec spec = AnimSpecOf(intent: intent);
+        CAPropertyAnimation animation = PropertyAnimation(path: spec.KeyPath, duration: spec.Duration, from: 0f, to: spec.To, easing: spec.Easing, keyframe: intent.Keyframe, spring: intent.Spring);
+        return spec.Repeat ? ApplyRepeat(animation: animation, cycles: spec.Cycles, yoyo: spec.Yoyo, infinite: spec.Infinite) : animation;
+    }
 
     private static CGRect ToCGRect(RectangleF r) => new(x: r.X, y: r.Y, width: r.Width, height: r.Height);
 
@@ -1711,6 +1757,17 @@ internal static class Motion {
         return Op.Side(body);
     }
 
+    // BOUNDARY ADAPTER — fires Force Touch trackpad feedback once; reduce-motion suppresses the tactile pulse
+    // exactly as it suppresses decorative CALayer motion. Force-unwrap mirrors AppKit's nullable-but-present
+    // DefaultPerformer contract on hardware with a haptic device.
+    [SupportedOSPlatform("macos14.0")]
+    private static Unit PerformHaptic(HapticPattern pattern) =>
+        MotionAccessibility.ShouldReduceMotion
+            ? unit
+            : Op.Side(() => NSHapticFeedbackManager.DefaultPerformer.PerformFeedback(
+                pattern: pattern.ToNative(),
+                performanceTime: NSHapticFeedbackPerformanceTime.Default));
+
     // Exchange-on-stripped is symmetric with CosmeticStrip.TryClaim — whichever path wins owns the strip.
     [SupportedOSPlatform("macos14.0")]
     private sealed class CosmeticRemove : CAAnimationDelegate {
@@ -1735,7 +1792,9 @@ internal static class Motion {
                 _ = CosmeticDelegateStore.Release(layer: layer, key: Key);
                 layer.RemoveFromSuperLayer();
             });
-            _ = completion.IfSome(run => run());
+            // Completion is a natural-end contract: an explicit dispose (RemoveAnimation) stops the animation with
+            // finished == false, so the layer always strips but the completion delegate fires only on true end.
+            _ = finished ? completion.IfSome(run => run()) : unit;
         }
 
         internal bool TryClaim() => Interlocked.Exchange(ref stripped, 1) == 0;
@@ -1793,7 +1852,7 @@ internal static class Motion {
         }
 
         private float ResolveFrameDelta() {
-            const float fallback = 1f / 60f;
+            const float fallback = 1f / DefaultRefreshHz;
             if (pacer is not { IsSome: true, Case: Pacer paced }) {
                 return 0f;
             }

@@ -152,58 +152,70 @@ internal static class AlignKernel {
             current: current,
             key: key,
             rowNormal: (i, normal) => (Normal: normal, Weight: Math.Sqrt(d: Math.Max(val1: Math.Abs(value: sourceNormals[i] * normal), val2: RhinoMath.SqrtEpsilon)))));
+    private static Fin<int> AdmitAlignmentRows(Seq<Point3d> source, Point3d[] target, double[] weights, int minimum, Op key) =>
+        from count in FieldNabla.CountAtLeast(count: source.Count, minimum: minimum, key: key).Map(_ => source.Count)
+        from same in FieldNabla.SameCount(expected: count, key: key, counts: [target.Length, weights.Length])
+        from sourceFinite in FieldNabla.AllFinite(points: source, key: key)
+        from targetFinite in target.All(static point => FieldNabla.Finite(point: point)) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
+        from mass in FieldNabla.PositiveFiniteWeights(weights: weights, count: count, key: key)
+        select count;
     private static Fin<AlignmentStep> SolveLinearizedRows(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, double[] rowMass, Transform current, Op key, Func<int, Vector3d, (Vector3d Normal, double Weight)> rowNormal) {
         int n = source.Count;
-        if (n < 6 || target.Length != n || normals.Length != n || rowMass.Length != n) return Fin.Fail<AlignmentStep>(key.InvalidInput());
-        double[] aFlat = new double[n * 6]; double[] b = new double[n];
-        for (int i = 0; i < n; i++) {
-            (Vector3d rawNormal, double weight) = rowNormal(i, normals[i]);
-            double massWeight = Math.Sqrt(d: rowMass[i]);
-            if (!rawNormal.IsValid || rawNormal.SquareLength <= RhinoMath.SqrtEpsilon * RhinoMath.SqrtEpsilon || !RhinoMath.IsValidDouble(x: weight) || weight <= 0.0)
-                return Fin.Fail<AlignmentStep>(key.InvalidResult());
-            Point3d p = current * source[index: i]; Point3d q = target[i]; Vector3d nrm = weight * massWeight * rawNormal;
-            Vector3d cross = Vector3d.CrossProduct(a: (Vector3d)p, b: nrm);
-            aFlat[(i * 6) + 0] = cross.X; aFlat[(i * 6) + 1] = cross.Y; aFlat[(i * 6) + 2] = cross.Z;
-            aFlat[(i * 6) + 3] = nrm.X; aFlat[(i * 6) + 4] = nrm.Y; aFlat[(i * 6) + 5] = nrm.Z;
-            b[i] = (q - p) * nrm;
-        }
-        return Matrix.Of(rows: Dimension.Create(value: n), cols: Dimension.Create(value: 6), entries: new Arr<double>(aFlat), key: key)
+        Fin<int> admitted = from count in AdmitAlignmentRows(source: source, target: target, weights: rowMass, minimum: 6, key: key)
+                            from normalCount in FieldNabla.SameCount(expected: count, key: key, counts: [normals.Length])
+                            from finiteNormals in normals.All(static normal => normal.IsValid) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
+                            select count;
+        return admitted.Bind(_ => {
+            double[] aFlat = new double[n * 6]; double[] b = new double[n];
+            for (int i = 0; i < n; i++) {
+                (Vector3d rawNormal, double weight) = rowNormal(i, normals[i]);
+                double massWeight = Math.Sqrt(d: rowMass[i]);
+                if (!rawNormal.IsValid || rawNormal.SquareLength <= RhinoMath.SqrtEpsilon * RhinoMath.SqrtEpsilon || !RhinoMath.IsValidDouble(x: weight) || weight <= 0.0)
+                    return Fin.Fail<AlignmentStep>(key.InvalidResult());
+                Point3d p = current * source[index: i]; Point3d q = target[i]; Vector3d nrm = weight * massWeight * rawNormal;
+                Vector3d cross = Vector3d.CrossProduct(a: (Vector3d)p, b: nrm);
+                aFlat[(i * 6) + 0] = cross.X; aFlat[(i * 6) + 1] = cross.Y; aFlat[(i * 6) + 2] = cross.Z;
+                aFlat[(i * 6) + 3] = nrm.X; aFlat[(i * 6) + 4] = nrm.Y; aFlat[(i * 6) + 5] = nrm.Z;
+                b[i] = (q - p) * nrm;
+            }
+            return Matrix.Of(rows: Dimension.Create(value: n), cols: Dimension.Create(value: 6), entries: new Arr<double>(aFlat), key: key)
             .Bind(design => design.LeastSquaresDetailed(rhs: new Arr<double>(b), key: key))
             .Bind(receipt => receipt.Solution.Count == 6 && receipt.Solution.ForAll(RhinoMath.IsValidDouble)
                 ? Fin.Succ(new AlignmentStep(
                     Delta: ComposeRigidTransform(omega: new Vector3d(x: receipt.Solution[0], y: receipt.Solution[1], z: receipt.Solution[2]), translation: new Vector3d(x: receipt.Solution[3], y: receipt.Solution[4], z: receipt.Solution[5])),
                     Solve: Some(receipt)))
                 : Fin.Fail<AlignmentStep>(key.InvalidResult()));
+        });
     }
 
     internal static Fin<AlignmentStep> SolveRobustProcrustes(Seq<Point3d> source, Point3d[] target, double[] residuals, double[] rowMass, Transform current, Op key) {
         int n = source.Count;
-        if (n < 3 || target.Length != n || residuals.Length != n || rowMass.Length != n) return Fin.Fail<AlignmentStep>(key.InvalidInput());
-        double[] weights = new double[n];
-        double[] sortedResiduals = [.. residuals.Select(static residual => Math.Abs(value: residual)).Order()];
-        double median = sortedResiduals.Length == 0 ? 1.0 : sortedResiduals[sortedResiduals.Length / 2];
-        double nu = Math.Max(val1: 1.4826 * median * WelschNu, val2: RhinoMath.SqrtEpsilon);
-        for (int i = 0; i < n; i++) weights[i] = rowMass[i] * Math.Exp(d: -(residuals[i] * residuals[i]) / (2.0 * nu * nu));
-        return from aligned in SolveProcrustes(source: source, target: target, weights: weights, current: current, key: key)
-               select new AlignmentStep(Delta: aligned, Robust: Some(new AlignmentRobustReceipt(Scale: nu, MinWeight: weights.Min(), MaxWeight: weights.Max())));
+        Fin<int> admitted = from count in AdmitAlignmentRows(source: source, target: target, weights: rowMass, minimum: 3, key: key)
+                            from residualCount in FieldNabla.SameCount(expected: count, key: key, counts: [residuals.Length])
+                            from finiteResiduals in residuals.All(static residual => RhinoMath.IsValidDouble(x: residual)) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
+                            select count;
+        return admitted.Bind(_ => {
+            double[] weights = new double[n];
+            double[] sortedResiduals = [.. residuals.Select(static residual => Math.Abs(value: residual)).Order()];
+            double median = sortedResiduals.Length == 0 ? 1.0 : sortedResiduals[sortedResiduals.Length / 2];
+            double nu = Math.Max(val1: 1.4826 * median * WelschNu, val2: RhinoMath.SqrtEpsilon);
+            for (int i = 0; i < n; i++) weights[i] = rowMass[i] * Math.Exp(d: -(residuals[i] * residuals[i]) / (2.0 * nu * nu));
+            return from aligned in SolveProcrustes(source: source, target: target, weights: weights, current: current, key: key)
+                   select new AlignmentStep(Delta: aligned, Robust: Some(new AlignmentRobustReceipt(Scale: nu, MinWeight: weights.Min(), MaxWeight: weights.Max())));
+        });
     }
     private static Fin<Transform> SolveProcrustes(Seq<Point3d> source, Point3d[] target, double[] weights, Transform current, Op key) {
         Seq<Point3d> transformedSource = toSeq(source.AsIterable().Select(p => current * p));
         Seq<Point3d> targetSeq = toSeq(target);
-        return transformedSource.Count != targetSeq.Count || transformedSource.Count < 3 || weights.Length != transformedSource.Count
-            ? Fin.Fail<Transform>(error: key.InvalidInput())
-            : from srcCentroid in WeightedCentroidOf(points: transformedSource, weights: weights, key: key)
-              from tgtCentroid in WeightedCentroidOf(points: targetSeq, weights: weights, key: key)
-              from aligned in AlignViaCrossCovariance(source: transformedSource, target: targetSeq, srcCentroid: srcCentroid, tgtCentroid: tgtCentroid, weights: weights, key: key)
-              select aligned;
+        return from rows in AdmitAlignmentRows(source: transformedSource, target: target, weights: weights, minimum: 3, key: key)
+               from srcCentroid in WeightedCentroidOf(points: transformedSource, weights: weights, key: key)
+               from tgtCentroid in WeightedCentroidOf(points: targetSeq, weights: weights, key: key)
+               from aligned in AlignViaCrossCovariance(source: transformedSource, target: targetSeq, srcCentroid: srcCentroid, tgtCentroid: tgtCentroid, weights: weights, key: key)
+               select aligned;
     }
     private static Fin<Point3d> WeightedCentroidOf(Seq<Point3d> points, double[] weights, Op key) {
-        if (weights.Length < points.Count) return Fin.Fail<Point3d>(key.InvalidInput());
         Vector3d sum = Vector3d.Zero; double totalW = 0.0;
-        for (int i = 0; i < points.Count; i++) {
-            if (!RhinoMath.IsValidDouble(x: weights[i]) || weights[i] <= 0.0) return Fin.Fail<Point3d>(key.InvalidInput());
-            sum += weights[i] * (Vector3d)points[index: i]; totalW += weights[i];
-        }
+        for (int i = 0; i < points.Count; i++) { sum += weights[i] * (Vector3d)points[index: i]; totalW += weights[i]; }
         return totalW > RhinoMath.ZeroTolerance && RhinoMath.IsValidDouble(x: totalW)
             ? key.AcceptValue(value: Point3d.Origin + (sum / totalW))
             : Fin.Fail<Point3d>(key.InvalidResult());

@@ -2,8 +2,6 @@ using Rasm.Rhino.UI;
 
 namespace Rasm.Rhino.Camera;
 
-internal static class CameraDefaults { internal const double LensLength = 50.0, FramePadding = 1.1; internal const int DetailCacheDocuments = 8; }
-
 // --- [TYPES] ------------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "scope")]
 public abstract partial record RedrawRequest {
@@ -13,9 +11,6 @@ public abstract partial record RedrawRequest {
     public sealed record View : RedrawRequest;
     public sealed record DetailCommit : RedrawRequest;
     public sealed record Deferred : RedrawRequest;
-
-    // Base-typed no-op accessor (distinct role from the `None` case): folds, ternary seeds, and default redraws need
-    // a `RedrawRequest`-typed value, which `new None()` (case-typed) cannot supply without a cast at every site.
     public static RedrawRequest Empty { get; } = new None();
 
     public static RedrawRequest operator |(RedrawRequest left, RedrawRequest right) =>
@@ -42,6 +37,18 @@ public abstract partial record RedrawRequest {
             deferred: static (ctx, _) => Fin.Succ(value: Op.Side(() => ctx.Document.Views.Redraw(deferred: true))));
 }
 
+// --- [MODELS] -----------------------------------------------------------------------------
+public readonly record struct CameraOutcome<T>(
+    T Value,
+    RedrawRequest Redraw,
+    Seq<Commands.DocumentResourceChange> Resources) {
+    internal static CameraOutcome<T> Create(T value, RedrawRequest? redraw = null, Seq<Commands.DocumentResourceChange>? resources = null) =>
+        new(Value: value, Redraw: redraw ?? RedrawRequest.Empty, Resources: resources ?? Seq<Commands.DocumentResourceChange>());
+
+    internal static CameraOutcome<T> WithResource(T value, Commands.DocumentResourceChange change, RedrawRequest? redraw = null) =>
+        Create(value: value, redraw: redraw, resources: toSeq([change]));
+}
+
 public readonly record struct CameraScopeReceipt<T>(
     CameraScope Scope,
     Option<T> Value,
@@ -66,19 +73,6 @@ public readonly record struct CameraScopeReceipt<T>(
                 Resources: Seq<Commands.DocumentResourceChange>()));
 }
 
-public readonly record struct CameraOutcome<T>(
-    T Value,
-    RedrawRequest Redraw,
-    Seq<Commands.DocumentResourceChange> Resources);
-
-internal static class CameraOutcomeCreate {
-    internal static CameraOutcome<T> Value<T>(T value, RedrawRequest? redraw = null, Seq<Commands.DocumentResourceChange>? resources = null) =>
-        new(Value: value, Redraw: redraw ?? RedrawRequest.Empty, Resources: resources ?? Seq<Commands.DocumentResourceChange>());
-
-    internal static CameraOutcome<T> Resource<T>(T value, Commands.DocumentResourceChange change, RedrawRequest? redraw = null) =>
-        Value(value: value, redraw: redraw, resources: toSeq([change]));
-}
-
 public readonly record struct CameraSyncPolicy(
     bool StopOnFirstFailure = true,
     bool MergeRedraw = true) {
@@ -87,7 +81,7 @@ public readonly record struct CameraSyncPolicy(
 
     public CameraOutcome<Seq<CameraScopeReceipt<T>>> FoldReceipts<T>(Seq<CameraScopeReceipt<T>> receipts) {
         Seq<CameraScopeReceipt<T>> succeeded = receipts.Filter(static receipt => receipt.Succeeded);
-        return CameraOutcomeCreate.Value(
+        return CameraOutcome<Seq<CameraScopeReceipt<T>>>.Create(
             value: receipts,
             redraw: MergeRedraw
                 ? receipts.Fold(RedrawRequest.Empty, static (left, right) => left | right.Redraw)
@@ -97,6 +91,9 @@ public readonly record struct CameraSyncPolicy(
             resources: receipts.Fold(Seq<Commands.DocumentResourceChange>(), static (left, right) => left + right.Resources));
     }
 }
+
+// --- [CONSTANTS] --------------------------------------------------------------------------
+internal static class CameraDefaults { internal const double LensLength = 50.0, FramePadding = 1.1; internal const int DetailCacheDocuments = 8; }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 public sealed class RhinoCamera {

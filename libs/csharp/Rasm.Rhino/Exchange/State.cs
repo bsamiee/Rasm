@@ -11,14 +11,31 @@ using TableTypeFilter = Rhino.FileIO.File3dm.TableTypeFilter;
 namespace Rasm.Rhino.Exchange;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public enum FilePromptMode { OpenSingle, OpenMultiple, Save, Folder }
-public enum FileOverwritePolicy { Fail, Replace }
-public enum FileDirectoryPolicy { Create, Existing }
-public enum FileCollisionPolicy { Preserve, AppendNumber, Replace }
-public enum FileFidelity { Model, Small, GeometryOnly }
-public enum FileResourcePolicy { Reference, Embed, Copy }
-public enum FileAxis { Stable, Document, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
-public enum FileTiffCompression { Default, None, Lzw, Ccitt3, Ccitt4, Rle }
+[SmartEnum<int>]
+public sealed partial class ArchiveSlice {
+    public static readonly ArchiveSlice Full = new(key: 0, tables: TableTypeFilter.None, objectFilter: ObjectTypeFilter.None, filtered: false);
+    public static readonly ArchiveSlice Metadata = new(key: 1,
+        tables: TableTypeFilter.Properties | TableTypeFilter.Settings,
+        objectFilter: ObjectTypeFilter.None,
+        filtered: true);
+    public static readonly ArchiveSlice Objects = new(key: 2,
+        tables: TableTypeFilter.ObjectTable | TableTypeFilter.Layer | TableTypeFilter.Material,
+        objectFilter: ObjectTypeFilter.Any,
+        filtered: true);
+    public static readonly ArchiveSlice Resources = new(key: 3,
+        tables: TableTypeFilter.Properties | TableTypeFilter.Settings | TableTypeFilter.Bitmap | TableTypeFilter.Font
+              | TableTypeFilter.FutureFont | TableTypeFilter.Light | TableTypeFilter.Historyrecord
+              | TableTypeFilter.TextureMapping | TableTypeFilter.Material | TableTypeFilter.Linetype
+              | TableTypeFilter.Layer | TableTypeFilter.Group | TableTypeFilter.Dimstyle
+              | TableTypeFilter.Hatchpattern | TableTypeFilter.InstanceDefinition | TableTypeFilter.ObjectTable
+              | TableTypeFilter.UserTable,
+        objectFilter: ObjectTypeFilter.Any,
+        filtered: true);
+
+    public TableTypeFilter Tables { get; }
+    public ObjectTypeFilter ObjectFilter { get; }
+    public bool Filtered { get; }
+}
 
 [Flags]
 public enum FileArchiveProjection {
@@ -29,6 +46,22 @@ public enum FileArchiveProjection {
     MetadataAndGraph = Metadata | Graph,
     Full = Metadata | Graph | Objects,
 }
+
+public enum FileAxis { Stable, Document, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
+public enum FileCollisionPolicy { Preserve, AppendNumber, Replace }
+public enum FileDirectoryPolicy { Create, Existing }
+public enum FileFidelity { Model, Small, GeometryOnly }
+
+[SmartEnum<string>]
+public sealed partial class FileIssueCode {
+    public static readonly FileIssueCode Native = new(key: "native");
+    public static readonly FileIssueCode AlreadyOpen = new(key: "already-open");
+    public static readonly FileIssueCode BatchFailure = new(key: "batch-failure");
+    public static readonly FileIssueCode EmptyArchive = new(key: "empty-archive");
+    public static readonly FileIssueCode BrokenLink = new(key: "broken-link");
+}
+
+public enum FileOverwritePolicy { Fail, Replace }
 
 [SmartEnum<int>]
 public sealed partial class FilePhase {
@@ -59,40 +92,9 @@ public sealed partial class FilePhase {
         Requires == FileCapability.None || (Requires & capability) != FileCapability.None;
 }
 
-[SmartEnum<int>]
-public sealed partial class ArchiveSlice {
-    public static readonly ArchiveSlice Full = new(key: 0, tables: TableTypeFilter.None, objectFilter: ObjectTypeFilter.None, filtered: false);
-    public static readonly ArchiveSlice Metadata = new(key: 1,
-        tables: TableTypeFilter.Properties | TableTypeFilter.Settings,
-        objectFilter: ObjectTypeFilter.None,
-        filtered: true);
-    public static readonly ArchiveSlice Objects = new(key: 2,
-        tables: TableTypeFilter.ObjectTable | TableTypeFilter.Layer | TableTypeFilter.Material,
-        objectFilter: ObjectTypeFilter.Any,
-        filtered: true);
-    public static readonly ArchiveSlice Resources = new(key: 3,
-        tables: TableTypeFilter.Properties | TableTypeFilter.Settings | TableTypeFilter.Bitmap | TableTypeFilter.Font
-              | TableTypeFilter.FutureFont | TableTypeFilter.Light | TableTypeFilter.Historyrecord
-              | TableTypeFilter.TextureMapping | TableTypeFilter.Material | TableTypeFilter.Linetype
-              | TableTypeFilter.Layer | TableTypeFilter.Group | TableTypeFilter.Dimstyle
-              | TableTypeFilter.Hatchpattern | TableTypeFilter.InstanceDefinition | TableTypeFilter.ObjectTable
-              | TableTypeFilter.UserTable,
-        objectFilter: ObjectTypeFilter.Any,
-        filtered: true);
-
-    public TableTypeFilter Tables { get; }
-    public ObjectTypeFilter ObjectFilter { get; }
-    public bool Filtered { get; }
-}
-
-[SmartEnum<string>]
-public sealed partial class FileIssueCode {
-    public static readonly FileIssueCode Native = new(key: "native");
-    public static readonly FileIssueCode AlreadyOpen = new(key: "already-open");
-    public static readonly FileIssueCode BatchFailure = new(key: "batch-failure");
-    public static readonly FileIssueCode EmptyArchive = new(key: "empty-archive");
-    public static readonly FileIssueCode BrokenLink = new(key: "broken-link");
-}
+public enum FilePromptMode { OpenSingle, OpenMultiple, Save, Folder }
+public enum FileResourcePolicy { Reference, Embed, Copy }
+public enum FileTiffCompression { Default, None, Lzw, Ccitt3, Ccitt4, Rle }
 
 [SmartEnum<int>]
 public sealed partial class FileVectorUnit {
@@ -128,126 +130,30 @@ public sealed partial class FileVectorUnit {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct FileNamePolicy(FileCollisionPolicy Collision = FileCollisionPolicy.Preserve, Option<string> Extension = default) {
-    public static FileNamePolicy Default => default;
+public sealed record ArchiveProfile(ArchiveSlice Slice, FileArchiveProjection Projection, FileWritePolicy Write, Seq<string> Embedded = default) {
+    public static ArchiveProfile Full { get; } = new(Slice: ArchiveSlice.Full, Projection: FileArchiveProjection.Full, Write: FileWritePolicy.Default);
+
+    internal bool Includes(string file) =>
+        Embedded.IsEmpty || Embedded.Exists(name =>
+            string.Equals(a: name, b: file, comparisonType: StringComparison.OrdinalIgnoreCase)
+            || string.Equals(a: name, b: IOPath.GetFileName(path: file), comparisonType: StringComparison.OrdinalIgnoreCase));
 }
 
-public readonly record struct FileWritePolicy(
-    FileOverwritePolicy Overwrite = FileOverwritePolicy.Fail,
-    FileDirectoryPolicy Directory = FileDirectoryPolicy.Create,
-    bool IncludeRenderMeshes = true,
-    bool IncludePreviewImage = true,
-    bool IncludeBitmapTable = true,
-    bool IncludeHistory = true,
-    bool WriteUserData = true,
-    bool GeometryOnly = false,
-    bool UseCompression = true,
-    bool CreateBackupFiles = true,
-    bool CreateOtherBackupFiles = true,
-    Option<Transform> Xform = default,
-    int Version = 0) {
-    public static FileWritePolicy Default => new(IncludeRenderMeshes: true, IncludePreviewImage: true, IncludeBitmapTable: true, IncludeHistory: true, WriteUserData: true, UseCompression: true, CreateBackupFiles: true, CreateOtherBackupFiles: true);
-    internal FileWritePolicy Normalized => this == default ? Default : this;
-}
+public sealed record ArchiveUpdate(
+    Option<FileArchiveMetadataPatch> Metadata = default,
+    Seq<FileEndpoint> Embed = default,
+    Seq<string> Extract = default);
+
+public readonly record struct FileArchiveMetadataPatch(
+    Option<string> Notes,
+    Option<string> ApplicationName,
+    Option<string> ApplicationUrl,
+    Option<string> ApplicationDetails,
+    Option<string> StartComments = default,
+    Seq<FileUserString> UserStrings = default);
 
 public readonly record struct FileBatchPolicy(bool ContinueOnError = false) {
     public static FileBatchPolicy StopOnFirstError { get; } = new(ContinueOnError: false);
-}
-
-public readonly record struct FileIssue(FileIssueCode Code, string Message) {
-    public static FileIssue Native(string message) =>
-        new(Code: FileIssueCode.Native, Message: string.IsNullOrWhiteSpace(value: message) ? "No native log." : message);
-
-    public static FileIssue Of(FileIssueCode code, string message) {
-        ArgumentNullException.ThrowIfNull(argument: code);
-        return new(Code: code, Message: string.IsNullOrWhiteSpace(value: message) ? code.Key : message);
-    }
-}
-
-public sealed record FilePrompt {
-    private FilePrompt(FilePromptMode mode, string title, string filter, Option<string> fileName, Option<string> initialDirectory, Option<string> defaultExtension, FileNamePolicy name, FileWritePolicy write) =>
-        (Mode, Title, Filter, FileName, InitialDirectory, DefaultExtension, Name, Write) = (mode, title, filter, fileName, initialDirectory, defaultExtension, PromptName(name: name, defaultExtension: defaultExtension), write.Normalized);
-
-    public FilePromptMode Mode { get; }
-    public string Title { get; }
-    public string Filter { get; }
-    public Option<string> FileName { get; }
-    public Option<string> InitialDirectory { get; }
-    public Option<string> DefaultExtension { get; }
-    public FileNamePolicy Name { get; }
-    public FileWritePolicy Write { get; }
-
-    public static Fin<FilePrompt> Open(string title, string filter = "", bool multiple = false, Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default) =>
-        Create(mode: multiple ? FilePromptMode.OpenMultiple : FilePromptMode.OpenSingle, title: title, filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: FilePhase.Import) : filter, fileName: fileName, initialDirectory: initialDirectory, defaultExtension: defaultExtension);
-
-    public static Fin<FilePrompt> Save(string title, string filter = "", Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default, FileWritePolicy write = default, FilePhase? phase = null) {
-        FilePhase active = phase ?? FilePhase.Export;
-        return active == FilePhase.Export || active == FilePhase.Publish
-            ? Create(
-                mode: FilePromptMode.Save,
-                title: title,
-                filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: active) : filter,
-                fileName: fileName,
-                initialDirectory: initialDirectory,
-                defaultExtension: defaultExtension,
-                write: write)
-            : Fin.Fail<FilePrompt>(error: Op.Of(name: nameof(FilePrompt)).InvalidInput());
-    }
-
-    public static Fin<FilePrompt> Folder(string title, Option<string> initialDirectory = default) =>
-        Create(mode: FilePromptMode.Folder, title: title, filter: string.Empty, initialDirectory: initialDirectory);
-
-    internal Fin<Seq<FileEndpoint>> Defaults(Op op) =>
-        DefaultPath().Case switch {
-            string value => FileEndpoint.From(path: value, name: Name, write: Write).Map(endpoint => Seq(endpoint)),
-            _ => Fin.Fail<Seq<FileEndpoint>>(error: op.InvalidInput()),
-        };
-
-    private static Fin<FilePrompt> Create(
-        FilePromptMode mode,
-        string title,
-        string filter,
-        Option<string> fileName = default,
-        Option<string> initialDirectory = default,
-        Option<string> defaultExtension = default,
-        FileNamePolicy name = default,
-        FileWritePolicy write = default) =>
-        from validTitle in FileEndpoint.NonBlank(value: title, op: Op.Of(name: nameof(FilePrompt)))
-        from validFileName in TextOption(value: fileName, op: Op.Of(name: nameof(FilePrompt)))
-        from validDirectory in TextOption(value: initialDirectory, op: Op.Of(name: nameof(FilePrompt)))
-        from validExtension in TextOption(value: defaultExtension, op: Op.Of(name: nameof(FilePrompt)))
-        select new FilePrompt(
-            mode: mode,
-            title: validTitle,
-            filter: filter ?? string.Empty,
-            fileName: validFileName,
-            initialDirectory: validDirectory,
-            defaultExtension: validExtension,
-            name: name,
-            write: write);
-
-    private static Fin<Option<string>> TextOption(Option<string> value, Op op) =>
-        value.Case switch {
-            string text => op.AcceptText(value: text).Map(Some).MapFail(_ => op.InvalidInput()),
-            _ => Fin.Succ(Option<string>.None),
-        };
-
-    private Option<string> DefaultPath() =>
-        (Mode, FileName.Case, InitialDirectory.Case) switch {
-            (FilePromptMode.Folder, _, string directory) => Some(directory),
-            (_, string fileName, string directory) when !IOPath.IsPathRooted(path: fileName) => Some(IOPath.Combine(path1: directory, path2: fileName)),
-            (_, string fileName, _) => Some(fileName),
-            _ => Option<string>.None,
-        };
-
-    private static FileNamePolicy PromptName(FileNamePolicy name, Option<string> defaultExtension) =>
-        name.Extension.Case switch {
-            string => name,
-            _ => defaultExtension.Case switch {
-                string value => name with { Extension = Some(value) },
-                _ => name,
-            },
-        };
 }
 
 public sealed record FileEndpoint {
@@ -301,7 +207,6 @@ public sealed record FileEndpoint {
 
     internal Fin<T> WithReference<T>(Op key, Func<FileReference, Fin<T>> use) =>
         key.Catch(() => {
-            // BOUNDARY ADAPTER — FileReference owns native metadata; materialize callback Fin before disposal.
             using FileReference? reference = Relative.Case switch {
                 string relative => FileReference.CreateFromFullAndRelativePaths(fullPath: Path, relativePath: relative),
                 _ => FileReference.CreateFromFullPath(fullPath: Path),
@@ -396,6 +301,50 @@ public sealed record FileEndpoint {
     private const int MaxCollisionAttempts = 9999;
 }
 
+public readonly record struct FileIssue(FileIssueCode Code, string Message) {
+    public static FileIssue Native(string message) =>
+        new(Code: FileIssueCode.Native, Message: string.IsNullOrWhiteSpace(value: message) ? "No native log." : message);
+
+    public static FileIssue Of(FileIssueCode code, string message) {
+        ArgumentNullException.ThrowIfNull(argument: code);
+        return new(Code: code, Message: string.IsNullOrWhiteSpace(value: message) ? code.Key : message);
+    }
+}
+
+public readonly record struct FileNamePolicy(FileCollisionPolicy Collision = FileCollisionPolicy.Preserve, Option<string> Extension = default) {
+    public static FileNamePolicy Default => default;
+}
+
+public readonly record struct FileObjectManifest(
+    Guid Id,
+    Option<string> Name,
+    Option<string> Layer,
+    ObjectType ObjectType,
+    Option<string> Material,
+    Seq<string> UserStrings);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FileOverride<T>(Option<T> Value = default, bool Inherit = false) {
+    public static FileOverride<T> operator |(FileOverride<T> left, FileOverride<T> right) =>
+        right.IsActive ? right : left;
+
+    internal Unit Apply(Action<T> set, Action inherit) =>
+        (Inherit, Value.Case) switch {
+            (true, _) => Op.Side(inherit),
+            (_, T value) => Op.Side(() => set(obj: value)),
+            _ => unit,
+        };
+
+    internal Option<T> Patch(Option<T> current) =>
+        (Inherit, Value.Case) switch {
+            (true, _) => Option<T>.None,
+            (_, T value) => Some(value),
+            _ => current,
+        };
+
+    private bool IsActive => Inherit || Value.IsSome;
+}
+
 public sealed record FileProfile {
     private FileProfile(FileFidelity fidelity, FileResourcePolicy resources, FileAxis group, FileAxis order, Option<FileFormat> format, Option<FileVectorScale> scale) =>
         (Fidelity, Resources, Group, Order, Format, Scale) = (fidelity, resources, group, order, format, scale);
@@ -426,6 +375,112 @@ public sealed record FileProfile {
             : Fin.Succ(value: unit)
         select unit;
 }
+
+public sealed record FilePrompt {
+    private FilePrompt(FilePromptMode mode, string title, string filter, Option<string> fileName, Option<string> initialDirectory, Option<string> defaultExtension, FileNamePolicy name, FileWritePolicy write) =>
+        (Mode, Title, Filter, FileName, InitialDirectory, DefaultExtension, Name, Write) = (mode, title, filter, fileName, initialDirectory, defaultExtension, PromptName(name: name, defaultExtension: defaultExtension), write.Normalized);
+
+    public FilePromptMode Mode { get; }
+    public string Title { get; }
+    public string Filter { get; }
+    public Option<string> FileName { get; }
+    public Option<string> InitialDirectory { get; }
+    public Option<string> DefaultExtension { get; }
+    public FileNamePolicy Name { get; }
+    public FileWritePolicy Write { get; }
+
+    public static Fin<FilePrompt> Open(string title, string filter = "", bool multiple = false, Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default) =>
+        Create(mode: multiple ? FilePromptMode.OpenMultiple : FilePromptMode.OpenSingle, title: title, filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: FilePhase.Import) : filter, fileName: fileName, initialDirectory: initialDirectory, defaultExtension: defaultExtension);
+
+    public static Fin<FilePrompt> Save(string title, string filter = "", Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default, FileWritePolicy write = default, FilePhase? phase = null) {
+        FilePhase active = phase ?? FilePhase.Export;
+        return active == FilePhase.Export || active == FilePhase.Publish
+            ? Create(
+                mode: FilePromptMode.Save,
+                title: title,
+                filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: active) : filter,
+                fileName: fileName,
+                initialDirectory: initialDirectory,
+                defaultExtension: defaultExtension,
+                write: write)
+            : Fin.Fail<FilePrompt>(error: Op.Of(name: nameof(FilePrompt)).InvalidInput());
+    }
+
+    public static Fin<FilePrompt> Folder(string title, Option<string> initialDirectory = default) =>
+        Create(mode: FilePromptMode.Folder, title: title, filter: string.Empty, initialDirectory: initialDirectory);
+
+    internal Fin<Seq<FileEndpoint>> Defaults(Op op) =>
+        DefaultPath().Case switch {
+            string value => FileEndpoint.From(path: value, name: Name, write: Write).Map(endpoint => Seq(endpoint)),
+            _ => Fin.Fail<Seq<FileEndpoint>>(error: op.InvalidInput()),
+        };
+
+    private static Fin<FilePrompt> Create(
+        FilePromptMode mode,
+        string title,
+        string filter,
+        Option<string> fileName = default,
+        Option<string> initialDirectory = default,
+        Option<string> defaultExtension = default,
+        FileNamePolicy name = default,
+        FileWritePolicy write = default) =>
+        from validTitle in FileEndpoint.NonBlank(value: title, op: Op.Of(name: nameof(FilePrompt)))
+        from validFileName in TextOption(value: fileName, op: Op.Of(name: nameof(FilePrompt)))
+        from validDirectory in TextOption(value: initialDirectory, op: Op.Of(name: nameof(FilePrompt)))
+        from validExtension in TextOption(value: defaultExtension, op: Op.Of(name: nameof(FilePrompt)))
+        select new FilePrompt(
+            mode: mode,
+            title: validTitle,
+            filter: filter ?? string.Empty,
+            fileName: validFileName,
+            initialDirectory: validDirectory,
+            defaultExtension: validExtension,
+            name: name,
+            write: write);
+
+    private static Fin<Option<string>> TextOption(Option<string> value, Op op) =>
+        value.Case switch {
+            string text => op.AcceptText(value: text).Map(Some).MapFail(_ => op.InvalidInput()),
+            _ => Fin.Succ(Option<string>.None),
+        };
+
+    private Option<string> DefaultPath() =>
+        (Mode, FileName.Case, InitialDirectory.Case) switch {
+            (FilePromptMode.Folder, _, string directory) => Some(directory),
+            (_, string fileName, string directory) when !IOPath.IsPathRooted(path: fileName) => Some(IOPath.Combine(path1: directory, path2: fileName)),
+            (_, string fileName, _) => Some(fileName),
+            _ => Option<string>.None,
+        };
+
+    private static FileNamePolicy PromptName(FileNamePolicy name, Option<string> defaultExtension) =>
+        name.Extension.Case switch {
+            string => name,
+            _ => defaultExtension.Case switch {
+                string value => name with { Extension = Some(value) },
+                _ => name,
+            },
+        };
+}
+
+public sealed record FileReport(
+    Option<FileEndpoint> Source,
+    Option<FileEndpoint> Target,
+    Option<FileFormat> Format,
+    FilePhase Phase,
+    Option<DocumentReceipt> Receipt,
+    Seq<FileIssue> Issues,
+    Option<string> NativeLog,
+    Option<FileArchive> Archive = default,
+    Seq<FileReport> Children = default,
+    Seq<FileViewReport> Views = default) {
+    public static FileReport Empty(FilePhase phase) =>
+        new(Source: Option<FileEndpoint>.None, Target: Option<FileEndpoint>.None, Format: Option<FileFormat>.None, Phase: phase, Receipt: Option<DocumentReceipt>.None, Issues: Seq<FileIssue>(), NativeLog: Option<string>.None, Children: Seq<FileReport>(), Views: Seq<FileViewReport>());
+
+    internal static FileReport Of(FilePhase phase, Option<FileEndpoint> source = default, Option<FileEndpoint> target = default, Option<FileFormat> format = default, Option<DocumentReceipt> receipt = default, Seq<FileIssue> issues = default, Option<string> nativeLog = default, Option<FileArchive> archive = default, Seq<FileReport> children = default, Seq<FileViewReport> views = default) =>
+        new(Source: source, Target: target, Format: format, Phase: phase, Receipt: receipt, Issues: issues.IsEmpty ? Seq<FileIssue>() : issues, NativeLog: nativeLog, Archive: archive, Children: children.IsEmpty ? Seq<FileReport>() : children, Views: views.IsEmpty ? Seq<FileViewReport>() : views);
+}
+
+public readonly record struct FileUserString(string Key, Option<string> Section = default, Option<string> Value = default);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct FileVectorScale(
@@ -473,86 +528,31 @@ public readonly record struct FileVectorScale(
     private Option<bool> PreserveMode => Preserve | (HasExplicit ? Some(false) : Option<bool>.None);
 }
 
-public sealed record ArchiveProfile(ArchiveSlice Slice, FileArchiveProjection Projection, FileWritePolicy Write, Seq<string> Embedded = default) {
-    public static ArchiveProfile Full { get; } = new(Slice: ArchiveSlice.Full, Projection: FileArchiveProjection.Full, Write: FileWritePolicy.Default);
-
-    internal bool Includes(string file) =>
-        Embedded.IsEmpty || Embedded.Exists(name =>
-            string.Equals(a: name, b: file, comparisonType: StringComparison.OrdinalIgnoreCase)
-            || string.Equals(a: name, b: IOPath.GetFileName(path: file), comparisonType: StringComparison.OrdinalIgnoreCase));
+public readonly record struct FileWritePolicy(
+    FileOverwritePolicy Overwrite = FileOverwritePolicy.Fail,
+    FileDirectoryPolicy Directory = FileDirectoryPolicy.Create,
+    bool IncludeRenderMeshes = true,
+    bool IncludePreviewImage = true,
+    bool IncludeBitmapTable = true,
+    bool IncludeHistory = true,
+    bool WriteUserData = true,
+    bool GeometryOnly = false,
+    bool UseCompression = true,
+    bool CreateBackupFiles = true,
+    bool CreateOtherBackupFiles = true,
+    Option<Transform> Xform = default,
+    int Version = 0) {
+    public static FileWritePolicy Default => new(IncludeRenderMeshes: true, IncludePreviewImage: true, IncludeBitmapTable: true, IncludeHistory: true, WriteUserData: true, UseCompression: true, CreateBackupFiles: true, CreateOtherBackupFiles: true);
+    internal FileWritePolicy Normalized => this == default ? Default : this;
 }
 
-public sealed record ArchiveUpdate(
-    Option<FileArchiveMetadataPatch> Metadata = default,
-    Seq<FileEndpoint> Embed = default,
-    Seq<string> Extract = default);
-
-[StructLayout(LayoutKind.Auto)]
-public readonly record struct FileOverride<T>(Option<T> Value = default, bool Inherit = false) {
-    public static FileOverride<T> operator |(FileOverride<T> left, FileOverride<T> right) =>
-        right.IsActive ? right : left;
-
-    internal Unit Apply(Action<T> set, Action inherit) =>
-        (Inherit, Value.Case) switch {
-            (true, _) => Op.Side(inherit),
-            (_, T value) => Op.Side(() => set(obj: value)),
-            _ => unit,
-        };
-
-    internal Option<T> Patch(Option<T> current) =>
-        (Inherit, Value.Case) switch {
-            (true, _) => Option<T>.None,
-            (_, T value) => Some(value),
-            _ => current,
-        };
-
-    private bool IsActive => Inherit || Value.IsSome;
-}
-
+// --- [OPERATIONS] -------------------------------------------------------------------------
 public static class FileOverride {
     public static FileOverride<T> Keep<T>() => default;
     public static FileOverride<T> Set<T>(T value) => new(Value: Some(value));
     public static FileOverride<T> Clear<T>() => new(Inherit: true);
 }
 
-// `Value None` deletes the key; `Section None` targets the flat (unsectioned) document-string table.
-public readonly record struct FileUserString(string Key, Option<string> Section = default, Option<string> Value = default);
-
-public readonly record struct FileArchiveMetadataPatch(
-    Option<string> Notes,
-    Option<string> ApplicationName,
-    Option<string> ApplicationUrl,
-    Option<string> ApplicationDetails,
-    Option<string> StartComments = default,
-    Seq<FileUserString> UserStrings = default);
-
-public readonly record struct FileObjectManifest(
-    Guid Id,
-    Option<string> Name,
-    Option<string> Layer,
-    ObjectType ObjectType,
-    Option<string> Material,
-    Seq<string> UserStrings);
-
-public sealed record FileReport(
-    Option<FileEndpoint> Source,
-    Option<FileEndpoint> Target,
-    Option<FileFormat> Format,
-    FilePhase Phase,
-    Option<DocumentReceipt> Receipt,
-    Seq<FileIssue> Issues,
-    Option<string> NativeLog,
-    Option<FileArchive> Archive = default,
-    Seq<FileReport> Children = default,
-    Seq<FileViewReport> Views = default) {
-    public static FileReport Empty(FilePhase phase) =>
-        new(Source: Option<FileEndpoint>.None, Target: Option<FileEndpoint>.None, Format: Option<FileFormat>.None, Phase: phase, Receipt: Option<DocumentReceipt>.None, Issues: Seq<FileIssue>(), NativeLog: Option<string>.None, Children: Seq<FileReport>(), Views: Seq<FileViewReport>());
-
-    internal static FileReport Of(FilePhase phase, Option<FileEndpoint> source = default, Option<FileEndpoint> target = default, Option<FileFormat> format = default, Option<DocumentReceipt> receipt = default, Seq<FileIssue> issues = default, Option<string> nativeLog = default, Option<FileArchive> archive = default, Seq<FileReport> children = default, Seq<FileViewReport> views = default) =>
-        new(Source: source, Target: target, Format: format, Phase: phase, Receipt: receipt, Issues: issues.IsEmpty ? Seq<FileIssue>() : issues, NativeLog: nativeLog, Archive: archive, Children: children.IsEmpty ? Seq<FileReport>() : children, Views: views.IsEmpty ? Seq<FileViewReport>() : views);
-}
-
-// --- [COMPOSITION] ------------------------------------------------------------------------
 internal static class OptionsProjection {
     internal static TOptions Set<TOptions, T>(this TOptions options, Option<T> source, Action<TOptions, T> setter) where TOptions : class {
         _ = source.Iter(value => setter(arg1: options, arg2: value));

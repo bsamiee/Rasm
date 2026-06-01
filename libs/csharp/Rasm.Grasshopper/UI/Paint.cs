@@ -30,6 +30,15 @@ public sealed partial class SystemColorKind {
     public static readonly SystemColorKind SelectionText = new(key: 7, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.NormalSelected].TextY, SystemColors.SelectionText));
     public static readonly SystemColorKind DisabledText = new(key: 8, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Disabled].Text, SystemColors.DisabledText));
     public static readonly SystemColorKind LinkText = new(key: 9, resolve: static _ => SystemColors.LinkText);
+    public static readonly SystemColorKind NormalEdge = new(key: 10, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Normal].Edge, SystemColors.ControlText));
+    public static readonly SystemColorKind NormalGlint = new(key: 11, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Normal].Glint, SystemColors.ControlBackground));
+    public static readonly SystemColorKind DisabledBackground = new(key: 12, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Disabled].Slab, SystemColors.Control));
+    public static readonly SystemColorKind HiddenText = new(key: 13, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Hidden].Text, SystemColors.DisabledText));
+    public static readonly SystemColorKind HiddenEdge = new(key: 14, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Hidden].Edge, SystemColors.ControlText));
+    public static readonly SystemColorKind TentativeText = new(key: 15, resolve: static skin => Token(skin, static s => s.Shades[ShadeKind.Tentative].Text, SystemColors.ControlText));
+    public static readonly SystemColorKind CanvasForeground = new(key: 16, resolve: static skin => Token(skin, static s => s.Canvasses[CanvasKind.Normal].Foreground, SystemColors.ControlText));
+    public static readonly SystemColorKind CanvasEdge = new(key: 17, resolve: static skin => Token(skin, static s => s.Canvasses[CanvasKind.Normal].Edge, SystemColors.ControlText));
+    public static readonly SystemColorKind CanvasShadow = new(key: 18, resolve: static skin => Token(skin, static s => s.Canvasses[CanvasKind.Normal].Shadow, SystemColors.ControlText));
 
     private static Color Token(Option<Skin> skin, Func<Skin, Color> fromSkin, Color fallback) =>
         skin.Match(Some: fromSkin, None: () => fallback);
@@ -109,6 +118,12 @@ public readonly record struct PaintScope(CanvasPaintPhase Phase, ControlGraphics
 
     public bool IsVisible(RectangleF bounds) => Graphics.Content.IsVisible(rectangle: bounds);
 
+    // One cull predicate: culling disabled, degenerate bounds, or in-viewport runs the draw; otherwise succeeds idle.
+    internal Fin<Unit> WhenVisible(RectangleF bounds, Func<Fin<Unit>> draw) =>
+        !VisibilityCulling || bounds == RectangleF.Empty || IsVisible(bounds: bounds)
+            ? draw()
+            : Fin.Succ(unit);
+
     public Fin<Unit> Apply(DrawMark mark) {
         PaintScope current = this;
         return Optional(mark)
@@ -166,6 +181,24 @@ public readonly record struct PaintScope(CanvasPaintPhase Phase, ControlGraphics
                 }
             }));
     }
+
+    // Rect fast-path mirrors the IGraphicsPath clip: SaveTransformState never captures clipping, so ResetClip in
+    // finally is mandatory; nested clips are rejected because Eto restores no clip stack.
+    public Fin<Unit> Clip(RectangleF rect, Func<PaintScope, Fin<Unit>> body) {
+        PaintScope self = this;
+        return self.ClipActive
+            ? Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Clip)), detail: "nested clipped draw marks are not supported by Eto clip restoration"))
+            : Optional(body).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Clip)), detail: "body is required"))
+                .Bind(validBody => {
+                    Graphics graphics = self.Graphics.Content;
+                    graphics.SetClip(rectangle: rect);
+                    try {
+                        return validBody(arg: self with { ClipActive = true });
+                    } finally {
+                        graphics.ResetClip();
+                    }
+                });
+    }
 }
 
 [ComplexValueObject]
@@ -221,18 +254,16 @@ public readonly partial struct PaintStyle {
         validationError = fault;
     }
 
+    public bool HasVisibleStroke => EdgeBrush.IsSome || Edge.A > 0f;
+
     // Eto 2.11 has no Pen.DashOffset setter and DashStyle is sealed-immutable, so DashStyleIntern dedups
-    // quantized-offset DashStyle instances; EdgeSource/EdgeBrush/FillBrush keep each Pen/Brush caller-owned.
+    // quantized-offset DashStyle instances; EdgeBrush/FillBrush keep each Pen/Brush caller-owned. A brush-backed
+    // edge reuses FillSource.CachedBrush (Eto pen-backing brush Dispose is inert) and a solid edge backs a SolidBrush.
+    [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "Eto brush Dispose is inert; the brush is owned by the returned Pen (and the brush-backed arm reuses a shared cached brush that must not be disposed).")]
     internal Pen Pen() {
-        DashStyle dash = OffsetDash();
         Color edgeColour = Edge;
-        EdgeSource edge = EdgeBrush.Map(EdgeSource.FromFill).IfNone(EdgeSource.Solid(colour: edgeColour));
-        return edge.CreatePen(
-            thickness: Thickness,
-            cap: LineCap,
-            join: LineJoin,
-            miterLimit: MiterLimit,
-            dash: dash);
+        Brush brush = EdgeBrush.Map(static source => source.CachedBrush()).IfNone(() => new SolidBrush(color: edgeColour));
+        return new Pen(brush: brush, thickness: Thickness) { LineCap = LineCap, LineJoin = LineJoin, MiterLimit = MiterLimit, DashStyle = OffsetDash() };
     }
 
     private DashStyle OffsetDash() {
@@ -241,6 +272,8 @@ public readonly partial struct PaintStyle {
     }
 
     internal static SolidBrush Brush(Color color) => new(color: color);
+
+    private const float DefaultMiterLimit = 10f;
 
     private static PaintStyle CreateEdge(
         Color edge,
@@ -257,7 +290,7 @@ public readonly partial struct PaintStyle {
             lineCap: PenLineCap.Butt,
             lineJoin: PenLineJoin.Miter,
             dash: default,
-            miterLimit: EdgeSource.DefaultMiterLimit,
+            miterLimit: DefaultMiterLimit,
             antiAlias: true,
             imageInterpolation: ImageInterpolation.Default,
             pixelOffset: PixelOffsetMode.None,
@@ -289,15 +322,15 @@ public readonly partial struct PaintStyle {
 public readonly record struct PaintTextMeasurement(string Text, SizeF Size);
 
 // Canonical LRU: Dictionary + doubly-linked list. All ops O(1) — head is LRU, tail is MRU.
-file sealed class BoundedCache<TKey, TValue> where TKey : notnull {
+internal sealed class BoundedCache<TKey, TValue> where TKey : notnull {
     private readonly Dictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>> entries;
     private readonly LinkedList<KeyValuePair<TKey, TValue>> order = new();
     private readonly Lock gate = new();
     private readonly int capacity;
 
-    internal BoundedCache(int capacity) {
+    internal BoundedCache(int capacity, IEqualityComparer<TKey>? comparer = null) {
         this.capacity = capacity;
-        entries = new Dictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>>(capacity);
+        entries = new Dictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>>(capacity: capacity, comparer: comparer);
     }
 
     internal TValue GetOrAdd(TKey key, Func<TKey, TValue> valueFactory) {
@@ -449,33 +482,27 @@ public partial record FillSource {
 
     // Per-frame fill paths reuse one brush per FillSource (structural key) instead of rebuilding each paint;
     // Eto brush Dispose is inert, so a shared cached brush is safe and never needs disposal. Mirrors TextMeasure.
-    internal Brush CachedBrush() => FillBrushCache.Of(source: this);
+    // TextureCase keys on Source reference identity + Opacity (Eto Image has no structural equality); all other
+    // cases key structurally via the record's generated equality.
+    private static readonly BoundedCache<FillSource, Brush> BrushCache = new(capacity: 256, comparer: new FillSourceComparer());
+    internal Brush CachedBrush() => BrushCache.GetOrAdd(key: this, valueFactory: static s => s.CreateBrush());
+
 }
 
-file static class FillBrushCache {
-    private static readonly BoundedCache<FillSource, Brush> Cache = new(capacity: 256);
-    internal static Brush Of(FillSource source) => Cache.GetOrAdd(key: source, valueFactory: static s => s.CreateBrush());
-}
+file sealed class FillSourceComparer : IEqualityComparer<FillSource> {
+    public bool Equals(FillSource? x, FillSource? y) =>
+        (x, y) switch {
+            (FillSource.TextureCase a, FillSource.TextureCase b) => ReferenceEquals(a.Source, b.Source) && a.Opacity == b.Opacity,
+            (null, null) => true,
+            (null, _) or (_, null) => false,
+            _ => x.Equals(y),
+        };
 
-[SkipUnionOps]
-[Union]
-public partial record EdgeSource {
-    private EdgeSource() { }
-    public sealed record SolidCase(Color Colour) : EdgeSource;
-    public sealed record BrushBackedCase(FillSource Source) : EdgeSource;
-
-    public static EdgeSource Solid(Color colour) => new SolidCase(Colour: colour);
-    public static EdgeSource FromFill(FillSource source) => new BrushBackedCase(Source: source);
-
-    // One brush-projected pen builder: solid backs with a SolidBrush, brush-backed reuses the FillBrushCache
-    // (Eto pen-backing brush Dispose is inert), so both pens share the single initializer block.
-    [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "Eto brush Dispose is inert; the brush is owned by the returned Pen (and the brush-backed arm reuses a shared cached brush that must not be disposed).")]
-    internal Pen CreatePen(float thickness, PenLineCap cap, PenLineJoin join, float miterLimit, DashStyle dash) {
-        Brush brush = Switch(solidCase: static s => new SolidBrush(color: s.Colour), brushBackedCase: static b => b.Source.CachedBrush());
-        return new Pen(brush: brush, thickness: thickness) { LineCap = cap, LineJoin = join, MiterLimit = miterLimit, DashStyle = dash };
-    }
-
-    internal const float DefaultMiterLimit = 10f;
+    public int GetHashCode(FillSource source) =>
+        source switch {
+            FillSource.TextureCase texture => HashCode.Combine(RuntimeHelpers.GetHashCode(texture.Source), texture.Opacity),
+            _ => source.GetHashCode(),
+        };
 }
 
 [ComplexValueObject]
@@ -515,7 +542,6 @@ public partial record DrawMark {
     private DrawMark() { }
     public sealed partial record LineCase(PointF A, PointF B, PaintStyle Style) : DrawMark;
     public sealed partial record RectangleCase(RectangleF Bounds, PaintStyle Style) : DrawMark;
-    public sealed partial record RoundedRectangleCase(RectangleF Bounds, float Radius, PaintStyle Style) : DrawMark;
     public sealed partial record RoundedCornersCase(RectangleF Bounds, CornerRadii Radii, PaintStyle Style) : DrawMark;
     public sealed partial record EllipseCase(RectangleF Bounds, PaintStyle Style) : DrawMark;
     public sealed partial record PathCase(IGraphicsPath Geometry, PaintStyle Style) : DrawMark;
@@ -539,7 +565,7 @@ public partial record DrawMark {
     public static DrawMark Rectangle(RectangleF bounds, Color edge, Option<Color> fill = default, float thickness = 1f) =>
         new RectangleCase(Bounds: bounds, Style: PaintStyle.ForEdge(edge: edge, fill: fill, thickness: thickness));
     public static DrawMark RoundedRectangle(RectangleF bounds, float radius, Color edge, Option<Color> fill = default, float thickness = 1f) =>
-        new RoundedRectangleCase(Bounds: bounds, Radius: radius, Style: PaintStyle.ForEdge(edge: edge, fill: fill, thickness: thickness));
+        new RoundedCornersCase(Bounds: bounds, Radii: CornerRadii.Uniform(radius: radius), Style: PaintStyle.ForEdge(edge: edge, fill: fill, thickness: thickness));
     public static DrawMark RoundedCorners(RectangleF bounds, CornerRadii radii, Color edge, Option<Color> fill = default, float thickness = 1f) =>
         new RoundedCornersCase(Bounds: bounds, Radii: radii, Style: PaintStyle.ForEdge(edge: edge, fill: fill, thickness: thickness));
     public static DrawMark Ellipse(RectangleF bounds, Color edge, Option<Color> fill = default, float thickness = 1f) =>
@@ -574,7 +600,7 @@ public partial record DrawMark {
     public static DrawMark Curve(ReadOnlyMemory<PointF> points, Color edge, float tension = 0.5f, Option<Color> fill = default, float thickness = 1f) =>
         new CurveCase(Points: points, Tension: tension, Style: PaintStyle.ForEdge(edge: edge, fill: fill, thickness: thickness));
     public static DrawMark SystemArc(RectangleF bounds, float startAngle, float sweepAngle, SystemColorKind color, float thickness = 1f) {
-        ArgumentNullException.ThrowIfNull(color);
+        ArgumentNullException.ThrowIfNull(argument: color);
         return new ArcCase(Bounds: bounds, StartAngle: startAngle, SweepAngle: sweepAngle, Style: PaintStyle.ForSystemColor(kind: color, thickness: thickness), SystemColor: Some(color));
     }
     public static DrawMark DrawCapsule(Capsule capsule, Shade shade, Parts elements = Parts.All) =>
@@ -584,15 +610,8 @@ public partial record DrawMark {
 
     internal Fin<Unit> Apply(PaintScope scope) =>
         Switch(state: scope,
-            lineCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(LineCase)), what: "line draw", bounds: BoundsOf(points: new[] { c.A, c.B }), draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Line(a: c.A, b: c.B))),
+            lineCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(LineCase)), what: "line draw", bounds: BoundsOf(a: c.A, b: c.B), draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Line(a: c.A, b: c.B))),
             rectangleCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(RectangleCase)), what: "rectangle draw", bounds: c.Bounds, draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Rectangle(bounds: c.Bounds))),
-            roundedRectangleCase: static (s, c) => DrawPathStyled(
-                scope: s,
-                style: c.Style,
-                op: Op.Of(name: nameof(RoundedRectangleCase)),
-                what: "rounded rectangle draw",
-                bounds: c.Bounds,
-                path: () => GraphicsPath.GetRoundRect(rectangle: c.Bounds, radius: c.Radius)),
             roundedCornersCase: static (s, c) => DrawPathStyled(
                 scope: s,
                 style: c.Style,
@@ -609,9 +628,13 @@ public partial record DrawMark {
                         swRadius: c.Radii.BottomLeft)),
             ellipseCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(EllipseCase)), what: "ellipse draw", bounds: c.Bounds, draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Ellipse(bounds: c.Bounds))),
             pathCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(PathCase)), what: "path draw", draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Path(path: c.Geometry))),
+            // FillBrush (gradient/texture) wins for text fill so the SAME brush algebra drives shapes and labels;
+            // Edge backs a cached SolidBrush otherwise. Both brushes have inert Eto Dispose; the FillBrush arm reuses
+            // a shared cached brush that must not be disposed, so neither is wrapped in `using`. DrawText routes
+            // through Eto's internal SharedFormattedText (ForegroundBrush = brush), mirroring MeasureText's scratch.
             textCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(TextCase)), what: "text draw", bounds: c.Frame, draw: g =>
                 c.Style.Font.IfNone(UiFont.Empty()).Use(run: font => {
-                    using SolidBrush brush = PaintStyle.Brush(color: c.Style.Edge);
+                    Brush brush = c.Style.FillBrush.Map(static fill => fill.CachedBrush()).IfNone(() => PaintStyle.Brush(color: c.Style.Edge));
                     g.DrawText(font, brush, c.Frame, c.Value, c.Wrap, c.Alignment, c.Trimming);
                     return unit;
                 })),
@@ -662,15 +685,15 @@ public partial record DrawMark {
                     return path;
                 }),
             polylineCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(PolylineCase)), what: "polyline draw", bounds: BoundsOf(points: c.Points),
-                draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Polyline(points: c.Points.Span.ToArray()))),
+                draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Polyline(points: c.Points))),
             polygonCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(PolygonCase)), what: "polygon draw", bounds: BoundsOf(points: c.Points),
-                draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Polygon(points: c.Points.Span.ToArray()))),
+                draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Polygon(points: c.Points))),
             bezierCase: static (s, c) => DrawPathStyled(
                 scope: s,
                 style: c.Style,
                 op: Op.Of(name: nameof(BezierCase)),
                 what: "bezier draw",
-                bounds: BoundsOf(points: new[] { c.Start, c.Control1, c.Control2, c.End }),
+                bounds: BoundsOf(a: c.Start, b: c.Control1, c: c.Control2, d: c.End),
                 path: () => {
                     GraphicsPath path = new();
                     path.AddBezier(start: c.Start, control1: c.Control1, control2: c.Control2, end: c.End);
@@ -684,7 +707,7 @@ public partial record DrawMark {
                 bounds: BoundsOf(points: c.Points),
                 path: () => {
                     GraphicsPath path = new();
-                    path.AddCurve(points: c.Points.Span.ToArray(), tension: c.Tension);
+                    path.AddCurve(points: MemoryMarshal.ToEnumerable(c.Points), tension: c.Tension);
                     return path;
                 }),
             capsuleCase: static (s, c) => Op.Of(name: nameof(CapsuleCase)).Attempt(body: () => {
@@ -699,19 +722,29 @@ public partial record DrawMark {
                 return c.Plan.Apply(scope: s with { VisibilityCulling = false });
             });
 
-    // Eto owns the bounding-box reduction: seed a degenerate rect at points[0] and Union each point's
-    // degenerate rect (RectangleF's two-corner ctor + RectangleF.Union, both already used across the file).
-    private static RectangleF BoundsOf(ReadOnlyMemory<PointF> points) =>
-        points.Length == 0
-            ? RectangleF.Empty
-            : toSeq(points.Span.ToArray()).Fold(
-                initialState: new RectangleF(points.Span[0], points.Span[0]),
-                f: static (acc, point) => RectangleF.Union(acc, new RectangleF(point, point)));
+    // Eto owns the bounding-box reduction: seed a degenerate rect at the first point and Union each point's
+    // degenerate rect (RectangleF's two-corner ctor + RectangleF.Union, both already used across the file). The
+    // fixed-arity overloads avoid the per-frame PointF[] allocation that wrapping into ReadOnlyMemory would force.
+    private static RectangleF BoundsOf(PointF a, PointF b) =>
+        RectangleF.Union(new RectangleF(a, a), new RectangleF(b, b));
+
+    private static RectangleF BoundsOf(PointF a, PointF b, PointF c, PointF d) =>
+        RectangleF.Union(
+            RectangleF.Union(new RectangleF(a, a), new RectangleF(b, b)),
+            RectangleF.Union(new RectangleF(c, c), new RectangleF(d, d)));
+
+    private static RectangleF BoundsOf(ReadOnlyMemory<PointF> points) {
+        ReadOnlySpan<PointF> span = points.Span;
+        // BOUNDARY ADAPTER -- ReadOnlySpan has no IEnumerable; span-index fold is the only zero-alloc path.
+        RectangleF acc = span.Length == 0 ? RectangleF.Empty : new RectangleF(span[0], span[0]);
+        for (int i = 1; i < span.Length; i++) {
+            acc = RectangleF.Union(acc, new RectangleF(span[i], span[i]));
+        }
+        return acc;
+    }
 
     private static Fin<Unit> DrawStyled(PaintScope scope, PaintStyle style, Op op, string what, RectangleF bounds, Func<Graphics, Unit> draw) =>
-        !scope.VisibilityCulling || bounds == RectangleF.Empty || scope.IsVisible(bounds: bounds)
-            ? DrawStyled(scope: scope, style: style, op: op, what: what, draw: draw)
-            : Fin.Succ(unit);
+        scope.WhenVisible(bounds: bounds, draw: () => DrawStyled(scope: scope, style: style, op: op, what: what, draw: draw));
 
     private static Fin<Unit> DrawStyled(PaintScope scope, PaintStyle style, Op op, string what, Func<Graphics, Unit> draw) =>
         Optional(draw).ToFin(Fail: UiFault.InvalidInput(op: op, detail: "draw delegate is required"))
@@ -729,9 +762,7 @@ public partial record DrawMark {
         });
 
     private static Fin<Unit> DrawPathStyled(PaintScope scope, PaintStyle style, Op op, string what, RectangleF bounds, Func<IGraphicsPath> path) =>
-        !scope.VisibilityCulling || bounds == RectangleF.Empty || scope.IsVisible(bounds: bounds)
-            ? DrawPathStyled(scope: scope, style: style, op: op, what: what, path: path)
-            : Fin.Succ(unit);
+        scope.WhenVisible(bounds: bounds, draw: () => DrawPathStyled(scope: scope, style: style, op: op, what: what, path: path));
 
     private static Unit DrawShape(PaintStyle style, Graphics graphics, PaintShape shape) {
         _ = style.FillBrush.IfSome(source => shape.Fill(graphics, source.CachedBrush()));
@@ -739,9 +770,10 @@ public partial record DrawMark {
             using SolidBrush brush = PaintStyle.Brush(colour);
             shape.Fill(graphics, brush);
         }));
-        using Pen pen = style.Pen();
-        shape.Stroke(graphics, pen);
-        return unit;
+        return Op.SideWhen(style.HasVisibleStroke, () => {
+            using Pen pen = style.Pen();
+            shape.Stroke(graphics, pen);
+        });
     }
 
     private readonly record struct PaintShape(Action<Graphics, Brush> Fill, Action<Graphics, Pen> Stroke) {
@@ -765,24 +797,44 @@ public partial record DrawMark {
                 Fill: (graphics, brush) => graphics.FillPath(brush: brush, path: path),
                 Stroke: (graphics, pen) => graphics.DrawPath(pen: pen, path: path));
 
-        internal static PaintShape Polygon(PointF[] points) =>
+        // Stroke uses the zero-alloc IEnumerable projection over the span; FillPolygon has no IEnumerable overload,
+        // so the array materializes lazily inside Fill — only when a fill brush is actually present.
+        internal static PaintShape Polygon(ReadOnlyMemory<PointF> points) =>
             new(
-                Fill: (graphics, brush) => graphics.FillPolygon(brush, points),
-                Stroke: (graphics, pen) => graphics.DrawPolygon(pen, points));
+                Fill: (graphics, brush) => graphics.FillPolygon(brush, [.. MemoryMarshal.ToEnumerable(points)]),
+                Stroke: (graphics, pen) => graphics.DrawPolygon(pen, (PointF[])MemoryMarshal.ToEnumerable(points)));
 
         // Stroke-only: an open polyline has no fill, so DrawShape routing is for op/cull uniformity, not fill.
-        internal static PaintShape Polyline(PointF[] points) =>
+        internal static PaintShape Polyline(ReadOnlyMemory<PointF> points) =>
             new(
                 Fill: static (_, _) => { },
-                Stroke: (graphics, pen) => graphics.DrawLines(pen, points));
+                Stroke: (graphics, pen) => graphics.DrawLines(pen, MemoryMarshal.ToEnumerable(points)));
     }
 
 }
 
-public readonly record struct DrawPlan(Seq<DrawMark> Marks) {
+public readonly record struct DrawPlan(Seq<DrawMark> Marks, Option<CanvasPaintPhase> Phase = default, Option<RectangleF> Bounds = default) {
     public static DrawPlan Empty => new(Marks: Seq<DrawMark>());
-    public static DrawPlan operator +(DrawPlan left, DrawPlan right) => new(Marks: left.Marks + right.Marks);
-    internal Fin<Unit> Apply(PaintScope scope) => Marks.TraverseM(scope.Apply).Map(static marks => unit).As();
+
+    // Marks concatenate; the right operand's phase/bounds win when present (Option `|` is left-biased toward Some).
+    public static DrawPlan operator +(DrawPlan left, DrawPlan right) =>
+        new(Marks: left.Marks + right.Marks, Phase: right.Phase | left.Phase, Bounds: right.Bounds | left.Bounds);
+
+    public DrawPlan For(CanvasPaintPhase phase) => this with { Phase = Some(phase) };
+    public DrawPlan Within(RectangleF bounds) => this with { Bounds = Some(bounds) };
+
+    // Phase-gated and bounds-culled: a plan pinned to another phase succeeds idle; a bounds-pinned plan defers to
+    // the scope's cull predicate before traversing its marks.
+    internal Fin<Unit> Apply(PaintScope scope) {
+        Option<CanvasPaintPhase> phase = Phase;
+        Option<RectangleF> bounds = Bounds;
+        Seq<DrawMark> marks = Marks;
+        return phase.Map(phase => phase != scope.Phase).IfNone(false)
+            ? Fin.Succ(unit)
+            : scope.WhenVisible(
+                bounds: bounds.IfNone(RectangleF.Empty),
+                draw: () => marks.TraverseM(scope.Apply).Map(static _ => unit).As());
+    }
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -794,6 +846,10 @@ public readonly record struct PaintSkinSnapshot(Option<CanvasSkin> Appearance) {
 public abstract record PaintRequest<T> : GhUiRequest<T> {
     public sealed record Skin : PaintRequest<PaintSkinSnapshot> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(); internal override Fin<PaintSkinSnapshot> Apply(GrasshopperUi.Scope scope) => Paint.Skin().Run(scope: scope); }
     public sealed record RedrawOnMouseMove(bool Enabled = true, MotionClock? Clock = null) : PaintRequest<Subscription> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Canvas); internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.RedrawOnMouseMove(enabled: Enabled, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
+    public sealed record Hook(CanvasPaintPhase Phase, DrawPlan Plan, MotionClock? Clock = null) : PaintRequest<Subscription> {
+        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
+        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.Hook(phase: Phase, paint: Plan.Apply, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope);
+    }
     public sealed record FloatingDrawable(DrawPlan Plan, Size Size, Option<string> Title = default) : PaintRequest<Subscription> {
         internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
         internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.FloatingDrawable(plan: Plan, size: Size, title: Title).Run(scope: scope);
@@ -831,14 +887,14 @@ internal static partial class Paint {
             from paintSub in Subscription.Bind(
                 attach: () => {
                     _ = validPhase.Attach(canvas: canvas, handler: handler);
-                    _ = Op.SideWhen(adoptedPacer.IsNone, () => _ = Motion.PacerResume(pacer: pacer, canvas: canvas));
+                    _ = Op.SideWhen(adoptedPacer.IsNone, () => _ = pacer.ResumeOr(canvas: canvas));
                 },
                 detach: () => _ = validPhase.Detach(canvas: canvas, handler: handler),
                 marshalToUi: true)
             select ownsPacerLifecycle
                 ? Subscription.DisposeOnce(Subscription.PaintPacer(
                     paintHook: paintSub,
-                    pacerRelease: () => _ = Motion.PacerRelease(pacer: pacer)))
+                    pacerRelease: () => _ = pacer.ReleaseOnce()))
                 : paintSub);
 
     internal static GrasshopperUiIntent<Subscription> RedrawOnMouseMove(bool enabled = true, MotionClock? clock = null) =>
@@ -858,12 +914,12 @@ internal static partial class Paint {
                 from arm in Events.BindMarshaled(
                     attach: () => {
                         token.Value = CanvasPropertyLease.Enter(canvas: canvas, slot: nameof(GhCanvas.RedrawOnMouseMove), value: enabled, get: static c => c.RedrawOnMouseMove, set: static (c, value) => c.RedrawOnMouseMove = value);
-                        _ = Motion.PacerResume(pacer: pacer, canvas: canvas);
+                        _ = pacer.ResumeOr(canvas: canvas);
                     },
                     detach: () => CanvasPropertyLease.Exit<bool>(canvas: canvas, slot: nameof(GhCanvas.RedrawOnMouseMove), token: token.Value, set: static (c, value) => c.RedrawOnMouseMove = value))
                 select Subscription.DisposeOnce(Subscription.PaintPacer(
                     paintHook: sustain | arm,
-                    pacerRelease: () => _ = Motion.PacerRelease(pacer: pacer))));
+                    pacerRelease: () => _ = pacer.ReleaseOnce())));
 
     internal static GrasshopperUiIntent<Subscription> FloatingDrawable(DrawPlan plan, Size size, Option<string> title) =>
         GhUi.Canvas(run: scope =>

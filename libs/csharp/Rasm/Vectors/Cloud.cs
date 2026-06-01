@@ -54,10 +54,15 @@ public readonly record struct CloudNeighborhoodPolicy(Dimension NeighborCount, O
         from eigenGap in key.AcceptValidated<PositiveMagnitude>(candidate: 1.0e-8)
         from residual in key.AcceptValidated<PositiveMagnitude>(candidate: 1.0e-4)
         select new CloudNeighborhoodPolicy(NeighborCount: count, Radius: None, EigenGapTolerance: eigenGap, FitResidualTolerance: residual);
-    internal Fin<CloudNeighborhoodPolicy> Admit(Op key) =>
-        NeighborCount.Value >= 3 && Radius.Map(static radius => radius.Value > 0.0).IfNone(true) && EigenGapTolerance.Value > 0.0 && FitResidualTolerance.Value > 0.0
-            ? Fin.Succ(this)
-            : Fin.Fail<CloudNeighborhoodPolicy>(key.InvalidInput());
+    internal Fin<CloudNeighborhoodPolicy> Admit(Op key) {
+        CloudNeighborhoodPolicy self = this;
+        return from count in FieldNabla.Dimension(value: self.NeighborCount, key: key)
+               from minimum in self.NeighborCount.Value >= 3 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
+               from radius in self.Radius.Match(Some: value => FieldNabla.Positive(value: value, key: key), None: static () => Fin.Succ(unit))
+               from gap in FieldNabla.Positive(value: self.EigenGapTolerance, key: key)
+               from residual in FieldNabla.Positive(value: self.FitResidualTolerance, key: key)
+               select self;
+    }
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudMetricPolicy(CloudNeighborhoodPolicy Neighborhood) {
@@ -76,10 +81,13 @@ public readonly record struct CloudHullPolicy(PositiveMagnitude Tolerance, Vecto
             None: () => from tolerance in key.AcceptValidated<PositiveMagnitude>(candidate: context.Absolute.Value)
                         from angle in key.AcceptValidated<VectorAngle>(candidate: context.Angle.Value)
                         select new CloudHullPolicy(Tolerance: tolerance, AngleTolerance: angle));
-    internal Fin<CloudHullPolicy> Admit(Op key) =>
-        Tolerance.Value > 0.0 && AngleTolerance.Value is > 0.0 and < Math.PI
-            ? Fin.Succ(this)
-            : Fin.Fail<CloudHullPolicy>(key.InvalidInput());
+    internal Fin<CloudHullPolicy> Admit(Op key) {
+        CloudHullPolicy self = this;
+        return from tolerance in FieldNabla.Positive(value: self.Tolerance, key: key)
+               from angle in key.AcceptValidated<VectorAngle>(candidate: self.AngleTolerance.Value)
+               from range in self.AngleTolerance.Value is > 0.0 and < Math.PI ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
+               select self;
+    }
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudTransportPolicy(PositiveMagnitude Regularization, Dimension MaxIterations, bool Debiased, Option<PositiveMagnitude> MassRelaxation, PositiveMagnitude ConvergenceTolerance, PositiveMagnitude CouplingCutoff) {
@@ -95,10 +103,15 @@ public readonly record struct CloudTransportPolicy(PositiveMagnitude Regularizat
                from policy in new CloudTransportPolicy(Regularization: reg, MaxIterations: cap, Debiased: debiased, MassRelaxation: relax, ConvergenceTolerance: tolerance, CouplingCutoff: cutoff).Admit(key: op)
                select policy;
     }
-    internal Fin<CloudTransportPolicy> Admit(Op key) =>
-        Regularization.Value > 0.0 && MaxIterations.Value > 0 && ConvergenceTolerance.Value > 0.0 && CouplingCutoff.Value > 0.0 && MassRelaxation.Map(static lambda => lambda.Value > 0.0).IfNone(true)
-            ? Fin.Succ(this)
-            : Fin.Fail<CloudTransportPolicy>(key.InvalidInput());
+    internal Fin<CloudTransportPolicy> Admit(Op key) {
+        CloudTransportPolicy self = this;
+        return from regularization in FieldNabla.Positive(value: self.Regularization, key: key)
+               from iterations in FieldNabla.Dimension(value: self.MaxIterations, key: key)
+               from tolerance in FieldNabla.Positive(value: self.ConvergenceTolerance, key: key)
+               from cutoff in FieldNabla.Positive(value: self.CouplingCutoff, key: key)
+               from relaxation in self.MassRelaxation.Match(Some: value => FieldNabla.Positive(value: value, key: key), None: static () => Fin.Succ(unit))
+               select self;
+    }
 }
 [SmartEnum<int>]
 public sealed partial class CloudNeighborhoodSearchBackend { public static readonly CloudNeighborhoodSearchBackend RhinoPointCloudKnn = new(key: 0), RhinoPointCloudRadius = new(key: 1); }
@@ -164,7 +177,16 @@ public sealed partial class CloudHullStatus { public static readonly CloudHullSt
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CloudHullReceipt(CloudHullKind Kind, CloudHullStatus Status, double Tolerance, double AngleTolerance, int InputCount, int OutputVertexCount, int NativeFacetCount, Option<double> PlanarityDeviation, bool CoplanarRejected, int ContainmentRejectedCount, bool NativeRouted, bool Fallback);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CloudHullResult(Option<Mesh> Mesh, CloudHullReceipt Receipt);
+public readonly record struct CloudHullResult(Option<Mesh> Mesh, CloudHullReceipt Receipt) {
+    internal static CloudHullResult Completed(CloudHullKind kind, CloudHullPolicy policy, int inputCount, Mesh mesh, Option<double> planarityDeviation, bool fallback, int nativeFacetCount = 0) =>
+        new(Mesh: Some(mesh), Receipt: ReceiptOf(kind: kind, status: CloudHullStatus.Completed, policy: policy, inputCount: inputCount, outputVertexCount: mesh.Vertices.Count, nativeFacetCount: nativeFacetCount <= 0 ? mesh.Faces.Count : nativeFacetCount, planarityDeviation: planarityDeviation, coplanarRejected: false, containmentRejectedCount: 0, nativeRouted: true, fallback: fallback));
+    internal static CloudHullResult Rejected(CloudHullKind kind, CloudHullPolicy policy, int inputCount, Option<double> planarityDeviation, bool coplanarRejected, int containmentRejectedCount, bool nativeRouted, bool fallback) =>
+        new(Mesh: Option<Mesh>.None, Receipt: ReceiptOf(kind: kind, status: CloudHullStatus.Rejected, policy: policy, inputCount: inputCount, outputVertexCount: 0, nativeFacetCount: 0, planarityDeviation: planarityDeviation, coplanarRejected: coplanarRejected, containmentRejectedCount: containmentRejectedCount, nativeRouted: nativeRouted, fallback: fallback));
+    internal static CloudHullResult Unsupported(CloudHullKind kind, CloudHullPolicy policy, int inputCount) =>
+        new(Mesh: Option<Mesh>.None, Receipt: ReceiptOf(kind: kind, status: CloudHullStatus.Unsupported, policy: policy, inputCount: inputCount, outputVertexCount: 0, nativeFacetCount: 0, planarityDeviation: None, coplanarRejected: false, containmentRejectedCount: 0, nativeRouted: false, fallback: false));
+    private static CloudHullReceipt ReceiptOf(CloudHullKind kind, CloudHullStatus status, CloudHullPolicy policy, int inputCount, int outputVertexCount, int nativeFacetCount, Option<double> planarityDeviation, bool coplanarRejected, int containmentRejectedCount, bool nativeRouted, bool fallback) =>
+        new(Kind: kind, Status: status, Tolerance: policy.Tolerance.Value, AngleTolerance: policy.AngleTolerance.Value, InputCount: inputCount, OutputVertexCount: outputVertexCount, NativeFacetCount: nativeFacetCount, PlanarityDeviation: planarityDeviation, CoplanarRejected: coplanarRejected, ContainmentRejectedCount: containmentRejectedCount, NativeRouted: nativeRouted, Fallback: fallback);
+}
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct VectorCloudShape(Option<Vector3d> Normal, Option<double> SignedArea, Option<double> Area, Option<double> Perimeter, Option<double> EdgeAspect, Option<double> Skewness, Option<double> PlanarityDeviation, Option<double> Compactness, Option<double> MomentAnisotropy, Option<Vector3d> RadiiOfGyration, Option<double> AreaError, Option<Vector3d> CentroidError, Option<Plane> BestFitPlane, Option<bool> Convex, Option<CurveOrientation> Orientation, Option<double> OpenLength, Option<Vector3d> Spread, Point3d Centroid, Plane PrincipalFrame, Seq<(double Moment, Vector3d Axis)> PrincipalAxes) {
     internal VectorCloudShape(Point3d centroid, Plane principalFrame, Seq<(double Moment, Vector3d Axis)> principalAxes)
@@ -235,16 +257,14 @@ public abstract partial record VectorCloud {
             _ => Fin.Fail<VectorCloud>(key.InvalidInput()),
         };
     internal static Fin<VectorCloud> Admit(VectorCloud value, Op key) =>
-        Optional(value).ToFin(key.InvalidInput()).Bind(cloud => cloud.Admit(key: key));
+        FieldNabla.NotNull(value: value, key: key).Bind(cloud => cloud.Admit(key: key));
     private static Fin<(Seq<Point3d> Points, Context Context, Op Key)> AdmitPoints(Seq<Point3d> points, Context context, Op? key, int minimum) =>
         key.OrDefault() switch {
-            Op op => from model in Optional(context).ToFin(op.MissingContext())
-                     from valid in points.Traverse(point => AdmitPoint(point: point, key: op)).As().ToFin()
-                     from _ in guard(valid.Count >= minimum, op.InvalidInput())
-                     select (Points: valid, Context: model, Key: op),
+            Op op => from model in FieldNabla.NotNull(value: context, error: op.MissingContext())
+                     from finite in FieldNabla.AllFinite(points: points, key: op)
+                     from count in FieldNabla.CountAtLeast(count: points.Count, minimum: minimum, key: op)
+                     select (Points: points, Context: model, Key: op),
         };
-    private static Validation<Error, Point3d> AdmitPoint(Point3d point, Op key) =>
-        (RhinoMath.IsValidDouble(x: point.X) && RhinoMath.IsValidDouble(x: point.Y) && RhinoMath.IsValidDouble(x: point.Z)) switch { true => Success<Error, Point3d>(value: point), false => Fail<Error, Point3d>(value: key.InvalidInput()) };
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -569,29 +589,27 @@ internal static class CloudKernel {
             VectorCloud.ClusterCase cluster => kind switch {
                 CloudHullKind k when k.Equals(CloudHullKind.Convex3D) => ConvexHullOf(cluster: cluster, policy: policy, key: key),
                 CloudHullKind k when k.Equals(CloudHullKind.ConvexFootprint2D) || k.Equals(CloudHullKind.FootprintWrapper) => ConvexFootprintOf(cluster: cluster, kind: kind, policy: policy, key: key),
-                CloudHullKind k when k.Equals(CloudHullKind.ConcaveOutline) || k.Equals(CloudHullKind.AlphaShape) => Fin.Succ(new CloudHullResult(Mesh: Option<Mesh>.None, Receipt: HullReceipt(kind: kind, status: CloudHullStatus.Unsupported, policy: policy, inputCount: cluster.Vertices.Count, outputVertexCount: 0, nativeFacetCount: 0, planarityDeviation: None, coplanarRejected: false, containmentRejectedCount: 0, nativeRouted: false, fallback: false))),
+                CloudHullKind k when k.Equals(CloudHullKind.ConcaveOutline) || k.Equals(CloudHullKind.AlphaShape) => Fin.Succ(CloudHullResult.Unsupported(kind: kind, policy: policy, inputCount: cluster.Vertices.Count)),
                 _ => Fin.Fail<CloudHullResult>(key.Unsupported(geometryType: typeof(CloudHullKind), outputType: typeof(CloudHullResult))),
             },
             _ => Fin.Fail<CloudHullResult>(error: key.Unsupported(geometryType: source.GetType(), outputType: typeof(CloudHullResult))),
         };
     private static Fin<CloudHullResult> ConvexHullOf(VectorCloud.ClusterCase cluster, CloudHullPolicy policy, Op key) {
-        if (cluster.Vertices.Count < 4) return Fin.Succ(new CloudHullResult(Mesh: Option<Mesh>.None, Receipt: HullReceipt(kind: CloudHullKind.Convex3D, status: CloudHullStatus.Rejected, policy: policy, inputCount: cluster.Vertices.Count, outputVertexCount: 0, nativeFacetCount: 0, planarityDeviation: None, coplanarRejected: false, containmentRejectedCount: cluster.Vertices.Count, nativeRouted: true, fallback: false)));
-        if (Point3d.ArePointsCoplanar(points: cluster.Vertices.AsIterable(), tolerance: policy.Tolerance.Value)) return Fin.Succ(new CloudHullResult(Mesh: Option<Mesh>.None, Receipt: HullReceipt(kind: CloudHullKind.Convex3D, status: CloudHullStatus.Rejected, policy: policy, inputCount: cluster.Vertices.Count, outputVertexCount: 0, nativeFacetCount: 0, planarityDeviation: Some(0.0), coplanarRejected: true, containmentRejectedCount: 0, nativeRouted: true, fallback: false)));
+        if (cluster.Vertices.Count < 4) return Fin.Succ(CloudHullResult.Rejected(kind: CloudHullKind.Convex3D, policy: policy, inputCount: cluster.Vertices.Count, planarityDeviation: None, coplanarRejected: false, containmentRejectedCount: cluster.Vertices.Count, nativeRouted: true, fallback: false));
+        if (Point3d.ArePointsCoplanar(points: cluster.Vertices.AsIterable(), tolerance: policy.Tolerance.Value)) return Fin.Succ(CloudHullResult.Rejected(kind: CloudHullKind.Convex3D, policy: policy, inputCount: cluster.Vertices.Count, planarityDeviation: Some(0.0), coplanarRejected: true, containmentRejectedCount: 0, nativeRouted: true, fallback: false));
         using Mesh? hull = Mesh.CreateConvexHull3D(points: cluster.Vertices.AsIterable(), hullFacets: out int[][] facets, tolerance: policy.Tolerance.Value, angleTolerance: policy.AngleTolerance.Value);
-        return hull is { IsValid: true } ? key.AcceptValue(value: hull.DuplicateMesh()).Map(mesh => new CloudHullResult(Mesh: Some(mesh), Receipt: HullReceipt(kind: CloudHullKind.Convex3D, status: CloudHullStatus.Completed, policy: policy, inputCount: cluster.Vertices.Count, outputVertexCount: mesh.Vertices.Count, nativeFacetCount: facets.Length, planarityDeviation: None, coplanarRejected: false, containmentRejectedCount: 0, nativeRouted: true, fallback: false))) : Fin.Fail<CloudHullResult>(error: key.InvalidResult());
+        return hull is { IsValid: true } ? key.AcceptValue(value: hull.DuplicateMesh()).Map(mesh => CloudHullResult.Completed(kind: CloudHullKind.Convex3D, policy: policy, inputCount: cluster.Vertices.Count, mesh: mesh, planarityDeviation: None, fallback: false, nativeFacetCount: facets.Length)) : Fin.Fail<CloudHullResult>(error: key.InvalidResult());
     }
     private static Fin<CloudHullResult> ConvexFootprintOf(VectorCloud.ClusterCase cluster, CloudHullKind kind, CloudHullPolicy policy, Op key) =>
         cluster.Vertices.Count < 3
-            ? Fin.Succ(new CloudHullResult(Mesh: Option<Mesh>.None, Receipt: HullReceipt(kind: kind, status: CloudHullStatus.Rejected, policy: policy, inputCount: cluster.Vertices.Count, outputVertexCount: 0, nativeFacetCount: 0, planarityDeviation: None, coplanarRejected: false, containmentRejectedCount: cluster.Vertices.Count, nativeRouted: false, fallback: kind.Equals(CloudHullKind.FootprintWrapper))))
+            ? Fin.Succ(CloudHullResult.Rejected(kind: kind, policy: policy, inputCount: cluster.Vertices.Count, planarityDeviation: None, coplanarRejected: false, containmentRejectedCount: cluster.Vertices.Count, nativeRouted: false, fallback: kind.Equals(CloudHullKind.FootprintWrapper)))
             : from fit in BestFitOf(points: cluster.Vertices, key: key)
               let hull = ConvexHull2D(points: cluster.Vertices, plane: fit.Plane)
               let containmentRejected = hull.Count < 3 ? cluster.Vertices.Count : FootprintContainmentRejectedCount(points: cluster.Vertices, hull: hull, plane: fit.Plane, tolerance: policy.Tolerance.Value)
               from result in containmentRejected == 0
-                  ? MeshFromFootprint(points: hull, key: key).Map(mesh => new CloudHullResult(Mesh: Some(mesh), Receipt: HullReceipt(kind: kind, status: CloudHullStatus.Completed, policy: policy, inputCount: cluster.Vertices.Count, outputVertexCount: mesh.Vertices.Count, nativeFacetCount: mesh.Faces.Count, planarityDeviation: Some(fit.Deviation), coplanarRejected: false, containmentRejectedCount: containmentRejected, nativeRouted: true, fallback: kind.Equals(CloudHullKind.FootprintWrapper))))
-                  : Fin.Succ(new CloudHullResult(Mesh: Option<Mesh>.None, Receipt: HullReceipt(kind: kind, status: CloudHullStatus.Rejected, policy: policy, inputCount: cluster.Vertices.Count, outputVertexCount: 0, nativeFacetCount: 0, planarityDeviation: Some(fit.Deviation), coplanarRejected: false, containmentRejectedCount: containmentRejected, nativeRouted: true, fallback: kind.Equals(CloudHullKind.FootprintWrapper))))
+                  ? MeshFromFootprint(points: hull, key: key).Map(mesh => CloudHullResult.Completed(kind: kind, policy: policy, inputCount: cluster.Vertices.Count, mesh: mesh, planarityDeviation: Some(fit.Deviation), fallback: kind.Equals(CloudHullKind.FootprintWrapper)))
+                  : Fin.Succ(CloudHullResult.Rejected(kind: kind, policy: policy, inputCount: cluster.Vertices.Count, planarityDeviation: Some(fit.Deviation), coplanarRejected: false, containmentRejectedCount: containmentRejected, nativeRouted: true, fallback: kind.Equals(CloudHullKind.FootprintWrapper)))
               select result;
-    private static CloudHullReceipt HullReceipt(CloudHullKind kind, CloudHullStatus status, CloudHullPolicy policy, int inputCount, int outputVertexCount, int nativeFacetCount, Option<double> planarityDeviation, bool coplanarRejected, int containmentRejectedCount, bool nativeRouted, bool fallback) =>
-        new(Kind: kind, Status: status, Tolerance: policy.Tolerance.Value, AngleTolerance: policy.AngleTolerance.Value, InputCount: inputCount, OutputVertexCount: outputVertexCount, NativeFacetCount: nativeFacetCount, PlanarityDeviation: planarityDeviation, CoplanarRejected: coplanarRejected, ContainmentRejectedCount: containmentRejectedCount, NativeRouted: nativeRouted, Fallback: fallback);
     private static Seq<Point3d> ConvexHull2D(Seq<Point3d> points, Plane plane) {
         Point3d[] source = [.. points.AsIterable()];
         Point2d[] projected = [.. source.Select(point => {
@@ -599,8 +617,7 @@ internal static class CloudKernel {
             return new Point2d(x: x, y: y);
         })];
         using PolylineCurve? hull = PolylineCurve.CreateConvexHull2d(points: projected, hullIndices: out int[] indices);
-        _ = hull;
-        return indices.Length < 4 ? Seq<Point3d>() : toSeq(indices.Take(count: indices.Length - 1).Where(i => i >= 0 && i < source.Length).Select(i => source[i]));
+        return hull is not { IsValid: true } || indices.Length < 4 ? Seq<Point3d>() : toSeq(indices.Take(count: indices.Length - 1).Where(i => i >= 0 && i < source.Length).Select(i => source[i]));
     }
     private static int FootprintContainmentRejectedCount(Seq<Point3d> points, Seq<Point3d> hull, Plane plane, double tolerance) {
         (double X, double Y)[] ring = [.. hull.AsIterable().Select(point => {
@@ -748,7 +765,10 @@ internal static class CloudKernel {
                 Type t when t == typeof(double) => key.AcceptValue(value: distance).Map(static d => (TOut)(object)d),
                 Type t when t == typeof(SinkhornReceipt) => ReceiptOf(source: source, target: target, distance: distance, sourceBias: sourceBias, targetBias: targetBias, policy: policy, key: key).Map(static receipt => (TOut)(object)receipt),
                 Type t when t == typeof(CloudCorrespondenceSet) => CouplingCorrespondences(source: source, target: target, coupling: Coupling, couplingCutoff: CouplingCutoff, key: key).Map(static correspondences => (TOut)(object)correspondences),
-                Type t when t == typeof(Matrix) => key.AcceptValue(value: MatrixKernel.FromMathNet(m: Coupling, rows: Dimension.Create(value: Coupling.RowCount), cols: Dimension.Create(value: Coupling.ColumnCount))).Map(static matrix => (TOut)(object)matrix),
+                Type t when t == typeof(Matrix) => MatrixKernel.FromMathNet(m: Coupling, rows: Dimension.Create(value: Coupling.RowCount), cols: Dimension.Create(value: Coupling.ColumnCount)) switch {
+                    Matrix matrix when matrix.IsValid => Fin.Succ((TOut)(object)matrix),
+                    _ => Fin.Fail<TOut>(error: key.InvalidResult()),
+                },
                 Type t when t == typeof(VectorCloud) => toSeq(Enumerable.Range(start: 0, count: source.Vertices.Count)).TraverseM(i => Coupling.Row(i).Sum() switch {
                     double mass when mass > RhinoMath.ZeroTolerance => Fin.Succ((Point: Point3d.Origin + (toSeq(Enumerable.Range(start: 0, count: target.Vertices.Count)).Fold(initialState: Vector3d.Zero, f: (sum, j) => sum + (Coupling[i, j] * (Vector3d)target.Vertices[index: j])) / mass), Mass: mass)),
                     _ => Fin.Fail<(Point3d Point, double Mass)>(key.InvalidResult()),
@@ -910,20 +930,17 @@ internal static class CloudKernel {
                 ? Fin.Succ((A: receipt.Solution[0], B: receipt.Solution[1], C: receipt.Solution[2], Receipt: receipt))
                 : Fin.Fail<(double A, double B, double C, SolveReceipt Receipt)>(key.InvalidResult()));
     }
-    // Closed-form 2x2 symmetric eigen-decomposition. II = [[2a, b], [b, 2c]] -> (k1, k2, e1, e2)
-    // with e1, e2 lifted into world via (uAxis, vAxis).
     private static Fin<(double K1, double K2, Direction E1, Direction E2)> ShapeOperatorEigen(double a, double b, double c, Vector3d uAxis, Vector3d vAxis, Op key) {
-        double s11 = 2.0 * a; double s22 = 2.0 * c; double s12 = b;
-        double trace = s11 + s22, disc = Math.Sqrt(d: Math.Max(val1: 0.0, val2: (trace * trace) - (4.0 * ((s11 * s22) - (s12 * s12)))));
-        double k1 = 0.5 * (trace + disc), k2 = 0.5 * (trace - disc);
-        double angle = Math.Abs(value: s12) > RhinoMath.SqrtEpsilon
-            ? Math.Atan2(y: k1 - s11, x: s12)
-            : s22 > s11 ? Math.PI / 2.0 : 0.0;
-        Vector3d e1World = (Math.Cos(d: angle) * uAxis) + (Math.Sin(a: angle) * vAxis);
-        Vector3d e2World = (-Math.Sin(a: angle) * uAxis) + (Math.Cos(d: angle) * vAxis);
-        return from e1 in Direction.Of(value: e1World, tolerance: RhinoMath.ZeroTolerance, key: key)
-               from e2 in Direction.Of(value: e2World, tolerance: RhinoMath.ZeroTolerance, key: key)
-               select (K1: k1, K2: k2, E1: e1, E2: e2);
+        return from matrix in SymmetricMatrix.Of(dim: Dimension.Create(value: 2), upper: [2.0 * a, b, 2.0 * c], key: key)
+               from eigen in matrix.DecomposeEigen(key: key)
+               let ordered = toSeq(eigen.AsIterable().OrderByDescending(static pair => pair.Eigenvalue))
+               from _ in ordered.Count >= 2 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
+               from e1 in Direction.Of(value: LiftEigenvector(vector: ordered[index: 0].Eigenvector, uAxis: uAxis, vAxis: vAxis), tolerance: RhinoMath.ZeroTolerance, key: key)
+               from e2 in Direction.Of(value: LiftEigenvector(vector: ordered[index: 1].Eigenvector, uAxis: uAxis, vAxis: vAxis), tolerance: RhinoMath.ZeroTolerance, key: key)
+               select (K1: ordered[index: 0].Eigenvalue, K2: ordered[index: 1].Eigenvalue, E1: e1, E2: e2);
+
+        static Vector3d LiftEigenvector(Arr<double> vector, Vector3d uAxis, Vector3d vAxis) =>
+            vector.Count >= 2 ? (vector[index: 0] * uAxis) + (vector[index: 1] * vAxis) : Vector3d.Unset;
     }
     private static Fin<Seq<double>> CurvatureScalars(VectorCloud.ClusterCase cluster, CloudNeighborhoodPolicy policy, Op key, Func<CloudCurvatureSample, double> project) =>
         PrincipalCurvaturesOf(cluster: cluster, policy: policy, key: key).Map(curvatures => toSeq(curvatures.Samples.AsIterable().Select(project)));

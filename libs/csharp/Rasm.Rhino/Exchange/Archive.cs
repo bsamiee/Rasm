@@ -14,7 +14,7 @@ using RenderTexture = Rhino.FileIO.File3dmRenderTexture;
 
 namespace Rasm.Rhino.Exchange;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context")]
 public abstract partial record FileArchiveSource {
     private FileArchiveSource() { }
@@ -22,6 +22,7 @@ public abstract partial record FileArchiveSource {
     public sealed record Bytes(ReadOnlyMemory<byte> Value) : FileArchiveSource;
 }
 
+// --- [MODELS] -----------------------------------------------------------------------------
 public sealed record FileArchive(FileArchiveSource Source, FileArchiveMetadata Metadata, FileResourceGraph Resources, Seq<FileObjectManifest> Objects);
 
 public readonly record struct FileArchiveMetadata(
@@ -46,7 +47,6 @@ public readonly record struct FileArchiveMetadata(
     Option<FileGeoLocation> EarthAnchor = default,
     Option<string> StartComments = default);
 
-// EarthAnchorPoint getters allocate per call; storing the wrapper past File3dm.Dispose dangles m_ptr — project scalars + KML triple here.
 public readonly partial record struct FileGeoLocation(
     Option<double> Latitude,
     Option<double> Longitude,
@@ -84,6 +84,14 @@ public readonly partial record struct FileGeoLocation(
 
 }
 
+public readonly record struct FileResourceEdge(
+    DocumentResourceKind FromKind,
+    Option<Guid> FromId,
+    DocumentResourceKind ToKind,
+    Option<Guid> ToId,
+    FileResourceRole Role,
+    Option<string> Path = default);
+
 public readonly record struct FileResourceEntry(
     DocumentResourceKind Kind,
     Option<string> Name,
@@ -96,14 +104,6 @@ public readonly record struct FileResourceEntry(
     Option<Guid> RenderEngineId = default,
     Option<Guid> GroupId = default,
     Option<string> Source = default);
-
-public readonly record struct FileResourceEdge(
-    DocumentResourceKind FromKind,
-    Option<Guid> FromId,
-    DocumentResourceKind ToKind,
-    Option<Guid> ToId,
-    FileResourceRole Role,
-    Option<string> Path = default);
 
 public readonly record struct FileResourceGraph(
     int Objects,
@@ -206,7 +206,6 @@ internal static class FileArchiveOps {
                     _ = patch.ApplicationUrl.Map(value => model.ApplicationUrl = value);
                     _ = patch.ApplicationDetails.Map(value => model.ApplicationDetails = value);
                     _ = patch.StartComments.Map(value => model.StartSectionComments = value);
-                    // `Value None` deletes; `Section None` targets the flat key table. SetString returns the prior value (discarded).
                     _ = patch.UserStrings.Fold(unit, (_, entry) => (entry.Section.Case, entry.Value.Case) switch {
                         (string section, string value) => Op.Side(() => model.Strings.SetString(section: section, entry: entry.Key, value: value)),
                         (string section, _) => Op.Side(() => model.Strings.Delete(section: section, entry: entry.Key)),
@@ -328,10 +327,6 @@ internal static class FileArchiveOps {
             FileFormat format => Some(format),
             _ => Some(FileFormat.ThreeDm),
         };
-
-    // Block-graph + linked-archive closure on the Fin rail: a failed graph build or broken closure surfaces as a
-    // FileReport issue instead of silently degrading to Graph.Empty / an empty link set (which masked missing blocks
-    // and unreadable archives). FileArchiveSource → archivePath discrimination lives at the Resources call site.
     private static Fin<(Blocks.Archive.Graph Graph, Seq<string> Linked, Seq<FileIssue> Issues)> BlockArchiveResources(File3dmModel model, Option<string> archivePath, Op key) =>
         from graph in archivePath
             .Map(path => Blocks.Archive.From(model: model, archivePath: Some(path), key: key))
@@ -350,8 +345,6 @@ internal static class FileArchiveOps {
                 Issues: Seq<FileIssue>())),
         }
         select (graph, closure.Linked, closure.Issues);
-
-    // Stage 1 (fallible): resolve block archive resources on the Fin rail; metadata/object resources must survive block graph faults.
     private static Fin<(FileResourceGraph Graph, Seq<FileIssue> Issues)> Resources(File3dmModel model, FileArchiveSource source) {
         Op key = Op.Of(name: nameof(Resources));
         Option<string> archivePath = source switch {
@@ -361,16 +354,14 @@ internal static class FileArchiveOps {
         return BlockArchiveResources(model: model, archivePath: archivePath, key: key)
             .BiBind(
                 Succ: resources => key.Catch(() => Fin.Succ(value: (
-                    ResourceGraphOf(model: model, blockGraph: resources.Graph, linked: resources.Linked),
-                    resources.Issues))),
+                    ResourceGraphOf(model: model, source: source, blockGraph: resources.Graph, linked: resources.Linked),
+                    resources.Issues + LayoutIssues(source: source)))),
                 Fail: error => key.Catch(() => Fin.Succ(value: (
-                    Graph: ResourceGraphOf(model: model, blockGraph: Blocks.Archive.Graph.Empty, linked: Seq<string>()),
-                    Issues: Seq(FileIssue.Native(message: error.Message))))))
+                    Graph: ResourceGraphOf(model: model, source: source, blockGraph: Blocks.Archive.Graph.Empty, linked: Seq<string>()),
+                    Issues: Seq(FileIssue.Native(message: error.Message)) + LayoutIssues(source: source)))))
             .BindFail(static error => Fin.Succ(value: (Graph: default(FileResourceGraph), Issues: Seq(FileIssue.Native(message: error.Message)))));
     }
-
-    // Stage 2 (pure projection): ResourceGraphOf stays pure; Resources owns graph/closure failure containment.
-    private static FileResourceGraph ResourceGraphOf(File3dmModel model, Blocks.Archive.Graph blockGraph, Seq<string> linked) {
+    private static FileResourceGraph ResourceGraphOf(File3dmModel model, FileArchiveSource source, Blocks.Archive.Graph blockGraph, Seq<string> linked) {
         Seq<File3dmObject> objects = Rows(() => model.Objects);
         Seq<Layer> layers = Rows(() => model.AllLayers);
         Seq<Material> materials = Rows(() => model.AllMaterials);
@@ -430,6 +421,7 @@ internal static class FileArchiveOps {
             + plugInData.Map(data => new FileResourceEntry(Kind: DocumentResourceKind.Metadata, Name: Option<string>.None, Path: Option<string>.None, Id: GuidOption(value: data.PlugInId), PlugInId: GuidOption(value: data.PlugInId), Source: Some("File3dmPlugInData")))
             + textEntries
             + renderEntries
+            + LayoutEntries(source: source)
             + ManifestEntries(model: model)
             + Entries(source: layers, kind: DocumentResourceKind.Layer, name: static l => TextOption(value: l.FullPath), id: static l => GuidOption(value: l.Id), label: "layer")
             + Entries(source: materials, kind: DocumentResourceKind.Material, name: static m => TextOption(value: m.Name), id: static m => GuidOption(value: m.Id), label: "material")
@@ -479,12 +471,34 @@ internal static class FileArchiveOps {
             Edges: edges.Strict());
     }
 
+    private static Seq<FileResourceEntry> LayoutEntries(FileArchiveSource source) =>
+        PageViews(source: source, project: static view => new FileResourceEntry(
+            Kind: DocumentResourceKind.Layout,
+            Name: TextOption(value: view.Name),
+            Path: Option<string>.None,
+            Id: GuidOption(value: view.NamedViewId),
+            Source: Some("ReadPageViews")));
+
+    private static Seq<T> PageViews<T>(FileArchiveSource source, Func<ViewInfo, T> project) =>
+        source switch {
+            FileArchiveSource.Path path => Native(read: () => File3dmModel.ReadPageViews(path: path.Value.Path))
+                .Map(views => toSeq(views).Map(view => {
+                    try { return project(arg: view); } finally { view.Dispose(); }
+                }).Strict())
+                .IfNone(Seq<T>()),
+            _ => Seq<T>(),
+        };
+
+    private static Seq<FileIssue> LayoutIssues(FileArchiveSource source) =>
+        source is FileArchiveSource.Path
+            ? Seq<FileIssue>()
+            : Seq(FileIssue.Native(message: "File3dm.ReadPageViews requires a file path; byte archive layout manifests and page-view counts are unavailable through public RhinoCommon."));
+
     private static Seq<FileObjectManifest> Objects(File3dmModel model) =>
         Objects(model: model, objects: Rows(() => model.Objects), layers: Rows(() => model.AllLayers), materials: Rows(() => model.AllMaterials));
 
     private static Seq<FileObjectManifest> Objects(File3dmModel model, Seq<File3dmObject> objects, Seq<Layer> layers, Seq<Material> materials) =>
         objects.Map(fileObject => {
-            // File3dmObject.Geometry returns null when the native geometry pointer is zero (GeometryBase.CreateGeometryHelper); proxy objects (named-position snapshots) carry no realized geometry.
             Option<GeometryBase> geometry = Optional(fileObject.Geometry);
             Option<ObjectAttributes> attributes = Optional(fileObject.Attributes);
             return new FileObjectManifest(
@@ -614,11 +628,7 @@ internal static class FileArchiveOps {
                 LastEditedBy: TextOption(value: model.LastEditedBy),
                 CreatedOn: createdOn,
                 LastEditedOn: lastEditedOn,
-                // Page-view count has no in-memory accessor; bytes sources have no path, so page count is unknown.
-                PageViews: source switch {
-                    FileArchiveSource.Path path => Some(Rows(File3dmModel.ReadPageViews(path: path.Value.Path)).Count),
-                    _ => Option<int>.None,
-                },
+                PageViews: source is FileArchiveSource.Path ? Some(PageViews(source: source, project: static view => view.Name).Count) : Option<int>.None,
                 Preview: hasPreview,
                 ModelUnits: settings.ModelUnitSystem == UnitSystem.None ? Option<UnitSystem>.None : Some(settings.ModelUnitSystem),
                 PageUnits: settings.PageUnitSystem == UnitSystem.None ? Option<UnitSystem>.None : Some(settings.PageUnitSystem),

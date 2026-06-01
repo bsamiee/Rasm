@@ -5,7 +5,41 @@ using UiViewportPreview = Rasm.Rhino.UI.UiViewportPreview;
 
 namespace Rasm.Rhino.Commands;
 
+// --- [TYPES] ------------------------------------------------------------------------------
+public abstract record CommandStage<TState>(string Name) {
+    internal abstract Fin<PromptTransition<TState>> Run(CommandStageContext<TState> context);
+}
+
+public abstract record PromptTransition<TState> {
+    private PromptTransition() { }
+
+    internal Fin<CommandStageContext<TState>> Apply(CommandStageContext<TState> context) =>
+        Optional(context).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(active => this switch {
+            Stay stay => (active with { State = stay.State }).Run(),
+            Forward next => (active with { State = next.State, Index = active.Index + 1, History = Seq(active.State) + active.History }).Run(),
+            Back => active.History.IsEmpty switch {
+                false => (active with { State = active.History[0], Index = Math.Max(0, active.Index - 1), History = active.History.Tail }).Run(),
+                true => active.Run(),
+            },
+            Commit commit => Fin.Succ(value: active with { State = commit.State, Index = active.Stages.Count }),
+            Cancel => Fin.Fail<CommandStageContext<TState>>(error: new Fault.Cancelled()),
+            _ => Fin.Fail<CommandStageContext<TState>>(error: Op.Of(name: nameof(Apply)).InvalidInput()),
+        });
+
+    public sealed record Stay(TState State) : PromptTransition<TState>;
+    public sealed record Forward(TState State) : PromptTransition<TState>;
+    public sealed record Back : PromptTransition<TState>;
+    public sealed record Commit(TState State) : PromptTransition<TState>;
+    public sealed record Cancel : PromptTransition<TState>;
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
+public readonly record struct CommandCommitContext<TState>(RhinoCommandContext Context, TState State, Seq<TState> History) {
+    public RhinoDoc Document => Context.Document;
+    public DocumentEdit Edit => Context.Edit;
+    public UI.RhinoUi Ui => Context.Ui;
+}
+
 public sealed record CommandGraph<TState>(
     TState Initial,
     Seq<CommandStage<TState>> Stages,
@@ -27,8 +61,67 @@ public sealed record CommandGraph<TState>(
         select result;
 }
 
-public abstract record CommandStage<TState>(string Name) {
-    internal abstract Fin<PromptTransition<TState>> Run(CommandStageContext<TState> context);
+public readonly record struct CommandGraphEvents<TState>(
+    Func<CommandStageContext<TState>, Option<string>>? ScriptedToken = null,
+    Func<CommandStageContext<TState>, FilePrompt, Fin<Seq<FileEndpoint>>>? ScriptedFilePrompt = null) {
+    public Option<string> Token(CommandStageContext<TState> context) =>
+        Optional(ScriptedToken).Bind(project => project(arg: context));
+
+    public Fin<Seq<FileEndpoint>> Files(CommandStageContext<TState> context, FilePrompt prompt) =>
+        Optional(ScriptedFilePrompt)
+            .Map(project => project(arg1: context, arg2: prompt))
+            .IfNone(() =>
+                from valid in Optional(prompt).ToFin(Fail: Op.Of(name: nameof(Files)).InvalidInput())
+                from defaults in valid.Defaults(op: Op.Of(name: nameof(Files)))
+                select defaults);
+}
+
+public sealed record CommandStageContext<TState>(
+    RhinoCommandContext Context,
+    TState State,
+    Seq<CommandStage<TState>> Stages,
+    int Index,
+    Seq<TState> History,
+    CommandGraphEvents<TState> Events) {
+    internal Fin<CommandStageContext<TState>> Run() =>
+        (Index >= Stages.Count) switch {
+            true => Fin.Succ(value: this),
+            false => Stages[Index].Run(context: this).Bind(Apply),
+        };
+
+    private Fin<CommandStageContext<TState>> Apply(PromptTransition<TState> transition) =>
+        Optional(transition).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(valid => valid.Apply(context: this));
+
+    public Fin<Seq<FileEndpoint>> Files(FilePrompt prompt) =>
+        Context.Mode switch {
+            RunMode.Scripted => Events.Files(context: this, prompt: prompt),
+            _ => Context.Files.Run(operation: FileOp.Prompt(prompt: prompt)),
+        };
+
+    public Fin<Unit> Status(UI.UiStatus status) =>
+        Context.Ui.Use(intent: UI.UiIntent.Status(status: status));
+
+    public Fin<T> Use<T>(UI.UiIntent<T> intent, Func<CommandStageContext<TState>, Fin<T>> scripted) =>
+        from validIntent in Optional(intent).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
+        from run in Optional(scripted).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
+        from result in Context.Ui.Use(intent: validIntent.WithScripted(fallback: (_, _) => run(arg: this)))
+        select result;
+}
+
+public readonly record struct PromptEventContext<TState>(CommandStageContext<TState> Stage, CommandPointEvent Event) {
+    public TState State => Stage.State;
+    public RhinoCommandContext Context => Stage.Context;
+    public Option<Point3d> Point => Event.Point;
+    public Option<RhinoViewport> Viewport => Event.Viewport;
+    public Option<DisplayPipeline> Display => Event.Display;
+    public Option<CommandSelection.Reference> Reference => Event.Getter switch {
+        GetPoint getter => CommandSelection.Reference.Of(getter: getter),
+        _ => Option<CommandSelection.Reference>.None,
+    };
+    public Option<UiGumballSnapshot> Snapshot => Event.GumballSnapshot;
+    public Fin<bool> Pick(PickContext pick) => Event.PickGumball(pick: pick);
+    public Fin<bool> Update(Line worldLine) => Event.UpdateGumball(worldLine: worldLine);
+    public Fin<bool> Update(Plane frame) => Event.UpdateGumball(frame: frame);
 }
 
 public sealed record PromptStage<TState, TValue>(
@@ -95,99 +188,6 @@ public sealed record PromptStage<TState, TValue>(
                 _ = pointEvent.Getter.InterruptMouseMove();
             })))))
             .IfNone(Seq<CommandInputPolicy>());
-}
-
-public sealed record CommandStageContext<TState>(
-    RhinoCommandContext Context,
-    TState State,
-    Seq<CommandStage<TState>> Stages,
-    int Index,
-    Seq<TState> History,
-    CommandGraphEvents<TState> Events) {
-    internal Fin<CommandStageContext<TState>> Run() =>
-        (Index >= Stages.Count) switch {
-            true => Fin.Succ(value: this),
-            false => Stages[Index].Run(context: this).Bind(Apply),
-        };
-
-    private Fin<CommandStageContext<TState>> Apply(PromptTransition<TState> transition) =>
-        Optional(transition).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(valid => valid.Apply(context: this));
-
-    public Fin<Seq<FileEndpoint>> Files(FilePrompt prompt) =>
-        Context.Mode switch {
-            RunMode.Scripted => Events.Files(context: this, prompt: prompt),
-            _ => Context.Files.Run(operation: FileOp.Prompt(prompt: prompt)),
-        };
-
-    public Fin<Unit> Status(UI.UiStatus status) =>
-        Context.Ui.Use(intent: UI.UiIntent.Status(status: status));
-
-    public Fin<T> Use<T>(UI.UiIntent<T> intent, Func<CommandStageContext<TState>, Fin<T>> scripted) =>
-        from validIntent in Optional(intent).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
-        from run in Optional(scripted).ToFin(Fail: Op.Of(name: nameof(Use)).InvalidInput())
-        from result in Context.Ui.Use(intent: validIntent.WithScripted(fallback: (_, _) => run(arg: this)))
-        select result;
-}
-
-public readonly record struct CommandCommitContext<TState>(RhinoCommandContext Context, TState State, Seq<TState> History) {
-    public RhinoDoc Document => Context.Document;
-    public DocumentEdit Edit => Context.Edit;
-    public UI.RhinoUi Ui => Context.Ui;
-}
-
-public readonly record struct PromptEventContext<TState>(CommandStageContext<TState> Stage, CommandPointEvent Event) {
-    public TState State => Stage.State;
-    public RhinoCommandContext Context => Stage.Context;
-    public Option<Point3d> Point => Event.Point;
-    public Option<RhinoViewport> Viewport => Event.Viewport;
-    public Option<DisplayPipeline> Display => Event.Display;
-    public Option<CommandSelection.Reference> Reference => Event.Getter switch {
-        GetPoint getter => CommandSelection.Reference.Of(getter: getter),
-        _ => Option<CommandSelection.Reference>.None,
-    };
-    public Option<UiGumballSnapshot> Snapshot => Event.GumballSnapshot;
-    public Fin<bool> Pick(PickContext pick) => Event.PickGumball(pick: pick);
-    public Fin<bool> Update(Line worldLine) => Event.UpdateGumball(worldLine: worldLine);
-    public Fin<bool> Update(Plane frame) => Event.UpdateGumball(frame: frame);
-}
-
-public readonly record struct CommandGraphEvents<TState>(
-    Func<CommandStageContext<TState>, Option<string>>? ScriptedToken = null,
-    Func<CommandStageContext<TState>, FilePrompt, Fin<Seq<FileEndpoint>>>? ScriptedFilePrompt = null) {
-    public Option<string> Token(CommandStageContext<TState> context) =>
-        Optional(ScriptedToken).Bind(project => project(arg: context));
-
-    public Fin<Seq<FileEndpoint>> Files(CommandStageContext<TState> context, FilePrompt prompt) =>
-        Optional(ScriptedFilePrompt)
-            .Map(project => project(arg1: context, arg2: prompt))
-            .IfNone(() =>
-                from valid in Optional(prompt).ToFin(Fail: Op.Of(name: nameof(Files)).InvalidInput())
-                from defaults in valid.Defaults(op: Op.Of(name: nameof(Files)))
-                select defaults);
-}
-
-// Not `[Union]`: generic-Union source-gen forces `where TState : allows ref struct`, incompatible with record-based `CommandStageContext<TState>`.
-public abstract record PromptTransition<TState> {
-    private PromptTransition() { }
-
-    internal Fin<CommandStageContext<TState>> Apply(CommandStageContext<TState> context) =>
-        Optional(context).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(active => this switch {
-            Stay stay => (active with { State = stay.State }).Run(),
-            Forward next => (active with { State = next.State, Index = active.Index + 1, History = Seq(active.State) + active.History }).Run(),
-            Back => active.History.IsEmpty switch {
-                false => (active with { State = active.History[0], Index = Math.Max(0, active.Index - 1), History = active.History.Tail }).Run(),
-                true => active.Run(),
-            },
-            Commit commit => Fin.Succ(value: active with { State = commit.State, Index = active.Stages.Count }),
-            Cancel => Fin.Fail<CommandStageContext<TState>>(error: new Fault.Cancelled()),
-            _ => Fin.Fail<CommandStageContext<TState>>(error: Op.Of(name: nameof(Apply)).InvalidInput()),
-        });
-
-    public sealed record Stay(TState State) : PromptTransition<TState>;
-    public sealed record Forward(TState State) : PromptTransition<TState>;
-    public sealed record Back : PromptTransition<TState>;
-    public sealed record Commit(TState State) : PromptTransition<TState>;
-    public sealed record Cancel : PromptTransition<TState>;
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------

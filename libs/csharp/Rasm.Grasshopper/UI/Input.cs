@@ -68,14 +68,13 @@ public sealed partial class DialogPresentation {
 
     // Exactly two presentations: Modal shows directly, AttachedSheet switches DisplayMode first.
     internal Option<TResult> Show<TResult>(Dialog<Option<TResult>> dialog, Control? parent) =>
-        this == Modal
-            ? dialog.ShowModal(owner: parent)
-            : Attached(dialog: dialog, parent: parent);
-
-    private static Option<TResult> Attached<TResult>(Dialog<Option<TResult>> dialog, Control? parent) {
-        dialog.DisplayMode = DialogDisplayMode.Attached;
-        return dialog.ShowModal(owner: parent);
-    }
+        Switch(
+            (Dialog: dialog, Parent: parent),
+            modal: static s => s.Dialog.ShowModal(owner: s.Parent),
+            attachedSheet: static s => {
+                s.Dialog.DisplayMode = DialogDisplayMode.Attached;
+                return s.Dialog.ShowModal(owner: s.Parent);
+            });
 }
 
 [SmartEnum<int>]
@@ -112,14 +111,15 @@ public partial record InputSelectionSource {
     public static InputSelectionSource From(WindowSelectionEventArgs window) => new WindowCase(Source: window);
 
     internal Fin<SelectionMode> Mode() => Switch(
-        controlCase: static c => Optional(c.Source)
-            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(InputSelectionSource)), detail: "null control"))
+        state: Op.Of(name: nameof(InputSelectionSource)),
+        controlCase: static (op, c) => Optional(c.Source)
+            .ToFin(Fail: UiFault.InvalidInput(op: op, detail: "null control"))
             .Map(static source => SelectionMode.FromGh(gh: source.SelectionMode())),
-        mouseCase: static m => Optional(m.Source)
-            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(InputSelectionSource)), detail: "null mouse event"))
+        mouseCase: static (op, m) => Optional(m.Source)
+            .ToFin(Fail: UiFault.InvalidInput(op: op, detail: "null mouse event"))
             .Map(static source => SelectionMode.FromGh(gh: source.SelectionMode())),
-        windowCase: static w => Optional(w.Source)
-            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(InputSelectionSource)), detail: "null window selection event"))
+        windowCase: static (op, w) => Optional(w.Source)
+            .ToFin(Fail: UiFault.InvalidInput(op: op, detail: "null window selection event"))
             .Map(static source => SelectionMode.FromGh(gh: source.SelectionMode())));
 }
 
@@ -137,6 +137,19 @@ public partial record InputClipboardOp {
     public static InputClipboardOp WriteData(byte[]? data, string type) =>
         Write(payload: InputClipboardSnapshot.Empty with { Data = Seq(new InputClipboardDataEntry(Type: type, Bytes: Optional(data).Map(static bytes => bytes.ToArray()))) });
     public static InputClipboardOp ReadData(string type) => new ReadCase(DataTypes: Seq(type));
+
+    // Coalescing merge: two Writes union their payload fields (Option choice / Seq concat), a Clear absorbs
+    // any peer (the clipboard is wiped), two Reads fold their requested DataTypes, and a mixed Write/Read
+    // keeps the Write (the mutating intent dominates a query).
+    public static InputClipboardOp operator |(InputClipboardOp left, InputClipboardOp right) =>
+        (left, right) switch {
+            (_, ClearCase) or (ClearCase, _) => Clear,
+            (WriteCase l, WriteCase r) => new WriteCase(Payload: l.Payload | r.Payload),
+            (WriteCase, _) => left,
+            (_, WriteCase) => right,
+            (ReadCase l, ReadCase r) => new ReadCase(DataTypes: toSeq(l.DataTypes) + toSeq(r.DataTypes)),
+            _ => right,
+        };
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -150,7 +163,7 @@ public readonly record struct PointerSnapshot(PointF ScreenPosition, MouseButton
 public readonly record struct InputSelectionSnapshot(SelectionMode Mode, InputModifierSnapshot Modifiers);
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct InputPanelSnapshot(int Count, string Category, bool Shown);
+public readonly record struct InputPanelSnapshot(int Count, string Category);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct ToolbarSnapshot(int Count, bool Enabled, int MinimumWidth, int MaximumWidth, int Height);
@@ -172,6 +185,17 @@ public readonly record struct InputClipboardSnapshot(Option<string> Text, Option
         Data: Seq<InputClipboardDataEntry>());
 
     public static InputClipboardSnapshot Of(string text) => Empty with { Text = Optional(text) };
+
+    // Field-wise coalesce: scalar fields take the right operand's value when present (Option choice), the
+    // collection fields concatenate. Powers the InputClipboardOp Write+Write merge.
+    public static InputClipboardSnapshot operator |(InputClipboardSnapshot left, InputClipboardSnapshot right) =>
+        new(
+            Text: right.Text | left.Text,
+            Html: right.Html | left.Html,
+            Image: right.Image | left.Image,
+            Uris: left.Uris + right.Uris,
+            Types: left.Types + right.Types,
+            Data: toSeq(left.Data) + toSeq(right.Data));
 }
 
 public readonly record struct FileFilter(string Name, Seq<string> Extensions);
@@ -243,29 +267,11 @@ public readonly partial struct UiCommand {
         _ = canExecute;
     }
 
-    internal Command ToEtoCommand() {
-        string name = Name;
-        string info = Info;
-        Func<Fin<Unit>> run = Run;
-        Command command = new() { ID = name, MenuText = name, ToolBarText = name, ToolTip = info, Enabled = EffectiveEnabled() };
-        _ = MenuImage.Iter(image => command.Image = image);
-        _ = Shortcut.Iter(shortcut => command.Shortcut = shortcut.Keys);
-        command.Executed += (_, _) => _ = GrasshopperUi.Handler(valid: run);
-        return command;
-    }
-
-    internal MenuItem ToMenuItem() {
-        bool enabled = Enabled;
-        Option<Func<Fin<bool>>> canExecute = CanExecute;
-        Command command = ToEtoCommand();
-        MenuItem item = command.CreateMenuItem();
-        _ = canExecute.Iter(can => item.Validate += (_, _) =>
-            item.Enabled = enabled && GrasshopperUi.Protect(valid: can).IfFail(_ => false));
-        return item;
-    }
-
     internal bool EffectiveEnabled() =>
         Enabled && CanExecute.Map(can => GrasshopperUi.Protect(valid: can).IfFail(_ => false)).IfNone(noneValue: true);
+
+    // Bar.AddPushButton / AddRadioToggle take a nullable BarShortcut; project the Option to that boundary shape.
+    internal BarShortcut? ShortcutKey() => Shortcut.Map(static shortcut => (BarShortcut?)shortcut).IfNone((BarShortcut?)null);
 
     // icon.DrawToBitmap rasterizes a GH2 IIcon whose embedded resource can be unresolved under programmatic plugin
     // load (the same null-icon class that crashed the editor StatusBar) — guard both the throw and a null bitmap so a
@@ -342,7 +348,7 @@ public partial record ToolbarItem {
                 icon: command.Icon.IfNone(default(IIcon)!),
                 nomen: new Nomen(name: command.Name, info: command.Info),
                 callback: () => _ = GrasshopperUi.Handler(valid: command.Run),
-                keys: command.Shortcut.Map(static shortcut => (BarShortcut?)shortcut).IfNone((BarShortcut?)null));
+                keys: command.ShortcutKey());
             pushed.Enabled = command.EffectiveEnabled();
             pushed.CloseOnActivate = item.CloseOnActivate;
             return unit;
@@ -415,22 +421,41 @@ public partial record ToolbarItem {
         checkCase: static (_, _) => Reject(item: nameof(CheckCase), surface: "a toolbar"),
         textCase: static (_, _) => Reject(item: nameof(TextCase), surface: "a toolbar"));
 
-    // Restrictive surface: only Button/Toggle/Spacer project to a context menu; everything else (including any
-    // future ToolbarItem case) defaults to Reject, which is the correct conservative default for a menu.
-    private Fin<Unit> ProjectMenu(ContextMenu menu) =>
-        this switch {
-            ButtonCase item => Fin.Succ(item.Command).Map(command => {
-                menu.Items.Add(item: command.ToMenuItem());
-                return unit;
-            }),
-            ToggleCase item =>
-                from command in Fin.Succ(item.Command)
-                from changed in ToggleCase.SelfOp.NeedChanged(item.Changed, noun: "toggle")
-                from added in ToggleCase.SelfOp.Attempt(body: () => PushCheckMenuItem(menu: menu, command: command, state: item.State, changed: changed), what: "menu toggle")
-                select added,
-            SpacerCase => SpacerCase.SelfOp.Attempt(body: menu.AddSeparator, what: "AddSeparator"),
-            _ => Reject(item: GetType().Name, surface: "a context menu"),
-        };
+    // Restrictive surface: only Button/Toggle/Spacer project to a context menu; every other case Rejects via the
+    // exhaustive generated Switch, the correct conservative default for a menu.
+    private Fin<Unit> ProjectMenu(ContextMenu menu) => Switch(
+        state: menu,
+        buttonCase: static (menu, item) => ButtonCase.SelfOp.Attempt(body: () => PushMenuButton(menu: menu, command: item.Command), what: "menu button"),
+        toggleCase: static (menu, item) =>
+            from changed in ToggleCase.SelfOp.NeedChanged(item.Changed, noun: "toggle")
+            from added in ToggleCase.SelfOp.Attempt(body: () => PushCheckMenuItem(menu: menu, command: item.Command, state: item.State, changed: changed), what: "menu toggle")
+            select added,
+        spacerCase: static (menu, _) => SpacerCase.SelfOp.Attempt(body: menu.AddSeparator, what: "AddSeparator"),
+        sectionToggleCase: static (_, _) => Reject(item: nameof(SectionToggleCase), surface: "a context menu"),
+        radioCase: static (_, _) => Reject(item: nameof(RadioCase), surface: "a context menu"),
+        textInputCase: static (_, _) => Reject(item: nameof(TextInputCase), surface: "a context menu"),
+        numberCase: static (_, _) => Reject(item: nameof(NumberCase), surface: "a context menu"),
+        swatchInputCase: static (_, _) => Reject(item: nameof(SwatchInputCase), surface: "a context menu"),
+        colourBarsCase: static (_, _) => Reject(item: nameof(ColourBarsCase), surface: "a context menu"),
+        labelCase: static (_, _) => Reject(item: nameof(LabelCase), surface: "a context menu"),
+        checkCase: static (_, _) => Reject(item: nameof(CheckCase), surface: "a context menu"),
+        textCase: static (_, _) => Reject(item: nameof(TextCase), surface: "a context menu"),
+        spectrumCase: static (_, _) => Reject(item: nameof(SpectrumCase), surface: "a context menu"));
+
+    // Inlined former UiCommand.ToEtoCommand/ToMenuItem — the sole call site was this menu button; co-located with
+    // PushCheckMenuItem so the menu surface owns both its button and toggle construction.
+    private static Unit PushMenuButton(ContextMenu menu, UiCommand command) {
+        Func<Fin<Unit>> run = command.Run;
+        Command etoCommand = new() { ID = command.Name, MenuText = command.Name, ToolBarText = command.Name, ToolTip = command.Info, Enabled = command.EffectiveEnabled() };
+        _ = command.MenuImage.Iter(image => etoCommand.Image = image);
+        _ = command.Shortcut.Iter(shortcut => etoCommand.Shortcut = shortcut.Keys);
+        etoCommand.Executed += (_, _) => _ = GrasshopperUi.Handler(valid: run);
+        MenuItem menuItem = etoCommand.CreateMenuItem();
+        _ = command.CanExecute.Iter(can => menuItem.Validate += (_, _) =>
+            menuItem.Enabled = command.Enabled && GrasshopperUi.Protect(valid: can).IfFail(_ => false));
+        menu.Items.Add(item: menuItem);
+        return unit;
+    }
 
     private static Unit PushCheckMenuItem(ContextMenu menu, UiCommand command, bool state, Func<bool, Fin<Unit>> changed) {
         CheckCommand menuCommand = new() {
@@ -460,29 +485,37 @@ public partial record ToolbarItem {
         Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{item} cannot be projected to {surface}"));
 
     // Restrictive surface: only the panel-native widgets (Label/Check/Text) project here; bar widgets route
-    // through the embedded bar (Input.Panel(CommandPlan)) and any other case Rejects.
-    private Fin<Unit> ProjectPanel(InputPanel panel) =>
-        this switch {
-            LabelCase item => LabelCase.SelfOp.Attempt(body: () => {
-                _ = panel.AddLabel(text: item.Caption);
+    // through the embedded bar (Input.Panel(CommandPlan)) and every other case Rejects via the generated Switch.
+    private Fin<Unit> ProjectPanel(InputPanel panel) => Switch(
+        state: panel,
+        labelCase: static (panel, item) => LabelCase.SelfOp.Attempt(body: () => {
+            _ = panel.AddLabel(text: item.Caption);
+            return unit;
+        }, what: "AddLabel"),
+        checkCase: static (panel, item) =>
+            from changed in CheckCase.SelfOp.NeedChanged(item.Changed, noun: "check")
+            from added in CheckCase.SelfOp.Attempt(body: () => {
+                _ = panel.AddCheck(text: item.Name, @checked: item.State, checkedChanged: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)));
                 return unit;
-            }, what: "AddLabel"),
-            CheckCase item =>
-                from changed in CheckCase.SelfOp.NeedChanged(item.Changed, noun: "check")
-                from added in CheckCase.SelfOp.Attempt(body: () => {
-                    _ = panel.AddCheck(text: item.Name, @checked: item.State, checkedChanged: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)));
-                    return unit;
-                }, what: "AddCheck")
-                select added,
-            TextCase item =>
-                from changed in TextCase.SelfOp.NeedChanged(item.Changed, noun: "text")
-                from added in TextCase.SelfOp.Attempt(body: () => {
-                    _ = panel.AddText(text: item.Value, textChanged: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)));
-                    return unit;
-                }, what: "AddText")
-                select added,
-            _ => Reject(item: GetType().Name, surface: "an input panel"),
-        };
+            }, what: "AddCheck")
+            select added,
+        textCase: static (panel, item) =>
+            from changed in TextCase.SelfOp.NeedChanged(item.Changed, noun: "text")
+            from added in TextCase.SelfOp.Attempt(body: () => {
+                _ = panel.AddText(text: item.Value, textChanged: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)));
+                return unit;
+            }, what: "AddText")
+            select added,
+        buttonCase: static (_, _) => Reject(item: nameof(ButtonCase), surface: "an input panel"),
+        toggleCase: static (_, _) => Reject(item: nameof(ToggleCase), surface: "an input panel"),
+        sectionToggleCase: static (_, _) => Reject(item: nameof(SectionToggleCase), surface: "an input panel"),
+        radioCase: static (_, _) => Reject(item: nameof(RadioCase), surface: "an input panel"),
+        textInputCase: static (_, _) => Reject(item: nameof(TextInputCase), surface: "an input panel"),
+        numberCase: static (_, _) => Reject(item: nameof(NumberCase), surface: "an input panel"),
+        swatchInputCase: static (_, _) => Reject(item: nameof(SwatchInputCase), surface: "an input panel"),
+        colourBarsCase: static (_, _) => Reject(item: nameof(ColourBarsCase), surface: "an input panel"),
+        spacerCase: static (_, _) => Reject(item: nameof(SpacerCase), surface: "an input panel"),
+        spectrumCase: static (_, _) => Reject(item: nameof(SpectrumCase), surface: "an input panel"));
 
     private static Unit AddRadioToggle(Bar bar, UiCommand command, bool state, bool optional, Func<bool, Fin<Unit>> changed) {
         RadioToggle toggled = bar.AddRadioToggle(
@@ -490,7 +523,7 @@ public partial record ToolbarItem {
             nomen: new Nomen(name: command.Name, info: command.Info),
             initial: state,
             callback: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)),
-            keys: command.Shortcut.Map(static shortcut => (BarShortcut?)shortcut).IfNone((BarShortcut?)null));
+            keys: command.ShortcutKey());
         toggled.Optional = optional;
         toggled.Enabled = command.EffectiveEnabled();
         return unit;
@@ -500,6 +533,10 @@ public partial record ToolbarItem {
 public readonly record struct CommandPlan(Seq<ToolbarItem> Items) {
     public static CommandPlan Empty => new(Items: Seq<ToolbarItem>());
     public static CommandPlan operator +(CommandPlan left, CommandPlan right) => new(Items: left.Items + right.Items);
+    public static CommandPlan OfButtons(Seq<UiCommand> commands, bool closeOnActivate = true) =>
+        new(Items: commands.Map(command => ToolbarItem.Button(command: command, closeOnActivate: closeOnActivate)));
+    public static CommandPlan OfToggles(Seq<(UiCommand Command, bool State, Func<bool, Fin<Unit>> Changed)> toggles) =>
+        new(Items: toggles.Map(static toggle => ToolbarItem.Toggle(command: toggle.Command, state: toggle.State, changed: toggle.Changed)));
 }
 
 public abstract record InputRequest<T> : GhUiRequest<T> {
@@ -553,34 +590,41 @@ internal sealed class ScopedCursor(Grasshopper2.UI.Canvas.Canvas target, Cursor 
 }
 
 file static class WaitCursorLease {
-    private static readonly Lock Sync = new();
-    private static Rhino.UI.WaitCursor? cursor;
-    private static int count;
+    private static readonly Atom<(int Count, Rhino.UI.WaitCursor? Cursor)> State = Atom<(int Count, Rhino.UI.WaitCursor? Cursor)>(value: (Count: 0, Cursor: null));
 
     internal static IDisposable Enter() {
-        lock (Sync) {
-            cursor ??= new Rhino.UI.WaitCursor();
-            count++;
+        // BOUNDARY ADAPTER — engage the platform spinner exactly once for the first concurrent lease; a candidate
+        // cursor is allocated up front (Swap may retry under CAS contention) and disposed when an incumbent wins.
+        Rhino.UI.WaitCursor? candidate = new();
+        try {
+            (int Count, Rhino.UI.WaitCursor? Cursor) swapped = State.Swap(current =>
+                (Count: current.Count + 1, Cursor: current.Cursor ?? candidate));
+            candidate = ReferenceEquals(swapped.Cursor, candidate) ? null : candidate;
+            return new Token();
+        } finally {
+            candidate?.Dispose();
         }
-        return new Token();
     }
 
     private sealed class Token : IDisposable {
         private int disposed;
 
         public void Dispose() {
-            if (Interlocked.Exchange(ref disposed, 1) == 1) {
-                return;
-            }
-            Rhino.UI.WaitCursor? release = null;
-            lock (Sync) {
-                count = Math.Max(0, count - 1);
-                if (count == 0) {
-                    release = cursor;
-                    cursor = null;
-                }
-            }
+            // BOUNDARY ADAPTER — one-shot guard so a doubled Dispose cannot underflow the lease count.
+            Rhino.UI.WaitCursor? release = Interlocked.Exchange(ref disposed, 1) == 1
+                ? null
+                : Released();
             release?.Dispose();
+        }
+
+        private static Rhino.UI.WaitCursor? Released() {
+            Rhino.UI.WaitCursor? captured = null;
+            _ = State.Swap(state => {
+                int next = Math.Max(0, state.Count - 1);
+                captured = next == 0 ? state.Cursor : null;
+                return (Count: next, Cursor: next == 0 ? null : state.Cursor);
+            });
+            return captured;
         }
     }
 }
@@ -615,8 +659,7 @@ internal static partial class Input {
                     InputPanel panel = new();
                     return valid(arg: panel).Map(_ => new InputPanelSnapshot(
                         Count: panel.Count,
-                        Category: panel.Category ?? string.Empty,
-                        Shown: false));
+                        Category: panel.Category ?? string.Empty));
                 }));
 
     // Returns a dismissable Subscription whose detach closes the popup form (form captured in a closure cell,
@@ -639,7 +682,11 @@ internal static partial class Input {
         Form? form = null;
         return Subscription.Bind(
             attach: () => form = panel.ShowAsForm(owner, location, screen),
-            detach: () => form?.Close(),
+            // BOUNDARY ADAPTER — Form.Close alone does not release the macOS NSWindow; Dispose it after closing.
+            detach: () => {
+                form?.Close();
+                form?.Dispose();
+            },
             marshalToUi: true,
             detachOnce: true);
     }
@@ -791,9 +838,9 @@ internal static partial class Input {
             Op.Of(name: nameof(NumberPrompt)).Attempt(
                 body: () => {
                     double number = initial;
-                    bool accepted = range.Bounds is { IsSome: true, Case: ValueTuple<double, double> bounds }
-                        ? Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref number, minimum: bounds.Item1, maximum: bounds.Item2)
-                        : Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref number);
+                    bool accepted = range.Bounds
+                        .Map(bounds => Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref number, minimum: bounds.Minimum, maximum: bounds.Maximum))
+                        .IfNone(() => Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref number));
                     return accepted
                         ? Some(number)
                         : Option<double>.None;
@@ -824,9 +871,9 @@ internal static partial class Input {
 
     private static InputClipboardSnapshot ClipboardSnapshotOf(Clipboard clipboard, Seq<string> dataTypes = default) =>
         new(
-            Text: clipboard.ContainsText ? Optional(clipboard.Text) : Option<string>.None,
-            Html: clipboard.ContainsHtml ? Optional(clipboard.Html) : Option<string>.None,
-            Image: clipboard.ContainsImage ? Optional(clipboard.Image) : Option<Image>.None,
+            Text: Optional(clipboard.Text).Filter(_ => clipboard.ContainsText),
+            Html: Optional(clipboard.Html).Filter(_ => clipboard.ContainsHtml),
+            Image: Optional(clipboard.Image).Filter(_ => clipboard.ContainsImage),
             Uris: clipboard.ContainsUris ? toSeq(clipboard.Uris ?? []) : Seq<Uri>(),
             Types: toSeq(clipboard.Types ?? []),
             Data: dataTypes.Bind(type => clipboard.Contains(type: type)
@@ -868,7 +915,9 @@ internal static partial class Input {
         return new PathDialogSnapshot(
             Paths: paths,
             FilterIndex: owned.CurrentFilterIndex,
-            FilterName: toSeq(spec.Filters).Skip(owned.CurrentFilterIndex).Head.Map(static f => f.Name),
+            FilterName: owned.CurrentFilterIndex >= 0
+                ? toSeq(spec.Filters).Skip(owned.CurrentFilterIndex).Head.Map(static f => f.Name)
+                : Option<string>.None,
             Accepted: result == DialogResult.Ok);
     }
 

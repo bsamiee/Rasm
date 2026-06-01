@@ -5,21 +5,28 @@ namespace Rasm.Vectors;
 // --- [TYPES] ------------------------------------------------------------------------------
 internal static class AtomProjection {
     internal static Fin<TOut> Self<TSelf, TOut>(TSelf value, Op key) => typeof(TOut) == typeof(TSelf) ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(TSelf), outputType: typeof(TOut)));
-    internal static Fin<TOut> Value<TValue, TOut>(TValue value, Op key) => key.AcceptValue(value: value).Map(static accepted => (TOut)(object)accepted!);
+    internal static Fin<TOut> Value<TValue, TOut>(TValue value, Op key) =>
+        typeof(TOut) == typeof(TValue)
+            ? key.AcceptValue(value: value).Map(static accepted => (TOut)(object)accepted!)
+            : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(TValue), outputType: typeof(TOut)));
+    internal static Fin<TOut> Custom<TValue, TOut>(TValue value, bool admitted, Op key) =>
+        typeof(TOut) == typeof(TValue)
+            ? admitted ? Fin.Succ((TOut)(object)value!) : Fin.Fail<TOut>(error: key.InvalidResult())
+            : Fin.Fail<TOut>(error: key.Unsupported(geometryType: typeof(TValue), outputType: typeof(TOut)));
     internal static Fin<TOut> SelfOrValue<TSelf, TValue, TOut>(TSelf self, TValue value, Op key) => typeof(TOut) == typeof(TValue) ? Value<TValue, TOut>(value: value, key: key) : Self<TSelf, TOut>(value: self, key: key);
     internal static Fin<TOut> Raw<TOut>(object raw, Option<Context> context, Op key, Type owner, bool admitsVectorMagnitude = false) =>
         (raw, typeof(TOut)) switch {
             (Vector3d v, Type t) when t == typeof(Vector3d) => Value<Vector3d, TOut>(value: v, key: key),
             (Vector3d v, Type t) when t == typeof(Direction) => context.ToFin(Fail: key.MissingContext()).Bind(model => Direction.Of(value: v, context: model, key: key).Bind(direction => direction.Project<TOut>(key: key))),
             (Vector3d v, Type t) when t == typeof(double) && admitsVectorMagnitude => key.AcceptValue(value: v).Bind(valid => Value<double, TOut>(value: valid.Length, key: key)),
-            (Plane p, Type t) when t == typeof(Plane) => Value<Plane, TOut>(value: p, key: key),
+            (Plane p, Type t) when t == typeof(Plane) => FieldNabla.Plane(basis: p, key: key).Bind(valid => Value<Plane, TOut>(value: valid, key: key)),
             (Plane p, Type t) when t == typeof(VectorFrame) => context.ToFin(Fail: key.MissingContext()).Bind(model => VectorFrame.Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: model, key: key).Bind(frame => frame.Project<TOut>(key: key))),
             (double d, Type t) when t == typeof(double) => Value<double, TOut>(value: d, key: key),
             (Circle c, Type t) when t == typeof(Circle) => Value<Circle, TOut>(value: c, key: key),
             (Point3d p, Type t) when t == typeof(Point3d) => Value<Point3d, TOut>(value: p, key: key),
-            (Matrix matrix, Type t) when t == typeof(Matrix) => matrix.IsValid ? Value<Matrix, TOut>(value: matrix, key: key) : Fin.Fail<TOut>(error: key.InvalidResult()),
-            (Seq<double> ks, Type t) when t == typeof(Seq<double>) => ks.TraverseM(k => key.AcceptValue(value: k)).As().Map(static valid => (TOut)(object)valid),
-            (SymmetricMatrix matrix, Type t) when t == typeof(SymmetricMatrix) => matrix.IsValid ? Value<SymmetricMatrix, TOut>(value: matrix, key: key) : Fin.Fail<TOut>(error: key.InvalidResult()),
+            (Matrix matrix, Type t) when t == typeof(Matrix) => Custom<Matrix, TOut>(value: matrix, admitted: matrix.IsValid, key: key),
+            (Seq<double> ks, Type t) when t == typeof(Seq<double>) => ks.ForAll(RhinoMath.IsValidDouble) ? Fin.Succ((TOut)(object)ks) : Fin.Fail<TOut>(error: key.InvalidResult()),
+            (SymmetricMatrix matrix, Type t) when t == typeof(SymmetricMatrix) => Custom<SymmetricMatrix, TOut>(value: matrix, admitted: matrix.IsValid, key: key),
             (VectorAngle angle, Type t) when t == typeof(VectorAngle) || t == typeof(double) => angle.Project<TOut>(key: key),
             (Direction direction, Type t) when t == typeof(Direction) || t == typeof(Vector3d) => direction.Project<TOut>(key: key),
             _ => Fin.Fail<TOut>(error: key.Unsupported(geometryType: owner, outputType: typeof(TOut))),
@@ -32,7 +39,9 @@ public readonly partial struct VectorAngle {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = RhinoMath.IsValidDouble(x: value) && value is >= 0.0 and <= RhinoMath.TwoPI ? null : new ValidationError(message: string.Create(CultureInfo.InvariantCulture, $"VectorAngle must be in [0,2*pi] radians (got {value:R})."));
     internal static Fin<VectorAngle> Of(Direction a, Direction b, AnglePivot pivot, Op key) =>
-        key.AcceptValidated<VectorAngle>(candidate: pivot.Compute(a: a.Value, b: b.Value));
+        from activePivot in pivot.Admit(key: key)
+        from angle in key.AcceptValidated<VectorAngle>(candidate: activePivot.Compute(a: a.Value, b: b.Value))
+        select angle;
     internal static Fin<VectorAngle> Of(Vector3d a, Vector3d b, Context context, AnglePivot? pivot = null, Op? key = null) =>
         from left in Direction.Of(value: a, context: context, key: key.OrDefault())
         from right in Direction.Of(value: b, context: context, key: key.OrDefault())
@@ -86,6 +95,11 @@ public abstract partial record AnglePivot {
     private AnglePivot() { }
     public sealed record WorldCase : AnglePivot; public sealed record FrameCase(Plane Value) : AnglePivot; public sealed record NormalCase(Direction Value) : AnglePivot;
     public static AnglePivot World { get; } = new WorldCase(); public static AnglePivot Frame(Plane frame) => new FrameCase(Value: frame); public static AnglePivot Normal(Direction normal) => new NormalCase(Value: normal);
+    internal Fin<AnglePivot> Admit(Op key) => Switch(
+        state: key,
+        worldCase: static (op, pivot) => Fin.Succ<AnglePivot>(pivot),
+        frameCase: static (op, pivot) => FieldNabla.Plane(basis: pivot.Value, key: op).Map(_ => (AnglePivot)pivot),
+        normalCase: static (op, pivot) => FieldNabla.Direction(value: pivot.Value, key: op).Map(_ => (AnglePivot)pivot));
     internal double Compute(Vector3d a, Vector3d b) => Switch(state: (A: a, B: b), worldCase: static (state, _) => Vector3d.VectorAngle(a: state.A, b: state.B), frameCase: static (state, frame) => Vector3d.VectorAngle(a: state.A, b: state.B, plane: frame.Value), normalCase: static (state, normal) => Vector3d.VectorAngle(v1: state.A, v2: state.B, vNormal: normal.Value.Value));
 }
 
@@ -142,7 +156,7 @@ public readonly record struct VectorSpan {
         select span;
     internal Fin<(double X, double Y)> Components(Plane frame, Op key) {
         Vector3d value = Value;
-        return key.AcceptValue(value: frame).Bind(validFrame =>
+        return FieldNabla.Plane(basis: frame, key: key).Bind(validFrame =>
             (key.AcceptValue(value: value * validFrame.XAxis), key.AcceptValue(value: value * validFrame.YAxis))
             .Apply(static (x, y) => (X: x, Y: y))
             .As());
@@ -167,17 +181,16 @@ public readonly record struct VectorFrame {
         from x in Direction.Of(value: tangent, context: context, key: key.OrDefault())
         from y in Direction.Of(value: Vector3d.CrossProduct(a: z.Value, b: x.Value), context: context, key: key.OrDefault())
         let frame = new Plane(origin: point, xDirection: x.Value, yDirection: y.Value)
-        from valid in guard(frame.IsValid && Vector3d.AreOrthonormal(x: frame.XAxis, y: frame.YAxis, z: frame.ZAxis) && Vector3d.AreRighthanded(x: frame.XAxis, y: frame.YAxis, z: frame.ZAxis), key.OrDefault().InvalidResult()).Bind(_ => key.OrDefault().AcceptValue(value: frame))
+        from valid in FieldNabla.Plane(basis: frame, key: key.OrDefault())
         select new VectorFrame(value: valid);
     public static Fin<Seq<VectorFrame>> Chain(Seq<Point3d> points, Direction initialNormal, bool closed, Context context, Op? key = null) =>
         CloudKernel.BishopChainOf(points: points, initialNormal: initialNormal, closed: closed, context: context, key: key.OrDefault()).Bind(planes => planes.TraverseM(p => Of(origin: p.Origin, normal: p.ZAxis, xHint: Some(p.XAxis), context: context, key: key.OrDefault())).As());
     internal static Vector3d SeedPerpendicular(Vector3d axis) {
-        Vector3d guide = Math.Abs(value: axis * Vector3d.ZAxis) switch { < 0.9 => Vector3d.ZAxis, _ => Vector3d.XAxis };
-        Vector3d seed = Vector3d.CrossProduct(a: axis, b: guide);
-        return seed.Unitize() switch { true => seed, false => Vector3d.XAxis };
+        Vector3d seed = Vector3d.Zero;
+        return seed.PerpendicularTo(other: axis) && seed.Unitize() ? seed : Vector3d.XAxis;
     }
     internal Fin<TOut> Project<TOut>(Op key) => typeof(TOut) switch {
-        Type t when t == typeof(Plane) => AtomProjection.Value<Plane, TOut>(value: Value, key: key),
+        Type t when t == typeof(Plane) => FieldNabla.Plane(basis: Value, key: key).Map(static value => (TOut)(object)value),
         Type t when t == typeof(Transform) => AtomProjection.Value<Transform, TOut>(value: Transform.PlaneToPlane(plane0: Plane.WorldXY, plane1: Value), key: key),
         _ => AtomProjection.Self<VectorFrame, TOut>(value: this, key: key),
     };

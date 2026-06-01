@@ -9,10 +9,39 @@ using XmlDocument = System.Xml.XmlDocument;
 namespace Rasm.Rhino.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+public abstract record UiLayerRequest {
+    private UiLayerRequest(string title, Option<Seq<int>> selected, bool showNewLayer) =>
+        (Title, Selected, ShowNewLayer) = (title, selected, showNewLayer);
+
+    public string Title { get; }
+    public Option<Seq<int>> Selected { get; }
+    public bool ShowNewLayer { get; }
+
+    public sealed record One : UiLayerRequest {
+        public One(string title, Option<Seq<int>> selected = default, bool showNewLayer = false, bool showSetCurrent = false, bool initialSetCurrent = false)
+            : base(title: title, selected: selected, showNewLayer: showNewLayer) =>
+            (ShowSetCurrent, InitialSetCurrent) = (showSetCurrent, initialSetCurrent);
+
+        public bool ShowSetCurrent { get; }
+        public bool InitialSetCurrent { get; }
+    }
+
+    public sealed record Multiple : UiLayerRequest {
+        public Multiple(string title, Option<Seq<int>> selected = default, bool showNewLayer = false)
+            : base(title: title, selected: selected, showNewLayer: showNewLayer) { }
+    }
+
+    public sealed record Material : UiLayerRequest {
+        public Material(string title, Option<Seq<int>> selected = default, bool showNewLayer = false)
+            : base(title: title, selected: selected, showNewLayer: showNewLayer) { }
+    }
+}
+
 public enum UiWindowMode { Modal, SemiModal }
-public enum UiLayerMode { Single, Multiple, Material }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+public readonly record struct UiColorSpec(Color4f Initial, Option<global::Rhino.UI.NamedColorList> Named = default, global::Rhino.UI.Dialogs.OnColorChangedEvent? Changed = null);
+
 public sealed record UiIntent<T> {
     private readonly Func<RhinoUi.Scope, Fin<T>> run;
 
@@ -34,14 +63,14 @@ public sealed record UiIntent<T> {
         WithScripted(fallback: (document, _) => Op.Of(name: nameof(WithScripted)).Need(fallback).Bind(project => project(arg: document)));
 }
 
-public readonly record struct UiWindowHandle(uint DocumentSerialNumber, string WindowType, string Title, bool Visible, bool Restored = false);
-
-public readonly record struct UiLayerSpec(string Title, UiLayerMode Mode = UiLayerMode.Single, Option<Seq<int>> Selected = default, bool ShowNewLayer = false, bool ShowSetCurrent = false, bool InitialSetCurrent = false);
 public readonly record struct UiLayerResult(Seq<int> LayerIndices, bool SetCurrent, bool MaterialAccepted) {
     public Option<int> LayerIndex => LayerIndices.Find(static index => index >= 0);
 }
+
 public readonly record struct UiMessageSpec(string Message, string Title, global::Rhino.UI.ShowMessageButton Buttons = default, global::Rhino.UI.ShowMessageIcon Icon = default, global::Rhino.UI.ShowMessageDefaultButton DefaultButton = default, global::Rhino.UI.ShowMessageOptions Options = default, global::Rhino.UI.ShowMessageMode Mode = default);
-public readonly record struct UiColorSpec(Color4f Initial, Option<global::Rhino.UI.NamedColorList> Named = default, global::Rhino.UI.Dialogs.OnColorChangedEvent? Changed = null);
+
+public readonly record struct UiWindowHandle(uint DocumentSerialNumber, string WindowType, string Title, bool Visible, bool Restored = false);
+
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static partial class UiIntent {
     public static UiIntent<T> Of<T>(Func<RhinoDoc, RunMode, Fin<T>> run) =>
@@ -74,7 +103,6 @@ public static partial class UiIntent {
     public static UiIntent<UiWindowHandle> Window(Form form, bool restoreLocation = false, bool savePosition = false) =>
         Request(name: nameof(Window), run: scope => Op.Of(name: nameof(Window)).Need(form).Map(valid => {
             global::Rhino.UI.EtoExtensions.UseRhinoStyle(valid);
-            // RestorePosition returns false on missing/off-screen saved bounds — surfaced so a dashboard can fall back to a default layout.
             bool restored = restoreLocation && global::Rhino.UI.EtoExtensions.RestorePosition(window: valid);
             _ = Op.SideWhen(savePosition, () => valid.Closed += (_, _) => global::Rhino.UI.EtoExtensions.SavePosition(window: valid));
             global::Rhino.UI.EtoExtensions.Show(valid, scope.Document);
@@ -83,9 +111,6 @@ public static partial class UiIntent {
 
     public static UiIntent<Unit> Status(UiStatus status) =>
         OfScope(_ => status.Apply());
-
-    // Brings the RedrawTarget union onto the canonical UiIntent surface (through the RhinoUi thread gate) so a
-    // sectioning/gizmo command requests a redraw without hand-rolling RhinoApp.InvokeAndWait; display-only -> bridge-driveable.
     public static UiIntent<Unit> Redraw(RedrawTarget target) =>
         OfScope(run: _ => RhinoUi.Protect(valid: () => Op.Of(name: nameof(Redraw)).Need(target).Map(valid => valid.Repaint())), interactive: false);
 
@@ -122,45 +147,40 @@ public static partial class UiIntent {
                     return Fin.Succ(value: unit);
                 }),
             });
-
-    // ShowComboListBox has no selectedItem overload (it silently dropped `selected`); ShowListBox honours pre-selection, so
-    // the invalid combo+selected state is now unrepresentable — `combo` is gone.
     public static UiIntent<T> Choice<T>(string title, string message, IEnumerable<T> items, Option<T> selected = default) =>
-        Request(name: nameof(Choice), run: _ => Op.Of(name: nameof(Choice)).Need(items)
-            .Bind(source => toSeq(source) switch { Seq<T> c when !c.IsEmpty => Fin.Succ(value: c), _ => Fin.Fail<Seq<T>>(error: Op.Of(name: nameof(Choice)).InvalidInput()) })
+        Request(name: nameof(Choice), run: _ => Items(values: items, name: nameof(Choice))
             .Bind(choices => Picked(selected.Case switch {
                 T current => global::Rhino.UI.Dialogs.ShowListBox(title: title, message: message, items: choices.ToList(), selectedItem: current),
                 _ => global::Rhino.UI.Dialogs.ShowListBox(title: title, message: message, items: choices.ToList()),
             }).Bind(result => result is T typed ? Fin.Succ(value: typed) : Fin.Fail<T>(error: Op.Of(name: nameof(Choice)).InvalidResult()))));
 
     public static UiIntent<Seq<string>> MultiChoice(string title, string message, IEnumerable<string> items, IEnumerable<string>? selected = null) =>
-        Request(name: nameof(MultiChoice), run: _ => Op.Of(name: nameof(MultiChoice)).Need(items).Bind(source => (toSeq(source), Optional(selected).Map(static current => toSeq(current)).IfNone(Seq<string>())) switch {
-            (Seq<string> values, _) when values.IsEmpty => Fin.Fail<Seq<string>>(error: Op.Of(name: nameof(MultiChoice)).InvalidInput()),
-            (Seq<string> values, Seq<string> defaults) => Picked(global::Rhino.UI.Dialogs.ShowMultiListBox(title: title, message: message, items: [.. values], defaults: [.. defaults])).Map(static result => toSeq(result)),
-        }));
+        Request(name: nameof(MultiChoice), run: _ => Items(values: items, name: nameof(MultiChoice))
+            .Bind(values => Picked(global::Rhino.UI.Dialogs.ShowMultiListBox(
+                title: title,
+                message: message,
+                items: [.. values],
+                defaults: [.. Optional(selected).Map(static current => toSeq(current)).IfNone(Seq<string>())])).Map(static result => toSeq(result))));
 
     public static UiIntent<Seq<bool>> Checklist(string title, string message, IEnumerable<string> items, IEnumerable<bool> states) =>
-        Request(name: nameof(Checklist), run: _ => (Op.Of(name: nameof(Checklist)).Need(items).Map(static source => toSeq(source)), Op.Of(name: nameof(Checklist)).Need(states).Map(static source => toSeq(source))).Apply(static (values, checks) => (Values: values, Checks: checks)).As().Bind(values => values switch {
+        Request(name: nameof(Checklist), run: _ => (Items(values: items, name: nameof(Checklist)), Op.Of(name: nameof(Checklist)).Need(states).Map(static source => toSeq(source))).Apply(static (values, checks) => (Values: values, Checks: checks)).As().Bind(values => values switch {
             (Seq<string> choices, Seq<bool> checks) when !choices.IsEmpty && choices.Count == checks.Count => Picked(global::Rhino.UI.Dialogs.ShowCheckListBox(title: title, message: message, items: (string[])[.. choices], checkState: (bool[])[.. checks])).Map(static result => toSeq(result)),
             _ => Fin.Fail<Seq<bool>>(error: Op.Of(name: nameof(Checklist)).InvalidInput()),
         }));
 
     public static UiIntent<Seq<(string Name, string Value)>> Properties(string title, string message, IEnumerable<(string Name, string Value)> values) =>
-        Request(name: nameof(Properties), run: _ => Op.Of(name: nameof(Properties)).Need(values).Bind(source => toSeq(source) switch {
-            Seq<(string Name, string Value)> items when !items.IsEmpty =>
+        Request(name: nameof(Properties), run: _ => Items(values: values, name: nameof(Properties)).Bind(items =>
                 Picked(global::Rhino.UI.Dialogs.ShowPropertyListBox(title: title, message: message, items: (string[])[.. items.Map(static item => item.Name)], values: (string[])[.. items.Map(static item => item.Value)]))
                 .Bind(result => toSeq(result) switch {
                     Seq<string> updated when updated.Count == items.Count => Fin.Succ(value: items.Zip(updated).Map(static pair => (pair.First.Name, pair.Second))),
                     _ => Fin.Fail<Seq<(string Name, string Value)>>(error: Op.Of(name: nameof(Properties)).InvalidResult()),
-                }),
-            _ => Fin.Fail<Seq<(string Name, string Value)>>(error: Op.Of(name: nameof(Properties)).InvalidInput()),
-        }));
+                })));
 
-    public static UiIntent<UiLayerResult> Layer(UiLayerSpec spec) =>
-        Request(name: nameof(Layer), run: scope => spec.Mode switch {
-            UiLayerMode.Single => SingleLayer(spec: spec),
-            UiLayerMode.Multiple => MultipleLayers(spec: spec).Map(static indices => new UiLayerResult(LayerIndices: indices, SetCurrent: false, MaterialAccepted: false)),
-            UiLayerMode.Material => MultipleLayers(spec: spec).Bind(indices => Picked(global::Rhino.UI.Dialogs.ShowLayerMaterialDialog(doc: scope.Document, layerIndices: indices.AsIterable()), new UiLayerResult(LayerIndices: indices, SetCurrent: false, MaterialAccepted: true))),
+    public static UiIntent<UiLayerResult> Layer(UiLayerRequest request) =>
+        Request(name: nameof(Layer), run: scope => request switch {
+            UiLayerRequest.One single => SingleLayer(request: single),
+            UiLayerRequest.Multiple multiple => MultipleLayers(request: multiple).Map(static indices => new UiLayerResult(LayerIndices: indices, SetCurrent: false, MaterialAccepted: false)),
+            UiLayerRequest.Material material => MultipleLayers(request: material).Bind(indices => Picked(global::Rhino.UI.Dialogs.ShowLayerMaterialDialog(doc: scope.Document, layerIndices: indices.AsIterable()), new UiLayerResult(LayerIndices: indices, SetCurrent: false, MaterialAccepted: true))),
             _ => Fin.Fail<UiLayerResult>(error: Op.Of(name: nameof(Layer)).InvalidInput()),
         });
 
@@ -183,10 +203,9 @@ public static partial class UiIntent {
         });
 
     public static UiIntent<int> ContextMenu(IEnumerable<string> items, System.Drawing.Point screenPoint, IEnumerable<int>? modes = null) =>
-        Request(name: nameof(ContextMenu), run: _ => Op.Of(name: nameof(ContextMenu)).Need(items).Bind(source => (toSeq(source), Optional(modes).Map(static value => toSeq(value)).IfNone(Seq<int>())) switch {
-            (Seq<string> values, _) when values.IsEmpty => Fin.Fail<int>(error: Op.Of(name: nameof(ContextMenu)).InvalidInput()),
-            (Seq<string> values, Seq<int> flags) when !flags.IsEmpty && flags.Count != values.Count => Fin.Fail<int>(error: Op.Of(name: nameof(ContextMenu)).InvalidInput()),
-            (Seq<string> values, Seq<int> flags) => global::Rhino.UI.Dialogs.ShowContextMenu(items: values.AsIterable(), screenPoint: screenPoint, modes: (flags.IsEmpty ? values.Map(static _ => 1) : flags).AsIterable()) switch {
+        Request(name: nameof(ContextMenu), run: _ => Items(values: items, name: nameof(ContextMenu)).Bind(menuItems => (menuItems, Optional(modes).Map(static value => toSeq(value)).IfNone(Seq<int>())) switch {
+            (Seq<string> entries, Seq<int> flags) when !flags.IsEmpty && flags.Count != entries.Count => Fin.Fail<int>(error: Op.Of(name: nameof(ContextMenu)).InvalidInput()),
+            (Seq<string> entries, Seq<int> flags) => global::Rhino.UI.Dialogs.ShowContextMenu(items: entries.AsIterable(), screenPoint: screenPoint, modes: (flags.IsEmpty ? entries.Map(static _ => 1) : flags).AsIterable()) switch {
                 int index when index >= 0 => Fin.Succ(value: index),
                 _ => Fin.Fail<int>(error: new Fault.Cancelled()),
             },
@@ -218,7 +237,6 @@ public static partial class UiIntent {
 
     public static UiIntent<double> Number(string title, string message, double value = 0.0, Option<(double Lower, double Upper)> bounds = default) =>
         Request(name: nameof(Number), run: _ => bounds.Case switch {
-            // bounded ShowNumberBox returns true only within [min,max] — the post-OK recheck was unreachable.
             (double lower, double upper) when lower <= upper && value >= lower && value <= upper =>
                 Picked(global::Rhino.UI.Dialogs.ShowNumberBox(title: title, message: message, number: ref value, minimum: lower, maximum: upper), value),
             (double, double) => Fin.Fail<double>(error: Op.Of(name: nameof(Number)).InvalidInput()),
@@ -236,8 +254,6 @@ public static partial class UiIntent {
 
     public static UiIntent<Unit> Sun() =>
         Request(name: nameof(Sun), run: scope => Picked(global::Rhino.UI.Dialogs.ShowSunDialog(sun: scope.Document.Lights.Sun), unit));
-
-    // Cancel rail: a true / non-null pick succeeds; a false / null pick is Fault.Cancelled (mirrors Op.Confirm).
     private static Fin<T> Picked<T>(bool ok, T value) => ok ? Fin.Succ(value: value) : Fin.Fail<T>(error: new Fault.Cancelled());
     private static Fin<T> Picked<T>(T? value) where T : class => Optional(value).ToFin(Fail: new Fault.Cancelled());
 
@@ -246,21 +262,27 @@ public static partial class UiIntent {
             run: scope => Op.Of(name: name).Need(run).Bind(valid => valid(arg: scope)),
             interactive: interactive);
 
-    private static Fin<UiLayerResult> SingleLayer(UiLayerSpec spec) {
-        bool setCurrent = spec.InitialSetCurrent;
-        Seq<int> selected = spec.Selected.IfNone(Seq<int>());
+    private static Fin<Seq<T>> Items<T>(IEnumerable<T> values, string name) =>
+        Op.Of(name: name).Need(values).Bind(source => toSeq(source) switch {
+            Seq<T> items when !items.IsEmpty => Fin.Succ(value: items),
+            _ => Fin.Fail<Seq<T>>(error: Op.Of(name: name).InvalidInput()),
+        });
+
+    private static Fin<UiLayerResult> SingleLayer(UiLayerRequest.One request) {
+        bool setCurrent = request.InitialSetCurrent;
+        Seq<int> selected = request.Selected.IfNone(Seq<int>());
         int index = selected.IsEmpty ? -1 : selected[0];
         return selected.Count switch {
             > 1 => Fin.Fail<UiLayerResult>(error: Op.Of(name: nameof(Layer)).InvalidInput()),
-            _ => global::Rhino.UI.Dialogs.ShowSelectLayerDialog(layerIndex: ref index, dialogTitle: spec.Title, showNewLayerButton: spec.ShowNewLayer, showSetCurrentButton: spec.ShowSetCurrent, initialSetCurrentState: ref setCurrent) switch {
+            _ => global::Rhino.UI.Dialogs.ShowSelectLayerDialog(layerIndex: ref index, dialogTitle: request.Title, showNewLayerButton: request.ShowNewLayer, showSetCurrentButton: request.ShowSetCurrent, initialSetCurrentState: ref setCurrent) switch {
                 true => LayerIndices(values: Seq(index)).Map(indices => new UiLayerResult(LayerIndices: indices, SetCurrent: setCurrent, MaterialAccepted: false)),
                 false => Fin.Fail<UiLayerResult>(error: new Fault.Cancelled()),
             },
         };
     }
 
-    private static Fin<Seq<int>> MultipleLayers(UiLayerSpec spec) =>
-        global::Rhino.UI.Dialogs.ShowSelectMultipleLayersDialog(defaultLayerIndices: spec.Selected.IfNone(Seq<int>()).AsIterable(), dialogTitle: spec.Title, showNewLayerButton: spec.ShowNewLayer, layerIndices: out int[] indices) switch {
+    private static Fin<Seq<int>> MultipleLayers(UiLayerRequest request) =>
+        global::Rhino.UI.Dialogs.ShowSelectMultipleLayersDialog(defaultLayerIndices: request.Selected.IfNone(Seq<int>()).AsIterable(), dialogTitle: request.Title, showNewLayerButton: request.ShowNewLayer, layerIndices: out int[] indices) switch {
             true => LayerIndices(values: toSeq(indices)),
             false => Fin.Fail<Seq<int>>(error: new Fault.Cancelled()),
         };
@@ -314,9 +336,6 @@ public static partial class UiIntent {
                     from _ in guard(size.Width > 0 && size.Height > 0, Op.Of(name: nameof(Curve)).InvalidInput())
                     from preview in Project(op: Op.Of(name: nameof(Curve)), native: () => global::Rhino.UI.DrawingUtilities.CreateCurvePreviewGeometry(curve: values.Curve, linetype: values.Linetype, width: size.Width, height: size.Height))
                     select toSeq(preview)));
-
-    // Generic resource resolver (typeof dispatch over one input set): System.Drawing Bitmap / Icon / Image. Bitmap+Icon
-    // honour scaleDown (HiDPI mip-loader, else resource decode); Image has no scaled loader. No Eto loader exists in DrawingUtilities.
     public static UiIntent<TOut> Resource<TOut>(string resourceName, DrawingSize size, Assembly assembly, bool scaleDown = false) where TOut : class =>
         Of(
             name: nameof(Resource),
@@ -349,29 +368,25 @@ public static partial class UiIntent {
         Of(
             name: nameof(NamedColors),
             run: (_, _) => Fin.Succ(value: toSeq(source.IfNone(global::Rhino.UI.NamedColorList.Default))));
-
-    // Capture config lives once in Capture.cs (CaptureDecor algebra over ViewCaptureSettings); Render<T> projects the
-    // configured settings to a raster bitmap or a vector SVG document. The bare-bool ViewCapture surface is retired here.
-    // Single native-resource->Fin boundary: projects a nullable native element (Bitmap / Point2f[][] / XmlDocument) to a Fin.
     private static Fin<T> Project<T>(Op op, Func<T?> native) where T : class => Optional(native()).ToFin(Fail: op.InvalidResult());
 
     public static UiIntent<DrawingBitmap> Capture(RhinoView view, CaptureRecipe recipe = default) =>
-        Of(name: nameof(Capture), run: (_, _) => recipe.Render(
-            view: view,
-            viewport: recipe.Viewport(view: view),
+        Of(name: nameof(Capture), run: (_, _) => recipe.WithPolicy(
             fallbackDpi: CaptureRecipe.ScreenDpi,
             fallbackDecor: CaptureRecipe.ScreenDecor,
-            rewrite: static (decor, _) => decor,
+            rewrite: static (decor, _) => decor).Render(
+            view: view,
+            viewport: recipe.Viewport(view: view),
             project: static settings => Project(op: Op.Of(name: nameof(Capture)), native: () => ViewCapture.CaptureToBitmap(settings: settings)),
             op: Op.Of(name: nameof(Capture))));
 
     public static UiIntent<XmlDocument> CaptureSvg(RhinoView view, CaptureRecipe recipe = default) =>
-        Of(name: nameof(CaptureSvg), run: (_, _) => recipe.Render(
-            view: view,
-            viewport: recipe.Viewport(view: view),
+        Of(name: nameof(CaptureSvg), run: (_, _) => recipe.WithPolicy(
             fallbackDpi: CaptureRecipe.ScreenDpi,
             fallbackDecor: CaptureRecipe.ScreenDecor,
-            rewrite: static (decor, _) => decor,
+            rewrite: static (decor, _) => decor).Render(
+            view: view,
+            viewport: recipe.Viewport(view: view),
             project: static settings => Project(op: Op.Of(name: nameof(CaptureSvg)), native: () => ViewCapture.CaptureToSvg(settings: settings)),
             op: Op.Of(name: nameof(CaptureSvg))));
 

@@ -39,7 +39,7 @@ public abstract partial record VectorIntent {
     public sealed record SegmentationCase : VectorIntent { internal SegmentationCase(MeshSpace Space, MeshSegmentation Kind) { this.Space = Space; this.Kind = Kind; } public MeshSpace Space { get; } public MeshSegmentation Kind { get; } }
     public Fin<TOut> Project<TOut>(Context context, Op? key = null) {
         Op op = key.OrDefault();
-        return from model in Optional(context).ToFin(op.MissingContext())
+        return from model in FieldNabla.NotNull(value: context, error: op.MissingContext())
                from result in Dispatch<TOut>(context: model, op: op)
                select result;
     }
@@ -84,7 +84,7 @@ public abstract partial record VectorIntent {
             from span in VectorSpan.Of(anchor: intent.Anchor, vector: intent.Value, context: state.Context, key: state.Key)
             from components in span.Components(frame: intent.Basis, key: state.Key)
             from output in typeof(TOut) == typeof(ValueTuple<double, double>)
-                ? state.Key.AcceptValue(value: components).Map(static value => (TOut)(object)value)
+                ? Fin.Succ((TOut)(object)components)
                 : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(VectorSpan), outputType: typeof(TOut)))
             select output,
         relationCase: static (state, intent) =>
@@ -119,14 +119,16 @@ public abstract partial record VectorIntent {
             from output in direction.Project<TOut>(key: state.Key)
             select output,
         projectOntoCase: static (state, intent) =>
+            from target in FieldNabla.Plane(basis: intent.Target, key: state.Key)
             from direction in Vectors.Direction.Of(
-                value: Transform.PlanarProjection(plane: intent.Target) * intent.Value,
+                value: Transform.PlanarProjection(plane: target) * intent.Value,
                 context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
             select output,
         mirrorCase: static (state, intent) =>
+            from across in FieldNabla.Plane(basis: intent.Across, key: state.Key)
             from direction in Vectors.Direction.Of(
-                value: Transform.Mirror(mirrorPlane: intent.Across) * intent.Value,
+                value: Transform.Mirror(mirrorPlane: across) * intent.Value,
                 context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
             select output,
@@ -134,17 +136,17 @@ public abstract partial record VectorIntent {
         poseCase: static (state, intent) =>
             from pose in intent.Mode.Interpolate(a: intent.From, b: intent.To, t: intent.Parameter)
             from output in typeof(TOut) == typeof(Plane)
-                ? state.Key.AcceptValue(value: pose).Map(static v => (TOut)(object)v)
+                ? FieldNabla.Plane(basis: pose, key: state.Key).Map(static v => (TOut)(object)v)
                 : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(PoseCase), outputType: typeof(TOut)))
             select output,
         flattenCase: static (state, intent) =>
             from result in MeshKernel.ParameterizeFlattenDetailed(space: intent.Space, key: state.Key)
             from output in typeof(TOut) == typeof(Arr<Point2d>)
-                ? state.Key.AcceptValue(value: result.Uvs).Map(static v => (TOut)(object)v)
+                ? Fin.Succ((TOut)(object)result.Uvs)
                 : typeof(TOut) == typeof(FlattenResult)
-                    ? state.Key.AcceptValue(value: result).Map(static v => (TOut)(object)v)
+                    ? Fin.Succ((TOut)(object)result)
                     : typeof(TOut) == typeof(FlattenReceipt)
-                        ? state.Key.AcceptValue(value: result.Receipt).Map(static v => (TOut)(object)v)
+                        ? Fin.Succ((TOut)(object)result.Receipt)
                         : typeof(TOut) == typeof(Mesh)
                             ? state.Key.AcceptValue(value: result.Mesh).Map(static v => (TOut)(object)v)
                             : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(FlattenCase), outputType: typeof(TOut)))
@@ -172,7 +174,7 @@ public abstract partial record VectorIntent {
                         Type tt when tt == typeof(Transform) && receipt.Stop.Equals(AlignmentStopKind.Converged) =>
                             state.Key.AcceptValue(value: receipt.Transform).Map(static v => (TOut)(object)v),
                         Type tt when tt == typeof(Transform) => Fin.Fail<TOut>(error: state.Key.InvalidResult()),
-                        _ => state.Key.AcceptValue(value: receipt).Map(static v => (TOut)(object)v),
+                        _ => Fin.Succ((TOut)(object)receipt),
                     }
                     select projected,
                 _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(AlignCase), outputType: typeof(TOut))),
@@ -183,9 +185,9 @@ public abstract partial record VectorIntent {
             from output in typeof(TOut) == typeof(Mesh)
                 ? state.Key.AcceptValue(value: result.Mesh).Map(static v => (TOut)(object)v)
                 : typeof(TOut) == typeof(RemeshResult)
-                    ? state.Key.AcceptValue(value: result).Map(static v => (TOut)(object)v)
+                    ? Fin.Succ((TOut)(object)result)
                     : typeof(TOut) == typeof(RemeshReceipt)
-                        ? state.Key.AcceptValue(value: result.Receipt).Map(static v => (TOut)(object)v)
+                        ? Fin.Succ((TOut)(object)result.Receipt)
                         : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(RemeshCase), outputType: typeof(TOut)))
             select output,
         transportCase: static (state, intent) => CloudKernel.Sinkhorn<TOut>(source: intent.Source, target: intent.Target, policy: intent.Policy, key: state.Key),
@@ -195,20 +197,20 @@ public abstract partial record VectorIntent {
                 ? Fin.Succ((TOut)(object)topology)
                     : typeof(TOut) == typeof((int Euler, int Genus, int BoundaryComponents))
                         ? topology.Genus.Match(
-                            Some: genus => state.Key.AcceptValue(value: (topology.EulerCharacteristic, genus, topology.BoundaryComponents)).Map(static v => (TOut)(object)v),
+                            Some: genus => Fin.Succ((TOut)(object)(topology.EulerCharacteristic, genus, topology.BoundaryComponents)),
                             None: () => Fin.Fail<TOut>(state.Key.InvalidResult()))
                     : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(TopologyCase), outputType: typeof(TOut)))
             select output,
         featuresCase: static (state, intent) =>
             from receipt in MeshKernel.DetectFeatureEdgesDetailed(space: intent.Space, dihedralRadians: intent.Dihedral.Value, key: state.Key)
             from output in typeof(TOut) == typeof(FeatureReceipt)
-                ? state.Key.AcceptValue(value: receipt).Map(static v => (TOut)(object)v)
+                ? Fin.Succ((TOut)(object)receipt)
                 : typeof(TOut) == typeof(Seq<FeatureEdge>)
-                    ? state.Key.AcceptValue(value: receipt.Edges).Map(static v => (TOut)(object)v)
+                    ? Fin.Succ((TOut)(object)receipt.Edges)
                     : typeof(TOut) == typeof(Seq<(int A, int B)>)
-                        ? state.Key.AcceptValue(value: toSeq(receipt.Edges.AsIterable()
+                        ? Fin.Succ((TOut)(object)toSeq(receipt.Edges.AsIterable()
                             .Where(static edge => edge.Kind.Equals(MeshFeatureKind.Boundary) || edge.Kind.Equals(MeshFeatureKind.Crease))
-                            .Select(static edge => (edge.A, edge.B)))).Map(static v => (TOut)(object)v)
+                            .Select(static edge => (edge.A, edge.B))))
                         : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(FeaturesCase), outputType: typeof(TOut)))
             select output,
         descriptorCase: static (state, intent) => MeshKernel.DescribeShape<TOut>(space: intent.Space, kind: intent.Kind, eigenpairs: intent.Pairs.Value, key: state.Key),
@@ -221,8 +223,12 @@ public abstract partial record VectorIntent {
             }
             select output,
         segmentationCase: static (state, intent) => MeshKernel.Segment<TOut>(space: intent.Space, kind: intent.Kind, key: state.Key));
-    public static VectorIntent Axis(SignedAxis axis, Plane? frame = null) =>
-        new AxisCase(Value: axis, Basis: Optional(frame));
+    public static Fin<VectorIntent> Axis(SignedAxis axis, Plane? frame = null, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in FieldNabla.NotNull(value: axis, key: op)
+               from basis in frame is null ? Fin.Succ(Option<Plane>.None) : FieldNabla.Plane(basis: frame.Value, key: op).Map(static plane => Some(plane))
+               select (VectorIntent)new AxisCase(Value: active, Basis: basis);
+    }
     public static VectorIntent Direction(Vector3d value) =>
         new DirectionCase(Value: value);
     public static VectorIntent Axes(Option<Seq<Vector3d>> values = default, bool planar = false) =>
@@ -231,8 +237,8 @@ public abstract partial record VectorIntent {
         new AngularCase(A: a, B: b, Pivot: pivot ?? AnglePivot.World);
     public static Fin<VectorIntent> Support(SupportSpace space, Point3d sample, SupportProjection projection, Op? key = null) {
         Op op = key.OrDefault();
-        return from validSpace in Optional(space).ToFin(op.InvalidInput())
-               from validProjection in Optional(projection).ToFin(op.InvalidInput())
+        return from validSpace in FieldNabla.NotNull(value: space, key: op)
+               from validProjection in FieldNabla.NotNull(value: projection, key: op)
                from validSample in op.AcceptValue(value: sample)
                select (VectorIntent)new SupportCase(Space: validSpace, Query: validSample, Projection: validProjection);
     }
@@ -254,40 +260,50 @@ public abstract partial record VectorIntent {
         new FrameCase(Origin: origin, Normal: normal, XHint: xHint);
     public static Fin<VectorIntent> Curve(Curve source, double parameter, CurveProjection mode, Op? key = null) {
         Op op = key.OrDefault();
-        return from active in Optional(source).ToFin(op.InvalidInput())
+        return from active in FieldNabla.NotNull(value: source, key: op)
                from _ in guard(active.IsValid && active.Domain.IncludesParameter(t: parameter), op.InvalidInput())
-               from validMode in Optional(mode).ToFin(op.InvalidInput())
+               from validMode in FieldNabla.NotNull(value: mode, key: op)
                select (VectorIntent)new CurveCase(Source: active, Parameter: parameter, Mode: validMode);
     }
     public static Fin<VectorIntent> Cloud(VectorCloud cloud, VectorCloudMetric metric, Op? key = null) =>
         Cloud(cloud: cloud, metric: metric, policy: Option<CloudMetricPolicy>.None, key: key);
     public static Fin<VectorIntent> Cloud(VectorCloud cloud, VectorCloudMetric metric, Option<CloudMetricPolicy> policy, Op? key = null) {
         Op op = key.OrDefault();
-        return from validCloud in Optional(cloud).ToFin(op.InvalidInput())
-               from validMetric in Optional(metric).ToFin(op.InvalidInput())
+        return from validCloud in FieldNabla.NotNull(value: cloud, key: op)
+               from validMetric in FieldNabla.NotNull(value: metric, key: op)
                from validPolicy in CloudMetricPolicy.AdmitOrDefault(policy: policy, key: op)
                from _ in guard(validMetric.AdmitsCase(cloud: validCloud), op.Unsupported(geometryType: validCloud.GetType(), outputType: validMetric.Output))
                select (VectorIntent)new CloudCase(Value: validCloud, Metric: validMetric, Policy: validPolicy);
     }
     public static Fin<VectorIntent> Winding(VectorCloud cloud, Point3d query, Op? key = null) {
         Op op = key.OrDefault();
-        return Optional(cloud).ToFin(op.InvalidInput())
+        return FieldNabla.NotNull(value: cloud, key: op)
             .Bind(valid => valid is VectorCloud.RingCase
                 ? op.AcceptValue(value: query).Map(point => (VectorIntent)new WindingCase(Value: valid, Query: point))
                 : Fin.Fail<VectorIntent>(op.Unsupported(geometryType: valid.GetType(), outputType: typeof(int))));
     }
-    public static VectorIntent Cone(VectorCone cone, ConeProjection mode) =>
-        new ConeCase(Value: cone, Mode: mode);
+    public static Fin<VectorIntent> Cone(VectorCone cone, ConeProjection mode, Op? key = null) {
+        Op op = key.OrDefault();
+        return from activeCone in FieldNabla.Cone(value: cone, key: op)
+               from activeMode in FieldNabla.NotNull(value: mode, key: op)
+               select (VectorIntent)new ConeCase(Value: activeCone, Mode: activeMode);
+    }
     public static VectorIntent Components(Point3d anchor, Vector3d value, Plane frame) =>
         new ComponentsCase(Anchor: anchor, Value: value, Basis: frame);
     public static VectorIntent Relation(Vector3d a, Vector3d b) =>
         new RelationCase(A: a, B: b);
-    public static VectorIntent Bounce(Direction incident, SupportSpace surface, Point3d sample, BouncePolicy? policy = null) =>
-        new BounceCase(Incident: incident, Target: surface, Query: sample, Policy: policy ?? BouncePolicy.Reflect);
+    public static Fin<VectorIntent> Bounce(Direction incident, SupportSpace surface, Point3d sample, BouncePolicy? policy = null, Op? key = null) {
+        Op op = key.OrDefault();
+        return from activeIncident in FieldNabla.Direction(value: incident, key: op)
+               from target in FieldNabla.NotNull(value: surface, key: op)
+               from bounce in FieldNabla.NotNull(value: policy ?? BouncePolicy.Reflect, key: op)
+               from point in op.AcceptValue(value: sample)
+               select (VectorIntent)new BounceCase(Incident: activeIncident, Target: target, Query: point, Policy: bounce);
+    }
     public static Fin<VectorIntent> Streamline(VectorField field, Point3d seed, double initialStep, Termination termination, FieldIntegrator? integrator = null, Op? key = null) {
         Op op = key.OrDefault();
-        return from validField in Optional(field).ToFin(op.InvalidInput())
-               from validStop in Optional(termination).ToFin(op.InvalidInput())
+        return from validField in FieldNabla.NotNull(value: field, key: op)
+               from validStop in Termination.Admit(value: termination, key: op)
                from h in op.AcceptValidated<PositiveMagnitude>(candidate: initialStep)
                from validIntegrator in FieldIntegrator.AdmitOrFixed(value: integrator, key: op)
                select (VectorIntent)new StreamlineCase(Source: validField, Seed: seed, InitialStep: h, Integrator: validIntegrator, Termination: validStop);
@@ -296,10 +312,10 @@ public abstract partial record VectorIntent {
         key.OrDefault().AcceptValidated<UnitInterval>(candidate: t)
             .Map(unit => (VectorIntent)new LerpCase(A: a, B: b, Parameter: unit));
     public static Fin<VectorIntent> Slerp(Direction a, Direction b, double t, Op? key = null) =>
-        from _ in a.Value is { IsValid: true } && a.Value.Length > RhinoMath.ZeroTolerance ? Fin.Succ(unit) : Fin.Fail<Unit>(key.OrDefault().InvalidInput())
-        from __ in b.Value is { IsValid: true } && b.Value.Length > RhinoMath.ZeroTolerance ? Fin.Succ(unit) : Fin.Fail<Unit>(key.OrDefault().InvalidInput())
+        from left in FieldNabla.Direction(value: a, key: key.OrDefault())
+        from right in FieldNabla.Direction(value: b, key: key.OrDefault())
         from unit in key.OrDefault().AcceptValidated<UnitInterval>(candidate: t)
-        select (VectorIntent)new SlerpCase(A: a, B: b, Parameter: unit);
+        select (VectorIntent)new SlerpCase(A: left, B: right, Parameter: unit);
     public static VectorIntent ProjectOnto(Vector3d value, Plane target) =>
         new ProjectOntoCase(Value: value, Target: target);
     public static VectorIntent Mirror(Vector3d value, Plane across) =>
@@ -308,22 +324,27 @@ public abstract partial record VectorIntent {
         Op op = key.OrDefault();
         return from active in SurfaceSpace.Of(native: surface.Native, context: surface.Tolerance, key: op)
                from _ in GeometryKernel.SurfaceUv(surface: active.Native, uv: new Point2d(x: u, y: v), context: active.Tolerance, key: op)
-               from validMode in Optional(mode).ToFin(op.InvalidInput())
+               from validMode in FieldNabla.NotNull(value: mode, key: op)
                select (VectorIntent)new SurfaceCase(SurfaceSource: active, U: u, V: v, Mode: validMode);
     }
-    public static Fin<VectorIntent> Pose(Plane from, Plane to, double t, MotionInterpolation mode, Op? key = null) =>
-        key.OrDefault().AcceptValidated<UnitInterval>(candidate: t)
-            .Map(unit => (VectorIntent)new PoseCase(From: from, To: to, Parameter: unit, Mode: mode));
+    public static Fin<VectorIntent> Pose(Plane from, Plane to, double t, MotionInterpolation mode, Op? key = null) {
+        Op op = key.OrDefault();
+        return from source in FieldNabla.Plane(basis: @from, key: op)
+               from target in FieldNabla.Plane(basis: to, key: op)
+               from activeMode in FieldNabla.NotNull(value: mode, key: op)
+               from unit in op.AcceptValidated<UnitInterval>(candidate: t)
+               select (VectorIntent)new PoseCase(From: source, To: target, Parameter: unit, Mode: activeMode);
+    }
     public static Fin<VectorIntent> Flatten(MeshSpace space, Op? key = null) {
         Op op = key.OrDefault();
-        return Optional(space.Native).ToFin(op.InvalidInput()).Map(_ => (VectorIntent)new FlattenCase(Space: space));
+        return FieldNabla.MeshNative(space: space, key: op).Map(_ => (VectorIntent)new FlattenCase(Space: space));
     }
     public static Fin<VectorIntent> Hull(VectorCloud source, CloudHullKind? kind = null, Op? key = null) =>
         Hull(source: source, kind: kind, policy: Option<CloudHullPolicy>.None, key: key);
     public static Fin<VectorIntent> Hull(VectorCloud source, CloudHullKind? kind, Option<CloudHullPolicy> policy, Op? key = null) {
         Op op = key.OrDefault();
-        return from validSource in Optional(source).ToFin(op.InvalidInput())
-               from validKind in Optional(kind ?? CloudHullKind.Convex3D).ToFin(op.InvalidInput())
+        return from validSource in FieldNabla.NotNull(value: source, key: op)
+               from validKind in FieldNabla.NotNull(value: kind ?? CloudHullKind.Convex3D, key: op)
                from cluster in validSource is VectorCloud.ClusterCase c
                    ? Fin.Succ(c)
                    : Fin.Fail<VectorCloud.ClusterCase>(op.Unsupported(geometryType: validSource.GetType(), outputType: typeof(CloudHullResult)))
@@ -332,38 +353,38 @@ public abstract partial record VectorIntent {
     }
     public static Fin<VectorIntent> Sample(ExtractionDomain domain, SampleKind kind, Op? key = null) {
         Op op = key.OrDefault();
-        return from validDomain in Optional(domain).ToFin(op.InvalidInput()).Bind(active => active.Admit(key: op))
+        return from validDomain in FieldNabla.NotNull(value: domain, key: op).Bind(active => active.Admit(key: op))
                from validKind in SampleKind.Admit(value: kind, key: op)
                select (VectorIntent)new SampleCase(Domain: validDomain, Kind: validKind);
     }
     public static Fin<VectorIntent> Align(VectorCloud source, VectorCloud target, AlignKind kind, Op? key = null) {
         Op op = key.OrDefault();
-        return from validSource in Optional(source).ToFin(op.InvalidInput())
-               from validTarget in Optional(target).ToFin(op.InvalidInput())
-               from validKind in Optional(kind).ToFin(op.InvalidInput())
+        return from validSource in FieldNabla.NotNull(value: source, key: op)
+               from validTarget in FieldNabla.NotNull(value: target, key: op)
+               from validKind in FieldNabla.NotNull(value: kind, key: op)
                select (VectorIntent)new AlignCase(Source: validSource, Target: validTarget, Kind: validKind);
     }
     public static Fin<VectorIntent> Remesh(MeshSpace space, RemeshKind kind, Op? key = null) {
         Op op = key.OrDefault();
-        return from _ in Optional(space.Native).ToFin(op.InvalidInput())
-               from activeKind in Optional(kind).ToFin(op.InvalidInput())
+        return from _ in FieldNabla.MeshNative(space: space, key: op)
+               from activeKind in FieldNabla.NotNull(value: kind, key: op)
                select (VectorIntent)new RemeshCase(Space: space, Kind: activeKind);
     }
     // massRelaxation changes the KL marginal penalty over the cluster mass owner.
     public static Fin<VectorIntent> Transport(VectorCloud source, VectorCloud target, CloudTransportPolicy policy, Op? key = null) {
         Op op = key.OrDefault();
-        return from validSource in Optional(source).ToFin(op.InvalidInput())
-               from validTarget in Optional(target).ToFin(op.InvalidInput())
+        return from validSource in FieldNabla.NotNull(value: source, key: op)
+               from validTarget in FieldNabla.NotNull(value: target, key: op)
                from activePolicy in policy.Admit(key: op)
                select (VectorIntent)new TransportCase(Source: validSource, Target: validTarget, Policy: activePolicy);
     }
     public static Fin<VectorIntent> Topology(MeshSpace space, Op? key = null) {
         Op op = key.OrDefault();
-        return Optional(space.Native).ToFin(op.InvalidInput()).Map(_ => (VectorIntent)new TopologyCase(Space: space));
+        return FieldNabla.MeshNative(space: space, key: op).Map(_ => (VectorIntent)new TopologyCase(Space: space));
     }
     public static Fin<VectorIntent> Features(MeshSpace space, double dihedralRadians, Op? key = null) {
         Op op = key.OrDefault();
-        return from _ in Optional(space.Native).ToFin(op.InvalidInput())
+        return from _ in FieldNabla.MeshNative(space: space, key: op)
                from angle in op.AcceptValidated<VectorAngle>(candidate: dihedralRadians)
                from intent in angle.Value > RhinoMath.ZeroTolerance
                 ? Fin.Succ((VectorIntent)new FeaturesCase(Space: space, Dihedral: angle))
@@ -372,22 +393,22 @@ public abstract partial record VectorIntent {
     }
     public static Fin<VectorIntent> Descriptor(MeshSpace space, MeshDescriptor kind, int pairs, Op? key = null) {
         Op op = key.OrDefault();
-        return from _ in Optional(space.Native).ToFin(op.InvalidInput())
-               from active in Optional(kind).ToFin(op.InvalidInput())
+        return from _ in FieldNabla.MeshNative(space: space, key: op)
+               from active in FieldNabla.NotNull(value: kind, key: op)
                from __ in guard(active.IsValid, op.InvalidInput())
                from count in op.AcceptValidated<Dimension>(candidate: pairs)
                select (VectorIntent)new DescriptorCase(Space: space, Kind: active, Pairs: count);
     }
     public static Fin<VectorIntent> DiscreteCalculus(MeshSpace space, MeshLaplacian? kind = null, Op? key = null) {
         Op op = key.OrDefault();
-        return from _ in Optional(space.Native).ToFin(op.InvalidInput())
-               from active in Optional(kind ?? MeshLaplacian.IntrinsicDelaunay).ToFin(op.InvalidInput())
+        return from _ in FieldNabla.MeshNative(space: space, key: op)
+               from active in FieldNabla.NotNull(value: kind ?? MeshLaplacian.IntrinsicDelaunay, key: op)
                select (VectorIntent)new DiscreteCalculusCase(Space: space, Kind: active);
     }
     public static Fin<VectorIntent> Segmentation(MeshSpace space, MeshSegmentation kind, Op? key = null) {
         Op op = key.OrDefault();
-        return from _ in Optional(space.Native).ToFin(op.InvalidInput())
-               from active in Optional(kind).ToFin(op.InvalidInput())
+        return from _ in FieldNabla.MeshNative(space: space, key: op)
+               from active in FieldNabla.NotNull(value: kind, key: op)
                select (VectorIntent)new SegmentationCase(Space: space, Kind: active);
     }
 }
