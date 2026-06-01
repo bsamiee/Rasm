@@ -181,7 +181,7 @@ public readonly record struct SignedHeatTime(Option<PositiveMagnitude> Explicit,
         double coefficient = Coefficient.Value;
         return Explicit.Match(Some: static heat => heat.Value, None: () => coefficient * cellSize * cellSize);
     }
-    internal bool IsValid => Coefficient.Value > 0.0 && Explicit.Map(static heat => heat.Value > 0.0).IfNone(true);
+    internal bool IsValid => Coefficient.Value > 0.0 && Explicit.Map(static heat => heat.Value > 0.0).IfNone(noneValue: true);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -194,7 +194,7 @@ public readonly record struct VolumeGridPolicy(Option<Dimension> Resolution, Opt
         from size in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: cellSize)
         from pad in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: padding)
         select new VolumeGridPolicy(Resolution: Option<Dimension>.None, CellSize: Some(size), Padding: pad);
-    internal bool IsValid => Padding.Value > 0.0 && Resolution.IsSome != CellSize.IsSome && Resolution.Map(static count => count.Value > 0).IfNone(true) && CellSize.Map(static size => size.Value > 0.0).IfNone(true);
+    internal bool IsValid => Padding.Value > 0.0 && Resolution.IsSome != CellSize.IsSome && Resolution.Map(static count => count.Value > 0).IfNone(noneValue: true) && CellSize.Map(static size => size.Value > 0.0).IfNone(noneValue: true);
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
@@ -419,6 +419,7 @@ public abstract partial record VectorField {
     public sealed record HodgeCase : VectorField { internal HodgeCase(VectorField Source, MeshSpace Space, BoundarySense Sense) { this.Source = Source; this.Space = Space; this.Sense = Sense; } public VectorField Source { get; } public MeshSpace Space { get; } public BoundarySense Sense { get; } }
     public sealed record VectorHeatCase : VectorField { internal VectorHeatCase(MeshSpace Space, Seq<(int Vertex, Vector3d Direction)> Sources, PositiveMagnitude Time) { this.Space = Space; this.Sources = Sources; this.Time = Time; } public MeshSpace Space { get; } public Seq<(int Vertex, Vector3d Direction)> Sources { get; } public PositiveMagnitude Time { get; } }
     public sealed record GeodesicTangentCase : VectorField { internal GeodesicTangentCase(MeshSpace Space, Seq<int> Sources) { this.Space = Space; this.Sources = Sources; } public MeshSpace Space { get; } public Seq<int> Sources { get; } }
+    public sealed record TangentLogMapCase : VectorField { internal TangentLogMapCase(MeshSpace Space, int Source, PositiveMagnitude Time) { this.Space = Space; this.Source = Source; this.Time = Time; } public MeshSpace Space { get; } public int Source { get; } public PositiveMagnitude Time { get; } }
     public static VectorField Constant(Vector3d value) => new ConstantCase(Value: value);
     public static Fin<VectorField> Hit(SupportSpace source, SupportProjection projection, BoundarySense? sense = null, Op? key = null) =>
         from active in Optional(source).ToFin(key.OrDefault().InvalidInput()) from selected in Optional(projection).ToFin(key.OrDefault().InvalidInput()) from _ in guard(selected.CanProjectVector(space: active), key.OrDefault().Unsupported(active.SourceType, typeof(Vector3d))) select (VectorField)new HitFieldCase(Source: active, Projection: selected, Sense: sense ?? BoundarySense.Toward);
@@ -450,6 +451,10 @@ public abstract partial record VectorField {
         from _ in FieldNabla.MeshVertices(space: space, vertices: sources.Map(static s => s.Vertex), allowEmpty: false, key: key.OrDefault()) from t in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: time) select (VectorField)new VectorHeatCase(Space: space, Sources: sources, Time: t);
     public static Fin<VectorField> GeodesicTangent(MeshSpace space, Seq<int> sources, Op? key = null) =>
         FieldNabla.MeshVertices(space: space, vertices: sources, allowEmpty: false, key: key.OrDefault()).Map(_ => (VectorField)new GeodesicTangentCase(Space: space, Sources: sources));
+    public static Fin<VectorField> TangentLogMap(MeshSpace space, int source, double time, Op? key = null) =>
+        from _ in FieldNabla.MeshVertices(space: space, vertices: Seq(source), allowEmpty: false, key: key.OrDefault())
+        from t in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: time)
+        select (VectorField)new TangentLogMapCase(Space: space, Source: source, Time: t);
     public static Fin<VectorField> Hodge(VectorField source, MeshSpace space, BoundarySense? sense = null, Op? key = null) =>
         from active in Optional(source).ToFin(key.OrDefault().InvalidInput()) from _ in FieldNabla.MeshOf(space: space, key: key.OrDefault()) select (VectorField)new HodgeCase(Source: active, Space: space, Sense: sense ?? BoundarySense.Toward);
     public static Fin<VectorField> CurlNoise(ScalarField potential, double epsilon, Op? key = null) =>
@@ -536,7 +541,8 @@ public abstract partial record VectorField {
         crossFieldCase: static (state, c) => MeshKernel.CrossFieldAt(space: c.Space, symmetry: c.Symmetry, constraints: c.Constraints, cones: c.Cones, sample: state.Sample, key: state.Key),
         hodgeCase: static (state, c) => MeshKernel.HodgeProjectedAt(source: c.Source, space: c.Space, sense: c.Sense, sample: state.Sample, key: state.Key),
         vectorHeatCase: static (state, c) => MeshKernel.VectorHeatAt(space: c.Space, sources: c.Sources, time: c.Time.Value, sample: state.Sample, key: state.Key),
-        geodesicTangentCase: static (state, c) => MeshKernel.GeodesicTangentAt(space: c.Space, sources: c.Sources, sample: state.Sample, key: state.Key));
+        geodesicTangentCase: static (state, c) => MeshKernel.GeodesicTangentAt(space: c.Space, sources: c.Sources, sample: state.Sample, key: state.Key),
+        tangentLogMapCase: static (state, c) => MeshKernel.TangentLogMapAt(space: c.Space, source: c.Source, sample: state.Sample, time: c.Time.Value, key: state.Key).Map(static result => result.Tangent));
     private static Fin<Vector3d> RotationalField(Point3d anchor, Direction axis, Falloff falloff, double axial, double swirl, (Point3d Sample, Context Context, Op Key) state) {
         Vector3d rPerp = FieldNabla.PerpendicularComponent(r: state.Sample - anchor, axis: axis.Value);
         return falloff.Weight(offset: rPerp, sample: state.Sample, context: state.Context, tolerance: state.Context.Absolute.Value, key: state.Key)
@@ -1076,6 +1082,9 @@ public abstract partial record ScalarField {
                                             from vectors in c.Sources.TraverseM(source => FieldNabla.Finite(vector: source.Direction, key: key)).As().Map(static _ => unit)
                                             select unit,
             VectorField.GeodesicTangentCase c => FieldNabla.MeshVertices(space: c.Space, vertices: c.Sources, allowEmpty: false, key: key).Map(static _ => unit),
+            VectorField.TangentLogMapCase c => from source in FieldNabla.MeshVertices(space: c.Space, vertices: Seq(c.Source), allowEmpty: false, key: key).Map(static _ => unit)
+                                               from time in FieldNabla.Positive(value: c.Time, key: key)
+                                               select unit,
             _ => Fin.Fail<Unit>(key.InvalidInput()),
         };
     private static Fin<Unit> AdmitFalloff(Falloff? falloff, Context context, Op key) =>
@@ -1194,7 +1203,7 @@ public abstract partial record ScalarField {
         laplacianCase: static (state, c) => FieldNabla.LaplacianAt(field: c.Source, point: state.Sample, eps: c.Epsilon.Value, context: state.Context, key: state.Key),
         scaledCase: static (state, c) => SampleMapped(source: c.Source, state: state, data: c.Scale, map: static (scale, value) => scale * value),
         worleyCase: static (state, c) =>
-            toSeq(c.Seeds.Map(seed => state.Sample.DistanceTo(other: seed)).OrderBy(static d => d).AsIterable()) switch {
+            toSeq(c.Seeds.Map(seed => state.Sample.DistanceTo(other: seed)).Order().AsIterable()) switch {
                 Seq<double> sorted when c.Order - 1 < sorted.Count => state.Key.AcceptValue(value: sorted[c.Order - 1]),
                 _ => Fin.Fail<double>(state.Key.InvalidResult()),
             },

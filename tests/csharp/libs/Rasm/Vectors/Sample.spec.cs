@@ -42,8 +42,11 @@ public sealed class SampleKindFactoryLaws {
     [Fact]
     public void FactoriesGatePositiveDimensionsAndPreservePayloads() {
         Spec.ForAll(SampleGens.Payloads, p => {
-            Spec.Succ(SampleKind.PoissonDisk(radius: p.Radius, key: SampleGens.Key), then: kind =>
-                Spec.Equal(left: Assert.IsType<SampleKind.PoissonDiskCase>(@object: kind).Radius.Value, right: p.Radius, tolerance: 0.0, what: "radius"));
+            Spec.Succ(SampleKind.PoissonDisk(radius: p.Radius, attempts: 17, seed: 23, key: SampleGens.Key), then: kind => {
+                SampleKind.PoissonDiskCase poisson = Assert.IsType<SampleKind.PoissonDiskCase>(@object: kind);
+                Spec.Equal(left: poisson.Radius.Value, right: p.Radius, tolerance: 0.0, what: "radius");
+                Assert.Equal(expected: (17, 23), actual: (poisson.Attempts.Value, poisson.Seed));
+            });
             Spec.Succ(SampleKind.Farthest(count: p.Count, key: SampleGens.Key), then: kind =>
                 Assert.Equal(expected: p.Count, actual: Assert.IsType<SampleKind.FarthestCase>(@object: kind).Count.Value));
             Spec.Succ(SampleKind.Optimize(count: p.Count, iterations: p.Iterations, key: SampleGens.Key), then: kind => {
@@ -60,6 +63,8 @@ public sealed class SampleKindFactoryLaws {
                 SampleKind.CapacityCase capacity = Assert.IsType<SampleKind.CapacityCase>(@object: kind);
                 Assert.Equal(expected: p.Count, actual: capacity.Count.Value);
                 Assert.Equal(expected: p.Capacity, actual: capacity.Limit.Value);
+                Assert.Equal(expected: 8, actual: capacity.Iterations.Value);
+                Spec.Equal(left: capacity.Tolerance.Value, right: 1.0e-6, tolerance: 0.0, what: "capacity tolerance");
             });
             Spec.Succ(SampleKind.SampleElimination(count: p.Count, oversampleFactor: 5, alpha: 8.0, beta: 0.65, gamma: 1.5, seed: 17, key: SampleGens.Key), then: kind => {
                 SampleKind.SampleEliminationCase elimination = Assert.IsType<SampleKind.SampleEliminationCase>(@object: kind);
@@ -96,7 +101,7 @@ public sealed class SampleKindFactoryLaws {
         Spec.FailCategory(SampleKind.Weighted(points: Seq<(Point3d Point, double Mass)>(), key: SampleGens.Key), category: "Input");
         Spec.FailCategory(SampleKind.Weighted(points: Seq((Point3d.Origin, -1.0)), key: SampleGens.Key), category: "Input");
         Spec.FailCategory(SampleKind.Admit(value: new SampleKind.SampleEliminationCase(count: Dim.Create(value: 2), oversampleFactor: Dim.Create(value: 1), alpha: Spec.SuccValue(SampleGens.Key.AcceptValidated<PositiveMagnitude>(candidate: 1.0), label: "alpha"), beta: Spec.SuccValue(SampleGens.Key.AcceptValidated<PositiveMagnitude>(candidate: 0.5), label: "beta"), gamma: Spec.SuccValue(SampleGens.Key.AcceptValidated<PositiveMagnitude>(candidate: 1.0), label: "gamma"), seed: 17), key: SampleGens.Key), category: "Input");
-        Spec.SmartEnumCatalogMatches(production: SampleAlgorithmKind.Items, expectedKeys: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], key: static kind => kind.Key);
+        Spec.SmartEnumCatalogMatches(production: SampleAlgorithmKind.Items, expectedKeys: [0, 1, 2, 3, 4, 5, 6, 7, 8], key: static kind => kind.Key);
         Spec.SmartEnumCatalogMatches(production: SampleStopKind.Items, expectedKeys: [0, 1, 2, 3], key: static kind => kind.Key);
     }
     [Fact]
@@ -201,7 +206,7 @@ public sealed class SampleDensityLaws {
             Spec.CountsConserve(attempted: receipt.Attempted, emitted: receipt.Emitted, rejected: receipt.Rejected, label: "weighted cloud receipt"));
     }
     [Fact]
-    public void ScalarDensityPriorityMultipliesCloudMassDeterministically() {
+    public void VariableDensityPoissonMultipliesCloudMassDeterministically() {
         SampleKind density = Spec.SuccValue(SampleKind.ScalarDensity(density: ScalarField.Constant(value: 2.0), count: 2, key: SampleGens.Key), label: "density kind");
         VectorIntent weighted = SampleGens.Intent(kind: density, mass: Some(Seq(1000.0, 1.0, 1.0)));
         VectorIntent uniform = SampleGens.Intent(kind: density);
@@ -211,13 +216,16 @@ public sealed class SampleDensityLaws {
         Arr<double> uniformMass = Spec.SuccValue(uniform.Project<VectorCloud>(context: SampleGens.Model, key: SampleGens.Key), label: "uniform density cloud") is VectorCloud.ClusterCase uniformCluster
             ? uniformCluster.Mass.IfNone(new Arr<double>([]))
             : new Arr<double>([]);
-        Assert.Equal(expected: weightedMass.Count, actual: uniformMass.Count);
+        Assert.True(condition: weightedMass.Count > 0);
+        Assert.True(condition: uniformMass.Count > 0);
         Assert.True(condition: Enumerable.Max(source: weightedMass.AsIterable()) > Enumerable.Max(source: uniformMass.AsIterable()));
         Spec.Succ(weighted.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key), then: receipt => {
             Spec.Some(receipt.DensityAccepted, accepted => Assert.Equal(expected: SampleGens.Points.Count, actual: accepted));
             Spec.Some(receipt.DensityRejected, rejected => Assert.Equal(expected: 0, actual: rejected));
             Spec.Some(receipt.Algorithm, algorithm => {
-                Assert.Equal(expected: SampleAlgorithmKind.ScalarDensityPriority, actual: algorithm.Kind);
+                Assert.Equal(expected: SampleAlgorithmKind.VariableDensityPoisson, actual: algorithm.Kind);
+                Assert.True(condition: algorithm.DensityMin.IsSome && algorithm.DensityMax.IsSome);
+                Assert.True(condition: algorithm.LocalRadiusMin.IsSome && algorithm.LocalRadiusMax.IsSome);
                 Assert.False(condition: algorithm.MeshSpectrumValidated);
             });
         });
@@ -233,7 +241,7 @@ public sealed class SampleDensityLaws {
             Spec.Some(receipt.DensityAccepted, accepted => Assert.Equal(expected: SampleGens.Points.Count, actual: accepted));
             Spec.Some(receipt.DensityRejected, rejected => Assert.Equal(expected: 0, actual: rejected));
             Assert.Equal(expected: SampleDomainStatus.CandidateAccepted, actual: receipt.DomainStatus);
-            Spec.Some(receipt.Algorithm, algorithm => Assert.Equal(expected: SampleAlgorithmKind.AdaptivePriority, actual: algorithm.Kind));
+            Spec.Some(receipt.Algorithm, algorithm => Assert.Equal(expected: SampleAlgorithmKind.VariableDensityPoisson, actual: algorithm.Kind));
         });
     }
     [Fact]

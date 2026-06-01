@@ -20,6 +20,7 @@ internal static class CloudMetricGens {
         VectorCloudMetric.TangentFlow, VectorCloudMetric.CumulativeArcLength, VectorCloudMetric.EdgeCurvatures,
         VectorCloudMetric.OpenLength, VectorCloudMetric.Covariance, VectorCloudMetric.PrincipalDirection, VectorCloudMetric.Spread,
         VectorCloudMetric.OrientedNormals, VectorCloudMetric.PrincipalCurvature, VectorCloudMetric.Curvedness, VectorCloudMetric.ShapeIndex,
+        VectorCloudMetric.Admission, VectorCloudMetric.Neighborhood, VectorCloudMetric.CurvatureReceipt,
     ];
     public static readonly Seq<Point3d> Triangle = Gens.UnitTriangle3;
     public static readonly Gen<Seq<double>> RawMass3 = Gens.Positive.Array[3].Select(static values => toSeq(values));
@@ -30,6 +31,7 @@ internal static class CloudMetricGens {
         typeof(Vector3d), typeof(double), typeof(Point3d), typeof(Plane),
         typeof(Seq<Vector3d>), typeof(VectorCloudShape), typeof(Seq<Plane>),
         typeof(SymmetricMatrix), typeof(Seq<double>), typeof(CloudCurvatureResult),
+        typeof(CloudAdmissionReceipt), typeof(CloudNeighborhoodReceipt), typeof(CloudCurvatureReceipt),
     ];
     public static CloudMetricPolicy MetricPolicy(int neighbors, double residual = 1.0e-3) {
         Op key = Op.Of(name: "cloud-test");
@@ -70,7 +72,10 @@ public sealed class VectorCloudMetricLaws {
             (VectorCloudMetric.CumulativeArcLength, typeof(Seq<double>)),
             (VectorCloudMetric.EdgeCurvatures, typeof(Seq<double>)),
             (VectorCloudMetric.Curvedness, typeof(Seq<double>)),
-            (VectorCloudMetric.ShapeIndex, typeof(Seq<double>)));
+            (VectorCloudMetric.ShapeIndex, typeof(Seq<double>)),
+            (VectorCloudMetric.Admission, typeof(CloudAdmissionReceipt)),
+            (VectorCloudMetric.Neighborhood, typeof(CloudNeighborhoodReceipt)),
+            (VectorCloudMetric.CurvatureReceipt, typeof(CloudCurvatureReceipt)));
         _ = cases.Iter(static c => Assert.Equal(expected: c.Output, actual: c.Metric.Output));
     }
     [Fact]
@@ -96,6 +101,8 @@ public sealed class VectorCloudMassLaws {
     public void WeightedClusterNormalizesMassRail() =>
         Spec.ForAll(CloudMetricGens.RawMass3, mass => Spec.Succ(VectorCloud.WeightedCluster(points: CloudMetricGens.Triangle, mass: mass, context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), then: cloud => {
             VectorCloud.ClusterCase cluster = Assert.IsType<VectorCloud.ClusterCase>(@object: cloud);
+            Assert.True(condition: cluster.Admission.IsValid);
+            Assert.Equal(expected: CloudMetricGens.Triangle.Count, actual: cluster.Admission.OriginalToUnique.Count);
             Spec.Some(cluster.Mass, weights => {
                 double total = Numeric.Sum(values: mass);
                 Spec.Equal(left: Numeric.Sum(values: toSeq(weights.AsIterable())), right: 1.0, tolerance: 1.0e-12, what: "mass sum");
@@ -124,6 +131,10 @@ public sealed class VectorCloudMassLaws {
             VectorCloud.ClusterCase cluster = Assert.IsType<VectorCloud.ClusterCase>(@object: admitted);
             Spec.Some(cluster.Mass, mass => Spec.Equal(left: Seq(0.2, 0.3, 0.5), right: toSeq(mass.AsIterable()), tolerance: 1.0e-12, what: "admitted mass"));
         });
+        VectorCloud duplicates = Spec.SuccValue(VectorCloud.WeightedCluster(points: Seq(CloudMetricGens.Triangle[0], CloudMetricGens.Triangle[0], CloudMetricGens.Triangle[1]), mass: Seq(2.0, 3.0, 5.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), label: "dedup weighted");
+        VectorCloud.ClusterCase dedup = Assert.IsType<VectorCloud.ClusterCase>(@object: duplicates);
+        Assert.Equal(expected: (3, 2, 1), actual: (dedup.Admission.InputCount, dedup.Admission.OutputCount, dedup.Admission.DuplicateCoordinateCount));
+        Spec.Some(dedup.Mass, mass => Spec.Equal(left: Seq(0.5, 0.5), right: toSeq(mass.AsIterable()), tolerance: 1.0e-12, what: "dedup mass"));
         Spec.Succ(VectorCloud.Admit(value: CloudMetricGens.ClusterOf(points: CloudMetricGens.Triangle), key: Op.Of(name: "cloud-test")), admitted =>
             Assert.True(condition: Assert.IsType<VectorCloud.ClusterCase>(@object: admitted).Mass.IsNone));
     }
@@ -139,7 +150,7 @@ public sealed class VectorCloudMassLaws {
             Assert.Equal(expected: SinkhornStopKind.RelaxedScalingConverged, actual: receipt.Stop));
         Spec.Succ(CloudKernel.Sinkhorn<double>(source: source, target: target, policy: balanced, key: Op.Of(name: "cloud-test")),
             then: distance => Spec.Equal(left: distance, right: 1.0, tolerance: 1.0e-12, what: "one-point OT distance"));
-        Spec.FailCategory(CloudKernel.Sinkhorn<double>(source: source, target: target, policy: default, key: Op.Of(name: "cloud-test")), category: "Input");
+        Spec.FailCategory(CloudKernel.Sinkhorn<double>(source: source, target: target, policy: default, key: Op.Of(name: "cloud-test")), category: "Tolerance");
         Spec.FailCategory(CloudKernel.Sinkhorn<Point3d>(source: source, target: target, policy: balanced, key: Op.Of(name: "cloud-test")), category: "Unsupported");
     }
     [Fact]
@@ -182,7 +193,9 @@ public sealed class VectorCloudHullAndCurvatureLaws {
     }
     [Fact]
     public void CurvatureResultReceiptRequiresConservedAcceptedRejectedCounts() {
-        CloudCurvatureReceipt receipt = new(InputCount: 2, RequestedNeighborCount: 6, AcceptedSampleCount: 0, RejectedSampleCount: 2, RankRejectedCount: 1, ResidualRejectedCount: 1, MeanResidual: 0.0, MaxResidual: 0.0, EigenGapTolerance: 1.0e-8, FitResidualTolerance: 1.0e-4, SelfNeighborIncluded: true, NativeIndexRouted: true, RadiusLimited: false, SearchBackend: CloudNeighborhoodSearchBackend.RhinoPointCloudKnn);
+        CloudNeighborhoodReceipt neighborhood = new(InputCount: 2, QueryCount: 2, RequestedNeighborCount: 2, SearchBackend: CloudNeighborhoodSearchBackend.RhinoPointCloudKnn, RadiusLimited: false, Radius: Option<double>.None, NativeIndexRouted: true, SelfNeighborIncluded: true, EmptyNeighborhoodCount: 0, OutOfRangeIndexCount: 0, DuplicateIndexCount: 0, DuplicateCoordinateCount: 0, MinReturnedCount: 1, MaxReturnedCount: 1, MeanReturnedCount: 1.0);
+        CloudCurvatureRangeReceipt range = new(AcceptedSampleCount: 0, Kind: CloudCurvatureRangeKind.Empty, PlaneLikeCount: 0, SphereLikeCount: 0, SaddleLikeCount: 0, MixedCount: 0, MinK1: 0.0, MaxK1: 0.0, MinK2: 0.0, MaxK2: 0.0, MinGaussian: 0.0, MaxGaussian: 0.0, MinMean: 0.0, MaxMean: 0.0, MinShapeIndex: 0.0, MaxShapeIndex: 0.0, Tolerance: 1.0e-4);
+        CloudCurvatureReceipt receipt = new(InputCount: 2, RequestedNeighborCount: 2, AcceptedSampleCount: 0, RejectedSampleCount: 2, RankRejectedCount: 1, ResidualRejectedCount: 1, MeanResidual: 0.0, MaxResidual: 0.0, EigenGapTolerance: 1.0e-8, FitResidualTolerance: 1.0e-4, Neighborhood: neighborhood, Range: range);
         CloudCurvatureResult result = new(Samples: Seq<CloudCurvatureSample>(), Receipt: receipt);
         Assert.True(condition: receipt.IsValid);
         Assert.True(condition: result.IsValid);

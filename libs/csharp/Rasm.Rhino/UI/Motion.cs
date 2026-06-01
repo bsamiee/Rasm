@@ -58,7 +58,7 @@ public interface IMotionVector<TValue, TVelocity> {
 public interface IMotionVector<T> : IMotionVector<T, T> {
 }
 
-[Union]
+[Union(SwitchMapStateParameterName = "state")]
 public abstract partial record MotionClock {
     private MotionClock() { }
     public sealed record IdleLoopCase : MotionClock;
@@ -529,9 +529,10 @@ internal static class Motion {
         MotionRunner<TState> runner = MotionRunner<TState>.Of(cell: cell);
         MotionPump? pump = new();
         pump.Bind(attachFactory: p => clock.Switch(
-            idleLoopCase: _ => IdleDriver(runner: runner, target: target, pump: p),
-            displayLinkCase: link => DisplayOrFallback(runner: runner, target: target, rate: link.Rate, pump: p),
-            timerCase: timer => UiTimerDriver(runner: runner, target: target, interval: timer.IntervalSeconds, pump: p)));
+            state: (Runner: runner, Target: target, Pump: p),
+            idleLoopCase: static (state, _) => IdleDriver(runner: state.Runner, target: state.Target, pump: state.Pump),
+            displayLinkCase: static (state, link) => DisplayOrFallback(runner: state.Runner, target: state.Target, rate: link.Rate, pump: state.Pump),
+            timerCase: static (state, timer) => UiTimerDriver(runner: state.Runner, target: state.Target, interval: timer.IntervalSeconds, pump: state.Pump)));
         try {
             return pump.Begin().Map(_ => {
                 MotionPump owned = pump!;
@@ -652,7 +653,7 @@ internal static class Motion {
         internal Unit Rest() =>
             Interlocked.CompareExchange(ref state, 0, 1) == 1
                 ? Op.Side(() => {
-                    IDisposable? live = Interlocked.Exchange(ref box, null);
+                    IDisposable? live = Interlocked.Exchange(location1: ref box, value: null);
                     live?.Dispose();
                 })
                 : unit;
@@ -670,7 +671,7 @@ internal static class Motion {
         public void Dispose() {
             _ = Interlocked.Exchange(ref state, 2);
             _ = Op.Side(() => {
-                IDisposable? live = Interlocked.Exchange(ref box, null);
+                IDisposable? live = Interlocked.Exchange(location1: ref box, value: null);
                 live?.Dispose();
             });
         }

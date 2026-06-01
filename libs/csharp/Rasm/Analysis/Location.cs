@@ -186,7 +186,7 @@ public static partial class Analyze {
             key: key, requirement: Requirement.CurveLength, state: (Key: key, Parameters: parameters),
             evaluator: static (state, geometry) =>
                 GeometryKernel.CurveForm(source: geometry, op: state.Key)
-                    .Bind(lease => lease.Use(curve => Optional(curve.GetPerpendicularFrames(toSeq(state.Parameters.AsIterable().OrderBy(t => t).Distinct()).AsIterable()))
+                    .Bind(lease => lease.Use(curve => Optional(curve.GetPerpendicularFrames(toSeq(state.Parameters.AsIterable().Order().Distinct()).AsIterable()))
                         .ToFin(state.Key.InvalidResult())
                         .Bind(planes => state.Key.Accept(values: planes))))
                     .ToEff());

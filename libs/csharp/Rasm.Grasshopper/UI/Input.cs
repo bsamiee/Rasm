@@ -1,3 +1,4 @@
+using System.Globalization;
 using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Extensions;
@@ -75,6 +76,26 @@ public sealed partial class DialogPresentation {
                 s.Dialog.DisplayMode = DialogDisplayMode.Attached;
                 return s.Dialog.ShowModal(owner: s.Parent);
             });
+}
+
+[SmartEnum<int>]
+public sealed partial class PanelBehavior {
+    public static readonly PanelBehavior Modal = new(key: 0);
+    public static readonly PanelBehavior Attached = new(key: 1);
+    public static readonly PanelBehavior Floating = new(key: 2);
+}
+
+[SmartEnum<int>]
+public sealed partial class MaterialPolicy {
+    public static readonly MaterialPolicy Default = new(key: 0);
+    public static readonly MaterialPolicy Content = new(key: 1);
+    public static readonly MaterialPolicy Hud = new(key: 2);
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PresentationPolicy(Option<PanelBehavior> Behavior = default, Option<MaterialPolicy> Material = default) {
+    internal DialogPresentation DialogPresentation =>
+        Behavior.Filter(static behavior => behavior == PanelBehavior.Attached).Map(static _ => DialogPresentation.AttachedSheet).IfNone(DialogPresentation.Modal);
 }
 
 [SmartEnum<int>]
@@ -197,6 +218,54 @@ public readonly record struct InputClipboardSnapshot(Option<string> Text, Option
             Types: left.Types + right.Types,
             Data: toSeq(left.Data) + toSeq(right.Data));
 }
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct TransferPayload(InputClipboardSnapshot Clipboard, Option<DragEffects> Effects = default, Option<DragEffects> AllowedEffects = default) {
+    public static TransferPayload Empty => new(Clipboard: InputClipboardSnapshot.Empty);
+    public static TransferPayload Of(InputClipboardSnapshot clipboard) => new(Clipboard: clipboard);
+}
+
+[SkipUnionOps]
+[Union]
+public partial record InputTransferOp {
+    private InputTransferOp() { }
+    public sealed record ClipboardCase(InputClipboardOp Op) : InputTransferOp;
+    public sealed record DragSourceCase(TransferPayload Payload) : InputTransferOp;
+    public sealed record DropPolicyCase(Seq<string> DataTypes, DragEffects Effects) : InputTransferOp;
+    public static InputTransferOp Clipboard(InputClipboardOp op) => new ClipboardCase(Op: op);
+    public static InputTransferOp DragSource(TransferPayload payload) => new DragSourceCase(Payload: payload);
+    public static InputTransferOp DropPolicy(Seq<string> dataTypes, DragEffects effects = DragEffects.Copy) => new DropPolicyCase(DataTypes: dataTypes, Effects: effects);
+}
+
+public abstract record FormField(string Key, string Label) {
+    public sealed record Text(string Name, string Caption, string Value = "") : FormField(Key: Name, Label: Caption);
+    public sealed record TextArea(string Name, string Caption, string Value = "") : FormField(Key: Name, Label: Caption);
+    public sealed record Toggle(string Name, string Caption, bool Value = false) : FormField(Key: Name, Label: Caption);
+    public sealed record Number(string Name, string Caption, double Value = 0d) : FormField(Key: Name, Label: Caption);
+    public sealed record Choice(string Name, string Caption, Seq<string> Options, int Selected = 0) : FormField(Key: Name, Label: Caption);
+
+    public static FormField TextInput(string key, string label, string value = "") => new Text(Name: key, Caption: label, Value: value);
+    public static FormField TextAreaInput(string key, string label, string value = "") => new TextArea(Name: key, Caption: label, Value: value);
+    public static FormField Check(string key, string label, bool value = false) => new Toggle(Name: key, Caption: label, Value: value);
+    public static FormField Numeric(string key, string label, double value = 0d) => new Number(Name: key, Caption: label, Value: value);
+    public static FormField Select(string key, string label, Seq<string> options, int selected = 0) => new Choice(Name: key, Caption: label, Options: options, Selected: selected);
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FormSnapshot(IReadOnlyDictionary<string, object> Values) {
+    public Option<T> Value<T>(string key) =>
+        Values.TryGetValue(key: key, value: out object? value) && value is T typed ? Some(typed) : Option<T>.None;
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct FormPlan<TResult>(
+    string Title,
+    Seq<FormField> Fields,
+    Func<FormSnapshot, Fin<TResult>> Submit,
+    PresentationPolicy Presentation = default,
+    CommandPlan Commands = default,
+    string AcceptText = "OK",
+    string CancelText = "Cancel");
 
 public readonly record struct FileFilter(string Name, Seq<string> Extensions);
 
@@ -345,7 +414,7 @@ public partial record ToolbarItem {
         state: bar,
         buttonCase: static (bar, item) => Fin.Succ(item.Command).Map(command => {
             PushButton pushed = bar.AddPushButton(
-                icon: command.Icon.IfNone(default(IIcon)!),
+                icon: command.Icon.IfNone(noneValue: StandardIcons.Parameters.Unknown),
                 nomen: new Nomen(name: command.Name, info: command.Info),
                 callback: () => _ = GrasshopperUi.Handler(valid: command.Run),
                 keys: command.ShortcutKey());
@@ -376,8 +445,9 @@ public partial record ToolbarItem {
         textInputCase: static (bar, item) =>
             from changed in TextInputCase.SelfOp.NeedChanged(item.Changed, noun: "text")
             from added in TextInputCase.SelfOp.Attempt(body: () => {
-                TextField field = bar.AddTextField(icon: default!, nomen: new Nomen(name: item.Name, info: item.Name), initial: item.Value, placeholder: item.Name);
+                TextField field = bar.AddTextField(icon: StandardIcons.Parameters.Text, nomen: new Nomen(name: item.Name, info: item.Name), initial: item.Value, placeholder: item.Name);
                 field.TextChanged += (_, value) => _ = GrasshopperUi.Handler(valid: () => changed(arg: value));
+                return unit;
             }, what: "AddTextField")
             select added,
         numberCase: static (bar, item) =>
@@ -396,7 +466,7 @@ public partial record ToolbarItem {
         colourBarsCase: static (bar, item) =>
             from changed in ColourBarsCase.SelfOp.NeedChanged(item.Changed, noun: "colour")
             from added in ColourBarsCase.SelfOp.Attempt(body: () => {
-                void Assign(OpenColor.Family value) => _ = GrasshopperUi.Handler(valid: () => changed(value));
+                void Assign(OpenColor.Family value) => _ = GrasshopperUi.Handler(valid: () => changed(arg: value));
                 Nomen nomen = new(name: $"{item.Name} {{family}}", info: $"{item.Name} {{family}}");
                 Bar.CreateStandardColourBars(nomen: nomen, initial: item.Family, assignment: Assign, out Bar life, out Bar cool, out Bar warm);
                 Seq<Seq<RadioToggle>> groups = Seq(life, cool, warm).Map(static toolbar => toSeq(toolbar.ActiveElements.OfType<RadioToggle>())).ToSeq();
@@ -519,7 +589,7 @@ public partial record ToolbarItem {
 
     private static Unit AddRadioToggle(Bar bar, UiCommand command, bool state, bool optional, Func<bool, Fin<Unit>> changed) {
         RadioToggle toggled = bar.AddRadioToggle(
-            icon: command.Icon.IfNone(default(IIcon)!),
+            icon: command.Icon.IfNone(noneValue: StandardIcons.Parameters.Unknown),
             nomen: new Nomen(name: command.Name, info: command.Info),
             initial: state,
             callback: value => _ = GrasshopperUi.Handler(valid: () => changed(arg: value)),
@@ -576,6 +646,19 @@ public abstract record InputRequest<T> : GhUiRequest<T> {
     // cases because the return domains differ (string vs double).
     public sealed record EditPrompt(string Title, string Body, string Default = "", bool Multiline = false) : InputRequest<Option<string>> { internal override Fin<Option<string>> Apply(GrasshopperUi.Scope scope) => Input.EditPrompt(title: Title, message: Body, defaultText: Default, multiline: Multiline).Run(scope: scope); }
     public sealed record NumberPrompt(string Title, string Body, double Default = 0d, UiNumberRange Range = default) : InputRequest<Option<double>> { internal override Fin<Option<double>> Apply(GrasshopperUi.Scope scope) => Input.NumberPrompt(title: Title, message: Body, initial: Default, range: Range).Run(scope: scope); }
+}
+
+public static class InputRequest {
+    public static InputRequest<Option<TResult>> Form<TResult>(FormPlan<TResult> plan) => new FormRequest<TResult>(Plan: plan);
+    public static InputRequest<TransferPayload> Transfer(InputTransferOp op) => new TransferRequest(Op: op);
+}
+
+internal sealed record FormRequest<TResult>(FormPlan<TResult> Plan) : InputRequest<Option<TResult>> {
+    internal override Fin<Option<TResult>> Apply(GrasshopperUi.Scope scope) => Input.Form(plan: Plan).Run(scope: scope);
+}
+
+internal sealed record TransferRequest(InputTransferOp Op) : InputRequest<TransferPayload> {
+    internal override Fin<TransferPayload> Apply(GrasshopperUi.Scope scope) => Input.Transfer(op: Op).Run(scope: scope);
 }
 
 // Scope-restoring cursor capsule; disposing reinstates the canvas's prior Cursor. Use via
@@ -793,6 +876,16 @@ internal static partial class Input {
                         }, what: "Clipboard.Clear")
                         select snapshot)));
 
+    internal static GrasshopperUiIntent<TransferPayload> Transfer(InputTransferOp op) =>
+        GhUi.Read(run: scope =>
+            Optional(op)
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Transfer)), detail: "transfer op is required"))
+                .Bind(valid => valid.Switch(
+                    clipboardCase: c => Clipboard(op: c.Op).Run(scope: scope).Map(TransferPayload.Of),
+                    dragSourceCase: static d => Fin.Succ(d.Payload),
+                    dropPolicyCase: d => Clipboard(op: new InputClipboardOp.ReadCase(DataTypes: d.DataTypes)).Run(scope: scope)
+                        .Map(clipboard => new TransferPayload(Clipboard: clipboard, Effects: Some(d.Effects), AllowedEffects: Some(d.Effects))))));
+
     internal static GrasshopperUiIntent<Option<TResult>> Dialog<TResult>(Func<Dialog<Option<TResult>>, Fin<Unit>> configure, string title, Option<DialogPresentation> presentation) =>
         GhUi.Read(run: scope =>
             from validConfigure in Optional(configure).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Dialog)), detail: "null configure delegate"))
@@ -805,6 +898,71 @@ internal static partial class Input {
             Rhino.UI.EtoExtensions.UseRhinoStyle(dialog);
             return configure(arg: dialog).Map(_ => presentation.Show(dialog: dialog, parent: DialogParent(scope: scope)));
         }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Dialog)), detail: $"Dialog<T> threw: {error.Message}")).Bind(static r => r);
+
+    internal static GrasshopperUiIntent<Option<TResult>> Form<TResult>(FormPlan<TResult> plan) =>
+        GhUi.Read(run: scope => RunForm(scope: scope, plan: plan));
+
+    private static Fin<Option<TResult>> RunForm<TResult>(GrasshopperUi.Scope scope, FormPlan<TResult> plan) =>
+        Optional(plan.Submit)
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Form)), detail: "form submit delegate is required"))
+            .Bind(submit => Try.lift<Fin<Option<TResult>>>(f: () => {
+                using Dialog<Option<TResult>> dialog = new() { Title = plan.Title };
+                DynamicLayout layout = new() { Padding = new Padding(all: 12), Spacing = new Size(width: 8, height: 8) };
+                Seq<(FormField Field, Control Control)> controls = plan.Fields.Map(field => (Field: field, Control: FormControl(field: field))).ToSeq();
+                _ = controls.Iter(entry => layout.AddRow(new Label { Text = entry.Field.Label }, entry.Control));
+                Button accept = new() { Text = string.IsNullOrWhiteSpace(value: plan.AcceptText) ? "OK" : plan.AcceptText };
+                Button cancel = new() { Text = string.IsNullOrWhiteSpace(value: plan.CancelText) ? "Cancel" : plan.CancelText };
+                accept.Click += (_, _) => {
+                    Fin<TResult> result = Try.lift(f: () => CaptureForm(controls: controls)).Run()
+                        .MapFail(error => UiFault.InvalidInput(op: Op.Of(name: nameof(Form)), detail: error.Message))
+                        .Bind(snapshot => submit(arg: snapshot));
+                    _ = result.Map(value => { dialog.Close(Some(value)); return unit; })
+                        .IfFail(error => {
+                            _ = MessageBox.Show(parent: dialog, text: error.Message, caption: plan.Title, buttons: MessageBoxButtons.OK, type: MessageBoxType.Warning);
+                            return unit;
+                        });
+                };
+                cancel.Click += (_, _) => dialog.Close(Option<TResult>.None);
+                _ = layout.AddRow(null, cancel, accept);
+                dialog.DefaultButton = accept;
+                dialog.AbortButton = cancel;
+                dialog.Content = layout;
+                Rhino.UI.EtoExtensions.UseRhinoStyle(dialog);
+                return Fin.Succ(plan.Presentation.DialogPresentation.Show(dialog: dialog, parent: DialogParent(scope: scope)));
+            }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Form)), detail: $"Form<T> threw: {error.Message}")).Bind(static value => value));
+
+    private static Control FormControl(FormField field) =>
+        field switch {
+            FormField.Text text => new TextBox { Text = text.Value },
+            FormField.TextArea text => new TextArea { Text = text.Value, Size = new Size(width: 360, height: 120) },
+            FormField.Toggle boolean => new CheckBox { Checked = boolean.Value },
+            FormField.Number number => new TextBox { Text = string.Create(CultureInfo.InvariantCulture, $"{number.Value}") },
+            FormField.Choice choice => ChoiceControl(choice: choice),
+            _ => new TextBox(),
+        };
+
+    private static DropDown ChoiceControl(FormField.Choice choice) {
+        DropDown control = new();
+        _ = choice.Options.Iter(control.Items.Add);
+        control.SelectedIndex = Math.Clamp(value: choice.Selected, min: 0, max: Math.Max(val1: control.Items.Count - 1, val2: 0));
+        return control;
+    }
+
+    private static FormSnapshot CaptureForm(Seq<(FormField Field, Control Control)> controls) =>
+        new(Values: controls.ToDictionary(
+            keySelector: static entry => entry.Field.Key,
+            elementSelector: static entry => FormValue(field: entry.Field, control: entry.Control),
+            comparer: StringComparer.Ordinal));
+
+    private static object FormValue(FormField field, Control control) =>
+        (field, control) switch {
+            (FormField.Text, TextBox value) => value.Text,
+            (FormField.TextArea, TextArea value) => value.Text,
+            (FormField.Toggle, CheckBox value) => value.Checked ?? false,
+            (FormField.Number, TextBox value) => double.Parse(s: value.Text, provider: CultureInfo.InvariantCulture),
+            (FormField.Choice choice, DropDown value) => choice.Options[value.SelectedIndex],
+            _ => string.Empty,
+        };
 
     internal static GrasshopperUiIntent<Option<Color>> PickColor(Color initial, bool allowAlpha) =>
         GhUi.Read(run: scope =>

@@ -103,13 +103,13 @@ Scenario.Run("exchange", CAPTURE_PATH, (key, facts) => {
         new FileSheetEdit.AddDetail(SheetName: sheetC, Spec: new FileDetailSpec(Name: "Plan", Corner: new Point2d(20.0, 20.0), Opposite: new Point2d(260.0, 180.0), Projection: DefinedViewportProjection.Top))))), "add detail", facts).Receipt, "detail receipt");
     Probe.Require(detailReceipt.Created.Count == 1, "add detail returns one Created id (page realized via activate-preamble)");
     DocumentReceipt scaleReceipt = Probe.ExpectSome(Probe.Expect(files.Run(FileOp.Do(new FileExchange.SheetEdit(
-        new FileSheetEdit.ScaleDetail(SheetName: sheetC, DetailName: Some("Plan"), Scale: new FileScale.Lengths(ModelLength: 1.0, ModelUnit: LengthUnit.Meters, PageLength: 1.0, PageUnit: LengthUnit.Millimeters))))), "scale detail (explicit lengths)", facts).Receipt, "scale receipt");
+        new FileSheetEdit.ScaleDetail(SheetName: sheetC, Detail: DetailQuery.Named(name: "Plan"), Scale: new FileScale.Lengths(ModelLength: 1.0, ModelUnit: LengthUnit.Meters, PageLength: 1.0, PageUnit: LengthUnit.Millimeters))))), "scale detail (explicit lengths)", facts).Receipt, "scale receipt");
     Probe.Require(scaleReceipt.AttributeChanged.Count == 1, "scale detail is an AttributeChanged receipt");
 
     // --- 5b) NEW: native named-scale parse + batch, page-wide Configure, Sheets inspection, auto-numbering ---
-    // FileScale.Named parses "1:100"/imperial fractions through Rhino.ScaleValue; DetailName None ⇒ batch every detail.
+    // FileScale.Named parses "1:100"/imperial fractions through Rhino.ScaleValue; DetailQuery.All batches every detail.
     DocumentReceipt namedScaleReceipt = Probe.ExpectSome(Probe.Expect(files.Run(FileOp.Do(new FileExchange.SheetEdit(
-        new FileSheetEdit.ScaleDetail(SheetName: sheetC, DetailName: Option<string>.None, Scale: new FileScale.Named(Value: "1:100"))))), "scale detail named 1:100 (batch)", facts).Receipt, "named scale receipt");
+        new FileSheetEdit.ScaleDetail(SheetName: sheetC, Detail: DetailQuery.All, Scale: new FileScale.Named(Value: "1:100"))))), "scale detail named 1:100 (batch)", facts).Receipt, "named scale receipt");
     Probe.Require(namedScaleReceipt.AttributeChanged.Count >= 1, "named-scale batch touched at least one detail");
     RhinoPageView scaledC = toSeq(doc.Views.GetPageViews()).Find(page => page.PageName == sheetC).Match(Some: page => page, None: () => throw new InvalidOperationException(message: "sheetC missing after named scale"));
     DetailViewObject[] sheetCDetails = scaledC.GetDetailViews();
@@ -123,7 +123,7 @@ Scenario.Run("exchange", CAPTURE_PATH, (key, facts) => {
     facts.Add("detail.named.pageToModelRatio", namedRatio);
     Probe.Require(namedRatio > 0.0 && namedRatio < 1.0, "FileScale.Named(\"1:100\") persists a reduction ratio (page<model) on re-query");
     DocumentReceipt imperialReceipt = Probe.ExpectSome(Probe.Expect(files.Run(FileOp.Do(new FileExchange.SheetEdit(
-        new FileSheetEdit.ScaleDetail(SheetName: sheetC, DetailName: Some("Plan"), Scale: new FileScale.Named(Value: "1/4\"=1'-0\""))))), "scale detail imperial fraction", facts).Receipt, "imperial scale receipt");
+        new FileSheetEdit.ScaleDetail(SheetName: sheetC, Detail: DetailQuery.Named(name: "Plan"), Scale: new FileScale.Named(Value: "1/4\"=1'-0\""))))), "scale detail imperial fraction", facts).Receipt, "imperial scale receipt");
     Probe.Require(imperialReceipt.AttributeChanged.Count == 1, "imperial named scale parsed and applied to the Plan detail");
 
     // page-wide Configure: description + group + group user-strings applied atomically across the matched set

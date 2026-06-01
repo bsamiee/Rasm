@@ -71,7 +71,7 @@ public abstract record BridgeMarker {
     public static void EmitFacts(IReadOnlyDictionary<string, object> facts) {
         ArgumentNullException.ThrowIfNull(argument: facts);
         string serialized = JsonSerializer.Serialize(value: facts, options: BridgeWire.CompactJson);
-        Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"facts={serialized}"));
+        Console.WriteLine(value: $"facts={serialized}");
         Emit(marker: new Evidence(Key: "facts", Value: serialized));
     }
     private static BridgeMarker? ParsePayload(string payload) =>

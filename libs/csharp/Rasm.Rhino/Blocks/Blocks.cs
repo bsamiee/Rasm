@@ -28,8 +28,9 @@ public sealed class RhinoBlocks {
         Op runKey = key.OrDefault();
         return Optional(op).ToFin(Fail: runKey.InvalidInput())
             .Bind(valid => {
+                BlockOpMeta meta = valid.Metadata;
                 Fin<BlockOutcome> Work() => runKey.Catch(() => Operations.Run(op: valid, owner: this));
-                return RhinoUi.DispatchThread(uiBound: valid.RequiresUiThread(), mode: Mode, run: Work, name: nameof(Run));
+                return RhinoUi.DispatchThread(uiBound: meta.RequiresUiThread, mode: Mode, run: Work, name: meta.Name);
             });
     }
 
@@ -62,7 +63,7 @@ public sealed class RhinoBlocks {
                             filter: BlockFilter.ArchivesOnly(Seq(path.Value)),
                             policy: LinkRefreshPolicy.Changed,
                             batch: BatchPolicy.Default,
-                            key: Op.Of(name: nameof(BlockOp.RefreshLinks))))),
+                            key: Op.Of(name: nameof(LinkLifecycle.Refresh))))),
                     _ => Fin.Succ(value: unit),
                 }));
 

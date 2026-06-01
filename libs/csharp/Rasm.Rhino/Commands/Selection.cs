@@ -31,8 +31,37 @@ public sealed record CommandPickPolicy(
         select result;
 }
 
-public readonly record struct PickLocation(Option<double> CurveParameter, Option<Point2d> SurfaceParameter) {
-    internal static Option<PickLocation> Of(ObjRef reference, SelectionMethod selectionMethod) {
+[Union]
+public abstract partial record PickHit {
+    private PickHit() { }
+    public sealed record Curve(global::Rhino.Geometry.Curve Value, double T) : PickHit;
+    public sealed record Surface(global::Rhino.Geometry.Surface Value, double U, double V) : PickHit;
+    public sealed record Brep(BrepFace Value, double U, double V) : PickHit;
+
+    public Point3d Location =>
+        Switch(
+            curve: static value => value.Value.PointAt(t: value.T),
+            surface: static value => value.Value.PointAt(u: value.U, v: value.V),
+            brep: static value => value.Value.PointAt(u: value.U, v: value.V));
+
+    internal static Option<PickHit> Of(Option<ObjRef> reference) =>
+        reference.Bind(active => {
+            double t = double.NaN, u = double.NaN, v = double.NaN;
+            bool picked = active.SelectionMethod() == SelectionMethod.MousePick;
+            global::Rhino.Geometry.Curve? curve = picked ? active.CurveParameter(parameter: out t) : null;
+            global::Rhino.Geometry.Surface? surface = picked ? active.SurfaceParameter(u: out u, v: out v) : null;
+            BrepFace? face = picked ? active.Face() : null;
+            return (curve, surface, face) switch {
+                (global::Rhino.Geometry.Curve c, _, _) when RhinoMath.IsValidDouble(x: t) => Some<PickHit>(new Curve(Value: c, T: t)),
+                (_, _, BrepFace f) when RhinoMath.IsValidDouble(x: u) && RhinoMath.IsValidDouble(x: v) => Some<PickHit>(new Brep(Value: f, U: u, V: v)),
+                (_, global::Rhino.Geometry.Surface s, _) when RhinoMath.IsValidDouble(x: u) && RhinoMath.IsValidDouble(x: v) => Some<PickHit>(new Surface(Value: s, U: u, V: v)),
+                _ => Option<PickHit>.None,
+            };
+        });
+}
+
+public readonly record struct ReferenceHit(Option<double> CurveParameter, Option<Point2d> SurfaceParameter, Option<PickHit> Geometry) {
+    internal static Option<ReferenceHit> Of(ObjRef reference, SelectionMethod selectionMethod) {
         ArgumentNullException.ThrowIfNull(argument: reference);
         Option<double> curve = selectionMethod switch {
             SelectionMethod.MousePick => reference.CurveParameter(parameter: out double curveParameter) switch {
@@ -51,13 +80,13 @@ public readonly record struct PickLocation(Option<double> CurveParameter, Option
             },
             _ => Option<Point2d>.None,
         };
-        return Of(curve: curve, surface: surface);
+        return Of(curve: curve, surface: surface, geometry: PickHit.Of(reference: Optional(reference)));
     }
 
-    private static Option<PickLocation> Of(Option<double> curve, Option<Point2d> surface) =>
-        (curve.IsSome || surface.IsSome) switch {
-            true => Some(new PickLocation(CurveParameter: curve, SurfaceParameter: surface)),
-            false => Option<PickLocation>.None,
+    private static Option<ReferenceHit> Of(Option<double> curve, Option<Point2d> surface, Option<PickHit> geometry) =>
+        (curve.IsSome || surface.IsSome || geometry.IsSome) switch {
+            true => Some(new ReferenceHit(CurveParameter: curve, SurfaceParameter: surface, Geometry: geometry)),
+            false => Option<ReferenceHit>.None,
         };
 }
 
@@ -246,7 +275,7 @@ public sealed record CommandSelection {
         Option<uint> SelectionViewRuntimeSerialNumber,
         Option<Guid> SelectionViewportId,
         uint SelectionViewDetailSerialNumber,
-        Option<PickLocation> Location) {
+        Option<ReferenceHit> Hit) {
         public bool IsSubObject => ComponentIndex.IsSet;
         public bool IsGrip => Grip.IsSome;
         public bool IsLocked => Locked;
@@ -288,7 +317,7 @@ public sealed record CommandSelection {
                     _ => Optional(selectionView).Map(static view => view.ActiveViewportID),
                 },
                 SelectionViewDetailSerialNumber: detailSerial,
-                Location: PickLocation.Of(reference: reference, selectionMethod: selectionMethod));
+                Hit: ReferenceHit.Of(reference: reference, selectionMethod: selectionMethod));
         }
 
         internal static Option<Reference> Of(GetPoint getter) =>

@@ -33,8 +33,8 @@ public sealed class VectorIntentFactoryLaws {
     [Fact]
     public void ReferenceFactoriesRejectNullAndDefaultConstructorBypassInputs() {
         Spec.FailCategory(VectorIntent.Axis(axis: null!, key: IntentGens.Key), category: "Input");
-        Spec.FailCategory(VectorIntent.Cone(cone: default, mode: null!, key: IntentGens.Key), category: "Input");
-        Spec.FailCategory(VectorIntent.Bounce(incident: default, surface: null!, sample: Point3d.Origin, key: IntentGens.Key), category: "Input");
+        Spec.FailCategory(VectorIntent.Cloud(cloud: IntentGens.Cluster, metric: null!, key: IntentGens.Key), category: "Input");
+        Spec.FailCategory(VectorIntent.Sample(domain: IntentGens.CloudDomain, kind: null!, key: IntentGens.Key), category: "Input");
     }
     [Fact]
     public void CloudTransportFeatureAndDescriptorFactoriesGateInvalidInputs() {
@@ -45,7 +45,7 @@ public sealed class VectorIntentFactoryLaws {
             then: intent => Assert.IsType<VectorIntent.TransportCase>(@object: intent));
         Spec.FailCategory(CloudTransportPolicy.Of(regularization: 0.0, maxIterations: 32, key: IntentGens.Key), category: "Tolerance");
         Spec.FailCategory(CloudTransportPolicy.Of(regularization: 1.0, maxIterations: 0, key: IntentGens.Key), category: "Tolerance");
-        Spec.FailCategory(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, policy: default, key: IntentGens.Key), category: "Input");
+        Spec.FailCategory(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, policy: default, key: IntentGens.Key), category: "Tolerance");
         Spec.FailCategory(VectorIntent.Features(space: IntentGens.Space, dihedralRadians: 0.1, key: IntentGens.Key), category: "Input");
         Spec.FailCategory(VectorIntent.Features(space: IntentGens.Space, dihedralRadians: 0.0, key: IntentGens.Key), category: "Input");
         Spec.FailCategory(VectorIntent.Descriptor(space: IntentGens.Space, kind: MeshDescriptor.Spectral(filter: SpectralFilter.Identity), pairs: 4, key: IntentGens.Key), category: "Input");
@@ -110,25 +110,8 @@ public sealed class VectorIntentShapeLaws {
         Spec.Succ(cloudMetric.Project<SymmetricMatrix>(context: IntentGens.Model, key: IntentGens.Key), then: matrix =>
             Spec.Equal(left: toSeq(matrix.Upper.AsIterable()), right: toSeq(Numeric.CovarianceUpper(points: IntentGens.ClusterPoints).AsIterable()), tolerance: 1.0e-12, what: "intent covariance"));
         Spec.FailCategory(cloudMetric.Project<Point3d>(context: IntentGens.Model, key: IntentGens.Key), category: "Unsupported");
-        VectorIntent support = Spec.SuccValue(VectorIntent.Support(
-            space: Spec.SuccValue(SupportSpace.Of(value: new Point3d(x: 1.0, y: 0.0, z: 0.0), key: IntentGens.Key), label: "support point"),
-            sample: Point3d.Origin,
-            projection: SupportProjection.Span,
-            key: IntentGens.Key), label: "support span");
-        Spec.Succ(support.Project<VectorSpan>(context: IntentGens.Model, key: IntentGens.Key), then: span =>
-            Spec.Equal(left: span.Value, right: Vector3d.XAxis, tolerance: 0.0));
-        VectorIntent align = Spec.SuccValue(VectorIntent.Align(source: IntentGens.Cluster, target: IntentGens.Cluster, kind: AlignKind.Point, key: IntentGens.Key), label: "align intent");
-        Spec.Succ(align.Project<AlignmentReceipt>(context: IntentGens.Model, key: IntentGens.Key), then: receipt => {
-            Assert.Equal(expected: AlignmentStopKind.Converged, actual: receipt.Stop);
-            Assert.Equal(expected: AlignKind.Point, actual: receipt.Kind);
-        });
-    }
-}
-
-public sealed class VectorIntentAdmissionLaws {
-    [Fact]
-    public void SlerpRejectsDefaultDirectionsWithoutNativeProjection() {
-        Spec.FailCategory(VectorIntent.Slerp(a: default, b: IntentGens.Y, t: 0.5, key: IntentGens.Key), category: "Input");
-        Spec.FailCategory(VectorIntent.Slerp(a: IntentGens.X, b: default, t: 0.5, key: IntentGens.Key), category: "Input");
+        VectorIntent transport = Spec.SuccValue(VectorIntent.Transport(source: IntentGens.Cluster, target: IntentGens.Cluster, policy: IntentGens.TransportPolicy, key: IntentGens.Key), label: "transport intent");
+        Spec.Succ(transport.Project<SinkhornReceipt>(context: IntentGens.Model, key: IntentGens.Key), then: receipt =>
+            Assert.Equal(expected: SinkhornStopKind.RelaxedScalingConverged, actual: receipt.Stop));
     }
 }

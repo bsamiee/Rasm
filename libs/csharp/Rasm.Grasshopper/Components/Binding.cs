@@ -10,20 +10,21 @@ public sealed class OutputBinding {
     private readonly Func<Seq<Flow<object>>, Seq<object>, Unit> release;
     private readonly Func<IDataAccess, Hints, Unit> empty;
     private OutputBinding(
-        Port input,
+        Seq<Port> inputs,
         Port output,
         Func<GrasshopperRuntime, Fin<Seq<Flow<object>>>> read,
         Func<IDataAccess, Hints, GrasshopperRuntime, Seq<Flow<object>>, Seq<object>> run,
         Func<Seq<Flow<object>>, Seq<object>, Unit> release,
         Func<IDataAccess, Hints, Unit> empty) {
-        Input = input;
+        Inputs = inputs;
         Port = output;
         this.read = read;
         this.run = run;
         this.release = release;
         this.empty = empty;
     }
-    internal Port Input { get; }
+    internal Port Input => Inputs[0];
+    internal Seq<Port> Inputs { get; }
     internal Port Port { get; }
     internal Fin<Seq<Flow<object>>> Read(GrasshopperRuntime runtime) => read(arg: runtime);
     internal Seq<object> Run(IDataAccess access, Hints outputs, GrasshopperRuntime runtime, Seq<Flow<object>> source) =>
@@ -41,7 +42,7 @@ public sealed class OutputBinding {
         ArgumentNullException.ThrowIfNull(argument: input);
         ArgumentNullException.ThrowIfNull(argument: aspect);
         return Make(
-            input: input,
+            inputs: Seq<Port>(input),
             output: Port.Of<TOut>(name: name, code: code, info: info, access: access, requirement: Requirement.MustExist, kind: null, policy: policy, side: Side.Output),
             operation: _ => Fin.Succ(aspect.Operation<object, TOut>()),
             read: runtime => runtime.Shape(port: input).Map(static flows => flows.Map(static flow => flow.Project(item: (object)flow.Item))),
@@ -49,8 +50,57 @@ public sealed class OutputBinding {
             detach: static (flow, output) => ((Shape)flow.Item).Detach(output: output),
             release: static (source, transfers) => source.Iter(flow => ((Shape)flow.Item).DisposeUnlessTransferred(outputs: transfers)));
     }
+    public static OutputBinding Of<TIn, TOut>(
+        Port<TIn> input,
+        Operation<object, TOut> operation,
+        string name,
+        string code,
+        string info,
+        Access access = Access.Item,
+        Capability? policy = null)
+        where TIn : notnull
+        where TOut : notnull {
+        ArgumentNullException.ThrowIfNull(argument: input);
+        ArgumentNullException.ThrowIfNull(argument: operation);
+        return Make(
+            inputs: Seq<Port>(input),
+            output: Port.Of<TOut>(name: name, code: code, info: info, access: access, requirement: Requirement.MustExist, kind: null, policy: policy, side: Side.Output),
+            operation: _ => Fin.Succ(operation),
+            read: runtime => runtime.Read(port: input).Map(static flows => flows.Map(static flow => flow.Project(item: (object)flow.Item))),
+            lift: static flow => flow.Item,
+            detach: static (_, output) => output,
+            release: static (_, _) => unit);
+    }
+    public static OutputBinding Zip<TA, TB, TOut>(
+        Port<TA> left,
+        Port<TB> right,
+        Operation<object, TOut> operation,
+        string name,
+        string code,
+        string info,
+        Access access = Access.Item,
+        Capability? policy = null)
+        where TA : notnull
+        where TB : notnull
+        where TOut : notnull {
+        ArgumentNullException.ThrowIfNull(argument: left);
+        ArgumentNullException.ThrowIfNull(argument: right);
+        ArgumentNullException.ThrowIfNull(argument: operation);
+        return Make(
+            inputs: Seq<Port>(left, right),
+            output: Port.Of<TOut>(name: name, code: code, info: info, access: access, requirement: Requirement.MustExist, kind: null, policy: policy, side: Side.Output),
+            operation: _ => Fin.Succ(operation),
+            read: runtime =>
+                from a in runtime.Read(port: left)
+                from b in runtime.Read(port: right)
+                from zipped in ZipFlows(left: left, right: right, a: a, b: b)
+                select zipped,
+            lift: static flow => flow.Item,
+            detach: static (_, output) => output,
+            release: static (_, _) => unit);
+    }
     private static OutputBinding Make<TOut>(
-        Port input,
+        Seq<Port> inputs,
         Port<TOut> output,
         Func<GrasshopperRuntime, Fin<Operation<object, TOut>>> operation,
         Func<GrasshopperRuntime, Fin<Seq<Flow<object>>>> read,
@@ -58,12 +108,18 @@ public sealed class OutputBinding {
         Func<Flow<object>, Flow<TOut>, Flow<TOut>> detach,
         Func<Seq<Flow<object>>, Seq<object>, Unit> release) where TOut : notnull =>
         new(
-            input: input,
+            inputs: inputs,
             output: output,
             read: read,
             run: (access, outputs, runtime, source) => Output.Run(port: output, operation: operation, lift: lift, detach: detach, access: access, outputs: outputs, runtime: runtime, source: source),
             release: release,
             empty: (access, outputs) => outputs.Slot(port: output).Iter(slot => Output.Clear(port: output, access: access, slot: slot)));
+    private static Fin<Seq<Flow<object>>> ZipFlows<TA, TB>(Port<TA> left, Port<TB> right, Seq<Flow<TA>> a, Seq<Flow<TB>> b)
+        where TA : notnull
+        where TB : notnull =>
+        a.Count == b.Count
+            ? Fin.Succ(toSeq(Enumerable.Range(start: 0, count: a.Count)).Map(index => a[index].Project(item: (object)(a[index].Item, b[index].Item))))
+            : Fin.Fail<Seq<Flow<object>>>(new PortFault.InvalidValue(Port: $"{left.Name}+{right.Name}", Detail: string.Create(CultureInfo.InvariantCulture, $"zipped input cardinality mismatch {a.Count}:{b.Count}")));
 }
 
 internal readonly record struct Hints(Seq<(Port Port, int Slot)> Inputs) {

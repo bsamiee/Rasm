@@ -65,7 +65,9 @@ public sealed record SpecBuilder {
     public SpecBuilder Behaviour(ComponentUi ui) => this with { Ui = Ui + ui };
     internal ComponentSpec Build() {
         Seq<ComponentItem<Port>> declared = Inputs
-            .Concat(Outputs.Choose(static output => Optional(output.Value).Map(static binding => new ComponentItem<Port>(Value: binding.Input))))
+            .Concat(Outputs.Bind(static output => Optional(output.Value)
+                .Map(static binding => binding.Inputs.Map(static input => new ComponentItem<Port>(Value: input)))
+                .IfNone(Seq<ComponentItem<Port>>())))
             .Fold(Seq<ComponentItem<Port>>(), static (found, item) => found.Exists(input => ReferenceEquals(objA: input.Value, objB: item.Value)) switch {
                 true => found,
                 false => item.Cons(found),
@@ -91,6 +93,12 @@ internal readonly record struct GrasshopperRuntime(IDataAccess Access, Analyze.S
         return Hints.Slot(port: port)
             .ToFin(new PortFault.MissingInput(Port: port.Name, Hint: None))
             .Bind(slot => access.ReadShape(slot: slot, port: port));
+    }
+    internal Fin<Seq<Flow<TVal>>> Read<TVal>(Port<TVal> port) {
+        IDataAccess access = Access;
+        return Hints.Slot(port: port)
+            .ToFin(new PortFault.MissingInput(Port: port.Name, Hint: None))
+            .Bind(slot => access.Read<TVal>(slot: slot, port: port));
     }
 }
 

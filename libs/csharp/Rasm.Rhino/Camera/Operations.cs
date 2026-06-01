@@ -159,6 +159,28 @@ public abstract partial record CameraEdit {
         select result;
 }
 
+[Union]
+public abstract partial record CameraAim {
+    private CameraAim() { }
+    public sealed record Preserve : CameraAim;
+    public sealed record Direction(Vector3d Value, Option<Vector3d> Up = default) : CameraAim;
+    public sealed record LookAt(Point3d Location, Point3d Target, Option<Vector3d> Up = default) : CameraAim;
+    public sealed record Plan(Point3d Origin, Vector3d XDirection, Vector3d YDirection, bool SetConstructionPlane = true) : CameraAim;
+
+    internal Fin<Seq<CameraEdit>> Edits(Op op) =>
+        this switch {
+            Preserve => Fin.Succ(value: Seq<CameraEdit>()),
+            Direction aim when aim.Value.IsValid && aim.Value.Length > RhinoMath.ZeroTolerance =>
+                Fin.Succ(value: Seq<CameraEdit>(new CameraEdit.Direction(Value: aim.Value))
+                    + aim.Up.Map(value => Seq<CameraEdit>(new CameraEdit.Up(Value: value))).IfNone(Seq<CameraEdit>())),
+            LookAt aim when aim.Location.IsValid && aim.Target.IsValid =>
+                Fin.Succ(value: Seq<CameraEdit>(new CameraEdit.NavigateLookAt(From: aim.Location, At: aim.Target, UpAxis: aim.Up))),
+            Plan aim when aim.Origin.IsValid && aim.XDirection.IsValid && aim.YDirection.IsValid =>
+                Fin.Succ(value: Seq<CameraEdit>(new CameraEdit.Plan(Origin: aim.Origin, XDirection: aim.XDirection, YDirection: aim.YDirection, SetConstructionPlane: aim.SetConstructionPlane))),
+            _ => Fin.Fail<Seq<CameraEdit>>(error: op.InvalidInput()),
+        };
+}
+
 [SmartEnum<int>]
 public sealed partial class CameraKeyboardMove {
     public static readonly CameraKeyboardMove RotateInPlace = new(key: 0, apply: static (vp, leftRight, amount) => vp.KeyboardRotate(leftRight: leftRight, angleRadians: amount));
@@ -311,6 +333,88 @@ public readonly record struct CameraChangeReceipt(
     RedrawRequest Redraw) {
     public static CameraChangeReceipt Empty => new(Resources: Seq<Commands.DocumentResourceChange>(), Redraw: RedrawRequest.Empty);
     public bool RedrawRequested => Redraw != RedrawRequest.Empty;
+
+    public static CameraChangeReceipt Of(Seq<Commands.DocumentResourceChange> resources, RedrawRequest redraw) =>
+        new(Resources: resources, Redraw: redraw);
+    public static CameraChangeReceipt WithRedraw(RedrawRequest redraw) =>
+        Of(resources: Seq<Commands.DocumentResourceChange>(), redraw: redraw);
+    public static CameraChangeReceipt operator +(CameraChangeReceipt left, CameraChangeReceipt right) =>
+        Of(resources: left.Resources + right.Resources, redraw: left.Redraw | right.Redraw);
+}
+
+public readonly record struct CameraSection(
+    Plane Plane,
+    Option<double> Depth = default,
+    Option<string> Name = default,
+    Seq<Guid> ClipObjects = default,
+    Seq<int> ClipLayers = default,
+    bool ExclusionList = false,
+    Option<SectionStyle> Style = default) {
+    internal Fin<Commands.DocumentResourceChange> Apply(CameraScope scope, Op op) {
+        Plane plane = Plane;
+        Option<double> depth = Depth;
+        Option<string> name = Name;
+        Seq<Guid> clipObjects = ClipObjects;
+        Seq<int> clipLayers = ClipLayers;
+        bool exclusionList = ExclusionList;
+        Option<SectionStyle> style = Style;
+        return from _plane in guard(plane.IsValid, op.InvalidInput())
+               from validDepth in depth.Map(value => RhinoMath.IsValidDouble(x: value) && value > 0.0 ? Fin.Succ(value: Some(value)) : Fin.Fail<Option<double>>(error: op.InvalidInput()))
+                   .IfNone(Fin.Succ(value: Option<double>.None))
+               from result in op.Catch(() => {
+                   using ClippingPlaneSurface surface = new(plane: plane);
+                   _ = validDepth.Iter(value => {
+                       surface.PlaneDepth = value;
+                       surface.PlaneDepthEnabled = true;
+                   });
+                   _ = Op.SideWhen(!clipObjects.IsEmpty || !clipLayers.IsEmpty, () => {
+                       surface.ParticipationListsEnabled = true;
+                       surface.SetClipParticipation(objectIds: clipObjects.AsIterable(), layerIndices: clipLayers.AsIterable(), isExclusionList: exclusionList);
+                   });
+                   ObjectAttributes attributes = scope.Document.CreateDefaultAttributes();
+                   _ = name.Iter(value => attributes.Name = value);
+                   _ = style.Iter(value => attributes.SetCustomSectionStyle(sectionStyle: value));
+                   Guid id = scope.Document.Objects.AddClippingPlaneSurface(clippingPlane: surface, attributes: attributes, history: null, reference: false);
+                   return id != Guid.Empty && scope.Document.Objects.FindId(id: id) is ClippingPlaneObject section
+                       ? op.Confirm(success: section.AddClipViewport(viewport: scope.Viewport, commit: true))
+                           .Map(_ => Commands.DocumentResourceKind.Object.Change(name: name.IfNone(id.ToString(format: "D"))))
+                       : Fin.Fail<Commands.DocumentResourceChange>(error: op.InvalidResult());
+               })
+               select result;
+    }
+}
+
+public readonly record struct CameraShot(
+    CameraSubject Subject,
+    CameraProjection Projection,
+    CameraAim? Aim = null,
+    FramePaddingMode? Padding = null,
+    double PaddingAmount = CameraDefaults.FramePadding,
+    Option<double> Lens = default,
+    Option<DisplayModeDescription> Display = default,
+    Option<BoundingBox> ViewClipping = default,
+    Seq<CameraSection> Sections = default,
+    Seq<CameraEdit> Edits = default) {
+    internal Fin<Seq<CameraEdit>> Compile(Op op) {
+        CameraSubject subjectSource = Subject;
+        CameraProjection projectionSource = Projection;
+        CameraAim aimSource = Aim ?? new CameraAim.Preserve();
+        FramePaddingMode padding = Padding ?? FramePaddingMode.Symmetric;
+        double paddingAmount = PaddingAmount;
+        Option<double> lens = Lens;
+        Option<DisplayModeDescription> display = Display;
+        Option<BoundingBox> viewClipping = ViewClipping;
+        Seq<CameraEdit> edits = Edits;
+        return Optional(subjectSource).ToFin(Fail: op.InvalidInput()).Bind(subject =>
+            Optional(projectionSource).ToFin(Fail: op.InvalidInput()).Bind(projection =>
+                aimSource.Edits(op: op).Map(aim => Seq<CameraEdit>(new CameraEdit.Project(Projection: projection))
+            + aim
+            + lens.Map(value => Seq<CameraEdit>(new CameraEdit.Lens(Millimeters: value))).IfNone(Seq<CameraEdit>())
+            + Seq<CameraEdit>(new CameraEdit.SubjectFrame(Subject: subject, Mode: padding, Amount: paddingAmount))
+            + display.Map(value => Seq<CameraEdit>(new CameraEdit.DisplayMode(Value: value))).IfNone(Seq<CameraEdit>())
+            + viewClipping.Map(value => Seq<CameraEdit>(new CameraEdit.Clipping(Box: value))).IfNone(Seq<CameraEdit>())
+            + edits)));
+    }
 }
 
 public sealed record CameraOp<T>(Func<CameraScope, Fin<CameraOutcome<T>>> Run, bool UiBound = true) {
@@ -395,7 +499,7 @@ public static class CameraOps {
                 true => changes.TraverseM(edit => edit.Apply(scope: scope)).As()
                     .Map(redraws => redraws.Fold(RedrawRequest.Empty, static (left, right) => left | right))
                     .Map(redraw => CameraOutcome<CameraChangeReceipt>.Create(
-                        value: CameraChangeReceipt.Empty with { Redraw = redraw },
+                        value: CameraChangeReceipt.WithRedraw(redraw: redraw),
                         redraw: redraw)),
                 false => UI.RhinoUi.Protect(valid: () => {
                     scope.Document.Views.EnableRedraw(enable: false, redrawDocument: false, redrawLayers: false);
@@ -403,7 +507,7 @@ public static class CameraOps {
                         return changes.TraverseM(edit => edit.Apply(scope: scope)).As()
                             .Map(redraws => redraws.Fold(RedrawRequest.Empty, static (left, right) => left | right) | CameraScope.RedrawFor(scope: scope))
                             .Map(redraw => CameraOutcome<CameraChangeReceipt>.Create(
-                                value: CameraChangeReceipt.Empty with { Redraw = redraw },
+                                value: CameraChangeReceipt.WithRedraw(redraw: redraw),
                                 redraw: redraw));
                     } finally {
                         scope.Document.Views.EnableRedraw(enable: true, redrawDocument: false, redrawLayers: false);
@@ -411,6 +515,25 @@ public static class CameraOps {
                 }),
             }
             select outcome,
+            UiBound: true);
+
+    public static CameraOp<CameraChangeReceipt> Shot(CameraShot shot, bool redrawEach = false) =>
+        new(Run: scope =>
+            from edits in shot.Compile(op: Op.Of(name: nameof(Shot)))
+            from changed in Change(edits: edits.AsIterable(), redrawEach: redrawEach).Run(arg: scope)
+            from sections in shot.Sections.TraverseM(section => section.Apply(scope: scope, op: Op.Of(name: nameof(Shot)))).As()
+            let resources = changed.Resources + sections
+            let receipt = changed.Value + CameraChangeReceipt.Of(resources: sections, redraw: CameraScope.RedrawFor(scope: scope))
+            select CameraOutcome<CameraChangeReceipt>.Create(value: receipt, redraw: receipt.Redraw, resources: resources),
+            UiBound: true);
+
+    public static CameraOp<CameraChangeReceipt> Section(params CameraSection[] sections) =>
+        new(Run: scope =>
+            from admitted in Optional(sections).ToFin(Fail: Op.Of(name: nameof(Section)).InvalidInput()).Map(static source => toSeq(source))
+            from _any in guard(!admitted.IsEmpty, Op.Of(name: nameof(Section)).InvalidInput())
+            from resources in admitted.TraverseM(section => section.Apply(scope: scope, op: Op.Of(name: nameof(Section)))).As()
+            let receipt = CameraChangeReceipt.Of(resources: resources, redraw: CameraScope.RedrawFor(scope: scope))
+            select CameraOutcome<CameraChangeReceipt>.Create(value: receipt, redraw: receipt.Redraw, resources: resources),
             UiBound: true);
 
     public static CameraOp<Commands.DocumentResourceChange> SaveNamed(string name, bool fullView = true, Option<CameraDof> dof = default) =>
@@ -448,6 +571,7 @@ public static class CameraOps {
                 using (snapshot) {
                     Fin<CameraOutcome<TCapture>> run =
                         from restored in RestoreNamed(name: name, path: path, restore: restore).Run(arg: scope)
+                        from _commit in restored.Redraw.ApplyTo(scope: scope)
                         from result in validCapture.Run(arg: scope)
                         select result with { Redraw = restored.Redraw | result.Redraw, Resources = restored.Resources + result.Resources };
                     return run.BiBind(
@@ -473,11 +597,18 @@ public static class CameraOps {
             from _ in Op.Of(name: nameof(DeleteNamed)).Confirm(success: scope.Document.NamedViews.Delete(index: index))
             select NamedResource(name: valid));
 
-    public static CameraOp<DrawingBitmap> CaptureBitmap(CaptureRecipe recipe = default) =>
+    private static CameraOp<DrawingBitmap> CaptureBitmap(CaptureRecipe recipe = default) =>
         Capture(recipe: recipe, name: nameof(CaptureBitmap), render: static settings => ViewCapture.CaptureToBitmap(settings: settings));
 
-    public static CameraOp<XmlDocument> CaptureSvg(CaptureRecipe recipe = default) =>
+    private static CameraOp<XmlDocument> CaptureSvg(CaptureRecipe recipe = default) =>
         Capture(recipe: recipe, name: nameof(CaptureSvg), render: static settings => ViewCapture.CaptureToSvg(settings: settings));
+
+    public static CameraOp<CaptureResult> CaptureFrame(CaptureFormat format, CaptureRecipe recipe = default) =>
+        format switch {
+            CaptureFormat.Bitmap => CaptureBitmap(recipe: recipe).Map(value => (CaptureResult)new CaptureResult.Bitmap(Value: value)),
+            CaptureFormat.Svg => CaptureSvg(recipe: recipe).Map(value => (CaptureResult)new CaptureResult.Svg(Value: value)),
+            _ => new CameraOp<CaptureResult>(Run: _ => Fin.Fail<CameraOutcome<CaptureResult>>(error: Op.Of(name: nameof(CaptureFrame)).InvalidInput())),
+        };
 
     private static CameraOp<T> Capture<T>(CaptureRecipe recipe, string name, Func<ViewCaptureSettings, T?> render) where T : class =>
         new(Run: scope => recipe.WithPolicy(

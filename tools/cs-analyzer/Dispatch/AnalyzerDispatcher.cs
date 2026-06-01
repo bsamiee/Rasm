@@ -22,6 +22,7 @@ internal static class AnalyzerDispatcher {
                 ShapeRules.CheckSignatures(context, scope, method);
                 ShapeRules.CheckEffectReturnPolicy(context, scope, method);
                 ShapeRules.CheckExtensionProjectionPolicy(context, scope, method);
+                ShapeRules.CheckGeneratedCaseAliasCollapse(context, scope, method);
                 FlowRules.CheckAsyncVoid(context, scope, method);
                 RuntimeRules.CheckLibraryImport(context, scope, method);
                 RuntimeRules.CheckGeneratedRegexCharsetValidation(context, scope, method);
@@ -48,6 +49,7 @@ internal static class AnalyzerDispatcher {
                 TypeShapeRules.CheckDateTimeFieldInDomain(context, scope, namedType);
                 TypeShapeRules.CheckAnemicEntity(context, scope, namedType);
                 TypeShapeRules.CheckInitOnlyBypassOnValidated(context, scope, namedType);
+                TypeShapeRules.CheckOperationalReceiptFactStream(context, scope, namedType);
                 TypeShapeRules.TrackFlagsEnumDeclaration(context, state, namedType);
                 ShapeRules.CheckValidationTypeUsage(context, scope, namedType);
                 break;
@@ -75,8 +77,12 @@ internal static class AnalyzerDispatcher {
                 FlowRules.CheckFireAndForget(context, scope, invocation);
                 FlowRules.CheckUnboundedWhenAll(context, scope, invocation);
                 FlowRules.CheckFilterMapChain(context, scope, invocation);
+                FlowRules.CheckTraverseFusion(context, scope, invocation);
+                FlowRules.CheckStateThreadedDispatch(context, scope, invocation);
                 FlowRules.CheckMutableAccumulatorInLoop(context, scope, invocation);
+                FlowRules.CheckFoldAppendAccumulator(context, scope, invocation);
                 ShapeRules.CheckPositionalArguments(context, scope, invocation);
+                ShapeRules.CheckReceiptDocumentWrapper(context, scope, invocation);
                 RuntimeRules.CheckHotPathLinq(context, scope, invocation);
                 RuntimeRules.CheckFluentValidation(context, scope, invocation);
                 RuntimeRules.CheckScrutorScanRegistrationStrategy(context, scope, invocation);
@@ -93,6 +99,7 @@ internal static class AnalyzerDispatcher {
             case (_, IObjectCreationOperation objectCreation):
                 ShapeRules.CheckMutableCollections(context, scope, objectCreation);
                 ShapeRules.CheckPositionalRecordConstructor(context, scope, objectCreation);
+                ShapeRules.CheckReceiptConstructionOwner(context, scope, objectCreation);
                 RuntimeRules.CheckHttpClient(context, scope, objectCreation);
                 RuntimeRules.CheckTimerCreation(context, scope, objectCreation);
                 RuntimeRules.CheckTelemetryIdentityConstruction(context, scope, objectCreation);
@@ -118,6 +125,8 @@ internal static class AnalyzerDispatcher {
                 return;
             case (_, IBinaryOperation binary):
                 FlowRules.CheckNullSentinel(context, scope, binary);
+                FlowRules.CheckFoldAppendAccumulator(context, scope, binary);
+                ShapeRules.CheckReceiptChainCollapse(context, scope, binary);
                 TypeShapeRules.TrackFlagsEnumComposition(context, state, binary);
                 return;
             case (_, IIsPatternOperation isPattern):
@@ -137,6 +146,7 @@ internal static class AnalyzerDispatcher {
                 return;
             case (_, IWithOperation withOperation):
                 TypeShapeRules.CheckWithExpressionBypass(context, scope, withOperation);
+                ShapeRules.CheckReceiptConstructionOwner(context, scope, withOperation);
                 return;
         }
     }

@@ -1,4 +1,3 @@
-using System.Globalization;
 using Rasm.Domain;
 using Rasm.RhinoBridge.Protocol;
 
@@ -13,8 +12,8 @@ public static class Probe {
         return result.Match(
             Succ: static value => value,
             Fail: error => {
-                facts?.Add(key: string.Create(provider: CultureInfo.InvariantCulture, $"{label}.error.category"), value: error.Category());
-                facts?.Add(key: string.Create(provider: CultureInfo.InvariantCulture, $"{label}.error"), value: error.Message);
+                facts?.Add(key: $"{label}.error.category", value: error.Category());
+                facts?.Add(key: $"{label}.error", value: error.Message);
                 throw new InvalidOperationException(message: $"{label}: {error.Message}");
             });
     }
@@ -41,7 +40,7 @@ public static class Probe {
         ArgumentNullException.ThrowIfNull(argument: select);
         return ExpectSome(
             result: select(arg: Expect(result: result, label: label)),
-            label: string.Create(provider: CultureInfo.InvariantCulture, $"{label}: case"));
+            label: $"{label}: case");
     }
 }
 
@@ -51,8 +50,8 @@ public static class Scenario {
         ArgumentNullException.ThrowIfNull(argument: capturePath);
         ArgumentNullException.ThrowIfNull(argument: body);
         string scenePath = ScenePath(theme: theme, captureBase: capturePath);
-        Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"scenario={theme}"));
-        Console.WriteLine(value: string.Create(provider: CultureInfo.InvariantCulture, $"capture={scenePath}"));
+        Console.WriteLine(value: $"scenario={theme}");
+        Console.WriteLine(value: $"capture={scenePath}");
         Op key = Op.Of(name: theme);
         FactBag bag = new();
         bag.Add(key: "scenario.capturePath", value: scenePath);
@@ -71,10 +70,10 @@ public static class Scenario {
     // Each theme derives its own capture path from the shared bridge-injected base, so multi-Run files no longer overwrite a single PNG.
     private static string ScenePath(string theme, string captureBase) =>
         string.IsNullOrEmpty(value: captureBase)
-            ? string.Create(provider: CultureInfo.InvariantCulture, $"{theme}.png")
+            ? $"{theme}.png"
             : Path.Combine(
                 path1: Path.GetDirectoryName(path: captureBase) ?? Directory.GetCurrentDirectory(),
-                path2: string.Create(provider: CultureInfo.InvariantCulture, $"{Path.GetFileNameWithoutExtension(path: captureBase)}.{theme}.png"));
+                path2: $"{Path.GetFileNameWithoutExtension(path: captureBase)}.{theme}.png");
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------

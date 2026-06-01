@@ -33,7 +33,7 @@ public abstract partial record VectorIntent {
     public sealed record RemeshCase : VectorIntent { internal RemeshCase(MeshSpace Space, RemeshKind Kind) { this.Space = Space; this.Kind = Kind; } public MeshSpace Space { get; } public RemeshKind Kind { get; } }
     public sealed record TransportCase : VectorIntent { internal TransportCase(VectorCloud Source, VectorCloud Target, CloudTransportPolicy Policy) { this.Source = Source; this.Target = Target; this.Policy = Policy; } public VectorCloud Source { get; } public VectorCloud Target { get; } public CloudTransportPolicy Policy { get; } }
     public sealed record TopologyCase : VectorIntent { internal TopologyCase(MeshSpace Space) => this.Space = Space; public MeshSpace Space { get; } }
-    public sealed record FeaturesCase : VectorIntent { internal FeaturesCase(MeshSpace Space, VectorAngle Dihedral) { this.Space = Space; this.Dihedral = Dihedral; } public MeshSpace Space { get; } public VectorAngle Dihedral { get; } }
+    public sealed record FeaturesCase : VectorIntent { internal FeaturesCase(MeshSpace Space, MeshFeaturePolicy Policy) { this.Space = Space; this.Policy = Policy; } public MeshSpace Space { get; } public MeshFeaturePolicy Policy { get; } }
     public sealed record DescriptorCase : VectorIntent { internal DescriptorCase(MeshSpace Space, MeshDescriptor Kind, Dimension Pairs) { this.Space = Space; this.Kind = Kind; this.Pairs = Pairs; } public MeshSpace Space { get; } public MeshDescriptor Kind { get; } public Dimension Pairs { get; } }
     public sealed record DiscreteCalculusCase : VectorIntent { internal DiscreteCalculusCase(MeshSpace Space, MeshLaplacian Kind) { this.Space = Space; this.Kind = Kind; } public MeshSpace Space { get; } public MeshLaplacian Kind { get; } }
     public sealed record SegmentationCase : VectorIntent { internal SegmentationCase(MeshSpace Space, MeshSegmentation Kind) { this.Space = Space; this.Kind = Kind; } public MeshSpace Space { get; } public MeshSegmentation Kind { get; } }
@@ -202,14 +202,14 @@ public abstract partial record VectorIntent {
                     : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(TopologyCase), outputType: typeof(TOut)))
             select output,
         featuresCase: static (state, intent) =>
-            from receipt in MeshKernel.DetectFeatureEdgesDetailed(space: intent.Space, dihedralRadians: intent.Dihedral.Value, key: state.Key)
+            from receipt in MeshKernel.DetectFeatureEdgesDetailed(space: intent.Space, policy: intent.Policy, key: state.Key)
             from output in typeof(TOut) == typeof(FeatureReceipt)
                 ? Fin.Succ((TOut)(object)receipt)
                 : typeof(TOut) == typeof(Seq<FeatureEdge>)
                     ? Fin.Succ((TOut)(object)receipt.Edges)
                     : typeof(TOut) == typeof(Seq<(int A, int B)>)
                         ? Fin.Succ((TOut)(object)toSeq(receipt.Edges.AsIterable()
-                            .Where(static edge => edge.Kind.Equals(MeshFeatureKind.Boundary) || edge.Kind.Equals(MeshFeatureKind.Crease))
+                            .Where(static edge => !edge.Kind.Equals(MeshFeatureKind.NgonInteriorSkipped))
                             .Select(static edge => (edge.A, edge.B))))
                         : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(FeaturesCase), outputType: typeof(TOut)))
             select output,
@@ -385,11 +385,13 @@ public abstract partial record VectorIntent {
     public static Fin<VectorIntent> Features(MeshSpace space, double dihedralRadians, Op? key = null) {
         Op op = key.OrDefault();
         return from _ in FieldNabla.MeshNative(space: space, key: op)
-               from angle in op.AcceptValidated<VectorAngle>(candidate: dihedralRadians)
-               from intent in angle.Value > RhinoMath.ZeroTolerance
-                ? Fin.Succ((VectorIntent)new FeaturesCase(Space: space, Dihedral: angle))
-                : Fin.Fail<VectorIntent>(op.InvalidInput())
-               select intent;
+               from policy in MeshFeaturePolicy.Of(dihedralRadians: dihedralRadians, space: space, faceRegions: Option<Arr<int>>.None, key: op)
+               select (VectorIntent)new FeaturesCase(Space: space, Policy: policy);
+    }
+    public static Fin<VectorIntent> Features(MeshSpace space, MeshFeaturePolicy policy, Op? key = null) {
+        Op op = key.OrDefault();
+        return from active in policy.Admit(space: space, key: op)
+               select (VectorIntent)new FeaturesCase(Space: space, Policy: active);
     }
     public static Fin<VectorIntent> Descriptor(MeshSpace space, MeshDescriptor kind, int pairs, Op? key = null) {
         Op op = key.OrDefault();

@@ -39,6 +39,20 @@ public readonly partial record struct ComponentUi {
     public static ComponentUi When(Phase phase, Func<Callback, Fin<Decision>> run) =>
         new(ops: Seq(new StepOp(Phase: Some(phase), Run: context => phase.Matches(context: context) ? run(arg: context) : Fin.Succ(value: Decision.Pass))));
 
+    public static ComponentUi Chrome(
+        Func<Callback.Draw, Fin<Decision>> draw,
+        Func<Callback.Menu, Fin<Decision>>? menu = null,
+        Func<Callback.Tip, Fin<Decision>>? tooltip = null) =>
+        When(phase: Phase.DrawForeground, run: context => draw(arg: (Callback.Draw)context))
+        + (menu is null ? Empty : When(phase: Phase.ContextMenu, run: context => menu(arg: (Callback.Menu)context)))
+        + (tooltip is null ? Empty : When(phase: Phase.Tooltip, run: context => tooltip(arg: (Callback.Tip)context)));
+
+    public static ComponentUi Resizable(Func<Callback.Frame, Fin<Decision>> resize) =>
+        When(phase: Phase.Resize, run: context => resize(arg: (Callback.Frame)context));
+
+    public static ComponentUi Editor(Func<Callback.Panel, Fin<Decision>> panel) =>
+        When(phase: Phase.InputPanel, run: context => panel(arg: (Callback.Panel)context));
+
     internal IAttributes Attributes(GhComponent owner) =>
         ops.IsEmpty
             ? new ComponentAttributes(owner: owner)
@@ -263,6 +277,9 @@ public readonly partial record struct ComponentUi {
         private SizeF size;
         private GhResizingFrame? resizer;
         private Grasshopper2.Undo.Action? resizeUndo;
+        private SnappingAction? priorSnapX;
+        private SnappingAction? priorSnapY;
+        private bool snapCaptured;
 
         internal RasmResizableAttributes(GhComponent owner, ComponentUi ui) : base(owner: owner, ui: ui) =>
             size = resize.Clamp(value: owner.CustomValues.Get(key: resize.Key, @default: resize.DefaultSize));
@@ -335,8 +352,8 @@ public readonly partial record struct ComponentUi {
                     SnappingConstraints.CreateFromDocument(Owner.Document, Owner.InstanceId),
                     SnappingSettings.Current) switch {
                         GhResizingFrame frame when frame.Begin(mouse: args.Location, edges: ResizeEdges()) =>
-                            Op.Side(() => { resizer = frame; resizeUndo = new ResizeAction(obj: Owner); }) switch { _ => Some(UiResponse.Capture) },
-                        _ => Op.Side(() => { resizer = null; resizeUndo = null; }) switch { _ => Option<UiResponse>.None },
+                            Op.Side(() => { CaptureSnapState(); resizer = frame; resizeUndo = new ResizeAction(obj: Owner); }) switch { _ => Some(UiResponse.Capture) },
+                        _ => Op.Side(() => { resizer = null; resizeUndo = null; ClearSnapState(); }) switch { _ => Option<UiResponse>.None },
                     }
                 : Option<UiResponse>.None;
 
@@ -361,14 +378,29 @@ public readonly partial record struct ComponentUi {
 
         private UiResponse CommitResize() {
             // Editor.Instance is null when no editor is running, and Document may be null mid-drag; guard both.
-            _ = Optional(Editor.Instance).Iter(editor => Optional(editor.Canvas).Iter(canvas => {
-                canvas.SnapXAction = null;
-                canvas.SnapYAction = null;
+            _ = Optional(Grasshopper2.UI.Editor.Instance).Iter(editor => Optional(editor.Canvas).Iter(canvas => {
+                canvas.SnapXAction = snapCaptured ? priorSnapX : null;
+                canvas.SnapYAction = snapCaptured ? priorSnapY : null;
             }));
             _ = Optional(Owner.Document).Iter(document => document.Undo.Do((verb: "Resize", noun: Owner.Nomen.Name), resizeUndo));
             resizeUndo = null;
             resizer = null;
+            ClearSnapState();
             return UiResponse.Release;
+        }
+
+        private void CaptureSnapState() {
+            _ = Optional(Grasshopper2.UI.Editor.Instance).Iter(editor => Optional(editor.Canvas).Iter(canvas => {
+                priorSnapX = canvas.SnapXAction;
+                priorSnapY = canvas.SnapYAction;
+                snapCaptured = true;
+            }));
+        }
+
+        private void ClearSnapState() {
+            priorSnapX = null;
+            priorSnapY = null;
+            snapCaptured = false;
         }
 
         private Option<UiResponse> ToggleResizeSnap(KeyEventArgs args) =>

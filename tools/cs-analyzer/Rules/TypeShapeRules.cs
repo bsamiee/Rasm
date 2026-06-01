@@ -180,6 +180,17 @@ internal static class TypeShapeRules {
         AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
     }
 
+    // --- [RECEIPT_SHAPE] -----------------------------------------------------
+
+    internal static void CheckOperationalReceiptFactStream(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
+        bool shapePressure = SymbolFacts.OperationalReceiptMemberScore(receipt: namedType) >= 3
+            && !SymbolFacts.HasReceiptFactStream(receipt: namedType);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsOperationalReceiptType(namedType), shapePressure, namedType.Locations.Length) switch {
+            (true, true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0730, namedType.Locations[0], namedType.Name),
+            _ => null,
+        });
+    }
+
     // --- [FLAGS_ENUM_OVERUSE] -------------------------------------------------
 
     internal static void TrackFlagsEnumDeclaration(SymbolAnalysisContext context, AnalyzerState state, INamedTypeSymbol namedType) {

@@ -84,6 +84,20 @@ public readonly partial record struct FileGeoLocation(
 
 }
 
+[SmartEnum<string>]
+public sealed partial class FileResourceRole {
+    public static readonly FileResourceRole Layer = new(key: "layer");
+    public static readonly FileResourceRole Material = new(key: "material");
+    public static readonly FileResourceRole Linetype = new(key: "linetype");
+    public static readonly FileResourceRole Group = new(key: "group");
+    public static readonly FileResourceRole Block = new(key: "block");
+    public static readonly FileResourceRole Instance = new(key: "instance");
+    public static readonly FileResourceRole Member = new(key: "member");
+    public static readonly FileResourceRole Linked = new(key: "linked");
+    public static readonly FileResourceRole Texture = new(key: "texture");
+    public static readonly FileResourceRole Child = new(key: "child");
+}
+
 public readonly record struct FileResourceEdge(
     DocumentResourceKind FromKind,
     Option<Guid> FromId,
@@ -193,7 +207,7 @@ internal static class FileArchiveOps {
             format: FormatOf(source: extracted.Endpoint),
             issues: extracted.Paths.IsEmpty ? Seq(FileIssue.Of(code: FileIssueCode.EmptyArchive, message: "archive contains no embedded files")) : IssueLog(log: extracted.Log),
             nativeLog: LogOption(log: extracted.Log),
-            receipt: Some(DocumentReceipt.Empty with { ResourceChanged = extracted.Paths.Map(static endpoint => new DocumentResourceChange(Kind: DocumentResourceKind.EmbeddedFile, Name: endpoint.Path)) }));
+            receipt: Some(DocumentReceipt.Resources(changes: extracted.Paths.Map(static endpoint => DocumentResourceKind.EmbeddedFile.Change(name: endpoint.Path)))));
 
     internal static Fin<FileReport> Update(FileArchiveSource source, FileEndpoint target, ArchiveUpdate update, ArchiveProfile profile) =>
         from output in target.WithFormat(format: FileFormat.ThreeDm).Output(op: Op.Of(name: nameof(Update)))
@@ -212,17 +226,17 @@ internal static class FileArchiveOps {
                         (_, string value) => Op.Side(() => model.Strings.SetString(key: entry.Key, value: value)),
                         _ => Op.Side(() => model.Strings.Delete(key: entry.Key)),
                     });
-                    return Fin.Succ(value: Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Metadata, Name: "metadata"))
-                        + patch.UserStrings.Map(static entry => new DocumentResourceChange(Kind: DocumentResourceKind.Text, Name: entry.Key)));
+                    return Fin.Succ(value: Seq(DocumentResourceKind.Metadata.Change(name: "metadata"))
+                        + patch.UserStrings.Map(static entry => DocumentResourceKind.Text.Change(name: entry.Key)));
                 }),
                 _ => Fin.Succ(value: Seq<DocumentResourceChange>()),
             }
             from embedded in update.Embed.TraverseM(endpoint =>
                 endpoint.Input(op: op).Bind(payload => model.EmbeddedFiles.Add(filename: payload.Path) switch {
-                    true => Fin.Succ(new DocumentResourceChange(Kind: DocumentResourceKind.EmbeddedFile, Name: payload.Path)),
+                    true => Fin.Succ(DocumentResourceKind.EmbeddedFile.Change(name: payload.Path)),
                     false => Fin.Fail<DocumentResourceChange>(error: op.InvalidResult()),
                 })).As()
-            from writeLog in op.Catch(() => model.WriteWithLog(path: output.Path, options: FileFormatProjection.ArchiveWriteOptions(profile: profile), errorLog: out string log) switch {
+            from writeLog in op.Catch(() => model.WriteWithLog(path: output.Path, options: FileFormat.ArchiveWriteOptions(profile: profile), errorLog: out string log) switch {
                 true => Fin.Succ(value: log),
                 false => Fin.Fail<string>(error: op.InvalidResult()),
             })
@@ -234,9 +248,7 @@ internal static class FileArchiveOps {
                 .TraverseM(file => ExtractFile(file: file, folder: extractFolder, op: op).Map(static endpoint => endpoint.Path)).As()
             from snapshot in Snapshot(source: new FileArchiveSource.Path(output), model: model, profile: profile)
             select (Endpoint: endpoint, ReadLog: readLog, WriteLog: writeLog, snapshot.Archive, SnapshotIssues: snapshot.Issues,
-                Receipt: DocumentReceipt.Empty with {
-                    ResourceChanged = metadataChange + embedded + extracted.Map(static path => new DocumentResourceChange(Kind: DocumentResourceKind.EmbeddedFile, Name: path)),
-                }))
+                Receipt: DocumentReceipt.Resources(changes: metadataChange + embedded + extracted.Map(static path => DocumentResourceKind.EmbeddedFile.Change(name: path)))))
         select FileReport.Of(
             phase: FilePhase.ArchiveUpdate,
             source: result.Endpoint,
@@ -249,7 +261,7 @@ internal static class FileArchiveOps {
 
     internal static Fin<byte[]> Bytes(FileArchiveSource source, ArchiveProfile profile) =>
         UseArchive(source: source, profile: profile, op: Op.Of(name: nameof(Bytes)), use: (_, model, _) =>
-            Optional(model.ToByteArray(options: FileFormatProjection.ArchiveWriteOptions(profile: profile)))
+            Optional(model.ToByteArray(options: FileFormat.ArchiveWriteOptions(profile: profile)))
                 .Filter(static value => value.Length > 0)
                 .ToFin(Fail: Op.Of(name: nameof(Bytes)).InvalidResult()));
 

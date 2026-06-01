@@ -87,15 +87,17 @@ Scenario.Run("camera-named-view-rail", CAPTURE_PATH, (key, facts) => {
 
     // --- RasterMode capture (C1) ---
     scope.Active.Views.Redraw();
-    System.Drawing.Bitmap raster = Probe.Expect(
+    CaptureResult raster = Probe.Expect(
         camera.RunValue(
-            operation: CameraOps.CaptureBitmap(new CaptureRecipe(Size: Some(new System.Drawing.Size(width: 320, height: 240)), Dpi: Some(96d), Raster: true)),
+            operation: CameraOps.CaptureFrame(CaptureFormat.Bitmap, new CaptureRecipe(Size: Some(new System.Drawing.Size(width: 320, height: 240)), Dpi: Some(96d), Raster: true)),
             target: target),
         "raster capture");
     using (raster) {
-        facts.Add("raster.width", raster.Width);
-        facts.Add("raster.height", raster.Height);
-        Probe.Require(raster.Width > 0 && raster.Height > 0, "raster bitmap non-empty");
+        Probe.Require(raster is CaptureResult.Bitmap, "raster capture is bitmap");
+        System.Drawing.Bitmap bitmap = ((CaptureResult.Bitmap)raster).Value;
+        facts.Add("raster.width", bitmap.Width);
+        facts.Add("raster.height", bitmap.Height);
+        Probe.Require(bitmap.Width > 0 && bitmap.Height > 0, "raster bitmap non-empty");
     }
 
     // --- four-flag named restore policy is scoped to the native restore call (A2) ---

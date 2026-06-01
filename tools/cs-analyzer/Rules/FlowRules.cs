@@ -184,6 +184,39 @@ internal static class FlowRules {
             _ => null,
         });
     }
+    internal static void CheckTraverseFusion(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) {
+        IOperation? receiver = SymbolFacts.UnwrapReceiver(SymbolFacts.ExtractReceiver(invocation));
+        bool mapReceiver = receiver is IInvocationOperation mapCall
+            && IsFusibleMapProjection(mapCall: mapCall);
+        bool identityTraversal = invocation.Arguments
+            .Where(argument => !SymbolEqualityComparer.Default.Equals(argument.Parameter, invocation.TargetMethod.ReducedFrom?.Parameters.FirstOrDefault()))
+            .Any(static argument => IsIdentityProjection(argument.Value));
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, SymbolFacts.IsLanguageExtInvocation(invocation, "Traverse", "TraverseM"), mapReceiver, identityTraversal) switch {
+            (true, true, true, true) => Diagnostic.Create(RuleCatalog.CSP0735, context.Operation.Syntax.GetLocation(), invocation.TargetMethod.Name),
+            _ => null,
+        });
+    }
+    internal static void CheckStateThreadedDispatch(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) {
+        ImmutableArray<IAnonymousFunctionOperation> lambdas = [
+            .. invocation.Arguments
+                .Select(argument => SymbolFacts.UnwrapLambda(argument.Value))
+                .Where(static lambda => lambda is not null)
+                .Select(static lambda => lambda!),
+        ];
+        bool generatedDispatch = invocation.TargetMethod.Name is "Switch" or "Map"
+            && (SymbolFacts.HasThinktectureGeneratedDispatch(invocation.TargetMethod.ContainingType)
+                || SymbolFacts.HasThinktectureGeneratedDispatch(SymbolFacts.UnwrapReceiver(SymbolFacts.ExtractReceiver(invocation))?.Type as INamedTypeSymbol));
+        int capturedArmCount = lambdas
+            .SelectMany(static lambda => CapturedSymbols(lambda))
+            .GroupBy(symbol => symbol, SymbolEqualityComparer.Default)
+            .Select(group => group.Count())
+            .DefaultIfEmpty(defaultValue: 0)
+            .Max();
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, generatedDispatch, lambdas.Length, capturedArmCount) switch {
+            (true, true, >= 3, >= 3) => Diagnostic.Create(RuleCatalog.CSP0734, context.Operation.Syntax.GetLocation(), invocation.TargetMethod.Name, capturedArmCount),
+            _ => null,
+        });
+    }
     internal static void CheckAsyncAwaitInEff(OperationAnalysisContext context, ScopeInfo scope) {
         bool effReturning = context.ContainingSymbol is IMethodSymbol method
             && method.ReturnType.OriginalDefinition.MetadataName is "Eff`1" or "Eff`2"
@@ -206,6 +239,27 @@ internal static class FlowRules {
             _ => null,
         });
     }
+    internal static void CheckFoldAppendAccumulator(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) {
+        bool directAccumulatorAppend = invocation.TargetMethod.Name == "Add"
+            && IsLanguageExtSeq(type: invocation.Type)
+            && SymbolFacts.ExtractReceiver(invocation) is IOperation receiver
+            && IsLanguageExtSeq(type: receiver.Type)
+            && ReferencesFoldAccumulator(operation: receiver, out _);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, directAccumulatorAppend) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0736, context.Operation.Syntax.GetLocation(), invocation.TargetMethod.Name),
+            _ => null,
+        });
+    }
+    internal static void CheckFoldAppendAccumulator(OperationAnalysisContext context, ScopeInfo scope, IBinaryOperation binary) {
+        bool sequenceAppend = binary.OperatorKind == BinaryOperatorKind.Add
+            && !SymbolFacts.IsOperationalReceiptType(binary.Type)
+            && IsLanguageExtSeq(type: binary.Type)
+            && ReferencesFoldAccumulator(operation: binary.LeftOperand, out _);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, sequenceAppend) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0736, context.Operation.Syntax.GetLocation(), "+"),
+            _ => null,
+        });
+    }
     internal static void CheckImperativeAccumulator(OperationAnalysisContext context, ScopeInfo scope, ILoopOperation loopOperation) {
         ImmutableArray<string> outerVariableAssignments = [
             .. loopOperation.Body
@@ -220,4 +274,88 @@ internal static class FlowRules {
             _ => null,
         });
     }
+    private static bool IsIdentityProjection(IOperation operation) =>
+        SymbolFacts.UnwrapLambda(operation) switch {
+            IAnonymousFunctionOperation { Symbol.Parameters.Length: 1 } lambda
+                => UnwrapOperation(lambda.Body) is IParameterReferenceOperation parameter
+                    && SymbolEqualityComparer.Default.Equals(parameter.Parameter, lambda.Symbol.Parameters[0]),
+            _ => operation.Syntax.ToString() is "identity" or "Prelude.identity",
+        };
+    private static bool IsFusibleMapProjection(IInvocationOperation mapCall) {
+        bool languageExtMap = mapCall.TargetMethod.Name == "Map"
+            && (mapCall.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
+                .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
+        IAnonymousFunctionOperation? projection = mapCall.Arguments
+            .Select(argument => SymbolFacts.UnwrapLambda(argument.Value))
+            .FirstOrDefault(static lambda => lambda is not null);
+        return languageExtMap && projection is { Symbol.Parameters.Length: 1 };
+    }
+    private static ImmutableArray<ISymbol> CapturedSymbols(IAnonymousFunctionOperation lambda) {
+        ImmutableHashSet<ISymbol> parameters = lambda.Symbol.Parameters.ToImmutableHashSet<ISymbol>(SymbolEqualityComparer.Default);
+        return [
+            .. lambda.Descendants()
+                .Select(reference => reference switch {
+                    IParameterReferenceOperation parameter when !parameters.Contains(parameter.Parameter) => (ISymbol)parameter.Parameter,
+                    ILocalReferenceOperation local when !IsDeclaredWithin(operation: lambda, local: local.Local) => local.Local,
+                    _ => null,
+                })
+                .Where(static symbol => symbol is not null)
+                .Select(static symbol => symbol!)
+                .Distinct(SymbolEqualityComparer.Default),
+        ];
+    }
+    private static bool ReferencesFoldAccumulator(IOperation operation, out string name) {
+        name = string.Empty;
+        IAnonymousFunctionOperation? lambda = EnclosingLambda(operation);
+        IParameterSymbol? accumulator = (IsFoldLambda(lambda), lambda?.Symbol.Parameters) switch {
+            (true, { Length: > 0 } parameters) => parameters[0],
+            _ => null,
+        };
+        bool references = SymbolFacts.UnwrapReceiver(operation) switch {
+            IParameterReferenceOperation parameter when SymbolEqualityComparer.Default.Equals(parameter.Parameter, accumulator) => true,
+            _ => false,
+        };
+        name = references && accumulator is not null ? accumulator.Name : string.Empty;
+        return references;
+    }
+    private static bool IsFoldLambda(IAnonymousFunctionOperation? lambda) =>
+        EnclosingInvocation(lambda) is IInvocationOperation invocation
+        && invocation.TargetMethod.Name is "Fold" or "FoldWhile";
+    private static IInvocationOperation? EnclosingInvocation(IOperation? operation) {
+        IOperation? current = operation?.Parent;
+        while (current is not null) {
+            switch (current) {
+                case IInvocationOperation invocation:
+                    return invocation;
+                case IArgumentOperation { Parent: IInvocationOperation invocation }:
+                    return invocation;
+                default:
+                    current = current.Parent;
+                    break;
+            }
+        }
+        return null;
+    }
+    private static IAnonymousFunctionOperation? EnclosingLambda(IOperation? operation) =>
+        operation switch {
+            null => null,
+            IAnonymousFunctionOperation lambda => lambda,
+            _ => EnclosingLambda(operation.Parent),
+        };
+    private static bool IsDeclaredWithin(IOperation operation, ILocalSymbol local) =>
+        local.DeclaringSyntaxReferences switch {
+            { IsDefaultOrEmpty: true } => false,
+            ImmutableArray<SyntaxReference> refs => refs.Any(reference => operation.Syntax.Span.Contains(reference.GetSyntax().Span)),
+        };
+    private static bool IsLanguageExtSeq(ITypeSymbol? type) =>
+        type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Seq`1", ContainingNamespace: { } ns }
+        && ns.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
+    private static IOperation? UnwrapOperation(IOperation? operation) =>
+        operation switch {
+            IConversionOperation conversion => UnwrapOperation(conversion.Operand),
+            IParenthesizedOperation parenthesized => UnwrapOperation(parenthesized.Operand),
+            IBlockOperation { Operations.Length: 1 } block => UnwrapOperation(block.Operations[0]),
+            IReturnOperation { ReturnedValue: IOperation returned } => UnwrapOperation(returned),
+            _ => operation,
+        };
 }

@@ -139,18 +139,27 @@ Scenario.Run("vectors-spectral-descriptor", CAPTURE_PATH, (key, facts) => {
     SpectralDescriptor spectral = Probe.Expect(intent.Project<SpectralDescriptor>(context: context, key: key), "spectral descriptor");
     SpectralDescriptorReceipt spectralReceipt = Probe.Expect(intent.Project<SpectralDescriptorReceipt>(context: context, key: key), "spectral receipt");
     Arr<double> values = Probe.Expect(intent.Project<Arr<double>>(context: context, key: key), "descriptor values");
+    PositiveMagnitude waveEnergy = Probe.Expect(key.AcceptValidated<PositiveMagnitude>(candidate: 2.0), "wave energy");
+    PositiveMagnitude waveBandwidth = Probe.Expect(key.AcceptValidated<PositiveMagnitude>(candidate: 0.75), "wave bandwidth");
+    MeshDescriptor waveDescriptor = MeshDescriptor.Spectral(filter: SpectralFilter.Wave(energy: waveEnergy, bandwidth: waveBandwidth), sources: Option<Seq<int>>.None, policy: SpectralDescriptorPolicy.Raw);
+    VectorIntent waveIntent = Probe.Expect(VectorIntent.Descriptor(space: space, kind: waveDescriptor, pairs: 3, key: key), "wave descriptor intent");
+    SpectralDescriptorReceipt waveReceipt = Probe.Expect(waveIntent.Project<SpectralDescriptorReceipt>(context: context, key: key), "wave spectral receipt");
+    SpectralWaveReceipt wave = Probe.ExpectSome(result: waveReceipt.Wave, label: "wave receipt");
     Probe.Require(result.Values.Count == native.Vertices.Count && spectral.Values.Count == result.Values.Count && values.Count == result.Values.Count, $"value.count={result.Values.Count}");
     Probe.Require(result.Values.ForAll(static value => RhinoMath.IsValidDouble(x: value)), "descriptor values contain nonfinite entries");
     Probe.Require(meshReceipt.RequestedEigenpairs == 3 && meshReceipt.ReturnedEigenpairs > 0 && meshReceipt.Eigen.IsUsable, $"mesh.receipt={meshReceipt}");
     Probe.Require(meshReceipt.Assembly.IsSome, "descriptor receipt did not include DEC assembly facts");
     Probe.Require(meshReceipt.Spectral.Policy.ScaleNormalization.Equals(policy.ScaleNormalization) && meshReceipt.Spectral.Policy.EnergyNormalization.Equals(policy.EnergyNormalization), $"mesh.policy={meshReceipt.Spectral.Policy}");
-    Probe.Require(spectralReceipt.Policy.ZeroModePolicy.Equals(policy.ZeroModePolicy) && spectralReceipt.ComparisonReady && spectralReceipt.EnergyNormalized && spectralReceipt.BandwidthNormalized, $"spectral.receipt={spectralReceipt}");
+    Probe.Require(spectralReceipt.Policy.ZeroModePolicy.Equals(policy.ZeroModePolicy) && spectralReceipt.ComparisonReady && spectralReceipt.EnergyNormalized && spectralReceipt.BandwidthNormalized && spectralReceipt.Wave.IsNone, $"spectral.receipt={spectralReceipt}");
     Probe.Require(spectralReceipt.VertexCount == native.Vertices.Count && spectralReceipt.EigenpairCount == meshReceipt.Spectral.EigenpairCount, $"spectral.counts={spectralReceipt}");
+    Probe.Require(!waveReceipt.BandwidthNormalized && wave.WksNormalized && wave.NormalizedWeightSum is > 0.999999999 and < 1.000000001 && wave.NonZeroEigenpairCount > 0, $"wave.receipt={waveReceipt}");
     facts.Add("descriptor.values", result.Values.Count);
     facts.Add("descriptor.returnedEigenpairs", meshReceipt.ReturnedEigenpairs);
     facts.Add("descriptor.cacheHit", meshReceipt.SpectralCacheHit);
     facts.Add("descriptor.hasAssembly", meshReceipt.Assembly.IsSome);
     facts.Add("spectral.comparisonReady", spectralReceipt.ComparisonReady);
+    facts.Add("spectral.waveNormalized", wave.WksNormalized);
+    facts.Add("spectral.waveWeightSum", wave.NormalizedWeightSum);
 });
 
 // --- [SCENARIO: vectors-spectral-edge-connection] ---------------------------------------

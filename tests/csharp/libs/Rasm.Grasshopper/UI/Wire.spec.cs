@@ -170,7 +170,7 @@ public sealed class WireOverlayStyleLaws {
     [Fact]
     public void EntrySpecificStyleSelectorOverridesFallback() {
         Guid selectedId = Guid.NewGuid();
-        WireDrawnEntry selected = new(SourceId: selectedId, TargetId: Guid.NewGuid(), Kind: default);
+        WireDrawnEntry selected = new(SourceId: selectedId, TargetId: Guid.NewGuid(), Kind: default, Bounds: RectangleF.Empty);
         WireDrawnEntry normal = selected with { SourceId = Guid.NewGuid() };
         PaintStyle fallback = PaintStyle.ForTransparent();
         PaintStyle highlight = PaintStyle.ForEdge(edge: Colors.Red, thickness: 4f);

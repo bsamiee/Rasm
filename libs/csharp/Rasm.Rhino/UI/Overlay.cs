@@ -94,7 +94,7 @@ public readonly record struct GumballAction(GumballVerb Verb, GumballAxis Axis) 
 
 public readonly record struct InteractionGuard(MousePhase Phase, Option<global::Rhino.UI.MouseButton> Button = default) {
     internal bool Matches<TState>(MouseContext<TState> context) =>
-        context.Phase == Phase && Button.Map(button => context.MouseButton == button).IfNone(true);
+        context.Phase == Phase && Button.Map(button => context.MouseButton == button).IfNone(noneValue: true);
     internal Fin<Unit> AdmitViewport() => Phase.ViewportNative ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Op.Of(name: nameof(AdmitViewport)).InvalidInput());
 }
 
@@ -383,6 +383,16 @@ public readonly record struct UiPreviewContext(
     internal Fin<Unit> Mark(UiMark mark) => mark.Render(surface: new UiSurface.Pipeline(Display: Display, Atlas: Atlas));
 }
 
+public sealed record UiViewportRequest<TState, T>(Func<UiPreviewContext, Fin<T>> Run) {
+    internal Fin<T> Apply(UiPreviewContext context) =>
+        Op.Of(name: nameof(UiViewportRequest<,>)).Need(Run).Bind(run => run(arg: context));
+}
+
+public static partial class UiViewportRequest {
+    public static UiViewportRequest<TState, Unit> Paint<TState>(Func<UiPreviewContext, Fin<Unit>> draw) =>
+        new(Run: draw);
+}
+
 public readonly record struct UiPreviewScope(
     RhinoDoc Document,
     RasmOverlay<UiViewportPreview> Overlay,
@@ -531,7 +541,7 @@ public readonly record struct UiRenderMode(bool Capturing, bool Printing, bool D
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct UiRenderState(bool OnTop = false, Option<bool> DepthWrite = default, Option<CullFaceMode> CullFace = default, Option<Transform> Model = default, bool Screen2d = false) {
     internal Unit Scope(DisplayPipeline pipeline, Action draw) {
-        _ = Op.SideWhen(OnTop, () => pipeline.PushDepthTesting(false));
+        _ = Op.SideWhen(OnTop, () => pipeline.PushDepthTesting(enable: false));
         _ = Op.SideWhen(Screen2d, pipeline.Push2dProjection);   // pixel-space 2D projection; matched by PopProjection (both void on DisplayPipeline, not RhinoViewport)
         _ = DepthWrite.Iter(pipeline.PushDepthWriting);
         _ = CullFace.Iter(pipeline.PushCullFaceMode);

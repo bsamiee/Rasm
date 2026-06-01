@@ -36,13 +36,13 @@ public static class Gens {
     private delegate bool TryFn<TIn, TVo>(TIn value, out TVo result);
     private static Gen<TVo> ValueObject<TIn, TVo>(Gen<TIn> source, TryFn<TIn, TVo> tryCreate) =>
         source.Select(v => tryCreate(v, out TVo r) ? Some(r) : Option<TVo>.None)
-              .Where(o => o.IsSome).Select(o => o.IfNone(default(TVo)!));
+              .Where(o => o.IsSome).Select(static o => o.Case is TVo value ? value : throw new InvalidOperationException(message: "Filtered option generator produced None."));
     public static readonly Gen<Dim> Dimension = ValueObject<int, Dim>(SmallDimension, Dim.TryCreate);
     public static readonly Gen<PositiveMagnitude> PositiveMagnitude = ValueObject<double, PositiveMagnitude>(PositiveMagnitudeScalar, Vectors.PositiveMagnitude.TryCreate);
     public static readonly Gen<UnitInterval> UnitInterval = ValueObject<double, UnitInterval>(UnitClosed, Vectors.UnitInterval.TryCreate);
     public static readonly Gen<Context> Context = Tolerance.Select(Gen.Double[start: 0.0, finish: 1.0e-3], Tolerance, Gen.OneOfConst(UnitSystem.Millimeters, UnitSystem.Centimeters, UnitSystem.Meters, UnitSystem.Inches),
         static (double absolute, double relative, double angle, UnitSystem units) => Domain.Context.Of(absolute: absolute, relative: relative, angle: angle, units: units).ToFin().ToOption())
-        .Where(static o => o.IsSome).Select(static o => o.IfNone(default(Context)!));
+        .Where(static o => o.IsSome).Select(static o => o.Case is Context value ? value : throw new InvalidOperationException(message: "Filtered context generator produced None."));
     public static Gen<Seq<double>> Simplex(int count) =>
         count switch {
             <= 0 => Gen.Const(value: Seq<double>()),
@@ -95,7 +95,7 @@ public static class Gens {
     public static Gen<T[]> UniqueArray<T>(Gen<T> element) =>
         (element ?? throw new ArgumentNullException(nameof(element))).ArrayUnique[1, 64];
     public static Gen<T[]> SortedArray<T>(Gen<T> element) where T : IComparable<T> =>
-        SmallArray(element: element ?? throw new ArgumentNullException(nameof(element))).Select(static a => a.OrderBy(static x => x).ToArray());
+        SmallArray(element: element ?? throw new ArgumentNullException(nameof(element))).Select(static a => a.Order().ToArray());
     public static Gen<(T Lo, T Hi)> OrderedPair<T>(Gen<T> element) where T : IComparable<T> =>
         (element ?? throw new ArgumentNullException(nameof(element))).Select(element, static (T a, T b) => a.CompareTo(b) <= 0 ? (Lo: a, Hi: b) : (Lo: b, Hi: a));
     public static Gen<Seq<T>> NonEmptySeq<T>(Gen<T> element, int max = 256) =>

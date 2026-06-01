@@ -74,14 +74,21 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - [NEVER] Add new code before searching for existing canonical shapes, vocabularies, services, and policies to extend.
 - [NEVER] Extract code to new files to reduce LOC. Densify in place through polymorphism, fold algebras, table-driven dispatch.
 - [NEVER] Add shims, adapters, legacy aliases, `[Obsolete]` wrappers, or backwards-compat surfaces. Break APIs freely when collapse improves the system.
+- [NEVER] Couple custom analyzer rules to project namespaces, paths, or one-off symbols. Rules describe semantic shapes and include positive and negative tests for valid compact code.
 - [NEVER] Treat ~350 LOC or any specific byte-count as a refactor trigger. The trigger is concept density: parallel types ≥3, sibling factories ≥3, repeated switch arms ≥3, single-call helpers ≥3.
 - [NEVER] Delete functionality to satisfy a "density" or "LOC" signal. Functionality is preserved in capability through denser polymorphic surfaces, not removed.
+- [NEVER] Replace algorithm-specific proof receipts with generic `IReceipt`, ledger, or reported-value abstractions.
 
 [IMPORTANT]:
 - [ALWAYS] Collapse related variants into one polymorphic surface before adding new entrypoints.
 - [ALWAYS] Drive logic algorithmically with data, bounded vocabularies, discriminants, and reusable projections.
 - [ALWAYS] Keep boundary translation at the boundary; internal code uses canonical names and shapes.
 - [ALWAYS] Co-locate domain logic with the owning module instead of scattering it into generic support files.
+- [ALWAYS] Collapse operational mutation receipts into one fact stream with slot/kind metadata and fold-derived projections when 3+ mutation buckets or repeated slot families share construction, count, or status semantics.
+- [ALWAYS] Keep typed algorithm receipts when fields carry route, status, sampling, solver, spectral, mesh, or extraction evidence.
+- [ALWAYS] Treat CSP analyzer diagnostics as hypotheses: fix production code for true positives; refine the analyzer for false positives or fixes that add ceremony without improving correctness, capability, or maintainability.
+- [ALWAYS] Consider `tools/cs-analyzer` when a repeated C# optimization pattern is proven by diffs. Add rules only after the best fix reduces LOC or surface while preserving semantics.
+- [ALWAYS] Use indexed `Map(..., index)` plus `TraverseM(identity)` when an indexed effectful traversal is needed and no native indexed `TraverseM` exists; do not replace it with an index-threaded fold unless the fold carries additional algorithm state.
 
 ---
 ## [5][OUTPUT]

@@ -129,7 +129,7 @@ public static partial class Analyze {
         IntersectionCases.Find(predicate: c => c.CanProject(left: left, right: right, output: output)).Map(static c => c.Shape);
     private static readonly Seq<IntersectionCase> IntersectionCases = Seq(
         IntersectionCase.Pair<Line, Line>(IntersectionResult.PointsShape, static (a, b, context, _, _, _) =>
-            Fin.Succ((IntersectionResult)new IntersectionResult.Points(Intersection.LineLine(a, b, out double ta, out double _, context.Absolute.Value, true) ? Seq(a.PointAt(ta)) : Seq<Point3d>()))),
+            Fin.Succ((IntersectionResult)new IntersectionResult.Points(Intersection.LineLine(lineA: a, lineB: b, a: out double ta, b: out double _, tolerance: context.Absolute.Value, finiteSegments: true) ? Seq(a.PointAt(t: ta)) : Seq<Point3d>()))),
         IntersectionCase.Pair<Line, Plane>(IntersectionResult.PointsShape, static (a, b, _, _, _, _) =>
             Fin.Succ((IntersectionResult)new IntersectionResult.Points(Intersection.LinePlane(a, b, out double t) && t is >= 0.0 and <= 1.0 ? Seq(a.PointAt(t)) : Seq<Point3d>()))),
         IntersectionCase.Pair<Plane, Plane>(IntersectionResult.LinesShape, static (a, b, _, _, _, _) =>
@@ -169,17 +169,17 @@ public static partial class Analyze {
         IntersectionCase.Pair<Brep, Plane>(IntersectionResult.HitsShape, static (a, b, context, op, cancel, _) =>
             HitsFromSolved(solved: Intersection.BrepPlane(a, b, context.Absolute.Value, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel)),
         IntersectionCase.Pair<Brep, Surface>(IntersectionResult.HitsShape, static (a, b, context, op, cancel, _) =>
-            HitsFromSolved(solved: Intersection.BrepSurface(a, b, context.Absolute.Value, true, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel)),
+            HitsFromSolved(solved: Intersection.BrepSurface(brep: a, surface: b, tolerance: context.Absolute.Value, joinCurves: true, intersectionCurves: out Curve[] cs, intersectionPoints: out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel)),
         IntersectionCase.Pair<Brep, Brep>(IntersectionResult.HitsShape, static (a, b, context, op, cancel, _) =>
-            HitsFromSolved(solved: Intersection.BrepBrep(a, b, context.Absolute.Value, true, out Curve[] cs, out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel)),
+            HitsFromSolved(solved: Intersection.BrepBrep(brepA: a, brepB: b, tolerance: context.Absolute.Value, joinCurves: true, intersectionCurves: out Curve[] cs, intersectionPoints: out Point3d[] ps), curves: cs, points: ps, kind: IntersectionKind.Curve, op: op, cancel: cancel)),
         IntersectionCase.Pair<Mesh, Line>(IntersectionResult.PointsShape, static (a, b, _, _, _, _) =>
             Fin.Succ((IntersectionResult)new IntersectionResult.Points(toSeq(Intersection.MeshLineSorted(a, b, out int[] _) ?? [])))),
         IntersectionCase.Pair<Mesh, Plane>(IntersectionResult.PolylinesShape, static (a, b, context, _, _, _) =>
             new Lease<MeshIntersectionCache>.Owned(Value: new MeshIntersectionCache()).Use(cache =>
-                Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(toSeq(Optional(Intersection.MeshPlane(a, cache, b, context.MeshIntersectionTolerance, true)).ToSeq().Bind(static h => h)).Map(static p => (Curve: p, Kind: IntersectionKind.Curve)))))),
+                Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(toSeq(Optional(Intersection.MeshPlane(mesh: a, cache: cache, plane: b, tolerance: context.MeshIntersectionTolerance, overlaps: true)).ToSeq().Bind(static h => h)).Map(static p => (Curve: p, Kind: IntersectionKind.Curve)))))),
         IntersectionCase.Pair<Mesh, Mesh>(IntersectionResult.PolylinesShape, static (a, b, context, op, cancel, progress) =>
             new Lease<TextLog>.Owned(Value: new TextLog()).Use(log =>
-                Intersection.MeshMesh([a, b], context.MeshIntersectionTolerance, out Polyline[] ints, true, out Polyline[] olap, false, out Mesh _, log, cancel, progress) switch {
+                Intersection.MeshMesh(meshes: [a, b], tolerance: context.MeshIntersectionTolerance, intersections: out Polyline[] ints, overlapsPolylines: true, overlapsPolylinesResult: out Polyline[] olap, overlapsMesh: false, overlapsMeshResult: out Mesh _, textLog: log, cancel: cancel, progress: progress) switch {
                     true => Fin.Succ((IntersectionResult)new IntersectionResult.Polylines(toSeq(Optional(ints).ToSeq().Bind(static p => p)).Map(static p => (Curve: p, Kind: IntersectionKind.Curve)) + toSeq(Optional(olap).ToSeq().Bind(static p => p)).Map(static p => (Curve: p, Kind: IntersectionKind.Overlap)))),
                     false when cancel.IsCancellationRequested => Fin.Fail<IntersectionResult>(new Fault.Cancelled()),
                     false => Fin.Fail<IntersectionResult>(op.InvalidResult()),
@@ -312,7 +312,7 @@ public static partial class Analyze {
     private static Fin<IntersectionResult> HitsFromEvents(CurveIntersections? hits, Curve? source = null, Option<Line> finiteLine = default, double tolerance = 0.0) =>
         hits switch {
             CurveIntersections native => Fin.Succ((IntersectionResult)new IntersectionResult.Hits(toSeq(native.AsIterable().SelectMany(h => h switch {
-                { IsPoint: true } when finiteLine.Map(l => OnFiniteLine(line: l, point: h.PointB, tolerance: tolerance)).IfNone(true) => Seq(IntersectionHit.At(h.PointA)),
+                { IsPoint: true } when finiteLine.Map(l => OnFiniteLine(line: l, point: h.PointB, tolerance: tolerance)).IfNone(noneValue: true) => Seq(IntersectionHit.At(point: h.PointA)),
                 { IsOverlap: true } => (finiteLine.Case switch {
                     Line => SegmentInterval(h.OverlapB).Head.Map(cb => (A: new Interval(h.OverlapA.ParameterAt(h.OverlapB.NormalizedParameterAt(cb.T0)), h.OverlapA.ParameterAt(h.OverlapB.NormalizedParameterAt(cb.T1))), B: cb)),
                     _ => Some((A: h.OverlapA, B: h.OverlapB)),

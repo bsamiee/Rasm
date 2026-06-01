@@ -32,6 +32,7 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 - Verify risky Rhino behavior against RhinoWIP `RhinoCommon.xml`, decompile evidence when XML is absent, and `uv run python -m tools.quality api doctor`.
 - Use `uv run python -m tools.quality ...` for API, static, test, and bridge rails in this checkout.
 - Treat `uv run python -m tools.quality static check` as changed-file cleanup, not compile proof. Use `uv run python -m tools.quality static build` for routed compile/analyzer proof and bridge scenarios for Rhino runtime behavior.
+- Treat pathless quality rails as broad gates. For target-only work amid unrelated dirty siblings, use target-scoped `dotnet format <csproj> --verify-no-changes --no-restore`, target production build, and target test-project build. Report the proof as target-scoped.
 - For prepared API-proof plans, implement first. Re-verify native claims only when touched code, compile output, or API uncertainty requires it.
 - For new category roadmaps, verify every named Rhino member through local XML/decompile evidence before presenting it as available. List false, obsolete, internal, and missing APIs directly in the roadmap.
 - Member existence is not value equivalence. A member that compiles can still return a different quantity than the one it is claimed to replace — `File3dm.Views` counts model views, not layout page views. Verify return SEMANTICS by decompiling the backing native call or table, never by confirming the member resolves.
@@ -49,6 +50,7 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 - Do not remove functionality to reduce LOC. Collapse repeated ownership and preserve capability through denser operations.
 - Do not reduce LOC by stripping comments mechanically. Delete comments only when stale, wrong, or restating code.
 - Audit old rails after collapse. Search constructor parameter names, owner names, factory prefixes, and wrapper names; a passing compile can still hide a dual paradigm.
+- Search stale public names after algebra collapse. Include removed union cases, removed parameter names, and compatibility nouns such as `PageContext`, `DetailName`, old `BlockOp.*` cases, and format-specific capture entrypoints.
 
 ## Implementation Rules
 
@@ -67,6 +69,7 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 - `UI/` owns Rhino/Eto thread dispatch, dialog and page semantics, panel lifecycle, RUI menu state, overlay conduits, retained canvas state, motion clocks, and drawing-resource lifetimes. Root `Events.cs` owns watch projection.
 - Keep `RhinoUi.Use` as the sole UI dispatch edge. Route interactive work through `DispatchThread`; use `RhinoUi.Protect` for native callbacks and user delegates that run inside paint, Eto input, or RUI update events.
 - Model native UI events as typed unions with native identities. Gate view events by `RhinoView.Document.RuntimeSerialNumber`; avoid optional bags that mix unrelated view, document, object, selection, replacement, attributes, and layer payloads.
+- Route page callbacks through `PageEvent` cases with exact payloads. Do not recreate optional page context bags.
 - Treat `RuiUpdateUi.RegisterMenuItem` as process-lifetime native registration. Dedupe by `(file, menu, item)` and swap stored callbacks; no unregister rail exists in RhinoWIP.
 - Split motion value and velocity algebra when projection clamps, wraps, or normalizes output. `DrawingColor` projects from signed velocity state; clamped UI values are not valid spring or decay velocities.
 - Animate retained overlay state through `RasmOverlay<TState>.Transition` and a document redraw target. Do not push mutable sink ceremony to callers when the overlay already owns state.
@@ -83,11 +86,13 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 - `FilePublishTarget.Pdf(Target, Prefix, Suffix, Annotate)` sequences prefix blank pages, captured sheet pages, then suffix blank pages.
 - `PdfStamp` is a `[Union]` over raw `FilePdf` draw primitives; pass `Seq<PdfStamp>` through `Annotate` / `FilePdfPage.Stamps`.
 - `FileSheetEdit` operations populate the correct `DocumentReceipt` slot.
-- `FileScale` is a `[Union]` with GEOMETRY-commit persistence via `DetailGeometry.SetScale(...) && detail.CommitChanges()`.
+- `FileScale` is a `[Union]` with GEOMETRY-commit persistence via `DetailGeometry.SetScale(...) && detail.CommitChanges()`. Perspective details reject scale changes instead of converting projection.
 - `SheetQuery` is the sole page-matching rail: conjunctive filter resolved once in `Sheets.cs`.
+- `DetailQuery` is the sole detail-matching rail. Use it for inspect/report and edits; do not reintroduce loose optional detail-name parameters.
+- Detail layout moves mutate `DetailGeometry` and commit in place by default. Duplicate only when the layout policy requests a new detail.
 - `FileOp.Do(new FileExchange.NamedPosition(...))` wraps `RhinoDoc.NamedPositions`.
 - Exchange capture and watch call sites consume `CaptureRecipe` and `WatchBus`. Do not rebuild capture settings, filesystem watches, or document watches in Exchange.
-- Linked-block refresh is not an Exchange concern; `Blocks/` owns it as `BlockOp.RefreshLinks`.
+- Linked-block refresh is not an Exchange concern; `Blocks/` owns it as `BlockOp.Linked(new LinkLifecycle.Refresh(...))`.
 - `FileFormat.Custom(...)` registers into process-static STM; dialog plug-in registration belongs to the consuming `.rhp`.
 
 ### Known RhinoCommon limitations

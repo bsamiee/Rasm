@@ -53,6 +53,12 @@ public sealed record UiIntent<T> {
 
     internal Fin<T> Run(RhinoUi.Scope scope) => run(arg: scope);
 
+    public UiIntent<TNext> Map<TNext>(Func<T, TNext> project) =>
+        new(
+            run: scope => Op.Of(name: nameof(Map)).Need(project).Bind(valid => run(arg: scope).Map(value => valid(arg: value))),
+            interactive: Interactive,
+            scripted: Scripted.Map<Func<RhinoUi.Scope, Fin<TNext>>>(script => scope => Op.Of(name: nameof(Map)).Need(project).Bind(valid => script(arg: scope).Map(value => valid(arg: value)))));
+
     public UiIntent<T> WithScripted(Func<RhinoDoc, RunMode, Fin<T>> fallback) =>
         new(
             run: run,
@@ -83,6 +89,11 @@ public static partial class UiIntent {
 
     internal static UiIntent<T> OfScope<T>(Func<RhinoUi.Scope, Fin<T>> run, bool interactive = false, Option<Func<RhinoUi.Scope, Fin<T>>> scripted = default) =>
         new(run: run, interactive: interactive, scripted: scripted);
+
+    public static UiIntent<T> Request<T>(UiRequest<T> request) =>
+        OfScope(
+            run: scope => Op.Of(name: nameof(Request)).Need(request).Bind(valid => valid.Run(scope: scope)),
+            interactive: Optional(request).Map(static value => value.Interactive).IfNone(noneValue: false));
 
     public static UiIntent<Unit> Enqueue(Action run, string name = nameof(Enqueue)) =>
         OfScope(_ => RhinoUi.Enqueue(run: run, name: name), interactive: false);
@@ -370,7 +381,7 @@ public static partial class UiIntent {
             run: (_, _) => Fin.Succ(value: toSeq(source.IfNone(global::Rhino.UI.NamedColorList.Default))));
     private static Fin<T> Project<T>(Op op, Func<T?> native) where T : class => Optional(native()).ToFin(Fail: op.InvalidResult());
 
-    public static UiIntent<DrawingBitmap> Capture(RhinoView view, CaptureRecipe recipe = default) =>
+    private static UiIntent<DrawingBitmap> Capture(RhinoView view, CaptureRecipe recipe = default) =>
         Of(name: nameof(Capture), run: (_, _) => recipe.WithPolicy(
             fallbackDpi: CaptureRecipe.ScreenDpi,
             fallbackDecor: CaptureRecipe.ScreenDecor,
@@ -380,7 +391,7 @@ public static partial class UiIntent {
             project: static settings => Project(op: Op.Of(name: nameof(Capture)), native: () => ViewCapture.CaptureToBitmap(settings: settings)),
             op: Op.Of(name: nameof(Capture))));
 
-    public static UiIntent<XmlDocument> CaptureSvg(RhinoView view, CaptureRecipe recipe = default) =>
+    private static UiIntent<XmlDocument> CaptureSvg(RhinoView view, CaptureRecipe recipe = default) =>
         Of(name: nameof(CaptureSvg), run: (_, _) => recipe.WithPolicy(
             fallbackDpi: CaptureRecipe.ScreenDpi,
             fallbackDecor: CaptureRecipe.ScreenDecor,
@@ -389,6 +400,13 @@ public static partial class UiIntent {
             viewport: recipe.Viewport(view: view),
             project: static settings => Project(op: Op.Of(name: nameof(CaptureSvg)), native: () => ViewCapture.CaptureToSvg(settings: settings)),
             op: Op.Of(name: nameof(CaptureSvg))));
+
+    public static UiIntent<CaptureResult> CaptureFrame(RhinoView view, CaptureFormat format, CaptureRecipe recipe = default) =>
+        format switch {
+            CaptureFormat.Bitmap => Capture(view: view, recipe: recipe).Map(value => (CaptureResult)new CaptureResult.Bitmap(Value: value)),
+            CaptureFormat.Svg => CaptureSvg(view: view, recipe: recipe).Map(value => (CaptureResult)new CaptureResult.Svg(Value: value)),
+            _ => Operation((_, _) => Fin.Fail<CaptureResult>(error: Op.Of(name: nameof(CaptureFrame)).InvalidInput())),
+        };
 
     public static UiIntent<Color4f> Color(UiColorSpec spec, bool allowAlpha = false) =>
         Dialog((parent, _) => Op.Of(name: nameof(Color)).Catch(() => {

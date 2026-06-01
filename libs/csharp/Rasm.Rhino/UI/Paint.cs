@@ -13,6 +13,35 @@ public interface IUiInput<TState> {
     public bool Alt { get; }
 }
 
+public abstract partial record UiInputEvent<TState> : IUiInput<TState> {
+    private UiInputEvent() { }
+    public abstract TState State { get; }
+    public abstract bool Shift { get; }
+    public abstract bool Control { get; }
+    public abstract bool Alt { get; }
+
+    public sealed record CanvasPointer(UiCanvasContext<TState> Value) : UiInputEvent<TState> {
+        public override TState State => Value.State;
+        public override bool Shift => Value.Shift;
+        public override bool Control => Value.Control;
+        public override bool Alt => Value.Alt;
+    }
+
+    public sealed record CanvasKey(UiCanvasKey<TState> Value) : UiInputEvent<TState> {
+        public override TState State => Value.State;
+        public override bool Shift => Value.Shift;
+        public override bool Control => Value.Control;
+        public override bool Alt => Value.Alt;
+    }
+
+    public sealed record ViewportMouse(MouseContext<TState> Value) : UiInputEvent<TState> {
+        public override TState State => Value.State;
+        public override bool Shift => Value.Shift;
+        public override bool Control => Value.Control;
+        public override bool Alt => false;
+    }
+}
+
 public enum KeyPhase { Down, Up }
 
 [Union]
@@ -47,16 +76,16 @@ public enum SystemFontKind { Default, Bold, Label, Menu, MenuBar, Message, Palet
 
 public enum UiAnchor { TopLeft, TopCenter, TopRight, MiddleLeft, Center, MiddleRight, BottomLeft, BottomCenter, BottomRight }
 
-[Union]
+[Union(SwitchMapStateParameterName = "state")]
 public abstract partial record UiCurveSeg {    // screen-space (px) path segment
     private UiCurveSeg() { }
     public sealed record Line(System.Drawing.PointF From, System.Drawing.PointF To) : UiCurveSeg;
     public sealed record Arc(System.Drawing.RectangleF Bounds, float StartAngle, float SweepAngle) : UiCurveSeg;
     public sealed record Bezier(System.Drawing.PointF Start, System.Drawing.PointF Control1, System.Drawing.PointF Control2, System.Drawing.PointF End) : UiCurveSeg;
-    internal Unit AddTo(Eto.Drawing.GraphicsPath path) => Switch(
-        line: l => Op.Side(() => path.AddLine(l.From.X, l.From.Y, l.To.X, l.To.Y)),
-        arc: a => Op.Side(() => path.AddArc(a.Bounds.X, a.Bounds.Y, a.Bounds.Width, a.Bounds.Height, a.StartAngle, a.SweepAngle)),
-        bezier: b => Op.Side(() => path.AddBezier(new Eto.Drawing.PointF(b.Start.X, b.Start.Y), new Eto.Drawing.PointF(b.Control1.X, b.Control1.Y), new Eto.Drawing.PointF(b.Control2.X, b.Control2.Y), new Eto.Drawing.PointF(b.End.X, b.End.Y))));
+    internal Unit AddTo(Eto.Drawing.GraphicsPath path) => Switch(path,
+        line: static (p, l) => Op.Side(() => p.AddLine(l.From.X, l.From.Y, l.To.X, l.To.Y)),
+        arc: static (p, a) => Op.Side(() => p.AddArc(a.Bounds.X, a.Bounds.Y, a.Bounds.Width, a.Bounds.Height, a.StartAngle, a.SweepAngle)),
+        bezier: static (p, b) => Op.Side(() => p.AddBezier(new Eto.Drawing.PointF(b.Start.X, b.Start.Y), new Eto.Drawing.PointF(b.Control1.X, b.Control1.Y), new Eto.Drawing.PointF(b.Control2.X, b.Control2.Y), new Eto.Drawing.PointF(b.End.X, b.End.Y))));
     internal Option<Curve> ToCurve() => Switch(
         line: static l => Some<Curve>(new LineCurve(new global::Rhino.Geometry.Line(new Point3d(l.From.X, l.From.Y, 0d), new Point3d(l.To.X, l.To.Y, 0d)))),
         arc: static a => (a.Bounds.Width / 2f, a.Bounds.Height / 2f) switch {
@@ -83,7 +112,7 @@ public abstract partial record UiCurveSeg {    // screen-space (px) path segment
         }));
 }
 
-[Union]
+[Union(SwitchMapStateParameterName = "state")]
 public abstract partial record UiFill {
     private UiFill() { }
     public sealed record Solid(DrawingColor Color, Option<float> Opacity = default) : UiFill;
@@ -102,14 +131,14 @@ public abstract partial record UiFill {
     private static DrawingColor Fade(DrawingColor c, Option<float> o) =>
         o.IsSome ? DrawingColor.FromArgb((int)(c.A * Alpha(opacity: o)), c.R, c.G, c.B) : c;
 
-    internal Unit UseBrush(Action<Eto.Drawing.Brush> paint) => Switch(
-        solid: s => Op.Side(() => { using Eto.Drawing.Brush brush = new Eto.Drawing.SolidBrush(Fade(s.Color, s.Opacity).ToEto()); paint(brush); }),
-        linear: l => Op.Side(() => { using Eto.Drawing.Brush brush = new Eto.Drawing.LinearGradientBrush(Fade(l.Start, l.Opacity).ToEto(), Fade(l.End, l.Opacity).ToEto(), new Eto.Drawing.PointF(l.From.X, l.From.Y), new Eto.Drawing.PointF(l.To.X, l.To.Y)); paint(brush); }),
-        radial: r => Op.Side(() => { using Eto.Drawing.Brush brush = new Eto.Drawing.RadialGradientBrush(Fade(r.Start, r.Opacity).ToEto(), Fade(r.End, r.Opacity).ToEto(), new Eto.Drawing.PointF(r.Center.X, r.Center.Y), new Eto.Drawing.PointF(r.Origin.X, r.Origin.Y), new Eto.Drawing.SizeF(r.Radius.Width, r.Radius.Height)); paint(brush); }),
-        texture: t => Op.Side(() => {
+    internal Unit UseBrush(Action<Eto.Drawing.Brush> paint) => Switch(paint,
+        solid: static (draw, s) => Op.Side(() => { using Eto.Drawing.Brush brush = new Eto.Drawing.SolidBrush(Fade(s.Color, s.Opacity).ToEto()); draw(brush); }),
+        linear: static (draw, l) => Op.Side(() => { using Eto.Drawing.Brush brush = new Eto.Drawing.LinearGradientBrush(Fade(l.Start, l.Opacity).ToEto(), Fade(l.End, l.Opacity).ToEto(), new Eto.Drawing.PointF(l.From.X, l.From.Y), new Eto.Drawing.PointF(l.To.X, l.To.Y)); draw(brush); }),
+        radial: static (draw, r) => Op.Side(() => { using Eto.Drawing.Brush brush = new Eto.Drawing.RadialGradientBrush(Fade(r.Start, r.Opacity).ToEto(), Fade(r.End, r.Opacity).ToEto(), new Eto.Drawing.PointF(r.Center.X, r.Center.Y), new Eto.Drawing.PointF(r.Origin.X, r.Origin.Y), new Eto.Drawing.SizeF(r.Radius.Width, r.Radius.Height)); draw(brush); }),
+        texture: static (draw, t) => Op.Side(() => {
             using Eto.Drawing.Bitmap bitmap = t.Image.ToEtoBitmap();
             using Eto.Drawing.Brush brush = new Eto.Drawing.TextureBrush(bitmap) { Opacity = Alpha(opacity: t.Opacity) };
-            paint(brush);
+            draw(brush);
         }));
 }
 
@@ -174,20 +203,21 @@ public abstract partial record UiMark {    // screen-space (px), backend-neutral
         Eto.Drawing.PointF q = new(p.X, p.Y);
         using Eto.Drawing.Pen probe = new(Eto.Drawing.Colors.Black, tolerance);
         return Switch(
-            text: t => {
+            state: (Path: path, Point: q, Probe: probe, Tolerance: tolerance),
+            text: static (state, t) => {
                 UiFont font = t.Font ?? UiFont.Default;
                 System.Drawing.SizeF size = font.HitSize(value: t.Value);
                 System.Drawing.PointF origin = UiSurface.TextOrigin(anchor: t.Anchor, at: t.At, size: size);
-                path.AddRectangle(origin.X, origin.Y, size.Width, size.Height);
-                return path.FillContains(q);
+                state.Path.AddRectangle(origin.X, origin.Y, size.Width, size.Height);
+                return state.Path.FillContains(state.Point);
             },
-            stroke: k => { path.AddLine(k.From.X, k.From.Y, k.To.X, k.To.Y); return path.StrokeContains(probe, q); },
-            path: pp => { path.AddLines(pp.Points.Map(static z => new Eto.Drawing.PointF(z.X, z.Y)).AsEnumerable()); _ = Op.SideWhen(pp.Closed, path.CloseFigure); return pp.Closed ? path.FillContains(q) : path.StrokeContains(probe, q); },
-            curve: cc => { _ = cc.Segs.Iter(s => s.AddTo(path)); _ = Op.SideWhen(cc.Closed, path.CloseFigure); return cc.Closed ? path.FillContains(q) : path.StrokeContains(probe, q); },
-            box: b => b.Corner > 0f ? RoundedHit(bounds: b.Bounds, corner: b.Corner, point: q) : RectHit(bounds: b.Bounds, point: q),
-            sprite: s => { System.Drawing.PointF a = s.Value.Place.Anchor; return Math.Abs(q.X - a.X) <= tolerance && Math.Abs(q.Y - a.Y) <= tolerance; });
+            stroke: static (state, k) => { state.Path.AddLine(k.From.X, k.From.Y, k.To.X, k.To.Y); return state.Path.StrokeContains(state.Probe, state.Point); },
+            path: static (state, pp) => { state.Path.AddLines(pp.Points.Map(static z => new Eto.Drawing.PointF(z.X, z.Y)).AsEnumerable()); _ = Op.SideWhen(pp.Closed, state.Path.CloseFigure); return pp.Closed ? state.Path.FillContains(state.Point) : state.Path.StrokeContains(state.Probe, state.Point); },
+            curve: static (state, cc) => { _ = cc.Segs.Iter(s => s.AddTo(state.Path)); _ = Op.SideWhen(cc.Closed, state.Path.CloseFigure); return cc.Closed ? state.Path.FillContains(state.Point) : state.Path.StrokeContains(state.Probe, state.Point); },
+            box: static (state, b) => b.Corner > 0f ? RoundedHit(bounds: b.Bounds, corner: b.Corner, point: state.Point) : RectHit(path: state.Path, bounds: b.Bounds, point: state.Point),
+            sprite: static (state, s) => { System.Drawing.PointF a = s.Value.Place.Anchor; return Math.Abs(state.Point.X - a.X) <= state.Tolerance && Math.Abs(state.Point.Y - a.Y) <= state.Tolerance; });
 
-        bool RectHit(System.Drawing.Rectangle bounds, Eto.Drawing.PointF point) {
+        static bool RectHit(Eto.Drawing.GraphicsPath path, System.Drawing.Rectangle bounds, Eto.Drawing.PointF point) {
             path.AddRectangle(bounds.X, bounds.Y, bounds.Width, bounds.Height);
             return path.FillContains(point);
         }
@@ -204,7 +234,7 @@ public abstract partial record UiMark {    // screen-space (px), backend-neutral
     }
 }
 
-[Union]
+[Union(SwitchMapStateParameterName = "state")]
 public abstract partial record UiSpritePlace {
     private UiSpritePlace() { }
     public sealed record Screen(System.Drawing.PointF At) : UiSpritePlace;
@@ -327,16 +357,17 @@ public abstract partial record UiSurface {
         bitmap.SetBlendFunction(source: source, destination: destination);
         DrawingColor tint = sprite.Tint.IfNone(DrawingColor.White);
         return sprite.Place.Switch(
-            screen: s => Op.Side(() => display.DrawSprite(bitmap: bitmap, screenLocation: new Point2d(s.At.X, s.At.Y), size: sprite.Size, blendColor: tint)),
-            world: w => Op.Side(() => display.DrawSprite(bitmap: bitmap, worldLocation: w.At, size: sprite.Size, blendColor: tint, sizeInWorldSpace: true)),
-            cloud: cl => Op.Side(() => {
+            state: (Display: display, Bitmap: bitmap, Sprite: sprite, Tint: tint),
+            screen: static (state, s) => Op.Side(() => state.Display.DrawSprite(bitmap: state.Bitmap, screenLocation: new Point2d(s.At.X, s.At.Y), size: state.Sprite.Size, blendColor: state.Tint)),
+            world: static (state, w) => Op.Side(() => state.Display.DrawSprite(bitmap: state.Bitmap, worldLocation: w.At, size: state.Sprite.Size, blendColor: state.Tint, sizeInWorldSpace: true)),
+            cloud: static (state, cl) => Op.Side(() => {
                 DisplayBitmapDrawList list = new();
                 _ = cl.Colors.Case switch {
                     Seq<DrawingColor> cs => Op.Side(() => list.SetPoints(points: cl.At.AsEnumerable(), colors: cs.AsEnumerable())),
-                    _ => Op.Side(() => list.SetPoints(points: cl.At.AsEnumerable(), blendColor: tint)),
+                    _ => Op.Side(() => list.SetPoints(points: cl.At.AsEnumerable(), blendColor: state.Tint)),
                 };
-                _ = list.Sort(cameraDirection: display.Viewport.CameraDirection);
-                display.DrawSprites(bitmap: bitmap, items: list, size: sprite.Size, sizeInWorldSpace: true);
+                _ = list.Sort(cameraDirection: state.Display.Viewport.CameraDirection);
+                state.Display.DrawSprites(bitmap: state.Bitmap, items: list, size: state.Sprite.Size, sizeInWorldSpace: true);
             }));
     }
     private static Unit Polyline(DisplayPipeline display, Seq<System.Drawing.PointF> pts, UiStroke stroke, bool closed) =>
@@ -481,25 +512,22 @@ public sealed class UiCanvas<TState> : Eto.Forms.Drawable {
     private readonly UiSpriteAtlas atlas = new();
     private readonly Atom<TState> state;
     private readonly Func<TState, Eto.Drawing.Size, Fin<UiHud>> paint;
-    private readonly Func<UiCanvasContext<TState>, Fin<MouseDecision<TState>>>? mouse;
-    private readonly Func<UiCanvasKey<TState>, Fin<MouseDecision<TState>>>? key;
+    private readonly Func<UiInputEvent<TState>, Fin<MouseDecision<TState>>>? input;
     private readonly Func<Eto.Drawing.Size, Fin<Unit>>? resize;
     private readonly UiRenderHint hint;
 
     public UiCanvas(
         TState initial,
         Func<TState, Eto.Drawing.Size, Fin<UiHud>> paint,
-        Func<UiCanvasContext<TState>, Fin<MouseDecision<TState>>>? mouse = null,
-        Func<UiCanvasKey<TState>, Fin<MouseDecision<TState>>>? key = null,
+        Func<UiInputEvent<TState>, Fin<MouseDecision<TState>>>? input = null,
         Func<Eto.Drawing.Size, Fin<Unit>>? resize = null,
         UiRenderHint hint = default) {
         state = Atom(initial);
         this.paint = paint;
-        this.mouse = mouse;
-        this.key = key;
+        this.input = input;
         this.resize = resize;
         this.hint = hint;
-        CanFocus = key is not null;
+        CanFocus = input is not null;
         global::Rhino.UI.EtoExtensions.UseRhinoStyle(this);
     }
 
@@ -511,22 +539,27 @@ public sealed class UiCanvas<TState> : Eto.Forms.Drawable {
     protected override void OnPaint(Eto.Forms.PaintEventArgs e) =>
         _ = RhinoUi.Protect(valid: () => { _ = hint.Apply(g: e.Graphics); return paint(arg1: state.Value, arg2: Size).Bind(hud => hud.Render(surface: new UiSurface.Canvas(Graphics: e.Graphics, Atlas: atlas))); });
 
-    protected override void OnMouseDown(Eto.Forms.MouseEventArgs e) => _ = Pointer(phase: MousePhase.Down, args: e);
+    protected override void OnMouseDown(Eto.Forms.MouseEventArgs e) {
+        if (input is not null) Focus();
+        _ = Pointer(phase: MousePhase.Down, args: e);
+    }
     protected override void OnMouseMove(Eto.Forms.MouseEventArgs e) => _ = Pointer(phase: MousePhase.Move, args: e);
     protected override void OnMouseUp(Eto.Forms.MouseEventArgs e) => _ = Pointer(phase: MousePhase.Up, args: e);
     protected override void OnMouseDoubleClick(Eto.Forms.MouseEventArgs e) => _ = Pointer(phase: MousePhase.DoubleClick, args: e);
     protected override void OnMouseWheel(Eto.Forms.MouseEventArgs e) => _ = Pointer(phase: MousePhase.Wheel, args: e);
-    protected override void OnKeyDown(Eto.Forms.KeyEventArgs e) => _ = Optional(key).Iter(handler => Commit(() => handler(new UiCanvasKey<TState>(Phase: KeyPhase.Down, State: state.Value, Args: e)), handled: cancel => e.Handled = cancel));
-    protected override void OnKeyUp(Eto.Forms.KeyEventArgs e) => _ = Optional(key).Iter(handler => Commit(() => handler(new UiCanvasKey<TState>(Phase: KeyPhase.Up, State: state.Value, Args: e)), handled: cancel => e.Handled = cancel));
+    protected override void OnKeyDown(Eto.Forms.KeyEventArgs e) => _ = Optional(input).Iter(handler => Commit(() => handler(new UiInputEvent<TState>.CanvasKey(Value: new UiCanvasKey<TState>(Phase: KeyPhase.Down, State: state.Value, Args: e))), handled: cancel => e.Handled = cancel));
+    protected override void OnKeyUp(Eto.Forms.KeyEventArgs e) => _ = Optional(input).Iter(handler => Commit(() => handler(new UiInputEvent<TState>.CanvasKey(Value: new UiCanvasKey<TState>(Phase: KeyPhase.Up, State: state.Value, Args: e))), handled: cancel => e.Handled = cancel));
     protected override void OnSizeChanged(EventArgs e) => _ = Optional(resize).Iter(handler => _ = RhinoUi.Protect(valid: () => handler(Size)));
 
     private Unit Pointer(MousePhase phase, Eto.Forms.MouseEventArgs args) =>
-        Optional(mouse).Iter(handler => Commit(() => handler(new UiCanvasContext<TState>(Phase: phase, State: state.Value, Args: args)), handled: cancel => args.Handled = cancel));
+        Optional(input).Iter(handler => Commit(() => handler(new UiInputEvent<TState>.CanvasPointer(Value: new UiCanvasContext<TState>(Phase: phase, State: state.Value, Args: args))), handled: cancel => args.Handled = cancel));
     private Unit Commit(Func<Fin<MouseDecision<TState>>> run, Action<bool> handled) =>
-        RhinoUi.Protect(valid: run).Map(d => { _ = state.Swap(_ => d.State); ToolTip = d.ToolTip.IfNone(string.Empty); handled(d.Cancel); Invalidate(); return unit; })
-            .Match(Succ: static _ => unit, Fail: error => {
+        RhinoUi.Deliver(
+            state: state,
+            run: _ => run().Map(decision => (decision.State, decision)),
+            apply: decision => { ToolTip = decision.ToolTip.IfNone(string.Empty); handled(decision.Cancel); Invalidate(); },
+            failed: error => {
                 if (error is not Fault.Cancelled) RhinoApp.WriteLine($"Rasm canvas commit failed: {error.Message}");
-                return unit;
             });
     protected override void Dispose(bool disposing) {
         if (disposing) {

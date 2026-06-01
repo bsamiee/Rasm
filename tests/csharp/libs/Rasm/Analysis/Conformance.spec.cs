@@ -145,7 +145,7 @@ public sealed class ConformanceProjectionOracleLaws {
     [Fact]
     public void SummaryWithinToleranceContainmentAndDistributionProjectIndependentResidualContracts() {
         Spec.Succ(Conformance.WithinTolerance(count: 3).Project<bool>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
-            then: static within => Assert.Equal(expected: Seq(false), actual: within));
+            then: static within => Assert.Equal(expected: Seq(value: false), actual: within));
         Spec.Succ(Conformance.Summary(count: 3).Project<Stat>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
             then: static summary => {
                 Stat stat = summary.Head.IfNone(default(Stat));

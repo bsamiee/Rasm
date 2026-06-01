@@ -242,6 +242,62 @@ internal static class ShapeRules {
             _ => null,
         });
     }
+    internal static void CheckGeneratedCaseAliasCollapse(SymbolAnalysisContext context, ScopeInfo scope, IMethodSymbol method) {
+        INamedTypeSymbol containingType = method.ContainingType;
+        ImmutableArray<INamedTypeSymbol> cases = [
+            .. containingType.GetTypeMembers()
+                .Where(caseType => StringComparer.Ordinal.Equals(x: caseType.Name, y: method.Name)),
+        ];
+        INamedTypeSymbol? constructedCase = cases.Length == 0 ? null : ConstructedCase(context: context, method: method);
+        bool pureAlias = constructedCase is not null
+            && cases.Any(candidate => SymbolEqualityComparer.Default.Equals(candidate, constructedCase));
+        AnalyzerState.Report(context.ReportDiagnostic, (
+            scope.IsAnalyzable,
+            method.MethodKind,
+            method.IsStatic,
+            SymbolFacts.HasThinktectureGeneratedDispatch(containingType),
+            SymbolEqualityComparer.Default.Equals(method.ReturnType, containingType),
+            pureAlias,
+            method.Locations.Length) switch {
+                (true, MethodKind.Ordinary, true, true, true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0733, method.Locations[0], method.Name),
+                _ => null,
+            });
+    }
+    internal static void CheckReceiptConstructionOwner(OperationAnalysisContext context, ScopeInfo scope, IObjectCreationOperation objectCreation) {
+        INamedTypeSymbol? receiptType = objectCreation.Type as INamedTypeSymbol;
+        bool external = receiptType is not null && IsExternalReceiptConstruction(context.ContainingSymbol, receiptType);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsOperationalReceiptType(receiptType), external) switch {
+            (true, true, true) => Diagnostic.Create(RuleCatalog.CSP0732, context.Operation.Syntax.GetLocation(), receiptType!.Name),
+            _ => null,
+        });
+    }
+    internal static void CheckReceiptConstructionOwner(OperationAnalysisContext context, ScopeInfo scope, IWithOperation withOperation) {
+        INamedTypeSymbol? receiptType = withOperation.Type as INamedTypeSymbol;
+        bool external = receiptType is not null && IsExternalReceiptConstruction(context.ContainingSymbol, receiptType);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsOperationalReceiptType(receiptType), external) switch {
+            (true, true, true) => Diagnostic.Create(RuleCatalog.CSP0732, context.Operation.Syntax.GetLocation(), receiptType!.Name),
+            _ => null,
+        });
+    }
+    internal static void CheckReceiptDocumentWrapper(OperationAnalysisContext context, ScopeInfo scope, IInvocationOperation invocation) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsMutationReceiptDocumentWrapper(invocation), IsExternalReceiptConstruction(context.ContainingSymbol, invocation.TargetMethod.ContainingType)) switch {
+            (true, true, true) => Diagnostic.Create(RuleCatalog.CSP0732, context.Operation.Syntax.GetLocation(), invocation.TargetMethod.ContainingType.Name),
+            _ => null,
+        });
+    internal static void CheckReceiptChainCollapse(OperationAnalysisContext context, ScopeInfo scope, IBinaryOperation binary) {
+        bool topmost = binary.Parent is not IBinaryOperation parent
+            || parent.OperatorKind != BinaryOperatorKind.Add
+            || !SymbolEqualityComparer.Default.Equals(parent.Type, binary.Type);
+        ImmutableArray<IOperation> terms = (scope.IsAnalyzable, topmost, SymbolFacts.IsOperationalReceiptType(binary.Type), binary.OperatorKind) switch {
+            (true, true, true, BinaryOperatorKind.Add) => [.. FlattenReceiptTerms(operation: binary, receiptType: binary.Type!)],
+            _ => [],
+        };
+        int factoryTerms = terms.Count(SymbolFacts.IsOperationalReceiptFactoryTerm);
+        AnalyzerState.Report(context.ReportDiagnostic, factoryTerms switch {
+            >= 3 => Diagnostic.Create(RuleCatalog.CSP0731, context.Operation.Syntax.GetLocation(), factoryTerms),
+            _ => null,
+        });
+    }
 
     // --- [REPORTS] ------------------------------------------------------------
 
@@ -475,6 +531,44 @@ internal static class ShapeRules {
         && (SymbolFacts.HasAnyAttribute(containingType, "UnionAttribute", "Union")
             || (containingType is { IsSealed: true, IsRecord: true } && containingType.ContainingType is INamedTypeSymbol unionBase
                 && SymbolFacts.HasAnyAttribute(unionBase, "UnionAttribute", "Union")));
+    private static INamedTypeSymbol? ConstructedCase(SymbolAnalysisContext context, IMethodSymbol method) =>
+        method.DeclaringSyntaxReferences
+            .Select(reference => reference.GetSyntax(context.CancellationToken))
+            .OfType<MethodDeclarationSyntax>()
+            .Select(declaration => ConstructedCase(context: context, declaration: declaration))
+            .FirstOrDefault(static caseType => caseType is not null);
+    private static INamedTypeSymbol? ConstructedCase(SymbolAnalysisContext context, MethodDeclarationSyntax declaration) {
+        SemanticModel model = context.Compilation.GetSemanticModel(declaration.SyntaxTree);
+        SyntaxNode? expression = declaration.ExpressionBody?.Expression
+            ?? declaration.Body?.Statements.OfType<ReturnStatementSyntax>().SingleOrDefault()?.Expression;
+        return expression is null
+            ? null
+            : UnwrapOperation(model.GetOperation(expression, context.CancellationToken)) switch {
+                IObjectCreationOperation creation => creation.Type as INamedTypeSymbol,
+                _ => null,
+            };
+    }
+    private static bool IsExternalReceiptConstruction(ISymbol? caller, INamedTypeSymbol receiptType) =>
+        caller?.ContainingType is not INamedTypeSymbol containingType
+        || !IsSameOrNested(type: containingType, owner: receiptType);
+    private static bool IsSameOrNested(INamedTypeSymbol type, INamedTypeSymbol owner) =>
+        SymbolEqualityComparer.Default.Equals(type, owner)
+        || (type.ContainingType is INamedTypeSymbol parent && IsSameOrNested(type: parent, owner: owner));
+    private static IEnumerable<IOperation> FlattenReceiptTerms(IOperation operation, ITypeSymbol receiptType) =>
+        operation switch {
+            IBinaryOperation binary when binary.OperatorKind == BinaryOperatorKind.Add
+                && SymbolEqualityComparer.Default.Equals(binary.Type, receiptType)
+                => FlattenReceiptTerms(operation: binary.LeftOperand, receiptType: receiptType)
+                    .Concat(FlattenReceiptTerms(operation: binary.RightOperand, receiptType: receiptType)),
+            IConversionOperation conversion => FlattenReceiptTerms(operation: conversion.Operand, receiptType: receiptType),
+            _ => [operation],
+        };
+    private static IOperation? UnwrapOperation(IOperation? operation) =>
+        operation switch {
+            IConversionOperation conversion => UnwrapOperation(conversion.Operand),
+            IParenthesizedOperation parenthesized => UnwrapOperation(parenthesized.Operand),
+            _ => operation,
+        };
     private static IEnumerable<ITypeSymbol> ExpandSignatureTypes(ITypeSymbol type) {
         ITypeSymbol unwrapped = UnwrapNullable(type);
         IEnumerable<ITypeSymbol> nested = unwrapped switch {

@@ -163,10 +163,10 @@ public sealed partial class PortKind {
     internal Capability DefaultPolicy { get; }
     [UseDelegateFromConstructor] private partial IParameter AddInput(InputAdder adder, string name, string code, string info, Access access, Requirement requirement);
     [UseDelegateFromConstructor] private partial IParameter AddOutput(OutputAdder adder, string name, string code, string info, Access access);
-    private static readonly Lazy<FrozenDictionary<(Type Type, Side Side), PortKind>> ByType = new(valueFactory: static () =>
+    private static FrozenDictionary<(Type Type, Side Side), PortKind> TypeDefaults() =>
         TypeSideGroups
             .Choose(static group => TypeDefault(type: group.Type, side: group.Side, kinds: group.Kinds).Map(kind => (group.Type, group.Side, Kind: kind)))
-            .ToFrozenDictionary(keySelector: static item => (item.Type, item.Side), elementSelector: static item => item.Kind));
+            .ToFrozenDictionary(keySelector: static item => (item.Type, item.Side), elementSelector: static item => item.Kind);
     internal static Seq<(Type Type, Seq<PortKind> Kinds)> TypeCollisions =>
         TypeSideGroups.Choose(static group => TypeDefault(type: group.Type, side: group.Side, kinds: group.Kinds).IsSome
             ? Option<(Type Type, Seq<PortKind> Kinds)>.None
@@ -178,8 +178,20 @@ public sealed partial class PortKind {
             ? Some(Generic)
             : type.IsEnum && System.Enum.GetUnderlyingType(enumType: type) == typeof(int) && !type.IsDefined(attributeType: typeof(FlagsAttribute), inherit: false)
                 ? EnumKind(type: type)
-            : ByType.Value.TryGetValue(key: (type, side), value: out PortKind? kind) ? Some(kind) : Option<PortKind>.None;
+            : TypeDefaults().TryGetValue(key: (type, side), value: out PortKind? kind) ? Some(kind) : Option<PortKind>.None;
     }
+    public static PortKind Register<T>(
+        string key,
+        Func<InputAdder, string, string, string, Access, Requirement, IParameter>? input = null,
+        Func<OutputAdder, string, string, string, Access, IParameter>? output = null,
+        Type? wireType = null,
+        Capability? policy = null) =>
+        Of<T>(
+            key: key,
+            input: input is null ? null : (adder, name, code, info, access, requirement) => input(adder, name, code, info, access, requirement),
+            output: output is null ? null : (adder, name, code, info, access) => output(adder, name, code, info, access),
+            wireType: wireType,
+            policy: policy);
     public static PortKind Enum<T>(T initial) where T : struct, Enum =>
         (System.Enum.GetUnderlyingType(enumType: typeof(T)), typeof(T).IsDefined(attributeType: typeof(FlagsAttribute), inherit: false)) switch {
             (Type backing, _) when backing != typeof(int) => throw new ArgumentException(message: "Grasshopper enum ports require System.Int32-backed enums.", paramName: nameof(initial)),
@@ -305,15 +317,17 @@ public abstract class Port {
                 false => throw new ArgumentException(message: $"Port kind '{candidate}' cannot register {type.Name} on {side}.", paramName: nameof(kind)),
             })
             .IfNone(() => PortKind.From(type: type, side: side).IfNone(PortKind.Generic));
+        Access resolvedAccess = resolvedKind == PortKind.Topological ? Access.Tree : access;
+        Requirement resolvedRequirement = resolvedKind == PortKind.Topological ? Requirement.MayBeMissing : requirement;
         Capability resolved = policy ?? resolvedKind.DefaultPolicy;
         return new(
             name: name,
             code: code,
             info: info,
             kind: resolvedKind,
-            access: access,
-            requirement: requirement,
-            policy: requirement switch {
+            access: resolvedAccess,
+            requirement: resolvedRequirement,
+            policy: resolvedRequirement switch {
                 Requirement.MayBeMissing => resolved + new Capability.Elective() + new Capability.Category(Name: "Optional"),
                 _ => resolved,
             });

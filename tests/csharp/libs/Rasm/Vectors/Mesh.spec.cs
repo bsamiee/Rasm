@@ -25,6 +25,8 @@ public sealed class MeshCatalogLaws {
     public void LaplacianCatalogKeysAreDistinctAndExecutable() {
         Spec.SmartEnumKeysUnique(items: MeshGens.Laplacians, key: static kind => kind.Key);
         Assert.DoesNotContain(collection: MeshGens.Laplacians, filter: static kind => kind.Key > MeshLaplacian.IntrinsicDelaunay.Key);
+        Spec.SmartEnumCatalogMatches(production: MeshFeatureKind.Items, expectedKeys: [0, 1, 2, 3, 4, 5, 6, 7], key: static kind => kind.Key);
+        Spec.SmartEnumCatalogMatches(production: MeshSegmentationAlgorithm.Items, expectedKeys: [0, 1, 2, 3, 4, 5], key: static kind => kind.Key);
     }
 }
 
@@ -70,6 +72,9 @@ public sealed class MeshSegmentationLaws {
         _ = Assert.IsType<MeshSegmentation.ScalarBandsCase>(@object: Spec.SuccValue(MeshSegmentation.ScalarBands(values: [0.0, 1.0], bandCount: 2, key: MeshGens.Key), label: "bands"));
         _ = Assert.IsType<MeshSegmentation.SeededRegionGrowCase>(@object: Spec.SuccValue(MeshSegmentation.SeededRegionGrow(values: [0.0, 0.1], seedFaces: Seq(0), tolerance: 0.2, maxIterations: 16, key: MeshGens.Key), label: "grow"));
         _ = Assert.IsType<MeshSegmentation.DescriptorClustersCase>(@object: Spec.SuccValue(MeshSegmentation.DescriptorClusters(descriptor: descriptor, eigenpairs: 2, regionCount: 2, maxIterations: 16, tolerance: 1.0e-9, key: MeshGens.Key), label: "clusters"));
+        _ = Assert.IsType<MeshSegmentation.WatershedCase>(@object: Spec.SuccValue(MeshSegmentation.Watershed(values: [0.0, 1.0], mergeTolerance: 0.05, key: MeshGens.Key), label: "watershed"));
+        MeshSegmentation.NormalizedCutCase normalizedCut = Assert.IsType<MeshSegmentation.NormalizedCutCase>(@object: Spec.SuccValue(MeshSegmentation.NormalizedCut(values: [0.0, 1.0], regionCount: 2, eigenpairs: 2, maxIterations: 16, tolerance: 1.0e-9, key: MeshGens.Key), label: "ncut"));
+        Assert.Equal(expected: MeshGens.Dim2.Value, actual: normalizedCut.RegionCount.Value);
         Spec.FailCategory(MeshSegmentation.ScalarThreshold(values: [], threshold: 0.0, key: MeshGens.Key), category: "Input");
         Spec.FailCategory(MeshSegmentation.ScalarThreshold(values: [0.0], threshold: double.NaN, key: MeshGens.Key), category: "Input");
         Spec.FailCategory(MeshSegmentation.ScalarThreshold(values: [double.NaN, double.PositiveInfinity], threshold: 0.0, key: MeshGens.Key), category: "Input");
@@ -78,6 +83,8 @@ public sealed class MeshSegmentationLaws {
         Spec.FailCategory(MeshSegmentation.SeededRegionGrow(values: [0.0], seedFaces: Seq<int>(), tolerance: 0.2, maxIterations: 16, key: MeshGens.Key), category: "Input");
         Spec.FailCategory(MeshSegmentation.SeededRegionGrow(values: [double.NaN], seedFaces: Seq(0), tolerance: 0.2, maxIterations: 16, key: MeshGens.Key), category: "Input");
         Spec.FailCategory(MeshSegmentation.DescriptorClusters(descriptor: descriptor, eigenpairs: 2, regionCount: 1, maxIterations: 16, tolerance: 1.0e-9, key: MeshGens.Key), category: "Input");
+        Spec.FailCategory(MeshSegmentation.Watershed(values: [0.0], mergeTolerance: 0.0, key: MeshGens.Key), category: "Tolerance");
+        Spec.FailCategory(MeshSegmentation.NormalizedCut(values: [0.0, 1.0], regionCount: 1, eigenpairs: 2, maxIterations: 16, tolerance: 1.0e-9, key: MeshGens.Key), category: "Input");
     }
 }
 

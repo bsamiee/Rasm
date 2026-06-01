@@ -127,6 +127,7 @@ public static class Fusion {
 - `FuseWhile` signature captures the five decisions any fused traversal must make — the body is a single `Choose` → `FoldWhile` → `project` expression.
 - `CollectUnder` hoists `cap` into the seed tuple, making all three lambdas `static` — the predicate reads `Cap` from `State` instead of closing over it.
 - `.Cons` accumulates in reverse; `.Rev()` in the projection restores insertion order — `.Add` (Snoc) forces evaluation on every element.
+- Pinned LanguageExt exposes indexed `Seq<T>.Map(Func<T,int,B>)` but not indexed `TraverseM`. When an effectful traversal needs the index, use indexed `Map` into the effect and then `.TraverseM(identity).As()`; do not hand-thread `(Index, Accumulator)` folds unless the fold owns additional state beyond indexing.
 
 ---
 

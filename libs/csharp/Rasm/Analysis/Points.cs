@@ -112,7 +112,7 @@ public static partial class Analyze {
                     SpreadAspect a when a.Equals(SpreadAspect.Collinear) => MinorSpread(fit: fit, points: points, context: context, op: op).Bind(spread => op.AcceptResults<bool, TOut>(values: Seq(spread <= context.Absolute.Value))),
                     _ => Fin.Fail<Seq<TOut>>(op.Unsupported(geometryType: typeof(SpreadAspect), outputType: typeof(TOut))),
                 },
-                _ when (aspect.Equals(SpreadAspect.Coplanar) || aspect.Equals(SpreadAspect.Collinear)) && points.Count <= 2 => op.AcceptResults<bool, TOut>(values: Seq(true)),
+                _ when (aspect.Equals(SpreadAspect.Coplanar) || aspect.Equals(SpreadAspect.Collinear)) && points.Count <= 2 => op.AcceptResults<bool, TOut>(values: Seq(value: true)),
                 _ => Fin.Fail<Seq<TOut>>(op.InvalidResult()),
             };
     private static Fin<Plane> OrientedFrame(Plane fit, Seq<Point3d> points, Context context, Op op) =>

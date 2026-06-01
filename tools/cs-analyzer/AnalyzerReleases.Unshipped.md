@@ -75,4 +75,11 @@ CSP0726 | SurfaceArea           | Error    | PositionalRecordConstructor
 CSP0727 | FunctionalDiscipline  | Error    | SwitchExpressionPrecedence
 CSP0728 | FunctionalDiscipline  | Error    | MapFailDiscardsException
 CSP0729 | SurfaceArea           | Error    | OverloadAdjacency
+CSP0730 | SurfaceArea           | Error    | OperationalReceiptFactStream
+CSP0731 | SurfaceArea           | Error    | ReceiptChainCollapse
+CSP0732 | SurfaceArea           | Error    | ReceiptConstructionOwner
+CSP0733 | SurfaceArea           | Error    | GeneratedCaseAliasCollapse
+CSP0734 | PerformanceDiscipline | Error    | StateThreadedDispatch
+CSP0735 | FunctionalDiscipline  | Error    | TraverseFusion
+CSP0736 | FunctionalDiscipline  | Error    | FoldAppendAccumulator
 CSP0802 | TypeDiscipline        | Error    | UnionOpsQualification

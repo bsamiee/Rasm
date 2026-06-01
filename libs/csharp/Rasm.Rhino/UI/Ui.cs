@@ -135,6 +135,25 @@ public sealed partial record RhinoUi {
                 (_, _, false) => Invoke(valid: work, name: name),
             });
 
+    internal static Unit Deliver<TState, TResult>(
+        Atom<TState> state,
+        Func<TState, Fin<(TState State, TResult Result)>> run,
+        Action<TResult> apply,
+        Action<Error>? failed = null,
+        [CallerMemberName] string name = "") =>
+        Protect(valid: () => Op.Of(name: name).Need(run).Bind(validRun =>
+            Op.Of(name: name).Need(apply).Bind(validApply =>
+                validRun(arg: state.Value).Map(next => Op.Side(() => {
+                    _ = state.Swap(_ => next.State);
+                    validApply(next.Result);
+                })))))
+        .Match(
+            Succ: static _ => unit,
+            Fail: error => {
+                _ = Optional(failed).IfSome(handler => handler(error));
+                return unit;
+            });
+
     private static Fin<T> Invoke<T>(Func<Fin<T>> valid, string name) {
         Op op = Op.Of(name: name);
         return op.Catch(() => {
@@ -192,7 +211,7 @@ public sealed class UiProgress : IDisposable {
                 (int position, _, _) when position < lower || position > upper => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
                 (int target, int position, string label) => Drive(target, position, label),
                 (_, _, string label) => Op.Side(() => global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: RhinoMath.UnsetIntIndex, absolute: true)) switch { _ => Fin.Succ(value: current) },
-                (int target, int position, _) => Drive(target, position, null),
+                (int target, int position, _) => Drive(target, position, label: null),
                 _ => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
             },
         };

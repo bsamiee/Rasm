@@ -27,10 +27,10 @@ Scenario.Run("blocks-write-attributes", CAPTURE_PATH, (key, facts) => {
     DefinitionRef refer = DefinitionRef.Of(name: blockName);
     BlockOutcome placed = Probe.Expect(
         blocks.Run(
-            op: new BlockOp.Place(
+            op: new BlockOp.Instance(new BlockInstanceTask.Place(
                 Ref: refer,
                 At: Seq(Placement.Of(xform: Transform.Identity)),
-                Policy: BatchPolicy.Default),
+                Policy: BatchPolicy.Default)),
             key: key),
         "place");
     BlockOutcome.Receipt receipt = placed is BlockOutcome.Receipt value
@@ -41,11 +41,11 @@ Scenario.Run("blocks-write-attributes", CAPTURE_PATH, (key, facts) => {
     HashMap<string, string> values = HashMap<string, string>().AddOrUpdate(key: "Mark", value: "Written");
     BlockOutcome written = Probe.Expect(
         blocks.Run(
-            op: new BlockOp.WriteAttributeFields(
+            op: new BlockOp.Attributes(new BlockAttributeTask.Write(
                 Ref: refer,
                 Values: values,
                 Policy: ConstraintPolicy.Extend,
-                InstanceId: Some(instanceId)),
+                InstanceId: Some(instanceId))),
             key: key),
         "write attributes");
     BlockOutcome.Receipt writeReceipt = written is BlockOutcome.Receipt writeValue

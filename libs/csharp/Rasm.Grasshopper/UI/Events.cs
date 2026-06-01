@@ -1,4 +1,8 @@
+using System.Globalization;
+using System.Reflection;
+using AppKit;
 using Eto.Forms;
+using Foundation;
 using Grasshopper2;
 using Grasshopper2.Doc;
 using Grasshopper2.UI.Flex;
@@ -25,6 +29,7 @@ public partial record UiEvent : IUiOp {
     public sealed record KeyboardModifiersCase(Func<InputModifierSnapshot, Fin<Unit>> Handler) : UiEvent;
     public sealed record LogicalPixelSizeCase(Window Window, Func<float, Fin<Unit>> Handler) : UiEvent;
     public sealed record WindowLifecycleCase(Window Window, WindowLifecycle Kind, Func<bool, Fin<Unit>> Handler) : UiEvent;
+    public sealed record NativeInputCase(Func<NativeInputSnapshot, Fin<Unit>> Handler) : UiEvent;
     public sealed record ManyCase(Seq<UiEvent> Events) : UiEvent;
 
     public static UiEvent Paint(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> handler, MotionClock? clock = null, RepaintRequest? repaint = null) =>
@@ -55,6 +60,8 @@ public partial record UiEvent : IUiOp {
         new LogicalPixelSizeCase(Window: window, Handler: handler);
     public static UiEvent WindowLifecycle(Window window, WindowLifecycle kind, Func<bool, Fin<Unit>> handler) =>
         new WindowLifecycleCase(Window: window, Kind: kind, Handler: handler);
+    public static UiEvent NativeInput(Func<NativeInputSnapshot, Fin<Unit>> handler) =>
+        new NativeInputCase(Handler: handler);
     public static UiEvent Many(Seq<UiEvent> events) =>
         new ManyCase(Events: events);
 
@@ -69,12 +76,32 @@ public partial record UiEvent : IUiOp {
         keyboardModifiersCase: static _ => GrasshopperUiPolicy.Read,
         logicalPixelSizeCase: static _ => GrasshopperUiPolicy.Read,
         windowLifecycleCase: static _ => GrasshopperUiPolicy.Read,
+        nativeInputCase: static _ => GrasshopperUiPolicy.Read,
         manyCase: static m => m.Events.Fold(GrasshopperUiPolicy.Read, static (policy, e) => policy | e.UiPolicy));
 
     internal static Unit Publish<TSnapshot>(Func<TSnapshot, Fin<Unit>> handler, TSnapshot snapshot) {
         _ = GrasshopperUi.Handler(valid: () => handler(arg: snapshot));
         return unit;
     }
+}
+
+internal readonly record struct EventSpec<TOwner, THandlers, TSnapshot>(
+    TOwner Owner,
+    THandlers Handlers,
+    Action<TOwner, THandlers> Attach,
+    Action<TOwner, THandlers> Detach,
+    Func<TSnapshot, Fin<Unit>> Handler) {
+    internal Fin<Subscription> Subscribe(bool marshalToUi = true) {
+        TOwner owner = Owner;
+        THandlers handlers = Handlers;
+        Action<TOwner, THandlers> attach = Attach;
+        Action<TOwner, THandlers> detach = Detach;
+        return marshalToUi
+            ? Events.BindMarshaled(attach: () => attach(owner, handlers), detach: () => detach(owner, handlers))
+            : Subscription.Bind(attach: () => attach(owner, handlers), detach: () => detach(owner, handlers));
+    }
+
+    internal Unit Publish(TSnapshot snapshot) => UiEvent.Publish(handler: Handler, snapshot: snapshot);
 }
 
 [SmartEnum<int>]
@@ -239,10 +266,13 @@ public readonly record struct DocumentEvent {
         return from validAttach in Optional(attachLocal).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentEvent)), detail: "attach missing"))
                from validDetach in Optional(detachLocal).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentEvent)), detail: "detach missing"))
                from validBuild in Optional(buildLocal).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(DocumentEvent)), detail: "handler builder missing"))
-               let events = validBuild(arg1: self, arg2: new DocumentEventPipe(Document: owner.Doc, Objects: owner.Objs, Handler: handler))
-               from sub in Events.BindMarshaled(
-                   attach: () => validAttach(owner, events),
-                   detach: () => validDetach(owner, events))
+               let spec = new EventSpec<(GhDocument Doc, GhObjectList Objs), DocumentEventHandlers, DocumentEventSnapshot>(
+                   Owner: owner,
+                   Handlers: validBuild(arg1: self, arg2: new DocumentEventPipe(Document: owner.Doc, Objects: owner.Objs, Handler: handler)),
+                   Attach: validAttach,
+                   Detach: validDetach,
+                   Handler: handler)
+               from sub in spec.Subscribe()
                select sub;
     }
 
@@ -440,10 +470,13 @@ public readonly record struct ControlEvent {
         return from validAttach in Optional(attachLocal).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ControlEvent)), detail: "attach missing"))
                from validDetach in Optional(detachLocal).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ControlEvent)), detail: "detach missing"))
                from validBuild in Optional(buildLocal).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ControlEvent)), detail: "handler builder missing"))
-               let events = validBuild(arg1: self, arg2: new ControlEventPipe(Source: source, Handler: handler))
-               from sub in Events.BindMarshaled(
-                   attach: () => validAttach(source, events),
-                   detach: () => validDetach(source, events))
+               let spec = new EventSpec<Control, ControlEventHandlers, ControlEventSnapshot>(
+                   Owner: source,
+                   Handlers: validBuild(arg1: self, arg2: new ControlEventPipe(Source: source, Handler: handler)),
+                   Attach: validAttach,
+                   Detach: validDetach,
+                   Handler: handler)
+               from sub in spec.Subscribe()
                select sub;
     }
 }
@@ -827,6 +860,64 @@ public readonly record struct CanvasWindowDelta(WindowSelection Window, Selectio
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasEventSnapshot(CanvasEvent Kind, Option<CanvasProjectionDelta> Projection = default, Option<CanvasWindowDelta> Window = default, bool Modified = false, Option<PointF> Hover = default);
 
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct NativeInputSnapshot(
+    string Kind,
+    string Phase,
+    bool Momentum,
+    bool PreciseScrolling,
+    InputModifierSnapshot Modifiers,
+    Option<double> DeltaX = default,
+    Option<double> DeltaY = default,
+    Option<double> Magnification = default,
+    Option<double> Rotation = default,
+    Option<double> Pressure = default,
+    Option<ulong> KeyCode = default,
+    Option<ulong> RawModifiers = default) {
+    private const ulong ShiftMask = 1UL << 17;
+    private const ulong OptionMask = 1UL << 19;
+    private const ulong CommandMask = 1UL << 20;
+
+    internal static NativeInputSnapshot Of(NSEvent e) {
+        Option<ulong> modifiers = UInt(eventArgs: e, name: "ModifierFlags");
+        return new(
+            Kind: e.Type.ToString(),
+            Phase: Text(eventArgs: e, name: "Phase").IfNone(string.Empty),
+            Momentum: Text(eventArgs: e, name: "MomentumPhase").Filter(static value => !string.Equals(a: value, b: "None", comparisonType: StringComparison.OrdinalIgnoreCase)).IsSome,
+            PreciseScrolling: Bool(eventArgs: e, name: "HasPreciseScrollingDeltas").IfNone(noneValue: false),
+            Modifiers: new InputModifierSnapshot(
+                Shift: modifiers.Map(static flags => (flags & ShiftMask) != 0UL).IfNone(noneValue: false),
+                Command: modifiers.Map(static flags => (flags & CommandMask) != 0UL).IfNone(noneValue: false),
+                Option: modifiers.Map(static flags => (flags & OptionMask) != 0UL).IfNone(noneValue: false)),
+            DeltaX: Number(eventArgs: e, name: "ScrollingDeltaX"),
+            DeltaY: Number(eventArgs: e, name: "ScrollingDeltaY"),
+            Magnification: Number(eventArgs: e, name: "Magnification"),
+            Rotation: Number(eventArgs: e, name: "Rotation"),
+            Pressure: Number(eventArgs: e, name: "Pressure"),
+            KeyCode: UInt(eventArgs: e, name: "KeyCode"),
+            RawModifiers: modifiers);
+    }
+
+    private static Option<object> Value(NSEvent eventArgs, string name) =>
+        Optional(eventArgs.GetType().GetProperty(name: name, bindingAttr: BindingFlags.Public | BindingFlags.Instance)?.GetValue(obj: eventArgs));
+    private static Option<string> Text(NSEvent eventArgs, string name) => Value(eventArgs: eventArgs, name: name).Map(static value => value.ToString() ?? string.Empty);
+    private static Option<bool> Bool(NSEvent eventArgs, string name) => Value(eventArgs: eventArgs, name: name).Bind(static value => value is bool b ? Some(b) : Option<bool>.None);
+    private static Option<double> Number(NSEvent eventArgs, string name) => Value(eventArgs: eventArgs, name: name).Bind(static value => value switch {
+        double d => Some(d),
+        float f => Some((double)f),
+        _ => Option<double>.None,
+    });
+    private static Option<ulong> UInt(NSEvent eventArgs, string name) => Value(eventArgs: eventArgs, name: name).Bind(static value => value switch {
+        ulong raw => Some(raw),
+        nuint raw => Some((ulong)raw),
+        uint raw => Some((ulong)raw),
+        long raw when raw >= 0L => Some((ulong)raw),
+        int raw when raw >= 0 => Some((ulong)raw),
+        Enum raw => Some(Convert.ToUInt64(value: raw, provider: CultureInfo.InvariantCulture)),
+        _ => Option<ulong>.None,
+    });
+}
+
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Events {
     internal static GrasshopperUiIntent<Subscription> Subscribe(UiEvent uiEvent) =>
@@ -841,6 +932,7 @@ internal static partial class Events {
             keyboardModifiersCase: static k => SubscribeKeyboardModifiers(handler: k.Handler),
             logicalPixelSizeCase: static l => SubscribeLogicalPixelSize(window: l.Window, handler: l.Handler),
             windowLifecycleCase: static w => SubscribeWindowLifecycle(window: w.Window, kind: w.Kind, handler: w.Handler),
+            nativeInputCase: static n => SubscribeNativeInput(handler: n.Handler),
             manyCase: static m => SubscribeMany(events: m.Events));
 
     private static GrasshopperUiIntent<Subscription> SubscribePaint(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> handler, MotionClock? clock) =>
@@ -934,6 +1026,18 @@ internal static partial class Events {
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeWindowLifecycle)), detail: "null handler"))
             from sub in validKind.Subscribe(window: validWindow, handler: valid)
             select sub);
+
+    private static GrasshopperUiIntent<Subscription> SubscribeNativeInput(Func<NativeInputSnapshot, Fin<Unit>> handler) {
+        NSObject? monitor = null;
+        return GhUi.Read(run: _scope =>
+            from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeNativeInput)), detail: "null handler"))
+            from sub in BindMarshaled(
+                attach: () => monitor = NSEvent.AddLocalMonitorForEventsMatchingMask(NSEventMask.AnyEvent, e =>
+                    Optional(e).Map(evt => UiEvent.Publish(handler: valid, snapshot: NativeInputSnapshot.Of(e: evt))).Map(_ => e).IfNone(e)),
+                detach: () => Optional(monitor).Iter(NSEvent.RemoveMonitor),
+                detachOnce: true)
+            select sub);
+    }
 
     private static GrasshopperUiIntent<Subscription> SubscribeMany(Seq<UiEvent> events) =>
         new(

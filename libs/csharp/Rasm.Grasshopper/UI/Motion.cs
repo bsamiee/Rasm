@@ -160,6 +160,7 @@ public partial record CosmeticIntent {
     // from rest (InitialVelocity = 0) — it does NOT carry the CPU runner's live velocity, so the two share the
     // parameterization but not the launch state.
     public Option<SpringConfig> Spring { get; init; }
+    public Option<MaterialPolicy> Material { get; init; }
     // Co-animation opt-in (additive, default None): the child intents' animations are grouped onto the SAME
     // layer as this intent under ONE completion delegate — children must target DISTINCT key-paths.
     public Option<Seq<CosmeticIntent>> CoAnimate { get; init; }
@@ -210,7 +211,7 @@ public partial record CosmeticIntent {
 // CanvasPosition (the canonical Rasm wrapper over the host ContentPosition; the host frames it itself, no caller
 // zoom limits). MotionRequest.Navigate carries one.
 [SkipUnionOps]
-[Union]
+[Union(SwitchMapStateParameterName = "state")]
 public partial record NavigateTarget {
     private NavigateTarget() { }
     public sealed record PointCase(PointF Centre) : NavigateTarget;
@@ -235,8 +236,8 @@ public interface IMotionVector<T> {
     public bool IsFinite(T value);
 }
 
-internal interface IMotionState<TSelf> where TSelf : struct, IMotionState<TSelf> {
-    public TSelf Step(float frameDeltaSeconds);
+public interface IMotionState<TSelf> where TSelf : struct, IMotionState<TSelf> {
+    public TSelf Advance(float frameDeltaSeconds);
     public Unit Emit();
     public bool IsActive { get; }
 }
@@ -365,11 +366,11 @@ public sealed partial class SpringPreset {
 }
 
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct SpringRunnerState<T>(T Value, T Velocity, T Target, SpringConfig Config, IMotionVector<T> Vector, Action<T> Sink, TimeProvider Clock, long Timestamp) : IMotionState<SpringRunnerState<T>> {
+public readonly record struct SpringRunnerState<T>(T Value, T Velocity, T Target, SpringConfig Config, IMotionVector<T> Vector, Action<T> Sink, TimeProvider Clock, long Timestamp) : IMotionState<SpringRunnerState<T>> {
     // Analytic damped-spring step (Juckett): exact cached coefficients for the current dt, so the integration
     // is frame-rate-independent and unconditionally stable for any stiffness/mass — no dt clamp, and a single
     // large dt teleports to the exact analytic state. The coefficients ARE ∂(pos,vel)/∂(pos0,vel0) at t=dt.
-    public SpringRunnerState<T> Step(float frameDeltaSeconds) {
+    public SpringRunnerState<T> Advance(float frameDeltaSeconds) {
         long now = Clock.GetTimestamp();
         float dt = frameDeltaSeconds > 0f
             ? frameDeltaSeconds
@@ -440,29 +441,48 @@ internal readonly record struct SpringRunnerState<T>(T Value, T Velocity, T Targ
         !((Vector.Norm(Vector.Subtract(Value, Target)) < Vector.RestEpsilon) && (Vector.Norm(Velocity) < Vector.RestEpsilon));
 }
 
-public sealed class SpringHandle<T> : IDisposable {
-    private readonly Atom<SpringRunnerState<T>> cell;
-    private readonly Subscription subscription;
-    private readonly Action wake;
-    private readonly bool settled;
+public abstract class MotionHandle<TState, TValue> : IDisposable where TState : struct, IMotionState<TState> {
+    protected Atom<TState> Cell { get; }
+    protected Subscription Subscription { get; }
+    protected Action Wake { get; }
+    protected bool Settled { get; }
 
-    internal SpringHandle(Atom<SpringRunnerState<T>> cell, Subscription subscription, Action wake, bool settled = false) {
-        this.cell = cell;
-        this.subscription = subscription;
-        this.wake = wake;
-        this.settled = settled;
+    private protected MotionHandle(Atom<TState> cell, Subscription subscription, Action wake, bool settled) {
+        Cell = cell;
+        Subscription = subscription;
+        Wake = wake;
+        Settled = settled;
     }
 
-    public T CurrentValue => cell.Value.Value;
-    public T CurrentVelocity => cell.Value.Velocity;
-    public T CurrentTarget => cell.Value.Target;
-    public bool IsConverged => !cell.Value.IsActive;
+    public abstract TValue CurrentValue { get; }
+    public abstract bool IsSettled { get; }
+    public void Dispose() {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(obj: this);
+    }
+
+    protected virtual void Dispose(bool disposing) {
+        if (disposing) {
+            Subscription.Dispose();
+        }
+    }
+}
+
+public sealed class SpringHandle<T> : MotionHandle<SpringRunnerState<T>, T> {
+    internal SpringHandle(Atom<SpringRunnerState<T>> cell, Subscription subscription, Action wake, bool settled = false)
+        : base(cell: cell, subscription: subscription, wake: wake, settled: settled) { }
+
+    public override T CurrentValue => Cell.Value.Value;
+    public T CurrentVelocity => Cell.Value.Velocity;
+    public T CurrentTarget => Cell.Value.Target;
+    public bool IsConverged => !Cell.Value.IsActive;
+    public override bool IsSettled => IsConverged;
 
     public Fin<Unit> Retarget(T target, Option<T> initialVelocity = default) =>
         RetargetWhen(target: target, shouldUpdate: static _ => true, initialVelocity: initialVelocity);
 
     public Fin<Unit> RetargetWhen(T target, Func<T, bool> shouldUpdate, Option<T> initialVelocity = default) {
-        SpringRunnerState<T> snapshot = cell.Value;
+        SpringRunnerState<T> snapshot = Cell.Value;
         return from validUpdate in Optional(shouldUpdate).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(RetargetWhen)), detail: "predicate is required"))
                from validTarget in Op.Of(name: nameof(RetargetWhen)).AcceptFinite(value: target, vector: snapshot.Vector, detail: "spring target/velocity must be finite")
                from validVelocity in initialVelocity
@@ -470,9 +490,9 @@ public sealed class SpringHandle<T> : IDisposable {
                    .IfNone(Fin.Succ(value: Option<T>.None))
                from result in validUpdate(arg: snapshot.Target) switch {
                    false => Fin.Succ(value: unit),
-                   true => Fin.Succ(value: settled
+                   true => Fin.Succ(value: Settled
                        ? Op.Side(() => {
-                           _ = cell.Swap(state => state with {
+                           _ = Cell.Swap(state => state with {
                                Value = validTarget,
                                Target = validTarget,
                                Velocity = validVelocity.IfNone(state.Vector.Zero),
@@ -481,37 +501,27 @@ public sealed class SpringHandle<T> : IDisposable {
                            snapshot.Sink(validTarget);
                        })
                        : Op.Side(() => {
-                           _ = cell.Swap(state => state with {
+                           _ = Cell.Swap(state => state with {
                                Target = validTarget,
                                Velocity = validVelocity.IfNone(state.Velocity),
                            });
-                           wake();
+                           Wake();
                        })),
                }
                select result;
     }
-
-    public void Dispose() => subscription.Dispose();
 }
 
 // Mirror of SpringHandle<T>: an Atom-confined runner cell exposed for mid-flight Retarget. The
 // MotionRunner re-reads the cell each CAS tick, so a concurrent Retarget re-seeds the Animated curve.
-public sealed class PulseHandle<T> : IDisposable {
-    private readonly Atom<PulseRunnerState<T>> cell;
-    private readonly Subscription subscription;
-    private readonly Action wake;
-    private readonly bool settled;
+public sealed class PulseHandle<T> : MotionHandle<PulseRunnerState<T>, T> {
+    internal PulseHandle(Atom<PulseRunnerState<T>> cell, Subscription subscription, Action wake, bool settled = false)
+        : base(cell: cell, subscription: subscription, wake: wake, settled: settled) { }
 
-    internal PulseHandle(Atom<PulseRunnerState<T>> cell, Subscription subscription, Action wake, bool settled = false) {
-        this.cell = cell;
-        this.subscription = subscription;
-        this.wake = wake;
-        this.settled = settled;
-    }
-
-    public T CurrentValue => cell.Value.Animated.ValueNow;
-    public T CurrentTarget => cell.Value.To;
-    public bool IsCycling => cell.Value.IsActive;
+    public override T CurrentValue => Cell.Value.Animated.ValueNow;
+    public T CurrentTarget => Cell.Value.To;
+    public bool IsCycling => Cell.Value.IsActive;
+    public override bool IsSettled => !IsCycling;
 
     public Fin<Unit> Retarget(T target, Option<int> cycles = default) =>
         RetargetWhen(target: target, shouldUpdate: static _ => true, cycles: cycles);
@@ -519,15 +529,15 @@ public sealed class PulseHandle<T> : IDisposable {
     // Symmetric with SpringHandle.RetargetWhen: only re-seed the curve when the predicate accepts the current
     // target, so a stale retarget is a no-op rather than a restart.
     public Fin<Unit> RetargetWhen(T target, Func<T, bool> shouldUpdate, Option<int> cycles = default) {
-        PulseRunnerState<T> snapshot = cell.Value;
+        PulseRunnerState<T> snapshot = Cell.Value;
         return from validUpdate in Optional(shouldUpdate).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(RetargetWhen)), detail: "predicate is required"))
                from validTarget in Op.Of(name: nameof(RetargetWhen)).AcceptFinite(value: target, vector: snapshot.Vector, detail: "pulse target must be finite")
                from result in validUpdate(arg: snapshot.To) switch {
                    false => Fin.Succ(value: unit),
-                   true => Fin.Succ(value: settled
+                   true => Fin.Succ(value: Settled
                        ? Op.Side(() => SettlePulse(snapshot: snapshot, target: validTarget))
                        : Op.Side(() => {
-                           _ = cell.Swap(state => state with {
+                           _ = Cell.Swap(state => state with {
                                From = state.Animated.ValueNow,
                                To = validTarget,
                                CyclesRemaining = cycles.IfNone(state.CyclesRemaining),
@@ -538,7 +548,7 @@ public sealed class PulseHandle<T> : IDisposable {
                                    motion: state.Easing,
                                    interpolator: state.Vector.Interpolate),
                            });
-                           wake();
+                           Wake();
                        })),
                }
                select result;
@@ -546,7 +556,7 @@ public sealed class PulseHandle<T> : IDisposable {
 
     private void SettlePulse(PulseRunnerState<T> snapshot, T target) {
         T rest = snapshot.Yoyo ? snapshot.From : target;
-        _ = cell.Swap(state => state with {
+        _ = Cell.Swap(state => state with {
             From = rest,
             To = rest,
             CyclesRemaining = 0,
@@ -559,16 +569,14 @@ public sealed class PulseHandle<T> : IDisposable {
         });
         snapshot.Sink(rest);
     }
-
-    public void Dispose() => subscription.Dispose();
 }
 
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct PulseRunnerState<T>(Animated<T> Animated, T From, T To, GhDuration Duration, GhMotion Easing, bool Yoyo, bool Infinite, int CyclesRemaining, IMotionVector<T> Vector, Action<T> Sink, Grasshopper2.UI.Canvas.Canvas Canvas) : IMotionState<PulseRunnerState<T>> {
+public readonly record struct PulseRunnerState<T>(Animated<T> Animated, T From, T To, GhDuration Duration, GhMotion Easing, bool Yoyo, bool Infinite, int CyclesRemaining, IMotionVector<T> Vector, Action<T> Sink, Grasshopper2.UI.Canvas.Canvas Canvas) : IMotionState<PulseRunnerState<T>> {
     // GH2's Animated curve only advances when evaluated against the canvas clock (Canvas.Animate), exactly as
     // Tween/Stroke drive their curves. Tick the curve FIRST so State/ValueNow reflect the current frame, then
     // fold the cycle transition off the freshly-advanced state.
-    public PulseRunnerState<T> Step(float delta) {
+    public PulseRunnerState<T> Advance(float frameDeltaSeconds) {
         _ = Canvas.Animate(animated: Animated);
         return (Animated.State == GhState.Finished, Infinite || CyclesRemaining > 0) switch {
             (true, true) => this with {
@@ -1049,23 +1057,25 @@ internal static class Motion {
                 // Reduce-motion collapses the tween to an Abrupt (0ms) host frame; the Point case additionally snaps
                 // the document projection so the persisted centre/zoom matches the host's framing immediately.
             let effectiveDuration = MotionAccessibility.ShouldReduceMotion ? GhDuration.Abrupt : duration
+            let navigation = (Canvas: canvas, Document: document, Min: validMin, Max: validMax, Duration: duration, Effective: effectiveDuration)
             from result in target.Switch(
-                pointCase: p =>
+                state: navigation,
+                pointCase: static (s, p) =>
                     from validCentre in Op.Of(name: nameof(Navigate)).AcceptPoint(value: p.Centre, detail: "non-finite centre")
                     from __ in MotionAccessibility.ShouldReduceMotion
                         ? Op.Of(name: nameof(Navigate)).Attempt(body: () => {
-                            float zoom = Math.Clamp(value: document.Projection.zoom, min: validMin, max: validMax);
-                            canvas.Projection = canvas.Projection.SetZoom(zoom: zoom).SetCentre(centre: validCentre, frame: canvas.VisibleFrame);
-                            document.Projection = (validCentre, zoom);
+                            float zoom = Math.Clamp(value: s.Document.Projection.zoom, min: s.Min, max: s.Max);
+                            s.Canvas.Projection = s.Canvas.Projection.SetZoom(zoom: zoom).SetCentre(centre: validCentre, frame: s.Canvas.VisibleFrame);
+                            s.Document.Projection = (validCentre, zoom);
                             return unit;
                         }, what: "navigate reduce-motion snap")
-                        : Op.Of(name: nameof(Navigate)).Attempt(body: () => { canvas.Navigate(point: validCentre, zoomLimits: (validMin, validMax), duration: duration); return unit; }, what: "navigate")
+                        : Op.Of(name: nameof(Navigate)).Attempt(body: () => { s.Canvas.Navigate(point: validCentre, zoomLimits: (s.Min, s.Max), duration: s.Duration); return unit; }, what: "navigate")
                     select unit,
-                frameCase: f =>
+                frameCase: static (s, f) =>
                     Op.Of(name: nameof(Navigate)).AcceptRect(value: f.Region, detail: "non-finite frame")
-                        .Bind(validFrame => Op.Of(name: nameof(Navigate)).Attempt(body: () => { canvas.Navigate(frame: validFrame, zoomLimits: (validMin, validMax), duration: effectiveDuration); return unit; }, what: "navigate frame")),
-                positionCase: pos =>
-                    Op.Of(name: nameof(Navigate)).Attempt(body: () => { canvas.Navigate(position: pos.Where.Native, duration: effectiveDuration); return unit; }, what: "navigate position"))
+                        .Bind(validFrame => Op.Of(name: nameof(Navigate)).Attempt(body: () => { s.Canvas.Navigate(frame: validFrame, zoomLimits: (s.Min, s.Max), duration: s.Effective); return unit; }, what: "navigate frame")),
+                positionCase: static (s, pos) =>
+                    Op.Of(name: nameof(Navigate)).Attempt(body: () => { s.Canvas.Navigate(position: pos.Where.Native, duration: s.Effective); return unit; }, what: "navigate position"))
             select result);
 
     internal static GrasshopperUiIntent<Subscription> ZoomGate(ZoomThreshold threshold, Action<float> sink, MotionClock clock) =>
@@ -1341,7 +1351,7 @@ internal static class Motion {
             .Filter(sub => string.Equals(a: sub.Name, b: keyString, comparisonType: StringComparison.Ordinal))
             .Filter(sub => CosmeticDelegateStore.Find(layer: sub, key: keyString)
                 .Map(remove => remove.TryClaim())
-                .IfNone(true))
+                .IfNone(noneValue: true))
             .Iter(sub => {
                 sub.RemoveAnimation(key: keyString);
                 _ = CosmeticDelegateStore.Release(layer: sub, key: keyString);
@@ -1409,7 +1419,7 @@ internal static class Motion {
         RectangleF frame = PathFrame(points: points).IfNone(RectangleF.Empty);
         CGPath path = new();
         // Fold the polyline into the CGPath: first point opens the subpath (MoveTo), the rest extend it (LineTo).
-        _ = points.Fold(true, (first, point) => {
+        _ = points.Fold(initialState: true, f: (first, point) => {
             CGPoint cg = LocalPoint(point: point, frame: frame);
             _ = first ? Op.Side(() => path.MoveToPoint(point: cg)) : Op.Side(() => path.AddLineToPoint(point: cg));
             return false;
@@ -1485,8 +1495,6 @@ internal static class Motion {
     }
 
     [SupportedOSPlatform("macos14.0")]
-    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
-        Justification = "CGColor/CAEmitterCell ownership transfers to the host CAEmitterLayer property graph for animation lifetime.")]
     private static CAEmitterLayer CosmeticEmitterLayer(CosmeticIntent.EmitterCase emit) {
         CGRect rect = ToCGRect(emit.Bounds);
         EmitterProfile profile = emit.Profile;
@@ -1835,7 +1843,7 @@ internal static class Motion {
             this.pacer = pacer;
             // Re-reads mutable pendingDt each CAS attempt so a concurrent Retarget re-integrates against the
             // latest committed Target; a method-group form would freeze the receiver (IDE0200) and reallocate.
-            stepCell = live => live.Step(frameDeltaSeconds: pendingDt);
+            stepCell = live => live.Advance(frameDeltaSeconds: pendingDt);
         }
 
         internal static MotionRunner<TState> Of(Atom<TState> cell, Grasshopper2.UI.Canvas.Canvas canvas, Option<Pacer> pacer = default) =>

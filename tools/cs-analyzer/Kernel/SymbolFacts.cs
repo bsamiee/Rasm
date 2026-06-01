@@ -150,6 +150,16 @@ internal static class SymbolFacts {
     // --- [CONSTANTS] ----------------------------------------------------------
 
     private static readonly HashSet<string> BlockingMethods = new(["Wait", "WaitAll", "WaitAny", "GetResult", "Sleep"], StringComparer.Ordinal);
+    private static readonly HashSet<string> OperationalReceiptNames = new([
+        "Added", "Attached", "Attributes", "Changed", "Created", "Deleted", "Detached", "Flashed", "Hidden", "Lifecycle",
+        "Locked", "Moved", "Redraw", "Removed", "Replaced", "Resource", "Resources", "Selected", "Transformed", "Undo",
+        "Unselected", "Updated",
+    ], StringComparer.Ordinal);
+    private static readonly HashSet<string> ProofReceiptFragments = new([
+        "Admission", "Approximation", "Backend", "Cloud", "Eigen", "Finite", "Grid", "Hull", "Iteration", "Iterations",
+        "Kernel", "Lipschitz", "Matrix", "Mesh", "Native", "Path", "Policy", "Residual", "Route", "Sample", "Sampling",
+        "Sdf", "Search", "Solver", "Spectral", "Status", "Stop", "Tolerance", "Topology", "Volume",
+    ], StringComparer.Ordinal);
     private const int RegexOptionNonBacktrackingBit = 1024;
     private const int SearchValuesFriendlyRegexOptionMask =
         (int)RegexOptions.CultureInvariant
@@ -429,6 +439,51 @@ internal static class SymbolFacts {
         type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullableType
             ? nullableType.TypeArguments[0]
             : type;
+    internal static bool IsOperationalReceiptType(ITypeSymbol? type) =>
+        UnwrapNamed(type) is INamedTypeSymbol receipt
+        && receipt.Name.EndsWith(value: "Receipt", comparisonType: StringComparison.Ordinal)
+        && !IsProofReceiptType(receipt)
+        && OperationalReceiptMemberScore(receipt) > 0;
+    internal static bool HasReceiptFactStream(INamedTypeSymbol receipt) =>
+        receipt.GetTypeMembers().Any(static member => member.Name == "Change")
+        && receipt.GetMembers()
+            .OfType<IFieldSymbol>()
+            .Any(static field =>
+                field.Name.Contains(value: "changes", comparisonType: StringComparison.OrdinalIgnoreCase)
+                && field.Type.ToDisplayString().Contains(value: "Seq<", comparisonType: StringComparison.Ordinal));
+    internal static int OperationalReceiptMemberScore(INamedTypeSymbol receipt) =>
+        receipt.GetMembers()
+            .Where(static member => member is IFieldSymbol or IPropertySymbol)
+            .Where(static member => MemberTypeName(member) is not "bool" and not "Boolean" and not "System.Boolean")
+            .Select(static member => ReceiptMemberName(name: member.Name))
+            .Where(static name => ContainsAnyFragment(name: name, fragments: OperationalReceiptNames))
+            .Distinct(StringComparer.Ordinal)
+            .Count();
+    internal static string MemberTypeName(ISymbol member) =>
+        member switch {
+            IFieldSymbol field => field.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            IPropertySymbol property => property.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+            _ => string.Empty,
+        };
+    internal static bool IsOperationalReceiptFactoryTerm(IOperation operation) =>
+        UnwrapReceiver(operation) switch {
+            IInvocationOperation invocation => IsOperationalReceiptType(invocation.TargetMethod.ReturnType),
+            IConversionOperation { Operand: IOperation operand } => IsOperationalReceiptFactoryTerm(operand),
+            _ => false,
+        };
+    internal static bool IsMutationReceiptDocumentWrapper(IInvocationOperation invocation) =>
+        invocation.TargetMethod is {
+            Name: "Of",
+            ContainingType.Name: "MutationReceipt",
+            Parameters.Length: > 0,
+        }
+        && invocation.Arguments.Any(static argument => IsDocumentReceiptFactoryTerm(argument.Value));
+    internal static bool HasThinktectureGeneratedDispatch(INamedTypeSymbol? type) =>
+        type is not null && HasAnyAttribute(type, "UnionAttribute", "Union", "SmartEnumAttribute", "SmartEnum");
+    internal static bool IsLanguageExtInvocation(IInvocationOperation invocation, params string[] names) =>
+        names.Contains(invocation.TargetMethod.Name, StringComparer.Ordinal)
+        && (invocation.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
+            .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
 
     // --- [ATTRIBUTE_FACTS] ----------------------------------------------------
 
@@ -464,6 +519,33 @@ internal static class SymbolFacts {
     }
     private static bool IsGeneratedRegexAttribute(INamedTypeSymbol? attributeType) =>
         attributeType?.ToDisplayString() == "System.Text.RegularExpressions.GeneratedRegexAttribute";
+    private static INamedTypeSymbol? UnwrapNamed(ITypeSymbol? type) =>
+        type switch {
+            INamedTypeSymbol named => UnwrapNullable(named) as INamedTypeSymbol,
+            _ => null,
+        };
+    private static string ReceiptMemberName(string name) {
+        int open = name.StartsWith(value: "<", comparisonType: StringComparison.Ordinal) ? 1 : -1;
+        int close = open > 0 ? name.IndexOf('>', startIndex: open) : -1;
+        return close > open ? name.Substring(startIndex: open, length: close - open) : name;
+    }
+    private static bool IsProofReceiptType(INamedTypeSymbol receipt) =>
+        receipt.GetMembers()
+            .Where(static member => member is IFieldSymbol or IPropertySymbol)
+            .Count(static member =>
+                ContainsAnyFragment(name: member.Name, fragments: ProofReceiptFragments)
+                || ContainsAnyFragment(name: MemberTypeName(member), fragments: ProofReceiptFragments)) >= 2;
+    private static bool ContainsAnyFragment(string name, HashSet<string> fragments) =>
+        fragments.Any(fragment => name.Contains(value: fragment, comparisonType: StringComparison.Ordinal));
+    private static bool IsDocumentReceiptFactoryTerm(IOperation operation) =>
+        UnwrapReceiver(operation) switch {
+            IInvocationOperation invocation => invocation.TargetMethod is {
+                ContainingType.Name: "DocumentReceipt",
+                ReturnType: INamedTypeSymbol { Name: "DocumentReceipt" },
+            },
+            IConversionOperation { Operand: IOperation operand } => IsDocumentReceiptFactoryTerm(operand),
+            _ => false,
+        };
     private static RegexOptions ReadGeneratedRegexOptions(ImmutableArray<TypedConstant> constructorArguments) =>
         constructorArguments.Length switch {
             > 1 when constructorArguments[1].Value is int raw => (RegexOptions)raw,

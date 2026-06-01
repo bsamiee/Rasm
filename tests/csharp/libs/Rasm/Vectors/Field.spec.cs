@@ -142,7 +142,7 @@ public sealed class FieldPolicyAndSamplingLaws {
     public void SdfPrimitiveLipschitzAndRequiredKeysAreGated() {
         ImmutableDictionary<string, double> sphere = ImmutableDictionary<string, double>.Empty.Add(key: "r", value: 1.0);
         ImmutableDictionary<string, double> missing = [];
-        ScalarField primitive = Spec.SuccValue(ScalarField.Primitive(kind: SdfKind.Sphere, parameters: sphere, pose: Plane.WorldXY, key: FieldGens.Key), label: "sphere primitive");
+        ScalarField primitive = new ScalarField.PrimitiveCase(Kind: SdfKind.Sphere, Parameters: sphere, Pose: default);
         Spec.Some(primitive.LipschitzBound(), lip => Spec.Equal(left: lip, right: SdfKind.Sphere.Lipschitz, tolerance: 0.0, what: "sphere lip"));
         Assert.True(condition: SdfKind.Sphere.ValidateParameters(parameters: sphere));
         Assert.False(condition: SdfKind.Sphere.ValidateParameters(parameters: missing));
@@ -192,10 +192,8 @@ public sealed class FieldReconstructionAndSdfLaws {
         Spec.Fail(rankDeficient.Field.SampleReconstructionDetailed(sample: Point3d.Origin, context: FieldGens.Model, key: FieldGens.Key));
     }
     [Fact]
-    public void ProfileExtrusionRejectsInvalidAdmissionBeforeNativeSampling() {
-        Spec.Fail(ScalarField.ProfileExtrusion(profile: null!, plane: Plane.WorldXY, halfHeight: 1.0, context: FieldGens.Model, key: FieldGens.Key));
-        Spec.Fail(ScalarField.ProfileExtrusion(profile: null!, plane: Plane.WorldXY, halfHeight: 0.0, context: FieldGens.Model, key: FieldGens.Key));
-    }
+    public void ProfileExtrusionRejectsMissingContextBeforeNativeSampling() =>
+        Spec.FailCategory(ScalarField.ProfileExtrusion(profile: null!, plane: default, halfHeight: 1.0, context: null!, key: FieldGens.Key), category: "Operation");
     [Fact]
     public void IsoSurfaceReceiptCarriesNativeThreadingAndToleranceFacts() {
         BoundingBox bounds = new(min: new Point3d(x: -2.0, y: -1.0, z: -0.5), max: new Point3d(x: 2.0, y: 1.0, z: 0.5));

@@ -10,13 +10,13 @@ public enum PageHost { Options, DocumentProperties, ObjectProperties }
 [Union(SwitchMapStateParameterName = "page")]
 public abstract partial record PageNav {
     private PageNav() { }
-    public sealed record Activate : PageNav;                                         // MakeActivePage()
+    public sealed record Activate : PageNav;                                                   // MakeActivePage()
     public sealed record Reveal(string PageName, bool DocumentProperties = false) : PageNav;   // SetActivePageTo
-    public sealed record Remove : PageNav;                                           // RemovePage() (removes self)
-    public sealed record Dirty(bool Modified = true) : PageNav;                      // Modified flag enables Apply
-    public sealed record Child(global::Rhino.UI.StackedDialogPage Page) : PageNav;   // AddChildPage (Windows-only)
-    public sealed record Appearance(bool Bold, DrawingColor Color) : PageNav;        // NavigationText* (Windows-only)
-    public sealed record Sequence(Seq<PageNav> Steps) : PageNav;                     // chained sub-navs folded onto one page
+    public sealed record Remove : PageNav;                                                     // RemovePage() (removes self)
+    public sealed record Dirty(bool Modified = true) : PageNav;                                // Modified flag enables Apply
+    public sealed record Child(global::Rhino.UI.StackedDialogPage Page) : PageNav;             // AddChildPage (Windows-only)
+    public sealed record Appearance(bool Bold, DrawingColor Color) : PageNav;                  // NavigationText* (Windows-only)
+    public sealed record Sequence(Seq<PageNav> Steps) : PageNav;                               // chained sub-navs folded onto one page
 
     internal Fin<Unit> Apply(global::Rhino.UI.StackedDialogPage page) =>
         RhinoUi.Protect(valid: () => Switch(
@@ -40,35 +40,50 @@ public sealed partial class PagePhase {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct PageContext(
-    PagePhase Phase,
-    bool Active = false,
-    Option<PageScriptContext> Script = default,
-    Option<PageObjectContext> Object = default,
-    Option<PageParentContext> Parent = default,
-    Option<PageSizeContext> Size = default) {
-    public static PageContext Of(PagePhase phase, bool active = false) => new(Phase: phase, Active: active);
-    public static PageContext Scripted(RhinoDoc document, RunMode mode) => new(Phase: PagePhase.Script, Script: Some(new PageScriptContext(Document: document, Mode: mode)));
-    public static PageContext ObjectPage(PagePhase phase, global::Rhino.UI.ObjectPropertiesPageEventArgs args, RunMode mode = RunMode.Interactive) {
-        ArgumentNullException.ThrowIfNull(args);
-        return new(Phase: phase, Script: Optional(args.Document).Map(document => new PageScriptContext(Document: document, Mode: mode)), Object: Some(new PageObjectContext(Args: args)));
-    }
-    public static PageContext ParentCreated(IntPtr handle) => new(Phase: PagePhase.CreateParent, Parent: Some(new PageParentContext(Handle: handle)));
-    public static PageContext Sized(int width, int height) => new(Phase: PagePhase.SizeParent, Size: Some(new PageSizeContext(Width: width, Height: height)));
+[Union]
+public abstract partial record PageEvent {
+    private PageEvent() { }
+    public abstract PagePhase Phase { get; }
+    public sealed record Apply(bool Active) : PageEvent { public override PagePhase Phase => PagePhase.Apply; }
+    public sealed record Cancel : PageEvent { public override PagePhase Phase => PagePhase.Cancel; }
+    public sealed record Activate(bool Active) : PageEvent { public override PagePhase Phase => PagePhase.Activate; }
+    public sealed record Script(PageScriptContext Context) : PageEvent { public override PagePhase Phase => PagePhase.Script; }
+    public sealed record ObjectEvent(PagePhase Kind, PageObjectContext Context, Option<PageScriptContext> ObjectScript) : PageEvent { public override PagePhase Phase => Kind; }
+    public sealed record Defaults : PageEvent { public override PagePhase Phase => PagePhase.Defaults; }
+    public sealed record Help : PageEvent { public override PagePhase Phase => PagePhase.Help; }
+    public sealed record Parent(PageParentContext Context) : PageEvent { public override PagePhase Phase => PagePhase.CreateParent; }
+    public sealed record Size(PageSizeContext Context) : PageEvent { public override PagePhase Phase => PagePhase.SizeParent; }
 
-    public Option<global::Rhino.UI.ObjectPropertiesPageEventArgs> Args => Object.Map(static context => context.Args);
+    public Option<global::Rhino.UI.ObjectPropertiesPageEventArgs> Args =>
+        this is ObjectEvent { Context.Args: var args } ? Some(args) : Option<global::Rhino.UI.ObjectPropertiesPageEventArgs>.None;
+
+    public Option<PageScriptContext> ScriptContext =>
+        this switch {
+            Script script => Some(script.Context),
+            ObjectEvent obj => obj.ObjectScript,
+            _ => Option<PageScriptContext>.None,
+        };
+
     public Option<uint> EventSerialNumber => Args.Map(static args => args.EventRuntimeSerialNumber);
-    public Option<uint> DocumentSerialNumber => Args.Map(static args => args.DocRuntimeSerialNumber) | Script.Map(static context => context.Document.RuntimeSerialNumber);
+    public Option<uint> DocumentSerialNumber => Args.Map(static args => args.DocRuntimeSerialNumber) | ScriptContext.Map(static context => context.Document.RuntimeSerialNumber);
     public Option<global::Rhino.UI.ObjectPropertiesPage> Page => Args.Bind(static args => Optional(args.Page));
     public Option<RhinoView> View => Args.Bind(static args => Optional(args.View));
     public Option<RhinoViewport> Viewport => Args.Bind(static args => Optional(args.Viewport));
     public int ObjectCount => Args.Map(static args => args.ObjectCount).IfNone(0);
     public ObjectType ObjectTypes => Args.Map(static args => (ObjectType)args.ObjectTypes).IfNone(ObjectType.None);
-    public Option<IntPtr> ParentHandle => Parent.Map(static context => context.Handle);
-    public Option<(int Width, int Height)> ParentSize => Size.Map(static context => (context.Width, context.Height));
+    public Option<IntPtr> ParentHandle => this is Parent parent ? Some(parent.Context.Handle) : Option<IntPtr>.None;
+    public Option<(int Width, int Height)> ParentSize => this is Size size ? Some((size.Context.Width, size.Context.Height)) : Option<(int Width, int Height)>.None;
+
+    public static PageEvent Scripted(RhinoDoc document, RunMode mode) =>
+        new Script(Context: new PageScriptContext(Document: document, Mode: mode));
+
+    public static PageEvent ObjectPage(PagePhase phase, global::Rhino.UI.ObjectPropertiesPageEventArgs args, RunMode mode = RunMode.Interactive) {
+        ArgumentNullException.ThrowIfNull(args);
+        return new ObjectEvent(Kind: phase, Context: new PageObjectContext(Args: args), ObjectScript: Optional(args.Document).Map(document => new PageScriptContext(Document: document, Mode: mode)));
+    }
 
     public Fin<RhinoDoc> RequireDocument() =>
-        (Script.Map(static context => context.Document).Bind(Optional) | Args.Bind(static args => Optional(args.Document)))
+        (ScriptContext.Map(static context => context.Document).Bind(Optional) | Args.Bind(static args => Optional(args.Document)))
         .ToFin(Fail: Op.Of(name: nameof(RequireDocument)).InvalidInput());
 
     public Fin<Seq<TObject>> Objects<TObject>() where TObject : RhinoObject => Op.Of(name: nameof(Objects)).Need(Args).Map(static args => toSeq(args.GetObjects<TObject>()));
@@ -76,7 +91,10 @@ public readonly record struct PageContext(
     public Fin<Seq<Guid>> ObjectIds() => Objects<RhinoObject>().Map(static objects => objects.Map(static value => value.Id));
     public Fin<Seq<(Guid Id, ObjectType Type)>> Snapshot(ObjectType filter = ObjectType.AnyObject) =>
         Objects(filter: filter).Map(static objects => objects.Map(static native => (native.Id, native.ObjectType)));
-    public Fin<RhinoUi> Ui() { RunMode mode = Script.Map(static context => context.Mode).IfNone(RunMode.Interactive); return RequireDocument().Map(document => new RhinoUi(document: document, mode: mode)); }
+    public Fin<RhinoUi> Ui() {
+        RunMode mode = ScriptContext.Map(static context => context.Mode).IfNone(RunMode.Interactive);
+        return RequireDocument().Map(document => new RhinoUi(document: document, mode: mode));
+    }
 }
 
 public readonly record struct PageMetadata(
@@ -141,20 +159,19 @@ public abstract class RasmOptionsPage : global::Rhino.UI.OptionsDialogPage {
     public sealed override object PageControl => control;
     public sealed override bool ShowApplyButton => showApplyButton;
     public sealed override bool ShowDefaultsButton => showDefaultsButton;
-    public sealed override bool OnApply() => Apply(phase: PagePhase.Apply);
-    public sealed override void OnCancel() => _ = ResultOf(context: PageContext.Of(phase: PagePhase.Cancel));
-    public sealed override bool OnActivate(bool active) => Apply(phase: PagePhase.Activate, active: active);
-    public sealed override Result RunScript(RhinoDoc doc, RunMode mode) => ResultOf(context: PageContext.Scripted(document: doc, mode: mode));
-    public sealed override void OnDefaults() => _ = ResultOf(context: PageContext.Of(phase: PagePhase.Defaults));
-    public sealed override void OnHelp() => _ = ResultOf(context: PageContext.Of(phase: PagePhase.Help));
-    public sealed override void OnCreateParent(IntPtr hwndParent) => _ = ResultOf(context: PageContext.ParentCreated(handle: hwndParent));
-    public sealed override void OnSizeParent(int width, int height) => _ = ResultOf(context: PageContext.Sized(width: width, height: height));
+    public sealed override bool OnApply() => ResultOf(pageEvent: new PageEvent.Apply(Active: false)) == Result.Success;
+    public sealed override void OnCancel() => _ = ResultOf(pageEvent: new PageEvent.Cancel());
+    public sealed override bool OnActivate(bool active) => ResultOf(pageEvent: new PageEvent.Activate(Active: active)) == Result.Success;
+    public sealed override Result RunScript(RhinoDoc doc, RunMode mode) => ResultOf(pageEvent: PageEvent.Scripted(document: doc, mode: mode));
+    public sealed override void OnDefaults() => _ = ResultOf(pageEvent: new PageEvent.Defaults());
+    public sealed override void OnHelp() => _ = ResultOf(pageEvent: new PageEvent.Help());
+    public sealed override void OnCreateParent(IntPtr hwndParent) => _ = ResultOf(pageEvent: new PageEvent.Parent(Context: new PageParentContext(Handle: hwndParent)));
+    public sealed override void OnSizeParent(int width, int height) => _ = ResultOf(pageEvent: new PageEvent.Size(Context: new PageSizeContext(Width: width, Height: height)));
 
-    protected virtual Fin<Result> Change(PageContext context) => Fin.Succ(value: Result.Success);
+    protected virtual Fin<Result> Change(PageEvent pageEvent) => Fin.Succ(value: Result.Success);
     public Fin<Unit> Navigate(PageNav nav) => Op.Of(name: nameof(Navigate)).Need(nav).Bind(valid => valid.Apply(page: this));
 
-    private bool Apply(PagePhase phase, bool active = false) => ResultOf(context: PageContext.Of(phase: phase, active: active)) == Result.Success;
-    private Result ResultOf(PageContext context) => RhinoUi.Protect(valid: () => Change(context: context)).Match(Succ: static result => result, Fail: static _ => Result.Failure);
+    private Result ResultOf(PageEvent pageEvent) => RhinoUi.Protect(valid: () => Change(pageEvent: pageEvent)).Match(Succ: static result => result, Fail: static _ => Result.Failure);
 }
 
 public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage {
@@ -187,30 +204,32 @@ public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage
     public sealed override bool AllObjectsMustBeSupported => allObjectsMustBeSupported;
     public sealed override bool SupportsSubObjects => supportsSubObjects;
     public sealed override bool ShouldDisplay(global::Rhino.UI.ObjectPropertiesPageEventArgs e) =>
-        ResultOf(context: PageContext.ObjectPage(phase: PagePhase.Display, args: e)) == Result.Success;
+        ResultOf(pageEvent: PageEvent.ObjectPage(phase: PagePhase.Display, args: e)) == Result.Success;
     public sealed override void UpdatePage(global::Rhino.UI.ObjectPropertiesPageEventArgs e) =>
-        _ = Op.SideWhen(ShouldDisplay(e: e), () => _ = ResultOf(context: PageContext.ObjectPage(phase: PagePhase.Update, args: e)));
-    public sealed override bool OnActivate(bool active) => ResultOf(context: PageContext.Of(phase: PagePhase.Activate, active: active)) == Result.Success;
-    public sealed override Result RunScript(global::Rhino.UI.ObjectPropertiesPageEventArgs e) => ResultOf(context: PageContext.ObjectPage(phase: PagePhase.Script, args: e, mode: RunMode.Scripted));
-    public sealed override void OnHelp() => _ = ResultOf(context: PageContext.Of(phase: PagePhase.Help));
-    public sealed override void OnCreateParent(IntPtr hwndParent) => _ = ResultOf(context: PageContext.ParentCreated(handle: hwndParent));
-    public sealed override void OnSizeParent(int width, int height) => _ = ResultOf(context: PageContext.Sized(width: width, height: height));
+        _ = Op.SideWhen(ShouldDisplay(e: e), () => _ = ResultOf(pageEvent: PageEvent.ObjectPage(phase: PagePhase.Update, args: e)));
+    public sealed override bool OnActivate(bool active) => ResultOf(pageEvent: new PageEvent.Activate(Active: active)) == Result.Success;
+    public sealed override Result RunScript(global::Rhino.UI.ObjectPropertiesPageEventArgs e) => ResultOf(pageEvent: PageEvent.ObjectPage(phase: PagePhase.Script, args: e, mode: RunMode.Scripted));
+    public sealed override void OnHelp() => _ = ResultOf(pageEvent: new PageEvent.Help());
+    public sealed override void OnCreateParent(IntPtr hwndParent) => _ = ResultOf(pageEvent: new PageEvent.Parent(Context: new PageParentContext(Handle: hwndParent)));
+    public sealed override void OnSizeParent(int width, int height) => _ = ResultOf(pageEvent: new PageEvent.Size(Context: new PageSizeContext(Width: width, Height: height)));
 
-    protected Fin<Unit> Modify(Func<PageContext, Fin<Unit>> change) =>
+    protected Fin<Unit> Modify(Func<PageEvent, Fin<Unit>> change) =>
         Op.Of(name: nameof(Modify)).Need(change).Bind(valid => RhinoUi.Protect(valid: () => {
             Fin<Unit> result = Fin.Fail<Unit>(error: Op.Of(name: nameof(Modify)).InvalidResult());
-            ModifyPage(callbackAction: args => result = valid(arg: PageContext.ObjectPage(phase: PagePhase.Modify, args: args)));
+            ModifyPage(callbackAction: args => result = valid(arg: PageEvent.ObjectPage(phase: PagePhase.Modify, args: args)));
             return result;
         }));
 
-    protected virtual Fin<Result> Change(PageContext context) =>
-        context.Phase == PagePhase.Display
-            ? Op.Of(name: nameof(Change)).Need(context.Args)
+    protected virtual Fin<Result> Change(PageEvent pageEvent) =>
+        from valid in Op.Of(name: nameof(Change)).Need(pageEvent)
+        from result in valid.Phase == PagePhase.Display
+            ? Op.Of(name: nameof(Change)).Need(valid.Args)
                 .Map(valid => valid.IncludesObjectsType(objectTypes: SupportedTypes, allMustMatch: AllObjectsMustBeSupported) switch {
                     true => Result.Success,
                     false => Result.Cancel,
                 })
-            : Fin.Succ(value: Result.Success);
+            : Fin.Succ(value: Result.Success)
+        select result;
 
-    private Result ResultOf(PageContext context) => RhinoUi.Protect(valid: () => Change(context: context)).Match(Succ: static result => result, Fail: static _ => Result.Failure);
+    private Result ResultOf(PageEvent pageEvent) => RhinoUi.Protect(valid: () => Change(pageEvent: pageEvent)).Match(Succ: static result => result, Fail: static _ => Result.Failure);
 }

@@ -54,8 +54,8 @@ public abstract partial record IntersectionHit {
     public Seq<Interval> Intervals => Switch(pointCase: static _ => Seq<Interval>(), curveCase: static _ => Seq<Interval>(), overlapCase: static o => Seq(o.OverlapA, o.OverlapB));
     internal bool IsValid => Switch(
         pointCase: static p => p.Point.IsValid,
-        curveCase: static c => (c.CurveKind == IntersectionKind.Curve || c.CurveKind == IntersectionKind.Overlap) && Optional(c.Curve).Map(static curve => curve.IsValid).IfNone(false),
-        overlapCase: static o => o.Start.IsValid && o.End.IsValid && o.OverlapA.IsValid && o.OverlapB.IsValid && o.Curve.Map(static c => c.IsValid).IfNone(true));
+        curveCase: static c => (c.CurveKind == IntersectionKind.Curve || c.CurveKind == IntersectionKind.Overlap) && Optional(c.Curve).Map(static curve => curve.IsValid).IfNone(noneValue: false),
+        overlapCase: static o => o.Start.IsValid && o.End.IsValid && o.OverlapA.IsValid && o.OverlapB.IsValid && o.Curve.Map(static c => c.IsValid).IfNone(noneValue: true));
     internal Unit Dispose() => Curves.Iter(static curve => curve.Dispose());
     internal static bool CanProjectTo(Type output) =>
         output == typeof(IntersectionHit) || output == typeof(Curve) || output == typeof(Point3d) || output == typeof(Interval) || output == typeof(IntersectionKind) || output == typeof(IntersectionTangency);
@@ -159,7 +159,7 @@ public sealed record TopologyProjection {
     public static TopologyProjection Of(Curve curve, CurveFeature feature, ComponentIndex source) { ArgumentNullException.ThrowIfNull(curve); return new(value: new Lease<GeometryBase>.Owned(Value: curve), feature: feature, source: source); }
     public static TopologyProjection Of(BrepFace face, bool copy = false) {
         ArgumentNullException.ThrowIfNull(face);
-        return new(value: copy ? new Lease<GeometryBase>.Owned(face.DuplicateFace(false)) : new Lease<GeometryBase>.Borrowed(face), feature: CurveFeature.Input, source: new ComponentIndex(ComponentIndexType.BrepFace, face.FaceIndex), reversed: face.OrientationIsReversed, detachedSingleFace: copy);
+        return new(value: copy ? new Lease<GeometryBase>.Owned(face.DuplicateFace(duplicateMeshes: false)) : new Lease<GeometryBase>.Borrowed(face), feature: CurveFeature.Input, source: new ComponentIndex(type: ComponentIndexType.BrepFace, index: face.FaceIndex), reversed: face.OrientationIsReversed, detachedSingleFace: copy);
     }
     public static Fin<TopologyProjection> FromMesh(Mesh? mesh, ComponentIndex source) =>
         Optional(mesh).ToFin(Key.InvalidInput()).Bind(native => new TopologyProjection(value: new Lease<GeometryBase>.Borrowed(Value: native), feature: CurveFeature.Input, source: source) switch { { HasValidSource: true } projection => Fin.Succ(projection), _ => Fin.Fail<TopologyProjection>(Key.InvalidInput()) });
@@ -207,14 +207,14 @@ public readonly record struct ClosestHit(Point3d Point, Option<double> Distance,
         new(Point: point, Distance: Some(target.DistanceTo(other: point)), Parameter: parameter, Uv: uv, Normal: normal, Component: component, MeshPoint: meshPoint, Tangent: tangent, Frame: frame);
     internal bool IsValid => Point.IsValid
         && Distance.IsSome
-        && Distance.Map(static d => RhinoMath.IsValidDouble(d) && d >= 0.0).IfNone(true)
-        && Parameter.Map(static t => RhinoMath.IsValidDouble(t)).IfNone(true)
-        && Uv.Map(static uv => uv.IsValid).IfNone(true)
-        && Normal.Map(static n => n.IsValid && n.Length > RhinoMath.ZeroTolerance).IfNone(true)
-        && Component.Map(static c => c is { ComponentIndexType: not ComponentIndexType.InvalidType } && c.Index >= 0).IfNone(true)
-        && MeshPoint.Map(static m => OpAcceptance.ValidityOf(source: m).IfNone(false)).IfNone(true)
-        && Tangent.Map(static v => v.IsValid && v.Length > RhinoMath.ZeroTolerance).IfNone(true)
-        && Frame.Map(static p => p.IsValid).IfNone(true);
+        && Distance.Map(static d => RhinoMath.IsValidDouble(d) && d >= 0.0).IfNone(noneValue: true)
+        && Parameter.Map(static t => RhinoMath.IsValidDouble(t)).IfNone(noneValue: true)
+        && Uv.Map(static uv => uv.IsValid).IfNone(noneValue: true)
+        && Normal.Map(static n => n.IsValid && n.Length > RhinoMath.ZeroTolerance).IfNone(noneValue: true)
+        && Component.Map(static c => c is { ComponentIndexType: not ComponentIndexType.InvalidType } && c.Index >= 0).IfNone(noneValue: true)
+        && MeshPoint.Map(static m => OpAcceptance.ValidityOf(source: m).IfNone(noneValue: false)).IfNone(noneValue: true)
+        && Tangent.Map(static v => v.IsValid && v.Length > RhinoMath.ZeroTolerance).IfNone(noneValue: true)
+        && Frame.Map(static p => p.IsValid).IfNone(noneValue: true);
     internal static bool CanProjectTo(Type output, bool parameterMode = false) =>
         output == typeof(ClosestHit) || output == typeof(double) || output == typeof(Point2d) || output == typeof(ComponentIndex) || output == typeof(MeshPoint)
         || (!parameterMode && (output == typeof(Point3d) || output == typeof(Vector3d) || output == typeof(Plane)));
@@ -245,9 +245,9 @@ internal static class GeometryKernel {
     internal static bool Can(Type type, Func<Kind, bool> predicate) {
         ArgumentNullException.ThrowIfNull(argument: type);
         ArgumentNullException.ThrowIfNull(argument: predicate);
-        return Universal(type) || Kind.Of(type).Map(predicate).IfNone(false);
+        return Universal(type: type) || Kind.Of(type: type).Map(predicate).IfNone(noneValue: false);
     }
-    internal static bool CanBound(Type source, bool includeSphere) => Universal(source) || typeof(GeometryBase).IsAssignableFrom(source) || Kind.Of(source).Map(kind => kind.CanBound(includeSphere: includeSphere)).IfNone(false);
+    internal static bool CanBound(Type source, bool includeSphere) => Universal(type: source) || typeof(GeometryBase).IsAssignableFrom(c: source) || Kind.Of(type: source).Map(kind => kind.CanBound(includeSphere: includeSphere)).IfNone(noneValue: false);
     internal static bool CanCurveForm(Type type) => typeof(Curve).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Curve);
     internal static bool CanSurfaceForm(Type type) => Universal(type: type) || typeof(Surface).IsAssignableFrom(c: type) || typeof(Brep).IsAssignableFrom(c: type) || Can(type: type, predicate: static kind => kind.Topology == Topology.Surface);
     internal static bool CanCoerce(Type source, Type target) => Universal(source) || Kind.Of(source).Map(kind => kind.CanCoerceTo(target: target)).IfNone(target.IsAssignableFrom(source));
@@ -443,7 +443,7 @@ internal static class GeometryKernel {
     internal static Fin<ClosestHit> ClosestOf(object? geometry, Point3d target, Op key) =>
         from _ in guard(target.IsValid, key.InvalidInput())
         from g in Optional(geometry).ToFin(key.InvalidInput())
-        from __ in guard(!CanClosest(type: g.GetType()) || OpAcceptance.ValidityOf(source: g).IfNone(false), key.InvalidInput())
+        from __ in guard(!CanClosest(type: g.GetType()) || OpAcceptance.ValidityOf(source: g).IfNone(noneValue: false), key.InvalidInput())
         from hit in g switch {
             Point3d point when point.IsValid => Fin.Succ(ClosestHit.At(target: target, point: point)),
             Point { IsValid: true } point => Fin.Succ(ClosestHit.At(target: target, point: point.Location)),
@@ -483,8 +483,8 @@ internal static class GeometryKernel {
                 normal: Some(plane.Normal),
                 frame: new Plane(origin: plane.PointAt(u: s, v: t), xDirection: plane.XAxis, yDirection: plane.YAxis) is { IsValid: true } planeFrame ? Some(planeFrame) : Option<Plane>.None)),
             Sphere sphere => SurfaceForm(source: sphere, op: key).Bind(lease => lease.Use(surface => ClosestOf(geometry: surface, target: target, key: key))),
-            Box box => Fin.Succ(ClosestHit.At(target: target, point: box.ClosestPoint(target, false))),
-            BoundingBox box => Fin.Succ(ClosestHit.At(target: target, point: box.ClosestPoint(target, false))),
+            Box box => Fin.Succ(ClosestHit.At(target: target, point: box.ClosestPoint(point: target, includeInterior: false))),
+            BoundingBox box => Fin.Succ(ClosestHit.At(target: target, point: box.ClosestPoint(point: target, includeInterior: false))),
             Curve curve when curve.ClosestPoint(testPoint: target, t: out double parameter) =>
                 Fin.Succ(ClosestHit.At(target: target, point: curve.PointAt(t: parameter), parameter: Some(parameter),
                     tangent: curve.TangentAt(t: parameter) switch { Vector3d v when v.IsValid && !v.IsTiny() => Some(v), _ => Option<Vector3d>.None },
@@ -543,8 +543,8 @@ internal static class GeometryKernel {
         from distance in source switch {
             Plane plane => key.AcceptValue(value: plane.DistanceTo(testPoint: point)),
             Sphere sphere => key.AcceptValue(value: point.DistanceTo(other: sphere.Center) - sphere.Radius),
-            Box box => key.AcceptValue(value: (box.Contains(point, false) ? -1.0 : 1.0) * point.DistanceTo(other: box.ClosestPoint(point, false))),
-            BoundingBox box => key.AcceptValue(value: (box.Contains(point) ? -1.0 : 1.0) * point.DistanceTo(other: box.ClosestPoint(point, false))),
+            Box box => key.AcceptValue(value: (box.Contains(point: point, strict: false) ? -1.0 : 1.0) * point.DistanceTo(other: box.ClosestPoint(point: point, includeInterior: false))),
+            BoundingBox box => key.AcceptValue(value: (box.Contains(point: point) ? -1.0 : 1.0) * point.DistanceTo(other: box.ClosestPoint(point: point, includeInterior: false))),
             object value when CanClosestNormal(type: value.GetType()) => active.SignedDistanceFrom(sample: point, key: key),
             _ => Fin.Fail<double>(key.Unsupported(geometryType: source.GetType(), outputType: typeof(double))),
         }

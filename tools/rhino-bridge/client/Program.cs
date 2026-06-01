@@ -62,9 +62,10 @@ internal static class Program {
     }
     internal static async Task<int> CheckAsync(CheckTarget target, CliOptions options) =>
         await target.Switch(
-            script: s => CheckScriptAsync(scriptPath: s.Path, options: options),
-            project: p => CheckProjectAsync(projectPath: p.Path, scenarioPath: p.ScenarioPath.IsSome ? p.ScenarioPath.IfNone(string.Empty) : null, options: options),
-            source: s => CheckSourceAsync(sourcePath: s.Path, scenarioPath: s.ScenarioPath.IsSome ? s.ScenarioPath.IfNone(string.Empty) : null, options: options)).ConfigureAwait(false);
+            state: options,
+            script: static (o, s) => CheckScriptAsync(scriptPath: s.Path, options: o),
+            project: static (o, p) => CheckProjectAsync(projectPath: p.Path, scenarioPath: p.ScenarioPath.IsSome ? p.ScenarioPath.IfNone(noneValue: string.Empty) : null, options: o),
+            source: static (o, s) => CheckSourceAsync(sourcePath: s.Path, scenarioPath: s.ScenarioPath.IsSome ? s.ScenarioPath.IfNone(noneValue: string.Empty) : null, options: o)).ConfigureAwait(false);
     internal static async Task<int> CleanAsync(string targetPath) {
         string target = Path.GetFullPath(path: targetPath);
         string worktree = await WorktreeAsync(path: target).ConfigureAwait(false);
@@ -272,7 +273,7 @@ internal static class Program {
             if (last.Status.IsOk) {
                 return last;
             }
-            await Task.Delay(delay: poll, cancellationToken: CancellationToken.None).ConfigureAwait(false);
+            await Task.Delay(delay: poll, timeProvider: TimeProvider.System, cancellationToken: CancellationToken.None).ConfigureAwait(false);
         }
         timer.Stop();
         return last with { DurationMs = (int)timer.ElapsedMilliseconds };
@@ -307,7 +308,7 @@ internal static class Program {
         }
         Stopwatch timer = Stopwatch.StartNew();
         if (isGrasshopperAware) {
-            await Task.Delay(delay: TimeoutPolicy.Default.LivenessSettle, cancellationToken: CancellationToken.None).ConfigureAwait(false);
+            await Task.Delay(delay: TimeoutPolicy.Default.LivenessSettle, timeProvider: TimeProvider.System, cancellationToken: CancellationToken.None).ConfigureAwait(false);
         }
         try {
             BridgeReply reply = await SendAsync(request: BridgeWire.Request(command: BridgeWire.Hello), timeout: TimeoutPolicy.Default.Hello).ConfigureAwait(false);

@@ -76,7 +76,7 @@ public partial record Curves : IAspect {
     internal bool CanProject(Type type) =>
         type == typeof(object)
         || type == typeof(GeometryBase)
-        || Kind.Of(type).Map(kind => CanProject(topology: kind.Topology, type: type)).IfNone(false);
+        || Kind.Of(type: type).Map(kind => CanProject(topology: kind.Topology, type: type)).IfNone(noneValue: false);
     private bool CanProject(Topology topology, Type type) => Switch(
         state: (Topology: topology, Type: type),
         edgesCase: static (state, e) => e.Kind.Case switch {
@@ -182,8 +182,8 @@ public static partial class Analyze {
             _ => Option<TopologyProjection>.None,
         })));
     private static Fin<Seq<TopologyProjection>> SubDEdges(SubD subd, CurveFeature feature) {
-        _ = subd.UpdateSurfaceMeshCache(true);
-        return Fin.Succ(toSeq(subd.DuplicateEdgeCurves().Select((c, i) => TopologyProjection.Of(c, feature, new ComponentIndex(ComponentIndexType.SubdEdge, i)))));
+        _ = subd.UpdateSurfaceMeshCache(lazyUpdate: true);
+        return Fin.Succ(toSeq(subd.DuplicateEdgeCurves().Select((c, i) => TopologyProjection.Of(c, feature, new ComponentIndex(type: ComponentIndexType.SubdEdge, index: i)))));
     }
     internal static Fin<Option<CurveForm>> ClassifyCurveForm(TopologyProjection projection, Context context, Op op) =>
         projection.As<Curve>()

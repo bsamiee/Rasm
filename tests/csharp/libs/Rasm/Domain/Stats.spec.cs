@@ -84,7 +84,7 @@ public sealed class DistributionLaws {
     public void QuantilesIqrAndMedianMatchSortedInterpolationOracle() =>
         Spec.Metamorphic(StatGens.NonEmptyFinite,
             path: static (Seq<double> xs) => Distribution.Of(values: xs, percentiles: Seq(0.0, 25.0, 50.0, 75.0, 100.0), key: StatGens.Key).Match(Succ: static d => (d.Median, d.Iqr, d.Percentiles[2].Value), Fail: static _ => (double.NaN, double.NaN, double.NaN)),
-            oracle: static (Seq<double> xs) => Enumerable.OrderBy(xs.AsIterable(), static v => v).ToArray() switch {
+            oracle: static (Seq<double> xs) => xs.AsIterable().Order().ToArray() switch {
                 double[] sorted => (Q(sorted: sorted, fraction: 0.5), Q(sorted: sorted, fraction: 0.75) - Q(sorted: sorted, fraction: 0.25), Q(sorted: sorted, fraction: 0.5)),
             },
             eq: static (l, r) => StatGens.Approx(l.Item1, r.Item1) && StatGens.Approx(l.Item2, r.Item2) && StatGens.Approx(l.Item3, r.Item3));

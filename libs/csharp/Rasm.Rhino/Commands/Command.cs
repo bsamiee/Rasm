@@ -6,8 +6,23 @@ using UiViewportPreview = Rasm.Rhino.UI.UiViewportPreview;
 namespace Rasm.Rhino.Commands;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public abstract record CommandStage<TState>(string Name) {
+public abstract record CommandStep<TState>(string Name) {
     internal abstract Fin<PromptTransition<TState>> Run(CommandStageContext<TState> context);
+
+    public sealed record Effect(string Name, Func<CommandStageContext<TState>, Fin<TState>> Apply) : CommandStep<TState>(Name) {
+        internal override Fin<PromptTransition<TState>> Run(CommandStageContext<TState> context) =>
+            Op.Of(name: Name).Need(Apply).Bind(apply => apply(arg: context).Map(state => (PromptTransition<TState>)new PromptTransition<TState>.Stay(State: state)));
+    }
+
+    public sealed record Branch(string Name, Func<CommandStageContext<TState>, Fin<PromptTransition<TState>>> Next) : CommandStep<TState>(Name) {
+        internal override Fin<PromptTransition<TState>> Run(CommandStageContext<TState> context) =>
+            Op.Of(name: Name).Need(Next).Bind(next => next(arg: context));
+    }
+
+    public sealed record Commit(string Name, Func<CommandStageContext<TState>, Fin<TState>> Apply) : CommandStep<TState>(Name) {
+        internal override Fin<PromptTransition<TState>> Run(CommandStageContext<TState> context) =>
+            Op.Of(name: Name).Need(Apply).Bind(apply => apply(arg: context).Map(state => (PromptTransition<TState>)new PromptTransition<TState>.Commit(State: state)));
+    }
 }
 
 public abstract record PromptTransition<TState> {
@@ -42,10 +57,10 @@ public readonly record struct CommandCommitContext<TState>(RhinoCommandContext C
 
 public sealed record CommandGraph<TState>(
     TState Initial,
-    Seq<CommandStage<TState>> Stages,
+    Seq<CommandStep<TState>> Stages,
     Func<CommandCommitContext<TState>, Fin<Result>> Commit,
     CommandGraphEvents<TState> Events = default) {
-    public Fin<CommandGraph<TState>> Append(CommandStage<TState> stage) =>
+    public Fin<CommandGraph<TState>> Append(CommandStep<TState> stage) =>
         from valid in Optional(stage).ToFin(Fail: Op.Of(name: nameof(Append)).InvalidInput())
         select this with { Stages = Stages + Seq(valid) };
 
@@ -53,8 +68,8 @@ public sealed record CommandGraph<TState>(
         from active in Optional(context).ToFin(Fail: Op.Of(name: nameof(CommandGraph<>)).InvalidInput())
         from commit in Optional(Commit).ToFin(Fail: Op.Of(name: nameof(CommandGraph<>)).InvalidInput())
         from stages in Stages switch {
-            Seq<CommandStage<TState>> values when !values.IsEmpty => Fin.Succ(value: values),
-            _ => Fin.Fail<Seq<CommandStage<TState>>>(error: Op.Of(name: nameof(CommandGraph<>)).InvalidInput()),
+            Seq<CommandStep<TState>> values when !values.IsEmpty => Fin.Succ(value: values),
+            _ => Fin.Fail<Seq<CommandStep<TState>>>(error: Op.Of(name: nameof(CommandGraph<>)).InvalidInput()),
         }
         from final in new CommandStageContext<TState>(Context: active, State: Initial, Stages: stages, Index: 0, History: Seq<TState>(), Events: Events).Run()
         from result in commit(arg: new CommandCommitContext<TState>(Context: active, State: final.State, History: final.History))
@@ -79,7 +94,7 @@ public readonly record struct CommandGraphEvents<TState>(
 public sealed record CommandStageContext<TState>(
     RhinoCommandContext Context,
     TState State,
-    Seq<CommandStage<TState>> Stages,
+    Seq<CommandStep<TState>> Stages,
     int Index,
     Seq<TState> History,
     CommandGraphEvents<TState> Events) {
@@ -133,7 +148,7 @@ public sealed record PromptStage<TState, TValue>(
     Func<PromptEventContext<TState>, Fin<Option<PromptTransition<TState>>>>? Gumball = null,
     Func<CommandStageContext<TState>, CommandOptionValue, Fin<TState>>? OptionLens = null,
     Func<CommandStageContext<TState>, Fin<PromptTransition<TState>>>? Enter = null,
-    Func<CommandStageContext<TState>, CommandGet<TValue>, Fin<Unit>>? Rejected = null) : CommandStage<TState>(Name) {
+    Func<CommandStageContext<TState>, CommandGet<TValue>, Fin<Unit>>? Rejected = null) : CommandStep<TState>(Name) {
     internal override Fin<PromptTransition<TState>> Run(CommandStageContext<TState> context) =>
         from input in Optional(Input).ToFin(Fail: Op.Of(name: Name).InvalidInput())
         from policies in Optional(Policies).ToFin(Fail: Op.Of(name: Name).InvalidInput())

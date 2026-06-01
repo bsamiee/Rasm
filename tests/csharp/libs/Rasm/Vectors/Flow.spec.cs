@@ -85,10 +85,9 @@ public sealed class TerminationLaws {
         Spec.Succ(Termination.RegionThreshold(region: ScalarField.Constant(value: 1.0), threshold: 0.5, key: FlowGens.Key),
             then: t => Spec.Succ(t.Evaluate(state: state, currentSample: Vector3d.XAxis, context: FlowGens.Model, key: FlowGens.Key),
                 then: decision => { Assert.False(condition: decision.Stop); Assert.True(condition: decision.Event.IsNone); }));
-        Spec.Succ(SupportSpace.Of(value: new Sphere(center: Point3d.Origin, radius: 1.0), key: FlowGens.Key),
-            then: s => Spec.Succ(Termination.CrossSurface(surface: s, key: FlowGens.Key)));
-        Spec.Succ(SupportSpace.Of(value: new Point3d(x: 0.0, y: 0.0, z: 0.0), key: FlowGens.Key),
-            then: s => Spec.Fail(Termination.CrossSurface(surface: s, key: FlowGens.Key)));
+        VectorCloud cluster = Spec.SuccValue(VectorCloud.Cluster(points: Gens.UnitSegment3, context: FlowGens.Model, key: FlowGens.Key), label: "managed support cluster");
+        Spec.Succ(SupportSpace.Of(value: cluster, key: FlowGens.Key),
+            then: s => Spec.FailCategory(Termination.CrossSurface(surface: s, key: FlowGens.Key), category: "Unsupported"));
         Spec.Fail(Termination.LoopDetected(closureRadius: 0.0, key: FlowGens.Key));
         Spec.Fail(Termination.RegionThreshold(region: ScalarField.Constant(value: 1.0), threshold: double.NaN, key: FlowGens.Key));
         Spec.FailCategory(Termination.RegionThreshold(region: ScalarField.Constant(value: 1.0), threshold: 0.0, maxLocalizationIterations: 0, key: FlowGens.Key), category: "Input");

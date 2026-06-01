@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using Rasm.Rhino.Blocks;
-using Rasm.Rhino.Commands;
 using Rasm.Rhino.Exchange;
 using Rhino.Geometry;
 

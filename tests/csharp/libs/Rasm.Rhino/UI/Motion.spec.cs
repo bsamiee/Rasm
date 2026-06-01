@@ -106,10 +106,10 @@ public sealed class SpringConfigAndSpecLaws {
     [Fact]
     public void RunRejectsNonPositiveDurationsAndNonPositiveDecayFriction() {
         RedrawTarget target = new RedrawTarget.Canvas(Invalidate: static () => { });
-        Spec.Fail(Motion.Run(spec: MotionSpec.Tween(from: 0.0, to: 1.0, duration: TimeSpan.Zero, easing: Easing.Linear, vector: MotionVector.Double), sink: static _ => { }, target: target, clock: MotionClock.IdleLoop));
-        Spec.Fail(Motion.Run(spec: MotionSpec.Pulse(from: 0.0, to: 1.0, duration: TimeSpan.Zero, easing: Easing.Linear, vector: MotionVector.Double), sink: static _ => { }, target: target, clock: MotionClock.IdleLoop));
-        Spec.Fail(Motion.Run(spec: MotionSpec.Decay(from: 0.0, velocity: 1.0, friction: -1.0, vector: MotionVector.Double), sink: static _ => { }, target: target, clock: MotionClock.IdleLoop));
-        Spec.Fail(Motion.Run(spec: MotionSpec.Sequence(start: 0.0, steps: Seq((Target: 1.0, Duration: TimeSpan.Zero, Easing: Easing.Linear)), vector: MotionVector.Double), sink: static _ => { }, target: target, clock: MotionClock.IdleLoop));
+        Spec.Fail(Motion.Run(spec: MotionSpec.Tween(from: 0.0, to: 1.0, duration: TimeSpan.Zero, easing: Easing.Linear, vector: MotionVector.Double), sink: static _ => { }, target: target, clock: MotionClock.IdleLoop, timeSource: TimeProvider.System));
+        Spec.Fail(Motion.Run(spec: MotionSpec.Pulse(from: 0.0, to: 1.0, duration: TimeSpan.Zero, easing: Easing.Linear, vector: MotionVector.Double), sink: static _ => { }, target: target, clock: MotionClock.IdleLoop, timeSource: TimeProvider.System));
+        Spec.Fail(Motion.Run(spec: MotionSpec.Decay(from: 0.0, velocity: 1.0, friction: -1.0, vector: MotionVector.Double), sink: static _ => { }, target: target, clock: MotionClock.IdleLoop, timeSource: TimeProvider.System));
+        Spec.Fail(Motion.Run(spec: MotionSpec.Sequence(start: 0.0, steps: Seq((Target: 1.0, Duration: TimeSpan.Zero, Easing: Easing.Linear)), vector: MotionVector.Double), sink: static _ => { }, target: target, clock: MotionClock.IdleLoop, timeSource: TimeProvider.System));
     }
 
     [Fact]

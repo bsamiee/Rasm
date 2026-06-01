@@ -51,12 +51,12 @@ public sealed class SpringHandleConvergenceLaws {
             Value: 0f, Velocity: 0f, Target: 100f, Config: SpringPreset.Smooth.Config,
             Vector: MotionVector.Float, Sink: static _ => { }, Clock: TimeProvider.System, Timestamp: 0L);
         SpringRunnerState<float> rested = Enumerable.Range(start: 0, count: 4000)
-            .Aggregate(seed: start, func: static (state, _) => state.Step(frameDeltaSeconds: 1f / 120f));
+            .Aggregate(seed: start, func: static (state, _) => state.Advance(frameDeltaSeconds: 1f / 120f));
         Assert.False(condition: rested.IsActive);
         Assert.True(condition: MathF.Abs(rested.Value - 100f) < MotionVector.Float.RestEpsilon);
         using SpringHandle<float> handle = HandleGens.Spring(value: rested.Value, velocity: rested.Velocity, target: 100f);
         Assert.True(condition: handle.IsConverged);
-        Assert.False(condition: rested.Step(frameDeltaSeconds: 1f / 120f).IsActive);
+        Assert.False(condition: rested.Advance(frameDeltaSeconds: 1f / 120f).IsActive);
     }
 
     [Fact]

@@ -154,7 +154,7 @@ public partial record Subscription : IDisposable {
         return () => {
             Option<bool> previous = None;
             _ = fired.Swap(current => { previous = Some(current); return true; });
-            _ = !previous.IfNone(true) ? Op.Side(detach) : unit;
+            _ = !previous.IfNone(noneValue: true) ? Op.Side(detach) : unit;
         };
     }
 

@@ -475,6 +475,7 @@ public partial record WireOp : IUiOp {
     public sealed partial record InstallShapeCase(Type ShapeType) : WireOp;
     public sealed partial record OverlayCase(WireOverlayStyle Style, MotionClock? Clock = null) : WireOp;
     public sealed partial record WirePaintObserveCase(MotionClock? Clock = null) : WireOp;
+    public sealed partial record DiagnosticsCase(Seq<Guid> Seeds) : WireOp;
     public static WireOp Query(WireQuery query) => new QueryCase(Request: query);
     public static WireOp Select(WireSelectionOp op) => new SelectCase(Op: op);
     public static WireOp Split(WireSnapshot.ConnectedCase wire, PointF location) => new SplitCase(Wire: wire, Location: location);
@@ -491,12 +492,14 @@ public partial record WireOp : IUiOp {
     }
     public static WireOp Overlay(WireOverlayStyle style, MotionClock? clock = null) => new OverlayCase(Style: style, Clock: clock);
     public static WireOp WirePaintObserve(MotionClock? clock = null) => new WirePaintObserveCase(Clock: clock);
+    public static WireOp Diagnostics(params ReadOnlySpan<Guid> seeds) => new DiagnosticsCase(Seeds: toSeq(seeds.ToArray()));
 
     public GrasshopperUiPolicy UiPolicy => Switch(
         queryCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
         installShapeCase: static _ => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.None),
         overlayCase: static _ => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled),
         wirePaintObserveCase: static _ => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled),
+        diagnosticsCase: static _ => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.None),
         selectCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
         splitCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
         editCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
@@ -518,6 +521,7 @@ public partial record WireResult {
     public sealed record SortedIdsResult(Seq<Guid> Ids) : WireResult;
     public sealed record PathsResult(Seq<Seq<Guid>> Paths) : WireResult;
     public sealed record IntegrityResult(GraphIntegrity Integrity) : WireResult;
+    public sealed record DiagnosticsResult(WireDiagnostics Diagnostics) : WireResult;
     public sealed record InsertCase(WireInsertSnapshot Snapshot) : WireResult;
     public sealed record DrawnCase(WireDrawnSnapshot Snapshot) : WireResult;
     public sealed record SubscriptionCase(Subscription Subscription) : WireResult;
@@ -537,7 +541,10 @@ public readonly record struct GraphIntegrity(Seq<WireSnapshot.ConnectedCase> Dan
 public readonly record struct WireInsertSnapshot(bool CanInsert, Option<Guid> SourceId, Option<Guid> TargetId);
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct WireDrawnEntry(Guid SourceId, Guid TargetId, WireKind Kind);
+public readonly record struct WireDrawnEntry(Guid SourceId, Guid TargetId, WireKind Kind, RectangleF Bounds);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct WireDiagnostics(Seq<WireSnapshot.ConnectedCase> Wires, GraphIntegrity Integrity, Option<WireDrawnSnapshot> Drawn);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct WireOverlayStyle(PaintStyle Style, Option<Func<WireDrawnEntry, PaintStyle>> Select = default) {
@@ -581,10 +588,11 @@ internal static partial class Wire {
         splitCase: static s => Split(wire: s.Wire, location: s.Location).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
         editCase: static e => Edit(wire: e.Wire, edit: e.Kind, args: e.Args).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
         editBatchCase: static e => EditBatch(edits: e.Edits).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
-        routeCase: static r => EditBatch(edits: RouteEdits(chain: r.Chain)).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
+        routeCase: static r => Route(chain: r.Chain).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
         installShapeCase: static i => InstallShape(shapeType: i.ShapeType).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
         overlayCase: static o => Overlay(style: o.Style, clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
-        wirePaintObserveCase: static o => WirePaintObserve(clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)));
+        wirePaintObserveCase: static o => WirePaintObserve(clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
+        diagnosticsCase: static d => Diagnostics(seeds: d.Seeds).Map(static diagnostics => (WireResult)new WireResult.DiagnosticsResult(Diagnostics: diagnostics)));
 
     internal static GrasshopperUiIntent<WireResult> Query(WireQuery query) => query.Switch(
         listCase: static list => Listed(kind: list.Kind).Map(static wires => (WireResult)new WireResult.WiresCase(Wires: wires)),
@@ -671,6 +679,15 @@ internal static partial class Wire {
             from snapshot in WireDrawnCache.Read(canvas: canvas)
             select snapshot);
 
+    internal static GrasshopperUiIntent<WireDiagnostics> Diagnostics(Seq<Guid> seeds) =>
+        GhUi.Canvas(run: scope =>
+            from objects in scope.NeedObjects()
+            from document in scope.NeedDocument()
+            from canvas in scope.NeedCanvas()
+            let wires = SafeWires(source: AllWireEnds(objects: objects), objects: objects, document: Some(document))
+            let drawn = WireDrawnCache.Read(canvas: canvas).ToOption()
+            select new WireDiagnostics(Wires: wires, Integrity: IntegrityOf(objects: objects, document: document, seeds: seeds), Drawn: drawn));
+
     internal static GrasshopperUiIntent<Seq<WireSnapshot.ConnectedCase>> Listed(WireListKind kind) =>
         GhUi.Document(run: scope =>
             from objs in scope.NeedObjects()
@@ -746,6 +763,11 @@ internal static partial class Wire {
                 mutate: (methods, objs, actions) =>
                     edits.TraverseM(entry => ApplyEditRow(methods: methods, objs: objs, actions: actions, wire: entry.Wire, edit: entry.Kind, args: entry.Args))
                         .Map(static receipts => receipts.Fold(initialState: DocumentMutationReceipt.None, f: static (sum, r) => sum + r)).As()));
+
+    internal static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> Route(Seq<Guid> chain) =>
+        chain.Count >= 2 && !chain.Exists(static id => id == Guid.Empty)
+            ? EditBatch(edits: RouteEdits(chain: chain))
+            : GhUi.Document(run: _ => Fin.Fail<Snapshot<DocumentMutationDelta>>(UiFault.InvalidInput(op: WireOp.RouteCase.SelfOp, detail: "wire route requires two or more non-empty parameter ids")));
 
     // Route: an ordered chain [a,b,c] yields the adjacent-pair Connect edits (a→b, b→c) via Zip(chain.Tail),
     // each carried as a minimal ConnectedCase (Connect's run only reads Source/Target) onto the EditBatch rail.
@@ -1135,29 +1157,33 @@ internal static class WireRepositoryRail {
         IParameter source = (IParameter)access.Source.GetValue(obj: wire)!;
         IParameter target = (IParameter)access.Target.GetValue(obj: wire)!;
         WireKind kind = (WireKind)access.Kind.GetValue(obj: wire)!;
-        return new WireDrawnEntry(SourceId: source.InstanceId, TargetId: target.InstanceId, Kind: kind);
+        return new WireDrawnEntry(
+            SourceId: source.InstanceId,
+            TargetId: target.InstanceId,
+            Kind: kind,
+            Bounds: RectangleF.Union(rect1: source.Attributes.AggregateBounds, rect2: target.Attributes.AggregateBounds));
     }
 }
 
 file static class WireShapeInstall {
+    private readonly record struct Entry(Guid Token, Type Shape);
     private static readonly Type DefaultShape = typeof(WireShapeDefault);
-    private static readonly Atom<Seq<Type>> Stack = Atom(value: Seq<Type>());
+    private static readonly Atom<Seq<Entry>> Stack = Atom(value: Seq<Entry>());
 
     internal static Fin<Subscription> Push(Type shapeType) =>
         Op.Of(name: nameof(WireShapeInstall)).Attempt(body: () => {
-            Type prior = WireShape.ShapeType ?? DefaultShape;
+            Guid token = Guid.NewGuid();
             WireShape.ShapeType = shapeType;
-            _ = Stack.Swap(stack => stack + prior);
-            return unit;
+            _ = Stack.Swap(stack => stack + new Entry(Token: token, Shape: shapeType));
+            return token;
         }, what: nameof(WireShapeInstall))
-        .Bind(_ => Subscription.Bind(attach: static () => { }, detach: Pop, marshalToUi: true, detachOnce: true));
+        .Bind(token => Subscription.Bind(attach: static () => { }, detach: () => Pop(token: token), marshalToUi: true, detachOnce: true));
 
     // Guard the throwing static setter (same as Push) so a UI-thread detach throw cannot silently corrupt the
     // static via the swallowing InvokeOnUiThread.
-    private static void Pop() {
-        Seq<Type> before = Stack.Value;
-        Type restore = before.IsEmpty ? DefaultShape : before.Last();
-        _ = Stack.Swap(static stack => stack.IsEmpty ? stack : stack.Init);
+    private static void Pop(Guid token) {
+        Seq<Entry> after = Stack.Swap(stack => stack.Filter(entry => entry.Token != token).ToSeq());
+        Type restore = after.Last.Map(static entry => entry.Shape).IfNone(DefaultShape);
         _ = Op.Of(name: nameof(WireShapeInstall)).Attempt(
             body: () => { WireShape.ShapeType = restore; return unit; },
             what: nameof(Pop)).Ignore();

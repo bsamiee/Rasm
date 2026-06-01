@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using DrawingBitmap = System.Drawing.Bitmap;
 using DrawingRectangle = System.Drawing.Rectangle;
 using DrawingSize = System.Drawing.Size;
+using XmlDocument = System.Xml.XmlDocument;
 
 namespace Rasm.Rhino;
 
@@ -59,6 +60,24 @@ public abstract partial record CaptureScaleMode {
                 CaptureMeasure.Positive(value: mode.Scale, op: ctx.Op)
                     .Map(scale => Op.Side(() => ctx.Settings.SetModelScaleToValue(scale: scale))),
             fit: static (ctx, _) => Fin.Succ(value: Op.Side(() => ctx.Settings.SetModelScaleToFit(promptOnChange: false))));
+}
+
+public enum CaptureFormat { Bitmap, Svg }
+
+[Union]
+public abstract partial record CaptureResult : IDisposable {
+    private CaptureResult() { }
+    public sealed record Bitmap(DrawingBitmap Value) : CaptureResult;
+    public sealed record Svg(XmlDocument Value) : CaptureResult;
+
+    public void Dispose() {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(obj: this);
+    }
+
+    protected virtual void Dispose(bool disposing) {
+        if (disposing && this is Bitmap bitmap) bitmap.Value.Dispose();
+    }
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------

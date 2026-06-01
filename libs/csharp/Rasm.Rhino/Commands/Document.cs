@@ -30,32 +30,29 @@ public abstract partial record DocumentOp {
             create: static (ctx, edit) =>
                 from doc in Optional(ctx.Document).ToFin(Fail: ctx.Op.InvalidInput())
                 from ids in DocumentEdit.AddRaw(document: doc, domain: ctx.Domain, sources: edit.Sources, attributes: edit.Attributes, history: edit.History, reference: edit.Reference, op: ctx.Op)
-                select DocumentReceipt.Empty with {
-                    Created = ids,
-                    ResourceChanged = edit.History switch {
-                        HistoryRecord => Seq(new DocumentResourceChange(Kind: DocumentResourceKind.HistoryRecord, Name: nameof(Create))),
-                        _ => Seq<DocumentResourceChange>(),
-                    },
-                },
+                select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Created, ids: ids)
+                    + (edit.History switch {
+                        HistoryRecord => DocumentReceipt.Resource(kind: DocumentResourceKind.HistoryRecord, name: nameof(Create)),
+                        _ => DocumentReceipt.Empty,
+                    }),
             replace: static (ctx, edit) => from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
                                            from value in Optional(edit.Replacement).ToFin(Fail: ctx.Op.InvalidInput())
                                            from ids in target.Ids(document: ctx.Document, op: ctx.Op)
                                            from _ in target.Replace(document: ctx.Document, replacement: value, ignoreModes: edit.IgnoreModes, op: ctx.Op)
-                                           select DocumentReceipt.Empty with { Replaced = ids },
+                                           select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Replaced, ids: ids),
             delete: static (ctx, edit) => from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
                                           from ids in target.Ids(document: ctx.Document, op: ctx.Op)
                                           from _ in target.Delete(document: ctx.Document, quiet: edit.Quiet, ignoreModes: edit.IgnoreModes, op: ctx.Op)
-                                          select DocumentReceipt.Empty with { Deleted = ids },
+                                          select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Deleted, ids: ids),
             transform: static (ctx, edit) => from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
                                              from _ in guard(edit.Xform.IsValid, ctx.Op.InvalidInput())
                                              from originals in target.Ids(document: ctx.Document, op: ctx.Op)
                                              from ids in target.Transform(document: ctx.Document, transform: edit.Xform, deleteOriginal: edit.DeleteOriginal, op: ctx.Op)
-                                             select DocumentReceipt.Empty with {
-                                                 Created = edit.DeleteOriginal ? Seq<Guid>() : ids,
-                                                 Deleted = edit.DeleteOriginal ? originals : Seq<Guid>(),
-                                                 Transformed = originals,
-                                                 LifecycleChanged = edit.DeleteOriginal ? originals : Seq<Guid>(),
-                                             },
+                                             select DocumentReceipt.Objects(groups: Seq(
+                                                 (Slot: DocumentReceiptSlot.Created, Ids: edit.DeleteOriginal ? Seq<Guid>() : ids),
+                                                 (Slot: DocumentReceiptSlot.Deleted, Ids: edit.DeleteOriginal ? originals : Seq<Guid>()),
+                                                 (Slot: DocumentReceiptSlot.Transformed, Ids: originals),
+                                                 (Slot: DocumentReceiptSlot.Lifecycle, Ids: edit.DeleteOriginal ? originals : Seq<Guid>()))),
             attributeChange: static (ctx, edit) =>
                 from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
                 from change in Optional(edit.Change).ToFin(Fail: ctx.Op.InvalidInput())
@@ -69,7 +66,7 @@ public abstract partial record DocumentOp {
                         false => Fin.Fail<Unit>(error: ctx.Op.InvalidResult()),
                     }
                     select id).As()
-                select DocumentReceipt.Empty with { AttributeChanged = changed },
+                select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Attributes, ids: changed),
             setSelection: static (ctx, edit) =>
                 from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
                 from ids in target.Ids(document: ctx.Document, op: ctx.Op).Map(static values => values.Distinct())
@@ -118,10 +115,9 @@ public abstract partial record DocumentOp {
                         apply: id => value ? ctx.Document.Objects.Lock(objectId: id, ignoreLayerMode: true) : ctx.Document.Objects.Unlock(objectId: id, ignoreLayerMode: true)),
                     _ => Fin.Succ(value: Seq<Guid>()),
                 }
-                select selection with {
-                    Hidden = hidden,
-                    Locked = locked,
-                },
+                select selection
+                    + DocumentReceipt.Objects(slot: DocumentReceiptSlot.Hidden, ids: hidden)
+                    + DocumentReceipt.Objects(slot: DocumentReceiptSlot.Locked, ids: locked),
             flash: static (ctx, edit) =>
                 from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
                 from ids in target.Ids(document: ctx.Document, op: ctx.Op)
@@ -130,7 +126,7 @@ public abstract partial record DocumentOp {
                     ctx.Document.Views.FlashObjects(list: objects.AsIterable(), useSelectionColor: edit.UseSelectionColor);
                     return Fin.Succ(value: unit);
                 })
-                select DocumentReceipt.Empty with { Flashed = ids },
+                select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Flashed, ids: ids),
             lifecycle: static (ctx, edit) =>
                 from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
                 from targets in target.RuntimeTargets(document: ctx.Document, op: ctx.Op)
@@ -145,15 +141,13 @@ public abstract partial record DocumentOp {
                     },
                     _ => Fin.Fail<Guid>(error: ctx.Op.InvalidInput()),
                 }).As()
-                select DocumentReceipt.Empty with { LifecycleChanged = changed },
+                select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Lifecycle, ids: changed),
             resource: static (ctx, edit) =>
                 from kind in Optional(edit.Kind).ToFin(Fail: ctx.Op.InvalidInput())
                 from name in DocumentEdit.NonBlank(value: edit.Name, op: ctx.Op)
                 from change in Optional(edit.Change).ToFin(Fail: ctx.Op.InvalidInput())
                 from _ in change(arg1: ctx.Document, arg2: ctx.Op)
-                select DocumentReceipt.Empty with {
-                    ResourceChanged = Seq(new DocumentResourceChange(Kind: kind, Name: name)),
-                });
+                select DocumentReceipt.Resource(kind: kind, name: name));
 
     internal bool RecordsUndo => this is not Flash;
 }
@@ -199,6 +193,9 @@ public sealed partial class DocumentResourceKind {
         type == ModelComponentType.Unset
             ? Option<DocumentResourceKind>.None
             : Items.AsIterable().Find(kind => kind.ComponentType == type);
+
+    public DocumentResourceChange Change(string name) =>
+        new(Kind: this, Name: name);
 }
 
 [Union]
@@ -262,7 +259,7 @@ public abstract partial record DocumentTarget {
         Optional(policy).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput()).Map(value => (DocumentTarget)new PickCase(value));
 
     internal Fin<int> Select(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) =>
-        Use(document: document, op: op,
+        Resolve(document: document, op: op,
             selection: value => value.SelectInto(document: document, selected: selected, policy: policy, op: op),
             reference: value => value.Use(document: document, op: op, use: native => op.Confirm(success: policy.Select((highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) => document.Objects.Select(native, selected, highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility))).Map(static _ => 1)),
             objects: ids => policy.Select((highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) => document.Objects.Select(ids.AsIterable(), selected, highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility)) switch {
@@ -271,13 +268,13 @@ public abstract partial record DocumentTarget {
             });
 
     internal Fin<Unit> Delete(RhinoDoc document, bool quiet, bool ignoreModes, Op op) =>
-        Use(document: document, op: op,
+        Resolve(document: document, op: op,
             selection: value => value.ObjectTargets.TraverseM(reference => reference.Use(document: document, op: op, use: native => op.Confirm(success: document.Objects.Delete(native, quiet, ignoreModes)))).As().Map(static _ => unit),
             reference: value => value.Use(document: document, op: op, use: native => op.Confirm(success: document.Objects.Delete(native, quiet, ignoreModes))),
             objects: ids => DeleteIds(document: document, ids: ids, quiet: quiet, ignoreModes: ignoreModes, op: op));
 
     internal Fin<Unit> Replace(RhinoDoc document, object replacement, bool ignoreModes, Op op) =>
-        Use(document: document, op: op,
+        Resolve(document: document, op: op,
             selection: value => value.Single().Bind(reference => reference.Use(document: document, op: op, use: native => ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objref: native, geometry: geometry, ignoreModes: ignoreModes)))),
             reference: value => value.Use(document: document, op: op, use: native => ReplaceGeometry(replacement: replacement, op: op, use: geometry => document.Objects.Replace(objref: native, geometry: geometry, ignoreModes: ignoreModes))),
             objects: ids => TargetIds(ids: ids, op: op).Bind(target => target.Count switch {
@@ -286,7 +283,7 @@ public abstract partial record DocumentTarget {
             }));
 
     internal Fin<Seq<Guid>> Ids(RhinoDoc document, Op op) =>
-        Use(document: document, op: op,
+        Resolve(document: document, op: op,
             selection: static value => Fin.Succ(value: value.MutationObjectIds),
             reference: value => value.Use(document: document, op: op, use: native => native.ObjectId switch {
                 Guid id when id != Guid.Empty => Fin.Succ(value: Seq(id)),
@@ -295,18 +292,18 @@ public abstract partial record DocumentTarget {
             objects: static ids => Fin.Succ(value: ids));
 
     internal Fin<Seq<(Guid Id, uint RuntimeSerialNumber)>> RuntimeTargets(RhinoDoc document, Op op) =>
-        Use(document: document, op: op,
+        Resolve(document: document, op: op,
             selection: value => value.ObjectTargets.TraverseM(reference => reference.Use(document: document, op: op, use: _ => Fin.Succ(value: (Id: reference.MutationObjectId, reference.RuntimeSerialNumber)))).As(),
             reference: value => value.Use(document: document, op: op, use: _ => Fin.Succ(value: Seq((Id: value.MutationObjectId, value.RuntimeSerialNumber)))),
             objects: ids => ids.TraverseM(id => Optional(document.Objects.FindId(id)).ToFin(Fail: op.InvalidResult()).Map(native => (Id: id, native.RuntimeSerialNumber))).As());
 
     internal Fin<Seq<Guid>> Transform(RhinoDoc document, Transform transform, bool deleteOriginal, Op op) =>
-        Use(document: document, op: op,
+        Resolve(document: document, op: op,
             selection: selection => selection.ObjectTargets.TraverseM(reference => reference.Use(document: document, op: op, use: native => IdResult(id: document.Objects.Transform(objref: native, xform: transform, deleteOriginal: deleteOriginal), op: op))).As(),
             reference: reference => reference.Use(document: document, op: op, use: native => IdResult(id: document.Objects.Transform(objref: native, xform: transform, deleteOriginal: deleteOriginal), op: op).Map(static id => Seq(id))),
             objects: ids => ids.TraverseM(id => IdResult(id: document.Objects.Transform(objectId: id, xform: transform, deleteOriginal: deleteOriginal), op: op)).As());
 
-    internal Fin<T> Use<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) =>
+    internal Fin<T> Resolve<T>(RhinoDoc document, Op op, Func<CommandSelection, Fin<T>> selection, Func<CommandSelection.Reference, Fin<T>> reference, Func<Seq<Guid>, Fin<T>> objects) =>
         Switch(
             (Doc: document, Op: op, S: selection, R: reference, O: objects),
             selectionCase: static (ctx, c) => (c.Value, ctx.Doc) switch {
@@ -389,20 +386,6 @@ public abstract partial record DocumentTarget {
         select result;
 }
 
-[SmartEnum<string>]
-public sealed partial class FileResourceRole {
-    public static readonly FileResourceRole Layer = new(key: "layer");
-    public static readonly FileResourceRole Material = new(key: "material");
-    public static readonly FileResourceRole Linetype = new(key: "linetype");
-    public static readonly FileResourceRole Group = new(key: "group");
-    public static readonly FileResourceRole Block = new(key: "block");
-    public static readonly FileResourceRole Instance = new(key: "instance");
-    public static readonly FileResourceRole Member = new(key: "member");
-    public static readonly FileResourceRole Linked = new(key: "linked");
-    public static readonly FileResourceRole Texture = new(key: "texture");
-    public static readonly FileResourceRole Child = new(key: "child");
-}
-
 internal abstract record GeometrySource {
     private GeometrySource() { }
     internal abstract Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use);
@@ -464,27 +447,108 @@ public readonly record struct DocumentCustomUndo(string Name, EventHandler<Custo
     }
 }
 
-public readonly record struct DocumentReceipt(Seq<Guid> Created, Seq<Guid> Replaced, Seq<Guid> Deleted, Seq<Guid> Transformed, Seq<Guid> Selected, Seq<Guid> Unselected, Seq<Guid> Hidden, Seq<Guid> Locked, Seq<Guid> Flashed, Seq<Guid> AttributeChanged, Seq<Guid> LifecycleChanged, Seq<DocumentResourceChange> ResourceChanged, Seq<uint> UndoRecords, Seq<string> CustomUndo) {
-    public static DocumentReceipt Empty { get; } = new(Created: Seq<Guid>(), Replaced: Seq<Guid>(), Deleted: Seq<Guid>(), Transformed: Seq<Guid>(), Selected: Seq<Guid>(), Unselected: Seq<Guid>(), Hidden: Seq<Guid>(), Locked: Seq<Guid>(), Flashed: Seq<Guid>(), AttributeChanged: Seq<Guid>(), LifecycleChanged: Seq<Guid>(), ResourceChanged: Seq<DocumentResourceChange>(), UndoRecords: Seq<uint>(), CustomUndo: Seq<string>());
-    public static DocumentReceipt operator +(DocumentReceipt left, DocumentReceipt right) =>
-        Add(left: left, right: right);
+public readonly record struct DocumentResourceChange(DocumentResourceKind Kind, string Name);
 
-    public static DocumentReceipt Add(DocumentReceipt left, DocumentReceipt right) =>
-        new(Created: left.Created + right.Created, Replaced: left.Replaced + right.Replaced, Deleted: left.Deleted + right.Deleted, Transformed: left.Transformed + right.Transformed, Selected: left.Selected + right.Selected, Unselected: left.Unselected + right.Unselected, Hidden: left.Hidden + right.Hidden, Locked: left.Locked + right.Locked, Flashed: left.Flashed + right.Flashed, AttributeChanged: left.AttributeChanged + right.AttributeChanged, LifecycleChanged: left.LifecycleChanged + right.LifecycleChanged, ResourceChanged: left.ResourceChanged + right.ResourceChanged, UndoRecords: left.UndoRecords + right.UndoRecords, CustomUndo: left.CustomUndo + right.CustomUndo);
+[SmartEnum<int>]
+public sealed partial class DocumentReceiptSlot {
+    public static readonly DocumentReceiptSlot Created = new(key: 0, label: "created"), Replaced = new(key: 1, label: "replaced"), Deleted = new(key: 2, label: "deleted"), Transformed = new(key: 3, label: "transformed");
+    public static readonly DocumentReceiptSlot Selected = new(key: 4, label: "selected"), Unselected = new(key: 5, label: "unselected"), Hidden = new(key: 6, label: "hidden"), Locked = new(key: 7, label: "locked"), Flashed = new(key: 8, label: "flashed");
+    public static readonly DocumentReceiptSlot Attributes = new(key: 9, label: "attributes"), Lifecycle = new(key: 10, label: "lifecycle"), Resources = new(key: 11, label: "resources"), Undo = new(key: 12, label: "undo"), CustomUndo = new(key: 13, label: "custom undo");
+
+    public string Label { get; }
+    public bool TracksObjects => this != Resources && this != Undo && this != CustomUndo;
+}
+
+public readonly record struct DocumentReceipt {
+    private readonly Seq<Change> changes;
+    private Seq<Change> Changes => changes;
+
+    private DocumentReceipt(Seq<Change> changes) =>
+        this.changes = changes;
+
+    public static DocumentReceipt Empty { get; } = new(changes: Seq<Change>());
+    public static Seq<DocumentReceiptSlot> Slots { get; } = toSeq(DocumentReceiptSlot.Items);
+
+    public Seq<Guid> Created => Ids(slot: DocumentReceiptSlot.Created);
+    public Seq<Guid> Replaced => Ids(slot: DocumentReceiptSlot.Replaced);
+    public Seq<Guid> Deleted => Ids(slot: DocumentReceiptSlot.Deleted);
+    public Seq<Guid> Transformed => Ids(slot: DocumentReceiptSlot.Transformed);
+    public Seq<Guid> Selected => Ids(slot: DocumentReceiptSlot.Selected);
+    public Seq<Guid> Unselected => Ids(slot: DocumentReceiptSlot.Unselected);
+    public Seq<Guid> Hidden => Ids(slot: DocumentReceiptSlot.Hidden);
+    public Seq<Guid> Locked => Ids(slot: DocumentReceiptSlot.Locked);
+    public Seq<Guid> Flashed => Ids(slot: DocumentReceiptSlot.Flashed);
+    public Seq<Guid> AttributeChanged => Ids(slot: DocumentReceiptSlot.Attributes);
+    public Seq<Guid> LifecycleChanged => Ids(slot: DocumentReceiptSlot.Lifecycle);
+    public Seq<DocumentResourceChange> ResourceChanged => Changes.Choose(static change => change.ResourceChanged);
+    public Seq<uint> UndoRecords => Changes.Choose(static change => change.UndoRecord);
+    public Seq<string> CustomUndo => Changes.Choose(static change => change.CustomUndoName);
+
+    public static DocumentReceipt operator +(DocumentReceipt left, DocumentReceipt right) =>
+        new(changes: left.Changes + right.Changes);
+
+    public static DocumentReceipt Objects(DocumentReceiptSlot slot, Seq<Guid> ids) =>
+        From(changes: ids.Distinct().Choose(id => Change.Object(slot: slot, id: id)));
+    public static DocumentReceipt Objects(Seq<(DocumentReceiptSlot Slot, Seq<Guid> Ids)> groups) =>
+        From(changes: groups.Bind(static group =>
+            group.Ids.Distinct().Choose(id => Change.Object(slot: group.Slot, id: id))));
+    public static DocumentReceipt Objects(Seq<(DocumentReceiptSlot Slot, Seq<Guid> Ids)> groups, Seq<DocumentResourceChange> resources) =>
+        Objects(groups: groups) + Resources(changes: resources);
+    public static DocumentReceipt Objects(DocumentReceiptSlot slot, Seq<Guid> ids, Seq<DocumentResourceChange> resources) =>
+        Objects(slot: slot, ids: ids) + Resources(changes: resources);
+    public static DocumentReceipt Objects(DocumentReceiptSlot slot, Seq<Guid> ids, DocumentResourceKind kind, string name) =>
+        Objects(slot: slot, ids: ids) + Resource(kind: kind, name: name);
+
+    public static DocumentReceipt Resources(Seq<DocumentResourceChange> changes) =>
+        From(changes: changes.Map(static change => Change.Resource(value: change)));
+
+    public static DocumentReceipt Resource(DocumentResourceKind kind, string name) {
+        ArgumentNullException.ThrowIfNull(argument: kind);
+        return Resources(changes: Seq(kind.Change(name: name)));
+    }
+
+    public static DocumentReceipt UndoRecord(uint serial) =>
+        serial > 0u ? From(changes: Seq(Change.Undo(serial: serial))) : Empty;
+
+    public static DocumentReceipt CustomUndoRecords(Seq<string> names) =>
+        From(changes: names.Map(static name => Change.CustomUndo(name: name)));
 
     internal static DocumentReceipt SelectionDelta(Seq<Guid> before, Seq<Guid> after) =>
-        Empty with { Selected = after.Filter(id => !before.Exists(item => item == id)), Unselected = before.Filter(id => !after.Exists(item => item == id)) };
+        Objects(slot: DocumentReceiptSlot.Selected, ids: after.Filter(id => !before.Exists(item => item == id)))
+        + Objects(slot: DocumentReceiptSlot.Unselected, ids: before.Filter(id => !after.Exists(item => item == id)));
 
-    private static Seq<(string Name, Func<DocumentReceipt, int> Count)> Counters { get; } = Seq<(string, Func<DocumentReceipt, int>)>(
-        ("created", static r => r.Created.Count), ("replaced", static r => r.Replaced.Count), ("deleted", static r => r.Deleted.Count), ("transformed", static r => r.Transformed.Count), ("selected", static r => r.Selected.Count), ("unselected", static r => r.Unselected.Count), ("hidden", static r => r.Hidden.Count), ("locked", static r => r.Locked.Count), ("flashed", static r => r.Flashed.Count), ("attributes", static r => r.AttributeChanged.Count), ("lifecycle", static r => r.LifecycleChanged.Count), ("resources", static r => r.ResourceChanged.Count), ("undo", static r => r.UndoRecords.Count), ("custom undo", static r => r.CustomUndo.Count));
+    public Seq<Guid> Ids(DocumentReceiptSlot slot) =>
+        Changes.Filter(change => change.Slot == slot).Choose(static change => change.ObjectId);
+
+    public int Count(DocumentReceiptSlot slot) =>
+        Changes.Count(change => change.Slot == slot);
 
     public UI.UiStatus Status(string verb) {
         DocumentReceipt self = this;
-        Seq<(string Name, int Count)> changes = Counters.Map(entry => (entry.Name, Count: entry.Count(arg: self))).Filter(static change => change.Count > 0);
-        return UI.UiStatus.Script(message: changes.IsEmpty switch {
+        Seq<(string Name, int Count)> rows = Slots.Map(slot => (Name: slot.Label, Count: self.Count(slot: slot))).Filter(static change => change.Count > 0);
+        return UI.UiStatus.Script(message: rows.IsEmpty switch {
             true => $"{verb}: no document changes",
-            false => $"{verb}: {string.Join(separator: ", ", values: changes.Map(static change => $"{change.Name} {change.Count}").AsIterable())}",
+            false => $"{verb}: {string.Join(separator: ", ", values: rows.Map(static change => $"{change.Name} {change.Count}").AsIterable())}",
         });
+    }
+
+    private static DocumentReceipt From(Seq<Change> changes) =>
+        new(changes: changes);
+
+    private readonly record struct Change(DocumentReceiptSlot Slot, Option<Guid> ObjectId = default, Option<DocumentResourceChange> ResourceChanged = default, Option<uint> UndoRecord = default, Option<string> CustomUndoName = default) {
+        internal static Option<Change> Object(DocumentReceiptSlot slot, Guid id) {
+            ArgumentNullException.ThrowIfNull(argument: slot);
+            return id != Guid.Empty && slot.TracksObjects
+                ? Some(new Change(Slot: slot, ObjectId: id))
+                : Option<Change>.None;
+        }
+
+        internal static Change Resource(DocumentResourceChange value) =>
+            new(Slot: DocumentReceiptSlot.Resources, ResourceChanged: value);
+        internal static Change Undo(uint serial) =>
+            new(Slot: DocumentReceiptSlot.Undo, UndoRecord: serial);
+        internal static Change CustomUndo(string name) =>
+            new(Slot: DocumentReceiptSlot.CustomUndo, CustomUndoName: name);
     }
 }
 
@@ -492,8 +556,6 @@ public readonly record struct DocumentRedraw(bool Enabled, bool SuppressDuringCo
     public static DocumentRedraw After { get; } = new(Enabled: true);
     public static DocumentRedraw None { get; } = new(Enabled: false);
 }
-
-public readonly record struct DocumentResourceChange(DocumentResourceKind Kind, string Name);
 
 public readonly record struct DocumentSelectionPolicy(bool Highlight, bool IgnoreGrips, bool Persistent, bool IgnoreLayerLocking, bool IgnoreLayerVisibility) {
     public static DocumentSelectionPolicy Default { get; } = new(Highlight: true, IgnoreGrips: true, Persistent: true, IgnoreLayerLocking: false, IgnoreLayerVisibility: false);
@@ -543,7 +605,7 @@ public sealed record DocumentEdit {
                    run: (document, domain, runOp) =>
                        from customUndo in plan.CustomUndo.TraverseM(undo => undo.Register(document: document, op: Op.Of(name: name))).As()
                        from result in plan.Operations.TraverseM(operation => operation.Apply(document: document, domain: domain, op: runOp)).As().Map(static receipts => receipts.Fold(DocumentReceipt.Empty, static (state, value) => state + value))
-                       select result with { CustomUndo = customUndo })
+                       select result + DocumentReceipt.CustomUndoRecords(names: customUndo))
                select receipt;
     }
 
@@ -588,7 +650,7 @@ public sealed record DocumentEdit {
                 closed = undo switch { > 0u => document.EndUndoRecord(undoRecordSerialNumber: undo), _ => true };
             }
             return result.Bind(value => closed switch {
-                true => Fin.Succ(value: value with { UndoRecords = undo switch { > 0u => Seq(undo), _ => Seq<uint>() } }),
+                true => Fin.Succ(value: value + DocumentReceipt.UndoRecord(serial: undo)),
                 false => Fin.Fail<DocumentReceipt>(error: op.InvalidResult()),
             });
         }));

@@ -406,7 +406,7 @@ public sealed partial record FileView(
         int index = view switch { RhinoPageView page => page.PageNumber + 1, _ => 0 };
         return string.IsNullOrEmpty(value: template)
             ? template
-            : TokenPattern().Replace(input: template, evaluator: match => match.Groups["key"].Value switch {
+            : TokenPattern.Replace(input: template, evaluator: match => match.Groups["key"].Value switch {
                 "page" => name,
                 "index" => index.ToString(provider: CultureInfo.InvariantCulture),
                 "total" => total.ToString(provider: CultureInfo.InvariantCulture),
@@ -415,7 +415,7 @@ public sealed partial record FileView(
     }
 
     [GeneratedRegex(pattern: "\\{(?<key>[^{}]+)\\}", options: RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture, matchTimeoutMilliseconds: 250)]
-    private static partial Regex TokenPattern();
+    private static partial Regex TokenPattern { get; }
 }
 
 public readonly record struct FileViewReport(
@@ -515,7 +515,7 @@ internal readonly partial record struct PdfStampContext(int PageIndex, int PageC
         int pageIndex = PageIndex;
         int pageCount = PageCount;
         Option<FileViewReport> view = View;
-        return TokenPattern().Replace(input: value, evaluator: match => match.Groups["key"].Value switch {
+        return TokenPattern.Replace(input: value, evaluator: match => match.Groups["key"].Value switch {
             "index" => pageIndex.ToString(provider: CultureInfo.InvariantCulture),
             "total" => pageCount.ToString(provider: CultureInfo.InvariantCulture),
             "page" => view.Map(static report => report.Name).IfNone(string.Empty),
@@ -526,5 +526,5 @@ internal readonly partial record struct PdfStampContext(int PageIndex, int PageC
     }
 
     [GeneratedRegex(pattern: "\\{(?<key>[^{}]+)\\}", options: RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture, matchTimeoutMilliseconds: 250)]
-    private static partial Regex TokenPattern();
+    private static partial Regex TokenPattern { get; }
 }

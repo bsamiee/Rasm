@@ -83,6 +83,7 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 - `readonly record struct` for domain primitives with `Fin<T>` smart constructors.
 - `sealed abstract record` base + `sealed record` cases for DUs. Static factories on abstract base.
 - One canonical type per concept; derive projections, never parallel types.
+- Receipt and proof payloads keep semantic ownership: algorithm receipts remain typed evidence records; operational mutation receipts collapse to fact streams with slot/kind metadata and fold-derived projections.
 - File-scoped namespaces only. Explicit accessibility on every member.
 
 **Control flow**
@@ -104,6 +105,9 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 - Internal logic integrates INTO exports — `private` nested classes, closures inside methods, `private static` composed pipelines inside the owning class. Not defined alongside as standalone file-level declarations consumed by a single caller.
 - No helper files, no single-caller extracted functions, no one-use file-level declarations.
 - No convenience wrappers that rename or forward external APIs.
+- Operational mutation receipts collapse to one owner rail. Use `Seq<Fact>` + `SmartEnum` slot metadata + computed projections only when 3+ mutation buckets or repeated slot families share construction, count, or status semantics; keep compact one- or two-bucket receipts direct with owner factories. Algorithm proof receipts remain typed and owner-local when fields carry route, status, solver, topology, sampling, spectral, SDF, mesh, or native evidence. Never add generic `IReceipt`, `ReceiptLog`, or `Reported<T>` ledgers.
+- Analyzer-backed standards live in `tools/cs-analyzer`. Add or refine a CSP rule when a high-value collapse pattern recurs across production code, but keep rules semantic and agnostic: no project namespace/path coupling, no one-off symbol names, positive and negative tests, and LOC/diff checks proving the rule improves code rather than forcing ceremony.
+- Treat CSP diagnostics as hypotheses. If the lowest-LOC correct fix is larger, less clear, or less native to an approved library, tighten the rule instead of reshaping production code around a false positive.
 - **Pressure-point signals** (concept density, not byte count): ≥3 parallel types/records modeling overlapping concepts; ≥3 sibling factory methods sharing a prefix; ≥3 near-identical switch arms; ≥3 single-call private helpers. Each signal triggers IN-PLACE polymorphic collapse — merge the cases into one `[Union]`, one `SmartEnum<T>`, one fold algebra, or one data table. NEVER extract to a new file. NEVER delete functionality to reduce LOC. The goal is denser polymorphic capability in fewer surfaces, not less code.
 - Expression-bodied members where body is a single expression. Primary constructors preferred.
 

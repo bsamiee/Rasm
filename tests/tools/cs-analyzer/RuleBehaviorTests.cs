@@ -488,6 +488,115 @@ public sealed class RuleBehaviorTests {
             public int Other() => 0;
             public int CommitActions(string value) => value.Length;
             """)),
+        new("CSP0730", File(scope: "Domain/Services", type: "OperationalReceipt"), """
+            namespace LanguageExt {
+                public readonly record struct Seq<T>;
+            }
+
+            namespace Domain.Services {
+                public readonly record struct OperationalReceipt(int Changed, LanguageExt.Seq<System.Guid> Created, LanguageExt.Seq<System.Guid> Deleted) {
+                    public static OperationalReceipt None => new(Changed: 0, Created: new(), Deleted: new());
+                    public static OperationalReceipt Count(int changed) => new(Changed: changed, Created: new(), Deleted: new());
+                    public static OperationalReceipt CreatedObject(System.Guid id) => new(Changed: 1, Created: new(), Deleted: new());
+                }
+            }
+            """),
+        new("CSP0731", File(scope: "Domain/Services", type: "ReceiptChainCollapse"), """
+            namespace Domain.Services;
+
+            public readonly record struct OperationReceipt(int Created, int Deleted, int Changed) {
+                public static OperationReceipt CreatedOne() => new(Created: 1, Deleted: 0, Changed: 0);
+                public static OperationReceipt DeletedOne() => new(Created: 0, Deleted: 1, Changed: 0);
+                public static OperationReceipt ChangedOne() => new(Created: 0, Deleted: 0, Changed: 1);
+                public static OperationReceipt operator +(OperationReceipt left, OperationReceipt right) =>
+                    new(Created: left.Created + right.Created, Deleted: left.Deleted + right.Deleted, Changed: left.Changed + right.Changed);
+            }
+
+            public sealed class ReceiptChainCollapse {
+                public OperationReceipt Run() =>
+                    OperationReceipt.CreatedOne() + OperationReceipt.DeletedOne() + OperationReceipt.ChangedOne();
+            }
+            """),
+        new("CSP0732", File(scope: "Domain/Services", type: "ReceiptConstructionOwner"), """
+            namespace Domain.Services;
+
+            public readonly record struct CameraReceipt(int Resources, int Redraw) {
+                public static CameraReceipt Empty => new(Resources: 0, Redraw: 0);
+            }
+
+            public sealed class ReceiptConstructionOwner {
+                public CameraReceipt Rewrite(CameraReceipt receipt) => receipt with { Redraw = 1 };
+            }
+            """),
+        new("CSP0733", File(scope: "Domain/Services", type: "GeneratedCaseAlias"), """
+            namespace Thinktecture {
+                public sealed class UnionAttribute : System.Attribute { }
+            }
+
+            namespace Domain.Services {
+                [Thinktecture.Union]
+                public abstract record GeneratedCaseAlias {
+                    private GeneratedCaseAlias() { }
+                    public sealed record AlphaCase(int Value) : GeneratedCaseAlias;
+                    public static GeneratedCaseAlias AlphaCase(int value) => new AlphaCase(Value: value);
+                }
+            }
+            """),
+        new("CSP0734", File(scope: "Domain/Services", type: "StateDispatchCapture"), """
+            namespace Thinktecture {
+                public sealed class UnionAttribute : System.Attribute { }
+            }
+
+            namespace Domain.Services {
+                [Thinktecture.Union]
+                public abstract record Choice {
+                    public sealed record A(int Value) : Choice;
+                    public sealed record B(int Value) : Choice;
+                    public sealed record C(int Value) : Choice;
+                    public int Switch(System.Func<A, int> a, System.Func<B, int> b, System.Func<C, int> c) => 0;
+                }
+
+                public sealed class StateDispatchCapture {
+                    public int Run(Choice choice, int offset) =>
+                        choice.Switch(
+                            a: value => value.Value + offset,
+                            b: value => value.Value + offset,
+                            c: value => value.Value + offset);
+                }
+            }
+            """),
+        new("CSP0735", File(scope: "Domain/Services", type: "TraverseFusion"), """
+            namespace LanguageExt {
+                public sealed class Seq<T> {
+                    public Seq<TOut> Map<TOut>(System.Func<T, TOut> project) => new();
+                    public Seq<TOut> Traverse<TOut>(System.Func<T, TOut> project) => new();
+                }
+            }
+
+            namespace Domain.Services {
+                public sealed class TraverseFusion {
+                    private static readonly System.Func<int, int> identity = static value => value;
+                    public LanguageExt.Seq<int> Run(LanguageExt.Seq<int> values) =>
+                        values.Map(static value => value + 1).Traverse(identity);
+                }
+            }
+            """),
+        new("CSP0736", File(scope: "Rasm.Rhino/Camera", type: "FoldAppendAccumulator"), """
+            namespace LanguageExt {
+                public sealed class Seq<T> {
+                    public static Seq<T> Empty => new();
+                    public Seq<T> Add(T value) => this;
+                    public TOut Fold<TOut>(TOut initialState, System.Func<TOut, T, TOut> f) => initialState;
+                }
+            }
+
+            namespace Rasm.Rhino.Camera {
+                public sealed class FoldAppendAccumulator {
+                    public LanguageExt.Seq<int> Run(LanguageExt.Seq<int> values) =>
+                        values.Fold(LanguageExt.Seq<int>.Empty, static (acc, value) => acc.Add(value));
+                }
+            }
+            """),
         new("CSP0802", File(scope: "Domain/Models", type: "UnqualifiedUnionOps"), """
             namespace Thinktecture {
                 public sealed class UnionAttribute : System.Attribute { }
@@ -1079,6 +1188,258 @@ public sealed class RuleBehaviorTests {
                 """)).ConfigureAwait(true);
 
         Assert.DoesNotContain(expected: "CSP0405", collection: ids);
+    }
+
+    [Fact]
+    public async Task ProofReceiptDoesNotEmitOperationalReceiptFactStreamDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/SpectralReceipt.cs",
+            source: """
+                namespace Domain.Services;
+
+                public enum SpectralStatus {
+                    Complete,
+                }
+
+                public readonly record struct SpectralReceipt(SpectralStatus Status, double Tolerance, int Iterations);
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0730", collection: ids);
+    }
+
+    [Fact]
+    public async Task FactStreamReceiptDoesNotEmitOperationalReceiptFactStreamDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/DocumentReceipt.cs",
+            source: """
+                namespace LanguageExt {
+                    public readonly record struct Seq<T>;
+                }
+
+                namespace Domain.Services {
+                    public readonly record struct DocumentReceipt {
+                        private readonly LanguageExt.Seq<Change> changes;
+                        private DocumentReceipt(LanguageExt.Seq<Change> changes) {
+                            this.changes = changes;
+                        }
+
+                        public LanguageExt.Seq<System.Guid> Created => new();
+                        public LanguageExt.Seq<System.Guid> Deleted => new();
+                        public static DocumentReceipt Empty => new(changes: new());
+                        public static DocumentReceipt Objects(LanguageExt.Seq<System.Guid> created) => new(changes: new());
+
+                        private abstract record Change;
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0730", collection: ids);
+    }
+
+    [Fact]
+    public async Task CompactTwoBucketReceiptDoesNotEmitOperationalReceiptFactStreamDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/SmallReceipt.cs",
+            source: """
+                namespace LanguageExt {
+                    public readonly record struct Seq<T>;
+                }
+
+                namespace Domain.Services {
+                    public readonly record struct SmallReceipt(int Changed, LanguageExt.Seq<System.Guid> Created) {
+                        public static SmallReceipt None => new(Changed: 0, Created: new());
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0730", collection: ids);
+    }
+
+    [Fact]
+    public async Task NamespaceDoesNotExemptOperationalReceiptFactStreamDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Rasm/Vectors/OperationalReceipt.cs",
+            source: """
+                namespace Foundation.CSharp.Analyzers.Contracts {
+                    public sealed class DomainScopeAttribute : System.Attribute { }
+                }
+
+                namespace LanguageExt {
+                    public readonly record struct Seq<T>;
+                }
+
+                namespace Rasm.Vectors {
+                    [Foundation.CSharp.Analyzers.Contracts.DomainScope]
+                    public readonly record struct OperationalReceipt(int Changed, LanguageExt.Seq<System.Guid> Created, LanguageExt.Seq<System.Guid> Deleted);
+                }
+                """).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0730", collection: ids);
+    }
+
+    [Fact]
+    public async Task TwoTermReceiptChainDoesNotEmitReceiptChainCollapseDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/TwoTermReceipt.cs",
+            source: """
+                namespace Domain.Services;
+
+                public readonly record struct OperationReceipt(int Created, int Deleted) {
+                    public static OperationReceipt CreatedOne() => new(Created: 1, Deleted: 0);
+                    public static OperationReceipt DeletedOne() => new(Created: 0, Deleted: 1);
+                    public static OperationReceipt operator +(OperationReceipt left, OperationReceipt right) =>
+                        new(Created: left.Created + right.Created, Deleted: left.Deleted + right.Deleted);
+                }
+
+                public sealed class TwoTermReceipt {
+                    public OperationReceipt Run() => OperationReceipt.CreatedOne() + OperationReceipt.DeletedOne();
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0731", collection: ids);
+    }
+
+    [Fact]
+    public async Task ReceiptOwnerConstructionDoesNotEmitReceiptConstructionOwnerDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ReceiptOwnerConstruction.cs",
+            source: """
+                namespace Domain.Services;
+
+                public readonly record struct CameraReceipt(int Resources, int Redraw) {
+                    public static CameraReceipt Empty => new(Resources: 0, Redraw: 0);
+                    public static CameraReceipt RedrawOnly(int redraw) => Empty with { Redraw = redraw };
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0732", collection: ids);
+    }
+
+    [Fact]
+    public async Task StaticStateDispatchDoesNotEmitStateThreadedDispatchDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/StaticStateDispatch.cs",
+            source: """
+                namespace Thinktecture {
+                    public sealed class UnionAttribute : System.Attribute { }
+                }
+
+                namespace Domain.Services {
+                    [Thinktecture.Union]
+                    public abstract record Choice {
+                        public sealed record A(int Value) : Choice;
+                        public sealed record B(int Value) : Choice;
+                        public sealed record C(int Value) : Choice;
+                        public int Switch(System.Func<A, int> a, System.Func<B, int> b, System.Func<C, int> c) => 0;
+                    }
+
+                    public sealed class StaticStateDispatch {
+                        public int Run(Choice choice) =>
+                            choice.Switch(
+                                a: static value => value.Value,
+                                b: static value => value.Value,
+                                c: static value => value.Value);
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0734", collection: ids);
+    }
+
+    [Fact]
+    public async Task DirectTraverseDoesNotEmitTraverseFusionDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/DirectTraverse.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Seq<T> {
+                        public Seq<TOut> Traverse<TOut>(System.Func<T, TOut> project) => new();
+                    }
+                }
+
+                namespace Domain.Services {
+                    public sealed class DirectTraverse {
+                        public LanguageExt.Seq<int> Run(LanguageExt.Seq<int> values) =>
+                            values.Traverse(static value => value + 1);
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0735", collection: ids);
+    }
+
+    [Fact]
+    public async Task IndexedMapTraversalDoesNotEmitTraverseFusionDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/IndexedTraverse.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Seq<T> {
+                        public Seq<TOut> Map<TOut>(System.Func<T, int, TOut> project) => new();
+                        public Seq<TOut> Traverse<TOut>(System.Func<T, TOut> project) => new();
+                    }
+                }
+
+                namespace Domain.Services {
+                    public sealed class IndexedTraverse {
+                        private static readonly System.Func<int, int> identity = static value => value;
+                        public LanguageExt.Seq<int> Run(LanguageExt.Seq<int> values) =>
+                            values.Map(static (value, index) => value + index).Traverse(identity);
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0735", collection: ids);
+    }
+
+    [Fact]
+    public async Task FoldConsAccumulatorDoesNotEmitFoldAppendAccumulatorDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/FoldConsAccumulator.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Seq<T> {
+                        public static Seq<T> Empty => new();
+                        public Seq<T> Cons(T value) => this;
+                        public TOut Fold<TOut>(TOut initialState, System.Func<TOut, T, TOut> f) => initialState;
+                    }
+                }
+
+                namespace Domain.Services {
+                    public sealed class FoldConsAccumulator {
+                        public LanguageExt.Seq<int> Run(LanguageExt.Seq<int> values) =>
+                            values.Fold(LanguageExt.Seq<int>.Empty, static (acc, value) => acc.Cons(value));
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0736", collection: ids);
+    }
+
+    [Fact]
+    public async Task FoldSetAccumulatorDoesNotEmitFoldAppendAccumulatorDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Rasm.Rhino/Blocks/FoldSetAccumulator.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Seq<T> {
+                        public TOut Fold<TOut>(TOut initialState, System.Func<TOut, T, TOut> f) => initialState;
+                    }
+                    public sealed class HashSet<T> {
+                        public static HashSet<T> Empty => new();
+                        public HashSet<T> Add(T key) => this;
+                    }
+                }
+
+                namespace Rasm.Rhino.Blocks {
+                    public sealed class FoldSetAccumulator {
+                        public LanguageExt.HashSet<int> Run(LanguageExt.Seq<int> values) =>
+                            values.Fold(LanguageExt.HashSet<int>.Empty, static (ids, id) => ids.Add(key: id));
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0736", collection: ids);
     }
 
     public static TheoryData<string, string, string> RuleCases() =>

@@ -131,7 +131,7 @@ public partial record CanvasOp : IUiOp {
     public sealed partial record InteractionCase(CanvasInteractionPolicy Policy) : CanvasOp;
     public sealed partial record WindowSelectCase(CanvasWindow Window, SelectionMode Mode, CanvasWindowScope Scope) : CanvasOp;
     public sealed partial record InlineEditCase(RectangleF Frame, string Initial, Func<string, Fin<Unit>> Apply, Option<Func<Fin<Unit>>> Cancel) : CanvasOp;
-    public sealed partial record ValueEditorCase(AbstractParameter Parameter, Control Control) : CanvasOp;
+    public sealed partial record ValueEditorCase(AbstractParameter Parameter, Option<Control> Control) : CanvasOp;
     public sealed partial record SparkleCase(ISparkle Instance) : CanvasOp;
 
     public static CanvasOp Snapshot(bool openEditor = false) => new SnapshotCase(OpenEditor: openEditor);
@@ -151,14 +151,14 @@ public partial record CanvasOp : IUiOp {
     public static CanvasOp View(CanvasViewOp view) => new ViewCase(Request: view);
     public static CanvasOp SnapFeedback(bool clear = false) => new SnapFeedbackCase(Clear: clear);
     public static CanvasOp Interaction(CanvasInteractionPolicy policy) => new InteractionCase(Policy: policy);
-    public static CanvasOp WindowSelect(CanvasWindow window, SelectionMode mode, CanvasWindowScope scope = CanvasWindowScope.ObjectsAndWires) =>
+    public static CanvasOp WindowSelect(CanvasWindow window, SelectionMode mode, CanvasWindowScope scope = CanvasWindowScope.All) =>
         new WindowSelectCase(Window: window, Mode: mode, Scope: scope);
-    public static CanvasOp WindowSelect(RectangleF window, SelectionMode mode, CanvasWindowScope scope = CanvasWindowScope.ObjectsAndWires) =>
+    public static CanvasOp WindowSelect(RectangleF window, SelectionMode mode, CanvasWindowScope scope = CanvasWindowScope.All) =>
         WindowSelect(window: CanvasWindow.FromRect(rect: window), mode: mode, scope: scope);
     public static CanvasOp InlineEdit(RectangleF frame, string initial, Func<string, Fin<Unit>> apply, Func<Fin<Unit>>? cancel = null) =>
         new InlineEditCase(Frame: frame, Initial: initial, Apply: apply, Cancel: Optional(cancel));
-    public static CanvasOp ValueEditor(AbstractParameter parameter, Control control) =>
-        new ValueEditorCase(Parameter: parameter, Control: control);
+    public static CanvasOp ValueEditor(AbstractParameter parameter, Control? control = null) =>
+        new ValueEditorCase(Parameter: parameter, Control: Optional(control));
     public static CanvasOp Sparkle(ISparkle instance) => new SparkleCase(Instance: instance);
 
     // GH2 ObjectList.WindowSelect(..., considerForeground, considerBackground, considerWires):
@@ -354,26 +354,31 @@ public readonly record struct CanvasActionPolicy(Option<bool> AllowDrag = defaul
         };
 
     internal Unit Apply(CanvasActions actions) {
-        Seq<(Option<bool> Flag, Action<bool> Set)> toggles = [
-            (AllowDrag, value => actions.AllowDrag = value),
-            (AllowWireSelect, value => actions.AlloWireSelect = value),
-            (AllowObjectSelect, value => actions.AllowObjectSelect = value),
-            (AllowMakeWire, value => actions.AllowMakeWire = value),
-            (AllowDeleteWire, value => actions.AllowDeleteWire = value),
-            (AllowModifyWire, value => actions.AllowModifyWire = value),
-            (AllowMakeObject, value => actions.AllowMakeObject = value),
-            (AllowDeleteObject, value => actions.AllowDeleteObject = value),
-            (AllowObjectResponse, value => actions.AllowObjectResponse = value),
-            (AllowDropFile, value => actions.AllowDropFile = value),
-            (AllowWireMenu, value => actions.AllowWireMenu = value),
-            (AllowObjectMenu, value => actions.AllowObjectMenu = value),
-            (AllowCanvasMenu, value => actions.AllowCanvasMenu = value),
+        Seq<CanvasActionSlot> toggles = [
+            new(Flag: AllowDrag, Set: value => actions.AllowDrag = value),
+            new(Flag: AllowWireSelect, Set: value => actions.AlloWireSelect = value),
+            new(Flag: AllowObjectSelect, Set: value => actions.AllowObjectSelect = value),
+            new(Flag: AllowMakeWire, Set: value => actions.AllowMakeWire = value),
+            new(Flag: AllowDeleteWire, Set: value => actions.AllowDeleteWire = value),
+            new(Flag: AllowModifyWire, Set: value => actions.AllowModifyWire = value),
+            new(Flag: AllowMakeObject, Set: value => actions.AllowMakeObject = value),
+            new(Flag: AllowDeleteObject, Set: value => actions.AllowDeleteObject = value),
+            new(Flag: AllowObjectResponse, Set: value => actions.AllowObjectResponse = value),
+            new(Flag: AllowDropFile, Set: value => actions.AllowDropFile = value),
+            new(Flag: AllowWireMenu, Set: value => actions.AllowWireMenu = value),
+            new(Flag: AllowObjectMenu, Set: value => actions.AllowObjectMenu = value),
+            new(Flag: AllowCanvasMenu, Set: value => actions.AllowCanvasMenu = value),
         ];
-        _ = toggles.Iter(row => row.Flag.Iter(row.Set));
+        _ = toggles.Iter(static row => row.Apply());
         _ = MakeWireFilter.Iter(value => actions.MakeWireFilter = value);
         _ = DeleteWireFilter.Iter(value => actions.DeleteWireFilter = value);
         return unit;
     }
+}
+
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct CanvasActionSlot(Option<bool> Flag, Action<bool> Set) {
+    internal Unit Apply() => Flag.Iter(Set);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -602,8 +607,7 @@ internal static partial class UiRail {
                 from canvas in scope.NeedCanvas()
                 from _window in RequireParentWindow(canvas: canvas, op: Op.Of(name: nameof(CanvasOp.ValueEditor)))
                 from parameter in Optional(edit.Parameter).ToFin(Fail: UiFault.InvalidInput(op: CanvasOp.ValueEditorCase.SelfOp, detail: "parameter is required"))
-                from control in Optional(edit.Control).ToFin(Fail: UiFault.InvalidInput(op: CanvasOp.ValueEditorCase.SelfOp, detail: "control is required"))
-                from _ in ShowValueEditor(canvas: canvas, parameter: parameter, control: control)
+                from _ in ShowValueEditor(canvas: canvas, parameter: parameter, control: edit.Control)
                 select CanvasResult.Unit,
             sparkleCase: static (scope, sp) =>
                 from canvas in scope.NeedCanvas()
@@ -612,6 +616,17 @@ internal static partial class UiRail {
                 select CanvasResult.Unit);
 
     private readonly record struct ViewTarget(GhCanvas Canvas, GhDocument Document, GhObjectList Objects);
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct CanvasViewPlan(RectangleF Region, (float Minimum, float Maximum) Limits) {
+        internal Fin<Unit> Apply(GhCanvas canvas, TimeSpan duration, string what) {
+            RectangleF region = Region;
+            (float Minimum, float Maximum) limits = Limits;
+            return Op.Of(name: nameof(CanvasViewPlan)).Attempt(body: () => {
+                canvas.Navigate(frame: region, zoomLimits: limits, duration: duration);
+                return unit;
+            }, what: what);
+        }
+    }
 
     private static Fin<ViewTarget> NeedViewTarget(GrasshopperUi.Scope scope) =>
         from canvas in scope.NeedCanvas()
@@ -631,13 +646,10 @@ internal static partial class UiRail {
             ? Fin.Succ(value: policy)
             : Fin.Fail<CanvasViewPolicy>(error: UiFault.InvalidInput(op: op, detail: "invalid zoom range"))
         from resolvedFrame in frame(arg: target)
-        select (CanvasResult)NavigateTo(
-            scope: scope,
-            canvas: target.Canvas,
-            frame: resolvedFrame,
-            policy: validPolicy,
-            document: target.Document,
-            objects: target.Objects);
+        from plan in CanvasViewPlanOf(frame: resolvedFrame, policy: validPolicy, op: op)
+        from _ in plan.Apply(canvas: target.Canvas, duration: validPolicy.Duration, what: "FlexControl.Navigate(RectangleF)")
+        select (CanvasResult)new CanvasResult.SnapshotResult(
+            Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document, objects: target.Objects));
 
     private static Fin<CanvasResult> ViewDispatch(GrasshopperUi.Scope scope, CanvasViewOp view) =>
         view.Switch(
@@ -691,7 +703,7 @@ internal static partial class UiRail {
                     rawPolicy: ft.Policy,
                     defaultPadding: CanvasViewPolicy.DefaultPadding,
                     op: Op.Of(name: nameof(CanvasViewOp.FitViewport)),
-                    frame: static target => Fin.Succ(target.Canvas.VisibleFrame)),
+                    frame: static target => Fin.Succ(ContentViewport(target: target))),
             positionCase: static (scope, pos) =>
                 from target in NeedViewTarget(scope)
                 from _ in NavigatePosition(target: target, position: pos.Where, policy: pos.Policy)
@@ -724,35 +736,32 @@ internal static partial class UiRail {
             what: nameof(ZoomFactor))
         from validCentre in Op.Of(name: nameof(CanvasViewOp.Projection)).AcceptPoint(value: centre, detail: "non-finite centre")
         from _ in Op.Of(name: nameof(CanvasViewOp.Projection)).Attempt(
-            body: () => { canvas.Projection = canvas.Projection.SetZoom(zoom: zoom.Value).SetCentre(centre: validCentre, frame: canvas.VisibleFrame); return unit; },
+            body: () => { canvas.Projection = canvas.Projection.SetZoom(zoom: zoom.Value).SetCentre(centre: validCentre, frame: canvas.InnerBounds); return unit; },
             what: "Canvas.Projection assign")
         select unit;
 
     private static Fin<Unit> NavigatePosition(ViewTarget target, CanvasPosition position, CanvasViewPolicy policy) {
         Op op = Op.Of(name: nameof(CanvasViewOp.Position));
         CanvasViewPolicy resolved = ResolveView(raw: policy, defaultPadding: CanvasViewPolicy.DefaultPadding);
-        RectangleF content = target.Canvas.ContentBounds.IsEmpty ? target.Canvas.VisibleFrame : target.Canvas.ContentBounds;
-        RectangleF frame = target.Canvas.VisibleFrame;
+        RectangleF frame = ContentViewport(target: target);
+        RectangleF content = target.Canvas.ContentBounds.IsEmpty ? frame : target.Canvas.ContentBounds;
         ContentPosition where = position.Native;
-        Fin<(RectangleF Region, (float Minimum, float Maximum) Limits)> plan = where switch {
-            ContentPosition.Top => Fin.Succ((new RectangleF(x: frame.X, y: content.Top, width: frame.Width, height: frame.Height), (resolved.MinimumZoom, resolved.MaximumZoom))),
-            ContentPosition.Bottom => Fin.Succ((new RectangleF(x: frame.X, y: content.Bottom - frame.Height, width: frame.Width, height: frame.Height), (resolved.MinimumZoom, resolved.MaximumZoom))),
-            ContentPosition.Left => Fin.Succ((new RectangleF(x: content.Left, y: frame.Y, width: frame.Width, height: frame.Height), (resolved.MinimumZoom, resolved.MaximumZoom))),
-            ContentPosition.Right => Fin.Succ((new RectangleF(x: content.Right - frame.Width, y: frame.Y, width: frame.Width, height: frame.Height), (resolved.MinimumZoom, resolved.MaximumZoom))),
-            ContentPosition.Centre => Fin.Succ((RectangleF.FromCenter(center: content.Center, size: frame.Size), (resolved.MinimumZoom, resolved.MaximumZoom))),
-            ContentPosition.TopLeft => Fin.Succ((new RectangleF(x: content.Left, y: content.Top, width: frame.Width, height: frame.Height), (resolved.MinimumZoom, resolved.MaximumZoom))),
-            ContentPosition.TopRight => Fin.Succ((new RectangleF(x: content.Right - frame.Width, y: content.Top, width: frame.Width, height: frame.Height), (resolved.MinimumZoom, resolved.MaximumZoom))),
-            ContentPosition.BottomLeft => Fin.Succ((new RectangleF(x: content.Left, y: content.Bottom - frame.Height, width: frame.Width, height: frame.Height), (resolved.MinimumZoom, resolved.MaximumZoom))),
-            ContentPosition.BottomRight => Fin.Succ((new RectangleF(x: content.Right - frame.Width, y: content.Bottom - frame.Height, width: frame.Width, height: frame.Height), (resolved.MinimumZoom, resolved.MaximumZoom))),
-            ContentPosition.Fit => Fin.Succ((content, (resolved.MinimumZoom, 1f))),
+        Fin<CanvasViewPlan> plan = where switch {
+            ContentPosition.Top => CanvasViewPlanOf(frame: new RectangleF(x: frame.X, y: content.Top, width: frame.Width, height: frame.Height), policy: resolved, op: op),
+            ContentPosition.Bottom => CanvasViewPlanOf(frame: new RectangleF(x: frame.X, y: content.Bottom - frame.Height, width: frame.Width, height: frame.Height), policy: resolved, op: op),
+            ContentPosition.Left => CanvasViewPlanOf(frame: new RectangleF(x: content.Left, y: frame.Y, width: frame.Width, height: frame.Height), policy: resolved, op: op),
+            ContentPosition.Right => CanvasViewPlanOf(frame: new RectangleF(x: content.Right - frame.Width, y: frame.Y, width: frame.Width, height: frame.Height), policy: resolved, op: op),
+            ContentPosition.Centre => CanvasViewPlanOf(frame: RectangleF.FromCenter(center: content.Center, size: frame.Size), policy: resolved, op: op),
+            ContentPosition.TopLeft => CanvasViewPlanOf(frame: new RectangleF(x: content.Left, y: content.Top, width: frame.Width, height: frame.Height), policy: resolved, op: op),
+            ContentPosition.TopRight => CanvasViewPlanOf(frame: new RectangleF(x: content.Right - frame.Width, y: content.Top, width: frame.Width, height: frame.Height), policy: resolved, op: op),
+            ContentPosition.BottomLeft => CanvasViewPlanOf(frame: new RectangleF(x: content.Left, y: content.Bottom - frame.Height, width: frame.Width, height: frame.Height), policy: resolved, op: op),
+            ContentPosition.BottomRight => CanvasViewPlanOf(frame: new RectangleF(x: content.Right - frame.Width, y: content.Bottom - frame.Height, width: frame.Width, height: frame.Height), policy: resolved, op: op),
+            ContentPosition.Fit => CanvasViewPlanOf(frame: content, limits: (resolved.MinimumZoom, resolved.MaximumZoom), op: op),
             // 1:1 — maintain the live centre, size the frame to InnerBounds so Navigate lands at native 100%.
-            ContentPosition.HundredPercent => Fin.Succ((RectangleF.FromCenter(center: frame.Center, size: target.Canvas.InnerBounds.Size), (1f, 1f))),
-            _ => Fin.Fail<(RectangleF, (float, float))>(error: UiFault.InvalidInput(op: op, detail: $"unsupported content position '{where}'")),
+            ContentPosition.HundredPercent => CanvasViewPlanOf(frame: RectangleF.FromCenter(center: frame.Center, size: target.Canvas.InnerBounds.Size), limits: (1f, 1f), op: op),
+            _ => Fin.Fail<CanvasViewPlan>(error: UiFault.InvalidInput(op: op, detail: $"unsupported content position '{where}'")),
         };
-        return plan.Bind(landing => op.Attempt(body: () => {
-            target.Canvas.Navigate(frame: landing.Region, zoomLimits: landing.Limits, duration: resolved.Duration);
-            return unit;
-        }, what: "FlexControl.Navigate(RectangleF)"));
+        return plan.Bind(landing => landing.Apply(canvas: target.Canvas, duration: resolved.Duration, what: "FlexControl.Navigate(RectangleF)"));
     }
 
     // BOUNDARY ADAPTER — control-space anchored zoom: map the control point into content space, re-centre on it,
@@ -763,10 +772,15 @@ internal static partial class UiRail {
         from _ in Op.Of(name: nameof(CanvasViewOp.ZoomAround)).Attempt(body: () => {
             CanvasViewPolicy resolved = ResolveView(raw: policy, defaultPadding: CanvasViewPolicy.DefaultPadding);
             PointF content = target.Canvas.Map(point: anchor, @from: CoordinateSystem.Control, to: CoordinateSystem.Content);
-            RectangleF frame = target.Canvas.VisibleFrame;
-            RectangleF region = RectangleF.FromCenter(
-                center: content,
-                size: new SizeF(width: frame.Width / validFactor, height: frame.Height / validFactor));
+            RectangleF frame = ContentViewport(target: target);
+            RectangleF control = target.Canvas.InnerBounds;
+            float ratioX = control.Width <= 0f ? 0.5f : Math.Clamp(value: (anchor.X - control.Left) / control.Width, min: 0f, max: 1f);
+            float ratioY = control.Height <= 0f ? 0.5f : Math.Clamp(value: (anchor.Y - control.Top) / control.Height, min: 0f, max: 1f);
+            float currentZoom = Math.Max(val1: target.Document.Projection.zoom, val2: resolved.MinimumZoom);
+            float targetZoom = Math.Clamp(value: currentZoom * validFactor, min: resolved.MinimumZoom, max: resolved.MaximumZoom);
+            float actualFactor = targetZoom / currentZoom;
+            SizeF size = new(width: frame.Width / actualFactor, height: frame.Height / actualFactor);
+            RectangleF region = new(x: content.X - (size.Width * ratioX), y: content.Y - (size.Height * ratioY), width: size.Width, height: size.Height);
             target.Canvas.Navigate(frame: region, zoomLimits: (resolved.MinimumZoom, resolved.MaximumZoom), duration: resolved.Duration);
             return unit;
         }, what: "FlexControl.Navigate(RectangleF)")
@@ -780,9 +794,25 @@ internal static partial class UiRail {
         return new(MinimumZoom: minimum, MaximumZoom: maximum, Duration: duration, Padding: padding);
     }
 
-    private static CanvasResult.SnapshotResult NavigateTo(GrasshopperUi.Scope scope, GhCanvas canvas, RectangleF frame, CanvasViewPolicy policy, GhDocument document, GhObjectList objects) {
-        canvas.Navigate(frame: frame, zoomLimits: (policy.MinimumZoom, policy.MaximumZoom), duration: policy.Duration);
-        return new CanvasResult.SnapshotResult(Snapshot: SnapshotOf(scope: scope, canvas: canvas, document: document, objects: objects));
+    private static Fin<CanvasViewPlan> CanvasViewPlanOf(RectangleF frame, CanvasViewPolicy policy, Op op) =>
+        CanvasViewPlanOf(frame: frame, limits: (policy.MinimumZoom, policy.MaximumZoom), op: op);
+
+    private static Fin<CanvasViewPlan> CanvasViewPlanOf(RectangleF frame, (float Minimum, float Maximum) limits, Op op) =>
+        op.AcceptRect(value: frame, detail: "non-finite navigation frame")
+            .Bind(valid => limits.Maximum >= limits.Minimum && limits.Minimum > 0f
+                ? Fin.Succ(value: new CanvasViewPlan(Region: valid, Limits: limits))
+                : Fin.Fail<CanvasViewPlan>(error: UiFault.InvalidInput(op: op, detail: "invalid zoom range")));
+
+    private static RectangleF ContentViewport(ViewTarget target) {
+        RectangleF inner = target.Canvas.InnerBounds;
+        if (inner.IsEmpty) {
+            return target.Canvas.VisibleFrame;
+        }
+
+        float zoom = Math.Max(val1: target.Document.Projection.zoom, val2: CanvasViewPolicy.DefaultMinimumZoom);
+        return RectangleF.FromCenter(
+            center: target.Canvas.VisibleFrame.Center,
+            size: new SizeF(width: inner.Width / zoom, height: inner.Height / zoom));
     }
 
     internal static UiPixelScale PixelScale(GhCanvas canvas, Option<ControlGraphics> graphics = default) =>
@@ -910,10 +940,11 @@ internal static partial class UiRail {
                 modifiers: null))
             .ToFin(Fail: UiFault.MutationRejected(op: Op.Of(name: nameof(CanvasOp.ValueEditor)), detail: "Canvas.ShowValueEditorPopup(AbstractParameter, Control) not found")));
 
-    private static Fin<Unit> ShowValueEditor(GhCanvas canvas, AbstractParameter parameter, Control control) =>
+    private static Fin<Unit> ShowValueEditor(GhCanvas canvas, AbstractParameter parameter, Option<Control> control) =>
         from method in ShowValueEditorPopup.Value
         from _ in Op.Of(name: nameof(CanvasOp.ValueEditor)).Attempt(body: () => {
-            _ = method.Invoke(obj: canvas, parameters: [parameter, control]);
+            Control editor = control.IfNone(() => new Panel { Size = new Size(width: 320, height: 180) });
+            _ = method.Invoke(obj: canvas, parameters: [parameter, editor]);
             return unit;
         }, what: "Canvas.ShowValueEditorPopup")
         select unit;

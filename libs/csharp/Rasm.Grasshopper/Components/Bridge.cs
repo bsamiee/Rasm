@@ -316,10 +316,9 @@ internal static class Bridge {
         Pear<T>[] raw = [.. indexed.Map(static item => item.Pear).AsIterable()];
         return (indexed.Count, ArrayEx.AnyNull(raw)) switch {
             ( > 0, false) => Fin.Succ(indexed.Map(static item => new Flow<T>(Pear: item.Pear, Site: item.Site))),
-            ( > 0, true) => indexed.Filter(static item => item.Pear is not null) switch {
-                Seq<(Pear<T> Pear, Option<Site> Site, int Index)> found when !found.IsEmpty => Fin.Succ(found.Map(static item => new Flow<T>(Pear: item.Pear, Site: item.Site))),
-                _ => MissingFlow<T>(port: port),
-            },
+            ( > 0, true) => Fin.Fail<Seq<Flow<T>>>(new PortFault.InvalidValue(
+                Port: port.Name,
+                Detail: $"host returned null pear(s) at index {string.Join(separator: ',', values: indexed.Filter(static item => item.Pear is null).Map(static item => item.Index))}; flow cardinality was preserved by rejecting the read")),
             _ => MissingFlow<T>(port: port),
         };
     }

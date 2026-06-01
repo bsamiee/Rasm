@@ -77,6 +77,7 @@ public sealed class SpectralFilterLaws {
             Assert.True(condition: descriptor.Receipt.ComparisonReady);
             Assert.True(condition: descriptor.Receipt.EnergyNormalized);
             Assert.True(condition: descriptor.Receipt.BandwidthNormalized);
+            Assert.True(condition: descriptor.Receipt.Wave.IsNone);
             Assert.Equal(expected: 1, actual: descriptor.Receipt.ZeroModeCount);
             Assert.Equal(expected: 1, actual: descriptor.Receipt.CroppedEigenpairCount);
             Assert.Equal(expected: policy.ScaleNormalization, actual: descriptor.Receipt.Policy.ScaleNormalization);
@@ -126,7 +127,7 @@ public sealed class SpectralFilterLaws {
         Spec.None(SpectralFilter.Biharmonic.Compose(other: heatA));
     }
     [Fact]
-    public void FilterWeightsMatchIndependentClosedForms() =>
+    public void FilterWeightsMatchIndependentClosedForms() {
         Spec.ForAll(SpectralGens.PositiveEigenvalue, static lambda => {
             PositiveMagnitude time = SpectralGens.Positive(value: 0.5);
             PositiveMagnitude energy = SpectralGens.Positive(value: 1.5);
@@ -139,4 +140,17 @@ public sealed class SpectralFilterLaws {
             Spec.Equal(left: SpectralFilter.CommuteTime.Weight(eigenvalue: lambda), right: 1.0 / lambda, tolerance: 1.0e-12, what: "commute");
             Spec.Equal(left: SpectralFilter.Identity.Weight(eigenvalue: lambda), right: 1.0, tolerance: 0.0, what: "identity");
         });
+        PositiveMagnitude energy = SpectralGens.Positive(value: 2.0);
+        PositiveMagnitude bandwidth = SpectralGens.Positive(value: 0.75);
+        Spec.Succ(SpectralFilter.Wave(energy: energy, bandwidth: bandwidth).ApplyDetailed(basis: SpectralGens.Basis, sources: Option<Seq<int>>.None, key: SpectralGens.Key), descriptor => {
+            Assert.False(condition: descriptor.Receipt.BandwidthNormalized);
+            Spec.Some(descriptor.Receipt.Wave, wave => {
+                Assert.True(condition: wave.WksNormalized);
+                Assert.Equal(expected: 1, actual: wave.ZeroModeCount);
+                Assert.Equal(expected: 1, actual: wave.NonZeroEigenpairCount);
+                Spec.Equal(left: wave.NormalizedWeightSum, right: 1.0, tolerance: 1.0e-12, what: "wks normalized sum");
+                Spec.Some(wave.FirstNonZeroScale, scale => Spec.Equal(left: scale, right: 2.0, tolerance: 0.0, what: "first nonzero scale"));
+            });
+        });
+    }
 }

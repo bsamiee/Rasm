@@ -439,7 +439,7 @@ internal static class MatrixKernel {
     internal static Fin<SolveReceipt> CholeskySolve(CholeskyResult cholesky, Arr<double> rhs, Op key) =>
         !cholesky.IsValid
             ? Fin.Fail<SolveReceipt>(key.InvalidInput())
-            : DenseSolveGated(source: cholesky.Source, rhs: rhs, key: key, square: true, solve: (_, right, op) => DenseSolve(source: cholesky.Source, rhs: right, key: op, path: SolvePath.DenseCholesky, stop: SolveStop.DirectSolved, solve: new Func<LinearVector, LinearVector>(cholesky.Factor.Solve), fullRank: Some(true)));
+            : DenseSolveGated(source: cholesky.Source, rhs: rhs, key: key, square: true, solve: (_, right, op) => DenseSolve(source: cholesky.Source, rhs: right, key: op, path: SolvePath.DenseCholesky, stop: SolveStop.DirectSolved, solve: new Func<LinearVector, LinearVector>(cholesky.Factor.Solve), fullRank: Some(value: true)));
     private static Fin<SolveReceipt> DenseSolve(Matrix source, Arr<double> rhs, Op key, SolvePath path, SolveStop stop, Func<LinearVector, LinearVector> solve, Option<bool> fullRank = default) =>
         key.Catch(() => {
             Matrix<double> a = ToMathNet(source);

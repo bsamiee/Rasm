@@ -132,9 +132,7 @@ public readonly partial record struct FileGeoLocation {
             _ = location.Name.Iter(value => anchor.Name = value);
             _ = location.Description.Iter(value => anchor.Description = value);
             active.EarthAnchorPoint = anchor;
-            return Fin.Succ(value: DocumentReceipt.Empty with {
-                ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.EarthAnchor, Name: location.Name.IfNone(noneValue: "earth-anchor"))),
-            });
+            return Fin.Succ(value: DocumentReceipt.Resource(kind: DocumentResourceKind.EarthAnchor, name: location.Name.IfNone(noneValue: "earth-anchor")));
         }));
     }
     public static Fin<Seq<(double Latitude, double Longitude, double Elevation)>> ProjectToEarth(RhinoDoc document, Seq<Point3d> points, LengthUnit modelUnits) =>
@@ -192,9 +190,7 @@ public readonly partial record struct FileGeoLocation {
             sun.Latitude = anchor.EarthBasepointLatitude;
             sun.Longitude = anchor.EarthBasepointLongitude;
             sun.North = Math.Atan2(y: north.Y, x: north.X) * (180.0 / Math.PI);
-            return Fin.Succ(value: DocumentReceipt.Empty with {
-                ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Sun, Name: "sun")),
-            });
+            return Fin.Succ(value: DocumentReceipt.Resource(kind: DocumentResourceKind.Sun, name: "sun"));
         }));
 
     private static Fin<T> UseAnchor<T>(RhinoDoc document, Op op, Func<EarthAnchorPoint, Op, Fin<T>> use, bool requireEarth = false, bool requireModel = false) =>
@@ -232,7 +228,7 @@ public static class FileOp {
                 write3dmFile: static (runtime, write) => WriteCore(runtime: runtime, target: Some(write.Target), profile: write.Profile, phase: FilePhase.Write3dmFile),
                 saveTemplate: static (runtime, template) => WriteCore(runtime: runtime, target: Some(template.Target), profile: template.Profile, phase: FilePhase.SaveTemplate),
                 publish: static (runtime, publish) => PublishCore(runtime: runtime, publish: publish.Spec),
-                nativeTable: static (runtime, state) => Commit(runtime: runtime, phase: state.Change.Phase, name: nameof(FileExchange.NativeTable), change: state.Change, apply: static (document, change, op) => change.Apply(document: document, op: op).Map(static changed => DocumentReceipt.Empty with { ResourceChanged = Seq(changed) })),
+                nativeTable: static (runtime, state) => Commit(runtime: runtime, phase: state.Change.Phase, name: nameof(FileExchange.NativeTable), change: state.Change, apply: static (document, change, op) => change.Apply(document: document, op: op).Map(static changed => DocumentReceipt.Resources(changes: Seq(changed)))),
                 archiveRead: static (_, archive) => FileArchiveOps.Read(source: archive.Source, profile: archive.Profile),
                 archiveExtract: static (_, archive) => FileArchiveOps.Extract(source: archive.Source, target: archive.Target, profile: archive.Profile),
                 archiveUpdate: static (_, archive) => FileArchiveOps.Update(source: archive.Source, target: archive.Target, update: archive.Update, profile: archive.Profile),
@@ -287,6 +283,9 @@ public static class FileOp {
     public static Eff<FileRuntime, Seq<FileSheetReport>> Sheets(SheetQuery query) =>
         Lift(run: runtime => Live(runtime: runtime, op: Op.Of(name: nameof(Sheets))).Bind(live => SheetOps.Inspect(document: live.Document, query: query, op: Op.Of(name: nameof(Sheets)))));
 
+    public static Eff<FileRuntime, Seq<FileSheetReport>> Sheets(SheetQuery query, DetailQuery detail) =>
+        Lift(run: runtime => Live(runtime: runtime, op: Op.Of(name: nameof(Sheets))).Bind(live => SheetOps.Inspect(document: live.Document, query: query, detail: detail, op: Op.Of(name: nameof(Sheets)))));
+
     public static Eff<FileRuntime, Seq<string>> NamedLayerStates() =>
         Lift(run: runtime => Live(runtime: runtime, op: Op.Of(name: nameof(NamedLayerStates))).Map(static live => toSeq(live.Document.NamedLayerStates.Names)));
 
@@ -300,7 +299,7 @@ public static class FileOp {
 
     private static Fin<FileReport> OpenCore(FileEndpoint source, FileProfile profile) =>
         from endpoint in source.Input(op: Op.Of(name: nameof(FileExchange.Open)))
-        from format in FileFormatProjection.Require(endpoint: endpoint, profile: profile, phase: FilePhase.Open, op: Op.Of(name: nameof(FileExchange.Open)))
+        from format in FileFormat.Require(endpoint: endpoint, profile: profile, phase: FilePhase.Open, op: Op.Of(name: nameof(FileExchange.Open)))
         from _ in format == FileFormat.ThreeDm ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Op.Of(name: nameof(FileExchange.Open)).InvalidInput())
         from report in Op.Of(name: nameof(FileExchange.Open)).Catch(() => {
             RhinoDoc? opened = RhinoDoc.Open(filePath: endpoint.Path, wasAlreadyOpen: out bool wasAlreadyOpen);
@@ -324,10 +323,10 @@ public static class FileOp {
             undoRecorded: true,
             run: (document, _, op) =>
                 from before in DocumentEdit.LiveObjectIds(document: document)
-                from imported in FileFormatProjection.Import(document: document, source: endpoint, profile: profile, op: op)
+                from imported in FileFormat.Import(document: document, source: endpoint, profile: profile, op: op)
                 from after in DocumentEdit.LiveObjectIds(document: document)
-                select DocumentReceipt.Empty with { Created = after.Filter(id => !before.Exists(item => item == id)) })
-        select FileReport.Of(phase: FilePhase.Import, source: Some(endpoint), target: Option<FileEndpoint>.None, format: FileFormatProjection.Resolve(endpoint: endpoint, profile: profile), receipt: Some(receipt));
+                select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Created, ids: after.Filter(id => !before.Exists(item => item == id))))
+        select FileReport.Of(phase: FilePhase.Import, source: Some(endpoint), target: Option<FileEndpoint>.None, format: FileFormat.Resolve(endpoint: endpoint, profile: profile), receipt: Some(receipt));
 
     private static Fin<FileReport> WriteCore(FileRuntime runtime, Option<FileEndpoint> target, FileProfile profile, FilePhase phase, Option<DocumentTarget> objects = default) {
         Op op = Op.Of(name: nameof(WriteCore));
@@ -344,13 +343,13 @@ public static class FileOp {
                    undoRecorded: false,
                    run: (document, _, inner) => (phase == FilePhase.Export, objects.Case, endpoint.Case) switch {
                        (true, DocumentTarget selection, FileEndpoint output) => ExportTarget(document: document, target: selection, endpoint: output, profile: profile, op: inner),
-                       _ => FileFormatProjection.Write(document: document, target: endpoint, profile: profile, phase: phase, selected: false, op: inner).Map(static _ => DocumentReceipt.Empty),
+                       _ => FileFormat.Write(document: document, target: endpoint, profile: profile, phase: phase, selected: false, op: inner).Map(static _ => DocumentReceipt.Empty),
                    })
                select FileReport.Of(
                    phase: phase,
                    target: endpoint,
                    format: endpoint.Case switch {
-                       FileEndpoint value => FileFormatProjection.Resolve(endpoint: value, profile: profile),
+                       FileEndpoint value => FileFormat.Resolve(endpoint: value, profile: profile),
                        _ => profile.Format,
                    },
                    receipt: Some(receipt));
@@ -409,7 +408,7 @@ public static class FileOp {
         from _exists in toSeq(document.Snapshots.Names).Exists(name => string.Equals(a: name, b: target, comparisonType: StringComparison.Ordinal))
             ? Fin.Succ(value: unit)
             : Fin.Fail<Unit>(error: op.InvalidInput())
-        let sentinel = string.Create(CultureInfo.InvariantCulture, $"__rasm_publish_{Guid.NewGuid():N}")
+        let sentinel = $"__rasm_publish_{Guid.NewGuid():N}"
         from _saved in SnapshotScript(serial: document.RuntimeSerialNumber, verb: "_Save", name: sentinel, op: op)
         from result in op.Catch(() => {
             try {
@@ -424,10 +423,10 @@ public static class FileOp {
         select result;
 
     private static Fin<Unit> SnapshotScript(uint serial, string verb, string name, Op op) =>
-        op.Catch(() => op.Confirm(success: RhinoApp.RunScript(documentSerialNumber: serial, script: string.Create(CultureInfo.InvariantCulture, $"-_Snapshot {verb} _Name {ScriptToken(value: name)} _Enter"), echo: false)));
+        op.Catch(() => op.Confirm(success: RhinoApp.RunScript(documentSerialNumber: serial, script: $"-_Snapshot {verb} _Name {ScriptToken(value: name)} _Enter", echo: false)));
 
     private static string ScriptToken(string value) =>
-        string.Create(CultureInfo.InvariantCulture, $"\"{value.Replace(oldValue: "\"", newValue: "\\\"", comparisonType: StringComparison.Ordinal)}\"");
+        $"\"{value.Replace(oldValue: "\"", newValue: "\\\"", comparisonType: StringComparison.Ordinal)}\"";
     private static Fin<FileReport> Commit<T>(FileRuntime runtime, FilePhase phase, string name, T change, Func<RhinoDoc, T, Op, Fin<DocumentReceipt>> apply) where T : class =>
         from live in Live(runtime: runtime, op: Op.Of(name: name))
         from active in Optional(change).ToFin(Fail: Op.Of(name: name).InvalidInput())
@@ -447,7 +446,7 @@ public static class FileOp {
                         select document,
                     open: static open =>
                         from source in open.Source.Input(op: Op.Of(name: nameof(Headless)))
-                        from options in FileFormatProjection.Dictionary(endpoint: source, profile: open.Profile, phase: FilePhase.Headless, op: Op.Of(name: nameof(Headless)))
+                        from options in FileFormat.Dictionary(endpoint: source, profile: open.Profile, phase: FilePhase.Headless, op: Op.Of(name: nameof(Headless)))
                             .BindFail(error => (source.Format.Case, open.Profile.Scale.IsSome) switch {
                                 (FileFormat, _) or (_, true) => Fin.Fail<ArchivableDictionary>(error: error),
                                 _ => Fin.Succ(value: new ArchivableDictionary()),
@@ -485,8 +484,8 @@ public static class FileOp {
                                int count when count == ids.Count => Fin.Succ(value: unit),
                                _ => Fin.Fail<Unit>(error: op.InvalidResult()),
                            }
-                           from ___ in FileFormatProjection.Write(document: document, target: Some(endpoint), profile: profile, phase: FilePhase.Export, selected: true, op: op)
-                           select DocumentReceipt.Empty with { Selected = ids };
+                           from ___ in FileFormat.Write(document: document, target: Some(endpoint), profile: profile, phase: FilePhase.Export, selected: true, op: op)
+                           select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Selected, ids: ids);
             } finally {
                 restored =
                     op.Catch(() => op.Confirm(success: document.Objects.UnselectAll(ignorePersistentSelections: false) >= 0))

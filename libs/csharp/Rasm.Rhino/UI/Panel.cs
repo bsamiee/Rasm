@@ -35,7 +35,7 @@ public abstract record PanelIcon {
         return this switch {
             Native icon => op.Need(icon.Value).Bind(value => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.RegisterPanel(plugin, type, caption, value, mode); return Fin.Succ(value: unit); })),
             AssemblyResource resource => op.AcceptText(value: resource.Name).MapFail(_ => op.InvalidInput()).Bind(name => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.RegisterPanel(plugin, type, caption, resource.Assembly, name, mode); return Fin.Succ(value: unit); })),
-            StandardResource resource => op.AcceptText(value: resource.Name).MapFail(_ => op.InvalidInput()).Bind(name => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.RegisterPanel(plugin, type, caption, null!, name, mode); return Fin.Succ(value: unit); })),
+            StandardResource resource => op.AcceptText(value: resource.Name).MapFail(_ => op.InvalidInput()).Bind(name => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.RegisterPanel(plugIn: plugin, type: type, caption: caption, iconAssembly: null, iconResourceId: name, panelType: mode); return Fin.Succ(value: unit); })),
             _ => Fin.Fail<Unit>(error: op.InvalidInput()),
         };
     }
@@ -95,12 +95,12 @@ public abstract record UiChromeOp<T> {
 
     public sealed record EtoToolbar(IEnumerable<UiAction> Actions) : UiChromeOp<ToolBar> {
         internal override Fin<ToolBar> Run(RhinoDoc? document) =>
-            BuildBar(Actions, document, nameof(EtoToolbar), static () => new ToolBar(), static (bar, cmd) => bar.Items.Add(cmd.CreateToolItem()));
+            BuildBar(Actions, document, nameof(EtoToolbar), static () => new ToolBar(), static (action, doc) => action.ToToolItems(document: doc), static (bar, item) => bar.Items.Add(item));
     }
 
     public sealed record EtoMenu(IEnumerable<UiAction> Actions) : UiChromeOp<MenuBar> {
         internal override Fin<MenuBar> Run(RhinoDoc? document) =>
-            BuildBar(Actions, document, nameof(EtoMenu), static () => new MenuBar(), static (bar, cmd) => bar.Items.Add(cmd.CreateMenuItem()));
+            BuildBar(Actions, document, nameof(EtoMenu), static () => new MenuBar(), static (action, doc) => action.ToMenuItems(document: doc), static (bar, item) => bar.Items.Add(item));
     }
 
     public sealed record RuiSnapshot : UiChromeOp<PanelChromeSnapshot> {
@@ -169,11 +169,12 @@ public abstract record UiChromeOp<T> {
             Op.Of(name: nameof(Batch)).Need(Ops).Bind(src => toSeq(src).TraverseM(op => op.Run(document: document)).As().Map(static _ => unit));
     }
 
-    private static Fin<TBar> BuildBar<TBar>(IEnumerable<UiAction>? actions, RhinoDoc? document, string opName, Func<TBar> create, Action<TBar, Eto.Forms.Command> add) where TBar : class =>
+    private static Fin<TBar> BuildBar<TBar, TItem>(IEnumerable<UiAction>? actions, RhinoDoc? document, string opName, Func<TBar> create, Func<UiAction, RhinoDoc, Fin<Seq<TItem>>> render, Action<TBar, TItem> add) where TBar : class =>
         from validDocument in Op.Of(name: opName).Need(document)
         from validActions in Op.Of(name: opName).Need(actions).Map(static values => toSeq(values))
-        from commands in validActions.TraverseM(action => action.ToCommand(document: validDocument)).As()
-        select ((Func<TBar>)(() => { TBar bar = create(); _ = commands.Iter(c => add(bar, c)); return bar; }))();
+        from validRender in Op.Of(name: opName).Need(render)
+        from items in validActions.TraverseM(action => validRender(arg1: action, arg2: validDocument)).As().Map(static groups => groups.Bind(static item => item))
+        select ((Func<TBar>)(() => { TBar bar = create(); _ = items.Iter(item => add(arg1: bar, arg2: item)); return bar; }))();
 
     private static Fin<global::Rhino.UI.ToolbarFile> FindFile(Option<Guid> fileId, Option<string> path, Option<string> name, bool ignoreCase) =>
         Op.Of(name: nameof(FindFile)).Need(
@@ -264,12 +265,20 @@ public readonly record struct PanelSnapshot<TPanel>(
     Option<Guid> DockBarId,
     Seq<Guid> DockBarIds) where TPanel : RasmPanel;
 
+public enum UiActionKind { Callback, Command, Separator, Submenu, Toggle, Radio }
+
 public sealed record UiAction(
     string Id,
     string Text,
     Option<string> ToolTip,
     Option<Eto.Drawing.Image> Image,
-    Func<RhinoDoc, Fin<Unit>> Run) {
+    Func<RhinoDoc, Fin<Unit>> Run,
+    UiActionKind Kind = UiActionKind.Callback,
+    Seq<UiAction> Children = default,
+    Option<Func<RhinoDoc, Fin<PanelMenuState>>> State = default) {
+    public static UiAction Callback(string id, string text, Func<RhinoDoc, Fin<Unit>> run, Option<string> tooltip = default, Option<Eto.Drawing.Image> image = default) =>
+        new(Id: id, Text: text, ToolTip: tooltip, Image: image, Run: run);
+
     public static UiAction Command<TCommand>(
         string text,
         Option<string> tooltip = default,
@@ -284,7 +293,37 @@ public sealed record UiAction(
                 let command = typeof(TCommand).Name
                 from _ in guard(global::Rhino.Commands.Command.LookupCommandId(name: command, searchForEnglishName: true) != Guid.Empty, Op.Of(name: nameof(UiAction)).InvalidInput())
                 from __ in guard(RhinoApp.RunScript(documentSerialNumber: active.RuntimeSerialNumber, script: $"_{command}", echo: false), Op.Of(name: nameof(UiAction)).InvalidResult())
-                select unit);
+                select unit,
+            Kind: UiActionKind.Command);
+
+    public static UiAction Separator(string id = "separator") =>
+        new(Id: id, Text: "-", ToolTip: Option<string>.None, Image: Option<Eto.Drawing.Image>.None, Run: _ => Fin.Succ(value: unit), Kind: UiActionKind.Separator);
+
+    public static UiAction Submenu(string id, string text, Seq<UiAction> children, Option<string> tooltip = default, Option<Eto.Drawing.Image> image = default) =>
+        new(Id: id, Text: text, ToolTip: tooltip, Image: image, Run: _ => Fin.Succ(value: unit), Kind: UiActionKind.Submenu, Children: children);
+
+    public UiAction Toggle(Func<RhinoDoc, Fin<PanelMenuState>> state) =>
+        this with { Kind = UiActionKind.Toggle, State = Some(state) };
+
+    public UiAction Radio(Func<RhinoDoc, Fin<PanelMenuState>> state) =>
+        this with { Kind = UiActionKind.Radio, State = Some(state) };
+
+    internal Fin<Seq<MenuItem>> ToMenuItems(RhinoDoc document) =>
+        Kind switch {
+            UiActionKind.Separator => Fin.Succ(value: MenuSeparator()),
+            UiActionKind.Submenu => ToSubMenu(document: document).Map(OneMenu),
+            UiActionKind.Toggle => ToCheckMenu(document: document, radio: false).Map(OneMenu),
+            UiActionKind.Radio => ToCheckMenu(document: document, radio: true).Map(OneMenu),
+            _ => ToCommand(document: document).Map(command => Seq(command.CreateMenuItem())),
+        };
+
+    internal Fin<Seq<ToolItem>> ToToolItems(RhinoDoc document) =>
+        Kind switch {
+            UiActionKind.Separator => Fin.Succ(value: ToolSeparator()),
+            UiActionKind.Submenu => Children.TraverseM(child => child.ToToolItems(document: document)).As().Map(static groups => groups.Bind(static item => item)),
+            UiActionKind.Toggle or UiActionKind.Radio => ToCheckTool(document: document).Map(OneTool),
+            _ => ToCommand(document: document).Map(command => Seq(command.CreateToolItem())),
+        };
 
     internal Fin<Eto.Forms.Command> ToCommand(RhinoDoc document) =>
         from validDocument in Op.Of(name: nameof(ToCommand)).Need(document)
@@ -292,11 +331,76 @@ public sealed record UiAction(
         from id in Op.Of(name: nameof(ToCommand)).AcceptText(value: Id).MapFail(_ => Op.Of(name: nameof(ToCommand)).InvalidInput())
         from text in Op.Of(name: nameof(ToCommand)).AcceptText(value: Text).MapFail(_ => Op.Of(name: nameof(ToCommand)).InvalidInput())
         select ((Func<Eto.Forms.Command>)(() => {
-            Eto.Forms.Command command = new() { ID = id, MenuText = text, ToolBarText = text, ToolTip = ToolTip.IfNone(text) };
+            Eto.Forms.Command command = new() { ID = id, MenuText = text, ToolBarText = text, ToolTip = ToolTip.IfNone(text), Enabled = Kind != UiActionKind.Separator };
             _ = Image.Iter(active => command.Image = active);
             command.Executed += (_, _) => _ = RhinoUi.Protect(valid: () => action(arg: validDocument));
             return command;
         }))();
+
+    private Fin<ButtonMenuItem> ToSubMenu(RhinoDoc document) =>
+        from id in Op.Of(name: nameof(ToSubMenu)).AcceptText(value: Id).MapFail(_ => Op.Of(name: nameof(ToSubMenu)).InvalidInput())
+        from text in Op.Of(name: nameof(ToSubMenu)).AcceptText(value: Text).MapFail(_ => Op.Of(name: nameof(ToSubMenu)).InvalidInput())
+        from children in Children.TraverseM(child => child.ToMenuItems(document: document)).As().Map(static groups => groups.Bind(static item => item))
+        select ((Func<ButtonMenuItem>)(() => {
+            ButtonMenuItem item = new() { ID = id, Text = text, ToolTip = ToolTip.IfNone(text) };
+            _ = Image.Iter(active => item.Image = active);
+            _ = children.Iter(item.Items.Add);
+            BindState(document: document, item: item);
+            return item;
+        }))();
+
+    private Fin<MenuItem> ToCheckMenu(RhinoDoc document, bool radio) =>
+        from command in ToCommand(document: document)
+        select ((Func<MenuItem>)(() => {
+            MenuItem item = radio ? new RadioMenuItem() : new CheckMenuItem();
+            item.ID = command.ID;
+            item.Text = command.MenuText;
+            item.ToolTip = command.ToolTip;
+            item.Enabled = command.Enabled;
+            if (item is ButtonMenuItem button) button.Image = command.Image;
+            item.Click += (_, _) => command.Execute();
+            BindState(document: document, item: item);
+            return item;
+        }))();
+
+    private Fin<ToolItem> ToCheckTool(RhinoDoc document) =>
+        from command in ToCommand(document: document)
+        select ((Func<ToolItem>)(() => {
+            CheckToolItem item = new() { Text = command.ToolBarText, ToolTip = command.ToolTip, Image = command.Image, Enabled = command.Enabled };
+            item.Click += (_, _) => command.Execute();
+            ApplyState(document: document, apply: state => {
+                item.Enabled = state.Enabled;
+                item.Checked = state.Checked || state.RadioChecked;
+                _ = state.Text.Iter(value => item.Text = value);
+            });
+            return item;
+        }))();
+
+    private void BindState(RhinoDoc document, MenuItem item) {
+        ApplyState(document: document, apply: state => ApplyState(item: item, state: state));
+        item.Validate += (_, _) => ApplyState(document: document, apply: state => ApplyState(item: item, state: state));
+    }
+
+    private void ApplyState(RhinoDoc document, Action<PanelMenuState> apply) =>
+        _ = State.Iter(project => _ = RhinoUi.Protect(valid: () => project(arg: document).Map(state => Op.Side(() => apply(state)))));
+
+    private static Unit ApplyState(MenuItem item, PanelMenuState state) {
+        item.Enabled = state.Enabled;
+        _ = state.Text.Iter(value => item.Text = value);
+        if (item is CheckMenuItem check) check.Checked = state.Checked;
+        if (item is RadioMenuItem radio) radio.Checked = state.RadioChecked || state.Checked;
+        return unit;
+    }
+
+    private static Seq<MenuItem> OneMenu(MenuItem item) => Seq(item);
+
+    private static Seq<ToolItem> OneTool(ToolItem item) => Seq(item);
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Eto menu owns item disposal after attachment.")]
+    private static Seq<MenuItem> MenuSeparator() => Seq<MenuItem>(new SeparatorMenuItem());
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Eto toolbar owns item disposal after attachment.")]
+    private static Seq<ToolItem> ToolSeparator() => Seq<ToolItem>(new SeparatorToolItem());
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------

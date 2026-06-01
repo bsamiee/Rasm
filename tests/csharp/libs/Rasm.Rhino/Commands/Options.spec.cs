@@ -8,7 +8,7 @@ namespace Rasm.Rhino.Tests.Commands;
 // --- [ALGEBRAIC] --------------------------------------------------------------------------
 public sealed class CommandOptionScriptLaws {
     [Fact]
-    public void ScriptedToggleTextColorAndChoiceProjectTypedValues() {
+    public void ScriptedToggleTextColorAndNumberProjectTypedValues() {
         Spec.Some(CommandOption.Of(name: "Enabled", value: true).Script(token: "Enabled=No"), value => {
             Assert.Equal(expected: CommandLineOptionType.Toggle, actual: value.OptionType);
             Spec.Some(value.As<bool>(), actual => Assert.False(condition: actual));
@@ -17,10 +17,8 @@ public sealed class CommandOptionScriptLaws {
             Spec.Some(value.As<string>(), actual => Assert.Equal(expected: "panel", actual: actual)));
         Spec.Some(CommandOption.Of(name: "Tint", value: Color.Black).Script(token: "Tint=#ff00aa"), value =>
             Spec.Some(value.As<Color>(), actual => Assert.Equal(expected: Color.FromArgb(red: 255, green: 0, blue: 170), actual: actual)));
-        Spec.Some(CommandOption.Choice(name: "Mode", values: ["Add", "Move", "Delete"], label: static value => value).Script(token: "Mode=Move"), value => {
-            Spec.Some(value.As<string>(), actual => Assert.Equal(expected: "Move", actual: actual));
-            Spec.Some(value.ListIndex, actual => Assert.Equal(expected: 1, actual: actual));
-        });
+        Spec.Some(CommandOption.Of(name: "Count", value: 2).Script(token: "Count=3"), value =>
+            Spec.Some(value.As<int>(), actual => Assert.Equal(expected: 3, actual: actual)));
     }
 
     [Fact]
@@ -43,20 +41,16 @@ public sealed class CommandOptionScriptLaws {
     }
 
     [Fact]
-    public void ScriptChoosesTheFirstMatchingOptionAcrossAValidatedSet() {
+    public void ScriptChoosesTheFirstMatchingPureOptionAcrossAValidatedSet() {
         Seq<CommandOption> options = Seq(
             CommandOption.Of(name: "Enabled", value: true),
-            CommandOption.Choice(name: "Mode", values: ["Add", "Move"], label: static value => value));
+            CommandOption.Of(name: "Name", value: "", policy: new CommandOptionPolicy(AllowEmpty: true)));
 
-        Spec.Some(CommandOption.Script(options: options, token: "Mode=Move"), value => {
-            Assert.Equal(expected: "Mode", actual: value.Key);
-            Spec.Some(value.ListIndex, actual => Assert.Equal(expected: 1, actual: actual));
+        Spec.Some(CommandOption.Script(options: options, token: "Name=Panel"), value => {
+            Assert.Equal(expected: "Name", actual: value.Key);
+            Spec.Some(value.As<string>(), actual => Assert.Equal(expected: "Panel", actual: actual));
         });
     }
-
-    [Fact]
-    public void ScriptedChoicesCannotBypassInvalidDeclarationState() =>
-        Spec.None(CommandOption.Choice(name: "Mode", values: ["Add", "Move"], label: static value => value, policy: new CommandOptionPolicy(Current: 7)).Script(token: "Mode=Move"));
 }
 
 public sealed class CommandOptionProjectionLaws {

@@ -20,7 +20,7 @@ public enum FileCapability {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public sealed record FileFormat {
+public sealed partial record FileFormat {
     private FileFormat(string key, Seq<string> extensions, FileCapability capability, FileCapability scale,
         Func<FileProfile, ArchivableDictionary>? read,
         Func<FileProfile, ArchivableDictionary>? write,
@@ -467,7 +467,7 @@ public sealed record FileFormat {
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-internal static class FileFormatProjection {
+public sealed partial record FileFormat {
     internal static Option<FileFormat> Resolve(FileEndpoint endpoint, FileProfile profile) =>
         endpoint.Format.Case switch {
             FileFormat value => Some(value),
@@ -501,17 +501,17 @@ internal static class FileFormatProjection {
 
     internal static Fin<Unit> Write(RhinoDoc document, Option<FileEndpoint> target, FileProfile profile, FilePhase phase, bool selected, Op op) =>
         phase == FilePhase.Save
-            ? FileFormat.NativeBool(run: document.Save, op: op)
+            ? NativeBool(run: document.Save, op: op)
             : target.ToFin(Fail: op.InvalidInput()).Bind(endpoint =>
                 phase == FilePhase.SaveAs ? op.Catch(() => {
                     using FileWriteOptions options = WriteOptions(endpoint: endpoint, profile: profile, phase: FilePhase.SaveAs, selected: false, updatePath: true);
-                    return FileFormat.NativeBool(run: () => document.WriteFile(path: endpoint.Path, options: options), op: op);
+                    return NativeBool(run: () => document.WriteFile(path: endpoint.Path, options: options), op: op);
                 })
                 : phase == FilePhase.Write3dmFile ? op.Catch(() => {
                     using FileWriteOptions options = WriteOptions(endpoint: endpoint, profile: profile, phase: FilePhase.Write3dmFile, selected: selected, updatePath: false);
-                    return FileFormat.NativeBool(run: () => document.Write3dmFile(path: endpoint.Path, options: options), op: op);
+                    return NativeBool(run: () => document.Write3dmFile(path: endpoint.Path, options: options), op: op);
                 })
-                : phase == FilePhase.SaveTemplate ? FileFormat.NativeBool(run: () => document.SaveAsTemplate(file3dmTemplatePath: endpoint.Path, version: endpoint.Write.Normalized.Version), op: op)
+                : phase == FilePhase.SaveTemplate ? NativeBool(run: () => document.SaveAsTemplate(file3dmTemplatePath: endpoint.Path, version: endpoint.Write.Normalized.Version), op: op)
                 : phase == FilePhase.Export || phase == FilePhase.WriteFile ? Require(endpoint: endpoint, profile: profile, phase: phase, op: op).Bind(format =>
                     from written in op.Catch(() => {
                         using FileWriteOptions options = WriteOptions(endpoint: endpoint, profile: profile, phase: phase, selected: selected, updatePath: phase == FilePhase.WriteFile);

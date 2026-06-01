@@ -9,9 +9,6 @@ namespace Foundation.CSharp.Analyzers.Kernel;
 //   * K<F,A> / Monad<M> generic-effect collapse — fires when 4+ parallel
 //     Eff/Fin/IO/Validation variants of the same function exist in one module.
 //     Pattern documented in coding-csharp/references/transforms.md.
-//   * Thinktecture v10 case-name binding — forbid hand-authored aliases for
-//     generated nested case types (CS-level shadow of the generated symbol).
-//     Pattern documented in docs/external-libs/thinktecture/sourcegen.md [5].
 //   * Extension method naming — forbid GetXyz / XyzExt prefix patterns on
 //     extension methods; complements CSP0506 ExtensionProjectionRequired.
 //   * BoundaryAdapter exemption auditability — emit a periodic info diagnostic
@@ -123,6 +120,13 @@ internal static class RuleCatalog {
     /// contracts without scattering overload families.
     /// </summary>
     internal static readonly DiagnosticDescriptor CSP0729 = Err("CSP0729", "OverloadAdjacency", "All '{0}' overloads should be adjacent", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0730 = Err("CSP0730", "OperationalReceiptFactStream", "Operational receipt '{0}' carries three or more parallel mutation buckets; collapse to a fact stream with slot/kind metadata and computed projections", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0731 = Err("CSP0731", "ReceiptChainCollapse", "Receipt expression combines {0} factory terms; collapse into an owner factory or folded change facts", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0732 = Err("CSP0732", "ReceiptConstructionOwner", "Operational receipt '{0}' is constructed outside its owner; route through canonical receipt factories", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0733 = Err("CSP0733", "GeneratedCaseAliasCollapse", "Generated case alias '{0}' only forwards to Thinktecture case construction; use generated factory/dispatch surface directly", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0734 = Err("CSP0734", "StateThreadedDispatch", "Generated dispatch '{0}' captures the same state across {1} arms; use state-threaded overloads or static lambdas", "PerformanceDiscipline");
+    internal static readonly DiagnosticDescriptor CSP0735 = Err("CSP0735", "TraverseFusion", "Mapped traversal '{0}' materializes an intermediate projection; use direct Traverse/TraverseM over the producing function", "FunctionalDiscipline");
+    internal static readonly DiagnosticDescriptor CSP0736 = Err("CSP0736", "FoldAppendAccumulator", "Fold accumulator appends through '{0}'; prepend with Cons and reverse in projection, or use an owning builder", "FunctionalDiscipline");
 
     // --- [PERFORMANCE_RULES] --------------------------------------------------
 
@@ -211,5 +215,6 @@ internal static class RuleCatalog {
         CSP0701, CSP0702, CSP0703, CSP0704, CSP0705, CSP0706, CSP0707, CSP0708, CSP0709,
         CSP0710, CSP0711, CSP0712, CSP0713, CSP0714, CSP0715, CSP0717, CSP0718, CSP0719, CSP0720,
         CSP0723, CSP0724, CSP0725, CSP0726, CSP0727, CSP0728, CSP0729,
+        CSP0730, CSP0731, CSP0732, CSP0733, CSP0734, CSP0735, CSP0736,
         CSP0802);
 }

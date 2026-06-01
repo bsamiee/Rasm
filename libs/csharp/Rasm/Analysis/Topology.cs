@@ -64,7 +64,7 @@ public static partial class Analyze {
         return GeometryKernel.Can(type: typeof(TGeometry), predicate: static _ => true)
             ? typeof(TOut) switch {
                 Type t when t == typeof(Kind) => KernelLift<TGeometry, Kind, Op>(key: key, state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => op.Accept(value: k))).As<TGeometry, TOut>(key: key),
-                Type t when t == typeof(string) => KernelLift<TGeometry, string, Op>(key: key, state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => op.Accept(value: k.ToString(null, CultureInfo.InvariantCulture)))).As<TGeometry, TOut>(key: key),
+                Type t when t == typeof(string) => KernelLift<TGeometry, string, Op>(key: key, state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => op.Accept(value: k.ToString(format: null, formatProvider: CultureInfo.InvariantCulture)))).As<TGeometry, TOut>(key: key),
                 Type t when t == typeof(Topology) => KernelLift<TGeometry, Topology, Op>(key: key, state: key, extract: static (op, g, ctx) => g.KindOf(context: ctx).Bind(k => op.Accept(value: k.Topology))).As<TGeometry, TOut>(key: key),
                 _ => key.Unsupported<TGeometry, TOut>(),
             }
@@ -144,8 +144,8 @@ public static partial class Analyze {
         from contained in OnGeometry(
             geometry: geometry,
             op: op,
-            onMesh: mesh => Fin.Succ(mesh.IsPointInside(target, context.Absolute.Value, false)),
-            onBrep: brep => Fin.Succ(brep.IsPointInside(target, context.Absolute.Value, false)))
+            onMesh: mesh => Fin.Succ(mesh.IsPointInside(point: target, tolerance: context.Absolute.Value, strictlyIn: false)),
+            onBrep: brep => Fin.Succ(brep.IsPointInside(point: target, tolerance: context.Absolute.Value, strictlyIn: false)))
         select contained;
     internal static Fin<Seq<GeometryBase>> ComponentsOf<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
         Optional(geometry).ToFin(op.InvalidInput()).Bind(g => g switch {

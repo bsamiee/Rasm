@@ -56,6 +56,12 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - Prefer refining/extending existing modules over adding wrappers or duplicate helpers.
 - Always read a file fully, identify if possible to do less code and refactor/extend existing logic over spamming new functionality.
 - Keep implementations dense, strongly typed, and test/validation-backed.
+- Collapse operational receipts into one fact stream with slot/kind metadata and fold-derived projections when 3+ mutation buckets or repeated slot families share construction logic.
+- Preserve algorithm-specific receipts as typed evidence when fields encode route, status, count, solver, sampling, spectral, mesh, or extraction proof.
+- Avoid generic receipt interfaces, ledgers, or reported-value wrappers unless one existing owner already proves the abstraction with net LOC reduction.
+- Keep custom analyzer rules semantic and agnostic. Do not bind diagnostics to project namespaces, paths, or one-off symbols; prove rules with positive and negative samples.
+- Treat CSP analyzer diagnostics as hypotheses. Fix true-positive code, but refine the analyzer when a diagnostic forces larger or less native code without improving correctness.
+- Prefer indexed `Map(..., index)` followed by `TraverseM(identity)` for indexed effectful traversal when the approved library lacks indexed `TraverseM`; do not replace it with manual index folds unless the fold owns more state than the index.
 - Avoid verbosity spam in plans or explanations; keep detail high and signal-focused.
 
 ## [5][DOCUMENTATION_POLICY]

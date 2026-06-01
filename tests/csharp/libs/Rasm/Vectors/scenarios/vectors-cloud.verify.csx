@@ -75,6 +75,9 @@ Scenario.Run("vectors-cloud-neighborhood", CAPTURE_PATH, (key, facts) => {
     PointCloud duplicateCloud = new();
     duplicateCloud.AddRange(points: duplicatePoints);
     int[][] duplicateIds = RTree.PointCloudKNeighbors(pointcloud: duplicateCloud, needlePts: duplicatePoints, amount: 3).ToArray();
+    VectorCloud duplicateVector = Probe.Expect(VectorCloud.WeightedCluster(points: toSeq(duplicatePoints), mass: Seq(2.0, 3.0, 5.0), context: context, key: key), "dedup cloud");
+    CloudAdmissionReceipt duplicateAdmission = Project<CloudAdmissionReceipt>(intent: VectorIntent.Cloud(cloud: duplicateVector, metric: VectorCloudMetric.Admission, policy: Some(policy), key: key), context: context, key: key, label: "dedup admission");
+    CloudNeighborhoodReceipt neighborhood = Project<CloudNeighborhoodReceipt>(intent: VectorIntent.Cloud(cloud: cloud, metric: VectorCloudMetric.Neighborhood, policy: Some(policy), key: key), context: context, key: key, label: "neighborhood receipt");
     Seq<Vector3d> normals = Project<Seq<Vector3d>>(intent: VectorIntent.Cloud(cloud: cloud, metric: VectorCloudMetric.OrientedNormals, policy: Some(policy), key: key), context: context, key: key, label: "normals");
     Seq<Vector3d> radiusNormals = Project<Seq<Vector3d>>(intent: VectorIntent.Cloud(cloud: cloud, metric: VectorCloudMetric.OrientedNormals, policy: Some(policy with { Neighborhood = policy.Neighborhood with { Radius = Some(radius) } }), key: key), context: context, key: key, label: "radius normals");
     Dimension curvatureNeighbors = Probe.Expect(key.AcceptValidated<Dimension>(candidate: 9), "curvature neighbors");
@@ -92,17 +95,24 @@ Scenario.Run("vectors-cloud-neighborhood", CAPTURE_PATH, (key, facts) => {
     Probe.Require(normals.ForAll(static normal => normal.IsValid && Math.Abs(value: normal.Length - 1.0) <= 1.0e-6), "unit normals");
     Probe.Require(duplicateIds.Length == 3 && duplicateIds[0].Contains(0) && duplicateIds[0].Contains(1), $"duplicate.ids={string.Join(separator: ",", values: duplicateIds[0])}");
     Probe.Require(duplicateCloud.PointAt(index: duplicateIds[0][0]).DistanceTo(other: duplicatePoints[0]) <= context.Absolute.Value, "duplicate PointAt round trip failed");
+    Probe.Require(duplicateAdmission.InputCount == 3 && duplicateAdmission.OutputCount == 2 && duplicateAdmission.DuplicateCoordinateCount == 1 && duplicateAdmission.IsValid, $"dedup.admission={duplicateAdmission}");
+    Probe.Require(neighborhood.IsValid && neighborhood.NativeIndexRouted && neighborhood.QueryCount == 5 && neighborhood.SearchBackend.Equals(CloudNeighborhoodSearchBackend.RhinoPointCloudKnn), $"neighborhood.receipt={neighborhood}");
     Probe.Require(planeCurvature.Receipt.AcceptedSampleCount == 25 && planeCurvature.Receipt.RejectedSampleCount == 0, $"curvature.receipt={planeCurvature.Receipt}");
     Probe.Require(planeCurvature.Receipt.SelfNeighborIncluded && planeCurvature.Receipt.NativeIndexRouted && !planeCurvature.Receipt.RadiusLimited && planeCurvature.Receipt.SearchBackend.Equals(CloudNeighborhoodSearchBackend.RhinoPointCloudKnn), $"knn.receipt={planeCurvature.Receipt}");
     Probe.Require(radiusCurvature.Receipt.SelfNeighborIncluded && radiusCurvature.Receipt.NativeIndexRouted && radiusCurvature.Receipt.RadiusLimited && radiusCurvature.Receipt.SearchBackend.Equals(CloudNeighborhoodSearchBackend.RhinoPointCloudRadius), $"radius.receipt={radiusCurvature.Receipt}");
+    Probe.Require(planeCurvature.Receipt.Range.Kind.Equals(CloudCurvatureRangeKind.Plane) && planeCurvature.Receipt.Range.PlaneLikeCount == 25, $"plane.range={planeCurvature.Receipt.Range}");
+    Probe.Require(saddleCurvature.Receipt.Range.SaddleLikeCount > 0 && (saddleCurvature.Receipt.Range.Kind.Equals(CloudCurvatureRangeKind.Saddle) || saddleCurvature.Receipt.Range.Kind.Equals(CloudCurvatureRangeKind.Mixed)), $"saddle.range={saddleCurvature.Receipt.Range}");
     Probe.Require(planeCurvature.Samples.ForAll(static sample => Math.Abs(value: sample.K1) <= 1.0e-8 && Math.Abs(value: sample.K2) <= 1.0e-8), "plane curvature");
     Probe.Require(sphereMean is > 0.12 and < 0.35, $"sphere.mean={sphereMean:R}");
     Probe.Require(saddleCurvature.Samples.AsIterable().Any(static sample => sample.K1 * sample.K2 < -1.0e-3), "saddle signed curvature");
     facts.Add("normal.count", normals.Count);
     facts.Add("duplicate.ids", string.Join(separator: ",", values: duplicateIds[0]));
+    facts.Add("duplicate.output", duplicateAdmission.OutputCount);
+    facts.Add("neighborhood.backend", neighborhood.SearchBackend.Key);
     facts.Add("curvature.accepted", planeCurvature.Receipt.AcceptedSampleCount);
     facts.Add("curvature.self", planeCurvature.Receipt.SelfNeighborIncluded);
     facts.Add("curvature.radiusLimited", radiusCurvature.Receipt.RadiusLimited);
+    facts.Add("curvature.range", planeCurvature.Receipt.Range.Kind.Key);
     facts.Add("sphere.mean", sphereMean);
 });
 

@@ -96,10 +96,10 @@ public static class Spec {
     // Order-independent: Error.+ produces ManyErrors on double-fault; flatten + ordinal-sort asserts Applicative commutativity.
     public static void AllErrors<T>(Validation<Error, T> v, params string[] expectedCategories) {
         ArgumentNullException.ThrowIfNull(argument: v);
-        string[] expected = [.. expectedCategories.OrderBy(static c => c, StringComparer.Ordinal)];
+        string[] expected = [.. expectedCategories.Order(comparer: StringComparer.Ordinal)];
         _ = v.Match(Succ: value => throw new XunitException($"Expected Fail; got Succ: {value}"), Fail: error => {
             Seq<Error> errors = error switch { ManyErrors many => toSeq(many.Errors), _ => Seq(error) };
-            string[] actual = [.. errors.Map(static (Error e) => e.Category()).OrderBy(static c => c, StringComparer.Ordinal)];
+            string[] actual = [.. errors.Map(static (Error e) => e.Category()).Order(comparer: StringComparer.Ordinal)];
             Assert.Equal(expected: expected, actual: actual);
             return unit;
         });
@@ -190,8 +190,8 @@ public static class Spec {
     public static void SmartEnumCatalogMatches<T, TKey>(IReadOnlyList<T> production, IReadOnlyList<TKey> expectedKeys, Func<T, TKey> key) where TKey : notnull {
         ArgumentNullException.ThrowIfNull(argument: expectedKeys);
         SmartEnumKeysUnique(items: production, key: key);
-        TKey[] expected = [.. expectedKeys.OrderBy(static k => k)];
-        TKey[] actual = [.. production.Select(key).OrderBy(static k => k)];
+        TKey[] expected = [.. expectedKeys.Order()];
+        TKey[] actual = [.. production.Select(key).Order()];
         Assert.Equal(expected: expected, actual: actual);
     }
     // expectedOutput is the spec's INDEPENDENT table, not production's per-case Output — the law cross-checks the two.

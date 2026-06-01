@@ -38,9 +38,9 @@ Scenario.Run("blocks-run-bounds", CAPTURE_PATH, (key, facts) => {
             key: key),
         "use");
     facts.Add("use.name", used);
-    BlockOp bounds = new BlockOp.Bounds(
+    BlockOp bounds = new BlockOp.Instance(new BlockInstanceTask.Bounds(
         Ref: DefinitionRef.Of(name: blockName),
-        Policy: BoundsPolicy.Default);
+        Policy: BoundsPolicy.Default));
     BlockOutcome outcome = Probe.Expect(result: blocks.Run(op: bounds, key: key), label: "bounds run", facts: facts);
     BlockOutcome.Bounds boxed = outcome is BlockOutcome.Bounds value
         ? value

@@ -352,13 +352,16 @@ public abstract partial record ExtractionProbe {
         Switch(
             state: (Sample: sample, Context: context, Key: key),
             vectorCase: static (state, probe) =>
-                from vector in probe.Source.SampleVector(sample: state.Sample, context: state.Context, key: state.Key)
-                from output in typeof(TOut) switch {
-                    Type t when t == typeof(Vector3d) => Extraction.Accept<TOut, Vector3d>(value: vector, key: state.Key),
-                    Type t when t == typeof(double) => Extraction.Accept<TOut, double>(value: vector.Length, key: state.Key),
-                    _ => VectorSpan.Of(anchor: state.Sample, vector: vector, context: state.Context, key: state.Key).Bind(span => span.Project<TOut>(key: state.Key)),
-                }
-                select output,
+                probe.Source is VectorField.TangentLogMapCase log && (typeof(TOut) == typeof(TangentLogMapResult) || typeof(TOut) == typeof(TangentLogMapReceipt))
+                    ? from result in MeshKernel.TangentLogMapAt(space: log.Space, source: log.Source, sample: state.Sample, time: log.Time.Value, key: state.Key)
+                      select typeof(TOut) == typeof(TangentLogMapResult) ? (TOut)(object)result : (TOut)(object)result.Receipt
+                    : from vector in probe.Source.SampleVector(sample: state.Sample, context: state.Context, key: state.Key)
+                      from output in typeof(TOut) switch {
+                          Type t when t == typeof(Vector3d) => Extraction.Accept<TOut, Vector3d>(value: vector, key: state.Key),
+                          Type t when t == typeof(double) => Extraction.Accept<TOut, double>(value: vector.Length, key: state.Key),
+                          _ => VectorSpan.Of(anchor: state.Sample, vector: vector, context: state.Context, key: state.Key).Bind(span => span.Project<TOut>(key: state.Key)),
+                      }
+                      select output,
             scalarCase: static (state, probe) =>
                 from value in probe.Source.SampleScalar(sample: state.Sample, context: state.Context, key: state.Key)
                 from output in typeof(TOut) == typeof(double)

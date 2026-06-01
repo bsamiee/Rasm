@@ -24,7 +24,7 @@ public sealed partial class SpectralTieBreak { public static readonly SpectralTi
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SpectralDescriptorPolicy(SpectralScaleNormalization ScaleNormalization, SpectralEnergyNormalization EnergyNormalization, SpectralZeroModePolicy ZeroModePolicy, Option<Dimension> CropCount) {
     public static SpectralDescriptorPolicy Raw => new(ScaleNormalization: SpectralScaleNormalization.Raw, EnergyNormalization: SpectralEnergyNormalization.Raw, ZeroModePolicy: SpectralZeroModePolicy.Keep, CropCount: None);
-    internal bool IsValid => ScaleNormalization is not null && EnergyNormalization is not null && ZeroModePolicy is not null && CropCount.Map(static count => count.Value > 0).IfNone(true);
+    internal bool IsValid => ScaleNormalization is not null && EnergyNormalization is not null && ZeroModePolicy is not null && CropCount.Map(static count => count.Value > 0).IfNone(noneValue: true);
     internal bool IsRaw => ScaleNormalization.Equals(SpectralScaleNormalization.Raw) && EnergyNormalization.Equals(SpectralEnergyNormalization.Raw) && ZeroModePolicy.Equals(SpectralZeroModePolicy.Keep) && CropCount.IsNone;
     internal bool IsValueOnly => ScaleNormalization.Equals(SpectralScaleNormalization.Raw) && ZeroModePolicy.Equals(SpectralZeroModePolicy.Keep) && CropCount.IsNone;
     internal static Fin<SpectralDescriptorPolicy> Admit(SpectralDescriptorPolicy policy, Op key) =>
@@ -41,15 +41,15 @@ public readonly record struct SpectralRank(int Index, double Distance, SpectralD
 public readonly record struct SpectralRanking(SpectralDescriptor Query, Seq<SpectralRank> Items, SpectralRankingPolicy Policy);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralAssemblyReceipt(int VertexCount, int EdgeCount, int FaceCount, int AdmittedFaceCount, int SkippedDegenerateFaces, int SkippedMissingEdges, int SkippedInvalidNormals, int SkippedInvalidTangents, bool FlippedIntrinsicRejected, int MatrixRows, int MatrixCols, int NonZeros, int PositiveStar0Count, int PositiveStar1Count, int PositiveStar2Count, double BoundaryCompositionResidual, Option<int> Genus, int HarmonicDimension, int BoundaryEdgeCount = 0, int BoundaryComponentCount = 0, int NonManifoldEdgeCount = 0, int EulerCharacteristic = 0, bool TopologyEulerValidated = false, int ComponentCount = 1, int PositiveMassCount = 0, double SymmetryResidual = 0.0, Option<int> FactorNonZeros = default, SpectralAssemblyKind Kind = default!) {
+public readonly record struct SpectralAssemblyReceipt(int VertexCount, int EdgeCount, int FaceCount, int AdmittedFaceCount, int SkippedDegenerateFaces, int SkippedMissingEdges, int SkippedInvalidNormals, int SkippedInvalidTangents, bool FlippedIntrinsicRejected, int MatrixRows, int MatrixCols, int NonZeros, int PositiveStar0Count, int PositiveStar1Count, int PositiveStar2Count, double BoundaryCompositionResidual, Option<int> Genus, int HarmonicDimension, SpectralAssemblyKind Kind, int BoundaryEdgeCount = 0, int BoundaryComponentCount = 0, int NonManifoldEdgeCount = 0, int EulerCharacteristic = 0, bool TopologyEulerValidated = false, int ComponentCount = 1, int PositiveMassCount = 0, double SymmetryResidual = 0.0, Option<int> FactorNonZeros = default) {
     internal bool IsValid =>
-        Kind is not null
+        Kind is SpectralAssemblyKind kind
         && new[] { VertexCount, EdgeCount, FaceCount, AdmittedFaceCount, SkippedDegenerateFaces, SkippedMissingEdges, SkippedInvalidNormals, SkippedInvalidTangents, MatrixRows, MatrixCols, NonZeros, PositiveStar0Count, PositiveStar1Count, PositiveStar2Count, HarmonicDimension, BoundaryEdgeCount, BoundaryComponentCount, NonManifoldEdgeCount, ComponentCount, PositiveMassCount }.All(static count => count >= 0)
         && AdmittedFaceCount + SkippedDegenerateFaces + SkippedMissingEdges <= FaceCount
         && RhinoMath.IsValidDouble(x: BoundaryCompositionResidual)
         && RhinoMath.IsValidDouble(x: SymmetryResidual)
-        && FactorNonZeros.Map(static value => value > 0).IfNone(true)
-        && (Kind.Equals(SpectralAssemblyKind.EdgeConnection)
+        && FactorNonZeros.Map(static value => value > 0).IfNone(noneValue: true)
+        && (kind.Equals(SpectralAssemblyKind.EdgeConnection)
             ? ComponentCount == 2 && MatrixRows == EdgeCount * ComponentCount && MatrixCols == MatrixRows && PositiveMassCount <= EdgeCount
             : ComponentCount == 1 && PositiveStar0Count <= VertexCount && PositiveStar1Count <= EdgeCount && PositiveStar2Count <= FaceCount && (Genus is { IsSome: true, Case: int genus } ? genus >= 0 && HarmonicDimension == 2 * genus : HarmonicDimension == 0));
 }
@@ -62,7 +62,28 @@ public readonly record struct DiscreteCalculus(SparseMatrix D0, SparseMatrix D1,
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralDescriptorReceipt(SpectralFilter Filter, int VertexCount, int EigenpairCount, int SourceCount, bool ComparisonReady, bool Pairwise, bool EnergyNormalized, bool BandwidthNormalized, SpectralDescriptorPolicy Policy = default, int ZeroModeCount = 0, int CroppedEigenpairCount = 0);
+public readonly record struct SpectralWaveReceipt(double Energy, double Bandwidth, Option<double> FirstNonZeroScale, int ZeroModeCount, int CroppedEigenpairCount, int NonZeroEigenpairCount, double RawWeightSum, double NormalizedWeightSum, Option<double> MinLogEigenvalue, Option<double> MaxLogEigenvalue, bool WksNormalized) {
+    internal bool IsValid {
+        get {
+            Option<double> first = FirstNonZeroScale, minLog = MinLogEigenvalue, maxLog = MaxLogEigenvalue;
+            bool firstValid = first.IsNone || (RhinoMath.IsValidDouble(x: first.IfNone(0.0)) && first.IfNone(0.0) > 0.0);
+            bool rangeValid = minLog.IsNone || maxLog.IsNone || (RhinoMath.IsValidDouble(x: minLog.IfNone(0.0)) && RhinoMath.IsValidDouble(x: maxLog.IfNone(0.0)) && minLog.IfNone(0.0) <= maxLog.IfNone(0.0));
+            return new[] { Energy, Bandwidth, RawWeightSum, NormalizedWeightSum }.All(RhinoMath.IsValidDouble)
+                && Energy > 0.0
+                && Bandwidth > 0.0
+                && ZeroModeCount >= 0
+                && CroppedEigenpairCount >= NonZeroEigenpairCount
+                && NonZeroEigenpairCount > 0
+                && RawWeightSum > 0.0
+                && (!WksNormalized || Math.Abs(value: NormalizedWeightSum - 1.0) <= 1.0e-9)
+                && firstValid
+                && rangeValid;
+        }
+    }
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SpectralDescriptorReceipt(SpectralFilter Filter, int VertexCount, int EigenpairCount, int SourceCount, bool ComparisonReady, bool Pairwise, bool EnergyNormalized, bool BandwidthNormalized, SpectralDescriptorPolicy Policy = default, int ZeroModeCount = 0, int CroppedEigenpairCount = 0, Option<SpectralWaveReceipt> Wave = default);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SpectralDescriptor(Arr<double> Values, SpectralDescriptorReceipt Receipt) {
@@ -129,7 +150,10 @@ internal static class SpectralCore {
         internal int Vertex(int side) => side switch { 0 => A, 1 => B, _ => C };
         internal int Edge(int side) => Edges[side];
         internal double Length(int side) => side switch { 0 => LAb, 1 => LBc, _ => LCa };
-        internal double Orientation(MeshKernel.IntrinsicMesh imesh, int side) => imesh.EdgeAt(index: Edge(side)) is { } edge && edge.Lo == Vertex(side) && edge.Hi == Vertex(side: (side + 1) % 3) ? 1.0 : -1.0;
+        internal double Orientation(MeshKernel.IntrinsicMesh imesh, int side) {
+            MeshKernel.IntrinsicEdge edge = imesh.EdgeAt(index: Edge(side));
+            return edge.Lo == Vertex(side: side) && edge.Hi == Vertex(side: (side + 1) % 3) ? 1.0 : -1.0;
+        }
         internal (int I, int J, double Sign, double LA, double LB, double LOpp) CrouzeixPair(MeshKernel.IntrinsicMesh imesh, int side) => (Edge(side), Edge(side: (side + 1) % 3), Orientation(imesh: imesh, side: side) * Orientation(imesh: imesh, side: (side + 1) % 3), Length(side: (side + 1) % 3), Length(side: side), Length(side: (side + 2) % 3));
         internal double Angle(int side) => AngleFromLengths(opposite: Length(side: (side + 1) % 3), adjacent1: Length(side: side == 0 ? 0 : side - 1), adjacent2: Length(side: side == 0 ? 2 : side));
     }
@@ -148,13 +172,15 @@ internal static class SpectralCore {
             .Where(i => policy.ZeroModePolicy.Equals(SpectralZeroModePolicy.Keep) || basis.Eigenvalues[index: i] > RhinoMath.SqrtEpsilon)
             .Take(policy.CropCount.Map(static count => count.Value).IfNone(basis.Eigenvalues.Count))];
         if (eigenIndices.Length == 0) return Fin.Fail<SpectralDescriptor>(error: key.InvalidInput());
+        double[] scaledEigenvalues = [.. eigenIndices.Select(k => policy.ScaleNormalization.Equals(SpectralScaleNormalization.FirstNonZeroEigenvalue) ? basis.Eigenvalues[index: k] / firstNonZero : basis.Eigenvalues[index: k])];
+        (double[] weights, Option<SpectralWaveReceipt> wave) = WeightsOf(filter: filter, eigenvalues: scaledEigenvalues, firstNonZero: firstNonZero, zeroModeCount: zeroModeCount, croppedCount: eigenIndices.Length);
+        if (weights.Any(static weight => !RhinoMath.IsValidDouble(x: weight))) return Fin.Fail<SpectralDescriptor>(key.InvalidResult());
         bool isPairwise = sourceSet.Length > 0;
         double normFactor = isPairwise ? 1.0 / sourceSet.Length : 1.0;
         double[] result = new double[n];
         for (int ki = 0; ki < eigenIndices.Length; ki++) {
             int k = eigenIndices[ki];
-            double lambda = policy.ScaleNormalization.Equals(SpectralScaleNormalization.FirstNonZeroEigenvalue) ? basis.Eigenvalues[index: k] / firstNonZero : basis.Eigenvalues[index: k];
-            double w = filter.Weight(eigenvalue: lambda);
+            double w = weights[ki];
             Arr<double> phi = basis.Eigenvectors[index: k];
             if (isPairwise)
                 for (int v = 0; v < n; v++) {
@@ -168,7 +194,7 @@ internal static class SpectralCore {
                 for (int v = 0; v < n; v++) result[v] += w * phi[index: v] * phi[index: v];
         }
         if (isPairwise) for (int v = 0; v < n; v++) result[v] = Math.Sqrt(d: Math.Max(val1: 0.0, val2: result[v] * normFactor));
-        return NormalizeValues(values: result, policy: policy, key: key).Map(values => new SpectralDescriptor(Values: new Arr<double>(values), Receipt: new SpectralDescriptorReceipt(Filter: filter, VertexCount: n, EigenpairCount: basis.Eigenvalues.Count, SourceCount: sourceSet.Length, ComparisonReady: !policy.IsRaw, Pairwise: isPairwise, EnergyNormalized: !policy.EnergyNormalization.Equals(SpectralEnergyNormalization.Raw), BandwidthNormalized: !policy.ScaleNormalization.Equals(SpectralScaleNormalization.Raw), Policy: policy, ZeroModeCount: zeroModeCount, CroppedEigenpairCount: eigenIndices.Length)));
+        return NormalizeValues(values: result, policy: policy, key: key).Map(values => new SpectralDescriptor(Values: new Arr<double>(values), Receipt: new SpectralDescriptorReceipt(Filter: filter, VertexCount: n, EigenpairCount: basis.Eigenvalues.Count, SourceCount: sourceSet.Length, ComparisonReady: !policy.IsRaw || wave.IsSome, Pairwise: isPairwise, EnergyNormalized: !policy.EnergyNormalization.Equals(SpectralEnergyNormalization.Raw), BandwidthNormalized: !policy.ScaleNormalization.Equals(SpectralScaleNormalization.Raw), Policy: policy, ZeroModeCount: zeroModeCount, CroppedEigenpairCount: eigenIndices.Length, Wave: wave)));
     }
     internal static Fin<SpectralDescriptor> NormalizeDescriptor(SpectralDescriptor descriptor, SpectralDescriptorPolicy policy, Op key) =>
         from activePolicy in SpectralDescriptorPolicy.Admit(policy: policy, key: key)
@@ -176,7 +202,7 @@ internal static class SpectralCore {
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(key.Unsupported(geometryType: typeof(SpectralDescriptor), outputType: typeof(SpectralDescriptorPolicy)))
         from values in NormalizeValues(values: [.. descriptor.Values.AsIterable()], policy: activePolicy, key: key)
-        let receipt = descriptor.Receipt with { ComparisonReady = !activePolicy.IsRaw, EnergyNormalized = !activePolicy.EnergyNormalization.Equals(SpectralEnergyNormalization.Raw), BandwidthNormalized = !activePolicy.ScaleNormalization.Equals(SpectralScaleNormalization.Raw), Policy = activePolicy }
+        let receipt = descriptor.Receipt with { ComparisonReady = !activePolicy.IsRaw || descriptor.Receipt.Wave.IsSome, EnergyNormalized = !activePolicy.EnergyNormalization.Equals(SpectralEnergyNormalization.Raw), BandwidthNormalized = !activePolicy.ScaleNormalization.Equals(SpectralScaleNormalization.Raw), Policy = activePolicy }
         select new SpectralDescriptor(Values: new Arr<double>(values), Receipt: receipt);
     internal static Fin<SpectralRanking> RankDescriptors(SpectralDescriptor query, Seq<SpectralDescriptor> candidates, SpectralRankingPolicy policy, Op key) =>
         !policy.IsValid || !query.IsValid || candidates.IsEmpty || !candidates.ForAll(static candidate => candidate.IsValid)
@@ -196,6 +222,28 @@ internal static class SpectralCore {
         && left.CropCount.Match(
             Some: l => right.CropCount.Match(Some: r => l.Value == r.Value, None: static () => false),
             None: () => right.CropCount.IsNone);
+    private static (double[] Weights, Option<SpectralWaveReceipt> Wave) WeightsOf(SpectralFilter filter, double[] eigenvalues, double firstNonZero, int zeroModeCount, int croppedCount) =>
+        filter is SpectralFilter.WaveCase wave ? WaveWeightsOf(wave: wave, eigenvalues: eigenvalues, firstNonZero: firstNonZero, zeroModeCount: zeroModeCount, croppedCount: croppedCount) : ([.. eigenvalues.Select(filter.Weight)], Option<SpectralWaveReceipt>.None);
+    private static (double[] Weights, Option<SpectralWaveReceipt> Wave) WaveWeightsOf(SpectralFilter.WaveCase wave, double[] eigenvalues, double firstNonZero, int zeroModeCount, int croppedCount) {
+        double[] raw = [.. eigenvalues.Select(wave.Weight)];
+        double sum = raw.Sum();
+        if (!RhinoMath.IsValidDouble(x: sum) || sum <= RhinoMath.SqrtEpsilon) return (raw, Option<SpectralWaveReceipt>.None);
+        double[] normalized = [.. raw.Select(weight => weight / sum)];
+        double[] positiveLogs = [.. eigenvalues.Where(static lambda => lambda > RhinoMath.SqrtEpsilon).Select(static lambda => Math.Log(d: lambda))];
+        SpectralWaveReceipt receipt = new(
+            Energy: wave.Energy.Value,
+            Bandwidth: Math.Max(val1: wave.Bandwidth.Value, val2: WaveBandwidthFloor),
+            FirstNonZeroScale: firstNonZero > RhinoMath.SqrtEpsilon ? Some(firstNonZero) : Option<double>.None,
+            ZeroModeCount: zeroModeCount,
+            CroppedEigenpairCount: croppedCount,
+            NonZeroEigenpairCount: positiveLogs.Length,
+            RawWeightSum: sum,
+            NormalizedWeightSum: normalized.Sum(),
+            MinLogEigenvalue: positiveLogs.Length == 0 ? Option<double>.None : Some(positiveLogs.Min()),
+            MaxLogEigenvalue: positiveLogs.Length == 0 ? Option<double>.None : Some(positiveLogs.Max()),
+            WksNormalized: true);
+        return (normalized, receipt.IsValid ? Some(receipt) : Option<SpectralWaveReceipt>.None);
+    }
     private static Fin<Seq<SpectralRank>> RankNormalized(SpectralDescriptor query, Seq<SpectralDescriptor> candidates, SpectralRankingPolicy policy, Op key) {
         int valueCount = query.Values.Count;
         if (valueCount <= 0 || candidates.Exists(candidate => candidate.Values.Count != valueCount)) return Fin.Fail<Seq<SpectralRank>>(key.InvalidInput());

@@ -773,7 +773,10 @@ public abstract partial record DocumentMutation {
                        from location in op.AcceptPoint(value: snippet.Location, detail: "non-finite location")
                        from changed in Try.lift(f: () => s.methods.DropSnippet(snippet: new GhSnippet(file: file), location: location, actions: s.actions)).Run()
                            .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(DropSnippet)), detail: $"DropSnippet threw: {error.Message}"))
-                       select DocumentMutationReceipt.From(changed: changed);
+                       from receipt in changed
+                           ? Fin.Succ(value: DocumentMutationReceipt.Count(changed: 1))
+                           : Fin.Fail<DocumentMutationReceipt>(error: UiFault.MutationRejected(op: op, detail: "DropSnippet rejected the snippet"))
+                       select receipt;
             },
             placeCase: static (s, place) => {
                 Op op = Op.Of(name: nameof(Place));
@@ -826,10 +829,16 @@ public abstract partial record DocumentMutation {
                 return from location in op.AcceptPoint(value: migrate.Location, detail: "non-finite location")
                        from objects in migrate.Ids.TraverseM(id => Optional(s.objects.Find(instanceId: id))
                            .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"object {id} not found"))).As()
+                       from _objects in objects.IsEmpty
+                           ? Fin.Fail<Seq<IDocumentObject>>(error: UiFault.InvalidInput(op: op, detail: "no objects to migrate"))
+                           : Fin.Succ(value: objects)
                        from remap in op.Attempt(
                            body: () => s.methods.MigrateObjects(objects: objects, location: location, actions: s.actions),
                            what: "DocumentMethods.MigrateObjects")
-                       select DocumentMutationReceipt.Of(changed: remap.Count, created: toSeq(remap.Values));
+                       from receipt in remap.Count > 0
+                           ? Fin.Succ(value: DocumentMutationReceipt.Of(changed: remap.Count, created: toSeq(remap.Values)))
+                           : Fin.Fail<DocumentMutationReceipt>(error: UiFault.MutationRejected(op: op, detail: "MigrateObjects returned no remap"))
+                       select receipt;
             },
             splitWireCase: static (s, split) => {
                 Op op = Op.Of(name: nameof(SplitWire));
@@ -964,10 +973,23 @@ public abstract partial record DocumentTargetOp {
                         : s.methods.SetColourOverrideObjects(objects: s.targets, colour: value, actions: s.actions),
                     what: "DocumentMethods.SetColourOverride");
             },
-            // BOUNDARY ADAPTER -- MoveSelection nudges the live selection by pixel offsets; it owns its own history.
-            nudgeCase: static (s, nudge) => Op.Of(name: nameof(NudgeCase)).Attempt(
-                body: () => s.methods.MoveSelection(xOffset: nudge.Dx, yOffset: nudge.Dy),
-                what: "DocumentMethods.MoveSelection"));
+            nudgeCase: static (s, nudge) => MoveTargets(objects: s.objects, targets: s.targets, dx: nudge.Dx, dy: nudge.Dy, actions: s.actions));
+
+    private static Fin<int> MoveTargets(GhObjectList objects, IDocumentObject[]? targets, int dx, int dy, ActionList actions) {
+        Op op = Op.Of(name: nameof(NudgeCase));
+        return (dx, dy) switch {
+            (0, 0) => Fin.Succ(value: 0),
+            _ => op.Attempt(body: () => {
+                Seq<IDocumentObject> selected = targets is null ? toSeq(objects.SelectedObjects) : toSeq(targets);
+                _ = selected.Iter(obj => {
+                    actions.Add(new PivotAction(obj: obj));
+                    obj.Attributes.Move(dx: dx, dy: dy);
+                    obj.Expire();
+                });
+                return selected.Count;
+            }, what: "target attribute nudge"),
+        };
+    }
 }
 
 [SmartEnum<int>]
@@ -1027,7 +1049,7 @@ internal static class OptionNativeExtensions {
 }
 
 internal static class SnapshotFormatExtensions {
-    internal static string Inv<T>(this T value) => string.Create(CultureInfo.InvariantCulture, $"{value}");
+    internal static string Inv<T>(this T value) => $"{value}";
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
@@ -1128,10 +1150,11 @@ internal static partial class Document {
     private static Fin<DocumentMutationReceipt> PasteGh1Clipboard(GhDocumentMethods methods, GhObjectList objects, ActionList actions) =>
         Op.Of(name: nameof(ClipboardOp.PasteGh1Xml)).Attempt(body: () => {
             System.Collections.Generic.HashSet<Guid> before = [.. objects.Forwards.Select(static obj => obj.InstanceId)];
+            int beforeActions = actions.Count;
             bool pasted = methods.PasteGrasshopper1XmlFromClipboard(actions: actions);
             Seq<IDocumentObject> created = toSeq(objects.Forwards)
                 .Filter(obj => obj.InstanceId != Guid.Empty && !before.Contains(obj.InstanceId));
-            _ = created.Iter(obj => actions.Add(new CreateObjectAction(obj: obj)));
+            _ = actions.Count == beforeActions ? created.Iter(obj => actions.Add(new CreateObjectAction(obj: obj))) : unit;
             return DocumentMutationReceipt.Of(
                 changed: Math.Max(val1: created.Count, val2: pasted ? 1 : 0),
                 created: created.Map(static obj => obj.InstanceId));

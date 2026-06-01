@@ -93,6 +93,7 @@ public abstract partial record BlockOutcome {
     public sealed record AttributeMatrix(Seq<AttributeCell> Values) : BlockOutcome;
     public sealed record Preview(PreviewHandle Handle) : BlockOutcome;
     public sealed record Pieces(Seq<FlatPiece> Values) : BlockOutcome;
+    public sealed record GraphResult(GraphQuery Query, BlockOutcome Value) : BlockOutcome;
     public sealed record Probed(DependencyProbe Value) : BlockOutcome;
     public sealed record Refresh(RefreshPlan Value) : BlockOutcome;
     public sealed record Bounds(BoundingBox Value) : BlockOutcome;
@@ -243,10 +244,8 @@ public abstract partial record ExplodePolicy {
     public sealed record VisibleIn(Guid ViewportId) : ExplodePolicy;
     public sealed record Native(bool ExplodeNested = true, bool DeleteInstance = true) : ExplodePolicy {
         public DocumentReceipt ExplodeReceipt(Seq<Guid> created, Guid instanceId) =>
-            DocumentReceipt.Empty with {
-                Created = created,
-                Deleted = DeleteInstance ? Seq(instanceId) : Seq<Guid>(),
-            };
+            DocumentReceipt.Objects(slot: DocumentReceiptSlot.Created, ids: created)
+            + DocumentReceipt.Objects(slot: DocumentReceiptSlot.Deleted, ids: DeleteInstance ? Seq(instanceId) : Seq<Guid>());
     }
 
     public (bool SkipsHidden, Guid ViewportFilter) Resolve() =>
@@ -290,7 +289,7 @@ public sealed partial class LayerStyle {
 
     public bool AppliesTo(UpdatePolicy policy) =>
         (this, policy) switch {
-            _ when this == None => policy == UpdatePolicy.Static || policy == UpdatePolicy.LinkedAndEmbedded,
+            _ when this == None => policy == UpdatePolicy.Static || policy == UpdatePolicy.LinkedAndEmbedded || policy == UpdatePolicy.Embedded,
             _ when this == Active => policy == UpdatePolicy.Linked,
             _ when this == Reference => policy == UpdatePolicy.Linked,
             _ => false,
@@ -376,9 +375,11 @@ public sealed partial class TransformPolicy {
 
     public DocumentReceipt InstanceTransform(Guid instanceId, Guid resultId) =>
         (DeleteOriginal, UsesHistory) switch {
-            (_, true) => DocumentReceipt.Empty with { Created = Seq(resultId) },
-            (true, false) => DocumentReceipt.Empty with { Created = Seq(resultId), Deleted = Seq(instanceId) },
-            _ => DocumentReceipt.Empty with { Created = Seq(resultId), Transformed = Seq(resultId) },
+            (_, true) => DocumentReceipt.Objects(slot: DocumentReceiptSlot.Created, ids: Seq(resultId)),
+            (true, false) => DocumentReceipt.Objects(slot: DocumentReceiptSlot.Created, ids: Seq(resultId))
+                + DocumentReceipt.Objects(slot: DocumentReceiptSlot.Deleted, ids: Seq(instanceId)),
+            _ => DocumentReceipt.Objects(slot: DocumentReceiptSlot.Created, ids: Seq(resultId))
+                + DocumentReceipt.Objects(slot: DocumentReceiptSlot.Transformed, ids: Seq(resultId)),
         };
 }
 
@@ -387,9 +388,12 @@ public sealed partial class UpdatePolicy {
     public static readonly UpdatePolicy Static = new(key: 0, native: InstanceDefinitionUpdateType.Static);
     public static readonly UpdatePolicy LinkedAndEmbedded = new(key: 1, native: InstanceDefinitionUpdateType.LinkedAndEmbedded);
     public static readonly UpdatePolicy Linked = new(key: 2, native: InstanceDefinitionUpdateType.Linked);
+#pragma warning disable CS0618 // BOUNDARY ADAPTER — legacy documents and native APIs can still surface Embedded.
+    public static readonly UpdatePolicy Embedded = new(key: 3, native: InstanceDefinitionUpdateType.Embedded);
+#pragma warning restore CS0618
 
     public InstanceDefinitionUpdateType Native { get; }
-    public bool IsLinked => this == Linked || this == LinkedAndEmbedded;
+    public bool IsLinked => this == Linked || this == LinkedAndEmbedded || this == Embedded;
 
     public Fin<Unit> RequireLinked(Op key) =>
         IsLinked ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: key.InvalidInput());
@@ -401,8 +405,8 @@ public sealed partial class UpdatePolicy {
         native switch {
             InstanceDefinitionUpdateType.Linked => Linked,
             InstanceDefinitionUpdateType.LinkedAndEmbedded => LinkedAndEmbedded,
-#pragma warning disable CS0618 // BOUNDARY ADAPTER — legacy documents may still report obsolete Embedded; RhinoWIP says use Static.
-            InstanceDefinitionUpdateType.Embedded => Static,
+#pragma warning disable CS0618 // BOUNDARY ADAPTER — preserve obsolete native Embedded when old documents report it.
+            InstanceDefinitionUpdateType.Embedded => Embedded,
 #pragma warning restore CS0618
             _ => Static,
         };
@@ -613,7 +617,7 @@ public readonly partial struct BlockContentHash {
 
     private static ulong HashStrings(NameValueCollection strings) =>
         strings.AllKeys
-            .OrderBy(key => key, comparer: StringComparer.Ordinal)
+            .Order(comparer: StringComparer.Ordinal)
             .Aggregate(seed: Fnv64.Offset, func: (acc, key) =>
                 Fnv64.Mix(acc: Fnv64.HashText(value: key ?? string.Empty, seed: acc), v: Fnv64.HashText(value: strings[key] ?? string.Empty)));
 }
@@ -974,13 +978,24 @@ public sealed record MutationReceipt(DocumentReceipt Document, Seq<BlockDiagnost
 
     public static MutationReceipt Of(DocumentReceipt receipt) => new(Document: receipt, Diagnostics: Seq<BlockDiagnostic>());
     public static MutationReceipt Of(DocumentReceipt receipt, Seq<BlockDiagnostic> diagnostics) => new(Document: receipt, Diagnostics: diagnostics);
-    public static MutationReceipt Named(string name) => Of(receipt: DocumentReceipt.Empty with {
-        ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: name)),
-    });
-    public static MutationReceipt Lifecycle(Guid id, string name) => Of(receipt: DocumentReceipt.Empty with {
-        LifecycleChanged = Seq(id),
-        ResourceChanged = Seq(new DocumentResourceChange(Kind: DocumentResourceKind.Block, Name: name)),
-    });
+    public static MutationReceipt Resource(DocumentResourceKind kind, string name) =>
+        Of(receipt: DocumentReceipt.Resource(kind: kind, name: name));
+    public static MutationReceipt Resources(Seq<DocumentResourceChange> changes) =>
+        Of(receipt: DocumentReceipt.Resources(changes: changes));
+    public static MutationReceipt Resources(Seq<DocumentResourceChange> changes, Seq<BlockDiagnostic> diagnostics) =>
+        Of(receipt: DocumentReceipt.Resources(changes: changes), diagnostics: diagnostics);
+    public static MutationReceipt Objects(DocumentReceiptSlot slot, Seq<Guid> ids) =>
+        Of(receipt: DocumentReceipt.Objects(slot: slot, ids: ids));
+    public static MutationReceipt Objects(DocumentReceiptSlot slot, Seq<Guid> ids, DocumentResourceKind kind, string name) =>
+        Of(receipt: DocumentReceipt.Objects(slot: slot, ids: ids, kind: kind, name: name));
+    public static MutationReceipt Objects(DocumentReceiptSlot slot, Seq<Guid> ids, Seq<DocumentResourceChange> resources) =>
+        Of(receipt: DocumentReceipt.Objects(slot: slot, ids: ids, resources: resources));
+    public static MutationReceipt Objects(DocumentReceiptSlot slot, Seq<Guid> ids, Seq<DocumentResourceChange> resources, Seq<BlockDiagnostic> diagnostics) =>
+        Of(receipt: DocumentReceipt.Objects(slot: slot, ids: ids, resources: resources), diagnostics: diagnostics);
+    public static MutationReceipt Named(string name) =>
+        Resource(kind: DocumentResourceKind.Block, name: name);
+    public static MutationReceipt Lifecycle(Guid id, string name) =>
+        Objects(slot: DocumentReceiptSlot.Lifecycle, ids: Seq(id), kind: DocumentResourceKind.Block, name: name);
 
     public bool HasDiagnostics => !Diagnostics.IsEmpty;
 
@@ -1033,16 +1048,7 @@ public sealed record PreviewSpec(
 
     public DisplayModeRef ResolvedMode => DisplayMode ?? DisplayModeRef.Wireframe;
 
-    public PreviewFingerprint Fingerprint => new(Value: Seq(
-            (ulong)Width,
-            (ulong)Height,
-            (ulong)(int)Projection,
-            (ulong)(int)Camera,
-            DrawDecorations ? 1UL : 0UL,
-            ApplyDpiScaling ? 1UL : 0UL,
-            DisplayHash(mode: ResolvedMode),
-            HighlightMemberId.Map(static id => Fnv64.HashGuid(value: id, seed: 3UL)).IfNone(noneValue: 0UL))
-        .Fold(initialState: Fnv64.Offset, f: Fnv64.Mix));
+    public PreviewFingerprint Fingerprint => new(Value: FingerprintParts().Fold(initialState: Fnv64.Offset, f: Fnv64.Mix));
 
     public Fin<PreviewSpec> Admit(Op key) =>
         Of(Width, Height, DisplayMode, Projection, Camera, DrawDecorations, ApplyDpiScaling, HighlightMemberId, key);
@@ -1070,6 +1076,14 @@ public sealed record PreviewSpec(
             wireframeCase: static _ => Fnv64.HashText(value: "wireframe"),
             byId: static r => Fnv64.HashGuid(value: r.Id, seed: 1UL),
             byName: static r => Fnv64.HashText(value: r.Name.ToUpperInvariant(), seed: 2UL));
+
+    private Seq<ulong> FingerprintParts() {
+        Seq<ulong> common = Seq((ulong)Width, (ulong)Height, (ulong)(int)Projection, ApplyDpiScaling ? 1UL : 0UL, DisplayHash(mode: ResolvedMode));
+        return HighlightMemberId.Case switch {
+            Guid id => common + Seq(Fnv64.HashGuid(value: id, seed: 3UL)),
+            _ => common + Seq((ulong)(int)Camera, DrawDecorations ? 1UL : 0UL, 0UL),
+        };
+    }
 }
 
 [StructLayout(LayoutKind.Auto)]

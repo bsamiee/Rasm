@@ -64,11 +64,11 @@ public abstract record CommandOption {
     private static Case Toggle(string name, bool initial, CommandOptionPolicy policy) =>
         Ref(name: name, create: () => (ValidValue(value: policy.Off), ValidValue(value: policy.On)).Apply((disabled, enabled) => new OptionToggle(initial, disabled, enabled)).As(), prompt: Option<string>.None, localName: Optional(policy.LocalName), bind: static (getter, name, ref native, _) => getter.AddOptionToggle(name, ref native), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => BoolValue(value: pair.Value, off: policy.Off, on: policy.On).Map(value => Scripted(key: name, value: Some((object)value), listIndex: Option<int>.None, optionType: CommandLineOptionType.Toggle, stringValue: Some(pair.Value)))), varies: policy.Varies);
     private static Case Number(string name, double initial, CommandOptionPolicy policy) =>
-        Ref(name: name, create: () => BoundedOption(initial: initial, lower: policy.Lower, upper: policy.Upper, unconstrained: static value => new OptionDouble(value), single: static (value, isLower, bound) => new OptionDouble(value, isLower, bound), bounded: static (value, lo, hi) => new OptionDouble(value, lo, hi)), prompt: Optional(policy.Prompt), localName: Optional(policy.LocalName), bind: Prompted(plain: static (getter, name, ref native) => getter.AddOptionDouble(name, ref native), prompted: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionDouble native, string label) => getter.AddOptionDouble(name, ref native, label)), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => double.TryParse(s: pair.Value, style: System.Globalization.NumberStyles.Float, provider: System.Globalization.CultureInfo.InvariantCulture, result: out double parsed) ? policy.Bounds.Accept(value: parsed).Map(value => Scripted(key: name, value: Some((object)value), listIndex: Option<int>.None, optionType: CommandLineOptionType.Number, stringValue: Some(pair.Value))) : Option<CommandOptionValue>.None), varies: policy.Varies);
+        Ref(name: name, create: () => BoundedOption(initial: initial, lower: policy.Lower, upper: policy.Upper, unconstrained: static value => new OptionDouble(value), single: static (value, isLower, bound) => new OptionDouble(value, isLower, bound), bounded: static (value, lo, hi) => new OptionDouble(value, lo, hi)), prompt: Optional(policy.Prompt), localName: Optional(policy.LocalName), bind: Prompted(plain: static (getter, name, ref native) => getter.AddOptionDouble(name, ref native), prompted: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionDouble native, string label) => getter.AddOptionDouble(name, ref native, label)), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => new CommandToken(Raw: pair.Value).Double().Bind(parsed => policy.Bounds.Accept(value: parsed).Map(value => Scripted(key: name, value: Some((object)value), listIndex: Option<int>.None, optionType: CommandLineOptionType.Number, stringValue: Some(pair.Value))))), varies: policy.Varies);
     private static Case Integer(string name, int initial, CommandOptionPolicy policy) =>
         policy.Bounds.Project<int>(op: Op.Of(name: nameof(Integer))).ToOption().Case switch {
             (Option<int> lower, Option<int> upper) =>
-                Ref(name: name, create: () => BoundedOption(initial: initial, lower: lower, upper: upper, unconstrained: static value => new OptionInteger(value), single: static (value, isLower, bound) => new OptionInteger(value, isLower, bound), bounded: static (value, lo, hi) => new OptionInteger(value, lo, hi)), prompt: Optional(policy.Prompt), localName: Optional(policy.LocalName), bind: Prompted(plain: static (getter, name, ref native) => getter.AddOptionInteger(name, ref native), prompted: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionInteger native, string label) => getter.AddOptionInteger(name, ref native, label)), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => int.TryParse(s: pair.Value, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out int parsed) ? CommandInputPolicy.Limit(lower: lower, upper: upper).Accept(value: parsed).Map(value => Scripted(key: name, value: Some((object)value), listIndex: Option<int>.None, optionType: CommandLineOptionType.Number, stringValue: Some(pair.Value))) : Option<CommandOptionValue>.None), varies: policy.Varies),
+                Ref(name: name, create: () => BoundedOption(initial: initial, lower: lower, upper: upper, unconstrained: static value => new OptionInteger(value), single: static (value, isLower, bound) => new OptionInteger(value, isLower, bound), bounded: static (value, lo, hi) => new OptionInteger(value, lo, hi)), prompt: Optional(policy.Prompt), localName: Optional(policy.LocalName), bind: Prompted(plain: static (getter, name, ref native) => getter.AddOptionInteger(name, ref native), prompted: static (GetBaseClass getter, global::Rhino.UI.LocalizeStringPair name, ref OptionInteger native, string label) => getter.AddOptionInteger(name, ref native, label)), current: static native => native.CurrentValue, script: token => ScriptPair(name: name, token: token).Bind(pair => new CommandToken(Raw: pair.Value).Integer().Bind(parsed => CommandInputPolicy.Limit(lower: lower, upper: upper).Accept(value: parsed).Map(value => Scripted(key: name, value: Some((object)value), listIndex: Option<int>.None, optionType: CommandLineOptionType.Number, stringValue: Some(pair.Value))))), varies: policy.Varies),
             _ => Invalid(name: name),
         };
     private static Case Text(string name, string initial, CommandOptionPolicy policy) =>
@@ -102,7 +102,7 @@ public abstract record CommandOption {
                  from nonEmpty in NonEmpty(values: items)
                  from _ in ValidIndex(index: current, count: nonEmpty.Count, error: Op.Of(name: nameof(CommandOption)).InvalidInput())
                  from pair in ScriptPair(name: name, token: token).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
-                 from index in toSeq(Enumerable.Range(start: 0, count: nonEmpty.Count)).Find(i => string.Equals(a: labels[i], b: pair.Value, comparisonType: StringComparison.Ordinal) || string.Equals(a: nonEmpty[i]?.ToString(), b: pair.Value, comparisonType: StringComparison.Ordinal)).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
+                 from index in new CommandToken(Raw: pair.Value).ListChoice(labels: labels, values: nonEmpty).ToFin(Fail: Op.Of(name: nameof(CommandOption)).InvalidInput())
                  select Scripted(key: name, value: Some((object)nonEmpty[index]!), listIndex: Some(index), optionType: CommandLineOptionType.List, stringValue: Some(pair.Value))).ToOption());
     private readonly record struct NativeOptionRow<TNative, TValue>(
         string Name,
@@ -157,14 +157,7 @@ public abstract record CommandOption {
             : Fin.Fail<Seq<CommandOption>>(error: op.InvalidInput());
     }
     internal static Option<Color> ColorValue(string text) =>
-        Optional(text)
-            .Map(static value => value.Trim())
-            .Bind(static value => value switch {
-                string hex when HexColor(text: hex).Case is Color color => Some(color),
-                string csv when CsvColor(text: csv).Case is Color color => Some(color),
-                string named when named.Length > 0 && char.IsLetter(c: named[0]) && Enum.TryParse(value: named, ignoreCase: true, result: out System.Drawing.KnownColor known) => Some(System.Drawing.Color.FromKnownColor(color: known)),
-                _ => Option<Color>.None,
-            });
+        new CommandToken(Raw: text).Color();
 
     private sealed record Case(string Name, Func<GetBaseClass, string, Fin<Bound>> AddToGetter, Func<string, Option<CommandOptionValue>>? ScriptToken = null) : CommandOption(name: Name) {
         internal override Fin<Bound> Add(GetBaseClass getter) =>
@@ -226,10 +219,7 @@ public abstract record CommandOption {
         };
 
     private static Fin<string> ValidValue(string value) =>
-        guard(
-                !string.IsNullOrWhiteSpace(value: value)
-                && value.All(static character => !char.IsControl(c: character) && !char.IsWhiteSpace(c: character) && character is not '=' and not ':'),
-                Op.Of(name: nameof(CommandOption)).InvalidInput())
+        guard(CommandLineOption.IsValidOptionValueName(value), Op.Of(name: nameof(CommandOption)).InvalidInput())
             .Bind(_ => Fin.Succ(value: value));
 
     private static CommandOptionValue Scripted(string key, Option<object> value, Option<int> listIndex, CommandLineOptionType optionType, Option<string> stringValue) =>
@@ -245,43 +235,13 @@ public abstract record CommandOption {
             stringValue: stringValue);
 
     private static Option<(string Key, string Value)> ScriptPair(string name, string token) =>
-        Optional(token)
-            .Map(static value => value.Trim())
-            .Bind(value => ((Equal: value.IndexOf(value: '=', comparisonType: StringComparison.Ordinal), Colon: value.IndexOf(value: ':', comparisonType: StringComparison.Ordinal)) switch {
-                (int equal and > 0, int colon and > 0) => equal < colon ? Some(equal) : Some(colon),
-                (int equal and > 0, _) => Some(equal),
-                (_, int colon and > 0) => Some(colon),
-                _ => Option<int>.None,
-            }).Bind(index => string.Equals(a: value[..index], b: name, comparisonType: StringComparison.OrdinalIgnoreCase) ? Some((Key: name, Value: value[(index + 1)..].Trim())) : Option<(string Key, string Value)>.None));
+        new CommandToken(Raw: token).Pair(name: name);
 
     private static Option<string> ScriptName(string name, string token) =>
-        Optional(token).Map(static value => value.Trim()).Bind(value => string.Equals(a: value, b: name, comparisonType: StringComparison.OrdinalIgnoreCase) ? Some(name) : Option<string>.None);
+        new CommandToken(Raw: token).Name(name: name);
 
     internal static Option<bool> BoolValue(string value, string off = "No", string on = "Yes") =>
-        value switch {
-            string text when string.Equals(a: text, b: on, comparisonType: StringComparison.OrdinalIgnoreCase) => Some(value: true),
-            string text when string.Equals(a: text, b: off, comparisonType: StringComparison.OrdinalIgnoreCase) => Some(value: false),
-            string text when string.Equals(a: text, b: "1", comparisonType: StringComparison.Ordinal) || string.Equals(a: text, b: "true", comparisonType: StringComparison.OrdinalIgnoreCase) || string.Equals(a: text, b: "yes", comparisonType: StringComparison.OrdinalIgnoreCase) || string.Equals(a: text, b: "on", comparisonType: StringComparison.OrdinalIgnoreCase) => Some(value: true),
-            string text when string.Equals(a: text, b: "0", comparisonType: StringComparison.Ordinal) || string.Equals(a: text, b: "false", comparisonType: StringComparison.OrdinalIgnoreCase) || string.Equals(a: text, b: "no", comparisonType: StringComparison.OrdinalIgnoreCase) || string.Equals(a: text, b: "off", comparisonType: StringComparison.OrdinalIgnoreCase) => Some(value: false),
-            _ => Option<bool>.None,
-        };
-
-    private static Option<Color> HexColor(string text) =>
-        Optional(text)
-            .Map(static value => value.Trim())
-            .Map(static value => value.StartsWith(value: "0x", comparisonType: StringComparison.OrdinalIgnoreCase) ? value[2..] : value.TrimStart(trimChar: '#'))
-            .Bind(static value => value switch {
-                string hex and { Length: 6 } when int.TryParse(s: hex, style: System.Globalization.NumberStyles.HexNumber, provider: System.Globalization.CultureInfo.InvariantCulture, result: out int rgb) => Some(System.Drawing.Color.FromArgb(red: (rgb >> 16) & 255, green: (rgb >> 8) & 255, blue: rgb & 255)),
-                string hex and { Length: 8 } when int.TryParse(s: hex, style: System.Globalization.NumberStyles.HexNumber, provider: System.Globalization.CultureInfo.InvariantCulture, result: out int argb) => Some(System.Drawing.Color.FromArgb(alpha: (argb >> 24) & 255, red: (argb >> 16) & 255, green: (argb >> 8) & 255, blue: argb & 255)),
-                _ => Option<Color>.None,
-            });
-
-    private static Option<Color> CsvColor(string text) =>
-        text.Split(separator: ',', options: StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) switch {
-            [string r, string g, string b] when byte.TryParse(s: r, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte red) && byte.TryParse(s: g, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte green) && byte.TryParse(s: b, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte blue) => Some(System.Drawing.Color.FromArgb(red: red, green: green, blue: blue)),
-            [string a, string r, string g, string b] when byte.TryParse(s: a, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte alpha) && byte.TryParse(s: r, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte red) && byte.TryParse(s: g, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte green) && byte.TryParse(s: b, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte blue) => Some(System.Drawing.Color.FromArgb(alpha: alpha, red: red, green: green, blue: blue)),
-            _ => Option<Color>.None,
-        };
+        new CommandToken(Raw: value).Bool(off: off, on: on);
 
     private static Fin<Bound> Added(GetBaseClass getter, int index, IDisposable? native, Func<GetBaseClass, Fin<CommandOptionValue>> snapshot, bool varies = false) {
         Bound bound = new(Index: index, Native: native, Capture: snapshot);
@@ -350,6 +310,77 @@ public abstract record CommandOption {
             GC.SuppressFinalize(obj: this);
         }
     }
+}
+
+public readonly record struct CommandToken(string Raw) {
+    public string Text => Optional(Raw).Map(static value => value.Trim()).IfNone(string.Empty);
+
+    public Option<(string Key, string Value)> Pair(string name) =>
+        Optional(Text)
+            .Filter(static value => value.Length > 0)
+            .Bind(value => Separator(value).Bind(index =>
+                string.Equals(a: value[..index], b: name, comparisonType: StringComparison.OrdinalIgnoreCase)
+                    ? Some((Key: name, Value: value[(index + 1)..].Trim()))
+                    : Option<(string Key, string Value)>.None));
+
+    public Option<string> Name(string name) =>
+        string.Equals(a: Text, b: name, comparisonType: StringComparison.OrdinalIgnoreCase) ? Some(name) : Option<string>.None;
+
+    public Option<bool> Bool(string off = "No", string on = "Yes") =>
+        Text switch {
+            string value when string.Equals(a: value, b: on, comparisonType: StringComparison.OrdinalIgnoreCase) => Some(value: true),
+            string value when string.Equals(a: value, b: off, comparisonType: StringComparison.OrdinalIgnoreCase) => Some(value: false),
+            string value when string.Equals(a: value, b: "1", comparisonType: StringComparison.Ordinal) || string.Equals(a: value, b: "true", comparisonType: StringComparison.OrdinalIgnoreCase) || string.Equals(a: value, b: "yes", comparisonType: StringComparison.OrdinalIgnoreCase) || string.Equals(a: value, b: "on", comparisonType: StringComparison.OrdinalIgnoreCase) => Some(value: true),
+            string value when string.Equals(a: value, b: "0", comparisonType: StringComparison.Ordinal) || string.Equals(a: value, b: "false", comparisonType: StringComparison.OrdinalIgnoreCase) || string.Equals(a: value, b: "no", comparisonType: StringComparison.OrdinalIgnoreCase) || string.Equals(a: value, b: "off", comparisonType: StringComparison.OrdinalIgnoreCase) => Some(value: false),
+            _ => Option<bool>.None,
+        };
+
+    public Option<Color> Color() =>
+        Text switch {
+            string hex when HexColor(text: hex).Case is Color color => Some(color),
+            string csv when CsvColor(text: csv).Case is Color color => Some(color),
+            string named when named.Length > 0 && char.IsLetter(c: named[0]) && Enum.TryParse(value: named, ignoreCase: true, result: out System.Drawing.KnownColor known) => Some(System.Drawing.Color.FromKnownColor(color: known)),
+            _ => Option<Color>.None,
+        };
+
+    public Option<double> Double() =>
+        double.TryParse(s: Text, style: System.Globalization.NumberStyles.Float, provider: System.Globalization.CultureInfo.InvariantCulture, result: out double value)
+            ? Some(value)
+            : Option<double>.None;
+
+    public Option<int> Integer() =>
+        int.TryParse(s: Text, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out int value)
+            ? Some(value)
+            : Option<int>.None;
+
+    public Option<int> ListChoice<T>(Seq<string> labels, Seq<T> values) =>
+        ((Func<string, Option<int>>)(text => toSeq(Enumerable.Range(start: 0, count: Math.Min(labels.Count, values.Count)))
+            .Find(index => string.Equals(a: labels[index], b: text, comparisonType: StringComparison.Ordinal)
+                || string.Equals(a: values[index]?.ToString(), b: text, comparisonType: StringComparison.Ordinal))))(Text);
+
+    private static Option<int> Separator(string value) =>
+        (Equal: value.IndexOf(value: '=', comparisonType: StringComparison.Ordinal), Colon: value.IndexOf(value: ':', comparisonType: StringComparison.Ordinal)) switch {
+            (int equal and > 0, int colon and > 0) => equal < colon ? Some(equal) : Some(colon),
+            (int equal and > 0, _) => Some(equal),
+            (_, int colon and > 0) => Some(colon),
+            _ => Option<int>.None,
+        };
+
+    private static Option<Color> HexColor(string text) =>
+        Optional(text)
+            .Map(static value => value.StartsWith(value: "0x", comparisonType: StringComparison.OrdinalIgnoreCase) ? value[2..] : value.TrimStart(trimChar: '#'))
+            .Bind(static value => value switch {
+                string hex and { Length: 6 } when int.TryParse(s: hex, style: System.Globalization.NumberStyles.HexNumber, provider: System.Globalization.CultureInfo.InvariantCulture, result: out int rgb) => Some(System.Drawing.Color.FromArgb(red: (rgb >> 16) & 255, green: (rgb >> 8) & 255, blue: rgb & 255)),
+                string hex and { Length: 8 } when int.TryParse(s: hex, style: System.Globalization.NumberStyles.HexNumber, provider: System.Globalization.CultureInfo.InvariantCulture, result: out int argb) => Some(System.Drawing.Color.FromArgb(alpha: (argb >> 24) & 255, red: (argb >> 16) & 255, green: (argb >> 8) & 255, blue: argb & 255)),
+                _ => Option<Color>.None,
+            });
+
+    private static Option<Color> CsvColor(string text) =>
+        text.Split(separator: ',', options: StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries) switch {
+            [string r, string g, string b] when byte.TryParse(s: r, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte red) && byte.TryParse(s: g, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte green) && byte.TryParse(s: b, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte blue) => Some(System.Drawing.Color.FromArgb(red: red, green: green, blue: blue)),
+            [string a, string r, string g, string b] when byte.TryParse(s: a, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte alpha) && byte.TryParse(s: r, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte red) && byte.TryParse(s: g, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte green) && byte.TryParse(s: b, style: System.Globalization.NumberStyles.Integer, provider: System.Globalization.CultureInfo.InvariantCulture, result: out byte blue) => Some(System.Drawing.Color.FromArgb(alpha: alpha, red: red, green: green, blue: blue)),
+            _ => Option<Color>.None,
+        };
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------

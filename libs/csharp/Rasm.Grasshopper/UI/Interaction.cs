@@ -208,6 +208,23 @@ public readonly record struct FloatingButtonInfo(string Name, string Info, Float
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct InteractionSnapshot(int InteractionCount, int ResponsiveCount, bool HasFocus, Option<string> FocusNomen);
 
+[SkipUnionOps]
+[Union]
+public partial record DecisionDelta {
+    private DecisionDelta() { }
+    public sealed record BoundsCase(RectangleF Value) : DecisionDelta;
+    public sealed record SizeCase(SizeF Value) : DecisionDelta;
+    public sealed record CursorCase(Cursor Value) : DecisionDelta;
+    public sealed record ResponseCase(Response Value) : DecisionDelta;
+    public static DecisionDelta Bounds(RectangleF value) => new BoundsCase(Value: value);
+    public static DecisionDelta Size(SizeF value) => new SizeCase(Value: value);
+    public static DecisionDelta Cursor(Cursor value) => new CursorCase(Value: value);
+    public static DecisionDelta Respond(Response value) => new ResponseCase(Value: value);
+}
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct ResizeSession(RectangleF Start, RectangleF Current, Option<SnappingSnapshot> Snap = default);
+
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct MouseHoverSnapshot(PointF ControlPoint, PointF ContentPoint);
 
@@ -302,7 +319,10 @@ internal static class Tooltip {
         GhUi.Canvas(run: scope => scope.NeedCanvas().Bind(_ => Resource(invoke: invoke)));
 
     private static Fin<Subscription> Resource(Action invoke) =>
-        Owner.Bind(key: 0, attach: invoke, detach: _ => GhTooltip.Hide());
+        Owner.Bind(key: 0, attach: invoke, detach: _key => {
+            _ = ShownLocation.Swap(static _ => Option<PointF>.None);
+            GhTooltip.Hide();
+        });
 
     private static void ShowNative(TooltipOp.ShowCase show) {
         _ = ShownLocation.Swap(static _ => Mouse.IsSupported ? Some(Mouse.Position) : Option<PointF>.None);
@@ -641,7 +661,7 @@ internal static class CanvasPropertyLease {
                 && !typed.Entries.IsEmpty
                 && typed.Entries.Last().Token == token
                 && EqualityComparer<T>.Default.Equals(x: typed.Entries.Last().Value, y: value))
-            .IfNone(false);
+            .IfNone(noneValue: false);
     }
 
     // BOUNDARY ADAPTER — token removal restores the top remaining value even when disposals are non-LIFO.

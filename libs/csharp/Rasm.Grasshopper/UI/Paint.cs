@@ -827,7 +827,7 @@ public readonly record struct DrawPlan(Seq<DrawMark> Marks, Option<CanvasPaintPh
         Option<CanvasPaintPhase> phase = Phase;
         Option<RectangleF> bounds = Bounds;
         Seq<DrawMark> marks = Marks;
-        return phase.Map(phase => phase != scope.Phase).IfNone(false)
+        return phase.Map(phase => phase != scope.Phase).IfNone(noneValue: false)
             ? Fin.Succ(unit)
             : scope.WhenVisible(
                 bounds: bounds.IfNone(RectangleF.Empty),

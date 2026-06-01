@@ -67,6 +67,15 @@ public readonly partial struct LayoutGap {
             : UiFault.Create(op: Op.Of(name: nameof(LayoutGap)), message: string.Create(CultureInfo.InvariantCulture, $"must be finite and >= 0 (got {value:R})."));
 }
 
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct CleanupPolicy(LayoutAxis Axis, LayoutGap Gap, LayoutGapPolicy GapPolicy, float Separation = 12f) {
+    public static CleanupPolicy Default => new(
+        Axis: LayoutAxis.Horizontal,
+        Gap: LayoutGap.Create(value: 24f),
+        GapPolicy: LayoutGapPolicy.Fixed,
+        Separation: 12f);
+}
+
 [SkipUnionOps]
 [Union]
 public partial record LayoutArrangement {
@@ -77,6 +86,8 @@ public partial record LayoutArrangement {
     public sealed record DistributeCase(LayoutAxis Axis, LayoutGap Gap, Seq<Guid> Ids, LayoutGapPolicy GapPolicy) : LayoutArrangement;
     public sealed record GridCase(int Rows, int Cols, LayoutGap Gap, Seq<Guid> Ids, LayoutGapPolicy GapPolicy) : LayoutArrangement;
     public sealed record FlowCase(LayoutAxis Axis, LayoutGap Gap, Seq<Guid> Ids, LayoutGapPolicy GapPolicy) : LayoutArrangement;
+    public sealed record TopologyCase(LayoutAxis Axis, LayoutGap Gap, Seq<Guid> Ids, LayoutGapPolicy GapPolicy) : LayoutArrangement;
+    public sealed record CleanupCase(Seq<Guid> Ids, CleanupPolicy Policy) : LayoutArrangement;
     public sealed record NudgeCase(Seq<Guid> Ids, float Separation, SnappingPolicy Policy = default) : LayoutArrangement;
 
     /// <summary>Align every target to the anchor's edge via <c>OCD.AlignObjects</c>.</summary>
@@ -99,6 +110,12 @@ public partial record LayoutArrangement {
     /// WireGraph-read → Layout-write loop by laying out a dataflow chain along the axis in dependency order.</summary>
     public static LayoutArrangement Flow(LayoutAxis axis, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy? gapPolicy = null) =>
         new FlowCase(Axis: axis, Gap: gap, Ids: ids, GapPolicy: gapPolicy ?? LayoutGapPolicy.Stretch);
+
+    public static LayoutArrangement Topology(LayoutAxis axis, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy? gapPolicy = null) =>
+        new TopologyCase(Axis: axis, Gap: gap, Ids: ids, GapPolicy: gapPolicy ?? LayoutGapPolicy.Fixed);
+
+    public static LayoutArrangement Cleanup(Seq<Guid> ids, CleanupPolicy policy = default) =>
+        new CleanupCase(Ids: ids, Policy: policy == default ? CleanupPolicy.Default : policy);
 
     /// <summary>De-overlap ids via fixed-iteration pairwise repulsion until each pair clears <paramref name="separation"/>.</summary>
     public static LayoutArrangement Nudge(Seq<Guid> ids, float separation, SnappingPolicy policy = default) =>
@@ -179,7 +196,7 @@ public readonly record struct SnappingPolicy(bool IncludeSelected = true, bool I
     internal bool UseAggregateWireBounds =>
         Settings.Choose(static s => s is SnapSetting.WireBoundsCase wire ? Some(wire.Aggregate) : Option<bool>.None)
             .Head
-            .IfNone(true);
+            .IfNone(noneValue: true);
 
     // First lattice setting's native snap space, if any — drives the GH2 SnapSpace.Snap grid path.
     internal Option<SnapSpace> Lattice =>
@@ -194,12 +211,17 @@ public partial record SnapProbe {
     public sealed record RectangleCase(Guid ObjectId, RectangleF Bounds, SnappingPolicy Policy = default) : SnapProbe;
     public sealed record ObjectCase(Guid ObjectId, SnappingPolicy Policy = default) : SnapProbe;
     public sealed record GroupCase(Seq<Guid> ObjectIds, SnappingPolicy Policy = default) : SnapProbe;
+    public sealed record DragCase(Seq<Guid> ObjectIds, RectangleF Bounds, SnappingPolicy Policy = default) : SnapProbe;
+
+    public static SnapProbe Drag(Seq<Guid> objectIds, RectangleF bounds, SnappingPolicy policy = default) =>
+        new DragCase(ObjectIds: objectIds, Bounds: bounds, Policy: policy);
 
     internal Option<SnapGuideStyle> FeedbackStyle => Switch(
         pointCase: static p => p.Policy.FeedbackStyle,
         rectangleCase: static r => r.Policy.FeedbackStyle,
         objectCase: static o => o.Policy.FeedbackStyle,
-        groupCase: static g => g.Policy.FeedbackStyle);
+        groupCase: static g => g.Policy.FeedbackStyle,
+        dragCase: static d => d.Policy.FeedbackStyle);
 }
 
 [GenerateUnionOps]
@@ -269,6 +291,14 @@ internal static partial class Layout {
                 gap: flow.Gap,
                 gapPolicy: flow.GapPolicy,
                 ids: [.. flow.Ids]),
+            topologyCase: static topology => Flow(
+                axis: topology.Axis,
+                gap: topology.Gap,
+                gapPolicy: topology.GapPolicy,
+                ids: [.. topology.Ids]),
+            cleanupCase: static cleanup => Nudge(
+                separation: cleanup.Policy.Separation,
+                ids: [.. cleanup.Ids]),
             nudgeCase: static nudge => Nudge(
                 separation: nudge.Separation,
                 ids: [.. nudge.Ids]));
@@ -476,6 +506,15 @@ internal static partial class Layout {
                     from snapped in members.IsEmpty
                         ? Fin.Fail<Option<SnappingSnapshot>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "group snap requires at least one resolvable member"))
                         : Fin.Succ(value: SnapGroup(document: document, members: members, policy: g.Policy, visibleLimit: canvas.VisibleFrame, grid: g.Policy.Grid(canvas: canvas)))
+                    select snapped,
+                dragCase: static (s, drag) =>
+                    from document in s.NeedDocument()
+                    from canvas in s.NeedCanvas()
+                    from frame in Op.Of(name: nameof(SnapProbe.Drag)).AcceptRect(value: drag.Bounds, detail: "invalid drag bounds", requirePositive: true)
+                    from members in drag.ObjectIds.TraverseM(id => UiRail.ResolveObject(objects: document.Objects, id: id, op: Op.Of(name: nameof(Snap)))).As()
+                    from snapped in members.IsEmpty
+                        ? Fin.Fail<Option<SnappingSnapshot>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(SnapProbe.Drag)), detail: "drag snap requires at least one member"))
+                        : Fin.Succ(value: SnapCore(document: document, obj: members[0], policy: drag.Policy, visibleLimit: canvas.VisibleFrame, bounds: Some(frame), grid: drag.Policy.Grid(canvas: canvas)))
                     select snapped)
             from _ in EmitSnapGuide(scope: scope, probe: valid, snapshot: snapshot)
             select snapshot);
@@ -490,7 +529,7 @@ internal static partial class Layout {
 
     private static Fin<Unit> EmitSnapGuide(GrasshopperUi.Scope scope, SnapProbe probe, Option<SnappingSnapshot> snapshot) =>
         probe.FeedbackStyle is { IsSome: true, Case: SnapGuideStyle style } && snapshot is { IsSome: true, Case: SnappingSnapshot snap }
-            ? scope.NeedCanvas().Map(static canvas => IsNativeSnapFeedbackActive(canvas: canvas)).IfFail(false)
+            ? scope.NeedCanvas().Map(static canvas => IsNativeSnapFeedbackActive(canvas: canvas)).IfFail(_ => false)
                 ? Fin.Succ(value: unit)
                 : Fin.Succ(value: Motion.Cosmetic(intent: new CosmeticIntent.SnapGuideCase(Snapshot: snap, Style: style)).Run(scope: scope).Ignore())
             : Fin.Succ(value: unit);
@@ -577,10 +616,10 @@ internal static partial class Layout {
         (SnappingAction x, SnappingAction y) = bounds
             .Map(SnapRectangle)
             .IfNone(SnapObject);
-        (SnappingAction gridX, SnappingAction gridY) = policy.Lattice
+        (SnappingAction? gridX, SnappingAction? gridY) = policy.Lattice
             .Map(space => SnapLattice(target: wireBounds, space: space, radius: policy.Native.EdgeRadius))
-            .IfNone(() => grid.Map(g => SnapGrid(target: wireBounds, cell: g.Cell, origin: g.Origin, radius: policy.Native.EdgeRadius)).IfNone((null!, null!)));
-        SnappingAction wireY = bounds.IsSome && snapWires
+            .IfNone(() => grid.Map(g => SnapGrid(target: wireBounds, cell: g.Cell, origin: g.Origin, radius: policy.Native.EdgeRadius)).IfNone((X: default, Y: default)));
+        SnappingAction? wireY = bounds.IsSome && snapWires
             ? SnappingAction.SmallerMagnitude(a: y, b: SnappingConstraints.SnapWires(target: obj, boundsOverride: wireBounds, settings: policy.Native))
             : y;
         return UiRail.SnapChannels(
@@ -600,23 +639,23 @@ internal static partial class Layout {
     // GH2 native lattice snap: SnapSpace.Snap projects the rectangle centre to the nearest lattice node within
     // the cutoff radius and emits per-axis deltas; the orthogonal SnapGrid fallback handles the non-lattice path.
     // BOUNDARY ADAPTER -- SnapSpace.Snap is a void out-param API (double in/out + string description).
-    private static (SnappingAction X, SnappingAction Y) SnapLattice(RectangleF target, SnapSpace space, int radius) {
+    private static (SnappingAction? X, SnappingAction? Y) SnapLattice(RectangleF target, SnapSpace space, int radius) {
         space.Snap(target.Center.X, target.Center.Y, radius, out double lineX, out double lineY, out string description);
         float deltaX = (float)lineX - target.Center.X;
         float deltaY = (float)lineY - target.Center.Y;
-        SnappingAction snapX = float.IsFinite(deltaX) && MathF.Abs(x: deltaX) <= radius
+        SnappingAction? snapX = float.IsFinite(deltaX) && MathF.Abs(x: deltaX) <= radius
             ? new SnappingAction(dx: deltaX, dy: 0f, text: description, point: new PointF(x: (float)lineX, y: target.Top - radius), anchor: TextAnchor.LowerMiddle, lines: [new LineF((float)lineX, target.Top - radius, (float)lineX, target.Bottom + radius)])
-            : null!;
-        SnappingAction snapY = float.IsFinite(deltaY) && MathF.Abs(x: deltaY) <= radius
+            : default;
+        SnappingAction? snapY = float.IsFinite(deltaY) && MathF.Abs(x: deltaY) <= radius
             ? new SnappingAction(dx: 0f, dy: deltaY, text: description, point: new PointF(x: target.Left - radius, y: (float)lineY), anchor: TextAnchor.CentreRight, lines: [new LineF(target.Left - radius, (float)lineY, target.Right + radius, (float)lineY)])
-            : null!;
+            : default;
         return (snapX, snapY);
     }
 
-    private static (SnappingAction X, SnappingAction Y) SnapGrid(RectangleF target, SizeF cell, PointF origin, int radius) {
+    private static (SnappingAction? X, SnappingAction? Y) SnapGrid(RectangleF target, SizeF cell, PointF origin, int radius) {
         (float Delta, float Line, string Label) x = GridAxis(value: target.Center.X, origin: origin.X, cell: cell.Width, radius: radius);
         (float Delta, float Line, string Label) y = GridAxis(value: target.Center.Y, origin: origin.Y, cell: cell.Height, radius: radius);
-        SnappingAction snapX = float.IsFinite(x.Delta)
+        SnappingAction? snapX = float.IsFinite(x.Delta)
             ? new SnappingAction(
                 dx: x.Delta,
                 dy: 0f,
@@ -624,8 +663,8 @@ internal static partial class Layout {
                 point: new PointF(x: x.Line, y: target.Top - radius),
                 anchor: TextAnchor.LowerMiddle,
                 lines: [new LineF(x.Line, target.Top - radius, x.Line, target.Bottom + radius)])
-            : null!;
-        SnappingAction snapY = float.IsFinite(y.Delta)
+            : default;
+        SnappingAction? snapY = float.IsFinite(y.Delta)
             ? new SnappingAction(
                 dx: 0f,
                 dy: y.Delta,
@@ -633,7 +672,7 @@ internal static partial class Layout {
                 point: new PointF(x: target.Left - radius, y: y.Line),
                 anchor: TextAnchor.CentreRight,
                 lines: [new LineF(target.Left - radius, y.Line, target.Right + radius, y.Line)])
-            : null!;
+            : default;
         return (snapX, snapY);
     }
 
@@ -641,7 +680,7 @@ internal static partial class Layout {
         float line = origin + (MathF.Round((value - origin) / cell, MidpointRounding.AwayFromZero) * cell);
         float delta = line - value;
         return MathF.Abs(x: delta) <= radius
-            ? (Delta: delta, Line: line, Label: string.Create(CultureInfo.InvariantCulture, $"grid {cell:0.###}"))
+            ? (Delta: delta, Line: line, Label: $"grid {cell:0.###}")
             : (Delta: float.NaN, Line: line, Label: string.Empty);
     }
 
@@ -660,7 +699,7 @@ internal static partial class Layout {
             ? op.Attempt(body: () => { align(); return unit; }, what: "OCD.AlignObjects")
             : Fin.Fail<Unit>(error: UiFault.MutationRejected(
                 op: op,
-                detail: string.Create(CultureInfo.InvariantCulture, $"OCD.AlignObjects unsupported pair ({a.GetType().Name}, {b.GetType().Name})")));
+                detail: $"OCD.AlignObjects unsupported pair ({a.GetType().Name}, {b.GetType().Name})"));
     }
 
     private static Fin<Seq<(Guid Id, float Dx, float Dy)>> ComputeDistribution(

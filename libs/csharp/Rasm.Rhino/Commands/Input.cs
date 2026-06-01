@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Runtime.InteropServices;
 using Rasm.Rhino.Events;
 using Color = System.Drawing.Color;
@@ -36,35 +35,6 @@ public enum CommandPointEventPhase {
     Preview = DynamicDraw | PostDrawObjects,
     Input = MouseMove | MouseDown,
     All = MouseMove | MouseDown | DynamicDraw | PostDrawObjects,
-}
-
-[Union]
-public abstract partial record PointOnGeometry {
-    private PointOnGeometry() { }
-    public sealed record OnCurve(Curve Curve, double T) : PointOnGeometry;
-    public sealed record OnSurface(Surface Surface, double U, double V) : PointOnGeometry;
-    public sealed record OnBrep(BrepFace Face, double U, double V) : PointOnGeometry;
-
-    public Point3d Location =>
-        Switch(
-            onCurve: static value => value.Curve.PointAt(t: value.T),
-            onSurface: static value => value.Surface.PointAt(u: value.U, v: value.V),
-            onBrep: static value => value.Face.PointAt(u: value.U, v: value.V));
-
-    internal static Option<PointOnGeometry> Of(Option<ObjRef> reference) =>
-        reference.Bind(active => {
-            double t = double.NaN, u = double.NaN, v = double.NaN;
-            bool picked = active.SelectionMethod() == SelectionMethod.MousePick;
-            Curve? curve = picked ? active.CurveParameter(parameter: out t) : null;
-            Surface? surface = picked ? active.SurfaceParameter(u: out u, v: out v) : null;
-            BrepFace? face = picked ? active.Face() : null;
-            return (curve, surface, face) switch {
-                (Curve c, _, _) when RhinoMath.IsValidDouble(x: t) => Some<PointOnGeometry>(new OnCurve(Curve: c, T: t)),
-                (_, _, BrepFace f) when RhinoMath.IsValidDouble(x: u) && RhinoMath.IsValidDouble(x: v) => Some<PointOnGeometry>(new OnBrep(Face: f, U: u, V: v)),
-                (_, Surface s, _) when RhinoMath.IsValidDouble(x: u) && RhinoMath.IsValidDouble(x: v) => Some<PointOnGeometry>(new OnSurface(Surface: s, U: u, V: v)),
-                _ => Option<PointOnGeometry>.None,
-            };
-        });
 }
 
 internal enum CommandInputEventKind { Value, Option, Undo, Nothing, Rejected, NoResult, Miss, Timeout, Cancel, Exit }
@@ -391,6 +361,10 @@ public sealed record CommandInputRequest<T> {
         rebind(arg: policies);
 }
 
+public readonly record struct CommandInputCodec<T>(
+    Func<Type, bool> Accepts,
+    Func<CommandInputPolicy, Seq<CommandInputPolicy>, CommandInputRequest<T>> Create);
+
 public sealed record CommandObjectSelection(
     int Minimum = 1,
     int Maximum = 1,
@@ -462,7 +436,7 @@ public readonly record struct CommandPoint(
     Option<(RhinoViewport Viewport, Plane Plane)> PlanarConstraint,
     Seq<Point3d> SnapPoints,
     Seq<Point3d> ConstructionPoints,
-    Option<PointOnGeometry> OnGeometry) {
+    Option<PickHit> Hit) {
     internal static CommandPoint Of(GetPoint getter, GetResult raw) {
         RhinoViewport? viewport = getter.View()?.ActiveViewport;
         Option<(RhinoViewport Viewport, Plane Plane)> constraint = viewport switch {
@@ -470,7 +444,7 @@ public readonly record struct CommandPoint(
             _ => Option<(RhinoViewport Viewport, Plane Plane)>.None,
         };
         using ObjRef? reference = getter.PointOnObject();
-        return new(Point: raw is GetResult.Point ? Some(getter.Point()) : Option<Point3d>.None, WindowPoint: raw is GetResult.Point or GetResult.Point2d ? Some(getter.Point2d()) : Option<DrawingPoint>.None, View: Optional(getter.View()), Reference: CommandSelection.Reference.Of(reference: Optional(reference)), NumberPreview: getter.NumberPreview(number: out double number) ? Some(number) : Option<double>.None, Osnap: getter.OsnapEventType, BasePoint: getter.TryGetBasePoint(out Point3d basePoint) ? Some(basePoint) : Option<Point3d>.None, PlanarConstraint: constraint, SnapPoints: toSeq(getter.GetSnapPoints()), ConstructionPoints: toSeq(getter.GetConstructionPoints()), OnGeometry: PointOnGeometry.Of(reference: Optional(reference)));
+        return new(Point: raw is GetResult.Point ? Some(getter.Point()) : Option<Point3d>.None, WindowPoint: raw is GetResult.Point or GetResult.Point2d ? Some(getter.Point2d()) : Option<DrawingPoint>.None, View: Optional(getter.View()), Reference: CommandSelection.Reference.Of(reference: Optional(reference)), NumberPreview: getter.NumberPreview(number: out double number) ? Some(number) : Option<double>.None, Osnap: getter.OsnapEventType, BasePoint: getter.TryGetBasePoint(out Point3d basePoint) ? Some(basePoint) : Option<Point3d>.None, PlanarConstraint: constraint, SnapPoints: toSeq(getter.GetSnapPoints()), ConstructionPoints: toSeq(getter.GetConstructionPoints()), Hit: PickHit.Of(reference: Optional(reference)));
     }
 }
 
@@ -661,69 +635,65 @@ public static class CommandInputs {
             scripted: request.Script);
     }
 
-    private readonly record struct Codec<T>(
-        Func<Type, bool> Accepts,
-        Func<CommandInputPolicy, Seq<CommandInputPolicy>, CommandInputRequest<T>> Create);
-
     private static CommandInputRequest<T> Request<T>(CommandInputPolicy policy, Seq<CommandInputPolicy> policies) =>
         Codecs<T>()
             .Find(codec => codec.Accepts(arg: typeof(T)))
             .Map(codec => codec.Create(arg1: policy, arg2: policies))
             .IfNone(Invalid<T>(name: nameof(Get)));
 
-    private static Seq<Codec<T>> Codecs<T>() => Seq(
-        new Codec<T>(
+    private static Seq<CommandInputCodec<T>> Codecs<T>() => Seq(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(CommandSelection),
             Create: static (policy, policies) => Objects<T>(policy: policy, policies: policies)),
-        new Codec<T>(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(CommandOptionValue),
             Create: static (policy, _) => Getter(policy: policy, create: static () => new GetOption(), receive: static getter => getter.Get(), project: static (_, _, _) => (Value: Option<T>.None, Trim: Option<CommandSelection.TrimResult>.None))),
-        new Codec<T>(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(CommandPoint) || type == typeof(Point3d) || type == typeof(DrawingPoint),
             Create: static (policy, _) => Point<T>(policy: policy)),
-        new Codec<T>(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(Transform),
             Create: static (policy, _) => Transform<T>(policy: policy)),
-        new Codec<T>(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(double),
             Create: static (policy, _) => Scalar<T>(policy: policy)),
-        new Codec<T>(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(string),
             Create: static (policy, _) => Text<T>(policy: policy)),
-        new Codec<T>(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(int),
             Create: static (policy, _) => Number<GetInteger, int, T>(policy: policy, create: static () => new GetInteger(), receive: static getter => getter.Get(), current: static getter => getter.Number(), setLower: static (getter, value, strict) => getter.SetLowerLimit(value, strict), setUpper: static (getter, value, strict) => getter.SetUpperLimit(value, strict))),
-        new Codec<T>(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(bool),
             Create: static (policy, _) => Native(run: () => Bool<T>(prompt: policy.PromptText.IfNone(string.Empty), acceptNothing: policy.AcceptsNothing))),
-        new Codec<T>(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(Line),
             Create: static (_, _) => Native<T, Line>(get: static (out value) => RhinoGet.GetLine(line: out value))),
-        new Codec<T>(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(Polyline),
             Create: static (_, _) => Native<T, Polyline>(get: static (out value) => RhinoGet.GetPolyline(polyline: out value))),
-        new Codec<T>(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(Circle),
             Create: static (_, _) => Native<T, Circle>(get: static (out value) => RhinoGet.GetCircle(circle: out value))),
-        new Codec<T>(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(Arc),
             Create: static (_, _) => Native<T, Arc>(get: static (out value) => RhinoGet.GetArc(arc: out value))),
-        new Codec<T>(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(Plane),
             Create: static (_, _) => Native<T, Plane>(get: static (out value) => RhinoGet.GetPlane(plane: out value))),
-        new Codec<T>(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(Seq<Point3d>),
             Create: static (policy, _) => Native(run: () => Rectangle<T>(prompt: policy.PromptText.IfNone(string.Empty)))),
-        new Codec<T>(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(Box),
             Create: static (policy, _) => Native(run: () => Box<T>(spec: policy.BoxMode.IfNone(new CommandInputPolicy.BoxSpec(Mode: GetBoxMode.All, BasePoint: null, Prompt1: null, Prompt2: null, Prompt3: null))))),
-        new Codec<T>(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(Color),
             Create: static (policy, _) => Native(run: () => Color<T>(prompt: policy.PromptText.IfNone(string.Empty), acceptNothing: policy.AcceptsNothing, seed: policy.ColorSeed))),
-        new Codec<T>(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(RhinoView),
             Create: static (policy, _) => Native(run: () => View<T>(prompt: policy.PromptText.IfNone(string.Empty)))),
-        new Codec<T>(
+        new CommandInputCodec<T>(
             Accepts: static type => type == typeof(RhinoViewport[]),
             Create: static (policy, _) => Native(run: () => Viewports<T>(prompt: policy.PromptText.IfNone(string.Empty)))));
 
@@ -912,10 +882,10 @@ public static class CommandInputs {
     private static Option<T> ScriptValue<T>(CommandInput input, string text, CommandInputPolicy policy) =>
         typeof(T) switch {
             Type t when t == typeof(string) => Cast<T>(text),
-            Type t when t == typeof(bool) => CommandOption.BoolValue(value: text).Bind(value => Cast<T>(value)),
-            Type t when t == typeof(Color) => CommandOption.ColorValue(text: text).Bind(value => Cast<T>(value)),
+            Type t when t == typeof(bool) => new CommandToken(Raw: text).Bool().Bind(value => Cast<T>(value)),
+            Type t when t == typeof(Color) => new CommandToken(Raw: text).Color().Bind(value => Cast<T>(value)),
             Type t when t == typeof(double) => Parse<T>(input: input, text: text, scalar: policy.ScalarMode, bounds: policy.LimitsMode).Bind(Cast<T>),
-            Type t when t == typeof(int) => int.TryParse(s: text, style: NumberStyles.Integer, provider: CultureInfo.InvariantCulture, result: out int value) ? policy.LimitsMode.Case switch { CommandInputPolicy.LimitSpec spec => spec.Accept(value: value).Bind(valid => Cast<T>(valid)), _ => Cast<T>(value) } : Option<T>.None,
+            Type t when t == typeof(int) => new CommandToken(Raw: text).Integer().Bind(value => policy.LimitsMode.Case switch { CommandInputPolicy.LimitSpec spec => spec.Accept(value: value).Bind(valid => Cast<T>(valid)), _ => Cast<T>(value) }),
             Type t when t == typeof(CommandSelection) => ScriptSelection<T>(input: input, text: text, policy: policy),
             Type t when t == typeof(CommandOptionValue) => Option<T>.None,
             _ => Option<T>.None,
@@ -977,14 +947,14 @@ public static class CommandInputs {
 
     private static Option<TOut> Cast<TOut>(object value) => value is TOut typed ? Some(typed) : Option<TOut>.None;
 
-    private static Option<double> ParseNumber(string text) { StringParserSettings results = null!; return StringParser.ParseNumber(expression: text, max_count: text.Length, settings_in: StringParserSettings.DefaultParseSettings, settings_out: ref results, answer: out double value) == text.Length ? Some(value) : Option<double>.None; }
+    private static Option<double> ParseNumber(string text) { StringParserSettings results = StringParserSettings.DefaultParseSettings; return StringParser.ParseNumber(expression: text, max_count: text.Length, settings_in: StringParserSettings.DefaultParseSettings, settings_out: ref results, answer: out double value) == text.Length ? Some(value) : Option<double>.None; }
 
     private static Option<double> ParseLength(string text, UnitSystem units) {
         using LengthValue value = LengthValue.Create(s: text, ps: StringParserSettings.DefaultParseSettings, parsedAll: out bool parsedAll);
         return parsedAll && !value.IsUnset() ? Some(value.Length(units: units)) : Option<double>.None;
     }
 
-    private static Option<double> ParseAngle(string text, AngleUnitSystem units) { StringParserSettings results = null!; AngleUnitSystem parsed = AngleUnitSystem.None; return StringParser.ParseAngleExpession(text, 0, text.Length, StringParserSettings.DefaultParseSettings, units, out double value, ref results, ref parsed) == text.Length ? Some(value) : Option<double>.None; }
+    private static Option<double> ParseAngle(string text, AngleUnitSystem units) { StringParserSettings results = StringParserSettings.DefaultParseSettings; AngleUnitSystem parsed = AngleUnitSystem.None; return StringParser.ParseAngleExpession(expression: text, start_offset: 0, expression_length: text.Length, parse_settings_in: StringParserSettings.DefaultParseSettings, output_angle_unit_system: units, value_out: out double value, parse_results: ref results, parsed_unit_system: ref parsed) == text.Length ? Some(value) : Option<double>.None; }
 
     private static Option<double> Within(double value, Option<CommandInputPolicy.LimitSpec> bounds) =>
         bounds.Case switch {

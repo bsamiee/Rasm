@@ -55,8 +55,8 @@ public sealed partial class MassProperty {
 public sealed partial class MassKind {
     public static readonly MassKind None = new(key: 0, label: nameof(None), requirement: Requirement.None, compute: static (_, _, _, _, _, _) => Fin.Fail<IDisposable>(new Fault.ComputationFailed(nameof(None))), aggregate: static (_, _, _, _, _, _, _) => Fin.Fail<IDisposable>(new Fault.ComputationFailed(nameof(None))));
     public static readonly MassKind Length = new(key: 1, label: nameof(Length), requirement: Requirement.CurveLength, compute: LengthOf, aggregate: LengthAggregate);
-    public static readonly MassKind Area = new(key: 2, label: nameof(Area), requirement: Requirement.AreaMass, compute: AreaOf, aggregate: static (self, geom, ctx, firstMoments, secondMoments, productMoments, op) => SumAggregate<AreaMassProperties>(geom, ctx, self, firstMoments, secondMoments, productMoments, op, static (t, s) => t.Sum(s, true)));
-    public static readonly MassKind Volume = new(key: 3, label: nameof(Volume), requirement: Requirement.VolumeMass, compute: VolumeOf, aggregate: static (self, geom, ctx, firstMoments, secondMoments, productMoments, op) => SumAggregate<VolumeMassProperties>(geom, ctx, self, firstMoments, secondMoments, productMoments, op, static (t, s) => t.Sum(s, true)));
+    public static readonly MassKind Area = new(key: 2, label: nameof(Area), requirement: Requirement.AreaMass, compute: AreaOf, aggregate: static (self, geom, ctx, firstMoments, secondMoments, productMoments, op) => SumAggregate<AreaMassProperties>(geometry: geom, context: ctx, mass: self, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, op: op, sum: static (t, s) => t.Sum(summands: s, bAddTo: true)));
+    public static readonly MassKind Volume = new(key: 3, label: nameof(Volume), requirement: Requirement.VolumeMass, compute: VolumeOf, aggregate: static (self, geom, ctx, firstMoments, secondMoments, productMoments, op) => SumAggregate<VolumeMassProperties>(geometry: geom, context: ctx, mass: self, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, op: op, sum: static (t, s) => t.Sum(summands: s, bAddTo: true)));
     private readonly Func<object, Context, bool, bool, bool, Op, Fin<IDisposable>> compute;
     private readonly Func<MassKind, IEnumerable<object>, Context, bool, bool, bool, Op, Fin<IDisposable>> aggregate;
     public string Label { get; }
@@ -115,7 +115,7 @@ public sealed partial class MassKind {
     private static Fin<IDisposable> LengthAggregate(MassKind self, IEnumerable<object> geometry, Context context, bool firstMoments, bool secondMoments, bool productMoments, Op op) =>
         toSeq(geometry) switch {
             Seq<object> items when items.ForAll(static item => item is Curve) => Done(LengthMassProperties.Compute(curves: items.AsIterable().Cast<Curve>(), length: true, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments)),
-            Seq<object> items => SumAggregate<LengthMassProperties>(items.AsIterable(), context, self, firstMoments, secondMoments, productMoments, op, static (t, s) => t.Sum(s, true)),
+            Seq<object> items => SumAggregate<LengthMassProperties>(geometry: items.AsIterable(), context: context, mass: self, firstMoments: firstMoments, secondMoments: secondMoments, productMoments: productMoments, op: op, sum: static (t, s) => t.Sum(summands: s, bAddTo: true)),
         };
     private static Fin<IDisposable> SumAggregate<TMass>(IEnumerable<object> geometry, Context context, MassKind mass, bool firstMoments, bool secondMoments, bool productMoments, Op op, Func<TMass, IEnumerable<TMass>, bool> sum) where TMass : class, IDisposable =>
         toSeq(geometry).Fold(Fin.Succ(Seq<IDisposable>()), (state, item) => state.Bind(owned =>
@@ -258,6 +258,6 @@ public static partial class Analyze {
             _ => Fin.Fail<Point3d>(op.Unsupported(g.GetType(), typeof(Point3d))),
         });
     private static Fin<Point3d> MassCentroidOf(object geometry, bool isSolid, Context context, Op op) =>
-        (isSolid ? MassKind.Volume : MassKind.Area).Compute(geometry, context, true, false, false, op)
+        (isSolid ? MassKind.Volume : MassKind.Area).Compute(geometry: geometry, context: context, firstMoments: true, secondMoments: false, productMoments: false, op: op)
             .Bind(d => new Lease<IDisposable>.Owned(Value: d).Use(owned => owned switch { LengthMassProperties l => Fin.Succ(l.Centroid), AreaMassProperties a => Fin.Succ(a.Centroid), VolumeMassProperties v => Fin.Succ(v.Centroid), _ => Fin.Fail<Point3d>(op.InvalidResult()) }));
 }

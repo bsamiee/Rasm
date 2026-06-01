@@ -26,9 +26,9 @@ Scenario.Run("blocks-placement-reference", CAPTURE_PATH, (key, facts) => {
             geometry: brep,
             attributes: new ObjectAttributes()) >= 0,
         "static block add");
-    BlockOp staticPlace = new BlockOp.Place(
+    BlockOp staticPlace = new BlockOp.Instance(new BlockInstanceTask.Place(
         Ref: DefinitionRef.Of(name: staticName),
-        At: Seq(Placement.Of(xform: Transform.Identity, reference: true)));
+        At: Seq(Placement.Of(xform: Transform.Identity, reference: true))));
     Probe.ExpectRejected(result: blocks.Run(op: staticPlace, key: key), label: "static reference place");
     facts.Add("staticReferenceRejected", true);
     string tempDir = Path.Combine(path1: Path.GetTempPath(), path2: $"RasmLink{Guid.NewGuid():N}");
@@ -54,9 +54,9 @@ Scenario.Run("blocks-placement-reference", CAPTURE_PATH, (key, facts) => {
     }
     FileEndpoint source = Probe.Expect(FileEndpoint.From(path: childFullPath), "child endpoint");
     facts.Add("child.path", childFullPath);
-    BlockOp linkOp = new BlockOp.CreateArchiveLinks(
+    BlockOp linkOp = new BlockOp.Linked(new LinkLifecycle.Create(
         Sources: Seq(source),
-        Policy: new LinkCreatePolicy(Update: UpdatePolicy.Linked, Layer: LayerStyle.Reference));
+        Policy: new LinkCreatePolicy(Update: UpdatePolicy.Linked, Layer: LayerStyle.Reference)));
     BlockOutcome linkOutcome = Probe.Expect(blocks.Run(op: linkOp, key: key), "create archive links");
     BlockOutcome.Receipt linkReceipt = linkOutcome is BlockOutcome.Receipt created
         ? created
@@ -80,9 +80,9 @@ Scenario.Run("blocks-placement-reference", CAPTURE_PATH, (key, facts) => {
     Probe.Require(linked.UpdateType == InstanceDefinitionUpdateType.Linked, "linked update");
     Probe.Require(linked.LayerStyle == InstanceDefinitionLayerStyle.Reference, "linked layer style");
     DefinitionName linkedDefName = Probe.Expect(DefinitionName.From(value: linked.Name ?? string.Empty, key: key), "linked name");
-    BlockOp linkedPlace = new BlockOp.Place(
+    BlockOp linkedPlace = new BlockOp.Instance(new BlockInstanceTask.Place(
         Ref: DefinitionRef.Of(name: linkedDefName),
-        At: Seq(Placement.Of(xform: Transform.Identity, reference: true)));
+        At: Seq(Placement.Of(xform: Transform.Identity, reference: true))));
     BlockOutcome linkedOutcome = Probe.Expect(blocks.Run(op: linkedPlace, key: key), "linked reference place");
     BlockOutcome.Receipt linkedReceipt = linkedOutcome is BlockOutcome.Receipt receipt
         ? receipt

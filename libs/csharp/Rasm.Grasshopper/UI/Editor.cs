@@ -74,7 +74,7 @@ internal static partial class Editor {
 
     private static Fin<EditorResult> ApplyShell(GhEditor current, EditorOp.ShellCase shell) {
         Option<GhCanvas> canvas = Optional(current.Canvas);
-        bool requiresHistory = shell.ShowUndoHistory.IfNone(false);
+        bool requiresHistory = shell.ShowUndoHistory.IfNone(noneValue: false);
         return (requiresHistory, canvas.IsSome) switch {
             (true, false) => Fin.Fail<EditorResult>(error: UiFault.GhEditor(op: Op.Of(name: nameof(EditorOp.Shell)), detail: "ShowUndoHistory requires an active canvas")),
             _ => Fin.Succ<EditorResult>(ShellResultOf(current: current, shell: shell, canvas: canvas)),
@@ -98,7 +98,7 @@ internal static partial class Editor {
             Payload: new EditorShellSnapshot(
                 Collapsed: current.Collapsed,
                 ShowNotes: current.ShowNotes,
-                ShowUndoHistory: canvas.Map(static c => c.ShowUndoHistory).IfNone(false),
+                ShowUndoHistory: canvas.Map(static c => c.ShowUndoHistory).IfNone(noneValue: false),
                 InitialLayout: initial,
                 DefinedLayouts: defined)));
     }

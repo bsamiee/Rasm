@@ -107,7 +107,7 @@ public readonly record struct StreamlineTrace(Seq<Point3d> Trail, StreamlineStop
         && AcceptedSteps >= 0 && RejectedSteps >= 0 && AcceptedSteps == Trail.Count - 1 && Trail.ForAll(static point => point.IsValid)
         && RhinoMath.IsValidDouble(x: ArcLength) && RhinoMath.IsValidDouble(x: FinalStep) && RhinoMath.IsValidDouble(x: MinStep)
         && RhinoMath.IsValidDouble(x: MaxStep) && RhinoMath.IsValidDouble(x: MaxError) && ArcLength >= 0.0 && MinStep >= 0.0 && MaxStep >= MinStep
-        && !LastError.Map(static error => !RhinoMath.IsValidDouble(x: error) || error < 0.0).IfNone(false)
+        && !LastError.Map(static error => !RhinoMath.IsValidDouble(x: error) || error < 0.0).IfNone(noneValue: false)
         && (Event is not { IsSome: true, Case: TraceEvent @event } || @event.IsValidFor(terminationPoint: TerminationPoint))
         && TerminationPoint.IsValid;
 }

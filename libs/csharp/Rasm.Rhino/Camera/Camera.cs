@@ -49,7 +49,7 @@ public readonly record struct CameraOutcome<T>(
         Create(value: value, redraw: redraw, resources: toSeq([change]));
 }
 
-public readonly record struct CameraScopeReceipt<T>(
+public readonly record struct CameraScopeResult<T>(
     CameraScope Scope,
     Option<T> Value,
     Option<Error> Failure,
@@ -57,15 +57,15 @@ public readonly record struct CameraScopeReceipt<T>(
     Seq<Commands.DocumentResourceChange> Resources) {
     public bool Succeeded => Failure.IsNone;
 
-    internal static CameraScopeReceipt<T> FromOutcome(CameraScope scope, Fin<CameraOutcome<T>> result) =>
+    internal static CameraScopeResult<T> FromOutcome(CameraScope scope, Fin<CameraOutcome<T>> result) =>
         result.Match(
-            Succ: value => new CameraScopeReceipt<T>(
+            Succ: value => new CameraScopeResult<T>(
                 Scope: scope,
                 Value: Some(value: value.Value),
                 Failure: Option<Error>.None,
                 Redraw: value.Redraw,
                 Resources: value.Resources),
-            Fail: error => new CameraScopeReceipt<T>(
+            Fail: error => new CameraScopeResult<T>(
                 Scope: scope,
                 Value: Option<T>.None,
                 Failure: Some(value: error),
@@ -79,16 +79,16 @@ public readonly record struct CameraSyncPolicy(
     public static CameraSyncPolicy Independent { get; } = new(StopOnFirstFailure: true, MergeRedraw: false);
     public static CameraSyncPolicy Rig { get; } = new(StopOnFirstFailure: false, MergeRedraw: true);
 
-    public CameraOutcome<Seq<CameraScopeReceipt<T>>> FoldReceipts<T>(Seq<CameraScopeReceipt<T>> receipts) {
-        Seq<CameraScopeReceipt<T>> succeeded = receipts.Filter(static receipt => receipt.Succeeded);
-        return CameraOutcome<Seq<CameraScopeReceipt<T>>>.Create(
+    public CameraOutcome<Seq<CameraScopeResult<T>>> FoldReceipts<T>(Seq<CameraScopeResult<T>> receipts) {
+        Seq<CameraScopeResult<T>> succeeded = receipts.Filter(static receipt => receipt.Succeeded);
+        return CameraOutcome<Seq<CameraScopeResult<T>>>.Create(
             value: receipts,
             redraw: MergeRedraw
                 ? receipts.Fold(RedrawRequest.Empty, static (left, right) => left | right.Redraw)
                 : succeeded.IsEmpty
                     ? RedrawRequest.Empty
                     : succeeded.Last().Redraw,
-            resources: receipts.Fold(Seq<Commands.DocumentResourceChange>(), static (left, right) => left + right.Resources));
+            resources: receipts.Bind(static receipt => receipt.Resources));
     }
 }
 
@@ -148,7 +148,7 @@ public sealed class RhinoCamera {
     public Fin<T> RunValue<T>(CameraOp<T> operation, ViewportTarget target) =>
         Run(operation: operation, target: target).Map(outcome => outcome.Value);
 
-    public Fin<CameraOutcome<Seq<CameraScopeReceipt<T>>>> Broadcast<T>(
+    public Fin<CameraOutcome<Seq<CameraScopeResult<T>>>> Broadcast<T>(
         CameraOp<T> operation,
         ViewportTarget target,
         CameraSyncPolicy policy) =>
@@ -171,7 +171,7 @@ public sealed class RhinoCamera {
         from outcome in ExecuteRunOnScope(operation: operation, scope: scope)
         select outcome;
 
-    private static Fin<CameraOutcome<Seq<CameraScopeReceipt<T>>>> ExecuteBroadcast<T>(
+    private static Fin<CameraOutcome<Seq<CameraScopeResult<T>>>> ExecuteBroadcast<T>(
         CameraOp<T> operation,
         Seq<CameraScope> scopes,
         CameraSyncPolicy policy) =>
@@ -179,18 +179,18 @@ public sealed class RhinoCamera {
             true =>
                 from receipts in scopes.TraverseM(scope =>
                         ExecuteRunOnScope(operation: operation, scope: scope)
-                            .Map(outcome => CameraScopeReceipt<T>.FromOutcome(scope: scope, result: Fin.Succ(value: outcome))))
+                            .Map(outcome => CameraScopeResult<T>.FromOutcome(scope: scope, result: Fin.Succ(value: outcome))))
                     .As()
                 select policy.FoldReceipts(receipts: receipts),
             false =>
                 from receipts in scopes
-                    .Traverse(scope => Fin.Succ(value: CameraScopeReceipt<T>.FromOutcome(
+                    .Traverse(scope => Fin.Succ(value: CameraScopeResult<T>.FromOutcome(
                         scope: scope,
                         result: ExecuteRunOnScope(operation: operation, scope: scope))))
                     .As()
                 from folded in receipts.Exists(static receipt => receipt.Succeeded)
                     ? Fin.Succ(value: policy.FoldReceipts(receipts: receipts))
-                    : Fin.Fail<CameraOutcome<Seq<CameraScopeReceipt<T>>>>(
+                    : Fin.Fail<CameraOutcome<Seq<CameraScopeResult<T>>>>(
                         error: receipts.Find(static receipt => receipt.Failure.IsSome)
                             .Bind(static receipt => receipt.Failure)
                             .IfNone(() => BroadcastKey.InvalidResult()))

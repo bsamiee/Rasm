@@ -342,7 +342,7 @@ public readonly record struct FileOverride<T>(Option<T> Value = default, bool In
             _ => current,
         };
 
-    private bool IsActive => Inherit || Value.IsSome;
+    internal bool IsActive => Inherit || Value.IsSome;
 }
 
 public sealed record FileProfile {
@@ -525,7 +525,7 @@ public readonly record struct FileVectorScale(
             .Set(Units, static u => u.Eps, static (o, v) => o.EpsUnits = v);
 
     private bool HasExplicit => Source.IsSome || Rhino.IsSome || Units.IsSome;
-    private Option<bool> PreserveMode => Preserve | (HasExplicit ? Some(false) : Option<bool>.None);
+    private Option<bool> PreserveMode => Preserve | (HasExplicit ? Some(value: false) : Option<bool>.None);
 }
 
 public readonly record struct FileWritePolicy(

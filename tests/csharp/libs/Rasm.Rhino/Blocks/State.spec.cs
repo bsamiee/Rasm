@@ -219,7 +219,7 @@ public sealed class BlockHealthAndSubscriptionLaws {
 
     [Fact]
     public void SubscriptionPolicyConjoinsFiltersAndKeepsIdleDeferralSticky() {
-        BlockSubscriptionPolicy namedOnly = new(Filter: Some<Func<BlockTableEvent, bool>>(e => e.New.Map(static d => string.Equals(a: d.Name.Value, b: "Linked", comparisonType: StringComparison.Ordinal)).IfNone(false)), DeferToIdle: false);
+        BlockSubscriptionPolicy namedOnly = new(Filter: Some<Func<BlockTableEvent, bool>>(e => e.New.Map(static d => string.Equals(a: d.Name.Value, b: "Linked", comparisonType: StringComparison.Ordinal)).IfNone(noneValue: false)), DeferToIdle: false);
         BlockSubscriptionPolicy combined = BlockSubscriptionPolicy.MutationsOnly | namedOnly;
         BlockTableEvent sorted = new(Kind: InstanceDefinitionTableEventType.Sorted, Index: 0, New: Option<Definition>.None, Old: Option<Definition>.None);
         BlockTableEvent added = new(Kind: InstanceDefinitionTableEventType.Added, Index: 0, New: Some(DefinitionOf(live: BlockStateCases.SampleLive(update: UpdatePolicy.Linked, layer: LayerStyle.Reference))), Old: Option<Definition>.None);
@@ -235,21 +235,21 @@ public sealed class BlockRailLaws {
     public void UnifiedOperationRailCarriesMutationAndQueryOutcomes() {
         DefinitionName name = DefinitionName.Create(value: "UnitBlock");
         DefinitionRef refer = DefinitionRef.Of(name);
-        BlockOp place = new BlockOp.Place(
+        BlockOp place = new BlockOp.Instance(new BlockInstanceTask.Place(
             Ref: refer,
             At: Seq(Placement.Of(xform: Transform.Identity)),
-            Policy: BatchPolicy.Default);
+            Policy: BatchPolicy.Default));
         BlockOp graph = new BlockOp.Graph(Query: new GraphQuery.Members(Ref: refer));
-        BlockOp bounds = new BlockOp.Bounds(Ref: refer, Policy: BoundsPolicy.Default);
-        BlockOp matrix = new BlockOp.AttributeMatrix(
+        BlockOp bounds = new BlockOp.Instance(new BlockInstanceTask.Bounds(Ref: refer, Policy: BoundsPolicy.Default));
+        BlockOp matrix = new BlockOp.Attributes(new BlockAttributeTask.Matrix(
             Refs: Some(Seq(refer)),
-            Scope: ReferenceScope.TopAndNested);
+            Scope: ReferenceScope.TopAndNested));
         BlockOp validate = new BlockOp.ValidateArchiveClosure(
             Source: FileEndpoint.From(path: "parent.3dm").IfFail(error => throw new InvalidOperationException(message: error.Message)));
-        BlockOp writeAttributes = new BlockOp.WriteAttributeFields(
+        BlockOp writeAttributes = new BlockOp.Attributes(new BlockAttributeTask.Write(
             Ref: refer,
             Values: HashMap<string, string>().AddOrUpdate(key: "Mark", value: "A"),
-            Policy: ConstraintPolicy.Schema);
+            Policy: ConstraintPolicy.Schema));
         BlockOutcome closure = new BlockOutcome.ClosureReport(Value: new ArchiveClosureReport(
             Valid: true,
             Edges: Seq<Archive.LinkedArchiveEdge>(),
@@ -267,15 +267,15 @@ public sealed class BlockRailLaws {
             DefaultValue: "A");
         BlockOutcome attributes = new BlockOutcome.AttributeMatrix(Values: Seq(cell));
 
-        BlockOp.Place placed = Assert.IsType<BlockOp.Place>(@object: place);
+        BlockInstanceTask.Place placed = Assert.IsType<BlockInstanceTask.Place>(@object: Assert.IsType<BlockOp.Instance>(@object: place).Task);
         Assert.Equal(expected: refer, actual: placed.Ref);
         _ = Assert.Single(collection: placed.At);
         Assert.Equal(expected: BatchPolicy.Default, actual: placed.Policy);
         Assert.Equal(expected: refer, actual: Assert.IsType<GraphQuery.Members>(@object: Assert.IsType<BlockOp.Graph>(@object: graph).Query).Ref);
-        Assert.Equal(expected: BoundsPolicy.Default, actual: Assert.IsType<BlockOp.Bounds>(@object: bounds).Policy);
-        Assert.Equal(expected: ReferenceScope.TopAndNested, actual: Assert.IsType<BlockOp.AttributeMatrix>(@object: matrix).Scope);
+        Assert.Equal(expected: BoundsPolicy.Default, actual: Assert.IsType<BlockInstanceTask.Bounds>(@object: Assert.IsType<BlockOp.Instance>(@object: bounds).Task).Policy);
+        Assert.Equal(expected: ReferenceScope.TopAndNested, actual: Assert.IsType<BlockAttributeTask.Matrix>(@object: Assert.IsType<BlockOp.Attributes>(@object: matrix).Task).Scope);
         Assert.Equal(expected: "parent.3dm", actual: Path.GetFileName(path: Assert.IsType<FileEndpoint>(@object: Assert.IsType<BlockOp.ValidateArchiveClosure>(@object: validate).Source).Path));
-        Assert.Equal(expected: "A", actual: Assert.IsType<BlockOp.WriteAttributeFields>(@object: writeAttributes).Values.Find("Mark").IfNone(string.Empty));
+        Assert.Equal(expected: "A", actual: Assert.IsType<BlockAttributeTask.Write>(@object: Assert.IsType<BlockOp.Attributes>(@object: writeAttributes).Task).Values.Find("Mark").IfNone(string.Empty));
         Assert.True(condition: Assert.IsType<BlockOutcome.ClosureReport>(@object: closure).Value.Valid);
         Assert.Equal(expected: name.Value, actual: Assert.IsType<BlockOutcome.Receipt>(@object: receipt).Value.Document.ResourceChanged[0].Name);
         Assert.Equal(expected: BoundingBox.Empty, actual: Assert.IsType<BlockOutcome.Bounds>(@object: boundsOutcome).Value);
@@ -298,7 +298,7 @@ public sealed class BlockRailLaws {
         _ = Assert.IsType<BlockSubscriptionPolicy>(@object: BlockSubscriptionPolicy.MutationsOnly);
         _ = Assert.IsType<Members.FromConstruction>(@object: new Members.FromConstruction(Geometry: Seq<GeometryBase>(), Attributes: Seq<ObjectAttributes>()));
         _ = Assert.IsType<BlockOutcome.ReachInserts>(@object: new BlockOutcome.ReachInserts(Values: Seq<ReachInsert>()));
-        _ = Assert.IsType<BlockOp.TransformInstance>(@object: new BlockOp.TransformInstance(InstanceId: Guid.Empty, Xform: Transform.Identity));
+        _ = Assert.IsType<BlockInstanceTask.Transform>(@object: Assert.IsType<BlockOp.Instance>(@object: new BlockOp.Instance(new BlockInstanceTask.Transform(InstanceId: Guid.Empty, Xform: Transform.Identity))).Task);
         _ = Assert.IsType<BlockOutcome.TableStats>(@object: new BlockOutcome.TableStats(Count: 1, ActiveCount: 1));
         _ = Assert.IsType<BlockOutcome.Plan>(@object: new BlockOutcome.Plan(Order: Seq<DefinitionId>()));
         _ = Assert.IsType<BlockFilter>(@object: BlockFilter.All);
