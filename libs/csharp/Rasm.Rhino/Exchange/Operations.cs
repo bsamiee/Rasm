@@ -14,10 +14,7 @@ public abstract partial record FileExchange {
     public sealed record Import(FileEndpoint Source, FileProfile Profile) : FileExchange;
     public sealed record Export(FileEndpoint Target, Option<DocumentTarget> Objects, FileProfile Profile) : FileExchange;
     public sealed record Save : FileExchange;
-    public sealed record SaveAs(FileEndpoint Target, FileProfile Profile) : FileExchange;
-    public sealed record WriteFile(FileEndpoint Target, FileProfile Profile) : FileExchange;
-    public sealed record Write3dmFile(FileEndpoint Target, FileProfile Profile) : FileExchange;
-    public sealed record SaveTemplate(FileEndpoint Target, FileProfile Profile) : FileExchange;
+    public sealed record Write(FilePhase Phase, FileEndpoint Target, FileProfile Profile) : FileExchange;
     public sealed record Publish(FilePublish Spec) : FileExchange;
     public sealed record NativeTable(FileNativeTable Change) : FileExchange;
     public sealed record ArchiveRead(FileArchiveSource Source, ArchiveProfile Profile) : FileExchange;
@@ -37,10 +34,8 @@ public abstract partial record FileNativeTable {
     public sealed record DeleteLayerState(string Name) : FileNativeTable;
     public sealed record ImportLayerState(FileEndpoint Source) : FileNativeTable;
     public sealed record SavePosition(string Name, DocumentTarget Objects) : FileNativeTable;
-    public sealed record RestorePosition(string Name) : FileNativeTable;
-    public sealed record UpdatePosition(string Name) : FileNativeTable;
+    public sealed record Position(string Name, FileNativePositionKind Kind) : FileNativeTable;
     public sealed record RenamePosition(string Name, string Next) : FileNativeTable;
-    public sealed record DeletePosition(string Name) : FileNativeTable;
     public sealed record AppendPosition(string Name, DocumentTarget Objects) : FileNativeTable;
 
     internal FilePhase Phase => this is SaveLayerState or RestoreLayerState or RenameLayerState or DeleteLayerState or ImportLayerState ? FilePhase.NamedLayerState : FilePhase.NamedPosition;
@@ -74,23 +69,15 @@ public abstract partial record FileNativeTable {
                 from ids in change.Objects.Ids(document: state.Document, op: state.Op)
                 from _ in state.Document.NamedPositions.Save(name: name, objectIds: ids.AsIterable()) switch { Guid id when id != Guid.Empty => Fin.Succ(value: unit), _ => Fin.Fail<Unit>(error: state.Op.InvalidResult()) }
                 select Changed(kind: DocumentResourceKind.NamedPosition, name: name),
-            restorePosition: static (state, change) =>
+            position: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
-                from _ in state.Op.Confirm(success: state.Document.NamedPositions.Restore(name: name))
-                select Changed(kind: DocumentResourceKind.NamedPosition, name: name),
-            updatePosition: static (state, change) =>
-                from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
-                from _ in state.Op.Confirm(success: state.Document.NamedPositions.Update(name: name))
+                from _ in state.Op.Confirm(success: change.Kind.Apply(table: state.Document.NamedPositions, name: name))
                 select Changed(kind: DocumentResourceKind.NamedPosition, name: name),
             renamePosition: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
                 from next in FileEndpoint.NonBlank(value: change.Next, op: state.Op)
                 from _ in state.Op.Confirm(success: state.Document.NamedPositions.Rename(oldName: name, name: next))
                 select Changed(kind: DocumentResourceKind.NamedPosition, name: next),
-            deletePosition: static (state, change) =>
-                from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
-                from _ in state.Op.Confirm(success: state.Document.NamedPositions.Delete(name: name))
-                select Changed(kind: DocumentResourceKind.NamedPosition, name: name),
             appendPosition: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
                 from ids in change.Objects.Ids(document: state.Document, op: state.Op)
@@ -98,6 +85,16 @@ public abstract partial record FileNativeTable {
                 select Changed(kind: DocumentResourceKind.NamedPosition, name: name));
 
     private static DocumentResourceChange Changed(DocumentResourceKind kind, string name) => new(Kind: kind, Name: name);
+}
+
+[SmartEnum<int>]
+public sealed partial class FileNativePositionKind {
+    public static readonly FileNativePositionKind Restore = new(key: 0, apply: static (table, name) => table.Restore(name: name));
+    public static readonly FileNativePositionKind Update = new(key: 1, apply: static (table, name) => table.Update(name: name));
+    public static readonly FileNativePositionKind Delete = new(key: 2, apply: static (table, name) => table.Delete(name: name));
+
+    [UseDelegateFromConstructor]
+    internal partial bool Apply(NamedPositionTable table, string name);
 }
 
 [Union]
@@ -223,10 +220,7 @@ public static class FileOp {
                 import: static (runtime, import) => ImportCore(runtime: runtime, source: import.Source, profile: import.Profile),
                 export: static (runtime, export) => WriteCore(runtime: runtime, target: Some(export.Target), objects: export.Objects, profile: export.Profile, phase: FilePhase.Export),
                 save: static (runtime, _) => WriteCore(runtime: runtime, target: Option<FileEndpoint>.None, profile: FileProfile.Model, phase: FilePhase.Save),
-                saveAs: static (runtime, saveAs) => WriteCore(runtime: runtime, target: Some(saveAs.Target), profile: saveAs.Profile, phase: FilePhase.SaveAs),
-                writeFile: static (runtime, write) => WriteCore(runtime: runtime, target: Some(write.Target), profile: write.Profile, phase: FilePhase.WriteFile),
-                write3dmFile: static (runtime, write) => WriteCore(runtime: runtime, target: Some(write.Target), profile: write.Profile, phase: FilePhase.Write3dmFile),
-                saveTemplate: static (runtime, template) => WriteCore(runtime: runtime, target: Some(template.Target), profile: template.Profile, phase: FilePhase.SaveTemplate),
+                write: static (runtime, write) => WriteCore(runtime: runtime, target: Some(write.Target), profile: write.Profile, phase: write.Phase),
                 publish: static (runtime, publish) => PublishCore(runtime: runtime, publish: publish.Spec),
                 nativeTable: static (runtime, state) => Commit(runtime: runtime, phase: state.Change.Phase, name: nameof(FileExchange.NativeTable), change: state.Change, apply: static (document, change, op) => change.Apply(document: document, op: op).Map(static changed => DocumentReceipt.Resources(changes: Seq(changed)))),
                 archiveRead: static (_, archive) => FileArchiveOps.Read(source: archive.Source, profile: archive.Profile),

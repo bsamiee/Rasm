@@ -95,23 +95,22 @@ public partial record CanvasViewOp {
     private CanvasViewOp() { }
     public sealed record BoundsCase(RectangleF Region, CanvasViewPolicy Policy) : CanvasViewOp;
     public sealed record SelectionCase(Option<Seq<Guid>> Ids, CanvasViewPolicy Policy) : CanvasViewOp;
-    public sealed record FitContentCase(CanvasViewPolicy Policy) : CanvasViewOp;
-    public sealed record FitSelectionCase(CanvasViewPolicy Policy) : CanvasViewOp;
-    public sealed record FitViewportCase(CanvasViewPolicy Policy) : CanvasViewOp;
+    public sealed record FitCase(CanvasFitTarget Target, CanvasViewPolicy Policy) : CanvasViewOp;
     public sealed record ProjectionCase(PointF Centre, float Zoom) : CanvasViewOp;
     public sealed record PositionCase(CanvasPosition Where, CanvasViewPolicy Policy) : CanvasViewOp;
     public sealed record ZoomAroundCase(PointF ControlPoint, float Factor, CanvasViewPolicy Policy) : CanvasViewOp;
 
     public static CanvasViewOp Bounds(RectangleF bounds, CanvasViewPolicy policy = default) => new BoundsCase(Region: bounds, Policy: policy);
     public static CanvasViewOp Selection(Seq<Guid>? ids = null, CanvasViewPolicy policy = default) => new SelectionCase(Ids: Optional(ids), Policy: policy);
-    public static CanvasViewOp Fit(CanvasViewPolicy policy = default) => new FitContentCase(Policy: policy);
-    public static CanvasViewOp FitSelection(CanvasViewPolicy policy = default) => new FitSelectionCase(Policy: policy);
-    public static CanvasViewOp FitViewport(CanvasViewPolicy policy = default) => new FitViewportCase(Policy: policy);
+    public static CanvasViewOp Fit(CanvasViewPolicy policy = default) => new FitCase(Target: CanvasFitTarget.Content, Policy: policy);
+    public static CanvasViewOp FitSelection(CanvasViewPolicy policy = default) => new FitCase(Target: CanvasFitTarget.Selection, Policy: policy);
+    public static CanvasViewOp FitViewport(CanvasViewPolicy policy = default) => new FitCase(Target: CanvasFitTarget.Viewport, Policy: policy);
     public static CanvasViewOp Projection(PointF centre, float zoom) => new ProjectionCase(Centre: centre, Zoom: zoom);
-    // Snap-to-edge / preset positioning via library CanvasPosition (Top/Bottom/Left/Right/Centre/Fit/HundredPercent/TopLeft/...).
     public static CanvasViewOp Position(CanvasPosition where, CanvasViewPolicy policy = default) => new PositionCase(Where: where, Policy: policy);
     public static CanvasViewOp ZoomAround(PointF controlPoint, float factor, CanvasViewPolicy policy = default) => new ZoomAroundCase(ControlPoint: controlPoint, Factor: factor, Policy: policy);
 }
+
+public enum CanvasFitTarget { Content, Selection, Viewport }
 
 [GenerateUnionOps]
 [Union]
@@ -682,28 +681,29 @@ internal static partial class UiRail {
                                 requirePositive: true)
                                 .Map(valid => RectangleF.Inflate(rectangle: valid, width: padding, height: padding))));
                     }),
-            fitContentCase: static (scope, ft) =>
-                NavigateView(
-                    scope: scope,
-                    rawPolicy: ft.Policy,
-                    defaultPadding: CanvasViewPolicy.DefaultPadding,
-                    op: Op.Of(name: nameof(CanvasViewOp.Fit)),
-                    frame: static target => Fin.Succ(target.Canvas.ContentBounds)),
-            fitSelectionCase: static (scope, ft) =>
-                NavigateView(
-                    scope: scope,
-                    rawPolicy: ft.Policy,
-                    defaultPadding: CanvasViewPolicy.SelectionFitPadding,
-                    op: Op.Of(name: nameof(CanvasViewOp.FitSelection)),
-                    frame: static target => FrameOf(targets: target.Objects.SelectedObjects)
-                        .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasViewOp.FitSelection)), detail: "no selected objects to fit"))),
-            fitViewportCase: static (scope, ft) =>
-                NavigateView(
-                    scope: scope,
-                    rawPolicy: ft.Policy,
-                    defaultPadding: CanvasViewPolicy.DefaultPadding,
-                    op: Op.Of(name: nameof(CanvasViewOp.FitViewport)),
-                    frame: static target => Fin.Succ(ContentViewport(target: target))),
+            fitCase: static (scope, ft) =>
+                ft.Target switch {
+                    CanvasFitTarget.Content => NavigateView(
+                        scope: scope,
+                        rawPolicy: ft.Policy,
+                        defaultPadding: CanvasViewPolicy.DefaultPadding,
+                        op: Op.Of(name: nameof(CanvasViewOp.Fit)),
+                        frame: static target => Fin.Succ(target.Canvas.ContentBounds)),
+                    CanvasFitTarget.Selection => NavigateView(
+                        scope: scope,
+                        rawPolicy: ft.Policy,
+                        defaultPadding: CanvasViewPolicy.SelectionFitPadding,
+                        op: Op.Of(name: nameof(CanvasViewOp.FitSelection)),
+                        frame: static target => FrameOf(targets: target.Objects.SelectedObjects)
+                            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasViewOp.FitSelection)), detail: "no selected objects to fit"))),
+                    CanvasFitTarget.Viewport => NavigateView(
+                        scope: scope,
+                        rawPolicy: ft.Policy,
+                        defaultPadding: CanvasViewPolicy.DefaultPadding,
+                        op: Op.Of(name: nameof(CanvasViewOp.FitViewport)),
+                        frame: static target => Fin.Succ(ContentViewport(target: target))),
+                    _ => Fin.Fail<CanvasResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasViewOp.Fit)), detail: "unsupported fit target")),
+                },
             positionCase: static (scope, pos) =>
                 from target in NeedViewTarget(scope)
                 from _ in NavigatePosition(target: target, position: pos.Where, policy: pos.Policy)

@@ -476,36 +476,33 @@ public readonly record struct CommandPointConstraint {
             .Bind(valid => valid(arg: getter) ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Op.Of(name: nameof(CommandPointConstraint)).InvalidInput())));
 }
 
+[Union]
+public abstract partial record CommandPointPayload {
+    private CommandPointPayload() { }
+    public sealed record Mouse(GetPointMouseEventArgs Value) : CommandPointPayload;
+    public sealed record Draw(GetPointDrawEventArgs Value) : CommandPointPayload;
+    public sealed record PostDraw(DrawEventArgs Value) : CommandPointPayload;
+    public Option<Point3d> Point => Switch(mouse: static args => Some(args.Value.Point), draw: static args => Some(args.Value.CurrentPoint), postDraw: static _ => Option<Point3d>.None);
+    public Option<DrawingPoint> WindowPoint => Switch(mouse: static args => Some(args.Value.WindowPoint), draw: static _ => Option<DrawingPoint>.None, postDraw: static _ => Option<DrawingPoint>.None);
+    public Option<RhinoViewport> Viewport => Switch(mouse: static args => Some(args.Value.Viewport), draw: static args => Some(args.Value.Viewport), postDraw: static args => Some(args.Value.Viewport));
+    public Option<DisplayPipeline> Display => Switch(mouse: static _ => Option<DisplayPipeline>.None, draw: static args => Some(args.Value.Display), postDraw: static args => Some(args.Value.Display));
+    public Option<PointerState> Pointer => Switch(mouse: static args => Some(new PointerState(Buttons: (args.Value.LeftButtonDown ? PointerButtons.Left : PointerButtons.None) | (args.Value.RightButtonDown ? PointerButtons.Right : PointerButtons.None) | (args.Value.MiddleButtonDown ? PointerButtons.Middle : PointerButtons.None), Modifiers: (args.Value.ShiftKeyDown ? PointerModifiers.Shift : PointerModifiers.None) | (args.Value.ControlKeyDown ? PointerModifiers.Control : PointerModifiers.None))), draw: static _ => Option<PointerState>.None, postDraw: static _ => Option<PointerState>.None);
+}
+
 public readonly record struct CommandPointEvent(
     CommandPointEventPhase Phase,
     RhinoDoc Document,
     GetPoint Getter,
-    Option<GetPointMouseEventArgs> Mouse,
-    Option<GetPointDrawEventArgs> Draw,
-    Option<DrawEventArgs> PostDraw,
+    CommandPointPayload Payload,
     Option<UiGumball> Gumball) {
-    public Option<Point3d> Point =>
-        Mouse.Map(static args => args.Point) | Draw.Map(static args => args.CurrentPoint);
-
-    public Option<DrawingPoint> WindowPoint =>
-        Mouse.Map(static args => args.WindowPoint);
-
-    public Option<RhinoViewport> Viewport =>
-        Mouse.Map(static args => args.Viewport) | Draw.Map(static args => args.Viewport) | PostDraw.Map(static args => args.Viewport);
-
-    public Option<DisplayPipeline> Display =>
-        Draw.Map(static args => args.Display) | PostDraw.Map(static args => args.Display);
+    public Option<Point3d> Point => Payload.Point;
+    public Option<DrawingPoint> WindowPoint => Payload.WindowPoint;
+    public Option<RhinoViewport> Viewport => Payload.Viewport;
+    public Option<DisplayPipeline> Display => Payload.Display;
+    public Option<PointerState> Pointer => Payload.Pointer;
 
     public Option<UiGumballSnapshot> GumballSnapshot =>
         Gumball.Map(static value => value.Snapshot);
-
-    public Option<PointerState> Pointer =>
-        Mouse.Map(static args => new PointerState(
-            Buttons: (args.LeftButtonDown ? PointerButtons.Left : PointerButtons.None)
-                   | (args.RightButtonDown ? PointerButtons.Right : PointerButtons.None)
-                   | (args.MiddleButtonDown ? PointerButtons.Middle : PointerButtons.None),
-            Modifiers: (args.ShiftKeyDown ? PointerModifiers.Shift : PointerModifiers.None)
-                     | (args.ControlKeyDown ? PointerModifiers.Control : PointerModifiers.None)));
 
     public Fin<bool> PickGumball(PickContext pick) {
         Option<UiGumball> gumball = Gumball;
@@ -798,20 +795,19 @@ public static class CommandInputs {
                     _ = getter.InterruptMouseMove();
                     return unit;
                 });
-            Subscription Sub<TArgs>(Action<EventHandler<TArgs>> add, Action<EventHandler<TArgs>> remove, CommandPointEventPhase phase, Func<TArgs, (Option<GetPointMouseEventArgs> Mouse, Option<GetPointDrawEventArgs> Draw, Option<DrawEventArgs> Post)> project) =>
+            Subscription Sub<TArgs>(Action<EventHandler<TArgs>> add, Action<EventHandler<TArgs>> remove, CommandPointEventPhase phase, Func<TArgs, CommandPointPayload> project) =>
                 Subscription.Attach<TArgs>(active: (activePhases & phase) == phase, subscribe: add, unsubscribe: remove, handle: args => {
-                    (Option<GetPointMouseEventArgs> mouse, Option<GetPointDrawEventArgs> draw, Option<DrawEventArgs> post) = project(arg: args);
-                    _ = Apply(pointEvent: new CommandPointEvent(Phase: phase, Document: document, Getter: getter, Mouse: mouse, Draw: draw, PostDraw: post, Gumball: gumball));
+                    _ = Apply(pointEvent: new CommandPointEvent(Phase: phase, Document: document, Getter: getter, Payload: project(arg: args), Gumball: gumball));
                     return Fin.Succ(value: unit);
                 });
             bool postDraw = (activePhases & CommandPointEventPhase.PostDrawObjects) == CommandPointEventPhase.PostDrawObjects;
             getter.FullFrameRedrawDuringGet = postDraw;
             return Fin.Succ(value:
-                Sub<GetPointMouseEventArgs>(h => getter.MouseMove += h, h => getter.MouseMove -= h, CommandPointEventPhase.MouseMove, static a => (Some(a), Option<GetPointDrawEventArgs>.None, Option<DrawEventArgs>.None))
-                | Sub<GetPointMouseEventArgs>(h => getter.MouseDown += h, h => getter.MouseDown -= h, CommandPointEventPhase.MouseDown, static a => (Some(a), Option<GetPointDrawEventArgs>.None, Option<DrawEventArgs>.None))
-                | Sub<GetPointDrawEventArgs>(h => getter.DynamicDraw += h, h => getter.DynamicDraw -= h, CommandPointEventPhase.DynamicDraw, static a => (Option<GetPointMouseEventArgs>.None, Some(a), Option<DrawEventArgs>.None))
+                Sub<GetPointMouseEventArgs>(h => getter.MouseMove += h, h => getter.MouseMove -= h, CommandPointEventPhase.MouseMove, static args => new CommandPointPayload.Mouse(Value: args))
+                | Sub<GetPointMouseEventArgs>(h => getter.MouseDown += h, h => getter.MouseDown -= h, CommandPointEventPhase.MouseDown, static args => new CommandPointPayload.Mouse(Value: args))
+                | Sub<GetPointDrawEventArgs>(h => getter.DynamicDraw += h, h => getter.DynamicDraw -= h, CommandPointEventPhase.DynamicDraw, static args => new CommandPointPayload.Draw(Value: args))
                 | (postDraw
-                    ? Sub<DrawEventArgs>(h => getter.PostDrawObjects += h, h => getter.PostDrawObjects -= h, CommandPointEventPhase.PostDrawObjects, static a => (Option<GetPointMouseEventArgs>.None, Option<GetPointDrawEventArgs>.None, Some(a)))
+                    ? Sub<DrawEventArgs>(h => getter.PostDrawObjects += h, h => getter.PostDrawObjects -= h, CommandPointEventPhase.PostDrawObjects, static args => new CommandPointPayload.PostDraw(Value: args))
                     : Subscription.Nothing));
         }).IfNone(Fin.Succ(value: Subscription.Nothing));
 

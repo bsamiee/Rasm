@@ -53,6 +53,8 @@ public readonly partial record struct ComponentUi {
     public static ComponentUi Editor(Func<Callback.Panel, Fin<Decision>> panel) =>
         When(phase: Phase.InputPanel, run: context => panel(arg: (Callback.Panel)context));
 
+    public enum MouseKind { Down, Move, Up, SingleClick, DoubleClick }
+
     internal IAttributes Attributes(GhComponent owner) =>
         ops.IsEmpty
             ? new ComponentAttributes(owner: owner)
@@ -84,11 +86,11 @@ public readonly partial record struct ComponentUi {
         public static readonly Phase ContextMenu = new(key: 3, matches: static ctx => ctx is Callback.Menu);
         public static readonly Phase Cursor = new(key: 4, matches: static ctx => ctx is Callback.Pointer.Cursor);
         public static readonly Phase Hover = new(key: 5, matches: static ctx => ctx is Callback.Pointer.Hover);
-        public static readonly Phase MouseDown = new(key: 6, matches: static ctx => ctx is Callback.Mouse.Down);
-        public static readonly Phase MouseMove = new(key: 7, matches: static ctx => ctx is Callback.Mouse.Move);
-        public static readonly Phase MouseUp = new(key: 8, matches: static ctx => ctx is Callback.Mouse.Up);
-        public static readonly Phase MouseSingleClick = new(key: 9, matches: static ctx => ctx is Callback.Mouse.SingleClick);
-        public static readonly Phase MouseDoubleClick = new(key: 10, matches: static ctx => ctx is Callback.Mouse.DoubleClick);
+        public static readonly Phase MouseDown = new(key: 6, matches: static ctx => ctx is Callback.Mouse { Kind: MouseKind.Down });
+        public static readonly Phase MouseMove = new(key: 7, matches: static ctx => ctx is Callback.Mouse { Kind: MouseKind.Move });
+        public static readonly Phase MouseUp = new(key: 8, matches: static ctx => ctx is Callback.Mouse { Kind: MouseKind.Up });
+        public static readonly Phase MouseSingleClick = new(key: 9, matches: static ctx => ctx is Callback.Mouse { Kind: MouseKind.SingleClick });
+        public static readonly Phase MouseDoubleClick = new(key: 10, matches: static ctx => ctx is Callback.Mouse { Kind: MouseKind.DoubleClick });
         public static readonly Phase KeyDown = new(key: 11, matches: static ctx => ctx is Callback.Key.Down);
         public static readonly Phase KeyUp = new(key: 12, matches: static ctx => ctx is Callback.Key.Up);
         public static readonly Phase Resize = new(key: 13, matches: static ctx => ctx is Callback.Frame);
@@ -111,17 +113,7 @@ public readonly partial record struct ComponentUi {
             public sealed record Hover(GhComponent Owner, PointF ContentPoint, PointF Control) : Pointer(Owner: Owner, ContentPoint: ContentPoint, ControlPoint: Optional(Control));
         }
 
-        public abstract record Mouse(GhComponent Owner, MouseEventArgs Args) : Callback(Owner: Owner) {
-            public sealed record Down(GhComponent Owner, MouseEventArgs Args) : Mouse(Owner: Owner, Args: Args);
-
-            public sealed record Move(GhComponent Owner, MouseEventArgs Args) : Mouse(Owner: Owner, Args: Args);
-
-            public sealed record Up(GhComponent Owner, MouseEventArgs Args) : Mouse(Owner: Owner, Args: Args);
-
-            public sealed record SingleClick(GhComponent Owner, MouseEventArgs Args) : Mouse(Owner: Owner, Args: Args);
-
-            public sealed record DoubleClick(GhComponent Owner, MouseEventArgs Args) : Mouse(Owner: Owner, Args: Args);
-
+        public sealed record Mouse(GhComponent Owner, MouseKind Kind, MouseEventArgs Args) : Callback(Owner: Owner) {
             public PointF Point => Args.Location;
         }
 
@@ -136,35 +128,11 @@ public readonly partial record struct ComponentUi {
         public sealed record Tip(GhComponent Owner, PointF Point, ObjectSolutionState State) : Callback(Owner: Owner);
     }
 
-    public abstract record TooltipDetail {
-        private TooltipDetail() { }
-
-        public sealed record Text(string Value) : TooltipDetail {
-            internal override object Native => Value;
-        }
-
-        public sealed record Items(GhLazyStrings Value) : TooltipDetail {
-            internal override object Native => Value;
-        }
-
-        public sealed record Panes : TooltipDetail {
-            private readonly GhLazyStrings[] value;
-
-            public Panes(GhLazyStrings[] value) => this.value = value;
-
-            internal override object Native => value;
-        }
-
-        public sealed record Painter(Action<UiContext, Rectangle> Paint) : TooltipDetail {
-            internal override object Native => Paint;
-        }
-
-        public static TooltipDetail Of(string value) => new Text(Value: value);
-        public static TooltipDetail Of(GhLazyStrings value) => new Items(Value: value);
-        public static TooltipDetail Of(GhLazyStrings[] value) => new Panes(value: value);
-        public static TooltipDetail Of(Action<UiContext, Rectangle> paint) => new Painter(Paint: paint);
-
-        internal abstract object Native { get; }
+    public readonly record struct TooltipDetail(object Native) {
+        public static TooltipDetail Of(string value) => new(Native: value);
+        public static TooltipDetail Of(GhLazyStrings value) => new(Native: value);
+        public static TooltipDetail Of(GhLazyStrings[] value) => new(Native: value);
+        public static TooltipDetail Of(Action<UiContext, Rectangle> paint) => new(Native: paint);
     }
 
     [StructLayout(LayoutKind.Auto)]
@@ -253,11 +221,11 @@ public readonly partial record struct ComponentUi {
                 .IfFail(_ => fallback);
         }
 
-        protected override UiResponse HandleMouseDown(MouseEventArgs e) => Respond(context: new Callback.Mouse.Down(Owner: Owner, Args: e));
-        protected override UiResponse HandleMouseMove(MouseEventArgs e) => Respond(context: new Callback.Mouse.Move(Owner: Owner, Args: e));
-        protected override UiResponse HandleMouseUp(MouseEventArgs e) => Respond(context: new Callback.Mouse.Up(Owner: Owner, Args: e));
-        protected override UiResponse HandleSingleClick(MouseEventArgs e) => Respond(context: new Callback.Mouse.SingleClick(Owner: Owner, Args: e));
-        protected override UiResponse HandleDoubleClick(MouseEventArgs e) => Respond(context: new Callback.Mouse.DoubleClick(Owner: Owner, Args: e));
+        protected override UiResponse HandleMouseDown(MouseEventArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.Down, Args: e));
+        protected override UiResponse HandleMouseMove(MouseEventArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.Move, Args: e));
+        protected override UiResponse HandleMouseUp(MouseEventArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.Up, Args: e));
+        protected override UiResponse HandleSingleClick(MouseEventArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.SingleClick, Args: e));
+        protected override UiResponse HandleDoubleClick(MouseEventArgs e) => Respond(context: new Callback.Mouse(Owner: Owner, Kind: MouseKind.DoubleClick, Args: e));
         protected override UiResponse HandleKeyDown(KeyEventArgs e) => Respond(context: new Callback.Key.Down(Owner: Owner, Args: e));
         protected override UiResponse HandleKeyUp(KeyEventArgs e) => Respond(context: new Callback.Key.Up(Owner: Owner, Args: e));
 

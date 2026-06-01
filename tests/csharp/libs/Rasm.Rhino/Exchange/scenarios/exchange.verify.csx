@@ -165,7 +165,7 @@ Scenario.Run("exchange", CAPTURE_PATH, (key, facts) => {
     DocumentTarget positionTarget = Probe.Expect(DocumentTarget.Objects(objectIds: Seq(boxId)), "position target");
     DocumentReceipt posSaveReceipt = Probe.ExpectSome(Probe.Expect(files.Run(FileOp.Do(new FileExchange.NativeTable(new FileNativeTable.SavePosition(Name: position, Objects: positionTarget)))), "named position save", facts).Receipt, "position save receipt");
     Probe.Require(posSaveReceipt.ResourceChanged.Exists(change => change.Kind == DocumentResourceKind.NamedPosition), "named position saved (B3)");
-    DocumentReceipt posRestoreReceipt = Probe.ExpectSome(Probe.Expect(files.Run(FileOp.Do(new FileExchange.NativeTable(new FileNativeTable.RestorePosition(Name: position)))), "named position restore", facts).Receipt, "position restore receipt");
+    DocumentReceipt posRestoreReceipt = Probe.ExpectSome(Probe.Expect(files.Run(FileOp.Do(new FileExchange.NativeTable(new FileNativeTable.Position(Name: position, Kind: FileNativePositionKind.Restore)))), "named position restore", facts).Receipt, "position restore receipt");
     Probe.Require(posRestoreReceipt.ResourceChanged.Count == 1, "named position restore receipt");
     Probe.Require(toSeq(doc.NamedPositions.Names).Contains(position), "named position present in document table");
     // read entrypoints — separate Eff surfaces (different return shape than the mutation unions)
@@ -204,7 +204,7 @@ Scenario.Run("exchange", CAPTURE_PATH, (key, facts) => {
     //     + ArchiveUpdate FileUserString round-trip (B4), confirmed through both the resource graph and a direct File3dm read. ---
     string archivePath = Path.Combine(work, "archive.3dm");
     FileEndpoint archiveEndpoint = Probe.Expect(FileEndpoint.From(path: archivePath), "archive endpoint");
-    Probe.Expect(files.Run(FileOp.Do(new FileExchange.Write3dmFile(Target: archiveEndpoint, Profile: FileProfile.Model))), "write 3dm", facts);
+    Probe.Expect(files.Run(FileOp.Do(new FileExchange.Write(Phase: FilePhase.Write3dmFile, Target: archiveEndpoint, Profile: FileProfile.Model))), "write 3dm", facts);
     Probe.Require(File.Exists(archivePath), "archive.3dm written");
     FileArchiveSource archiveSource = new FileArchiveSource.Path(Value: Probe.Expect(FileEndpoint.From(path: archivePath), "archive source endpoint"));
     FileArchive readArchive = Probe.ExpectSome(Probe.Expect(files.Run(FileOp.Do(new FileExchange.ArchiveRead(Source: archiveSource, Profile: ArchiveProfile.Full))), "archive read", facts).Archive, "archive snapshot");

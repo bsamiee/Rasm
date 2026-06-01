@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Foundation.CSharp.Analyzers.Kernel;
 using Foundation.CSharp.Analyzers.Rules;
 using Microsoft.CodeAnalysis;
@@ -44,8 +45,10 @@ internal static class AnalyzerDispatcher {
                 ShapeRules.CheckTypeClassStaticAbstractPolicy(context, scope, namedType);
                 TypeShapeRules.CheckDomainPrimitiveShape(context, scope, namedType);
                 TypeShapeRules.CheckCreateFactoryReturnType(context, scope, namedType);
-                TypeShapeRules.CheckDiscriminatedUnionShape(context, scope, namedType);
+                ImmutableArray<INamedTypeSymbol> unionCases = TypeShapeRules.CheckDiscriminatedUnionShape(context, scope, namedType);
                 TypeShapeRules.CheckUnionOpsQualification(context, scope, namedType);
+                TypeShapeRules.CheckSamePayloadUnionCases(context, scope, namedType, unionCases);
+                TypeShapeRules.CheckExclusiveOptionalPayloadBag(context, scope, namedType);
                 TypeShapeRules.CheckDateTimeFieldInDomain(context, scope, namedType);
                 TypeShapeRules.CheckAnemicEntity(context, scope, namedType);
                 TypeShapeRules.CheckInitOnlyBypassOnValidated(context, scope, namedType);

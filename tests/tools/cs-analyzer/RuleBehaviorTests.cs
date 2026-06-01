@@ -597,6 +597,88 @@ public sealed class RuleBehaviorTests {
                 }
             }
             """),
+        new("CSP0737", File(scope: "Domain/Services", type: "SamePayloadUnion"), """
+            namespace Thinktecture {
+                public sealed class UnionAttribute : System.Attribute { }
+                public sealed class SkipUnionOpsAttribute : System.Attribute { }
+            }
+
+            namespace Domain.Services {
+                [Thinktecture.Union]
+                [Thinktecture.SkipUnionOps]
+                public abstract record SamePayloadUnion {
+                    private SamePayloadUnion() { }
+                    public sealed record Shown(System.Guid Id, int Serial) : SamePayloadUnion;
+                    public sealed record Hidden(System.Guid Id, int Serial) : SamePayloadUnion;
+                    public sealed record Closed(System.Guid Id, int Serial) : SamePayloadUnion;
+                }
+            }
+            """),
+        new("CSP0737", File(scope: "Domain/Services", type: "MixedPayloadUnion"), """
+            namespace Thinktecture {
+                public sealed class UnionAttribute : System.Attribute { }
+                public sealed class SkipUnionOpsAttribute : System.Attribute { }
+            }
+
+            namespace Domain.Services {
+                [Thinktecture.Union]
+                [Thinktecture.SkipUnionOps]
+                public abstract record MixedPayloadUnion {
+                    private MixedPayloadUnion() { }
+                    public sealed record Shown(System.Guid Id, int Serial) : MixedPayloadUnion;
+                    public sealed record Hidden(System.Guid Id, int Serial) : MixedPayloadUnion;
+                    public sealed record Closed(System.Guid Id, int Serial) : MixedPayloadUnion;
+                    public sealed record Renamed(System.Guid Id, string Name) : MixedPayloadUnion;
+                }
+            }
+            """),
+        new("CSP0737", File(scope: "Domain/Services", type: "ExplicitPayloadUnion"), """
+            namespace Thinktecture {
+                public sealed class UnionAttribute : System.Attribute { }
+                public sealed class SkipUnionOpsAttribute : System.Attribute { }
+            }
+
+            namespace Domain.Services {
+                public sealed class PositiveMagnitude { }
+
+                [Thinktecture.Union]
+                [Thinktecture.SkipUnionOps]
+                public abstract record ExplicitPayloadUnion {
+                    private ExplicitPayloadUnion() { }
+                    public sealed record Hard : ExplicitPayloadUnion;
+                    public sealed record Polynomial : ExplicitPayloadUnion { public Polynomial(PositiveMagnitude k) => K = k; public PositiveMagnitude K { get; } }
+                    public sealed record Exponential : ExplicitPayloadUnion { public Exponential(PositiveMagnitude k) => K = k; public PositiveMagnitude K { get; } }
+                    public sealed record Cubic : ExplicitPayloadUnion { public Cubic(PositiveMagnitude k) => K = k; public PositiveMagnitude K { get; } }
+                    public sealed record Round : ExplicitPayloadUnion { public Round(PositiveMagnitude r) => R = r; public PositiveMagnitude R { get; } }
+                }
+            }
+            """),
+        new("CSP0738", File(scope: "Domain/Services", type: "ExclusivePayloadBag"), """
+            namespace LanguageExt {
+                public readonly record struct Option<T> {
+                    public Option<TOut> Map<TOut>(System.Func<T, TOut> project) => new();
+                    public static Option<T> operator |(Option<T> left, Option<T> right) => left;
+                }
+            }
+
+            namespace Domain.Services {
+                public enum PayloadPhase { Mouse, Draw, Post, Gumball }
+                public sealed class MouseArgs { public object View => new(); }
+                public sealed class DrawArgs { public object View => new(); }
+                public sealed class PostArgs { public object View => new(); }
+                public sealed class Gumball { }
+
+                public readonly record struct ExclusivePayloadBag(
+                    PayloadPhase Phase,
+                    LanguageExt.Option<MouseArgs> Mouse,
+                    LanguageExt.Option<DrawArgs> Draw,
+                    LanguageExt.Option<PostArgs> Post,
+                    LanguageExt.Option<Gumball> Gumball) {
+                    public LanguageExt.Option<object> View =>
+                        Mouse.Map(static args => args.View) | Draw.Map(static args => args.View) | Post.Map(static args => args.View);
+                }
+            }
+            """),
         new("CSP0802", File(scope: "Domain/Models", type: "UnqualifiedUnionOps"), """
             namespace Thinktecture {
                 public sealed class UnionAttribute : System.Attribute { }
@@ -1344,6 +1426,413 @@ public sealed class RuleBehaviorTests {
                 """).ConfigureAwait(true);
 
         Assert.DoesNotContain(expected: "CSP0734", collection: ids);
+    }
+
+    [Fact]
+    public async Task DistinctPayloadUnionDoesNotEmitSamePayloadUnionCasesDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/DistinctPayloadUnion.cs",
+            source: """
+                namespace Thinktecture {
+                    public sealed class UnionAttribute : System.Attribute { }
+                    public sealed class SkipUnionOpsAttribute : System.Attribute { }
+                }
+
+                namespace Domain.Services {
+                    [Thinktecture.Union]
+                    [Thinktecture.SkipUnionOps]
+                    public abstract record DistinctPayloadUnion {
+                        private DistinctPayloadUnion() { }
+                        public sealed record Text(string Value) : DistinctPayloadUnion;
+                        public sealed record Icon(string Name, string Assembly) : DistinctPayloadUnion;
+                        public sealed record Native(int Handle) : DistinctPayloadUnion;
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0737", collection: ids);
+    }
+
+    [Fact]
+    public async Task EmptyUnionCasesDoNotEmitSamePayloadUnionCasesDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/EmptyCaseUnion.cs",
+            source: """
+                namespace Thinktecture {
+                    public sealed class UnionAttribute : System.Attribute { }
+                    public sealed class SkipUnionOpsAttribute : System.Attribute { }
+                }
+
+                namespace Domain.Services {
+                    [Thinktecture.Union]
+                    [Thinktecture.SkipUnionOps]
+                    public abstract record EmptyCaseUnion {
+                        private EmptyCaseUnion() { }
+                        public sealed record Created : EmptyCaseUnion;
+                        public sealed record Updated : EmptyCaseUnion;
+                        public sealed record Deleted : EmptyCaseUnion;
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0737", collection: ids);
+    }
+
+    [Fact]
+    public async Task BehaviorOnlyUnionCasesDoNotEmitSamePayloadUnionCasesDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/BehaviorOnlyFault.cs",
+            source: """
+                namespace Thinktecture {
+                    public sealed class UnionAttribute : System.Attribute { }
+                    public sealed class SkipUnionOpsAttribute : System.Attribute { }
+                }
+
+                namespace Domain.Services {
+                    [Thinktecture.Union]
+                    [Thinktecture.SkipUnionOps]
+                    public abstract record BehaviorOnlyFault {
+                        private BehaviorOnlyFault() { }
+                        public sealed record Missing : BehaviorOnlyFault { public string Message => "missing"; public string Category => "Input"; }
+                        public sealed record Cancelled : BehaviorOnlyFault { public string Message => "cancelled"; public string Category => "Flow"; }
+                        public sealed record Invalid : BehaviorOnlyFault { public string Message => "invalid"; public string Category => "Input"; }
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0737", collection: ids);
+    }
+
+    [Fact]
+    public async Task ErrorUnionCasesDoNotEmitSamePayloadUnionCasesDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/UiFault.cs",
+            source: """
+                namespace Thinktecture {
+                    public sealed class UnionAttribute : System.Attribute { }
+                    public sealed class SkipUnionOpsAttribute : System.Attribute { }
+                }
+
+                namespace Domain.Services {
+                    public abstract record Error;
+                    public abstract record Expected : Error;
+
+                    [Thinktecture.Union]
+                    [Thinktecture.SkipUnionOps]
+                    public abstract record UiFault : Expected {
+                        private UiFault() { }
+                        public sealed record InvalidInput(string Op, string Detail) : UiFault;
+                        public sealed record MutationRejected(string Op, string Detail) : UiFault;
+                        public sealed record EditorFailure(string Op, string Detail) : UiFault;
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0737", collection: ids);
+    }
+
+    [Fact]
+    public async Task GenericControlFlowUnionDoesNotEmitSamePayloadUnionCasesDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/PromptTransition.cs",
+            source: """
+                namespace Thinktecture {
+                    public sealed class UnionAttribute : System.Attribute { }
+                    public sealed class SkipUnionOpsAttribute : System.Attribute { }
+                }
+
+                namespace Domain.Services {
+                    [Thinktecture.Union]
+                    [Thinktecture.SkipUnionOps]
+                    public abstract record PromptTransition<TState> {
+                        private PromptTransition() { }
+                        public sealed record Stay(TState State) : PromptTransition<TState>;
+                        public sealed record Forward(TState State) : PromptTransition<TState>;
+                        public sealed record Commit(TState State) : PromptTransition<TState>;
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0737", collection: ids);
+    }
+
+    [Fact]
+    public async Task TwoCaseSamePayloadUnionDoesNotEmitSamePayloadUnionCasesDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/TwoCasePayloadUnion.cs",
+            source: """
+                namespace Thinktecture {
+                    public sealed class UnionAttribute : System.Attribute { }
+                    public sealed class SkipUnionOpsAttribute : System.Attribute { }
+                }
+
+                namespace Domain.Services {
+                    [Thinktecture.Union]
+                    [Thinktecture.SkipUnionOps]
+                    public abstract record TwoCasePayloadUnion {
+                        private TwoCasePayloadUnion() { }
+                        public sealed record First(System.Guid Id, int Serial) : TwoCasePayloadUnion;
+                        public sealed record Second(System.Guid Id, int Serial) : TwoCasePayloadUnion;
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0737", collection: ids);
+    }
+
+    [Fact]
+    public async Task SameTypesWithDifferentSemanticNamesDoNotEmitSamePayloadUnionCasesDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/SemanticPayloadUnion.cs",
+            source: """
+                namespace Thinktecture {
+                    public sealed class UnionAttribute : System.Attribute { }
+                    public sealed class SkipUnionOpsAttribute : System.Attribute { }
+                }
+
+                namespace Domain.Services {
+                    [Thinktecture.Union]
+                    [Thinktecture.SkipUnionOps]
+                    public abstract record SemanticPayloadUnion {
+                        private SemanticPayloadUnion() { }
+                        public sealed record Radius(double Radius) : SemanticPayloadUnion;
+                        public sealed record Thickness(double Thickness) : SemanticPayloadUnion;
+                        public sealed record Tolerance(double Tolerance) : SemanticPayloadUnion;
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0737", collection: ids);
+    }
+
+    [Fact]
+    public async Task SamePayloadNameWithDifferentTypesDoesNotEmitSamePayloadUnionCasesDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/NativeEventPayloadUnion.cs",
+            source: """
+                namespace Thinktecture {
+                    public sealed class UnionAttribute : System.Attribute { }
+                    public sealed class SkipUnionOpsAttribute : System.Attribute { }
+                }
+
+                namespace Domain.Services {
+                    public sealed class MouseArgs { }
+                    public sealed class DrawArgs { }
+                    public sealed class PostArgs { }
+
+                    [Thinktecture.Union]
+                    [Thinktecture.SkipUnionOps]
+                    public abstract record NativeEventPayloadUnion {
+                        private NativeEventPayloadUnion() { }
+                        public sealed record Mouse(MouseArgs Value) : NativeEventPayloadUnion;
+                        public sealed record Draw(DrawArgs Value) : NativeEventPayloadUnion;
+                        public sealed record Post(PostArgs Value) : NativeEventPayloadUnion;
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0737", collection: ids);
+    }
+
+    [Fact]
+    public async Task SamePayloadCasesWithOwnedBehaviorDoNotEmitSamePayloadUnionCasesDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/NativeResourceUnion.cs",
+            source: """
+                namespace Thinktecture {
+                    public sealed class UnionAttribute : System.Attribute { }
+                    public sealed class SkipUnionOpsAttribute : System.Attribute { }
+                }
+
+                namespace Domain.Services {
+                    [Thinktecture.Union]
+                    [Thinktecture.SkipUnionOps]
+                    public abstract record NativeResourceUnion {
+                        private NativeResourceUnion() { }
+                        public sealed record Register(int Handle) : NativeResourceUnion { public string Route => "register"; }
+                        public sealed record Change(int Handle) : NativeResourceUnion { public string Route => "change"; }
+                        public sealed record Close(int Handle) : NativeResourceUnion { public string Route => "close"; }
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0737", collection: ids);
+    }
+
+    [Fact]
+    public async Task TwoCaseExplicitPayloadClusterDoesNotEmitSamePayloadUnionCasesDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ExplicitTwoCasePayloadUnion.cs",
+            source: """
+                namespace Thinktecture {
+                    public sealed class UnionAttribute : System.Attribute { }
+                    public sealed class SkipUnionOpsAttribute : System.Attribute { }
+                }
+
+                namespace Domain.Services {
+                    public sealed class PositiveMagnitude { }
+
+                    [Thinktecture.Union]
+                    [Thinktecture.SkipUnionOps]
+                    public abstract record ExplicitTwoCasePayloadUnion {
+                        private ExplicitTwoCasePayloadUnion() { }
+                        public sealed record Polynomial : ExplicitTwoCasePayloadUnion { public Polynomial(PositiveMagnitude k) => K = k; public PositiveMagnitude K { get; } }
+                        public sealed record Exponential : ExplicitTwoCasePayloadUnion { public Exponential(PositiveMagnitude k) => K = k; public PositiveMagnitude K { get; } }
+                        public sealed record Round : ExplicitTwoCasePayloadUnion { public Round(PositiveMagnitude r) => R = r; public PositiveMagnitude R { get; } }
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0737", collection: ids);
+    }
+
+    [Fact]
+    public async Task PrimitiveOptionsDoNotEmitExclusiveOptionalPayloadBagDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/MetadataOptions.cs",
+            source: """
+                namespace LanguageExt {
+                    public readonly record struct Option<T> { }
+                }
+
+                namespace Domain.Services {
+                    public readonly record struct MetadataOptions(
+                        LanguageExt.Option<string> Name,
+                        LanguageExt.Option<int> Count,
+                        LanguageExt.Option<System.Guid> Id);
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0738", collection: ids);
+    }
+
+    [Fact]
+    public async Task IndependentComplexOptionsDoNotEmitExclusiveOptionalPayloadBagDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/FilterOptions.cs",
+            source: """
+                namespace LanguageExt {
+                    public readonly record struct Option<T> { }
+                }
+
+                namespace Domain.Services {
+                    public sealed class Curve { }
+                    public sealed class Surface { }
+                    public sealed class Mesh { }
+
+                    public readonly record struct FilterOptions(
+                        LanguageExt.Option<Curve> Curve,
+                        LanguageExt.Option<Surface> Surface,
+                        LanguageExt.Option<Mesh> Mesh);
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0738", collection: ids);
+    }
+
+    [Fact]
+    public async Task AdditivePolicyStateDoesNotEmitExclusiveOptionalPayloadBagDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/PolicyState.cs",
+            source: """
+                namespace LanguageExt {
+                    public readonly record struct Option<T> {
+                        public Option<TOut> Map<TOut>(System.Func<T, TOut> project) => new();
+                        public static Option<T> operator |(Option<T> left, Option<T> right) => left;
+                    }
+                }
+
+                namespace Domain.Services {
+                    public sealed class PointSpec { }
+                    public sealed class LimitSpec { }
+                    public sealed class BoxSpec { }
+                    public sealed class SelectionSpec { }
+
+                    public sealed record PolicyState(
+                        LanguageExt.Option<PointSpec> Point,
+                        LanguageExt.Option<LimitSpec> Limits,
+                        LanguageExt.Option<BoxSpec> Box,
+                        LanguageExt.Option<SelectionSpec> Selection) {
+                        public static PolicyState Add(PolicyState left, PolicyState right) =>
+                            new(
+                                Point: left.Point | right.Point,
+                                Limits: left.Limits | right.Limits,
+                                Box: left.Box | right.Box,
+                        Selection: left.Selection | right.Selection);
+
+                        public LanguageExt.Option<object> Any =>
+                            Point.Map(static value => (object)value)
+                            | Limits.Map(static value => (object)value)
+                            | Box.Map(static value => (object)value);
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0738", collection: ids);
+    }
+
+    [Fact]
+    public async Task ConjunctiveQueryBagDoesNotEmitExclusiveOptionalPayloadBagDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/SheetQuery.cs",
+            source: """
+                namespace LanguageExt {
+                    public readonly record struct Option<T> {
+                        public Option<TOut> Map<TOut>(System.Func<T, TOut> project) => new();
+                        public static Option<T> operator |(Option<T> left, Option<T> right) => left;
+                    }
+                }
+
+                namespace Domain.Services {
+                    public sealed class LayerCriterion { }
+                    public sealed class ViewCriterion { }
+                    public sealed class ObjectCriterion { }
+
+                    public readonly record struct SheetQuery(
+                        LanguageExt.Option<LayerCriterion> Layer,
+                        LanguageExt.Option<ViewCriterion> View,
+                        LanguageExt.Option<ObjectCriterion> Object) {
+                        public LanguageExt.Option<object> First =>
+                            Layer.Map(static value => (object)value)
+                            | View.Map(static value => (object)value)
+                            | Object.Map(static value => (object)value);
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0738", collection: ids);
+    }
+
+    [Fact]
+    public async Task FallbackContextViewDoesNotEmitExclusiveOptionalPayloadBagDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/PageEvent.cs",
+            source: """
+                namespace LanguageExt {
+                    public readonly record struct Option<T> {
+                        public Option<TOut> Map<TOut>(System.Func<T, TOut> project) => new();
+                        public static Option<T> operator |(Option<T> left, Option<T> right) => left;
+                    }
+                }
+
+                namespace Domain.Services {
+                    public sealed class MouseContext { public object View => new(); }
+                    public sealed class ScriptContext { public object View => new(); }
+                    public sealed class DocumentContext { public object View => new(); }
+
+                    public readonly record struct PageEvent(
+                        LanguageExt.Option<MouseContext> Mouse,
+                        LanguageExt.Option<ScriptContext> Script,
+                        LanguageExt.Option<DocumentContext> Document) {
+                        public LanguageExt.Option<object> View =>
+                            Mouse.Map(static value => value.View)
+                            | Script.Map(static value => value.View)
+                            | Document.Map(static value => value.View);
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0738", collection: ids);
     }
 
     [Fact]

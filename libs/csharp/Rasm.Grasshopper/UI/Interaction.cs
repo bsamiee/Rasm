@@ -168,15 +168,23 @@ public partial record FloatingButtonOp {
     private FloatingButtonOp() { }
     public sealed record AddCase(FloatingButtonSpec Spec) : FloatingButtonOp;
     public sealed record ModifyCase(string Name, Option<string> Info = default, Option<IIcon> Icon = default, Option<Color> Colour = default, Option<(PointF Point, bool Immediate)> Anchor = default) : FloatingButtonOp;
-    public sealed record ShowNamedCase(Seq<string> Names) : FloatingButtonOp;
-    public sealed record HideNamedCase(Seq<string> Names) : FloatingButtonOp;
-    public sealed record CloseNamedCase(Seq<string> Names) : FloatingButtonOp;
+    public sealed record NamedCase(FloatingButtonNamedAction Action, Seq<string> Names) : FloatingButtonOp;
     public sealed record CloseAllCase : FloatingButtonOp;
     public sealed record FindByNameCase(string Name) : FloatingButtonOp;
     public sealed record FindByPointCase(PointF ControlPoint) : FloatingButtonOp;
     public sealed record StatusCase : FloatingButtonOp;
 
     public static FloatingButtonOp Add(FloatingButtonSpec spec) => new AddCase(Spec: spec);
+}
+
+[SmartEnum<int>]
+public sealed partial class FloatingButtonNamedAction {
+    public static readonly FloatingButtonNamedAction Show = new(key: 0, run: static names => FloatingButton.SetVisible(names: names, visible: true));
+    public static readonly FloatingButtonNamedAction Hide = new(key: 1, run: static names => FloatingButton.SetVisible(names: names, visible: false));
+    public static readonly FloatingButtonNamedAction Close = new(key: 2, run: static names => FloatingButton.Close(names: names));
+
+    [UseDelegateFromConstructor]
+    internal partial GrasshopperUiIntent<Unit> Run(Seq<string> names);
 }
 
 [SkipUnionOps]
@@ -346,9 +354,7 @@ internal static class FloatingButton {
         op.Switch(
             addCase: static a => Add(a.Spec).Map(CanvasChromeResult.Sub),
             modifyCase: static m => Modify(m.Name, m.Info, m.Icon, m.Colour, m.Anchor).Map(static _ => CanvasChromeResult.UnitInstance),
-            showNamedCase: static s => SetVisible(s.Names, visible: true).Map(static _ => CanvasChromeResult.UnitInstance),
-            hideNamedCase: static h => SetVisible(h.Names, visible: false).Map(static _ => CanvasChromeResult.UnitInstance),
-            closeNamedCase: static c => Close(c.Names).Map(static _ => CanvasChromeResult.UnitInstance),
+            namedCase: static n => n.Action.Run(names: n.Names).Map(static _ => CanvasChromeResult.UnitInstance),
             closeAllCase: static _ => CloseAll().Map(static _ => CanvasChromeResult.UnitInstance),
             findByNameCase: static f => FindByName(f.Name).Map(CanvasChromeResult.Found),
             findByPointCase: static f => FindByPoint(f.ControlPoint).Map(CanvasChromeResult.Found),

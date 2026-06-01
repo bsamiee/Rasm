@@ -82,4 +82,6 @@ CSP0733 | SurfaceArea           | Error    | GeneratedCaseAliasCollapse
 CSP0734 | PerformanceDiscipline | Error    | StateThreadedDispatch
 CSP0735 | FunctionalDiscipline  | Error    | TraverseFusion
 CSP0736 | FunctionalDiscipline  | Error    | FoldAppendAccumulator
+CSP0737 | SurfaceArea           | Error    | SamePayloadUnionCases
+CSP0738 | SurfaceArea           | Error    | ExclusiveOptionalPayloadBag
 CSP0802 | TypeDiscipline        | Error    | UnionOpsQualification

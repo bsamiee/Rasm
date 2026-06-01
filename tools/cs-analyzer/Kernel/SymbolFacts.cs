@@ -480,6 +480,52 @@ internal static class SymbolFacts {
         && invocation.Arguments.Any(static argument => IsDocumentReceiptFactoryTerm(argument.Value));
     internal static bool HasThinktectureGeneratedDispatch(INamedTypeSymbol? type) =>
         type is not null && HasAnyAttribute(type, "UnionAttribute", "Union", "SmartEnumAttribute", "SmartEnum");
+    internal static ImmutableArray<INamedTypeSymbol> ClosedUnionCases(Compilation compilation, INamedTypeSymbol namedType) =>
+        [
+            .. namedType.GetTypeMembers()
+                .Where(caseType => SymbolEqualityComparer.Default.Equals(caseType.BaseType, namedType))
+                .Concat(compilation.GlobalNamespace.GetNamespaceMembers().SelectMany(namespaceSymbol => ClosedUnionCases(namespaceSymbol, namedType))),
+        ];
+    internal static bool HasSamePayloadUnionCaseSurface(INamedTypeSymbol namedType, ImmutableArray<INamedTypeSymbol> unionCases, out int caseCount) {
+        ImmutableArray<string> shapes = [
+            .. unionCases
+                .Where(static caseType => caseType.IsRecord && caseType.IsSealed)
+                .Where(IsPassivePayloadCase)
+                .Select(PayloadShape)
+                .Where(static shape => shape.Length > 0),
+        ];
+        bool candidate = namedType.IsRecord
+            && !namedType.IsGenericType
+            && !IsErrorLike(namedType)
+            && (namedType.IsAbstract || HasAnyAttribute(namedType, "UnionAttribute", "Union"))
+            && shapes.Length >= 3;
+        caseCount = shapes
+            .GroupBy(static shape => shape, StringComparer.Ordinal)
+            .Select(static group => group.Count())
+            .DefaultIfEmpty(defaultValue: 0)
+            .Max();
+        return candidate
+            && caseCount >= 3;
+    }
+    internal static bool HasExclusiveOptionalPayloadBag(Compilation compilation, INamedTypeSymbol namedType, out int slotCount, out int projectionWidth) {
+        slotCount = 0;
+        projectionWidth = 0;
+        if (IsProofOrProjectionContainer(namedType) || HasAdditiveOwnerSemantics(namedType)) {
+            return false;
+        }
+        ImmutableArray<IPropertySymbol> slots = [
+            .. namedType.GetMembers()
+                .OfType<IPropertySymbol>()
+                .Where(static property => !property.IsStatic && property.Parameters.Length == 0)
+                .Where(property => IsPrimaryConstructorProperty(namedType: namedType, property: property))
+                .Where(static property => TryOptionPayload(property.Type, out ITypeSymbol? payload) && IsComplexPayload(payload)),
+        ];
+        slotCount = slots.Length;
+        return slots.Length >= 3
+            && HasExclusivePayloadDiscriminator(namedType: namedType)
+            && HasCrossSlotProjection(compilation: compilation, namedType: namedType, slots: slots, width: out projectionWidth)
+            && projectionWidth >= 3;
+    }
     internal static bool IsLanguageExtInvocation(IInvocationOperation invocation, params string[] names) =>
         names.Contains(invocation.TargetMethod.Name, StringComparer.Ordinal)
         && (invocation.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
@@ -501,6 +547,127 @@ internal static class SymbolFacts {
         && namedType.ContainingNamespace.ToDisplayString() == "System.Collections.Generic"
         && namedType.TypeArguments.Length == 1
         && IsTaskLikeType(namedType.TypeArguments[0]);
+    private static IEnumerable<INamedTypeSymbol> ClosedUnionCases(INamespaceSymbol namespaceSymbol, INamedTypeSymbol namedType) =>
+        namespaceSymbol.GetTypeMembers()
+            .Where(caseType => SymbolEqualityComparer.Default.Equals(caseType.BaseType, namedType))
+            .Concat(namespaceSymbol.GetNamespaceMembers().SelectMany(childNamespace => ClosedUnionCases(childNamespace, namedType)));
+    private static IMethodSymbol? PrimaryConstructor(INamedTypeSymbol type) =>
+        type.InstanceConstructors
+            .Where(static constructor => !constructor.IsImplicitlyDeclared)
+            .Where(constructor => !IsRecordCopyConstructor(type: type, constructor: constructor))
+            .OrderByDescending(static constructor => constructor.Parameters.Length)
+            .FirstOrDefault();
+    private static string PayloadShape(INamedTypeSymbol caseType) =>
+        PrimaryConstructor(caseType) switch {
+            { Parameters.Length: > 0 } constructor => string.Join(separator: "|", values: constructor.Parameters.Select(static parameter =>
+                $"{parameter.Name}:{parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}")),
+            _ => string.Empty,
+        };
+    private static bool IsPassivePayloadCase(INamedTypeSymbol caseType) =>
+        PrimaryConstructor(caseType) is IMethodSymbol constructor
+        && caseType.GetMembers()
+            .Where(static member => !member.IsImplicitlyDeclared)
+            .Where(static member => member is not IMethodSymbol { MethodKind: MethodKind.Constructor })
+            .All(member => IsPayloadProjectionMember(member: member, parameters: constructor.Parameters));
+    private static bool IsPayloadProjectionMember(ISymbol member, ImmutableArray<IParameterSymbol> parameters) =>
+        member switch {
+            IFieldSymbol { AssociatedSymbol: IPropertySymbol property } => IsPayloadProjectionMember(member: property, parameters: parameters),
+            IPropertySymbol { Name: "EqualityContract" } => true,
+            IPropertySymbol property => parameters.Any(parameter =>
+                string.Equals(a: parameter.Name, b: property.Name, comparisonType: StringComparison.OrdinalIgnoreCase)
+                && SymbolEqualityComparer.Default.Equals(parameter.Type, property.Type)),
+            IMethodSymbol { MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet } => true,
+            IMethodSymbol { IsOverride: true } => true,
+            IMethodSymbol { Name: "Deconstruct" or "PrintMembers" } => true,
+            _ => false,
+        };
+    private static bool IsRecordCopyConstructor(INamedTypeSymbol type, IMethodSymbol constructor) =>
+        constructor.Parameters.Length == 1
+        && SymbolEqualityComparer.Default.Equals(constructor.Parameters[0].Type, type);
+    private static bool IsErrorLike(INamedTypeSymbol type) =>
+        type.Name is "Error" or "Expected"
+        || (type.BaseType is INamedTypeSymbol parent && IsErrorLike(parent));
+    private static bool TryOptionPayload(ITypeSymbol type, out ITypeSymbol payload) {
+        bool option = type is INamedTypeSymbol {
+            OriginalDefinition.MetadataName: "Option`1",
+            TypeArguments.Length: 1,
+        } optionType
+            && (optionType.ContainingNamespace?.ToDisplayString() ?? string.Empty)
+                .StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
+        payload = option && type is INamedTypeSymbol named ? named.TypeArguments[0] : type;
+        return option;
+    }
+    private static bool IsComplexPayload(ITypeSymbol type) =>
+        type.TypeKind is TypeKind.Class or TypeKind.Interface
+        && type.SpecialType == SpecialType.None
+        && type.Name is not "String"
+        && type.Name is not "Object"
+        && !type.Name.EndsWith(value: "Receipt", comparisonType: StringComparison.Ordinal);
+    private static bool IsProofOrProjectionContainer(INamedTypeSymbol namedType) =>
+        namedType.Name.EndsWith(value: "Receipt", comparisonType: StringComparison.Ordinal)
+        || namedType.Name.EndsWith(value: "Shape", comparisonType: StringComparison.Ordinal)
+        || namedType.Name.EndsWith(value: "Hit", comparisonType: StringComparison.Ordinal)
+        || namedType.Name.EndsWith(value: "Snapshot", comparisonType: StringComparison.Ordinal);
+    private static bool HasExclusivePayloadDiscriminator(INamedTypeSymbol namedType) =>
+        namedType.GetMembers()
+            .OfType<IPropertySymbol>()
+            .Where(static property => !property.IsStatic && property.Parameters.Length == 0)
+            .Where(property => IsPrimaryConstructorProperty(namedType: namedType, property: property))
+            .Any(static property => IsPayloadDiscriminatorName(name: property.Name) && !TryOptionPayload(type: property.Type, payload: out _));
+    private static bool IsPayloadDiscriminatorName(string name) =>
+        name is "Kind" or "Phase" or "Mode" or "State" or "Action";
+    private static bool HasAdditiveOwnerSemantics(INamedTypeSymbol namedType) =>
+        namedType.GetMembers()
+            .OfType<IMethodSymbol>()
+            .Any(method => SymbolEqualityComparer.Default.Equals(method.ReturnType, namedType)
+                && ((method.MethodKind == MethodKind.UserDefinedOperator && method.Name is "op_Addition" or "op_BitwiseOr")
+                    || (method.IsStatic && method.Name is "Add" or "Merge" or "Combine")));
+    private static bool IsPrimaryConstructorProperty(INamedTypeSymbol namedType, IPropertySymbol property) =>
+        PrimaryConstructor(namedType) is IMethodSymbol constructor
+        && constructor.Parameters.Any(parameter =>
+            parameter.Name == property.Name
+            && SymbolEqualityComparer.Default.Equals(parameter.Type, property.Type));
+    private static bool HasCrossSlotProjection(Compilation compilation, INamedTypeSymbol namedType, ImmutableArray<IPropertySymbol> slots, out int width) {
+        width = namedType.DeclaringSyntaxReferences
+            .Select(reference => (Reference: reference, Syntax: reference.GetSyntax()))
+            .GroupBy(static item => item.Reference.SyntaxTree)
+            .SelectMany(group => {
+                SemanticModel model = compilation.GetSemanticModel(group.Key);
+                return group.SelectMany(item => item.Syntax.DescendantNodes().OfType<MemberDeclarationSyntax>())
+                    .Where(member => HasOptionReturn(model: model, member: member))
+                    .SelectMany(member => ProjectionOperations(model: model, member: member));
+            })
+            .Select(operation => ReferencedSlotCount(operation: operation, slots: slots))
+            .DefaultIfEmpty(defaultValue: 0)
+            .Max();
+        return width >= 3;
+    }
+    private static bool HasOptionReturn(SemanticModel model, MemberDeclarationSyntax member) =>
+        member switch {
+            PropertyDeclarationSyntax property => IsOptionType(model: model, syntax: property.Type),
+            MethodDeclarationSyntax method => IsOptionType(model: model, syntax: method.ReturnType),
+            _ => false,
+        };
+    private static bool IsOptionType(SemanticModel model, TypeSyntax syntax) =>
+        model.GetTypeInfo(syntax).Type is ITypeSymbol type && TryOptionPayload(type: type, payload: out _);
+    private static IEnumerable<IOperation> ProjectionOperations(SemanticModel model, MemberDeclarationSyntax member) {
+        IEnumerable<ExpressionSyntax> expressions = member switch {
+            PropertyDeclarationSyntax { ExpressionBody.Expression: ExpressionSyntax expression } => [expression],
+            MethodDeclarationSyntax { ExpressionBody.Expression: ExpressionSyntax expression } => [expression],
+            _ => member.DescendantNodes()
+                .OfType<ReturnStatementSyntax>()
+                .Select(static statement => statement.Expression)
+                .OfType<ExpressionSyntax>(),
+        };
+        return expressions.Select(expression => model.GetOperation(expression)).OfType<IOperation>();
+    }
+    private static int ReferencedSlotCount(IOperation operation, ImmutableArray<IPropertySymbol> slots) =>
+        operation.DescendantsAndSelf()
+            .OfType<IPropertyReferenceOperation>()
+            .Select(property => property.Property)
+            .Where(property => slots.Any(slot => SymbolEqualityComparer.Default.Equals(slot, property)))
+            .Distinct<IPropertySymbol>(SymbolEqualityComparer.Default)
+            .Count();
     private static bool IsSearchValuesLiteralChar(char value) =>
         char.IsLetterOrDigit(value) || value is '_' or ':' or '-';
     private static bool HasPotentialRange(string charSet) =>

@@ -178,13 +178,13 @@ public abstract partial record DefinitionRef {
             byName: static (d, r) => string.Equals(a: d.Name, b: r.Name.Value, comparisonType: StringComparison.OrdinalIgnoreCase));
 }
 
+public enum DependencyProbeUsage { Layer, Linetype, InUse }
+
 [Union]
 public abstract partial record DependencyProbe {
     private DependencyProbe() { }
     public sealed record DefinitionDepth(int Depth) : DependencyProbe;
-    public sealed record LayerUsed(bool Used) : DependencyProbe;
-    public sealed record LinetypeUsed(bool Used) : DependencyProbe;
-    public sealed record InUse(bool Used) : DependencyProbe;
+    public sealed record Usage(DependencyProbeUsage Kind, bool Used) : DependencyProbe;
 }
 
 [Union]
@@ -197,10 +197,10 @@ public abstract partial record DependencyTarget {
 
     public DependencyProbe ProbeOn(InstanceDefinition live) =>
         Switch(live,
-            onDefinition: static (d, t) => new DependencyProbe.DefinitionDepth(Depth: d.UsesDefinition(otherIdefIndex: t.OtherIndex)),
-            onLayer: static (d, t) => new DependencyProbe.LayerUsed(Used: d.UsesLayer(layerIndex: t.LayerIndex)),
-            onLinetype: static (d, t) => (DependencyProbe)new DependencyProbe.LinetypeUsed(Used: d.UsesLinetype(linetypeIndex: t.LinetypeIndex)),
-            inUse: static (d, t) => new DependencyProbe.InUse(Used: d.InUse(wheretoLook: t.Scope.Native)));
+            onDefinition: static (d, t) => (DependencyProbe)new DependencyProbe.DefinitionDepth(Depth: d.UsesDefinition(otherIdefIndex: t.OtherIndex)),
+            onLayer: static (d, t) => new DependencyProbe.Usage(Kind: DependencyProbeUsage.Layer, Used: d.UsesLayer(layerIndex: t.LayerIndex)),
+            onLinetype: static (d, t) => new DependencyProbe.Usage(Kind: DependencyProbeUsage.Linetype, Used: d.UsesLinetype(linetypeIndex: t.LinetypeIndex)),
+            inUse: static (d, t) => new DependencyProbe.Usage(Kind: DependencyProbeUsage.InUse, Used: d.InUse(wheretoLook: t.Scope.Native)));
 }
 
 [Union]

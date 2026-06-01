@@ -91,7 +91,7 @@ public readonly record struct ReferenceHit(Option<double> CurveParameter, Option
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
-public sealed record CommandSelection {
+public sealed partial record CommandSelection {
     private CommandSelection(RhinoDoc document, Seq<Reference> items) {
         ArgumentNullException.ThrowIfNull(argument: document);
         Document = document;
@@ -158,47 +158,40 @@ public sealed record CommandSelection {
     }
 
     public static Fin<CommandSelection> Pick(RhinoDoc document, CommandPickPolicy policy) =>
-        SelectionSource.Of(policy: policy).Read(document: document);
+        new SelectionSource.PickPolicy(policy).Read(document: document);
 
     public static Fin<CommandSelection> Pick(RhinoDoc document, PickContext context) =>
-        SelectionSource.Of(context: context, updateClippingPlanes: true).Read(document: document);
+        new SelectionSource.Context(Value: context, UpdateClippingPlanes: true).Read(document: document);
 
     internal static Fin<CommandSelection> FromGetter(RhinoDoc document, GetObject getter, GetResult raw) =>
-        SelectionSource.Of(getter: getter, raw: raw).Read(document: document);
+        new SelectionSource.Getter(Source: getter, Raw: raw).Read(document: document);
 
-    private abstract record SelectionSource {
+    [Union(SwitchMapStateParameterName = "document")]
+    private abstract partial record SelectionSource {
         private SelectionSource() { }
-        internal abstract Fin<CommandSelection> Read(RhinoDoc document);
+        public sealed record PickPolicy(CommandPickPolicy Policy) : SelectionSource;
+        public sealed record Context(PickContext Value, bool UpdateClippingPlanes) : SelectionSource;
+        public sealed record Getter(GetObject Source, GetResult Raw) : SelectionSource;
 
-        internal static SelectionSource Of(CommandPickPolicy policy) => new PickPolicySource(policy);
-        internal static SelectionSource Of(PickContext context, bool updateClippingPlanes) => new PickContextSource(context, updateClippingPlanes);
-        internal static SelectionSource Of(GetObject getter, GetResult raw) => new GetterSource(getter, raw);
-
-        private sealed record PickPolicySource(CommandPickPolicy Policy) : SelectionSource {
-            internal override Fin<CommandSelection> Read(RhinoDoc document) =>
-                from valid in Optional(Policy).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
-                from selection in valid.Use(document: document, use: context => Of(context: context, updateClippingPlanes: valid.UpdateClippingPlanes).Read(document: document))
-                select selection;
-        }
-
-        private sealed record PickContextSource(PickContext Context, bool UpdateClippingPlanes) : SelectionSource {
-            internal override Fin<CommandSelection> Read(RhinoDoc document) =>
-                PickWith(document: document, context: Context, updateClippingPlanes: UpdateClippingPlanes);
-        }
-
-        private sealed record GetterSource(GetObject Getter, GetResult Raw) : SelectionSource {
-            internal override Fin<CommandSelection> Read(RhinoDoc document) =>
-                Raw is GetResult.Object && Getter.Objects() is ObjRef[] references
+        internal Fin<CommandSelection> Read(RhinoDoc document) =>
+            Switch(
+                document,
+                pickPolicy: static (doc, source) =>
+                    from valid in Optional(source.Policy).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())
+                    from selection in valid.Use(document: doc, use: context => new Context(Value: context, UpdateClippingPlanes: valid.UpdateClippingPlanes).Read(document: doc))
+                    select selection,
+                context: static (doc, source) => PickWith(document: doc, context: source.Value, updateClippingPlanes: source.UpdateClippingPlanes),
+                getter: static (doc, source) =>
+                    source.Raw is GetResult.Object && source.Source.Objects() is ObjRef[] references
                     ? Fin.Succ(value: From(
-                        document: document,
+                        document: doc,
                         references: toSeq(references),
-                        preselected: Getter.ObjectsWerePreselected
+                        preselected: source.Source.ObjectsWerePreselected
                             ? toSeq(references)
                                 .Filter(static reference => Optional(reference.Object()).Map(static item => item.IsSelected(checkSubObjects: true) > 0).IfNone(noneValue: false))
                                 .Map(static reference => (reference.ObjectId, reference.GeometryComponentIndex))
                             : Seq<(Guid ObjectId, ComponentIndex ComponentIndex)>()))
-                    : Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(FromGetter)).InvalidResult());
-        }
+                    : Fin.Fail<CommandSelection>(error: Op.Of(name: nameof(FromGetter)).InvalidResult()));
 
         private static Fin<CommandSelection> PickWith(RhinoDoc document, PickContext context, bool updateClippingPlanes) =>
         from validDocument in Optional(document).ToFin(Fail: Op.Of(name: nameof(Pick)).InvalidInput())

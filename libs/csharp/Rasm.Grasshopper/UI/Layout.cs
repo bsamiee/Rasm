@@ -83,10 +83,8 @@ public partial record LayoutArrangement {
     public sealed record MoveCase(Guid Id, float Dx, float Dy, SnappingPolicy Policy = default) : LayoutArrangement;
     public sealed record PlaceCase(Guid Id, PointF Pivot, Option<SnappingPolicy> Policy = default) : LayoutArrangement;
     public sealed record AlignCase(Guid Anchor, Seq<Guid> Targets, OCD.Fixed Fix) : LayoutArrangement;
-    public sealed record DistributeCase(LayoutAxis Axis, LayoutGap Gap, Seq<Guid> Ids, LayoutGapPolicy GapPolicy) : LayoutArrangement;
+    public sealed record ChainCase(LayoutChainKind Kind, LayoutAxis Axis, LayoutGap Gap, Seq<Guid> Ids, LayoutGapPolicy GapPolicy) : LayoutArrangement;
     public sealed record GridCase(int Rows, int Cols, LayoutGap Gap, Seq<Guid> Ids, LayoutGapPolicy GapPolicy) : LayoutArrangement;
-    public sealed record FlowCase(LayoutAxis Axis, LayoutGap Gap, Seq<Guid> Ids, LayoutGapPolicy GapPolicy) : LayoutArrangement;
-    public sealed record TopologyCase(LayoutAxis Axis, LayoutGap Gap, Seq<Guid> Ids, LayoutGapPolicy GapPolicy) : LayoutArrangement;
     public sealed record CleanupCase(Seq<Guid> Ids, CleanupPolicy Policy) : LayoutArrangement;
     public sealed record NudgeCase(Seq<Guid> Ids, float Separation, SnappingPolicy Policy = default) : LayoutArrangement;
 
@@ -100,7 +98,7 @@ public partial record LayoutArrangement {
     /// <param name="ids">Object ids to distribute.</param>
     /// <param name="gapPolicy">Stretch fits the selection extent via <c>StretchLayoutSolver</c>; Fixed packs at a constant gap.</param>
     public static LayoutArrangement Distribute(LayoutAxis axis, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy? gapPolicy = null) =>
-        new DistributeCase(Axis: axis, Gap: gap, Ids: ids, GapPolicy: gapPolicy ?? LayoutGapPolicy.Stretch);
+        new ChainCase(Kind: LayoutChainKind.Distribute, Axis: axis, Gap: gap, Ids: ids, GapPolicy: gapPolicy ?? LayoutGapPolicy.Stretch);
 
     /// <summary>Arrange ids into a rows×cols grid, reusing per-axis distribution to fix columns then rows.</summary>
     public static LayoutArrangement Grid(int rows, int cols, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy gapPolicy) =>
@@ -109,10 +107,10 @@ public partial record LayoutArrangement {
     /// <summary>Distribute ids in causal (topology-sorted) order rather than spatial order — closes the
     /// WireGraph-read → Layout-write loop by laying out a dataflow chain along the axis in dependency order.</summary>
     public static LayoutArrangement Flow(LayoutAxis axis, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy? gapPolicy = null) =>
-        new FlowCase(Axis: axis, Gap: gap, Ids: ids, GapPolicy: gapPolicy ?? LayoutGapPolicy.Stretch);
+        new ChainCase(Kind: LayoutChainKind.Flow, Axis: axis, Gap: gap, Ids: ids, GapPolicy: gapPolicy ?? LayoutGapPolicy.Stretch);
 
     public static LayoutArrangement Topology(LayoutAxis axis, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy? gapPolicy = null) =>
-        new TopologyCase(Axis: axis, Gap: gap, Ids: ids, GapPolicy: gapPolicy ?? LayoutGapPolicy.Fixed);
+        new ChainCase(Kind: LayoutChainKind.Topology, Axis: axis, Gap: gap, Ids: ids, GapPolicy: gapPolicy ?? LayoutGapPolicy.Fixed);
 
     public static LayoutArrangement Cleanup(Seq<Guid> ids, CleanupPolicy policy = default) =>
         new CleanupCase(Ids: ids, Policy: policy == default ? CleanupPolicy.Default : policy);
@@ -120,6 +118,16 @@ public partial record LayoutArrangement {
     /// <summary>De-overlap ids via fixed-iteration pairwise repulsion until each pair clears <paramref name="separation"/>.</summary>
     public static LayoutArrangement Nudge(Seq<Guid> ids, float separation, SnappingPolicy policy = default) =>
         new NudgeCase(Ids: ids, Separation: separation, Policy: policy);
+}
+
+[SmartEnum<int>]
+public sealed partial class LayoutChainKind {
+    public static readonly LayoutChainKind Distribute = new(key: 0, arrange: static (axis, gap, ids, gapPolicy) => Layout.Distribute(axis: axis, gap: gap, gapPolicy: gapPolicy, ids: [.. ids]));
+    public static readonly LayoutChainKind Flow = new(key: 1, arrange: static (axis, gap, ids, gapPolicy) => Layout.Flow(axis: axis, gap: gap, gapPolicy: gapPolicy, ids: [.. ids]));
+    public static readonly LayoutChainKind Topology = new(key: 2, arrange: static (axis, gap, ids, gapPolicy) => Layout.Flow(axis: axis, gap: gap, gapPolicy: gapPolicy, ids: [.. ids]));
+
+    [UseDelegateFromConstructor]
+    internal partial GrasshopperUiIntent<Snapshot<LayoutArrangeDelta>> Arrange(LayoutAxis axis, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy gapPolicy);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -275,27 +283,13 @@ internal static partial class Layout {
             placeCase: static place => Place(id: place.Id, pivot: place.Pivot, snap: place.Policy)
                 .Map(static delta => delta.Map(static payload => new LayoutArrangeDelta(Moves: Seq(payload)))),
             alignCase: static align => Align(anchor: align.Anchor, fix: align.Fix, targets: [.. align.Targets]),
-            distributeCase: static distribute => Distribute(
-                axis: distribute.Axis,
-                gap: distribute.Gap,
-                gapPolicy: distribute.GapPolicy,
-                ids: [.. distribute.Ids]),
+            chainCase: static chain => chain.Kind.Arrange(axis: chain.Axis, gap: chain.Gap, ids: chain.Ids, gapPolicy: chain.GapPolicy),
             gridCase: static grid => Grid(
                 rows: grid.Rows,
                 cols: grid.Cols,
                 gap: grid.Gap,
                 gapPolicy: grid.GapPolicy,
                 ids: [.. grid.Ids]),
-            flowCase: static flow => Flow(
-                axis: flow.Axis,
-                gap: flow.Gap,
-                gapPolicy: flow.GapPolicy,
-                ids: [.. flow.Ids]),
-            topologyCase: static topology => Flow(
-                axis: topology.Axis,
-                gap: topology.Gap,
-                gapPolicy: topology.GapPolicy,
-                ids: [.. topology.Ids]),
             cleanupCase: static cleanup => Nudge(
                 separation: cleanup.Policy.Separation,
                 ids: [.. cleanup.Ids]),

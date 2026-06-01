@@ -48,8 +48,8 @@ internal static class TypeShapeRules {
 
     // --- [DU_SHAPE] -----------------------------------------------------------
 
-    internal static void CheckDiscriminatedUnionShape(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
-        ImmutableArray<INamedTypeSymbol> unionCases = [.. UnionCases(context.Compilation, namedType)];
+    internal static ImmutableArray<INamedTypeSymbol> CheckDiscriminatedUnionShape(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
+        ImmutableArray<INamedTypeSymbol> unionCases = SymbolFacts.ClosedUnionCases(compilation: context.Compilation, namedType: namedType);
         bool candidate = namedType.IsRecord && namedType.IsAbstract && unionCases.Length > 0;
         bool thinktectureUnion = SymbolFacts.HasAnyAttribute(namedType, "UnionAttribute", "Union");
         bool privateProtectedCtor = namedType.InstanceConstructors.Any(constructor => constructor.DeclaredAccessibility == Accessibility.ProtectedAndInternal);
@@ -79,6 +79,7 @@ internal static class TypeShapeRules {
             (true, true, false, > 0) => Diagnostic.Create(RuleCatalog.CSP0702, namedType.Locations[0], namedType.Name),
             _ => null,
         });
+        return unionCases;
     }
 
     // --- [UNION_OPS_QUALIFICATION] --------------------------------------------
@@ -89,6 +90,29 @@ internal static class TypeShapeRules {
         bool skip = SymbolFacts.HasAnyAttribute(namedType, "SkipUnionOpsAttribute", "SkipUnionOps");
         AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, thinktectureUnion, generate, skip, namedType.Locations.Length) switch {
             (true, true, false, false, > 0) => Diagnostic.Create(RuleCatalog.CSP0802, namedType.Locations[0], namedType.Name),
+            _ => null,
+        });
+    }
+
+    // --- [SAME_PAYLOAD_UNION_CASES] ------------------------------------------
+
+    internal static void CheckSamePayloadUnionCases(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType, ImmutableArray<INamedTypeSymbol> unionCases) {
+        bool samePayloadCases = SymbolFacts.HasSamePayloadUnionCaseSurface(
+            namedType: namedType,
+            unionCases: unionCases,
+            caseCount: out int caseCount);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, samePayloadCases, namedType.Locations.Length) switch {
+            (true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0737, namedType.Locations[0], namedType.Name, caseCount),
+            _ => null,
+        });
+    }
+
+    // --- [EXCLUSIVE_OPTION_PAYLOAD_BAG] --------------------------------------
+
+    internal static void CheckExclusiveOptionalPayloadBag(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
+        bool exclusiveBag = SymbolFacts.HasExclusiveOptionalPayloadBag(compilation: context.Compilation, namedType: namedType, slotCount: out int slotCount, projectionWidth: out int projectionWidth);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, exclusiveBag, namedType.Locations.Length) switch {
+            (true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0738, namedType.Locations[0], namedType.Name, slotCount, projectionWidth),
             _ => null,
         });
     }
@@ -238,13 +262,5 @@ internal static class TypeShapeRules {
             _ => null,
         };
 
-    private static IEnumerable<INamedTypeSymbol> UnionCases(Compilation compilation, INamedTypeSymbol namedType) =>
-        namedType.GetTypeMembers()
-            .Where(caseType => SymbolEqualityComparer.Default.Equals(caseType.BaseType, namedType))
-            .Concat(compilation.GlobalNamespace.GetNamespaceMembers().SelectMany(namespaceSymbol => UnionCases(namespaceSymbol, namedType)));
-    private static IEnumerable<INamedTypeSymbol> UnionCases(INamespaceSymbol namespaceSymbol, INamedTypeSymbol namedType) =>
-        namespaceSymbol.GetTypeMembers()
-            .Where(caseType => SymbolEqualityComparer.Default.Equals(caseType.BaseType, namedType))
-            .Concat(namespaceSymbol.GetNamespaceMembers().SelectMany(childNamespace => UnionCases(childNamespace, namedType)));
     private static ITypeSymbol UnwrapNullable(ITypeSymbol type) => SymbolFacts.UnwrapNullable(type);
 }

@@ -9,15 +9,17 @@ using RhinoControls = Rhino.UI.Controls;
 namespace Rasm.Rhino.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-[Union]
-public abstract partial record PanelEvent {
-    private PanelEvent() { }
+public readonly record struct PanelEvent(PanelEventKind Kind, Guid Id, Option<uint> DocumentSerial = default);
 
-    public abstract Guid Id { get; }
-    public sealed record None(Guid Id, Option<uint> DocumentSerial) : PanelEvent { public override Guid Id { get; } = Id; }
-    public sealed record Shown(Guid Id, Option<uint> DocumentSerial) : PanelEvent { public override Guid Id { get; } = Id; }
-    public sealed record Hidden(Guid Id, Option<uint> DocumentSerial) : PanelEvent { public override Guid Id { get; } = Id; }
-    public sealed record Closed(Guid Id, Option<uint> DocumentSerial) : PanelEvent { public override Guid Id { get; } = Id; }
+[SmartEnum<int>]
+public sealed partial class PanelEventKind {
+    public static readonly PanelEventKind None = new(key: 0, emit: static (_, _) => Fin.Fail<Unit>(error: Op.Of(name: nameof(PanelEventKind)).InvalidInput()));
+    public static readonly PanelEventKind Shown = new(key: 1, emit: static (panelId, serial) => Fin.Succ(value: Op.Side(() => global::Rhino.UI.Panels.OnShowPanel(panelId: panelId, documentSerialNumber: serial.IfNone(0u), show: true))));
+    public static readonly PanelEventKind Hidden = new(key: 2, emit: static (panelId, serial) => Fin.Succ(value: Op.Side(() => global::Rhino.UI.Panels.OnShowPanel(panelId: panelId, documentSerialNumber: serial.IfNone(0u), show: false))));
+    public static readonly PanelEventKind Closed = new(key: 3, emit: static (panelId, serial) => Fin.Succ(value: Op.Side(() => global::Rhino.UI.Panels.OnClosePanel(panelId: panelId, documentSerialNumber: serial.IfNone(0u)))));
+
+    [UseDelegateFromConstructor]
+    internal partial Fin<Unit> Emit(Guid panelId, Option<uint> documentSerial);
 }
 
 public abstract record PanelIcon {
@@ -564,14 +566,10 @@ public static class PanelOp {
             return Fin.Succ(value: (Visible: activeScope && global::Rhino.UI.Panels.IsPanelVisible(panelType: panel.Type, isSelectedTab: false), Selected: activeScope && global::Rhino.UI.Panels.IsPanelVisible(panelType: panel.Type, isSelectedTab: true)));
         }), interactive: false);
     public static UiIntent<Unit> Emit<TPanel>(PanelEvent panelEvent) where TPanel : RasmPanel =>
-        Bind<TPanel, Unit>(run: (_, panel) => from active in Op.Of(name: nameof(Emit)).Need(panelEvent)
+        Bind<TPanel, Unit>(run: (_, panel) => from kind in Op.Of(name: nameof(Emit)).Need(panelEvent.Kind)
+                                              let active = panelEvent with { Kind = kind }
                                               from _same in guard(active.Id == panel.Id, Op.Of(name: nameof(Emit)).InvalidInput())
-                                              from emitted in RhinoUi.Protect(valid: () => active switch {
-                                                  PanelEvent.Shown s => Fin.Succ(value: Op.Side(() => global::Rhino.UI.Panels.OnShowPanel(panelId: panel.Id, documentSerialNumber: s.DocumentSerial.IfNone(0u), show: true))),
-                                                  PanelEvent.Hidden h => Fin.Succ(value: Op.Side(() => global::Rhino.UI.Panels.OnShowPanel(panelId: panel.Id, documentSerialNumber: h.DocumentSerial.IfNone(0u), show: false))),
-                                                  PanelEvent.Closed c => Fin.Succ(value: Op.Side(() => global::Rhino.UI.Panels.OnClosePanel(panelId: panel.Id, documentSerialNumber: c.DocumentSerial.IfNone(0u)))),
-                                                  _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Emit)).InvalidInput()),
-                                              })
+                                              from emitted in RhinoUi.Protect(valid: () => active.Kind.Emit(panelId: panel.Id, documentSerial: active.DocumentSerial))
                                               select emitted, interactive: false);
 
     public static UiIntent<Unit> MenuState<TPanel>(Guid fileId, Guid menuId, Guid itemId, Func<PanelMenuState, Fin<PanelMenuState>> update) where TPanel : RasmPanel =>
@@ -591,10 +589,10 @@ public static class PanelOp {
                 Subscription? box = null;   // forward ref so an `until` match can self-detach mid-run
                 Fin<Unit> Fire(WatchPayload.Panel host, uint documentSerial) {
                     PanelEvent local = host.State switch {
-                        WatchPanelState.Shown => new PanelEvent.Shown(Id: host.Id, DocumentSerial: Some(documentSerial)),
-                        WatchPanelState.Hidden => new PanelEvent.Hidden(Id: host.Id, DocumentSerial: Some(documentSerial)),
-                        WatchPanelState.Closed => new PanelEvent.Closed(Id: host.Id, DocumentSerial: Some(documentSerial)),
-                        _ => new PanelEvent.None(Id: host.Id, DocumentSerial: Some(documentSerial)),
+                        WatchPanelState.Shown => new PanelEvent(Kind: PanelEventKind.Shown, Id: host.Id, DocumentSerial: Some(documentSerial)),
+                        WatchPanelState.Hidden => new PanelEvent(Kind: PanelEventKind.Hidden, Id: host.Id, DocumentSerial: Some(documentSerial)),
+                        WatchPanelState.Closed => new PanelEvent(Kind: PanelEventKind.Closed, Id: host.Id, DocumentSerial: Some(documentSerial)),
+                        _ => new PanelEvent(Kind: PanelEventKind.None, Id: host.Id, DocumentSerial: Some(documentSerial)),
                     };
                     return valid(arg: local).Map(_ => Optional(until).Filter(predicate => predicate(arg: local)).Iter(_ => box?.Dispose()));
                 }
