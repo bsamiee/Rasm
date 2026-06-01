@@ -687,6 +687,48 @@ public sealed class RuleBehaviorTests {
             public LanguageExt.Fin<LanguageExt.Unit> Run(bool rejected, Error error) =>
                 rejected ? LanguageExt.Fin.Fail<LanguageExt.Unit>(error) : LanguageExt.Fin.Succ(unit);
             """)),
+        new("CSP0740", File(scope: "Domain/Services", type: "ManualVisitorUnion"), """
+            namespace Domain.Services {
+                public abstract record ManualVisitorUnion {
+                    private ManualVisitorUnion() { }
+                    public abstract TResult Fold<TResult>(
+                        System.Func<Created, TResult> created,
+                        System.Func<Changed, TResult> changed,
+                        System.Func<Deleted, TResult> deleted);
+
+                    public sealed record Created(int Id) : ManualVisitorUnion {
+                        public override TResult Fold<TResult>(
+                            System.Func<Created, TResult> created,
+                            System.Func<Changed, TResult> changed,
+                            System.Func<Deleted, TResult> deleted) => created(this);
+                    }
+
+                    public sealed record Changed(int Id) : ManualVisitorUnion {
+                        public override TResult Fold<TResult>(
+                            System.Func<Created, TResult> created,
+                            System.Func<Changed, TResult> changed,
+                            System.Func<Deleted, TResult> deleted) => changed(this);
+                    }
+
+                    public sealed record Deleted(int Id) : ManualVisitorUnion {
+                        public override TResult Fold<TResult>(
+                            System.Func<Created, TResult> created,
+                            System.Func<Changed, TResult> changed,
+                            System.Func<Deleted, TResult> deleted) => deleted(this);
+                    }
+                }
+            }
+            """),
+        new("CSP0740", File(scope: "Domain/Services", type: "InternalClosedOverrideRail"), """
+            namespace Domain.Services {
+                internal abstract record InternalClosedOverrideRail {
+                    internal abstract int Run(int value);
+                    internal sealed record First : InternalClosedOverrideRail { internal override int Run(int value) => value; }
+                    internal sealed record Second : InternalClosedOverrideRail { internal override int Run(int value) => value; }
+                    internal sealed record Third : InternalClosedOverrideRail { internal override int Run(int value) => value; }
+                }
+            }
+            """),
         new("CSP0802", File(scope: "Domain/Models", type: "UnqualifiedUnionOps"), """
             namespace Thinktecture {
                 public sealed class UnionAttribute : System.Attribute { }
@@ -2021,6 +2063,124 @@ public sealed class RuleBehaviorTests {
                 """)).ConfigureAwait(true);
 
         Assert.DoesNotContain(expected: "CSP0739", collection: ids);
+    }
+
+    [Fact]
+    public async Task ThinktectureUnionDoesNotEmitManualClosedUnionOverrideDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/GeneratedDispatchUnion.cs",
+            source: """
+                namespace Thinktecture {
+                    public sealed class UnionAttribute : System.Attribute { }
+                }
+
+                namespace Domain.Services {
+                    [Thinktecture.Union]
+                    public abstract record GeneratedDispatchUnion {
+                        private GeneratedDispatchUnion() { }
+                        public sealed record Created(int Id) : GeneratedDispatchUnion;
+                        public sealed record Changed(int Id) : GeneratedDispatchUnion;
+                        public sealed record Deleted(int Id) : GeneratedDispatchUnion;
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0740", collection: ids);
+    }
+
+    [Fact]
+    public async Task FrameworkOverrideHierarchyDoesNotEmitManualClosedUnionOverrideDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/FrameworkWriter.cs",
+            source: """
+                namespace Domain.Services {
+                    public sealed class FrameworkWriter : System.IO.TextWriter {
+                        public override System.Text.Encoding Encoding => System.Text.Encoding.UTF8;
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0740", collection: ids);
+    }
+
+    [Fact]
+    public async Task TwoCaseManualUnionDoesNotEmitManualClosedUnionOverrideDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/TwoCaseManualUnion.cs",
+            source: """
+                namespace Domain.Services {
+                    public abstract record TwoCaseManualUnion {
+                        private TwoCaseManualUnion() { }
+                        public abstract int Project();
+                        public sealed record First(int Value) : TwoCaseManualUnion { public override int Project() => Value; }
+                        public sealed record Second(int Value) : TwoCaseManualUnion { public override int Project() => Value; }
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0740", collection: ids);
+    }
+
+    [Fact]
+    public async Task GenericNestedCaseDoesNotEmitManualClosedUnionOverrideDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/GenericCaseManualUnion.cs",
+            source: """
+                namespace Domain.Services {
+                    public abstract record GenericCaseManualUnion<TState> {
+                        private GenericCaseManualUnion() { }
+                        public abstract TState State { get; }
+                        public sealed record Button(TState Value) : GenericCaseManualUnion<TState> { public override TState State => Value; }
+                        public sealed record Label(TState Value) : GenericCaseManualUnion<TState> { public override TState State => Value; }
+                        public sealed record Field<T>(TState Value, T Payload) : GenericCaseManualUnion<TState> { public override TState State => Value; }
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0740", collection: ids);
+    }
+
+    [Fact]
+    public async Task ExtraCaseBehaviorDoesNotEmitManualClosedUnionOverrideDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/BehaviorfulManualUnion.cs",
+            source: """
+                namespace Domain.Services {
+                    public abstract record BehaviorfulManualUnion {
+                        private BehaviorfulManualUnion() { }
+                        public abstract int Project();
+                        public sealed record First(int Value) : BehaviorfulManualUnion { public override int Project() => Value; }
+                        public sealed record Second(int Value) : BehaviorfulManualUnion { public override int Project() => Value; }
+                        public sealed record Third(int Value) : BehaviorfulManualUnion {
+                            public override int Project() {
+                                int adjusted = Value + 1;
+                                return adjusted;
+                            }
+                        }
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0740", collection: ids);
+    }
+
+    [Fact]
+    public async Task PubliclyExtensibleManualHierarchyDoesNotEmitManualClosedUnionOverrideDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/PublicHierarchy.cs",
+            source: """
+                namespace Domain.Services {
+                    public abstract record PublicHierarchy {
+                        protected PublicHierarchy() { }
+                        public abstract int Project();
+                        public sealed record First(int Value) : PublicHierarchy { public override int Project() => Value; }
+                        public sealed record Second(int Value) : PublicHierarchy { public override int Project() => Value; }
+                        public sealed record Third(int Value) : PublicHierarchy { public override int Project() => Value; }
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0740", collection: ids);
     }
 
     public static TheoryData<string, string, string> RuleCases() =>

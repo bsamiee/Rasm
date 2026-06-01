@@ -79,30 +79,14 @@ public abstract partial record MotionClock {
         };
 }
 
-public abstract record MotionSpec<TValue, TVelocity> {
+[Union(SwitchMapStateParameterName = "state")]
+public abstract partial record MotionSpec<TValue, TVelocity> {
     private MotionSpec() { }
-    public sealed record Spring(TValue From, TValue To, SpringConfig Config, IMotionVector<TValue, TVelocity> Vector, Option<TVelocity> InitialVelocity = default) : MotionSpec<TValue, TVelocity> {
-        internal override TOut Fold<TOut>(Func<Spring, TOut> spring, Func<Tween, TOut> tween, Func<Pulse, TOut> pulse, Func<Sequence, TOut> sequence, Func<Decay, TOut> decay) => spring(arg: this);
-    }
-    public sealed record Tween(TValue From, TValue To, TimeSpan Duration, Easing Easing, IMotionVector<TValue, TVelocity> Vector) : MotionSpec<TValue, TVelocity> {
-        internal override TOut Fold<TOut>(Func<Spring, TOut> spring, Func<Tween, TOut> tween, Func<Pulse, TOut> pulse, Func<Sequence, TOut> sequence, Func<Decay, TOut> decay) => tween(arg: this);
-    }
-    public sealed record Pulse(TValue From, TValue To, TimeSpan Duration, Easing Easing, IMotionVector<TValue, TVelocity> Vector, int Cycles = 1, bool Yoyo = false, bool Infinite = false) : MotionSpec<TValue, TVelocity> {
-        internal override TOut Fold<TOut>(Func<Spring, TOut> spring, Func<Tween, TOut> tween, Func<Pulse, TOut> pulse, Func<Sequence, TOut> sequence, Func<Decay, TOut> decay) => pulse(arg: this);
-    }
-    public sealed record Sequence(TValue Start, Seq<(TValue Target, TimeSpan Duration, Easing Easing)> Steps, IMotionVector<TValue, TVelocity> Vector) : MotionSpec<TValue, TVelocity> {
-        internal override TOut Fold<TOut>(Func<Spring, TOut> spring, Func<Tween, TOut> tween, Func<Pulse, TOut> pulse, Func<Sequence, TOut> sequence, Func<Decay, TOut> decay) => sequence(arg: this);
-    }
-    public sealed record Decay(TValue From, TVelocity Velocity, double Friction, IMotionVector<TValue, TVelocity> Vector) : MotionSpec<TValue, TVelocity> {
-        internal override TOut Fold<TOut>(Func<Spring, TOut> spring, Func<Tween, TOut> tween, Func<Pulse, TOut> pulse, Func<Sequence, TOut> sequence, Func<Decay, TOut> decay) => decay(arg: this);
-    }
-
-    internal abstract TOut Fold<TOut>(
-        Func<Spring, TOut> spring,
-        Func<Tween, TOut> tween,
-        Func<Pulse, TOut> pulse,
-        Func<Sequence, TOut> sequence,
-        Func<Decay, TOut> decay);
+    public sealed record Spring(TValue From, TValue To, SpringConfig Config, IMotionVector<TValue, TVelocity> Vector, Option<TVelocity> InitialVelocity = default) : MotionSpec<TValue, TVelocity>;
+    public sealed record Tween(TValue From, TValue To, TimeSpan Duration, Easing Easing, IMotionVector<TValue, TVelocity> Vector) : MotionSpec<TValue, TVelocity>;
+    public sealed record Pulse(TValue From, TValue To, TimeSpan Duration, Easing Easing, IMotionVector<TValue, TVelocity> Vector, int Cycles = 1, bool Yoyo = false, bool Infinite = false) : MotionSpec<TValue, TVelocity>;
+    public sealed record Sequence(TValue Start, Seq<(TValue Target, TimeSpan Duration, Easing Easing)> Steps, IMotionVector<TValue, TVelocity> Vector) : MotionSpec<TValue, TVelocity>;
+    public sealed record Decay(TValue From, TVelocity Velocity, double Friction, IMotionVector<TValue, TVelocity> Vector) : MotionSpec<TValue, TVelocity>;
 }
 
 [Union]
@@ -438,7 +422,7 @@ internal static class Motion {
     }
 
     private static Fin<Unit> Admit<TValue, TVelocity>(MotionSpec<TValue, TVelocity> spec) =>
-        spec.Fold(
+        spec.Switch(
             spring: static _ => Fin.Succ(value: unit),
             tween: static t => guard(t.Duration > TimeSpan.Zero, Op.Of(name: nameof(Run)).InvalidInput()).ToFin(),
             pulse: static p => guard(p.Duration > TimeSpan.Zero && (p.Infinite || p.Cycles > 0), Op.Of(name: nameof(Run)).InvalidInput()).ToFin(),
@@ -452,26 +436,27 @@ internal static class Motion {
     private static bool ShouldReduceMotion() => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion;
 
     private static Fin<MotionHandle<TValue, TVelocity>> Dispatch<TValue, TVelocity>(MotionSpec<TValue, TVelocity> spec, Action<TValue> sink, RedrawTarget target, MotionClock clock, TimeProvider resolved) =>
-        spec.Fold(
-            spring: s => Drive(
-                initial: MakeSpring(spec: s, sink: sink, clock: resolved), target: target, clock: clock,
+        spec.Switch(
+            state: (Sink: sink, Target: target, Clock: clock, Resolved: resolved),
+            spring: static (state, s) => Drive(
+                initial: MakeSpring(spec: s, sink: state.Sink, clock: state.Resolved), target: state.Target, clock: state.Clock,
                 steering: cell => new MotionHandle<TValue, TVelocity>.Steering(
                     Retarget: (toValue, velocity) => Fin.Succ(value: Op.Side(() => cell.Swap(state => state with { Target = toValue, Velocity = velocity.IfNone(state.Velocity) }))),
                     Velocity: () => cell.Value.Velocity)),
-            decay: d => Drive(
-                initial: MakeDecay(spec: d, sink: sink, clock: resolved), target: target, clock: clock,
+            decay: static (state, d) => Drive(
+                initial: MakeDecay(spec: d, sink: state.Sink, clock: state.Resolved), target: state.Target, clock: state.Clock,
                 steering: cell => new MotionHandle<TValue, TVelocity>.Steering(
                     Retarget: (_, velocity) => Fin.Succ(value: Op.Side(() => cell.Swap(state => state with { Velocity = velocity.IfNone(state.Velocity) }))),
                     Velocity: () => cell.Value.Velocity)),
-            tween: t => Drive(
-                initial: MakeTimed(from: t.From, to: t.To, duration: t.Duration, easing: t.Easing, rest: Seq<(TValue, TimeSpan, Easing)>(), yoyo: false, infinite: false, cycles: 0, vector: t.Vector, sink: sink, clock: resolved), target: target, clock: clock, steering: ReseedTimed(vector: t.Vector)),
-            pulse: p => Drive(
-                initial: MakeTimed(from: p.From, to: p.To, duration: p.Duration, easing: p.Easing, rest: Seq<(TValue, TimeSpan, Easing)>(), yoyo: p.Yoyo, infinite: p.Infinite, cycles: Math.Max(val1: 0, val2: p.Cycles - 1), vector: p.Vector, sink: sink, clock: resolved), target: target, clock: clock, steering: ReseedTimed(vector: p.Vector)),
-            sequence: q => Drive(
-                initial: MakeSequence(spec: q, sink: sink, clock: resolved), target: target, clock: clock, steering: ReseedTimed(vector: q.Vector)));
+            tween: static (state, t) => Drive(
+                initial: MakeTimed(from: t.From, to: t.To, duration: t.Duration, easing: t.Easing, rest: Seq<(TValue, TimeSpan, Easing)>(), yoyo: false, infinite: false, cycles: 0, vector: t.Vector, sink: state.Sink, clock: state.Resolved), target: state.Target, clock: state.Clock, steering: ReseedTimed(vector: t.Vector)),
+            pulse: static (state, p) => Drive(
+                initial: MakeTimed(from: p.From, to: p.To, duration: p.Duration, easing: p.Easing, rest: Seq<(TValue, TimeSpan, Easing)>(), yoyo: p.Yoyo, infinite: p.Infinite, cycles: Math.Max(val1: 0, val2: p.Cycles - 1), vector: p.Vector, sink: state.Sink, clock: state.Resolved), target: state.Target, clock: state.Clock, steering: ReseedTimed(vector: p.Vector)),
+            sequence: static (state, q) => Drive(
+                initial: MakeSequence(spec: q, sink: state.Sink, clock: state.Resolved), target: state.Target, clock: state.Clock, steering: ReseedTimed(vector: q.Vector)));
 
     private static Fin<MotionHandle<TValue, TVelocity>> Settle<TValue, TVelocity>(MotionSpec<TValue, TVelocity> spec, Action<TValue> sink, RedrawTarget target) {
-        Fin<(TValue Terminal, IMotionVector<TValue, TVelocity> Vector)> resolved = spec.Fold(
+        Fin<(TValue Terminal, IMotionVector<TValue, TVelocity> Vector)> resolved = spec.Switch(
             spring: static s => Fin.Succ(value: (s.To, s.Vector)),
             tween: static t => Fin.Succ(value: (t.To, t.Vector)),
             pulse: static p => Fin.Succ(value: ((p.Yoyo, p.Infinite, p.Cycles % 2) switch { (true, false, 0) => p.From, _ => p.To }, p.Vector)),

@@ -117,6 +117,23 @@ internal static class TypeShapeRules {
         });
     }
 
+    // --- [MANUAL_CLOSED_UNION_OVERRIDE] -------------------------------------
+
+    internal static void ReportManualClosedUnionOverride(CompilationAnalysisContext context, AnalyzerState state) {
+        IEnumerable<Diagnostic> diagnostics = state.NamedTypes()
+            .Where(namedType => SymbolEqualityComparer.Default.Equals(namedType.ContainingAssembly, context.Compilation.Assembly))
+            .Where(namedType => state.ScopeFor(namedType).IsAnalyzable)
+            .Where(namedType => namedType.Locations.Length > 0)
+            .Select(namedType => SymbolFacts.TryManualClosedUnionOverride(
+                namedType: namedType,
+                derivedTypes: state.DerivedTypes(baseType: namedType),
+                facts: out ManualClosedUnionOverrideFacts facts)
+                ? Diagnostic.Create(RuleCatalog.CSP0740, namedType.Locations[0], namedType.Name, facts.MemberName, facts.OverrideCount)
+                : null)
+            .OfType<Diagnostic>();
+        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
+    }
+
     // --- [DATETIME_FIELD] -----------------------------------------------------
 
     internal static void CheckDateTimeFieldInDomain(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {

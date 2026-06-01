@@ -157,7 +157,7 @@ internal abstract partial record PortFault : Domain.Expected {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 [BoundaryAdapter]
-internal static class Bridge {
+internal static partial class Bridge {
     internal static Fin<Analyze.Scope> Scope(this IDataAccess access) {
         ArgumentNullException.ThrowIfNull(argument: access);
         UnitPolicy units = UnitPolicy.Read(access: access);
@@ -201,15 +201,47 @@ internal static class Bridge {
                     { IsSome: true, Case: string message } => Fin.Fail<Flow<TVal>>(new PortFault.InvalidValue(Port: port.Name, Detail: message)),
                     _ => Fin.Succ(value),
                 }).As();
-    internal abstract record Channel<T> {
-        internal abstract Fin<Seq<Flow<T>>> Read(IDataAccess access, int slot, Port port);
-        internal abstract Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values);
+    [Union(SwitchMapStateParameterName = "context")]
+    internal abstract partial record Channel<T> {
+        private Channel() { }
         internal static Channel<T> For(Access access) => access switch {
             Access.Item => ItemChannel.Instance,
             Access.Twig => TwigChannel.Instance,
             Access.Tree => TreeChannel.Instance,
             _ => UnsupportedChannel.Instance,
         };
+        internal Fin<Seq<Flow<T>>> Read(IDataAccess access, int slot, Port port) =>
+            Switch(
+                context: (Access: access, Slot: slot, Port: port),
+                itemChannel: static (ctx, channel) => {
+                    _ = ctx.Access.GetPears(index: ctx.Slot, pears: out Pear<T>[] pears);
+                    return FlowPears(port: ctx.Port, pears: pears.Select(static pear => (Pear: pear, Site: Option<Site>.None)));
+                },
+                twigChannel: static (ctx, _) => ctx.Access.GetTwig(index: ctx.Slot, twig: out Twig<T> twig)
+                    ? FlowPears(port: ctx.Port, pears: twig.Pears.Select(static pear => (Pear: pear, Site: Option<Site>.None)))
+                    : MissingFlow<T>(port: ctx.Port),
+                treeChannel: static (ctx, _) => ctx.Access.GetTree(index: ctx.Slot, tree: out Tree<T> tree)
+                    ? FlowPears(port: ctx.Port, pears: tree.EnumerateLeaves().Select(static leaf => (leaf.Pear, Site: Some(leaf.Site))))
+                    : MissingFlow<T>(port: ctx.Port),
+                unsupportedChannel: static (ctx, _) => Fin.Fail<Seq<Flow<T>>>(new PortFault.UnsupportedAccess(Access: ctx.Port.Access.ToString())));
+        internal Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values) =>
+            Switch(
+                context: (Access: access, Slot: slot, Name: name, Values: values),
+                itemChannel: static (ctx, _) => ctx.Values.Count switch {
+                    1 => Commit(set: () => ctx.Access.SetPear(index: ctx.Slot, pear: ctx.Values[0].Pear), values: ctx.Values),
+                    > 1 => ctx.Access.Emit(severity: Severity.Error, text: ctx.Name, details: $"Item output received {ctx.Values.Count} values; use twig or tree access.") switch { _ => Seq<object>() },
+                    _ => Seq<object>(),
+                },
+                twigChannel: static (ctx, _) => Commit(set: () => ctx.Access.SetTwig(index: ctx.Slot, twig: Garden.TwigFromPears(pears: ctx.Values.Map(static value => value.Pear).AsIterable())), values: ctx.Values),
+                treeChannel: static (ctx, _) => Commit(set: () => {
+                    ITree tree = ctx.Values.Count switch {
+                        0 => Garden.TreeEmpty<T>(),
+                        _ when ctx.Values.Exists(static value => value.Site.IsSome) => Garden.TreeFromLeaves(leaves: Leaves(values: ctx.Values).AsIterable()),
+                        _ => Garden.TreeFromPears(pears: ctx.Values.Map(static value => value.Pear).AsIterable()),
+                    };
+                    ctx.Access.SetTree(index: ctx.Slot, tree: TreePrefix(access: ctx.Access, slot: ctx.Slot) is int prefix ? tree.WithPathPrefix(element: prefix) : tree);
+                }, values: ctx.Values),
+                unsupportedChannel: static (ctx, _) => ctx.Access.Emit(severity: Severity.Error, text: ctx.Name, details: "Unsupported output access.") switch { _ => Seq<object>() });
         // Run the native Set side-effect, then project written values to transfer-evidence objects (one place).
         private static Seq<object> Commit(Action set, Seq<Flow<T>> values) {
             set();
@@ -217,49 +249,15 @@ internal static class Bridge {
         }
         internal sealed record ItemChannel : Channel<T> {
             internal static readonly ItemChannel Instance = new();
-            // GH2 contract: GetPears always returns true (XML "Always true"); empty arrays flow through FlowPears -> MissingFlow.
-            internal override Fin<Seq<Flow<T>>> Read(IDataAccess access, int slot, Port port) {
-                _ = access.GetPears(index: slot, pears: out Pear<T>[] pears);
-                return FlowPears(port: port, pears: pears.Select(static pear => (Pear: pear, Site: Option<Site>.None)));
-            }
-            internal override Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values) =>
-                values.Count switch {
-                    1 => Commit(set: () => access.SetPear(index: slot, pear: values[0].Pear), values: values),
-                    > 1 => access.Emit(severity: Severity.Error, text: name, details: $"Item output received {values.Count} values; use twig or tree access.") switch { _ => Seq<object>() },
-                    _ => Seq<object>(),
-                };
         }
         internal sealed record TwigChannel : Channel<T> {
             internal static readonly TwigChannel Instance = new();
-            internal override Fin<Seq<Flow<T>>> Read(IDataAccess access, int slot, Port port) =>
-                access.GetTwig(index: slot, twig: out Twig<T> twig)
-                    ? FlowPears(port: port, pears: twig.Pears.Select(static pear => (Pear: pear, Site: Option<Site>.None)))
-                    : MissingFlow<T>(port: port);
-            internal override Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values) =>
-                Commit(set: () => access.SetTwig(index: slot, twig: Garden.TwigFromPears(pears: values.Map(static value => value.Pear).AsIterable())), values: values);
         }
         internal sealed record TreeChannel : Channel<T> {
             internal static readonly TreeChannel Instance = new();
-            internal override Fin<Seq<Flow<T>>> Read(IDataAccess access, int slot, Port port) =>
-                access.GetTree(index: slot, tree: out Tree<T> tree)
-                    ? FlowPears(port: port, pears: tree.EnumerateLeaves().Select(static leaf => (leaf.Pear, Site: Some(leaf.Site))))
-                    : MissingFlow<T>(port: port);
-            internal override Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values) =>
-                Commit(set: () => {
-                    ITree tree = values.Count switch {
-                        0 => Garden.TreeEmpty<T>(),
-                        _ when values.Exists(static value => value.Site.IsSome) => Garden.TreeFromLeaves(leaves: Leaves(values: values).AsIterable()),
-                        _ => Garden.TreeFromPears(pears: values.Map(static value => value.Pear).AsIterable()),
-                    };
-                    access.SetTree(index: slot, tree: TreePrefix(access: access, slot: slot) is int prefix ? tree.WithPathPrefix(element: prefix) : tree);
-                }, values: values);
         }
         internal sealed record UnsupportedChannel : Channel<T> {
             internal static readonly UnsupportedChannel Instance = new();
-            internal override Fin<Seq<Flow<T>>> Read(IDataAccess access, int slot, Port port) =>
-                Fin.Fail<Seq<Flow<T>>>(new PortFault.UnsupportedAccess(Access: port.Access.ToString()));
-            internal override Seq<object> Write(IDataAccess access, int slot, string name, Seq<Flow<T>> values) =>
-                access.Emit(severity: Severity.Error, text: name, details: "Unsupported output access.") switch { _ => Seq<object>() };
         }
     }
     internal static Unit Emit(this IDataAccess access, Severity severity, string text, string details) =>

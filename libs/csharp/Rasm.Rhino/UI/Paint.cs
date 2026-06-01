@@ -13,33 +13,29 @@ public interface IUiInput<TState> {
     public bool Alt { get; }
 }
 
-public abstract partial record UiInputEvent<TState> : IUiInput<TState> {
+[Union]
+public abstract partial record UiInputEvent<TUiState> : IUiInput<TUiState> {
     private UiInputEvent() { }
-    public abstract TState State { get; }
-    public abstract bool Shift { get; }
-    public abstract bool Control { get; }
-    public abstract bool Alt { get; }
+    public sealed record CanvasPointer(UiCanvasContext<TUiState> Value) : UiInputEvent<TUiState>;
+    public sealed record CanvasKey(UiCanvasKey<TUiState> Value) : UiInputEvent<TUiState>;
+    public sealed record ViewportMouse(MouseContext<TUiState> Value) : UiInputEvent<TUiState>;
 
-    public sealed record CanvasPointer(UiCanvasContext<TState> Value) : UiInputEvent<TState> {
-        public override TState State => Value.State;
-        public override bool Shift => Value.Shift;
-        public override bool Control => Value.Control;
-        public override bool Alt => Value.Alt;
-    }
-
-    public sealed record CanvasKey(UiCanvasKey<TState> Value) : UiInputEvent<TState> {
-        public override TState State => Value.State;
-        public override bool Shift => Value.Shift;
-        public override bool Control => Value.Control;
-        public override bool Alt => Value.Alt;
-    }
-
-    public sealed record ViewportMouse(MouseContext<TState> Value) : UiInputEvent<TState> {
-        public override TState State => Value.State;
-        public override bool Shift => Value.Shift;
-        public override bool Control => Value.Control;
-        public override bool Alt => false;
-    }
+    public TUiState State => Switch(
+        canvasPointer: static e => e.Value.State,
+        canvasKey: static e => e.Value.State,
+        viewportMouse: static e => e.Value.State);
+    public bool Shift => Switch(
+        canvasPointer: static e => e.Value.Shift,
+        canvasKey: static e => e.Value.Shift,
+        viewportMouse: static e => e.Value.Shift);
+    public bool Control => Switch(
+        canvasPointer: static e => e.Value.Control,
+        canvasKey: static e => e.Value.Control,
+        viewportMouse: static e => e.Value.Control);
+    public bool Alt => Switch(
+        canvasPointer: static e => e.Value.Alt,
+        canvasKey: static e => e.Value.Alt,
+        viewportMouse: static _ => false);
 }
 
 public enum KeyPhase { Down, Up }

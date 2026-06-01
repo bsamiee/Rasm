@@ -17,6 +17,8 @@ internal sealed class AnalyzerState {
     private readonly ConcurrentDictionary<ISymbol, ScopeInfo> _scopeCache = new(comparer: SymbolComparer);
     private readonly ConcurrentDictionary<IMethodSymbol, int> _methodInvocationCounts = new(comparer: SymbolComparer);
     private readonly ConcurrentDictionary<IMethodSymbol, byte> _privateMethods = new(comparer: SymbolComparer);
+    private readonly ConcurrentDictionary<INamedTypeSymbol, byte> _namedTypes = new(comparer: NamedTypeComparer);
+    private readonly ConcurrentDictionary<INamedTypeSymbol, ImmutableHashSet<INamedTypeSymbol>> _derivedTypes = new(comparer: NamedTypeComparer);
     private readonly ConcurrentDictionary<INamedTypeSymbol, ImmutableHashSet<INamedTypeSymbol>> _interfaceImplementations = new(comparer: NamedTypeComparer);
     private readonly ConcurrentDictionary<INamedTypeSymbol, byte> _flagsEnums = new(comparer: NamedTypeComparer);
     private readonly ConcurrentDictionary<INamedTypeSymbol, byte> _flagsEnumCompositionSites = new(comparer: NamedTypeComparer);
@@ -52,6 +54,16 @@ internal sealed class AnalyzerState {
             (Accessibility.Private, MethodKind.Ordinary) => _privateMethods.TryAdd(key: method, value: 0),
             _ => false,
         };
+    internal void TrackNamedType(INamedTypeSymbol namedType) {
+        _ = _namedTypes.TryAdd(key: namedType, value: 0);
+        _ = namedType.BaseType switch {
+            INamedTypeSymbol baseType => _derivedTypes.AddOrUpdate(
+                key: baseType.OriginalDefinition,
+                addValueFactory: _ => ImmutableHashSet.Create<INamedTypeSymbol>(SymbolEqualityComparer.Default, namedType),
+                updateValueFactory: (_, current) => current.Add(namedType)),
+            _ => [],
+        };
+    }
     internal void TrackMethodInvocation(IMethodSymbol? method) =>
         _ = method switch {
             IMethodSymbol calledMethod
@@ -86,6 +98,11 @@ internal sealed class AnalyzerState {
                 .Where(entry => entry.Value.Count == 1)
                 .Select(entry => (Interface: entry.Key, Implementation: entry.Value.Single())),
         ];
+    internal ImmutableArray<INamedTypeSymbol> NamedTypes() => [.. _namedTypes.Keys];
+    internal ImmutableHashSet<INamedTypeSymbol> DerivedTypes(INamedTypeSymbol baseType) =>
+        _derivedTypes.TryGetValue(key: baseType.OriginalDefinition, value: out ImmutableHashSet<INamedTypeSymbol> derived)
+            ? derived
+            : [];
     internal ImmutableArray<IMethodSymbol> SingleUsePrivateMethods() =>
         [
             .. _privateMethods.Keys

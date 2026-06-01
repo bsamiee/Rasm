@@ -35,6 +35,7 @@ internal static class AnalyzerDispatcher {
                 TypeShapeRules.CheckAtomRefAsProperty(context, scope, property);
                 break;
             case (_, INamedTypeSymbol namedType):
+                state.TrackNamedType(namedType: namedType);
                 state.TrackInterfaceImplementations(namedType: namedType);
                 ShapeRules.CheckSignatures(context, scope, namedType);
                 ShapeRules.CheckOverloadSpam(context, scope, namedType);
@@ -178,5 +179,6 @@ internal static class AnalyzerDispatcher {
         ShapeRules.ReportInterfacePollution(context, state);
         ShapeRules.ReportSingleUseHelpers(context, state);
         TypeShapeRules.ReportFlagsEnumOveruse(context, state);
+        TypeShapeRules.ReportManualClosedUnionOverride(context, state);
     }
 }

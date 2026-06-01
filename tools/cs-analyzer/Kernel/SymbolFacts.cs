@@ -69,6 +69,16 @@ internal sealed class ScopeInfo {
         || FilePath.Contains(value: "Performance", comparisonType: StringComparison.OrdinalIgnoreCase);
 }
 
+internal readonly struct ManualClosedUnionOverrideFacts {
+    internal ManualClosedUnionOverrideFacts(string memberName, int overrideCount) {
+        MemberName = memberName;
+        OverrideCount = overrideCount;
+    }
+
+    internal string MemberName { get; }
+    internal int OverrideCount { get; }
+}
+
 // --- [MARKERS] ---------------------------------------------------------------
 
 internal static class Markers {
@@ -548,6 +558,35 @@ internal static class SymbolFacts {
             && HasCrossSlotProjection(compilation: compilation, namedType: namedType, slots: slots, width: out projectionWidth)
             && projectionWidth >= 3;
     }
+    internal static bool TryManualClosedUnionOverride(INamedTypeSymbol namedType, ImmutableHashSet<INamedTypeSymbol> derivedTypes, out ManualClosedUnionOverrideFacts facts) {
+        facts = default;
+        ImmutableArray<INamedTypeSymbol> nestedCases = [
+            .. namedType.GetTypeMembers()
+                .Where(caseType => IsManualUnionCase(baseType: namedType, caseType: caseType)),
+        ];
+        bool closedByInheritance = derivedTypes.Count > 0
+            && derivedTypes.All(derived => nestedCases.Any(caseType => SymbolEqualityComparer.Default.Equals(caseType.OriginalDefinition, derived.OriginalDefinition)));
+        bool candidate = namedType is { TypeKind: TypeKind.Class, IsAbstract: true }
+            && !HasThinktectureGeneratedDispatch(namedType)
+            && (HasPrivateConstructorBarrier(namedType) || (closedByInheritance && !IsExternallyVisible(namedType)))
+            && nestedCases.Length >= 3;
+        if (!candidate) {
+            return false;
+        }
+        ImmutableArray<ISymbol> dispatchMembers = [
+            .. ManualDispatchMembers(namedType)
+                .Where(member => nestedCases.All(caseType =>
+                    MatchingOverride(caseType: caseType, baseMember: member) is ISymbol overrideMember
+                    && IsSimpleDispatchOverride(overrideMember))),
+        ];
+        if (dispatchMembers.Length == 0 || !nestedCases.All(caseType => HasNoExtraManualBehavior(caseType: caseType, dispatchMembers: dispatchMembers))) {
+            return false;
+        }
+        facts = new ManualClosedUnionOverrideFacts(
+            memberName: DescribeDispatchMembers(dispatchMembers),
+            overrideCount: nestedCases.Length * dispatchMembers.Length);
+        return true;
+    }
     internal static bool IsLanguageExtInvocation(IInvocationOperation invocation, params string[] names) =>
         names.Contains(invocation.TargetMethod.Name, StringComparer.Ordinal)
         && (invocation.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
@@ -606,6 +645,121 @@ internal static class SymbolFacts {
     private static bool IsRecordCopyConstructor(INamedTypeSymbol type, IMethodSymbol constructor) =>
         constructor.Parameters.Length == 1
         && SymbolEqualityComparer.Default.Equals(constructor.Parameters[0].Type, type);
+    private static bool HasPrivateConstructorBarrier(INamedTypeSymbol namedType) =>
+        namedType.InstanceConstructors
+            .Where(constructor => !constructor.IsImplicitlyDeclared)
+            .Where(constructor => !IsRecordCopyConstructor(type: namedType, constructor: constructor))
+            .Any(static constructor => constructor.DeclaredAccessibility == Accessibility.Private)
+        && !namedType.InstanceConstructors
+            .Where(constructor => !constructor.IsImplicitlyDeclared)
+            .Where(constructor => !IsRecordCopyConstructor(type: namedType, constructor: constructor))
+            .Any(static constructor => constructor.DeclaredAccessibility
+                is Accessibility.Public
+                or Accessibility.Protected
+                or Accessibility.ProtectedOrInternal
+                or Accessibility.ProtectedAndInternal);
+    private static bool IsExternallyVisible(INamedTypeSymbol namedType) =>
+        namedType.DeclaredAccessibility is Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal
+        && (namedType.ContainingType is not INamedTypeSymbol containing || IsExternallyVisible(containing));
+    private static bool IsManualUnionCase(INamedTypeSymbol baseType, INamedTypeSymbol caseType) =>
+        caseType is { TypeKind: TypeKind.Class, IsRecord: true, IsSealed: true, IsGenericType: false }
+        && caseType.BaseType is INamedTypeSymbol parent
+        && SymbolEqualityComparer.Default.Equals(parent.OriginalDefinition, baseType.OriginalDefinition);
+    private static IEnumerable<ISymbol> ManualDispatchMembers(INamedTypeSymbol namedType) =>
+        namedType.GetMembers()
+            .Where(static member => member switch {
+                IPropertySymbol property => property is { IsStatic: false, IsAbstract: true },
+                IMethodSymbol method => method is {
+                    IsStatic: false,
+                    IsAbstract: true,
+                    MethodKind: MethodKind.Ordinary,
+                    IsImplicitlyDeclared: false,
+                },
+                _ => false,
+            });
+    private static ISymbol? MatchingOverride(INamedTypeSymbol caseType, ISymbol baseMember) =>
+        baseMember switch {
+            IPropertySymbol property => caseType.GetMembers(property.Name)
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(candidate => candidate.IsOverride
+                    && SymbolEqualityComparer.Default.Equals(candidate.OverriddenProperty?.OriginalDefinition, property.OriginalDefinition)),
+            IMethodSymbol method => caseType.GetMembers(method.Name)
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(candidate => candidate.IsOverride
+                    && SymbolEqualityComparer.Default.Equals(candidate.OverriddenMethod?.OriginalDefinition, method.OriginalDefinition)),
+            _ => null,
+        };
+    private static bool HasNoExtraManualBehavior(INamedTypeSymbol caseType, ImmutableArray<ISymbol> dispatchMembers) =>
+        caseType.GetMembers()
+            .Where(static member => !member.IsImplicitlyDeclared)
+            .All(member => IsAllowedManualUnionCaseMember(member: member, parameters: PrimaryConstructor(caseType)?.Parameters ?? [], dispatchMembers: dispatchMembers));
+    private static bool IsAllowedManualUnionCaseMember(ISymbol member, ImmutableArray<IParameterSymbol> parameters, ImmutableArray<ISymbol> dispatchMembers) =>
+        member switch {
+            IFieldSymbol { AssociatedSymbol: IPropertySymbol property } => IsAllowedManualUnionCaseMember(member: property, parameters: parameters, dispatchMembers: dispatchMembers),
+            IPropertySymbol { Name: "EqualityContract" } => true,
+            IPropertySymbol property when MatchingBaseMember(dispatchMembers: dispatchMembers, overrideMember: property) is not null => IsSimpleDispatchOverride(property),
+            IPropertySymbol property => parameters.Any(parameter =>
+                string.Equals(a: parameter.Name, b: property.Name, comparisonType: StringComparison.OrdinalIgnoreCase)
+                && SymbolEqualityComparer.Default.Equals(parameter.Type, property.Type)),
+            IMethodSymbol { MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet } method => method.AssociatedSymbol is IPropertySymbol property
+                && IsAllowedManualUnionCaseMember(member: property, parameters: parameters, dispatchMembers: dispatchMembers),
+            IMethodSymbol { MethodKind: MethodKind.Constructor } => true,
+            IMethodSymbol method when MatchingBaseMember(dispatchMembers: dispatchMembers, overrideMember: method) is not null => IsSimpleDispatchOverride(method),
+            IMethodSymbol { Name: "Deconstruct" or "PrintMembers" } => true,
+            _ => false,
+        };
+    private static ISymbol? MatchingBaseMember(ImmutableArray<ISymbol> dispatchMembers, ISymbol overrideMember) =>
+        overrideMember switch {
+            IPropertySymbol property => dispatchMembers
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(candidate => SymbolEqualityComparer.Default.Equals(property.OverriddenProperty?.OriginalDefinition, candidate.OriginalDefinition)),
+            IMethodSymbol method => dispatchMembers
+                .OfType<IMethodSymbol>()
+                .FirstOrDefault(candidate => SymbolEqualityComparer.Default.Equals(method.OverriddenMethod?.OriginalDefinition, candidate.OriginalDefinition)),
+            _ => null,
+        };
+    private static bool IsSimpleDispatchOverride(ISymbol member) =>
+        member.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() switch {
+            MethodDeclarationSyntax method => SimpleDispatchMethod(method),
+            PropertyDeclarationSyntax property => SimpleDispatchProperty(property),
+            _ => false,
+        });
+    private static bool SimpleDispatchMethod(MethodDeclarationSyntax method) =>
+        method.ExpressionBody?.Expression is ExpressionSyntax expression
+            ? IsSimpleProjectionOrDispatchExpression(expression)
+            : method.Body is BlockSyntax body
+                && body.Statements.Count == 1
+                && body.Statements[0] is ReturnStatementSyntax { Expression: ExpressionSyntax returned }
+                && IsSimpleProjectionOrDispatchExpression(returned);
+    private static bool SimpleDispatchProperty(PropertyDeclarationSyntax property) =>
+        property.ExpressionBody?.Expression is ExpressionSyntax expression
+            ? IsSimpleProjectionOrDispatchExpression(expression)
+            : property.AccessorList?.Accessors is SyntaxList<AccessorDeclarationSyntax> accessors
+                && accessors.Count == 1
+                && accessors[0] is {
+                    Keyword.RawKind: (int)SyntaxKind.GetKeyword,
+                    Body: BlockSyntax accessorBody,
+                }
+                && accessorBody.Statements.Count == 1
+                && accessorBody.Statements[0] is ReturnStatementSyntax { Expression: ExpressionSyntax returned }
+                && IsSimpleProjectionOrDispatchExpression(returned);
+    private static bool IsSimpleProjectionOrDispatchExpression(ExpressionSyntax expression) =>
+        UnwrapTransparentExpression(expression) switch {
+            LiteralExpressionSyntax => true,
+            ThisExpressionSyntax => true,
+            IdentifierNameSyntax => true,
+            MemberAccessExpressionSyntax memberAccess => IsSimpleProjectionOrDispatchExpression(memberAccess.Expression),
+            InvocationExpressionSyntax invocation => IsSimpleInvocation(invocation),
+            _ => false,
+        };
+    private static bool IsSimpleInvocation(InvocationExpressionSyntax invocation) =>
+        invocation.Expression is IdentifierNameSyntax or MemberAccessExpressionSyntax
+        && invocation.ArgumentList.Arguments.All(argument => IsSimpleProjectionOrDispatchExpression(argument.Expression));
+    private static string DescribeDispatchMembers(ImmutableArray<ISymbol> dispatchMembers) =>
+        dispatchMembers.Length switch {
+            1 => dispatchMembers[0].Name,
+            _ => $"{dispatchMembers[0].Name} and {dispatchMembers.Length - 1} more members",
+        };
     private static bool IsErrorLike(INamedTypeSymbol type) =>
         type.Name is "Error" or "Expected"
         || (type.BaseType is INamedTypeSymbol parent && IsErrorLike(parent));
