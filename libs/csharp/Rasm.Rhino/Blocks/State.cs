@@ -223,10 +223,12 @@ public abstract partial record DisplayModeRef {
                 .ToFin(Fail: k.InvalidInput()));
 
     internal static Fin<DisplayMode> NativeMode(Guid displayId, Op op) =>
-        displayId == DisplayModeDescription.WireframeId ? Fin.Succ(value: DisplayMode.Wireframe)
-        : displayId == DisplayModeDescription.ShadedId ? Fin.Succ(value: DisplayMode.Shaded)
-        : displayId == DisplayModeDescription.RenderedId ? Fin.Succ(value: DisplayMode.RenderPreview)
-        : Fin.Fail<DisplayMode>(error: op.InvalidInput());
+        displayId switch {
+            Guid id when id == DisplayModeDescription.WireframeId => Fin.Succ(value: DisplayMode.Wireframe),
+            Guid id when id == DisplayModeDescription.ShadedId => Fin.Succ(value: DisplayMode.Shaded),
+            Guid id when id == DisplayModeDescription.RenderedId => Fin.Succ(value: DisplayMode.RenderPreview),
+            _ => Fin.Fail<DisplayMode>(error: op.InvalidInput()),
+        };
 }
 
 [Union]
@@ -770,17 +772,13 @@ public sealed record Definition(
 [ValueObject<Guid>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct DefinitionId {
     public static Fin<DefinitionId> From(Guid value, Op? key = null) =>
-        value == Guid.Empty
-            ? Fin.Fail<DefinitionId>(error: key.OrDefault().InvalidInput())
-            : Fin.Succ(value: Create(value: value));
+        guard(value != Guid.Empty, key.OrDefault().InvalidInput()).ToFin().Map(_ => Create(value: value));
 }
 
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct DefinitionIndex {
     public static Fin<DefinitionIndex> From(int value, Op? key = null) =>
-        value < 0
-            ? Fin.Fail<DefinitionIndex>(error: key.OrDefault().InvalidInput())
-            : Fin.Succ(value: Create(value: value));
+        guard(value >= 0, key.OrDefault().InvalidInput()).ToFin().Map(_ => Create(value: value));
 }
 
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
@@ -905,9 +903,7 @@ public sealed record LinkMap(
     public LinkReloadPolicy EffectiveReload => Reload ?? LinkReloadPolicy.NestedQuiet;
 
     public Fin<LinkMap> Admit(Op key) =>
-        EffectiveUpdate.IsLinked
-            ? Fin.Succ(value: this)
-            : Fin.Fail<LinkMap>(error: key.InvalidInput());
+        guard(EffectiveUpdate.IsLinked, key.InvalidInput()).ToFin().Map(_ => this);
 }
 
 public readonly record struct LinkRefreshPolicy(bool SkipUpToDate) {

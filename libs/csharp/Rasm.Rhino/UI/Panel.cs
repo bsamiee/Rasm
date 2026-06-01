@@ -62,13 +62,9 @@ public abstract partial record PanelPlacement {
 
     public static PanelPlacement Default { get; } = new Auto();
     public static Fin<PanelPlacement> Dock(Guid dockBarId) =>
-        dockBarId == Guid.Empty
-            ? Fin.Fail<PanelPlacement>(error: Op.Of(name: nameof(Dock)).InvalidInput())
-            : Fin.Succ<PanelPlacement>(value: new AtDockBar(dockBarId));
+        guard(dockBarId != Guid.Empty, Op.Of(name: nameof(Dock)).InvalidInput()).ToFin().Map(_ => (PanelPlacement)new AtDockBar(dockBarId));
     public static Fin<PanelPlacement> Sibling(Guid panelId) =>
-        panelId == Guid.Empty
-            ? Fin.Fail<PanelPlacement>(error: Op.Of(name: nameof(Sibling)).InvalidInput())
-            : Fin.Succ<PanelPlacement>(value: new AsSibling(panelId));
+        guard(panelId != Guid.Empty, Op.Of(name: nameof(Sibling)).InvalidInput()).ToFin().Map(_ => (PanelPlacement)new AsSibling(panelId));
 
     internal Fin<Unit> Open(Type panelType, Guid panelId, bool selected) =>
         RhinoUi.Protect(valid: () => Switch<(Type Type, Guid Id, bool Selected), Fin<Unit>>(

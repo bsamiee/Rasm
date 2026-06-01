@@ -278,10 +278,8 @@ public static partial class Analyze {
             false => IntersectionCases.Choose(c => c.TryCompute(left: left, right: right, context: context, op: op, cancel: cancel, progress: progress)).Head.ToFin(op.Unsupported(left.GetType(), right.GetType())).Bind(static result => result),
         };
     private static Fin<IntersectionResult> RayShoot(RayQuery query, GeometryBase geometry, Op op) =>
-        query.IsValid switch {
-            true => Fin.Succ((IntersectionResult)new IntersectionResult.Hits(toSeq(Intersection.RayShoot(Seq(geometry).AsIterable(), query.Ray, query.MaxReflections) ?? []).Map(static e => IntersectionHit.At(e.Point)))),
-            false => Fin.Fail<IntersectionResult>(op.InvalidInput()),
-        };
+        guard(query.IsValid, op.InvalidInput()).ToFin()
+            .Map(_ => (IntersectionResult)new IntersectionResult.Hits(toSeq(Intersection.RayShoot(Seq(geometry).AsIterable(), query.Ray, query.MaxReflections) ?? []).Map(static e => IntersectionHit.At(e.Point))));
     private static Fin<IntersectionResult> TrimAwareRayBrep(RayQuery query, Brep brep, Context context, Op op, CancellationToken cancel) {
         BoundingBox box = brep.GetBoundingBox(accurate: true);
         using LineCurve ray = new(line: new Line(

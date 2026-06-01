@@ -170,7 +170,7 @@ public static partial class Analyze {
     internal static Fin<int> EulerOf<TG>(TG geometry, Op op) where TG : notnull =>
         OnGeometry(geometry: geometry, op: op,
             onMesh: static m => Fin.Succ(m.TopologyVertices.Count - m.TopologyEdges.Count + m.Faces.Count),
-            onBrep: b => b.IsManifold ? Fin.Succ(b.Vertices.Count - b.Edges.Count + b.Faces.Count) : Fin.Fail<int>(op.Unsupported(typeof(Brep), typeof(int))));
+            onBrep: b => guard(b.IsManifold, op.Unsupported(typeof(Brep), typeof(int))).ToFin().Map(_ => b.Vertices.Count - b.Edges.Count + b.Faces.Count));
     internal static Fin<int> BoundaryLoopsOf<TG>(TG geometry, Op op) where TG : notnull =>
         OnGeometry(geometry: geometry, op: op,
             onMesh: static m => Fin.Succ(Optional(m.GetNakedEdges()).Map(static p => p.Length).IfNone(0)),

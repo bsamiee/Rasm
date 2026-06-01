@@ -168,7 +168,7 @@ public readonly record struct MeshFeaturePolicy(VectorAngle DihedralThreshold, P
                 from smooth in key.AcceptValidated<PositiveMagnitude>(candidate: self.SmoothingScale.Value)
                 select (Mesh: activeMesh, Policy: new MeshFeaturePolicy(DihedralThreshold: dihedral, CurvatureThreshold: curvature, SmoothingScale: smooth, FaceRegions: self.FaceRegions)))
             .Bind(state => state.Policy.FaceRegions.Match(
-                Some: active => active.Count == state.Mesh.Faces.Count ? Fin.Succ(state.Policy) : Fin.Fail<MeshFeaturePolicy>(key.InvalidInput()),
+                Some: active => guard(active.Count == state.Mesh.Faces.Count, key.InvalidInput()).ToFin().Map(_ => state.Policy),
                 None: () => Fin.Succ(state.Policy)));
     }
 }

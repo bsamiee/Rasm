@@ -188,12 +188,10 @@ public sealed class RhinoCamera {
                         scope: scope,
                         result: ExecuteRunOnScope(operation: operation, scope: scope))))
                     .As()
-                from folded in receipts.Exists(static receipt => receipt.Succeeded)
-                    ? Fin.Succ(value: policy.FoldReceipts(receipts: receipts))
-                    : Fin.Fail<CameraOutcome<Seq<CameraScopeResult<T>>>>(
-                        error: receipts.Find(static receipt => receipt.Failure.IsSome)
+                from folded in guard(receipts.Exists(static receipt => receipt.Succeeded), () => receipts.Find(static receipt => receipt.Failure.IsSome)
                             .Bind(static receipt => receipt.Failure)
-                            .IfNone(() => BroadcastKey.InvalidResult()))
+                            .IfNone(() => BroadcastKey.InvalidResult())).ToFin()
+                    .Map(_ => policy.FoldReceipts(receipts: receipts))
                 select folded,
         };
 
@@ -203,7 +201,5 @@ public sealed class RhinoCamera {
         select outcome with { Redraw = RedrawRequest.Empty };
 
     internal static Fin<CameraScope> SingleScope(Seq<CameraScope> scopes, Op op) =>
-        scopes.Count == 1
-            ? Fin.Succ(value: scopes[0])
-            : Fin.Fail<CameraScope>(error: op.InvalidInput());
+        guard(scopes.Count == 1, op.InvalidInput()).ToFin().Map(_ => scopes[0]);
 }

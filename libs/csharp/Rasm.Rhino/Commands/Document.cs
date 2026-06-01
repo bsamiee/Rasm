@@ -238,19 +238,16 @@ public abstract partial record DocumentTarget {
             }).IfNone(noneValue: false))));
 
     public static Fin<DocumentTarget> DrawColor(System.Drawing.Color color) =>
-        color.IsEmpty switch {
-            false => Fin.Succ<DocumentTarget>(value: new PredicateCase(QuerySettings(), Attribute(test: (attributes, document) => attributes.DrawColor(document: document) == color))),
-            true => Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(DrawColor)).InvalidInput()),
-        };
+        guard(!color.IsEmpty, Op.Of(name: nameof(DrawColor)).InvalidInput()).ToFin()
+            .Map(_ => (DocumentTarget)new PredicateCase(QuerySettings(), Attribute(test: (attributes, document) => attributes.DrawColor(document: document) == color)));
 
     public static Fin<DocumentTarget> Region(BoundingBox bounds, bool fullyInside = false, bool accurate = true) =>
-        bounds.IsValid
-            ? Fin.Succ<DocumentTarget>(value: new PredicateCase(QuerySettings(), (document, native) =>
+        guard(bounds.IsValid, Op.Of(name: nameof(Region)).InvalidInput()).ToFin()
+            .Map(_ => (DocumentTarget)new PredicateCase(QuerySettings(), (document, native) =>
                 Optional(native.Geometry).Map(geometry => geometry.GetBoundingBox(accurate: accurate)).Filter(static box => box.IsValid).Map(box =>
                     fullyInside
                         ? Contains(region: bounds, box: box)
-                        : BoundingBox.Intersection(a: bounds, b: box).IsValid).IfNone(noneValue: false)))
-            : Fin.Fail<DocumentTarget>(error: Op.Of(name: nameof(Region)).InvalidInput());
+                        : BoundingBox.Intersection(a: bounds, b: box).IsValid).IfNone(noneValue: false)));
 
     public static Fin<DocumentTarget> ClippingPlanes() =>
         Filter(settings: QuerySettings(configure: s => s.ObjectTypeFilter = ObjectType.ClipPlane));

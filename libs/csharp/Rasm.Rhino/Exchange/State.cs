@@ -222,10 +222,7 @@ public sealed record FileEndpoint {
         };
 
     internal Fin<FileEndpoint> Input(Op op) =>
-        IOFile.Exists(path: Path) switch {
-            true => Fin.Succ(value: this),
-            false => Fin.Fail<FileEndpoint>(error: op.InvalidInput()),
-        };
+        guard(IOFile.Exists(path: Path), op.InvalidInput()).ToFin().Map(_ => this);
 
     internal Fin<FileEndpoint> Output(Op op) =>
         from endpoint in Fin.Succ(value: WithPath(path: ApplyExtension(path: Path, format: Format, name: Name)))

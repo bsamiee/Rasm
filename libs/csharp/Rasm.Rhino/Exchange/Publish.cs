@@ -83,7 +83,7 @@ public abstract partial record FilePublishTarget {
 
     private static Fin<FilePublishResult> WritePrinter(Printer target, Seq<FileViewPage> pages, Op op) =>
         from name in FileEndpoint.NonBlank(value: target.Name, op: op)
-        from copies in target.Copies > 0 ? Fin.Succ(value: target.Copies) : Fin.Fail<int>(error: op.InvalidInput())
+        from copies in guard(target.Copies > 0, op.InvalidInput()).ToFin().Map(_ => target.Copies)
         from result in op.Catch(() => {
             Seq<ViewCaptureSettings> captures = Seq<ViewCaptureSettings>();
             try {
@@ -255,7 +255,7 @@ public abstract partial record FileViewSource {
 
     private static Fin<Seq<FileViewPage>> ResolvePages(RhinoDoc document, Pages source, FileView spec, Op op) =>
         from pages in source.Query.Resolve(document: document, op: op)
-        from matched in pages.IsEmpty ? Fin.Fail<Seq<RhinoPageView>>(error: op.InvalidInput()) : Fin.Succ(value: pages)
+        from matched in guard(!pages.IsEmpty, op.InvalidInput()).ToFin().Map(_ => pages)
         select matched.Map(page => FileViewPage.Layout(page: page, spec: spec));
     private static Fin<Seq<FileViewPage>> ResolveNamed(RhinoDoc document, Named source, FileView spec, Op op) =>
         from _ in guard(!source.Names.IsEmpty, op.InvalidInput())

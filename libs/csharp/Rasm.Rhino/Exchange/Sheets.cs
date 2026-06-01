@@ -68,7 +68,7 @@ public abstract partial record FileScale {
     private static bool Defined(LengthUnit unit) => !LengthUnit.IsNone(unit: unit) && !LengthUnit.IsUnset(unit: unit);
 
     private static Fin<double> Positive(double value, Op op) =>
-        RhinoMath.IsValidDouble(x: value) && value > 0.0 ? Fin.Succ(value: value) : Fin.Fail<double>(error: op.InvalidInput());
+        guard(RhinoMath.IsValidDouble(x: value) && value > 0.0, op.InvalidInput()).ToFin().Map(_ => value);
 }
 
 [Union(SwitchMapStateParameterName = "context")]
@@ -425,7 +425,7 @@ internal static partial class SheetOps {
         from format in (endpoint.Format | FileFormat.Detect(path: endpoint.Path)).Filter(format => format == FileFormat.ThreeDm).ToFin(Fail: op.InvalidInput())
         from pageName in FileEndpoint.NonBlank(value: name, op: op)
         from unique in guard(!toSeq(document.Views.GetPageViews()).Exists(view => string.Equals(a: view.PageName, b: pageName, comparisonType: StringComparison.OrdinalIgnoreCase)), op.InvalidInput())
-        from id in sourceViewportId != Guid.Empty ? Fin.Succ(value: sourceViewportId) : Fin.Fail<Guid>(error: op.InvalidInput())
+        from id in guard(sourceViewportId != Guid.Empty, op.InvalidInput()).ToFin().Map(_ => sourceViewportId)
         let before = toSeq(document.Views.GetPageViews()).Map(static page => page.MainViewport.Id)
         from _ in op.Confirm(success: document.Views.ImportPageView(filename: endpoint.Path, mainViewportId: id, pageName: pageName))
         from page in toSeq(document.Views.GetPageViews())
@@ -772,9 +772,7 @@ internal static partial class SheetOps {
         int rows = (int)Math.Ceiling(count / (double)columns);
         double width = (page.PageWidth - (2.0 * layout.Margin) - ((columns - 1) * layout.SpacingX)) / columns;
         double height = (page.PageHeight - (2.0 * layout.Margin) - ((rows - 1) * layout.SpacingY)) / rows;
-        return width > RhinoMath.ZeroTolerance && height > RhinoMath.ZeroTolerance
-            ? Fin.Succ(value: (Width: width, Height: height))
-            : Fin.Fail<(double Width, double Height)>(error: op.InvalidInput());
+        return guard(width > RhinoMath.ZeroTolerance && height > RhinoMath.ZeroTolerance, op.InvalidInput()).ToFin().Map(_ => (Width: width, Height: height));
     }
 
     private static DetailFrame FitFrame(FileDetailLayout layout, int index, int count, (double Width, double Height) size) {

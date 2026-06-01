@@ -127,10 +127,10 @@ public abstract partial record CameraEdit {
             pushView: static (ctx, value) => Result(scope: ctx, apply: vp => vp.PushViewInfo(value.Info, value.IncludeTraceImage), Op.Of(name: nameof(PushView))));
 
     private static Fin<Point3d> ValidPoint(Point3d value, Op op) =>
-        value.IsValid ? Fin.Succ(value: value) : Fin.Fail<Point3d>(error: op.InvalidInput());
+        guard(value.IsValid, op.InvalidInput()).ToFin().Map(_ => value);
 
     private static Fin<double> ValidDouble(double value, Op op, bool positive = false) =>
-        (!positive || value > 0.0) && RhinoMath.IsValidDouble(x: value) ? Fin.Succ(value: value) : Fin.Fail<double>(error: op.InvalidInput());
+        guard((!positive || value > 0.0) && RhinoMath.IsValidDouble(x: value), op.InvalidInput()).ToFin().Map(_ => value);
 
     private static Fin<RedrawRequest> ApplyProjection(
         CameraScope scope,
@@ -359,7 +359,7 @@ public readonly record struct CameraSection(
         bool exclusionList = ExclusionList;
         Option<SectionStyle> style = Style;
         return from _plane in guard(plane.IsValid, op.InvalidInput())
-               from validDepth in depth.Map(value => RhinoMath.IsValidDouble(x: value) && value > 0.0 ? Fin.Succ(value: Some(value)) : Fin.Fail<Option<double>>(error: op.InvalidInput()))
+               from validDepth in depth.Map(value => guard(RhinoMath.IsValidDouble(x: value) && value > 0.0, op.InvalidInput()).ToFin().Map(_ => Some(value)))
                    .IfNone(Fin.Succ(value: Option<double>.None))
                from result in op.Catch(() => {
                    using ClippingPlaneSurface surface = new(plane: plane);

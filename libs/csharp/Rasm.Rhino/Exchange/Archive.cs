@@ -305,9 +305,7 @@ internal static class FileArchiveOps {
                 })
                 select value,
             bytes: static (ctx, source) =>
-                from memory in source.Value.IsEmpty
-                    ? Fin.Fail<ReadOnlyMemory<byte>>(error: ctx.Op.InvalidInput())
-                    : Fin.Succ(value: source.Value)
+                from memory in guard(!source.Value.IsEmpty, ctx.Op.InvalidInput()).ToFin().Map(_ => source.Value)
                 from value in ctx.Op.Catch(() => {
                     using File3dmModel? model = File3dmModel.FromByteArray(bytes: memory.ToArray());
                     return Optional(model).ToFin(Fail: ctx.Op.InvalidResult()).Bind(active => ctx.Use(arg1: Option<FileEndpoint>.None, arg2: active, arg3: string.Empty));

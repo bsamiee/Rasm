@@ -143,10 +143,8 @@ public static partial class UiIntent {
     public static UiIntent<global::Rhino.UI.ShowMessageResult> Message(UiMessageSpec spec) =>
         Request(
             name: nameof(Message),
-            run: scope => string.IsNullOrWhiteSpace(value: spec.Message) switch {
-                false => Fin.Succ(value: global::Rhino.UI.Dialogs.ShowMessage(parent: scope.Parent, message: spec.Message, title: spec.Title, buttons: spec.Buttons, icon: spec.Icon, defaultButton: spec.DefaultButton, options: spec.Options, mode: spec.Mode)),
-                true => Fin.Fail<global::Rhino.UI.ShowMessageResult>(error: Op.Of(name: nameof(Message)).InvalidInput()),
-            });
+            run: scope => guard(!string.IsNullOrWhiteSpace(value: spec.Message), Op.Of(name: nameof(Message)).InvalidInput()).ToFin()
+                .Map(_ => global::Rhino.UI.Dialogs.ShowMessage(parent: scope.Parent, message: spec.Message, title: spec.Title, buttons: spec.Buttons, icon: spec.Icon, defaultButton: spec.DefaultButton, options: spec.Options, mode: spec.Mode)));
 
     public static UiIntent<Unit> Text(string body, string title = "") =>
         Request(
@@ -318,10 +316,7 @@ public static partial class UiIntent {
             name: nameof(Mesh),
             run: (document, _) =>
                 (Op.Of(name: nameof(Mesh)).Need(meshes).Bind(static source => toSeq(source).TraverseM(mesh => Op.Of(name: nameof(Mesh)).Need(mesh)).As()),
-                 Optional(colors).Map(static source => toSeq(source)).IfNone(Seq<DrawingColor>()).TraverseM(static color => color.IsEmpty switch {
-                     false => Fin.Succ(value: color),
-                     true => Fin.Fail<DrawingColor>(error: Op.Of(name: nameof(Mesh)).InvalidInput()),
-                 }).As())
+                 Optional(colors).Map(static source => toSeq(source)).IfNone(Seq<DrawingColor>()).TraverseM(static color => guard(!color.IsEmpty, Op.Of(name: nameof(Mesh)).InvalidInput()).ToFin().Map(_ => color)).As())
                 .Apply(static (geometry, swatches) => (Meshes: geometry, Colors: swatches))
                 .As()
                 .Bind(values =>

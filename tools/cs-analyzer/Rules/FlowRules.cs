@@ -107,8 +107,8 @@ internal static class FlowRules {
             (true, true) => Diagnostic.Create(RuleCatalog.CSP0706, context.Operation.Syntax.GetLocation()),
             _ => null,
         });
-    internal static void CheckGuardableFinUnitConditional(OperationAnalysisContext context, ScopeInfo scope, IConditionalOperation conditional) =>
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsLanguageExtFinUnitType(conditional.Type), IsGuardableFinUnitGate(conditional), IsConfirmOwner(context.ContainingSymbol)) switch {
+    internal static void CheckGuardableFinConditional(OperationAnalysisContext context, ScopeInfo scope, IConditionalOperation conditional) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsLanguageExtFinType(conditional.Type), IsGuardableFinGate(conditional), IsConfirmOwner(context.ContainingSymbol)) switch {
             (true, true, true, false) => Diagnostic.Create(RuleCatalog.CSP0739, context.Operation.Syntax.GetLocation()),
             _ => null,
         });
@@ -123,6 +123,14 @@ internal static class FlowRules {
                 => Diagnostic.Create(RuleCatalog.CSP0727, @switch.SwitchKeyword.GetLocation(), binary.OperatorToken.Text),
             _ => null,
         });
+    internal static void CheckGuardableFinConditional(SyntaxNodeAnalysisContext context, ScopeInfo scope, SwitchExpressionSyntax switchExpression) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (
+            scope.IsAnalyzable,
+            context.SemanticModel.GetOperation(switchExpression, context.CancellationToken) is ISwitchExpressionOperation switchOperation && IsGuardableFinGate(switchOperation),
+            IsConfirmOwner(context.ContainingSymbol)) switch {
+                (true, true, false) => Diagnostic.Create(RuleCatalog.CSP0739, switchExpression.SwitchKeyword.GetLocation()),
+                _ => null,
+            });
     internal static void CheckManualOpAdmissionGate(SyntaxNodeAnalysisContext context, ScopeInfo scope, ConditionalExpressionSyntax conditional) =>
         AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsManualOpAdmissionGate(model: context.SemanticModel, conditional: conditional)) switch {
             (true, true) => Diagnostic.Create(RuleCatalog.CSP0742, conditional.QuestionToken.GetLocation(), "conditional"),
@@ -296,35 +304,53 @@ internal static class FlowRules {
                     && SymbolEqualityComparer.Default.Equals(parameter.Parameter, lambda.Symbol.Parameters[0]),
             _ => operation.Syntax.ToString() is "identity" or "Prelude.identity",
         };
-    private static bool IsGuardableFinUnitGate(IConditionalOperation conditional) {
+    private static bool IsGuardableFinGate(IConditionalOperation conditional) {
         IOperation? whenTrue = UnwrapOperation(conditional.WhenTrue);
         IOperation? whenFalse = UnwrapOperation(conditional.WhenFalse);
-        return (IsFinUnitSuccess(whenTrue) && IsFinUnitFailure(whenFalse))
-            || (IsFinUnitFailure(whenTrue) && IsFinUnitSuccess(whenFalse));
+        return !BindsPatternVariable(conditional.Condition)
+            && ((IsFinSuccess(whenTrue, conditional.Type) && IsFinFailure(whenFalse, conditional.Type))
+                || (IsFinFailure(whenTrue, conditional.Type) && IsFinSuccess(whenFalse, conditional.Type)));
+    }
+    private static bool IsGuardableFinGate(ISwitchExpressionOperation switchExpression) {
+        ImmutableArray<ISwitchExpressionArmOperation> arms = switchExpression.Arms;
+        return SymbolFacts.IsLanguageExtFinType(switchExpression.Type)
+            && switchExpression.Value.Type?.SpecialType == SpecialType.System_Boolean
+            && arms.Length == 2
+            && ((IsFinSuccess(UnwrapOperation(arms[0].Value), switchExpression.Type) && IsFinFailure(UnwrapOperation(arms[1].Value), switchExpression.Type))
+                || (IsFinFailure(UnwrapOperation(arms[0].Value), switchExpression.Type) && IsFinSuccess(UnwrapOperation(arms[1].Value), switchExpression.Type)));
     }
     private static bool IsConfirmOwner(ISymbol? symbol) =>
         symbol is IMethodSymbol { Name: "Confirm", Parameters.Length: 1 } method
         && method.Parameters[0].Type.SpecialType == SpecialType.System_Boolean
         && SymbolFacts.IsLanguageExtFinUnitType(method.ReturnType);
-    private static bool IsFinUnitSuccess(IOperation? operation) =>
+    private static bool IsFinSuccess(IOperation? operation, ITypeSymbol? finType) =>
         operation is IInvocationOperation invocation
-        && invocation.TargetMethod.Name == "Succ"
-        && SymbolFacts.IsLanguageExtFinUnitType(invocation.Type)
-        && invocation.Arguments.Length == 1
-        && SymbolFacts.IsLanguageExtUnitValue(UnwrapOperation(invocation.Arguments[0].Value));
-    private static bool IsFinUnitFailure(IOperation? operation) =>
+        && SymbolFacts.IsLanguageExtFinSuccessInvocation(invocation)
+        && IsSameFinType(invocation.Type, finType)
+        && !IsValueTypeThis(UnwrapOperation(invocation.Arguments[0].Value))
+        && !HasKnownSideEffectConstruction(invocation.Arguments[0].Value);
+    private static bool IsFinFailure(IOperation? operation, ITypeSymbol? finType) =>
         operation is IInvocationOperation invocation
-        && invocation.TargetMethod.Name == "Fail"
-        && SymbolFacts.IsLanguageExtFinUnitType(invocation.Type)
-        && invocation.Arguments.Length > 0
-        && SymbolFacts.IsLanguageExtCommonErrorType(UnwrapOperation(invocation.Arguments[0].Value)?.Type)
-        && !HasRichStringConstruction(invocation);
-    private static bool HasRichStringConstruction(IOperation operation) =>
+        && SymbolFacts.IsLanguageExtFinFailureInvocation(invocation)
+        && IsSameFinType(invocation.Type, finType)
+        && !HasRichNativeFailureDetail(invocation);
+    private static bool IsSameFinType(ITypeSymbol? candidate, ITypeSymbol? expected) =>
+        candidate is not null
+        && expected is not null
+        && SymbolEqualityComparer.Default.Equals(candidate, expected);
+    private static bool HasKnownSideEffectConstruction(IOperation operation) =>
         operation.DescendantsAndSelf().Any(static node =>
-            node is IInterpolatedStringOperation or IBinaryOperation {
-                OperatorKind: BinaryOperatorKind.Add,
-                Type.SpecialType: SpecialType.System_String,
-            });
+            node is IInvocationOperation { TargetMethod.Name: "Bind" or "Run" or "Dispose" or "Side" });
+    private static bool HasRichNativeFailureDetail(IInvocationOperation failure) =>
+        SymbolFacts.UnwrapValue(failure.Arguments[0].Value) is IInvocationOperation {
+            TargetMethod.Name: "InvalidResult",
+            Arguments.Length: > 0,
+        };
+    private static bool IsValueTypeThis(IOperation? operation) =>
+        operation is IInstanceReferenceOperation { Type.IsValueType: true };
+    private static bool BindsPatternVariable(IOperation condition) =>
+        condition.DescendantsAndSelf().Any(static node =>
+            node is IDeclarationPatternOperation or IRecursivePatternOperation);
     private static bool IsFusibleMapProjection(IInvocationOperation mapCall) {
         bool languageExtMap = mapCall.TargetMethod.Name == "Map"
             && (mapCall.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)

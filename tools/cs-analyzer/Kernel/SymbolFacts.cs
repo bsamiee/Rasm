@@ -279,6 +279,14 @@ internal static class SymbolFacts {
             IConversionOperation { Operand: IOperation inner } => UnwrapReceiver(inner),
             _ => operation,
         };
+    internal static IOperation? UnwrapValue(IOperation? operation) =>
+        operation switch {
+            IConversionOperation conversion => UnwrapValue(conversion.Operand),
+            IParenthesizedOperation parenthesized => UnwrapValue(parenthesized.Operand),
+            IBlockOperation { Operations.Length: 1 } block => UnwrapValue(block.Operations[0]),
+            IReturnOperation { ReturnedValue: IOperation returned } => UnwrapValue(returned),
+            _ => operation,
+        };
     internal static IAnonymousFunctionOperation? UnwrapLambda(IOperation operation) =>
         operation switch {
             IAnonymousFunctionOperation lambda => lambda,
@@ -451,6 +459,15 @@ internal static class SymbolFacts {
     internal static bool IsLanguageExtFinType(ITypeSymbol? type) =>
         type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Fin`1", TypeArguments.Length: 1 } fin
         && fin.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
+    internal static bool IsLanguageExtFinSuccessInvocation(IInvocationOperation invocation) =>
+        invocation.TargetMethod.Name == "Succ"
+        && IsLanguageExtFinType(invocation.Type)
+        && invocation.Arguments.Length == 1;
+    internal static bool IsLanguageExtFinFailureInvocation(IInvocationOperation invocation) =>
+        invocation.TargetMethod.Name == "Fail"
+        && IsLanguageExtFinType(invocation.Type)
+        && invocation.Arguments.Length > 0
+        && IsLanguageExtCommonErrorType(UnwrapValue(invocation.Arguments[0].Value)?.Type);
     internal static bool IsLanguageExtUnitType(ITypeSymbol? type) =>
         type is INamedTypeSymbol unitType
         && unitType.Name == "Unit"

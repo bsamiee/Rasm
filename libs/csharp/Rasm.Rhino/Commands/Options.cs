@@ -151,10 +151,9 @@ public abstract record CommandOption {
         options.Choose(option => option.Script(token: token)).Head;
     internal static Fin<Seq<CommandOption>> Validate(Seq<CommandOption> options, Op op) {
         CommandOption[] rows = [.. options];
-        return rows.All(static option => option is not null && CommandLineOption.IsValidOptionName(optionName: option.Name))
-            && rows.Select(static option => option.Name).Distinct(comparer: StringComparer.OrdinalIgnoreCase).Count() == rows.Length
-            ? Fin.Succ(value: options)
-            : Fin.Fail<Seq<CommandOption>>(error: op.InvalidInput());
+        return guard(rows.All(static option => option is not null && CommandLineOption.IsValidOptionName(optionName: option.Name))
+            && rows.Select(static option => option.Name).Distinct(comparer: StringComparer.OrdinalIgnoreCase).Count() == rows.Length, op.InvalidInput()).ToFin()
+            .Map(_ => options);
     }
     internal static Option<Color> ColorValue(string text) =>
         new CommandToken(Raw: text).Color();
@@ -277,10 +276,7 @@ public abstract record CommandOption {
         select Snapshot(key: name, name: name, getter: getter, value: Some((object)values[index]!), listIndex: Some(index));
 
     private static Fin<Seq<TValue>> NonEmpty<TValue>(Seq<TValue> values) =>
-        values.IsEmpty switch {
-            true => Fin.Fail<Seq<TValue>>(error: Op.Of(name: nameof(CommandOption)).InvalidInput()),
-            false => Fin.Succ(value: values),
-        };
+        guard(!values.IsEmpty, Op.Of(name: nameof(CommandOption)).InvalidInput()).ToFin().Map(_ => values);
 
     private static Fin<int> ValidIndex(int index, int count, Error error) =>
         index switch {

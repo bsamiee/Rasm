@@ -152,7 +152,7 @@ public partial record Bounds : IAspect {
     private static Fin<Seq<Point3d>> EnclosingSamples<TGeometry>(TGeometry geometry, int count, Context context, Op key) where TGeometry : notnull =>
         GeometryKernel.SamplePoints(source: geometry, count: count, context: context, key: key)
             .BindFail(error => error switch {
-                Fault.Unsupported => geometry.BoundsOf(op: key).Bind(box => box.IsValid ? Fin.Succ(toSeq(box.GetCorners())) : Fin.Fail<Seq<Point3d>>(key.InvalidInput())),
+                Fault.Unsupported => geometry.BoundsOf(op: key).Bind(box => guard(box.IsValid, key.InvalidInput()).ToFin().Map(_ => toSeq(box.GetCorners()))),
                 _ => Fin.Fail<Seq<Point3d>>(error),
             });
     private static Fin<T> RitterFit<T>(Seq<Point3d> samples, Op key, Func<Point3d, double, T> construct, Func<T, bool> isValid) =>

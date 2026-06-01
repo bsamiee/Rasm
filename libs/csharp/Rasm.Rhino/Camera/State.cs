@@ -56,9 +56,7 @@ public abstract partial record CameraSubject {
     internal Fin<bool> Visible(RhinoViewport viewport) {
         CameraSubject self = this;
         return UI.RhinoUi.Protect(valid: () => self switch {
-            AtPoint source => source.Value.IsValid
-                ? Fin.Succ(value: viewport.IsVisible(point: source.Value))
-                : Fin.Fail<bool>(error: VisibleKey.InvalidInput()),
+            AtPoint source => guard(source.Value.IsValid, VisibleKey.InvalidInput()).ToFin().Map(_ => viewport.IsVisible(point: source.Value)),
             _ => self.BoundsOf(op: VisibleKey).Map(bbox => viewport.IsVisible(bbox: bbox)),
         });
     }
@@ -422,13 +420,12 @@ public sealed record CameraSnapshot : IDisposable {
         Op op = Op.Of(name: nameof(Depth));
         return Optional(source).ToFin(Fail: op.InvalidInput())
             .Bind(valid => valid.BoundsOf(op: op))
-            .Bind(bounds => bounds.IsValid ? Fin.Succ(value: DepthOf(frame: frame, bounds: bounds)) : Fin.Fail<CameraDepth>(error: op.InvalidResult()));
+            .Bind(bounds => guard(bounds.IsValid, op.InvalidResult()).ToFin().Map(_ => DepthOf(frame: frame, bounds: bounds)));
     }
     public Fin<bool> IsVisible(BoundingBox box) {
         BoundingBox frustum = Frustum.Bounds;
-        return box.IsValid && frustum.IsValid
-            ? Fin.Succ(value: BoundingBox.Intersection(a: frustum, b: box).IsValid)
-            : Fin.Fail<bool>(error: Op.Of(name: nameof(IsVisible)).InvalidInput());
+        return guard(box.IsValid && frustum.IsValid, Op.Of(name: nameof(IsVisible)).InvalidInput()).ToFin()
+            .Map(_ => BoundingBox.Intersection(a: frustum, b: box).IsValid);
     }
 
     internal Fin<RedrawRequest> Restore(bool updateTarget = true) {

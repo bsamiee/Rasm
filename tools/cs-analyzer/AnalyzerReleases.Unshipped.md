@@ -84,7 +84,7 @@ CSP0735 | FunctionalDiscipline  | Error    | TraverseFusion
 CSP0736 | FunctionalDiscipline  | Error    | FoldAppendAccumulator
 CSP0737 | SurfaceArea           | Error    | SamePayloadUnionCases
 CSP0738 | SurfaceArea           | Error    | ExclusiveOptionalPayloadBag
-CSP0739 | FunctionalDiscipline  | Error    | GuardableFinUnitConditional
+CSP0739 | FunctionalDiscipline  | Error    | GuardableFinConditional
 CSP0740 | SurfaceArea           | Error    | ManualClosedUnionOverride
 CSP0741 | SurfaceArea           | Error    | ForwardingRequestCaseFamily
 CSP0742 | FunctionalDiscipline  | Error    | ManualOpAdmissionGate

@@ -66,9 +66,7 @@ public sealed class Tree : IDisposable {
             Optional(other)
                 .ToFin(new Fault.MissingGeometry())
                 .Bind(static index => index.Ready()),
-            RhinoMath.IsValidDouble(x: tolerance) && tolerance >= 0.0
-                ? Fin.Succ(tolerance)
-                : Fin.Fail<double>(Key.InvalidInput())
+            guard(RhinoMath.IsValidDouble(x: tolerance) && tolerance >= 0.0, Key.InvalidInput()).ToFin().Map(_ => tolerance)
         ).Apply(static (left, right, modelTolerance) => (Left: left, Right: right, Tolerance: modelTolerance)).As().ToEff()
         from pairs in OverlapPairs(state: state, cancel: runtime.Cancellation).ToEff()
         select pairs;
@@ -91,10 +89,7 @@ public sealed class Tree : IDisposable {
     public void Dispose() =>
         disposed = disposed || new Lease<RTree>.Owned(Value: tree).Use(static _ => true);
     private Fin<RTree> Ready() =>
-        disposed switch {
-            true => Fin.Fail<RTree>(Key.InvalidInput()),
-            false => Fin.Succ(tree),
-        };
+        guard(!disposed, Key.InvalidInput()).ToFin().Map(_ => tree);
     internal static Fin<Point3d[]> ValidatePoints(ReadOnlySpan<Point3d> points) =>
         Seq(points)
             .TraverseM(static point => point switch {
@@ -108,9 +103,8 @@ public sealed class Tree : IDisposable {
         Seq(items)
             .TraverseM(static geometry => Optional(geometry)
                 .ToFin(new Fault.MissingGeometry())
-                .Bind(static candidate => candidate.IsValid
-                    ? candidate.BoundsOf(op: Key).Bind(static box => box.IsValid ? Fin.Succ(box) : Fin.Fail<BoundingBox>(Key.InvalidInput()))
-                    : Fin.Fail<BoundingBox>(Key.InvalidInput())))
+                .Bind(static candidate => guard(candidate.IsValid, Key.InvalidInput()).ToFin()
+                    .Bind(_ => candidate.BoundsOf(op: Key).Bind(static box => guard(box.IsValid, Key.InvalidInput()).ToFin().Map(_ => box)))))
             .As()
             .Map(static boxes => boxes.ToArray());
     private static Fin<Seq<Hit>> Search<TShape>(RTree tree, TShape shape, Func<RTree, TShape, EventHandler<RTreeEventArgs>, bool> run, CancellationToken cancel) =>

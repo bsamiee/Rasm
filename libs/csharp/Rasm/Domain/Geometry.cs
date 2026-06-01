@@ -284,7 +284,7 @@ internal static class GeometryKernel {
                 Plane => Fin.Fail<BoundingBox>(op.Unsupported(typeof(Plane), typeof(BoundingBox))),
                 Ellipse => CurveForm(source: g, op: op).Map(static lease => lease.Use(static d => d.GetBoundingBox(accurate: true))),
                 Cylinder or Cone or Torus => BrepForm(source: g, op: op).Map(static lease => lease.Use(static d => d.GetBoundingBox(accurate: true))),
-                GeometryBase native => native.IsValid ? Fin.Succ(native.GetBoundingBox(accurate: true)) : Fin.Fail<BoundingBox>(op.InvalidInput()),
+                GeometryBase native => guard(native.IsValid, op.InvalidInput()).ToFin().Map(_ => native.GetBoundingBox(accurate: true)),
                 _ => Fin.Fail<BoundingBox>(op.Unsupported(g.GetType(), typeof(BoundingBox))),
             },
             _ => Fin.Fail<BoundingBox>(op.InvalidInput()),

@@ -77,10 +77,7 @@ public readonly record struct UiToast(RhinoView View, string Message, Option<int
         Option<int> textHeight = TextHeight;
         Option<System.Drawing.PointF> location = Location;
         return from view in Op.Of(name: nameof(Apply)).Need(target)
-               from message in string.IsNullOrWhiteSpace(value: text) switch {
-                   false => Fin.Succ(value: text.Trim()),
-                   true => Fin.Fail<string>(error: Op.Of(name: nameof(Apply)).InvalidInput()),
-               }
+               from message in guard(!string.IsNullOrWhiteSpace(value: text), Op.Of(name: nameof(Apply)).InvalidInput()).ToFin().Map(_ => text.Trim())
                select (textHeight.Case, location.Case) switch {
                    (int height, System.Drawing.PointF point) when height > 0 => Op.Side(() => view.ShowToast(message, height, point)),
                    (int height, _) when height > 0 => Op.Side(() => view.ShowToast(message, height)),

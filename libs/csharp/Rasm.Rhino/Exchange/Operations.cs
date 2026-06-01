@@ -234,10 +234,9 @@ public static class FileOp {
     public static Eff<FileRuntime, FileReport> Batch(Seq<Eff<FileRuntime, FileReport>> items, FileBatchPolicy policy) =>
         Lift(run: runtime => items switch {
             Seq<Eff<FileRuntime, FileReport>> values when !values.IsEmpty => values.TraverseM(operation =>
-                operation.Run(runtime).BindFail(error => policy.ContinueOnError switch {
-                    true => Fin.Succ(value: FileReport.Empty(phase: FilePhase.Batch) with { Issues = Seq(FileIssue.Of(code: FileIssueCode.BatchFailure, message: error.Message)) }),
-                    false => Fin.Fail<FileReport>(error: error),
-                })).As().Map(reports => FileReport.Of(phase: FilePhase.Batch, issues: reports.Bind(static report => report.Issues), children: reports)),
+                operation.Run(runtime).BindFail(error => guard(policy.ContinueOnError, error).ToFin()
+                    .Map(_ => FileReport.Empty(phase: FilePhase.Batch) with { Issues = Seq(FileIssue.Of(code: FileIssueCode.BatchFailure, message: error.Message)) }))).As()
+                    .Map(reports => FileReport.Of(phase: FilePhase.Batch, issues: reports.Bind(static report => report.Issues), children: reports)),
             _ => Fin.Fail<FileReport>(error: Op.Of(name: nameof(Batch)).InvalidInput()),
         });
     public static Eff<FileRuntime, T> Headless<T>(HeadlessExchange scope, Eff<FileRuntime, T> body) =>

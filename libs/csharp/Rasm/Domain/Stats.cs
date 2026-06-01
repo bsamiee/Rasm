@@ -146,7 +146,7 @@ internal readonly record struct SampleMoment(int Dimension, Arr<double> Mean, Ar
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct Distribution(Stat Summary, double Median, double Iqr, Seq<(double Percentile, double Value)> Percentiles) {
     internal static Fin<Distribution> Of(Seq<double> values, Seq<double> percentiles, Op key, StatContext? context = null) =>
-        percentiles.TraverseM(p => RhinoMath.IsValidDouble(x: p) && p is >= 0.0 and <= 100.0 ? Fin.Succ(p) : Fin.Fail<double>(key.InvalidInput())).As()
+        percentiles.TraverseM(p => guard(RhinoMath.IsValidDouble(x: p) && p is >= 0.0 and <= 100.0, key.InvalidInput()).ToFin().Map(_ => p)).As()
             .Bind(valid => Stat.Of(values: values, key: key, context: context).Map(stat =>
                 values.Order().AsIterable().ToSeq() switch {
                     Seq<double> sorted => new Distribution(

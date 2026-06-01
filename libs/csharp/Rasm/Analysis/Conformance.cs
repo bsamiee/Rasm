@@ -75,9 +75,8 @@ public sealed record Conformance {
             evaluator: static (state, pair) =>
                 from runtime in Env.EnvAsks
                 from resolved in runtime.Context.Pair(a: pair.Geometry, b: pair.Target, op: Key, requirements: (op, kindG, kindT) =>
-                    (kindG.Topology == Topology.Curve || kindG.Topology == Topology.Surface)
-                        ? Fin.Succ((A: Requirement.ForKind(kind: kindG), B: state.Metric.TargetRequirement(kind: kindT)))
-                        : Fin.Fail<(Requirement A, Requirement B)>(op.Unsupported(geometryType: kindG.Type, outputType: typeof(ResidualSample))), cancel: runtime.Cancellation).ToEff()
+                    guard(kindG.Topology == Topology.Curve || kindG.Topology == Topology.Surface, op.Unsupported(geometryType: kindG.Type, outputType: typeof(ResidualSample))).ToFin()
+                        .Map(_ => (A: Requirement.ForKind(kind: kindG), B: state.Metric.TargetRequirement(kind: kindT))), cancel: runtime.Cancellation).ToEff()
                 from residuals in Samples(aspect: state, geometry: resolved.A, target: resolved.B, context: runtime.Context).ToEff()
                 from result in state.Project<TValue>(residuals: residuals, context: runtime.Context).ToEff()
                 select result);

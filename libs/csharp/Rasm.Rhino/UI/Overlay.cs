@@ -130,8 +130,8 @@ public readonly record struct MouseContext<TState>(MousePhase Phase, TState Stat
     public Fin<Point3d> Project(Plane plane) {
         Option<Line> worldLine = WorldLine;   // single evaluation of the camera-ray derivation
         return from line in Op.Of(name: nameof(Project)).Need(worldLine)
-               from validPlane in plane.IsValid switch { true => Fin.Succ(value: plane), false => Fin.Fail<Plane>(error: Op.Of(name: nameof(Project)).InvalidInput()) }
-               from point in global::Rhino.Geometry.Intersect.Intersection.LinePlane(line: line, plane: validPlane, lineParameter: out double parameter) switch { true => Fin.Succ(value: line.PointAt(t: parameter)), false => Fin.Fail<Point3d>(error: Op.Of(name: nameof(Project)).InvalidResult()) }
+               from validPlane in guard(plane.IsValid, Op.Of(name: nameof(Project)).InvalidInput()).ToFin().Map(_ => plane)
+               from point in guard(global::Rhino.Geometry.Intersect.Intersection.LinePlane(line: line, plane: validPlane, lineParameter: out double parameter), Op.Of(name: nameof(Project)).InvalidResult()).ToFin().Map(_ => line.PointAt(t: parameter))
                select point;
     }
 }
@@ -663,10 +663,7 @@ public sealed record UiViewportPreview {
         Fin<Seq<object>> items = Op.Of(name: nameof(UiViewportPreview)).Need(geometry)
             .Bind(static source => toSeq(source).Map(static item => (object)item).TraverseM(item => Op.Of(name: nameof(UiViewportPreview)).Need(item)
                 .Bind(static value => OverlayDecision.BoundsOf(source: value, op: Op.Of(name: nameof(UiViewportPreview))).Map(_ => value))).As())
-            .Bind(static values => values.IsEmpty switch {
-                false => Fin.Succ(value: values),
-                true => Fin.Fail<Seq<object>>(error: Op.Of(name: nameof(UiViewportPreview)).InvalidInput()),
-            });
+            .Bind(static values => guard(!values.IsEmpty, Op.Of(name: nameof(UiViewportPreview)).InvalidInput()).ToFin().Map(_ => values));
         return new(
             draw: context => from active in items
                              from _ in active.TraverseM(item => style.Draw(context: context, geometry: item)).As()

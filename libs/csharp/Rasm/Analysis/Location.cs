@@ -166,9 +166,9 @@ public static partial class Analyze {
                 from runtime in Env.EnvAsks
                 from result in GeometryKernel.CurveForm(source: geometry, op: state.Key)
                     .Bind(lease => lease.Use(curve => (state.Locator switch {
-                        Locator.CurveParameter { T: double parameter } => curve.Domain.IncludesParameter(t: parameter) ? Fin.Succ(parameter) : Fin.Fail<double>(state.Key.InvalidInput()),
-                        Locator.NormalizedMid => curve.NormalizedLengthParameter(s: 0.5, t: out double parameter, fractionalTolerance: runtime.Context.Fractional) ? Fin.Succ(parameter) : Fin.Fail<double>(state.Key.InvalidResult()),
-                        Locator.ArcLength { Distance: double distance } => curve.LengthParameter(segmentLength: distance, t: out double parameter, fractionalTolerance: runtime.Context.Fractional) ? Fin.Succ(parameter) : Fin.Fail<double>(state.Key.InvalidResult()),
+                        Locator.CurveParameter { T: double parameter } => guard(curve.Domain.IncludesParameter(t: parameter), state.Key.InvalidInput()).ToFin().Map(_ => parameter),
+                        Locator.NormalizedMid => guard(curve.NormalizedLengthParameter(s: 0.5, t: out double parameter, fractionalTolerance: runtime.Context.Fractional), state.Key.InvalidResult()).ToFin().Map(_ => parameter),
+                        Locator.ArcLength { Distance: double distance } => guard(curve.LengthParameter(segmentLength: distance, t: out double parameter, fractionalTolerance: runtime.Context.Fractional), state.Key.InvalidResult()).ToFin().Map(_ => parameter),
                         _ => Fin.Fail<double>(state.Key.InvalidInput()),
                     }).Bind(parameter => state.Project(arg1: curve, arg2: parameter, arg3: runtime.Context)))).ToEff()
                 select result);

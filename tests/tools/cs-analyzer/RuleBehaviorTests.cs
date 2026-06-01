@@ -687,6 +687,27 @@ public sealed class RuleBehaviorTests {
             public LanguageExt.Fin<LanguageExt.Unit> Run(bool rejected, Error error) =>
                 rejected ? LanguageExt.Fin.Fail<LanguageExt.Unit>(error) : LanguageExt.Fin.Succ(unit);
             """)),
+        new("CSP0739", File(scope: "Domain/Services", type: "GuardableFinValueConditional"), WithFinUnit(ns: "Domain.Services", type: "GuardableFinValueConditional", members: """
+            public LanguageExt.Fin<int> Run(bool accepted, int value, Error error) =>
+                accepted ? LanguageExt.Fin.Succ(value) : LanguageExt.Fin.Fail<int>(error);
+            """)),
+        new("CSP0739", File(scope: "Domain/Services", type: "GuardableFinConstructedValueConditional"), WithFinUnit(ns: "Domain.Services", type: "GuardableFinConstructedValueConditional", members: """
+            public readonly record struct Measure(double Value);
+
+            public LanguageExt.Fin<Measure> Run(bool accepted, double value) =>
+                accepted ? LanguageExt.Fin.Succ(new Measure(value)) : LanguageExt.Fin.Fail<Measure>(new Error($"bad {value}"));
+            """)),
+        new("CSP0739", File(scope: "Domain/Services", type: "GuardableFinValueConditionalReversed"), WithFinUnit(ns: "Domain.Services", type: "GuardableFinValueConditionalReversed", members: """
+            public LanguageExt.Fin<int> Run(bool rejected, int value, Error error) =>
+                rejected ? LanguageExt.Fin.Fail<int>(error) : LanguageExt.Fin.Succ(value);
+            """)),
+        new("CSP0739", File(scope: "Domain/Services", type: "GuardableFinSwitchExpression"), WithFinUnit(ns: "Domain.Services", type: "GuardableFinSwitchExpression", members: """
+            public LanguageExt.Fin<int> Run(bool accepted, int value, Error error) =>
+                accepted switch {
+                    true => LanguageExt.Fin.Succ(value),
+                    false => LanguageExt.Fin.Fail<int>(error),
+                };
+            """)),
         new("CSP0740", File(scope: "Domain/Services", type: "ManualVisitorUnion"), """
             namespace Domain.Services {
                 public abstract record ManualVisitorUnion {
@@ -2037,7 +2058,7 @@ public sealed class RuleBehaviorTests {
     }
 
     [Fact]
-    public async Task NonUnitConditionalDoesNotEmitGuardableFinUnitDiagnosticAsync() {
+    public async Task NonUnitConditionalEmitsGuardableFinConditionalDiagnosticAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
             filePath: "/workspace/src/Domain/Services/NonUnitConditional.cs",
             source: WithFinUnit(ns: "Domain.Services", type: "NonUnitConditional", members: """
@@ -2045,7 +2066,7 @@ public sealed class RuleBehaviorTests {
                     accepted ? LanguageExt.Fin.Succ(value) : LanguageExt.Fin.Fail<int>(error);
                 """)).ConfigureAwait(true);
 
-        Assert.DoesNotContain(expected: "CSP0739", collection: ids);
+        Assert.Contains(expected: "CSP0739", collection: ids);
     }
 
     [Fact]
@@ -2083,7 +2104,7 @@ public sealed class RuleBehaviorTests {
     }
 
     [Fact]
-    public async Task RichFailureDetailDoesNotEmitGuardableFinUnitDiagnosticAsync() {
+    public async Task RichFailureDetailEmitsGuardableFinConditionalDiagnosticAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
             filePath: "/workspace/src/Domain/Services/RichFailureDetail.cs",
             source: WithFinUnit(ns: "Domain.Services", type: "RichFailureDetail", members: """
@@ -2091,7 +2112,7 @@ public sealed class RuleBehaviorTests {
                     accepted ? LanguageExt.Fin.Succ(unit) : LanguageExt.Fin.Fail<LanguageExt.Unit>(new Error($"bad {value}"));
                 """)).ConfigureAwait(true);
 
-        Assert.DoesNotContain(expected: "CSP0739", collection: ids);
+        Assert.Contains(expected: "CSP0739", collection: ids);
     }
 
     [Fact]
@@ -2103,6 +2124,41 @@ public sealed class RuleBehaviorTests {
 
                 public LanguageExt.Fin<LanguageExt.Unit> Run(bool accepted, UiFault fault) =>
                     accepted ? LanguageExt.Fin.Succ(unit) : LanguageExt.Fin.Fail<LanguageExt.Unit>(fault);
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0739", collection: ids);
+    }
+
+    [Fact]
+    public async Task OwnerRailsDoNotEmitGuardableFinConditionalDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/OwnerRails.cs",
+            source: WithFinUnit(ns: "Domain.Services", type: "OwnerRails", members: """
+                public sealed class Op {
+                    public LanguageExt.Fin<int> AcceptValue(int value) => new();
+                    public Error InvalidResult(string detail) => new(detail);
+                }
+
+                public readonly struct Optional<T> {
+                    public LanguageExt.Fin<T> ToFin(Error error) => new();
+                }
+
+                public readonly record struct Policy(int Value) {
+                    public LanguageExt.Fin<Policy> Admit(Error error) =>
+                        Value > 0 ? LanguageExt.Fin.Succ(this) : LanguageExt.Fin.Fail<Policy>(error);
+                }
+
+                public LanguageExt.Fin<LanguageExt.Unit> Confirm(bool accepted) =>
+                    accepted ? LanguageExt.Fin.Succ(unit) : LanguageExt.Fin.Fail<LanguageExt.Unit>(new Error());
+
+                public LanguageExt.Fin<int> Accept(Op op, int value) =>
+                    op.AcceptValue(value);
+
+                public LanguageExt.Fin<int> Existing(Optional<int> value, Error error) =>
+                    value.ToFin(error);
+
+                public LanguageExt.Fin<LanguageExt.Unit> NativeBoundary(bool accepted, Op op, string detail) =>
+                    accepted ? LanguageExt.Fin.Succ(unit) : LanguageExt.Fin.Fail<LanguageExt.Unit>(op.InvalidResult(detail));
                 """)).ConfigureAwait(true);
 
         Assert.DoesNotContain(expected: "CSP0739", collection: ids);

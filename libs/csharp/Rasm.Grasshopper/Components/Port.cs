@@ -210,10 +210,8 @@ public sealed partial class PortKind {
     };
     internal bool RequiresWire<T>() => Type == typeof(T) && WireType != typeof(T);
     internal Fin<Flow<T>> Decode<T>(Flow<int> value) =>
-        System.Enum.IsDefined(enumType: Type, value: value.Item) switch {
-            true => Fin.Succ(value.Project(item: (T)System.Enum.ToObject(enumType: Type, value: value.Item))),
-            false => Fin.Fail<Flow<T>>(Op.Of(name: Type.Name).InvalidInput()),
-        };
+        guard(System.Enum.IsDefined(enumType: Type, value: value.Item), Op.Of(name: Type.Name).InvalidInput()).ToFin()
+            .Map(_ => value.Project(item: (T)System.Enum.ToObject(enumType: Type, value: value.Item)));
     internal static Flow<int> Encode<T>(Flow<T> value) =>
         value.Project(item: Convert.ToInt32(value: value.Item, provider: CultureInfo.InvariantCulture));
     internal IParameter Bind(ModularInputAdder adder, Port port, bool hidden) {

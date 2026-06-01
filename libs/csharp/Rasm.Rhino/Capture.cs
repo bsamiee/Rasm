@@ -370,14 +370,12 @@ public readonly record struct CaptureScale(
 // --- [OPERATIONS] -------------------------------------------------------------------------
 file static class CaptureMeasure {
     internal static Fin<double> Finite(double value, Op op) =>
-        RhinoMath.IsValidDouble(x: value)
-            ? Fin.Succ(value: value)
-            : Fin.Fail<double>(error: op.InvalidInput());
+        from _ in guard(RhinoMath.IsValidDouble(x: value), op.InvalidInput()).ToFin()
+        select value;
 
     internal static Fin<double> Positive(double value, Op op) =>
-        RhinoMath.IsValidDouble(x: value) && value > 0.0
-            ? Fin.Succ(value: value)
-            : Fin.Fail<double>(error: op.InvalidInput());
+        from _ in guard(RhinoMath.IsValidDouble(x: value) && value > 0.0, op.InvalidInput()).ToFin()
+        select value;
 
     internal static Fin<Option<double>> OptionalFinite(Option<double> source, Op op) =>
         source.Case switch {

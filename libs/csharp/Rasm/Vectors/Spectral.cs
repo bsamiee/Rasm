@@ -28,7 +28,7 @@ public readonly record struct SpectralDescriptorPolicy(SpectralScaleNormalizatio
     internal bool IsRaw => ScaleNormalization.Equals(SpectralScaleNormalization.Raw) && EnergyNormalization.Equals(SpectralEnergyNormalization.Raw) && ZeroModePolicy.Equals(SpectralZeroModePolicy.Keep) && CropCount.IsNone;
     internal bool IsValueOnly => ScaleNormalization.Equals(SpectralScaleNormalization.Raw) && ZeroModePolicy.Equals(SpectralZeroModePolicy.Keep) && CropCount.IsNone;
     internal static Fin<SpectralDescriptorPolicy> Admit(SpectralDescriptorPolicy policy, Op key) =>
-        policy.IsValid ? Fin.Succ(policy) : Fin.Fail<SpectralDescriptorPolicy>(key.InvalidInput());
+        guard(policy.IsValid, key.InvalidInput()).ToFin().Map(_ => policy);
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SpectralRankingPolicy(SpectralDescriptorPolicy Descriptor, SpectralDistanceKind Distance, SpectralTieBreak TieBreak) {

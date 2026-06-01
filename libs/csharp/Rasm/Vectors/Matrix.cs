@@ -22,9 +22,8 @@ public readonly record struct SymmetricMatrix(Dimension Dimension, Arr<double> U
         this with { Upper = Upper.SetItem(FlatIndex(n: Dimension.Value, i: Math.Min(val1: i, val2: j), j: Math.Max(val1: i, val2: j)), value) };
     private static int FlatIndex(int n, int i, int j) => (i * n) - (i * (i - 1) / 2) + (j - i);
     public static Fin<SymmetricMatrix> Of(Dimension dim, Arr<double> upper, Op? key = null) =>
-        upper.Count == dim.Value * (dim.Value + 1) / 2 && upper.All(RhinoMath.IsValidDouble)
-            ? Fin.Succ(new SymmetricMatrix(Dimension: dim, Upper: upper))
-            : Fin.Fail<SymmetricMatrix>(error: key.OrDefault().InvalidInput());
+        from _ in guard(upper.Count == dim.Value * (dim.Value + 1) / 2 && upper.All(RhinoMath.IsValidDouble), key.OrDefault().InvalidInput()).ToFin()
+        select new SymmetricMatrix(Dimension: dim, Upper: upper);
     public Matrix ToDense() {
         SymmetricMatrix self = this;
         int dim = Dimension.Value;
@@ -45,9 +44,8 @@ public readonly record struct Matrix(Dimension Rows, Dimension Cols, Arr<double>
     internal Matrix With(int i, int j, double value) =>
         this with { Entries = Entries.SetItem((i * Cols.Value) + j, value) };
     public static Fin<Matrix> Of(Dimension rows, Dimension cols, Arr<double> entries, Op? key = null) =>
-        entries.Count == rows.Value * cols.Value && entries.All(RhinoMath.IsValidDouble)
-            ? Fin.Succ(new Matrix(Rows: rows, Cols: cols, Entries: entries))
-            : Fin.Fail<Matrix>(error: key.OrDefault().InvalidInput());
+        from _ in guard(entries.Count == rows.Value * cols.Value && entries.All(RhinoMath.IsValidDouble), key.OrDefault().InvalidInput()).ToFin()
+        select new Matrix(Rows: rows, Cols: cols, Entries: entries);
     public static Matrix Identity(Dimension dim) =>
         MatrixKernel.FromMathNet(m: DenseMatrixD.CreateIdentity(order: dim.Value), rows: dim, cols: dim);
     public Matrix Transpose() => MatrixKernel.FromMathNet(MatrixKernel.ToMathNet(this).Transpose(), Cols, Rows);
