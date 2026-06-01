@@ -424,7 +424,7 @@ public readonly record struct UiHudLayout(System.Drawing.RectangleF Bounds, floa
     }
     public static (Seq<System.Drawing.RectangleF> Regions, UiHudLayout Final) StackMany(UiHudLayout layout, Seq<(UiAnchor Anchor, System.Drawing.SizeF Size)> items) =>
         items.Fold((Seq<System.Drawing.RectangleF>(), layout), static (acc, item) => {
-            (System.Drawing.RectangleF region, UiHudLayout remaining) = acc.Item2.Stack(anchor: item.Anchor, content: item.Size);
+            (System.Drawing.RectangleF region, UiHudLayout remaining) = acc.layout.Stack(anchor: item.Anchor, content: item.Size);
             return (acc.Item1.Add(region), remaining);
         });
 }

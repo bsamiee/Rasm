@@ -1104,6 +1104,15 @@ internal static partial class UiRail {
                 }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(CommitActions)), detail: $"UndoGroup add threw: {error.Message}"))
                 : CommitActions(document: document, name: name, actions: actions);
 
+    internal static Fin<Unit> CommitActions(GhDocument document, VerbNoun name, ActionList actions) =>
+        actions.Count switch {
+            <= 0 => Fin.Succ(value: unit),
+            _ => Try.lift(f: () => {
+                document.Undo.Do(name: name, actions: actions);
+                return unit;
+            }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(CommitActions)), detail: $"History.Do threw: {error.Message}")),
+        };
+
     internal static Fin<Snapshot<DocumentMutationDelta>> RunDocumentMutation(
         GrasshopperUi.Scope scope,
         Op op,
@@ -1119,15 +1128,6 @@ internal static partial class UiRail {
                         Changed: receipt.Changed,
                         After: DocumentSnapshotOf(document: document, objects: objects),
                         Created: receipt.Created)));
-
-    internal static Fin<Unit> CommitActions(GhDocument document, VerbNoun name, ActionList actions) =>
-        actions.Count switch {
-            <= 0 => Fin.Succ(value: unit),
-            _ => Try.lift(f: () => {
-                document.Undo.Do(name: name, actions: actions);
-                return unit;
-            }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(CommitActions)), detail: $"History.Do threw: {error.Message}")),
-        };
 
     internal static VerbNoun VerbNounOf(Op op) {
         string name = op.ToString();

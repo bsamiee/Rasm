@@ -40,7 +40,7 @@ public abstract record InteractionStep<TState> {
             Transition transition => Fin.Succ(value: current with { State = transition.Project(arg: context) }),
             Emit emit => emit.Effect(arg: context).Map(_ => current),
             Debounce debounce => (debounce.Clock.GetElapsedTime(startingTimestamp: debounce.Gate.Value) >= debounce.Interval) switch {
-                true => Fin.Succ(value: (debounce.Gate.Swap(_ => debounce.Clock.GetTimestamp()), current).Item2),
+                true => Fin.Succ(value: (debounce.Gate.Swap(_ => debounce.Clock.GetTimestamp()), current).current),
                 false => Fin.Fail<MouseDecision<TState>>(error: new Fault.Cancelled()),
             },
             _ => Fin.Succ(value: current),
@@ -462,7 +462,7 @@ public readonly record struct UiPreviewStyle(
                 Curve curve => Some(Paint(() => {
                     Seq<Point3d> pts = toSeq(PolyPoints(curve: curve));
                     (Point3d p1, Point3d p2) = g.AxisOf(curve.GetBoundingBox(accurate: false));
-                    pipeline.DrawGradientLines(lines: pts.Zip(pts.Tail).Map(static pair => new Line(pair.Item1, pair.Item2)).AsEnumerable(), strokeWidth: s.Thickness, stops: g.Stops.AsEnumerable(), point1: p1, point2: p2, linearGradient: g.Linear, repeat: g.Repeat);
+                    pipeline.DrawGradientLines(lines: pts.Zip(pts.Tail).Map(static pair => new Line(pair.First, pair.Second)).AsEnumerable(), strokeWidth: s.Thickness, stops: g.Stops.AsEnumerable(), point1: p1, point2: p2, linearGradient: g.Linear, repeat: g.Repeat);
                 })),
                 _ => Option<Fin<Unit>>.None,
             };

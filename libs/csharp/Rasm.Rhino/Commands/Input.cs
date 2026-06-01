@@ -891,6 +891,12 @@ public static class CommandInputs {
             (Result result, _) => Fin.Succ(value: CommandGet<T>.Native(result: result, value: Option<T>.None)),
         })), scripted: (input, token) => Script<T>(input: input, token: token));
 
+    private static CommandInputRequest<T> Native<T, TNative>(NativeGetter<TNative> get) =>
+        Native(run: () => {
+            Result result = get(value: out TNative value);
+            return (Result: result, Value: result == Result.Success ? Cast<T>(value!) : Option<T>.None);
+        });
+
     private static Fin<CommandInputEvent<T>> Script<T>(CommandInput input, string token, CommandInputPolicy? policy = null) =>
         from source in Optional(input).ToFin(Fail: Op.Of(name: nameof(Script)).InvalidInput())
         from text in Optional(token).ToFin(Fail: Op.Of(name: nameof(Script)).InvalidInput())
@@ -914,12 +920,6 @@ public static class CommandInputs {
             Type t when t == typeof(CommandOptionValue) => Option<T>.None,
             _ => Option<T>.None,
         };
-
-    private static CommandInputRequest<T> Native<T, TNative>(NativeGetter<TNative> get) =>
-        Native(run: () => {
-            Result result = get(value: out TNative value);
-            return (Result: result, Value: result == Result.Success ? Cast<T>(value!) : Option<T>.None);
-        });
 
     private static (Result Result, Option<T> Value) Rectangle<T>(string prompt) { Result result = string.IsNullOrWhiteSpace(value: prompt) ? RhinoGet.GetRectangle(corners: out Point3d[] corners) : RhinoGet.GetRectangle(firstPrompt: prompt, corners: out corners); return (Result: result, Value: result == Result.Success ? Cast<T>(toSeq(corners)) : Option<T>.None); }
 

@@ -436,7 +436,7 @@ def test_static_changed_ignores_python_analyzer_fixture(monkeypatch: pytest.Monk
     assert plan == static.StaticPlan(scope="changed", projects=())
 
 
-def test_static_check_applies_scoped_format_without_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_static_check_applies_scoped_whitespace_without_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     seen: list[tuple[str, ...]] = []
 
     def fake_dotnet(
@@ -473,27 +473,47 @@ def test_static_check_applies_scoped_format_without_build(monkeypatch: pytest.Mo
     assert static.run_static_rail(QualitySettings(root=tmp_path), _scope(tmp_path), "check").is_ok()
     assert seen == [
         ("format", "whitespace", str(tmp_path / "libs/csharp/Rasm/Rasm.csproj"), "--include", "libs/csharp/Rasm/Vectors/Space.cs", "--no-restore"),
-        (
-            "format",
-            "style",
-            str(tmp_path / "libs/csharp/Rasm/Rasm.csproj"),
-            "--include",
-            "libs/csharp/Rasm/Vectors/Space.cs",
-            "--severity",
-            "error",
-            "--no-restore",
-        ),
-        (
-            "format",
-            "analyzers",
-            str(tmp_path / "libs/csharp/Rasm/Rasm.csproj"),
-            "--include",
-            "libs/csharp/Rasm/Vectors/Space.cs",
-            "--severity",
-            "error",
-            "--no-restore",
-        ),
     ]
+
+
+def test_static_check_full_trigger_keeps_format_scoped_to_changed_cs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    seen: list[tuple[str, ...]] = []
+
+    def fake_dotnet(
+        *args: str,
+        scope: ArtifactScope | None = None,
+        cwd: Path | None = None,
+        check: bool = True,
+        timeout: float | None = None,
+        scoped: bool = True,
+        mode: process.ProcessMode = "capture",
+    ) -> Result[Completed, ProcessFault]:
+        _ = (scope, cwd, check, timeout, scoped, mode)
+        seen.append(args)
+        return Ok(Completed(argv=("dotnet", *args), returncode=0, stdout=b"", stderr=b""))
+
+    monkeypatch.setattr(static, "dotnet", fake_dotnet)
+    plan = static.StaticPlan(
+        scope="full",
+        projects=("libs/csharp/Rasm/Rasm.csproj",),
+        format_groups=(("libs/csharp/Rasm/Rasm.csproj", ("libs/csharp/Rasm/Vectors/Space.cs",)),),
+    )
+
+    assert static._check_plan(plan, _scope(tmp_path), tmp_path).is_ok()
+    assert seen == [
+        ("format", "whitespace", str(tmp_path / "libs/csharp/Rasm/Rasm.csproj"), "--include", "libs/csharp/Rasm/Vectors/Space.cs", "--no-restore"),
+    ]
+
+
+def test_static_check_full_trigger_without_changed_cs_skips_format(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def fail_dotnet(*args: object, **kwargs: object) -> Result[Completed, ProcessFault]:
+        _ = (args, kwargs)
+        pytest.fail("static check must not solution-format full-trigger files")
+
+    monkeypatch.setattr(static, "dotnet", fail_dotnet)
+    plan = static.StaticPlan(scope="full", projects=("libs/csharp/Rasm/Rasm.csproj",), format_groups=())
+
+    assert static._check_plan(plan, _scope(tmp_path), tmp_path).is_ok()
 
 
 def test_static_build_runs_routed_build_without_format(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

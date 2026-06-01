@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
@@ -259,7 +258,6 @@ public readonly partial struct PaintStyle {
     // Eto 2.11 has no Pen.DashOffset setter and DashStyle is sealed-immutable, so DashStyleIntern dedups
     // quantized-offset DashStyle instances; EdgeBrush/FillBrush keep each Pen/Brush caller-owned. A brush-backed
     // edge reuses FillSource.CachedBrush (Eto pen-backing brush Dispose is inert) and a solid edge backs a SolidBrush.
-    [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "Eto brush Dispose is inert; the brush is owned by the returned Pen (and the brush-backed arm reuses a shared cached brush that must not be disposed).")]
     internal Pen Pen() {
         Color edgeColour = Edge;
         Brush brush = EdgeBrush.Map(static source => source.CachedBrush()).IfNone(() => new SolidBrush(color: edgeColour));

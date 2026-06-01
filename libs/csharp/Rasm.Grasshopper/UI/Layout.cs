@@ -503,6 +503,9 @@ internal static partial class Layout {
                 from canvas in scope.NeedCanvas()
                 select SnapRectangle(document: document, obj: obj, bounds: valid, policy: policy, visibleLimit: canvas.VisibleFrame, grid: policy.Grid(canvas: canvas))));
 
+    private static Option<SnappingSnapshot> SnapRectangle(GhDocument document, IDocumentObject obj, RectangleF bounds, SnappingPolicy policy, RectangleF visibleLimit, Option<(SizeF Cell, PointF Origin)> grid) =>
+        SnapCore(document: document, obj: obj, policy: policy, visibleLimit: visibleLimit, bounds: Some(bounds), grid: grid);
+
     private static Fin<IDocumentObject> ObjectOf(GrasshopperUi.Scope scope, Guid id) =>
         UiRail.ResolveObject(scope: scope, id: id, op: Op.Of(name: nameof(ObjectOf)));
 
@@ -539,9 +542,6 @@ internal static partial class Layout {
 
     private static RectangleF TargetBounds(IAttributes attributes, SnappingPolicy policy) =>
         policy.UseAggregateWireBounds ? attributes.AggregateBounds : attributes.Bounds;
-
-    private static Option<SnappingSnapshot> SnapRectangle(GhDocument document, IDocumentObject obj, RectangleF bounds, SnappingPolicy policy, RectangleF visibleLimit, Option<(SizeF Cell, PointF Origin)> grid) =>
-        SnapCore(document: document, obj: obj, policy: policy, visibleLimit: visibleLimit, bounds: Some(bounds), grid: grid);
 
     // Group snap is a thin caller: aggregate every member's bounds into a union rectangle, exclude every
     // member's whole family from the constraints, suppress per-member wire snapping, and reuse SnapCore.

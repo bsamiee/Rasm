@@ -36,8 +36,6 @@ type StaticScope = Literal["changed", "full"]
 
 _FORMAT_ARGS: Final[dict[str, tuple[str, ...]]] = {
     "whitespace": ("--no-restore",),
-    "style": ("--severity", "error", "--no-restore"),
-    "analyzers": ("--severity", "error", "--no-restore"),
 }
 _ORPHAN_FULL_SUFFIXES: Final[tuple[str, ...]] = (".cs", ".props", ".targets")
 
@@ -62,19 +60,16 @@ class _ChangedRoute:
 # --- [OPERATIONS] ------------------------------------------------------------------------
 
 
-def _format_commands(root: Path, settings: QualitySettings, plan: StaticPlan) -> tuple[tuple[str, ...], ...]:
-    match plan.scope:
-        case "full":
-            solution = str(settings.solution)
-            return tuple(("format", kind, solution, *_FORMAT_ARGS[kind]) for kind in _FORMAT_ARGS)
-        case "changed":
+def _format_commands(root: Path, plan: StaticPlan) -> tuple[tuple[str, ...], ...]:
+    match plan.format_groups:
+        case ():
+            return ()
+        case groups:
             return tuple(
                 ("format", kind, str(root / project), "--include", *files, *_FORMAT_ARGS[kind])
-                for project, files in plan.format_groups
+                for project, files in groups
                 for kind in _FORMAT_ARGS
             )
-        case unreachable:
-            assert_never(unreachable)
 
 
 def _format_groups(routes: tuple[tuple[str, str], ...]) -> tuple[tuple[str, tuple[str, ...]], ...]:
@@ -100,13 +95,14 @@ def _build_plan(
     ).map(lambda _: "done")
 
 
-def _check_plan(plan: StaticPlan, settings: QualitySettings, scope: ArtifactScope, root: Path) -> Result[StaticOutcome, ProcessFault]:
-    match (plan.scope, plan.format_groups):
-        case ("changed", ()):
+def _check_plan(plan: StaticPlan, scope: ArtifactScope, root: Path) -> Result[StaticOutcome, ProcessFault]:
+    commands = _format_commands(root, plan)
+    match commands:
+        case ():
             return Ok("skip")
         case _:
             return fold(
-                _format_commands(root, settings, plan),
+                commands,
                 None,
                 lambda _, command: dotnet(*command, scope=scope, scoped=False, check=True, mode="stream").map(lambda _: None),
             ).map(lambda _: "done")
@@ -120,7 +116,9 @@ def _plan(settings: QualitySettings, scope: ArtifactScope, mode: StaticScope = "
     )
 
     def full() -> Result[StaticPlan, ProcessFault]:
-        return _projects(settings, workspace, "parity", scope=scope).map(lambda rows: StaticPlan(scope="full", projects=rows))
+        return _projects(settings, workspace, "parity", scope=scope).map(
+            lambda rows: StaticPlan(scope="full", projects=rows, format_groups=_format_groups(routed.format_routes))
+        )
 
     def changed() -> Result[StaticPlan, ProcessFault]:
         return _projects(settings, workspace, "closure", tuple(sorted(routed.projects)), scope=scope).map(
@@ -232,7 +230,7 @@ def _route_step(acc: _ChangedRoute, file: str, *, index: ProjectIndex, workspace
 def run_static_rail(settings: QualitySettings, scope: ArtifactScope, mode: StaticMode) -> Result[StaticOutcome, ProcessFault]:
     match mode:
         case "check":
-            return _plan(settings, scope).bind(lambda plan: _check_plan(plan, settings, scope, settings.root))
+            return _plan(settings, scope).bind(lambda plan: _check_plan(plan, scope, settings.root))
         case "build":
             return _plan(settings, scope).bind(lambda plan: _build_plan(plan, settings, scope, settings.root, "changed"))
         case "full":

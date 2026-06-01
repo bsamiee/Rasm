@@ -61,8 +61,8 @@ public sealed class ExtractionProjectionLaws {
             then: samples => {
                 Assert.Equal(expected: ExtractionGens.Samples.Count, actual: samples.Count);
                 _ = samples.Zip(ExtractionGens.Samples).Iter(pair => {
-                    Spec.Equal(left: pair.Item1.Point, right: pair.Item2, tolerance: 0.0);
-                    Spec.Equal(left: pair.Item1.Value, right: 4.0, tolerance: 0.0, what: "constant grid value");
+                    Spec.Equal(left: pair.First.Point, right: pair.Second, tolerance: 0.0);
+                    Spec.Equal(left: pair.First.Value, right: 4.0, tolerance: 0.0, what: "constant grid value");
                 });
             });
         Spec.Succ(grid.Project<ExtractionReceipt>(context: ExtractionGens.Model, key: ExtractionGens.Key), then: receipt => {

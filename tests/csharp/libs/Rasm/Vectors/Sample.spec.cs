@@ -104,7 +104,7 @@ public sealed class SampleKindFactoryLaws {
         SampleKind kind = Spec.SuccValue(SampleKind.Explicit(points: SampleGens.Points, key: SampleGens.Key), label: "explicit sample kind");
         VectorIntent intent = SampleGens.Intent(kind: kind);
         Spec.Succ(intent.Project<Seq<Point3d>>(context: SampleGens.Model, key: SampleGens.Key),
-            then: points => _ = points.Zip(SampleGens.Points).Iter(pair => Spec.Equal(left: pair.Item1, right: pair.Item2, tolerance: 0.0)));
+            then: points => _ = points.Zip(SampleGens.Points).Iter(pair => Spec.Equal(left: pair.First, right: pair.Second, tolerance: 0.0)));
         Spec.Succ(intent.Project<VectorCloud>(context: SampleGens.Model, key: SampleGens.Key),
             then: projected => {
                 VectorCloud.ClusterCase cluster = Assert.IsType<VectorCloud.ClusterCase>(@object: projected);
@@ -228,7 +228,7 @@ public sealed class SampleDensityLaws {
         VectorIntent intent = SampleGens.Intent(kind: adaptive);
         Seq<Point3d> first = Spec.SuccValue(intent.Project<Seq<Point3d>>(context: SampleGens.Model, key: SampleGens.Key), label: "first adaptive sample");
         Seq<Point3d> second = Spec.SuccValue(intent.Project<Seq<Point3d>>(context: SampleGens.Model, key: SampleGens.Key), label: "second adaptive sample");
-        _ = first.Zip(second).Iter(pair => Spec.Equal(left: pair.Item1, right: pair.Item2, tolerance: 0.0));
+        _ = first.Zip(second).Iter(pair => Spec.Equal(left: pair.First, right: pair.Second, tolerance: 0.0));
         Spec.Succ(intent.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key), then: receipt => {
             Spec.Some(receipt.DensityAccepted, accepted => Assert.Equal(expected: SampleGens.Points.Count, actual: accepted));
             Spec.Some(receipt.DensityRejected, rejected => Assert.Equal(expected: 0, actual: rejected));
@@ -243,7 +243,7 @@ public sealed class SampleDensityLaws {
         Seq<Point3d> first = Spec.SuccValue(intent.Project<Seq<Point3d>>(context: SampleGens.Model, key: SampleGens.Key), label: "first wse sample");
         Seq<Point3d> second = Spec.SuccValue(intent.Project<Seq<Point3d>>(context: SampleGens.Model, key: SampleGens.Key), label: "second wse sample");
         Assert.Equal(expected: 2, actual: first.Count);
-        _ = first.Zip(second).Iter(pair => Spec.Equal(left: pair.Item1, right: pair.Item2, tolerance: 0.0));
+        _ = first.Zip(second).Iter(pair => Spec.Equal(left: pair.First, right: pair.Second, tolerance: 0.0));
         Spec.Succ(intent.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key), then: receipt => {
             Spec.CountsConserve(attempted: receipt.Attempted, emitted: receipt.Emitted, rejected: receipt.Rejected, label: "wse receipt");
             Assert.Equal(expected: SampleGens.DensePoints.Count, actual: receipt.CandidateCount.IfNone(0));

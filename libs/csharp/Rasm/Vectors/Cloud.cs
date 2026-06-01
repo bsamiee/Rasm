@@ -354,7 +354,7 @@ internal static class CloudKernel {
     internal static Vector3d DoubleReflect(Vector3d rPrev, Vector3d tPrev, Vector3d tCurr) =>
         (tCurr - tPrev) switch {
             Vector3d v1 when v1.IsTiny() => rPrev,
-            Vector3d v1 => (RL: ReflectAcross(value: rPrev, axis: v1), TL: ReflectAcross(value: tPrev, axis: v1)) switch { (Vector3d, Vector3d) step => ReflectAcross(value: step.Item1, axis: tCurr - step.Item2) },
+            Vector3d v1 => (RL: ReflectAcross(value: rPrev, axis: v1), TL: ReflectAcross(value: tPrev, axis: v1)) switch { (Vector3d, Vector3d) step => ReflectAcross(value: step.RL, axis: tCurr - step.TL) },
         };
     private static Vector3d ReflectAcross(Vector3d value, Vector3d axis) =>
         axis.IsTiny() ? value : value - (2.0 / (axis * axis) * (axis * value) * axis);

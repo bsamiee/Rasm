@@ -15,8 +15,8 @@ public readonly record struct ButcherTableau(Seq<Seq<double>> Coupling, Seq<doub
         && Abscissae.Count == StageCount
         && Abscissae.ForAll(RhinoMath.IsValidDouble)
         && CoefficientsMatch(values: Weights, expected: 1.0)
-        && Coupling.Zip(Abscissae).AsIterable().Select((pair, index) => pair.Item1.Count <= index
-            && CoefficientsMatch(values: pair.Item1, expected: pair.Item2)).All(static ok => ok)
+        && Coupling.Zip(Abscissae).AsIterable().Select((pair, index) => pair.First.Count <= index
+            && CoefficientsMatch(values: pair.First, expected: pair.Second)).All(static ok => ok)
         && (EmbeddedWeights is not { IsSome: true, Case: Seq<double> ew } || (ew.Count == StageCount && CoefficientsMatch(values: ew, expected: 1.0)));
     internal Fin<ButcherTableau> Admit(Op key) =>
         IsValid ? Fin.Succ(this) : Fin.Fail<ButcherTableau>(key.InvalidInput());
@@ -201,7 +201,7 @@ public abstract partial record FieldIntegrator {
     private static Vector3d Combine(Seq<double> coefficients, Seq<Vector3d> vectors) =>
         coefficients.Zip(vectors).Fold(
             initialState: Vector3d.Zero,
-            f: static (sum, pair) => sum + (pair.Item1 * pair.Item2));
+            f: static (sum, pair) => sum + (pair.First * pair.Second));
 }
 
 internal readonly record struct StreamlineState(Seq<Point3d> Trail, Point3d Current, double H, double Arc, int Steps, int Rejects, int RejectedSteps, double MinStep, double MaxStep, Option<double> LastError, double MaxError, Option<TraceEvent> Event, Option<StreamlineStopKind> Stop) {

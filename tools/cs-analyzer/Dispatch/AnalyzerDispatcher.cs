@@ -36,6 +36,7 @@ internal static class AnalyzerDispatcher {
                 state.TrackInterfaceImplementations(namedType: namedType);
                 ShapeRules.CheckSignatures(context, scope, namedType);
                 ShapeRules.CheckOverloadSpam(context, scope, namedType);
+                ShapeRules.CheckOverloadAdjacency(context, scope, namedType);
                 ShapeRules.CheckApiSurfaceInflationByPrefix(context, scope, namedType);
                 ShapeRules.CheckMutableFields(context, scope, namedType);
                 ShapeRules.CheckPublicCtorOnValidatedPrimitive(context, scope, namedType);

@@ -483,6 +483,11 @@ public sealed class RuleBehaviorTests {
                 }
             }
             """),
+        new("CSP0729", File(scope: "Integration", type: "BoundaryOverloadAdjacency"), Boundary(type: "BoundaryOverloadAdjacency", members: """
+            public int CommitActions(int value) => value;
+            public int Other() => 0;
+            public int CommitActions(string value) => value.Length;
+            """)),
         new("CSP0802", File(scope: "Domain/Models", type: "UnqualifiedUnionOps"), """
             namespace Thinktecture {
                 public sealed class UnionAttribute : System.Attribute { }
@@ -655,6 +660,58 @@ public sealed class RuleBehaviorTests {
                 """).ConfigureAwait(true);
 
         Assert.DoesNotContain(expected: "CSP0005", collection: ids);
+    }
+    [Fact]
+    public async Task AdjacentOverloadsDoNotEmitOverloadAdjacencyDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Integration/AdjacentOverloads.cs",
+            source: Boundary(type: "AdjacentOverloads", members: """
+                public int CommitActions(int value) => value;
+                public int CommitActions(string value) => value.Length;
+                public int Other() => 0;
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0729", collection: ids);
+    }
+    [Fact]
+    public async Task AccessSeparatedOverloadsDoNotEmitOverloadAdjacencyDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Integration/AccessSeparatedOverloads.cs",
+            source: Boundary(type: "AccessSeparatedOverloads", members: """
+                private int CommitActions(int value) => value;
+                public int Other() => 0;
+                public int CommitActions(string value) => value.Length;
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0729", collection: ids);
+    }
+    [Fact]
+    public async Task InterfaceGroupedOverloadsDoNotEmitOverloadAdjacencyDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Integration/InterfaceGroupedOverloads.cs",
+            source: """
+                namespace Foundation.CSharp.Analyzers.Contracts {
+                    [System.AttributeUsage(System.AttributeTargets.All)]
+                    public sealed class BoundaryAdapterAttribute : System.Attribute { }
+                }
+
+                namespace Integration {
+                    public interface IEquality<T> {
+                        public bool Equals(T x, T y);
+                        public int GetHashCode(T value);
+                    }
+
+                    [Foundation.CSharp.Analyzers.Contracts.BoundaryAdapter]
+                    public sealed class InterfaceGroupedOverloads : IEquality<int>, IEquality<string> {
+                        public bool Equals(int x, int y) => x == y;
+                        public int GetHashCode(int value) => value.GetHashCode();
+                        public bool Equals(string x, string y) => string.Equals(x, y, System.StringComparison.Ordinal);
+                        public int GetHashCode(string value) => value.GetHashCode();
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0729", collection: ids);
     }
     [Fact]
     public async Task BoundaryPropertyAccessorImperativeControlFlowIsStructurallyAllowedAsync() {

@@ -122,13 +122,13 @@ internal sealed class RefCache<TKey, TValue>(
             uint current = s.Versions.Find(key: versionId(arg: key)).IfNone(noneValue: 0u);
             bool versionStale = versionTag is not null && versionTag(arg: key) != current;
             return versionStale
-                ? (rejectDispose = rendered, s).Item2
+                ? (rejectDispose = rendered, s).s
                 : s.Entries.Find(key: key) switch {
                     { IsSome: true, Case: Entry e } when Fresh(key: key, entry: e, state: s) =>
                         (selected = Some(e.Value), rejectDispose = rendered, cached = true,
                          s with { Entries = s.Entries.AddOrUpdate(key: key, value: e with { RefCount = e.RefCount + 1 }) }).Item4,
                     { IsSome: true, Case: Entry e } when e.Stale && e.RefCount > 0 =>
-                        (rejectDispose = rendered, s).Item2,
+                        (rejectDispose = rendered, s).s,
                     _ => (selected = Some(rendered), cached = true,
                           s with { Entries = s.Entries.AddOrUpdate(key: key, value: new Entry(Value: rendered, VersionAtInsert: current, RefCount: 1, Stale: false)) }).Item3,
                 };

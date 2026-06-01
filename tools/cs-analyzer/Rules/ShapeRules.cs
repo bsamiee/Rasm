@@ -145,6 +145,16 @@ internal static class ShapeRules {
         };
         AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
     }
+    internal static void CheckOverloadAdjacency(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
+        IEnumerable<Diagnostic> diagnostics = scope.IsAnalyzable switch {
+            true => namedType.DeclaringSyntaxReferences
+                .Select(reference => reference.GetSyntax(context.CancellationToken))
+                .OfType<TypeDeclarationSyntax>()
+                .SelectMany(type => OverloadAdjacencyDiagnostics(context, type)),
+            _ => [],
+        };
+        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
+    }
     internal static void CheckApiSurfaceInflationByPrefix(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
         // Source-generator-driven types (Thinktecture, Vogen, StronglyTypedIds) emit Get/TryGet companions by convention.
         // Detection is namespace-prefix based so future attributes from these generators inherit the exemption automatically.
@@ -289,6 +299,89 @@ internal static class ShapeRules {
             .Any(attribute => InterfaceExemptionAttributes.Contains(attribute.AttributeClass?.Name ?? string.Empty));
         return hasTraitPattern || hasStaticAbstract || hasExemptionAttribute;
     }
+    private static IEnumerable<Diagnostic> OverloadAdjacencyDiagnostics(SymbolAnalysisContext context, TypeDeclarationSyntax type) {
+        ImmutableArray<OverloadMember> members = [
+            .. type.Members
+                .Select(member => CreateOverloadMember(context, member))
+                .Where(member => member is not null)
+                .Select(member => member!),
+        ];
+        Dictionary<OverloadKey, List<OverloadMember>> seen = [];
+        OverloadMember? previous = null;
+        foreach (OverloadMember current in members) {
+            switch (seen.TryGetValue(key: current.Key, value: out List<OverloadMember>? overloads)) {
+                case true:
+                    if (!current.Key.Equals(previous?.Key) && IsMisplacedOverload(current, overloads)) {
+                        overloads.Add(current);
+                    }
+                    break;
+                case false:
+                    seen.Add(key: current.Key, value: [current]);
+                    break;
+            }
+            previous = current;
+        }
+        return seen.Values
+            .Where(overloads => overloads.Count > 1)
+            .Select(CreateOverloadAdjacencyDiagnostic);
+    }
+    private static OverloadMember? CreateOverloadMember(SymbolAnalysisContext context, MemberDeclarationSyntax member) {
+        SemanticModel model = context.Compilation.GetSemanticModel(member.SyntaxTree);
+        return member switch {
+            MethodDeclarationSyntax { ExplicitInterfaceSpecifier: not null } => null,
+            MethodDeclarationSyntax method when model.GetDeclaredSymbol(method, context.CancellationToken) is IMethodSymbol symbol =>
+                new OverloadMember(
+                    key: new OverloadKey(
+                        name: method.Identifier.ValueText,
+                        accessibility: symbol.DeclaredAccessibility,
+                        isStatic: symbol.IsStatic,
+                        isAbstract: symbol.IsAbstract),
+                    nameToken: method.Identifier,
+                    interfaces: ImplementedInterfaces(symbol)),
+            ConstructorDeclarationSyntax constructor when model.GetDeclaredSymbol(constructor, context.CancellationToken) is IMethodSymbol symbol =>
+                new OverloadMember(
+                    key: new OverloadKey(
+                        name: constructor.Identifier.ValueText,
+                        accessibility: symbol.DeclaredAccessibility,
+                        isStatic: symbol.IsStatic,
+                        isAbstract: symbol.IsAbstract),
+                    nameToken: constructor.Identifier,
+                    interfaces: []),
+            _ => null,
+        };
+    }
+    private static ImmutableArray<INamedTypeSymbol> ImplementedInterfaces(IMethodSymbol symbol) {
+        HashSet<INamedTypeSymbol> interfaces = new(SymbolEqualityComparer.Default);
+        foreach (IMethodSymbol explicitMethod in symbol.ExplicitInterfaceImplementations) {
+            _ = interfaces.Add(explicitMethod.ContainingType);
+        }
+        foreach (INamedTypeSymbol interfaceType in symbol.ContainingType.AllInterfaces) {
+            foreach (ISymbol interfaceMember in interfaceType.GetMembers()) {
+                if (SymbolEqualityComparer.Default.Equals(symbol.ContainingType.FindImplementationForInterfaceMember(interfaceMember), symbol)) {
+                    _ = interfaces.Add(interfaceType);
+                }
+            }
+        }
+        return [.. interfaces];
+    }
+    private static bool IsMisplacedOverload(OverloadMember current, IEnumerable<OverloadMember> overloads) =>
+        current.Interfaces.Length == 0
+        || overloads.Any(overload => SharesImplementedInterface(current, overload));
+    private static bool SharesImplementedInterface(OverloadMember current, OverloadMember overload) =>
+        current.Interfaces.Any(currentInterface =>
+            overload.Interfaces.Any(overloadInterface =>
+                SymbolEqualityComparer.Default.Equals(currentInterface, overloadInterface)));
+    private static Diagnostic CreateOverloadAdjacencyDiagnostic(List<OverloadMember> overloads) {
+        ImmutableArray<Location> secondaryLocations = [
+            .. overloads.Skip(1).Select(overload => overload.NameToken.GetLocation()),
+        ];
+        return Diagnostic.Create(
+            RuleCatalog.CSP0729,
+            overloads[0].NameToken.GetLocation(),
+            secondaryLocations,
+            properties: null,
+            overloads[0].Key.Name);
+    }
     private static bool IsTypeClassInterfaceCandidate(INamedTypeSymbol interfaceSymbol) {
         bool nameHint = interfaceSymbol.Name.Contains(value: "TypeClass", comparisonType: StringComparison.Ordinal)
             || interfaceSymbol.Name.EndsWith(value: "Trait", comparisonType: StringComparison.Ordinal);
@@ -392,4 +485,47 @@ internal static class ShapeRules {
         return [unwrapped, .. nested];
     }
     private static ITypeSymbol UnwrapNullable(ITypeSymbol type) => SymbolFacts.UnwrapNullable(type);
+
+    private readonly struct OverloadKey : IEquatable<OverloadKey> {
+        internal OverloadKey(string name, Accessibility accessibility, bool isStatic, bool isAbstract) {
+            Name = name;
+            Accessibility = accessibility;
+            IsStatic = isStatic;
+            IsAbstract = isAbstract;
+        }
+
+        internal string Name { get; }
+        internal Accessibility Accessibility { get; }
+        internal bool IsStatic { get; }
+        internal bool IsAbstract { get; }
+
+        public bool Equals(OverloadKey other) =>
+            StringComparer.Ordinal.Equals(x: Name, y: other.Name)
+            && Accessibility == other.Accessibility
+            && IsStatic == other.IsStatic
+            && IsAbstract == other.IsAbstract;
+        public override bool Equals(object? obj) =>
+            obj is OverloadKey other && Equals(other);
+        public override int GetHashCode() {
+            unchecked {
+                int hash = StringComparer.Ordinal.GetHashCode(Name);
+                hash = (hash * 397) ^ (int)Accessibility;
+                hash = (hash * 397) ^ (IsStatic ? 1 : 0);
+                hash = (hash * 397) ^ (IsAbstract ? 1 : 0);
+                return hash;
+            }
+        }
+    }
+
+    private sealed class OverloadMember {
+        internal OverloadMember(OverloadKey key, SyntaxToken nameToken, ImmutableArray<INamedTypeSymbol> interfaces) {
+            Key = key;
+            NameToken = nameToken;
+            Interfaces = interfaces;
+        }
+
+        internal OverloadKey Key { get; }
+        internal SyntaxToken NameToken { get; }
+        internal ImmutableArray<INamedTypeSymbol> Interfaces { get; }
+    }
 }

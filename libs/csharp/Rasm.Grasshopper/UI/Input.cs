@@ -662,6 +662,14 @@ internal static partial class Input {
                         Category: panel.Category ?? string.Empty));
                 }));
 
+    internal static GrasshopperUiIntent<InputPanelSnapshot> Panel(CommandPlan plan) =>
+        Panel(populate: panel => Try.lift(f: () => panel.AddBar(drawCategoryLabels: false)).Run()
+            .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Panel)), detail: $"InputPanel.AddBar threw: {error.Message}"))
+            .Bind(bar =>
+                from native in plan.Items.Filter(static item => item.IsPanelNative).TraverseM(item => item.Apply(surface: UiCommandSurface.InputPanel(panel: panel))).As()
+                from barred in plan.Items.Filter(static item => !item.IsPanelNative).TraverseM(item => item.Apply(surface: UiCommandSurface.Toolbar(bar: bar))).As()
+                select unit));
+
     // Returns a dismissable Subscription whose detach closes the popup form (form captured in a closure cell,
     // mirroring WireShapeInstall.Push) so the popup shares every other chrome op's Subscription lifetime.
     internal static GrasshopperUiIntent<Subscription> PopupPanel(Control owner, PointF location, RectangleF screen, Func<InputPanel, Fin<Unit>> populate) =>
@@ -705,14 +713,6 @@ internal static partial class Input {
                             Height: bar.Height);
                     });
                 }));
-
-    internal static GrasshopperUiIntent<InputPanelSnapshot> Panel(CommandPlan plan) =>
-        Panel(populate: panel => Try.lift(f: () => panel.AddBar(drawCategoryLabels: false)).Run()
-            .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Panel)), detail: $"InputPanel.AddBar threw: {error.Message}"))
-            .Bind(bar =>
-                from native in plan.Items.Filter(static item => item.IsPanelNative).TraverseM(item => item.Apply(surface: UiCommandSurface.InputPanel(panel: panel))).As()
-                from barred in plan.Items.Filter(static item => !item.IsPanelNative).TraverseM(item => item.Apply(surface: UiCommandSurface.Toolbar(bar: bar))).As()
-                select unit));
 
     internal static GrasshopperUiIntent<ToolbarSnapshot> Toolbar(CommandPlan plan) =>
         Toolbar(populate: bar =>

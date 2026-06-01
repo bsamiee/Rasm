@@ -130,7 +130,7 @@ public sealed class IntegratorKindLaws {
         Spec.ForAll(FlowGens.Integrator, k => {
             Assert.True(k.Tableau.IsValid);
             Spec.Equal(left: Numeric.Sum(values: k.Tableau.Weights), right: 1.0, tolerance: 1.0e-10, what: "weights");
-            Spec.Holds(condition: k.Tableau.Coupling.Zip(k.Tableau.Abscissae).ForAll(pair => Math.Abs(value: Numeric.Sum(values: pair.Item1) - pair.Item2) <= 1.0e-10), label: "Butcher row sums match abscissae");
+            Spec.Holds(condition: k.Tableau.Coupling.Zip(k.Tableau.Abscissae).ForAll(pair => Math.Abs(value: Numeric.Sum(values: pair.First) - pair.Second) <= 1.0e-10), label: "Butcher row sums match abscissae");
             Spec.Holds(condition: k.Tableau.Coupling.AsIterable().Select((row, i) => row.Count <= i).All(static ok => ok), label: "Butcher coupling[i].Count <= i");
         });
         Spec.ForAll(FlowGens.Adaptive, k => Spec.Equal(

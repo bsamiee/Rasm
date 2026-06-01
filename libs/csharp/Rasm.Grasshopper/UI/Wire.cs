@@ -752,7 +752,7 @@ internal static partial class Wire {
     private static Seq<(WireSnapshot.ConnectedCase Wire, WireEdit Kind, WireEditArgs Args)> RouteEdits(Seq<Guid> chain) =>
         chain.Zip(chain.Tail).Map(static pair =>
             (Wire: new WireSnapshot.ConnectedCase(
-                Source: pair.Item1, Target: pair.Item2,
+                Source: pair.First, Target: pair.Second,
                 SourceResolved: false, TargetResolved: false, Connected: false, Selected: false),
              Kind: WireEdit.Connect,
              Args: default(WireEditArgs)));

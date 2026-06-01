@@ -438,7 +438,7 @@ internal static partial class Operations {
     private static Fin<MutationReceipt> ApplyCreateState(InstanceDefinitionTable table, int idx, AuthorSpec spec, Members.Provided members, Op key) =>
         from live in Optional(table[idx] ?? table.Find(instanceDefinitionName: spec.Name.Value)).ToFin(Fail: key.InvalidResult())
         from id in DefinitionId.From(value: live.Id, key: key)
-        let _layer = (live.LayerStyle = spec.Layer.Native, unit).Item2
+        let _layer = (live.LayerStyle = spec.Layer.Native, unit).unit
         from _strings in ApplyUserStringsWhenPresent(table: table, idx: idx, strings: spec.Metadata.UserStrings, key: key)
         from snap in Definition.From(definition: live, anchorDirectory: BlockPaths.DocAnchor(document: table.Document), key: key)
         let _cached = SnapshotVault.Upsert(docSerial: table.Document.RuntimeSerialNumber, definition: snap)
