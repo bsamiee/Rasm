@@ -176,6 +176,10 @@ internal static class SymbolFacts {
         "Kernel", "Lipschitz", "Matrix", "Mesh", "Native", "Path", "Policy", "Residual", "Route", "Sample", "Sampling",
         "Sdf", "Search", "Solver", "Spectral", "Status", "Stop", "Tolerance", "Topology", "Volume",
     ], StringComparer.Ordinal);
+    private static readonly HashSet<string> AcceptValueIsValidTypeNames = new([
+        "Arc", "BoundingBox", "Box", "Circle", "ClosestHit", "Cone", "Cylinder", "Ellipse", "Interval", "IntersectionHit", "Line",
+        "Plane", "Point2d", "Point3d", "Polyline", "RayQuery", "Rectangle3d", "Sphere", "Torus", "Transform", "Vector3d",
+    ], StringComparer.Ordinal);
     private const int RegexOptionNonBacktrackingBit = 1024;
     private const int SearchValuesFriendlyRegexOptionMask =
         (int)RegexOptions.CultureInvariant
@@ -460,6 +464,165 @@ internal static class SymbolFacts {
                 IsLanguageExtUnitType(property.Type)
                 && property.Property.ContainingType.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal),
             _ => false,
+        };
+    internal static bool IsManualOpAdmissionGate(SemanticModel model, ConditionalExpressionSyntax conditional) =>
+        IsNonUnitFinExpression(model: model, expression: conditional)
+        && TryFinSuccessValue(model: model, expression: conditional.WhenTrue, value: out ExpressionSyntax? successValue)
+        && IsFinInvalidResultFailure(model: model, expression: conditional.WhenFalse)
+        && IsKnownValidityProbe(model: model, condition: conditional.Condition, successValue: successValue);
+    internal static bool IsManualOpAdmissionGate(SemanticModel model, SwitchExpressionSyntax switchExpression) {
+        if (!IsNonUnitFinExpression(model: model, expression: switchExpression) || switchExpression.Arms.Count != 2) {
+            return false;
+        }
+        ImmutableArray<(SwitchExpressionArmSyntax Arm, ExpressionSyntax Value)> successArms = [
+            .. switchExpression.Arms
+                .Select(arm => (Arm: arm, Success: TryFinSuccessValue(model: model, expression: arm.Expression, value: out ExpressionSyntax? successValue), Value: successValue))
+                .Where(static item => item.Success && item.Value is not null)
+                .Select(static item => (item.Arm, item.Value!)),
+        ];
+        ImmutableArray<SwitchExpressionArmSyntax> failureArms = [
+            .. switchExpression.Arms
+                .Where(arm => IsFinInvalidResultFailure(model: model, expression: arm.Expression)),
+        ];
+        return successArms.Length == 1
+            && failureArms.Length == 1
+            && IsKnownSwitchValidityProbe(model: model, switchExpression: switchExpression, arm: successArms[0].Arm, successValue: successArms[0].Value);
+    }
+    private static bool IsNonUnitFinExpression(SemanticModel model, ExpressionSyntax expression) =>
+        model.GetTypeInfo(expression).ConvertedType switch {
+            INamedTypeSymbol fin => IsLanguageExtFinType(fin) && !IsLanguageExtUnitType(fin.TypeArguments[0]),
+            _ => false,
+        };
+    private static bool TryFinSuccessValue(SemanticModel model, ExpressionSyntax expression, out ExpressionSyntax value) {
+        value = expression;
+        InvocationExpressionSyntax? invocation = UnwrapExpression(expression) as InvocationExpressionSyntax;
+        bool success = invocation is not null
+            && model.GetSymbolInfo(invocation).Symbol is IMethodSymbol method
+            && method.Name is "Succ" or "Accept" or "AcceptValue"
+            && IsLanguageExtFinType(method.ReturnType)
+            && invocation.ArgumentList.Arguments.Count > 0;
+        value = success
+            ? invocation!.ArgumentList.Arguments
+                .FirstOrDefault(argument => argument.NameColon?.Name.Identifier.ValueText == "value")?.Expression
+                ?? invocation.ArgumentList.Arguments[0].Expression
+            : expression;
+        return success;
+    }
+    private static bool IsFinInvalidResultFailure(SemanticModel model, ExpressionSyntax expression) =>
+        UnwrapExpression(expression) is InvocationExpressionSyntax invocation
+        && model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "Fail" } method
+        && IsLanguageExtFinType(method.ReturnType)
+        && invocation.ArgumentList.Arguments.Any(argument => ContainsPlainInvalidResult(model: model, expression: argument.Expression));
+    private static bool ContainsPlainInvalidResult(SemanticModel model, ExpressionSyntax expression) =>
+        expression.DescendantNodesAndSelf()
+            .OfType<InvocationExpressionSyntax>()
+            .Any(invocation => invocation.ArgumentList.Arguments.Count == 0
+                && model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "InvalidResult" });
+    private static bool IsKnownValidityProbe(SemanticModel model, ExpressionSyntax condition, ExpressionSyntax successValue) {
+        ExpressionSyntax probe = UnwrapExpression(condition);
+        return probe switch {
+            MemberAccessExpressionSyntax member when member.Name.Identifier.ValueText == "IsValid"
+                => IsOpAcceptValueAdmissibleType(model: model, expression: successValue)
+                    && SameReference(model: model, left: member.Expression, right: successValue),
+            InvocationExpressionSyntax invocation when model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "IsValidDouble" }
+                => IsFiniteScalarType(model: model, expression: successValue)
+                    && invocation.ArgumentList.Arguments.Any(argument => SameReference(model: model, left: argument.Expression, right: successValue)),
+            BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.NotEqualsExpression)
+                => IsGuidExpression(model: model, expression: successValue)
+                    && ((SameReference(model: model, left: binary.Left, right: successValue) && IsGuidEmpty(model: model, expression: binary.Right))
+                    || (SameReference(model: model, left: binary.Right, right: successValue) && IsGuidEmpty(model: model, expression: binary.Left))),
+            _ => false,
+        };
+    }
+    private static bool IsKnownSwitchValidityProbe(SemanticModel model, SwitchExpressionSyntax switchExpression, SwitchExpressionArmSyntax arm, ExpressionSyntax successValue) =>
+        arm.WhenClause?.Condition is ExpressionSyntax condition
+            ? IsKnownValidityProbe(model: model, condition: condition, successValue: successValue)
+            : IsKnownIsValidPattern(model: model, pattern: arm.Pattern, successValue: successValue)
+                || IsKnownSwitchInputPattern(model: model, switchExpression: switchExpression, arm: arm, successValue: successValue);
+    private static bool IsKnownIsValidPattern(SemanticModel model, PatternSyntax pattern, ExpressionSyntax successValue) =>
+        pattern is RecursivePatternSyntax recursive
+        && PatternDesignationName(recursive.Designation) is string designation
+        && IdentifierName(successValue) == designation
+        && IsOpAcceptValueAdmissibleType(model: model, expression: successValue)
+        && recursive.PropertyPatternClause?.Subpatterns.Any(IsIsValidTrueSubpattern) == true;
+    private static bool IsKnownSwitchInputPattern(SemanticModel model, SwitchExpressionSyntax switchExpression, SwitchExpressionArmSyntax arm, ExpressionSyntax successValue) =>
+        SameReference(model: model, left: switchExpression.GoverningExpression, right: successValue)
+        && IsOpAcceptValueAdmissibleType(model: model, expression: successValue)
+        && arm.Pattern is RecursivePatternSyntax recursive
+        && recursive.PropertyPatternClause?.Subpatterns.Any(IsIsValidTrueSubpattern) == true;
+    private static bool IsIsValidTrueSubpattern(SubpatternSyntax subpattern) =>
+        subpattern.NameColon?.Name.Identifier.ValueText == "IsValid"
+        && subpattern.Pattern is ConstantPatternSyntax { Expression: LiteralExpressionSyntax literal }
+        && literal.IsKind(SyntaxKind.TrueLiteralExpression);
+    private static string? PatternDesignationName(VariableDesignationSyntax? designation) =>
+        designation switch {
+            SingleVariableDesignationSyntax single => single.Identifier.ValueText,
+            _ => null,
+        };
+    private static string? IdentifierName(ExpressionSyntax expression) =>
+        UnwrapExpression(expression) switch {
+            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+            _ => null,
+        };
+    private static bool IsOpAcceptValueAdmissibleType(SemanticModel model, ExpressionSyntax expression) {
+        TypeInfo info = model.GetTypeInfo(UnwrapExpression(expression));
+        return (info.ConvertedType ?? info.Type) switch {
+            ITypeSymbol type => IsOpAcceptValueAdmissibleType(type),
+            _ => false,
+        };
+    }
+    private static bool IsOpAcceptValueAdmissibleType(ITypeSymbol type) =>
+        type.SpecialType is SpecialType.System_String or SpecialType.System_Double or SpecialType.System_Single or SpecialType.System_Int32 or SpecialType.System_Boolean
+        || type.TypeKind == TypeKind.Enum
+        || (type is INamedTypeSymbol named && (IsGuidType(named) || IsGeometryBaseOrAcceptedIsValidType(named)));
+    private static bool IsGeometryBaseOrAcceptedIsValidType(INamedTypeSymbol type) =>
+        AcceptValueIsValidTypeNames.Contains(type.Name)
+        || type.AllInterfaces.Any(static candidate => candidate.OriginalDefinition.Name == "ISmartEnum")
+        || TypeAndBases(type).Any(static candidate => candidate.Name == "GeometryBase");
+    private static IEnumerable<INamedTypeSymbol> TypeAndBases(INamedTypeSymbol type) {
+        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType) {
+            yield return current;
+        }
+    }
+    private static bool IsFiniteScalarType(SemanticModel model, ExpressionSyntax expression) =>
+        (model.GetTypeInfo(UnwrapExpression(expression)).ConvertedType ?? model.GetTypeInfo(UnwrapExpression(expression)).Type)?.SpecialType
+            is SpecialType.System_Double or SpecialType.System_Single;
+    private static bool IsGuidExpression(SemanticModel model, ExpressionSyntax expression) {
+        TypeInfo info = model.GetTypeInfo(UnwrapExpression(expression));
+        return (info.ConvertedType ?? info.Type) switch {
+            INamedTypeSymbol type => IsGuidType(type),
+            _ => false,
+        };
+    }
+    private static bool SameReference(SemanticModel model, ExpressionSyntax left, ExpressionSyntax right) =>
+        (ReferencedSymbol(model: model, expression: left), ReferencedSymbol(model: model, expression: right)) switch {
+            (ISymbol a, ISymbol b) => SymbolEqualityComparer.Default.Equals(a, b),
+            _ => string.Equals(
+                a: UnwrapExpression(left).ToString(),
+                b: UnwrapExpression(right).ToString(),
+                comparisonType: StringComparison.Ordinal),
+        };
+    private static ISymbol? ReferencedSymbol(SemanticModel model, ExpressionSyntax expression) =>
+        model.GetOperation(UnwrapExpression(expression)) switch {
+            ILocalReferenceOperation local => local.Local,
+            IParameterReferenceOperation parameter => parameter.Parameter,
+            IFieldReferenceOperation field => field.Field,
+            IPropertyReferenceOperation property => property.Property,
+            _ => model.GetSymbolInfo(UnwrapExpression(expression)).Symbol,
+        };
+    private static bool IsGuidEmpty(SemanticModel model, ExpressionSyntax expression) =>
+        model.GetSymbolInfo(UnwrapExpression(expression)).Symbol switch {
+            IFieldSymbol { Name: "Empty", ContainingType: INamedTypeSymbol type } when IsGuidType(type) => true,
+            IPropertySymbol { Name: "Empty", ContainingType: INamedTypeSymbol type } when IsGuidType(type) => true,
+            _ => false,
+        };
+    private static bool IsGuidType(INamedTypeSymbol type) =>
+        type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::System.Guid";
+    private static ExpressionSyntax UnwrapExpression(ExpressionSyntax expression) =>
+        expression switch {
+            ParenthesizedExpressionSyntax parenthesized => UnwrapExpression(parenthesized.Expression),
+            CastExpressionSyntax cast => UnwrapExpression(cast.Expression),
+            _ => expression,
         };
     private static readonly HashSet<(string From, string To)> NarrowingCasts = [
         ("Int64", "Int32"), ("Int64", "Int16"), ("Int64", "Byte"), ("Int64", "SByte"),

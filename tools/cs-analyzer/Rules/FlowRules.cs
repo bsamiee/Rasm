@@ -123,6 +123,16 @@ internal static class FlowRules {
                 => Diagnostic.Create(RuleCatalog.CSP0727, @switch.SwitchKeyword.GetLocation(), binary.OperatorToken.Text),
             _ => null,
         });
+    internal static void CheckManualOpAdmissionGate(SyntaxNodeAnalysisContext context, ScopeInfo scope, ConditionalExpressionSyntax conditional) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsManualOpAdmissionGate(model: context.SemanticModel, conditional: conditional)) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0742, conditional.QuestionToken.GetLocation(), "conditional"),
+            _ => null,
+        });
+    internal static void CheckManualOpAdmissionGate(SyntaxNodeAnalysisContext context, ScopeInfo scope, SwitchExpressionSyntax switchExpression) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsManualOpAdmissionGate(model: context.SemanticModel, switchExpression: switchExpression)) switch {
+            (true, true) => Diagnostic.Create(RuleCatalog.CSP0742, switchExpression.SwitchKeyword.GetLocation(), "switch"),
+            _ => null,
+        });
     private static bool IsArithmeticBinary(SyntaxKind kind) =>
         kind is SyntaxKind.MultiplyExpression
             or SyntaxKind.DivideExpression

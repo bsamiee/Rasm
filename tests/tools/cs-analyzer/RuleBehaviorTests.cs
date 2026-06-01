@@ -760,6 +760,30 @@ public sealed class RuleBehaviorTests {
                 }
             }
             """),
+        new("CSP0742", File(scope: "Domain/Services", type: "ManualOpAdmissionGate"), """
+            namespace LanguageExt {
+                public sealed class Fin<T> { }
+                public static class Fin {
+                    public static Fin<T> Succ<T>(T value) => new();
+                    public static Fin<T> Fail<T>(object error) => new();
+                }
+            }
+            namespace Rhino.Geometry {
+                public readonly record struct Plane(bool IsValid);
+            }
+
+            namespace Domain.Services {
+                public sealed class Op {
+                    public object InvalidResult() => new();
+                }
+                public sealed class ManualOpAdmissionGate {
+                    public LanguageExt.Fin<Rhino.Geometry.Plane> Run(Rhino.Geometry.Plane plane, Op op) =>
+                        plane.IsValid
+                            ? LanguageExt.Fin.Succ(value: plane)
+                            : LanguageExt.Fin.Fail<Rhino.Geometry.Plane>(error: op.InvalidResult());
+                }
+            }
+            """),
         new("CSP0802", File(scope: "Domain/Models", type: "UnqualifiedUnionOps"), """
             namespace Thinktecture {
                 public sealed class UnionAttribute : System.Attribute { }
@@ -2346,6 +2370,295 @@ public sealed class RuleBehaviorTests {
                 """).ConfigureAwait(true);
 
         Assert.DoesNotContain(expected: "CSP0741", collection: ids);
+    }
+
+    [Fact]
+    public async Task ManualOpAdmissionSwitchEmitsManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ManualSwitchGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                }
+                namespace Rhino.Geometry {
+                    public readonly record struct Plane(bool IsValid);
+                }
+
+                namespace Domain.Services {
+                    public sealed class Op {
+                        public object InvalidResult() => new();
+                    }
+                    public sealed class ManualSwitchGate {
+                        public LanguageExt.Fin<Rhino.Geometry.Plane> Run(Rhino.Geometry.Plane plane, Op op) =>
+                            plane switch {
+                                Rhino.Geometry.Plane value when value.IsValid => LanguageExt.Fin.Succ(value: value),
+                                _ => LanguageExt.Fin.Fail<Rhino.Geometry.Plane>(error: op.InvalidResult()),
+                            };
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0742", collection: ids);
+    }
+
+    [Fact]
+    public async Task ManualOpAdmissionPropertyPatternEmitsManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/PropertyPatternGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                }
+                namespace Rhino.Geometry {
+                    public readonly record struct Box(bool IsValid);
+                }
+
+                namespace Domain.Services {
+                    public sealed class Op {
+                        public object InvalidResult() => new();
+                    }
+                    public sealed class PropertyPatternGate {
+                        public LanguageExt.Fin<Rhino.Geometry.Box> Run(Rhino.Geometry.Box box, Op op) =>
+                            box switch {
+                                { IsValid: true } value => LanguageExt.Fin.Succ(value: value),
+                                _ => LanguageExt.Fin.Fail<Rhino.Geometry.Box>(error: op.InvalidResult()),
+                            };
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0742", collection: ids);
+    }
+
+    [Fact]
+    public async Task ManualOpAdmissionAcceptSuccessArmEmitsManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/AcceptSuccessGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                    public sealed class Seq<T> { }
+                }
+                namespace Rhino.Geometry {
+                    public readonly record struct Box(bool IsValid);
+                }
+
+                namespace Domain.Services {
+                    public sealed class Op {
+                        public object InvalidResult() => new();
+                        public LanguageExt.Fin<LanguageExt.Seq<T>> Accept<T>(T value) => new();
+                    }
+                    public sealed class AcceptSuccessGate {
+                        public LanguageExt.Fin<LanguageExt.Seq<Rhino.Geometry.Box>> Run(Rhino.Geometry.Box box, Op op) =>
+                            box switch {
+                                { IsValid: true } value => op.Accept(value: value),
+                                _ => LanguageExt.Fin.Fail<LanguageExt.Seq<Rhino.Geometry.Box>>(error: op.InvalidResult()),
+                            };
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0742", collection: ids);
+    }
+
+    [Fact]
+    public async Task RangeGateDoesNotEmitManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/RangeGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                }
+
+                namespace Domain.Services {
+                    public sealed class Op {
+                        public object InvalidResult() => new();
+                    }
+                    public sealed class RangeGate {
+                        public LanguageExt.Fin<double> Run(double distance, Op op) =>
+                            distance > 0.0
+                                ? LanguageExt.Fin.Succ(value: distance)
+                                : LanguageExt.Fin.Fail<double>(error: op.InvalidResult());
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0742", collection: ids);
+    }
+
+    [Fact]
+    public async Task InvalidInputGateDoesNotEmitManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/InvalidInputGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                }
+                namespace Rhino.Geometry {
+                    public readonly record struct Plane(bool IsValid);
+                }
+
+                namespace Domain.Services {
+                    public sealed class Op {
+                        public object InvalidInput() => new();
+                    }
+                    public sealed class InvalidInputGate {
+                        public LanguageExt.Fin<Rhino.Geometry.Plane> Run(Rhino.Geometry.Plane plane, Op op) =>
+                            plane.IsValid
+                                ? LanguageExt.Fin.Succ(value: plane)
+                                : LanguageExt.Fin.Fail<Rhino.Geometry.Plane>(error: op.InvalidInput());
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0742", collection: ids);
+    }
+
+    [Fact]
+    public async Task TransformedSuccessDoesNotEmitManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/TransformedSuccess.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                }
+                namespace Rhino.Geometry {
+                    public readonly record struct Plane(bool IsValid);
+                }
+
+                namespace Domain.Services {
+                    public readonly record struct PlaneBox(Rhino.Geometry.Plane Plane);
+                    public sealed class Op {
+                        public object InvalidResult() => new();
+                    }
+                    public sealed class TransformedSuccess {
+                        public LanguageExt.Fin<PlaneBox> Run(Rhino.Geometry.Plane plane, Op op) =>
+                            plane.IsValid
+                                ? LanguageExt.Fin.Succ(value: new PlaneBox(plane))
+                                : LanguageExt.Fin.Fail<PlaneBox>(error: op.InvalidResult());
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0742", collection: ids);
+    }
+
+    [Fact]
+    public async Task FinUnitGateDoesNotEmitManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/UnitGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public readonly struct Unit { }
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                }
+
+                namespace Domain.Services {
+                    public readonly record struct Plane(bool IsValid);
+                    public sealed class Op {
+                        public object InvalidResult() => new();
+                    }
+                    public sealed class UnitGate {
+                        public LanguageExt.Fin<LanguageExt.Unit> Run(Plane plane, Op op) =>
+                            plane.IsValid
+                                ? LanguageExt.Fin.Succ(value: new LanguageExt.Unit())
+                                : LanguageExt.Fin.Fail<LanguageExt.Unit>(error: op.InvalidResult());
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0742", collection: ids);
+    }
+
+    [Fact]
+    public async Task PrivateIsValidStructDoesNotEmitManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/PrivateFrameGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                }
+
+                namespace Domain.Services {
+                    public readonly record struct DetailFrame(bool IsValid);
+                    public sealed class Op {
+                        public object InvalidResult() => new();
+                    }
+                    public sealed class PrivateFrameGate {
+                        public LanguageExt.Fin<DetailFrame> Run(DetailFrame frame, Op op) =>
+                            frame.IsValid
+                                ? LanguageExt.Fin.Succ(value: frame)
+                                : LanguageExt.Fin.Fail<DetailFrame>(error: op.InvalidResult());
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0742", collection: ids);
+    }
+
+    [Fact]
+    public async Task ProjectionAdmissionMethodDoesNotEmitManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/AcceptResultsGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                    public sealed class Seq<T> { }
+                }
+                namespace Rhino.Geometry {
+                    public readonly record struct Box(bool IsValid);
+                }
+
+                namespace Domain.Services {
+                    public sealed class Op {
+                        public object InvalidResult() => new();
+                        public LanguageExt.Fin<LanguageExt.Seq<T>> AcceptResults<T>(T value) => new();
+                    }
+                    public sealed class AcceptResultsGate {
+                        public LanguageExt.Fin<LanguageExt.Seq<Rhino.Geometry.Box>> Run(Rhino.Geometry.Box box, Op op) =>
+                            box switch {
+                                { IsValid: true } value => op.AcceptResults(value),
+                                _ => LanguageExt.Fin.Fail<LanguageExt.Seq<Rhino.Geometry.Box>>(error: op.InvalidResult()),
+                            };
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0742", collection: ids);
     }
 
     public static TheoryData<string, string, string> RuleCases() =>

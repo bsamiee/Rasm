@@ -217,9 +217,7 @@ public readonly record struct CameraScope(
         Probe(project: vp => {
             using ViewportInfo projection = new(rhinoViewport: vp);
             Transform transform = projection.GetXform(sourceSystem: sourceSystem, destinationSystem: destinationSystem);
-            return transform.IsValid
-                ? Fin.Succ(value: transform)
-                : Fin.Fail<Transform>(error: Op.Of(name: nameof(CoordinateTransform)).InvalidResult());
+            return Op.Of(name: nameof(CoordinateTransform)).AcceptValue(value: transform);
         });
 
     public Fin<Line> FrustumLine(double screenX, double screenY) =>
@@ -242,9 +240,7 @@ public readonly record struct CameraScope(
         Probe(project: vp => {
             using ViewportInfo projection = new(rhinoViewport: vp);
             double distance = projection.TargetDistance(useFrustumCenterFallback: useFrustumCenterFallback);
-            return RhinoMath.IsValidDouble(x: distance)
-                ? Fin.Succ(value: distance)
-                : Fin.Fail<double>(error: Op.Of(name: nameof(TargetDistance)).InvalidResult());
+            return Op.Of(name: nameof(TargetDistance)).AcceptValue(value: distance);
         });
 
     public Fin<double> WorldToScreenScale(Point3d point) {

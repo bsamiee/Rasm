@@ -132,6 +132,7 @@ internal static class RuleCatalog {
     internal static readonly DiagnosticDescriptor CSP0739 = Err("CSP0739", "GuardableFinUnitConditional", "Boolean Fin<Unit> gate manually constructs success/failure; use guard(condition, error).ToFin() for direct returns or guard in query flow", "FunctionalDiscipline");
     internal static readonly DiagnosticDescriptor CSP0740 = Err("CSP0740", "ManualClosedUnionOverride", "Manual union '{0}' implements '{1}' through {2} case overrides; use Thinktecture [Union] with generated state-threaded dispatch and delete the override rail", "SurfaceArea");
     internal static readonly DiagnosticDescriptor CSP0741 = Err("CSP0741", "ForwardingRequestCaseFamily", "Forwarding request family '{0}' has {1} sealed cases that only relay to intent Run; move policy/dispatch storage to the common request base and expose typed factories over one sealed capsule", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0742 = Err("CSP0742", "ManualOpAdmissionGate", "Manual Fin<T> admission gate duplicates Op.AcceptValue/Accept for '{0}'; route native sentinel validity through op.AcceptValue(value: ...) or op.Accept(value: ...)", "FunctionalDiscipline");
 
     // --- [PERFORMANCE_RULES] --------------------------------------------------
 
@@ -221,5 +222,5 @@ internal static class RuleCatalog {
         CSP0710, CSP0711, CSP0712, CSP0713, CSP0714, CSP0715, CSP0717, CSP0718, CSP0719, CSP0720,
         CSP0723, CSP0724, CSP0725, CSP0726, CSP0727, CSP0728, CSP0729,
         CSP0730, CSP0731, CSP0732, CSP0733, CSP0734, CSP0735, CSP0736, CSP0737, CSP0738,
-        CSP0739, CSP0740, CSP0741, CSP0802);
+        CSP0739, CSP0740, CSP0741, CSP0742, CSP0802);
 }

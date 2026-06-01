@@ -49,6 +49,7 @@ public sealed class DomainStandardsAnalyzer : DiagnosticAnalyzer {
                 SyntaxKind.VariableDeclaration,
                 SyntaxKind.ForEachStatement,
                 SyntaxKind.DeclarationExpression,
+                SyntaxKind.ConditionalExpression,
                 SyntaxKind.SwitchExpression);
             startContext.RegisterCompilationEndAction(compilationContext => AnalyzerDispatcher.Run(compilationContext, state));
         });

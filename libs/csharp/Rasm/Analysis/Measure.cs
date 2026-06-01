@@ -86,10 +86,7 @@ public sealed partial class MassKind {
             _ => Option<Point3d>.None,
         }).ToFin(key.InvalidResult()).Bind(centroid =>
             key.PrincipalAxesOf(mass: mass).Bind(axes => (axes.Count, centroid.IsValid) switch {
-                ( >= 2, true) => new Plane(origin: centroid, xDirection: axes[0].Axis, yDirection: axes[1].Axis) switch {
-                    { IsValid: true } plane => Fin.Succ(plane),
-                    _ => Fin.Fail<Plane>(key.InvalidResult()),
-                },
+                ( >= 2, true) => key.AcceptValue(value: new Plane(origin: centroid, xDirection: axes[0].Axis, yDirection: axes[1].Axis)),
                 _ => Fin.Fail<Plane>(key.InvalidResult()),
             }));
     private static Fin<IDisposable> Done<TMass>(TMass? mass) where TMass : class, IDisposable => Optional(mass).ToFin(new Fault.ComputationFailed(typeof(TMass).Name)).Map(static p => (IDisposable)p);

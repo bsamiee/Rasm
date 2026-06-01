@@ -87,4 +87,5 @@ CSP0738 | SurfaceArea           | Error    | ExclusiveOptionalPayloadBag
 CSP0739 | FunctionalDiscipline  | Error    | GuardableFinUnitConditional
 CSP0740 | SurfaceArea           | Error    | ManualClosedUnionOverride
 CSP0741 | SurfaceArea           | Error    | ForwardingRequestCaseFamily
+CSP0742 | FunctionalDiscipline  | Error    | ManualOpAdmissionGate
 CSP0802 | TypeDiscipline        | Error    | UnionOpsQualification

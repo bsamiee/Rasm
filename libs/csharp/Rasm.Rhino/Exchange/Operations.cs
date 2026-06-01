@@ -160,17 +160,11 @@ public readonly partial record struct FileGeoLocation {
 
     public static Fin<Plane> Compass(RhinoDoc document) =>
         UseAnchor(document: document, op: Op.Of(name: nameof(Compass)), requireModel: true, use: static (anchor, op) =>
-            anchor.GetModelCompass() switch {
-                Plane plane when plane.IsValid => Fin.Succ(value: plane),
-                _ => Fin.Fail<Plane>(error: op.InvalidResult()),
-            });
+            op.AcceptValue(value: anchor.GetModelCompass()));
 
     public static Fin<Plane> AnchorPlane(RhinoDoc document) =>
         UseAnchor(document: document, op: Op.Of(name: nameof(AnchorPlane)), requireModel: true, use: static (anchor, op) =>
-            anchor.GetEarthAnchorPlane(anchorNorth: out _) switch {
-                Plane plane when plane.IsValid => Fin.Succ(value: plane),
-                _ => Fin.Fail<Plane>(error: op.InvalidResult()),
-            });
+            op.AcceptValue(value: anchor.GetEarthAnchorPlane(anchorNorth: out _)));
 
     public static Fin<Transform> OrientPlane(RhinoDoc document, Plane source) =>
         UseAnchor(document: document, op: Op.Of(name: nameof(OrientPlane)), requireModel: true, use: (anchor, op) => {

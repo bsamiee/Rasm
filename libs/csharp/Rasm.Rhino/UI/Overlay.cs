@@ -179,7 +179,7 @@ public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = defau
         Analyze.Run(operation: Analyze.Bounds<object, BoundingBox>(aspect: Analysis.Bounds.AxisAligned), input: source)
             .ToFin()
             .Bind(boxes => boxes.Count switch { > 0 => Fin.Succ(value: boxes[0]), _ => Fin.Fail<BoundingBox>(error: op.InvalidResult()) })
-            .Bind(box => box.IsValid ? Fin.Succ(value: box) : Fin.Fail<BoundingBox>(error: op.InvalidResult()));
+            .Bind(box => op.AcceptValue(value: box));
 }
 
 public readonly record struct OverlayFilter(Option<ObjectType> Geometry = default, Option<ActiveSpace> Space = default, Option<Seq<Guid>> ObjectIds = default, Option<(bool On, bool CheckSubObjects)> Selection = default, Option<(RhinoViewport Viewport, bool Exclusive)> Viewport = default, bool Unbind = false) {
@@ -309,7 +309,7 @@ public sealed record UiGumballSpec {
 
     private static Fin<Unit> Valid(bool value) => value switch { true => Fin.Succ(value: unit), false => Fin.Fail<Unit>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult()) };
 
-    private static Fin<BoundingBox> Bounds(object source, Option<Plane> frame) => (frame.Case, source) switch { (Plane plane, GeometryBase geometry) => Op.Of(name: nameof(UiGumballSpec)).Need(geometry).Bind(value => value.GetBoundingBox(plane: plane) switch { BoundingBox box when box.IsValid => Fin.Succ(value: box), _ => Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult()) }), (_, object value) => OverlayDecision.BoundsOf(source: value, op: Op.Of(name: nameof(UiGumballSpec))).Bind(static box => box.IsValid ? Fin.Succ(value: box) : Fin.Fail<BoundingBox>(error: Op.Of(name: nameof(UiGumballSpec)).InvalidResult())) };
+    private static Fin<BoundingBox> Bounds(object source, Option<Plane> frame) => (frame.Case, source) switch { (Plane plane, GeometryBase geometry) => Op.Of(name: nameof(UiGumballSpec)).Need(geometry).Bind(value => Op.Of(name: nameof(UiGumballSpec)).AcceptValue(value: value.GetBoundingBox(plane: plane))), (_, object value) => OverlayDecision.BoundsOf(source: value, op: Op.Of(name: nameof(UiGumballSpec))).Bind(static box => Op.Of(name: nameof(UiGumballSpec)).AcceptValue(value: box)) };
 
     private static global::Rhino.UI.Gumball.GumballAppearanceSettings? Settings(global::Rhino.UI.Gumball.GumballAppearanceSettings? seed, Seq<Action<global::Rhino.UI.Gumball.GumballAppearanceSettings>> actions) => (seed, actions.IsEmpty) switch { (global::Rhino.UI.Gumball.GumballAppearanceSettings settings, false) => Apply(settings: settings, actions: actions), (_, false) => Apply(settings: new global::Rhino.UI.Gumball.GumballAppearanceSettings(), actions: actions), _ => seed };
 

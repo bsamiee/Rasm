@@ -168,8 +168,12 @@ internal static class AnalyzerDispatcher {
             case VariableDeclarationSyntax or ForEachStatementSyntax or DeclarationExpressionSyntax:
                 ShapeRules.CheckVarInference(context, state);
                 return;
+            case ConditionalExpressionSyntax conditional:
+                FlowRules.CheckManualOpAdmissionGate(context, scope, conditional);
+                return;
             case SwitchExpressionSyntax:
                 FlowRules.CheckSwitchExpressionPrecedence(context, scope);
+                FlowRules.CheckManualOpAdmissionGate(context, scope, (SwitchExpressionSyntax)context.Node);
                 return;
         }
     }

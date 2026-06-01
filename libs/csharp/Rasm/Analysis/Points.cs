@@ -119,10 +119,7 @@ public static partial class Analyze {
         from angle in PrincipalAngle(points: points, fit: fit, context: context, op: op)
         from xAxis in VectorIntent.Direction(value: (fit.XAxis * Math.Cos(d: angle)) + (fit.YAxis * Math.Sin(a: angle))).Project<Vector3d>(context: context, key: op)
         from yAxis in VectorIntent.Direction(value: Vector3d.CrossProduct(a: fit.ZAxis, b: xAxis)).Project<Vector3d>(context: context, key: op)
-        from plane in new Plane(origin: fit.Origin, xDirection: xAxis, yDirection: yAxis) switch {
-            { IsValid: true } principal => Fin.Succ(principal),
-            _ => Fin.Fail<Plane>(op.InvalidResult()),
-        }
+        from plane in op.AcceptValue(value: new Plane(origin: fit.Origin, xDirection: xAxis, yDirection: yAxis))
         select plane;
     private static Fin<double> MinorSpread(Plane fit, Seq<Point3d> points, Context context, Op op) =>
         from angle in PrincipalAngle(points: points, fit: fit, context: context, op: op)

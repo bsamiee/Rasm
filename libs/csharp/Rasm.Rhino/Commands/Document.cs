@@ -377,7 +377,7 @@ public abstract partial record DocumentTarget {
                     .Map(static _ => unit),
             });
 
-    internal static Fin<Guid> IdResult(Guid id, Op op) => id switch { Guid value when value != Guid.Empty => Fin.Succ(value: value), _ => Fin.Fail<Guid>(error: op.InvalidResult()) };
+    internal static Fin<Guid> IdResult(Guid id, Op op) => op.AcceptValue(value: id);
 
     private static Fin<Unit> ReplaceGeometry(object replacement, Op op, Func<GeometryBase, bool> use) =>
         from valid in Optional(use).ToFin(Fail: op.InvalidInput())

@@ -60,10 +60,7 @@ public partial record Bounds : IAspect {
         inPlaneCase: static p => (typeof(TOut) == typeof(Box) && typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry)))
             ? Analyze.Native<TGeometry, TOut, GeometryBase, Box, (Op Key, Plane Plane)>(
                 key: OrientedKey, state: (OrientedKey, p.Plane),
-                project: static (state, native) => new Box(state.Plane, native) switch {
-                    { IsValid: true } box => state.Key.Accept(value: box).ToEff(),
-                    _ => Fin.Fail<Seq<Box>>(state.Key.InvalidResult()).ToEff(),
-                })
+                project: static (state, native) => state.Key.Accept(value: new Box(state.Plane, native)).ToEff())
             : OrientedKey.Unsupported<TGeometry, TOut>(),
         transformedCase: static t => (typeof(TOut) == typeof(BoundingBox) && typeof(GeometryBase).IsAssignableFrom(c: typeof(TGeometry)))
             ? Analyze.Native<TGeometry, TOut, GeometryBase, BoundingBox, (Op Key, Transform Xform)>(
@@ -76,7 +73,7 @@ public partial record Bounds : IAspect {
                 project: static (state, native) =>
                     from context in Env.Asks
                     from frame in MassKind.PrincipalFrameOf(geometry: native, context: context, key: state).ToEff()
-                    from box in (new Box(frame, native) switch { { IsValid: true } b => Fin.Succ(b), _ => Fin.Fail<Box>(state.InvalidResult()) }).ToEff()
+                    from box in state.AcceptValue(value: new Box(frame, native)).ToEff()
                     from result in state.Accept(value: box).ToEff()
                     select result)
             : PrincipalKey.Unsupported<TGeometry, TOut>(),
@@ -109,7 +106,7 @@ public partial record Bounds : IAspect {
                 project: static (state, native) =>
                     from context in Env.Asks
                     from frame in MassKind.PrincipalFrameOf(geometry: native, context: context, key: state).ToEff()
-                    from obb in (new Box(frame, native) switch { { IsValid: true } b => Fin.Succ(b), _ => Fin.Fail<Box>(state.InvalidResult()) }).ToEff()
+                    from obb in state.AcceptValue(value: new Box(frame, native)).ToEff()
                     from aabb in native.BoundsOf(op: state).ToEff()
                     from result in (obb.Volume > RhinoMath.ZeroTolerance ? state.Accept(value: aabb.Volume / obb.Volume) : Fin.Fail<Seq<double>>(state.InvalidResult())).ToEff()
                     select result)
@@ -149,10 +146,7 @@ public partial record Bounds : IAspect {
                     from projected in Fin.Succ(samples.Map(plane.ClosestPoint)).ToEff()
                     from disc in RitterFit(samples: projected, key: state.Key, construct: static (c, r) => (Center: c, Radius: r), isValid: static d => d.Radius >= 0.0).ToEff()
                     let extent = samples.Fold(initialState: (Min: double.PositiveInfinity, Max: double.NegativeInfinity, Axis: axis), f: static (s, p) => ((p - Point3d.Origin) * s.Axis) switch { double d => (Min: Math.Min(val1: s.Min, val2: d), Max: Math.Max(val1: s.Max, val2: d), s.Axis) })
-                    from result in (new Cylinder(baseCircle: new Circle(plane: new Plane(origin: disc.Center + (axis * extent.Min), normal: axis), radius: disc.Radius), height: extent.Max - extent.Min) switch {
-                        { IsValid: true } cyl => state.Key.Accept(value: cyl),
-                        _ => Fin.Fail<Seq<Cylinder>>(state.Key.InvalidResult()),
-                    }).ToEff()
+                    from result in state.Key.Accept(value: new Cylinder(baseCircle: new Circle(plane: new Plane(origin: disc.Center + (axis * extent.Min), normal: axis), radius: disc.Radius), height: extent.Max - extent.Min)).ToEff()
                     select result).As<TGeometry, TOut>(key: EnclosingCylinderKey)
             : EnclosingCylinderKey.Unsupported<TGeometry, TOut>());
     private static Fin<Seq<Point3d>> EnclosingSamples<TGeometry>(TGeometry geometry, int count, Context context, Op key) where TGeometry : notnull =>
