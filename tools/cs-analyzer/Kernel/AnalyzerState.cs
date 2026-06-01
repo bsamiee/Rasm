@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace Foundation.CSharp.Analyzers.Kernel;
 
@@ -22,6 +23,7 @@ internal sealed class AnalyzerState {
     private readonly ConcurrentDictionary<INamedTypeSymbol, ImmutableHashSet<INamedTypeSymbol>> _interfaceImplementations = new(comparer: NamedTypeComparer);
     private readonly ConcurrentDictionary<INamedTypeSymbol, byte> _flagsEnums = new(comparer: NamedTypeComparer);
     private readonly ConcurrentDictionary<INamedTypeSymbol, byte> _flagsEnumCompositionSites = new(comparer: NamedTypeComparer);
+    private readonly ConcurrentBag<ClosedUnionDispatchFact> _closedUnionDispatches = [];
 
     // --- [CONSTRUCTORS] -------------------------------------------------------
 
@@ -80,6 +82,11 @@ internal sealed class AnalyzerState {
         _ = _flagsEnums.TryAdd(key: enumType, value: 0);
     internal void TrackFlagsEnumCompositionSite(INamedTypeSymbol enumType) =>
         _ = _flagsEnumCompositionSites.TryAdd(key: enumType, value: 0);
+    internal void TrackClosedUnionDispatch(IInvocationOperation invocation) {
+        if (SymbolFacts.TryClosedUnionDispatch(compilation: Compilation, invocation: invocation, fact: out ClosedUnionDispatchFact fact)) {
+            _closedUnionDispatches.Add(item: fact);
+        }
+    }
     internal void TrackInterfaceImplementations(INamedTypeSymbol namedType) {
         // Roslyn API enumeration -- not domain code
         foreach (INamedTypeSymbol interfaceSymbol in (namedType.TypeKind, namedType.IsAbstract, namedType.IsStatic) switch {
@@ -116,6 +123,7 @@ internal sealed class AnalyzerState {
             .. _flagsEnums.Keys
                 .Where(enumType => !_flagsEnumCompositionSites.ContainsKey(key: enumType)),
         ];
+    internal ImmutableArray<ClosedUnionDispatchFact> ClosedUnionDispatches() => [.. _closedUnionDispatches];
 
     // --- [DIAGNOSTICS] --------------------------------------------------------
 

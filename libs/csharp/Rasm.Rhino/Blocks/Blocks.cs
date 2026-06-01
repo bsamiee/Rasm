@@ -28,9 +28,9 @@ public sealed class RhinoBlocks {
         Op runKey = key.OrDefault();
         return Optional(op).ToFin(Fail: runKey.InvalidInput())
             .Bind(valid => {
-                BlockOpMeta meta = valid.Metadata;
-                Fin<BlockOutcome> Work() => runKey.Catch(() => Operations.Run(op: valid, owner: this));
-                return RhinoUi.DispatchThread(uiBound: meta.RequiresUiThread, mode: Mode, run: Work, name: meta.Name);
+                BlockRunPlan plan = Operations.Plan(op: valid, owner: this);
+                Fin<BlockOutcome> Work() => runKey.Catch(plan.Run);
+                return RhinoUi.DispatchThread(uiBound: plan.Meta.RequiresUiThread, mode: Mode, run: Work, name: plan.Meta.Name);
             });
     }
 

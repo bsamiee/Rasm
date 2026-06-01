@@ -37,35 +37,9 @@ public abstract partial record BlockOp {
     public sealed record AdoptContent() : BlockOp;
     public sealed record Preview(DefinitionRef Ref, PreviewSpec Spec) : BlockOp;
     public sealed record Attributes(BlockAttributeTask Task) : BlockOp;
-
-    public BlockOpMeta Metadata => this switch {
-        Author => Meta(nameof(Author), BlockOpPhase.Mutation, BlockOpFamily.Definition, ui: true),
-        AddOrReuse => Meta(nameof(AddOrReuse), BlockOpPhase.Mutation, BlockOpFamily.Definition, ui: true),
-        Modify => Meta(nameof(Modify), BlockOpPhase.Mutation, BlockOpFamily.Definition, ui: true),
-        Table => Meta(nameof(Table), BlockOpPhase.Mutation, BlockOpFamily.Table, ui: true),
-        Purge => Meta(nameof(Purge), BlockOpPhase.Mutation, BlockOpFamily.Table, ui: true),
-        Compact => Meta(nameof(Compact), BlockOpPhase.Mutation, BlockOpFamily.Table, ui: true),
-        Instance task => task.Task.OpMeta,
-        Linked link => link.Change.OpMeta,
-        BakeArchive => Meta(nameof(BakeArchive), BlockOpPhase.Mutation, BlockOpFamily.Archive, ui: true),
-        ValidateArchiveClosure => Meta(nameof(ValidateArchiveClosure), BlockOpPhase.Query, BlockOpFamily.Archive, ui: false),
-        ExportAttributes => Meta(nameof(ExportAttributes), BlockOpPhase.Mutation, BlockOpFamily.Attributes, ui: true),
-        SnapshotBlock => Meta(nameof(SnapshotBlock), BlockOpPhase.Mutation, BlockOpFamily.Archive, ui: true),
-        AllocateName => Meta(nameof(AllocateName), BlockOpPhase.Query, BlockOpFamily.Definition, ui: false),
-        Snapshot => Meta(nameof(Snapshot), BlockOpPhase.Query, BlockOpFamily.Definition, ui: false),
-        Duplicate => Meta(nameof(Duplicate), BlockOpPhase.Mutation, BlockOpFamily.Definition, ui: true),
-        Graph => Meta(nameof(Graph), BlockOpPhase.Query, BlockOpFamily.Graph, ui: false),
-        AdoptContent => Meta(nameof(AdoptContent), BlockOpPhase.Query, BlockOpFamily.Graph, ui: false),
-        Preview => Meta(nameof(Preview), BlockOpPhase.Query, BlockOpFamily.Preview, ui: false),
-        Attributes task => task.Task.OpMeta,
-        _ => Meta(GetType().Name, BlockOpPhase.Query, BlockOpFamily.Graph, ui: false),
-    };
-
-    private static BlockOpMeta Meta(string name, BlockOpPhase phase, BlockOpFamily family, bool ui) =>
-        new(Name: name, Phase: phase, Family: family, RequiresUiThread: ui);
 }
 
-[Union]
+[Union(SwitchMapStateParameterName = "owner")]
 public abstract partial record BlockInstanceTask {
     private BlockInstanceTask() { }
     public sealed record Place(DefinitionRef Ref, Seq<Placement> At, BatchPolicy? Policy = null) : BlockInstanceTask;
@@ -77,25 +51,9 @@ public abstract partial record BlockInstanceTask {
     public sealed record SelectedPart(ObjRef Ref) : BlockInstanceTask;
     public sealed record Flatten(Guid InstanceId, DepthPolicy Policy) : BlockInstanceTask;
     public sealed record Bounds(DefinitionRef Ref, BoundsPolicy? Policy = null) : BlockInstanceTask;
-
-    public BlockOpMeta OpMeta => this switch {
-        Place => Meta(nameof(Place), BlockOpPhase.Mutation, ui: true),
-        ReplaceDefinition => Meta(nameof(ReplaceDefinition), BlockOpPhase.Mutation, ui: true),
-        Transform => Meta(nameof(Transform), BlockOpPhase.Mutation, ui: true),
-        Explode => Meta(nameof(Explode), BlockOpPhase.Mutation, ui: true),
-        Inspect => Meta(nameof(Inspect), BlockOpPhase.Query, ui: false),
-        SubObject => Meta(nameof(SubObject), BlockOpPhase.Query, ui: false),
-        SelectedPart => Meta(nameof(SelectedPart), BlockOpPhase.Query, ui: false),
-        Flatten => Meta(nameof(Flatten), BlockOpPhase.Query, ui: false),
-        Bounds => Meta(nameof(Bounds), BlockOpPhase.Query, ui: false),
-        _ => Meta(GetType().Name, BlockOpPhase.Query, ui: false),
-    };
-
-    private static BlockOpMeta Meta(string name, BlockOpPhase phase, bool ui) =>
-        new(Name: name, Phase: phase, Family: BlockOpFamily.Instance, RequiresUiThread: ui);
 }
 
-[Union]
+[Union(SwitchMapStateParameterName = "owner")]
 public abstract partial record LinkLifecycle {
     private LinkLifecycle() { }
     public sealed record Create(Seq<FileEndpoint> Sources, LinkCreatePolicy? Policy = null) : LinkLifecycle;
@@ -105,23 +63,9 @@ public abstract partial record LinkLifecycle {
     public sealed record LayerStyle(BlockFilter? Filter = null, Blocks.LayerStyle? Style = null) : LinkLifecycle;
     public sealed record Update(LinkedPolicy Policy) : LinkLifecycle;
     public sealed record SkipNested(DefinitionRef Ref, bool Value) : LinkLifecycle;
-
-    public BlockOpMeta OpMeta => this switch {
-        Create => Meta(nameof(Create)),
-        Relink => Meta(nameof(Relink)),
-        Refresh => Meta(nameof(Refresh)),
-        Detach => Meta(nameof(Detach)),
-        LayerStyle => Meta(nameof(LayerStyle)),
-        Update => Meta(nameof(Update)),
-        SkipNested => Meta(nameof(SkipNested)),
-        _ => Meta(GetType().Name),
-    };
-
-    private static BlockOpMeta Meta(string name) =>
-        new(Name: name, Phase: BlockOpPhase.Mutation, Family: BlockOpFamily.Linked, RequiresUiThread: true);
 }
 
-[Union]
+[Union(SwitchMapStateParameterName = "owner")]
 public abstract partial record BlockAttributeTask {
     private BlockAttributeTask() { }
     public sealed record Text(DefinitionRef Ref, Option<Guid> InstanceId = default) : BlockAttributeTask;
@@ -134,17 +78,6 @@ public abstract partial record BlockAttributeTask {
         ReferenceScope? Scope = null,
         MetadataPatch? Metadata = null) : BlockAttributeTask;
     public sealed record Matrix(Option<Seq<DefinitionRef>> Refs, ReferenceScope Scope) : BlockAttributeTask;
-
-    public BlockOpMeta OpMeta => this switch {
-        Text => Meta(nameof(Text), BlockOpPhase.Query, ui: false),
-        Schema => Meta(nameof(Schema), BlockOpPhase.Query, ui: false),
-        Write => Meta(nameof(Write), BlockOpPhase.Mutation, ui: true),
-        Matrix => Meta(nameof(Matrix), BlockOpPhase.Query, ui: false),
-        _ => Meta(GetType().Name, BlockOpPhase.Query, ui: false),
-    };
-
-    private static BlockOpMeta Meta(string name, BlockOpPhase phase, bool ui) =>
-        new(Name: name, Phase: phase, Family: BlockOpFamily.Attributes, RequiresUiThread: ui);
 }
 
 [Union(SwitchMapStateParameterName = "ctx")]
@@ -179,6 +112,7 @@ public abstract partial record TableMutation {
 
 // --- [MODELS] -----------------------------------------------------------------------------
 internal readonly record struct MutateCtx(RhinoBlocks Owner, int Index, Definition Snap, Op Key);
+internal readonly record struct BlockRunPlan(BlockOpMeta Meta, Func<Fin<BlockOutcome>> Run);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class ContentIndex {
@@ -252,36 +186,69 @@ internal static class ContentIndex {
 internal static partial class Operations {
     private const string ExportBlockAttributesCommand = "_-ExportBlockAttributes";
     private const string SnapshotSaveCommand = "_-Snapshot _Save";
-    internal static Fin<BlockOutcome> Run(BlockOp op, RhinoBlocks owner) {
-        BlockOpMeta meta = op.Metadata;
-        return op.Switch(
-            owner: (Owner: owner, Meta: meta),
-            author: static (c, x) => RunMut(meta: c.Meta, body: k => PerformAuthor(owner: c.Owner, spec: x.Spec, source: x.Source, conflict: x.Conflict, key: k)),
-            addOrReuse: static (c, x) => RunMut(meta: c.Meta, body: k => PerformAddOrReuse(owner: c.Owner, spec: x.Spec, source: x.Source, key: k)),
-            modify: static (c, x) => RunMut(meta: c.Meta, body: k => PerformModify(owner: c.Owner, refer: x.Ref, source: x.Source, patch: x.Patch ?? MetadataPatch.Empty, key: k)),
-            table: static (c, x) => RunMut(meta: c.Meta, body: k => Mutate(owner: c.Owner, refer: x.Ref, mutation: x.Mutation, key: k)),
-            purge: static (c, x) => RunMut(meta: c.Meta, body: k => PerformPurge(owner: c.Owner, refer: x.Ref, prefix: x.Prefix, key: k)),
-            compact: static (c, x) => RunMut(meta: c.Meta, body: k => PerformCompact(owner: c.Owner, policy: x.Policy ?? CompactPolicy.UndoAware, key: k)),
-            instance: static (c, x) => RunOutcome(meta: c.Meta, body: k => PerformInstanceTask(owner: c.Owner, task: x.Task, key: k)),
-            linked: static (c, x) => RunOutcome(meta: c.Meta, body: k => PerformLinkLifecycle(owner: c.Owner, change: x.Change, key: k)),
-            bakeArchive: static (c, x) => RunMut(meta: c.Meta, body: k => PerformBakeArchive(owner: c.Owner, source: x.Source, policy: x.Policy ?? BakePolicy.Default, key: k)),
-            validateArchiveClosure: static (c, x) => RunOutcome(meta: c.Meta, body: k => PerformValidateArchiveClosure(source: x.Source, policy: x.Policy, key: k)),
-            exportAttributes: static (c, x) => RunMut(meta: c.Meta, body: k => PerformExportAttributes(owner: c.Owner, refer: x.Ref, target: x.Target, key: k)),
-            snapshotBlock: static (c, x) => RunMut(meta: c.Meta, body: k => PerformSnapshotBlock(owner: c.Owner, refer: x.Ref, name: x.Name, key: k)),
-            allocateName: static (c, x) => RunOutcome(meta: c.Meta, body: k => PerformAllocateName(owner: c.Owner, seed: x.Seed, key: k)),
-            snapshot: static (c, x) => RunOutcome(meta: c.Meta, body: k => PerformSnapshot(owner: c.Owner, refer: x.Ref, key: k)),
-            duplicate: static (c, x) => RunMut(meta: c.Meta, body: k => PerformDuplicate(owner: c.Owner, refer: x.Ref, name: x.Name, conflict: x.Conflict ?? ConflictPolicy.Rename, key: k)),
-            graph: static (c, x) => RunOutcome(meta: c.Meta, body: k => PerformGraph(owner: c.Owner, query: x.Query, key: k)),
-            adoptContent: static (c, _) => RunOutcome(meta: c.Meta, body: k => PerformAdoptContent(owner: c.Owner, key: k)),
-            preview: static (c, x) => RunOutcome(meta: c.Meta, body: k => PerformPreview(owner: c.Owner, refer: x.Ref, spec: x.Spec, key: k)),
-            attributes: static (c, x) => RunOutcome(meta: c.Meta, body: k => PerformAttributeTask(owner: c.Owner, task: x.Task, key: k)));
-    }
+    internal static BlockRunPlan Plan(BlockOp op, RhinoBlocks owner) =>
+        op.Switch(
+            owner: owner,
+            author: static (owner, x) => MutPlan(name: nameof(BlockOp.Author), family: BlockOpFamily.Definition, ui: true, body: k => PerformAuthor(owner: owner, spec: x.Spec, source: x.Source, conflict: x.Conflict, key: k)),
+            addOrReuse: static (owner, x) => MutPlan(name: nameof(BlockOp.AddOrReuse), family: BlockOpFamily.Definition, ui: true, body: k => PerformAddOrReuse(owner: owner, spec: x.Spec, source: x.Source, key: k)),
+            modify: static (owner, x) => MutPlan(name: nameof(BlockOp.Modify), family: BlockOpFamily.Definition, ui: true, body: k => PerformModify(owner: owner, refer: x.Ref, source: x.Source, patch: x.Patch ?? MetadataPatch.Empty, key: k)),
+            table: static (owner, x) => MutPlan(name: nameof(BlockOp.Table), family: BlockOpFamily.Table, ui: true, body: k => Mutate(owner: owner, refer: x.Ref, mutation: x.Mutation, key: k)),
+            purge: static (owner, x) => MutPlan(name: nameof(BlockOp.Purge), family: BlockOpFamily.Table, ui: true, body: k => PerformPurge(owner: owner, refer: x.Ref, prefix: x.Prefix, key: k)),
+            compact: static (owner, x) => MutPlan(name: nameof(BlockOp.Compact), family: BlockOpFamily.Table, ui: true, body: k => PerformCompact(owner: owner, policy: x.Policy ?? CompactPolicy.UndoAware, key: k)),
+            instance: static (owner, x) => InstancePlan(owner: owner, task: x.Task),
+            linked: static (owner, x) => LinkPlan(owner: owner, change: x.Change),
+            bakeArchive: static (owner, x) => MutPlan(name: nameof(BlockOp.BakeArchive), family: BlockOpFamily.Archive, ui: true, body: k => PerformBakeArchive(owner: owner, source: x.Source, policy: x.Policy ?? BakePolicy.Default, key: k)),
+            validateArchiveClosure: static (_, x) => OutcomePlan(name: nameof(BlockOp.ValidateArchiveClosure), family: BlockOpFamily.Archive, ui: false, body: k => PerformValidateArchiveClosure(source: x.Source, policy: x.Policy, key: k)),
+            exportAttributes: static (owner, x) => MutPlan(name: nameof(BlockOp.ExportAttributes), family: BlockOpFamily.Attributes, ui: true, body: k => PerformExportAttributes(owner: owner, refer: x.Ref, target: x.Target, key: k)),
+            snapshotBlock: static (owner, x) => MutPlan(name: nameof(BlockOp.SnapshotBlock), family: BlockOpFamily.Archive, ui: true, body: k => PerformSnapshotBlock(owner: owner, refer: x.Ref, name: x.Name, key: k)),
+            allocateName: static (owner, x) => OutcomePlan(name: nameof(BlockOp.AllocateName), family: BlockOpFamily.Definition, ui: false, body: k => PerformAllocateName(owner: owner, seed: x.Seed, key: k)),
+            snapshot: static (owner, x) => OutcomePlan(name: nameof(BlockOp.Snapshot), family: BlockOpFamily.Definition, ui: false, body: k => PerformSnapshot(owner: owner, refer: x.Ref, key: k)),
+            duplicate: static (owner, x) => MutPlan(name: nameof(BlockOp.Duplicate), family: BlockOpFamily.Definition, ui: true, body: k => PerformDuplicate(owner: owner, refer: x.Ref, name: x.Name, conflict: x.Conflict ?? ConflictPolicy.Rename, key: k)),
+            graph: static (owner, x) => OutcomePlan(name: nameof(BlockOp.Graph), family: BlockOpFamily.Graph, ui: false, body: k => PerformGraph(owner: owner, query: x.Query, key: k)),
+            adoptContent: static (owner, _) => OutcomePlan(name: nameof(BlockOp.AdoptContent), family: BlockOpFamily.Graph, ui: false, body: k => PerformAdoptContent(owner: owner, key: k)),
+            preview: static (owner, x) => OutcomePlan(name: nameof(BlockOp.Preview), family: BlockOpFamily.Preview, ui: false, body: k => PerformPreview(owner: owner, refer: x.Ref, spec: x.Spec, key: k)),
+            attributes: static (owner, x) => AttributePlan(owner: owner, task: x.Task));
 
-    private static Fin<BlockOutcome> RunMut(BlockOpMeta meta, Func<Op, Fin<MutationReceipt>> body) =>
-        RunPhase(name: meta.Name, body: body, project: static receipt => new BlockOutcome.Receipt(Value: receipt));
+    private static BlockRunPlan InstancePlan(RhinoBlocks owner, BlockInstanceTask task) =>
+        task.Switch(
+            owner: owner,
+            place: static (owner, x) => MutPlan(name: nameof(BlockInstanceTask.Place), family: BlockOpFamily.Instance, ui: true, body: k => PerformPlace(owner: owner, refer: x.Ref, at: x.At, policy: x.Policy ?? BatchPolicy.Default, key: k)),
+            replaceDefinition: static (owner, x) => MutPlan(name: nameof(BlockInstanceTask.ReplaceDefinition), family: BlockOpFamily.Instance, ui: true, body: k => PerformReplaceDefinition(owner: owner, instanceId: x.InstanceId, newRef: x.NewRef, key: k)),
+            transform: static (owner, x) => MutPlan(name: nameof(BlockInstanceTask.Transform), family: BlockOpFamily.Instance, ui: true, body: k => PerformTransformInstance(owner: owner, instanceId: x.InstanceId, xform: x.Xform, mode: x.Mode ?? TransformPolicy.Copy, key: k)),
+            explode: static (owner, x) => MutPlan(name: nameof(BlockInstanceTask.Explode), family: BlockOpFamily.Instance, ui: true, body: k => PerformExplodeIntoDocument(owner: owner, instanceId: x.InstanceId, policy: x.Policy, key: k)),
+            inspect: static (owner, x) => OutcomePlan(name: nameof(BlockInstanceTask.Inspect), family: BlockOpFamily.Instance, ui: false, body: k => PerformExplodeInspect(owner: owner, instanceId: x.InstanceId, policy: x.Policy, key: k)),
+            subObject: static (owner, x) => OutcomePlan(name: nameof(BlockInstanceTask.SubObject), family: BlockOpFamily.Instance, ui: false, body: k => PerformUseSubObject(owner: owner, instanceId: x.InstanceId, component: x.Component, key: k)),
+            selectedPart: static (owner, x) => OutcomePlan(name: nameof(BlockInstanceTask.SelectedPart), family: BlockOpFamily.Instance, ui: false, body: k => PerformSelectedPart(owner: owner, refer: x.Ref, key: k)),
+            flatten: static (owner, x) => OutcomePlan(name: nameof(BlockInstanceTask.Flatten), family: BlockOpFamily.Instance, ui: false, body: k => PerformFlatten(owner: owner, instanceId: x.InstanceId, policy: x.Policy, key: k)),
+            bounds: static (owner, x) => OutcomePlan(name: nameof(BlockInstanceTask.Bounds), family: BlockOpFamily.Instance, ui: false, body: k => PerformBounds(owner: owner, refer: x.Ref, policy: x.Policy ?? BoundsPolicy.Default, key: k)));
 
-    private static Fin<BlockOutcome> RunOutcome(BlockOpMeta meta, Func<Op, Fin<BlockOutcome>> body) =>
-        RunPhase(name: meta.Name, body: body, project: static outcome => outcome);
+    private static BlockRunPlan LinkPlan(RhinoBlocks owner, LinkLifecycle change) =>
+        change.Switch(
+            owner: owner,
+            create: static (owner, x) => MutPlan(name: nameof(LinkLifecycle.Create), family: BlockOpFamily.Linked, ui: true, body: k => PerformCreateArchiveLinks(owner: owner, sources: x.Sources, policy: x.Policy ?? LinkCreatePolicy.Default, key: k)),
+            relink: static (owner, x) => MutPlan(name: nameof(LinkLifecycle.Relink), family: BlockOpFamily.Linked, ui: true, body: k => PerformBatchRelink(owner: owner, maps: x.Maps, policy: x.Policy ?? BatchPolicy.Default, key: k)),
+            refresh: static (owner, x) => MutPlan(name: nameof(LinkLifecycle.Refresh), family: BlockOpFamily.Linked, ui: true, body: k => PerformRefreshLinks(owner: owner, filter: x.Filter ?? BlockFilter.All, policy: x.Policy ?? LinkRefreshPolicy.All, batch: x.Batch ?? BatchPolicy.Default, key: k)),
+            detach: static (owner, x) => MutPlan(name: nameof(LinkLifecycle.Detach), family: BlockOpFamily.Linked, ui: true, body: k => PerformLinkedFilter(owner: owner, filter: x.Filter ?? BlockFilter.All, policy: LinkRefreshPolicy.All, batch: BatchPolicy.Default, key: k, worker: DetachLinkedDefinition)),
+            layerStyle: static (owner, x) => MutPlan(name: nameof(LinkLifecycle.LayerStyle), family: BlockOpFamily.Linked, ui: true, body: k => PerformLinkedFilter(owner: owner, filter: x.Filter ?? BlockFilter.All, policy: LinkRefreshPolicy.All, batch: BatchPolicy.Default, key: k, worker: (o, d, k) => ApplyLinkedLayerStyle(owner: o, definition: d, style: x.Style ?? LayerStyle.Active, key: k))),
+            update: static (owner, x) => MutPlan(name: nameof(LinkLifecycle.Update), family: BlockOpFamily.Linked, ui: true, body: k => PerformLinkedUpdatePolicy(owner: owner, policy: x.Policy, key: k)),
+            skipNested: static (owner, x) => MutPlan(name: nameof(LinkLifecycle.SkipNested), family: BlockOpFamily.Linked, ui: true, body: k => PerformSkipNestedLinked(owner: owner, refer: x.Ref, value: x.Value, key: k)));
+
+    private static BlockRunPlan AttributePlan(RhinoBlocks owner, BlockAttributeTask task) =>
+        task.Switch(
+            owner: owner,
+            text: static (owner, x) => OutcomePlan(name: nameof(BlockAttributeTask.Text), family: BlockOpFamily.Attributes, ui: false, body: k => PerformTextFields(owner: owner, refer: x.Ref, instanceId: x.InstanceId, key: k)),
+            schema: static (owner, x) => OutcomePlan(name: nameof(BlockAttributeTask.Schema), family: BlockOpFamily.Attributes, ui: false, body: k => PerformAttributeFields(owner: owner, refer: x.Ref, key: k)),
+            write: static (owner, x) => MutPlan(name: nameof(BlockAttributeTask.Write), family: BlockOpFamily.Attributes, ui: true, body: k => PerformWriteAttributeFields(owner: owner, refer: x.Ref, values: x.Values, policy: x.Policy ?? ConstraintPolicy.Schema, instanceId: x.InstanceId, scope: x.Scope ?? ReferenceScope.TopAndNested, metadata: x.Metadata, key: k)),
+            matrix: static (owner, x) => OutcomePlan(name: nameof(BlockAttributeTask.Matrix), family: BlockOpFamily.Attributes, ui: false, body: k => PerformAttributeMatrix(owner: owner, refs: x.Refs, scope: x.Scope, key: k)));
+
+    private static BlockRunPlan MutPlan(string name, BlockOpFamily family, bool ui, Func<Op, Fin<MutationReceipt>> body) =>
+        Plan(name: name, phase: BlockOpPhase.Mutation, family: family, ui: ui, run: () => RunPhase(name: name, body: body, project: static receipt => new BlockOutcome.Receipt(Value: receipt)));
+
+    private static BlockRunPlan OutcomePlan(string name, BlockOpFamily family, bool ui, Func<Op, Fin<BlockOutcome>> body) =>
+        Plan(name: name, phase: BlockOpPhase.Query, family: family, ui: ui, run: () => RunPhase(name: name, body: body, project: static outcome => outcome));
+
+    private static BlockRunPlan Plan(string name, BlockOpPhase phase, BlockOpFamily family, bool ui, Func<Fin<BlockOutcome>> run) =>
+        new(Meta: new BlockOpMeta(Name: name, Phase: phase, Family: family, RequiresUiThread: ui), Run: run);
 
     private static Fin<BlockOutcome> RunPhase<T>(
         string name,
@@ -637,23 +604,6 @@ internal static partial class Operations {
             _ = ContentIndex.EvictDoc(serial: owner.Document.RuntimeSerialNumber);
             return Fin.Succ(value: MutationReceipt.Empty);
         });
-    private static Fin<BlockOutcome> PerformInstanceTask(RhinoBlocks owner, BlockInstanceTask task, Op key) =>
-        task switch {
-            BlockInstanceTask.Place x => PerformPlace(owner: owner, refer: x.Ref, at: x.At, policy: x.Policy ?? BatchPolicy.Default, key: key).Map(ReceiptOutcome),
-            BlockInstanceTask.ReplaceDefinition x => PerformReplaceDefinition(owner: owner, instanceId: x.InstanceId, newRef: x.NewRef, key: key).Map(ReceiptOutcome),
-            BlockInstanceTask.Transform x => PerformTransformInstance(owner: owner, instanceId: x.InstanceId, xform: x.Xform, mode: x.Mode ?? TransformPolicy.Copy, key: key).Map(ReceiptOutcome),
-            BlockInstanceTask.Explode x => PerformExplodeIntoDocument(owner: owner, instanceId: x.InstanceId, policy: x.Policy, key: key).Map(ReceiptOutcome),
-            BlockInstanceTask.Inspect x => PerformExplodeInspect(owner: owner, instanceId: x.InstanceId, policy: x.Policy, key: key),
-            BlockInstanceTask.SubObject x => PerformUseSubObject(owner: owner, instanceId: x.InstanceId, component: x.Component, key: key),
-            BlockInstanceTask.SelectedPart x => PerformSelectedPart(owner: owner, refer: x.Ref, key: key),
-            BlockInstanceTask.Flatten x => PerformFlatten(owner: owner, instanceId: x.InstanceId, policy: x.Policy, key: key),
-            BlockInstanceTask.Bounds x => PerformBounds(owner: owner, refer: x.Ref, policy: x.Policy ?? BoundsPolicy.Default, key: key),
-            _ => Fin.Fail<BlockOutcome>(error: key.InvalidInput()),
-        };
-
-    private static BlockOutcome ReceiptOutcome(MutationReceipt receipt) =>
-        new BlockOutcome.Receipt(Value: receipt);
-
     private static Fin<MutationReceipt> PerformPlace(RhinoBlocks owner, DefinitionRef refer, Seq<Placement> at, BatchPolicy policy, Op key) =>
         from snap in ResolveSnap(table: owner.Document.InstanceDefinitions, refer: refer, key: key)
         from live in snap.Live.ToFin(Fail: key.InvalidInput())
@@ -773,18 +723,6 @@ internal static partial class Operations {
                 loadPath: loadPath,
                 key: key);
     }
-
-    private static Fin<BlockOutcome> PerformLinkLifecycle(RhinoBlocks owner, LinkLifecycle change, Op key) =>
-        change switch {
-            LinkLifecycle.Create x => PerformCreateArchiveLinks(owner: owner, sources: x.Sources, policy: x.Policy ?? LinkCreatePolicy.Default, key: key).Map(ReceiptOutcome),
-            LinkLifecycle.Relink x => PerformBatchRelink(owner: owner, maps: x.Maps, policy: x.Policy ?? BatchPolicy.Default, key: key).Map(ReceiptOutcome),
-            LinkLifecycle.Refresh x => PerformRefreshLinks(owner: owner, filter: x.Filter ?? BlockFilter.All, policy: x.Policy ?? LinkRefreshPolicy.All, batch: x.Batch ?? BatchPolicy.Default, key: key).Map(ReceiptOutcome),
-            LinkLifecycle.Detach x => PerformLinkedFilter(owner: owner, filter: x.Filter ?? BlockFilter.All, policy: LinkRefreshPolicy.All, batch: BatchPolicy.Default, key: key, worker: DetachLinkedDefinition).Map(ReceiptOutcome),
-            LinkLifecycle.LayerStyle x => PerformLinkedFilter(owner: owner, filter: x.Filter ?? BlockFilter.All, policy: LinkRefreshPolicy.All, batch: BatchPolicy.Default, key: key, worker: (o, d, k) => ApplyLinkedLayerStyle(owner: o, definition: d, style: x.Style ?? LayerStyle.Active, key: k)).Map(ReceiptOutcome),
-            LinkLifecycle.Update x => PerformLinkedUpdatePolicy(owner: owner, policy: x.Policy, key: key).Map(ReceiptOutcome),
-            LinkLifecycle.SkipNested x => PerformSkipNestedLinked(owner: owner, refer: x.Ref, value: x.Value, key: key).Map(ReceiptOutcome),
-            _ => Fin.Fail<BlockOutcome>(error: key.InvalidInput()),
-        };
 
     private static Fin<MutationReceipt> PerformCreateArchiveLinks(RhinoBlocks owner, Seq<FileEndpoint> sources, LinkCreatePolicy policy, Op key) =>
         from links in CreateArchiveLinks(owner: owner, sources: sources, policy: policy, key: key)
@@ -1343,15 +1281,6 @@ internal static partial class Operations {
         from admitted in spec.Admit(key: key)
         from handle in owner.AcquirePreview(definition: pair.Live, spec: admitted, key: key)
         select (BlockOutcome)new BlockOutcome.Preview(Handle: handle);
-
-    private static Fin<BlockOutcome> PerformAttributeTask(RhinoBlocks owner, BlockAttributeTask task, Op key) =>
-        task switch {
-            BlockAttributeTask.Text x => PerformTextFields(owner: owner, refer: x.Ref, instanceId: x.InstanceId, key: key),
-            BlockAttributeTask.Schema x => PerformAttributeFields(owner: owner, refer: x.Ref, key: key),
-            BlockAttributeTask.Write x => PerformWriteAttributeFields(owner: owner, refer: x.Ref, values: x.Values, policy: x.Policy ?? ConstraintPolicy.Schema, instanceId: x.InstanceId, scope: x.Scope ?? ReferenceScope.TopAndNested, metadata: x.Metadata, key: key).Map(ReceiptOutcome),
-            BlockAttributeTask.Matrix x => PerformAttributeMatrix(owner: owner, refs: x.Refs, scope: x.Scope, key: key),
-            _ => Fin.Fail<BlockOutcome>(error: key.InvalidInput()),
-        };
 
     private static Fin<BlockOutcome> PerformTextFields(RhinoBlocks owner, DefinitionRef refer, Option<Guid> instanceId, Op key) {
         static string Coordinate(RhinoDoc doc, InstanceObject instance, Func<Point3d, double> axis) {

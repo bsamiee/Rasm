@@ -134,6 +134,29 @@ internal static class TypeShapeRules {
         AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
     }
 
+    // --- [CLOSED_UNION_PLAN_FUSION] -----------------------------------------
+
+    internal static void ReportClosedUnionPlanFusion(CompilationAnalysisContext context, AnalyzerState state) {
+        IEnumerable<Diagnostic> diagnostics = state.ClosedUnionDispatches()
+            .GroupBy(static fact => fact.Union.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat), StringComparer.Ordinal)
+            .Select(ClosedUnionPlanFusionDiagnostic)
+            .OfType<Diagnostic>();
+        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
+    }
+    private static Diagnostic? ClosedUnionPlanFusionDiagnostic(IGrouping<string, ClosedUnionDispatchFact> group) {
+        ImmutableArray<ClosedUnionDispatchFact> facts = [.. group];
+        ClosedUnionDispatchFact? metadata = facts
+            .Where(static fact => fact.Kind == ClosedUnionDispatchKind.Metadata)
+            .OrderBy(static fact => fact.Location.SourceSpan.Start)
+            .Cast<ClosedUnionDispatchFact?>()
+            .FirstOrDefault();
+        bool duplicateBehavior = metadata is ClosedUnionDispatchFact metadataFact
+            && facts.Any(fact => fact.Kind == ClosedUnionDispatchKind.Behavior && fact.CaseCount == metadataFact.CaseCount);
+        return metadata is ClosedUnionDispatchFact diagnosticFact && duplicateBehavior
+            ? Diagnostic.Create(RuleCatalog.CSP0744, diagnosticFact.Location, diagnosticFact.Union.Name)
+            : null;
+    }
+
     // --- [DATETIME_FIELD] -----------------------------------------------------
 
     internal static void CheckDateTimeFieldInDomain(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {

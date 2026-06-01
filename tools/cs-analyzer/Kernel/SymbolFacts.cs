@@ -85,6 +85,25 @@ internal readonly struct ForwardingRequestCaseFamilyFacts {
     internal int CaseCount { get; }
 }
 
+internal enum ClosedUnionDispatchKind {
+    Metadata,
+    Behavior,
+}
+
+internal readonly struct ClosedUnionDispatchFact {
+    internal ClosedUnionDispatchFact(INamedTypeSymbol union, ClosedUnionDispatchKind kind, int caseCount, Location location) {
+        Union = union;
+        Kind = kind;
+        CaseCount = caseCount;
+        Location = location;
+    }
+
+    internal INamedTypeSymbol Union { get; }
+    internal ClosedUnionDispatchKind Kind { get; }
+    internal int CaseCount { get; }
+    internal Location Location { get; }
+}
+
 // --- [MARKERS] ---------------------------------------------------------------
 
 internal static class Markers {
@@ -984,6 +1003,29 @@ internal static class SymbolFacts {
         facts = new ForwardingRequestCaseFamilyFacts(caseCount: nestedCases.Length);
         return true;
     }
+    internal static bool TryClosedUnionDispatch(Compilation compilation, IInvocationOperation invocation, out ClosedUnionDispatchFact fact) {
+        fact = default;
+        ImmutableArray<IAnonymousFunctionOperation> lambdas = [
+            .. invocation.Arguments
+                .Select(argument => UnwrapLambda(argument.Value))
+                .Where(static lambda => lambda is not null)
+                .Select(static lambda => lambda!),
+        ];
+        INamedTypeSymbol? union = ClosedUnionDispatchReceiver(invocation);
+        ImmutableArray<INamedTypeSymbol> cases = union is null ? [] : ClosedUnionCases(compilation: compilation, namedType: union);
+        ClosedUnionDispatchKind? kind = ClosedUnionDispatchKindOf(invocation: invocation, lambdas: lambdas);
+        bool complete = cases.Length >= 3
+            && lambdas.Length == cases.Length;
+        if (invocation.TargetMethod.Name != "Switch" || union is null || kind is null || !complete) {
+            return false;
+        }
+        fact = new ClosedUnionDispatchFact(
+            union: union.OriginalDefinition,
+            kind: kind.Value,
+            caseCount: cases.Length,
+            location: invocation.Syntax.GetLocation());
+        return true;
+    }
     internal static bool IsLanguageExtInvocation(IInvocationOperation invocation, params string[] names) =>
         names.Contains(invocation.TargetMethod.Name, StringComparer.Ordinal)
         && (invocation.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
@@ -1058,6 +1100,32 @@ internal static class SymbolFacts {
     private static bool IsExternallyVisible(INamedTypeSymbol namedType) =>
         namedType.DeclaredAccessibility is Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal
         && (namedType.ContainingType is not INamedTypeSymbol containing || IsExternallyVisible(containing));
+    private static INamedTypeSymbol? ClosedUnionDispatchReceiver(IInvocationOperation invocation) =>
+        invocation.TargetMethod.ContainingType switch {
+            INamedTypeSymbol targetType when HasAnyAttribute(targetType, "UnionAttribute", "Union") => targetType,
+            _ => UnwrapReceiver(ExtractReceiver(invocation))?.Type is INamedTypeSymbol receiverType
+                && HasAnyAttribute(receiverType, "UnionAttribute", "Union")
+                    ? receiverType
+                    : null,
+        };
+    private static ClosedUnionDispatchKind? ClosedUnionDispatchKindOf(IInvocationOperation invocation, ImmutableArray<IAnonymousFunctionOperation> lambdas) =>
+        invocation.Type switch {
+            INamedTypeSymbol type when IsMetadataLikeType(type) => ClosedUnionDispatchKind.Metadata,
+            INamedTypeSymbol type when IsPlanLikeType(type) || IsErasedObjectType(type) => null,
+            _ when lambdas.Any(static lambda => HasBehaviorInvocation(lambda)) => ClosedUnionDispatchKind.Behavior,
+            _ => null,
+        };
+    private static bool IsMetadataLikeType(INamedTypeSymbol type) =>
+        type.Name.EndsWith(value: "Meta", comparisonType: StringComparison.Ordinal)
+        || type.Name.EndsWith(value: "Metadata", comparisonType: StringComparison.Ordinal);
+    private static bool IsPlanLikeType(INamedTypeSymbol type) =>
+        type.Name.EndsWith(value: "Plan", comparisonType: StringComparison.Ordinal);
+    private static bool IsErasedObjectType(INamedTypeSymbol type) =>
+        type.SpecialType == SpecialType.System_Object;
+    private static bool HasBehaviorInvocation(IAnonymousFunctionOperation lambda) =>
+        lambda.Body.DescendantsAndSelf()
+            .OfType<IInvocationOperation>()
+            .Any(static invocation => invocation.TargetMethod.Name is not "Switch" and not "Map");
     private static bool IsManualUnionCase(INamedTypeSymbol baseType, INamedTypeSymbol caseType) =>
         caseType is { TypeKind: TypeKind.Class, IsRecord: true, IsSealed: true, IsGenericType: false }
         && caseType.BaseType is INamedTypeSymbol parent

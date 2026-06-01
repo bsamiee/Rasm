@@ -72,6 +72,7 @@ internal static class AnalyzerDispatcher {
                 return;
             case (_, IInvocationOperation invocation):
                 state.TrackMethodInvocation(method: invocation.TargetMethod);
+                state.TrackClosedUnionDispatch(invocation: invocation);
                 FlowRules.CheckMatchCollapse(context, state, scope, invocation);
                 FlowRules.CheckMatchBoundaryStrict(context, state, scope, invocation);
                 FlowRules.CheckRunInTransform(context, scope, invocation);
@@ -190,5 +191,6 @@ internal static class AnalyzerDispatcher {
         ShapeRules.ReportSingleUseHelpers(context, state);
         TypeShapeRules.ReportFlagsEnumOveruse(context, state);
         TypeShapeRules.ReportManualClosedUnionOverride(context, state);
+        TypeShapeRules.ReportClosedUnionPlanFusion(context, state);
     }
 }

@@ -831,6 +831,53 @@ public sealed class RuleBehaviorTests {
                 public readonly record struct Item(int Value);
             }
             """),
+        new("CSP0744", File(scope: "Domain/Services", type: "ClosedUnionPlanFusion"), """
+            namespace Thinktecture {
+                public sealed class UnionAttribute : System.Attribute {
+                    public string? SwitchMapStateParameterName { get; set; }
+                }
+                public sealed class SkipUnionOpsAttribute : System.Attribute { }
+            }
+
+            namespace Domain.Services {
+                public readonly record struct OperationMeta(string Name);
+
+                [Thinktecture.Union(SwitchMapStateParameterName = "owner")]
+                [Thinktecture.SkipUnionOps]
+                public abstract record Operation {
+                    private Operation() { }
+                    public sealed record Create : Operation;
+                    public sealed record Delete : Operation;
+                    public sealed record Inspect : Operation;
+
+                    public OperationMeta Metadata() =>
+                        Switch(
+                            owner: this,
+                            create: static (_, _) => new OperationMeta(Name: "create"),
+                            delete: static (_, _) => new OperationMeta(Name: "delete"),
+                            inspect: static (_, _) => new OperationMeta(Name: "inspect"));
+
+                    public int Run(Owner owner) =>
+                        Switch(
+                            owner: owner,
+                            create: static (owner, task) => owner.Create(task),
+                            delete: static (owner, task) => owner.Delete(task),
+                            inspect: static (owner, task) => owner.Inspect(task));
+
+                    public T Switch<TState, T>(
+                        TState owner,
+                        System.Func<TState, Create, T> create,
+                        System.Func<TState, Delete, T> delete,
+                        System.Func<TState, Inspect, T> inspect) => default!;
+                }
+
+                public sealed class Owner {
+                    public int Create(Operation.Create task) => 1;
+                    public int Delete(Operation.Delete task) => 2;
+                    public int Inspect(Operation.Inspect task) => 3;
+                }
+            }
+            """),
         new("CSP0802", File(scope: "Domain/Models", type: "UnqualifiedUnionOps"), """
             namespace Thinktecture {
                 public sealed class UnionAttribute : System.Attribute { }
@@ -3338,6 +3385,104 @@ public sealed class RuleBehaviorTests {
         Assert.DoesNotContain(expected: "CSP0743", collection: ids);
     }
 
+    [Fact]
+    public async Task SinglePlanDispatchDoesNotEmitClosedUnionPlanFusionDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ClosedUnionSinglePlan.cs",
+            source: ClosedUnionPlanFusionSource(body: """
+                    public OperationPlan Plan(Owner owner) =>
+                        Switch(
+                            owner: owner,
+                            create: static (owner, task) => new OperationPlan(Meta: new OperationMeta(Name: "create"), Work: () => owner.Create(task)),
+                            delete: static (owner, task) => new OperationPlan(Meta: new OperationMeta(Name: "delete"), Work: () => owner.Delete(task)),
+                            inspect: static (owner, task) => new OperationPlan(Meta: new OperationMeta(Name: "inspect"), Work: () => owner.Inspect(task)));
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0744", collection: ids);
+    }
+
+    [Fact]
+    public async Task MetadataOnlyDispatchDoesNotEmitClosedUnionPlanFusionDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ClosedUnionMetadataOnly.cs",
+            source: ClosedUnionPlanFusionSource(body: """
+                    public OperationMeta Metadata() =>
+                        Switch(
+                            owner: this,
+                            create: static (_, _) => new OperationMeta(Name: "create"),
+                            delete: static (_, _) => new OperationMeta(Name: "delete"),
+                            inspect: static (_, _) => new OperationMeta(Name: "inspect"));
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0744", collection: ids);
+    }
+
+    [Fact]
+    public async Task NativeProtocolSwitchDoesNotEmitClosedUnionPlanFusionDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/NativeProtocolSwitch.cs",
+            source: """
+                namespace Domain.Services {
+                    public readonly record struct OperationMeta(string Name);
+                    public enum NativeProtocol { Create, Delete, Inspect }
+                    public sealed class NativeProtocolSwitch {
+                        public OperationMeta Metadata(NativeProtocol protocol) =>
+                            protocol switch {
+                                NativeProtocol.Create => new OperationMeta(Name: "create"),
+                                NativeProtocol.Delete => new OperationMeta(Name: "delete"),
+                                NativeProtocol.Inspect => new OperationMeta(Name: "inspect"),
+                                _ => new OperationMeta(Name: "unknown"),
+                            };
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0744", collection: ids);
+    }
+
+    [Fact]
+    public async Task PartialCaseOverlapDoesNotEmitClosedUnionPlanFusionDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ClosedUnionPartialOverlap.cs",
+            source: ClosedUnionPlanFusionSource(body: """
+                    public OperationMeta Metadata() =>
+                        Switch(
+                            owner: this,
+                            create: static (_, _) => new OperationMeta(Name: "create"),
+                            delete: static (_, _) => new OperationMeta(Name: "delete"),
+                            inspect: static (_, _) => new OperationMeta(Name: "inspect"));
+
+                    public int RunPartial(Owner owner) =>
+                        Switch(
+                            owner: owner,
+                            create: static (owner, task) => owner.Create(task),
+                            delete: static (owner, task) => owner.Delete(task));
+
+                    public T Switch<TState, T>(
+                        TState owner,
+                        System.Func<TState, Create, T> create,
+                        System.Func<TState, Delete, T> delete) => default!;
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0744", collection: ids);
+    }
+
+    [Fact]
+    public async Task ObjectErasedPlanDoesNotEmitClosedUnionPlanFusionDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ObjectErasedPlan.cs",
+            source: ClosedUnionPlanFusionSource(body: """
+                    public object Plan(Owner owner) =>
+                        Switch(
+                            owner: owner,
+                            create: static (owner, task) => new object[] { new OperationMeta(Name: "create"), owner.Create(task) },
+                            delete: static (owner, task) => new object[] { new OperationMeta(Name: "delete"), owner.Delete(task) },
+                            inspect: static (owner, task) => new object[] { new OperationMeta(Name: "inspect"), owner.Inspect(task) });
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0744", collection: ids);
+    }
+
     public static TheoryData<string, string, string> RuleCases() =>
         Cases.Aggregate(
             seed: [],
@@ -3513,6 +3658,44 @@ public sealed class RuleBehaviorTests {
             public sealed class TypeSourceSelector : Scrutor.ITypeSourceSelector {
                 public Scrutor.ITypeSourceSelector FromAssemblies() => this;
                 public Scrutor.ITypeSourceSelector UsingRegistrationStrategy() => this;
+            }
+        }
+        """;
+
+    private static string ClosedUnionPlanFusionSource(string body) =>
+        $$"""
+        namespace Thinktecture {
+            public sealed class UnionAttribute : System.Attribute {
+                public string? SwitchMapStateParameterName { get; set; }
+            }
+            public sealed class SkipUnionOpsAttribute : System.Attribute { }
+        }
+
+        namespace Domain.Services {
+            public readonly record struct OperationMeta(string Name);
+            public readonly record struct OperationPlan(OperationMeta Meta, System.Func<int> Work);
+
+            [Thinktecture.Union(SwitchMapStateParameterName = "owner")]
+            [Thinktecture.SkipUnionOps]
+            public abstract record Operation {
+                private Operation() { }
+                public sealed record Create : Operation;
+                public sealed record Delete : Operation;
+                public sealed record Inspect : Operation;
+
+        {{body}}
+
+                public T Switch<TState, T>(
+                    TState owner,
+                    System.Func<TState, Create, T> create,
+                    System.Func<TState, Delete, T> delete,
+                    System.Func<TState, Inspect, T> inspect) => default!;
+            }
+
+            public sealed class Owner {
+                public int Create(Operation.Create task) => 1;
+                public int Delete(Operation.Delete task) => 2;
+                public int Inspect(Operation.Inspect task) => 3;
             }
         }
         """;

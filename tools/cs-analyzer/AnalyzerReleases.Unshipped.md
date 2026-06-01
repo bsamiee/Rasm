@@ -89,4 +89,5 @@ CSP0740 | SurfaceArea           | Error    | ManualClosedUnionOverride
 CSP0741 | SurfaceArea           | Error    | ForwardingRequestCaseFamily
 CSP0742 | FunctionalDiscipline  | Error    | ManualOpAdmissionGate
 CSP0743 | FunctionalDiscipline  | Error    | ManualGenericProjectionGate
+CSP0744 | SurfaceArea           | Error    | ClosedUnionPlanFusion
 CSP0802 | TypeDiscipline        | Error    | UnionOpsQualification
