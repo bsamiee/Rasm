@@ -315,9 +315,9 @@ public readonly partial struct SpringConfig {
         UiFault? fault = null;
         _ = op.AcceptAll(
                 value: unit,
-                o => guard(float.IsFinite(stiffnessValue) && stiffnessValue > 0f, UiFault.InvalidInput(op: o, detail: $"Stiffness must be finite and > 0 (got {stiffnessValue:R}).")).ToFin(),
-                o => guard(float.IsFinite(dampingValue) && dampingValue >= 0f, UiFault.InvalidInput(op: o, detail: $"Damping must be finite and >= 0 (got {dampingValue:R}).")).ToFin(),
-                o => guard(float.IsFinite(massValue) && massValue > 0f, UiFault.InvalidInput(op: o, detail: $"Mass must be finite and > 0 (got {massValue:R}).")).ToFin())
+                o => guard(float.IsFinite(stiffnessValue) && stiffnessValue > 0f, (Error)UiFault.InvalidInput(op: o, detail: $"Stiffness must be finite and > 0 (got {stiffnessValue:R}).")).ToFin(),
+                o => guard(float.IsFinite(dampingValue) && dampingValue >= 0f, (Error)UiFault.InvalidInput(op: o, detail: $"Damping must be finite and >= 0 (got {dampingValue:R}).")).ToFin(),
+                o => guard(float.IsFinite(massValue) && massValue > 0f, (Error)UiFault.InvalidInput(op: o, detail: $"Mass must be finite and > 0 (got {massValue:R}).")).ToFin())
             .IfFail(err => { fault = (UiFault)err; return unit; });
         validationError = fault;
     }
@@ -1044,7 +1044,7 @@ internal static class Motion {
             from document in scope.NeedDocument()
             from validMin in Op.Of(name: nameof(Navigate)).AcceptFinite(value: minZoom, detail: "min zoom must be finite and positive", requirePositive: true)
             from validMax in Op.Of(name: nameof(Navigate)).AcceptFinite(value: maxZoom, detail: "max zoom must be finite and positive", requirePositive: true)
-            from _ in guard(validMax >= validMin, UiFault.InvalidInput(op: Op.Of(name: nameof(Navigate)), detail: "max zoom below min zoom")).ToFin()
+            from _ in guard(validMax >= validMin, (Error)UiFault.InvalidInput(op: Op.Of(name: nameof(Navigate)), detail: "max zoom below min zoom")).ToFin()
                 // Reduce-motion collapses the tween to an Abrupt (0ms) host frame; the Point case additionally snaps
                 // the document projection so the persisted centre/zoom matches the host's framing immediately.
             let effectiveDuration = MotionAccessibility.ShouldReduceMotion ? GhDuration.Abrupt : duration
@@ -1150,7 +1150,7 @@ internal static class Motion {
             gradientCase: static (c, g) => {
                 Op op = Op.Of(name: nameof(CosmeticIntent.GradientCase));
                 return op.AcceptRect(value: g.Bounds, detail: "non-finite gradient bounds")
-                    .Bind(_ => guard(g.Colors.Count >= 2, UiFault.InvalidInput(op: op, detail: $"gradient requires at least two colours (got {g.Colors.Count})")).ToFin())
+                    .Bind(_ => guard(g.Colors.Count >= 2, (Error)UiFault.InvalidInput(op: op, detail: $"gradient requires at least two colours (got {g.Colors.Count})")).ToFin())
                     .Bind(_ => AcceptGradientPoints(op: op, points: g.Points, colourCount: g.Colors.Count))
                     .Map<CosmeticIntent>(_ => g with { Bounds = MapCosmeticRect(canvas: c, bounds: g.Bounds) });
             },
@@ -1199,7 +1199,7 @@ internal static class Motion {
             .GroupBy(keySelector: static path => path, comparer: StringComparer.Ordinal)
             .Where(static group => group.Skip(1).Any())
             .Select(static group => group.Key));
-        return guard(duplicates.IsEmpty, UiFault.InvalidInput(
+        return guard(duplicates.IsEmpty, (Error)UiFault.InvalidInput(
                 op: Op.Of(name: nameof(CosmeticIntent.CoAnimate)),
                 detail: $"cosmetic co-animation key paths must be distinct: {string.Join(separator: ", ", values: duplicates.AsIterable())}"))
             .ToFin();
@@ -1211,7 +1211,7 @@ internal static class Motion {
             .Map(child => (Intent: child, Path: AnimationKeyPathOf(intent: child)))
             .Filter(child => string.Equals(a: child.Path, b: "strokeEnd", comparisonType: StringComparison.Ordinal) && !string.Equals(a: parent, b: "strokeEnd", comparisonType: StringComparison.Ordinal))
             .Map(static child => child.Intent.GetType().Name);
-        return guard(invalid.IsEmpty, UiFault.InvalidInput(
+        return guard(invalid.IsEmpty, (Error)UiFault.InvalidInput(
                 op: Op.Of(name: nameof(CosmeticIntent.CoAnimate)),
                 detail: $"stroke co-animations require a stroke parent layer: {string.Join(separator: ", ", values: invalid.AsIterable())}"))
             .ToFin();
@@ -1256,7 +1256,7 @@ internal static class Motion {
             ? toSeq(stops)
                 .Fold(
                     initialState: Fin.Succ(float.NegativeInfinity),
-                    f: (acc, stop) => acc.Bind(previous => guard(stop is >= 0f and <= 1f && stop >= previous, UiFault.InvalidInput(op: op, detail: $"gradient stops must ascend through [0,1] (got {stop:R} after {previous:R})")).ToFin().Map(_ => stop)))
+                    f: (acc, stop) => acc.Bind(previous => guard(stop is >= 0f and <= 1f && stop >= previous, (Error)UiFault.InvalidInput(op: op, detail: $"gradient stops must ascend through [0,1] (got {stop:R} after {previous:R})")).ToFin().Map(_ => stop)))
                 .Map(static _ => unit)
             : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: op, detail: $"gradient stop count {stops.Length} must equal colour count {colourCount}"));
     }

@@ -108,7 +108,7 @@ internal static class FlowRules {
             _ => null,
         });
     internal static void CheckGuardableFinConditional(OperationAnalysisContext context, AnalyzerState state, ScopeInfo scope, IConditionalOperation conditional) =>
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsLanguageExtFinType(conditional.Type), IsGuardableFinGate(conditional, state.LanguageExtCommonErrorType), IsConfirmOwner(context.ContainingSymbol), IsDemandOwner(context.ContainingSymbol), IsManualConfirmGate(conditional)) switch {
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsFunctional, SymbolFacts.IsLanguageExtFinType(conditional.Type), IsGuardableFinGate(conditional, state.LanguageExtCommonErrorType), IsConfirmOwner(context.ContainingSymbol), IsDemandOwner(context.ContainingSymbol), IsManualConfirmGate(conditional)) switch {
             (true, true, true, false, false, false) => Diagnostic.Create(RuleCatalog.CSP0739, context.Operation.Syntax.GetLocation()),
             _ => null,
         });
@@ -135,7 +135,7 @@ internal static class FlowRules {
         });
     internal static void CheckGuardableFinConditional(SyntaxNodeAnalysisContext context, AnalyzerState state, ScopeInfo scope, SwitchExpressionSyntax switchExpression) =>
         AnalyzerState.Report(context.ReportDiagnostic, (
-            scope.IsAnalyzable,
+            scope.IsFunctional,
             context.SemanticModel.GetOperation(switchExpression, context.CancellationToken) is ISwitchExpressionOperation switchOperation && IsGuardableFinGate(switchOperation, state.LanguageExtCommonErrorType),
             IsConfirmOwner(context.ContainingSymbol),
             IsDemandOwner(context.ContainingSymbol),
