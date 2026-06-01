@@ -151,11 +151,11 @@ public sealed partial class ConstraintPolicy {
 
     internal Fin<Unit> AdmitValues(HashMap<string, string> values, Seq<InstanceAttributeField> schema, Op key) =>
         Key switch {
-            0 => values
-                .Filter((k, _) => !schema.Any(field => string.Equals(a: field.Key, b: k, comparisonType: StringComparison.OrdinalIgnoreCase)))
-                .IsEmpty
-                ? Fin.Succ(value: unit)
-                : Fin.Fail<Unit>(error: key.InvalidInput()),
+            0 => guard(
+                values
+                    .Filter((k, _) => !schema.Any(field => string.Equals(a: field.Key, b: k, comparisonType: StringComparison.OrdinalIgnoreCase)))
+                    .IsEmpty,
+                key.InvalidInput()).ToFin(),
             _ => Fin.Succ(value: unit),
         };
 }
@@ -396,10 +396,10 @@ public sealed partial class UpdatePolicy {
     public bool IsLinked => this == Linked || this == LinkedAndEmbedded || this == Embedded;
 
     public Fin<Unit> RequireLinked(Op key) =>
-        IsLinked ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: key.InvalidInput());
+        guard(IsLinked, key.InvalidInput()).ToFin();
 
     public Fin<Unit> RejectLinkedModify(Op key) =>
-        IsLinked ? Fin.Fail<Unit>(error: key.InvalidInput()) : Fin.Succ(value: unit);
+        guard(!IsLinked, key.InvalidInput()).ToFin();
 
     public static UpdatePolicy FromNative(InstanceDefinitionUpdateType native) =>
         native switch {

@@ -679,6 +679,14 @@ public sealed class RuleBehaviorTests {
                 }
             }
             """),
+        new("CSP0739", File(scope: "Domain/Services", type: "GuardableFinUnitConditional"), WithFinUnit(ns: "Domain.Services", type: "GuardableFinUnitConditional", members: """
+            public LanguageExt.Fin<LanguageExt.Unit> Run(bool accepted, Error error) =>
+                accepted ? LanguageExt.Fin.Succ(unit) : LanguageExt.Fin.Fail<LanguageExt.Unit>(error);
+            """)),
+        new("CSP0739", File(scope: "Domain/Services", type: "GuardableFinUnitConditionalReversed"), WithFinUnit(ns: "Domain.Services", type: "GuardableFinUnitConditionalReversed", members: """
+            public LanguageExt.Fin<LanguageExt.Unit> Run(bool rejected, Error error) =>
+                rejected ? LanguageExt.Fin.Fail<LanguageExt.Unit>(error) : LanguageExt.Fin.Succ(unit);
+            """)),
         new("CSP0802", File(scope: "Domain/Models", type: "UnqualifiedUnionOps"), """
             namespace Thinktecture {
                 public sealed class UnionAttribute : System.Attribute { }
@@ -1931,6 +1939,90 @@ public sealed class RuleBehaviorTests {
         Assert.DoesNotContain(expected: "CSP0736", collection: ids);
     }
 
+    [Fact]
+    public async Task NonUnitConditionalDoesNotEmitGuardableFinUnitDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/NonUnitConditional.cs",
+            source: WithFinUnit(ns: "Domain.Services", type: "NonUnitConditional", members: """
+                public LanguageExt.Fin<int> Run(bool accepted, int value, Error error) =>
+                    accepted ? LanguageExt.Fin.Succ(value) : LanguageExt.Fin.Fail<int>(error);
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0739", collection: ids);
+    }
+
+    [Fact]
+    public async Task EffectfulSuccessConditionalDoesNotEmitGuardableFinUnitDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/EffectfulSuccessConditional.cs",
+            source: WithFinUnit(ns: "Domain.Services", type: "EffectfulSuccessConditional", members: """
+                public LanguageExt.Fin<LanguageExt.Unit> Run(bool accepted, Error error) =>
+                    accepted ? Validate() : LanguageExt.Fin.Fail<LanguageExt.Unit>(error);
+
+                private static LanguageExt.Fin<LanguageExt.Unit> Validate() =>
+                    LanguageExt.Fin.Succ(unit);
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0739", collection: ids);
+    }
+
+    [Fact]
+    public async Task SideEffectingSuccessConditionalDoesNotEmitGuardableFinUnitDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/SideEffectingSuccessConditional.cs",
+            source: WithFinUnit(ns: "Domain.Services", type: "SideEffectingSuccessConditional", members: """
+                public LanguageExt.Fin<LanguageExt.Unit> Run(bool accepted, Error error) =>
+                    accepted ? LanguageExt.Fin.Succ(Side(() => Mutate())) : LanguageExt.Fin.Fail<LanguageExt.Unit>(error);
+
+                private static LanguageExt.Unit Side(System.Action run) {
+                    run();
+                    return unit;
+                }
+
+                private static void Mutate() { }
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0739", collection: ids);
+    }
+
+    [Fact]
+    public async Task RichFailureDetailDoesNotEmitGuardableFinUnitDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/RichFailureDetail.cs",
+            source: WithFinUnit(ns: "Domain.Services", type: "RichFailureDetail", members: """
+                public LanguageExt.Fin<LanguageExt.Unit> Run(bool accepted, int value) =>
+                    accepted ? LanguageExt.Fin.Succ(unit) : LanguageExt.Fin.Fail<LanguageExt.Unit>(new Error($"bad {value}"));
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0739", collection: ids);
+    }
+
+    [Fact]
+    public async Task NonCommonErrorFailureDoesNotEmitGuardableFinUnitDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/NonCommonErrorFailure.cs",
+            source: WithFinUnit(ns: "Domain.Services", type: "NonCommonErrorFailure", members: """
+                public sealed record UiFault(string Detail);
+
+                public LanguageExt.Fin<LanguageExt.Unit> Run(bool accepted, UiFault fault) =>
+                    accepted ? LanguageExt.Fin.Succ(unit) : LanguageExt.Fin.Fail<LanguageExt.Unit>(fault);
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0739", collection: ids);
+    }
+
+    [Fact]
+    public async Task GuardCallDoesNotEmitGuardableFinUnitDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/GuardCall.cs",
+            source: WithFinUnit(ns: "Domain.Services", type: "GuardCall", members: """
+                public LanguageExt.Fin<LanguageExt.Unit> Run(bool accepted, Error error) =>
+                    guard(accepted, error);
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0739", collection: ids);
+    }
+
     public static TheoryData<string, string, string> RuleCases() =>
         Cases.Aggregate(
             seed: [],
@@ -2008,6 +2100,35 @@ public sealed class RuleBehaviorTests {
 
         namespace {{ns}} {
         {{declaration}}
+        }
+        """;
+
+    private static string WithFinUnit(string ns, string type, string members) =>
+        $$"""
+        namespace LanguageExt {
+            public readonly struct Unit { }
+            public sealed class Fin<T> { }
+            public static class Fin {
+                public static Fin<T> Succ<T>(T value) => new();
+                public static Fin<T> Fail<T>(object error) => new();
+            }
+            public static class Prelude {
+                public static readonly Unit unit = new();
+                public static Fin<Unit> guard(bool condition, object error) => new();
+            }
+        }
+
+        namespace LanguageExt.Common {
+            public sealed record Error(string? Detail = null);
+        }
+
+        namespace {{ns}} {
+            using LanguageExt.Common;
+            using static LanguageExt.Prelude;
+
+            public sealed class {{type}} {
+        {{members}}
+            }
         }
         """;
 

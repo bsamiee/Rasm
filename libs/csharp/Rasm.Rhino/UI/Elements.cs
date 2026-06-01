@@ -120,7 +120,7 @@ public static class UiField {
                 return drop;
             },
             Read: control => control is DropDown { SelectedIndex: int index } && index >= 0 && index < choices.Count ? choices[index] : choices[0],
-            Admit: Some(() => choices.IsEmpty ? Fin.Fail<Unit>(error: Op.Of(name: nameof(Choice)).InvalidInput()) : Fin.Succ(value: unit)));
+            Admit: Some(() => guard(!choices.IsEmpty, Op.Of(name: nameof(Choice)).InvalidInput()).ToFin()));
 }
 
 public abstract record UiElement<TState> {

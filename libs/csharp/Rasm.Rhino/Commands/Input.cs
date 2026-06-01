@@ -473,7 +473,7 @@ public readonly record struct CommandPointConstraint {
 
     public static CommandPointConstraint Of(Func<GetPoint, bool> apply) =>
         new(getter => Optional(apply).ToFin(Fail: Op.Of(name: nameof(CommandPointConstraint)).InvalidInput())
-            .Bind(valid => valid(arg: getter) ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Op.Of(name: nameof(CommandPointConstraint)).InvalidInput())));
+            .Bind(valid => guard(valid(arg: getter), Op.Of(name: nameof(CommandPointConstraint)).InvalidInput()).ToFin()));
 }
 
 [Union]

@@ -95,7 +95,7 @@ public readonly record struct GumballAction(GumballVerb Verb, GumballAxis Axis) 
 public readonly record struct InteractionGuard(MousePhase Phase, Option<global::Rhino.UI.MouseButton> Button = default) {
     internal bool Matches<TState>(MouseContext<TState> context) =>
         context.Phase == Phase && Button.Map(button => context.MouseButton == button).IfNone(noneValue: true);
-    internal Fin<Unit> AdmitViewport() => Phase.ViewportNative ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Op.Of(name: nameof(AdmitViewport)).InvalidInput());
+    internal Fin<Unit> AdmitViewport() => guard(Phase.ViewportNative, Op.Of(name: nameof(AdmitViewport)).InvalidInput()).ToFin();
 }
 
 public readonly record struct MouseContext<TState>(MousePhase Phase, TState State, global::Rhino.UI.MouseCallbackEventArgs Args) {
@@ -921,9 +921,9 @@ public sealed class UiGumball : IDisposable {
             Frame: Some(conduit.Gumball.Frame));   // live frame plane/scale-mode (downstream constraint/relocate reads it without re-deriving)
 
     private Fin<Unit> Live(Op op) =>
-        !disposed && document is { IsAvailable: true, IsClosing: false, IsInitializing: false, IsOpening: false, IsCreating: false }
-            ? Fin.Succ(value: unit)
-            : Fin.Fail<Unit>(error: op.InvalidInput());
+        guard(
+            !disposed && document is { IsAvailable: true, IsClosing: false, IsInitializing: false, IsOpening: false, IsCreating: false },
+            op.InvalidInput()).ToFin();
 
     public Fin<bool> Pick(PickContext pick, GetPoint point) =>
         from _ in Live(op: Op.Of(name: nameof(Pick)))

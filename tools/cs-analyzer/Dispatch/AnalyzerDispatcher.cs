@@ -115,6 +115,7 @@ internal static class AnalyzerDispatcher {
             case (_, IConditionalOperation conditional):
                 FlowRules.CheckImperativeConditional(context, scope, conditional);
                 FlowRules.CheckEarlyReturnGuardChain(context, scope, conditional);
+                FlowRules.CheckGuardableFinUnitConditional(context, scope, conditional);
                 return;
             case (_, ILoopOperation loop):
                 FlowRules.CheckImperativeLoop(context, scope);

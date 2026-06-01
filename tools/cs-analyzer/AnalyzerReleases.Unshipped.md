@@ -84,4 +84,5 @@ CSP0735 | FunctionalDiscipline  | Error    | TraverseFusion
 CSP0736 | FunctionalDiscipline  | Error    | FoldAppendAccumulator
 CSP0737 | SurfaceArea           | Error    | SamePayloadUnionCases
 CSP0738 | SurfaceArea           | Error    | ExclusiveOptionalPayloadBag
+CSP0739 | FunctionalDiscipline  | Error    | GuardableFinUnitConditional
 CSP0802 | TypeDiscipline        | Error    | UnionOpsQualification

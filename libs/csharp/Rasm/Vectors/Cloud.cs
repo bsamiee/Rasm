@@ -107,7 +107,7 @@ public readonly record struct CloudNeighborhoodPolicy(Dimension NeighborCount, O
     internal Fin<CloudNeighborhoodPolicy> Admit(Op key) {
         CloudNeighborhoodPolicy self = this;
         return from count in FieldNabla.Dimension(value: self.NeighborCount, key: key)
-               from minimum in self.NeighborCount.Value >= 3 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
+               from minimum in guard(self.NeighborCount.Value >= 3, key.InvalidInput())
                from radius in self.Radius.Match(Some: value => FieldNabla.Positive(value: value, key: key), None: static () => Fin.Succ(unit))
                from gap in FieldNabla.Positive(value: self.EigenGapTolerance, key: key)
                from residual in FieldNabla.Positive(value: self.FitResidualTolerance, key: key)
@@ -135,7 +135,7 @@ public readonly record struct CloudHullPolicy(PositiveMagnitude Tolerance, Vecto
         CloudHullPolicy self = this;
         return from tolerance in FieldNabla.Positive(value: self.Tolerance, key: key)
                from angle in key.AcceptValidated<VectorAngle>(candidate: self.AngleTolerance.Value)
-               from range in self.AngleTolerance.Value is > 0.0 and < Math.PI ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
+               from range in guard(self.AngleTolerance.Value is > 0.0 and < Math.PI, key.InvalidInput())
                select self;
     }
 }
@@ -893,9 +893,7 @@ internal static class CloudKernel {
                     ? Fin.Fail<Vector3d>(key.InvalidInput())
                     : from stats in CovarianceOf(points: neighborhood, key: key)
                       from eigen in stats.Cov.DecomposeEigen(key: key)
-                      from _ in eigen.Count >= 3 && eigen[index: 1].Eigenvalue > policy.EigenGapTolerance.Value
-                          ? Fin.Succ(unit)
-                          : Fin.Fail<Unit>(key.InvalidResult())
+                      from _ in guard(eigen.Count >= 3 && eigen[index: 1].Eigenvalue > policy.EigenGapTolerance.Value, key.InvalidResult())
                       let raw = AsVector3d(v: eigen[index: 2].Eigenvector)
                       from direction in Direction.Of(value: raw, tolerance: RhinoMath.ZeroTolerance, key: key)
                       select direction.Value
@@ -1085,19 +1083,19 @@ internal static class CloudKernel {
         }
         return from design in Matrix.Of(rows: Dimension.Create(value: m), cols: Dimension.Create(value: 6), entries: new Arr<double>(designFlat), key: key)
                from receipt in design.LeastSquaresDetailed(rhs: new Arr<double>(rhs), key: key)
-               from _ in receipt.FullRank.IfNone(noneValue: false)
+               from _ in guard(
+                   receipt.FullRank.IfNone(noneValue: false)
                    && receipt.Solution.Count == 6
                    && receipt.Solution.ForAll(RhinoMath.IsValidDouble)
-                   && RhinoMath.IsValidDouble(x: receipt.Residual)
-                   ? Fin.Succ(unit)
-                   : Fin.Fail<Unit>(key.InvalidResult())
+                   && RhinoMath.IsValidDouble(x: receipt.Residual),
+                   key.InvalidResult())
                select (A: receipt.Solution[0], B: receipt.Solution[1], C: receipt.Solution[2], Receipt: receipt);
     }
     private static Fin<(double K1, double K2, Direction E1, Direction E2)> ShapeOperatorEigen(double a, double b, double c, Vector3d uAxis, Vector3d vAxis, Op key) {
         return from matrix in SymmetricMatrix.Of(dim: Dimension.Create(value: 2), upper: [2.0 * a, b, 2.0 * c], key: key)
                from eigen in matrix.DecomposeEigen(key: key)
                let ordered = toSeq(eigen.AsIterable().OrderByDescending(static pair => pair.Eigenvalue))
-               from _ in ordered.Count >= 2 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
+               from _ in guard(ordered.Count >= 2, key.InvalidResult())
                from e1 in Direction.Of(value: LiftEigenvector(vector: ordered[index: 0].Eigenvector, uAxis: uAxis, vAxis: vAxis), tolerance: RhinoMath.ZeroTolerance, key: key)
                from e2 in Direction.Of(value: LiftEigenvector(vector: ordered[index: 1].Eigenvector, uAxis: uAxis, vAxis: vAxis), tolerance: RhinoMath.ZeroTolerance, key: key)
                select (K1: ordered[index: 0].Eigenvalue, K2: ordered[index: 1].Eigenvalue, E1: e1, E2: e2);

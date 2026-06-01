@@ -226,9 +226,7 @@ public static class WatchBus {
                    .ToFin(Fail: op.InvalidInput())
                from activeClock in Optional(clock).ToFin(Fail: op.InvalidInput())
                from activeSink in Optional(sink).ToFin(Fail: op.InvalidInput())
-               from _ in debounce > TimeSpan.Zero
-                   ? Fin.Succ(value: unit)
-                   : Fin.Fail<Unit>(error: op.InvalidInput())
+               from _ in guard(debounce > TimeSpan.Zero, op.InvalidInput())
                from sub in op.Catch(() => AttachFile(path: activePath, debounce: debounce, clock: activeClock, sink: activeSink, op: op))
                select sub;
     }

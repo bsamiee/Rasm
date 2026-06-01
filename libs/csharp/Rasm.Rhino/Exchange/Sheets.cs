@@ -18,9 +18,7 @@ public abstract partial record FileScale {
     internal Fin<DetailViewObject> Apply(DetailViewObject detail, RhinoDoc document, Op op) =>
         from spec in Resolve(document: document, op: op)
         from parallel in Optional(detail).ToFin(Fail: op.InvalidInput())
-        from _projection in parallel.DetailGeometry is { IsParallelProjection: true }
-            ? Fin.Succ(value: unit)
-            : Fin.Fail<Unit>(error: op.InvalidInput())
+        from _projection in guard(parallel.DetailGeometry is { IsParallelProjection: true }, op.InvalidInput())
         from _ in op.Confirm(success:
             parallel.DetailGeometry.SetScale(modelLength: spec.ModelLength, modelUnits: spec.ModelUnit, pageLength: spec.PageLength, pageUnits: spec.PageUnit)
             && parallel.CommitChanges())
@@ -372,9 +370,9 @@ internal static partial class SheetOps {
         select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Attributes, ids: ordered.Map(static page => page.MainViewport.Id), resources: ordered.Map(static page => DocumentResourceKind.Layout.Change(name: page.PageName)));
 
     private static Fin<Unit> RequireUniqueSheetNames(Seq<string> names, Op op) =>
-        toSeq(names.GroupBy(keySelector: static name => name, comparer: StringComparer.OrdinalIgnoreCase).Where(static row => row.Skip(1).Any())).IsEmpty
-            ? Fin.Succ(value: unit)
-            : Fin.Fail<Unit>(error: op.InvalidInput());
+        guard(
+            toSeq(names.GroupBy(keySelector: static name => name, comparer: StringComparer.OrdinalIgnoreCase).Where(static row => row.Skip(1).Any())).IsEmpty,
+            op.InvalidInput()).ToFin();
 
     private static Fin<DocumentReceipt> AddDetail(RhinoDoc document, string sheetName, FileDetailSpec spec, Op op) =>
         from page in Sheet(document: document, name: sheetName, op: op)
@@ -416,7 +414,7 @@ internal static partial class SheetOps {
     private static Fin<DocumentReceipt> ResizeSheet(RhinoDoc document, string sheetName, Option<FileSheetSize> size, Option<string> description, Op op) =>
         from page in Sheet(document: document, name: sheetName, op: op)
         from resolved in size.Map(value => value.Resize(document: document, op: op)).IfNone(Fin.Succ(value: (Width: Option<double>.None, Height: Option<double>.None)))
-        from requested in resolved.Width.IsSome || resolved.Height.IsSome || description.IsSome ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: op.InvalidInput())
+        from requested in guard(resolved.Width.IsSome || resolved.Height.IsSome || description.IsSome, op.InvalidInput())
         from resized in ApplyPageConfig(page: page, size: resolved, description: description, op: op)
         select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Attributes, ids: Seq(page.MainViewport.Id), kind: DocumentResourceKind.Layout, name: page.PageName);
     private static Fin<DocumentReceipt> ScaleDetail(RhinoDoc document, string sheetName, DetailQuery detail, FileScale scale, Op op) =>

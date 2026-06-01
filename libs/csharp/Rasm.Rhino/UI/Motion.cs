@@ -440,10 +440,10 @@ internal static class Motion {
     private static Fin<Unit> Admit<TValue, TVelocity>(MotionSpec<TValue, TVelocity> spec) =>
         spec.Fold(
             spring: static _ => Fin.Succ(value: unit),
-            tween: static t => t.Duration > TimeSpan.Zero ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Op.Of(name: nameof(Run)).InvalidInput()),
-            pulse: static p => p.Duration > TimeSpan.Zero && (p.Infinite || p.Cycles > 0) ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Op.Of(name: nameof(Run)).InvalidInput()),
-            sequence: static q => q.Steps.ForAll(static step => step.Duration > TimeSpan.Zero) ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Op.Of(name: nameof(Run)).InvalidInput()),
-            decay: static d => double.IsFinite(d.Friction) && d.Friction > 0d ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Op.Of(name: nameof(Run)).InvalidInput()));
+            tween: static t => guard(t.Duration > TimeSpan.Zero, Op.Of(name: nameof(Run)).InvalidInput()).ToFin(),
+            pulse: static p => guard(p.Duration > TimeSpan.Zero && (p.Infinite || p.Cycles > 0), Op.Of(name: nameof(Run)).InvalidInput()).ToFin(),
+            sequence: static q => guard(q.Steps.ForAll(static step => step.Duration > TimeSpan.Zero), Op.Of(name: nameof(Run)).InvalidInput()).ToFin(),
+            decay: static d => guard(double.IsFinite(d.Friction) && d.Friction > 0d, Op.Of(name: nameof(Run)).InvalidInput()).ToFin());
 
     private static bool ReduceMotion =>
         OperatingSystem.IsMacOSVersionAtLeast(major: 14) && ShouldReduceMotion();
@@ -660,9 +660,7 @@ internal static class Motion {
         internal Fin<Unit> Wake() =>
             attach is { } restart && Interlocked.CompareExchange(ref state, 1, 0) == 0
                 ? restart(arg: this).BiBind(
-                    Succ: _ => Volatile.Read(ref state) == 2
-                        ? Fin.Fail<Unit>(error: Op.Of(name: nameof(Wake)).InvalidResult())
-                        : Fin.Succ(value: unit),
+                    Succ: _ => guard(Volatile.Read(ref state) != 2, Op.Of(name: nameof(Wake)).InvalidResult()).ToFin(),
                     Fail: error => {
                         _ = Interlocked.CompareExchange(ref state, 0, 1);
                         return Fin.Fail<Unit>(error: error);

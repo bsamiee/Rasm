@@ -294,7 +294,7 @@ public static class FileOp {
     private static Fin<FileReport> OpenCore(FileEndpoint source, FileProfile profile) =>
         from endpoint in source.Input(op: Op.Of(name: nameof(FileExchange.Open)))
         from format in FileFormat.Require(endpoint: endpoint, profile: profile, phase: FilePhase.Open, op: Op.Of(name: nameof(FileExchange.Open)))
-        from _ in format == FileFormat.ThreeDm ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Op.Of(name: nameof(FileExchange.Open)).InvalidInput())
+        from _ in guard(format == FileFormat.ThreeDm, Op.Of(name: nameof(FileExchange.Open)).InvalidInput())
         from report in Op.Of(name: nameof(FileExchange.Open)).Catch(() => {
             RhinoDoc? opened = RhinoDoc.Open(filePath: endpoint.Path, wasAlreadyOpen: out bool wasAlreadyOpen);
             return Optional(opened)
@@ -399,9 +399,7 @@ public static class FileOp {
         };
     private static Fin<T> InSnapshot<T>(RhinoDoc document, string snapshotName, Op op, Func<Fin<T>> body) =>
         from target in FileEndpoint.NonBlank(value: snapshotName, op: op)
-        from _exists in toSeq(document.Snapshots.Names).Exists(name => string.Equals(a: name, b: target, comparisonType: StringComparison.Ordinal))
-            ? Fin.Succ(value: unit)
-            : Fin.Fail<Unit>(error: op.InvalidInput())
+        from _exists in guard(toSeq(document.Snapshots.Names).Exists(name => string.Equals(a: name, b: target, comparisonType: StringComparison.Ordinal)), op.InvalidInput())
         let sentinel = $"__rasm_publish_{Guid.NewGuid():N}"
         from _saved in SnapshotScript(serial: document.RuntimeSerialNumber, verb: "_Save", name: sentinel, op: op)
         from result in op.Catch(() => {
@@ -492,9 +490,7 @@ public static class FileOp {
                                 ignoreGripsState: true,
                                 ignoreLayerLocking: false,
                                 ignoreLayerVisibility: false);
-                            return count == item.Ids.Count
-                                ? Fin.Succ(value: unit)
-                                : Fin.Fail<Unit>(error: op.InvalidResult());
+                            return guard(count == item.Ids.Count, op.InvalidResult()).ToFin();
                         })).As().Map(static _ => unit));
             }
             return exported.Bind(receipt => restored.Map(_ => receipt));

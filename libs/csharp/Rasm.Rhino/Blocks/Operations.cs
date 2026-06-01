@@ -292,7 +292,7 @@ internal static partial class Operations {
     }
 
     private static Fin<Unit> ConfirmNative(Op key, string step, bool success) =>
-        success ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: key.InvalidResult(detail: step));
+        guard(success, key.InvalidResult(detail: step)).ToFin();
     private static int AddLinkPlaceholder(InstanceDefinitionTable table, string name) =>
         table.Add(
             name: name,
@@ -917,9 +917,7 @@ internal static partial class Operations {
 
     private static Fin<DocumentResourceChange> ApplyLinkedLayerStyle(RhinoBlocks owner, InstanceDefinition definition, LayerStyle style, Op key) =>
         Fin.Succ(value: UpdatePolicy.FromNative(native: definition.UpdateType))
-            .Bind(policy => style.AppliesTo(policy: policy)
-                ? Fin.Succ(value: unit)
-                : Fin.Fail<Unit>(error: key.InvalidInput()))
+            .Bind(policy => guard(style.AppliesTo(policy: policy), key.InvalidInput()).ToFin())
             .Bind(_ =>
             key.Catch(() => {
                 definition.LayerStyle = style.Native;
@@ -1279,7 +1277,7 @@ internal static partial class Operations {
     private static Fin<BlockOutcome> PerformBounds(RhinoBlocks owner, DefinitionRef refer, BoundsPolicy policy, Op key) =>
         from live in FindDefinition(table: owner.Document.InstanceDefinitions, refer: refer, includeDeleted: false, key: key)
         let box = policy.Union(live: live)
-        from _ in box.IsValid ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: key.InvalidResult(detail: nameof(BoundingBox)))
+        from _ in guard(box.IsValid, key.InvalidResult(detail: nameof(BoundingBox)))
         select (BlockOutcome)new BlockOutcome.Bounds(Value: box);
 
     private static Fin<BlockOutcome> PerformAdoptContent(RhinoBlocks owner, Op key) =>

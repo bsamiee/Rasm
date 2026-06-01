@@ -226,7 +226,7 @@ public readonly record struct SdfMeshPolicy(SdfMeshMethod Method, SdfSignConvent
                from __ in guard(interp.Equals(VolumeInterpolation.Trilinear) && boundary.Equals(VolumeBoundaryCondition.NeumannGaugePinned) && heat.IsValid && solver.IsValid, key.InvalidInput())
                from ___ in active.Equals(SdfMeshMethod.ClosedSurfaceSignedHeat)
                    ? grid.Filter(static policy => policy.IsValid).ToFin(key.InvalidInput()).Map(static _ => unit)
-                   : grid.IsNone ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
+                   : guard(grid.IsNone, key.InvalidInput()).ToFin()
                select self;
     }
     private static Fin<SdfMeshPolicy> Defaults(SdfMeshMethod method, SdfSignConvention? signConvention, Option<VolumeGridPolicy> grid, Op key, SignedHeatTime? heat = null, VolumeSolverPolicy? solver = null, VolumeInterpolation? interpolation = null, VolumeBoundaryCondition? boundaryCondition = null) =>
@@ -1304,23 +1304,21 @@ internal static class FieldNabla {
         where T : class =>
         Optional(value).ToFin(error);
     internal static Fin<Unit> CountAtLeast(int count, int minimum, Op key) =>
-        count >= minimum ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+        guard(count >= minimum, key.InvalidInput()).ToFin();
     internal static Fin<Unit> SameCount(int expected, Op key, params int[] counts) =>
-        counts.All(count => count == expected) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+        guard(counts.All(count => count == expected), key.InvalidInput()).ToFin();
     internal static Fin<Unit> AllFinite(Arr<double> values, Op key) =>
-        values.ForAll(RhinoMath.IsValidDouble) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+        guard(values.ForAll(RhinoMath.IsValidDouble), key.InvalidInput()).ToFin();
     internal static Fin<Unit> AllFinite(Seq<Point3d> points, Op key) =>
-        points.ForAll(static point => Finite(point: point)) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+        guard(points.ForAll(static point => Finite(point: point)), key.InvalidInput()).ToFin();
     internal static Fin<Unit> PositiveFiniteWeights(double[] weights, int count, Op key) =>
-        weights.Length == count && weights.All(static weight => RhinoMath.IsValidDouble(x: weight) && weight > 0.0)
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(key.InvalidInput());
+        guard(weights.Length == count && weights.All(static weight => RhinoMath.IsValidDouble(x: weight) && weight > 0.0), key.InvalidInput()).ToFin();
     internal static Fin<Unit> Finite(double value, Op key) =>
-        RhinoMath.IsValidDouble(x: value) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+        guard(RhinoMath.IsValidDouble(x: value), key.InvalidInput()).ToFin();
     internal static Fin<Unit> Finite(Point3d point, Op key) =>
-        Finite(point: point) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+        guard(Finite(point: point), key.InvalidInput()).ToFin();
     internal static Fin<Unit> Finite(Vector3d vector, Op key) =>
-        Finite(vector: vector) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+        guard(Finite(vector: vector), key.InvalidInput()).ToFin();
     internal static Fin<double> NonnegativeFinite(double value, Op key) =>
         RhinoMath.IsValidDouble(x: value) && value >= 0.0 ? Fin.Succ(value) : Fin.Fail<double>(key.InvalidInput());
     internal static Fin<TResult> WithPositive<TResult>(double candidate, Func<PositiveMagnitude, TResult> make, Op? key) =>
@@ -1334,11 +1332,11 @@ internal static class FieldNabla {
     internal static Fin<TResult> WithDivisor<TResult>(double divisor, Func<double, TResult> make, Op? key) =>
         Math.Abs(value: divisor) > RhinoMath.ZeroTolerance ? Fin.Succ(make(arg: 1.0 / divisor)) : Fin.Fail<TResult>(key.OrDefault().InvalidInput());
     internal static Fin<Unit> KernelInput(double distance, double radius, Op key) =>
-        RhinoMath.IsValidDouble(x: distance) && RhinoMath.IsValidDouble(x: radius) && distance >= 0.0 && radius > RhinoMath.ZeroTolerance ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+        guard(RhinoMath.IsValidDouble(x: distance) && RhinoMath.IsValidDouble(x: radius) && distance >= 0.0 && radius > RhinoMath.ZeroTolerance, key.InvalidInput()).ToFin();
     internal static Fin<Unit> FalloffInput(double distance, double distanceSquared, double tolerance, Op key) =>
-        RhinoMath.IsValidDouble(x: distance) && RhinoMath.IsValidDouble(x: distanceSquared) && RhinoMath.IsValidDouble(x: tolerance) && distance >= 0.0 && distanceSquared >= 0.0 && tolerance >= 0.0 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+        guard(RhinoMath.IsValidDouble(x: distance) && RhinoMath.IsValidDouble(x: distanceSquared) && RhinoMath.IsValidDouble(x: tolerance) && distance >= 0.0 && distanceSquared >= 0.0 && tolerance >= 0.0, key.InvalidInput()).ToFin();
     internal static Fin<Unit> NoiseInput(int octaves, double persistence, double lacunarity, double frequency, Op key) =>
-        octaves is >= 1 and <= 32 && RhinoMath.IsValidDouble(x: frequency) && frequency > 0.0 && RhinoMath.IsValidDouble(x: persistence) && persistence is > 0.0 and <= 1.0 && RhinoMath.IsValidDouble(x: lacunarity) && lacunarity > 1.0 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+        guard(octaves is >= 1 and <= 32 && RhinoMath.IsValidDouble(x: frequency) && frequency > 0.0 && RhinoMath.IsValidDouble(x: persistence) && persistence is > 0.0 and <= 1.0 && RhinoMath.IsValidDouble(x: lacunarity) && lacunarity > 1.0, key.InvalidInput()).ToFin();
     internal static Fin<Vector3d> NonnegativeExtent(Vector3d extent, Op key) =>
         Finite(vector: extent) && extent.X >= 0.0 && extent.Y >= 0.0 && extent.Z >= 0.0 ? Fin.Succ(extent) : Fin.Fail<Vector3d>(key.InvalidInput());
     internal static Fin<Plane> Plane(Plane basis, Op key) =>
@@ -1357,12 +1355,12 @@ internal static class FieldNabla {
         from apex in Finite(point: value.Apex, key: key)
         from axis in Direction(value: value.Axis, key: key)
         from angle in key.AcceptValidated<VectorAngle>(candidate: value.HalfAngle.Value)
-        from _ in angle.Value <= Math.PI ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
+        from _ in guard(angle.Value <= Math.PI, key.InvalidInput())
         select value;
     internal static Fin<Vector3d> Period(Vector3d period, Op key) =>
         Finite(vector: period) && Math.Abs(value: period.X) > RhinoMath.ZeroTolerance && Math.Abs(value: period.Y) > RhinoMath.ZeroTolerance && Math.Abs(value: period.Z) > RhinoMath.ZeroTolerance ? Fin.Succ(period) : Fin.Fail<Vector3d>(key.InvalidInput());
     internal static Fin<Unit> FiniteRange(double minimum, double maximum, Op key) =>
-        RhinoMath.IsValidDouble(x: minimum) && RhinoMath.IsValidDouble(x: maximum) && minimum <= maximum ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+        guard(RhinoMath.IsValidDouble(x: minimum) && RhinoMath.IsValidDouble(x: maximum) && minimum <= maximum, key.InvalidInput()).ToFin();
     internal static Fin<Seq<(Point3d Position, double Value)>> ReconstructionSamples(Seq<(Point3d Position, double Value)> samples, Op key) =>
         !samples.IsEmpty && samples.ForAll(static sample => Finite(point: sample.Position) && RhinoMath.IsValidDouble(x: sample.Value)) ? Fin.Succ(samples) : Fin.Fail<Seq<(Point3d Position, double Value)>>(key.InvalidInput());
     internal static Fin<Seq<MlsSample>> MlsInput(Seq<MlsSample> samples, Context context, Op key) =>
@@ -1389,7 +1387,7 @@ internal static class FieldNabla {
         })
         select admitted;
     internal static Fin<Unit> IsoSurfaceInput(BoundingBox bounds, int resolution, int maxRootSteps, Op key) =>
-        ScalarField.BoundsAdmitted(bounds: bounds) && resolution >= 2 && maxRootSteps >= 1 ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput());
+        guard(ScalarField.BoundsAdmitted(bounds: bounds) && resolution >= 2 && maxRootSteps >= 1, key.InvalidInput()).ToFin();
     internal static Fin<TResult> WithSourceEpsilon<TSource, TResult>(TSource? source, double epsilon, Func<TSource, PositiveMagnitude, TResult> make, Op? key)
         where TSource : class =>
         from active in Optional(source).ToFin(key.OrDefault().InvalidInput()) from eps in key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: epsilon) select make(active, eps);

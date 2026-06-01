@@ -417,9 +417,31 @@ internal static class SymbolFacts {
         && returnType is INamedTypeSymbol { TypeArguments.Length: 2 } validation
         && validation.TypeArguments[0] is INamedTypeSymbol { Name: "Error" } errorType
         && errorType.ContainingNamespace.ToDisplayString().StartsWith(value: "LanguageExt.Common", comparisonType: StringComparison.Ordinal);
+    internal static bool IsLanguageExtCommonErrorType(ITypeSymbol? type) =>
+        type is INamedTypeSymbol errorType
+        && errorType.Name == "Error"
+        && errorType.ContainingNamespace.ToDisplayString().StartsWith(value: "LanguageExt.Common", comparisonType: StringComparison.Ordinal);
     internal static bool IsLanguageExtValidationType(ITypeSymbol type) =>
         type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Validation`2", TypeArguments.Length: 2 } validation
         && validation.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
+    internal static bool IsLanguageExtFinUnitType(ITypeSymbol? type) =>
+        type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Fin`1", TypeArguments.Length: 1 } fin
+        && fin.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal)
+        && IsLanguageExtUnitType(fin.TypeArguments[0]);
+    internal static bool IsLanguageExtUnitType(ITypeSymbol? type) =>
+        type is INamedTypeSymbol unitType
+        && unitType.Name == "Unit"
+        && unitType.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
+    internal static bool IsLanguageExtUnitValue(IOperation? operation) =>
+        operation switch {
+            IFieldReferenceOperation { Field.Name: "unit", Field.ContainingType.Name: "Prelude" } field =>
+                IsLanguageExtUnitType(field.Type)
+                && field.Field.ContainingType.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal),
+            IPropertyReferenceOperation { Property.Name: "unit", Property.ContainingType.Name: "Prelude" } property =>
+                IsLanguageExtUnitType(property.Type)
+                && property.Property.ContainingType.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal),
+            _ => false,
+        };
     private static readonly HashSet<(string From, string To)> NarrowingCasts = [
         ("Int64", "Int32"), ("Int64", "Int16"), ("Int64", "Byte"), ("Int64", "SByte"),
         ("Int32", "Int16"), ("Int32", "Byte"), ("Int32", "SByte"), ("Double", "Single"),

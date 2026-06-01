@@ -330,9 +330,7 @@ public readonly record struct CaptureRecipe(
         Fin.Succ(value: policy.DecorRewrite.IfNone(static () => static (decor, _) => decor));
 
     private static Fin<Unit> AcceptTransparent(RhinoView view, CaptureDecor decor, Op op) =>
-        view is not RhinoPageView && decor.SupportsTransparentBitmap
-            ? Fin.Succ(value: unit)
-            : Fin.Fail<Unit>(error: op.InvalidInput());
+        guard(view is not RhinoPageView && decor.SupportsTransparentBitmap, op.InvalidInput()).ToFin();
 
     private readonly record struct Policy(
         Option<double> FallbackDpi = default,

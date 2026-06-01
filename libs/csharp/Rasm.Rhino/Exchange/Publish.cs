@@ -331,7 +331,7 @@ public readonly record struct FileRasterSettings(
 
     internal Fin<FileRasterSettings> Validate(FileRasterEncoding encoding, Op op) {
         FileRasterSettings self = this;
-        return from _quality in encoding == FileRasterEncoding.Jpeg && self.JpegQuality is < 0L or > 100L ? Fin.Fail<Unit>(error: op.InvalidInput()) : Fin.Succ(value: unit)
+        return from _quality in guard(encoding != FileRasterEncoding.Jpeg || self.JpegQuality is >= 0L and <= 100L, op.InvalidInput())
                from _depth in (encoding, self.PngDepth.Case) switch {
                    (FileRasterEncoding value, int depth) when value == FileRasterEncoding.Png && depth > 0 => Fin.Succ(value: unit),
                    (FileRasterEncoding value, int) when value == FileRasterEncoding.Png => Fin.Fail<Unit>(error: op.InvalidInput()),
@@ -348,9 +348,7 @@ public readonly record struct FileRasterSettings(
                    FileTiffCompression => Fin.Fail<Unit>(error: op.InvalidInput()),
                    _ => Fin.Succ(value: unit),
                }
-               from _alpha in self.Transparent && !encoding.SupportsAlpha
-                   ? Fin.Fail<Unit>(error: op.InvalidInput())
-                   : Fin.Succ(value: unit)
+               from _alpha in guard(!self.Transparent || encoding.SupportsAlpha, op.InvalidInput())
                select self;
     }
 

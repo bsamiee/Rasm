@@ -368,8 +368,8 @@ public sealed record FileProfile {
             scale: scale.Patch(current: Scale));
 
     internal Fin<Unit> Validate(FilePhase phase, Op op) =>
-        from _group in Group == FileAxis.Stable ? Fin.Fail<Unit>(error: op.InvalidInput()) : Fin.Succ(value: unit)
-        from _order in Order == FileAxis.Document ? Fin.Fail<Unit>(error: op.InvalidInput()) : Fin.Succ(value: unit)
+        from _group in guard(Group != FileAxis.Stable, op.InvalidInput()).ToFin()
+        from _order in guard(Order != FileAxis.Document, op.InvalidInput()).ToFin()
         from _scale in phase == FilePhase.Import || phase == FilePhase.Headless || phase == FilePhase.Export || phase == FilePhase.WriteFile
             ? Scale.Map(value => value.Validate(op: op).Map(static _ => unit)).IfNone(Fin.Succ(value: unit))
             : Fin.Succ(value: unit)
@@ -491,8 +491,8 @@ public readonly record struct FileVectorScale(
     internal Fin<FileVectorScale> Validate(Op op) {
         FileVectorScale self = this;
         return from mode in guard(!(self.Preserve.Case is true && self.HasExplicit), op.InvalidInput())
-               from source in self.Source.Map(value => RhinoMath.IsValidDouble(x: value) && value > 0.0 ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: op.InvalidInput())).IfNone(Fin.Succ(value: unit))
-               from rhino in self.Rhino.Map(value => RhinoMath.IsValidDouble(x: value) && value > 0.0 ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: op.InvalidInput())).IfNone(Fin.Succ(value: unit))
+               from source in self.Source.Map(value => guard(RhinoMath.IsValidDouble(x: value) && value > 0.0, op.InvalidInput()).ToFin()).IfNone(Fin.Succ(value: unit))
+               from rhino in self.Rhino.Map(value => guard(RhinoMath.IsValidDouble(x: value) && value > 0.0, op.InvalidInput()).ToFin()).IfNone(Fin.Succ(value: unit))
                select self;
     }
 

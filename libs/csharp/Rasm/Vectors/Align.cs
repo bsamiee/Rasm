@@ -156,14 +156,14 @@ internal static class AlignKernel {
         from count in FieldNabla.CountAtLeast(count: source.Count, minimum: minimum, key: key).Map(_ => source.Count)
         from same in FieldNabla.SameCount(expected: count, key: key, counts: [target.Length, weights.Length])
         from sourceFinite in FieldNabla.AllFinite(points: source, key: key)
-        from targetFinite in target.All(static point => FieldNabla.Finite(point: point)) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
+        from targetFinite in guard(target.All(static point => FieldNabla.Finite(point: point)), key.InvalidInput())
         from mass in FieldNabla.PositiveFiniteWeights(weights: weights, count: count, key: key)
         select count;
     private static Fin<AlignmentStep> SolveLinearizedRows(Seq<Point3d> source, Point3d[] target, Vector3d[] normals, double[] rowMass, Transform current, Op key, Func<int, Vector3d, (Vector3d Normal, double Weight)> rowNormal) {
         int n = source.Count;
         Fin<int> admitted = from count in AdmitAlignmentRows(source: source, target: target, weights: rowMass, minimum: 6, key: key)
                             from normalCount in FieldNabla.SameCount(expected: count, key: key, counts: [normals.Length])
-                            from finiteNormals in normals.All(static normal => normal.IsValid) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
+                            from finiteNormals in guard(normals.All(static normal => normal.IsValid), key.InvalidInput())
                             select count;
         return admitted.Bind(_ => {
             double[] aFlat = new double[n * 6]; double[] b = new double[n];
@@ -192,7 +192,7 @@ internal static class AlignKernel {
         int n = source.Count;
         Fin<int> admitted = from count in AdmitAlignmentRows(source: source, target: target, weights: rowMass, minimum: 3, key: key)
                             from residualCount in FieldNabla.SameCount(expected: count, key: key, counts: [residuals.Length])
-                            from finiteResiduals in residuals.All(static residual => RhinoMath.IsValidDouble(x: residual)) ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidInput())
+                            from finiteResiduals in guard(residuals.All(static residual => RhinoMath.IsValidDouble(x: residual)), key.InvalidInput())
                             select count;
         return admitted.Bind(_ => {
             double[] weights = new double[n];

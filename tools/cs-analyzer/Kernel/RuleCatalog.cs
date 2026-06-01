@@ -129,6 +129,7 @@ internal static class RuleCatalog {
     internal static readonly DiagnosticDescriptor CSP0736 = Err("CSP0736", "FoldAppendAccumulator", "Fold accumulator appends through '{0}'; prepend with Cons and reverse in projection, or use an owning builder", "FunctionalDiscipline");
     internal static readonly DiagnosticDescriptor CSP0737 = Err("CSP0737", "SamePayloadUnionCases", "Union '{0}' has {1} cases with identical payload shape; collapse to a kind-backed record or SmartEnum-owned behavior", "SurfaceArea");
     internal static readonly DiagnosticDescriptor CSP0738 = Err("CSP0738", "ExclusiveOptionalPayloadBag", "Type '{0}' carries {1} complex Option<T> payload slots and a {2}-slot projection; collapse mutually-exclusive payloads to a closed union and keep supplemental context outside it", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0739 = Err("CSP0739", "GuardableFinUnitConditional", "Boolean Fin<Unit> gate manually constructs success/failure; use guard(condition, error).ToFin() for direct returns or guard in query flow", "FunctionalDiscipline");
 
     // --- [PERFORMANCE_RULES] --------------------------------------------------
 
@@ -218,5 +219,5 @@ internal static class RuleCatalog {
         CSP0710, CSP0711, CSP0712, CSP0713, CSP0714, CSP0715, CSP0717, CSP0718, CSP0719, CSP0720,
         CSP0723, CSP0724, CSP0725, CSP0726, CSP0727, CSP0728, CSP0729,
         CSP0730, CSP0731, CSP0732, CSP0733, CSP0734, CSP0735, CSP0736, CSP0737, CSP0738,
-        CSP0802);
+        CSP0739, CSP0802);
 }

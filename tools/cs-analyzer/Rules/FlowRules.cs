@@ -107,6 +107,11 @@ internal static class FlowRules {
             (true, true) => Diagnostic.Create(RuleCatalog.CSP0706, context.Operation.Syntax.GetLocation()),
             _ => null,
         });
+    internal static void CheckGuardableFinUnitConditional(OperationAnalysisContext context, ScopeInfo scope, IConditionalOperation conditional) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsLanguageExtFinUnitType(conditional.Type), IsGuardableFinUnitGate(conditional), IsConfirmOwner(context.ContainingSymbol)) switch {
+            (true, true, true, false) => Diagnostic.Create(RuleCatalog.CSP0739, context.Operation.Syntax.GetLocation()),
+            _ => null,
+        });
 
     // --- [PRECEDENCE_RULES] ---------------------------------------------------
 
@@ -281,6 +286,35 @@ internal static class FlowRules {
                     && SymbolEqualityComparer.Default.Equals(parameter.Parameter, lambda.Symbol.Parameters[0]),
             _ => operation.Syntax.ToString() is "identity" or "Prelude.identity",
         };
+    private static bool IsGuardableFinUnitGate(IConditionalOperation conditional) {
+        IOperation? whenTrue = UnwrapOperation(conditional.WhenTrue);
+        IOperation? whenFalse = UnwrapOperation(conditional.WhenFalse);
+        return (IsFinUnitSuccess(whenTrue) && IsFinUnitFailure(whenFalse))
+            || (IsFinUnitFailure(whenTrue) && IsFinUnitSuccess(whenFalse));
+    }
+    private static bool IsConfirmOwner(ISymbol? symbol) =>
+        symbol is IMethodSymbol { Name: "Confirm", Parameters.Length: 1 } method
+        && method.Parameters[0].Type.SpecialType == SpecialType.System_Boolean
+        && SymbolFacts.IsLanguageExtFinUnitType(method.ReturnType);
+    private static bool IsFinUnitSuccess(IOperation? operation) =>
+        operation is IInvocationOperation invocation
+        && invocation.TargetMethod.Name == "Succ"
+        && SymbolFacts.IsLanguageExtFinUnitType(invocation.Type)
+        && invocation.Arguments.Length == 1
+        && SymbolFacts.IsLanguageExtUnitValue(UnwrapOperation(invocation.Arguments[0].Value));
+    private static bool IsFinUnitFailure(IOperation? operation) =>
+        operation is IInvocationOperation invocation
+        && invocation.TargetMethod.Name == "Fail"
+        && SymbolFacts.IsLanguageExtFinUnitType(invocation.Type)
+        && invocation.Arguments.Length > 0
+        && SymbolFacts.IsLanguageExtCommonErrorType(UnwrapOperation(invocation.Arguments[0].Value)?.Type)
+        && !HasRichStringConstruction(invocation);
+    private static bool HasRichStringConstruction(IOperation operation) =>
+        operation.DescendantsAndSelf().Any(static node =>
+            node is IInterpolatedStringOperation or IBinaryOperation {
+                OperatorKind: BinaryOperatorKind.Add,
+                Type.SpecialType: SpecialType.System_String,
+            });
     private static bool IsFusibleMapProjection(IInvocationOperation mapCall) {
         bool languageExtMap = mapCall.TargetMethod.Name == "Map"
             && (mapCall.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
