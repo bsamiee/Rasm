@@ -232,6 +232,19 @@ internal static class TypeShapeRules {
         });
     }
 
+    // --- [FORWARDING_REQUEST_CASE_FAMILY] -----------------------------------
+
+    internal static void CheckForwardingRequestCaseFamily(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
+        bool candidate = SymbolFacts.TryForwardingRequestCaseFamily(
+            compilation: context.Compilation,
+            namedType: namedType,
+            facts: out ForwardingRequestCaseFamilyFacts facts);
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, candidate, namedType.Locations.Length) switch {
+            (true, true, > 0) => Diagnostic.Create(RuleCatalog.CSP0741, namedType.Locations[0], namedType.Name, facts.CaseCount),
+            _ => null,
+        });
+    }
+
     // --- [FLAGS_ENUM_OVERUSE] -------------------------------------------------
 
     internal static void TrackFlagsEnumDeclaration(SymbolAnalysisContext context, AnalyzerState state, INamedTypeSymbol namedType) {

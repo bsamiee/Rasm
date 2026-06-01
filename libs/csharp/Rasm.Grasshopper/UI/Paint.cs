@@ -841,17 +841,15 @@ public readonly record struct PaintSkinSnapshot(Option<CanvasSkin> Appearance) {
     public Option<Skin> Skin => Appearance.Map(static a => a.Effective);
 }
 
-public abstract record PaintRequest<T> : GhUiRequest<T> {
-    public sealed record Skin : PaintRequest<PaintSkinSnapshot> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(); internal override Fin<PaintSkinSnapshot> Apply(GrasshopperUi.Scope scope) => Paint.Skin().Run(scope: scope); }
-    public sealed record RedrawOnMouseMove(bool Enabled = true, MotionClock? Clock = null) : PaintRequest<Subscription> { internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Canvas); internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.RedrawOnMouseMove(enabled: Enabled, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope); }
-    public sealed record Hook(CanvasPaintPhase Phase, DrawPlan Plan, MotionClock? Clock = null) : PaintRequest<Subscription> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
-        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.Hook(phase: Phase, paint: Plan.Apply, clock: Clock ?? MotionClock.MessageLoop).Run(scope: scope);
-    }
-    public sealed record FloatingDrawable(DrawPlan Plan, Size Size, Option<string> Title = default) : PaintRequest<Subscription> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
-        internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Paint.FloatingDrawable(plan: Plan, size: Size, title: Title).Run(scope: scope);
-    }
+public sealed record PaintRequest<T> : GhUiRequest<T> { internal PaintRequest(GrasshopperUiPolicy policy, Func<GrasshopperUi.Scope, Fin<T>> run) : base(policy: policy, run: run) { } }
+
+public static class PaintRequest {
+    public static PaintRequest<PaintSkinSnapshot> Skin() => Canvas(run: static scope => Paint.Skin().Run(scope: scope));
+    public static PaintRequest<Subscription> RedrawOnMouseMove(bool enabled = true, MotionClock? clock = null) => new(policy: GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Canvas), run: scope => Paint.RedrawOnMouseMove(enabled: enabled, clock: clock ?? MotionClock.MessageLoop).Run(scope: scope));
+    public static PaintRequest<Subscription> Hook(CanvasPaintPhase phase, DrawPlan plan, MotionClock? clock = null) => Canvas(run: scope => Paint.Hook(phase: phase, paint: plan.Apply, clock: clock ?? MotionClock.MessageLoop).Run(scope: scope));
+    public static PaintRequest<Subscription> FloatingDrawable(DrawPlan plan, Size size, Option<string> title = default) => Canvas(run: scope => Paint.FloatingDrawable(plan: plan, size: size, title: title).Run(scope: scope));
+
+    private static PaintRequest<T> Canvas<T>(Func<GrasshopperUi.Scope, Fin<T>> run) => new(policy: GrasshopperUiPolicy.Canvas(), run: run);
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------

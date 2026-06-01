@@ -729,6 +729,37 @@ public sealed class RuleBehaviorTests {
                 }
             }
             """),
+        new("CSP0741", File(scope: "Domain/Services", type: "ForwardingRequestFamily"), """
+            namespace LanguageExt {
+                public sealed class Fin<T> { }
+            }
+
+            namespace Domain.Services {
+                public sealed class Scope { }
+                public sealed class Intent<T> {
+                    public LanguageExt.Fin<T> Run(Scope scope) => new();
+                }
+                public static class Intent {
+                    public static Intent<T> Select<T>(string name) => new();
+                    public static Intent<T> Pick<T>(string name) => new();
+                    public static Intent<T> Choose<T>(string name) => new();
+                }
+
+                public abstract record ForwardingRequestFamily<T> {
+                    private ForwardingRequestFamily() { }
+                    public abstract LanguageExt.Fin<T> Apply(Scope scope);
+                    public sealed record Select(string Name) : ForwardingRequestFamily<T> {
+                        public override LanguageExt.Fin<T> Apply(Scope scope) => Intent.Select<T>(Name).Run(scope: scope);
+                    }
+                    public sealed record Pick(string Name) : ForwardingRequestFamily<T> {
+                        public override LanguageExt.Fin<T> Apply(Scope scope) => Intent.Pick<T>(Name).Run(scope: scope);
+                    }
+                    public sealed record Choose(string Name) : ForwardingRequestFamily<T> {
+                        public override LanguageExt.Fin<T> Apply(Scope scope) => Intent.Choose<T>(Name).Run(scope: scope);
+                    }
+                }
+            }
+            """),
         new("CSP0802", File(scope: "Domain/Models", type: "UnqualifiedUnionOps"), """
             namespace Thinktecture {
                 public sealed class UnionAttribute : System.Attribute { }
@@ -2181,6 +2212,140 @@ public sealed class RuleBehaviorTests {
                 """).ConfigureAwait(true);
 
         Assert.DoesNotContain(expected: "CSP0740", collection: ids);
+    }
+
+    [Fact]
+    public async Task ForwardingRequestCapsuleDoesNotEmitForwardingRequestCaseFamilyDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/RequestCapsule.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Fin<T> { }
+                }
+
+                namespace Domain.Services {
+                    public sealed class Scope { }
+                    public abstract record Request<T> {
+                        private readonly System.Func<Scope, LanguageExt.Fin<T>>? run;
+                        protected Request() { }
+                        private protected Request(System.Func<Scope, LanguageExt.Fin<T>> run) => this.run = run;
+                        public virtual LanguageExt.Fin<T> Apply(Scope scope) => run!(scope);
+                    }
+                    public sealed record RequestCapsule<T>(System.Func<Scope, LanguageExt.Fin<T>> Run) : Request<T>(Run);
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0741", collection: ids);
+    }
+
+    [Fact]
+    public async Task TwoForwardingRequestCasesDoNotEmitForwardingRequestCaseFamilyDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/TwoForwardingCases.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Fin<T> { }
+                }
+
+                namespace Domain.Services {
+                    public sealed class Scope { }
+                    public sealed class Intent<T> {
+                        public LanguageExt.Fin<T> Run(Scope scope) => new();
+                    }
+                    public static class Intent {
+                        public static Intent<T> First<T>() => new();
+                        public static Intent<T> Second<T>() => new();
+                    }
+                    public abstract record TwoForwardingCases<T> {
+                        public abstract LanguageExt.Fin<T> Apply(Scope scope);
+                        public sealed record First : TwoForwardingCases<T> {
+                            public override LanguageExt.Fin<T> Apply(Scope scope) => Intent.First<T>().Run(scope);
+                        }
+                        public sealed record Second : TwoForwardingCases<T> {
+                            public override LanguageExt.Fin<T> Apply(Scope scope) => Intent.Second<T>().Run(scope);
+                        }
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0741", collection: ids);
+    }
+
+    [Fact]
+    public async Task ValidatingForwardingRequestCaseDoesNotEmitForwardingRequestCaseFamilyDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ValidatingRequestCases.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Fin<T> { }
+                }
+
+                namespace Domain.Services {
+                    public sealed class Scope { }
+                    public sealed class Intent<T> {
+                        public LanguageExt.Fin<T> Run(Scope scope) => new();
+                    }
+                    public static class Intent {
+                        public static Intent<T> First<T>() => new();
+                        public static Intent<T> Second<T>() => new();
+                        public static Intent<T> Third<T>() => new();
+                    }
+                    public abstract record ValidatingRequestCases<T> {
+                        public abstract LanguageExt.Fin<T> Apply(Scope scope);
+                        public sealed record First : ValidatingRequestCases<T> {
+                            public override LanguageExt.Fin<T> Apply(Scope scope) {
+                                _ = scope.GetHashCode();
+                                return Intent.First<T>().Run(scope);
+                            }
+                        }
+                        public sealed record Second : ValidatingRequestCases<T> {
+                            public override LanguageExt.Fin<T> Apply(Scope scope) => Intent.Second<T>().Run(scope);
+                        }
+                        public sealed record Third : ValidatingRequestCases<T> {
+                            public override LanguageExt.Fin<T> Apply(Scope scope) => Intent.Third<T>().Run(scope);
+                        }
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0741", collection: ids);
+    }
+
+    [Fact]
+    public async Task RichScriptedRequestCasesDoNotEmitForwardingRequestCaseFamilyDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ScriptedRequestCases.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Fin<T> { }
+                }
+
+                namespace Domain.Services {
+                    public sealed class Scope { public Scope Rebind(string name) => this; }
+                    public sealed class Intent<T> {
+                        public LanguageExt.Fin<T> Run(Scope scope) => new();
+                    }
+                    public static class Intent {
+                        public static Intent<T> First<T>() => new();
+                        public static Intent<T> Second<T>() => new();
+                        public static Intent<T> Third<T>() => new();
+                    }
+                    public abstract record ScriptedRequestCases<T> {
+                        public abstract LanguageExt.Fin<T> Apply(Scope scope);
+                        public sealed record First(string Name) : ScriptedRequestCases<T> {
+                            public override LanguageExt.Fin<T> Apply(Scope scope) => Intent.First<T>().Run(scope.Rebind(Name));
+                        }
+                        public sealed record Second(string Name) : ScriptedRequestCases<T> {
+                            public override LanguageExt.Fin<T> Apply(Scope scope) => Intent.Second<T>().Run(scope.Rebind(Name));
+                        }
+                        public sealed record Third(string Name) : ScriptedRequestCases<T> {
+                            public override LanguageExt.Fin<T> Apply(Scope scope) => Intent.Third<T>().Run(scope.Rebind(Name));
+                        }
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0741", collection: ids);
     }
 
     public static TheoryData<string, string, string> RuleCases() =>

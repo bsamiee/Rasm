@@ -609,60 +609,38 @@ public readonly record struct CommandPlan(Seq<ToolbarItem> Items) {
         new(Items: toggles.Map(static toggle => ToolbarItem.Toggle(command: toggle.Command, state: toggle.State, changed: toggle.Changed)));
 }
 
-public abstract record InputRequest<T> : GhUiRequest<T> {
-    internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Read;
-
-    public sealed record Selection(InputSelectionSource Source) : InputRequest<InputSelectionSnapshot> { internal override Fin<InputSelectionSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Selection(source: Source).Run(scope: scope); }
-    public sealed record Modifiers(Keys Keys) : InputRequest<InputModifierSnapshot> { internal override Fin<InputModifierSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Modifiers(keys: Keys).Run(scope: scope); }
-    public sealed record ModifierStateCase : InputRequest<InputModifierSnapshot> { internal override Fin<InputModifierSnapshot> Apply(GrasshopperUi.Scope scope) => Input.ModifierState().Run(scope: scope); }
-    public sealed record PointerStateCase : InputRequest<PointerSnapshot> { internal override Fin<PointerSnapshot> Apply(GrasshopperUi.Scope scope) => Input.PointerState().Run(scope: scope); }
-    public sealed record Panel(Func<InputPanel, Fin<Unit>> Populate) : InputRequest<InputPanelSnapshot> { internal override Fin<InputPanelSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Panel(populate: Populate).Run(scope: scope); }
-    public sealed record Popup(Control Owner, PointF Location, RectangleF Screen, Func<InputPanel, Fin<Unit>> Populate) : InputRequest<Subscription> { internal override Fin<Subscription> Apply(GrasshopperUi.Scope scope) => Input.PopupPanel(owner: Owner, location: Location, screen: Screen, populate: Populate).Run(scope: scope); }
-    public sealed record CommandBar(CommandPlan Plan) : InputRequest<ToolbarSnapshot> { internal override Fin<ToolbarSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Toolbar(plan: Plan).Run(scope: scope); }
-    public sealed record CommandPanel(CommandPlan Plan) : InputRequest<InputPanelSnapshot> { internal override Fin<InputPanelSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Panel(plan: Plan).Run(scope: scope); }
-    public sealed record MenuShow(CommandPlan Plan, Control Owner, PointF Location) : InputRequest<MenuSnapshot> { internal override Fin<MenuSnapshot> Apply(GrasshopperUi.Scope scope) => Input.ShowMenu(plan: Plan, owner: Owner, location: Location).Run(scope: scope); }
-    public sealed record Cursor(CursorKind Kind) : InputRequest<CursorKind> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
-        internal override Fin<CursorKind> Apply(GrasshopperUi.Scope scope) => Input.Cursor(kind: Kind).Run(scope: scope);
-    }
-    // RAII cursor; dispose the returned IDisposable to restore the canvas's prior Cursor.
-    public sealed record CursorScope(CursorKind Kind) : InputRequest<IDisposable> {
-        internal override GrasshopperUiPolicy Policy => GrasshopperUiPolicy.Canvas();
-        internal override Fin<IDisposable> Apply(GrasshopperUi.Scope scope) => Input.CursorScope(kind: Kind).Run(scope: scope);
-    }
-    public sealed record Message(string Title, string Body, MessageBoxType Kind = MessageBoxType.Information, MessageBoxButtons Buttons = MessageBoxButtons.OK, MessageBoxDefaultButton Default = MessageBoxDefaultButton.Default) : InputRequest<DialogResult> { internal override Fin<DialogResult> Apply(GrasshopperUi.Scope scope) => Input.MessageDialog(title: Title, message: Body, kind: Kind, buttons: Buttons, defaultButton: Default).Run(scope: scope); }
-    public sealed record File(PathDialogSpec Spec) : InputRequest<PathDialogSnapshot> { internal override Fin<PathDialogSnapshot> Apply(GrasshopperUi.Scope scope) => Input.FileDialog(spec: Spec).Run(scope: scope); }
-    public sealed record Clipboard(InputClipboardOp Op) : InputRequest<InputClipboardSnapshot> { internal override Fin<InputClipboardSnapshot> Apply(GrasshopperUi.Scope scope) => Input.Clipboard(op: Op).Run(scope: scope); }
-    // Typed modal dialog. The Configure delegate is responsible for installing widgets, wiring
-    // a confirmation Button that invokes dialog.Close(result), and returning Fin.Succ once setup
-    // is complete. macOS: DisplayMode.Attached presents as a sheet on the parent window.
-    public sealed record Dialog<TResult>(Func<Eto.Forms.Dialog<Option<TResult>>, Fin<Unit>> Configure, string Title = "", Option<DialogPresentation> Presentation = default) : InputRequest<Option<TResult>> {
-        internal override Fin<Option<TResult>> Apply(GrasshopperUi.Scope scope) => Input.Dialog(configure: Configure, title: Title, presentation: Presentation).Run(scope: scope);
-    }
-    public sealed record PickColor(Color Initial, bool AllowAlpha = true) : InputRequest<Option<Color>> { internal override Fin<Option<Color>> Apply(GrasshopperUi.Scope scope) => Input.PickColor(initial: Initial, allowAlpha: AllowAlpha).Run(scope: scope); }
-    public sealed record PickFont(Option<Font> Initial = default) : InputRequest<Option<Font>> { internal override Fin<Option<Font>> Apply(GrasshopperUi.Scope scope) => Input.PickFont(initial: Initial).Run(scope: scope); }
-    public sealed record Notify(string Title, string Body, Option<Image> ContentImage = default, bool TrayIndicator = false) : InputRequest<Unit> { internal override Fin<Unit> Apply(GrasshopperUi.Scope scope) => Input.Notify(title: Title, message: Body, contentImage: ContentImage, trayIndicator: TrayIndicator).Run(scope: scope); }
-    // Single-field prompts via Rhino.UI.Dialogs — denser than an Eto Dialog<T> for one value; kept as two
-    // cases because the return domains differ (string vs double).
-    public sealed record EditPrompt(string Title, string Body, string Default = "", bool Multiline = false) : InputRequest<Option<string>> { internal override Fin<Option<string>> Apply(GrasshopperUi.Scope scope) => Input.EditPrompt(title: Title, message: Body, defaultText: Default, multiline: Multiline).Run(scope: scope); }
-    public sealed record NumberPrompt(string Title, string Body, double Default = 0d, UiNumberRange Range = default) : InputRequest<Option<double>> { internal override Fin<Option<double>> Apply(GrasshopperUi.Scope scope) => Input.NumberPrompt(title: Title, message: Body, initial: Default, range: Range).Run(scope: scope); }
-}
+public sealed record InputRequest<T> : GhUiRequest<T> { internal InputRequest(GrasshopperUiPolicy policy, Func<GrasshopperUi.Scope, Fin<T>> run) : base(policy: policy, run: run) { } }
 
 public static class InputRequest {
-    public static InputRequest<Option<TResult>> Form<TResult>(FormPlan<TResult> plan) => new FormRequest<TResult>(Plan: plan);
-    public static InputRequest<TransferPayload> Transfer(InputTransferOp op) => new TransferRequest(Op: op);
-}
+    public static InputRequest<InputSelectionSnapshot> Selection(InputSelectionSource source) => Read(run: scope => Input.Selection(source: source).Run(scope: scope));
+    public static InputRequest<InputModifierSnapshot> Modifiers(Keys keys) => Read(run: scope => Input.Modifiers(keys: keys).Run(scope: scope));
+    public static InputRequest<InputModifierSnapshot> ModifierState() => Read(run: static scope => Input.ModifierState().Run(scope: scope));
+    public static InputRequest<PointerSnapshot> PointerState() => Read(run: static scope => Input.PointerState().Run(scope: scope));
+    public static InputRequest<InputPanelSnapshot> Panel(Func<InputPanel, Fin<Unit>> populate) => Read(run: scope => Input.Panel(populate: populate).Run(scope: scope));
+    public static InputRequest<Subscription> Popup(Control owner, PointF location, RectangleF screen, Func<InputPanel, Fin<Unit>> populate) => Read(run: scope => Input.PopupPanel(owner: owner, location: location, screen: screen, populate: populate).Run(scope: scope));
+    public static InputRequest<ToolbarSnapshot> CommandBar(CommandPlan plan) => Read(run: scope => Input.Toolbar(plan: plan).Run(scope: scope));
+    public static InputRequest<InputPanelSnapshot> CommandPanel(CommandPlan plan) => Read(run: scope => Input.Panel(plan: plan).Run(scope: scope));
+    public static InputRequest<MenuSnapshot> MenuShow(CommandPlan plan, Control owner, PointF location) => Read(run: scope => Input.ShowMenu(plan: plan, owner: owner, location: location).Run(scope: scope));
+    public static InputRequest<CursorKind> Cursor(CursorKind kind) => Of(policy: GrasshopperUiPolicy.Canvas(), run: scope => Input.Cursor(kind: kind).Run(scope: scope));
+    public static InputRequest<IDisposable> CursorScope(CursorKind kind) => Of(policy: GrasshopperUiPolicy.Canvas(), run: scope => Input.CursorScope(kind: kind).Run(scope: scope));
+    public static InputRequest<DialogResult> Message(string title, string body, MessageBoxType kind = MessageBoxType.Information, MessageBoxButtons buttons = MessageBoxButtons.OK, MessageBoxDefaultButton @default = MessageBoxDefaultButton.Default) => Read(run: scope => Input.MessageDialog(title: title, message: body, kind: kind, buttons: buttons, defaultButton: @default).Run(scope: scope));
+    public static InputRequest<PathDialogSnapshot> File(PathDialogSpec spec) => Read(run: scope => Input.FileDialog(spec: spec).Run(scope: scope));
+    public static InputRequest<InputClipboardSnapshot> Clipboard(InputClipboardOp op) => Read(run: scope => Input.Clipboard(op: op).Run(scope: scope));
+    public static InputRequest<Option<TResult>> Dialog<TResult>(Func<Eto.Forms.Dialog<Option<TResult>>, Fin<Unit>> configure, string title = "", Option<DialogPresentation> presentation = default) => Read(run: scope => Input.Dialog(configure: configure, title: title, presentation: presentation).Run(scope: scope));
+    public static InputRequest<Option<Color>> PickColor(Color initial, bool allowAlpha = true) => Read(run: scope => Input.PickColor(initial: initial, allowAlpha: allowAlpha).Run(scope: scope));
+    public static InputRequest<Option<Font>> PickFont(Option<Font> initial = default) => Read(run: scope => Input.PickFont(initial: initial).Run(scope: scope));
+    public static InputRequest<Unit> Notify(string title, string body, Option<Image> contentImage = default, bool trayIndicator = false) => Read(run: scope => Input.Notify(title: title, message: body, contentImage: contentImage, trayIndicator: trayIndicator).Run(scope: scope));
+    public static InputRequest<Option<string>> EditPrompt(string title, string body, string @default = "", bool multiline = false) => Read(run: scope => Input.EditPrompt(title: title, message: body, defaultText: @default, multiline: multiline).Run(scope: scope));
+    public static InputRequest<Option<double>> NumberPrompt(string title, string body, double @default = 0d, UiNumberRange range = default) => Read(run: scope => Input.NumberPrompt(title: title, message: body, initial: @default, range: range).Run(scope: scope));
+    public static InputRequest<Option<TResult>> Form<TResult>(FormPlan<TResult> plan) => Read(run: scope => Input.Form(plan: plan).Run(scope: scope));
+    public static InputRequest<TransferPayload> Transfer(InputTransferOp op) => Read(run: scope => Input.Transfer(op: op).Run(scope: scope));
 
-internal sealed record FormRequest<TResult>(FormPlan<TResult> Plan) : InputRequest<Option<TResult>> {
-    internal override Fin<Option<TResult>> Apply(GrasshopperUi.Scope scope) => Input.Form(plan: Plan).Run(scope: scope);
-}
-
-internal sealed record TransferRequest(InputTransferOp Op) : InputRequest<TransferPayload> {
-    internal override Fin<TransferPayload> Apply(GrasshopperUi.Scope scope) => Input.Transfer(op: Op).Run(scope: scope);
+    private static InputRequest<T> Read<T>(Func<GrasshopperUi.Scope, Fin<T>> run) => Of(policy: GrasshopperUiPolicy.Read, run: run);
+    private static InputRequest<T> Of<T>(GrasshopperUiPolicy policy, Func<GrasshopperUi.Scope, Fin<T>> run) => new(policy: policy, run: run);
 }
 
 // Scope-restoring cursor capsule; disposing reinstates the canvas's prior Cursor. Use via
-// `using IDisposable _ = await GhUi.Input(new InputRequest<...>.CursorScope(...)).Use(...);`
+// `using IDisposable _ = await GhUi.Input(InputRequest.CursorScope(...)).Use(...);`
 // or directly through `Input.CursorScope(kind)` when the surrounding scope is already typed.
 internal sealed class ScopedCursor(Grasshopper2.UI.Canvas.Canvas target, Cursor previous, IDisposable? busy = null) : IDisposable {
     // BOUNDARY ADAPTER — restore the canvas cursor and release any engaged busy-spinner exactly once.

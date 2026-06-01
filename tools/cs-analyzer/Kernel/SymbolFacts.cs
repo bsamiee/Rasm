@@ -79,6 +79,12 @@ internal readonly struct ManualClosedUnionOverrideFacts {
     internal int OverrideCount { get; }
 }
 
+internal readonly struct ForwardingRequestCaseFamilyFacts {
+    internal ForwardingRequestCaseFamilyFacts(int caseCount) => CaseCount = caseCount;
+
+    internal int CaseCount { get; }
+}
+
 // --- [MARKERS] ---------------------------------------------------------------
 
 internal static class Markers {
@@ -438,6 +444,9 @@ internal static class SymbolFacts {
         type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Fin`1", TypeArguments.Length: 1 } fin
         && fin.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal)
         && IsLanguageExtUnitType(fin.TypeArguments[0]);
+    internal static bool IsLanguageExtFinType(ITypeSymbol? type) =>
+        type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Fin`1", TypeArguments.Length: 1 } fin
+        && fin.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
     internal static bool IsLanguageExtUnitType(ITypeSymbol? type) =>
         type is INamedTypeSymbol unitType
         && unitType.Name == "Unit"
@@ -587,6 +596,38 @@ internal static class SymbolFacts {
             overrideCount: nestedCases.Length * dispatchMembers.Length);
         return true;
     }
+    internal static bool TryForwardingRequestCaseFamily(Compilation compilation, INamedTypeSymbol namedType, out ForwardingRequestCaseFamilyFacts facts) {
+        facts = default;
+        ImmutableArray<INamedTypeSymbol> nestedCases = [
+            .. namedType.GetTypeMembers()
+                .Where(caseType => IsForwardingRequestCase(baseType: namedType, caseType: caseType)),
+        ];
+        if (namedType is not { TypeKind: TypeKind.Class, IsAbstract: true, IsGenericType: true }
+            || HasThinktectureGeneratedDispatch(namedType)
+            || nestedCases.Length < 3) {
+            return false;
+        }
+        ImmutableArray<IMethodSymbol> abstractMethods = [
+            .. namedType.GetMembers()
+                .OfType<IMethodSymbol>()
+                .Where(static method => method is {
+                    IsStatic: false,
+                    IsAbstract: true,
+                    MethodKind: MethodKind.Ordinary,
+                    Parameters.Length: 1,
+                })
+                .Where(method => IsLanguageExtFinType(method.ReturnType)),
+        ];
+        bool forwards = abstractMethods.Any(method => nestedCases.All(caseType =>
+            MatchingOverride(caseType: caseType, baseMember: method) is IMethodSymbol overrideMethod
+            && IsTerminalRunForwarder(compilation: compilation, method: overrideMethod)
+            && HasNoExtraForwardingCaseBehavior(caseType: caseType, dispatchMethod: method)));
+        if (!forwards) {
+            return false;
+        }
+        facts = new ForwardingRequestCaseFamilyFacts(caseCount: nestedCases.Length);
+        return true;
+    }
     internal static bool IsLanguageExtInvocation(IInvocationOperation invocation, params string[] names) =>
         names.Contains(invocation.TargetMethod.Name, StringComparer.Ordinal)
         && (invocation.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString() ?? string.Empty)
@@ -665,6 +706,10 @@ internal static class SymbolFacts {
         caseType is { TypeKind: TypeKind.Class, IsRecord: true, IsSealed: true, IsGenericType: false }
         && caseType.BaseType is INamedTypeSymbol parent
         && SymbolEqualityComparer.Default.Equals(parent.OriginalDefinition, baseType.OriginalDefinition);
+    private static bool IsForwardingRequestCase(INamedTypeSymbol baseType, INamedTypeSymbol caseType) =>
+        caseType is { TypeKind: TypeKind.Class, IsSealed: true }
+        && caseType.BaseType is INamedTypeSymbol parent
+        && SymbolEqualityComparer.Default.Equals(parent.OriginalDefinition, baseType.OriginalDefinition);
     private static IEnumerable<ISymbol> ManualDispatchMembers(INamedTypeSymbol namedType) =>
         namedType.GetMembers()
             .Where(static member => member switch {
@@ -708,6 +753,26 @@ internal static class SymbolFacts {
             IMethodSymbol { Name: "Deconstruct" or "PrintMembers" } => true,
             _ => false,
         };
+    private static bool HasNoExtraForwardingCaseBehavior(INamedTypeSymbol caseType, IMethodSymbol dispatchMethod) =>
+        caseType.GetMembers()
+            .Where(static member => !member.IsImplicitlyDeclared)
+            .All(member => IsAllowedForwardingCaseMember(member: member, parameters: PrimaryConstructor(caseType)?.Parameters ?? [], dispatchMethod: dispatchMethod));
+    private static bool IsAllowedForwardingCaseMember(ISymbol member, ImmutableArray<IParameterSymbol> parameters, IMethodSymbol dispatchMethod) =>
+        member switch {
+            IFieldSymbol { AssociatedSymbol: IPropertySymbol property } => IsAllowedForwardingCaseMember(member: property, parameters: parameters, dispatchMethod: dispatchMethod),
+            IPropertySymbol { Name: "EqualityContract" } => true,
+            IPropertySymbol property when property.IsOverride => IsSimpleDispatchOverride(property),
+            IPropertySymbol property => parameters.Any(parameter =>
+                string.Equals(a: parameter.Name, b: property.Name, comparisonType: StringComparison.OrdinalIgnoreCase)
+                && SymbolEqualityComparer.Default.Equals(parameter.Type, property.Type)),
+            IMethodSymbol { MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet } method => method.AssociatedSymbol is IPropertySymbol property
+                && IsAllowedForwardingCaseMember(member: property, parameters: parameters, dispatchMethod: dispatchMethod),
+            IMethodSymbol { MethodKind: MethodKind.Constructor } => true,
+            IMethodSymbol method when SymbolEqualityComparer.Default.Equals(method.OverriddenMethod?.OriginalDefinition, dispatchMethod.OriginalDefinition)
+                => IsSimpleDispatchOverride(method),
+            IMethodSymbol { Name: "Deconstruct" or "PrintMembers" } => true,
+            _ => false,
+        };
     private static ISymbol? MatchingBaseMember(ImmutableArray<ISymbol> dispatchMembers, ISymbol overrideMember) =>
         overrideMember switch {
             IPropertySymbol property => dispatchMembers
@@ -724,6 +789,30 @@ internal static class SymbolFacts {
             PropertyDeclarationSyntax property => SimpleDispatchProperty(property),
             _ => false,
         });
+    private static bool IsTerminalRunForwarder(Compilation compilation, IMethodSymbol method) =>
+        method.Parameters.Length == 1
+        && method.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() is MethodDeclarationSyntax syntax
+            && SingleReturnExpression(method: syntax) is ExpressionSyntax expression
+            && compilation.GetSemanticModel(syntax.SyntaxTree).GetOperation(expression) is IOperation operation
+            && IsTerminalRunForwarder(operation: operation, parameter: method.Parameters[0]));
+    private static ExpressionSyntax? SingleReturnExpression(MethodDeclarationSyntax method) =>
+        method.ExpressionBody?.Expression switch {
+            ExpressionSyntax expression => expression,
+            _ => method.Body is { Statements.Count: 1 }
+                && method.Body.Statements[0] is ReturnStatementSyntax { Expression: ExpressionSyntax returned }
+                    ? returned
+                    : null,
+        };
+    private static bool IsTerminalRunForwarder(IOperation operation, IParameterSymbol parameter) =>
+        UnwrapReceiver(operation) is IInvocationOperation invocation
+        && invocation.TargetMethod.Name == "Run"
+        && invocation.Arguments.Any(argument => IsSameParameterReference(operation: argument.Value, parameter: parameter))
+        && UnwrapReceiver(ExtractReceiver(invocation)) is IInvocationOperation;
+    private static bool IsSameParameterReference(IOperation operation, IParameterSymbol parameter) =>
+        UnwrapReceiver(operation) switch {
+            IParameterReferenceOperation parameterReference => SymbolEqualityComparer.Default.Equals(parameterReference.Parameter, parameter),
+            _ => false,
+        };
     private static bool SimpleDispatchMethod(MethodDeclarationSyntax method) =>
         method.ExpressionBody?.Expression is ExpressionSyntax expression
             ? IsSimpleProjectionOrDispatchExpression(expression)

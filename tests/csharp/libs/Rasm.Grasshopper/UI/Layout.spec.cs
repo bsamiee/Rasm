@@ -96,10 +96,12 @@ public sealed class LayoutArrangementLaws {
 
     [Fact]
     public void DistributeStretchAndFixedSelectDistinctPolicies() {
-        LayoutArrangement.DistributeCase stretch = Assert.IsType<LayoutArrangement.DistributeCase>(
+        LayoutArrangement.ChainCase stretch = Assert.IsType<LayoutArrangement.ChainCase>(
             @object: LayoutArrangement.Distribute(axis: LayoutAxis.Horizontal, gap: LayoutGap.Create(value: 8f), ids: Quad));
-        LayoutArrangement.DistributeCase @fixed = Assert.IsType<LayoutArrangement.DistributeCase>(
+        LayoutArrangement.ChainCase @fixed = Assert.IsType<LayoutArrangement.ChainCase>(
             @object: LayoutArrangement.Distribute(axis: LayoutAxis.Vertical, gap: LayoutGap.Create(value: 8f), ids: Quad, gapPolicy: LayoutGapPolicy.Fixed));
+        Assert.Equal(expected: LayoutChainKind.Distribute, actual: stretch.Kind);
+        Assert.Equal(expected: LayoutChainKind.Distribute, actual: @fixed.Kind);
         Assert.Same(expected: LayoutGapPolicy.Stretch, actual: stretch.GapPolicy);
         Assert.Same(expected: LayoutGapPolicy.Fixed, actual: @fixed.GapPolicy);
         Assert.Same(expected: LayoutAxis.Horizontal, actual: stretch.Axis);
@@ -124,8 +126,9 @@ public sealed class LayoutArrangementLaws {
 
     [Fact]
     public void FlowDefaultsToStretchPolicyAndPreservesCausalIds() {
-        LayoutArrangement.FlowCase flow = Assert.IsType<LayoutArrangement.FlowCase>(
+        LayoutArrangement.ChainCase flow = Assert.IsType<LayoutArrangement.ChainCase>(
             @object: LayoutArrangement.Flow(axis: LayoutAxis.Horizontal, gap: LayoutGap.Create(value: 2f), ids: Quad));
+        Assert.Equal(expected: LayoutChainKind.Flow, actual: flow.Kind);
         Assert.Same(expected: LayoutGapPolicy.Stretch, actual: flow.GapPolicy);
         Assert.Equal(expected: Quad, actual: flow.Ids);
         Assert.Same(expected: LayoutAxis.Horizontal, actual: flow.Axis);

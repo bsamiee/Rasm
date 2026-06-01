@@ -299,8 +299,18 @@ public sealed record GrasshopperUiIntent<T> {
 }
 
 public abstract record GhUiRequest<T> {
-    internal abstract GrasshopperUiPolicy Policy { get; }
-    internal abstract Fin<T> Apply(GrasshopperUi.Scope scope);
+    private readonly GrasshopperUiPolicy policy;
+    private readonly Func<GrasshopperUi.Scope, Fin<T>>? run;
+
+    protected GhUiRequest() { }
+    private protected GhUiRequest(GrasshopperUiPolicy policy, Func<GrasshopperUi.Scope, Fin<T>> run) {
+        this.policy = policy;
+        this.run = run;
+    }
+
+    internal virtual GrasshopperUiPolicy Policy => policy;
+    internal virtual Fin<T> Apply(GrasshopperUi.Scope scope) =>
+        run is { } valid ? valid(arg: scope) : Fin.Fail<T>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(GhUiRequest<>)), detail: "request dispatch is required"));
 }
 
 // One generic request collapses the per-file CanvasRequest/DocumentRequest/... `Run` wrappers:

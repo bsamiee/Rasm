@@ -54,6 +54,7 @@ internal static class AnalyzerDispatcher {
                 TypeShapeRules.CheckAnemicEntity(context, scope, namedType);
                 TypeShapeRules.CheckInitOnlyBypassOnValidated(context, scope, namedType);
                 TypeShapeRules.CheckOperationalReceiptFactStream(context, scope, namedType);
+                TypeShapeRules.CheckForwardingRequestCaseFamily(context, scope, namedType);
                 TypeShapeRules.TrackFlagsEnumDeclaration(context, state, namedType);
                 ShapeRules.CheckValidationTypeUsage(context, scope, namedType);
                 break;
