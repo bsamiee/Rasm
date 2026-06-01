@@ -61,26 +61,20 @@ public abstract partial record DocumentOp {
                     from native in Optional(ctx.Document.Objects.FindId(id)).ToFin(Fail: ctx.Op.InvalidResult())
                     from attributes in Optional(native.Attributes?.Duplicate()).ToFin(Fail: ctx.Op.InvalidResult())
                     from next in change(arg: attributes)
-                    from _ in ctx.Document.Objects.ModifyAttributes(objectId: id, newAttributes: next, quiet: edit.Quiet) switch {
-                        true => Fin.Succ(value: unit),
-                        false => Fin.Fail<Unit>(error: ctx.Op.InvalidResult()),
-                    }
+                    from _ in ctx.Op.Confirm(success: ctx.Document.Objects.ModifyAttributes(objectId: id, newAttributes: next, quiet: edit.Quiet))
                     select id).As()
                 select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Attributes, ids: changed),
             setSelection: static (ctx, edit) =>
                 from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
                 from ids in target.Ids(document: ctx.Document, op: ctx.Op).Map(static values => values.Distinct())
                 from before in DocumentEdit.SelectedIds(document: ctx.Document, op: ctx.Op)
-                from _ in edit.Policy.Select((highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) => ctx.Document.Objects.SetSelectedObjects(
+                from _ in ctx.Op.Confirm(success: edit.Policy.Select((highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) => ctx.Document.Objects.SetSelectedObjects(
                     objectIds: ids.AsIterable(),
                     syncHighlight: highlight,
                     persistentSelect: persistent,
                     ignoreGripsState: ignoreGrips,
                     ignoreLayerLocking: ignoreLayerLocking,
-                    ignoreLayerVisibility: ignoreLayerVisibility)) switch {
-                        int value when value == ids.Count => Fin.Succ(value: unit),
-                        _ => Fin.Fail<Unit>(error: ctx.Op.InvalidResult()),
-                    }
+                    ignoreLayerVisibility: ignoreLayerVisibility)) == ids.Count)
                 from after in DocumentEdit.SelectedIds(document: ctx.Document, op: ctx.Op)
                 select DocumentReceipt.SelectionDelta(before: before, after: after),
             unselectAll: static (ctx, edit) =>
@@ -360,10 +354,7 @@ public abstract partial record DocumentTarget {
     private static Fin<Unit> DeleteIds(RhinoDoc document, IEnumerable<Guid> ids, bool quiet, bool ignoreModes, Op op) =>
         TargetIds(ids: ids, op: op)
             .Bind(target => ignoreModes switch {
-                false => document.Objects.Delete(target.AsIterable(), quiet) switch {
-                    int count when count == target.Count => Fin.Succ(value: unit),
-                    _ => Fin.Fail<Unit>(error: op.InvalidResult()),
-                },
+                false => op.Confirm(success: document.Objects.Delete(target.AsIterable(), quiet) == target.Count),
                 true => target
                     .TraverseM(id => Optional(document.Objects.FindId(id))
                         .ToFin(Fail: op.InvalidResult())

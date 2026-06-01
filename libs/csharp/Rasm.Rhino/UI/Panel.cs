@@ -77,10 +77,7 @@ public abstract partial record PanelPlacement {
                 Guid id when id != Guid.Empty || OperatingSystem.IsMacOS() => Fin.Succ(value: unit),
                 _ => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()),
             },
-            asSibling: static (ctx, sibling) => global::Rhino.UI.Panels.OpenPanelAsSibling(panelId: ctx.Id, siblingPanelId: sibling.SiblingPanelId, makeSelectedPanel: ctx.Selected) switch {
-                true => Fin.Succ(value: unit),
-                false => Fin.Fail<Unit>(error: Op.Of(name: nameof(Open)).InvalidResult()),
-            }));
+            asSibling: static (ctx, sibling) => Op.Of(name: nameof(Open)).Confirm(success: global::Rhino.UI.Panels.OpenPanelAsSibling(panelId: ctx.Id, siblingPanelId: sibling.SiblingPanelId, makeSelectedPanel: ctx.Selected))));
 }
 
 public enum UiChromeFileMode { Open, Close, Save, SaveAs }

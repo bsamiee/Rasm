@@ -449,6 +449,12 @@ internal static class SymbolFacts {
         type is INamedTypeSymbol errorType
         && errorType.Name == "Error"
         && errorType.ContainingNamespace.ToDisplayString().StartsWith(value: "LanguageExt.Common", comparisonType: StringComparison.Ordinal);
+    internal static bool IsLanguageExtCommonErrorAssignableType(ITypeSymbol? type, INamedTypeSymbol? commonErrorType = null) =>
+        type is INamedTypeSymbol candidate
+        && TypeAndBases(candidate).Any(baseType => commonErrorType switch {
+            INamedTypeSymbol errorType => SymbolEqualityComparer.Default.Equals(baseType, errorType),
+            _ => IsLanguageExtCommonErrorType(baseType),
+        });
     internal static bool IsLanguageExtValidationType(ITypeSymbol type) =>
         type is INamedTypeSymbol { OriginalDefinition.MetadataName: "Validation`2", TypeArguments.Length: 2 } validation
         && validation.ContainingNamespace.ToDisplayString().StartsWith(value: Markers.LanguageExtNamespace, comparisonType: StringComparison.Ordinal);
@@ -464,10 +470,12 @@ internal static class SymbolFacts {
         && IsLanguageExtFinType(invocation.Type)
         && invocation.Arguments.Length == 1;
     internal static bool IsLanguageExtFinFailureInvocation(IInvocationOperation invocation) =>
+        IsLanguageExtFinFailureInvocation(invocation: invocation, commonErrorType: null);
+    internal static bool IsLanguageExtFinFailureInvocation(IInvocationOperation invocation, INamedTypeSymbol? commonErrorType) =>
         invocation.TargetMethod.Name == "Fail"
         && IsLanguageExtFinType(invocation.Type)
         && invocation.Arguments.Length > 0
-        && IsLanguageExtCommonErrorType(UnwrapValue(invocation.Arguments[0].Value)?.Type);
+        && IsLanguageExtCommonErrorAssignableType(type: UnwrapValue(invocation.Arguments[0].Value)?.Type, commonErrorType: commonErrorType);
     internal static bool IsManualGenericProjectionGate(IConditionalOperation conditional, ISymbol? containingSymbol) =>
         TryProjectionTypeParameter(type: conditional.Type, parameter: out ITypeParameterSymbol? parameter)
         && !IsProjectionOwner(symbol: containingSymbol)
@@ -503,6 +511,20 @@ internal static class SymbolFacts {
         && TryFinSuccessValue(model: model, expression: conditional.WhenTrue, value: out ExpressionSyntax? successValue)
         && IsFinInvalidResultFailure(model: model, expression: conditional.WhenFalse)
         && IsKnownValidityProbe(model: model, condition: conditional.Condition, successValue: successValue);
+    internal static bool IsManualOpConfirmGate(SemanticModel model, ConditionalExpressionSyntax conditional) {
+        if (!IsFinUnitExpression(model: model, expression: conditional)) {
+            return false;
+        }
+        bool trueSuccess = IsFinUnitSuccess(model: model, expression: conditional.WhenTrue);
+        bool falseSuccess = IsFinUnitSuccess(model: model, expression: conditional.WhenFalse);
+        bool trueFailure = IsFinInvalidResultFailure(model: model, expression: conditional.WhenTrue);
+        bool falseFailure = IsFinInvalidResultFailure(model: model, expression: conditional.WhenFalse);
+        return (trueSuccess, falseFailure, trueFailure, falseSuccess) switch {
+            (true, true, _, _) => IsConfirmableNativeStatusCondition(model: model, condition: conditional.Condition, successWhenTrue: true),
+            (_, _, true, true) => IsConfirmableNativeStatusCondition(model: model, condition: conditional.Condition, successWhenTrue: false),
+            _ => false,
+        };
+    }
     internal static bool IsManualOpAdmissionGate(SemanticModel model, SwitchExpressionSyntax switchExpression) {
         if (!IsNonUnitFinExpression(model: model, expression: switchExpression) || switchExpression.Arms.Count != 2) {
             return false;
@@ -521,9 +543,28 @@ internal static class SymbolFacts {
             && failureArms.Length == 1
             && IsKnownSwitchValidityProbe(model: model, switchExpression: switchExpression, arm: successArms[0].Arm, successValue: successArms[0].Value);
     }
+    internal static bool IsManualOpConfirmGate(SemanticModel model, SwitchExpressionSyntax switchExpression) {
+        if (!IsFinUnitExpression(model: model, expression: switchExpression) || switchExpression.Arms.Count != 2) {
+            return false;
+        }
+        ImmutableArray<SwitchExpressionArmSyntax> successArms = [
+            .. switchExpression.Arms.Where(arm => IsFinUnitSuccess(model: model, expression: arm.Expression)),
+        ];
+        ImmutableArray<SwitchExpressionArmSyntax> failureArms = [
+            .. switchExpression.Arms.Where(arm => IsFinInvalidResultFailure(model: model, expression: arm.Expression)),
+        ];
+        return successArms.Length == 1
+            && failureArms.Length == 1
+            && IsConfirmableNativeStatusSwitchArm(model: model, switchExpression: switchExpression, arm: successArms[0]);
+    }
     private static bool IsNonUnitFinExpression(SemanticModel model, ExpressionSyntax expression) =>
         model.GetTypeInfo(expression).ConvertedType switch {
             INamedTypeSymbol fin => IsLanguageExtFinType(fin) && !IsLanguageExtUnitType(fin.TypeArguments[0]),
+            _ => false,
+        };
+    private static bool IsFinUnitExpression(SemanticModel model, ExpressionSyntax expression) =>
+        model.GetTypeInfo(expression).ConvertedType switch {
+            INamedTypeSymbol fin => IsLanguageExtFinUnitType(fin),
             _ => false,
         };
     private static bool TryFinSuccessValue(SemanticModel model, ExpressionSyntax expression, out ExpressionSyntax value) {
@@ -546,11 +587,22 @@ internal static class SymbolFacts {
         && model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "Fail" } method
         && IsLanguageExtFinType(method.ReturnType)
         && invocation.ArgumentList.Arguments.Any(argument => ContainsPlainInvalidResult(model: model, expression: argument.Expression));
+    private static bool IsFinUnitSuccess(SemanticModel model, ExpressionSyntax expression) =>
+        UnwrapExpression(expression) is InvocationExpressionSyntax invocation
+        && model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "Succ" } method
+        && IsLanguageExtFinUnitType(method.ReturnType)
+        && invocation.ArgumentList.Arguments.Any(argument =>
+            IsLanguageExtUnitExpression(model: model, expression: argument.Expression)
+            && !argument.Expression.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>().Any());
     private static bool ContainsPlainInvalidResult(SemanticModel model, ExpressionSyntax expression) =>
         expression.DescendantNodesAndSelf()
             .OfType<InvocationExpressionSyntax>()
             .Any(invocation => invocation.ArgumentList.Arguments.Count == 0
                 && model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Name: "InvalidResult" });
+    internal static bool ContainsPlainInvalidResult(IOperation operation) =>
+        operation.DescendantsAndSelf()
+            .OfType<IInvocationOperation>()
+            .Any(static invocation => invocation.TargetMethod.Name == "InvalidResult" && invocation.Arguments.Length == 0);
     private static bool IsKnownValidityProbe(SemanticModel model, ExpressionSyntax condition, ExpressionSyntax successValue) {
         ExpressionSyntax probe = UnwrapExpression(condition);
         return probe switch {
@@ -567,11 +619,85 @@ internal static class SymbolFacts {
             _ => false,
         };
     }
+    private static bool IsConfirmableNativeStatusCondition(SemanticModel model, ExpressionSyntax condition, bool successWhenTrue) {
+        ExpressionSyntax probe = UnwrapExpression(condition);
+        return probe switch {
+            InvocationExpressionSyntax invocation when IsBooleanExpression(model: model, expression: invocation)
+                => true,
+            BinaryExpressionSyntax binary when successWhenTrue
+                => IsConfirmableNativeStatusBinary(model: model, binary: binary),
+            _ => false,
+        };
+    }
     private static bool IsKnownSwitchValidityProbe(SemanticModel model, SwitchExpressionSyntax switchExpression, SwitchExpressionArmSyntax arm, ExpressionSyntax successValue) =>
         arm.WhenClause?.Condition is ExpressionSyntax condition
             ? IsKnownValidityProbe(model: model, condition: condition, successValue: successValue)
             : IsKnownIsValidPattern(model: model, pattern: arm.Pattern, successValue: successValue)
                 || IsKnownSwitchInputPattern(model: model, switchExpression: switchExpression, arm: arm, successValue: successValue);
+    private static bool IsConfirmableNativeStatusSwitchArm(SemanticModel model, SwitchExpressionSyntax switchExpression, SwitchExpressionArmSyntax arm) {
+        ExpressionSyntax governing = UnwrapExpression(switchExpression.GoverningExpression);
+        return (
+            model.GetTypeInfo(governing).ConvertedType ?? model.GetTypeInfo(governing).Type,
+            arm.Pattern,
+            arm.WhenClause?.Condition) switch {
+                ( { SpecialType: SpecialType.System_Boolean },
+                    ConstantPatternSyntax { Expression: LiteralExpressionSyntax literal },
+                    null)
+                    => literal.IsKind(SyntaxKind.TrueLiteralExpression),
+                ( { SpecialType: SpecialType.System_Int32 },
+                    RelationalPatternSyntax { OperatorToken.RawKind: (int)SyntaxKind.GreaterThanEqualsToken, Expression: LiteralExpressionSyntax literal },
+                    null)
+                    => literal.Token.Value is 0,
+                ( { SpecialType: SpecialType.System_Int32 },
+                    DeclarationPatternSyntax declaration,
+                    ExpressionSyntax condition)
+                    => PatternDesignationName(declaration.Designation) is string designation && IsCountEqualityCondition(model: model, designation: designation, condition: condition),
+                (
+                    INamedTypeSymbol type,
+                    DeclarationPatternSyntax declaration,
+                    ExpressionSyntax condition) when IsGuidType(type)
+                    => PatternDesignationName(declaration.Designation) is string designation && IsGuidNonEmptyCondition(model: model, designation: designation, condition: condition),
+                _ => false,
+            };
+    }
+    private static bool IsConfirmableNativeStatusBinary(SemanticModel model, BinaryExpressionSyntax binary) =>
+        binary.Kind() switch {
+            SyntaxKind.GreaterThanOrEqualExpression => IsZeroLiteral(binary.Right) && IsIntExpression(model: model, expression: binary.Left),
+            SyntaxKind.EqualsExpression => IsCountEqualityCondition(model: model, designation: null, condition: binary),
+            SyntaxKind.NotEqualsExpression => IsGuidNonEmptyCondition(model: model, designation: null, condition: binary),
+            _ => false,
+        };
+    private static bool IsCountEqualityCondition(SemanticModel model, string? designation, ExpressionSyntax condition) =>
+        UnwrapExpression(condition) is BinaryExpressionSyntax binary
+        && binary.IsKind(SyntaxKind.EqualsExpression)
+        && ((MatchesDesignationOrInt(model: model, expression: binary.Left, designation: designation) && !SameReference(model: model, left: binary.Left, right: binary.Right))
+            || (MatchesDesignationOrInt(model: model, expression: binary.Right, designation: designation) && !SameReference(model: model, left: binary.Left, right: binary.Right)));
+    private static bool IsGuidNonEmptyCondition(SemanticModel model, string? designation, ExpressionSyntax condition) =>
+        UnwrapExpression(condition) is BinaryExpressionSyntax binary
+        && binary.IsKind(SyntaxKind.NotEqualsExpression)
+        && ((MatchesDesignationOrGuid(model: model, expression: binary.Left, designation: designation) && IsGuidEmpty(model: model, expression: binary.Right))
+            || (MatchesDesignationOrGuid(model: model, expression: binary.Right, designation: designation) && IsGuidEmpty(model: model, expression: binary.Left)));
+    private static bool MatchesDesignationOrInt(SemanticModel model, ExpressionSyntax expression, string? designation) =>
+        designation switch {
+            string name => IdentifierName(expression) == name,
+            _ => IsIntExpression(model: model, expression: expression),
+        };
+    private static bool MatchesDesignationOrGuid(SemanticModel model, ExpressionSyntax expression, string? designation) =>
+        designation switch {
+            string name => IdentifierName(expression) == name,
+            _ => IsGuidExpression(model: model, expression: expression),
+        };
+    private static bool IsBooleanExpression(SemanticModel model, ExpressionSyntax expression) =>
+        (model.GetTypeInfo(UnwrapExpression(expression)).ConvertedType ?? model.GetTypeInfo(UnwrapExpression(expression)).Type)?.SpecialType == SpecialType.System_Boolean;
+    private static bool IsIntExpression(SemanticModel model, ExpressionSyntax expression) =>
+        (model.GetTypeInfo(UnwrapExpression(expression)).ConvertedType ?? model.GetTypeInfo(UnwrapExpression(expression)).Type)?.SpecialType == SpecialType.System_Int32;
+    private static bool IsZeroLiteral(ExpressionSyntax expression) =>
+        UnwrapExpression(expression) is LiteralExpressionSyntax literal && literal.Token.Value is 0;
+    private static bool IsLanguageExtUnitExpression(SemanticModel model, ExpressionSyntax expression) =>
+        (model.GetTypeInfo(UnwrapExpression(expression)).ConvertedType ?? model.GetTypeInfo(UnwrapExpression(expression)).Type) switch {
+            ITypeSymbol type => IsLanguageExtUnitType(type),
+            _ => false,
+        };
     private static bool IsKnownIsValidPattern(SemanticModel model, PatternSyntax pattern, ExpressionSyntax successValue) =>
         pattern is RecursivePatternSyntax recursive
         && PatternDesignationName(recursive.Designation) is string designation

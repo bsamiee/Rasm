@@ -117,7 +117,7 @@ internal static class AnalyzerDispatcher {
             case (_, IConditionalOperation conditional):
                 FlowRules.CheckImperativeConditional(context, scope, conditional);
                 FlowRules.CheckEarlyReturnGuardChain(context, scope, conditional);
-                FlowRules.CheckGuardableFinConditional(context, scope, conditional);
+                FlowRules.CheckGuardableFinConditional(context, state, scope, conditional);
                 FlowRules.CheckManualGenericProjectionGate(context, scope, conditional);
                 return;
             case (_, ISwitchExpressionOperation switchExpression):
@@ -177,7 +177,7 @@ internal static class AnalyzerDispatcher {
                 return;
             case SwitchExpressionSyntax:
                 FlowRules.CheckSwitchExpressionPrecedence(context, scope);
-                FlowRules.CheckGuardableFinConditional(context, scope, (SwitchExpressionSyntax)context.Node);
+                FlowRules.CheckGuardableFinConditional(context, state, scope, (SwitchExpressionSyntax)context.Node);
                 FlowRules.CheckManualOpAdmissionGate(context, scope, (SwitchExpressionSyntax)context.Node);
                 return;
         }

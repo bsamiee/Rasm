@@ -325,10 +325,7 @@ internal static partial class SheetOps {
                 from groupName in FileEndpoint.NonBlank(value: rawGroup, op: op)
                 from joined in op.Catch(() => document.PageViewGroups.FindName(name: groupName) switch {
                     PageViewGroup existing => Fin.Succ(value: Op.Side(() => page.AddToPageViewGroup(pageViewGroupIndex: existing.Index))),
-                    _ => document.PageViewGroups.Add(new PageViewGroup { Name = groupName }, Seq(page).AsIterable()) switch {
-                        int index when index >= 0 => Fin.Succ(value: unit),
-                        _ => Fin.Fail<Unit>(error: op.InvalidResult()),
-                    },
+                    _ => op.Confirm(success: document.PageViewGroups.Add(new PageViewGroup { Name = groupName }, Seq(page).AsIterable()) >= 0),
                 })
                 select joined,
             _ => Fin.Succ(value: unit),

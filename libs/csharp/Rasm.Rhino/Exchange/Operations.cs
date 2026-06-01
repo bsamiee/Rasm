@@ -45,7 +45,7 @@ public abstract partial record FileNativeTable {
             (Document: document, Op: op),
             saveLayerState: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
-                from _ in state.Document.NamedLayerStates.Save(name: name, viewportId: change.Viewport.IfNone(Guid.Empty)) switch { >= 0 => Fin.Succ(value: unit), _ => Fin.Fail<Unit>(error: state.Op.InvalidResult()) }
+                from _ in state.Op.Confirm(success: state.Document.NamedLayerStates.Save(name: name, viewportId: change.Viewport.IfNone(Guid.Empty)) >= 0)
                 select Changed(kind: DocumentResourceKind.NamedLayerState, name: name),
             restoreLayerState: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
@@ -62,12 +62,12 @@ public abstract partial record FileNativeTable {
                 select Changed(kind: DocumentResourceKind.NamedLayerState, name: name),
             importLayerState: static (state, change) =>
                 from source in change.Source.Input(op: state.Op)
-                from _ in state.Document.NamedLayerStates.Import(filename: source.Path) switch { >= 0 => Fin.Succ(value: unit), _ => Fin.Fail<Unit>(error: state.Op.InvalidResult()) }
+                from _ in state.Op.Confirm(success: state.Document.NamedLayerStates.Import(filename: source.Path) >= 0)
                 select Changed(kind: DocumentResourceKind.NamedLayerState, name: source.Path),
             savePosition: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
                 from ids in change.Objects.Ids(document: state.Document, op: state.Op)
-                from _ in state.Document.NamedPositions.Save(name: name, objectIds: ids.AsIterable()) switch { Guid id when id != Guid.Empty => Fin.Succ(value: unit), _ => Fin.Fail<Unit>(error: state.Op.InvalidResult()) }
+                from _ in state.Op.Confirm(success: state.Document.NamedPositions.Save(name: name, objectIds: ids.AsIterable()) != Guid.Empty)
                 select Changed(kind: DocumentResourceKind.NamedPosition, name: name),
             position: static (state, change) =>
                 from name in FileEndpoint.NonBlank(value: change.Name, op: state.Op)
@@ -465,10 +465,7 @@ public static class FileOp {
             try {
                 exported = from ids in target.Ids(document: document, op: op)
                            from _ in op.Confirm(success: document.Objects.UnselectAll(ignorePersistentSelections: false) >= 0)
-                           from __ in document.Objects.SetSelectedObjects(objectIds: ids.AsIterable(), syncHighlight: true, persistentSelect: false, ignoreGripsState: true, ignoreLayerLocking: false, ignoreLayerVisibility: false) switch {
-                               int count when count == ids.Count => Fin.Succ(value: unit),
-                               _ => Fin.Fail<Unit>(error: op.InvalidResult()),
-                           }
+                           from __ in op.Confirm(success: document.Objects.SetSelectedObjects(objectIds: ids.AsIterable(), syncHighlight: true, persistentSelect: false, ignoreGripsState: true, ignoreLayerLocking: false, ignoreLayerVisibility: false) == ids.Count)
                            from ___ in FileFormat.Write(document: document, target: Some(endpoint), profile: profile, phase: FilePhase.Export, selected: true, op: op)
                            select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Selected, ids: ids);
             } finally {

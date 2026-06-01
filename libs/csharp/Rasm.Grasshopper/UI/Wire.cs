@@ -247,16 +247,12 @@ public sealed partial class WireEdit {
         op.Attempt(body: run, what: name).Bind(interpret);
 
     private static Fin<int> Native(Op op, string name, Func<bool> run) =>
-        NativeResult(op: op, name: name, run: run, interpret: changed => changed switch {
-            true => Fin.Succ(value: 1),
-            false => Fin.Fail<int>(error: UiFault.MutationRejected(op: op, detail: $"{name} returned false")),
-        });
+        NativeResult(op: op, name: name, run: run, interpret: changed =>
+            guard(changed, UiFault.MutationRejected(op: op, detail: $"{name} returned false")).ToFin().Map(_ => 1));
 
     private static Fin<int> NativeCount(Op op, string name, Func<int> run) =>
-        NativeResult(op: op, name: name, run: run, interpret: count => count switch {
-            >= 0 => Fin.Succ(value: count),
-            _ => Fin.Fail<int>(error: UiFault.MutationRejected(op: op, detail: string.Create(CultureInfo.InvariantCulture, $"{name} returned {count}"))),
-        });
+        NativeResult(op: op, name: name, run: run, interpret: count =>
+            guard(count >= 0, UiFault.MutationRejected(op: op, detail: string.Create(CultureInfo.InvariantCulture, $"{name} returned {count}"))).ToFin().Map(_ => count));
 
     private static Fin<int> NativeConnect(Op op, GhObjectList objects, IParameter source, IParameter target, ActionList actions, Option<(int Source, int Target)> indices = default) =>
         Wire.IsConnected(objects: objects, wire: new WireEnds(source: source.InstanceId, target: target.InstanceId))
@@ -395,9 +391,9 @@ public sealed partial class GraphMetric {
 
     private static Fin<(Guid Source, Guid Target)> PathEndpoints(Seq<Guid> ids) {
         Seq<Guid> ends = ids.Filter(static id => id != Guid.Empty).Distinct();
-        return ends.Count >= 2
-            ? Fin.Succ((Source: ends.Head.IfNone(Guid.Empty), Target: ends.Last.IfNone(Guid.Empty)))
-            : Fin.Fail<(Guid Source, Guid Target)>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Paths)), detail: "paths require two non-empty endpoint ids"));
+        return guard(ends.Count >= 2, UiFault.InvalidInput(op: Op.Of(name: nameof(Paths)), detail: "paths require two non-empty endpoint ids"))
+            .ToFin()
+            .Map(_ => (Source: ends.Head.IfNone(Guid.Empty), Target: ends.Last.IfNone(Guid.Empty)));
     }
 
     private static Option<Seq<Guid>> NonEmpty(Seq<Guid> ids) => ids.IsEmpty ? None : Some(ids);
@@ -612,15 +608,9 @@ internal static partial class Wire {
                 value: valid,
                 checks:
                 [
-                    op => typeof(WireShape).IsAssignableFrom(c: valid)
-                        ? Fin.Succ(value: unit)
-                        : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: op, detail: $"{valid.FullName} does not derive from {typeof(WireShape).FullName}")),
-                    op => valid is { IsAbstract: false }
-                        ? Fin.Succ(value: unit)
-                        : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: op, detail: $"{valid.FullName} must be concrete")),
-                    op => valid.GetConstructor(types: [typeof(PointF), typeof(PointF)]) is not null
-                        ? Fin.Succ(value: unit)
-                        : Fin.Fail<Unit>(error: UiFault.InvalidInput(op: op, detail: $"{valid.FullName} must expose a public ({nameof(PointF)}, {nameof(PointF)}) constructor")),
+                    op => guard(typeof(WireShape).IsAssignableFrom(c: valid), UiFault.InvalidInput(op: op, detail: $"{valid.FullName} does not derive from {typeof(WireShape).FullName}")).ToFin(),
+                    op => guard(valid is { IsAbstract: false }, UiFault.InvalidInput(op: op, detail: $"{valid.FullName} must be concrete")).ToFin(),
+                    op => guard(valid.GetConstructor(types: [typeof(PointF), typeof(PointF)]) is not null, UiFault.InvalidInput(op: op, detail: $"{valid.FullName} must expose a public ({nameof(PointF)}, {nameof(PointF)}) constructor")).ToFin(),
                 ])
             from sub in WireShapeInstall.Push(shapeType: accepted)
             select sub);
@@ -959,9 +949,7 @@ internal static partial class Wire {
     }
 
     internal static Fin<Unit> RequireConnected(GhObjectList objects, IParameter source, IParameter target, Op op) =>
-        IsConnected(objects: objects, wire: new WireEnds(source: source.InstanceId, target: target.InstanceId))
-            ? Fin.Succ(value: unit)
-            : Fin.Fail<Unit>(error: UiFault.MutationRejected(op: op, detail: "wire is not currently connected"));
+        guard(IsConnected(objects: objects, wire: new WireEnds(source: source.InstanceId, target: target.InstanceId)), UiFault.MutationRejected(op: op, detail: "wire is not currently connected")).ToFin();
 
     private static Fin<Unit> RequireConnectedPair(GhObjectList objects, IParameter? source, IParameter? target, Op op) =>
         source is IParameter src && target is IParameter dst
@@ -971,9 +959,9 @@ internal static partial class Wire {
     // Native WireEnds ctor throws ArgumentNullException on an empty source/target guid; guard both ends before
     // construction so a degenerate snapshot is a typed Fin.Fail rather than a host throw.
     private static Fin<WireEnds> WireEndsOf(Op op, Guid source, Guid target) =>
-        source != Guid.Empty && target != Guid.Empty
-            ? Fin.Succ(value: new WireEnds(source: source, target: target))
-            : Fin.Fail<WireEnds>(error: UiFault.InvalidInput(op: op, detail: "wire endpoints must both be non-empty"));
+        guard(source != Guid.Empty && target != Guid.Empty, UiFault.InvalidInput(op: op, detail: "wire endpoints must both be non-empty"))
+            .ToFin()
+            .Map(_ => new WireEnds(source: source, target: target));
 
     private static Fin<WireSelectionDelta> ToggleWire(Op op, GhObjectList objects, WireSnapshot.ConnectedCase wire, bool picked) =>
         from ends in WireEndsOf(op: op, source: wire.Source, target: wire.Target)
@@ -1059,9 +1047,7 @@ internal static class WireRepositoryRail {
             Optional(lookup()).ToFin(Fail: UiFault.MutationRejected(op: op, detail: $"WireRepository member '{memberName}' not found"));
         Fin<FieldInfo> Field(Type dataType, string memberName, Type expected) =>
             Reflect(memberName, () => dataType.GetField(name: memberName, bindingAttr: BindingFlags.Instance | BindingFlags.Public))
-                .Bind(field => expected.IsAssignableFrom(c: field.FieldType)
-                    ? Fin.Succ(value: field)
-                    : Fin.Fail<FieldInfo>(error: UiFault.MutationRejected(op: op, detail: $"WireData.{memberName} type drifted to {field.FieldType.FullName}")));
+                .Bind(field => guard(expected.IsAssignableFrom(c: field.FieldType), UiFault.MutationRejected(op: op, detail: $"WireData.{memberName} type drifted to {field.FieldType.FullName}")).ToFin().Map(_ => field));
         return from cache in Reflect("WireDrawCache", () => typeof(GhCanvas).GetProperty(name: "WireDrawCache", bindingAttr: instance))
                let repoType = cache.PropertyType
                from wireData in Reflect("WireData", () => repoType.GetNestedType(name: "WireData", bindingAttr: BindingFlags.Public | BindingFlags.NonPublic))

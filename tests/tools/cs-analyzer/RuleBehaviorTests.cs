@@ -2156,6 +2156,105 @@ public sealed class RuleBehaviorTests {
     }
 
     [Fact]
+    public async Task CancelledFailureDoesNotEmitGuardableFinUnitDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/CancelledFailure.cs",
+            source: WithFinUnit(ns: "Domain.Services", type: "CancelledFailure", members: """
+                public sealed record Cancelled() : Error;
+
+                public LanguageExt.Fin<LanguageExt.Unit> Run(bool accepted) =>
+                    accepted ? LanguageExt.Fin.Succ(unit) : LanguageExt.Fin.Fail<LanguageExt.Unit>(new Cancelled());
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0739", collection: ids);
+    }
+
+    [Fact]
+    public async Task DerivedCommonErrorFailureEmitsGuardableFinUnitDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/DerivedErrorGate.cs",
+            source: WithFinUnit(ns: "Domain.Services", type: "DerivedErrorGate", members: """
+                public abstract record Expected(string? Detail = null) : Error(Detail);
+                public abstract record UiFault(string? Detail = null) : Expected(Detail) {
+                    public sealed record InvalidInput(string Message) : UiFault(Message);
+                }
+
+                public LanguageExt.Fin<LanguageExt.Unit> Run(bool accepted) =>
+                    accepted ? LanguageExt.Fin.Succ(unit) : LanguageExt.Fin.Fail<LanguageExt.Unit>(new UiFault.InvalidInput("invalid"));
+                """)).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0739", collection: ids);
+    }
+
+    [Fact]
+    public async Task DerivedCommonErrorSwitchEmitsGuardableFinUnitDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/DerivedErrorSwitchGate.cs",
+            source: WithFinUnit(ns: "Domain.Services", type: "DerivedErrorSwitchGate", members: """
+                public abstract record Expected(string? Detail = null) : Error(Detail);
+                public abstract record UiFault(string? Detail = null) : Expected(Detail) {
+                    public sealed record InvalidInput(string Message) : UiFault(Message);
+                }
+
+                public LanguageExt.Fin<LanguageExt.Unit> Run(bool accepted) =>
+                    accepted switch {
+                        true => LanguageExt.Fin.Succ(unit),
+                        false => LanguageExt.Fin.Fail<LanguageExt.Unit>(new UiFault.InvalidInput("invalid")),
+                    };
+                """)).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0739", collection: ids);
+    }
+
+    [Fact]
+    public async Task DemandOwnerDoesNotEmitGuardableFinUnitDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/DemandOwner.cs",
+            source: WithFinUnit(ns: "Domain.Services", type: "DemandOwner", members: """
+                public abstract record Expected(string? Detail = null) : Error(Detail);
+                public sealed record Fault(string Message) : Expected(Message);
+
+                public LanguageExt.Fin<LanguageExt.Unit> Demand(bool condition, Fault fault) =>
+                    condition ? LanguageExt.Fin.Succ(unit) : LanguageExt.Fin.Fail<LanguageExt.Unit>(fault);
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0739", collection: ids);
+    }
+
+    [Fact]
+    public async Task GenericDemandOwnerDoesNotEmitGuardableFinDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/GenericDemandOwner.cs",
+            source: """
+                namespace LanguageExt {
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                }
+
+                namespace LanguageExt.Common {
+                    public record Error(string? Detail = null);
+                }
+
+                namespace Domain.Services {
+                    using LanguageExt.Common;
+
+                    public sealed class Op { }
+                    public sealed record Fault() : Error;
+
+                    public static class GenericDemandOwner {
+                        public static LanguageExt.Fin<T> Demand<T>(this Op op, bool condition, T value) =>
+                            condition ? LanguageExt.Fin.Succ(value) : LanguageExt.Fin.Fail<T>(new Fault());
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0739", collection: ids);
+    }
+
+    [Fact]
     public async Task OwnerRailsDoNotEmitGuardableFinConditionalDiagnosticAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
             filePath: "/workspace/src/Domain/Services/OwnerRails.cs",
@@ -2555,6 +2654,202 @@ public sealed class RuleBehaviorTests {
     }
 
     [Fact]
+    public async Task ManualOpConfirmBoolConditionalEmitsManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ConfirmBoolGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public readonly struct Unit { }
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                    public static class Prelude {
+                        public static readonly Unit unit = new();
+                    }
+                }
+
+                namespace Domain.Services {
+                    using static LanguageExt.Prelude;
+
+                    public sealed class Op {
+                        public object InvalidResult() => new();
+                    }
+                    public sealed class NativeStatus {
+                        public bool Save() => true;
+                    }
+                    public sealed class ConfirmBoolGate {
+                        public LanguageExt.Fin<LanguageExt.Unit> Run(NativeStatus native, Op op) =>
+                            native.Save()
+                                ? LanguageExt.Fin.Succ(value: unit)
+                                : LanguageExt.Fin.Fail<LanguageExt.Unit>(error: op.InvalidResult());
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0742", collection: ids);
+        Assert.DoesNotContain(expected: "CSP0739", collection: ids);
+    }
+
+    [Fact]
+    public async Task ManualOpConfirmBoolSwitchEmitsManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ConfirmBoolSwitchGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public readonly struct Unit { }
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                    public static class Prelude {
+                        public static readonly Unit unit = new();
+                    }
+                }
+
+                namespace Domain.Services {
+                    using static LanguageExt.Prelude;
+
+                    public sealed class Op {
+                        public object InvalidResult() => new();
+                    }
+                    public sealed class NativeStatus {
+                        public bool Save() => true;
+                    }
+                    public sealed class ConfirmBoolSwitchGate {
+                        public LanguageExt.Fin<LanguageExt.Unit> Run(NativeStatus native, Op op) =>
+                            native.Save() switch {
+                                true => LanguageExt.Fin.Succ(value: unit),
+                                false => LanguageExt.Fin.Fail<LanguageExt.Unit>(error: op.InvalidResult()),
+                            };
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0742", collection: ids);
+        Assert.DoesNotContain(expected: "CSP0739", collection: ids);
+    }
+
+    [Fact]
+    public async Task ManualOpConfirmIntStatusEmitsManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ConfirmIntStatusGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public readonly struct Unit { }
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                    public static class Prelude {
+                        public static readonly Unit unit = new();
+                    }
+                }
+
+                namespace Domain.Services {
+                    using static LanguageExt.Prelude;
+
+                    public sealed class Op {
+                        public object InvalidResult() => new();
+                    }
+                    public sealed class NativeStatus {
+                        public int Save() => 0;
+                    }
+                    public sealed class ConfirmIntStatusGate {
+                        public LanguageExt.Fin<LanguageExt.Unit> Run(NativeStatus native, Op op) =>
+                            native.Save() switch {
+                                >= 0 => LanguageExt.Fin.Succ(value: unit),
+                                _ => LanguageExt.Fin.Fail<LanguageExt.Unit>(error: op.InvalidResult()),
+                            };
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0742", collection: ids);
+    }
+
+    [Fact]
+    public async Task ManualOpConfirmCountEqualityEmitsManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ConfirmCountStatusGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public readonly struct Unit { }
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                    public static class Prelude {
+                        public static readonly Unit unit = new();
+                    }
+                }
+
+                namespace Domain.Services {
+                    using static LanguageExt.Prelude;
+
+                    public sealed class Op {
+                        public object InvalidResult() => new();
+                    }
+                    public sealed class NativeStatus {
+                        public int Select() => 0;
+                    }
+                    public sealed class ConfirmCountStatusGate {
+                        public LanguageExt.Fin<LanguageExt.Unit> Run(NativeStatus native, int expected, Op op) =>
+                            native.Select() switch {
+                                int count when count == expected => LanguageExt.Fin.Succ(value: unit),
+                                _ => LanguageExt.Fin.Fail<LanguageExt.Unit>(error: op.InvalidResult()),
+                            };
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0742", collection: ids);
+    }
+
+    [Fact]
+    public async Task ManualOpConfirmGuidStatusEmitsManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ConfirmGuidStatusGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public readonly struct Unit { }
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                    public static class Prelude {
+                        public static readonly Unit unit = new();
+                    }
+                }
+
+                namespace Domain.Services {
+                    using static LanguageExt.Prelude;
+
+                    public sealed class Op {
+                        public object InvalidResult() => new();
+                    }
+                    public sealed class NativeStatus {
+                        public System.Guid Save() => System.Guid.NewGuid();
+                    }
+                    public sealed class ConfirmGuidStatusGate {
+                        public LanguageExt.Fin<LanguageExt.Unit> Run(NativeStatus native, Op op) =>
+                            native.Save() switch {
+                                System.Guid id when id != System.Guid.Empty => LanguageExt.Fin.Succ(value: unit),
+                                _ => LanguageExt.Fin.Fail<LanguageExt.Unit>(error: op.InvalidResult()),
+                            };
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0742", collection: ids);
+    }
+
+    [Fact]
     public async Task RangeGateDoesNotEmitManualOpAdmissionGateDiagnosticAsync() {
         ImmutableArray<string> ids = await AnalyzeIdsAsync(
             filePath: "/workspace/src/Domain/Services/RangeGate.cs",
@@ -2672,6 +2967,142 @@ public sealed class RuleBehaviorTests {
                             plane.IsValid
                                 ? LanguageExt.Fin.Succ(value: new LanguageExt.Unit())
                                 : LanguageExt.Fin.Fail<LanguageExt.Unit>(error: op.InvalidResult());
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0742", collection: ids);
+    }
+
+    [Fact]
+    public async Task ManualOpConfirmRichFailureDoesNotEmitManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ConfirmRichFailureGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public readonly struct Unit { }
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                    public static class Prelude {
+                        public static readonly Unit unit = new();
+                    }
+                }
+
+                namespace Domain.Services {
+                    using static LanguageExt.Prelude;
+
+                    public sealed class Op {
+                        public object InvalidResult(string detail) => new();
+                    }
+                    public sealed class NativeStatus {
+                        public bool Save() => true;
+                    }
+                    public sealed class ConfirmRichFailureGate {
+                        public LanguageExt.Fin<LanguageExt.Unit> Run(NativeStatus native, Op op) =>
+                            native.Save()
+                                ? LanguageExt.Fin.Succ(value: unit)
+                                : LanguageExt.Fin.Fail<LanguageExt.Unit>(error: op.InvalidResult("failed"));
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0742", collection: ids);
+    }
+
+    [Fact]
+    public async Task ManualOpConfirmSideEffectSuccessDoesNotEmitManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ConfirmSideEffectGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public readonly struct Unit { }
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                }
+
+                namespace Domain.Services {
+                    public sealed class Op {
+                        public object InvalidResult() => new();
+                    }
+                    public sealed class NativeStatus {
+                        public bool Save() => true;
+                    }
+                    public sealed class ConfirmSideEffectGate {
+                        public LanguageExt.Fin<LanguageExt.Unit> Run(NativeStatus native, Op op) =>
+                            native.Save()
+                                ? LanguageExt.Fin.Succ(value: Side())
+                                : LanguageExt.Fin.Fail<LanguageExt.Unit>(error: op.InvalidResult());
+
+                        private static LanguageExt.Unit Side() => new();
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0742", collection: ids);
+    }
+
+    [Fact]
+    public async Task ExistingConfirmDoesNotEmitManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ExistingConfirmGate.cs",
+            source: """
+                namespace LanguageExt {
+                    public readonly struct Unit { }
+                    public sealed class Fin<T> { }
+                }
+
+                namespace Domain.Services {
+                    public sealed class Op {
+                        public LanguageExt.Fin<LanguageExt.Unit> Confirm(bool success) => new();
+                    }
+                    public sealed class NativeStatus {
+                        public bool Save() => true;
+                    }
+                    public sealed class ExistingConfirmGate {
+                        public LanguageExt.Fin<LanguageExt.Unit> Run(NativeStatus native, Op op) =>
+                            op.Confirm(success: native.Save());
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0742", collection: ids);
+    }
+
+    [Fact]
+    public async Task DemandOwnerDoesNotEmitManualOpAdmissionGateDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/DemandConfirmOwner.cs",
+            source: """
+                namespace LanguageExt {
+                    public readonly struct Unit { }
+                    public sealed class Fin<T> { }
+                    public static class Fin {
+                        public static Fin<T> Succ<T>(T value) => new();
+                        public static Fin<T> Fail<T>(object error) => new();
+                    }
+                    public static class Prelude {
+                        public static readonly Unit unit = new();
+                    }
+                }
+
+                namespace Domain.Services {
+                    using static LanguageExt.Prelude;
+
+                    public sealed class Op {
+                        public object InvalidResult() => new();
+                    }
+                    public sealed class Check {
+                        public LanguageExt.Fin<LanguageExt.Unit> Demand(bool condition, Op op) =>
+                            condition switch {
+                                true => LanguageExt.Fin.Succ(value: unit),
+                                false => LanguageExt.Fin.Fail<LanguageExt.Unit>(error: op.InvalidResult()),
+                            };
                     }
                 }
                 """).ConfigureAwait(true);
@@ -3003,7 +3434,7 @@ public sealed class RuleBehaviorTests {
         }
 
         namespace LanguageExt.Common {
-            public sealed record Error(string? Detail = null);
+            public record Error(string? Detail = null);
         }
 
         namespace {{ns}} {

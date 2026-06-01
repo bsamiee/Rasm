@@ -25,21 +25,24 @@ internal sealed class AnalyzerState {
 
     // --- [CONSTRUCTORS] -------------------------------------------------------
 
-    private AnalyzerState(Compilation compilation, INamespaceSymbol? languageExtNamespace) {
+    private AnalyzerState(Compilation compilation, INamespaceSymbol? languageExtNamespace, INamedTypeSymbol? languageExtCommonErrorType) {
         Compilation = compilation;
         LanguageExtNamespace = languageExtNamespace;
+        LanguageExtCommonErrorType = languageExtCommonErrorType;
     }
 
     // --- [PROPERTIES] ---------------------------------------------------------
 
     internal Compilation Compilation { get; }
     internal INamespaceSymbol? LanguageExtNamespace { get; }
+    internal INamedTypeSymbol? LanguageExtCommonErrorType { get; }
 
     // --- [FACTORIES] ----------------------------------------------------------
 
     internal static AnalyzerState Create(Compilation compilation) {
         INamespaceSymbol? languageExtNamespace = compilation.GetTypeByMetadataName("LanguageExt.Option`1")?.ContainingNamespace;
-        return new AnalyzerState(compilation: compilation, languageExtNamespace: languageExtNamespace);
+        INamedTypeSymbol? languageExtCommonErrorType = compilation.GetTypeByMetadataName("LanguageExt.Common.Error");
+        return new AnalyzerState(compilation: compilation, languageExtNamespace: languageExtNamespace, languageExtCommonErrorType: languageExtCommonErrorType);
     }
 
     // --- [QUERIES] ------------------------------------------------------------

@@ -125,9 +125,9 @@ public sealed partial record Requirement {
     internal static Fin<MeshCheckParameters> MeshReport(Mesh mesh, string check) {
         using TextLog textLog = new();
         MeshCheckParameters parameters = MeshCheckParameters.Defaults();
-        return mesh.Check(textLog: textLog, parameters: ref parameters)
-            ? Fin.Succ(parameters)
-            : Fin.Fail<MeshCheckParameters>(error: new Fault.InvalidGeometry(Geometry: mesh, Check: check, Log: textLog.ToString()));
+        return guard(mesh.Check(textLog: textLog, parameters: ref parameters), () => (Error)new Fault.InvalidGeometry(Geometry: mesh, Check: check, Log: textLog.ToString()))
+            .ToFin()
+            .Map(_ => parameters);
     }
     [BoundaryAdapter]
     private static Fin<Unit> CurveSelfIntersectionReport(Check check, Curve curve, double tolerance) {

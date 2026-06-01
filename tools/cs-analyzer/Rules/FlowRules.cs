@@ -107,9 +107,9 @@ internal static class FlowRules {
             (true, true) => Diagnostic.Create(RuleCatalog.CSP0706, context.Operation.Syntax.GetLocation()),
             _ => null,
         });
-    internal static void CheckGuardableFinConditional(OperationAnalysisContext context, ScopeInfo scope, IConditionalOperation conditional) =>
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsLanguageExtFinType(conditional.Type), IsGuardableFinGate(conditional), IsConfirmOwner(context.ContainingSymbol)) switch {
-            (true, true, true, false) => Diagnostic.Create(RuleCatalog.CSP0739, context.Operation.Syntax.GetLocation()),
+    internal static void CheckGuardableFinConditional(OperationAnalysisContext context, AnalyzerState state, ScopeInfo scope, IConditionalOperation conditional) =>
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsLanguageExtFinType(conditional.Type), IsGuardableFinGate(conditional, state.LanguageExtCommonErrorType), IsConfirmOwner(context.ContainingSymbol), IsDemandOwner(context.ContainingSymbol), IsManualConfirmGate(conditional)) switch {
+            (true, true, true, false, false, false) => Diagnostic.Create(RuleCatalog.CSP0739, context.Operation.Syntax.GetLocation()),
             _ => null,
         });
     internal static void CheckManualGenericProjectionGate(OperationAnalysisContext context, ScopeInfo scope, IConditionalOperation conditional) =>
@@ -133,22 +133,24 @@ internal static class FlowRules {
                 => Diagnostic.Create(RuleCatalog.CSP0727, @switch.SwitchKeyword.GetLocation(), binary.OperatorToken.Text),
             _ => null,
         });
-    internal static void CheckGuardableFinConditional(SyntaxNodeAnalysisContext context, ScopeInfo scope, SwitchExpressionSyntax switchExpression) =>
+    internal static void CheckGuardableFinConditional(SyntaxNodeAnalysisContext context, AnalyzerState state, ScopeInfo scope, SwitchExpressionSyntax switchExpression) =>
         AnalyzerState.Report(context.ReportDiagnostic, (
             scope.IsAnalyzable,
-            context.SemanticModel.GetOperation(switchExpression, context.CancellationToken) is ISwitchExpressionOperation switchOperation && IsGuardableFinGate(switchOperation),
-            IsConfirmOwner(context.ContainingSymbol)) switch {
-                (true, true, false) => Diagnostic.Create(RuleCatalog.CSP0739, switchExpression.SwitchKeyword.GetLocation()),
+            context.SemanticModel.GetOperation(switchExpression, context.CancellationToken) is ISwitchExpressionOperation switchOperation && IsGuardableFinGate(switchOperation, state.LanguageExtCommonErrorType),
+            IsConfirmOwner(context.ContainingSymbol),
+            IsDemandOwner(context.ContainingSymbol),
+            SymbolFacts.IsManualOpConfirmGate(model: context.SemanticModel, switchExpression: switchExpression)) switch {
+                (true, true, false, false, false) => Diagnostic.Create(RuleCatalog.CSP0739, switchExpression.SwitchKeyword.GetLocation()),
                 _ => null,
             });
     internal static void CheckManualOpAdmissionGate(SyntaxNodeAnalysisContext context, ScopeInfo scope, ConditionalExpressionSyntax conditional) =>
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsManualOpAdmissionGate(model: context.SemanticModel, conditional: conditional)) switch {
-            (true, true) => Diagnostic.Create(RuleCatalog.CSP0742, conditional.QuestionToken.GetLocation(), "conditional"),
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsManualOpAdmissionGate(model: context.SemanticModel, conditional: conditional) || SymbolFacts.IsManualOpConfirmGate(model: context.SemanticModel, conditional: conditional), IsConfirmOwner(context.ContainingSymbol), IsDemandOwner(context.ContainingSymbol)) switch {
+            (true, true, false, false) => Diagnostic.Create(RuleCatalog.CSP0742, conditional.QuestionToken.GetLocation(), "conditional"),
             _ => null,
         });
     internal static void CheckManualOpAdmissionGate(SyntaxNodeAnalysisContext context, ScopeInfo scope, SwitchExpressionSyntax switchExpression) =>
-        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsManualOpAdmissionGate(model: context.SemanticModel, switchExpression: switchExpression)) switch {
-            (true, true) => Diagnostic.Create(RuleCatalog.CSP0742, switchExpression.SwitchKeyword.GetLocation(), "switch"),
+        AnalyzerState.Report(context.ReportDiagnostic, (scope.IsAnalyzable, SymbolFacts.IsManualOpAdmissionGate(model: context.SemanticModel, switchExpression: switchExpression) || SymbolFacts.IsManualOpConfirmGate(model: context.SemanticModel, switchExpression: switchExpression), IsConfirmOwner(context.ContainingSymbol), IsDemandOwner(context.ContainingSymbol)) switch {
+            (true, true, false, false) => Diagnostic.Create(RuleCatalog.CSP0742, switchExpression.SwitchKeyword.GetLocation(), "switch"),
             _ => null,
         });
     private static bool IsArithmeticBinary(SyntaxKind kind) =>
@@ -314,36 +316,60 @@ internal static class FlowRules {
                     && SymbolEqualityComparer.Default.Equals(parameter.Parameter, lambda.Symbol.Parameters[0]),
             _ => operation.Syntax.ToString() is "identity" or "Prelude.identity",
         };
-    private static bool IsGuardableFinGate(IConditionalOperation conditional) {
+    private static bool IsGuardableFinGate(IConditionalOperation conditional, INamedTypeSymbol? commonErrorType) {
         IOperation? whenTrue = UnwrapOperation(conditional.WhenTrue);
         IOperation? whenFalse = UnwrapOperation(conditional.WhenFalse);
         return !BindsPatternVariable(conditional.Condition)
-            && ((IsFinSuccess(whenTrue, conditional.Type) && IsFinFailure(whenFalse, conditional.Type))
-                || (IsFinFailure(whenTrue, conditional.Type) && IsFinSuccess(whenFalse, conditional.Type)));
+            && ((IsFinSuccess(whenTrue, conditional.Type) && IsFinFailure(whenFalse, conditional.Type, commonErrorType))
+                || (IsFinFailure(whenTrue, conditional.Type, commonErrorType) && IsFinSuccess(whenFalse, conditional.Type)));
     }
-    private static bool IsGuardableFinGate(ISwitchExpressionOperation switchExpression) {
+    private static bool IsGuardableFinGate(ISwitchExpressionOperation switchExpression, INamedTypeSymbol? commonErrorType) {
         ImmutableArray<ISwitchExpressionArmOperation> arms = switchExpression.Arms;
         return SymbolFacts.IsLanguageExtFinType(switchExpression.Type)
             && switchExpression.Value.Type?.SpecialType == SpecialType.System_Boolean
             && arms.Length == 2
-            && ((IsFinSuccess(UnwrapOperation(arms[0].Value), switchExpression.Type) && IsFinFailure(UnwrapOperation(arms[1].Value), switchExpression.Type))
-                || (IsFinFailure(UnwrapOperation(arms[0].Value), switchExpression.Type) && IsFinSuccess(UnwrapOperation(arms[1].Value), switchExpression.Type)));
+            && ((IsFinSuccess(UnwrapOperation(arms[0].Value), switchExpression.Type) && IsFinFailure(UnwrapOperation(arms[1].Value), switchExpression.Type, commonErrorType))
+                || (IsFinFailure(UnwrapOperation(arms[0].Value), switchExpression.Type, commonErrorType) && IsFinSuccess(UnwrapOperation(arms[1].Value), switchExpression.Type)));
     }
     private static bool IsConfirmOwner(ISymbol? symbol) =>
         symbol is IMethodSymbol { Name: "Confirm", Parameters.Length: 1 } method
         && method.Parameters[0].Type.SpecialType == SpecialType.System_Boolean
         && SymbolFacts.IsLanguageExtFinUnitType(method.ReturnType);
+    private static bool IsDemandOwner(ISymbol? symbol) =>
+        symbol is IMethodSymbol { Name: "Demand" } method
+        && method.Parameters.Any(static parameter =>
+            parameter.Name == "condition"
+            && parameter.Type.SpecialType == SpecialType.System_Boolean)
+        && SymbolFacts.IsLanguageExtFinType(method.ReturnType);
     private static bool IsFinSuccess(IOperation? operation, ITypeSymbol? finType) =>
         operation is IInvocationOperation invocation
         && SymbolFacts.IsLanguageExtFinSuccessInvocation(invocation)
         && IsSameFinType(invocation.Type, finType)
         && !IsValueTypeThis(UnwrapOperation(invocation.Arguments[0].Value))
         && !HasKnownSideEffectConstruction(invocation.Arguments[0].Value);
-    private static bool IsFinFailure(IOperation? operation, ITypeSymbol? finType) =>
+    private static bool IsFinFailure(IOperation? operation, ITypeSymbol? finType, INamedTypeSymbol? commonErrorType) =>
+        operation is IInvocationOperation invocation
+        && SymbolFacts.IsLanguageExtFinFailureInvocation(invocation, commonErrorType)
+        && IsSameFinType(invocation.Type, finType)
+        && !HasCancellationFailure(invocation)
+        && !HasRichNativeFailureDetail(invocation);
+    private static bool IsManualConfirmGate(IConditionalOperation conditional) {
+        IOperation? whenTrue = UnwrapOperation(conditional.WhenTrue);
+        IOperation? whenFalse = UnwrapOperation(conditional.WhenFalse);
+        return SymbolFacts.IsLanguageExtFinUnitType(conditional.Type)
+            && ((IsFinUnitSuccess(whenTrue, conditional.Type) && IsPlainInvalidResultFailure(whenFalse, conditional.Type))
+                || (IsPlainInvalidResultFailure(whenTrue, conditional.Type) && IsFinUnitSuccess(whenFalse, conditional.Type)));
+    }
+    private static bool IsFinUnitSuccess(IOperation? operation, ITypeSymbol? finType) =>
+        operation is IInvocationOperation invocation
+        && SymbolFacts.IsLanguageExtFinSuccessInvocation(invocation)
+        && IsSameFinType(invocation.Type, finType)
+        && SymbolFacts.IsLanguageExtUnitValue(UnwrapOperation(invocation.Arguments[0].Value));
+    private static bool IsPlainInvalidResultFailure(IOperation? operation, ITypeSymbol? finType) =>
         operation is IInvocationOperation invocation
         && SymbolFacts.IsLanguageExtFinFailureInvocation(invocation)
         && IsSameFinType(invocation.Type, finType)
-        && !HasRichNativeFailureDetail(invocation);
+        && SymbolFacts.ContainsPlainInvalidResult(invocation.Arguments[0].Value);
     private static bool IsSameFinType(ITypeSymbol? candidate, ITypeSymbol? expected) =>
         candidate is not null
         && expected is not null
@@ -356,6 +382,8 @@ internal static class FlowRules {
             TargetMethod.Name: "InvalidResult",
             Arguments.Length: > 0,
         };
+    private static bool HasCancellationFailure(IInvocationOperation failure) =>
+        SymbolFacts.UnwrapValue(failure.Arguments[0].Value)?.Type?.Name.Contains(value: "Cancelled", comparisonType: StringComparison.Ordinal) == true;
     private static bool IsValueTypeThis(IOperation? operation) =>
         operation is IInstanceReferenceOperation { Type.IsValueType: true };
     private static bool BindsPatternVariable(IOperation condition) =>
