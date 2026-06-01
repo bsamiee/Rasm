@@ -138,7 +138,9 @@ internal static class TypeShapeRules {
 
     internal static void ReportClosedUnionPlanFusion(CompilationAnalysisContext context, AnalyzerState state) {
         IEnumerable<Diagnostic> diagnostics = state.ClosedUnionDispatches()
-            .GroupBy(static fact => fact.Union.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat), StringComparer.Ordinal)
+            .GroupBy(
+                static fact => $"{fact.Union.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}|{fact.CaseSetKey}",
+                StringComparer.Ordinal)
             .Select(ClosedUnionPlanFusionDiagnostic)
             .OfType<Diagnostic>();
         AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
@@ -151,11 +153,17 @@ internal static class TypeShapeRules {
             .Cast<ClosedUnionDispatchFact?>()
             .FirstOrDefault();
         bool duplicateBehavior = metadata is ClosedUnionDispatchFact metadataFact
-            && facts.Any(fact => fact.Kind == ClosedUnionDispatchKind.Behavior && fact.CaseCount == metadataFact.CaseCount);
+            && facts.Any(fact => fact.Kind == ClosedUnionDispatchKind.Behavior && SameClosedUnionPlanConcern(metadata: metadataFact, behavior: fact));
         return metadata is ClosedUnionDispatchFact diagnosticFact && duplicateBehavior
             ? Diagnostic.Create(RuleCatalog.CSP0744, diagnosticFact.Location, diagnosticFact.Union.Name)
             : null;
     }
+    private static bool SameClosedUnionPlanConcern(ClosedUnionDispatchFact metadata, ClosedUnionDispatchFact behavior) =>
+        metadata.CaseSetKey == behavior.CaseSetKey
+        && (metadata.OwnerKey == behavior.OwnerKey
+            || (metadata.OwnerIsUnion
+                && behavior.ReceiverRole == ClosedUnionDispatchReceiverRole.Parameter
+                && string.Equals(a: metadata.FilePath, b: behavior.FilePath, comparisonType: StringComparison.Ordinal)));
 
     // --- [DATETIME_FIELD] -----------------------------------------------------
 

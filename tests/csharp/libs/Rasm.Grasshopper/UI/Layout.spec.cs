@@ -155,21 +155,6 @@ public sealed class SnappingPolicyLaws {
 
         Spec.Some(policy.FeedbackStyle, style => Assert.Equal(expected: first, actual: style));
         Assert.False(condition: policy.UseAggregateWireBounds);
-        Assert.Equal(expected: first, actual: new SnapProbe.ObjectCase(ObjectId: Guid.NewGuid(), Policy: policy).FeedbackStyle.IfNone(second));
-    }
-
-    [Fact]
-    public void SnapProbeCasesProjectFeedbackStyleUniformly() {
-        SnapGuideStyle style = SnapGuideStyle.Solid(tint: Colors.Green);
-        SnappingPolicy policy = new(Settings: Seq<SnapSetting>(new SnapSetting.FeedbackCase(Enabled: true, Style: style)));
-        SnapProbe[] probes = [
-            new SnapProbe.PointCase(ObjectId: Guid.NewGuid(), Probe: PointF.Empty, Policy: policy),
-            new SnapProbe.RectangleCase(ObjectId: Guid.NewGuid(), Bounds: new RectangleF(x: 0f, y: 0f, width: 1f, height: 1f), Policy: policy),
-            new SnapProbe.ObjectCase(ObjectId: Guid.NewGuid(), Policy: policy),
-            new SnapProbe.GroupCase(ObjectIds: Seq(Guid.NewGuid(), Guid.NewGuid()), Policy: policy),
-        ];
-
-        Assert.All(collection: probes, action: probe => Assert.Equal(expected: style, actual: probe.FeedbackStyle.IfNone(SnapGuideStyle.Dashed(tint: Colors.Red))));
     }
 }
 
@@ -190,18 +175,22 @@ public sealed class LayoutSnapshotLaws {
     }
 }
 
-public sealed class LayoutOpPolicyLaws {
+public sealed class LayoutIntentPolicyLaws {
     [Fact]
-    public void LayoutOperationPoliciesSeparateReadOnlyAndMutationRepaints() {
+    public void LayoutIntentPoliciesSeparateReadOnlyAndMutationRepaints() {
         Guid id = Guid.NewGuid();
         LayoutOp.MeasureCase measure = new(Scope: new ObjectScope.ObjectsCase(Ids: Seq(id)));
         LayoutOp.ArrangeCase arrange = new(Arrangement: LayoutArrangement.Distribute(axis: LayoutAxis.Horizontal, gap: LayoutGap.Create(value: 8f), ids: Seq(id)));
         LayoutOp.SnapCase snap = new(Probe: new SnapProbe.ObjectCase(ObjectId: id));
-        Assert.True(condition: measure.UiPolicy.RequireCanvas && measure.UiPolicy.RequireDocument);
-        Assert.True(condition: arrange.UiPolicy.RequireCanvas && arrange.UiPolicy.RequireDocument);
-        Assert.True(condition: snap.UiPolicy.RequireCanvas && snap.UiPolicy.RequireDocument);
-        _ = Assert.IsType<RepaintRequest.NoneCase>(@object: measure.UiPolicy.RepaintOrNone);
-        _ = Assert.IsType<RepaintRequest.CanvasCase>(@object: arrange.UiPolicy.RepaintOrNone);
-        _ = Assert.IsType<RepaintRequest.NoneCase>(@object: snap.UiPolicy.RepaintOrNone);
+        GrasshopperUiPolicy measurePolicy = GhUi.Layout(op: measure).Policy;
+        GrasshopperUiPolicy arrangePolicy = GhUi.Layout(op: arrange).Policy;
+        GrasshopperUiPolicy snapPolicy = GhUi.Layout(op: snap).Policy;
+
+        Assert.True(condition: measurePolicy.RequireCanvas && measurePolicy.RequireDocument);
+        Assert.True(condition: arrangePolicy.RequireCanvas && arrangePolicy.RequireDocument);
+        Assert.True(condition: snapPolicy.RequireCanvas && snapPolicy.RequireDocument);
+        _ = Assert.IsType<RepaintRequest.NoneCase>(@object: measurePolicy.RepaintOrNone);
+        _ = Assert.IsType<RepaintRequest.CanvasCase>(@object: arrangePolicy.RepaintOrNone);
+        _ = Assert.IsType<RepaintRequest.NoneCase>(@object: snapPolicy.RepaintOrNone);
     }
 }

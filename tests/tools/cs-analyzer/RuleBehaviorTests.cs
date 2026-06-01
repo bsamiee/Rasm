@@ -3483,6 +3483,125 @@ public sealed class RuleBehaviorTests {
         Assert.DoesNotContain(expected: "CSP0744", collection: ids);
     }
 
+    [Fact]
+    public async Task PolicyDispatchBoundaryDoesNotEmitClosedUnionPlanFusionDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/PolicyDispatchBoundary.cs",
+            source: """
+                namespace Thinktecture {
+                    public sealed class UnionAttribute : System.Attribute {
+                        public string? SwitchMapStateParameterName { get; set; }
+                    }
+                    public sealed class SkipUnionOpsAttribute : System.Attribute { }
+                }
+
+                namespace Domain.Services {
+                    public readonly record struct GrasshopperUiPolicy(bool NeedsCanvas, bool NeedsDocument);
+
+                    [Thinktecture.Union(SwitchMapStateParameterName = "owner")]
+                    [Thinktecture.SkipUnionOps]
+                    public abstract record UiOperation {
+                        private UiOperation() { }
+                        public sealed record Query : UiOperation;
+                        public sealed record Mutate : UiOperation;
+                        public sealed record Subscribe : UiOperation;
+
+                        public GrasshopperUiPolicy UiPolicy =>
+                            Switch(
+                                owner: this,
+                                query: static (_, _) => new GrasshopperUiPolicy(NeedsCanvas: true, NeedsDocument: true),
+                                mutate: static (_, _) => new GrasshopperUiPolicy(NeedsCanvas: true, NeedsDocument: true),
+                                subscribe: static (_, _) => new GrasshopperUiPolicy(NeedsCanvas: true, NeedsDocument: false));
+
+                        public int Dispatch(Owner owner) =>
+                            Switch(
+                                owner: owner,
+                                query: static (owner, task) => owner.Query(task),
+                                mutate: static (owner, task) => owner.Mutate(task),
+                                subscribe: static (owner, task) => owner.Subscribe(task));
+
+                        public T Switch<TState, T>(
+                            TState owner,
+                            System.Func<TState, Query, T> query,
+                            System.Func<TState, Mutate, T> mutate,
+                            System.Func<TState, Subscribe, T> subscribe) => default!;
+                    }
+
+                    public sealed class Owner {
+                        public int Query(UiOperation.Query task) => 1;
+                        public int Mutate(UiOperation.Mutate task) => 2;
+                        public int Subscribe(UiOperation.Subscribe task) => 3;
+                    }
+                }
+                """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0744", collection: ids);
+    }
+
+    [Fact]
+    public async Task ImpureMetadataDoesNotEmitClosedUnionPlanFusionDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ImpureMetadata.cs",
+            source: ClosedUnionPlanFusionSource(body: """
+                    public OperationMeta Metadata(Owner owner) =>
+                        Switch(
+                            owner: owner,
+                            create: static (owner, task) => new OperationMeta(Name: owner.Create(task).ToString()),
+                            delete: static (owner, task) => new OperationMeta(Name: owner.Delete(task).ToString()),
+                            inspect: static (owner, task) => new OperationMeta(Name: owner.Inspect(task).ToString()));
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0744", collection: ids);
+    }
+
+    [Fact]
+    public async Task ValidationRailDoesNotPairWithMetadataProjectionAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ClosedUnionValidationRail.cs",
+            source: ClosedUnionPlanFusionSource(body: """
+                    public OperationMeta Metadata() =>
+                        Switch(
+                            owner: this,
+                            create: static (_, _) => new OperationMeta(Name: "create"),
+                            delete: static (_, _) => new OperationMeta(Name: "delete"),
+                            inspect: static (_, _) => new OperationMeta(Name: "inspect"));
+
+                    public bool CanRun(Owner owner) =>
+                        Switch(
+                            owner: owner,
+                            create: static (owner, task) => owner.Create(task) > 0,
+                            delete: static (owner, task) => owner.Delete(task) > 0,
+                            inspect: static (owner, task) => owner.Inspect(task) > 0);
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0744", collection: ids);
+    }
+
+    [Fact]
+    public async Task ObjectCreationBehaviorPairsWithMetadataProjectionAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ObjectCreationBehavior.cs",
+            source: ClosedUnionPlanFusionSource(body: """
+                    public readonly record struct OperationResult(int Value);
+
+                    public OperationMeta Metadata() =>
+                        Switch(
+                            owner: this,
+                            create: static (_, _) => new OperationMeta(Name: "create"),
+                            delete: static (_, _) => new OperationMeta(Name: "delete"),
+                            inspect: static (_, _) => new OperationMeta(Name: "inspect"));
+
+                    public OperationResult Run() =>
+                        Switch(
+                            owner: this,
+                            create: static (_, _) => new OperationResult(Value: 1),
+                            delete: static (_, _) => new OperationResult(Value: 2),
+                            inspect: static (_, _) => new OperationResult(Value: 3));
+                """)).ConfigureAwait(true);
+
+        Assert.Contains(expected: "CSP0744", collection: ids);
+    }
+
     public static TheoryData<string, string, string> RuleCases() =>
         Cases.Aggregate(
             seed: [],

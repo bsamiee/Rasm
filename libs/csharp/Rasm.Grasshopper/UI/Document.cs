@@ -1126,7 +1126,7 @@ internal static partial class Document {
                 from doc in s.NeedDocument()
                 select (DocumentResult)new DocumentResult.NotesResult(Value: doc.CustomValues.Get(key: key, @default: custom.DefaultValue)));
 
-    // policy.Repaint is consumed by DocumentOp.UiPolicy (mutateCase → Document(repaint: Policy.RepaintOrDefault)); this body owns mutation only.
+    // policy.Repaint is consumed by DocumentOp's intent plan; this body owns mutation only.
     private static Fin<DocumentResult> Mutate(GrasshopperUi.Scope scope, Seq<DocumentMutation> mutations, DocumentMutationPolicy policy) =>
         UiRail.RunDocumentMutation(scope: scope, op: DocumentOp.MutateCase.SelfOp,
             mutate: (methods, objects, actions) => mutations.TraverseM(m => m.Apply(methods: methods, objects: objects, actions: actions))

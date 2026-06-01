@@ -111,31 +111,35 @@ public sealed class WireQueryAndPolicyLaws {
     }
 
     [Fact]
-    public void WireOperationPoliciesSeparateDocumentQueriesCanvasHooksAndMutations() {
+    public void WireIntentPoliciesSeparateDocumentQueriesCanvasHooksAndMutations() {
         Guid source = Guid.NewGuid();
         Guid target = Guid.NewGuid();
         WireSnapshot.ConnectedCase wire = new(Source: source, Target: target, SourceResolved: true, TargetResolved: true, Connected: true, Selected: false);
         WireOp[] documentQueries = [WireOp.Query(WireQuery.All)];
         WireOp[] canvasQueries = [WireOp.InstallShape(shapeType: typeof(object))];
-        WireOp[] scheduled = [WireOp.Overlay(style: new WireOverlayStyle(Style: PaintStyle.ForTransparent())), WireOp.WirePaintObserve()];
+        WireOp[] canvasHooks = [WireOp.Overlay(style: new WireOverlayStyle(Style: PaintStyle.ForTransparent())), WireOp.WirePaintObserve()];
         WireOp[] mutating = [WireOp.Select(WireSelectionOp.DeselectAll), WireOp.Split(wire: wire, location: PointF.Empty), WireOp.Edit(wire: wire, edit: WireEdit.Disconnect), WireOp.EditBatch((wire, WireEdit.Disconnect, default))];
         Assert.All(collection: documentQueries, action: op => {
-            Assert.True(condition: op.UiPolicy.RequireCanvas && op.UiPolicy.RequireDocument);
-            _ = Assert.IsType<RepaintRequest.NoneCase>(@object: op.UiPolicy.RepaintOrNone);
+            GrasshopperUiPolicy policy = GhUi.Wire(op: op).Policy;
+            Assert.True(condition: policy.RequireCanvas && policy.RequireDocument);
+            _ = Assert.IsType<RepaintRequest.NoneCase>(@object: policy.RepaintOrNone);
         });
         Assert.All(collection: canvasQueries, action: op => {
-            Assert.True(condition: op.UiPolicy.RequireCanvas);
-            Assert.False(condition: op.UiPolicy.RequireDocument);
-            _ = Assert.IsType<RepaintRequest.NoneCase>(@object: op.UiPolicy.RepaintOrNone);
+            GrasshopperUiPolicy policy = GhUi.Wire(op: op).Policy;
+            Assert.True(condition: policy.RequireCanvas);
+            Assert.False(condition: policy.RequireDocument);
+            _ = Assert.IsType<RepaintRequest.NoneCase>(@object: policy.RepaintOrNone);
         });
-        Assert.All(collection: scheduled, action: op => {
-            Assert.True(condition: op.UiPolicy.RequireCanvas);
-            Assert.False(condition: op.UiPolicy.RequireDocument);
-            _ = Assert.IsType<RepaintRequest.ScheduledCase>(@object: op.UiPolicy.RepaintOrNone);
+        Assert.All(collection: canvasHooks, action: op => {
+            GrasshopperUiPolicy policy = GhUi.Wire(op: op).Policy;
+            Assert.True(condition: policy.RequireCanvas);
+            Assert.False(condition: policy.RequireDocument);
+            _ = Assert.IsType<RepaintRequest.NoneCase>(@object: policy.RepaintOrNone);
         });
         Assert.All(collection: mutating, action: op => {
-            Assert.True(condition: op.UiPolicy.RequireCanvas && op.UiPolicy.RequireDocument);
-            _ = Assert.IsType<RepaintRequest.CanvasCase>(@object: op.UiPolicy.RepaintOrNone);
+            GrasshopperUiPolicy policy = GhUi.Wire(op: op).Policy;
+            Assert.True(condition: policy.RequireCanvas && policy.RequireDocument);
+            _ = Assert.IsType<RepaintRequest.CanvasCase>(@object: policy.RepaintOrNone);
         });
     }
 

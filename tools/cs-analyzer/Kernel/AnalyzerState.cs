@@ -82,8 +82,8 @@ internal sealed class AnalyzerState {
         _ = _flagsEnums.TryAdd(key: enumType, value: 0);
     internal void TrackFlagsEnumCompositionSite(INamedTypeSymbol enumType) =>
         _ = _flagsEnumCompositionSites.TryAdd(key: enumType, value: 0);
-    internal void TrackClosedUnionDispatch(IInvocationOperation invocation) {
-        if (SymbolFacts.TryClosedUnionDispatch(compilation: Compilation, invocation: invocation, fact: out ClosedUnionDispatchFact fact)) {
+    internal void TrackClosedUnionDispatch(ISymbol containingSymbol, IInvocationOperation invocation) {
+        if (SymbolFacts.TryClosedUnionDispatch(compilation: Compilation, containingSymbol: containingSymbol, invocation: invocation, fact: out ClosedUnionDispatchFact fact)) {
             _closedUnionDispatches.Add(item: fact);
         }
     }

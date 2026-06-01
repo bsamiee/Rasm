@@ -90,17 +90,42 @@ internal enum ClosedUnionDispatchKind {
     Behavior,
 }
 
+internal enum ClosedUnionDispatchReceiverRole {
+    Other,
+    This,
+    Parameter,
+}
+
 internal readonly struct ClosedUnionDispatchFact {
-    internal ClosedUnionDispatchFact(INamedTypeSymbol union, ClosedUnionDispatchKind kind, int caseCount, Location location) {
+    internal ClosedUnionDispatchFact(
+        INamedTypeSymbol union,
+        ClosedUnionDispatchKind kind,
+        int caseCount,
+        string caseSetKey,
+        string ownerKey,
+        bool ownerIsUnion,
+        ClosedUnionDispatchReceiverRole receiverRole,
+        string filePath,
+        Location location) {
         Union = union;
         Kind = kind;
         CaseCount = caseCount;
+        CaseSetKey = caseSetKey;
+        OwnerKey = ownerKey;
+        OwnerIsUnion = ownerIsUnion;
+        ReceiverRole = receiverRole;
+        FilePath = filePath;
         Location = location;
     }
 
     internal INamedTypeSymbol Union { get; }
     internal ClosedUnionDispatchKind Kind { get; }
     internal int CaseCount { get; }
+    internal string CaseSetKey { get; }
+    internal string OwnerKey { get; }
+    internal bool OwnerIsUnion { get; }
+    internal ClosedUnionDispatchReceiverRole ReceiverRole { get; }
+    internal string FilePath { get; }
     internal Location Location { get; }
 }
 
@@ -1003,7 +1028,7 @@ internal static class SymbolFacts {
         facts = new ForwardingRequestCaseFamilyFacts(caseCount: nestedCases.Length);
         return true;
     }
-    internal static bool TryClosedUnionDispatch(Compilation compilation, IInvocationOperation invocation, out ClosedUnionDispatchFact fact) {
+    internal static bool TryClosedUnionDispatch(Compilation compilation, ISymbol containingSymbol, IInvocationOperation invocation, out ClosedUnionDispatchFact fact) {
         fact = default;
         ImmutableArray<IAnonymousFunctionOperation> lambdas = [
             .. invocation.Arguments
@@ -1013,16 +1038,24 @@ internal static class SymbolFacts {
         ];
         INamedTypeSymbol? union = ClosedUnionDispatchReceiver(invocation);
         ImmutableArray<INamedTypeSymbol> cases = union is null ? [] : ClosedUnionCases(compilation: compilation, namedType: union);
+        ImmutableArray<INamedTypeSymbol> dispatchedCases = union is null ? [] : ClosedUnionDispatchCases(union: union, lambdas: lambdas);
         ClosedUnionDispatchKind? kind = ClosedUnionDispatchKindOf(invocation: invocation, lambdas: lambdas);
         bool complete = cases.Length >= 3
-            && lambdas.Length == cases.Length;
+            && dispatchedCases.Length == cases.Length
+            && CaseSetKey(cases: dispatchedCases) == CaseSetKey(cases: cases);
         if (invocation.TargetMethod.Name != "Switch" || union is null || kind is null || !complete) {
             return false;
         }
+        INamedTypeSymbol? ownerType = containingSymbol.ContainingType;
         fact = new ClosedUnionDispatchFact(
             union: union.OriginalDefinition,
             kind: kind.Value,
             caseCount: cases.Length,
+            caseSetKey: CaseSetKey(cases: cases),
+            ownerKey: OwnerKey(ownerType: ownerType),
+            ownerIsUnion: ownerType is not null && SymbolEqualityComparer.Default.Equals(ownerType.OriginalDefinition, union.OriginalDefinition),
+            receiverRole: ClosedUnionReceiverRole(invocation: invocation),
+            filePath: invocation.Syntax.SyntaxTree.FilePath,
             location: invocation.Syntax.GetLocation());
         return true;
     }
@@ -1110,9 +1143,10 @@ internal static class SymbolFacts {
         };
     private static ClosedUnionDispatchKind? ClosedUnionDispatchKindOf(IInvocationOperation invocation, ImmutableArray<IAnonymousFunctionOperation> lambdas) =>
         invocation.Type switch {
-            INamedTypeSymbol type when IsMetadataLikeType(type) => ClosedUnionDispatchKind.Metadata,
+            INamedTypeSymbol type when IsMetadataLikeType(type) && lambdas.All(static lambda => !HasBehaviorInvocation(lambda)) => ClosedUnionDispatchKind.Metadata,
             INamedTypeSymbol type when IsPlanLikeType(type) || IsErasedObjectType(type) => null,
-            _ when lambdas.Any(static lambda => HasBehaviorInvocation(lambda)) => ClosedUnionDispatchKind.Behavior,
+            { SpecialType: SpecialType.System_Boolean } => null,
+            _ when lambdas.Any(static lambda => HasBehaviorInvocation(lambda) || HasBehaviorObjectCreation(lambda)) => ClosedUnionDispatchKind.Behavior,
             _ => null,
         };
     private static bool IsMetadataLikeType(INamedTypeSymbol type) =>
@@ -1126,6 +1160,37 @@ internal static class SymbolFacts {
         lambda.Body.DescendantsAndSelf()
             .OfType<IInvocationOperation>()
             .Any(static invocation => invocation.TargetMethod.Name is not "Switch" and not "Map");
+    private static bool HasBehaviorObjectCreation(IAnonymousFunctionOperation lambda) =>
+        lambda.Body.DescendantsAndSelf()
+            .OfType<IObjectCreationOperation>()
+            .Any();
+    private static ImmutableArray<INamedTypeSymbol> ClosedUnionDispatchCases(INamedTypeSymbol union, ImmutableArray<IAnonymousFunctionOperation> lambdas) =>
+        [
+            .. lambdas
+                .Select(lambda => lambda.Symbol.Parameters
+                    .Select(static parameter => parameter.Type)
+                    .OfType<INamedTypeSymbol>()
+                    .FirstOrDefault(type => IsClosedUnionCase(union: union, type: type)))
+                .Where(static type => type is not null)
+                .Select(static type => type!),
+        ];
+    private static bool IsClosedUnionCase(INamedTypeSymbol union, INamedTypeSymbol type) =>
+        type.BaseType is INamedTypeSymbol baseType
+        && SymbolEqualityComparer.Default.Equals(baseType.OriginalDefinition, union.OriginalDefinition);
+    private static string CaseSetKey(ImmutableArray<INamedTypeSymbol> cases) =>
+        string.Join(
+            separator: "|",
+            values: cases
+                .Select(static type => type.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))
+                .OrderBy(static value => value, StringComparer.Ordinal));
+    private static string OwnerKey(INamedTypeSymbol? ownerType) =>
+        ownerType?.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? string.Empty;
+    private static ClosedUnionDispatchReceiverRole ClosedUnionReceiverRole(IInvocationOperation invocation) =>
+        UnwrapReceiver(ExtractReceiver(invocation)) switch {
+            IInstanceReferenceOperation => ClosedUnionDispatchReceiverRole.This,
+            IParameterReferenceOperation => ClosedUnionDispatchReceiverRole.Parameter,
+            _ => ClosedUnionDispatchReceiverRole.Other,
+        };
     private static bool IsManualUnionCase(INamedTypeSymbol baseType, INamedTypeSymbol caseType) =>
         caseType is { TypeKind: TypeKind.Class, IsRecord: true, IsSealed: true, IsGenericType: false }
         && caseType.BaseType is INamedTypeSymbol parent
