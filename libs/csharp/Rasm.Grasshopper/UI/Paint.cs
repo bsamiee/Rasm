@@ -841,21 +841,19 @@ public readonly record struct PaintSkinSnapshot(Option<CanvasSkin> Appearance) {
     public Option<Skin> Skin => Appearance.Map(static a => a.Effective);
 }
 
-public sealed record PaintRequest<T> : GhUiRequest<T> { internal PaintRequest(GrasshopperUiPolicy policy, Func<GrasshopperUi.Scope, Fin<T>> run) : base(policy: policy, run: run) { } }
-
-public static class PaintRequest {
-    public static PaintRequest<PaintSkinSnapshot> Skin() => Canvas(run: static scope => Paint.Skin().Run(scope: scope));
-    public static PaintRequest<Subscription> RedrawOnMouseMove(bool enabled = true, MotionClock? clock = null) => new(policy: GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Canvas), run: scope => Paint.RedrawOnMouseMove(enabled: enabled, clock: clock ?? MotionClock.MessageLoop).Run(scope: scope));
-    public static PaintRequest<Subscription> Hook(CanvasPaintPhase phase, DrawPlan plan, MotionClock? clock = null) => Canvas(run: scope => Paint.Hook(phase: phase, paint: plan.Apply, clock: clock ?? MotionClock.MessageLoop).Run(scope: scope));
-    public static PaintRequest<Subscription> FloatingDrawable(DrawPlan plan, Size size, Option<string> title = default) => Canvas(run: scope => Paint.FloatingDrawable(plan: plan, size: size, title: title).Run(scope: scope));
-
-    private static PaintRequest<T> Canvas<T>(Func<GrasshopperUi.Scope, Fin<T>> run) => new(policy: GrasshopperUiPolicy.Canvas(), run: run);
-}
-
 // --- [SERVICES] ---------------------------------------------------------------------------
-internal static partial class Paint {
-    internal static GrasshopperUiIntent<PaintSkinSnapshot> Skin() =>
+public static partial class Paint {
+    public static GrasshopperUiIntent<PaintSkinSnapshot> Skin() =>
         GhUi.Canvas(run: scope => scope.NeedCanvasSkin().Map(appearance => new PaintSkinSnapshot(Appearance: Some(appearance))));
+
+    public static GrasshopperUiIntent<Subscription> Hook(
+        CanvasPaintPhase phase,
+        Func<PaintScope, Fin<Unit>> paint,
+        MotionClock? clock = null) =>
+        Hook(
+            phase: phase,
+            paint: paint,
+            clock: clock ?? MotionClock.MessageLoop);
 
     internal static GrasshopperUiIntent<Subscription> Hook(
         CanvasPaintPhase phase,
@@ -893,7 +891,7 @@ internal static partial class Paint {
                     pacerRelease: () => _ = pacer.ReleaseOnce()))
                 : paintSub);
 
-    internal static GrasshopperUiIntent<Subscription> RedrawOnMouseMove(bool enabled = true, MotionClock? clock = null) =>
+    public static GrasshopperUiIntent<Subscription> RedrawOnMouseMove(bool enabled = true, MotionClock? clock = null) =>
         GhUi.Canvas(
             repaint: RepaintRequest.Canvas,
             run: scope =>
@@ -917,7 +915,7 @@ internal static partial class Paint {
                     paintHook: sustain | arm,
                     pacerRelease: () => _ = pacer.ReleaseOnce())));
 
-    internal static GrasshopperUiIntent<Subscription> FloatingDrawable(DrawPlan plan, Size size, Option<string> title) =>
+    public static GrasshopperUiIntent<Subscription> FloatingDrawable(DrawPlan plan, Size size, Option<string> title = default) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from skin in scope.NeedSkin()

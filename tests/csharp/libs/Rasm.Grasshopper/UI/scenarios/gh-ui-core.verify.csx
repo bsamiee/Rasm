@@ -66,7 +66,7 @@ Scenario.Run("gh-ui-core", CAPTURE_PATH, (key, facts) => {
 
         DrawMark mark = DrawMark.Rectangle(bounds: new RectangleF(0f, 0f, 24f, 24f), edge: Colors.Crimson, fill: Some(Colors.SkyBlue), thickness: 2f);
         Subscription drawSub = Probe.Expect(
-            result: ui.Use(intent: GhUi.Paint(request: new PaintRequest<Subscription>.Hook(Phase: CanvasPaintPhase.AfterObjects, Plan: new DrawPlan(Marks: Seq(mark))))),
+            result: ui.Use(intent: Paint.Hook(phase: CanvasPaintPhase.AfterObjects, paint: new DrawPlan(Marks: Seq(mark)).Apply, clock: MotionClock.MessageLoop)),
             label: "draw plan hook");
         using (drawSub) { }
         facts.Add("draw.hookAttached", true);

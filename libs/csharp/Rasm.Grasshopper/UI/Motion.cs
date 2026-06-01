@@ -207,9 +207,8 @@ public partial record CosmeticIntent {
         new EmitterCase(Bounds: bounds, Tint: tint, Duration: duration, Shape: shape ?? EmitterShape.Circle, Profile: profile ?? EmitterProfile.Spark, BirthRate: birthRate, Lifetime: lifetime, Velocity: velocity, Easing: easing);
 }
 
-// The three native FlexControl.Navigate targets: a point + zoom limits, a frame + zoom limits, or a semantic
-// CanvasPosition (the canonical Rasm wrapper over the host ContentPosition; the host frames it itself, no caller
-// zoom limits). MotionRequest.Navigate carries one.
+// The three FlexControl.Navigate targets: a point, a frame, or a semantic CanvasPosition. CanvasPosition owns the
+// frame projection so Motion and Canvas share the same position semantics instead of mirroring native enum rows.
 [SkipUnionOps]
 [Union(SwitchMapStateParameterName = "state")]
 public partial record NavigateTarget {
@@ -279,22 +278,6 @@ public sealed partial class Easing {
             < 2.5 / BounceD1 => (BounceN1 * (t - (2.25 / BounceD1)) * (t - (2.25 / BounceD1))) + 0.9375,
             _ => (BounceN1 * (t - (2.625 / BounceD1)) * (t - (2.625 / BounceD1))) + 0.984375,
         };
-}
-
-public sealed record MotionRequest<T> : GhUiRequest<T> { internal MotionRequest(GrasshopperUiPolicy policy, Func<GrasshopperUi.Scope, Fin<T>> run) : base(policy: policy, run: run) { } }
-
-public static class MotionRequest {
-    public static MotionRequest<Subscription> Tween<TValue>(Animated<TValue> animated, Action<TValue> sink, MotionClock? clock = null) => Canvas(repaint: RepaintRequest.Scheduled, run: scope => Motion.Tween(animated: animated, sink: sink, clock: clock ?? MotionClock.MessageLoop).Run(scope: scope));
-    public static MotionRequest<SpringHandle<TValue>> Spring<TValue>(TValue from, TValue to, SpringConfig config, IMotionVector<TValue> vector, Action<TValue> sink, Option<TValue> initialVelocity = default, TimeProvider? timeSource = null, MotionClock? clock = null) => Canvas(repaint: RepaintRequest.Scheduled, run: scope => Motion.Spring(start: from, target: to, config: config, vector: vector, sink: sink, initialVelocity: initialVelocity, timeSource: timeSource, clock: clock ?? MotionClock.MessageLoop).Run(scope: scope));
-    public static MotionRequest<PulseHandle<TValue>> Pulse<TValue>(TValue from, TValue to, GhDuration duration, GhMotion easing, IMotionVector<TValue> vector, Action<TValue> sink, int cycles = 1, bool yoyo = false, bool infinite = false, MotionClock? clock = null) => Canvas(repaint: RepaintRequest.Scheduled, run: scope => Motion.Pulse(start: from, target: to, duration: duration, easing: easing, cycles: cycles, yoyo: yoyo, infinite: infinite, vector: vector, sink: sink, clock: clock ?? MotionClock.MessageLoop).Run(scope: scope));
-    public static MotionRequest<Subscription> Stroke(AnimatedPath path, GhDuration duration, GhMotion easing, PaintStyle style, PointF origin, float scale = 1f, float angle = 0f, MotionClock? clock = null) => Canvas(repaint: RepaintRequest.Scheduled, run: scope => Motion.Stroke(path: path, duration: duration, easing: easing, style: style, origin: origin, scale: scale, angle: angle, clock: clock ?? MotionClock.MessageLoop).Run(scope: scope));
-    public static MotionRequest<Subscription> Theme(Skin from, Skin to, GhDuration duration, GhMotion easing, Action<Skin> sink, MotionClock? clock = null) => Canvas(repaint: RepaintRequest.Scheduled, run: scope => Motion.Theme(start: from, target: to, duration: duration, easing: easing, sink: sink, clock: clock ?? MotionClock.MessageLoop).Run(scope: scope));
-    public static MotionRequest<Unit> Navigate(NavigateTarget target, GhDuration duration, float minZoom = CanvasViewPolicy.DefaultMinimumZoom, float maxZoom = CanvasViewPolicy.DefaultMaximumZoom) => Canvas(run: scope => Motion.Navigate(target: target, duration: duration, minZoom: minZoom, maxZoom: maxZoom).Run(scope: scope));
-    public static MotionRequest<Subscription> ZoomGate(ZoomThreshold threshold, Action<float> sink, MotionClock? clock = null) => Canvas(repaint: RepaintRequest.Scheduled, run: scope => Motion.ZoomGate(threshold: threshold, sink: sink, clock: clock ?? MotionClock.MessageLoop).Run(scope: scope));
-    public static MotionRequest<Subscription> Cosmetic(CosmeticIntent intent) => Canvas(run: scope => Motion.Cosmetic(intent: intent).Run(scope: scope));
-    public static MotionRequest<Subscription> Sequence<TValue>(TValue start, Seq<(TValue Target, GhDuration Duration, GhMotion Motion)> steps, IMotionVector<TValue> vector, Action<TValue> sink, MotionClock? clock = null) => Canvas(repaint: RepaintRequest.Scheduled, run: scope => Motion.Sequence(start: start, steps: steps, vector: vector, sink: sink, clock: clock ?? MotionClock.MessageLoop).Run(scope: scope));
-
-    private static MotionRequest<T> Canvas<T>(Func<GrasshopperUi.Scope, Fin<T>> run, RepaintRequest? repaint = null) => new(policy: GrasshopperUiPolicy.Canvas(repaint: repaint), run: run);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -820,7 +803,7 @@ public static class Glyph {
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
-internal static class Motion {
+public static class Motion {
     // Default retina backing scale when a screen cannot be resolved.
     private const float RetinaScaleDefault = 2f;
     // GPU keyframe sampling density for the sampled-curve CAKeyFrameAnimation path.
@@ -850,7 +833,7 @@ internal static class Motion {
                 .MapFail(error => UiFault.ThreadMarshal(detail: error.Message))
             select (bundle.Subscription, bundle.Wake));
 
-    internal static GrasshopperUiIntent<Subscription> Tween<TValue>(
+    public static GrasshopperUiIntent<Subscription> Tween<TValue>(
         Animated<TValue> animated, Action<TValue> sink, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Tween)), detail: "sink delegate is required"))
@@ -865,7 +848,7 @@ internal static class Motion {
                 }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Tween)), detail: $"tick threw: {error.Message}"))).Run(scope: scope)
             select result);
 
-    internal static GrasshopperUiIntent<SpringHandle<TValue>> Spring<TValue>(
+    public static GrasshopperUiIntent<SpringHandle<TValue>> Spring<TValue>(
         TValue start, TValue target, SpringConfig config, IMotionVector<TValue> vector,
         Action<TValue> sink, Option<TValue> initialVelocity, TimeProvider? timeSource, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
@@ -950,7 +933,7 @@ internal static class Motion {
             what: "motion tick");
     }
 
-    internal static GrasshopperUiIntent<PulseHandle<TValue>> Pulse<TValue>(
+    public static GrasshopperUiIntent<PulseHandle<TValue>> Pulse<TValue>(
         TValue start, TValue target, GhDuration duration, GhMotion easing, int cycles, bool yoyo, bool infinite,
         IMotionVector<TValue> vector, Action<TValue> sink, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
@@ -981,7 +964,7 @@ internal static class Motion {
                 handle: static (cell, sub, wake, settled) => new PulseHandle<TValue>(cell: cell, subscription: sub, wake: wake, settled: settled)).Run(scope: scope)
             select handle);
 
-    internal static GrasshopperUiIntent<Subscription> Sequence<TValue>(
+    public static GrasshopperUiIntent<Subscription> Sequence<TValue>(
         TValue start, Seq<(TValue Target, GhDuration Duration, GhMotion Motion)> steps,
         IMotionVector<TValue> vector, Action<TValue> sink, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
@@ -1000,7 +983,7 @@ internal static class Motion {
             from sub in Tween(animated: animated, sink: validSink, clock: clock).Run(scope: scope)
             select sub);
 
-    internal static GrasshopperUiIntent<Subscription> Stroke(
+    public static GrasshopperUiIntent<Subscription> Stroke(
         AnimatedPath path, GhDuration duration, GhMotion easing, PaintStyle style,
         PointF origin, float scale, float angle, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
@@ -1027,7 +1010,7 @@ internal static class Motion {
                 }).Run(scope: scope)
             select result);
 
-    internal static GrasshopperUiIntent<Subscription> Theme(
+    public static GrasshopperUiIntent<Subscription> Theme(
         Skin start, Skin target, GhDuration duration, GhMotion easing, Action<Skin> sink, MotionClock clock) =>
         Tween(
             animated: Animated<Skin>.CreateUnfinished(
@@ -1038,7 +1021,7 @@ internal static class Motion {
             sink: sink,
             clock: clock);
 
-    internal static GrasshopperUiIntent<Unit> Navigate(NavigateTarget target, GhDuration duration, float minZoom, float maxZoom) =>
+    public static GrasshopperUiIntent<Unit> Navigate(NavigateTarget target, GhDuration duration, float minZoom, float maxZoom) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from document in scope.NeedDocument()
@@ -1053,23 +1036,36 @@ internal static class Motion {
                 state: navigation,
                 pointCase: static (s, p) =>
                     from validCentre in Op.Of(name: nameof(Navigate)).AcceptPoint(value: p.Centre, detail: "non-finite centre")
-                    from __ in MotionAccessibility.ShouldReduceMotion
-                        ? Op.Of(name: nameof(Navigate)).Attempt(body: () => {
+                    from __ in MotionAccessibility.ShouldReduceMotion switch {
+                        true => Op.Of(name: nameof(Navigate)).Attempt(body: () => {
                             float zoom = Math.Clamp(value: s.Document.Projection.zoom, min: s.Min, max: s.Max);
                             s.Canvas.Projection = s.Canvas.Projection.SetZoom(zoom: zoom).SetCentre(centre: validCentre, frame: s.Canvas.VisibleFrame);
                             s.Document.Projection = (validCentre, zoom);
                             return unit;
                         }, what: "navigate reduce-motion snap")
-                        : Op.Of(name: nameof(Navigate)).Attempt(body: () => { s.Canvas.Navigate(point: validCentre, zoomLimits: (s.Min, s.Max), duration: s.Duration); return unit; }, what: "navigate")
+                        ,
+                        false => Op.Of(name: nameof(Navigate)).Attempt(body: () => { s.Canvas.Navigate(point: validCentre, zoomLimits: (s.Min, s.Max), duration: s.Duration); return unit; }, what: "navigate"),
+                    }
                     select unit,
                 frameCase: static (s, f) =>
                     Op.Of(name: nameof(Navigate)).AcceptRect(value: f.Region, detail: "non-finite frame")
                         .Bind(validFrame => Op.Of(name: nameof(Navigate)).Attempt(body: () => { s.Canvas.Navigate(frame: validFrame, zoomLimits: (s.Min, s.Max), duration: s.Effective); return unit; }, what: "navigate frame")),
                 positionCase: static (s, pos) =>
-                    Op.Of(name: nameof(Navigate)).Attempt(body: () => { s.Canvas.Navigate(position: pos.Where.Native, duration: s.Effective); return unit; }, what: "navigate position"))
+                    from resolved in pos.Where.Resolve(
+                        frame: s.Canvas.VisibleFrame,
+                        content: s.Canvas.ContentBounds.IsEmpty ? s.Canvas.VisibleFrame : s.Canvas.ContentBounds,
+                        innerSize: s.Canvas.InnerBounds.Size,
+                        policy: new CanvasViewPolicy(MinimumZoom: s.Min, MaximumZoom: s.Max),
+                        op: Op.Of(name: nameof(Navigate)))
+                    let limits = resolved.Limits switch {
+                        { IsSome: true, Case: (float minimum, float maximum) } => (minimum, maximum),
+                        _ => (s.Min, s.Max),
+                    }
+                    from __ in Op.Of(name: nameof(Navigate)).Attempt(body: () => { s.Canvas.Navigate(frame: resolved.Frame, zoomLimits: limits, duration: s.Effective); return unit; }, what: "navigate position")
+                    select unit)
             select result);
 
-    internal static GrasshopperUiIntent<Subscription> ZoomGate(ZoomThreshold threshold, Action<float> sink, MotionClock clock) =>
+    public static GrasshopperUiIntent<Subscription> ZoomGate(ZoomThreshold threshold, Action<float> sink, MotionClock clock) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from validSink in Optional(sink).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ZoomGate)), detail: "sink delegate is required"))
@@ -1090,7 +1086,7 @@ internal static class Motion {
                 clock: clock).Run(scope: scope)
             select sub);
 
-    internal static GrasshopperUiIntent<Subscription> Cosmetic(CosmeticIntent intent) =>
+    public static GrasshopperUiIntent<Subscription> Cosmetic(CosmeticIntent intent) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
             from view in Optional(canvas.ControlObject as NSView).ToFin(Fail: UiFault.MutationRejected(

@@ -224,26 +224,20 @@ public partial record SnapProbe {
     public static SnapProbe Drag(Seq<Guid> objectIds, RectangleF bounds, SnappingPolicy policy = default) =>
         new DragCase(ObjectIds: objectIds, Bounds: bounds, Policy: policy);
 
-    internal Option<SnapGuideStyle> FeedbackStyle => Switch(
-        pointCase: static p => p.Policy.FeedbackStyle,
-        rectangleCase: static r => r.Policy.FeedbackStyle,
-        objectCase: static o => o.Policy.FeedbackStyle,
-        groupCase: static g => g.Policy.FeedbackStyle,
-        dragCase: static d => d.Policy.FeedbackStyle);
 }
 
 [GenerateUnionOps]
 [Union]
-public partial record LayoutOp : IUiOp {
+public partial record LayoutOp : IUiOp<LayoutResult> {
     private LayoutOp() { }
     public sealed partial record MeasureCase(ObjectScope Scope) : LayoutOp;
     public sealed partial record ArrangeCase(LayoutArrangement Arrangement) : LayoutOp;
     public sealed partial record SnapCase(SnapProbe Probe) : LayoutOp;
 
-    public GrasshopperUiPolicy UiPolicy => Switch(
-        measureCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
-        arrangeCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
-        snapCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None));
+    GrasshopperUiIntent<LayoutResult> IUiOp<LayoutResult>.Intent() => Switch(
+        measureCase: static measure => Layout.Measure(scope: measure.Scope),
+        arrangeCase: static arrange => Layout.Arrange(arrangement: arrange.Arrangement).Map(static delta => (LayoutResult)new LayoutResult.MutationResult(Delta: delta)),
+        snapCase: static snap => Layout.Snap(probe: snap.Probe).Map(static result => (LayoutResult)new LayoutResult.SnapResult(Snapshot: result)));
 }
 
 [SkipUnionOps]
@@ -260,14 +254,9 @@ internal static partial class Layout {
     // Bounded relaxation budget for Nudge: enough passes for typical selections to settle without an open loop.
     private const int NudgeIterations = 24;
 
-    internal static Fin<LayoutResult> Dispatch(GrasshopperUi.Scope scope, LayoutOp op) =>
-        op.Switch(
-            state: scope,
-            measureCase: static (s, measure) => Measure(scope: measure.Scope).Run(scope: s),
-            arrangeCase: static (s, a) => Arrange(arrangement: a.Arrangement).Map(static delta => (LayoutResult)new LayoutResult.MutationResult(Delta: delta)).Run(scope: s),
-            snapCase: static (s, snap) => Snap(probe: snap.Probe).Map(static result => (LayoutResult)new LayoutResult.SnapResult(Snapshot: result)).Run(scope: s));
+    private readonly record struct SnapRun(SnappingPolicy Policy, Func<GrasshopperUi.Scope, Fin<Option<SnappingSnapshot>>> Run);
 
-    private static GrasshopperUiIntent<LayoutResult> Measure(ObjectScope scope) =>
+    internal static GrasshopperUiIntent<LayoutResult> Measure(ObjectScope scope) =>
         scope.Switch(
             selectionCase: static _ => Selection().Map(snapshots => (LayoutResult)new LayoutResult.SnapshotsResult(Snapshots: snapshots)),
             objectsCase: static o => GhUi.Document(run: ctx => o.Ids.TraverseM(id => Snapshot(id: id).Run(scope: ctx))
@@ -479,38 +468,9 @@ internal static partial class Layout {
     internal static GrasshopperUiIntent<Option<SnappingSnapshot>> Snap(SnapProbe probe) =>
         GhUi.Document(run: scope =>
             from valid in Optional(probe).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "snap probe is required"))
-            from snapshot in valid.Switch(
-                state: scope,
-                pointCase: static (s, point) =>
-                    from probe in Op.Of(name: nameof(Snap)).AcceptPoint(value: point.Probe, detail: "non-finite probe")
-                    from radius in Op.Of(name: nameof(Snap)).AcceptFinite(value: point.Radius, detail: "radius must be finite and positive", requirePositive: true)
-                    from snapped in SnapRectangle(scope: s, id: point.ObjectId, bounds: new RectangleF(x: probe.X - radius, y: probe.Y - radius, width: radius * 2f, height: radius * 2f), policy: point.Policy)
-                    select snapped,
-                rectangleCase: static (s, rectangle) =>
-                    SnapRectangle(scope: s, id: rectangle.ObjectId, bounds: rectangle.Bounds, policy: rectangle.Policy),
-                objectCase: static (s, obj) =>
-                    ObjectOf(scope: s, id: obj.ObjectId).Bind(target =>
-                        from document in s.NeedDocument()
-                        from canvas in s.NeedCanvas()
-                        select SnapCore(document: document, obj: target, policy: obj.Policy, visibleLimit: canvas.VisibleFrame, bounds: Option<RectangleF>.None, grid: obj.Policy.Grid(canvas: canvas))),
-                groupCase: static (s, g) =>
-                    from document in s.NeedDocument()
-                    from canvas in s.NeedCanvas()
-                    from members in g.ObjectIds.TraverseM(id => UiRail.ResolveObject(objects: document.Objects, id: id, op: Op.Of(name: nameof(Snap)))).As()
-                    from snapped in members.IsEmpty
-                        ? Fin.Fail<Option<SnappingSnapshot>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "group snap requires at least one resolvable member"))
-                        : Fin.Succ(value: SnapGroup(document: document, members: members, policy: g.Policy, visibleLimit: canvas.VisibleFrame, grid: g.Policy.Grid(canvas: canvas)))
-                    select snapped,
-                dragCase: static (s, drag) =>
-                    from document in s.NeedDocument()
-                    from canvas in s.NeedCanvas()
-                    from frame in Op.Of(name: nameof(SnapProbe.Drag)).AcceptRect(value: drag.Bounds, detail: "invalid drag bounds", requirePositive: true)
-                    from members in drag.ObjectIds.TraverseM(id => UiRail.ResolveObject(objects: document.Objects, id: id, op: Op.Of(name: nameof(Snap)))).As()
-                    from snapped in members.IsEmpty
-                        ? Fin.Fail<Option<SnappingSnapshot>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(SnapProbe.Drag)), detail: "drag snap requires at least one member"))
-                        : Fin.Succ(value: SnapCore(document: document, obj: members[0], policy: drag.Policy, visibleLimit: canvas.VisibleFrame, bounds: Some(frame), grid: drag.Policy.Grid(canvas: canvas)))
-                    select snapped)
-            from _ in EmitSnapGuide(scope: scope, probe: valid, snapshot: snapshot)
+            let plan = SnapPlan(probe: valid)
+            from snapshot in plan.Run(arg: scope)
+            from _ in EmitSnapGuide(scope: scope, style: plan.Policy.FeedbackStyle, snapshot: snapshot)
             select snapshot);
 
     // Snap-guide live feedback seam: when the probe's policy enables a SnapSetting feedback colour and a snap
@@ -521,14 +481,54 @@ internal static partial class Layout {
     private static bool IsNativeSnapFeedbackActive(Canvas canvas) =>
         canvas.FocusObject is ObjectDragInteraction && (canvas.SnapXAction is not null || canvas.SnapYAction is not null);
 
-    private static Fin<Unit> EmitSnapGuide(GrasshopperUi.Scope scope, SnapProbe probe, Option<SnappingSnapshot> snapshot) =>
-        probe.FeedbackStyle is { IsSome: true, Case: SnapGuideStyle style } && snapshot is { IsSome: true, Case: SnappingSnapshot snap }
+    private static Fin<Unit> EmitSnapGuide(GrasshopperUi.Scope scope, Option<SnapGuideStyle> style, Option<SnappingSnapshot> snapshot) =>
+        style is { IsSome: true, Case: SnapGuideStyle guide } && snapshot is { IsSome: true, Case: SnappingSnapshot snap }
             ? scope.NeedCanvas().Map(static canvas => IsNativeSnapFeedbackActive(canvas: canvas)).IfFail(_ => false)
                 ? Fin.Succ(value: unit)
-                : Fin.Succ(value: Motion.Cosmetic(intent: new CosmeticIntent.SnapGuideCase(Snapshot: snap, Style: style)).Run(scope: scope).Ignore())
+                : Fin.Succ(value: Motion.Cosmetic(intent: new CosmeticIntent.SnapGuideCase(Snapshot: snap, Style: guide)).Run(scope: scope).Ignore())
             : Fin.Succ(value: unit);
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
+    private static SnapRun SnapPlan(SnapProbe probe) =>
+        probe.Switch(
+            pointCase: static point => new SnapRun(
+                Policy: point.Policy,
+                Run: scope =>
+                    from probe in Op.Of(name: nameof(Snap)).AcceptPoint(value: point.Probe, detail: "non-finite probe")
+                    from radius in Op.Of(name: nameof(Snap)).AcceptFinite(value: point.Radius, detail: "radius must be finite and positive", requirePositive: true)
+                    from snapped in SnapRectangle(scope: scope, id: point.ObjectId, bounds: new RectangleF(x: probe.X - radius, y: probe.Y - radius, width: radius * 2f, height: radius * 2f), policy: point.Policy)
+                    select snapped),
+            rectangleCase: static rectangle => new SnapRun(
+                Policy: rectangle.Policy,
+                Run: scope => SnapRectangle(scope: scope, id: rectangle.ObjectId, bounds: rectangle.Bounds, policy: rectangle.Policy)),
+            objectCase: static obj => new SnapRun(
+                Policy: obj.Policy,
+                Run: scope => ObjectOf(scope: scope, id: obj.ObjectId).Bind(target =>
+                    from document in scope.NeedDocument()
+                    from canvas in scope.NeedCanvas()
+                    select SnapCore(document: document, obj: target, policy: obj.Policy, visibleLimit: canvas.VisibleFrame, bounds: Option<RectangleF>.None, grid: obj.Policy.Grid(canvas: canvas)))),
+            groupCase: static g => new SnapRun(
+                Policy: g.Policy,
+                Run: scope =>
+                    from document in scope.NeedDocument()
+                    from canvas in scope.NeedCanvas()
+                    from members in g.ObjectIds.TraverseM(id => UiRail.ResolveObject(objects: document.Objects, id: id, op: Op.Of(name: nameof(Snap)))).As()
+                    from snapped in members.IsEmpty
+                        ? Fin.Fail<Option<SnappingSnapshot>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Snap)), detail: "group snap requires at least one resolvable member"))
+                        : Fin.Succ(value: SnapGroup(document: document, members: members, policy: g.Policy, visibleLimit: canvas.VisibleFrame, grid: g.Policy.Grid(canvas: canvas)))
+                    select snapped),
+            dragCase: static drag => new SnapRun(
+                Policy: drag.Policy,
+                Run: scope =>
+                    from document in scope.NeedDocument()
+                    from canvas in scope.NeedCanvas()
+                    from frame in Op.Of(name: nameof(SnapProbe.Drag)).AcceptRect(value: drag.Bounds, detail: "invalid drag bounds", requirePositive: true)
+                    from members in drag.ObjectIds.TraverseM(id => UiRail.ResolveObject(objects: document.Objects, id: id, op: Op.Of(name: nameof(Snap)))).As()
+                    from snapped in members.IsEmpty
+                        ? Fin.Fail<Option<SnappingSnapshot>>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(SnapProbe.Drag)), detail: "drag snap requires at least one member"))
+                        : Fin.Succ(value: SnapCore(document: document, obj: members[0], policy: drag.Policy, visibleLimit: canvas.VisibleFrame, bounds: Some(frame), grid: drag.Policy.Grid(canvas: canvas)))
+                    select snapped));
+
     private static Fin<Option<SnappingSnapshot>> SnapRectangle(GrasshopperUi.Scope scope, Guid id, RectangleF bounds, SnappingPolicy policy) =>
         Op.Of(name: nameof(SnapRectangle)).AcceptRect(value: bounds, detail: "invalid rectangle probe", requirePositive: true)
             .Bind(valid => ObjectOf(scope: scope, id: id).Bind(obj =>

@@ -33,7 +33,7 @@ Build GH2-native component, data, and UI rails that let downstream apps stay thi
 ## UI Rules
 
 - Keep `GhUi` as the UI intent constructor and `GrasshopperUi.Use` as the executor. Do not reintroduce `CanvasUi`, `ComponentUi`, wrapper services, or parallel UI frameworks.
-- Extend existing request algebras: `CanvasOp`, `DocumentOp`, `EditorOp`, `InputRequest<T>`, `UiEvent`, `LayoutOp`, `PaintRequest<T>`, and `WireOp`.
+- Extend existing UI rails: generated operation algebras (`CanvasOp`, `DocumentOp`, `EditorOp`, `UiEvent`, `LayoutOp`, `WireOp`) and direct typed intent factories (`Input.*`, `Paint.*`, `Motion.*`). Do not reintroduce wrapper-only request families around direct intents.
 - Preserve read-only semantics. Snapshot/query operations should not open editors, mutate documents, or repaint unless the request policy says so.
 - Preserve mutation semantics. Document, layout, and wire changes must flow through the existing mutation rail with undo, repaint, action commit, and snapshot behavior owned once.
 - Repaint is policy-driven: `RepaintRequest |` absorbs at `GrasshopperUi.Use` exit (`None` identity; `Canvas` beats `Scheduled`; `Object`+same-id idempotent). `CanvasOp.Invalidate` records policy only — never calls native invalidate directly.

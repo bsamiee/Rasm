@@ -262,7 +262,7 @@ public partial record DocumentQuery {
 
 [GenerateUnionOps]
 [Union]
-public partial record DocumentOp : IUiOp {
+public partial record DocumentOp : IUiOp<DocumentResult> {
     private DocumentOp() { }
     public sealed partial record QueryCase(DocumentQuery Request) : DocumentOp;
     public sealed partial record MutateCase(Seq<DocumentMutation> Mutations, DocumentMutationPolicy Policy) : DocumentOp;
@@ -288,22 +288,7 @@ public partial record DocumentOp : IUiOp {
     public static DocumentOp Review(DocumentReview review) => new ReviewCase(Request: review);
     public static DocumentOp File(DocumentFileOp op) => new FileCase(Op: op);
 
-    public GrasshopperUiPolicy UiPolicy => Switch(
-        queryCase: static q => q.Request switch {
-            DocumentQuery.UniverseCase => GrasshopperUiPolicy.Canvas(openEditor: true, repaint: RepaintRequest.None),
-            _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
-        },
-        mutateCase: static m => GrasshopperUiPolicy.Document(repaint: m.Policy.RepaintOrDefault),
-        clipboardCase: static c => c.Op.Switch(
-            verbCase: static v => v.Verb == ClipboardVerb.Copy
-                ? GrasshopperUiPolicy.Document(repaint: RepaintRequest.None)
-                : GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas)),
-        historyCase: static h => h.Request.UiPolicy,
-        inspectCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
-        solutionCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
-        markCase: static m => m.Request.UiPolicy,
-        reviewCase: static r => r.Request.Policy,
-        fileCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None));
+    GrasshopperUiIntent<DocumentResult> IUiOp<DocumentResult>.Intent() => UI.Document.Plan(op: this);
 }
 
 // [ASSUMED] Document.File.{HasPath,Path} — verified present (FileUtility) via gh2 decompile.
@@ -376,23 +361,24 @@ public partial record DocumentHistory {
     public static readonly DocumentHistory ShowHistory = new ShowHistoryCase();
     public static DocumentHistory Target(int ordinal, bool redo = false) => new TargetCase(Ordinal: ordinal, IsRedo: redo);
 
-    internal GrasshopperUiPolicy UiPolicy => Switch(
-        queryCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
-        undoCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
-        redoCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
-        clearCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
-        showHistoryCase: static _ => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.None),
-        targetCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas));
-
-    internal Fin<DocumentResult> Run(GrasshopperUi.Scope scope) =>
+    internal GrasshopperUiIntent<DocumentResult> Plan() =>
         Switch(
-            scope: scope,
-            queryCase: static (s, _) => s.NeedDocument().Map(document => (DocumentResult)new DocumentResult.HistoryResult(Snapshot: UiRail.HistorySnapshotOf(document: document))),
-            undoCase: static (s, _) => Document.MutateHistory(scope: s, op: Op.Of(name: nameof(Undo)), run: static document => document.Undo.Undo()),
-            redoCase: static (s, _) => Document.MutateHistory(scope: s, op: Op.Of(name: nameof(Redo)), run: static document => document.Undo.Redo()),
-            clearCase: static (s, _) => Document.MutateHistory(scope: s, op: Op.Of(name: nameof(Clear)), run: static document => document.Undo.Clear()),
-            showHistoryCase: static (s, _) => Document.ShowHistory(scope: s),
-            targetCase: static (s, t) => Document.MutateHistoryTarget(scope: s, ordinal: t.Ordinal, redo: t.IsRedo));
+            queryCase: static _ => GhUi.Document(
+                run: static scope => scope.NeedDocument().Map(document => (DocumentResult)new DocumentResult.HistoryResult(Snapshot: UiRail.HistorySnapshotOf(document: document))),
+                repaint: RepaintRequest.None),
+            undoCase: static _ => GhUi.Document(
+                run: static scope => Document.MutateHistory(scope: scope, op: Op.Of(name: nameof(Undo)), run: static document => document.Undo.Undo()),
+                repaint: RepaintRequest.Canvas),
+            redoCase: static _ => GhUi.Document(
+                run: static scope => Document.MutateHistory(scope: scope, op: Op.Of(name: nameof(Redo)), run: static document => document.Undo.Redo()),
+                repaint: RepaintRequest.Canvas),
+            clearCase: static _ => GhUi.Document(
+                run: static scope => Document.MutateHistory(scope: scope, op: Op.Of(name: nameof(Clear)), run: static document => document.Undo.Clear()),
+                repaint: RepaintRequest.Canvas),
+            showHistoryCase: static _ => GhUi.Canvas(run: static scope => Document.ShowHistory(scope: scope), repaint: RepaintRequest.None),
+            targetCase: static t => GhUi.Document(
+                run: scope => Document.MutateHistoryTarget(scope: scope, ordinal: t.Ordinal, redo: t.IsRedo),
+                repaint: RepaintRequest.Canvas));
 }
 
 [SkipUnionOps]
@@ -481,12 +467,11 @@ public partial record DocumentMark {
     public static DocumentMark Recall(string name, CanvasViewPolicy policy = default) => new RecallCase(Name: name, View: policy);
     public static DocumentMark Rename(string oldName, string newName) => new RenameCase(OldName: oldName, NewName: newName);
 
-    internal GrasshopperUiPolicy UiPolicy => Switch(
-        listCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
-        saveCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
-        removeCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
-        recallCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
-        renameCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None));
+    internal GrasshopperUiIntent<DocumentResult> Plan() =>
+        GhUi.Document(run: Apply, repaint: (this is RecallCase) switch {
+            true => RepaintRequest.Canvas,
+            false => RepaintRequest.None,
+        });
 
     internal Fin<DocumentResult> Apply(GrasshopperUi.Scope scope) =>
         Switch(
@@ -1054,23 +1039,39 @@ internal static class SnapshotFormatExtensions {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static partial class Document {
-    internal static Fin<DocumentResult> Dispatch(GrasshopperUi.Scope scope, DocumentOp op) =>
+    internal static GrasshopperUiIntent<DocumentResult> Plan(DocumentOp op) =>
         op.Switch(
-            state: scope,
-            queryCase: static (s, q) => Query(scope: s, query: q.Request),
-            mutateCase: static (s, m) => Mutate(scope: s, mutations: m.Mutations, policy: m.Policy),
-            clipboardCase: static (s, c) => RunClipboard(scope: s, op: c.Op)
-                .Map(static delta => (DocumentResult)new DocumentResult.MutationResult(Delta: delta)),
-            historyCase: static (s, h) => h.Request.Run(scope: s),
-            inspectCase: static (s, i) => DispatchInspect(scope: s, kind: i.Kind),
-            solutionCase: static (s, sol) =>
-                from document in s.NeedDocument()
-                from objects in s.NeedObjects()
-                from _ in sol.Control.Run(server: document.Solution, document: document, mode: sol.Mode)
-                select (DocumentResult)new DocumentResult.SolutionResult(Snapshot: UiRail.DocumentSnapshotOf(document: document, objects: objects)),
-            markCase: static (s, m) => m.Request.Apply(scope: s),
-            reviewCase: static (s, r) => r.Request.Apply(scope: s),
-            fileCase: static (s, f) => s.NeedDocument().Bind(document => f.Op.Run(document: document)));
+            queryCase: static q => q.Request switch {
+                DocumentQuery.UniverseCase => GhUi.Canvas(run: scope => Query(scope: scope, query: q.Request), openEditor: true, repaint: RepaintRequest.None),
+                _ => GhUi.Document(run: scope => Query(scope: scope, query: q.Request), repaint: RepaintRequest.None),
+            },
+            mutateCase: static m => GhUi.Document(
+                run: scope => Mutate(scope: scope, mutations: m.Mutations, policy: m.Policy),
+                repaint: m.Policy.RepaintOrDefault),
+            clipboardCase: static c => new GrasshopperUiIntent<DocumentResult>(
+                policy: c.Op.Switch(
+                    verbCase: static v => (v.Verb == ClipboardVerb.Copy) switch {
+                        true => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
+                        false => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
+                    }),
+                run: scope => RunClipboard(scope: scope, op: c.Op)
+                    .Map(static delta => (DocumentResult)new DocumentResult.MutationResult(Delta: delta))),
+            historyCase: static h => h.Request.Plan(),
+            inspectCase: static i => GhUi.Document(run: scope => DispatchInspect(scope: scope, kind: i.Kind), repaint: RepaintRequest.None),
+            solutionCase: static sol => GhUi.Document(
+                run: scope =>
+                    from document in scope.NeedDocument()
+                    from objects in scope.NeedObjects()
+                    from _ in sol.Control.Run(server: document.Solution, document: document, mode: sol.Mode)
+                    select (DocumentResult)new DocumentResult.SolutionResult(Snapshot: UiRail.DocumentSnapshotOf(document: document, objects: objects)),
+                repaint: RepaintRequest.None),
+            markCase: static m => m.Request.Plan(),
+            reviewCase: static r => new GrasshopperUiIntent<DocumentResult>(
+                policy: r.Request.Policy,
+                run: scope => r.Request.Apply(scope: scope)),
+            fileCase: static f => GhUi.Document(
+                run: scope => scope.NeedDocument().Bind(document => f.Op.Run(document: document)),
+                repaint: RepaintRequest.None));
 
     private static Fin<DocumentResult> DispatchInspect(GrasshopperUi.Scope scope, DocumentInspect kind) =>
         from methods in scope.NeedMethods()

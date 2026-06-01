@@ -259,13 +259,20 @@ public sealed record GrasshopperUiIntent<T> {
     internal GrasshopperUiIntent(Func<GrasshopperUi.Scope, Fin<T>> run, GrasshopperUiPolicy policy)
         : this(execute: scope => run(arg: scope).Map(value => new IntentOutcome<T>(Value: value, Repaint: policy.RepaintOrNone)), policy: policy) { }
 
+    internal GrasshopperUiIntent(IUiOp<T> op)
+        : this(
+            execute: scope => Optional(op)
+                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(GrasshopperUiIntent<>)), detail: "operation is required"))
+                .Bind(valid => valid.Intent().RunWithRepaint(scope: scope)),
+            policy: Optional(op).Map(static valid => valid.Intent().Policy).IfNone(GrasshopperUiPolicy.Read)) { }
+
     private GrasshopperUiIntent(Func<GrasshopperUi.Scope, Fin<IntentOutcome<T>>> execute, GrasshopperUiPolicy policy) {
         this.execute = execute;
         Policy = policy;
     }
 
     internal GrasshopperUiPolicy Policy { get; }
-    internal Fin<T> Run(GrasshopperUi.Scope scope) => execute(arg: scope).Map(outcome => outcome.Value);
+    internal Fin<T> Run(GrasshopperUi.Scope scope) => RunWithRepaint(scope: scope).Map(static outcome => outcome.Value);
     internal Fin<IntentOutcome<T>> RunWithRepaint(GrasshopperUi.Scope scope) => execute(arg: scope);
 
     public GrasshopperUiIntent<TOut> Map<TOut>(Func<T, TOut> project) =>
@@ -292,40 +299,10 @@ public sealed record GrasshopperUiIntent<T> {
     public GrasshopperUiIntent<TOut> BindFin<TOut>(Func<T, Fin<TOut>> bind, RepaintRequest? repaint = null) =>
         new(
             execute: scope => execute(arg: scope).Bind(outcome => bind(arg: outcome.Value).Map(value =>
-                new IntentOutcome<TOut>(
-                    Value: value,
-                    Repaint: repaint is { } extra ? outcome.Repaint | extra : outcome.Repaint))),
+                    new IntentOutcome<TOut>(
+                        Value: value,
+                        Repaint: Optional(repaint).Map(extra => outcome.Repaint | extra).IfNone(outcome.Repaint)))),
             policy: Policy);
-}
-
-public abstract record GhUiRequest<T> {
-    private readonly GrasshopperUiPolicy policy;
-    private readonly Func<GrasshopperUi.Scope, Fin<T>>? run;
-
-    protected GhUiRequest() { }
-    private protected GhUiRequest(GrasshopperUiPolicy policy, Func<GrasshopperUi.Scope, Fin<T>> run) {
-        this.policy = policy;
-        this.run = run;
-    }
-
-    internal virtual GrasshopperUiPolicy Policy => policy;
-    internal virtual Fin<T> Apply(GrasshopperUi.Scope scope) =>
-        run is { } valid ? valid(arg: scope) : Fin.Fail<T>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(GhUiRequest<>)), detail: "request dispatch is required"));
-}
-
-// One generic request collapses the per-file CanvasRequest/DocumentRequest/... `Run` wrappers:
-// PolicyOf reads the op's policy, DispatchOf routes to the owning service's dispatch.
-internal sealed record OpRequest<TOp, TResult>(TOp Request, Func<TOp, GrasshopperUiPolicy> PolicyOf, Func<GrasshopperUi.Scope, TOp, Fin<TResult>> DispatchOf) : GhUiRequest<TResult> {
-    internal override GrasshopperUiPolicy Policy =>
-        Optional(PolicyOf)
-            .Bind(policy => Optional(Request).Map(policy))
-            .IfNone(GrasshopperUiPolicy.Read);
-
-    internal override Fin<TResult> Apply(GrasshopperUi.Scope scope) =>
-        from validOp in Optional(Request).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: typeof(TOp).Name), detail: "request op is required"))
-        from dispatch in Optional(DispatchOf).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: typeof(TOp).Name), detail: "dispatch delegate is required"))
-        from result in dispatch(arg1: scope, arg2: validOp)
-        select result;
 }
 
 // --- [ERRORS] -----------------------------------------------------------------------------
@@ -450,36 +427,18 @@ public static partial class OpUiExtensions {
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
-internal interface IUiOp {
-    public GrasshopperUiPolicy UiPolicy { get; }
+internal interface IUiOp<TResult> {
+    public GrasshopperUiIntent<TResult> Intent();
 }
 
 public static class GhUi {
-    public static GrasshopperUiIntent<T> Apply<T>(GhUiRequest<T> request) =>
-        Optional(request).Match(
-            Some: valid => new GrasshopperUiIntent<T>(
-                run: scope => valid.Apply(scope: scope),
-                policy: valid.Policy),
-            None: () => new GrasshopperUiIntent<T>(
-                run: _ => Fin.Fail<T>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Apply)), detail: "request is required")),
-                policy: GrasshopperUiPolicy.Read));
-
-    // One generic forwarder collapses the 13 bespoke Apply(new OpRequest(...)) factories: PolicyOf is the shared
-    // IUiOp.UiPolicy projector, DispatchOf is the per-op route. Public names + arities are unchanged.
-    private static GrasshopperUiIntent<TResult> Forward<TOp, TResult>(TOp op, Func<GrasshopperUi.Scope, TOp, Fin<TResult>> dispatch)
-        where TOp : IUiOp =>
-        Apply(request: new OpRequest<TOp, TResult>(Request: op, PolicyOf: static o => o.UiPolicy, DispatchOf: dispatch));
-
-    public static GrasshopperUiIntent<CanvasResult> Canvas(CanvasOp op) => Forward(op: op, dispatch: static (scope, o) => UiRail.CanvasDispatch(scope: scope, op: o));
-    public static GrasshopperUiIntent<DocumentResult> Document(DocumentOp op) => Forward(op: op, dispatch: static (scope, o) => UI.Document.Dispatch(scope: scope, op: o));
-    public static GrasshopperUiIntent<EditorResult> Editor(EditorOp op) => Forward(op: op, dispatch: static (_, o) => UI.Editor.Dispatch(op: o));
-    public static GrasshopperUiIntent<LayoutResult> Layout(LayoutOp op) => Forward(op: op, dispatch: static (scope, o) => UI.Layout.Dispatch(scope: scope, op: o));
-    public static GrasshopperUiIntent<WireResult> Wire(WireOp op) => Forward(op: op, dispatch: static (scope, o) => UI.Wire.Dispatch(op: o).Run(scope: scope));
-    public static GrasshopperUiIntent<CanvasChromeResult> CanvasChrome(CanvasChromeOp op) => Forward(op: op, dispatch: static (scope, o) => UI.CanvasChrome.Dispatch(op: o).Run(scope: scope));
-    public static GrasshopperUiIntent<Subscription> Event(UiEvent uiEvent) => Forward(op: uiEvent, dispatch: static (scope, e) => Events.Subscribe(uiEvent: e).Run(scope: scope));
-    public static GrasshopperUiIntent<T> Input<T>(InputRequest<T> request) => Apply(request: request);
-    public static GrasshopperUiIntent<T> Paint<T>(PaintRequest<T> request) => Apply(request: request);
-    public static GrasshopperUiIntent<T> Motion<T>(MotionRequest<T> request) => Apply(request: request);
+    public static GrasshopperUiIntent<CanvasResult> Canvas(CanvasOp op) => new(op: op);
+    public static GrasshopperUiIntent<DocumentResult> Document(DocumentOp op) => new(op: op);
+    public static GrasshopperUiIntent<EditorResult> Editor(EditorOp op) => new(op: op);
+    public static GrasshopperUiIntent<LayoutResult> Layout(LayoutOp op) => new(op: op);
+    public static GrasshopperUiIntent<WireResult> Wire(WireOp op) => new(op: op);
+    public static GrasshopperUiIntent<CanvasChromeResult> CanvasChrome(CanvasChromeOp op) => new(op: op);
+    public static GrasshopperUiIntent<Subscription> Event(UiEvent uiEvent) => new(op: uiEvent);
     public static GrasshopperUiIntent<CanvasChromeResult> Tooltip(TooltipOp op) => CanvasChrome(CanvasChromeOp.Tooltip(op: op));
     public static GrasshopperUiIntent<CanvasChromeResult> FloatingButton(FloatingButtonOp op) => CanvasChrome(CanvasChromeOp.FloatingButton(op: op));
     public static GrasshopperUiIntent<CanvasChromeResult> Interaction(InteractionOp op) => CanvasChrome(CanvasChromeOp.Interaction(op: op));

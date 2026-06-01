@@ -17,7 +17,7 @@ namespace Rasm.Grasshopper.UI;
 // --- [TYPES] ------------------------------------------------------------------------------
 [SkipUnionOps]
 [Union]
-public partial record UiEvent : IUiOp {
+public partial record UiEvent : IUiOp<Subscription> {
     private UiEvent() { }
     public sealed record PaintCase(CanvasPaintPhase Phase, Func<PaintScope, Fin<Unit>> Handler, MotionClock? Clock = null, RepaintRequest? Repaint = null) : UiEvent;
     public sealed record CanvasCase(CanvasEvent Kind, Func<CanvasEventSnapshot, Fin<Unit>> Handler) : UiEvent;
@@ -65,19 +65,7 @@ public partial record UiEvent : IUiOp {
     public static UiEvent Many(Seq<UiEvent> events) =>
         new ManyCase(Events: events);
 
-    public GrasshopperUiPolicy UiPolicy => Switch(
-        paintCase: static p => GrasshopperUiPolicy.Canvas(repaint: p.Repaint),
-        canvasCase: static _ => GrasshopperUiPolicy.Canvas(),
-        documentCase: static _ => GrasshopperUiPolicy.Document(),
-        solutionCase: static _ => GrasshopperUiPolicy.Document(),
-        undoCase: static _ => GrasshopperUiPolicy.Document(),
-        timerCase: static _ => GrasshopperUiPolicy.Read,
-        controlCase: static _ => GrasshopperUiPolicy.Read,
-        keyboardModifiersCase: static _ => GrasshopperUiPolicy.Read,
-        logicalPixelSizeCase: static _ => GrasshopperUiPolicy.Read,
-        windowLifecycleCase: static _ => GrasshopperUiPolicy.Read,
-        nativeInputCase: static _ => GrasshopperUiPolicy.Read,
-        manyCase: static m => m.Events.Fold(GrasshopperUiPolicy.Read, static (policy, e) => policy | e.UiPolicy));
+    GrasshopperUiIntent<Subscription> IUiOp<Subscription>.Intent() => Events.Subscribe(uiEvent: this);
 
     internal static Unit Publish<TSnapshot>(Func<TSnapshot, Fin<Unit>> handler, TSnapshot snapshot) {
         _ = GrasshopperUi.Handler(valid: () => handler(arg: snapshot));
@@ -1043,7 +1031,7 @@ internal static partial class Events {
         new(
             run: scope => events.TraverseM(e => Subscribe(uiEvent: e).Run(scope: scope)).As()
                 .Map(static subs => subs.Fold(Subscription.Empty, static (composite, sub) => composite | sub)),
-            policy: events.Fold(GrasshopperUiPolicy.Read, static (policy, e) => policy | e.UiPolicy));
+            policy: events.Fold(GrasshopperUiPolicy.Read, static (policy, e) => policy | ((IUiOp<Subscription>)e).Intent().Policy));
 
     internal static Fin<Subscription> BindMarshaled(System.Action attach, System.Action detach, bool detachOnce = false) =>
         Subscription.Bind(attach: attach, detach: detach, marshalToUi: true, detachOnce: detachOnce);

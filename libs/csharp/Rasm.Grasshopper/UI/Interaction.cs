@@ -66,17 +66,12 @@ public partial record TooltipOp {
     public static TooltipOp Show(IIcon icon, string caption, string message, TooltipBody? body = null, bool warnings = false, bool errors = false) =>
         new ShowCase(Icon: icon, Caption: caption, Message: message, Body: body ?? TooltipBody.Plain, Warnings: warnings, Errors: errors);
 
-    internal GrasshopperUiPolicy UiPolicy => Switch(
-        showCase: static _ => GrasshopperUiPolicy.Canvas(),
-        hideCase: static _ => GrasshopperUiPolicy.Read,
-        invalidateCase: static _ => GrasshopperUiPolicy.Read,
-        statusCase: static _ => GrasshopperUiPolicy.Read,
-        layoutCase: static _ => GrasshopperUiPolicy.Read);
+    internal CanvasChromePlan Plan() => UI.Tooltip.Plan(op: this);
 }
 
 [SkipUnionOps]
 [Union]
-public partial record CanvasChromeOp : IUiOp {
+public partial record CanvasChromeOp : IUiOp<CanvasChromeResult> {
     private CanvasChromeOp() { }
     public sealed record TooltipCase(TooltipOp Op) : CanvasChromeOp;
     public sealed record FloatingButtonCase(FloatingButtonOp Op) : CanvasChromeOp;
@@ -88,12 +83,13 @@ public partial record CanvasChromeOp : IUiOp {
     public static CanvasChromeOp Interaction(InteractionOp op) => new InteractionCase(Op: op);
     public static CanvasChromeOp Compose(params CanvasChromeOp[] ops) => new ComposeCase(Ops: toSeq(ops));
 
-    // Compose folds each child policy into the union; an empty compose reads.
-    public GrasshopperUiPolicy UiPolicy => Switch(
-        tooltipCase: static t => t.Op.UiPolicy,
-        floatingButtonCase: static _ => GrasshopperUiPolicy.Canvas(),
-        interactionCase: static _ => GrasshopperUiPolicy.Canvas(),
-        composeCase: static c => c.Ops.Fold(GrasshopperUiPolicy.Read, static (acc, child) => acc | child.UiPolicy));
+    GrasshopperUiIntent<CanvasChromeResult> IUiOp<CanvasChromeResult>.Intent() => Plan().Run;
+
+    internal CanvasChromePlan Plan() => Switch(
+        tooltipCase: static t => t.Op.Plan(),
+        floatingButtonCase: static f => f.Op.Plan(),
+        interactionCase: static i => i.Op.Plan(),
+        composeCase: static c => CanvasChrome.Compose(ops: c.Ops));
 }
 
 [SkipUnionOps]
@@ -115,6 +111,19 @@ public partial record CanvasChromeResult {
     internal static CanvasChromeResult Sub(Subscription subscription) => new SubscriptionCase(Subscription: subscription);
     internal static CanvasChromeResult Found(Option<FloatingButtonInfo> info) => new FloatingButtonFoundCase(Info: info);
     internal static CanvasChromeResult Status(FloatingButtonSnapshot snapshot) => new FloatingButtonStatusCase(Snapshot: snapshot);
+}
+
+internal readonly record struct CanvasChromePlan(GrasshopperUiIntent<CanvasChromeResult> Run, Option<Func<GrasshopperUi.Scope, Fin<Subscription>>> Subscription) {
+    internal GrasshopperUiPolicy Policy => Run.Policy;
+
+    internal static CanvasChromePlan Result(GrasshopperUiIntent<CanvasChromeResult> intent) =>
+        new(Run: intent, Subscription: default);
+
+    internal static CanvasChromePlan SubscriptionOf(GrasshopperUiIntent<Subscription> intent) {
+        return new(
+            Run: intent.Map(CanvasChromeResult.Sub),
+            Subscription: Some<Func<GrasshopperUi.Scope, Fin<Subscription>>>(intent.Run));
+    }
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -175,6 +184,8 @@ public partial record FloatingButtonOp {
     public sealed record StatusCase : FloatingButtonOp;
 
     public static FloatingButtonOp Add(FloatingButtonSpec spec) => new AddCase(Spec: spec);
+
+    internal CanvasChromePlan Plan() => UI.FloatingButton.Plan(op: this);
 }
 
 [SmartEnum<int>]
@@ -198,6 +209,8 @@ public partial record InteractionOp {
     public sealed record HoverCase(Option<TimeSpan> Delay, Func<MouseHoverSnapshot, Fin<Unit>> Handler) : InteractionOp;
     public sealed record ContextMenuCase(Func<ContextMenuSnapshot, Fin<Unit>> Handler) : InteractionOp;
     public sealed record StatusCase : InteractionOp;
+
+    internal CanvasChromePlan Plan() => UI.Interaction.Plan(op: this);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
@@ -271,23 +284,22 @@ internal static class TooltipRail {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static class CanvasChrome {
-    internal static GrasshopperUiIntent<CanvasChromeResult> Dispatch(CanvasChromeOp op) =>
-        op.Switch(
-            tooltipCase: static t => Tooltip.Dispatch(op: t.Op),
-            floatingButtonCase: static f => FloatingButton.Dispatch(op: f.Op),
-            interactionCase: static i => Interaction.Dispatch(op: i.Op),
-            composeCase: static c => Compose(ops: c.Ops));
-
-    // Compose threads every child Dispatch; each must yield a Subscription so the leases fold via `|` into
-    // one disposable. A non-Subscription child (status/find/layout) breaks the contract and short-circuits.
-    private static GrasshopperUiIntent<CanvasChromeResult> Compose(Seq<CanvasChromeOp> ops) =>
-        GhUi.Canvas(run: scope =>
-            ops.TraverseM(child => Dispatch(op: child).Run(scope: scope)).As()
-                .Bind(static results => results
-                    .TraverseM(static result => result is CanvasChromeResult.SubscriptionCase sub
-                        ? Fin.Succ(value: sub.Subscription)
-                        : Fin.Fail<Subscription>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Compose)), detail: "every composed op must yield a subscription"))).As()
-                    .Map(static subs => CanvasChromeResult.Sub(subscription: subs.Fold(Subscription.Empty, static (acc, sub) => acc | sub)))));
+    internal static CanvasChromePlan Compose(Seq<CanvasChromeOp> ops) {
+        Seq<CanvasChromePlan> plans = ops.Map(static op => op.Plan()).Strict();
+        GrasshopperUiPolicy policy = plans.Fold(GrasshopperUiPolicy.Read, static (acc, plan) => acc | plan.Policy);
+        return plans.Exists(static plan => plan.Subscription.IsNone)
+            ? CanvasChromePlan.Result(intent: new GrasshopperUiIntent<CanvasChromeResult>(
+                run: _ => Fin.Fail<CanvasChromeResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Compose)), detail: "every composed chrome op must produce a subscription")),
+                policy: policy))
+            : CanvasChromePlan.SubscriptionOf(intent: new GrasshopperUiIntent<Subscription>(
+                run: scope => plans
+                    .TraverseM(plan => plan.Subscription
+                        .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Compose)), detail: "composed chrome op lacks a subscription plan"))
+                        .Bind(run => run(arg: scope)))
+                    .As()
+                    .Map(static subs => subs.Fold(Subscription.Empty, static (acc, sub) => acc | sub)),
+                policy: policy));
+    }
 }
 
 internal static class Tooltip {
@@ -297,13 +309,13 @@ internal static class Tooltip {
     // Tooltip.Frame.MouseLocationWhenShown; Hide clears it so a stale snapshot reads None.
     private static readonly Atom<Option<PointF>> ShownLocation = Atom(value: Option<PointF>.None);
 
-    internal static GrasshopperUiIntent<CanvasChromeResult> Dispatch(TooltipOp op) =>
+    internal static CanvasChromePlan Plan(TooltipOp op) =>
         op.Switch(
-            showCase: static s => Bind(invoke: () => ShowNative(show: s)).Map(CanvasChromeResult.Sub),
-            hideCase: static _ => HideNow().Map(static _ => CanvasChromeResult.UnitInstance),
-            invalidateCase: static _ => InvalidateNow().Map(static _ => CanvasChromeResult.UnitInstance),
-            statusCase: static _ => SnapshotNow().Map(static snap => (CanvasChromeResult)new CanvasChromeResult.TooltipStatusCase(Snapshot: snap)),
-            layoutCase: static _ => TooltipRail.Layout().Map(static snap => (CanvasChromeResult)new CanvasChromeResult.TooltipLayoutCase(Snapshot: snap)));
+            showCase: static s => CanvasChromePlan.SubscriptionOf(intent: Bind(invoke: () => ShowNative(show: s))),
+            hideCase: static _ => CanvasChromePlan.Result(intent: HideNow().Map(static _ => CanvasChromeResult.UnitInstance)),
+            invalidateCase: static _ => CanvasChromePlan.Result(intent: InvalidateNow().Map(static _ => CanvasChromeResult.UnitInstance)),
+            statusCase: static _ => CanvasChromePlan.Result(intent: SnapshotNow().Map(static snap => (CanvasChromeResult)new CanvasChromeResult.TooltipStatusCase(Snapshot: snap))),
+            layoutCase: static _ => CanvasChromePlan.Result(intent: TooltipRail.Layout().Map(static snap => (CanvasChromeResult)new CanvasChromeResult.TooltipLayoutCase(Snapshot: snap))));
 
     internal static GrasshopperUiIntent<Unit> HideNow() =>
         GhUi.Read(run: scope => Op.Of(name: nameof(HideNow)).Attempt(body: HideNative, what: "Tooltip.Frame.Hide"));
@@ -350,15 +362,15 @@ internal static class FloatingButton {
     // Token gate per name: stale Subscription.Dispose only Close(name) when its Guid still owns the slot.
     private static readonly OwnedSubscription<string> Owners = new();
 
-    internal static GrasshopperUiIntent<CanvasChromeResult> Dispatch(FloatingButtonOp op) =>
+    internal static CanvasChromePlan Plan(FloatingButtonOp op) =>
         op.Switch(
-            addCase: static a => Add(a.Spec).Map(CanvasChromeResult.Sub),
-            modifyCase: static m => Modify(m.Name, m.Info, m.Icon, m.Colour, m.Anchor).Map(static _ => CanvasChromeResult.UnitInstance),
-            namedCase: static n => n.Action.Run(names: n.Names).Map(static _ => CanvasChromeResult.UnitInstance),
-            closeAllCase: static _ => CloseAll().Map(static _ => CanvasChromeResult.UnitInstance),
-            findByNameCase: static f => FindByName(f.Name).Map(CanvasChromeResult.Found),
-            findByPointCase: static f => FindByPoint(f.ControlPoint).Map(CanvasChromeResult.Found),
-            statusCase: static _ => SnapshotNow().Map(CanvasChromeResult.Status));
+            addCase: static a => CanvasChromePlan.SubscriptionOf(intent: Add(a.Spec)),
+            modifyCase: static m => CanvasChromePlan.Result(intent: Modify(m.Name, m.Info, m.Icon, m.Colour, m.Anchor).Map(static _ => CanvasChromeResult.UnitInstance)),
+            namedCase: static n => CanvasChromePlan.Result(intent: n.Action.Run(names: n.Names).Map(static _ => CanvasChromeResult.UnitInstance)),
+            closeAllCase: static _ => CanvasChromePlan.Result(intent: CloseAll().Map(static _ => CanvasChromeResult.UnitInstance)),
+            findByNameCase: static f => CanvasChromePlan.Result(intent: FindByName(f.Name).Map(CanvasChromeResult.Found)),
+            findByPointCase: static f => CanvasChromePlan.Result(intent: FindByPoint(f.ControlPoint).Map(CanvasChromeResult.Found)),
+            statusCase: static _ => CanvasChromePlan.Result(intent: SnapshotNow().Map(CanvasChromeResult.Status)));
 
     internal static GrasshopperUiIntent<Subscription> Add(FloatingButtonSpec spec) =>
         GhUi.Canvas(run: scope =>
@@ -525,13 +537,13 @@ internal static class FloatingButton {
 }
 
 internal static class Interaction {
-    internal static GrasshopperUiIntent<CanvasChromeResult> Dispatch(InteractionOp op) =>
+    internal static CanvasChromePlan Plan(InteractionOp op) =>
         op.Switch(
-            pushCase: static p => Push(p.Target).Map(CanvasChromeResult.Sub),
-            registerCase: static r => Register(r.Responsive, r.System).Map(CanvasChromeResult.Sub),
-            hoverCase: static h => Hover(h.Delay, h.Handler).Map(CanvasChromeResult.Sub),
-            contextMenuCase: static c => ContextMenu(c.Handler).Map(CanvasChromeResult.Sub),
-            statusCase: static _ => SnapshotNow().Map(static snap => (CanvasChromeResult)new CanvasChromeResult.InteractionStatusCase(Snapshot: snap)));
+            pushCase: static p => CanvasChromePlan.SubscriptionOf(intent: Push(p.Target)),
+            registerCase: static r => CanvasChromePlan.SubscriptionOf(intent: Register(r.Responsive, r.System)),
+            hoverCase: static h => CanvasChromePlan.SubscriptionOf(intent: Hover(h.Delay, h.Handler)),
+            contextMenuCase: static c => CanvasChromePlan.SubscriptionOf(intent: ContextMenu(c.Handler)),
+            statusCase: static _ => CanvasChromePlan.Result(intent: SnapshotNow().Map(static snap => (CanvasChromeResult)new CanvasChromeResult.InteractionStatusCase(Snapshot: snap))));
 
     // PushInteraction only pushes onto FlexControl._focus; the interaction self-terminates by popping
     // itself when complete. There is no public pop-by-reference (UnregisterIResponsive no-ops on an

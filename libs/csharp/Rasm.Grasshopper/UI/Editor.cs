@@ -8,7 +8,7 @@ namespace Rasm.Grasshopper.UI;
 // --- [TYPES] ------------------------------------------------------------------------------
 [GenerateUnionOps]
 [Union]
-public partial record EditorOp : IUiOp {
+public partial record EditorOp : IUiOp<EditorResult> {
     private EditorOp() { }
     public sealed partial record ShowCase(bool Visible, Option<string> Layout) : EditorOp;
     public sealed partial record StateCase : EditorOp;
@@ -26,7 +26,10 @@ public partial record EditorOp : IUiOp {
     // to hand it (the (null, openEditor:false) arm yields a null editor) — so the op would fail before its body
     // could construct the editor. Read lets the body open it headlessly (createVisible:false stays offscreen,
     // never arming the StatusBar visible-paint NPE); the resulting canvas is read back via State.
-    public GrasshopperUiPolicy UiPolicy => this is ShellCase ? GrasshopperUiPolicy.Canvas(openEditor: true) : GrasshopperUiPolicy.Read;
+    GrasshopperUiIntent<EditorResult> IUiOp<EditorResult>.Intent() =>
+        new(
+            policy: this is ShellCase ? GrasshopperUiPolicy.Canvas(openEditor: true) : GrasshopperUiPolicy.Read,
+            run: _ => UI.Editor.Dispatch(op: this));
 }
 
 [SkipUnionOps]

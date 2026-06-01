@@ -460,7 +460,7 @@ public sealed partial class WireShapeKind {
 
 [GenerateUnionOps]
 [Union]
-public partial record WireOp : IUiOp {
+public partial record WireOp : IUiOp<WireResult> {
     private WireOp() { }
     public sealed partial record QueryCase(WireQuery Request) : WireOp;
     public sealed partial record SelectCase(WireSelectionOp Op) : WireOp;
@@ -490,17 +490,17 @@ public partial record WireOp : IUiOp {
     public static WireOp WirePaintObserve(MotionClock? clock = null) => new WirePaintObserveCase(Clock: clock);
     public static WireOp Diagnostics(params ReadOnlySpan<Guid> seeds) => new DiagnosticsCase(Seeds: toSeq(seeds.ToArray()));
 
-    public GrasshopperUiPolicy UiPolicy => Switch(
-        queryCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
-        installShapeCase: static _ => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.None),
-        overlayCase: static _ => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled),
-        wirePaintObserveCase: static _ => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.Scheduled),
-        diagnosticsCase: static _ => GrasshopperUiPolicy.Canvas(repaint: RepaintRequest.None),
-        selectCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
-        splitCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
-        editCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
-        editBatchCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
-        routeCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas));
+    GrasshopperUiIntent<WireResult> IUiOp<WireResult>.Intent() => Switch(
+        queryCase: static q => Wire.Query(query: q.Request),
+        selectCase: static s => Wire.Selection(op: s.Op).Map(static delta => (WireResult)new WireResult.SelectionCase(Delta: delta)),
+        splitCase: static s => Wire.Split(wire: s.Wire, location: s.Location).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
+        editCase: static e => Wire.Edit(wire: e.Wire, edit: e.Kind, args: e.Args).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
+        editBatchCase: static e => Wire.EditBatch(edits: e.Edits).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
+        routeCase: static r => Wire.Route(chain: r.Chain).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
+        installShapeCase: static i => Wire.InstallShape(shapeType: i.ShapeType).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
+        overlayCase: static o => Wire.Overlay(style: o.Style, clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
+        wirePaintObserveCase: static o => Wire.WirePaintObserve(clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
+        diagnosticsCase: static d => Wire.Diagnostics(seeds: d.Seeds).Map(static diagnostics => (WireResult)new WireResult.DiagnosticsResult(Diagnostics: diagnostics)));
 }
 
 [SkipUnionOps]
@@ -578,18 +578,6 @@ public readonly record struct WireDrawnSnapshot(Seq<WireDrawnEntry> Entries, Wir
 public readonly record struct WireSelectionDelta(int Selected, int Deselected);
 
 internal static partial class Wire {
-    internal static GrasshopperUiIntent<WireResult> Dispatch(WireOp op) => op.Switch(
-        queryCase: static q => Query(query: q.Request),
-        selectCase: static s => Selection(op: s.Op).Map(static delta => (WireResult)new WireResult.SelectionCase(Delta: delta)),
-        splitCase: static s => Split(wire: s.Wire, location: s.Location).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
-        editCase: static e => Edit(wire: e.Wire, edit: e.Kind, args: e.Args).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
-        editBatchCase: static e => EditBatch(edits: e.Edits).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
-        routeCase: static r => Route(chain: r.Chain).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
-        installShapeCase: static i => InstallShape(shapeType: i.ShapeType).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
-        overlayCase: static o => Overlay(style: o.Style, clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
-        wirePaintObserveCase: static o => WirePaintObserve(clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
-        diagnosticsCase: static d => Diagnostics(seeds: d.Seeds).Map(static diagnostics => (WireResult)new WireResult.DiagnosticsResult(Diagnostics: diagnostics)));
-
     internal static GrasshopperUiIntent<WireResult> Query(WireQuery query) => query.Switch(
         listCase: static list => Listed(kind: list.Kind).Map(static wires => (WireResult)new WireResult.WiresCase(Wires: wires)),
         pickCase: static p => Pick(point: p.Point, tolerance: p.Tolerance).Map(static wire => (WireResult)new WireResult.WireCase(Wire: wire)),

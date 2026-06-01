@@ -609,39 +609,8 @@ public readonly record struct CommandPlan(Seq<ToolbarItem> Items) {
         new(Items: toggles.Map(static toggle => ToolbarItem.Toggle(command: toggle.Command, state: toggle.State, changed: toggle.Changed)));
 }
 
-public sealed record InputRequest<T> : GhUiRequest<T> { internal InputRequest(GrasshopperUiPolicy policy, Func<GrasshopperUi.Scope, Fin<T>> run) : base(policy: policy, run: run) { } }
-
-public static class InputRequest {
-    public static InputRequest<InputSelectionSnapshot> Selection(InputSelectionSource source) => Read(run: scope => Input.Selection(source: source).Run(scope: scope));
-    public static InputRequest<InputModifierSnapshot> Modifiers(Keys keys) => Read(run: scope => Input.Modifiers(keys: keys).Run(scope: scope));
-    public static InputRequest<InputModifierSnapshot> ModifierState() => Read(run: static scope => Input.ModifierState().Run(scope: scope));
-    public static InputRequest<PointerSnapshot> PointerState() => Read(run: static scope => Input.PointerState().Run(scope: scope));
-    public static InputRequest<InputPanelSnapshot> Panel(Func<InputPanel, Fin<Unit>> populate) => Read(run: scope => Input.Panel(populate: populate).Run(scope: scope));
-    public static InputRequest<Subscription> Popup(Control owner, PointF location, RectangleF screen, Func<InputPanel, Fin<Unit>> populate) => Read(run: scope => Input.PopupPanel(owner: owner, location: location, screen: screen, populate: populate).Run(scope: scope));
-    public static InputRequest<ToolbarSnapshot> CommandBar(CommandPlan plan) => Read(run: scope => Input.Toolbar(plan: plan).Run(scope: scope));
-    public static InputRequest<InputPanelSnapshot> CommandPanel(CommandPlan plan) => Read(run: scope => Input.Panel(plan: plan).Run(scope: scope));
-    public static InputRequest<MenuSnapshot> MenuShow(CommandPlan plan, Control owner, PointF location) => Read(run: scope => Input.ShowMenu(plan: plan, owner: owner, location: location).Run(scope: scope));
-    public static InputRequest<CursorKind> Cursor(CursorKind kind) => Of(policy: GrasshopperUiPolicy.Canvas(), run: scope => Input.Cursor(kind: kind).Run(scope: scope));
-    public static InputRequest<IDisposable> CursorScope(CursorKind kind) => Of(policy: GrasshopperUiPolicy.Canvas(), run: scope => Input.CursorScope(kind: kind).Run(scope: scope));
-    public static InputRequest<DialogResult> Message(string title, string body, MessageBoxType kind = MessageBoxType.Information, MessageBoxButtons buttons = MessageBoxButtons.OK, MessageBoxDefaultButton @default = MessageBoxDefaultButton.Default) => Read(run: scope => Input.MessageDialog(title: title, message: body, kind: kind, buttons: buttons, defaultButton: @default).Run(scope: scope));
-    public static InputRequest<PathDialogSnapshot> File(PathDialogSpec spec) => Read(run: scope => Input.FileDialog(spec: spec).Run(scope: scope));
-    public static InputRequest<InputClipboardSnapshot> Clipboard(InputClipboardOp op) => Read(run: scope => Input.Clipboard(op: op).Run(scope: scope));
-    public static InputRequest<Option<TResult>> Dialog<TResult>(Func<Eto.Forms.Dialog<Option<TResult>>, Fin<Unit>> configure, string title = "", Option<DialogPresentation> presentation = default) => Read(run: scope => Input.Dialog(configure: configure, title: title, presentation: presentation).Run(scope: scope));
-    public static InputRequest<Option<Color>> PickColor(Color initial, bool allowAlpha = true) => Read(run: scope => Input.PickColor(initial: initial, allowAlpha: allowAlpha).Run(scope: scope));
-    public static InputRequest<Option<Font>> PickFont(Option<Font> initial = default) => Read(run: scope => Input.PickFont(initial: initial).Run(scope: scope));
-    public static InputRequest<Unit> Notify(string title, string body, Option<Image> contentImage = default, bool trayIndicator = false) => Read(run: scope => Input.Notify(title: title, message: body, contentImage: contentImage, trayIndicator: trayIndicator).Run(scope: scope));
-    public static InputRequest<Option<string>> EditPrompt(string title, string body, string @default = "", bool multiline = false) => Read(run: scope => Input.EditPrompt(title: title, message: body, defaultText: @default, multiline: multiline).Run(scope: scope));
-    public static InputRequest<Option<double>> NumberPrompt(string title, string body, double @default = 0d, UiNumberRange range = default) => Read(run: scope => Input.NumberPrompt(title: title, message: body, initial: @default, range: range).Run(scope: scope));
-    public static InputRequest<Option<TResult>> Form<TResult>(FormPlan<TResult> plan) => Read(run: scope => Input.Form(plan: plan).Run(scope: scope));
-    public static InputRequest<TransferPayload> Transfer(InputTransferOp op) => Read(run: scope => Input.Transfer(op: op).Run(scope: scope));
-
-    private static InputRequest<T> Read<T>(Func<GrasshopperUi.Scope, Fin<T>> run) => Of(policy: GrasshopperUiPolicy.Read, run: run);
-    private static InputRequest<T> Of<T>(GrasshopperUiPolicy policy, Func<GrasshopperUi.Scope, Fin<T>> run) => new(policy: policy, run: run);
-}
-
 // Scope-restoring cursor capsule; disposing reinstates the canvas's prior Cursor. Use via
-// `using IDisposable _ = await GhUi.Input(InputRequest.CursorScope(...)).Use(...);`
-// or directly through `Input.CursorScope(kind)` when the surrounding scope is already typed.
+// `using IDisposable _ = await Input.CursorScope(...).Use(...);` when the surrounding scope is already typed.
 internal sealed class ScopedCursor(Grasshopper2.UI.Canvas.Canvas target, Cursor previous, IDisposable? busy = null) : IDisposable {
     // BOUNDARY ADAPTER — restore the canvas cursor and release any engaged busy-spinner exactly once.
     public void Dispose() {
@@ -691,8 +660,8 @@ file static class WaitCursorLease {
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------
-internal static partial class Input {
-    internal static GrasshopperUiIntent<InputSelectionSnapshot> Selection(InputSelectionSource source) =>
+public static partial class Input {
+    public static GrasshopperUiIntent<InputSelectionSnapshot> Selection(InputSelectionSource source) =>
         GhUi.Read(run: _ =>
             Optional(source)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Selection)), detail: "null source"))
@@ -700,19 +669,19 @@ internal static partial class Input {
                     from mode in valid.Mode()
                     select new InputSelectionSnapshot(Mode: mode, Modifiers: ModifierOf(keys: Keyboard.Modifiers))));
 
-    internal static GrasshopperUiIntent<InputModifierSnapshot> Modifiers(Keys keys) =>
+    public static GrasshopperUiIntent<InputModifierSnapshot> Modifiers(Keys keys) =>
         GhUi.Read(run: _ => Fin.Succ(value: ModifierOf(keys: keys)));
 
-    internal static GrasshopperUiIntent<InputModifierSnapshot> ModifierState() =>
+    public static GrasshopperUiIntent<InputModifierSnapshot> ModifierState() =>
         GhUi.Read(run: _ => Fin.Succ(value: ModifierOf(keys: Keyboard.Modifiers)));
 
-    internal static GrasshopperUiIntent<PointerSnapshot> PointerState() =>
+    public static GrasshopperUiIntent<PointerSnapshot> PointerState() =>
         GhUi.Read(run: _ =>
             Mouse.IsSupported
                 ? Fin.Succ(value: new PointerSnapshot(ScreenPosition: Mouse.Position, Buttons: Mouse.Buttons))
                 : Fin.Fail<PointerSnapshot>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(PointerState)), detail: "mouse position is not supported on this platform")));
 
-    internal static GrasshopperUiIntent<InputPanelSnapshot> Panel(Func<InputPanel, Fin<Unit>> populate) =>
+    public static GrasshopperUiIntent<InputPanelSnapshot> Panel(Func<InputPanel, Fin<Unit>> populate) =>
         GhUi.Read(run: _ =>
             Optional(populate)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Panel)), detail: "null populate"))
@@ -723,7 +692,7 @@ internal static partial class Input {
                         Category: panel.Category ?? string.Empty));
                 }));
 
-    internal static GrasshopperUiIntent<InputPanelSnapshot> Panel(CommandPlan plan) =>
+    public static GrasshopperUiIntent<InputPanelSnapshot> Panel(CommandPlan plan) =>
         Panel(populate: panel => Try.lift(f: () => panel.AddBar(drawCategoryLabels: false)).Run()
             .MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Panel)), detail: $"InputPanel.AddBar threw: {error.Message}"))
             .Bind(bar =>
@@ -733,7 +702,7 @@ internal static partial class Input {
 
     // Returns a dismissable Subscription whose detach closes the popup form (form captured in a closure cell,
     // mirroring WireShapeInstall.Push) so the popup shares every other chrome op's Subscription lifetime.
-    internal static GrasshopperUiIntent<Subscription> PopupPanel(Control owner, PointF location, RectangleF screen, Func<InputPanel, Fin<Unit>> populate) =>
+    public static GrasshopperUiIntent<Subscription> PopupPanel(Control owner, PointF location, RectangleF screen, Func<InputPanel, Fin<Unit>> populate) =>
         GhUi.Read(run: _ =>
             from validOwner in Optional(owner).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null owner"))
             from validPopulate in Optional(populate).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null populate"))
@@ -775,11 +744,11 @@ internal static partial class Input {
                     });
                 }));
 
-    internal static GrasshopperUiIntent<ToolbarSnapshot> Toolbar(CommandPlan plan) =>
+    public static GrasshopperUiIntent<ToolbarSnapshot> Toolbar(CommandPlan plan) =>
         Toolbar(populate: bar =>
             plan.Items.TraverseM(item => item.Apply(surface: UiCommandSurface.Toolbar(bar: bar))).Map(static _ => unit).As());
 
-    internal static GrasshopperUiIntent<MenuSnapshot> ShowMenu(CommandPlan plan, Control owner, PointF location) =>
+    public static GrasshopperUiIntent<MenuSnapshot> ShowMenu(CommandPlan plan, Control owner, PointF location) =>
         GhUi.Read(run: _ =>
             from validOwner in Optional(owner).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ShowMenu)), detail: "null owner"))
             from validLocation in Op.Of(name: nameof(ShowMenu)).AcceptPoint(value: location, detail: "non-finite location")
@@ -791,14 +760,14 @@ internal static partial class Input {
             }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(ShowMenu)), detail: error.Message))
             select shown);
 
-    internal static GrasshopperUiIntent<CursorKind> Cursor(CursorKind kind) =>
+    public static GrasshopperUiIntent<CursorKind> Cursor(CursorKind kind) =>
         GhUi.Canvas(run: scope => scope.NeedCanvas().Bind(canvas =>
             kind.Resolve(canvas: canvas).Map(cursor => {
                 canvas.Cursor = cursor;
                 return kind;
             })));
 
-    internal static GrasshopperUiIntent<IDisposable> CursorScope(CursorKind kind) =>
+    public static GrasshopperUiIntent<IDisposable> CursorScope(CursorKind kind) =>
         GhUi.Canvas(run: scope => scope.NeedCanvas().Bind(canvas =>
             kind.Resolve(canvas: canvas).Map(cursor => {
                 Cursor previous = canvas.Cursor;
@@ -807,7 +776,7 @@ internal static partial class Input {
                 return (IDisposable)new ScopedCursor(target: canvas, previous: previous, busy: busy);
             })));
 
-    internal static GrasshopperUiIntent<DialogResult> MessageDialog(string title, string message, MessageBoxType kind = MessageBoxType.Information, MessageBoxButtons buttons = MessageBoxButtons.OK, MessageBoxDefaultButton defaultButton = MessageBoxDefaultButton.Default) =>
+    public static GrasshopperUiIntent<DialogResult> MessageDialog(string title, string message, MessageBoxType kind = MessageBoxType.Information, MessageBoxButtons buttons = MessageBoxButtons.OK, MessageBoxDefaultButton defaultButton = MessageBoxDefaultButton.Default) =>
         GhUi.Read(run: scope =>
             Try.lift(f: () => MessageBox.Show(
                 parent: DialogParent(scope: scope),
@@ -818,12 +787,12 @@ internal static partial class Input {
                 defaultButton: defaultButton))
             .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(MessageDialog)), detail: $"MessageBox.Show threw: {error.Message}")));
 
-    internal static GrasshopperUiIntent<PathDialogSnapshot> FileDialog(PathDialogSpec spec) =>
+    public static GrasshopperUiIntent<PathDialogSnapshot> FileDialog(PathDialogSpec spec) =>
         GhUi.Read(run: scope =>
             Try.lift(f: () => spec.Mode.Run(parent: DialogParent(scope: scope), spec: spec))
                 .Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(FileDialog)), detail: $"FileDialog.ShowDialog threw: {error.Message}")));
 
-    internal static GrasshopperUiIntent<InputClipboardSnapshot> Clipboard(InputClipboardOp op) =>
+    public static GrasshopperUiIntent<InputClipboardSnapshot> Clipboard(InputClipboardOp op) =>
         GhUi.Read(run: _scope =>
             Optional(op)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Clipboard)), detail: "clipboard op is required"))
@@ -854,7 +823,7 @@ internal static partial class Input {
                         }, what: "Clipboard.Clear")
                         select snapshot)));
 
-    internal static GrasshopperUiIntent<TransferPayload> Transfer(InputTransferOp op) =>
+    public static GrasshopperUiIntent<TransferPayload> Transfer(InputTransferOp op) =>
         GhUi.Read(run: scope =>
             Optional(op)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Transfer)), detail: "transfer op is required"))
@@ -864,7 +833,7 @@ internal static partial class Input {
                     dropPolicyCase: d => Clipboard(op: new InputClipboardOp.ReadCase(DataTypes: d.DataTypes)).Run(scope: scope)
                         .Map(clipboard => new TransferPayload(Clipboard: clipboard, Effects: Some(d.Effects), AllowedEffects: Some(d.Effects))))));
 
-    internal static GrasshopperUiIntent<Option<TResult>> Dialog<TResult>(Func<Dialog<Option<TResult>>, Fin<Unit>> configure, string title, Option<DialogPresentation> presentation) =>
+    public static GrasshopperUiIntent<Option<TResult>> Dialog<TResult>(Func<Dialog<Option<TResult>>, Fin<Unit>> configure, string title = "", Option<DialogPresentation> presentation = default) =>
         GhUi.Read(run: scope =>
             from validConfigure in Optional(configure).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Dialog)), detail: "null configure delegate"))
             from result in RunDialog(scope: scope, title: title, presentation: presentation.IfNone(DialogPresentation.Modal), configure: validConfigure)
@@ -877,7 +846,7 @@ internal static partial class Input {
             return configure(arg: dialog).Map(_ => presentation.Show(dialog: dialog, parent: DialogParent(scope: scope)));
         }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Dialog)), detail: $"Dialog<T> threw: {error.Message}")).Bind(static r => r);
 
-    internal static GrasshopperUiIntent<Option<TResult>> Form<TResult>(FormPlan<TResult> plan) =>
+    public static GrasshopperUiIntent<Option<TResult>> Form<TResult>(FormPlan<TResult> plan) =>
         GhUi.Read(run: scope => RunForm(scope: scope, plan: plan));
 
     private static Fin<Option<TResult>> RunForm<TResult>(GrasshopperUi.Scope scope, FormPlan<TResult> plan) =>
@@ -942,7 +911,7 @@ internal static partial class Input {
             _ => string.Empty,
         };
 
-    internal static GrasshopperUiIntent<Option<Color>> PickColor(Color initial, bool allowAlpha) =>
+    public static GrasshopperUiIntent<Option<Color>> PickColor(Color initial, bool allowAlpha = true) =>
         GhUi.Read(run: scope =>
             Try.lift(f: () => {
                 using ColorDialog dialog = new() { Color = initial, AllowAlpha = allowAlpha };
@@ -951,7 +920,7 @@ internal static partial class Input {
                     : Option<Color>.None;
             }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(PickColor)), detail: $"ColorDialog threw: {error.Message}")));
 
-    internal static GrasshopperUiIntent<Option<Font>> PickFont(Option<Font> initial) =>
+    public static GrasshopperUiIntent<Option<Font>> PickFont(Option<Font> initial = default) =>
         GhUi.Read(run: scope =>
             Try.lift(f: () => {
                 using FontDialog dialog = new();
@@ -961,7 +930,7 @@ internal static partial class Input {
                     : Option<Font>.None;
             }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(PickFont)), detail: $"FontDialog threw: {error.Message}")));
 
-    internal static GrasshopperUiIntent<Option<string>> EditPrompt(string title, string message, string defaultText, bool multiline) =>
+    public static GrasshopperUiIntent<Option<string>> EditPrompt(string title, string message, string defaultText = "", bool multiline = false) =>
         GhUi.Read(run: _ =>
             Op.Of(name: nameof(EditPrompt)).Attempt(
                 body: () => Rhino.UI.Dialogs.ShowEditBox(title: title, message: message, defaultText: defaultText, multiline: multiline, text: out string text)
@@ -969,7 +938,7 @@ internal static partial class Input {
                     : Option<string>.None,
                 what: "Dialogs.ShowEditBox"));
 
-    internal static GrasshopperUiIntent<Option<double>> NumberPrompt(string title, string message, double initial, UiNumberRange range = default) =>
+    public static GrasshopperUiIntent<Option<double>> NumberPrompt(string title, string message, double initial = 0d, UiNumberRange range = default) =>
         GhUi.Read(run: _ =>
             Op.Of(name: nameof(NumberPrompt)).Attempt(
                 body: () => {
@@ -983,7 +952,7 @@ internal static partial class Input {
                 },
                 what: "Dialogs.ShowNumberBox"));
 
-    internal static GrasshopperUiIntent<Unit> Notify(string title, string message, Option<Image> contentImage, bool trayIndicator) =>
+    public static GrasshopperUiIntent<Unit> Notify(string title, string message, Option<Image> contentImage = default, bool trayIndicator = false) =>
         GhUi.Read(run: scope =>
             Try.lift(f: () => {
                 using TrayIndicator? indicator = trayIndicator ? new TrayIndicator { Title = title, Visible = true } : null;
