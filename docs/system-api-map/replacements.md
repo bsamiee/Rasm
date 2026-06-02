@@ -189,7 +189,7 @@
 - [5] `Atom<Seq<T>>` or boundary-only adapter.
 - [6] `CreateLinkedTokenSource` + `CancelAfter` inside `Bracket`.
 - [7] `System.Threading.Lock` + `EnterScope()`.
-- [8] `[LoggerMessage]` after `Microsoft.Extensions.Logging.Abstractions` adoption — not in graph today.
+- [8] `[LoggerMessage]` after `Microsoft.Extensions.Logging.Abstractions` adoption at host/runtime boundaries.
 - [9] Centralized observability module (CSP0604).
 - [10] `Meter.CreateCounter` / `CreateUpDownCounter`.
 - [11] `Meter.CreateHistogram` + `InstrumentAdvice` bucket boundaries.

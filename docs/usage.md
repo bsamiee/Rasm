@@ -11,15 +11,16 @@
 
 <br>
 
-| [INDEX] | [OWNER]          | [CAPABILITY]                                                           |
-| :-----: | ---------------- | ---------------------------------------------------------------------- |
-|   [1]   | RhinoCommon      | Geometry validity, tolerances, units, transforms, topology             |
-|   [2]   | GH2              | `IDataAccess`, trees, paths, coverage, diagnostics                     |
-|   [3]   | MathNet          | Linear algebra, solvers, fitting, optimization, statistics, symbolics  |
-|   [4]   | BCL/System       | Spans, regex, frozen lookup, generic math, SIMD, time, IO, diagnostics |
-|   [5]   | LanguageExt      | `Fin`, `Validation`, `Eff`, `IO`, `Schedule`, `Seq`, `K<F,A>`          |
-|   [6]   | Thinktecture     | Value objects, smart enums, unions, generated dispatch                 |
-|   [7]   | Composition root | Scrutor, EF, Serilog, OTel, Http.Resilience — bootstrap only           |
+| [INDEX] | [OWNER]            | [CAPABILITY]                                                           |
+| :-----: | ------------------ | ---------------------------------------------------------------------- |
+|   [1]   | RhinoCommon        | Geometry validity, tolerances, units, transforms, topology             |
+|   [2]   | GH2                | `IDataAccess`, trees, paths, coverage, diagnostics                     |
+|   [3]   | MathNet            | Linear algebra, solvers, fitting, optimization, statistics, symbolics  |
+|   [4]   | BCL/System         | Spans, regex, frozen lookup, generic math, SIMD, time, IO, diagnostics |
+|   [5]   | LanguageExt        | `Fin`, `Validation`, `Eff`, `IO`, `Schedule`, `Seq`, `K<F,A>`          |
+|   [6]   | Thinktecture       | Value objects, smart enums, unions, generated dispatch                 |
+|   [7]   | Platform libraries | `Rasm.AppUi`, `Rasm.AppHost`, `Rasm.Persistence`, `Rasm.Compute`       |
+|   [8]   | Composition root   | Scrutor, EF, Serilog, OTel, Http.Resilience — bootstrap only           |
 
 [READ]
 - [1] `host/rhino.md`, local RhinoWIP XML
@@ -28,7 +29,8 @@
 - [4] `system-api-map/bcl.md`, `replacements.md`, `meta.md`, `packages.md`
 - [5] `external-libs/languageext/*.md`
 - [6] `external-libs/thinktecture/*.md`
-- [7] `host-libraries.md` §1, §8
+- [7] `../libs/csharp/Rasm.AppUi/README.md`, `../libs/csharp/Rasm.AppHost/README.md`, `../libs/csharp/Rasm.Persistence/README.md`, `../libs/csharp/Rasm.Compute/README.md`
+- [8] `host-libraries.md` §1, §8
 
 ---
 ## [2][FLOW]
@@ -41,6 +43,7 @@
 3. Carry failure through LanguageExt `Fin`, `Validation`, or `Eff`.
 4. Execute MathNet only for algorithmic numeric or symbolic work (`external-libs/mathnet/symbolics.md` — load-context gated; not a default GH hot path).
 5. Project output back through Rhino validity or GH2 tree/diagnostic rules.
+6. Route app UI, runtime, persistence, and compute concerns through their owner-local platform manuals before adding packages or public rails.
 
 ---
 ## [3][PATTERNS]
@@ -62,7 +65,8 @@
 <br>
 
 - Do not wrap library APIs without domain value.
-- Do not add packages as future intent.
+- Do not add packages as future intent in `Directory.Packages.props`.
+- Do not treat first-consumer package candidates as runtime proof.
 - Do not let MathNet override Rhino geometry semantics.
 - Do not flatten GH2 tree/path behavior into lists.
 - Do not treat public docs as compile truth when local WIP XML differs.
@@ -83,6 +87,7 @@
 |   [5]   | `docs/system-api-map`, `docs/external-libs` | BCL and product-library policy after local proof.                |
 |   [6]   | `docs/testing-libs`                         | Test-rail API surfaces (xUnit, CsCheck, Verify, …).              |
 |   [7]   | `docs/standards`                            | Markdown voice and structure authority.                          |
-|   [8]   | Official docs                               | Current context only when local proof is silent.                 |
+|   [8]   | Owner-local platform manuals                | Future App UI, AppHost, Persistence, and Compute intent.         |
+|   [9]   | Official docs                               | Current context only when local proof is silent.                 |
 
 Performance and runtime-load claims require measured or load-context evidence before docs call them active.
