@@ -3,72 +3,6 @@ using Foundation.CSharp.Analyzers.Contracts;
 namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-[SmartEnum<int>] public sealed partial class ExtractionStatus { public static readonly ExtractionStatus Complete = new(key: 0), Approximate = new(key: 1); }
-[SmartEnum<int>] public sealed partial class ExtractionRoute { public static readonly ExtractionRoute Native = new(key: 0), Local = new(key: 1); }
-[SmartEnum<int>] public sealed partial class ToleranceSource { public static readonly ToleranceSource Context = new(key: 0), RhinoDefault = new(key: 1), NotApplicable = new(key: 2); }
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct ExtractionReceipt(ExtractionStatus Status, int Attempted, int Emitted, int Rejected, bool NativeRouted, ToleranceSource ToleranceSource, Option<double> Tolerance, bool ParallelCallback, Option<IsoSurfaceReceipt> IsoSurface = default, Option<ScalarIsolineReceipt> ScalarIsoline = default, Option<SampleReceipt> Sample = default) {
-    public ExtractionRoute Route => NativeRouted ? ExtractionRoute.Native : ExtractionRoute.Local;
-    internal static Fin<ExtractionReceipt> Of(ExtractionStatus status, int attempted, int emitted, bool nativeRouted, ToleranceSource toleranceSource, Option<double> tolerance, bool parallelCallback, Op key, Option<IsoSurfaceReceipt> isoSurface = default, Option<ScalarIsolineReceipt> scalarIsoline = default, Option<SampleReceipt> sample = default) =>
-        attempted < 0 || emitted < 0 || emitted > attempted
-            ? Fin.Fail<ExtractionReceipt>(error: key.InvalidResult())
-            : Fin.Succ(new ExtractionReceipt(Status: status, Attempted: attempted, Emitted: emitted, Rejected: attempted - emitted, NativeRouted: nativeRouted, ToleranceSource: toleranceSource, Tolerance: tolerance, ParallelCallback: parallelCallback, IsoSurface: isoSurface, ScalarIsoline: scalarIsoline, Sample: sample));
-}
-
-[SmartEnum<int>] public sealed partial class ScalarIsolineRoute { public static readonly ScalarIsolineRoute LocalPiecewiseLinearMesh = new(key: 0, nativeRouted: false); public bool NativeRouted { get; } }
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct ScalarIsolineReceipt(ScalarIsolineRoute Route, int FiniteLevels, int RawSegments, int DedupedSegments, int DegenerateRejected, int PlateauRejected, int StitchedCandidates, int BranchStops, int BranchNodes, int MaxIncidentSegments, int EmittedCurves);
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ScalarIsolineResult(Seq<Curve> Curves, ScalarIsolineReceipt Receipt);
-
-[StructLayout(LayoutKind.Auto)] internal readonly record struct ScalarIsolineSegment(Point3d A, Point3d B);
-
-[StructLayout(LayoutKind.Auto)] internal readonly record struct ScalarIsolinePointKey(long X, long Y, long Z) { internal int Compare(ScalarIsolinePointKey other) => (X, Y, Z).CompareTo((other.X, other.Y, other.Z)); }
-internal sealed class ScalarIsolineStats { internal int RawSegments, DedupedSegments, DegenerateRejected, PlateauRejected, StitchedCandidates, BranchStops, BranchNodes, MaxIncidentSegments, EmittedCurves; }
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct GlyphPolicy {
-    private GlyphPolicy(SampleKind kind, PositiveMagnitude scale) { Kind = kind; Scale = scale; }
-    public SampleKind Kind { get; }
-    public PositiveMagnitude Scale { get; }
-    public static Fin<GlyphPolicy> Of(SampleKind kind, double scale, Op? key = null) =>
-        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: scale)
-            .Bind(validScale => Of(kind: kind, scale: validScale, key: key));
-    public static Fin<GlyphPolicy> Of(SampleKind kind, PositiveMagnitude scale, Op? key = null) =>
-        from validKind in SampleKind.Admit(value: kind, key: key.OrDefault())
-        from _ in guard(scale.Value > RhinoMath.ZeroTolerance, key.OrDefault().InvalidInput())
-        select new GlyphPolicy(kind: validKind, scale: scale);
-}
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct GridPolicy {
-    private GridPolicy(SampleKind kind) => Kind = kind;
-    public SampleKind Kind { get; }
-    public static Fin<GridPolicy> Of(SampleKind kind, Op? key = null) =>
-        SampleKind.Admit(value: kind, key: key.OrDefault()).Map(static validKind => new GridPolicy(kind: validKind));
-}
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct StreamBundlePolicy {
-    private StreamBundlePolicy(SampleKind kind, PositiveMagnitude initialStep, FieldIntegrator integrator, Termination termination) { Kind = kind; InitialStep = initialStep; Integrator = integrator; Termination = termination; }
-    public SampleKind Kind { get; }
-    public PositiveMagnitude InitialStep { get; }
-    public FieldIntegrator Integrator { get; }
-    public Termination Termination { get; }
-    public static Fin<StreamBundlePolicy> Of(SampleKind kind, double initialStep, Termination termination, FieldIntegrator? integrator = null, Op? key = null) =>
-        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: initialStep)
-            .Bind(step => FieldIntegrator.AdmitOrFixed(value: integrator, key: key.OrDefault())
-                .Bind(active => Of(kind: kind, initialStep: step, termination: termination, integrator: active, key: key)));
-    public static Fin<StreamBundlePolicy> Of(SampleKind kind, PositiveMagnitude initialStep, Termination termination, FieldIntegrator integrator, Op? key = null) {
-        Op op = key.OrDefault();
-        return from validKind in SampleKind.Admit(value: kind, key: op)
-               from validIntegrator in FieldIntegrator.Admit(value: integrator, key: op)
-               from validTermination in Termination.Admit(value: termination, key: op)
-               from _ in guard(initialStep.Value > RhinoMath.ZeroTolerance, op.InvalidInput())
-               select new StreamBundlePolicy(kind: validKind, initialStep: initialStep, integrator: validIntegrator, termination: validTermination);
-    }
-}
-
 [Union]
 public abstract partial record ContourPolicy {
     private ContourPolicy() { }
@@ -341,8 +275,6 @@ public abstract partial record ExtractionDomain {
     }
 }
 
-internal readonly record struct CurveBatch(Seq<Curve> Curves, Option<ScalarIsolineResult> ScalarIsoline, ExtractionReceipt Receipt);
-
 [Union]
 public abstract partial record ExtractionProbe {
     private ExtractionProbe() { }
@@ -363,9 +295,19 @@ public abstract partial record ExtractionProbe {
                       }
                       select output,
             scalarCase: static (state, probe) =>
-                from value in probe.Source.SampleScalar(sample: state.Sample, context: state.Context, key: state.Key)
-                from output in AtomProjection.Value<double, TOut>(value: value, key: state.Key, owner: typeof(ScalarCase))
-                select output,
+                typeof(TOut) switch {
+                    Type t when t == typeof(SdfSample) || t == typeof(SdfReceipt) =>
+                        from sample in probe.Source.SampleSdfDetailed(sample: state.Sample, context: state.Context, key: state.Key)
+                        from output in sample.Project<TOut>(key: state.Key)
+                        select output,
+                    Type t when t == typeof(ReconstructionSample) || t == typeof(ReconstructionSampleReceipt) =>
+                        from sample in probe.Source.SampleReconstructionDetailed(sample: state.Sample, context: state.Context, key: state.Key)
+                        from output in sample.Project<TOut>(key: state.Key)
+                        select output,
+                    _ => from value in probe.Source.SampleScalar(sample: state.Sample, context: state.Context, key: state.Key)
+                         from output in AtomProjection.Value<double, TOut>(value: value, key: state.Key, owner: typeof(ScalarCase))
+                         select output,
+                },
             tensorCase: static (state, probe) =>
                 from tensor in probe.Source.SampleTensor(sample: state.Sample, context: state.Context, key: state.Key)
                 from output in typeof(TOut) switch {
@@ -377,7 +319,14 @@ public abstract partial record ExtractionProbe {
                 select output);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+[SmartEnum<int>] public sealed partial class ExtractionRoute { public static readonly ExtractionRoute Native = new(key: 0), Local = new(key: 1); }
+
+[SmartEnum<int>] public sealed partial class ExtractionStatus { public static readonly ExtractionStatus Complete = new(key: 0), Approximate = new(key: 1); }
+
+[SmartEnum<int>] public sealed partial class ScalarIsolineRoute { public static readonly ScalarIsolineRoute LocalPiecewiseLinearMesh = new(key: 0, nativeRouted: false); public bool NativeRouted { get; } }
+
+[SmartEnum<int>] public sealed partial class ToleranceSource { public static readonly ToleranceSource Context = new(key: 0), RhinoDefault = new(key: 1), NotApplicable = new(key: 2); }
+
 [Union]
 internal abstract partial record Extraction {
     private Extraction() { }
@@ -465,12 +414,89 @@ internal abstract partial record Extraction {
         };
     private static Fin<TOut> ProjectSamples<TOut, TItem, TState>(SampleKind kind, ExtractionDomain domain, Context context, Op key, TState state, Func<TState, Point3d, Context, Op, Fin<TItem>> sample, Func<Seq<TItem>, Op, Fin<TOut>> project) =>
         from samples in kind.Evaluate(domain: domain, context: context, key: key)
-        from items in samples.Points.TraverseM(point => sample(state, point, context, key)).As()
+        from sampled in SampledItems(points: samples.Points, context: context, key: key, state: state, sample: sample)
         from output in typeof(TOut) == typeof(ExtractionReceipt)
-            ? Receipt<TOut>(attempted: samples.Receipt.Attempted, emitted: items.Count, nativeRouted: false, toleranceSource: ToleranceSource.NotApplicable, tolerance: Option<double>.None, parallelCallback: false, key: key, sample: Some(samples.Receipt))
-            : project(items, key)
+            ? Receipt<TOut>(attempted: sampled.Attempted, emitted: sampled.Emitted, nativeRouted: false, toleranceSource: ToleranceSource.NotApplicable, tolerance: Option<double>.None, parallelCallback: false, key: key, sample: Some(samples.Receipt))
+            : sampled.Rejected == 0
+                ? project(sampled.Items, key)
+                : Fin.Fail<TOut>(key.InvalidResult())
         select output;
+    private static Fin<(Seq<TItem> Items, int Attempted, int Emitted, int Rejected)> SampledItems<TItem, TState>(Seq<Point3d> points, Context context, Op key, TState state, Func<TState, Point3d, Context, Op, Fin<TItem>> sample) {
+        List<TItem> items = new(capacity: points.Count);
+        int rejected = 0;
+        for (int i = 0; i < points.Count; i++)
+            _ = sample(state, points[index: i], context, key).Match(
+                Succ: item => { items.Add(item: item); return unit; },
+                Fail: _ => { rejected++; return unit; });
+        return Fin.Succ((Items: toSeq(items), Attempted: points.Count, Emitted: items.Count, Rejected: rejected));
+    }
     private static Fin<TOut> Receipt<TOut>(int attempted, int emitted, bool nativeRouted, ToleranceSource toleranceSource, Option<double> tolerance, bool parallelCallback, Op key, Option<SampleReceipt> sample = default) =>
-        ExtractionReceipt.Of(status: ExtractionStatus.Complete, attempted: attempted, emitted: emitted, nativeRouted: nativeRouted, toleranceSource: toleranceSource, tolerance: tolerance, parallelCallback: parallelCallback, key: key, sample: sample)
+        ExtractionReceipt.Of(status: emitted == attempted ? ExtractionStatus.Complete : ExtractionStatus.Approximate, attempted: attempted, emitted: emitted, nativeRouted: nativeRouted, toleranceSource: toleranceSource, tolerance: tolerance, parallelCallback: parallelCallback, key: key, sample: sample)
             .Map(static receipt => (TOut)(object)receipt);
 }
+
+// --- [MODELS] -----------------------------------------------------------------------------
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct ExtractionReceipt(ExtractionStatus Status, int Attempted, int Emitted, int Rejected, bool NativeRouted, ToleranceSource ToleranceSource, Option<double> Tolerance, bool ParallelCallback, Option<IsoSurfaceReceipt> IsoSurface = default, Option<ScalarIsolineReceipt> ScalarIsoline = default, Option<SampleReceipt> Sample = default) {
+    public ExtractionRoute Route => NativeRouted ? ExtractionRoute.Native : ExtractionRoute.Local;
+    internal static Fin<ExtractionReceipt> Of(ExtractionStatus status, int attempted, int emitted, bool nativeRouted, ToleranceSource toleranceSource, Option<double> tolerance, bool parallelCallback, Op key, Option<IsoSurfaceReceipt> isoSurface = default, Option<ScalarIsolineReceipt> scalarIsoline = default, Option<SampleReceipt> sample = default) =>
+        attempted < 0 || emitted < 0 || emitted > attempted
+            ? Fin.Fail<ExtractionReceipt>(error: key.InvalidResult())
+            : Fin.Succ(new ExtractionReceipt(Status: status, Attempted: attempted, Emitted: emitted, Rejected: attempted - emitted, NativeRouted: nativeRouted, ToleranceSource: toleranceSource, Tolerance: tolerance, ParallelCallback: parallelCallback, IsoSurface: isoSurface, ScalarIsoline: scalarIsoline, Sample: sample));
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct GlyphPolicy {
+    private GlyphPolicy(SampleKind kind, PositiveMagnitude scale) { Kind = kind; Scale = scale; }
+    public SampleKind Kind { get; }
+    public PositiveMagnitude Scale { get; }
+    public static Fin<GlyphPolicy> Of(SampleKind kind, double scale, Op? key = null) =>
+        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: scale)
+            .Bind(validScale => Of(kind: kind, scale: validScale, key: key));
+    public static Fin<GlyphPolicy> Of(SampleKind kind, PositiveMagnitude scale, Op? key = null) =>
+        from validKind in SampleKind.Admit(value: kind, key: key.OrDefault())
+        from _ in guard(scale.Value > RhinoMath.ZeroTolerance, key.OrDefault().InvalidInput())
+        select new GlyphPolicy(kind: validKind, scale: scale);
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct GridPolicy {
+    private GridPolicy(SampleKind kind) => Kind = kind;
+    public SampleKind Kind { get; }
+    public static Fin<GridPolicy> Of(SampleKind kind, Op? key = null) =>
+        SampleKind.Admit(value: kind, key: key.OrDefault()).Map(static validKind => new GridPolicy(kind: validKind));
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct ScalarIsolineReceipt(ScalarIsolineRoute Route, int FiniteLevels, int RawSegments, int DedupedSegments, int DegenerateRejected, int PlateauRejected, int StitchedCandidates, int BranchStops, int BranchNodes, int MaxIncidentSegments, int EmittedCurves);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct ScalarIsolineResult(Seq<Curve> Curves, ScalarIsolineReceipt Receipt);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct StreamBundlePolicy {
+    private StreamBundlePolicy(SampleKind kind, PositiveMagnitude initialStep, FieldIntegrator integrator, Termination termination) { Kind = kind; InitialStep = initialStep; Integrator = integrator; Termination = termination; }
+    public SampleKind Kind { get; }
+    public PositiveMagnitude InitialStep { get; }
+    public FieldIntegrator Integrator { get; }
+    public Termination Termination { get; }
+    public static Fin<StreamBundlePolicy> Of(SampleKind kind, double initialStep, Termination termination, FieldIntegrator? integrator = null, Op? key = null) =>
+        key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: initialStep)
+            .Bind(step => FieldIntegrator.AdmitOrFixed(value: integrator, key: key.OrDefault())
+                .Bind(active => Of(kind: kind, initialStep: step, termination: termination, integrator: active, key: key)));
+    public static Fin<StreamBundlePolicy> Of(SampleKind kind, PositiveMagnitude initialStep, Termination termination, FieldIntegrator integrator, Op? key = null) {
+        Op op = key.OrDefault();
+        return from validKind in SampleKind.Admit(value: kind, key: op)
+               from validIntegrator in FieldIntegrator.Admit(value: integrator, key: op)
+               from validTermination in Termination.Admit(value: termination, key: op)
+               from _ in guard(initialStep.Value > RhinoMath.ZeroTolerance, op.InvalidInput())
+               select new StreamBundlePolicy(kind: validKind, initialStep: initialStep, integrator: validIntegrator, termination: validTermination);
+    }
+}
+
+internal readonly record struct CurveBatch(Seq<Curve> Curves, Option<ScalarIsolineResult> ScalarIsoline, ExtractionReceipt Receipt);
+
+[StructLayout(LayoutKind.Auto)] internal readonly record struct ScalarIsolinePointKey(long X, long Y, long Z) { internal int Compare(ScalarIsolinePointKey other) => (X, Y, Z).CompareTo((other.X, other.Y, other.Z)); }
+
+[StructLayout(LayoutKind.Auto)] internal readonly record struct ScalarIsolineSegment(Point3d A, Point3d B);
+
+internal sealed class ScalarIsolineStats { internal int RawSegments, DedupedSegments, DegenerateRejected, PlateauRejected, StitchedCandidates, BranchStops, BranchNodes, MaxIncidentSegments, EmittedCurves; }

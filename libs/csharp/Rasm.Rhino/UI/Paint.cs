@@ -13,31 +13,6 @@ public interface IUiInput<TState> {
     public bool Alt { get; }
 }
 
-[Union]
-public abstract partial record UiInputEvent<TUiState> : IUiInput<TUiState> {
-    private UiInputEvent() { }
-    public sealed record CanvasPointer(UiCanvasContext<TUiState> Value) : UiInputEvent<TUiState>;
-    public sealed record CanvasKey(UiCanvasKey<TUiState> Value) : UiInputEvent<TUiState>;
-    public sealed record ViewportMouse(MouseContext<TUiState> Value) : UiInputEvent<TUiState>;
-
-    public TUiState State => Switch(
-        canvasPointer: static e => e.Value.State,
-        canvasKey: static e => e.Value.State,
-        viewportMouse: static e => e.Value.State);
-    public bool Shift => Switch(
-        canvasPointer: static e => e.Value.Shift,
-        canvasKey: static e => e.Value.Shift,
-        viewportMouse: static e => e.Value.Shift);
-    public bool Control => Switch(
-        canvasPointer: static e => e.Value.Control,
-        canvasKey: static e => e.Value.Control,
-        viewportMouse: static e => e.Value.Control);
-    public bool Alt => Switch(
-        canvasPointer: static e => e.Value.Alt,
-        canvasKey: static e => e.Value.Alt,
-        viewportMouse: static _ => false);
-}
-
 public enum KeyPhase { Down, Up }
 
 [Union]
@@ -175,6 +150,31 @@ public abstract partial record UiFont {
             SystemFontKind.User => Eto.Drawing.SystemFonts.User(s.Size.ToNullable(), s.Decoration),
             _ => Eto.Drawing.SystemFonts.Default(s.Size.ToNullable(), s.Decoration),
         });
+}
+
+[Union]
+public abstract partial record UiInputEvent<TUiState> : IUiInput<TUiState> {
+    private UiInputEvent() { }
+    public sealed record CanvasPointer(UiCanvasContext<TUiState> Value) : UiInputEvent<TUiState>;
+    public sealed record CanvasKey(UiCanvasKey<TUiState> Value) : UiInputEvent<TUiState>;
+    public sealed record ViewportMouse(MouseContext<TUiState> Value) : UiInputEvent<TUiState>;
+
+    public TUiState State => Switch(
+        canvasPointer: static e => e.Value.State,
+        canvasKey: static e => e.Value.State,
+        viewportMouse: static e => e.Value.State);
+    public bool Shift => Switch(
+        canvasPointer: static e => e.Value.Shift,
+        canvasKey: static e => e.Value.Shift,
+        viewportMouse: static e => e.Value.Shift);
+    public bool Control => Switch(
+        canvasPointer: static e => e.Value.Control,
+        canvasKey: static e => e.Value.Control,
+        viewportMouse: static e => e.Value.Control);
+    public bool Alt => Switch(
+        canvasPointer: static e => e.Value.Alt,
+        canvasKey: static e => e.Value.Alt,
+        viewportMouse: static _ => false);
 }
 
 [Union]

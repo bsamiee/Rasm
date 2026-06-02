@@ -34,10 +34,11 @@ public partial record RepaintRequest {
     internal Unit ApplyTo(GrasshopperUi.Scope scope) =>
         Switch(state: scope,
             noneCase: static (_, _) => unit,
-            objectCase: static (s, o) => s.Canvas.Bind(canvas => s.Objects.Map(objects =>
-                Optional(objects.Find(instanceId: o.Id))
+            objectCase: static (s, o) => s.Canvas.IfSome(canvas => s.Objects.Match(
+                Some: objects => Optional(objects.Find(instanceId: o.Id))
                     .Map(target => { canvas.Invalidate(rect: GrasshopperUi.ControlSpace(canvas: canvas, bounds: target.Attributes.AggregateBounds)); return unit; })
-                    .IfNone(() => { canvas.Invalidate(); return unit; }))).IfNone(unit),
+                    .IfNone(() => { canvas.Invalidate(); return unit; }),
+                None: () => { canvas.Invalidate(); return unit; })),
             regionCase: static (s, r) => s.Canvas.IfSome(canvas => canvas.Invalidate(rect: GrasshopperUi.ControlSpace(canvas: canvas, bounds: r.Bounds))),
             canvasCase: static (s, _) => s.Canvas.IfSome(static canvas => canvas.Invalidate()),
             scheduledCase: static (s, _) => s.Canvas.IfSome(static canvas => canvas.ScheduleRedraw()),
@@ -58,9 +59,7 @@ public partial record RepaintRequest {
     public static RepaintRequest Object(Guid id) => new ObjectCase(Id: id);
     public static RepaintRequest Region(RectangleF bounds) => new RegionCase(Bounds: bounds);
 
-    // Absorption priority (None identity → SolutionAndDisplay → Solution → Display → Canvas → Scheduled
-    // → Region union → same-Object idempotent → else Canvas). ApplyTo runs once at GrasshopperUi.Use exit;
-    // CanvasOp.Invalidate dispatch is policy-only and never calls native invalidate directly.
+    // Repaint absorption collapses intents before the single ApplyTo at GrasshopperUi.Use exit.
     public static RepaintRequest operator |(RepaintRequest left, RepaintRequest right) =>
         (left, right) switch {
             (NoneCase, _) => right,
@@ -341,9 +340,7 @@ public abstract partial record UiFault : Expected, IValidationError<UiFault> {
     public static UiFault ThreadMarshal(string detail) => new ThreadMarshalCase(Detail: detail);
     public static UiFault Cancelled(Op op) => new CancelledCase(Op: op);
 
-    // IValidationError<UiFault> — required by [ValidationError<UiFault>] on validated VOs. The
-    // Op-bearing overload preserves call-site provenance (nameof(SpringConfig)/CornerRadii/ZoomFactor);
-    // the unary form is kept for the interface contract and defaults Op to "Validation".
+    // IValidationError<UiFault> contract; Op-bearing overload preserves VO call-site provenance.
     public static UiFault Create(string message) => Create(op: Op.Of(name: "Validation"), message: message);
     public static UiFault Create(Op op, string message) => InvalidInput(op: op, detail: message);
 }
@@ -379,8 +376,7 @@ public static partial class OpUiExtensions {
                 ? Fin.Succ(value)
                 : Fin.Fail<T>(error: UiFault.InvalidInput(op: op, detail: detail)));
 
-    // Single-delegate admission gate shared by every toolbar/menu/panel arm that requires a `Changed`
-    // callback; the noun forms the per-arm detail without a hand-rolled Optional(...).ToFin at each site.
+    // Shared Changed-callback gate keeps toolbar/menu/panel diagnostics aligned.
     [BoundaryAdapter]
     internal static Fin<TDelegate> NeedChanged<TDelegate>(this Op op, TDelegate? changed, string noun) where TDelegate : class =>
         Optional(changed).ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"{noun} change delegate is required"));
@@ -501,8 +497,7 @@ public sealed partial record GrasshopperUi {
         return unit;
     }
 
-    // Host-callback boundary: a faulted UI handler is swallowed because native callbacks have no return rail;
-    // keep the fault observable for bridge/spec validation and diagnostics.
+    // Host callbacks have no return rail; keep swallowed handler faults observable.
     internal static Fin<Unit> Handler(Func<Fin<Unit>> valid) =>
         Protect(valid: valid).Match(
             Succ: static _ => Fin.Succ(value: unit),
@@ -528,16 +523,22 @@ public sealed partial record GrasshopperUi {
                         Skin: CanvasSkin.Of(canvas: canvas),
                         UndoGroup: undo,
                         Cancellation: cancellation);
-                }).Bind(scope => (policy.RequireCanvas && scope.Canvas.IsNone, policy.RequireDocument && scope.Document.IsNone) switch {
-                    (true, _) => Fin.Fail<Scope>(error: UiFault.MissingScope(field: nameof(Canvas))),
-                    (_, true) => Fin.Fail<Scope>(error: UiFault.MissingScope(field: nameof(Document))),
-                    _ => Fin.Succ(value: scope),
+                }).Bind(scope => {
+                    Validation<Seq<UiFault>, Unit> reqCanvas =
+                        policy.RequireCanvas && scope.Canvas.IsNone
+                            ? Fail<Seq<UiFault>, Unit>(Seq(UiFault.MissingScope(field: nameof(Canvas))))
+                            : Success<Seq<UiFault>, Unit>(unit);
+                    Validation<Seq<UiFault>, Unit> reqDocument =
+                        policy.RequireDocument && scope.Document.IsNone
+                            ? Fail<Seq<UiFault>, Unit>(Seq(UiFault.MissingScope(field: nameof(Document))))
+                            : Success<Seq<UiFault>, Unit>(unit);
+                    return (reqCanvas & reqDocument)
+                        .ToFin()
+                        .Map(_ => scope);
                 });
 
-        // Never force GhEditor.ShowEditor: it always Form.Show()s, which paints the StatusBar and SIGABRTs the host
-        // under programmatic plugin load (see Editor.OpenEditor). When an op requires the editor, construct the
-        // singleton HEADLESS — the ctor builds the Canvas, no window is realized; ownership is GH2's process-static
-        // _instance (returned here, never disposed). Ops that want a visible window Show it in their dispatch body.
+        // ShowEditor always Form.Show()s and can SIGABRT during programmatic plugin load; headless singleton construction builds Canvas without realizing a window.
+        // GH2 owns the process-static _instance; visible ops Show the window inside their dispatch body.
         private static GhEditor? AcquireEditor(bool openEditor) =>
             (GhEditor.Instance, openEditor) switch {
                 (GhEditor current, _) => current,

@@ -47,19 +47,20 @@ public abstract partial record CaptureArea {
                     : Fin.Fail<Unit>(error: ctx.Op.InvalidInput())));
 }
 
-[Union(SwitchMapStateParameterName = "settings")]
-public abstract partial record CaptureScaleMode {
-    private CaptureScaleMode() { }
-    public sealed record Ratio(double Scale) : CaptureScaleMode;
-    public sealed record Fit : CaptureScaleMode;
+public readonly record struct CaptureCodec(CaptureFormat Format) {
+    public static CaptureCodec Of(CaptureFormat format) =>
+        new(Format: format);
 
-    internal Fin<Unit> Apply(ViewCaptureSettings settings, Op op) =>
-        Switch(
-            (Settings: settings, Op: op),
-            ratio: static (ctx, mode) =>
-                CaptureMeasure.Positive(value: mode.Scale, op: ctx.Op)
-                    .Map(scale => Op.Side(() => ctx.Settings.SetModelScaleToValue(scale: scale))),
-            fit: static (ctx, _) => Fin.Succ(value: Op.Side(() => ctx.Settings.SetModelScaleToFit(promptOnChange: false))));
+    internal Fin<CaptureResult> Render(ViewCaptureSettings settings, Op op) =>
+        Format switch {
+            CaptureFormat.Bitmap => Optional(ViewCapture.CaptureToBitmap(settings: settings))
+                .ToFin(Fail: op.InvalidResult())
+                .Map(static value => (CaptureResult)new CaptureResult.Bitmap(Value: value)),
+            CaptureFormat.Svg => Optional(ViewCapture.CaptureToSvg(settings: settings))
+                .ToFin(Fail: op.InvalidResult())
+                .Map(static value => (CaptureResult)new CaptureResult.Svg(Value: value)),
+            _ => Fin.Fail<CaptureResult>(error: op.InvalidInput()),
+        };
 }
 
 public enum CaptureFormat { Bitmap, Svg }
@@ -80,20 +81,19 @@ public abstract partial record CaptureResult : IDisposable {
     }
 }
 
-public readonly record struct CaptureCodec(CaptureFormat Format) {
-    public static CaptureCodec Of(CaptureFormat format) =>
-        new(Format: format);
+[Union(SwitchMapStateParameterName = "settings")]
+public abstract partial record CaptureScaleMode {
+    private CaptureScaleMode() { }
+    public sealed record Ratio(double Scale) : CaptureScaleMode;
+    public sealed record Fit : CaptureScaleMode;
 
-    internal Fin<CaptureResult> Render(ViewCaptureSettings settings, Op op) =>
-        Format switch {
-            CaptureFormat.Bitmap => Optional(ViewCapture.CaptureToBitmap(settings: settings))
-                .ToFin(Fail: op.InvalidResult())
-                .Map(static value => (CaptureResult)new CaptureResult.Bitmap(Value: value)),
-            CaptureFormat.Svg => Optional(ViewCapture.CaptureToSvg(settings: settings))
-                .ToFin(Fail: op.InvalidResult())
-                .Map(static value => (CaptureResult)new CaptureResult.Svg(Value: value)),
-            _ => Fin.Fail<CaptureResult>(error: op.InvalidInput()),
-        };
+    internal Fin<Unit> Apply(ViewCaptureSettings settings, Op op) =>
+        Switch(
+            (Settings: settings, Op: op),
+            ratio: static (ctx, mode) =>
+                CaptureMeasure.Positive(value: mode.Scale, op: ctx.Op)
+                    .Map(scale => Op.Side(() => ctx.Settings.SetModelScaleToValue(scale: scale))),
+            fit: static (ctx, _) => Fin.Succ(value: Op.Side(() => ctx.Settings.SetModelScaleToFit(promptOnChange: false))));
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------

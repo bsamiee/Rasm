@@ -116,9 +116,8 @@ internal readonly record struct UnitPolicy(Rhino.UnitSystem System, Fin<double> 
             Rhino.UnitSystem.Unset or Rhino.UnitSystem.None => Rhino.UnitSystem.Millimeters,
             Rhino.UnitSystem known => known,
         };
-        // A connected pin with an invalid factor self-heals to 1.0 with a Warning (mirrors the tolerance fallback),
-        // so Scale is always Succ and ReadShape never short-circuits on unit scaling.
-        Fin<double> scale = (access.GetUnitScaling(unitSystemScaling: out double factor), factor) switch {
+        // Invalid unit-scaling pins self-heal to 1.0, preserving shape reads.
+        Fin<double> scale = (access.GetUnitScaling(baseSystem: system, unitSystemScaling: out double factor), factor) switch {
             (true, double valid) when Rhino.RhinoMath.IsValidDouble(x: valid) && valid > Rhino.RhinoMath.ZeroTolerance => Fin.Succ(valid),
             (false, _) => Fin.Succ(1.0),
             _ => access.Emit(severity: Severity.Warning, text: "UnitScaling", details: $"Invalid unit scaling factor {factor}; using 1.0.") switch { _ => Fin.Succ(1.0) },
@@ -128,7 +127,6 @@ internal readonly record struct UnitPolicy(Rhino.UnitSystem System, Fin<double> 
 }
 
 // --- [ERRORS] -----------------------------------------------------------------------------
-// One [Union] collapses the four parallel port faults; generated Switch drives Category/Message.
 [Union]
 [BoundaryAdapter]
 internal abstract partial record PortFault : Domain.Expected {
@@ -147,7 +145,7 @@ internal abstract partial record PortFault : Domain.Expected {
         unsupportedSource: static f => f.Hint.Match(Some: h => $"{f.Port} input type '{f.SourceType.Name}' is not supported. Connect: {h}.", None: () => $"{f.Port} input type '{f.SourceType.Name}' is not supported."),
         unsupportedAccess: static f => $"Unsupported input access: {f.Access}.",
         invalidValue: static f => $"{f.Port} value rejected: {f.Detail}.");
-    // Wiring faults stay recoverable (Warning); genuine compute/scope faults are Errors. Shared by Component.Process + Output.RunGroup.
+    // Wiring faults are recoverable; compute/scope faults stay errors.
     internal static Severity SeverityOf(Error error) =>
         error switch {
             MissingInput or UnsupportedSource or UnsupportedAccess => Severity.Warning,
@@ -239,7 +237,7 @@ internal static partial class Bridge {
                         _ when ctx.Values.Exists(static value => value.Site.IsSome) => Garden.TreeFromLeaves(leaves: Leaves(values: ctx.Values).AsIterable()),
                         _ => Garden.TreeFromPears(pears: ctx.Values.Map(static value => value.Pear).AsIterable()),
                     };
-                    ctx.Access.SetTree(index: ctx.Slot, tree: TreePrefix(access: ctx.Access, slot: ctx.Slot) is int prefix ? tree.WithPathPrefix(element: prefix) : tree);
+                    ctx.Access.SetTree(index: ctx.Slot, tree: ctx.Access.CoverageOut(index: ctx.Slot) switch { { TwigIndex: >= 0 } coverage => coverage.TwigIndex, _ => (int?)null } is int prefix ? tree.WithPathPrefix(element: prefix) : tree);
                 }, values: ctx.Values),
                 unsupportedChannel: static (ctx, _) => ctx.Access.Emit(severity: Severity.Error, text: ctx.Name, details: "Unsupported output access.") switch { _ => Seq<object>() });
         // Run the native Set side-effect, then project written values to transfer-evidence objects (one place).
@@ -262,20 +260,16 @@ internal static partial class Bridge {
     }
     internal static Unit Emit(this IDataAccess access, Severity severity, string text, string details) =>
         severity.Emit(access: access, text: text, details: details);
-    private static int? TreePrefix(IDataAccess access, int slot) =>
-        access.CoverageOut(index: slot) switch { { TwigIndex: >= 0 } coverage => coverage.TwigIndex, _ => null };
     private static Fin<Analyze.Scope> Remark(IDataAccess access, Rhino.UnitSystem units) =>
         access.Emit(severity: Severity.Remark, text: "Tolerance", details: "Host did not supply reliable tolerance; using default tolerance with document units.") switch {
             _ => Fin.Succ(Analyze.In(units: units == Rhino.UnitSystem.CustomUnits ? Rhino.UnitSystem.Millimeters : units)),
         };
-    private static Fin<Seq<Pear<TVal>>> Missing<TVal>(Port port) =>
-        port.Requirement switch {
-            // GH2 contract: Process runs for MayBeNull/MayBeMissing even when the input is absent.
+    private static Fin<Seq<Flow<TVal>>> MissingFlow<TVal>(Port port) =>
+        // GH2 contract: Process runs for MayBeNull/MayBeMissing even when the input is absent.
+        (port.Requirement switch {
             Grasshopper2.Parameters.Requirement.MayBeMissing or Grasshopper2.Parameters.Requirement.MayBeNull => Fin.Succ(Seq<Pear<TVal>>()),
             _ => Fin.Fail<Seq<Pear<TVal>>>(new PortFault.MissingInput(Port: port.Name, Hint: None)),
-        };
-    private static Fin<Seq<Flow<TVal>>> MissingFlow<TVal>(Port port) =>
-        Missing<TVal>(port: port).Map(static pears => pears.Map(static pear => new Flow<TVal>(Pear: pear, Site: Option<Site>.None)));
+        }).Map(static pears => pears.Map(static pear => new Flow<TVal>(Pear: pear, Site: Option<Site>.None)));
     private static Seq<Leaf<T>> Leaves<T>(Seq<Flow<T>> values) =>
         values.Map((value, index) => new Leaf<T>(pear: value.Pear, site: value.Site.IfNone(new Site(path: new Grasshopper2.Data.Path(0), item: index))));
     private static Fin<Flow<Shape>> NormalizeFlow(IDataAccess access, Flow<object> source, Port port, double factor) =>
@@ -304,10 +298,7 @@ internal static partial class Bridge {
             });
     }
     internal sealed class Progress(IDataAccess access) : IProgress<double> {
-        public void Report(double value) => access.SetProgress(percentage: (int)Rhino.RhinoMath.Clamp(value: value switch {
-            >= 0.0 and <= 1.0 => value * 100.0,
-            _ => value,
-        }, 0.0, 100.0));
+        public void Report(double value) => access.SetProgress(percentage: (int)Rhino.RhinoMath.Clamp(value: value * 100.0, 0.0, 100.0));
     }
     private static Fin<Seq<Flow<T>>> FlowPears<T>(Port port, IEnumerable<(Pear<T> Pear, Option<Site> Site)> pears) {
         Seq<(Pear<T> Pear, Option<Site> Site, int Index)> indexed = toSeq(pears.Select((pear, index) => (pear.Pear, pear.Site, Index: index)));

@@ -52,7 +52,7 @@ public sealed partial class SupportProjection {
         new(key: key, capability: static (_, _) => true, accepts: static output => output == typeof(VectorSpan) || output == typeof(Vector3d) || output == typeof(Line) || output == typeof(double),
             projectRaw: state => state.Output switch {
                 Type t when t == typeof(Vector3d) => Accept(state: state, value: sign * (state.Hit.Point - state.Sample)),
-                Type t when t == typeof(double) => Accept(state: state, value: (state.Hit.Point - state.Sample).Length),
+                Type t when t == typeof(double) => Accept(state: state, value: sign * (state.Hit.Point - state.Sample).Length),
                 _ => VectorSpan.Of(anchor: state.Sample, vector: sign * (state.Hit.Point - state.Sample), context: state.Context, key: state.Key)
                     .Bind(span => state.Output switch {
                         Type t when t == typeof(VectorSpan) => Accept(state: state, value: span),
@@ -74,8 +74,6 @@ public sealed partial class SupportProjection {
                 _ => state.Key.AcceptValue(value: value).Map(static accepted => (object)accepted!),
             };
 }
-
-internal readonly record struct SupportProjectionState(SupportSpace Space, ClosestHit Hit, Point3d Sample, Context Context, Op Key, Type Output);
 
 // --- [MODELS] -----------------------------------------------------------------------------
 [BoundaryAdapter]
@@ -151,3 +149,6 @@ public readonly record struct SurfaceSpace {
         return Optional(projection).ToFin(op.InvalidInput()).Bind(p => p.Project<TOut>(surface: native, u: u, v: v, context: tolerance, key: op));
     }
 }
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+internal readonly record struct SupportProjectionState(SupportSpace Space, ClosestHit Hit, Point3d Sample, Context Context, Op Key, Type Output);

@@ -2,6 +2,14 @@ namespace Rasm.Vectors;
 
 // --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
+public sealed partial class ConeProjection {
+    public static readonly ConeProjection HalfAngle = new(key: 0, sample: static cone => cone.HalfAngle), SolidAngle = new(key: 1, sample: static cone => cone.SolidAngle), Axis = new(key: 2, sample: static cone => cone.Axis), Apex = new(key: 3, sample: static cone => cone.Apex);
+    [UseDelegateFromConstructor] private partial object Sample(VectorCone cone);
+    internal Fin<TOut> Project<TOut>(VectorCone cone, Op key) =>
+        AtomProjection.Raw<TOut>(raw: Sample(cone: cone), context: Option<Context>.None, key: key, owner: typeof(ConeProjection));
+}
+
+[SmartEnum<int>]
 public sealed partial class CurveProjection {
     public static readonly CurveProjection Tangent = new(key: 0,
         sample: static (curve, t, _, key) => curve.TangentAt(t: t) switch {
@@ -38,6 +46,27 @@ public sealed partial class CurveProjection {
         perpendicular switch {
             true => curve.PerpendicularFrameAt(t: parameter, plane: out Plane frame) ? Fin.Succ(project(arg: frame)) : Fin.Fail<object>(key.InvalidResult()),
             false => curve.FrameAt(t: parameter, plane: out Plane frame) ? Fin.Succ(project(arg: frame)) : Fin.Fail<object>(key.InvalidResult()),
+        };
+}
+
+[SmartEnum<int>]
+public sealed partial class MotionInterpolation {
+    public static readonly MotionInterpolation Linear = new(key: 0, interpolate: static (a, b, t, key) => InterpolatePlanes(a: a, b: b, t: t, spherical: false, key: key));
+    public static readonly MotionInterpolation Slerp = new(key: 1, interpolate: static (a, b, t, key) => InterpolatePlanes(a: a, b: b, t: t, spherical: true, key: key));
+    [UseDelegateFromConstructor] internal partial Fin<Plane> Interpolate(Plane a, Plane b, UnitInterval t, Op key);
+
+    private static Fin<Plane> InterpolatePlanes(Plane a, Plane b, UnitInterval t, bool spherical, Op key) =>
+        (!a.IsValid || !b.IsValid, a.EpsilonEquals(other: b, epsilon: RhinoMath.ZeroTolerance)) switch {
+            (true, _) => Fin.Fail<Plane>(key.InvalidInput()),
+            (_, true) => Fin.Succ(a),
+            _ => (Quaternion.Rotation(plane0: Plane.WorldXY, plane1: a), Quaternion.Rotation(plane0: Plane.WorldXY, plane1: b)) switch {
+                (Quaternion qa, Quaternion qb) => (spherical switch {
+                    true => Quaternion.Slerp(a: qa, b: qb, t: t.Value),
+                    false => Quaternion.Lerp(a: qa, b: qb, t: t.Value),
+                }).GetRotation(plane: out Plane oriented) && oriented.IsValid
+                    ? Fin.Succ(new Plane(origin: a.Origin + ((b.Origin - a.Origin) * t.Value), xDirection: oriented.XAxis, yDirection: oriented.YAxis))
+                    : Fin.Fail<Plane>(key.InvalidResult()),
+            },
         };
 }
 
@@ -116,33 +145,4 @@ public sealed partial class SurfaceProjection {
                    key: key)
                select matrix;
     }
-}
-
-[SmartEnum<int>]
-public sealed partial class MotionInterpolation {
-    public static readonly MotionInterpolation Linear = new(key: 0, interpolate: static (a, b, t) => InterpolatePlanes(a: a, b: b, t: t, spherical: false));
-    public static readonly MotionInterpolation Slerp = new(key: 1, interpolate: static (a, b, t) => InterpolatePlanes(a: a, b: b, t: t, spherical: true));
-    [UseDelegateFromConstructor] internal partial Fin<Plane> Interpolate(Plane a, Plane b, UnitInterval t);
-
-    private static Fin<Plane> InterpolatePlanes(Plane a, Plane b, UnitInterval t, bool spherical) =>
-        (!a.IsValid || !b.IsValid, a.EpsilonEquals(other: b, epsilon: RhinoMath.ZeroTolerance)) switch {
-            (true, _) => Fin.Fail<Plane>(Op.Of().InvalidInput()),
-            (_, true) => Fin.Succ(a),
-            _ => (Quaternion.Rotation(plane0: Plane.WorldXY, plane1: a), Quaternion.Rotation(plane0: Plane.WorldXY, plane1: b)) switch {
-                (Quaternion qa, Quaternion qb) => (spherical switch {
-                    true => Quaternion.Slerp(a: qa, b: qb, t: t.Value),
-                    false => Quaternion.Lerp(a: qa, b: qb, t: t.Value),
-                }).GetRotation(plane: out Plane oriented) && oriented.IsValid
-                    ? Fin.Succ(new Plane(origin: a.Origin + ((b.Origin - a.Origin) * t.Value), xDirection: oriented.XAxis, yDirection: oriented.YAxis))
-                    : Fin.Fail<Plane>(Op.Of().InvalidResult()),
-            },
-        };
-}
-
-[SmartEnum<int>]
-public sealed partial class ConeProjection {
-    public static readonly ConeProjection HalfAngle = new(key: 0, sample: static cone => cone.HalfAngle), SolidAngle = new(key: 1, sample: static cone => cone.SolidAngle), Axis = new(key: 2, sample: static cone => cone.Axis), Apex = new(key: 3, sample: static cone => cone.Apex);
-    [UseDelegateFromConstructor] private partial object Sample(VectorCone cone);
-    internal Fin<TOut> Project<TOut>(VectorCone cone, Op key) =>
-        AtomProjection.Raw<TOut>(raw: Sample(cone: cone), context: Option<Context>.None, key: key, owner: typeof(ConeProjection));
 }

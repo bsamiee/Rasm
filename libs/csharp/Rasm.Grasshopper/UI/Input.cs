@@ -12,10 +12,6 @@ using Op = Rasm.Domain.Op;
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-// Library mirror of Grasshopper2.Extensions.SelectionMode — the single canonical selection-modifier
-// vocabulary; each item carries its host value so the GH2<->library mapping is item-owned projection
-// (Gh / FromGh), centralizing the Inverse fallback in FromGh. Public callers and
-// scenarios never name the host enum.
 [SmartEnum<int>]
 public sealed partial class SelectionMode {
     public GhSelectionMode Gh { get; }
@@ -47,13 +43,10 @@ public sealed partial class CursorKind {
     public static readonly CursorKind SizeBottomLeft = new(key: 18, cursor: static _ => Cursors.SizeBottomLeft);
     public static readonly CursorKind SizeBottomRight = new(key: 19, cursor: static _ => Cursors.SizeBottomRight);
     public static readonly CursorKind NotAllowed = new(key: 8, cursor: static _ => Cursors.NotAllowed);
-    // Wire cursors prefer the host's static override (Canvas.CursorWireIn/Out/Question) and fall back to
-    // a stock cursor — folded into the item delegate so Resolve is a single uniform Cursor() call.
+    // GH2 wire cursor properties can be absent; item delegates fall back to stock Eto cursors.
     public static readonly CursorKind WireIn = new(key: 9, cursor: static _ => Optional(Grasshopper2.UI.Canvas.Canvas.CursorWireIn).IfNone(Cursors.Pointer));
     public static readonly CursorKind WireOut = new(key: 10, cursor: static _ => Optional(Grasshopper2.UI.Canvas.Canvas.CursorWireOut).IfNone(Cursors.Pointer));
     public static readonly CursorKind WireQuestion = new(key: 11, cursor: static _ => Optional(Grasshopper2.UI.Canvas.Canvas.CursorQuestion).IfNone(Cursors.Default));
-    // App-wide busy: the Eto cursor stays Default; CursorScope additionally engages a Rhino.UI.WaitCursor
-    // (the platform spinner) for this kind, restored when the scope disposes.
     public static readonly CursorKind Wait = new(key: 20, cursor: static _ => Cursors.Default);
 
     [UseDelegateFromConstructor]
@@ -67,7 +60,6 @@ public sealed partial class DialogPresentation {
     public static readonly DialogPresentation Modal = new(key: 0);
     public static readonly DialogPresentation AttachedSheet = new(key: 1);
 
-    // Exactly two presentations: Modal shows directly, AttachedSheet switches DisplayMode first.
     internal Option<TResult> Show<TResult>(Dialog<Option<TResult>> dialog, Control? parent) =>
         Switch(
             (Dialog: dialog, Parent: parent),
@@ -85,15 +77,8 @@ public sealed partial class PanelBehavior {
     public static readonly PanelBehavior Floating = new(key: 2);
 }
 
-[SmartEnum<int>]
-public sealed partial class MaterialPolicy {
-    public static readonly MaterialPolicy Default = new(key: 0);
-    public static readonly MaterialPolicy Content = new(key: 1);
-    public static readonly MaterialPolicy Hud = new(key: 2);
-}
-
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct PresentationPolicy(Option<PanelBehavior> Behavior = default, Option<MaterialPolicy> Material = default) {
+public readonly record struct PresentationPolicy(Option<PanelBehavior> Behavior = default) {
     internal DialogPresentation DialogPresentation =>
         Behavior.Filter(static behavior => behavior == PanelBehavior.Attached).Map(static _ => DialogPresentation.AttachedSheet).IfNone(DialogPresentation.Modal);
 }
@@ -159,9 +144,6 @@ public partial record InputClipboardOp {
         Write(payload: InputClipboardSnapshot.Empty with { Data = Seq(new InputClipboardDataEntry(Type: type, Bytes: Optional(data).Map(static bytes => bytes.ToArray()))) });
     public static InputClipboardOp ReadData(string type) => new ReadCase(DataTypes: Seq(type));
 
-    // Coalescing merge: two Writes union their payload fields (Option choice / Seq concat), a Clear absorbs
-    // any peer (the clipboard is wiped), two Reads fold their requested DataTypes, and a mixed Write/Read
-    // keeps the Write (the mutating intent dominates a query).
     public static InputClipboardOp operator |(InputClipboardOp left, InputClipboardOp right) =>
         (left, right) switch {
             (_, ClearCase) or (ClearCase, _) => Clear,
@@ -207,8 +189,6 @@ public readonly record struct InputClipboardSnapshot(Option<string> Text, Option
 
     public static InputClipboardSnapshot Of(string text) => Empty with { Text = Optional(text) };
 
-    // Field-wise coalesce: scalar fields take the right operand's value when present (Option choice), the
-    // collection fields concatenate. Powers the InputClipboardOp Write+Write merge.
     public static InputClipboardSnapshot operator |(InputClipboardSnapshot left, InputClipboardSnapshot right) =>
         new(
             Text: right.Text | left.Text,
@@ -230,25 +210,109 @@ public readonly record struct TransferPayload(InputClipboardSnapshot Clipboard, 
 public partial record InputTransferOp {
     private InputTransferOp() { }
     public sealed record ClipboardCase(InputClipboardOp Op) : InputTransferOp;
-    public sealed record DragSourceCase(TransferPayload Payload) : InputTransferOp;
-    public sealed record DropPolicyCase(Seq<string> DataTypes, DragEffects Effects) : InputTransferOp;
     public static InputTransferOp Clipboard(InputClipboardOp op) => new ClipboardCase(Op: op);
-    public static InputTransferOp DragSource(TransferPayload payload) => new DragSourceCase(Payload: payload);
-    public static InputTransferOp DropPolicy(Seq<string> dataTypes, DragEffects effects = DragEffects.Copy) => new DropPolicyCase(DataTypes: dataTypes, Effects: effects);
 }
 
-public abstract record FormField(string Key, string Label) {
-    public sealed record Text(string Name, string Caption, string Value = "") : FormField(Key: Name, Label: Caption);
-    public sealed record TextArea(string Name, string Caption, string Value = "") : FormField(Key: Name, Label: Caption);
-    public sealed record Toggle(string Name, string Caption, bool Value = false) : FormField(Key: Name, Label: Caption);
-    public sealed record Number(string Name, string Caption, double Value = 0d) : FormField(Key: Name, Label: Caption);
-    public sealed record Choice(string Name, string Caption, Seq<string> Options, int Selected = 0) : FormField(Key: Name, Label: Caption);
+[SkipUnionOps]
+[Union]
+public partial record InputPanelContent {
+    private InputPanelContent() { }
+    public sealed record PanelCase(Func<InputPanel, Fin<Unit>> Populate) : InputPanelContent;
+    public sealed record ControlContentCase(Control Control) : InputPanelContent;
+    public static InputPanelContent OfPanel(Func<InputPanel, Fin<Unit>> populate) => new PanelCase(Populate: populate);
+    public static InputPanelContent OfControl(Control control) => new ControlContentCase(Control: control);
+}
+
+[SkipUnionOps]
+[Union]
+public abstract partial record FormField {
+    private FormField() { }
+    public abstract string Key { get; }
+    public abstract string Label { get; }
+    internal abstract Control Render();
+    internal abstract object Capture(Control control);
+
+    public sealed record Text(string Name, string Caption, string Value = "") : FormField {
+        public override string Key => Name;
+        public override string Label => Caption;
+        internal override Control Render() => new TextBox { Text = Value };
+        internal override object Capture(Control control) => control is TextBox box ? box.Text : string.Empty;
+    }
+    public sealed record TextArea(string Name, string Caption, string Value = "") : FormField {
+        public override string Key => Name;
+        public override string Label => Caption;
+        internal override Control Render() => new Eto.Forms.TextArea { Text = Value, Size = new Size(width: 360, height: 120) };
+        internal override object Capture(Control control) => control is Eto.Forms.TextArea box ? box.Text : string.Empty;
+    }
+    public sealed record Toggle(string Name, string Caption, bool Value = false) : FormField {
+        public override string Key => Name;
+        public override string Label => Caption;
+        internal override Control Render() => new CheckBox { Checked = Value };
+        internal override object Capture(Control control) => control is CheckBox box && (box.Checked ?? false);
+    }
+    public sealed record Number(string Name, string Caption, double Value = 0d, UiNumberRange Range = default) : FormField {
+        public override string Key => Name;
+        public override string Label => Caption;
+        internal override Control Render() =>
+            Range.Bounds.Match(
+                Some: bounds => (Control)new NumericStepper { MinValue = bounds.Minimum, MaxValue = bounds.Maximum, Value = Math.Clamp(value: Value, min: bounds.Minimum, max: bounds.Maximum) },
+                None: () => new TextBox { Text = string.Create(provider: CultureInfo.InvariantCulture, $"{Value}") });
+        internal override object Capture(Control control) =>
+            control switch {
+                NumericStepper stepper => stepper.Value,
+                TextBox box => double.Parse(s: box.Text, provider: CultureInfo.InvariantCulture),
+                _ => Value,
+            };
+    }
+    public sealed record Choice(string Name, string Caption, Seq<string> Options, int Selected = 0) : FormField {
+        public override string Key => Name;
+        public override string Label => Caption;
+        internal override Control Render() {
+            DropDown control = new();
+            _ = Options.Iter(control.Items.Add);
+            control.SelectedIndex = Math.Clamp(value: Selected, min: 0, max: Math.Max(val1: control.Items.Count - 1, val2: 0));
+            return control;
+        }
+        internal override object Capture(Control control) => control is DropDown drop && drop.SelectedIndex >= 0 ? Options[drop.SelectedIndex] : string.Empty;
+    }
+    public sealed record Color(string Name, string Caption, Eto.Drawing.Color Value = default, bool AllowAlpha = false) : FormField {
+        public override string Key => Name;
+        public override string Label => Caption;
+        internal override Control Render() => new ColorPicker { Value = Value, AllowAlpha = AllowAlpha };
+        internal override object Capture(Control control) => control is ColorPicker picker ? picker.Value : Value;
+    }
+    public sealed record Slider(string Name, string Caption, int Value = 0, int Minimum = 0, int Maximum = 100) : FormField {
+        public override string Key => Name;
+        public override string Label => Caption;
+        internal override Control Render() => new Eto.Forms.Slider { MinValue = Minimum, MaxValue = Maximum, Value = Math.Clamp(value: Value, min: Minimum, max: Maximum) };
+        internal override object Capture(Control control) => control is Eto.Forms.Slider slider ? slider.Value : Value;
+    }
+    public sealed record DateTime(string Name, string Caption, Option<System.DateTime> Value = default) : FormField {
+        public override string Key => Name;
+        public override string Label => Caption;
+        internal override Control Render() => new DateTimePicker { Value = Value.Map(static value => (System.DateTime?)value).IfNone((System.DateTime?)null) };
+        internal override object Capture(Control control) => control is DateTimePicker picker ? Optional(picker.Value) : Value;
+    }
+    public sealed record File(string Name, string Caption, Option<string> Value = default) : FormField {
+        public override string Key => Name;
+        public override string Label => Caption;
+        internal override Control Render() {
+            FilePicker picker = new();
+            _ = Value.Iter(path => picker.FilePath = path);
+            return picker;
+        }
+        internal override object Capture(Control control) => control is FilePicker picker ? Optional(picker.FilePath) : Value;
+    }
 
     public static FormField TextInput(string key, string label, string value = "") => new Text(Name: key, Caption: label, Value: value);
     public static FormField TextAreaInput(string key, string label, string value = "") => new TextArea(Name: key, Caption: label, Value: value);
     public static FormField Check(string key, string label, bool value = false) => new Toggle(Name: key, Caption: label, Value: value);
-    public static FormField Numeric(string key, string label, double value = 0d) => new Number(Name: key, Caption: label, Value: value);
+    public static FormField Numeric(string key, string label, double value = 0d, UiNumberRange range = default) => new Number(Name: key, Caption: label, Value: value, Range: range);
     public static FormField Select(string key, string label, Seq<string> options, int selected = 0) => new Choice(Name: key, Caption: label, Options: options, Selected: selected);
+    public static FormField Swatch(string key, string label, Eto.Drawing.Color value = default, bool allowAlpha = false) => new Color(Name: key, Caption: label, Value: value, AllowAlpha: allowAlpha);
+    public static FormField Track(string key, string label, int value = 0, int minimum = 0, int maximum = 100) => new Slider(Name: key, Caption: label, Value: value, Minimum: minimum, Maximum: maximum);
+    public static FormField Moment(string key, string label, Option<System.DateTime> value = default) => new DateTime(Name: key, Caption: label, Value: value);
+    public static FormField Path(string key, string label, Option<string> value = default) => new File(Name: key, Caption: label, Value: value);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -339,12 +403,10 @@ public readonly partial struct UiCommand {
     internal bool EffectiveEnabled() =>
         Enabled && CanExecute.Map(can => GrasshopperUi.Protect(valid: can).IfFail(_ => false)).IfNone(noneValue: true);
 
-    // Bar.AddPushButton / AddRadioToggle take a nullable BarShortcut; project the Option to that boundary shape.
+    // GH2 toolbar shortcuts are nullable BarShortcut values, not Options.
     internal BarShortcut? ShortcutKey() => Shortcut.Map(static shortcut => (BarShortcut?)shortcut).IfNone((BarShortcut?)null);
 
-    // icon.DrawToBitmap rasterizes a GH2 IIcon whose embedded resource can be unresolved under programmatic plugin
-    // load (the same null-icon class that crashed the editor StatusBar) — guard both the throw and a null bitmap so a
-    // missing icon degrades to "no menu image" instead of propagating out of command construction.
+    // GH2 IIcon rasterization can fail during programmatic plugin load; missing icons degrade to no menu image.
     private const int MenuIconExtent = 16;
     internal Option<Image> MenuImage =>
         Image | Icon.Bind(static icon =>
@@ -383,6 +445,8 @@ public partial record ToolbarItem {
     public sealed partial record CheckCase(string Name, bool State, Func<bool, Fin<Unit>> Changed) : ToolbarItem;
     public sealed partial record TextCase(string Name, string Value, Func<string, Fin<Unit>> Changed) : ToolbarItem;
     public sealed partial record SpectrumCase(string Name, Seq<OpenColor.Family> Palette, OpenColor.Family Initial, Func<OpenColor.Family, Fin<Unit>> Changed) : ToolbarItem;
+    public sealed partial record SubmenuCase(string Name, CommandPlan Plan) : ToolbarItem;
+    public sealed partial record MenuRadioCase(UiCommand Command, bool State, Func<bool, Fin<Unit>> Changed) : ToolbarItem;
 
     public static ToolbarItem Button(UiCommand command, bool closeOnActivate = true) => new ButtonCase(Command: command, CloseOnActivate: closeOnActivate);
     public static ToolbarItem Toggle(UiCommand command, bool state, Func<bool, Fin<Unit>> changed) => new ToggleCase(Command: command, State: state, Changed: changed);
@@ -397,9 +461,9 @@ public partial record ToolbarItem {
     public static ToolbarItem Check(string name, bool state, Func<bool, Fin<Unit>> changed) => new CheckCase(Name: name, State: state, Changed: changed);
     public static ToolbarItem Text(string name, string value, Func<string, Fin<Unit>> changed) => new TextCase(Name: name, Value: value, Changed: changed);
     public static ToolbarItem Spectrum(string name, OpenColor.Family[] spectrum, OpenColor.Family initial, Func<OpenColor.Family, Fin<Unit>> changed) => new SpectrumCase(Name: name, Palette: toSeq(spectrum), Initial: initial, Changed: changed);
+    public static ToolbarItem Submenu(string name, CommandPlan plan) => new SubmenuCase(Name: name, Plan: plan);
+    public static ToolbarItem MenuRadio(UiCommand command, bool state, Func<bool, Fin<Unit>> changed) => new MenuRadioCase(Command: command, State: state, Changed: changed);
 
-    // Label/Check/Text are InputPanel-native widgets (no Bar/ContextMenu equivalent); they route to the
-    // InputPanel surface. Bar widgets (incl. Spectrum) route to the embedded bar.
     internal bool IsPanelNative => this is LabelCase or CheckCase or TextCase;
 
     internal Fin<Unit> Apply(UiCommandSurface surface) =>
@@ -489,10 +553,11 @@ public partial record ToolbarItem {
             select added,
         labelCase: static (_, _) => Reject(item: nameof(LabelCase), surface: "a toolbar"),
         checkCase: static (_, _) => Reject(item: nameof(CheckCase), surface: "a toolbar"),
-        textCase: static (_, _) => Reject(item: nameof(TextCase), surface: "a toolbar"));
+        textCase: static (_, _) => Reject(item: nameof(TextCase), surface: "a toolbar"),
+        submenuCase: static (_, _) => Reject(item: nameof(SubmenuCase), surface: "a toolbar"),
+        menuRadioCase: static (_, _) => Reject(item: nameof(MenuRadioCase), surface: "a toolbar"));
 
-    // Restrictive surface: only Button/Toggle/Spacer project to a context menu; every other case Rejects via the
-    // exhaustive generated Switch, the correct conservative default for a menu.
+    // Context menus accept only menu-capable items; generated Switch rejects the rest exhaustively.
     private Fin<Unit> ProjectMenu(ContextMenu menu) => Switch(
         state: menu,
         buttonCase: static (menu, item) => ButtonCase.SelfOp.Attempt(body: () => PushMenuButton(menu: menu, command: item.Command), what: "menu button"),
@@ -501,6 +566,11 @@ public partial record ToolbarItem {
             from added in ToggleCase.SelfOp.Attempt(body: () => PushCheckMenuItem(menu: menu, command: item.Command, state: item.State, changed: changed), what: "menu toggle")
             select added,
         spacerCase: static (menu, _) => SpacerCase.SelfOp.Attempt(body: menu.AddSeparator, what: "AddSeparator"),
+        submenuCase: static (menu, item) => PushSubmenu(menu: menu, name: item.Name, plan: item.Plan),
+        menuRadioCase: static (menu, item) =>
+            from changed in MenuRadioCase.SelfOp.NeedChanged(item.Changed, noun: "radio")
+            from added in MenuRadioCase.SelfOp.Attempt(body: () => PushRadioMenuItem(menu: menu, command: item.Command, state: item.State, changed: changed), what: "menu radio")
+            select added,
         sectionToggleCase: static (_, _) => Reject(item: nameof(SectionToggleCase), surface: "a context menu"),
         radioCase: static (_, _) => Reject(item: nameof(RadioCase), surface: "a context menu"),
         textInputCase: static (_, _) => Reject(item: nameof(TextInputCase), surface: "a context menu"),
@@ -512,8 +582,6 @@ public partial record ToolbarItem {
         textCase: static (_, _) => Reject(item: nameof(TextCase), surface: "a context menu"),
         spectrumCase: static (_, _) => Reject(item: nameof(SpectrumCase), surface: "a context menu"));
 
-    // Inlined former UiCommand.ToEtoCommand/ToMenuItem — the sole call site was this menu button; co-located with
-    // PushCheckMenuItem so the menu surface owns both its button and toggle construction.
     private static Unit PushMenuButton(ContextMenu menu, UiCommand command) {
         Func<Fin<Unit>> run = command.Run;
         Command etoCommand = new() { ID = command.Name, MenuText = command.Name, ToolBarText = command.Name, ToolTip = command.Info, Enabled = command.EffectiveEnabled() };
@@ -545,17 +613,49 @@ public partial record ToolbarItem {
         return unit;
     }
 
+    private static Fin<Unit> PushSubmenu(ContextMenu menu, string name, CommandPlan plan) {
+#pragma warning disable CA2000 // scratch render target: child items reparent into the submenu on Add; the empty husk is transient and host-collected
+        ContextMenu child = new();
+#pragma warning restore CA2000
+        return plan.Items.TraverseM(item => item.Apply(surface: UiCommandSurface.Menu(menu: child))).As().Map(_seq => {
+            // BOUNDARY ADAPTER - ContextMenu.Items reparent into the submenu on Add.
+            SubMenuItem submenu = new() { Text = name };
+            _ = toSeq(child.Items.ToArray()).Iter(item => submenu.Items.Add(item: item));
+            menu.Items.Add(item: submenu);
+            return unit;
+        });
+    }
+
+    private static Unit PushRadioMenuItem(ContextMenu menu, UiCommand command, bool state, Func<bool, Fin<Unit>> changed) {
+        RadioCommand radio = new() {
+            ID = command.Name,
+            MenuText = command.Name,
+            ToolTip = command.Info,
+            Enabled = command.EffectiveEnabled(),
+            Checked = state,
+            Controller = RadioController(menu: menu),
+        };
+        _ = command.MenuImage.Iter(image => radio.Image = image);
+        _ = command.Shortcut.Iter(shortcut => radio.Shortcut = shortcut.Keys);
+        radio.Executed += (_, _) => _ = GrasshopperUi.Handler(valid: () => changed(arg: radio.Checked));
+        MenuItem menuItem = radio.CreateMenuItem();
+        _ = command.CanExecute.Iter(can => menuItem.Validate += (_, _) =>
+            menuItem.Enabled = command.Enabled && GrasshopperUi.Protect(valid: can).IfFail(_ => false));
+        menu.Items.Add(item: menuItem);
+        return unit;
+    }
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ContextMenu, RadioCommand> RadioControllers = [];
+    private static RadioCommand RadioController(ContextMenu menu) =>
+        RadioControllers.GetValue(key: menu, createValueCallback: static _ => new RadioCommand());
+
     private static Fin<Unit> ProjectRadioToggle(Bar bar, UiCommand command, bool state, bool optional, Func<bool, Fin<Unit>> changed, Op op, string detail) =>
         from validChanged in Optional(changed).ToFin(Fail: UiFault.InvalidInput(op: op, detail: detail))
         select AddRadioToggle(bar: bar, command: command, state: state, optional: optional, changed: validChanged);
 
-    // Unified projection rejection across all three surfaces; surface is the human phrase ("a toolbar" /
-    // "a context menu" / "an input panel").
     private static Fin<Unit> Reject(string item, string surface) =>
         Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{item} cannot be projected to {surface}"));
 
-    // Restrictive surface: only the panel-native widgets (Label/Check/Text) project here; bar widgets route
-    // through the embedded bar (Input.Panel(CommandPlan)) and every other case Rejects via the generated Switch.
     private Fin<Unit> ProjectPanel(InputPanel panel) => Switch(
         state: panel,
         labelCase: static (panel, item) => LabelCase.SelfOp.Attempt(body: () => {
@@ -585,7 +685,9 @@ public partial record ToolbarItem {
         swatchInputCase: static (_, _) => Reject(item: nameof(SwatchInputCase), surface: "an input panel"),
         colourBarsCase: static (_, _) => Reject(item: nameof(ColourBarsCase), surface: "an input panel"),
         spacerCase: static (_, _) => Reject(item: nameof(SpacerCase), surface: "an input panel"),
-        spectrumCase: static (_, _) => Reject(item: nameof(SpectrumCase), surface: "an input panel"));
+        spectrumCase: static (_, _) => Reject(item: nameof(SpectrumCase), surface: "an input panel"),
+        submenuCase: static (_, _) => Reject(item: nameof(SubmenuCase), surface: "an input panel"),
+        menuRadioCase: static (_, _) => Reject(item: nameof(MenuRadioCase), surface: "an input panel"));
 
     private static Unit AddRadioToggle(Bar bar, UiCommand command, bool state, bool optional, Func<bool, Fin<Unit>> changed) {
         RadioToggle toggled = bar.AddRadioToggle(
@@ -609,10 +711,8 @@ public readonly record struct CommandPlan(Seq<ToolbarItem> Items) {
         new(Items: toggles.Map(static toggle => ToolbarItem.Toggle(command: toggle.Command, state: toggle.State, changed: toggle.Changed)));
 }
 
-// Scope-restoring cursor capsule; disposing reinstates the canvas's prior Cursor. Use via
-// `using IDisposable _ = await Input.CursorScope(...).Use(...);` when the surrounding scope is already typed.
 internal sealed class ScopedCursor(Grasshopper2.UI.Canvas.Canvas target, Cursor previous, IDisposable? busy = null) : IDisposable {
-    // BOUNDARY ADAPTER — restore the canvas cursor and release any engaged busy-spinner exactly once.
+    // BOUNDARY ADAPTER - restore the canvas cursor and release any WaitCursor lease exactly once.
     public void Dispose() {
         busy?.Dispose();
         target.Cursor = previous;
@@ -623,8 +723,7 @@ file static class WaitCursorLease {
     private static readonly Atom<(int Count, Rhino.UI.WaitCursor? Cursor)> State = Atom<(int Count, Rhino.UI.WaitCursor? Cursor)>(value: (Count: 0, Cursor: null));
 
     internal static IDisposable Enter() {
-        // BOUNDARY ADAPTER — engage the platform spinner exactly once for the first concurrent lease; a candidate
-        // cursor is allocated up front (Swap may retry under CAS contention) and disposed when an incumbent wins.
+        // BOUNDARY ADAPTER - WaitCursor sets the app cursor; the Atom lease prevents duplicate clears.
         Rhino.UI.WaitCursor? candidate = new();
         try {
             (int Count, Rhino.UI.WaitCursor? Cursor) swapped = State.Swap(current =>
@@ -640,7 +739,7 @@ file static class WaitCursorLease {
         private int disposed;
 
         public void Dispose() {
-            // BOUNDARY ADAPTER — one-shot guard so a doubled Dispose cannot underflow the lease count.
+            // BOUNDARY ADAPTER - one-shot guard prevents doubled Dispose from underflowing the lease.
             Rhino.UI.WaitCursor? release = Interlocked.Exchange(ref disposed, 1) == 1
                 ? null
                 : Released();
@@ -661,28 +760,28 @@ file static class WaitCursorLease {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 public static partial class Input {
-    public static GrasshopperUiIntent<InputSelectionSnapshot> Selection(InputSelectionSource source) =>
-        GhUi.Read(run: _ =>
+    public static GrasshopperUiIntent<InputSelectionSnapshot> Selection(InputSelectionSource source, Option<Keys> modifierOverride = default) =>
+        GhUi.Read(run: _scope =>
             Optional(source)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Selection)), detail: "null source"))
                 .Bind(valid =>
                     from mode in valid.Mode()
-                    select new InputSelectionSnapshot(Mode: mode, Modifiers: ModifierOf(keys: Keyboard.Modifiers))));
+                    select new InputSelectionSnapshot(Mode: mode, Modifiers: ModifierOf(keys: modifierOverride.IfNone(() => Keyboard.Modifiers)))));
 
     public static GrasshopperUiIntent<InputModifierSnapshot> Modifiers(Keys keys) =>
-        GhUi.Read(run: _ => Fin.Succ(value: ModifierOf(keys: keys)));
+        GhUi.Read(run: _scope => Fin.Succ(value: ModifierOf(keys: keys)));
 
     public static GrasshopperUiIntent<InputModifierSnapshot> ModifierState() =>
-        GhUi.Read(run: _ => Fin.Succ(value: ModifierOf(keys: Keyboard.Modifiers)));
+        GhUi.Read(run: _scope => Fin.Succ(value: ModifierOf(keys: Keyboard.Modifiers)));
 
     public static GrasshopperUiIntent<PointerSnapshot> PointerState() =>
-        GhUi.Read(run: _ =>
+        GhUi.Read(run: _scope =>
             Mouse.IsSupported
                 ? Fin.Succ(value: new PointerSnapshot(ScreenPosition: Mouse.Position, Buttons: Mouse.Buttons))
                 : Fin.Fail<PointerSnapshot>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(PointerState)), detail: "mouse position is not supported on this platform")));
 
     public static GrasshopperUiIntent<InputPanelSnapshot> Panel(Func<InputPanel, Fin<Unit>> populate) =>
-        GhUi.Read(run: _ =>
+        GhUi.Read(run: _scope =>
             Optional(populate)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Panel)), detail: "null populate"))
                 .Bind(valid => {
@@ -700,27 +799,59 @@ public static partial class Input {
                 from barred in plan.Items.Filter(static item => !item.IsPanelNative).TraverseM(item => item.Apply(surface: UiCommandSurface.Toolbar(bar: bar))).As()
                 select unit));
 
-    // Returns a dismissable Subscription whose detach closes the popup form (form captured in a closure cell,
-    // mirroring WireShapeInstall.Push) so the popup shares every other chrome op's Subscription lifetime.
     public static GrasshopperUiIntent<Subscription> PopupPanel(Control owner, PointF location, RectangleF screen, Func<InputPanel, Fin<Unit>> populate) =>
-        GhUi.Read(run: _ =>
+        PopupPanel(owner: owner, location: location, screen: screen, content: InputPanelContent.OfPanel(populate: populate));
+
+    public static GrasshopperUiIntent<Subscription> PopupPanel(Control owner, PointF location, RectangleF screen, InputPanelContent content) =>
+        GhUi.Read(run: _scope =>
             from validOwner in Optional(owner).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null owner"))
-            from validPopulate in Optional(populate).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null populate"))
+            from validContent in Optional(content).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null content"))
             from validLocation in Op.Of(name: nameof(PopupPanel)).AcceptPoint(value: location, detail: "non-finite location")
             from validScreen in Op.Of(name: nameof(PopupPanel)).AcceptRect(value: screen, detail: "invalid screen bounds", requirePositive: true)
             let clamped = new PointF(
                 x: Math.Clamp(value: validLocation.X, min: validScreen.Left, max: validScreen.Right),
                 y: Math.Clamp(value: validLocation.Y, min: validScreen.Top, max: validScreen.Bottom))
-            let panel = new InputPanel()
-            from populated in validPopulate(arg: panel)
-            from sub in PopupSubscription(panel: panel, owner: validOwner, location: clamped, screen: validScreen)
+            from sub in validContent.Switch(
+                panelCase: c => Optional(c.Populate)
+                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null populate"))
+                    .Bind(valid => {
+                        InputPanel panel = new();
+                        return valid(arg: panel).Bind(_ => PopupSubscription(panel: panel, owner: validOwner, location: clamped, screen: validScreen));
+                    }),
+                controlContentCase: c => Optional(c.Control)
+                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(PopupPanel)), detail: "null control"))
+                    .Bind(control => from app in GrasshopperUi.NeedApplication(op: Op.Of(name: nameof(PopupPanel)))
+                                     from hosted in ControlPopupSubscription(app: app, control: control, owner: validOwner, location: clamped)
+                                     select hosted))
             select sub);
 
     private static Fin<Subscription> PopupSubscription(InputPanel panel, Control owner, PointF location, RectangleF screen) {
         Form? form = null;
         return Subscription.Bind(
             attach: () => form = panel.ShowAsForm(owner, location, screen),
-            // BOUNDARY ADAPTER — Form.Close alone does not release the macOS NSWindow; Dispose it after closing.
+            // BOUNDARY ADAPTER - Form.Close alone does not release the macOS NSWindow; dispose after closing.
+            detach: () => {
+                form?.Close();
+                form?.Dispose();
+            },
+            marshalToUi: true,
+            detachOnce: true);
+    }
+
+    private static Fin<Subscription> ControlPopupSubscription(Application app, Control control, Control owner, PointF location) {
+        Option<Window> ownerWindow = Optional(owner.ParentWindow);
+        FloatingForm? form = null;
+        return Subscription.Bind(
+            // BOUNDARY ADAPTER - borderless, non-focusing FloatingForm at the clamped canvas point.
+            attach: () => {
+                form = new FloatingForm(app: app, owner: ownerWindow) {
+                    Content = control,
+                    WindowStyle = WindowStyle.None,
+                    CanFocus = false,
+                    Location = Eto.Drawing.Point.Round(point: location),
+                };
+                form.Show();
+            },
             detach: () => {
                 form?.Close();
                 form?.Dispose();
@@ -730,7 +861,7 @@ public static partial class Input {
     }
 
     internal static GrasshopperUiIntent<ToolbarSnapshot> Toolbar(Func<Bar, Fin<Unit>> populate) =>
-        GhUi.Read(run: _ =>
+        GhUi.Read(run: _scope =>
             Optional(populate)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Toolbar)), detail: "null populate"))
                 .Bind(valid => {
@@ -749,7 +880,7 @@ public static partial class Input {
             plan.Items.TraverseM(item => item.Apply(surface: UiCommandSurface.Toolbar(bar: bar))).Map(static _ => unit).As());
 
     public static GrasshopperUiIntent<MenuSnapshot> ShowMenu(CommandPlan plan, Control owner, PointF location) =>
-        GhUi.Read(run: _ =>
+        GhUi.Read(run: _scope =>
             from validOwner in Optional(owner).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ShowMenu)), detail: "null owner"))
             from validLocation in Op.Of(name: nameof(ShowMenu)).AcceptPoint(value: location, detail: "non-finite location")
             let menu = new ContextMenu()
@@ -828,10 +959,26 @@ public static partial class Input {
             Optional(op)
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Transfer)), detail: "transfer op is required"))
                 .Bind(valid => valid.Switch(
-                    clipboardCase: c => Clipboard(op: c.Op).Run(scope: scope).Map(TransferPayload.Of),
-                    dragSourceCase: static d => Fin.Succ(d.Payload),
-                    dropPolicyCase: d => Clipboard(op: new InputClipboardOp.ReadCase(DataTypes: d.DataTypes)).Run(scope: scope)
-                        .Map(clipboard => new TransferPayload(Clipboard: clipboard, Effects: Some(d.Effects), AllowedEffects: Some(d.Effects))))));
+                    clipboardCase: c => Clipboard(op: c.Op).Run(scope: scope).Map(TransferPayload.Of))));
+
+    public static GrasshopperUiIntent<DragEffects> Drag(Control source, TransferPayload payload, Option<(Image Image, PointF Offset)> dragImage = default) =>
+        GhUi.Read(run: _scope =>
+            from validSource in Optional(source).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Drag)), detail: "null drag source"))
+            from started in Op.Of(name: nameof(Drag)).Attempt(body: () => {
+                // BOUNDARY ADAPTER - populate an Eto DataObject and run the platform drag loop.
+                DataObject data = new();
+                _ = payload.Clipboard.Text.Iter(text => data.Text = text);
+                _ = payload.Clipboard.Html.Iter(html => data.Html = html);
+                _ = payload.Clipboard.Image.Iter(image => data.Image = image);
+                _ = payload.Clipboard.Uris.IsEmpty ? unit : Optional(payload.Clipboard.Uris.ToArray()).Iter(uris => data.Uris = uris);
+                _ = payload.Clipboard.Data.Iter(entry => entry.Bytes.Iter(bytes => data.SetData(value: bytes, type: entry.Type)));
+                DragEffects allowed = (payload.AllowedEffects | payload.Effects).IfNone(DragEffects.Copy);
+                _ = dragImage is { IsSome: true, Case: ValueTuple<Image, PointF> di }
+                    ? Op.Side(() => validSource.DoDragDrop(data: data, allowedEffects: allowed, image: di.Item1, cursorOffset: di.Item2))
+                    : Op.Side(() => validSource.DoDragDrop(data: data, allowedEffects: allowed));
+                return allowed;
+            }, what: "Control.DoDragDrop")
+            select started);
 
     public static GrasshopperUiIntent<Option<TResult>> Dialog<TResult>(Func<Dialog<Option<TResult>>, Fin<Unit>> configure, string title = "", Option<DialogPresentation> presentation = default) =>
         GhUi.Read(run: scope =>
@@ -855,7 +1002,7 @@ public static partial class Input {
             .Bind(submit => Try.lift<Fin<Option<TResult>>>(f: () => {
                 using Dialog<Option<TResult>> dialog = new() { Title = plan.Title };
                 DynamicLayout layout = new() { Padding = new Padding(all: 12), Spacing = new Size(width: 8, height: 8) };
-                Seq<(FormField Field, Control Control)> controls = plan.Fields.Map(field => (Field: field, Control: FormControl(field: field))).ToSeq();
+                Seq<(FormField Field, Control Control)> controls = plan.Fields.Map(field => (Field: field, Control: field.Render())).ToSeq();
                 _ = controls.Iter(entry => layout.AddRow(new Label { Text = entry.Field.Label }, entry.Control));
                 Button accept = new() { Text = string.IsNullOrWhiteSpace(value: plan.AcceptText) ? "OK" : plan.AcceptText };
                 Button cancel = new() { Text = string.IsNullOrWhiteSpace(value: plan.CancelText) ? "Cancel" : plan.CancelText };
@@ -878,38 +1025,11 @@ public static partial class Input {
                 return Fin.Succ(plan.Presentation.DialogPresentation.Show(dialog: dialog, parent: DialogParent(scope: scope)));
             }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Form)), detail: $"Form<T> threw: {error.Message}")).Bind(static value => value));
 
-    private static Control FormControl(FormField field) =>
-        field switch {
-            FormField.Text text => new TextBox { Text = text.Value },
-            FormField.TextArea text => new TextArea { Text = text.Value, Size = new Size(width: 360, height: 120) },
-            FormField.Toggle boolean => new CheckBox { Checked = boolean.Value },
-            FormField.Number number => new TextBox { Text = string.Create(CultureInfo.InvariantCulture, $"{number.Value}") },
-            FormField.Choice choice => ChoiceControl(choice: choice),
-            _ => new TextBox(),
-        };
-
-    private static DropDown ChoiceControl(FormField.Choice choice) {
-        DropDown control = new();
-        _ = choice.Options.Iter(control.Items.Add);
-        control.SelectedIndex = Math.Clamp(value: choice.Selected, min: 0, max: Math.Max(val1: control.Items.Count - 1, val2: 0));
-        return control;
-    }
-
     private static FormSnapshot CaptureForm(Seq<(FormField Field, Control Control)> controls) =>
         new(Values: controls.ToDictionary(
             keySelector: static entry => entry.Field.Key,
-            elementSelector: static entry => FormValue(field: entry.Field, control: entry.Control),
+            elementSelector: static entry => entry.Field.Capture(control: entry.Control),
             comparer: StringComparer.Ordinal));
-
-    private static object FormValue(FormField field, Control control) =>
-        (field, control) switch {
-            (FormField.Text, TextBox value) => value.Text,
-            (FormField.TextArea, TextArea value) => value.Text,
-            (FormField.Toggle, CheckBox value) => value.Checked ?? false,
-            (FormField.Number, TextBox value) => double.Parse(s: value.Text, provider: CultureInfo.InvariantCulture),
-            (FormField.Choice choice, DropDown value) => choice.Options[value.SelectedIndex],
-            _ => string.Empty,
-        };
 
     public static GrasshopperUiIntent<Option<Color>> PickColor(Color initial, bool allowAlpha = true) =>
         GhUi.Read(run: scope =>
@@ -931,7 +1051,7 @@ public static partial class Input {
             }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(PickFont)), detail: $"FontDialog threw: {error.Message}")));
 
     public static GrasshopperUiIntent<Option<string>> EditPrompt(string title, string message, string defaultText = "", bool multiline = false) =>
-        GhUi.Read(run: _ =>
+        GhUi.Read(run: _scope =>
             Op.Of(name: nameof(EditPrompt)).Attempt(
                 body: () => Rhino.UI.Dialogs.ShowEditBox(title: title, message: message, defaultText: defaultText, multiline: multiline, text: out string text)
                     ? Optional(text)
@@ -939,7 +1059,7 @@ public static partial class Input {
                 what: "Dialogs.ShowEditBox"));
 
     public static GrasshopperUiIntent<Option<double>> NumberPrompt(string title, string message, double initial = 0d, UiNumberRange range = default) =>
-        GhUi.Read(run: _ =>
+        GhUi.Read(run: _scope =>
             Op.Of(name: nameof(NumberPrompt)).Attempt(
                 body: () => {
                     double number = initial;
@@ -952,15 +1072,47 @@ public static partial class Input {
                 },
                 what: "Dialogs.ShowNumberBox"));
 
-    public static GrasshopperUiIntent<Unit> Notify(string title, string message, Option<Image> contentImage = default, bool trayIndicator = false) =>
+    public static GrasshopperUiIntent<Unit> Notify(string title, string message, Option<Image> contentImage = default, bool trayIndicator = false, Option<CommandPlan> menu = default, Option<Func<Fin<Unit>>> onActivated = default) =>
         GhUi.Read(run: scope =>
-            Try.lift(f: () => {
-                using TrayIndicator? indicator = trayIndicator ? new TrayIndicator { Title = title, Visible = true } : null;
+            Try.lift<Fin<Unit>>(f: () => {
+                using TrayIndicator? indicator = trayIndicator || menu.IsSome ? new TrayIndicator { Title = title, Visible = true } : null;
                 using Notification notification = new() { Title = title, Message = message };
                 _ = contentImage.Iter(image => notification.ContentImage = image);
-                notification.Show(indicator: indicator);
-                return unit;
-            }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Notify)), detail: $"Notification threw: {error.Message}")));
+                _ = onActivated.Iter(activated => Application.Instance.NotificationActivated += (_, _) => _ = GrasshopperUi.Handler(valid: activated));
+                return menu.Match(
+                    Some: plan => Optional(indicator)
+                        .ToFin(Fail: UiFault.MutationRejected(op: Op.Of(name: nameof(Notify)), detail: "tray menu requires a tray indicator"))
+                        .Bind(tray => {
+                            ContextMenu trayMenu = new();
+                            return plan.Items.TraverseM(item => item.Apply(surface: UiCommandSurface.Menu(menu: trayMenu))).As()
+                                .Map(_ => { tray.Menu = trayMenu; notification.Show(indicator: tray); return unit; });
+                        }),
+                    None: () => { notification.Show(indicator: indicator); return Fin.Succ(unit); });
+            }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Notify)), detail: $"Notification threw: {error.Message}")).Bind(static r => r));
+
+    public static GrasshopperUiIntent<Control> Scrollable(Control content, Size virtualSize = default) =>
+        GhUi.Read(run: _scope =>
+            from valid in Optional(content).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Scrollable)), detail: "null content"))
+            from built in Op.Of(name: nameof(Scrollable)).Attempt(body: () => {
+                // BOUNDARY ADAPTER - explicit virtual size disables Eto content expansion.
+                Scrollable scrollable = new() { Content = valid };
+                _ = Optional(virtualSize).Filter(static size => size.Width > 0 && size.Height > 0)
+                    .Iter(size => { scrollable.ExpandContentWidth = false; scrollable.ExpandContentHeight = false; });
+                return (Control)scrollable;
+            }, what: "new Scrollable")
+            select built);
+
+    public static GrasshopperUiIntent<Control> Split(Control p1, Control p2, Orientation orientation = Orientation.Horizontal, int position = 0) =>
+        GhUi.Read(run: _scope =>
+            from validFirst in Optional(p1).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Split)), detail: "null first panel"))
+            from validSecond in Optional(p2).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Split)), detail: "null second panel"))
+            from built in Op.Of(name: nameof(Split)).Attempt(body: () => {
+                // BOUNDARY ADAPTER - positive position seeds Eto Splitter.Position.
+                Splitter splitter = new() { Panel1 = validFirst, Panel2 = validSecond, Orientation = orientation };
+                _ = Optional(position).Filter(static p => p > 0).Iter(p => splitter.Position = p);
+                return (Control)splitter;
+            }, what: "new Splitter")
+            select built);
 
     private static Fin<Clipboard> NeedClipboard(Op op) =>
         Optional(Eto.Forms.Clipboard.Instance).ToFin(Fail: UiFault.MutationRejected(op: op, detail: "Eto Clipboard.Instance is not initialized"));
@@ -1026,7 +1178,7 @@ public static partial class Input {
             Accepted: result == DialogResult.Ok);
     }
 
-    // SelectFolderDialog : CommonDialog (NOT FileDialog) — separate dispatch (per Eto verification).
+    // SelectFolderDialog derives from CommonDialog, not FileDialog, so folder mode dispatches separately.
     internal static PathDialogSnapshot RunFolderDialog(Control? parent, PathDialogSpec spec) {
         using SelectFolderDialog dialog = new();
         _ = spec.InitialPath.Filter(static path => !string.IsNullOrWhiteSpace(path)).IfSome(path => {

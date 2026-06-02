@@ -71,6 +71,28 @@ public sealed class OutputBinding {
             detach: static (_, output) => output,
             release: static (_, _) => unit);
     }
+    // Caller supplies an aggregate Operation; the first source owns detach evidence.
+    public static OutputBinding Aggregate<TIn, TOut>(
+        Port<TIn> input,
+        Operation<object, TOut> operation,
+        string name,
+        string code,
+        string info,
+        Access access = Access.Item,
+        Capability? policy = null)
+        where TIn : notnull
+        where TOut : notnull {
+        ArgumentNullException.ThrowIfNull(argument: input);
+        ArgumentNullException.ThrowIfNull(argument: operation);
+        return Make(
+            inputs: Seq<Port>(input),
+            output: Port.Of<TOut>(name: name, code: code, info: info, access: access, requirement: Requirement.MustExist, kind: null, policy: policy, side: Side.Output),
+            operation: _ => Fin.Succ(operation),
+            read: runtime => runtime.Read(port: input).Map(static flows => flows.Map(static flow => flow.Project(item: (object)flow.Item))),
+            lift: static flow => flow.Item,
+            detach: static (_, output) => output,
+            release: static (_, _) => unit);
+    }
     public static OutputBinding Zip<TA, TB, TOut>(
         Port<TA> left,
         Port<TB> right,
@@ -134,6 +156,10 @@ internal readonly record struct Hints(Seq<(Port Port, int Slot)> Inputs) {
 
 // --- [SERVICES] ---------------------------------------------------------------------------
 internal static class Output {
+    // --- [MODELS] -----------------------------------------------------------------------------
+    private readonly record struct Projection<T>(Seq<Flow<T>> Values, Seq<Fault.Unsupported> Unsupported);
+
+    // --- [OPERATIONS] -------------------------------------------------------------------------
     internal static Unit Write(IDataAccess access, GrasshopperRuntime runtime, Seq<OutputBinding> bindings, Hints outputs) {
         Seq<OutputBinding> active = bindings.Filter(binding => outputs.Slot(port: binding.Port).IsSome);
         Seq<Port> inputs = active.Map(static binding => binding.Input).Distinct().ToSeq();
@@ -149,13 +175,9 @@ internal static class Output {
             Succ: source => group.Bind(binding => binding.Run(access: access, outputs: outputs, runtime: runtime, source: source)) switch {
                 Seq<object> transfers => group[0].Release(source: source, transfers: transfers),
             },
-            // Wiring faults stay recoverable (Warning); a genuine compute/scope failure surfaces as Error.
             Fail: error => access.Emit(severity: PortFault.SeverityOf(error: error), text: error.Category(), details: error.Message) switch {
                 _ => group.Iter(binding => binding.Empty(access: access, outputs: outputs)),
             });
-
-    // --- [OPERATIONS] -------------------------------------------------------------------------
-    private readonly record struct Projection<T>(Seq<Flow<T>> Values, Seq<Fault.Unsupported> Unsupported);
     internal static Seq<object> Run<TOut>(
         Port<TOut> port,
         Func<GrasshopperRuntime, Fin<Operation<object, TOut>>> operation,
@@ -197,7 +219,7 @@ internal static class Output {
                     let merged = items.Map(item => new Flow<TOut>(
                         Pear: Pear<TOut>.Create(item: item, meta: MetaData.FindCommonData(source.Map(static flow => flow.Meta).AsIterable())),
                         Site: Option<Site>.None))
-                    // Aggregate output detaches once against the representative (first) source, not N times across all sources.
+                    // Aggregate output detaches once against the representative source.
                     let result = source.Head.Map(head => merged.Map(output => detach(arg1: head, arg2: output))).IfNone(merged)
                     select new Projection<TOut>(Values: result, Unsupported: Seq<Fault.Unsupported>()),
             false => from values in source.TraverseM(flow => operation.Apply(geometry: Seq(lift(arg: flow)))

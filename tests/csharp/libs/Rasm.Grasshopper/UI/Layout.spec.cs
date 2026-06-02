@@ -148,12 +148,12 @@ public sealed class SnappingPolicyLaws {
         SnapGuideStyle first = SnapGuideStyle.Dashed(tint: Colors.Red);
         SnapGuideStyle second = SnapGuideStyle.Solid(tint: Colors.Blue);
         SnappingPolicy policy = new(Settings: Seq<SnapSetting>(
-            new SnapSetting.FeedbackCase(Enabled: false, Style: second),
-            new SnapSetting.FeedbackCase(Enabled: true, Style: first),
-            new SnapSetting.FeedbackCase(Enabled: true, Style: second),
+            new SnapSetting.FeedbackCase(Enabled: false, XStyle: second),
+            new SnapSetting.FeedbackCase(Enabled: true, XStyle: first),
+            new SnapSetting.FeedbackCase(Enabled: true, XStyle: second),
             new SnapSetting.WireBoundsCase(Aggregate: false)));
 
-        Spec.Some(policy.FeedbackStyle, style => Assert.Equal(expected: first, actual: style));
+        Spec.Some(policy.FeedbackStyle, style => Assert.Equal(expected: first, actual: style.X));
         Assert.False(condition: policy.UseAggregateWireBounds);
     }
 }

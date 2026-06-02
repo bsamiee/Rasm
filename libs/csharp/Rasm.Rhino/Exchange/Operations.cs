@@ -25,6 +25,16 @@ public abstract partial record FileExchange {
     public sealed record SheetEdit(FileSheetEdit Edit) : FileExchange;
 }
 
+[SmartEnum<int>]
+public sealed partial class FileNativePositionKind {
+    public static readonly FileNativePositionKind Restore = new(key: 0, apply: static (table, name) => table.Restore(name: name));
+    public static readonly FileNativePositionKind Update = new(key: 1, apply: static (table, name) => table.Update(name: name));
+    public static readonly FileNativePositionKind Delete = new(key: 2, apply: static (table, name) => table.Delete(name: name));
+
+    [UseDelegateFromConstructor]
+    internal partial bool Apply(NamedPositionTable table, string name);
+}
+
 [Union(SwitchMapStateParameterName = "state")]
 public abstract partial record FileNativeTable {
     private FileNativeTable() { }
@@ -85,16 +95,6 @@ public abstract partial record FileNativeTable {
                 select Changed(kind: DocumentResourceKind.NamedPosition, name: name));
 
     private static DocumentResourceChange Changed(DocumentResourceKind kind, string name) => new(Kind: kind, Name: name);
-}
-
-[SmartEnum<int>]
-public sealed partial class FileNativePositionKind {
-    public static readonly FileNativePositionKind Restore = new(key: 0, apply: static (table, name) => table.Restore(name: name));
-    public static readonly FileNativePositionKind Update = new(key: 1, apply: static (table, name) => table.Update(name: name));
-    public static readonly FileNativePositionKind Delete = new(key: 2, apply: static (table, name) => table.Delete(name: name));
-
-    [UseDelegateFromConstructor]
-    internal partial bool Apply(NamedPositionTable table, string name);
 }
 
 [Union]

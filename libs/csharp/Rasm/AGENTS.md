@@ -20,7 +20,7 @@ Build reusable category logic for advanced downstream code: analysis, vectors, d
 
 - `Domain/` is the kernel. It owns `Context`, tolerances, unit semantics, geometry kind detection, coercion, lifecycle ownership, validity, requirement checks, faults, statistics, residuals, distributions, and shared projection carriers.
 - `Analysis/` owns higher-order geometry analysis through `Analyze`, `Operation<TGeometry,TOut>`, and `IAspect`. It imports and extends `Domain` rather than duplicating validation, stats, coercion, or geometry-kind logic.
-- `Vectors/` owns vector intent, direction, support-space projection, fields, rays, spans, signed axes, relation logic, and intent projection through `VectorIntent.Project<TOut>`.
+- `Vectors/` owns vector intent, direction, support-space projection, fields, clouds, meshes, matrices, sampling, flow, alignment, spectral substrate, typed receipts, and intent projection through `VectorIntent.Project<TOut>`.
 - Future folders should follow the same pattern: one concern category, one consumer surface, compact intent/state records, and internal algorithms that reuse `Domain`.
 
 ## Domain Extension Rules
@@ -48,3 +48,7 @@ Build reusable category logic for advanced downstream code: analysis, vectors, d
 - Keep native runtime proof out of managed unit specs. Managed specs own factories, failure categories, and deterministic algorithms; bridge scenarios own successful Rhino mesh, plane, unwrap, remesh, SDF, and validity behavior.
 - Prefer advanced C# and approved libraries when they reduce surface area or strengthen invariants. Use `LanguageExt` and `Thinktecture` to collapse behavior, not to decorate unchanged imperative code.
 - Use `docs/system-api-map` for BCL, `System.*`, and package/reference policy; use `docs/external-libs/mathnet` before writing numerical algorithms by hand. MathNet is for proven numeric/symbolic value, not decorative wrapping around unchanged logic.
+- Read `Vectors/_ARCHITECTURE.md` before changing Vectors. Update it after landed rail changes with measured `wc -l` truth, current proof status, and exact future-work exclusions.
+- Expose only policy fields that execute. Keep fixed kernel/native choices internal, then surface them through typed receipts and architecture truth.
+- Treat plan snippets as intent. Verify native/package member names, enum values, nullability, and overloads against installed XML, decompile, compiler output, or `tools.quality api` before finalizing code.
+- Classify broad build failures by path. When `tools.quality static build` reaches `Rasm.dll` and then fails in unrelated dirty projects, record that boundary and run a direct target project build for scoped proof.

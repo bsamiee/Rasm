@@ -21,63 +21,9 @@ namespace Rasm.Grasshopper.Components;
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly partial record struct ComponentUi {
-    private readonly Seq<StepOp> ops;
-
-    private ComponentUi(Seq<StepOp> ops) => this.ops = ops;
-
-    public static ComponentUi Empty => default;
-
-    public static ComponentUi operator +(ComponentUi left, ComponentUi right) =>
-        Add(left: left, right: right);
-
-    public static ComponentUi Add(ComponentUi left, ComponentUi right) =>
-        new(ops: left.ops + right.ops);
-
-    public static ComponentUi Of(Func<Callback, Fin<Decision>> run) =>
-        new(ops: Seq(new StepOp(Phase: None, Run: run)));
-
-    public static ComponentUi When(Phase phase, Func<Callback, Fin<Decision>> run) =>
-        new(ops: Seq(new StepOp(Phase: Some(phase), Run: context => phase.Matches(context: context) ? run(arg: context) : Fin.Succ(value: Decision.Pass))));
-
-    public static ComponentUi Chrome(
-        Func<Callback.Draw, Fin<Decision>> draw,
-        Func<Callback.Menu, Fin<Decision>>? menu = null,
-        Func<Callback.Tip, Fin<Decision>>? tooltip = null) =>
-        When(phase: Phase.DrawForeground, run: context => draw(arg: (Callback.Draw)context))
-        + (menu is null ? Empty : When(phase: Phase.ContextMenu, run: context => menu(arg: (Callback.Menu)context)))
-        + (tooltip is null ? Empty : When(phase: Phase.Tooltip, run: context => tooltip(arg: (Callback.Tip)context)));
-
-    public static ComponentUi Resizable(Func<Callback.Frame, Fin<Decision>> resize) =>
-        When(phase: Phase.Resize, run: context => resize(arg: (Callback.Frame)context));
-
-    public static ComponentUi Editor(Func<Callback.Panel, Fin<Decision>> panel) =>
-        When(phase: Phase.InputPanel, run: context => panel(arg: (Callback.Panel)context));
-
+    // --- [TYPES] ------------------------------------------------------------------------------
     public enum MouseKind { Down, Move, Up, SingleClick, DoubleClick }
 
-    internal IAttributes Attributes(GhComponent owner) =>
-        ops.IsEmpty
-            ? new ComponentAttributes(owner: owner)
-            : Supports(phase: Phase.Resize)
-                ? new RasmResizableAttributes(owner: owner, ui: this)
-                : new RasmAttributes(owner: owner, ui: this);
-
-    internal Fin<Unit> Append(GhComponent owner, InputPanel panel) =>
-        Run(context: new Callback.Panel(Owner: owner, Value: panel)).Map(static _ => unit);
-
-    internal Fin<Decision> Run(Callback context) {
-        Seq<StepOp> current = ops;
-        return Try.lift<Fin<Decision>>(f: () => current.Fold(Fin.Succ(value: Decision.Pass), (state, op) =>
-                state.Bind(decision => decision.IsTerminal ? Fin.Succ(value: decision) : op.Run(arg: context).Map(next => decision + next))))
-            .Run()
-            .MapFail(error => Op.Of(name: nameof(Run)).InvalidResult() + error)
-            .Bind(static result => result);
-    }
-
-    private bool Supports(Phase phase) =>
-        ops.Exists(op => op.Phase.Match(Some: candidate => candidate == phase, None: () => false));
-
-    // Each phase self-dispatches via a Matches delegate against the Callback shape; replaces the per-case Kind override.
     [SmartEnum<int>]
     public sealed partial class Phase {
         public static readonly Phase Layout = new(key: 0, matches: static ctx => ctx is Callback.Bounds);
@@ -173,6 +119,61 @@ public readonly partial record struct ComponentUi {
 
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct StepOp(Option<Phase> Phase, Func<Callback, Fin<Decision>> Run);
+
+    // --- [OPERATIONS] -------------------------------------------------------------------------
+    private readonly Seq<StepOp> ops;
+
+    private ComponentUi(Seq<StepOp> ops) => this.ops = ops;
+
+    public static ComponentUi Empty => default;
+
+    public static ComponentUi operator +(ComponentUi left, ComponentUi right) =>
+        Add(left: left, right: right);
+
+    public static ComponentUi Add(ComponentUi left, ComponentUi right) =>
+        new(ops: left.ops + right.ops);
+
+    public static ComponentUi Of(Func<Callback, Fin<Decision>> run) =>
+        new(ops: Seq(new StepOp(Phase: None, Run: run)));
+
+    public static ComponentUi When(Phase phase, Func<Callback, Fin<Decision>> run) =>
+        new(ops: Seq(new StepOp(Phase: Some(phase), Run: context => phase.Matches(context: context) ? run(arg: context) : Fin.Succ(value: Decision.Pass))));
+
+    public static ComponentUi Chrome(
+        Func<Callback.Draw, Fin<Decision>> draw,
+        Func<Callback.Menu, Fin<Decision>>? menu = null,
+        Func<Callback.Tip, Fin<Decision>>? tooltip = null) =>
+        When(phase: Phase.DrawForeground, run: context => draw(arg: (Callback.Draw)context))
+        + (menu is null ? Empty : When(phase: Phase.ContextMenu, run: context => menu(arg: (Callback.Menu)context)))
+        + (tooltip is null ? Empty : When(phase: Phase.Tooltip, run: context => tooltip(arg: (Callback.Tip)context)));
+
+    public static ComponentUi Resizable(Func<Callback.Frame, Fin<Decision>> resize) =>
+        When(phase: Phase.Resize, run: context => resize(arg: (Callback.Frame)context));
+
+    public static ComponentUi Editor(Func<Callback.Panel, Fin<Decision>> panel) =>
+        When(phase: Phase.InputPanel, run: context => panel(arg: (Callback.Panel)context));
+
+    internal IAttributes Attributes(GhComponent owner) =>
+        ops.IsEmpty
+            ? new ComponentAttributes(owner: owner)
+            : Supports(phase: Phase.Resize)
+                ? new RasmResizableAttributes(owner: owner, ui: this)
+                : new RasmAttributes(owner: owner, ui: this);
+
+    internal Fin<Unit> Append(GhComponent owner, InputPanel panel) =>
+        Run(context: new Callback.Panel(Owner: owner, Value: panel)).Map(static _ => unit);
+
+    internal Fin<Decision> Run(Callback context) {
+        Seq<StepOp> current = ops;
+        return Try.lift<Fin<Decision>>(f: () => current.Fold(Fin.Succ(value: Decision.Pass), (state, op) =>
+                state.Bind(decision => decision.IsTerminal ? Fin.Succ(value: decision) : op.Run(arg: context).Map(next => decision + next))))
+            .Run()
+            .MapFail(error => Op.Of(name: nameof(Run)).InvalidResult() + error)
+            .Bind(static result => result);
+    }
+
+    private bool Supports(Phase phase) =>
+        ops.Exists(op => op.Phase.Match(Some: candidate => candidate == phase, None: () => false));
 
     // --- [COMPOSITION] ------------------------------------------------------------------------
     [BoundaryAdapter]
@@ -345,7 +346,7 @@ public readonly partial record struct ComponentUi {
             };
 
         private UiResponse CommitResize() {
-            // Editor.Instance is null when no editor is running, and Document may be null mid-drag; guard both.
+            // GH2 may tear down editor/canvas/document state during drag finalization.
             _ = Optional(Grasshopper2.UI.Editor.Instance).Iter(editor => Optional(editor.Canvas).Iter(canvas => {
                 canvas.SnapXAction = snapCaptured ? priorSnapX : null;
                 canvas.SnapYAction = snapCaptured ? priorSnapY : null;
@@ -386,7 +387,7 @@ public readonly partial record struct ComponentUi {
         [StructLayout(LayoutKind.Auto)]
         private readonly record struct ResizePolicy(string Key, SizeF DefaultSize, SizeF Minimum, SizeF Maximum) {
             internal static ResizePolicy Default { get; } = new(
-                Key: "Rasm.Component.Attributes.Size",
+                Key: "Attr.Size",
                 DefaultSize: new SizeF(width: 240f, height: 120f),
                 Minimum: new SizeF(width: 64f, height: 40f),
                 Maximum: new SizeF(width: 4096f, height: 4096f));

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
@@ -12,9 +13,7 @@ using Op = Rasm.Domain.Op;
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-// Theme-reactive: each kind resolves from the live paint Skin (GH2 Shades/Canvasses tokens) when one is
-// supplied, falling back to the Eto system palette for tokens GH2 does not model (LinkText) and for
-// construction sites that resolve before a canvas Skin is known (Option<Skin>.None).
+// Theme-reactive: live Skin supplies GH2 tokens; Eto fills unmapped or pre-canvas colours.
 [SmartEnum<int>]
 public sealed partial class SystemColorKind {
     private delegate Color ColorSource(Option<Skin> skin);
@@ -46,9 +45,7 @@ public sealed partial class SystemColorKind {
     internal partial Color Resolve(Option<Skin> skin);
 }
 
-// Icon render-state filter. Each case carries the IconContext colour-filter transform the host
-// applies during draw (WithDisabledFilter desaturates+compresses, WithGreyscaleFilter maps to
-// luminance, WithFadingFilter blends toward the icon background). None is identity.
+// Mirrors host IconContext filters: disabled, greyscale, fade, or identity.
 [SmartEnum<int>]
 public sealed partial class IconAdjust {
     private const float FadeFactor = 0.5f;
@@ -162,42 +159,46 @@ public readonly record struct PaintScope(CanvasPaintPhase Phase, ControlGraphics
                             maxSize: maxSize))
                 )).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(MeasureText)), detail: error.Message)));
 
-    // SaveTransformState does NOT capture clipping; ResetClip in finally is mandatory.
+    // SaveTransformState does NOT capture clipping; ResetClip in finally is mandatory. Path-clip rejects nesting
+    // (Eto restores no clip stack and has no path-intersect primitive).
     public Fin<Unit> Clip(IGraphicsPath path, Func<PaintScope, Fin<Unit>> body) {
         PaintScope self = this;
+        Graphics graphics = self.Graphics.Content;
         return Optional(path)
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Clip)), detail: "clip path is required"))
             .Bind(validPath => self.ClipActive
                 ? Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Clip)), detail: "nested clipped draw marks are not supported by Eto clip restoration"))
-                : Optional(body).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Clip)), detail: "body is required"))
+                : DoClip(scope: self, graphics: graphics, body: body, setClip: () => graphics.SetClip(path: validPath)));
+    }
+
+    // Rect clips can intersect active ClipBounds; path clips cannot, so nested path clips still reject.
+    public Fin<Unit> Clip(RectangleF rect, Func<PaintScope, Fin<Unit>> body, bool intersect = false) {
+        PaintScope self = this;
+        Graphics graphics = self.Graphics.Content;
+        return self.ClipActive && !intersect
+            ? Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Clip)), detail: "nested clipped draw marks are not supported by Eto clip restoration"))
+            : DoClip(
+                scope: self,
+                graphics: graphics,
+                body: body,
+                setClip: () => graphics.SetClip(rectangle: self.ClipActive && intersect
+                    ? RectangleF.Intersect(graphics.ClipBounds, rect)
+                    : rect));
+    }
+
+    // BOUNDARY ADAPTER -- Eto clip restore: SetClip has no stack, so ResetClip MUST run in finally. Static so the
+    // body delegate closes over the passed graphics/scope locals, never the struct `this` (CS1673).
+    private static Fin<Unit> DoClip(PaintScope scope, Graphics graphics, Func<PaintScope, Fin<Unit>> body, Action setClip) =>
+        Optional(body)
+            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Clip)), detail: "body is required"))
             .Bind(validBody => {
-                Graphics graphics = self.Graphics.Content;
-                graphics.SetClip(path: validPath);
+                setClip();
                 try {
-                    return validBody(arg: self with { ClipActive = true });
+                    return validBody(arg: scope with { ClipActive = true });
                 } finally {
                     graphics.ResetClip();
                 }
-            }));
-    }
-
-    // Rect fast-path mirrors the IGraphicsPath clip: SaveTransformState never captures clipping, so ResetClip in
-    // finally is mandatory; nested clips are rejected because Eto restores no clip stack.
-    public Fin<Unit> Clip(RectangleF rect, Func<PaintScope, Fin<Unit>> body) {
-        PaintScope self = this;
-        return self.ClipActive
-            ? Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Clip)), detail: "nested clipped draw marks are not supported by Eto clip restoration"))
-            : Optional(body).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Clip)), detail: "body is required"))
-                .Bind(validBody => {
-                    Graphics graphics = self.Graphics.Content;
-                    graphics.SetClip(rectangle: rect);
-                    try {
-                        return validBody(arg: self with { ClipActive = true });
-                    } finally {
-                        graphics.ResetClip();
-                    }
-                });
-    }
+            });
 }
 
 [ComplexValueObject]
@@ -255,9 +256,7 @@ public readonly partial struct PaintStyle {
 
     public bool HasVisibleStroke => EdgeBrush.IsSome || Edge.A > 0f;
 
-    // Eto 2.11 has no Pen.DashOffset setter and DashStyle is sealed-immutable, so DashStyleIntern dedups
-    // quantized-offset DashStyle instances; EdgeBrush/FillBrush keep each Pen/Brush caller-owned. A brush-backed
-    // edge reuses FillSource.CachedBrush (Eto pen-backing brush Dispose is inert) and a solid edge backs a SolidBrush.
+    // Eto 2.11 lacks Pen.DashOffset and immutable DashStyle forces quantized interning; caller-owned Pen/Brush lifetimes stay intact.
     internal Pen Pen() {
         Color edgeColour = Edge;
         Brush brush = EdgeBrush.Map(static source => source.CachedBrush()).IfNone(() => new SolidBrush(color: edgeColour));
@@ -273,12 +272,7 @@ public readonly partial struct PaintStyle {
 
     private const float DefaultMiterLimit = 10f;
 
-    private static PaintStyle CreateEdge(
-        Color edge,
-        Option<Color> fill = default,
-        float thickness = 1f,
-        Option<UiFont> font = default,
-        Color background = default) =>
+    private static PaintStyle Edged(Color edge, Option<Color> fill = default, float thickness = 1f, Option<UiFont> font = default, Color background = default) =>
         Create(
             edge: edge,
             fill: fill,
@@ -297,16 +291,16 @@ public readonly partial struct PaintStyle {
             edgeBrush: default);
 
     internal static PaintStyle ForEdge(Color edge, Option<Color> fill = default, float thickness = 1f) =>
-        CreateEdge(edge: edge, fill: fill, thickness: thickness);
+        Edged(edge: edge, fill: fill, thickness: thickness);
 
     internal static PaintStyle ForEdgeText(Color edge, Option<UiFont> font = default) =>
-        CreateEdge(edge: edge, font: font);
+        Edged(edge: edge, font: font);
 
     internal static PaintStyle ForTransparent(Color background = default) =>
-        CreateEdge(edge: Colors.Transparent, background: background);
+        Edged(edge: Colors.Transparent, background: background);
 
     internal static PaintStyle ForSystemColor(SystemColorKind kind, Option<Skin> skin = default, Option<Color> fill = default, float thickness = 1f) =>
-        CreateEdge(edge: kind.Resolve(skin: skin), fill: fill, thickness: thickness);
+        Edged(edge: kind.Resolve(skin: skin), fill: fill, thickness: thickness);
 
     internal Unit Assign(Graphics graphics) {
         graphics.AntiAlias = AntiAlias;
@@ -405,20 +399,6 @@ file static class DashStyleIntern {
     }
 }
 
-file static class SystemFonts {
-    [StructLayout(LayoutKind.Auto)]
-    private readonly record struct Key(SystemFont Kind, float? Size, FontDecoration Decoration);
-
-    private static readonly BoundedCache<Key, Font> Cache = new(capacity: 128);
-
-    internal static Font Cached(SystemFont systemFont, float? size, FontDecoration decoration) =>
-        Cache.GetOrAdd(
-            key: new Key(Kind: systemFont, Size: size, Decoration: decoration),
-            valueFactory: static k => new Font(systemFont: k.Kind, size: k.Size, decoration: k.Decoration));
-
-    internal static Font Default() => Cached(systemFont: SystemFont.Default, size: null, decoration: FontDecoration.None);
-}
-
 [SkipUnionOps]
 [Union]
 public partial record UiFont {
@@ -428,6 +408,17 @@ public partial record UiFont {
     public sealed record NativeCase(Font Value) : UiFont;
     public sealed record EmptyCase : UiFont;
 
+    // Font equality excludes Decoration; cache keys carry it and stay main-thread-only with AppKit.
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct SystemFontKey(SystemFont Kind, float? Size, FontDecoration Decoration);
+
+    private static readonly BoundedCache<SystemFontKey, Font> SystemFontCache = new(capacity: 128);
+
+    private static Font CachedSystem(SystemFont systemFont, float? size, FontDecoration decoration) =>
+        SystemFontCache.GetOrAdd(
+            key: new SystemFontKey(Kind: systemFont, Size: size, Decoration: decoration),
+            valueFactory: static k => new Font(systemFont: k.Kind, size: k.Size, decoration: k.Decoration));
+
     public static UiFont Empty() => new EmptyCase();
     public static UiFont System(SystemFont kind, float? size = null, FontDecoration decoration = FontDecoration.None) =>
         new SystemCase(Kind: kind, Size: size, Decoration: decoration);
@@ -435,18 +426,16 @@ public partial record UiFont {
         new FamilyCase(Name: family, Size: size, Style: style, Decoration: decoration);
     public static UiFont Native(Font value) => new NativeCase(Value: value);
 
-    // State-threaded dispatch passes the caller's run delegate through `state` so every arm stays
-    // `static`. Family case owns a transient Font via `using`; system/native/empty cases hit cached
-    // or caller-owned instances directly.
+    // State-threading keeps union arms static; Family owns transient Font, other cases use cached/caller-owned fonts.
     internal T Use<T>(Func<Font, T> run) =>
         Switch(state: run,
-            systemCase: static (r, s) => r(arg: SystemFonts.Cached(systemFont: s.Kind, size: s.Size, decoration: s.Decoration)),
+            systemCase: static (r, s) => r(arg: CachedSystem(systemFont: s.Kind, size: s.Size, decoration: s.Decoration)),
             familyCase: static (r, f) => {
                 using Font owned = new(family: f.Name, size: f.Size, style: f.Style, decoration: f.Decoration);
                 return r(arg: owned);
             },
             nativeCase: static (r, n) => r(arg: n.Value),
-            emptyCase: static (r, _) => r(arg: SystemFonts.Default()));
+            emptyCase: static (r, _) => r(arg: CachedSystem(systemFont: SystemFont.Default, size: null, decoration: FontDecoration.None)));
 }
 
 [SkipUnionOps]
@@ -454,53 +443,64 @@ public partial record UiFont {
 public partial record FillSource {
     private FillSource() { }
     public sealed record SolidCase(Color Colour) : FillSource;
-    public sealed record LinearCase(Color Start, Color End, PointF From, PointF To, GradientWrapMode Wrap = GradientWrapMode.Pad) : FillSource;
-    public sealed record RadialCase(Color Centre, Color Edge, PointF Origin, PointF Focus, SizeF Radius, GradientWrapMode Wrap = GradientWrapMode.Pad) : FillSource;
+    public sealed record LinearCase(Color Start, Color End, PointF From, PointF To, GradientWrapMode Wrap = GradientWrapMode.Pad, Option<IMatrix> Transform = default) : FillSource;
+    public sealed record RadialCase(Color Centre, Color Edge, PointF Origin, PointF Focus, SizeF Radius, GradientWrapMode Wrap = GradientWrapMode.Pad, Option<IMatrix> Transform = default) : FillSource;
     public sealed record AngularCase(Color Start, Color End, RectangleF Rect, float Angle, GradientWrapMode Wrap = GradientWrapMode.Pad) : FillSource;
-    public sealed record TextureCase(Image Source, float Opacity = 1f) : FillSource;
+    public sealed record TextureCase(Image Source, float Opacity = 1f, Option<IMatrix> Transform = default) : FillSource;
 
     public static FillSource Solid(Color colour) => new SolidCase(Colour: colour);
-    public static FillSource Linear(Color start, Color end, PointF from, PointF to, GradientWrapMode wrap = GradientWrapMode.Pad) =>
-        new LinearCase(Start: start, End: end, From: from, To: to, Wrap: wrap);
-    public static FillSource Radial(Color centre, Color edge, PointF origin, PointF focus, SizeF radius, GradientWrapMode wrap = GradientWrapMode.Pad) =>
-        new RadialCase(Centre: centre, Edge: edge, Origin: origin, Focus: focus, Radius: radius, Wrap: wrap);
+    public static FillSource Linear(Color start, Color end, PointF from, PointF to, GradientWrapMode wrap = GradientWrapMode.Pad, Option<IMatrix> transform = default) =>
+        new LinearCase(Start: start, End: end, From: from, To: to, Wrap: wrap, Transform: transform);
+    public static FillSource Radial(Color centre, Color edge, PointF origin, PointF focus, SizeF radius, GradientWrapMode wrap = GradientWrapMode.Pad, Option<IMatrix> transform = default) =>
+        new RadialCase(Centre: centre, Edge: edge, Origin: origin, Focus: focus, Radius: radius, Wrap: wrap, Transform: transform);
     // Angle-keyed linear gradient over a rect (Eto's LinearGradientBrush(rect,start,end,angle) ctor).
     public static FillSource Angular(Color start, Color end, RectangleF rect, float angle, GradientWrapMode wrap = GradientWrapMode.Pad) =>
         new AngularCase(Start: start, End: end, Rect: rect, Angle: angle, Wrap: wrap);
-    public static FillSource Texture(Image source, float opacity = 1f) =>
-        new TextureCase(Source: source, Opacity: opacity);
+    public static FillSource Texture(Image source, float opacity = 1f, Option<IMatrix> transform = default) =>
+        new TextureCase(Source: source, Opacity: opacity, Transform: transform);
 
+    // BOUNDARY ADAPTER -- Eto brush transform: ITransformBrush.Transform is mutable post-construction; each
+    // gradient/texture arm applies the caller's Some transform to the just-built brush before returning.
     internal Brush CreateBrush() =>
-        Switch<Brush>(
+        Switch(
             solidCase: static s => new SolidBrush(color: s.Colour),
-            linearCase: static l => new LinearGradientBrush(startColor: l.Start, endColor: l.End, startPoint: l.From, endPoint: l.To) { Wrap = l.Wrap },
-            radialCase: static r => new RadialGradientBrush(startColor: r.Centre, endColor: r.Edge, center: r.Origin, gradientOrigin: r.Focus, radius: r.Radius) { Wrap = r.Wrap },
+            linearCase: static l => Transformed(new LinearGradientBrush(startColor: l.Start, endColor: l.End, startPoint: l.From, endPoint: l.To) { Wrap = l.Wrap }, l.Transform),
+            radialCase: static r => Transformed(new RadialGradientBrush(startColor: r.Centre, endColor: r.Edge, center: r.Origin, gradientOrigin: r.Focus, radius: r.Radius) { Wrap = r.Wrap }, r.Transform),
             angularCase: static a => new LinearGradientBrush(rectangle: a.Rect, startColor: a.Start, endColor: a.End, angle: a.Angle) { Wrap = a.Wrap },
-            textureCase: static t => new TextureBrush(image: t.Source, opacity: t.Opacity));
+            textureCase: static t => Transformed(new TextureBrush(image: t.Source, opacity: t.Opacity), t.Transform));
 
-    // Per-frame fill paths reuse one brush per FillSource (structural key) instead of rebuilding each paint;
-    // Eto brush Dispose is inert, so a shared cached brush is safe and never needs disposal. Mirrors TextMeasure.
-    // TextureCase keys on Source reference identity + Opacity (Eto Image has no structural equality); all other
-    // cases key structurally via the record's generated equality.
-    private static readonly BoundedCache<FillSource, Brush> BrushCache = new(capacity: 256, comparer: new FillSourceComparer());
-    internal Brush CachedBrush() => BrushCache.GetOrAdd(key: this, valueFactory: static s => s.CreateBrush());
+    private static Brush Transformed(Brush brush, Option<IMatrix> transform) =>
+        transform.Match(
+            Some: matrix => { ((ITransformBrush)brush).Transform = matrix; return brush; },
+            None: () => brush);
 
-}
+    // A Some Transform carries a mutable/reference IMatrix unsafe as an equality key, so transformed brushes bypass
+    // the structural BrushCache and build fresh; the None path stays cached.
+    private bool Cacheable =>
+        Switch(
+            solidCase: static _ => true,
+            linearCase: static l => l.Transform.IsNone,
+            radialCase: static r => r.Transform.IsNone,
+            angularCase: static _ => true,
+            textureCase: static t => t.Transform.IsNone);
 
-file sealed class FillSourceComparer : IEqualityComparer<FillSource> {
-    public bool Equals(FillSource? x, FillSource? y) =>
-        (x, y) switch {
-            (FillSource.TextureCase a, FillSource.TextureCase b) => ReferenceEquals(a.Source, b.Source) && a.Opacity == b.Opacity,
-            (null, null) => true,
-            (null, _) or (_, null) => false,
-            _ => x.Equals(y),
-        };
+    // Per-frame fill reuses one inert Eto brush per FillSource; texture keys use image identity, other cases use structural keys.
+    private static readonly BoundedCache<FillSource, Brush> BrushCache = new(
+        capacity: 256,
+        comparer: EqualityComparer<FillSource>.Create(
+            equals: static (x, y) => (x, y) switch {
+                (TextureCase a, TextureCase b) => ReferenceEquals(a.Source, b.Source) && a.Opacity == b.Opacity,
+                (null, null) => true,
+                (null, _) or (_, null) => false,
+                _ => x.Equals(y),
+            },
+            getHashCode: static s => s switch {
+                TextureCase texture => HashCode.Combine(RuntimeHelpers.GetHashCode(texture.Source), texture.Opacity),
+                _ => s.GetHashCode(),
+            }));
+    [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "Eto brush Dispose is inert (no-op); the Cacheable path deposits the brush into the long-lived BrushCache (outlives every paint scope) and the transient path returns a caller-owned brush — neither is disposable here.")]
+    internal Brush CachedBrush() => Cacheable ? BrushCache.GetOrAdd(key: this, valueFactory: static s => s.CreateBrush()) : CreateBrush();
 
-    public int GetHashCode(FillSource source) =>
-        source switch {
-            FillSource.TextureCase texture => HashCode.Combine(RuntimeHelpers.GetHashCode(texture.Source), texture.Opacity),
-            _ => source.GetHashCode(),
-        };
 }
 
 [ComplexValueObject]
@@ -553,8 +553,7 @@ public partial record DrawMark {
     public sealed partial record PolygonCase(ReadOnlyMemory<PointF> Points, PaintStyle Style) : DrawMark;
     public sealed partial record BezierCase(PointF Start, PointF Control1, PointF Control2, PointF End, PaintStyle Style) : DrawMark;
     public sealed partial record CurveCase(ReadOnlyMemory<PointF> Points, float Tension, PaintStyle Style) : DrawMark;
-    public sealed partial record CapsuleCase(Capsule Value, Parts Elements, Shade Shade) : DrawMark;
-    // Composite marks: a clip or transform applied to a nested DrawPlan (leaf marks + composite).
+    public sealed partial record CapsuleCase(Capsule Value, Parts Elements, Shade Shade, Option<RectangleF> Bounds = default) : DrawMark;
     public sealed partial record ClippedCase(IGraphicsPath Clip, DrawPlan Plan) : DrawMark;
     public sealed partial record TransformedCase(IMatrix Transform, DrawPlan Plan) : DrawMark;
 
@@ -608,14 +607,14 @@ public partial record DrawMark {
 
     internal Fin<Unit> Apply(PaintScope scope) =>
         Switch(state: scope,
-            lineCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(LineCase)), what: "line draw", bounds: BoundsOf(a: c.A, b: c.B), draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Line(a: c.A, b: c.B))),
-            rectangleCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(RectangleCase)), what: "rectangle draw", bounds: c.Bounds, draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Rectangle(bounds: c.Bounds))),
+            lineCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(LineCase)), what: "line draw", bounds: Some(BoundsOf(a: c.A, b: c.B)), draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Line(a: c.A, b: c.B))),
+            rectangleCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(RectangleCase)), what: "rectangle draw", bounds: Some(c.Bounds), draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Rectangle(bounds: c.Bounds))),
             roundedCornersCase: static (s, c) => DrawPathStyled(
                 scope: s,
                 style: c.Style,
                 op: Op.Of(name: nameof(RoundedCornersCase)),
                 what: "rounded corners draw",
-                bounds: c.Bounds,
+                bounds: Some(c.Bounds),
                 path: () => c.Radii.IsUniform
                     ? GraphicsPath.GetRoundRect(rectangle: c.Bounds, radius: c.Radii.TopLeft)
                     : GraphicsPath.GetRoundRect(
@@ -624,19 +623,18 @@ public partial record DrawMark {
                         neRadius: c.Radii.TopRight,
                         seRadius: c.Radii.BottomRight,
                         swRadius: c.Radii.BottomLeft)),
-            ellipseCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(EllipseCase)), what: "ellipse draw", bounds: c.Bounds, draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Ellipse(bounds: c.Bounds))),
-            pathCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(PathCase)), what: "path draw", draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Path(path: c.Geometry))),
-            // FillBrush (gradient/texture) wins for text fill so the SAME brush algebra drives shapes and labels;
-            // Edge backs a cached SolidBrush otherwise. Both brushes have inert Eto Dispose; the FillBrush arm reuses
-            // a shared cached brush that must not be disposed, so neither is wrapped in `using`. DrawText routes
-            // through Eto's internal SharedFormattedText (ForegroundBrush = brush), mirroring MeasureText's scratch.
-            textCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(TextCase)), what: "text draw", bounds: c.Frame, draw: g =>
-                c.Style.Font.IfNone(UiFont.Empty()).Use(run: font => {
-                    Brush brush = c.Style.FillBrush.Map(static fill => fill.CachedBrush()).IfNone(() => PaintStyle.Brush(color: c.Style.Edge));
-                    g.DrawText(font, brush, c.Frame, c.Value, c.Wrap, c.Alignment, c.Trimming);
-                    return unit;
-                })),
-            imageCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(ImageCase)), what: "image draw", bounds: c.Frame, draw: g => {
+            ellipseCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(EllipseCase)), what: "ellipse draw", bounds: Some(c.Bounds), draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Ellipse(bounds: c.Bounds))),
+            pathCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(PathCase)), what: "path draw", bounds: Some(c.Geometry.Bounds), draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Path(path: c.Geometry))),
+            // Text fill uses the same inert brush cache as shapes; no `using` around cached brushes.
+            textCase: static (s, c) => c.Frame.Size == SizeF.Empty
+                ? Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(TextCase)), detail: "text frame size must be non-empty"))
+                : DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(TextCase)), what: "text draw", bounds: Some(c.Frame), draw: g =>
+                    c.Style.Font.IfNone(UiFont.Empty()).Use(run: font => {
+                        Brush brush = c.Style.FillBrush.Map(static fill => fill.CachedBrush()).IfNone(() => PaintStyle.Brush(color: c.Style.Edge));
+                        g.DrawText(font, brush, c.Frame, c.Value, c.Wrap, c.Alignment, c.Trimming);
+                        return unit;
+                    })),
+            imageCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(ImageCase)), what: "image draw", bounds: Some(c.Frame), draw: g => {
                 g.DrawImage(image: c.Value, rectangle: c.Frame);
                 return unit;
             }),
@@ -660,7 +658,7 @@ public partial record DrawMark {
                 });
                 return unit;
             }),
-            arcCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(ArcCase)), what: "arc draw", bounds: c.Bounds, draw: g => {
+            arcCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(ArcCase)), what: "arc draw", bounds: Some(c.Bounds), draw: g => {
                 using Pen pen = (c.SystemColor is { IsSome: true, Case: SystemColorKind kind }
                     ? PaintStyle.ForSystemColor(kind: kind, skin: Some(s.Skin), thickness: c.Style.Thickness)
                     : c.Style).Pen();
@@ -674,7 +672,7 @@ public partial record DrawMark {
                 style: c.Style,
                 op: Op.Of(name: nameof(PieCase)),
                 what: "pie draw",
-                bounds: c.Bounds,
+                bounds: Some(c.Bounds),
                 path: () => {
                     GraphicsPath path = new();
                     path.MoveTo(new PointF(x: c.Bounds.X + (c.Bounds.Width / 2f), y: c.Bounds.Y + (c.Bounds.Height / 2f)));
@@ -682,16 +680,16 @@ public partial record DrawMark {
                     path.CloseFigure();
                     return path;
                 }),
-            polylineCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(PolylineCase)), what: "polyline draw", bounds: BoundsOf(points: c.Points),
+            polylineCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(PolylineCase)), what: "polyline draw", bounds: Some(BoundsOf(points: c.Points)),
                 draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Polyline(points: c.Points))),
-            polygonCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(PolygonCase)), what: "polygon draw", bounds: BoundsOf(points: c.Points),
+            polygonCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(PolygonCase)), what: "polygon draw", bounds: Some(BoundsOf(points: c.Points)),
                 draw: g => DrawShape(style: c.Style, graphics: g, shape: PaintShape.Polygon(points: c.Points))),
             bezierCase: static (s, c) => DrawPathStyled(
                 scope: s,
                 style: c.Style,
                 op: Op.Of(name: nameof(BezierCase)),
                 what: "bezier draw",
-                bounds: BoundsOf(a: c.Start, b: c.Control1, c: c.Control2, d: c.End),
+                bounds: Some(BoundsOf(a: c.Start, b: c.Control1, c: c.Control2, d: c.End)),
                 path: () => {
                     GraphicsPath path = new();
                     path.AddBezier(start: c.Start, control1: c.Control1, control2: c.Control2, end: c.End);
@@ -702,16 +700,18 @@ public partial record DrawMark {
                 style: c.Style,
                 op: Op.Of(name: nameof(CurveCase)),
                 what: "curve draw",
-                bounds: BoundsOf(points: c.Points),
+                bounds: Some(BoundsOf(points: c.Points)),
                 path: () => {
                     GraphicsPath path = new();
                     path.AddCurve(points: MemoryMarshal.ToEnumerable(c.Points), tension: c.Tension);
                     return path;
                 }),
-            capsuleCase: static (s, c) => Op.Of(name: nameof(CapsuleCase)).Attempt(body: () => {
-                c.Value.Draw(graphics: s.Graphics.Content, elements: c.Elements, shade: c.Shade, skin: s.Skin);
-                return unit;
-            }, what: "capsule draw"),
+            capsuleCase: static (s, c) => s.WhenVisible(
+                bounds: c.Bounds.IfNone(() => c.Value.Bounds),
+                draw: () => Op.Of(name: nameof(CapsuleCase)).Attempt(body: () => {
+                    c.Value.Draw(graphics: s.Graphics.Content, elements: c.Elements, shade: c.Shade, skin: s.Skin);
+                    return unit;
+                }, what: "capsule draw")),
             clippedCase: static (s, c) => s.Clip(path: c.Clip, body: clipScope => c.Plan.Apply(scope: clipScope)),
             transformedCase: static (s, c) => {
                 Graphics graphics = s.Graphics.Content;
@@ -720,9 +720,7 @@ public partial record DrawMark {
                 return c.Plan.Apply(scope: s with { VisibilityCulling = false });
             });
 
-    // Eto owns the bounding-box reduction: seed a degenerate rect at the first point and Union each point's
-    // degenerate rect (RectangleF's two-corner ctor + RectangleF.Union, both already used across the file). The
-    // fixed-arity overloads avoid the per-frame PointF[] allocation that wrapping into ReadOnlyMemory would force.
+    // RectangleF.Union owns bounds reduction; fixed-arity overloads avoid per-frame PointF[] wrapping.
     private static RectangleF BoundsOf(PointF a, PointF b) =>
         RectangleF.Union(new RectangleF(a, a), new RectangleF(b, b));
 
@@ -741,26 +739,23 @@ public partial record DrawMark {
         return acc;
     }
 
-    private static Fin<Unit> DrawStyled(PaintScope scope, PaintStyle style, Op op, string what, RectangleF bounds, Func<Graphics, Unit> draw) =>
-        scope.WhenVisible(bounds: bounds, draw: () => DrawStyled(scope: scope, style: style, op: op, what: what, draw: draw));
+    private static Fin<Unit> DrawStyled(PaintScope scope, PaintStyle style, Op op, string what, Func<Graphics, Unit> draw, Option<RectangleF> bounds = default) {
+        Fin<Unit> drawn() =>
+            Optional(draw).ToFin(Fail: UiFault.InvalidInput(op: op, detail: "draw delegate is required"))
+                .Bind(valid => op.Attempt(body: () => {
+                    Graphics graphics = scope.Graphics.Content;
+                    using IDisposable state = graphics.SaveTransformState();
+                    _ = style.Assign(graphics: graphics);
+                    return valid(arg: graphics);
+                }, what: what));
+        return bounds.Match(Some: b => scope.WhenVisible(bounds: b, draw: drawn), None: drawn);
+    }
 
-    private static Fin<Unit> DrawStyled(PaintScope scope, PaintStyle style, Op op, string what, Func<Graphics, Unit> draw) =>
-        Optional(draw).ToFin(Fail: UiFault.InvalidInput(op: op, detail: "draw delegate is required"))
-            .Bind(valid => op.Attempt(body: () => {
-                Graphics graphics = scope.Graphics.Content;
-                using IDisposable state = graphics.SaveTransformState();
-                _ = style.Assign(graphics: graphics);
-                return valid(arg: graphics);
-            }, what: what));
-
-    private static Fin<Unit> DrawPathStyled(PaintScope scope, PaintStyle style, Op op, string what, Func<IGraphicsPath> path) =>
-        DrawStyled(scope: scope, style: style, op: op, what: what, draw: g => {
+    private static Fin<Unit> DrawPathStyled(PaintScope scope, PaintStyle style, Op op, string what, Func<IGraphicsPath> path, Option<RectangleF> bounds = default) =>
+        DrawStyled(scope: scope, style: style, op: op, what: what, bounds: bounds, draw: g => {
             using IGraphicsPath owned = path();
             return DrawShape(style: style, graphics: g, shape: PaintShape.Path(path: owned));
         });
-
-    private static Fin<Unit> DrawPathStyled(PaintScope scope, PaintStyle style, Op op, string what, RectangleF bounds, Func<IGraphicsPath> path) =>
-        scope.WhenVisible(bounds: bounds, draw: () => DrawPathStyled(scope: scope, style: style, op: op, what: what, path: path));
 
     private static Unit DrawShape(PaintStyle style, Graphics graphics, PaintShape shape) {
         _ = style.FillBrush.IfSome(source => shape.Fill(graphics, source.CachedBrush()));
@@ -795,12 +790,10 @@ public partial record DrawMark {
                 Fill: (graphics, brush) => graphics.FillPath(brush: brush, path: path),
                 Stroke: (graphics, pen) => graphics.DrawPath(pen: pen, path: path));
 
-        // Stroke uses the zero-alloc IEnumerable projection over the span; FillPolygon has no IEnumerable overload,
-        // so the array materializes lazily inside Fill — only when a fill brush is actually present.
         internal static PaintShape Polygon(ReadOnlyMemory<PointF> points) =>
             new(
                 Fill: (graphics, brush) => graphics.FillPolygon(brush, [.. MemoryMarshal.ToEnumerable(points)]),
-                Stroke: (graphics, pen) => graphics.DrawPolygon(pen, (PointF[])MemoryMarshal.ToEnumerable(points)));
+                Stroke: (graphics, pen) => graphics.DrawPolygon(pen, [.. MemoryMarshal.ToEnumerable(points)]));
 
         // Stroke-only: an open polyline has no fill, so DrawShape routing is for op/cull uniformity, not fill.
         internal static PaintShape Polyline(ReadOnlyMemory<PointF> points) =>
@@ -904,13 +897,13 @@ public static partial class Paint {
                     clock: clock ?? MotionClock.MessageLoop,
                     adoptedPacer: pacer,
                     ownsPacerLifecycle: false,
-                    sustainMouseRedraw: enabled ? () => CanvasPropertyLease.IsTop(canvas: canvas, slot: nameof(GhCanvas.RedrawOnMouseMove), token: token.Value, value: true) : null).Run(scope: scope)
+                    sustainMouseRedraw: enabled ? () => CanvasLease.RedrawLease.IsTop(canvas: canvas, token: token.Value, value: true) : null).Run(scope: scope)
                 from arm in Events.BindMarshaled(
                     attach: () => {
-                        token.Value = CanvasPropertyLease.Enter(canvas: canvas, slot: nameof(GhCanvas.RedrawOnMouseMove), value: enabled, get: static c => c.RedrawOnMouseMove, set: static (c, value) => c.RedrawOnMouseMove = value);
+                        token.Value = CanvasLease.RedrawLease.Enter(canvas: canvas, value: enabled);
                         _ = pacer.ResumeOr(canvas: canvas);
                     },
-                    detach: () => CanvasPropertyLease.Exit<bool>(canvas: canvas, slot: nameof(GhCanvas.RedrawOnMouseMove), token: token.Value, set: static (c, value) => c.RedrawOnMouseMove = value))
+                    detach: () => CanvasLease.RedrawLease.Exit(canvas: canvas, token: token.Value))
                 select Subscription.DisposeOnce(Subscription.PaintPacer(
                     paintHook: sustain | arm,
                     pacerRelease: () => _ = pacer.ReleaseOnce())));

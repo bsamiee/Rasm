@@ -2,97 +2,15 @@ using Foundation.CSharp.Analyzers.Contracts;
 
 namespace Rasm.Vectors;
 
-// --- [MODELS] -----------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralBasis(Arr<double> Eigenvalues, Arr<Arr<double>> Eigenvectors) {
-    public bool IsValid { get { int vertexCount = VertexCount; return Eigenvalues.Count > 0 && Eigenvalues.Count == Eigenvectors.Count && Eigenvalues.ForAll(static lambda => RhinoMath.IsValidDouble(x: lambda) && lambda >= -RhinoMath.SqrtEpsilon) && Eigenvectors.ForAll(phi => vertexCount > 0 && phi.Count == vertexCount && phi.ForAll(RhinoMath.IsValidDouble)); } }
-    internal int VertexCount => Eigenvectors.IsEmpty ? 0 : Eigenvectors[index: 0].Count;
-    public SpectralBasis Truncate(int k) =>
-        k <= 0 || k >= Eigenvalues.Count ? this : new SpectralBasis(Eigenvalues: new Arr<double>([.. Eigenvalues.AsIterable().Take(k)]), Eigenvectors: new Arr<Arr<double>>([.. Eigenvectors.AsIterable().Take(k)]));
-}
-
-[SmartEnum<int>]
-public sealed partial class SpectralScaleNormalization { public static readonly SpectralScaleNormalization Raw = new(key: 0), FirstNonZeroEigenvalue = new(key: 1); }
-[SmartEnum<int>]
-public sealed partial class SpectralEnergyNormalization { public static readonly SpectralEnergyNormalization Raw = new(key: 0), UnitL1 = new(key: 1), UnitL2 = new(key: 2), ZScore = new(key: 3); }
-[SmartEnum<int>]
-public sealed partial class SpectralZeroModePolicy { public static readonly SpectralZeroModePolicy Keep = new(key: 0), Drop = new(key: 1); }
-[SmartEnum<int>]
-public sealed partial class SpectralDistanceKind { public static readonly SpectralDistanceKind Euclidean = new(key: 0), Manhattan = new(key: 1), Cosine = new(key: 2); }
-[SmartEnum<int>]
-public sealed partial class SpectralTieBreak { public static readonly SpectralTieBreak InputOrder = new(key: 0); }
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralDescriptorPolicy(SpectralScaleNormalization ScaleNormalization, SpectralEnergyNormalization EnergyNormalization, SpectralZeroModePolicy ZeroModePolicy, Option<Dimension> CropCount) {
-    public static SpectralDescriptorPolicy Raw => new(ScaleNormalization: SpectralScaleNormalization.Raw, EnergyNormalization: SpectralEnergyNormalization.Raw, ZeroModePolicy: SpectralZeroModePolicy.Keep, CropCount: None);
-    internal bool IsValid => ScaleNormalization is not null && EnergyNormalization is not null && ZeroModePolicy is not null && CropCount.Map(static count => count.Value > 0).IfNone(noneValue: true);
-    internal bool IsRaw => ScaleNormalization.Equals(SpectralScaleNormalization.Raw) && EnergyNormalization.Equals(SpectralEnergyNormalization.Raw) && ZeroModePolicy.Equals(SpectralZeroModePolicy.Keep) && CropCount.IsNone;
-    internal bool IsValueOnly => ScaleNormalization.Equals(SpectralScaleNormalization.Raw) && ZeroModePolicy.Equals(SpectralZeroModePolicy.Keep) && CropCount.IsNone;
-    internal static Fin<SpectralDescriptorPolicy> Admit(SpectralDescriptorPolicy policy, Op key) =>
-        guard(policy.IsValid, key.InvalidInput()).ToFin().Map(_ => policy);
-}
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralRankingPolicy(SpectralDescriptorPolicy Descriptor, SpectralDistanceKind Distance, SpectralTieBreak TieBreak) {
-    public static SpectralRankingPolicy Default => new(Descriptor: SpectralDescriptorPolicy.Raw, Distance: SpectralDistanceKind.Euclidean, TieBreak: SpectralTieBreak.InputOrder);
-    internal bool IsValid => Descriptor.IsValid && Distance is not null && TieBreak is not null;
-}
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralRank(int Index, double Distance, SpectralDescriptor Descriptor);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralRanking(SpectralDescriptor Query, Seq<SpectralRank> Items, SpectralRankingPolicy Policy);
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralAssemblyReceipt(int VertexCount, int EdgeCount, int FaceCount, int AdmittedFaceCount, int SkippedDegenerateFaces, int SkippedMissingEdges, int SkippedInvalidNormals, int SkippedInvalidTangents, bool FlippedIntrinsicRejected, int MatrixRows, int MatrixCols, int NonZeros, int PositiveStar0Count, int PositiveStar1Count, int PositiveStar2Count, double BoundaryCompositionResidual, Option<int> Genus, int HarmonicDimension, SpectralAssemblyKind Kind, int BoundaryEdgeCount = 0, int BoundaryComponentCount = 0, int NonManifoldEdgeCount = 0, int EulerCharacteristic = 0, bool TopologyEulerValidated = false, int ComponentCount = 1, int PositiveMassCount = 0, double SymmetryResidual = 0.0, Option<int> FactorNonZeros = default) {
-    internal bool IsValid =>
-        Kind is SpectralAssemblyKind kind
-        && new[] { VertexCount, EdgeCount, FaceCount, AdmittedFaceCount, SkippedDegenerateFaces, SkippedMissingEdges, SkippedInvalidNormals, SkippedInvalidTangents, MatrixRows, MatrixCols, NonZeros, PositiveStar0Count, PositiveStar1Count, PositiveStar2Count, HarmonicDimension, BoundaryEdgeCount, BoundaryComponentCount, NonManifoldEdgeCount, ComponentCount, PositiveMassCount }.All(static count => count >= 0)
-        && AdmittedFaceCount + SkippedDegenerateFaces + SkippedMissingEdges <= FaceCount
-        && RhinoMath.IsValidDouble(x: BoundaryCompositionResidual)
-        && RhinoMath.IsValidDouble(x: SymmetryResidual)
-        && FactorNonZeros.Map(static value => value > 0).IfNone(noneValue: true)
-        && (kind.Equals(SpectralAssemblyKind.EdgeConnection)
-            ? ComponentCount == 2 && MatrixRows == EdgeCount * ComponentCount && MatrixCols == MatrixRows && PositiveMassCount <= EdgeCount
-            : ComponentCount == 1 && PositiveStar0Count <= VertexCount && PositiveStar1Count <= EdgeCount && PositiveStar2Count <= FaceCount && (Genus is { IsSome: true, Case: int genus } ? genus >= 0 && HarmonicDimension == 2 * genus : HarmonicDimension == 0));
-}
+// --- [TYPES] ------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SpectralAssemblyKind { public static readonly SpectralAssemblyKind Dec = new(key: 0), EdgeConnection = new(key: 1); }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct DiscreteCalculus(SparseMatrix D0, SparseMatrix D1, Arr<double> Star0, Arr<double> Star1, Arr<double> Star2, SpectralAssemblyReceipt Receipt) {
-    public bool IsValid => D0.IsValid && D1.IsValid && Receipt.IsValid && Star0.Count == D0.Cols.Value && Star1.Count == D0.Rows.Value && Star2.Count == D1.Rows.Value && Star0.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v > 0.0) && Star1.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0) && Star2.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v > 0.0);
-}
+[SmartEnum<int>]
+public sealed partial class SpectralDistanceKind { public static readonly SpectralDistanceKind Euclidean = new(key: 0), Manhattan = new(key: 1), Cosine = new(key: 2); }
 
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralWaveReceipt(double Energy, double Bandwidth, Option<double> FirstNonZeroScale, int ZeroModeCount, int CroppedEigenpairCount, int NonZeroEigenpairCount, double RawWeightSum, double NormalizedWeightSum, Option<double> MinLogEigenvalue, Option<double> MaxLogEigenvalue, bool WksNormalized) {
-    internal bool IsValid {
-        get {
-            Option<double> first = FirstNonZeroScale, minLog = MinLogEigenvalue, maxLog = MaxLogEigenvalue;
-            bool firstValid = first.IsNone || (RhinoMath.IsValidDouble(x: first.IfNone(0.0)) && first.IfNone(0.0) > 0.0);
-            bool rangeValid = minLog.IsNone || maxLog.IsNone || (RhinoMath.IsValidDouble(x: minLog.IfNone(0.0)) && RhinoMath.IsValidDouble(x: maxLog.IfNone(0.0)) && minLog.IfNone(0.0) <= maxLog.IfNone(0.0));
-            return new[] { Energy, Bandwidth, RawWeightSum, NormalizedWeightSum }.All(RhinoMath.IsValidDouble)
-                && Energy > 0.0
-                && Bandwidth > 0.0
-                && ZeroModeCount >= 0
-                && CroppedEigenpairCount >= NonZeroEigenpairCount
-                && NonZeroEigenpairCount > 0
-                && RawWeightSum > 0.0
-                && (!WksNormalized || Math.Abs(value: NormalizedWeightSum - 1.0) <= 1.0e-9)
-                && firstValid
-                && rangeValid;
-        }
-    }
-}
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralDescriptorReceipt(SpectralFilter Filter, int VertexCount, int EigenpairCount, int SourceCount, bool ComparisonReady, bool Pairwise, bool EnergyNormalized, bool ScaleNormalized, SpectralDescriptorPolicy Policy = default, int ZeroModeCount = 0, int CroppedEigenpairCount = 0, Option<SpectralWaveReceipt> Wave = default);
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralDescriptor(Arr<double> Values, SpectralDescriptorReceipt Receipt) {
-    public bool IsValid => Values.Count == Receipt.VertexCount && Values.ForAll(RhinoMath.IsValidDouble);
-    public Fin<SpectralDescriptor> Normalize(SpectralDescriptorPolicy policy, Op? key = null) =>
-        SpectralCore.NormalizeDescriptor(descriptor: this, policy: policy, key: key.OrDefault());
-    public Fin<SpectralRanking> Rank(Seq<SpectralDescriptor> candidates, SpectralRankingPolicy policy, Op? key = null) =>
-        SpectralCore.RankDescriptors(query: this, candidates: candidates, policy: policy, key: key.OrDefault());
-}
+[SmartEnum<int>]
+public sealed partial class SpectralEnergyNormalization { public static readonly SpectralEnergyNormalization Raw = new(key: 0), UnitL1 = new(key: 1), UnitL2 = new(key: 2), ZScore = new(key: 3); }
 
 [Union]
 public abstract partial record SpectralFilter {
@@ -139,6 +57,155 @@ public abstract partial record SpectralFilter {
     private static Option<PositiveMagnitude> Positive(double value) =>
         PositiveMagnitude.TryCreate(value: value, obj: out PositiveMagnitude magnitude) ? Some(magnitude) : Option<PositiveMagnitude>.None;
 }
+
+[SmartEnum<int>]
+public sealed partial class SpectralScaleNormalization { public static readonly SpectralScaleNormalization Raw = new(key: 0), FirstNonZeroEigenvalue = new(key: 1); }
+
+[SmartEnum<int>]
+public sealed partial class SpectralTieBreak { public static readonly SpectralTieBreak InputOrder = new(key: 0); }
+
+[SmartEnum<int>]
+public sealed partial class SpectralZeroModePolicy { public static readonly SpectralZeroModePolicy Keep = new(key: 0), Drop = new(key: 1); }
+
+// --- [MODELS] -----------------------------------------------------------------------------
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct DiscreteCalculus(SparseMatrix D0, SparseMatrix D1, Arr<double> Star0, Arr<double> Star1, Arr<double> Star2, SpectralAssemblyReceipt Receipt, Option<SignpostTransportReceipt> Transport = default, Option<HarmonicOneFormBasis> Harmonic = default) {
+    public bool IsValid => D0.IsValid && D1.IsValid && Receipt.IsValid && Star0.Count == D0.Cols.Value && Star1.Count == D0.Rows.Value && Star2.Count == D1.Rows.Value && Star0.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v > 0.0) && Star1.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0) && Star2.ForAll(static v => RhinoMath.IsValidDouble(x: v) && v > 0.0) && Transport.Map(static receipt => receipt.IsValid).IfNone(noneValue: true) && Harmonic.Map(static basis => basis.IsValid).IfNone(noneValue: true);
+    internal Fin<TOut> Project<TOut>(Op key) =>
+        typeof(TOut) switch {
+            Type t when t == typeof(DiscreteCalculus) => Fin.Succ((TOut)(object)this),
+            Type t when t == typeof(SpectralAssemblyReceipt) => Fin.Succ((TOut)(object)Receipt),
+            Type t when t == typeof(SignpostTransportReceipt) => Transport.Map(static receipt => (TOut)(object)receipt).ToFin(key.InvalidResult()),
+            Type t when t == typeof(HarmonicOneFormBasis) => Harmonic.Map(static basis => (TOut)(object)basis).ToFin(key.InvalidResult()),
+            Type t when t == typeof(HarmonicOneFormReceipt) => Harmonic.Map(static basis => (TOut)(object)basis.Receipt).ToFin(key.InvalidResult()),
+            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(DiscreteCalculus), outputType: typeof(TOut))),
+        };
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct HarmonicOneFormBasis(Arr<Arr<double>> Forms, HarmonicOneFormReceipt Receipt) {
+    public bool IsValid {
+        get {
+            HarmonicOneFormReceipt receipt = Receipt;
+            return receipt.IsValid && Forms.Count == receipt.BasisCount && Forms.ForAll(form => form.Count == receipt.EdgeCount && form.ForAll(RhinoMath.IsValidDouble));
+        }
+    }
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct HarmonicOneFormReceipt(Option<int> Genus, int ExpectedDimension, int ConstraintRows, int EdgeCount, int Rank, int Nullity, int BasisCount, double SvdTolerance, double MinNullEigenvalue, double MaxNullEigenvalue, double MaxClosedResidual, double MaxCoClosedResidual, double Star1OrthonormalResidual, int PositiveStar1Count, EigenSolveReceipt<double, Arr<double>> Eigen) {
+    public bool IsValid {
+        get {
+            int expected = ExpectedDimension;
+            double tolerance = SvdTolerance;
+            return new[] { expected, ConstraintRows, EdgeCount, Rank, Nullity, BasisCount, PositiveStar1Count }.All(static value => value >= 0)
+                && Rank + Nullity == EdgeCount
+                && BasisCount == expected
+                && Nullity >= expected
+                && PositiveStar1Count <= EdgeCount
+                && Genus.Map(genus => expected == 2 * genus).IfNone(expected == 0)
+                && new[] { tolerance, MinNullEigenvalue, MaxNullEigenvalue, MaxClosedResidual, MaxCoClosedResidual, Star1OrthonormalResidual }.All(RhinoMath.IsValidDouble)
+                && tolerance > 0.0
+                && MinNullEigenvalue >= -RhinoMath.SqrtEpsilon
+                && MaxNullEigenvalue >= MinNullEigenvalue - RhinoMath.SqrtEpsilon
+                && MaxClosedResidual <= Math.Max(val1: 1.0e-7, val2: tolerance * 1.0e3)
+                && MaxCoClosedResidual <= Math.Max(val1: 1.0e-7, val2: tolerance * 1.0e3)
+                && Star1OrthonormalResidual <= Math.Max(val1: 1.0e-7, val2: tolerance * 1.0e3)
+                && Eigen.IsUsable;
+        }
+    }
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SpectralAssemblyReceipt(int VertexCount, int EdgeCount, int FaceCount, int AdmittedFaceCount, int SkippedDegenerateFaces, int SkippedMissingEdges, int SkippedInvalidNormals, int SkippedInvalidTangents, bool FlippedIntrinsicRejected, int MatrixRows, int MatrixCols, int NonZeros, int PositiveStar0Count, int PositiveStar1Count, int PositiveStar2Count, double BoundaryCompositionResidual, Option<int> Genus, int HarmonicDimension, SpectralAssemblyKind Kind, int BoundaryEdgeCount = 0, int BoundaryComponentCount = 0, int NonManifoldEdgeCount = 0, int EulerCharacteristic = 0, bool TopologyEulerValidated = false, int ComponentCount = 1, int PositiveMassCount = 0, double SymmetryResidual = 0.0, Option<int> FactorNonZeros = default) {
+    internal bool IsValid =>
+        Kind is SpectralAssemblyKind kind
+        && new[] { VertexCount, EdgeCount, FaceCount, AdmittedFaceCount, SkippedDegenerateFaces, SkippedMissingEdges, SkippedInvalidNormals, SkippedInvalidTangents, MatrixRows, MatrixCols, NonZeros, PositiveStar0Count, PositiveStar1Count, PositiveStar2Count, HarmonicDimension, BoundaryEdgeCount, BoundaryComponentCount, NonManifoldEdgeCount, ComponentCount, PositiveMassCount }.All(static count => count >= 0)
+        && AdmittedFaceCount + SkippedDegenerateFaces + SkippedMissingEdges <= FaceCount
+        && RhinoMath.IsValidDouble(x: BoundaryCompositionResidual)
+        && RhinoMath.IsValidDouble(x: SymmetryResidual)
+        && FactorNonZeros.Map(static value => value > 0).IfNone(noneValue: true)
+        && (kind.Equals(SpectralAssemblyKind.EdgeConnection)
+            ? ComponentCount == 2 && MatrixRows == EdgeCount * ComponentCount && MatrixCols == MatrixRows && PositiveMassCount <= EdgeCount
+            : ComponentCount == 1 && PositiveStar0Count <= VertexCount && PositiveStar1Count <= EdgeCount && PositiveStar2Count <= FaceCount && (Genus is { IsSome: true, Case: int genus } ? genus >= 0 && HarmonicDimension == 2 * genus : HarmonicDimension == 0));
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SpectralBasis(Arr<double> Eigenvalues, Arr<Arr<double>> Eigenvectors) {
+    public bool IsValid { get { int vertexCount = VertexCount; return Eigenvalues.Count > 0 && Eigenvalues.Count == Eigenvectors.Count && Eigenvalues.ForAll(static lambda => RhinoMath.IsValidDouble(x: lambda) && lambda >= -RhinoMath.SqrtEpsilon) && Eigenvectors.ForAll(phi => vertexCount > 0 && phi.Count == vertexCount && phi.ForAll(RhinoMath.IsValidDouble)); } }
+    internal int VertexCount => Eigenvectors.IsEmpty ? 0 : Eigenvectors[index: 0].Count;
+    public SpectralBasis Truncate(int k) =>
+        k <= 0 || k >= Eigenvalues.Count ? this : new SpectralBasis(Eigenvalues: new Arr<double>([.. Eigenvalues.AsIterable().Take(k)]), Eigenvectors: new Arr<Arr<double>>([.. Eigenvectors.AsIterable().Take(k)]));
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SpectralDescriptor(Arr<double> Values, SpectralDescriptorReceipt Receipt) {
+    public bool IsValid => Receipt.IsValid && Values.Count == Receipt.VertexCount && Values.ForAll(RhinoMath.IsValidDouble);
+    public Fin<SpectralDescriptor> Normalize(SpectralDescriptorPolicy policy, Op? key = null) =>
+        SpectralCore.NormalizeDescriptor(descriptor: this, policy: policy, key: key.OrDefault());
+    public Fin<SpectralRanking> Rank(Seq<SpectralDescriptor> candidates, SpectralRankingPolicy policy, Op? key = null) =>
+        SpectralCore.RankDescriptors(query: this, candidates: candidates, policy: policy, key: key.OrDefault());
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SpectralDescriptorPolicy(SpectralScaleNormalization ScaleNormalization, SpectralEnergyNormalization EnergyNormalization, SpectralZeroModePolicy ZeroModePolicy, Option<Dimension> CropCount) {
+    public static SpectralDescriptorPolicy Raw => new(ScaleNormalization: SpectralScaleNormalization.Raw, EnergyNormalization: SpectralEnergyNormalization.Raw, ZeroModePolicy: SpectralZeroModePolicy.Keep, CropCount: None);
+    internal bool IsValid => ScaleNormalization is not null && EnergyNormalization is not null && ZeroModePolicy is not null && CropCount.Map(static count => count.Value > 0).IfNone(noneValue: true);
+    internal bool IsRaw => ScaleNormalization.Equals(SpectralScaleNormalization.Raw) && EnergyNormalization.Equals(SpectralEnergyNormalization.Raw) && ZeroModePolicy.Equals(SpectralZeroModePolicy.Keep) && CropCount.IsNone;
+    internal bool IsValueOnly => ScaleNormalization.Equals(SpectralScaleNormalization.Raw) && ZeroModePolicy.Equals(SpectralZeroModePolicy.Keep) && CropCount.IsNone;
+    internal static Fin<SpectralDescriptorPolicy> Admit(SpectralDescriptorPolicy policy, Op key) =>
+        guard(policy.IsValid, key.InvalidInput()).ToFin().Map(_ => policy);
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SpectralDescriptorReceipt(SpectralFilter Filter, int VertexCount, int EigenpairCount, int SourceCount, bool ComparisonReady, bool Pairwise, bool EnergyNormalized, bool ScaleNormalized, SpectralDescriptorPolicy Policy = default, int ZeroModeCount = 0, int CroppedEigenpairCount = 0, Option<SpectralWaveReceipt> Wave = default) {
+    public bool IsValid =>
+        Filter is not null
+        && VertexCount > 0
+        && EigenpairCount > 0
+        && SourceCount >= 0
+        && ZeroModeCount >= 0
+        && CroppedEigenpairCount > 0
+        && CroppedEigenpairCount <= EigenpairCount
+        && ZeroModeCount <= EigenpairCount
+        && SourceCount <= VertexCount
+        && (!Pairwise || SourceCount > 0)
+        && (!ComparisonReady || !Policy.IsRaw || Wave.IsSome);
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SpectralRank(int Index, double Distance, SpectralDescriptor Descriptor);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SpectralRanking(SpectralDescriptor Query, Seq<SpectralRank> Items, SpectralRankingPolicy Policy);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SpectralRankingPolicy(SpectralDescriptorPolicy Descriptor, SpectralDistanceKind Distance, SpectralTieBreak TieBreak) {
+    public static SpectralRankingPolicy Default => new(Descriptor: SpectralDescriptorPolicy.Raw, Distance: SpectralDistanceKind.Euclidean, TieBreak: SpectralTieBreak.InputOrder);
+    internal bool IsValid => Descriptor.IsValid && Distance is not null && TieBreak is not null;
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SpectralWaveReceipt(double Energy, double Bandwidth, Option<double> FirstNonZeroScale, int ZeroModeCount, int CroppedEigenpairCount, int NonZeroEigenpairCount, double RawWeightSum, double NormalizedWeightSum, Option<double> MinLogEigenvalue, Option<double> MaxLogEigenvalue, bool WksNormalized) {
+    internal bool IsValid {
+        get {
+            Option<double> first = FirstNonZeroScale, minLog = MinLogEigenvalue, maxLog = MaxLogEigenvalue;
+            bool firstValid = first.IsNone || (RhinoMath.IsValidDouble(x: first.IfNone(0.0)) && first.IfNone(0.0) > 0.0);
+            bool rangeValid = minLog.IsNone || maxLog.IsNone || (RhinoMath.IsValidDouble(x: minLog.IfNone(0.0)) && RhinoMath.IsValidDouble(x: maxLog.IfNone(0.0)) && minLog.IfNone(0.0) <= maxLog.IfNone(0.0));
+            return new[] { Energy, Bandwidth, RawWeightSum, NormalizedWeightSum }.All(RhinoMath.IsValidDouble)
+                && Energy > 0.0
+                && Bandwidth > 0.0
+                && ZeroModeCount >= 0
+                && CroppedEigenpairCount >= NonZeroEigenpairCount
+                && NonZeroEigenpairCount > 0
+                && RawWeightSum > 0.0
+                && (!WksNormalized || Math.Abs(value: NormalizedWeightSum - 1.0) <= 1.0e-9)
+                && firstValid
+                && rangeValid;
+        }
+    }
+}
+
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class SpectralCore {
     internal const double WaveBandwidthFloor = 1e-9;
@@ -273,6 +340,7 @@ internal static class SpectralCore {
     }
     // --- [CROUZEIX_RAVIART] -----------------------------------------------------------------
     internal static Fin<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)> BuildCrouzeixRaviartHeatSystemDetailed(MeshKernel.IntrinsicMesh mesh, double time, Op key) {
+        if (!RhinoMath.IsValidDouble(x: time) || time <= 0.0) return Fin.Fail<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)>(error: key.InvalidInput());
         if (!mesh.IsFrozen) return Fin.Fail<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)>(error: key.InvalidInput());
         if (mesh.HasFlips) return Fin.Fail<(SparseMatrix Matrix, SpectralAssemblyReceipt Receipt)>(error: key.Unsupported(geometryType: typeof(MeshKernel.IntrinsicMesh), outputType: typeof(SparseMatrix)));
         int eCount = mesh.EdgeCount;
@@ -491,11 +559,119 @@ internal static class SpectralCore {
     internal static Fin<DiscreteCalculus> Build(MeshSpace space, Op key) =>
         Build(space: space, kind: MeshLaplacian.IntrinsicDelaunay, key: key);
     internal static Fin<DiscreteCalculus> Build(MeshSpace space, MeshLaplacian kind, Op key) =>
-        from imesh in space.Cache.IntrinsicMeshSnapshot(key: key)
-        from laplacian in space.Laplacian(kind: kind, key: key)
+        from activeKind in Optional(kind).ToFin(key.InvalidInput())
+        from imesh in activeKind.Equals(MeshLaplacian.TuftedIntrinsic)
+            ? space.Cache.TuftedIntrinsicMeshSnapshot(key: key)
+            : space.Cache.IntrinsicMeshSnapshot(key: key)
+        from laplacian in space.Laplacian(kind: activeKind, key: key)
         from topology in MeshKernel.TopologyDetailed(space: space, key: key)
         from dec in AssembleDecOperators(imesh: imesh, mass: laplacian.MassLumped, topology: topology, key: key)
-        select dec;
+        from transport in MeshKernel.SignpostTransportReceiptOf(space: space, imesh: imesh, key: key)
+        from harmonic in topology.Genus.Map(static genus => genus > 0).IfNone(noneValue: false)
+            ? BuildHarmonicOneForms(calculus: dec, topology: topology, key: key).Map(static basis => Some(basis))
+            : Fin.Succ(Option<HarmonicOneFormBasis>.None)
+        select dec with { Transport = Some(transport), Harmonic = harmonic };
+
+    private static Fin<HarmonicOneFormBasis> BuildHarmonicOneForms(DiscreteCalculus calculus, TopologyReceipt topology, Op key) {
+        int edgeCount = calculus.D0.Rows.Value;
+        int vertexCount = calculus.D0.Cols.Value;
+        int faceCount = calculus.D1.Rows.Value;
+        int expected = topology.Genus.Map(static genus => 2 * genus).IfNone(0);
+        double tolerance = 1.0e-8;
+        if (expected <= 0 || edgeCount <= 0 || expected > edgeCount || calculus.Star1.Count != edgeCount)
+            return Fin.Fail<HarmonicOneFormBasis>(key.InvalidInput());
+        double[] normal = new double[edgeCount * edgeCount];
+        void AddOuter(IReadOnlyList<(int Col, double Value)> row) {
+            for (int i = 0; i < row.Count; i++)
+                for (int j = 0; j < row.Count; j++)
+                    normal[(row[i].Col * edgeCount) + row[j].Col] += row[i].Value * row[j].Value;
+        }
+        for (int row = 0; row < calculus.D1.Rows.Value; row++) {
+            List<(int Col, double Value)> entries = [];
+            for (int k = calculus.D1.RowPtr[row]; k < calculus.D1.RowPtr[row + 1]; k++) entries.Add(item: (calculus.D1.ColInd[k], calculus.D1.Values[k]));
+            AddOuter(row: entries);
+        }
+        List<(int Col, double Value)>[] coClosed = [.. Enumerable.Range(start: 0, count: vertexCount).Select(static _ => new List<(int Col, double Value)>())];
+        for (int edge = 0; edge < calculus.D0.Rows.Value; edge++)
+            for (int k = calculus.D0.RowPtr[edge]; k < calculus.D0.RowPtr[edge + 1]; k++)
+                coClosed[calculus.D0.ColInd[k]].Add(item: (edge, calculus.D0.Values[k] * calculus.Star1[edge]));
+        for (int row = 0; row < coClosed.Length; row++) AddOuter(row: coClosed[row]);
+        Arr<double> upper = new([.. Enumerable.Range(start: 0, count: edgeCount).SelectMany(row => Enumerable.Range(start: row, count: edgeCount - row).Select(col => 0.5 * (normal[(row * edgeCount) + col] + normal[(col * edgeCount) + row])))]);
+        return from matrix in SymmetricMatrix.Of(dim: Dimension.Create(value: edgeCount), upper: upper, key: key)
+               from eigen in matrix.DecomposeEigenDetailed(key: key)
+               let sorted = eigen.Pairs.AsIterable().OrderBy(static pair => pair.Eigenvalue).ToArray()
+               from enough in sorted.Length >= expected ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
+               from forms in Star1OrthonormalForms(vectors: sorted.Take(count: expected).Select(static pair => pair.Eigenvector), star1: calculus.Star1, key: key)
+               let maxClosed = MaxResidual(matrix: calculus.D1, forms: forms)
+               let maxCoClosed = MaxCoClosedResidual(d0: calculus.D0, star1: calculus.Star1, forms: forms)
+               let orthonormal = Star1OrthonormalResidual(forms: forms, star1: calculus.Star1)
+               let nullity = sorted.Count(pair => pair.Eigenvalue <= tolerance)
+               let receipt = new HarmonicOneFormReceipt(
+                   Genus: topology.Genus,
+                   ExpectedDimension: expected,
+                   ConstraintRows: faceCount + vertexCount,
+                   EdgeCount: edgeCount,
+                   Rank: edgeCount - nullity,
+                   Nullity: nullity,
+                   BasisCount: forms.Count,
+                   SvdTolerance: tolerance,
+                   MinNullEigenvalue: sorted[0].Eigenvalue,
+                   MaxNullEigenvalue: sorted[expected - 1].Eigenvalue,
+                   MaxClosedResidual: maxClosed,
+                   MaxCoClosedResidual: maxCoClosed,
+                   Star1OrthonormalResidual: orthonormal,
+                   PositiveStar1Count: calculus.Star1.Count(static value => value > 0.0),
+                   Eigen: eigen)
+               let basis = new HarmonicOneFormBasis(Forms: forms, Receipt: receipt)
+               from valid in basis.IsValid ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
+               select basis;
+    }
+    private static Fin<Arr<Arr<double>>> Star1OrthonormalForms(IEnumerable<Arr<double>> vectors, Arr<double> star1, Op key) {
+        List<Arr<double>> forms = [];
+        foreach (Arr<double> candidate in vectors) {
+            double[] values = [.. candidate.AsIterable()];
+            if (values.Length != star1.Count) return Fin.Fail<Arr<Arr<double>>>(key.InvalidResult());
+            for (int basis = 0; basis < forms.Count; basis++) {
+                double dot = Star1Inner(left: values, right: forms[basis], star1: star1);
+                for (int i = 0; i < values.Length; i++) values[i] -= dot * forms[basis][i];
+            }
+            double norm = Math.Sqrt(d: Math.Max(val1: 0.0, val2: Star1Inner(left: values, right: values, star1: star1)));
+            if (!RhinoMath.IsValidDouble(x: norm) || norm <= RhinoMath.SqrtEpsilon) return Fin.Fail<Arr<Arr<double>>>(key.InvalidResult());
+            forms.Add(item: new Arr<double>([.. values.Select(value => value / norm)]));
+        }
+        return Fin.Succ(new Arr<Arr<double>>([.. forms]));
+    }
+    private static double Star1Inner(double[] left, Arr<double> right, Arr<double> star1) =>
+        Enumerable.Range(start: 0, count: left.Length).Sum(i => left[i] * right[i] * star1[i]);
+    private static double Star1Inner(double[] left, double[] right, Arr<double> star1) =>
+        Enumerable.Range(start: 0, count: left.Length).Sum(i => left[i] * right[i] * star1[i]);
+    private static double MaxResidual(SparseMatrix matrix, Arr<Arr<double>> forms) {
+        double max = 0.0;
+        foreach (Arr<double> form in forms.AsIterable())
+            for (int row = 0; row < matrix.Rows.Value; row++) {
+                double value = 0.0;
+                for (int k = matrix.RowPtr[row]; k < matrix.RowPtr[row + 1]; k++) value += matrix.Values[k] * form[matrix.ColInd[k]];
+                max = Math.Max(val1: max, val2: Math.Abs(value: value));
+            }
+        return max;
+    }
+    private static double MaxCoClosedResidual(SparseMatrix d0, Arr<double> star1, Arr<Arr<double>> forms) {
+        double max = 0.0;
+        foreach (Arr<double> form in forms.AsIterable())
+            for (int edge = 0; edge < d0.Rows.Value; edge++)
+                for (int k = d0.RowPtr[edge]; k < d0.RowPtr[edge + 1]; k++)
+                    max = Math.Max(val1: max, val2: Math.Abs(value: d0.Values[k] * star1[edge] * form[edge]));
+        return max;
+    }
+    private static double Star1OrthonormalResidual(Arr<Arr<double>> forms, Arr<double> star1) {
+        double max = 0.0;
+        for (int i = 0; i < forms.Count; i++) {
+            double[] left = [.. forms[i].AsIterable()];
+            for (int j = 0; j < forms.Count; j++)
+                max = Math.Max(val1: max, val2: Math.Abs(value: Star1Inner(left: left, right: forms[j], star1: star1) - (i == j ? 1.0 : 0.0)));
+        }
+        return max;
+    }
 
     private static Fin<DiscreteCalculus> AssembleDecOperators(MeshKernel.IntrinsicMesh imesh, Arr<double> mass, TopologyReceipt topology, Op key) {
         int vertCount = imesh.VertexCount;

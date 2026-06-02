@@ -383,16 +383,6 @@ public readonly record struct UiPreviewContext(
     internal Fin<Unit> Mark(UiMark mark) => mark.Render(surface: new UiSurface.Pipeline(Display: Display, Atlas: Atlas));
 }
 
-public sealed record UiViewportRequest<TState, T>(Func<UiPreviewContext, Fin<T>> Run) {
-    internal Fin<T> Apply(UiPreviewContext context) =>
-        Op.Of(name: nameof(UiViewportRequest<,>)).Need(Run).Bind(run => run(arg: context));
-}
-
-public static partial class UiViewportRequest {
-    public static UiViewportRequest<TState, Unit> Paint<TState>(Func<UiPreviewContext, Fin<Unit>> draw) =>
-        new(Run: draw);
-}
-
 public readonly record struct UiPreviewScope(
     RhinoDoc Document,
     RasmOverlay<UiViewportPreview> Overlay,
@@ -804,6 +794,11 @@ public sealed record UiViewportPreview {
     }
 }
 
+public sealed record UiViewportRequest<TState, T>(Func<UiPreviewContext, Fin<T>> Run) {
+    internal Fin<T> Apply(UiPreviewContext context) =>
+        Op.Of(name: nameof(UiViewportRequest<,>)).Need(Run).Bind(run => run(arg: context));
+}
+
 // --- [SERVICES] ---------------------------------------------------------------------------
 public abstract class RasmOverlay<TState>(TState initial) : DisplayConduit, IDisposable {
     private readonly Atom<TState> state = Atom(initial);
@@ -1053,6 +1048,11 @@ public static partial class UiViewportRequest {
             from active in Op.Of(name: nameof(Interaction)).Need(interaction)
             from result in active.Use(document: scope.Document, run: run)
             select result, interactive: true);
+}
+
+public static partial class UiViewportRequest {
+    public static UiViewportRequest<TState, Unit> Paint<TState>(Func<UiPreviewContext, Fin<Unit>> draw) =>
+        new(Run: draw);
 }
 
 internal static class GumballAxesProjection {

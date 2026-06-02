@@ -25,6 +25,8 @@ public enum CommandInputAccept {
     TransparentCommands = 256,
 }
 
+public enum CommandInputOutcomeKind { Value, Option, Undo, Nothing, Rejected, NoResult, Miss, Timeout, Cancel, Exit }
+
 [Flags]
 public enum CommandPointEventPhase {
     None = 0,
@@ -37,7 +39,8 @@ public enum CommandPointEventPhase {
     All = MouseMove | MouseDown | DynamicDraw | PostDrawObjects,
 }
 
-public enum CommandInputOutcomeKind { Value, Option, Undo, Nothing, Rejected, NoResult, Miss, Timeout, Cancel, Exit }
+[Flags] public enum PointerButtons { None = 0, Left = 1, Right = 2, Middle = 4 }
+[Flags] public enum PointerModifiers { None = 0, Shift = 1, Control = 2 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct CommandGet<T>(
@@ -61,6 +64,43 @@ public readonly record struct CommandGet<T>(
         Value.Bind(static value => value is TOut typed ? Some(typed) : Option<TOut>.None);
 
     public bool IsUndo => Raw.Map(static raw => raw == GetResult.Undo).IfNone(noneValue: false);
+}
+
+public readonly record struct CommandInputKind<T>(
+    Seq<Type> Types,
+    Func<CommandInputPolicy, Seq<CommandInputPolicy>, CommandInputRequest<T>> Create) {
+    internal bool Accepts(Type type) =>
+        Types.Exists(candidate => candidate == type);
+}
+
+public readonly record struct CommandInputOutcome<T>(CommandInputOutcomeKind Kind, Option<CommandGet<T>> Result) {
+    internal static CommandInputOutcome<T> Of(CommandGet<T> result) =>
+        new(
+            Kind: (Rejected: result.SelectionTrim.IsSome && result.Value.IsNone, result.Raw.Case, result.CommandResult) switch {
+                (true, _, _) => CommandInputOutcomeKind.Rejected,
+                (_, GetResult.Option, _) => CommandInputOutcomeKind.Option,
+                (_, GetResult.Undo, _) => CommandInputOutcomeKind.Undo,
+                (_, GetResult.Nothing, _) => CommandInputOutcomeKind.Nothing,
+                (_, GetResult.NoResult, _) => CommandInputOutcomeKind.NoResult,
+                (_, GetResult.Miss, _) => CommandInputOutcomeKind.Miss,
+                (_, GetResult.Timeout, _) => CommandInputOutcomeKind.Timeout,
+                (_, GetResult, _) => CommandInputOutcomeKind.Value,
+                (_, _, global::Rhino.Commands.Result.Nothing) => CommandInputOutcomeKind.Nothing,
+                _ => CommandInputOutcomeKind.Value,
+            },
+            Result: Some(result));
+
+    internal static CommandInputOutcome<T> Cancelled { get; } =
+        new(Kind: CommandInputOutcomeKind.Cancel, Result: Option<CommandGet<T>>.None);
+
+    internal static CommandInputOutcome<T> Exit { get; } =
+        new(Kind: CommandInputOutcomeKind.Exit, Result: Option<CommandGet<T>>.None);
+
+    internal Fin<CommandGet<T>> ToGet() =>
+        Kind switch {
+            CommandInputOutcomeKind.Cancel or CommandInputOutcomeKind.Exit => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
+            _ => Result.ToFin(Fail: Op.Of(name: nameof(CommandInputOutcome<>)).InvalidResult()),
+        };
 }
 
 public sealed record CommandInputPolicy {
@@ -361,13 +401,6 @@ public sealed record CommandInputRequest<T> {
         rebind(arg: policies);
 }
 
-public readonly record struct CommandInputKind<T>(
-    Seq<Type> Types,
-    Func<CommandInputPolicy, Seq<CommandInputPolicy>, CommandInputRequest<T>> Create) {
-    internal bool Accepts(Type type) =>
-        Types.Exists(candidate => candidate == type);
-}
-
 public sealed record CommandObjectSelection(
     int Minimum = 1,
     int Maximum = 1,
@@ -524,19 +557,6 @@ public readonly record struct CommandPointConstraint {
         Of(apply: getter => getter.ConstrainToVirtualCPlaneIntersection(plane: plane));
 }
 
-[Union]
-public abstract partial record CommandPointPayload {
-    private CommandPointPayload() { }
-    public sealed record Mouse(GetPointMouseEventArgs Value) : CommandPointPayload;
-    public sealed record Draw(GetPointDrawEventArgs Value) : CommandPointPayload;
-    public sealed record PostDraw(DrawEventArgs Value) : CommandPointPayload;
-    public Option<Point3d> Point => Switch(mouse: static args => Some(args.Value.Point), draw: static args => Some(args.Value.CurrentPoint), postDraw: static _ => Option<Point3d>.None);
-    public Option<DrawingPoint> WindowPoint => Switch(mouse: static args => Some(args.Value.WindowPoint), draw: static _ => Option<DrawingPoint>.None, postDraw: static _ => Option<DrawingPoint>.None);
-    public Option<RhinoViewport> Viewport => Switch(mouse: static args => Some(args.Value.Viewport), draw: static args => Some(args.Value.Viewport), postDraw: static args => Some(args.Value.Viewport));
-    public Option<DisplayPipeline> Display => Switch(mouse: static _ => Option<DisplayPipeline>.None, draw: static args => Some(args.Value.Display), postDraw: static args => Some(args.Value.Display));
-    public Option<PointerState> Pointer => Switch(mouse: static args => Some(new PointerState(Buttons: (args.Value.LeftButtonDown ? PointerButtons.Left : PointerButtons.None) | (args.Value.RightButtonDown ? PointerButtons.Right : PointerButtons.None) | (args.Value.MiddleButtonDown ? PointerButtons.Middle : PointerButtons.None), Modifiers: (args.Value.ShiftKeyDown ? PointerModifiers.Shift : PointerModifiers.None) | (args.Value.ControlKeyDown ? PointerModifiers.Control : PointerModifiers.None))), draw: static _ => Option<PointerState>.None, postDraw: static _ => Option<PointerState>.None);
-}
-
 public readonly record struct CommandPointEvent(
     CommandPointEventPhase Phase,
     RhinoDoc Document,
@@ -588,6 +608,19 @@ public readonly record struct CommandPointEvent(
     }
 }
 
+[Union]
+public abstract partial record CommandPointPayload {
+    private CommandPointPayload() { }
+    public sealed record Mouse(GetPointMouseEventArgs Value) : CommandPointPayload;
+    public sealed record Draw(GetPointDrawEventArgs Value) : CommandPointPayload;
+    public sealed record PostDraw(DrawEventArgs Value) : CommandPointPayload;
+    public Option<Point3d> Point => Switch(mouse: static args => Some(args.Value.Point), draw: static args => Some(args.Value.CurrentPoint), postDraw: static _ => Option<Point3d>.None);
+    public Option<DrawingPoint> WindowPoint => Switch(mouse: static args => Some(args.Value.WindowPoint), draw: static _ => Option<DrawingPoint>.None, postDraw: static _ => Option<DrawingPoint>.None);
+    public Option<RhinoViewport> Viewport => Switch(mouse: static args => Some(args.Value.Viewport), draw: static args => Some(args.Value.Viewport), postDraw: static args => Some(args.Value.Viewport));
+    public Option<DisplayPipeline> Display => Switch(mouse: static _ => Option<DisplayPipeline>.None, draw: static args => Some(args.Value.Display), postDraw: static args => Some(args.Value.Display));
+    public Option<PointerState> Pointer => Switch(mouse: static args => Some(new PointerState(Buttons: (args.Value.LeftButtonDown ? PointerButtons.Left : PointerButtons.None) | (args.Value.RightButtonDown ? PointerButtons.Right : PointerButtons.None) | (args.Value.MiddleButtonDown ? PointerButtons.Middle : PointerButtons.None), Modifiers: (args.Value.ShiftKeyDown ? PointerModifiers.Shift : PointerModifiers.None) | (args.Value.ControlKeyDown ? PointerModifiers.Control : PointerModifiers.None))), draw: static _ => Option<PointerState>.None, postDraw: static _ => Option<PointerState>.None);
+}
+
 public readonly record struct CommandSnapshot(
     Option<RhinoView> View,
     Option<DrawingPoint> WindowPoint,
@@ -608,42 +641,9 @@ public readonly record struct CommandSnapshot(
     internal bool Has(GetResult raw) => raw switch { GetResult.Number => Number.IsSome, GetResult.String => Text.IsSome, GetResult.CustomMessage => CustomMessage.IsSome, GetResult.Point => Point.IsSome || WindowPoint.IsSome || Vector.IsSome, GetResult.Point2d => WindowPoint.IsSome, GetResult.Color => Color.IsSome, GetResult.Object => PickRectangle.IsSome, GetResult.Rectangle2d => Rectangle2d.IsSome, GetResult.Line2d => !Line2d.IsEmpty, _ => false };
 }
 
-[Flags] public enum PointerButtons { None = 0, Left = 1, Right = 2, Middle = 4 }
-[Flags] public enum PointerModifiers { None = 0, Shift = 1, Control = 2 }
-
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct PointerState(PointerButtons Buttons, PointerModifiers Modifiers) {
     public bool IsDrag => Buttons != PointerButtons.None;
-}
-
-public readonly record struct CommandInputOutcome<T>(CommandInputOutcomeKind Kind, Option<CommandGet<T>> Result) {
-    internal static CommandInputOutcome<T> Of(CommandGet<T> result) =>
-        new(
-            Kind: (Rejected: result.SelectionTrim.IsSome && result.Value.IsNone, result.Raw.Case, result.CommandResult) switch {
-                (true, _, _) => CommandInputOutcomeKind.Rejected,
-                (_, GetResult.Option, _) => CommandInputOutcomeKind.Option,
-                (_, GetResult.Undo, _) => CommandInputOutcomeKind.Undo,
-                (_, GetResult.Nothing, _) => CommandInputOutcomeKind.Nothing,
-                (_, GetResult.NoResult, _) => CommandInputOutcomeKind.NoResult,
-                (_, GetResult.Miss, _) => CommandInputOutcomeKind.Miss,
-                (_, GetResult.Timeout, _) => CommandInputOutcomeKind.Timeout,
-                (_, GetResult, _) => CommandInputOutcomeKind.Value,
-                (_, _, global::Rhino.Commands.Result.Nothing) => CommandInputOutcomeKind.Nothing,
-                _ => CommandInputOutcomeKind.Value,
-            },
-            Result: Some(result));
-
-    internal static CommandInputOutcome<T> Cancelled { get; } =
-        new(Kind: CommandInputOutcomeKind.Cancel, Result: Option<CommandGet<T>>.None);
-
-    internal static CommandInputOutcome<T> Exit { get; } =
-        new(Kind: CommandInputOutcomeKind.Exit, Result: Option<CommandGet<T>>.None);
-
-    internal Fin<CommandGet<T>> ToGet() =>
-        Kind switch {
-            CommandInputOutcomeKind.Cancel or CommandInputOutcomeKind.Exit => Fin.Fail<CommandGet<T>>(error: new Fault.Cancelled()),
-            _ => Result.ToFin(Fail: Op.Of(name: nameof(CommandInputOutcome<>)).InvalidResult()),
-        };
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------

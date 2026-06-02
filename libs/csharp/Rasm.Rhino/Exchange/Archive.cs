@@ -22,6 +22,20 @@ public abstract partial record FileArchiveSource {
     public sealed record Bytes(ReadOnlyMemory<byte> Value) : FileArchiveSource;
 }
 
+[SmartEnum<string>]
+public sealed partial class FileResourceRole {
+    public static readonly FileResourceRole Layer = new(key: "layer");
+    public static readonly FileResourceRole Material = new(key: "material");
+    public static readonly FileResourceRole Linetype = new(key: "linetype");
+    public static readonly FileResourceRole Group = new(key: "group");
+    public static readonly FileResourceRole Block = new(key: "block");
+    public static readonly FileResourceRole Instance = new(key: "instance");
+    public static readonly FileResourceRole Member = new(key: "member");
+    public static readonly FileResourceRole Linked = new(key: "linked");
+    public static readonly FileResourceRole Texture = new(key: "texture");
+    public static readonly FileResourceRole Child = new(key: "child");
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
 public sealed record FileArchive(FileArchiveSource Source, FileArchiveMetadata Metadata, FileResourceGraph Resources, Seq<FileObjectManifest> Objects);
 
@@ -83,21 +97,6 @@ public readonly partial record struct FileGeoLocation(
         });
 
 }
-
-[SmartEnum<string>]
-public sealed partial class FileResourceRole {
-    public static readonly FileResourceRole Layer = new(key: "layer");
-    public static readonly FileResourceRole Material = new(key: "material");
-    public static readonly FileResourceRole Linetype = new(key: "linetype");
-    public static readonly FileResourceRole Group = new(key: "group");
-    public static readonly FileResourceRole Block = new(key: "block");
-    public static readonly FileResourceRole Instance = new(key: "instance");
-    public static readonly FileResourceRole Member = new(key: "member");
-    public static readonly FileResourceRole Linked = new(key: "linked");
-    public static readonly FileResourceRole Texture = new(key: "texture");
-    public static readonly FileResourceRole Child = new(key: "child");
-}
-
 public readonly record struct FileResourceEdge(
     DocumentResourceKind FromKind,
     Option<Guid> FromId,

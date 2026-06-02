@@ -173,6 +173,76 @@ def test_api_decompile_returns_ilspy_stdout(monkeypatch: pytest.MonkeyPatch, tmp
     assert api.api(tmp_path, "decompile", "rhino-common", type_name="Rhino.Geometry.Mesh").default_value("") == ("class Mesh {}\n")
 
 
+def test_api_apphost_env_prefers_dotnet_runtime_over_poisoned_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    poisoned = tmp_path / "poisoned-dotnet"
+    runtime_root = tmp_path / "sdk-root"
+    (runtime_root / "shared/Microsoft.NETCore.App").mkdir(parents=True)
+    seen: list[dict[str, str] | None] = []
+
+    def fake_run(
+        argv: tuple[str, ...],
+        *,
+        cwd: Path | None = None,
+        env: dict[str, str] | None = None,
+        check: bool = False,
+        timeout: float | None = None,
+        mode: process.ProcessMode = "capture",
+    ) -> Result[Completed, ProcessFault]:
+        _ = (cwd, check, timeout, mode)
+        seen.append(env)
+        match argv:
+            case ("dotnet", "--list-runtimes"):
+                payload = f"Microsoft.NETCore.App 10.0.3 [{runtime_root}/shared/Microsoft.NETCore.App]\n"
+                return Ok(Completed(argv=argv, returncode=0, stdout=payload.encode(), stderr=b""))
+            case ("ilspycmd", "--version"):
+                return Ok(Completed(argv=argv, returncode=0, stdout=b"ilspycmd: 10.1.0\n", stderr=b""))
+            case _:
+                return Error(process.ProcessFault.fail(*argv, detail=b"unexpected"))
+
+    monkeypatch.setattr(api, "run", fake_run)
+    monkeypatch.setattr(shutil, "which", lambda _cmd: None)
+
+    assert api._with_dotnet_apphost(("ilspycmd", "--version"), env={"DOTNET_ROOT": str(poisoned)}).is_ok()
+    assert seen[-1] is not None
+    assert seen[-1]["DOTNET_ROOT"] == str(runtime_root)
+    assert seen[-1]["DOTNET_MULTILEVEL_LOOKUP"] == "0"
+
+
+def test_api_doctor_reports_selected_dotnet_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    runtime_root = tmp_path / "sdk-root"
+    (runtime_root / "shared/Microsoft.NETCore.App").mkdir(parents=True)
+
+    def fake_run(
+        argv: tuple[str, ...],
+        *,
+        cwd: Path | None = None,
+        env: dict[str, str] | None = None,
+        check: bool = False,
+        timeout: float | None = None,
+        mode: process.ProcessMode = "capture",
+    ) -> Result[Completed, ProcessFault]:
+        _ = (cwd, env, check, timeout, mode)
+        match argv:
+            case ("dotnet", "--list-runtimes"):
+                payload = f"Microsoft.NETCore.App 10.0.3 [{runtime_root}/shared/Microsoft.NETCore.App]\n"
+                return Ok(Completed(argv=argv, returncode=0, stdout=payload.encode(), stderr=b""))
+            case ("ilspycmd", "--version"):
+                return Ok(Completed(argv=argv, returncode=0, stdout=b"ilspycmd: 10.1.0\n", stderr=b""))
+            case ("plutil", *_):
+                return Ok(Completed(argv=argv, returncode=0, stdout=b"9.0.1\n", stderr=b""))
+            case _:
+                return Ok(Completed(argv=argv, returncode=0, stdout=b"", stderr=b""))
+
+    monkeypatch.setattr(api, "run", fake_run)
+    monkeypatch.setattr(shutil, "which", lambda _cmd: None)
+
+    payload = api.api(tmp_path, "doctor", env={"DOTNET_ROOT": str(tmp_path / "poisoned-dotnet")}).default_value(b"{}")
+    assert isinstance(payload, bytes)
+    report = msgspec.json.decode(payload, type=api.ApiDoctor)
+
+    assert report.ilspy["dotnet_root"] == str(runtime_root)
+
+
 def _invoke_verify(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, status: bridge.BridgeStatus = "ok", *, client_fault: process.ProcessFault | None = None
 ) -> tuple[bridge.BridgeResult, tuple[tuple[str, ...], ...], tuple[dict[str, object], ...]]:
@@ -472,7 +542,7 @@ def test_static_check_applies_scoped_whitespace_without_build(monkeypatch: pytes
 
     assert static.run_static_rail(QualitySettings(root=tmp_path), _scope(tmp_path), "check").is_ok()
     assert seen == [
-        ("format", "whitespace", str(tmp_path / "libs/csharp/Rasm/Rasm.csproj"), "--include", "libs/csharp/Rasm/Vectors/Space.cs", "--no-restore"),
+        ("format", "whitespace", str(tmp_path / "libs/csharp/Rasm/Rasm.csproj"), "--include", "libs/csharp/Rasm/Vectors/Space.cs", "--no-restore")
     ]
 
 
@@ -501,7 +571,7 @@ def test_static_check_full_trigger_keeps_format_scoped_to_changed_cs(monkeypatch
 
     assert static._check_plan(plan, _scope(tmp_path), tmp_path).is_ok()
     assert seen == [
-        ("format", "whitespace", str(tmp_path / "libs/csharp/Rasm/Rasm.csproj"), "--include", "libs/csharp/Rasm/Vectors/Space.cs", "--no-restore"),
+        ("format", "whitespace", str(tmp_path / "libs/csharp/Rasm/Rasm.csproj"), "--include", "libs/csharp/Rasm/Vectors/Space.cs", "--no-restore")
     ]
 
 

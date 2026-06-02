@@ -29,6 +29,7 @@ internal static class FlowGens {
             MaxStep: h,
             LastError: Option<double>.None,
             MaxError: 0.0,
+            Dense: Option<DenseOutputState>.None,
             Event: Option<TraceEvent>.None,
             Stop: Option<StreamlineStopKind>.None);
     public static StreamlineTrace Trace(StreamlineStopKind stop) =>
@@ -124,10 +125,17 @@ public sealed class IntegratorKindLaws {
         Spec.SmartEnumCatalogMatches(production: StreamlineStopKind.Items, expectedKeys: [0, 1, 2], key: static k => k.Key);
         Spec.SmartEnumCatalogMatches(production: TraceEventKind.Items, expectedKeys: [0, 1], key: static k => k.Key);
         Spec.SmartEnumCatalogMatches(production: TraceEventStatus.Items, expectedKeys: [0, 1, 2, 3], key: static k => k.Key);
+        Spec.SmartEnumCatalogMatches(production: TraceEventLocalizationKind.Items, expectedKeys: [0, 1], key: static k => k.Key);
         Spec.ForAll(FlowGens.Adaptive, k => Assert.True(k.IsAdaptive));
         Spec.ForAll(FlowGens.NonAdaptive, k => Assert.False(k.IsAdaptive));
         Spec.ForAll(FlowGens.Integrator, k => {
             Assert.True(k.Tableau.IsValid);
+            Assert.True(condition: k.Tableau.MomentReceipt.IsValid);
+            Spec.Succ(k.Tableau.DenseOutputReceipt(key: FlowGens.Key), then: receipt => {
+                Assert.True(condition: receipt.IsValid);
+                Assert.True(condition: receipt.DenseOrder <= k.Tableau.MethodOrder);
+                Assert.Equal(expected: k.Tableau.StageCount, actual: receipt.StageCount);
+            });
             Spec.Equal(left: Numeric.Sum(values: k.Tableau.Weights), right: 1.0, tolerance: 1.0e-10, what: "weights");
             Spec.Holds(condition: k.Tableau.Coupling.Zip(k.Tableau.Abscissae).ForAll(pair => Math.Abs(value: Numeric.Sum(values: pair.First) - pair.Second) <= 1.0e-10), label: "Butcher row sums match abscissae");
             Spec.Holds(condition: k.Tableau.Coupling.AsIterable().Select((row, i) => row.Count <= i).All(static ok => ok), label: "Butcher coupling[i].Count <= i");
@@ -144,6 +152,7 @@ public sealed class IntegratorKindLaws {
         Spec.Fail(new ButcherTableau(Coupling: Seq(Seq<double>(), Seq(1.0)), Abscissae: Seq(0.0, 1.0), Weights: Seq(0.5, 0.5), EmbeddedWeights: Some(Seq(0.5, 0.5)), MethodOrder: 2, EmbeddedOrder: Some(2)).Admit(key: FlowGens.Key));
         Spec.Fail(new ButcherTableau(Coupling: Seq(Seq<double>()), Abscissae: Seq(0.0), Weights: Seq(0.5), EmbeddedWeights: Option<Seq<double>>.None, MethodOrder: 1, EmbeddedOrder: Option<int>.None).Admit(key: FlowGens.Key));
         Spec.Fail(new ButcherTableau(Coupling: Seq(Seq<double>(), Seq(0.5)), Abscissae: Seq(0.0, 1.0), Weights: Seq(0.5, 0.5), EmbeddedWeights: Option<Seq<double>>.None, MethodOrder: 2, EmbeddedOrder: Option<int>.None).Admit(key: FlowGens.Key));
+        Spec.Fail(new ButcherTableau(Coupling: Seq(Seq<double>(), Seq(1.0)), Abscissae: Seq(0.0, 1.0), Weights: Seq(1.0, 0.0), EmbeddedWeights: Option<Seq<double>>.None, MethodOrder: 2, EmbeddedOrder: Option<int>.None).Admit(key: FlowGens.Key));
     }
 }
 
@@ -222,7 +231,9 @@ public sealed class FieldIntegratorLaws {
             Parameter: 0.5,
             Tolerance: FlowGens.Model.Absolute.Value,
             Residual: 0.0,
-            Iterations: 12);
+            Iterations: 12,
+            LocalizationKind: TraceEventLocalizationKind.BoundedBisection,
+            DenseOutput: Option<DenseOutputReceipt>.None);
         StreamlineTrace trace = FlowGens.Trace(stop: StreamlineStopKind.Terminated) with {
             TerminationPoint = @event.Points.Localized,
             Event = Some(@event),
@@ -231,6 +242,25 @@ public sealed class FieldIntegratorLaws {
             Spec.Some(valid.Event, accepted => {
                 Assert.Equal(expected: TraceEventKind.CrossSurface, actual: accepted.Kind);
                 Assert.Equal(expected: TraceEventStatus.BracketedCrossing, actual: accepted.Status);
+            }));
+    }
+    [Fact]
+    public void DenseOutputEventsCarryInterpolationReceipts() {
+        PositiveMagnitude step = Spec.SuccValue(FlowGens.Key.AcceptValidated<PositiveMagnitude>(candidate: 1.0), label: "trace step");
+        ScalarField region = Spec.SuccValue(ScalarField.Worley(seeds: Seq(Point3d.Origin), order: 1, key: FlowGens.Key), label: "event region");
+        Termination stop = Spec.SuccValue(Termination.RegionThreshold(region: region, threshold: 0.5, maxLocalizationIterations: 8, key: FlowGens.Key), label: "region threshold");
+        Spec.Succ(FlowKernel.Trace<StreamlineTrace>(
+            source: VectorField.Constant(value: Vector3d.XAxis),
+            seed: Point3d.Origin,
+            initialStep: step,
+            integrator: Spec.SuccValue(FieldIntegrator.Fixed(kind: IntegratorKind.RK4, key: FlowGens.Key), label: "fixed rk4"),
+            termination: stop,
+            context: FlowGens.Model,
+            key: FlowGens.Key), then: trace => Spec.Some(trace.Event, @event => {
+                Assert.Equal(expected: TraceEventLocalizationKind.DenseOutputRoot, actual: @event.LocalizationKind);
+                Spec.Some(@event.DenseOutput, receipt => Assert.True(condition: receipt.IsValid));
+                Assert.Equal(expected: TraceEventStatus.BracketedCrossing, actual: @event.Status);
+                Spec.Equal(left: @event.Parameter, right: 0.5, tolerance: 0.01, what: "dense event parameter");
             }));
     }
 }

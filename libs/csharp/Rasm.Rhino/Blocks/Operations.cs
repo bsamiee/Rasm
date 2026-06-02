@@ -10,10 +10,34 @@ using TextFields = Rhino.Runtime.TextFields;
 namespace Rasm.Rhino.Blocks;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public enum BlockOpPhase { Mutation, Query }
-public enum BlockOpFamily { Definition, Table, Instance, Linked, Archive, Graph, Attributes, Preview }
+[Union(SwitchMapStateParameterName = "owner")]
+public abstract partial record BlockAttributeTask {
+    private BlockAttributeTask() { }
+    public sealed record Text(DefinitionRef Ref, Option<Guid> InstanceId = default) : BlockAttributeTask;
+    public sealed record Schema(DefinitionRef Ref) : BlockAttributeTask;
+    public sealed record Write(
+        DefinitionRef Ref,
+        HashMap<string, string> Values,
+        ConstraintPolicy? Policy = null,
+        Option<Guid> InstanceId = default,
+        ReferenceScope? Scope = null,
+        MetadataPatch? Metadata = null) : BlockAttributeTask;
+    public sealed record Matrix(Option<Seq<DefinitionRef>> Refs, ReferenceScope Scope) : BlockAttributeTask;
+}
 
-public readonly record struct BlockOpMeta(string Name, BlockOpPhase Phase, BlockOpFamily Family, bool RequiresUiThread);
+[Union(SwitchMapStateParameterName = "owner")]
+public abstract partial record BlockInstanceTask {
+    private BlockInstanceTask() { }
+    public sealed record Place(DefinitionRef Ref, Seq<Placement> At, BatchPolicy? Policy = null) : BlockInstanceTask;
+    public sealed record ReplaceDefinition(Guid InstanceId, DefinitionRef NewRef) : BlockInstanceTask;
+    public sealed record Transform(Guid InstanceId, global::Rhino.Geometry.Transform Xform, TransformPolicy? Mode = null) : BlockInstanceTask;
+    public sealed record Explode(Guid InstanceId, ExplodePolicy Policy) : BlockInstanceTask;
+    public sealed record Inspect(Guid InstanceId, ExplodePolicy Policy) : BlockInstanceTask;
+    public sealed record SubObject(Guid InstanceId, ComponentIndex Component) : BlockInstanceTask;
+    public sealed record SelectedPart(ObjRef Ref) : BlockInstanceTask;
+    public sealed record Flatten(Guid InstanceId, DepthPolicy Policy) : BlockInstanceTask;
+    public sealed record Bounds(DefinitionRef Ref, BoundsPolicy? Policy = null) : BlockInstanceTask;
+}
 
 [Union(SwitchMapStateParameterName = "owner")]
 public abstract partial record BlockOp {
@@ -39,19 +63,11 @@ public abstract partial record BlockOp {
     public sealed record Attributes(BlockAttributeTask Task) : BlockOp;
 }
 
-[Union(SwitchMapStateParameterName = "owner")]
-public abstract partial record BlockInstanceTask {
-    private BlockInstanceTask() { }
-    public sealed record Place(DefinitionRef Ref, Seq<Placement> At, BatchPolicy? Policy = null) : BlockInstanceTask;
-    public sealed record ReplaceDefinition(Guid InstanceId, DefinitionRef NewRef) : BlockInstanceTask;
-    public sealed record Transform(Guid InstanceId, global::Rhino.Geometry.Transform Xform, TransformPolicy? Mode = null) : BlockInstanceTask;
-    public sealed record Explode(Guid InstanceId, ExplodePolicy Policy) : BlockInstanceTask;
-    public sealed record Inspect(Guid InstanceId, ExplodePolicy Policy) : BlockInstanceTask;
-    public sealed record SubObject(Guid InstanceId, ComponentIndex Component) : BlockInstanceTask;
-    public sealed record SelectedPart(ObjRef Ref) : BlockInstanceTask;
-    public sealed record Flatten(Guid InstanceId, DepthPolicy Policy) : BlockInstanceTask;
-    public sealed record Bounds(DefinitionRef Ref, BoundsPolicy? Policy = null) : BlockInstanceTask;
-}
+public enum BlockOpFamily { Definition, Table, Instance, Linked, Archive, Graph, Attributes, Preview }
+
+public readonly record struct BlockOpMeta(string Name, BlockOpPhase Phase, BlockOpFamily Family, bool RequiresUiThread);
+
+public enum BlockOpPhase { Mutation, Query }
 
 [Union(SwitchMapStateParameterName = "owner")]
 public abstract partial record LinkLifecycle {
@@ -63,21 +79,6 @@ public abstract partial record LinkLifecycle {
     public sealed record LayerStyle(BlockFilter? Filter = null, Blocks.LayerStyle? Style = null) : LinkLifecycle;
     public sealed record Update(LinkedPolicy Policy) : LinkLifecycle;
     public sealed record SkipNested(DefinitionRef Ref, bool Value) : LinkLifecycle;
-}
-
-[Union(SwitchMapStateParameterName = "owner")]
-public abstract partial record BlockAttributeTask {
-    private BlockAttributeTask() { }
-    public sealed record Text(DefinitionRef Ref, Option<Guid> InstanceId = default) : BlockAttributeTask;
-    public sealed record Schema(DefinitionRef Ref) : BlockAttributeTask;
-    public sealed record Write(
-        DefinitionRef Ref,
-        HashMap<string, string> Values,
-        ConstraintPolicy? Policy = null,
-        Option<Guid> InstanceId = default,
-        ReferenceScope? Scope = null,
-        MetadataPatch? Metadata = null) : BlockAttributeTask;
-    public sealed record Matrix(Option<Seq<DefinitionRef>> Refs, ReferenceScope Scope) : BlockAttributeTask;
 }
 
 [Union(SwitchMapStateParameterName = "ctx")]
@@ -111,8 +112,9 @@ public abstract partial record TableMutation {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-internal readonly record struct MutateCtx(RhinoBlocks Owner, int Index, Definition Snap, Op Key);
 internal readonly record struct BlockRunPlan(BlockOpMeta Meta, Func<Fin<BlockOutcome>> Run);
+
+internal readonly record struct MutateCtx(RhinoBlocks Owner, int Index, Definition Snap, Op Key);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class ContentIndex {

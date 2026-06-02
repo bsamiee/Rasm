@@ -69,7 +69,7 @@ public sealed class SupportProjectionLaws {
         Spec.Succ(SupportProjection.SignedSpanAway.Project<Vector3d>(space: SpaceGens.PointSpace, hit: nonzero, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
             then: vector => Spec.Equal(left: vector, right: new Vector3d(x: -3.0, y: -4.0, z: 0.0), tolerance: 0.0));
         Spec.Succ(SupportProjection.SignedSpanAway.Project<double>(space: SpaceGens.PointSpace, hit: nonzero, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key),
-            then: distance => Spec.Equal(left: distance, right: 5.0, tolerance: 0.0, what: "away span distance"));
+            then: distance => Spec.Equal(left: distance, right: -5.0, tolerance: 0.0, what: "away span distance"));
         Spec.FailCategory(SupportProjection.Span.Project<VectorFrame>(space: SpaceGens.PointSpace, hit: hit, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Unsupported");
         Spec.FailCategory(SupportProjection.Closest.Project<VectorFrame>(space: SpaceGens.PointSpace, hit: hit, sample: Point3d.Origin, context: SpaceGens.Model, key: SpaceGens.Key), category: "Unsupported");
         Spec.FailCategory(SupportSpace.Of(value: new object(), key: SpaceGens.Key), category: "Unsupported");

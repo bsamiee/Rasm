@@ -5,6 +5,28 @@ using DrawingRectangle = System.Drawing.Rectangle;
 namespace Rasm.Rhino.Camera;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+[Union]
+public abstract partial record CameraAim {
+    private CameraAim() { }
+    public sealed record Preserve : CameraAim;
+    public sealed record Direction(Vector3d Value, Option<Vector3d> Up = default) : CameraAim;
+    public sealed record LookAt(Point3d Location, Point3d Target, Option<Vector3d> Up = default) : CameraAim;
+    public sealed record Plan(Point3d Origin, Vector3d XDirection, Vector3d YDirection, bool SetConstructionPlane = true) : CameraAim;
+
+    internal Fin<Seq<CameraEdit>> Edits(Op op) =>
+        this switch {
+            Preserve => Fin.Succ(value: Seq<CameraEdit>()),
+            Direction aim when aim.Value.IsValid && aim.Value.Length > RhinoMath.ZeroTolerance =>
+                Fin.Succ(value: Seq<CameraEdit>(new CameraEdit.Direction(Value: aim.Value))
+                    + aim.Up.Map(value => Seq<CameraEdit>(new CameraEdit.Up(Value: value))).IfNone(Seq<CameraEdit>())),
+            LookAt aim when aim.Location.IsValid && aim.Target.IsValid =>
+                Fin.Succ(value: Seq<CameraEdit>(new CameraEdit.NavigateLookAt(From: aim.Location, At: aim.Target, UpAxis: aim.Up))),
+            Plan aim when aim.Origin.IsValid && aim.XDirection.IsValid && aim.YDirection.IsValid =>
+                Fin.Succ(value: Seq<CameraEdit>(new CameraEdit.Plan(Origin: aim.Origin, XDirection: aim.XDirection, YDirection: aim.YDirection, SetConstructionPlane: aim.SetConstructionPlane))),
+            _ => Fin.Fail<Seq<CameraEdit>>(error: op.InvalidInput()),
+        };
+}
+
 [Union(SwitchMapStateParameterName = "scope")]
 public abstract partial record CameraEdit {
     private CameraEdit() { }
@@ -155,28 +177,6 @@ public abstract partial record CameraEdit {
         from direction in VectorIntent.Direction(value: value).Project<Vector3d>(context: context, key: op)
         from result in apply(arg: direction)
         select result;
-}
-
-[Union]
-public abstract partial record CameraAim {
-    private CameraAim() { }
-    public sealed record Preserve : CameraAim;
-    public sealed record Direction(Vector3d Value, Option<Vector3d> Up = default) : CameraAim;
-    public sealed record LookAt(Point3d Location, Point3d Target, Option<Vector3d> Up = default) : CameraAim;
-    public sealed record Plan(Point3d Origin, Vector3d XDirection, Vector3d YDirection, bool SetConstructionPlane = true) : CameraAim;
-
-    internal Fin<Seq<CameraEdit>> Edits(Op op) =>
-        this switch {
-            Preserve => Fin.Succ(value: Seq<CameraEdit>()),
-            Direction aim when aim.Value.IsValid && aim.Value.Length > RhinoMath.ZeroTolerance =>
-                Fin.Succ(value: Seq<CameraEdit>(new CameraEdit.Direction(Value: aim.Value))
-                    + aim.Up.Map(value => Seq<CameraEdit>(new CameraEdit.Up(Value: value))).IfNone(Seq<CameraEdit>())),
-            LookAt aim when aim.Location.IsValid && aim.Target.IsValid =>
-                Fin.Succ(value: Seq<CameraEdit>(new CameraEdit.NavigateLookAt(From: aim.Location, At: aim.Target, UpAxis: aim.Up))),
-            Plan aim when aim.Origin.IsValid && aim.XDirection.IsValid && aim.YDirection.IsValid =>
-                Fin.Succ(value: Seq<CameraEdit>(new CameraEdit.Plan(Origin: aim.Origin, XDirection: aim.XDirection, YDirection: aim.YDirection, SetConstructionPlane: aim.SetConstructionPlane))),
-            _ => Fin.Fail<Seq<CameraEdit>>(error: op.InvalidInput()),
-        };
 }
 
 [SmartEnum<int>]
@@ -340,6 +340,26 @@ public readonly record struct CameraChangeReceipt(
         Of(resources: left.Resources + right.Resources, redraw: left.Redraw | right.Redraw);
 }
 
+public sealed record CameraOp<T>(Func<CameraScope, Fin<CameraOutcome<T>>> Run, bool UiBound = true) {
+    public CameraOp<TNext> Map<TNext>(Func<T, TNext> project) =>
+        new(Run: scope => Run(arg: scope)
+                .Map(outcome => CameraOutcome<TNext>.Create(
+                    value: project(arg: outcome.Value),
+                    redraw: outcome.Redraw,
+                    resources: outcome.Resources)),
+            UiBound: UiBound);
+    public CameraOp<TNext> Bind<TNext>(Func<T, CameraOp<TNext>> bind) =>
+        new(Run: scope => Run(arg: scope).Bind(outcome => bind(arg: outcome.Value).Run(arg: scope).Map(next => next with {
+            Redraw = outcome.Redraw | next.Redraw,
+            Resources = outcome.Resources + next.Resources,
+        })), UiBound: true);
+    public CameraOp<T> Catch(Func<Error, CameraOp<T>> handle) =>
+        new(Run: scope => Run(arg: scope).BindFail(error => handle(arg: error).Run(arg: scope)), UiBound: true);
+
+    public CameraOp<T> MapFail(Func<Error, Error> map) =>
+        new(Run: scope => Run(arg: scope).MapFail(map), UiBound: UiBound);
+}
+
 public readonly record struct CameraSection(
     Plane Plane,
     Option<double> Depth = default,
@@ -413,26 +433,6 @@ public readonly record struct CameraShot(
             + viewClipping.Map(value => Seq<CameraEdit>(new CameraEdit.Clipping(Box: value))).IfNone(Seq<CameraEdit>())
             + edits)));
     }
-}
-
-public sealed record CameraOp<T>(Func<CameraScope, Fin<CameraOutcome<T>>> Run, bool UiBound = true) {
-    public CameraOp<TNext> Map<TNext>(Func<T, TNext> project) =>
-        new(Run: scope => Run(arg: scope)
-                .Map(outcome => CameraOutcome<TNext>.Create(
-                    value: project(arg: outcome.Value),
-                    redraw: outcome.Redraw,
-                    resources: outcome.Resources)),
-            UiBound: UiBound);
-    public CameraOp<TNext> Bind<TNext>(Func<T, CameraOp<TNext>> bind) =>
-        new(Run: scope => Run(arg: scope).Bind(outcome => bind(arg: outcome.Value).Run(arg: scope).Map(next => next with {
-            Redraw = outcome.Redraw | next.Redraw,
-            Resources = outcome.Resources + next.Resources,
-        })), UiBound: true);
-    public CameraOp<T> Catch(Func<Error, CameraOp<T>> handle) =>
-        new(Run: scope => Run(arg: scope).BindFail(error => handle(arg: error).Run(arg: scope)), UiBound: true);
-
-    public CameraOp<T> MapFail(Func<Error, Error> map) =>
-        new(Run: scope => Run(arg: scope).MapFail(map), UiBound: UiBound);
 }
 
 public readonly record struct NamedRestorePolicy(bool CPlane = true, bool Projection = true, bool Clipping = true, bool Display = true) {

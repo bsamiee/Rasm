@@ -21,11 +21,7 @@ public partial record EditorOp : IUiOp<EditorResult> {
         new ShellCase(Collapsed: collapsed, ShowNotes: showNotes, ShowUndoHistory: showUndoHistory, Layout: layout);
     public static EditorOp BeginRhinoGetter(RhinoDoc document) => new BeginRhinoGetterCase(Document: document);
 
-    // Show OPENS the editor via its body (GhEditor.ShowEditor, a scope-free static call); it needs nothing
-    // from the scope. A Canvas policy would set RequireCanvas, and in a cold host Scope.Resolve has no canvas
-    // to hand it (the (null, openEditor:false) arm yields a null editor) — so the op would fail before its body
-    // could construct the editor. Read lets the body open it headlessly (createVisible:false stays offscreen,
-    // never arming the StatusBar visible-paint NPE); the resulting canvas is read back via State.
+    // Show is Read-scoped: it opens the editor in-body; headless opens construct the singleton without StatusBar paint.
     GrasshopperUiIntent<EditorResult> IUiOp<EditorResult>.Intent() =>
         new(
             policy: this is ShellCase ? GrasshopperUiPolicy.Canvas(openEditor: true) : GrasshopperUiPolicy.Read,
@@ -56,14 +52,8 @@ internal static partial class Editor {
         shellCase: static shell => ShowEditor(visible: true, layoutRules: shell.Layout.IfNone(string.Empty), op: Op.Of(name: nameof(EditorOp.Shell)), shell: Some(shell)),
         beginRhinoGetterCase: static getter => DispatchRhinoGetter(getter: getter));
 
-    // GH2's ShowEditor ALWAYS calls Form.Show() — even createVisible:false orders the window on-screen offscreen and
-    // hides it on the Shown event. That Show schedules an AppKit DrawRect that paints the StatusBar, whose status-icon
-    // palette (AbstractIcon.FromName("StatusExpired")) resolves null under programmatic PlugIn.LoadPlugIn, so
-    // StatusBar.DrawStateField dereferences null and SIGABRTs the host ~8s later (StatusBar.cs:1016). A headless
-    // request therefore must NEVER show the form: construct the singleton — whose ctor builds the Canvas — and leave it
-    // un-shown so no view is ever realized for paint. Canvas.DrawToBitmap rasterizes into its own bitmap independently
-    // of window visibility, so every canvas op still works. Visible requests keep the real GhEditor.ShowEditor path.
-    // Shell projects EditorShellSnapshot after optional chrome writes; op.Attempt re-rails any native throw to GhEditor.
+    // ShowEditor(false) still Form.Show()s; headless loads construct directly, visible requests use GhEditor.ShowEditor.
+    // Shell snapshots after optional chrome writes; op.Attempt re-rails native throws to GhEditor.
     private static Fin<EditorResult> ShowEditor(bool visible, string layoutRules, Op op, Option<EditorOp.ShellCase> shell = default) =>
         op.Attempt(
             body: () => visible
@@ -84,14 +74,10 @@ internal static partial class Editor {
         };
     }
 
-    // Process-static layout defaults shared by Shell and State snapshots; the only genuinely shareable
-    // reads (the chrome flags below differ — post-mutation in Shell, pre-mutation instance state in State).
     private static (string Initial, Seq<string> Defined) LayoutDefaults() =>
         (Initial: GhEditor.InitialLayout, Defined: toSeq(GhEditor.DefinedLayouts));
 
     private static EditorResult.ShellResult ShellResultOf(GhEditor current, EditorOp.ShellCase shell, Option<GhCanvas> canvas) {
-        // Ordering invariant: chrome writes MUST precede the snapshot reads — ShellResultOf reports the
-        // POST-mutation Collapsed/ShowNotes/ShowUndoHistory, unlike SnapshotEditor's pre-mutation capture.
         _ = shell.Collapsed.Iter(value => current.Collapsed = value);
         _ = shell.ShowNotes.Iter(value => current.ShowNotes = value);
         _ = canvas.Iter(c => shell.ShowUndoHistory.Iter(value => c.ShowUndoHistory = value));
@@ -107,8 +93,6 @@ internal static partial class Editor {
     }
 
     // --- [OPERATIONS] -------------------------------------------------------------------------
-    // Optional(GhEditor.Instance) discharges the "running" vs "not yet shown" branches polymorphically;
-    // shared InitialLayout + DefinedLayouts hoisted once instead of duplicated across arms.
     private static Fin<EditorResult> DispatchState() =>
         Fin.Succ<EditorResult>(value: new EditorResult.StateResult(Snapshot: SnapshotEditor(editor: Optional(GhEditor.Instance))));
 
@@ -131,9 +115,7 @@ internal static partial class Editor {
                 MostRecentCount: e.MostRecentCount),
             None: () => new EditorSnapshot(InitialLayout: layout, DefinedLayouts: definedLayouts));
     }
-    // Null RhinoDoc is bad input (InvalidInput rail). BeginRhinoGetter returns false on BOTH an active command-line
-    // getter (RhinoGet.InGet) AND a pending getter timer, so one native-result-driven GhEditor rail covers both —
-    // the prior RhinoGet.InGet pre-check only saw the former and duplicated the diagnostic.
+    // BeginRhinoGetter returns false for both RhinoGet.InGet and the pending getter timer.
     private static Fin<EditorResult> DispatchRhinoGetter(EditorOp.BeginRhinoGetterCase getter) {
         Op op = Op.Of(name: nameof(EditorOp.BeginRhinoGetter));
         return from document in Optional(getter.Document).ToFin(Fail: UiFault.InvalidInput(op: op, detail: "RhinoDoc is required"))

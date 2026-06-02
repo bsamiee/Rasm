@@ -4,11 +4,148 @@ using Rhino.Collections;
 
 namespace Rasm.Vectors;
 
-// --- [MODELS] -----------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SparseLaplacian(SparseMatrix Stiffness, SparseMatrix MassConsistent, Arr<double> MassLumped, int SkippedDegenerateFaces = 0) {
-    public bool IsValid => Stiffness.IsValid && MassConsistent.IsValid && Stiffness.Rows.Value == MassConsistent.Rows.Value && Stiffness.Cols.Value == MassConsistent.Cols.Value && Stiffness.Rows.Value == Stiffness.Cols.Value && MassLumped.Count == Stiffness.Rows.Value && MassLumped.All(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0);
+// --- [TYPES] ------------------------------------------------------------------------------
+[Union]
+public abstract partial record MeshDescriptor {
+    private MeshDescriptor() { }
+    public sealed record SpectralCase(SpectralFilter Filter, Option<Seq<int>> Sources, SpectralDescriptorPolicy Policy) : MeshDescriptor;
+    internal bool IsValid => this is SpectralCase { Filter: not null } spectral && spectral.Policy.IsValid;
+    public static MeshDescriptor Spectral(SpectralFilter filter, Option<Seq<int>> sources = default) => Spectral(filter: filter, sources: sources, policy: SpectralDescriptorPolicy.Raw);
+    public static MeshDescriptor Spectral(SpectralFilter filter, Option<Seq<int>> sources, SpectralDescriptorPolicy policy) => new SpectralCase(Filter: filter, Sources: sources, Policy: policy);
 }
+
+[SmartEnum<int>] public sealed partial class MeshFeatureAlgorithm { public static readonly MeshFeatureAlgorithm DihedralProxy = new(key: 0); }
+
+[SmartEnum<int>] public sealed partial class MeshFeatureKind { public static readonly MeshFeatureKind Boundary = new(key: 0), Crease = new(key: 1), NonManifold = new(key: 2), Unwelded = new(key: 3), NgonInteriorSkipped = new(key: 4), Ridge = new(key: 5), Valley = new(key: 6), RegionBoundary = new(key: 7); }
+
+[SmartEnum<int>] public sealed partial class MeshLaplacian { public static readonly MeshLaplacian Cotangent = new(key: 0, select: static (cache, key) => cache.Cotangent(key: key)), IntrinsicDelaunay = new(key: 1, select: static (cache, key) => cache.IntrinsicDelaunay(key: key)), TuftedIntrinsic = new(key: 2, select: static (cache, key) => cache.TuftedIntrinsic(key: key)); [UseDelegateFromConstructor] internal partial Fin<SparseLaplacian> Select(LaplacianCache cache, Op key); }
+
+[SmartEnum<int>] public sealed partial class MeshSamplingSpectrumAlgorithm { public static readonly MeshSamplingSpectrumAlgorithm CandidateSpectrum = new(key: 0); }
+
+[Union]
+public abstract partial record MeshSegmentation {
+    private MeshSegmentation() { }
+    public sealed record ScalarThresholdCase(Arr<double> Values, double Threshold, bool IncludeAbove, bool ValuesAreVertices) : MeshSegmentation;
+    public sealed record ScalarBandsCase(Arr<double> Values, Dimension BandCount, bool ValuesAreVertices) : MeshSegmentation;
+    public sealed record SeededRegionGrowCase(Arr<double> Values, Seq<int> SeedFaces, PositiveMagnitude Tolerance, Dimension MaxIterations, bool ValuesAreVertices) : MeshSegmentation;
+    public sealed record DescriptorClustersCase(MeshDescriptor Descriptor, Dimension Eigenpairs, Dimension RegionCount, Dimension MaxIterations, PositiveMagnitude Tolerance) : MeshSegmentation;
+    public sealed record WatershedCase(Arr<double> Values, PositiveMagnitude MergeTolerance, bool ValuesAreVertices) : MeshSegmentation;
+    public sealed record NormalizedCutCase(Arr<double> Values, Dimension RegionCount, Dimension Eigenpairs, Dimension MaxIterations, PositiveMagnitude Tolerance, bool ValuesAreVertices) : MeshSegmentation;
+    public static Fin<MeshSegmentation> ScalarThreshold(Arr<double> values, double threshold, bool includeAbove = true, bool valuesAreVertices = false, Op? key = null) =>
+        AdmitScalars(values: values, key: key.OrDefault()).Bind(admitted =>
+            RhinoMath.IsValidDouble(x: threshold)
+                ? Fin.Succ<MeshSegmentation>(new ScalarThresholdCase(Values: admitted, Threshold: threshold, IncludeAbove: includeAbove, ValuesAreVertices: valuesAreVertices))
+                : Fin.Fail<MeshSegmentation>(key.OrDefault().InvalidInput()));
+    public static Fin<MeshSegmentation> ScalarBands(Arr<double> values, int bandCount, bool valuesAreVertices = false, Op? key = null) =>
+        key.OrDefault() switch { Op op => from admitted in AdmitScalars(values: values, key: op) from count in op.AcceptValidated<Dimension>(candidate: bandCount) from _ in bandCount > 1 ? Fin.Succ(unit) : Fin.Fail<Unit>(op.InvalidInput()) select (MeshSegmentation)new ScalarBandsCase(Values: admitted, BandCount: count, ValuesAreVertices: valuesAreVertices) };
+    public static Fin<MeshSegmentation> SeededRegionGrow(Arr<double> values, Seq<int> seedFaces, double tolerance, int maxIterations, bool valuesAreVertices = false, Op? key = null) =>
+        key.OrDefault() switch { Op op => from admitted in AdmitScalars(values: values, key: op) from seeds in Optional(seedFaces).ToFin(op.InvalidInput()) from _ in seeds.IsEmpty ? Fin.Fail<Unit>(op.InvalidInput()) : Fin.Succ(unit) from eps in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance) from cap in op.AcceptValidated<Dimension>(candidate: maxIterations) select (MeshSegmentation)new SeededRegionGrowCase(Values: admitted, SeedFaces: seeds, Tolerance: eps, MaxIterations: cap, ValuesAreVertices: valuesAreVertices) };
+    public static Fin<MeshSegmentation> DescriptorClusters(MeshDescriptor descriptor, int eigenpairs, int regionCount, int maxIterations, double tolerance, Op? key = null) =>
+        key.OrDefault() switch { Op op => from active in Optional(descriptor).ToFin(op.InvalidInput()) from _ in guard(active.IsValid, op.InvalidInput()) from pairs in op.AcceptValidated<Dimension>(candidate: eigenpairs) from regions in op.AcceptValidated<Dimension>(candidate: regionCount) from __ in regionCount > 1 ? Fin.Succ(unit) : Fin.Fail<Unit>(op.InvalidInput()) from cap in op.AcceptValidated<Dimension>(candidate: maxIterations) from eps in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance) select (MeshSegmentation)new DescriptorClustersCase(Descriptor: active, Eigenpairs: pairs, RegionCount: regions, MaxIterations: cap, Tolerance: eps) };
+    public static Fin<MeshSegmentation> Watershed(Arr<double> values, double mergeTolerance, bool valuesAreVertices = false, Op? key = null) =>
+        key.OrDefault() switch { Op op => from admitted in AdmitScalars(values: values, key: op) from tolerance in op.AcceptValidated<PositiveMagnitude>(candidate: mergeTolerance) select (MeshSegmentation)new WatershedCase(Values: admitted, MergeTolerance: tolerance, ValuesAreVertices: valuesAreVertices) };
+    public static Fin<MeshSegmentation> NormalizedCut(Arr<double> values, int regionCount, int eigenpairs, int maxIterations, double tolerance, bool valuesAreVertices = false, Op? key = null) =>
+        key.OrDefault() switch { Op op => from admitted in AdmitScalars(values: values, key: op) from regions in op.AcceptValidated<Dimension>(candidate: regionCount) from _ in regionCount > 1 ? Fin.Succ(unit) : Fin.Fail<Unit>(op.InvalidInput()) from pairs in op.AcceptValidated<Dimension>(candidate: eigenpairs) from __ in eigenpairs > 1 ? Fin.Succ(unit) : Fin.Fail<Unit>(op.InvalidInput()) from cap in op.AcceptValidated<Dimension>(candidate: maxIterations) from eps in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance) select (MeshSegmentation)new NormalizedCutCase(Values: admitted, RegionCount: regions, Eigenpairs: pairs, MaxIterations: cap, Tolerance: eps, ValuesAreVertices: valuesAreVertices) };
+    private static Fin<Arr<double>> AdmitScalars(Arr<double> values, Op key) =>
+        values.Count == 0 || !values.AsIterable().All(RhinoMath.IsValidDouble)
+            ? Fin.Fail<Arr<double>>(key.InvalidInput())
+            : Fin.Succ(values);
+}
+
+[SmartEnum<int>] public sealed partial class MeshSegmentationAlgorithm { public static readonly MeshSegmentationAlgorithm ScalarThresholdComponents = new(key: 0), ScalarBandComponents = new(key: 1), SeededRegionGrow = new(key: 2), DescriptorScalarClusters = new(key: 3), WatershedBasins = new(key: 4), NormalizedCut = new(key: 5); }
+
+[SmartEnum<int>] public sealed partial class MeshSegmentationStatus { public static readonly MeshSegmentationStatus Completed = new(key: 0), MaxIterationsExhausted = new(key: 1); }
+
+[Union]
+public abstract partial record RemeshKind {
+    private RemeshKind() { }
+    public sealed record QuadCase(PositiveMagnitude TargetLength) : RemeshKind;
+    public sealed record SimplifyCase(ReduceMeshParameters Parameters) : RemeshKind;
+    public static Fin<RemeshKind> Quad(double targetLength, Op? key = null) => key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: targetLength).Map(t => (RemeshKind)new QuadCase(TargetLength: t));
+    public static Fin<RemeshKind> Simplify(ReduceMeshParameters parameters, Op? key = null) =>
+        key.OrDefault() switch {
+            Op op => Optional(parameters).ToFin(op.InvalidInput())
+                .Bind(active => guard(active.DesiredPolygonCount >= 1, op.InvalidInput())
+                    .Bind(_ => Fin.Succ<RemeshKind>(new SimplifyCase(Parameters: active)))),
+        };
+}
+
+[SmartEnum<int>] public sealed partial class RemeshStatus { public static readonly RemeshStatus Completed = new(key: 0); }
+
+[SmartEnum<int>] public sealed partial class SdfMeshDomain { public static readonly SdfMeshDomain SurfaceMesh = new(key: 0), BoundarySource = new(key: 1), VolumeGrid = new(key: 2); }
+
+[SmartEnum<int>] public sealed partial class SdfMeshStatus { public static readonly SdfMeshStatus ApproximateSignClosestDistance = new(key: 0), BoundarySourceSignedHeat = new(key: 1), ClosedSurfaceSignedHeat = new(key: 2); }
+
+[SmartEnum<int>] public sealed partial class TangentLogMapAlgorithm { public static readonly TangentLogMapAlgorithm VectorHeatApproximate = new(key: 0); }
+
+// --- [MODELS] -----------------------------------------------------------------------------
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorReceipt(SpectralDescriptorReceipt Spectral, EigenSolveReceipt<double, Arr<double>> Eigen, int RequestedEigenpairs, int ReturnedEigenpairs, bool SpectralCacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default, Option<SpectralAssemblyReceipt> Assembly = default);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorResult(Arr<double> Values, DescriptorReceipt Receipt);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FeatureEdge(int A, int B, MeshFeatureKind Kind, Option<double> DihedralRadians, Option<double> SignedDihedralRadians = default, Option<double> CurvatureSignal = default);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct FeatureReceipt(Seq<FeatureEdge> Edges, int BoundaryEdges, int CreaseEdges, int NonManifoldEdges, int UnweldedEdges, int NgonInteriorSkippedEdges, double DihedralThresholdRadians, int RidgeEdges = 0, int ValleyEdges = 0, int RegionBoundaryEdges = 0, double CurvatureThreshold = 0.0, double SmoothingScale = 0.0, int CurvatureFiniteVertices = 0, int CurvatureRejectedVertices = 0, MeshFeatureAlgorithm? Algorithm = null) {
+    internal Fin<TOut> Project<TOut>(Op key) =>
+        typeof(TOut) switch {
+            Type t when t == typeof(FeatureReceipt) => Fin.Succ((TOut)(object)this),
+            Type t when t == typeof(Seq<FeatureEdge>) => Fin.Succ((TOut)(object)Edges),
+            Type t when t == typeof(Seq<(int A, int B)>) => Fin.Succ((TOut)(object)toSeq(Edges.AsIterable()
+                .Where(static edge => !edge.Kind.Equals(MeshFeatureKind.NgonInteriorSkipped))
+                .Select(static edge => (edge.A, edge.B)))),
+            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(FeatureReceipt), outputType: typeof(TOut))),
+        };
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FlattenReceipt(int VertexCount, int UvCount, int TextureCoordinateCount, int BoundaryComponents, bool NativeUnwrap, bool Valid, Option<double> EdgeLengthDistortionRms);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct FlattenResult(Arr<Point2d> Uvs, Mesh Mesh, FlattenReceipt Receipt) {
+    internal Fin<TOut> Project<TOut>(Op key) =>
+        typeof(TOut) switch {
+            Type t when t == typeof(Arr<Point2d>) => Fin.Succ((TOut)(object)Uvs),
+            Type t when t == typeof(FlattenResult) => Fin.Succ((TOut)(object)this),
+            Type t when t == typeof(FlattenReceipt) => Fin.Succ((TOut)(object)Receipt),
+            Type t when t == typeof(Mesh) => key.AcceptValue(value: Mesh).Map(static value => (TOut)(object)value),
+            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(FlattenResult), outputType: typeof(TOut))),
+        };
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct MeshFeaturePolicy(VectorAngle DihedralThreshold, PositiveMagnitude CurvatureThreshold, PositiveMagnitude SmoothingScale, Option<Arr<int>> FaceRegions) {
+    internal static Fin<MeshFeaturePolicy> Of(double dihedralRadians, MeshSpace space, Option<Arr<int>> faceRegions, Op key) =>
+        from activeMesh in FieldNabla.MeshNative(space: space, key: key)
+        from dihedral in key.AcceptValidated<VectorAngle>(candidate: dihedralRadians)
+        from _ in guard(dihedral.Value > RhinoMath.ZeroTolerance, key.InvalidInput())
+        let meanEdge = MeshKernel.MeanEdgeLengthOf(mesh: activeMesh)
+        from curvature in key.AcceptValidated<PositiveMagnitude>(candidate: 1.0 / Math.Max(val1: meanEdge, val2: space.Tolerance.Absolute.Value))
+        from smooth in key.AcceptValidated<PositiveMagnitude>(candidate: Math.Max(val1: meanEdge, val2: space.Tolerance.Absolute.Value))
+        from policy in new MeshFeaturePolicy(DihedralThreshold: dihedral, CurvatureThreshold: curvature, SmoothingScale: smooth, FaceRegions: faceRegions).Admit(space: space, key: key)
+        select policy;
+    internal Fin<MeshFeaturePolicy> Admit(MeshSpace space, Op key) {
+        MeshFeaturePolicy self = this;
+        return (from activeMesh in FieldNabla.MeshNative(space: space, key: key)
+                from dihedral in key.AcceptValidated<VectorAngle>(candidate: self.DihedralThreshold.Value)
+                from _ in guard(dihedral.Value > RhinoMath.ZeroTolerance, key.InvalidInput())
+                from curvature in key.AcceptValidated<PositiveMagnitude>(candidate: self.CurvatureThreshold.Value)
+                from smooth in key.AcceptValidated<PositiveMagnitude>(candidate: self.SmoothingScale.Value)
+                select (Mesh: activeMesh, Policy: new MeshFeaturePolicy(DihedralThreshold: dihedral, CurvatureThreshold: curvature, SmoothingScale: smooth, FaceRegions: self.FaceRegions)))
+            .Bind(state => state.Policy.FaceRegions.Match(
+                Some: active => guard(active.Count == state.Mesh.Faces.Count, key.InvalidInput()).ToFin().Map(_ => state.Policy),
+                None: () => Fin.Succ(state.Policy)));
+    }
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct MeshSamplingSpectrumReceipt(int VertexCount, int SampleCount, int EigenpairCount, double LowFrequencyEnergy, double TotalEnergy, double SuppressionRatio, double ValidationThreshold, bool Validated, MeshSamplingSpectrumAlgorithm? Algorithm = null) {
+    internal bool IsValid => VertexCount > 0 && SampleCount > 0 && EigenpairCount > 0 && new[] { LowFrequencyEnergy, TotalEnergy, SuppressionRatio, ValidationThreshold }.All(RhinoMath.IsValidDouble) && TotalEnergy > 0.0 && SuppressionRatio is >= 0.0 and <= 1.0 && ValidationThreshold is >= 0.0 and <= 1.0 && Validated == (SuppressionRatio <= ValidationThreshold);
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationReceipt(MeshSegmentationAlgorithm Algorithm, MeshSegmentationStatus Status, int RequestedRegionCount, int RegionCount, int SeedCount, int AssignedFaceCount, int UnassignedFaceCount, int SkippedDegenerateFaces, int SkippedNonFiniteValues, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorReceipt> Descriptor, Option<SolveReceipt> Solve, Option<bool> SpectralCacheHit, Option<bool> FactorCacheHit, Option<int> FactorNonZeros, Option<double> NormalizedCutValue = default, Option<int> AffinityNonZeros = default, Option<int> WatershedSaddleCount = default, Option<EigenSolveReceipt<double, Arr<double>>> Eigen = default);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationResult(Arr<int> FaceRegions, Arr<int> VertexRegions, MeshSegmentationReceipt Receipt);
+
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshSpace {
     private MeshSpace(Mesh native, Context tolerance) { Native = native; Tolerance = tolerance; }
@@ -27,22 +164,105 @@ public readonly record struct MeshSpace {
     public Fin<SparseLaplacian> Laplacian(MeshLaplacian kind, Op? key = null) =>
         MeshKernel.LaplacianOf(space: this, kind: kind, key: key.OrDefault());
 }
-internal readonly record struct GeodesicKey(Seq<int> Sources);
-[StructLayout(LayoutKind.Auto)] internal readonly record struct McfKey(double TimeStep, int Iterations);
-[StructLayout(LayoutKind.Auto)] internal readonly record struct CrossFieldKey(int Symmetry, Option<Seq<(int Vertex, Direction Hint)>> Constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> Cones);
-internal readonly record struct HodgeKey(VectorField Source);
-[StructLayout(LayoutKind.Auto)] internal readonly record struct VectorHeatKey(double Time, Seq<(int Vertex, Vector3d Direction)> Sources);
-internal readonly record struct BoundarySignedHeatKey(SignedHeatTime Heat, VolumeSolverPolicy Solver);
-internal readonly record struct ClosedSignedHeatKey(VolumeGridPolicy Grid, SignedHeatTime Heat, VolumeSolverPolicy Solver, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition);
-internal readonly record struct SignedHeatSolution(Arr<double> Values, SignedHeatReceipt Receipt, TopologyReceipt Topology);
-internal readonly record struct ClosedSignedHeatSolution(VolumeGridDomain Domain, Arr<double> Values, SignedHeatReceipt Receipt, TopologyReceipt Topology);
-internal readonly record struct EdgeConnectionFactor(CholeskySparse Factor, SpectralAssemblyReceipt Receipt);
-internal readonly record struct VolumeGridDomain(BoundingBox Bounds, int Resolution, int XCells, int YCells, int ZCells, double CellSize, double Padding, VolumeGridReceipt Receipt) {
-    internal int XNodes => XCells + 1; internal int YNodes => YCells + 1; internal int ZNodes => ZCells + 1; internal int NodeCount => XNodes * YNodes * ZNodes; internal int CellCount => XCells * YCells * ZCells;
-    internal int Index(int x, int y, int z) => x + (XNodes * (y + (YNodes * z)));
-    internal Point3d PointAt(int x, int y, int z) => new(x: Bounds.Min.X + (x * CellSize), y: Bounds.Min.Y + (y * CellSize), z: Bounds.Min.Z + (z * CellSize));
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct RemeshReceipt(RemeshKind Kind, RemeshStatus Status, Option<double> TargetLength, Option<int> DesiredPolygonCount, int PreVertexCount, int PreFaceCount, int PostVertexCount, int PostFaceCount, double ReductionRatio, bool Valid, bool HardEdgePreservationRequested, bool TopologyChanged);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct RemeshResult(Mesh Mesh, RemeshReceipt Receipt) {
+    internal Fin<TOut> Project<TOut>(Op key) =>
+        typeof(TOut) switch {
+            Type t when t == typeof(Mesh) => key.AcceptValue(value: Mesh).Map(static value => (TOut)(object)value),
+            Type t when t == typeof(RemeshResult) => Fin.Succ((TOut)(object)this),
+            Type t when t == typeof(RemeshReceipt) => Fin.Succ((TOut)(object)Receipt),
+            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(RemeshResult), outputType: typeof(TOut))),
+        };
 }
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SdfMeshReceipt(SdfMeshMethod Method, SdfMeshStatus Status, SdfMeshDomain Domain, TopologyReceipt Topology, Option<SignedHeatReceipt> SignedHeat, Option<VolumeGridReceipt> VolumeGrid = default);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfMeshSample(double Distance, SdfMeshReceipt Receipt);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SignedHeatReceipt(int BoundarySourceVertexCount, int BoundaryEncodedEdgeSourceCount, int BoundaryRejectedPointCount, int BoundaryUnmatchedSegmentCount, Option<SolveReceipt> HeatSolve, SolveReceipt PoissonSolve, Option<SpectralAssemblyReceipt> EdgeAssembly = default);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SignpostTransportReceipt(int VertexCount, int IntrinsicEdgeCount, int TransportedEdgeCount, int IntrinsicFlipCount, int ChordFallbackEdges, int MissingFrameEdges, int CommonSubdivisionSegments, bool IntrinsicSnapshot, bool ExactCommonSubdivision, double MaxAngleRadians, double MaxLengthResidual) {
+    public bool IsValid =>
+        new[] { VertexCount, IntrinsicEdgeCount, TransportedEdgeCount, IntrinsicFlipCount, ChordFallbackEdges, MissingFrameEdges, CommonSubdivisionSegments }.All(static value => value >= 0)
+        && TransportedEdgeCount + MissingFrameEdges <= IntrinsicEdgeCount
+        && ChordFallbackEdges <= TransportedEdgeCount
+        && (!ExactCommonSubdivision || CommonSubdivisionSegments > 0)
+        && RhinoMath.IsValidDouble(x: MaxAngleRadians)
+        && RhinoMath.IsValidDouble(x: MaxLengthResidual)
+        && MaxAngleRadians >= 0.0
+        && MaxLengthResidual >= 0.0
+        && IntrinsicSnapshot;
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct SparseLaplacian(SparseMatrix Stiffness, SparseMatrix MassConsistent, Arr<double> MassLumped, int SkippedDegenerateFaces = 0, Option<TuftedLaplacianReceipt> Tufted = default) {
+    public bool IsValid => Stiffness.IsValid && MassConsistent.IsValid && Stiffness.Rows.Value == MassConsistent.Rows.Value && Stiffness.Cols.Value == MassConsistent.Cols.Value && Stiffness.Rows.Value == Stiffness.Cols.Value && MassLumped.Count == Stiffness.Rows.Value && MassLumped.All(static v => RhinoMath.IsValidDouble(x: v) && v >= 0.0) && Tufted.Map(static receipt => receipt.IsValid).IfNone(noneValue: true);
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SpectralBasisBundle(SpectralBasis Basis, EigenSolveReceipt<double, Arr<double>> Eigen, bool CacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TangentLogMapReceipt(int SourceVertex, int TargetCount, double HeatTime, bool VectorHeatBacked, bool RejectsFlippedIntrinsic, int FiniteLogCount, double MaxMagnitudeResidual, TangentLogMapAlgorithm? Algorithm = null);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TangentLogMapResult(Vector3d Tangent, TangentLogMapReceipt Receipt);
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct TopologyReceipt(int Vertices, int TopologyVertices, int TopologyEdges, int Faces, int Triangles, int Quads, int Ngons, int VisiblePolygons, int BoundaryComponents, int NonManifoldEdges, bool HasBoundary, bool IsClosed, bool IsSolid, bool IsWatertight, bool IsManifold, bool IsOriented, int EulerCharacteristic, Option<int> Genus, bool EulerValidated) {
+    internal Fin<TOut> Project<TOut>(Op key) {
+        int euler = EulerCharacteristic, boundaryComponents = BoundaryComponents;
+        Option<int> genusOption = Genus;
+        return typeof(TOut) switch {
+            Type t when t == typeof(TopologyReceipt) => Fin.Succ((TOut)(object)this),
+            Type t when t == typeof((int Euler, int Genus, int BoundaryComponents)) && genusOption.IsSome => Fin.Succ((TOut)(object)(euler, genusOption.IfNone(noneValue: 0), boundaryComponents)),
+            Type t when t == typeof((int Euler, int Genus, int BoundaryComponents)) => Fin.Fail<TOut>(key.InvalidResult()),
+            _ => Fin.Fail<TOut>(key.Unsupported(geometryType: typeof(TopologyReceipt), outputType: typeof(TOut))),
+        };
+    }
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct TuftedLaplacianReceipt(MeshLaplacian Kind, int OriginalVertices, int OriginalFaces, int IntrinsicVertices, int IntrinsicEdges, int IntrinsicFaces, int LogicalCoverFaces, int LogicalCoverEdges, int BoundaryEdges, int NonManifoldEdges, int MollifiedEdges, double MaxMollification, int IntrinsicFlips, bool DelaunaySatisfied, int StiffnessNonZeros, int MassNonZeros, int PositiveMassCount, int SkippedDegenerateFaces, bool CoverAware, bool CollapsedToOriginalVertices) {
+    public bool IsValid =>
+        Kind is not null
+        && new[] { OriginalVertices, OriginalFaces, IntrinsicVertices, IntrinsicEdges, IntrinsicFaces, LogicalCoverFaces, LogicalCoverEdges, BoundaryEdges, NonManifoldEdges, MollifiedEdges, IntrinsicFlips, StiffnessNonZeros, MassNonZeros, PositiveMassCount, SkippedDegenerateFaces }.All(static value => value >= 0)
+        && RhinoMath.IsValidDouble(x: MaxMollification)
+        && MaxMollification >= 0.0
+        && (!CoverAware || LogicalCoverFaces >= IntrinsicFaces)
+        && (!CoverAware || LogicalCoverEdges >= IntrinsicEdges)
+        && (!CollapsedToOriginalVertices || IntrinsicVertices == OriginalVertices)
+        && PositiveMassCount <= OriginalVertices
+        && DelaunaySatisfied;
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct VolumeGridReceipt(BoundingBox Bounds, int Resolution, int XNodes, int YNodes, int ZNodes, double CellSize, double Padding, int NodeCount, int CellCount, int SourceTriangleCount, int DegenerateTriangleCount, double SourceArea, int InsideNodeCount, int OutsideNodeCount, int NearSurfaceNodeCount, int RejectedVectorCount, double HeatTime, int GaugeNode, double SurfaceShift, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition, VolumeSolverPolicy Solver, int OperatorNonZeros, Option<int> FactorNonZeros, double Residual);
+
+internal readonly record struct BoundarySignedHeatKey(SignedHeatTime Heat, VolumeSolverPolicy Solver);
+
 internal readonly record struct BoundarySignedHeatSource(Arr<double> Rhs, Seq<int> SourceVertices, int EncodedEdgeSourceCount, int RejectedBoundaryPointCount, int UnmatchedBoundarySegmentCount);
+
+internal readonly record struct ClosedSignedHeatKey(VolumeGridPolicy Grid, SignedHeatTime Heat, VolumeSolverPolicy Solver, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition);
+
+internal readonly record struct ClosedSignedHeatSolution(VolumeGridDomain Domain, Arr<double> Values, SignedHeatReceipt Receipt, TopologyReceipt Topology);
+
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct CrossFieldKey(int Symmetry, Option<Arr<(int Vertex, Direction Hint)>> Constraints, Option<Arr<(int Vertex, double HolonomyDeficit)>> Cones) {
+    internal static CrossFieldKey Of(int symmetry, Option<Seq<(int Vertex, Direction Hint)>> constraints, Option<Seq<(int Vertex, double HolonomyDeficit)>> cones) =>
+        new(
+            Symmetry: symmetry,
+            Constraints: constraints.Map(static values => new Arr<(int Vertex, Direction Hint)>([.. values.AsIterable().OrderBy(static row => row.Vertex).ThenBy(static row => row.Hint.Value.X).ThenBy(static row => row.Hint.Value.Y).ThenBy(static row => row.Hint.Value.Z)])),
+            Cones: cones.Map(static values => new Arr<(int Vertex, double HolonomyDeficit)>([.. values.AsIterable().OrderBy(static row => row.Vertex).ThenBy(static row => row.HolonomyDeficit)])));
+}
+
+internal readonly record struct EdgeConnectionFactor(CholeskySparse Factor, SpectralAssemblyReceipt Receipt);
+
+internal readonly record struct GeodesicKey(Seq<int> Sources);
+
+internal readonly record struct HodgeKey(VectorField Source);
+
 internal sealed class LaplacianCache {
     internal const int DefaultSpectralCount = 32;
     private const double SpdRegularization = 1e-8;
@@ -61,11 +281,11 @@ internal sealed class LaplacianCache {
             });
         internal bool Contains(TKey probe) => cache.Value.ContainsKey(key: probe);
     }
-    private readonly Memo<Unit, SparseLaplacian> cotangent = new(), intrinsicDelaunay = new();
+    private readonly Memo<Unit, SparseLaplacian> cotangent = new(), intrinsicDelaunay = new(), tuftedIntrinsic = new();
     private readonly Memo<Unit, CholeskySparse> cholesky = new();
     private readonly Memo<Unit, SpectralBasisBundle> defaultSpectral = new();
     private readonly Lazy<double> meanEdgeLength;
-    private readonly Memo<Unit, MeshKernel.IntrinsicMesh> intrinsicMesh = new();
+    private readonly Memo<Unit, MeshKernel.IntrinsicMesh> intrinsicMesh = new(), tuftedIntrinsicMesh = new();
     private readonly Memo<(int Symmetry, double Time), CholeskySparse> connectionCholesky = new();
     private readonly Memo<double, CholeskySparse> scalarHeatCholesky = new();
     private readonly Memo<double, EdgeConnectionFactor> edgeConnectionCholesky = new();
@@ -90,6 +310,11 @@ internal sealed class LaplacianCache {
             from imesh in IntrinsicMeshSnapshot(key: key)
             from laplacian in MeshKernel.AssembleCotangentFromIntrinsic(imesh: imesh, key: key)
             select laplacian);
+    internal Fin<SparseLaplacian> TuftedIntrinsic(Op key) =>
+        tuftedIntrinsic.Of(probe: unit, compute: () =>
+            from imesh in TuftedIntrinsicMeshSnapshot(key: key)
+            from laplacian in MeshKernel.AssembleTuftedCotangentFromIntrinsic(imesh: imesh, key: key)
+            select laplacian);
     internal Fin<CholeskySparse> Cholesky(Op key) =>
         cholesky.Of(probe: unit, compute: () =>
             from L in IntrinsicDelaunay(key: key)
@@ -98,6 +323,8 @@ internal sealed class LaplacianCache {
             select factor);
     internal Fin<MeshKernel.IntrinsicMesh> IntrinsicMeshSnapshot(Op key) =>
         intrinsicMesh.Of(probe: unit, compute: () => MeshKernel.BuildIntrinsicMesh(mesh: space.Native, key: key));
+    internal Fin<MeshKernel.IntrinsicMesh> TuftedIntrinsicMeshSnapshot(Op key) =>
+        tuftedIntrinsicMesh.Of(probe: unit, compute: () => MeshKernel.BuildTuftedIntrinsicMesh(mesh: space.Native, key: key));
     internal Fin<Arr<double>> SignedHeat(SdfMeshPolicy policy, Op key) => SignedHeatDetailed(policy: policy, key: key).Map(static result => result.Values);
     internal Fin<SignedHeatSolution> SignedHeatDetailed(SdfMeshPolicy policy, Op key) =>
         signedHeat.Of(probe: new BoundarySignedHeatKey(Heat: policy.Heat, Solver: policy.Solver), compute: () => MeshKernel.ComputeSignedHeatDetailed(space: space, policy: policy, key: key));
@@ -144,114 +371,17 @@ internal sealed class LaplacianCache {
     internal Fin<MeshKernel.HodgeBundle> Hodge(HodgeKey probe, Func<Fin<MeshKernel.HodgeBundle>> compute) => hodgeCache.Of(probe, compute);
     internal Fin<Complex[]> VectorHeat(VectorHeatKey probe, Func<Fin<Complex[]>> compute) => vectorHeatCache.Of(probe, compute);
 }
-[SmartEnum<int>] public sealed partial class MeshLaplacian { public static readonly MeshLaplacian Cotangent = new(key: 0, select: static (cache, key) => cache.Cotangent(key: key)), IntrinsicDelaunay = new(key: 1, select: static (cache, key) => cache.IntrinsicDelaunay(key: key)); [UseDelegateFromConstructor] internal partial Fin<SparseLaplacian> Select(LaplacianCache cache, Op key); }
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SpectralBasisBundle(SpectralBasis Basis, EigenSolveReceipt<double, Arr<double>> Eigen, bool CacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TopologyReceipt(int Vertices, int TopologyVertices, int TopologyEdges, int Faces, int Triangles, int Quads, int Ngons, int VisiblePolygons, int BoundaryComponents, int NonManifoldEdges, bool HasBoundary, bool IsClosed, bool IsSolid, bool IsWatertight, bool IsManifold, bool IsOriented, int EulerCharacteristic, Option<int> Genus, bool EulerValidated);
-[SmartEnum<int>] public sealed partial class MeshFeatureKind { public static readonly MeshFeatureKind Boundary = new(key: 0), Crease = new(key: 1), NonManifold = new(key: 2), Unwelded = new(key: 3), NgonInteriorSkipped = new(key: 4), Ridge = new(key: 5), Valley = new(key: 6), RegionBoundary = new(key: 7); }
-[SmartEnum<int>] public sealed partial class MeshFeatureAlgorithm { public static readonly MeshFeatureAlgorithm DihedralProxy = new(key: 0); }
-[SmartEnum<int>] public sealed partial class MeshSamplingSpectrumAlgorithm { public static readonly MeshSamplingSpectrumAlgorithm CandidateSpectrum = new(key: 0); }
-[SmartEnum<int>] public sealed partial class TangentLogMapAlgorithm { public static readonly TangentLogMapAlgorithm VectorHeatApproximate = new(key: 0); }
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct MeshFeaturePolicy(VectorAngle DihedralThreshold, PositiveMagnitude CurvatureThreshold, PositiveMagnitude SmoothingScale, Option<Arr<int>> FaceRegions) {
-    internal static Fin<MeshFeaturePolicy> Of(double dihedralRadians, MeshSpace space, Option<Arr<int>> faceRegions, Op key) =>
-        from activeMesh in FieldNabla.MeshNative(space: space, key: key)
-        from dihedral in key.AcceptValidated<VectorAngle>(candidate: dihedralRadians)
-        from _ in guard(dihedral.Value > RhinoMath.ZeroTolerance, key.InvalidInput())
-        let meanEdge = MeshKernel.MeanEdgeLengthOf(mesh: activeMesh)
-        from curvature in key.AcceptValidated<PositiveMagnitude>(candidate: 1.0 / Math.Max(val1: meanEdge, val2: space.Tolerance.Absolute.Value))
-        from smooth in key.AcceptValidated<PositiveMagnitude>(candidate: Math.Max(val1: meanEdge, val2: space.Tolerance.Absolute.Value))
-        from policy in new MeshFeaturePolicy(DihedralThreshold: dihedral, CurvatureThreshold: curvature, SmoothingScale: smooth, FaceRegions: faceRegions).Admit(space: space, key: key)
-        select policy;
-    internal Fin<MeshFeaturePolicy> Admit(MeshSpace space, Op key) {
-        MeshFeaturePolicy self = this;
-        return (from activeMesh in FieldNabla.MeshNative(space: space, key: key)
-                from dihedral in key.AcceptValidated<VectorAngle>(candidate: self.DihedralThreshold.Value)
-                from _ in guard(dihedral.Value > RhinoMath.ZeroTolerance, key.InvalidInput())
-                from curvature in key.AcceptValidated<PositiveMagnitude>(candidate: self.CurvatureThreshold.Value)
-                from smooth in key.AcceptValidated<PositiveMagnitude>(candidate: self.SmoothingScale.Value)
-                select (Mesh: activeMesh, Policy: new MeshFeaturePolicy(DihedralThreshold: dihedral, CurvatureThreshold: curvature, SmoothingScale: smooth, FaceRegions: self.FaceRegions)))
-            .Bind(state => state.Policy.FaceRegions.Match(
-                Some: active => guard(active.Count == state.Mesh.Faces.Count, key.InvalidInput()).ToFin().Map(_ => state.Policy),
-                None: () => Fin.Succ(state.Policy)));
-    }
-}
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FeatureEdge(int A, int B, MeshFeatureKind Kind, Option<double> DihedralRadians, Option<double> SignedDihedralRadians = default, Option<double> CurvatureSignal = default);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FeatureReceipt(Seq<FeatureEdge> Edges, int BoundaryEdges, int CreaseEdges, int NonManifoldEdges, int UnweldedEdges, int NgonInteriorSkippedEdges, double DihedralThresholdRadians, int RidgeEdges = 0, int ValleyEdges = 0, int RegionBoundaryEdges = 0, double CurvatureThreshold = 0.0, double SmoothingScale = 0.0, int CurvatureFiniteVertices = 0, int CurvatureRejectedVertices = 0, MeshFeatureAlgorithm? Algorithm = null);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FlattenReceipt(int VertexCount, int UvCount, int TextureCoordinateCount, int BoundaryComponents, bool NativeUnwrap, bool Valid, Option<double> EdgeLengthDistortionRms);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FlattenResult(Arr<Point2d> Uvs, Mesh Mesh, FlattenReceipt Receipt);
-[SmartEnum<int>] public sealed partial class RemeshStatus { public static readonly RemeshStatus Completed = new(key: 0); }
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct RemeshReceipt(RemeshKind Kind, RemeshStatus Status, Option<double> TargetLength, Option<int> DesiredPolygonCount, int PreVertexCount, int PreFaceCount, int PostVertexCount, int PostFaceCount, double ReductionRatio, bool Valid, bool HardEdgePreservationRequested, bool TopologyChanged);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct RemeshResult(Mesh Mesh, RemeshReceipt Receipt);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorReceipt(SpectralDescriptorReceipt Spectral, EigenSolveReceipt<double, Arr<double>> Eigen, int RequestedEigenpairs, int ReturnedEigenpairs, bool SpectralCacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default, Option<SpectralAssemblyReceipt> Assembly = default);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct DescriptorResult(Arr<double> Values, DescriptorReceipt Receipt);
-[SmartEnum<int>] public sealed partial class MeshSegmentationAlgorithm { public static readonly MeshSegmentationAlgorithm ScalarThresholdComponents = new(key: 0), ScalarBandComponents = new(key: 1), SeededRegionGrow = new(key: 2), DescriptorScalarClusters = new(key: 3), WatershedBasins = new(key: 4), NormalizedCut = new(key: 5); }
-[SmartEnum<int>] public sealed partial class MeshSegmentationStatus { public static readonly MeshSegmentationStatus Completed = new(key: 0), MaxIterationsExhausted = new(key: 1); }
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationReceipt(MeshSegmentationAlgorithm Algorithm, MeshSegmentationStatus Status, int RequestedRegionCount, int RegionCount, int SeedCount, int AssignedFaceCount, int UnassignedFaceCount, int SkippedDegenerateFaces, int SkippedNonFiniteValues, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorReceipt> Descriptor, Option<SolveReceipt> Solve, Option<bool> SpectralCacheHit, Option<bool> FactorCacheHit, Option<int> FactorNonZeros, Option<double> NormalizedCutValue = default, Option<int> AffinityNonZeros = default, Option<int> WatershedSaddleCount = default, Option<EigenSolveReceipt<double, Arr<double>>> Eigen = default);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationResult(Arr<int> FaceRegions, Arr<int> VertexRegions, MeshSegmentationReceipt Receipt);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct MeshSamplingSpectrumReceipt(int VertexCount, int SampleCount, int EigenpairCount, double LowFrequencyEnergy, double TotalEnergy, double SuppressionRatio, double ValidationThreshold, bool Validated, MeshSamplingSpectrumAlgorithm? Algorithm = null) {
-    internal bool IsValid => VertexCount > 0 && SampleCount > 0 && EigenpairCount > 0 && new[] { LowFrequencyEnergy, TotalEnergy, SuppressionRatio, ValidationThreshold }.All(RhinoMath.IsValidDouble) && TotalEnergy > 0.0 && SuppressionRatio is >= 0.0 and <= 1.0 && ValidationThreshold is >= 0.0 and <= 1.0 && Validated == (SuppressionRatio <= ValidationThreshold);
-}
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TangentLogMapReceipt(int SourceVertex, int TargetCount, double HeatTime, bool VectorHeatBacked, bool RejectsFlippedIntrinsic, int FiniteLogCount, double MaxMagnitudeResidual, TangentLogMapAlgorithm? Algorithm = null);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TangentLogMapResult(Vector3d Tangent, TangentLogMapReceipt Receipt);
-[SmartEnum<int>] public sealed partial class SdfMeshDomain { public static readonly SdfMeshDomain SurfaceMesh = new(key: 0), BoundarySource = new(key: 1), VolumeGrid = new(key: 2); }
-[SmartEnum<int>] public sealed partial class SdfMeshStatus { public static readonly SdfMeshStatus ApproximateSignClosestDistance = new(key: 0), BoundarySourceSignedHeat = new(key: 1), ClosedSurfaceSignedHeat = new(key: 2); }
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct VolumeGridReceipt(BoundingBox Bounds, int Resolution, int XNodes, int YNodes, int ZNodes, double CellSize, double Padding, int NodeCount, int CellCount, int SourceTriangleCount, int DegenerateTriangleCount, double SourceArea, int InsideNodeCount, int OutsideNodeCount, int NearSurfaceNodeCount, int RejectedVectorCount, double HeatTime, int GaugeNode, double SurfaceShift, VolumeInterpolation Interpolation, VolumeBoundaryCondition BoundaryCondition, VolumeSolverPolicy Solver, int OperatorNonZeros, Option<int> FactorNonZeros, double Residual);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SignedHeatReceipt(int BoundarySourceVertexCount, int BoundaryEncodedEdgeSourceCount, int BoundaryRejectedPointCount, int BoundaryUnmatchedSegmentCount, Option<SolveReceipt> HeatSolve, SolveReceipt PoissonSolve, Option<SpectralAssemblyReceipt> EdgeAssembly = default);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SdfMeshReceipt(SdfMeshMethod Method, SdfMeshStatus Status, SdfMeshDomain Domain, TopologyReceipt Topology, Option<SignedHeatReceipt> SignedHeat, Option<VolumeGridReceipt> VolumeGrid = default);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SdfMeshSample(double Distance, SdfMeshReceipt Receipt);
-[Union]
-public abstract partial record MeshDescriptor {
-    private MeshDescriptor() { }
-    public sealed record SpectralCase(SpectralFilter Filter, Option<Seq<int>> Sources, SpectralDescriptorPolicy Policy) : MeshDescriptor;
-    internal bool IsValid => this is SpectralCase { Filter: not null } spectral && spectral.Policy.IsValid;
-    public static MeshDescriptor Spectral(SpectralFilter filter, Option<Seq<int>> sources = default) => Spectral(filter: filter, sources: sources, policy: SpectralDescriptorPolicy.Raw);
-    public static MeshDescriptor Spectral(SpectralFilter filter, Option<Seq<int>> sources, SpectralDescriptorPolicy policy) => new SpectralCase(Filter: filter, Sources: sources, Policy: policy);
-}
 
-[Union]
-public abstract partial record MeshSegmentation {
-    private MeshSegmentation() { }
-    public sealed record ScalarThresholdCase(Arr<double> Values, double Threshold, bool IncludeAbove, bool ValuesAreVertices) : MeshSegmentation;
-    public sealed record ScalarBandsCase(Arr<double> Values, Dimension BandCount, bool ValuesAreVertices) : MeshSegmentation;
-    public sealed record SeededRegionGrowCase(Arr<double> Values, Seq<int> SeedFaces, PositiveMagnitude Tolerance, Dimension MaxIterations, bool ValuesAreVertices) : MeshSegmentation;
-    public sealed record DescriptorClustersCase(MeshDescriptor Descriptor, Dimension Eigenpairs, Dimension RegionCount, Dimension MaxIterations, PositiveMagnitude Tolerance) : MeshSegmentation;
-    public sealed record WatershedCase(Arr<double> Values, PositiveMagnitude MergeTolerance, bool ValuesAreVertices) : MeshSegmentation;
-    public sealed record NormalizedCutCase(Arr<double> Values, Dimension RegionCount, Dimension Eigenpairs, Dimension MaxIterations, PositiveMagnitude Tolerance, bool ValuesAreVertices) : MeshSegmentation;
-    public static Fin<MeshSegmentation> ScalarThreshold(Arr<double> values, double threshold, bool includeAbove = true, bool valuesAreVertices = false, Op? key = null) =>
-        AdmitScalars(values: values, key: key.OrDefault()).Bind(admitted =>
-            RhinoMath.IsValidDouble(x: threshold)
-                ? Fin.Succ<MeshSegmentation>(new ScalarThresholdCase(Values: admitted, Threshold: threshold, IncludeAbove: includeAbove, ValuesAreVertices: valuesAreVertices))
-                : Fin.Fail<MeshSegmentation>(key.OrDefault().InvalidInput()));
-    public static Fin<MeshSegmentation> ScalarBands(Arr<double> values, int bandCount, bool valuesAreVertices = false, Op? key = null) =>
-        key.OrDefault() switch { Op op => from admitted in AdmitScalars(values: values, key: op) from count in op.AcceptValidated<Dimension>(candidate: bandCount) from _ in bandCount > 1 ? Fin.Succ(unit) : Fin.Fail<Unit>(op.InvalidInput()) select (MeshSegmentation)new ScalarBandsCase(Values: admitted, BandCount: count, ValuesAreVertices: valuesAreVertices) };
-    public static Fin<MeshSegmentation> SeededRegionGrow(Arr<double> values, Seq<int> seedFaces, double tolerance, int maxIterations, bool valuesAreVertices = false, Op? key = null) =>
-        key.OrDefault() switch { Op op => from admitted in AdmitScalars(values: values, key: op) from seeds in Optional(seedFaces).ToFin(op.InvalidInput()) from _ in seeds.IsEmpty ? Fin.Fail<Unit>(op.InvalidInput()) : Fin.Succ(unit) from eps in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance) from cap in op.AcceptValidated<Dimension>(candidate: maxIterations) select (MeshSegmentation)new SeededRegionGrowCase(Values: admitted, SeedFaces: seeds, Tolerance: eps, MaxIterations: cap, ValuesAreVertices: valuesAreVertices) };
-    public static Fin<MeshSegmentation> DescriptorClusters(MeshDescriptor descriptor, int eigenpairs, int regionCount, int maxIterations, double tolerance, Op? key = null) =>
-        key.OrDefault() switch { Op op => from active in Optional(descriptor).ToFin(op.InvalidInput()) from _ in guard(active.IsValid, op.InvalidInput()) from pairs in op.AcceptValidated<Dimension>(candidate: eigenpairs) from regions in op.AcceptValidated<Dimension>(candidate: regionCount) from __ in regionCount > 1 ? Fin.Succ(unit) : Fin.Fail<Unit>(op.InvalidInput()) from cap in op.AcceptValidated<Dimension>(candidate: maxIterations) from eps in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance) select (MeshSegmentation)new DescriptorClustersCase(Descriptor: active, Eigenpairs: pairs, RegionCount: regions, MaxIterations: cap, Tolerance: eps) };
-    public static Fin<MeshSegmentation> Watershed(Arr<double> values, double mergeTolerance, bool valuesAreVertices = false, Op? key = null) =>
-        key.OrDefault() switch { Op op => from admitted in AdmitScalars(values: values, key: op) from tolerance in op.AcceptValidated<PositiveMagnitude>(candidate: mergeTolerance) select (MeshSegmentation)new WatershedCase(Values: admitted, MergeTolerance: tolerance, ValuesAreVertices: valuesAreVertices) };
-    public static Fin<MeshSegmentation> NormalizedCut(Arr<double> values, int regionCount, int eigenpairs, int maxIterations, double tolerance, bool valuesAreVertices = false, Op? key = null) =>
-        key.OrDefault() switch { Op op => from admitted in AdmitScalars(values: values, key: op) from regions in op.AcceptValidated<Dimension>(candidate: regionCount) from _ in regionCount > 1 ? Fin.Succ(unit) : Fin.Fail<Unit>(op.InvalidInput()) from pairs in op.AcceptValidated<Dimension>(candidate: eigenpairs) from __ in eigenpairs > 1 ? Fin.Succ(unit) : Fin.Fail<Unit>(op.InvalidInput()) from cap in op.AcceptValidated<Dimension>(candidate: maxIterations) from eps in op.AcceptValidated<PositiveMagnitude>(candidate: tolerance) select (MeshSegmentation)new NormalizedCutCase(Values: admitted, RegionCount: regions, Eigenpairs: pairs, MaxIterations: cap, Tolerance: eps, ValuesAreVertices: valuesAreVertices) };
-    private static Fin<Arr<double>> AdmitScalars(Arr<double> values, Op key) =>
-        values.Count == 0 || !values.AsIterable().All(RhinoMath.IsValidDouble)
-            ? Fin.Fail<Arr<double>>(key.InvalidInput())
-            : Fin.Succ(values);
-}
+[StructLayout(LayoutKind.Auto)] internal readonly record struct McfKey(double TimeStep, int Iterations);
 
-[Union]
-public abstract partial record RemeshKind {
-    private RemeshKind() { }
-    public sealed record QuadCase(PositiveMagnitude TargetLength) : RemeshKind;
-    public sealed record SimplifyCase(ReduceMeshParameters Parameters) : RemeshKind;
-    public static Fin<RemeshKind> Quad(double targetLength, Op? key = null) => key.OrDefault().AcceptValidated<PositiveMagnitude>(candidate: targetLength).Map(t => (RemeshKind)new QuadCase(TargetLength: t));
-    public static Fin<RemeshKind> Simplify(ReduceMeshParameters parameters, Op? key = null) =>
-        key.OrDefault() switch {
-            Op op => Optional(parameters).ToFin(op.InvalidInput())
-                .Bind(active => guard(active.DesiredPolygonCount >= 1, op.InvalidInput())
-                    .Bind(_ => Fin.Succ<RemeshKind>(new SimplifyCase(Parameters: active)))),
-        };
+internal readonly record struct SignedHeatSolution(Arr<double> Values, SignedHeatReceipt Receipt, TopologyReceipt Topology);
+
+[StructLayout(LayoutKind.Auto)] internal readonly record struct VectorHeatKey(double Time, Seq<(int Vertex, Vector3d Direction)> Sources);
+
+internal readonly record struct VolumeGridDomain(BoundingBox Bounds, int Resolution, int XCells, int YCells, int ZCells, double CellSize, double Padding, VolumeGridReceipt Receipt) {
+    internal int XNodes => XCells + 1; internal int YNodes => YCells + 1; internal int ZNodes => ZCells + 1; internal int NodeCount => XNodes * YNodes * ZNodes; internal int CellCount => XCells * YCells * ZCells;
+    internal int Index(int x, int y, int z) => x + (XNodes * (y + (YNodes * z)));
+    internal Point3d PointAt(int x, int y, int z) => new(x: Bounds.Min.X + (x * CellSize), y: Bounds.Min.Y + (y * CellSize), z: Bounds.Min.Z + (z * CellSize));
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -268,6 +398,8 @@ internal static class MeshKernel {
     private readonly record struct WatershedState(int[] Regions, int SeedCount, int SaddleCount);
     private readonly record struct NormalizedCutSystem(SparseMatrix Laplacian, SparseMatrix Degree, int AffinityNonZeros, double Sigma);
     private readonly record struct ClusterState(int[] Labels, int Iterations, bool Converged);
+    [StructLayout(LayoutKind.Auto)] private readonly record struct IntrinsicLengthSet(double LAb, double LBc, double LAc, int MollifiedEdges, double MaxMollification);
+    [StructLayout(LayoutKind.Auto)] private readonly record struct ConnectionEntries(Seq<(int I, int J, double Weight, double Rho)> Rows, SignpostTransportReceipt Receipt);
     [StructLayout(LayoutKind.Auto)] private readonly record struct VolumeSource(Point3d Center, Vector3d Normal, double Area);
     [StructLayout(LayoutKind.Auto)] private readonly record struct VolumeSourceSet(VolumeSource[] Sources, int Degenerate, double Area);
     [StructLayout(LayoutKind.Auto)] private readonly record struct VolumeGridVectors(double[] X, double[] Y, double[] Z, int Rejected, int Inside, int Outside, int NearSurface, int InteriorIndex);
@@ -368,6 +500,10 @@ internal static class MeshKernel {
         from source in IntrinsicMesh.FromMesh(mesh: mesh, key: key)
         from flipped in FlipToDelaunay(imesh: source, key: key)
         select flipped.Freeze();
+    internal static Fin<IntrinsicMesh> BuildTuftedIntrinsicMesh(Mesh mesh, Op key) =>
+        from source in IntrinsicMesh.FromMesh(mesh: mesh, key: key, tuftedCover: true)
+        from flipped in FlipToDelaunay(imesh: source, key: key)
+        select flipped.Freeze();
 
     [StructLayout(LayoutKind.Auto)]
     internal readonly record struct IntrinsicEdge(int Lo, int Hi, double Length, int Face0, int Face1) {
@@ -379,6 +515,13 @@ internal static class MeshKernel {
         internal readonly List<(int A, int B, int C)?> Triangles = [];
         internal readonly Dictionary<(int Lo, int Hi), (double Length, List<int> FaceIdx)> EdgeData = [];
         internal bool HasFlips;
+        internal bool TuftedCover;
+        internal int OriginalFaceCount;
+        internal int FlipCount;
+        internal int MollifiedEdgeCount;
+        internal double MaxMollification;
+        internal int BoundaryEdgeCount;
+        internal int NonManifoldEdgeCount;
         private IntrinsicEdge[]? frozenEdges;
         private Dictionary<(int Lo, int Hi), int>? frozenEdgeIndex;
         private int[][]? frozenFaceEdges;
@@ -386,6 +529,9 @@ internal static class MeshKernel {
         private int[]? frozenFirstIncidentEdge;
         internal bool IsFrozen => frozenEdges is not null;
         internal int EdgeCount => frozenEdges?.Length ?? 0;
+        internal int LiveFaceCount => Triangles.Count(static slot => slot.HasValue);
+        internal int LogicalCoverFaceCount => TuftedCover ? LiveFaceCount * 2 : LiveFaceCount;
+        internal int LogicalCoverEdgeCount => TuftedCover ? EdgeData.Values.Sum(static edge => Math.Max(val1: 2, val2: edge.FaceIdx.Count * 2)) : EdgeData.Count;
         internal IntrinsicEdge EdgeAt(int index) => frozenEdges![index];
         internal int IndexOfEdge(int lo, int hi) =>
             frozenEdgeIndex is { } edges && edges.TryGetValue(key: EdgeKey(i: lo, j: hi), value: out int idx) ? idx : -1;
@@ -403,6 +549,8 @@ internal static class MeshKernel {
                          .Select(static kv => kv.Key)
                          .ToArray())
                 _ = EdgeData.Remove(key: key);
+            BoundaryEdgeCount = EdgeData.Values.Count(static edge => edge.FaceIdx.Count == 1);
+            NonManifoldEdgeCount = EdgeData.Values.Count(static edge => edge.FaceIdx.Count > 2);
             List<KeyValuePair<(int Lo, int Hi), (double Length, List<int> FaceIdx)>> orderedEdges = [.. EdgeData
                 .OrderBy(static kv => kv.Key.Lo)
                 .ThenBy(static kv => kv.Key.Hi)];
@@ -447,18 +595,34 @@ internal static class MeshKernel {
             return this;
         }
         private static (int, int) EdgeKey(int i, int j) => (Math.Min(val1: i, val2: j), Math.Max(val1: i, val2: j));
-        internal static Fin<IntrinsicMesh> FromMesh(Mesh mesh, Op key) {
+        internal static Fin<IntrinsicMesh> FromMesh(Mesh mesh, Op key, bool tuftedCover = false) {
             using Mesh active = mesh.DuplicateMesh();
             if (ContainsQuads(mesh: active) && !active.Faces.ConvertQuadsToTriangles())
                 return Fin.Fail<IntrinsicMesh>(key.InvalidResult());
-            IntrinsicMesh m = new() { VertexCount = active.Vertices.Count };
+            IntrinsicMesh m = new() { VertexCount = active.Vertices.Count, OriginalFaceCount = active.Faces.Count, TuftedCover = tuftedCover };
             for (int f = 0; f < active.Faces.Count; f++) {
                 MeshFace face = active.Faces[index: f];
                 if (!face.IsTriangle) continue;
                 Point3d pa = active.Vertices[index: face.A]; Point3d pb = active.Vertices[index: face.B]; Point3d pc = active.Vertices[index: face.C];
-                _ = m.AddTriangle(a: face.A, b: face.B, c: face.C, lAB: pa.DistanceTo(other: pb), lBC: pb.DistanceTo(other: pc), lAC: pa.DistanceTo(other: pc));
+                IntrinsicLengthSet lengths = tuftedCover
+                    ? MollifiedLengths(lAB: pa.DistanceTo(other: pb), lBC: pb.DistanceTo(other: pc), lAC: pa.DistanceTo(other: pc))
+                    : new IntrinsicLengthSet(LAb: pa.DistanceTo(other: pb), LBc: pb.DistanceTo(other: pc), LAc: pa.DistanceTo(other: pc), MollifiedEdges: 0, MaxMollification: 0.0);
+                m.MollifiedEdgeCount += lengths.MollifiedEdges;
+                m.MaxMollification = Math.Max(val1: m.MaxMollification, val2: lengths.MaxMollification);
+                _ = m.AddTriangle(a: face.A, b: face.B, c: face.C, lAB: lengths.LAb, lBC: lengths.LBc, lAC: lengths.LAc);
             }
             return Fin.Succ(m);
+        }
+        private static IntrinsicLengthSet MollifiedLengths(double lAB, double lBC, double lAC) {
+            double epsilon = RhinoMath.SqrtEpsilon;
+            double longest = Math.Max(val1: lAB, val2: Math.Max(val1: lBC, val2: lAC));
+            double delta = Math.Max(val1: 0.0, val2: longest - (lAB + lBC + lAC - longest) + epsilon);
+            return new IntrinsicLengthSet(
+                LAb: lAB + delta,
+                LBc: lBC + delta,
+                LAc: lAC + delta,
+                MollifiedEdges: delta > 0.0 ? 3 : 0,
+                MaxMollification: delta);
         }
         internal int AddTriangle(int a, int b, int c, double lAB, double lBC, double lAC) {
             int idx = Triangles.Count;
@@ -472,6 +636,7 @@ internal static class MeshKernel {
             (int Lo, int Hi) key = EdgeKey(i: i, j: j);
             ref (double Length, List<int> FaceIdx) edge = ref CollectionsMarshal.GetValueRefOrAddDefault(dictionary: EdgeData, key: key, exists: out bool exists);
             if (exists) {
+                edge.Length = Math.Max(val1: edge.Length, val2: length);
                 edge.FaceIdx.Add(item: faceIdx);
                 return;
             }
@@ -499,6 +664,7 @@ internal static class MeshKernel {
         }
         internal Seq<(int, int)> Flip(int i, int j) {
             HasFlips = true;
+            FlipCount++;
             (int Lo, int Hi) key = EdgeKey(i: i, j: j);
             List<int> faces = EdgeData[key: key].FaceIdx;
             int f1 = faces[index: 0]; int f2 = faces[index: 1];
@@ -565,6 +731,31 @@ internal static class MeshKernel {
         }
         return triplets.Build(key: key);
     }
+    internal static Fin<SparseLaplacian> AssembleTuftedCotangentFromIntrinsic(IntrinsicMesh imesh, Op key) =>
+        from laplacian in AssembleCotangentFromIntrinsic(imesh: imesh, key: key)
+        let receipt = new TuftedLaplacianReceipt(
+            Kind: MeshLaplacian.TuftedIntrinsic,
+            OriginalVertices: imesh.VertexCount,
+            OriginalFaces: imesh.OriginalFaceCount,
+            IntrinsicVertices: imesh.VertexCount,
+            IntrinsicEdges: imesh.EdgeCount,
+            IntrinsicFaces: imesh.LiveFaceCount,
+            LogicalCoverFaces: imesh.LogicalCoverFaceCount,
+            LogicalCoverEdges: imesh.LogicalCoverEdgeCount,
+            BoundaryEdges: imesh.BoundaryEdgeCount,
+            NonManifoldEdges: imesh.NonManifoldEdgeCount,
+            MollifiedEdges: imesh.MollifiedEdgeCount,
+            MaxMollification: imesh.MaxMollification,
+            IntrinsicFlips: imesh.FlipCount,
+            DelaunaySatisfied: imesh.EdgeData.Keys.All(edge => imesh.IsDelaunay(i: edge.Lo, j: edge.Hi)),
+            StiffnessNonZeros: laplacian.Stiffness.NonZeros,
+            MassNonZeros: laplacian.MassConsistent.NonZeros,
+            PositiveMassCount: laplacian.MassLumped.Count(static value => value > RhinoMath.ZeroTolerance),
+            SkippedDegenerateFaces: laplacian.SkippedDegenerateFaces,
+            CoverAware: imesh.TuftedCover,
+            CollapsedToOriginalVertices: true)
+        from _ in receipt.IsValid ? Fin.Succ(unit) : Fin.Fail<Unit>(key.InvalidResult())
+        select laplacian with { Tufted = Some(receipt) };
 
     // --- [SELECTION] ------------------------------------------------------------------------
     internal static Fin<SparseLaplacian> LaplacianOf(MeshSpace space, MeshLaplacian kind, Op key) =>
@@ -908,36 +1099,59 @@ internal static class MeshKernel {
     private static double EdgeAngleInFrame(Vector3d edge, Vector3d xAxis, Vector3d yAxis) =>
         Math.Atan2(y: edge * yAxis, x: edge * xAxis);
 
-    // Flipped intrinsic edges need signpost transport, so this rail fails before use.
-    private static Fin<Seq<(int I, int J, double Weight, double Rho)>> EnumerateConnectionEntries(MeshSpace space, Option<Arr<double>> edgeAdjustment, Op key) =>
-        space.Cache.IntrinsicMeshSnapshot(key: key).Bind(imesh => {
-            if (imesh.HasFlips)
-                return Fin.Fail<Seq<(int I, int J, double Weight, double Rho)>>(key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof(SparseHermitian)));
-            Mesh mesh = space.Native;
-            FrameBundle fb = EnsureVertexFrames(mesh: mesh);
-            int eCount = imesh.EdgeCount;
-            bool hasAdjustment = edgeAdjustment.IsSome;
-            Arr<double> adjustment = edgeAdjustment.IfNone(new Arr<double>([]));
-            Arr<double> weights = SpectralCore.ComputeIntrinsicStar1(imesh: imesh);
-            List<(int, int, double, double)> entries = new(capacity: eCount);
-            for (int e = 0; e < eCount; e++) {
-                double w = weights[index: e];
-                if (w < RhinoMath.ZeroTolerance) continue;
-                IntrinsicEdge edge = imesh.EdgeAt(index: e);
-                int i = edge.Lo, j = edge.Hi;
-                Vector3d eij = (Vector3d)(mesh.Vertices[index: j] - mesh.Vertices[index: i]);
-                double rho = EdgeAngleInFrame(edge: -eij, xAxis: fb.X[j], yAxis: fb.Y[j])
-                           - EdgeAngleInFrame(edge: eij, xAxis: fb.X[i], yAxis: fb.Y[i]);
-                if (hasAdjustment && e < adjustment.Count) rho += adjustment[index: e];
-                entries.Add(item: (i, j, w, rho));
-            }
-            return Fin.Succ(toSeq(entries));
-        });
+    internal static Fin<SignpostTransportReceipt> SignpostTransportReceiptOf(MeshSpace space, IntrinsicMesh imesh, Op key) =>
+        ConnectionEntriesOf(space: space, imesh: imesh, edgeAdjustment: Option<Arr<double>>.None, key: key).Map(static entries => entries.Receipt);
+    private static Fin<ConnectionEntries> EnumerateConnectionEntries(MeshSpace space, Option<Arr<double>> edgeAdjustment, Op key) =>
+        space.Cache.IntrinsicMeshSnapshot(key: key).Bind(imesh => ConnectionEntriesOf(space: space, imesh: imesh, edgeAdjustment: edgeAdjustment, key: key));
+    private static Fin<ConnectionEntries> ConnectionEntriesOf(MeshSpace space, IntrinsicMesh imesh, Option<Arr<double>> edgeAdjustment, Op key) {
+        Mesh mesh = space.Native;
+        FrameBundle fb = EnsureVertexFrames(mesh: mesh);
+        int eCount = imesh.EdgeCount;
+        bool hasAdjustment = edgeAdjustment.IsSome;
+        Arr<double> adjustment = edgeAdjustment.IfNone(new Arr<double>([]));
+        Arr<double> weights = SpectralCore.ComputeIntrinsicStar1(imesh: imesh);
+        List<(int, int, double, double)> entries = new(capacity: eCount);
+        int fallback = 0, missing = 0;
+        double maxAngle = 0.0, maxResidual = 0.0;
+        for (int e = 0; e < eCount; e++) {
+            double w = weights[index: e];
+            if (w < RhinoMath.ZeroTolerance) continue;
+            IntrinsicEdge edge = imesh.EdgeAt(index: e);
+            int i = edge.Lo, j = edge.Hi;
+            Vector3d eij = (Vector3d)(mesh.Vertices[index: j] - mesh.Vertices[index: i]);
+            double chordLength = eij.Length;
+            double residual = Math.Abs(value: chordLength - edge.Length) / Math.Max(val1: edge.Length, val2: RhinoMath.SqrtEpsilon);
+            if (!eij.IsValid || chordLength <= RhinoMath.ZeroTolerance) { missing++; continue; }
+            fallback += imesh.HasFlips || residual > RhinoMath.SqrtEpsilon ? 1 : 0;
+            double rho = EdgeAngleInFrame(edge: -eij, xAxis: fb.X[j], yAxis: fb.Y[j])
+                       - EdgeAngleInFrame(edge: eij, xAxis: fb.X[i], yAxis: fb.Y[i]);
+            if (hasAdjustment && e < adjustment.Count) rho += adjustment[index: e];
+            if (!RhinoMath.IsValidDouble(x: rho)) { missing++; continue; }
+            maxAngle = Math.Max(val1: maxAngle, val2: Math.Abs(value: Math.IEEERemainder(x: rho, y: RhinoMath.TwoPI)));
+            maxResidual = Math.Max(val1: maxResidual, val2: residual);
+            entries.Add(item: (i, j, w, rho));
+        }
+        SignpostTransportReceipt receipt = new(
+            VertexCount: mesh.Vertices.Count,
+            IntrinsicEdgeCount: eCount,
+            TransportedEdgeCount: entries.Count,
+            IntrinsicFlipCount: imesh.FlipCount,
+            ChordFallbackEdges: fallback,
+            MissingFrameEdges: missing,
+            CommonSubdivisionSegments: 0,
+            IntrinsicSnapshot: imesh.IsFrozen,
+            ExactCommonSubdivision: false,
+            MaxAngleRadians: maxAngle,
+            MaxLengthResidual: maxResidual);
+        return receipt.IsValid && entries.Count > 0
+            ? Fin.Succ(new ConnectionEntries(Rows: toSeq(entries), Receipt: receipt))
+            : Fin.Fail<ConnectionEntries>(key.InvalidResult());
+    }
 
     private static Fin<SparseHermitian> BuildConnectionLaplacian(MeshSpace space, double symmetry, Option<Arr<double>> edgeAdjustment, Op key) =>
         from entries in EnumerateConnectionEntries(space: space, edgeAdjustment: edgeAdjustment, key: key)
         let n = space.Native.Vertices.Count
-        let triplets = AssembleHermitianTriplets(entries: entries, symmetry: symmetry)
+        let triplets = AssembleHermitianTriplets(entries: entries.Rows, symmetry: symmetry)
         from result in SparseHermitian.FromTriplets(order: Dimension.Create(value: n), upperTriplets: triplets, key: key)
         select result;
 
@@ -958,7 +1172,7 @@ internal static class MeshKernel {
         from entries in EnumerateConnectionEntries(space: space, edgeAdjustment: edgeAdjustment, key: key)
         from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
         let n = space.Native.Vertices.Count
-        let triplets = AssembleRealBlockTriplets(n: n, mass: laplacian.MassLumped, entries: entries, symmetry: symmetry, time: time)
+        let triplets = AssembleRealBlockTriplets(n: n, mass: laplacian.MassLumped, entries: entries.Rows, symmetry: symmetry, time: time)
         from result in SparseMatrix.FromTriplets(rows: Dimension.Create(value: 2 * n), cols: Dimension.Create(value: 2 * n), triplets: triplets, key: key)
         select result;
 
@@ -983,7 +1197,7 @@ internal static class MeshKernel {
         Option<Seq<(int Vertex, Direction Hint)>> constraints,
         Option<Seq<(int Vertex, double HolonomyDeficit)>> cones,
         Point3d sample, Op key) =>
-        from cached in space.Cache.CrossField(probe: new CrossFieldKey(Symmetry: symmetry, Constraints: constraints, Cones: cones),
+        from cached in space.Cache.CrossField(probe: CrossFieldKey.Of(symmetry: symmetry, constraints: constraints, cones: cones),
             compute: () => ComputeCrossField(space: space, symmetry: symmetry, constraints: constraints, cones: cones, key: key))
         from value in BarycentricBlend(space: space, sample: sample, perVertex: cached, key: key,
             decode: (value, x, y) => DecodeRosy(value: value, xAxis: x, yAxis: y, symmetry: symmetry))
@@ -1169,7 +1383,7 @@ internal static class MeshKernel {
         from _ in scalars.FiniteCount < kind.RegionCount.Value ? Fin.Fail<Unit>(key.InvalidInput()) : Fin.Succ(unit)
         from system in NormalizedCutSystemOf(mesh: space.Native, scalars: scalars.FaceValues, tolerance: kind.Tolerance.Value, key: key)
         from eigen in MatrixKernel.GeneralizedEigenpairsDetailed(stiffness: system.Laplacian, mass: system.Degree, k: Math.Min(val1: kind.Eigenpairs.Value, val2: Math.Max(val1: 1, val2: space.Native.Faces.Count - 1)), key: key)
-        let projection = NormalizedCutProjection(eigen: eigen, fallback: scalars.FaceValues)
+        from projection in NormalizedCutProjection(eigen: eigen, expectedCount: scalars.FaceValues.Count, key: key)
         from clusters in ClusterLabels(values: projection, count: kind.RegionCount.Value, maxIterations: kind.MaxIterations.Value, tolerance: kind.Tolerance.Value, key: key)
         let labels = ConnectedComponents(mesh: space.Native, buckets: clusters.Labels)
         let value = NormalizedCutValue(mesh: space.Native, scalars: scalars.FaceValues, labels: labels, sigma: system.Sigma)
@@ -1336,14 +1550,18 @@ internal static class MeshKernel {
             mass.Add(item: (f, f, d));
         }
         Dimension dim = Dimension.Create(value: faceCount);
-        return from stiffness in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: laplacian, key: key)
-               from degreeMatrix in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: mass, key: key)
-               select new NormalizedCutSystem(Laplacian: stiffness, Degree: degreeMatrix, AffinityNonZeros: affinities, Sigma: sigma);
+        return affinities == 0
+            ? Fin.Fail<NormalizedCutSystem>(key.InvalidInput())
+            : from stiffness in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: laplacian, key: key)
+              from degreeMatrix in SparseMatrix.FromTriplets(rows: dim, cols: dim, triplets: mass, key: key)
+              select new NormalizedCutSystem(Laplacian: stiffness, Degree: degreeMatrix, AffinityNonZeros: affinities, Sigma: sigma);
     }
-    private static Arr<double> NormalizedCutProjection(EigenSolveReceipt<double, Arr<double>> eigen, Arr<double> fallback) {
+    private static Fin<Arr<double>> NormalizedCutProjection(EigenSolveReceipt<double, Arr<double>> eigen, int expectedCount, Op key) {
         (double Eigenvalue, Arr<double> Eigenvector)[] pairs = [.. eigen.Pairs.AsIterable()];
-        Arr<double> vector = pairs.Length > 1 ? pairs[1].Eigenvector : pairs.Length == 1 ? pairs[0].Eigenvector : fallback;
-        return vector.Count == fallback.Count && vector.ForAll(RhinoMath.IsValidDouble) ? vector : fallback;
+        Arr<double> vector = pairs.Length > 1 ? pairs[1].Eigenvector : pairs.Length == 1 ? pairs[0].Eigenvector : [];
+        return eigen.IsUsable && vector.Count == expectedCount && vector.ForAll(RhinoMath.IsValidDouble)
+            ? Fin.Succ(vector)
+            : Fin.Fail<Arr<double>>(key.InvalidResult());
     }
     private static double NormalizedCutValue(Mesh mesh, Arr<double> scalars, int[] labels, double sigma) {
         int maxRegion = labels.Where(static label => label >= 0).DefaultIfEmpty(defaultValue: -1).Max();
@@ -1545,7 +1763,7 @@ internal static class MeshKernel {
                    Some: genus => genus > 0
                        ? Fin.Fail<Unit>(key.Unsupported(geometryType: typeof(MeshSpace), outputType: typeof(HodgeBundle)))
                        : Fin.Succ(unit),
-                   None: () => Fin.Succ(unit))
+                   None: () => Fin.Fail<Unit>(key.Unsupported(geometryType: typeof(MeshSpace), outputType: typeof(HodgeBundle))))
                from bundle in toSeq(Enumerable.Range(start: 0, count: nEdges)).Fold(
             initialState: Fin.Succ(unit),
             f: (acc, e) => acc.Bind(_ => {
@@ -1638,9 +1856,7 @@ internal static class MeshKernel {
     private static Fin<Complex[]> ComputeVectorHeat(MeshSpace space, Seq<(int Vertex, Vector3d Direction)> sources, double time, Op key) {
         int n = space.Native.Vertices.Count;
         FrameBundle frames = EnsureVertexFrames(mesh: space.Native);
-        return from imesh in space.Cache.IntrinsicMeshSnapshot(key: key)
-               from _ in guard(!imesh.HasFlips, key.Unsupported(geometryType: typeof(IntrinsicMesh), outputType: typeof(Complex[])))
-               from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
+        return from laplacian in space.Laplacian(kind: MeshLaplacian.IntrinsicDelaunay, key: key)
                from connectionFactor in space.Cache.ConnectionCholesky(symmetry: 1, time: time, edgeAdjustment: Option<Arr<double>>.None, key: key)
                from scalarFactor in space.Cache.ScalarHeatCholesky(time: time, key: key)
                let rhs = EncodeVectorHeatSources(n: n, sources: sources, frames: frames, mass: laplacian.MassLumped)

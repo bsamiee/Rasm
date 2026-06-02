@@ -42,8 +42,6 @@ public partial record ObjectScope {
             primaryCase: static (objs, _) => objs.Forwards,
             primaryAndSecondaryCase: static (objs, _) => objs.PrimaryAndSecondary);
 
-    // Per-arm rejection is the single gate (feedback_per_arm_op_provenance): the primary arms own the reject,
-    // so no standalone pre-guard shadows them into unreachability.
     internal Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, DocumentTargetOp op, ActionList actions) =>
         Switch(
             state: (methods, objects, op, actions),
@@ -62,8 +60,6 @@ internal sealed partial class ScopeUse {
     [UseDelegateFromConstructor]
     internal partial string RejectsPrimaryDetail();
 
-    // Single rejection projection shared by every primary-scope guard arm (ObjectScope.Apply,
-    // UiRail.ComposeDispatch, Layout.Measure, RequireMutationScope) so the failure construction lives once.
     internal Fin<T> RejectPrimary<T>(Op op) =>
         Fin.Fail<T>(error: UiFault.InvalidInput(op: op, detail: RejectsPrimaryDetail()));
 }
@@ -136,9 +132,6 @@ public partial record ComposeOp {
     public static readonly ComposeOp Chain = new LinkCase(Kind: DocumentLinkKind.Chain);
     public static readonly ComposeOp Cluster = new LinkCase(Kind: DocumentLinkKind.Cluster);
 
-    // Apply for both Selection (targets=null → *Selection method) and Objects (targets=IDocumentObject[] →
-    // *Objects method). The preflight check on Chain/Cluster uses targets when present, falling back to
-    // GhObjectList.SelectedObjects when selection-scope.
     internal Fin<Option<Guid>> Apply(GhDocumentMethods methods, GhObjectList objects, IDocumentObject[]? targets, ActionList actions) =>
         Switch(state: (methods, objects, targets, actions),
             groupCase: static (s, g) => {
@@ -224,8 +217,7 @@ public partial record FindCriterion {
     public static FindCriterion Downstream(Guid parameterId, WireObjectLimit? maxObjects = null) => Downstream(anchor: GraphKey.Parameter(id: parameterId), maxObjects: maxObjects);
     public static FindCriterion Downstream(GraphKey anchor, WireObjectLimit? maxObjects = null) => new GraphCase(Anchor: anchor, Direction: WireTraversal.Downstream, MaxObjects: maxObjects ?? WireObjectLimit.Create(value: WireObjectLimit.DefaultCount));
     public static FindCriterion ByName(string substring, bool caseInsensitive = true, ObjectScope? scope = null) => new ByNameCase(Substring: substring, CaseInsensitive: caseInsensitive, Scope: scope ?? ObjectScope.Primary);
-    // Host ObjectList.FindBySearch is a verified empty-array stub; Search is a name-substring alias over ByNameCase
-    // that defaults to PrimaryAndSecondary scope (the "search everything" the host stub never delivered).
+    // Host FindBySearch is an empty-array stub, so Search aliases name matching over all primary/secondary objects.
     public static FindCriterion Search(string query, bool caseInsensitive = true) => new ByNameCase(Substring: query, CaseInsensitive: caseInsensitive, Scope: ObjectScope.PrimaryAndSecondary);
 }
 
@@ -260,6 +252,208 @@ public partial record DocumentQuery {
     public static DocumentQuery CustomValue(string key, string defaultValue = "") => new CustomValueCase(Key: key, DefaultValue: defaultValue);
 }
 
+[SkipUnionOps]
+[Union]
+public partial record GroupOp {
+    private GroupOp() { }
+    public sealed record CreateCase(ObjectScope Scope, Option<string> Label, Option<GhOpenColorFamily> Colour) : GroupOp;
+    public sealed record FindCase(Guid Member) : GroupOp;
+    public sealed record ModifyCase(Guid Group, Option<string> Label, Option<GhOpenColorFamily> Colour, Seq<Guid> Add, Seq<Guid> Remove) : GroupOp;
+    public sealed record DissolveCase(Guid Group) : GroupOp;
+    public sealed record StatusCase(Guid Group) : GroupOp;
+
+    public static GroupOp Create(ObjectScope? scope = null, string? label = null, GhOpenColorFamily? colour = null) =>
+        new CreateCase(Scope: scope ?? ObjectScope.Selection, Label: Optional(label), Colour: Optional(colour));
+    public static GroupOp Find(Guid member) => new FindCase(Member: member);
+    public static GroupOp Modify(Guid group, string? label = null, GhOpenColorFamily? colour = null, Seq<Guid> add = default, Seq<Guid> remove = default) =>
+        new ModifyCase(Group: group, Label: Optional(label), Colour: Optional(colour), Add: add, Remove: remove);
+    public static GroupOp Dissolve(Guid group) => new DissolveCase(Group: group);
+    public static GroupOp Status(Guid group) => new StatusCase(Group: group);
+
+    internal GrasshopperUiPolicy Policy => Switch(
+        createCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
+        findCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
+        modifyCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
+        dissolveCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
+        statusCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None));
+
+    internal Fin<DocumentResult> Apply(GrasshopperUi.Scope scope) =>
+        Switch(
+            state: scope,
+            createCase: static (s, create) =>
+                from objects in s.NeedObjects()
+                from snapshot in UiRail.RunDocumentMutation(
+                    scope: s,
+                    op: Op.Of(name: nameof(Create)),
+                    mutate: (m, objs, actions) => Op.Of(name: nameof(Create)).Attempt(
+                        body: () => {
+                            // BOUNDARY ADAPTER -- GroupObjects/GroupSelection insert one GroupObject; null targets route selection.
+                            string label = create.Label.IfNone(string.Empty);
+                            IDocumentObject[]? targets = (create.Scope is ObjectScope.SelectionCase) ? null : [.. create.Scope.Resolve(objects: objs)];
+                            GroupObject grp = targets is null
+                                ? m.GroupSelection(name: label, colour: create.Colour.OrNullable(), actions: actions)
+                                : m.GroupObjects(objects: targets, name: label, colour: create.Colour.OrNullable(), actions: actions);
+                            return DocumentMutationReceipt.CreatedObject(id: grp.InstanceId);
+                        },
+                        what: "DocumentMethods.Group"))
+                let grp = snapshot.Payload.Created.Head.Bind(id => Optional(objects.FindGroup(instanceId: id)))
+                select (DocumentResult)new DocumentResult.GroupResult(Snapshot: GroupSnapshotOf(target: grp, changed: snapshot.Payload.Changed)),
+            findCase: static (s, find) =>
+                from objects in s.NeedObjects()
+                from member in Op.Of(name: nameof(Find)).AcceptValue(value: find.Member)
+                    .MapFail(static _ => UiFault.InvalidInput(op: Op.Of(name: nameof(Find)), detail: "empty member id"))
+                let grp = FindGroupOf(objects: objects, member: member)
+                select (DocumentResult)new DocumentResult.GroupResult(Snapshot: GroupSnapshotOf(target: grp, changed: 0)),
+            modifyCase: static (s, modify) =>
+                from objects in s.NeedObjects()
+                from grp in ResolveGroup(objects: objects, id: modify.Group, op: Op.Of(name: nameof(Modify)))
+                from snapshot in UiRail.RunDocumentMutation(
+                    scope: s,
+                    op: Op.Of(name: nameof(Modify)),
+                    mutate: (_, objs, actions) => Op.Of(name: nameof(Modify)).Attempt(
+                        body: () => ModifyGroup(objects: objs, target: grp, label: modify.Label, colour: modify.Colour, add: modify.Add, remove: modify.Remove, actions: actions),
+                        what: "GroupObject.Modify"))
+                select (DocumentResult)new DocumentResult.GroupResult(Snapshot: GroupSnapshotOf(target: Some(grp), changed: snapshot.Payload.Changed)),
+            dissolveCase: static (s, dissolve) =>
+                from objects in s.NeedObjects()
+                from grp in ResolveGroup(objects: objects, id: dissolve.Group, op: Op.Of(name: nameof(Dissolve)))
+                let members = toSeq(grp.ContentIds)
+                from snapshot in UiRail.RunDocumentMutation(
+                    scope: s,
+                    op: Op.Of(name: nameof(Dissolve)),
+                    mutate: (m, _, actions) => Op.Of(name: nameof(Dissolve)).Attempt(
+                        body: () => DocumentMutationReceipt.Count(changed: m.DeleteObjects(objects: [grp], wires: [], actions: actions)),
+                        what: "DocumentMethods.DeleteObjects"))
+                select (DocumentResult)new DocumentResult.GroupResult(
+                    Snapshot: new DocumentGroupSnapshot(Group: None, Label: None, Colour: None, Members: members, Changed: snapshot.Payload.Changed, Exists: false)),
+            statusCase: static (s, status) =>
+                from objects in s.NeedObjects()
+                let grp = Optional(objects.FindGroup(instanceId: status.Group))
+                select (DocumentResult)new DocumentResult.GroupResult(Snapshot: GroupSnapshotOf(target: grp, changed: 0)));
+
+    private static Fin<GroupObject> ResolveGroup(GhObjectList objects, Guid id, Op op) =>
+        op.AcceptValue(value: id)
+            .MapFail(_ => UiFault.InvalidInput(op: op, detail: "group id is empty"))
+            .Bind(valid => Optional(objects.FindGroup(instanceId: valid))
+                .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"group {valid} not found")));
+
+    private static Option<GroupObject> FindGroupOf(GhObjectList objects, Guid member) =>
+        member == Guid.Empty
+            ? None
+            : toSeq(objects.ContainingGroups(objectId: member)).Head;
+
+    private static DocumentMutationReceipt ModifyGroup(GhObjectList objects, GroupObject target, Option<string> label, Option<GhOpenColorFamily> colour, Seq<Guid> add, Seq<Guid> remove, ActionList actions) {
+        // BOUNDARY ADAPTER -- label/colour have undo actions; membership uses Add/RemoveContent without a host action.
+        _ = label.Iter(text => { actions.Add(new RenameAction(target)); target.UserName = text; });
+        _ = colour.Iter(family => { actions.Add(new PropertyAction(target, nameof(GroupObject.GroupColour))); target.GroupColour = family; });
+        int added = Enumerable.Sum(add.Filter(static id => id != Guid.Empty).Map(id => target.AddContent(id) ? 1 : 0));
+        int removed = Enumerable.Sum(remove.Filter(static id => id != Guid.Empty).Map(id => target.RemoveContent(id) ? 1 : 0));
+        target.Expire();
+        return DocumentMutationReceipt.Count(changed: 1 + added + removed);
+    }
+
+    private static DocumentGroupSnapshot GroupSnapshotOf(Option<GroupObject> target, int changed) =>
+        target is { IsSome: true, Case: GroupObject g }
+            ? new DocumentGroupSnapshot(
+                Group: g.InstanceId.NonEmpty(),
+                Label: Optional(g.UserName).Filter(static n => !string.IsNullOrEmpty(value: n)),
+                Colour: Some(g.GroupColour),
+                Members: toSeq(g.ContentIds),
+                Changed: changed,
+                Exists: true)
+            : new DocumentGroupSnapshot(Group: None, Label: None, Colour: None, Members: Seq<Guid>(), Changed: changed, Exists: false);
+}
+
+[SkipUnionOps]
+[Union]
+public partial record WirelessOp {
+    private WirelessOp() { }
+    public sealed record SplitCase(Guid Source, Guid Target, string Name, PointF Location) : WirelessOp;
+    public sealed record FindCase(Guid Shout) : WirelessOp;
+    public sealed record ConnectCase(Guid Shout, Seq<Guid> Listens) : WirelessOp;
+
+    public static WirelessOp Split(Guid source, Guid target, string name, PointF location) => new SplitCase(Source: source, Target: target, Name: name, Location: location);
+    public static WirelessOp Find(Guid shout) => new FindCase(Shout: shout);
+    public static WirelessOp Connect(Guid shout, Seq<Guid> listens) => new ConnectCase(Shout: shout, Listens: listens);
+
+    internal GrasshopperUiPolicy Policy => Switch(
+        splitCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
+        findCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
+        connectCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas));
+
+    internal Fin<DocumentResult> Apply(GrasshopperUi.Scope scope) =>
+        Switch(
+            state: scope,
+            splitCase: static (s, split) =>
+                from snapshot in UiRail.RunDocumentMutation(
+                    scope: s,
+                    op: Op.Of(name: nameof(Split)),
+                    mutate: (m, objs, actions) => {
+                        Op op = Op.Of(name: nameof(Split));
+                        return from location in op.AcceptPoint(value: split.Location, detail: "non-finite location")
+                               from source in Optional(objs.FindParameter(instanceId: split.Source)).ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"source parameter {split.Source} not found"))
+                               from target in Optional(objs.FindParameter(instanceId: split.Target)).ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"target parameter {split.Target} not found"))
+                               from receipt in op.Attempt(
+                                   body: () => {
+                                       // BOUNDARY ADAPTER -- SplitWire reports Shout/Listen through out-params; empty name is a valid unlabelled split.
+                                       bool changed = m.SplitWire(source: source, target: target, name: split.Name ?? string.Empty, location: location, shout: out Shout? shout, listen: out Listen? listen, actions: actions);
+                                       return DocumentMutationReceipt.Of(changed: changed ? 1 : 0, created: Seq(shout?.InstanceId ?? Guid.Empty, listen?.InstanceId ?? Guid.Empty));
+                                   },
+                                   what: "DocumentMethods.SplitWire")
+                               select receipt;
+                    })
+                let created = snapshot.Payload.Created
+                select (DocumentResult)new DocumentResult.WirelessResult(Snapshot: new DocumentWirelessSnapshot(
+                    Shout: created.Head, Listens: toSeq(created.Skip(count: 1)), Changed: snapshot.Payload.Changed)),
+            findCase: static (s, find) =>
+                from objects in s.NeedObjects()
+                from shout in ResolveShout(objects: objects, id: find.Shout, op: Op.Of(name: nameof(Find)))
+                let listens = ListensOf(shout: shout)
+                select (DocumentResult)new DocumentResult.WirelessResult(Snapshot: new DocumentWirelessSnapshot(
+                    Shout: shout.InstanceId.NonEmpty(), Listens: listens, Changed: 0)),
+            connectCase: static (s, connect) =>
+                from snapshot in UiRail.RunDocumentMutation(
+                    scope: s,
+                    op: Op.Of(name: nameof(Connect)),
+                    mutate: (_, objs, actions) => {
+                        Op op = Op.Of(name: nameof(Connect));
+                        return from shout in ResolveShout(objects: objs, id: connect.Shout, op: op)
+                               from listens in connect.Listens.TraverseM(id => ResolveListen(objects: objs, id: id, op: op)).As()
+                               from _nonEmpty in listens.IsEmpty
+                                   ? Fin.Fail<Seq<Listen>>(error: UiFault.InvalidInput(op: op, detail: "connect requires at least one listen id"))
+                                   : Fin.Succ(value: listens)
+                               from changed in op.Attempt(
+                                   body: () => {
+                                       // BOUNDARY ADAPTER -- Listen uses UserName as ShoutId; RenameAction snapshots each bind.
+                                       string shoutKey = shout.InstanceId.ToString();
+                                       return Enumerable.Sum(listens.Map(listen => { actions.Add(new RenameAction(listen)); listen.UserName = shoutKey; listen.Expire(); return 1; }));
+                                   },
+                                   what: "Shout/Listen pair")
+                               select DocumentMutationReceipt.Count(changed: changed);
+                    })
+                select (DocumentResult)new DocumentResult.WirelessResult(Snapshot: new DocumentWirelessSnapshot(
+                    Shout: connect.Shout.NonEmpty(), Listens: connect.Listens.Filter(static id => id != Guid.Empty), Changed: snapshot.Payload.Changed)));
+
+    private static Fin<Shout> ResolveShout(GhObjectList objects, Guid id, Op op) =>
+        op.AcceptValue(value: id)
+            .MapFail(_ => UiFault.InvalidInput(op: op, detail: "shout id is empty"))
+            .Bind(valid => Optional(objects.Find(instanceId: valid) as Shout)
+                .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"shout {valid} not found")));
+
+    private static Fin<Listen> ResolveListen(GhObjectList objects, Guid id, Op op) =>
+        op.AcceptValue(value: id)
+            .MapFail(_ => UiFault.InvalidInput(op: op, detail: "listen id is empty"))
+            .Bind(valid => Optional(objects.Find(instanceId: valid) as Listen)
+                .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"listen {valid} not found")));
+
+    private static Seq<Guid> ListensOf(Shout shout) =>
+        Optional(shout.Document).Map(document => {
+            // BOUNDARY ADAPTER -- FindReferences splits Listen bindings from expression/script references.
+            document.Globals.FindReferences(shout: shout, listenObjects: out IDocumentObject[] listenObjects, otherObjects: out _);
+            return toSeq(listenObjects).Map(static listen => listen.InstanceId).Filter(static id => id != Guid.Empty);
+        }).IfNone(Seq<Guid>());
+}
+
 [GenerateUnionOps]
 [Union]
 public partial record DocumentOp : IUiOp<DocumentResult> {
@@ -272,6 +466,9 @@ public partial record DocumentOp : IUiOp<DocumentResult> {
     public sealed partial record SolutionCase(SolutionControl Control, SolutionMode Mode) : DocumentOp;
     public sealed partial record MarkCase(DocumentMark Request) : DocumentOp;
     public sealed partial record ReviewCase(DocumentReview Request) : DocumentOp;
+    public sealed partial record GroupCase(GroupOp Op) : DocumentOp;
+    public sealed partial record WirelessCase(WirelessOp Op) : DocumentOp;
+    public sealed partial record CustomValueCase(string Key, Option<string> Value) : DocumentOp;
     public sealed partial record FileCase(DocumentFileOp Op) : DocumentOp;
 
     public static DocumentOp Query(DocumentQuery query) => new QueryCase(Request: query);
@@ -286,12 +483,16 @@ public partial record DocumentOp : IUiOp<DocumentResult> {
     public static DocumentOp Solution(SolutionControl control, SolutionMode mode = SolutionMode.Regular) => new SolutionCase(Control: control, Mode: mode);
     public static DocumentOp Mark(DocumentMark mark) => new MarkCase(Request: mark);
     public static DocumentOp Review(DocumentReview review) => new ReviewCase(Request: review);
+    public static DocumentOp Group(GroupOp op) => new GroupCase(Op: op);
+    public static DocumentOp Wireless(WirelessOp op) => new WirelessCase(Op: op);
+    public static DocumentOp CustomValue(string key, string value) => new CustomValueCase(Key: key, Value: Some(value));
+    public static DocumentOp ClearCustomValue(string key) => new CustomValueCase(Key: key, Value: None);
     public static DocumentOp File(DocumentFileOp op) => new FileCase(Op: op);
 
     GrasshopperUiIntent<DocumentResult> IUiOp<DocumentResult>.Intent() => Document.Plan(op: this);
 }
 
-// [ASSUMED] Document.File.{HasPath,Path} — verified present (FileUtility) via gh2 decompile.
+// Document.File is FileUtility; HasPath means Path is non-null, but Path may still be empty.
 [SmartEnum<int>]
 public sealed partial class DocumentFileOp {
     public static readonly DocumentFileOp QueryPath = new(key: 0, run: static document =>
@@ -304,8 +505,6 @@ public sealed partial class DocumentFileOp {
     internal partial Fin<DocumentResult> Run(GhDocument document);
 }
 
-// Item-owned native invocation closes the if/throw dispatch hole — every item carries the
-// methods-mutation closure so adding a new inspect kind is one factory line, not a switch arm.
 [SmartEnum<int>]
 public sealed partial class DocumentInspect {
     private delegate Unit InspectInvoke(GhDocumentMethods methods);
@@ -316,19 +515,18 @@ public sealed partial class DocumentInspect {
     internal partial Unit Invoke(GhDocumentMethods methods);
 }
 
-// Solution-server lifecycle verbs. Start/Stop are bridge-safe; the idle-loop-driven solver means a
-// blocking StartWait deadlocks on the bridge UI thread (reference_gh2_headless_solution_limits), so the
-// wait-to-settle variant stays a LIVE-host-only follow-up rather than a bridge-driven verb here.
+// StartWait is documented as non-UI-thread only; bridge execution stays on async Start/Stop/Close.
 [SmartEnum<int>]
 public sealed partial class SolutionControl {
     private delegate Fin<Unit> RunFn(SolutionServer server, GhDocument document, SolutionMode mode);
 
     public static readonly SolutionControl Start = new(key: 0, run: static (server, document, mode) =>
         Op.Of(name: nameof(Start)).Attempt(body: () => {
-            // BOUNDARY ADAPTER -- fire-and-forget solve: observe the discarded Task so a faulted solver surfaces instead of going unobserved.
+            // BOUNDARY ADAPTER -- surface fire-and-forget solver faults through HandlerFaultSink.
             Task pending = server.Start(mode: mode);
             _ = pending.ContinueWith(
-                static t => Op.Side(() => throw t.Exception!.GetBaseException()),
+                static t => Op.Side(() => GrasshopperUi.Handler(valid: () =>
+                    Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(Start)), detail: t.Exception!.GetBaseException().Message)))),
                 CancellationToken.None,
                 TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
                 TaskScheduler.Default);
@@ -402,6 +600,9 @@ public partial record DocumentResult {
     public sealed record ReviewResult(DocumentReviewSnapshot Snapshot, Subscription Subscription) : DocumentResult;
     public sealed record DisplayStateResult(DocumentDisplaySnapshot Snapshot) : DocumentResult;
     public sealed record NotesResult(string Value) : DocumentResult;
+    public sealed record CustomValueResult(string Key, string Value) : DocumentResult;
+    public sealed record GroupResult(DocumentGroupSnapshot Snapshot) : DocumentResult;
+    public sealed record WirelessResult(DocumentWirelessSnapshot Snapshot) : DocumentResult;
     public sealed record FileResult(DocumentFileSnapshot Snapshot) : DocumentResult;
 }
 
@@ -484,11 +685,9 @@ public partial record DocumentMark {
                 from name in Op.Of(name: nameof(Save)).AcceptText(value: save.Name)
                 from focus in Optional(save.Focus).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Save)), detail: "mark focus is required"))
                 from view in focus.Build(scope: s, category: save.Category, name: name)
-                let overwriting = toSeq(document.NamedViews.OrderedViews).Exists(v => string.Equals(a: v.Name, b: name, comparisonType: StringComparison.OrdinalIgnoreCase))
-                from changed in Op.Of(name: nameof(Save)).Attempt(body: () => document.NamedViews.Add(view: view), what: "NamedViews.Add")
-                from _ in changed
-                    ? Op.Of(name: nameof(Save)).Attempt(body: () => { document.Modify(); return unit; }, what: "Document.Modify")
-                    : Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(Save)), detail: "NamedViews.Add rejected the mark"))
+                    // NamedViews.Add overwrites same-name views; existence is the only useful receipt.
+                let overwriting = toSeq(document.NamedViews.Views).Exists(v => string.Equals(a: v.Name, b: name, comparisonType: StringComparison.OrdinalIgnoreCase))
+                from _ in Op.Of(name: nameof(Save)).Attempt(body: () => { _ = document.NamedViews.Add(view: view); document.Modify(); return unit; }, what: "NamedViews.Add")
                 select (DocumentResult)new DocumentResult.MarkResult(Snapshot: MarkSnapshot(document: document, category: Optional(save.Category), name: Some(name), changed: !overwriting)),
             removeCase: static (s, remove) =>
                 from document in s.NeedDocument()
@@ -624,16 +823,19 @@ public readonly record struct DocumentDisplaySnapshot(bool Enabled, bool DrawWir
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct DocumentFileSnapshot(bool HasPath, string Path);
 
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentGroupSnapshot(Option<Guid> Group, Option<string> Label, Option<GhOpenColorFamily> Colour, Seq<Guid> Members, int Changed, bool Exists);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct DocumentWirelessSnapshot(Option<Guid> Shout, Seq<Guid> Listens, int Changed);
+
 [SkipUnionOps]
 [Union]
 public partial record ObjectSpec {
     private ObjectSpec() { }
     public sealed record SliderCase(string Name, UiNumber Number, Option<string> Format, GripShape Shape, Color Colour) : ObjectSpec;
     public sealed record ToggleCase(string Name, bool State) : ObjectSpec;
-    // ScribbleObject (Grasshopper2.SpecialObjects) is a DocumentObject — placed through the same DropObject
-    // path as Slider/Toggle. Panel/ValueList are deliberately excluded: their host types (DataPanelObject /
-    // ValueListObject) derive from Parameter (dataflow insertion differs) and ValueListItem is internal, so
-    // neither can be populated or placed cleanly through the IDocumentObject drop surface.
+    // Scribble is a DocumentObject; DataPanel/ValueList are Parameters and need dataflow-specific placement.
     public sealed record ScribbleCase(string Text, GhOpenColorFamily Colour, int Angle) : ObjectSpec;
 
     public static ObjectSpec Slider(string name, UiNumber number, string? format = null, GripShape shape = GripShape.Label, Color? colour = null) =>
@@ -707,6 +909,7 @@ public abstract partial record DocumentMutation {
     public sealed record IsolateCase(IsolateOptions Options) : DocumentMutation;
     public sealed record MigrateCase(Seq<Guid> Ids, PointF Location) : DocumentMutation;
     public sealed record SplitWireCase(Guid Source, Guid TargetId, string Name, PointF Location) : DocumentMutation;
+    public sealed record WireRouteCase(Seq<Guid> Chain) : DocumentMutation;
     public sealed record MergeCase : DocumentMutation {
         internal MergeCase(GhObjectList source, bool reinstateInputs, bool reinstateOutputs) =>
             (Source, ReinstateInputs, ReinstateOutputs) = (source, reinstateInputs, reinstateOutputs);
@@ -728,7 +931,8 @@ public abstract partial record DocumentMutation {
     public static DocumentMutation Isolate(IsolateOptions options = default) => new IsolateCase(Options: options);
     public static DocumentMutation Migrate(Seq<Guid> ids, PointF location) => new MigrateCase(Ids: ids, Location: location);
     public static DocumentMutation SplitWire(Guid source, Guid target, string name, PointF location) => new SplitWireCase(Source: source, TargetId: target, Name: name, Location: location);
-    // Clipboard/import other half: absorb a foreign object list into this document; ObjectList.Absorb repairs pins internally.
+    public static DocumentMutation WireRoute(Seq<Guid> chain) => new WireRouteCase(Chain: chain);
+    // ObjectList.Absorb imports foreign objects and repairs pins internally.
     internal static DocumentMutation Merge(GhObjectList source, bool reinstateInputs = true, bool reinstateOutputs = true) => new MergeCase(source: source, reinstateInputs: reinstateInputs, reinstateOutputs: reinstateOutputs);
 
     internal Fin<DocumentMutationReceipt> Apply(GhDocumentMethods methods, GhObjectList objects, ActionList actions) =>
@@ -842,9 +1046,20 @@ public abstract partial record DocumentMutation {
                            what: "DocumentMethods.SplitWire")
                        select receipt;
             },
+            wireRouteCase: static (s, route) => {
+                Op op = Op.Of(name: nameof(WireRoute));
+                return route.Chain.Count >= 2 && !route.Chain.Exists(static id => id == Guid.Empty)
+                    // Shared ActionList keeps adjacent-pair routing inside the caller's undo record.
+                    ? route.Chain.Zip(route.Chain.Tail).TraverseM(pair =>
+                        from source in Optional(s.objects.FindParameter(instanceId: pair.First)).ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"route source {pair.First} not found"))
+                        from target in Optional(s.objects.FindParameter(instanceId: pair.Second)).ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"route target {pair.Second} not found"))
+                        from changed in WireEdit.Connect.Apply(op: op, methods: s.methods, objects: s.objects, source: source, target: target, actions: s.actions, args: default)
+                        select changed).As().Map(static counts => DocumentMutationReceipt.Count(changed: Enumerable.Sum(counts)))
+                    : Fin.Fail<DocumentMutationReceipt>(error: UiFault.InvalidInput(op: op, detail: "wire route requires two or more non-empty parameter ids"));
+            },
             mergeCase: static (s, merge) => Op.Of(name: nameof(Merge)).Attempt(
                 body: () => {
-                    // ObjectList.Absorb already runs RepairPins internally (verified by decompile), so no second pass.
+                    // Absorb already runs RepairPins (decompile-verified); no second pass.
                     int changed = s.objects.Absorb(other: merge.Source, reinstateInputs: merge.ReinstateInputs, reinstateOutputs: merge.ReinstateOutputs, actions: s.actions);
                     return DocumentMutationReceipt.Count(changed: changed);
                 },
@@ -935,8 +1150,7 @@ public abstract partial record DocumentTargetOp {
     internal Fin<int> ApplySelected(GhDocumentMethods methods, GhObjectList objects, ActionList actions) =>
         Dispatch(methods: methods, objects: objects, actions: actions, targets: null);
 
-    // Non-null `targets` → *Objects(targets, actions); null → *Selected(actions). Null sentinel
-    // over Option<T> because CSP0705 forbids Option.Match inside the Switch arms below.
+    // Null sentinel chooses *Selected(actions); non-null chooses *Objects(targets, actions).
     private Fin<int> Dispatch(GhDocumentMethods methods, GhObjectList objects, ActionList actions, IDocumentObject[]? targets) =>
         Switch(
             state: (methods, objects, targets, actions),
@@ -1021,9 +1235,6 @@ public sealed partial class DisplayPort {
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
-// Native-boundary projections: OrNull/OrNullable collapse the `.Map(cast).IfNone(null)` ladders that
-// bridge Option<T> back to the host's nullable parameter surface; NonEmpty is the single Guid-sentinel
-// → Option rule shared by every host-id read. Inv invariant-stringifies snapshot fields once.
 internal static class OptionNativeExtensions {
     internal static T? OrNull<T>(this Option<T> option) where T : class =>
         option is { IsSome: true, Case: T value } ? value : null;
@@ -1069,6 +1280,15 @@ internal static partial class Document {
             reviewCase: static r => new GrasshopperUiIntent<DocumentResult>(
                 policy: r.Request.Policy,
                 run: scope => r.Request.Apply(scope: scope)),
+            groupCase: static g => new GrasshopperUiIntent<DocumentResult>(
+                policy: g.Op.Policy,
+                run: scope => g.Op.Apply(scope: scope)),
+            wirelessCase: static w => new GrasshopperUiIntent<DocumentResult>(
+                policy: w.Op.Policy,
+                run: scope => w.Op.Apply(scope: scope)),
+            customValueCase: static c => GhUi.Document(
+                run: scope => SetCustomValue(scope: scope, key: c.Key, value: c.Value),
+                repaint: RepaintRequest.None),
             fileCase: static f => GhUi.Document(
                 run: scope => scope.NeedDocument().Bind(document => f.Op.Run(document: document)),
                 repaint: RepaintRequest.None));
@@ -1124,9 +1344,23 @@ internal static partial class Document {
             customValueCase: static (s, custom) =>
                 from key in Op.Of(name: nameof(DocumentQuery.CustomValue)).AcceptText(value: custom.Key)
                 from doc in s.NeedDocument()
-                select (DocumentResult)new DocumentResult.NotesResult(Value: doc.CustomValues.Get(key: key, @default: custom.DefaultValue)));
+                select (DocumentResult)new DocumentResult.CustomValueResult(Key: key, Value: doc.CustomValues.Get(key: key, @default: custom.DefaultValue)));
 
-    // policy.Repaint is consumed by DocumentOp's intent plan; this body owns mutation only.
+    private static Fin<DocumentResult> SetCustomValue(GrasshopperUi.Scope scope, string key, Option<string> value) =>
+        from validKey in Op.Of(name: nameof(DocumentOp.CustomValue)).AcceptText(value: key)
+        from doc in scope.NeedDocument()
+        from _ in Op.Of(name: nameof(DocumentOp.CustomValue)).Attempt(
+            body: () => {
+                // BOUNDARY ADAPTER -- KeyedValues.Set(string,string) selects the text overload.
+                _ = value is { IsSome: true, Case: string text }
+                    ? Op.Side(() => doc.CustomValues.Set(key: validKey, value: text))
+                    : Op.Side(() => doc.CustomValues.Delete(key: validKey));
+                doc.Modify();
+                return unit;
+            },
+            what: "Document.CustomValues")
+        select (DocumentResult)new DocumentResult.CustomValueResult(Key: validKey, Value: doc.CustomValues.Get(key: validKey, @default: string.Empty));
+
     private static Fin<DocumentResult> Mutate(GrasshopperUi.Scope scope, Seq<DocumentMutation> mutations, DocumentMutationPolicy policy) =>
         UiRail.RunDocumentMutation(scope: scope, op: Op.Of(name: nameof(DocumentOp.Mutate)),
             mutate: (methods, objects, actions) => mutations.TraverseM(m => m.Apply(methods: methods, objects: objects, actions: actions))
@@ -1137,16 +1371,14 @@ internal static partial class Document {
     private static Fin<Snapshot<DocumentMutationDelta>> RunClipboard(GrasshopperUi.Scope scope, ClipboardOp op) =>
         op.Switch(
             state: scope,
-            // Copy snapshots without mutating; PasteGh1Xml tracks created ids; Cut/Paste run the generic verb. Exhaustive over the four verb keys.
-            verbCase: static (s, clipboard) => clipboard.Verb.Key switch {
-                0 => CopyClipboard(scope: s, clipboard: clipboard),
-                3 => UiRail.RunDocumentMutation(scope: s, op: Op.Of(name: nameof(ClipboardOp.PasteGh1Xml)), mutate: PasteGh1Clipboard),
-                _ => UiRail.RunDocumentMutation(
+            verbCase: static (s, clipboard) =>
+                clipboard.Verb == ClipboardVerb.Copy ? CopyClipboard(scope: s, clipboard: clipboard)
+                : clipboard.Verb == ClipboardVerb.PasteGh1Xml ? UiRail.RunDocumentMutation(scope: s, op: Op.Of(name: nameof(ClipboardOp.PasteGh1Xml)), mutate: PasteGh1Clipboard)
+                : UiRail.RunDocumentMutation(
                     scope: s,
                     op: Op.Of(name: string.Create(CultureInfo.InvariantCulture, $"Clipboard.{clipboard.Verb}")),
                     mutate: (methods, _, actions) => clipboard.Verb.Run(methods: methods, kind: clipboard.Kind, behaviour: clipboard.Behaviour, actions: actions)
-                        .Map(DocumentMutationReceipt.Count)),
-            });
+                        .Map(DocumentMutationReceipt.Count)));
 
     private static Fin<DocumentMutationReceipt> PasteGh1Clipboard(GhDocumentMethods methods, GhObjectList objects, ActionList actions) =>
         Op.Of(name: nameof(ClipboardOp.PasteGh1Xml)).Attempt(body: () => {

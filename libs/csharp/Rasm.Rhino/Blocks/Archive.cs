@@ -11,6 +11,14 @@ namespace Rasm.Rhino.Blocks;
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 public static class Archive {
+    // --- [MODELS] -----------------------------------------------------------------------------
+    public readonly record struct DefinitionWalkFrame(
+        Transform Composed,
+        ImmutableArray<DefinitionId> Path,
+        int Depth,
+        Option<Guid> InstanceId,
+        Option<Guid> MemberId);
+
     public sealed record Graph(
         ImmutableArray<Definition> Definitions,
         ImmutableArray<Instance> Instances,
@@ -21,7 +29,32 @@ public static class Archive {
     public readonly record struct Instance(Guid ObjectId, DefinitionId ParentDefId, Transform Xform);
     [StructLayout(LayoutKind.Auto)]
     public readonly record struct LinkedArchiveEdge(ArchivePath FromPath, ArchiveLink Link, ArchivePath ToPath, int Depth);
+
+    internal readonly record struct DefinitionWalkNode(
+        Option<ReachInsert> Reach,
+        Option<FlatPiece> Flat);
+
+    private sealed record ClosureState(
+        Seq<LinkedArchiveEdge> Edges,
+        Seq<ArchivePath> Broken,
+        Seq<Seq<ArchivePath>> Cycles,
+        Seq<ArchivePath> Truncated,
+        Seq<string> NativeLog) {
+        public static ClosureState Empty { get; } = new(Edges: Seq<LinkedArchiveEdge>(), Broken: Seq<ArchivePath>(), Cycles: Seq<Seq<ArchivePath>>(), Truncated: Seq<ArchivePath>(), NativeLog: Seq<string>());
+        public ArchiveClosureReport Report(ClosureValidationPolicy policy) =>
+            new(
+                Valid: Broken.IsEmpty && Truncated.IsEmpty && (!policy.DetectCycles || Cycles.IsEmpty),
+                Edges: Edges,
+                Broken: Broken,
+                Cycles: Cycles,
+                Truncated: Truncated,
+                NativeLog: NativeLog);
+    }
+
+    // --- [CONSTANTS] --------------------------------------------------------------------------
     internal const int LinkedArchiveClosureMaxDepth = 64;
+
+    // --- [OPERATIONS] -------------------------------------------------------------------------
     public static Fin<Graph> From(File3dm model, Op? key = null, Option<string> archivePath = default) {
         Op op = key.OrDefault();
         Option<string> anchor = archivePath.Bind(static path => BlockPaths.ArchiveAnchor(archivePath: Some(path)));
@@ -61,22 +94,6 @@ public static class Archive {
                    policy: validPolicy,
                    key: op))
                select state.Report(policy: validPolicy);
-    }
-    private sealed record ClosureState(
-        Seq<LinkedArchiveEdge> Edges,
-        Seq<ArchivePath> Broken,
-        Seq<Seq<ArchivePath>> Cycles,
-        Seq<ArchivePath> Truncated,
-        Seq<string> NativeLog) {
-        public static ClosureState Empty { get; } = new(Edges: Seq<LinkedArchiveEdge>(), Broken: Seq<ArchivePath>(), Cycles: Seq<Seq<ArchivePath>>(), Truncated: Seq<ArchivePath>(), NativeLog: Seq<string>());
-        public ArchiveClosureReport Report(ClosureValidationPolicy policy) =>
-            new(
-                Valid: Broken.IsEmpty && Truncated.IsEmpty && (!policy.DetectCycles || Cycles.IsEmpty),
-                Edges: Edges,
-                Broken: Broken,
-                Cycles: Cycles,
-                Truncated: Truncated,
-                NativeLog: NativeLog);
     }
     private static Fin<ClosureState> WalkClosure(
         File3dm model,
@@ -219,15 +236,6 @@ public static class Archive {
         definitions.Fold(
             initialState: HashMap<Guid, Definition>(),
             f: (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: def));
-    public readonly record struct DefinitionWalkFrame(
-        Transform Composed,
-        ImmutableArray<DefinitionId> Path,
-        int Depth,
-        Option<Guid> InstanceId,
-        Option<Guid> MemberId);
-    internal readonly record struct DefinitionWalkNode(
-        Option<ReachInsert> Reach,
-        Option<FlatPiece> Flat);
     internal static Seq<DefinitionWalkNode> WalkDefinitions(
         InstanceDefinitionTable table,
         InstanceObject seed,

@@ -178,14 +178,14 @@ public abstract partial record DefinitionRef {
             byName: static (d, r) => string.Equals(a: d.Name, b: r.Name.Value, comparisonType: StringComparison.OrdinalIgnoreCase));
 }
 
-public enum DependencyProbeUsage { Layer, Linetype, InUse }
-
 [Union]
 public abstract partial record DependencyProbe {
     private DependencyProbe() { }
     public sealed record DefinitionDepth(int Depth) : DependencyProbe;
     public sealed record Usage(DependencyProbeUsage Kind, bool Used) : DependencyProbe;
 }
+
+public enum DependencyProbeUsage { Layer, Linetype, InUse }
 
 [Union]
 public abstract partial record DependencyTarget {

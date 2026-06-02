@@ -34,9 +34,7 @@ type StaticScope = Literal["changed", "full"]
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
-_FORMAT_ARGS: Final[dict[str, tuple[str, ...]]] = {
-    "whitespace": ("--no-restore",),
-}
+_FORMAT_ARGS: Final[dict[str, tuple[str, ...]]] = {"whitespace": ("--no-restore",)}
 _ORPHAN_FULL_SUFFIXES: Final[tuple[str, ...]] = (".cs", ".props", ".targets")
 
 
@@ -66,9 +64,7 @@ def _format_commands(root: Path, plan: StaticPlan) -> tuple[tuple[str, ...], ...
             return ()
         case groups:
             return tuple(
-                ("format", kind, str(root / project), "--include", *files, *_FORMAT_ARGS[kind])
-                for project, files in groups
-                for kind in _FORMAT_ARGS
+                ("format", kind, str(root / project), "--include", *files, *_FORMAT_ARGS[kind]) for project, files in groups for kind in _FORMAT_ARGS
             )
 
 
@@ -102,9 +98,7 @@ def _check_plan(plan: StaticPlan, scope: ArtifactScope, root: Path) -> Result[St
             return Ok("skip")
         case _:
             return fold(
-                commands,
-                None,
-                lambda _, command: dotnet(*command, scope=scope, scoped=False, check=True, mode="stream").map(lambda _: None),
+                commands, None, lambda _, command: dotnet(*command, scope=scope, scoped=False, check=True, mode="stream").map(lambda _: None)
             ).map(lambda _: "done")
 
 

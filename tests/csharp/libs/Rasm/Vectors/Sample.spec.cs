@@ -70,6 +70,11 @@ public sealed class SampleKindFactoryLaws {
                 SampleKind.SampleEliminationCase elimination = Assert.IsType<SampleKind.SampleEliminationCase>(@object: kind);
                 Assert.Equal(expected: (p.Count, 5, 8.0, 0.65, 1.5, 17), actual: (elimination.Count.Value, elimination.OversampleFactor.Value, elimination.Alpha.Value, elimination.Beta.Value, elimination.Gamma.Value, elimination.Seed));
             });
+            Spec.Succ(SampleKind.DworkVariableDensity(radius: ScalarField.Constant(value: 0.5), count: p.Count, minRadius: p.Radius, attempts: 17, seed: 19, key: SampleGens.Key), then: kind => {
+                SampleKind.DworkVariableDensityCase dwork = Assert.IsType<SampleKind.DworkVariableDensityCase>(@object: kind);
+                Assert.Equal(expected: (p.Count, 17, 19), actual: (dwork.Count.Value, dwork.Attempts.Value, dwork.Seed));
+                Spec.Equal(left: dwork.MinRadius.Value, right: p.Radius, tolerance: 0.0, what: "dwork min radius");
+            });
             Spec.Succ(SampleKind.Weighted(points: SampleGens.WeightedPoints, key: SampleGens.Key), then: kind => {
                 SampleKind.WeightedCase weighted = Assert.IsType<SampleKind.WeightedCase>(@object: kind);
                 Assert.Equal(expected: SampleGens.WeightedPoints.Count, actual: weighted.Points.Count);
@@ -86,8 +91,11 @@ public sealed class SampleKindFactoryLaws {
             Spec.FailCategory(SampleKind.Capacity(count: 1, capacity: n, key: SampleGens.Key), category: "Tolerance");
             Spec.FailCategory(SampleKind.SampleElimination(count: n, oversampleFactor: 5, alpha: 8.0, beta: 0.65, gamma: 1.5, seed: 17, key: SampleGens.Key), category: "Tolerance");
             Spec.FailCategory(SampleKind.SampleElimination(count: 1, oversampleFactor: n, alpha: 8.0, beta: 0.65, gamma: 1.5, seed: 17, key: SampleGens.Key), category: "Tolerance");
+            Spec.FailCategory(SampleKind.DworkVariableDensity(radius: ScalarField.Constant(value: 0.5), count: n, minRadius: 0.25, key: SampleGens.Key), category: "Tolerance");
+            Spec.FailCategory(SampleKind.DworkVariableDensity(radius: ScalarField.Constant(value: 0.5), count: 1, minRadius: 0.25, attempts: n, key: SampleGens.Key), category: "Tolerance");
         });
         Spec.ForAll(Gens.NonPositive, r => Spec.FailCategory(SampleKind.PoissonDisk(radius: r, key: SampleGens.Key), category: "Tolerance"));
+        Spec.ForAll(Gens.NonPositive, r => Spec.FailCategory(SampleKind.DworkVariableDensity(radius: ScalarField.Constant(value: 0.5), count: 2, minRadius: r, key: SampleGens.Key), category: "Tolerance"));
         Spec.ForAll(Gens.NonFinite, r => Spec.FailCategory(SampleKind.PoissonDisk(radius: r, key: SampleGens.Key), category: "Tolerance"));
         Spec.ForAll(Gens.NonFinite, x =>
             Seq<Func<double, Fin<SampleKind>>>(
@@ -101,7 +109,8 @@ public sealed class SampleKindFactoryLaws {
         Spec.FailCategory(SampleKind.Weighted(points: Seq<(Point3d Point, double Mass)>(), key: SampleGens.Key), category: "Input");
         Spec.FailCategory(SampleKind.Weighted(points: Seq((Point3d.Origin, -1.0)), key: SampleGens.Key), category: "Input");
         Spec.FailCategory(SampleKind.Admit(value: new SampleKind.SampleEliminationCase(count: Dim.Create(value: 2), oversampleFactor: Dim.Create(value: 1), alpha: Spec.SuccValue(SampleGens.Key.AcceptValidated<PositiveMagnitude>(candidate: 1.0), label: "alpha"), beta: Spec.SuccValue(SampleGens.Key.AcceptValidated<PositiveMagnitude>(candidate: 0.5), label: "beta"), gamma: Spec.SuccValue(SampleGens.Key.AcceptValidated<PositiveMagnitude>(candidate: 1.0), label: "gamma"), seed: 17), key: SampleGens.Key), category: "Input");
-        Spec.SmartEnumCatalogMatches(production: SampleAlgorithmKind.Items, expectedKeys: [0, 1, 2, 3, 4, 5, 6, 7, 8], key: static kind => kind.Key);
+        Spec.SmartEnumCatalogMatches(production: SampleAlgorithmKind.Items, expectedKeys: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], key: static kind => kind.Key);
+        Spec.SmartEnumCatalogMatches(production: DworkSamplingDomain.Items, expectedKeys: [0, 1], key: static kind => kind.Key);
         Spec.SmartEnumCatalogMatches(production: SampleStopKind.Items, expectedKeys: [0, 1, 2, 3], key: static kind => kind.Key);
     }
     [Fact]
@@ -271,5 +280,24 @@ public sealed class SampleDensityLaws {
         SampleKind kind = Spec.SuccValue(SampleKind.PoissonDisk(radius: 0.2, key: SampleGens.Key), label: "candidate radius kind");
         VectorIntent intent = SampleGens.Intent(kind: kind);
         Spec.FailCategory(intent.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key), category: "Unsupported");
+    }
+    [Fact]
+    public void DworkOnCloudReceiptsCandidateSetInsteadOfContinuousMesh() {
+        SampleKind dwork = Spec.SuccValue(SampleKind.DworkVariableDensity(radius: ScalarField.Constant(value: 0.4), count: 2, minRadius: 0.4, attempts: 8, seed: 31, key: SampleGens.Key), label: "candidate dwork kind");
+        VectorIntent intent = SampleGens.Intent(cloud: SampleGens.Cloud(points: SampleGens.DensePoints), kind: dwork);
+        Spec.Succ(intent.Project<SampleReceipt>(context: SampleGens.Model, key: SampleGens.Key), then: receipt => {
+            Spec.CountsConserve(attempted: receipt.Attempted, emitted: receipt.Emitted, rejected: receipt.Rejected, label: "candidate dwork receipt");
+            Assert.Equal(expected: SampleGens.DensePoints.Count, actual: receipt.CandidateCount.IfNone(0));
+            Spec.Some(receipt.Algorithm, algorithm => {
+                Assert.Equal(expected: SampleAlgorithmKind.DworkVariableDensity, actual: algorithm.Kind);
+                Spec.Some(algorithm.Dwork, proof => {
+                    Assert.Equal(expected: DworkSamplingDomain.CandidateSet, actual: proof.Domain);
+                    Assert.True(condition: proof.CandidateOnly && !proof.ContinuousMesh);
+                    Assert.Equal(expected: (false, true, true), actual: (proof.ActiveListAnnulusSampling, proof.LocalRadiusConflictChecks, proof.DeterministicSeed));
+                    Assert.True(condition: proof.BackgroundCellSize.IsNone && proof.BackgroundGridCells.IsNone);
+                    Spec.Equal(left: proof.RMin, right: 0.4, tolerance: 0.0, what: "candidate dwork rMin");
+                });
+            });
+        });
     }
 }

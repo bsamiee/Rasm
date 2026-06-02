@@ -1,14 +1,23 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using AppKit;
+using CoreGraphics;
 using Eto.Forms;
+using Foundation;
 using Foundation.CSharp.Analyzers.Contracts;
+using Grasshopper2.Doc.Attributes;
+using Grasshopper2.Extensions;
+using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Icon;
 using EtoContext = Eto.Drawing.Context;
 using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
+using GhDocument = Grasshopper2.Doc.Document;
 using GhLazyStrings = Grasshopper2.UI.LazyStrings;
+using GhResponse = Grasshopper2.UI.Flex.Response;
 using GhTooltip = Grasshopper2.UI.Tooltip.Frame;
 using GhUiNumber = Grasshopper2.UI.UiNumber;
+using IAttributes = Grasshopper2.Doc.IAttributes;
 using NativeFloatingButton = Grasshopper2.UI.Flex.FloatingButton;
 using Op = Rasm.Domain.Op;
 
@@ -62,9 +71,12 @@ public partial record TooltipOp {
     public sealed record InvalidateCase : TooltipOp;
     public sealed record StatusCase : TooltipOp;
     public sealed record LayoutCase : TooltipOp;
+    public sealed record ScreencapCase(Option<string> Folder) : TooltipOp;
 
     public static TooltipOp Show(IIcon icon, string caption, string message, TooltipBody? body = null, bool warnings = false, bool errors = false) =>
         new ShowCase(Icon: icon, Caption: caption, Message: message, Body: body ?? TooltipBody.Plain, Warnings: warnings, Errors: errors);
+
+    public static TooltipOp Screencap(Option<string> folder = default) => new ScreencapCase(Folder: folder);
 
     internal CanvasChromePlan Plan() => Tooltip.Plan(op: this);
 }
@@ -106,8 +118,6 @@ public partial record CanvasChromeResult {
 
     internal static readonly CanvasChromeResult UnitInstance = new UnitCase();
 
-    // Producers know their result type statically and construct their case directly (no runtime type-switch);
-    // Sub/Found/Status are the shared projections for the recurring FloatingButton result shapes.
     internal static CanvasChromeResult Sub(Subscription subscription) => new SubscriptionCase(Subscription: subscription);
     internal static CanvasChromeResult Found(Option<FloatingButtonInfo> info) => new FloatingButtonFoundCase(Info: info);
     internal static CanvasChromeResult Status(FloatingButtonSnapshot snapshot) => new FloatingButtonStatusCase(Snapshot: snapshot);
@@ -176,7 +186,7 @@ public readonly record struct FloatingButtonSpec(
 public partial record FloatingButtonOp {
     private FloatingButtonOp() { }
     public sealed record AddCase(FloatingButtonSpec Spec) : FloatingButtonOp;
-    public sealed record ModifyCase(string Name, Option<string> Info = default, Option<IIcon> Icon = default, Option<Color> Colour = default, Option<(PointF Point, bool Immediate)> Anchor = default) : FloatingButtonOp;
+    public sealed record ModifyCase(string Name, Option<string> Info = default, Option<IIcon> Icon = default, Option<Color> Colour = default, Option<(PointF Point, bool Immediate)> Anchor = default, Option<bool> Enabled = default) : FloatingButtonOp;
     public sealed record NamedCase(FloatingButtonNamedAction Action, Seq<string> Names) : FloatingButtonOp;
     public sealed record CloseAllCase : FloatingButtonOp;
     public sealed record FindByNameCase(string Name) : FloatingButtonOp;
@@ -204,11 +214,19 @@ public partial record InteractionOp {
     private InteractionOp() { }
     public sealed record PushCase(IInteraction Target) : InteractionOp;
     public sealed record RegisterCase(IResponsive Responsive, CoordinateSystem System) : InteractionOp;
-    // Hover/ContextMenu: GH2 emits MouseHover / PopulateContextMenu — handler may mutate the
-    // menu.Items collection or read the hover point.
     public sealed record HoverCase(Option<TimeSpan> Delay, Func<MouseHoverSnapshot, Fin<Unit>> Handler) : InteractionOp;
     public sealed record ContextMenuCase(Func<ContextMenuSnapshot, Fin<Unit>> Handler) : InteractionOp;
+    public sealed record ResizeCase(IResizableAttributes Target, SnapSetting Snap, Func<ResizeSession, Fin<DecisionDelta>> Decide) : InteractionOp;
+    public sealed record GestureCase(NSGestureRecognizer Recognizer, Seq<NSGestureRecognizerState> States, Func<GestureSnapshot, Fin<Unit>> Handle) : InteractionOp;
+    public sealed record PressureCase(NSPressureBehavior Behavior) : InteractionOp;
+    // bool is true for KeyDown and false for KeyUp.
+    public sealed record KeyboardCase(Func<KeyEventArgs, bool, Fin<Unit>> Handle) : InteractionOp;
     public sealed record StatusCase : InteractionOp;
+
+    public static InteractionOp Resize(IResizableAttributes target, SnapSetting snap, Func<ResizeSession, Fin<DecisionDelta>> decide) => new ResizeCase(Target: target, Snap: snap, Decide: decide);
+    public static InteractionOp Gesture(NSGestureRecognizer recognizer, Seq<NSGestureRecognizerState> states, Func<GestureSnapshot, Fin<Unit>> handle) => new GestureCase(Recognizer: recognizer, States: states, Handle: handle);
+    public static InteractionOp Pressure(NSPressureBehavior behavior) => new PressureCase(Behavior: behavior);
+    public static InteractionOp Keyboard(Func<KeyEventArgs, bool, Fin<Unit>> handle) => new KeyboardCase(Handle: handle);
 
     internal CanvasChromePlan Plan() => Interaction.Plan(op: this);
 }
@@ -236,11 +254,11 @@ public partial record DecisionDelta {
     public sealed record BoundsCase(RectangleF Value) : DecisionDelta;
     public sealed record SizeCase(SizeF Value) : DecisionDelta;
     public sealed record CursorCase(Cursor Value) : DecisionDelta;
-    public sealed record ResponseCase(Response Value) : DecisionDelta;
+    public sealed record ResponseCase(GhResponse Value) : DecisionDelta;
     public static DecisionDelta Bounds(RectangleF value) => new BoundsCase(Value: value);
     public static DecisionDelta Size(SizeF value) => new SizeCase(Value: value);
     public static DecisionDelta Cursor(Cursor value) => new CursorCase(Value: value);
-    public static DecisionDelta Respond(Response value) => new ResponseCase(Value: value);
+    public static DecisionDelta Respond(GhResponse value) => new ResponseCase(Value: value);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -251,6 +269,9 @@ public readonly record struct MouseHoverSnapshot(PointF ControlPoint, PointF Con
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct ContextMenuSnapshot(ContextMenu Menu, MouseEventArgs MouseEvent);
+
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct GestureSnapshot(NSGestureRecognizer Recognizer, NSGestureRecognizerState State, PointF Location);
 
 // --- [BOUNDARY] ---------------------------------------------------------------------------
 [BoundaryAdapter]
@@ -273,8 +294,7 @@ internal static class TooltipRail {
                 DoublePadding: values[4],
                 IconSize: values[5]));
 
-    // Optional(value as int?) drops the Convert.ToInt32 boxing path and fails closed when a constant is
-    // absent or non-int instead of throwing into the outer Attempt.
+    // Fail closed when a reflected layout constant is absent or non-int.
     private static Fin<int> ReadInt(Type type, string name) =>
         Optional(type.GetField(name: name, bindingAttr: BindingFlags.Public | BindingFlags.Static))
             .Bind(field => Optional(field.GetValue(obj: null)))
@@ -303,22 +323,35 @@ internal static class CanvasChrome {
 }
 
 internal static class Tooltip {
-    // Token gate prevents a stale Subscription's Dispose from hiding a later Show that supplanted it.
-    private static readonly OwnedSubscription<int> Owner = new();
-    // Eto.Forms.Mouse.Position captured at Show time substitutes for the host-private
-    // Tooltip.Frame.MouseLocationWhenShown; Hide clears it so a stale snapshot reads None.
+    // Tooltip.Frame is process-static; token-gate Dispose so a stale Show cannot hide its successor.
+    private static readonly Atom<Option<Guid>> Owner = Atom(value: Option<Guid>.None);
+    // Show-time Mouse.Position substitutes for host-private Tooltip.Frame.MouseLocationWhenShown.
     private static readonly Atom<Option<PointF>> ShownLocation = Atom(value: Option<PointF>.None);
 
     internal static CanvasChromePlan Plan(TooltipOp op) =>
         op.Switch(
-            showCase: static s => CanvasChromePlan.SubscriptionOf(intent: Bind(invoke: () => ShowNative(show: s))),
+            showCase: static s => CanvasChromePlan.SubscriptionOf(intent: GhUi.Canvas(run: scope =>
+                scope.NeedCanvas().Bind(_canvas => {
+                    Guid token = Guid.NewGuid();
+                    return Subscription.Bind(
+                        attach: () => {
+                            ShowNative(show: s);
+                            _ = Owner.Swap(_swap => Some(token)).Iter(static _ => { });
+                        },
+                        detach: () => _ = Owner.Value
+                            .Filter(held => held == token)
+                            .Iter(_held => Withdraw()),
+                        marshalToUi: true,
+                        teardown: SubscriptionTeardown.TokenGated);
+                }))),
             hideCase: static _ => CanvasChromePlan.Result(intent: HideNow().Map(static _ => CanvasChromeResult.UnitInstance)),
             invalidateCase: static _ => CanvasChromePlan.Result(intent: InvalidateNow().Map(static _ => CanvasChromeResult.UnitInstance)),
             statusCase: static _ => CanvasChromePlan.Result(intent: SnapshotNow().Map(static snap => (CanvasChromeResult)new CanvasChromeResult.TooltipStatusCase(Snapshot: snap))),
-            layoutCase: static _ => CanvasChromePlan.Result(intent: TooltipRail.Layout().Map(static snap => (CanvasChromeResult)new CanvasChromeResult.TooltipLayoutCase(Snapshot: snap))));
+            layoutCase: static _ => CanvasChromePlan.Result(intent: TooltipRail.Layout().Map(static snap => (CanvasChromeResult)new CanvasChromeResult.TooltipLayoutCase(Snapshot: snap))),
+            screencapCase: static s => CanvasChromePlan.Result(intent: ScreencapNow(folder: s.Folder).Map(static _ => CanvasChromeResult.UnitInstance)));
 
     internal static GrasshopperUiIntent<Unit> HideNow() =>
-        GhUi.Read(run: scope => Op.Of(name: nameof(HideNow)).Attempt(body: HideNative, what: "Tooltip.Frame.Hide"));
+        GhUi.Read(run: scope => Op.Of(name: nameof(HideNow)).Attempt(body: () => _ = Withdraw(), what: "Tooltip.Frame.Hide"));
 
     internal static GrasshopperUiIntent<Unit> InvalidateNow() =>
         GhUi.Read(run: scope => Op.Of(name: nameof(InvalidateNow)).Attempt(body: GhTooltip.Invalidate, what: "Tooltip.Frame.Invalidate"));
@@ -326,23 +359,23 @@ internal static class Tooltip {
     internal static GrasshopperUiIntent<TooltipSnapshot> SnapshotNow() =>
         GhUi.Read(run: scope => Op.Of(name: nameof(SnapshotNow)).Attempt(body: SnapshotNative, what: "Tooltip.Frame.Visible"));
 
-    private static void HideNative() {
-        Owner.Clear(key: 0);
+    internal static GrasshopperUiIntent<Unit> ScreencapNow(Option<string> folder) =>
+        GhUi.Read(run: scope => Op.Of(name: nameof(ScreencapNow)).Attempt(
+            // BOUNDARY ADAPTER — None projects to string.Empty because GhTooltip disables capture via IsNullOrWhiteSpace.
+            body: () => folder.Match(
+                Some: static path => GhTooltip.ScreencapFolder = path,
+                None: static () => GhTooltip.ScreencapFolder = string.Empty),
+            what: "Tooltip.Frame.ScreencapFolder").Map(static _ => unit));
+
+    private static Unit Withdraw() {
+        _ = Owner.Swap(static _ => Option<Guid>.None);
         _ = ShownLocation.Swap(static _ => Option<PointF>.None);
         GhTooltip.Hide();
+        return unit;
     }
 
     private static TooltipSnapshot SnapshotNative() =>
-        new(Visible: GhTooltip.Visible, OwnerToken: Owner.Owner(key: 0), MouseLocationWhenShown: ShownLocation.Value);
-
-    private static GrasshopperUiIntent<Subscription> Bind(Action invoke) =>
-        GhUi.Canvas(run: scope => scope.NeedCanvas().Bind(_ => Resource(invoke: invoke)));
-
-    private static Fin<Subscription> Resource(Action invoke) =>
-        Owner.Bind(key: 0, attach: invoke, detach: _key => {
-            _ = ShownLocation.Swap(static _ => Option<PointF>.None);
-            GhTooltip.Hide();
-        });
+        new(Visible: GhTooltip.Visible, OwnerToken: Owner.Value, MouseLocationWhenShown: ShownLocation.Value);
 
     private static void ShowNative(TooltipOp.ShowCase show) {
         _ = ShownLocation.Swap(static _ => Mouse.IsSupported ? Some(Mouse.Position) : Option<PointF>.None);
@@ -365,7 +398,7 @@ internal static class FloatingButton {
     internal static CanvasChromePlan Plan(FloatingButtonOp op) =>
         op.Switch(
             addCase: static a => CanvasChromePlan.SubscriptionOf(intent: Add(a.Spec)),
-            modifyCase: static m => CanvasChromePlan.Result(intent: Modify(m.Name, m.Info, m.Icon, m.Colour, m.Anchor).Map(static _ => CanvasChromeResult.UnitInstance)),
+            modifyCase: static m => CanvasChromePlan.Result(intent: Modify(m.Name, m.Info, m.Icon, m.Colour, m.Anchor, m.Enabled).Map(static _ => CanvasChromeResult.UnitInstance)),
             namedCase: static n => CanvasChromePlan.Result(intent: n.Action.Run(names: n.Names).Map(static _ => CanvasChromeResult.UnitInstance)),
             closeAllCase: static _ => CanvasChromePlan.Result(intent: CloseAll().Map(static _ => CanvasChromeResult.UnitInstance)),
             findByNameCase: static f => CanvasChromePlan.Result(intent: FindByName(f.Name).Map(CanvasChromeResult.Found)),
@@ -378,9 +411,7 @@ internal static class FloatingButton {
             from placement in Optional(spec.Placement).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Add)), detail: "placement is required"))
             from icon in Optional(spec.Icon).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Add)), detail: "icon is required"))
             from name in Op.Of(name: nameof(Add)).AcceptText(value: spec.Name)
-            from _duplicate in canvas.FloatingButtons.IsDefined(name: name)
-                ? Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Add)), detail: $"button '{name}' already exists"))
-                : Fin.Succ(unit)
+            from _duplicate in guard(!canvas.FloatingButtons.IsDefined(name: name), (Error)UiFault.InvalidInput(op: Op.Of(name: nameof(Add)), detail: $"button '{name}' already exists")).ToFin()
             from resolved in placement.Resolve(canvas: canvas)
             from sub in AttachButton(
                 canvas: canvas,
@@ -394,11 +425,10 @@ internal static class FloatingButton {
         FloatingButtonSpec spec,
         FloatingPosition position,
         Option<PointF> anchor) {
-        NativeFloatingButton? registered = null;
-        EventHandler<FloatingButtonEventArgs<GhUiNumber>>? changed = null;
-        return Resource(
-            name: spec.Name,
-            canvas: canvas,
+        Atom<Option<NativeFloatingButton>> registered = Atom(value: Option<NativeFloatingButton>.None);
+        Atom<Option<EventHandler<FloatingButtonEventArgs<GhUiNumber>>>> changed = Atom(value: Option<EventHandler<FloatingButtonEventArgs<GhUiNumber>>>.None);
+        return Owners.Bind(
+            key: spec.Name,
             attach: () => {
                 Color? colour = spec.Colour.Map(static picked => (Color?)picked).IfNone((Color?)null);
                 FloatingButtonHandler click = spec.Handlers.Click.IfNone(NoOp);
@@ -406,20 +436,28 @@ internal static class FloatingButton {
                 FloatingButtonHandler mouseUp = spec.Handlers.MouseUp.IfNone(NoOp);
                 _ = anchor.Map(point => Op.Side(() => canvas.FloatingButtons.AddAnchored(anchor: point, name: spec.Name, info: spec.Info, colour: colour, icon: spec.Icon, click: click, mouseDown: mouseDown, mouseUp: mouseUp)))
                     .IfNone(() => Op.Side(() => canvas.FloatingButtons.Add(position: position, name: spec.Name, info: spec.Info, colour: colour, icon: spec.Icon, click: click, mouseDown: mouseDown, mouseUp: mouseUp)));
-                registered = canvas.FloatingButtons.FindByName(name: spec.Name)
-                    ?? throw new InvalidOperationException(message: $"FloatingButton '{spec.Name}' was not registered after Add().");
-                _ = spec.Numeric.Iter(numeric => {
-                    registered.MakeNumeric(number: numeric.Value, valueKey: numeric.ValueKey);
-                    changed = numeric.Changed is { IsSome: true, Case: Func<decimal, Fin<Unit>> sink }
-                        ? (_, _) => _ = GrasshopperUi.Handler(valid: () => registered.NumericValue is GhUiNumber current ? sink(arg: current.Value) : Fin.Succ(value: unit))
-                        : null;
-                    _ = Optional(changed).Iter(handler => registered.ValueChanged += handler);
-                });
+                NativeFloatingButton? resolved = null;
+                // BOUNDARY ADAPTER — ThrowIfFail lets Subscription.Bind's Try.lift reject vanished registrations.
+                _ = Optional(canvas.FloatingButtons.FindByName(name: spec.Name))
+                    .ToFin(Fail: UiFault.MutationRejected(op: Op.Of(name: nameof(Add)), detail: $"button '{spec.Name}' was not registered after Add()"))
+                    .Map(found => registered.Swap(_swap => (resolved = found, Some(found)).Item2))
+                    .ThrowIfFail();
+                _ = (resolved, spec.Numeric) is (NativeFloatingButton button, { IsSome: true, Case: FloatingNumeric numeric })
+                    ? Op.Side(() => {
+                        button.MakeNumeric(number: numeric.Value, valueKey: numeric.ValueKey);
+                        _ = numeric.Changed
+                            .Map(sink => (EventHandler<FloatingButtonEventArgs<GhUiNumber>>)((_, _) =>
+                                _ = GrasshopperUi.Handler(valid: () => button.NumericValue is GhUiNumber current ? sink(arg: current.Value) : Fin.Succ(value: unit))))
+                            .Iter(handler => {
+                                _ = changed.Swap(_swap => Some(handler));
+                                button.ValueChanged += handler;
+                            });
+                    })
+                    : unit;
             },
-            detach: _ => {
-                if (registered is not null && changed is not null) {
-                    registered.ValueChanged -= changed;
-                }
+            detach: target => {
+                _ = changed.Value.Iter(handler => registered.Value.Iter(button => button.ValueChanged -= handler));
+                canvas.FloatingButtons.Close(target);
             });
     }
 
@@ -428,10 +466,11 @@ internal static class FloatingButton {
         Option<string> info = default,
         Option<IIcon> icon = default,
         Option<Color> colour = default,
-        Option<(PointF Point, bool Immediate)> anchor = default) =>
+        Option<(PointF Point, bool Immediate)> anchor = default,
+        Option<bool> enabled = default) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
-            from _found in Optional(canvas.FloatingButtons.FindByName(name: name))
+            from found in Optional(canvas.FloatingButtons.FindByName(name: name))
                 .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Modify)), detail: $"button '{name}' not found"))
             from validAnchor in anchor.Match(
                 Some: a => Op.Of(name: nameof(Modify)).AcceptPoint(value: a.Point, detail: "non-finite anchor").Map(p => Some((Point: p, a.Immediate))),
@@ -440,12 +479,12 @@ internal static class FloatingButton {
                 ModifyField(value: info, mutate: v => canvas.FloatingButtons.ModifyInfo(name: name, buttonInfo: v), field: "ModifyInfo"),
                 ModifyField(value: icon, mutate: v => canvas.FloatingButtons.ModifyIcon(name: name, icon: v), field: "ModifyIcon"),
                 ModifyField(value: colour, mutate: v => canvas.FloatingButtons.ModifyColour(name: name, colour: v), field: "ModifyColour"),
-                ModifyField(value: validAnchor, mutate: av => canvas.FloatingButtons.ModifyAnchor(name: name, anchor: av.Point, immediate: av.Immediate), field: "ModifyAnchor"))
+                ModifyField(value: validAnchor, mutate: av => canvas.FloatingButtons.ModifyAnchor(name: name, anchor: av.Point, immediate: av.Immediate), field: "ModifyAnchor"),
+                ModifyField(value: enabled, mutate: v => found.Enabled = v, field: "Enabled"))
                 .TraverseM(static step => step).As()
             select unit);
 
-    // Each present field self-names its own Op.Attempt so a single failed mutation short-circuits the
-    // TraverseM with the precise field; an absent field is a no-op Succ.
+    // Present fields self-name Op.Attempt so TraverseM faults identify the exact chrome mutation.
     private static Fin<Unit> ModifyField<T>(Option<T> value, Action<T> mutate, string field) =>
         value.Match(
             Some: present => Op.Of(name: nameof(Modify)).Attempt(body: () => mutate(present), what: field),
@@ -515,25 +554,16 @@ internal static class FloatingButton {
                 what: "FloatingButtonCollection snapshot")
             select snap);
 
-    private static Fin<Subscription> Resource(string name, GhCanvas canvas, Action attach, Action<string>? detach = null) =>
-        Owners.Bind(
-            key: name,
-            attach: attach,
-            detach: target => {
-                _ = Optional(detach).Iter(d => d(target));
-                canvas.FloatingButtons.Close(target);
-            });
-
     private static FloatingButtonInfo InfoOf(NativeFloatingButton button) =>
         new(Name: button.Name, Info: button.Info,
             Position: button.Position, State: button.State,
             Enabled: button.Enabled, HasFocus: button.HasFocus,
             Colour: button.Colour,
             Anchor: button.Position == FloatingPosition.Anchored ? Some(button.Anchor) : Option<PointF>.None,
-            // NumericValue is null until MakeNumeric; project the host UiNumber.Value (decimal) through Option.
+            // NumericValue is null until MakeNumeric; project host absence through Option.
             NumericValue: Optional(button.NumericValue).Map(static value => value.Value));
 
-    private static Response NoOp(NativeFloatingButton _, MouseEventArgs __) => Response.Ignored;
+    private static GhResponse NoOp(NativeFloatingButton _, MouseEventArgs __) => GhResponse.Ignored;
 }
 
 internal static class Interaction {
@@ -543,12 +573,13 @@ internal static class Interaction {
             registerCase: static r => CanvasChromePlan.SubscriptionOf(intent: Register(r.Responsive, r.System)),
             hoverCase: static h => CanvasChromePlan.SubscriptionOf(intent: Hover(h.Delay, h.Handler)),
             contextMenuCase: static c => CanvasChromePlan.SubscriptionOf(intent: ContextMenu(c.Handler)),
+            resizeCase: static r => CanvasChromePlan.SubscriptionOf(intent: Resize(r.Target, r.Snap, r.Decide)),
+            gestureCase: static g => CanvasChromePlan.SubscriptionOf(intent: Gesture(g.Recognizer, g.States, g.Handle)),
+            pressureCase: static p => CanvasChromePlan.SubscriptionOf(intent: Pressure(p.Behavior)),
+            keyboardCase: static k => CanvasChromePlan.SubscriptionOf(intent: Keyboard(k.Handle)),
             statusCase: static _ => CanvasChromePlan.Result(intent: SnapshotNow().Map(static snap => (CanvasChromeResult)new CanvasChromeResult.InteractionStatusCase(Snapshot: snap))));
 
-    // PushInteraction only pushes onto FlexControl._focus; the interaction self-terminates by popping
-    // itself when complete. There is no public pop-by-reference (UnregisterIResponsive no-ops on an
-    // interaction never registered in _responsives), so the detach is intentionally empty — the old
-    // valid.Release(canvas) released the interaction WITHOUT popping _focus, leaking a dangling entry.
+    // PushInteraction has no public pop-by-reference; interactions self-release on completion.
     internal static GrasshopperUiIntent<Subscription> Push(IInteraction target) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
@@ -569,8 +600,7 @@ internal static class Interaction {
                 marshalToUi: true)
             select sub);
 
-    // Delay None inherits the canvas's current MouseHoverDelay (GH2 exposes no default constant); an explicit
-    // delay must be positive and is leased so the prior value restores on detach.
+    // Delay None preserves current MouseHoverDelay; explicit delays are leased and restored on detach.
     internal static GrasshopperUiIntent<Subscription> Hover(Option<TimeSpan> delay, Func<MouseHoverSnapshot, Fin<Unit>> handler) =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
@@ -582,16 +612,15 @@ internal static class Interaction {
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Hover)), detail: "handler is required"))
             let onHover = (EventHandler<MouseHoverEventArgs>)((_, e) =>
                 _ = GrasshopperUi.Handler(valid: () => valid(arg: new MouseHoverSnapshot(ControlPoint: e.ControlPoint, ContentPoint: e.ContentPoint))))
-            // Single-element array carries the lease token across attach/detach without a StrongBox allocation.
             let token = new Guid[1]
             from sub in Subscription.Bind(
                 attach: () => {
-                    _ = validDelay.Iter(value => token[0] = CanvasPropertyLease.Enter(canvas: canvas, slot: nameof(GhCanvas.MouseHoverDelay), value: value, get: static c => c.MouseHoverDelay, set: static (c, leased) => c.MouseHoverDelay = leased));
+                    _ = validDelay.Iter(value => token[0] = CanvasLease.HoverDelayLease.Enter(canvas: canvas, value: value));
                     canvas.MouseHover += onHover;
                 },
                 detach: () => {
                     canvas.MouseHover -= onHover;
-                    _ = validDelay.Iter(_unused => CanvasPropertyLease.Exit<TimeSpan>(canvas: canvas, slot: nameof(GhCanvas.MouseHoverDelay), token: token[0], set: static (c, leased) => c.MouseHoverDelay = leased));
+                    _ = validDelay.Iter(_unused => CanvasLease.HoverDelayLease.Exit(canvas: canvas, token: token[0]));
                 },
                 marshalToUi: true)
             select sub);
@@ -608,6 +637,88 @@ internal static class Interaction {
                 marshalToUi: true)
             select sub);
 
+    // SnapCore needs document-owned live IAttributes, not only IResizableAttributes pivot/size.
+    internal static GrasshopperUiIntent<Subscription> Resize(IResizableAttributes target, SnapSetting snap, Func<ResizeSession, Fin<DecisionDelta>> decide) =>
+        GhUi.Canvas(run: scope =>
+            from canvas in scope.NeedCanvas()
+            from document in scope.NeedDocument()
+            from validTarget in Optional(target).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Resize)), detail: "resize target is required"))
+            from owner in Optional(validTarget as IAttributes).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Resize)), detail: "resize target must be a live IAttributes"))
+            from validDecide in Optional(decide).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Resize)), detail: "decide is required"))
+            from sub in Subscription.Bind(
+                attach: () => canvas.PushInteraction(interaction: new ResizeInteraction(target: validTarget, owner: owner, document: document, canvas: canvas, snap: snap, decide: validDecide)),
+                detach: static () => { },
+                marshalToUi: true)
+            select sub);
+
+    // Local monitor observes gesture phases and returns events unchanged so GH2 input routing is not swallowed.
+    private const NSEventMask GestureMask =
+        NSEventMask.EventGesture | NSEventMask.EventMagnify | NSEventMask.EventSwipe | NSEventMask.EventRotate
+        | NSEventMask.EventBeginGesture | NSEventMask.EventEndGesture | NSEventMask.SmartMagnify | NSEventMask.Pressure;
+
+    internal static GrasshopperUiIntent<Subscription> Gesture(NSGestureRecognizer recognizer, Seq<NSGestureRecognizerState> states, Func<GestureSnapshot, Fin<Unit>> handle) =>
+        GhUi.Canvas(run: scope =>
+            from canvas in scope.NeedCanvas()
+            from view in Optional(canvas.ControlObject as NSView).ToFin(Fail: UiFault.MutationRejected(op: Op.Of(name: nameof(Gesture)), detail: "canvas.ControlObject is not an NSView"))
+            from validRecognizer in Optional(recognizer).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Gesture)), detail: "recognizer is required"))
+            from validHandle in Optional(handle).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Gesture)), detail: "handle is required"))
+            let onGesture = (LocalEventHandler)(gestureEvent => {
+                _ = states.Exists(state => state == validRecognizer.State)
+                    ? GrasshopperUi.Handler(valid: () => validHandle(arg: new GestureSnapshot(Recognizer: validRecognizer, State: validRecognizer.State, Location: GestureLocation(recognizer: validRecognizer, view: view))))
+                    : unit;
+                return gestureEvent;
+            })
+            let monitor = new NSObject?[1]
+            from sub in Subscription.Bind(
+                attach: () => {
+                    view.AddGestureRecognizer(gestureRecognizer: validRecognizer);
+                    monitor[0] = NSEvent.AddLocalMonitorForEventsMatchingMask(mask: GestureMask, handler: onGesture);
+                },
+                detach: () => {
+                    _ = Optional(monitor[0]).Iter(NSEvent.RemoveMonitor);
+                    view.RemoveGestureRecognizer(gestureRecognizer: validRecognizer);
+                },
+                marshalToUi: true)
+            select sub);
+
+    // Lease PressureConfiguration so detach restores the prior force-touch behavior.
+    internal static GrasshopperUiIntent<Subscription> Pressure(NSPressureBehavior behavior) =>
+        GhUi.Canvas(run: scope =>
+            from canvas in scope.NeedCanvas()
+            from view in Optional(canvas.ControlObject as NSView).ToFin(Fail: UiFault.MutationRejected(op: Op.Of(name: nameof(Pressure)), detail: "canvas.ControlObject is not an NSView"))
+            let token = new Guid[1]
+            from sub in Subscription.Bind(
+                attach: () => token[0] = CanvasLease.PressureLease.Enter(canvas: canvas, value: new NSPressureConfiguration(pressureBehavior: behavior)),
+                detach: () => CanvasLease.PressureLease.Exit(canvas: canvas, token: token[0]),
+                marshalToUi: true)
+            select sub);
+
+    internal static GrasshopperUiIntent<Subscription> Keyboard(Func<KeyEventArgs, bool, Fin<Unit>> handle) =>
+        GhUi.Canvas(run: scope =>
+            from canvas in scope.NeedCanvas()
+            from validHandle in Optional(handle).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Keyboard)), detail: "handle is required"))
+            let onKeyDown = (EventHandler<KeyEventArgs>)((_, e) =>
+                _ = GrasshopperUi.Handler(valid: () => validHandle(e, true)))
+            let onKeyUp = (EventHandler<KeyEventArgs>)((_, e) =>
+                _ = GrasshopperUi.Handler(valid: () => validHandle(e, false)))
+            from sub in Subscription.Bind(
+                attach: () => {
+                    canvas.KeyDown += onKeyDown;
+                    canvas.KeyUp += onKeyUp;
+                },
+                detach: () => {
+                    canvas.KeyDown -= onKeyDown;
+                    canvas.KeyUp -= onKeyUp;
+                },
+                marshalToUi: true)
+            select sub);
+
+    // BOUNDARY ADAPTER — LocationInView returns view-space NFloat coordinates; GestureSnapshot carries Eto PointF.
+    private static PointF GestureLocation(NSGestureRecognizer recognizer, NSView view) {
+        CGPoint point = recognizer.LocationInView(view: view);
+        return new PointF(x: (float)point.X, y: (float)point.Y);
+    }
+
     internal static GrasshopperUiIntent<InteractionSnapshot> SnapshotNow() =>
         GhUi.Canvas(run: scope =>
             from canvas in scope.NeedCanvas()
@@ -621,10 +732,68 @@ internal static class Interaction {
             select snap);
 }
 
+// BOUNDARY ADAPTER — IInteraction focus capsule; mouse-up releases focus and clears the snap overlay.
+[BoundaryAdapter]
+internal sealed class ResizeInteraction : AbstractInteraction {
+    private readonly IResizableAttributes target;
+    private readonly IAttributes owner;
+    private readonly GhDocument document;
+    private readonly GhCanvas canvas;
+    private readonly SnappingPolicy policy;
+    private readonly Func<ResizeSession, Fin<DecisionDelta>> decide;
+    private readonly Atom<ResizeSession> session;
+
+    internal ResizeInteraction(IResizableAttributes target, IAttributes owner, GhDocument document, GhCanvas canvas, SnapSetting snap, Func<ResizeSession, Fin<DecisionDelta>> decide)
+        : base(nomen: new Nomen(name: "Resize", info: "Rasm resize interaction"), icon: null) {
+        this.target = target;
+        this.owner = owner;
+        this.document = document;
+        this.canvas = canvas;
+        policy = new SnappingPolicy(Settings: Seq(snap));
+        this.decide = decide;
+        session = Atom(value: new ResizeSession(Start: owner.Bounds, Current: owner.Bounds, Snap: Option<SnappingSnapshot>.None));
+    }
+
+    public override GhResponse RespondToMouseMove(MouseEventArgs e) =>
+        decide(arg: session.Value)
+            .Map(Apply)
+            .IfFail(GhResponse.Ignored);
+
+    public override GhResponse RespondToMouseUp(MouseEventArgs e) {
+        canvas.SnapXAction = null;
+        canvas.SnapYAction = null;
+        return GhResponse.Release;
+    }
+
+    // Only bounds/size deltas update geometry; cursor/response deltas keep the current rectangle.
+    private GhResponse Apply(DecisionDelta delta) {
+        RectangleF bounds = delta.Switch(
+            state: session.Value.Current,
+            boundsCase: static (_, b) => b.Value,
+            sizeCase: static (current, s) => new RectangleF(location: current.Location, size: s.Value),
+            cursorCase: static (current, _) => current,
+            responseCase: static (current, _) => current);
+        Option<SnappingSnapshot> snapped = owner.Snappable
+            ? Layout.SnapCore(document: document, obj: owner.Owner, policy: policy, visibleLimit: canvas.VisibleFrame, bounds: Some(bounds), wireCandidates: Seq(owner.Owner))
+            : Option<SnappingSnapshot>.None;
+        RectangleF snappedBounds = snapped.Map(snap => new RectangleF(x: bounds.X + snap.Dx, y: bounds.Y + snap.Dy, width: bounds.Width, height: bounds.Height)).IfNone(bounds);
+        target.Size = snappedBounds.Size;
+        _ = session.Swap(prev => prev with { Current = snappedBounds, Snap = snapped });
+        // BOUNDARY ADAPTER — null is GH2's clear-sentinel for SnapXAction/SnapYAction; None projects to host clear.
+#pragma warning disable CS8603, CS8625
+        canvas.SnapXAction = snapped.Bind(snap => snap.XLabel.Map(label => AxisAction(dx: snap.Dx, dy: 0f, label: label, lines: snap.Lines))).IfNone(() => null);
+        canvas.SnapYAction = snapped.Bind(snap => snap.YLabel.Map(label => AxisAction(dx: 0f, dy: snap.Dy, label: label, lines: snap.Lines))).IfNone(() => null);
+#pragma warning restore CS8603, CS8625
+        return GhResponse.Handled;
+    }
+
+    // Rebuild native per-axis overlay actions from the snapped delta and label.
+    private static SnappingAction AxisAction(float dx, float dy, SnapLabel label, Seq<LineF> lines) =>
+        new(dx: dx, dy: dy, text: label.Text, point: label.Point, anchor: label.Anchor.IfNone(TextAnchor.LowerMiddle), lines: [.. lines]);
+}
+
 internal sealed class OwnedSubscription<TKey> {
     private readonly Atom<HashMap<TKey, Guid>> owners = Atom(value: HashMap<TKey, Guid>());
-
-    internal Option<Guid> Owner(TKey key) => owners.Value.Find(key: key);
 
     internal void Clear(TKey key) => _ = owners.Swap(map => map.Remove(key));
 
@@ -633,8 +802,7 @@ internal sealed class OwnedSubscription<TKey> {
     internal Fin<Subscription> Bind(TKey key, Action attach, Action<TKey> detach) {
         Guid token = Guid.NewGuid();
         return Subscription.Bind(
-            // Register the token only after attach() commits so a throwing attach never orphans an ownership slot
-            // whose detach gate would then leak.
+            // Register only after attach commits so a throwing attach cannot orphan an ownership slot.
             attach: () => {
                 attach();
                 _ = owners.Swap(map => map.SetItem(key, token));
@@ -650,9 +818,8 @@ internal sealed class OwnedSubscription<TKey> {
     }
 }
 
-// Per-canvas property ownership keyed by RuntimeHelpers.GetHashCode(canvas): the identity hash is stable
-// for the canvas's lifetime and avoids retaining the live canvas from the static atom.
-internal static class CanvasPropertyLease {
+// Canvas leases key by identity hash so the static atom does not retain live canvases.
+internal static class CanvasLease {
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct Entry<T>(Guid Token, T Value);
 
@@ -661,19 +828,23 @@ internal static class CanvasPropertyLease {
 
     private static readonly Atom<HashMap<int, object>> Stacks = Atom(value: HashMap<int, object>());
 
-    internal static Guid Enter<T>(GhCanvas canvas, string slot, T value, Func<GhCanvas, T> get, Action<GhCanvas, T> set) {
+    internal static readonly CanvasLease<TimeSpan> HoverDelayLease = new(Slot: nameof(GhCanvas.MouseHoverDelay), Get: static c => c.MouseHoverDelay, Set: static (c, v) => c.MouseHoverDelay = v);
+    internal static readonly CanvasLease<bool> RedrawLease = new(Slot: nameof(GhCanvas.RedrawOnMouseMove), Get: static c => c.RedrawOnMouseMove, Set: static (c, v) => c.RedrawOnMouseMove = v);
+    internal static readonly CanvasLease<NSPressureConfiguration> PressureLease = new(Slot: "PressureConfiguration", Get: static c => (c.ControlObject as NSView)?.PressureConfiguration!, Set: static (c, v) => Optional(c.ControlObject as NSView).Iter(view => view.PressureConfiguration = v));
+
+    internal static Guid Enter<T>(CanvasLease<T> lease, GhCanvas canvas, T value) {
         Guid token = Guid.NewGuid();
-        int key = Key(canvas: canvas, slot: slot);
+        int key = Key(canvas: canvas, slot: lease.Slot);
         _ = Stacks.Swap(map => map.AddOrUpdate(
             key: key,
-            Some: state => state is State<T> typed ? typed with { Entries = typed.Entries + new Entry<T>(Token: token, Value: value) } : new State<T>(Baseline: get(arg: canvas), Entries: Seq(new Entry<T>(Token: token, Value: value))),
-            None: () => new State<T>(Baseline: get(arg: canvas), Entries: Seq(new Entry<T>(Token: token, Value: value)))));
-        set(arg1: canvas, arg2: value);
+            Some: state => state is State<T> typed ? typed with { Entries = typed.Entries + new Entry<T>(Token: token, Value: value) } : new State<T>(Baseline: lease.Get(arg: canvas), Entries: Seq(new Entry<T>(Token: token, Value: value))),
+            None: () => new State<T>(Baseline: lease.Get(arg: canvas), Entries: Seq(new Entry<T>(Token: token, Value: value)))));
+        lease.Set(arg1: canvas, arg2: value);
         return token;
     }
 
-    internal static bool IsTop<T>(GhCanvas canvas, string slot, Guid token, T value) {
-        int key = Key(canvas: canvas, slot: slot);
+    internal static bool IsTop<T>(CanvasLease<T> lease, GhCanvas canvas, Guid token, T value) {
+        int key = Key(canvas: canvas, slot: lease.Slot);
         return Stacks.Value.Find(key: key)
             .Map(state => state is State<T> typed
                 && !typed.Entries.IsEmpty
@@ -682,11 +853,9 @@ internal static class CanvasPropertyLease {
             .IfNone(noneValue: false);
     }
 
-    // BOUNDARY ADAPTER — token removal restores the top remaining value even when disposals are non-LIFO.
-    // A foreign-T slot (hash collision on a differently-typed lease) pattern-matches None and is left untouched
-    // rather than InvalidCastException-ing on a bare (State<T>) cast.
-    internal static void Exit<T>(GhCanvas canvas, string slot, Guid token, Action<GhCanvas, T> set) {
-        int key = Key(canvas: canvas, slot: slot);
+    // BOUNDARY ADAPTER — non-LIFO disposal restores the top remaining value; foreign-T hash slots are ignored.
+    internal static void Exit<T>(CanvasLease<T> lease, GhCanvas canvas, Guid token) {
+        int key = Key(canvas: canvas, slot: lease.Slot);
         Option<T> restore = Option<T>.None;
         _ = Stacks.Swap(map => map.Find(key)
             .Bind(state => state is State<T> typed ? Some((Typed: typed, Kept: typed.Entries.Filter(entry => entry.Token != token))) : Option<(State<T> Typed, Seq<Entry<T>> Kept)>.None)
@@ -696,8 +865,15 @@ internal static class CanvasPropertyLease {
                     return pair.Kept.IsEmpty ? map.Remove(key) : map.SetItem(key, pair.Typed with { Entries = pair.Kept });
                 },
                 None: () => map));
-        _ = restore.Iter(value => set(arg1: canvas, arg2: value));
+        _ = restore.Iter(value => lease.Set(arg1: canvas, arg2: value));
     }
 
     private static int Key(GhCanvas canvas, string slot) => HashCode.Combine(RuntimeHelpers.GetHashCode(o: canvas), slot);
+}
+
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct CanvasLease<T>(string Slot, Func<GhCanvas, T> Get, Action<GhCanvas, T> Set) {
+    internal Guid Enter(GhCanvas canvas, T value) => CanvasLease.Enter(lease: this, canvas: canvas, value: value);
+    internal void Exit(GhCanvas canvas, Guid token) => CanvasLease.Exit(lease: this, canvas: canvas, token: token);
+    internal bool IsTop(GhCanvas canvas, Guid token, T value) => CanvasLease.IsTop(lease: this, canvas: canvas, token: token, value: value);
 }

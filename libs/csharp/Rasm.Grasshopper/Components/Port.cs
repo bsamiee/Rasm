@@ -20,8 +20,10 @@ public abstract partial record Capability {
     public sealed record Category(string Name, Option<Color> Colour = default) : Capability;
     public sealed record Preset(Seq<(int Value, string Label)> Choices) : Capability;
     public sealed record Validate(Func<object, bool> Predicate, string Message) : Capability;
+    public sealed record Seed(object Value) : Capability;
     public sealed record Many(Seq<Capability> Items) : Capability;
 
+    public static Capability Default(object value) => new Seed(Value: value);
     public static Capability Empty => new Many(Items: Seq<Capability>());
     public static Capability operator +(Capability left, Capability right) => new Many(Items: Seq(left, right));
 
@@ -56,6 +58,8 @@ public abstract partial record Capability {
             compatibleWith: static kind => kind == PortKind.Integer || kind == PortKind.Index,
             mutate: target => pr.Choices.Iter(choice => target.Presets.Add(name: choice.Label, info: string.Empty, value: choice.Value))),
         validate: v => Rule.Universal(validators: Seq((v.Predicate, v.Message))),
+        // Seed data belongs in PersistentDataWeak; GH2 exposes no ModularComponent default marker.
+        seed: d => Rule.Universal(applyTo: parameter => { parameter.PersistentDataWeak = Garden.TreeFromList(new object[] { d.Value }); return Fin.Succ(parameter); }),
         many: m => m.Items.Fold(Rule.Universal(), static (rules, capability) => rules + capability.Projection));
 
     private static Fin<IParameter> On<TParam>(IParameter parameter, Func<TParam, Unit> mutate) where TParam : class =>
@@ -163,10 +167,6 @@ public sealed partial class PortKind {
     internal Capability DefaultPolicy { get; }
     [UseDelegateFromConstructor] private partial IParameter AddInput(InputAdder adder, string name, string code, string info, Access access, Requirement requirement);
     [UseDelegateFromConstructor] private partial IParameter AddOutput(OutputAdder adder, string name, string code, string info, Access access);
-    private static FrozenDictionary<(Type Type, Side Side), PortKind> TypeDefaults() =>
-        TypeSideGroups
-            .Choose(static group => TypeDefault(type: group.Type, side: group.Side, kinds: group.Kinds).Map(kind => (group.Type, group.Side, Kind: kind)))
-            .ToFrozenDictionary(keySelector: static item => (item.Type, item.Side), elementSelector: static item => item.Kind);
     internal static Seq<(Type Type, Seq<PortKind> Kinds)> TypeCollisions =>
         TypeSideGroups.Choose(static group => TypeDefault(type: group.Type, side: group.Side, kinds: group.Kinds).IsSome
             ? Option<(Type Type, Seq<PortKind> Kinds)>.None
@@ -178,7 +178,7 @@ public sealed partial class PortKind {
             ? Some(Generic)
             : type.IsEnum && System.Enum.GetUnderlyingType(enumType: type) == typeof(int) && !type.IsDefined(attributeType: typeof(FlagsAttribute), inherit: false)
                 ? EnumKind(type: type)
-            : TypeDefaults().TryGetValue(key: (type, side), value: out PortKind? kind) ? Some(kind) : Option<PortKind>.None;
+            : TypeDefaults.Value.TryGetValue(key: (type, side), value: out PortKind? kind) ? Some(kind) : Option<PortKind>.None;
     }
     public static PortKind Register<T>(
         string key,
@@ -261,13 +261,18 @@ public sealed partial class PortKind {
         }.ToFrozenDictionary();
     private static Option<PortKind> ExplicitTypeDefault(Type type, Side side) =>
         ExplicitDefaults.TryGetValue(key: (type, side), value: out PortKind? kind) ? Some(kind) : Option<PortKind>.None;
+    private static readonly Lazy<FrozenDictionary<(Type Type, Side Side), PortKind>> TypeDefaults =
+        new(static () => TypeSideGroups
+            .Choose(static group => TypeDefault(type: group.Type, side: group.Side, kinds: group.Kinds).Map(kind => (group.Type, group.Side, Kind: kind)))
+            .ToFrozenDictionary(keySelector: static item => (item.Type, item.Side), elementSelector: static item => item.Kind));
     private static PortKind EnumDefault<T>() where T : struct, Enum {
         T[] values = System.Enum.GetValues<T>();
         return Enum(initial: values.Length > 0 ? values[0] : default);
     }
+    private static readonly MethodInfo EnumDefaultMethod =
+        typeof(PortKind).GetMethod(name: nameof(EnumDefault), bindingAttr: BindingFlags.NonPublic | BindingFlags.Static)!;
     private static Option<PortKind> EnumKind(Type type) =>
-        Optional(typeof(PortKind).GetMethod(name: nameof(EnumDefault), bindingAttr: BindingFlags.NonPublic | BindingFlags.Static))
-            .Bind(method => Optional(method.MakeGenericMethod(typeArguments: [type]).Invoke(obj: null, parameters: null) as PortKind));
+        Optional(EnumDefaultMethod.MakeGenericMethod(typeArguments: [type]).Invoke(obj: null, parameters: null) as PortKind);
 }
 
 public abstract class Port {
@@ -336,6 +341,13 @@ public abstract class Port {
         string info = "Geometry to analyse.",
         Access access = Access.Tree) =>
         Of<Shape>(name: name, code: code, info: info, access: access);
+    public static Port<TVal> Enum<TVal>(
+        string name,
+        string code,
+        string info,
+        TVal initial,
+        Access access = Access.Item) where TVal : struct, Enum =>
+        Of<TVal>(name: name, code: code, info: info, access: access, kind: PortKind.Enum(initial: initial), policy: Capability.Default(value: initial));
 }
 public sealed class Port<TVal> : Port {
     internal Port(

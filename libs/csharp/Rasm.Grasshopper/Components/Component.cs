@@ -205,7 +205,6 @@ public abstract class Component<TSelf> : ModularComponent, IRasmComponent where 
         _ = GrasshopperRuntime.Capture(access: access, inputs: cachedInputs, parameters: Parameters)
             .Match(
                 Succ: runtime => Output.Write(access: access, runtime: runtime, bindings: bindings, outputs: outputs),
-                // Wiring faults stay recoverable (Warning + empty); a genuine compute/scope failure surfaces as Error.
                 Fail: error => access.Emit(severity: PortFault.SeverityOf(error: error), text: error.Category(), details: error.Message) switch {
                     _ => Output.Empty(access: access, bindings: bindings, outputs: outputs),
                 });
@@ -238,7 +237,7 @@ public abstract class Plugin : GhPlugin {
         base.OnLoaded();
         Assembly[] satellites = SatelliteAssemblies;
         Seq<Assembly> declaredSatellites = toSeq(satellites).Choose(static assembly => Optional(assembly));
-        Seq<Type> types = declaredSatellites.IsEmpty ? toSeq(GetType().Assembly.GetTypes()) : toSeq(ExportedTypes);
+        Seq<Type> types = toSeq(ExportedTypes);
         Seq<Type> plugins = types.Filter(static type => typeof(Plugin).IsAssignableFrom(c: type) && !type.IsAbstract && !type.IsGenericTypeDefinition).Distinct();
         Seq<Type> components = types
             .Filter(static type => typeof(IRasmComponent).IsAssignableFrom(c: type) && !type.IsAbstract && !type.IsGenericTypeDefinition)
@@ -269,7 +268,6 @@ public abstract class Plugin : GhPlugin {
             Type owner => owner != typeof(GhPlugin),
             _ => false,
         };
-        // One declarative rule table: each fault is constructed lazily only when its guard fails.
         Seq<(bool Valid, Func<ComponentValidationFault> Fault)> rules = Seq<(bool, Func<ComponentValidationFault>)>(
             (plugins.Count == 1, () => new ComponentValidationFault.CatalogPluginCount(Assembly: activeType.Assembly.GetName().Name ?? activeType.Name, Found: plugins.Count)),
             (plugins.Exists(type => type == activeType), () => new ComponentValidationFault.CatalogActivePluginMismatch(Plugin: activeType.FullName ?? activeType.Name)),

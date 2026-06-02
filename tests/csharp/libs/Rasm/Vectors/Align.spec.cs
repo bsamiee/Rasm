@@ -3,6 +3,7 @@ using Rasm.TestKit;
 using Rasm.Vectors;
 using Rhino;
 using Rhino.Geometry;
+using Dimension = Rasm.Vectors.Dimension;
 
 namespace Rasm.Tests.Vectors;
 
@@ -21,10 +22,27 @@ internal static class AlignGens {
         new Point3d(x: 1.0, y: 1.0, z: 0.0),
         new Point3d(x: 2.0, y: 0.0, z: 0.0),
         new Point3d(x: 0.0, y: 2.0, z: 0.0));
+    public static readonly Seq<Point3d> Cube = Seq(
+        new Point3d(x: 0.0, y: 0.0, z: 0.0),
+        new Point3d(x: 1.0, y: 0.0, z: 0.0),
+        new Point3d(x: 0.0, y: 1.0, z: 0.0),
+        new Point3d(x: 1.0, y: 1.0, z: 0.0),
+        new Point3d(x: 0.0, y: 0.0, z: 1.0),
+        new Point3d(x: 1.0, y: 0.0, z: 1.0),
+        new Point3d(x: 0.0, y: 1.0, z: 1.0),
+        new Point3d(x: 1.0, y: 1.0, z: 1.0));
     public static readonly AlignKind[] Kinds = [
-        AlignKind.Point, AlignKind.Plane, AlignKind.Symmetric, AlignKind.Robust, AlignKind.NormalWeightedPointToPlane,
+        AlignKind.Point, AlignKind.Plane, AlignKind.Symmetric, AlignKind.Robust, AlignKind.NormalWeightedPointToPlane, AlignKind.Generalized,
     ];
     public static readonly Context Model = Spec.SuccValue(Context.Of(absolute: 0.001, relative: 1.0e-8, angle: 0.01, units: UnitSystem.Millimeters).ToFin(), label: "align context");
+    public static readonly Vector3d Offset = new(x: 0.02, y: -0.03, z: 0.05);
+    public static AlignmentPolicy Policy(int maxIterations = 8, double tolerance = 1.0e-6) =>
+        Spec.SuccValue(
+            from iterations in Key.AcceptValidated<Dimension>(candidate: maxIterations)
+            from convergence in Key.AcceptValidated<PositiveMagnitude>(candidate: tolerance)
+            from robust in Key.AcceptValidated<PositiveMagnitude>(candidate: 0.1)
+            select new AlignmentPolicy(MaxIterations: iterations, ConvergenceTolerance: convergence, RobustScale: robust),
+            label: "alignment policy");
 }
 
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
@@ -33,6 +51,7 @@ public sealed class AlignKindLaws {
     public void KeysAreDistinctAndNonClusterInputsFail() {
         Spec.SmartEnumKeysUnique(items: AlignGens.Kinds, key: static k => k.Key);
         Assert.Equal(expected: AlignmentApproximationStatus.SymmetricNormalSumLinearized, actual: AlignKind.Symmetric.Approximation);
+        Assert.Equal(expected: AlignmentApproximationStatus.GeneralizedIterativeClosestPoint, actual: AlignKind.Generalized.Approximation);
         Assert.Equal(expected: AlignGens.Kinds.Length, actual: AlignKind.Items.Count);
         VectorCloud polyline = Spec.SuccValue(VectorCloud.Polyline(points: AlignGens.Tetra, context: AlignGens.Model, key: AlignGens.Key), label: "polyline");
         VectorCloud cluster = Spec.SuccValue(VectorCloud.Cluster(points: AlignGens.Tetra, context: AlignGens.Model, key: AlignGens.Key), label: "cluster");

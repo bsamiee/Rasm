@@ -8,6 +8,8 @@ using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Sparkles;
 using Grasshopper2.Undo;
+using ContentPosition = Grasshopper2.UI.Flex.ContentPosition;
+using CursorMode = Grasshopper2.UI.Canvas.CursorMode;
 using GhCanvas = Grasshopper2.UI.Canvas.Canvas;
 using GhDocument = Grasshopper2.Doc.Document;
 using GhDocumentMethods = Grasshopper2.Doc.DocumentMethods;
@@ -51,25 +53,39 @@ public readonly record struct CanvasWindow(PointF Start, PointF End) {
     }
 }
 
-[SmartEnum<int>]
-public sealed partial class CanvasPosition {
-    private delegate Fin<(RectangleF Frame, Option<(float Minimum, float Maximum)> Limits)> ResolveFn(RectangleF frame, RectangleF content, SizeF innerSize, CanvasViewPolicy policy, Op op);
-    private static readonly Option<(float Minimum, float Maximum)> FreeZoom = Option<(float Minimum, float Maximum)>.None;
+// ContentPosition navigation only accepts GH2 Duration; point/frame overloads own zoom limits.
+public sealed record CanvasPosition(ContentPosition Position) {
+    public static readonly CanvasPosition Top = new(Position: ContentPosition.Top);
+    public static readonly CanvasPosition Bottom = new(Position: ContentPosition.Bottom);
+    public static readonly CanvasPosition Left = new(Position: ContentPosition.Left);
+    public static readonly CanvasPosition Right = new(Position: ContentPosition.Right);
+    public static readonly CanvasPosition Centre = new(Position: ContentPosition.Centre);
+    public static readonly CanvasPosition TopLeft = new(Position: ContentPosition.TopLeft);
+    public static readonly CanvasPosition TopRight = new(Position: ContentPosition.TopRight);
+    public static readonly CanvasPosition BottomLeft = new(Position: ContentPosition.BottomLeft);
+    public static readonly CanvasPosition BottomRight = new(Position: ContentPosition.BottomRight);
+    public static readonly CanvasPosition Fit = new(Position: ContentPosition.Fit);
+    public static readonly CanvasPosition HundredPercent = new(Position: ContentPosition.HundredPercent);
 
-    public static readonly CanvasPosition Top = new(key: 0, resolve: static (frame, content, _, _, _) => Fin.Succ((new RectangleF(x: frame.X, y: content.Top, width: frame.Width, height: frame.Height), FreeZoom)));
-    public static readonly CanvasPosition Bottom = new(key: 1, resolve: static (frame, content, _, _, _) => Fin.Succ((new RectangleF(x: frame.X, y: content.Bottom - frame.Height, width: frame.Width, height: frame.Height), FreeZoom)));
-    public static readonly CanvasPosition Left = new(key: 2, resolve: static (frame, content, _, _, _) => Fin.Succ((new RectangleF(x: content.Left, y: frame.Y, width: frame.Width, height: frame.Height), FreeZoom)));
-    public static readonly CanvasPosition Right = new(key: 3, resolve: static (frame, content, _, _, _) => Fin.Succ((new RectangleF(x: content.Right - frame.Width, y: frame.Y, width: frame.Width, height: frame.Height), FreeZoom)));
-    public static readonly CanvasPosition Centre = new(key: 4, resolve: static (frame, content, _, _, _) => Fin.Succ((RectangleF.FromCenter(center: content.Center, size: frame.Size), FreeZoom)));
-    public static readonly CanvasPosition TopLeft = new(key: 5, resolve: static (frame, content, _, _, _) => Fin.Succ((new RectangleF(x: content.Left, y: content.Top, width: frame.Width, height: frame.Height), FreeZoom)));
-    public static readonly CanvasPosition TopRight = new(key: 6, resolve: static (frame, content, _, _, _) => Fin.Succ((new RectangleF(x: content.Right - frame.Width, y: content.Top, width: frame.Width, height: frame.Height), FreeZoom)));
-    public static readonly CanvasPosition BottomLeft = new(key: 7, resolve: static (frame, content, _, _, _) => Fin.Succ((new RectangleF(x: content.Left, y: content.Bottom - frame.Height, width: frame.Width, height: frame.Height), FreeZoom)));
-    public static readonly CanvasPosition BottomRight = new(key: 8, resolve: static (frame, content, _, _, _) => Fin.Succ((new RectangleF(x: content.Right - frame.Width, y: content.Bottom - frame.Height, width: frame.Width, height: frame.Height), FreeZoom)));
-    public static readonly CanvasPosition Fit = new(key: 9, resolve: static (_, content, _, policy, _) => Fin.Succ((content, Some((policy.MinimumZoom, policy.MaximumZoom)))));
-    public static readonly CanvasPosition HundredPercent = new(key: 10, resolve: static (frame, _, innerSize, _, _) => Fin.Succ((RectangleF.FromCenter(center: frame.Center, size: innerSize), Some((1f, 1f)))));
+    // Duration enum values are milliseconds; nearest-member folding preserves TimeSpan intent.
+    private static readonly Seq<GhDuration> Durations = Seq(
+        GhDuration.Abrupt, GhDuration.Brief, GhDuration.Fast, GhDuration.Normal,
+        GhDuration.Slow, GhDuration.Tedious, GhDuration.Torpid, GhDuration.Ĝlāçïāľ);
 
-    [UseDelegateFromConstructor]
-    internal partial Fin<(RectangleF Frame, Option<(float Minimum, float Maximum)> Limits)> Resolve(RectangleF frame, RectangleF content, SizeF innerSize, CanvasViewPolicy policy, Op op);
+    private static GhDuration NearestDuration(TimeSpan duration) {
+        double milliseconds = duration.TotalMilliseconds;
+        return Durations.Fold(
+            initialState: GhDuration.Normal,
+            f: (best, candidate) =>
+                Math.Abs(milliseconds - (int)candidate) < Math.Abs(milliseconds - (int)best) ? candidate : best);
+    }
+
+    internal Fin<Unit> Navigate(GhCanvas canvas, TimeSpan duration) {
+        ContentPosition position = Position;
+        GhDuration mapped = NearestDuration(duration: duration);
+        return Op.Of(name: nameof(CanvasPosition))
+            .Attempt(body: () => { canvas.Navigate(position: position, duration: mapped); return unit; }, what: "FlexControl.Navigate(ContentPosition, Duration)");
+    }
 }
 
 [SkipUnionOps]
@@ -104,15 +120,32 @@ public partial record CanvasViewOp {
 
     public static CanvasViewOp Bounds(RectangleF bounds, CanvasViewPolicy policy = default) => new BoundsCase(Region: bounds, Policy: policy);
     public static CanvasViewOp Selection(Seq<Guid>? ids = null, CanvasViewPolicy policy = default) => new SelectionCase(Ids: Optional(ids), Policy: policy);
-    public static CanvasViewOp Fit(CanvasViewPolicy policy = default) => new FitCase(Target: CanvasFitTarget.Content, Policy: policy);
-    public static CanvasViewOp FitSelection(CanvasViewPolicy policy = default) => new FitCase(Target: CanvasFitTarget.Selection, Policy: policy);
-    public static CanvasViewOp FitViewport(CanvasViewPolicy policy = default) => new FitCase(Target: CanvasFitTarget.Viewport, Policy: policy);
+    public static CanvasViewOp Fit(CanvasFitTarget target = CanvasFitTarget.Content, CanvasViewPolicy policy = default) => new FitCase(Target: target, Policy: policy);
     public static CanvasViewOp Projection(PointF centre, float zoom) => new ProjectionCase(Centre: centre, Zoom: zoom);
     public static CanvasViewOp Position(CanvasPosition where, CanvasViewPolicy policy = default) => new PositionCase(Where: where, Policy: policy);
     public static CanvasViewOp ZoomAround(PointF controlPoint, float factor, CanvasViewPolicy policy = default) => new ZoomAroundCase(ControlPoint: controlPoint, Factor: factor, Policy: policy);
 }
 
 public enum CanvasFitTarget { Content, Selection, Viewport }
+
+// Built-ins resolve by reflected WireShape subclass name; Custom carries an open Type. None rejects install before touching process-static ShapeType.
+[SmartEnum<string>]
+public sealed partial class WireShapePolicy {
+    public string SimpleName { get; }
+    public static readonly WireShapePolicy Default = new(key: "default", simpleName: nameof(WireShapeDefault));
+    public static readonly WireShapePolicy Linear = new(key: "linear", simpleName: "WireShapeLinear");
+    public static readonly WireShapePolicy BiArc = new(key: "biarc", simpleName: "WireShapeBiArc");
+    public static readonly WireShapePolicy Custom = new(key: "custom", simpleName: "");
+
+    // Custom Type wins; current GH2 exposes only WireShapeDefault, so Linear/BiArc stay unavailable until host types appear.
+    internal Option<Type> Resolve(Option<Type> @override) =>
+        @override.Filter(IsInstallable).Match(
+            Some: Some,
+            None: () => Optional(string.IsNullOrEmpty(SimpleName) ? null : typeof(WireShape).Assembly.GetType(name: $"{typeof(WireShape).Namespace}.{SimpleName}", throwOnError: false))
+                .Filter(IsInstallable));
+
+    private static bool IsInstallable(Type type) => typeof(WireShape).IsAssignableFrom(c: type) && type is { IsAbstract: false };
+}
 
 [GenerateUnionOps]
 [Union]
@@ -134,12 +167,13 @@ public partial record CanvasOp : IUiOp<CanvasResult> {
     public sealed partial record InlineEditCase(RectangleF Frame, string Initial, Func<string, Fin<Unit>> Apply, Option<Func<Fin<Unit>>> Cancel) : CanvasOp;
     public sealed partial record ValueEditorCase(AbstractParameter Parameter, Option<Control> Control) : CanvasOp;
     public sealed partial record SparkleCase(ISparkle Instance) : CanvasOp;
+    public sealed partial record WireShapeCase(WireShapePolicy Policy, Option<Type> Custom) : CanvasOp;
+    public sealed partial record SnapSettingsCase(bool AsForm) : CanvasOp;
+    public sealed partial record BackgroundOverrideCase(CanvasPaintPhase Phase) : CanvasOp;
 
     public static CanvasOp Snapshot(bool openEditor = false) => new SnapshotCase(OpenEditor: openEditor);
-    public static CanvasOp Pick(PointF point, CoordinateSystem source = CoordinateSystem.Content, CanvasPickPolicy policy = CanvasPickPolicy.All) =>
-        Pick(point: point, source: source, policy: policy, tolerance: PickTolerance.Create(0f));
-    public static CanvasOp Pick(PointF point, CoordinateSystem source, CanvasPickPolicy policy, PickTolerance tolerance) =>
-        new PickCase(Point: point, Source: source, Policy: policy, Tolerance: tolerance);
+    public static CanvasOp Pick(PointF point, CoordinateSystem source = CoordinateSystem.Content, CanvasPickPolicy policy = CanvasPickPolicy.All, Option<PickTolerance> tolerance = default) =>
+        new PickCase(Point: point, Source: source, Policy: policy, Tolerance: tolerance.IfNone(PickTolerance.Zero));
     public static CanvasOp Map(CanvasLocus locus, CoordinateSystem from, CoordinateSystem to) => new MapCase(Locus: locus, From: from, To: to);
     public static CanvasOp Invalidate(RepaintRequest? repaint = null) => new InvalidateCase(Repaint: repaint ?? RepaintRequest.Canvas);
     public static CanvasOp Instantiate(string? searchText = null, bool mouseCentred = true) => new InstantiateCase(SearchText: Optional(searchText), MouseCentred: mouseCentred);
@@ -154,13 +188,16 @@ public partial record CanvasOp : IUiOp<CanvasResult> {
     public static CanvasOp Interaction(CanvasInteractionPolicy policy) => new InteractionCase(Policy: policy);
     public static CanvasOp WindowSelect(CanvasWindow window, SelectionMode mode, CanvasWindowScope scope = CanvasWindowScope.All) =>
         new WindowSelectCase(Window: window, Mode: mode, Scope: scope);
-    public static CanvasOp WindowSelect(RectangleF window, SelectionMode mode, CanvasWindowScope scope = CanvasWindowScope.All) =>
-        WindowSelect(window: CanvasWindow.FromRect(rect: window), mode: mode, scope: scope);
     public static CanvasOp InlineEdit(RectangleF frame, string initial, Func<string, Fin<Unit>> apply, Func<Fin<Unit>>? cancel = null) =>
         new InlineEditCase(Frame: frame, Initial: initial, Apply: apply, Cancel: Optional(cancel));
     public static CanvasOp ValueEditor(AbstractParameter parameter, Control? control = null) =>
         new ValueEditorCase(Parameter: parameter, Control: Optional(control));
     public static CanvasOp Sparkle(ISparkle instance) => new SparkleCase(Instance: instance);
+    public static CanvasOp WireShape(WireShapePolicy policy) => new WireShapeCase(Policy: policy ?? WireShapePolicy.Default, Custom: Option<Type>.None);
+    public static CanvasOp WireShape(Type? shapeType) => new WireShapeCase(Policy: WireShapePolicy.Custom, Custom: Optional(shapeType));
+    public static CanvasOp SnapSettings(bool asForm = false) => new SnapSettingsCase(AsForm: asForm);
+    public static CanvasOp BackgroundOverride(CanvasPaintPhase? phase = null) =>
+        new BackgroundOverrideCase(Phase: phase ?? CanvasPaintPhase.BeforeBackground);
 
     GrasshopperUiIntent<CanvasResult> IUiOp<CanvasResult>.Intent() => UiRail.CanvasPlan(op: this);
 }
@@ -178,6 +215,9 @@ public partial record CanvasResult {
     public sealed record DetailResult(CanvasDetailSnapshot Detail) : CanvasResult;
     public sealed record SnapFeedbackResult(CanvasSnapFeedbackSnapshot Feedback) : CanvasResult;
     public sealed record FocusResult(Option<string> FocusedNomen) : CanvasResult;
+    // Exactly one live native preferences widget is populated; callers own show/dispose, never a snapshot read.
+    public sealed record SnapSettingsResult(Option<Form> Form, Option<Control> Control) : CanvasResult;
+    public sealed record SubscriptionResult(Subscription Subscription) : CanvasResult;
     public sealed record UnitResult : CanvasResult;
     public static readonly CanvasResult Unit = new UnitResult();
 }
@@ -192,8 +232,7 @@ public readonly record struct CanvasViewPolicy(
     public const float DefaultMinimumZoom = 0.05f;
     public const float DefaultMaximumZoom = 2f;
     public const float DefaultPadding = 0f;
-    // Content-unit padding (NOT control pixels): RectangleF.Inflate runs in content space pre-Navigate, so the
-    // selection frame grows 48 content units on each edge before the zoom-to-fit projection is computed.
+    // Content-space, not control pixels: Inflate runs before the zoom-to-fit projection.
     public const float SelectionFitPadding = 48f;
 }
 
@@ -212,6 +251,7 @@ public readonly partial struct CanvasInteractionPolicy {
     public Option<CanvasProjectionPolicy> Projection { get; }
     public Option<float> ZuiVariableParameterThreshold { get; }
     public Option<float> ZuiWireDetailingThreshold { get; }
+    public Option<CursorMode> Cursor { get; }
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
@@ -226,7 +266,8 @@ public readonly partial struct CanvasInteractionPolicy {
         ref Option<CanvasActionPolicy> actions,
         ref Option<CanvasProjectionPolicy> projection,
         ref Option<float> zuiVariableParameterThreshold,
-        ref Option<float> zuiWireDetailingThreshold) {
+        ref Option<float> zuiWireDetailingThreshold,
+        ref Option<CursorMode> cursor) {
         Op op = Op.Of(name: nameof(CanvasInteractionPolicy));
         Option<CanvasProjectionPolicy> proj = projection;
         UiFault? fault = null;
@@ -240,7 +281,7 @@ public readonly partial struct CanvasInteractionPolicy {
                     : Fin.Succ(unit))
             .IfFail(err => { fault = (UiFault)err; return unit; });
         validationError = fault;
-        _ = (allowPan, allowZoom, showTilesWhenEmpty, windowSelectObjects, windowSelectWires, windowSelectGroups, viewportDragging, actions, zuiVariableParameterThreshold, zuiWireDetailingThreshold);
+        _ = (allowPan, allowZoom, showTilesWhenEmpty, windowSelectObjects, windowSelectWires, windowSelectGroups, viewportDragging, actions, zuiVariableParameterThreshold, zuiWireDetailingThreshold, cursor);
     }
 
     public static CanvasInteractionPolicy Default => Create(
@@ -254,7 +295,8 @@ public readonly partial struct CanvasInteractionPolicy {
         actions: default,
         projection: default,
         zuiVariableParameterThreshold: default,
-        zuiWireDetailingThreshold: default);
+        zuiWireDetailingThreshold: default,
+        cursor: default);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -263,13 +305,10 @@ public readonly record struct CanvasInteractionSnapshot(CanvasInteractionPolicy 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasProjectionPolicy(Option<PointF> Centre = default, Option<float> Zoom = default);
 
-// Float not double — Eto.Drawing zoom and GH2 Projection are float-keyed.
 [ValueObject<float>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ValidationError<UiFault>]
 public readonly partial struct ZoomFactor {
-    // The (0, 1000] ceiling is the VO admission gate, not the live clamp: GH2's native Projection.PerformZoom
-    // clamps the applied zoom at MaximumZoom (default 25f), so a value in (25, 1000] is admitted here but
-    // saturated by the host on apply — the VO range stays wide so callers can express intent above the live cap.
+    // VO admission stays wider than GH2's live MaximumZoom clamp so callers can express intent above the host cap.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref UiFault? validationError, ref float value) =>
         validationError = float.IsFinite(value) && value is > 0f and <= 1000f
@@ -280,6 +319,8 @@ public readonly partial struct ZoomFactor {
 [ValueObject<float>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ValidationError<UiFault>]
 public readonly partial struct PickTolerance {
+    public static readonly PickTolerance Zero = Create(0f);
+
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref UiFault? validationError, ref float value) =>
         validationError = float.IsFinite(value) && value >= 0f
@@ -363,7 +404,7 @@ internal readonly record struct CanvasActionSlot(Option<bool> Flag, Action<bool>
 }
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasDetailSnapshot(bool ShowUndoHistory, float ZuiVariableParameterThreshold, float ZuiVariableParameterState, float ZuiWireDetailingThreshold, float ZuiWireDetailingState, CanvasActionSnapshot Actions);
+public readonly record struct CanvasDetailSnapshot(bool ShowUndoHistory, float ZuiVariableParameterThreshold, float ZuiVariableParameterState, float ZuiWireDetailingThreshold, float ZuiWireDetailingState, CursorMode Mode, CanvasActionSnapshot Actions);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasSnapFeedbackSnapshot(Option<SnappingSnapshot> X, Option<SnappingSnapshot> Y);
@@ -428,8 +469,6 @@ internal static partial class UiRail {
     // device-respecting bound per canvas, this constant is the architectural ceiling.
     internal const int MaxRenderDimension = 16384;
 
-    // Single ParentWindow-chain owner: RenderDimensionLimit and PixelScale both read logical pixel size and
-    // screen extent through this projector instead of duplicating the as-Control / ParentWindow / Screen walk.
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct WindowMetrics(float LogicalPixelSize, SizeF ScreenSize);
 
@@ -446,8 +485,6 @@ internal static partial class UiRail {
             })
             .IfNone(MaxRenderDimension);
 
-    // Sole realized-canvas predicate: IsRealized, ApplyProjection, DrawPickMap, and RequireParentWindow all
-    // read positive control extent through here so the headless gate is one vocabulary, not four open-coded checks.
     private static bool IsCanvasRealized(GhCanvas canvas) =>
         canvas.ControlObject as Control is { Width: > 0, Height: > 0 };
 
@@ -456,8 +493,7 @@ internal static partial class UiRail {
             ? Fin.Succ(value: canvas)
             : Fin.Fail<GhCanvas>(error: UiFault.MutationRejected(op: op, detail: detail));
 
-    // Popup/inline/value-editor surfaces parent to the canvas window chain; a headless canvas has no
-    // ParentWindow and the native Show would NRE — gate every windowed surface through this projection.
+    // Native popup surfaces require a ParentWindow; headless canvases would throw inside the host Show path.
     private static Fin<Unit> RequireParentWindow(GhCanvas canvas, Op op) =>
         Optional(canvas.ControlObject as Control)
             .Bind(static control => Optional(control.ParentWindow))
@@ -507,6 +543,7 @@ internal static partial class UiRail {
                         ZuiVariableParameterState: canvas.ZuiVariableParameterState,
                         ZuiWireDetailingThreshold: canvas.ZuiWireDetailingThreshold,
                         ZuiWireDetailingState: canvas.ZuiWireDetailingState,
+                        Mode: canvas.CursorMode,
                         Actions: CanvasActionSnapshot.Of(actions: canvas.AllowedActions))))),
             renderCase: static r => GhUi.Canvas(run: scope =>
                 scope.NeedCanvas().Bind(canvas => {
@@ -582,7 +619,21 @@ internal static partial class UiRail {
                 from canvas in scope.NeedCanvas()
                 from instance in Optional(sp.Instance).ToFin(Fail: UiFault.InvalidInput(op: CanvasOp.SparkleCase.SelfOp, detail: "sparkle is required"))
                 from _ in Op.Of(name: nameof(CanvasOp.Sparkle)).Attempt(body: () => { canvas.AddSparkle(sparkle: instance); return unit; }, what: "Canvas.AddSparkle")
-                select CanvasResult.Unit));
+                select CanvasResult.Unit),
+            wireShapeCase: static shape => GhUi.Canvas(repaint: RepaintRequest.Canvas, run: scope =>
+                scope.NeedCanvas()
+                    .Bind(_ => shape.Policy.Resolve(@override: shape.Custom)
+                        .ToFin(Fail: UiFault.InvalidInput(op: CanvasOp.WireShapeCase.SelfOp, detail: "wire-shape policy resolves to no concrete WireShape type"))
+                        .Bind(WireShapeProjection.Install))
+                    .Map(static sub => (CanvasResult)new CanvasResult.SubscriptionResult(Subscription: sub))),
+            snapSettingsCase: static ss => GhUi.Canvas(run: scope =>
+                scope.NeedCanvas()
+                    .Bind(canvas => RequireParentWindow(canvas: canvas, op: CanvasOp.SnapSettingsCase.SelfOp))
+                    .Bind(_ => SnapPreferencesSurface(asForm: ss.AsForm))),
+            backgroundOverrideCase: static bg => Paint.Hook(
+                    phase: bg.Phase,
+                    paint: static scope => Fin.Succ(value: scope.OverrideDefault()))
+                .Map(static sub => (CanvasResult)new CanvasResult.SubscriptionResult(Subscription: sub)));
 
     private static Fin<CanvasResult> ApplyInteraction(GrasshopperUi.Scope scope, CanvasOp.InteractionCase interaction) =>
         from canvas in scope.NeedCanvas()
@@ -597,9 +648,8 @@ internal static partial class UiRail {
             canvas.WindowSelectGroups = interaction.Policy.WindowSelectGroups;
             _ = projected;
             _ = interaction.Policy.ViewportDragging.Iter(value => canvas.ViewportDragging = value);
+            // CursorMode is host-transitioned by modifier/edit state; policy round-trips it read-only.
             _ = interaction.Policy.Actions.Iter(policy => policy.Apply(actions: canvas.AllowedActions));
-            // [ASSUMED] ZuiVariableParameterThreshold/ZuiWireDetailingThreshold setters — confirmed as
-            // properties in Grasshopper2.xml; setter accessibility not recorded in XML docs.
             _ = interaction.Policy.ZuiVariableParameterThreshold.Iter(value => canvas.ZuiVariableParameterThreshold = value);
             _ = interaction.Policy.ZuiWireDetailingThreshold.Iter(value => canvas.ZuiWireDetailingThreshold = value);
             return unit;
@@ -634,12 +684,9 @@ internal static partial class UiRail {
         Func<ViewTarget, Fin<RectangleF>> frame) =>
         from target in NeedViewTarget(scope)
         let policy = ResolveView(raw: rawPolicy, defaultPadding: defaultPadding)
-        from validPolicy in policy.MaximumZoom >= policy.MinimumZoom
-            ? Fin.Succ(value: policy)
-            : Fin.Fail<CanvasViewPolicy>(error: UiFault.InvalidInput(op: op, detail: "invalid zoom range"))
         from resolvedFrame in frame(arg: target)
-        from plan in CanvasViewPlanOf(frame: resolvedFrame, policy: validPolicy, op: op)
-        from _ in plan.Apply(canvas: target.Canvas, duration: validPolicy.Duration, what: "FlexControl.Navigate(RectangleF)")
+        from plan in CanvasViewPlanOf(frame: resolvedFrame, limits: (policy.MinimumZoom, policy.MaximumZoom), op: op)
+        from _ in plan.Apply(canvas: target.Canvas, duration: policy.Duration, what: "FlexControl.Navigate(RectangleF)")
         select (CanvasResult)new CanvasResult.SnapshotResult(
             Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document, objects: target.Objects));
 
@@ -686,14 +733,14 @@ internal static partial class UiRail {
                         scope: scope,
                         rawPolicy: ft.Policy,
                         defaultPadding: CanvasViewPolicy.SelectionFitPadding,
-                        op: Op.Of(name: nameof(CanvasViewOp.FitSelection)),
+                        op: Op.Of(name: $"{nameof(CanvasViewOp.Fit)}.{nameof(CanvasFitTarget.Selection)}"),
                         frame: static target => FrameOf(targets: target.Objects.SelectedObjects)
-                            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasViewOp.FitSelection)), detail: "no selected objects to fit"))),
+                            .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: $"{nameof(CanvasViewOp.Fit)}.{nameof(CanvasFitTarget.Selection)}"), detail: "no selected objects to fit"))),
                     CanvasFitTarget.Viewport => NavigateView(
                         scope: scope,
                         rawPolicy: ft.Policy,
                         defaultPadding: CanvasViewPolicy.DefaultPadding,
-                        op: Op.Of(name: nameof(CanvasViewOp.FitViewport)),
+                        op: Op.Of(name: $"{nameof(CanvasViewOp.Fit)}.{nameof(CanvasFitTarget.Viewport)}"),
                         frame: static target => Fin.Succ(ContentViewport(target: target))),
                     _ => Fin.Fail<CanvasResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasViewOp.Fit)), detail: "unsupported fit target")),
                 },
@@ -713,10 +760,7 @@ internal static partial class UiRail {
                 select (CanvasResult)new CanvasResult.SnapshotResult(
                     Snapshot: SnapshotOf(scope: scope, canvas: target.Canvas, document: target.Document, objects: target.Objects)));
 
-    // Sole ZoomFactor admission across all three callers: the policy's zoom defaults to the live document
-    // zoom before the single Create, so projectionCase passes its raw zoom straight in (no pre-validation).
-    // canvas.Projection is the sole writer: the canvas ProjectionChanged handler mirrors it into
-    // document.Projection, so this op never assigns the cached document copy directly.
+    // GH2 mirrors Projection writes back to the document cache; do not write both surfaces.
     private static Fin<Unit> ApplyProjection(GrasshopperUi.Scope scope, CanvasProjectionPolicy policy) =>
         from document in scope.NeedDocument()
         from canvas in scope.NeedCanvas()
@@ -733,22 +777,10 @@ internal static partial class UiRail {
             what: "Canvas.Projection assign")
         select unit;
 
-    private static Fin<Unit> NavigatePosition(ViewTarget target, CanvasPosition position, CanvasViewPolicy policy) {
-        Op op = Op.Of(name: nameof(CanvasViewOp.Position));
-        CanvasViewPolicy resolved = ResolveView(raw: policy, defaultPadding: CanvasViewPolicy.DefaultPadding);
-        RectangleF frame = ContentViewport(target: target);
-        RectangleF content = target.Canvas.ContentBounds.IsEmpty ? frame : target.Canvas.ContentBounds;
-        return from resolvedPosition in position.Resolve(frame: frame, content: content, innerSize: target.Canvas.InnerBounds.Size, policy: resolved, op: op)
-               from plan in resolvedPosition.Limits switch {
-                   { IsSome: true, Case: (float minimum, float maximum) } => CanvasViewPlanOf(frame: resolvedPosition.Frame, limits: (minimum, maximum), op: op),
-                   _ => CanvasViewPlanOf(frame: resolvedPosition.Frame, policy: resolved, op: op),
-               }
-               from _ in plan.Apply(canvas: target.Canvas, duration: resolved.Duration, what: "FlexControl.Navigate(RectangleF)")
-               select unit;
-    }
+    private static Fin<Unit> NavigatePosition(ViewTarget target, CanvasPosition position, CanvasViewPolicy policy) =>
+        position.Navigate(canvas: target.Canvas, duration: ResolveView(raw: policy, defaultPadding: CanvasViewPolicy.DefaultPadding).Duration);
 
-    // BOUNDARY ADAPTER — control-space anchored zoom: map the control point into content space, re-centre on it,
-    // and size the frame by the inverse factor so Navigate zooms about the cursor rather than the frame centre.
+    // BOUNDARY ADAPTER — re-centre content on the control point so Navigate zooms about the cursor.
     private static Fin<Unit> ZoomAround(ViewTarget target, PointF controlPoint, float factor, CanvasViewPolicy policy) =>
         from anchor in Op.Of(name: nameof(CanvasViewOp.ZoomAround)).AcceptPoint(value: controlPoint, detail: "non-finite control point")
         from validFactor in Op.Of(name: nameof(CanvasViewOp.ZoomAround)).AcceptFinite(value: factor, detail: "zoom factor must be finite and > 0", requirePositive: true)
@@ -776,9 +808,6 @@ internal static partial class UiRail {
         float padding = float.IsFinite(raw.Padding) ? raw.Padding : defaultPadding;
         return new(MinimumZoom: minimum, MaximumZoom: maximum, Duration: duration, Padding: padding);
     }
-
-    private static Fin<CanvasViewPlan> CanvasViewPlanOf(RectangleF frame, CanvasViewPolicy policy, Op op) =>
-        CanvasViewPlanOf(frame: frame, limits: (policy.MinimumZoom, policy.MaximumZoom), op: op);
 
     private static Fin<CanvasViewPlan> CanvasViewPlanOf(RectangleF frame, (float Minimum, float Maximum) limits, Op op) =>
         op.AcceptRect(value: frame, detail: "non-finite navigation frame")
@@ -809,7 +838,7 @@ internal static partial class UiRail {
                 float logicalPixelSize = WindowMetricsOf(canvas: canvas).Map(static m => m.LogicalPixelSize).IfNone(1f);
                 return new UiPixelScale(
                     LogicalPixelSize: logicalPixelSize,
-                    PointsPerPixel: 1f,
+                    PointsPerPixel: logicalPixelSize > 0f ? 1f / logicalPixelSize : 1f,
                     FromPaintGraphics: false);
             });
 
@@ -831,15 +860,13 @@ internal static partial class UiRail {
             IsRealized = IsCanvasRealized(canvas: canvas),
             ZuiVariableParameterState = canvas.ZuiVariableParameterState,
             ZuiWireDetailingState = canvas.ZuiWireDetailingState,
-            // [ASSUMED] FlexControl.AnimatedZoomFactor(ZoomThreshold) — confirmed in Grasshopper2.xml.
             AnimatedZoomDetailed = canvas.AnimatedZoomFactor(threshold: ZoomThreshold.Detailed),
             AnimatedZoomStandard = canvas.AnimatedZoomFactor(threshold: ZoomThreshold.Standard),
         };
     }
 
     internal static Fin<CanvasPickSnapshot> PickAt(GrasshopperUi.Scope scope, PointF point, CoordinateSystem source, CanvasPickPolicy policy, PickTolerance tolerance) =>
-        // BOUNDARY ADAPTER — Canvas.ResolvePick dereferences the live FlexControl, which is null on a headless
-        // canvas; Op.Attempt projects that NRE to a typed UiFault instead of tearing the dispatch.
+        // BOUNDARY ADAPTER — ResolvePick dereferences headless-null FlexControl; Op.Attempt re-rails the NRE.
         scope.NeedCanvas().Bind(canvas => Op.Of(name: nameof(CanvasOp.Pick)).Attempt(body: () => {
             PointF content = source == CoordinateSystem.Content ? point : canvas.Map(point: point, from: source, to: CoordinateSystem.Content);
             float radius = tolerance.Value;
@@ -860,8 +887,7 @@ internal static partial class UiRail {
                 .IfNone(PickSnapshotOf(result: Resolve(probe: content)));
         }, what: "Canvas.ResolvePick"));
 
-    // Only an IInteraction carries a domain Nomen; a non-interaction focus projects to None rather than
-    // leaking its CLR type name (native-sentinel -> Option discipline).
+    // Only IInteraction carries domain Nomen; native sentinel types stay Option.None.
     internal static Option<string> FocusNomenOf(GhCanvas canvas) =>
         Optional(canvas.FocusObject).Bind(static target => target switch {
             IInteraction interaction => Optional(interaction.Nomen.Name),
@@ -882,7 +908,8 @@ internal static partial class UiRail {
                 Centre: Some(doc.Projection.centre),
                 Zoom: Some(doc.Projection.zoom))),
             zuiVariableParameterThreshold: Some(canvas.ZuiVariableParameterThreshold),
-            zuiWireDetailingThreshold: Some(canvas.ZuiWireDetailingThreshold));
+            zuiWireDetailingThreshold: Some(canvas.ZuiWireDetailingThreshold),
+            cursor: Some(canvas.CursorMode));
 
     private static Unit ClearSnapFeedback(GhCanvas canvas) {
         canvas.SnapXAction = null;
@@ -893,6 +920,26 @@ internal static partial class UiRail {
     private static CanvasSnapFeedbackSnapshot SnapFeedbackOf(GhCanvas canvas) =>
         new(X: SnapChannels(x: Optional(canvas.SnapXAction), y: Option<SnappingAction>.None), Y: SnapChannels(x: Option<SnappingAction>.None, y: Optional(canvas.SnapYAction)));
 
+    // The live "Layout Alignment" widget persists through SnappingSettings.Current; returned Form/Control is caller-owned.
+    private static Fin<CanvasResult> SnapPreferencesSurface(bool asForm) =>
+        Op.Of(name: nameof(CanvasOp.SnapSettings)).Attempt(
+                body: () => {
+                    static void modified(SnappingSettings updated) => SnappingSettings.Current = updated;
+                    return asForm
+                        ? (CanvasResult)new CanvasResult.SnapSettingsResult(
+                            Form: Optional(SnappingSettings.SettingsForm(settings: SnappingSettings.Current, modified: modified)),
+                            Control: Option<Control>.None)
+                        : new CanvasResult.SnapSettingsResult(
+                            Form: Option<Form>.None,
+                            Control: Optional(SnappingSettings.SettingsControl(settings: SnappingSettings.Current, modified: modified)));
+                },
+                what: asForm ? "SnappingSettings.SettingsForm" : "SnappingSettings.SettingsControl")
+            .Bind(result => result switch {
+                CanvasResult.SnapSettingsResult { Form.IsNone: true, Control.IsNone: true } =>
+                    Fin.Fail<CanvasResult>(error: UiFault.MutationRejected(op: CanvasOp.SnapSettingsCase.SelfOp, detail: "native snap-preferences surface is null")),
+                _ => Fin.Succ(value: result),
+            });
+
     private static CanvasPickSnapshot PickSnapshotOf(SelectionResult result) =>
         new(Kind: result.Kind, Point: Optional(result.Point),
             SelectedCount: result.SelectedCount, DeselectedCount: result.DeselectedCount,
@@ -901,7 +948,6 @@ internal static partial class UiRail {
             InletUnderPick: result.InletUnderPick.NonEmpty(),
             OutletUnderPick: result.OutletUnderPick.NonEmpty());
 
-    // FrameOf reads bounds directly; no Attributes.Layout() mutation during read.
     private static Option<RectangleF> FrameOf(IEnumerable<IDocumentObject> targets) =>
         toSeq(targets).Fold(
             initialState: Option<RectangleF>.None,
@@ -911,8 +957,8 @@ internal static partial class UiRail {
 
     private static Grasshopper2.Parsing.Result<Unit> InlineResult(string text, Func<string, Fin<Unit>> apply) =>
         GrasshopperUi.Protect(valid: () => apply(arg: text)).Match(
-            Succ: _ => Grasshopper2.Parsing.Result<Unit>.Succeed(value: unit, underlying: text),
-            Fail: error => Grasshopper2.Parsing.Result<Unit>.Fail(error: error.Message, underlying: text));
+            Succ: _ => Grasshopper2.Parsing.Result<Unit>.Succeed(value: unit, underlying: text, start: 0, after: text?.Length ?? 0),
+            Fail: error => Grasshopper2.Parsing.Result<Unit>.Fail(error: error.Message, underlying: text, start: 0, after: text?.Length ?? 0));
 
     private static readonly Lazy<Fin<MethodInfo>> ShowValueEditorPopup = new(() =>
         Optional(typeof(GhCanvas).GetMethod(
@@ -941,9 +987,7 @@ internal static partial class UiRail {
     }
 
     private static Fin<Bitmap> RenderBitmap(GhCanvas canvas, CanvasRenderPolicy policy) =>
-        // BOUNDARY ADAPTER — GH2's AfterObjects paint pass has no return rail; the overlay fault is captured into an
-        // Atom by the native handler and projected to Fin after DrawToBitmap, while try/finally guarantees symmetric
-        // detach of the host event hook.
+        // BOUNDARY ADAPTER — AfterObjects has no return rail; capture overlay faults in Atom, then detach symmetrically.
         Op.Of(name: nameof(CanvasOp.Render)).Attempt(body: () => {
             Atom<Option<Error>> overlayFault = Atom(value: Option<Error>.None);
             CanvasBitmapLayers layers = policy.EffectiveLayers;
@@ -988,7 +1032,7 @@ internal static partial class UiRail {
             .Map(static snap => new SnappingSnapshot(
                 Dx: snap.X.Map(static action => action.ΔX).IfNone(0f),
                 Dy: snap.Y.Map(static action => action.ΔY).IfNone(0f),
-                Magnitude: snap.X.Map(static action => action.Magnitude).IfNone(0f) + snap.Y.Map(static action => action.Magnitude).IfNone(0f),
+                Magnitude: MathF.Sqrt(MathF.Pow(snap.X.Map(static action => action.Magnitude).IfNone(0f), 2f) + MathF.Pow(snap.Y.Map(static action => action.Magnitude).IfNone(0f), 2f)),
                 XLabel: snap.X.Map(static action => new SnapLabel(Text: action.LabelText, Point: action.LabelPoint, Anchor: Some(action.LabelAnchor))),
                 YLabel: snap.Y.Map(static action => new SnapLabel(Text: action.LabelText, Point: action.LabelPoint, Anchor: Some(action.LabelAnchor))),
                 Lines: snap.X.Map(static action => toSeq(action.Lines)).IfNone(Seq<LineF>()) + snap.Y.Map(static action => toSeq(action.Lines)).IfNone(Seq<LineF>())));
@@ -1017,8 +1061,7 @@ internal static partial class UiRail {
                 (upstream ? Neighbours(objects: objects, owner: obj.InstanceId, upstream: true, transitive: transitive) : Seq<Guid>())
                 + (downstream ? Neighbours(objects: objects, owner: obj.InstanceId, upstream: false, transitive: transitive) : Seq<Guid>()));
             Seq<Guid> next = (replace ? neighbours : seeds + neighbours).Distinct().ToSeq();
-            // BOUNDARY ADAPTER — IDocumentObject.Selection is a native mutable setter; Iter applies the diff and the
-            // counts derive from the filtered frontier rather than a ++ accumulator.
+            // BOUNDARY ADAPTER — Selection is mutable; counts derive from the filtered frontier, not an accumulator.
             Seq<IDocumentObject> deselects = replace ? selected.Filter(obj => !next.Exists(id => id == obj.InstanceId)) : Seq<IDocumentObject>();
             Seq<IDocumentObject> selects = next.Choose(id => Optional(objects.Find(instanceId: id))).Filter(static obj => obj.Selection != ObjectSelection.Selected).ToSeq();
             _ = deselects.Iter(static obj => obj.Selection = ObjectSelection.Unselected);
@@ -1070,8 +1113,6 @@ internal static partial class UiRail {
             (false, string whyNot) => Fin.Fail<Unit>(error: UiFault.MutationRejected(op: op, detail: string.IsNullOrWhiteSpace(value: whyNot) ? "pre-flight rejected" : whyNot)),
         };
 
-    // Materialize the central undo/redo sequences once into node data: the same walk the count previously
-    // discarded now yields per-node (Name, Count) for node-targeted history navigation.
     internal static DocumentHistorySnapshot HistorySnapshotOf(GhDocument document) {
         Seq<DocumentHistoryNode> undoNodes = HistoryNodesOf(sequence: document.Undo.CentralUndoSequence);
         Seq<DocumentHistoryNode> redoNodes = HistoryNodesOf(sequence: document.Undo.CentralRedoSequence);
@@ -1104,8 +1145,7 @@ internal static partial class UiRail {
             _ => Fin.Fail<DocumentMutationReceipt>(error: UiFault.MutationRejected(op: op, detail: string.Create(CultureInfo.InvariantCulture, $"count={mutation.Receipt.Changed}"))),
         }
         from _ in CommitActions(scope: scope, document: document, name: VerbNounOf(op: op), actions: actions)
-            // [ASSUMED] document.Hash as OwnerId — GrasshopperUi.Scope exposes no stable per-scope document identity
-            // and adding one is a cross-file kernel change; the Hash stays the owner key until that seam exists.
+            // [ASSUMED] document.Hash as OwnerId until GrasshopperUi.Scope exposes a stable per-scope document identity.
         select new Snapshot<TDelta>(OwnerId: Some(document.Hash), Payload: mutation.Payload);
 
     internal static Fin<Unit> CommitActions(GrasshopperUi.Scope scope, GhDocument document, VerbNoun name, ActionList actions) =>
@@ -1175,4 +1215,30 @@ internal static partial class UiRail {
             Display: obj.Display.Inv(), Phase: obj.Phase.Inv(), State: obj.State.Inv(),
             Bounds: obj.Attributes.Bounds, Pivot: obj.Attributes.Pivot);
 
+}
+
+// ShapeType is process-static and throwing; ThreadLocal restores the installing thread's prior Type.
+file static class WireShapeProjection {
+    private static readonly Type DefaultShape = typeof(WireShapeDefault);
+    private static readonly ThreadLocal<Type?> Prior = new(trackAllValues: false);
+
+    internal static Fin<Subscription> Install(Type shapeType) =>
+        Op.Of(name: nameof(WireShapeProjection)).Attempt(
+                body: () => {
+                    Prior.Value = WireShape.ShapeType;
+                    WireShape.ShapeType = shapeType;
+                    return unit;
+                },
+                what: "WireShape.ShapeType install")
+            .Bind(static _ => Subscription.Bind(
+                attach: static () => { },
+                detach: Restore(snapshot: Optional(Prior.Value)),
+                marshalToUi: true,
+                detachOnce: true));
+
+    // BOUNDARY ADAPTER — guarded restore of the ThreadLocal prior Type, falling back to WireShapeDefault.
+    private static System.Action Restore(Option<Type> snapshot) =>
+        () => _ = Op.Of(name: nameof(WireShapeProjection)).Attempt(
+            body: () => { WireShape.ShapeType = snapshot.IfNone(DefaultShape); return unit; },
+            what: nameof(Restore)).Ignore();
 }

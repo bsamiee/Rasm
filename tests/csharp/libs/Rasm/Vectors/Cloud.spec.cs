@@ -133,7 +133,7 @@ public sealed class VectorCloudMassLaws {
         });
         VectorCloud duplicates = Spec.SuccValue(VectorCloud.WeightedCluster(points: Seq(CloudMetricGens.Triangle[0], CloudMetricGens.Triangle[0], CloudMetricGens.Triangle[1]), mass: Seq(2.0, 3.0, 5.0), context: CloudMetricGens.Model, key: Op.Of(name: "cloud-test")), label: "dedup weighted");
         VectorCloud.ClusterCase dedup = Assert.IsType<VectorCloud.ClusterCase>(@object: duplicates);
-        Assert.Equal(expected: (3, 2, 1), actual: (dedup.Admission.InputCount, dedup.Admission.OutputCount, dedup.Admission.DuplicateCoordinateCount));
+        Assert.Equal(expected: (3, 2, 1, 1), actual: (dedup.Admission.InputCount, dedup.Admission.OutputCount, dedup.Admission.InputDuplicateCoordinateCount, dedup.Admission.MergedCoordinateCount));
         Spec.Some(dedup.Mass, mass => Spec.Equal(left: Seq(0.5, 0.5), right: toSeq(mass.AsIterable()), tolerance: 1.0e-12, what: "dedup mass"));
         Spec.Succ(VectorCloud.Admit(value: CloudMetricGens.ClusterOf(points: CloudMetricGens.Triangle), key: Op.Of(name: "cloud-test")), admitted =>
             Assert.True(condition: Assert.IsType<VectorCloud.ClusterCase>(@object: admitted).Mass.IsNone));

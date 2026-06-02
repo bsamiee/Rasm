@@ -9,6 +9,10 @@ using DrawingColor = System.Drawing.Color;
 namespace Rasm.Rhino.Exchange;
 
 // --- [TYPES] ------------------------------------------------------------------------------
+public enum FileDetailAnchor { TopLeft, TopCenter, TopRight, MiddleLeft, Center, MiddleRight, BottomLeft, BottomCenter, BottomRight }
+
+public enum FileDetailLayoutMode { Grid, Align, DistributeHorizontal, DistributeVertical, FitPage }
+
 [Union(SwitchMapStateParameterName = "ctx")]
 public abstract partial record FileScale {
     private FileScale() { }
@@ -95,8 +99,33 @@ public abstract partial record FileSheetEdit {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public enum FileDetailAnchor { TopLeft, TopCenter, TopRight, MiddleLeft, Center, MiddleRight, BottomLeft, BottomCenter, BottomRight }
-public enum FileDetailLayoutMode { Grid, Align, DistributeHorizontal, DistributeVertical, FitPage }
+public readonly record struct DetailQuery(Option<Guid> Id = default, Option<string> Name = default, Option<Func<DetailViewObject, bool>> Where = default) {
+    public static DetailQuery All => default;
+    public static DetailQuery Named(string name) => new(Name: Some(name));
+    internal bool IsAll => Id.IsNone && Name.IsNone && Where.IsNone;
+
+    internal Fin<Seq<DetailViewObject>> Resolve(RhinoPageView page, Op op) {
+        DetailQuery self = this;
+        return from name in self.Name.Map(value => FileEndpoint.NonBlank(value: value, op: op).Map(Some)).IfNone(Fin.Succ(value: Option<string>.None))
+               from details in op.Catch(() => Fin.Succ(value: toSeq(page.GetDetailViews()).Filter(detail =>
+                   self.Id.Map(id => detail.Id == id || detail.Viewport.Id == id).IfNone(noneValue: true)
+                   && name.Map(value => NameOf(detail: detail).Map(found => string.Equals(a: found, b: value, comparisonType: StringComparison.OrdinalIgnoreCase)).IfNone(noneValue: false)).IfNone(noneValue: true)
+                   && self.Where.Map(predicate => predicate(arg: detail)).IfNone(noneValue: true))))
+               from _any in guard(!details.IsEmpty, op.InvalidResult())
+               select details;
+    }
+
+    internal Fin<DetailViewObject> Single(RhinoPageView page, Op op) =>
+        from details in Resolve(page: page, op: op)
+        from _one in guard(details.Count == 1, op.InvalidInput())
+        select details[0];
+
+    internal static Option<string> NameOf(DetailViewObject detail) =>
+        Optional(detail.Attributes?.Name).Filter(static value => !string.IsNullOrEmpty(value: value)).Case switch {
+            string name => Some(name),
+            _ => Optional(detail.Viewport?.Name).Filter(static value => !string.IsNullOrEmpty(value: value)),
+        };
+}
 
 public readonly record struct FileDetailLayout(
     int Columns = 1,
@@ -250,34 +279,6 @@ public readonly record struct SheetQuery(Option<Guid> Id = default, Option<strin
             };
         });
     }
-}
-
-public readonly record struct DetailQuery(Option<Guid> Id = default, Option<string> Name = default, Option<Func<DetailViewObject, bool>> Where = default) {
-    public static DetailQuery All => default;
-    public static DetailQuery Named(string name) => new(Name: Some(name));
-    internal bool IsAll => Id.IsNone && Name.IsNone && Where.IsNone;
-
-    internal Fin<Seq<DetailViewObject>> Resolve(RhinoPageView page, Op op) {
-        DetailQuery self = this;
-        return from name in self.Name.Map(value => FileEndpoint.NonBlank(value: value, op: op).Map(Some)).IfNone(Fin.Succ(value: Option<string>.None))
-               from details in op.Catch(() => Fin.Succ(value: toSeq(page.GetDetailViews()).Filter(detail =>
-                   self.Id.Map(id => detail.Id == id || detail.Viewport.Id == id).IfNone(noneValue: true)
-                   && name.Map(value => NameOf(detail: detail).Map(found => string.Equals(a: found, b: value, comparisonType: StringComparison.OrdinalIgnoreCase)).IfNone(noneValue: false)).IfNone(noneValue: true)
-                   && self.Where.Map(predicate => predicate(arg: detail)).IfNone(noneValue: true))))
-               from _any in guard(!details.IsEmpty, op.InvalidResult())
-               select details;
-    }
-
-    internal Fin<DetailViewObject> Single(RhinoPageView page, Op op) =>
-        from details in Resolve(page: page, op: op)
-        from _one in guard(details.Count == 1, op.InvalidInput())
-        select details[0];
-
-    internal static Option<string> NameOf(DetailViewObject detail) =>
-        Optional(detail.Attributes?.Name).Filter(static value => !string.IsNullOrEmpty(value: value)).Case switch {
-            string name => Some(name),
-            _ => Optional(detail.Viewport?.Name).Filter(static value => !string.IsNullOrEmpty(value: value)),
-        };
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------

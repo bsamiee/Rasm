@@ -20,7 +20,7 @@ internal static class SpectralGens {
     public static PositiveMagnitude Positive(double value) =>
         Spec.SuccValue(Key.AcceptValidated<PositiveMagnitude>(candidate: value), label: "positive");
     public static SpectralDescriptor Descriptor(params double[] values) =>
-        new(Values: new Arr<double>(values), Receipt: new SpectralDescriptorReceipt(Filter: SpectralFilter.Identity, VertexCount: values.Length, EigenpairCount: values.Length, SourceCount: 0, ComparisonReady: false, Pairwise: false, EnergyNormalized: false, ScaleNormalized: false, Policy: SpectralDescriptorPolicy.Raw));
+        new(Values: new Arr<double>(values), Receipt: new SpectralDescriptorReceipt(Filter: SpectralFilter.Identity, VertexCount: values.Length, EigenpairCount: values.Length, SourceCount: 0, ComparisonReady: false, Pairwise: false, EnergyNormalized: false, ScaleNormalized: false, Policy: SpectralDescriptorPolicy.Raw, CroppedEigenpairCount: values.Length));
 }
 
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------

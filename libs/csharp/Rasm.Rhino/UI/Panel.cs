@@ -80,6 +80,8 @@ public abstract partial record PanelPlacement {
             asSibling: static (ctx, sibling) => Op.Of(name: nameof(Open)).Confirm(success: global::Rhino.UI.Panels.OpenPanelAsSibling(panelId: ctx.Id, siblingPanelId: sibling.SiblingPanelId, makeSelectedPanel: ctx.Selected))));
 }
 
+public enum UiActionKind { Callback, Command, Separator, Submenu, Toggle, Radio }
+
 public enum UiChromeFileMode { Open, Close, Save, SaveAs }
 
 public abstract record UiChromeOp<T> {
@@ -259,8 +261,6 @@ public readonly record struct PanelSnapshot<TPanel>(
     Seq<Guid> OpenPanelIds,
     Option<Guid> DockBarId,
     Seq<Guid> DockBarIds) where TPanel : RasmPanel;
-
-public enum UiActionKind { Callback, Command, Separator, Submenu, Toggle, Radio }
 
 public sealed record UiAction(
     string Id,

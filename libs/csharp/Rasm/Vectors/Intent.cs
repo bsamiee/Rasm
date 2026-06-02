@@ -1,6 +1,6 @@
 namespace Rasm.Vectors;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [TYPES] ------------------------------------------------------------------------------
 [Union]
 public abstract partial record VectorIntent {
     private VectorIntent() { }
@@ -12,7 +12,7 @@ public abstract partial record VectorIntent {
     public sealed record ExtractionCase : VectorIntent { internal ExtractionCase(Extraction Value) => this.Value = Value; internal Extraction Value { get; } }
     public sealed record RayCase(Point3d Origin, Direction RayDirection, RayPolicy Policy) : VectorIntent;
     public sealed record FrameCase(Point3d Origin, Vector3d Normal, Option<Vector3d> XHint) : VectorIntent;
-    public sealed record CurveCase(Curve Source, double Parameter, CurveProjection Mode) : VectorIntent;
+    public sealed record CurveCase : VectorIntent { internal CurveCase(Curve source, double parameter, CurveProjection mode) { Source = source; Parameter = parameter; Mode = mode; } public Curve Source { get; } public double Parameter { get; } public CurveProjection Mode { get; } }
     public sealed record CloudCase : VectorIntent { internal CloudCase(VectorCloud Value, VectorCloudMetric Metric, CloudMetricPolicy Policy) { this.Value = Value; this.Metric = Metric; this.Policy = Policy; } public VectorCloud Value { get; } public VectorCloudMetric Metric { get; } public CloudMetricPolicy Policy { get; } }
     public sealed record WindingCase : VectorIntent { internal WindingCase(VectorCloud Value, Point3d Query) { this.Value = Value; this.Query = Query; } public VectorCloud Value { get; } public Point3d Query { get; } }
     public sealed record ConeCase(VectorCone Value, ConeProjection Mode) : VectorIntent;
@@ -24,12 +24,12 @@ public abstract partial record VectorIntent {
     public sealed record SlerpCase(Direction A, Direction B, UnitInterval Parameter) : VectorIntent;
     public sealed record ProjectOntoCase(Vector3d Value, Plane Target) : VectorIntent;
     public sealed record MirrorCase(Vector3d Value, Plane Across) : VectorIntent;
-    public sealed record SurfaceCase(SurfaceSpace SurfaceSource, double U, double V, SurfaceProjection Mode) : VectorIntent;
+    public sealed record SurfaceCase : VectorIntent { internal SurfaceCase(SurfaceSpace source, Point2d uv, SurfaceProjection mode) { Source = source; Uv = uv; Mode = mode; } public SurfaceSpace Source { get; } public Point2d Uv { get; } public SurfaceProjection Mode { get; } }
     public sealed record PoseCase(Plane From, Plane To, UnitInterval Parameter, MotionInterpolation Mode) : VectorIntent;
     public sealed record FlattenCase : VectorIntent { internal FlattenCase(MeshSpace Space) => this.Space = Space; public MeshSpace Space { get; } }
     public sealed record HullCase : VectorIntent { internal HullCase(VectorCloud Source, CloudHullKind Kind, CloudHullPolicy Policy) { this.Source = Source; this.Kind = Kind; this.Policy = Policy; } public VectorCloud Source { get; } public CloudHullKind Kind { get; } public CloudHullPolicy Policy { get; } }
     public sealed record SampleCase : VectorIntent { internal SampleCase(ExtractionDomain Domain, SampleKind Kind) { this.Domain = Domain; this.Kind = Kind; } public ExtractionDomain Domain { get; } public SampleKind Kind { get; } }
-    public sealed record AlignCase : VectorIntent { internal AlignCase(VectorCloud Source, VectorCloud Target, AlignKind Kind) { this.Source = Source; this.Target = Target; this.Kind = Kind; } public VectorCloud Source { get; } public VectorCloud Target { get; } public AlignKind Kind { get; } }
+    public sealed record AlignCase : VectorIntent { internal AlignCase(VectorCloud source, VectorCloud target, AlignKind kind, AlignmentPolicy policy) { Source = source; Target = target; Kind = kind; Policy = policy; } public VectorCloud Source { get; } public VectorCloud Target { get; } public AlignKind Kind { get; } public AlignmentPolicy Policy { get; } }
     public sealed record RemeshCase : VectorIntent { internal RemeshCase(MeshSpace Space, RemeshKind Kind) { this.Space = Space; this.Kind = Kind; } public MeshSpace Space { get; } public RemeshKind Kind { get; } }
     public sealed record TransportCase : VectorIntent { internal TransportCase(VectorCloud Source, VectorCloud Target, CloudTransportPolicy Policy) { this.Source = Source; this.Target = Target; this.Policy = Policy; } public VectorCloud Source { get; } public VectorCloud Target { get; } public CloudTransportPolicy Policy { get; } }
     public sealed record TopologyCase : VectorIntent { internal TopologyCase(MeshSpace Space) => this.Space = Space; public MeshSpace Space { get; } }
@@ -128,94 +128,43 @@ public abstract partial record VectorIntent {
                 context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
             select output,
-        surfaceCase: static (state, intent) => intent.SurfaceSource.Sample<TOut>(projection: intent.Mode, u: intent.U, v: intent.V, key: state.Key),
+        surfaceCase: static (state, intent) => intent.Source.Sample<TOut>(projection: intent.Mode, u: intent.Uv.X, v: intent.Uv.Y, key: state.Key),
         poseCase: static (state, intent) =>
-            from pose in intent.Mode.Interpolate(a: intent.From, b: intent.To, t: intent.Parameter)
+            from pose in intent.Mode.Interpolate(a: intent.From, b: intent.To, t: intent.Parameter, key: state.Key)
             from output in FieldNabla.Plane(basis: pose, key: state.Key)
                 .Bind(plane => AtomProjection.Self<Plane, TOut>(value: plane, key: state.Key, owner: typeof(PoseCase)))
             select output,
         flattenCase: static (state, intent) =>
             from result in MeshKernel.ParameterizeFlattenDetailed(space: intent.Space, key: state.Key)
-            from output in typeof(TOut) == typeof(Arr<Point2d>)
-                ? Fin.Succ((TOut)(object)result.Uvs)
-                : typeof(TOut) == typeof(FlattenResult)
-                    ? Fin.Succ((TOut)(object)result)
-                    : typeof(TOut) == typeof(FlattenReceipt)
-                        ? Fin.Succ((TOut)(object)result.Receipt)
-                        : typeof(TOut) == typeof(Mesh)
-                            ? state.Key.AcceptValue(value: result.Mesh).Map(static v => (TOut)(object)v)
-                            : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(FlattenCase), outputType: typeof(TOut)))
+            from output in result.Project<TOut>(key: state.Key)
             select output,
         hullCase: static (state, intent) =>
             from result in CloudKernel.ComputeHullDetailed(source: intent.Source, kind: intent.Kind, policy: intent.Policy, key: state.Key)
-            from output in typeof(TOut) switch {
-                Type t when t == typeof(CloudHullResult) => Fin.Succ((TOut)(object)result),
-                Type t when t == typeof(CloudHullReceipt) => Fin.Succ((TOut)(object)result.Receipt),
-                Type t when t == typeof(Mesh) => result.Mesh.ToFin(state.Key.Unsupported(geometryType: typeof(HullCase), outputType: typeof(Mesh))).Bind(mesh => state.Key.AcceptValue(value: mesh).Map(static v => (TOut)(object)v)),
-                Type t when t == typeof(VectorCloud) => result.Mesh.ToFin(state.Key.Unsupported(geometryType: typeof(HullCase), outputType: typeof(VectorCloud))).Bind(mesh => VectorCloud.Cluster(
-                    points: toSeq(mesh.Vertices.AsIterable().Select(static v => (Point3d)v)),
-                    context: state.Context,
-                    key: state.Key).Map(static v => (TOut)(object)v)),
-                _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(HullCase), outputType: typeof(TOut))),
-            }
+            from output in result.Project<TOut>(context: state.Context, key: state.Key)
             select output,
         sampleCase: static (state, intent) =>
             intent.Kind.Project<TOut>(domain: intent.Domain, context: state.Context, key: state.Key),
         alignCase: static (state, intent) =>
-            from output in typeof(TOut) switch {
-                Type t when t == typeof(Transform) || t == typeof(AlignmentReceipt) =>
-                    from receipt in intent.Kind.AlignDetailed(source: intent.Source, target: intent.Target, key: state.Key)
-                    from projected in typeof(TOut) switch {
-                        Type tt when tt == typeof(Transform) && receipt.Stop.Equals(AlignmentStopKind.Converged) =>
-                            state.Key.AcceptValue(value: receipt.Transform).Map(static v => (TOut)(object)v),
-                        Type tt when tt == typeof(Transform) => Fin.Fail<TOut>(error: state.Key.InvalidResult()),
-                        _ => Fin.Succ((TOut)(object)receipt),
-                    }
-                    select projected,
-                _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(AlignCase), outputType: typeof(TOut))),
-            }
+            from receipt in intent.Kind.AlignDetailed(source: intent.Source, target: intent.Target, policy: intent.Policy, key: state.Key)
+            from output in receipt.Project<TOut>(key: state.Key)
             select output,
         remeshCase: static (state, intent) =>
             from result in MeshKernel.ApplyRemeshDetailed(kind: intent.Kind, space: intent.Space, key: state.Key)
-            from output in typeof(TOut) == typeof(Mesh)
-                ? state.Key.AcceptValue(value: result.Mesh).Map(static v => (TOut)(object)v)
-                : typeof(TOut) == typeof(RemeshResult)
-                    ? Fin.Succ((TOut)(object)result)
-                    : typeof(TOut) == typeof(RemeshReceipt)
-                        ? Fin.Succ((TOut)(object)result.Receipt)
-                        : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(RemeshCase), outputType: typeof(TOut)))
+            from output in result.Project<TOut>(key: state.Key)
             select output,
         transportCase: static (state, intent) => CloudKernel.Sinkhorn<TOut>(source: intent.Source, target: intent.Target, policy: intent.Policy, key: state.Key),
         topologyCase: static (state, intent) =>
             from topology in MeshKernel.TopologyDetailed(space: intent.Space, key: state.Key)
-            from output in typeof(TOut) == typeof(TopologyReceipt)
-                ? Fin.Succ((TOut)(object)topology)
-                    : typeof(TOut) == typeof((int Euler, int Genus, int BoundaryComponents))
-                        ? topology.Genus.Match(
-                            Some: genus => Fin.Succ((TOut)(object)(topology.EulerCharacteristic, genus, topology.BoundaryComponents)),
-                            None: () => Fin.Fail<TOut>(state.Key.InvalidResult()))
-                    : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(TopologyCase), outputType: typeof(TOut)))
+            from output in topology.Project<TOut>(key: state.Key)
             select output,
         featuresCase: static (state, intent) =>
             from receipt in MeshKernel.DetectFeatureEdgesDetailed(space: intent.Space, policy: intent.Policy, key: state.Key)
-            from output in typeof(TOut) == typeof(FeatureReceipt)
-                ? Fin.Succ((TOut)(object)receipt)
-                : typeof(TOut) == typeof(Seq<FeatureEdge>)
-                    ? Fin.Succ((TOut)(object)receipt.Edges)
-                    : typeof(TOut) == typeof(Seq<(int A, int B)>)
-                        ? Fin.Succ((TOut)(object)toSeq(receipt.Edges.AsIterable()
-                            .Where(static edge => !edge.Kind.Equals(MeshFeatureKind.NgonInteriorSkipped))
-                            .Select(static edge => (edge.A, edge.B))))
-                        : Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(FeaturesCase), outputType: typeof(TOut)))
+            from output in receipt.Project<TOut>(key: state.Key)
             select output,
         descriptorCase: static (state, intent) => MeshKernel.DescribeShape<TOut>(space: intent.Space, kind: intent.Kind, eigenpairs: intent.Pairs.Value, key: state.Key),
         discreteCalculusCase: static (state, intent) =>
             from calculus in SpectralCore.Build(space: intent.Space, kind: intent.Kind, key: state.Key)
-            from output in typeof(TOut) switch {
-                Type t when t == typeof(DiscreteCalculus) => Fin.Succ((TOut)(object)calculus),
-                Type t when t == typeof(SpectralAssemblyReceipt) => Fin.Succ((TOut)(object)calculus.Receipt),
-                _ => Fin.Fail<TOut>(error: state.Key.Unsupported(geometryType: typeof(DiscreteCalculusCase), outputType: typeof(TOut))),
-            }
+            from output in calculus.Project<TOut>(key: state.Key)
             select output,
         segmentationCase: static (state, intent) => MeshKernel.Segment<TOut>(space: intent.Space, kind: intent.Kind, key: state.Key));
     public static Fin<VectorIntent> Axis(SignedAxis axis, Plane? frame = null, Op? key = null) {
@@ -258,7 +207,7 @@ public abstract partial record VectorIntent {
         return from active in FieldNabla.NotNull(value: source, key: op)
                from _ in guard(active.IsValid && active.Domain.IncludesParameter(t: parameter), op.InvalidInput())
                from validMode in FieldNabla.NotNull(value: mode, key: op)
-               select (VectorIntent)new CurveCase(Source: active, Parameter: parameter, Mode: validMode);
+               select (VectorIntent)new CurveCase(source: active, parameter: parameter, mode: validMode);
     }
     public static Fin<VectorIntent> Cloud(VectorCloud cloud, VectorCloudMetric metric, Op? key = null) =>
         Cloud(cloud: cloud, metric: metric, policy: Option<CloudMetricPolicy>.None, key: key);
@@ -300,8 +249,9 @@ public abstract partial record VectorIntent {
         return from validField in FieldNabla.NotNull(value: field, key: op)
                from validStop in Termination.Admit(value: termination, key: op)
                from h in op.AcceptValidated<PositiveMagnitude>(candidate: initialStep)
+               from validSeed in op.AcceptValue(value: seed)
                from validIntegrator in FieldIntegrator.AdmitOrFixed(value: integrator, key: op)
-               select (VectorIntent)new StreamlineCase(Source: validField, Seed: seed, InitialStep: h, Integrator: validIntegrator, Termination: validStop);
+               select (VectorIntent)new StreamlineCase(Source: validField, Seed: validSeed, InitialStep: h, Integrator: validIntegrator, Termination: validStop);
     }
     public static Fin<VectorIntent> Lerp(Vector3d a, Vector3d b, double t, Op? key = null) =>
         key.OrDefault().AcceptValidated<UnitInterval>(candidate: t)
@@ -318,9 +268,9 @@ public abstract partial record VectorIntent {
     public static Fin<VectorIntent> Surface(SurfaceSpace surface, double u, double v, SurfaceProjection mode, Op? key = null) {
         Op op = key.OrDefault();
         return from active in SurfaceSpace.Of(native: surface.Native, context: surface.Tolerance, key: op)
-               from _ in GeometryKernel.SurfaceUv(surface: active.Native, uv: new Point2d(x: u, y: v), context: active.Tolerance, key: op)
+               from uv in GeometryKernel.SurfaceUv(surface: active.Native, uv: new Point2d(x: u, y: v), context: active.Tolerance, key: op)
                from validMode in FieldNabla.NotNull(value: mode, key: op)
-               select (VectorIntent)new SurfaceCase(SurfaceSource: active, U: u, V: v, Mode: validMode);
+               select (VectorIntent)new SurfaceCase(source: active, uv: uv, mode: validMode);
     }
     public static Fin<VectorIntent> Pose(Plane from, Plane to, double t, MotionInterpolation mode, Op? key = null) {
         Op op = key.OrDefault();
@@ -352,12 +302,13 @@ public abstract partial record VectorIntent {
                from validKind in SampleKind.Admit(value: kind, key: op)
                select (VectorIntent)new SampleCase(Domain: validDomain, Kind: validKind);
     }
-    public static Fin<VectorIntent> Align(VectorCloud source, VectorCloud target, AlignKind kind, Op? key = null) {
+    public static Fin<VectorIntent> Align(VectorCloud source, VectorCloud target, AlignKind kind, AlignmentPolicy? policy = null, Op? key = null) {
         Op op = key.OrDefault();
         return from validSource in FieldNabla.NotNull(value: source, key: op)
                from validTarget in FieldNabla.NotNull(value: target, key: op)
                from validKind in FieldNabla.NotNull(value: kind, key: op)
-               select (VectorIntent)new AlignCase(Source: validSource, Target: validTarget, Kind: validKind);
+               from validPolicy in (policy ?? AlignmentPolicy.Default).Admit(key: op)
+               select (VectorIntent)new AlignCase(source: validSource, target: validTarget, kind: validKind, policy: validPolicy);
     }
     public static Fin<VectorIntent> Remesh(MeshSpace space, RemeshKind kind, Op? key = null) {
         Op op = key.OrDefault();

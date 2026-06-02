@@ -2,6 +2,7 @@
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
+import os
 from pathlib import Path
 import shutil
 from typing import assert_never, Final, Literal
@@ -54,16 +55,41 @@ def _api_xml_path(rhino_app: Path, key: ApiKey) -> tuple[str, str]:
     return (primary, "primary") if primary and Path(primary).is_file() else (primary, "missing")
 
 
-def _with_dotnet_apphost(argv: tuple[str, ...], *, env: dict[str, str] | None = None, check: bool = True) -> Result[Completed, ProcessFault]:
+def _valid_dotnet_root(path: str) -> str | None:
+    root = Path(path).expanduser()
+    return str(root) if (root / "shared" / "Microsoft.NETCore.App").is_dir() else None
+
+
+def _dotnet_runtime_roots(env: dict[str, str]) -> tuple[str, ...]:
+    def parse(line: str) -> str | None:
+        match line.rsplit("[", maxsplit=1):
+            case [_, raw] if raw.endswith("]"):
+                runtime = Path(raw[:-1])
+                return _valid_dotnet_root(str(runtime.parent.parent))
+            case _:
+                return None
+
+    lines = run(("dotnet", "--list-runtimes"), env=env, check=False).map(lambda done: done.text.splitlines()).default_with(lambda _: ())
+    return tuple(dict.fromkeys(root for root in (parse(line) for line in lines) if root is not None))
+
+
+def _dotnet_apphost_env(env: dict[str, str] | None = None) -> dict[str, str]:
+    base = dict(os.environ if env is None else env)  # noqa: TID251
     dotnet = shutil.which("dotnet")
-    candidates = ((env or {}).get("DOTNET_ROOT", ""), str(Path(dotnet).resolve().parent) if dotnet else "", "/usr/local/share/dotnet")
-    overlay: dict[str, str] | None
-    match next((root for root in candidates if root and (Path(root) / "shared").is_dir()), ""):
-        case "":
-            overlay = env
-        case root:
-            overlay = {**(env or {}), "DOTNET_ROOT": root, "DOTNET_MULTILEVEL_LOOKUP": "0"}
-    return run(argv, env=overlay, check=check)
+    candidates = (
+        *_dotnet_runtime_roots(base),
+        *(_valid_dotnet_root(base_root) for base_root in (base.get("DOTNET_ROOT", ""),)),
+        *(_valid_dotnet_root(str(Path(dotnet).resolve().parent)) for _ in (dotnet,) if dotnet),
+    )
+    match next((root for root in candidates if root), None):
+        case str(root):
+            return {**base, "DOTNET_ROOT": root, "DOTNET_MULTILEVEL_LOOKUP": "0"}
+        case None:
+            return {key: value for key, value in base.items() if key != "DOTNET_ROOT"}
+
+
+def _with_dotnet_apphost(argv: tuple[str, ...], *, env: dict[str, str] | None = None, check: bool = True) -> Result[Completed, ProcessFault]:
+    return run(argv, env=_dotnet_apphost_env(env), check=check)
 
 
 @beartype
@@ -83,6 +109,7 @@ def api(
     match op:
         case "doctor":
             base_env = env or {}
+            apphost_env = _dotnet_apphost_env(env)
             plist = rhino_app / "Contents/Info.plist"
             version = (
                 run(("plutil", "-extract", "CFBundleVersion", "raw", "-o", "-", str(plist)), check=False)
@@ -90,7 +117,7 @@ def api(
                 .default_with(lambda _: "unknown")
             )
             ilspy_meta = (
-                _with_dotnet_apphost(("ilspycmd", "--version"), env=env, check=False)
+                run(("ilspycmd", "--version"), env=apphost_env, check=False)
                 .map(lambda done: {"status": "ok" if done.returncode == 0 else "failed", "version": done.text.strip() or "unavailable"})
                 .default_with(lambda _: {"status": "failed", "version": "unavailable"})
             )
@@ -109,7 +136,7 @@ def api(
                 msgspec.json.encode(
                     ApiDoctor(
                         rhino={"app": str(rhino_app), "version": version},
-                        ilspy={**ilspy_meta, "dotnet_root": base_env.get("DOTNET_ROOT", "hostfxr-probe")},
+                        ilspy={**ilspy_meta, "dotnet_root": apphost_env.get("DOTNET_ROOT", "hostfxr-probe")},
                         rhinocode={
                             "status": "ok" if rhino_code.is_file() else "missing",
                             "path": str(rhino_code),

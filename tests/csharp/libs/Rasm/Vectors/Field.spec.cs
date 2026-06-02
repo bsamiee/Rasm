@@ -174,22 +174,21 @@ public sealed class FieldReconstructionAndSdfLaws {
         Spec.Fail(result.Field.SampleReconstructionDetailed(sample: new Point3d(x: 10.0, y: 10.0, z: 10.0), context: FieldGens.Model, key: FieldGens.Key));
     }
     [Fact]
-    public void MlsRejectsInvalidAndRankDeficientInputs() {
+    public void MlsRejectsInvalidAndUnsupportedNeighborhoods() {
         Seq<MlsSample> empty = Seq<MlsSample>();
         Seq<MlsSample> zeroNormal = Seq(new MlsSample(Position: Point3d.Origin, Normal: Vector3d.Zero, Value: 0.0));
         Seq<MlsSample> opposedNormals = Seq(
             new MlsSample(Position: new Point3d(x: -1.0, y: 0.0, z: 0.0), Normal: Vector3d.ZAxis, Value: 0.0),
             new MlsSample(Position: new Point3d(x: 1.0, y: 0.0, z: 0.0), Normal: -Vector3d.ZAxis, Value: 0.0));
         Seq<MlsSample> nonfinite = Seq(new MlsSample(Position: new Point3d(x: double.NaN, y: 0.0, z: 0.0), Normal: Vector3d.ZAxis, Value: 0.0));
-        Seq<MlsSample> line = Seq(
+        Seq<MlsSample> sparse = Seq(
             new MlsSample(Position: new Point3d(x: -1.0, y: 0.0, z: 0.0), Normal: Vector3d.ZAxis, Value: 0.0),
-            new MlsSample(Position: Point3d.Origin, Normal: Vector3d.ZAxis, Value: 0.0),
             new MlsSample(Position: new Point3d(x: 1.0, y: 0.0, z: 0.0), Normal: Vector3d.ZAxis, Value: 0.0));
         Seq<Seq<MlsSample>> invalid = Seq(empty, zeroNormal, opposedNormals, nonfinite);
         _ = invalid.Iter(samples => Spec.Fail(ScalarField.MlsDetailed(samples: samples, kernel: KernelKind.Wendland, radius: 1.0, context: FieldGens.Model, key: FieldGens.Key)));
-        Spec.Fail(ScalarField.MlsDetailed(samples: line, kernel: KernelKind.Wendland, radius: 0.0, context: FieldGens.Model, key: FieldGens.Key));
-        ReconstructionResult rankDeficient = Spec.SuccValue(ScalarField.MlsDetailed(samples: line, kernel: KernelKind.Wendland, radius: 3.0, context: FieldGens.Model, key: FieldGens.Key), label: "rank-deficient mls factory");
-        Spec.Fail(rankDeficient.Field.SampleReconstructionDetailed(sample: Point3d.Origin, context: FieldGens.Model, key: FieldGens.Key));
+        Spec.Fail(ScalarField.MlsDetailed(samples: sparse, kernel: KernelKind.Wendland, radius: 0.0, context: FieldGens.Model, key: FieldGens.Key));
+        ReconstructionResult unsupported = Spec.SuccValue(ScalarField.MlsDetailed(samples: sparse, kernel: KernelKind.Wendland, radius: 3.0, context: FieldGens.Model, key: FieldGens.Key), label: "unsupported mls factory");
+        Spec.Fail(unsupported.Field.SampleReconstructionDetailed(sample: Point3d.Origin, context: FieldGens.Model, key: FieldGens.Key));
     }
     [Fact]
     public void ProfileExtrusionRejectsMissingContextBeforeNativeSampling() =>

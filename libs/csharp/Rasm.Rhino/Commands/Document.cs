@@ -435,18 +435,6 @@ public readonly record struct DocumentCustomUndo(string Name, EventHandler<Custo
     }
 }
 
-public readonly record struct DocumentResourceChange(DocumentResourceKind Kind, string Name);
-
-[SmartEnum<int>]
-public sealed partial class DocumentReceiptSlot {
-    public static readonly DocumentReceiptSlot Created = new(key: 0, label: "created"), Replaced = new(key: 1, label: "replaced"), Deleted = new(key: 2, label: "deleted"), Transformed = new(key: 3, label: "transformed");
-    public static readonly DocumentReceiptSlot Selected = new(key: 4, label: "selected"), Unselected = new(key: 5, label: "unselected"), Hidden = new(key: 6, label: "hidden"), Locked = new(key: 7, label: "locked"), Flashed = new(key: 8, label: "flashed");
-    public static readonly DocumentReceiptSlot Attributes = new(key: 9, label: "attributes"), Lifecycle = new(key: 10, label: "lifecycle"), Resources = new(key: 11, label: "resources"), Undo = new(key: 12, label: "undo"), CustomUndo = new(key: 13, label: "custom undo");
-
-    public string Label { get; }
-    public bool TracksObjects => this != Resources && this != Undo && this != CustomUndo;
-}
-
 public readonly record struct DocumentReceipt {
     private readonly Seq<Change> changes;
     private Seq<Change> Changes => changes;
@@ -540,10 +528,22 @@ public readonly record struct DocumentReceipt {
     }
 }
 
+[SmartEnum<int>]
+public sealed partial class DocumentReceiptSlot {
+    public static readonly DocumentReceiptSlot Created = new(key: 0, label: "created"), Replaced = new(key: 1, label: "replaced"), Deleted = new(key: 2, label: "deleted"), Transformed = new(key: 3, label: "transformed");
+    public static readonly DocumentReceiptSlot Selected = new(key: 4, label: "selected"), Unselected = new(key: 5, label: "unselected"), Hidden = new(key: 6, label: "hidden"), Locked = new(key: 7, label: "locked"), Flashed = new(key: 8, label: "flashed");
+    public static readonly DocumentReceiptSlot Attributes = new(key: 9, label: "attributes"), Lifecycle = new(key: 10, label: "lifecycle"), Resources = new(key: 11, label: "resources"), Undo = new(key: 12, label: "undo"), CustomUndo = new(key: 13, label: "custom undo");
+
+    public string Label { get; }
+    public bool TracksObjects => this != Resources && this != Undo && this != CustomUndo;
+}
+
 public readonly record struct DocumentRedraw(bool Enabled, bool SuppressDuringCommit = false) {
     public static DocumentRedraw After { get; } = new(Enabled: true);
     public static DocumentRedraw None { get; } = new(Enabled: false);
 }
+
+public readonly record struct DocumentResourceChange(DocumentResourceKind Kind, string Name);
 
 public readonly record struct DocumentSelectionPolicy(bool Highlight, bool IgnoreGrips, bool Persistent, bool IgnoreLayerLocking, bool IgnoreLayerVisibility) {
     public static DocumentSelectionPolicy Default { get; } = new(Highlight: true, IgnoreGrips: true, Persistent: true, IgnoreLayerLocking: false, IgnoreLayerVisibility: false);

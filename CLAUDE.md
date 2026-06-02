@@ -120,9 +120,13 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 
 Three orthogonal rails: static analysis, unit tests, runtime verification. Each script owns one rail; never conflate.
 
+[CRITICAL]:
+1. [NEVER] Run static, test, or bridge rails for comment-only, divider-only, declaration-order, or move-only organization work unless the user explicitly requests a quality rail or preservation proof fails.
+2. [ALWAYS] Prove move-only organization with `git diff --check` plus line, declaration, or hash preservation at the movement boundary. Report no compile, analyzer, test, or runtime claim.
+
 [IMPORTANT]:
-1. [ALWAYS] **Static cleanup** — `uv run python -m tools.quality static check`. Routes changed files to owning projects. Applies scoped `dotnet format whitespace`, `style`, and `analyzers` fixes. No build, no tests.
-2. [ALWAYS] **Static build** — `uv run python -m tools.quality static build`. Routes changed files to owning projects. Runs restore + build + MSBuild analyzers for compile proof. No tests.
+1. [ALWAYS] **Static cleanup** — `uv run python -m tools.quality static check`. Run after executable source changes, analyzer remediation, or user-requested cleanup. Routes changed files to owning projects. Applies scoped `dotnet format whitespace`, `style`, and `analyzers` fixes. No build, no tests.
+2. [ALWAYS] **Static build** — `uv run python -m tools.quality static build`. Run after semantic or compilable source changes. Routes changed files to owning projects. Runs restore + build + MSBuild analyzers for compile proof. No tests.
 3. [ALWAYS] **Full static** — `uv run python -m tools.quality static full`. Runs full-solution restore + build + MSBuild analyzers. Required only when trigger files change (`Directory.Build.props`, `Directory.Build.targets`, `Directory.Packages.props`, `Workspace.slnx`, `.editorconfig`, `global.json`).
 4. [ALWAYS] **Unit tests** — `uv run python -m tools.quality test run [<filter>]`. Runs .NET 10 MTP against the library tests target (`tests/csharp/libs/Rasm/Rasm.Tests.csproj` by default; override via `--target <csproj>` or use `--all`). Mutation is explicit via `--mutation changed|full`; default test runs are unit-only.
 5. [ALWAYS] **Rhino runtime verification** — `uv run python -m tools.quality bridge verify <path-or-glob>`. Routes scenarios through the in-process bridge against running `RhinoWIP.app`. Outputs JSON evidence and PNG captures under `.artifacts/rhino/verify/`. See the `cs-testing` skill.

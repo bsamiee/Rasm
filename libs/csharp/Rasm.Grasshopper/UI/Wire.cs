@@ -68,9 +68,7 @@ public partial record GraphKey {
 public sealed partial class WireTraversal {
     private delegate IEnumerable<IDocumentObject> WalkFn(GhObjectList objects, GraphKey key);
 
-    // Depth is case identity: All* items walk the transitive closure (FindAll*/SearchUpstream); Immediate*
-    // items walk one hop (FindImmediate*). The parameter case has no host immediate search, so it always
-    // walks the transitive frontier; the owner case honours the depth via its connectivity fetcher.
+    // Depth is case identity: parameters lack host immediate search, owners honour depth through connectivity fetchers.
     public static readonly WireTraversal Upstream = new(key: 0, walkObjects: static (objects, key) => WalkAll(objects, key, up: true));
     public static readonly WireTraversal Downstream = new(key: 1, walkObjects: static (objects, key) => WalkAll(objects, key, up: false));
     public static readonly WireTraversal Bidirectional = new(key: 2, walkObjects: static (objects, key) => WalkAll(objects, key, up: true).Concat(WalkAll(objects, key, up: false)));
@@ -119,18 +117,13 @@ public readonly record struct WireEditArgs(int SourceIndex = 0, int TargetIndex 
 
 [SmartEnum<int>]
 public sealed partial class WireEdit {
-    // The op is threaded in by the caller as Op.Of($"Wire.{edit}") so each item names itself from its case
-    // identity — ToString() == the former literal, so provenance is unchanged and the 8 literals are gone.
-    // ApplyEditRow gates RequiresSource/RequiresTarget before dispatch, so run bodies !-assert the resolved
-    // sides they declared required — one widest delegate carries pair, endpoint, and connect verbs uniformly.
-    // Disconnect-all verbs operate on one endpoint, so they never require a live source<->target pair.
+    // Caller-threaded Op.Of($"Wire.{edit}") preserves case provenance without literals.
+    // ApplyEditRow resolves declared sides before dispatch; disconnect-all verbs require only one endpoint.
     public bool RequiresConnectedPair { get; }
     public bool RequiresSource { get; }
     public bool RequiresTarget { get; }
 
-    // Connect/ConnectAt CREATE a connection, so they require a valid source/target pair but NOT an
-    // already-live one — RequiresConnectedPair is false (MutateConnectedWire's RequireConnected pre-guard
-    // would otherwise reject the very pair being connected); native Connect owns compatibility and no-op status.
+    // Connect verbs require a valid pair, not an already-live pair; native Connect owns compatibility/no-op status.
     public static readonly WireEdit Connect = Make(
         key: 0, source: true, target: true, connected: false,
         run: static (op, _, objects, source, target, actions, _) =>
@@ -163,8 +156,7 @@ public sealed partial class WireEdit {
         run: static (op, _, objects, source, target, actions, args) =>
             NativeConnect(op: op, objects: objects, source: source!, target: target!, actions: actions, indices: Some((args.SourceIndex, args.TargetIndex))));
 
-    // Empty omissions would disconnect ALL inputs — a footgun masquerading as a selective verb; reject so the
-    // caller routes through DisconnectInputs explicitly when total clearance is intended.
+    // Empty omissions would disconnect all inputs; reject so total clearance must use DisconnectInputs.
     public static readonly WireEdit DisconnectInputsExcept = Make(
         key: 6, source: false, target: true, connected: false,
         run: static (op, _, _, _, target, actions, args) =>
@@ -239,10 +231,7 @@ public sealed partial class WireEdit {
             : Optional(objects.FindParameter(instanceId: id))
                 .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"{role} parameter {id} not found"));
 
-    // One native-mutation scaffold: op.Attempt(run, name).Bind(interpret). The native return type T varies
-    // (bool/int), the interpreter projects it to a Fin<int> row count — Native interprets bool→1/reject,
-    // NativeCount interprets int>=0→count/reject, NativeConnect short-circuits the idempotent case then routes
-    // through here with an always-Succ interpret.
+    // One mutation scaffold: native bool/int results project through an interpreter into Fin<int> row counts.
     private static Fin<int> NativeResult<T>(Op op, string name, Func<T> run, Func<T, Fin<int>> interpret) =>
         op.Attempt(body: run, what: name).Bind(interpret);
 
@@ -300,9 +289,7 @@ public sealed partial class WireEdit {
 public sealed partial class GraphMetric {
     private delegate Fin<WireResult> RunFn(GrasshopperUi.Scope scope, Seq<Guid> ids);
 
-    // Native Connectivity.IsLinear unconditionally reads array[0] of the sorted node set (decompiled), so an
-    // empty subgraph throws IndexOutOfRangeException. An empty subgraph is definitively non-linear, so the
-    // library projects it to IsLinear:false here rather than surfacing the host throw to callers.
+    // Connectivity.IsLinear reads array[0] on empty subgraphs (decompiled); empty projects to non-linear instead of host throw.
     public static readonly GraphMetric Linearity = new(
         key: 0,
         run: static (scope, ids) =>
@@ -343,10 +330,8 @@ public sealed partial class GraphMetric {
                 },
                 what: "Connectivity.SortCausally")
             select result);
-    // Relay-collapsed topology: drop dangling + simple relays (keep junctions), then read the subset topology
-    // of the collapsed graph — reuses the GraphTopology result of the plain Topology metric. The relay triple
-    // is named item data (Dangling, Simple, Complex) so WithoutRelays' third flag is a reachable parameter,
-    // not a dead inline literal; RelayCollapsed pins it to (dangling:true, simple:true, complex:false).
+    // Relay-collapsed topology drops dangling/simple relays, keeps junctions, then reuses the plain GraphTopology metric.
+    // The relay triple keeps WithoutRelays' flags named instead of buried as literals.
     private static readonly (bool Dangling, bool Simple, bool Complex) RelayCollapsedFlags = (Dangling: true, Simple: true, Complex: false);
     public static readonly GraphMetric RelayCollapsed = new(
         key: 3,
@@ -408,9 +393,7 @@ public sealed partial class WireListKind {
     public static readonly WireListKind Selected = new(key: 1, source: static objects => objects.SelectedWires, include: static _ => true);
     public static readonly WireListKind Dangling = new(key: 2, source: static objects => Wire.AllWireEnds(objects: objects), include: static wire => !wire.Connected);
     public static readonly WireListKind Connected = new(key: 3, source: static objects => Wire.AllWireEnds(objects: objects), include: static wire => wire.Connected);
-    // Cyclic: the per-wire Include cannot decide cycle membership in isolation, so it admits all wires and
-    // Listed post-filters the projected seq against CycleWires (whole-graph seed). Listed detects this kind by
-    // singleton identity rather than a per-item flag, keeping the SmartEnum constructor uniform across items.
+    // Cycle membership needs whole-graph context; Include admits all wires and Listed post-filters via singleton identity.
     public static readonly WireListKind Cyclic = new(key: 4, source: static objects => Wire.AllWireEnds(objects: objects), include: static _ => true);
 
     [UseDelegateFromConstructor]
@@ -449,9 +432,7 @@ public partial record WireQuery {
     public static WireQuery RecentlyDrawn() => new RecentlyDrawnCase();
 }
 
-// Bounded vocabulary of the host's concrete WireShape subclasses; the InstallShape(WireShapeKind) overload
-// funnels through the same validated Type rail as InstallShape(Type), so callers name the shape without
-// reaching for typeof at the call site.
+// WireShapeKind names host WireShape subclasses while sharing the validated Type rail.
 [SmartEnum<string>]
 public sealed partial class WireShapeKind {
     public Type ShapeType { get; }
@@ -550,9 +531,7 @@ public readonly record struct WireOverlayStyle(PaintStyle Style, Option<Func<Wir
         return select.Match(Some: pick => pick(arg: entry), None: () => fallback);
     }
 
-    // Per-WireKind override built from a lookup table: the Select picker resolves the entry's kind against the
-    // map and falls back to the base style when the kind is unmapped — one table-driven selector, no per-kind
-    // branches at the call site.
+    // Per-WireKind overrides use one lookup selector with base-style fallback.
     public static WireOverlayStyle ByKind(PaintStyle fallback, params (WireKind Kind, PaintStyle Style)[] map) {
         HashMap<WireKind, PaintStyle> table = toHashMap(toSeq(map).Map(static pair => (pair.Kind, pair.Style)));
         return new WireOverlayStyle(
@@ -586,9 +565,7 @@ internal static partial class Wire {
         canInsertCase: static c => CanInsert(objectId: c.ObjectId, location: c.Location).Map(static snap => (WireResult)new WireResult.InsertCase(Snapshot: snap)),
         recentlyDrawnCase: static _ => RecentlyDrawn().Map(static snap => (WireResult)new WireResult.DrawnCase(Snapshot: snap)));
 
-    // Null-guard first (AcceptAll needs a non-null value), then accumulate the three structural faults in
-    // parallel — derives-from WireShape, concrete, and a public (PointF, PointF) ctor — so a caller sees every
-    // shape violation at once instead of the first short-circuited one.
+    // Null guards AcceptAll; structural validation accumulates derives/concrete/ctor faults in parallel.
     internal static GrasshopperUiIntent<Subscription> InstallShape(Type shapeType) =>
         GhUi.Canvas(run: _ =>
             from valid in Optional(shapeType).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(InstallShape)), detail: "shape type is required"))
@@ -826,10 +803,7 @@ internal static partial class Wire {
         return new GraphIntegrity(Dangling: dangling, Cycles: cycles, Missing: missing, External: external);
     }
 
-    // All bounded upstream->downstream paths. The native FindConnections is unbounded, so this is a pure
-    // frontier-fold over Seq<Seq<Guid>>: each step expands the head partial path along node.Out, rejects
-    // cyclic extensions by path membership, routes completed extensions (reaching end) into the accumulator,
-    // and recurses on the remaining frontier until it empties or the limit is hit.
+    // Native FindConnections is unbounded; this frontier fold rejects cyclic extensions and stops at limit.
     internal static Seq<Seq<Guid>> BoundedPaths(Connectivity connectivity, Guid source, Guid target, int limit) =>
         limit <= 0 || !connectivity.Find(source, out ConnectiveObject? start) || !connectivity.Find(target, out ConnectiveObject? end)
             ? Seq<Seq<Guid>>()
@@ -880,7 +854,7 @@ internal static partial class Wire {
             ? connected.Bind(static wire => Seq(wire.Source, wire.Target))
             : starts).Distinct();
         LanguageExt.HashSet<Guid> cyclic = toHashSet(nodes.Filter(id => HasCycle(seed: id, graph: graph)));
-        return connected.Filter(wire => cyclic.Find(key: wire.Source).IsSome || cyclic.Find(key: wire.Target).IsSome);
+        return connected.Filter(wire => cyclic.Find(key: wire.Source).IsSome && cyclic.Find(key: wire.Target).IsSome);
     }
 
     private static bool HasCycle(Guid seed, HashMap<Guid, Seq<Guid>> graph) {
@@ -890,9 +864,7 @@ internal static partial class Wire {
         return Visit(current: seed, seen: toHashSet(Seq(seed)));
     }
 
-    // Single shared (Source, Target) index per call → SnapshotIn is O(1) membership + 2 FindParameter
-    // lookups instead of O(N) endpoint scans. WireIndexCache hoists the index O(W)→O(W per doc edit)
-    // when document is supplied.
+    // Shared (Source,Target) index makes SnapshotIn O(1); WireIndexCache refreshes O(W) per document edit.
     private static Seq<WireSnapshot.ConnectedCase> SafeWires(IEnumerable<WireEnds>? source, GhObjectList objects, Option<GhDocument> document = default) {
         LanguageExt.HashSet<(Guid Source, Guid Target)> index = document switch {
             { IsSome: true, Case: GhDocument doc } => WireIndexCache.ConnectedOf(objects: objects, document: doc),
@@ -913,9 +885,7 @@ internal static partial class Wire {
         return toSeq(wires).Map(wire => SnapshotIn(objects: objects, wire: wire, index: index));
     }
 
-    // O(degree) via IndexOf; avoids O(N) HashSet rebuild for single-wire guards. Bidirectional to match
-    // GH2 Connections.IsConnected: Disconnect detaches both half-edges, so a one-sided test reports a
-    // half-torn wire as still connected — breaks Require/Toggle/Count/WireSnapshot.Connected.
+    // O(degree) guard stays bidirectional because Disconnect detaches both half-edges.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool IsConnected(GhObjectList objects, WireEnds wire) =>
         wire.Source != Guid.Empty
@@ -977,9 +947,7 @@ internal static partial class Wire {
     private static int ConnectedSelectedCount(GhObjectList objects) =>
         toSeq(objects.SelectedWires).Count(wire => IsConnected(objects: objects, wire: wire));
 
-    // Object-count-bounded walk shared by Document.FindCriterion.Graph and GraphOf — GraphKey discriminates
-    // parameter- vs owner-keyed traversal, MaxObjects caps the flat walk (Take(n), prefix-monotone — proven by
-    // Wire.spec.cs). An empty seed fails; an unresolved (but non-empty) anchor walks to an empty result.
+    // Object-count-bounded graph walk: empty seed fails, unresolved non-empty anchor yields empty.
     internal static Fin<Seq<IDocumentObject>> GraphObjects(GhObjectList objects, GraphKey anchor, WireTraversal direction, WireObjectLimit maxObjects) =>
         anchor.SeedId.NonEmpty()
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(GraphObjects)), detail: "anchor id must be non-empty"))
@@ -1173,9 +1141,7 @@ file sealed class MruCache<TKey, TVal>(int capacity = 8) where TKey : notnull {
 
     internal Option<TVal> Find(TKey key) => cell.Value.Map.Find(key: key);
 
-    // Stamp-fresh read-through: return the cached value when present and fresh, otherwise build, record (which
-    // promotes recency + evicts), and return the rebuilt value. WireIndexCache routes through here;
-    // WireDrawnCache deliberately does not (its miss path is a typed Fin.Fail, never a silent rebuild).
+    // Fresh reads return cache hits or rebuild+record; WireDrawnCache misses stay typed failures, never silent rebuilds.
     internal TVal GetOrAdd(TKey key, Func<TVal, bool> fresh, Func<TVal> build) =>
         Find(key: key).Filter(fresh).Match(
             Some: static hit => hit,
@@ -1219,9 +1185,7 @@ file static class WireDrawnCache {
     internal static Unit Record(GhCanvas canvas, WireDrawnSnapshot snapshot) =>
         Cache.Record(key: KeyOf(canvas: canvas, stamp: snapshot.Stamp), value: new Entry(Stamp: snapshot.Stamp, Snapshot: snapshot));
 
-    // Repository bootstrap failure is silent — drift invalidation no-ops when reflection rail is absent. The
-    // whole chain runs in Option: Fin.ToOption collapses a Fail rail to None and any None short-circuits to
-    // unit, so the paint hook never throws (a throw here would tear the AfterWires pipeline).
+    // Reflection bootstrap failures no-op drift invalidation; the Option chain keeps AfterWires from throwing.
     internal static Unit InvalidateOnStampDrift(GhCanvas canvas) =>
         (from access in WireRepositoryRail.Repository.Value.ToOption()
          from repo in Optional(access.CacheProperty.GetValue(obj: canvas))
