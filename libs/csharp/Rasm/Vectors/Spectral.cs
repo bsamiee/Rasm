@@ -83,7 +83,7 @@ public readonly record struct SpectralWaveReceipt(double Energy, double Bandwidt
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SpectralDescriptorReceipt(SpectralFilter Filter, int VertexCount, int EigenpairCount, int SourceCount, bool ComparisonReady, bool Pairwise, bool EnergyNormalized, bool BandwidthNormalized, SpectralDescriptorPolicy Policy = default, int ZeroModeCount = 0, int CroppedEigenpairCount = 0, Option<SpectralWaveReceipt> Wave = default);
+public readonly record struct SpectralDescriptorReceipt(SpectralFilter Filter, int VertexCount, int EigenpairCount, int SourceCount, bool ComparisonReady, bool Pairwise, bool EnergyNormalized, bool ScaleNormalized, SpectralDescriptorPolicy Policy = default, int ZeroModeCount = 0, int CroppedEigenpairCount = 0, Option<SpectralWaveReceipt> Wave = default);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SpectralDescriptor(Arr<double> Values, SpectralDescriptorReceipt Receipt) {
@@ -174,7 +174,7 @@ internal static class SpectralCore {
         if (eigenIndices.Length == 0) return Fin.Fail<SpectralDescriptor>(error: key.InvalidInput());
         double[] scaledEigenvalues = [.. eigenIndices.Select(k => policy.ScaleNormalization.Equals(SpectralScaleNormalization.FirstNonZeroEigenvalue) ? basis.Eigenvalues[index: k] / firstNonZero : basis.Eigenvalues[index: k])];
         (double[] weights, Option<SpectralWaveReceipt> wave) = WeightsOf(filter: filter, eigenvalues: scaledEigenvalues, firstNonZero: firstNonZero, zeroModeCount: zeroModeCount, croppedCount: eigenIndices.Length);
-        if (weights.Any(static weight => !RhinoMath.IsValidDouble(x: weight))) return Fin.Fail<SpectralDescriptor>(key.InvalidResult());
+        if (weights.Any(static weight => !RhinoMath.IsValidDouble(x: weight)) || (filter is SpectralFilter.WaveCase && wave.IsNone)) return Fin.Fail<SpectralDescriptor>(key.InvalidResult());
         bool isPairwise = sourceSet.Length > 0;
         double normFactor = isPairwise ? 1.0 / sourceSet.Length : 1.0;
         double[] result = new double[n];
@@ -194,7 +194,7 @@ internal static class SpectralCore {
                 for (int v = 0; v < n; v++) result[v] += w * phi[index: v] * phi[index: v];
         }
         if (isPairwise) for (int v = 0; v < n; v++) result[v] = Math.Sqrt(d: Math.Max(val1: 0.0, val2: result[v] * normFactor));
-        return NormalizeValues(values: result, policy: policy, key: key).Map(values => new SpectralDescriptor(Values: new Arr<double>(values), Receipt: new SpectralDescriptorReceipt(Filter: filter, VertexCount: n, EigenpairCount: basis.Eigenvalues.Count, SourceCount: sourceSet.Length, ComparisonReady: !policy.IsRaw || wave.IsSome, Pairwise: isPairwise, EnergyNormalized: !policy.EnergyNormalization.Equals(SpectralEnergyNormalization.Raw), BandwidthNormalized: !policy.ScaleNormalization.Equals(SpectralScaleNormalization.Raw), Policy: policy, ZeroModeCount: zeroModeCount, CroppedEigenpairCount: eigenIndices.Length, Wave: wave)));
+        return NormalizeValues(values: result, policy: policy, key: key).Map(values => new SpectralDescriptor(Values: new Arr<double>(values), Receipt: new SpectralDescriptorReceipt(Filter: filter, VertexCount: n, EigenpairCount: basis.Eigenvalues.Count, SourceCount: sourceSet.Length, ComparisonReady: !policy.IsRaw || wave.IsSome, Pairwise: isPairwise, EnergyNormalized: !policy.EnergyNormalization.Equals(SpectralEnergyNormalization.Raw), ScaleNormalized: !policy.ScaleNormalization.Equals(SpectralScaleNormalization.Raw), Policy: policy, ZeroModeCount: zeroModeCount, CroppedEigenpairCount: eigenIndices.Length, Wave: wave)));
     }
     internal static Fin<SpectralDescriptor> NormalizeDescriptor(SpectralDescriptor descriptor, SpectralDescriptorPolicy policy, Op key) =>
         from activePolicy in SpectralDescriptorPolicy.Admit(policy: policy, key: key)
@@ -202,7 +202,7 @@ internal static class SpectralCore {
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(key.Unsupported(geometryType: typeof(SpectralDescriptor), outputType: typeof(SpectralDescriptorPolicy)))
         from values in NormalizeValues(values: [.. descriptor.Values.AsIterable()], policy: activePolicy, key: key)
-        let receipt = descriptor.Receipt with { ComparisonReady = !activePolicy.IsRaw || descriptor.Receipt.Wave.IsSome, EnergyNormalized = !activePolicy.EnergyNormalization.Equals(SpectralEnergyNormalization.Raw), BandwidthNormalized = !activePolicy.ScaleNormalization.Equals(SpectralScaleNormalization.Raw), Policy = activePolicy }
+        let receipt = descriptor.Receipt with { ComparisonReady = !activePolicy.IsRaw || descriptor.Receipt.Wave.IsSome, EnergyNormalized = !activePolicy.EnergyNormalization.Equals(SpectralEnergyNormalization.Raw), ScaleNormalized = !activePolicy.ScaleNormalization.Equals(SpectralScaleNormalization.Raw), Policy = activePolicy }
         select new SpectralDescriptor(Values: new Arr<double>(values), Receipt: receipt);
     internal static Fin<SpectralRanking> RankDescriptors(SpectralDescriptor query, Seq<SpectralDescriptor> candidates, SpectralRankingPolicy policy, Op key) =>
         !policy.IsValid || !query.IsValid || candidates.IsEmpty || !candidates.ForAll(static candidate => candidate.IsValid)

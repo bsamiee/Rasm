@@ -1000,11 +1000,14 @@ public abstract partial record ScalarField {
     private static Fin<Unit> AdmitScalarSource(ScalarField? source, Context context, Op key) =>
         Optional(source).ToFin(key.InvalidInput()).Bind(field => field.AdmitScalarPayload(context: context, key: key));
     private static Fin<Unit> AdmitScalarFields(Seq<ScalarField> fields, Context context, Op key) =>
-        !fields.IsEmpty ? fields.TraverseM(field => AdmitScalarSource(source: field, context: context, key: key)).As().Map(static _ => unit) : Fin.Fail<Unit>(key.InvalidInput());
+        AdmitFieldSequence(fields: fields, context: context, key: key, admit: static (field, model, op) => field.AdmitScalarPayload(context: model, key: op));
     private static Fin<Unit> AdmitVectorSource(VectorField? source, Context context, Op key) =>
         Optional(source).ToFin(key.InvalidInput()).Bind(field => AdmitVectorField(field: field, context: context, key: key));
     private static Fin<Unit> AdmitVectorFields(Seq<VectorField> fields, Context context, Op key) =>
-        !fields.IsEmpty ? fields.TraverseM(field => AdmitVectorSource(source: field, context: context, key: key)).As().Map(static _ => unit) : Fin.Fail<Unit>(key.InvalidInput());
+        AdmitFieldSequence(fields: fields, context: context, key: key, admit: static (field, model, op) => AdmitVectorField(field: field, context: model, key: op));
+    private static Fin<Unit> AdmitFieldSequence<TField>(Seq<TField> fields, Context context, Op key, Func<TField, Context, Op, Fin<Unit>> admit)
+        where TField : class =>
+        !fields.IsEmpty ? fields.TraverseM(field => Optional(field).ToFin(key.InvalidInput()).Bind(active => admit(arg1: active, arg2: context, arg3: key))).As().Map(static _ => unit) : Fin.Fail<Unit>(key.InvalidInput());
     private static Fin<Unit> AdmitVectorField(VectorField field, Context context, Op key) =>
         field switch {
             VectorField.ConstantCase c => FieldNabla.Finite(vector: c.Value, key: key),
@@ -1411,20 +1414,28 @@ internal static class FieldNabla {
         RhinoMath.IsValidDouble(x: vector.X) && RhinoMath.IsValidDouble(x: vector.Y) && RhinoMath.IsValidDouble(x: vector.Z);
     internal static Point3d ToroidalWrap(Point3d sample, Vector3d period) =>
         new(x: sample.X - (Math.Floor(d: (sample.X / period.X) + 0.5) * period.X), y: sample.Y - (Math.Floor(d: (sample.Y / period.Y) + 0.5) * period.Y), z: sample.Z - (Math.Floor(d: (sample.Z / period.Z) + 0.5) * period.Z));
-    internal static Fin<(T X1, T X0, T Y1, T Y0, T Z1, T Z0)> SampleAxes<T>(Func<Point3d, Fin<T>> sampler, Point3d point, double eps) =>
-        from xp in sampler(arg: point + (eps * Vector3d.XAxis)) from xm in sampler(arg: point - (eps * Vector3d.XAxis)) from yp in sampler(arg: point + (eps * Vector3d.YAxis)) from ym in sampler(arg: point - (eps * Vector3d.YAxis)) from zp in sampler(arg: point + (eps * Vector3d.ZAxis)) from zm in sampler(arg: point - (eps * Vector3d.ZAxis)) select (X1: xp, X0: xm, Y1: yp, Y0: ym, Z1: zp, Z0: zm);
+    internal static Fin<(T X1, T X0, T Y1, T Y0, T Z1, T Z0)> SampleAxes<T>(Func<Point3d, Fin<T>> sampler, Point3d point, double eps, Op key) =>
+        from _ in Finite(value: eps, key: key)
+        from __ in guard(eps > RhinoMath.ZeroTolerance, key.InvalidInput()).ToFin()
+        from xp in sampler(arg: point + (eps * Vector3d.XAxis))
+        from xm in sampler(arg: point - (eps * Vector3d.XAxis))
+        from yp in sampler(arg: point + (eps * Vector3d.YAxis))
+        from ym in sampler(arg: point - (eps * Vector3d.YAxis))
+        from zp in sampler(arg: point + (eps * Vector3d.ZAxis))
+        from zm in sampler(arg: point - (eps * Vector3d.ZAxis))
+        select (X1: xp, X0: xm, Y1: yp, Y0: ym, Z1: zp, Z0: zm);
     internal static Fin<Vector3d> GradientAt(ScalarField field, Point3d point, double eps, Context context, Op key) =>
-        from samples in SampleAxes(sampler: p => field.SampleScalar(sample: p, context: context, key: key), point: point, eps: eps) let inv2eps = 1.0 / (2.0 * eps) select new Vector3d(x: (samples.X1 - samples.X0) * inv2eps, y: (samples.Y1 - samples.Y0) * inv2eps, z: (samples.Z1 - samples.Z0) * inv2eps);
+        from samples in SampleAxes(sampler: p => field.SampleScalar(sample: p, context: context, key: key), point: point, eps: eps, key: key) let inv2eps = 1.0 / (2.0 * eps) select new Vector3d(x: (samples.X1 - samples.X0) * inv2eps, y: (samples.Y1 - samples.Y0) * inv2eps, z: (samples.Z1 - samples.Z0) * inv2eps);
     internal static Fin<Vector3d> CurlAt(VectorField field, Point3d point, double eps, Context context, Op key) =>
-        from samples in SampleAxes(sampler: p => field.SampleVector(sample: p, context: context, key: key), point: point, eps: eps) let inv2eps = 1.0 / (2.0 * eps) from curl in key.AcceptValue(value: new Vector3d(x: (samples.Y1.Z - samples.Y0.Z - (samples.Z1.Y - samples.Z0.Y)) * inv2eps, y: (samples.Z1.X - samples.Z0.X - (samples.X1.Z - samples.X0.Z)) * inv2eps, z: (samples.X1.Y - samples.X0.Y - (samples.Y1.X - samples.Y0.X)) * inv2eps)) select curl;
+        from samples in SampleAxes(sampler: p => field.SampleVector(sample: p, context: context, key: key), point: point, eps: eps, key: key) let inv2eps = 1.0 / (2.0 * eps) from curl in key.AcceptValue(value: new Vector3d(x: (samples.Y1.Z - samples.Y0.Z - (samples.Z1.Y - samples.Z0.Y)) * inv2eps, y: (samples.Z1.X - samples.Z0.X - (samples.X1.Z - samples.X0.Z)) * inv2eps, z: (samples.X1.Y - samples.X0.Y - (samples.Y1.X - samples.Y0.X)) * inv2eps)) select curl;
     internal static Fin<Vector3d> CurlNoiseAt(ScalarField field, Point3d point, double eps, Context context, Op key) =>
         from g1 in GradientAt(field: field, point: point, eps: eps, context: context, key: key) from g2 in GradientAt(field: field, point: point + CurlOffset2, eps: eps, context: context, key: key) from g3 in GradientAt(field: field, point: point + CurlOffset3, eps: eps, context: context, key: key) from raw in key.AcceptValue(value: new Vector3d(x: g3.Y - g2.Z, y: g1.Z - g3.X, z: g2.X - g1.Y)) select raw;
     internal static Fin<double> DivergenceAt(VectorField field, Point3d point, double eps, Context context, Op key) =>
-        from samples in SampleAxes(sampler: p => field.SampleVector(sample: p, context: context, key: key), point: point, eps: eps) let inv2eps = 1.0 / (2.0 * eps) from value in key.AcceptValue(value: (samples.X1.X - samples.X0.X + samples.Y1.Y - samples.Y0.Y + samples.Z1.Z - samples.Z0.Z) * inv2eps) select value;
+        from samples in SampleAxes(sampler: p => field.SampleVector(sample: p, context: context, key: key), point: point, eps: eps, key: key) let inv2eps = 1.0 / (2.0 * eps) from value in key.AcceptValue(value: (samples.X1.X - samples.X0.X + samples.Y1.Y - samples.Y0.Y + samples.Z1.Z - samples.Z0.Z) * inv2eps) select value;
     internal static Fin<double> LaplacianAt(ScalarField field, Point3d point, double eps, Context context, Op key) =>
-        from samples in SampleAxes(sampler: p => field.SampleScalar(sample: p, context: context, key: key), point: point, eps: eps) from center in field.SampleScalar(sample: point, context: context, key: key) let invEpsSq = 1.0 / (eps * eps) from value in key.AcceptValue(value: (samples.X1 + samples.X0 + samples.Y1 + samples.Y0 + samples.Z1 + samples.Z0 - (6.0 * center)) * invEpsSq) select value;
+        from samples in SampleAxes(sampler: p => field.SampleScalar(sample: p, context: context, key: key), point: point, eps: eps, key: key) from center in field.SampleScalar(sample: point, context: context, key: key) let invEpsSq = 1.0 / (eps * eps) from value in key.AcceptValue(value: (samples.X1 + samples.X0 + samples.Y1 + samples.Y0 + samples.Z1 + samples.Z0 - (6.0 * center)) * invEpsSq) select value;
     internal static Fin<double> StrainMagnitudeAt(VectorField field, Point3d point, double eps, Context context, Op key) =>
-        from samples in SampleAxes(sampler: p => field.SampleVector(sample: p, context: context, key: key), point: point, eps: eps) let inv2eps = 1.0 / (2.0 * eps) let sxx = (samples.X1.X - samples.X0.X) * inv2eps let syy = (samples.Y1.Y - samples.Y0.Y) * inv2eps let szz = (samples.Z1.Z - samples.Z0.Z) * inv2eps let sxy = 0.5 * (samples.Y1.X - samples.Y0.X + samples.X1.Y - samples.X0.Y) * inv2eps let sxz = 0.5 * (samples.Z1.X - samples.Z0.X + samples.X1.Z - samples.X0.Z) * inv2eps let syz = 0.5 * (samples.Z1.Y - samples.Z0.Y + samples.Y1.Z - samples.Y0.Z) * inv2eps from value in key.AcceptValue(value: Math.Sqrt(d: (sxx * sxx) + (syy * syy) + (szz * szz) + (2.0 * ((sxy * sxy) + (sxz * sxz) + (syz * syz))))) select value;
+        from samples in SampleAxes(sampler: p => field.SampleVector(sample: p, context: context, key: key), point: point, eps: eps, key: key) let inv2eps = 1.0 / (2.0 * eps) let sxx = (samples.X1.X - samples.X0.X) * inv2eps let syy = (samples.Y1.Y - samples.Y0.Y) * inv2eps let szz = (samples.Z1.Z - samples.Z0.Z) * inv2eps let sxy = 0.5 * (samples.Y1.X - samples.Y0.X + samples.X1.Y - samples.X0.Y) * inv2eps let sxz = 0.5 * (samples.Z1.X - samples.Z0.X + samples.X1.Z - samples.X0.Z) * inv2eps let syz = 0.5 * (samples.Z1.Y - samples.Z0.Y + samples.Y1.Z - samples.Y0.Z) * inv2eps from value in key.AcceptValue(value: Math.Sqrt(d: (sxx * sxx) + (syy * syy) + (szz * szz) + (2.0 * ((sxy * sxy) + (sxz * sxz) + (syz * syz))))) select value;
 }
 
 internal static class FieldNoise {

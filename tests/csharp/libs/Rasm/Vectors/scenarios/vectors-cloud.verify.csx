@@ -95,8 +95,8 @@ Scenario.Run("vectors-cloud-neighborhood", CAPTURE_PATH, (key, facts) => {
     Probe.Require(normals.ForAll(static normal => normal.IsValid && Math.Abs(value: normal.Length - 1.0) <= 1.0e-6), "unit normals");
     Probe.Require(duplicateIds.Length == 3 && duplicateIds[0].Contains(0) && duplicateIds[0].Contains(1), $"duplicate.ids={string.Join(separator: ",", values: duplicateIds[0])}");
     Probe.Require(duplicateCloud.PointAt(index: duplicateIds[0][0]).DistanceTo(other: duplicatePoints[0]) <= context.Absolute.Value, "duplicate PointAt round trip failed");
-    Probe.Require(duplicateAdmission.InputCount == 3 && duplicateAdmission.OutputCount == 2 && duplicateAdmission.DuplicateCoordinateCount == 1 && duplicateAdmission.IsValid, $"dedup.admission={duplicateAdmission}");
-    Probe.Require(neighborhood.IsValid && neighborhood.NativeIndexRouted && neighborhood.QueryCount == 5 && neighborhood.SearchBackend.Equals(CloudNeighborhoodSearchBackend.RhinoPointCloudKnn), $"neighborhood.receipt={neighborhood}");
+    Probe.Require(duplicateAdmission.InputCount == 3 && duplicateAdmission.OutputCount == 2 && duplicateAdmission.DuplicateCoordinateCount == 1 && duplicateAdmission.Deduplicated && duplicateAdmission.Tolerance >= 0.0, $"dedup.admission={duplicateAdmission}");
+    Probe.Require(neighborhood.NativeIndexRouted && neighborhood.QueryCount == 5 && neighborhood.InputCount == 5 && neighborhood.RequestedNeighborCount == 4 && neighborhood.SearchBackend.Equals(CloudNeighborhoodSearchBackend.RhinoPointCloudKnn), $"neighborhood.receipt={neighborhood}");
     Probe.Require(planeCurvature.Receipt.AcceptedSampleCount == 25 && planeCurvature.Receipt.RejectedSampleCount == 0, $"curvature.receipt={planeCurvature.Receipt}");
     Probe.Require(planeCurvature.Receipt.SelfNeighborIncluded && planeCurvature.Receipt.NativeIndexRouted && !planeCurvature.Receipt.RadiusLimited && planeCurvature.Receipt.SearchBackend.Equals(CloudNeighborhoodSearchBackend.RhinoPointCloudKnn), $"knn.receipt={planeCurvature.Receipt}");
     Probe.Require(radiusCurvature.Receipt.SelfNeighborIncluded && radiusCurvature.Receipt.NativeIndexRouted && radiusCurvature.Receipt.RadiusLimited && radiusCurvature.Receipt.SearchBackend.Equals(CloudNeighborhoodSearchBackend.RhinoPointCloudRadius), $"radius.receipt={radiusCurvature.Receipt}");
@@ -172,7 +172,7 @@ Scenario.Run("vectors-cloud-hull", CAPTURE_PATH, (key, facts) => {
     Probe.Require(result.Receipt.NativeRouted && result.Receipt.NativeFacetCount > 0, $"facets={result.Receipt.NativeFacetCount}");
     Probe.Require(result.Receipt.InputCount == 5 && result.Receipt.OutputVertexCount >= 4, $"receipt={result.Receipt}");
     Probe.Require(hull.IsValid && hull.Faces.Count > 0, $"mesh.faces={hull.Faces.Count}");
-    Probe.Require(footprint.Receipt.Status.Equals(CloudHullStatus.Completed) && footprint.Receipt.NativeRouted && footprint.Receipt.InputCount == 6 && footprint.Receipt.OutputVertexCount == 4, $"footprint={footprint.Receipt}");
+    Probe.Require(footprint.Receipt.Status.Equals(CloudHullStatus.Completed) && footprint.Receipt.NativeRouted && footprint.Receipt.InputCount == 5 && footprint.Receipt.OutputVertexCount == 4, $"footprint={footprint.Receipt}");
     Probe.Require(collinearFootprint.Receipt.Status.Equals(CloudHullStatus.Rejected) && collinearFootprint.Mesh.IsNone && collinearFootprint.Receipt.NativeRouted && collinearFootprint.Receipt.ContainmentRejectedCount == 3, $"collinear={collinearFootprint.Receipt}");
     Probe.Require(alphaReceipt.Status.Equals(CloudHullStatus.Unsupported) && !alphaReceipt.NativeRouted, $"alpha={alphaReceipt}");
     facts.Add("hull.vertices", result.Receipt.OutputVertexCount);

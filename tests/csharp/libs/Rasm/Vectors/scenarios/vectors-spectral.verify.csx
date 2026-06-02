@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Rasm.Domain;
 using Rasm.Vectors;
 using Rhino;
@@ -103,6 +104,36 @@ Scenario.Run("vectors-spectral-dec", CAPTURE_PATH, (key, facts) => {
         .Bind(field => VectorIntent.Probe(source: ExtractionProbe.Vector(source: field), sample: torusNative.Vertices[0], key: key))
         .Bind(intent => intent.Project<Vector3d>(context: context, key: key))
         .Match(Succ: static _ => false, Fail: static error => error.Category() == "Unsupported");
+    VectorAngle featureAngle = Probe.Expect(key.AcceptValidated<VectorAngle>(candidate: 0.1), "feature angle");
+    PositiveMagnitude curvatureThreshold = Probe.Expect(key.AcceptValidated<PositiveMagnitude>(candidate: 0.01), "feature curvature");
+    PositiveMagnitude featureScale = Probe.Expect(key.AcceptValidated<PositiveMagnitude>(candidate: 1.0), "feature scale");
+    MeshFeaturePolicy curvaturePolicy = new(DihedralThreshold: featureAngle, CurvatureThreshold: curvatureThreshold, SmoothingScale: featureScale, FaceRegions: Option<Arr<int>>.None);
+    MeshFeaturePolicy regionPolicy = curvaturePolicy with { FaceRegions = Some(new Arr<int>((System.Collections.Generic.IEnumerable<int>)new[] { 0, 1, 0, 1 })) };
+    FeatureReceipt curvatureFeatures = Project<FeatureReceipt>(intent: VectorIntent.Features(space: space, policy: curvaturePolicy, key: key), context: context, key: key, label: "curvature features");
+    FeatureReceipt regionFeatures = Project<FeatureReceipt>(intent: VectorIntent.Features(space: space, policy: regionPolicy, key: key), context: context, key: key, label: "region features");
+    Arr<double> faceValues = new((System.Collections.Generic.IEnumerable<double>)new[] { 0.0, 0.25, 1.0, 1.25 });
+    MeshDescriptor identityDescriptor = MeshDescriptor.Spectral(filter: SpectralFilter.Identity);
+    MeshSegmentation thresholdKind = Probe.Expect(MeshSegmentation.ScalarThreshold(values: faceValues, threshold: 0.5, key: key), "threshold segmentation");
+    MeshSegmentation bandsKind = Probe.Expect(MeshSegmentation.ScalarBands(values: faceValues, bandCount: 2, key: key), "band segmentation");
+    MeshSegmentation growKind = Probe.Expect(MeshSegmentation.SeededRegionGrow(values: faceValues, seedFaces: Seq(0, 2), tolerance: 0.4, maxIterations: 16, key: key), "grow segmentation");
+    MeshSegmentation clustersKind = Probe.Expect(MeshSegmentation.DescriptorClusters(descriptor: identityDescriptor, eigenpairs: 3, regionCount: 2, maxIterations: 16, tolerance: 1.0e-9, key: key), "descriptor segmentation");
+    MeshSegmentation watershedKind = Probe.Expect(MeshSegmentation.Watershed(values: faceValues, mergeTolerance: 0.1, key: key), "watershed segmentation");
+    MeshSegmentation ncutKind = Probe.Expect(MeshSegmentation.NormalizedCut(values: faceValues, regionCount: 2, eigenpairs: 2, maxIterations: 16, tolerance: 1.0e-9, key: key), "ncut segmentation");
+    MeshSegmentationReceipt[] segmentationReceipts = new[] {
+        Project<MeshSegmentationReceipt>(intent: VectorIntent.Segmentation(space: space, kind: thresholdKind, key: key), context: context, key: key, label: "threshold receipt"),
+        Project<MeshSegmentationReceipt>(intent: VectorIntent.Segmentation(space: space, kind: bandsKind, key: key), context: context, key: key, label: "bands receipt"),
+        Project<MeshSegmentationReceipt>(intent: VectorIntent.Segmentation(space: space, kind: growKind, key: key), context: context, key: key, label: "grow receipt"),
+        Project<MeshSegmentationReceipt>(intent: VectorIntent.Segmentation(space: space, kind: clustersKind, key: key), context: context, key: key, label: "clusters receipt"),
+        Project<MeshSegmentationReceipt>(intent: VectorIntent.Segmentation(space: space, kind: watershedKind, key: key), context: context, key: key, label: "watershed receipt"),
+        Project<MeshSegmentationReceipt>(intent: VectorIntent.Segmentation(space: space, kind: ncutKind, key: key), context: context, key: key, label: "ncut receipt"),
+    };
+    ExtractionDomain meshDomain = Probe.Expect(ExtractionDomain.Mesh(value: space, key: key), "mesh domain");
+    SampleKind meshSampleKind = Probe.Expect(SampleKind.Capacity(count: 2, capacity: 4, iterations: 2, tolerance: 1.0, key: key), "mesh sample kind");
+    SampleReceipt meshSample = Project<SampleReceipt>(intent: VectorIntent.Sample(domain: meshDomain, kind: meshSampleKind, key: key), context: context, key: key, label: "mesh sample receipt");
+    SampleAlgorithmReceipt sampleAlgorithm = Probe.ExpectSome(result: meshSample.Algorithm, label: "mesh sample algorithm");
+    MeshSamplingSpectrumReceipt sampleSpectrum = Probe.ExpectSome(result: sampleAlgorithm.Spectrum, label: "mesh sample spectrum");
+    VectorField logField = Probe.Expect(VectorField.TangentLogMap(space: space, source: 0, time: 0.05, key: key), "tangent log map field");
+    TangentLogMapReceipt logReceipt = Project<TangentLogMapReceipt>(intent: VectorIntent.Probe(source: ExtractionProbe.Vector(source: logField), sample: native.Vertices[1], key: key), context: context, key: key, label: "tangent log receipt");
     Probe.Require(calculus.IsValid, "valid DEC");
     Probe.Require(receipt.VertexCount == 4 && receipt.EdgeCount == 6 && receipt.FaceCount == 4, $"receipt={receipt}");
     Probe.Require(receipt.BoundaryCompositionResidual <= RhinoMath.SqrtEpsilon, $"d1d0={receipt.BoundaryCompositionResidual:R}");
@@ -115,12 +146,21 @@ Scenario.Run("vectors-spectral-dec", CAPTURE_PATH, (key, facts) => {
     Probe.Require(remesh.Mesh.IsValid && remesh.Receipt.Status.Equals(RemeshStatus.Completed) && remeshReceipt.Status.Equals(RemeshStatus.Completed), $"remesh={remeshReceipt}");
     Probe.Require(degenerateReceipt.Kind.Equals(SpectralAssemblyKind.Dec) && degenerateReceipt.SkippedDegenerateFaces > 0, $"degenerate.receipt={degenerateReceipt}");
     Probe.Require(torusTopology.Genus.Map(static genus => genus > 0).IfNone(false) && genusPositiveHodgeUnsupported, $"torus.topology={torusTopology}");
+    Probe.Require(curvatureFeatures.Algorithm?.Equals(MeshFeatureAlgorithm.DihedralProxy) == true && curvatureFeatures.Edges.Count > 0 && curvatureFeatures.Edges.AsIterable().Any(static edge => edge.SignedDihedralRadians.IsSome), $"curvature.features={curvatureFeatures}");
+    Probe.Require(regionFeatures.Algorithm?.Equals(MeshFeatureAlgorithm.DihedralProxy) == true && regionFeatures.RegionBoundaryEdges > 0 && regionFeatures.Edges.AsIterable().Any(static edge => edge.Kind.Equals(MeshFeatureKind.RegionBoundary)), $"region.features={regionFeatures}");
+    Probe.Require(segmentationReceipts.Select(static receipt => receipt.Algorithm.Key).Distinct().Count() == 6 && segmentationReceipts.All(static receipt => receipt.AssignedFaceCount > 0 && (receipt.Status.Equals(MeshSegmentationStatus.Completed) || receipt.Status.Equals(MeshSegmentationStatus.MaxIterationsExhausted))), "segmentation receipts did not cover all six rails");
+    Probe.Require(sampleAlgorithm.Kind.Equals(SampleAlgorithmKind.CapacityLimitedLloydCandidate) && sampleAlgorithm.CapacityResidualValidated && !sampleAlgorithm.TransportAssignmentValidated && sampleAlgorithm.MeshSpectrumValidated == sampleSpectrum.Validated && sampleSpectrum.Algorithm?.Equals(MeshSamplingSpectrumAlgorithm.CandidateSpectrum) == true && sampleSpectrum.SampleCount == meshSample.Emitted, $"sample.spectrum={sampleSpectrum}");
+    Probe.Require(logReceipt.VectorHeatBacked && logReceipt.RejectsFlippedIntrinsic && logReceipt.Algorithm?.Equals(TangentLogMapAlgorithm.VectorHeatApproximate) == true && logReceipt.FiniteLogCount == 1, $"log.receipt={logReceipt}");
     facts.Add("dec.nonzeros", receipt.NonZeros);
     facts.Add("dec.d1d0", receipt.BoundaryCompositionResidual);
     facts.Add("open.boundaryEdges", openReceipt.BoundaryEdgeCount);
     facts.Add("flatten.distortion", flattenReceipt.EdgeLengthDistortionRms.IfNone(-1.0));
     facts.Add("remesh.faces", remeshReceipt.PostFaceCount);
     facts.Add("torus.genus", torusTopology.Genus.IfNone(-1));
+    facts.Add("features.regionBoundary", regionFeatures.RegionBoundaryEdges);
+    facts.Add("segmentation.rails", segmentationReceipts.Length);
+    facts.Add("sample.spectrumValidated", sampleSpectrum.Validated);
+    facts.Add("log.vectorHeatBacked", logReceipt.VectorHeatBacked);
 });
 
 // --- [SCENARIO: vectors-spectral-descriptor] --------------------------------------------
@@ -150,9 +190,9 @@ Scenario.Run("vectors-spectral-descriptor", CAPTURE_PATH, (key, facts) => {
     Probe.Require(meshReceipt.RequestedEigenpairs == 3 && meshReceipt.ReturnedEigenpairs > 0 && meshReceipt.Eigen.IsUsable, $"mesh.receipt={meshReceipt}");
     Probe.Require(meshReceipt.Assembly.IsSome, "descriptor receipt did not include DEC assembly facts");
     Probe.Require(meshReceipt.Spectral.Policy.ScaleNormalization.Equals(policy.ScaleNormalization) && meshReceipt.Spectral.Policy.EnergyNormalization.Equals(policy.EnergyNormalization), $"mesh.policy={meshReceipt.Spectral.Policy}");
-    Probe.Require(spectralReceipt.Policy.ZeroModePolicy.Equals(policy.ZeroModePolicy) && spectralReceipt.ComparisonReady && spectralReceipt.EnergyNormalized && spectralReceipt.BandwidthNormalized && spectralReceipt.Wave.IsNone, $"spectral.receipt={spectralReceipt}");
+    Probe.Require(spectralReceipt.Policy.ZeroModePolicy.Equals(policy.ZeroModePolicy) && spectralReceipt.ComparisonReady && spectralReceipt.EnergyNormalized && spectralReceipt.ScaleNormalized && spectralReceipt.Wave.IsNone, $"spectral.receipt={spectralReceipt}");
     Probe.Require(spectralReceipt.VertexCount == native.Vertices.Count && spectralReceipt.EigenpairCount == meshReceipt.Spectral.EigenpairCount, $"spectral.counts={spectralReceipt}");
-    Probe.Require(!waveReceipt.BandwidthNormalized && wave.WksNormalized && wave.NormalizedWeightSum is > 0.999999999 and < 1.000000001 && wave.NonZeroEigenpairCount > 0, $"wave.receipt={waveReceipt}");
+    Probe.Require(!waveReceipt.ScaleNormalized && wave.WksNormalized && wave.NormalizedWeightSum is > 0.999999999 and < 1.000000001 && wave.NonZeroEigenpairCount > 0, $"wave.receipt={waveReceipt}");
     facts.Add("descriptor.values", result.Values.Count);
     facts.Add("descriptor.returnedEigenpairs", meshReceipt.ReturnedEigenpairs);
     facts.Add("descriptor.cacheHit", meshReceipt.SpectralCacheHit);

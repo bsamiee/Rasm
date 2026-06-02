@@ -348,24 +348,28 @@ internal static class MatrixKernel {
         solution.Count == solutionLength && solution.ForAll(RhinoMath.IsValidDouble) && RhinoMath.IsValidDouble(x: residual) && residual <= residualCap
             ? Fin.Succ(new SolveReceipt(Solution: solution, Path: path, Stop: stop, Rows: rows, Cols: cols, RhsLength: rhsLength, Iterations: iterations, MaxIterations: maxIterations, Tolerance: tolerance, Residual: residual, FullRank: fullRank, InputNonZeros: inputNonZeros, FactorNonZeros: factorNonZeros))
             : Fin.Fail<SolveReceipt>(key.InvalidResult());
-    private static Fin<EigenSolveReceipt<TEigen, TVector>> EigenReceiptOf<TEigen, TVector>(Seq<(TEigen Eigenvalue, TVector Eigenvector)> pairs, EigenSolvePath path, EigenSolveStop stop, int requestedPairs, double maxResidual, Op key, Option<int> iterations = default, Option<int> maxIterations = default, Option<double> tolerance = default, Option<int> factorNonZeros = default) =>
-        requestedPairs >= 1 && pairs.Count is > 0 && pairs.Count <= requestedPairs && RhinoMath.IsValidDouble(x: maxResidual) && pairs.ForAll(static pair => EigenvalueIsFinite(value: pair.Eigenvalue) && EigenvectorIsFinite(vector: pair.Eigenvector))
+    private static Fin<EigenSolveReceipt<TEigen, TVector>> EigenReceiptOf<TEigen, TVector>(Seq<(TEigen Eigenvalue, TVector Eigenvector)> pairs, EigenSolvePath path, EigenSolveStop stop, int requestedPairs, double maxResidual, Op key, Option<int> expectedVectorLength = default, Option<int> iterations = default, Option<int> maxIterations = default, Option<double> tolerance = default, Option<int> factorNonZeros = default) =>
+        requestedPairs >= 1 && pairs.Count is > 0 && pairs.Count <= requestedPairs && RhinoMath.IsValidDouble(x: maxResidual) && pairs.ForAll(pair => EigenvalueIsFinite(value: pair.Eigenvalue) && EigenvectorIsFinite(vector: pair.Eigenvector, expectedLength: expectedVectorLength))
             ? Fin.Succ(new EigenSolveReceipt<TEigen, TVector>(Pairs: pairs, Path: path, Stop: stop, RequestedPairs: requestedPairs, ReturnedPairs: pairs.Count, Iterations: iterations, MaxIterations: maxIterations, Tolerance: tolerance, MaxResidual: maxResidual, FactorNonZeros: factorNonZeros))
             : Fin.Fail<EigenSolveReceipt<TEigen, TVector>>(key.InvalidResult());
     private static Fin<EigenSolveReceipt<double, TVector>> LobpcgReceiptOf<TVector>(Seq<(double Eigenvalue, TVector Eigenvector)> pairs, EigenSolvePath path, EigenSolveStop stop, int requestedPairs, double maxResidual, int iterations, int maxIterations, double tolerance, Op key) =>
-        EigenReceiptOf(pairs: pairs, path: path, stop: stop, requestedPairs: requestedPairs, maxResidual: maxResidual, key: key, iterations: Some(iterations), maxIterations: Some(maxIterations), tolerance: Some(tolerance));
+        EigenReceiptOf(pairs: pairs, path: path, stop: stop, requestedPairs: requestedPairs, maxResidual: maxResidual, key: key, expectedVectorLength: pairs.IsEmpty ? Option<int>.None : Some(VectorLengthOf(vector: pairs[0].Eigenvector)), iterations: Some(iterations), maxIterations: Some(maxIterations), tolerance: Some(tolerance));
     private static bool EigenvalueIsFinite<TEigen>(TEigen value) =>
         value switch {
             double real => RhinoMath.IsValidDouble(x: real),
             Complex complex => RhinoMath.IsValidDouble(x: complex.Real) && RhinoMath.IsValidDouble(x: complex.Imaginary),
             _ => false,
         };
-    private static bool EigenvectorIsFinite<TVector>(TVector vector) =>
+    private static bool EigenvectorIsFinite<TVector>(TVector vector, Option<int> expectedLength) =>
         vector switch {
-            Arr<double> real => !real.IsEmpty && real.ForAll(RhinoMath.IsValidDouble),
-            Arr<Complex> complex => !complex.IsEmpty && complex.ForAll(static value => RhinoMath.IsValidDouble(x: value.Real) && RhinoMath.IsValidDouble(x: value.Imaginary)),
+            Arr<double> real => VectorLengthMatches(count: real.Count, expectedLength: expectedLength) && real.ForAll(RhinoMath.IsValidDouble) && real.AsIterable().Any(static value => Math.Abs(value: value) > RhinoMath.SqrtEpsilon),
+            Arr<Complex> complex => VectorLengthMatches(count: complex.Count, expectedLength: expectedLength) && complex.ForAll(static value => RhinoMath.IsValidDouble(x: value.Real) && RhinoMath.IsValidDouble(x: value.Imaginary)) && complex.AsIterable().Any(static value => value.Magnitude > RhinoMath.SqrtEpsilon),
             _ => false,
         };
+    private static bool VectorLengthMatches(int count, Option<int> expectedLength) =>
+        count > 0 && expectedLength.Map(expected => expected == count).IfNone(noneValue: true);
+    private static int VectorLengthOf<TVector>(TVector vector) =>
+        vector switch { Arr<double> real => real.Count, Arr<Complex> complex => complex.Count, _ => 0 };
 
     // --- [DENSE_DECOMPOSITIONS] -------------------------------------------------------------
     internal static Fin<SvdResult> Svd(Matrix matrix, Op key) => !matrix.IsValid ? Fin.Fail<SvdResult>(key.InvalidInput()) : key.Catch(() => {
@@ -453,13 +457,15 @@ internal static class MatrixKernel {
         List<(int Row, int Col, double Value)> indexed = [.. raw
             .GroupBy(static t => (t.Row, t.Col))
             .Select(static g => (g.Key.Row, g.Key.Col, Value: g.Sum(static t => t.Value)))];
+        if (indexed.Exists(static t => !RhinoMath.IsValidDouble(x: t.Value))) return Fin.Fail<SparseMatrix>(op.InvalidResult());
         SparseMatrixD mathNet = SparseMatrixD.OfIndexed(rows: rows.Value, columns: cols.Value, enumerable: indexed);
         List<(int Row, int Col, double Value)> sorted = [.. mathNet.EnumerateIndexed(Zeros.AllowSkip)
             .Where(static t => RhinoMath.IsValidDouble(x: t.Item3) && Math.Abs(value: t.Item3) > 0.0)
             .OrderBy(static t => t.Item1).ThenBy(static t => t.Item2)
             .Select(static t => (Row: t.Item1, Col: t.Item2, Value: t.Item3))];
         (Arr<int> rowPtr, Arr<int> colInd, Arr<double> values) = CompressRows(rowCount: rows.Value, sorted: sorted);
-        return Fin.Succ(new SparseMatrix(Rows: rows, Cols: cols, RowPtr: rowPtr, ColInd: colInd, Values: values));
+        SparseMatrix result = new(Rows: rows, Cols: cols, RowPtr: rowPtr, ColInd: colInd, Values: values);
+        return result.IsValid ? Fin.Succ(result) : Fin.Fail<SparseMatrix>(op.InvalidResult());
     }
     internal static Fin<SparseHermitian> AssembleHermitian(Dimension order, IEnumerable<(int Row, int Col, Complex Value)> triplets, Op op) {
         List<(int Row, int Col, Complex Value)> raw = [.. triplets];
@@ -468,8 +474,10 @@ internal static class MatrixKernel {
             .GroupBy(static t => (t.Row, t.Col))
             .Select(static g => (g.Key.Row, g.Key.Col, Value: g.Aggregate(Complex.Zero, static (acc, t) => acc + t.Value)))
             .OrderBy(static t => t.Row).ThenBy(static t => t.Col)];
+        if (upper.Exists(static t => !RhinoMath.IsValidDouble(x: t.Value.Real) || !RhinoMath.IsValidDouble(x: t.Value.Imaginary) || (t.Row == t.Col && Math.Abs(value: t.Value.Imaginary) > RhinoMath.SqrtEpsilon))) return Fin.Fail<SparseHermitian>(op.InvalidResult());
         (Arr<int> rowPtr, Arr<int> colInd, Arr<Complex> values) = CompressRows(rowCount: order.Value, sorted: [.. upper.Select(static t => (t.Row, t.Col, Value: t.Row == t.Col ? new Complex(t.Value.Real, 0.0) : t.Value))]);
-        return Fin.Succ(new SparseHermitian(Order: order, RowPtr: rowPtr, ColInd: colInd, Values: values));
+        SparseHermitian result = new(Order: order, RowPtr: rowPtr, ColInd: colInd, Values: values);
+        return result.IsValid ? Fin.Succ(result) : Fin.Fail<SparseHermitian>(op.InvalidResult());
     }
     private static (Arr<int> RowPtr, Arr<int> ColInd, Arr<T> Values) CompressRows<T>(int rowCount, List<(int Row, int Col, T Value)> sorted) {
         int[] rowPtr = new int[rowCount + 1];
@@ -524,7 +532,8 @@ internal static class MatrixKernel {
                 ]);
                 LinearVector iterative = A.SolveIterative(input: b, solver: new MathNet.Numerics.LinearAlgebra.Double.Solvers.BiCgStab(), iterator: iterator, preconditioner: preconditioner);
                 double iterativeResidual = RelativeResidual(a: A, x: iterative, b: b);
-                bool iterativeConverged = RhinoMath.IsValidDouble(x: iterativeResidual) && iterativeResidual <= Math.Sqrt(RhinoMath.SqrtEpsilon);
+                bool iteratorConverged = iterator.Status.ToString().Contains(value: "Converged", comparisonType: StringComparison.Ordinal);
+                bool iterativeConverged = iteratorConverged && RhinoMath.IsValidDouble(x: iterativeResidual) && iterativeResidual <= RhinoMath.SqrtEpsilon;
                 LinearVector x = iterativeConverged ? iterative : A.Solve(b);
                 double residual = RelativeResidual(a: A, x: x, b: b);
                 return SolveSuccess(solution: ArrFromVector(x), solutionLength: matrix.Cols.Value, path: iterativeConverged ? SolvePath.SparseBiCgStabDiagonal : SolvePath.SparseMathNetDirectFallback, stop: iterativeConverged ? SolveStop.ResidualConverged : SolveStop.DirectFallbackSolved, rows: matrix.Rows, cols: matrix.Cols, rhsLength: rhs.Count, residual: residual, key: key, residualCap: Math.Sqrt(RhinoMath.SqrtEpsilon), maxIterations: Some(iterationCap), tolerance: Some(RhinoMath.SqrtEpsilon), inputNonZeros: Some(matrix.NonZeros));

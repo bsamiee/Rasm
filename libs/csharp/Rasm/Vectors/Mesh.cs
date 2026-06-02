@@ -148,6 +148,9 @@ internal sealed class LaplacianCache {
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct SpectralBasisBundle(SpectralBasis Basis, EigenSolveReceipt<double, Arr<double>> Eigen, bool CacheHit = false, int SkippedDegenerateFaces = 0, Option<int> FactorNonZeros = default);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TopologyReceipt(int Vertices, int TopologyVertices, int TopologyEdges, int Faces, int Triangles, int Quads, int Ngons, int VisiblePolygons, int BoundaryComponents, int NonManifoldEdges, bool HasBoundary, bool IsClosed, bool IsSolid, bool IsWatertight, bool IsManifold, bool IsOriented, int EulerCharacteristic, Option<int> Genus, bool EulerValidated);
 [SmartEnum<int>] public sealed partial class MeshFeatureKind { public static readonly MeshFeatureKind Boundary = new(key: 0), Crease = new(key: 1), NonManifold = new(key: 2), Unwelded = new(key: 3), NgonInteriorSkipped = new(key: 4), Ridge = new(key: 5), Valley = new(key: 6), RegionBoundary = new(key: 7); }
+[SmartEnum<int>] public sealed partial class MeshFeatureAlgorithm { public static readonly MeshFeatureAlgorithm DihedralProxy = new(key: 0); }
+[SmartEnum<int>] public sealed partial class MeshSamplingSpectrumAlgorithm { public static readonly MeshSamplingSpectrumAlgorithm CandidateSpectrum = new(key: 0); }
+[SmartEnum<int>] public sealed partial class TangentLogMapAlgorithm { public static readonly TangentLogMapAlgorithm VectorHeatApproximate = new(key: 0); }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshFeaturePolicy(VectorAngle DihedralThreshold, PositiveMagnitude CurvatureThreshold, PositiveMagnitude SmoothingScale, Option<Arr<int>> FaceRegions) {
     internal static Fin<MeshFeaturePolicy> Of(double dihedralRadians, MeshSpace space, Option<Arr<int>> faceRegions, Op key) =>
@@ -173,7 +176,7 @@ public readonly record struct MeshFeaturePolicy(VectorAngle DihedralThreshold, P
     }
 }
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FeatureEdge(int A, int B, MeshFeatureKind Kind, Option<double> DihedralRadians, Option<double> SignedDihedralRadians = default, Option<double> CurvatureSignal = default);
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FeatureReceipt(Seq<FeatureEdge> Edges, int BoundaryEdges, int CreaseEdges, int NonManifoldEdges, int UnweldedEdges, int NgonInteriorSkippedEdges, double DihedralThresholdRadians, int RidgeEdges = 0, int ValleyEdges = 0, int RegionBoundaryEdges = 0, double CurvatureThreshold = 0.0, double SmoothingScale = 0.0, int CurvatureFiniteVertices = 0, int CurvatureRejectedVertices = 0);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FeatureReceipt(Seq<FeatureEdge> Edges, int BoundaryEdges, int CreaseEdges, int NonManifoldEdges, int UnweldedEdges, int NgonInteriorSkippedEdges, double DihedralThresholdRadians, int RidgeEdges = 0, int ValleyEdges = 0, int RegionBoundaryEdges = 0, double CurvatureThreshold = 0.0, double SmoothingScale = 0.0, int CurvatureFiniteVertices = 0, int CurvatureRejectedVertices = 0, MeshFeatureAlgorithm? Algorithm = null);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FlattenReceipt(int VertexCount, int UvCount, int TextureCoordinateCount, int BoundaryComponents, bool NativeUnwrap, bool Valid, Option<double> EdgeLengthDistortionRms);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct FlattenResult(Arr<Point2d> Uvs, Mesh Mesh, FlattenReceipt Receipt);
 [SmartEnum<int>] public sealed partial class RemeshStatus { public static readonly RemeshStatus Completed = new(key: 0); }
@@ -186,10 +189,10 @@ public readonly record struct MeshFeaturePolicy(VectorAngle DihedralThreshold, P
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationReceipt(MeshSegmentationAlgorithm Algorithm, MeshSegmentationStatus Status, int RequestedRegionCount, int RegionCount, int SeedCount, int AssignedFaceCount, int UnassignedFaceCount, int SkippedDegenerateFaces, int SkippedNonFiniteValues, Option<int> Iterations, Option<int> MaxIterations, Option<double> Tolerance, Option<double> Threshold, Option<DescriptorReceipt> Descriptor, Option<SolveReceipt> Solve, Option<bool> SpectralCacheHit, Option<bool> FactorCacheHit, Option<int> FactorNonZeros, Option<double> NormalizedCutValue = default, Option<int> AffinityNonZeros = default, Option<int> WatershedSaddleCount = default, Option<EigenSolveReceipt<double, Arr<double>>> Eigen = default);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct MeshSegmentationResult(Arr<int> FaceRegions, Arr<int> VertexRegions, MeshSegmentationReceipt Receipt);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct MeshSamplingSpectrumReceipt(int VertexCount, int SampleCount, int EigenpairCount, double LowFrequencyEnergy, double TotalEnergy, double SuppressionRatio, double ValidationThreshold, bool Validated) {
+public readonly record struct MeshSamplingSpectrumReceipt(int VertexCount, int SampleCount, int EigenpairCount, double LowFrequencyEnergy, double TotalEnergy, double SuppressionRatio, double ValidationThreshold, bool Validated, MeshSamplingSpectrumAlgorithm? Algorithm = null) {
     internal bool IsValid => VertexCount > 0 && SampleCount > 0 && EigenpairCount > 0 && new[] { LowFrequencyEnergy, TotalEnergy, SuppressionRatio, ValidationThreshold }.All(RhinoMath.IsValidDouble) && TotalEnergy > 0.0 && SuppressionRatio is >= 0.0 and <= 1.0 && ValidationThreshold is >= 0.0 and <= 1.0 && Validated == (SuppressionRatio <= ValidationThreshold);
 }
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TangentLogMapReceipt(int SourceVertex, int TargetCount, double HeatTime, bool VectorHeatBacked, bool RejectsFlippedIntrinsic, int FiniteLogCount, double MaxMagnitudeResidual);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TangentLogMapReceipt(int SourceVertex, int TargetCount, double HeatTime, bool VectorHeatBacked, bool RejectsFlippedIntrinsic, int FiniteLogCount, double MaxMagnitudeResidual, TangentLogMapAlgorithm? Algorithm = null);
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)] public readonly record struct TangentLogMapResult(Vector3d Tangent, TangentLogMapReceipt Receipt);
 [SmartEnum<int>] public sealed partial class SdfMeshDomain { public static readonly SdfMeshDomain SurfaceMesh = new(key: 0), BoundarySource = new(key: 1), VolumeGrid = new(key: 2); }
 [SmartEnum<int>] public sealed partial class SdfMeshStatus { public static readonly SdfMeshStatus ApproximateSignClosestDistance = new(key: 0), BoundarySourceSignedHeat = new(key: 1), ClosedSurfaceSignedHeat = new(key: 2); }
@@ -330,7 +333,9 @@ internal static class MeshKernel {
                 }
             }
         }
-        return key.AcceptValue(value: toSeq(samples));
+        return samples.Count > 0 && samples.TrueForAll(static point => point.IsValid)
+            ? Fin.Succ(toSeq(samples))
+            : Fin.Fail<Seq<Point3d>>(key.InvalidResult());
     }
 
     // --- [COTANGENT_ASSEMBLY] ---------------------------------------------------------------
@@ -666,7 +671,7 @@ internal static class MeshKernel {
                 features.Add(item: new FeatureEdge(A: p.I, B: p.J, Kind: edge.Kind, DihedralRadians: edge.Angle, SignedDihedralRadians: signed, CurvatureSignal: signal));
                 counts[edge.Kind.Key]++;
             }
-            return new FeatureReceipt(Edges: toSeq(features), BoundaryEdges: counts[MeshFeatureKind.Boundary.Key], CreaseEdges: counts[MeshFeatureKind.Crease.Key], NonManifoldEdges: counts[MeshFeatureKind.NonManifold.Key], UnweldedEdges: counts[MeshFeatureKind.Unwelded.Key], NgonInteriorSkippedEdges: counts[MeshFeatureKind.NgonInteriorSkipped.Key], DihedralThresholdRadians: activePolicy.DihedralThreshold.Value, RidgeEdges: counts[MeshFeatureKind.Ridge.Key], ValleyEdges: counts[MeshFeatureKind.Valley.Key], RegionBoundaryEdges: counts[MeshFeatureKind.RegionBoundary.Key], CurvatureThreshold: activePolicy.CurvatureThreshold.Value, SmoothingScale: activePolicy.SmoothingScale.Value, CurvatureFiniteVertices: curvature.FiniteVertices, CurvatureRejectedVertices: curvature.RejectedVertices);
+            return new FeatureReceipt(Edges: toSeq(features), BoundaryEdges: counts[MeshFeatureKind.Boundary.Key], CreaseEdges: counts[MeshFeatureKind.Crease.Key], NonManifoldEdges: counts[MeshFeatureKind.NonManifold.Key], UnweldedEdges: counts[MeshFeatureKind.Unwelded.Key], NgonInteriorSkippedEdges: counts[MeshFeatureKind.NgonInteriorSkipped.Key], DihedralThresholdRadians: activePolicy.DihedralThreshold.Value, RidgeEdges: counts[MeshFeatureKind.Ridge.Key], ValleyEdges: counts[MeshFeatureKind.Valley.Key], RegionBoundaryEdges: counts[MeshFeatureKind.RegionBoundary.Key], CurvatureThreshold: activePolicy.CurvatureThreshold.Value, SmoothingScale: activePolicy.SmoothingScale.Value, CurvatureFiniteVertices: curvature.FiniteVertices, CurvatureRejectedVertices: curvature.RejectedVertices, Algorithm: MeshFeatureAlgorithm.DihedralProxy);
         });
     private static (MeshFeatureKind Kind, Option<double> Angle)? ClassifySmoothFeature(Mesh mesh, int edge, int[] faces, Vector3f[] faceNormals, MeshFeaturePolicy policy, double edgeCurvature, out Option<double> signed, out Option<double> signal) {
         double rawAngle = Vector3d.VectorAngle(a: (Vector3d)faceNormals[faces[0]], b: (Vector3d)faceNormals[faces[1]]);
@@ -1478,16 +1483,16 @@ internal static class MeshKernel {
     internal static Fin<SampleResult> ValidateSamplingSpectrum(MeshSpace space, SampleResult result, Op key) =>
         result.Points.IsEmpty || result.Receipt.Algorithm.IsNone || space.Native.Vertices.Count < 3
             ? Fin.Succ(result)
-            : from bundle in space.Cache.SpectralBasisBundleOf(k: Math.Min(val1: 8, val2: Math.Max(val1: 1, val2: space.Native.Vertices.Count - 1)), key: key)
-              from receipt in SamplingSpectrumReceiptOf(space: space, points: result.Points, basis: bundle.Basis, key: key)
-              select result with {
-                  Receipt = result.Receipt with {
-                      Algorithm = result.Receipt.Algorithm.Map(algorithm => algorithm with {
-                          MeshSpectrumValidated = receipt.Validated,
-                          Spectrum = Some(receipt),
-                      }),
-                  },
-              };
+            : (from bundle in space.Cache.SpectralBasisBundleOf(k: Math.Min(val1: 8, val2: Math.Max(val1: 1, val2: space.Native.Vertices.Count - 1)), key: key)
+               from receipt in SamplingSpectrumReceiptOf(space: space, points: result.Points, basis: bundle.Basis, key: key)
+               select result with {
+                   Receipt = result.Receipt with {
+                       Algorithm = result.Receipt.Algorithm.Map(algorithm => algorithm with {
+                           MeshSpectrumValidated = receipt.Validated,
+                           Spectrum = Some(receipt),
+                       }),
+                   },
+               }).Match(Succ: Fin.Succ, Fail: _ => Fin.Succ(result));
     private static Fin<MeshSamplingSpectrumReceipt> SamplingSpectrumReceiptOf(MeshSpace space, Seq<Point3d> points, SpectralBasis basis, Op key) {
         int vertexCount = space.Native.Vertices.Count;
         if (basis.Eigenvectors.Count == 0 || points.IsEmpty) return Fin.Fail<MeshSamplingSpectrumReceipt>(key.InvalidInput());
@@ -1518,7 +1523,7 @@ internal static class MeshKernel {
         }
         double ratio = total > RhinoMath.SqrtEpsilon ? low / total : 1.0;
         double boundedRatio = Math.Max(val1: 0.0, val2: Math.Min(val1: 1.0, val2: ratio));
-        MeshSamplingSpectrumReceipt receipt = new(VertexCount: vertexCount, SampleCount: points.Count, EigenpairCount: basis.Eigenvectors.Count, LowFrequencyEnergy: low, TotalEnergy: total, SuppressionRatio: boundedRatio, ValidationThreshold: MeshSpectrumLowFrequencyCeiling, Validated: total > RhinoMath.SqrtEpsilon && RhinoMath.IsValidDouble(x: ratio) && boundedRatio <= MeshSpectrumLowFrequencyCeiling);
+        MeshSamplingSpectrumReceipt receipt = new(VertexCount: vertexCount, SampleCount: points.Count, EigenpairCount: basis.Eigenvectors.Count, LowFrequencyEnergy: low, TotalEnergy: total, SuppressionRatio: boundedRatio, ValidationThreshold: MeshSpectrumLowFrequencyCeiling, Validated: total > RhinoMath.SqrtEpsilon && RhinoMath.IsValidDouble(x: ratio) && boundedRatio <= MeshSpectrumLowFrequencyCeiling, Algorithm: MeshSamplingSpectrumAlgorithm.CandidateSpectrum);
         return receipt.IsValid ? Fin.Succ(receipt) : Fin.Fail<MeshSamplingSpectrumReceipt>(key.InvalidResult());
     }
 
@@ -1711,7 +1716,7 @@ internal static class MeshKernel {
                from transported in VectorHeatAt(space: space, sources: toSeq([(Vertex: source, Direction: sourceDirection)]), time: time, sample: sample, key: key)
                from tangent in distance <= space.Tolerance.Absolute.Value ? key.AcceptValue(value: Vector3d.Zero) : TransportedLog(value: transported, scale: distance)
                let residual = Math.Abs(value: tangent.Length - distance)
-               select new TangentLogMapResult(Tangent: tangent, Receipt: new TangentLogMapReceipt(SourceVertex: source, TargetCount: 1, HeatTime: time, VectorHeatBacked: true, RejectsFlippedIntrinsic: true, FiniteLogCount: tangent.IsValid && RhinoMath.IsValidDouble(x: tangent.Length) ? 1 : 0, MaxMagnitudeResidual: residual));
+               select new TangentLogMapResult(Tangent: tangent, Receipt: new TangentLogMapReceipt(SourceVertex: source, TargetCount: 1, HeatTime: time, VectorHeatBacked: true, RejectsFlippedIntrinsic: true, FiniteLogCount: tangent.IsValid && RhinoMath.IsValidDouble(x: tangent.Length) ? 1 : 0, MaxMagnitudeResidual: residual, Algorithm: TangentLogMapAlgorithm.VectorHeatApproximate));
         Fin<Vector3d> TransportedLog(Vector3d value, double scale) {
             Vector3d tangent = value;
             return tangent.IsValid && RhinoMath.IsValidDouble(x: scale) && scale >= 0.0 && tangent.Unitize()

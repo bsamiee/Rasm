@@ -159,6 +159,7 @@ public sealed class SparseMatrixLaws {
         Spec.Equal(left: dense.At(i: 1, j: 2), right: 4.0, tolerance: 0.0, what: "entry 1,2");
         Spec.Equal(left: dense.At(i: 2, j: 1), right: -1.0, tolerance: 0.0, what: "entry 2,1");
         Spec.FailCategory(SparseMatrix.FromTriplets(rows: Dimension.Create(value: 2), cols: Dimension.Create(value: 2), triplets: [(0, 2, 1.0)], key: MatrixGens.Key), category: "Input");
+        Spec.FailCategory(SparseMatrix.FromTriplets(rows: Dimension.Create(value: 2), cols: Dimension.Create(value: 2), triplets: [(0, 0, double.MaxValue), (0, 0, double.MaxValue)], key: MatrixGens.Key), category: "Result");
     }
     [Fact]
     public void SparseCholeskyAdmitsOneTriangleMirrorsAndRejectsConflicts() {
@@ -356,5 +357,7 @@ public sealed class DecompositionLaws {
                     Assert.True(condition: Rhino.RhinoMath.IsValidDouble(x: value.Real) && Rhino.RhinoMath.IsValidDouble(x: value.Imaginary));
             });
         Spec.FailCategory(SparseHermitian.FromTriplets(order: Dimension.Create(value: 2), upperTriplets: [(0, 0, new System.Numerics.Complex(real: 1.0, imaginary: 1.0))], key: MatrixGens.Key), category: "Input");
+        double groupedImaginary = Rhino.RhinoMath.SqrtEpsilon * 0.75;
+        Spec.FailCategory(SparseHermitian.FromTriplets(order: Dimension.Create(value: 2), upperTriplets: [(0, 0, new System.Numerics.Complex(real: 1.0, imaginary: groupedImaginary)), (0, 0, new System.Numerics.Complex(real: 1.0, imaginary: groupedImaginary))], key: MatrixGens.Key), category: "Result");
     }
 }

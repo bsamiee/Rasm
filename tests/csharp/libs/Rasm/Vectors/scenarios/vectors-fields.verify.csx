@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using System.Threading;
 using Rasm.Domain;
 using Rasm.Vectors;
@@ -33,6 +34,10 @@ Scenario.Run("vectors-field-sdf-isosurface", CAPTURE_PATH, (key, facts) => {
     Mesh closedBox = Mesh.CreateFromBox(
         box: new BoundingBox(min: new Point3d(-3.0, -3.0, -3.0), max: new Point3d(3.0, 3.0, 3.0)),
         xCount: 1, yCount: 1, zCount: 1);
+    _ = closedBox.Vertices.CombineIdentical(ignoreNormals: true, ignoreAdditional: true);
+    closedBox.Weld(angleToleranceRadians: Math.PI);
+    _ = closedBox.UnifyNormals();
+    closedBox.FaceNormals.ComputeFaceNormals();
     closedBox.Normals.ComputeNormals();
     closedBox.Compact();
     MeshSpace boxSpace = Probe.Expect(MeshSpace.Of(native: closedBox, context: context, key: key), "box space");
@@ -56,17 +61,19 @@ Scenario.Run("vectors-field-sdf-isosurface", CAPTURE_PATH, (key, facts) => {
         .Bind(field => field.SampleSdfDetailed(sample: new Point3d(x: 0.25, y: 0.25, z: 0.1), context: context, key: key))
         .Match(Succ: static _ => false, Fail: static _ => true);
     VolumeGridPolicy closedGrid = Probe.Expect(VolumeGridPolicy.ByResolution(resolution: 8, padding: 1.0, key: key), "closed grid policy");
-    SdfMeshPolicy closedPolicy = Probe.Expect(SdfMeshPolicy.ClosedSignedHeat(grid: closedGrid, key: key), "closed signed heat policy");
+    VolumeSolverPolicy closedSolver = Probe.Expect(VolumeSolverPolicy.SparseCholesky(residualTolerance: 1.0, key: key), "closed volume solver");
+    SdfMeshPolicy closedPolicy = Probe.Expect(SdfMeshPolicy.ClosedSignedHeat(grid: closedGrid, solver: closedSolver, key: key), "closed signed heat policy");
     ScalarField closedField = Probe.Expect(ScalarField.SignedDistanceFromMesh(space: boxSpace, policy: closedPolicy, key: key), "closed signed heat field");
-    bool closedSignedHeatRejected = closedField.SampleSdfDetailed(sample: Point3d.Origin, context: context, key: key)
-        .Match(Succ: static _ => false, Fail: static _ => true);
-    SdfMeshPolicy flippedClosedPolicy = Probe.Expect(SdfMeshPolicy.ClosedSignedHeat(grid: closedGrid, signConvention: SdfSignConvention.PositiveInsideNegativeOutside, key: key), "flipped closed signed heat policy");
+    SdfSample closedSignedHeat = Probe.Expect(closedField.SampleSdfDetailed(sample: Point3d.Origin, context: context, key: key), "closed signed heat sample");
+    SdfMeshReceipt closedMeshReceipt = Probe.ExpectSome(result: closedSignedHeat.Receipt.Mesh, label: "closed mesh receipt");
+    VolumeGridReceipt closedVolume = Probe.ExpectSome(result: closedMeshReceipt.VolumeGrid, label: "closed volume receipt");
+    SignedHeatReceipt closedSignedReceipt = Probe.ExpectSome(result: closedMeshReceipt.SignedHeat, label: "closed signed receipt");
+    SdfMeshPolicy flippedClosedPolicy = Probe.Expect(SdfMeshPolicy.ClosedSignedHeat(grid: closedGrid, solver: closedSolver, signConvention: SdfSignConvention.PositiveInsideNegativeOutside, key: key), "flipped closed signed heat policy");
     ScalarField flippedClosedField = Probe.Expect(ScalarField.SignedDistanceFromMesh(space: boxSpace, policy: flippedClosedPolicy, key: key), "flipped closed signed heat field");
-    bool flippedClosedSignedHeatRejected = flippedClosedField.SampleSdfDetailed(sample: Point3d.Origin, context: context, key: key)
-        .Match(Succ: static _ => false, Fail: static _ => true);
-    bool closedIsoRejected = VectorIntent.IsoSurface(field: closedField, bounds: new BoundingBox(min: new Point3d(x: -3.5, y: -3.5, z: -3.5), max: new Point3d(x: 3.5, y: 3.5, z: 3.5)), resolution: 12, maxRootSteps: 16, key: key)
+    SdfSample flippedClosedSignedHeat = Probe.Expect(flippedClosedField.SampleSdfDetailed(sample: Point3d.Origin, context: context, key: key), "flipped closed signed heat sample");
+    bool closedIsoAccepted = VectorIntent.IsoSurface(field: closedField, bounds: new BoundingBox(min: new Point3d(x: -3.5, y: -3.5, z: -3.5), max: new Point3d(x: 3.5, y: 3.5, z: 3.5)), resolution: 12, maxRootSteps: 16, key: key)
         .Bind(intent => intent.Project<IsoSurfaceReceipt>(context: context, key: key))
-        .Match(Succ: static _ => false, Fail: static _ => true);
+        .Match(Succ: static receipt => receipt.Valid && receipt.MeshPreflight.IsSome, Fail: static _ => false);
     bool openClosedSignedHeatRejected = ScalarField.SignedDistanceFromMesh(space: openSpace, policy: closedPolicy, key: key)
         .Bind(field => field.SampleSdfDetailed(sample: Point3d.Origin, context: context, key: key))
         .Match(Succ: static _ => false, Fail: static _ => true);
@@ -82,6 +89,10 @@ Scenario.Run("vectors-field-sdf-isosurface", CAPTURE_PATH, (key, facts) => {
         .Match(Succ: static _ => false, Fail: static _ => true);
     bool evaluatorFailureReceiptRejected = Probe.Expect(invalidIsoIntent, "invalid iso intent").Project<IsoSurfaceReceipt>(context: context, key: key)
         .Match(Succ: static _ => false, Fail: static _ => true);
+    ExtractionDomain boxDomain = Probe.Expect(ExtractionDomain.Mesh(value: boxSpace, key: key), "box mesh domain");
+    Point3d[] boxVertices = closedBox.Vertices.ToPoint3dArray();
+    ContourPolicy scalarContour = Probe.Expect(ContourPolicy.MeshScalar(values: new Arr<double>(boxVertices.Select(static point => point.Z)), levels: Seq(0.0), key: key), "box scalar contour");
+    ScalarIsolineResult scalarIsoline = Project<ScalarIsolineResult>(intent: VectorIntent.Contour(domain: boxDomain, policy: scalarContour, key: key), context: context, key: key, label: "box scalar isoline");
     ConcurrentDictionary<int, int> threadIdsSeen = new();
     int sampleCount = 0;
     Mesh nativeIso = Mesh.CreateFromIsosurface(
@@ -97,8 +108,11 @@ Scenario.Run("vectors-field-sdf-isosurface", CAPTURE_PATH, (key, facts) => {
     Probe.Require(nonCubicIso.Grid.XCells == 16 && nonCubicIso.Grid.YCells == 8 && nonCubicIso.Grid.ZCells == 4 && nonCubicIso.Grid.InitialSampleCount == 1277, $"nonCubic.grid={nonCubicIso.Grid}");
     Probe.Require(meshIso.Mesh.IsValid && meshReceipt.Domain.Equals(SdfMeshDomain.SurfaceMesh) && meshReceipt.Status.Equals(SdfMeshStatus.ApproximateSignClosestDistance), "mesh iso receipt lost generalized-winding facts");
     Probe.Require(boundaryDefaultToleranceRejected, "boundary signed heat default solver tolerance should reject this open-source sample");
-    Probe.Require(closedSignedHeatRejected && flippedClosedSignedHeatRejected && closedIsoRejected, "closed signed heat runtime paths should reject current native input until product owner admits valid samples");
+    Probe.Require(closedMeshReceipt.Domain.Equals(SdfMeshDomain.VolumeGrid) && closedMeshReceipt.Status.Equals(SdfMeshStatus.ClosedSurfaceSignedHeat) && closedVolume.NodeCount > 0 && closedVolume.InsideNodeCount > 0 && closedVolume.OutsideNodeCount > 0 && closedSignedReceipt.PoissonSolve.IsUsable, $"closed.volume={closedVolume}");
+    Probe.Require(RhinoMath.IsValidDouble(x: closedSignedHeat.Value) && RhinoMath.IsValidDouble(x: flippedClosedSignedHeat.Value) && closedSignedHeat.Value * flippedClosedSignedHeat.Value < 0.0, $"closed.signs={closedSignedHeat.Value:R},{flippedClosedSignedHeat.Value:R}");
+    Probe.Require(closedIsoAccepted, "closed signed heat iso-surface should prewarm and produce a valid receipt");
     Probe.Require(openClosedSignedHeatRejected, "open mesh must reject closed SignedHeat");
+    Probe.Require(scalarIsoline.Receipt.Route.Equals(ScalarIsolineRoute.LocalPiecewiseLinearMesh) && scalarIsoline.Receipt.EmittedCurves > 0 && scalarIsoline.Curves.Count == scalarIsoline.Receipt.EmittedCurves, $"isoline={scalarIsoline.Receipt}");
     Probe.Require(RhinoMath.IsValidDouble(x: containment) && containment > 0.0, $"containment={containment:R}");
     Probe.Require(evaluatorFailureRejected && evaluatorFailureReceiptRejected, "native iso-surface evaluator failure path should reject current invalid scalar input");
     Probe.Require(nativeIso is { IsValid: true } && sampleCount > 0 && threadIdsSeen.Count >= 1, "native callback evidence missing");
@@ -114,10 +128,12 @@ Scenario.Run("vectors-field-sdf-isosurface", CAPTURE_PATH, (key, facts) => {
     facts.Add("boundaryMethod", "BoundarySignedHeat");
     facts.Add("boundaryDefaultToleranceRejected", boundaryDefaultToleranceRejected);
     facts.Add("closedMethod", "ClosedSurfaceSignedHeat");
-    facts.Add("closedRejected", closedSignedHeatRejected);
-    facts.Add("flippedClosedRejected", flippedClosedSignedHeatRejected);
-    facts.Add("closedIsoRejected", closedIsoRejected);
+    facts.Add("closedDistance", closedSignedHeat.Value);
+    facts.Add("closedVolumeNodes", closedVolume.NodeCount);
+    facts.Add("flippedClosedDistance", flippedClosedSignedHeat.Value);
+    facts.Add("closedIsoAccepted", closedIsoAccepted);
     facts.Add("openClosedSignedHeatRejected", openClosedSignedHeatRejected);
+    facts.Add("isoline.curves", scalarIsoline.Receipt.EmittedCurves);
     facts.Add("evaluatorFailureRejected", evaluatorFailureRejected);
     facts.Add("evaluatorFailureReceiptRejected", evaluatorFailureReceiptRejected);
     facts.Add("threadIdsSeen", threadIdsSeen.Count);

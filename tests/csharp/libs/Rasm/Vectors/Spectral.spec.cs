@@ -20,7 +20,7 @@ internal static class SpectralGens {
     public static PositiveMagnitude Positive(double value) =>
         Spec.SuccValue(Key.AcceptValidated<PositiveMagnitude>(candidate: value), label: "positive");
     public static SpectralDescriptor Descriptor(params double[] values) =>
-        new(Values: new Arr<double>(values), Receipt: new SpectralDescriptorReceipt(Filter: SpectralFilter.Identity, VertexCount: values.Length, EigenpairCount: values.Length, SourceCount: 0, ComparisonReady: false, Pairwise: false, EnergyNormalized: false, BandwidthNormalized: false, Policy: SpectralDescriptorPolicy.Raw));
+        new(Values: new Arr<double>(values), Receipt: new SpectralDescriptorReceipt(Filter: SpectralFilter.Identity, VertexCount: values.Length, EigenpairCount: values.Length, SourceCount: 0, ComparisonReady: false, Pairwise: false, EnergyNormalized: false, ScaleNormalized: false, Policy: SpectralDescriptorPolicy.Raw));
 }
 
 // --- [ALGEBRAIC] ----------------------------------------------------------------------------
@@ -56,7 +56,7 @@ public sealed class SpectralFilterLaws {
             Spec.Equal(left: toSeq(descriptor.Values.AsIterable()), right: Seq(2.0, 1.0, 2.0), tolerance: 1.0e-12, what: "signature");
             Assert.False(condition: descriptor.Receipt.ComparisonReady);
             Assert.False(condition: descriptor.Receipt.EnergyNormalized);
-            Assert.False(condition: descriptor.Receipt.BandwidthNormalized);
+            Assert.False(condition: descriptor.Receipt.ScaleNormalized);
         });
         Spec.Succ(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.Basis, sources: Some(Seq(0)), key: SpectralGens.Key), then: descriptor => {
             Spec.Equal(left: toSeq(descriptor.Values.AsIterable()), right: Seq(0.0, 1.0, 2.0), tolerance: 1.0e-12, what: "pairwise");
@@ -76,7 +76,7 @@ public sealed class SpectralFilterLaws {
             Spec.Equal(left: toSeq(descriptor.Values.AsIterable()), right: Seq(invRoot2, 0.0, invRoot2), tolerance: 1.0e-12, what: "normalized identity");
             Assert.True(condition: descriptor.Receipt.ComparisonReady);
             Assert.True(condition: descriptor.Receipt.EnergyNormalized);
-            Assert.True(condition: descriptor.Receipt.BandwidthNormalized);
+            Assert.True(condition: descriptor.Receipt.ScaleNormalized);
             Assert.True(condition: descriptor.Receipt.Wave.IsNone);
             Assert.Equal(expected: 1, actual: descriptor.Receipt.ZeroModeCount);
             Assert.Equal(expected: 1, actual: descriptor.Receipt.CroppedEigenpairCount);
@@ -109,6 +109,9 @@ public sealed class SpectralFilterLaws {
         Spec.FailCategory(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.Basis, sources: Some(Seq(-1)), key: SpectralGens.Key), category: "Input");
         Assert.True(condition: SpectralGens.OverflowBasis.IsValid);
         Spec.FailCategory(SpectralFilter.Identity.ApplyDetailed(basis: SpectralGens.OverflowBasis, sources: Option<Seq<int>>.None, key: SpectralGens.Key), category: "Result");
+        SpectralBasis zeroOnly = new(Eigenvalues: new Arr<double>([0.0]), Eigenvectors: new Arr<Arr<double>>([new Arr<double>([1.0])]));
+        Assert.True(condition: zeroOnly.IsValid);
+        Spec.FailCategory(SpectralFilter.Wave(energy: SpectralGens.Positive(value: 1.0), bandwidth: SpectralGens.Positive(value: 0.25)).ApplyDetailed(basis: zeroOnly, sources: Option<Seq<int>>.None, key: SpectralGens.Key), category: "Result");
     }
     [Fact]
     public void ClosedCompositionsAreAlgebraicAndUnsupportedPairsStayNone() {
@@ -143,7 +146,7 @@ public sealed class SpectralFilterLaws {
         PositiveMagnitude energy = SpectralGens.Positive(value: 2.0);
         PositiveMagnitude bandwidth = SpectralGens.Positive(value: 0.75);
         Spec.Succ(SpectralFilter.Wave(energy: energy, bandwidth: bandwidth).ApplyDetailed(basis: SpectralGens.Basis, sources: Option<Seq<int>>.None, key: SpectralGens.Key), descriptor => {
-            Assert.False(condition: descriptor.Receipt.BandwidthNormalized);
+            Assert.False(condition: descriptor.Receipt.ScaleNormalized);
             Spec.Some(descriptor.Receipt.Wave, wave => {
                 Assert.True(condition: wave.WksNormalized);
                 Assert.Equal(expected: 1, actual: wave.ZeroModeCount);

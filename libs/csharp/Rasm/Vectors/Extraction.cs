@@ -191,7 +191,7 @@ public abstract partial record ExtractionDomain {
         }
         Seq<ScalarIsolineSegment> deduped = DeduplicateSegments(segments: segments, tolerance: context.Absolute.Value, stats: stats);
         Seq<Curve> curves = StitchSegments(segments: deduped, tolerance: context.Absolute.Value, stats: stats);
-        return key.AcceptValue(value: new ScalarIsolineResult(Curves: curves, Receipt: new ScalarIsolineReceipt(Route: ScalarIsolineRoute.LocalPiecewiseLinearMesh, FiniteLevels: levels.Count, RawSegments: stats.RawSegments, DedupedSegments: stats.DedupedSegments, DegenerateRejected: stats.DegenerateRejected, PlateauRejected: stats.PlateauRejected, StitchedCandidates: stats.StitchedCandidates, BranchStops: stats.BranchStops, BranchNodes: stats.BranchNodes, MaxIncidentSegments: stats.MaxIncidentSegments, EmittedCurves: stats.EmittedCurves)));
+        return Fin.Succ(new ScalarIsolineResult(Curves: curves, Receipt: new ScalarIsolineReceipt(Route: ScalarIsolineRoute.LocalPiecewiseLinearMesh, FiniteLevels: levels.Count, RawSegments: stats.RawSegments, DedupedSegments: stats.DedupedSegments, DegenerateRejected: stats.DegenerateRejected, PlateauRejected: stats.PlateauRejected, StitchedCandidates: stats.StitchedCandidates, BranchStops: stats.BranchStops, BranchNodes: stats.BranchNodes, MaxIncidentSegments: stats.MaxIncidentSegments, EmittedCurves: stats.EmittedCurves)));
     }
     private static void AddFaceIsolines(Mesh mesh, MeshFace face, Arr<double> values, Seq<double> levels, double tolerance, List<ScalarIsolineSegment> segments, ScalarIsolineStats stats) {
         Point3d[] points = [mesh.Vertices[index: face.A], mesh.Vertices[index: face.B], mesh.Vertices[index: face.C]];

@@ -13,28 +13,30 @@ public sealed partial class AlignKind {
     public static readonly AlignKind Point = new(key: 0,
         needsTargetNormals: false,
         approximation: AlignmentApproximationStatus.RigidPointToPoint,
-        solveStep: static (source, match, current, key) => AlignKernel.SolvePointToPoint(source: source, target: match.Targets, rowMass: match.RowMass, current: current, key: key));
+        solveStep: static (source, match, current, _, key) => AlignKernel.SolvePointToPoint(source: source, target: match.Targets, rowMass: match.RowMass, current: current, key: key));
     public static readonly AlignKind Plane = new(key: 1,
         needsTargetNormals: true,
         approximation: AlignmentApproximationStatus.LinearizedPointToPlane,
-        solveStep: static (source, match, current, key) => AlignKernel.SolvePointToPlane(source: source, target: match.Targets, normals: match.Normals, rowMass: match.RowMass, current: current, key: key));
+        solveStep: static (source, match, current, _, key) => AlignKernel.SolvePointToPlane(source: source, target: match.Targets, normals: match.Normals, rowMass: match.RowMass, current: current, key: key));
     public static readonly AlignKind Symmetric = new(key: 2,
         needsTargetNormals: true,
         approximation: AlignmentApproximationStatus.SymmetricNormalSumLinearized,
-        solveStep: static (source, match, current, key) => AlignKernel.SolveSymmetric(source: source, target: match.Targets, normals: match.Normals, rowMass: match.RowMass, current: current, key: key));
+        solveStep: static (source, match, current, _, key) => AlignKernel.SolveSymmetric(source: source, target: match.Targets, normals: match.Normals, rowMass: match.RowMass, current: current, key: key));
     public static readonly AlignKind Robust = new(key: 3,
         needsTargetNormals: false,
         approximation: AlignmentApproximationStatus.RobustWeightedPointToPoint,
-        solveStep: static (source, match, current, key) => AlignKernel.SolveRobustProcrustes(source: source, target: match.Targets, residuals: match.Distances, rowMass: match.RowMass, current: current, key: key));
+        solveStep: static (source, match, current, policy, key) => AlignKernel.SolveRobustProcrustes(source: source, target: match.Targets, residuals: match.Distances, rowMass: match.RowMass, current: current, robustScale: policy.RobustScale.Value, key: key));
     public static readonly AlignKind NormalWeightedPointToPlane = new(key: 4,
         needsTargetNormals: true,
         approximation: AlignmentApproximationStatus.NormalWeightedPointToPlane,
-        solveStep: static (source, match, current, key) => AlignKernel.SolveNormalWeightedPointToPlane(source: source, target: match.Targets, targetNormals: match.Normals, rowMass: match.RowMass, current: current, key: key));
+        solveStep: static (source, match, current, _, key) => AlignKernel.SolveNormalWeightedPointToPlane(source: source, target: match.Targets, targetNormals: match.Normals, rowMass: match.RowMass, current: current, key: key));
     public bool NeedsTargetNormals { get; }
     public AlignmentApproximationStatus Approximation { get; }
-    [UseDelegateFromConstructor] internal partial Fin<AlignmentStep> SolveStep(Seq<Point3d> source, AlignmentMatch match, Transform current, Op key);
+    [UseDelegateFromConstructor] internal partial Fin<AlignmentStep> SolveStep(Seq<Point3d> source, AlignmentMatch match, Transform current, AlignmentPolicy policy, Op key);
     internal Fin<AlignmentReceipt> AlignDetailed(VectorCloud source, VectorCloud target, Op? key = null) =>
-        AlignKernel.AlignClouds(kind: this, source: source, target: target, key: key.OrDefault());
+        AlignDetailed(source: source, target: target, policy: AlignmentPolicy.Default, key: key);
+    internal Fin<AlignmentReceipt> AlignDetailed(VectorCloud source, VectorCloud target, AlignmentPolicy policy, Op? key = null) =>
+        AlignKernel.AlignClouds(kind: this, source: source, target: target, policy: policy, key: key.OrDefault());
 }
 
 [SmartEnum<int>]
@@ -48,37 +50,48 @@ public sealed partial class AlignmentApproximationStatus {
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct AlignmentPolicy(Dimension MaxIterations, PositiveMagnitude ConvergenceTolerance, PositiveMagnitude RobustScale) {
+    internal static AlignmentPolicy Default => new(MaxIterations: Dimension.Create(value: 30), ConvergenceTolerance: PositiveMagnitude.Create(value: 1.0e-6), RobustScale: PositiveMagnitude.Create(value: 0.1));
+    internal Fin<AlignmentPolicy> Admit(Op key) {
+        AlignmentPolicy self = this;
+        return from iterations in FieldNabla.Dimension(value: self.MaxIterations, key: key)
+               from tolerance in FieldNabla.Positive(value: self.ConvergenceTolerance, key: key)
+               from scale in FieldNabla.Positive(value: self.RobustScale, key: key)
+               select self;
+    }
+}
+
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct AlignmentReceipt(Transform Transform, AlignKind Kind, AlignmentApproximationStatus Approximation, AlignmentStopKind Stop, int Iterations, double FinalDelta, Option<AlignmentRobustReceipt> Robust, CloudCorrespondenceSet Correspondences, Option<SolveReceipt> Solve);
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class AlignKernel {
-    private const int IcpMaxIterations = 30;
-    private const double IcpConvergenceTolerance = 1e-6;
-    private const double WelschNu = 0.1;
     private readonly record struct IcpState(Transform Current, double FinalDelta, int Iterations, AlignmentStep Step, Option<AlignmentStopKind> Stop);
 
     // --- [ALIGNMENT] ------------------------------------------------------------------------
     // Umeyama 1991 (point-to-point) | Chen-Medioni 1992 (point-to-plane) | Rusinkiewicz 2019
     // (symmetric) | MAD-scaled Welsch weighting. All modes share the iterative
     // correspondence-finding outer loop; the inner solve switches on kind.
-    internal static Fin<AlignmentReceipt> AlignClouds(AlignKind kind, VectorCloud source, VectorCloud target, Op key) =>
-        (source, target) switch {
+    internal static Fin<AlignmentReceipt> AlignClouds(AlignKind kind, VectorCloud source, VectorCloud target, AlignmentPolicy policy, Op key) =>
+        from activePolicy in policy.Admit(key: key)
+        from receipt in (source, target) switch {
             (VectorCloud.ClusterCase src, VectorCloud.ClusterCase tgt)
-                => IcpAlign(source: src, target: tgt, kind: kind, key: key),
+                => IcpAlign(source: src, target: tgt, kind: kind, policy: activePolicy, key: key),
             _ => Fin.Fail<AlignmentReceipt>(error: key.InvalidInput()),
-        };
+        }
+        select receipt;
 
-    private static Fin<AlignmentReceipt> IcpAlign(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, AlignKind kind, Op key) =>
+    private static Fin<AlignmentReceipt> IcpAlign(VectorCloud.ClusterCase source, VectorCloud.ClusterCase target, AlignKind kind, AlignmentPolicy policy, Op key) =>
         from targetNormals in kind.NeedsTargetNormals
             ? CloudKernel.EstimateNormalsViaCovariance(target: target, key: key)
             : Fin.Succ(System.Array.Empty<Vector3d>())
         from sourceMass in CloudKernel.MassOf(cluster: source, key: key)
-        from final in toSeq(Enumerable.Range(start: 0, count: IcpMaxIterations)).Fold(
+        from final in toSeq(Enumerable.Range(start: 0, count: policy.MaxIterations.Value)).Fold(
             initialState: Fin.Succ(new IcpState(Current: Transform.Identity, FinalDelta: double.PositiveInfinity, Iterations: 0, Step: new AlignmentStep(Delta: Transform.Identity), Stop: Option<AlignmentStopKind>.None)),
             f: (acc, iter) => acc.Bind(state => state.Stop.IsSome
                 ? Fin.Succ(state)
                 : from match in FindCorrespondences(source: source.Vertices, sourceMass: sourceMass, target: target, normals: targetNormals, current: state.Current, key: key)
-                  from step in kind.SolveStep(source: source.Vertices, match: match, current: state.Current, key: key)
+                  from step in kind.SolveStep(source: source.Vertices, match: match, current: state.Current, policy: policy, key: key)
                   let current = step.Delta * state.Current
                   let finalDelta = DeltaMagnitude(delta: step.Delta)
                   select new IcpState(
@@ -86,7 +99,7 @@ internal static class AlignKernel {
                       FinalDelta: finalDelta,
                       Iterations: iter + 1,
                       Step: step,
-                      Stop: finalDelta < IcpConvergenceTolerance ? Some(AlignmentStopKind.Converged) : Option<AlignmentStopKind>.None)))
+                      Stop: finalDelta < policy.ConvergenceTolerance.Value ? Some(AlignmentStopKind.Converged) : Option<AlignmentStopKind>.None)))
         from finalMatch in FindCorrespondences(source: source.Vertices, sourceMass: sourceMass, target: target, normals: targetNormals, current: final.Current, key: key)
         select new AlignmentReceipt(Transform: final.Current, Kind: kind, Approximation: kind.Approximation, Stop: final.Stop.IfNone(AlignmentStopKind.MaxIterationsExhausted), Iterations: final.Iterations, FinalDelta: final.FinalDelta, Robust: final.Step.Robust, Correspondences: finalMatch.Correspondences, Solve: final.Step.Solve);
     private static Fin<AlignmentMatch> FindCorrespondences(Seq<Point3d> source, Arr<double> sourceMass, VectorCloud.ClusterCase target, Vector3d[] normals, Transform current, Op key) {
@@ -188,19 +201,20 @@ internal static class AlignKernel {
         });
     }
 
-    internal static Fin<AlignmentStep> SolveRobustProcrustes(Seq<Point3d> source, Point3d[] target, double[] residuals, double[] rowMass, Transform current, Op key) {
+    internal static Fin<AlignmentStep> SolveRobustProcrustes(Seq<Point3d> source, Point3d[] target, double[] residuals, double[] rowMass, Transform current, double robustScale = 0.1, Op? key = null) {
+        Op op = key.OrDefault();
         int n = source.Count;
-        Fin<int> admitted = from count in AdmitAlignmentRows(source: source, target: target, weights: rowMass, minimum: 3, key: key)
-                            from residualCount in FieldNabla.SameCount(expected: count, key: key, counts: [residuals.Length])
-                            from finiteResiduals in guard(residuals.All(static residual => RhinoMath.IsValidDouble(x: residual)), key.InvalidInput())
+        Fin<int> admitted = from count in AdmitAlignmentRows(source: source, target: target, weights: rowMass, minimum: 3, key: op)
+                            from residualCount in FieldNabla.SameCount(expected: count, key: op, counts: [residuals.Length])
+                            from finiteResiduals in guard(residuals.All(static residual => RhinoMath.IsValidDouble(x: residual)) && RhinoMath.IsValidDouble(x: robustScale) && robustScale > 0.0, op.InvalidInput())
                             select count;
         return admitted.Bind(_ => {
             double[] weights = new double[n];
             double[] sortedResiduals = [.. residuals.Select(static residual => Math.Abs(value: residual)).Order()];
             double median = sortedResiduals.Length == 0 ? 1.0 : sortedResiduals[sortedResiduals.Length / 2];
-            double nu = Math.Max(val1: 1.4826 * median * WelschNu, val2: RhinoMath.SqrtEpsilon);
+            double nu = Math.Max(val1: 1.4826 * median * robustScale, val2: RhinoMath.SqrtEpsilon);
             for (int i = 0; i < n; i++) weights[i] = rowMass[i] * Math.Exp(d: -(residuals[i] * residuals[i]) / (2.0 * nu * nu));
-            return from aligned in SolveProcrustes(source: source, target: target, weights: weights, current: current, key: key)
+            return from aligned in SolveProcrustes(source: source, target: target, weights: weights, current: current, key: op)
                    select new AlignmentStep(Delta: aligned, Robust: Some(new AlignmentRobustReceipt(Scale: nu, MinWeight: weights.Min(), MaxWeight: weights.Max())));
         });
     }

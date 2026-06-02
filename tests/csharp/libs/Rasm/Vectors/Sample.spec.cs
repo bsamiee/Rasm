@@ -227,6 +227,7 @@ public sealed class SampleDensityLaws {
                 Assert.True(condition: algorithm.DensityMin.IsSome && algorithm.DensityMax.IsSome);
                 Assert.True(condition: algorithm.LocalRadiusMin.IsSome && algorithm.LocalRadiusMax.IsSome);
                 Assert.False(condition: algorithm.MeshSpectrumValidated);
+                Assert.False(condition: algorithm.TransportAssignmentValidated);
             });
         });
     }
@@ -261,7 +262,7 @@ public sealed class SampleDensityLaws {
                 Assert.Equal(expected: SampleAlgorithmKind.YukselWeightedSampleElimination, actual: algorithm.Kind);
                 Assert.Equal(expected: (23, 2, SampleGens.DensePoints.Count, 2, 3), actual: (algorithm.Seed.IfNone(0), algorithm.TargetCount.IfNone(0), algorithm.OversampleCount.IfNone(0), algorithm.OversampleFactor.IfNone(0), algorithm.Eliminated.IfNone(0)));
                 Assert.True(condition: algorithm.NeighborUpdates.IfNone(0) > 0);
-                Assert.Equal(expected: (true, true, false, false, false), actual: (algorithm.DeterministicCandidateSource, algorithm.EuclideanMetric, algorithm.MaximalCoverageGuaranteed, algorithm.OtCvtValidated, algorithm.MeshSpectrumValidated));
+                Assert.Equal(expected: (true, true, false, false, false, false), actual: (algorithm.DeterministicCandidateSource, algorithm.EuclideanMetric, algorithm.MaximalCoverageGuaranteed, algorithm.CapacityResidualValidated, algorithm.TransportAssignmentValidated, algorithm.MeshSpectrumValidated));
             });
         });
     }

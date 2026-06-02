@@ -76,5 +76,6 @@ public sealed class AlignSolverLaws {
         double[] rowMass = [.. Enumerable.Repeat(element: 1.0 / AlignGens.Tetra.Count, count: AlignGens.Tetra.Count)];
         Spec.FailCategory(AlignKernel.SolveRobustProcrustes(source: AlignGens.Tetra, target: target[..^1], residuals: residuals, rowMass: rowMass, current: Transform.Identity, key: AlignGens.Key), category: "Input");
         Spec.FailCategory(AlignKernel.SolveRobustProcrustes(source: AlignGens.Tetra, target: target, residuals: residuals[..^1], rowMass: rowMass, current: Transform.Identity, key: AlignGens.Key), category: "Input");
+        Spec.FailCategory(AlignKernel.SolveRobustProcrustes(source: AlignGens.Tetra, target: target, residuals: residuals, rowMass: rowMass, current: Transform.Identity, robustScale: 0.0, key: AlignGens.Key), category: "Input");
     }
 }

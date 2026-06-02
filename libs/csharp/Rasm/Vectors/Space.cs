@@ -140,9 +140,9 @@ public readonly record struct SurfaceSpace {
     public Context Tolerance { get; }
     public static Fin<SurfaceSpace> Of(Surface native, Context context, Op? key = null) {
         Op op = key.OrDefault();
-        return from active in Optional(native).ToFin(op.InvalidInput())
-               from ctx in Optional(context).ToFin(op.MissingContext())
-               from _ in guard(active.IsValid, op.InvalidInput())
+        return from ctx in Optional(context).ToFin(op.MissingContext())
+               let candidate = new SurfaceSpace(native: native, tolerance: ctx)
+               from active in FieldNabla.SurfaceNative(space: candidate, key: op)
                select new SurfaceSpace(native: active, tolerance: ctx);
     }
     internal Fin<TOut> Sample<TOut>(SurfaceProjection projection, double u, double v, Op? key = null) {
