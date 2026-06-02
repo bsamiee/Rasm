@@ -55,8 +55,11 @@ public abstract partial record VectorCloud {
         internal Fin<Seq<int>> WithinRadius(Point3d sample, double radius, Op key) =>
             new Sphere(center: sample, radius: radius) switch {
                 { IsValid: false } => Fin.Fail<Seq<int>>(error: key.InvalidInput()),
-                Sphere ball => key.Accept(values: RTree.PointCloudClosestPoints(pointcloud: Indexed, needlePts: [sample], limitDistance: ball.Radius)
-                    .FirstOrDefault(defaultValue: []).Where(i => i >= 0 && i < Vertices.Count)),
+                Sphere ball => key.Catch(() => {
+                    IEnumerable<int[]> found = RTree.PointCloudClosestPoints(pointcloud: Indexed, needlePts: [sample], limitDistance: ball.Radius);
+                    using IDisposable? lease = found as IDisposable;
+                    return key.Accept(values: found.FirstOrDefault(defaultValue: []).Where(i => i >= 0 && i < Vertices.Count));
+                }),
             };
     }
     public static Fin<VectorCloud> Ring(Seq<Point3d> points, Context context, Op? key = null) =>
@@ -982,7 +985,11 @@ internal static class CloudKernel {
         double radius = policy.Radius.Match(Some: static value => value.Value, None: static () => 0.0);
         Fin<int[][]> found = policy.Radius.IsSome
             ? RadiusNeighborhoodIdsOf(pointcloud: pointcloud, needlePts: needlePts, radius: radius, amount: amount, key: key)
-            : key.Catch(() => Fin.Succ<int[][]>([.. RTree.PointCloudKNeighbors(pointcloud: pointcloud, needlePts: needlePts, amount: amount)]));
+            : key.Catch(() => {
+                IEnumerable<int[]> ids = RTree.PointCloudKNeighbors(pointcloud: pointcloud, needlePts: needlePts, amount: amount);
+                using IDisposable? lease = ids as IDisposable;
+                return Fin.Succ<int[][]>([.. ids]);
+            });
         return from activePolicy in policy.Admit(key: key)
                from ids in pointcloud.Count > 0 && needlePts.Length > 0 && amount > 0 ? found : Fin.Fail<int[][]>(key.InvalidInput())
                let counts = ids.Select(static row => row.Length).ToArray()

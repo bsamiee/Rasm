@@ -333,8 +333,9 @@ internal static class AlignKernel {
                 total += match.RowMass[i] * mahalanobis;
                 max = Math.Max(val1: max, val2: mahalanobis);
             }
-            double mean = source.Count == 0 ? 0.0 : total / source.Count;
-            return RhinoMath.IsValidDouble(x: total) && RhinoMath.IsValidDouble(x: mean)
+            double massTotal = match.RowMass.Sum();
+            double mean = massTotal > RhinoMath.ZeroTolerance ? total / massTotal : total;
+            return RhinoMath.IsValidDouble(x: total) && RhinoMath.IsValidDouble(x: mean) && RhinoMath.IsValidDouble(x: massTotal)
                 ? Fin.Succ(new GicpObjective(Cost: total, MeanMahalanobis: mean, MaxMahalanobis: max))
                 : Fin.Fail<GicpObjective>(key.InvalidResult());
         });

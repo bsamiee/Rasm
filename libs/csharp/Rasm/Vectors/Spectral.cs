@@ -657,10 +657,14 @@ internal static class SpectralCore {
     }
     private static double MaxCoClosedResidual(SparseMatrix d0, Arr<double> star1, Arr<Arr<double>> forms) {
         double max = 0.0;
-        foreach (Arr<double> form in forms.AsIterable())
-            for (int edge = 0; edge < d0.Rows.Value; edge++)
-                for (int k = d0.RowPtr[edge]; k < d0.RowPtr[edge + 1]; k++)
-                    max = Math.Max(val1: max, val2: Math.Abs(value: d0.Values[k] * star1[edge] * form[edge]));
+        foreach (Arr<double> form in forms.AsIterable()) {
+            double[] coClosed = new double[d0.Cols.Value];
+            for (int edge = 0; edge < d0.Rows.Value; edge++) {
+                double value = star1[edge] * form[edge];
+                for (int k = d0.RowPtr[edge]; k < d0.RowPtr[edge + 1]; k++) coClosed[d0.ColInd[k]] += d0.Values[k] * value;
+            }
+            max = Math.Max(val1: max, val2: coClosed.Max(static value => Math.Abs(value: value)));
+        }
         return max;
     }
     private static double Star1OrthonormalResidual(Arr<Arr<double>> forms, Arr<double> star1) {

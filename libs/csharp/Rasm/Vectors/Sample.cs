@@ -302,7 +302,7 @@ internal static class SampleKernel {
             .Bind(stats => stats.Accepted > 0 ? PrioritySelection(candidates: candidates, weights: weights, count: count, minSpacing: minSpacing, minWeight: stats.MinWeight, maxWeight: stats.MaxWeight, accepted: stats.Accepted, rejected: stats.Rejected, algorithm: algorithm, key: key) : Fin.Fail<SampleSelection>(key.InvalidResult()));
     }
     private static Fin<SampleSelection> PrioritySelection(Seq<SampleCandidate> candidates, double[] weights, int count, double minSpacing, double minWeight, double maxWeight, int accepted, int rejected, SampleAlgorithmKind algorithm, Op key) {
-        List<Point3d> chosen = []; List<double> mass = [];
+        List<(Point3d Point, double Radius)> chosen = []; List<double> mass = [];
         double localMin = double.PositiveInfinity;
         double localMax = 0.0;
         using IEnumerator<int> ordered = Enumerable.Range(start: 0, count: candidates.Count)
@@ -312,13 +312,13 @@ internal static class SampleKernel {
         while (chosen.Count < count && ordered.MoveNext()) {
             int index = ordered.Current;
             Point3d candidate = candidates[index: index].Point;
-            double local = minSpacing / Math.Sqrt(d: Math.Max(val1: weights[index] / Math.Max(val1: maxWeight, val2: RhinoMath.SqrtEpsilon), val2: RhinoMath.SqrtEpsilon)); double localSq = local * local;
+            double local = minSpacing / Math.Sqrt(d: Math.Max(val1: weights[index] / Math.Max(val1: maxWeight, val2: RhinoMath.SqrtEpsilon), val2: RhinoMath.SqrtEpsilon));
             localMin = Math.Min(val1: localMin, val2: local);
             localMax = Math.Max(val1: localMax, val2: local);
-            if (chosen.TrueForAll(point => point.DistanceToSquared(other: candidate) >= localSq)) { chosen.Add(item: candidate); mass.Add(item: weights[index]); }
+            if (chosen.TrueForAll(existing => candidate.DistanceTo(other: existing.Point) >= Math.Max(val1: existing.Radius, val2: local))) { chosen.Add(item: (candidate, local)); mass.Add(item: weights[index]); }
         }
         return NormalizeMass(mass: toSeq(mass), key: key)
-            .Map(normalized => new SampleSelection(Points: [.. chosen], Mass: Some(normalized), DensityAccepted: Some(accepted), DensityRejected: Some(rejected), Algorithm: Some(AlgorithmFacts(kind: algorithm, targetCount: Some(count), densityMin: Some(minWeight), densityMax: Some(maxWeight), localRadiusMin: Some(localMin), localRadiusMax: Some(localMax)))));
+            .Map(normalized => new SampleSelection(Points: [.. chosen.Select(static sample => sample.Point)], Mass: Some(normalized), DensityAccepted: Some(accepted), DensityRejected: Some(rejected), Algorithm: Some(AlgorithmFacts(kind: algorithm, targetCount: Some(count), densityMin: Some(minWeight), densityMax: Some(maxWeight), localRadiusMin: Some(localMin), localRadiusMax: Some(localMax)))));
     }
     [StructLayout(LayoutKind.Auto)] private readonly record struct DworkCell(long X, long Y, long Z);
     [StructLayout(LayoutKind.Auto)] private readonly record struct DworkSurfacePoint(Point3d Point, double Radius);

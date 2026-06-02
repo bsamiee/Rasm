@@ -980,7 +980,8 @@ public abstract partial record ScalarField {
         && d.X > RhinoMath.ZeroTolerance
         && d.Y > RhinoMath.ZeroTolerance
         && d.Z > RhinoMath.ZeroTolerance;
-    internal Fin<double> SampleScalar(Point3d sample, Context context, Op key) => Switch(
+    internal Fin<double> SampleScalar(Point3d sample, Context context, Op key) =>
+        FieldNabla.Finite(point: sample, key: key).Bind(finiteSample => Switch(
         state: (Sample: sample, Context: context, Key: key),
         constantCase: static (state, c) => state.Key.AcceptValue(value: c.Value),
         distanceCase: static (state, c) =>
@@ -1084,9 +1085,10 @@ public abstract partial record ScalarField {
         signedDistanceFromMeshCase: static (state, c) => MeshKernel.SignedDistanceFromMeshDetailed(space: c.Space, policy: c.Policy, sample: state.Sample, key: state.Key).Map(static result => result.Distance),
         tetSignedHeatCase: static (state, c) => SampleTetSignedHeat(source: c, sample: state.Sample, context: state.Context, key: state.Key).Map(static result => result.Value),
         rbfCase: static (state, c) => EvaluateRbf(samples: c.Samples, kernel: c.Kernel, radius: c.Radius.Value, coefficients: c.Coefficients, sample: state.Sample, key: state.Key),
-        mlsCase: static (state, c) => EvaluateMls(samples: c.Samples, kernel: c.Kernel, radius: c.Radius.Value, sample: state.Sample, context: state.Context, key: state.Key).Map(static result => result.Value));
+        mlsCase: static (state, c) => EvaluateMls(samples: c.Samples, kernel: c.Kernel, radius: c.Radius.Value, sample: state.Sample, context: state.Context, key: state.Key).Map(static result => result.Value)));
     public Fin<ReconstructionSample> SampleReconstructionDetailed(Point3d sample, Context context, Op? key = null) =>
         from model in Optional(context).ToFin(key.OrDefault().MissingContext())
+        from finiteSample in FieldNabla.Finite(point: sample, key: key.OrDefault())
         from output in this switch {
             RbfCase r => from value in EvaluateRbf(samples: r.Samples, kernel: r.Kernel, radius: r.Radius.Value, coefficients: r.Coefficients, sample: sample, key: key.OrDefault())
                          from solve in r.Receipt.Solve.ToFin(key.OrDefault().InvalidResult())
@@ -1200,7 +1202,8 @@ public abstract partial record TensorField {
     public static TensorField Constant(SymmetricMatrix value) => new ConstantCase(Value: value);
     public static Fin<TensorField> Lift(Func<Point3d, SymmetricMatrix>? sampler, Op? key = null) =>
         Optional(sampler).ToFin(key.OrDefault().InvalidInput()).Map(active => (TensorField)new LiftCase(Sampler: active));
-    internal Fin<SymmetricMatrix> SampleTensor(Point3d sample, Context context, Op key) => Switch(
+    internal Fin<SymmetricMatrix> SampleTensor(Point3d sample, Context context, Op key) =>
+        FieldNabla.Finite(point: sample, key: key).Bind(finiteSample => Switch(
         state: (Sample: sample, Context: context, Key: key),
         constantCase: static (s, c) => c.Value.IsValid ? Fin.Succ(c.Value) : Fin.Fail<SymmetricMatrix>(s.Key.InvalidResult()),
         curvatureCase: static (s, c) => c.Space.Native.ClosestPoint(testPoint: s.Sample, u: out double u, v: out double v) switch {
@@ -1218,7 +1221,7 @@ public abstract partial record TensorField {
         scaledCase: static (s, c) => c.Source.SampleTensor(sample: s.Sample, context: s.Context, key: s.Key)
             .Bind(m => SymmetricMatrix.Of(dim: m.Dimension, upper: [.. m.Upper.AsIterable().Select(v => v * c.Scale)], key: s.Key)),
         blendCase: static (s, c) => c.Fields.TraverseM(f => f.SampleTensor(sample: s.Sample, context: s.Context, key: s.Key)).As()
-            .Bind(tensors => BlendTensors(tensors: tensors, mode: c.Mode, key: s.Key)));
+            .Bind(tensors => BlendTensors(tensors: tensors, mode: c.Mode, key: s.Key))));
     private static Fin<SymmetricMatrix> BlendTensors(Seq<SymmetricMatrix> tensors, FieldBlend mode, Op key) =>
         tensors.IsEmpty || tensors.Exists(t => !t.IsValid || t.Dimension.Value != tensors[index: 0].Dimension.Value)
             ? Fin.Fail<SymmetricMatrix>(error: key.InvalidResult())
@@ -1325,7 +1328,8 @@ public abstract partial record VectorField {
     public static VectorField operator -(VectorField field) => new ScaledCase(Source: field, Scale: -1.0);
     public static VectorField operator *(VectorField field, double scale) => new ScaledCase(Source: field, Scale: scale);
     public static VectorField operator *(double scale, VectorField field) => new ScaledCase(Source: field, Scale: scale);
-    internal Fin<Vector3d> SampleVector(Point3d sample, Context context, Op key) => Switch(
+    internal Fin<Vector3d> SampleVector(Point3d sample, Context context, Op key) =>
+        FieldNabla.Finite(point: sample, key: key).Bind(finiteSample => Switch(
         state: (Sample: sample, Context: context, Key: key),
         constantCase: static (state, c) => state.Key.AcceptValue(value: c.Value),
         influenceCase: static (state, c) => ClosestDirected(
@@ -1400,7 +1404,7 @@ public abstract partial record VectorField {
         hodgeCase: static (state, c) => MeshKernel.HodgeProjectedAt(source: c.Source, space: c.Space, sense: c.Sense, sample: state.Sample, key: state.Key),
         vectorHeatCase: static (state, c) => MeshKernel.VectorHeatAt(space: c.Space, sources: c.Sources, time: c.Time.Value, sample: state.Sample, key: state.Key),
         geodesicTangentCase: static (state, c) => MeshKernel.GeodesicTangentAt(space: c.Space, sources: c.Sources, sample: state.Sample, key: state.Key),
-        tangentLogMapCase: static (state, c) => MeshKernel.TangentLogMapAt(space: c.Space, source: c.Source, sample: state.Sample, time: c.Time.Value, key: state.Key).Map(static result => result.Tangent));
+        tangentLogMapCase: static (state, c) => MeshKernel.TangentLogMapAt(space: c.Space, source: c.Source, sample: state.Sample, time: c.Time.Value, key: state.Key).Map(static result => result.Tangent)));
     private static Fin<Vector3d> RotationalField(Point3d anchor, Direction axis, Falloff falloff, double axial, double swirl, (Point3d Sample, Context Context, Op Key) state) {
         Vector3d rPerp = FieldNabla.PerpendicularComponent(r: state.Sample - anchor, axis: axis.Value);
         return falloff.Weight(offset: rPerp, sample: state.Sample, context: state.Context, tolerance: state.Context.Absolute.Value, key: state.Key)
@@ -1745,7 +1749,6 @@ internal static class FieldNabla {
     internal static Fin<Seq<MlsSample>> MlsInput(Seq<MlsSample> samples, Context context, Op key) =>
         Optional(context).ToFin(key.MissingContext()).Bind(model => !samples.IsEmpty
             && samples.ForAll(sample => Finite(point: sample.Position) && Finite(vector: sample.Normal) && Math.Abs(value: sample.Normal.Length - 1.0) <= Math.Max(val1: model.Relative.Value, val2: RhinoMath.SqrtEpsilon) && RhinoMath.IsValidDouble(x: sample.Value))
-            && samples.AsIterable().Aggregate(seed: Vector3d.Zero, func: static (sum, sample) => sum + sample.Normal).Length / samples.Count >= 0.5
                 ? Fin.Succ(samples)
                 : Fin.Fail<Seq<MlsSample>>(key.InvalidInput()));
     internal static Fin<(Curve Profile, Plane Plane, PositiveMagnitude HalfHeight)> ProfileExtrusionInput(Curve profile, Plane plane, double halfHeight, Context context, Op key) =>
