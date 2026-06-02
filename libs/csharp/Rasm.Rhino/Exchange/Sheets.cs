@@ -112,15 +112,19 @@ public readonly record struct FileDetailLayout(
 
 public readonly record struct FileDetailReport(
     string Name,
+    string DescriptiveTitle,
     Option<string> Scale,
     DefinedViewportProjection Projection,
     Guid ViewportId,
+    Option<Guid> ParentViewportId,
     bool Active,
+    bool ProjectionLocked,
     double PageToModelRatio,
     Transform WorldToPage,
     Transform PageToWorld,
     Option<double> PaperLengthPerModelUnit,
     Option<double> ModelLengthPerPaperUnit,
+    Seq<Guid> ClippingPlaneIds,
     Seq<string> OverriddenLayers);
 
 public readonly record struct FileDetailSpec(
@@ -171,6 +175,10 @@ public readonly record struct FileSheetConfig(
 public readonly record struct FileSheetReport(
     string Name,
     int Number,
+    Option<string> PrinterName,
+    Option<string> PaperName,
+    bool Active,
+    Option<Guid> ActiveDetailId,
     Option<(double Width, double Height)> Size,
     Seq<string> Groups,
     Seq<FileDetailReport> Details,
@@ -419,7 +427,7 @@ internal static partial class SheetOps {
 
     private static Fin<DocumentReceipt> ImportSheet(RhinoDoc document, FileEndpoint source, Guid sourceViewportId, string name, Op op) =>
         from endpoint in source.Input(op: op)
-        from format in (endpoint.Format | FileFormat.Detect(path: endpoint.Path)).Filter(format => format == FileFormat.ThreeDm).ToFin(Fail: op.InvalidInput())
+        from format in (endpoint.Format | FileFormat.Detect(path: endpoint.Path)).Filter(format => format.Is(key: "3dm")).ToFin(Fail: op.InvalidInput())
         from pageName in FileEndpoint.NonBlank(value: name, op: op)
         from unique in guard(!toSeq(document.Views.GetPageViews()).Exists(view => string.Equals(a: view.PageName, b: pageName, comparisonType: StringComparison.OrdinalIgnoreCase)), op.InvalidInput())
         from id in guard(sourceViewportId != Guid.Empty, op.InvalidInput()).ToFin().Map(_ => sourceViewportId)
@@ -444,7 +452,9 @@ internal static partial class SheetOps {
         from page in Sheet(document: document, name: sheetName, op: op)
         from target in detail.Case switch {
             DetailQuery query => query.Single(page: page, op: op).Bind(match =>
-                op.Catch(() => { match.IsActive = true; return Fin.Succ(value: Some(match)); })),
+                op.Catch(() =>
+                    op.Confirm(success: page.SetActiveDetail(detailId: match.Id))
+                        .Map(_ => Some(match)))),
             _ => op.Catch(() => { page.SetPageAsActive(); return Fin.Succ(value: Option<DetailViewObject>.None); }),
         }
         select DocumentReceipt.Objects(slot: DocumentReceiptSlot.Attributes, ids: target.Map(item => Seq(item.Id)).IfNone(Seq(page.MainViewport.Id)), kind: DocumentResourceKind.Layout, name: target.Bind(DetailQuery.NameOf).IfNone(sheetName));
@@ -644,6 +654,10 @@ internal static partial class SheetOps {
             return resolved.Map(detailViews => new FileSheetReport(
                 Name: page.PageName,
                 Number: page.PageNumber,
+                PrinterName: FileArchiveOps.TextOption(value: page.PrinterName),
+                PaperName: FileArchiveOps.TextOption(value: page.PaperName),
+                Active: page.MainViewport.Id == document.Views.ActiveView?.MainViewport.Id,
+                ActiveDetailId: page.ActiveDetailId == Guid.Empty ? Option<Guid>.None : Some(page.ActiveDetailId),
                 Size: Some((Width: page.PageWidth, Height: page.PageHeight)),
                 Groups: groups.Map(static item => item.Name),
                 Details: detailViews.Map(detail => DetailReportOf(document: document, detail: detail)),
@@ -657,15 +671,19 @@ internal static partial class SheetOps {
             .Map(static layer => layer.FullPath);
         return new FileDetailReport(
             Name: DetailQuery.NameOf(detail: detail).IfNone(string.Empty),
+            DescriptiveTitle: detail.DescriptiveTitle,
             Scale: FileScale.Format(detail: detail),
             Projection: ProjectionOf(detail: detail),
             ViewportId: viewportId,
+            ParentViewportId: Optional(detail.ParentPageView).Map(static page => page.MainViewport.Id),
             Active: detail.IsActive,
+            ProjectionLocked: detail.DetailGeometry.IsProjectionLocked,
             PageToModelRatio: detail.DetailGeometry.PageToModelRatio,
             WorldToPage: detail.WorldToPageTransform,
             PageToWorld: detail.PageToWorldTransform,
             PaperLengthPerModelUnit: Length(value: 1.0, convert: detail.TryGetPaperLength),
             ModelLengthPerPaperUnit: Length(value: 1.0, convert: detail.TryGetModelLength),
+            ClippingPlaneIds: toSeq(document.Objects.FindClippingPlanesForViewport(viewport: detail.Viewport)).Map(static item => item.Id),
             OverriddenLayers: overridden);
     }
 

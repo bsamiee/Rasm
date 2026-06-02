@@ -80,6 +80,22 @@ public abstract partial record CaptureResult : IDisposable {
     }
 }
 
+public readonly record struct CaptureCodec(CaptureFormat Format) {
+    public static CaptureCodec Of(CaptureFormat format) =>
+        new(Format: format);
+
+    internal Fin<CaptureResult> Render(ViewCaptureSettings settings, Op op) =>
+        Format switch {
+            CaptureFormat.Bitmap => Optional(ViewCapture.CaptureToBitmap(settings: settings))
+                .ToFin(Fail: op.InvalidResult())
+                .Map(static value => (CaptureResult)new CaptureResult.Bitmap(Value: value)),
+            CaptureFormat.Svg => Optional(ViewCapture.CaptureToSvg(settings: settings))
+                .ToFin(Fail: op.InvalidResult())
+                .Map(static value => (CaptureResult)new CaptureResult.Svg(Value: value)),
+            _ => Fin.Fail<CaptureResult>(error: op.InvalidInput()),
+        };
+}
+
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CaptureDecor(

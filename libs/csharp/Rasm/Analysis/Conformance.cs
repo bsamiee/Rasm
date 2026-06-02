@@ -48,14 +48,13 @@ public sealed record Conformance {
     public ConformanceMetric Metric { get; }
     public int Count { get; }
     internal Seq<double> Percentiles { get; }
-    public static Conformance Distance(int count) => new(metric: ConformanceMetric.Distance, count: count, percentiles: Seq<double>());
-    public static Conformance Rms(int count) => new(metric: ConformanceMetric.Rms, count: count, percentiles: Seq<double>());
-    public static Conformance WithinTolerance(int count) => new(metric: ConformanceMetric.WithinTolerance, count: count, percentiles: Seq<double>());
-    public static Conformance Summary(int count) => new(metric: ConformanceMetric.Summary, count: count, percentiles: Seq<double>());
-    public static Conformance Maximum(int count) => new(metric: ConformanceMetric.Maximum, count: count, percentiles: Seq<double>());
-    public static Conformance SignedResidual(int count) => new(metric: ConformanceMetric.SignedResidual, count: count, percentiles: Seq<double>());
-    public static Conformance Containment(int count) => new(metric: ConformanceMetric.Containment, count: count, percentiles: Seq<double>());
-    public static Conformance Distribution(int count, params double[] percentiles) => new(metric: ConformanceMetric.Distribution, count: count, percentiles: toSeq(percentiles));
+    public static Conformance Of(ConformanceMetric metric, int count, params double[] percentiles) {
+        ArgumentNullException.ThrowIfNull(argument: metric);
+        return new(
+            metric: metric,
+            count: count,
+            percentiles: metric.Equals(ConformanceMetric.Distribution) ? toSeq(percentiles) : Seq<double>());
+    }
     public Operation<(TGeometry Geometry, TTarget Target), TOut> Operation<TGeometry, TTarget, TOut>() where TGeometry : notnull where TTarget : notnull =>
         (Count, CanConform(aspect: this, geometry: typeof(TGeometry), target: typeof(TTarget)), typeof(TOut) == Metric.Output) switch {
             ( <= 0, _, _) => Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(key: Key, fault: Key.InvalidInput()),

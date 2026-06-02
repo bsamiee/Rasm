@@ -210,7 +210,7 @@ internal static class FileArchiveOps {
             receipt: Some(DocumentReceipt.Resources(changes: extracted.Paths.Map(static endpoint => DocumentResourceKind.EmbeddedFile.Change(name: endpoint.Path)))));
 
     internal static Fin<FileReport> Update(FileArchiveSource source, FileEndpoint target, ArchiveUpdate update, ArchiveProfile profile) =>
-        from output in target.WithFormat(format: FileFormat.ThreeDm).Output(op: Op.Of(name: nameof(Update)))
+        from output in target.WithFormat(format: FileFormat.KnownFormat(key: "3dm")).Output(op: Op.Of(name: nameof(Update)))
         let op = Op.Of(name: nameof(Update))
         from result in UseArchive(source: source, profile: profile with { Slice = ArchiveSlice.Full }, op: op, use: (endpoint, model, readLog) =>
             from metadataChange in update.Metadata.Case switch {
@@ -335,7 +335,7 @@ internal static class FileArchiveOps {
     private static Option<FileFormat> FormatOf(Option<FileEndpoint> source) =>
         source.Bind(static endpoint => endpoint.Format).Case switch {
             FileFormat format => Some(format),
-            _ => Some(FileFormat.ThreeDm),
+            _ => Some(FileFormat.KnownFormat(key: "3dm")),
         };
     private static Fin<(Blocks.Archive.Graph Graph, Seq<string> Linked, Seq<FileIssue> Issues)> BlockArchiveResources(File3dmModel model, Option<string> archivePath, Op key) =>
         from graph in archivePath

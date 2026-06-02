@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Foundation.CSharp.Analyzers.Kernel;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
@@ -164,6 +165,131 @@ internal static class TypeShapeRules {
             || (metadata.OwnerIsUnion
                 && behavior.ReceiverRole == ClosedUnionDispatchReceiverRole.Parameter
                 && string.Equals(a: metadata.FilePath, b: behavior.FilePath, comparisonType: StringComparison.Ordinal)));
+
+    // --- [PASSIVE_SIBLING_SURFACE_FAMILY] -----------------------------------
+
+    internal static void CheckPassiveSiblingSurfaceFamily(SymbolAnalysisContext context, ScopeInfo scope, INamedTypeSymbol namedType) {
+        if (!scope.IsAnalyzable
+            || namedType.Locations.Length == 0
+            || SymbolFacts.HasAnyAttribute(namedType, "SmartEnumAttribute", "SmartEnum")
+            || SymbolFacts.HasAnyAttribute(namedType, "UnionAttribute", "Union")
+            || SymbolFacts.HasAnyAttribute(namedType, "SkipUnionOpsAttribute", "SkipUnionOps")) {
+            return;
+        }
+        ImmutableArray<PassiveMemberFact> facts = [
+            .. namedType.GetMembers()
+                .Select(member => PassiveMemberFactOf(context: context, member: member))
+                .OfType<PassiveMemberFact>(),
+        ];
+        IEnumerable<Diagnostic> diagnostics = facts
+            .Where(static fact => fact.Location is not null)
+            .GroupBy(static fact => fact.GroupKey, StringComparer.Ordinal)
+            .Where(static group => group.Count() >= 3)
+            .Select(group => {
+                PassiveMemberFact first = group.OrderBy(static fact => fact.SortStart).First();
+                return Diagnostic.Create(RuleCatalog.CSP0745, first.Location, namedType.Name, group.Count());
+            });
+        AnalyzerState.ReportEach(context.ReportDiagnostic, diagnostics);
+    }
+
+    private static PassiveMemberFact? PassiveMemberFactOf(SymbolAnalysisContext context, ISymbol member) =>
+        !member.IsStatic || member.IsOverride || member.IsVirtual || member.IsAbstract || SymbolFacts.HasAnyAttribute(member, "GeneratedCodeAttribute", "CompilerGeneratedAttribute")
+            ? null
+            : member switch {
+                IMethodSymbol { MethodKind: MethodKind.Ordinary, ReturnsVoid: false } method => PassiveMethodFact(context: context, method: method),
+                IPropertySymbol { IsIndexer: false, GetMethod: not null } property => PassivePropertyFact(context: context, property: property),
+                _ => null,
+            };
+
+    private static PassiveMemberFact? PassiveMethodFact(SymbolAnalysisContext context, IMethodSymbol method) =>
+        method.DeclaringSyntaxReferences
+            .Select(reference => reference.GetSyntax(context.CancellationToken))
+            .OfType<MethodDeclarationSyntax>()
+            .Select(methodSyntax => methodSyntax.ExpressionBody?.Expression)
+            .OfType<ExpressionSyntax>()
+            .Select(expression => PassiveExpressionFact(
+                context: context,
+                symbol: method,
+                expression: expression,
+                signatureKey: string.Join(separator: "|", values: method.Parameters.Select(static parameter => parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)))))
+            .OfType<PassiveMemberFact>()
+            .FirstOrDefault();
+
+    private static PassiveMemberFact? PassivePropertyFact(SymbolAnalysisContext context, IPropertySymbol property) =>
+        property.DeclaringSyntaxReferences
+            .Select(reference => reference.GetSyntax(context.CancellationToken))
+            .OfType<PropertyDeclarationSyntax>()
+            .Select(PropertyExpression)
+            .OfType<ExpressionSyntax>()
+            .Select(expression => PassiveExpressionFact(context: context, symbol: property, expression: expression, signatureKey: string.Empty))
+            .OfType<PassiveMemberFact>()
+            .FirstOrDefault();
+
+    private static ExpressionSyntax? PropertyExpression(PropertyDeclarationSyntax property) =>
+        property.ExpressionBody?.Expression
+        ?? property.Initializer?.Value
+        ?? property.AccessorList?.Accessors
+            .FirstOrDefault(static accessor => accessor.IsKind(SyntaxKind.GetAccessorDeclaration))
+            ?.ExpressionBody?.Expression;
+
+    private static PassiveMemberFact? PassiveExpressionFact(SymbolAnalysisContext context, ISymbol symbol, ExpressionSyntax expression, string signatureKey) {
+        SemanticModel model = context.Compilation.GetSemanticModel(expression.SyntaxTree);
+        IOperation? operation = model.GetOperation(expression, context.CancellationToken);
+        string shape = PassiveShape(operation: operation);
+        string ownerKey = symbol.ContainingType?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? string.Empty;
+        string memberTypeKey = symbol switch {
+            IMethodSymbol method => method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+            IPropertySymbol property => property.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+            _ => string.Empty,
+        };
+        Location? location = symbol.Locations.FirstOrDefault(static item => item.SourceTree is not null);
+        return shape.Length > 0 && ownerKey.Length > 0 && memberTypeKey.Length > 0 && location is not null
+            ? new PassiveMemberFact(
+                groupKey: $"{ownerKey}|{signatureKey}|{symbol.GetType().Name}|{memberTypeKey}|{shape}",
+                location: location,
+                sortStart: location.SourceSpan.Start)
+            : null;
+    }
+
+    private static string PassiveShape(IOperation? operation) =>
+        SymbolFacts.UnwrapValue(operation) switch {
+            IInvocationOperation { TargetMethod: IMethodSymbol { MethodKind: MethodKind.Ordinary, ContainingType: INamedTypeSymbol targetType } target } invocation
+                when invocation.Arguments.All(PassiveArgument) =>
+                $"invoke:{targetType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}.{target.Name}/{invocation.Arguments.Length}",
+            IObjectCreationOperation { Constructor: IMethodSymbol constructor, Type: ITypeSymbol type } creation
+                when creation.Arguments.All(PassiveArgument) =>
+                $"new:{type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}/{constructor.Parameters.Length}",
+            _ => string.Empty,
+        };
+
+    private static bool PassiveArgument(IArgumentOperation argument) =>
+        PassiveValue(operation: argument.Value);
+
+    private static bool PassiveValue(IOperation? operation) =>
+        SymbolFacts.UnwrapValue(operation) switch {
+            null => false,
+            ILiteralOperation => true,
+            IParameterReferenceOperation => true,
+            ITypeOfOperation => true,
+            IFieldReferenceOperation { Field.IsStatic: true } => true,
+            IPropertyReferenceOperation { Property.IsStatic: true } => true,
+            IInvocationOperation { Arguments.Length: 0 } => true,
+            IArrayCreationOperation { Initializer.ElementValues: ImmutableArray<IOperation> values } =>
+                values.All(PassiveValue),
+            _ => false,
+        };
+
+    private readonly struct PassiveMemberFact {
+        internal PassiveMemberFact(string groupKey, Location location, int sortStart) {
+            GroupKey = groupKey;
+            Location = location;
+            SortStart = sortStart;
+        }
+
+        internal string GroupKey { get; }
+        internal Location Location { get; }
+        internal int SortStart { get; }
+    }
 
     // --- [DATETIME_FIELD] -----------------------------------------------------
 

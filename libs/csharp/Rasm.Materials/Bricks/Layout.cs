@@ -44,8 +44,8 @@ public sealed record BrickAssembly(
             .Bind(_ => Optional(run.Bond).ToFin(Fail: new BrickFault.InvalidLayout(Detail: "BondName is required.")).Map(_ => unit))
             .Bind(_ => Optional(run.Joint).ToFin(Fail: new BrickFault.InvalidLayout(Detail: "JointProfile is required.")).Map(_ => unit))
             .Bind(_ => Optional(run.Path).ToFin(Fail: new BrickFault.InvalidLayout(Detail: "BrickPath is required.")).Map(_ => unit))
-            .Bind(_ => guard(run.Bond.Kind == BondKind.Template, () => (LanguageExt.Common.Error)new BrickFault.UnsupportedLayout(Detail: $"Bond '{run.Bond.Key}' is generated; layout requires a template bond.")).ToFin())
-            .Bind(_ => guard(run.Bond.Fits(brick: run.Unit.Unit), () => (LanguageExt.Common.Error)new BrickFault.IncompatibleBond(BondKey: run.Bond.Key, UnitKey: run.Unit.Key)).ToFin());
+            .Bind(_ => guard(run.Bond.Kind == BondKind.Template, () => (Error)new BrickFault.UnsupportedLayout(Detail: $"Bond '{run.Bond.Key}' is generated; layout requires a template bond.")).ToFin())
+            .Bind(_ => guard(run.Bond.Fits(brick: run.Unit.Unit), () => (Error)new BrickFault.IncompatibleBond(BondKey: run.Bond.Key, UnitKey: run.Unit.Key)).ToFin());
 
     private static Fin<Unit> ValidateJoints(double headJointMm, double bedJointMm) =>
         Positive(value: headJointMm, name: nameof(HeadJointMm))
@@ -66,7 +66,7 @@ public sealed record BrickAssembly(
         });
 
     private static Fin<double> Positive(double value, string name) =>
-        from _ in guard(double.IsFinite(value) && value > 0.0, () => (LanguageExt.Common.Error)new BrickFault.InvalidLayout(Detail: $"{name} must be positive and finite (got {value:R}).")).ToFin()
+        from _ in guard(double.IsFinite(value) && value > 0.0, () => (Error)new BrickFault.InvalidLayout(Detail: $"{name} must be positive and finite (got {value:R}).")).ToFin()
         select value;
 
     private static Fin<Seq<BrickPlacement>> Courses(BrickRun run, double lengthMm, int courseCount, double headJointMm) =>
@@ -79,7 +79,7 @@ public sealed record BrickAssembly(
                         .Map(coursePlacements => placements + coursePlacements))));
 
     private static Fin<Seq<BrickPlacement>> Course(BrickRun run, CourseTemplate template, int course, double lengthMm, double headJointMm) =>
-        from _ in guard(template.Sequence.Count > 0, () => (LanguageExt.Common.Error)new BrickFault.InvalidLayout(Detail: $"Bond '{run.Bond.Key}' course {course} has no orientation sequence.")).ToFin()
+        from _ in guard(template.Sequence.Count > 0, () => (Error)new BrickFault.InvalidLayout(Detail: $"Bond '{run.Bond.Key}' course {course} has no orientation sequence.")).ToFin()
         select Repeat(run: run, template: template, course: course, lengthMm: lengthMm, headJointMm: headJointMm);
 
     private static Seq<BrickPlacement> Repeat(BrickRun run, CourseTemplate template, int course, double lengthMm, double headJointMm) {

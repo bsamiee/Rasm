@@ -4,7 +4,6 @@ using Rasm.Rhino.Exchange;
 using DrawingBitmap = System.Drawing.Bitmap;
 using DrawingColor = System.Drawing.Color;
 using DrawingSize = System.Drawing.Size;
-using XmlDocument = System.Xml.XmlDocument;
 
 namespace Rasm.Rhino.UI;
 
@@ -376,32 +375,15 @@ public static partial class UiIntent {
             run: (_, _) => Fin.Succ(value: toSeq(source.IfNone(global::Rhino.UI.NamedColorList.Default))));
     private static Fin<T> Project<T>(Op op, Func<T?> native) where T : class => Optional(native()).ToFin(Fail: op.InvalidResult());
 
-    private static UiIntent<DrawingBitmap> Capture(RhinoView view, CaptureRecipe recipe = default) =>
-        Of(name: nameof(Capture), run: (_, _) => recipe.WithPolicy(
-            fallbackDpi: CaptureRecipe.ScreenDpi,
-            fallbackDecor: CaptureRecipe.ScreenDecor,
-            rewrite: static (decor, _) => decor).Render(
-            view: view,
-            viewport: recipe.Viewport(view: view),
-            project: static settings => Project(op: Op.Of(name: nameof(Capture)), native: () => ViewCapture.CaptureToBitmap(settings: settings)),
-            op: Op.Of(name: nameof(Capture))));
-
-    private static UiIntent<XmlDocument> CaptureSvg(RhinoView view, CaptureRecipe recipe = default) =>
-        Of(name: nameof(CaptureSvg), run: (_, _) => recipe.WithPolicy(
-            fallbackDpi: CaptureRecipe.ScreenDpi,
-            fallbackDecor: CaptureRecipe.ScreenDecor,
-            rewrite: static (decor, _) => decor).Render(
-            view: view,
-            viewport: recipe.Viewport(view: view),
-            project: static settings => Project(op: Op.Of(name: nameof(CaptureSvg)), native: () => ViewCapture.CaptureToSvg(settings: settings)),
-            op: Op.Of(name: nameof(CaptureSvg))));
-
     public static UiIntent<CaptureResult> CaptureFrame(RhinoView view, CaptureFormat format, CaptureRecipe recipe = default) =>
-        format switch {
-            CaptureFormat.Bitmap => Capture(view: view, recipe: recipe).Map(value => (CaptureResult)new CaptureResult.Bitmap(Value: value)),
-            CaptureFormat.Svg => CaptureSvg(view: view, recipe: recipe).Map(value => (CaptureResult)new CaptureResult.Svg(Value: value)),
-            _ => Operation((_, _) => Fin.Fail<CaptureResult>(error: Op.Of(name: nameof(CaptureFrame)).InvalidInput())),
-        };
+        Of(name: nameof(CaptureFrame), run: (_, _) => recipe.WithPolicy(
+            fallbackDpi: CaptureRecipe.ScreenDpi,
+            fallbackDecor: CaptureRecipe.ScreenDecor,
+            rewrite: static (decor, _) => decor).Render(
+            view: view,
+            viewport: recipe.Viewport(view: view),
+            project: settings => CaptureCodec.Of(format: format).Render(settings: settings, op: Op.Of(name: nameof(CaptureFrame))),
+            op: Op.Of(name: nameof(CaptureFrame))));
 
     public static UiIntent<Color4f> Color(UiColorSpec spec, bool allowAlpha = false) =>
         Dialog((parent, _) => Op.Of(name: nameof(Color)).Catch(() => {

@@ -288,7 +288,7 @@ public partial record DocumentOp : IUiOp<DocumentResult> {
     public static DocumentOp Review(DocumentReview review) => new ReviewCase(Request: review);
     public static DocumentOp File(DocumentFileOp op) => new FileCase(Op: op);
 
-    GrasshopperUiIntent<DocumentResult> IUiOp<DocumentResult>.Intent() => UI.Document.Plan(op: this);
+    GrasshopperUiIntent<DocumentResult> IUiOp<DocumentResult>.Intent() => Document.Plan(op: this);
 }
 
 // [ASSUMED] Document.File.{HasPath,Path} — verified present (FileUtility) via gh2 decompile.
@@ -1075,7 +1075,7 @@ internal static partial class Document {
 
     private static Fin<DocumentResult> DispatchInspect(GrasshopperUi.Scope scope, DocumentInspect kind) =>
         from methods in scope.NeedMethods()
-        from _ in DocumentOp.InspectCase.SelfOp.Attempt(body: () => kind.Invoke(methods), what: string.Create(CultureInfo.InvariantCulture, $"DocumentInspect[{kind.Key}]"))
+        from _ in Op.Of(name: nameof(DocumentOp.Inspect)).Attempt(body: () => kind.Invoke(methods), what: string.Create(CultureInfo.InvariantCulture, $"DocumentInspect[{kind.Key}]"))
         select (DocumentResult)new DocumentResult.InspectResult(Kind: kind);
 
     private static Fin<DocumentResult> Query(GrasshopperUi.Scope scope, DocumentQuery query) =>
@@ -1128,7 +1128,7 @@ internal static partial class Document {
 
     // policy.Repaint is consumed by DocumentOp's intent plan; this body owns mutation only.
     private static Fin<DocumentResult> Mutate(GrasshopperUi.Scope scope, Seq<DocumentMutation> mutations, DocumentMutationPolicy policy) =>
-        UiRail.RunDocumentMutation(scope: scope, op: DocumentOp.MutateCase.SelfOp,
+        UiRail.RunDocumentMutation(scope: scope, op: Op.Of(name: nameof(DocumentOp.Mutate)),
             mutate: (methods, objects, actions) => mutations.TraverseM(m => m.Apply(methods: methods, objects: objects, actions: actions))
                 .Map(static receipts => receipts.Fold(initialState: DocumentMutationReceipt.None, f: static (sum, receipt) => sum + receipt)).As()
             )

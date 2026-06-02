@@ -1,8 +1,6 @@
 using Rasm.Vectors;
-using DrawingBitmap = System.Drawing.Bitmap;
 using DrawingPoint = System.Drawing.Point;
 using DrawingRectangle = System.Drawing.Rectangle;
-using XmlDocument = System.Xml.XmlDocument;
 
 namespace Rasm.Rhino.Camera;
 
@@ -597,29 +595,19 @@ public static class CameraOps {
             from _ in Op.Of(name: nameof(DeleteNamed)).Confirm(success: scope.Document.NamedViews.Delete(index: index))
             select NamedResource(name: valid));
 
-    private static CameraOp<DrawingBitmap> CaptureBitmap(CaptureRecipe recipe = default) =>
-        Capture(recipe: recipe, name: nameof(CaptureBitmap), render: static settings => ViewCapture.CaptureToBitmap(settings: settings));
-
-    private static CameraOp<XmlDocument> CaptureSvg(CaptureRecipe recipe = default) =>
-        Capture(recipe: recipe, name: nameof(CaptureSvg), render: static settings => ViewCapture.CaptureToSvg(settings: settings));
-
     public static CameraOp<CaptureResult> CaptureFrame(CaptureFormat format, CaptureRecipe recipe = default) =>
-        format switch {
-            CaptureFormat.Bitmap => CaptureBitmap(recipe: recipe).Map(value => (CaptureResult)new CaptureResult.Bitmap(Value: value)),
-            CaptureFormat.Svg => CaptureSvg(recipe: recipe).Map(value => (CaptureResult)new CaptureResult.Svg(Value: value)),
-            _ => new CameraOp<CaptureResult>(Run: _ => Fin.Fail<CameraOutcome<CaptureResult>>(error: Op.Of(name: nameof(CaptureFrame)).InvalidInput())),
-        };
+        Capture(recipe: recipe, codec: CaptureCodec.Of(format: format));
 
-    private static CameraOp<T> Capture<T>(CaptureRecipe recipe, string name, Func<ViewCaptureSettings, T?> render) where T : class =>
+    private static CameraOp<CaptureResult> Capture(CaptureRecipe recipe, CaptureCodec codec) =>
         new(Run: scope => recipe.WithPolicy(
                 fallbackDpi: CaptureRecipe.ScreenDpi,
                 fallbackDecor: CaptureRecipe.ScreenDecor,
                 rewrite: static (decor, _) => decor).Render(
                 view: scope.View,
                 viewport: Some(value: scope.Viewport),
-                project: settings => Optional(render(arg: settings)).ToFin(Fail: Op.Of(name: name).InvalidResult()),
-                op: Op.Of(name: name))
-            .Map(value => CameraOutcome<T>.Create(value: value, redraw: RedrawRequest.Empty)));
+                project: settings => codec.Render(settings: settings, op: Op.Of(name: nameof(CaptureFrame))),
+                op: Op.Of(name: nameof(CaptureFrame)))
+            .Map(value => CameraOutcome<CaptureResult>.Create(value: value, redraw: RedrawRequest.Empty)));
 
     private static Fin<int> NamedIndex(RhinoDoc document, string name, Op op) =>
         from valid in Name(value: name, op: op)

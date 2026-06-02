@@ -77,14 +77,14 @@ public sealed class ConformanceMetricAcceptsTargetLaws {
 
 public sealed class ConformanceFactoryDispatchLaws {
     public static readonly (string Label, Conformance Aspect, ConformanceMetric Metric)[] Factories =
-        [("Distance", Conformance.Distance(count: 8), ConformanceMetric.Distance),
-         ("Rms", Conformance.Rms(count: 8), ConformanceMetric.Rms),
-         ("WithinTolerance", Conformance.WithinTolerance(count: 8), ConformanceMetric.WithinTolerance),
-         ("Summary", Conformance.Summary(count: 8), ConformanceMetric.Summary),
-         ("Maximum", Conformance.Maximum(count: 8), ConformanceMetric.Maximum),
-         ("SignedResidual", Conformance.SignedResidual(count: 8), ConformanceMetric.SignedResidual),
-         ("Containment", Conformance.Containment(count: 8), ConformanceMetric.Containment),
-         ("Distribution", Conformance.Distribution(8, 25.0, 75.0), ConformanceMetric.Distribution)];
+        [("Distance", Conformance.Of(metric: ConformanceMetric.Distance, count: 8), ConformanceMetric.Distance),
+         ("Rms", Conformance.Of(metric: ConformanceMetric.Rms, count: 8), ConformanceMetric.Rms),
+         ("WithinTolerance", Conformance.Of(metric: ConformanceMetric.WithinTolerance, count: 8), ConformanceMetric.WithinTolerance),
+         ("Summary", Conformance.Of(metric: ConformanceMetric.Summary, count: 8), ConformanceMetric.Summary),
+         ("Maximum", Conformance.Of(metric: ConformanceMetric.Maximum, count: 8), ConformanceMetric.Maximum),
+         ("SignedResidual", Conformance.Of(metric: ConformanceMetric.SignedResidual, count: 8), ConformanceMetric.SignedResidual),
+         ("Containment", Conformance.Of(metric: ConformanceMetric.Containment, count: 8), ConformanceMetric.Containment),
+         ("Distribution", Conformance.Of(metric: ConformanceMetric.Distribution, count: 8, 25.0, 75.0), ConformanceMetric.Distribution)];
     [Fact]
     public void EachFactoryCarriesMatchingMetricAndCount() =>
         _ = Factories.AsIterable().Iter(static f => {
@@ -94,27 +94,27 @@ public sealed class ConformanceFactoryDispatchLaws {
     [Fact]
     public void OperationIsSupportedExactlyWhenOutputAndConformabilityMatch() =>
         Spec.SupportMatrix(
-            ("Distance Curve/Plane→double", static () => Conformance.Distance(count: 8).Operation<Curve, Plane, double>().IsSupported, true),
-            ("SignedResidual Surface/Plane→ResidualSample", static () => Conformance.SignedResidual(count: 8).Operation<Surface, Plane, ResidualSample>().IsSupported, true),
-            ("Containment Surface/Brep→ResidualSample", static () => Conformance.Containment(count: 8).Operation<Surface, Brep, ResidualSample>().IsSupported, true),
-            ("Summary Curve/Line→Stat", static () => Conformance.Summary(count: 8).Operation<Curve, Line, Stat>().IsSupported, true),
-            ("Distribution Curve/Line→Distribution", static () => Conformance.Distribution(8, 50.0).Operation<Curve, Line, Distribution>().IsSupported, true),
-            ("Distance foreign-output Stat", static () => Conformance.Distance(count: 8).Operation<Curve, Plane, Stat>().IsSupported, false),
-            ("Containment non-solid Plane", static () => Conformance.Containment(count: 8).Operation<Curve, Plane, ResidualSample>().IsSupported, false),
-            ("Distance foreign-geometry Point3d", static () => Conformance.Distance(count: 8).Operation<Point3d, Plane, double>().IsSupported, false));
+            ("Distance Curve/Plane→double", static () => Conformance.Of(metric: ConformanceMetric.Distance, count: 8).Operation<Curve, Plane, double>().IsSupported, true),
+            ("SignedResidual Surface/Plane→ResidualSample", static () => Conformance.Of(metric: ConformanceMetric.SignedResidual, count: 8).Operation<Surface, Plane, ResidualSample>().IsSupported, true),
+            ("Containment Surface/Brep→ResidualSample", static () => Conformance.Of(metric: ConformanceMetric.Containment, count: 8).Operation<Surface, Brep, ResidualSample>().IsSupported, true),
+            ("Summary Curve/Line→Stat", static () => Conformance.Of(metric: ConformanceMetric.Summary, count: 8).Operation<Curve, Line, Stat>().IsSupported, true),
+            ("Distribution Curve/Line→Distribution", static () => Conformance.Of(metric: ConformanceMetric.Distribution, count: 8, 50.0).Operation<Curve, Line, Distribution>().IsSupported, true),
+            ("Distance foreign-output Stat", static () => Conformance.Of(metric: ConformanceMetric.Distance, count: 8).Operation<Curve, Plane, Stat>().IsSupported, false),
+            ("Containment non-solid Plane", static () => Conformance.Of(metric: ConformanceMetric.Containment, count: 8).Operation<Curve, Plane, ResidualSample>().IsSupported, false),
+            ("Distance foreign-geometry Point3d", static () => Conformance.Of(metric: ConformanceMetric.Distance, count: 8).Operation<Point3d, Plane, double>().IsSupported, false));
 }
 
 public sealed class ConformanceRejectCategoryLaws {
     [Fact]
     public void NonPositiveCountRejectsWithInputCategory() =>
         Spec.ForAll(Gen.Int[-64, 0], static count =>
-            Spec.Invalid(Analyze.Run(operation: Conformance.Distance(count: count).Operation<Curve, Plane, double>(), input: default((Curve, Plane))!),
+            Spec.Invalid(Analyze.Run(operation: Conformance.Of(metric: ConformanceMetric.Distance, count: count).Operation<Curve, Plane, double>(), input: default((Curve, Plane))!),
                 then: static error => Assert.Equal(expected: "Input", actual: error.Category())));
     [Fact]
     public void OutputMismatchAndForeignGeometryRejectWithUnsupportedCategory() {
-        Spec.Invalid(Analyze.Run(operation: Conformance.Distance(count: 8).Operation<Curve, Plane, Stat>(), input: default((Curve, Plane))!),
+        Spec.Invalid(Analyze.Run(operation: Conformance.Of(metric: ConformanceMetric.Distance, count: 8).Operation<Curve, Plane, Stat>(), input: default((Curve, Plane))!),
             then: static error => Assert.Equal(expected: "Unsupported", actual: error.Category()));
-        Spec.Invalid(Analyze.Run(operation: Conformance.Containment(count: 8).Operation<Curve, Plane, ResidualSample>(), input: default((Curve, Plane))!),
+        Spec.Invalid(Analyze.Run(operation: Conformance.Of(metric: ConformanceMetric.Containment, count: 8).Operation<Curve, Plane, ResidualSample>(), input: default((Curve, Plane))!),
             then: static error => Assert.Equal(expected: "Unsupported", actual: error.Category()));
     }
 }
@@ -124,29 +124,29 @@ public sealed class ConformanceProjectionOracleLaws {
     // INDEPENDENT ORACLE over hand-built ResidualSamples (purely managed Stat.Residuals fold; no native).
     [Fact]
     public void DistanceProjectsEachSampleDistanceInOrder() =>
-        Spec.Succ(Conformance.Distance(count: 3).Project<double>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
+        Spec.Succ(Conformance.Of(metric: ConformanceMetric.Distance, count: 3).Project<double>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
             then: static values => Spec.Equal(left: values, right: ConformanceGens.Residuals.Map(static s => s.Distance), tolerance: 0.0, what: "distances"));
     [Fact]
     public void RmsProjectsRootMeanSquareOfDistances() {
         Seq<double> distances = ConformanceGens.Residuals.Map(static s => s.Distance);
         double mean = Numeric.Sum(values: distances) / distances.Count;
         double variance = Numeric.Sum(values: distances.Map(d => (d - mean) * (d - mean))) / distances.Count;
-        Spec.Succ(Conformance.Rms(count: 3).Project<double>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
+        Spec.Succ(Conformance.Of(metric: ConformanceMetric.Rms, count: 3).Project<double>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
             then: rms => Spec.Equal(left: rms.Head.IfNone(0.0), right: Math.Sqrt(d: (mean * mean) + variance), tolerance: 1.0e-9, what: "rms"));
     }
     [Fact]
     public void MaximumProjectsArgmaxAndSignedResidualPassesThroughAllSamples() {
-        Spec.Succ(Conformance.Maximum(count: 3).Project<ResidualSample>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
+        Spec.Succ(Conformance.Of(metric: ConformanceMetric.Maximum, count: 3).Project<ResidualSample>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
             then: static max => Spec.Equal(left: max.Head.IfNone(default(ResidualSample)).Distance, right: 7.0, tolerance: 0.0, what: "argmax distance"));
-        Spec.Succ(Conformance.SignedResidual(count: 3).Project<ResidualSample>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
+        Spec.Succ(Conformance.Of(metric: ConformanceMetric.SignedResidual, count: 3).Project<ResidualSample>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
             then: static all => Assert.Equal(expected: ConformanceGens.Residuals, actual: all));
     }
 
     [Fact]
     public void SummaryWithinToleranceContainmentAndDistributionProjectIndependentResidualContracts() {
-        Spec.Succ(Conformance.WithinTolerance(count: 3).Project<bool>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
+        Spec.Succ(Conformance.Of(metric: ConformanceMetric.WithinTolerance, count: 3).Project<bool>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
             then: static within => Assert.Equal(expected: Seq(value: false), actual: within));
-        Spec.Succ(Conformance.Summary(count: 3).Project<Stat>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
+        Spec.Succ(Conformance.Of(metric: ConformanceMetric.Summary, count: 3).Project<Stat>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
             then: static summary => {
                 Stat stat = summary.Head.IfNone(default(Stat));
                 Assert.Equal(expected: 3, actual: stat.Count);
@@ -154,9 +154,9 @@ public sealed class ConformanceProjectionOracleLaws {
                 Spec.Equal(left: stat.Maximum, right: 7.0, tolerance: 0.0, what: "summary max");
                 Spec.Equal(left: stat.Mean, right: 4.0, tolerance: 1.0e-12, what: "summary mean");
             });
-        Spec.Succ(Conformance.Containment(count: 3).Project<ResidualSample>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
+        Spec.Succ(Conformance.Of(metric: ConformanceMetric.Containment, count: 3).Project<ResidualSample>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
             then: static all => Assert.Equal(expected: ConformanceGens.Residuals, actual: all));
-        Spec.Succ(Conformance.Distribution(3, 0.0, 50.0, 100.0).Project<Distribution>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
+        Spec.Succ(Conformance.Of(metric: ConformanceMetric.Distribution, count: 3, 0.0, 50.0, 100.0).Project<Distribution>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model),
             then: static distributions => {
                 Distribution distribution = distributions.Head.IfNone(default(Distribution));
                 Assert.Equal(expected: [0.0, 50.0, 100.0], actual: [.. distribution.Percentiles.Map(static p => p.Percentile).AsIterable()]);
@@ -166,5 +166,5 @@ public sealed class ConformanceProjectionOracleLaws {
 
     [Fact]
     public void ForeignOutputTypeProjectsUnsupportedCategory() =>
-        Spec.FailCategory(Conformance.Distance(count: 3).Project<Plane>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model), category: "Unsupported");
+        Spec.FailCategory(Conformance.Of(metric: ConformanceMetric.Distance, count: 3).Project<Plane>(residuals: ConformanceGens.Residuals, context: ConformanceGens.Model), category: "Unsupported");
 }

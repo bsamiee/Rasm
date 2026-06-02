@@ -61,7 +61,7 @@ public sealed partial record FileFormat {
             _ => NativeBool(run: () => document.WriteFile(path: target.Path, options: options), op: Op.Of(name: $"{Key}Write")),
         };
     internal Fin<Unit> Export(FileWriteOptions options, RhinoDoc document, FileEndpoint target, FileProfile profile) =>
-        (this == ThreeDm, options.WriteSelectedObjectsOnly, directWriteOptions, directWriteOptions || options.Xform.IsIdentity, directWriteCall) switch {
+        (Is(key: "3dm"), options.WriteSelectedObjectsOnly, directWriteOptions, directWriteOptions || options.Xform.IsIdentity, directWriteCall) switch {
             (true, _, _, _, _) => NativeBool(run: () => document.Write3dmFile(path: target.Path, options: options), op: Op.Of(name: $"{Key}Export")),
             (false, true, true, _, Func<FileProfile, FileWriteOptions, RhinoDoc, FileEndpoint, Fin<Unit>> write) => write(arg1: profile, arg2: options, arg3: document, arg4: target),
             (false, true, _, _, _) => NativeBool(run: () => document.ExportSelected(filePath: target.Path, options: options.OptionsDictionary), op: Op.Of(name: $"{Key}Export")),
@@ -82,107 +82,57 @@ public sealed partial record FileFormat {
         from _ in guard(!profile.Scale.IsSome || phase.Allows(capability: scale), op.InvalidInput())
         select unit;
 
-    public static FileFormat ThreeDm { get; } = Native(key: "3dm", extensions: Seq(".3dm"), archive: true);
-    public static FileFormat ThreeDs { get; } = Native(
-        key: "3ds",
-        extensions: Seq(".3ds"),
-        read: static _ => new File3dsReadOptions().ToDictionary(),
-        write: static profile => ThreeDsWriteOptions(profile: profile).ToDictionary(),
-        directRead: DirectRead(NewRead<File3dsReadOptions>(), File3ds.Read, "3dsRead"),
-        directWrite: DirectWrite(static (profile, _) => ThreeDsWriteOptions(profile: profile), File3ds.Write, "3dsWrite"));
-    public static FileFormat ThreeMf { get; } = Native(
-        key: "3mf",
-        extensions: Seq(".3mf"),
-        import: false,
-        write: static _ => new File3mfWriteOptions().ToDictionary(),
-        directWrite: DirectWrite(NewWrite<File3mfWriteOptions>(), File3mf.Write, "3mfWrite"));
-    public static FileFormat Ai { get; } = Native(
-        key: "ai",
-        extensions: Seq(".ai"),
-        read: static profile => AiReadOptions(profile: profile).ToDictionary(),
-        write: static profile => AiWriteOptions(profile: profile).ToDictionary(),
-        directRead: DirectRead(static (profile, _) => AiReadOptions(profile: profile), FileAi.Read, "aiRead"),
-        directWrite: DirectWrite(static (profile, _) => AiWriteOptions(profile: profile), FileAi.Write, "aiWrite"),
-        scale: FileCapability.Import | FileCapability.Export);
-    public static FileFormat Amf { get; } = Native(
-        key: "amf",
-        extensions: Seq(".amf"),
-        import: false,
-        write: static _ => new FileAmfWriteOptions().ToDictionary(),
-        directWrite: DirectWrite(NewWrite<FileAmfWriteOptions>(), FileAmf.Write, "amfWrite"));
-    public static FileFormat Obj { get; } = Native(
-        key: "obj",
-        extensions: Seq(".obj"),
-        directRead: DirectRead(static (_, options) => new FileObjReadOptions(options), FileObj.Read, "objRead"),
-        directWrite: DirectWriteResult(ObjWriteOptions, FileObj.Write, "objWrite"),
-        directWriteOptions: true);
-    public static FileFormat Ply { get; } = Native(
-        key: "ply",
-        extensions: Seq(".ply"),
-        read: static _ => new FilePlyReadOptions().ToDictionary(),
-        directRead: DirectRead(NewRead<FilePlyReadOptions>(), FilePly.Read, "plyRead"),
-        directWrite: DirectWriteResult(PlyWriteOptions, FilePly.Write, "plyWrite"),
-        directWriteOptions: true);
-    public static FileFormat Cd { get; } = Native(key: "cd", extensions: Seq(".cd"), import: false, write: static _ => new FileCdWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileCdWriteOptions>(), FileCd.Write, "cdWrite"));
-    public static FileFormat Dgn { get; } = Native(key: "dgn", extensions: Seq(".dgn"), export: false, read: static _ => new FileDgnReadOptions().ToDictionary(), directRead: DirectRead(NewRead<FileDgnReadOptions>(), FileDgn.Read, "dgnRead"));
-    public static FileFormat Dst { get; } = Native(key: "dst", extensions: Seq(".dst"), export: false, read: static _ => new FileDstReadOptions().ToDictionary(), directRead: DirectRead(NewRead<FileDstReadOptions>(), FileDst.Read, "dstRead"));
-    public static FileFormat Dwg { get; } = Native(key: "dwg", extensions: Seq(".dwg", ".dxf"), read: static _ => new FileDwgReadOptions().ToDictionary(), write: static profile => DwgWriteOptions(profile: profile).ToDictionary(), directRead: DirectRead(NewRead<FileDwgReadOptions>(), FileDwg.Read, "dwgRead"), directWrite: DirectWrite(static (profile, _) => DwgWriteOptions(profile: profile), FileDwg.Write, "dwgWrite"));
-    public static FileFormat Eps { get; } = Native(key: "eps", extensions: Seq(".eps"), export: false, read: static profile => EpsReadOptions(profile: profile).ToDictionary(), directRead: DirectRead(static (profile, _) => EpsReadOptions(profile: profile), FileEps.Read, "epsRead"), scale: FileCapability.Import);
-    public static FileFormat Stl { get; } = Native(key: "stl", extensions: Seq(".stl"), read: static _ => new FileStlReadOptions().ToDictionary(), write: static _ => StlWriteOptions().ToDictionary(), directRead: DirectRead(NewRead<FileStlReadOptions>(), FileStl.Read, "stlRead"), directWrite: DirectWrite(static (_, _) => StlWriteOptions(), FileStl.Write, "stlWrite"));
-    public static FileFormat Stp { get; } = Native(key: "stp", extensions: Seq(".stp", ".step"), read: static _ => new FileStpReadOptions().ToDictionary(), write: static _ => new FileStpWriteOptions().ToDictionary(), directRead: DirectRead(NewRead<FileStpReadOptions>(), FileStp.Read, "stpRead"), directWrite: DirectWrite(NewWrite<FileStpWriteOptions>(), FileStp.Write, "stpWrite"));
-    public static FileFormat Fbx { get; } = Native(key: "fbx", extensions: Seq(".fbx"), read: static _ => new FileFbxReadOptions().ToDictionary(), write: static profile => FbxWriteOptions(profile: profile).ToDictionary(), directRead: DirectRead(NewRead<FileFbxReadOptions>(), FileFbx.Read, "fbxRead"), directWrite: DirectWrite(static (profile, _) => FbxWriteOptions(profile: profile), FileFbx.Write, "fbxWrite"));
-    public static FileFormat Ghs { get; } = Native(key: "ghs", extensions: Seq(".ghs"), export: false, read: static _ => new FileGHSReadOptions().ToDictionary(), directRead: DirectRead(NewRead<FileGHSReadOptions>(), FileGHS.Read, "ghsRead"));
-    public static FileFormat Gts { get; } = Native(key: "gts", extensions: Seq(".gts"), import: false, write: static _ => new FileGtsWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileGtsWriteOptions>(), FileGts.Write, "gtsWrite"));
-    public static FileFormat Iges { get; } = Native(key: "igs", extensions: Seq(".igs", ".iges"), import: false, write: static _ => new FileIgsWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileIgsWriteOptions>(), FileIgs.Write, "igsWrite"));
-    public static FileFormat Lwo { get; } = Native(key: "lwo", extensions: Seq(".lwo"), read: static _ => new FileLwoReadOptions().ToDictionary(), write: static _ => new FileLwoWriteOptions().ToDictionary(), directRead: DirectRead(NewRead<FileLwoReadOptions>(), FileLwo.Read, "lwoRead"), directWrite: DirectWrite(NewWrite<FileLwoWriteOptions>(), FileLwo.Write, "lwoWrite"));
-    public static FileFormat Nwd { get; } = Native(key: "nwd", extensions: Seq(".nwd"), import: false, write: static _ => new FileNwdWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileNwdWriteOptions>(), FileNwd.Write, "nwdWrite"));
-    public static FileFormat Pov { get; } = Native(key: "pov", extensions: Seq(".pov"), import: false, write: static _ => new FilePovWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FilePovWriteOptions>(), FilePov.Write, "povWrite"));
-    public static FileFormat Sat { get; } = Native(key: "sat", extensions: Seq(".sat"), import: false, write: static _ => new FileSatWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileSatWriteOptions>(), FileSat.Write, "satWrite"));
-    public static FileFormat Skp { get; } = Native(key: "skp", extensions: Seq(".skp"), read: static _ => new FileSkpReadOptions().ToDictionary(), write: static profile => SkpWriteOptions(profile: profile).ToDictionary(), directRead: DirectRead(NewRead<FileSkpReadOptions>(), FileSkp.Read, "skpRead"), directWrite: DirectWrite(static (profile, _) => SkpWriteOptions(profile: profile), FileSkp.Write, "skpWrite"));
-    public static FileFormat Slc { get; } = Native(key: "slc", extensions: Seq(".slc"), import: false, directWrite: DirectWrite(NewWrite<FileSlcWriteOptions>(), FileSlc.Write, "slcWrite"));
-    public static FileFormat Sw { get; } = Native(key: "sw", extensions: Seq(".sldprt", ".sldasm"), export: false, read: static _ => new FileSwReadOptions().ToDictionary(), directRead: DirectRead(NewRead<FileSwReadOptions>(), FileSW.Read, "swRead"));
-    public static FileFormat Udo { get; } = Native(key: "udo", extensions: Seq(".udo"), import: false, write: static _ => new FileUdoWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileUdoWriteOptions>(), FileUdo.Write, "udoWrite"));
-    public static FileFormat Vda { get; } = Native(key: "vda", extensions: Seq(".vda"), import: false, write: static _ => new FileVdaWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileVdaWriteOptions>(), FileVda.Write, "vdaWrite"));
-    public static FileFormat Vrml { get; } = Native(key: "vrml", extensions: Seq(".wrl", ".vrml"), import: false, write: static profile => VrmlWriteOptions(profile: profile).ToDictionary(), directWrite: DirectWrite(static (profile, _) => VrmlWriteOptions(profile: profile), FileVrml.Write, "vrmlWrite"));
-    public static FileFormat X3dv { get; } = Native(key: "x3dv", extensions: Seq(".x3dv"), import: false, write: static profile => X3dvWriteOptions(profile: profile).ToDictionary(), directWrite: DirectWrite(static (profile, _) => X3dvWriteOptions(profile: profile), FileX3dv.Write, "x3dvWrite"));
-    public static FileFormat Xaml { get; } = Native(key: "xaml", extensions: Seq(".xaml"), import: false, write: static profile => new FileXamlWriteOptions { UseExistingRenderMeshes = IsModel(profile.Fidelity) }.ToDictionary());
-    public static FileFormat Xt { get; } = Native(key: "x_t", extensions: Seq(".x_t", ".x_b"), import: false, write: static _ => new FileX_TWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileX_TWriteOptions>(), FileX_T.Write, "x_tWrite"));
-    public static FileFormat Raw { get; } = Native(key: "raw", extensions: Seq(".raw"), read: static _ => new FileRawReadOptions().ToDictionary(), write: static _ => new FileRawWriteOptions().ToDictionary(), directRead: DirectRead(NewRead<FileRawReadOptions>(), FileRaw.Read, "rawRead"), directWrite: DirectWrite(NewWrite<FileRawWriteOptions>(), FileRaw.Write, "rawWrite"));
-    public static FileFormat Txt { get; } = Native(key: "txt", extensions: Seq(".txt"), read: static _ => new FileTxtReadOptions().ToDictionary(), write: static profile => TxtWriteOptions(profile: profile).ToDictionary(), directRead: DirectRead(NewRead<FileTxtReadOptions>(), FileTxt.Read, "txtRead"), directWrite: DirectWrite(static (profile, _) => TxtWriteOptions(profile: profile), FileTxt.Write, "txtWrite"));
-    public static FileFormat Csv { get; } = Native(key: "csv", extensions: Seq(".csv"), import: false, write: static profile => CsvOptions(profile: profile).ToDictionary(), directWrite: DirectWrite(static (profile, _) => CsvOptions(profile: profile), FileCsv.Write, "csvWrite"));
-    public static FileFormat Gltf { get; } = Native(key: "gltf", extensions: Seq(".gltf", ".glb"), import: false, write: static profile => GltfWriteOptions(profile: profile).ToDictionary(), directWrite: DirectWrite(static (profile, _) => GltfWriteOptions(profile: profile), FileGltf.Write, "gltfWrite"));
-    public static FileFormat Usd { get; } = Native(key: "usd", extensions: Seq(".usd", ".usda", ".usdz"), import: false, write: static profile => UsdWriteOptions(profile: profile).ToDictionary(), directWrite: DirectWrite(static (profile, _) => UsdWriteOptions(profile: profile), FileUsd.Write, "usdWrite"));
-    public static FileFormat Pdf { get; } = new(
-        key: "pdf",
-        extensions: Seq(".pdf"),
-        capability: FileCapability.Vector,
-        read: static profile => PdfReadOptions(profile: profile).ToDictionary(),
-        write: null,
-        directRead: DirectRead(static (profile, _) => PdfReadOptions(profile: profile), FilePdf.Read, "pdfRead"),
-        directWrite: null,
-        directWriteOptions: false,
-        scale: FileCapability.Import);
-    public static FileFormat Svg { get; } = new(
-        key: "svg",
-        extensions: Seq(".svg"),
-        capability: FileCapability.Vector,
-        scale: FileCapability.None,
-        read: static _ => new FileSvgReadOptions().ToDictionary(),
-        write: null,
-        directRead: DirectRead(NewRead<FileSvgReadOptions>(), FileSvg.Read, "svgRead"),
-        directWrite: null,
-        directWriteOptions: false);
-    public static FileFormat Png { get; } = new(key: "png", extensions: Seq(".png"), capability: FileCapability.Raster, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
-    public static FileFormat Jpeg { get; } = new(key: "jpeg", extensions: Seq(".jpg", ".jpeg"), capability: FileCapability.Raster, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
-    public static FileFormat Tiff { get; } = new(key: "tiff", extensions: Seq(".tif", ".tiff"), capability: FileCapability.Raster, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
-    public static FileFormat Bmp { get; } = new(key: "bmp", extensions: Seq(".bmp"), capability: FileCapability.Raster, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false);
-
-    private static Seq<FileFormat> BuiltIn { get; } = Seq(ThreeDm, ThreeDs, ThreeMf, Ai, Amf, Obj, Ply, Cd, Dgn, Dst, Dwg, Eps, Stl, Stp, Fbx, Ghs, Gts, Iges, Lwo, Nwd, Pov, Sat, Skp, Slc, Sw, Udo, Vda, Vrml, X3dv, Xaml, Xt, Raw, Txt, Csv, Gltf, Usd, Pdf, Svg, Png, Jpeg, Tiff, Bmp);
+    private static Seq<FileFormat> BuiltIn { get; } = Seq(
+        Native(key: "3dm", extensions: Seq(".3dm"), archive: true),
+        Native(key: "3ds", extensions: Seq(".3ds"), read: static _ => new File3dsReadOptions().ToDictionary(), write: static profile => ThreeDsWriteOptions(profile: profile).ToDictionary(), directRead: DirectRead(NewRead<File3dsReadOptions>(), File3ds.Read, "3dsRead"), directWrite: DirectWrite(static (profile, _) => ThreeDsWriteOptions(profile: profile), File3ds.Write, "3dsWrite")),
+        Native(key: "3mf", extensions: Seq(".3mf"), import: false, write: static _ => new File3mfWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<File3mfWriteOptions>(), File3mf.Write, "3mfWrite")),
+        Native(key: "ai", extensions: Seq(".ai"), read: static profile => AiReadOptions(profile: profile).ToDictionary(), write: static profile => AiWriteOptions(profile: profile).ToDictionary(), directRead: DirectRead(static (profile, _) => AiReadOptions(profile: profile), FileAi.Read, "aiRead"), directWrite: DirectWrite(static (profile, _) => AiWriteOptions(profile: profile), FileAi.Write, "aiWrite"), scale: FileCapability.Import | FileCapability.Export),
+        Native(key: "amf", extensions: Seq(".amf"), import: false, write: static _ => new FileAmfWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileAmfWriteOptions>(), FileAmf.Write, "amfWrite")),
+        Native(key: "obj", extensions: Seq(".obj"), directRead: DirectRead(static (_, options) => new FileObjReadOptions(options), FileObj.Read, "objRead"), directWrite: DirectWriteResult(ObjWriteOptions, FileObj.Write, "objWrite"), directWriteOptions: true),
+        Native(key: "ply", extensions: Seq(".ply"), read: static _ => new FilePlyReadOptions().ToDictionary(), directRead: DirectRead(NewRead<FilePlyReadOptions>(), FilePly.Read, "plyRead"), directWrite: DirectWriteResult(PlyWriteOptions, FilePly.Write, "plyWrite"), directWriteOptions: true),
+        Native(key: "cd", extensions: Seq(".cd"), import: false, write: static _ => new FileCdWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileCdWriteOptions>(), FileCd.Write, "cdWrite")),
+        Native(key: "dgn", extensions: Seq(".dgn"), export: false, read: static _ => new FileDgnReadOptions().ToDictionary(), directRead: DirectRead(NewRead<FileDgnReadOptions>(), FileDgn.Read, "dgnRead")),
+        Native(key: "dst", extensions: Seq(".dst"), export: false, read: static _ => new FileDstReadOptions().ToDictionary(), directRead: DirectRead(NewRead<FileDstReadOptions>(), FileDst.Read, "dstRead")),
+        Native(key: "dwg", extensions: Seq(".dwg", ".dxf"), read: static _ => new FileDwgReadOptions().ToDictionary(), write: static profile => DwgWriteOptions(profile: profile).ToDictionary(), directRead: DirectRead(NewRead<FileDwgReadOptions>(), FileDwg.Read, "dwgRead"), directWrite: DirectWrite(static (profile, _) => DwgWriteOptions(profile: profile), FileDwg.Write, "dwgWrite")),
+        Native(key: "eps", extensions: Seq(".eps"), export: false, read: static profile => EpsReadOptions(profile: profile).ToDictionary(), directRead: DirectRead(static (profile, _) => EpsReadOptions(profile: profile), FileEps.Read, "epsRead"), scale: FileCapability.Import),
+        Native(key: "stl", extensions: Seq(".stl"), read: static _ => new FileStlReadOptions().ToDictionary(), write: static _ => StlWriteOptions().ToDictionary(), directRead: DirectRead(NewRead<FileStlReadOptions>(), FileStl.Read, "stlRead"), directWrite: DirectWrite(static (_, _) => StlWriteOptions(), FileStl.Write, "stlWrite")),
+        Native(key: "stp", extensions: Seq(".stp", ".step"), read: static _ => new FileStpReadOptions().ToDictionary(), write: static _ => new FileStpWriteOptions().ToDictionary(), directRead: DirectRead(NewRead<FileStpReadOptions>(), FileStp.Read, "stpRead"), directWrite: DirectWrite(NewWrite<FileStpWriteOptions>(), FileStp.Write, "stpWrite")),
+        Native(key: "fbx", extensions: Seq(".fbx"), read: static _ => new FileFbxReadOptions().ToDictionary(), write: static profile => FbxWriteOptions(profile: profile).ToDictionary(), directRead: DirectRead(NewRead<FileFbxReadOptions>(), FileFbx.Read, "fbxRead"), directWrite: DirectWrite(static (profile, _) => FbxWriteOptions(profile: profile), FileFbx.Write, "fbxWrite")),
+        Native(key: "ghs", extensions: Seq(".ghs"), export: false, read: static _ => new FileGHSReadOptions().ToDictionary(), directRead: DirectRead(NewRead<FileGHSReadOptions>(), FileGHS.Read, "ghsRead")),
+        Native(key: "gts", extensions: Seq(".gts"), import: false, write: static _ => new FileGtsWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileGtsWriteOptions>(), FileGts.Write, "gtsWrite")),
+        Native(key: "igs", extensions: Seq(".igs", ".iges"), import: false, write: static _ => new FileIgsWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileIgsWriteOptions>(), FileIgs.Write, "igsWrite")),
+        Native(key: "lwo", extensions: Seq(".lwo"), read: static _ => new FileLwoReadOptions().ToDictionary(), write: static _ => new FileLwoWriteOptions().ToDictionary(), directRead: DirectRead(NewRead<FileLwoReadOptions>(), FileLwo.Read, "lwoRead"), directWrite: DirectWrite(NewWrite<FileLwoWriteOptions>(), FileLwo.Write, "lwoWrite")),
+        Native(key: "nwd", extensions: Seq(".nwd"), import: false, write: static _ => new FileNwdWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileNwdWriteOptions>(), FileNwd.Write, "nwdWrite")),
+        Native(key: "pov", extensions: Seq(".pov"), import: false, write: static _ => new FilePovWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FilePovWriteOptions>(), FilePov.Write, "povWrite")),
+        Native(key: "sat", extensions: Seq(".sat"), import: false, write: static _ => new FileSatWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileSatWriteOptions>(), FileSat.Write, "satWrite")),
+        Native(key: "skp", extensions: Seq(".skp"), read: static _ => new FileSkpReadOptions().ToDictionary(), write: static profile => SkpWriteOptions(profile: profile).ToDictionary(), directRead: DirectRead(NewRead<FileSkpReadOptions>(), FileSkp.Read, "skpRead"), directWrite: DirectWrite(static (profile, _) => SkpWriteOptions(profile: profile), FileSkp.Write, "skpWrite")),
+        Native(key: "slc", extensions: Seq(".slc"), import: false, directWrite: DirectWrite(NewWrite<FileSlcWriteOptions>(), FileSlc.Write, "slcWrite")),
+        Native(key: "sw", extensions: Seq(".sldprt", ".sldasm"), export: false, read: static _ => new FileSwReadOptions().ToDictionary(), directRead: DirectRead(NewRead<FileSwReadOptions>(), FileSW.Read, "swRead")),
+        Native(key: "udo", extensions: Seq(".udo"), import: false, write: static _ => new FileUdoWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileUdoWriteOptions>(), FileUdo.Write, "udoWrite")),
+        Native(key: "vda", extensions: Seq(".vda"), import: false, write: static _ => new FileVdaWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileVdaWriteOptions>(), FileVda.Write, "vdaWrite")),
+        Native(key: "vrml", extensions: Seq(".wrl", ".vrml"), import: false, write: static profile => VrmlWriteOptions(profile: profile).ToDictionary(), directWrite: DirectWrite(static (profile, _) => VrmlWriteOptions(profile: profile), FileVrml.Write, "vrmlWrite")),
+        Native(key: "x3dv", extensions: Seq(".x3dv"), import: false, write: static profile => X3dvWriteOptions(profile: profile).ToDictionary(), directWrite: DirectWrite(static (profile, _) => X3dvWriteOptions(profile: profile), FileX3dv.Write, "x3dvWrite")),
+        Native(key: "xaml", extensions: Seq(".xaml"), import: false, write: static profile => new FileXamlWriteOptions { UseExistingRenderMeshes = IsModel(profile.Fidelity) }.ToDictionary()),
+        Native(key: "x_t", extensions: Seq(".x_t", ".x_b"), import: false, write: static _ => new FileX_TWriteOptions().ToDictionary(), directWrite: DirectWrite(NewWrite<FileX_TWriteOptions>(), FileX_T.Write, "x_tWrite")),
+        Native(key: "raw", extensions: Seq(".raw"), read: static _ => new FileRawReadOptions().ToDictionary(), write: static _ => new FileRawWriteOptions().ToDictionary(), directRead: DirectRead(NewRead<FileRawReadOptions>(), FileRaw.Read, "rawRead"), directWrite: DirectWrite(NewWrite<FileRawWriteOptions>(), FileRaw.Write, "rawWrite")),
+        Native(key: "txt", extensions: Seq(".txt"), read: static _ => new FileTxtReadOptions().ToDictionary(), write: static profile => TxtWriteOptions(profile: profile).ToDictionary(), directRead: DirectRead(NewRead<FileTxtReadOptions>(), FileTxt.Read, "txtRead"), directWrite: DirectWrite(static (profile, _) => TxtWriteOptions(profile: profile), FileTxt.Write, "txtWrite")),
+        Native(key: "csv", extensions: Seq(".csv"), import: false, write: static profile => CsvOptions(profile: profile).ToDictionary(), directWrite: DirectWrite(static (profile, _) => CsvOptions(profile: profile), FileCsv.Write, "csvWrite")),
+        Native(key: "gltf", extensions: Seq(".gltf", ".glb"), import: false, write: static profile => GltfWriteOptions(profile: profile).ToDictionary(), directWrite: DirectWrite(static (profile, _) => GltfWriteOptions(profile: profile), FileGltf.Write, "gltfWrite")),
+        Native(key: "usd", extensions: Seq(".usd", ".usda", ".usdz"), import: false, write: static profile => UsdWriteOptions(profile: profile).ToDictionary(), directWrite: DirectWrite(static (profile, _) => UsdWriteOptions(profile: profile), FileUsd.Write, "usdWrite")),
+        new(key: "pdf", extensions: Seq(".pdf"), capability: FileCapability.Vector, read: static profile => PdfReadOptions(profile: profile).ToDictionary(), write: null, directRead: DirectRead(static (profile, _) => PdfReadOptions(profile: profile), FilePdf.Read, "pdfRead"), directWrite: null, directWriteOptions: false, scale: FileCapability.Import),
+        new(key: "svg", extensions: Seq(".svg"), capability: FileCapability.Vector, scale: FileCapability.None, read: static _ => new FileSvgReadOptions().ToDictionary(), write: null, directRead: DirectRead(NewRead<FileSvgReadOptions>(), FileSvg.Read, "svgRead"), directWrite: null, directWriteOptions: false),
+        new(key: "png", extensions: Seq(".png"), capability: FileCapability.Raster, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false),
+        new(key: "jpeg", extensions: Seq(".jpg", ".jpeg"), capability: FileCapability.Raster, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false),
+        new(key: "tiff", extensions: Seq(".tif", ".tiff"), capability: FileCapability.Raster, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false),
+        new(key: "bmp", extensions: Seq(".bmp"), capability: FileCapability.Raster, scale: FileCapability.None, read: null, write: null, directRead: null, directWrite: null, directWriteOptions: false));
     private static readonly Atom<HashMap<string, FileFormat>> CustomCell = Atom(HashMap<string, FileFormat>());
     private static readonly FrozenSet<string> ReservedKeys = new[] { "JSON" }.ToFrozenSet(comparer: StringComparer.OrdinalIgnoreCase);
     private static readonly FrozenSet<string> ReservedExtensions = new[] { ".json" }.ToFrozenSet(comparer: StringComparer.OrdinalIgnoreCase);
 
     public static Seq<FileFormat> Known => BuiltIn + toSeq(CustomCell.Value.Values);
+
+    internal static FileFormat KnownFormat(string key) =>
+        ByKey[key: NormalizeKey(value: key)];
 
     private static FrozenDictionary<string, FileFormat> ByKey { get; } =
         BuiltIn.AsIterable().ToFrozenDictionary(keySelector: static format => format.Key, elementSelector: static format => format, comparer: StringComparer.OrdinalIgnoreCase);
@@ -262,6 +212,9 @@ public sealed partial record FileFormat {
             true => path,
             false => IOPath.ChangeExtension(path: path, extension: Extensions[0].TrimStart('.')),
         };
+
+    internal bool Is(string key) =>
+        string.Equals(a: Key, b: NormalizeKey(value: key), comparisonType: StringComparison.OrdinalIgnoreCase);
 
     internal static Fin<Unit> NativeBool(Func<bool> run, Op op) =>
         op.Catch(() => op.Confirm(success: run()));

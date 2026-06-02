@@ -878,6 +878,12 @@ public sealed class RuleBehaviorTests {
                 }
             }
             """),
+        new("CSP0745", File(scope: "Domain/Services", type: "PassiveSiblingSurfaceFamily"), PassiveSiblingSource(members: """
+            public static string A => Native(key: "a");
+            public static string B => Native(key: "b");
+            public static string C => Native(key: "c");
+            private static string Native(string key) => key;
+            """)),
         new("CSP0802", File(scope: "Domain/Models", type: "UnqualifiedUnionOps"), """
             namespace Thinktecture {
                 public sealed class UnionAttribute : System.Attribute { }
@@ -3602,6 +3608,138 @@ public sealed class RuleBehaviorTests {
         Assert.Contains(expected: "CSP0744", collection: ids);
     }
 
+    [Fact]
+    public async Task TwoPassiveSiblingRowsDoNotEmitPassiveFamilyDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/TwoPassiveSiblingRows.cs",
+            source: PassiveSiblingSource(members: """
+                public static string A => Native(key: "a");
+                public static string B => Native(key: "b");
+                private static string Native(string key) => key;
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0745", collection: ids);
+    }
+
+    [Fact]
+    public async Task DifferentParameterTypesDoNotEmitPassiveFamilyDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/TypedPassiveVocabulary.cs",
+            source: PassiveSiblingSource(members: """
+                public static string A(int value) => Native(value: value);
+                public static string B(double value) => Native(value: value);
+                public static string C(bool value) => Native(value: value);
+                private static string Native(object value) => value.ToString()!;
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0745", collection: ids);
+    }
+
+    [Fact]
+    public async Task OverrideProtocolMembersDoNotEmitPassiveFamilyDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/OverrideProtocol.cs",
+            source: """
+            namespace Domain.Services;
+
+            public abstract class NativeProtocol {
+                public abstract string A { get; }
+                public abstract string B { get; }
+                public abstract string C { get; }
+            }
+
+            public sealed class OverrideProtocol : NativeProtocol {
+                public override string A => Native(key: "a");
+                public override string B => Native(key: "b");
+                public override string C => Native(key: "c");
+                private static string Native(string key) => key;
+            }
+            """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0745", collection: ids);
+    }
+
+    [Fact]
+    public async Task BlockBodyBehaviorDoesNotEmitPassiveFamilyDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/BehaviorfulPassiveShape.cs",
+            source: PassiveSiblingSource(members: """
+                public static string A(string key) {
+                    if (string.IsNullOrWhiteSpace(key)) {
+                        return string.Empty;
+                    }
+                    return Native(key: key);
+                }
+                public static string B(string key) {
+                    if (key.Length == 0) {
+                        return string.Empty;
+                    }
+                    return Native(key: key);
+                }
+                public static string C(string key) {
+                    if (key == "none") {
+                        return string.Empty;
+                    }
+                    return Native(key: key);
+                }
+                private static string Native(string key) => key;
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0745", collection: ids);
+    }
+
+    [Fact]
+    public async Task UnionCaseVocabularyDoesNotEmitPassiveFamilyDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/UnionVocabulary.cs",
+            source: """
+            namespace Thinktecture {
+                public sealed class UnionAttribute : System.Attribute { }
+                public sealed class SkipUnionOpsAttribute : System.Attribute { }
+            }
+
+            namespace Domain.Services {
+                [Thinktecture.Union]
+                [Thinktecture.SkipUnionOps]
+                public abstract record UnionVocabulary {
+                    private UnionVocabulary() { }
+                    public sealed record ACase : UnionVocabulary;
+                    public sealed record BCase : UnionVocabulary;
+                    public sealed record CCase : UnionVocabulary;
+                    public static UnionVocabulary A => new ACase();
+                    public static UnionVocabulary B => new BCase();
+                    public static UnionVocabulary C => new CCase();
+                }
+            }
+            """).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0745", collection: ids);
+    }
+
+    [Fact]
+    public async Task InstanceProjectionPropertiesDoNotEmitPassiveFamilyDiagnosticAsync() {
+        ImmutableArray<string> ids = await AnalyzeIdsAsync(
+            filePath: "/workspace/src/Domain/Services/ProjectionAdapter.cs",
+            source: PassiveSiblingSource(members: """
+                private readonly NativeArgs args = new();
+                public bool Shift => args.Has(Modifier.Shift);
+                public bool Control => args.Has(Modifier.Control);
+                public bool Alt => args.Has(Modifier.Alt);
+
+                private sealed class NativeArgs {
+                    public bool Has(Modifier modifier) => true;
+                }
+
+                private enum Modifier {
+                    Shift,
+                    Control,
+                    Alt,
+                }
+                """)).ConfigureAwait(true);
+
+        Assert.DoesNotContain(expected: "CSP0745", collection: ids);
+    }
+
     public static TheoryData<string, string, string> RuleCases() =>
         Cases.Aggregate(
             seed: [],
@@ -3815,6 +3953,15 @@ public sealed class RuleBehaviorTests {
                 public int Create(Operation.Create task) => 1;
                 public int Delete(Operation.Delete task) => 2;
                 public int Inspect(Operation.Inspect task) => 3;
+            }
+        }
+        """;
+
+    private static string PassiveSiblingSource(string members) =>
+        $$"""
+        namespace Domain.Services {
+            public sealed class PassiveSiblingSurfaceFamily {
+        {{members}}
             }
         }
         """;

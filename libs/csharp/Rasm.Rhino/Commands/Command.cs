@@ -165,17 +165,17 @@ public sealed record PromptStage<TState, TValue>(
         from next in transition.Value.Case switch {
             PromptTransition<TState> value => Fin.Succ(value: value),
             _ => inputEvent.Kind switch {
-                CommandInputEventKind.Cancel or CommandInputEventKind.Exit => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Cancel()),
-                CommandInputEventKind.Undo => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Back()),
-                CommandInputEventKind.Nothing => Optional(Enter)
+                CommandInputOutcomeKind.Cancel or CommandInputOutcomeKind.Exit => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Cancel()),
+                CommandInputOutcomeKind.Undo => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Back()),
+                CommandInputOutcomeKind.Nothing => Optional(Enter)
                     .Map(run => run(arg: context))
                     .IfNone(Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Stay(State: context.State))),
-                CommandInputEventKind.Rejected => inputEvent.Result.ToFin(Fail: Op.Of(name: Name).InvalidResult()).Bind(got =>
+                CommandInputOutcomeKind.Rejected => inputEvent.Result.ToFin(Fail: Op.Of(name: Name).InvalidResult()).Bind(got =>
                     Optional(Rejected)
                         .Map(run => run(arg1: context, arg2: got).Map(_ => (PromptTransition<TState>)new PromptTransition<TState>.Stay(State: context.State)))
                         .IfNone(Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Stay(State: context.State)))),
-                CommandInputEventKind.NoResult or CommandInputEventKind.Miss or CommandInputEventKind.Timeout => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Stay(State: context.State)),
-                CommandInputEventKind.Option => Optional(OptionLens).Case switch {
+                CommandInputOutcomeKind.NoResult or CommandInputOutcomeKind.Miss or CommandInputOutcomeKind.Timeout => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Stay(State: context.State)),
+                CommandInputOutcomeKind.Option => Optional(OptionLens).Case switch {
                     Func<CommandStageContext<TState>, CommandOptionValue, Fin<TState>> lens =>
                         from got in inputEvent.Result.ToFin(Fail: Op.Of(name: Name).InvalidResult())
                         from selected in got.Option.ToFin(Fail: Op.Of(name: Name).InvalidResult())

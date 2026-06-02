@@ -38,7 +38,7 @@ public abstract partial record FilePublishTarget {
             raster: static (ctx, target) => WriteRaster(target: target, pages: ctx.Pages, op: ctx.Op),
             svg: static (ctx, target) => WriteSvg(target: target, pages: ctx.Pages, op: ctx.Op));
     private static Fin<FilePublishResult> WritePdf(Pdf target, Seq<FileViewPage> pages, bool layers, Op op) =>
-        from endpoint in target.Target.WithFormat(format: FileFormat.Pdf).Output(op: op)
+        from endpoint in target.Target.WithFormat(format: FileFormat.KnownFormat(key: "pdf")).Output(op: op)
         from pdf in Optional(FilePdf.Create()).ToFin(Fail: op.InvalidResult())
         let totalPages = target.Prefix.Count + pages.Count + target.Suffix.Count
         from _prefix in target.Prefix.Map((spec, index) => (Spec: spec, Index: index + 1)).TraverseM(item => AddBlankPdfPage(pdf: pdf, spec: item.Spec, pageIndex: item.Index, pageCount: totalPages, op: op)
@@ -65,7 +65,7 @@ public abstract partial record FilePublishTarget {
         from _verify in VerifyFile(path: endpoint.Path, op: op)
         select new FilePublishResult(
             Target: Some(endpoint),
-            Format: Some(FileFormat.Pdf),
+            Format: Some(FileFormat.KnownFormat(key: "pdf")),
             Receipt: DocumentReceipt.Empty,
             Views: sheets);
 
@@ -128,7 +128,7 @@ public abstract partial record FilePublishTarget {
     }
 
     private static Fin<FilePublishResult> WriteSvg(Svg target, Seq<FileViewPage> pages, Op op) =>
-        CaptureViews(target: target.Target, format: FileFormat.Svg, pages: pages, op: op,
+        CaptureViews(target: target.Target, format: FileFormat.KnownFormat(key: "svg"), pages: pages, op: op,
             render: (_, owned, path) => Optional(ViewCapture.CaptureToSvg(settings: owned))
                 .ToFin(Fail: op.InvalidResult())
                 .Bind(document => op.Catch(() => {
@@ -199,25 +199,25 @@ public abstract partial record FilePublishTarget {
 public sealed partial class FileRasterEncoding {
     public static readonly FileRasterEncoding Png = new(
         key: 0,
-        format: () => FileFormat.Png,
+        format: () => FileFormat.KnownFormat(key: "png"),
         image: () => DrawingImageFormat.Png,
         compression: FileTiffCompression.Default,
         encode: static (_, settings) => settings.PngDepth.Map(depth => Seq(new FileRasterCodecParameter(Kind: FileRasterCodecKind.ColorDepth, Value: depth))).IfNone(Seq<FileRasterCodecParameter>()));
     public static readonly FileRasterEncoding Jpeg = new(
         key: 1,
-        format: () => FileFormat.Jpeg,
+        format: () => FileFormat.KnownFormat(key: "jpeg"),
         image: () => DrawingImageFormat.Jpeg,
         compression: FileTiffCompression.Default,
         encode: static (_, settings) => Seq(new FileRasterCodecParameter(Kind: FileRasterCodecKind.Quality, Value: settings.JpegQuality)));
     public static readonly FileRasterEncoding Tiff = new(
         key: 2,
-        format: () => FileFormat.Tiff,
+        format: () => FileFormat.KnownFormat(key: "tiff"),
         image: () => DrawingImageFormat.Tiff,
         compression: FileTiffCompression.Lzw,
         encode: static (encoding, settings) => Seq(new FileRasterCodecParameter(Kind: FileRasterCodecKind.Compression, Value: (long)settings.TiffCompression.IfNone(noneValue: encoding.Compression))));
     public static readonly FileRasterEncoding Bitmap = new(
         key: 3,
-        format: () => FileFormat.Bmp,
+        format: () => FileFormat.KnownFormat(key: "bmp"),
         image: () => DrawingImageFormat.Bmp,
         compression: FileTiffCompression.Default,
         encode: static (_, _) => Seq<FileRasterCodecParameter>());

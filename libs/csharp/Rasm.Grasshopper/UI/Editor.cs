@@ -29,7 +29,7 @@ public partial record EditorOp : IUiOp<EditorResult> {
     GrasshopperUiIntent<EditorResult> IUiOp<EditorResult>.Intent() =>
         new(
             policy: this is ShellCase ? GrasshopperUiPolicy.Canvas(openEditor: true) : GrasshopperUiPolicy.Read,
-            run: _ => UI.Editor.Dispatch(op: this));
+            run: _ => Editor.Dispatch(op: this));
 }
 
 [SkipUnionOps]

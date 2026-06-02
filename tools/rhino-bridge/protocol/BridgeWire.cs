@@ -293,11 +293,11 @@ public static class BridgeWire {
     public const int ProcessOutputLimit = 16384;
     /// GH2 plugin id — pre-load into default ALC before isolated execution so the resolver binds, not re-loads, GH2.
     public const string GrasshopperPluginId = "8307876d-a461-4daa-bb77-eb3715925513";
-    public static FrozenSet<string> FrameworkReferencePackMarkers { get; } = new[] {
+    private static readonly FrozenSet<string> FrameworkReferencePackMarkers = new[] {
         "/packs/Microsoft.NETCore.App.Ref/",
         "/packs/NETStandard.Library.Ref/",
     }.ToFrozenSet(comparer: StringComparer.Ordinal);
-    public static FrozenSet<string> HostAssemblyNames { get; } = new[] {
+    private static readonly FrozenSet<string> HostAssemblyNames = new[] {
         "Eto",
         "Eto.macOS",
         "Grasshopper",
@@ -334,7 +334,7 @@ public static class BridgeWire {
         "using Eto.Drawing;\n";
     /// Injected after preamble; body starts here or at the first non-preamble line.
     public const string ScenarioBodyMarker = "// --- [SCENARIO_BODY] ---";
-    public static FrozenSet<string> CollisionWatchAssemblyNames { get; } = new[] {
+    private static readonly FrozenSet<string> CollisionWatchAssemblyNames = new[] {
         "FSharp.Core",
         "LanguageExt.Core",
         "Thinktecture.Runtime.Extensions",

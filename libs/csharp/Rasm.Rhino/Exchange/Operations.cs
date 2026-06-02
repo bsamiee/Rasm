@@ -287,7 +287,7 @@ public static class FileOp {
     private static Fin<FileReport> OpenCore(FileEndpoint source, FileProfile profile) =>
         from endpoint in source.Input(op: Op.Of(name: nameof(FileExchange.Open)))
         from format in FileFormat.Require(endpoint: endpoint, profile: profile, phase: FilePhase.Open, op: Op.Of(name: nameof(FileExchange.Open)))
-        from _ in guard(format == FileFormat.ThreeDm, Op.Of(name: nameof(FileExchange.Open)).InvalidInput())
+        from _ in guard(format.Is(key: "3dm"), Op.Of(name: nameof(FileExchange.Open)).InvalidInput())
         from report in Op.Of(name: nameof(FileExchange.Open)).Catch(() => {
             RhinoDoc? opened = RhinoDoc.Open(filePath: endpoint.Path, wasAlreadyOpen: out bool wasAlreadyOpen);
             return Optional(opened)
@@ -322,7 +322,7 @@ public static class FileOp {
                from endpoint in phase == FilePhase.Save
                    ? Fin.Succ(Option<FileEndpoint>.None)
                    : target.ToFin(Fail: op.InvalidInput())
-                       .Bind(value => (archive ? value.WithFormat(format: FileFormat.ThreeDm) : value).Output(op: op))
+                       .Bind(value => (archive ? value.WithFormat(format: FileFormat.KnownFormat(key: "3dm")) : value).Output(op: op))
                        .Map(Some)
                from receipt in live.Edit.Commit(
                    name: nameof(WriteCore),
@@ -378,9 +378,9 @@ public static class FileOp {
 
     private static Option<FileFormat> PublishFormat(FilePublishTarget target) =>
         target switch {
-            FilePublishTarget.Pdf => Some(FileFormat.Pdf),
+            FilePublishTarget.Pdf => Some(FileFormat.KnownFormat(key: "pdf")),
             FilePublishTarget.Raster value => Some(value.ResolvedEncoding.Format),
-            FilePublishTarget.Svg => Some(FileFormat.Svg),
+            FilePublishTarget.Svg => Some(FileFormat.KnownFormat(key: "svg")),
             _ => Option<FileFormat>.None,
         };
 

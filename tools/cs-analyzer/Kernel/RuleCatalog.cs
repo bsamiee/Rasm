@@ -135,6 +135,7 @@ internal static class RuleCatalog {
     internal static readonly DiagnosticDescriptor CSP0742 = Err("CSP0742", "ManualOpAdmissionGate", "Manual Fin<T> admission gate duplicates Op.AcceptValue/Accept/Confirm for '{0}'; route native sentinel validity through op.AcceptValue(value: ...), op.Accept(value: ...), or op.Confirm(success: ...)", "FunctionalDiscipline");
     internal static readonly DiagnosticDescriptor CSP0743 = Err("CSP0743", "ManualGenericProjectionGate", "Generic output projection is manually gated; route exact value projection through the owning projection/admission rail and keep semantic receipt/result alternatives owner-local", "FunctionalDiscipline");
     internal static readonly DiagnosticDescriptor CSP0744 = Err("CSP0744", "ClosedUnionPlanFusion", "Closed union '{0}' dispatches metadata and behavior separately; fuse case rows into one state-threaded operation plan", "SurfaceArea");
+    internal static readonly DiagnosticDescriptor CSP0745 = Err("CSP0745", "PassiveSiblingSurfaceFamily", "Sibling member family '{0}' has {1} passive rows with the same construction/forwarding skeleton; collapse to one operation algebra, generated dispatch, or data-driven row table", "SurfaceArea");
 
     // --- [PERFORMANCE_RULES] --------------------------------------------------
 
@@ -224,5 +225,5 @@ internal static class RuleCatalog {
         CSP0710, CSP0711, CSP0712, CSP0713, CSP0714, CSP0715, CSP0717, CSP0718, CSP0719, CSP0720,
         CSP0723, CSP0724, CSP0725, CSP0726, CSP0727, CSP0728, CSP0729,
         CSP0730, CSP0731, CSP0732, CSP0733, CSP0734, CSP0735, CSP0736, CSP0737, CSP0738,
-        CSP0739, CSP0740, CSP0741, CSP0742, CSP0743, CSP0744, CSP0802);
+        CSP0739, CSP0740, CSP0741, CSP0742, CSP0743, CSP0744, CSP0745, CSP0802);
 }

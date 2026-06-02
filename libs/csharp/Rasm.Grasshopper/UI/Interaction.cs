@@ -66,7 +66,7 @@ public partial record TooltipOp {
     public static TooltipOp Show(IIcon icon, string caption, string message, TooltipBody? body = null, bool warnings = false, bool errors = false) =>
         new ShowCase(Icon: icon, Caption: caption, Message: message, Body: body ?? TooltipBody.Plain, Warnings: warnings, Errors: errors);
 
-    internal CanvasChromePlan Plan() => UI.Tooltip.Plan(op: this);
+    internal CanvasChromePlan Plan() => Tooltip.Plan(op: this);
 }
 
 [SkipUnionOps]
@@ -122,7 +122,7 @@ internal readonly record struct CanvasChromePlan(GrasshopperUiIntent<CanvasChrom
     internal static CanvasChromePlan SubscriptionOf(GrasshopperUiIntent<Subscription> intent) {
         return new(
             Run: intent.Map(CanvasChromeResult.Sub),
-            Subscription: Some<Func<GrasshopperUi.Scope, Fin<Subscription>>>(intent.Run));
+            Subscription: Some(intent.Run));
     }
 }
 
@@ -185,7 +185,7 @@ public partial record FloatingButtonOp {
 
     public static FloatingButtonOp Add(FloatingButtonSpec spec) => new AddCase(Spec: spec);
 
-    internal CanvasChromePlan Plan() => UI.FloatingButton.Plan(op: this);
+    internal CanvasChromePlan Plan() => FloatingButton.Plan(op: this);
 }
 
 [SmartEnum<int>]
@@ -210,7 +210,7 @@ public partial record InteractionOp {
     public sealed record ContextMenuCase(Func<ContextMenuSnapshot, Fin<Unit>> Handler) : InteractionOp;
     public sealed record StatusCase : InteractionOp;
 
-    internal CanvasChromePlan Plan() => UI.Interaction.Plan(op: this);
+    internal CanvasChromePlan Plan() => Interaction.Plan(op: this);
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
