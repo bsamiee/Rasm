@@ -546,7 +546,7 @@ public partial record DrawMark {
     public sealed partial record TextCase(string Value, RectangleF Frame, PaintStyle Style, FormattedTextWrapMode Wrap, FormattedTextAlignment Alignment, FormattedTextTrimming Trimming) : DrawMark;
     public sealed partial record ImageCase(Image Value, RectangleF Frame, PaintStyle Style) : DrawMark;
     public sealed partial record GhIconCase(IIcon Value, RectangleF Frame, PaintStyle Style, IconAdjust Adjust) : DrawMark;
-    public sealed partial record WireCase(PointF Source, PointF Target, WireKind Kind, PaintStyle Style) : DrawMark;
+    public sealed partial record WireCase(PointF Source, PointF Target, WireKind Kind, PaintStyle Style, bool SourceSelected = false, bool TargetSelected = false) : DrawMark;
     public sealed partial record ArcCase(RectangleF Bounds, float StartAngle, float SweepAngle, PaintStyle Style, Option<SystemColorKind> SystemColor = default) : DrawMark;
     public sealed partial record PieCase(RectangleF Bounds, float StartAngle, float SweepAngle, PaintStyle Style) : DrawMark;
     public sealed partial record PolylineCase(ReadOnlyMemory<PointF> Points, PaintStyle Style) : DrawMark;
@@ -582,8 +582,8 @@ public partial record DrawMark {
         new ImageCase(Value: value, Frame: frame, Style: PaintStyle.ForTransparent());
     public static DrawMark IconGlyph(IIcon value, RectangleF frame, Color background, IconAdjust? adjust = null) =>
         new GhIconCase(Value: value, Frame: frame, Style: PaintStyle.ForTransparent(background: background), Adjust: adjust ?? IconAdjust.None);
-    public static DrawMark WirePreview(PointF source, PointF target, WireKind kind = WireKind.Tentative) =>
-        new WireCase(Source: source, Target: target, Kind: kind, Style: PaintStyle.ForTransparent());
+    public static DrawMark WirePreview(PointF source, PointF target, WireKind kind = WireKind.Tentative, bool sourceSelected = false, bool targetSelected = false) =>
+        new WireCase(Source: source, Target: target, Kind: kind, Style: PaintStyle.ForTransparent(), SourceSelected: sourceSelected, TargetSelected: targetSelected);
     public static DrawMark Arc(RectangleF bounds, float startAngle, float sweepAngle, Color edge, float thickness = 1f) =>
         new ArcCase(Bounds: bounds, StartAngle: startAngle, SweepAngle: sweepAngle, Style: PaintStyle.ForEdge(edge: edge, thickness: thickness));
     public static DrawMark Pie(RectangleF bounds, float startAngle, float sweepAngle, Color fill, Option<Color> edge = default, float thickness = 1f) =>
@@ -651,7 +651,8 @@ public partial record DrawMark {
                 using Pen outerPen = new(color: skin.Normal, thickness: skin.Outer.Width);
                 skin.Outer.AssignToPen(pen: outerPen);
                 shape.Draw(graphics: graphics, edge: outerPen);
-                _ = Optional(skin.Inner).Iter(inner => {
+                // Inner glow is the selection highlight: draw it only when the wire touches a selected endpoint.
+                _ = Optional(skin.Inner).Filter(_ => w.SourceSelected || w.TargetSelected).Iter(inner => {
                     using Pen innerPen = new(color: skin.SelectedGlow, thickness: inner.Width);
                     inner.AssignToPen(pen: innerPen);
                     shape.Draw(graphics: graphics, edge: innerPen);
@@ -722,19 +723,20 @@ public partial record DrawMark {
 
     // RectangleF.Union owns bounds reduction; fixed-arity overloads avoid per-frame PointF[] wrapping.
     private static RectangleF BoundsOf(PointF a, PointF b) =>
-        RectangleF.Union(new RectangleF(a, a), new RectangleF(b, b));
+        RectangleF.Union(new RectangleF(a, SizeF.Empty), new RectangleF(b, SizeF.Empty));
 
     private static RectangleF BoundsOf(PointF a, PointF b, PointF c, PointF d) =>
         RectangleF.Union(
-            RectangleF.Union(new RectangleF(a, a), new RectangleF(b, b)),
-            RectangleF.Union(new RectangleF(c, c), new RectangleF(d, d)));
+            RectangleF.Union(new RectangleF(a, SizeF.Empty), new RectangleF(b, SizeF.Empty)),
+            RectangleF.Union(new RectangleF(c, SizeF.Empty), new RectangleF(d, SizeF.Empty)));
 
     private static RectangleF BoundsOf(ReadOnlyMemory<PointF> points) {
         ReadOnlySpan<PointF> span = points.Span;
-        // BOUNDARY ADAPTER -- ReadOnlySpan has no IEnumerable; span-index fold is the only zero-alloc path.
-        RectangleF acc = span.Length == 0 ? RectangleF.Empty : new RectangleF(span[0], span[0]);
+        // BOUNDARY ADAPTER -- ReadOnlySpan has no IEnumerable; span-index fold is the only zero-alloc path. The
+        // (point, SizeF.Empty) seed is an exact zero-size rect; the (point, point) ctor inflates +1px per axis.
+        RectangleF acc = span.Length == 0 ? RectangleF.Empty : new RectangleF(span[0], SizeF.Empty);
         for (int i = 1; i < span.Length; i++) {
-            acc = RectangleF.Union(acc, new RectangleF(span[i], span[i]));
+            acc = RectangleF.Union(acc, new RectangleF(span[i], SizeF.Empty));
         }
         return acc;
     }

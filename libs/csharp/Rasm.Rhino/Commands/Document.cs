@@ -68,13 +68,14 @@ public abstract partial record DocumentOp {
                 from target in Optional(edit.Target).ToFin(Fail: ctx.Op.InvalidInput())
                 from ids in target.Ids(document: ctx.Document, op: ctx.Op).Map(static values => values.Distinct())
                 from before in DocumentEdit.SelectedIds(document: ctx.Document, op: ctx.Op)
-                from _ in ctx.Op.Confirm(success: edit.Policy.Select((highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) => ctx.Document.Objects.SetSelectedObjects(
+                    // SetSelectedObjects clears prior selection then returns the count actually selected; a mixed-visibility set returns count < ids.Count even on success, so the SelectionDelta receipt (derived from live doc state) is the source of truth and only a negative native result is a failure.
+                from _ in guard(edit.Policy.Select((highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) => ctx.Document.Objects.SetSelectedObjects(
                     objectIds: ids.AsIterable(),
                     syncHighlight: highlight,
                     persistentSelect: persistent,
                     ignoreGripsState: ignoreGrips,
                     ignoreLayerLocking: ignoreLayerLocking,
-                    ignoreLayerVisibility: ignoreLayerVisibility)) == ids.Count)
+                    ignoreLayerVisibility: ignoreLayerVisibility)) >= 0, ctx.Op.InvalidResult())
                 from after in DocumentEdit.SelectedIds(document: ctx.Document, op: ctx.Op)
                 select DocumentReceipt.SelectionDelta(before: before, after: after),
             unselectAll: static (ctx, edit) =>
@@ -238,10 +239,14 @@ public abstract partial record DocumentTarget {
     public static Fin<DocumentTarget> Region(BoundingBox bounds, bool fullyInside = false, bool accurate = true) =>
         guard(bounds.IsValid, Op.Of(name: nameof(Region)).InvalidInput()).ToFin()
             .Map(_ => (DocumentTarget)new PredicateCase(QuerySettings(), (document, native) =>
-                Optional(native.Geometry).Map(geometry => geometry.GetBoundingBox(accurate: accurate)).Filter(static box => box.IsValid).Map(box =>
-                    fullyInside
-                        ? Contains(region: bounds, box: box)
-                        : BoundingBox.Intersection(a: bounds, b: box).IsValid).IfNone(noneValue: false)));
+                Optional(native.Geometry)
+                    .Map(geometry => geometry.GetBoundingBox(accurate: accurate))
+                    .Filter(static box => box.IsValid)
+                    .Map(box => fullyInside
+                        ? box.Min.X >= bounds.Min.X && box.Min.Y >= bounds.Min.Y && box.Min.Z >= bounds.Min.Z
+                          && box.Max.X <= bounds.Max.X && box.Max.Y <= bounds.Max.Y && box.Max.Z <= bounds.Max.Z
+                        : BoundingBox.Intersection(a: bounds, b: box).IsValid)
+                    .IfNone(noneValue: false)));
 
     public static Fin<DocumentTarget> ClippingPlanes() =>
         Filter(settings: QuerySettings(configure: s => s.ObjectTypeFilter = ObjectType.ClipPlane));
@@ -252,9 +257,16 @@ public abstract partial record DocumentTarget {
     internal Fin<int> Select(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) =>
         Resolve(document: document, op: op,
             selection: value => value.SelectInto(document: document, selected: selected, policy: policy, op: op),
-            reference: value => value.Use(document: document, op: op, use: native => op.Confirm(success: policy.Select((highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) => document.Objects.Select(native, selected, highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility))).Map(static _ => 1)),
-            objects: ids => policy.Select((highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) => document.Objects.Select(ids.AsIterable(), selected, highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility)) switch {
-                int value when value == ids.Count => Fin.Succ(value: value),
+            // ObjRef.Select(native, false, ...) returns false on successful deselect (native returns 0); gate only the select direction on the bool.
+            reference: value => value.Use(document: document, op: op, use: native => (selected, policy.Select((highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) => document.Objects.Select(native, selected, highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility))) switch {
+                (true, true) => Fin.Succ(value: 1),
+                (false, _) => Fin.Succ(value: 1),
+                _ => Fin.Fail<int>(error: op.InvalidResult()),
+            }),
+            // Select(IEnumerable<Guid>,bool,...) returns the native count of state-changed objects; deselect of a mixed-visibility set yields count < ids.Count even on full success, so accept >= 0 for deselect.
+            objects: ids => (selected, policy.Select((highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) => document.Objects.Select(ids.AsIterable(), selected, highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility))) switch {
+                (true, int value) when value == ids.Count => Fin.Succ(value: value),
+                (false, int value) when value >= 0 => Fin.Succ(value: value),
                 _ => Fin.Fail<int>(error: op.InvalidResult()),
             });
 
@@ -303,20 +315,16 @@ public abstract partial record DocumentTarget {
             },
             referenceCase: static (ctx, c) => c.Value.Use(document: ctx.Doc, op: ctx.Op, use: _ => ctx.R(arg: c.Value)),
             objectsCase: static (ctx, c) => ctx.O(arg: c.Values),
-            filterCase: static (ctx, c) => Optional(ctx.Doc).ToFin(Fail: ctx.Op.InvalidInput()).Bind(valid => toSeq(valid.Objects.GetObjectIdList(settings: c.Settings)).Distinct() switch {
-                Seq<Guid> ids when !ids.IsEmpty => ctx.O(arg: ids),
-                _ => Fin.Fail<T>(error: ctx.Op.InvalidResult()),
-            }),
+            // empty match is a valid no-op for bulk-conditional ops; callers needing at-least-one enforce it on the receipt
+            filterCase: static (ctx, c) => Optional(ctx.Doc).ToFin(Fail: ctx.Op.InvalidInput()).Bind(valid =>
+                ctx.O(arg: toSeq(valid.Objects.GetObjectIdList(settings: c.Settings)).Distinct())),
             predicateCase: static (ctx, c) =>
                 from validDocument in Optional(ctx.Doc).ToFin(Fail: ctx.Op.InvalidInput())
                 from predicate in Optional(c.Predicate).ToFin(Fail: ctx.Op.InvalidInput())
-                from ids in toSeq(validDocument.Objects.GetObjectList(settings: c.Settings))
+                let ids = toSeq(validDocument.Objects.GetObjectList(settings: c.Settings))
                     .Filter(native => predicate(arg1: validDocument, arg2: native))
                     .Map(static native => native.Id)
-                    .Distinct() switch {
-                        Seq<Guid> values when !values.IsEmpty => Fin.Succ(value: values),
-                        _ => Fin.Fail<Seq<Guid>>(error: ctx.Op.InvalidResult()),
-                    }
+                    .Distinct()
                 from result in ctx.O(arg: ids)
                 select result,
             pickCase: static (ctx, c) =>
@@ -332,10 +340,6 @@ public abstract partial record DocumentTarget {
 
     private static Func<RhinoDoc, RhinoObject, bool> Attribute(Func<ObjectAttributes, RhinoDoc, bool> test) =>
         (document, native) => Optional(native.Attributes).Map(attributes => test(arg1: attributes, arg2: document)).IfNone(noneValue: false);
-
-    private static bool Contains(BoundingBox region, BoundingBox box) =>
-        box.Min.X >= region.Min.X && box.Min.Y >= region.Min.Y && box.Min.Z >= region.Min.Z
-        && box.Max.X <= region.Max.X && box.Max.Y <= region.Max.Y && box.Max.Z <= region.Max.Z;
 
     private static Fin<Seq<Guid>> TargetIds(IEnumerable<Guid> ids, Op op) =>
         Optional(ids)
@@ -618,35 +622,53 @@ public sealed record DocumentEdit {
             });
 
     private Fin<RhinoDoc> Available(Op op) =>
-        Document switch {
-            { IsAvailable: true, IsClosing: false, IsInitializing: false, IsOpening: false, IsCreating: false } document => Fin.Succ(value: document),
-            _ => Fin.Fail<RhinoDoc>(error: op.InvalidInput()),
-        };
+        Document.IsReady() ? Fin.Succ(value: Document) : Fin.Fail<RhinoDoc>(error: op.InvalidInput());
+
+    private readonly ref struct UndoScope(RhinoDoc document, uint serial) {
+#pragma warning disable CA2213 // BOUNDARY ADAPTER — _doc is the caller-owned RhinoDoc; the scope borrows it to close the undo record and never owns its lifetime.
+        private readonly RhinoDoc _doc = document;
+#pragma warning restore CA2213
+        private readonly uint _serial = serial;
+        private readonly Atom<bool> _closed = Atom(value: false);
+        public bool IsOpen => _serial > 0u;
+        public static UndoScope Begin(RhinoDoc document, string name, bool recordsUndo) =>
+            new(document: document, serial: (recordsUndo, document.UndoRecordingIsActive) switch {
+                (true, false) => document.BeginUndoRecord(description: name),
+                _ => 0u,
+            });
+        // Seal closes the live undo record (capturing End success) and folds the serial; Dispose is the exception-path guard
+        public Fin<DocumentReceipt> Seal(DocumentReceipt receipt, Op op) =>
+            Close() switch {
+                true => Fin.Succ(value: receipt + DocumentReceipt.UndoRecord(serial: _serial)),
+                false => Fin.Fail<DocumentReceipt>(error: op.InvalidResult()),
+            };
+        private bool Close() =>
+            IsOpen switch {
+                false => true,
+                true => _closed.Swap(static _ => true) switch { _ => _doc.EndUndoRecord(undoRecordSerialNumber: _serial) },
+            };
+        public void Dispose() =>
+            _ = IsOpen && !_closed.Value && _doc.EndUndoRecord(undoRecordSerialNumber: _serial);
+    }
 
     private static Fin<DocumentReceipt> Mutate(RhinoDoc document, string name, bool recordsUndo, bool suppressRedraw, Func<Fin<DocumentReceipt>> run) =>
-        Optional(run).ToFin(Fail: Op.Of(name: name).InvalidInput()).Bind(valid => UI.RhinoUi.Protect(valid: () => {
-            Op op = Op.Of(name: name);
-            uint undo = (recordsUndo, document.UndoRecordingIsActive) switch { (true, false) => document.BeginUndoRecord(description: name), _ => 0u };
-            bool closed = true;
-            bool priorRedraw = document.Views.RedrawEnabled;
-            Fin<DocumentReceipt> result = Fin.Fail<DocumentReceipt>(error: op.InvalidResult());
-            _ = suppressRedraw ? Redraw(document: document, enabled: false) : unit;
-            try {
-                result = valid();
-            } finally {
-                _ = suppressRedraw ? Redraw(document: document, enabled: priorRedraw) : unit;
-                closed = undo switch { > 0u => document.EndUndoRecord(undoRecordSerialNumber: undo), _ => true };
-            }
-            return result.Bind(value => closed switch {
-                true => Fin.Succ(value: value + DocumentReceipt.UndoRecord(serial: undo)),
-                false => Fin.Fail<DocumentReceipt>(error: op.InvalidResult()),
-            });
-        }));
-
-    private static Unit Redraw(RhinoDoc document, bool enabled) {
-        document.Views.EnableRedraw(enable: enabled, redrawDocument: enabled, redrawLayers: enabled);
-        return unit;
-    }
+        Optional(run).ToFin(Fail: Op.Of(name: name).InvalidInput()).Bind(valid =>
+            UI.RhinoUi.Protect(valid: () => {
+                // BOUNDARY ADAPTER — RhinoDoc.Views.EnableRedraw returns void and UndoScope is a ref struct, so redraw toggling and Seal stay as statements outside any capturing lambda.
+                Op op = Op.Of(name: name);
+                bool priorRedraw = document.Views.RedrawEnabled;
+                Unit toggle(bool enable) {
+                    document.Views.EnableRedraw(enable: enable, redrawDocument: enable, redrawLayers: enable);
+                    return unit;
+                }
+                _ = suppressRedraw switch { true => toggle(enable: false), false => unit };
+                using UndoScope undo = UndoScope.Begin(document: document, name: name, recordsUndo: recordsUndo);
+                Fin<DocumentReceipt> inner = valid();
+                _ = suppressRedraw switch { true => toggle(priorRedraw), false => unit };
+                return inner.IsSucc
+                    ? undo.Seal(receipt: inner.IfFail(DocumentReceipt.Empty), op: op)
+                    : inner;
+            }));
 
     internal static Fin<Seq<Guid>> ApplyState(Seq<Guid> ids, RhinoDoc document, Op op, Func<RhinoObject, bool> ready, Func<RhinoObject, bool> done, Func<Guid, bool> apply) =>
         ids.TraverseM(id => Optional(document.Objects.FindId(id))

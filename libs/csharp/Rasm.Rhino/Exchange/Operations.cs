@@ -260,18 +260,18 @@ public static class FileOp {
             from pages in views.TraverseM(view => view.Source.Resolve(document: live.Document, spec: view, op: Op.Of(name: nameof(PublishPlan)))).As().Map(static groups => groups.Bind(static items => items))
             from _ in guard(!pages.IsEmpty, Op.Of(name: nameof(PublishPlan)).InvalidInput())
             from reports in pages.TraverseM(page => PageReport(page: page, op: Op.Of(name: nameof(PublishPlan)))).As()
+            let meta = PublishMeta(target: active.Target, views: views)
             select FileReport.Of(
                 phase: FilePhase.Publish,
-                target: PublishTarget(target: active.Target),
-                format: PublishFormat(target: active.Target),
-                issues: PublishIssues(target: active.Target),
+                target: meta.Target,
+                format: meta.Format,
+                issues: meta.Issues,
                 nativeLog: Some(string.Create(CultureInfo.InvariantCulture, $"publish-plan;views:{pages.Count};layers:{active.Layers};snapshot:{active.Snapshot.IsSome}")),
                 views: reports));
-    public static Eff<FileRuntime, Seq<FileSheetReport>> Sheets(SheetQuery query) =>
-        Lift(run: runtime => Live(runtime: runtime, op: Op.Of(name: nameof(Sheets))).Bind(live => SheetOps.Inspect(document: live.Document, query: query, op: Op.Of(name: nameof(Sheets)))));
-
-    public static Eff<FileRuntime, Seq<FileSheetReport>> Sheets(SheetQuery query, DetailQuery detail) =>
-        Lift(run: runtime => Live(runtime: runtime, op: Op.Of(name: nameof(Sheets))).Bind(live => SheetOps.Inspect(document: live.Document, query: query, detail: detail, op: Op.Of(name: nameof(Sheets)))));
+    public static Eff<FileRuntime, Seq<FileSheetReport>> Sheets(SheetQuery query, DetailQuery detail = default) =>
+        Lift(run: runtime =>
+            Live(runtime: runtime, op: Op.Of(name: nameof(Sheets)))
+                .Bind(live => SheetOps.Inspect(document: live.Document, query: query, detail: detail, op: Op.Of(name: nameof(Sheets)))));
 
     public static Eff<FileRuntime, Seq<string>> NamedLayerStates() =>
         Lift(run: runtime => Live(runtime: runtime, op: Op.Of(name: nameof(NamedLayerStates))).Map(static live => toSeq(live.Document.NamedLayerStates.Names)));
@@ -322,7 +322,9 @@ public static class FileOp {
                from endpoint in phase == FilePhase.Save
                    ? Fin.Succ(Option<FileEndpoint>.None)
                    : target.ToFin(Fail: op.InvalidInput())
-                       .Bind(value => (archive ? value.WithFormat(format: FileFormat.KnownFormat(key: "3dm")) : value).Output(op: op))
+                       .Bind(value => (archive
+                           ? FileFormat.KnownFormat(key: "3dm", op: op).Map(value.WithFormat)
+                           : Fin.Succ(value: value)).Bind(resolved => resolved.Output(op: op)))
                        .Map(Some)
                from receipt in live.Edit.Commit(
                    name: nameof(WriteCore),
@@ -368,27 +370,30 @@ public static class FileOp {
         })
         select report;
 
-    private static Option<FileEndpoint> PublishTarget(FilePublishTarget target) =>
+    private static (Option<FileEndpoint> Target, Option<FileFormat> Format, Seq<FileIssue> Issues) PublishMeta(FilePublishTarget target, Seq<FileView> views) =>
         target switch {
-            FilePublishTarget.Pdf value => Some(value.Target),
-            FilePublishTarget.Raster value => Some(value.Target),
-            FilePublishTarget.Svg value => Some(value.Target),
-            _ => Option<FileEndpoint>.None,
-        };
-
-    private static Option<FileFormat> PublishFormat(FilePublishTarget target) =>
-        target switch {
-            FilePublishTarget.Pdf => Some(FileFormat.KnownFormat(key: "pdf")),
-            FilePublishTarget.Raster value => Some(value.ResolvedEncoding.Format),
-            FilePublishTarget.Svg => Some(FileFormat.KnownFormat(key: "svg")),
-            _ => Option<FileFormat>.None,
-        };
-
-    private static Seq<FileIssue> PublishIssues(FilePublishTarget target) =>
-        target switch {
-            FilePublishTarget.Pdf => Seq(FileIssue.Native(message: "RhinoCommon FilePdf exposes no public metadata, bookmark, outline, encryption, or password surface.")),
-            FilePublishTarget.Raster value when value.Settings.Transparent && !value.ResolvedEncoding.SupportsAlpha => Seq(FileIssue.Native(message: "Transparent raster output requires PNG or TIFF encoding.")),
-            _ => Seq<FileIssue>(),
+            FilePublishTarget.Pdf value => (
+                Target: Some(value.Target),
+                Format: Some(FileFormat.KnownFormat(key: "pdf", op: Op.Of(name: nameof(PublishMeta))).ThrowIfFail()),
+                Issues: Seq(FileIssue.Native(message: "RhinoCommon FilePdf exposes no public metadata, bookmark, outline, encryption, or password surface."))),
+            FilePublishTarget.Raster value => (
+                Target: Some(value.Target),
+                Format: Some(value.ResolvedEncoding.Format),
+                Issues: (value.Settings.Transparent && !value.ResolvedEncoding.SupportsAlpha
+                    ? Seq(FileIssue.Native(message: "Transparent raster output requires PNG or TIFF encoding."))
+                    : Seq<FileIssue>())
+                    + (value.Settings.Transparent && views.Exists(static view =>
+                        view.Recipe.Decor.Bind(static decor => decor.Layout).Bind(static layout => layout.Area).Case
+                            is CaptureArea.Extents or CaptureArea.ScreenWindow or CaptureArea.WorldWindow)
+                        ? Seq(
+                            FileIssue.Native(message: "Transparent raster capture uses the ViewCapture instance path; the ViewArea Extents/Window mapping is silently ignored and the visible view extent is captured instead."),
+                            FileIssue.Of(code: FileIssueCode.Native, message: "Set CaptureArea to Viewport or leave it unset when Transparent = true."))
+                        : Seq<FileIssue>())),
+            FilePublishTarget.Svg value => (
+                Target: Some(value.Target),
+                Format: Some(FileFormat.KnownFormat(key: "svg", op: Op.Of(name: nameof(PublishMeta))).ThrowIfFail()),
+                Issues: Seq<FileIssue>()),
+            _ => (Target: Option<FileEndpoint>.None, Format: Option<FileFormat>.None, Issues: Seq<FileIssue>()),
         };
     private static Fin<T> InSnapshot<T>(RhinoDoc document, string snapshotName, Op op, Func<Fin<T>> body) =>
         from target in FileEndpoint.NonBlank(value: snapshotName, op: op)

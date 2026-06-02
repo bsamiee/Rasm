@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Globalization;
 using Eto.Forms;
 using Foundation.CSharp.Analyzers.Contracts;
@@ -19,7 +20,9 @@ public sealed partial class SelectionMode {
     public static readonly SelectionMode Include = new(key: 1, gh: GhSelectionMode.Include);
     public static readonly SelectionMode Exclude = new(key: 2, gh: GhSelectionMode.Exclude);
     public static readonly SelectionMode Inverse = new(key: 3, gh: GhSelectionMode.Inverse);
-    internal static SelectionMode FromGh(GhSelectionMode gh) => toSeq(Items).Find(m => m.Gh == gh).IfNone(Inverse);
+    private static readonly Lazy<FrozenDictionary<GhSelectionMode, SelectionMode>> ByGh =
+        new(static () => Items.ToFrozenDictionary(static m => m.Gh));
+    internal static SelectionMode FromGh(GhSelectionMode gh) => ByGh.Value.GetValueOrDefault(key: gh) ?? Inverse;
 }
 [SmartEnum<int>]
 [ValidationError<UiFault>]
@@ -74,13 +77,15 @@ public sealed partial class DialogPresentation {
 public sealed partial class PanelBehavior {
     public static readonly PanelBehavior Modal = new(key: 0);
     public static readonly PanelBehavior Attached = new(key: 1);
-    public static readonly PanelBehavior Floating = new(key: 2);
 }
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct PresentationPolicy(Option<PanelBehavior> Behavior = default) {
     internal DialogPresentation DialogPresentation =>
-        Behavior.Filter(static behavior => behavior == PanelBehavior.Attached).Map(static _ => DialogPresentation.AttachedSheet).IfNone(DialogPresentation.Modal);
+        Behavior.Map(static behavior => behavior.Map(
+            modal: DialogPresentation.Modal,
+            attached: DialogPresentation.AttachedSheet))
+        .IfNone(DialogPresentation.Modal);
 }
 
 [SmartEnum<int>]
@@ -226,33 +231,25 @@ public partial record InputPanelContent {
 [SkipUnionOps]
 [Union]
 public abstract partial record FormField {
-    private FormField() { }
-    public abstract string Key { get; }
-    public abstract string Label { get; }
+    private FormField(string key, string label) => (Key, Label) = (key, label);
+    public string Key { get; }
+    public string Label { get; }
     internal abstract Control Render();
     internal abstract object Capture(Control control);
 
-    public sealed record Text(string Name, string Caption, string Value = "") : FormField {
-        public override string Key => Name;
-        public override string Label => Caption;
+    public sealed record Text(string Key, string Label, string Value = "") : FormField(Key, Label) {
         internal override Control Render() => new TextBox { Text = Value };
         internal override object Capture(Control control) => control is TextBox box ? box.Text : string.Empty;
     }
-    public sealed record TextArea(string Name, string Caption, string Value = "") : FormField {
-        public override string Key => Name;
-        public override string Label => Caption;
+    public sealed record TextArea(string Key, string Label, string Value = "") : FormField(Key, Label) {
         internal override Control Render() => new Eto.Forms.TextArea { Text = Value, Size = new Size(width: 360, height: 120) };
         internal override object Capture(Control control) => control is Eto.Forms.TextArea box ? box.Text : string.Empty;
     }
-    public sealed record Toggle(string Name, string Caption, bool Value = false) : FormField {
-        public override string Key => Name;
-        public override string Label => Caption;
+    public sealed record Toggle(string Key, string Label, bool Value = false) : FormField(Key, Label) {
         internal override Control Render() => new CheckBox { Checked = Value };
         internal override object Capture(Control control) => control is CheckBox box && (box.Checked ?? false);
     }
-    public sealed record Number(string Name, string Caption, double Value = 0d, UiNumberRange Range = default) : FormField {
-        public override string Key => Name;
-        public override string Label => Caption;
+    public sealed record Number(string Key, string Label, double Value = 0d, UiNumberRange Range = default) : FormField(Key, Label) {
         internal override Control Render() =>
             Range.Bounds.Match(
                 Some: bounds => (Control)new NumericStepper { MinValue = bounds.Minimum, MaxValue = bounds.Maximum, Value = Math.Clamp(value: Value, min: bounds.Minimum, max: bounds.Maximum) },
@@ -264,9 +261,7 @@ public abstract partial record FormField {
                 _ => Value,
             };
     }
-    public sealed record Choice(string Name, string Caption, Seq<string> Options, int Selected = 0) : FormField {
-        public override string Key => Name;
-        public override string Label => Caption;
+    public sealed record Choice(string Key, string Label, Seq<string> Options, int Selected = 0) : FormField(Key, Label) {
         internal override Control Render() {
             DropDown control = new();
             _ = Options.Iter(control.Items.Add);
@@ -275,27 +270,19 @@ public abstract partial record FormField {
         }
         internal override object Capture(Control control) => control is DropDown drop && drop.SelectedIndex >= 0 ? Options[drop.SelectedIndex] : string.Empty;
     }
-    public sealed record Color(string Name, string Caption, Eto.Drawing.Color Value = default, bool AllowAlpha = false) : FormField {
-        public override string Key => Name;
-        public override string Label => Caption;
+    public sealed record Color(string Key, string Label, Eto.Drawing.Color Value = default, bool AllowAlpha = false) : FormField(Key, Label) {
         internal override Control Render() => new ColorPicker { Value = Value, AllowAlpha = AllowAlpha };
         internal override object Capture(Control control) => control is ColorPicker picker ? picker.Value : Value;
     }
-    public sealed record Slider(string Name, string Caption, int Value = 0, int Minimum = 0, int Maximum = 100) : FormField {
-        public override string Key => Name;
-        public override string Label => Caption;
+    public sealed record Slider(string Key, string Label, int Value = 0, int Minimum = 0, int Maximum = 100) : FormField(Key, Label) {
         internal override Control Render() => new Eto.Forms.Slider { MinValue = Minimum, MaxValue = Maximum, Value = Math.Clamp(value: Value, min: Minimum, max: Maximum) };
         internal override object Capture(Control control) => control is Eto.Forms.Slider slider ? slider.Value : Value;
     }
-    public sealed record DateTime(string Name, string Caption, Option<System.DateTime> Value = default) : FormField {
-        public override string Key => Name;
-        public override string Label => Caption;
+    public sealed record DateTime(string Key, string Label, Option<System.DateTime> Value = default) : FormField(Key, Label) {
         internal override Control Render() => new DateTimePicker { Value = Value.Map(static value => (System.DateTime?)value).IfNone((System.DateTime?)null) };
         internal override object Capture(Control control) => control is DateTimePicker picker ? Optional(picker.Value) : Value;
     }
-    public sealed record File(string Name, string Caption, Option<string> Value = default) : FormField {
-        public override string Key => Name;
-        public override string Label => Caption;
+    public sealed record File(string Key, string Label, Option<string> Value = default) : FormField(Key, Label) {
         internal override Control Render() {
             FilePicker picker = new();
             _ = Value.Iter(path => picker.FilePath = path);
@@ -304,15 +291,15 @@ public abstract partial record FormField {
         internal override object Capture(Control control) => control is FilePicker picker ? Optional(picker.FilePath) : Value;
     }
 
-    public static FormField TextInput(string key, string label, string value = "") => new Text(Name: key, Caption: label, Value: value);
-    public static FormField TextAreaInput(string key, string label, string value = "") => new TextArea(Name: key, Caption: label, Value: value);
-    public static FormField Check(string key, string label, bool value = false) => new Toggle(Name: key, Caption: label, Value: value);
-    public static FormField Numeric(string key, string label, double value = 0d, UiNumberRange range = default) => new Number(Name: key, Caption: label, Value: value, Range: range);
-    public static FormField Select(string key, string label, Seq<string> options, int selected = 0) => new Choice(Name: key, Caption: label, Options: options, Selected: selected);
-    public static FormField Swatch(string key, string label, Eto.Drawing.Color value = default, bool allowAlpha = false) => new Color(Name: key, Caption: label, Value: value, AllowAlpha: allowAlpha);
-    public static FormField Track(string key, string label, int value = 0, int minimum = 0, int maximum = 100) => new Slider(Name: key, Caption: label, Value: value, Minimum: minimum, Maximum: maximum);
-    public static FormField Moment(string key, string label, Option<System.DateTime> value = default) => new DateTime(Name: key, Caption: label, Value: value);
-    public static FormField Path(string key, string label, Option<string> value = default) => new File(Name: key, Caption: label, Value: value);
+    public static FormField TextInput(string key, string label, string value = "") => new Text(Key: key, Label: label, Value: value);
+    public static FormField TextAreaInput(string key, string label, string value = "") => new TextArea(Key: key, Label: label, Value: value);
+    public static FormField Check(string key, string label, bool value = false) => new Toggle(Key: key, Label: label, Value: value);
+    public static FormField Numeric(string key, string label, double value = 0d, UiNumberRange range = default) => new Number(Key: key, Label: label, Value: value, Range: range);
+    public static FormField Select(string key, string label, Seq<string> options, int selected = 0) => new Choice(Key: key, Label: label, Options: options, Selected: selected);
+    public static FormField Swatch(string key, string label, Eto.Drawing.Color value = default, bool allowAlpha = false) => new Color(Key: key, Label: label, Value: value, AllowAlpha: allowAlpha);
+    public static FormField Track(string key, string label, int value = 0, int minimum = 0, int maximum = 100) => new Slider(Key: key, Label: label, Value: value, Minimum: minimum, Maximum: maximum);
+    public static FormField Moment(string key, string label, Option<System.DateTime> value = default) => new DateTime(Key: key, Label: label, Value: value);
+    public static FormField Path(string key, string label, Option<string> value = default) => new File(Key: key, Label: label, Value: value);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -1078,7 +1065,13 @@ public static partial class Input {
                 using TrayIndicator? indicator = trayIndicator || menu.IsSome ? new TrayIndicator { Title = title, Visible = true } : null;
                 using Notification notification = new() { Title = title, Message = message };
                 _ = contentImage.Iter(image => notification.ContentImage = image);
-                _ = onActivated.Iter(activated => Application.Instance.NotificationActivated += (_, _) => _ = GrasshopperUi.Handler(valid: activated));
+                _ = onActivated.Iter(activated => {
+                    void OnActivated(object? sender, NotificationEventArgs args) {
+                        Application.Instance.NotificationActivated -= OnActivated;
+                        _ = GrasshopperUi.Handler(valid: activated);
+                    }
+                    Application.Instance.NotificationActivated += OnActivated;
+                });
                 return menu.Match(
                     Some: plan => Optional(indicator)
                         .ToFin(Fail: UiFault.MutationRejected(op: Op.Of(name: nameof(Notify)), detail: "tray menu requires a tray indicator"))

@@ -66,18 +66,18 @@ public readonly record struct CaptureCodec(CaptureFormat Format) {
 public enum CaptureFormat { Bitmap, Svg }
 
 [Union]
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1063:Implement IDisposable Correctly", Justification = "Closed [Union] (private ctor) with sealed leaf cases and no finalizer; the Switch-based Dispose owns the only managed handle. The virtual Dispose(bool) pattern guards external derivation and finalization, neither of which this union admits.")]
 public abstract partial record CaptureResult : IDisposable {
     private CaptureResult() { }
     public sealed record Bitmap(DrawingBitmap Value) : CaptureResult;
     public sealed record Svg(XmlDocument Value) : CaptureResult;
 
     public void Dispose() {
-        Dispose(disposing: true);
-        GC.SuppressFinalize(obj: this);
-    }
-
-    protected virtual void Dispose(bool disposing) {
-        if (disposing && this is Bitmap bitmap) bitmap.Value.Dispose();
+        _ = Switch(
+            state: unit,
+            bitmap: static (_, c) => Op.Side(c.Value.Dispose),
+            svg: static (_, _) => unit);
+        GC.SuppressFinalize(this);
     }
 }
 
@@ -102,6 +102,7 @@ public readonly record struct CaptureDecor(
     bool DrawBackground = true,
     bool DrawGrid = false,
     bool DrawAxis = false,
+    bool DrawGridAxes = false,
     bool DrawLockedObjects = true,
     bool DrawSelectedObjectsOnly = false,
     bool DrawMargins = false,
@@ -121,13 +122,8 @@ public readonly record struct CaptureDecor(
     public static CaptureDecor Publish { get; } = new(UsePrintWidths: true);
 
     internal bool SupportsTransparentBitmap =>
-        DrawLockedObjects
-        && !DrawSelectedObjectsOnly
+        !DrawSelectedObjectsOnly
         && !DrawMargins
-        && DrawClippingPlanes
-        && DrawLights
-        && DrawWallpaper
-        && !DrawBackgroundBitmap
         && !UsePrintWidths
         && OutputColor == ViewCaptureSettings.ColorMode.DisplayColor
         && WireThicknessScale.IsNone
@@ -141,10 +137,10 @@ public readonly record struct CaptureDecor(
     internal Fin<Unit> Apply(ViewCaptureSettings settings, Op op) {
         CaptureDecor self = this;
         return from active in Optional(settings).ToFin(Fail: op.InvalidInput())
-               from wire in CaptureMeasure.OptionalPositive(source: self.WireThicknessScale, op: op)
-               from point in CaptureMeasure.OptionalFinite(source: self.PointSizeMillimeters, op: op)
-               from arrow in CaptureMeasure.OptionalPositive(source: self.ArrowheadSizeMillimeters, op: op)
-               from dot in CaptureMeasure.OptionalPositive(source: self.TextDotPointSize, op: op)
+               from wire in self.WireThicknessScale.TraverseM(v => CaptureMeasure.Positive(v, op)).As()
+               from point in self.PointSizeMillimeters.TraverseM(v => CaptureMeasure.Finite(v, op)).As()
+               from arrow in self.ArrowheadSizeMillimeters.TraverseM(v => CaptureMeasure.Positive(v, op)).As()
+               from dot in self.TextDotPointSize.TraverseM(v => CaptureMeasure.Positive(v, op)).As()
                from configured in Fin.Succ(value: Op.Side(() => {
                    active.DrawBackground = self.DrawBackground;
                    active.DrawGrid = self.DrawGrid;
@@ -218,17 +214,18 @@ public readonly record struct CaptureRecipe(
     Option<DrawingSize> Size = default,
     Option<double> Dpi = default,
     bool Raster = false,
-    Option<CaptureDecor> Decor = default) {
+    Option<CaptureDecor> Decor = default,
+    Option<CaptureScaleMode> Scale = default) {
     private readonly Policy policy;
-    internal const double ScreenDpi = 96d;
-    internal static CaptureDecor ScreenDecor => new();
+    public const double DefaultScreenDpi = 96d;
+    public static CaptureDecor DefaultScreenDecor => new();
 
-    private CaptureRecipe(Option<DrawingSize> size, Option<double> dpi, bool raster, Option<CaptureDecor> decor, Policy policy)
-        : this(Size: size, Dpi: dpi, Raster: raster, Decor: decor) =>
+    private CaptureRecipe(Option<DrawingSize> size, Option<double> dpi, bool raster, Option<CaptureDecor> decor, Option<CaptureScaleMode> scale, Policy policy)
+        : this(Size: size, Dpi: dpi, Raster: raster, Decor: decor, Scale: scale) =>
         this.policy = policy;
 
     internal CaptureRecipe WithPolicy(double fallbackDpi, CaptureDecor fallbackDecor, Func<CaptureDecor, RhinoView, CaptureDecor> rewrite) =>
-        new(size: Size, dpi: Dpi, raster: Raster, decor: Decor, policy: new Policy(FallbackDpi: Some(fallbackDpi), FallbackDecor: Some(fallbackDecor), DecorRewrite: Some(rewrite)));
+        new(size: Size, dpi: Dpi, raster: Raster, decor: Decor, scale: Scale, policy: new Policy(FallbackDpi: Some(fallbackDpi), FallbackDecor: Some(fallbackDecor), DecorRewrite: Some(rewrite)));
 
     internal Fin<T> Render<T>(
         RhinoView view,
@@ -251,7 +248,7 @@ public readonly record struct CaptureRecipe(
         CaptureRecipe self = this;
         return from activeView in op.Need(view)
                from validRewrite in self.Rewrite(op: op)
-               from dpi in CaptureMeasure.Positive(value: self.Dpi.IfNone(self.policy.FallbackDpi.IfNone(ScreenDpi)), op: op)
+               from dpi in CaptureMeasure.Positive(value: self.Dpi.IfNone(self.policy.FallbackDpi.IfNone(DefaultScreenDpi)), op: op)
                from opened in UI.RhinoUi.Protect(valid: () => {
                    ViewCaptureSettings? settings = null;
                    try {
@@ -277,7 +274,7 @@ public readonly record struct CaptureRecipe(
         return op.Need(view).Bind(activeView =>
             op.Need(settings).Bind(activeSettings =>
                 self.Rewrite(op: op).Bind(validRewrite => {
-                    CaptureDecor decor = validRewrite(arg1: self.Decor.IfNone(self.policy.FallbackDecor.IfNone(ScreenDecor)), arg2: activeView);
+                    CaptureDecor decor = validRewrite(arg1: self.Decor.IfNone(self.policy.FallbackDecor.IfNone(DefaultScreenDecor)), arg2: activeView);
                     return AcceptTransparent(view: activeView, decor: decor, op: op)
                         .Bind(_ => UI.RhinoUi.Protect(valid: () => Optional(new ViewCapture {
                             Width = activeSettings.MediaSize.Width,
@@ -285,6 +282,7 @@ public readonly record struct CaptureRecipe(
                             TransparentBackground = true,
                             DrawGrid = decor.DrawGrid,
                             DrawAxes = decor.DrawAxis,
+                            DrawGridAxes = decor.DrawGridAxes,
                             ScaleScreenItems = true,
                         }.CaptureToBitmap(sourceView: activeView)).ToFin(Fail: op.InvalidResult())));
                 })));
@@ -306,7 +304,7 @@ public readonly record struct CaptureRecipe(
         return from activeView in op.Need(view)
                from validRewrite in self.Rewrite(op: op)
                from validProject in Optional(project).ToFin(Fail: op.InvalidInput())
-               from dpi in CaptureMeasure.Positive(value: self.Dpi.IfNone(self.policy.FallbackDpi.IfNone(ScreenDpi)), op: op)
+               from dpi in CaptureMeasure.Positive(value: self.Dpi.IfNone(self.policy.FallbackDpi.IfNone(DefaultScreenDpi)), op: op)
                from result in UI.RhinoUi.Protect(valid: () => {
                    ViewCaptureSettings? settings = null;
                    try {
@@ -335,10 +333,11 @@ public readonly record struct CaptureRecipe(
         ViewCaptureSettings settings,
         Op op) {
         CaptureRecipe self = this;
-        CaptureDecor decor = rewrite(arg1: self.Decor.IfNone(self.policy.FallbackDecor.IfNone(ScreenDecor)), arg2: view);
+        CaptureDecor decor = rewrite(arg1: self.Decor.IfNone(self.policy.FallbackDecor.IfNone(DefaultScreenDecor)), arg2: view);
         _ = viewport.Iter(settings.SetViewport);
         settings.RasterMode = self.Raster;
         return decor.Apply(settings: settings, op: op)
+            .Bind(_ => self.Scale.Map(mode => mode.Apply(settings: settings, op: op)).IfNone(Fin.Succ(value: unit)))   // top-level Scale fires after layout-nested scale — last-write override
             .Bind(_ => settings.IsValid ? Fin.Succ(value: decor) : Fin.Fail<CaptureDecor>(error: op.InvalidResult()));
     }
 
@@ -379,7 +378,7 @@ public readonly record struct CaptureScale(
     }
 
     private static Fin<Unit> ApplyDouble(Option<double> source, Op op, Action<double> apply) =>
-        CaptureMeasure.OptionalPositive(source: source, op: op)
+        source.TraverseM(v => CaptureMeasure.Positive(v, op)).As()
             .Map(value => value.Iter(apply));
 }
 
@@ -392,16 +391,4 @@ file static class CaptureMeasure {
     internal static Fin<double> Positive(double value, Op op) =>
         from _ in guard(RhinoMath.IsValidDouble(x: value) && value > 0.0, op.InvalidInput()).ToFin()
         select value;
-
-    internal static Fin<Option<double>> OptionalFinite(Option<double> source, Op op) =>
-        source.Case switch {
-            double value => Finite(value: value, op: op).Map(static admitted => Some(admitted)),
-            _ => Fin.Succ(value: Option<double>.None),
-        };
-
-    internal static Fin<Option<double>> OptionalPositive(Option<double> source, Op op) =>
-        source.Case switch {
-            double value => Positive(value: value, op: op).Map(static admitted => Some(admitted)),
-            _ => Fin.Succ(value: Option<double>.None),
-        };
 }

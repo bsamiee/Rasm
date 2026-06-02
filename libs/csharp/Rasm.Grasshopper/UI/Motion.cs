@@ -134,6 +134,11 @@ public sealed partial class BlendMode {
     public static readonly BlendMode Multiply = new(key: 1, filterName: "CIMultiplyBlendMode");
     public static readonly BlendMode Addition = new(key: 2, filterName: "CIAdditionCompositing");
     public static readonly BlendMode Overlay = new(key: 3, filterName: "CIOverlayBlendMode");
+    public static readonly BlendMode SoftLight = new(key: 4, filterName: "CISoftLightBlendMode");
+    public static readonly BlendMode HardLight = new(key: 5, filterName: "CIHardLightBlendMode");
+    public static readonly BlendMode Lighten = new(key: 6, filterName: "CILightenBlendMode");
+    public static readonly BlendMode Divide = new(key: 7, filterName: "CIDivideBlendMode");
+    public static readonly BlendMode Luminosity = new(key: 8, filterName: "CILuminosityBlendMode");
 }
 
 // CALayer EDR opt-in: Disabled keeps SDR; Automatic/Always request headroom and route colour through Display P3.
@@ -157,6 +162,15 @@ public sealed partial class VibrancyMaterial {
     public static readonly VibrancyMaterial ContentBackground = new(key: 3, native: NSVisualEffectMaterial.ContentBackground, blending: NSVisualEffectBlendingMode.WithinWindow);
     public static readonly VibrancyMaterial Sidebar = new(key: 4, native: NSVisualEffectMaterial.Sidebar, blending: NSVisualEffectBlendingMode.BehindWindow);
     public static readonly VibrancyMaterial WindowBackground = new(key: 5, native: NSVisualEffectMaterial.WindowBackground, blending: NSVisualEffectBlendingMode.BehindWindow);
+    public static readonly VibrancyMaterial Menu = new(key: 6, native: NSVisualEffectMaterial.Menu, blending: NSVisualEffectBlendingMode.BehindWindow);
+    public static readonly VibrancyMaterial Titlebar = new(key: 7, native: NSVisualEffectMaterial.Titlebar, blending: NSVisualEffectBlendingMode.WithinWindow);
+    public static readonly VibrancyMaterial Selection = new(key: 8, native: NSVisualEffectMaterial.Selection, blending: NSVisualEffectBlendingMode.WithinWindow);
+    public static readonly VibrancyMaterial HeaderView = new(key: 9, native: NSVisualEffectMaterial.HeaderView, blending: NSVisualEffectBlendingMode.WithinWindow);
+    // [?] ToolTip vibrancy legibility is unverified; flagged for the optional bridge pass.
+    public static readonly VibrancyMaterial Tooltip = new(key: 10, native: NSVisualEffectMaterial.ToolTip, blending: NSVisualEffectBlendingMode.BehindWindow);
+    public static readonly VibrancyMaterial FullScreenUI = new(key: 11, native: NSVisualEffectMaterial.FullScreenUI, blending: NSVisualEffectBlendingMode.BehindWindow);
+    public static readonly VibrancyMaterial UnderWindowBackground = new(key: 12, native: NSVisualEffectMaterial.UnderWindowBackground, blending: NSVisualEffectBlendingMode.BehindWindow);
+    public static readonly VibrancyMaterial UnderPageBackground = new(key: 13, native: NSVisualEffectMaterial.UnderPageBackground, blending: NSVisualEffectBlendingMode.BehindWindow);
 }
 
 // CALayer gradient points are normalized to the layer frame (0,0)–(1,1). Omit Start/End to use the profile
@@ -243,7 +257,7 @@ public partial record CosmeticIntent {
     // under reduce-motion). Pattern maps to the three NSHapticFeedbackPattern values.
     public sealed record HapticCase(HapticPattern Pattern) : CosmeticIntent;
     // Live blur uses NSVisualEffectView, not CALayer, so it samples canvas content behind the view.
-    public sealed record VibrancyCase(RectangleF Bounds, VibrancyMaterial Material, float CornerRadius, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
+    public sealed record VibrancyCase(RectangleF Bounds, VibrancyMaterial Material, float CornerRadius, GhDuration Duration, int Cycles = 1, bool Yoyo = true, bool Infinite = false, GhMotion Easing = GhMotion.EaseInOut, NSVisualEffectState State = NSVisualEffectState.Active) : CosmeticIntent;
     // Core Image pipeline: Backdrop targets BackgroundFilters and arms host filters; false targets layer Filters.
     // Saturation/Brightness append a CIColorControls stage.
     public sealed record FilterCase(RectangleF Bounds, Seq<CIFilter> Pipeline, Color Tint, GhDuration Duration, bool Backdrop = true, float Saturation = 1f, float Brightness = 0f, int Cycles = 1, bool Yoyo = true, bool Infinite = false, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
@@ -1348,15 +1362,10 @@ public static class Motion {
             hapticCase: static _ => new CosmeticAnimSpec(KeyPath: "haptic", To: 0f, Cycles: 1, Yoyo: false, Infinite: false, Duration: GhDuration.Normal, Easing: GhMotion.Linear, Repeat: false));
 
     private static Fin<Unit> AcceptGradientPoints(Op op, CosmeticGradientPoints points, int colourCount) =>
-        toSeq([
-            points.Start.Map(start => AcceptNormalizedGradientPoint(op: op, point: start, label: nameof(CosmeticGradientPoints.Start))),
-            points.End.Map(end => AcceptNormalizedGradientPoint(op: op, point: end, label: nameof(CosmeticGradientPoints.End))),
-            points.Locations.Map(locations => AcceptGradientStops(op: op, locations: locations, colourCount: colourCount)),
-        ])
-            .Somes()
-            .Fold(
-                initialState: Fin.Succ(unit),
-                f: static (acc, step) => acc.Bind(_ => step));
+        from _ in points.Start.Map(start => AcceptNormalizedGradientPoint(op: op, point: start, label: nameof(CosmeticGradientPoints.Start))).IfNone(Fin.Succ(unit))
+        from __ in points.End.Map(end => AcceptNormalizedGradientPoint(op: op, point: end, label: nameof(CosmeticGradientPoints.End))).IfNone(Fin.Succ(unit))
+        from ___ in points.Locations.Map(locations => AcceptGradientStops(op: op, locations: locations, colourCount: colourCount)).IfNone(Fin.Succ(unit))
+        select unit;
 
     // CAGradientLayer.Locations must align 1:1 with Colors and ascend monotonically through [0,1].
     private static Fin<Unit> AcceptGradientStops(Op op, ReadOnlyMemory<float> locations, int colourCount) {
@@ -1405,10 +1414,15 @@ public static class Motion {
     private static RectangleF MapCosmeticRect(Grasshopper2.UI.Canvas.Canvas canvas, RectangleF bounds) =>
         canvas.Map(rectangle: bounds, from: CoordinateSystem.Content, to: CoordinateSystem.Control);
 
-    private static ReadOnlyMemory<PointF> MapCosmeticPolyline(Grasshopper2.UI.Canvas.Canvas canvas, ReadOnlyMemory<PointF> polyline) =>
-        toSeq(MemoryMarshal.ToEnumerable(polyline))
-            .Map(point => canvas.Map(point: point, from: CoordinateSystem.Content, to: CoordinateSystem.Control))
-            .ToArray();
+    // BOUNDARY ADAPTER — Span-indexed fill drops the Seq+Map+ToArray allocation chain; canvas.Map projects each vertex content->control.
+    private static ReadOnlyMemory<PointF> MapCosmeticPolyline(Grasshopper2.UI.Canvas.Canvas canvas, ReadOnlyMemory<PointF> polyline) {
+        ReadOnlySpan<PointF> source = polyline.Span;
+        PointF[] mapped = new PointF[source.Length];
+        for (int i = 0; i < source.Length; i++) {
+            mapped[i] = canvas.Map(point: source[i], from: CoordinateSystem.Content, to: CoordinateSystem.Control);
+        }
+        return mapped;
+    }
 
     // Haptic is non-visual; every decorative case resolves the host CALayer or returns a typed fault.
     [SupportedOSPlatform("macos14.0")]
@@ -1471,37 +1485,35 @@ public static class Motion {
     // Mutual-exclusion claim: TryClaim wins exactly once across explicit-dispose vs AnimationStopped.
     [SupportedOSPlatform("macos14.0")]
     private static Unit CosmeticStrip(NSView view, NSString key) {
-        if (view.Layer is not CALayer host || host.Sublayers is not CALayer[] sublayers) {
-            return unit;
-        }
         string keyString = key.ToString();
-        return WithoutAnimation(() => _ = toSeq(sublayers)
-            .Filter(sub => string.Equals(a: sub.Name, b: keyString, comparisonType: StringComparison.Ordinal))
-            .Filter(sub => CosmeticDelegateStore.Find(layer: sub)
-                .Map(remove => remove.TryClaim())
-                .IfNone(noneValue: true))
-            .Iter(sub => {
-                sub.RemoveAnimation(key: keyString);
-                _ = CosmeticDelegateStore.Release(layer: sub);
-                sub.RemoveFromSuperLayer();
-            }));
+        return (from host in Optional(view.Layer)
+                from subs in Optional(host.Sublayers)
+                select WithoutAnimation(() => _ = toSeq(subs)
+                    .Filter(sub => string.Equals(a: sub.Name, b: keyString, comparisonType: StringComparison.Ordinal))
+                    .Filter(sub => CosmeticDelegateStore.Find(layer: sub)
+                        .Map(remove => remove.TryClaim())
+                        .IfNone(noneValue: true))
+                    .Iter(sub => {
+                        sub.RemoveAnimation(key: keyString);
+                        _ = CosmeticDelegateStore.Release(layer: sub);
+                        sub.RemoveFromSuperLayer();
+                    })))
+            .IfNone(unit);
     }
-
-    // EDR/P3 opt-in anchors glow/gradient colours in Display P3; Disabled yields the SDR device-sRGB path.
-    private static NSColorSpace? EdrSpace(CosmeticIntent intent) =>
-        intent.EdrMode == EdrPolicy.Disabled ? null : NSColorSpace.DisplayP3ColorSpace;
 
     [SupportedOSPlatform("macos14.0")]
     private static CALayer BuildCosmeticLayer(CosmeticIntent intent, NSView view) {
+        // EDR/P3 opt-in anchors decorative colours in Display P3 (CGColor-tagged via NSColor.FromDisplayP3); Disabled
+        // yields the SDR device-sRGB path. CALayer exposes no colour-space setter — the P3 tag rides each CGColor.
         return intent.Switch(
-            state: (View: view, Space: EdrSpace(intent: intent)),
-            pulseCase: static (_, pulse) => CosmeticPulseLayer(pulse),
+            state: (View: view, Space: intent.EdrMode == EdrPolicy.Disabled ? null : NSColorSpace.DisplayP3ColorSpace),
+            pulseCase: static (s, pulse) => CosmeticPulseLayer(pulse: pulse, space: s.Space),
             glowCase: static (s, glow) => CosmeticGlowLayer(glow: glow, view: s.View, space: s.Space),
-            strokeOnCase: static (_, stroke) => CosmeticStrokeLayer(stroke),
+            strokeOnCase: static (s, stroke) => CosmeticStrokeLayer(stroke: stroke, space: s.Space),
             gradientCase: static (s, gradient) => CosmeticGradientLayer(gradient: gradient, space: s.Space),
-            textLayerCase: static (_, text) => CosmeticTextLayer(text),
-            replicatorCase: static (_, replicator) => CosmeticReplicatorLayer(replicator),
-            emitterCase: static (_, emitter) => CosmeticEmitterLayer(emitter),
+            textLayerCase: static (s, text) => CosmeticTextLayer(text: text, space: s.Space),
+            replicatorCase: static (s, replicator) => CosmeticReplicatorLayer(replicate: replicator, space: s.Space),
+            emitterCase: static (s, emitter) => CosmeticEmitterLayer(emit: emitter, space: s.Space),
             snapGuideCase: static (_, guide) => CosmeticSnapGuideLayer(guide),
             vibrancyCase: static (s, vibrancy) => CosmeticVibrancyLayer(vibrancy: vibrancy, view: s.View),
             filterCase: static (s, filter) => CosmeticFilterLayer(filter: filter, view: s.View, space: s.Space),
@@ -1512,14 +1524,14 @@ public static class Motion {
     }
 
     [SupportedOSPlatform("macos14.0")]
-    private static CAShapeLayer CosmeticPulseLayer(CosmeticIntent.PulseCase pulse) {
+    private static CAShapeLayer CosmeticPulseLayer(CosmeticIntent.PulseCase pulse, NSColorSpace? space) {
         CGRect frame = ToCGRect(pulse.Bounds);
         CGRect local = LocalCGRect(frame: frame);
         CAShapeLayer shape = new() { Frame = frame };
         CGPath path = new();
         path.AddRect(rect: local);
         shape.Path = path;
-        shape.FillColor = ToCGColor(pulse.Tint);
+        shape.FillColor = ToCGColor(c: pulse.Tint, space: space);
         shape.Opacity = 0f;
         return shape;
     }
@@ -1560,7 +1572,7 @@ public static class Motion {
     }
 
     [SupportedOSPlatform("macos14.0")]
-    private static CAShapeLayer CosmeticStrokeLayer(CosmeticIntent.StrokeOnCase stroke) {
+    private static CAShapeLayer CosmeticStrokeLayer(CosmeticIntent.StrokeOnCase stroke, NSColorSpace? space) {
         Seq<PointF> points = toSeq(MemoryMarshal.ToEnumerable(stroke.Polyline));
         RectangleF frame = PathFrame(points: points).IfNone(RectangleF.Empty);
         CGPath path = new();
@@ -1573,7 +1585,7 @@ public static class Motion {
         return new CAShapeLayer {
             Frame = ToCGRect(frame),
             Path = path,
-            StrokeColor = ToCGColor(stroke.Tint),
+            StrokeColor = ToCGColor(c: stroke.Tint, space: space),
             LineWidth = stroke.Thickness,
             StrokeStart = 0f,
             StrokeEnd = 0f,
@@ -1643,11 +1655,11 @@ public static class Motion {
     [SupportedOSPlatform("macos14.0")]
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
         Justification = "CGColor/NSString ownership transfers to CALayer property graph for animation lifetime.")]
-    private static CATextLayer CosmeticTextLayer(CosmeticIntent.TextLayerCase text) {
+    private static CATextLayer CosmeticTextLayer(CosmeticIntent.TextLayerCase text, NSColorSpace? space) {
         (float width, float height) = MeasureText(text: text.Text, fontSize: text.FontSize, family: text.FontFamily);
         CATextLayer layer = new() {
             String = new NSString(text.Text),
-            ForegroundColor = ToCGColor(text.Tint),
+            ForegroundColor = ToCGColor(c: text.Tint, space: space),
             FontSize = text.FontSize,
             Opacity = 0f,
             Frame = new CGRect(x: text.Origin.X, y: text.Origin.Y, width: width, height: height),
@@ -1660,14 +1672,14 @@ public static class Motion {
     [SupportedOSPlatform("macos14.0")]
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
         Justification = "CGPath ownership transfers to CAShapeLayer hosted by CAReplicatorLayer; inner replicator ownership transfers to the outer replicator via AddSublayer.")]
-    private static CAReplicatorLayer CosmeticReplicatorLayer(CosmeticIntent.ReplicatorCase replicate) {
+    private static CAReplicatorLayer CosmeticReplicatorLayer(CosmeticIntent.ReplicatorCase replicate, NSColorSpace? space) {
         CGRect rect = ToCGRect(replicate.SourceBounds);
         CGRect local = LocalCGRect(frame: rect);
         CAShapeLayer source = new() { Frame = local };
         CGPath path = new();
         path.AddRect(rect: local);
         source.Path = path;
-        source.FillColor = ToCGColor(replicate.Tint);
+        source.FillColor = ToCGColor(c: replicate.Tint, space: space);
         // Inner row owns delay/alpha/colour offsets; outer row only tiles Y to avoid double-applying grain.
         CAReplicatorLayer inner = new() {
             Frame = rect,
@@ -1678,7 +1690,7 @@ public static class Motion {
                 .MakeTranslation(tx: replicate.Spacing, ty: 0, tz: 0)
                 .Concat(b: CATransform3D.MakeRotation(angle: replicate.Rotation, x: 0, y: 0, z: 1)),
         };
-        _ = replicate.InstanceColour.IfSome(colour => inner.InstanceColor = ToCGColor(colour));
+        _ = replicate.InstanceColour.IfSome(colour => inner.InstanceColor = ToCGColor(c: colour, space: space));
         inner.AddSublayer(layer: source);
         return replicate.CountY > 1
             ? OuterReplicatorGrid(inner: inner, rect: rect, countY: replicate.CountY, spacingY: replicate.SpacingY)
@@ -1704,7 +1716,7 @@ public static class Motion {
     }
 
     [SupportedOSPlatform("macos14.0")]
-    private static CAEmitterLayer CosmeticEmitterLayer(CosmeticIntent.EmitterCase emit) {
+    private static CAEmitterLayer CosmeticEmitterLayer(CosmeticIntent.EmitterCase emit, NSColorSpace? space) {
         CGRect rect = ToCGRect(emit.Bounds);
         EmitterProfile profile = emit.Profile;
         // Palette creates one tinted cell per colour; emitterPosition still needs KVC while longitude/spin have setters.
@@ -1727,7 +1739,7 @@ public static class Motion {
                 AccelerationX = profile.AccelerationX,
                 AccelerationY = profile.AccelerationY,
                 AccelerationZ = profile.AccelerationZ,
-                Color = ToCGColor(tint),
+                Color = ToCGColor(c: tint, space: space),
                 RedRange = profile.ColorRange,
                 GreenRange = profile.ColorRange,
                 BlueRange = profile.ColorRange,
@@ -1758,7 +1770,7 @@ public static class Motion {
         NSVisualEffectView effect = new(frameRect: rect) {
             Material = vibrancy.Material.Native,
             BlendingMode = vibrancy.Material.Blending,
-            State = NSVisualEffectState.Active,
+            State = vibrancy.State,
             WantsLayer = true,
         };
         CGRect local = LocalCGRect(frame: rect);
@@ -1783,7 +1795,9 @@ public static class Motion {
     private static CALayer CosmeticFilterLayer(CosmeticIntent.FilterCase filter, NSView view, NSColorSpace? space) {
         CGRect rect = ToCGRect(filter.Bounds);
         CIColorControls colour = new() { Saturation = filter.Saturation, Brightness = filter.Brightness, Contrast = 1f };
-        Seq<CIFilter> pipeline = filter.Pipeline + Seq<CIFilter>(colour);
+        // Under EDR (space != null) append a headroom tone-map so wide-gamut filter output stays HDR-stable; null-safe.
+        Seq<CIFilter> pipeline = filter.Pipeline + Seq<CIFilter>(colour)
+            + (space is not null ? Optional(CIFilter.FromName(name: "CIToneMapHeadroom")).ToSeq() : Seq<CIFilter>());
         CALayer layer = new() {
             Frame = rect,
             BackgroundColor = ToCGColor(c: filter.Tint, space: space),
@@ -2176,17 +2190,12 @@ public static class Motion {
         }
 
         // Pacer Resume only on 0→1 edge; ScheduleRedraw fallback relies on Eto coalescing.
-        private Unit Wake() {
-            if (pacer is { IsSome: true, Case: Pacer p }) {
-                if (Interlocked.Exchange(ref wantingTicks, 1) == 0) {
-                    lastVsyncTimestamp = 0d;
-                    return p.Resume();
-                }
-                return unit;
-            }
-            canvas.ScheduleRedraw();
-            return unit;
-        }
+        private Unit Wake() =>
+            pacer is { IsSome: true, Case: Pacer p }
+                ? Interlocked.Exchange(ref wantingTicks, 1) == 0
+                    ? (lastVsyncTimestamp = 0d, p.Resume()).Item2
+                    : unit
+                : Op.Side(canvas.ScheduleRedraw);
 
         private Unit Sleep() =>
             pacer is { IsSome: true, Case: Pacer p } && Interlocked.Exchange(ref wantingTicks, 0) == 1
@@ -2251,7 +2260,7 @@ public static class Motion {
             return bound;
         }
 
-        // NSScreen.MaximumFramesPerSecond honours the actual panel ceiling (60/120/144Hz vary).
+        // NSScreen.MinimumRefreshInterval is ProMotion adaptive-sync aware; 1/interval is the actual panel ceiling (60/120/144Hz vary).
         private const float FallbackRefreshHz = 120f;
         private const float FloorRefreshHz = 30f;
 
@@ -2259,8 +2268,9 @@ public static class Motion {
             if (explicitRate is CAFrameRateRange supplied) {
                 return supplied;
             }
-            NSScreen? screen = view.Window?.Screen;
-            float maximum = screen is NSScreen active ? active.MaximumFramesPerSecond : FallbackRefreshHz;
+            float maximum = view.Window?.Screen is NSScreen active && active.MinimumRefreshInterval > 0d
+                ? (float)(1.0 / active.MinimumRefreshInterval)
+                : FallbackRefreshHz;
             float floor = MathF.Min(x: FloorRefreshHz, y: maximum);
             return CAFrameRateRange.Create(minimum: floor, maximum: maximum, preferred: maximum);
         }

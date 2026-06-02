@@ -13,7 +13,7 @@ public interface IUiInput<TState> {
     public bool Alt { get; }
 }
 
-public enum KeyPhase { Down, Up }
+public enum KeyPhase { Down, Up, FocusGain, FocusLost }
 
 [Union]
 public abstract partial record SpriteSource {
@@ -43,7 +43,24 @@ public abstract partial record SpriteSource {
         path: static p => new Eto.Drawing.Bitmap(p.Value));
 }
 
-public enum SystemFontKind { Default, Bold, Label, Menu, MenuBar, Message, Palette, Status, TitleBar, ToolTip, User }
+[SmartEnum<int>]
+public sealed partial class SystemFontKind {
+    [UseDelegateFromConstructor]
+    public partial Eto.Drawing.Font Resolve(float? size, Eto.Drawing.FontDecoration decoration);
+
+    public static readonly SystemFontKind
+        Default = new(key: 0, resolve: Eto.Drawing.SystemFonts.Default),
+        Bold = new(key: 1, resolve: Eto.Drawing.SystemFonts.Bold),
+        Label = new(key: 2, resolve: Eto.Drawing.SystemFonts.Label),
+        Menu = new(key: 3, resolve: Eto.Drawing.SystemFonts.Menu),
+        MenuBar = new(key: 4, resolve: Eto.Drawing.SystemFonts.MenuBar),
+        Message = new(key: 5, resolve: Eto.Drawing.SystemFonts.Message),
+        Palette = new(key: 6, resolve: Eto.Drawing.SystemFonts.Palette),
+        Status = new(key: 7, resolve: Eto.Drawing.SystemFonts.StatusBar),   // StatusBar is the native name
+        TitleBar = new(key: 8, resolve: Eto.Drawing.SystemFonts.TitleBar),
+        ToolTip = new(key: 9, resolve: Eto.Drawing.SystemFonts.ToolTip),
+        User = new(key: 10, resolve: Eto.Drawing.SystemFonts.User);
+}
 
 public enum UiAnchor { TopLeft, TopCenter, TopRight, MiddleLeft, Center, MiddleRight, BottomLeft, BottomCenter, BottomRight }
 
@@ -122,7 +139,6 @@ public abstract partial record UiFont {
     public sealed record FamilyCase(string Name, float Size, Eto.Drawing.FontStyle Style = Eto.Drawing.FontStyle.None, Eto.Drawing.FontDecoration Decoration = Eto.Drawing.FontDecoration.None) : UiFont;
     public sealed record SystemCase(SystemFontKind Kind, Option<float> Size = default, Eto.Drawing.FontDecoration Decoration = Eto.Drawing.FontDecoration.None) : UiFont;
 
-    public static UiFont Of(string family, float size) => new FamilyCase(Name: family, Size: size);
     public static UiFont Family(string family, float size, Eto.Drawing.FontStyle style = Eto.Drawing.FontStyle.None, Eto.Drawing.FontDecoration decoration = Eto.Drawing.FontDecoration.None) => new FamilyCase(Name: family, Size: size, Style: style, Decoration: decoration);
     public static UiFont System(SystemFontKind kind, Option<float> size = default, Eto.Drawing.FontDecoration decoration = Eto.Drawing.FontDecoration.None) => new SystemCase(Kind: kind, Size: size, Decoration: decoration);
     public static UiFont Default { get; } = new FamilyCase(Name: "Arial", Size: 12f);
@@ -137,19 +153,7 @@ public abstract partial record UiFont {
     }
     internal Eto.Drawing.Font ToEto() => Switch(
         familyCase: static f => new Eto.Drawing.Font(f.Name, f.Size, f.Style, f.Decoration),
-        systemCase: static s => s.Kind switch {
-            SystemFontKind.Bold => Eto.Drawing.SystemFonts.Bold(s.Size.ToNullable(), s.Decoration),
-            SystemFontKind.Label => Eto.Drawing.SystemFonts.Label(s.Size.ToNullable(), s.Decoration),
-            SystemFontKind.Menu => Eto.Drawing.SystemFonts.Menu(s.Size.ToNullable(), s.Decoration),
-            SystemFontKind.MenuBar => Eto.Drawing.SystemFonts.MenuBar(s.Size.ToNullable(), s.Decoration),
-            SystemFontKind.Message => Eto.Drawing.SystemFonts.Message(s.Size.ToNullable(), s.Decoration),
-            SystemFontKind.Palette => Eto.Drawing.SystemFonts.Palette(s.Size.ToNullable(), s.Decoration),
-            SystemFontKind.Status => Eto.Drawing.SystemFonts.StatusBar(s.Size.ToNullable(), s.Decoration),
-            SystemFontKind.TitleBar => Eto.Drawing.SystemFonts.TitleBar(s.Size.ToNullable(), s.Decoration),
-            SystemFontKind.ToolTip => Eto.Drawing.SystemFonts.ToolTip(s.Size.ToNullable(), s.Decoration),
-            SystemFontKind.User => Eto.Drawing.SystemFonts.User(s.Size.ToNullable(), s.Decoration),
-            _ => Eto.Drawing.SystemFonts.Default(s.Size.ToNullable(), s.Decoration),
-        });
+        systemCase: static s => s.Kind.Resolve(size: s.Size.ToNullable(), decoration: s.Decoration));
 }
 
 [Union]
@@ -253,7 +257,8 @@ public abstract partial record UiSurface {
         pipeline: p => Op.Side(() => {
             System.Drawing.Rectangle box = p.Display.Measure2dText(text: value, definitionPoint: Point2d.Origin, middleJustified: false, rotationRadians: 0d, height: font.Height, fontFace: font.Face);
             System.Drawing.PointF origin = TextOrigin(anchor: anchor, at: at, size: new System.Drawing.SizeF(box.Width, box.Height));
-            p.Display.Draw2dText(text: value, color: color, screenCoordinate: new Point2d(origin.X, origin.Y), middleJustified: false, height: font.Height, fontface: font.Face);
+            System.Drawing.PointF tileOff = TileOrigin(display: p.Display);
+            p.Display.Draw2dText(text: value, color: color, screenCoordinate: new Point2d(origin.X - tileOff.X, origin.Y - tileOff.Y), middleJustified: false, height: font.Height, fontface: font.Face);
         }),
         canvas: c => Op.Side(() => {
             using Eto.Drawing.Font face = font.ToEto();
@@ -297,7 +302,11 @@ public abstract partial record UiSurface {
         }));
     internal Unit Sprite(UiSprite sprite) => Switch(
         pipeline: p => Optional(p.Atlas).Bind(atlas => atlas.Resolve(source: sprite.Source)).Iter(bitmap => Draw(display: p.Display, bitmap: bitmap, sprite: sprite)),
-        canvas: c => Optional(c.Atlas).Bind(atlas => atlas.ResolveEto(source: sprite.Source)).Iter(image => Op.Side(() => c.Graphics.DrawImage(image, new Eto.Drawing.PointF(sprite.Place.Anchor.X, sprite.Place.Anchor.Y)))));
+        canvas: c => Optional(c.Atlas).Bind(atlas => atlas.ResolveEto(source: sprite.Source)).Iter(image => Op.Side(() => {
+            float w = image.Width * sprite.Size;
+            float h = image.Height * sprite.Size;
+            c.Graphics.DrawImage(image, sprite.Place.Anchor.X - (w / 2f), sprite.Place.Anchor.Y - (h / 2f), w, h);   // center on Anchor + honor Size — matches the center-anchored pipeline DrawSprite contract
+        })));
 
     internal Unit Curve(Seq<UiCurveSeg> segs, UiStroke stroke, Option<UiFill> fill, bool closed) => Switch(
         pipeline: p => CurvePipeline(display: p.Display, segs: segs, stroke: stroke, closed: closed),
@@ -335,26 +344,28 @@ public abstract partial record UiSurface {
             return draw();
         });
 
+    internal static (int Col, int Row) Grid(UiAnchor anchor) => ((int)anchor % 3, (int)anchor / 3);
+    internal static ReadOnlySpan<float> AnchorFrac => [0f, 0.5f, 1f];
+
     internal static System.Drawing.PointF TextOrigin(UiAnchor anchor, System.Drawing.PointF at, System.Drawing.SizeF size) {
-        float x = anchor switch {
-            UiAnchor.TopLeft or UiAnchor.MiddleLeft or UiAnchor.BottomLeft => at.X,
-            UiAnchor.TopCenter or UiAnchor.Center or UiAnchor.BottomCenter => at.X - (size.Width / 2f),
-            _ => at.X - size.Width,
-        };
-        float y = anchor switch {
-            UiAnchor.TopLeft or UiAnchor.TopCenter or UiAnchor.TopRight => at.Y,
-            UiAnchor.MiddleLeft or UiAnchor.Center or UiAnchor.MiddleRight => at.Y - (size.Height / 2f),
-            _ => at.Y - size.Height,
-        };
-        return new System.Drawing.PointF(x, y);
+        (int col, int row) = Grid(anchor);
+        return new System.Drawing.PointF(at.X - (AnchorFrac[col] * size.Width), at.Y - (AnchorFrac[row] * size.Height));
     }
+    // Draw2dText/DrawSprite treat coordinates as tile-local; subtract the active tile page offset so HUD marks land correctly in assembled raster exports (zero-alloc fast path off-tile).
+    private static System.Drawing.PointF TileOrigin(DisplayPipeline display) =>
+        display.IsInTiledDraw(out _, out System.Drawing.Rectangle tile)
+            ? new System.Drawing.PointF(tile.X, tile.Y)
+            : System.Drawing.PointF.Empty;
     private static Unit Draw(DisplayPipeline display, DisplayBitmap bitmap, UiSprite sprite) {
         (BlendMode source, BlendMode destination) = sprite.Blend.IfNone((BlendMode.SourceAlpha, BlendMode.OneMinusSourceAlpha));
         bitmap.SetBlendFunction(source: source, destination: destination);
         DrawingColor tint = sprite.Tint.IfNone(DrawingColor.White);
         return sprite.Place.Switch(
             state: (Display: display, Bitmap: bitmap, Sprite: sprite, Tint: tint),
-            screen: static (state, s) => Op.Side(() => state.Display.DrawSprite(bitmap: state.Bitmap, screenLocation: new Point2d(s.At.X, s.At.Y), size: state.Sprite.Size, blendColor: state.Tint)),
+            screen: static (state, s) => Op.Side(() => {
+                System.Drawing.PointF tileOff = TileOrigin(display: state.Display);
+                state.Display.DrawSprite(bitmap: state.Bitmap, screenLocation: new Point2d(s.At.X - tileOff.X, s.At.Y - tileOff.Y), size: state.Sprite.Size, blendColor: state.Tint);
+            }),
             world: static (state, w) => Op.Side(() => state.Display.DrawSprite(bitmap: state.Bitmap, worldLocation: w.At, size: state.Sprite.Size, blendColor: state.Tint, sizeInWorldSpace: true)),
             cloud: static (state, cl) => Op.Side(() => {
                 DisplayBitmapDrawList list = new();
@@ -430,12 +441,9 @@ public readonly record struct UiHudLayout(System.Drawing.RectangleF Bounds, floa
     public float Scale(float px) => px * DpiScale;
     public System.Drawing.PointF Place(UiAnchor anchor, System.Drawing.SizeF content, float margin = 8f) {
         float m = margin * DpiScale;
-        float x = anchor is UiAnchor.TopLeft or UiAnchor.MiddleLeft or UiAnchor.BottomLeft ? Bounds.Left + m
-                : anchor is UiAnchor.TopCenter or UiAnchor.Center or UiAnchor.BottomCenter ? Bounds.Left + ((Bounds.Width - content.Width) / 2f)
-                : Bounds.Right - content.Width - m;
-        float y = anchor is UiAnchor.TopLeft or UiAnchor.TopCenter or UiAnchor.TopRight ? Bounds.Top + m
-                : anchor is UiAnchor.MiddleLeft or UiAnchor.Center or UiAnchor.MiddleRight ? Bounds.Top + ((Bounds.Height - content.Height) / 2f)
-                : Bounds.Bottom - content.Height - m;
+        (int col, int row) = UiSurface.Grid(anchor);
+        float x = Bounds.Left + m + (UiSurface.AnchorFrac[col] * (Bounds.Width - content.Width - (2f * m)));
+        float y = Bounds.Top + m + (UiSurface.AnchorFrac[row] * (Bounds.Height - content.Height - (2f * m)));
         return new System.Drawing.PointF(x, y);
     }
     public (System.Drawing.RectangleF Region, UiHudLayout Remaining) Stack(UiAnchor anchor, System.Drawing.SizeF content, float margin = 8f) {
@@ -517,8 +525,15 @@ public sealed class UiCanvas<TState> : Eto.Forms.Drawable {
         Func<TState, Eto.Drawing.Size, Fin<UiHud>> paint,
         Func<UiInputEvent<TState>, Fin<MouseDecision<TState>>>? input = null,
         Func<Eto.Drawing.Size, Fin<Unit>>? resize = null,
+        UiRenderHint hint = default) : this(state: Atom(initial), paint: paint, input: input, resize: resize, hint: hint) { }
+
+    public UiCanvas(
+        Atom<TState> state,
+        Func<TState, Eto.Drawing.Size, Fin<UiHud>> paint,
+        Func<UiInputEvent<TState>, Fin<MouseDecision<TState>>>? input = null,
+        Func<Eto.Drawing.Size, Fin<Unit>>? resize = null,
         UiRenderHint hint = default) {
-        state = Atom(initial);
+        this.state = state;   // share caller's atom so sibling-field commits repaint live — snapshot overload froze state at build time
         this.paint = paint;
         this.input = input;
         this.resize = resize;
@@ -536,7 +551,7 @@ public sealed class UiCanvas<TState> : Eto.Forms.Drawable {
         _ = RhinoUi.Protect(valid: () => { _ = hint.Apply(g: e.Graphics); return paint(arg1: state.Value, arg2: Size).Bind(hud => hud.Render(surface: new UiSurface.Canvas(Graphics: e.Graphics, Atlas: atlas))); });
 
     protected override void OnMouseDown(Eto.Forms.MouseEventArgs e) {
-        if (input is not null) Focus();
+        _ = Optional(input).Iter(_ => Focus());
         _ = Pointer(phase: MousePhase.Down, args: e);
     }
     protected override void OnMouseMove(Eto.Forms.MouseEventArgs e) => _ = Pointer(phase: MousePhase.Move, args: e);
@@ -545,18 +560,26 @@ public sealed class UiCanvas<TState> : Eto.Forms.Drawable {
     protected override void OnMouseWheel(Eto.Forms.MouseEventArgs e) => _ = Pointer(phase: MousePhase.Wheel, args: e);
     protected override void OnKeyDown(Eto.Forms.KeyEventArgs e) => _ = Optional(input).Iter(handler => Commit(() => handler(new UiInputEvent<TState>.CanvasKey(Value: new UiCanvasKey<TState>(Phase: KeyPhase.Down, State: state.Value, Args: e))), handled: cancel => e.Handled = cancel));
     protected override void OnKeyUp(Eto.Forms.KeyEventArgs e) => _ = Optional(input).Iter(handler => Commit(() => handler(new UiInputEvent<TState>.CanvasKey(Value: new UiCanvasKey<TState>(Phase: KeyPhase.Up, State: state.Value, Args: e))), handled: cancel => e.Handled = cancel));
+    protected override void OnGotFocus(EventArgs e) {
+        base.OnGotFocus(e);
+        _ = FocusEvent(phase: KeyPhase.FocusGain);
+    }
+    protected override void OnLostFocus(EventArgs e) {
+        base.OnLostFocus(e);
+        _ = FocusEvent(phase: KeyPhase.FocusLost);
+    }
     protected override void OnSizeChanged(EventArgs e) => _ = Optional(resize).Iter(handler => _ = RhinoUi.Protect(valid: () => handler(Size)));
 
     private Unit Pointer(MousePhase phase, Eto.Forms.MouseEventArgs args) =>
         Optional(input).Iter(handler => Commit(() => handler(new UiInputEvent<TState>.CanvasPointer(Value: new UiCanvasContext<TState>(Phase: phase, State: state.Value, Args: args))), handled: cancel => args.Handled = cancel));
+    private Unit FocusEvent(KeyPhase phase) =>   // focus events have no e.Handled surface — the synthetic KeyEventArgs only satisfies the CanvasKey shape
+        Optional(input).Iter(handler => Commit(() => handler(new UiInputEvent<TState>.CanvasKey(Value: new UiCanvasKey<TState>(Phase: phase, State: state.Value, Args: new Eto.Forms.KeyEventArgs(Eto.Forms.Keys.None, Eto.Forms.KeyEventType.KeyDown)))), handled: static _ => { }));
     private Unit Commit(Func<Fin<MouseDecision<TState>>> run, Action<bool> handled) =>
         RhinoUi.Deliver(
             state: state,
             run: _ => run().Map(decision => (decision.State, decision)),
             apply: decision => { ToolTip = decision.ToolTip.IfNone(string.Empty); handled(decision.Cancel); Invalidate(); },
-            failed: error => {
-                if (error is not Fault.Cancelled) RhinoApp.WriteLine($"Rasm canvas commit failed: {error.Message}");
-            });
+            failed: error => _ = Op.SideWhen(error is not Fault.Cancelled, () => RhinoApp.WriteLine($"Rasm canvas commit failed: {error.Message}")));
     protected override void Dispose(bool disposing) {
         if (disposing) {
             atlas.Dispose();

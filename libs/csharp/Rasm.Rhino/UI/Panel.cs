@@ -24,9 +24,10 @@ public sealed partial class PanelEventKind {
 
 public abstract record PanelIcon {
     private PanelIcon() { }
+    public virtual string? ResourceName => null;
     public sealed record Native(DrawingIcon Value) : PanelIcon;
-    public sealed record StandardResource(string Name) : PanelIcon;
-    public sealed record AssemblyResource(string Name, ReflectionAssembly Assembly) : PanelIcon;
+    public sealed record StandardResource(string Name) : PanelIcon { public override string? ResourceName => Name; }
+    public sealed record AssemblyResource(string Name, ReflectionAssembly Assembly) : PanelIcon { public override string? ResourceName => Name; }
     public static PanelIcon Of(DrawingIcon value) => new Native(Value: value);
     public static PanelIcon Resource(string name, ReflectionAssembly? assembly = null) =>
         assembly is ReflectionAssembly active ? new AssemblyResource(Name: name, Assembly: active) : new StandardResource(Name: name);
@@ -46,8 +47,8 @@ public abstract record PanelIcon {
         Op op = Op.Of(name: nameof(Change));
         return this switch {
             Native icon => op.Need(icon.Value).Bind(value => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.ChangePanelIcon(type, value); return Fin.Succ(value: unit); })),
-            AssemblyResource resource => op.AcceptText(value: resource.Name).MapFail(_ => op.InvalidInput()).Bind(name => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.ChangePanelIcon(type, name); return Fin.Succ(value: unit); })),
-            StandardResource resource => op.AcceptText(value: resource.Name).MapFail(_ => op.InvalidInput()).Bind(name => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.ChangePanelIcon(type, name); return Fin.Succ(value: unit); })),
+            AssemblyResource or StandardResource => op.AcceptText(value: ResourceName!).MapFail(_ => op.InvalidInput())
+                .Bind(name => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.ChangePanelIcon(type, name); return Fin.Succ(value: unit); })),
             _ => Fin.Fail<Unit>(error: op.InvalidInput()),
         };
     }
@@ -352,7 +353,10 @@ public sealed record UiAction(
             item.Text = command.MenuText;
             item.ToolTip = command.ToolTip;
             item.Enabled = command.Enabled;
-            if (item is ButtonMenuItem button) button.Image = command.Image;
+            _ = item switch {
+                ButtonMenuItem button => Op.Side(() => button.Image = command.Image),
+                _ => unit,
+            };
             item.Click += (_, _) => command.Execute();
             BindState(document: document, item: item);
             return item;
@@ -382,8 +386,11 @@ public sealed record UiAction(
     private static Unit ApplyState(MenuItem item, PanelMenuState state) {
         item.Enabled = state.Enabled;
         _ = state.Text.Iter(value => item.Text = value);
-        if (item is CheckMenuItem check) check.Checked = state.Checked;
-        if (item is RadioMenuItem radio) radio.Checked = state.RadioChecked || state.Checked;
+        _ = item switch {
+            CheckMenuItem check => Op.Side(() => check.Checked = state.Checked),
+            RadioMenuItem radio => Op.Side(() => radio.Checked = state.RadioChecked || state.Checked),
+            _ => unit,
+        };
         return unit;
     }
 
@@ -412,10 +419,12 @@ public abstract class RasmPanel : Panel, global::Rhino.UI.IPanel {
     protected virtual Fin<Unit> Change(PanelContext context) => context switch {
         { Phase: PanelPhase.Shown } when global::Rhino.UI.Panels.IsShowing(reason: context.Reason) => OnReveal(context: context),
         { Phase: PanelPhase.Hidden } when global::Rhino.UI.Panels.IsHiding(reason: context.Reason) => OnConceal(context: context),
+        { Phase: PanelPhase.Closing } => OnClose(context: context),
         _ => Fin.Succ(value: unit),
     };
     protected virtual Fin<Unit> OnReveal(PanelContext context) => Fin.Succ(value: unit);
     protected virtual Fin<Unit> OnConceal(PanelContext context) => Fin.Succ(value: unit);
+    protected virtual Fin<Unit> OnClose(PanelContext context) => Fin.Succ(value: unit);
 
     private Unit Apply(PanelPhase phase, uint documentSerialNumber, global::Rhino.UI.ShowPanelReason reason = default, bool onCloseDocument = false) {
         _ = RhinoUi.Protect(valid: () => Change(context: new PanelContext(Phase: phase, DocumentSerialNumber: documentSerialNumber, Reason: reason, OnCloseDocument: onCloseDocument)));
@@ -427,7 +436,19 @@ public abstract class RasmPanel : Panel, global::Rhino.UI.IPanel {
     internal static Fin<PanelIdentity> PanelIdentityOf<TPanel>() where TPanel : RasmPanel {
         Type type = typeof(TPanel);
         Op op = Op.Of(name: nameof(PanelIdentityOf));
-        return (type.GetConstructor(types: [typeof(uint)]) is not null || type.GetConstructor(types: Type.EmptyTypes) is not null, type.GetCustomAttributes(attributeType: typeof(GuidAttribute), inherit: false).FirstOrDefault()) switch { (false, _) => Fin.Fail<PanelIdentity>(error: op.Unsupported(geometryType: type, outputType: typeof(PanelIdentity))), (true, GuidAttribute attribute) when Guid.TryParse(input: attribute.Value, result: out Guid id) && id != Guid.Empty => Fin.Succ(value: new PanelIdentity(Type: type, Id: id)), _ => Fin.Fail<PanelIdentity>(error: op.InvalidInput()) };
+        return
+            from _ in guard(
+                type.GetConstructor(types: [typeof(uint)]) is not null ||
+                type.GetConstructor(types: Type.EmptyTypes) is not null,
+                op.Unsupported(geometryType: type, outputType: typeof(PanelIdentity))).ToFin()
+            let attribute = type.GetCustomAttributes(
+                attributeType: typeof(GuidAttribute), inherit: false).FirstOrDefault() as GuidAttribute
+            from id in (attribute is GuidAttribute a &&
+                        Guid.TryParse(input: a.Value, result: out Guid parsed) &&
+                        parsed != Guid.Empty)
+                    ? Fin.Succ(value: parsed)
+                    : Fin.Fail<Guid>(error: op.InvalidInput())
+            select new PanelIdentity(Type: type, Id: id);
     }
 }
 
@@ -572,12 +593,20 @@ public static class PanelOp {
             from registered in PanelMenuState.BindMany(ids: Seq((fileId, menuId, itemId)), update: validUpdate)
             select registered, interactive: false);
 
-    public static UiIntent<T> Watch<TPanel, T>(Func<PanelEvent, Fin<Unit>> change, Func<Fin<T>> run, Func<PanelEvent, bool>? until = null) where TPanel : RasmPanel =>
+    public static UiIntent<T> Watch<TPanel, T>(Func<PanelEvent, Fin<Unit>> change, Func<Fin<T>> run, Func<PanelEvent, bool>? until = null, Seq<PanelEventKind> phases = default) where TPanel : RasmPanel =>
         UiIntent.OfScope(run: scope =>
             from panel in RasmPanel.PanelIdentityOf<TPanel>()
             from valid in Op.Of(name: nameof(Watch)).Need(change)
             from body in Op.Of(name: nameof(Watch)).Need(run)
             let serial = scope.Document.RuntimeSerialNumber
+            let activePhases = phases.IsEmpty   // empty = all three; otherwise map each PanelEventKind to its WatchPhase via the kind key
+                ? Seq(WatchPhase.PanelShown, WatchPhase.PanelHidden, WatchPhase.PanelClosed)
+                : phases.Choose(static kind => kind.Key switch {
+                    1 => Some(WatchPhase.PanelShown),
+                    2 => Some(WatchPhase.PanelHidden),
+                    3 => Some(WatchPhase.PanelClosed),
+                    _ => Option<WatchPhase>.None,
+                })
             from subscription in RhinoUi.Protect(valid: () => {
                 Subscription? box = null;   // forward ref so an `until` match can self-detach mid-run
                 Fin<Unit> Fire(WatchPayload.Panel host, uint documentSerial) {
@@ -596,12 +625,10 @@ public static class PanelOp {
                     };
                 return WatchBus.Subscribe(
                     target: new WatchTarget.Document(Value: scope.Document),
-                    spec: new WatchSpec(Sink: Deliver, Phases: Seq(WatchPhase.PanelShown, WatchPhase.PanelHidden, WatchPhase.PanelClosed)))
+                    spec: new WatchSpec(Sink: Deliver, Phases: activePhases))
                     .Map(active => { box = active; return active; });
             })
-            from result in RhinoUi.Protect(valid: () => {
-                try { return body(); } finally { subscription.Dispose(); }
-            })
+            from result in RhinoUi.Protect(valid: () => { using Subscription _ = subscription; return body(); })
             select result,
             interactive: false);
 }

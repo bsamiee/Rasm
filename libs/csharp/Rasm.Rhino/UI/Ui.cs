@@ -260,7 +260,6 @@ public sealed class UiProgress : IDisposable {
             embedLabel: spec.EmbedLabel,
             showPercentComplete: spec.ShowPercentComplete) switch {
                 1 => Fin.Succ(value: new UiProgress(documentSerialNumber: validDocument.RuntimeSerialNumber, lower: spec.Lower, upper: spec.Upper)),
-                -1 => Fin.Fail<UiProgress>(error: Op.Of(name: nameof(UiProgress)).InvalidResult()),
                 _ => Fin.Fail<UiProgress>(error: Op.Of(name: nameof(UiProgress)).InvalidResult()),
             }
         select created;

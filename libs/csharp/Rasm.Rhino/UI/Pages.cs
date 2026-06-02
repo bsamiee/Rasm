@@ -10,19 +10,21 @@ public enum PageHost { Options, DocumentProperties, ObjectProperties }
 [Union(SwitchMapStateParameterName = "page")]
 public abstract partial record PageNav {
     private PageNav() { }
-    public sealed record Activate : PageNav;                                                   // MakeActivePage()
-    public sealed record Reveal(string PageName, bool DocumentProperties = false) : PageNav;   // SetActivePageTo
-    public sealed record Remove : PageNav;                                                     // RemovePage() (removes self)
-    public sealed record Dirty(bool Modified = true) : PageNav;                                // Modified flag enables Apply
-    public sealed record Child(global::Rhino.UI.StackedDialogPage Page) : PageNav;             // AddChildPage (Windows-only)
-    public sealed record Appearance(bool Bold, DrawingColor Color) : PageNav;                  // NavigationText* (Windows-only)
-    public sealed record Sequence(Seq<PageNav> Steps) : PageNav;                               // chained sub-navs folded onto one page
+    public sealed record Activate : PageNav;
+    public sealed record Reveal(string PageName, bool DocumentProperties = false) : PageNav;
+    public sealed record Remove : PageNav;
+    public sealed record Dirty(bool Modified = true) : PageNav;
+    public sealed record Child(global::Rhino.UI.StackedDialogPage Page) : PageNav;
+    public sealed record Appearance(bool Bold, DrawingColor Color) : PageNav;
+    public sealed record Sequence(Seq<PageNav> Steps) : PageNav;
 
     internal Fin<Unit> Apply(global::Rhino.UI.StackedDialogPage page) =>
         RhinoUi.Protect(valid: () => Switch(
             page,
             activate: static (p, _) => Fin.Succ(value: Op.Side(p.MakeActivePage)),
-            reveal: static (p, g) => Fin.Succ(value: Op.Side(() => p.SetActivePageTo(pageName: g.PageName, documentPropertiesPage: g.DocumentProperties))),
+            reveal: static (p, g) => p.SetActivePageTo(pageName: g.PageName, documentPropertiesPage: g.DocumentProperties)   // bool return distinguishes a missing page name from a successful navigation
+                ? Fin.Succ(value: unit)
+                : Fin.Fail<Unit>(error: Op.Of(name: nameof(Reveal)).Caution(concern: $"No page named '{g.PageName}' found in stacked dialog.")),
             remove: static (p, _) => Fin.Succ(value: Op.Side(p.RemovePage)),
             dirty: static (p, d) => Fin.Succ(value: Op.Side(() => p.Modified = d.Modified)),
             child: static (p, c) => WindowsOnly(op: Op.Of(name: nameof(Child)), run: () => p.AddChildPage(pageToAdd: c.Page)),
@@ -206,7 +208,7 @@ public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage
     public sealed override bool ShouldDisplay(global::Rhino.UI.ObjectPropertiesPageEventArgs e) =>
         ResultOf(pageEvent: PageEvent.ObjectPage(phase: PagePhase.Display, args: e)) == Result.Success;
     public sealed override void UpdatePage(global::Rhino.UI.ObjectPropertiesPageEventArgs e) =>
-        _ = Op.SideWhen(ShouldDisplay(e: e), () => _ = ResultOf(pageEvent: PageEvent.ObjectPage(phase: PagePhase.Update, args: e)));
+        _ = ResultOf(pageEvent: PageEvent.ObjectPage(phase: PagePhase.Update, args: e));   // native host already gated visibility; re-checking ShouldDisplay fired Change(Display) a second time per selection
     public sealed override bool OnActivate(bool active) => ResultOf(pageEvent: new PageEvent.Activate(Active: active)) == Result.Success;
     public sealed override Result RunScript(global::Rhino.UI.ObjectPropertiesPageEventArgs e) => ResultOf(pageEvent: PageEvent.ObjectPage(phase: PagePhase.Script, args: e, mode: RunMode.Scripted));
     public sealed override void OnHelp() => _ = ResultOf(pageEvent: new PageEvent.Help());
@@ -222,14 +224,19 @@ public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage
 
     protected virtual Fin<Result> Change(PageEvent pageEvent) =>
         from valid in Op.Of(name: nameof(Change)).Need(pageEvent)
-        from result in valid.Phase == PagePhase.Display
-            ? Op.Of(name: nameof(Change)).Need(valid.Args)
-                .Map(valid => valid.IncludesObjectsType(objectTypes: SupportedTypes, allMustMatch: AllObjectsMustBeSupported) switch {
-                    true => Result.Success,
-                    false => Result.Cancel,
-                })
-            : Fin.Succ(value: Result.Success)
+        from result in valid.Phase.Key switch {
+            4 =>   // Display: the sealed type-gate path
+                Op.Of(name: nameof(Change)).Need(valid.Args)
+                    .Map(args => args.IncludesObjectsType(objectTypes: SupportedTypes, allMustMatch: AllObjectsMustBeSupported) switch {
+                        true => Result.Success,
+                        false => Result.Cancel,
+                    }),
+            5 or 6 => OnRefresh(pageEvent: valid),   // Update | Modify
+            _ => Fin.Succ(value: Result.Success),
+        }
         select result;
+
+    protected virtual Fin<Result> OnRefresh(PageEvent pageEvent) => Fin.Succ(value: Result.Success);
 
     private Result ResultOf(PageEvent pageEvent) => RhinoUi.Protect(valid: () => Change(pageEvent: pageEvent)).Match(Succ: static result => result, Fail: static _ => Result.Failure);
 }

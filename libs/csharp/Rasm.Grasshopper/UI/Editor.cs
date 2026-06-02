@@ -24,7 +24,11 @@ public partial record EditorOp : IUiOp<EditorResult> {
     // Show is Read-scoped: it opens the editor in-body; headless opens construct the singleton without StatusBar paint.
     GrasshopperUiIntent<EditorResult> IUiOp<EditorResult>.Intent() =>
         new(
-            policy: this is ShellCase ? GrasshopperUiPolicy.Canvas(openEditor: true) : GrasshopperUiPolicy.Read,
+            policy: Switch(
+                showCase: static _ => GrasshopperUiPolicy.Read,
+                stateCase: static _ => GrasshopperUiPolicy.Read,
+                shellCase: static _ => GrasshopperUiPolicy.Canvas(openEditor: true),
+                beginRhinoGetterCase: static _ => GrasshopperUiPolicy.Read),
             run: _ => Editor.Dispatch(op: this));
 }
 
@@ -39,6 +43,7 @@ public partial record EditorResult {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct EditorSnapshot(bool HasEditor = false, bool HasCanvas = false, bool HasDocument = false, bool Collapsed = false, bool HasStatusBar = false, Option<Guid> StatusBarDocumentHash = default, bool ShowNotes = false, bool ShowUndoHistory = false, string InitialLayout = "", Seq<string> DefinedLayouts = default, Option<string> MostRecentActiveDocument = default, Seq<string> MostRecentLoadedDocuments = default, int MostRecentCount = 0);
 
 [StructLayout(LayoutKind.Auto)]

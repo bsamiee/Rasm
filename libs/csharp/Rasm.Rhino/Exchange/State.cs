@@ -22,6 +22,14 @@ public sealed partial class ArchiveSlice {
         tables: TableTypeFilter.ObjectTable | TableTypeFilter.Layer | TableTypeFilter.Material,
         objectFilter: ObjectTypeFilter.Any,
         filtered: true);
+    public static readonly ArchiveSlice LayerTable = new(key: 4,
+        tables: TableTypeFilter.Properties | TableTypeFilter.Settings | TableTypeFilter.Layer,
+        objectFilter: ObjectTypeFilter.None,
+        filtered: true);
+    public static readonly ArchiveSlice StringTable = new(key: 5,
+        tables: TableTypeFilter.Properties | TableTypeFilter.Settings | TableTypeFilter.UserTable,
+        objectFilter: ObjectTypeFilter.None,
+        filtered: true);
     public static readonly ArchiveSlice Resources = new(key: 3,
         tables: TableTypeFilter.Properties | TableTypeFilter.Settings | TableTypeFilter.Bitmap | TableTypeFilter.Font
               | TableTypeFilter.FutureFont | TableTypeFilter.Light | TableTypeFilter.Historyrecord
@@ -50,7 +58,23 @@ public enum FileArchiveProjection {
 public enum FileAxis { Stable, Document, File, Layer, ObjectName, ObjectType, Material, Block, UserString }
 public enum FileCollisionPolicy { Preserve, AppendNumber, Replace }
 public enum FileDirectoryPolicy { Create, Existing }
-public enum FileFidelity { Model, Small, GeometryOnly }
+
+[SmartEnum<int>]
+public sealed partial class FileFidelity {
+    public static readonly FileFidelity Model = new(
+        key: 0, isModel: true, includeMeasurements: true,
+        draco: (Compression: 6, BitsPos: 14, BitsNormal: 10, BitsTexCoord: 12));
+    public static readonly FileFidelity Small = new(
+        key: 1, isModel: false, includeMeasurements: true,
+        draco: (Compression: 10, BitsPos: 11, BitsNormal: 8, BitsTexCoord: 10));
+    public static readonly FileFidelity GeometryOnly = new(
+        key: 2, isModel: false, includeMeasurements: false,
+        draco: (Compression: 6, BitsPos: 14, BitsNormal: 10, BitsTexCoord: 12));
+
+    public bool IsModel { get; }
+    public bool IncludeMeasurements { get; }
+    public (int Compression, int BitsPos, int BitsNormal, int BitsTexCoord) Draco { get; }
+}
 
 [SmartEnum<string>]
 public sealed partial class FileIssueCode {
@@ -65,28 +89,29 @@ public enum FileOverwritePolicy { Fail, Replace }
 
 [SmartEnum<int>]
 public sealed partial class FilePhase {
-    public static readonly FilePhase Prompt = new(key: 0, requires: FileCapability.None);
-    public static readonly FilePhase Open = new(key: 1, requires: FileCapability.Archive);
-    public static readonly FilePhase Headless = new(key: 2, requires: FileCapability.Archive | FileCapability.Import);
-    public static readonly FilePhase Import = new(key: 3, requires: FileCapability.Import);
-    public static readonly FilePhase Export = new(key: 4, requires: FileCapability.Export);
-    public static readonly FilePhase Publish = new(key: 5, requires: FileCapability.Publish);
-    public static readonly FilePhase NamedLayerState = new(key: 6, requires: FileCapability.None);
-    public static readonly FilePhase Save = new(key: 7, requires: FileCapability.None);
-    public static readonly FilePhase SaveAs = new(key: 8, requires: FileCapability.Archive);
-    public static readonly FilePhase WriteFile = new(key: 9, requires: FileCapability.Export);
-    public static readonly FilePhase Write3dmFile = new(key: 10, requires: FileCapability.Archive);
-    public static readonly FilePhase SaveTemplate = new(key: 11, requires: FileCapability.Archive);
-    public static readonly FilePhase ArchiveRead = new(key: 12, requires: FileCapability.None);
-    public static readonly FilePhase ArchiveExtract = new(key: 13, requires: FileCapability.None);
-    public static readonly FilePhase ArchiveUpdate = new(key: 14, requires: FileCapability.None);
-    public static readonly FilePhase ArchiveInspect = new(key: 15, requires: FileCapability.None);
-    public static readonly FilePhase ArchiveValidate = new(key: 16, requires: FileCapability.None);
-    public static readonly FilePhase Batch = new(key: 17, requires: FileCapability.None);
-    public static readonly FilePhase SheetEdit = new(key: 18, requires: FileCapability.None);
-    public static readonly FilePhase NamedPosition = new(key: 19, requires: FileCapability.None);
+    public static readonly FilePhase Prompt = new(key: 0, requires: FileCapability.None, allowsPrompt: false);
+    public static readonly FilePhase Open = new(key: 1, requires: FileCapability.Archive, allowsPrompt: false);
+    public static readonly FilePhase Headless = new(key: 2, requires: FileCapability.Archive | FileCapability.Import, allowsPrompt: false);
+    public static readonly FilePhase Import = new(key: 3, requires: FileCapability.Import, allowsPrompt: false);
+    public static readonly FilePhase Export = new(key: 4, requires: FileCapability.Export, allowsPrompt: true);
+    public static readonly FilePhase Publish = new(key: 5, requires: FileCapability.Publish, allowsPrompt: true);
+    public static readonly FilePhase NamedLayerState = new(key: 6, requires: FileCapability.None, allowsPrompt: false);
+    public static readonly FilePhase Save = new(key: 7, requires: FileCapability.None, allowsPrompt: false);
+    public static readonly FilePhase SaveAs = new(key: 8, requires: FileCapability.Archive, allowsPrompt: false);
+    public static readonly FilePhase WriteFile = new(key: 9, requires: FileCapability.Export, allowsPrompt: false);
+    public static readonly FilePhase Write3dmFile = new(key: 10, requires: FileCapability.Archive, allowsPrompt: false);
+    public static readonly FilePhase SaveTemplate = new(key: 11, requires: FileCapability.Archive, allowsPrompt: false);
+    public static readonly FilePhase ArchiveRead = new(key: 12, requires: FileCapability.None, allowsPrompt: false);
+    public static readonly FilePhase ArchiveExtract = new(key: 13, requires: FileCapability.None, allowsPrompt: false);
+    public static readonly FilePhase ArchiveUpdate = new(key: 14, requires: FileCapability.None, allowsPrompt: false);
+    public static readonly FilePhase ArchiveInspect = new(key: 15, requires: FileCapability.None, allowsPrompt: false);
+    public static readonly FilePhase ArchiveValidate = new(key: 16, requires: FileCapability.None, allowsPrompt: false);
+    public static readonly FilePhase Batch = new(key: 17, requires: FileCapability.None, allowsPrompt: false);
+    public static readonly FilePhase SheetEdit = new(key: 18, requires: FileCapability.None, allowsPrompt: false);
+    public static readonly FilePhase NamedPosition = new(key: 19, requires: FileCapability.None, allowsPrompt: false);
 
     public FileCapability Requires { get; }
+    public bool AllowsPrompt { get; }
 
     internal bool Allows(FileCapability capability) =>
         Requires == FileCapability.None || (Requires & capability) != FileCapability.None;
@@ -94,7 +119,17 @@ public sealed partial class FilePhase {
 
 public enum FilePromptMode { OpenSingle, OpenMultiple, Save, Folder }
 public enum FileResourcePolicy { Reference, Embed, Copy }
-public enum FileTiffCompression { Default, None, Lzw, Ccitt3, Ccitt4, Rle }
+
+[SmartEnum<int>]
+public sealed partial class FileTiffCompression {
+    public static readonly FileTiffCompression Default = new(key: 0, valid: true);
+    public static readonly FileTiffCompression None = new(key: 1, valid: true);
+    public static readonly FileTiffCompression Lzw = new(key: 2, valid: true);
+    public static readonly FileTiffCompression Ccitt3 = new(key: 3, valid: true);
+    public static readonly FileTiffCompression Ccitt4 = new(key: 4, valid: true);
+    public static readonly FileTiffCompression Rle = new(key: 5, valid: true);
+    public bool Valid { get; }
+}
 
 [SmartEnum<int>]
 public sealed partial class FileVectorUnit {
@@ -142,7 +177,22 @@ public sealed record ArchiveProfile(ArchiveSlice Slice, FileArchiveProjection Pr
 public sealed record ArchiveUpdate(
     Option<FileArchiveMetadataPatch> Metadata = default,
     Seq<FileEndpoint> Embed = default,
-    Seq<string> Extract = default);
+    Seq<string> Extract = default,
+    Seq<FileNamedViewPatch> NamedViews = default,
+    Option<FileArchiveSettingsPatch> Settings = default,
+    Option<FileEndpoint> PreviewImage = default);
+
+public sealed record FileNamedViewPatch(
+    string Name,
+    Option<string> Rename = default,
+    bool Delete = false);
+
+public readonly record struct FileArchiveSettingsPatch(
+    Option<UnitSystem> ModelUnitSystem = default,
+    Option<UnitSystem> PageUnitSystem = default,
+    Option<double> ModelAbsoluteTolerance = default,
+    Option<double> ModelAngleToleranceRadians = default,
+    Option<string> ModelUrl = default);
 
 public readonly record struct FileArchiveMetadataPatch(
     Option<string> Notes,
@@ -302,10 +352,8 @@ public readonly record struct FileIssue(FileIssueCode Code, string Message) {
     public static FileIssue Native(string message) =>
         new(Code: FileIssueCode.Native, Message: string.IsNullOrWhiteSpace(value: message) ? "No native log." : message);
 
-    public static FileIssue Of(FileIssueCode code, string message) {
-        ArgumentNullException.ThrowIfNull(argument: code);
-        return new(Code: code, Message: string.IsNullOrWhiteSpace(value: message) ? code.Key : message);
-    }
+    internal static FileIssue Of(FileIssueCode code, string message) =>
+        new(Code: code, Message: string.IsNullOrWhiteSpace(value: message) ? code.Key : message);
 }
 
 public readonly record struct FileNamePolicy(FileCollisionPolicy Collision = FileCollisionPolicy.Preserve, Option<string> Extension = default) {
@@ -389,19 +437,18 @@ public sealed record FilePrompt {
     public static Fin<FilePrompt> Open(string title, string filter = "", bool multiple = false, Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default) =>
         Create(mode: multiple ? FilePromptMode.OpenMultiple : FilePromptMode.OpenSingle, title: title, filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: FilePhase.Import) : filter, fileName: fileName, initialDirectory: initialDirectory, defaultExtension: defaultExtension);
 
-    public static Fin<FilePrompt> Save(string title, string filter = "", Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default, FileWritePolicy write = default, FilePhase? phase = null) {
-        FilePhase active = phase ?? FilePhase.Export;
-        return active == FilePhase.Export || active == FilePhase.Publish
-            ? Create(
-                mode: FilePromptMode.Save,
-                title: title,
-                filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: active) : filter,
-                fileName: fileName,
-                initialDirectory: initialDirectory,
-                defaultExtension: defaultExtension,
-                write: write)
-            : Fin.Fail<FilePrompt>(error: Op.Of(name: nameof(FilePrompt)).InvalidInput());
-    }
+    public static Fin<FilePrompt> Save(string title, string filter = "", Option<string> fileName = default, Option<string> initialDirectory = default, Option<string> defaultExtension = default, FileWritePolicy write = default, FilePhase? phase = null) =>
+        from active in Fin.Succ(value: phase ?? FilePhase.Export)
+        from _ in guard(active.AllowsPrompt, Op.Of(name: nameof(FilePrompt)).InvalidInput()).ToFin()
+        from prompt in Create(
+            mode: FilePromptMode.Save,
+            title: title,
+            filter: string.IsNullOrWhiteSpace(value: filter) ? FileFormat.Filter(phase: active) : filter,
+            fileName: fileName,
+            initialDirectory: initialDirectory,
+            defaultExtension: defaultExtension,
+            write: write)
+        select prompt;
 
     public static Fin<FilePrompt> Folder(string title, Option<string> initialDirectory = default) =>
         Create(mode: FilePromptMode.Folder, title: title, filter: string.Empty, initialDirectory: initialDirectory);

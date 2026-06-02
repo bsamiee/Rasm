@@ -16,7 +16,7 @@ file static class Fixtures {
             .IfFail(error => throw new InvalidOperationException(message: error.Message)));
 
     internal static FileResourceGraph Graph(Seq<string> linked = default, Seq<string> textures = default, Seq<string> references = default, int objects = 0) =>
-        new(Objects: objects, Layers: 0, Materials: 0, Groups: 0, Blocks: 0, Views: 0, NamedViews: 0, Strings: 0,
+        new(Objects: objects, Layers: 0, Materials: 0, Groups: 0, Blocks: 0, ModelViews: 0, LayoutViews: 0, NamedViews: 0, Strings: 0,
             PlugInData: 0, EmbeddedFiles: 0, RenderMaterials: 0, RenderEnvironments: 0, RenderTextures: 0, Linetypes: 0,
             DimensionStyles: 0, HatchPatterns: 0, NamedConstructionPlanes: 0, Manifest: 0, Relations: 0,
             EmbeddedFileNames: Seq<string>(), LinkedBlockArchives: linked, RenderTextureFiles: textures,
@@ -90,7 +90,7 @@ public sealed class FileResourceGraphLaws {
     public void SummaryAcceptsNonNegativeCountsAndRejectsNegatives() {
         Op op = Op.Of(name: nameof(SummaryAcceptsNonNegativeCountsAndRejectsNegatives));
         Spec.Succ(Fixtures.Graph(objects: 7).Summary(op: op), then: summary => {
-            Assert.Equal(expected: 19, actual: summary.Count);
+            Assert.Equal(expected: 20, actual: summary.Count);
             Spec.Equal(left: summary.Maximum, right: 7.0, tolerance: 0.0, what: "archive summary max");
         });
         Spec.FailCategory((Fixtures.Graph() with { Objects = -1 }).Summary(op: op), category: "Result");

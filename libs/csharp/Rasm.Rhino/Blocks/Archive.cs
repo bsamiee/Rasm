@@ -29,6 +29,8 @@ public static class Archive {
     public readonly record struct Instance(Guid ObjectId, DefinitionId ParentDefId, Transform Xform);
     [StructLayout(LayoutKind.Auto)]
     public readonly record struct LinkedArchiveEdge(ArchivePath FromPath, ArchiveLink Link, ArchivePath ToPath, int Depth);
+    [StructLayout(LayoutKind.Auto)]
+    public readonly record struct UnitEdge(ArchivePath Path, UnitSystem Units, double ScaleToHost);
 
     internal readonly record struct DefinitionWalkNode(
         Option<ReachInsert> Reach,
@@ -39,16 +41,20 @@ public static class Archive {
         Seq<ArchivePath> Broken,
         Seq<Seq<ArchivePath>> Cycles,
         Seq<ArchivePath> Truncated,
-        Seq<string> NativeLog) {
-        public static ClosureState Empty { get; } = new(Edges: Seq<LinkedArchiveEdge>(), Broken: Seq<ArchivePath>(), Cycles: Seq<Seq<ArchivePath>>(), Truncated: Seq<ArchivePath>(), NativeLog: Seq<string>());
+        Seq<string> NativeLog,
+        Seq<UnitEdge> UnitEdges) {
+        public static ClosureState Empty { get; } = new(Edges: Seq<LinkedArchiveEdge>(), Broken: Seq<ArchivePath>(), Cycles: Seq<Seq<ArchivePath>>(), Truncated: Seq<ArchivePath>(), NativeLog: Seq<string>(), UnitEdges: Seq<UnitEdge>());
         public ArchiveClosureReport Report(ClosureValidationPolicy policy) =>
             new(
-                Valid: Broken.IsEmpty && Truncated.IsEmpty && (!policy.DetectCycles || Cycles.IsEmpty),
+                Valid: Broken.IsEmpty && Truncated.IsEmpty
+                    && (!policy.DetectCycles || Cycles.IsEmpty)
+                    && (!policy.DetectUnitMismatches || UnitEdges.IsEmpty),
                 Edges: Edges,
                 Broken: Broken,
                 Cycles: Cycles,
                 Truncated: Truncated,
-                NativeLog: NativeLog);
+                NativeLog: NativeLog,
+                UnitEdges: UnitEdges);
     }
 
     // --- [CONSTANTS] --------------------------------------------------------------------------
@@ -70,8 +76,9 @@ public static class Archive {
         File3dm root,
         string rootPath,
         Op? key = null,
-        ClosureValidationPolicy? policy = null) =>
-        ValidateArchiveClosure(root: root, rootPath: rootPath, policy: policy, key: key)
+        ClosureValidationPolicy? policy = null,
+        UnitSystem hostUnits = UnitSystem.None) =>
+        ValidateArchiveClosure(root: root, rootPath: rootPath, policy: policy, hostUnits: hostUnits, key: key)
             .Bind(report => report.Valid
                 ? Fin.Succ(value: report.Edges)
                 : Fin.Fail<Seq<LinkedArchiveEdge>>(error: key.OrDefault().InvalidResult(detail: nameof(LinkedArchiveClosure))));
@@ -79,6 +86,7 @@ public static class Archive {
         File3dm root,
         string rootPath,
         ClosureValidationPolicy? policy = null,
+        UnitSystem hostUnits = UnitSystem.None,
         Op? key = null) {
         Op op = key.OrDefault();
         ClosureValidationPolicy admitted = policy ?? ClosureValidationPolicy.Default;
@@ -92,6 +100,7 @@ public static class Archive {
                    visited: LxHashSet.empty<string>(),
                    state: ClosureState.Empty,
                    policy: validPolicy,
+                   hostUnits: hostUnits,
                    key: op))
                select state.Report(policy: validPolicy);
     }
@@ -103,6 +112,7 @@ public static class Archive {
         LanguageExt.HashSet<string> visited,
         ClosureState state,
         ClosureValidationPolicy policy,
+        UnitSystem hostUnits,
         Op key) {
         string here = IOPath.GetFullPath(path: path);
         bool onStack = stack.Any(item => string.Equals(a: item, b: here, comparisonType: StringComparison.OrdinalIgnoreCase));
@@ -122,6 +132,7 @@ public static class Archive {
                 visited: visited.Add(key: here),
                 state: state,
                 policy: policy,
+                hostUnits: hostUnits,
                 key: key),
         };
     }
@@ -134,6 +145,7 @@ public static class Archive {
         LanguageExt.HashSet<string> visited,
         ClosureState state,
         ClosureValidationPolicy policy,
+        UnitSystem hostUnits,
         Op key) =>
         From(model: model, archivePath: Some(path), key: key).Match(
             Fail: _ => Fin.Succ(state with { Broken = state.Broken + BrokenPath(here: here, key: key) }),
@@ -150,6 +162,7 @@ public static class Archive {
                             visited: visited,
                             state: acc,
                             policy: policy,
+                            hostUnits: hostUnits,
                             key: key)))));
     private static Fin<ClosureState> WalkEdge(
         ArchivePath anchor,
@@ -159,12 +172,13 @@ public static class Archive {
         LanguageExt.HashSet<string> visited,
         ClosureState state,
         ClosureValidationPolicy policy,
+        UnitSystem hostUnits,
         Op key) {
         string toFull = IOPath.GetFullPath(path: link.Full.Value);
         LinkedArchiveEdge edge = new(FromPath: anchor, Link: link, ToPath: link.Full, Depth: depth);
         ClosureState next = state with { Edges = state.Edges + edge };
         return File.Exists(path: toFull)
-            ? ReadNestedArchive(toFull: toFull, next: next, depth: depth, stack: stack, visited: visited, policy: policy, key: key)
+            ? ReadNestedArchive(toFull: toFull, next: next, depth: depth, stack: stack, visited: visited, policy: policy, hostUnits: hostUnits, key: key)
             : Fin.Succ(next with { Broken = next.Broken + BrokenPath(here: toFull, key: key) });
     }
     private static Fin<ClosureState> ReadNestedArchive(
@@ -174,6 +188,7 @@ public static class Archive {
         Seq<string> stack,
         LanguageExt.HashSet<string> visited,
         ClosureValidationPolicy policy,
+        UnitSystem hostUnits,
         Op key) =>
         key.Catch(() => {
             using File3dm? child = File3dm.ReadWithLog(path: toFull, errorLog: out string errorLog);
@@ -183,15 +198,25 @@ public static class Archive {
                 .IfNone(next);
             return child switch {
                 null => Fin.Succ(logged with { Broken = logged.Broken + BrokenPath(here: toFull, key: key) }),
-                File3dm model => WalkClosure(
-                    model: model,
-                    path: toFull,
-                    depth: depth + 1,
-                    stack: stack,
-                    visited: visited,
-                    state: logged,
-                    policy: policy,
-                    key: key),
+                File3dm model => ArchivePath.From(value: toFull, key: key).Bind(archivePath => {
+                    UnitSystem childUnits = model.Settings.ModelUnitSystem;
+                    double scale = hostUnits != UnitSystem.None && childUnits != UnitSystem.None
+                        ? RhinoMath.UnitScale(from: childUnits, to: hostUnits)
+                        : 1.0;
+                    ClosureState withUnit = policy.DetectUnitMismatches && Math.Abs(value: scale - 1.0) > RhinoMath.ZeroTolerance
+                        ? logged with { UnitEdges = logged.UnitEdges + new UnitEdge(Path: archivePath, Units: childUnits, ScaleToHost: scale) }
+                        : logged;
+                    return WalkClosure(
+                        model: model,
+                        path: toFull,
+                        depth: depth + 1,
+                        stack: stack,
+                        visited: visited,
+                        state: withUnit,
+                        policy: policy,
+                        hostUnits: hostUnits,
+                        key: key);
+                }).BindFail(_ => Fin.Succ(logged)),
             };
         });
     private static Seq<ArchivePath> BrokenPath(string here, Op key) =>
@@ -430,10 +455,12 @@ public static class Archive {
             .Choose(def => Definition.NonBlank(value: def.SourceArchive)
                 .Bind(raw => ArchiveLink.Resolve(raw: raw, anchorDirectory: anchorDirectory, key: key).ToOption()));
 
-    private static Seq<T> Rows<T>(IEnumerable<T>? source) =>
+    private static Seq<T> Rows<T>(IEnumerable<T>? source) where T : class =>
         source is null ? Seq<T>() : toSeq(source).Filter(static item => item is not null);
-    private static Seq<T> Rows<T>(Func<IEnumerable<T>?> read) =>
-        Native(read: read).Map(source => Rows(source: source)).IfNone(Seq<T>());
+
+    private static Seq<T> Rows<T>(Func<IEnumerable<T>?> read) where T : class =>
+        Optional(read()).Map(Rows).IfNone(Seq<T>());
+
     private static Option<T> Native<T>(Func<T?> read)
         where T : class =>
         Optional(read());
@@ -458,7 +485,7 @@ public static class Archive {
     private static int ComputeDepth(Guid defId, HashMap<Guid, ImmutableArray<Guid>> nestedDefs, LanguageExt.HashSet<Guid> visiting, HashMap<Guid, int> memo) =>
         (memo.Find(key: defId), LxHashSet.contains(set: visiting, value: defId)) switch {
             ( { IsSome: true, Case: int cached }, _) => cached,
-            (_, true) => 0,        // cycle: zero depth, don't recurse
+            (_, true) => 0,        // Cyclic reference: 0 is the conservative topological floor; sorting cycles before dependents is safe.
             _ => 1 + toSeq(nestedDefs.Find(key: defId).IfNone(noneValue: []))
                     .Map(nestedId => ComputeDepth(defId: nestedId, nestedDefs: nestedDefs, visiting: visiting.Add(key: defId), memo: memo))
                     .DefaultIfEmpty(defaultValue: 0)

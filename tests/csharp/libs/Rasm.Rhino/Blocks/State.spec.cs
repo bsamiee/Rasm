@@ -157,7 +157,7 @@ public sealed class BlockStateAdmissionLaws {
         Assert.Equal(expected: Seq(resultId), actual: history.Created);
         Assert.True(condition: history.Deleted.IsEmpty && history.Transformed.IsEmpty);
         MutationReceipt left = MutationReceipt.Named(name: "A");
-        MutationReceipt right = MutationReceipt.Lifecycle(id: instanceId, name: "B");
+        MutationReceipt right = MutationReceipt.Objects(slot: DocumentReceiptSlot.Lifecycle, ids: Seq(instanceId), kind: DocumentResourceKind.Block, name: "B");
         MutationReceipt combined = left + right;
         Assert.Equal(expected: 2, actual: combined.Document.ResourceChanged.Count);
         Assert.Equal(expected: Seq(instanceId), actual: combined.Document.LifecycleChanged);

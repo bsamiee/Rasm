@@ -1,3 +1,5 @@
+using System.Collections.Frozen;
+
 namespace Rasm.Rhino.Commands;
 
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -209,18 +211,23 @@ public sealed partial record CommandSelection {
         select selection;
     }
 
+    private readonly ref struct ObjRefs {
+        private ObjRefs(Seq<ObjRef> refs) => Values = refs;
+        public static ObjRefs FromReferences(Seq<Reference> items, RhinoDoc document) =>
+            new(items.Map(r => r.ObjRef(document: document)));
+        public static ObjRefs FromObjRefs(Seq<ObjRef> source) => new(source);
+        public Seq<ObjRef> Values { get; }
+        public void Dispose() => Values.Iter(static r => r.Dispose());
+    }
+
     internal static CommandSelection From(RhinoDoc document, Seq<ObjRef> references, Seq<(Guid ObjectId, ComponentIndex ComponentIndex)> preselected) {
         ArgumentNullException.ThrowIfNull(argument: document);
-        ObjRef[] source = [.. references];
-        try {
-            Reference[] snapshots = [.. toSeq(source).Map(reference => Reference.Of(
-                document: document,
-                reference: reference,
-                preselected: preselected.Exists(item => item.ObjectId == reference.ObjectId && item.ComponentIndex == reference.GeometryComponentIndex)))];
-            return new(document: document, items: toSeq(snapshots));
-        } finally {
-            _ = toSeq(source).Iter(static reference => reference.Dispose());
-        }
+        using ObjRefs source = ObjRefs.FromObjRefs(references);
+        Reference[] snapshots = [.. source.Values.Map(reference => Reference.Of(
+            document: document,
+            reference: reference,
+            preselected: preselected.Exists(item => item.ObjectId == reference.ObjectId && item.ComponentIndex == reference.GeometryComponentIndex)))];
+        return new(document: document, items: toSeq(snapshots));
     }
 
     internal static Fin<CommandSelection> FromObjects(RhinoDoc document, IEnumerable<Guid> objectIds, CommandObjectSelection policy) =>
@@ -240,16 +247,15 @@ public sealed partial record CommandSelection {
 
     private Fin<int> SelectNative(RhinoDoc document, bool selected, DocumentSelectionPolicy policy, Op op) {
         ArgumentNullException.ThrowIfNull(argument: document);
-        Seq<ObjRef> references = Seq<ObjRef>();
-        try {
-            references = Items.Map(reference => reference.ObjRef(document: document));
-            return references.TraverseM(reference => policy.Select((highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) => document.Objects.Select(reference, selected, highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility)) switch {
-                true => Fin.Succ(value: 1),
-                false => Fin.Fail<int>(error: op.InvalidResult()),
-            }).As().Map(static values => values.Fold(initialState: 0, f: static (state, value) => state + value));
-        } finally {
-            _ = references.Iter(static reference => reference.Dispose());
-        }
+        using ObjRefs refs = ObjRefs.FromReferences(Items, document);
+        return refs.Values.TraverseM(reference => (selected, policy.Select(
+            (highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility) =>
+                document.Objects.Select(reference, selected, highlight, persistent, ignoreGrips, ignoreLayerLocking, ignoreLayerVisibility))) switch {
+                    // ObjRef.Select returns rhinoObject.Select(on) != 0: true confirms select, but successful deselect returns 0 -> false. Treat the non-throwing dispatch as success for the requested direction.
+                    (true, true) => Fin.Succ(value: 1),
+                    (false, _) => Fin.Succ(value: 0),
+                    _ => Fin.Fail<int>(error: op.InvalidResult()),
+                }).As().Map(static values => values.Fold(initialState: 0, f: static (state, value) => state + value));
     }
 
     public readonly record struct Reference(
@@ -374,30 +380,36 @@ public sealed partial record CommandSelection {
                 .Bind(valid => snapshot.Use(document: document, op: op, use: reference => Extract<TPart>(reference: reference, op: op).Bind(valid)));
         }
 
+        private static readonly FrozenDictionary<Type, Func<ObjRef, object?>> Extractors =
+            new Dictionary<Type, Func<ObjRef, object?>> {
+                [typeof(Brep)] = static r => r.Brep(),
+                [typeof(BrepFace)] = static r => r.Face(),
+                [typeof(BrepEdge)] = static r => r.Edge(),
+                [typeof(BrepTrim)] = static r => r.Trim(),
+                [typeof(SubD)] = static r => r.SubD(),
+                [typeof(SubDFace)] = static r => r.SubDFace(),
+                [typeof(SubDEdge)] = static r => r.SubDEdge(),
+                [typeof(SubDVertex)] = static r => r.SubDVertex(),
+                [typeof(ClippingPlaneSurface)] = static r => r.ClippingPlaneSurface(),
+                [typeof(Curve)] = static r => r.Curve(),
+                [typeof(Surface)] = static r => r.Surface(),
+                [typeof(Mesh)] = static r => r.Mesh(),
+                [typeof(Point)] = static r => r.Point(),
+                [typeof(PointCloud)] = static r => r.PointCloud(),
+                [typeof(TextDot)] = static r => r.TextDot(),
+                [typeof(TextEntity)] = static r => r.TextEntity(),
+                [typeof(Light)] = static r => r.Light(),
+                [typeof(Hatch)] = static r => r.Hatch(),
+            }.ToFrozenDictionary();
+
         private static Option<TPart> NativeOf<TPart>(ObjRef reference) where TPart : class =>
-            Optional(reference).Bind(valid => typeof(TPart) switch {
-                Type v when v == typeof(Brep) => Cast<TPart>(valid.Brep()),
-                Type v when v == typeof(BrepFace) => Cast<TPart>(valid.Face()),
-                Type v when v == typeof(BrepEdge) => Cast<TPart>(valid.Edge()),
-                Type v when v == typeof(BrepTrim) => Cast<TPart>(valid.Trim()),
-                Type v when v == typeof(SubD) => Cast<TPart>(valid.SubD()),
-                Type v when v == typeof(SubDFace) => Cast<TPart>(valid.SubDFace()),
-                Type v when v == typeof(SubDEdge) => Cast<TPart>(valid.SubDEdge()),
-                Type v when v == typeof(SubDVertex) => Cast<TPart>(valid.SubDVertex()),
-                Type v when v == typeof(ClippingPlaneSurface) => Cast<TPart>(valid.ClippingPlaneSurface()),
-                Type v when v == typeof(Curve) => Cast<TPart>(valid.Curve()),
-                Type v when v == typeof(Surface) => Cast<TPart>(valid.Surface()),
-                Type v when v == typeof(Mesh) => Cast<TPart>(valid.Mesh()),
-                Type v when v == typeof(Point) => Cast<TPart>(valid.Point()),
-                Type v when v == typeof(PointCloud) => Cast<TPart>(valid.PointCloud()),
-                Type v when v == typeof(TextDot) => Cast<TPart>(valid.TextDot()),
-                Type v when v == typeof(TextEntity) => Cast<TPart>(valid.TextEntity()),
-                Type v when v == typeof(Light) => Cast<TPart>(valid.Light()),
-                Type v when v == typeof(Hatch) => Cast<TPart>(valid.Hatch()),
-                Type v when typeof(RhinoObject).IsAssignableFrom(c: v) => Cast<TPart>(valid.InstanceDefinitionPart()) | Cast<TPart>(valid.Object()),
-                Type v when typeof(GeometryBase).IsAssignableFrom(c: v) => Cast<TPart>(valid.Geometry()),
-                _ => Option<TPart>.None,
-            });
+            Optional(reference).Bind(valid => Extractors.TryGetValue(typeof(TPart), out Func<ObjRef, object?>? extract)
+                ? Cast<TPart>(extract(arg: valid))
+                : typeof(TPart) switch {
+                    Type v when typeof(RhinoObject).IsAssignableFrom(c: v) => Cast<TPart>(valid.InstanceDefinitionPart()) | Cast<TPart>(valid.Object()),
+                    Type v when typeof(GeometryBase).IsAssignableFrom(c: v) => Cast<TPart>(valid.Geometry()),
+                    _ => Option<TPart>.None,
+                });
 
         private static Option<TPart> Cast<TPart>(object? value) where TPart : class =>
             value is TPart typed ? Some(typed) : Option<TPart>.None;

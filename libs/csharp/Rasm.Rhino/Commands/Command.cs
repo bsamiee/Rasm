@@ -6,47 +6,58 @@ using UiViewportPreview = Rasm.Rhino.UI.UiViewportPreview;
 namespace Rasm.Rhino.Commands;
 
 // --- [TYPES] ------------------------------------------------------------------------------
-public abstract record CommandStep<TState>(string Name) {
-    internal abstract Fin<PromptTransition<TState>> Run(CommandStageContext<TState> context);
-
-    public sealed record Effect(string Name, Func<CommandStageContext<TState>, Fin<TState>> Apply) : CommandStep<TState>(Name) {
-        internal override Fin<PromptTransition<TState>> Run(CommandStageContext<TState> context) =>
-            Op.Of(name: Name).Need(Apply).Bind(apply => apply(arg: context).Map(state => (PromptTransition<TState>)new PromptTransition<TState>.Stay(State: state)));
+// not a [Union]: PromptStage<TState,TValue> is an external case (extra type param) the union generator cannot own, so dispatch is a this-switch and the base ctor is protected.
+public abstract record CommandStep<TStep> {
+    protected CommandStep() { }
+    public abstract string Name { get; }
+    public sealed record EffectCase(string Name, Func<CommandStageContext<TStep>, Fin<TStep>> Apply) : CommandStep<TStep> {
+        public override string Name { get; } = Name;
+    }
+    public sealed record BranchCase(string Name, Func<CommandStageContext<TStep>, Fin<PromptTransition<TStep>>> Next) : CommandStep<TStep> {
+        public override string Name { get; } = Name;
+    }
+    public sealed record CommitCase(string Name, Func<CommandStageContext<TStep>, Fin<TStep>> Apply) : CommandStep<TStep> {
+        public override string Name { get; } = Name;
     }
 
-    public sealed record Branch(string Name, Func<CommandStageContext<TState>, Fin<PromptTransition<TState>>> Next) : CommandStep<TState>(Name) {
-        internal override Fin<PromptTransition<TState>> Run(CommandStageContext<TState> context) =>
-            Op.Of(name: Name).Need(Next).Bind(next => next(arg: context));
-    }
-
-    public sealed record Commit(string Name, Func<CommandStageContext<TState>, Fin<TState>> Apply) : CommandStep<TState>(Name) {
-        internal override Fin<PromptTransition<TState>> Run(CommandStageContext<TState> context) =>
-            Op.Of(name: Name).Need(Apply).Bind(apply => apply(arg: context).Map(state => (PromptTransition<TState>)new PromptTransition<TState>.Commit(State: state)));
-    }
+    // virtual so PromptStage (external) overrides with its own prompt loop; the _ arm is unreachable (PromptStage never delegates to base.Run).
+    internal virtual Fin<PromptTransition<TStep>> Run(CommandStageContext<TStep> context) =>
+        this switch {
+            EffectCase c => Op.Of(name: c.Name).Need(c.Apply).Bind(apply =>
+                apply(arg: context).Map(static state => (PromptTransition<TStep>)new PromptTransition<TStep>.Stay(State: state))),
+            BranchCase c => Op.Of(name: c.Name).Need(c.Next).Bind(next => next(arg: context)),
+            CommitCase c => Op.Of(name: c.Name).Need(c.Apply).Bind(apply =>
+                apply(arg: context).Map(static state => (PromptTransition<TStep>)new PromptTransition<TStep>.Commit(State: state))),
+            _ => Fin.Fail<PromptTransition<TStep>>(error: Op.Of(name: Name).InvalidInput()),
+        };
 }
 
-public abstract record PromptTransition<TState> {
+#pragma warning disable CA1716 // Exit mirrors Result.ExitRhino semantics; FailureResult + PromptStage.Run dispatch on this case name.
+[Union(SwitchMapStateParameterName = "context")]
+public abstract partial record PromptTransition<TStep> {
     private PromptTransition() { }
+    public sealed record Stay(TStep State) : PromptTransition<TStep>;
+    public sealed record Forward(TStep State) : PromptTransition<TStep>;
+    public sealed record Back : PromptTransition<TStep>;
+    public sealed record Commit(TStep State) : PromptTransition<TStep>;
+    public sealed record Cancel : PromptTransition<TStep>;
+    public sealed record Exit : PromptTransition<TStep>;
 
-    internal Fin<CommandStageContext<TState>> Apply(CommandStageContext<TState> context) =>
-        Optional(context).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(active => this switch {
-            Stay stay => (active with { State = stay.State }).Run(),
-            Forward next => (active with { State = next.State, Index = active.Index + 1, History = Seq(active.State) + active.History }).Run(),
-            Back => active.History.IsEmpty switch {
-                false => (active with { State = active.History[0], Index = Math.Max(0, active.Index - 1), History = active.History.Tail }).Run(),
-                true => active.Run(),
-            },
-            Commit commit => Fin.Succ(value: active with { State = commit.State, Index = active.Stages.Count }),
-            Cancel => Fin.Fail<CommandStageContext<TState>>(error: new Fault.Cancelled()),
-            _ => Fin.Fail<CommandStageContext<TState>>(error: Op.Of(name: nameof(Apply)).InvalidInput()),
-        });
-
-    public sealed record Stay(TState State) : PromptTransition<TState>;
-    public sealed record Forward(TState State) : PromptTransition<TState>;
-    public sealed record Back : PromptTransition<TState>;
-    public sealed record Commit(TState State) : PromptTransition<TState>;
-    public sealed record Cancel : PromptTransition<TState>;
+    internal Fin<CommandStageContext<TStep>> Apply(CommandStageContext<TStep> context) =>
+        Optional(context).ToFin(Fail: Op.Of(name: nameof(Apply)).InvalidInput()).Bind(active =>
+            Switch(
+                active,
+                stay: static (ctx, c) => (ctx with { State = c.State }).Run(),
+                forward: static (ctx, c) => (ctx with { State = c.State, Index = ctx.Index + 1, History = Seq(ctx.State) + ctx.History }).Run(),
+                back: static (ctx, _) => ctx.History.IsEmpty
+                    ? ctx.Run()
+                    : (ctx with { State = ctx.History[0], Index = Math.Max(0, ctx.Index - 1), History = ctx.History.Tail }).Run(),
+                commit: static (ctx, c) => Fin.Succ(value: ctx with { State = c.State, Index = ctx.Stages.Count }),
+                cancel: static (_, _) => Fin.Fail<CommandStageContext<TStep>>(error: new Fault.Cancelled()),
+                // Exit advances past completion so the graph short-circuits, and fails the rail with the ExitRhino sentinel that FailureResult maps to Result.ExitRhino rather than Result.Cancel.
+                exit: static (_, _) => Fin.Fail<CommandStageContext<TStep>>(error: CommandInput.ExitRhinoSignal)));
 }
+#pragma warning restore CA1716
 
 // --- [MODELS] -----------------------------------------------------------------------------
 public readonly record struct CommandCommitContext<TState>(RhinoCommandContext Context, TState State, Seq<TState> History) {
@@ -55,11 +66,17 @@ public readonly record struct CommandCommitContext<TState>(RhinoCommandContext C
     public UI.RhinoUi Ui => Context.Ui;
 }
 
+// Write/Read carry caller-owned delegates rather than a PersistentSettings handle: StringTable exposes no GetPlugInSettings and the canonical path is the command's own PlugIn.Settings, so the caller captures the concrete access path and supplies the encoding, insulating the graph runner from any Rhino settings shape.
+public sealed record CommandStateMemory<TState>(
+    Func<TState, Fin<Unit>> Write,
+    Func<Fin<TState>> Read);
+
 public sealed record CommandGraph<TState>(
     TState Initial,
     Seq<CommandStep<TState>> Stages,
     Func<CommandCommitContext<TState>, Fin<Result>> Commit,
-    CommandGraphEvents<TState> Events = default) {
+    CommandGraphEvents<TState> Events = default,
+    Option<CommandStateMemory<TState>> Memory = default) {
     public Fin<CommandGraph<TState>> Append(CommandStep<TState> stage) =>
         from valid in Optional(stage).ToFin(Fail: Op.Of(name: nameof(Append)).InvalidInput())
         select this with { Stages = Stages + Seq(valid) };
@@ -71,8 +88,17 @@ public sealed record CommandGraph<TState>(
             Seq<CommandStep<TState>> values when !values.IsEmpty => Fin.Succ(value: values),
             _ => Fin.Fail<Seq<CommandStep<TState>>>(error: Op.Of(name: nameof(CommandGraph<>)).InvalidInput()),
         }
-        from final in new CommandStageContext<TState>(Context: active, State: Initial, Stages: stages, Index: 0, History: Seq<TState>(), Events: Events).Run()
+        // a missing or failed prior read falls back to the compile-time Initial so repeat-last is purely additive
+        from seed in Memory.Case switch {
+            CommandStateMemory<TState> mem => Fin.Succ(value: mem.Read().IfFail(Initial)),
+            _ => Fin.Succ(value: Initial),
+        }
+        from final in new CommandStageContext<TState>(Context: active, State: seed, Stages: stages, Index: 0, History: Seq<TState>(), Events: Events).Run()
         from result in commit(arg: new CommandCommitContext<TState>(Context: active, State: final.State, History: final.History))
+        from _ in (Memory.Case, result) switch {
+            (CommandStateMemory<TState> mem, Result.Success) => mem.Write(arg: final.State),
+            _ => Fin.Succ(value: unit),
+        }
         select result;
 }
 
@@ -137,6 +163,13 @@ public readonly record struct PromptEventContext<TState>(CommandStageContext<TSt
     public Fin<bool> Pick(PickContext pick) => Event.PickGumball(pick: pick);
     public Fin<bool> Update(Line worldLine) => Event.UpdateGumball(worldLine: worldLine);
     public Fin<bool> Update(Plane frame) => Event.UpdateGumball(frame: frame);
+
+    // surfaced from the partially-typed number buffer on the active GetPoint so AcceptsNumber drags read the preview without casting Event.Getter; PostDraw carries no getter buffer
+    public Option<double> NumberPreview =>
+        Event.Payload.Switch(
+            mouse: static args => args.Value.Source.NumberPreview(number: out double mn) ? Some(mn) : Option<double>.None,
+            draw: static args => args.Value.Source.NumberPreview(number: out double dn) ? Some(dn) : Option<double>.None,
+            postDraw: static _ => Option<double>.None);
 }
 
 public sealed record PromptStage<TState, TValue>(
@@ -147,8 +180,9 @@ public sealed record PromptStage<TState, TValue>(
     Func<PromptEventContext<TState>, Option<UiViewportPreview>>? Preview = null,
     Func<PromptEventContext<TState>, Fin<Option<PromptTransition<TState>>>>? Gumball = null,
     Func<CommandStageContext<TState>, CommandOptionValue, Fin<TState>>? OptionLens = null,
-    Func<CommandStageContext<TState>, Fin<PromptTransition<TState>>>? Enter = null,
-    Func<CommandStageContext<TState>, CommandGet<TValue>, Fin<Unit>>? Rejected = null) : CommandStep<TState>(Name) {
+    Func<CommandStageContext<TState>, Option<CommandGet<TValue>>, Fin<PromptTransition<TState>>>? Enter = null,
+    Func<CommandStageContext<TState>, CommandGet<TValue>, Fin<Unit>>? Rejected = null) : CommandStep<TState> {
+    public override string Name { get; } = Name;
     internal override Fin<PromptTransition<TState>> Run(CommandStageContext<TState> context) =>
         from input in Optional(Input).ToFin(Fail: Op.Of(name: Name).InvalidInput())
         from policies in Optional(Policies).ToFin(Fail: Op.Of(name: Name).InvalidInput())
@@ -165,10 +199,11 @@ public sealed record PromptStage<TState, TValue>(
         from next in transition.Value.Case switch {
             PromptTransition<TState> value => Fin.Succ(value: value),
             _ => inputEvent.Kind switch {
-                CommandInputOutcomeKind.Cancel or CommandInputOutcomeKind.Exit => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Cancel()),
+                CommandInputOutcomeKind.Cancel => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Cancel()),
+                CommandInputOutcomeKind.Exit => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Exit()),
                 CommandInputOutcomeKind.Undo => Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Back()),
                 CommandInputOutcomeKind.Nothing => Optional(Enter)
-                    .Map(run => run(arg: context))
+                    .Map(run => run(arg1: context, arg2: inputEvent.Result))
                     .IfNone(Fin.Succ<PromptTransition<TState>>(value: new PromptTransition<TState>.Stay(State: context.State))),
                 CommandInputOutcomeKind.Rejected => inputEvent.Result.ToFin(Fail: Op.Of(name: Name).InvalidResult()).Bind(got =>
                     Optional(Rejected)
@@ -231,14 +266,13 @@ public abstract class RasmCommand<TSelf> : Command where TSelf : RasmCommand<TSe
         from _ in active.Scope.Context.Map(static _ => unit)
         select unit;
 
+    // pass-through: DocumentEdit.Commit already issues Views.Redraw on DocumentRedraw.After; commands mutating outside Commit override Complete to redraw explicitly.
     protected virtual Fin<Result> Complete(RhinoCommandContext context, Result result) =>
-        Optional(context).ToFin(Fail: Op.Of(name: nameof(Complete)).InvalidInput()).Bind(active => result switch {
-            Result.Success => active.Edit.Redraw().Map(_ => result),
-            _ => Fin.Succ(value: result),
-        });
+        Optional(context).ToFin(Fail: Op.Of(name: nameof(Complete)).InvalidInput()).Map(_ => result);
 
     protected virtual Result FailureResult(Error fault) =>
         fault switch {
+            { Code: CommandInput.ExitRhinoCode } => Result.ExitRhino,
             Fault.Cancelled => Result.Cancel,
             Error error => Failure(name: EnglishName, message: error.Message),
         };

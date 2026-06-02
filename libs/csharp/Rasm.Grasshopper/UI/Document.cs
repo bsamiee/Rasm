@@ -99,12 +99,15 @@ public partial record SelectionOp {
     public sealed record NoneCase : SelectionOp;
     public sealed record InvertCase : SelectionOp;
     public sealed record GrowCase(bool Upstream, bool Downstream) : SelectionOp;
+    public sealed record GrowNCase(int Hops, bool Upstream, bool Downstream) : SelectionOp;
     public sealed record ShiftCase(bool Upstream) : SelectionOp;
 
     public static readonly SelectionOp All = new AllCase();
     public static readonly SelectionOp None = new NoneCase();
     public static readonly SelectionOp Invert = new InvertCase();
     public static SelectionOp Grow(bool upstream = true, bool downstream = true) => new GrowCase(Upstream: upstream, Downstream: downstream);
+    // GrowN bounds the subgraph walk to a hop count; Grow is the unbounded transitive closure.
+    public static SelectionOp GrowN(int hops, bool upstream = true, bool downstream = true) => new GrowNCase(Hops: hops, Upstream: upstream, Downstream: downstream);
     public static SelectionOp Shift(bool upstream) => new ShiftCase(Upstream: upstream);
 }
 
@@ -208,17 +211,21 @@ public partial record FindCriterion {
     public sealed record ByDrawOrderCase(bool Foreground, bool Background) : FindCriterion;
     public sealed record GraphCase(GraphKey Anchor, WireTraversal Direction, WireObjectLimit MaxObjects) : FindCriterion;
     public sealed record ByNameCase(string Substring, bool CaseInsensitive, ObjectScope Scope) : FindCriterion;
+    public sealed record ByActivityCase(bool Enabled) : FindCriterion;
+    public sealed record ByGroupCase(Guid GroupId) : FindCriterion;
 
     // 32f mirrors Layout.PickRadius.Default; a compile-time default cannot reference the static-readonly value object.
     public static FindCriterion Near(PointF point, int maxResults = 16, float maxDistance = 32f) => new NearPointCase(Point: point, MaxResults: maxResults, MaxDistance: maxDistance);
     public static FindCriterion DrawOrder(bool foreground = true, bool background = true) => new ByDrawOrderCase(Foreground: foreground, Background: background);
     public static FindCriterion Upstream(Guid parameterId, WireObjectLimit? maxObjects = null) => Upstream(anchor: GraphKey.Parameter(id: parameterId), maxObjects: maxObjects);
-    public static FindCriterion Upstream(GraphKey anchor, WireObjectLimit? maxObjects = null) => new GraphCase(Anchor: anchor, Direction: WireTraversal.Upstream, MaxObjects: maxObjects ?? WireObjectLimit.Create(value: WireObjectLimit.DefaultCount));
+    public static FindCriterion Upstream(GraphKey anchor, WireObjectLimit? maxObjects = null) => new GraphCase(Anchor: anchor, Direction: WireTraversal.Upstream, MaxObjects: maxObjects ?? WireObjectLimit.Default);
     public static FindCriterion Downstream(Guid parameterId, WireObjectLimit? maxObjects = null) => Downstream(anchor: GraphKey.Parameter(id: parameterId), maxObjects: maxObjects);
-    public static FindCriterion Downstream(GraphKey anchor, WireObjectLimit? maxObjects = null) => new GraphCase(Anchor: anchor, Direction: WireTraversal.Downstream, MaxObjects: maxObjects ?? WireObjectLimit.Create(value: WireObjectLimit.DefaultCount));
+    public static FindCriterion Downstream(GraphKey anchor, WireObjectLimit? maxObjects = null) => new GraphCase(Anchor: anchor, Direction: WireTraversal.Downstream, MaxObjects: maxObjects ?? WireObjectLimit.Default);
     public static FindCriterion ByName(string substring, bool caseInsensitive = true, ObjectScope? scope = null) => new ByNameCase(Substring: substring, CaseInsensitive: caseInsensitive, Scope: scope ?? ObjectScope.Primary);
     // Host FindBySearch is an empty-array stub, so Search aliases name matching over all primary/secondary objects.
     public static FindCriterion Search(string query, bool caseInsensitive = true) => new ByNameCase(Substring: query, CaseInsensitive: caseInsensitive, Scope: ObjectScope.PrimaryAndSecondary);
+    public static FindCriterion ByActivity(bool enabled) => new ByActivityCase(Enabled: enabled);
+    public static FindCriterion ByGroup(Guid groupId) => new ByGroupCase(GroupId: groupId);
 }
 
 [SkipUnionOps]
@@ -261,6 +268,7 @@ public partial record GroupOp {
     public sealed record ModifyCase(Guid Group, Option<string> Label, Option<GhOpenColorFamily> Colour, Seq<Guid> Add, Seq<Guid> Remove) : GroupOp;
     public sealed record DissolveCase(Guid Group) : GroupOp;
     public sealed record StatusCase(Guid Group) : GroupOp;
+    public sealed record FindAllCase : GroupOp;
 
     public static GroupOp Create(ObjectScope? scope = null, string? label = null, GhOpenColorFamily? colour = null) =>
         new CreateCase(Scope: scope ?? ObjectScope.Selection, Label: Optional(label), Colour: Optional(colour));
@@ -269,13 +277,15 @@ public partial record GroupOp {
         new ModifyCase(Group: group, Label: Optional(label), Colour: Optional(colour), Add: add, Remove: remove);
     public static GroupOp Dissolve(Guid group) => new DissolveCase(Group: group);
     public static GroupOp Status(Guid group) => new StatusCase(Group: group);
+    public static readonly GroupOp FindAll = new FindAllCase();
 
     internal GrasshopperUiPolicy Policy => Switch(
         createCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
         findCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
         modifyCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
         dissolveCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
-        statusCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None));
+        statusCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
+        findAllCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None));
 
     internal Fin<DocumentResult> Apply(GrasshopperUi.Scope scope) =>
         Switch(
@@ -329,7 +339,10 @@ public partial record GroupOp {
             statusCase: static (s, status) =>
                 from objects in s.NeedObjects()
                 let grp = Optional(objects.FindGroup(instanceId: status.Group))
-                select (DocumentResult)new DocumentResult.GroupResult(Snapshot: GroupSnapshotOf(target: grp, changed: 0)));
+                select (DocumentResult)new DocumentResult.GroupResult(Snapshot: GroupSnapshotOf(target: grp, changed: 0)),
+            findAllCase: static (s, _) =>
+                from objects in s.NeedObjects()
+                select (DocumentResult)new DocumentResult.GroupListResult(Snapshots: toSeq(objects.ForwardsOfT<GroupObject>()).Map(grp => GroupSnapshotOf(target: Some(grp), changed: 0))));
 
     private static Fin<GroupObject> ResolveGroup(GhObjectList objects, Guid id, Op op) =>
         op.AcceptValue(value: id)
@@ -346,8 +359,8 @@ public partial record GroupOp {
         // BOUNDARY ADAPTER -- label/colour have undo actions; membership uses Add/RemoveContent without a host action.
         _ = label.Iter(text => { actions.Add(new RenameAction(target)); target.UserName = text; });
         _ = colour.Iter(family => { actions.Add(new PropertyAction(target, nameof(GroupObject.GroupColour))); target.GroupColour = family; });
-        int added = Enumerable.Sum(add.Filter(static id => id != Guid.Empty).Map(id => target.AddContent(id) ? 1 : 0));
-        int removed = Enumerable.Sum(remove.Filter(static id => id != Guid.Empty).Map(id => target.RemoveContent(id) ? 1 : 0));
+        int added = add.Filter(static id => id != Guid.Empty).Fold(0, (count, id) => count + (target.AddContent(id) ? 1 : 0));
+        int removed = remove.Filter(static id => id != Guid.Empty).Fold(0, (count, id) => count + (target.RemoveContent(id) ? 1 : 0));
         target.Expire();
         return DocumentMutationReceipt.Count(changed: 1 + added + removed);
     }
@@ -371,15 +384,21 @@ public partial record WirelessOp {
     public sealed record SplitCase(Guid Source, Guid Target, string Name, PointF Location) : WirelessOp;
     public sealed record FindCase(Guid Shout) : WirelessOp;
     public sealed record ConnectCase(Guid Shout, Seq<Guid> Listens) : WirelessOp;
+    public sealed record EnumerateCase : WirelessOp;
+    public sealed record RenameCase(Guid Shout, string Label) : WirelessOp;
 
     public static WirelessOp Split(Guid source, Guid target, string name, PointF location) => new SplitCase(Source: source, Target: target, Name: name, Location: location);
     public static WirelessOp Find(Guid shout) => new FindCase(Shout: shout);
     public static WirelessOp Connect(Guid shout, Seq<Guid> listens) => new ConnectCase(Shout: shout, Listens: listens);
+    public static readonly WirelessOp Enumerate = new EnumerateCase();
+    public static WirelessOp Rename(Guid shout, string label) => new RenameCase(Shout: shout, Label: label);
 
     internal GrasshopperUiPolicy Policy => Switch(
         splitCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
         findCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
-        connectCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas));
+        connectCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas),
+        enumerateCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.None),
+        renameCase: static _ => GrasshopperUiPolicy.Document(repaint: RepaintRequest.Canvas));
 
     internal Fin<DocumentResult> Apply(GrasshopperUi.Scope scope) =>
         Switch(
@@ -426,13 +445,36 @@ public partial record WirelessOp {
                                    body: () => {
                                        // BOUNDARY ADAPTER -- Listen uses UserName as ShoutId; RenameAction snapshots each bind.
                                        string shoutKey = shout.InstanceId.ToString();
-                                       return Enumerable.Sum(listens.Map(listen => { actions.Add(new RenameAction(listen)); listen.UserName = shoutKey; listen.Expire(); return 1; }));
+                                       return listens.Fold(0, (count, listen) => { actions.Add(new RenameAction(listen)); listen.UserName = shoutKey; listen.Expire(); return count + 1; });
                                    },
                                    what: "Shout/Listen pair")
                                select DocumentMutationReceipt.Count(changed: changed);
                     })
                 select (DocumentResult)new DocumentResult.WirelessResult(Snapshot: new DocumentWirelessSnapshot(
-                    Shout: connect.Shout.NonEmpty(), Listens: connect.Listens.Filter(static id => id != Guid.Empty), Changed: snapshot.Payload.Changed)));
+                    Shout: connect.Shout.NonEmpty(), Listens: connect.Listens.Filter(static id => id != Guid.Empty), Changed: snapshot.Payload.Changed)),
+            enumerateCase: static (s, _) =>
+                from objects in s.NeedObjects()
+                let shouts = toSeq(objects.ForwardsOfT<Shout>())
+                select (DocumentResult)new DocumentResult.WirelessListResult(Snapshots: shouts.Map(shout => new DocumentWirelessSnapshot(
+                    Shout: shout.InstanceId.NonEmpty(), Listens: ListensOf(shout: shout), Changed: 0))),
+            renameCase: static (s, rename) =>
+                from objects in s.NeedObjects()
+                from shout in ResolveShout(objects: objects, id: rename.Shout, op: Op.Of(name: nameof(Rename)))
+                let listens = ListensOf(shout: shout)
+                from snapshot in UiRail.RunDocumentMutation(
+                    scope: s,
+                    op: Op.Of(name: nameof(Rename)),
+                    mutate: (_, _, actions) => Op.Of(name: nameof(Rename)).Attempt(
+                        body: () => {
+                            // BOUNDARY ADAPTER -- Listen binding key is shout.InstanceId.ToString(), not UserName, so rename is cosmetic; routing is unaffected.
+                            actions.Add(new RenameAction(shout));
+                            shout.UserName = rename.Label;
+                            shout.Expire();
+                            return DocumentMutationReceipt.Count(changed: 1);
+                        },
+                        what: "Shout rename"))
+                select (DocumentResult)new DocumentResult.WirelessResult(Snapshot: new DocumentWirelessSnapshot(
+                    Shout: rename.Shout.NonEmpty(), Listens: listens, Changed: snapshot.Payload.Changed)));
 
     private static Fin<Shout> ResolveShout(GhObjectList objects, Guid id, Op op) =>
         op.AcceptValue(value: id)
@@ -603,6 +645,8 @@ public partial record DocumentResult {
     public sealed record CustomValueResult(string Key, string Value) : DocumentResult;
     public sealed record GroupResult(DocumentGroupSnapshot Snapshot) : DocumentResult;
     public sealed record WirelessResult(DocumentWirelessSnapshot Snapshot) : DocumentResult;
+    public sealed record GroupListResult(Seq<DocumentGroupSnapshot> Snapshots) : DocumentResult;
+    public sealed record WirelessListResult(Seq<DocumentWirelessSnapshot> Snapshots) : DocumentResult;
     public sealed record FileResult(DocumentFileSnapshot Snapshot) : DocumentResult;
 }
 
@@ -669,10 +713,12 @@ public partial record DocumentMark {
     public static DocumentMark Rename(string oldName, string newName) => new RenameCase(OldName: oldName, NewName: newName);
 
     internal GrasshopperUiIntent<DocumentResult> Plan() =>
-        GhUi.Document(run: Apply, repaint: (this is RecallCase) switch {
-            true => RepaintRequest.Canvas,
-            false => RepaintRequest.None,
-        });
+        GhUi.Document(run: Apply, repaint: Switch(
+            listCase: static _ => RepaintRequest.None,
+            saveCase: static _ => RepaintRequest.None,
+            removeCase: static _ => RepaintRequest.None,
+            recallCase: static _ => RepaintRequest.Canvas,
+            renameCase: static _ => RepaintRequest.None));
 
     internal Fin<DocumentResult> Apply(GrasshopperUi.Scope scope) =>
         Switch(
@@ -1126,6 +1172,7 @@ public abstract partial record DocumentTargetOp {
     public sealed record DeleteCase(bool DataOnly, Seq<WireEnds> Wires) : DocumentTargetOp;
     public sealed record ColourCase(Option<GhColour> Override) : DocumentTargetOp;
     public sealed record NudgeCase(int Dx, int Dy) : DocumentTargetOp;
+    public sealed record RenameCase(string Name) : DocumentTargetOp;
 
     public static readonly DocumentTargetOp Show = new VerbCase(Verb: DocumentTargetVerb.Show);
     public static readonly DocumentTargetOp Hide = new VerbCase(Verb: DocumentTargetVerb.Hide);
@@ -1140,6 +1187,7 @@ public abstract partial record DocumentTargetOp {
     public static readonly DocumentTargetOp NudgeRight = new NudgeCase(Dx: 1, Dy: 0);
     public static readonly DocumentTargetOp NudgeUp = new NudgeCase(Dx: 0, Dy: -1);
     public static readonly DocumentTargetOp NudgeDown = new NudgeCase(Dx: 0, Dy: 1);
+    public static DocumentTargetOp Rename(string name) => new RenameCase(Name: name);
 
     internal Fin<int> Apply(GhDocumentMethods methods, GhObjectList objects, Seq<Guid> ids, ActionList actions) =>
         ids.TraverseM(id => Optional(objects.Find(instanceId: id))
@@ -1172,7 +1220,19 @@ public abstract partial record DocumentTargetOp {
                         : s.methods.SetColourOverrideObjects(objects: s.targets, colour: value, actions: s.actions),
                     what: "DocumentMethods.SetColourOverride");
             },
-            nudgeCase: static (s, nudge) => MoveTargets(objects: s.objects, targets: s.targets, dx: nudge.Dx, dy: nudge.Dy, actions: s.actions));
+            nudgeCase: static (s, nudge) => MoveTargets(objects: s.objects, targets: s.targets, dx: nudge.Dx, dy: nudge.Dy, actions: s.actions),
+            renameCase: static (s, rename) => RenameTargets(objects: s.objects, targets: s.targets, name: rename.Name, actions: s.actions));
+
+    private static Fin<int> RenameTargets(GhObjectList objects, IDocumentObject[]? targets, string name, ActionList actions) =>
+        Op.Of(name: nameof(RenameCase)).Attempt(body: () => {
+            Seq<IDocumentObject> selected = targets is null ? toSeq(objects.SelectedObjects) : toSeq(targets);
+            _ = selected.Iter(obj => {
+                actions.Add(new RenameAction(obj));
+                obj.UserName = name;
+                obj.Expire();
+            });
+            return selected.Count;
+        }, what: "target rename");
 
     private static Fin<int> MoveTargets(GhObjectList objects, IDocumentObject[]? targets, int dx, int dy, ActionList actions) {
         Op op = Op.Of(name: nameof(NudgeCase));
@@ -1467,7 +1527,13 @@ internal static partial class Document {
                 Op.Of(name: nameof(FindCriterion.ByName)).AcceptText(value: n.Substring)
                     .Map(text => toSeq(n.Scope.Resolve(objects: objs))
                         .Filter(o => o.Nomen.Name.Contains(value: text, comparisonType: n.CaseInsensitive ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-                        .Map(UiRail.DocumentObjectSnapshotOf)));
+                        .Map(UiRail.DocumentObjectSnapshotOf)),
+            byActivityCase: static (objs, a) =>
+                Fin.Succ(value: toSeq(a.Enabled ? objs.EnabledObjects : objs.DisabledObjects).Map(UiRail.DocumentObjectSnapshotOf)),
+            byGroupCase: static (objs, g) =>
+                Fin.Succ(value: Optional(objs.FindGroup(instanceId: g.GroupId))
+                    .Map(grp => toSeq(grp.ContentIds).Choose(id => Optional(objs.Find(instanceId: id))).Map(UiRail.DocumentObjectSnapshotOf))
+                    .IfNone(Seq<DocumentObjectSnapshot>())));
 
     private static Fin<DocumentUniverseSnapshot> Universe() =>
         Optional(GhEditor.Instance?.Documents)

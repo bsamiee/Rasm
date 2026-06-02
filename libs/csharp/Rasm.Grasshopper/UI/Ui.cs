@@ -26,7 +26,7 @@ public partial record RepaintRequest {
     public sealed record ObjectCase(Guid Id) : RepaintRequest;
     public sealed record RegionCase(RectangleF Bounds) : RepaintRequest;
     public sealed record CanvasCase : RepaintRequest;
-    public sealed record ScheduledCase : RepaintRequest;
+    public sealed record ScheduledCase(Option<TimeSpan> Delay = default) : RepaintRequest;
     public sealed record SolutionCase : RepaintRequest;
     public sealed record DisplayCase : RepaintRequest;
     public sealed record SolutionAndDisplayCase : RepaintRequest;
@@ -52,12 +52,13 @@ public partial record RepaintRequest {
 
     public static readonly RepaintRequest None = new NoneCase();
     public static readonly RepaintRequest Canvas = new CanvasCase();
-    public static readonly RepaintRequest Scheduled = new ScheduledCase();
+    public static readonly RepaintRequest Scheduled = new ScheduledCase(Delay: Option<TimeSpan>.None);
     public static readonly RepaintRequest Solution = new SolutionCase();
     public static readonly RepaintRequest Display = new DisplayCase();
     public static readonly RepaintRequest SolutionAndDisplay = new SolutionAndDisplayCase();
     public static RepaintRequest Object(Guid id) => new ObjectCase(Id: id);
     public static RepaintRequest Region(RectangleF bounds) => new RegionCase(Bounds: bounds);
+    public static RepaintRequest Delayed(TimeSpan delay) => new ScheduledCase(Delay: Some(delay));
 
     // Repaint absorption collapses intents before the single ApplyTo at GrasshopperUi.Use exit.
     public static RepaintRequest operator |(RepaintRequest left, RepaintRequest right) =>
@@ -69,6 +70,7 @@ public partial record RepaintRequest {
             (SolutionCase, _) or (_, SolutionCase) => Solution,
             (DisplayCase, _) or (_, DisplayCase) => Display,
             (CanvasCase, _) or (_, CanvasCase) => Canvas,
+            (ScheduledCase l, ScheduledCase r) => new ScheduledCase(Delay: r.Delay | l.Delay),
             (ScheduledCase, _) or (_, ScheduledCase) => Scheduled,
             (RegionCase l, RegionCase r) => Region(bounds: RectangleF.Union(l.Bounds, r.Bounds)),
             (ObjectCase l, ObjectCase r) when l.Id == r.Id => left,
@@ -151,9 +153,9 @@ public partial record Subscription : IDisposable {
     private static System.Action Latch(System.Action detach) {
         Atom<bool> fired = Prelude.Atom(value: false);
         return () => {
-            Option<bool> previous = None;
-            _ = fired.Swap(current => { previous = Some(current); return true; });
-            _ = !previous.IfNone(noneValue: true) ? Op.Side(detach) : unit;
+            bool already = true;
+            _ = fired.Swap(current => (already = current, true).Item2);
+            _ = already ? unit : Op.Side(detach);
         };
     }
 
@@ -199,12 +201,16 @@ internal readonly record struct DocumentMutationReceipt(int Changed, Seq<Guid> C
     public static DocumentMutationReceipt operator +(DocumentMutationReceipt left, DocumentMutationReceipt right) =>
         new(Changed: left.Changed + right.Changed, Created: left.Created + right.Created);
 }
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct DocumentMutationDelta(int Changed, DocumentSnapshot After, Seq<Guid> Created = default);
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct LayoutMoveDelta(Guid ObjectId, float Dx, float Dy, LayoutSnapshot After, Option<SnappingSnapshot> Snap);
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct LayoutArrangeDelta(Seq<LayoutMoveDelta> Moves) {
     public int Count => Moves.Count;
 }
 
+[StructLayout(LayoutKind.Auto)]
 public readonly record struct UndoEntry(VerbNoun Name, ActionList Actions);
 
 internal sealed class UndoGroup {

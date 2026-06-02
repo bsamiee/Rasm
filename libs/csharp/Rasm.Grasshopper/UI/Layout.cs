@@ -2,7 +2,6 @@ using System.Globalization;
 using Foundation.CSharp.Analyzers.Contracts;
 using Grasshopper2.Doc;
 using Grasshopper2.Extensions;
-using Grasshopper2.Geometry.SpatialTree;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Snap;
 using Grasshopper2.Undo;
@@ -10,9 +9,7 @@ using Grasshopper2.Undo.Actions;
 using GhDocument = Grasshopper2.Doc.Document;
 using GhObjectList = Grasshopper2.Doc.ObjectList;
 using GuidSet = System.Collections.Generic.HashSet<System.Guid>;
-using ISnapElement = Grasshopper2.UI.Snap.ISnapElement;
 using Op = Rasm.Domain.Op;
-using SnapLine = Grasshopper2.UI.Snap.SnapLine;
 using SysAction = System.Action;
 
 namespace Rasm.Grasshopper.UI;
@@ -95,9 +92,6 @@ public partial record LayoutArrangement {
     public static LayoutArrangement Flow(LayoutAxis axis, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy? gapPolicy = null) =>
         new ChainCase(Kind: LayoutChainKind.Flow, Axis: axis, Gap: gap, Ids: ids, GapPolicy: gapPolicy ?? LayoutGapPolicy.Stretch);
 
-    public static LayoutArrangement Topology(LayoutAxis axis, LayoutGap gap, Seq<Guid> ids, LayoutGapPolicy? gapPolicy = null) =>
-        new ChainCase(Kind: LayoutChainKind.Flow, Axis: axis, Gap: gap, Ids: ids, GapPolicy: gapPolicy ?? LayoutGapPolicy.Fixed);
-
     public static LayoutArrangement Nudge(Seq<Guid> ids, float separation, SnappingPolicy policy = default) =>
         new NudgeCase(Ids: ids, Separation: separation, Policy: policy);
 }
@@ -148,7 +142,7 @@ public partial record SnapSetting {
     public sealed record RadiiCase(Option<int> EdgeRadius = default, Option<int> WireRadius = default, Option<int> VerticalGapSize = default, Option<int> HorizontalGapSize = default) : SnapSetting;
     public sealed record SpaceCase(SnapSpace Space) : SnapSetting;
     public sealed record GeometryCase(SnapProjection Projection, double Radius) : SnapSetting;
-    public sealed record SmartGapCase(bool Enabled, int Tolerance = 2) : SnapSetting;
+    public sealed record SmartGapCase(bool Enabled, int Tolerance = 2, Option<LayoutAxis> Axis = default) : SnapSetting;
     public sealed record WireBoundsCase(bool Aggregate = true) : SnapSetting;
 
     public static SnapSetting Grid(SizeF cell, PointF origin = default) =>
@@ -184,27 +178,45 @@ public readonly record struct SnappingPolicy(bool IncludeSelected = true, bool I
     internal Option<(SnapProjection Projection, double Radius)> Geometry =>
         Settings.Choose(static s => s is SnapSetting.GeometryCase geo ? Some((geo.Projection, geo.Radius)) : Option<(SnapProjection, double)>.None).Head;
 
-    internal Option<int> SmartGap =>
-        Settings.Choose(static s => s is SnapSetting.SmartGapCase { Enabled: true } gap ? Some(gap.Tolerance) : Option<int>.None).Head;
+    internal Option<SnapSetting.SmartGapCase> SmartGap =>
+        Settings.Choose(static s => s is SnapSetting.SmartGapCase { Enabled: true } gap ? Some(gap) : Option<SnapSetting.SmartGapCase>.None).Head;
 
     internal bool UseAggregateWireBounds =>
         Settings.Choose(static s => s is SnapSetting.WireBoundsCase wire ? Some(wire.Aggregate) : Option<bool>.None)
             .Head
             .IfNone(noneValue: true);
 
-    // GeometryCase contributes aggregate-bounds edges plus centre midlines, filtered by projection axis.
-    internal Option<SnapSpace> GeometrySpace(GhObjectList objects, GuidSet excludeIds) =>
-        Geometry.Map(geo => SnapSpace.Create(elements: [.. toSeq(objects.Forwards)
-            .Filter(o => !excludeIds.Contains(o.InstanceId))
-            .Bind(o => GeometryLines(bounds: o.Attributes.AggregateBounds, projection: geo.Projection, radius: geo.Radius))]));
+    // GeometryCase aligns the target's edges/centres to other objects' edges/centres via direct SnapNumeric arithmetic.
+    // BOUNDARY ADAPTER -- bypasses two GH2 native defects: SnapLine.Project(double,double,bool,out,out,out string) is a
+    // stub (returns false), and SnapSpace.Snap's ISnapElement branch measures the Y distance as y'-x not y'-y. Geometry
+    // snap must never route through ISnapElement; only the grid SnapSpace path (SnapNumeric) stays sound (SpaceCase).
+    internal (SnappingAction? X, SnappingAction? Y) GeometryActions(GhObjectList objects, GuidSet excludeIds, RectangleF target) =>
+        Geometry.Map(geo => {
+            float radius = (float)geo.Radius;
+            bool wantsX = geo.Projection is SnapProjection.X or SnapProjection.XY;
+            bool wantsY = geo.Projection is SnapProjection.Y or SnapProjection.XY;
+            Seq<RectangleF> others = toSeq(objects.Forwards).Filter(o => !excludeIds.Contains(o.InstanceId)).Map(static o => o.Attributes.AggregateBounds);
+            SnappingAction? x = wantsX
+                ? GeometryAlignPairs(targets: Seq(target.Left, target.Center.X, target.Right), others: others.Bind(static b => Seq(b.Left, b.Center.X, b.Right)), radius: radius, horizontal: true, target: target)
+                : default;
+            SnappingAction? y = wantsY
+                ? GeometryAlignPairs(targets: Seq(target.Top, target.Center.Y, target.Bottom), others: others.Bind(static b => Seq(b.Top, b.Center.Y, b.Bottom)), radius: radius, horizontal: false, target: target)
+                : default;
+            return (X: x, Y: y);
+        }).IfNone((default, default));
 
-    private static Seq<ISnapElement> GeometryLines(RectangleF bounds, SnapProjection projection, double radius) {
-        bool wantsX = projection is SnapProjection.X or SnapProjection.XY;
-        bool wantsY = projection is SnapProjection.Y or SnapProjection.XY;
-        Seq<LineF> vertical = Seq(new LineF(bounds.Left, bounds.Top, bounds.Left, bounds.Bottom), new LineF(bounds.Right, bounds.Top, bounds.Right, bounds.Bottom), new LineF(bounds.Center.X, bounds.Top, bounds.Center.X, bounds.Bottom));
-        Seq<LineF> horizontal = Seq(new LineF(bounds.Left, bounds.Top, bounds.Right, bounds.Top), new LineF(bounds.Left, bounds.Bottom, bounds.Right, bounds.Bottom), new LineF(bounds.Left, bounds.Center.Y, bounds.Right, bounds.Center.Y));
-        return ((wantsX ? vertical : []) + (wantsY ? horizontal : []))
-            .Map(ISnapElement (line) => new SnapLine(line: new LinearSegment(x0: line.Start.X, y0: line.Start.Y, x1: line.End.X, y1: line.End.Y), infinite: false, radius: radius));
+    // Smallest-magnitude alignment of any target edge/centre to any other edge/centre within radius (zero deltas skipped).
+    private static SnappingAction? GeometryAlignPairs(Seq<float> targets, Seq<float> others, float radius, bool horizontal, RectangleF target) {
+        Seq<float> deltas = targets.Bind(t => others.Map(o => o - t)).Filter(d => MathF.Abs(d) <= radius && d != 0f);
+        return deltas.IsEmpty
+            ? default
+            : deltas.Tail.Fold(deltas.Head.IfNone(0f), static (best, d) => MathF.Abs(d) < MathF.Abs(best) ? d : best) is float chosen && horizontal
+                ? new SnappingAction(dx: chosen, dy: 0f, text: "align",
+                    point: new PointF(target.Center.X + chosen, target.Top - radius), anchor: TextAnchor.LowerMiddle,
+                    lines: [new LineF(target.Center.X + chosen, target.Top - radius, target.Center.X + chosen, target.Bottom + radius)])
+                : new SnappingAction(dx: 0f, dy: chosen, text: "align",
+                    point: new PointF(target.Left - radius, target.Center.Y + chosen), anchor: TextAnchor.CentreRight,
+                    lines: [new LineF(target.Left - radius, target.Center.Y + chosen, target.Right + radius, target.Center.Y + chosen)]);
     }
 }
 
@@ -471,8 +483,18 @@ internal static partial class Layout {
                 ? Fin.Succ(co!)
                 : Fin.Fail<ConnectiveObject>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(SortCausally)), detail: $"object {id} not found in connectivity")))
             .As()
-            // Connectivity.SortCausally returns dependency order; the index becomes the rank.
-            .Map(nodes => toSeq(connectivity.SortCausally(objects: [.. nodes]).Select((co, i) => (co.Id, Rank: i))));
+            // Rank = longest-path depth over the causally-sorted predecessors (co.In, intersected with the selection):
+            // parallel nodes share a band so Flow distributes them; a plain topological index makes every rank unique,
+            // collapsing every Flow band to a singleton (no moves).
+            .Map(nodes => {
+                GuidSet idSet = [.. ids];
+                Seq<ConnectiveObject> sorted = toSeq(connectivity.SortCausally(objects: [.. nodes]));
+                HashMap<Guid, int> ranks = sorted.Fold(HashMap<Guid, int>(), (acc, co) => {
+                    int depth = toSeq(co.In).Filter(idSet.Contains).Fold(0, (m, pred) => Math.Max(m, acc.Find(pred).IfNone(0) + 1));
+                    return acc.AddOrUpdate(co.Id, depth);
+                });
+                return toSeq(sorted.Select(co => (co.Id, Rank: ranks.Find(co.Id).IfNone(0))));
+            });
     }
 
     internal static GrasshopperUiIntent<Option<SnappingSnapshot>> Snap(SnapProbe probe) =>
@@ -631,20 +653,26 @@ internal static partial class Layout {
         RectangleF wireBounds = bounds.IfNone(policy.UseAggregateWireBounds ? obj.Attributes.AggregateBounds : obj.Attributes.Bounds);
         constraints.SnapRectangle(target: wireBounds, settings: policy.Native, visibleLimit: visibleLimit, snapX: out SnappingAction x, snapY: out SnappingAction y);
         int radius = policy.Native.EdgeRadius;
-        // Fold explicit and geometry-derived SnapSpaces through one smaller-magnitude per-axis projection.
-        Seq<SnapSpace> spaces = policy.Spaces + policy.GeometrySpace(objects: document.Objects, excludeIds: filter).ToSeq();
-        (SnappingAction? spaceX, SnappingAction? spaceY) = spaces.Fold(
+        // Grid SnapSpaces (SnapNumeric, sound) fold through one smaller-magnitude per-axis projection; geometry-edge
+        // alignment is computed by direct arithmetic and merged in, bypassing the dead ISnapElement path.
+        (SnappingAction? spaceX, SnappingAction? spaceY) = policy.Spaces.Fold(
             ((SnappingAction?)default, (SnappingAction?)default),
             (acc, space) => SnapActions(target: wireBounds, space: space, radius: radius) is var (sx, sy)
                 ? (SnappingAction.SmallerMagnitude(a: acc.Item1, b: sx), SnappingAction.SmallerMagnitude(a: acc.Item2, b: sy))
                 : acc);
+        (SnappingAction? geomX, SnappingAction? geomY) = policy.GeometryActions(objects: document.Objects, excludeIds: filter, target: wireBounds);
+        SnappingAction? edgeX = SnappingAction.SmallerMagnitude(a: spaceX, b: geomX);
+        SnappingAction? edgeY = SnappingAction.SmallerMagnitude(a: spaceY, b: geomY);
         // Multi-member probes fold every candidate's wire family into the Y channel.
         SnappingAction wireY = wireCandidates.Fold(y, (acc, m) =>
             SnappingAction.SmallerMagnitude(a: acc, b: SnappingConstraints.SnapWires(target: m, boundsOverride: wireBounds, settings: policy.Native)));
-        Seq<LineF> gapGuides = policy.SmartGap.Map(tolerance => EquidistanceGuides(document: document, anchor: wireBounds, excludeIds: filter, tolerance: tolerance)).IfNone([]);
+        // SmartGap guides span one or both axes (None = both); each axis runs the visible-frame pre-filtered scan.
+        Seq<LineF> gapGuides = policy.SmartGap.Map(sg =>
+            sg.Axis.Map(static a => Seq(a)).IfNone(Seq(LayoutAxis.Horizontal, LayoutAxis.Vertical))
+                .Bind(axis => EquidistanceGuides(document: document, anchor: wireBounds, excludeIds: filter, tolerance: sg.Tolerance, axis: axis, visibleLimit: visibleLimit))).IfNone([]);
         return UiRail.SnapChannels(
-                x: Optional(SnappingAction.SmallerMagnitude(a: x, b: spaceX)),
-                y: Optional(SnappingAction.SmallerMagnitude(a: wireY, b: spaceY)))
+                x: Optional(SnappingAction.SmallerMagnitude(a: x, b: edgeX)),
+                y: Optional(SnappingAction.SmallerMagnitude(a: wireY, b: edgeY)))
             .Map(snapshot => gapGuides.IsEmpty ? snapshot : snapshot with { Lines = snapshot.Lines + gapGuides });
     }
 
@@ -663,15 +691,20 @@ internal static partial class Layout {
         return (snapX, snapY);
     }
 
-    // Equal-spacing feedback emits short tick guides only when all adjacent gaps match within tolerance.
-    private static Seq<LineF> EquidistanceGuides(GhDocument document, RectangleF anchor, GuidSet excludeIds, int tolerance) {
+    // Equal-spacing feedback emits short tick guides only when all adjacent gaps match within tolerance. The axis
+    // selects the centre coordinate via the existing Origin/Span delegates; the visible frame pre-filters candidates
+    // so a dense document costs O(n_visible) per 60 Hz probe, not O(n_doc).
+    private static Seq<LineF> EquidistanceGuides(GhDocument document, RectangleF anchor, GuidSet excludeIds, int tolerance, LayoutAxis axis, RectangleF visibleLimit) {
+        float Centre(RectangleF b) => axis.Origin(bounds: b) + (axis.Span(bounds: b) * 0.5f);
         Seq<float> centres = toSeq(document.Objects.Forwards)
-            .Filter(o => !excludeIds.Contains(o.InstanceId))
-            .Map(static o => o.Attributes.AggregateBounds.Center.X) + Seq(anchor.Center.X);
-        Seq<float> centresX = toSeq(centres.Distinct().Order());
-        Seq<float> gaps = centresX.Zip(centresX.Tail).Map(static pair => pair.Second - pair.First);
+            .Filter(o => !excludeIds.Contains(o.InstanceId) && o.Attributes.AggregateBounds.Intersects(visibleLimit))
+            .Map(o => Centre(o.Attributes.AggregateBounds)) + Seq(Centre(anchor));
+        Seq<float> ordered = toSeq(centres.Distinct().Order());
+        Seq<float> gaps = ordered.Zip(ordered.Tail).Map(static pair => pair.Second - pair.First);
         return gaps.Count >= 2 && gaps.Tail.ForAll(g => MathF.Abs(g - gaps.Head.IfNone(0f)) <= tolerance)
-            ? centresX.Map(cx => new LineF(cx, anchor.Top - tolerance, cx, anchor.Top))
+            ? ordered.Map(c => axis.Equals(LayoutAxis.Horizontal)
+                ? new LineF(c, anchor.Top - tolerance, c, anchor.Top)
+                : new LineF(anchor.Left - tolerance, c, anchor.Left, c))
             : [];
     }
 
@@ -683,8 +716,21 @@ internal static partial class Layout {
                 Magnitude: (float)(nearest - angle),
                 XLabel: Some(new SnapLabel(Text: string.Create(CultureInfo.InvariantCulture, $"{nearest:0.#}°"), Point: pivot, Anchor: Some(TextAnchor.LowerMiddle))),
                 YLabel: Option<SnapLabel>.None,
-                Lines: []))
+                Lines: ArcLines(pivot: pivot, fromDeg: angle, toDeg: nearest, radius: 40f, segments: 8)))
             : Option<SnappingSnapshot>.None;
+
+    // N-segment chord arc around the pivot from the live angle to the snapped angle (GH2 has no native rotation guide).
+    private static Seq<LineF> ArcLines(PointF pivot, double fromDeg, double toDeg, float radius, int segments) {
+        double from = fromDeg * Math.PI / 180.0;
+        double sweep = (toDeg - fromDeg) * Math.PI / 180.0;
+        return toSeq(Enumerable.Range(start: 0, count: segments)).Map(i => {
+            double a0 = from + (sweep * i / segments);
+            double a1 = from + (sweep * (i + 1) / segments);
+            return new LineF(
+                pivot.X + (radius * (float)Math.Cos(a0)), pivot.Y + (radius * (float)Math.Sin(a0)),
+                pivot.X + (radius * (float)Math.Cos(a1)), pivot.Y + (radius * (float)Math.Sin(a1)));
+        });
+    }
 
     // OCD.AlignObjects exposes exactly four (Component|IParameter)^2 overloads; unsupported pairs stay explicit.
     private static Fin<Unit> AlignVia(IDocumentObject a, IDocumentObject b, OCD.Fixed fix) {

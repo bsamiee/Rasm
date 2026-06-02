@@ -33,7 +33,7 @@ public partial record UiEvent : IUiOp<Subscription> {
     public sealed record LogicalPixelSizeCase(Window Window, Func<float, Fin<Unit>> Handler) : UiEvent;
     public sealed record WindowLifecycleCase(Window Window, WindowLifecycle Kind, Func<WindowLifecycleSnapshot, Fin<Unit>> Handler) : UiEvent;
     public sealed record NativeInputCase(Func<NativeInputSnapshot, Fin<Unit>> Handler, NSEventMask Mask = NSEventMask.AnyEvent) : UiEvent;
-    public sealed record PopulateContextMenuCase(Func<PopulateContextMenuSnapshot, Fin<Unit>> Handler) : UiEvent;
+    public sealed record AccessibilityPrefsCase(Func<AccessibilityPrefsSnapshot, Fin<Unit>> Handler) : UiEvent;
     public sealed record ManyCase(Seq<UiEvent> Events) : UiEvent;
 
     public static UiEvent Paint(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> handler, MotionClock? clock = null, RepaintRequest? repaint = null) =>
@@ -66,8 +66,9 @@ public partial record UiEvent : IUiOp<Subscription> {
         new WindowLifecycleCase(Window: window, Kind: kind, Handler: handler);
     public static UiEvent NativeInput(Func<NativeInputSnapshot, Fin<Unit>> handler, NSEventMask mask = NSEventMask.AnyEvent) =>
         new NativeInputCase(Handler: handler, Mask: mask);
-    public static UiEvent PopulateContextMenu(Func<PopulateContextMenuSnapshot, Fin<Unit>> handler) =>
-        new PopulateContextMenuCase(Handler: handler);
+    // Live reduce-motion edge: fires on NSWorkspace display-options changes so consumers re-read MotionAccessibility.
+    public static UiEvent AccessibilityPrefs(Func<AccessibilityPrefsSnapshot, Fin<Unit>> handler) =>
+        new AccessibilityPrefsCase(Handler: handler);
     public static UiEvent Many(Seq<UiEvent> events) =>
         new ManyCase(Events: events);
 
@@ -393,7 +394,7 @@ public sealed record UndoEventPipe(History History, GhDocument Document, Func<Un
     internal Unit PublishMoved(UndoEvent kind, UndoNodeMovedEventArgs args) =>
         Publish(
             kind: kind,
-            nodeName: Optional(args.Nodes).Bind(static nodes => nodes.Length > 0 ? Optional(nodes[0].Record?.Name.ToString()) : Option<string>.None),
+            nodeName: toSeq(args.Nodes).Head.Bind(static n => Optional(n.Record?.Name.ToString())),
             nodeCount: Optional(args.Nodes).Map(static nodes => nodes.Length));
 }
 
@@ -791,9 +792,8 @@ public readonly record struct CanvasEventSnapshot(CanvasEvent Kind, Option<Canva
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct WindowLifecycleSnapshot(bool Visible, Eto.Drawing.Point Location, Option<WindowState> State);
 
-// Menu is mutable; IsMenu separates keyboard-invoked menus from right-click hits with real mouse position.
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct PopulateContextMenuSnapshot(ContextMenu Menu, MouseEventArgs MouseEvent, bool IsMenu);
+public readonly record struct AccessibilityPrefsSnapshot(bool ReduceMotion);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct NativeInputSnapshot(
@@ -870,7 +870,7 @@ internal static partial class Events {
             logicalPixelSizeCase: static l => SubscribeLogicalPixelSize(window: l.Window, handler: l.Handler),
             windowLifecycleCase: static w => SubscribeWindowLifecycle(window: w.Window, kind: w.Kind, handler: w.Handler),
             nativeInputCase: static n => SubscribeNativeInput(handler: n.Handler, mask: n.Mask),
-            populateContextMenuCase: static p => SubscribePopulateContextMenu(handler: p.Handler),
+            accessibilityPrefsCase: static a => SubscribeAccessibilityPrefs(handler: a.Handler),
             manyCase: static m => SubscribeMany(events: m.Events));
 
     private static GrasshopperUiIntent<Subscription> SubscribePaint(CanvasPaintPhase phase, Func<PaintScope, Fin<Unit>> handler, MotionClock? clock) =>
@@ -890,26 +890,23 @@ internal static partial class Events {
             from doc in scope.NeedDocument()
             from objs in scope.NeedObjects()
             let owner = (Doc: doc, Objs: objs)
-            from validKind in Optional(kind).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeDocument)), detail: "null document event"))
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeDocument)), detail: "null handler"))
-            from sub in validKind.Subscribe(owner: owner, handler: valid)
+            from sub in kind.Subscribe(owner: owner, handler: valid)
             select sub);
 
     private static GrasshopperUiIntent<Subscription> SubscribeSolution(SolutionEvent kind, Func<SolutionEventSnapshot, Fin<Unit>> handler) =>
         GhUi.Document(run: scope =>
             from doc in scope.NeedDocument()
             from objs in scope.NeedObjects()
-            from validKind in Optional(kind).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeSolution)), detail: "null solution event"))
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeSolution)), detail: "null handler"))
-            from sub in validKind.Subscribe(owner: (Server: doc.Solution, Document: doc, Objects: objs), handler: valid)
+            from sub in kind.Subscribe(owner: (Server: doc.Solution, Document: doc, Objects: objs), handler: valid)
             select sub);
 
     private static GrasshopperUiIntent<Subscription> SubscribeUndo(UndoEvent kind, Func<UndoEventSnapshot, Fin<Unit>> handler) =>
         GhUi.Document(run: scope =>
             from doc in scope.NeedDocument()
-            from validKind in Optional(kind).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeUndo)), detail: "null undo event"))
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeUndo)), detail: "null handler"))
-            from sub in validKind.Subscribe(owner: (History: doc.Undo, Document: doc), handler: valid)
+            from sub in kind.Subscribe(owner: (History: doc.Undo, Document: doc), handler: valid)
             select sub);
 
     // UITimer.Interval is seconds; Subscription.GuardDetach owns stop/unsubscribe/dispose exactly once.
@@ -929,9 +926,8 @@ internal static partial class Events {
     private static GrasshopperUiIntent<Subscription> SubscribeControl(Control source, ControlEvent kind, Func<ControlEventSnapshot, Fin<Unit>> handler) =>
         GhUi.Read(run: scope =>
             from validSource in Optional(source).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeControl)), detail: "null control"))
-            from validKind in Optional(kind).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeControl)), detail: "null control event"))
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeControl)), detail: "null handler"))
-            from sub in validKind.Subscribe(owner: validSource, handler: valid)
+            from sub in kind.Subscribe(owner: validSource, handler: valid)
             select sub);
 
     private static GrasshopperUiIntent<Subscription> SubscribeKeyboardModifiers(Func<InputModifierSnapshot, Fin<Unit>> handler) =>
@@ -963,17 +959,6 @@ internal static partial class Events {
             from sub in validKind.Subscribe(window: validWindow, handler: valid)
             select sub);
 
-    private static GrasshopperUiIntent<Subscription> SubscribePopulateContextMenu(Func<PopulateContextMenuSnapshot, Fin<Unit>> handler) =>
-        GhUi.Canvas(run: scope =>
-            from canvas in scope.NeedCanvas()
-            from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribePopulateContextMenu)), detail: "null handler"))
-            let onPopulate = (EventHandler<PopulateContextMenuEventArgs>)((_, e) =>
-                _ = GrasshopperUi.Handler(valid: () => valid(arg: new PopulateContextMenuSnapshot(Menu: e.Menu, MouseEvent: e.MouseEvent, IsMenu: e.IsMenu))))
-            from sub in BindMarshaled(
-                attach: () => canvas.PopulateContextMenu += onPopulate,
-                detach: () => canvas.PopulateContextMenu -= onPopulate)
-            select sub);
-
     private static GrasshopperUiIntent<Subscription> SubscribeNativeInput(Func<NativeInputSnapshot, Fin<Unit>> handler, NSEventMask mask) {
         NSObject? monitor = null;
         return GhUi.Read(run: _scope =>
@@ -982,6 +967,20 @@ internal static partial class Events {
                 attach: () => monitor = NSEvent.AddLocalMonitorForEventsMatchingMask(mask, e =>
                     Optional(e).Map(evt => UiEvent.Publish(handler: valid, snapshot: NativeInputSnapshot.Of(e: evt))).Map(_ => e).IfNone(e)),
                 detach: () => Optional(monitor).Iter(NSEvent.RemoveMonitor),
+                detachOnce: true)
+            select sub);
+    }
+
+    private static GrasshopperUiIntent<Subscription> SubscribeAccessibilityPrefs(Func<AccessibilityPrefsSnapshot, Fin<Unit>> handler) {
+        NSObject? observer = null;
+        return GhUi.Read(run: _scope =>
+            from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(SubscribeAccessibilityPrefs)), detail: "null handler"))
+            from sub in BindMarshaled(
+                attach: () => observer = NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(
+                    aName: NSWorkspace.DisplayOptionsDidChangeNotification,
+                    notify: _ => GrasshopperUi.Handler(valid: () => valid(arg: new AccessibilityPrefsSnapshot(ReduceMotion: MotionAccessibility.ShouldReduceMotion))).Ignore(),
+                    fromObject: null),
+                detach: () => Optional(observer).Iter(o => NSWorkspace.SharedWorkspace.NotificationCenter.RemoveObserver(o)),
                 detachOnce: true)
             select sub);
     }

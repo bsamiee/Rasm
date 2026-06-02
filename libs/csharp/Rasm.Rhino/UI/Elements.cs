@@ -3,6 +3,37 @@ using Eto.Forms;
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] -----------------------------------------------------------------------------
+[Union]
+public abstract partial record UiGridColumn<TRow> {
+    private UiGridColumn() { }
+    public sealed record Text(string Header, Func<TRow, string> Value, int Width = 120) : UiGridColumn<TRow>;
+    public sealed record Check(string Header, Func<TRow, bool> Value, int Width = 40) : UiGridColumn<TRow>;
+    public sealed record Number(string Header, Func<TRow, double> Value, string Format = "G", int Width = 80) : UiGridColumn<TRow>;
+    public sealed record Custom(string Header, Func<TRow, Action<Eto.Drawing.Graphics, Eto.Drawing.RectangleF>> Paint, int Width = 120) : UiGridColumn<TRow>;
+    public sealed record Children(Func<TRow, Seq<TRow>> Get) : UiGridColumn<TRow>;
+
+    internal bool IsTree => this is Children;
+    internal object? CellValue(TRow row) => Switch(   // GridItem.Values is index-addressed; project each visible column to its display value
+        state: row,
+        text: static (r, t) => (object?)t.Value(arg: r),
+        check: static (r, c) => c.Value(arg: r),
+        number: static (r, n) => n.Value(arg: r).ToString(n.Format, System.Globalization.CultureInfo.InvariantCulture),
+        custom: static (_, _) => null,
+        children: static (_, _) => null);
+
+    internal Option<GridColumn> ToColumn(int index) => Switch(   // BOUNDARY ADAPTER — Eto cell wiring is structural OOP; columns bind by index against GridItem.Values
+        state: index,
+        text: static (i, t) => Some(new GridColumn { HeaderText = t.Header, Width = t.Width, DataCell = new TextBoxCell(i) }),
+        check: static (i, c) => Some(new GridColumn { HeaderText = c.Header, Width = c.Width, DataCell = new CheckBoxCell(i) }),
+        number: static (i, n) => Some(new GridColumn { HeaderText = n.Header, Width = n.Width, DataCell = new TextBoxCell(i) }),
+        custom: static (_, cc) => {
+            CustomCell cell = new();
+            cell.Paint += (_, e) => _ = e.Item is GridItem { Tag: TRow row } ? Op.Side(() => cc.Paint(arg: row)(arg1: e.Graphics, arg2: e.ClipRectangle)) : unit;
+            return Some(new GridColumn { HeaderText = cc.Header, Width = cc.Width, DataCell = cell });
+        },
+        children: static (_, _) => Option<GridColumn>.None);
+}
+
 public abstract record UiElement<TState> {
     private UiElement() { }
 
@@ -60,7 +91,82 @@ public abstract record UiElement<TState> {
     public sealed record Canvas(Func<TState, Eto.Drawing.Size, Fin<UiHud>> Paint, UiRenderHint Hint = default) : UiElement<TState> {
         internal override Fin<Control> Build(Atom<TState> state) =>
             Op.Of(name: nameof(Canvas)).Need(Paint)
-                .Map(paint => (Control)new UiCanvas<TState>(initial: state.Value, paint: paint, hint: Hint));
+                .Map(paint => (Control)new UiCanvas<TState>(state: state, paint: paint, hint: Hint));   // share the window atom so sibling field commits repaint the canvas
+    }
+
+    public sealed record Split(Orientation Orientation, UiElement<TState> Primary, UiElement<TState> Secondary, int Position = 200, SplitterFixedPanel Fixed = SplitterFixedPanel.None, Option<Func<TState, int, TState>> OnPosition = default) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            from primary in Primary.Build(state: state)
+            from secondary in Secondary.Build(state: state)
+            select ((Func<Control>)(() => {   // BOUNDARY ADAPTER — Eto Splitter construction + event subscription is structural OOP
+                Splitter splitter = new() { Orientation = Orientation, Panel1 = primary, Panel2 = secondary, Position = Position, FixedPanel = Fixed };
+                _ = OnPosition.Iter(sink => splitter.PositionChanged += (_, _) => _ = state.Swap(current => sink(arg1: current, arg2: splitter.Position)));
+                return splitter;
+            }))();
+    }
+
+    public sealed record Collapse(string Header, UiElement<TState> Body, Func<TState, bool> Expanded, Func<TState, bool, TState> Toggle) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Body.Build(state: state).Map(body => (Control)((Func<Expander>)(() => {   // BOUNDARY ADAPTER — Eto Expander construction + event subscription is structural OOP
+                Expander expander = new() { Header = new Label { Text = Header }, Content = body, Expanded = Expanded(arg: state.Value) };
+                expander.ExpandedChanged += (_, _) => _ = state.Swap(current => Toggle(arg1: current, arg2: expander.Expanded));
+                return expander;
+            }))());
+    }
+
+    public sealed record Tabs(Seq<(string Title, UiElement<TState> Body)> Pages, Func<TState, int> Selected, Func<TState, int, TState> OnSelect) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Pages.TraverseM(page => page.Body.Build(state: state).Map(control => new DocumentPage(control) { Text = page.Title })).As().Map(pages => (Control)((Func<DocumentControl>)(() => {   // BOUNDARY ADAPTER — Eto DocumentControl construction + two-way SelectedIndex binding is structural OOP
+                DocumentControl tabs = new();
+                _ = pages.Iter(tabs.Pages.Add);
+                tabs.SelectedIndex = Math.Clamp(value: Selected(arg: state.Value), min: 0, max: Math.Max(val1: 0, val2: pages.Count - 1));
+                tabs.SelectedIndexChanged += (_, _) => _ = state.Swap(current => OnSelect(arg1: current, arg2: tabs.SelectedIndex));
+                return tabs;
+            }))());
+    }
+
+    public sealed record Absolute(Seq<(UiElement<TState> Child, Eto.Drawing.Point At)> Children) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Children.TraverseM(placed => placed.Child.Build(state: state).Map(control => (Control: control, placed.At))).As().Map(placed => (Control)((Func<PixelLayout>)(() => {   // BOUNDARY ADAPTER — Eto PixelLayout absolute placement is structural OOP
+                PixelLayout layout = new();
+                _ = placed.Iter(item => layout.Add(item.Control, item.At));
+                return layout;
+            }))());
+    }
+
+    public sealed record Browser(Func<TState, Option<Uri>> Url, Option<Func<TState, string>> Html = default, Option<Func<TState, Uri, TState>> OnLoaded = default) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Op.Of(name: nameof(Browser)).Need(Url).Map(_url => (Control)((Func<WebView>)(() => {   // BOUNDARY ADAPTER — Eto WebView construction + DocumentLoaded projection is structural OOP
+                WebView view = new();
+                _ = Url(arg: state.Value).Case switch { Uri address => Op.Side(() => view.Url = address), _ => Html.Iter(html => view.LoadHtml(html(arg: state.Value))) };
+                _ = OnLoaded.Iter(sink => view.DocumentLoaded += (_, args) => _ = Optional(args.Uri).Iter(address => _ = state.Swap(current => sink(arg1: current, arg2: address))));
+                return view;
+            }))());
+    }
+
+    public sealed record Grid<TRow>(Seq<UiGridColumn<TRow>> Columns, Func<TState, Seq<TRow>> GetRows, Option<Func<TState, Seq<TRow>, TState>> OnSelection = default) : UiElement<TState> {
+        internal override Fin<Control> Build(Atom<TState> state) =>
+            Op.Of(name: nameof(Grid<>)).Catch(() => {   // BOUNDARY ADAPTER — Eto Grid/TreeGrid construction binds visible columns by index against GridItem.Values + Tag carries the row
+                Seq<UiGridColumn<TRow>> visible = Columns.Filter(static column => !column.IsTree);
+                object?[] Values(TRow row) => [.. visible.Map(column => column.CellValue(row: row))];
+                Unit Configure(Grid grid) {
+                    _ = visible.Map(static (column, index) => column.ToColumn(index: index)).Iter(eto => _ = eto.Iter(grid.Columns.Add));
+                    return OnSelection.Iter(sink => grid.SelectionChanged += (_, _) => _ = state.Swap(current => sink(arg1: current, arg2: toSeq(grid.SelectedItems).Choose(static row => Optional((row as GridItem)?.Tag).Bind(static tag => tag is TRow value ? Some(value) : Option<TRow>.None)))));
+                }
+                return Columns.Find(static column => column.IsTree).Bind(static column => column is UiGridColumn<TRow>.Children tree ? Some(tree) : Option<UiGridColumn<TRow>.Children>.None).Case switch {
+                    UiGridColumn<TRow>.Children tree => Fin.Succ<Control>(value: ((Func<TreeGridView>)(() => {
+                        TreeGridItem Node(TRow row) => new(children: tree.Get(arg: row).Map(Node).Cast<ITreeGridItem>(), values: Values(row: row)) { Tag = row };
+                        TreeGridView grid = new() { DataStore = new TreeGridItemCollection(items: GetRows(arg: state.Value).Map(Node).Cast<ITreeGridItem>()) };
+                        _ = Configure(grid: grid);
+                        return grid;
+                    }))()),
+                    _ => Fin.Succ<Control>(value: ((Func<GridView>)(() => {
+                        GridView grid = new() { DataStore = GetRows(arg: state.Value).Map(row => (object)new GridItem(values: Values(row: row)) { Tag = row }).AsIterable() };
+                        _ = Configure(grid: grid);
+                        return grid;
+                    }))()),
+                };
+            });
     }
 }
 
@@ -72,44 +178,49 @@ public sealed record UiField<TState, T>(
     Func<Control, T> Read,
     Option<Func<T, Fin<Unit>>> Validate = default,
     Option<Func<Fin<Unit>>> Admit = default,
+    Option<Func<T, Fin<T>>> Activate = default,   // modal editors (color picker) open on click, write the editor, then commit through the shared LostFocus rail
     bool CommitOnChange = true) {
-    internal Fin<Control> Build(Atom<TState> state) =>
-        from get in Op.Of(name: nameof(UiField<,>)).Need(Get)
-        from set in Op.Of(name: nameof(UiField<,>)).Need(Set)
-        from create in Op.Of(name: nameof(UiField<,>)).Need(Create)
-        from read in Op.Of(name: nameof(UiField<,>)).Need(Read)
-        from _admit in Admit.Map(run => run()).IfNone(Fin.Succ(value: unit))
-        let editor = create(arg: get(arg: state.Value))
-        from valid in Op.Of(name: nameof(UiField<,>)).Need(editor)
-        select Wire(state: state, control: Row(editor: valid), editor: valid, read: read, set: set);
+    internal Fin<Control> Build(Atom<TState> state) {
+        Control MakeRow(Control editor) =>
+            string.IsNullOrWhiteSpace(value: Label)
+                ? editor
+                : new StackLayout {
+                    Orientation = Orientation.Horizontal, Spacing = 6,
+                    Items = { new Label { Text = Label, VerticalAlignment = VerticalAlignment.Center }, editor }
+                };
 
-    private Control Row(Control editor) {
-        if (string.IsNullOrWhiteSpace(value: Label)) return editor;
-        StackLayout row = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
-        row.Items.Add(new Label { Text = Label, VerticalAlignment = VerticalAlignment.Center });
-        row.Items.Add(editor);
-        return row;
-    }
-
-    private Control Wire(Atom<TState> state, Control control, Control editor, Func<Control, T> read, Func<TState, T, TState> set) {
-        void Commit() =>
-            _ = RhinoUi.Protect(valid: () =>
-                from value in Validate.Map(check => check(arg: read(arg: editor)).Map(_ => read(arg: editor))).IfNone(Fin.Succ(value: read(arg: editor)))
-                select state.Swap(current => set(arg1: current, arg2: value))).IfFail(error => {
-                    editor.ToolTip = error.Message;
-                    return state.Value;
-                });
-        if (CommitOnChange) {
-            switch (editor) {
-                case TextBox box: box.TextChanged += (_, _) => Commit(); break;
-                case TextArea area: area.TextChanged += (_, _) => Commit(); break;
-                case CheckBox box: box.CheckedChanged += (_, _) => Commit(); break;
-                case NumericStepper box: box.ValueChanged += (_, _) => Commit(); break;
-                case DropDown drop: drop.SelectedIndexChanged += (_, _) => Commit(); break;
-            }
+        Control WireEvents(Control control, Control editor) {
+            void Commit() =>
+                _ = RhinoUi.Protect(valid: () => {
+                    T raw = Read(arg: editor);   // single capture
+                    return Validate
+                        .Map(check => check(arg: raw).Map(_ => raw))
+                        .IfNone(Fin.Succ(value: raw))
+                        .Map(value => state.Swap(current => Set(arg1: current, arg2: value)));
+                }).IfFail(error => { editor.ToolTip = error.Message; return state.Value; });
+            _ = CommitOnChange ? (editor switch {   // BOUNDARY ADAPTER — Eto event subscription is structural OOP, not domain dispatch
+                TextBox box => Op.Side(() => box.TextChanged += (_, _) => Commit()),
+                TextArea area => Op.Side(() => area.TextChanged += (_, _) => Commit()),
+                CheckBox box => Op.Side(() => box.CheckedChanged += (_, _) => Commit()),
+                NumericStepper s => Op.Side(() => s.ValueChanged += (_, _) => Commit()),
+                DropDown drop => Op.Side(() => drop.SelectedIndexChanged += (_, _) => Commit()),
+                _ => unit,
+            }) : unit;
+            _ = Activate.Iter(open => editor.MouseUp += (_, _) =>   // BOUNDARY ADAPTER — modal editor opens on click; write the editor tag, then route through Commit
+                _ = RhinoUi.Protect(valid: () => open(arg: Read(arg: editor)).Map(value => { editor.Tag = value; editor.Invalidate(); Commit(); return unit; })));
+            editor.LostFocus += (_, _) => Commit();
+            return control;
         }
-        editor.LostFocus += (_, _) => Commit();
-        return control;
+
+        return
+            from get in Op.Of(name: nameof(UiField<,>)).Need(Get)
+            from set in Op.Of(name: nameof(UiField<,>)).Need(Set)
+            from create in Op.Of(name: nameof(UiField<,>)).Need(Create)
+            from read in Op.Of(name: nameof(UiField<,>)).Need(Read)
+            from _admit in Admit.Map(run => run()).IfNone(Fin.Succ(value: unit))
+            let editor = create(arg: get(arg: state.Value))
+            from valid in Op.Of(name: nameof(UiField<,>)).Need(editor)
+            select WireEvents(control: MakeRow(editor: valid), editor: valid);
     }
 }
 
@@ -175,6 +286,18 @@ public static class UiElement {
     public static UiElement<TState> Form<TState>(params UiElement<TState>[] rows) => new UiElement<TState>.Dynamic(Rows: toSeq(rows));
     public static UiElement<TState> Column<TState>(params UiElement<TState>[] children) => new UiElement<TState>.Group(Orientation: Orientation.Vertical, Children: toSeq(children));
     public static UiElement<TState> Row<TState>(params UiElement<TState>[] children) => new UiElement<TState>.Group(Orientation: Orientation.Horizontal, Children: toSeq(children));
+    public static UiElement<TState> Split<TState>(Orientation orientation, UiElement<TState> primary, UiElement<TState> secondary, int position = 200, SplitterFixedPanel fixedPanel = SplitterFixedPanel.None, Option<Func<TState, int, TState>> onPosition = default) =>
+        new UiElement<TState>.Split(Orientation: orientation, Primary: primary, Secondary: secondary, Position: position, Fixed: fixedPanel, OnPosition: onPosition);
+    public static UiElement<TState> Collapse<TState>(string header, UiElement<TState> body, Func<TState, bool> expanded, Func<TState, bool, TState> toggle) =>
+        new UiElement<TState>.Collapse(Header: header, Body: body, Expanded: expanded, Toggle: toggle);
+    public static UiElement<TState> Tabs<TState>(Func<TState, int> selected, Func<TState, int, TState> onSelect, params (string Title, UiElement<TState> Body)[] pages) =>
+        new UiElement<TState>.Tabs(Pages: toSeq(pages), Selected: selected, OnSelect: onSelect);
+    public static UiElement<TState> Absolute<TState>(params (UiElement<TState> Child, Eto.Drawing.Point At)[] children) =>
+        new UiElement<TState>.Absolute(Children: toSeq(children));
+    public static UiElement<TState> Browser<TState>(Func<TState, Option<Uri>> url, Option<Func<TState, string>> html = default, Option<Func<TState, Uri, TState>> onLoaded = default) =>
+        new UiElement<TState>.Browser(Url: url, Html: html, OnLoaded: onLoaded);
+    public static UiElement<TState> Grid<TState, TRow>(Seq<UiGridColumn<TRow>> columns, Func<TState, Seq<TRow>> rows, Option<Func<TState, Seq<TRow>, TState>> onSelection = default) =>
+        new UiElement<TState>.Grid<TRow>(Columns: columns, GetRows: rows, OnSelection: onSelection);
 }
 
 public static class UiField {
@@ -211,17 +334,42 @@ public static class UiField {
             Label: label,
             Get: get,
             Set: set,
-            Create: value => {
-                DropDown drop = new() { DataStore = choices.Map(static item => (object?)item).AsIterable() };
-                int index = -1;
-                foreach ((TChoice item, int i) in choices.AsIterable().Select((item, i) => (item, i))) {
-                    if (EqualityComparer<TChoice>.Default.Equals(x: item, y: value)) { index = i; break; }
-                }
-                drop.SelectedIndex = index < 0 ? 0 : index;
-                return drop;
+            Create: value => new DropDown {
+                DataStore = choices.Map(static item => (object?)item).AsIterable(),
+                SelectedIndex = choices
+                    .Map(static (item, i) => (item, i))
+                    .Filter(t => EqualityComparer<TChoice>.Default.Equals(x: t.item, y: value))
+                    .Head
+                    .Map(static t => t.i)
+                    .IfNone(noneValue: 0),
             },
             Read: control => control is DropDown { SelectedIndex: int index } && index >= 0 && index < choices.Count ? choices[index] : choices[0],
             Admit: Some(() => guard(!choices.IsEmpty, Op.Of(name: nameof(Choice)).InvalidInput()).ToFin()));
+
+    public static UiField<TState, Color4f> Color<TState>(string label, Func<TState, Color4f> get, Func<TState, Color4f, TState> set, bool allowAlpha = false, Option<global::Rhino.UI.NamedColorList> named = default) =>
+        new(
+            Label: label,
+            Get: get,
+            Set: set,
+            CommitOnChange: false,   // the modal picker is the only edit path; commit fires through Activate, not a continuous-change event
+            Create: value => {
+                Drawable swatch = new() { Width = 64, Height = 22, Tag = value };
+                swatch.Paint += (_, e) => {   // BOUNDARY ADAPTER — Eto draw callback paints the live color sample from the editor tag
+                    Color4f c = swatch.Tag is Color4f tagged ? tagged : Color4f.Black;
+                    Eto.Drawing.RectangleF area = new(Eto.Drawing.PointF.Empty, e.Graphics.ClipBounds.Size);
+                    e.Graphics.FillRectangle(Eto.Drawing.Color.FromArgb((int)(c.R * 255f), (int)(c.G * 255f), (int)(c.B * 255f), allowAlpha ? (int)(c.A * 255f) : 255), area);
+                    e.Graphics.DrawRectangle(global::Rhino.Runtime.HostUtils.RunningInDarkMode ? Eto.Drawing.Color.FromArgb(180, 180, 180) : Eto.Drawing.Color.FromArgb(80, 80, 80), area);
+                };
+                return swatch;
+            },
+            Read: static control => control.Tag is Color4f value ? value : Color4f.Black,
+            Activate: Some<Func<Color4f, Fin<Color4f>>>(current => {
+                Color4f picked = current;
+                global::Rhino.UI.NamedColorList? list = named.Case switch { global::Rhino.UI.NamedColorList value => value, _ => null };
+                return global::Rhino.UI.Dialogs.ShowColorDialog(parent: null, color: ref picked, allowAlpha: allowAlpha, namedColorList: list, colorCallback: null)
+                    ? Fin.Succ(value: picked)
+                    : Fin.Fail<Color4f>(error: new Fault.Cancelled());
+            }));
 }
 
 public static class UiRequest {

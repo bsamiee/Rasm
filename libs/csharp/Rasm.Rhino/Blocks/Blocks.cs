@@ -4,6 +4,7 @@ using Rasm.Rhino.Commands;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.UI;
 using Rhino.DocObjects.Tables;
+using Rhino.FileIO;
 namespace Rasm.Rhino.Blocks;
 
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -30,7 +31,7 @@ public sealed class RhinoBlocks {
             .Bind(valid => {
                 BlockRunPlan plan = Operations.Plan(op: valid, owner: this);
                 Fin<BlockOutcome> Work() => runKey.Catch(plan.Run);
-                return RhinoUi.DispatchThread(uiBound: plan.Meta.RequiresUiThread, mode: Mode, run: Work, name: plan.Meta.Name);
+                return RhinoUi.DispatchThread(uiBound: plan.UiBound, mode: Mode, run: Work, name: plan.Name);
             });
     }
 
@@ -264,6 +265,48 @@ internal static class PreviewVault {
 
     internal static Unit Invalidate(Guid defId) => store.InvalidateDef(defId: defId);
     internal static Unit EvictDoc(uint serial) => store.EvictDoc(serial: serial);
+
+    // Offline archive previews survive document close; mtime is part of the cache key, so a changed
+    // file mints a fresh key (miss) — no version channel is needed and docSerial eviction does not apply.
+    private static readonly RefCache<(ulong PathHash, ulong Mtime, ulong Spec), Bitmap> offlineStore = new(
+        mode: RefCacheMode.Preview,
+        versionId: static _ => Guid.Empty,
+        versionTag: null,
+        docSerial: null,
+        dispose: static bmp => bmp.Dispose());
+
+    [SuppressMessage(category: "Reliability", checkId: "CA2000", Justification = "PreviewHandle release path disposes the bitmap.")]
+    internal static Fin<PreviewHandle> AcquireOffline(ArchivePath path, PreviewSpec spec, Op key) {
+        (ulong PathHash, ulong Mtime, ulong Spec) cacheKey = OfflineKey(path: path, spec: spec);
+        return offlineStore.Borrow(key: cacheKey) switch {
+            { IsSome: true, Case: Bitmap bmp } => Fin.Succ(value: OfflineHandle(key: cacheKey, bitmap: bmp)),
+            _ => RenderOffline(path: path, cacheKey: cacheKey, op: key),
+        };
+    }
+
+    private static (ulong PathHash, ulong Mtime, ulong Spec) OfflineKey(ArchivePath path, PreviewSpec spec) =>
+        (PathHash: Fnv64.HashText(value: path.Value.ToUpperInvariant()),
+         Mtime: File.Exists(path: path.Value) ? unchecked((ulong)File.GetLastWriteTimeUtc(path: path.Value).Ticks) : 0UL,
+         Spec: spec.Fingerprint.Value);
+
+    private static Fin<PreviewHandle> RenderOffline(ArchivePath path, (ulong PathHash, ulong Mtime, ulong Spec) cacheKey, Op op) =>
+        op.Catch(() =>
+            from bitmap in (File.Exists(path: path.Value) ? Optional(File3dm.ReadPreviewImage(path: path.Value)) : Option<Bitmap>.None)
+                .ToFin(Fail: op.InvalidResult())
+            from stored in StoreOfflineRendered(key: cacheKey, rendered: bitmap)
+            select stored);
+
+    private static Fin<PreviewHandle> StoreOfflineRendered((ulong PathHash, ulong Mtime, ulong Spec) key, Bitmap rendered) {
+        (Option<Bitmap> selected, bool cached, Bitmap? rejectDispose) = offlineStore.Store(key: key, rendered: rendered);
+        rejectDispose?.Dispose();
+        return selected.ToFin(Fail: Op.Of(name: nameof(StoreOfflineRendered)).InvalidResult())
+            .Map(bitmap => cached
+                ? OfflineHandle(key: key, bitmap: bitmap)
+                : new PreviewHandle(bitmap: bitmap, release: static handle => handle.Bitmap.Dispose()));
+    }
+
+    private static PreviewHandle OfflineHandle((ulong PathHash, ulong Mtime, ulong Spec) key, Bitmap bitmap) =>
+        new(bitmap: bitmap, release: _ => offlineStore.Release(key: key));
 }
 
 internal static class SnapshotVault {

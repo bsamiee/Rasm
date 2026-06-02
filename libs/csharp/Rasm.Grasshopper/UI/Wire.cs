@@ -359,7 +359,7 @@ public sealed partial class GraphMetric {
                     connectivity: objects.Connectivity,
                     source: endpoints.Source,
                     target: endpoints.Target,
-                    limit: WireObjectLimit.DefaultCount)),
+                    limit: WireObjectLimit.Default.Value)),
                 what: "Connectivity.Find")
             select result);
     public static readonly GraphMetric Integrity = new(
@@ -421,7 +421,7 @@ public partial record WireQuery {
         new GraphCase(
             Anchor: anchor,
             Direction: direction ?? WireTraversal.Bidirectional,
-            MaxObjects: maxObjects ?? WireObjectLimit.Create(value: WireObjectLimit.DefaultCount));
+            MaxObjects: maxObjects ?? WireObjectLimit.Default);
     public static WireQuery Graph(GraphKey anchor, WireTraversal? direction, int maxObjects) =>
         new GraphCase(
             Anchor: anchor,
@@ -432,11 +432,142 @@ public partial record WireQuery {
     public static WireQuery RecentlyDrawn() => new RecentlyDrawnCase();
 }
 
-// WireShapeKind names host WireShape subclasses while sharing the validated Type rail.
+// WireRouter is the canonical wire-styling vocabulary: it resolves a concrete WireShape Type for the process-static
+// install rail. Public shapes (WireShapeDefault + Rasm's own) ride a direct typeof; GH2-internal shapes
+// (WireShapeLinear/WireShapeBiArc are `internal sealed`) resolve by reflected simple name in the WireShape assembly.
 [SmartEnum<string>]
-public sealed partial class WireShapeKind {
-    public Type ShapeType { get; }
-    public static readonly WireShapeKind Default = new(key: "default", shapeType: typeof(WireShapeDefault));
+public sealed partial class WireRouter {
+    public Type? Direct { get; }
+    public string SimpleName { get; }
+
+    public static readonly WireRouter Default = new(key: "default", direct: typeof(WireShapeDefault), simpleName: "");
+    public static readonly WireRouter Linear = new(key: "linear", direct: null, simpleName: "WireShapeLinear");
+    public static readonly WireRouter BiArc = new(key: "biarc", direct: null, simpleName: "WireShapeBiArc");
+    public static readonly WireRouter Stepped = new(key: "stepped", direct: typeof(WireShapeStepped), simpleName: "");
+    public static readonly WireRouter Taxi = new(key: "taxi", direct: typeof(WireShapeTaxi), simpleName: "");
+    public static readonly WireRouter Custom = new(key: "custom", direct: null, simpleName: "");
+
+    // Concrete installable type, else the abstract base sentinel — install validation rejects the latter.
+    public Type ShapeType => Resolve().IfNone(typeof(WireShape));
+
+    internal Option<Type> Resolve(Option<Type> @override = default) =>
+        @override.Filter(IsInstallable)
+            | Optional(Direct).Filter(IsInstallable)
+            | ReflectByName().Filter(IsInstallable);
+
+    private Option<Type> ReflectByName() =>
+        Optional(string.IsNullOrEmpty(SimpleName) ? null : typeof(WireShape).Assembly.GetType(name: $"{typeof(WireShape).Namespace}.{SimpleName}", throwOnError: false));
+
+    private static bool IsInstallable(Type type) =>
+        typeof(WireShape).IsAssignableFrom(c: type) && type is { IsAbstract: false };
+}
+
+// Orthogonal (stepped/taxi) routing: a 3-segment elbow source -> (bendX, source.Y) -> (bendX, target.Y) -> target.
+// Corner radius / split ratio ride the UI-thread-affine WireShapeParams captured at construction, because
+// WireShape.Create builds via Activator.CreateInstance(type, source, target) and admits no extra ctor args.
+// Pick-path geometry (Project/DistanceTo/Intersects) is explicit MathF with zero LINQ/allocation.
+public abstract class WireShapeOrthogonal(PointF source, PointF target) : WireShape(source, target) {
+    private readonly float radius = WireShapeParams.CornerRadius;
+    protected abstract float BendX { get; }
+
+    public override RectangleF Bounds =>
+        RectangleF.Union(new RectangleF(Source, SizeF.Empty), new RectangleF(Target, SizeF.Empty));
+
+    public override PointF Project(PointF point) {
+        float bx = BendX;
+        PointF c1 = new(bx, Source.Y), c2 = new(bx, Target.Y);
+        PointF p1 = Near(Source, c1, point), p2 = Near(c1, c2, point), p3 = Near(c2, Target, point);
+        float d1 = Sq(p1, point), d2 = Sq(p2, point), d3 = Sq(p3, point);
+        return d1 <= d2 ? (d1 <= d3 ? p1 : p3) : (d2 <= d3 ? p2 : p3);
+    }
+
+    public override float DistanceTo(PointF point) => MathF.Sqrt(Sq(Project(point), point));
+
+    public override bool Intersects(RectangleF box) {
+        float bx = BendX;
+        PointF c1 = new(bx, Source.Y), c2 = new(bx, Target.Y);
+        return box.Contains(Source) || box.Contains(Target)
+            || Seg(box, Source, c1) || Seg(box, c1, c2) || Seg(box, c2, Target);
+    }
+
+    public override void Draw(Graphics graphics, Pen edge) {
+        // BOUNDARY ADAPTER — GH2 supplies non-null paint args; the guard satisfies CA1062 on this public override.
+        ArgumentNullException.ThrowIfNull(graphics);
+        ArgumentNullException.ThrowIfNull(edge);
+        float bx = BendX;
+        float r = MathF.Min(radius, MathF.Min(MathF.Abs(Target.Y - Source.Y), MathF.Abs(bx - Source.X)) * 0.5f);
+        using GraphicsPath path = new();
+        path.StartFigure();
+        _ = r <= 0f ? StraightElbow(path, bx) : RoundedElbow(path, bx, r);
+        graphics.DrawPath(edge, path);
+    }
+
+    private Unit StraightElbow(GraphicsPath path, float bendX) {
+        path.MoveTo(Source.X, Source.Y);
+        path.LineTo(bendX, Source.Y);
+        path.LineTo(bendX, Target.Y);
+        path.LineTo(Target.X, Target.Y);
+        return unit;
+    }
+
+    private Unit RoundedElbow(GraphicsPath path, float bendX, float r) {
+        PointF c1 = new(bendX, Source.Y), c2 = new(bendX, Target.Y);
+        float sx = MathF.Sign(bendX - Source.X), sy = MathF.Sign(Target.Y - Source.Y), tx = MathF.Sign(Target.X - bendX);
+        path.MoveTo(Source.X, Source.Y);
+        path.LineTo(c1.X - (sx * r), c1.Y);
+        path.AddBezier(new PointF(c1.X - (sx * r), c1.Y), c1, c1, new PointF(c1.X, c1.Y + (sy * r)));
+        path.LineTo(c2.X, c2.Y - (sy * r));
+        path.AddBezier(new PointF(c2.X, c2.Y - (sy * r)), c2, c2, new PointF(c2.X + (tx * r), c2.Y));
+        path.LineTo(Target.X, Target.Y);
+        return unit;
+    }
+
+    private static float Sq(PointF a, PointF b) => ((a.X - b.X) * (a.X - b.X)) + ((a.Y - b.Y) * (a.Y - b.Y));
+
+    private static PointF Near(PointF a, PointF b, PointF p) {
+        float dx = b.X - a.X, dy = b.Y - a.Y, l = (dx * dx) + (dy * dy);
+        float t = l < 1e-6f ? 0f : MathF.Max(0f, MathF.Min(1f, (((p.X - a.X) * dx) + ((p.Y - a.Y) * dy)) / l));
+        return new(a.X + (t * dx), a.Y + (t * dy));
+    }
+
+    // Axis-aligned segment-vs-rect overlap: every elbow segment is horizontal or vertical, so the bbox test is exact.
+    private static bool Seg(RectangleF r, PointF a, PointF b) =>
+        MathF.Max(a.X, b.X) >= r.Left && MathF.Min(a.X, b.X) <= r.Right
+        && MathF.Max(a.Y, b.Y) >= r.Top && MathF.Min(a.Y, b.Y) <= r.Bottom;
+}
+
+public sealed class WireShapeStepped(PointF source, PointF target) : WireShapeOrthogonal(source, target) {
+    protected override float BendX => (Source.X + Target.X) * 0.5f;
+}
+
+public sealed class WireShapeTaxi(PointF source, PointF target) : WireShapeOrthogonal(source, target) {
+    private readonly float split = WireShapeParams.SplitRatio;
+    protected override float BendX => Source.X + ((Target.X - Source.X) * split);
+}
+
+// Obstacle context exposed to any WireShape at draw/project time. Geometric shapes ignore it (zero cost); a future
+// obstacle-aware WireShape queries Obstacles(region). The provider is UI-thread-affine; Use installs it symmetrically
+// so a disposed router cannot leak a stale closure onto the slot. The avoidance algorithm is intentionally not built here.
+public static class WireRouteContext {
+    [ThreadStatic] internal static Func<RectangleF, Seq<RectangleF>>? Provider;
+
+    public static Seq<RectangleF> Obstacles(RectangleF region) =>
+        (Provider ?? (static _ => Seq<RectangleF>()))(region);
+
+    // Live document object bounds as obstacles, excluding the routed pair's owners; bounds re-read each query.
+    public static Func<RectangleF, Seq<RectangleF>> ObstaclesFrom(GhObjectList objects, IReadOnlySet<Guid> exclude) =>
+        region => toSeq(objects.Forwards)
+            .Filter(o => !exclude.Contains(o.InstanceId) && o.Attributes.AggregateBounds.Intersects(region))
+            .Map(static o => o.Attributes.AggregateBounds);
+
+    public static Fin<Subscription> Use(Func<RectangleF, Seq<RectangleF>> provider) {
+        Func<RectangleF, Seq<RectangleF>>? prior = null;
+        return Subscription.Bind(
+            attach: () => { prior = Provider; Provider = provider; },
+            detach: () => Provider = prior,
+            marshalToUi: true,
+            detachOnce: true);
+    }
 }
 
 [GenerateUnionOps]
@@ -449,7 +580,7 @@ public partial record WireOp : IUiOp<WireResult> {
     public sealed partial record EditCase(WireSnapshot.ConnectedCase Wire, WireEdit Kind, WireEditArgs Args = default) : WireOp;
     public sealed partial record EditBatchCase(Seq<(WireSnapshot.ConnectedCase Wire, WireEdit Kind, WireEditArgs Args)> Edits) : WireOp;
     public sealed partial record RouteCase(Seq<Guid> Chain) : WireOp;
-    public sealed partial record InstallShapeCase(Type ShapeType) : WireOp;
+    public sealed partial record InstallShapeCase(Type ShapeType, Option<float> CornerRadius = default, Option<float> SplitRatio = default) : WireOp;
     public sealed partial record OverlayCase(WireOverlayStyle Style, MotionClock? Clock = null) : WireOp;
     public sealed partial record WirePaintObserveCase(MotionClock? Clock = null) : WireOp;
     public sealed partial record DiagnosticsCase(Seq<Guid> Seeds) : WireOp;
@@ -463,10 +594,8 @@ public partial record WireOp : IUiOp<WireResult> {
     // Route: connect an ordered parameter chain by synthesizing adjacent-pair Connect edits onto the EditBatch rail.
     public static WireOp Route(Seq<Guid> chain) => new RouteCase(Chain: chain);
     public static WireOp InstallShape(Type shapeType) => new InstallShapeCase(ShapeType: shapeType);
-    public static WireOp InstallShape(WireShapeKind kind) {
-        ArgumentNullException.ThrowIfNull(argument: kind);
-        return new InstallShapeCase(ShapeType: kind.ShapeType);
-    }
+    public static WireOp InstallShape(WireRouter router, float cornerRadius = 8f, float splitRatio = 0.5f) =>
+        new InstallShapeCase(ShapeType: (router ?? WireRouter.Default).ShapeType, CornerRadius: Some(cornerRadius), SplitRatio: Some(splitRatio));
     public static WireOp Overlay(WireOverlayStyle style, MotionClock? clock = null) => new OverlayCase(Style: style, Clock: clock);
     public static WireOp WirePaintObserve(MotionClock? clock = null) => new WirePaintObserveCase(Clock: clock);
     public static WireOp Diagnostics(params ReadOnlySpan<Guid> seeds) => new DiagnosticsCase(Seeds: toSeq(seeds.ToArray()));
@@ -478,7 +607,7 @@ public partial record WireOp : IUiOp<WireResult> {
         editCase: static e => Wire.Edit(wire: e.Wire, edit: e.Kind, args: e.Args).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
         editBatchCase: static e => Wire.EditBatch(edits: e.Edits).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
         routeCase: static r => Wire.Route(chain: r.Chain).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
-        installShapeCase: static i => Wire.InstallShape(shapeType: i.ShapeType).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
+        installShapeCase: static i => Wire.InstallShape(shapeType: i.ShapeType, cornerRadius: i.CornerRadius.IfNone(8f), splitRatio: i.SplitRatio.IfNone(0.5f)).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
         overlayCase: static o => Wire.Overlay(style: o.Style, clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
         wirePaintObserveCase: static o => Wire.WirePaintObserve(clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
         diagnosticsCase: static d => Wire.Diagnostics(seeds: d.Seeds).Map(static diagnostics => (WireResult)new WireResult.DiagnosticsResult(Diagnostics: diagnostics)));
@@ -566,7 +695,7 @@ internal static partial class Wire {
         recentlyDrawnCase: static _ => RecentlyDrawn().Map(static snap => (WireResult)new WireResult.DrawnCase(Snapshot: snap)));
 
     // Null guards AcceptAll; structural validation accumulates derives/concrete/ctor faults in parallel.
-    internal static GrasshopperUiIntent<Subscription> InstallShape(Type shapeType) =>
+    internal static GrasshopperUiIntent<Subscription> InstallShape(Type shapeType, float cornerRadius, float splitRatio) =>
         GhUi.Canvas(run: _ =>
             from valid in Optional(shapeType).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(InstallShape)), detail: "shape type is required"))
             from accepted in Op.Of(name: nameof(InstallShape)).AcceptAll(
@@ -577,7 +706,7 @@ internal static partial class Wire {
                     op => guard(valid is { IsAbstract: false }, (Error)UiFault.InvalidInput(op: op, detail: $"{valid.FullName} must be concrete")).ToFin(),
                     op => guard(valid.GetConstructor(types: [typeof(PointF), typeof(PointF)]) is not null, (Error)UiFault.InvalidInput(op: op, detail: $"{valid.FullName} must expose a public ({nameof(PointF)}, {nameof(PointF)}) constructor")).ToFin(),
                 ])
-            from sub in WireShapeInstall.Push(shapeType: accepted)
+            from sub in WireShapeInstall.Push(shapeType: accepted, cornerRadius: cornerRadius, splitRatio: splitRatio)
             select sub);
 
     internal static GrasshopperUiIntent<Subscription> Overlay(WireOverlayStyle style, MotionClock clock) =>
@@ -1107,14 +1236,18 @@ internal static class WireRepositoryRail {
     }
 }
 
-file static class WireShapeInstall {
+internal static class WireShapeInstall {
     private readonly record struct Entry(Guid Token, Type Shape);
     private static readonly Type DefaultShape = typeof(WireShapeDefault);
     private static readonly Atom<Seq<Entry>> Stack = Atom(value: Seq<Entry>());
 
-    internal static Fin<Subscription> Push(Type shapeType) =>
+    internal static Fin<Subscription> Push(Type shapeType, float cornerRadius, float splitRatio) =>
         Op.Of(name: nameof(WireShapeInstall)).Attempt(body: () => {
             Guid token = Guid.NewGuid();
+            // Install runs inside a UI-thread-marshalled intent (GrasshopperUi.Use -> OnUiThread), so the per-shape
+            // config lands on the same thread WireShape.Create later reads it during paint.
+            WireShapeParams.CornerRadius = cornerRadius;
+            WireShapeParams.SplitRatio = splitRatio;
             WireShape.ShapeType = shapeType;
             _ = Stack.Swap(stack => stack + new Entry(Token: token, Shape: shapeType));
             return token;
@@ -1130,6 +1263,13 @@ file static class WireShapeInstall {
             body: () => { WireShape.ShapeType = restore; return unit; },
             what: nameof(Pop)).Ignore();
     }
+}
+
+// UI-thread-affine per-shape config: Push writes these on the marshalled install thread; WireShapeOrthogonal subclasses
+// capture them at construction (WireShape.Create's Activator path admits no extra ctor args).
+file static class WireShapeParams {
+    [ThreadStatic] internal static float CornerRadius;
+    [ThreadStatic] internal static float SplitRatio;
 }
 
 // --- [CACHE] ------------------------------------------------------------------------------

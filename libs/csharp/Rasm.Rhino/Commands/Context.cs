@@ -33,10 +33,14 @@ public sealed class RhinoCommandContext {
     public static Fin<RhinoCommandContext> Of(RhinoDoc doc, RunMode mode) =>
         Optional(doc)
             .ToFin(Fail: Op.Of(name: nameof(RhinoCommandContext)).MissingContext())
-            .Bind(document => document switch {
-                { IsAvailable: true, IsClosing: false, IsInitializing: false, IsOpening: false, IsCreating: false } =>
-                    Context.Of(doc: document).ToFin().Map(domain => new RhinoCommandContext(document: document, mode: mode, domain: domain)),
-                _ => Fin.Fail<RhinoCommandContext>(error: Op.Of(name: nameof(RhinoCommandContext)).MissingContext()),
-            });
+            .Bind(document => document.IsReady()
+                ? Context.Of(doc: document).ToFin().Map(domain => new RhinoCommandContext(document: document, mode: mode, domain: domain))
+                : Fin.Fail<RhinoCommandContext>(error: Op.Of(name: nameof(RhinoCommandContext)).MissingContext()));
 
+}
+
+// --- [OPERATIONS] -------------------------------------------------------------------------
+internal static class RhinoDocState {
+    internal static bool IsReady(this RhinoDoc doc) =>
+        doc is { IsAvailable: true, IsClosing: false, IsInitializing: false, IsOpening: false, IsCreating: false };
 }

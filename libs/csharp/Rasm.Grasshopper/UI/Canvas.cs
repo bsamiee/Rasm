@@ -72,17 +72,13 @@ public sealed record CanvasPosition(ContentPosition Position) {
         GhDuration.Abrupt, GhDuration.Brief, GhDuration.Fast, GhDuration.Normal,
         GhDuration.Slow, GhDuration.Tedious, GhDuration.Torpid, GhDuration.Ĝlāçïāľ);
 
-    private static GhDuration NearestDuration(TimeSpan duration) {
+    internal Fin<Unit> Navigate(GhCanvas canvas, TimeSpan duration) {
+        ContentPosition position = Position;
         double milliseconds = duration.TotalMilliseconds;
-        return Durations.Fold(
+        GhDuration mapped = Durations.Fold(
             initialState: GhDuration.Normal,
             f: (best, candidate) =>
                 Math.Abs(milliseconds - (int)candidate) < Math.Abs(milliseconds - (int)best) ? candidate : best);
-    }
-
-    internal Fin<Unit> Navigate(GhCanvas canvas, TimeSpan duration) {
-        ContentPosition position = Position;
-        GhDuration mapped = NearestDuration(duration: duration);
         return Op.Of(name: nameof(CanvasPosition))
             .Attempt(body: () => { canvas.Navigate(position: position, duration: mapped); return unit; }, what: "FlexControl.Navigate(ContentPosition, Duration)");
     }
@@ -128,25 +124,6 @@ public partial record CanvasViewOp {
 
 public enum CanvasFitTarget { Content, Selection, Viewport }
 
-// Built-ins resolve by reflected WireShape subclass name; Custom carries an open Type. None rejects install before touching process-static ShapeType.
-[SmartEnum<string>]
-public sealed partial class WireShapePolicy {
-    public string SimpleName { get; }
-    public static readonly WireShapePolicy Default = new(key: "default", simpleName: nameof(WireShapeDefault));
-    public static readonly WireShapePolicy Linear = new(key: "linear", simpleName: "WireShapeLinear");
-    public static readonly WireShapePolicy BiArc = new(key: "biarc", simpleName: "WireShapeBiArc");
-    public static readonly WireShapePolicy Custom = new(key: "custom", simpleName: "");
-
-    // Custom Type wins; current GH2 exposes only WireShapeDefault, so Linear/BiArc stay unavailable until host types appear.
-    internal Option<Type> Resolve(Option<Type> @override) =>
-        @override.Filter(IsInstallable).Match(
-            Some: Some,
-            None: () => Optional(string.IsNullOrEmpty(SimpleName) ? null : typeof(WireShape).Assembly.GetType(name: $"{typeof(WireShape).Namespace}.{SimpleName}", throwOnError: false))
-                .Filter(IsInstallable));
-
-    private static bool IsInstallable(Type type) => typeof(WireShape).IsAssignableFrom(c: type) && type is { IsAbstract: false };
-}
-
 [GenerateUnionOps]
 [Union]
 public partial record CanvasOp : IUiOp<CanvasResult> {
@@ -167,7 +144,7 @@ public partial record CanvasOp : IUiOp<CanvasResult> {
     public sealed partial record InlineEditCase(RectangleF Frame, string Initial, Func<string, Fin<Unit>> Apply, Option<Func<Fin<Unit>>> Cancel) : CanvasOp;
     public sealed partial record ValueEditorCase(AbstractParameter Parameter, Option<Control> Control) : CanvasOp;
     public sealed partial record SparkleCase(ISparkle Instance) : CanvasOp;
-    public sealed partial record WireShapeCase(WireShapePolicy Policy, Option<Type> Custom) : CanvasOp;
+    public sealed partial record WireShapeCase(WireRouter Router, Option<Type> Custom) : CanvasOp;
     public sealed partial record SnapSettingsCase(bool AsForm) : CanvasOp;
     public sealed partial record BackgroundOverrideCase(CanvasPaintPhase Phase) : CanvasOp;
 
@@ -193,8 +170,8 @@ public partial record CanvasOp : IUiOp<CanvasResult> {
     public static CanvasOp ValueEditor(AbstractParameter parameter, Control? control = null) =>
         new ValueEditorCase(Parameter: parameter, Control: Optional(control));
     public static CanvasOp Sparkle(ISparkle instance) => new SparkleCase(Instance: instance);
-    public static CanvasOp WireShape(WireShapePolicy policy) => new WireShapeCase(Policy: policy ?? WireShapePolicy.Default, Custom: Option<Type>.None);
-    public static CanvasOp WireShape(Type? shapeType) => new WireShapeCase(Policy: WireShapePolicy.Custom, Custom: Optional(shapeType));
+    public static CanvasOp WireShape(WireRouter router, Option<Type> custom = default) =>
+        new WireShapeCase(Router: router ?? WireRouter.Default, Custom: custom);
     public static CanvasOp SnapSettings(bool asForm = false) => new SnapSettingsCase(AsForm: asForm);
     public static CanvasOp BackgroundOverride(CanvasPaintPhase? phase = null) =>
         new BackgroundOverrideCase(Phase: phase ?? CanvasPaintPhase.BeforeBackground);
@@ -376,22 +353,22 @@ public readonly record struct CanvasActionPolicy(Option<bool> AllowDrag = defaul
         };
 
     internal Unit Apply(CanvasActions actions) {
-        Seq<CanvasActionSlot> toggles = [
-            new(Flag: AllowDrag, Set: value => actions.AllowDrag = value),
-            new(Flag: AllowWireSelect, Set: value => actions.AlloWireSelect = value),
-            new(Flag: AllowObjectSelect, Set: value => actions.AllowObjectSelect = value),
-            new(Flag: AllowMakeWire, Set: value => actions.AllowMakeWire = value),
-            new(Flag: AllowDeleteWire, Set: value => actions.AllowDeleteWire = value),
-            new(Flag: AllowModifyWire, Set: value => actions.AllowModifyWire = value),
-            new(Flag: AllowMakeObject, Set: value => actions.AllowMakeObject = value),
-            new(Flag: AllowDeleteObject, Set: value => actions.AllowDeleteObject = value),
-            new(Flag: AllowObjectResponse, Set: value => actions.AllowObjectResponse = value),
-            new(Flag: AllowDropFile, Set: value => actions.AllowDropFile = value),
-            new(Flag: AllowWireMenu, Set: value => actions.AllowWireMenu = value),
-            new(Flag: AllowObjectMenu, Set: value => actions.AllowObjectMenu = value),
-            new(Flag: AllowCanvasMenu, Set: value => actions.AllowCanvasMenu = value),
+        Seq<(Option<bool> Flag, Action<bool> Set)> toggles = [
+            (AllowDrag, value => actions.AllowDrag = value),
+            (AllowWireSelect, value => actions.AlloWireSelect = value),
+            (AllowObjectSelect, value => actions.AllowObjectSelect = value),
+            (AllowMakeWire, value => actions.AllowMakeWire = value),
+            (AllowDeleteWire, value => actions.AllowDeleteWire = value),
+            (AllowModifyWire, value => actions.AllowModifyWire = value),
+            (AllowMakeObject, value => actions.AllowMakeObject = value),
+            (AllowDeleteObject, value => actions.AllowDeleteObject = value),
+            (AllowObjectResponse, value => actions.AllowObjectResponse = value),
+            (AllowDropFile, value => actions.AllowDropFile = value),
+            (AllowWireMenu, value => actions.AllowWireMenu = value),
+            (AllowObjectMenu, value => actions.AllowObjectMenu = value),
+            (AllowCanvasMenu, value => actions.AllowCanvasMenu = value),
         ];
-        _ = toggles.Iter(static row => row.Apply());
+        _ = toggles.Iter(static row => row.Flag.Iter(row.Set));
         _ = MakeWireFilter.Iter(value => actions.MakeWireFilter = value);
         _ = DeleteWireFilter.Iter(value => actions.DeleteWireFilter = value);
         return unit;
@@ -399,15 +376,10 @@ public readonly record struct CanvasActionPolicy(Option<bool> AllowDrag = defaul
 }
 
 [StructLayout(LayoutKind.Auto)]
-internal readonly record struct CanvasActionSlot(Option<bool> Flag, Action<bool> Set) {
-    internal Unit Apply() => Flag.Iter(Set);
-}
-
-[StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasDetailSnapshot(bool ShowUndoHistory, float ZuiVariableParameterThreshold, float ZuiVariableParameterState, float ZuiWireDetailingThreshold, float ZuiWireDetailingState, CursorMode Mode, CanvasActionSnapshot Actions);
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct CanvasSnapFeedbackSnapshot(Option<SnappingSnapshot> X, Option<SnappingSnapshot> Y);
+public readonly record struct CanvasSnapFeedbackSnapshot(Option<SnappingSnapshot> Snap);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasBitmap(int Width, int Height, ReadOnlyMemory<byte> Png);
@@ -622,9 +594,9 @@ internal static partial class UiRail {
                 select CanvasResult.Unit),
             wireShapeCase: static shape => GhUi.Canvas(repaint: RepaintRequest.Canvas, run: scope =>
                 scope.NeedCanvas()
-                    .Bind(_ => shape.Policy.Resolve(@override: shape.Custom)
-                        .ToFin(Fail: UiFault.InvalidInput(op: CanvasOp.WireShapeCase.SelfOp, detail: "wire-shape policy resolves to no concrete WireShape type"))
-                        .Bind(WireShapeProjection.Install))
+                    .Bind(_ => shape.Router.Resolve(@override: shape.Custom)
+                        .ToFin(Fail: UiFault.InvalidInput(op: CanvasOp.WireShapeCase.SelfOp, detail: "wire-shape router resolves to no concrete WireShape type"))
+                        .Bind(t => WireShapeInstall.Push(shapeType: t, cornerRadius: 8f, splitRatio: 0.5f)))
                     .Map(static sub => (CanvasResult)new CanvasResult.SubscriptionResult(Subscription: sub))),
             snapSettingsCase: static ss => GhUi.Canvas(run: scope =>
                 scope.NeedCanvas()
@@ -918,7 +890,7 @@ internal static partial class UiRail {
     }
 
     private static CanvasSnapFeedbackSnapshot SnapFeedbackOf(GhCanvas canvas) =>
-        new(X: SnapChannels(x: Optional(canvas.SnapXAction), y: Option<SnappingAction>.None), Y: SnapChannels(x: Option<SnappingAction>.None, y: Optional(canvas.SnapYAction)));
+        new(Snap: SnapChannels(x: Optional(canvas.SnapXAction), y: Optional(canvas.SnapYAction)));
 
     // The live "Layout Alignment" widget persists through SnappingSettings.Current; returned Form/Control is caller-owned.
     private static Fin<CanvasResult> SnapPreferencesSurface(bool asForm) =>
@@ -1044,22 +1016,46 @@ internal static partial class UiRail {
             noneCase: static (s, _) => Op.Of(name: nameof(SelectionOp.None)).Attempt(body: s.methods.DeselectAll, what: "DocumentMethods.DeselectAll"),
             invertCase: static (s, _) => Op.Of(name: nameof(SelectionOp.Invert)).Attempt(body: s.methods.InvertSelection, what: "DocumentMethods.InvertSelection"),
             growCase: static (s, g) => GraphSelection(op: Op.Of(name: nameof(SelectionOp.Grow)), objects: s.objects, upstream: g.Upstream, downstream: g.Downstream, replace: false),
+            growNCase: static (s, g) => BoundedGraphSelection(op: Op.Of(name: nameof(SelectionOp.GrowN)), objects: s.objects, hops: g.Hops, upstream: g.Upstream, downstream: g.Downstream),
             shiftCase: static (s, shift) => GraphSelection(op: Op.Of(name: nameof(SelectionOp.Shift)), objects: s.objects, upstream: shift.Upstream, downstream: !shift.Upstream, replace: true));
 
+    // Hop-bounded BFS over immediate connectivity: Grow is the unbounded transitive closure; GrowN(1) is exactly one hop.
+    private static Fin<int> BoundedGraphSelection(Op op, GhObjectList objects, int hops, bool upstream, bool downstream) =>
+        op.Attempt(body: () => {
+            System.Collections.Generic.HashSet<Guid> visited = [.. toSeq(objects.SelectedObjects).Map(static o => o.InstanceId)];
+            System.Collections.Generic.HashSet<Guid> frontier = [.. visited];
+            Connectivity snapshot = objects.Connectivity;
+            _ = toSeq(System.Linq.Enumerable.Range(start: 0, count: Math.Max(0, hops))).Iter(_hop => {
+                System.Collections.Generic.HashSet<Guid> next = [];
+                _ = toSeq(frontier).Iter(id => {
+                    Seq<ConnectiveObject> neighbours =
+                        (upstream ? toSeq(snapshot.FindImmediateInputs(id)) : Seq<ConnectiveObject>())
+                        + (downstream ? toSeq(snapshot.FindImmediateOutputs(id)) : Seq<ConnectiveObject>());
+                    _ = neighbours.Iter(co => { _ = visited.Add(co.Id); _ = next.Add(co.Id); });
+                });
+                frontier = next;
+            });
+            Seq<IDocumentObject> selects = toSeq(visited).Choose(id => Optional(objects.Find(instanceId: id)))
+                .Filter(static o => o.Selection != ObjectSelection.Selected);
+            _ = selects.Iter(static o => o.Selection = ObjectSelection.Selected);
+            return selects.Count;
+        }, what: "Bounded connectivity selection");
+
+    // Probe offsets ordered by Manhattan distance from centre: hit, 4 cardinals, 4 diagonals (matches the prior OrderBy).
+    private static readonly (int Dx, int Dy)[] ProbeOffsets =
+        [(0, 0), (-1, 0), (0, -1), (0, 1), (1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1)];
+
     private static Seq<PointF> ProbeLattice(PointF centre, float radius) =>
-        toSeq(Enumerable.Range(start: -1, count: 3)
-            .SelectMany(dx => Enumerable.Range(start: -1, count: 3)
-                .Select(dy => (Dx: dx, Dy: dy, Point: new PointF(x: centre.X + (dx * radius), y: centre.Y + (dy * radius)))))
-            .OrderBy(static probe => Math.Abs(probe.Dx) + Math.Abs(probe.Dy))
-            .Select(static probe => probe.Point));
+        toSeq(ProbeOffsets).Map(offset => new PointF(x: centre.X + (offset.Dx * radius), y: centre.Y + (offset.Dy * radius)));
 
     private static Fin<int> GraphSelection(Op op, GhObjectList objects, bool upstream, bool downstream, bool replace, bool transitive = false) =>
         op.Attempt(body: () => {
             Seq<IDocumentObject> selected = toSeq(objects.SelectedObjects);
             Seq<Guid> seeds = selected.Map(static obj => obj.InstanceId);
+            Connectivity snapshot = objects.Connectivity;
             Seq<Guid> neighbours = selected.Bind(obj =>
-                (upstream ? Neighbours(objects: objects, owner: obj.InstanceId, upstream: true, transitive: transitive) : Seq<Guid>())
-                + (downstream ? Neighbours(objects: objects, owner: obj.InstanceId, upstream: false, transitive: transitive) : Seq<Guid>()));
+                (upstream ? Neighbours(connectivity: snapshot, owner: obj.InstanceId, upstream: true, transitive: transitive) : Seq<Guid>())
+                + (downstream ? Neighbours(connectivity: snapshot, owner: obj.InstanceId, upstream: false, transitive: transitive) : Seq<Guid>()));
             Seq<Guid> next = (replace ? neighbours : seeds + neighbours).Distinct().ToSeq();
             // BOUNDARY ADAPTER — Selection is mutable; counts derive from the filtered frontier, not an accumulator.
             Seq<IDocumentObject> deselects = replace ? selected.Filter(obj => !next.Exists(id => id == obj.InstanceId)) : Seq<IDocumentObject>();
@@ -1069,12 +1065,12 @@ internal static partial class UiRail {
             return deselects.Count + selects.Count;
         }, what: "Connectivity selection expansion");
 
-    private static Seq<Guid> Neighbours(GhObjectList objects, Guid owner, bool upstream, bool transitive) =>
+    private static Seq<Guid> Neighbours(Connectivity connectivity, Guid owner, bool upstream, bool transitive) =>
         toSeq((upstream, transitive) switch {
-            (true, false) => objects.Connectivity.FindImmediateInputs(owner),
-            (false, false) => objects.Connectivity.FindImmediateOutputs(owner),
-            (true, true) => objects.Connectivity.FindAllInputs(owner),
-            (false, true) => objects.Connectivity.FindAllOutputs(owner),
+            (true, false) => connectivity.FindImmediateInputs(owner),
+            (false, false) => connectivity.FindImmediateOutputs(owner),
+            (true, true) => connectivity.FindAllInputs(owner),
+            (false, true) => connectivity.FindAllOutputs(owner),
         }).Map(static node => node.Id);
 
     internal static Fin<Option<Guid>> ComposeDispatch(GhDocumentMethods methods, GhObjectList objects, ObjectScope subject, ComposeOp op, ActionList actions) =>
@@ -1217,28 +1213,3 @@ internal static partial class UiRail {
 
 }
 
-// ShapeType is process-static and throwing; ThreadLocal restores the installing thread's prior Type.
-file static class WireShapeProjection {
-    private static readonly Type DefaultShape = typeof(WireShapeDefault);
-    private static readonly ThreadLocal<Type?> Prior = new(trackAllValues: false);
-
-    internal static Fin<Subscription> Install(Type shapeType) =>
-        Op.Of(name: nameof(WireShapeProjection)).Attempt(
-                body: () => {
-                    Prior.Value = WireShape.ShapeType;
-                    WireShape.ShapeType = shapeType;
-                    return unit;
-                },
-                what: "WireShape.ShapeType install")
-            .Bind(static _ => Subscription.Bind(
-                attach: static () => { },
-                detach: Restore(snapshot: Optional(Prior.Value)),
-                marshalToUi: true,
-                detachOnce: true));
-
-    // BOUNDARY ADAPTER — guarded restore of the ThreadLocal prior Type, falling back to WireShapeDefault.
-    private static System.Action Restore(Option<Type> snapshot) =>
-        () => _ = Op.Of(name: nameof(WireShapeProjection)).Attempt(
-            body: () => { WireShape.ShapeType = snapshot.IfNone(DefaultShape); return unit; },
-            what: nameof(Restore)).Ignore();
-}

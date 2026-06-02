@@ -268,7 +268,7 @@ public readonly record struct ResizeSession(RectangleF Start, RectangleF Current
 public readonly record struct MouseHoverSnapshot(PointF ControlPoint, PointF ContentPoint);
 
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct ContextMenuSnapshot(ContextMenu Menu, MouseEventArgs MouseEvent);
+public readonly record struct ContextMenuSnapshot(ContextMenu Menu, MouseEventArgs MouseEvent, bool HasExistingItems = false);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct GestureSnapshot(NSGestureRecognizer Recognizer, NSGestureRecognizerState State, PointF Location);
@@ -307,18 +307,14 @@ internal static class CanvasChrome {
     internal static CanvasChromePlan Compose(Seq<CanvasChromeOp> ops) {
         Seq<CanvasChromePlan> plans = ops.Map(static op => op.Plan()).Strict();
         GrasshopperUiPolicy policy = plans.Fold(GrasshopperUiPolicy.Read, static (acc, plan) => acc | plan.Policy);
-        return plans.Exists(static plan => plan.Subscription.IsNone)
-            ? CanvasChromePlan.Result(intent: new GrasshopperUiIntent<CanvasChromeResult>(
-                run: _ => Fin.Fail<CanvasChromeResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(Compose)), detail: "every composed chrome op must produce a subscription")),
-                policy: policy))
-            : CanvasChromePlan.SubscriptionOf(intent: new GrasshopperUiIntent<Subscription>(
-                run: scope => plans
-                    .TraverseM(plan => plan.Subscription
-                        .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Compose)), detail: "composed chrome op lacks a subscription plan"))
-                        .Bind(run => run(arg: scope)))
-                    .As()
-                    .Map(static subs => subs.Fold(Subscription.Empty, static (acc, sub) => acc | sub)),
-                policy: policy));
+        return CanvasChromePlan.SubscriptionOf(intent: new GrasshopperUiIntent<Subscription>(
+            run: scope => plans
+                .TraverseM(plan => plan.Subscription
+                    .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Compose)), detail: "composed chrome op lacks a subscription plan"))
+                    .Bind(run => run(arg: scope)))
+                .As()
+                .Map(static subs => subs.Fold(Subscription.Empty, static (acc, sub) => acc | sub)),
+            policy: policy));
     }
 }
 
@@ -630,7 +626,7 @@ internal static class Interaction {
             from canvas in scope.NeedCanvas()
             from valid in Optional(handler).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(ContextMenu)), detail: "handler is required"))
             let onPopulate = (EventHandler<PopulateContextMenuEventArgs>)((_, e) =>
-                _ = GrasshopperUi.Handler(valid: () => valid(arg: new ContextMenuSnapshot(Menu: e.Menu, MouseEvent: e.MouseEvent))))
+                _ = GrasshopperUi.Handler(valid: () => valid(arg: new ContextMenuSnapshot(Menu: e.Menu, MouseEvent: e.MouseEvent, HasExistingItems: e.Menu.Items.Count > 0))))
             from sub in Subscription.Bind(
                 attach: () => canvas.PopulateContextMenu += onPopulate,
                 detach: () => canvas.PopulateContextMenu -= onPopulate,

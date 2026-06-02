@@ -30,36 +30,36 @@ public abstract partial record CameraSubject {
         Switch(
             viewport,
             atPoint: static (vp, source) => UI.RhinoUi.Protect(valid: () =>
-                source.Value.IsValid switch {
-                    false => Fin.Fail<CameraDepth>(error: DepthKey.InvalidInput()),
-                    true => vp.GetDepth(point: source.Value, distance: out double distance)
-                        ? Fin.Succ(value: new CameraDepth(Near: distance, Far: distance))
-                        : Fin.Fail<CameraDepth>(error: DepthKey.InvalidResult()),
-                }),
+                guard(source.Value.IsValid, DepthKey.InvalidInput()).ToFin().Bind(_ =>
+                    vp.GetDepth(point: source.Value, distance: out double d)
+                        ? Fin.Succ(value: new CameraDepth(Near: d, Far: d))
+                        : Fin.Fail<CameraDepth>(error: DepthKey.InvalidResult()))),
             inBounds: static (vp, source) => UI.RhinoUi.Protect(valid: () =>
-                source.Value.IsValid switch {
-                    false => Fin.Fail<CameraDepth>(error: DepthKey.InvalidInput()),
-                    true => vp.GetDepth(bbox: source.Value, nearDistance: out double near, farDistance: out double far)
+                guard(source.Value.IsValid, DepthKey.InvalidInput()).ToFin().Bind(_ =>
+                    vp.GetDepth(bbox: source.Value, nearDistance: out double near, farDistance: out double far)
                         ? Fin.Succ(value: new CameraDepth(Near: near, Far: far))
-                        : Fin.Fail<CameraDepth>(error: DepthKey.InvalidResult()),
-                }),
+                        : Fin.Fail<CameraDepth>(error: DepthKey.InvalidResult()))),
             inSphere: static (vp, source) => UI.RhinoUi.Protect(valid: () =>
-                source.Value.IsValid switch {
-                    false => Fin.Fail<CameraDepth>(error: DepthKey.InvalidInput()),
-                    true => vp.GetDepth(sphere: source.Value, nearDistance: out double near, farDistance: out double far)
+                guard(source.Value.IsValid, DepthKey.InvalidInput()).ToFin().Bind(_ =>
+                    vp.GetDepth(sphere: source.Value, nearDistance: out double near, farDistance: out double far)
                         ? Fin.Succ(value: new CameraDepth(Near: near, Far: far))
-                        : Fin.Fail<CameraDepth>(error: DepthKey.InvalidResult()),
-                }),
+                        : Fin.Fail<CameraDepth>(error: DepthKey.InvalidResult()))),
             fromGeometry: static (vp, source) =>
                 source.Value.BoundsOf(op: DepthKey).Bind(bounds => new InBounds(Value: bounds).Depth(viewport: vp)));
 
-    internal Fin<bool> Visible(RhinoViewport viewport) {
-        CameraSubject self = this;
-        return UI.RhinoUi.Protect(valid: () => self switch {
-            AtPoint source => guard(source.Value.IsValid, VisibleKey.InvalidInput()).ToFin().Map(_ => viewport.IsVisible(point: source.Value)),
-            _ => self.BoundsOf(op: VisibleKey).Map(bbox => viewport.IsVisible(bbox: bbox)),
-        });
-    }
+    internal Fin<bool> Visible(RhinoViewport viewport) =>
+        Switch(
+            viewport,
+            atPoint: static (vp, src) => UI.RhinoUi.Protect(valid: () =>
+                guard(src.Value.IsValid, VisibleKey.InvalidInput()).ToFin().Map(_ => vp.IsVisible(point: src.Value))),
+            inBounds: static (vp, src) => UI.RhinoUi.Protect(valid: () =>
+                guard(src.Value.IsValid, VisibleKey.InvalidInput()).ToFin().Map(_ => vp.IsVisible(bbox: src.Value))),
+            inSphere: static (vp, src) => UI.RhinoUi.Protect(valid: () =>
+                guard(src.Value.IsValid, VisibleKey.InvalidInput()).ToFin().Map(_ => vp.IsVisible(bbox: src.Value.BoundingBox))),
+            fromGeometry: static (vp, src) =>
+                src.Value.BoundsOf(op: VisibleKey).Bind(bounds =>
+                    UI.RhinoUi.Protect(valid: () =>
+                        guard(bounds.IsValid, VisibleKey.InvalidInput()).ToFin().Map(_ => vp.IsVisible(bbox: bounds)))));
 }
 
 [Union(SwitchMapStateParameterName = "context")]
@@ -147,7 +147,7 @@ public readonly record struct CameraFrame(Plane Frame, Point3d Target) {
         Point3d target = Target;
         return Optional(viewport).ToFin(Fail: op.InvalidInput()).Map(valid => {
             valid.SetCameraLocations(targetLocation: target, cameraLocation: frame.Origin);
-            valid.SetCameraDirection(cameraDirection: -frame.ZAxis, updateTargetLocation: true);
+            valid.SetCameraDirection(cameraDirection: -frame.ZAxis, updateTargetLocation: false);
             valid.CameraUp = frame.YAxis;
             return unit;
         });
@@ -224,6 +224,17 @@ public readonly record struct CameraScope(
             _ => Fin.Fail<Line>(error: Op.Of(name: nameof(FrustumLine)).InvalidResult()),
         });
 
+    // Native GetFramePlaneCorners orders corners (0,1,2,3) = (BottomLeft, BottomRight, TopLeft, TopRight)
+    // and returns Point3d[0] when camera or frustum is invalid — surfaced here as Fin.Fail.
+    public Fin<(Point3d BottomLeft, Point3d BottomRight, Point3d TopLeft, Point3d TopRight)> FrustumRect(double depth) =>
+        Probe(project: vp => Op.Of(name: nameof(FrustumRect)).Catch(() => {
+            using ViewportInfo projection = new(rhinoViewport: vp);
+            Point3d[] corners = projection.GetFramePlaneCorners(depth: depth);
+            return corners.Length == 4
+                ? Fin.Succ(value: (BottomLeft: corners[0], BottomRight: corners[1], TopLeft: corners[2], TopRight: corners[3]))
+                : Fin.Fail<(Point3d, Point3d, Point3d, Point3d)>(error: Op.Of(name: nameof(FrustumRect)).InvalidResult());
+        }));
+
     public Fin<CameraDepth> Depth(CameraSubject source) {
         RhinoViewport viewport = Viewport;
         return Optional(source).ToFin(Fail: Op.Of(name: nameof(Depth)).InvalidInput()).Bind(valid => valid.Depth(viewport: viewport));
@@ -255,7 +266,8 @@ public readonly record struct CameraScope(
         CameraScope self = this;
         return from _ in guard(point.IsValid, ScreenPointKey.InvalidInput())
                from screen in self.Probe(project: vp => ScreenPointKey.Catch(() => {
-                   Transform xform = vp.GetTransform(sourceSystem: CoordinateSystem.World, destinationSystem: CoordinateSystem.Screen);
+                   using ViewportInfo projection = new(rhinoViewport: vp);
+                   Transform xform = projection.GetXform(sourceSystem: CoordinateSystem.World, destinationSystem: CoordinateSystem.Screen);
                    return ProjectScreen(xform: xform, point: point, op: ScreenPointKey);
                }))
                select screen;
@@ -338,8 +350,7 @@ public readonly record struct CameraScope(
             uint undoSerial,
             HashMap<Guid, Row> index) {
             Seq<uint> merged = state.Order.Filter(h => h != serial) + Seq(serial);
-            int skip = merged.Count > CameraDefaults.DetailCacheDocuments ? merged.Count - CameraDefaults.DetailCacheDocuments : 0;
-            Seq<uint> promoted = toSeq(merged.Skip(count: skip));
+            Seq<uint> promoted = toSeq(merged.Skip(count: Math.Max(merged.Count - CameraDefaults.DetailCacheDocuments, 0)));
             LanguageExt.HashSet<uint> keep = toHashSet(promoted);
             HashMap<uint, Entry> entries = state.Entries
                 .AddOrUpdate(key: serial, value: new Entry(PageCount: pageCount, DetailCount: detailCount, UndoSerial: undoSerial, ById: index))
@@ -351,7 +362,6 @@ public readonly record struct CameraScope(
 
 public sealed record CameraSnapshot : IDisposable {
     private static readonly Op OfKey = Op.Of(name: nameof(CameraSnapshot));
-    private readonly ViewportInfo projection;
 
     private CameraSnapshot(
         CameraScope scope,
@@ -372,7 +382,6 @@ public sealed record CameraSnapshot : IDisposable {
         Scope = scope;
         Frame = frame;
         Frustum = frustum;
-        this.projection = projection;
         Projection = projection;
         ConstructionPlane = constructionPlane;
         DisplayMode = displayMode;
@@ -420,12 +429,44 @@ public sealed record CameraSnapshot : IDisposable {
         Op op = Op.Of(name: nameof(Depth));
         return Optional(source).ToFin(Fail: op.InvalidInput())
             .Bind(valid => valid.BoundsOf(op: op))
-            .Bind(bounds => guard(bounds.IsValid, op.InvalidResult()).ToFin().Map(_ => DepthOf(frame: frame, bounds: bounds)));
+            .Bind(bounds => guard(bounds.IsValid, op.InvalidResult()).ToFin().Map(_ => DepthOf(frame: frame, bounds: bounds)))
+            // Far <= 0 means the whole box sits behind the camera plane — no valid clipping range,
+            // matching the live CameraSubject.Depth failure semantics for the behind-camera case.
+            .Bind(depth => guard(depth.Far > 0.0, op.InvalidResult()).ToFin().Map(_ => depth));
     }
     public Fin<bool> IsVisible(BoundingBox box) {
-        BoundingBox frustum = Frustum.Bounds;
-        return guard(box.IsValid && frustum.IsValid, Op.Of(name: nameof(IsVisible)).InvalidInput()).ToFin()
-            .Map(_ => BoundingBox.Intersection(a: frustum, b: box).IsValid);
+        ViewportInfo captured = Projection;
+        Op op = Op.Of(name: nameof(IsVisible));
+        return from _ in guard(box.IsValid, op.InvalidInput())
+               from result in op.Catch(() => {
+                   // Inward-pointing frustum planes (GetPlane 0-5): a corner inside the truncated
+                   // pyramid satisfies DistanceTo >= 0 against all six. Strict 6-plane test avoids the
+                   // perspective false positives the AABB-of-frustum produced in the pyramid corners.
+                   Plane[] planes = [
+                       captured.FrustumNearPlane,
+                       captured.FrustumFarPlane,
+                       captured.FrustumLeftPlane,
+                       captured.FrustumRightPlane,
+                       captured.FrustumBottomPlane,
+                       captured.FrustumTopPlane,
+                   ];
+                   return Fin.Succ(value:
+                       planes.All(static plane => plane.IsValid) &&
+                       box.GetCorners().Any(corner => planes.All(plane => plane.DistanceTo(testPoint: corner) >= 0.0)));
+               })
+               select result;
+    }
+
+    // Reuses the owned Projection ViewportInfo — zero allocation. Corner order matches CameraScope.FrustumRect.
+    public Fin<(Point3d BottomLeft, Point3d BottomRight, Point3d TopLeft, Point3d TopRight)> FrustumRect(double depth) {
+        ViewportInfo captured = Projection;
+        Op op = Op.Of(name: nameof(FrustumRect));
+        return op.Catch(() => {
+            Point3d[] corners = captured.GetFramePlaneCorners(depth: depth);
+            return corners.Length == 4
+                ? Fin.Succ(value: (BottomLeft: corners[0], BottomRight: corners[1], TopLeft: corners[2], TopRight: corners[3]))
+                : Fin.Fail<(Point3d, Point3d, Point3d, Point3d)>(error: op.InvalidResult());
+        });
     }
 
     internal Fin<RedrawRequest> Restore(bool updateTarget = true) {
@@ -433,6 +474,9 @@ public sealed record CameraSnapshot : IDisposable {
         Op op = Op.Of(name: nameof(Restore));
         return UI.RhinoUi.Protect(valid: () =>
             from _ in guard(self.Scope.Document.RuntimeSerialNumber == self.DocumentSerial, op.InvalidInput())
+            // A live scale-locked detail viewport silently no-ops CRhinoViewport_SetVP; clear the lock
+            // first, then the final Op.Side restores the snapshotted lock state exactly.
+            from _unlock in Fin.Succ(value: Op.Side(() => self.Scope.Viewport.LockedProjection = false))
             from restored in op.Confirm(success: self.Scope.Viewport.SetViewProjection(projection: self.Projection, updateTargetLocation: updateTarget))
             from applied in Fin.Succ(value: Op.Side(() => {
                 self.Scope.Viewport.SetConstructionPlane(plane: self.ConstructionPlane);
@@ -450,49 +494,42 @@ public sealed record CameraSnapshot : IDisposable {
     }
 
     public void Dispose() {
-        projection.Dispose();
+        Projection.Dispose();
         GC.SuppressFinalize(obj: this);
     }
 
     internal static Fin<CameraSnapshot> Of(CameraScope scope) {
         RhinoViewport viewport = scope.Viewport;
         return OfKey.Catch(() => {
-            ViewportInfo? snapshotProjection = null;
-            try {
-                snapshotProjection = new ViewportInfo(rhinoViewport: viewport);
-                ViewportInfo captured = snapshotProjection;
-                using ViewInfo info = new(viewport);
-                CameraDof dof = CameraDof.Read(view: info);
-                return (from frustum in CameraFrustum.Of(viewport: viewport, op: OfKey)
-                        from frame in CameraFrame.Of(viewport: viewport)
-                        select new CameraSnapshot(
-                            scope: scope,
-                            frame: frame,
-                            frustum: frustum,
-                            projection: captured,
-                            constructionPlane: viewport.ConstructionPlane(),
-                            displayMode: viewport.DisplayMode,
-                            screenPort: captured.ScreenPort,
-                            size: viewport.Size,
-                            lockedProjection: viewport.LockedProjection,
-                            mode: viewport switch {
-                                { IsTwoPointPerspectiveProjection: true } => CameraMode.TwoPointPerspective,
-                                { IsPerspectiveProjection: true } => CameraMode.Perspective,
-                                _ => CameraMode.Parallel,
-                            },
-                            lensLength: viewport.Camera35mmLensLength,
-                            cameraAngle: viewport.CameraAngle,
-                            dof: dof,
-                            documentSerial: scope.Document.RuntimeSerialNumber,
-                            changeSerial: viewport.ChangeCounter))
-                    .BindFail(error => {
-                        captured.Dispose();
-                        return Fin.Fail<CameraSnapshot>(error: error);
-                    });
-            } catch {
-                snapshotProjection?.Dispose();
-                throw;
-            }
+            ViewportInfo captured = new(rhinoViewport: viewport);
+            using ViewInfo info = new(viewport);
+            CameraDof dof = CameraDof.Read(view: info);
+            return (from frustum in CameraFrustum.Of(viewport: viewport, op: OfKey)
+                    from frame in CameraFrame.Of(viewport: viewport)
+                    select new CameraSnapshot(
+                        scope: scope,
+                        frame: frame,
+                        frustum: frustum,
+                        projection: captured,
+                        constructionPlane: viewport.ConstructionPlane(),
+                        displayMode: viewport.DisplayMode,
+                        screenPort: captured.ScreenPort,
+                        size: viewport.Size,
+                        lockedProjection: viewport.LockedProjection,
+                        mode: viewport switch {
+                            { IsTwoPointPerspectiveProjection: true } => CameraMode.TwoPointPerspective,
+                            { IsPerspectiveProjection: true } => CameraMode.Perspective,
+                            _ => CameraMode.Parallel,
+                        },
+                        lensLength: viewport.Camera35mmLensLength,
+                        cameraAngle: viewport.CameraAngle,
+                        dof: dof,
+                        documentSerial: scope.Document.RuntimeSerialNumber,
+                        changeSerial: viewport.ChangeCounter))
+                .BindFail(error => {
+                    captured.Dispose();
+                    return Fin.Fail<CameraSnapshot>(error: error);
+                });
         });
     }
 }

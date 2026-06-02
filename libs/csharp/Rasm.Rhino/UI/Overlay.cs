@@ -29,7 +29,7 @@ public abstract record InteractionStep<TState> {
     public sealed record Snap(Plane Plane, Func<MouseContext<TState>, Point3d, TState> Project) : InteractionStep<TState>;
     public sealed record Transition(Func<MouseContext<TState>, TState> Project) : InteractionStep<TState>;
     public sealed record Emit(Func<MouseContext<TState>, Fin<Unit>> Effect) : InteractionStep<TState>;
-    public sealed record Debounce(TimeSpan Interval, TimeProvider Clock) : InteractionStep<TState> { internal Atom<long> Gate { get; } = Atom(long.MinValue); }
+    public sealed record Debounce(TimeSpan Interval, TimeProvider Clock) : InteractionStep<TState> { internal Atom<long> Gate { get; } = Atom(0L); }   // 0L → GetElapsedTime returns uptime (passes first event); long.MinValue overflowed negative and rejected it
     internal Fin<MouseDecision<TState>> Apply(MouseContext<TState> context, MouseDecision<TState> current) =>
         this switch {
             PhaseGuard guard => guard.Guard.AdmitViewport().Bind(_ => guard.Guard.Matches(context: context) switch {
@@ -50,10 +50,11 @@ public abstract record InteractionStep<TState> {
 [SmartEnum<int>]
 public sealed partial class MousePhase {
     public static readonly MousePhase
-        Move = new(key: 0, viewportNative: true), MoveEnd = new(key: 1, viewportNative: true), Down = new(key: 2, viewportNative: true), DownEnd = new(key: 3, viewportNative: true),
-        Up = new(key: 4, viewportNative: true), UpEnd = new(key: 5, viewportNative: true), DoubleClick = new(key: 6, viewportNative: true), Enter = new(key: 7, viewportNative: true),
-        Hover = new(key: 8, viewportNative: true), Leave = new(key: 9, viewportNative: true), Wheel = new(key: 10, viewportNative: false);
+        Move = new(key: 0, viewportNative: true, cancellable: true), MoveEnd = new(key: 1, viewportNative: true, cancellable: false), Down = new(key: 2, viewportNative: true, cancellable: true), DownEnd = new(key: 3, viewportNative: true, cancellable: false),
+        Up = new(key: 4, viewportNative: true, cancellable: true), UpEnd = new(key: 5, viewportNative: true, cancellable: false), DoubleClick = new(key: 6, viewportNative: true, cancellable: true), Enter = new(key: 7, viewportNative: true, cancellable: false),
+        Hover = new(key: 8, viewportNative: true, cancellable: false), Leave = new(key: 9, viewportNative: true, cancellable: false), Wheel = new(key: 10, viewportNative: false, cancellable: false);
     public bool ViewportNative { get; }
+    public bool Cancellable { get; }
 }
 
 [SmartEnum<int>]
@@ -100,7 +101,6 @@ public readonly record struct InteractionGuard(MousePhase Phase, Option<global::
 
 public readonly record struct MouseContext<TState>(MousePhase Phase, TState State, global::Rhino.UI.MouseCallbackEventArgs Args) {
     public bool Cancelled => Args.Cancel;
-    public bool CanCancelNative => Phase == MousePhase.Move || Phase == MousePhase.Down || Phase == MousePhase.Up || Phase == MousePhase.DoubleClick;
     public Point2d CursorLocation => global::Rhino.UI.MouseCursor.Location;
     public GumballMode GumballMode => Args.IsOverGumball();
     public bool IsOverGumball => GumballMode != GumballMode.None;
@@ -162,14 +162,13 @@ public readonly record struct OverlayDecision(Option<BoundingBox> Bounds = defau
         Cull: right.Cull | left.Cull,
         Draw: Combine(left: left.Draw, right: right.Draw),
         DrawObject: Combine(left: left.DrawObject, right: right.DrawObject));
-    private static Error ErrorOf(Fin<Unit> result) => result.Match(Succ: static _ => Error.Empty, Fail: static e => e);
-
     private static Option<Func<TArg, Fin<Unit>>> Combine<TArg>(Option<Func<TArg, Fin<Unit>>> left, Option<Func<TArg, Fin<Unit>>> right) =>
         (left.Case, right.Case) switch {
-            (Func<TArg, Fin<Unit>> a, Func<TArg, Fin<Unit>> b) => Some<Func<TArg, Fin<Unit>>>(arg => (SafePaint(paint: a, arg: arg), SafePaint(paint: b, arg: arg)) switch {
-                ( { IsSucc: true }, { IsSucc: true }) => Fin.Succ(value: unit),
-                (Fin<Unit> ra, Fin<Unit> rb) => Fin.Fail<Unit>(error: ErrorOf(ra) + ErrorOf(rb)),
-            }),
+            (Func<TArg, Fin<Unit>> a, Func<TArg, Fin<Unit>> b) =>
+                Some<Func<TArg, Fin<Unit>>>(arg =>
+                    (SafePaint(paint: a, arg: arg).ToValidation() &
+                     SafePaint(paint: b, arg: arg).ToValidation())
+                    .ToFin().Map(static _ => unit)),
             _ => right | left,
         };
 
@@ -258,7 +257,11 @@ public sealed record UiGumballSpec {
 
     private UiGumballSpec(Func<global::Rhino.UI.Gumball.GumballObject, Fin<Unit>> configure, global::Rhino.UI.Gumball.GumballAppearanceSettings? appearance, Seq<Action<global::Rhino.UI.Gumball.GumballAppearanceSettings>> appearanceActions) {
         this.configure = configure;
-        Appearance = Settings(seed: appearance, actions: appearanceActions);
+        Appearance = appearanceActions.IsEmpty
+            ? appearance
+            : appearanceActions.Fold(
+                appearance ?? new global::Rhino.UI.Gumball.GumballAppearanceSettings(),
+                static (s, a) => { a(obj: s); return s; });
     }
 
     internal global::Rhino.UI.Gumball.GumballAppearanceSettings? Appearance { get; }
@@ -283,7 +286,8 @@ public sealed record UiGumballSpec {
 
     private readonly record struct GumballSource(Func<global::Rhino.UI.Gumball.GumballObject, bool> ApplyNative) {
         internal Fin<Unit> Apply(global::Rhino.UI.Gumball.GumballObject gumball) =>
-            Op.Of(name: nameof(UiGumballSpec)).Need(ApplyNative).Bind(run => Valid(value: run(arg: gumball)));
+            Op.Of(name: nameof(UiGumballSpec)).Need(ApplyNative)
+                .Bind(run => Op.Of(name: nameof(UiGumballSpec)).Confirm(success: run(arg: gumball)));
 
         internal static Fin<GumballSource> Of(object source, Option<Plane> frame) =>
             (frame.Case, source) switch {
@@ -307,13 +311,7 @@ public sealed record UiGumballSpec {
             new(ApplyNative: apply);
     }
 
-    private static Fin<Unit> Valid(bool value) => Op.Of(name: nameof(UiGumballSpec)).Confirm(success: value);
-
     private static Fin<BoundingBox> Bounds(object source, Option<Plane> frame) => (frame.Case, source) switch { (Plane plane, GeometryBase geometry) => Op.Of(name: nameof(UiGumballSpec)).Need(geometry).Bind(value => Op.Of(name: nameof(UiGumballSpec)).AcceptValue(value: value.GetBoundingBox(plane: plane))), (_, object value) => OverlayDecision.BoundsOf(source: value, op: Op.Of(name: nameof(UiGumballSpec))).Bind(static box => Op.Of(name: nameof(UiGumballSpec)).AcceptValue(value: box)) };
-
-    private static global::Rhino.UI.Gumball.GumballAppearanceSettings? Settings(global::Rhino.UI.Gumball.GumballAppearanceSettings? seed, Seq<Action<global::Rhino.UI.Gumball.GumballAppearanceSettings>> actions) => (seed, actions.IsEmpty) switch { (global::Rhino.UI.Gumball.GumballAppearanceSettings settings, false) => Apply(settings: settings, actions: actions), (_, false) => Apply(settings: new global::Rhino.UI.Gumball.GumballAppearanceSettings(), actions: actions), _ => seed };
-
-    private static global::Rhino.UI.Gumball.GumballAppearanceSettings Apply(global::Rhino.UI.Gumball.GumballAppearanceSettings settings, Seq<Action<global::Rhino.UI.Gumball.GumballAppearanceSettings>> actions) { _ = actions.Iter(action => action(obj: settings)); return settings; }
 }
 
 public readonly record struct UiPreviewContext(
@@ -335,34 +333,20 @@ public readonly record struct UiPreviewContext(
             viewport.GetWorldToScreenScale(pointInFrustum: at, pixelsPerUnit: out double ppu) && ppu > 0d
                 ? Fin.Succ(value: ppu) : Fin.Fail<double>(error: Op.Of(name: nameof(PixelScale)).InvalidResult()));
     }
-    public Fin<double> WorldSize(Point3d at, float pixels) {
-        float dpi = DpiScale;   // struct lambdas cannot capture `this`
-        return PixelScale(at: at).Map(ppu => pixels * dpi / ppu);
-    }
+    public Fin<double> WorldSize(Point3d at, float pixels) =>
+        PixelScale(at: at).Map(ppu => (double)pixels / ppu);   // GetWorldToScreenScale ppu is logical pixels/world-unit; pixels are logical — DpiScale would double-scale
     public Fin<System.Drawing.PointF> Screen(Point3d world) {
         RhinoDoc document = Document;
         RhinoViewport viewport = Viewport;
+        Guid viewportId = viewport.Id;   // RhinoViewport.Id calls NonConstPointer per access; read once — invariant within a frame, projection runs per cache miss
         Fin<System.Drawing.PointF> Project(Point3d w) =>
             Camera.RhinoCamera.Live(document: document).RunValue(
                 operation: Camera.CameraOps.Query(query: scope => scope.ScreenPoint(point: w)),
-                target: new Camera.ViewportTarget.Id(Value: viewport.Id));
+                target: new Camera.ViewportTarget.Id(Value: viewportId));
         return Memo is { } memo ? memo.Screen(epoch: viewport.ChangeCounter, world: world, project: Project) : Project(w: world);
     }
-    public Fin<Unit> Label(Point3d world, string text, UiAnchor anchor = UiAnchor.TopCenter, DrawingColor? color = null) {
-        RhinoDoc document = Document;
-        RhinoViewport viewport = Viewport;
-        UiPreviewContext self = this;
-        return from visible in Camera.RhinoCamera.Live(document: document).RunValue(
-                   operation: Camera.CameraOps.Query(query: scope => scope.Visible(source: new Camera.CameraSubject.AtPoint(Value: world))),
-                   target: new Camera.ViewportTarget.Id(Value: viewport.Id))
-               from drawn in visible switch {
-                   true => from at in self.Screen(world: world)
-                           from marked in self.Mark(mark: new UiMark.Text(Value: text, At: at, Color: color ?? DrawingColor.White, Anchor: anchor))
-                           select marked,
-                   false => Fin.Succ(value: unit),
-               }
-               select drawn;
-    }
+    public Fin<Unit> Label(Point3d world, string text, UiAnchor anchor = UiAnchor.TopCenter, DrawingColor? color = null) =>
+        Label(subject: new Camera.CameraSubject.AtPoint(Value: world), text: text, anchor: anchor, color: color);
     public Fin<Unit> Label(Camera.CameraSubject subject, string text, UiAnchor anchor = UiAnchor.TopCenter, DrawingColor? color = null) {
         RhinoDoc document = Document;
         RhinoViewport viewport = Viewport;
@@ -608,7 +592,7 @@ public sealed record UiViewportInteraction<TState>(
                         }),
                         _ => unit,
                     };
-                    args.Cancel = context.CanCancelNative switch {
+                    args.Cancel = context.Phase.Cancellable switch {
                         true => args.Cancel || decision.Cancel,
                         _ => args.Cancel,
                     };
@@ -717,10 +701,10 @@ public sealed record UiViewportPreview {
     public static UiViewportPreview Add(UiViewportPreview left, UiViewportPreview right) =>
         (Optional(left).IfNone(Empty), Optional(right).IfNone(Empty)) switch {
             (UiViewportPreview a, UiViewportPreview b) => new(
-                draw: context => (SafeDraw(preview: a, context: context), SafeDraw(preview: b, context: context)) switch {
-                    ( { IsSucc: true }, { IsSucc: true }) => Fin.Succ(value: unit),
-                    (Fin<Unit> ra, Fin<Unit> rb) => Fin.Fail<Unit>(error: ErrorOf(result: ra) + ErrorOf(result: rb)),
-                },
+                draw: context =>
+                    (SafeDraw(preview: a, context: context).ToValidation() &
+                     SafeDraw(preview: b, context: context).ToValidation())
+                    .ToFin().Map(static _ => unit),
                 bounds: () => from first in a.Bounds() from second in b.Bounds() select first + second,
                 validate: () => a.Validate().Bind(_ => b.Validate()),
                 fires: phase => a.Fires(phase: phase) || b.Fires(phase: phase)),
@@ -728,9 +712,6 @@ public sealed record UiViewportPreview {
 
     private static Fin<Unit> SafeDraw(UiViewportPreview preview, UiPreviewContext context) =>
         Op.Of(name: nameof(Add)).Catch(() => preview.Draw(context: context));
-
-    private static Error ErrorOf(Fin<Unit> result) =>
-        result.Match(Succ: static _ => Error.Empty, Fail: static e => e);
 
     public static UiViewportPreview operator +(UiViewportPreview left, UiViewportPreview right) =>
         Add(left: left, right: right);

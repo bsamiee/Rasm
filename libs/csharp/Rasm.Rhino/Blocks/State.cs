@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Collections.Specialized;
 using System.Drawing;
@@ -166,16 +167,19 @@ public abstract partial record DefinitionRef {
     public sealed record ById(DefinitionId Id) : DefinitionRef;
     public sealed record ByIndex(DefinitionIndex Index) : DefinitionRef;
     public sealed record ByName(DefinitionName Name) : DefinitionRef;
+    public sealed record ByPath(ArchivePath Path) : DefinitionRef;
 
     public static DefinitionRef Of(DefinitionId id) => new ById(Id: id);
     public static DefinitionRef Of(DefinitionIndex index) => new ByIndex(Index: index);
     public static DefinitionRef Of(DefinitionName name) => new ByName(Name: name);
+    public static DefinitionRef Of(ArchivePath path) => new ByPath(Path: path);
 
     public bool Matches(InstanceDefinition definition) =>
         Switch(definition,
             byId: static (d, r) => d.Id == r.Id.Value,
             byIndex: static (d, r) => d.Index == r.Index.Value,
-            byName: static (d, r) => string.Equals(a: d.Name, b: r.Name.Value, comparisonType: StringComparison.OrdinalIgnoreCase));
+            byName: static (d, r) => string.Equals(a: d.Name, b: r.Name.Value, comparisonType: StringComparison.OrdinalIgnoreCase),
+            byPath: static (_, _) => false);
 }
 
 [Union]
@@ -222,13 +226,18 @@ public abstract partial record DisplayModeRef {
                 .Map(static desc => desc.Id)
                 .ToFin(Fail: k.InvalidInput()));
 
+    // Native ids P/Invoke rhcommon_c; defer the table build so touching DisplayModeRef statics never loads the native layer.
+    private static readonly Lazy<FrozenDictionary<Guid, DisplayMode>> NativeModes =
+        new(static () => new Dictionary<Guid, DisplayMode> {
+            [DisplayModeDescription.WireframeId] = DisplayMode.Wireframe,
+            [DisplayModeDescription.ShadedId] = DisplayMode.Shaded,
+            [DisplayModeDescription.RenderedId] = DisplayMode.RenderPreview,
+        }.ToFrozenDictionary());
+
     internal static Fin<DisplayMode> NativeMode(Guid displayId, Op op) =>
-        displayId switch {
-            Guid id when id == DisplayModeDescription.WireframeId => Fin.Succ(value: DisplayMode.Wireframe),
-            Guid id when id == DisplayModeDescription.ShadedId => Fin.Succ(value: DisplayMode.Shaded),
-            Guid id when id == DisplayModeDescription.RenderedId => Fin.Succ(value: DisplayMode.RenderPreview),
-            _ => Fin.Fail<DisplayMode>(error: op.InvalidInput()),
-        };
+        NativeModes.Value.TryGetValue(key: displayId, value: out DisplayMode mode)
+            ? Fin.Succ(value: mode)
+            : Fin.Fail<DisplayMode>(error: op.InvalidInput());
 }
 
 [Union]
@@ -289,11 +298,10 @@ public sealed partial class LayerStyle {
 
     public InstanceDefinitionLayerStyle Native { get; }
 
-    public bool AppliesTo(UpdatePolicy policy) =>
-        (this, policy) switch {
-            _ when this == None => policy == UpdatePolicy.Static || policy == UpdatePolicy.LinkedAndEmbedded || policy == UpdatePolicy.Embedded,
-            _ when this == Active => policy == UpdatePolicy.Linked,
-            _ when this == Reference => policy == UpdatePolicy.Linked,
+    internal bool AppliesTo(UpdatePolicy policy) =>
+        Key switch {
+            0 => policy != UpdatePolicy.Linked,
+            1 or 2 => policy == UpdatePolicy.Linked,
             _ => false,
         };
 
@@ -421,7 +429,8 @@ public sealed record ArchiveClosureReport(
     Seq<ArchivePath> Broken,
     Seq<Seq<ArchivePath>> Cycles,
     Seq<ArchivePath> Truncated = default,
-    Seq<string> NativeLog = default);
+    Seq<string> NativeLog = default,
+    Seq<Archive.UnitEdge> UnitEdges = default);
 
 public readonly record struct ArchiveLink(ArchivePath Full, Option<string> Relative) {
     public string Stored => Relative.IfNone(noneValue: Full.Value);
@@ -487,6 +496,32 @@ public readonly record struct AttributeCell(
     string Key,
     string Prompt,
     string DefaultValue);
+
+[ComplexValueObject(DefaultStringComparison = StringComparison.Ordinal)]
+public sealed partial class AttributeFieldSpec {
+    public string Key { get; }
+    public string Prompt { get; }
+    public string DefaultValue { get; }
+    public Plane FieldPlane { get; }
+
+    // Field expression scanned by TextFields.GetInstanceAttributeFields on the authored TextEntity member.
+    internal string FieldExpression =>
+        $"%<BlockAttributeText(\"{Key}\",\"{Prompt}\",\"{DefaultValue}\")>%";
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref string key,
+        ref string prompt,
+        ref string defaultValue,
+        ref Plane fieldPlane) {
+        key = (key ?? string.Empty).Trim();
+        prompt = (prompt ?? string.Empty).Trim();
+        defaultValue ??= string.Empty;
+        validationError = key.Length is > 0 and <= 128 && prompt.Length is > 0 and <= 256 && fieldPlane.IsValid
+            ? null
+            : new ValidationError(message: "AttributeFieldSpec: Key 1..128 chars, Prompt 1..256 chars, FieldPlane valid.");
+    }
+}
 
 public sealed record AuditGraph(ImmutableArray<AuditGraph.Node> Nodes, ImmutableArray<AuditGraph.Edge> Edges) {
     public sealed record Node(DefinitionId Id, DefinitionName Name, ImmutableArray<Guid> Members, UpdatePolicy Update, ArchiveStatus Archive, Option<ArchiveLink> Source);
@@ -687,6 +722,15 @@ public readonly record struct BlockTableEvent(
     }
 }
 
+[Union(SwitchMapStateParameterName = "policy")]
+public abstract partial record BasePointPolicy {
+    private BasePointPolicy() { }
+    public sealed record Preserve() : BasePointPolicy;
+    public sealed record Compensate() : BasePointPolicy;
+    public sealed record StripScale() : BasePointPolicy;
+    public static BasePointPolicy Default { get; } = new Preserve();
+}
+
 public readonly record struct BoundsPolicy(bool Accurate = true, BoundsSpace? Space = null) {
     public static BoundsPolicy Default { get; } = new(Accurate: true);
     private BoundsSpace EffectiveSpace => Space ?? BoundsSpace.Definition;
@@ -697,8 +741,10 @@ public readonly record struct BoundsPolicy(bool Accurate = true, BoundsSpace? Sp
 
 public readonly record struct ClosureValidationPolicy(
     bool DetectCycles,
+    bool DetectUnitMismatches = false,
     int MaxDepth = Archive.LinkedArchiveClosureMaxDepth) {
     public static ClosureValidationPolicy Default { get; } = new(DetectCycles: true);
+    public static ClosureValidationPolicy Full { get; } = new(DetectCycles: true, DetectUnitMismatches: true);
 
     public Fin<ClosureValidationPolicy> Admit(Op key) =>
         MaxDepth is >= 1 and <= Archive.LinkedArchiveClosureMaxDepth
@@ -974,24 +1020,29 @@ public sealed record MutationReceipt(DocumentReceipt Document, Seq<BlockDiagnost
 
     public static MutationReceipt Of(DocumentReceipt receipt) => new(Document: receipt, Diagnostics: Seq<BlockDiagnostic>());
     public static MutationReceipt Of(DocumentReceipt receipt, Seq<BlockDiagnostic> diagnostics) => new(Document: receipt, Diagnostics: diagnostics);
-    public static MutationReceipt Resource(DocumentResourceKind kind, string name) =>
-        Of(receipt: DocumentReceipt.Resource(kind: kind, name: name));
     public static MutationReceipt Resources(Seq<DocumentResourceChange> changes) =>
         Of(receipt: DocumentReceipt.Resources(changes: changes));
     public static MutationReceipt Resources(Seq<DocumentResourceChange> changes, Seq<BlockDiagnostic> diagnostics) =>
         Of(receipt: DocumentReceipt.Resources(changes: changes), diagnostics: diagnostics);
-    public static MutationReceipt Objects(DocumentReceiptSlot slot, Seq<Guid> ids) =>
-        Of(receipt: DocumentReceipt.Objects(slot: slot, ids: ids));
-    public static MutationReceipt Objects(DocumentReceiptSlot slot, Seq<Guid> ids, DocumentResourceKind kind, string name) =>
-        Of(receipt: DocumentReceipt.Objects(slot: slot, ids: ids, kind: kind, name: name));
-    public static MutationReceipt Objects(DocumentReceiptSlot slot, Seq<Guid> ids, Seq<DocumentResourceChange> resources) =>
-        Of(receipt: DocumentReceipt.Objects(slot: slot, ids: ids, resources: resources));
-    public static MutationReceipt Objects(DocumentReceiptSlot slot, Seq<Guid> ids, Seq<DocumentResourceChange> resources, Seq<BlockDiagnostic> diagnostics) =>
-        Of(receipt: DocumentReceipt.Objects(slot: slot, ids: ids, resources: resources), diagnostics: diagnostics);
+    public static MutationReceipt Objects(
+        DocumentReceiptSlot slot,
+        Seq<Guid> ids,
+        DocumentResourceKind? kind = null,
+        string? name = null) =>
+        Of(receipt: kind is not null && name is not null
+            ? DocumentReceipt.Objects(slot: slot, ids: ids, kind: kind, name: name)
+            : DocumentReceipt.Objects(slot: slot, ids: ids));
+
+    public static MutationReceipt Objects(
+        DocumentReceiptSlot slot,
+        Seq<Guid> ids,
+        Seq<DocumentResourceChange> resources,
+        Seq<BlockDiagnostic> diagnostics = default) =>
+        new(Document: DocumentReceipt.Objects(slot: slot, ids: ids, resources: resources),
+            Diagnostics: diagnostics);
+
     public static MutationReceipt Named(string name) =>
-        Resource(kind: DocumentResourceKind.Block, name: name);
-    public static MutationReceipt Lifecycle(Guid id, string name) =>
-        Objects(slot: DocumentReceiptSlot.Lifecycle, ids: Seq(id), kind: DocumentResourceKind.Block, name: name);
+        Of(receipt: DocumentReceipt.Resource(kind: DocumentResourceKind.Block, name: name));
 
     public bool HasDiagnostics => !Diagnostics.IsEmpty;
 
@@ -1091,7 +1142,11 @@ public readonly record struct ReachInsert(
     ImmutableArray<DefinitionId> Path);
 
 public sealed record RefreshPlan(Seq<LinkedHealth> Items) {
-    public Seq<LinkedHealth> Refreshable => Items.Filter(static item => item.Update.IsLinked && item.Source.IsSome && item.Archive.CanRefresh);
+    public Seq<LinkedHealth> Refreshable => Items.Filter(static item =>
+        item.Update.IsLinked
+        && item.Source.IsSome
+        && item.Archive.RequiresRefresh
+        && !item.Archive.IsBroken);
     public Seq<LinkedHealth> Blocked => Items.Filter(static item => !item.Diagnostics.IsEmpty);
 }
 
@@ -1151,12 +1206,16 @@ public sealed class PreviewHandle(Bitmap bitmap, Action<PreviewHandle> release) 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 internal static class BlockPaths {
     internal static Option<string> DocAnchor(RhinoDoc document) =>
-        Optional(document.Path)
-            .Filter(static path => !string.IsNullOrWhiteSpace(value: path))
-            .Bind(static path => Optional(IOPath.GetDirectoryName(path: path)).Filter(static dir => !string.IsNullOrWhiteSpace(value: dir)));
+        AnchorDir(Optional(document.Path)
+            .Filter(static p => !string.IsNullOrWhiteSpace(value: p)));
 
     internal static Option<string> ArchiveAnchor(Option<string> archivePath) =>
-        archivePath.Bind(static path => Optional(IOPath.GetDirectoryName(path: path)).Filter(static s => !string.IsNullOrWhiteSpace(value: s)));
+        AnchorDir(archivePath);
+
+    private static Option<string> AnchorDir(Option<string> path) =>
+        path.Bind(static p =>
+            Optional(IOPath.GetDirectoryName(path: p))
+                .Filter(static dir => !string.IsNullOrWhiteSpace(value: dir)));
 }
 
 internal static class Fnv64 {
@@ -1170,11 +1229,11 @@ internal static class Fnv64 {
             : value.ToByteArray().Aggregate(seed: seed, func: static (acc, b) => Mix(acc: acc, v: b));
     }
 
-    private static ulong HashBytes(ReadOnlySpan<byte> values, ulong seed) =>
-        values switch {
-            [] => seed,
-            [byte head, ..] => HashBytes(values: values[1..], seed: Mix(acc: seed, v: head)),
-        };
+    private static ulong HashBytes(ReadOnlySpan<byte> values, ulong seed) {
+        ulong acc = seed;
+        foreach (byte b in values) acc = Mix(acc: acc, v: b); // BOUNDARY ADAPTER — span foreach is zero-alloc value-type enumeration; no LanguageExt combinator exists for ReadOnlySpan<byte>.
+        return acc;
+    }
 
     internal static ulong HashText(string value, ulong seed = Offset) =>
         value.Aggregate(seed: seed, func: static (acc, ch) => Mix(acc: acc, v: ch));
