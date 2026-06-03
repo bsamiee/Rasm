@@ -98,17 +98,16 @@ public partial record SelectionOp {
     public sealed record AllCase : SelectionOp;
     public sealed record NoneCase : SelectionOp;
     public sealed record InvertCase : SelectionOp;
-    public sealed record GrowCase(bool Upstream, bool Downstream) : SelectionOp;
-    public sealed record GrowNCase(int Hops, bool Upstream, bool Downstream) : SelectionOp;
-    public sealed record ShiftCase(bool Upstream) : SelectionOp;
+    // One graph-walk discriminant: MaxHops=None is the unbounded transitive closure, Some(n) bounds the walk to n hops;
+    // Replace re-seeds the selection onto the reached frontier (Shift) instead of growing it (Grow/GrowN).
+    public sealed record GraphCase(Option<int> MaxHops, bool Upstream, bool Downstream, bool Replace) : SelectionOp;
 
     public static readonly SelectionOp All = new AllCase();
     public static readonly SelectionOp None = new NoneCase();
     public static readonly SelectionOp Invert = new InvertCase();
-    public static SelectionOp Grow(bool upstream = true, bool downstream = true) => new GrowCase(Upstream: upstream, Downstream: downstream);
-    // GrowN bounds the subgraph walk to a hop count; Grow is the unbounded transitive closure.
-    public static SelectionOp GrowN(int hops, bool upstream = true, bool downstream = true) => new GrowNCase(Hops: hops, Upstream: upstream, Downstream: downstream);
-    public static SelectionOp Shift(bool upstream) => new ShiftCase(Upstream: upstream);
+    public static SelectionOp Grow(bool upstream = true, bool downstream = true) => new GraphCase(MaxHops: Option<int>.None, Upstream: upstream, Downstream: downstream, Replace: false);
+    public static SelectionOp GrowN(int hops, bool upstream = true, bool downstream = true) => new GraphCase(MaxHops: Some(hops), Upstream: upstream, Downstream: downstream, Replace: false);
+    public static SelectionOp Shift(bool upstream) => new GraphCase(MaxHops: Some(1), Upstream: upstream, Downstream: !upstream, Replace: true);
 }
 
 [SkipUnionOps]
@@ -257,6 +256,11 @@ public partial record DocumentQuery {
     public static readonly DocumentQuery DisplayState = new DisplayStateCase();
     public static readonly DocumentQuery Notes = new NotesCase();
     public static DocumentQuery CustomValue(string key, string defaultValue = "") => new CustomValueCase(Key: key, DefaultValue: defaultValue);
+
+    // Universe spans every open document, so it opens the editor and runs Canvas-scoped; all others are Document-scoped reads.
+    internal GrasshopperUiPolicy QueryPolicy => this is UniverseCase
+        ? GrasshopperUiPolicy.Canvas(openEditor: true, repaint: RepaintRequest.None)
+        : GrasshopperUiPolicy.Document(repaint: RepaintRequest.None);
 }
 
 [SkipUnionOps]
@@ -312,8 +316,8 @@ public partial record GroupOp {
                 from objects in s.NeedObjects()
                 from member in Op.Of(name: nameof(Find)).AcceptValue(value: find.Member)
                     .MapFail(static _ => UiFault.InvalidInput(op: Op.Of(name: nameof(Find)), detail: "empty member id"))
-                let grp = FindGroupOf(objects: objects, member: member)
-                select (DocumentResult)new DocumentResult.GroupResult(Snapshot: GroupSnapshotOf(target: grp, changed: 0)),
+                select (DocumentResult)new DocumentResult.GroupListResult(
+                    Snapshots: toSeq(objects.ContainingGroups(objectId: member)).Map(grp => GroupSnapshotOf(target: Some(grp), changed: 0))),
             modifyCase: static (s, modify) =>
                 from objects in s.NeedObjects()
                 from grp in ResolveGroup(objects: objects, id: modify.Group, op: Op.Of(name: nameof(Modify)))
@@ -349,11 +353,6 @@ public partial record GroupOp {
             .MapFail(_ => UiFault.InvalidInput(op: op, detail: "group id is empty"))
             .Bind(valid => Optional(objects.FindGroup(instanceId: valid))
                 .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"group {valid} not found")));
-
-    private static Option<GroupObject> FindGroupOf(GhObjectList objects, Guid member) =>
-        member == Guid.Empty
-            ? None
-            : toSeq(objects.ContainingGroups(objectId: member)).Head;
 
     private static DocumentMutationReceipt ModifyGroup(GhObjectList objects, GroupObject target, Option<string> label, Option<GhOpenColorFamily> colour, Seq<Guid> add, Seq<Guid> remove, ActionList actions) {
         // BOUNDARY ADAPTER -- label/colour have undo actions; membership uses Add/RemoveContent without a host action.
@@ -426,7 +425,7 @@ public partial record WirelessOp {
                     Shout: created.Head, Listens: toSeq(created.Skip(count: 1)), Changed: snapshot.Payload.Changed)),
             findCase: static (s, find) =>
                 from objects in s.NeedObjects()
-                from shout in ResolveShout(objects: objects, id: find.Shout, op: Op.Of(name: nameof(Find)))
+                from shout in ResolveWireless<Shout>(objects: objects, id: find.Shout, op: Op.Of(name: nameof(Find)), label: "shout")
                 let listens = ListensOf(shout: shout)
                 select (DocumentResult)new DocumentResult.WirelessResult(Snapshot: new DocumentWirelessSnapshot(
                     Shout: shout.InstanceId.NonEmpty(), Listens: listens, Changed: 0)),
@@ -436,8 +435,8 @@ public partial record WirelessOp {
                     op: Op.Of(name: nameof(Connect)),
                     mutate: (_, objs, actions) => {
                         Op op = Op.Of(name: nameof(Connect));
-                        return from shout in ResolveShout(objects: objs, id: connect.Shout, op: op)
-                               from listens in connect.Listens.TraverseM(id => ResolveListen(objects: objs, id: id, op: op)).As()
+                        return from shout in ResolveWireless<Shout>(objects: objs, id: connect.Shout, op: op, label: "shout")
+                               from listens in connect.Listens.TraverseM(id => ResolveWireless<Listen>(objects: objs, id: id, op: op, label: "listen")).As()
                                from _nonEmpty in listens.IsEmpty
                                    ? Fin.Fail<Seq<Listen>>(error: UiFault.InvalidInput(op: op, detail: "connect requires at least one listen id"))
                                    : Fin.Succ(value: listens)
@@ -459,7 +458,7 @@ public partial record WirelessOp {
                     Shout: shout.InstanceId.NonEmpty(), Listens: ListensOf(shout: shout), Changed: 0))),
             renameCase: static (s, rename) =>
                 from objects in s.NeedObjects()
-                from shout in ResolveShout(objects: objects, id: rename.Shout, op: Op.Of(name: nameof(Rename)))
+                from shout in ResolveWireless<Shout>(objects: objects, id: rename.Shout, op: Op.Of(name: nameof(Rename)), label: "shout")
                 let listens = ListensOf(shout: shout)
                 from snapshot in UiRail.RunDocumentMutation(
                     scope: s,
@@ -476,17 +475,11 @@ public partial record WirelessOp {
                 select (DocumentResult)new DocumentResult.WirelessResult(Snapshot: new DocumentWirelessSnapshot(
                     Shout: rename.Shout.NonEmpty(), Listens: listens, Changed: snapshot.Payload.Changed)));
 
-    private static Fin<Shout> ResolveShout(GhObjectList objects, Guid id, Op op) =>
+    private static Fin<T> ResolveWireless<T>(GhObjectList objects, Guid id, Op op, string label) where T : class, IDocumentObject =>
         op.AcceptValue(value: id)
-            .MapFail(_ => UiFault.InvalidInput(op: op, detail: "shout id is empty"))
-            .Bind(valid => Optional(objects.Find(instanceId: valid) as Shout)
-                .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"shout {valid} not found")));
-
-    private static Fin<Listen> ResolveListen(GhObjectList objects, Guid id, Op op) =>
-        op.AcceptValue(value: id)
-            .MapFail(_ => UiFault.InvalidInput(op: op, detail: "listen id is empty"))
-            .Bind(valid => Optional(objects.Find(instanceId: valid) as Listen)
-                .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"listen {valid} not found")));
+            .MapFail(_ => UiFault.InvalidInput(op: op, detail: $"{label} id is empty"))
+            .Bind(valid => Optional(objects.Find(instanceId: valid) as T)
+                .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"{label} {valid} not found")));
 
     private static Seq<Guid> ListensOf(Shout shout) =>
         Optional(shout.Document).Map(document => {
@@ -772,10 +765,16 @@ public partial record DocumentMark {
                 from oldName in Op.Of(name: nameof(Rename)).AcceptText(value: rename.OldName)
                 from newName in Op.Of(name: nameof(Rename)).AcceptText(value: rename.NewName)
                 from view in FindNamedView(document: document, name: oldName, op: Op.Of(name: nameof(Rename)))
+                from _distinct in string.Equals(a: oldName, b: newName, comparisonType: StringComparison.OrdinalIgnoreCase)
+                    ? Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(Rename)), detail: $"mark '{oldName}' already has that name"))
+                    : Fin.Succ(value: unit)
+                from _free in toSeq(document.NamedViews.OrderedViews).Exists(v => string.Equals(a: v.Name, b: newName, comparisonType: StringComparison.OrdinalIgnoreCase))
+                    ? Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(Rename)), detail: $"a mark named '{newName}' already exists"))
+                    : Fin.Succ(value: unit)
                 from changed in Op.Of(name: nameof(Rename)).Attempt(body: () => {
                     // BOUNDARY ADAPTER -- NamedView is immutable; rename clones into a fresh view then atomically swaps.
-                    NamedView renamed = Optional(view.Frame) is { IsSome: true, Case: RectangleF box }
-                        ? new NamedView(category: view.Category, name: newName, frame: box)
+                    NamedView renamed = view.Frame.HasValue
+                        ? new NamedView(category: view.Category, name: newName, frame: view.Frame.Value)
                         : new NamedView(category: view.Category, name: newName, objects: view.Objects);
                     bool removed = document.NamedViews.Remove(name: oldName);
                     bool added = removed && document.NamedViews.Add(view: renamed);
@@ -936,7 +935,7 @@ public partial record DropCue {
                 select (Source: source, Target: target));
 
     private static Fin<Option<IParameter>> ResolveCue(GhObjectList objects, Guid id, string label, Op op) =>
-        Op.Of(name: label).AcceptValue(value: id)
+        op.AcceptValue(value: id)
             .MapFail(_ => UiFault.InvalidInput(op: op, detail: $"{label} cue id is empty"))
             .Bind(valid => Optional(objects.FindParameter(instanceId: valid))
                 .ToFin(Fail: UiFault.InvalidInput(op: op, detail: $"{label} cue parameter {valid} not found"))
@@ -1137,6 +1136,10 @@ public sealed partial class DocumentTargetVerb {
         key: 4,
         runSelected: static (_, objects, actions) => SetActivity(targets: objects.SelectedObjects, activity: ObjectActivity.Disabled, actions: actions),
         runObjects: static (_, _, targets, actions) => SetActivity(targets: targets, activity: ObjectActivity.Disabled, actions: actions));
+    public static readonly DocumentTargetVerb ToggleActivity = new(
+        key: 5,
+        runSelected: static (_, objects, actions) => ToggleActivityOf(targets: objects.SelectedObjects, actions: actions),
+        runObjects: static (_, _, targets, actions) => ToggleActivityOf(targets: targets, actions: actions));
 
     [UseDelegateFromConstructor]
     private partial int RunSelected(GhDocumentMethods methods, GhObjectList objects, ActionList actions);
@@ -1153,6 +1156,12 @@ public sealed partial class DocumentTargetVerb {
             f: (count, obj) => obj.Activity == activity
                 ? count
                 : ApplyActivity(count: count, obj: obj, activity: activity, actions: actions));
+
+    // Toggle flips each object to the opposite activity, so it always applies (never the no-op SetActivity skip).
+    private static int ToggleActivityOf(IEnumerable<IDocumentObject> targets, ActionList actions) =>
+        toSeq(targets).Fold(
+            initialState: 0,
+            f: (count, obj) => ApplyActivity(count: count, obj: obj, activity: obj.Activity == ObjectActivity.Enabled ? ObjectActivity.Disabled : ObjectActivity.Enabled, actions: actions));
 
     private static int ApplyActivity(int count, IDocumentObject obj, ObjectActivity activity, ActionList actions) {
         // BOUNDARY ADAPTER -- GH2 mutation: record the undoable action then flip + expire the object in place.
@@ -1179,6 +1188,7 @@ public abstract partial record DocumentTargetOp {
     public static readonly DocumentTargetOp ToggleVisibility = new VerbCase(Verb: DocumentTargetVerb.ToggleVisibility);
     public static readonly DocumentTargetOp Enable = new VerbCase(Verb: DocumentTargetVerb.Enable);
     public static readonly DocumentTargetOp Disable = new VerbCase(Verb: DocumentTargetVerb.Disable);
+    public static readonly DocumentTargetOp ToggleActivity = new VerbCase(Verb: DocumentTargetVerb.ToggleActivity);
     public static DocumentTargetOp Delete(bool dataOnly = false, Seq<WireEnds> wires = default) => new DeleteCase(DataOnly: dataOnly, Wires: wires);
     public static DocumentTargetOp Style(GhColour colour) => new ColourCase(Override: Some(colour));
     public static readonly DocumentTargetOp ClearStyle = new ColourCase(Override: Option<GhColour>.None);
@@ -1312,10 +1322,9 @@ internal static class SnapshotFormatExtensions {
 internal static partial class Document {
     internal static GrasshopperUiIntent<DocumentResult> Plan(DocumentOp op) =>
         op.Switch(
-            queryCase: static q => q.Request switch {
-                DocumentQuery.UniverseCase => GhUi.Canvas(run: scope => Query(scope: scope, query: q.Request), openEditor: true, repaint: RepaintRequest.None),
-                _ => GhUi.Document(run: scope => Query(scope: scope, query: q.Request), repaint: RepaintRequest.None),
-            },
+            queryCase: static q => new GrasshopperUiIntent<DocumentResult>(
+                policy: q.Request.QueryPolicy,
+                run: scope => Query(scope: scope, query: q.Request)),
             mutateCase: static m => GhUi.Document(
                 run: scope => Mutate(scope: scope, mutations: m.Mutations, policy: m.Policy),
                 repaint: m.Policy.RepaintOrDefault),
@@ -1529,7 +1538,9 @@ internal static partial class Document {
                         .Filter(o => o.Nomen.Name.Contains(value: text, comparisonType: n.CaseInsensitive ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
                         .Map(UiRail.DocumentObjectSnapshotOf)),
             byActivityCase: static (objs, a) =>
-                Fin.Succ(value: toSeq(a.Enabled ? objs.EnabledObjects : objs.DisabledObjects).Map(UiRail.DocumentObjectSnapshotOf)),
+                Fin.Succ(value: toSeq(objs.Forwards)
+                    .Filter(o => o.Activity == (a.Enabled ? ObjectActivity.Enabled : ObjectActivity.Disabled))
+                    .Map(UiRail.DocumentObjectSnapshotOf)),
             byGroupCase: static (objs, g) =>
                 Fin.Succ(value: Optional(objs.FindGroup(instanceId: g.GroupId))
                     .Map(grp => toSeq(grp.ContentIds).Choose(id => Optional(objs.Find(instanceId: id))).Map(UiRail.DocumentObjectSnapshotOf))

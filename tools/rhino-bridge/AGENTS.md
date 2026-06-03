@@ -17,7 +17,7 @@ Use bridge commands ONLY when static .NET gates cannot answer:
 ## When NOT to invoke
 
 - Synthetic unit tests, mocked Rhino/Grasshopper, or coverage probes — use xUnit + `Rasm.TestKit` (`docs/testing-libs/`).
-- Managed cleanup is covered by `uv run python -m tools.quality static check`; compile/analyzer proof is covered by `uv run python -m tools.quality static build`.
+- Managed cleanup is covered by `uv run python -m tools.quality static fix`; compile/analyzer proof is covered by `uv run python -m tools.quality static build`.
 - Long-running UI-thread experiments — RhinoCode execution is not server-cancelable.
 - Rhino settings / template / preference automation — owned by `LoadTime.AtStartup` plugin lifecycle.
 
@@ -37,14 +37,14 @@ Bridge markers are the structured wire contract. Use `Rasm.RhinoBridge.Protocol.
 
 ## Validation for bridge changes
 
-Select the touched rail. `quality static check`, `quality static build`, and MTP test runs may run concurrently — they isolate MSBuild artifacts per invocation under `.artifacts/quality/<rail>/<run-id>/`. Bridge build/check/package/verify routes and live Rhino remain single-flight.
+Select the touched rail. `quality static fix`, `quality static report`, `quality static build`, and MTP test runs may run concurrently — they isolate MSBuild artifacts per invocation under `.artifacts/quality/<rail>/<run-id>/`. Live Rhino bridge commands, bridge verify, bridge package live steps, and package stage commit use fail-fast leases.
 
 ```bash
 uv run python -m tools.quality self-test
 pnpm check:py
 uv run pytest tests/tools/quality/test_quality.py -q
 uv run python -m tools.quality bridge build-bridge
-uv run python -m tools.quality static check
+uv run python -m tools.quality static fix
 uv run python -m tools.quality static build
 uv run python -m tools.quality bridge doctor
 uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Radyab.csproj

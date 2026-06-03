@@ -24,7 +24,7 @@ from tools.quality.settings import ArtifactScope, QualitySettings
 # --- [TYPES] ---------------------------------------------------------------------------
 
 type ApiCliOp = Literal["doctor", "path", "xml", "types", "decompile"]
-type StaticCliOp = Literal["check", "build", "full"]
+type StaticCliOp = Literal["fix", "report", "build", "full", "plan"]
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
@@ -34,9 +34,11 @@ _PACKAGE: Final[tuple[bridge_package.PackageMode, ...]] = ("deploy", "package", 
 _PARAMETER = Parameter(show_default=False)
 _SELF_CLI: Final[tuple[str, ...]] = ("dotnet", "fd", "git", "ilspycmd", "rg")
 _STATIC: Final[dict[StaticCliOp, tuple[str, static_rail.StaticMode]]] = {
-    "check": ("check", "check"),
+    "fix": ("fix", "fix"),
+    "report": ("report", "report"),
     "build": ("build", "build"),
     "full": ("full", "full"),
+    "plan": ("plan", "plan"),
 }
 api = App(name="api", help="RhinoWIP API metadata.", default_parameter=_PARAMETER)
 app = App(name="quality", help="Rasm typed quality operator.", default_parameter=_PARAMETER, result_action="return_value")
@@ -53,7 +55,9 @@ def _bridge(*args: str) -> int:
     return rail(
         "bridge",
         "client",
-        lambda s, sc: bridge_rail.build_client(s, sc).bind(lambda _: bridge_rail.client_run(s, sc, *args, check=False)),
+        lambda s, sc: bridge_rail.with_bridge_lease(
+            s, lambda: bridge_rail.build_client(s, sc).bind(lambda _: bridge_rail.client_run(s, sc, *args, check=False))
+        ),
         ok=_bridge_on_ok,
     )
 
@@ -149,15 +153,25 @@ def rail[T](
 
 
 @app.command(name="self-test")
-def self_test_cmd() -> int:
-    settings = QualitySettings()
+def self_test_cmd(rhino: Annotated[bool | None, Parameter(name="--rhino")] = None) -> int:
+    try:
+        settings = QualitySettings()
+    except ValueError as exc:
+        if rhino is True:
+            sys.stderr.write(f"quality: self-test failed rhino={exc}\n")
+            return 2
+        return _self_test_without_rhino()
     missing = tuple(cmd for cmd in _SELF_CLI if shutil.which(cmd) is None)
     missing_paths = tuple(
         str(path) for path in (settings.solution, settings.root / settings.test_target, settings.dotnet_tools_manifest) if not path.is_file()
     )
     yak = settings.rhino_app / "Contents/Resources/bin/yak"
-    match (missing, missing_paths, yak.is_file() and os.access(yak, os.X_OK)):
-        case ((), (), True):
+    yak_ready = yak.is_file() and os.access(yak, os.X_OK)
+    match (missing, missing_paths, rhino is True, yak_ready):
+        case ((), (), False, _):
+            sys.stdout.write("quality: self-test passed\n")
+            return 0
+        case ((), (), True, True):
             sys.stdout.write("quality: self-test passed\n")
             return 0
         case _:
@@ -165,10 +179,28 @@ def self_test_cmd() -> int:
             return 2
 
 
+def _self_test_without_rhino() -> int:
+    root = QualitySettings.anchor(Path.cwd())
+    missing = tuple(cmd for cmd in _SELF_CLI if shutil.which(cmd) is None)
+    paths = (root / "Workspace.slnx", root / "tests/csharp/libs/Rasm/Rasm.Tests.csproj", root / ".config/dotnet-tools.json")
+    missing_paths = tuple(str(path) for path in paths if not path.is_file())
+    match (missing, missing_paths):
+        case ((), ()):
+            sys.stdout.write("quality: self-test passed\n")
+            return 0
+        case _:
+            sys.stderr.write(f"quality: self-test failed missing={missing} paths={missing_paths} rhino=skipped\n")
+            return 2
+
+
 @static.default
-def static_gate(mode: StaticCliOp) -> int:
+def static_gate(mode: StaticCliOp, paths: tuple[Path, ...] = ()) -> int:
     phase, rail_mode = _STATIC[mode]
-    return rail("static", phase, lambda s, sc: static_rail.run_static_rail(s, sc, rail_mode), ok=lambda outcome: _STATIC_OK[outcome]())
+    match rail_mode:
+        case "plan":
+            return rail("static", phase, lambda s, sc: static_rail.plan_payload(s, sc, paths), ok=lambda payload: _emit(payload, newline=True))
+        case _:
+            return rail("static", phase, lambda s, sc: static_rail.run_static_rail(s, sc, rail_mode, paths), ok=lambda outcome: _STATIC_OK[outcome]())
 
 
 @test_app.default
@@ -178,6 +210,8 @@ def unit_gate(
     target: Path | None = None,
     all_targets: Annotated[bool | None, Parameter(name="--all")] = None,
     mutation: test_rail.MutationMode = "off",
+    no_build: Annotated[bool | None, Parameter(name="--no-build")] = None,
+    test_modules: str = "",
 ) -> int:
     cfg = QualitySettings()
     settings = cfg if target is None else cfg.model_copy(update={"test_target": target})
@@ -185,7 +219,9 @@ def unit_gate(
     return rail(
         "test",
         mode,
-        lambda s, sc: test_rail.run_test_rail(s, sc, mode, all_targets=all_runnable, filter_expr=filter_expr, mutation=mutation),
+        lambda s, sc: test_rail.run_test_rail(
+            s, sc, mode, all_targets=all_runnable, filter_expr=filter_expr, mutation=mutation, no_build=no_build is True, test_modules=test_modules
+        ),
         settings=settings,
         ok=lambda _: _test_render(settings, mode, all_targets=all_runnable, mutation=mutation),
     )

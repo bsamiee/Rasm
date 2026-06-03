@@ -10,7 +10,6 @@ using GhDocument = Grasshopper2.Doc.Document;
 using GhObjectList = Grasshopper2.Doc.ObjectList;
 using GuidSet = System.Collections.Generic.HashSet<System.Guid>;
 using Op = Rasm.Domain.Op;
-using SysAction = System.Action;
 
 namespace Rasm.Grasshopper.UI;
 
@@ -147,77 +146,43 @@ public partial record SnapSetting {
 
     public static SnapSetting Grid(SizeF cell, PointF origin = default) =>
         new SpaceCase(Space: SnapSpace.CreateOrthogonal(originX: origin.X, originY: origin.Y, sizeX: cell.Width, sizeY: cell.Height));
-
-    internal SnappingSettings Apply(SnappingSettings settings) =>
-        Switch(
-            state: settings,
-            withRuleCase: static (state, op) => state.WithRules(rules: op.Rule),
-            withoutRuleCase: static (state, op) => state.WithoutRules(rules: op.Rule),
-            feedbackCase: static (state, op) => state.WithFeedback(drawFeedback: op.Enabled, colour: op.XStyle.Tint),
-            radiiCase: static (state, op) => new SnappingSettings(rules: state.Rules, verticalGap: op.VerticalGapSize.Map(static value => Math.Max(0, value)).IfNone(state.VerticalGapSize), horizontalGap: op.HorizontalGapSize.Map(static value => Math.Max(0, value)).IfNone(state.HorizontalGapSize), edgeRadius: op.EdgeRadius.Map(static value => Math.Max(0, value)).IfNone(state.EdgeRadius), wireRadius: op.WireRadius.Map(static value => Math.Max(0, value)).IfNone(state.WireRadius), feedback: state.Feedback, colour: state.Colour),
-            spaceCase: static (state, _) => state,
-            geometryCase: static (state, _) => state,
-            smartGapCase: static (state, _) => state,
-            wireBoundsCase: static (state, _) => state);
 }
+
+// Single-pass projection of a SnappingPolicy's settings: one fold replaces six independent O(N) Choose/Fold scans.
+[StructLayout(LayoutKind.Auto)]
+internal readonly record struct PolicyDecode(
+    SnappingSettings Native,
+    Option<(SnapGuideStyle X, SnapGuideStyle Y)> FeedbackStyle,
+    Seq<SnapSpace> Spaces,
+    Option<(SnapProjection Projection, double Radius)> Geometry,
+    Option<SnapSetting.SmartGapCase> SmartGap,
+    bool UseAggregateWireBounds);
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SnappingPolicy(bool IncludeSelected = true, bool IncludeUnselected = true, Seq<SnapSetting> Settings = default) {
-    internal SnappingSettings Native =>
-        Settings.Fold(SnappingSettings.Current, static (state, op) => op.Apply(settings: state));
+    // One fold lowers all settings into a PolicyDecode: native settings accumulate while the cosmetic/spatial slots take
+    // their first match. FeedbackStyle defaults YStyle to XStyle; UseAggregateWireBounds defaults to true when unset.
+    internal PolicyDecode Decode() =>
+        Settings.Fold(
+            new PolicyDecode(Native: SnappingSettings.Current, FeedbackStyle: default, Spaces: Seq<SnapSpace>(), Geometry: default, SmartGap: default, UseAggregateWireBounds: true),
+            static (acc, op) => op switch {
+                SnapSetting.WithRuleCase rule => acc with { Native = acc.Native.WithRules(rules: rule.Rule) },
+                SnapSetting.WithoutRuleCase rule => acc with { Native = acc.Native.WithoutRules(rules: rule.Rule) },
+                SnapSetting.FeedbackCase feedback => acc with {
+                    Native = acc.Native.WithFeedback(drawFeedback: feedback.Enabled, colour: feedback.XStyle.Tint),
+                    FeedbackStyle = acc.FeedbackStyle.IsSome ? acc.FeedbackStyle : (feedback.Enabled ? Some((feedback.XStyle, feedback.YStyle.Equals(default) ? feedback.XStyle : feedback.YStyle)) : acc.FeedbackStyle)
+                },
+                SnapSetting.RadiiCase radii => acc with { Native = new SnappingSettings(rules: acc.Native.Rules, verticalGap: radii.VerticalGapSize.Map(static value => Math.Max(0, value)).IfNone(acc.Native.VerticalGapSize), horizontalGap: radii.HorizontalGapSize.Map(static value => Math.Max(0, value)).IfNone(acc.Native.HorizontalGapSize), edgeRadius: radii.EdgeRadius.Map(static value => Math.Max(0, value)).IfNone(acc.Native.EdgeRadius), wireRadius: radii.WireRadius.Map(static value => Math.Max(0, value)).IfNone(acc.Native.WireRadius), feedback: acc.Native.Feedback, colour: acc.Native.Colour) },
+                SnapSetting.SpaceCase space => acc with { Spaces = acc.Spaces.Add(space.Space) },
+                SnapSetting.GeometryCase geo => acc with { Geometry = acc.Geometry.IsSome ? acc.Geometry : Some((geo.Projection, geo.Radius)) },
+                SnapSetting.SmartGapCase { Enabled: true } gap => acc with { SmartGap = acc.SmartGap.IsSome ? acc.SmartGap : Some(gap) },
+                SnapSetting.WireBoundsCase wire => acc with { UseAggregateWireBounds = wire.Aggregate },
+                _ => acc,
+            });
 
-    // First enabled feedback setting drives the live snap-guide cosmetic; default YStyle falls back to XStyle.
-    internal Option<(SnapGuideStyle X, SnapGuideStyle Y)> FeedbackStyle =>
-        Settings.Choose(static s => s is SnapSetting.FeedbackCase { Enabled: true } feedback
-            ? Some((feedback.XStyle, feedback.YStyle.Equals(default) ? feedback.XStyle : feedback.YStyle))
-            : Option<(SnapGuideStyle, SnapGuideStyle)>.None).Head;
-
-    internal Seq<SnapSpace> Spaces =>
-        Settings.Choose(static s => s is SnapSetting.SpaceCase space ? Some(space.Space) : Option<SnapSpace>.None);
-
-    internal Option<(SnapProjection Projection, double Radius)> Geometry =>
-        Settings.Choose(static s => s is SnapSetting.GeometryCase geo ? Some((geo.Projection, geo.Radius)) : Option<(SnapProjection, double)>.None).Head;
-
-    internal Option<SnapSetting.SmartGapCase> SmartGap =>
-        Settings.Choose(static s => s is SnapSetting.SmartGapCase { Enabled: true } gap ? Some(gap) : Option<SnapSetting.SmartGapCase>.None).Head;
-
-    internal bool UseAggregateWireBounds =>
-        Settings.Choose(static s => s is SnapSetting.WireBoundsCase wire ? Some(wire.Aggregate) : Option<bool>.None)
-            .Head
-            .IfNone(noneValue: true);
-
-    // GeometryCase aligns the target's edges/centres to other objects' edges/centres via direct SnapNumeric arithmetic.
-    // BOUNDARY ADAPTER -- bypasses two GH2 native defects: SnapLine.Project(double,double,bool,out,out,out string) is a
-    // stub (returns false), and SnapSpace.Snap's ISnapElement branch measures the Y distance as y'-x not y'-y. Geometry
-    // snap must never route through ISnapElement; only the grid SnapSpace path (SnapNumeric) stays sound (SpaceCase).
-    internal (SnappingAction? X, SnappingAction? Y) GeometryActions(GhObjectList objects, GuidSet excludeIds, RectangleF target) =>
-        Geometry.Map(geo => {
-            float radius = (float)geo.Radius;
-            bool wantsX = geo.Projection is SnapProjection.X or SnapProjection.XY;
-            bool wantsY = geo.Projection is SnapProjection.Y or SnapProjection.XY;
-            Seq<RectangleF> others = toSeq(objects.Forwards).Filter(o => !excludeIds.Contains(o.InstanceId)).Map(static o => o.Attributes.AggregateBounds);
-            SnappingAction? x = wantsX
-                ? GeometryAlignPairs(targets: Seq(target.Left, target.Center.X, target.Right), others: others.Bind(static b => Seq(b.Left, b.Center.X, b.Right)), radius: radius, horizontal: true, target: target)
-                : default;
-            SnappingAction? y = wantsY
-                ? GeometryAlignPairs(targets: Seq(target.Top, target.Center.Y, target.Bottom), others: others.Bind(static b => Seq(b.Top, b.Center.Y, b.Bottom)), radius: radius, horizontal: false, target: target)
-                : default;
-            return (X: x, Y: y);
-        }).IfNone((default, default));
-
-    // Smallest-magnitude alignment of any target edge/centre to any other edge/centre within radius (zero deltas skipped).
-    private static SnappingAction? GeometryAlignPairs(Seq<float> targets, Seq<float> others, float radius, bool horizontal, RectangleF target) {
-        Seq<float> deltas = targets.Bind(t => others.Map(o => o - t)).Filter(d => MathF.Abs(d) <= radius && d != 0f);
-        return deltas.IsEmpty
-            ? default
-            : deltas.Tail.Fold(deltas.Head.IfNone(0f), static (best, d) => MathF.Abs(d) < MathF.Abs(best) ? d : best) is float chosen && horizontal
-                ? new SnappingAction(dx: chosen, dy: 0f, text: "align",
-                    point: new PointF(target.Center.X + chosen, target.Top - radius), anchor: TextAnchor.LowerMiddle,
-                    lines: [new LineF(target.Center.X + chosen, target.Top - radius, target.Center.X + chosen, target.Bottom + radius)])
-                : new SnappingAction(dx: 0f, dy: chosen, text: "align",
-                    point: new PointF(target.Left - radius, target.Center.Y + chosen), anchor: TextAnchor.CentreRight,
-                    lines: [new LineF(target.Left - radius, target.Center.Y + chosen, target.Right + radius, target.Center.Y + chosen)]);
-    }
+    // Slim accessors for the cosmetic/bounds slots used outside SnapCore's cached decode; SnapCore folds once via Decode.
+    internal Option<(SnapGuideStyle X, SnapGuideStyle Y)> FeedbackStyle => Decode().FeedbackStyle;
+    internal bool UseAggregateWireBounds => Decode().UseAggregateWireBounds;
 }
 
 [SkipUnionOps]
@@ -472,7 +437,7 @@ internal static partial class Layout {
                         .GroupBy(static node => node.Rank)
                         .OrderBy(static band => band.Key)
                         .Select(band => toSeq(band.Select(static node => node.Id))))
-                    .TraverseM(layer => ComputeDistribution(objects: objs, ids: layer, axis: axis, gap: gap, gapPolicy: gapPolicy, preordered: true))
+                    .TraverseM(layer => ComputeDistribution(objects: objs, ids: layer, axis: axis, gap: gap, gapPolicy: gapPolicy))
                     .As()
                     .Map(static bands => bands.Bind(static moves => moves))));
     }
@@ -644,30 +609,32 @@ internal static partial class Layout {
         Option<GuidSet> excludeIds = default) {
         // Exclude the whole component family so multi-part components never snap against their own siblings.
         GuidSet filter = excludeIds.IfNone(() => new GuidSet([.. obj.EntireFamily.Select(static m => m.InstanceId)]));
+        PolicyDecode decoded = policy.Decode();
         SnappingConstraints constraints = SnappingConstraints.CreateFromDocument(
             document: document,
             includeSelected: policy.IncludeSelected,
             includeUnselected: policy.IncludeUnselected,
             filter: filter);
         // Bypass SnapObject because it always uses AggregateBounds; policy may request tight Bounds.
-        RectangleF wireBounds = bounds.IfNone(policy.UseAggregateWireBounds ? obj.Attributes.AggregateBounds : obj.Attributes.Bounds);
-        constraints.SnapRectangle(target: wireBounds, settings: policy.Native, visibleLimit: visibleLimit, snapX: out SnappingAction x, snapY: out SnappingAction y);
-        int radius = policy.Native.EdgeRadius;
+        RectangleF wireBounds = bounds.IfNone(decoded.UseAggregateWireBounds ? obj.Attributes.AggregateBounds : obj.Attributes.Bounds);
+        constraints.SnapRectangle(target: wireBounds, settings: decoded.Native, visibleLimit: visibleLimit, snapX: out SnappingAction x, snapY: out SnappingAction y);
+        float radius = decoded.Native.EdgeRadius;
         // Grid SnapSpaces (SnapNumeric, sound) fold through one smaller-magnitude per-axis projection; geometry-edge
         // alignment is computed by direct arithmetic and merged in, bypassing the dead ISnapElement path.
-        (SnappingAction? spaceX, SnappingAction? spaceY) = policy.Spaces.Fold(
-            ((SnappingAction?)default, (SnappingAction?)default),
-            (acc, space) => SnapActions(target: wireBounds, space: space, radius: radius) is var (sx, sy)
-                ? (SnappingAction.SmallerMagnitude(a: acc.Item1, b: sx), SnappingAction.SmallerMagnitude(a: acc.Item2, b: sy))
-                : acc);
-        (SnappingAction? geomX, SnappingAction? geomY) = policy.GeometryActions(objects: document.Objects, excludeIds: filter, target: wireBounds);
+        (SnappingAction? spaceX, SnappingAction? spaceY) = decoded.Spaces.Fold(
+            (X: (SnappingAction?)default, Y: (SnappingAction?)default),
+            (acc, space) => {
+                (SnappingAction? sx, SnappingAction? sy) = SnapActions(target: wireBounds, space: space, radius: radius);
+                return (SnappingAction.SmallerMagnitude(a: acc.X, b: sx), SnappingAction.SmallerMagnitude(a: acc.Y, b: sy));
+            });
+        (SnappingAction? geomX, SnappingAction? geomY) = GeometryActions(geometry: decoded.Geometry, objects: document.Objects, excludeIds: filter, target: wireBounds);
         SnappingAction? edgeX = SnappingAction.SmallerMagnitude(a: spaceX, b: geomX);
         SnappingAction? edgeY = SnappingAction.SmallerMagnitude(a: spaceY, b: geomY);
         // Multi-member probes fold every candidate's wire family into the Y channel.
         SnappingAction wireY = wireCandidates.Fold(y, (acc, m) =>
-            SnappingAction.SmallerMagnitude(a: acc, b: SnappingConstraints.SnapWires(target: m, boundsOverride: wireBounds, settings: policy.Native)));
+            SnappingAction.SmallerMagnitude(a: acc, b: SnappingConstraints.SnapWires(target: m, boundsOverride: wireBounds, settings: decoded.Native)));
         // SmartGap guides span one or both axes (None = both); each axis runs the visible-frame pre-filtered scan.
-        Seq<LineF> gapGuides = policy.SmartGap.Map(sg =>
+        Seq<LineF> gapGuides = decoded.SmartGap.Map(sg =>
             sg.Axis.Map(static a => Seq(a)).IfNone(Seq(LayoutAxis.Horizontal, LayoutAxis.Vertical))
                 .Bind(axis => EquidistanceGuides(document: document, anchor: wireBounds, excludeIds: filter, tolerance: sg.Tolerance, axis: axis, visibleLimit: visibleLimit))).IfNone([]);
         return UiRail.SnapChannels(
@@ -676,24 +643,63 @@ internal static partial class Layout {
             .Map(snapshot => gapGuides.IsEmpty ? snapshot : snapshot with { Lines = snapshot.Lines + gapGuides });
     }
 
-    // BOUNDARY ADAPTER -- SnapSpace.Snap is a void out-param API; rebuild per-axis actions from snapped coordinates.
-    private static (SnappingAction? X, SnappingAction? Y) SnapActions(RectangleF target, SnapSpace space, int radius) {
-        space.Snap(target.Center.X, target.Center.Y, radius, out double lineX, out double lineY, out string description);
-        float deltaX = (float)lineX - target.Center.X;
-        float deltaY = (float)lineY - target.Center.Y;
-        string label = description.Length > 0 ? description : "snap";
-        SnappingAction? snapX = float.IsFinite(deltaX) && MathF.Abs(x: deltaX) <= radius && deltaX != 0f
-            ? new SnappingAction(dx: deltaX, dy: 0f, text: label, point: new PointF(x: (float)lineX, y: target.Top - radius), anchor: TextAnchor.LowerMiddle, lines: [new LineF((float)lineX, target.Top - radius, (float)lineX, target.Bottom + radius)])
-            : default;
-        SnappingAction? snapY = float.IsFinite(deltaY) && MathF.Abs(x: deltaY) <= radius && deltaY != 0f
-            ? new SnappingAction(dx: 0f, dy: deltaY, text: label, point: new PointF(x: target.Left - radius, y: (float)lineY), anchor: TextAnchor.CentreRight, lines: [new LineF(target.Left - radius, (float)lineY, target.Right + radius, (float)lineY)])
-            : default;
-        return (snapX, snapY);
-    }
+    // GeometryCase aligns the target's edges/centres to other objects' edges/centres via direct arithmetic over the
+    // decoded geometry projection. BOUNDARY ADAPTER -- bypasses two GH2 native defects: SnapLine.Project(double,double,
+    // bool,out,out,out string) is a stub (returns false), and SnapSpace.Snap's ISnapElement branch measures the Y
+    // distance as y'-x not y'-y. Geometry snap must never route through ISnapElement; only the grid SnapSpace path
+    // (SnapNumeric) stays sound (SpaceCase). Per-axis feature slots pair a coordinate extractor with the native
+    // SnappingAction guide factory; BestAlign retains the winning other-rect so the guide renders at the target feature
+    // coordinate, not the moving probe origin.
+    private static (SnappingAction? X, SnappingAction? Y) GeometryActions(Option<(SnapProjection Projection, double Radius)> geometry, GhObjectList objects, GuidSet excludeIds, RectangleF target) =>
+        geometry.Map(geo => {
+            float radius = (float)geo.Radius;
+            Seq<RectangleF> others = toSeq(objects.Forwards).Filter(o => !excludeIds.Contains(o.InstanceId)).Map(static o => o.Attributes.AggregateBounds);
+            static SnappingAction? BestAlign(RectangleF source, Seq<RectangleF> candidates, float radius, Seq<(Func<RectangleF, float> Feature, Func<RectangleF, RectangleF, float, SnappingAction> Factory)> slots) =>
+                toSeq(slots.Bind(slot => candidates.Map(other => (slot.Factory, Other: other, Delta: slot.Feature(other) - slot.Feature(source))))
+                        .Filter(c => MathF.Abs(c.Delta) <= radius && c.Delta != 0f)
+                        .OrderBy(static c => MathF.Abs(c.Delta)))
+                    .Head
+                    .Map(won => (SnappingAction?)won.Factory(source, won.Other, won.Delta)).IfNone((SnappingAction?)null);
+            SnappingAction? x = geo.Projection is SnapProjection.X or SnapProjection.XY
+                ? BestAlign(target, others, radius, Seq(
+                    ((Func<RectangleF, float>)(static b => b.Left), (Func<RectangleF, RectangleF, float, SnappingAction>)((s, t, d) => SnappingAction.CreateLeftAlignAction(source: s, target: t, dx: d))),
+                    (static b => b.Center.X, (s, t, d) => SnappingAction.CreateCentreAlignAction(source: s, target: t, dx: d)),
+                    (static b => b.Right, (s, t, d) => SnappingAction.CreateRightAlignAction(source: s, target: t, dx: d))))
+                : default;
+            SnappingAction? y = geo.Projection is SnapProjection.Y or SnapProjection.XY
+                ? BestAlign(target, others, radius, Seq(
+                    ((Func<RectangleF, float>)(static b => b.Top), (Func<RectangleF, RectangleF, float, SnappingAction>)((s, t, d) => SnappingAction.CreateTopAlignAction(source: s, target: t, dy: d))),
+                    (static b => b.Bottom, (s, t, d) => SnappingAction.CreateBottomAlignAction(source: s, target: t, dy: d))))
+                : default;
+            return (X: x, Y: y);
+        }).IfNone((default, default));
+
+    // BOUNDARY ADAPTER -- SnapSpace.Snap(x, y, cutoff, out x', out y', out description) is a void out-param API whose
+    // cutoff is a LINEAR radius (the implementation applies Maths.DistanceToQuadrance internally), so the float radius is
+    // passed through unsquared; per-axis actions are rebuilt from the snapped coordinates and the whole probe is fenced
+    // because the native out-param call can throw inside a degenerate SnapSpace.
+    private static (SnappingAction? X, SnappingAction? Y) SnapActions(RectangleF target, SnapSpace space, float radius) =>
+        Op.Of(name: nameof(SnapActions)).Attempt<(SnappingAction?, SnappingAction?)>(
+            body: () => {
+                space.Snap(target.Center.X, target.Center.Y, (double)radius, out double lineX, out double lineY, out string description);
+                float deltaX = (float)lineX - target.Center.X;
+                float deltaY = (float)lineY - target.Center.Y;
+                string label = description is { Length: > 0 } ? description : "snap";
+                SnappingAction? snapX = float.IsFinite(deltaX) && MathF.Abs(x: deltaX) <= radius && deltaX != 0f
+                    ? new SnappingAction(dx: deltaX, dy: 0f, text: label, point: new PointF(x: (float)lineX, y: target.Top - radius), anchor: TextAnchor.LowerMiddle, lines: [new LineF((float)lineX, target.Top - radius, (float)lineX, target.Bottom + radius)])
+                    : default;
+                SnappingAction? snapY = float.IsFinite(deltaY) && MathF.Abs(x: deltaY) <= radius && deltaY != 0f
+                    ? new SnappingAction(dx: 0f, dy: deltaY, text: label, point: new PointF(x: target.Left - radius, y: (float)lineY), anchor: TextAnchor.CentreRight, lines: [new LineF(target.Left - radius, (float)lineY, target.Right + radius, (float)lineY)])
+                    : default;
+                return (snapX, snapY);
+            },
+            what: "SnapSpace.Snap")
+            .IfFail(_ => (null, null));
 
     // Equal-spacing feedback emits short tick guides only when all adjacent gaps match within tolerance. The axis
     // selects the centre coordinate via the existing Origin/Span delegates; the visible frame pre-filters candidates
-    // so a dense document costs O(n_visible) per 60 Hz probe, not O(n_doc).
+    // so a dense document costs O(n_visible) per 60 Hz probe, not O(n_doc). Tolerance gates only equality; the visible
+    // tick length scales off the viewport so guides stay perceptible at low zoom where tolerance shrinks to pixels.
     private static Seq<LineF> EquidistanceGuides(GhDocument document, RectangleF anchor, GuidSet excludeIds, int tolerance, LayoutAxis axis, RectangleF visibleLimit) {
         float Centre(RectangleF b) => axis.Origin(bounds: b) + (axis.Span(bounds: b) * 0.5f);
         Seq<float> centres = toSeq(document.Objects.Forwards)
@@ -701,10 +707,13 @@ internal static partial class Layout {
             .Map(o => Centre(o.Attributes.AggregateBounds)) + Seq(Centre(anchor));
         Seq<float> ordered = toSeq(centres.Distinct().Order());
         Seq<float> gaps = ordered.Zip(ordered.Tail).Map(static pair => pair.Second - pair.First);
+        float tickLength = axis.Equals(LayoutAxis.Horizontal)
+            ? MathF.Max(tolerance, visibleLimit.Height * 0.01f)
+            : MathF.Max(tolerance, visibleLimit.Width * 0.01f);
         return gaps.Count >= 2 && gaps.Tail.ForAll(g => MathF.Abs(g - gaps.Head.IfNone(0f)) <= tolerance)
             ? ordered.Map(c => axis.Equals(LayoutAxis.Horizontal)
-                ? new LineF(c, anchor.Top - tolerance, c, anchor.Top)
-                : new LineF(anchor.Left - tolerance, c, anchor.Left, c))
+                ? new LineF(c, anchor.Top - tickLength, c, anchor.Top)
+                : new LineF(anchor.Left - tickLength, c, anchor.Left, c))
             : [];
     }
 
@@ -732,22 +741,16 @@ internal static partial class Layout {
         });
     }
 
-    // OCD.AlignObjects exposes exactly four (Component|IParameter)^2 overloads; unsupported pairs stay explicit.
-    private static Fin<Unit> AlignVia(IDocumentObject a, IDocumentObject b, OCD.Fixed fix) {
-        Op op = Op.Of(name: nameof(AlignVia));
-        Option<SysAction> overload = (a, b) switch {
-            (Component left, Component right) => Some(() => OCD.AlignObjects(left, right, fix)),
-            (Component left, IParameter right) => Some(() => OCD.AlignObjects(left, right, fix)),
-            (IParameter left, Component right) => Some(() => OCD.AlignObjects(left, right, fix)),
-            (IParameter left, IParameter right) => Some(() => OCD.AlignObjects(left, right, fix)),
-            _ => Option<SysAction>.None,
+    // OCD.AlignObjects exposes exactly four (Component|IParameter)^2 overloads; unsupported pairs stay explicit. Each arm
+    // fences its own native call directly because static overload resolution forbids a single hoisted delegate.
+    private static Fin<Unit> AlignVia(IDocumentObject a, IDocumentObject b, OCD.Fixed fix) =>
+        (a, b) switch {
+            (Component left, Component right) => Op.Of(name: nameof(AlignVia)).Attempt(body: () => { OCD.AlignObjects(left, right, fix); return unit; }, what: "OCD.AlignObjects"),
+            (Component left, IParameter right) => Op.Of(name: nameof(AlignVia)).Attempt(body: () => { OCD.AlignObjects(left, right, fix); return unit; }, what: "OCD.AlignObjects"),
+            (IParameter left, Component right) => Op.Of(name: nameof(AlignVia)).Attempt(body: () => { OCD.AlignObjects(left, right, fix); return unit; }, what: "OCD.AlignObjects"),
+            (IParameter left, IParameter right) => Op.Of(name: nameof(AlignVia)).Attempt(body: () => { OCD.AlignObjects(left, right, fix); return unit; }, what: "OCD.AlignObjects"),
+            _ => Fin.Fail<Unit>(error: UiFault.MutationRejected(op: Op.Of(name: nameof(AlignVia)), detail: $"OCD.AlignObjects unsupported pair ({a.GetType().Name}, {b.GetType().Name})")),
         };
-        return overload is { IsSome: true, Case: SysAction align }
-            ? op.Attempt(body: () => { align(); return unit; }, what: "OCD.AlignObjects")
-            : Fin.Fail<Unit>(error: UiFault.MutationRejected(
-                op: op,
-                detail: $"OCD.AlignObjects unsupported pair ({a.GetType().Name}, {b.GetType().Name})"));
-    }
 
     private static Fin<Seq<(Guid Id, float Dx, float Dy)>> ComputeDistribution(
         GhObjectList objects,

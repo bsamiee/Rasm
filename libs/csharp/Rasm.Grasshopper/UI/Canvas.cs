@@ -29,8 +29,8 @@ public enum CanvasBitmapLayers {
 
 [Flags]
 public enum CanvasWindowScope {
-    None = 0, Objects = 1, Wires = 2, Groups = 4, ObjectsAndWires = Objects | Wires,
-    All = Objects | Wires | Groups,
+    None = 0, Objects = 1, Wires = 2, Background = 4, ObjectsAndWires = Objects | Wires,
+    All = Objects | Wires | Background,
 }
 
 [Flags]
@@ -144,7 +144,7 @@ public partial record CanvasOp : IUiOp<CanvasResult> {
     public sealed partial record InlineEditCase(RectangleF Frame, string Initial, Func<string, Fin<Unit>> Apply, Option<Func<Fin<Unit>>> Cancel) : CanvasOp;
     public sealed partial record ValueEditorCase(AbstractParameter Parameter, Option<Control> Control) : CanvasOp;
     public sealed partial record SparkleCase(ISparkle Instance) : CanvasOp;
-    public sealed partial record WireShapeCase(WireRouter Router, Option<Type> Custom) : CanvasOp;
+    public sealed partial record WireShapeCase(WireRouter Router, Option<Type> Custom, Option<float> CornerRadius = default, Option<float> SplitRatio = default) : CanvasOp;
     public sealed partial record SnapSettingsCase(bool AsForm) : CanvasOp;
     public sealed partial record BackgroundOverrideCase(CanvasPaintPhase Phase) : CanvasOp;
 
@@ -170,8 +170,8 @@ public partial record CanvasOp : IUiOp<CanvasResult> {
     public static CanvasOp ValueEditor(AbstractParameter parameter, Control? control = null) =>
         new ValueEditorCase(Parameter: parameter, Control: Optional(control));
     public static CanvasOp Sparkle(ISparkle instance) => new SparkleCase(Instance: instance);
-    public static CanvasOp WireShape(WireRouter router, Option<Type> custom = default) =>
-        new WireShapeCase(Router: router ?? WireRouter.Default, Custom: custom);
+    public static CanvasOp WireShape(WireRouter router, Option<Type> custom = default, Option<float> cornerRadius = default, Option<float> splitRatio = default) =>
+        new WireShapeCase(Router: router ?? WireRouter.Default, Custom: custom, CornerRadius: cornerRadius, SplitRatio: splitRatio);
     public static CanvasOp SnapSettings(bool asForm = false) => new SnapSettingsCase(AsForm: asForm);
     public static CanvasOp BackgroundOverride(CanvasPaintPhase? phase = null) =>
         new BackgroundOverrideCase(Phase: phase ?? CanvasPaintPhase.BeforeBackground);
@@ -561,7 +561,7 @@ internal static partial class UiRail {
                                 window: selection,
                                 mode: ws.Mode.Gh,
                                 considerForeground: (ws.Scope & CanvasWindowScope.Objects) == CanvasWindowScope.Objects,
-                                considerBackground: (ws.Scope & CanvasWindowScope.Groups) == CanvasWindowScope.Groups,
+                                considerBackground: (ws.Scope & CanvasWindowScope.Background) == CanvasWindowScope.Background,
                                 considerWires: (ws.Scope & CanvasWindowScope.Wires) == CanvasWindowScope.Wires),
                             what: "ObjectList.WindowSelect")
                         select (CanvasResult)new CanvasResult.WindowResult(Window: new CanvasWindowSnapshot(
@@ -596,7 +596,7 @@ internal static partial class UiRail {
                 scope.NeedCanvas()
                     .Bind(_ => shape.Router.Resolve(@override: shape.Custom)
                         .ToFin(Fail: UiFault.InvalidInput(op: CanvasOp.WireShapeCase.SelfOp, detail: "wire-shape router resolves to no concrete WireShape type"))
-                        .Bind(t => WireShapeInstall.Push(shapeType: t, cornerRadius: 8f, splitRatio: 0.5f)))
+                        .Bind(t => WireShapeInstall.Push(shapeType: t, cornerRadius: shape.CornerRadius.IfNone(8f), splitRatio: shape.SplitRatio.IfNone(0.5f))))
                     .Map(static sub => (CanvasResult)new CanvasResult.SubscriptionResult(Subscription: sub))),
             snapSettingsCase: static ss => GhUi.Canvas(run: scope =>
                 scope.NeedCanvas()
@@ -653,10 +653,10 @@ internal static partial class UiRail {
         CanvasViewPolicy rawPolicy,
         float defaultPadding,
         Op op,
-        Func<ViewTarget, Fin<RectangleF>> frame) =>
+        Func<ViewTarget, CanvasViewPolicy, Fin<RectangleF>> frame) =>
         from target in NeedViewTarget(scope)
         let policy = ResolveView(raw: rawPolicy, defaultPadding: defaultPadding)
-        from resolvedFrame in frame(arg: target)
+        from resolvedFrame in frame(arg1: target, arg2: policy)
         from plan in CanvasViewPlanOf(frame: resolvedFrame, limits: (policy.MinimumZoom, policy.MaximumZoom), op: op)
         from _ in plan.Apply(canvas: target.Canvas, duration: policy.Duration, what: "FlexControl.Navigate(RectangleF)")
         select (CanvasResult)new CanvasResult.SnapshotResult(
@@ -672,7 +672,7 @@ internal static partial class UiRail {
                     rawPolicy: n.Policy,
                     defaultPadding: CanvasViewPolicy.DefaultPadding,
                     op: Op.Of(name: nameof(CanvasViewOp.Bounds)),
-                    frame: _ => Fin.Succ(frame))
+                    frame: (_, _) => Fin.Succ(frame))
                 select result,
             selectionCase: static (scope, f) =>
                 NavigateView(
@@ -680,8 +680,8 @@ internal static partial class UiRail {
                     rawPolicy: f.Policy,
                     defaultPadding: CanvasViewPolicy.SelectionFitPadding,
                     op: Op.Of(name: nameof(CanvasViewOp.Selection)),
-                    frame: target => {
-                        float padding = ResolveView(raw: f.Policy, defaultPadding: CanvasViewPolicy.SelectionFitPadding).Padding;
+                    frame: (target, policy) => {
+                        float padding = policy.Padding;
                         Fin<Seq<IDocumentObject>> targets = f.Ids
                             .Map(list => list.TraverseM(id => ResolveObject(objects: target.Objects, id: id, op: Op.Of(name: nameof(CanvasViewOp.Selection)))).As())
                             .IfNone(Fin.Succ(value: toSeq(target.Objects.SelectedObjects)));
@@ -700,20 +700,20 @@ internal static partial class UiRail {
                         rawPolicy: ft.Policy,
                         defaultPadding: CanvasViewPolicy.DefaultPadding,
                         op: Op.Of(name: nameof(CanvasViewOp.Fit)),
-                        frame: static target => Fin.Succ(target.Canvas.ContentBounds)),
+                        frame: static (target, _) => Fin.Succ(target.Canvas.ContentBounds)),
                     CanvasFitTarget.Selection => NavigateView(
                         scope: scope,
                         rawPolicy: ft.Policy,
                         defaultPadding: CanvasViewPolicy.SelectionFitPadding,
                         op: Op.Of(name: $"{nameof(CanvasViewOp.Fit)}.{nameof(CanvasFitTarget.Selection)}"),
-                        frame: static target => FrameOf(targets: target.Objects.SelectedObjects)
+                        frame: static (target, _) => FrameOf(targets: target.Objects.SelectedObjects)
                             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: $"{nameof(CanvasViewOp.Fit)}.{nameof(CanvasFitTarget.Selection)}"), detail: "no selected objects to fit"))),
                     CanvasFitTarget.Viewport => NavigateView(
                         scope: scope,
                         rawPolicy: ft.Policy,
                         defaultPadding: CanvasViewPolicy.DefaultPadding,
                         op: Op.Of(name: $"{nameof(CanvasViewOp.Fit)}.{nameof(CanvasFitTarget.Viewport)}"),
-                        frame: static target => Fin.Succ(ContentViewport(target: target))),
+                        frame: static (target, _) => Fin.Succ(ContentViewport(target: target))),
                     _ => Fin.Fail<CanvasResult>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(CanvasViewOp.Fit)), detail: "unsupported fit target")),
                 },
             positionCase: static (scope, pos) =>
@@ -1015,31 +1015,46 @@ internal static partial class UiRail {
             allCase: static (s, _) => Op.Of(name: nameof(SelectionOp.All)).Attempt(body: s.methods.SelectAll, what: "DocumentMethods.SelectAll"),
             noneCase: static (s, _) => Op.Of(name: nameof(SelectionOp.None)).Attempt(body: s.methods.DeselectAll, what: "DocumentMethods.DeselectAll"),
             invertCase: static (s, _) => Op.Of(name: nameof(SelectionOp.Invert)).Attempt(body: s.methods.InvertSelection, what: "DocumentMethods.InvertSelection"),
-            growCase: static (s, g) => GraphSelection(op: Op.Of(name: nameof(SelectionOp.Grow)), objects: s.objects, upstream: g.Upstream, downstream: g.Downstream, replace: false),
-            growNCase: static (s, g) => BoundedGraphSelection(op: Op.Of(name: nameof(SelectionOp.GrowN)), objects: s.objects, hops: g.Hops, upstream: g.Upstream, downstream: g.Downstream),
-            shiftCase: static (s, shift) => GraphSelection(op: Op.Of(name: nameof(SelectionOp.Shift)), objects: s.objects, upstream: shift.Upstream, downstream: !shift.Upstream, replace: true));
+            graphCase: static (s, g) => ConnectExpand(op: Op.Of(name: nameof(SelectionOp.GraphCase)), objects: s.objects, upstream: g.Upstream, downstream: g.Downstream, replace: g.Replace, hops: g.MaxHops));
 
-    // Hop-bounded BFS over immediate connectivity: Grow is the unbounded transitive closure; GrowN(1) is exactly one hop.
-    private static Fin<int> BoundedGraphSelection(Op op, GhObjectList objects, int hops, bool upstream, bool downstream) =>
+    // One BFS over immediate connectivity for Grow/GrowN/Shift: hops=None is the unbounded transitive closure, hops=1
+    // is a single hop; replace re-seeds the selection onto the reached frontier (Shift) rather than growing it.
+    private static Fin<int> ConnectExpand(Op op, GhObjectList objects, bool upstream, bool downstream, bool replace, Option<int> hops) =>
         op.Attempt(body: () => {
-            System.Collections.Generic.HashSet<Guid> visited = [.. toSeq(objects.SelectedObjects).Map(static o => o.InstanceId)];
-            System.Collections.Generic.HashSet<Guid> frontier = [.. visited];
+            // BOUNDARY ADAPTER — mutable HashSet frontier drives the bounded connectivity BFS; state is local to this call frame.
             Connectivity snapshot = objects.Connectivity;
-            _ = toSeq(Enumerable.Range(start: 0, count: Math.Max(0, hops))).Iter(_hop => {
+            Seq<IDocumentObject> selected = toSeq(objects.SelectedObjects);
+            System.Collections.Generic.HashSet<Guid> seeds = [.. selected.Map(static o => o.InstanceId)];
+            System.Collections.Generic.HashSet<Guid> reached = [];
+            System.Collections.Generic.HashSet<Guid> frontier = [.. seeds];
+            int maxHops = hops is { IsSome: true, Case: int h } ? Math.Max(0, h) : int.MaxValue;
+            for (int hop = 0; hop < maxHops && frontier.Count > 0; hop++) {
                 System.Collections.Generic.HashSet<Guid> next = [];
-                _ = toSeq(frontier).Iter(id => {
-                    Seq<ConnectiveObject> neighbours =
-                        (upstream ? toSeq(snapshot.FindImmediateInputs(id)) : Seq<ConnectiveObject>())
-                        + (downstream ? toSeq(snapshot.FindImmediateOutputs(id)) : Seq<ConnectiveObject>());
-                    _ = neighbours.Iter(co => { _ = visited.Add(co.Id); _ = next.Add(co.Id); });
-                });
+                foreach (Guid id in frontier) {
+                    if (upstream) {
+                        foreach (ConnectiveObject co in snapshot.FindImmediateInputs(id)) {
+                            if (reached.Add(co.Id)) { _ = next.Add(co.Id); }
+                        }
+                    }
+                    if (downstream) {
+                        foreach (ConnectiveObject co in snapshot.FindImmediateOutputs(id)) {
+                            if (reached.Add(co.Id)) { _ = next.Add(co.Id); }
+                        }
+                    }
+                }
                 frontier = next;
-            });
-            Seq<IDocumentObject> selects = toSeq(visited).Choose(id => Optional(objects.Find(instanceId: id)))
+            }
+            System.Collections.Generic.HashSet<Guid> target = replace ? reached : [.. seeds.Concat(reached)];
+            Seq<IDocumentObject> deselects = replace
+                ? selected.Filter(o => !target.Contains(o.InstanceId))
+                : Seq<IDocumentObject>();
+            Seq<IDocumentObject> selects = toSeq(target)
+                .Choose(id => Optional(objects.Find(instanceId: id)))
                 .Filter(static o => o.Selection != ObjectSelection.Selected);
+            _ = deselects.Iter(static o => o.Selection = ObjectSelection.Unselected);
             _ = selects.Iter(static o => o.Selection = ObjectSelection.Selected);
-            return selects.Count;
-        }, what: "Bounded connectivity selection");
+            return deselects.Count + selects.Count;
+        }, what: "Connectivity selection expansion");
 
     // Probe offsets ordered by Manhattan distance from centre: hit, 4 cardinals, 4 diagonals (matches the prior OrderBy).
     private static readonly (int Dx, int Dy)[] ProbeOffsets =
@@ -1047,31 +1062,6 @@ internal static partial class UiRail {
 
     private static Seq<PointF> ProbeLattice(PointF centre, float radius) =>
         toSeq(ProbeOffsets).Map(offset => new PointF(x: centre.X + (offset.Dx * radius), y: centre.Y + (offset.Dy * radius)));
-
-    private static Fin<int> GraphSelection(Op op, GhObjectList objects, bool upstream, bool downstream, bool replace, bool transitive = false) =>
-        op.Attempt(body: () => {
-            Seq<IDocumentObject> selected = toSeq(objects.SelectedObjects);
-            Seq<Guid> seeds = selected.Map(static obj => obj.InstanceId);
-            Connectivity snapshot = objects.Connectivity;
-            Seq<Guid> neighbours = selected.Bind(obj =>
-                (upstream ? Neighbours(connectivity: snapshot, owner: obj.InstanceId, upstream: true, transitive: transitive) : Seq<Guid>())
-                + (downstream ? Neighbours(connectivity: snapshot, owner: obj.InstanceId, upstream: false, transitive: transitive) : Seq<Guid>()));
-            Seq<Guid> next = (replace ? neighbours : seeds + neighbours).Distinct().ToSeq();
-            // BOUNDARY ADAPTER — Selection is mutable; counts derive from the filtered frontier, not an accumulator.
-            Seq<IDocumentObject> deselects = replace ? selected.Filter(obj => !next.Exists(id => id == obj.InstanceId)) : Seq<IDocumentObject>();
-            Seq<IDocumentObject> selects = next.Choose(id => Optional(objects.Find(instanceId: id))).Filter(static obj => obj.Selection != ObjectSelection.Selected).ToSeq();
-            _ = deselects.Iter(static obj => obj.Selection = ObjectSelection.Unselected);
-            _ = selects.Iter(static obj => obj.Selection = ObjectSelection.Selected);
-            return deselects.Count + selects.Count;
-        }, what: "Connectivity selection expansion");
-
-    private static Seq<Guid> Neighbours(Connectivity connectivity, Guid owner, bool upstream, bool transitive) =>
-        toSeq((upstream, transitive) switch {
-            (true, false) => connectivity.FindImmediateInputs(owner),
-            (false, false) => connectivity.FindImmediateOutputs(owner),
-            (true, true) => connectivity.FindAllInputs(owner),
-            (false, true) => connectivity.FindAllOutputs(owner),
-        }).Map(static node => node.Id);
 
     internal static Fin<Option<Guid>> ComposeDispatch(GhDocumentMethods methods, GhObjectList objects, ObjectScope subject, ComposeOp op, ActionList actions) =>
         subject.Switch(

@@ -27,7 +27,7 @@ Scripts are transient diagnostic entrypoints for current code and real Rhino API
 Avoid it for:
 - Synthetic unit-test suites.
 - Mocked Rhino or Grasshopper behavior.
-- Managed cleanup already covered by `uv run python -m tools.quality static check`; compile/analyzer proof belongs to `uv run python -m tools.quality static build`.
+- Managed cleanup already covered by `uv run python -m tools.quality static fix`; compile/analyzer proof belongs to `uv run python -m tools.quality static build`.
 - Long-running UI-thread experiments that require server-side cancellation.
 
 ---
@@ -325,15 +325,15 @@ API metadata lookup uses local sources in this order:
 
 <br>
 
-Run after bridge changes. Keep live Rhino commands serial.
+Run after bridge changes. Keep live Rhino commands fail-fast exclusive.
 
 | [INDEX] | [RAIL]                                                                   | [PARALLELISM]                                          |
 | :-----: | ------------------------------------------------------------------------ | ------------------------------------------------------ |
-|   [1]   | `quality static check`, `quality static build`, focused `--target` tests | Concurrent; MSBuild under `.artifacts/quality/<rail>/<run-id>/` |
-|   [2]   | `bridge build-bridge`, `check`, `verify`, `package`, `deploy`, `publish` | Serial; one Rhino endpoint; Yak writes project `bin/`  |
+|   [1]   | `quality static fix` or `quality static report`, `quality static build`, focused `test run --target ...` tests | Concurrent; MSBuild under `.artifacts/quality/<rail>/<run-id>/` |
+|   [2]   | live bridge commands, `bridge verify`, bridge package live steps, package stage commit | Fail-fast exclusive leases |
 |   [3]   | Default `quality test run` (managed `Rasm`)                              | MTP unit tests only; explicit mutation fails fast on `.artifacts/locks/mutation.lock` |
 
-Never parallelize bridge commands or live Rhino sessions with each other.
+Never queue live Rhino commands behind each other; a busy lease means retry later or pick another proof.
 
 ```bash
 uv run python -m tools.quality self-test
@@ -346,7 +346,7 @@ uv run python -m tools.quality api xml gh2 xml Document
 uv run python -m tools.quality api types rhino-ui assembly Panels
 uv run python -m tools.quality api decompile rhino-ui assembly "" Rhino.UI.DataSerializer
 uv run python -m tools.quality bridge build-bridge
-uv run python -m tools.quality static check
+uv run python -m tools.quality static fix
 uv run python -m tools.quality static build
 uv run python -m tools.quality bridge doctor
 uv run python -m tools.quality bridge check apps/grasshopper/Radyab/Radyab.csproj

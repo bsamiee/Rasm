@@ -44,12 +44,6 @@ public partial record UiEvent : IUiOp<Subscription> {
         new CanvasCase(Kind: kind, Handler: handler);
     public static UiEvent Document(DocumentEvent kind, Func<DocumentEventSnapshot, Fin<Unit>> handler) =>
         new DocumentCase(Kind: kind, Handler: handler);
-    public static UiEvent Document<TSnapshot>(DocumentEvent kind, Func<DocumentEventSnapshot, TSnapshot> project, Func<TSnapshot, Fin<Unit>> handler) =>
-        new DocumentCase(
-            Kind: kind,
-            Handler: e => Optional(handler)
-                .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(Document)), detail: "null handler"))
-                .Bind(valid => valid(arg: project(arg: e))));
     public static UiEvent Solution(SolutionEvent kind, Func<SolutionEventSnapshot, Fin<Unit>> handler) =>
         new SolutionCase(Kind: kind, Handler: handler);
     public static UiEvent Undo(UndoEvent kind, Func<UndoEventSnapshot, Fin<Unit>> handler) =>
@@ -78,25 +72,6 @@ public partial record UiEvent : IUiOp<Subscription> {
         _ = GrasshopperUi.Handler(valid: () => handler(arg: snapshot));
         return unit;
     }
-}
-
-internal readonly record struct EventSpec<TOwner, THandlers, TSnapshot>(
-    TOwner Owner,
-    THandlers Handlers,
-    Action<TOwner, THandlers> Attach,
-    Action<TOwner, THandlers> Detach,
-    Func<TSnapshot, Fin<Unit>> Handler) {
-    internal Fin<Subscription> Subscribe(bool marshalToUi = true) {
-        TOwner owner = Owner;
-        THandlers handlers = Handlers;
-        Action<TOwner, THandlers> attach = Attach;
-        Action<TOwner, THandlers> detach = Detach;
-        return marshalToUi
-            ? Events.BindMarshaled(attach: () => attach(owner, handlers), detach: () => detach(owner, handlers))
-            : Subscription.Bind(attach: () => attach(owner, handlers), detach: () => detach(owner, handlers));
-    }
-
-    internal Unit Publish(TSnapshot snapshot) => UiEvent.Publish(handler: Handler, snapshot: snapshot);
 }
 
 [SmartEnum<int>]
@@ -289,22 +264,22 @@ public readonly record struct EventKind<TOwner, THandlers, TSnapshot> {
         return from validAttach in Optional(attachLocal).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(EventKind<,,>)), detail: "attach missing"))
                from validDetach in Optional(detachLocal).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(EventKind<,,>)), detail: "detach missing"))
                from validBuild in Optional(buildLocal).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(EventKind<,,>)), detail: "handler builder missing"))
-               let spec = new EventSpec<TOwner, THandlers, TSnapshot>(
-                   Owner: owner,
-                   Handlers: validBuild(arg1: self, arg2: owner, arg3: handler),
-                   Attach: validAttach,
-                   Detach: validDetach,
-                   Handler: handler)
-               from sub in spec.Subscribe(marshalToUi: marshal)
+               let handlers = validBuild(arg1: self, arg2: owner, arg3: handler)
+               from sub in marshal
+                   ? Events.BindMarshaled(attach: () => validAttach(arg1: owner, arg2: handlers), detach: () => validDetach(arg1: owner, arg2: handlers))
+                   : Subscription.Bind(attach: () => validAttach(arg1: owner, arg2: handlers), detach: () => validDetach(arg1: owner, arg2: handlers))
                select sub;
     }
 
-    internal static EventKind<TOwner, THandlers, TSnapshot> Composite(string name, Func<Seq<THandlers>, THandlers> combine, params EventKind<TOwner, THandlers, TSnapshot>[] members) =>
-        new(
+    internal static EventKind<TOwner, THandlers, TSnapshot> Composite(string name, Func<Seq<THandlers>, THandlers> combine, params ReadOnlySpan<EventKind<TOwner, THandlers, TSnapshot>> members) {
+        // BOUNDARY ADAPTER — ReadOnlySpan cannot be captured by the attach/detach/build closures; freeze once.
+        EventKind<TOwner, THandlers, TSnapshot>[] frozen = [.. members];
+        return new(
             Name: name,
-            Attach: (owner, handlers) => toSeq(members).Iter(member => member.attach!(owner, handlers)),
-            Detach: (owner, handlers) => toSeq(members).Iter(member => member.detach!(owner, handlers)),
-            Build: (_, owner, handler) => combine(toSeq(members).Map(member => member.build!(arg1: member, arg2: owner, arg3: handler))));
+            Attach: (owner, handlers) => toSeq(frozen).Iter(member => member.attach!(owner, handlers)),
+            Detach: (owner, handlers) => toSeq(frozen).Iter(member => member.detach!(owner, handlers)),
+            Build: (_, owner, handler) => combine(toSeq(frozen).Map(member => member.build!(arg1: member, arg2: owner, arg3: handler))));
+    }
 }
 
 public sealed record DocumentEventPipe(
@@ -323,9 +298,6 @@ public sealed record DocumentEventPipe(
             objects: changed.Map(obj => Seq(UiRail.DocumentObjectSnapshotOf(obj))).IfNone(Seq<DocumentObjectSnapshot>()),
             wires: Seq<WireSnapshot.ConnectedCase>(),
             detail: detail);
-
-    internal Unit PublishDetail(DocumentEvent kind, Option<string> detail) =>
-        PublishObject(kind: kind, changed: default, detail: detail);
 
     private Unit Publish(
         DocumentEvent kind,
@@ -496,7 +468,7 @@ public static class DocumentEventKind {
             Detach: (owner, handlers) => detach(arg1: owner.Doc, arg2: select(arg: handlers)),
             Build: (kind, owner, handler) => assign(
                 arg1: DocumentEventHandlers.Empty,
-                arg2: (_, e) => PipeOf(owner: owner, handler: handler).PublishDetail(kind: kind, detail: detail(arg: e))));
+                arg2: (_, e) => PipeOf(owner: owner, handler: handler).PublishObject(kind: kind, changed: default, detail: detail(arg: e))));
     private static DocumentEvent OnObject<TArgs>(
         string name,
         Action<GhObjectList, EventHandler<TArgs>> attach,

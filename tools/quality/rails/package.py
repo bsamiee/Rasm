@@ -3,7 +3,6 @@
 # --- [IMPORTS] ------------------------------------------------------------------------
 
 from collections.abc import Callable
-import fcntl
 import fnmatch
 from itertools import chain
 import os
@@ -16,8 +15,8 @@ from beartype import beartype
 from expression import Error, Ok, Result
 import msgspec
 
-from tools.quality.process import decode_json, dotnet_build, fd_args, fold, ProcessFault, run, Workspace
-from tools.quality.rails.bridge import build_client, client_quit, client_refresh
+from tools.quality.process import decode_json, dotnet_build, exclusive_lease, fd_args, fold, ProcessFault, ResourceBusyError, run, Workspace
+from tools.quality.rails.bridge import build_client, client_quit, client_refresh, with_bridge_lease
 from tools.quality.settings import ArtifactScope, QualitySettings, RASM_BRIDGE_SLUG, YAK_DISTRIBUTION_GLOB, YAK_PLATFORM
 
 
@@ -163,8 +162,12 @@ def _finish(
                 "refresh": lambda: client_refresh(settings, scope),
             }
             steps = _PACKAGE_STEPS.get((mode, slug == RASM_BRIDGE_SLUG), ())
-            prelude = build_client(settings, scope) if _CLIENT_STEPS.intersection(steps) else Ok(None)
-            return prelude.bind(lambda _: fold(steps, None, lambda _, kind: step[kind]()))
+
+            def run_steps() -> Result[None, ProcessFault]:
+                prelude = build_client(settings, scope) if _CLIENT_STEPS.intersection(steps) else Ok(None)
+                return prelude.bind(lambda _: fold(steps, None, lambda _, kind: step[kind]()))
+
+            return with_bridge_lease(settings, run_steps) if _CLIENT_STEPS.intersection(steps) else run_steps()
         case unreachable:
             assert_never(unreachable)
 
@@ -184,8 +187,7 @@ def _stage(settings: QualitySettings, scope: ArtifactScope, project: Path, slug:
             # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=atomic-package-stage — flock + rotate package_dir to previous before os.replace.
             lock = meta.package_dir.with_name(f".{meta.package_dir.name}.lock")
             try:
-                with lock.open(mode="w", encoding="utf-8") as guard:
-                    fcntl.flock(guard.fileno(), fcntl.LOCK_EX)
+                with exclusive_lease(lock, f"resource=package-stage\nrun_id={settings.run_id}\nslug={slug}\n"):
                     shutil.rmtree(previous, ignore_errors=True)
                     match meta.package_dir.exists():
                         case True:
@@ -195,6 +197,11 @@ def _stage(settings: QualitySettings, scope: ArtifactScope, project: Path, slug:
                     stage.replace(meta.package_dir)
                     shutil.rmtree(previous, ignore_errors=True)
                     return Ok(PackageArtifact(meta.package_dir, meta))
+            except ResourceBusyError as exc:
+                shutil.rmtree(stage, ignore_errors=True)
+                return Error(
+                    ProcessFault.fail("package", "stage", detail=f"package stage lock is already held: {exc.lock}\n{exc.owner}", returncode=5)
+                )
             except OSError as exc:
                 match previous.exists() and not meta.package_dir.exists():
                     case True:

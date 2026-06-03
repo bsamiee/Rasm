@@ -5,7 +5,7 @@ Flag any reintroduction of these patterns in code, docs, or comments. Do not dup
 ## Bridge operator
 
 - Use `uv run python -m tools.quality bridge verify <path-or-glob>` for runtime proof.
-- Use `uv run python -m tools.quality static check` for managed cleanup.
+- Use `uv run python -m tools.quality static fix` for managed cleanup.
 - Use `uv run python -m tools.quality static build|full` for compile/analyzer proof.
 - Use `uv run python -m tools.quality test run [<filter>]` for managed MTP unit tests.
 - Use `uv run python -m tools.quality test run --mutation changed|full` for explicit mutation.

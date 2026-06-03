@@ -41,7 +41,7 @@ public partial record RepaintRequest {
                 None: () => { canvas.Invalidate(); return unit; })),
             regionCase: static (s, r) => s.Canvas.IfSome(canvas => canvas.Invalidate(rect: GrasshopperUi.ControlSpace(canvas: canvas, bounds: r.Bounds))),
             canvasCase: static (s, _) => s.Canvas.IfSome(static canvas => canvas.Invalidate()),
-            scheduledCase: static (s, _) => s.Canvas.IfSome(static canvas => canvas.ScheduleRedraw()),
+            scheduledCase: static (s, sc) => s.Canvas.IfSome(canvas => Redraw(canvas: canvas, delay: sc.Delay)),
             solutionCase: static (s, op) => s.Document.IfSome(static doc => { _ = doc.Solution.Start(mode: SolutionMode.Regular); return unit; }),
             displayCase: static (s, _) => s.Document.IfSome(static doc => { doc.Display.UpdateDisplay(); return unit; }),
             solutionAndDisplayCase: static (s, op) => s.Document.IfSome(static doc => {
@@ -70,12 +70,32 @@ public partial record RepaintRequest {
             (SolutionCase, _) or (_, SolutionCase) => Solution,
             (DisplayCase, _) or (_, DisplayCase) => Display,
             (CanvasCase, _) or (_, CanvasCase) => Canvas,
-            (ScheduledCase l, ScheduledCase r) => new ScheduledCase(Delay: r.Delay | l.Delay),
+            (ScheduledCase l, ScheduledCase r) => new ScheduledCase(
+                Delay: (l.Delay, r.Delay) switch {
+                    ( { IsSome: true, Case: TimeSpan ld }, { IsSome: true, Case: TimeSpan rd }) => Some(ld < rd ? ld : rd),
+                    _ => l.Delay | r.Delay,
+                }),
             (ScheduledCase, _) or (_, ScheduledCase) => Scheduled,
             (RegionCase l, RegionCase r) => Region(bounds: RectangleF.Union(l.Bounds, r.Bounds)),
             (ObjectCase l, ObjectCase r) when l.Id == r.Id => left,
             _ => Canvas,
         };
+
+    private static Unit Redraw(GhCanvas canvas, Option<TimeSpan> delay) =>
+        delay is { IsSome: true, Case: TimeSpan wait } && wait > TimeSpan.Zero
+            ? Defer(canvas: canvas, wait: wait)
+            : Op.Side(canvas.ScheduleRedraw);
+
+    // BOUNDARY ADAPTER — GH2 exposes no delayed-redraw entry; a one-shot timer defers the arg-less ScheduleRedraw and
+    // marshals it back to the UI thread (mirrors SolutionControl.Start's discarded fire-and-forget continuation).
+    private static Unit Defer(GhCanvas canvas, TimeSpan wait) {
+        _ = Task.Delay(delay: wait, timeProvider: TimeProvider.System, cancellationToken: CancellationToken.None).ContinueWith(
+            _ => GrasshopperUi.OnUiThread(run: () => { canvas.ScheduleRedraw(); return Fin.Succ(value: unit); }, cancellation: CancellationToken.None).Ignore(),
+            cancellationToken: CancellationToken.None,
+            continuationOptions: TaskContinuationOptions.ExecuteSynchronously,
+            scheduler: TaskScheduler.Default);
+        return unit;
+    }
 }
 
 [SmartEnum<int>]
@@ -441,9 +461,6 @@ public static class GhUi {
     public static GrasshopperUiIntent<WireResult> Wire(WireOp op) => new(op: op);
     public static GrasshopperUiIntent<CanvasChromeResult> CanvasChrome(CanvasChromeOp op) => new(op: op);
     public static GrasshopperUiIntent<Subscription> Event(UiEvent uiEvent) => new(op: uiEvent);
-    public static GrasshopperUiIntent<CanvasChromeResult> Tooltip(TooltipOp op) => CanvasChrome(CanvasChromeOp.Tooltip(op: op));
-    public static GrasshopperUiIntent<CanvasChromeResult> FloatingButton(FloatingButtonOp op) => CanvasChrome(CanvasChromeOp.FloatingButton(op: op));
-    public static GrasshopperUiIntent<CanvasChromeResult> Interaction(InteractionOp op) => CanvasChrome(CanvasChromeOp.Interaction(op: op));
 
     public static GrasshopperUiIntent<T> Group<T>(string verb, string noun, GrasshopperUiIntent<T> body) =>
         Optional(body).Match(

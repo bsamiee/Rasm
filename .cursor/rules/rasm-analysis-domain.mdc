@@ -29,4 +29,4 @@ Read `libs/csharp/Rasm/AGENTS.md` before edits.
 
 ## Validation
 
-Run `uv run python -m tools.quality static check` for cleanup. Add `uv run python -m tools.quality static build` for compile/analyzer proof and `uv run python -m tools.quality test run` when behavior or test oracles change.
+Run `uv run python -m tools.quality static fix [paths...]` for cleanup. Add `uv run python -m tools.quality static build [paths...]` for compile/analyzer proof and `uv run python -m tools.quality test run --no-build` after a successful static build when behavior or test oracles change.

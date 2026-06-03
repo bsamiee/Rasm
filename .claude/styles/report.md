@@ -79,7 +79,7 @@ Universal output format for agents synthesizing multi-source information into ac
 - [ALWAYS] Order sections by weight descending (CRITICAL first).
 - [ALWAYS] Include SOURCES section for traceability.
 - [ALWAYS] Mark pass-through sections with `[PASS]` qualifier.
-- [NEVER] Include meta-commentary, hedging, or stopwords.
+- [NEVER] Include meta-commentary or hedging; keep prose concise and domain-specific.
 - [NEVER] Exceed token budget.
 
 ---

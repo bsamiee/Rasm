@@ -15,7 +15,7 @@ Scenario.Run("ui-paint", CAPTURE_PATH, (key, facts) => {
 
     // Text + stroke + solid box + segmented curve (Line/Arc/Bezier) + radial-fill box: the full screen-space mark surface.
     UiHud hud = UiHud.Empty
-        .Add(new UiMark.Text(Value: "rasm-hud", At: new System.Drawing.PointF(8f, 8f), Color: System.Drawing.Color.White, Font: UiFont.Of("Arial", 14f)))
+        .Add(new UiMark.Text(Value: "rasm-hud", At: new System.Drawing.PointF(8f, 8f), Color: System.Drawing.Color.White, Font: UiFont.Family("Arial", 14f)))
         .Add(new UiMark.Stroke(From: new System.Drawing.PointF(8f, 28f), To: new System.Drawing.PointF(168f, 28f), Pen: UiStroke.Of(System.Drawing.Color.Cyan, 2f)))
         .Add(new UiMark.Box(Bounds: new System.Drawing.Rectangle(8, 36, 160, 48), Outline: UiStroke.Of(System.Drawing.Color.Yellow, 1f), Fill: new UiFill.Solid(System.Drawing.Color.FromArgb(48, 48, 48))))
         .Add(new UiMark.Curve(

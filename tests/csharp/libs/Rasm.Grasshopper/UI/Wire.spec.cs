@@ -117,7 +117,7 @@ public sealed class WireQueryAndPolicyLaws {
         WireSnapshot.ConnectedCase wire = new(Source: source, Target: target, SourceResolved: true, TargetResolved: true, Connected: true, Selected: false);
         WireOp[] documentQueries = [WireOp.Query(WireQuery.All)];
         WireOp[] canvasQueries = [WireOp.InstallShape(shapeType: typeof(object))];
-        WireOp[] canvasHooks = [WireOp.Overlay(style: new WireOverlayStyle(Style: PaintStyle.ForTransparent())), WireOp.WirePaintObserve()];
+        WireOp[] canvasHooks = [WireOp.Overlay(style: new WireOverlayStyle(Style: PaintStyle.Style(edge: Colors.Transparent))), WireOp.WirePaintObserve()];
         WireOp[] mutating = [WireOp.Select(WireSelectionOp.DeselectAll), WireOp.Split(wire: wire, location: PointF.Empty), WireOp.Edit(wire: wire, edit: WireEdit.Disconnect), WireOp.EditBatch((wire, WireEdit.Disconnect, default))];
         Assert.All(collection: documentQueries, action: op => {
             GrasshopperUiPolicy policy = GhUi.Wire(op: op).Policy;
@@ -176,8 +176,8 @@ public sealed class WireOverlayStyleLaws {
         Guid selectedId = Guid.NewGuid();
         WireDrawnEntry selected = new(SourceId: selectedId, TargetId: Guid.NewGuid(), Kind: default, Bounds: RectangleF.Empty);
         WireDrawnEntry normal = selected with { SourceId = Guid.NewGuid() };
-        PaintStyle fallback = PaintStyle.ForTransparent();
-        PaintStyle highlight = PaintStyle.ForEdge(edge: Colors.Red, thickness: 4f);
+        PaintStyle fallback = PaintStyle.Style(edge: Colors.Transparent);
+        PaintStyle highlight = PaintStyle.Style(edge: Colors.Red, thickness: 4f);
         WireOverlayStyle style = new(Style: fallback, Select: Some<Func<WireDrawnEntry, PaintStyle>>(entry => entry.SourceId == selectedId ? highlight : fallback));
 
         Assert.Equal(expected: highlight, actual: style.For(entry: selected));

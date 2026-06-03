@@ -111,17 +111,18 @@ public sealed partial class EmitterProfile {
     public float LifetimeRangeRatio { get; }
     public float VelocityRangeRatio { get; }
     public float ScaleRangeRatio { get; }
-    // SpinRangeRatio owns spin spread; AccelerationX/Y/Z are per-cell gravity (px/s², +Y down in CA layer space).
+    // SpinRange owns absolute spin spread (rad/s variance); AccelerationX/Y/Z are per-cell gravity (px/s², +Y down in CA layer space).
     // Render is compositing mode; Additive blooms overlapping sparks toward white.
-    public float SpinRangeRatio { get; }
+    public float SpinRange { get; }
     public float AccelerationX { get; }
     public float AccelerationY { get; }
     public float AccelerationZ { get; }
     public EmitterRenderMode Render { get; }
 
-    public static readonly EmitterProfile Spark = new(key: 0, scale: 0.2f, scaleSpeed: -0.12f, alphaSpeed: -0.7f, colorRange: 0.1f, lifetimeRangeRatio: 0.3f, velocityRangeRatio: 0.5f, scaleRangeRatio: 0.5f, spinRangeRatio: 0.8f, accelerationX: 0f, accelerationY: 60f, accelerationZ: 0f, render: EmitterRenderMode.Additive);
-    public static readonly EmitterProfile Smoke = new(key: 1, scale: 0.5f, scaleSpeed: 0.4f, alphaSpeed: -0.5f, colorRange: 0.05f, lifetimeRangeRatio: 0.5f, velocityRangeRatio: 0.3f, scaleRangeRatio: 0.4f, spinRangeRatio: 0.2f, accelerationX: 0f, accelerationY: -20f, accelerationZ: 0f, render: EmitterRenderMode.Unordered);
-    public static readonly EmitterProfile Confetti = new(key: 2, scale: 0.3f, scaleSpeed: -0.05f, alphaSpeed: -0.4f, colorRange: 0.4f, lifetimeRangeRatio: 0.4f, velocityRangeRatio: 0.7f, scaleRangeRatio: 0.6f, spinRangeRatio: 1.2f, accelerationX: 0f, accelerationY: 120f, accelerationZ: 0f, render: EmitterRenderMode.BackToFront);
+    // SpinRange is absolute rad/s variance; per-profile values approximate the prior |Spin|*ratio defaults (Spark 4.8, Smoke 0.4, Confetti 2.4) and should be recalibrated against captured emitter spin spread.
+    public static readonly EmitterProfile Spark = new(key: 0, scale: 0.2f, scaleSpeed: -0.12f, alphaSpeed: -0.7f, colorRange: 0.1f, lifetimeRangeRatio: 0.3f, velocityRangeRatio: 0.5f, scaleRangeRatio: 0.5f, spinRange: 4.8f, accelerationX: 0f, accelerationY: 60f, accelerationZ: 0f, render: EmitterRenderMode.Additive);
+    public static readonly EmitterProfile Smoke = new(key: 1, scale: 0.5f, scaleSpeed: 0.4f, alphaSpeed: -0.5f, colorRange: 0.05f, lifetimeRangeRatio: 0.5f, velocityRangeRatio: 0.3f, scaleRangeRatio: 0.4f, spinRange: 0.4f, accelerationX: 0f, accelerationY: -20f, accelerationZ: 0f, render: EmitterRenderMode.Unordered);
+    public static readonly EmitterProfile Confetti = new(key: 2, scale: 0.3f, scaleSpeed: -0.05f, alphaSpeed: -0.4f, colorRange: 0.4f, lifetimeRangeRatio: 0.4f, velocityRangeRatio: 0.7f, scaleRangeRatio: 0.6f, spinRange: 2.4f, accelerationX: 0f, accelerationY: 120f, accelerationZ: 0f, render: EmitterRenderMode.BackToFront);
 }
 
 // CALayer.CompositingFilter blend, resolved via CIFilter.FromName. FilterName is the Core Image filter the
@@ -209,8 +210,10 @@ public partial record CosmeticIntent {
     private CosmeticIntent() { }
     public Option<Func<Unit>> Completion { get; init; }
     public Option<Easing> Keyframe { get; init; }
-    // GPU spring reuses SpringConfig but always starts from rest; it does not carry CPU runner velocity.
+    // GPU spring reuses SpringConfig; SpringInitialVelocity (default None => rest) seeds CASpringAnimation.InitialVelocity
+    // so a fling/hand-off can launch the GPU layer with the CPU runner's live velocity instead of from rest.
     public Option<SpringConfig> Spring { get; init; }
+    public Option<float> SpringInitialVelocity { get; init; }
     // EDR opt-in requests headroom/tone-mapping and routes glow/gradient colours through Display P3; Disabled stays sRGB.
     public EdrPolicy EdrMode { get; init; } = EdrPolicy.Disabled;
     // Co-animation opt-in (additive, default None): the child intents' animations are grouped onto the SAME
@@ -264,6 +267,8 @@ public partial record CosmeticIntent {
     // Drawing-on glyph folds all IAnimatedStroke endpoints into one CAShapeLayer.Path; arcs degrade to chords at the macOS boundary.
     public sealed record GlyphCase(Seq<IAnimatedStroke> Strokes, PointF Origin, Color Tint, float Thickness, GhDuration Duration, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
     // Path morph animates the CGPath-valued "path" key; matched vertex counts produce the clean tween.
+    // PathAnimation routes through CAMediaTimingFunction, so only the four basic easings (Linear/EaseIn/EaseOut/
+    // EaseInOut) map cleanly — richer Penner curves cannot be sampled on a CGPath key, so validation rejects them.
     public sealed record PathMorphCase(CGPath From, CGPath To, RectangleF Bounds, Color Tint, float Thickness, GhDuration Duration, GhMotion Easing = GhMotion.EaseInOut) : CosmeticIntent;
 
     // Glyph cosmetic consumes raw Glyph.* strokes; AnimatedPath factories stay on the Stroke drawer.
@@ -281,6 +286,19 @@ public partial record CosmeticIntent {
             BirthRate: birthRate, Lifetime: lifetime, Velocity: velocity,
             EmissionRange: emissionRange.IfNone(MathF.Tau), EmissionLongitude: emissionLongitude.IfNone(0f), Spin: spin.IfNone(0f),
             Palette: palette, Easing: easing);
+}
+
+internal static class CosmeticIntentDiscriminators {
+    // HapticCase carries no CALayer; every other case routes through the shared visual-attach path.
+    extension(CosmeticIntent intent) {
+        internal bool IsHaptic =>
+            intent.Map(
+                pulseCase: false, glowCase: false, strokeOnCase: false,
+                gradientCase: false, textLayerCase: false, replicatorCase: false,
+                emitterCase: false, snapGuideCase: false, vibrancyCase: false,
+                filterCase: false, glyphCase: false, pathMorphCase: false,
+                hapticCase: true);
+    }
 }
 
 // The three FlexControl.Navigate targets: a point, a frame, or a semantic CanvasPosition. CanvasPosition owns the
@@ -1113,7 +1131,7 @@ public static class Motion {
                 // Reduce-motion collapses the tween to an Abrupt (0ms) host frame; the Point case additionally snaps
                 // the document projection so the persisted centre/zoom matches the host's framing immediately.
             let effectiveDuration = MotionAccessibility.ShouldReduceMotion ? GhDuration.Abrupt : duration
-            let navigation = (Canvas: canvas, Document: document, Min: validMin, Max: validMax, Duration: duration, Effective: effectiveDuration)
+            let navigation = (Canvas: canvas, Document: document, Min: validMin, Max: validMax, Effective: effectiveDuration)
             from result in target.Switch(
                 state: navigation,
                 pointCase: static (s, p) =>
@@ -1126,7 +1144,7 @@ public static class Motion {
                             return unit;
                         }, what: "navigate reduce-motion snap")
                         ,
-                        false => Op.Of(name: nameof(Navigate)).Attempt(body: () => { s.Canvas.Navigate(point: validCentre, zoomLimits: (s.Min, s.Max), duration: s.Duration); return unit; }, what: "navigate"),
+                        false => Op.Of(name: nameof(Navigate)).Attempt(body: () => { s.Canvas.Navigate(point: validCentre, zoomLimits: (s.Min, s.Max), duration: s.Effective); return unit; }, what: "navigate"),
                     }
                     select unit,
                 frameCase: static (s, f) =>
@@ -1304,13 +1322,16 @@ public static class Motion {
                 Op op = Op.Of(name: nameof(CosmeticIntent.PathMorphCase));
                 return op.AcceptRect(value: pm.Bounds, detail: "non-finite path-morph bounds")
                     .Bind(_ => op.AcceptFinite(value: pm.Thickness, detail: "non-positive thickness", requirePositive: true))
+                    .Bind(_ => guard(pm.Easing is GhMotion.Linear or GhMotion.EaseIn or GhMotion.EaseOut or GhMotion.EaseInOut, (Error)UiFault.InvalidInput(op: op, detail: $"path morph supports only basic timing (Linear/EaseIn/EaseOut/EaseInOut); got {pm.Easing}")).ToFin())
                     .Map<CosmeticIntent>(_ => pm with { Bounds = MapCosmeticRect(canvas: c, bounds: pm.Bounds) });
             },
             filterCase: static (c, f) => {
                 Op op = Op.Of(name: nameof(CosmeticIntent.FilterCase));
                 return op.AcceptRect(value: f.Bounds, detail: "non-finite filter bounds")
                     .Bind(_ => op.AcceptFinite(value: f.Saturation, detail: "non-finite saturation", nonNegative: true))
+                    .Bind(_ => guard(f.Saturation <= 2f, (Error)UiFault.InvalidInput(op: op, detail: $"CIColorControls saturation must lie in [0,2] (got {f.Saturation:R})")).ToFin())
                     .Bind(_ => op.AcceptFinite(value: f.Brightness, detail: "non-finite brightness"))
+                    .Bind(_ => guard(f.Brightness is >= -1f and <= 1f, (Error)UiFault.InvalidInput(op: op, detail: $"CIColorControls brightness must lie in [-1,1] (got {f.Brightness:R})")).ToFin())
                     .Map<CosmeticIntent>(_ => f with { Bounds = MapCosmeticRect(canvas: c, bounds: f.Bounds) });
             },
             hapticCase: static (_, h) => Fin.Succ<CosmeticIntent>(h),
@@ -1414,36 +1435,30 @@ public static class Motion {
     private static RectangleF MapCosmeticRect(Grasshopper2.UI.Canvas.Canvas canvas, RectangleF bounds) =>
         canvas.Map(rectangle: bounds, from: CoordinateSystem.Content, to: CoordinateSystem.Control);
 
-    // BOUNDARY ADAPTER — Span-indexed fill drops the Seq+Map+ToArray allocation chain; canvas.Map projects each vertex content->control.
-    private static ReadOnlyMemory<PointF> MapCosmeticPolyline(Grasshopper2.UI.Canvas.Canvas canvas, ReadOnlyMemory<PointF> polyline) {
-        ReadOnlySpan<PointF> source = polyline.Span;
-        PointF[] mapped = new PointF[source.Length];
-        for (int i = 0; i < source.Length; i++) {
-            mapped[i] = canvas.Map(point: source[i], from: CoordinateSystem.Content, to: CoordinateSystem.Control);
-        }
-        return mapped;
-    }
+    private static ReadOnlyMemory<PointF> MapCosmeticPolyline(Grasshopper2.UI.Canvas.Canvas canvas, ReadOnlyMemory<PointF> polyline) =>
+        toSeq(MemoryMarshal.ToEnumerable(polyline))
+            .Map(point => canvas.Map(point: point, from: CoordinateSystem.Content, to: CoordinateSystem.Control))
+            .ToArray();
 
-    // Haptic is non-visual; every decorative case resolves the host CALayer or returns a typed fault.
+    // Haptic is non-visual; every decorative case resolves the host CALayer or returns a typed fault. IsHaptic collapses
+    // the twelve identical visual arms into one boolean dispatch (Motion-Q5).
     [SupportedOSPlatform("macos14.0")]
     private static Fin<Unit> CosmeticAttach(NSView view, CosmeticIntent intent, NSString key) {
         Op op = Op.Of(name: nameof(CosmeticAttach));
-        Fin<Unit> runCompletion(CosmeticIntent target) =>
-            Op.Side(() => target.Completion.IfSome(static run => run())) switch { _ => Fin.Succ(unit) };
-        Fin<Unit> visualPath(CosmeticIntent decorative) {
+        Fin<Unit> runCompletion() =>
+            Op.Side(() => intent.Completion.IfSome(static run => run())) switch { _ => Fin.Succ(unit) };
+        Fin<Unit> visualPath() {
             _ = Op.Side(() => view.WantsLayer = true);
             return Optional(view.Layer).ToFin(Fail: UiFault.MutationRejected(op: op, detail: "host layer absent"))
                 .Bind(host => MotionAccessibility.ShouldSkipDecorativeMotion
-                    ? runCompletion(decorative)
-                    : AttachDecorative(host: host, view: view, intent: decorative, key: key));
+                    ? runCompletion()
+                    : AttachDecorative(host: host, view: view, intent: intent, key: key));
         }
-        return intent.Switch(
-            pulseCase: (Func<CosmeticIntent, Fin<Unit>>)visualPath, glowCase: (Func<CosmeticIntent, Fin<Unit>>)visualPath, strokeOnCase: (Func<CosmeticIntent, Fin<Unit>>)visualPath,
-            gradientCase: (Func<CosmeticIntent, Fin<Unit>>)visualPath, textLayerCase: (Func<CosmeticIntent, Fin<Unit>>)visualPath, replicatorCase: (Func<CosmeticIntent, Fin<Unit>>)visualPath,
-            emitterCase: (Func<CosmeticIntent, Fin<Unit>>)visualPath, snapGuideCase: (Func<CosmeticIntent, Fin<Unit>>)visualPath,
-            vibrancyCase: (Func<CosmeticIntent, Fin<Unit>>)visualPath, filterCase: (Func<CosmeticIntent, Fin<Unit>>)visualPath,
-            glyphCase: (Func<CosmeticIntent, Fin<Unit>>)visualPath, pathMorphCase: (Func<CosmeticIntent, Fin<Unit>>)visualPath,
-            hapticCase: h => Op.Side(() => PerformHaptic(pattern: h.Pattern)) switch { _ => runCompletion(h) });
+        // IsHaptic is the single discriminant; the typed pattern surfaces the Pattern payload on the haptic arm only.
+        return (intent.IsHaptic, intent) switch {
+            (true, CosmeticIntent.HapticCase haptic) => Op.Side(() => PerformHaptic(pattern: haptic.Pattern)) switch { _ => runCompletion() },
+            _ => visualPath(),
+        };
     }
 
     [SupportedOSPlatform("macos14.0")]
@@ -1545,8 +1560,7 @@ public static class Motion {
         CAShapeLayer shape = new() {
             Frame = rect,
             Path = path,
-            StrokeColor = ToCGColor(c: glow.Tint, space: space),
-            LineWidth = 0f,
+            FillColor = null,
             CornerRadius = glow.CornerRadius,
             BorderWidth = glow.BorderWidth,
             ShadowColor = ToCGColor(c: glow.Tint, space: space),
@@ -1648,7 +1662,7 @@ public static class Motion {
             Opacity = 0f,
         };
         _ = gradient.Points.Locations.IfSome(locations =>
-            layer.Locations = [.. toSeq(locations.Span.ToArray()).Map(static stop => NSNumber.FromFloat(stop))]);
+            layer.Locations = [.. toSeq(MemoryMarshal.ToEnumerable(locations)).Map(static stop => NSNumber.FromFloat(stop))]);
         return layer;
     }
 
@@ -1692,27 +1706,23 @@ public static class Motion {
         };
         _ = replicate.InstanceColour.IfSome(colour => inner.InstanceColor = ToCGColor(c: colour, space: space));
         inner.AddSublayer(layer: source);
+        // CountY>1 nests the opaque inner row under an outer Y-tiling replicator whose own opacity drives the animation;
+        // the 1D row drives opacity directly.
+        static CAReplicatorLayer Nest(CAReplicatorLayer outer, CAReplicatorLayer row) {
+            row.Opacity = 1f;
+            outer.AddSublayer(layer: row);
+            return outer;
+        }
         return replicate.CountY > 1
-            ? OuterReplicatorGrid(inner: inner, rect: rect, countY: replicate.CountY, spacingY: replicate.SpacingY)
-            : WithOpacity(layer: inner);
-    }
-
-    [SupportedOSPlatform("macos14.0")]
-    private static CAReplicatorLayer OuterReplicatorGrid(CAReplicatorLayer inner, CGRect rect, int countY, float spacingY) {
-        inner.Opacity = 1f;
-        CAReplicatorLayer outer = new() {
-            Frame = rect,
-            InstanceCount = countY,
-            InstanceTransform = CATransform3D.MakeTranslation(tx: 0, ty: spacingY, tz: 0),
-            Opacity = 0f,
-        };
-        outer.AddSublayer(layer: inner);
-        return outer;
-    }
-
-    private static CAReplicatorLayer WithOpacity(CAReplicatorLayer layer) {
-        layer.Opacity = 0f;
-        return layer;
+            ? Nest(
+                new CAReplicatorLayer {
+                    Frame = rect,
+                    InstanceCount = replicate.CountY,
+                    InstanceTransform = CATransform3D.MakeTranslation(tx: 0, ty: replicate.SpacingY, tz: 0),
+                    Opacity = 0f,
+                },
+                inner)
+            : Op.Side(() => inner.Opacity = 0f) switch { _ => inner };
     }
 
     [SupportedOSPlatform("macos14.0")]
@@ -1731,7 +1741,7 @@ public static class Motion {
                 EmissionRange = emit.EmissionRange,
                 EmissionLongitude = emit.EmissionLongitude,
                 Spin = emit.Spin,
-                SpinRange = MathF.Abs(emit.Spin) * profile.SpinRangeRatio,
+                SpinRange = profile.SpinRange,
                 Scale = profile.Scale,
                 ScaleRange = profile.Scale * profile.ScaleRangeRatio,
                 ScaleSpeed = profile.ScaleSpeed,
@@ -1825,8 +1835,10 @@ public static class Motion {
         CAShapeLayer shape = new() { Frame = ToCGRect(frame), FillColor = null, Opacity = 0f };
         // One stroke sublayer per axis; the parent stays path-less so parent opacity is the only animated alpha.
         _ = Seq((IsX: true, Style: xStyle), (IsX: false, Style: yStyle))
-            .Map(axis => SnapAxisStroke(lines: axisLines.Filter(entry => entry.IsX == axis.IsX).Map(static entry => entry.Line), style: axis.Style, frame: frame))
-            .Iter(stroke => stroke.IfSome(shape.AddSublayer));
+            .Choose(axis => axisLines.Filter(entry => entry.IsX == axis.IsX).Map(static entry => entry.Line) is { IsEmpty: false } lines
+                ? Some(BuildAxisStroke(axis: lines, style: axis.Style, frame: frame))
+                : Option<CAShapeLayer>.None)
+            .Iter(shape.AddSublayer);
         // X/Y labels stay independent; Anchor drives alignment and frame-origin shift.
         _ = Seq((Label: guide.Snapshot.XLabel, Style: xStyle), (Label: guide.Snapshot.YLabel, Style: yStyle))
             .Map(channel => channel.Label.Map(label => (Label: label, channel.Style)))
@@ -1854,14 +1866,6 @@ public static class Motion {
     // Empty dashes render solid; non-empty dashes use square caps, round joins, and optional marching animation.
     // BOUNDARY ADAPTER — the parent snap-guide layer owns returned sublayers until detach/completion.
     [SupportedOSPlatform("macos14.0")]
-    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope",
-        Justification = "CAShapeLayer ownership transfers to the parent snap-guide CALayer via AddSublayer; lifecycle is the superlayer's.")]
-    private static Option<CAShapeLayer> SnapAxisStroke(Seq<LineF> lines, SnapGuideStyle style, RectangleF frame) =>
-        lines.IsEmpty
-            ? Option<CAShapeLayer>.None
-            : Some(BuildAxisStroke(axis: lines, style: style, frame: frame));
-
-    [SupportedOSPlatform("macos14.0")]
     private static CAShapeLayer BuildAxisStroke(Seq<LineF> axis, SnapGuideStyle style, RectangleF frame) {
         CGPath path = new();
         _ = axis.Iter(line => {
@@ -1878,15 +1882,17 @@ public static class Motion {
             LineCap = CAShapeLayer.CapSquare,
             LineJoin = CAShapeLayer.JoinRound,
         };
-        _ = style.Dashes.Length > 0
-            ? Op.Side(() => stroke.LineDashPattern = [.. toSeq(style.Dashes.ToArray()).Map(static d => NSNumber.FromFloat(d))])
-            : unit;
+        Seq<float> dashes = toSeq(MemoryMarshal.ToEnumerable(style.Dashes));
+        float dashPeriod = dashes.Fold(0f, static (sum, d) => sum + d);
+        _ = dashes.IsEmpty
+            ? unit
+            : Op.Side(() => stroke.LineDashPattern = [.. dashes.Map(static d => NSNumber.FromFloat(d))]);
         // Marching ants: an infinite lineDashPhase animation crawling one full DashedPattern period.
-        _ = style.Marching && style.Dashes.Length > 0
+        _ = style.Marching && !dashes.IsEmpty
             ? Op.Side(() => {
                 CABasicAnimation march = CABasicAnimation.FromKeyPath(path: "lineDashPhase");
                 march.From = NSNumber.FromFloat(style.DashPhase);
-                march.To = NSNumber.FromFloat(style.DashPhase + toSeq(style.Dashes.ToArray()).Fold(0f, static (sum, d) => sum + d));
+                march.To = NSNumber.FromFloat(style.DashPhase + dashPeriod);
                 march.Duration = Animators.DurationToTimeSpan(duration: style.Duration).TotalSeconds;
                 march.RepeatCount = float.PositiveInfinity;
                 stroke.AddAnimation(animation: march, key: "rasm.snap.march");
@@ -1915,14 +1921,16 @@ public static class Motion {
     // Reduce-motion short-circuits upstream; plain curves map to CAMediaTimingFunction.
     // Rich curves and manual Keyframe use sampled CAKeyFrameAnimation over [0,1].
     [SupportedOSPlatform("macos14.0")]
-    private static CAPropertyAnimation PropertyAnimation(string path, GhDuration duration, float from, float to, GhMotion easing, Option<Easing> keyframe, Option<SpringConfig> spring, Option<CAFrameRateRange> rate) {
-        CAPropertyAnimation animation = spring is { IsSome: true, Case: SpringConfig config }
-            ? SpringAnimation(path: path, from: from, to: to, config: config)
-            : keyframe is { IsSome: true, Case: Easing curve }
-                ? SampleKeyframe(path: path, duration: Animators.DurationToTimeSpan(duration: duration).TotalSeconds, from: from, to: to, curve: curve.Apply)
-                : BasicTiming(easing: easing)
-                    ? BasicAnimation(path: path, duration: duration, from: from, to: to, easing: easing)
-                    : SampleKeyframe(path: path, duration: Animators.DurationToTimeSpan(duration: duration).TotalSeconds, from: from, to: to, curve: t => MotionEquations.Blend(motion: easing, parameter: t));
+    private static CAPropertyAnimation PropertyAnimation(string path, GhDuration duration, float from, float to, GhMotion easing, Option<Easing> keyframe, Option<SpringConfig> spring, Option<float> initialVelocity, Option<CAFrameRateRange> rate) {
+        double seconds = Animators.DurationToTimeSpan(duration: duration).TotalSeconds;
+        // Spring wins, then a manual Keyframe curve; otherwise the four media-timing-mappable easings ride the GPU
+        // BasicAnimation and every richer Penner curve falls back to a sampled keyframe over [0,1].
+        CAPropertyAnimation animation = (spring, keyframe, easing) switch {
+            ( { IsSome: true, Case: SpringConfig config }, _, _) => SpringAnimation(path: path, from: from, to: to, config: config, initialVelocity: initialVelocity.IfNone(0f)),
+            (_, { IsSome: true, Case: Easing curve }, _) => SampleKeyframe(path: path, duration: seconds, from: from, to: to, curve: curve.Apply),
+            (_, _, GhMotion.Linear or GhMotion.EaseIn or GhMotion.EaseOut or GhMotion.EaseInOut) => BasicAnimation(path: path, duration: duration, from: from, to: to, easing: easing),
+            _ => SampleKeyframe(path: path, duration: seconds, from: from, to: to, curve: t => MotionEquations.Blend(motion: easing, parameter: t)),
+        };
         _ = rate.IfSome(range => animation.PreferredFrameRateRange = range);
         return animation;
     }
@@ -1938,23 +1946,21 @@ public static class Motion {
     }
 
     [SupportedOSPlatform("macos14.0")]
-    private static CASpringAnimation SpringAnimation(string path, float from, float to, SpringConfig config) {
+    private static CASpringAnimation SpringAnimation(string path, float from, float to, SpringConfig config, float initialVelocity) {
         CASpringAnimation anim = new() {
             KeyPath = path,
             Mass = config.Mass,
             Stiffness = config.Stiffness,
             Damping = config.Damping,
-            // GPU spring launches from rest; the CPU runner's live velocity is not threaded into the GPU layer.
-            InitialVelocity = 0f,
+            // Seeded from CosmeticIntent.SpringInitialVelocity (default 0 => rest); a fling hand-off launches the GPU layer
+            // with the CPU runner's live velocity.
+            InitialVelocity = initialVelocity,
         };
         anim.Duration = anim.SettlingDuration;
         anim.SetFrom(value: NSNumber.FromFloat(from));
         anim.SetTo(value: NSNumber.FromFloat(to));
         return anim;
     }
-
-    private static bool BasicTiming(GhMotion easing) =>
-        easing is GhMotion.Linear or GhMotion.EaseIn or GhMotion.EaseOut or GhMotion.EaseInOut;
 
     // KeyTimes stay unset so Core Animation spreads sampled curve values uniformly across [0,1].
     [SupportedOSPlatform("macos14.0")]
@@ -1993,6 +1999,8 @@ public static class Motion {
     private static T ApplyRepeat<T>(T animation, int cycles, bool yoyo, bool infinite) where T : CAAnimation {
         animation.RepeatCount = infinite ? float.PositiveInfinity : Math.Max(val1: 1, val2: cycles);
         animation.AutoReverses = yoyo;
+        // Hold the terminal frame so a finite repeat does not snap the layer property back to its model value.
+        animation.FillMode = CAFillMode.Forwards.ToString();
         return animation;
     }
 
@@ -2015,6 +2023,7 @@ public static class Motion {
                 : all.Fold(0.0, static (m, a) => Math.Max(m, EffectiveDuration(animation: a))),
             RepeatCount = infinite ? float.PositiveInfinity : 0f,
             RemovedOnCompletion = false,
+            FillMode = CAFillMode.Forwards.ToString(),
         };
     }
 
@@ -2031,7 +2040,7 @@ public static class Motion {
         // PathMorphCase routes CGPath endpoints to a CGPath-valued "path" animation; others use the float spec.
         CAPropertyAnimation animation = intent is CosmeticIntent.PathMorphCase morph
             ? PathAnimation(morph: morph, rate: rate)
-            : PropertyAnimation(path: spec.KeyPath, duration: spec.Duration, from: 0f, to: spec.To, easing: spec.Easing, keyframe: intent.Keyframe, spring: intent.Spring, rate: rate);
+            : PropertyAnimation(path: spec.KeyPath, duration: spec.Duration, from: 0f, to: spec.To, easing: spec.Easing, keyframe: intent.Keyframe, spring: intent.Spring, initialVelocity: intent.SpringInitialVelocity, rate: rate);
         return spec.Repeat ? ApplyRepeat(animation: animation, cycles: spec.Cycles, yoyo: spec.Yoyo, infinite: spec.Infinite) : animation;
     }
 
@@ -2261,9 +2270,6 @@ public static class Motion {
         }
 
         // NSScreen.MinimumRefreshInterval is ProMotion adaptive-sync aware; 1/interval is the actual panel ceiling (60/120/144Hz vary).
-        private const float FallbackRefreshHz = 120f;
-        private const float FloorRefreshHz = 30f;
-
         private static CAFrameRateRange ResolveRange(NSView view, CAFrameRateRange? explicitRate) {
             if (explicitRate is CAFrameRateRange supplied) {
                 return supplied;

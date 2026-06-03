@@ -73,19 +73,9 @@ public sealed partial class DialogPresentation {
             });
 }
 
-[SmartEnum<int>]
-public sealed partial class PanelBehavior {
-    public static readonly PanelBehavior Modal = new(key: 0);
-    public static readonly PanelBehavior Attached = new(key: 1);
-}
-
 [StructLayout(LayoutKind.Auto)]
-public readonly record struct PresentationPolicy(Option<PanelBehavior> Behavior = default) {
-    internal DialogPresentation DialogPresentation =>
-        Behavior.Map(static behavior => behavior.Map(
-            modal: DialogPresentation.Modal,
-            attached: DialogPresentation.AttachedSheet))
-        .IfNone(DialogPresentation.Modal);
+public readonly record struct PresentationPolicy(Option<DialogPresentation> Presentation = default) {
+    internal DialogPresentation DialogPresentation => Presentation.IfNone(DialogPresentation.Modal);
 }
 
 [SmartEnum<int>]
@@ -107,6 +97,72 @@ public sealed partial class FileDialogMode {
 
     [UseDelegateFromConstructor]
     internal partial PathDialogSnapshot Run(Control? parent, PathDialogSpec spec);
+}
+
+[SmartEnum<int>]
+public sealed partial class MenuCommandKind {
+    private delegate Command MenuBuild(ContextMenu menu, UiCommand command, bool checkedState, Func<bool, Fin<Unit>> onChange);
+
+    public static readonly MenuCommandKind Button = new(key: 0, build: static (_, command, _, _) => {
+        Func<Fin<Unit>> run = command.Run;
+        Command etoCommand = new() { ID = command.Name, MenuText = command.Name, ToolBarText = command.Name, ToolTip = command.Info, Enabled = command.EffectiveEnabled() };
+        etoCommand.Executed += (_, _) => _ = GrasshopperUi.Handler(valid: run);
+        return etoCommand;
+    });
+    public static readonly MenuCommandKind Check = new(key: 1, build: static (_menu, command, checkedState, onChange) => {
+        CheckCommand menuCommand = new() { ID = command.Name, MenuText = command.Name, ToolTip = command.Info, Enabled = command.EffectiveEnabled(), Checked = checkedState };
+        menuCommand.Executed += (_, _) => _ = GrasshopperUi.Handler(valid: () => onChange(arg: menuCommand.Checked));
+        return menuCommand;
+    });
+    public static readonly MenuCommandKind Radio = new(key: 2, build: static (menu, command, checkedState, onChange) => {
+        RadioCommand radio = new() {
+            ID = command.Name, MenuText = command.Name, ToolTip = command.Info,
+            Enabled = command.EffectiveEnabled(), Checked = checkedState,
+            Controller = ToolbarItem.RadioControllers.GetValue(key: menu, createValueCallback: static _ => new RadioCommand()),
+        };
+        radio.Executed += (_, _) => _ = GrasshopperUi.Handler(valid: () => onChange(arg: radio.Checked));
+        return radio;
+    });
+
+    [UseDelegateFromConstructor]
+    internal partial Command Build(ContextMenu menu, UiCommand command, bool checkedState, Func<bool, Fin<Unit>> onChange);
+}
+
+[SmartEnum<int>]
+public sealed partial class ToggleKind {
+    private delegate Fin<Unit> BarProjector(Bar bar, UiCommand command, bool checkedState, Func<bool, Fin<Unit>> onChange);
+    private delegate Fin<Unit> MenuProjector(ContextMenu menu, UiCommand command, bool checkedState, Func<bool, Fin<Unit>> onChange);
+
+    public static readonly ToggleKind Toggle = new(
+        key: 0,
+        barProject: static (bar, command, checkedState, onChange) => ProjectBarToggle(op: Op.Of(name: nameof(Toggle)), bar: bar, command: command, checkedState: checkedState, optional: true, onChange: onChange, noun: "toggle"),
+        menuProject: static (menu, command, checkedState, onChange) => ProjectMenuToggle(op: Op.Of(name: nameof(Toggle)), kind: MenuCommandKind.Check, menu: menu, command: command, checkedState: checkedState, onChange: onChange, noun: "toggle"));
+    public static readonly ToggleKind Radio = new(
+        key: 1,
+        barProject: static (bar, command, checkedState, onChange) => ProjectBarToggle(op: Op.Of(name: nameof(Radio)), bar: bar, command: command, checkedState: checkedState, optional: false, onChange: onChange, noun: "radio"),
+        menuProject: static (_, _, _, _) => RejectSurface(item: nameof(Radio), surface: "a context menu"));
+    public static readonly ToggleKind MenuRadio = new(
+        key: 2,
+        barProject: static (_, _, _, _) => RejectSurface(item: nameof(MenuRadio), surface: "a toolbar"),
+        menuProject: static (menu, command, checkedState, onChange) => ProjectMenuToggle(op: Op.Of(name: nameof(MenuRadio)), kind: MenuCommandKind.Radio, menu: menu, command: command, checkedState: checkedState, onChange: onChange, noun: "radio"));
+
+    [UseDelegateFromConstructor]
+    internal partial Fin<Unit> BarProject(Bar bar, UiCommand command, bool checkedState, Func<bool, Fin<Unit>> onChange);
+    [UseDelegateFromConstructor]
+    internal partial Fin<Unit> MenuProject(ContextMenu menu, UiCommand command, bool checkedState, Func<bool, Fin<Unit>> onChange);
+
+    private static Fin<Unit> ProjectBarToggle(Op op, Bar bar, UiCommand command, bool checkedState, bool optional, Func<bool, Fin<Unit>> onChange, string noun) =>
+        from changed in op.NeedChanged(onChange, noun: noun)
+        from added in op.Attempt(body: () => ToolbarItem.AddRadioToggle(bar: bar, command: command, state: checkedState, optional: optional, changed: changed), what: $"{noun} toggle")
+        select added;
+
+    private static Fin<Unit> ProjectMenuToggle(Op op, MenuCommandKind kind, ContextMenu menu, UiCommand command, bool checkedState, Func<bool, Fin<Unit>> onChange, string noun) =>
+        from changed in op.NeedChanged(onChange, noun: noun)
+        from added in op.Attempt(body: () => UiCommand.BindMenu(kind: kind, menu: menu, command: command, checkedState: checkedState, onChange: changed), what: $"menu {noun}")
+        select added;
+
+    private static Fin<Unit> RejectSurface(string item, string surface) =>
+        Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{item} cannot be projected to {surface}"));
 }
 
 [SkipUnionOps]
@@ -257,9 +313,14 @@ public abstract partial record FormField {
         internal override object Capture(Control control) =>
             control switch {
                 NumericStepper stepper => stepper.Value,
-                TextBox box => double.Parse(s: box.Text, provider: CultureInfo.InvariantCulture),
+                TextBox box => ParseText(text: box.Text),
                 _ => Value,
             };
+        // BOUNDARY ADAPTER — free-text NumericStepper fallback must not throw; reject invalid input back to Value.
+        private double ParseText(string text) =>
+            double.TryParse(s: text, style: NumberStyles.Float | NumberStyles.AllowLeadingSign, provider: CultureInfo.InvariantCulture, result: out double parsed)
+                ? parsed
+                : Value;
     }
     public sealed record Choice(string Key, string Label, Seq<string> Options, int Selected = 0) : FormField(Key, Label) {
         internal override Control Render() {
@@ -290,16 +351,6 @@ public abstract partial record FormField {
         }
         internal override object Capture(Control control) => control is FilePicker picker ? Optional(picker.FilePath) : Value;
     }
-
-    public static FormField TextInput(string key, string label, string value = "") => new Text(Key: key, Label: label, Value: value);
-    public static FormField TextAreaInput(string key, string label, string value = "") => new TextArea(Key: key, Label: label, Value: value);
-    public static FormField Check(string key, string label, bool value = false) => new Toggle(Key: key, Label: label, Value: value);
-    public static FormField Numeric(string key, string label, double value = 0d, UiNumberRange range = default) => new Number(Key: key, Label: label, Value: value, Range: range);
-    public static FormField Select(string key, string label, Seq<string> options, int selected = 0) => new Choice(Key: key, Label: label, Options: options, Selected: selected);
-    public static FormField Swatch(string key, string label, Eto.Drawing.Color value = default, bool allowAlpha = false) => new Color(Key: key, Label: label, Value: value, AllowAlpha: allowAlpha);
-    public static FormField Track(string key, string label, int value = 0, int minimum = 0, int maximum = 100) => new Slider(Key: key, Label: label, Value: value, Minimum: minimum, Maximum: maximum);
-    public static FormField Moment(string key, string label, Option<System.DateTime> value = default) => new DateTime(Key: key, Label: label, Value: value);
-    public static FormField Path(string key, string label, Option<string> value = default) => new File(Key: key, Label: label, Value: value);
 }
 
 [StructLayout(LayoutKind.Auto)]
@@ -401,6 +452,18 @@ public readonly partial struct UiCommand {
                 .Attempt(body: () => icon.DrawToBitmap(size: new Size(width: MenuIconExtent, height: MenuIconExtent), padding: 0, background: Colors.Transparent), what: "icon.DrawToBitmap")
                 .Map(bitmap => Optional<Image>(bitmap))
                 .IfFail(Option<Image>.None));
+
+    // BOUNDARY ADAPTER — append an Eto menu command of the requested kind and wire its shared visual/validity surface.
+    internal static Unit BindMenu(MenuCommandKind kind, ContextMenu menu, UiCommand command, bool checkedState = false, Func<bool, Fin<Unit>>? onChange = null) {
+        Command etoCommand = kind.Build(menu: menu, command: command, checkedState: checkedState, onChange: onChange ?? (static _ => Fin.Succ(value: unit)));
+        _ = command.MenuImage.Iter(image => etoCommand.Image = image);
+        _ = command.Shortcut.Iter(shortcut => etoCommand.Shortcut = shortcut.Keys);
+        MenuItem menuItem = etoCommand.CreateMenuItem();
+        _ = command.CanExecute.Iter(can => menuItem.Validate += (_, _) =>
+            menuItem.Enabled = command.Enabled && GrasshopperUi.Protect(valid: can).IfFail(_ => false));
+        menu.Items.Add(item: menuItem);
+        return unit;
+    }
 }
 
 [SkipUnionOps]
@@ -420,9 +483,8 @@ internal partial record UiCommandSurface {
 public partial record ToolbarItem {
     private ToolbarItem() { }
     public sealed partial record ButtonCase(UiCommand Command, bool CloseOnActivate = true) : ToolbarItem;
-    public sealed partial record ToggleCase(UiCommand Command, bool State, Func<bool, Fin<Unit>> Changed) : ToolbarItem;
+    public sealed partial record ToggleItem(UiCommand Command, bool Checked, Func<bool, Fin<Unit>> OnChange, ToggleKind Kind) : ToolbarItem;
     public sealed partial record SectionToggleCase(string Name, bool State, Seq<string> Sections = default) : ToolbarItem;
-    public sealed partial record RadioCase(UiCommand Command, bool State, Func<bool, Fin<Unit>> Changed) : ToolbarItem;
     public sealed partial record TextInputCase(string Name, string Value, Func<string, Fin<Unit>> Changed) : ToolbarItem;
     public sealed partial record NumberCase(string Name, UiNumber Value, Func<decimal, Fin<Unit>> Changed) : ToolbarItem;
     public sealed partial record SwatchInputCase(string Name, OpenColor.Family Family, Func<OpenColor.Family, Fin<Unit>> Changed) : ToolbarItem;
@@ -433,12 +495,11 @@ public partial record ToolbarItem {
     public sealed partial record TextCase(string Name, string Value, Func<string, Fin<Unit>> Changed) : ToolbarItem;
     public sealed partial record SpectrumCase(string Name, Seq<OpenColor.Family> Palette, OpenColor.Family Initial, Func<OpenColor.Family, Fin<Unit>> Changed) : ToolbarItem;
     public sealed partial record SubmenuCase(string Name, CommandPlan Plan) : ToolbarItem;
-    public sealed partial record MenuRadioCase(UiCommand Command, bool State, Func<bool, Fin<Unit>> Changed) : ToolbarItem;
 
     public static ToolbarItem Button(UiCommand command, bool closeOnActivate = true) => new ButtonCase(Command: command, CloseOnActivate: closeOnActivate);
-    public static ToolbarItem Toggle(UiCommand command, bool state, Func<bool, Fin<Unit>> changed) => new ToggleCase(Command: command, State: state, Changed: changed);
+    public static ToolbarItem Toggle(UiCommand command, bool state, Func<bool, Fin<Unit>> changed) => new ToggleItem(Command: command, Checked: state, OnChange: changed, Kind: ToggleKind.Toggle);
     public static ToolbarItem SectionToggle(string name, bool state, Seq<string> sections = default) => new SectionToggleCase(Name: name, State: state, Sections: sections);
-    public static ToolbarItem Radio(UiCommand command, bool state, Func<bool, Fin<Unit>> changed) => new RadioCase(Command: command, State: state, Changed: changed);
+    public static ToolbarItem Radio(UiCommand command, bool state, Func<bool, Fin<Unit>> changed) => new ToggleItem(Command: command, Checked: state, OnChange: changed, Kind: ToggleKind.Radio);
     public static ToolbarItem TextInput(string name, string value, Func<string, Fin<Unit>> changed) => new TextInputCase(Name: name, Value: value, Changed: changed);
     public static ToolbarItem Number(string name, UiNumber value, Func<decimal, Fin<Unit>> changed) => new NumberCase(Name: name, Value: value, Changed: changed);
     public static ToolbarItem SwatchInput(string name, OpenColor.Family family, Func<OpenColor.Family, Fin<Unit>> changed) => new SwatchInputCase(Name: name, Family: family, Changed: changed);
@@ -449,7 +510,7 @@ public partial record ToolbarItem {
     public static ToolbarItem Text(string name, string value, Func<string, Fin<Unit>> changed) => new TextCase(Name: name, Value: value, Changed: changed);
     public static ToolbarItem Spectrum(string name, OpenColor.Family[] spectrum, OpenColor.Family initial, Func<OpenColor.Family, Fin<Unit>> changed) => new SpectrumCase(Name: name, Palette: toSeq(spectrum), Initial: initial, Changed: changed);
     public static ToolbarItem Submenu(string name, CommandPlan plan) => new SubmenuCase(Name: name, Plan: plan);
-    public static ToolbarItem MenuRadio(UiCommand command, bool state, Func<bool, Fin<Unit>> changed) => new MenuRadioCase(Command: command, State: state, Changed: changed);
+    public static ToolbarItem MenuRadio(UiCommand command, bool state, Func<bool, Fin<Unit>> changed) => new ToggleItem(Command: command, Checked: state, OnChange: changed, Kind: ToggleKind.MenuRadio);
 
     internal bool IsPanelNative => this is LabelCase or CheckCase or TextCase;
 
@@ -473,26 +534,11 @@ public partial record ToolbarItem {
             pushed.CloseOnActivate = item.CloseOnActivate;
             return unit;
         }),
-        toggleCase: static (bar, item) => ProjectRadioToggle(
-            bar: bar,
-            command: item.Command,
-            state: item.State,
-            optional: true,
-            changed: item.Changed,
-            op: ToggleCase.SelfOp,
-            detail: "toggle change delegate is required"),
+        toggleItem: static (bar, item) => item.Kind.BarProject(bar: bar, command: item.Command, checkedState: item.Checked, onChange: item.OnChange),
         sectionToggleCase: static (bar, item) => SectionToggleCase.SelfOp.Attempt(body: () => {
             _ = bar.AddToggle(nomen: new Nomen(name: item.Name, info: item.Name), initialState: item.State, additionalAffectedSections: [.. item.Sections]);
             return unit;
         }, what: "AddToggle"),
-        radioCase: static (bar, item) => ProjectRadioToggle(
-            bar: bar,
-            command: item.Command,
-            state: item.State,
-            optional: false,
-            changed: item.Changed,
-            op: RadioCase.SelfOp,
-            detail: "radio change delegate is required"),
         textInputCase: static (bar, item) =>
             from changed in TextInputCase.SelfOp.NeedChanged(item.Changed, noun: "text")
             from added in TextInputCase.SelfOp.Attempt(body: () => {
@@ -541,25 +587,16 @@ public partial record ToolbarItem {
         labelCase: static (_, _) => Reject(item: nameof(LabelCase), surface: "a toolbar"),
         checkCase: static (_, _) => Reject(item: nameof(CheckCase), surface: "a toolbar"),
         textCase: static (_, _) => Reject(item: nameof(TextCase), surface: "a toolbar"),
-        submenuCase: static (_, _) => Reject(item: nameof(SubmenuCase), surface: "a toolbar"),
-        menuRadioCase: static (_, _) => Reject(item: nameof(MenuRadioCase), surface: "a toolbar"));
+        submenuCase: static (_, _) => Reject(item: nameof(SubmenuCase), surface: "a toolbar"));
 
     // Context menus accept only menu-capable items; generated Switch rejects the rest exhaustively.
     private Fin<Unit> ProjectMenu(ContextMenu menu) => Switch(
         state: menu,
-        buttonCase: static (menu, item) => ButtonCase.SelfOp.Attempt(body: () => PushMenuButton(menu: menu, command: item.Command), what: "menu button"),
-        toggleCase: static (menu, item) =>
-            from changed in ToggleCase.SelfOp.NeedChanged(item.Changed, noun: "toggle")
-            from added in ToggleCase.SelfOp.Attempt(body: () => PushCheckMenuItem(menu: menu, command: item.Command, state: item.State, changed: changed), what: "menu toggle")
-            select added,
+        buttonCase: static (menu, item) => ButtonCase.SelfOp.Attempt(body: () => UiCommand.BindMenu(kind: MenuCommandKind.Button, menu: menu, command: item.Command), what: "menu button"),
+        toggleItem: static (menu, item) => item.Kind.MenuProject(menu: menu, command: item.Command, checkedState: item.Checked, onChange: item.OnChange),
         spacerCase: static (menu, _) => SpacerCase.SelfOp.Attempt(body: menu.AddSeparator, what: "AddSeparator"),
         submenuCase: static (menu, item) => PushSubmenu(menu: menu, name: item.Name, plan: item.Plan),
-        menuRadioCase: static (menu, item) =>
-            from changed in MenuRadioCase.SelfOp.NeedChanged(item.Changed, noun: "radio")
-            from added in MenuRadioCase.SelfOp.Attempt(body: () => PushRadioMenuItem(menu: menu, command: item.Command, state: item.State, changed: changed), what: "menu radio")
-            select added,
         sectionToggleCase: static (_, _) => Reject(item: nameof(SectionToggleCase), surface: "a context menu"),
-        radioCase: static (_, _) => Reject(item: nameof(RadioCase), surface: "a context menu"),
         textInputCase: static (_, _) => Reject(item: nameof(TextInputCase), surface: "a context menu"),
         numberCase: static (_, _) => Reject(item: nameof(NumberCase), surface: "a context menu"),
         swatchInputCase: static (_, _) => Reject(item: nameof(SwatchInputCase), surface: "a context menu"),
@@ -568,37 +605,6 @@ public partial record ToolbarItem {
         checkCase: static (_, _) => Reject(item: nameof(CheckCase), surface: "a context menu"),
         textCase: static (_, _) => Reject(item: nameof(TextCase), surface: "a context menu"),
         spectrumCase: static (_, _) => Reject(item: nameof(SpectrumCase), surface: "a context menu"));
-
-    private static Unit PushMenuButton(ContextMenu menu, UiCommand command) {
-        Func<Fin<Unit>> run = command.Run;
-        Command etoCommand = new() { ID = command.Name, MenuText = command.Name, ToolBarText = command.Name, ToolTip = command.Info, Enabled = command.EffectiveEnabled() };
-        _ = command.MenuImage.Iter(image => etoCommand.Image = image);
-        _ = command.Shortcut.Iter(shortcut => etoCommand.Shortcut = shortcut.Keys);
-        etoCommand.Executed += (_, _) => _ = GrasshopperUi.Handler(valid: run);
-        MenuItem menuItem = etoCommand.CreateMenuItem();
-        _ = command.CanExecute.Iter(can => menuItem.Validate += (_, _) =>
-            menuItem.Enabled = command.Enabled && GrasshopperUi.Protect(valid: can).IfFail(_ => false));
-        menu.Items.Add(item: menuItem);
-        return unit;
-    }
-
-    private static Unit PushCheckMenuItem(ContextMenu menu, UiCommand command, bool state, Func<bool, Fin<Unit>> changed) {
-        CheckCommand menuCommand = new() {
-            ID = command.Name,
-            MenuText = command.Name,
-            ToolTip = command.Info,
-            Enabled = command.EffectiveEnabled(),
-            Checked = state,
-        };
-        _ = command.MenuImage.Iter(image => menuCommand.Image = image);
-        _ = command.Shortcut.Iter(shortcut => menuCommand.Shortcut = shortcut.Keys);
-        menuCommand.Executed += (_, _) => _ = GrasshopperUi.Handler(valid: () => changed(arg: menuCommand.Checked));
-        MenuItem menuItem = menuCommand.CreateMenuItem();
-        _ = command.CanExecute.Iter(can => menuItem.Validate += (_, _) =>
-            menuItem.Enabled = command.Enabled && GrasshopperUi.Protect(valid: can).IfFail(_ => false));
-        menu.Items.Add(item: menuItem);
-        return unit;
-    }
 
     private static Fin<Unit> PushSubmenu(ContextMenu menu, string name, CommandPlan plan) {
 #pragma warning disable CA2000 // scratch render target: child items reparent into the submenu on Add; the empty husk is transient and host-collected
@@ -613,32 +619,7 @@ public partial record ToolbarItem {
         });
     }
 
-    private static Unit PushRadioMenuItem(ContextMenu menu, UiCommand command, bool state, Func<bool, Fin<Unit>> changed) {
-        RadioCommand radio = new() {
-            ID = command.Name,
-            MenuText = command.Name,
-            ToolTip = command.Info,
-            Enabled = command.EffectiveEnabled(),
-            Checked = state,
-            Controller = RadioController(menu: menu),
-        };
-        _ = command.MenuImage.Iter(image => radio.Image = image);
-        _ = command.Shortcut.Iter(shortcut => radio.Shortcut = shortcut.Keys);
-        radio.Executed += (_, _) => _ = GrasshopperUi.Handler(valid: () => changed(arg: radio.Checked));
-        MenuItem menuItem = radio.CreateMenuItem();
-        _ = command.CanExecute.Iter(can => menuItem.Validate += (_, _) =>
-            menuItem.Enabled = command.Enabled && GrasshopperUi.Protect(valid: can).IfFail(_ => false));
-        menu.Items.Add(item: menuItem);
-        return unit;
-    }
-
-    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ContextMenu, RadioCommand> RadioControllers = [];
-    private static RadioCommand RadioController(ContextMenu menu) =>
-        RadioControllers.GetValue(key: menu, createValueCallback: static _ => new RadioCommand());
-
-    private static Fin<Unit> ProjectRadioToggle(Bar bar, UiCommand command, bool state, bool optional, Func<bool, Fin<Unit>> changed, Op op, string detail) =>
-        from validChanged in Optional(changed).ToFin(Fail: UiFault.InvalidInput(op: op, detail: detail))
-        select AddRadioToggle(bar: bar, command: command, state: state, optional: optional, changed: validChanged);
+    internal static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ContextMenu, RadioCommand> RadioControllers = [];
 
     private static Fin<Unit> Reject(string item, string surface) =>
         Fin.Fail<Unit>(error: UiFault.InvalidInput(op: Op.Of(name: nameof(ToolbarItem)), detail: $"{item} cannot be projected to {surface}"));
@@ -664,19 +645,17 @@ public partial record ToolbarItem {
             }, what: "AddText")
             select added,
         buttonCase: static (_, _) => Reject(item: nameof(ButtonCase), surface: "an input panel"),
-        toggleCase: static (_, _) => Reject(item: nameof(ToggleCase), surface: "an input panel"),
+        toggleItem: static (_, _) => Reject(item: nameof(ToggleItem), surface: "an input panel"),
         sectionToggleCase: static (_, _) => Reject(item: nameof(SectionToggleCase), surface: "an input panel"),
-        radioCase: static (_, _) => Reject(item: nameof(RadioCase), surface: "an input panel"),
         textInputCase: static (_, _) => Reject(item: nameof(TextInputCase), surface: "an input panel"),
         numberCase: static (_, _) => Reject(item: nameof(NumberCase), surface: "an input panel"),
         swatchInputCase: static (_, _) => Reject(item: nameof(SwatchInputCase), surface: "an input panel"),
         colourBarsCase: static (_, _) => Reject(item: nameof(ColourBarsCase), surface: "an input panel"),
         spacerCase: static (_, _) => Reject(item: nameof(SpacerCase), surface: "an input panel"),
         spectrumCase: static (_, _) => Reject(item: nameof(SpectrumCase), surface: "an input panel"),
-        submenuCase: static (_, _) => Reject(item: nameof(SubmenuCase), surface: "an input panel"),
-        menuRadioCase: static (_, _) => Reject(item: nameof(MenuRadioCase), surface: "an input panel"));
+        submenuCase: static (_, _) => Reject(item: nameof(SubmenuCase), surface: "an input panel"));
 
-    private static Unit AddRadioToggle(Bar bar, UiCommand command, bool state, bool optional, Func<bool, Fin<Unit>> changed) {
+    internal static Unit AddRadioToggle(Bar bar, UiCommand command, bool state, bool optional, Func<bool, Fin<Unit>> changed) {
         RadioToggle toggled = bar.AddRadioToggle(
             icon: command.Icon.IfNone(noneValue: StandardIcons.Parameters.Unknown),
             nomen: new Nomen(name: command.Name, info: command.Info),
@@ -1059,29 +1038,48 @@ public static partial class Input {
                 },
                 what: "Dialogs.ShowNumberBox"));
 
-    public static GrasshopperUiIntent<Unit> Notify(string title, string message, Option<Image> contentImage = default, bool trayIndicator = false, Option<CommandPlan> menu = default, Option<Func<Fin<Unit>>> onActivated = default) =>
-        GhUi.Read(run: scope =>
-            Try.lift<Fin<Unit>>(f: () => {
-                using TrayIndicator? indicator = trayIndicator || menu.IsSome ? new TrayIndicator { Title = title, Visible = true } : null;
-                using Notification notification = new() { Title = title, Message = message };
-                _ = contentImage.Iter(image => notification.ContentImage = image);
-                _ = onActivated.Iter(activated => {
-                    void OnActivated(object? sender, NotificationEventArgs args) {
-                        Application.Instance.NotificationActivated -= OnActivated;
-                        _ = GrasshopperUi.Handler(valid: activated);
-                    }
-                    Application.Instance.NotificationActivated += OnActivated;
-                });
-                return menu.Match(
-                    Some: plan => Optional(indicator)
-                        .ToFin(Fail: UiFault.MutationRejected(op: Op.Of(name: nameof(Notify)), detail: "tray menu requires a tray indicator"))
-                        .Bind(tray => {
-                            ContextMenu trayMenu = new();
-                            return plan.Items.TraverseM(item => item.Apply(surface: UiCommandSurface.Menu(menu: trayMenu))).As()
-                                .Map(_ => { tray.Menu = trayMenu; notification.Show(indicator: tray); return unit; });
-                        }),
-                    None: () => { notification.Show(indicator: indicator); return Fin.Succ(unit); });
-            }).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(Notify)), detail: $"Notification threw: {error.Message}")).Bind(static r => r));
+    public static GrasshopperUiIntent<Subscription> Notify(string title, string message, Option<Image> contentImage = default, bool trayIndicator = false, Option<CommandPlan> menu = default, Option<Func<Fin<Unit>>> onActivated = default) =>
+        GhUi.Read(run: _scope =>
+            from indicator in Op.Of(name: nameof(Notify)).Attempt(
+                body: () => trayIndicator || menu.IsSome ? Optional(new TrayIndicator { Title = title, Visible = true }) : Option<TrayIndicator>.None,
+                what: "new TrayIndicator")
+            from notification in Op.Of(name: nameof(Notify)).Attempt(body: () => {
+                Notification built = new() { Title = title, Message = message };
+                _ = contentImage.Iter(image => built.ContentImage = image);
+                return built;
+            }, what: "new Notification")
+            from prepared in menu.Match(
+                Some: plan => indicator
+                    .ToFin(Fail: UiFault.MutationRejected(op: Op.Of(name: nameof(Notify)), detail: "tray menu requires a tray indicator"))
+                    .Bind(tray => {
+                        ContextMenu trayMenu = new();
+                        return plan.Items.TraverseM(item => item.Apply(surface: UiCommandSurface.Menu(menu: trayMenu))).As()
+                            .Map(_ => { tray.Menu = trayMenu; return unit; });
+                    }),
+                None: () => Fin.Succ(value: unit))
+            from sub in NotifySubscription(indicator: indicator, notification: notification, onActivated: onActivated)
+            select sub);
+
+    private static Fin<Subscription> NotifySubscription(Option<TrayIndicator> indicator, Notification notification, Option<Func<Fin<Unit>>> onActivated) {
+        EventHandler<NotificationEventArgs>? handler = null;
+        return Subscription.Bind(
+            // BOUNDARY ADAPTER - register the activation handler only after Show() so a failed Show leaks neither handler nor native objects.
+            attach: () => {
+                notification.Show(indicator: indicator.Map(static tray => (TrayIndicator?)tray).IfNone((TrayIndicator?)null));
+                handler = onActivated is { IsSome: true, Case: Func<Fin<Unit>> activated }
+                    ? ((_, _) => _ = GrasshopperUi.Handler(valid: activated))
+                    : null;
+                _ = Optional(handler).Iter(h => Application.Instance.NotificationActivated += h);
+            },
+            // BOUNDARY ADAPTER - detach the activation handler, then dispose the native notification and tray indicator.
+            detach: () => {
+                _ = Optional(handler).Iter(h => Application.Instance.NotificationActivated -= h);
+                notification.Dispose();
+                _ = indicator.Iter(tray => tray.Dispose());
+            },
+            marshalToUi: true,
+            detachOnce: true);
+    }
 
     public static GrasshopperUiIntent<Control> Scrollable(Control content, Size virtualSize = default) =>
         GhUi.Read(run: _scope =>

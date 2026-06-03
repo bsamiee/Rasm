@@ -2,11 +2,14 @@
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Generator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import reduce
+from importlib import import_module
 from pathlib import Path
 import sys
+from types import ModuleType
 from typing import assert_never, Final, Literal, Protocol
 import xml.etree.ElementTree as ET  # noqa: S405
 
@@ -43,6 +46,7 @@ _GIT_CHANGE_ARGS: Final[tuple[tuple[str, ...], ...]] = (
 # Build-graph verbs only: scoped invocations splice `--artifacts-path`/`--disable-build-servers`; tool-driver verbs reject them.
 _ARTIFACT_SCOPED_VERBS: Final[frozenset[str]] = frozenset(("build", "clean", "msbuild", "pack", "publish", "restore", "run", "test"))
 _PIPE: Final[int] = -1
+_POSIX_MODULE: Final = import_module("fcntl")
 
 
 # --- [MODELS] ----------------------------------------------------------------------------
@@ -82,6 +86,27 @@ class ProcessFault:
     def message(self) -> str:
         detail = self.stderr.decode(errors="replace").strip()
         return f"exit {self.returncode}: {' '.join(self.argv)}" + (f"\n{detail}" if detail else "")
+
+
+@dataclass(frozen=True, slots=True)
+class ResourceBusyError(Exception):
+    lock: Path
+    owner: str
+
+
+@dataclass(frozen=True, slots=True)
+class _PosixLock:
+    module: ModuleType
+    exclusive: int
+    nonblock: int
+    unlock: int
+
+    def flock(self, fd: int, operation: int, /) -> None:
+        match getattr(self.module, "flock", None):
+            case action if callable(action):
+                action(fd, operation)
+            case _:
+                raise RuntimeError("fcntl.flock is unavailable")
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,6 +186,27 @@ def decode_json[T](payload: bytes | str, model: type[T]) -> Result[T, ProcessFau
         return Error(ProcessFault.fail("decode", model.__name__, detail=str(exc)))
 
 
+@contextmanager
+def exclusive_lease(lock: Path, owner: str) -> Generator[None]:
+    posix = _posix_lock()
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    with lock.open(mode="a+", encoding="utf-8") as guard:
+        try:
+            posix.flock(guard.fileno(), posix.exclusive | posix.nonblock)
+        except BlockingIOError as exc:
+            guard.seek(0)
+            raise ResourceBusyError(lock, guard.read().strip()) from exc
+        guard.seek(0)
+        guard.truncate()
+        guard.write(owner)
+        guard.flush()
+        try:
+            yield
+        finally:
+            posix.flock(guard.fileno(), posix.unlock)
+            lock.unlink(missing_ok=True)
+
+
 def dotnet(
     *args: str,
     scope: ArtifactScope | None = None,
@@ -191,6 +237,9 @@ def dotnet_args(
     disable_parallel: bool = False,
     max_cpu: int | None = None,
     serial: bool = False,
+    fresh: bool = False,
+    quiet: bool = False,
+    disable_build_servers: bool = False,
 ) -> tuple[str, ...]:
     match op:
         case "restore":
@@ -199,7 +248,10 @@ def dotnet_args(
             cpu = 1 if serial else max_cpu
             extra = ("-p:BuildInParallel=false",) if serial else ()
             parallel = (f"-maxcpucount:{cpu}", *extra) if cpu is not None else ()
-            return ("build", str(target), "--configuration", configuration, "--no-restore", *version, *parallel)
+            freshness = ("--no-incremental",) if fresh else ()
+            logger = ("-v:quiet", "/clp:ErrorsOnly") if quiet else ()
+            servers = ("--disable-build-servers",) if disable_build_servers else ()
+            return ("build", str(target), "--configuration", configuration, "--no-restore", *freshness, *logger, *servers, *version, *parallel)
         case unreachable:
             assert_never(unreachable)
 
@@ -209,7 +261,8 @@ def dotnet_build(
     settings: QualitySettings,
     scope: ArtifactScope,
     *,
-    restore: str | Path,
+    restore: str | Path | None = None,
+    restore_targets: tuple[str | Path, ...] = (),
     targets: tuple[str | Path, ...],
     configurations: tuple[str, ...] = (),
     version: str = "",
@@ -218,18 +271,49 @@ def dotnet_build(
     max_cpu: int | None = None,
     scoped: bool = True,
     mode: ProcessMode = "stream",
+    fresh: bool = False,
+    quiet: bool = False,
+    disable_build_servers: bool = False,
 ) -> Result[None, ProcessFault]:
     configs = configurations or (settings.configuration,)
     version_args = settings.version_props(version)
+    restores = restore_targets or ((restore,) if restore is not None else ())
     commands = (
-        dotnet_args("restore", restore, disable_parallel=disable_parallel),
+        *(dotnet_args("restore", item, disable_parallel=disable_parallel) for item in restores),
         *(
-            dotnet_args("build", target, configuration=configuration, version=version_args, serial=serial, max_cpu=max_cpu)
+            dotnet_args(
+                "build",
+                target,
+                configuration=configuration,
+                version=version_args,
+                serial=serial,
+                max_cpu=max_cpu,
+                fresh=fresh,
+                quiet=quiet,
+                disable_build_servers=disable_build_servers,
+            )
             for configuration in configs
             for target in targets
         ),
     )
     return fold(commands, None, lambda _, command: dotnet(*command, scope=scope, scoped=scoped, check=True, mode=mode).map(lambda _: None))
+
+
+def _posix_flag(module: ModuleType, name: str) -> int:
+    match getattr(module, name, None):
+        case int() as value:
+            return value
+        case _:
+            raise RuntimeError(f"fcntl.{name} is unavailable")
+
+
+def _posix_lock() -> _PosixLock:
+    return _PosixLock(
+        module=_POSIX_MODULE,
+        exclusive=_posix_flag(_POSIX_MODULE, "LOCK_EX"),
+        nonblock=_posix_flag(_POSIX_MODULE, "LOCK_NB"),
+        unlock=_posix_flag(_POSIX_MODULE, "LOCK_UN"),
+    )
 
 
 def fd_args(extension: FdExtension, pattern: str = ".", *roots: str | Path, exclude: bool = True) -> tuple[str, ...]:

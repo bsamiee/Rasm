@@ -106,13 +106,20 @@ def run_test_rail(
     all_targets: bool = False,
     filter_expr: str = "",
     mutation: MutationMode = "off",
+    no_build: bool = False,
+    test_modules: str = "",
 ) -> Result[None, ProcessFault]:
     plan_args, can_mutate = _TEST_PLANS[mode]
+    match all_targets and bool(test_modules.strip()):
+        case True:
+            return Error(ProcessFault.fail("test", "target", detail=b"--all and --test-modules cannot be combined"))
+        case False:
+            pass
 
     @effect.result[None, ProcessFault]()
     def run() -> Generator[None]:
         yield from dotnet(
-            *_test_args(settings, plan_args, filter_expr, all_targets=all_targets),
+            *_test_args(settings, plan_args, filter_expr, all_targets=all_targets, no_build=no_build, test_modules=test_modules),
             scope=scope,
             scoped=False,
             check=True,
@@ -128,17 +135,28 @@ def run_test_rail(
     return run()
 
 
-def _test_args(settings: QualitySettings, plan_args: tuple[str, ...], filter_expr: str, *, all_targets: bool) -> tuple[str, ...]:
-    match all_targets:
-        case True:
-            target_args = ("--solution", str(settings.solution))
-        case False:
-            target_args = ("--project", str((settings.root / settings.test_target).resolve()))
+def _test_args(
+    settings: QualitySettings, plan_args: tuple[str, ...], filter_expr: str, *, all_targets: bool, no_build: bool = False, test_modules: str = ""
+) -> tuple[str, ...]:
+    target_args: tuple[str, ...]
+    build_args: tuple[str, ...]
+    configuration_args: tuple[str, ...]
+    match test_modules.strip():
+        case str(expr) if expr:
+            target_args = ("--test-modules", expr, "--root-directory", str(settings.root))
+            build_args = ()
+            configuration_args = ()
+        case _:
+            target_args = (
+                ("--solution", str(settings.solution)) if all_targets else ("--project", str((settings.root / settings.test_target).resolve()))
+            )
+            build_args = ("--no-build",) if no_build else ()
+            configuration_args = ("--configuration", settings.configuration)
     return (
         "test",
         *target_args,
-        "--configuration",
-        settings.configuration,
+        *configuration_args,
+        *build_args,
         "--results-directory",
         str(settings.test_results(all_targets=all_targets)),
         "--minimum-expected-tests",

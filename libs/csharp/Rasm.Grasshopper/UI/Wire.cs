@@ -69,40 +69,35 @@ public sealed partial class WireTraversal {
     private delegate IEnumerable<IDocumentObject> WalkFn(GhObjectList objects, GraphKey key);
 
     // Depth is case identity: parameters lack host immediate search, owners honour depth through connectivity fetchers.
-    public static readonly WireTraversal Upstream = new(key: 0, walkObjects: static (objects, key) => WalkAll(objects, key, up: true));
-    public static readonly WireTraversal Downstream = new(key: 1, walkObjects: static (objects, key) => WalkAll(objects, key, up: false));
-    public static readonly WireTraversal Bidirectional = new(key: 2, walkObjects: static (objects, key) => WalkAll(objects, key, up: true).Concat(WalkAll(objects, key, up: false)));
-    public static readonly WireTraversal ImmediateUpstream = new(key: 3, walkObjects: static (objects, key) => WalkImmediate(objects, key, up: true));
-    public static readonly WireTraversal ImmediateDownstream = new(key: 4, walkObjects: static (objects, key) => WalkImmediate(objects, key, up: false));
-    public static readonly WireTraversal Neighbours = new(key: 5, walkObjects: static (objects, key) => WalkImmediate(objects, key, up: true).Concat(WalkImmediate(objects, key, up: false)));
+    public static readonly WireTraversal Upstream = new(key: 0, walkObjects: static (objects, key) => Walk(objects, key, up: true, immediate: false));
+    public static readonly WireTraversal Downstream = new(key: 1, walkObjects: static (objects, key) => Walk(objects, key, up: false, immediate: false));
+    public static readonly WireTraversal Bidirectional = new(key: 2, walkObjects: static (objects, key) => Walk(objects, key, up: true, immediate: false).Concat(Walk(objects, key, up: false, immediate: false)));
+    public static readonly WireTraversal ImmediateUpstream = new(key: 3, walkObjects: static (objects, key) => Walk(objects, key, up: true, immediate: true));
+    public static readonly WireTraversal ImmediateDownstream = new(key: 4, walkObjects: static (objects, key) => Walk(objects, key, up: false, immediate: true));
+    public static readonly WireTraversal Neighbours = new(key: 5, walkObjects: static (objects, key) => Walk(objects, key, up: true, immediate: true).Concat(Walk(objects, key, up: false, immediate: true)));
 
     [UseDelegateFromConstructor]
     internal partial IEnumerable<IDocumentObject> WalkObjects(GhObjectList objects, GraphKey key);
 
-    private static IEnumerable<IDocumentObject> WalkAll(GhObjectList objects, GraphKey key, bool up) =>
-        Walk(
-            objects: objects,
-            key: key,
-            up: up,
-            immediate: false,
-            ownerWalk: static (connectivity, id, upstream) => upstream ? connectivity.FindAllInputs(id) : connectivity.FindAllOutputs(id));
-
-    private static IEnumerable<IDocumentObject> WalkImmediate(GhObjectList objects, GraphKey key, bool up) =>
-        Walk(objects: objects, key: key, up: up, immediate: true, ownerWalk: ImmediateOwnerWalk);
-
-    private static IEnumerable<IDocumentObject> Walk(GhObjectList objects, GraphKey key, bool up, bool immediate, Func<Connectivity, Guid, bool, IEnumerable<ConnectiveObject>> ownerWalk) =>
+    private static IEnumerable<IDocumentObject> Walk(GhObjectList objects, GraphKey key, bool up, bool immediate) =>
         key.Switch(
             parameterCase: p => Optional(objects.FindParameter(instanceId: p.Id))
                 .Map(param => immediate
                     ? WalkImmediateParameter(objects: objects, parameter: param, up: up)
                     : up ? objects.SearchUpstream(parameter: param) : objects.SearchDownstream(parameter: param))
                 .IfNone(noneValue: []),
-            ownerCase: o => ownerWalk(objects.Connectivity, o.Id, up)
+            ownerCase: o => OwnerWalk(connectivity: objects.Connectivity, id: o.Id, up: up, immediate: immediate)
                 .Select(co => objects.Find(instanceId: co.Id))
                 .OfType<IDocumentObject>());
 
-    private static IEnumerable<ConnectiveObject> ImmediateOwnerWalk(Connectivity connectivity, Guid id, bool upstream) =>
-        upstream ? connectivity.FindImmediateInputs(id) : connectivity.FindImmediateOutputs(id);
+    // The (up, immediate) quadrant selects the connectivity fetcher; mirrors RewireMode.Of's discard-last idiom.
+    private static IEnumerable<ConnectiveObject> OwnerWalk(Connectivity connectivity, Guid id, bool up, bool immediate) =>
+        (up, immediate) switch {
+            (true, true) => connectivity.FindImmediateInputs(id),
+            (false, true) => connectivity.FindImmediateOutputs(id),
+            (true, false) => connectivity.FindAllInputs(id),
+            _ => connectivity.FindAllOutputs(id),
+        };
 
     private static IEnumerable<IDocumentObject> WalkImmediateParameter(GhObjectList objects, IParameter parameter, bool up) =>
         (up ? parameter.Inputs.Forwards : parameter.Outputs.Forwards)
@@ -447,8 +442,8 @@ public sealed partial class WireRouter {
     public static readonly WireRouter Taxi = new(key: "taxi", direct: typeof(WireShapeTaxi), simpleName: "");
     public static readonly WireRouter Custom = new(key: "custom", direct: null, simpleName: "");
 
-    // Concrete installable type, else the abstract base sentinel — install validation rejects the latter.
-    public Type ShapeType => Resolve().IfNone(typeof(WireShape));
+    // Concrete installable type, else the concrete default fallback so install validation always accepts it.
+    public Type ShapeType => Resolve().IfNone(typeof(WireShapeDefault));
 
     internal Option<Type> Resolve(Option<Type> @override = default) =>
         @override.Filter(IsInstallable)
@@ -470,18 +465,33 @@ public abstract class WireShapeOrthogonal(PointF source, PointF target) : WireSh
     private readonly float radius = WireShapeParams.CornerRadius;
     protected abstract float BendX { get; }
 
-    public override RectangleF Bounds =>
-        RectangleF.Union(new RectangleF(Source, SizeF.Empty), new RectangleF(Target, SizeF.Empty));
+    public override RectangleF Bounds {
+        get {
+            float bx = BendX;
+            float left = MathF.Min(MathF.Min(Source.X, bx), Target.X) - radius;
+            float top = MathF.Min(Source.Y, Target.Y) - radius;
+            float right = MathF.Max(MathF.Max(Source.X, bx), Target.X) + radius;
+            float bottom = MathF.Max(Source.Y, Target.Y) + radius;
+            return new RectangleF(x: left, y: top, width: right - left, height: bottom - top);
+        }
+    }
 
     public override PointF Project(PointF point) {
         float bx = BendX;
-        PointF c1 = new(bx, Source.Y), c2 = new(bx, Target.Y);
-        PointF p1 = Near(Source, c1, point), p2 = Near(c1, c2, point), p3 = Near(c2, Target, point);
-        float d1 = Sq(p1, point), d2 = Sq(p2, point), d3 = Sq(p3, point);
+        (PointF p1, float d1) = NearOn(Source, new(bx, Source.Y), point);
+        (PointF p2, float d2) = NearOn(new(bx, Source.Y), new(bx, Target.Y), point);
+        (PointF p3, float d3) = NearOn(new(bx, Target.Y), Target, point);
         return d1 <= d2 ? (d1 <= d3 ? p1 : p3) : (d2 <= d3 ? p2 : p3);
     }
 
-    public override float DistanceTo(PointF point) => MathF.Sqrt(Sq(Project(point), point));
+    public override float DistanceTo(PointF point) {
+        float bx = BendX;
+        return MathF.Sqrt(MathF.Min(
+            NearOn(Source, new(bx, Source.Y), point).Quadrance,
+            MathF.Min(
+                NearOn(new(bx, Source.Y), new(bx, Target.Y), point).Quadrance,
+                NearOn(new(bx, Target.Y), Target, point).Quadrance)));
+    }
 
     public override bool Intersects(RectangleF box) {
         float bx = BendX;
@@ -495,7 +505,7 @@ public abstract class WireShapeOrthogonal(PointF source, PointF target) : WireSh
         ArgumentNullException.ThrowIfNull(graphics);
         ArgumentNullException.ThrowIfNull(edge);
         float bx = BendX;
-        float r = MathF.Min(radius, MathF.Min(MathF.Abs(Target.Y - Source.Y), MathF.Abs(bx - Source.X)) * 0.5f);
+        float r = MathF.Min(radius, MathF.Min(MathF.Abs(Target.Y - Source.Y), MathF.Min(MathF.Abs(bx - Source.X), MathF.Abs(Target.X - bx))) * 0.5f);
         using GraphicsPath path = new();
         path.StartFigure();
         _ = r <= 0f ? StraightElbow(path, bx) : RoundedElbow(path, bx, r);
@@ -513,21 +523,31 @@ public abstract class WireShapeOrthogonal(PointF source, PointF target) : WireSh
     private Unit RoundedElbow(GraphicsPath path, float bendX, float r) {
         PointF c1 = new(bendX, Source.Y), c2 = new(bendX, Target.Y);
         float sx = MathF.Sign(bendX - Source.X), sy = MathF.Sign(Target.Y - Source.Y), tx = MathF.Sign(Target.X - bendX);
+        const float k = 0.5522847498f; // kappa = 4/3 * (sqrt(2)-1): quarter-circle Bezier, max radial error < 0.05%.
+        float kr = k * r;
         path.MoveTo(Source.X, Source.Y);
         path.LineTo(c1.X - (sx * r), c1.Y);
-        path.AddBezier(new PointF(c1.X - (sx * r), c1.Y), c1, c1, new PointF(c1.X, c1.Y + (sy * r)));
+        path.AddBezier(
+            new PointF(c1.X - (sx * r), c1.Y),
+            new PointF(c1.X - (sx * (r - kr)), c1.Y),
+            new PointF(c1.X, c1.Y + (sy * (r - kr))),
+            new PointF(c1.X, c1.Y + (sy * r)));
         path.LineTo(c2.X, c2.Y - (sy * r));
-        path.AddBezier(new PointF(c2.X, c2.Y - (sy * r)), c2, c2, new PointF(c2.X + (tx * r), c2.Y));
+        path.AddBezier(
+            new PointF(c2.X, c2.Y - (sy * r)),
+            new PointF(c2.X, c2.Y - (sy * (r - kr))),
+            new PointF(c2.X + (tx * (r - kr)), c2.Y),
+            new PointF(c2.X + (tx * r), c2.Y));
         path.LineTo(Target.X, Target.Y);
         return unit;
     }
 
-    private static float Sq(PointF a, PointF b) => ((a.X - b.X) * (a.X - b.X)) + ((a.Y - b.Y) * (a.Y - b.Y));
-
-    private static PointF Near(PointF a, PointF b, PointF p) {
+    // Nearest point on segment [a,b] to p plus its squared distance — one pass feeds both Project and DistanceTo.
+    private static (PointF Point, float Quadrance) NearOn(PointF a, PointF b, PointF p) {
         float dx = b.X - a.X, dy = b.Y - a.Y, l = (dx * dx) + (dy * dy);
         float t = l < 1e-6f ? 0f : MathF.Max(0f, MathF.Min(1f, (((p.X - a.X) * dx) + ((p.Y - a.Y) * dy)) / l));
-        return new(a.X + (t * dx), a.Y + (t * dy));
+        PointF q = new(a.X + (t * dx), a.Y + (t * dy));
+        return (Point: q, Quadrance: ((q.X - p.X) * (q.X - p.X)) + ((q.Y - p.Y) * (q.Y - p.Y)));
     }
 
     // Axis-aligned segment-vs-rect overlap: every elbow segment is horizontal or vertical, so the bbox test is exact.
@@ -560,6 +580,7 @@ public static class WireRouteContext {
             .Filter(o => !exclude.Contains(o.InstanceId) && o.Attributes.AggregateBounds.Intersects(region))
             .Map(static o => o.Attributes.AggregateBounds);
 
+    // Use installs ONLY the obstacle provider (shape/geometry unchanged); WireOp.InstallShape/InstallRouting install shape + geometry + provider together.
     public static Fin<Subscription> Use(Func<RectangleF, Seq<RectangleF>> provider) {
         Func<RectangleF, Seq<RectangleF>>? prior = null;
         return Subscription.Bind(
@@ -580,7 +601,7 @@ public partial record WireOp : IUiOp<WireResult> {
     public sealed partial record EditCase(WireSnapshot.ConnectedCase Wire, WireEdit Kind, WireEditArgs Args = default) : WireOp;
     public sealed partial record EditBatchCase(Seq<(WireSnapshot.ConnectedCase Wire, WireEdit Kind, WireEditArgs Args)> Edits) : WireOp;
     public sealed partial record RouteCase(Seq<Guid> Chain) : WireOp;
-    public sealed partial record InstallShapeCase(Type ShapeType, Option<float> CornerRadius = default, Option<float> SplitRatio = default) : WireOp;
+    public sealed partial record InstallShapeCase(Type ShapeType, Option<float> CornerRadius = default, Option<float> SplitRatio = default, Option<Func<RectangleF, Seq<RectangleF>>> ObstaclesProvider = default) : WireOp;
     public sealed partial record OverlayCase(WireOverlayStyle Style, MotionClock? Clock = null) : WireOp;
     public sealed partial record WirePaintObserveCase(MotionClock? Clock = null) : WireOp;
     public sealed partial record DiagnosticsCase(Seq<Guid> Seeds) : WireOp;
@@ -596,6 +617,9 @@ public partial record WireOp : IUiOp<WireResult> {
     public static WireOp InstallShape(Type shapeType) => new InstallShapeCase(ShapeType: shapeType);
     public static WireOp InstallShape(WireRouter router, float cornerRadius = 8f, float splitRatio = 0.5f) =>
         new InstallShapeCase(ShapeType: (router ?? WireRouter.Default).ShapeType, CornerRadius: Some(cornerRadius), SplitRatio: Some(splitRatio));
+    // InstallShape + an obstacle provider on one rail: the installed shape sees a populated obstacle set during paint.
+    public static WireOp InstallRouting(WireRouter router, Func<RectangleF, Seq<RectangleF>> provider, float cornerRadius = 8f, float splitRatio = 0.5f) =>
+        new InstallShapeCase(ShapeType: (router ?? WireRouter.Default).ShapeType, CornerRadius: Some(cornerRadius), SplitRatio: Some(splitRatio), ObstaclesProvider: Some(provider));
     public static WireOp Overlay(WireOverlayStyle style, MotionClock? clock = null) => new OverlayCase(Style: style, Clock: clock);
     public static WireOp WirePaintObserve(MotionClock? clock = null) => new WirePaintObserveCase(Clock: clock);
     public static WireOp Diagnostics(params ReadOnlySpan<Guid> seeds) => new DiagnosticsCase(Seeds: toSeq(seeds.ToArray()));
@@ -607,7 +631,11 @@ public partial record WireOp : IUiOp<WireResult> {
         editCase: static e => Wire.Edit(wire: e.Wire, edit: e.Kind, args: e.Args).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
         editBatchCase: static e => Wire.EditBatch(edits: e.Edits).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
         routeCase: static r => Wire.Route(chain: r.Chain).Map(static delta => (WireResult)new WireResult.MutationCase(Delta: delta)),
-        installShapeCase: static i => Wire.InstallShape(shapeType: i.ShapeType, cornerRadius: i.CornerRadius.IfNone(8f), splitRatio: i.SplitRatio.IfNone(0.5f)).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
+        installShapeCase: static i => Wire.InstallShape(
+            shapeType: i.ShapeType,
+            cornerRadius: i.CornerRadius.IfNone(8f),
+            splitRatio: i.SplitRatio.IfNone(0.5f),
+            obstacles: i.ObstaclesProvider is { IsSome: true, Case: Func<RectangleF, Seq<RectangleF>> provider } ? provider : null).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
         overlayCase: static o => Wire.Overlay(style: o.Style, clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
         wirePaintObserveCase: static o => Wire.WirePaintObserve(clock: o.Clock ?? MotionClock.MessageLoop).Map(static sub => (WireResult)new WireResult.SubscriptionCase(Subscription: sub)),
         diagnosticsCase: static d => Wire.Diagnostics(seeds: d.Seeds).Map(static diagnostics => (WireResult)new WireResult.DiagnosticsResult(Diagnostics: diagnostics)));
@@ -661,8 +689,9 @@ public readonly record struct WireOverlayStyle(PaintStyle Style, Option<Func<Wir
     }
 
     // Per-WireKind overrides use one lookup selector with base-style fallback.
-    public static WireOverlayStyle ByKind(PaintStyle fallback, params (WireKind Kind, PaintStyle Style)[] map) {
-        HashMap<WireKind, PaintStyle> table = toHashMap(toSeq(map).Map(static pair => (pair.Kind, pair.Style)));
+    public static WireOverlayStyle ByKind(PaintStyle fallback, params ReadOnlySpan<(WireKind Kind, PaintStyle Style)> map) {
+        // BOUNDARY ADAPTER — ReadOnlySpan cannot be captured by the selector closure; freeze to a HashMap first.
+        HashMap<WireKind, PaintStyle> table = toHashMap(toSeq(map.ToArray()).Map(static pair => (pair.Kind, pair.Style)));
         return new WireOverlayStyle(
             Style: fallback,
             Select: Some<Func<WireDrawnEntry, PaintStyle>>(entry => table.Find(key: entry.Kind).IfNone(fallback)));
@@ -695,7 +724,7 @@ internal static partial class Wire {
         recentlyDrawnCase: static _ => RecentlyDrawn().Map(static snap => (WireResult)new WireResult.DrawnCase(Snapshot: snap)));
 
     // Null guards AcceptAll; structural validation accumulates derives/concrete/ctor faults in parallel.
-    internal static GrasshopperUiIntent<Subscription> InstallShape(Type shapeType, float cornerRadius, float splitRatio) =>
+    internal static GrasshopperUiIntent<Subscription> InstallShape(Type shapeType, float cornerRadius, float splitRatio, Func<RectangleF, Seq<RectangleF>>? obstacles = null) =>
         GhUi.Canvas(run: _ =>
             from valid in Optional(shapeType).ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(InstallShape)), detail: "shape type is required"))
             from accepted in Op.Of(name: nameof(InstallShape)).AcceptAll(
@@ -705,8 +734,10 @@ internal static partial class Wire {
                     op => guard(typeof(WireShape).IsAssignableFrom(c: valid), (Error)UiFault.InvalidInput(op: op, detail: $"{valid.FullName} does not derive from {typeof(WireShape).FullName}")).ToFin(),
                     op => guard(valid is { IsAbstract: false }, (Error)UiFault.InvalidInput(op: op, detail: $"{valid.FullName} must be concrete")).ToFin(),
                     op => guard(valid.GetConstructor(types: [typeof(PointF), typeof(PointF)]) is not null, (Error)UiFault.InvalidInput(op: op, detail: $"{valid.FullName} must expose a public ({nameof(PointF)}, {nameof(PointF)}) constructor")).ToFin(),
+                    op => guard(cornerRadius >= 0f, (Error)UiFault.InvalidInput(op: op, detail: "cornerRadius must be >= 0")).ToFin(),
+                    op => guard(splitRatio is >= 0f and <= 1f, (Error)UiFault.InvalidInput(op: op, detail: "splitRatio must be in [0, 1]")).ToFin(),
                 ])
-            from sub in WireShapeInstall.Push(shapeType: accepted, cornerRadius: cornerRadius, splitRatio: splitRatio)
+            from sub in WireShapeInstall.Push(shapeType: accepted, cornerRadius: cornerRadius, splitRatio: splitRatio, obstacles: obstacles)
             select sub);
 
     internal static GrasshopperUiIntent<Subscription> Overlay(WireOverlayStyle style, MotionClock clock) =>
@@ -877,14 +908,9 @@ internal static partial class Wire {
                from _ in validEdit.RequiresConnectedPair
                    ? RequireConnectedPair(objects: objs, source: source, target: target, op: op).Map(static _ => unit)
                    : Fin.Succ(unit)
-               from receipt in ApplyResolvedEdit(op: op, methods: methods, objects: objs, source: source, target: target, actions: actions, edit: validEdit, args: args)
-               select receipt;
+               from changed in validEdit.Apply(op: op, methods: methods, objects: objs, source: source, target: target, actions: actions, args: args)
+               select DocumentMutationReceipt.Count(changed: changed);
     }
-
-    private static Fin<DocumentMutationReceipt> ApplyResolvedEdit(Op op, GhDocumentMethods methods, GhObjectList objects, IParameter? source, IParameter? target, ActionList actions, WireEdit edit, WireEditArgs args) =>
-        from validEdit in Optional(edit).ToFin(Fail: UiFault.InvalidInput(op: op, detail: "wire edit is required"))
-        from changed in validEdit.Apply(op: op, methods: methods, objects: objects, source: source, target: target, actions: actions, args: args)
-        select DocumentMutationReceipt.Count(changed: changed);
 
     private static GrasshopperUiIntent<Snapshot<DocumentMutationDelta>> MutateConnectedWire(
         Op op,
@@ -932,34 +958,40 @@ internal static partial class Wire {
         return new GraphIntegrity(Dangling: dangling, Cycles: cycles, Missing: missing, External: external);
     }
 
-    // Native FindConnections is unbounded; this frontier fold rejects cyclic extensions and stops at limit.
-    internal static Seq<Seq<Guid>> BoundedPaths(Connectivity connectivity, Guid source, Guid target, int limit) =>
-        limit <= 0 || !connectivity.Find(source, out ConnectiveObject? start) || !connectivity.Find(target, out ConnectiveObject? end)
-            ? Seq<Seq<Guid>>()
-            : Expand(connectivity: connectivity, end: end.Id, limit: limit, frontier: Seq(Seq(start.Id)), found: Seq<Seq<Guid>>());
-
-    private static Seq<Seq<Guid>> Expand(Connectivity connectivity, Guid end, int limit, Seq<Seq<Guid>> frontier, Seq<Seq<Guid>> found) =>
-        (frontier.Head, found.Count >= limit) switch {
-            (_, true) => found,
-            ( { IsNone: true }, _) => found,
-            ( { IsSome: true, Case: Seq<Guid> path }, _) => Step(connectivity: connectivity, end: end, limit: limit, frontier: frontier.Tail, found: found, path: path),
-            _ => found,
-        };
-
-    private static Seq<Seq<Guid>> Step(Connectivity connectivity, Guid end, int limit, Seq<Seq<Guid>> frontier, Seq<Seq<Guid>> found, Seq<Guid> path) {
-        Guid current = path.Last.IfNone(Guid.Empty);
-        Seq<Guid> outward = current != Guid.Empty && connectivity.Find(current, out ConnectiveObject? node)
-            ? toSeq(node.Out).Filter(next => !path.Exists(id => id == next))
-            : Seq<Guid>();
-        Seq<Seq<Guid>> extended = outward.Map(next => path + next);
-        Seq<Seq<Guid>> completed = extended.Filter(p => p.Last.IfNone(Guid.Empty) == end);
-        Seq<Seq<Guid>> continuing = extended.Filter(p => p.Last.IfNone(Guid.Empty) != end);
-        return Expand(
-            connectivity: connectivity,
-            end: end,
-            limit: limit,
-            frontier: frontier + continuing,
-            found: toSeq((found + completed).Take(count: limit)));
+    // Native FindConnections is unbounded; a bounded BFS rejects cyclic extensions and stops at limit.
+    internal static Seq<Seq<Guid>> BoundedPaths(Connectivity connectivity, Guid source, Guid target, int limit) {
+        // BOUNDARY ADAPTER — mutable Queue/foreach drive bounded BFS path-enumeration; state is local to this call frame.
+        if (limit <= 0
+            || !connectivity.Find(source, out ConnectiveObject? start)
+            || !connectivity.Find(target, out ConnectiveObject? end)) {
+            return Seq<Seq<Guid>>();
+        }
+        Guid endId = end.Id;
+        Queue<Seq<Guid>> queue = new();
+        queue.Enqueue(item: Seq(start.Id));
+        Seq<Seq<Guid>> found = Seq<Seq<Guid>>();
+        while (queue.Count > 0 && found.Count < limit) {
+            Seq<Guid> path = queue.Dequeue();
+            Guid current = path.Last.IfNone(Guid.Empty);
+            if (current == Guid.Empty || !connectivity.Find(current, out ConnectiveObject? node)) {
+                continue;
+            }
+            foreach (Guid next in node.Out) {
+                if (path.Exists(id => id == next)) {
+                    continue;
+                }
+                Seq<Guid> extended = path + next;
+                if (next == endId) {
+                    found += extended;
+                    if (found.Count >= limit) {
+                        break;
+                    }
+                } else {
+                    queue.Enqueue(item: extended);
+                }
+            }
+        }
+        return found;
     }
 
     internal static Seq<WireEnds> AllWireEnds(GhObjectList objects) =>
@@ -1191,31 +1223,41 @@ internal static class WireRepositoryRail {
         }, what: nameof(CanInsert)));
 
     internal static Fin<WireDrawnSnapshot> CaptureDrawn(GhCanvas canvas) =>
-        WithRepo(canvas: canvas, body: (access, repo) => CaptureDrawnWith(canvas: canvas, access: access, repo: repo));
+        WithRepo(canvas: canvas, body: (access, repo) =>
+            from wires in ReadWires(access: access, repo: repo)
+            from snapshot in CaptureDrawnWith(canvas: canvas, access: access, repo: repo, wires: wires)
+            select snapshot);
 
-    private static Fin<WireDrawnSnapshot> CaptureDrawnWith(GhCanvas canvas, WireRepositoryAccess access, object repo) =>
-        RailOp.Attempt(body: () => {
-            IEnumerable<object> wires = ((System.Collections.IEnumerable)access.RecentlyDrawn.GetValue(obj: repo)!).Cast<object>();
-            return new WireDrawnSnapshot(
-                Entries: toSeq(wires).Map(wire => MapWireData(wire: wire, access: access)).ToSeq(),
-                Stamp: StampOf(canvas: canvas, repo: repo, access: access),
-                FreshFromWirePaint: true);
-        }, what: nameof(CaptureDrawn));
+    // Materialise MostRecentlyDrawnWires ONCE; AfterWirePaint threads the same Seq into capture + overlay.
+    private static Fin<Seq<object>> ReadWires(WireRepositoryAccess access, object repo) =>
+        RailOp.Attempt(
+            body: () => toSeq(((System.Collections.IEnumerable)access.RecentlyDrawn.GetValue(obj: repo)!).Cast<object>()),
+            what: "MostRecentlyDrawnWires");
+
+    private static Fin<WireDrawnSnapshot> CaptureDrawnWith(GhCanvas canvas, WireRepositoryAccess access, object repo, Seq<object> wires) =>
+        RailOp.Attempt(body: () => new WireDrawnSnapshot(
+            Entries: wires.Map(wire => MapWireData(wire: wire, access: access)),
+            Stamp: StampOf(canvas: canvas, repo: repo, access: access),
+            FreshFromWirePaint: true), what: nameof(CaptureDrawn));
 
     internal static Fin<Unit> AfterWirePaint(GhCanvas canvas, PaintScope scope, WireOverlayStyle style) =>
         WithRepo(canvas: canvas, body: (access, repo) =>
-            from snapshot in CaptureDrawnWith(canvas: canvas, access: access, repo: repo)
+            from wires in ReadWires(access: access, repo: repo)
+            from snapshot in CaptureDrawnWith(canvas: canvas, access: access, repo: repo, wires: wires)
             from _ in Fin.Succ(value: WireDrawnCache.Record(canvas: canvas, snapshot: snapshot))
-            from __ in DrawOverlayWith(access: access, repo: repo, scope: scope, style: style)
+            from __ in DrawOverlayWith(access: access, scope: scope, style: style, wires: wires)
             select unit);
 
     internal static Fin<Unit> DrawOverlay(GhCanvas canvas, PaintScope scope, WireOverlayStyle style) =>
-        WithRepo(canvas: canvas, body: (access, repo) => DrawOverlayWith(access: access, repo: repo, scope: scope, style: style));
+        WithRepo(canvas: canvas, body: (access, repo) =>
+            from wires in ReadWires(access: access, repo: repo)
+            from drawn in DrawOverlayWith(access: access, scope: scope, style: style, wires: wires)
+            select drawn);
 
-    private static Fin<Unit> DrawOverlayWith(WireRepositoryAccess access, object repo, PaintScope scope, WireOverlayStyle style) =>
+    private static Fin<Unit> DrawOverlayWith(WireRepositoryAccess access, PaintScope scope, WireOverlayStyle style, Seq<object> wires) =>
         RailOp.Attempt(body: () => {
             Graphics graphics = scope.Graphics.Content;
-            _ = toSeq(((System.Collections.IEnumerable)access.RecentlyDrawn.GetValue(obj: repo)!).Cast<object>()).Iter(wire =>
+            _ = wires.Iter(wire =>
                 Op.Side(() => {
                     WireShape shape = (WireShape)access.Shape.GetValue(wire)!;
                     using Pen pen = style.For(entry: MapWireData(wire: wire, access: access)).Pen();
@@ -1237,32 +1279,38 @@ internal static class WireRepositoryRail {
 }
 
 internal static class WireShapeInstall {
-    private readonly record struct Entry(Guid Token, Type Shape);
+    private readonly record struct Entry(Guid Token, Type Shape, float CornerRadius, float SplitRatio, Func<RectangleF, Seq<RectangleF>>? Provider);
     private static readonly Type DefaultShape = typeof(WireShapeDefault);
+    private const float DefaultCornerRadius = 0f;
+    private const float DefaultSplitRatio = 0.5f;
     private static readonly Atom<Seq<Entry>> Stack = Atom(value: Seq<Entry>());
 
-    internal static Fin<Subscription> Push(Type shapeType, float cornerRadius, float splitRatio) =>
+    // Install runs inside a UI-thread-marshalled intent (GrasshopperUi.Use -> OnUiThread), so the per-shape config —
+    // geometry AND the obstacle provider — lands on the same thread WireShape.Create later reads during paint.
+    internal static Fin<Subscription> Push(Type shapeType, float cornerRadius, float splitRatio, Func<RectangleF, Seq<RectangleF>>? obstacles = null) =>
         Op.Of(name: nameof(WireShapeInstall)).Attempt(body: () => {
             Guid token = Guid.NewGuid();
-            // Install runs inside a UI-thread-marshalled intent (GrasshopperUi.Use -> OnUiThread), so the per-shape
-            // config lands on the same thread WireShape.Create later reads it during paint.
             WireShapeParams.CornerRadius = cornerRadius;
             WireShapeParams.SplitRatio = splitRatio;
             WireShape.ShapeType = shapeType;
-            _ = Stack.Swap(stack => stack + new Entry(Token: token, Shape: shapeType));
+            WireRouteContext.Provider = obstacles;
+            _ = Stack.Swap(stack => stack + new Entry(Token: token, Shape: shapeType, CornerRadius: cornerRadius, SplitRatio: splitRatio, Provider: obstacles));
             return token;
         }, what: nameof(WireShapeInstall))
         .Bind(token => Subscription.Bind(attach: static () => { }, detach: () => Pop(token: token), marshalToUi: true, detachOnce: true));
 
-    // Guard the throwing static setter (same as Push) so a UI-thread detach throw cannot silently corrupt the
-    // static via the swallowing InvokeOnUiThread.
-    private static void Pop(Guid token) {
-        Seq<Entry> after = Stack.Swap(stack => stack.Filter(entry => entry.Token != token).ToSeq());
-        Type restore = after.Last.Map(static entry => entry.Shape).IfNone(DefaultShape);
-        _ = Op.Of(name: nameof(WireShapeInstall)).Attempt(
-            body: () => { WireShape.ShapeType = restore; return unit; },
-            what: nameof(Pop)).Ignore();
-    }
+    // Guard the whole pop (Stack.Swap + the throwing statics) so a UI-thread detach throw cannot silently corrupt
+    // state via the swallowing InvokeOnUiThread; restore the predecessor frame's geometry, shape, AND provider.
+    private static void Pop(Guid token) =>
+        _ = Op.Of(name: nameof(WireShapeInstall)).Attempt(body: () => {
+            Seq<Entry> after = Stack.Swap(stack => stack.Filter(entry => entry.Token != token).ToSeq());
+            Entry prior = after.Last.IfNone(new Entry(Token: Guid.Empty, Shape: DefaultShape, CornerRadius: DefaultCornerRadius, SplitRatio: DefaultSplitRatio, Provider: null));
+            WireShapeParams.CornerRadius = prior.CornerRadius;
+            WireShapeParams.SplitRatio = prior.SplitRatio;
+            WireShape.ShapeType = prior.Shape;
+            WireRouteContext.Provider = prior.Provider;
+            return unit;
+        }, what: nameof(Pop)).Ignore();
 }
 
 // UI-thread-affine per-shape config: Push writes these on the marshalled install thread; WireShapeOrthogonal subclasses
@@ -1285,13 +1333,12 @@ file sealed class MruCache<TKey, TVal>(int capacity = 8) where TKey : notnull {
     internal TVal GetOrAdd(TKey key, Func<TVal, bool> fresh, Func<TVal> build) =>
         Find(key: key).Filter(fresh).Match(
             Some: static hit => hit,
-            None: () => Rebuild(key: key, build: build));
-
-    private TVal Rebuild(TKey key, Func<TVal> build) {
-        TVal rebuilt = build();
-        _ = Record(key: key, value: rebuilt);
-        return rebuilt;
-    }
+            None: () => {
+                // BOUNDARY ADAPTER — Atom.Swap cannot return the rebuilt value; local capture bridges build -> Record.
+                TVal rebuilt = build();
+                _ = Record(key: key, value: rebuilt);
+                return rebuilt;
+            });
 
     internal Unit Record(TKey key, TVal value) {
         int cap = capacity;

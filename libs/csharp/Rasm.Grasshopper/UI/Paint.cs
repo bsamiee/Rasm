@@ -128,22 +128,14 @@ public readonly record struct PaintScope(CanvasPaintPhase Phase, ControlGraphics
     }
 
     // TextMeasure-routed: Eto.Mac 2.11 GraphicsHandler.MeasureString leaks FormattedText state across calls.
-    public Fin<PaintTextMeasurement> MeasureText(string value, Option<UiFont> font = default) =>
-        MeasureText(
-            value: value,
-            font: font,
-            wrap: FormattedTextWrapMode.None,
-            alignment: FormattedTextAlignment.Left,
-            trimming: FormattedTextTrimming.None,
-            maxSize: new SizeF(width: float.MaxValue, height: float.MaxValue));
-
+    // None maxSize is the unbounded default (SizeF is not const-expressible as a default parameter).
     public Fin<PaintTextMeasurement> MeasureText(
         string value,
-        Option<UiFont> font,
-        FormattedTextWrapMode wrap,
-        FormattedTextAlignment alignment,
-        FormattedTextTrimming trimming,
-        SizeF maxSize) =>
+        Option<UiFont> font = default,
+        FormattedTextWrapMode wrap = FormattedTextWrapMode.None,
+        FormattedTextAlignment alignment = FormattedTextAlignment.Left,
+        FormattedTextTrimming trimming = FormattedTextTrimming.None,
+        Option<SizeF> maxSize = default) =>
         Optional(value)
             .ToFin(Fail: UiFault.InvalidInput(op: Op.Of(name: nameof(MeasureText)), detail: "text is required"))
             .Bind(valid => Try.lift(f: () =>
@@ -156,7 +148,7 @@ public readonly record struct PaintScope(CanvasPaintPhase Phase, ControlGraphics
                             wrap: wrap,
                             alignment: alignment,
                             trimming: trimming,
-                            maxSize: maxSize))
+                            maxSize: maxSize.IfNone(() => new SizeF(width: float.MaxValue, height: float.MaxValue))))
                 )).Run().MapFail(error => UiFault.MutationRejected(op: Op.Of(name: nameof(MeasureText)), detail: error.Message)));
 
     // SaveTransformState does NOT capture clipping; ResetClip in finally is mandatory. Path-clip rejects nesting
@@ -272,7 +264,7 @@ public readonly partial struct PaintStyle {
 
     private const float DefaultMiterLimit = 10f;
 
-    private static PaintStyle Edged(Color edge, Option<Color> fill = default, float thickness = 1f, Option<UiFont> font = default, Color background = default) =>
+    internal static PaintStyle Style(Color edge, Option<Color> fill = default, float thickness = 1f, Option<UiFont> font = default, Color background = default) =>
         Create(
             edge: edge,
             fill: fill,
@@ -290,17 +282,8 @@ public readonly partial struct PaintStyle {
             fillBrush: default,
             edgeBrush: default);
 
-    internal static PaintStyle ForEdge(Color edge, Option<Color> fill = default, float thickness = 1f) =>
-        Edged(edge: edge, fill: fill, thickness: thickness);
-
-    internal static PaintStyle ForEdgeText(Color edge, Option<UiFont> font = default) =>
-        Edged(edge: edge, font: font);
-
-    internal static PaintStyle ForTransparent(Color background = default) =>
-        Edged(edge: Colors.Transparent, background: background);
-
     internal static PaintStyle ForSystemColor(SystemColorKind kind, Option<Skin> skin = default, Option<Color> fill = default, float thickness = 1f) =>
-        Edged(edge: kind.Resolve(skin: skin), fill: fill, thickness: thickness);
+        Style(edge: kind.Resolve(skin: skin), fill: fill, thickness: thickness);
 
     internal Unit Assign(Graphics graphics) {
         graphics.AntiAlias = AntiAlias;
@@ -325,14 +308,20 @@ internal sealed class BoundedCache<TKey, TValue> where TKey : notnull {
         entries = new Dictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>>(capacity: capacity, comparer: comparer);
     }
 
+    // BOUNDARY ADAPTER -- double-checked compute-outside-lock: the Dictionary/LinkedList backing is not concurrent, so
+    // every structural access stays gated, but valueFactory runs UNLOCKED between the two checks. The second check
+    // discards the speculatively computed value when a racing caller already inserted the key.
     internal TValue GetOrAdd(TKey key, Func<TKey, TValue> valueFactory) {
         using (gate.EnterScope()) {
-            if (entries.TryGetValue(key: key, value: out LinkedListNode<KeyValuePair<TKey, TValue>>? hit)) {
-                order.Remove(node: hit);
-                order.AddLast(node: hit);
-                return hit.Value.Value;
+            if (Touch(key: key, value: out TValue? cached)) {
+                return cached;
             }
-            TValue fresh = valueFactory(arg: key);
+        }
+        TValue fresh = valueFactory(arg: key);
+        using (gate.EnterScope()) {
+            if (Touch(key: key, value: out TValue? raced)) {
+                return raced;
+            }
             if (entries.Count >= capacity && order.First is LinkedListNode<KeyValuePair<TKey, TValue>> evict) {
                 order.RemoveFirst();
                 _ = entries.Remove(key: evict.Value.Key);
@@ -342,6 +331,18 @@ internal sealed class BoundedCache<TKey, TValue> where TKey : notnull {
             entries.Add(key: key, value: node);
             return fresh;
         }
+    }
+
+    // BOUNDARY ADAPTER -- gated LRU touch: caller holds the lock; promotes a hit to MRU and surfaces its value, else miss.
+    private bool Touch(TKey key, [MaybeNullWhen(returnValue: false)] out TValue value) {
+        if (entries.TryGetValue(key: key, value: out LinkedListNode<KeyValuePair<TKey, TValue>>? hit)) {
+            order.Remove(node: hit);
+            order.AddLast(node: hit);
+            value = hit.Value.Value;
+            return true;
+        }
+        value = default;
+        return false;
     }
 
 }
@@ -498,7 +499,6 @@ public partial record FillSource {
                 TextureCase texture => HashCode.Combine(RuntimeHelpers.GetHashCode(texture.Source), texture.Opacity),
                 _ => s.GetHashCode(),
             }));
-    [SuppressMessage(category: "Reliability", checkId: "CA2000:Dispose objects before losing scope", Justification = "Eto brush Dispose is inert (no-op); the Cacheable path deposits the brush into the long-lived BrushCache (outlives every paint scope) and the transient path returns a caller-owned brush — neither is disposable here.")]
     internal Brush CachedBrush() => Cacheable ? BrushCache.GetOrAdd(key: this, valueFactory: static s => s.CreateBrush()) : CreateBrush();
 
 }
@@ -558,17 +558,17 @@ public partial record DrawMark {
     public sealed partial record TransformedCase(IMatrix Transform, DrawPlan Plan) : DrawMark;
 
     public static DrawMark Line(PointF a, PointF b, Color colour, float thickness = 1f) =>
-        new LineCase(A: a, B: b, Style: PaintStyle.ForEdge(edge: colour, thickness: thickness));
+        new LineCase(A: a, B: b, Style: PaintStyle.Style(edge: colour, thickness: thickness));
     public static DrawMark Rectangle(RectangleF bounds, Color edge, Option<Color> fill = default, float thickness = 1f) =>
-        new RectangleCase(Bounds: bounds, Style: PaintStyle.ForEdge(edge: edge, fill: fill, thickness: thickness));
+        new RectangleCase(Bounds: bounds, Style: PaintStyle.Style(edge: edge, fill: fill, thickness: thickness));
     public static DrawMark RoundedRectangle(RectangleF bounds, float radius, Color edge, Option<Color> fill = default, float thickness = 1f) =>
-        new RoundedCornersCase(Bounds: bounds, Radii: CornerRadii.Uniform(radius: radius), Style: PaintStyle.ForEdge(edge: edge, fill: fill, thickness: thickness));
+        new RoundedCornersCase(Bounds: bounds, Radii: CornerRadii.Uniform(radius: radius), Style: PaintStyle.Style(edge: edge, fill: fill, thickness: thickness));
     public static DrawMark RoundedCorners(RectangleF bounds, CornerRadii radii, Color edge, Option<Color> fill = default, float thickness = 1f) =>
-        new RoundedCornersCase(Bounds: bounds, Radii: radii, Style: PaintStyle.ForEdge(edge: edge, fill: fill, thickness: thickness));
+        new RoundedCornersCase(Bounds: bounds, Radii: radii, Style: PaintStyle.Style(edge: edge, fill: fill, thickness: thickness));
     public static DrawMark Ellipse(RectangleF bounds, Color edge, Option<Color> fill = default, float thickness = 1f) =>
-        new EllipseCase(Bounds: bounds, Style: PaintStyle.ForEdge(edge: edge, fill: fill, thickness: thickness));
+        new EllipseCase(Bounds: bounds, Style: PaintStyle.Style(edge: edge, fill: fill, thickness: thickness));
     public static DrawMark Path(IGraphicsPath path, Color edge, Option<Color> fill = default, float thickness = 1f) =>
-        new PathCase(Geometry: path, Style: PaintStyle.ForEdge(edge: edge, fill: fill, thickness: thickness));
+        new PathCase(Geometry: path, Style: PaintStyle.Style(edge: edge, fill: fill, thickness: thickness));
     public static DrawMark Label(
         string value,
         RectangleF frame,
@@ -577,25 +577,25 @@ public partial record DrawMark {
         FormattedTextWrapMode wrap = FormattedTextWrapMode.Word,
         FormattedTextAlignment alignment = FormattedTextAlignment.Left,
         FormattedTextTrimming trimming = FormattedTextTrimming.WordEllipsis) =>
-        new TextCase(Value: value, Frame: frame, Style: PaintStyle.ForEdgeText(edge: colour, font: font), Wrap: wrap, Alignment: alignment, Trimming: trimming);
+        new TextCase(Value: value, Frame: frame, Style: PaintStyle.Style(edge: colour, font: font), Wrap: wrap, Alignment: alignment, Trimming: trimming);
     public static DrawMark Image(Image value, RectangleF frame) =>
-        new ImageCase(Value: value, Frame: frame, Style: PaintStyle.ForTransparent());
+        new ImageCase(Value: value, Frame: frame, Style: PaintStyle.Style(edge: Colors.Transparent));
     public static DrawMark IconGlyph(IIcon value, RectangleF frame, Color background, IconAdjust? adjust = null) =>
-        new GhIconCase(Value: value, Frame: frame, Style: PaintStyle.ForTransparent(background: background), Adjust: adjust ?? IconAdjust.None);
+        new GhIconCase(Value: value, Frame: frame, Style: PaintStyle.Style(edge: Colors.Transparent, background: background), Adjust: adjust ?? IconAdjust.None);
     public static DrawMark WirePreview(PointF source, PointF target, WireKind kind = WireKind.Tentative, bool sourceSelected = false, bool targetSelected = false) =>
-        new WireCase(Source: source, Target: target, Kind: kind, Style: PaintStyle.ForTransparent(), SourceSelected: sourceSelected, TargetSelected: targetSelected);
+        new WireCase(Source: source, Target: target, Kind: kind, Style: PaintStyle.Style(edge: Colors.Transparent), SourceSelected: sourceSelected, TargetSelected: targetSelected);
     public static DrawMark Arc(RectangleF bounds, float startAngle, float sweepAngle, Color edge, float thickness = 1f) =>
-        new ArcCase(Bounds: bounds, StartAngle: startAngle, SweepAngle: sweepAngle, Style: PaintStyle.ForEdge(edge: edge, thickness: thickness));
+        new ArcCase(Bounds: bounds, StartAngle: startAngle, SweepAngle: sweepAngle, Style: PaintStyle.Style(edge: edge, thickness: thickness));
     public static DrawMark Pie(RectangleF bounds, float startAngle, float sweepAngle, Color fill, Option<Color> edge = default, float thickness = 1f) =>
-        new PieCase(Bounds: bounds, StartAngle: startAngle, SweepAngle: sweepAngle, Style: PaintStyle.ForEdge(edge: edge.IfNone(fill), fill: Some(fill), thickness: thickness));
+        new PieCase(Bounds: bounds, StartAngle: startAngle, SweepAngle: sweepAngle, Style: PaintStyle.Style(edge: edge.IfNone(fill), fill: Some(fill), thickness: thickness));
     public static DrawMark Polyline(ReadOnlyMemory<PointF> points, Color edge, float thickness = 1f) =>
-        new PolylineCase(Points: points, Style: PaintStyle.ForEdge(edge: edge, thickness: thickness));
+        new PolylineCase(Points: points, Style: PaintStyle.Style(edge: edge, thickness: thickness));
     public static DrawMark Polygon(ReadOnlyMemory<PointF> points, Color edge, Option<Color> fill = default, float thickness = 1f) =>
-        new PolygonCase(Points: points, Style: PaintStyle.ForEdge(edge: edge, fill: fill, thickness: thickness));
+        new PolygonCase(Points: points, Style: PaintStyle.Style(edge: edge, fill: fill, thickness: thickness));
     public static DrawMark Bezier(PointF start, PointF control1, PointF control2, PointF end, Color edge, float thickness = 1f) =>
-        new BezierCase(Start: start, Control1: control1, Control2: control2, End: end, Style: PaintStyle.ForEdge(edge: edge, thickness: thickness));
+        new BezierCase(Start: start, Control1: control1, Control2: control2, End: end, Style: PaintStyle.Style(edge: edge, thickness: thickness));
     public static DrawMark Curve(ReadOnlyMemory<PointF> points, Color edge, float tension = 0.5f, Option<Color> fill = default, float thickness = 1f) =>
-        new CurveCase(Points: points, Tension: tension, Style: PaintStyle.ForEdge(edge: edge, fill: fill, thickness: thickness));
+        new CurveCase(Points: points, Tension: tension, Style: PaintStyle.Style(edge: edge, fill: fill, thickness: thickness));
     public static DrawMark SystemArc(RectangleF bounds, float startAngle, float sweepAngle, SystemColorKind color, float thickness = 1f) {
         ArgumentNullException.ThrowIfNull(argument: color);
         return new ArcCase(Bounds: bounds, StartAngle: startAngle, SweepAngle: sweepAngle, Style: PaintStyle.ForSystemColor(kind: color, thickness: thickness), SystemColor: Some(color));
@@ -645,20 +645,27 @@ public partial record DrawMark {
                     background: c.Style.Background)));
                 return unit;
             }),
-            wireCase: static (s, w) => DrawStyled(scope: s, style: w.Style, op: Op.Of(name: nameof(WireCase)), what: "wire draw", draw: graphics => {
+            wireCase: static (s, w) => {
                 WireSkin skin = s.Skin.Wires[w.Kind];
                 WireShape shape = WireShape.Create(source: w.Source, target: w.Target);
-                using Pen outerPen = new(color: skin.Normal, thickness: skin.Outer.Width);
-                skin.Outer.AssignToPen(pen: outerPen);
-                shape.Draw(graphics: graphics, edge: outerPen);
-                // Inner glow is the selection highlight: draw it only when the wire touches a selected endpoint.
-                _ = Optional(skin.Inner).Filter(_ => w.SourceSelected || w.TargetSelected).Iter(inner => {
-                    using Pen innerPen = new(color: skin.SelectedGlow, thickness: inner.Width);
-                    inner.AssignToPen(pen: innerPen);
-                    shape.Draw(graphics: graphics, edge: innerPen);
+                Color outerColour = (w.SourceSelected, w.TargetSelected) switch {
+                    (false, false) => skin.Normal,
+                    (true, true) => skin.SelectedGlow,
+                    _ => skin.Normal,
+                };
+                return DrawStyled(scope: s, style: w.Style, op: Op.Of(name: nameof(WireCase)), what: "wire draw", bounds: Some(shape.Bounds), draw: graphics => {
+                    using Pen outerPen = new(color: outerColour, thickness: skin.Outer.Width);
+                    skin.Outer.AssignToPen(pen: outerPen);
+                    shape.Draw(graphics: graphics, edge: outerPen);
+                    // Inner glow is the selection highlight: draw it only when the wire touches a selected endpoint.
+                    _ = Optional(skin.Inner).Filter(_ => w.SourceSelected || w.TargetSelected).Iter(inner => {
+                        using Pen innerPen = new(color: skin.SelectedGlow, thickness: inner.Width);
+                        inner.AssignToPen(pen: innerPen);
+                        shape.Draw(graphics: graphics, edge: innerPen);
+                    });
+                    return unit;
                 });
-                return unit;
-            }),
+            },
             arcCase: static (s, c) => DrawStyled(scope: s, style: c.Style, op: Op.Of(name: nameof(ArcCase)), what: "arc draw", bounds: Some(c.Bounds), draw: g => {
                 using Pen pen = (c.SystemColor is { IsSome: true, Case: SystemColorKind kind }
                     ? PaintStyle.ForSystemColor(kind: kind, skin: Some(s.Skin), thickness: c.Style.Thickness)

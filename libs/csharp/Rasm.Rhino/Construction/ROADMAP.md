@@ -148,7 +148,7 @@ Docs-only refinement gate:
 - Exact XML/decompile checks for rejected 2D types and hidden/internal mesh members.
 
 Future implementation gate:
-- `uv run python -m tools.quality static check`.
+- `uv run python -m tools.quality static fix`.
 - `uv run python -m tools.quality static build`.
 
 Runtime Rhino verification is required only when construction behavior needs native document/runtime mutation beyond static compile proof.

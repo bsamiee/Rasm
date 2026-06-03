@@ -23,4 +23,4 @@ Read `libs/csharp/Rasm/AGENTS.md`, `docs/external-libs/mathnet`, and package tru
 
 ## Validation
 
-Run `uv run python -m tools.quality static check` for cleanup. Add `uv run python -m tools.quality static build`, `uv run python -m tools.quality test run`, and vector bridge scenarios when compile, managed behavior, or native Rhino/GH evidence changes.
+Run `uv run python -m tools.quality static fix [paths...]` for cleanup. Add `uv run python -m tools.quality static build [paths...]`, `uv run python -m tools.quality test run --no-build`, and vector bridge scenarios when compile, managed behavior, or native Rhino/GH evidence changes.

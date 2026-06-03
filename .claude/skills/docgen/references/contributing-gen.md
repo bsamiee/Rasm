@@ -32,7 +32,7 @@ Before generating, gather information from:
 
 ### [2.1][DEVELOPMENT_SETUP]
 
-Exact commands from clone to running checks. Section contains one H2 heading (`## Development Setup`) followed by a single `sh` fenced code block with seven sequential commands: `git clone <repo-url>`, `cd <repo>`, `pnpm install`, `pnpm check:ts`, `pnpm check:py`, `uv run python -m tools.quality static check`, `uv run python -m tools.quality static build`.
+Exact commands from clone to running checks. Section contains one H2 heading (`## Development Setup`) followed by a single `sh` fenced code block with seven sequential commands: `git clone <repo-url>`, `cd <repo>`, `pnpm install`, `pnpm check:ts`, `pnpm check:py`, `uv run python -m tools.quality static report`, `uv run python -m tools.quality static build`.
 
 Include fork vs. direct clone policy, required environment variables, database setup if applicable.
 
@@ -60,7 +60,7 @@ Link to language-specific standards; do not inline them. Section contains one H2
 
 Commands and coverage expectations. Section contains one H2 heading (`## Testing`) followed by two inline code commands and a coverage threshold statement:
 
-- **Run language checks:** `pnpm check:ts`, `pnpm check:py`, `uv run python -m tools.quality static check`, `uv run python -m tools.quality static build`
+- **Run language checks:** `pnpm check:ts`, `pnpm check:py`, `uv run python -m tools.quality static report`, `uv run python -m tools.quality static build`
 - **Run with coverage:** `pnpm exec nx run-many -t test -- --coverage`
 - **Coverage threshold:** 80% line coverage; PRs below threshold fail CI.
 

@@ -78,7 +78,7 @@ Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal poli
 - Spec-local generator classes stay non-public unless discovery requires public visibility.
 - Do not add local xUnit/analyzer suppressions for style friction. Adjust folder-wide policy only when the rule conflicts with discovery or generated-code reality.
 - Validation routes for test changes:
-  - `uv run python -m tools.quality static check`
+  - `uv run python -m tools.quality static fix`
   - `uv run python -m tools.quality static build`
   - `uv run python -m tools.quality test run`
   - `uv run python -m tools.quality test run --target tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj` when GH2 managed specs changed.

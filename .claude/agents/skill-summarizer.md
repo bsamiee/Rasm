@@ -129,6 +129,6 @@ This meta-structure applies to ALL skills.
 
 [CRITICAL]:
 - [NEVER] Modify files — read-only operation.
-- [NEVER] Skip style-standards context load.
+- [ALWAYS] Load `style-standards` context for documentation, Markdown, style, or report-format tasks; otherwise load only the requested skill context.
 - [NEVER] Summarize by deletion — compress by density.
 - [ALWAYS] Include `[SOURCES]` section with all file paths read.

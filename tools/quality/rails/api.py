@@ -162,11 +162,17 @@ def api(
             }[kind]
             return Ok(path).filter_with(lambda value: bool(value) and Path(value).is_file(), lambda _: ProcessFault.fail("api", key, detail=missing))
         case "search":
-            return api(rhino_app, "path", key, kind="xml", env=env).bind(
-                lambda xml: (
-                    run(("rg", "-n", "-C", "2", "--", pattern, str(xml)), check=True).map(lambda done: done.text)
-                    if isinstance(xml, str)
-                    else Error(ProcessFault.fail("api", key, detail=b"Missing xml"))
+            return (
+                Ok(pattern.strip())
+                .filter_with(lambda value: bool(value), lambda _: ProcessFault.fail("api", "search", detail=b"--pattern is required"))
+                .bind(
+                    lambda query: api(rhino_app, "path", key, kind="xml", env=env).bind(
+                        lambda xml: (
+                            run(("rg", "-n", "-C", "2", "--", query, str(xml)), check=True).map(lambda done: done.text)
+                            if isinstance(xml, str)
+                            else Error(ProcessFault.fail("api", key, detail=b"Missing xml"))
+                        )
+                    )
                 )
             )
         case "types":
@@ -176,6 +182,10 @@ def api(
                 .map(lambda done: done.text)
             )
         case "decompile":
-            return _with_dotnet_apphost(("ilspycmd", "-t", type_name, assembly), env=env, check=True).map(lambda done: done.text)
+            return (
+                Ok(type_name.strip())
+                .filter_with(lambda value: bool(value), lambda _: ProcessFault.fail("api", "decompile", detail=b"--type-name is required"))
+                .bind(lambda name: _with_dotnet_apphost(("ilspycmd", "-t", name, assembly), env=env, check=True).map(lambda done: done.text))
+            )
         case unreachable:
             assert_never(unreachable)

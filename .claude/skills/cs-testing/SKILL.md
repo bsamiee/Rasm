@@ -144,7 +144,7 @@ Current local truth:
 Use the repo gate appropriate to the touched surface:
 
 ```bash
-uv run python -m tools.quality static check
+uv run python -m tools.quality static fix
 uv run python -m tools.quality static build
 uv run python -m tools.quality test run
 uv run python -m tools.quality bridge verify tests/csharp/libs/Rasm/Vectors/scenarios

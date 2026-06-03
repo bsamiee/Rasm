@@ -21,20 +21,22 @@ uv run python -m tools.quality <rail> <verb> [args…]
 |   [3]   | Rhino bridge    |
 
 [COMMAND]
-- [1] `quality static check` / `build` / `full`
+- [1] `quality static fix` / `report` / `build` / `full` / `plan`
 - [2] `quality test run` / `list` / `coverage`
 - [3] `quality bridge …` / `quality api …`
 
-`pnpm test:cs` and `pnpm verify:rhino` in `package.json` wrap the test and verify rails.
+Use the Python module entrypoint directly. Do not add package-manager aliases for `tools.quality`.
 
 ## Conventions
 
 - Keep orthogonal rails separate — static cleanup/build, unit/mutation, and Rhino runtime never merge.
-- `quality static check` applies scoped whitespace, style, and analyzer fixes without build.
-- `quality static build` runs routed restore/build/analyzers; `quality static full` forces full-solution build proof.
+- `quality static fix` applies scoped whitespace, style, and analyzer fixes without build.
+- `quality static report` emits non-mutating fix diagnostics and reports.
+- `quality static build` runs routed restore/build/analyzers; `quality static full` forces `.slnx` parity and full-solution build proof.
+- `quality static plan` prints route owners, triggers, project closure, and exact dotnet commands.
 - Per-rail MSBuild cache: `.artifacts/quality/<rail>/` via `ArtifactScope`; static keeps build servers and node reuse enabled. No flock, stamp files, or global coordinators.
 - Default `quality test run` (managed `Rasm` target) runs MTP unit tests only. Stryker is explicit through `--mutation changed|full` and fail-fast on the mutation lock.
-- Bridge verify/check/package and live Rhino remain single-flight. See `tools/rhino-bridge/AGENTS.md`.
+- Live Rhino bridge commands, bridge verify, bridge package live steps, and package stage commit use fail-fast leases. See `tools/rhino-bridge/AGENTS.md`.
 
 ## Validation
 

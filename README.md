@@ -52,14 +52,14 @@ RhinoWIP currently hosts .NET 10 while installed McNeel assemblies can target ol
 Run C# quality gates:
 
 ```bash
-uv run python -m tools.quality static check
+uv run python -m tools.quality static fix
 uv run python -m tools.quality static build
 ```
 
 Build Rhino artifacts:
 
 ```bash
-uv run python -m tools.quality bridge build
+uv run python -m tools.quality bridge build-bridge
 ```
 
 Create the Mac Yak package:
@@ -104,9 +104,9 @@ uv run python -m tools.quality bridge verify path/to/scenario.verify.csx
 
 `uv run python -m tools.quality bridge package <package> <version>` performs one path:
 
-1. Restore `Workspace.slnx`.
+1. Resolve one package project by `YakPackageSlug`.
 2. Clear configured plugin output directories for the selected package.
-3. Build `Workspace.slnx` in `Release`.
+3. Build the selected package project in `Release`.
 4. Stage the configured plugin `.rhp` files and owned output assemblies for the selected package.
 5. Copy `tools/yak/<package>/manifest.yml` and `tools/yak/<package>/icon.png`.
 6. Run RhinoWIP Yak with `--platform mac` and the supplied version.

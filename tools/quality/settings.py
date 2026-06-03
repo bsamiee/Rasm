@@ -177,6 +177,10 @@ class QualitySettings(BaseSettings):
         return self.artifact_root / "locks" / "mutation.lock"
 
     @property
+    def bridge_lock(self) -> Path:
+        return self.artifact_root / "locks" / "bridge.lock"
+
+    @property
     def bridge_client(self) -> Path:
         return self.root / "tools/rhino-bridge/client/Rasm.RhinoBridge.Client.csproj"
 

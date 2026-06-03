@@ -2,6 +2,7 @@
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
+from collections.abc import Callable
 from pathlib import Path
 import re
 import shutil
@@ -12,7 +13,19 @@ from beartype import beartype
 from expression import Error, Ok, Result
 import msgspec
 
-from tools.quality.process import Completed, decode_json, dotnet, dotnet_build, fd_args, fold, ProcessFault, ProjectIndex, Workspace
+from tools.quality.process import (
+    Completed,
+    decode_json,
+    dotnet,
+    dotnet_build,
+    exclusive_lease,
+    fd_args,
+    fold,
+    ProcessFault,
+    ProjectIndex,
+    ResourceBusyError,
+    Workspace,
+)
 from tools.quality.settings import ArtifactScope, QualitySettings
 
 
@@ -317,6 +330,26 @@ def client_refresh(settings: QualitySettings, scope: ArtifactScope) -> Result[No
 
 @beartype
 def run_verify(settings: QualitySettings, scope: ArtifactScope, pattern: str) -> Result[VerifyReport, ProcessFault]:
+    try:
+        with exclusive_lease(settings.bridge_lock, _lease_owner(settings, "bridge")):
+            return _run_verify_unlocked(settings, scope, pattern)
+    except ResourceBusyError as exc:
+        return Error(ProcessFault.fail("bridge", "busy", detail=f"bridge lock is already held: {exc.lock}\n{exc.owner}", returncode=5))
+
+
+def with_bridge_lease[T](settings: QualitySettings, action: Callable[[], Result[T, ProcessFault]]) -> Result[T, ProcessFault]:
+    try:
+        with exclusive_lease(settings.bridge_lock, _lease_owner(settings, "bridge")):
+            return action()
+    except ResourceBusyError as exc:
+        return Error(ProcessFault.fail("bridge", "busy", detail=f"bridge lock is already held: {exc.lock}\n{exc.owner}", returncode=5))
+
+
+def _lease_owner(settings: QualitySettings, resource: str) -> str:
+    return f"resource={resource}\nrun_id={settings.run_id}\n"
+
+
+def _run_verify_unlocked(settings: QualitySettings, scope: ArtifactScope, pattern: str) -> Result[VerifyReport, ProcessFault]:
     root, report_root, report_dir, workspace = (settings.root, settings.bridge_verify_root, settings.bridge_verify_dir, Workspace(settings.root))
     scenarios = _verify_discover(workspace, root, pattern)
     match scenarios:
