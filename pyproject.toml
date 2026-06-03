@@ -20,12 +20,29 @@ dependencies = [
     "stamina",
     "structlog",
     "suitkaise",
-    "typing-extensions",
     "httpx",
 ]
 
 [dependency-groups]
-dev =        ["hypothesis", "libcst", "mypy", "pytest", "pytest-socket", "pytest-timeout", "ruff", "ty", "validate-pyproject[all]"]
+dev = [
+    "coverage>=7.14.1",
+    "hypothesis>=6.155.1",
+    "libcst",
+    "mutmut>=3.5.0",
+    "mypy",
+    "pytest>=9.0.3",
+    "pytest-benchmark>=5.2.3",
+    "pytest-cov>=7.1.0",
+    "pytest-deadfixtures>=3.1.0",
+    "pytest-randomly>=4.1.0",
+    "pytest-socket",
+    "pytest-timeout",
+    "pytest-xdist>=3.8.0",
+    "ruff",
+    "time-machine>=3.2.0",
+    "ty",
+    "validate-pyproject[all]",
+]
 scientific = ["dask", "numpy", "pandas", "pandas-stubs", "polars", "scipy", "scipy-stubs", "sympy", "xarray"]
 
 # --- [UV] ------------------------------------------------------------------
@@ -45,13 +62,16 @@ respect-type-ignore-comments = false
 
 [tool.ty.src]
 exclude = [
+    ".approval_tests_temp",
     ".artifacts",
+    ".benchmarks",
     ".cache",
     ".claude/skills/**/.cache",
     ".claude/worktrees",
     ".nx",
     ".venv",
     "coverage",
+    "mutants",
     "node_modules",
     "test-results",
     "tests/tools/ast-grep/fail/**",
@@ -67,10 +87,10 @@ error-on-warning = true
 # --- [MYPY] ----------------------------------------------------------------
 
 [tool.mypy]
-python_version = "3.14"
-cache_dir =      ".cache/mypy"
-strict =         true
-pretty =         true
+python_version =   "3.14"
+cache_dir =        ".cache/mypy"
+strict =           true
+pretty =           true
 warn_unreachable = true
 plugins = ["pydantic.mypy"]
 enable_error_code = [
@@ -83,7 +103,9 @@ enable_error_code = [
     "unused-awaitable",
 ]
 exclude = [
+    "^\\.approval_tests_temp/",
     "^\\.artifacts/",
+    "^\\.benchmarks/",
     "^\\.cache/",
     "^\\.claude/skills/.*/\\.cache/",
     "^\\.claude/worktrees/",
@@ -93,6 +115,7 @@ exclude = [
     "^build/",
     "^dist/",
     "^coverage/",
+    "^mutants/",
     "^test-results/",
     "^node_modules/",
     "^tests/tools/ast-grep/fail/",
@@ -107,35 +130,62 @@ warn_untyped_fields =           true
 
 # --- [PYTEST] --------------------------------------------------------------
 
-[tool.pytest.ini_options]
-strict_xfail = true
-strict =       true
-cache_dir =    ".cache/pytest"
-testpaths =    ["tests"]
-pythonpath =   ["."]
-addopts =      "-x --tb=short --disable-socket --allow-unix-socket"
+[tool.pytest]
+minversion = "9.0"
+strict =     true
+cache_dir =  ".cache/pytest"
+testpaths =  ["tests"]
+pythonpath = ["."]
+collect_imported_tests = false
+empty_parameter_set_mark = "fail_at_collect"
+addopts = [
+    "-x",
+    "--tb=short",
+    "--import-mode=importlib",
+    "--disable-socket",
+    "--allow-unix-socket",
+    "--benchmark-storage=file://.artifacts/python/benchmarks",
+    "--randomly-seed=20260603",
+    "--hypothesis-profile=rasm",
+]
 filterwarnings = ["error"]
-timeout =      30
-required_plugins = ["pytest-socket", "pytest-timeout"]
+timeout = "30"
+required_plugins = [
+    "anyio",
+    "hypothesis>=6.155.1",
+    "pytest-benchmark>=5.2.3",
+    "pytest-cov>=7.1.0",
+    "pytest-randomly>=4.1.0",
+    "pytest-socket",
+    "pytest-timeout",
+    "pytest-xdist>=3.8.0",
+    "time-machine>=3.2.0",
+]
 markers = [
-    "anyio: async tests running on anyio backends",
-    "property: property-based tests",
     "integration: external boundary and integration tests",
-    "enable_socket: allow network sockets for explicit integration tests",
-    "timeout: per-test timeout override",
+    "mutation: mutation-testing acceptance and survivor-triage tests",
+    "network: tests that intentionally use external network sockets",
+    "property: property-based tests",
+    "serial: tests that must not run concurrently",
+    "slow: long-running validation tests",
 ]
 
 # --- [COVERAGE] ------------------------------------------------------------
 
 [tool.coverage.run]
-branch =        true
-relative_files = true
+branch =          true
+relative_files =  true
+source =          ["tools/quality"]
+dynamic_context = "test_function"
+data_file =       ".cache/coverage/.coverage"
+core =            "ctrace"
 
 [tool.coverage.report]
-fail_under =    95
+fail_under =    100
 show_missing =  true
 skip_covered =  true
 exclude_also = [
+    "case _ as unreachable:",
     "if TYPE_CHECKING:",
     "raise NotImplementedError",
     "assert_never\\(",
@@ -143,6 +193,42 @@ exclude_also = [
     "\\.\\.\\.$",
     "if __name__ == .__main__.:",
 ]
+
+[tool.coverage.json]
+output = ".artifacts/python/coverage/coverage.json"
+pretty_print = true
+
+[tool.coverage.html]
+directory = ".artifacts/python/coverage/html"
+show_contexts = true
+
+[tool.coverage.xml]
+output = ".artifacts/python/coverage/coverage.xml"
+
+[tool.coverage.lcov]
+output = ".artifacts/python/coverage/coverage.lcov"
+
+# --- [MUTMUT] --------------------------------------------------------------
+
+[tool.mutmut]
+paths_to_mutate = ["tools/quality"]
+pytest_add_cli_args_test_selection = ["tests/tools/quality"]
+pytest_add_cli_args = [
+    "-x",
+    "--tb=short",
+    "--disable-socket",
+    "--allow-unix-socket",
+    "--import-mode=importlib",
+    "--randomly-dont-reorganize",
+    "--randomly-dont-reset-seed",
+    "-p",
+    "no:randomly",
+    "-p",
+    "no:random-order",
+]
+do_not_mutate = ["tools/quality/__init__.py"]
+mutate_only_covered_lines = true
+max_stack_depth = 10
 
 # --- [RUFF] ----------------------------------------------------------------
 
@@ -153,12 +239,15 @@ preview =        true
 force-exclude =  true
 line-length =    150
 extend-exclude = [
+    "**/.approval_tests_temp/**",
     "**/.artifacts/**",
+    "**/.benchmarks/**",
     "**/.cache/**",
     "**/.claude/skills/**/.cache/**",
     "**/.claude/worktrees/**",
     "**/test-results/**",
     "**/coverage/**",
+    "**/mutants/**",
     "**/.history/**",
 ]
 

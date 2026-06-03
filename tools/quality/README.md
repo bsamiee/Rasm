@@ -190,9 +190,9 @@ Package commands:
 - Resolve one `*.csproj` under `apps/` or `tools/` with matching `YakPackageSlug`.
 - Validate `.rhp`, target dir, Yak platform `mac`, package glob `*-rh9_*-mac.yak`, and executable `yak`.
 - Build artifact, copy manifest/package files, exclude host assemblies, run `yak build`, then replace stage dir under nonblocking stage lease.
-- `package` prints stage path.
-- `package plan <slug> <version>` emits package project and evaluated Yak metadata without staging.
-- `package list` emits discovered package projects without MSBuild or Yak mutation.
+- `package` emits a `package` rail Envelope with stage path under `data.artifact_paths.stage`.
+- `package plan <slug> <version>` emits package project and evaluated Yak metadata under `Envelope.data` without staging.
+- `package list` emits discovered package projects under `Envelope.data` without MSBuild or Yak mutation.
 - `deploy` runs `yak install`; `rasm-bridge` also `quit`, `install`, `refresh`.
 - `publish` runs deploy path plus `yak push` when `YakPushSource` exists.
 
@@ -218,7 +218,7 @@ API evidence root: `.artifacts/quality/api/<run-id>/`. Default commands emit com
 |   [1]   | `api doctor [--strict]`           | Host and NuGet inventory plus tool health for ilspycmd, Rhino, and RhinoCode; absorbs the former `sources` inventory. |
 |   [2]   | `api resolve <key> [all\|assembly\|xml\|nuspec\|deps\|package-root]` | Resolved asset paths across managed, native, build, analyzer, and tool assets; default kind `all`. |
 |   [3]   | `api query <key> [symbol] [--max-lines N] [--full] [--grep text]` | One polymorphic engine; discriminates on the shape of `symbol` against the ilspy surface. |
-|   [4]   | `api show <artifact-or-symbol> [--lines A:B] [--grep text] [--full] [--latest]` | Bounded current-run artifact preview; historical lookup requires `--latest`.  |
+|   [4]   | `api show <artifact-or-symbol> [--lines A:B] [--grep text] [--full] [--latest]` | Current-run artifact preview or full content inside `Envelope.data`; historical lookup requires `--latest`.  |
 
 `query` shapes (discriminated by `symbol`):
 
@@ -245,7 +245,7 @@ API `data` payload (nested under the top-level `Envelope.data`):
 - `results`: small ranked preview records; no broad result stream is printed by default.
 - `preview`: inline bounded source/artifact text when the command owns a direct inspection surface.
 
-[CRITICAL] `api query` on a missing key emits empty bytes — the Envelope carries `status: empty` and `data` is absent; it never prints a bare `{}`. The top-level `Envelope.truncated` flags an intentionally omitted preview; use `api show --full` only when that much context is required.
+[CRITICAL] Unknown API source keys fail with a typed Envelope error. Valid source keys with no symbol/artifact match return `status: empty` and no raw fallback bytes. `api show --full` keeps full text inside `Envelope.data.content`; stdout still contains exactly one Envelope.
 
 Keys:
 

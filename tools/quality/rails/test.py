@@ -2,12 +2,12 @@
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
-from collections.abc import Generator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Literal
 
 from beartype import beartype
-from expression import effect, Error, Ok, Result
+from expression import Error, Ok, Result
 import msgspec
 import structlog
 
@@ -19,7 +19,6 @@ from tools.quality.settings import ArtifactScope, MUTATION_THRESHOLDS, QualitySe
 
 type MutationMode = Literal["off", "changed", "full"]
 type TestMode = Literal["run", "list", "coverage"]
-type TestPlan = tuple[tuple[str, ...], bool]
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
@@ -39,8 +38,27 @@ _STRYKER_ZERO_DISCOVERY_MARKERS: Final[tuple[bytes, ...]] = (b"Number of tests f
 _STRYKER_ZERO_DISCOVERY_DETAIL: Final[bytes] = (
     b"Stryker discovered zero tests after MTP unit execution. Mutation is not a valid quality signal until Stryker discovers tests."
 )
-_TEST_PLANS: Final[dict[TestMode, TestPlan]] = {"coverage": (_COVERLET_ARGS, False), "list": (("--list-tests",), False), "run": ((), True)}
 log = structlog.get_logger("quality.test")
+
+
+@dataclass(frozen=True, slots=True)
+class TestRailPlan:
+    args: tuple[str, ...]
+    can_mutate: bool
+
+
+_TEST_PLANS: Final[dict[TestMode, TestRailPlan]] = {
+    "coverage": TestRailPlan(args=_COVERLET_ARGS, can_mutate=False),
+    "list": TestRailPlan(args=("--list-tests",), can_mutate=False),
+    "run": TestRailPlan(args=(), can_mutate=True),
+}
+
+
+class TestRunReport(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
+    query: dict[str, str | bool]
+    status: str
+    artifact_paths: dict[str, str]
+    mutation: MutationMode = "off"
 
 
 class TestListReport(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
@@ -67,32 +85,38 @@ def run_test_rail(
     no_build: bool = False,
     test_modules: str = "",
     explicit_target: bool = False,
-) -> Result[None, ProcessFault]:
-    plan_args, can_mutate = _TEST_PLANS[mode]
+) -> Result[TestRunReport, ProcessFault]:
+    plan = _TEST_PLANS[mode]
     target_fault = _target_fault(all_targets=all_targets, test_modules=test_modules, explicit_target=explicit_target)
     if target_fault is not None:
         return Error(target_fault)
-    mutation_fault = _mutation_preflight(settings, mode, all_targets=all_targets, test_modules=test_modules, mutation=mutation, can_mutate=can_mutate)
+    mutation_fault = _mutation_preflight(
+        settings, mode, all_targets=all_targets, test_modules=test_modules, mutation=mutation, can_mutate=plan.can_mutate
+    )
     if mutation_fault is not None:
         return Error(mutation_fault)
 
-    @effect.result[None, ProcessFault]()
-    def run() -> Generator[None]:
-        yield from dotnet(
-            *_test_args(settings, plan_args, filter_expr, all_targets=all_targets, no_build=no_build, test_modules=test_modules),
+    def report(_: None) -> TestRunReport:
+        return TestRunReport(
+            query={"op": mode, "all": all_targets, "filter": filter_expr, "test_modules": test_modules, "no_build": no_build},
+            status="ok",
+            artifact_paths={"results": str(settings.test_results(all_targets=all_targets)), "run": str(scope.path)},
+            mutation=mutation if mode == "run" else "off",
+        )
+
+    return (
+        dotnet(
+            *_test_args(settings, plan.args, filter_expr, all_targets=all_targets, no_build=no_build, test_modules=test_modules),
             scope=scope,
             scoped=False,
             check=True,
             timeout=settings.test_timeout_s,
             mode="stream",
-        ).map(lambda _: None)
-        match mutation != "off":
-            case True:
-                yield from _run_mutation(settings, scope, mutation).map(lambda _: None)
-            case False:
-                return
-
-    return run()
+        )
+        .map(lambda _: None)
+        .bind(lambda _: _run_mutation(settings, scope, mutation).map(lambda _: None) if mutation != "off" else Ok(None))
+        .map(report)
+    )
 
 
 def list_tests_payload(
@@ -128,7 +152,7 @@ def list_tests_payload(
         )
 
     return dotnet(
-        *_test_args(settings, _TEST_PLANS["list"][0], filter_expr, all_targets=all_targets, no_build=no_build, test_modules=test_modules),
+        *_test_args(settings, _TEST_PLANS["list"].args, filter_expr, all_targets=all_targets, no_build=no_build, test_modules=test_modules),
         scope=scope,
         scoped=False,
         check=True,

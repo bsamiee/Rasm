@@ -14,7 +14,18 @@ from beartype import beartype
 from expression import Error, Ok, Result
 import msgspec
 
-from tools.quality.process import dotnet, dotnet_args, dotnet_build, fold, leased, ProcessFault, ProjectIndex, run, Workspace
+from tools.quality.process import (
+    dotnet,
+    dotnet_build,
+    dotnet_build_invocations,
+    DotnetInvocation,
+    fold,
+    leased,
+    ProcessFault,
+    ProjectIndex,
+    run,
+    Workspace,
+)
 from tools.quality.settings import (
     ArtifactScope,
     CS_SUFFIXES,
@@ -30,6 +41,7 @@ from tools.quality.settings import (
 
 type FormatMode = Literal["fix", "report"]
 type ProjectMode = Literal["parity", "closure"]
+type RouteNeed = Literal["full", "owner", "none"]
 type StaticMode = Literal["fix", "report", "build", "full", "plan"]
 type StaticOutcome = Literal["skip", "full-trigger-skip", "done"]
 type StaticScope = Literal["changed", "full"]
@@ -74,21 +86,21 @@ class StaticPlanReport(msgspec.Struct, frozen=True, gc=False):
 # --- [OPERATIONS] ------------------------------------------------------------------------
 
 
-def _build_commands(settings: QualitySettings, plan: StaticPlan, root: Path, mode: StaticScope) -> tuple[tuple[str, ...], ...]:
-    def commands(rows: tuple[tuple[str | Path, ...], tuple[str | Path, ...]]) -> tuple[tuple[str, ...], ...]:
-        targets, restores = rows
-        configurations = settings.static_configurations(mode)
-        version_args = settings.version_props()
-        return (
-            *(dotnet_args("restore", restore) for restore in restores),
-            *(
-                dotnet_args("build", target, configuration=configuration, version=version_args, max_cpu=settings.dotnet_max_cpu, quiet=True)
-                for configuration in configurations
-                for target in targets
-            ),
+def _build_invocations(settings: QualitySettings, plan: StaticPlan, root: Path, mode: StaticScope) -> tuple[DotnetInvocation, ...]:
+    return (
+        _build_targets(settings, plan, root, mode)
+        .map(
+            lambda rows: dotnet_build_invocations(
+                settings,
+                restore_targets=rows[1],
+                targets=rows[0],
+                configurations=settings.static_configurations(mode),
+                max_cpu=settings.dotnet_max_cpu,
+                quiet=True,
+            )
         )
-
-    return _build_targets(settings, plan, root, mode).map(commands).default_value(())
+        .default_value(())
+    )
 
 
 def _closure_key(plan: StaticPlan, mode: StaticScope) -> str:
@@ -239,9 +251,30 @@ def _plan(
         lambda inputs: (
             Ok(StaticPlan(scope="changed", projects=(), inputs=inputs))
             if not inputs
-            else workspace.index().bind(lambda index: routed_plan(inputs, route(inputs, index)))
+            else _preplan(inputs).bind(
+                lambda pre: (
+                    Ok(StaticPlan(scope="changed", projects=(), inputs=inputs))
+                    if pre == "none"
+                    else plan_for(
+                        "full", inputs, _ChangedRoute(full=True, full_triggers=tuple(file for file in inputs if _route_need(file) == "full"))
+                    )
+                    if pre == "full"
+                    else workspace.index().bind(lambda index: routed_plan(inputs, route(inputs, index)))
+                )
+            )
         )
     )
+
+
+def _preplan(inputs: tuple[str, ...]) -> Result[RouteNeed, ProcessFault]:
+    needs = frozenset(_route_need(file) for file in inputs)
+    match ("owner" in needs, "full" in needs):
+        case (True, _):
+            return Ok("owner")
+        case (False, True):
+            return Ok("full")
+        case _:
+            return Ok("none")
 
 
 def _projects(
@@ -321,33 +354,46 @@ def _report_dir(command: tuple[str, ...]) -> Path | None:
 
 
 def _route_step(acc: _ChangedRoute, file: str, *, index: ProjectIndex, workspace: Workspace, root: Path) -> _ChangedRoute:
+    match _route_need(file):
+        case "none":
+            return acc
+        case "full":
+            return _ChangedRoute(acc.projects, full=True, format_routes=acc.format_routes, full_triggers=(*acc.full_triggers, file))
+        case "owner":
+            pass
+        case unreachable:
+            assert_never(unreachable)
+    owner = workspace.owner_rel(index, root / file)
+    match owner:
+        case str(owner):
+            return _ChangedRoute(
+                acc.projects | {owner},
+                full=acc.full,
+                format_routes=(*acc.format_routes, (owner, file)) if file.endswith(".cs") else acc.format_routes,
+                full_triggers=acc.full_triggers,
+            )
+        case None if file.endswith(_ORPHAN_FULL_SUFFIXES):
+            return _ChangedRoute(acc.projects, full=True, format_routes=acc.format_routes, full_triggers=(*acc.full_triggers, file))
+        case _:
+            return acc
+
+
+def _route_need(file: str) -> RouteNeed:
     ignored = not file.endswith(".csproj") and any(file.startswith(prefix) for prefix in IGNORE_FIXTURE_PREFIXES)
     full_trigger = file in FULL_TRIGGER_FILES or file.startswith(STATIC_FULL_TRIGGER_PREFIXES)
     relevant = full_trigger or file.endswith(".csproj") or Path(file).suffix in CS_SUFFIXES
     match (ignored, relevant, full_trigger):
         case (True, _, _) | (_, False, _):
-            return acc
+            return "none"
         case (_, _, True):
-            return _ChangedRoute(acc.projects, full=True, format_routes=acc.format_routes, full_triggers=(*acc.full_triggers, file))
+            return "full"
         case _:
-            owner = workspace.owner_rel(index, root / file)
-            match owner:
-                case str(owner):
-                    return _ChangedRoute(
-                        acc.projects | {owner},
-                        full=acc.full,
-                        format_routes=(*acc.format_routes, (owner, file)) if file.endswith(".cs") else acc.format_routes,
-                        full_triggers=acc.full_triggers,
-                    )
-                case None if file.endswith(_ORPHAN_FULL_SUFFIXES):
-                    return _ChangedRoute(acc.projects, full=True, format_routes=acc.format_routes, full_triggers=(*acc.full_triggers, file))
-                case _:
-                    return acc
+            return "owner"
 
 
 def plan_payload(settings: QualitySettings, scope: ArtifactScope, paths: tuple[Path, ...] = ()) -> Result[bytes, ProcessFault]:
     def report(plan: StaticPlan) -> bytes:
-        build_flags = ArtifactScope.build(settings, _closure_key(plan, plan.scope)).dotnet_flags
+        build_scope = ArtifactScope.build(settings, _closure_key(plan, plan.scope))
         return msgspec.json.encode(
             StaticPlanReport(
                 scope=plan.scope,
@@ -359,7 +405,7 @@ def plan_payload(settings: QualitySettings, scope: ArtifactScope, paths: tuple[P
                 commands={
                     "fix": tuple(("dotnet", *command) for command in _format_commands(settings, scope, plan, "fix")),
                     "report": tuple(("dotnet", *command) for command in _format_commands(settings, scope, plan, "report")),
-                    "build": tuple(("dotnet", *command, *build_flags) for command in _build_commands(settings, plan, settings.root, plan.scope)),
+                    "build": tuple(command.argv(build_scope) for command in _build_invocations(settings, plan, settings.root, plan.scope)),
                 },
             )
         )

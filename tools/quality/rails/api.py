@@ -117,10 +117,12 @@ class ApiShowReport(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
     artifact: ApiArtifact
     preview: str
     counts: dict[str, int]
+    content: str = ""
     truncated: bool = False
 
 
-type ApiReport = ApiQueryReport | ApiDoctorReport
+type ApiStoredReport = ApiQueryReport | ApiDoctorReport
+type ApiReport = ApiStoredReport | ApiShowReport
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
@@ -400,7 +402,7 @@ def _source_payload(source: _ApiSource) -> dict[str, str]:
     }
 
 
-def _report_artifacts(root: Path, report: ApiReport, *artifacts: ApiArtifact) -> bytes:
+def _report_artifacts(root: Path, report: ApiStoredReport, *artifacts: ApiArtifact) -> bytes:
     # One generic finalizer: splice the report.json path + accumulated artifacts onto any report struct via structs.replace.
     report_artifact = _artifact(root, "report.json", msgspec.json.encode(report))
     final = msgspec.structs.replace(
@@ -852,7 +854,7 @@ def _show_direct(api_artifacts: Path, token: str) -> Path | None:
     return next((path for path in candidates if path.is_file()), None)
 
 
-def _show_artifact_path(report: ApiReport, kind: str) -> str:
+def _show_artifact_path(report: ApiStoredReport, kind: str) -> str:
     return report.artifact_paths.get(kind, "")
 
 
@@ -864,7 +866,7 @@ def _show_field_match(field: dict[str, str] | ApiMatch, needle: str) -> bool:
             return needle in {result.id.casefold(), result.kind.casefold(), result.text.casefold()}
 
 
-def _show_report_match(report: ApiReport, token: str) -> str:
+def _show_report_match(report: ApiStoredReport, token: str) -> str:
     needle = token.casefold()
     exact_artifact = next(
         (
@@ -904,7 +906,7 @@ def _slice_text(text: str, *, lines: str, grep: str, max_lines: int) -> tuple[st
     return ("\n".join(window), len(selected), len(selected) > len(window))
 
 
-def _show_report(path: Path) -> ApiReport:
+def _show_report(path: Path) -> ApiStoredReport:
     payload = path.read_bytes()
     try:
         return msgspec.json.decode(payload, type=ApiQueryReport)
@@ -921,7 +923,7 @@ def _show(
     lines: str = "",
     grep: str = "",
     max_lines: int = _SHOW_LINES,
-) -> Result[bytes | str, ProcessFault]:
+) -> Result[bytes, ProcessFault]:
     api_artifacts = settings.root / _API_ARTIFACT_ROOT
     search_root = api_artifacts if policy == "latest" else api_artifacts / settings.run_id
     direct = _show_direct(search_root, token)
@@ -939,18 +941,18 @@ def _show(
     match artifact_path:
         case Path() as path if path.is_file():
             text = path.read_text(encoding="utf-8", errors="replace")
-            if full:
-                return Ok(text)
             preview, total, truncated = _slice_text(text, lines=lines, grep=grep, max_lines=max_lines)
+            selected = text if full else preview
             payload = ApiShowReport(
                 query={"op": "show", "token": token, "lines": lines, "grep": grep, "full": str(full).lower()},
                 status="ok",
                 artifact=ApiArtifact(
                     id=_artifact_id(str(path), path.name), kind=path.name, path=str(path), bytes=path.stat().st_size, lines=text.count("\n")
                 ),
-                preview=preview,
-                counts={"selected_lines": total, "preview_lines": preview.count("\n") + (1 if preview else 0)},
-                truncated=truncated,
+                preview=selected,
+                counts={"selected_lines": total, "preview_lines": selected.count("\n") + int(bool(selected))},
+                content=text if full else "",
+                truncated=False if full else truncated,
             )
             return Ok(msgspec.json.encode(payload))
         case _:
@@ -973,8 +975,8 @@ def api(
     show_policy: ApiShowPolicy = "current",
     restore: ApiRestoreMode = "missing",
     env: dict[str, str] | None = None,
-) -> Result[bytes | str, ProcessFault]:
-    handlers: dict[ApiOp, Callable[[], Result[bytes | str, ProcessFault]]] = {
+) -> Result[bytes, ProcessFault]:
+    handlers: dict[ApiOp, Callable[[], Result[bytes, ProcessFault]]] = {
         "doctor": lambda: _doctor(settings, scope, _artifact_root(scope, op, "all"), env),
         "resolve": lambda: _source(settings, scope, key, restore=restore).map(
             lambda source: _resolve_report(_artifact_root(scope, op, source.key, kind), source, kind)

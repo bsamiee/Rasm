@@ -1,786 +1,692 @@
-"""Behavior laws for the Rasm quality operator: one fake-process capsule, one real-child fixture."""
+"""Adversarial laws for the Python quality operator."""
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
-from dataclasses import dataclass, field
 from pathlib import Path
+import plistlib
 import shutil
 import sys
+import tempfile
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 from expression import Error, Ok, Result
-from hypothesis import given, settings as hyp_settings, strategies as st
-from hypothesis.configuration import storage_directory
-from hypothesis.database import DirectoryBasedExampleDatabase
+from hypothesis import given, strategies as st
 import msgspec
 import pytest
 
-from tools.quality import __main__ as main_mod, process
-from tools.quality.process import Completed, ProcessFault, Workspace
-from tools.quality.rails import api as api_rail, bridge as bridge_rail, package as pkg_rail, static as static_rail, test as test_rail
-from tools.quality.settings import ArtifactScope, QualitySettings
+from tests.tools.quality.conftest import (
+    API_DOCTOR,
+    CLI_LAWS,
+    PackageShape,
+    ProjectGraph,
+    QualityHarness,
+    QualityWorkspaceDouble,
+    RailProbe,
+    TARGET_LAWS,
+)
+from tools.quality import __main__ as quality_cli, process as process_mod
+from tools.quality.process import Completed, dotnet_args, dotnet_build_invocations, DotnetInvocation, fold, ProcessFault, run, Workspace
+from tools.quality.rails import api as api_rail, bridge as bridge_rail, package as package_rail, static as static_rail, test as test_rail
+from tools.quality.settings import QualitySettings
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from tests.tools.quality.conftest import CliLaw, TargetLaw
+    from tools.quality.process import RailStatus
 
 
-# --- [MODELS] ----------------------------------------------------------------------------
+# --- [OPERATIONS] ----------------------------------------------------------------------
 
 
-@dataclass(frozen=True, slots=True)
-class _Route:
-    rc: int = 0
-    out: bytes = b""
-    err: bytes = b""
+def _patch_settings(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness) -> None:
+    monkeypatch.setattr(quality_cli, "QualitySettings", lambda: quality.settings)
 
 
-@dataclass(slots=True)
-class _FakeProc:
-    """Route table keyed on (argv[0], argv[1]); echoes the real argv into every Completed."""
-
-    routes: dict[tuple[str, str], _Route] = field(default_factory=dict)
-    default: _Route = _Route()
-    seen: list[tuple[str, ...]] = field(default_factory=list)
-
-    def on(self, head: str, sub: str, route: _Route) -> _FakeProc:
-        self.routes[head, sub] = route
-        return self
-
-    def _resolve(self, argv: tuple[str, ...]) -> _Route:
-        head = argv[0] if argv else ""
-        sub = argv[1] if len(argv) > 1 else ""
-        return self.routes.get((head, sub), self.routes.get((head, "*"), self.default))
-
-    def run(self, argv: tuple[str, ...], *, check: bool = False, **_: object) -> Result[Completed, ProcessFault]:
-        self.seen.append(tuple(argv))
-        route = self._resolve(tuple(argv))
-        done = Completed(argv=tuple(argv), returncode=route.rc, stdout=route.out, stderr=route.err)
-        return Error(ProcessFault.fail(*argv, detail=route.err or route.out, returncode=route.rc)) if route.rc and check else Ok(done)
-
-    def dotnet(self, *args: str, check: bool = True, **_: object) -> Result[Completed, ProcessFault]:
-        return self.run(("dotnet", *args), check=check)
-
-    def dotnet_tool(self, _scope: object, name: str, *args: str, check: bool = False, **__: object) -> Result[Completed, ProcessFault]:
-        return self.run(("dotnet", "tool", "run", name, "--", *args), check=check)
-
-    def dotnet_tool_restore(self, _scope: object) -> Result[None, ProcessFault]:
-        return self.run(("dotnet", "tool", "restore"), check=True).map(lambda _: None)
-
-    def dotnet_build(self, _settings: object, _scope: object, **__: object) -> Result[None, ProcessFault]:
-        return self.run(("dotnet", "build"), check=True).map(lambda _: None)
+def _bridge_completed(status: bridge_rail.BridgeStatus) -> Completed:
+    return Completed(("bridge",), 0, msgspec.json.encode(bridge_rail.BridgeResult(status=status)), b"")
 
 
-# --- [FIXTURES] --------------------------------------------------------------------------
+# --- [CLI LAWS] ------------------------------------------------------------------------
 
 
-@pytest.fixture
-def workspace(tmp_path: Path) -> Path:
-    (tmp_path / "Workspace.slnx").write_text("<Solution />", encoding="utf-8")
-    (tmp_path / ".config").mkdir()
-    (tmp_path / ".config" / "dotnet-tools.json").write_text("{}", encoding="utf-8")
-    tests = tmp_path / "tests" / "csharp" / "libs" / "Rasm"
-    tests.mkdir(parents=True)
-    (tests / "Rasm.Tests.csproj").write_text("<Project />", encoding="utf-8")
-    return tmp_path
+@pytest.mark.parametrize("law", CLI_LAWS, ids=lambda law: "-".join(law.argv))
+def test_cli_verbs_emit_one_json_envelope(
+    monkeypatch: pytest.MonkeyPatch, quality: QualityHarness, capsys: pytest.CaptureFixture[str], law: CliLaw
+) -> None:
+    probe = RailProbe()
+    _patch_settings(monkeypatch, quality)
+    law.install(monkeypatch, probe)
+
+    assert quality_cli.main(list(law.argv)) == 0
+    envelope = quality.envelope(capsys)
+
+    assert envelope["rail"] == law.rail
+    assert envelope["verb"] == law.verb
+    assert envelope["command_path"] == list(law.command_path)
+    assert envelope["status"] == "ok"
+    assert envelope["exit_code"] == 0
+    assert envelope["data"] is not None
+    assert probe.calls
+    assert probe.calls[0][0] == law.member
 
 
-@pytest.fixture
-def cfg(workspace: Path) -> QualitySettings:
-    return QualitySettings(root=workspace, rhino_app=None)
+def test_cli_remaining_verbs_emit_total_status_envelopes(
+    monkeypatch: pytest.MonkeyPatch, quality: QualityHarness, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _patch_settings(monkeypatch, quality)
+    monkeypatch.setattr(shutil, "which", lambda _: None)
 
+    assert quality_cli.main(["self-test"]) == 2
+    failed = quality.envelope(capsys)
+    assert failed["rail"] == "self"
+    assert failed["status"] == "failed"
 
-@pytest.fixture
-def scope(cfg: QualitySettings) -> Iterator[ArtifactScope]:
-    with ArtifactScope.open(cfg, "test") as opened:
-        yield opened
-
-
-@pytest.fixture
-def fake(monkeypatch: pytest.MonkeyPatch) -> _FakeProc:
-    capsule = _FakeProc()
-    monkeypatch.setattr(process, "run", capsule.run)
-    bindings = (
-        ("run", capsule.run),
-        ("dotnet", capsule.dotnet),
-        ("dotnet_build", capsule.dotnet_build),
-        ("dotnet_tool", capsule.dotnet_tool),
-        ("dotnet_tool_restore", capsule.dotnet_tool_restore),
+    monkeypatch.setattr(shutil, "which", lambda _: "/bin/tool")
+    monkeypatch.setattr(quality_cli, "dotnet_build", lambda *_args, **_kwargs: Ok(None))
+    monkeypatch.setattr(bridge_rail, "with_bridge_lease", lambda _settings, action: action())
+    monkeypatch.setattr(bridge_rail, "build_client", lambda *_args: Ok(None))
+    monkeypatch.setattr(bridge_rail, "client_run", lambda *_args, **_kwargs: Ok(_bridge_completed("skipped")))
+    monkeypatch.setattr(static_rail, "run_static_rail", lambda *_args, **_kwargs: Ok("full-trigger-skip"))
+    monkeypatch.setattr(
+        test_rail, "run_test_rail", lambda *_args, **_kwargs: Ok(test_rail.TestRunReport(query={"op": "run"}, status="ok", artifact_paths={}))
     )
-    for mod in (api_rail, bridge_rail, pkg_rail, static_rail, test_rail):
-        for name, bound in bindings:
-            if hasattr(mod, name):
-                monkeypatch.setattr(mod, name, bound)
-    return capsule
+    monkeypatch.setattr(
+        package_rail,
+        "package_list_payload",
+        lambda *_args: Ok(
+            msgspec.json.encode(package_rail.PackageListReport(query={"op": "package-list"}, status="ok", count=0, packages=(), artifact_paths={}))
+        ),
+    )
+    monkeypatch.setattr(package_rail, "run_package_rail", lambda *_args: Ok(None))
+
+    for argv, rail, status, code in (
+        (("self-test",), "self", "ok", 0),
+        (("static", "fix"), "static", "skip", 0),
+        (("test", "run"), "test", "ok", 0),
+        (("test", "coverage"), "test", "ok", 0),
+        (("bridge", "build-bridge"), "bridge", "ok", 0),
+        (("bridge", "check", "target"), "bridge", "skip", 0),
+        (("bridge", "clean"), "bridge", "skip", 0),
+        (("bridge", "package", "list"), "package", "ok", 0),
+        (("bridge", "package", "rasm-bridge", "1.0.0"), "package", "ok", 0),
+    ):
+        assert quality_cli.main(list(argv)) == code
+        envelope = quality.envelope(capsys)
+        assert envelope["rail"] == rail
+        assert envelope["status"] == status
 
 
-@pytest.fixture
-def py(tmp_path: Path) -> Callable[..., tuple[str, ...]]:
-    """Real child: emit src lines to stdout/stderr, exit with code; for genuine stream/timeout/check branches."""
+def test_cli_projection_laws() -> None:
+    status_laws: tuple[tuple[RailStatus, int], ...] = (
+        ("ok", 0),
+        ("empty", 0),
+        ("skip", 0),
+        ("unsupported", 3),
+        ("busy", 5),
+        ("timeout", 5),
+        ("failed", 1),
+    )
+    for status, code in status_laws:
+        assert quality_cli._status_exit(status) == code
+    assert quality_cli.api_status(msgspec.json.encode({"status": "empty"})) == "empty"
+    assert quality_cli.api_status(msgspec.json.encode({"status": "missing"})) == "failed"
+    assert quality_cli.api_status(b"not-json") == "ok"
+    assert quality_cli.api_exit_code(msgspec.json.encode({"status": "failed"}), strict=True) == 2
+    assert quality_cli.api_exit_code(msgspec.json.encode({"status": "failed"}), strict=False) == 0
+    assert quality_cli.quality_payload(42) == "42"
+    assert quality_cli.payload_json(None) is None
+    assert QualityHarness.json_object(quality_cli.payload_json(API_DOCTOR))["status"] == "ok"
+    item = QualityHarness.json_sequence(QualityHarness.json_object(quality_cli.json_value({"items": [object()]}))["items"])[0]
+    assert isinstance(item, str)
+    assert item.startswith("<object object")
+    assert QualityHarness.json_object(quality_cli.payload_json(Completed(("cmd",), 0, b"out", b"err")))["stdout"] == "out"
+    assert quality_cli.payload_json(b"not-json") == "not-json"
+    assert quality_cli.static_status("done") == "ok"
+    assert quality_cli.static_notes("full-trigger-skip") == ("full-trigger input requires static full",)
+    assert quality_cli.static_notes("skip") == ("no C#-relevant changes",)
+    assert quality_cli.static_notes("done") == ()
+    assert quality_cli.bridge_status(Completed(("bridge",), 0, b"not-json", b"")) == "ok"
+    assert quality_cli.bridge_status(Completed(("bridge",), 9, b"not-json", b"")) == "failed"
+    assert quality_cli.bridge_exit_code(Completed(("bridge",), 9, b"not-json", b"")) == 9
+    for bridge_status in ("ok", "unsupported", "failed", "timeout", "busy"):
+        assert quality_cli.bridge_result_status(bridge_status) == bridge_status
 
-    def factory(*src: str, rc: int = 0, sleep: float = 0.0, err: str = "") -> tuple[str, ...]:
-        body = (
-            f"import sys,time\ntime.sleep({sleep})\n"
-            + "".join(f"sys.stdout.write({line!r}+chr(10));sys.stdout.flush()\n" for line in src)
-            + (f"sys.stderr.write({err!r}+chr(10))\n" if err else "")
-            + f"sys.exit({rc})\n"
+
+# --- [PROCESS AND SETTINGS LAWS] -------------------------------------------------------
+
+
+def test_process_stream_timeout_settings_and_dotnet_laws(quality: QualityHarness, tmp_path: Path, capfd: pytest.CaptureFixture[str]) -> None:
+    scope = quality.scope("process", tmp_path / "scope")
+    noisy = "import sys; print('child-out'); print('child-err', file=sys.stderr); sys.stdout.write('o' * 140000)"
+    streamed = run((sys.executable, "-c", noisy), mode="stream", artifact_dir=tmp_path)
+    captured = capfd.readouterr()
+    process_dir = next(path for path in tmp_path.iterdir() if (path / "stdout.log").is_file())
+
+    assert streamed.is_ok()
+    assert not captured.out
+    assert "child-out" in captured.err
+    assert "child-err" in captured.err
+    assert len(streamed.default_value(Completed((), 1, b"", b"")).stdout) < 140010
+    assert (process_dir / "stdout.log").stat().st_size > 140000
+    assert (process_dir / "stderr.log").read_text(encoding="utf-8").strip() == "child-err"
+    assert (
+        run((sys.executable, "-c", "import sys; print('bad'); sys.exit(7)"), check=True)
+        .swap()
+        .default_value(ProcessFault.fail("x", detail=b""))
+        .returncode
+        == 7
+    )
+    assert (
+        run((sys.executable, "-c", "import time; time.sleep(1)"), timeout=0.01).swap().default_value(ProcessFault.fail("x", detail=b"")).status
+        == "timeout"
+    )
+    assert quality.settings.model_copy(update={"configurations": "Debug Release"}).static_configurations("full") == ("Debug", "Release")
+    assert QualitySettings.anchor(quality.root / "nested") == quality.root
+    assert quality.settings.version_props("1.2.3") == ("/p:Version=1.2.3", "/p:InformationalVersion=1.2.3")
+    assert quality.settings.dotnet_env(scope.path)["DOTNET_CLI_HOME"].endswith("scope/dotnet-cli")
+    assert DotnetInvocation(("build", "App.csproj", "--", "--flag")).argv(scope)[:5] == (
+        "dotnet",
+        "build",
+        "App.csproj",
+        "--artifacts-path",
+        str(scope.path),
+    )
+    assert DotnetInvocation(("tool", "restore")).argv(scope) == ("dotnet", "tool", "restore")
+    assert DotnetInvocation(("build", "App.csproj"), mode="stream").artifact_dir(scope) == scope.path / "process"
+    assert DotnetInvocation(("build", "App.csproj")).env() is None
+    assert dotnet_args("restore", "App.csproj", disable_parallel=True) == ("restore", "App.csproj", "--locked-mode", "--disable-parallel")
+    assert "-maxcpucount:1" in dotnet_args("build", "App.csproj", configuration="Release", serial=True, quiet=True)
+    assert tuple(item.argv(scope)[1] for item in dotnet_build_invocations(quality.settings, targets=("App.csproj",), restore="App.csproj")) == (
+        "restore",
+        "build",
+    )
+    assert fold((1, 2, 3), 0, lambda acc, item: Ok(acc + item)).default_value(0) == 6
+    assert process_mod._fault_status(5) == "busy"
+
+
+def test_workspace_xml_and_apphost_laws(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness, tmp_path: Path) -> None:
+    project = quality.project("libs/A/A.csproj", "<Project><PropertyGroup><YakPackageSlug>slug</YakPackageSlug></PropertyGroup></Project>")
+    calls: list[tuple[str, ...]] = []
+
+    def fake_run(argv: tuple[str, ...], **_kwargs: object) -> Result[Completed, ProcessFault]:
+        calls.append(argv)
+        match argv:
+            case ("fd", *_):
+                return Ok(Completed(argv, 0, b"libs/A/A.csproj\n", b""))
+            case ("git", *_):
+                return Ok(Completed(argv, 0, b"libs/A/A.csproj\n", b""))
+            case ("dotnet", "--list-runtimes"):
+                return Ok(Completed(argv, 0, f"Microsoft.NETCore.App 10.0.0 [{tmp_path / 'dotnet/shared/Microsoft.NETCore.App'}]\n".encode(), b""))
+            case _:
+                return Ok(Completed(argv, 0, b"", b""))
+
+    (tmp_path / "dotnet/shared/Microsoft.NETCore.App").mkdir(parents=True)
+    monkeypatch.setattr(process_mod, "run", fake_run)
+    process_mod._dotnet_root.cache_clear()
+    workspace = Workspace(quality.root)
+    assert workspace.projects().default_value(()) == ("libs/A/A.csproj",)
+    assert workspace.changed().default_value(()) == ("libs/A/A.csproj",)
+    assert Workspace.csproj(project, "YakPackageSlug") == "slug"
+    assert Workspace.csproj(quality.root / "missing.csproj") is None
+    assert process_mod.fd_args("csproj", ".", tmp_path)[0:3] == ("fd", "-H", "-e")
+    assert process_mod.dotnet_apphost_env({"DOTNET_ROOT": "/bad"})["DOTNET_MULTILEVEL_LOOKUP"] == "0"
+    assert calls
+
+
+def test_process_lease_and_error_laws(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness, tmp_path: Path) -> None:
+    project = quality.project("libs/A/A.csproj", "<Project><PropertyGroup><YakPackageSlug>slug</YakPackageSlug></PropertyGroup></Project>")
+    workspace = Workspace(quality.root)
+    assert process_mod.leased(quality.settings, tmp_path / "lock", "resource", lambda: Ok("ok")).default_value("") == "ok"
+    with pytest.MonkeyPatch.context() as lease_patch:
+        lease_patch.setattr(
+            process_mod, "exclusive_lease", lambda *_args, **_kwargs: (_ for _ in ()).throw(process_mod.ResourceBusyError(tmp_path / "lock", "owner"))
         )
-        script = tmp_path / f"child_{abs(hash((src, rc, sleep, err)))}.py"
-        script.write_text(body, encoding="utf-8")
-        return (sys.executable, str(script))
-
-    return factory
-
-
-def _capture(seen: list[tuple[str, ...]]) -> Callable[..., Result[Completed, ProcessFault]]:
-    def runner(argv: tuple[str, ...], **_: object) -> Result[Completed, ProcessFault]:
-        seen.append(tuple(argv))
-        return Ok(Completed(argv=tuple(argv), returncode=0, stdout=b"", stderr=b""))
-
-    return runner
-
-
-def _run_main(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], cfg: QualitySettings, *argv: str) -> tuple[int, str, str]:
-    monkeypatch.setattr("tools.quality.__main__.QualitySettings", lambda: cfg)
-    code = main_mod.main(list(argv))
-    captured = capsys.readouterr()
-    return code, captured.out, captured.err
-
-
-def _seed_projects(monkeypatch: pytest.MonkeyPatch, cfg: QualitySettings, changed: tuple[str, ...]) -> None:
-    monkeypatch.setattr(Workspace, "projects", lambda _self, _directory=".": Ok(changed))
-    monkeypatch.setattr(Workspace, "changed", lambda _self: Ok(changed))
-    monkeypatch.setattr(Workspace, "index", lambda _self: Ok({(cfg.root / p).parent: cfg.root / p for p in changed}))
-
-
-# --- [PARAMETRIZE TABLES] ----------------------------------------------------------------
-
-STATIC_ROUTES = (pytest.param((), "skip", id="changed-empty-skip"), pytest.param(("libs/csharp/Rasm/Rasm.csproj",), "done", id="changed-owned-done"))
-
-LEASE_GUARDS = (
-    pytest.param("build", id="build-lock-busy"),
-    pytest.param("bridge", id="bridge-lock-busy"),
-    pytest.param("mutation", id="mutation-lock-busy"),
-)
-
-FORMAT_MODES = (pytest.param("fix", (), id="fix-no-report-flag"), pytest.param("report", ("--verify-no-changes",), id="report-verify-no-changes"))
-
-STRYKER = (
-    pytest.param((b"ok\n", b""), 0, True, id="clean-pass"),
-    pytest.param((b"Number of tests found: 0\nNo test result reported\n", b""), 2, False, id="zero-discovery-fail"),
-    pytest.param((b"boom\n", b""), 7, False, id="nonzero-fail"),
-)
-
-PACKAGE_FINISH = (
-    pytest.param("package", id="package-stage-only"),
-    pytest.param("deploy", id="deploy-install"),
-    pytest.param("publish", id="publish-install-push"),
-)
-
-API_SHAPE = (
-    pytest.param("", "index", id="empty-index"),
-    pytest.param("Rhino.Geometry", "namespace", id="ns-match"),
-    pytest.param("Rhino.Geometry.Mesh", "type", id="type-fqn"),
-    pytest.param("Mesh.Weld", "member", id="member"),
-    pytest.param("nonexistent-token", "search", id="search-fallback"),
-)
-
-VERIFY_STATUS = (
-    pytest.param("ok", 0, id="ok-exit0"),
-    pytest.param("skipped", 0, id="skipped-exit0"),
-    pytest.param("unsupported", 3, id="unsupported-exit3"),
-    pytest.param("failed", 1, id="failed-exit1"),
-    pytest.param("timeout", 5, id="timeout-exit5"),
-    pytest.param("busy", 5, id="busy-exit5"),
-)
-
-
-# --- [LAWS: PROCESS PRIMITIVES] ----------------------------------------------------------
-
-
-def test_run_capture_real_child(py: Callable[..., tuple[str, ...]]) -> None:
-    result = process.run(py("alpha", "beta"), mode="capture")
-    assert result.is_ok()
-    assert result.ok.lines() == ("alpha", "beta")
-
-
-def test_run_check_nonzero_is_error(py: Callable[..., tuple[str, ...]]) -> None:
-    result = process.run(py("x", rc=3, err="bad"), check=True)
-    assert result.is_error()
-    assert result.error.returncode == 3
-    assert "bad" in result.error.message
-
-
-def test_run_stream_writes_stderr_only(py: Callable[..., tuple[str, ...]], capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
-    result = process.run(py("line-out", err="line-err"), mode="stream", artifact_dir=tmp_path / "proc")
-    captured = capsys.readouterr()
-    assert result.is_ok()
-    assert "line-out" in captured.out
-    assert "line-err" in captured.err
-    assert (tmp_path / "proc").exists()
-
-
-def test_run_timeout_returns_124(py: Callable[..., tuple[str, ...]]) -> None:
-    result = process.run(py("slow", sleep=2.0), timeout=0.2)
-    assert result.is_error()
-    assert result.error.returncode == 124
-    assert "timed out" in result.error.message
-
-
-def test_process_fault_fail_bytes_and_str() -> None:
-    assert ProcessFault.fail("a", detail=b"raw").stderr == b"raw"
-    assert ProcessFault.fail("a", detail="text").stderr == b"text"
-
-
-def test_decode_json_str_and_error() -> None:
-    ok = process.decode_json('{"Properties":{"k":"v"}}', pkg_rail._MsbuildProps)
-    bad = process.decode_json(b"not-json", pkg_rail._MsbuildProps)
-    assert ok.ok.Properties == {"k": "v"}
-    assert bad.is_error()
-
-
-def test_xml_root_handles_missing_and_bad(tmp_path: Path) -> None:
-    assert process.xml_root(tmp_path / "absent.xml") is None
-    bad = tmp_path / "bad.xml"
-    bad.write_text("<not-closed", encoding="utf-8")
-    assert process.xml_root(bad) is None
-
-
-def test_dotnet_scoped_build_inserts_flags(cfg: QualitySettings, monkeypatch: pytest.MonkeyPatch) -> None:
-    scope = ArtifactScope.build(cfg, "closure")
-    seen: list[tuple[str, ...]] = []
-    monkeypatch.setattr(process, "run", _capture(seen))
-    process.dotnet("build", "x.csproj", scope=scope)
-    process.dotnet("restore", "x.csproj", "--", "trailing", scope=scope)
-    assert "--artifacts-path" in seen[0]
-    assert seen[1][-1] == "trailing"
-    assert "--artifacts-path" in seen[1]
-
-
-def test_dotnet_unscoped_verb_no_flags(cfg: QualitySettings, monkeypatch: pytest.MonkeyPatch) -> None:
-    scope = ArtifactScope.build(cfg, "closure")
-    seen: list[tuple[str, ...]] = []
-    monkeypatch.setattr(process, "run", _capture(seen))
-    process.dotnet("sln", "list", scope=scope)
-    assert "--artifacts-path" not in seen[0]
-
-
-def test_dotnet_args_restore_and_build_shapes() -> None:
-    restore = process.dotnet_args("restore", "x.csproj", disable_parallel=True)
-    build = process.dotnet_args("build", "x.csproj", configuration="Debug", serial=True, quiet=True, disable_build_servers=True)
-    assert restore == ("restore", "x.csproj", "--locked-mode", "--disable-parallel")
-    assert "--no-restore" in build
-    assert "-maxcpucount:1" in build
-    assert "--disable-build-servers" in build
-
-
-def test_fold_short_circuits_on_error() -> None:
-    calls: list[int] = []
-
-    def step(_acc: int, item: int) -> Result[int, ProcessFault]:
-        calls.append(item)
-        return Error(ProcessFault.fail("x", detail="stop")) if item == 2 else Ok(item)
-
-    assert process.fold((1, 2, 3), 0, step).is_error()
-    assert calls == [1, 2]
-
-
-# --- [LAWS: LEASE / BUSY EXIT-5] ---------------------------------------------------------
-
-
-def test_exclusive_lease_round_trip(cfg: QualitySettings, tmp_path: Path) -> None:
-    lock = tmp_path / "x.lock"
-    owner = process.lease_owner(cfg, "demo", project="p", mode="exclusive")
-    with process.exclusive_lease(lock, owner):
-        assert lock.read_text(encoding="utf-8").strip() == owner.strip()
-    assert not lock.read_text(encoding="utf-8")
-
-
-@pytest.mark.parametrize("resource", LEASE_GUARDS)
-def test_leased_busy_maps_to_exit5(cfg: QualitySettings, tmp_path: Path, resource: str) -> None:
-    lock = tmp_path / f"{resource}.lock"
-    with process.exclusive_lease(lock, process.lease_owner(cfg, resource)):
-        busy = process.leased(cfg, lock, resource, lambda: Ok(None))
-    assert busy.is_error()
-    assert busy.error.returncode == 5
-    assert "busy" in busy.error.message
-
-
-def test_leased_oserror_maps_to_fault(cfg: QualitySettings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    def boom(*_: object, **__: object) -> object:
-        raise OSError("disk")
-
-    monkeypatch.setattr(process, "exclusive_lease", boom)
-    result = process.leased(cfg, tmp_path / "z.lock", "z", lambda: Ok(None))
-    assert result.is_error()
-    assert "disk" in result.error.message
-
-
-# --- [LAWS: WORKSPACE GRAPH] -------------------------------------------------------------
-
-
-def test_workspace_changed_dedup_sorted(cfg: QualitySettings, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(process, "run", lambda argv, **_: Ok(Completed(argv=tuple(argv), returncode=0, stdout=b"b.cs\na.cs\nb.cs\n", stderr=b"")))
-    assert Workspace(cfg.root).changed().ok == ("a.cs", "b.cs")
-
-
-def test_workspace_owner_single_and_none(cfg: QualitySettings) -> None:
-    workspace = Workspace(cfg.root)
-    proj = cfg.root / "libs" / "X" / "X.csproj"
-    index = {proj.parent: proj}
-    assert workspace.owner(index, cfg.root / "libs" / "X" / "a.cs").ok == proj
-    assert workspace.owner(index, cfg.root / "other" / "b.cs").is_error()
-
-
-def test_workspace_owner_ambiguous_ancestors_error(cfg: QualitySettings) -> None:
-    # owner ranks ALL ancestor directories present in the index; >1 ancestor is a typed ambiguity Error, not nearest-wins.
-    workspace = Workspace(cfg.root)
-    nested = cfg.root / "a" / "b"
-    index = {cfg.root / "a": cfg.root / "a" / "A.csproj", nested: nested / "B.csproj"}
-    result = workspace.owner(index, nested / "c.cs")
-    assert result.is_error()
-    assert "found 2" in result.error.message
-
-
-def test_csproj_tag_extraction(cfg: QualitySettings, tmp_path: Path) -> None:
-    proj = tmp_path / "p.csproj"
-    proj.write_text("<Project><PropertyGroup><YakPackageSlug>my-slug</YakPackageSlug></PropertyGroup></Project>", encoding="utf-8")
-    assert Workspace(cfg.root).csproj(proj, "YakPackageSlug") == "my-slug"
-    assert Workspace(cfg.root).csproj(tmp_path / "absent.csproj") is None
-
-
-# --- [LAWS: STATIC RAIL] -----------------------------------------------------------------
-
-
-@pytest.mark.parametrize("changed,outcome", STATIC_ROUTES)
-def test_static_build_routes(
-    cfg: QualitySettings, scope: ArtifactScope, fake: _FakeProc, monkeypatch: pytest.MonkeyPatch, changed: tuple[str, ...], outcome: str
-) -> None:
-    _seed_projects(monkeypatch, cfg, changed)
-    for project in changed:
-        (cfg.root / project).parent.mkdir(parents=True, exist_ok=True)
-        (cfg.root / project).write_text("<Project />", encoding="utf-8")
-    result = static_rail.run_static_rail(cfg, scope, "build")
-    assert result.is_ok()
-    assert result.ok == outcome
-
-
-@pytest.mark.parametrize("mode,report_flag", FORMAT_MODES)
-def test_static_format_commands_flatten(
-    cfg: QualitySettings, scope: ArtifactScope, mode: static_rail.FormatMode, report_flag: tuple[str, ...]
-) -> None:
-    plan = static_rail.StaticPlan(scope="changed", projects=("libs/X/X.csproj",), format_groups=(("libs/X/X.csproj", ("libs/X/a.cs",)),))
-    flat = tuple(token for command in static_rail._format_commands(cfg, scope, plan, mode) for token in command)
-    assert "format" in flat
-    assert "--severity" in flat
-    assert "error" in flat
-    assert all(flag in flat for flag in report_flag)
-
-
-def test_static_full_trigger_skip_outcome(cfg: QualitySettings, scope: ArtifactScope) -> None:
-    plan = static_rail.StaticPlan(scope="full", projects=("libs/X/X.csproj",), full_triggers=(".editorconfig",))
-    assert static_rail._format_plan(cfg, scope, plan, "fix").ok == "full-trigger-skip"
-
-
-def test_static_route_step_branches(cfg: QualitySettings) -> None:
-    workspace = Workspace(cfg.root)
-    proj = cfg.root / "libs" / "X" / "X.csproj"
-    index = {proj.parent: proj}
-    trigger = static_rail._route_step(static_rail._ChangedRoute(), "Directory.Build.props", index=index, workspace=workspace, root=cfg.root)
-    owned = static_rail._route_step(static_rail._ChangedRoute(), "libs/X/a.cs", index=index, workspace=workspace, root=cfg.root)
-    ignored = static_rail._route_step(static_rail._ChangedRoute(), "tests/tools/py_analyzer/x.cs", index=index, workspace=workspace, root=cfg.root)
-    orphan = static_rail._route_step(static_rail._ChangedRoute(), "stray/a.cs", index={}, workspace=workspace, root=cfg.root)
-    assert trigger.full
-    assert "libs/X/X.csproj" in owned.projects
-    assert ("libs/X/X.csproj", "libs/X/a.cs") in owned.format_routes
-    assert ignored.projects == frozenset()
-    assert orphan.full
-
-
-def test_static_plan_payload_is_parseable(cfg: QualitySettings, scope: ArtifactScope, fake: _FakeProc, monkeypatch: pytest.MonkeyPatch) -> None:
-    _seed_projects(monkeypatch, cfg, ())
-    payload = static_rail.plan_payload(cfg, scope, ())
-    report = msgspec.json.decode(payload.ok, type=static_rail.StaticPlanReport)
-    assert report.scope == "changed"
-    assert set(report.commands) == {"fix", "report", "build"}
-
-
-# --- [LAWS: TEST RAIL] -------------------------------------------------------------------
-
-
-def test_test_run_passes(cfg: QualitySettings, scope: ArtifactScope, fake: _FakeProc) -> None:
-    assert test_rail.run_test_rail(cfg, scope, "run").is_ok()
-    assert any(argv[:2] == ("dotnet", "test") for argv in fake.seen)
-
-
-def test_failing_test_is_nonzero(cfg: QualitySettings, scope: ArtifactScope, fake: _FakeProc) -> None:
-    fake.on("dotnet", "test", _Route(rc=1, err=b"assert failed"))
-    result = test_rail.run_test_rail(cfg, scope, "run")
-    assert result.is_error()
-    assert result.error.returncode == 1
-
-
-def test_test_target_conflict_rejected(cfg: QualitySettings, scope: ArtifactScope) -> None:
-    result = test_rail.run_test_rail(cfg, scope, "run", all_targets=True, explicit_target=True)
-    assert result.is_error()
-    assert "exactly one" in result.error.message
-
-
-def test_mutation_preflight_blocks_non_run(cfg: QualitySettings, scope: ArtifactScope) -> None:
-    result = test_rail.run_test_rail(cfg, scope, "coverage", mutation="full")
-    assert result.is_error()
-    assert "test run" in result.error.message
-
-
-@pytest.mark.parametrize("output,rc,expected_ok", STRYKER)
-def test_mutation_result_classification(output: tuple[bytes, bytes], rc: int, expected_ok: object) -> None:
-    completed = Completed(argv=("dotnet", "stryker"), returncode=rc, stdout=output[0], stderr=output[1])
-    assert test_rail._mutation_result(completed).is_ok() is expected_ok
-
-
-def test_list_tests_payload_filters_and_limits(cfg: QualitySettings, scope: ArtifactScope, fake: _FakeProc) -> None:
-    fake.on("dotnet", "test", _Route(out=b"Alpha.One\nAlpha.Two\nBeta.Three\nnoise word\n"))
-    payload = test_rail.list_tests_payload(cfg, scope, grep="alpha", limit=1)
-    report = msgspec.json.decode(payload.ok, type=test_rail.TestListReport)
-    assert report.count == 2
-    assert report.returned == 1
-
-
-def test_filter_args_dispatch() -> None:
-    assert test_rail._filter_args("/query") == ("--filter-query", "/query")
-    assert test_rail._filter_args("Cat=Unit") == ("--filter-trait", "Cat=Unit")
-    assert test_rail._filter_args("MyTests") == ("--filter-class", "*MyTests*")
-    assert test_rail._filter_args("Ns.Method") == ("--filter-method", "*Ns.Method*")
-    assert test_rail._filter_args("") == ()
-
-
-# --- [LAWS: BRIDGE / VERIFY] -------------------------------------------------------------
-
-
-@pytest.mark.parametrize("status,exit_code", VERIFY_STATUS)
-def test_bridge_result_exit_map(status: bridge_rail.BridgeStatus, exit_code: int) -> None:
-    assert bridge_rail.BridgeResult(status=status).exit_code == exit_code
-
-
-def test_bridge_result_from_process_fault_timeout() -> None:
-    timeout = bridge_rail.BridgeResult.from_process_fault(ProcessFault.fail("x", detail="t", returncode=124))
-    failed = bridge_rail.BridgeResult.from_process_fault(ProcessFault.fail("x", detail="f", returncode=1))
-    assert timeout.status == "timeout"
-    assert failed.status == "failed"
-
-
-def test_bridge_facts_and_captures_decoded() -> None:
-    stdout = 'noise\nrasm.rhino-bridge.evidence=facts={"area": 42}\nrasm.rhino-bridge.capture={"path": "/img.png"}\n'
-    result = bridge_rail.BridgeResult(
-        status="ok",
-        phases=(bridge_rail.BridgePhase(phase="execute", status="ok", outputs=(bridge_rail.BridgeOutput(source="stdout", text=stdout),)),),
+        assert (
+            process_mod
+            .leased(quality.settings, tmp_path / "lock", "resource", lambda: Ok(None))
+            .swap()
+            .default_value(ProcessFault.fail("x", detail=b""))
+            .status
+            == "busy"
+        )
+    with pytest.MonkeyPatch.context() as lease_patch:
+        lease_patch.setattr(process_mod, "exclusive_lease", lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("locked")))
+        assert process_mod.leased(quality.settings, tmp_path / "lock", "resource", lambda: Ok(None)).is_error()
+    assert process_mod.decode_json(b"{", dict).is_error()
+    assert process_mod.decode_json('{"x":1}', dict).default_value({}) == {"x": 1}
+    assert process_mod.xml_root(tmp_path / "missing.csproj") is None
+    assert Completed(("x",), 0, b"a.cs\nb.txt\n", b"").lines(suffix=".cs") == ("a.cs",)
+    assert workspace.owner({}, tmp_path / "NoOwner.cs").is_error()
+    assert workspace.owner({tmp_path: project, tmp_path / "src": tmp_path / "B.csproj"}, tmp_path / "src/File.cs").is_error()
+    with pytest.MonkeyPatch.context() as dotnet_root_patch:
+        dotnet_root_patch.setattr(process_mod, "_dotnet_root", lambda: None)
+        assert "DOTNET_ROOT" not in process_mod.dotnet_apphost_env({"DOTNET_ROOT": "/bad"})
+
+
+def test_dotnet_tool_boundary_laws(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness) -> None:
+    monkeypatch.setattr(process_mod, "run", lambda argv, **_kwargs: Ok(Completed(tuple(argv), 0, b"", b"")))
+    assert DotnetInvocation(("tool", "restore")).run(quality.scope()).is_ok()
+    assert process_mod.dotnet("tool", "restore", scope=quality.scope()).is_ok()
+    assert process_mod.dotnet_build(quality.settings, quality.scope(), targets=("A.csproj",)).is_ok()
+    assert process_mod.dotnet_tool(quality.scope(), "ilspycmd", "--version").is_ok()
+    assert process_mod.dotnet_tool_restore(quality.scope()).is_ok()
+    process_mod._dotnet_root.cache_clear()
+    monkeypatch.setattr(shutil, "which", lambda _: None)
+    monkeypatch.setattr(process_mod, "run", lambda *_args, **_kwargs: Ok(Completed(("dotnet",), 0, b"invalid runtime line\n", b"")))
+    assert process_mod._dotnet_root() is None
+
+
+# --- [STATIC RAIL LAWS] ----------------------------------------------------------------
+
+
+@pytest.mark.property
+@given(st.lists(st.sampled_from(("README.md", "tools/quality/process.py", "docs/usage.md")), max_size=8).map(tuple))
+def test_static_empty_or_irrelevant_changes_never_resolve_project_graph(rows: tuple[str, ...]) -> None:
+    with tempfile.TemporaryDirectory() as raw, pytest.MonkeyPatch.context() as monkeypatch:
+        harness = QualityHarness(Path(raw), QualitySettings(root=Path(raw), rhino_app=None, run_id="test-run"))
+        harness.write("Workspace.slnx")
+        workspace = QualityWorkspaceDouble(harness.root, rows, fail_graph=True)
+        monkeypatch.setattr(static_rail, "Workspace", lambda _: workspace)
+        report = harness.expect_json(static_rail.plan_payload(harness.settings, harness.scope("static")))
+        assert report["projects"] == []
+        assert workspace.calls["index"] == 0
+        assert workspace.calls["projects"] == 0
+
+
+@pytest.mark.property
+@given(rows=st.permutations(("tests/tools/py_analyzer/x.cs", "Directory.Build.props", "README.md", "README.md")))
+def test_static_plan_is_permutation_invariant_and_lazy_for_full_triggers(rows: tuple[str, ...]) -> None:
+    with tempfile.TemporaryDirectory() as raw, pytest.MonkeyPatch.context() as monkeypatch:
+        root = Path(raw)
+        (root / "Workspace.slnx").write_text("", encoding="utf-8")
+        harness = QualityHarness(root, QualitySettings(root=root, rhino_app=None, run_id="test-run"))
+        graph = ProjectGraph()
+        graph.materialize(harness)
+        workspace = graph.workspace(harness, changed=rows)
+        monkeypatch.setattr(static_rail, "Workspace", lambda _: workspace)
+        monkeypatch.setattr(
+            static_rail, "run", lambda *_args, **_kwargs: Ok(Completed(("dotnet", "sln"), 0, b"libs/A/A.csproj\nlibs/B/B.csproj\n", b""))
+        )
+
+        report = harness.expect_json(static_rail.plan_payload(harness.settings, harness.scope("static")))
+
+        assert report["scope"] == "full"
+        assert report["full_triggers"] == ["Directory.Build.props"]
+        assert workspace.calls["index"] == 0
+        assert report["projects"] == ["libs/A/A.csproj", "libs/B/B.csproj"]
+
+
+def test_static_owned_routes_explicit_inputs_and_modes(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness) -> None:
+    graph = ProjectGraph()
+    graph.materialize(quality)
+    workspace = graph.workspace(quality, changed=("libs/A/A.cs",))
+    calls: list[tuple[str, ...]] = []
+
+    def fake_dotnet(*args: str, **_kwargs: object) -> Result[Completed, ProcessFault]:
+        calls.append(args)
+        return Ok(Completed(("dotnet", *args), 0, b"", b""))
+
+    monkeypatch.setattr(static_rail, "Workspace", lambda _: workspace)
+    monkeypatch.setattr(static_rail, "run", lambda argv, **_kwargs: Ok(Completed(tuple(argv), 0, b"libs/A/A.cs\n", b"")))
+    monkeypatch.setattr(static_rail, "dotnet", fake_dotnet)
+    monkeypatch.setattr(static_rail, "dotnet_build", lambda *_args, **_kwargs: Error(ProcessFault.fail("build", detail=b"", returncode=0)))
+
+    report = quality.expect_json(static_rail.plan_payload(quality.settings, quality.scope("static")))
+    assert report["scope"] == "changed"
+    assert report["owners"] == ["libs/A/A.csproj"]
+    assert report["projects"] == ["libs/A/A.csproj", "libs/B/B.csproj"]
+    assert report["format_groups"] == [["libs/A/A.csproj", ["libs/A/A.cs"]]]
+    commands = QualityHarness.json_object(report["commands"])
+    build_commands = QualityHarness.json_sequence(commands["build"])
+    assert tuple(QualityHarness.json_sequence(command)[1] for command in build_commands) == ("restore", "restore", "build", "build")
+    assert static_rail.plan_payload(quality.settings, quality.scope("static"), (Path("missing.cs"),)).is_error()
+    assert quality.expect_json(static_rail.plan_payload(quality.settings, quality.scope("static"), (quality.root / "libs/A",)))["inputs"] == [
+        "libs/A/A.cs"
+    ]
+    assert static_rail.run_static_rail(quality.settings, quality.scope("static"), "fix").default_value("skip") == "done"
+    assert static_rail.run_static_rail(quality.settings, quality.scope("static"), "build").default_value("done") == "skip"
+    assert static_rail._skip(ProcessFault.fail("static", detail=b"", returncode=2)).is_error()
+    assert any("--include" in call for call in calls)
+
+
+def test_static_format_and_full_edge_laws(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness) -> None:
+    scope = quality.scope("static")
+    empty = static_rail.StaticPlan(scope="changed", projects=(), full_triggers=())
+    full_trigger = static_rail.StaticPlan(scope="full", projects=(), full_triggers=("Directory.Build.props",))
+    file_plan = static_rail.StaticPlan(scope="changed", projects=("P.csproj",), format_groups=(("P.csproj", ("A.cs",)),))
+    monkeypatch.setattr(static_rail, "dotnet", lambda *args, **_kwargs: Ok(Completed(("dotnet", *args), 0, b"", b"")))
+    monkeypatch.setattr(static_rail, "dotnet_build", lambda *_args, **_kwargs: Ok(None))
+    monkeypatch.setattr(static_rail, "_plan", lambda *_args, **_kwargs: Ok(static_rail.StaticPlan(scope="full", projects=("P.csproj",))))
+
+    assert static_rail._format_plan(quality.settings, scope, full_trigger, "fix").default_value("done") == "full-trigger-skip"
+    assert static_rail._format_plan(quality.settings, scope, empty, "fix").default_value("done") == "skip"
+    assert static_rail._format_plan(quality.settings, scope, file_plan, "report").default_value("skip") == "done"
+    assert static_rail._route_need("tools/cs-analyzer/Rule.cs") == "full"
+    assert (
+        static_rail._route_step(static_rail._ChangedRoute(), "orphan.cs", index={}, workspace=Workspace(quality.root), root=quality.root).full is True
     )
-    assert result.facts == ({"area": 42},)
-    assert result.captures == ({"path": "/img.png"},)
+    assert static_rail._relative(quality.root, Path("/outside/file.cs")) == "/outside/file.cs"
+    assert static_rail.run_static_rail(quality.settings, scope, "full").default_value("skip") == "done"
 
 
-def test_skipped_scenario_yields_exit0(scope: ArtifactScope, workspace: Path) -> None:
-    skipped = bridge_rail.BridgeResult(status="skipped", report_path=str(workspace / "s.json"))
-    report = bridge_rail._verify_summary(scope.path, (skipped,), 300.0)
-    assert report.ok.summary.failed == 0
-    assert report.ok.failed == 0
+# --- [TEST RAIL LAWS] ------------------------------------------------------------------
 
 
-def test_verify_no_scenarios_is_error(cfg: QualitySettings, scope: ArtifactScope, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(bridge_rail, "_verify_discover", lambda *_a, **_k: Ok(()))
-    result = bridge_rail._run_verify_unlocked(cfg, scope, "none")
-    assert result.is_error()
-    assert "No *.verify.csx" in result.error.message
-
-
-def test_client_run_unbuilt_is_error(cfg: QualitySettings, scope: ArtifactScope) -> None:
-    result = bridge_rail.client_run(cfg, scope, "doctor")
-    assert result.is_error()
-    assert "not built" in result.error.message
-
-
-def test_try_decode_bridge_missing_key_is_parseable() -> None:
-    empty = bridge_rail.try_decode_bridge(b"{}")
-    blank = bridge_rail.try_decode_bridge(b"")
-    assert empty.is_ok()
-    assert empty.ok.status == "failed"
-    assert blank.is_error()
-
-
-# --- [LAWS: PACKAGE RAIL] ----------------------------------------------------------------
-
-
-@pytest.mark.parametrize("mode", PACKAGE_FINISH)
-def test_package_finish_steps(cfg: QualitySettings, scope: ArtifactScope, fake: _FakeProc, tmp_path: Path, mode: pkg_rail.PackageMode) -> None:
-    stage = tmp_path / "stage"
-    stage.mkdir()
-    pattern = "rasm-rh9_0-mac.yak"
-    (stage / pattern).write_bytes(b"yak")
-    yak = tmp_path / "yak"
-    yak.write_text("#!/bin/sh\n", encoding="utf-8")
-    yak.chmod(0o700)
-    meta = pkg_rail.PackageMeta(
-        project=tmp_path / "p.csproj",
-        manifest_dir=tmp_path,
-        target_dir=tmp_path / "bin",
-        assembly_name="P",
-        target_ext=".rhp",
-        yak_path=yak,
-        yak_platform="mac",
-        yak_push_source="",
-        package_dir=stage,
-        package_pattern=pattern,
+@pytest.mark.parametrize("law", list(TARGET_LAWS), ids=lambda law: f"{law.mode}-{law.mutation}-{law.test_modules or 'default'}")
+def test_test_rail_rejects_invalid_target_and_mutation_shapes(quality: QualityHarness, law: TargetLaw) -> None:
+    result = test_rail.run_test_rail(
+        quality.settings,
+        quality.scope(),
+        law.mode,
+        all_targets=law.all_targets,
+        mutation=law.mutation,
+        test_modules=law.test_modules,
+        explicit_target=law.explicit,
     )
-    artifact = pkg_rail.PackageArtifact(stage=stage, meta=meta)
-    result = pkg_rail._finish(cfg, scope, mode, "some-slug", artifact)
-    assert result.is_ok()
-    if mode == "package":
-        assert result.ok is artifact
-    if mode in {"deploy", "publish"}:
-        assert any(argv[0] == str(yak) and argv[1] == "install" for argv in fake.seen)
-    if mode == "publish":
-        assert any(argv[1] == "push" for argv in fake.seen if argv[0] == str(yak))
-
-
-def test_package_meta_missing_props_is_error() -> None:
-    result = pkg_rail.PackageMeta.from_props(Path("p.csproj"), {}, QualitySettings(rhino_app=None), "slug")
     assert result.is_error()
-    assert "Missing MSBuild" in result.error.message
+    assert law.needle in result.swap().default_value(ProcessFault.fail("missing", detail=b"")).stderr
 
 
-def test_package_yak_argv_shapes(tmp_path: Path) -> None:
-    yak = tmp_path / "yak"
-    meta = pkg_rail.PackageMeta(
-        project=Path(),
-        manifest_dir=tmp_path,
-        target_dir=tmp_path,
-        assembly_name="P",
-        target_ext=".rhp",
-        yak_path=yak,
-        yak_platform="mac",
-        yak_push_source="https://src",
-        package_dir=tmp_path,
-        package_pattern="*.yak",
+def test_test_rail_selector_list_and_mutation_laws(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness) -> None:
+    quality.write("libs/csharp/Rasm/Changed.cs")
+    calls: list[tuple[str, ...]] = []
+
+    def fake_dotnet(*args: str, **_kwargs: object) -> Result[Completed, ProcessFault]:
+        calls.append(args)
+        return Ok(Completed(("dotnet", *args), 0, b"AlphaTests\nBeta Laws\nGamma.Spec\n", b""))
+
+    monkeypatch.setattr(test_rail, "dotnet", fake_dotnet)
+    monkeypatch.setattr(
+        test_rail, "Workspace", lambda _: QualityWorkspaceDouble(quality.root, ("libs/csharp/Rasm/Changed.cs", "libs/csharp/Rasm/obj/Skip.cs"))
     )
-    build = pkg_rail._yak_argv(meta, "build", version="1.2.3")
-    push = pkg_rail._yak_argv(meta, "push", package_file=tmp_path / "x.yak")
-    assert build == (str(yak), "build", "--platform", "mac", "--version", "1.2.3")
-    assert "--source" in push
-    assert "https://src" in push
+    monkeypatch.setattr(test_rail, "log", SimpleNamespace(info=lambda *_args, **_kwargs: None))
 
-
-def test_package_list_payload_parseable(cfg: QualitySettings, scope: ArtifactScope, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(pkg_rail, "_package_projects", lambda _s: Ok(()))
-    payload = pkg_rail.package_list_payload(cfg, scope)
-    report = msgspec.json.decode(payload.ok, type=pkg_rail.PackageListReport)
-    assert report.status == "ok"
-    assert report.count == 0
-
-
-# --- [LAWS: API RAIL] --------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("symbol,shape", API_SHAPE)
-def test_api_resolve_symbol_shapes(symbol: str, shape: str) -> None:
-    surface = api_rail._Surface(
-        types=("Rhino.Geometry.Mesh", "Rhino.Geometry.Point3d"),
-        namespaces=("Rhino.Geometry",),
-        by_namespace={"Rhino.Geometry": ("Rhino.Geometry.Mesh", "Rhino.Geometry.Point3d")},
-        artifact=Path("surface.txt"),
+    listed = quality.expect_json(test_rail.list_tests_payload(quality.settings, quality.scope(), grep="alpha", limit=1))
+    assert listed["tests"] == ["AlphaTests"]
+    for filter_expr in ("/name", "Category=Fast", "Nested+Type", "Name.Spec"):
+        assert test_rail.run_test_rail(quality.settings, quality.scope(), "run", filter_expr=filter_expr).is_ok()
+    assert (
+        test_rail
+        .run_test_rail(quality.settings, quality.scope(), "run", mutation="changed")
+        .default_value(test_rail.TestRunReport(query={}, status="failed", artifact_paths={}))
+        .mutation
+        == "changed"
     )
-    assert api_rail._resolve_symbol(surface, symbol).shape == shape
+    assert test_rail.list_tests_payload(quality.settings, quality.scope(), all_targets=True, test_modules="x.dll").is_error()
+    assert test_rail.run_test_rail(
+        quality.settings.model_copy(update={"mutation_test_project": Path("Other.csproj")}), quality.scope(), "run", mutation="full"
+    ).is_error()
+    assert test_rail.run_test_rail(quality.settings, quality.scope(), "run", test_modules="*.dll", filter_expr="Name.Spec", no_build=True).is_ok()
+    assert test_rail.run_test_rail(quality.settings, quality.scope(), "run", mutation="full").is_ok()
+    assert test_rail._mutation_result(Completed(("stryker",), 0, b"Number of tests found: 0\nNo test result reported", b"")).is_error()
+    assert test_rail._mutation_result(Completed(("stryker",), 9, b"bad", b"err")).is_error()
+    assert any("dotnet-stryker" in call and "Changed.cs" in call and "Skip.cs" not in call for call in calls)
+    assert any("--test-modules" in call for call in calls)
+    assert any("**/*.cs" in call for call in calls)
 
 
-def test_api_query_missing_key_is_parseable_error(cfg: QualitySettings, scope: ArtifactScope, fake: _FakeProc) -> None:
-    result = api_rail.api(cfg, scope, "query", key="no-such-package", symbol="X")
-    assert result.is_error()
-    assert "Unknown API source" in result.error.message
+# --- [API LAWS] ------------------------------------------------------------------------
 
 
-def test_api_nuget_fuzzy_resolution(cfg: QualitySettings, scope: ArtifactScope, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(api_rail, "_packages", lambda _s: {"LanguageExt.Core": "5.0.0", "Avalonia.Controls.DataGrid": "11.0.0"})
-    exact = api_rail._nuget_source(cfg, scope, "languageext")
-    ambiguous = api_rail._nuget_source(cfg, scope, "a")
-    assert exact.ok.package == "LanguageExt.Core"
-    assert ambiguous.is_error()
-    assert "Ambiguous" in ambiguous.error.message
+def test_api_package_source_query_show_and_failure_laws(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness) -> None:
+    scope = quality.scope("api", quality.root / ".artifacts/quality/api/test-run")
+    package_root = quality.root / ".cache/nuget/packages/example.core/1.0.0"
+    ref = package_root / "ref/net10.0"
+    ref.mkdir(parents=True)
+    assembly = ref / "Example.Core.dll"
+    assembly.write_bytes(b"dll")
+    (ref / "Example.Core.xml").write_text(
+        "<doc><members>"
+        "<member name='T:Example.Core.Widget'>Widget docs</member>"
+        "<member name='M:Example.Core.Widget.Run'>Run docs</member>"
+        "</members></doc>",
+        encoding="utf-8",
+    )
+    quality.write(
+        "Directory.Packages.props",
+        "<Project><ItemGroup>"
+        '<PackageVersion Include="Example.Core" Version="1.0.0" />'
+        '<PackageVersion Include="Example.Ui" Version="1.0.0" />'
+        "</ItemGroup></Project>",
+    )
+    monkeypatch.setattr(api_rail, "dotnet_tool_restore", lambda *_args: Ok(None))
+    monkeypatch.setattr(
+        api_rail,
+        "dotnet_tool",
+        lambda _scope, _name, *args, **_kwargs: Ok(
+            Completed(
+                ("ilspycmd", *args),
+                0,
+                b"Class Example.Core.Widget\nClass Example.Core.Widget.Nested\nInterface Example.Core.Contract\n"
+                if "-l" in args
+                else b"namespace Example.Core { public sealed class Widget { public void Run() {} public void Other() {} } }",
+                b"",
+            )
+        ),
+    )
+
+    resolve = quality.expect(api_rail.api(quality.settings, scope, "resolve", "example.core", kind="all"), api_rail.ApiQueryReport)
+    index = quality.expect(api_rail.api(quality.settings, scope, "query", "example.core", symbol=""), api_rail.ApiQueryReport)
+    namespace = quality.expect(api_rail.api(quality.settings, scope, "query", "example.core", symbol="Example.Core"), api_rail.ApiQueryReport)
+    member = quality.expect(api_rail.api(quality.settings, scope, "query", "example.core", symbol="Widget.Run"), api_rail.ApiQueryReport)
+    search = quality.expect(api_rail.api(quality.settings, scope, "query", "example.core", symbol="Missing"), api_rail.ApiQueryReport)
+    shown = quality.expect(api_rail.api(quality.settings, scope, "show", "decompile.cs", full=True, show_policy="latest"), api_rail.ApiShowReport)
+
+    assert resolve.status == "ok"
+    assert index.shape == "index"
+    assert index.counts["namespaces"] == 1
+    assert namespace.shape == "namespace"
+    assert namespace.counts["types"] == 3
+    assert member.shape == "member"
+    assert "Run" in member.signature
+    assert search.status == "empty"
+    assert shown.content
+    assert api_rail.api(quality.settings, scope, "resolve", "example").is_error()
 
 
-def test_api_resolve_report_il_and_resources(scope: ArtifactScope, tmp_path: Path) -> None:
-    dll = tmp_path / "Lib.dll"
-    dll.write_bytes(b"MZ")
-    source = api_rail._ApiSource(key="lib", kind="package", assembly=dll, xml=None, assemblies=(dll,), package="Lib", version="1.0.0")
-    report = msgspec.json.decode(api_rail._resolve_report(scope.path / "resolve", source, "assembly"), type=api_rail.ApiQueryReport)
-    assert report.status == "ok"
-    assert report.counts["paths"] == 1
+def test_api_doctor_host_and_report_show_laws(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness) -> None:
+    rhino = quality.mkdir("RhinoWIP.app")
+    resources = rhino / "Contents/Frameworks/RhCore.framework/Versions/Current/Resources"
+    resources.mkdir(parents=True)
+    (resources / "RhinoCommon.dll").write_bytes(b"dll")
+    (resources / "RhinoCommon.xml").write_text("<doc />", encoding="utf-8")
+    rhinocode = rhino / "Contents/Resources/bin/rhinocode"
+    rhinocode.parent.mkdir(parents=True)
+    rhinocode.write_text("", encoding="utf-8")
+    settings = quality.settings.model_copy(update={"rhino_app": rhino})
+    scope = quality.scope("api", quality.root / ".artifacts/quality/api/test-run")
+    monkeypatch.setattr(api_rail, "dotnet_tool_restore", lambda *_args: Ok(None))
+    monkeypatch.setattr(api_rail, "dotnet_tool", lambda *_args, **_kwargs: Ok(Completed(("ilspycmd",), 0, b"9.0.0", b"")))
+    monkeypatch.setattr(api_rail, "run", lambda argv, **_kwargs: Ok(Completed(tuple(argv), 0, b"9.0.1", b"")))
+
+    doctor = quality.expect(api_rail.api(settings, scope, "doctor"), api_rail.ApiDoctorReport)
+    resolved = quality.expect(api_rail.api(settings, scope, "resolve", "rhino-common", kind="assembly"), api_rail.ApiQueryReport)
+    shown = quality.expect(api_rail.api(settings, scope, "show", "report", show_policy="latest"), api_rail.ApiShowReport)
+    assert doctor.status == "ok"
+    assert resolved.status == "ok"
+    assert shown.preview
 
 
-def test_api_doctor_parseable_without_rhino(cfg: QualitySettings, scope: ArtifactScope, fake: _FakeProc) -> None:
-    fake.on("dotnet", "tool", _Route(rc=1, err=b"unavailable"))
-    payload = api_rail._doctor(cfg, scope, scope.path / "doctor", None)
-    report = msgspec.json.decode(payload.ok, type=api_rail.ApiDoctorReport)
-    assert report.status == "failed"
-    assert report.rhino["status"] == "missing"
+def test_api_package_restore_and_empty_surface_laws(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness) -> None:
+    scope = quality.scope("api", quality.root / ".artifacts/quality/api/test-run")
+    quality.write("Directory.Packages.props", '<Project><ItemGroup><PackageVersion Include="Empty.Package" Version="1.0.0" /></ItemGroup></Project>')
+    (quality.root / ".cache/nuget/packages/empty.package/1.0.0").mkdir(parents=True)
+    calls: list[tuple[str, ...]] = []
+
+    def fake_run(argv: tuple[str, ...], **_kwargs: object) -> Result[Completed, ProcessFault]:
+        calls.append(tuple(argv))
+        return Ok(Completed(tuple(argv), 0, b"9.0.1", b""))
+
+    monkeypatch.setattr(api_rail, "run", fake_run)
+
+    assert api_rail.api(quality.settings, scope, "resolve", "Empty.Package", restore="never").default_value(b"")
+    assert api_rail.api(quality.settings, scope, "resolve", "Empty.Package", restore="always").is_ok()
+    assert any(call[0:2] == ("dotnet", "restore") for call in calls)
+    source = api_rail._source(quality.settings, scope, "Empty.Package").default_value(None)
+    assert source is not None
+    assert api_rail._surface(scope, source).is_error()
+    assert api_rail.api(quality.settings, scope, "show", "missing-artifact").is_error()
+    assert api_rail._slice_text("a\nb\nc", lines="2:3", grep="", max_lines=1) == ("b\nc", 3, True)
 
 
-def test_api_slice_text_windows() -> None:
-    text = "\n".join(f"line{n}" for n in range(20))
-    window, total, truncated = api_rail._slice_text(text, lines="2:4", grep="", max_lines=5)
-    assert window == "line1\nline2\nline3"
-    assert total == 20
-    assert truncated
+# --- [BRIDGE AND PACKAGE LAWS] ---------------------------------------------------------
 
 
-# --- [LAWS: SETTINGS] --------------------------------------------------------------------
+def test_bridge_payload_verify_client_and_discovery_laws(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness) -> None:
+    scope = quality.scope("bridge")
+    scenario_dir = quality.mkdir("tests/csharp/libs/Rasm/scenarios")
+    scenario = quality.write(scenario_dir.relative_to(quality.root) / "one.verify.csx")
+    quality.project("libs/csharp/Rasm/Rasm.csproj")
+    payload = bridge_rail.BridgeResult(
+        command="check",
+        status="failed",
+        report_path=str(scenario),
+        phases=(
+            bridge_rail.BridgePhase(
+                phase="execute",
+                status="failed",
+                data={"diagnostics": {"exceptionReports": [{"message": "boom"}]}},
+                outputs=(
+                    bridge_rail.BridgeOutput(
+                        source="stdout",
+                        text='rasm.rhino-bridge.evidence=facts={"a":1}\nrasm.rhino-bridge.capture={"path":"shot.png"}',
+                        truncated=True,
+                    ),
+                ),
+            ),
+        ),
+    )
+    report = bridge_rail._verify_summary(quality.root, (payload,), 5.0).default_value(
+        bridge_rail.VerifyReport(summary=bridge_rail.VerifySummaryCounts(0, 0, 0))
+    )
+    assert bridge_rail.try_decode_bridge(msgspec.json.encode(payload)).default_value(bridge_rail.BridgeResult()).exit_code == 1
+    assert bridge_rail.VerifyScenario.of(payload).facts == ({"a": 1},)
+    assert bridge_rail.VerifyScenario.of(payload).captures == ({"path": "shot.png"},)
+    assert report.first_failure is not None
+    assert (quality.root / "summary.json").is_file()
+    assert bridge_rail._verify_discover(Workspace(quality.root), quality.root, str(scenario)).default_value(()) == (scenario.resolve(),)
+    assert bridge_rail._verify_discover(Workspace(quality.root), quality.root, "one.verify.csx").default_value(()) == (scenario.resolve(),)
+    assert bridge_rail._verify_resolve(quality.settings, Workspace(quality.root), {}, scenario).default_value(Path()).name == "Rasm.csproj"
+    assert bridge_rail.BridgeResult.from_process_fault(ProcessFault.fail("bridge", detail=b"timeout", returncode=124)).status == "timeout"
+    assert bridge_rail.client_run(quality.settings, scope, "doctor").is_error()
+    ready = quality.settings.bridge_client.parent / "bin" / quality.settings.configuration / "net10.0"
+    ready.mkdir(parents=True)
+    (ready / "Rasm.RhinoBridge.Client.dll").write_text("", encoding="utf-8")
+    monkeypatch.setattr(
+        bridge_rail,
+        "dotnet",
+        lambda *args, **_kwargs: Ok(Completed(("dotnet", *args), 0, msgspec.json.encode(bridge_rail.BridgeResult(status="ok")), b"")),
+    )
+    assert bridge_rail.client_run(quality.settings, scope, "doctor").is_ok()
+    assert bridge_rail.client_quit(quality.settings, scope).is_ok()
+    assert bridge_rail.client_refresh(quality.settings, scope).is_ok()
+    monkeypatch.setattr(bridge_rail, "with_bridge_lease", lambda _settings, action: action())
+    monkeypatch.setattr(bridge_rail, "build_client", lambda *_args: Ok(None))
+    monkeypatch.setattr(bridge_rail, "build_scenario_kit", lambda *_args: Ok(None))
+    monkeypatch.setattr(bridge_rail, "_verify_discover", lambda *_args: Ok((scenario,)))
+    monkeypatch.setattr(bridge_rail, "_verify_resolve", lambda *_args: Ok(quality.settings.bridge_client))
+    monkeypatch.setattr(
+        bridge_rail, "_verify_invoke", lambda *_args: bridge_rail.BridgeResult(command="check", status="ok", report_path=str(scenario))
+    )
+    assert (
+        bridge_rail
+        .run_verify(quality.settings, scope, "*.verify.csx")
+        .default_value(bridge_rail.VerifyReport(summary=bridge_rail.VerifySummaryCounts(0, 0, 0)))
+        .summary.ok
+        == 1
+    )
 
 
-def test_settings_anchor_finds_marker(workspace: Path) -> None:
-    nested = workspace / "a" / "b"
-    nested.mkdir(parents=True)
-    assert QualitySettings.anchor(nested) == workspace
+def test_package_meta_listing_validation_and_resolution_laws(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness) -> None:
+    scope = quality.scope("package")
+    shape = PackageShape()
+    meta = shape.materialize(quality)
+    project = meta.project
+    props = shape.props(meta)
+    monkeypatch.setattr(package_rail, "_package_projects", lambda _settings: Ok((project,)))
+    listed = quality.expect_json(package_rail.package_list_payload(quality.settings, scope))
+    assert listed["packages"] == [{"slug": shape.slug, "project": str(shape.project)}]
+    assert package_rail._yak_argv(meta, "push", package_file=quality.root / "pkg.yak") == (
+        str(meta.yak_path),
+        "push",
+        "--source",
+        "feed",
+        str(quality.root / "pkg.yak"),
+    )
+    assert package_rail.PackageMeta.from_props(project, props, quality.settings, shape.slug).is_ok()
+    for patch in (
+        {"YakPackageSlug": "other"},
+        {"TargetExt": ".dll"},
+        {"TargetDir": str(quality.root.parent / "outside")},
+        {"YakPlatform": "win"},
+        {"YakPackagePattern": "*.yak"},
+        {"YakPath": str(quality.root / "missing-yak")},
+    ):
+        assert package_rail.PackageMeta.from_props(project, {**props, **patch}, quality.settings, shape.slug).is_error()
+    assert package_rail.PackageMeta.from_props(project, {}, quality.settings, "slug").is_error()
+    assert package_rail._finish(
+        quality.settings, scope, "deploy", shape.slug, package_rail.PackageArtifact(quality.mkdir("empty-stage"), meta)
+    ).is_error()
+    assert package_rail.run_package_rail(quality.settings, scope, "package", "missing", "").is_error()
+    duplicate = quality.project("tools/a/a.csproj", "<Project><PropertyGroup><YakPackageSlug>rasm-bridge</YakPackageSlug></PropertyGroup></Project>")
+    monkeypatch.setattr(package_rail, "_package_projects", lambda _settings: Ok((project, duplicate)))
+    assert package_rail.run_package_rail(quality.settings, scope, "package", "rasm-bridge", "").is_error()
 
 
-def test_settings_static_configurations_dispatch(cfg: QualitySettings) -> None:
-    assert cfg.static_configurations("changed") == ("Debug",)
-    assert cfg.static_configurations("full") == ("Debug", "Release")
-    assert cfg.model_copy(update={"configurations": "Release"}).static_configurations("changed") == ("Release",)
+def test_package_stage_run_plan_and_msbuild_laws(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness) -> None:
+    scope = quality.scope("package")
+    shape = PackageShape()
+    meta = shape.materialize(quality)
+    project = meta.project
+
+    def fake_yak(argv: tuple[str, ...], **kwargs: object) -> Result[Completed, ProcessFault]:
+        if argv[1] == "build":
+            cwd = kwargs.get("cwd")
+            ((cwd if isinstance(cwd, Path) else Path.cwd()) / shape.package_pattern).write_text("", encoding="utf-8")
+        return Ok(Completed(tuple(argv), 0, b"", b""))
+
+    monkeypatch.setattr(package_rail, "_package_projects", lambda _settings: Ok((project,)))
+    monkeypatch.setattr(package_rail, "_resolve_project", lambda *_args: Ok(project))
+    evaluate_meta = package_rail._evaluate_meta
+    monkeypatch.setattr(package_rail, "_evaluate_meta", lambda *_args: Ok(meta))
+    monkeypatch.setattr(package_rail, "dotnet_build", lambda *_args, **_kwargs: (shape.rebuild(meta), Ok(None))[1])
+    monkeypatch.setattr(package_rail, "run", fake_yak)
+    monkeypatch.setattr(package_rail, "with_bridge_lease", lambda _settings, action: action())
+    monkeypatch.setattr(package_rail, "build_client", lambda *_args: Ok(None))
+    monkeypatch.setattr(package_rail, "client_quit", lambda *_args: Ok(None))
+    monkeypatch.setattr(package_rail, "client_refresh", lambda *_args: Ok(None))
+    meta.package_dir.mkdir(parents=True, exist_ok=True)
+    packaged = package_rail.run_package_rail(quality.settings, scope, "package", "rasm-bridge", "1.0.0")
+    assert packaged.is_ok(), packaged.swap().default_value(ProcessFault.fail("package", detail=b"unknown")).message
+    assert isinstance(packaged.default_value(None), package_rail.PackageArtifact)
+    assert package_rail.run_package_rail(quality.settings, scope, "deploy", "other", "1.0.0").default_value(None) is None
+    assert package_rail.run_package_rail(quality.settings, scope, "publish", "rasm-bridge", "1.0.0").default_value(None) is None
+    plan = quality.expect_json(package_rail.package_plan_payload(quality.settings, scope, "rasm-bridge", "1.0.0"))
+    assert QualityHarness.json_object(plan["meta"])["yak_platform"] == "mac"
+    monkeypatch.setattr(package_rail, "_evaluate_meta", evaluate_meta)
+    monkeypatch.setattr(
+        package_rail,
+        "run",
+        lambda argv, **_kwargs: Ok(Completed(tuple(argv), 0, msgspec.json.encode(package_rail._MsbuildProps(Properties={})), b"")),
+    )
+    assert package_rail._evaluate_meta(quality.settings, scope, project, "slug", "1.0.0").is_error()
 
 
-def test_settings_invalid_configurations_raises() -> None:
+def test_settings_bundle_validation_laws(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness) -> None:
     with pytest.raises(ValueError, match="invalid values"):
-        QualitySettings(configurations="Banana", rhino_app=None)
-
-
-def test_settings_version_props(cfg: QualitySettings) -> None:
-    assert cfg.version_props("1.0") == ("/p:Version=1.0", "/p:InformationalVersion=1.0")
-    assert cfg.version_props() == ()
-
-
-def test_artifactscope_flags_side_effect_free(cfg: QualitySettings) -> None:
-    scope = ArtifactScope.build(cfg, "closure")
-    flags_a = scope.dotnet_flags
-    flags_b = scope.dotnet_flags
-    assert flags_a == flags_b
-    assert flags_a[0] == "--artifacts-path"
-    assert scope.artifacts_property == ("-p:ArtifactsPath=" + str(scope.path),)
-
-
-def test_hypothesis_profile_uses_repo_cache(hypothesis_home_dir: Path, hypothesis_examples_dir: Path) -> None:
-    assert hyp_settings.default is not None
-    database = hyp_settings.default.database
-    assert isinstance(database, DirectoryBasedExampleDatabase)
-    assert database.path == hypothesis_examples_dir
-    assert storage_directory("constants", intent_to_write=False).path == hypothesis_home_dir / "constants"
-    database.save(b"rasm-quality-profile", b"probe")
-    assert hypothesis_examples_dir.is_dir()
-
-
-# --- [LAWS: CLI ENTRYPOINT — EMIT + STRUCTLOG-TO-STDERR] ---------------------------------
-
-
-def test_main_static_skip_exit0(cfg: QualitySettings, fake: _FakeProc, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    _seed_projects(monkeypatch, cfg, ())
-    code, _out, err = _run_main(monkeypatch, capsys, cfg, "static", "build")
-    assert code == 0
-    assert "phase" in err
-
-
-def test_main_test_run_emits_on_stderr_only(
-    cfg: QualitySettings, fake: _FakeProc, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    code, out, err = _run_main(monkeypatch, capsys, cfg, "test", "run")
-    assert code == 0
-    assert "test" in err
-    assert not out
-
-
-def test_main_failing_test_nonzero(
-    cfg: QualitySettings, fake: _FakeProc, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    fake.on("dotnet", "test", _Route(rc=1, err=b"fail"))
-    code, _out, err = _run_main(monkeypatch, capsys, cfg, "test", "run")
-    assert code == 1
-    assert "failed" in err
-
-
-def test_main_api_query_missing_key_parseable(
-    cfg: QualitySettings, fake: _FakeProc, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    code, _out, err = _run_main(monkeypatch, capsys, cfg, "api", "query", "no-such-key", "X")
-    assert code == 1
-    assert "Unknown API source" in err
-
-
-def test_main_static_plan_payload_on_stdout(
-    cfg: QualitySettings, fake: _FakeProc, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    _seed_projects(monkeypatch, cfg, ())
-    code, out, _err = _run_main(monkeypatch, capsys, cfg, "static", "plan")
-    assert code == 0
-    assert msgspec.json.decode(out.encode(), type=static_rail.StaticPlanReport).scope == "changed"
-
-
-def test_main_self_test_passes(cfg: QualitySettings, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    monkeypatch.setattr(shutil, "which", lambda _cmd: "/usr/bin/x")
-    monkeypatch.setattr("tools.quality.__main__.QualitySettings", lambda: cfg)
-    code = main_mod.self_test_cmd()
-    assert code == 0
-    assert "passed" in capsys.readouterr().out
-
-
-def test_emit_modes() -> None:
-    assert main_mod._emit(b"bytes") == 0
-    assert main_mod._emit("text", 3) == 3
-    assert main_mod._emit(None) == 0
-
-
-def test_emit_api_strict_status() -> None:
-    assert main_mod._emit_api(msgspec.json.encode({"status": "failed"}), strict=True) == 2
-    assert main_mod._emit_api(msgspec.json.encode({"status": "ok"}), strict=True) == 0
-    assert main_mod._emit_api(None) == 0
-
-
-# --- [PROPERTY LAWS] ---------------------------------------------------------------------
-
-
-@given(value=st.sampled_from(["Debug Release", "Release", "Debug", ""]))
-@hyp_settings(max_examples=25, deadline=None)
-def test_env_override_static_configurations(value: str) -> None:
-    cfg = QualitySettings(configurations=value or None, rhino_app=None)
-    result = cfg.static_configurations("changed")
-    assert all(item in {"Debug", "Release"} for item in result)
-    assert len(result) >= 1
-
-
-@given(items=st.lists(st.integers(min_value=0, max_value=5), max_size=6))
-@hyp_settings(max_examples=40, deadline=None)
-def test_fold_associativity(items: list[int]) -> None:
-    folded = process.fold(tuple(items), 0, lambda acc, item: Ok(acc + item))
-    assert folded.ok == sum(items)
-
-
-@given(leaf=st.text(alphabet="abc", min_size=1, max_size=3), depth=st.integers(min_value=1, max_value=4))
-@hyp_settings(max_examples=40, deadline=None)
-def test_owner_ranking_unique_ancestor(leaf: str, depth: int, tmp_path: Path) -> None:
-    # Exactly one indexed directory on the ancestry chain resolves unambiguously regardless of nesting depth.
-    parts = [f"d{n}" for n in range(depth)]
-    owner_dir = tmp_path.joinpath(*parts)
-    index = {owner_dir: owner_dir / "P.csproj"}
-    result = Workspace(tmp_path).owner(index, owner_dir / f"{leaf}.cs")
-    assert result.ok == owner_dir / "P.csproj"
-
-
-@given(key=st.sampled_from(["languageext", "language", "LANGUAGEEXT.CORE", "ext.core", "lang ext"]))
-@hyp_settings(max_examples=25, deadline=None)
-def test_fuzzy_key_resolution(key: str, cfg: QualitySettings, scope: ArtifactScope, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(api_rail, "_packages", lambda _s: {"LanguageExt.Core": "5.0.0"})
-    assert api_rail._nuget_source(cfg, scope, key).ok.package == "LanguageExt.Core"
-
-
-@given(projects=st.lists(st.text(alphabet="abcd", min_size=1, max_size=8).map(lambda s: f"libs/{s}.csproj"), min_size=1, max_size=5, unique=True))
-@hyp_settings(max_examples=30, deadline=None)
-def test_closure_key_stability(projects: list[str]) -> None:
-    plan = static_rail.StaticPlan(scope="changed", projects=tuple(projects))
-    reversed_plan = static_rail.StaticPlan(scope="changed", projects=tuple(reversed(projects)))
-    assert static_rail._closure_key(plan, "changed") == static_rail._closure_key(reversed_plan, "changed")
-    assert static_rail._closure_key(plan, "full") == "solution"
+        QualitySettings(root=quality.root, rhino_app=None, configurations="Debug Nope")
+    with pytest.raises(ValueError, match="not found"):
+        QualitySettings._coerce_rhino_bundle(quality.root / "missing.app", label="missing")
+    with pytest.raises(ValueError, match="not found"):
+        quality.settings.require_rhino_app()
+    assert QualitySettings._rhino_listing()
+    broken = quality.mkdir("BrokenRhino.app")
+    good = quality.mkdir("RhinoWIP.app")
+    info = good / "Contents/Info.plist"
+    info.parent.mkdir(parents=True)
+    info.write_bytes(plistlib.dumps({"CFBundleVersion": "9.99.1"}))
+    monkeypatch.setattr(Path, "glob", lambda self, pattern: (broken, good) if str(self) == "/Applications" and pattern == "Rhino*.app" else ())
+    assert QualitySettings._newest_rhino_app() == good
+    monkeypatch.setenv("RHINO_WIP_APP_PATH", str(good))
+    assert QualitySettings._resolve_rhino_app() == good

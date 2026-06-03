@@ -32,6 +32,7 @@ type DotnetOp = Literal["restore", "build"]
 type FdExtension = Literal["csproj", "csx"]
 type ProcessMode = Literal["capture", "stream"]
 type ProjectIndex = Mapping[Path, Path]
+type RailStatus = Literal["ok", "empty", "skip", "busy", "timeout", "unsupported", "failed"]
 
 
 class ByteWriter(Protocol):
@@ -77,15 +78,16 @@ class ProcessFault:
     argv: tuple[str, ...]
     returncode: int
     stderr: bytes
+    status: RailStatus = "failed"
 
     @staticmethod
-    def fail(*argv: str, detail: str | bytes, returncode: int = 2) -> ProcessFault:
+    def fail(*argv: str, detail: str | bytes, returncode: int = 2, status: RailStatus | None = None) -> ProcessFault:
         match detail:
             case bytes() as stderr:
                 pass
             case text:
                 stderr = text.encode()
-        return ProcessFault(argv=argv, returncode=returncode, stderr=stderr)
+        return ProcessFault(argv=argv, returncode=returncode, stderr=stderr, status=status or _fault_status(returncode))
 
     @property
     def message(self) -> str:
@@ -97,6 +99,42 @@ class ProcessFault:
 class ResourceBusyError(Exception):
     lock: Path
     owner: str
+
+
+@dataclass(frozen=True, slots=True)
+class DotnetInvocation:
+    args: tuple[str, ...]
+    scoped: bool = True
+    check: bool = True
+    timeout: float | None = None
+    mode: ProcessMode = "capture"
+    cwd: Path | None = None
+
+    def argv(self, scope: ArtifactScope | None = None) -> tuple[str, ...]:
+        match scope:
+            case ArtifactScope() as active if self.scoped and self.args and self.args[0] in _ARTIFACT_SCOPED_VERBS:
+                separator = self.args.index("--") if "--" in self.args else len(self.args)
+                return ("dotnet", *self.args[:separator], *active.dotnet_flags, *self.args[separator:])
+            case _:
+                return ("dotnet", *self.args)
+
+    @staticmethod
+    def env(scope: ArtifactScope | None = None) -> dict[str, str] | None:
+        return scope.dotnet_env if isinstance(scope, ArtifactScope) else None
+
+    def artifact_dir(self, scope: ArtifactScope | None = None) -> Path | None:
+        return scope.path / "process" if isinstance(scope, ArtifactScope) and self.mode == "stream" else None
+
+    def run(self, scope: ArtifactScope | None = None) -> Result[Completed, ProcessFault]:
+        return run(
+            self.argv(scope),
+            cwd=self.cwd,
+            env=self.env(scope),
+            check=self.check,
+            timeout=self.timeout,
+            mode=self.mode,
+            artifact_dir=self.artifact_dir(scope),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,7 +266,7 @@ def leased[T](
         with exclusive_lease(lock, lease_owner(settings, resource, project=project, mode=mode)):
             return action()
     except ResourceBusyError as exc:
-        return Error(ProcessFault.fail(resource, "busy", detail=f"{resource} is busy: {exc.lock} held by\n{exc.owner}", returncode=5))
+        return Error(ProcessFault.fail(resource, "busy", detail=f"{resource} is busy: {exc.lock} held by\n{exc.owner}", returncode=5, status="busy"))
     except (OSError, RuntimeError) as exc:
         return Error(ProcessFault.fail(resource, "lock", detail=str(exc)))
 
@@ -243,18 +281,7 @@ def dotnet(
     mode: ProcessMode = "capture",
 ) -> Result[Completed, ProcessFault]:
     # scoped=True splices artifact flags for build-graph verbs; scoped=False keeps default bin/ for scenario-kit and yak staging.
-    command: tuple[str, ...]
-    env: dict[str, str] | None
-    match scope:
-        case ArtifactScope() as active if scoped and args and args[0] in _ARTIFACT_SCOPED_VERBS:
-            separator = args.index("--") if "--" in args else len(args)
-            command, env = ("dotnet", *args[:separator], *active.dotnet_flags, *args[separator:]), active.dotnet_env
-        case ArtifactScope() as active:
-            command, env = ("dotnet", *args), active.dotnet_env
-        case _:
-            command, env = ("dotnet", *args), None
-    artifact_dir = scope.path / "process" if isinstance(scope, ArtifactScope) and mode == "stream" else None
-    return run(command, cwd=cwd, env=env, check=check, timeout=timeout, mode=mode, artifact_dir=artifact_dir)
+    return DotnetInvocation(args=args, scoped=scoped, check=check, timeout=timeout, mode=mode, cwd=cwd).run(scope)
 
 
 def dotnet_args(
@@ -283,6 +310,48 @@ def dotnet_args(
             assert_never(unreachable)
 
 
+def dotnet_build_invocations(
+    settings: QualitySettings,
+    *,
+    restore: str | Path | None = None,
+    restore_targets: tuple[str | Path, ...] = (),
+    targets: tuple[str | Path, ...],
+    configurations: tuple[str, ...] = (),
+    version: str = "",
+    disable_parallel: bool = False,
+    serial: bool = False,
+    max_cpu: int | None = None,
+    scoped: bool = True,
+    mode: ProcessMode = "stream",
+    quiet: bool = False,
+    disable_build_servers: bool = False,
+) -> tuple[DotnetInvocation, ...]:
+    configs = configurations or (settings.configuration,)
+    version_args = settings.version_props(version)
+    restores = restore_targets or ((restore,) if restore is not None else ())
+    return (
+        *(DotnetInvocation(dotnet_args("restore", item, disable_parallel=disable_parallel), scoped=scoped, mode=mode) for item in restores),
+        *(
+            DotnetInvocation(
+                dotnet_args(
+                    "build",
+                    target,
+                    configuration=configuration,
+                    version=version_args,
+                    serial=serial,
+                    max_cpu=max_cpu,
+                    quiet=quiet,
+                    disable_build_servers=disable_build_servers,
+                ),
+                scoped=scoped,
+                mode=mode,
+            )
+            for configuration in configs
+            for target in targets
+        ),
+    )
+
+
 @beartype
 def dotnet_build(
     settings: QualitySettings,
@@ -301,27 +370,22 @@ def dotnet_build(
     quiet: bool = False,
     disable_build_servers: bool = False,
 ) -> Result[None, ProcessFault]:
-    configs = configurations or (settings.configuration,)
-    version_args = settings.version_props(version)
-    restores = restore_targets or ((restore,) if restore is not None else ())
-    commands = (
-        *(dotnet_args("restore", item, disable_parallel=disable_parallel) for item in restores),
-        *(
-            dotnet_args(
-                "build",
-                target,
-                configuration=configuration,
-                version=version_args,
-                serial=serial,
-                max_cpu=max_cpu,
-                quiet=quiet,
-                disable_build_servers=disable_build_servers,
-            )
-            for configuration in configs
-            for target in targets
-        ),
+    invocations = dotnet_build_invocations(
+        settings,
+        restore=restore,
+        restore_targets=restore_targets,
+        targets=targets,
+        configurations=configurations,
+        version=version,
+        disable_parallel=disable_parallel,
+        serial=serial,
+        max_cpu=max_cpu,
+        scoped=scoped,
+        mode=mode,
+        quiet=quiet,
+        disable_build_servers=disable_build_servers,
     )
-    return fold(commands, None, lambda _, command: dotnet(*command, scope=scope, scoped=scoped, check=True, mode=mode).map(lambda _: None))
+    return fold(invocations, None, lambda _, invocation: invocation.run(scope).map(lambda _: None))
 
 
 @cache
@@ -432,7 +496,7 @@ def run(
                         return await _exec()
                 except TimeoutError:
                     detail = f"timed out after {limit:g}s".encode()
-                    return Error(ProcessFault.fail(*argv, detail=detail, returncode=124))
+                    return Error(ProcessFault.fail(*argv, detail=detail, returncode=124, status="timeout"))
 
     return anyio.run(_guarded)
 
@@ -449,7 +513,7 @@ async def _stream(
     try:
         with (process_dir / "stdout.log").open("wb") as stdout_file, (process_dir / "stderr.log").open("wb") as stderr_file:
             async with anyio.create_task_group() as group:
-                group.start_soon(_collect_stream, process.stdout, stdout_tail, sys.stdout.buffer, stdout_file)
+                group.start_soon(_collect_stream, process.stdout, stdout_tail, sys.stderr.buffer, stdout_file)
                 group.start_soon(_collect_stream, process.stderr, stderr_tail, sys.stderr.buffer, stderr_file)
             returncode = await process.wait()
     except BaseException:
@@ -482,3 +546,15 @@ def _process_dir(argv: tuple[str, ...], artifact_dir: Path | None) -> Path:
     text = "-".join("".join(character if character.isalnum() else "-" for character in part).strip("-").lower() for part in argv[:6] if part.strip())
     command_id = text[:96] or "command"
     return base / command_id
+
+
+def _fault_status(returncode: int) -> RailStatus:
+    match returncode:
+        case 0:
+            return "empty"
+        case 5:
+            return "busy"
+        case 124:
+            return "timeout"
+        case _:
+            return "failed"

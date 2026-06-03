@@ -2,7 +2,6 @@
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
-from collections.abc import Callable
 import fnmatch
 from itertools import chain
 import os
@@ -43,7 +42,6 @@ _HOST_EXCLUDES: Final[tuple[str, ...]] = (
     "RhinoCommon.*",
     "System.Drawing.Common.*",
 )
-_CLIENT_STEPS: Final[frozenset[PackageStepKind]] = frozenset({"quit", "refresh"})
 _MANIFEST_FILES: Final[tuple[str, ...]] = ("icon.png", "manifest.yml")
 _META_PROPS: Final[tuple[str, ...]] = (
     "AssemblyName",
@@ -60,13 +58,6 @@ _META_PROPS: Final[tuple[str, ...]] = (
     "YakPushSource",
 )
 _PACKAGE_ROOTS: Final[tuple[str, ...]] = ("apps", "tools")
-_PACKAGE_STEPS: Final[dict[tuple[PackageMode, bool], tuple[PackageStepKind, ...]]] = {
-    ("deploy", False): ("install",),
-    ("deploy", True): ("quit", "install", "refresh"),
-    ("publish", False): ("install", "push"),
-    ("publish", True): ("quit", "install", "refresh", "push"),
-}
-
 
 # --- [MODELS] ----------------------------------------------------------------------------
 
@@ -131,6 +122,31 @@ class PackageArtifact(msgspec.Struct, frozen=True):
     meta: PackageMeta
 
 
+class PackagePolicy(msgspec.Struct, frozen=True, gc=False):
+    steps: tuple[PackageStepKind, ...] = ()
+
+    @property
+    def needs_bridge(self) -> bool:
+        return any(step in {"quit", "refresh"} for step in self.steps)
+
+
+_PACKAGE_POLICY: Final[dict[tuple[PackageMode, bool], PackagePolicy]] = {
+    ("deploy", False): PackagePolicy(steps=("install",)),
+    ("deploy", True): PackagePolicy(steps=("quit", "install", "refresh")),
+    ("publish", False): PackagePolicy(steps=("install", "push")),
+    ("publish", True): PackagePolicy(steps=("quit", "install", "refresh", "push")),
+}
+
+
+class PackageRunReport(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
+    query: dict[str, str]
+    status: str
+    stage: str = ""
+    project: str = ""
+    package_pattern: str = ""
+    artifact_paths: dict[str, str] = msgspec.field(default_factory=dict)
+
+
 class PackageProject(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
     slug: str
     project: str
@@ -173,22 +189,30 @@ def _finish(
                     detail = f"Expected one package for pattern {artifact.meta.package_pattern}, found {len(matches)}"
                     return Error(ProcessFault.fail("package", artifact.meta.package_pattern, detail=detail))
 
-            def yak(op: YakOp) -> Result[None, ProcessFault]:
-                return run(_yak_argv(artifact.meta, op, package_file=package_file), cwd=artifact.meta.package_dir, check=True).map(lambda _: None)
+            policy = _PACKAGE_POLICY.get((mode, slug == RASM_BRIDGE_SLUG), PackagePolicy())
 
-            step: dict[PackageStepKind, Callable[[], Result[None, ProcessFault]]] = {
-                "install": lambda: yak("install"),
-                "push": lambda: yak("push"),
-                "quit": lambda: client_quit(settings, scope),
-                "refresh": lambda: client_refresh(settings, scope),
-            }
-            steps = _PACKAGE_STEPS.get((mode, slug == RASM_BRIDGE_SLUG), ())
+            def run_step(kind: PackageStepKind) -> Result[None, ProcessFault]:
+                match kind:
+                    case "install":
+                        return run(_yak_argv(artifact.meta, "install", package_file=package_file), cwd=artifact.meta.package_dir, check=True).map(
+                            lambda _: None
+                        )
+                    case "push":
+                        return run(_yak_argv(artifact.meta, "push", package_file=package_file), cwd=artifact.meta.package_dir, check=True).map(
+                            lambda _: None
+                        )
+                    case "quit":
+                        return client_quit(settings, scope)
+                    case "refresh":
+                        return client_refresh(settings, scope)
+                    case unreachable:
+                        assert_never(unreachable)
 
             def run_steps() -> Result[None, ProcessFault]:
-                prelude = build_client(settings, scope) if _CLIENT_STEPS.intersection(steps) else Ok(None)
-                return prelude.bind(lambda _: fold(steps, None, lambda _, kind: step[kind]()))
+                prelude = build_client(settings, scope) if policy.needs_bridge else Ok(None)
+                return prelude.bind(lambda _: fold(policy.steps, None, lambda _, kind: run_step(kind)))
 
-            return with_bridge_lease(settings, run_steps) if _CLIENT_STEPS.intersection(steps) else run_steps()
+            return with_bridge_lease(settings, run_steps) if policy.needs_bridge else run_steps()
         case unreachable:
             assert_never(unreachable)
 
@@ -369,4 +393,15 @@ def run_package_rail(
 ) -> Result[PackageArtifact | None, ProcessFault]:
     return _resolve_project(settings, slug).bind(
         lambda project: _stage(settings, scope, project, slug, version).bind(lambda artifact: _finish(settings, scope, mode, slug, artifact))
+    )
+
+
+def package_run_report(mode: PackageMode, slug: str, version: str, artifact: PackageArtifact | None) -> PackageRunReport:
+    return PackageRunReport(
+        query={"op": mode, "slug": slug, "version": version},
+        status="ok",
+        stage=str(artifact.stage) if artifact is not None else "",
+        project=str(artifact.meta.project) if artifact is not None else "",
+        package_pattern=artifact.meta.package_pattern if artifact is not None else "",
+        artifact_paths={"stage": str(artifact.stage)} if artifact is not None else {},
     )

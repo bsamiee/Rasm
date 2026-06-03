@@ -12,11 +12,11 @@ import time
 from typing import Annotated, Final, Literal
 
 from cyclopts import App, Parameter
-from expression import Result
+from expression import Error, Ok, Result
 import msgspec
 import structlog
 
-from tools.quality.process import Completed, dotnet_build, ProcessFault
+from tools.quality.process import Completed, dotnet_build, ProcessFault, RailStatus
 from tools.quality.rails import api as api_rail, bridge as bridge_rail, package as bridge_package, static as static_rail, test as test_rail
 from tools.quality.settings import ArtifactScope, QualitySettings
 
@@ -25,6 +25,9 @@ from tools.quality.settings import ArtifactScope, QualitySettings
 
 type ApiCliOp = Literal["doctor", "resolve", "query", "show"]
 type ApiShowPolicy = Literal["current", "latest"]
+type JsonPrimitive = str | int | float | bool | None
+type JsonValue = JsonPrimitive | tuple[JsonValue, ...] | dict[str, JsonValue]
+type QualityPayload = bytes | str | msgspec.Struct | Completed | None
 type StaticCliOp = Literal["fix", "report", "build", "full", "plan"]
 type TestListFormat = Literal["text", "json"]
 
@@ -53,6 +56,45 @@ test_app = App(name="test", help="Unit and mutation gate.", default_parameter=_P
 # --- [OPERATIONS] ------------------------------------------------------------------------
 
 
+class CompletedPayload(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
+    argv: tuple[str, ...]
+    returncode: int
+    stdout: str = ""
+    stderr: str = ""
+
+
+class FaultPayload(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
+    argv: tuple[str, ...]
+    status: RailStatus
+    returncode: int
+    message: str
+    stderr: str = ""
+
+
+class SelfTestReport(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
+    missing_cli: tuple[str, ...]
+    missing_paths: tuple[str, ...]
+    yak: str
+    yak_ready: bool
+    rhino_required: bool
+
+
+class Envelope(msgspec.Struct, frozen=True, gc=False, kw_only=True):
+    schema_version: int = 1
+    rail: str
+    verb: str
+    command_path: tuple[str, ...] = ()
+    status: RailStatus = "ok"
+    exit_code: int = 0
+    run_id: str = ""
+    duration_ms: float = 0.0
+    data: JsonValue = None
+    error: FaultPayload | None = None
+    evidence: dict[str, JsonValue] = msgspec.field(default_factory=dict)
+    truncated: bool = False
+    notes: tuple[str, ...] = ()
+
+
 def _bridge(*args: str) -> int:
     return rail(
         "bridge",
@@ -60,38 +102,19 @@ def _bridge(*args: str) -> int:
         lambda s, sc: bridge_rail.with_bridge_lease(
             s, lambda: bridge_rail.build_client(s, sc).bind(lambda _: bridge_rail.client_run(s, sc, *args, check=False))
         ),
-        ok=_bridge_on_ok,
+        command_path=("bridge", *args),
+        status=bridge_status,
+        exit_code=bridge_exit_code,
     )
-
-
-def _bridge_on_ok(completed: Completed) -> int:
-    sys.stdout.buffer.write(completed.stdout)
-    sys.stderr.buffer.write(completed.stderr)
-    match completed.stdout:
-        case b"":
-            return completed.returncode
-        case payload:
-            return bridge_rail.try_decode_bridge(payload).map(lambda result: result.exit_code).default_with(lambda _: completed.returncode)
-
-
-def _emit(payload: str | bytes | None, code: int = 0, *, newline: bool = False) -> int:
-    ending = b"\n" if newline else b""
-    match payload:
-        case bytes() as data:
-            sys.stdout.buffer.write(data + ending)
-        case str() as text:
-            sys.stdout.write(text + ending.decode())
-        case None:
-            pass
-    return code
 
 
 def _package(mode: bridge_package.PackageMode, slug: str, version: str) -> int:
     return rail(
-        "bridge",
+        "package",
         mode,
         lambda s, sc: bridge_package.run_package_rail(s, sc, mode, slug, version),
-        ok=lambda artifact: _emit(str(artifact.stage), newline=True) if artifact is not None else 0,
+        command_path=("bridge", mode),
+        data=lambda artifact: bridge_package.package_run_report(mode, slug, version, artifact),
     )
 
 
@@ -100,38 +123,17 @@ def package_cmd(slug: str, version: str = "", extra: str = "") -> int:
     match slug:
         case "list":
             return rail(
-                "bridge", "package-list", lambda s, sc: bridge_package.package_list_payload(s, sc), ok=lambda payload: _emit(payload, newline=True)
+                "package", "package-list", lambda s, sc: bridge_package.package_list_payload(s, sc), command_path=("bridge", "package", "list")
             )
         case "plan":
             return rail(
-                "bridge",
+                "package",
                 "package-plan",
                 lambda s, sc: bridge_package.package_plan_payload(s, sc, version, extra),
-                ok=lambda payload: _emit(payload, newline=True),
+                command_path=("bridge", "package", "plan"),
             )
         case _:
             return _package("package", slug, version)
-
-
-def _emit_api(payload: bytes | str | None, *, strict: bool = False, newline: bool = True) -> int:
-    code = 0
-    match payload:
-        case bytes() as raw:
-            pass
-        case str() as text:
-            raw = text.encode()
-        case None:
-            raw = b"{}"
-    match strict:
-        case True:
-            try:
-                status = msgspec.json.decode(raw).get("status", "")
-                code = 2 if status in {"failed", "missing"} else 0
-            except msgspec.DecodeError, AttributeError:
-                code = 0
-        case _:
-            pass
-    return _emit(payload, code=code, newline=newline)
 
 
 _API_PATH_KIND: Final[dict[str, api_rail.ApiPathKind]] = {
@@ -141,11 +143,6 @@ _API_PATH_KIND: Final[dict[str, api_rail.ApiPathKind]] = {
     "nuspec": "nuspec",
     "package-root": "package-root",
     "xml": "xml",
-}
-_STATIC_OK: Final[dict[static_rail.StaticOutcome, Callable[[], int]]] = {
-    "done": lambda: 0,
-    "full-trigger-skip": lambda: (log.info("phase", status="skipped", message="full-trigger input requires static full"), 0)[1],
-    "skip": lambda: (log.info("phase", status="skipped", message="no C#-relevant changes"), 0)[1],
 }
 
 
@@ -185,7 +182,8 @@ def api_gate(
             restore=restore,
             env=sc.dotnet_env,
         ),
-        ok=lambda payload: _emit_api(payload, strict=strict is True, newline=not (op == "show" and full is True)),
+        status=api_status,
+        exit_code=lambda payload: api_exit_code(payload, strict=strict is True),
     )
 
 
@@ -210,37 +208,29 @@ def rail[T](
     execute: Callable[[QualitySettings, ArtifactScope], Result[T, ProcessFault]],
     *,
     settings: QualitySettings | None = None,
-    ok: Callable[[T], int] | None = None,
+    command_path: tuple[str, ...] = (),
+    data: Callable[[T], QualityPayload] | None = None,
+    status: Callable[[T], RailStatus] | None = None,
+    exit_code: Callable[[T], int] | None = None,
+    notes: Callable[[T], tuple[str, ...]] | None = None,
 ) -> int:
     cfg = settings or QualitySettings()
     started = time.perf_counter()
     with structlog.contextvars.bound_contextvars(rail=rail_name, phase=phase):
         with ArtifactScope.open(cfg, rail_name) as scope:
-            on_ok = ok or (lambda _: 0)
-            code = execute(cfg, scope).map(on_ok).default_with(lambda fault: (sys.stderr.write(f"{fault.message}\n"), fault.returncode or 1)[1])
+            result = execute(cfg, scope)
+            code = result.map(
+                lambda value: emit_success(
+                    rail_name, phase, cfg, started, value, command_path=command_path, data=data, status=status, exit_code=exit_code, notes=notes
+                )
+            ).default_with(lambda fault: emit_fault(rail_name, phase, cfg, started, fault, command_path=command_path))
         log.info("phase", status="ok" if code == 0 else "failed", exit_code=code, duration_ms=(time.perf_counter() - started) * 1000)
         return code
 
 
 @app.command(name="self-test")
 def self_test_cmd(rhino: Annotated[bool | None, Parameter(name="--rhino")] = None) -> int:
-    settings = QualitySettings()
-    missing = tuple(cmd for cmd in _SELF_CLI if shutil.which(cmd) is None)
-    missing_paths = tuple(
-        str(path) for path in (settings.solution, settings.root / settings.test_target, settings.dotnet_tools_manifest) if not path.is_file()
-    )
-    yak = settings.rhino_app / "Contents/Resources/bin/yak" if settings.rhino_app is not None else Path()
-    yak_ready = settings.rhino_app is not None and yak.is_file() and os.access(yak, os.X_OK)
-    match (missing, missing_paths, rhino is True, yak_ready):
-        case ((), (), False, _):
-            sys.stdout.write("quality: self-test passed\n")
-            return 0
-        case ((), (), True, True):
-            sys.stdout.write("quality: self-test passed\n")
-            return 0
-        case _:
-            sys.stderr.write(f"quality: self-test failed missing={missing} paths={missing_paths} yak={yak}\n")
-            return 2
+    return rail("self", "self-test", lambda s, _: self_test(s, require_rhino=rhino is True), command_path=("self-test",))
 
 
 @static.default
@@ -248,9 +238,16 @@ def static_gate(mode: StaticCliOp, paths: tuple[Path, ...] = ()) -> int:
     phase, rail_mode = _STATIC[mode]
     match rail_mode:
         case "plan":
-            return rail("static", phase, lambda s, sc: static_rail.plan_payload(s, sc, paths), ok=lambda payload: _emit(payload, newline=True))
+            return rail("static", phase, lambda s, sc: static_rail.plan_payload(s, sc, paths), command_path=("static", mode))
         case _:
-            return rail("static", phase, lambda s, sc: static_rail.run_static_rail(s, sc, rail_mode, paths), ok=lambda outcome: _STATIC_OK[outcome]())
+            return rail(
+                "static",
+                phase,
+                lambda s, sc: static_rail.run_static_rail(s, sc, rail_mode, paths),
+                command_path=("static", mode),
+                status=static_status,
+                notes=static_notes,
+            )
 
 
 @test_app.default
@@ -271,11 +268,11 @@ def unit_gate(
     settings = cfg if target is None else cfg.model_copy(update={"test_target": target})
     all_runnable = all_targets is True
     explicit_target = target is not None
-    if mode == "list" and format == "json":
-        return rail(
-            "test",
-            mode,
-            lambda s, sc: test_rail.list_tests_payload(
+    return rail(
+        "test",
+        mode,
+        lambda s, sc: (
+            test_rail.list_tests_payload(
                 s,
                 sc,
                 all_targets=all_runnable,
@@ -285,69 +282,224 @@ def unit_gate(
                 limit=limit,
                 grep=grep,
                 explicit_target=explicit_target,
-            ),
-            settings=settings,
-            ok=lambda payload: _emit(payload, newline=True),
-        )
-    return rail(
-        "test",
-        mode,
-        lambda s, sc: test_rail.run_test_rail(
-            s,
-            sc,
-            mode,
-            all_targets=all_runnable,
-            filter_expr=filter_expr,
-            mutation=mutation,
-            no_build=no_build is True,
-            test_modules=test_modules,
-            explicit_target=explicit_target,
+            )
+            if mode == "list" and format == "json"
+            else test_rail.run_test_rail(
+                s,
+                sc,
+                mode,
+                all_targets=all_runnable,
+                filter_expr=filter_expr,
+                mutation=mutation,
+                no_build=no_build is True,
+                test_modules=test_modules,
+                explicit_target=explicit_target,
+            )
         ),
         settings=settings,
-        ok=lambda _: _test_render(settings, mode, all_targets=all_runnable, mutation=mutation),
+        command_path=("test", mode),
     )
-
-
-def _verify_render(summary: bridge_rail.VerifyReport) -> int:
-    for scenario in summary.scenarios:
-        log.info(
-            "scenario",
-            name=scenario.name,
-            status=scenario.status,
-            report=scenario.report_path,
-            captures=tuple(capture.get("path") for capture in scenario.captures),
-            facts={key: value for block in scenario.facts for key, value in block.items()},
-            fault=scenario.fault.message if scenario.fault is not None else None,
-            exception_reports=len(scenario.exception_reports),
-            stdout_truncated=scenario.stdout_truncated or None,
-        )
-    log.info(
-        "verify",
-        ok=summary.summary.ok,
-        failed=summary.summary.failed,
-        total=summary.summary.total,
-        report_dir=summary.report_dir,
-        expires_in_seconds=summary.expires_in_seconds,
-        first_failure=summary.first_failure.name if summary.first_failure is not None else None,
-        first_failure_status=summary.first_failure.status if summary.first_failure is not None else None,
-    )
-    return _emit(msgspec.json.encode(summary), 0 if summary.failed == 0 else 1, newline=True)
-
-
-def _test_render(settings: QualitySettings, mode: test_rail.TestMode, *, all_targets: bool, mutation: test_rail.MutationMode) -> int:
-    log.info(
-        "test",
-        results=str(settings.test_results(all_targets=all_targets)),
-        all=all_targets or None,
-        mutation=mutation if mode == "run" else None,
-        mutation_output=str(settings.mutation_output_dir) if mode == "run" and mutation != "off" and settings.mutation_eligible else None,
-    )
-    return 0
 
 
 @bridge.command
 def verify(pattern: str) -> int:
-    return rail("bridge", "verify", lambda s, sc: bridge_rail.run_verify(s, sc, pattern), ok=_verify_render)
+    return rail(
+        "bridge",
+        "verify",
+        lambda s, sc: bridge_rail.run_verify(s, sc, pattern),
+        command_path=("bridge", "verify"),
+        status=lambda summary: "ok" if summary.failed == 0 else "failed",
+        exit_code=lambda summary: 0 if summary.failed == 0 else 1,
+    )
+
+
+def self_test(settings: QualitySettings, *, require_rhino: bool) -> Result[SelfTestReport, ProcessFault]:
+    missing = tuple(cmd for cmd in _SELF_CLI if shutil.which(cmd) is None)
+    missing_paths = tuple(
+        str(path) for path in (settings.solution, settings.root / settings.test_target, settings.dotnet_tools_manifest) if not path.is_file()
+    )
+    yak = settings.rhino_app / "Contents/Resources/bin/yak" if settings.rhino_app is not None else Path()
+    yak_ready = settings.rhino_app is not None and yak.is_file() and os.access(yak, os.X_OK)
+    data = SelfTestReport(missing_cli=missing, missing_paths=missing_paths, yak=str(yak), yak_ready=yak_ready, rhino_required=require_rhino)
+    match (missing, missing_paths, require_rhino, yak_ready):
+        case ((), (), False, _) | ((), (), True, True):
+            return Ok(data)
+        case _:
+            return Error(ProcessFault.fail("self-test", detail=msgspec.json.encode(data), returncode=2))
+
+
+def emit_success[T](
+    rail_name: str,
+    phase: str,
+    settings: QualitySettings,
+    started: float,
+    value: T,
+    *,
+    command_path: tuple[str, ...],
+    data: Callable[[T], QualityPayload] | None,
+    status: Callable[[T], RailStatus] | None,
+    exit_code: Callable[[T], int] | None,
+    notes: Callable[[T], tuple[str, ...]] | None,
+) -> int:
+    resolved_status = status(value) if status is not None else "ok"
+    code = exit_code(value) if exit_code is not None else _status_exit(resolved_status)
+    payload = data(value) if data is not None else quality_payload(value)
+    return emit_envelope(
+        Envelope(
+            rail=rail_name,
+            verb=phase,
+            command_path=command_path,
+            status=resolved_status,
+            exit_code=code,
+            run_id=settings.run_id,
+            duration_ms=(time.perf_counter() - started) * 1000,
+            data=payload_json(payload),
+            notes=notes(value) if notes is not None else (),
+        )
+    )
+
+
+def emit_fault(rail_name: str, phase: str, settings: QualitySettings, started: float, fault: ProcessFault, *, command_path: tuple[str, ...]) -> int:
+    code = fault.returncode or _status_exit(fault.status)
+    sys.stderr.write(f"{fault.message}\n")
+    return emit_envelope(
+        Envelope(
+            rail=rail_name,
+            verb=phase,
+            command_path=command_path,
+            status=fault.status,
+            exit_code=code,
+            run_id=settings.run_id,
+            duration_ms=(time.perf_counter() - started) * 1000,
+            error=FaultPayload(
+                argv=fault.argv, status=fault.status, returncode=fault.returncode, message=fault.message, stderr=fault.stderr.decode(errors="replace")
+            ),
+        )
+    )
+
+
+def emit_envelope(envelope: Envelope) -> int:
+    sys.stdout.buffer.write(msgspec.json.encode(envelope) + b"\n")
+    return envelope.exit_code
+
+
+def quality_payload(value: object) -> QualityPayload:
+    match value:
+        case None | bytes() | str() | msgspec.Struct() | Completed():
+            return value
+        case _:
+            return str(value)
+
+
+def payload_json(payload: QualityPayload) -> JsonValue:
+    match payload:
+        case None:
+            return None
+        case Completed(argv=argv, returncode=returncode, stdout=stdout, stderr=stderr):
+            return payload_json(
+                CompletedPayload(argv=argv, returncode=returncode, stdout=stdout.decode(errors="replace"), stderr=stderr.decode(errors="replace"))
+            )
+        case bytes() as raw:
+            return decode_json_value(raw)
+        case str() as text:
+            return decode_json_value(text.encode())
+        case msgspec.Struct():
+            return decode_json_value(msgspec.json.encode(payload))
+
+
+def decode_json_value(raw: bytes) -> JsonValue:
+    try:
+        return json_value(msgspec.json.decode(raw))
+    except msgspec.DecodeError:
+        return raw.decode(errors="replace")
+
+
+def json_value(value: object) -> JsonValue:
+    match value:
+        case None | str() | bool() | int() | float():
+            return value
+        case list() | tuple():
+            return tuple(json_value(item) for item in value)
+        case dict() as rows:
+            return {str(key): json_value(item) for key, item in rows.items()}
+        case _:
+            return str(value)
+
+
+def bridge_status(completed: Completed) -> RailStatus:
+    return (
+        bridge_rail
+        .try_decode_bridge(completed.stdout)
+        .map(lambda result: bridge_result_status(result.status))
+        .default_value("ok" if completed.returncode == 0 else "failed")
+    )
+
+
+def bridge_exit_code(completed: Completed) -> int:
+    return bridge_rail.try_decode_bridge(completed.stdout).map(lambda result: result.exit_code).default_value(completed.returncode)
+
+
+def bridge_result_status(status: bridge_rail.BridgeStatus) -> RailStatus:
+    match status:
+        case "skipped":
+            return "skip"
+        case "ok":
+            return "ok"
+        case "unsupported":
+            return "unsupported"
+        case "failed":
+            return "failed"
+        case "timeout":
+            return "timeout"
+        case "busy":
+            return "busy"
+
+
+def api_status(payload: bytes | str) -> RailStatus:
+    match payload_json(payload):
+        case {"status": "ok"}:
+            return "ok"
+        case {"status": "empty"}:
+            return "empty"
+        case {"status": "missing" | "failed"}:
+            return "failed"
+        case _:
+            return "ok"
+
+
+def api_exit_code(payload: bytes | str, *, strict: bool) -> int:
+    status = api_status(payload)
+    return 2 if strict and status == "failed" else 0
+
+
+def static_status(outcome: static_rail.StaticOutcome) -> RailStatus:
+    match outcome:
+        case "done":
+            return "ok"
+        case "skip" | "full-trigger-skip":
+            return "skip"
+
+
+def static_notes(outcome: static_rail.StaticOutcome) -> tuple[str, ...]:
+    match outcome:
+        case "full-trigger-skip":
+            return ("full-trigger input requires static full",)
+        case "skip":
+            return ("no C#-relevant changes",)
+        case "done":
+            return ()
+
+
+def _status_exit(status: RailStatus) -> int:
+    match status:
+        case "ok" | "empty" | "skip":
+            return 0
+        case "unsupported":
+            return 3
+        case "busy" | "timeout":
+            return 5
+        case "failed":
+            return 1
 
 
 # --- [COMPOSITION] -----------------------------------------------------------------------
@@ -368,7 +520,7 @@ def main(argv: list[str] | None = None) -> int:
         processors=(structlog.contextvars.merge_contextvars, structlog.processors.TimeStamper(fmt="iso"), structlog.dev.ConsoleRenderer()),
         # Logs/diagnostics to stderr; machine payloads (rail JSON, _emit) stay alone on stdout.
         logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
-        cache_logger_on_first_use=True,
+        cache_logger_on_first_use=False,
     )
     return (app() if argv is None else app(argv)) or 0
 

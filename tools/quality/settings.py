@@ -42,12 +42,17 @@ IGNORE_FIXTURE_PREFIXES: Final[tuple[str, ...]] = ("tests/tools/ast-grep/", "tes
 MUTATION_THRESHOLDS: Final[tuple[int, int, int]] = (95, 90, 85)
 PROJECT_EXCLUDE_DIRS: Final[tuple[str, ...]] = (
     ".archive",
+    ".approval_tests_temp",
     _ARTIFACTS,
+    ".benchmarks",
     ".cache",
     ".git",
+    ".hypothesis",
     ".nx",
     "bin",
     "coverage",
+    "htmlcov",
+    "mutants",
     "node_modules",
     "obj",
     "test-results",

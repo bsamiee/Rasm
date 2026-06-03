@@ -79,7 +79,7 @@ Run commands from repository root. Prefix: `uv run python -m tools.quality`.
 |  [11]   | `api doctor [--strict] [--restore never]` | RhinoWIP, ILSpy, RhinoCode, host keys, package keys, host and central package source inventory |
 |  [12]   | `api resolve <key> [all\|assembly\|xml\|nuspec\|deps\|package-root]` | Resolved managed, native, build, analyzer, and tool assets |
 |  [13]   | `api query <key> <symbol>`             | Type or member report via ILSpy (dotted `Type.Member`); bounded decompile, full source saved |
-|  [14]   | `api show <artifact-or-symbol>`        | Bounded saved-artifact preview; `--full` prints raw       |
+|  [14]   | `api show <artifact-or-symbol>`        | Saved-artifact preview; `--full` returns content inside `Envelope.data` |
 
 [INTENT]
 - [2] Before cold open, clears macOS recovery markers (`.rhl`/doc autosave, `Rhinoceros-*.ips`) so unclean exit never blocks headless launch with a recovery dialog.
@@ -142,7 +142,7 @@ uv run python -m tools.quality api query rhino-ui Rhino.UI.DataSerializer
 
 Expected result: compact JSON plus bounded inline preview and `decompile.cs` artifacts from ILSpy using a normalized .NET apphost environment. Use `api show <artifact-or-symbol>` for follow-up inspection.
 
-Default API commands do not print broad query/decompile streams. Inspect `artifact_paths` or run `api show <artifact-or-symbol>` when full evidence is needed.
+Default API commands do not print broad query/decompile streams. Inspect `artifact_paths` or run `api show <artifact-or-symbol> --full`; stdout remains one JSON Envelope.
 
 ### [3.2][OPTIONS]
 
