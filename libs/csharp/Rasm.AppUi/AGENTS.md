@@ -3,7 +3,7 @@
 
 <br>
 
-[CRITICAL] Build `Rasm.AppUi` as one unified, fully-integrated platform. Add package references centrally (newest viable, no version numbers in docs), create the `.csproj` targeting `net10.0`, and scaffold the folder structure in Phase 0 before heavy work. Integrate every package together, never as separate per-package subsystems.
+[CRITICAL] Build `Rasm.AppUi` as one unified, fully-integrated platform. The `.csproj` targets `net10.0`, is present in `Workspace.slnx`, and consumes central package pins through versionless references. Scaffold source surfaces in Phase 0 before heavy work. Integrate every package together, never as separate per-package subsystems.
 
 ---
 ## [1][OWNER_CONTRACT]
@@ -64,17 +64,16 @@ AppUi emits product UI intent and receipts. Final mutation runs through the owne
 |   [8]   | Refresh scale on backing-properties change      | [IMPORTANT]  | Retina scale changes on external display connection                                        |
 |   [9]   | `Content = null` before Eto dispose             | [CRITICAL]   | ReactiveUI `WhenActivated` subscriptions leak until finalization if skipped                |
 |  [10]   | Await `TopLevel.Closed` before base dispose     | [CRITICAL]   | Disposing Eto parent before Avalonia TopLevel closes causes native handle double-free      |
-|  [11]   | GH2 embedding is [DEFERRED]                     | [IMPORTANT]  | No GH2 dockable panel-host API in current RhinoWIP; Rhino-panel embedding is supported. Trigger: `api types --assembly gh2 --filter Panel` per WIP drop |
+|  [11]   | GH2 embedding is [DEFERRED]                     | [IMPORTANT]  | No GH2 dockable panel-host API in current RhinoWIP; Rhino-panel embedding is supported. Trigger: `api query gh2 Panel` per WIP drop |
 
 ---
 ## [4][PACKAGE_RULES]
->**Dictum:** *All packages in `Directory.Packages.props`; no version numbers in docs.*
+>**Dictum:** *Project references are versionless; pins live centrally.*
 
 <br>
 
-- Add all packages to `Directory.Packages.props` at newest viable; write only NuGet IDs in docs — no version numbers.
-- Condition `Avalonia.Diagnostics` on `$(Configuration)==Debug`.
-- `SkiaSharp.NativeAssets.macOS`: once the Phase-0 gate (`_ARCHITECTURE.md §4.3`) confirms Rhino's `libSkiaSharp` major matches, reference with `<ExcludeAssets>native</ExcludeAssets>` to share Rhino's loaded copy; a mismatched major is a hard build gate — same-named dylibs cannot co-load.
+- Keep AppUi package references versionless; write only NuGet IDs in docs — no version numbers.
+- `SkiaSharp.NativeAssets.macOS`: once the Phase-0 gate (`_ARCHITECTURE.md §4.3`) confirms Rhino's `libSkiaSharp` native major matches, reference with `<ExcludeAssets>native</ExcludeAssets>` to share Rhino's loaded copy; a mismatched major is a hard build gate — same-named dylibs cannot co-load.
 - `HarfBuzzSharp.NativeAssets.macOS`: carry unconditionally — not bundled by Rhino.
 - Unify SkiaSharp version across Avalonia bundled, LiveCharts2, and `Svg.Skia` — version mismatch = native symbol collision at load.
 - Use `Xaml.Behaviors.Avalonia` (not `Avalonia.Xaml.Interactions` — deprecated).

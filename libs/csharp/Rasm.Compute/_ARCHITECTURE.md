@@ -23,9 +23,9 @@ flowchart LR
 | [INDEX] | [ITEM]             | [STATE]                  |
 | :-----: | ------------------ | ------------------------ |
 |   [1]   | Folder             | Active build             |
-|   [2]   | `.csproj`          | Create in Phase 0        |
+|   [2]   | `.csproj`          | `[NOT_STARTED]`          |
 |   [3]   | Production C#      | In progress              |
-|   [4]   | Packages           | Add centrally in Phase 0 |
+|   [4]   | Packages           | `[NOT_STARTED]`          |
 |   [5]   | Benchmark evidence | Per measured input class |
 
 ---

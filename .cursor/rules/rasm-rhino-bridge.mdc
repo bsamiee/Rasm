@@ -22,12 +22,12 @@ Read `tools/rhino-bridge/README.md`, `tools/rhino-bridge/AGENTS.md`, and `.claud
 - [1] `uv run python -m tools.quality bridge verify <scenario-or-glob>`
 - [2] `uv run python -m tools.quality bridge check <target> [scenario]`
 - [3] `uv run python -m tools.quality bridge doctor`
-- [4] `uv run python -m tools.quality api doctor|path|xml|types|decompile`
+- [4] `uv run python -m tools.quality api doctor|resolve|query|show`
 - [5] `uv run python -m tools.quality bridge package|deploy|publish rasm-bridge <version>`
 
 ## Runtime Rules
 
-- Live Rhino bridge commands, bridge verify, bridge package live steps, and package stage commit use fail-fast leases.
+- Live Rhino bridge commands, bridge verify, bridge package live steps, and package staging use fail-fast leases.
 - `bridge check <source.cs>` without a scenario can exit `3` after build succeeds and no runtime scenario is supplied.
 - RhinoCode scenarios are diagnostics and verification, not publishing foundations.
 - Use bridge-owned scenario routing, endpoint metadata, and `tools.quality` commands for all runtime proof.

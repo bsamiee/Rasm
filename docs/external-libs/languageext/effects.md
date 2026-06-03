@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Pin **`LanguageExt.Core` `5.0.0-beta-77`**. Runtime effects use concrete runtime records and `Eff.runtime<RT>()`. Boundary adapters may use statement control flow only with an explicit boundary marker in code.
+[IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. Runtime effects use concrete runtime records and `Eff.runtime<RT>()`. Boundary adapters may use statement control flow only with an explicit boundary marker in code.
 
 ---
 ## [1][RAILS]
@@ -70,7 +70,7 @@ Never use LanguageExt state to hide native object lifetime, host tree mutation, 
 
 <br>
 
-`Directory.Packages.props` pins `LanguageExt.Core 5.0.0-beta-77`. Verified deltas from v4 surface (against `~/.nuget/packages/languageext.core/5.0.0-beta-77/lib/net10.0/LanguageExt.Core.xml`):
+`Directory.Packages.props` pins the `LanguageExt.Core` version. Verify deltas from v4 surface with `uv run python -m tools.quality api query LanguageExt.Core <symbol>`:
 
 | [INDEX] | [V4_SURFACE]                                 | [V5_REPLACEMENT]                                                            |
 | :-----: | -------------------------------------------- | --------------------------------------------------------------------------- |

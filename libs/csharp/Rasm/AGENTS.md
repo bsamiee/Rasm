@@ -48,7 +48,7 @@ Build reusable category logic for advanced downstream code: analysis, vectors, d
 - Keep native runtime proof out of managed unit specs. Managed specs own factories, failure categories, and deterministic algorithms; bridge scenarios own successful Rhino mesh, plane, unwrap, remesh, SDF, and validity behavior.
 - Prefer advanced C# and approved libraries when they reduce surface area or strengthen invariants. Use `LanguageExt` and `Thinktecture` to collapse behavior, not to decorate unchanged imperative code.
 - Use `docs/system-api-map` for BCL, `System.*`, and package/reference policy; use `docs/external-libs/mathnet` before writing numerical algorithms by hand. MathNet is for proven numeric/symbolic value, not decorative wrapping around unchanged logic.
-- Read `Vectors/_ARCHITECTURE.md` before changing Vectors. Update it after landed rail changes with measured `wc -l` truth, current proof status, and exact future-work exclusions.
+- Read `Vectors/_ARCHITECTURE.md` before changing Vectors. Update it after landed rail changes with capability and symbol truth, current proof status, and exact future-work exclusions.
 - Expose only policy fields that execute. Keep fixed kernel/native choices internal, then surface them through typed receipts and architecture truth.
-- Treat plan snippets as intent. Verify native/package member names, enum values, nullability, and overloads against installed XML, decompile, compiler output, or `tools.quality api` before finalizing code.
+- Treat plan snippets as intent. Verify native/package member names, enum values, nullability, and overloads against installed metadata, emitted source, compiler output, or `api query` before finalizing code.
 - Classify broad build failures by path. When `tools.quality static build` reaches `Rasm.dll` and then fails in unrelated dirty projects, record that boundary and run a direct target project build for scoped proof.

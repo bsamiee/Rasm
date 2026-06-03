@@ -23,9 +23,9 @@ flowchart LR
 | [INDEX] | [ITEM]                | [STATE]                  |
 | :-----: | --------------------- | ------------------------ |
 |   [1]   | Folder                | Active build             |
-|   [2]   | `.csproj`             | Create in Phase 0        |
+|   [2]   | `.csproj`             | Present in `Workspace.slnx` |
 |   [3]   | Production C#         | In progress              |
-|   [4]   | Packages              | Add centrally in Phase 0 |
+|   [4]   | Package references    | Active direct; every pinned AppUi package is referenced |
 |   [5]   | Host runtime evidence | Per host scenario        |
 
 ---
@@ -75,7 +75,7 @@ macOS support means coexistence inside RhinoWIP/GH2, not generic desktop success
 - On `PanelShown`: restore content and return first responder — Eto/Avalonia focus is not auto-coordinated.
 - Refresh scale on `NSWindowDidChangeBackingProperties` and inside `WhenActivated` — Retina scale changes mid-session on external display connection/removal.
 - Await `TopLevel.Closed` before calling base dispose — disposing the Eto parent before the Avalonia TopLevel closes causes a native handle double-free.
-- [DEFERRED] GH2-Avalonia embedding: the current GH2 SDK (RhinoWIP, decompiled `Grasshopper2.dll`) exposes no dockable plugin-panel registration API — there is no `Grasshopper2.UI.IPanel` or `RegisterPanel` equivalent; the editor is one GH2-owned Eto `Form`, and plugin surfaces are per-component `InputPanel`, `Grasshopper2.UI.Toolbar`, canvas paint hooks, and transient `FloatingForm` popups — none a persistent host for a retained Avalonia `TopLevel`. The canvas NSView is reachable (`Editor.Instance.Canvas.ControlObject as NSView`, proven in `Rasm.Grasshopper/UI`), but no persistent panel host exists. Do not attempt GH2 embedding until a GH2 panel-host API ships; trigger: `uv run python -m tools.quality api types --assembly gh2 --filter Panel` on each WIP drop. Rhino-panel embedding remains the supported path.
+- [DEFERRED] GH2-Avalonia embedding: the current GH2 SDK (RhinoWIP, decompiled `Grasshopper2.dll`) exposes no dockable plugin-panel registration API — there is no `Grasshopper2.UI.IPanel` or `RegisterPanel` equivalent; the editor is one GH2-owned Eto `Form`, and plugin surfaces are per-component `InputPanel`, `Grasshopper2.UI.Toolbar`, canvas paint hooks, and transient `FloatingForm` popups — none a persistent host for a retained Avalonia `TopLevel`. The canvas NSView is reachable (`Editor.Instance.Canvas.ControlObject as NSView`, proven in `Rasm.Grasshopper/UI`), but no persistent panel host exists. Do not attempt GH2 embedding until a GH2 panel-host API ships; trigger: `uv run python -m tools.quality api query gh2 Panel` on each WIP drop. Rhino-panel embedding remains the supported path.
 
 ---
 ## [4][PACKAGES]
@@ -85,7 +85,7 @@ macOS support means coexistence inside RhinoWIP/GH2, not generic desktop success
 
 ### [4.1][CORE_MATRIX]
 
-Version matrix is coupled: Avalonia ↔ ReactiveUI.Avalonia ↔ ReactiveUI ↔ DynamicData ↔ System.Reactive ↔ SkiaSharp (Avalonia-bundled, LiveCharts2-aligned) — all newest viable as a set, not each in isolation. All packages added to `Directory.Packages.props` without version numbers; project files reference with `catalog:`.
+Version matrix is coupled: Avalonia ↔ ReactiveUI.Avalonia ↔ ReactiveUI ↔ DynamicData ↔ System.Reactive ↔ SkiaSharp (Avalonia-bundled, LiveCharts2-aligned) — all as one set, not each in isolation. Central pins live in `Directory.Packages.props`; `Rasm.AppUi.csproj` references the active matrix versionlessly.
 
 | [INDEX] | [PACKAGE]                              | [ROLE]                                                               |
 | :-----: | -------------------------------------- | -------------------------------------------------------------------- |
@@ -104,13 +104,12 @@ Version matrix is coupled: Avalonia ↔ ReactiveUI.Avalonia ↔ ReactiveUI ↔ D
 |  [13]   | `LiveChartsCore.SkiaSharpView.Avalonia` | Retained data-viz: charts, dashboards, gauges, SkiaSharp-rendered  |
 |  [14]   | `Avalonia.Controls.DataGrid`           | Tabular data surfaces                                                |
 |  [15]   | `Avalonia.Controls.ColorPicker`        | Color picker / palette surfaces                                      |
-|  [16]   | `bodong.Avalonia.PropertyGrid`         | Inspector/property-grid surfaces                                     |
+|  [16]   | `bodong.Avalonia.PropertyGrid`         | Integrated inspector/property-grid surface; custom-editor surface stays the documented fallback (single-maintainer package) |
 |  [17]   | `Xaml.Behaviors.Avalonia`              | MVVM event triggers and drag-drop (replaces deprecated `Avalonia.Xaml.Interactions`) |
 |  [18]   | `Projektanker.Icons.Avalonia`          | Icon glyph host                                                      |
 |  [19]   | `Projektanker.Icons.Avalonia.MaterialDesign` | Material Design icon set                                       |
 |  [20]   | `Svg.Controls.Skia.Avalonia`           | SVG icon and asset rendering                                         |
 |  [21]   | `DialogHost.Avalonia`                  | In-panel dialogs — no NSWindow required                              |
-|  [22]   | `Avalonia.Diagnostics`                 | Debug-only DevTools (conditioned `$(Configuration)==Debug`)          |
 
 ### [4.2][PACKAGE_REJECTIONS]
 
@@ -126,7 +125,7 @@ Version matrix is coupled: Avalonia ↔ ReactiveUI.Avalonia ↔ ReactiveUI ↔ D
 
 ### [4.3][NATIVE_HAZARD]
 
-[CRITICAL] SkiaSharp-native coexistence — RESOLVED to a Phase-0 gate. Ground truth (bridge-verify of RhinoWIP 9.0): Rhino ships NO managed `SkiaSharp.dll`; `libSkiaSharp.dylib` is used only at the C++ level inside `RhCore.framework`, and RhinoCommon / Eto / Grasshopper2 carry no SkiaSharp dependency. Our `SkiaSharp` equals `Avalonia.Skia`'s exact dependency, unified across LiveCharts2 and `Svg.Skia`. macOS `dlopen` coalesces by install name (`@rpath/libSkiaSharp.dylib`) and SkiaSharp has no symbol isolation — two copies of a different major CANNOT co-load. THE GATE: confirm Rhino's bundled `libSkiaSharp` major (`find /Applications/RhinoWIP.app -name 'libSkiaSharp*'`, or a `bridge verify` scenario reading `SkiaSharpVersion.Native`). If it matches our major: reference `SkiaSharp.NativeAssets.macOS` with `<ExcludeAssets>native</ExcludeAssets>` and share Rhino's loaded dylib — no second copy ships. If it differs: same-named dylibs cannot co-load and Avalonia 12 cannot downgrade Skia, so this is a hard build gate (offscreen/out-of-process Skia, or escalate). `HarfBuzzSharp.NativeAssets.macOS` is carried unconditionally — not in the Rhino bundle.
+[CRITICAL] SkiaSharp-native coexistence splits into one SETTLED fact and one STILL-OPEN gate; do not conflate them. SETTLED (bridge-verify of RhinoWIP 9.0): Rhino ships NO managed `SkiaSharp.dll` — `libSkiaSharp.dylib` is used only at the C++ level inside `RhCore.framework`, and RhinoCommon / Eto / Grasshopper2 carry no SkiaSharp dependency, so no managed assembly clash exists. Our `SkiaSharp` equals `Avalonia.Skia`'s exact dependency, unified across LiveCharts2 and `Svg.Skia`. STILL-OPEN (Phase-0 native gate, separate from the managed fact): macOS `dlopen` coalesces by install name (`@rpath/libSkiaSharp.dylib`) and SkiaSharp has no symbol isolation — two copies of a different native major CANNOT co-load. THE GATE: confirm Rhino's bundled `libSkiaSharp` native major (`find /Applications/RhinoWIP.app -name 'libSkiaSharp*'`, or a `bridge verify` scenario reading `SkiaSharpVersion.Native`). If it matches our major: reference `SkiaSharp.NativeAssets.macOS` with `<ExcludeAssets>native</ExcludeAssets>` and share Rhino's loaded dylib — no second copy ships. If it differs: same-named dylibs cannot co-load and Avalonia 12 cannot downgrade Skia, so this is a hard build gate (offscreen/out-of-process Skia, or escalate). `HarfBuzzSharp.NativeAssets.macOS` is carried unconditionally — not in the Rhino bundle.
 
 Layout: cohesive flat files — `Shell.cs`, `Screen.cs`, `Command.cs`, `Live.cs`, `Visual.cs`, `Chart.cs`, `Diagnostic.cs` — each with canonical sections; UI scheduler boundary co-locates with ReactiveUI activation in `Screen.cs`. No per-concept subfolders or mini-files.
 
@@ -267,7 +266,7 @@ Inbound contracts are typed, built fully now, and ready to fire when the sibling
 
 | [INDEX] | [CAPABILITY]              | [MECHANISM]                                                                                      |
 | :-----: | ------------------------- | ------------------------------------------------------------------------------------------------ |
-|   [1]   | Settings / preferences UI | `Screen<PreferencesModel>` + `bodong.Avalonia.PropertyGrid`; persisted through Persistence store operation |
+|   [1]   | Settings / preferences UI | `Screen<PreferencesModel>` + custom editor surface; persisted through Persistence store operation |
 |   [2]   | Notifications / toasts    | `DialogHost.Avalonia` in-panel toast host; no NSWindow; dismissed on timer or user action         |
 |   [3]   | Undo-redo state surfacing | Observe host undo availability via `Rasm.Rhino/UI` observable; surface as `CanExecute` on undo/redo `Command` |
 |   [4]   | Theming switch            | `HostUtils.RunningInDarkMode` polled on `WhenActivated` + reactive `ThemeVariant` toggle; follows Rhino dark/light |

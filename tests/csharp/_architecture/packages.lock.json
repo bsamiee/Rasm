@@ -38,6 +38,15 @@
         "resolved": "17.14.15",
         "contentHash": "mXQPJsbuUD2ydq4/ffd8h8tSOFCXec+2xJOVNCvXjuMOq/+5EKHq3D2m2MC2+nUaXeFMSt66VS/J4HdKBixgcw=="
       },
+      "System.Drawing.Common": {
+        "type": "Direct",
+        "requested": "[10.0.8, )",
+        "resolved": "10.0.8",
+        "contentHash": "LCISd6JAF80vsy9L6wuetZeOMR3FH+SwKovw5Zl0Nov9pB9ZOiCSqvOfMzooypPItQLv0mGfEePjJ1nCCQztNw==",
+        "dependencies": {
+          "Microsoft.Win32.SystemEvents": "10.0.8"
+        }
+      },
       "Thinktecture.Runtime.Extensions": {
         "type": "Direct",
         "requested": "[10.2.0, )",
@@ -328,9 +337,9 @@
       },
       "FSharp.Core": {
         "type": "CentralTransitive",
-        "requested": "[8.0.100, )",
-        "resolved": "8.0.100",
-        "contentHash": "ZOVZ/o+jI3ormTZOa28Wh0tSRoyle1f7lKFcUN61sPiXI7eDZu8eSveFybgTeyIEyW0ujjp31cp7GOglDgsNEg=="
+        "requested": "[10.1.300, )",
+        "resolved": "10.1.300",
+        "contentHash": "BACHDBo/KL615GifW2wGB8vw3HLraCJb77VN/XVmQZPceNw+Oc+J+McehOo2yHtcr7hABmW4EqZZzVYiR1Z1EQ=="
       },
       "MathNet.Numerics": {
         "type": "CentralTransitive",
@@ -392,15 +401,6 @@
         "contentHash": "Q22jJYJLx4srTinsAuoCskqmzjrBJC8YeGJMHHIcrf1dQeHoEZ7wsqDzTlENkMoke2qfufF7U+9u58nlZunH/Q==",
         "dependencies": {
           "Microsoft.Testing.Platform": "2.2.3"
-        }
-      },
-      "System.Drawing.Common": {
-        "type": "CentralTransitive",
-        "requested": "[10.0.8, )",
-        "resolved": "10.0.8",
-        "contentHash": "LCISd6JAF80vsy9L6wuetZeOMR3FH+SwKovw5Zl0Nov9pB9ZOiCSqvOfMzooypPItQLv0mGfEePjJ1nCCQztNw==",
-        "dependencies": {
-          "Microsoft.Win32.SystemEvents": "10.0.8"
         }
       },
       "xunit.v3.assert": {

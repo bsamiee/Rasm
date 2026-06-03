@@ -9,16 +9,17 @@
 | :-----: | --------- | ----- |
 | [1] | `uv run python -m tools.quality static plan <paths...>` | Route preview for uncertain graph/tooling changes. |
 | [2] | `uv run python -m tools.quality static fix <paths...>` | Scoped whitespace/style/analyzer cleanup; mutates files. |
-| [3] | `uv run python -m tools.quality static build <paths...>` | Routed build/analyzer/source-generation proof. |
-| [4] | `uv run python -m tools.quality static full` | Full-solution build/analyzer proof for trigger files. |
-| [5] | `uv run python -m tools.quality test run` | Default managed target: MTP unit tests only. |
-| [6] | `uv run python -m tools.quality test run --all` | All runnable MTP test projects. |
-| [7] | `uv run python -m tools.quality test coverage` | Managed coverlet.MTP map. |
-| [8] | `uv run python -m tools.quality test run --mutation changed` | Changed-file Stryker MTP mutation. |
-| [9] | `uv run python -m tools.quality test run --mutation full` | Full managed Stryker MTP mutation. |
-| [10] | `uv run python -m tools.quality test run --target <project>` | Focused MTP project run. |
+| [3] | `uv run python -m tools.quality static report <paths...>` | Scoped whitespace/style/analyzer diagnostics; does not intentionally mutate source. |
+| [4] | `uv run python -m tools.quality static build <paths...>` | Routed build/analyzer/source-generation proof. |
+| [5] | `uv run python -m tools.quality static full` | Full-solution build/analyzer proof for trigger files. |
+| [6] | `uv run python -m tools.quality test run` | Default managed target: MTP unit tests only. |
+| [7] | `uv run python -m tools.quality test run --all` | All runnable MTP test projects. |
+| [8] | `uv run python -m tools.quality test coverage` | Managed coverlet.MTP map. |
+| [9] | `uv run python -m tools.quality test run --mutation changed` | Changed-file Stryker MTP mutation. |
+| [10] | `uv run python -m tools.quality test run --mutation full` | Full managed Stryker MTP mutation. |
+| [11] | `uv run python -m tools.quality test run --target <project>` | Focused MTP project run. |
 
-`quality static` and MTP test runs isolate MSBuild output under `.artifacts/quality/<rail>/<run-id>/`. Mutation is explicit and fail-fast on `.artifacts/locks/mutation.lock`.
+`quality static` and MTP test runs isolate MSBuild output under `.artifacts/quality/<rail>/<run-id>/`. Mutation is explicit and fail-fast on `.artifacts/locks/mutation.lock`; the lock file remains stable and is truncated after release.
 
 ---
 ## [2][MUTATION]

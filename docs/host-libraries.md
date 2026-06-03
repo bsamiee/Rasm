@@ -26,7 +26,7 @@ Scope: composition roots, external I/O boundaries, app runtime, persistence, com
 |   [2]   | Companion process, test host, bridge service |      No      | `IServiceCollection`, optional Generic Host, optional Scrutor |
 |   [3]   | Domain, analysis, geometry kernel            | No container | LanguageExt effects and direct constructors                   |
 
-Scrutor, Generic Host, logging providers, telemetry exporters, HTTP resilience, EF Core, and validation packages are `[NOT_IN_GRAPH]` until a concrete bootstrap consumer exists. `Directory.Packages.props` is graph truth; owner-local manuals are intent and adoption guidance.
+Scrutor, Generic Host, logging providers, telemetry exporters, HTTP resilience, EF Core, and validation packages are `[NOT_IN_GRAPH]` until a concrete bootstrap consumer exists. The AppUi package matrix is active direct through `Rasm.AppUi.csproj`. `Directory.Packages.props` is graph truth; owner-local manuals are intent and adoption guidance.
 
 ---
 ## [2][FIRST_CONSUMER_CANDIDATES]
@@ -34,20 +34,20 @@ Scrutor, Generic Host, logging providers, telemetry exporters, HTTP resilience, 
 
 <br>
 
-| [INDEX] | [CANDIDATE]                         | [TRIGGER]                                                    | [OWNER]            |
-| :-----: | ----------------------------------- | ------------------------------------------------------------ | ------------------ |
-|   [1]   | Scrutor                             | Real `IServiceCollection` bootstrap with scan/decorate value | `Rasm.AppHost`     |
-|   [2]   | Generic Host / DI abstractions      | Companion process, bridge service, or test host              | `Rasm.AppHost`     |
-|   [3]   | NodaTime                            | Persisted/audited semantic time or explicit zone policy      | `Rasm.AppHost`     |
-|   [4]   | FluentValidation                    | External DTO/config boundary before `Validation<Error,T>`    | `Rasm.AppHost`     |
-|   [5]   | Serilog / OpenTelemetry             | Centralized support evidence, logs, traces, metrics          | `Rasm.AppHost`     |
-|   [6]   | HTTP resilience                     | Typed outbound `HttpClient` to external service              | `Rasm.AppHost`     |
-|   [7]   | EF Core SQLite / SQLite             | Local durable app state outside GH solve paths               | `Rasm.Persistence` |
-|   [8]   | MessagePack                         | Compact snapshots after binary round-trip proof              | `Rasm.Persistence` |
-|   [9]   | Avalonia / ReactiveUI / DynamicData | Product UI rail with host coexistence proof plan             | `Rasm.AppUi`       |
-|  [10]   | SkiaSharp / ImGui.NET               | Custom visuals or debug overlay proof plan                   | `Rasm.AppUi`       |
-|  [11]   | System.Numerics.Tensors             | Measured span/TensorPrimitives kernel consumer               | `Rasm.Compute`     |
-|  [12]   | ML.NET / gRPC client                | Named model or out-of-process compute companion              | `Rasm.Compute`     |
+| [INDEX] | [CANDIDATE]                    | [TRIGGER]                                                    | [OWNER]            |
+| :-----: | ------------------------------ | ------------------------------------------------------------ | ------------------ |
+|   [1]   | Scrutor                        | Real `IServiceCollection` bootstrap with scan/decorate value | `Rasm.AppHost`     |
+|   [2]   | Generic Host / DI abstractions | Companion process, bridge service, or test host              | `Rasm.AppHost`     |
+|   [3]   | NodaTime                       | Persisted/audited semantic time or explicit zone policy      | `Rasm.AppHost`     |
+|   [4]   | FluentValidation               | External DTO/config boundary before `Validation<Error,T>`    | `Rasm.AppHost`     |
+|   [5]   | Serilog / OpenTelemetry        | Centralized support evidence, logs, traces, metrics          | `Rasm.AppHost`     |
+|   [6]   | HTTP resilience                | Typed outbound `HttpClient` to external service              | `Rasm.AppHost`     |
+|   [7]   | EF Core SQLite / SQLite        | Local durable app state outside GH solve paths               | `Rasm.Persistence` |
+|   [8]   | MessagePack                    | Compact snapshots after binary round-trip proof              | `Rasm.Persistence` |
+|   [9]   | ImGui.NET debug overlay        | Debug overlay proof plan after product UI rail exists        | `Rasm.AppUi`       |
+|  [10]   | AppUi pinned matrix            | Active direct project references; runtime proof pending      | `Rasm.AppUi`       |
+|  [11]   | System.Numerics.Tensors        | Measured span/TensorPrimitives kernel consumer               | `Rasm.Compute`     |
+|  [12]   | ML.NET / gRPC client           | Named model or out-of-process compute companion              | `Rasm.Compute`     |
 
 Refresh latest stable package versions immediately before the first concrete consumer. Do not record exact candidate versions in owner docs.
 

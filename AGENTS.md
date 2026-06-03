@@ -71,12 +71,13 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - Cross-stack owner precedence: `docs/usage.md` §1 and §5.
 - Product library API truth: `docs/external-libs`.
 - Host SDK boundaries: `docs/host/` (`README.md` → `rhino.md`, `gh2.md`).
-- Host composition adoption (Scrutor, EF, OTel…): `docs/host-libraries.md` — not-in-graph until a bootstrap consumer exists; pin truth in `Directory.Packages.props` and `docs/system-api-map/packages.md` §2.
+- Host composition adoption (Scrutor, EF, OTel…): `docs/host-libraries.md` — not-in-graph until a bootstrap consumer exists. AppUi is now an active direct package consumer; pin truth lives in `Directory.Packages.props` and `docs/system-api-map/packages.md` §2.
 - BCL, packages, host references: `docs/system-api-map`.
 - Test-tool APIs: `docs/testing-libs`.
 - Universal C# enforcement snippets: `.claude/skills/coding-csharp/references/`; repo posture and XML-backed proof: `docs/external-libs/`. Do not duplicate skill bodies in docs leaves.
 
 ## [6][LIVE_RHINO_BRIDGE]
+- Quality operator truth: `tools/quality/README.md`.
 - Runtime evidence and bridge operator routes: `CLAUDE.md` §5.2 and `tools/rhino-bridge/README.md`.
 - Canonical bridge agent deltas: `tools/rhino-bridge/AGENTS.md`.
 - Scenario authoring: `tests/csharp/AGENTS.md` §7 and `.claude/skills/cs-testing/references/bridge-runtime.md`.

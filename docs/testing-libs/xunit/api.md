@@ -11,13 +11,13 @@
 
 <br>
 
-| [INDEX] | [PACKAGE]                     | [PIN]   | [STATE]          | [USE]                                      |
-| :-----: | ----------------------------- | ------- | ---------------- | ------------------------------------------ |
-|   [1]   | `xunit.v3.mtp-v2`             | `3.2.2` | Shared           | xUnit v3 MTP discovery and execution       |
-|   [2]   | `xunit.v3.assert`             | `3.2.2` | Shared (testkit) | Assertions and serializer APIs             |
-|   [3]   | `xunit.v3.common`             | `3.2.2` | Shared (testkit) | Common v3 abstractions                     |
-|   [4]   | `xunit.v3.extensibility.core` | `3.2.2` | Shared (testkit) | Pipeline startup and extensibility APIs    |
-|   [5]   | `xunit.analyzers`             | lock    | Transitive       | xUnit analyzer diagnostics through package |
+| [INDEX] | [PACKAGE]                     | [PIN]                      | [STATE]          | [USE]                                      |
+| :-----: | ----------------------------- | -------------------------- | ---------------- | ------------------------------------------ |
+|   [1]   | `xunit.v3.mtp-v2`             | `Directory.Packages.props` | Shared           | xUnit v3 MTP discovery and execution       |
+|   [2]   | `xunit.v3.assert`             | `Directory.Packages.props` | Shared (testkit) | Assertions and serializer APIs             |
+|   [3]   | `xunit.v3.common`             | `Directory.Packages.props` | Shared (testkit) | Common v3 abstractions                     |
+|   [4]   | `xunit.v3.extensibility.core` | `Directory.Packages.props` | Shared (testkit) | Pipeline startup and extensibility APIs    |
+|   [5]   | `xunit.analyzers`             | lock                       | Transitive       | xUnit analyzer diagnostics through package |
 
 [SOURCE] xUnit MTP docs: https://xunit.net/docs/getting-started/v3/microsoft-testing-platform
 

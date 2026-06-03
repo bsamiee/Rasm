@@ -104,8 +104,8 @@ BrickRun run = new(
     Path: new BrickPath.Line(LengthMm: 2400.0),
     HeightMm: 1200.0,
     Joint: JointProfile.Concave,
-    HeadJointMm: Option<double>.None,
-    BedJointMm: Option<double>.None);
+    HeadJointMm: None,
+    BedJointMm: None);
 
 Fin<BrickAssembly> assembly = BrickAssembly.Layout(run: run);
 ```
@@ -115,8 +115,6 @@ Fin<BrickAssembly> assembly = BrickAssembly.Layout(run: run);
 Use static validation for this slice:
 
 ```bash
-rg -n "<stale external-layout ownership tokens>" libs/csharp/Rasm.Materials
-rg -n "<host drawing/runtime type tokens>" libs/csharp/Rasm.Materials/Bricks
 uv run python -m tools.quality static fix
 uv run python -m tools.quality static build
 ```

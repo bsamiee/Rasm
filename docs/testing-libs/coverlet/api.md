@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Rasm uses `coverlet.MTP 10.0.1` through the .NET 10 Microsoft Testing Platform runner. It is injected only for runnable test projects; `Rasm.TestKit`, benchmarks, fuzz harnesses, and bridge scenarios are not coverage targets.
+[IMPORTANT] Rasm uses `coverlet.MTP` (version pinned in `Directory.Packages.props`) through the .NET 10 Microsoft Testing Platform runner. It is injected only for runnable test projects; `Rasm.TestKit`, benchmarks, fuzz harnesses, and bridge scenarios are not coverage targets.
 
 ---
 ## [1][PACKAGE]
@@ -11,9 +11,9 @@
 
 <br>
 
-| [INDEX] | [PACKAGE]      | [PIN]    | [USE]                                      |
-| :-----: | -------------- | -------- | ------------------------------------------ |
-|   [1]   | `coverlet.MTP` | `10.0.1` | `dotnet test --project ... --coverlet` via `tools.quality test coverage` |
+| [INDEX] | [PACKAGE]      | [PIN]                      | [USE]                                                                    |
+| :-----: | -------------- | -------------------------- | ------------------------------------------------------------------------ |
+|   [1]   | `coverlet.MTP` | `Directory.Packages.props` | `dotnet test --project ... --coverlet` via `tools.quality test coverage` |
 
 [SOURCE] xUnit MTP coverage docs: https://xunit.net/docs/getting-started/v3/code-coverage-with-mtp
 
@@ -23,13 +23,13 @@
 
 <br>
 
-| [INDEX] | [ARGUMENT]                              | [RASM_POSTURE]                                             |
-| :-----: | --------------------------------------- | ---------------------------------------------------------- |
-|   [1]   | `--coverlet`                            | Command-time opt-in through `tools.quality test coverage`. |
-|   [2]   | `--coverlet-output-format`              | `json` and `cobertura` for local and CI-readable output.   |
-|   [3]   | `--coverlet-include` / `--coverlet-exclude` | Managed assemblies only; avoid bridge/runtime fiction. |
-|   [4]   | `--coverlet-exclude-by-file`            | Generated and obj-path exclusions.                         |
-|   [5]   | `--coverlet-exclude-by-attribute`       | Coverage and generated-code attribute exclusions.          |
+| [INDEX] | [ARGUMENT]                                      | [RASM_POSTURE]                                               |
+| :-----: | ----------------------------------------------- | ------------------------------------------------------------ |
+|   [1]   | `--coverlet`                                    | Command-time opt-in through `tools.quality test coverage`.   |
+|   [2]   | `--coverlet-output-format`                      | `json` and `cobertura` for local and CI-readable output.     |
+|   [3]   | `--coverlet-include` / `--coverlet-exclude`     | Managed assemblies only; avoid bridge/runtime fiction.       |
+|   [4]   | `--coverlet-exclude-by-file`                    | Generated and obj-path exclusions.                           |
+|   [5]   | `--coverlet-exclude-by-attribute`               | Coverage and generated-code attribute exclusions.            |
 |   [6]   | `--coverlet-exclude-assemblies-without-sources` | `None`; local proof showed stricter modes can empty reports. |
 
 ---

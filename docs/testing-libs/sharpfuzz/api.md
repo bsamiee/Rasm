@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] `SharpFuzz 2.2.0` is isolated in `tests/csharp/_fuzz` behind harness proof and does not run in the normal managed test gate.
+[IMPORTANT] `SharpFuzz` (version pinned in `Directory.Packages.props`) is isolated in `tests/csharp/_fuzz` behind harness proof and does not run in the normal managed test gate.
 
 ---
 ## [1][PACKAGE]
@@ -11,11 +11,11 @@
 
 <br>
 
-| [INDEX] | [PACKAGE]   | [PIN]   | [USE]                   |
-| :-----: | ----------- | ------- | ----------------------- |
-|   [1]   | `SharpFuzz` | `2.2.0` | In-process harness API. |
+| [INDEX] | [PACKAGE]   | [PIN]                      | [USE]                   |
+| :-----: | ----------- | -------------------------- | ----------------------- |
+|   [1]   | `SharpFuzz` | `Directory.Packages.props` | In-process harness API. |
 
-[SOURCE] NuGet package page: https://www.nuget.org/packages/SharpFuzz/2.2.0
+[SOURCE] NuGet package page: https://www.nuget.org/packages/SharpFuzz
 
 ---
 ## [2][SURFACE]

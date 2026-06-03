@@ -21,15 +21,15 @@ It is not an Avalonia wrapper, ReactiveUI wrapper, Skia wrapper, charting wrappe
 
 <br>
 
-| [INDEX] | [SURFACE]          | [STATE]                  |
-| :-----: | ------------------ | ------------------------ |
-|   [1]   | Project file       | Create in Phase 0        |
-|   [2]   | Production API     | In progress              |
-|   [3]   | Package references | Add centrally in Phase 0 |
-|   [4]   | Runtime behavior   | Per host scenario        |
-|   [5]   | Host evidence      | Owner-local receipts     |
+| [INDEX] | [SURFACE]          | [STATE]                                          |
+| :-----: | ------------------ | ------------------------------------------------ |
+|   [1]   | Project file       | Present and in `Workspace.slnx`                  |
+|   [2]   | Production API     | In progress                                      |
+|   [3]   | Package references | Active direct; every pinned AppUi package referenced |
+|   [4]   | Runtime behavior   | Per host scenario                                |
+|   [5]   | Host evidence      | Owner-local receipts                             |
 
-Add packages centrally at newest viable versions during Phase 0. No version numbers in doc text — package IDs only; versions live exclusively in `Directory.Packages.props`.
+`Rasm.AppUi.csproj` now anchors the folder for restore/build routing and references the AppUi matrix versionlessly. No package versions appear in AppUi docs; versions live exclusively in `Directory.Packages.props`.
 
 ---
 ## [3][MANUAL]
@@ -41,7 +41,7 @@ Add packages centrally at newest viable versions during Phase 0. No version numb
 | :-----: | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
 |   [1]   | `_ARCHITECTURE.md` | Rail contract, type shapes, host delegation, package matrix, embedding rules, world-class capabilities, runtime evidence |
 |   [2]   | `AGENTS.md`        | Build rules, forbidden duplicates, embedding constraints, package rejections                                             |
-|   [3]   | `ROADMAP.md`       | Build sequence, integration surfaces, promotion criteria, Phase-0 verification gates (§6)                                 |
+|   [3]   | `ROADMAP.md`       | Build sequence, integration surfaces, promotion criteria, Phase-0 verification gates (§6)                                |
 
 ---
 ## [4][CONSTRAINTS]

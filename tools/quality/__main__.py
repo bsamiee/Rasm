@@ -23,16 +23,18 @@ from tools.quality.settings import ArtifactScope, QualitySettings
 
 # --- [TYPES] ---------------------------------------------------------------------------
 
-type ApiCliOp = Literal["doctor", "path", "xml", "types", "decompile"]
+type ApiCliOp = Literal["doctor", "resolve", "query", "show"]
+type ApiShowPolicy = Literal["current", "latest"]
 type StaticCliOp = Literal["fix", "report", "build", "full", "plan"]
+type TestListFormat = Literal["text", "json"]
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
 _BRIDGE_VERBS: Final[tuple[str, ...]] = ("doctor", "launch", "quit")
-_PACKAGE: Final[tuple[bridge_package.PackageMode, ...]] = ("deploy", "package", "publish")
+_PACKAGE: Final[tuple[bridge_package.PackageMode, ...]] = ("deploy", "publish")
 _PARAMETER = Parameter(show_default=False)
-_SELF_CLI: Final[tuple[str, ...]] = ("dotnet", "fd", "git", "ilspycmd", "rg")
+_SELF_CLI: Final[tuple[str, ...]] = ("dotnet", "fd", "git", "rg")
 _STATIC: Final[dict[StaticCliOp, tuple[str, static_rail.StaticMode]]] = {
     "fix": ("fix", "fix"),
     "report": ("report", "report"),
@@ -93,29 +95,97 @@ def _package(mode: bridge_package.PackageMode, slug: str, version: str) -> int:
     )
 
 
-_API: Final[dict[ApiCliOp, tuple[api_rail.ApiOp, str | None, Callable[[bytes | str | None], int]]]] = {
-    "decompile": ("decompile", None, _emit),
-    "doctor": ("doctor", None, lambda payload: _emit(payload if isinstance(payload, bytes) else b"", newline=True)),
-    "path": ("path", None, lambda value: _emit(value.decode() if isinstance(value, bytes) else value, newline=True)),
-    "types": ("types", None, _emit),
-    "xml": ("search", "xml", _emit),
+@bridge.command(name="package")
+def package_cmd(slug: str, version: str = "", extra: str = "") -> int:
+    match slug:
+        case "list":
+            return rail(
+                "bridge", "package-list", lambda s, sc: bridge_package.package_list_payload(s, sc), ok=lambda payload: _emit(payload, newline=True)
+            )
+        case "plan":
+            return rail(
+                "bridge",
+                "package-plan",
+                lambda s, sc: bridge_package.package_plan_payload(s, sc, version, extra),
+                ok=lambda payload: _emit(payload, newline=True),
+            )
+        case _:
+            return _package("package", slug, version)
+
+
+def _emit_api(payload: bytes | str | None, *, strict: bool = False, newline: bool = True) -> int:
+    code = 0
+    match payload:
+        case bytes() as raw:
+            pass
+        case str() as text:
+            raw = text.encode()
+        case None:
+            raw = b"{}"
+    match strict:
+        case True:
+            try:
+                status = msgspec.json.decode(raw).get("status", "")
+                code = 2 if status in {"failed", "missing"} else 0
+            except msgspec.DecodeError, AttributeError:
+                code = 0
+        case _:
+            pass
+    return _emit(payload, code=code, newline=newline)
+
+
+_API_PATH_KIND: Final[dict[str, api_rail.ApiPathKind]] = {
+    "all": "all",
+    "assembly": "assembly",
+    "deps": "deps",
+    "nuspec": "nuspec",
+    "package-root": "package-root",
+    "xml": "xml",
 }
 _STATIC_OK: Final[dict[static_rail.StaticOutcome, Callable[[], int]]] = {
     "done": lambda: 0,
+    "full-trigger-skip": lambda: (log.info("phase", status="skipped", message="full-trigger input requires static full"), 0)[1],
     "skip": lambda: (log.info("phase", status="skipped", message="no C#-relevant changes"), 0)[1],
 }
 
 
 @api.default
 def api_gate(
-    op: ApiCliOp, key: api_rail.ApiKey = "rhino-common", kind: api_rail.ApiPathKind = "assembly", pattern: str = "", type_name: str = ""
+    op: ApiCliOp,
+    key: str = "rhino-common",
+    value: str = "",
+    *,
+    strict: Annotated[bool | None, Parameter(name="--strict")] = None,
+    restore: Annotated[api_rail.ApiRestoreMode, Parameter(name="--restore")] = "missing",
+    max_lines: Annotated[int, Parameter(name="--max-lines")] = 120,
+    full: Annotated[bool | None, Parameter(name="--full")] = None,
+    lines: Annotated[str, Parameter(name="--lines")] = "",
+    grep: Annotated[str, Parameter(name="--grep")] = "",
+    latest: Annotated[bool | None, Parameter(name="--latest")] = None,
 ) -> int:
-    rail_op, phase, ok = _API[op]
+    # `value` discriminates by verb: resolve kind, query symbol, otherwise unused; `key` is the source key (or show token).
+    kind = _API_PATH_KIND.get(value, "all") if op == "resolve" else "all"
+    symbol = value if op == "query" else ""
+    show_policy: ApiShowPolicy = "latest" if latest is True else "current"
     return rail(
         "api",
-        phase or op,
-        lambda s, sc: api_rail.api(s.rhino_app, rail_op, key, kind=kind, pattern=pattern, type_name=type_name, env=sc.dotnet_env),
-        ok=ok,
+        op,
+        lambda s, sc: api_rail.api(
+            s,
+            sc,
+            op,
+            key,
+            symbol=symbol,
+            kind=kind,
+            max_lines=max_lines,
+            full=full is True,
+            lines=lines,
+            grep=grep,
+            show_policy=show_policy,
+            restore=restore,
+            env=sc.dotnet_env,
+        ),
+        ok=lambda payload: _emit_api(payload, strict=strict is True, newline=not (op == "show" and full is True)),
     )
 
 
@@ -154,19 +224,13 @@ def rail[T](
 
 @app.command(name="self-test")
 def self_test_cmd(rhino: Annotated[bool | None, Parameter(name="--rhino")] = None) -> int:
-    try:
-        settings = QualitySettings()
-    except ValueError as exc:
-        if rhino is True:
-            sys.stderr.write(f"quality: self-test failed rhino={exc}\n")
-            return 2
-        return _self_test_without_rhino()
+    settings = QualitySettings()
     missing = tuple(cmd for cmd in _SELF_CLI if shutil.which(cmd) is None)
     missing_paths = tuple(
         str(path) for path in (settings.solution, settings.root / settings.test_target, settings.dotnet_tools_manifest) if not path.is_file()
     )
-    yak = settings.rhino_app / "Contents/Resources/bin/yak"
-    yak_ready = yak.is_file() and os.access(yak, os.X_OK)
+    yak = settings.rhino_app / "Contents/Resources/bin/yak" if settings.rhino_app is not None else Path()
+    yak_ready = settings.rhino_app is not None and yak.is_file() and os.access(yak, os.X_OK)
     match (missing, missing_paths, rhino is True, yak_ready):
         case ((), (), False, _):
             sys.stdout.write("quality: self-test passed\n")
@@ -176,20 +240,6 @@ def self_test_cmd(rhino: Annotated[bool | None, Parameter(name="--rhino")] = Non
             return 0
         case _:
             sys.stderr.write(f"quality: self-test failed missing={missing} paths={missing_paths} yak={yak}\n")
-            return 2
-
-
-def _self_test_without_rhino() -> int:
-    root = QualitySettings.anchor(Path.cwd())
-    missing = tuple(cmd for cmd in _SELF_CLI if shutil.which(cmd) is None)
-    paths = (root / "Workspace.slnx", root / "tests/csharp/libs/Rasm/Rasm.Tests.csproj", root / ".config/dotnet-tools.json")
-    missing_paths = tuple(str(path) for path in paths if not path.is_file())
-    match (missing, missing_paths):
-        case ((), ()):
-            sys.stdout.write("quality: self-test passed\n")
-            return 0
-        case _:
-            sys.stderr.write(f"quality: self-test failed missing={missing} paths={missing_paths} rhino=skipped\n")
             return 2
 
 
@@ -208,19 +258,50 @@ def unit_gate(
     mode: Literal["run", "list", "coverage"],
     filter_expr: str = "",
     target: Path | None = None,
+    *,
     all_targets: Annotated[bool | None, Parameter(name="--all")] = None,
     mutation: test_rail.MutationMode = "off",
     no_build: Annotated[bool | None, Parameter(name="--no-build")] = None,
     test_modules: str = "",
+    format: Annotated[TestListFormat, Parameter(name="--format")] = "text",
+    limit: Annotated[int, Parameter(name="--limit")] = 0,
+    grep: Annotated[str, Parameter(name="--grep")] = "",
 ) -> int:
     cfg = QualitySettings()
     settings = cfg if target is None else cfg.model_copy(update={"test_target": target})
     all_runnable = all_targets is True
+    explicit_target = target is not None
+    if mode == "list" and format == "json":
+        return rail(
+            "test",
+            mode,
+            lambda s, sc: test_rail.list_tests_payload(
+                s,
+                sc,
+                all_targets=all_runnable,
+                filter_expr=filter_expr,
+                no_build=no_build is True,
+                test_modules=test_modules,
+                limit=limit,
+                grep=grep,
+                explicit_target=explicit_target,
+            ),
+            settings=settings,
+            ok=lambda payload: _emit(payload, newline=True),
+        )
     return rail(
         "test",
         mode,
         lambda s, sc: test_rail.run_test_rail(
-            s, sc, mode, all_targets=all_runnable, filter_expr=filter_expr, mutation=mutation, no_build=no_build is True, test_modules=test_modules
+            s,
+            sc,
+            mode,
+            all_targets=all_runnable,
+            filter_expr=filter_expr,
+            mutation=mutation,
+            no_build=no_build is True,
+            test_modules=test_modules,
+            explicit_target=explicit_target,
         ),
         settings=settings,
         ok=lambda _: _test_render(settings, mode, all_targets=all_runnable, mutation=mutation),

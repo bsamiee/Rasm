@@ -6,6 +6,9 @@
   </Folder>
   <Folder Name="/libs/" />
   <Folder Name="/libs/csharp/" />
+  <Folder Name="/libs/csharp/Rasm.AppUi/">
+    <Project Path="libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj" />
+  </Folder>
   <Folder Name="/libs/csharp/Rasm/">
     <Project Path="libs/csharp/Rasm/Rasm.csproj" />
   </Folder>

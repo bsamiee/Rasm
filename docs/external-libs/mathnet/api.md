@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Rasm directly consumes `MathNet.Numerics` `6.0.0-beta2` and `MathNet.Symbolics` `0.25.0`. Treat supporting MathNet/F# package closure as load-context evidence, not an API surface for Rasm C# guidance.
+[IMPORTANT] Rasm directly consumes `MathNet.Numerics` and `MathNet.Symbolics` at the versions pinned in `Directory.Packages.props`. Treat supporting MathNet/F# package closure as load-context evidence, not an API surface for Rasm C# guidance.
 
 ---
 ## [1][SOURCE_TRUTH]
@@ -11,14 +11,14 @@
 
 <br>
 
-| [INDEX] | [SOURCE]                                                                         | [USE]                                               |
-| :-----: | -------------------------------------------------------------------------------- | --------------------------------------------------- |
-|   [1]   | `Directory.Packages.props`                                                       | Central package truth.                              |
-|   [2]   | `~/.nuget/packages/mathnet.numerics/6.0.0-beta2/lib/net8.0/MathNet.Numerics.xml` | Numerics API truth.                                 |
-|   [3]   | `~/.nuget/packages/mathnet.symbolics/0.25.0/lib/net8.0/MathNet.Symbolics.xml`    | Symbolics API truth.                                |
-|   [4]   | `CSparse` `4.3.0` / `CSparse.xml`                                                | Sparse direct factorization — detail in `sparse.md` |
-|   [5]   | Package nuspec/DLL reflection                                                    | Dependency and public-type proof.                   |
-|   [6]   | Public MathNet docs                                                              | Topic map only; verify signatures locally.          |
+| [INDEX] | [SOURCE]                                                           | [USE]                                               |
+| :-----: | ------------------------------------------------------------------ | --------------------------------------------------- |
+|   [1]   | `Directory.Packages.props`                                         | Central package truth.                              |
+|   [2]   | `uv run python -m tools.quality api resolve MathNet.Numerics all`  | Numerics API asset truth.                           |
+|   [3]   | `uv run python -m tools.quality api resolve MathNet.Symbolics all` | Symbolics API asset truth.                          |
+|   [4]   | `CSparse` / `CSparse.xml`                                          | Sparse direct factorization — detail in `sparse.md` |
+|   [5]   | Package nuspec/DLL reflection                                      | Dependency and public-type proof.                   |
+|   [6]   | Public MathNet docs                                                | Topic map only; verify signatures locally.          |
 
 ---
 ## [2][OWNERSHIP]

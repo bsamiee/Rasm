@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Pin **`LanguageExt.Core` `5.0.0-beta-77`**. Verify overload semantics in local package XML.
+[IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. Verify overload semantics in local package XML.
 
 Hand-written domain `operator +`/`|` on application types are **not** LanguageExt operators.
 

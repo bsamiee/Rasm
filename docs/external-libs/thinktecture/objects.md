@@ -25,7 +25,7 @@
 | :-----: | ----------------------------------------------------------- | ---------------------------------------------------- |
 |   [1]   | `KeyMemberName = "Value"`                                   | Branded scalar key field for equality and parsing    |
 |   [2]   | `KeyMemberAccessModifier = AccessModifier.Public`           | Expose key when boundary protocol requires it        |
-|   [3]   | `[KeyMemberEqualityComparer<T>]` / `[KeyMemberComparer<T>]` | Ordinal or ignore-case key comparison                |
+|   [3]   | `[KeyMemberEqualityComparer<TAccessor,TKey>]` / `[KeyMemberComparer<TAccessor,TKey>]` | Ordinal or ignore-case key comparison (arity source: `union-attributes.md §2`) |
 |   [4]   | `SkipFactoryMethods`                                        | Custom `Fin` construction rail — rare                |
 |   [5]   | `EqualityComparisonOperators` / `ComparisonOperators`       | `[ValueObject<T>]` only — not `[ComplexValueObject]` |
 
@@ -67,7 +67,7 @@ Use complex value objects for normalized ranges, sample windows, tolerance bundl
 
 <br>
 
-`Directory.Packages.props` pins `Thinktecture.Runtime.Extensions 10.2.0`. Hard shape constraints verified against `~/.nuget/packages/thinktecture.runtime.extensions/10.2.0/lib/net9.0/Thinktecture.Runtime.Extensions.xml`:
+`Directory.Packages.props` pins the `Thinktecture.Runtime.Extensions` version. Verify hard shape constraints with `uv run python -m tools.quality api query Thinktecture.Runtime.Extensions <symbol>`:
 
 - `[ComplexValueObject]` requires `partial class` OR `partial struct` — **never** `record` or `record struct` (generator doubles emitted members).
 - Properties are `{ get; }` only — no `{ get; init; }`, no positional record params.

@@ -2,12 +2,16 @@
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
-from collections.abc import Callable, Generator, Mapping
+from collections import deque
+from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
-from functools import reduce
+from datetime import datetime, UTC
+from functools import cache, reduce
 from importlib import import_module
+import os
 from pathlib import Path
+import shutil
 import sys
 from types import ModuleType
 from typing import assert_never, Final, Literal, Protocol
@@ -45,6 +49,7 @@ _GIT_CHANGE_ARGS: Final[tuple[tuple[str, ...], ...]] = (
 )
 # Build-graph verbs only: scoped invocations splice `--artifacts-path`/`--disable-build-servers`; tool-driver verbs reject them.
 _ARTIFACT_SCOPED_VERBS: Final[frozenset[str]] = frozenset(("build", "clean", "msbuild", "pack", "publish", "restore", "run", "test"))
+_STREAM_TAIL_BYTES: Final[int] = 128 * 1024
 _PIPE: Final[int] = -1
 _POSIX_MODULE: Final = import_module("fcntl")
 
@@ -113,28 +118,22 @@ class _PosixLock:
 class Workspace:
     root: Path
 
-    def paths(self, args: tuple[str, ...], *, cwd: Path | None = None, suffix: str = "") -> tuple[Path, ...]:
-        return (
-            run(args, cwd=cwd or self.root, check=True)
-            .map(lambda done: tuple(Path(line) for line in done.lines(suffix=suffix)))
-            .default_with(lambda _: ())
-        )
+    def paths(self, args: tuple[str, ...], *, cwd: Path | None = None, suffix: str = "") -> Result[tuple[Path, ...], ProcessFault]:
+        return run(args, cwd=cwd or self.root, check=True).map(lambda done: tuple(Path(line) for line in done.lines(suffix=suffix)))
 
-    def projects(self, directory: str = ".") -> tuple[str, ...]:
-        return tuple(sorted(str(path) for path in self.paths(fd_args("csproj", ".", directory), suffix=".csproj")))
+    def projects(self, directory: str = ".") -> Result[tuple[str, ...], ProcessFault]:
+        return self.paths(fd_args("csproj", ".", directory), suffix=".csproj").map(lambda rows: tuple(sorted(str(path) for path in rows)))
 
-    def changed(self) -> tuple[str, ...]:
-        return tuple(
-            sorted({
-                line
-                for args in _GIT_CHANGE_ARGS
-                for command in (("git", "-C", str(self.root), *args),)
-                for line in run(command, check=True).map(lambda done: done.lines()).default_with(lambda _: ())
-            })
-        )
+    def changed(self) -> Result[tuple[str, ...], ProcessFault]:
+        seed: tuple[str, ...] = ()
+        return fold(
+            tuple(("git", "-C", str(self.root), *args) for args in _GIT_CHANGE_ARGS),
+            seed,
+            lambda acc, command: run(command, check=True).map(lambda done: (*acc, *done.lines())),
+        ).map(lambda rows: tuple(sorted(frozenset(rows))))
 
-    def index(self) -> ProjectIndex:
-        return {(self.root / rel).parent: self.root / rel for rel in self.projects()}
+    def index(self) -> Result[ProjectIndex, ProcessFault]:
+        return self.projects().map(lambda rows: {(self.root / rel).parent: self.root / rel for rel in rows})
 
     def owner(self, index: ProjectIndex, file: Path) -> Result[Path, ProcessFault]:
         ranked = tuple(
@@ -153,21 +152,11 @@ class Workspace:
 
     @staticmethod
     def csproj(project: Path, tag: str = "") -> ET.Element | str | None:
-        match project:
-            case Path() as target if target.is_file():
-                pass
-            case _:
+        match xml_root(project) if project.is_file() else None:
+            case ET.Element() as node:
+                return node if not tag else next((value.strip() for child in xml_iter(node, tag) for value in (child.text,) if value), None)
+            case None:
                 return None
-        # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=xml-etree-csproj ticket=QUALITY-R5 expires=2026-12-31 rationale=stdlib-xml-boundary
-        try:
-            node = ET.parse(target).getroot()  # noqa: S314
-        except ET.ParseError:
-            return None
-        return (
-            node
-            if not tag
-            else next((value.strip() for child in node.iter() if child.tag.rpartition("}")[-1] == tag for value in (child.text,) if value), None)
-        )
 
 
 # --- [OPERATIONS] ------------------------------------------------------------------------
@@ -179,11 +168,21 @@ def decode_json[T](payload: bytes | str, model: type[T]) -> Result[T, ProcessFau
             pass
         case str() as text:
             raw = text.encode()
-    # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=msgspec-decode ticket=QUALITY-R4 expires=2026-12-31 rationale=library-decode-boundary
     try:
         return Ok(msgspec.json.decode(raw, type=model))
     except msgspec.DecodeError as exc:
         return Error(ProcessFault.fail("decode", model.__name__, detail=str(exc)))
+
+
+def xml_root(path: Path) -> ET.Element | None:
+    try:
+        return ET.parse(path).getroot()  # noqa: S314
+    except ET.ParseError, OSError:
+        return None
+
+
+def xml_iter(root: ET.Element, tag: str) -> Iterable[ET.Element]:
+    return (node for node in root.iter() if node.tag.rpartition("}")[-1] == tag)
 
 
 @contextmanager
@@ -203,8 +202,35 @@ def exclusive_lease(lock: Path, owner: str) -> Generator[None]:
         try:
             yield
         finally:
+            guard.seek(0)
+            guard.truncate()
+            guard.flush()
             posix.flock(guard.fileno(), posix.unlock)
-            lock.unlink(missing_ok=True)
+
+
+def lease_owner(settings: QualitySettings, resource: str, *, project: str = "", mode: str = "exclusive") -> str:
+    return "".join((
+        f"resource={resource}\n",
+        f"run_id={settings.run_id}\n",
+        f"pid={os.getpid()}\n",
+        f"cwd={settings.root}\n",
+        f"mode={mode}\n",
+        *((f"project={project}\n",) if project else ()),
+        f"started_at={datetime.now(tz=UTC).isoformat()}\n",
+    ))
+
+
+def leased[T](
+    settings: QualitySettings, lock: Path, resource: str, action: Callable[[], Result[T, ProcessFault]], *, project: str = "", mode: str = "exclusive"
+) -> Result[T, ProcessFault]:
+    # One non-blocking-lease boundary for every rail: busy -> typed exit-5 fault, lock/runtime errors -> typed fault, never a hang or raw raise.
+    try:
+        with exclusive_lease(lock, lease_owner(settings, resource, project=project, mode=mode)):
+            return action()
+    except ResourceBusyError as exc:
+        return Error(ProcessFault.fail(resource, "busy", detail=f"{resource} is busy: {exc.lock} held by\n{exc.owner}", returncode=5))
+    except (OSError, RuntimeError) as exc:
+        return Error(ProcessFault.fail(resource, "lock", detail=str(exc)))
 
 
 def dotnet(
@@ -217,15 +243,18 @@ def dotnet(
     mode: ProcessMode = "capture",
 ) -> Result[Completed, ProcessFault]:
     # scoped=True splices artifact flags for build-graph verbs; scoped=False keeps default bin/ for scenario-kit and yak staging.
+    command: tuple[str, ...]
+    env: dict[str, str] | None
     match scope:
         case ArtifactScope() as active if scoped and args and args[0] in _ARTIFACT_SCOPED_VERBS:
             separator = args.index("--") if "--" in args else len(args)
-            command = ("dotnet", *args[:separator], *active.dotnet_flags, *args[separator:])
-            return run(command, cwd=cwd, env=active.dotnet_env, check=check, timeout=timeout, mode=mode)
+            command, env = ("dotnet", *args[:separator], *active.dotnet_flags, *args[separator:]), active.dotnet_env
         case ArtifactScope() as active:
-            return run(("dotnet", *args), cwd=cwd, env=active.dotnet_env, check=check, timeout=timeout, mode=mode)
+            command, env = ("dotnet", *args), active.dotnet_env
         case _:
-            return run(("dotnet", *args), cwd=cwd, env=None, check=check, timeout=timeout, mode=mode)
+            command, env = ("dotnet", *args), None
+    artifact_dir = scope.path / "process" if isinstance(scope, ArtifactScope) and mode == "stream" else None
+    return run(command, cwd=cwd, env=env, check=check, timeout=timeout, mode=mode, artifact_dir=artifact_dir)
 
 
 def dotnet_args(
@@ -237,7 +266,6 @@ def dotnet_args(
     disable_parallel: bool = False,
     max_cpu: int | None = None,
     serial: bool = False,
-    fresh: bool = False,
     quiet: bool = False,
     disable_build_servers: bool = False,
 ) -> tuple[str, ...]:
@@ -248,10 +276,9 @@ def dotnet_args(
             cpu = 1 if serial else max_cpu
             extra = ("-p:BuildInParallel=false",) if serial else ()
             parallel = (f"-maxcpucount:{cpu}", *extra) if cpu is not None else ()
-            freshness = ("--no-incremental",) if fresh else ()
             logger = ("-v:quiet", "/clp:ErrorsOnly") if quiet else ()
             servers = ("--disable-build-servers",) if disable_build_servers else ()
-            return ("build", str(target), "--configuration", configuration, "--no-restore", *freshness, *logger, *servers, *version, *parallel)
+            return ("build", str(target), "--configuration", configuration, "--no-restore", *logger, *servers, *version, *parallel)
         case unreachable:
             assert_never(unreachable)
 
@@ -271,7 +298,6 @@ def dotnet_build(
     max_cpu: int | None = None,
     scoped: bool = True,
     mode: ProcessMode = "stream",
-    fresh: bool = False,
     quiet: bool = False,
     disable_build_servers: bool = False,
 ) -> Result[None, ProcessFault]:
@@ -288,7 +314,6 @@ def dotnet_build(
                 version=version_args,
                 serial=serial,
                 max_cpu=max_cpu,
-                fresh=fresh,
                 quiet=quiet,
                 disable_build_servers=disable_build_servers,
             )
@@ -297,6 +322,51 @@ def dotnet_build(
         ),
     )
     return fold(commands, None, lambda _, command: dotnet(*command, scope=scope, scoped=scoped, check=True, mode=mode).map(lambda _: None))
+
+
+@cache
+def _dotnet_root() -> str | None:
+    # Resolve the valid runtime root once per process (the `dotnet --list-runtimes` probe is process-stable); tests reset via cache_clear.
+    def valid(path: str) -> str | None:
+        root = Path(path).expanduser()
+        return str(root) if (root / "shared" / "Microsoft.NETCore.App").is_dir() else None
+
+    def runtime_root(line: str) -> str | None:
+        match line.rsplit("[", maxsplit=1):
+            case [_, raw] if raw.endswith("]"):
+                return valid(str(Path(raw[:-1]).parent.parent))
+            case _:
+                return None
+
+    muxer = shutil.which("dotnet")
+    listed = run(("dotnet", "--list-runtimes"), check=False).map(lambda done: done.text.splitlines()).default_with(lambda _: ())
+    candidates = (
+        *(root for root in (runtime_root(line) for line in listed) if root is not None),
+        valid(os.environ.get("DOTNET_ROOT", "")),  # noqa: TID251
+        *(valid(str(Path(muxer).resolve().parent)) for _ in (muxer,) if muxer),
+    )
+    return next((root for root in candidates if root), None)
+
+
+def dotnet_apphost_env(env: dict[str, str] | None = None) -> dict[str, str]:
+    # nix sets DOTNET_ROOT to a wrapped path lacking shared/Microsoft.NETCore.App; overlay the resolved runtime root so
+    # apphost-deployed tools (ilspycmd, rhinocode) resolve a runtime. dotnet SDK verbs self-locate via the muxer and skip this.
+    base = dict(os.environ if env is None else env)  # noqa: TID251
+    match _dotnet_root():
+        case str(root):
+            return {**base, "DOTNET_ROOT": root, "DOTNET_MULTILEVEL_LOOKUP": "0"}
+        case None:
+            return {key: value for key, value in base.items() if key != "DOTNET_ROOT"}
+
+
+def dotnet_tool(scope: ArtifactScope, name: str, *args: str, check: bool = False, timeout: float | None = None) -> Result[Completed, ProcessFault]:
+    # `dotnet tool run` resolves the manifest at the worktree root and the runtime via the muxer (the nix-resilient path);
+    # the apphost overlay is belt-and-suspenders for the spawned tool process.
+    return run(("dotnet", "tool", "run", name, "--", *args), cwd=scope.root, env=dotnet_apphost_env(scope.dotnet_env), check=check, timeout=timeout)
+
+
+def dotnet_tool_restore(scope: ArtifactScope) -> Result[None, ProcessFault]:
+    return run(("dotnet", "tool", "restore"), cwd=scope.root, env=dotnet_apphost_env(scope.dotnet_env), check=True).map(lambda _: None)
 
 
 def _posix_flag(module: ModuleType, name: str) -> int:
@@ -334,6 +404,7 @@ def run(
     check: bool = False,
     timeout: float | None = None,
     mode: ProcessMode = "capture",
+    artifact_dir: Path | None = None,
 ) -> Result[Completed, ProcessFault]:
     def _outcome(completed: Completed) -> Result[Completed, ProcessFault]:
         detail = b"\n".join(filter(None, (completed.stderr, completed.stdout)))
@@ -347,7 +418,7 @@ def run(
                 completed = await anyio.run_process(list(argv), cwd=str(cwd) if cwd else None, env=env, check=False)
                 return _outcome(Completed(argv=argv, returncode=completed.returncode, stdout=completed.stdout, stderr=completed.stderr))
             case "stream":
-                streamed = await _stream(argv, cwd=cwd, env=env)
+                streamed = await _stream(argv, cwd=cwd, env=env, artifact_dir=artifact_dir)
                 return streamed.bind(_outcome)
 
     async def _guarded() -> Result[Completed, ProcessFault]:
@@ -366,29 +437,48 @@ def run(
     return anyio.run(_guarded)
 
 
-async def _stream(argv: tuple[str, ...], *, cwd: Path | None, env: dict[str, str] | None) -> Result[Completed, ProcessFault]:
-    stdout: list[bytes] = []
-    stderr: list[bytes] = []
+async def _stream(
+    argv: tuple[str, ...], *, cwd: Path | None, env: dict[str, str] | None, artifact_dir: Path | None
+) -> Result[Completed, ProcessFault]:
+    stdout_tail: deque[bytes] = deque()
+    stderr_tail: deque[bytes] = deque()
+    process_dir = _process_dir(argv, artifact_dir)
+    process_dir.mkdir(parents=True, exist_ok=True)
     process = await anyio.open_process(list(argv), cwd=str(cwd) if cwd else None, env=env, stdout=_PIPE, stderr=_PIPE)
-
-    async def collect(stream: ByteReceiveStream | None, sink: list[bytes], target: ByteWriter) -> None:
-        match stream:
-            case None:
-                return
-            case _:
-                async for chunk in stream:
-                    sink.append(chunk)
-                    target.write(chunk)
-                    target.flush()
-
+    # "wb": each run rewrites its streamed log; warm-closure build dirs are serialized by the build lease so there is one writer.
     try:
-        async with anyio.create_task_group() as group:
-            group.start_soon(collect, process.stdout, stdout, sys.stdout.buffer)
-            group.start_soon(collect, process.stderr, stderr, sys.stderr.buffer)
+        with (process_dir / "stdout.log").open("wb") as stdout_file, (process_dir / "stderr.log").open("wb") as stderr_file:
+            async with anyio.create_task_group() as group:
+                group.start_soon(_collect_stream, process.stdout, stdout_tail, sys.stdout.buffer, stdout_file)
+                group.start_soon(_collect_stream, process.stderr, stderr_tail, sys.stderr.buffer, stderr_file)
             returncode = await process.wait()
     except BaseException:
         process.kill()
         with anyio.CancelScope(shield=True):
             await process.wait()
         raise
-    return Ok(Completed(argv=argv, returncode=returncode, stdout=b"".join(stdout), stderr=b"".join(stderr)))
+    return Ok(Completed(argv=argv, returncode=returncode, stdout=b"".join(stdout_tail), stderr=b"".join(stderr_tail)))
+
+
+async def _collect_stream(stream: ByteReceiveStream | None, tail: deque[bytes], target: ByteWriter, artifact: ByteWriter) -> None:
+    match stream:
+        case None:
+            return
+        case _:
+            retained = 0
+            async for chunk in stream:
+                tail.append(chunk)
+                retained += len(chunk)
+                while retained > _STREAM_TAIL_BYTES:
+                    retained -= len(tail.popleft())
+                artifact.write(chunk)
+                artifact.flush()
+                target.write(chunk)
+                target.flush()
+
+
+def _process_dir(argv: tuple[str, ...], artifact_dir: Path | None) -> Path:
+    base = artifact_dir or Path.cwd() / ".artifacts" / "quality" / "process"
+    text = "-".join("".join(character if character.isalnum() else "-" for character in part).strip("-").lower() for part in argv[:6] if part.strip())
+    command_id = text[:96] or "command"
+    return base / command_id

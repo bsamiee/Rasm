@@ -24,9 +24,9 @@ flowchart LR
 | [INDEX] | [ITEM]           | [STATE]                  |
 | :-----: | ---------------- | ------------------------ |
 |   [1]   | Folder           | Active build             |
-|   [2]   | `.csproj`        | Create in Phase 0        |
+|   [2]   | `.csproj`        | `[NOT_STARTED]`          |
 |   [3]   | Production C#    | In progress              |
-|   [4]   | Host packages    | Add centrally in Phase 0 |
+|   [4]   | Host packages    | `[NOT_STARTED]`          |
 |   [5]   | Runtime evidence | Per host scenario        |
 
 ---
@@ -192,7 +192,7 @@ Packages that ship inside the in-process plugin binary:
 |   [7]   | `Microsoft.Extensions.Logging.Abstractions` | `ILogger<T>`, `[LoggerMessage]` source-gen, `NullLogger`; Serilog activates at companion root only |
 |   [8]   | `NodaTime`                                 | Persisted/audited semantic time, shared with Persistence |
 |   [9]   | `FluentValidation`                         | External DTO/config validation at boundary               |
-|  [10]   | `Microsoft.Extensions.Http.Resilience`     | Typed outbound `HttpClient` policy (Polly v8 inside); never raw Polly |
+|  [10]   | `Microsoft.Extensions.Http.Resilience`     | Typed outbound `HttpClient` policy (Polly resilience pipeline inside); never raw Polly |
 
 ### [5.2][COMPANION_PACKAGES]
 

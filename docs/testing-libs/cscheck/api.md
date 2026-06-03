@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Rasm pins `CsCheck 4.7.0`. Specs use `Rasm.TestKit.Spec` first; raw `Check.*` calls move into `_testkit` only after at least two specs need the same rail.
+[IMPORTANT] Rasm pins `CsCheck` at the version pinned in `Directory.Packages.props`. Specs use `Rasm.TestKit.Spec` first; raw `Check.*` calls move into `_testkit` only after at least two specs need the same rail.
 
 ---
 ## [1][PACKAGE_TRUTH]
@@ -13,12 +13,12 @@
 
 | [INDEX] | [FACT]                   | [VALUE]                                             |
 | :-----: | ------------------------ | --------------------------------------------------- |
-|   [1]   | Current pin              | `CsCheck 4.7.0`                                     |
+|   [1]   | Current pin              | `Directory.Packages.props`                          |
 |   [2]   | Package TFM              | `net8.0`, compatible with Rasm `net10.0` projects   |
 |   [3]   | Notable current addition | `SampleModelBasedAsync`                             |
 |   [4]   | Rasm policy              | `Spec.ForAll` owns seed/iter/time/thread precedence |
 
-[SOURCE] NuGet package page: https://www.nuget.org/packages/CsCheck/4.7.0
+[SOURCE] NuGet package page: https://www.nuget.org/packages/CsCheck
 
 ---
 ## [2][CHECK_SURFACE]

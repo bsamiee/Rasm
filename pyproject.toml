@@ -125,6 +125,25 @@ markers = [
     "timeout: per-test timeout override",
 ]
 
+# --- [COVERAGE] ------------------------------------------------------------
+
+[tool.coverage.run]
+branch =        true
+relative_files = true
+
+[tool.coverage.report]
+fail_under =    95
+show_missing =  true
+skip_covered =  true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "assert_never\\(",
+    "@(abc\\.)?abstractmethod",
+    "\\.\\.\\.$",
+    "if __name__ == .__main__.:",
+]
+
 # --- [RUFF] ----------------------------------------------------------------
 
 [tool.ruff]

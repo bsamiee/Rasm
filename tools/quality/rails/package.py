@@ -15,7 +15,7 @@ from beartype import beartype
 from expression import Error, Ok, Result
 import msgspec
 
-from tools.quality.process import decode_json, dotnet_build, exclusive_lease, fd_args, fold, ProcessFault, ResourceBusyError, run, Workspace
+from tools.quality.process import decode_json, dotnet_build, fd_args, fold, leased, ProcessFault, run, Workspace
 from tools.quality.rails.bridge import build_client, client_quit, client_refresh, with_bridge_lease
 from tools.quality.settings import ArtifactScope, QualitySettings, RASM_BRIDGE_SLUG, YAK_DISTRIBUTION_GLOB, YAK_PLATFORM
 
@@ -131,6 +131,27 @@ class PackageArtifact(msgspec.Struct, frozen=True):
     meta: PackageMeta
 
 
+class PackageProject(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
+    slug: str
+    project: str
+
+
+class PackagePlanReport(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
+    query: dict[str, str]
+    status: str
+    project: str
+    meta: dict[str, str]
+    artifact_paths: dict[str, str]
+
+
+class PackageListReport(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
+    query: dict[str, str]
+    status: str
+    count: int
+    packages: tuple[PackageProject, ...]
+    artifact_paths: dict[str, str]
+
+
 class _MsbuildProps(msgspec.Struct, frozen=True):
     Properties: dict[str, str]
 
@@ -174,6 +195,10 @@ def _finish(
 
 def _stage(settings: QualitySettings, scope: ArtifactScope, project: Path, slug: str, version: str) -> Result[PackageArtifact, ProcessFault]:
     def build(meta: PackageMeta) -> Result[PackageArtifact, ProcessFault]:
+        lock = meta.package_dir.with_name(f".{meta.package_dir.name}.lock")
+        return leased(settings, lock, "package-stage", lambda: stage_locked(meta), project=slug)
+
+    def stage_locked(meta: PackageMeta) -> Result[PackageArtifact, ProcessFault]:
         shutil.rmtree(meta.target_dir, ignore_errors=True)
         meta.package_dir.parent.mkdir(parents=True, exist_ok=True)
         stage, previous, primary, manifest = (
@@ -184,24 +209,17 @@ def _stage(settings: QualitySettings, scope: ArtifactScope, project: Path, slug:
         )
 
         def commit() -> Result[PackageArtifact, ProcessFault]:
-            # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=atomic-package-stage — flock + rotate package_dir to previous before os.replace.
-            lock = meta.package_dir.with_name(f".{meta.package_dir.name}.lock")
+            # Atomic commit: rotate package_dir -> previous before replacing with the staged dir, restoring previous on OSError.
             try:
-                with exclusive_lease(lock, f"resource=package-stage\nrun_id={settings.run_id}\nslug={slug}\n"):
-                    shutil.rmtree(previous, ignore_errors=True)
-                    match meta.package_dir.exists():
-                        case True:
-                            meta.package_dir.replace(previous)
-                        case False:
-                            pass
-                    stage.replace(meta.package_dir)
-                    shutil.rmtree(previous, ignore_errors=True)
-                    return Ok(PackageArtifact(meta.package_dir, meta))
-            except ResourceBusyError as exc:
-                shutil.rmtree(stage, ignore_errors=True)
-                return Error(
-                    ProcessFault.fail("package", "stage", detail=f"package stage lock is already held: {exc.lock}\n{exc.owner}", returncode=5)
-                )
+                shutil.rmtree(previous, ignore_errors=True)
+                match meta.package_dir.exists():
+                    case True:
+                        meta.package_dir.replace(previous)
+                    case False:
+                        pass
+                stage.replace(meta.package_dir)
+                shutil.rmtree(previous, ignore_errors=True)
+                return Ok(PackageArtifact(meta.package_dir, meta))
             except OSError as exc:
                 match previous.exists() and not meta.package_dir.exists():
                     case True:
@@ -238,6 +256,42 @@ def _stage(settings: QualitySettings, scope: ArtifactScope, project: Path, slug:
             )
         )
 
+    return _evaluate_meta(settings, scope, project, slug, version).bind(build)
+
+
+def _package_projects(settings: QualitySettings) -> Result[tuple[Path, ...], ProcessFault]:
+    root = settings.root
+    workspace = Workspace(root)
+    roots = tuple(str(root / name) for name in _PACKAGE_ROOTS if (root / name).is_dir())
+    return Ok(()) if not roots else workspace.paths(fd_args("csproj", ".", *roots, exclude=False), suffix=".csproj")
+
+
+def _resolve_project(settings: QualitySettings, slug: str) -> Result[Path, ProcessFault]:
+    workspace = Workspace(settings.root)
+
+    def resolve(found: Path | None, project: Path) -> Result[Path | None, ProcessFault]:
+        match (workspace.csproj(project, "YakPackageSlug") == slug, found):
+            case (True, None):
+                return Ok(project)
+            case (True, _):
+                return Error(ProcessFault.fail("package", slug, detail=f"Expected one package project for {slug}, found duplicate"))
+            case _:
+                return Ok(found)
+
+    return (
+        _package_projects(settings)
+        .bind(lambda found: fold(found, None, resolve))
+        .bind(
+            lambda selected: (
+                Error(ProcessFault.fail("package", slug, detail=f"Expected one package project for {slug}, found 0"))
+                if selected is None
+                else Ok(selected)
+            )
+        )
+    )
+
+
+def _evaluate_meta(settings: QualitySettings, scope: ArtifactScope, project: Path, slug: str, version: str) -> Result[PackageMeta, ProcessFault]:
     return (
         run(
             (
@@ -254,8 +308,50 @@ def _stage(settings: QualitySettings, scope: ArtifactScope, project: Path, slug:
         )
         .bind(lambda done: decode_json(done.stdout, _MsbuildProps).map(lambda data: data.Properties))
         .bind(lambda props: PackageMeta.from_props(project, props, settings, slug))
-        .bind(build)
     )
+
+
+def package_plan_payload(settings: QualitySettings, scope: ArtifactScope, slug: str, version: str) -> Result[bytes, ProcessFault]:
+    def payload(meta: PackageMeta) -> bytes:
+        return msgspec.json.encode(
+            PackagePlanReport(
+                query={"op": "package-plan", "slug": slug, "version": version},
+                status="ok",
+                project=str(meta.project),
+                meta={
+                    "manifest_dir": str(meta.manifest_dir),
+                    "target_dir": str(meta.target_dir),
+                    "package_dir": str(meta.package_dir),
+                    "package_pattern": meta.package_pattern,
+                    "target_framework": meta.target_framework,
+                    "yak_path": str(meta.yak_path),
+                    "yak_platform": meta.yak_platform,
+                    "yak_push_source": meta.yak_push_source,
+                },
+                artifact_paths={"run": str(scope.path)},
+            )
+        )
+
+    return _resolve_project(settings, slug).bind(lambda project: _evaluate_meta(settings, scope, project, slug, version).map(payload))
+
+
+def package_list_payload(settings: QualitySettings, scope: ArtifactScope) -> Result[bytes, ProcessFault]:
+    workspace = Workspace(settings.root)
+
+    def payload(projects: tuple[Path, ...]) -> bytes:
+        packages = tuple(
+            PackageProject(slug=slug, project=str(project.relative_to(settings.root)))
+            for project in projects
+            for slug in (workspace.csproj(project, "YakPackageSlug"),)
+            if isinstance(slug, str) and slug
+        )
+        return msgspec.json.encode(
+            PackageListReport(
+                query={"op": "package-list"}, status="ok", count=len(packages), packages=packages, artifact_paths={"run": str(scope.path)}
+            )
+        )
+
+    return _package_projects(settings).map(payload)
 
 
 def _yak_argv(meta: PackageMeta, op: YakOp, *, version: str = "", package_file: Path | None = None) -> tuple[str, ...]:
@@ -271,28 +367,6 @@ def _yak_argv(meta: PackageMeta, op: YakOp, *, version: str = "", package_file: 
 def run_package_rail(
     settings: QualitySettings, scope: ArtifactScope, mode: PackageMode, slug: str, version: str
 ) -> Result[PackageArtifact | None, ProcessFault]:
-    root = settings.root
-    workspace = Workspace(root)
-    roots = tuple(str(root / name) for name in _PACKAGE_ROOTS if (root / name).is_dir())
-    found = () if not roots else workspace.paths(fd_args("csproj", ".", *roots, exclude=False), suffix=".csproj")
-
-    def resolve(found: Path | None, project: Path) -> Result[Path | None, ProcessFault]:
-        match (workspace.csproj(project, "YakPackageSlug") == slug, found):
-            case (True, None):
-                return Ok(project)
-            case (True, _):
-                return Error(ProcessFault.fail("package", slug, detail=f"Expected one package project for {slug}, found duplicate"))
-            case _:
-                return Ok(found)
-
-    return (
-        fold(found, None, resolve)
-        .bind(
-            lambda selected: (
-                Error(ProcessFault.fail("package", slug, detail=f"Expected one package project for {slug}, found 0"))
-                if selected is None
-                else Ok(selected)
-            )
-        )
-        .bind(lambda project: _stage(settings, scope, project, slug, version).bind(lambda artifact: _finish(settings, scope, mode, slug, artifact)))
+    return _resolve_project(settings, slug).bind(
+        lambda project: _stage(settings, scope, project, slug, version).bind(lambda artifact: _finish(settings, scope, mode, slug, artifact))
     )
