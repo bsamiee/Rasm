@@ -21,7 +21,7 @@ declare -Ar TOOLS=(
     [eza]='eza:binstall'             [choose]='choose:binstall'
     [xh]='xh:binstall'               [dust]='du-dust:binstall'
     [procs]='procs:binstall'         [ouch]='ouch:binstall'
-    [jnv]='jnv:binstall'             [tokei]='tokei:binstall'
+    [jnv]='jnv:binstall'             [scc]='boyter/scc:github-go'
     [hyperfine]='hyperfine:binstall' [gping]='gping:binstall'
     [trip]='trippy:binstall'
     [doggo]='mr-karan/doggo:github-go'
@@ -37,7 +37,7 @@ declare -Ar COMMAND_DISPATCH=(
     [apply]=_apply
     [help]=_usage
 )
-declare -Ar ARCH_MAP=([x86_64]='amd64' [aarch64]='arm64' [arm64]='arm64')
+declare -Ar ARCH_MAP=([x86_64]='(amd64|x86_64)' [aarch64]='arm64' [arm64]='arm64')
 declare -Ar POST_NOTES=([trip]='requires: sudo setcap cap_net_raw+ep')
 declare -ar PKG_MGRS=(apt-get dnf)
 declare -ar PREREQS=(curl tar gzip jq)
@@ -153,7 +153,7 @@ _install_github_go() {
     local -r os="${raw_os@L}"
     url="$(curl -sSf "https://api.github.com/repos/${repo}/releases/latest" \
         | jq -r --arg os "${os}" --arg arch "${arch}" \
-            '[.assets[].browser_download_url | select(test($os) and test($arch) and test("\\.tar\\.gz$"))] | first // empty')"
+            '[.assets[].browser_download_url | select(test($os; "i") and test($arch; "i") and test("\\.tar\\.gz$"))] | first // empty')"
     readonly url
     [[ -n "${url}" ]] || {
         printf '[FAIL] No release asset for %s/%s\n' "${os}" "${arch}"
