@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Pin **`LanguageExt.Core` `5.0.0-beta-77`**. Typical workspace imports: `LanguageExt`, `LanguageExt.Common`, `LanguageExt.Traits`, `LanguageExt.Effects`, `LanguageExt.Pretty`, `LanguageExt.Traits.Domain`, and static `LanguageExt.Prelude` when global usings are enabled.
+[IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. Typical workspace imports: `LanguageExt`, `LanguageExt.Common`, `LanguageExt.Traits`, `LanguageExt.Effects`, `LanguageExt.Pretty`, `LanguageExt.Traits.Domain`, and static `LanguageExt.Prelude` when global usings are enabled.
 
 ---
 ## [1][SOURCE_TRUTH]
@@ -11,12 +11,12 @@
 
 <br>
 
-| [INDEX] | [SOURCE]                                                                            | [USE]                                        |
-| :-----: | ----------------------------------------------------------------------------------- | -------------------------------------------- |
-|   [1]   | `Directory.Packages.props`                                                          | Confirms `LanguageExt.Core` `5.0.0-beta-77`. |
-|   [2]   | `~/.nuget/packages/languageext.core/5.0.0-beta-77/lib/net10.0/LanguageExt.Core.xml` | Exact public API.                            |
-|   [3]   | `~/.nuget/.../languageext.core.nuspec`                                              | Package metadata and source commit.          |
-|   [4]   | NuGet and upstream docs                                                             | Secondary feature context.                   |
+| [INDEX] | [SOURCE]                                                             | [USE]                                        |
+| :-----: | -------------------------------------------------------------------- | -------------------------------------------- |
+|   [1]   | `Directory.Packages.props`                                           | Confirms the pinned `LanguageExt.Core` version. |
+|   [2]   | `uv run python -m tools.quality api resolve LanguageExt.Core all`    | Exact local API asset paths.                 |
+|   [3]   | `uv run python -m tools.quality api query LanguageExt.Core <symbol>` | Public member evidence.                      |
+|   [4]   | NuGet and upstream docs                                              | Secondary feature context.                   |
 
 ---
 ## [2][SURFACE_MAP]
@@ -34,7 +34,7 @@
 |   [6]   | `Schedule`                   | Retry, repeat, timeout, backoff algebra.   | Composition-root resilience.                          |
 |   [7]   | `Seq<T>`, `Arr<T>`           | Immutable traversal shapes.                | Cross-module sequence and strict batch storage.       |
 |   [8]   | `K<F,A>` and traits          | Effect-polymorphic algorithms.             | One algorithm, multiple carriers.                     |
-|   [9]   | `Atom<T>`, `Ref<T>`          | Managed reactive state.                    | UI/session state — no Subscribe API in 5.0.0-beta-77. |
+|   [9]   | `Atom<T>`, `Ref<T>`          | Managed reactive state.                    | UI/session state — no Subscribe API in LanguageExt v5. |
 |  [10]   | `HashMap<K,V>`, `HashSet<T>` | Immutable map/set.                         | Keyed memoization after key policy is explicit.       |
 
 ---

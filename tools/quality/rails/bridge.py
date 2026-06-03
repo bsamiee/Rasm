@@ -13,19 +13,7 @@ from beartype import beartype
 from expression import Error, Ok, Result
 import msgspec
 
-from tools.quality.process import (
-    Completed,
-    decode_json,
-    dotnet,
-    dotnet_build,
-    exclusive_lease,
-    fd_args,
-    fold,
-    ProcessFault,
-    ProjectIndex,
-    ResourceBusyError,
-    Workspace,
-)
+from tools.quality.process import Completed, decode_json, dotnet, dotnet_build, fd_args, fold, leased, ProcessFault, ProjectIndex, Workspace
 from tools.quality.settings import ArtifactScope, QualitySettings
 
 
@@ -184,23 +172,27 @@ def _scan(pattern: re.Pattern[str], text: str) -> tuple[dict[str, object], ...]:
     )
 
 
-def _verify_discover(workspace: Workspace, root: Path, pattern: str) -> tuple[Path, ...]:
-    def direct(candidate: Path) -> tuple[Path, ...]:
+def _verify_discover(workspace: Workspace, root: Path, pattern: str) -> Result[tuple[Path, ...], ProcessFault]:
+    def direct(candidate: Path) -> Result[tuple[Path, ...], ProcessFault]:
         match (candidate.is_file(), candidate.is_dir(), candidate.suffix):
             case (True, _, ".csx") if candidate.name.endswith(".verify.csx"):
-                return (candidate.resolve(),)
+                return Ok((candidate.resolve(),))
             case (_, True, _):
                 return workspace.paths(fd_args("csx", r"\.verify\.csx$", candidate, exclude=False), cwd=candidate, suffix=".csx")
             case _:
-                return ()
+                return Ok(())
 
-    match next((rows for candidate in (Path(pattern), root / pattern) for rows in (direct(candidate),) if rows), ()):
-        case ():
-            # fd positional is regex, not shell glob — expand path-shaped patterns via pathlib from the worktree root.
-            normalized = pattern if any(ch in pattern for ch in "/*?[") else f"**/{pattern}"
-            return tuple(sorted(p.resolve() for p in root.glob(normalized) if p.is_file() and p.name.endswith(".verify.csx")))
-        case rows:
-            return rows
+    def fallback(rows: tuple[Path, ...]) -> Result[tuple[Path, ...], ProcessFault]:
+        match rows:
+            case ():
+                # fd positional is regex, not shell glob — expand path-shaped patterns via pathlib from the worktree root.
+                normalized = pattern if any(ch in pattern for ch in "/*?[") else f"**/{pattern}"
+                return Ok(tuple(sorted(p.resolve() for p in root.glob(normalized) if p.is_file() and p.name.endswith(".verify.csx"))))
+            case _:
+                return Ok(tuple(dict.fromkeys(rows)))
+
+    seed: tuple[Path, ...] = ()
+    return fold((Path(pattern), root / pattern), seed, lambda acc, candidate: direct(candidate).map(lambda rows: (*acc, *rows))).bind(fallback)
 
 
 def _verify_invoke(settings: QualitySettings, scope: ArtifactScope, report_dir: Path, project: Path, scenario: Path) -> BridgeResult:
@@ -231,13 +223,13 @@ def _verify_resolve(settings: QualitySettings, workspace: Workspace, index: Proj
 
 def _verify_summary(report_dir: Path, results: tuple[BridgeResult, ...], ttl_seconds: float) -> Result[VerifyReport, ProcessFault]:
     scenarios = tuple(VerifyScenario.of(result) for result in results)
-    ok = sum(scenario.status == "ok" for scenario in scenarios)
+    ok = sum(_BRIDGE_EXIT[scenario.status] == 0 for scenario in scenarios)
     reports = sum(len(scenario.exception_reports) for scenario in scenarios)
     payload = VerifyReport(
         summary=VerifySummaryCounts(ok=ok, failed=len(scenarios) - ok, total=len(scenarios), exception_reports=reports),
         report_dir=str(report_dir),
         expires_in_seconds=ttl_seconds,
-        first_failure=next((scenario for scenario in scenarios if scenario.status != "ok"), None),
+        first_failure=next((scenario for scenario in scenarios if _BRIDGE_EXIT[scenario.status] != 0), None),
         scenarios=scenarios,
     )
     # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=artifact-write
@@ -330,61 +322,55 @@ def client_refresh(settings: QualitySettings, scope: ArtifactScope) -> Result[No
 
 @beartype
 def run_verify(settings: QualitySettings, scope: ArtifactScope, pattern: str) -> Result[VerifyReport, ProcessFault]:
-    try:
-        with exclusive_lease(settings.bridge_lock, _lease_owner(settings, "bridge")):
-            return _run_verify_unlocked(settings, scope, pattern)
-    except ResourceBusyError as exc:
-        return Error(ProcessFault.fail("bridge", "busy", detail=f"bridge lock is already held: {exc.lock}\n{exc.owner}", returncode=5))
+    return with_bridge_lease(settings, lambda: _run_verify_unlocked(settings, scope, pattern))
 
 
 def with_bridge_lease[T](settings: QualitySettings, action: Callable[[], Result[T, ProcessFault]]) -> Result[T, ProcessFault]:
-    try:
-        with exclusive_lease(settings.bridge_lock, _lease_owner(settings, "bridge")):
-            return action()
-    except ResourceBusyError as exc:
-        return Error(ProcessFault.fail("bridge", "busy", detail=f"bridge lock is already held: {exc.lock}\n{exc.owner}", returncode=5))
-
-
-def _lease_owner(settings: QualitySettings, resource: str) -> str:
-    return f"resource={resource}\nrun_id={settings.run_id}\n"
+    # The Rhino bridge lease is process-global (one RhinoWIP.app); every client/verify command serializes through it.
+    return leased(settings, settings.bridge_lock, "bridge", action, project="bridge")
 
 
 def _run_verify_unlocked(settings: QualitySettings, scope: ArtifactScope, pattern: str) -> Result[VerifyReport, ProcessFault]:
+    # Discover -> index -> expire stale runs -> build client+kit -> launch -> run every scenario -> summary, on one rail.
     root, report_root, report_dir, workspace = (settings.root, settings.bridge_verify_root, settings.bridge_verify_dir, Workspace(settings.root))
-    scenarios = _verify_discover(workspace, root, pattern)
-    match scenarios:
-        case ():
-            return Error(ProcessFault.fail("verify", pattern, detail=b"No *.verify.csx scenarios matched"))
-        case _:
-            index = workspace.index()
 
-            def ensure_report_dir() -> Result[None, ProcessFault]:
-                # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=artifact-mkdir
-                try:
-                    report_dir.mkdir(parents=True, exist_ok=True)
-                    return Ok(None)
-                except OSError as exc:
-                    return Error(ProcessFault.fail("verify", "report-dir", detail=str(exc)))
+    def ensure_report_dir() -> Result[None, ProcessFault]:
+        # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=artifact-mkdir
+        try:
+            report_dir.mkdir(parents=True, exist_ok=True)
+            return Ok(None)
+        except OSError as exc:
+            return Error(ProcessFault.fail("verify", "report-dir", detail=str(exc)))
 
-            def scenario(acc: tuple[BridgeResult, ...], item: Path) -> Result[tuple[BridgeResult, ...], ProcessFault]:
-                return Ok(
-                    _verify_resolve(settings, workspace, index, item)
-                    .map(lambda project: (*acc, _verify_invoke(settings, scope, report_dir, project, item)))
-                    .default_with(lambda fault: (*acc, BridgeResult.from_process_fault(fault)))
-                )
+    def scenario(index: ProjectIndex) -> Callable[[tuple[BridgeResult, ...], Path], Result[tuple[BridgeResult, ...], ProcessFault]]:
+        return lambda acc, item: Ok(
+            _verify_resolve(settings, workspace, index, item)
+            .map(lambda project: (*acc, _verify_invoke(settings, scope, report_dir, project, item)))
+            .default_with(lambda fault: (*acc, BridgeResult.from_process_fault(fault)))
+        )
 
-            seed: tuple[BridgeResult, ...] = ()
-
-            return (
-                _verify_expire(report_root, settings.verify_retention_seconds)
-                .bind(lambda _: ensure_report_dir())
-                .bind(lambda _: build_client(settings, scope))
-                .bind(lambda _: build_scenario_kit(settings, scope))
-                .bind(lambda _: client_run(settings, scope, "launch", check=False))
-                .bind(
-                    lambda _: fold(scenarios, seed, scenario).bind(lambda rows: _verify_summary(report_dir, rows, settings.verify_retention_seconds))
+    def run(scenarios: tuple[Path, ...], index: ProjectIndex) -> Result[VerifyReport, ProcessFault]:
+        seed: tuple[BridgeResult, ...] = ()
+        return (
+            _verify_expire(report_root, settings.verify_retention_seconds)
+            .bind(lambda _: ensure_report_dir())
+            .bind(lambda _: build_client(settings, scope))
+            .bind(lambda _: build_scenario_kit(settings, scope))
+            .bind(lambda _: client_run(settings, scope, "launch", check=False))
+            .bind(
+                lambda _: fold(scenarios, seed, scenario(index)).bind(
+                    lambda rows: _verify_summary(report_dir, rows, settings.verify_retention_seconds)
                 )
             )
+        )
+
+    return _verify_discover(workspace, root, pattern).bind(
+        lambda scenarios: (
+            Error(ProcessFault.fail("verify", pattern, detail=b"No *.verify.csx scenarios matched"))
+            if not scenarios
+            else workspace.index().bind(lambda index: run(scenarios, index))
+        )
+    )
 
 
 def try_decode_bridge(payload: bytes | str) -> Result[BridgeResult, ProcessFault]:

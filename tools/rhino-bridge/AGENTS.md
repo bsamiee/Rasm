@@ -12,7 +12,7 @@ Use bridge commands ONLY when static .NET gates cannot answer:
 - Source ownership/build proof on a `*.cs` file — `uv run python -m tools.quality bridge check <source.cs>` returns `unsupported` (exit 3) without a scenario, which is truthful build proof, not failure.
 - Bridge `check`/`verify` REBUILD the owning project in Release under `RestoreLockedMode=true`. A stale `packages.lock.json` surfaces as the distinct fault category `nuget-lock-drift` (NU1004/NU1403) — fix it with `dotnet restore Workspace.slnx --force-evaluate`, not a code edit; it is no longer reported as a generic compile error.
 - Bridge health check before editing native-touching code — `uv run python -m tools.quality bridge doctor`. Reports `hostRuntime`, RhinoCode `scriptEngine` readiness, and resolved host-assembly versions/paths from the newest installed RhinoWIP bundle (never NuGet).
-- Local RhinoWIP API metadata lookup before relying on undocumented members — `uv run python -m tools.quality api doctor|path|xml|types|decompile`.
+- Local RhinoWIP/API metadata lookup before relying on undocumented members — `uv run python -m tools.quality api doctor|resolve|query|show`. `api query <key> <symbol>` owns member and type reads (dotted `Type.Member` for members) via `ilspycmd`, XML-optional. API commands emit compact JSON and store full query/decompile evidence under `.artifacts/quality/api/<run-id>/`.
 
 ## When NOT to invoke
 
@@ -37,7 +37,7 @@ Bridge markers are the structured wire contract. Use `Rasm.RhinoBridge.Protocol.
 
 ## Validation for bridge changes
 
-Select the touched rail. `quality static fix`, `quality static report`, `quality static build`, and MTP test runs may run concurrently — they isolate MSBuild artifacts per invocation under `.artifacts/quality/<rail>/<run-id>/`. Live Rhino bridge commands, bridge verify, bridge package live steps, and package stage commit use fail-fast leases.
+Select the touched rail. `quality static fix`, `quality static report`, `quality static build`, and MTP test runs may run concurrently — they isolate MSBuild artifacts per invocation under `.artifacts/quality/<rail>/<run-id>/`. Live Rhino bridge commands, bridge verify, bridge package live steps, and package staging use fail-fast leases. Lease files remain stable and are truncated after release.
 
 ```bash
 uv run python -m tools.quality self-test
@@ -60,4 +60,5 @@ For packaging changes, add:
 VERSION=0.0.0-ci.$(date -u +%Y%m%d%H%M%S)
 uv run python -m tools.quality bridge package rasm-bridge "${VERSION}"
 uv run python -m tools.quality bridge deploy rasm-bridge "${VERSION}"
+uv run python -m tools.quality bridge publish rasm-bridge "${VERSION}"
 ```

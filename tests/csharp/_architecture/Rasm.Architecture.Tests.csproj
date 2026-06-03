@@ -3,9 +3,6 @@
         <SolutionDir>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..', '..'))</SolutionDir>
         <SolutionName>Workspace</SolutionName>
         <Optimize>false</Optimize>
-        <IsRhinoCommonAwareProject>true</IsRhinoCommonAwareProject>
-        <IsRhinoUiAwareProject>true</IsRhinoUiAwareProject>
-        <IsGrasshopperAwareProject>true</IsGrasshopperAwareProject>
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="TngTech.ArchUnitNET.xUnitV3" PrivateAssets="all" />

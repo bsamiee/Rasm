@@ -30,6 +30,7 @@ _MARKER: Final[str] = "Workspace.slnx"
 CS_SUFFIXES: Final[frozenset[str]] = frozenset((".cs", ".csproj", ".props", ".targets", ".json", ".resx", ".ico", ".ghicon", ".yml", ".yaml"))
 FULL_CONFIGURATIONS: Final[tuple[Configuration, Configuration]] = ("Debug", "Release")
 FULL_TRIGGER_FILES: Final[frozenset[str]] = frozenset((
+    ".config/dotnet-tools.json",
     "Directory.Build.props",
     "Directory.Build.targets",
     "Directory.Packages.props",
@@ -75,7 +76,7 @@ class QualitySettings(BaseSettings):
     mutation_project: Path = Field(default=Path("libs/csharp/Rasm/Rasm.csproj"))
     mutation_test_project: Path = Field(default=_DEFAULT_RASM_TESTS)
     mutation_target_framework: str = "net10.0"
-    rhino_app: Path = Field(default_factory=lambda: QualitySettings._resolve_rhino_app())
+    rhino_app: Path | None = Field(default_factory=lambda: QualitySettings._resolve_rhino_app())
     bridge_endpoint: Path = Field(default=Path.home() / ".rasm" / "rhino-bridge.json")
     test_timeout_s: Annotated[float, Field(gt=0.0)] = 300.0
     mutation_timeout_s: Annotated[float, Field(gt=0.0)] = 1200.0
@@ -83,14 +84,21 @@ class QualitySettings(BaseSettings):
     verify_retention_seconds: Annotated[float, Field(gt=0.0)] = 300.0
     configurations: str | None = None
     run_id: str = Field(default_factory=lambda: f"{datetime.now(tz=UTC).strftime('%Y-%m-%dT%H-%M-%S.%f')}-{os.getpid()}")
-    coverage_threshold: float | None = None
-    coverage_threshold_type: str | None = None
-    coverage_threshold_stat: str | None = None
 
     @field_validator("test_target", "mutation_project", "mutation_test_project", mode="before")
     @classmethod
     def _expand(cls, value: str | Path) -> Path:
         return Path(value).expanduser()
+
+    @field_validator("configurations")
+    @classmethod
+    def _check_configurations(cls, value: str | None) -> str | None:
+        # Fail at settings load (clear ValidationError) instead of lazily raising inside the build rail past the Result boundary.
+        match frozenset((value or "").split()) - frozenset(FULL_CONFIGURATIONS):
+            case frozenset() as invalid if invalid:
+                raise ValueError(f"QUALITY_CONFIGURATIONS contains invalid values: {', '.join(sorted(invalid))}")
+            case _:
+                return value
 
     @field_validator("root", mode="before")
     @classmethod
@@ -99,8 +107,8 @@ class QualitySettings(BaseSettings):
 
     @field_validator("rhino_app", mode="before")
     @classmethod
-    def _require_rhino_app(cls, value: str | Path | None) -> Path:
-        return cls._coerce_rhino_bundle(Path(value).expanduser() if value else None, label=value)
+    def _require_rhino_app(cls, value: str | Path | None) -> Path | None:
+        return cls._coerce_rhino_bundle(Path(value).expanduser(), label=value) if value else None
 
     @classmethod
     def anchor(cls, start: Path) -> Path:
@@ -127,7 +135,6 @@ class QualitySettings(BaseSettings):
     @staticmethod
     def _newest_rhino_app() -> Path | None:
         def bundle_version(app: Path) -> tuple[int, ...]:
-            # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=plist-read ticket=QUALITY-R8 expires=2026-12-31 rationale=fs-ingress
             try:
                 plist = plistlib.loads((app / "Contents" / "Info.plist").read_bytes())
             except OSError, plistlib.InvalidFileException:
@@ -140,10 +147,13 @@ class QualitySettings(BaseSettings):
         )[2]
 
     @staticmethod
-    def _resolve_rhino_app() -> Path:
+    def _resolve_rhino_app() -> Path | None:
         override = os.environ.get("RHINO_WIP_APP_PATH", "")  # noqa: TID251
         candidate = Path(override).expanduser() if override else QualitySettings._newest_rhino_app()
-        return QualitySettings._coerce_rhino_bundle(candidate, label=override or "auto-discover")
+        return QualitySettings._coerce_rhino_bundle(candidate, label=override or "auto-discover") if candidate is not None else None
+
+    def require_rhino_app(self) -> Path:
+        return self._coerce_rhino_bundle(self.rhino_app, label=self.rhino_app or "auto-discover")
 
     @property
     def solution(self) -> Path:
@@ -180,6 +190,9 @@ class QualitySettings(BaseSettings):
     def bridge_lock(self) -> Path:
         return self.artifact_root / "locks" / "bridge.lock"
 
+    def build_lock(self, closure: str) -> Path:
+        return self.artifact_root / "locks" / f"build-{closure}.lock"
+
     @property
     def bridge_client(self) -> Path:
         return self.root / "tools/rhino-bridge/client/Rasm.RhinoBridge.Client.csproj"
@@ -207,8 +220,7 @@ class QualitySettings(BaseSettings):
         return self.bridge_verify_root / self.run_id
 
     def static_configurations(self, scope: Literal["changed", "full"]) -> tuple[Configuration, ...]:
-        raw = self.configurations
-        match (raw, scope):
+        match (self.configurations, scope):
             case (str(text), _) if text.strip():
                 selected = frozenset(text.split())
                 return tuple(configuration for configuration in FULL_CONFIGURATIONS if configuration in selected)
@@ -233,8 +245,10 @@ class QualitySettings(BaseSettings):
         return (f"/p:Version={version}", f"/p:InformationalVersion={version}") if version else ()
 
     def dotnet_env(self, scope_path: Path, *, rail: str = "") -> dict[str, str]:
-        overlay = {"DOTNET_CLI_HOME": str(scope_path / _DOTNET_CLI)} | ({} if rail == "static" else {"MSBUILDDISABLENODEREUSE": "1"})
-        return {**os.environ, **overlay, "RHINO_WIP_APP_PATH": str(self.rhino_app)}  # noqa: TID251
+        _ = rail
+        overlay = {"DOTNET_CLI_HOME": str(scope_path / _DOTNET_CLI), "MSBUILDDISABLENODEREUSE": "1"}
+        rhino = {"RHINO_WIP_APP_PATH": str(self.rhino_app)} if self.rhino_app is not None else {}
+        return {**os.environ, **overlay, **rhino}  # noqa: TID251
 
     def _artifact_dir(self, kind: Literal["test", "mutation"], slice_name: str | None = None) -> Path:
         return self.artifact_root / kind / (slice_name or self.test_slice) / self.run_id
@@ -253,8 +267,7 @@ class ArtifactScope:
 
     @property
     def dotnet_flags(self) -> tuple[str, ...]:
-        base = ("--artifacts-path", str(self.path))
-        return base if self.rail == "static" else (*base, "--disable-build-servers")
+        return ("--artifacts-path", str(self.path), "--disable-build-servers")
 
     @property
     def artifacts_property(self) -> tuple[str, ...]:
@@ -266,3 +279,11 @@ class ArtifactScope:
         scope_path = settings.artifact_root / _QUALITY / rail / settings.run_id
         (scope_path / _DOTNET_CLI).mkdir(parents=True, exist_ok=True)
         yield ArtifactScope(root=settings.root, rail=rail, scope_path=scope_path, dotnet_env=settings.dotnet_env(scope_path, rail=rail))
+
+    @classmethod
+    def build(cls, settings: QualitySettings, closure: str) -> ArtifactScope:
+        # Stable per-closure path (not run-scoped) so MSBuild artifacts stay warm across runs and the cs-analyzer/shared-dep
+        # obj output is isolated per closure; concurrency is governed by the build-<closure> lease, not path uniqueness.
+        scope_path = settings.artifact_root / _QUALITY / "build" / closure
+        (scope_path / _DOTNET_CLI).mkdir(parents=True, exist_ok=True)
+        return cls(root=settings.root, rail="build", scope_path=scope_path, dotnet_env=settings.dotnet_env(scope_path, rail="build"))

@@ -3,9 +3,9 @@
 
 <br>
 
-[IMPORTANT] Pin **`Thinktecture.Runtime.Extensions` `10.2.0`**. Verify attribute properties in local package XML.
+[IMPORTANT] Pin **`Thinktecture.Runtime.Extensions`** at the version pinned in `Directory.Packages.props`. Verify attribute properties in local package XML.
 
-Thinktecture `[Union]` generates case types, `.Switch()`, `.Map()` — **not** `operator +`/`|` on the union type in 10.2.0.
+Thinktecture `[Union]` generates case types, `.Switch()`, `.Map()` — **not** `operator +`/`|` on the union type in Thinktecture v10.
 
 ---
 ## [1][UNION_ATTRIBUTES]
@@ -63,7 +63,7 @@ Ad-hoc unions: `[Union<T1,T2,...>]` and `[AdHocUnion(typeof(...))]` — up to fi
 |   [7]   | `[IgnoreMember]`                              | Exclude member from generated equality                      |
 |   [8]   | `[ObjectFactory]`/`[ObjectFactory<T>]`        | Deser/EF/model-binding factories                            |
 
-`EquatableValueObject` is **absent** from 10.2.0 public API.
+`EquatableValueObject` is **absent** from the Thinktecture v10 public API.
 
 Bridge Thinktecture validation once into LanguageExt rails at the boundary — see `objects.md`.
 

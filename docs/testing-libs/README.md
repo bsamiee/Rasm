@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Package injection and versions: `Directory.Build.props` + `Directory.Packages.props` §6. Cross-stack proof: `../usage.md` §5.
+[IMPORTANT] Package injection and versions: `Directory.Build.props`, `Directory.Packages.props`, and `docs/system-api-map/packages.md` §6. Cross-stack proof: `../usage.md` §5.
 
 ---
 ## [1][INDEX]

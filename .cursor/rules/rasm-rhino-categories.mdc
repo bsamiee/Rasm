@@ -33,7 +33,7 @@ Read `libs/csharp/Rasm.Rhino/AGENTS.md`, `libs/csharp/AGENTS.md`, `.claude/skill
 - Preserve document receipts, redraw/commit behavior, resource lifetimes, disposal, UI-thread protection, and native consistency at the category boundary.
 - Keep document mutation, selection, construction, UI, camera, capture, block, and exchange ownership separated.
 - Convert nullable, bool, obsolete, disposable, and synchronous native surfaces into typed `Fin`, `Option`, receipt, policy, and scoped-resource rails.
-- Verify risky Rhino behavior against current RhinoWIP XML, decompile evidence when XML is absent, and `uv run python -m tools.quality api doctor|xml|types|decompile`.
+- Verify risky Rhino behavior with `uv run python -m tools.quality api doctor|resolve|query|show`; `api query` decompiles via ilspy and needs no XML when a sidecar is absent.
 
 ## Known RhinoWIP Constraints
 

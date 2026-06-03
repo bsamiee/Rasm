@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Unified product UI rail for Rasm host surfaces, retained app panels, live projections, visuals, charts, and diagnostics.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../Rasm/Rasm.csproj" />
+        <ProjectReference Include="../Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
+        <ProjectReference Include="../Rasm.Rhino/Rasm.Rhino.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Label="Retained UI">
+        <PackageReference Include="Avalonia" />
+        <PackageReference Include="Avalonia.Controls.ColorPicker" />
+        <PackageReference Include="Avalonia.Controls.DataGrid" />
+        <PackageReference Include="Avalonia.Desktop" />
+        <PackageReference Include="Avalonia.Fonts.Inter" />
+        <PackageReference Include="ReactiveUI" />
+        <PackageReference Include="ReactiveUI.Avalonia" />
+        <PackageReference Include="ReactiveUI.Validation" />
+        <PackageReference Include="Xaml.Behaviors.Avalonia" />
+    </ItemGroup>
+
+    <ItemGroup Label="Live Data And Visuals">
+        <PackageReference Include="DynamicData" />
+        <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" />
+        <PackageReference Include="SkiaSharp" />
+        <PackageReference Include="SkiaSharp.HarfBuzz" />
+        <PackageReference Include="SkiaSharp.NativeAssets.macOS" ExcludeAssets="native" />
+        <PackageReference Include="HarfBuzzSharp.NativeAssets.macOS" />
+        <PackageReference Include="Svg.Controls.Skia.Avalonia" />
+        <PackageReference Include="System.Reactive" />
+    </ItemGroup>
+
+    <ItemGroup Label="Product Controls">
+        <PackageReference Include="bodong.Avalonia.PropertyGrid" />
+        <PackageReference Include="DialogHost.Avalonia" />
+        <PackageReference Include="Projektanker.Icons.Avalonia" />
+        <PackageReference Include="Projektanker.Icons.Avalonia.MaterialDesign" />
+    </ItemGroup>
+
+</Project>

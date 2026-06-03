@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Rasm pins `Thinktecture.Runtime.Extensions` `10.2.0`. `Directory.Build.props` supplies the package reference and global `Thinktecture` using.
+[IMPORTANT] Rasm pins `Thinktecture.Runtime.Extensions` at the version pinned in `Directory.Packages.props`. `Directory.Build.props` supplies the package reference and global `Thinktecture` using.
 
 ---
 ## [1][SOURCE_TRUTH]
@@ -11,12 +11,12 @@
 
 <br>
 
-| [INDEX] | [SOURCE]                                           | [USE]                                                    |
-| :-----: | -------------------------------------------------- | -------------------------------------------------------- |
-|   [1]   | `Directory.Packages.props`                         | Confirms `Thinktecture.Runtime.Extensions` `10.2.0`.     |
-|   [2]   | `~/.nuget/.../Thinktecture.Runtime.Extensions.xml` | Public generated support API.                            |
-|   [3]   | Package nuspec                                     | Analyzer, refactoring, source-generator package closure. |
-|   [4]   | Official wiki and Context7                         | Secondary source for generator behavior.                 |
+| [INDEX] | [SOURCE]                                                                         | [USE]                                                    |
+| :-----: | -------------------------------------------------------------------------------- | -------------------------------------------------------- |
+|   [1]   | `Directory.Packages.props`                                                       | Confirms the pinned `Thinktecture.Runtime.Extensions` version. |
+|   [2]   | `uv run python -m tools.quality api resolve Thinktecture.Runtime.Extensions all` | Public generated support API assets.                     |
+|   [3]   | Package nuspec                                                                   | Analyzer, refactoring, source-generator package closure. |
+|   [4]   | Official wiki and Context7                                                       | Secondary source for generator behavior.                 |
 
 ---
 ## [2][SURFACES]

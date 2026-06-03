@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Pin **`LanguageExt.Core` `5.0.0-beta-77`**. Verify members in local package XML before documenting new combinators.
+[IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. Verify members in local package XML before documenting new combinators.
 
 ---
 ## [1][LOWERING]
@@ -84,7 +84,7 @@
 
 ---
 ## [6][STATE]
->**Dictum:** *Atoms swap; Subscribe APIs removed in 5.0.0-beta-77.*
+>**Dictum:** *Atoms swap; Subscribe APIs removed in LanguageExt v5.*
 
 <br>
 

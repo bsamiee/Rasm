@@ -61,6 +61,7 @@ When the analyzer rejects, treat the rejection as architectural pressure, not as
 | ROP / Effects         | LanguageExt                             | `Fin<T>`, `Validation<Error,T>`, `Eff<RT,T>`, `IO<A>`, `K<F,A>`, `Option<T>`, `Seq<T>` |
 | Value objects / DUs   | Thinktecture                            | `[ValueObject<T>]`, `[SmartEnum<T>]`, `[Union]`, generated dispatch                    |
 | Numerics / Symbolics  | MathNet, CSparse                        | Linear algebra, symbolic formulas, sparse SPD factorization                            |
+| App UI                | Avalonia / ReactiveUI / DynamicData     | Active `Rasm.AppUi` direct package surface                                             |
 | Scheduling            | LanguageExt                             | `Schedule.exponential` / `spaced` / `jitter` / `recurs` / `upto` algebra               |
 | State                 | LanguageExt                             | `Atom<T>` validators, `Ref<T>` + `atomic` STM, `Bracket` resource scope                |
 | Composition (host)    | Scrutor 7 `[NOT_IN_GRAPH]`              | `Scan`, `Decorate`/`TryDecorate`, keyed registration — composition root only           |
@@ -185,7 +186,7 @@ Adopt only when a bootstrap consumer pins the package.
 | OpenTelemetry 1.x                         | Traces, metrics, exporters                                             | Generic host                    |
 | Microsoft.Extensions.Http.Resilience 10.x | Outbound `HttpClient` resilience                                       | Composition root                |
 
-Polly raw is intentionally absent from domain guidance. BenchmarkDotNet belongs to dedicated measurement rails only — not domain hot-path doctrine. Domain retry: LanguageExt `Schedule` + `Prelude.retry` on `Eff`/`IO`; domain validation: `Validation<Error,T>`; domain time: `IClock`; container wiring: Scrutor when `IServiceCollection` exists, else runtime records.
+AppUi package truth lives in `Directory.Packages.props`, `libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj`, and `docs/system-api-map/packages.md`; Scrutor, EF, NodaTime, FluentValidation, Serilog, OTel, and HTTP resilience remain candidates until directly consumed. Polly raw is intentionally absent from domain guidance. BenchmarkDotNet belongs to dedicated measurement rails only — not domain hot-path doctrine. Domain retry: LanguageExt `Schedule` + `Prelude.retry` on `Eff`/`IO`; domain validation: `Validation<Error,T>`; domain time: `IClock`; container wiring: Scrutor when `IServiceCollection` exists, else runtime records.
 
 
 ## Advanced surface index

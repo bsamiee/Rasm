@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Rasm uses `TngTech.ArchUnitNET.xUnitV3 0.13.3` in `tests/csharp/_architecture` for compiled assembly boundary laws that the local analyzer does not own.
+[IMPORTANT] Rasm uses `TngTech.ArchUnitNET.xUnitV3` (version pinned in `Directory.Packages.props`) in `tests/csharp/_architecture` for compiled assembly boundary laws that the local analyzer does not own.
 
 ---
 ## [1][PACKAGE]
@@ -11,11 +11,11 @@
 
 <br>
 
-| [INDEX] | [PACKAGE]                     | [PIN]    | [USE]                             |
-| :-----: | ----------------------------- | -------- | --------------------------------- |
-|   [1]   | `TngTech.ArchUnitNET.xUnitV3` | `0.13.3` | xUnit v3 architecture assertions. |
+| [INDEX] | [PACKAGE]                     | [PIN]                      | [USE]                             |
+| :-----: | ----------------------------- | -------------------------- | --------------------------------- |
+|   [1]   | `TngTech.ArchUnitNET.xUnitV3` | `Directory.Packages.props` | xUnit v3 architecture assertions. |
 
-[SOURCE] NuGet package page: https://www.nuget.org/packages/TngTech.ArchUnitNET.xUnitV3/0.13.3
+[SOURCE] NuGet package page: https://www.nuget.org/packages/TngTech.ArchUnitNET.xUnitV3
 
 ---
 ## [2][SURFACE]

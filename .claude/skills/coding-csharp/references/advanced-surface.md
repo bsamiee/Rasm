@@ -2,7 +2,7 @@
 
 Self-contained advanced capability reference for pinned library versions. **Not** basic `Map`/`Bind`/`Create`.
 
-Pin truth: `LanguageExt.Core` 5.0.0-beta-77, `Thinktecture.Runtime.Extensions` 10.2.0, `MathNet.Numerics` 6.0.0-beta2, `CSparse` 4.3.0, C# 14.0 / net10.0, .NET 10 SDK compiler. Host packages (Scrutor 7, etc.) are `[NOT_IN_GRAPH]` until pinned.
+Pin truth: `LanguageExt.Core` 5.0.0-beta-77, `Thinktecture.Runtime.Extensions` 10.2.0, `MathNet.Numerics` 6.0.0-beta2, `CSparse` 4.3.0, C# 14.0 / net10.0, .NET 10 SDK compiler. AppUi package truth is active under `Rasm.AppUi`; host composition packages (Scrutor 7, etc.) are `[NOT_IN_GRAPH]` until directly consumed.
 
 ---
 ## [1][LOAD_WITH]
@@ -104,7 +104,7 @@ Package id for direct sparse library: **`CSparse`**. No LOBPCG type in MathNet 6
 ---
 ## [7][HOST_PACKAGES]
 
-**`[NOT_IN_GRAPH]`** until a bootstrap consumer pins packages.
+**`[NOT_IN_GRAPH]`** until a bootstrap consumer pins packages. Active AppUi package truth lives in `Directory.Packages.props` and `docs/system-api-map/packages.md`.
 
 | Package             | Composition-root surface                                                 |
 | ------------------- | ------------------------------------------------------------------------ |

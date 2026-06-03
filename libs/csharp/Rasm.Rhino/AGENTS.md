@@ -30,8 +30,6 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 ## API Ownership Rules
 
 - Verify risky Rhino behavior against RhinoWIP `RhinoCommon.xml`, decompile evidence when XML is absent, and `uv run python -m tools.quality api doctor`.
-- Use `uv run python -m tools.quality ...` for API, static, test, and bridge rails in this checkout.
-- Treat `uv run python -m tools.quality static fix` as changed-file cleanup, not compile proof. Use `uv run python -m tools.quality static build` for routed compile/analyzer proof and bridge scenarios for Rhino runtime behavior.
 - Treat pathless quality rails as broad gates. For target-only work amid unrelated dirty siblings, use target-scoped `dotnet format <csproj> --verify-no-changes --no-restore`, target production build, and target test-project build. Report the proof as target-scoped.
 - For prepared API-proof plans, implement first. Re-verify native claims only when touched code, compile output, or API uncertainty requires it.
 - For new category roadmaps, verify every named Rhino member through local XML/decompile evidence before presenting it as available. List false, obsolete, internal, and missing APIs directly in the roadmap.
@@ -86,7 +84,7 @@ Each category folder owns one full Rhino concern. Capture native API capability 
 - `FilePublishTarget.Pdf(Target, Prefix, Suffix, Annotate)` sequences prefix blank pages, captured sheet pages, then suffix blank pages.
 - `PdfStamp` is a `[Union]` over raw `FilePdf` draw primitives; pass `Seq<PdfStamp>` through `Annotate` / `FilePdfPage.Stamps`.
 - `FileSheetEdit` operations populate the correct `DocumentReceipt` slot.
-- `FileScale` is a `[Union]` with GEOMETRY-commit persistence via `DetailGeometry.SetScale(...) && detail.CommitChanges()`. Perspective details reject scale changes instead of converting projection.
+- `FileScale` is a `[Union]` with GEOMETRY-commit persistence via `DetailGeometry.SetScale(...) && detail.CommitChanges()` — NOT `CommitViewportChanges` (viewport only) and NOT `Objects.Replace` (rejects details). Perspective details reject scale changes instead of converting projection.
 - `SheetQuery` is the sole page-matching rail: conjunctive filter resolved once in `Sheets.cs`.
 - `DetailQuery` is the sole detail-matching rail. Use it for inspect/report and edits; do not reintroduce loose optional detail-name parameters.
 - Detail layout moves mutate `DetailGeometry` and commit in place by default. Duplicate only when the layout policy requests a new detail.

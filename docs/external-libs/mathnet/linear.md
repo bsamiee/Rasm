@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Pin **`MathNet.Numerics` `6.0.0-beta2`**. Verify solver and factorization names against local XML before documenting new call sites.
+[IMPORTANT] Pin **`MathNet.Numerics`** at the version pinned in `Directory.Packages.props`. Verify solver and factorization names against local XML before documenting new call sites.
 
 Spatial geometry semantics belong to the host (RhinoCommon, etc.) — MathNet receives explicit coordinates, dimensions, and tolerance policy after validity projection.
 
@@ -71,7 +71,7 @@ Document solver family, preconditioner, stop criteria, iteration count, residual
 |   [4]   | Optimization                | `FindMinimum.*`, `BfgsMinimizer`, `NelderMeadSimplex`, trust-region family — verify XML       |
 |   [5]   | Integration / interpolation | `Integrate`, spline APIs — verify XML                                                         |
 
-MathNet.Symbolics (`0.25.0`) is pinned separately — see `symbolics.md`.
+MathNet.Symbolics is pinned separately in `Directory.Packages.props` — see `symbolics.md`.
 
 ---
 ## [5][SCALAR_NAMESPACES]

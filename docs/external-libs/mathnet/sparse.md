@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Pin **`MathNet.Numerics` `6.0.0-beta2`** and co-primary **`CSparse` `4.3.0`** (NuGet id **`CSparse`**, not `CSparse.NET`). Verify MathNet names against `MathNet.Numerics.xml`; verify CSparse against `CSparse.xml` under `lib/{tfm}/`.
+[IMPORTANT] Pin **`MathNet.Numerics`** and co-primary **`CSparse`** (NuGet id **`CSparse`**, not `CSparse.NET`) at the versions pinned in `Directory.Packages.props`. Verify MathNet names against `MathNet.Numerics.xml`; verify CSparse against `CSparse.xml` under `lib/{tfm}/`.
 
 ---
 ## [1][SOURCE_TRUTH]
@@ -11,12 +11,12 @@
 
 <br>
 
-| [INDEX] | [PACKAGE]          |   [VERSION]   | [XML]                                           |
-| :-----: | ------------------ | :-----------: | ----------------------------------------------- |
-|   [1]   | `MathNet.Numerics` | `6.0.0-beta2` | `MathNet.Numerics.xml`                          |
-|   [2]   | `CSparse`          |    `4.3.0`    | `CSparse.xml` — zero deps on `net10.0`/`net8.0` |
+| [INDEX] | [PACKAGE]          |          [VERSION]           | [XML]                                           |
+| :-----: | ------------------ | :--------------------------: | ----------------------------------------------- |
+|   [1]   | `MathNet.Numerics` | `Directory.Packages.props`   | `MathNet.Numerics.xml`                          |
+|   [2]   | `CSparse`          | `Directory.Packages.props`   | `CSparse.xml` — zero deps on `net10.0`/`net8.0` |
 
-MathNet 6.0.0-beta2 XML contains **zero** CSparse references — hybrid routing is integrator-authored.
+The pinned `MathNet.Numerics` XML contains **zero** CSparse references — hybrid routing is integrator-authored.
 
 ---
 ## [2][ROLE_SPLIT]

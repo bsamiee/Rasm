@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Rasm uses `BenchmarkDotNet 0.15.8` only in `tests/csharp/_benchmarks`. Benchmarks are executable measurement rails, not xUnit specs and not part of `tools.quality test run`.
+[IMPORTANT] Rasm uses `BenchmarkDotNet` (version pinned in `Directory.Packages.props`) only in `tests/csharp/_benchmarks`. Benchmarks are executable measurement rails, not xUnit specs and not part of `tools.quality test run`.
 
 ---
 ## [1][PACKAGE]
@@ -11,11 +11,11 @@
 
 <br>
 
-| [INDEX] | [PACKAGE]         | [PIN]    | [USE]                                 |
-| :-----: | ----------------- | -------- | ------------------------------------- |
-|   [1]   | `BenchmarkDotNet` | `0.15.8` | Reproducible performance measurement. |
+| [INDEX] | [PACKAGE]         | [PIN]                      | [USE]                                 |
+| :-----: | ----------------- | -------------------------- | ------------------------------------- |
+|   [1]   | `BenchmarkDotNet` | `Directory.Packages.props` | Reproducible performance measurement. |
 
-[SOURCE] NuGet package page: https://www.nuget.org/packages/BenchmarkDotNet/0.15.8
+[SOURCE] NuGet package page: https://www.nuget.org/packages/BenchmarkDotNet
 
 ---
 ## [2][CONFIG]

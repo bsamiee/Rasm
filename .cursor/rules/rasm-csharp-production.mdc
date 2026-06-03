@@ -26,7 +26,7 @@ Read `.claude/skills/coding-csharp/SKILL.md`, `CLAUDE.md`, root `AGENTS.md`, the
 
 ## Host Baseline
 
-Target RhinoWIP on macOS, GH2, Eto, and app-bundle references from `Directory.Build.props`. Verify risky host APIs with `uv run python -m tools.quality api doctor|xml|types|decompile`.
+Target RhinoWIP on macOS, GH2, Eto, and app-bundle references from `Directory.Build.props`. Verify risky host APIs with `uv run python -m tools.quality api doctor|resolve|query|show`.
 
 ## Validation
 

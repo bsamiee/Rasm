@@ -11,6 +11,8 @@ uv run python -m tools.quality <rail> <verb> [args]
 
 Rails stay orthogonal: `static` never runs tests, `test` never opens Rhino, `bridge verify` never replaces `static build`, and `api` never launches Rhino.
 
+[CRITICAL] Output contract: every verb writes exactly ONE JSON `Envelope` object to stdout — fields `rail`, `verb`, `status`, `exit_code`, `run_id`, `evidence`, `data`, `error`, `truncated`, `notes`. `status` is one of `ok | empty | skip | busy | timeout | unsupported | failed`. The per-verb payload (static plan, test summary, verify report, api query result) nests verbatim under `data`. Streamed `dotnet` build/test/run bytes and all structlog diagnostics go to STDERR only — never stdout. There is no raw-text passthrough and no World-A/World-B duality; stdout is always the single Envelope.
+
 ---
 ## [1][RAIL_MAP]
 >**Dictum:** *Graph highlights routing and contention only.*
@@ -42,7 +44,7 @@ flowchart LR
   scope --> test["test<br/>MTP + coverage + mutation"]
   scope --> bridge["bridge<br/>Rhino client + verify"]
   scope --> package["package<br/>Yak stage deploy publish"]
-  scope --> api["api<br/>XML + ILSpy"]
+  scope --> api["api<br/>ilspy surface + decompile"]
 
   static --> slnx["Workspace.slnx<br/>full/parity only"]
   static --> csproj["owner csproj closure<br/>path or git changes"]
@@ -64,14 +66,14 @@ flowchart LR
 
 | [INDEX] | [MODULE]           | [OWNERSHIP]                                      |
 | :-----: | ------------------ | ------------------------------------------------ |
-|   [1]   | `__main__.py`      | Cyclopts tree, `rail()`, stdout/stderr contract. |
+|   [1]   | `__main__.py`      | Cyclopts tree, `rail()`, single-Envelope stdout contract. |
 |   [2]   | `settings.py`      | `QualitySettings`, root anchor, artifact paths.  |
 |   [3]   | `process.py`       | Subprocess, dotnet args, nonblocking leases.     |
 |   [4]   | `rails/static.py`  | C# fix/report/build planning.                    |
 |   [5]   | `rails/test.py`    | MTP, coverage, explicit Stryker mutation.        |
 |   [6]   | `rails/bridge.py`  | Bridge client, verify reports, Rhino lease.      |
 |   [7]   | `rails/package.py` | Yak metadata, atomic stage, stage lease.         |
-|   [8]   | `rails/api.py`     | Rhino bundle path, XML search, ILSpy.            |
+|   [8]   | `rails/api.py`     | Host and NuGet API resolver; ilspy surface + decompile. |
 
 ---
 ## [2][COMMAND_SURFACE]
@@ -84,10 +86,10 @@ Run from any path under the worktree. `QualitySettings.anchor()` walks parents u
 | [INDEX] | [RAIL]   | [COMMANDS]                                                                                 | [CLAIM]                    |
 | :-----: | -------- | ------------------------------------------------------------------------------------------ | -------------------------- |
 |   [1]   | `static` | `fix [paths...]`, `report [paths...]`, `build [paths...]`, `full`, `plan [paths...]`.       | C# cleanup and build proof. |
-|   [2]   | `test`   | `run`, `list`, `coverage`; flags: `--target`, `--all`, `--no-build`, `--test-modules`.     | Unit, coverage, mutation.  |
+|   [2]   | `test`   | `run`, `list`, `coverage`; flags: `--target`, `--all`, `--no-build`, `--test-modules`, `--format json`, `--limit`, `--grep`. | Unit, coverage, mutation.  |
 |   [3]   | `bridge` | `build-bridge`, `doctor`, `launch`, `quit`, `check`, `clean`, `verify`.                    | Live Rhino evidence.       |
-|   [4]   | package  | `bridge package <slug> <version>`, `deploy <slug> <version>`, `publish <slug> <version>`.  | Yak lifecycle.             |
-|   [5]   | `api`    | `doctor`, `path`, `xml`, `types`, `decompile`.                                             | Host SDK metadata.         |
+|   [4]   | `bridge` | `package <slug> <version>`, `package plan <slug> <version>`, `package list`, `deploy <slug> <version>`, `publish <slug> <version>`. | Yak lifecycle.             |
+|   [5]   | `api`    | `doctor [--strict]`, `resolve <key> [kind]`, `query <key> [symbol]`, `show <token>`. | Host and package API truth. |
 |   [6]   | root     | `self-test [--rhino]`.                                                                     | Tool/path preflight.       |
 
 Use the Python module entrypoint directly. Do not add package-manager aliases for this operator.
@@ -102,18 +104,18 @@ Use the Python module entrypoint directly. Do not add package-manager aliases fo
 
 | [INDEX] | [MODE]   | [BEHAVIOR]                                                                                 |
 | :-----: | -------- | ------------------------------------------------------------------------------------------ |
-|   [1]   | `fix`    | Runs `dotnet format whitespace`, `style --severity error`, and `analyzers --severity error`. |
-|   [2]   | `report` | Runs same format ladder with `--verify-no-changes` and `--report`.                         |
-|   [3]   | `build`  | Restores/builds owner project closure in `Debug`, `--no-incremental`, errors-only output.  |
-|   [4]   | `full`   | Verifies `.slnx` parity; restores/builds `Workspace.slnx` in `Debug` and `Release`.        |
+|   [1]   | `fix`    | Runs one bare `dotnet format <csproj> --include <files> --severity error` per project.     |
+|   [2]   | `report` | Runs same bare format pass with `--verify-no-changes` and `--report`.                      |
+|   [3]   | `build`  | Restores/builds owner closure in `Debug` under stable per-closure `--artifacts-path`; full-trigger plans build `Workspace.slnx`. |
+|   [4]   | `full`   | Verifies `.slnx` parity; restores/builds `Workspace.slnx` in `Debug` and `Release` under the `solution` closure. |
 |   [5]   | `plan`   | Emits JSON: inputs, owners, closure, full triggers, exact dotnet commands.                 |
 
 Routing:
 - No paths: read unstaged diff, staged diff, and untracked files.
 - Paths: route explicit files; expand directories with `fd`.
-- Full triggers: `Directory.Build.props`, `Directory.Build.targets`, `Directory.Packages.props`, `Workspace.slnx`, `.editorconfig`, `global.json`, and `tools/cs-analyzer/**`.
+- Full triggers: `.config/dotnet-tools.json`, `Directory.Build.props`, `Directory.Build.targets`, `Directory.Packages.props`, `Workspace.slnx`, `.editorconfig`, `global.json`, and `tools/cs-analyzer/**`.
 - Owner route: nearest `*.csproj`; `.cs` files join format groups; project seeds expand reverse `ProjectReference` closure.
-- Orphan `.cs`, `.props`, or `.targets`: force full scope.
+- Orphan `.cs`, `.csproj`, `.props`, or `.targets`: force full scope.
 
 Modern command ladder:
 
@@ -124,9 +126,16 @@ uv run python -m tools.quality static full
 ```
 
 Direct dotnet equivalence:
-- Fix: `dotnet format whitespace|style|analyzers <csproj> --include <files> --severity error --no-restore`.
-- Build: `dotnet restore <csproj> --locked-mode`; then `dotnet build <csproj> -c Debug --no-restore --no-incremental -v:quiet /clp:ErrorsOnly -maxcpucount:<n>`.
+- Fix: `dotnet format <csproj> --include <files> --severity error`. One bare pass runs whitespace, style, and analyzers together.
+- Build: `dotnet restore <csproj> --locked-mode`; then `dotnet build <csproj> -c Debug --no-restore -v:quiet /clp:ErrorsOnly -maxcpucount:<n>`.
 - Full: same build shape against `Workspace.slnx` for both configured full configurations.
+
+[CRITICAL] `static fix` and `static report` omit `--no-restore`. Bare `dotnet format` needs a restored compilation; `--no-restore` on a cold per-run project silently skips semantic IDE rules (IDE0001 name simplification, IDE0005). Implicit restore against the warm NuGet cache resolves them. `build` keeps explicit `restore --locked-mode` then `build --no-restore`.
+
+Closure isolation:
+- `build` and `full` run under a stable `--artifacts-path .artifacts/quality/build/<closure>`; closure is the first 16 hex of `sha256` over sorted project paths, and `full` resolves to `"solution"`.
+- A non-blocking `build-<closure>.lock` lease guards each closure. Busy returns `busy` with owner text and exit `5`; it never hangs.
+- Distinct closures build concurrently; the same closure twice returns instant `busy`.
 
 ---
 ## [4][TEST_RAIL]
@@ -149,13 +158,14 @@ Targeting:
 - `--no-build` adds MTP `--no-build`; use after successful static build.
 - `--test-modules "<glob>"` runs built test modules with `--root-directory <repo>`.
 - `--all` and `--test-modules` cannot combine.
+- `list --format json --limit N --grep PATTERN` emits bounded JSON test discovery for agents.
 
 Mutation:
 - Default `--mutation off`; no implicit mutation on `test run`.
 - `changed` mutates changed `.cs` files under `libs/csharp/Rasm`.
 - `full` mutates `**/*.cs` excluding `bin/` and `obj/`.
 - Eligible only for default `Rasm.Tests` plus `libs/csharp/Rasm/Rasm.csproj`.
-- Tool: `dotnet-stryker` `4.14.2`, MTP runner, thresholds `95/90/85`.
+- Tool: `dotnet-stryker`, MTP runner, thresholds `95/90/85`; version lives in `.config/dotnet-tools.json` as the source of truth.
 - Lock: `.artifacts/locks/mutation.lock`; live contention fails fast.
 
 ---
@@ -181,33 +191,61 @@ Package commands:
 - Validate `.rhp`, target dir, Yak platform `mac`, package glob `*-rh9_*-mac.yak`, and executable `yak`.
 - Build artifact, copy manifest/package files, exclude host assemblies, run `yak build`, then replace stage dir under nonblocking stage lease.
 - `package` prints stage path.
+- `package plan <slug> <version>` emits package project and evaluated Yak metadata without staging.
+- `package list` emits discovered package projects without MSBuild or Yak mutation.
 - `deploy` runs `yak install`; `rasm-bridge` also `quit`, `install`, `refresh`.
 - `publish` runs deploy path plus `yak push` when `YakPushSource` exists.
 
-Bridge exit codes:
+Bridge `Envelope.status` → `exit_code`:
 
 | [INDEX] | [STATUS]          | [EXIT] | [INTERPRETATION]                             |
 | :-----: | ----------------- | -----: | -------------------------------------------- |
-|   [1]   | `ok`, `skipped`   |      0 | Valid or intentionally skipped.              |
+|   [1]   | `ok`, `skip`      |      0 | Valid or intentionally skipped scenario.     |
 |   [2]   | `failed`          |      1 | Build, connect, execute, or scenario failure. |
 |   [3]   | `unsupported`     |      3 | Build proof valid; no scenario path supplied. |
 |   [4]   | `busy`, `timeout` |      5 | Exclusive resource busy or scenario timeout. |
 
 ---
 ## [6][API_RAIL]
->**Dictum:** *Host API truth comes from installed bundle files.*
+>**Dictum:** *API truth returns clean reports and stores full evidence.*
 
 <br>
 
-API root: `Rhino.app/Contents/Frameworks/RhCore.framework/Versions/Current/Resources`.
+API evidence root: `.artifacts/quality/api/<run-id>/`. Default commands emit compact JSON only. Full raw stdout/stderr, the type/namespace surface, decompiled source, and final `report.json` are stored in the run artifact directory. Four verbs own the rail; `query` replaces the former members, source, types, decompile, and xml-search probes.
 
-| [INDEX] | [COMMAND]       | [BEHAVIOR]                                      |
-| :-----: | --------------- | ----------------------------------------------- |
-|   [1]   | `api doctor`    | JSON for Rhino version, ILSpy, RhinoCode, refs. |
-|   [2]   | `api path`      | Resolved assembly or XML path.                  |
-|   [3]   | `api xml`       | `rg -n -C 2` search; requires `--pattern`.      |
-|   [4]   | `api types`     | `ilspycmd -l cisde` with optional text filter.  |
-|   [5]   | `api decompile` | `ilspycmd -t <type>`; requires `--type-name`.   |
+| [INDEX] | [COMMAND]                         | [BEHAVIOR]                                                                  |
+| :-----: | --------------------------------- | --------------------------------------------------------------------------- |
+|   [1]   | `api doctor [--strict]`           | Host and NuGet inventory plus tool health for ilspycmd, Rhino, and RhinoCode; absorbs the former `sources` inventory. |
+|   [2]   | `api resolve <key> [all\|assembly\|xml\|nuspec\|deps\|package-root]` | Resolved asset paths across managed, native, build, analyzer, and tool assets; default kind `all`. |
+|   [3]   | `api query <key> [symbol] [--max-lines N] [--full] [--grep text]` | One polymorphic engine; discriminates on the shape of `symbol` against the ilspy surface. |
+|   [4]   | `api show <artifact-or-symbol> [--lines A:B] [--grep text] [--full] [--latest]` | Bounded current-run artifact preview; historical lookup requires `--latest`.  |
+
+`query` shapes (discriminated by `symbol`):
+
+| [INDEX] | [SHAPE]     | [TRIGGER]                                          | [RETURN]                                                       |
+| :-----: | ----------- | -------------------------------------------------- | -------------------------------------------------------------- |
+|   [1]   | `index`     | Empty `symbol`.                                    | Namespaces plus type count; cheap.                             |
+|   [2]   | `namespace` | `symbol` matches a namespace.                      | Types under the namespace; cheap.                              |
+|   [3]   | `type`      | `symbol` matches a type FQN, exact or suffix.      | Signature, optional xml-doc, decompiled body bounded by `--max-lines`. |
+|   [4]   | `member`    | `symbol` is `Type.Member`.                         | Signature, optional xml-doc, body window around the member.    |
+|   [5]   | `search`    | No match.                                          | Ranked grep over surface plus xml; never empty.                |
+
+Type resolution ranks exact FQN above suffix match. Engine: `ilspycmd` invoked through `dotnet tool run ilspycmd -- ...` — the nix-resilient path, with an apphost `DOTNET_ROOT` overlay as belt-and-suspenders, not a bare PATH tool. The XML-free type/namespace surface comes from `ilspycmd -l cisde`, cached per key plus assembly fingerprint under `.artifacts/quality/api/surface/`, and bodies decompile via `ilspycmd -t`. XML sidecars are doc-prose enrichment only and never required. No reference-assembly generator tool exists to lean on — verified absent from nuget.org, the dnceng dotnet-tools feed, and SDK 10.0.300 — so the surface engine owns extraction end to end. One `dotnet tool restore` runs per api scope.
+
+Key resolution is fuzzy and categorical: 7 host aliases, then exact casefold package id, then unique casefold prefix, then unique substring, then unique token-containment; ambiguity returns a typed error listing candidates. So `languageext` resolves `LanguageExt.Core` and `avalonia.datagrid` resolves `Avalonia.Controls.DataGrid`.
+
+API `data` payload (nested under the top-level `Envelope.data`):
+- `query`: operation, key, and pattern/type.
+- `shape`: `index`, `namespace`, `type`, `member`, or `search`.
+- `signature`: resolved type or member signature.
+- `doc`: xml-doc prose when a sidecar enriches the shape.
+- `source`: key, source kind, selected assembly/XML, package version when relevant, and asset counts.
+- `counts`: matches, types, assemblies, bytes, lines, or paths.
+- `artifact_paths`: direct paths for `report`, raw streams, `surface.txt`, `decompile.cs`, or `source.preview.cs`.
+- `results`: small ranked preview records; no broad result stream is printed by default.
+- `preview`: inline bounded source/artifact text when the command owns a direct inspection surface.
+
+[CRITICAL] `api query` on a missing key emits empty bytes — the Envelope carries `status: empty` and `data` is absent; it never prints a bare `{}`. The top-level `Envelope.truncated` flags an intentionally omitted preview; use `api show --full` only when that much context is required.
 
 Keys:
 
@@ -221,6 +259,15 @@ Keys:
 |   [6]   | `gh2`               | `ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll`  | `ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.xml`  |
 |   [7]   | `gh2-io`            | `ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll` | `ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.xml` |
 
+Package keys resolve from `Directory.Packages.props` and restored assets under `.cache/nuget/packages`, with user NuGet cache as a read-only fallback. First package `query` resolves assets lazily and may run an isolated restore probe under the API artifact directory.
+
+Observed gotchas:
+- `rhino-ui` declares `Rhino.UI.xml`, but the current RhinoWIP bundle lacks that file; `query` builds an XML-free surface, so it resolves types and members without the sidecar.
+- GH2 symbols are namespace-sensitive. `query gh2 Document` ranks `Grasshopper2.Doc.Document`; `Grasshopper.Document` is not the current exact type.
+- The surface lists arity-free generic names; pin a generic by passing CLR arity, for example `query <key> Type\`1`.
+- Multi-assembly packages stay bounded by the preview cap; compact JSON keeps stdout bounded and stores full files on disk.
+- A central package with no owning `.csproj` shows in `api doctor` with empty `owners`; treat such an entry as a pre-consumer pin, not active API surface.
+
 ---
 ## [7][ARTIFACTS_CONCURRENCY]
 >**Dictum:** *Artifact isolation replaces static locks.*
@@ -229,15 +276,16 @@ Keys:
 
 Artifact scope:
 - `rail()` opens `.artifacts/quality/<rail>/<run_id>/` and isolated `DOTNET_CLI_HOME`.
-- Static build verbs receive `--artifacts-path`; no static locks exist.
-- Non-static build verbs also receive `--disable-build-servers` and `MSBUILDDISABLENODEREUSE=1`.
+- Dotnet build/test/run verbs receive `--artifacts-path`, `--disable-build-servers`, and `MSBUILDDISABLENODEREUSE=1`.
+- Streamed process logs live under `.artifacts/quality/<rail>/<run_id>/process/<command-id>/`.
 - Test results live under `.artifacts/test/<slice>/<run_id>/`.
 - Mutation output lives under `.artifacts/mutation/<slice>/<run_id>/`.
 - Verify reports live under `.artifacts/rhino/verify/<run_id>/` and expire by retention.
 
 Concurrency:
 - Parallel: `static fix`, `static report`, `static build`, and `test run` with distinct `run_id`.
-- Exclusive fail-fast: mutation, live Rhino bridge commands, `bridge verify`, bridge package live steps, and package stage commit.
+- Exclusive fail-fast: mutation, live Rhino bridge commands, `bridge verify`, bridge package live steps, and package staging from cleanup through commit.
+- Lease files remain stable and are truncated after release; do not delete lock files as stale cleanup.
 
 ---
 ## [8][AGENT_ROUTING]
@@ -254,10 +302,11 @@ Use:
 - `test run --no-build` after successful static build.
 - `test run --test-modules "<glob>"` for already-built MTP assemblies.
 - `bridge verify <pattern>` for Rhino scenario proof.
-- `api xml`, `api types`, or `api decompile` for host SDK truth.
+- `api query` for host SDK and central package API truth.
+- `api doctor` before guessing package or tool availability.
+- `api show <artifact-or-symbol>` for bounded follow-up inspection without rerunning broad API queries.
 
 Avoid:
-- Reintroducing `static check`.
 - Treating `dotnet format` as compile/analyzer proof.
 - Running `.slnx` builds for ordinary leaf edits.
 - Running raw `dotnet test --help` as a harmless probe under MTP.
@@ -293,4 +342,10 @@ uv run python -m tools.quality self-test
 uv run python -m tools.quality self-test --rhino
 ```
 
-Required tools: `dotnet`, `fd`, `git`, `ilspycmd`, `rg`. Required files: `Workspace.slnx`, default test csproj, and `.config/dotnet-tools.json`. Rhino preflight also checks executable `Contents/Resources/bin/yak`.
+Dependency currency (central package + tool versions; `-pre Auto` keeps each beta-channel pin on its prerelease line while ignoring previews for stable packages):
+
+```bash
+dotnet outdated Workspace.slnx -r -pre Auto
+```
+
+Required tools: `dotnet`, `fd`, `git`, `rg`. Local-manifest tools (`ilspycmd`, `dotnet-stryker`, `dotnet-outdated`) live in `.config/dotnet-tools.json` and are invoked via `dotnet tool run`/`dotnet outdated`; `ilspycmd` health is checked live by `api doctor`, not a PATH preflight. Required files: `Workspace.slnx`, default test csproj, and `.config/dotnet-tools.json`. Rhino preflight also checks executable `Contents/Resources/bin/yak`.

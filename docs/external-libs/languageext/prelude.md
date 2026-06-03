@@ -3,7 +3,7 @@
 
 <br>
 
-[IMPORTANT] Pin **`LanguageExt.Core` `5.0.0-beta-77`**. When global usings include `static LanguageExt.Prelude`, per-file `using static` is redundant.
+[IMPORTANT] Pin **`LanguageExt.Core`** at the version pinned in `Directory.Packages.props`. When global usings include `static LanguageExt.Prelude`, per-file `using static` is redundant.
 
 Advanced Prelude surfaces — not basic `Map`/`Bind`.
 

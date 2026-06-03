@@ -2,10 +2,10 @@
 
 # --- [IMPORTS] ------------------------------------------------------------------------
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from functools import reduce
-from itertools import groupby
+import hashlib
+from itertools import groupby, starmap
 from operator import itemgetter
 from pathlib import Path
 from typing import assert_never, Final, Literal
@@ -14,7 +14,7 @@ from beartype import beartype
 from expression import Error, Ok, Result
 import msgspec
 
-from tools.quality.process import dotnet, dotnet_args, dotnet_build, fold, ProcessFault, ProjectIndex, run, Workspace
+from tools.quality.process import dotnet, dotnet_args, dotnet_build, fold, leased, ProcessFault, ProjectIndex, run, Workspace
 from tools.quality.settings import (
     ArtifactScope,
     CS_SUFFIXES,
@@ -28,23 +28,16 @@ from tools.quality.settings import (
 
 # --- [TYPES] ---------------------------------------------------------------------------
 
-type FormatKind = Literal["whitespace", "style", "analyzers"]
 type FormatMode = Literal["fix", "report"]
 type ProjectMode = Literal["parity", "closure"]
 type StaticMode = Literal["fix", "report", "build", "full", "plan"]
-type StaticOutcome = Literal["skip", "done"]
+type StaticOutcome = Literal["skip", "full-trigger-skip", "done"]
 type StaticScope = Literal["changed", "full"]
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
 
-_FORMAT_ARGS: Final[dict[FormatKind, tuple[str, ...]]] = {
-    "whitespace": ("--no-restore",),
-    "style": ("--severity", "error", "--no-restore"),
-    "analyzers": ("--severity", "error", "--no-restore"),
-}
-_FORMAT_KINDS: Final[tuple[FormatKind, ...]] = ("whitespace", "style", "analyzers")
-_ORPHAN_FULL_SUFFIXES: Final[tuple[str, ...]] = (".cs", ".props", ".targets")
+_ORPHAN_FULL_SUFFIXES: Final[tuple[str, ...]] = (".cs", ".csproj", ".props", ".targets")
 
 
 # --- [MODELS] ----------------------------------------------------------------------------
@@ -89,9 +82,7 @@ def _build_commands(settings: QualitySettings, plan: StaticPlan, root: Path, mod
         return (
             *(dotnet_args("restore", restore) for restore in restores),
             *(
-                dotnet_args(
-                    "build", target, configuration=configuration, version=version_args, max_cpu=settings.dotnet_max_cpu, fresh=True, quiet=True
-                )
+                dotnet_args("build", target, configuration=configuration, version=version_args, max_cpu=settings.dotnet_max_cpu, quiet=True)
                 for configuration in configurations
                 for target in targets
             ),
@@ -100,57 +91,55 @@ def _build_commands(settings: QualitySettings, plan: StaticPlan, root: Path, mod
     return _build_targets(settings, plan, root, mode).map(commands).default_value(())
 
 
-def _build_plan(
-    plan: StaticPlan, settings: QualitySettings, scope: ArtifactScope, root: Path, mode: StaticScope
-) -> Result[StaticOutcome, ProcessFault]:
+def _closure_key(plan: StaticPlan, mode: StaticScope) -> str:
+    return "solution" if mode == "full" else hashlib.sha256(",".join(sorted(plan.projects)).encode()).hexdigest()[:16]
+
+
+def _build_plan(plan: StaticPlan, settings: QualitySettings, root: Path, mode: StaticScope) -> Result[StaticOutcome, ProcessFault]:
+    # Stable per-closure --artifacts-path keeps builds warm/incremental across runs; the shared lease serializes the same
+    # closure (busy -> exit 5) while distinct closures build concurrently with isolated artifact + obj output.
+    closure = _closure_key(plan, mode)
+    build_scope = ArtifactScope.build(settings, closure)
     return _build_targets(settings, plan, root, mode).bind(
-        lambda rows: dotnet_build(
+        lambda rows: leased(
             settings,
-            scope,
-            restore_targets=rows[1],
-            targets=rows[0],
-            configurations=settings.static_configurations(mode),
-            max_cpu=settings.dotnet_max_cpu,
-            fresh=True,
-            quiet=True,
-        ).map(lambda _: "done")
+            settings.build_lock(closure),
+            f"build-{closure}",
+            lambda: dotnet_build(
+                settings,
+                build_scope,
+                restore_targets=rows[1],
+                targets=rows[0],
+                configurations=settings.static_configurations(mode),
+                max_cpu=settings.dotnet_max_cpu,
+                quiet=True,
+            ).map(lambda _: "done"),
+        )
     )
 
 
 def _build_targets(
     settings: QualitySettings, plan: StaticPlan, root: Path, mode: StaticScope
 ) -> Result[tuple[tuple[str | Path, ...], tuple[str | Path, ...]], ProcessFault]:
-    match plan.scope:
-        case "changed":
-            match plan.projects:
-                case ():
-                    return Error(ProcessFault.fail("static", mode, detail=b"No C# projects selected", returncode=0))
-                case projects:
-                    targets: tuple[str | Path, ...] = tuple(str(root / project) for project in projects)
-                    return Ok((targets, targets))
-        case "full":
-            match plan.projects:
-                case ():
-                    return Error(ProcessFault.fail("static", mode, detail=b"No C# projects selected"))
-                case _:
-                    return Ok(((settings.solution,), (settings.solution,)))
-        case unreachable:
-            assert_never(unreachable)
+    match (plan.scope, plan.projects):
+        # A `changed` scope with no projects is a benign skip (returncode 0); a `full` scope with none is a parity failure.
+        case (scope, ()):
+            return Error(ProcessFault.fail("static", mode, detail=b"No C# projects selected", returncode=0 if scope == "changed" else 2))
+        case ("changed", projects):
+            targets: tuple[str | Path, ...] = tuple(str(root / project) for project in projects)
+            return Ok((targets, targets))
+        case _:
+            return Ok(((settings.solution,), (settings.solution,)))
 
 
 def _format_commands(settings: QualitySettings, scope: ArtifactScope, plan: StaticPlan, mode: FormatMode) -> tuple[tuple[str, ...], ...]:
-    match plan.format_groups:
-        case ():
-            return ()
-        case groups:
-            return tuple(_format_command(settings, scope, project, files, kind, mode) for project, files in groups for kind in _FORMAT_KINDS)
+    # Bare `dotnet format` runs whitespace+style+analyzers in one pass with an implicit restore so semantic IDE rules
+    # (IDE0001 name simplification, IDE0005 usings) resolve against a real compilation; `--no-restore` silently skips them.
+    def command(project: str, files: tuple[str, ...]) -> tuple[str, ...]:
+        report = ("--verify-no-changes", "--report", str(scope.path / "static-report" / Path(project).stem)) if mode == "report" else ()
+        return ("format", str(settings.root / project), "--include", *files, "--severity", "error", *report)
 
-
-def _format_command(
-    settings: QualitySettings, scope: ArtifactScope, project: str, files: tuple[str, ...], kind: FormatKind, mode: FormatMode
-) -> tuple[str, ...]:
-    report = ("--verify-no-changes", "--report", str(scope.path / "static-report" / kind / Path(project).stem)) if mode == "report" else ()
-    return ("format", kind, str(settings.root / project), "--include", *files, *_FORMAT_ARGS[kind], *report)
+    return tuple(starmap(command, plan.format_groups))
 
 
 def _format_groups(routes: tuple[tuple[str, str], ...]) -> tuple[tuple[str, tuple[str, ...]], ...]:
@@ -160,6 +149,8 @@ def _format_groups(routes: tuple[tuple[str, str], ...]) -> tuple[tuple[str, tupl
 def _format_plan(settings: QualitySettings, scope: ArtifactScope, plan: StaticPlan, mode: FormatMode) -> Result[StaticOutcome, ProcessFault]:
     commands = _format_commands(settings, scope, plan, mode)
     match commands:
+        case () if plan.scope == "full" and plan.full_triggers:
+            return Ok("full-trigger-skip")
         case ():
             return Ok("skip")
         case _:
@@ -174,48 +165,50 @@ def _format_plan(settings: QualitySettings, scope: ArtifactScope, plan: StaticPl
             ).map(lambda _: "done")
 
 
-def _inputs(settings: QualitySettings, workspace: Workspace, paths: tuple[Path, ...]) -> tuple[str, ...]:
+def _inputs(settings: QualitySettings, workspace: Workspace, paths: tuple[Path, ...]) -> Result[tuple[str, ...], ProcessFault]:
     match paths:
         case ():
             return workspace.changed()
         case _:
-            return tuple(sorted({file for path in paths for file in _input_path(settings, workspace, path)}))
+            seed: tuple[str, ...] = ()
+            return fold(paths, seed, lambda acc, path: _input_path(settings, workspace, path).map(lambda rows: (*acc, *rows))).map(
+                lambda rows: tuple(sorted(frozenset(rows)))
+            )
 
 
-def _input_path(settings: QualitySettings, workspace: Workspace, path: Path) -> tuple[str, ...]:
+def _input_path(settings: QualitySettings, workspace: Workspace, path: Path) -> Result[tuple[str, ...], ProcessFault]:
     target = (path.expanduser() if path.is_absolute() else settings.root / path).resolve()
     match target:
         case Path() if target.is_dir():
             excludes = tuple(item for name in PROJECT_EXCLUDE_DIRS for item in ("--exclude", name))
-            return tuple(sorted(_relative(settings.root, item) for item in workspace.paths(("fd", "-H", "-t", "f", ".", str(target), *excludes))))
+            return workspace.paths(("fd", "-H", "-t", "f", ".", str(target), *excludes)).map(
+                lambda rows: tuple(sorted(_relative(settings.root, item) for item in rows))
+            )
+        case Path() if not target.exists():
+            return Error(ProcessFault.fail("static", "path", str(path), detail=f"Explicit path does not exist: {path}"))
         case _:
-            return (_relative(settings.root, target),)
+            return Ok((_relative(settings.root, target),))
 
 
 def _plan(
     settings: QualitySettings, scope: ArtifactScope, mode: StaticScope = "changed", paths: tuple[Path, ...] = ()
 ) -> Result[StaticPlan, ProcessFault]:
     workspace = Workspace(settings.root)
-    index = workspace.index()
-    inputs = _inputs(settings, workspace, paths)
-    routed = reduce(lambda acc, file: _route_step(acc, file, index=index, workspace=workspace, root=settings.root), inputs, _ChangedRoute())
 
-    def full() -> Result[StaticPlan, ProcessFault]:
-        return _projects(settings, workspace, "parity", scope=scope).map(
-            lambda rows: StaticPlan(
-                scope="full",
-                projects=rows,
-                format_groups=_format_groups(routed.format_routes),
-                inputs=inputs,
-                owners=tuple(sorted(routed.projects)),
-                full_triggers=tuple(sorted(routed.full_triggers)),
-            )
+    def route(inputs: tuple[str, ...], index: ProjectIndex) -> _ChangedRoute:
+        return reduce(lambda acc, file: _route_step(acc, file, index=index, workspace=workspace, root=settings.root), inputs, _ChangedRoute())
+
+    # `full` lists the whole solution for parity; `changed` grows the touched-project closure. Both project the same
+    # StaticPlan shape, so one parameterized builder owns both — the only axis is which _projects mode resolves `projects`.
+    def plan_for(plan_scope: StaticScope, inputs: tuple[str, ...], routed: _ChangedRoute) -> Result[StaticPlan, ProcessFault]:
+        resolved = (
+            _projects(settings, workspace, "parity", scope=scope)
+            if plan_scope == "full"
+            else _projects(settings, workspace, "closure", tuple(sorted(routed.projects)), scope=scope)
         )
-
-    def changed() -> Result[StaticPlan, ProcessFault]:
-        return _projects(settings, workspace, "closure", tuple(sorted(routed.projects)), scope=scope).map(
+        return resolved.map(
             lambda rows: StaticPlan(
-                scope="changed",
+                scope=plan_scope,
                 projects=rows,
                 format_groups=_format_groups(routed.format_routes),
                 inputs=inputs,
@@ -226,79 +219,96 @@ def _plan(
 
     match mode:
         case "full":
-            return full()
+            return workspace.index().bind(
+                lambda i: _inputs(settings, workspace, paths).bind(lambda inputs: plan_for("full", inputs, route(inputs, i)))
+            )
         case "changed":
             pass
         case unreachable:
             assert_never(unreachable)
 
-    plan_by_route: dict[tuple[bool, bool], Callable[[], Result[StaticPlan, ProcessFault]]] = {
-        (False, False): lambda: Ok(StaticPlan(scope="changed", projects=(), inputs=inputs)),
-        (False, True): changed,
-        (True, False): full,
-        (True, True): full,
-    }
-    return plan_by_route[routed.full, bool(routed.projects)]()
+    def routed_plan(inputs: tuple[str, ...], routed: _ChangedRoute) -> Result[StaticPlan, ProcessFault]:
+        # No full-trigger and no owned project => empty changed plan without resolving the closure (fast path).
+        return (
+            plan_for("full" if routed.full else "changed", inputs, routed)
+            if routed.full or routed.projects
+            else Ok(StaticPlan(scope="changed", projects=(), inputs=inputs))
+        )
+
+    return _inputs(settings, workspace, paths).bind(
+        lambda inputs: (
+            Ok(StaticPlan(scope="changed", projects=(), inputs=inputs))
+            if not inputs
+            else workspace.index().bind(lambda index: routed_plan(inputs, route(inputs, index)))
+        )
+    )
 
 
 def _projects(
     settings: QualitySettings, workspace: Workspace, mode: ProjectMode, seeds: tuple[str, ...] = (), *, scope: ArtifactScope
 ) -> Result[tuple[str, ...], ProcessFault]:
     root = settings.root
-    rows = workspace.projects()
-    match mode:
-        case "parity":
-            listed = frozenset(
-                run(("dotnet", "sln", str(settings.solution), "list"), env=scope.dotnet_env, check=False)
-                .map(lambda done: (line.strip() for line in done.lines() if line.strip().endswith(".csproj")))
-                .default_with(lambda _: ())
-            )
-            delta = (*sorted(frozenset(rows) - listed), *sorted(listed - frozenset(rows)))
-            return Ok(rows).filter_with(
-                lambda _: delta == (),
-                lambda _: ProcessFault.fail(
-                    "static", "solution-parity", detail=f"Workspace.slnx project parity failed:\n{'\n'.join(f'- {item}' for item in delta)}"
-                ),
-            )
-        case "closure":
 
-            def ref(project: Path, include: str) -> str:
-                match (include.startswith("/"), "/" in include):
-                    case (True, _):
-                        return str(Path(include).resolve().relative_to(root))
-                    case (_, True):
-                        ref_dir = (project.parent / Path(include).parent).resolve()
-                        return str((ref_dir / Path(include).name).resolve().relative_to(root))
-                    case _:
-                        return str((project.parent / include).resolve().relative_to(root))
+    def resolve(rows: tuple[str, ...]) -> Result[tuple[str, ...], ProcessFault]:
+        match mode:
+            case "parity":
+                return run(("dotnet", "sln", str(settings.solution), "list"), env=scope.dotnet_env, check=True).bind(
+                    lambda done: (
+                        listed := frozenset(line.strip() for line in done.lines() if line.strip().endswith(".csproj")),
+                        delta := (*sorted(frozenset(rows) - listed), *sorted(listed - frozenset(rows))),
+                        Ok(rows).filter_with(
+                            lambda _: delta == (),
+                            lambda _: ProcessFault.fail(
+                                "static",
+                                "solution-parity",
+                                detail=f"Workspace.slnx project parity failed:\n{'\n'.join(f'- {item}' for item in delta)}",
+                            ),
+                        ),
+                    )[2]
+                )
+            case "closure":
 
-            def refs(project: Path) -> frozenset[str]:
-                match workspace.csproj(project):
-                    case None | str():
-                        return frozenset()
-                    case element:
-                        return frozenset(
-                            ref(root / project, include)
-                            for node in element.iter()
-                            if node.tag.rpartition("}")[-1] == "ProjectReference"
-                            for include in (node.attrib.get("Include", ""),)
-                            if include.endswith(".csproj")
-                            and node.attrib.get("OutputItemType") != "Analyzer"
-                            and node.attrib.get("ReferenceOutputAssembly") != "false"
+                def ref(project: Path, include: str) -> str:
+                    match (include.startswith("/"), "/" in include):
+                        case (True, _):
+                            return str(Path(include).resolve().relative_to(root))
+                        case (_, True):
+                            ref_dir = (project.parent / Path(include).parent).resolve()
+                            return str((ref_dir / Path(include).name).resolve().relative_to(root))
+                        case _:
+                            return str((project.parent / include).resolve().relative_to(root))
+
+                def refs(project: Path) -> frozenset[str]:
+                    match workspace.csproj(project):
+                        case None | str():
+                            return frozenset()
+                        case element:
+                            return frozenset(
+                                ref(root / project, include)
+                                for node in element.iter()
+                                if node.tag.rpartition("}")[-1] == "ProjectReference"
+                                for include in (node.attrib.get("Include", ""),)
+                                if include.endswith(".csproj")
+                                and node.attrib.get("OutputItemType") != "Analyzer"
+                                and node.attrib.get("ReferenceOutputAssembly") != "false"
+                            )
+
+                graph = {project: refs(root / project) for project in rows}
+                expanded = reduce(
+                    lambda current, _: (
+                        current
+                        | frozenset(
+                            candidate for candidate, references in graph.items() if candidate not in current and current.intersection(references)
                         )
+                    ),
+                    range(len(graph)),
+                    frozenset(seeds),
+                )
+                return Ok(tuple(sorted(expanded)))
+            case unreachable:
+                assert_never(unreachable)
 
-            graph = {project: refs(root / project) for project in rows}
-            expanded = reduce(
-                lambda current, _: (
-                    current
-                    | frozenset(candidate for candidate, references in graph.items() if candidate not in current and current.intersection(references))
-                ),
-                range(len(graph)),
-                frozenset(seeds),
-            )
-            return Ok(tuple(sorted(expanded)))
-        case unreachable:
-            assert_never(unreachable)
+    return workspace.projects().bind(resolve)
 
 
 def _relative(root: Path, path: Path) -> str:
@@ -336,8 +346,9 @@ def _route_step(acc: _ChangedRoute, file: str, *, index: ProjectIndex, workspace
 
 
 def plan_payload(settings: QualitySettings, scope: ArtifactScope, paths: tuple[Path, ...] = ()) -> Result[bytes, ProcessFault]:
-    return _plan(settings, scope, paths=paths).map(
-        lambda plan: msgspec.json.encode(
+    def report(plan: StaticPlan) -> bytes:
+        build_flags = ArtifactScope.build(settings, _closure_key(plan, plan.scope)).dotnet_flags
+        return msgspec.json.encode(
             StaticPlanReport(
                 scope=plan.scope,
                 inputs=plan.inputs,
@@ -348,13 +359,12 @@ def plan_payload(settings: QualitySettings, scope: ArtifactScope, paths: tuple[P
                 commands={
                     "fix": tuple(("dotnet", *command) for command in _format_commands(settings, scope, plan, "fix")),
                     "report": tuple(("dotnet", *command) for command in _format_commands(settings, scope, plan, "report")),
-                    "build": tuple(
-                        ("dotnet", *command, *scope.dotnet_flags) for command in _build_commands(settings, plan, settings.root, plan.scope)
-                    ),
+                    "build": tuple(("dotnet", *command, *build_flags) for command in _build_commands(settings, plan, settings.root, plan.scope)),
                 },
             )
         )
-    )
+
+    return _plan(settings, scope, paths=paths).map(report)
 
 
 @beartype
@@ -367,11 +377,9 @@ def run_static_rail(
         case "report":
             return _plan(settings, scope, paths=paths).bind(lambda plan: _format_plan(settings, scope, plan, "report"))
         case "build":
-            return _plan(settings, scope, paths=paths).bind(
-                lambda plan: _build_plan(plan, settings, scope, settings.root, "changed").or_else_with(_skip)
-            )
+            return _plan(settings, scope, paths=paths).bind(lambda plan: _build_plan(plan, settings, settings.root, plan.scope).or_else_with(_skip))
         case "full":
-            return _plan(settings, scope, "full", paths=paths).bind(lambda plan: _build_plan(plan, settings, scope, settings.root, "full"))
+            return _plan(settings, scope, "full", paths=paths).bind(lambda plan: _build_plan(plan, settings, settings.root, "full"))
         case "plan":
             return plan_payload(settings, scope, paths=paths).map(lambda _: "done")
         case unreachable:

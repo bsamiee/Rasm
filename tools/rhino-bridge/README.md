@@ -76,11 +76,10 @@ Run commands from repository root. Prefix: `uv run python -m tools.quality`.
 |   [8]   | `bridge deploy rasm-bridge <version>`  | Install staged package; relaunch; health — `[INTENT]` [8] |
 |   [9]   | `bridge publish rasm-bridge <version>` | Package, local deploy, push Yak feed                      |
 |  [10]   | `bridge verify <scenario-or-glob>`     | Scenario verify rail — `[INTENT]` [10]                    |
-|  [11]   | `api doctor`                           | RhinoWIP XML, ILSpy, RhinoCode metadata                   |
-|  [12]   | `api path <key> [assembly\|xml]`       | Resolved assembly or XML path for API key                 |
-|  [13]   | `api xml <key> <xml\|assembly> <pattern>` | Search resolved XML with `rg`                          |
-|  [14]   | `api types <key> <assembly\|xml> [pattern]` | List assembly types via ILSpy; optional filter       |
-|  [15]   | `api decompile <key> <assembly\|xml> <pattern> <type>` | Decompile type when bundle XML absent     |
+|  [11]   | `api doctor [--strict] [--restore never]` | RhinoWIP, ILSpy, RhinoCode, host keys, package keys, host and central package source inventory |
+|  [12]   | `api resolve <key> [all\|assembly\|xml\|nuspec\|deps\|package-root]` | Resolved managed, native, build, analyzer, and tool assets |
+|  [13]   | `api query <key> <symbol>`             | Type or member report via ILSpy (dotted `Type.Member`); bounded decompile, full source saved |
+|  [14]   | `api show <artifact-or-symbol>`        | Bounded saved-artifact preview; `--full` prints raw       |
 
 [INTENT]
 - [2] Before cold open, clears macOS recovery markers (`.rhl`/doc autosave, `Rhinoceros-*.ips`) so unclean exit never blocks headless launch with a recovery dialog.
@@ -122,27 +121,28 @@ Verify local API metadata:
 uv run python -m tools.quality api doctor
 ```
 
-Expected result: tab-separated evidence for RhinoWIP app version, ILSpy host status, RhinoCode direct and roll-forward status, and each API key's assembly/XML state.
+Expected result: compact JSON for RhinoWIP app version, ILSpy host status, RhinoCode direct and roll-forward status, host keys, package keys, and artifact paths.
 
-Search bundle XML:
+Inspect host/package API truth:
 
 ```bash
-uv run python -m tools.quality api xml rhino-common xml Mesh
-uv run python -m tools.quality api xml gh2 xml Document
+uv run python -m tools.quality api doctor --restore never
+uv run python -m tools.quality api query rhino-common Rhino.Geometry.Mesh
+uv run python -m tools.quality api query gh2 Document
 ```
 
-Expected result: `rg` matches from resolved XML paths when the bundle ships XML. Current RhinoWIP includes RhinoCommon, GH2, and GH2-IO XML. Eto and Rhino.UI XML are absent; use `api types` or `api decompile` for those.
+Expected result: compact JSON with ranked preview records and direct artifact paths. Current RhinoWIP includes RhinoCommon, GH2, and GH2-IO XML. Rhino.UI XML is absent; `api query` decompiles via ILSpy when XML is missing.
 
 Inspect Rhino UI metadata when XML is absent:
 
 ```bash
-uv run python -m tools.quality api types eto assembly Forms
-uv run python -m tools.quality api decompile rhino-ui assembly "" Rhino.UI.DataSerializer
+uv run python -m tools.quality api resolve rhino-ui assembly --restore never
+uv run python -m tools.quality api query rhino-ui Rhino.UI.DataSerializer
 ```
 
-Expected result: decompiled C# from `Rhino.UI.dll` through ILSpy using a normalized .NET apphost environment.
+Expected result: compact JSON plus bounded inline preview and `decompile.cs` artifacts from ILSpy using a normalized .NET apphost environment. Use `api show <artifact-or-symbol>` for follow-up inspection.
 
-Piping long API output into tools such as `head` can close stdout early and print a benign `BrokenPipeError`. Re-run without the pipe when the command result matters.
+Default API commands do not print broad query/decompile streams. Inspect `artifact_paths` or run `api show <artifact-or-symbol>` when full evidence is needed.
 
 ### [3.2][OPTIONS]
 
@@ -268,7 +268,7 @@ The client emits runtime reference projections from one evaluated project build,
 
 API metadata lookup uses local sources in this order:
 1. RhinoWIP app-bundle XML when present. Current local evidence includes RhinoCommon, GH2, and GH2-IO XML; Eto and Rhino.UI XML report `missing`.
-2. ILSpy `types`/`decompile` for assemblies without XML, for example `Rhino.UI.dll` and `Eto.dll`.
+2. `api query` decompiles via `ilspycmd` for assemblies without XML, for example `Rhino.UI.dll` and `Eto.dll`.
 3. `api doctor` reports `rhinocode` CLI availability as environment evidence only; the in-process `execute` rail, not the CLI, is the runtime authority.
 
 | [INDEX] | [REFERENCE_SET]                   | [USE]                                                                 |
@@ -340,11 +340,10 @@ uv run python -m tools.quality self-test
 pnpm check:py
 uv run pytest tests/tools/quality/test_quality.py -q
 uv run python -m tools.quality api doctor
-uv run python -m tools.quality api path rhino-common xml
-uv run python -m tools.quality api xml rhino-common xml Mesh
-uv run python -m tools.quality api xml gh2 xml Document
-uv run python -m tools.quality api types rhino-ui assembly Panels
-uv run python -m tools.quality api decompile rhino-ui assembly "" Rhino.UI.DataSerializer
+uv run python -m tools.quality api doctor --restore never
+uv run python -m tools.quality api query rhino-common Rhino.Geometry.Mesh
+uv run python -m tools.quality api query gh2 Document
+uv run python -m tools.quality api query rhino-ui Rhino.UI.DataSerializer
 uv run python -m tools.quality bridge build-bridge
 uv run python -m tools.quality static fix
 uv run python -m tools.quality static build

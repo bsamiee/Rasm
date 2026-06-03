@@ -13,7 +13,7 @@
 
 | [INDEX] | [SOURCE]                                              | [USE]                                                                  |
 | :-----: | ----------------------------------------------------- | ---------------------------------------------------------------------- |
-|   [1]   | `MathNet.Symbolics` `0.25.0` local XML/nuspec/DLL     | API and package truth.                                                 |
+|   [1]   | `MathNet.Symbolics` local XML/nuspec/DLL              | API and package truth.                                                 |
 |   [2]   | Symbolics package source commit                       | Parse/format/evaluate implementation proof.                            |
 |   [3]   | `.deps.json`, identity tools, `bridge check <csproj>` | Runtime load proof — smoke emits `assemblyFreshness` without scenario. |
 |   [4]   | RhinoWIP/GH2 XML                                      | Host projection and diagnostics.                                       |

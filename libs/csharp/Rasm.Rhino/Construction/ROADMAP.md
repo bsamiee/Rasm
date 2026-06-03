@@ -15,9 +15,9 @@
 
 | [INDEX] | [SOURCE] | [STATUS] | [USE] |
 | :-----: | -------- | -------- | ----- |
-| [1] | `uv run python -m tools.quality api doctor` | Verified RhinoWIP `9.0.26132.12306`. | Host version and API tooling. |
+| [1] | `uv run python -m tools.quality api doctor` | Doctor-reported RhinoWIP 9. | Host version and API tooling. |
 | [2] | `RhinoCommon.xml` | Primary. | Geometry type, factory, transform, and document insertion APIs. |
-| [3] | `uv run python -m tools.quality api decompile rhino-common <type>` | Required for ambiguity. | Obsolete, hidden, internal, sentinel, and expert-only behavior. |
+| [3] | `uv run python -m tools.quality api query rhino-common <symbol>` | Required for ambiguity. | Obsolete, hidden, internal, sentinel, and expert-only behavior; full source lands in the emitted `decompile.cs` artifact. |
 | [4] | `Rasm.Domain`, `Rasm.Vectors`, `Rasm.Rhino` source | Required. | Existing normalization, vector/numeric rails, UI/camera/document ownership. |
 
 [VERIFY] Re-run source checks before implementation. Every named Rhino member requires local XML or decompile proof before code claims capability.
@@ -49,11 +49,11 @@
 | [17] | Document replace | `Replace` overloads for points/primitive curves, `TextEntity`, `Leader`, `TextDot`, `Hatch`, `Surface`, `Brep`, `Extrusion`, `Mesh`, `SubD`, `PointCloud`, `GeometryBase`. | Add and replace consume one construction projection path without mirrored local adapters. |
 | [18] | Construction planes/history | `ConstructionPlane`, `NamedConstructionPlaneTable`, viewport cplane APIs, `HistoryRecord`. | Construction may produce plane/grid specs; Camera and document resources apply or persist them; `HistoryRecord` stays deferred and expert-only. |
 
-Rejected or missing local APIs:
+Rejected or missing local APIs. Re-verify each through `api query rhino-common <symbol>` before trusting; WIP builds flip these:
 - `Rhino.DocObjects.ObjectInstance`: absent; use `InstanceObject`.
 - Public `Line2d`, `Circle2d`, `Arc2d`, `Rectangle2d`: absent as Rhino geometry types.
 - `GetBaseClass.Line2d()` and `Rectangle2d()` are command input screen/window result names.
-- `Mesh.CreateFromClosedPolylinesAndPoints`: XML lists it, decompile shows `internal static`.
+- `Mesh.CreateFromClosedPolylinesAndPoints`: XML lists it, source shows `internal static`.
 - `Line.Create`, `Circle.Create`, `Arc.Create`, `Ellipse.Create`, `EllipseCurve`, `Surface.TryConvertBrep`: false or suspect in local WIP.
 - No-tolerance curve boolean/tween and planar-boundary style overloads are obsolete or rejected; use explicit tolerance/settings overloads. Older Brep fillet/chamfer signatures are separately obsolete.
 
@@ -143,9 +143,8 @@ Do not create one file per Rhino geometry type.
 
 Docs-only refinement gate:
 - `uv run python -m tools.quality api doctor`.
-- Targeted `uv run python -m tools.quality api xml rhino-common "<symbol>"` for every newly named Rhino member.
-- `uv run python -m tools.quality api decompile rhino-common "<type>"` where XML is missing or ambiguous.
-- Exact XML/decompile checks for rejected 2D types and hidden/internal mesh members.
+- Targeted `uv run python -m tools.quality api query rhino-common <symbol>` for every newly named Rhino member; full source lands in the emitted `decompile.cs` artifact for ambiguous cases.
+- Exact source/metadata checks for rejected 2D types and hidden/internal mesh members.
 
 Future implementation gate:
 - `uv run python -m tools.quality static fix`.
