@@ -522,7 +522,7 @@ internal static partial class Operations {
                 .Filter(existing => BlockContentHash.Of(members: existing).Value == hash)
                 .Map(_ => defId))
             .Head
-            .Map(static id => Fin.Succ<MutationReceipt>(MutationReceipt.Of(
+            .Map(static id => Fin.Succ(MutationReceipt.Of(
                 receipt: DocumentReceipt.Empty,
                 diagnostics: Seq<BlockDiagnostic>(new BlockDiagnostic.ReusedExisting(Existing: id)))))
             .IfNone(() => AddStatic(owner: owner, spec: spec, members: provided, key: key));
@@ -1005,7 +1005,7 @@ internal static partial class Operations {
             UpdatePolicy.FromNative(native: live.UpdateType).IsLinked
             && Definition.NonBlank(value: live.SourceArchive).IsSome
             && ArchiveStatus.FromNative(native: live.ArchiveFileStatus).CanRefresh;
-        return Seq<Func<InstanceDefinition, bool>>(
+        return Seq(
                 live => defs.UpdateLinkedInstanceDefinition(
                     idefIndex: index,
                     filename: Definition.NonBlank(value: live.SourceArchive).IfNone(noneValue: loadPath),
@@ -1187,7 +1187,7 @@ internal static partial class Operations {
     private static GeometryBase ScaleToHost(GeometryBase geometry, double rootScale) {
         bool scaled = Math.Abs(value: rootScale - 1.0) > RhinoMath.ZeroTolerance
             && geometry is not InstanceReferenceGeometry
-            && geometry.Transform(xform: global::Rhino.Geometry.Transform.Scale(anchor: Point3d.Origin, scaleFactor: rootScale));
+            && geometry.Transform(xform: Transform.Scale(anchor: Point3d.Origin, scaleFactor: rootScale));
         return (scaled, result: geometry).result;
     }
     private static Fin<Members> ReifyArchiveMembers(File3dm model, Definition definition, HashMap<Guid, Guid> liveByArchiveId, double rootScale, Op key) =>

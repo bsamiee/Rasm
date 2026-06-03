@@ -1025,7 +1025,7 @@ internal static partial class UiRail {
             System.Collections.Generic.HashSet<Guid> visited = [.. toSeq(objects.SelectedObjects).Map(static o => o.InstanceId)];
             System.Collections.Generic.HashSet<Guid> frontier = [.. visited];
             Connectivity snapshot = objects.Connectivity;
-            _ = toSeq(System.Linq.Enumerable.Range(start: 0, count: Math.Max(0, hops))).Iter(_hop => {
+            _ = toSeq(Enumerable.Range(start: 0, count: Math.Max(0, hops))).Iter(_hop => {
                 System.Collections.Generic.HashSet<Guid> next = [];
                 _ = toSeq(frontier).Iter(id => {
                     Seq<ConnectiveObject> neighbours =
