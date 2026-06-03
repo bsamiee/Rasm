@@ -23,6 +23,8 @@ public enum GumballAxis { None, Free, X, Y, Z, XY, YZ, ZX }
 
 public enum GumballVerb { None, Menu, Translate, Scale, Rotate, Extrude, Cut }
 
+// Generic union: plain abstract record + manual switch (Thinktecture [Union] mis-generates the TState
+// parameter for generic unions — coding-csharp rule: generic/ref-struct sums use manual switch).
 public abstract record InteractionStep<TState> {
     private InteractionStep() { }
     public sealed record PhaseGuard(InteractionGuard Guard) : InteractionStep<TState>;
@@ -32,10 +34,7 @@ public abstract record InteractionStep<TState> {
     public sealed record Debounce(TimeSpan Interval, TimeProvider Clock) : InteractionStep<TState> { internal Atom<long> Gate { get; } = Atom(0L); }   // 0L → GetElapsedTime returns uptime (passes first event); long.MinValue overflowed negative and rejected it
     internal Fin<MouseDecision<TState>> Apply(MouseContext<TState> context, MouseDecision<TState> current) =>
         this switch {
-            PhaseGuard guard => guard.Guard.AdmitViewport().Bind(_ => guard.Guard.Matches(context: context) switch {
-                true => Fin.Succ(value: current),
-                false => Fin.Fail<MouseDecision<TState>>(error: new Fault.Cancelled()),
-            }),
+            PhaseGuard phase => phase.Guard.AdmitViewport().Bind(_ => guard(phase.Guard.Matches(context: context), (Error)new Fault.Cancelled()).ToFin().Map(_ => current)),
             Snap snap => from point in context.Project(plane: snap.Plane) select current with { State = snap.Project(arg1: context, arg2: point) },
             Transition transition => Fin.Succ(value: current with { State = transition.Project(arg: context) }),
             Emit emit => emit.Effect(arg: context).Map(_ => current),
@@ -229,11 +228,12 @@ public readonly record struct UiGradient(Seq<ColorStop> Stops, bool Linear = tru
             UiGradientAxis.X => (new Point3d(box.Min.X, c.Y, c.Z), new Point3d(box.Max.X, c.Y, c.Z)),
             UiGradientAxis.Y => (new Point3d(c.X, box.Min.Y, c.Z), new Point3d(c.X, box.Max.Y, c.Z)),
             UiGradientAxis.Z => (new Point3d(c.X, c.Y, box.Min.Z), new Point3d(c.X, c.Y, box.Max.Z)),
-            _ => (Math.Abs(d.X) >= Math.Abs(d.Y) && Math.Abs(d.X) >= Math.Abs(d.Z))
-                ? (new Point3d(box.Min.X, c.Y, c.Z), new Point3d(box.Max.X, c.Y, c.Z))
-                : Math.Abs(d.Y) >= Math.Abs(d.Z)
-                    ? (new Point3d(c.X, box.Min.Y, c.Z), new Point3d(c.X, box.Max.Y, c.Z))
-                    : (new Point3d(c.X, c.Y, box.Min.Z), new Point3d(c.X, c.Y, box.Max.Z)),
+            // longest box-edge wins; Seq order X→Y→Z makes MaxBy left-biased on a magnitude tie
+            _ => Seq(
+                    (Span: Math.Abs(d.X), P1: new Point3d(box.Min.X, c.Y, c.Z), P2: new Point3d(box.Max.X, c.Y, c.Z)),
+                    (Span: Math.Abs(d.Y), P1: new Point3d(c.X, box.Min.Y, c.Z), P2: new Point3d(c.X, box.Max.Y, c.Z)),
+                    (Span: Math.Abs(d.Z), P1: new Point3d(c.X, c.Y, box.Min.Z), P2: new Point3d(c.X, c.Y, box.Max.Z)))
+                .MaxBy(static e => e.Span) switch { var longest => (longest.P1, longest.P2) },
         };
         return pick.P1.DistanceTo(pick.P2) < RhinoMath.ZeroTolerance ? (box.Min, box.Max) : pick;
     }
@@ -417,8 +417,9 @@ public readonly record struct UiPreviewStyle(
         };
         Fin<Unit> Paint(Action draw) => Fin.Succ(value: s.Render.Scope(pipeline: pipeline, draw: draw));
         IEnumerable<Point3d> PolyPoints(Curve curve) {   // screen-anchored dotted sampling over the curve domain
+            const int CurveSamples = 64;   // segment count → CurveSamples + 1 fence-post samples
             Interval domain = curve.Domain;
-            return toSeq(Enumerable.Range(start: 0, count: 65)).Map(i => curve.PointAt(t: domain.ParameterAt(normalizedParameter: (double)i / 64)));
+            return toSeq(Enumerable.Range(start: 0, count: CurveSamples + 1)).Map(i => curve.PointAt(t: domain.ParameterAt(normalizedParameter: (double)i / CurveSamples)));
         }
         Unit DrawCurveWithPen(Curve curve) => (s.Dotted, s.Stroke.Case) switch {
             (true, _) => Op.Side(() => pipeline.DrawDottedPolyline(points: PolyPoints(curve: curve), color: stroke, close: curve.IsClosed)),

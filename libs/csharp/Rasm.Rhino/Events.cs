@@ -60,6 +60,8 @@ public abstract partial record WatchPayload {
             panel: static (_, _) => Seq<Guid>(),
             draw: static (_, _) => Seq<Guid>(),
             document: static (_, _) => Seq<Guid>());
+
+    public Option<TCase> As<TCase>() where TCase : WatchPayload => Optional(this as TCase);
 }
 
 [SmartEnum<int>]
@@ -80,10 +82,9 @@ public sealed partial class WatchPhase {
         LayerChanged = new(key: 12, bind: On<LayerTableEventArgs>(h => RhinoDoc.LayerTableEvent += h, h => RhinoDoc.LayerTableEvent -= h, static (a, doc) => Gate(eventDoc: a.Document, watched: doc, payload: new WatchPayload.LayerEvent(Event: a.EventType, Index: a.LayerIndex, Old: Optional(a.OldState), Next: Optional(a.NewState))))),
         ViewProjectionChanged = new(key: 13, bind: Projection(h => DisplayPipeline.ViewportProjectionChanged += h, h => DisplayPipeline.ViewportProjectionChanged -= h)),
         ViewDisplayModeChanged = new(key: 14, bind: On<DisplayModeChangedEventArgs>(h => DisplayPipeline.DisplayModeChanged += h, h => DisplayPipeline.DisplayModeChanged -= h, static (a, doc) =>
-            Optional(a.Viewport).Map(static vp => vp.Id)
-                .IfNone(() => Optional(a.RhinoDoc).Bind(static d => Optional(d.Views.ActiveView)).Bind(static v => Optional(v.ActiveViewport)).Map(static vp => vp.Id).IfNone(Guid.Empty)) is Guid viewportId && viewportId != Guid.Empty
-                    ? Gate(eventDoc: a.RhinoDoc, watched: doc, payload: new WatchPayload.DisplayMode(ViewportId: viewportId, Old: a.OldDisplayModeId, Next: a.ChangedDisplayModeId))
-                    : Option<WatchEnvelope>.None)),
+            (Optional(a.Viewport).Map(static vp => vp.Id).Filter(static id => id != Guid.Empty)
+                | Optional(a.RhinoDoc).Bind(static d => Optional(d.Views.ActiveView)).Bind(static v => Optional(v.ActiveViewport)).Map(static vp => vp.Id).Filter(static id => id != Guid.Empty))
+                .Bind(viewportId => Gate(eventDoc: a.RhinoDoc, watched: doc, payload: new WatchPayload.DisplayMode(ViewportId: viewportId, Old: a.OldDisplayModeId, Next: a.ChangedDisplayModeId))))),
         BeginOpen = new(key: 15, bind: On<DocumentOpenEventArgs>(h => RhinoDoc.BeginOpenDocument += h, h => RhinoDoc.BeginOpenDocument -= h, static (a, doc) => Gate(serial: a.DocumentSerialNumber, watched: doc, payload: WatchPayload.Document.Open(args: a)))),
         EndOpen = new(key: 16, bind: On<DocumentOpenEventArgs>(h => RhinoDoc.EndOpenDocument += h, h => RhinoDoc.EndOpenDocument -= h, static (a, doc) => Gate(serial: a.DocumentSerialNumber, watched: doc, payload: WatchPayload.Document.Open(args: a)))),
         BeginSave = new(key: 17, bind: On<DocumentSaveEventArgs>(h => RhinoDoc.BeginSaveDocument += h, h => RhinoDoc.BeginSaveDocument -= h, static (a, doc) => Gate(serial: a.DocumentSerialNumber, watched: doc, payload: WatchPayload.Document.Save(args: a)))),
@@ -186,17 +187,14 @@ public sealed partial class WatchPhase {
         Optional(args.PageView).Bind(page =>
             Gate(eventDoc: page.Document, watched: watched, payload: new WatchPayload.PageView(
                 SerialNumber: page.RuntimeSerialNumber,
-                OldActiveDetailId: OptionalDetail(value: args.OldActiveDetailId),
-                NewActiveDetailId: OptionalDetail(value: args.NewActiveDetailId))));
+                OldActiveDetailId: Optional(args.OldActiveDetailId).Filter(static id => id != Guid.Empty),
+                NewActiveDetailId: Optional(args.NewActiveDetailId).Filter(static id => id != Guid.Empty))));
 
     private static Option<WatchEnvelope> PagePropertiesPayload(PageViewPropertiesChangeEventArgs args, WatchTarget watched) =>
         Gate(serial: args.DocumentSerialNumber, watched: watched, payload: new WatchPayload.PageView(
             SerialNumber: args.PageViewSerialNumber,
             OldActiveDetailId: Option<Guid>.None,
             NewActiveDetailId: Option<Guid>.None));
-
-    private static Option<Guid> OptionalDetail(Guid value) =>
-        value == Guid.Empty ? Option<Guid>.None : Some(value);
 }
 
 [Union]
@@ -209,10 +207,10 @@ public abstract partial record WatchTarget {
 // --- [MODELS] -----------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct WatchEvent(WatchPhase Phase, uint DocumentSerialNumber, Option<RhinoDoc> Document, WatchPayload Payload) {
-    public Option<RhinoView> View => Payload is WatchPayload.View value ? Some(value: value.Value) : Option<RhinoView>.None;
-    public Option<WatchPayload.Panel> Panel => Payload is WatchPayload.Panel value ? Some(value: value) : Option<WatchPayload.Panel>.None;
-    public Option<WatchPayload.PageView> PageView => Payload is WatchPayload.PageView value ? Some(value: value) : Option<WatchPayload.PageView>.None;
-    public Option<WatchPayload.Draw> Draw => Payload is WatchPayload.Draw value ? Some(value: value) : Option<WatchPayload.Draw>.None;
+    public Option<RhinoView> View => Payload.As<WatchPayload.View>().Map(static v => v.Value);
+    public Option<WatchPayload.Panel> Panel => Payload.As<WatchPayload.Panel>();
+    public Option<WatchPayload.PageView> PageView => Payload.As<WatchPayload.PageView>();
+    public Option<WatchPayload.Draw> Draw => Payload.As<WatchPayload.Draw>();
     public Seq<Guid> ObjectIds => Payload.ObjectIds;
 }
 
@@ -268,10 +266,8 @@ public static class WatchBus {
             Fin<Unit> Fire() {
                 DateTimeOffset now = clock.GetUtcNow();
                 bool accepted = false;
-                _ = lastFired.Swap(f: last => {
-                    accepted = now - last >= debounce;
-                    return accepted ? now : last;
-                });
+                // tuple-capture side-channel: `(accepted = …, return).Item2` assigns the captured flag inside the returned expression (MA0140-safe, no ref/out) — mirrors Advanced; NOT the external-mutable anti-pattern
+                _ = lastFired.Swap(f: last => (accepted = now - last >= debounce, accepted ? now : last).Item2);
                 return accepted ? sink() : Fin.Succ(value: unit);
             }
             void OnChange(object sender, FileSystemEventArgs args) => _ = UI.RhinoUi.Protect(valid: Fire);
@@ -385,9 +381,7 @@ internal sealed class EventDispatcher<TRaw, TEvent> {
             (uint serial, TEvent ev) = project(arg: raw);
             prologue(arg1: serial, arg2: ev);
             Seq<Entry> subs = bySerial.Value.Find(key: serial).IfNone(noneValue: Seq<Entry>());   // snapshot before iter
-            return subs.IsEmpty
-                ? unit
-                : ignore(subs.Filter(s => s.Filter(arg: ev)).Iter(s => Deliver(serial: serial, entry: s, ev: ev)));
+            return ignore(subs.Filter(s => s.Filter(arg: ev)).Iter(s => Deliver(serial: serial, entry: s, ev: ev)));
         } finally {
             _ = reentrant.Swap(f: set => set.Remove(key: tid));
         }
@@ -395,7 +389,10 @@ internal sealed class EventDispatcher<TRaw, TEvent> {
 
     private void Deliver(uint serial, Entry entry, TEvent ev) {
         void Run() => _ = UI.RhinoUi.Protect(valid: () => { entry.Sink(obj: ev); return Fin.Succ(value: unit); });
-        _ = entry.Deferral == DeferralPolicy.Idle ? Op.Side(() => defer(arg1: serial, arg2: Run)) : Op.Side(Run);
+        _ = entry.Deferral switch {
+            DeferralPolicy.Idle => Op.Side(() => defer(arg1: serial, arg2: Run)),
+            _ => Op.Side(Run),
+        };
     }
 
     private Unit Detach(uint serial, Guid id) {
@@ -413,18 +410,10 @@ internal static class WatchIdle {
     private static int hooked;
 
     internal static Fin<Unit> Deliver(DeferralPolicy deferral, Func<Fin<Unit>> run) =>
-        from valid in Optional(run).ToFin(Fail: Op.Of(name: nameof(WatchIdle)).InvalidInput())
-        from delivered in deferral switch {
-            DeferralPolicy.Idle => Enqueue(run: valid),
-            _ => valid(),
-        }
-        select delivered;
-
-    private static Fin<Unit> Enqueue(Func<Fin<Unit>> run) {
-        EnsureHook();
-        _ = Queue.Swap(f: current => current.Add(value: run));
-        return Fin.Succ(value: unit);
-    }
+        deferral switch {
+            DeferralPolicy.Idle => Fin.Succ(value: Op.Side(() => { EnsureHook(); _ = Queue.Swap(f: current => current.Add(value: run)); })),
+            _ => run(),
+        };
 
     private static void EnsureHook() =>
         _ = Interlocked.CompareExchange(location1: ref hooked, value: 1, comparand: 0) != 0

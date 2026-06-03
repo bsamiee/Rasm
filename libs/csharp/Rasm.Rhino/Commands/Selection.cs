@@ -74,11 +74,8 @@ public readonly record struct ReferenceHit(Option<double> CurveParameter, Option
             _ => Option<double>.None,
         };
         Option<Point2d> surface = selectionMethod switch {
-            SelectionMethod.MousePick => reference.SurfaceParameter(u: out double surfaceU, v: out double surfaceV) switch {
-                Surface => new Point2d(x: surfaceU, y: surfaceV),
-                _ => Point2d.Unset,
-            } switch {
-                Point2d point when point.IsValid => Some(point),
+            SelectionMethod.MousePick => (reference.SurfaceParameter(u: out double surfaceU, v: out double surfaceV), new Point2d(x: surfaceU, y: surfaceV)) switch {
+                (Surface, Point2d point) when point.IsValid => Some(point),
                 _ => Option<Point2d>.None,
             },
             _ => Option<Point2d>.None,

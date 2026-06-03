@@ -26,6 +26,8 @@ public readonly partial struct Op {
     [BoundaryAdapter] public Fin<Unit> Confirm(bool success) => success ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: InvalidResult());
     [BoundaryAdapter] public Fin<T> Need<T>(T? value) where T : class => Optional(value).ToFin(Fail: InvalidInput());
     [BoundaryAdapter] public Fin<T> Need<T>(Option<T> value) => value.ToFin(Fail: InvalidInput());
+    [BoundaryAdapter] public Fin<double> Finite(double value) => guard(RhinoMath.IsValidDouble(x: value), InvalidInput()).ToFin().Map(_ => value);
+    [BoundaryAdapter] public Fin<double> Positive(double value) => guard(RhinoMath.IsValidDouble(x: value) && (value > 0.0), InvalidInput()).ToFin().Map(_ => value);
     [BoundaryAdapter]
     public Fin<T> Catch<T>(Func<Fin<T>> body) {
         Op self = this;

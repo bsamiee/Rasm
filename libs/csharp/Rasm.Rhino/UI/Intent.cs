@@ -145,13 +145,11 @@ public static partial class UiIntent {
     public static UiIntent<Unit> Text(string body, string title = "") =>
         Request(
             name: nameof(Text),
-            run: _ => string.IsNullOrWhiteSpace(value: body) switch {
-                true => Fin.Fail<Unit>(error: Op.Of(name: nameof(Text)).InvalidInput()),
-                false => Op.Of(name: nameof(Text)).Catch(() => {
+            run: _ => guard(!string.IsNullOrWhiteSpace(value: body), Op.Of(name: nameof(Text)).InvalidInput()).ToFin()
+                .Bind(_ => Op.Of(name: nameof(Text)).Catch(() => {
                     global::Rhino.UI.Dialogs.ShowTextDialog(message: body, title: title ?? string.Empty);
                     return Fin.Succ(value: unit);
-                }),
-            });
+                })));
     public static UiIntent<T> Choice<T>(string title, string message, IEnumerable<T> items, Option<T> selected = default) =>
         Request(name: nameof(Choice), run: _ => Items(values: items, name: nameof(Choice))
             .Bind(choices => Picked(selected.Case switch {
@@ -203,16 +201,11 @@ public static partial class UiIntent {
             material: static (sc, material) => MultipleLayers(request: material).Bind(indices => Picked(global::Rhino.UI.Dialogs.ShowLayerMaterialDialog(doc: sc.Document, layerIndices: indices.AsIterable()), new UiLayerResult(LayerIndices: indices, SetCurrent: false, MaterialAccepted: true)))));
 
     public static UiIntent<Guid> Linetype(string title, string message, Option<Guid> selected = default) =>
-        Request(name: nameof(Linetype), run: scope => {
-            object picked = selected.Case switch {
-                Guid id => global::Rhino.UI.Dialogs.ShowLineTypes(title: title, message: message, doc: scope.Document, selectedLineTypeId: id),
-                _ => global::Rhino.UI.Dialogs.ShowLineTypes(title: title, message: message, doc: scope.Document),
-            };
-            return picked switch {
-                Guid value => Picked(value != Guid.Empty, value),
+        Request(name: nameof(Linetype), run: scope =>
+            global::Rhino.UI.Dialogs.ShowLineTypes(title: title, message: message, doc: scope.Document, selectedLineTypeId: selected.IfNone(Guid.Empty)) switch {
+                Guid id when id != Guid.Empty => Fin.Succ(value: id),   // Guid.Empty is the no-preselection sentinel AND the cancel signal
                 _ => Fin.Fail<Guid>(error: new Fault.Cancelled()),
-            };
-        });
+            });
 
     public static UiIntent<int> LinetypeIndex(int selectedIndex = -1, bool displayByLayer = false) =>
         Request(name: nameof(LinetypeIndex), run: _ => {

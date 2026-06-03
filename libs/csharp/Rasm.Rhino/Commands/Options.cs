@@ -352,10 +352,12 @@ public readonly record struct CommandToken(string Raw) {
             ? Some(value)
             : Option<int>.None;
 
-    public Option<int> ListChoice<T>(Seq<string> labels, Seq<T> values) =>
-        ((Func<string, Option<int>>)(text => toSeq(Enumerable.Range(start: 0, count: Math.Min(labels.Count, values.Count)))
+    public Option<int> ListChoice<T>(Seq<string> labels, Seq<T> values) {
+        string text = Text;
+        return toSeq(Enumerable.Range(start: 0, count: Math.Min(labels.Count, values.Count)))
             .Find(index => string.Equals(a: labels[index], b: text, comparisonType: StringComparison.OrdinalIgnoreCase)
-                || string.Equals(a: values[index]?.ToString(), b: text, comparisonType: StringComparison.OrdinalIgnoreCase))))(Text);
+                || string.Equals(a: values[index]?.ToString(), b: text, comparisonType: StringComparison.OrdinalIgnoreCase));
+    }
 
     private static Option<int> Separator(string value) =>
         (Equal: value.IndexOf(value: '=', comparisonType: StringComparison.Ordinal), Colon: value.IndexOf(value: ':', comparisonType: StringComparison.Ordinal)) switch {

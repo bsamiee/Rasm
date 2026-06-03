@@ -400,9 +400,7 @@ public sealed record CommandInputPolicy {
                 double value when RhinoMath.IsValidDouble(x: value) && value >= 0.0 => Fin.Succ(value: Op.Side(() => getter.ConstrainDistanceFromBasePoint(distance: value))),
                 double => Fin.Fail<Unit>(error: Op.Of(name: nameof(ApplyPoint)).InvalidInput()),
                 _ => Fin.Succ(value: unit),
-            }).Bind(_ => spec.Constraints.Fold(
-                Fin.Succ(value: unit),
-                (state, value) => state.Bind(_ => value.Apply(getter: getter))));
+            }).Bind(_ => spec.Constraints.TraverseM(constraint => constraint.Apply(getter: getter)).As().Map(static _ => unit));
         }).IfNone(Fin.Succ(value: unit));
     }
 
@@ -438,6 +436,7 @@ public sealed record CommandInputRequest<T> {
     internal Fin<CommandInputOutcome<T>> Script(CommandInput input, string token) =>
         scripted(arg1: input, arg2: token);
 
+    // a caller swapping the option SET here must re-validate any carried CommandOptionValue against the new set; rebind does not reconcile a key that no longer indexes a live option, so a stale selection would re-surface
     internal CommandInputRequest<T> With(Seq<CommandInputPolicy> policies) =>
         rebind(arg: policies);
 }
@@ -889,8 +888,8 @@ public static class CommandInputs {
                             using CommandOption.Scope active = scope;
                             return ReadLoop(getter: getter, scope: active, receive: () => receive(arg: getter), project: (g, raw) => project(arg1: valid, arg2: g, arg3: raw), selected: Option<CommandOptionValue>.None, acceptUndo: policy.AcceptsUndo, transition: transition ?? (static (_, _, selected) => (Continue: false, Selected: selected)));
                         })
-                        from checkedResult in eventFault.Value.Case switch {
-                            Error error => Fin.Fail<CommandInputOutcome<T>>(error: error),
+                        from checkedResult in eventFault.Value switch {
+                            { IsSome: true, Case: Error error } => Fin.Fail<CommandInputOutcome<T>>(error: error),
                             _ => Fin.Succ(value: result),
                         }
                         select checkedResult;
@@ -900,12 +899,9 @@ public static class CommandInputs {
     private static Fin<Subscription> BindPointEvents(RhinoDoc document, GetPoint getter, Option<Func<CommandPointEvent, Fin<Unit>>> events, CommandPointEventPhase phases, Option<UiGumball> gumball, bool fullFrameRedraw, Atom<Option<Error>> fault) =>
         events.Map(change => {
             CommandPointEventPhase activePhases = phases | (fullFrameRedraw ? CommandPointEventPhase.PostDrawObjects : CommandPointEventPhase.None);
+            // a faulted user handler records the error; the post-loop eventFault check (the only honest abort lever — GetPoint exposes no native cancel) fails the rail after the live Get() returns
             Unit Apply(CommandPointEvent pointEvent) =>
-                UI.RhinoUi.Protect(valid: () => change(arg: pointEvent)).Match(Succ: static _ => unit, Fail: error => {
-                    _ = fault.Swap(_ => Some(error));
-                    _ = getter.InterruptMouseMove();
-                    return unit;
-                });
+                UI.RhinoUi.Protect(valid: () => change(arg: pointEvent)).Match(Succ: static _ => unit, Fail: error => fault.Swap(_ => Some(error)) switch { _ => unit });
             Subscription Sub<TArgs>(Action<EventHandler<TArgs>> add, Action<EventHandler<TArgs>> remove, CommandPointEventPhase phase, Func<TArgs, CommandPointPayload> project) =>
                 Subscription.Attach<TArgs>(active: (activePhases & phase) == phase, subscribe: add, unsubscribe: remove, handle: args => {
                     _ = Apply(pointEvent: new CommandPointEvent(Phase: phase, Document: document, Getter: getter, Payload: project(arg: args), Gumball: gumball));
@@ -1002,11 +998,8 @@ public static class CommandInputs {
 
     private static CommandInputRequest<T> Invalid<T>(string name) => new(run: _ => Fin.Fail<CommandGet<T>>(error: Op.Of(name: name).InvalidInput()));
 
-    private static Option<CommandSelection> SelectionOf(RhinoDoc document, GetObject getter, GetResult raw) =>
-        CommandSelection.FromGetter(document: document, getter: getter, raw: raw).ToOption();
-
     private static Option<CommandSelection.TrimResult> SelectionTrim(CommandInput source, GetObject getter, GetResult raw, CommandObjectSelection policy) =>
-        SelectionOf(document: source.Document, getter: getter, raw: raw)
+        CommandSelection.FromGetter(document: source.Document, getter: getter, raw: raw).ToOption()
             .Bind(selection => selection.Trimmed(policy: policy).ToOption());
 
     private static Option<T> ScriptSelection<T>(CommandInput input, string text, CommandInputPolicy policy) =>

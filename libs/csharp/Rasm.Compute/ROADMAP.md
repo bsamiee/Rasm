@@ -1,60 +1,63 @@
 # [H1][RASM_COMPUTE_ROADMAP]
->**Dictum:** *First compute slice proves equivalence and measurement.*
+>**Dictum:** *Scaffold measured execution, then add tensor, model, and remote lanes.*
 
 <br>
 
-`Rasm.Compute` remains documentation-only. This roadmap sequences future implementation; it does not authorize package pins or source creation by itself.
+This roadmap sequences the build. The measured-compute core wraps `Rasm.Vectors` algorithms in `Eff<RT,ExecutionReceipt>`; model and remote lanes integrate with the concern that owns them.
 
 ---
-## [1][READINESS]
->**Dictum:** *Compute starts when direct execution needs measured orchestration.*
+## [1][PHASE_0]
+>**Dictum:** *Housekeeping lands and compiles before heavy work.*
 
 <br>
 
-Start implementation only when a concrete plugin/app has a long-running or measured compute operation that existing `Rasm` APIs cannot manage alone.
+- Add every core package to root `Directory.Packages.props` at the newest viable versions; project references stay versionless; no version numbers in this document. Adjacent packages for Compute: `CommunityToolkit.HighPerformance`, `UnitsNet`, `System.Reactive`. Scoped: `Microsoft.ML.OnnxRuntime`, `Grpc.Net.Client`, `Google.Protobuf`.
+- Conditional (prove before adding): `Microsoft.ML.OnnxRuntime.Extensions` (custom geometry ops), `Grpc.Net.ClientFactory` (DI bootstrap), `Microsoft.IO.RecyclableMemoryStream` (proven `Stream` path only).
+- Create `Rasm.Compute.csproj`, wire it into `Workspace.slnx` and the central build, and resolve host assemblies as the sibling libs do. Add a reference to the shared-contracts project (which carries `ComputeRequest`, `.proto`, and `Grpc.Tools`).
+- Create `Rasm.Compute.Benchmarks.csproj` under `tests/csharp/libs/Rasm.Compute/`; reference `BenchmarkDotNet` (already centrally managed).
+- Scaffold the flat-file skeleton: `Intent.cs`, `Substrate.cs`, `Model.cs`, `Remote.cs`, `Progress.cs` with canonical section order.
+- Land the `IComputeRuntime` constraint (`CancellationToken`, `TimeProvider`) so Compute compiles and tests standalone.
+- Call `NativeLibrary.SetDllImportResolver` for `libonnxruntime.dylib` and probe the `runtimes/osx-arm64/native/` path before any session.
+- Configure the shared ORT thread pool (`OrtEnvironment.GetInstance().SetGlobalIntraOpNumThreads(cap)`, cap 2–4) once at process startup.
 
-Required decisions before source:
-
-- Baseline `Rasm`/MathNet/CSparse operation.
-- Input class, tolerance policy, and output equivalence rule.
-- Cancellation/deadline/progress requirement.
-- Benchmark target and memory evidence category.
-- Candidate package versions refreshed from latest stable source.
+Phase 0 is complete when restore and build pass clean and the native dylib probe succeeds inside RhinoWIP.
 
 ---
-## [2][FIRST_SLICE]
->**Dictum:** *A cancellable measured envelope comes before tensors, models, and remotes.*
+## [2][MEASURED_CORE]
+>**Dictum:** *Measured envelope and equivalence ride the default substrate.*
 
 <br>
 
-First slice: one cancellable compute operation around an existing `Rasm`/MathNet/CSparse operation with equivalence and baseline timing receipts.
+Build the compute rail with cancellation, measurement, and equivalence integrated:
 
-| [INDEX] | [LANDS] | [DEFERRED] |
-| :-----: | ------- | ---------- |
-|   [1]   | Compute intent | Multi-substrate selector |
-|   [2]   | Cancellation/deadline receipt | Progress UI integration |
-|   [3]   | Baseline timing receipt | TensorPrimitives candidate |
-|   [4]   | Output equivalence receipt | ML.NET model lane |
-|   [5]   | Failure taxonomy | gRPC companion lane |
+| [INDEX] | [SURFACE]                                   | [BASIS]                                                         |
+| :-----: | ------------------------------------------- | --------------------------------------------------------------- |
+|   [1]   | Substrate selection predicate               | `SelectSubstrate(intent)` — ordered rule table in `_ARCHITECTURE.md` |
+|   [2]   | Vectors boundary                            | Call `Rasm.Vectors`; wrap in `Eff<RT,ExecutionReceipt>`; zero kernel duplication |
+|   [3]   | Cancellation / deadline / progress          | `RT.Token` → `RunOptions.Terminate`; `RT.Time` → elapsed; cold `Subject<ComputeProgress>` |
+|   [4]   | Span/TensorPrimitives kernels               | `System.Numerics.Tensors`; stage via `MemoryOwner<T>` / `ArrayPoolBufferWriter<T>` |
+|   [5]   | Allocation budget measurement               | `GC.GetAllocatedBytesForCurrentThread()` diff; overrun → `AllocationBudgetExceeded` receipt |
+|   [6]   | Physical scalars                            | `UnitsNet` for all dimension-bearing inputs and outputs         |
+|   [7]   | Baseline timing and equivalence receipts    | `BenchmarkReceipt` with `BenchmarkDotNet` evidence              |
+|   [8]   | Failure taxonomy                            | Typed `ExecutionReceipt.Failure` discriminant                   |
 
 ---
-## [3][DONE_WHEN]
->**Dictum:** *A compute slice is done when it can disprove itself.*
+## [3][SCOPED_LANES]
+>**Dictum:** *Model and remote lanes integrate with the concern that owns them.*
 
 <br>
 
-The first slice is complete when receipts identify substrate, input class, output equivalence, timing, allocation category, cancellation, timeout, and failure path. Runtime/performance claims remain scoped to the measured input class.
+| [INDEX] | [LANE]               | [INTEGRATES_WITH]                                                                                                            |
+| :-----: | -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+|   [1]   | ONNX Runtime model lane | `Microsoft.ML.OnnxRuntime` (newest; CoreML EP bundled for `osx-arm64`); `AppendExecutionProvider("CoreML", dict)` API; `InferenceSession` lease via `Atom<HashMap<ModelKey, SemaphoreSlim>>`; content-hash key; Persistence cache lookup |
+|   [2]   | CoreML ANE safety    | Validate new models against `CPUOnly` with `AllowLowPrecisionAccumulationOnGPU=0`; record `ModelReceipt.Fp16Downcast`       |
+|   [3]   | gRPC companion lane  | `Grpc.Net.Client` + `Google.Protobuf`; `.proto` in shared-contracts project; `SocketsHttpHandler` keep-alive configuration  |
+|   [4]   | Remote retry policy  | AppHost outbound-hop ownership; Compute emits `RemoteReceipt.RetryOwnerConflict` if a second retry owner appears            |
 
 ---
-## [4][DEFERRED_UNTIL]
->**Dictum:** *Advanced compute waits for measured pressure.*
+## [4][MEASUREMENT_EVIDENCE]
+>**Dictum:** *Compute claims can disprove themselves.*
 
 <br>
 
-| [INDEX] | [DEFERRED] | [UNBLOCKS_WHEN] |
-| :-----: | ---------- | --------------- |
-|   [1]   | System.Numerics.Tensors | Baseline span kernel needs measured improvement |
-|   [2]   | ML.NET | Named model and lifecycle policy exist |
-|   [3]   | gRPC client | Companion compute service contract exists |
-|   [4]   | Remote retry policy | AppHost outbound-hop ownership exists |
-|   [5]   | Model/native asset receipts | Model or package actually enters graph |
+Performance claims are scoped to the measured input class. Receipts identify substrate, input class, output equivalence, timing, allocation category, cancellation, timeout, and failure path. Benchmark artifacts land under `.artifacts/compute/benchmarks/<substrate>/<run-id>/`; Persistence indexes them. CoreML fp16 downcast is a declared equivalence caveat on `ModelReceipt` — not silently ignored.

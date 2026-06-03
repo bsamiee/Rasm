@@ -455,11 +455,8 @@ public static class Archive {
             .Choose(def => Definition.NonBlank(value: def.SourceArchive)
                 .Bind(raw => ArchiveLink.Resolve(raw: raw, anchorDirectory: anchorDirectory, key: key).ToOption()));
 
-    private static Seq<T> Rows<T>(IEnumerable<T>? source) where T : class =>
-        source is null ? Seq<T>() : toSeq(source).Filter(static item => item is not null);
-
     private static Seq<T> Rows<T>(Func<IEnumerable<T>?> read) where T : class =>
-        Optional(read()).Map(Rows).IfNone(Seq<T>());
+        Optional(read()).Map(static src => toSeq(src).Filter(static item => item is not null)).IfNone(Seq<T>());
 
     private static Option<T> Native<T>(Func<T?> read)
         where T : class =>
@@ -491,6 +488,36 @@ public static class Archive {
                     .DefaultIfEmpty(defaultValue: 0)
                     .Max(),
         };
+    // strongly-connected components of the definition-nesting graph: two defs share a group iff each is reachable from the other via ≥1 nesting edge; singletons survive only as self-loops. Reuses ExpandReachable so cycle detection rides the same functional reach primitive as BakePlan's depth fold.
+    public static Seq<Seq<DefinitionId>> FindCircularLinks(Graph graph) {
+        ArgumentNullException.ThrowIfNull(argument: graph);
+        FrozenDictionary<Guid, DefinitionId> instanceByObject = graph.Instances.Length == 0
+            ? FrozenDictionary<Guid, DefinitionId>.Empty
+            : graph.Instances.ToFrozenDictionary(static i => i.ObjectId, static i => i.ParentDefId);
+        HashMap<Guid, Seq<Guid>> adjacency = toSeq(graph.Definitions).Fold(
+            initialState: HashMap<Guid, Seq<Guid>>(),
+            f: (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: toSeq(NestedDefsOf(def: def, instanceByObject: instanceByObject))));
+        HashMap<Guid, DefinitionId> idByGuid = toSeq(graph.Definitions).Fold(
+            initialState: HashMap<Guid, DefinitionId>(),
+            f: static (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: def.Id));
+        Seq<Guid> Neighbours(Guid id) => adjacency.Find(key: id).IfNone(Seq<Guid>());
+        LanguageExt.HashSet<Guid> Reach(Guid id) =>
+            ExpandReachable(frontier: Neighbours(id: id), seen: Neighbours(id: id).Fold(LanguageExt.HashSet<Guid>.Empty, static (acc, g) => acc.Add(key: g)), nested: Neighbours);
+        HashMap<Guid, LanguageExt.HashSet<Guid>> reachable = toSeq(graph.Definitions).Fold(
+            initialState: HashMap<Guid, LanguageExt.HashSet<Guid>>(),
+            f: (acc, def) => acc.AddOrUpdate(key: def.Id.Value, value: Reach(id: def.Id.Value)));
+        bool Mutual(Guid a, Guid b) =>
+            reachable.Find(key: a).Map(set => set.Contains(key: b)).IfNone(noneValue: false)
+            && reachable.Find(key: b).Map(set => set.Contains(key: a)).IfNone(noneValue: false);
+        Seq<Guid> cyclic = toSeq(graph.Definitions)
+            .Choose(d => reachable.Find(key: d.Id.Value)
+                .Filter(set => set.Contains(key: d.Id.Value))
+                .Map(_ => d.Id.Value));
+        return cyclic
+            .Map(id => toSeq(cyclic.Filter(other => Mutual(a: id, b: other)).Order()))
+            .Distinct()
+            .Map(group => group.Choose(guid => idByGuid.Find(key: guid)));
+    }
     public static Seq<FileResourceEntry> ToFileResourceEntries(Graph graph) {
         ArgumentNullException.ThrowIfNull(argument: graph);
         return toSeq(graph.Definitions).Map(static d => new FileResourceEntry(

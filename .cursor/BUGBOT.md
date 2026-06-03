@@ -45,20 +45,14 @@ Full gate policy: [`CLAUDE.md`](../CLAUDE.md) §5.2, [`docs/usage.md`](../docs/u
 
 Name file and line. Suggest the proving command (`static fix`, `static build`, `test run`, `bridge verify`). No vague “consider adding tests” without naming the rail.
 
-## Scoped review (nested)
+## Scoped review (by changed path)
 
-| [INDEX] | [AREA]                      |
-| :-----: | --------------------------- |
-|   [1]   | Bridge operator + scenarios |
-|   [2]   | Specs + testkit             |
-|   [3]   | Rhino host boundary         |
-|   [4]   | GH2 boundary                |
-
-[FILE]
-- [1] [tools/rhino-bridge/.cursor/BUGBOT.md](../tools/rhino-bridge/.cursor/BUGBOT.md)
-- [2] [tests/csharp/.cursor/BUGBOT.md](../tests/csharp/.cursor/BUGBOT.md)
-- [3] [libs/csharp/Rasm.Rhino/.cursor/BUGBOT.md](../libs/csharp/Rasm.Rhino/.cursor/BUGBOT.md)
-- [4] [libs/csharp/Rasm.Grasshopper/.cursor/BUGBOT.md](../libs/csharp/Rasm.Grasshopper/.cursor/BUGBOT.md)
+| [INDEX] | [AREA]                      | [OWNERS]                                                                 |
+| :-----: | --------------------------- | ------------------------------------------------------------------------ |
+|   [1]   | Bridge operator + scenarios | [tools/rhino-bridge/AGENTS.md](../tools/rhino-bridge/AGENTS.md), [rasm-rhino-bridge.mdc](rules/rasm-rhino-bridge.mdc), [rasm-bridge-scenarios.mdc](rules/rasm-bridge-scenarios.mdc) |
+|   [2]   | Specs + testkit             | [tests/csharp/AGENTS.md](../tests/csharp/AGENTS.md), [rasm-csharp-specs.mdc](rules/rasm-csharp-specs.mdc), [rasm-bridge-scenarios.mdc](rules/rasm-bridge-scenarios.mdc) |
+|   [3]   | Rhino host boundary         | [libs/csharp/Rasm.Rhino/AGENTS.md](../libs/csharp/Rasm.Rhino/AGENTS.md), [rasm-rhino-categories.mdc](rules/rasm-rhino-categories.mdc), [rasm-rhino-ui.mdc](rules/rasm-rhino-ui.mdc) |
+|   [4]   | GH2 boundary                | [libs/csharp/Rasm.Grasshopper/AGENTS.md](../libs/csharp/Rasm.Grasshopper/AGENTS.md), [rasm-grasshopper.mdc](rules/rasm-grasshopper.mdc) |
 
 ## Rule owners (link only — Bugbot does not auto-load `.mdc`)
 

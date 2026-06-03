@@ -106,6 +106,7 @@ public sealed partial class FilePhase {
     public static readonly FilePhase ArchiveUpdate = new(key: 14, requires: FileCapability.None, allowsPrompt: false);
     public static readonly FilePhase ArchiveInspect = new(key: 15, requires: FileCapability.None, allowsPrompt: false);
     public static readonly FilePhase ArchiveValidate = new(key: 16, requires: FileCapability.None, allowsPrompt: false);
+    public static readonly FilePhase ArchiveDiff = new(key: 20, requires: FileCapability.None, allowsPrompt: false);
     public static readonly FilePhase Batch = new(key: 17, requires: FileCapability.None, allowsPrompt: false);
     public static readonly FilePhase SheetEdit = new(key: 18, requires: FileCapability.None, allowsPrompt: false);
     public static readonly FilePhase NamedPosition = new(key: 19, requires: FileCapability.None, allowsPrompt: false);
@@ -516,12 +517,13 @@ public sealed record FileReport(
     Option<string> NativeLog,
     Option<FileArchive> Archive = default,
     Seq<FileReport> Children = default,
-    Seq<FileViewReport> Views = default) {
+    Seq<FileViewReport> Views = default,
+    Option<FileArchiveDiff> Diff = default) {
     public static FileReport Empty(FilePhase phase) =>
         new(Source: Option<FileEndpoint>.None, Target: Option<FileEndpoint>.None, Format: Option<FileFormat>.None, Phase: phase, Receipt: Option<DocumentReceipt>.None, Issues: Seq<FileIssue>(), NativeLog: Option<string>.None, Children: Seq<FileReport>(), Views: Seq<FileViewReport>());
 
-    internal static FileReport Of(FilePhase phase, Option<FileEndpoint> source = default, Option<FileEndpoint> target = default, Option<FileFormat> format = default, Option<DocumentReceipt> receipt = default, Seq<FileIssue> issues = default, Option<string> nativeLog = default, Option<FileArchive> archive = default, Seq<FileReport> children = default, Seq<FileViewReport> views = default) =>
-        new(Source: source, Target: target, Format: format, Phase: phase, Receipt: receipt, Issues: issues.IsEmpty ? Seq<FileIssue>() : issues, NativeLog: nativeLog, Archive: archive, Children: children.IsEmpty ? Seq<FileReport>() : children, Views: views.IsEmpty ? Seq<FileViewReport>() : views);
+    internal static FileReport Of(FilePhase phase, Option<FileEndpoint> source = default, Option<FileEndpoint> target = default, Option<FileFormat> format = default, Option<DocumentReceipt> receipt = default, Seq<FileIssue> issues = default, Option<string> nativeLog = default, Option<FileArchive> archive = default, Seq<FileReport> children = default, Seq<FileViewReport> views = default, Option<FileArchiveDiff> diff = default) =>
+        new(Source: source, Target: target, Format: format, Phase: phase, Receipt: receipt, Issues: issues.IsEmpty ? Seq<FileIssue>() : issues, NativeLog: nativeLog, Archive: archive, Children: children.IsEmpty ? Seq<FileReport>() : children, Views: views.IsEmpty ? Seq<FileViewReport>() : views, Diff: diff);
 }
 
 public readonly record struct FileUserString(string Key, Option<string> Section = default, Option<string> Value = default);

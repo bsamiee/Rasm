@@ -94,13 +94,13 @@ public abstract partial record BlockOutcome {
     public sealed record AttributeMatrix(Seq<AttributeCell> Values) : BlockOutcome;
     public sealed record Preview(PreviewHandle Handle) : BlockOutcome;
     public sealed record Pieces(Seq<FlatPiece> Values) : BlockOutcome;
-    public sealed record GraphResult(GraphQuery Query, BlockOutcome Value) : BlockOutcome;
     public sealed record Probed(DependencyProbe Value) : BlockOutcome;
     public sealed record Refresh(RefreshPlan Value) : BlockOutcome;
     public sealed record Bounds(BoundingBox Value) : BlockOutcome;
     public sealed record Adopted(int Count) : BlockOutcome;
     public sealed record TableStats(int Count, int ActiveCount) : BlockOutcome;
     public sealed record Plan(Seq<DefinitionId> Order) : BlockOutcome;
+    public sealed record CycleGroups(Seq<Seq<DefinitionId>> Groups) : BlockOutcome;
     public sealed record ReachInserts(Seq<ReachInsert> Values) : BlockOutcome;
     public sealed record ClosureReport(ArchiveClosureReport Value) : BlockOutcome;
 }
@@ -111,16 +111,15 @@ public sealed partial class BoundsSpace {
     public static readonly BoundsSpace Nested = new(key: 1);
 
     internal BoundingBox Union(InstanceDefinition live, bool accurate) =>
-        Key switch {
-            1 => toSeq(live.GetReferences(wheretoLook: ReferenceScope.TopAndNested.Native))
+        this == Nested
+            ? toSeq(live.GetReferences(wheretoLook: ReferenceScope.TopAndNested.Native) ?? [])
                 .Filter(static i => i is not null)
                 .Fold(
                     BoundingBox.Empty,
                     static (acc, inst) => BoundingBox.Union(
                         acc,
-                        inst!.Geometry?.GetBoundingBox(xform: inst.InstanceXform) ?? BoundingBox.Empty)),
-            _ => DefinitionBounds(live: live, accurate: accurate),
-        };
+                        inst!.Geometry?.GetBoundingBox(xform: inst.InstanceXform) ?? BoundingBox.Empty))
+            : DefinitionBounds(live: live, accurate: accurate);
 
     private static BoundingBox DefinitionBounds(InstanceDefinition live, bool accurate) {
         using InstanceReferenceGeometry proxy =
@@ -151,14 +150,13 @@ public sealed partial class ConstraintPolicy {
     public static readonly ConstraintPolicy Extend = new(key: 1);
 
     internal Fin<Unit> AdmitValues(HashMap<string, string> values, Seq<InstanceAttributeField> schema, Op key) =>
-        Key switch {
-            0 => guard(
+        this == Schema
+            ? guard(
                 values
                     .Filter((k, _) => !schema.Any(field => string.Equals(a: field.Key, b: k, comparisonType: StringComparison.OrdinalIgnoreCase)))
                     .IsEmpty,
-                key.InvalidInput()).ToFin(),
-            _ => Fin.Succ(value: unit),
-        };
+                key.InvalidInput()).ToFin()
+            : Fin.Succ(value: unit);
 }
 
 [Union(SwitchMapStateParameterName = "state")]
@@ -284,6 +282,7 @@ public abstract partial record GraphQuery {
     public sealed record Depends(DefinitionRef Ref, DependencyTarget Target) : GraphQuery;
     public sealed record Audit() : GraphQuery;
     public sealed record Plan(Option<DefinitionRef> Root = default) : GraphQuery;
+    public sealed record Cycles(Option<DefinitionRef> Root = default) : GraphQuery;
     public sealed record Stats() : GraphQuery;
     public sealed record Health(BlockFilter? Filter = null) : GraphQuery;
     public sealed record Reach(DefinitionRef Ref, ReferenceScope Scope, DepthPolicy? Policy = null) : GraphQuery;
@@ -667,10 +666,10 @@ public sealed record BlockFilter(
     public static BlockFilter All { get; } = new();
     public static BlockFilter ArchivesOnly(Seq<string> paths) => new(Archives: Some(paths));
 
-    public Seq<InstanceDefinition> Apply(InstanceDefinitionTable table, Option<string> anchorDirectory = default, LinkRefreshPolicy? policy = null) {
+    public Seq<InstanceDefinition> Apply(InstanceDefinitionTable table, Option<string> anchorDirectory = default, LinkRefreshPolicy? policy = null, Option<Func<InstanceDefinition, IComparable>> orderBy = default) {
         ArgumentNullException.ThrowIfNull(argument: table);
         LinkRefreshPolicy refresh = policy ?? LinkRefreshPolicy.All;
-        return Definition.List(table: table)
+        Seq<InstanceDefinition> matched = Definition.List(table: table)
             .Filter(d =>
             UpdatePolicy.FromNative(native: d.UpdateType).IsLinked
             && (Archives.Case is not Seq<string> paths || paths.Exists(p => ArchiveLink.Matches(stored: d.SourceArchive, candidate: p, anchorDirectory: anchorDirectory)))
@@ -678,6 +677,10 @@ public sealed record BlockFilter(
             && (Update.Case is not UpdatePolicy update || UpdatePolicy.FromNative(native: d.UpdateType) == update)
             && (Archive.Case is not ArchiveStatus archive || ArchiveStatus.FromNative(native: d.ArchiveFileStatus) == archive)
             && (!refresh.SkipUpToDate || d.ArchiveFileStatus != InstanceDefinitionArchiveFileStatus.LinkedFileIsUpToDate));
+        return orderBy.Case switch {
+            Func<InstanceDefinition, IComparable> projection => toSeq(matched.OrderBy(d => projection(arg: d))),
+            _ => matched,
+        };
     }
 }
 
@@ -911,7 +914,7 @@ public readonly record struct Insert(
                     InstanceId: active.Id,
                     DefId: id,
                     InstanceXform: active.InstanceXform,
-                    Insertion: active.InsertionPoint.IsValid ? active.InsertionPoint : active.InstanceXform * Point3d.Origin,
+                    Insertion: active.InsertionPoint,
                     SelectedPartId: selectedPart))));
     }
 }

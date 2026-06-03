@@ -3,33 +3,33 @@
 
 <br>
 
-`Rasm.AppUi` is the planned advanced product UI platform for future Rasm plugins and apps. It is docs-only today: no `.csproj`, no production C# files, no active package references, and no runtime surface.
+`Rasm.AppUi` is the advanced product UI platform for Rasm plugins and apps. It integrates Avalonia, ReactiveUI, ReactiveUI.Avalonia, ReactiveUI.Validation, DynamicData, SkiaSharp, LiveCharts2, and the full adjacent-package matrix as one unified surface, lowering typed product intent through the existing `Rasm.Rhino/UI` and `Rasm.Grasshopper/UI` host rails.
 
 ---
 ## [1][PURPOSE]
->**Dictum:** *Future UI code should compose one app surface, not copy host widgets.*
+>**Dictum:** *Compose one app surface, not copy host widgets.*
 
 <br>
 
-`Rasm.AppUi` will provide a single app-surface rail for windows, panels, screens, command state, live projections, custom visuals, diagnostics, and support views. It will aggregate product UI intent and typed receipts, then delegate final host behavior to existing `Rasm.Rhino.UI` and `Rasm.Grasshopper.UI` rails.
+`Rasm.AppUi` provides a single app-surface rail for windows, panels, screens, command state, live projections, charts and dashboards, custom visuals, diagnostics, and support views. It aggregates product UI intent and typed receipts, then delegates final host behavior to the `Rasm.Rhino/UI` and `Rasm.Grasshopper/UI` rails.
 
-It is not an Avalonia wrapper, ReactiveUI wrapper, Skia wrapper, ImGui wrapper, Eto replacement, Rhino panel clone, or GH2 canvas abstraction.
+It is not an Avalonia wrapper, ReactiveUI wrapper, Skia wrapper, charting wrapper, Eto replacement, Rhino panel clone, or GH2 canvas abstraction.
 
 ---
 ## [2][STATUS]
->**Dictum:** *Candidate packages are not runtime capability.*
+>**Dictum:** *One unified surface, built fully from the foundation.*
 
 <br>
 
-| [INDEX] | [SURFACE] | [STATE] |
-| :-----: | --------- | ------- |
-|   [1]   | Project file | Not created |
-|   [2]   | Production API | Not created |
-|   [3]   | Package references | None |
-|   [4]   | Runtime behavior | Unproven |
-|   [5]   | Host proof | Pending future implementation |
+| [INDEX] | [SURFACE]          | [STATE]                  |
+| :-----: | ------------------ | ------------------------ |
+|   [1]   | Project file       | Create in Phase 0        |
+|   [2]   | Production API     | In progress              |
+|   [3]   | Package references | Add centrally in Phase 0 |
+|   [4]   | Runtime behavior   | Per host scenario        |
+|   [5]   | Host evidence      | Owner-local receipts     |
 
-Candidate UI packages must be rechecked for latest stable versions immediately before a real consumer lands.
+Add packages centrally at newest viable versions during Phase 0. No version numbers in doc text — package IDs only; versions live exclusively in `Directory.Packages.props`.
 
 ---
 ## [3][MANUAL]
@@ -37,20 +37,25 @@ Candidate UI packages must be rechecked for latest stable versions immediately b
 
 <br>
 
-| [INDEX] | [FILE] | [READ_FOR] |
-| :-----: | ------ | ---------- |
-|   [1]   | `_ARCHITECTURE.md` | Rail contract, host delegation, package candidates, proof states |
-|   [2]   | `AGENTS.md` | Future-agent rules and forbidden duplicate host rails |
-|   [3]   | `ROADMAP.md` | First slice, deferred work, promotion criteria |
+| [INDEX] | [FILE]             | [READ_FOR]                                                                                                               |
+| :-----: | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+|   [1]   | `_ARCHITECTURE.md` | Rail contract, type shapes, host delegation, package matrix, embedding rules, world-class capabilities, runtime evidence |
+|   [2]   | `AGENTS.md`        | Build rules, forbidden duplicates, embedding constraints, package rejections                                             |
+|   [3]   | `ROADMAP.md`       | Build sequence, integration surfaces, promotion criteria, Phase-0 verification gates (§6)                                 |
 
 ---
-## [4][NON_CLAIMS]
->**Dictum:** *The docs reserve intent, not API signatures.*
+## [4][CONSTRAINTS]
+>**Dictum:** *One rail, one paradigm, host execution delegated.*
 
 <br>
 
-- No public API shape is reserved.
-- No candidate package is active.
-- No RhinoWIP or GH2 runtime behavior is proven.
-- No UI code should bypass `Rasm.Rhino.UI` or `Rasm.Grasshopper.UI`.
-- No ViewModel rail may mix ReactiveUI and another MVVM idiom in the same screen stack.
+- One typed app-surface rail owns shell, screen, command, live-view, chart, visual, and diagnostic concerns.
+- Toolkit types stay internal behind product concepts.
+- One canonical UI scheduler boundary (`RasmUiScheduler`); DynamicData change-sets observe on it before binding.
+- Avalonia owns panels, dialogs, and companion-window surfaces; viewport overlays render through the Rhino/GH display conduit, never Avalonia.
+- AppUi SkiaSharp is thumbnails and offscreen draw only; viewport-overlay SkiaSharp lives in the Rhino/GH display conduit.
+- `MacOSPlatformOptions.DisableAvaloniaAppDelegate = true`; use `CreateEmbeddableTopLevel()` — `CreateEmbeddableWindow` is unimplemented on macOS.
+- TFM is plain `net10.0`; NSView reparenting via isolated P/Invoke shim (`objc_msgSend`) — no `net10.0-macos`.
+- No UI code bypasses `Rasm.Rhino/UI` or `Rasm.Grasshopper/UI`.
+- No ViewModel rail mixes ReactiveUI and another MVVM idiom in the same screen stack.
+- GH2-Avalonia embedding is [DEFERRED] — the current GH2 SDK has no dockable plugin-panel host API; Rhino-panel embedding is the supported path. Re-evaluate when a GH2 panel-host API ships.

@@ -14,6 +14,7 @@ public abstract partial record IoScheduler {
         Switch(
             (Source: source, Predicate: predicate, Map: map),
             sequential: static (ctx, _) => Fin.Succ(toSeq(ctx.Source.Where(ctx.Predicate).Select(ctx.Map))),
+            // BOUNDARY ADAPTER — PLINQ AsParallel projects the LanguageExt fold onto the BCL parallel partitioner; toSeq materializes before crossing back.
             parallel: static (ctx, par) => par.MaxDegree switch {
                 int max when max <= 0 => Fin.Fail<Seq<TOut>>(error: Op.Of(name: nameof(IoScheduler)).InvalidInput()),
                 int max => Fin.Succ(toSeq(ctx.Source.AsParallel().WithDegreeOfParallelism(max).Where(ctx.Predicate).Select(ctx.Map))),

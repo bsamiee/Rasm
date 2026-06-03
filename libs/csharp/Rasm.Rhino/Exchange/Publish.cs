@@ -115,6 +115,7 @@ public abstract partial record FilePublishTarget {
                 select (Settings: settings, Report: page.ReportOf(settings: settings))).As()
             .Bind(pairs => {
                 ViewCaptureSettings[] settingsArr = [.. pairs.Map(static pair => pair.Settings)];
+                // BOUNDARY ADAPTER — SendToPrinter mandates a ViewCaptureSettings[]; the finally disposes every element (each owns native capture state).
                 try {
                     return op.Confirm(success: ViewCapture.SendToPrinter(printerName: name, settings: settingsArr, copies: copies))
                         .Map(_ => new FilePublishResult(

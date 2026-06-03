@@ -283,17 +283,17 @@ public sealed record UiWindowSpec<TState, TResult>(
 public static class UiElement {
     public static UiElement<TState> Of<TState>(Control control) => new UiElement<TState>.ControlCase(Value: control);
     public static UiElement<TState> Of<TState>(Func<Atom<TState>, Fin<Control>> create) => new UiElement<TState>.Native(Create: create);
-    public static UiElement<TState> Form<TState>(params UiElement<TState>[] rows) => new UiElement<TState>.Dynamic(Rows: toSeq(rows));
-    public static UiElement<TState> Column<TState>(params UiElement<TState>[] children) => new UiElement<TState>.Group(Orientation: Orientation.Vertical, Children: toSeq(children));
-    public static UiElement<TState> Row<TState>(params UiElement<TState>[] children) => new UiElement<TState>.Group(Orientation: Orientation.Horizontal, Children: toSeq(children));
+    public static UiElement<TState> Form<TState>(params ReadOnlySpan<UiElement<TState>> rows) => new UiElement<TState>.Dynamic(Rows: toSeq(rows.ToArray()));
+    public static UiElement<TState> Column<TState>(params ReadOnlySpan<UiElement<TState>> children) => new UiElement<TState>.Group(Orientation: Orientation.Vertical, Children: toSeq(children.ToArray()));
+    public static UiElement<TState> Row<TState>(params ReadOnlySpan<UiElement<TState>> children) => new UiElement<TState>.Group(Orientation: Orientation.Horizontal, Children: toSeq(children.ToArray()));
     public static UiElement<TState> Split<TState>(Orientation orientation, UiElement<TState> primary, UiElement<TState> secondary, int position = 200, SplitterFixedPanel fixedPanel = SplitterFixedPanel.None, Option<Func<TState, int, TState>> onPosition = default) =>
         new UiElement<TState>.Split(Orientation: orientation, Primary: primary, Secondary: secondary, Position: position, Fixed: fixedPanel, OnPosition: onPosition);
     public static UiElement<TState> Collapse<TState>(string header, UiElement<TState> body, Func<TState, bool> expanded, Func<TState, bool, TState> toggle) =>
         new UiElement<TState>.Collapse(Header: header, Body: body, Expanded: expanded, Toggle: toggle);
-    public static UiElement<TState> Tabs<TState>(Func<TState, int> selected, Func<TState, int, TState> onSelect, params (string Title, UiElement<TState> Body)[] pages) =>
-        new UiElement<TState>.Tabs(Pages: toSeq(pages), Selected: selected, OnSelect: onSelect);
-    public static UiElement<TState> Absolute<TState>(params (UiElement<TState> Child, Eto.Drawing.Point At)[] children) =>
-        new UiElement<TState>.Absolute(Children: toSeq(children));
+    public static UiElement<TState> Tabs<TState>(Func<TState, int> selected, Func<TState, int, TState> onSelect, params ReadOnlySpan<(string Title, UiElement<TState> Body)> pages) =>
+        new UiElement<TState>.Tabs(Pages: toSeq(pages.ToArray()), Selected: selected, OnSelect: onSelect);
+    public static UiElement<TState> Absolute<TState>(params ReadOnlySpan<(UiElement<TState> Child, Eto.Drawing.Point At)> children) =>
+        new UiElement<TState>.Absolute(Children: toSeq(children.ToArray()));
     public static UiElement<TState> Browser<TState>(Func<TState, Option<Uri>> url, Option<Func<TState, string>> html = default, Option<Func<TState, Uri, TState>> onLoaded = default) =>
         new UiElement<TState>.Browser(Url: url, Html: html, OnLoaded: onLoaded);
     public static UiElement<TState> Grid<TState, TRow>(Seq<UiGridColumn<TRow>> columns, Func<TState, Seq<TRow>> rows, Option<Func<TState, Seq<TRow>, TState>> onSelection = default) =>
@@ -337,10 +337,8 @@ public static class UiField {
             Create: value => new DropDown {
                 DataStore = choices.Map(static item => (object?)item).AsIterable(),
                 SelectedIndex = choices
-                    .Map(static (item, i) => (item, i))
-                    .Filter(t => EqualityComparer<TChoice>.Default.Equals(x: t.item, y: value))
+                    .Choose((i, item) => EqualityComparer<TChoice>.Default.Equals(x: item, y: value) ? Some(i) : Option<int>.None)
                     .Head
-                    .Map(static t => t.i)
                     .IfNone(noneValue: 0),
             },
             Read: control => control is DropDown { SelectedIndex: int index } && index >= 0 && index < choices.Count ? choices[index] : choices[0],

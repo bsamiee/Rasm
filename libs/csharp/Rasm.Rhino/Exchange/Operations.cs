@@ -21,6 +21,7 @@ public abstract partial record FileExchange {
     public sealed record ArchiveExtract(FileArchiveSource Source, FileEndpoint Target, ArchiveProfile Profile) : FileExchange;
     public sealed record ArchiveUpdate(FileArchiveSource Source, FileEndpoint Target, Exchange.ArchiveUpdate Update, ArchiveProfile Profile) : FileExchange;
     public sealed record ArchiveInspect(FileEndpoint Source) : FileExchange;
+    public sealed record ArchiveDiff(FileEndpoint Source, FileEndpoint Other) : FileExchange;
     public sealed record ArchiveValidate(FileArchiveSource Source, ArchiveProfile Profile) : FileExchange;
     public sealed record SheetEdit(FileSheetEdit Edit) : FileExchange;
 }
@@ -224,6 +225,11 @@ public static class FileOp {
                     phase: FilePhase.ArchiveInspect,
                     source: Some(archive.Source),
                     archive: Some(new FileArchive(Source: new FileArchiveSource.Path(Value: archive.Source), Metadata: metadata, Resources: default, Objects: Seq<FileObjectManifest>())))),
+                archiveDiff: static (_, diff) => FileArchiveOps.Diff(source: diff.Source, other: diff.Other).Map(result => FileReport.Of(
+                    phase: FilePhase.ArchiveDiff,
+                    source: Some(diff.Source),
+                    target: Some(diff.Other),
+                    diff: Some(result))),
                 archiveValidate: static (runtime, archive) => FileArchiveOps.Validate(source: archive.Source, profile: archive.Profile, scheduler: runtime.Scheduler),
                 sheetEdit: static (runtime, sheet) => Commit(runtime: runtime, phase: FilePhase.SheetEdit, name: nameof(FileExchange.SheetEdit), change: sheet.Edit, apply: SheetOps.Apply))
             select result);
@@ -259,7 +265,16 @@ public static class FileOp {
             let views = active.Views.IsEmpty ? Seq(new FileView(Source: new FileViewSource.Pages())) : active.Views
             from pages in views.TraverseM(view => view.Source.Resolve(document: live.Document, spec: view, op: Op.Of(name: nameof(PublishPlan)))).As().Map(static groups => groups.Bind(static items => items))
             from _ in guard(!pages.IsEmpty, Op.Of(name: nameof(PublishPlan)).InvalidInput())
-            from reports in pages.TraverseM(page => PageReport(page: page, op: Op.Of(name: nameof(PublishPlan)))).As()
+            from reports in pages.TraverseM(page =>
+                from settings in page.Settings(op: Op.Of(name: nameof(PublishPlan)))
+                from report in Op.Of(name: nameof(PublishPlan)).Catch(() => {
+                    try {
+                        return Fin.Succ(value: page.ReportOf(settings: settings));
+                    } finally {
+                        settings.Dispose();
+                    }
+                })
+                select report).As()
             let meta = PublishMeta(target: active.Target, views: views)
             select FileReport.Of(
                 phase: FilePhase.Publish,
@@ -359,17 +374,6 @@ public static class FileOp {
                select FileReport.Of(phase: FilePhase.Publish, target: result.Target, format: result.Format, issues: result.Issues, nativeLog: result.NativeLog, receipt: Some(result.Receipt), views: result.Views);
     }
 
-    private static Fin<FileViewReport> PageReport(FileViewPage page, Op op) =>
-        from settings in page.Settings(op: op)
-        from report in op.Catch(() => {
-            try {
-                return Fin.Succ(value: page.ReportOf(settings: settings));
-            } finally {
-                settings.Dispose();
-            }
-        })
-        select report;
-
     private static (Option<FileEndpoint> Target, Option<FileFormat> Format, Seq<FileIssue> Issues) PublishMeta(FilePublishTarget target, Seq<FileView> views) =>
         target switch {
             FilePublishTarget.Pdf value => (
@@ -401,6 +405,7 @@ public static class FileOp {
         let sentinel = $"__rasm_publish_{Guid.NewGuid():N}"
         from _saved in SnapshotScript(serial: document.RuntimeSerialNumber, verb: "_Save", name: sentinel, op: op)
         from result in op.Catch(() => {
+            // BOUNDARY ADAPTER — sentinel snapshot saves live state, restores target, then the finally restores+deletes the sentinel via RhinoApp.RunScript (no managed snapshot mutation API).
             try {
                 return from _restored in SnapshotScript(serial: document.RuntimeSerialNumber, verb: "_Restore", name: target, op: op)
                        from value in Optional(body).ToFin(Fail: op.InvalidInput()).Bind(valid => valid())
@@ -413,10 +418,7 @@ public static class FileOp {
         select result;
 
     private static Fin<Unit> SnapshotScript(uint serial, string verb, string name, Op op) =>
-        op.Catch(() => op.Confirm(success: RhinoApp.RunScript(documentSerialNumber: serial, script: $"-_Snapshot {verb} _Name {ScriptToken(value: name)} _Enter", echo: false)));
-
-    private static string ScriptToken(string value) =>
-        $"\"{value.Replace(oldValue: "\"", newValue: "\\\"", comparisonType: StringComparison.Ordinal)}\"";
+        op.Catch(() => op.Confirm(success: RhinoApp.RunScript(documentSerialNumber: serial, script: $"-_Snapshot {verb} _Name \"{name.Replace(oldValue: "\"", newValue: "\\\"", comparisonType: StringComparison.Ordinal)}\" _Enter", echo: false)));
     private static Fin<FileReport> Commit<T>(FileRuntime runtime, FilePhase phase, string name, T change, Func<RhinoDoc, T, Op, Fin<DocumentReceipt>> apply) where T : class =>
         from live in Live(runtime: runtime, op: Op.Of(name: name))
         from active in Optional(change).ToFin(Fail: Op.Of(name: name).InvalidInput())
@@ -425,6 +427,7 @@ public static class FileOp {
 
     private static Fin<T> HeadlessScope<T>(HeadlessExchange scope, Eff<FileRuntime, T> body, IoScheduler scheduler) =>
         Op.Of(name: nameof(Headless)).Catch(() => {
+            // BOUNDARY ADAPTER — RhinoDoc.CreateHeadless/OpenHeadless yields an unmanaged document; the finally disposes it even when body fails.
             RhinoDoc? headless = null;
             try {
                 Fin<RhinoDoc> opened = scope.Switch(
@@ -460,6 +463,7 @@ public static class FileOp {
 
     private static Fin<DocumentReceipt> ExportTarget(RhinoDoc document, DocumentTarget target, FileEndpoint endpoint, FileProfile profile, Op op) =>
         op.Catch(() => DocumentEdit.SelectedIds(document: document, op: op).Bind(before => {
+            // BOUNDARY ADAPTER — ExportSelected mutates global selection state; the finally eagerly relocks the prior persistent/transient partition even on export failure.
             const int persistentSelectionState = 2;
             static bool Persistent(RhinoObject native) => native.IsSelected(checkSubObjects: false) == persistentSelectionState;
             Seq<Guid> persistent = before.Filter(id => Optional(document.Objects.FindId(id)).Map(Persistent).IfNone(noneValue: false));

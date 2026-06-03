@@ -224,14 +224,14 @@ public abstract class RasmPropertiesPage : global::Rhino.UI.ObjectPropertiesPage
 
     protected virtual Fin<Result> Change(PageEvent pageEvent) =>
         from valid in Op.Of(name: nameof(Change)).Need(pageEvent)
-        from result in valid.Phase.Key switch {
-            4 =>   // Display: the sealed type-gate path
+        from result in valid.Phase switch {
+            var p when p == PagePhase.Display =>
                 Op.Of(name: nameof(Change)).Need(valid.Args)
                     .Map(args => args.IncludesObjectsType(objectTypes: SupportedTypes, allMustMatch: AllObjectsMustBeSupported) switch {
                         true => Result.Success,
                         false => Result.Cancel,
                     }),
-            5 or 6 => OnRefresh(pageEvent: valid),   // Update | Modify
+            var p when p == PagePhase.Update || p == PagePhase.Modify => OnRefresh(pageEvent: valid),
             _ => Fin.Succ(value: Result.Success),
         }
         select result;

@@ -373,8 +373,7 @@ public abstract partial record UiSurface {
                     Seq<DrawingColor> cs => Op.Side(() => list.SetPoints(points: cl.At.AsEnumerable(), colors: cs.AsEnumerable())),
                     _ => Op.Side(() => list.SetPoints(points: cl.At.AsEnumerable(), blendColor: state.Tint)),
                 };
-                _ = list.Sort(cameraDirection: state.Display.Viewport.CameraDirection);
-                state.Display.DrawSprites(bitmap: state.Bitmap, items: list, size: state.Sprite.Size, sizeInWorldSpace: true);
+                state.Display.DrawSprites(bitmap: state.Bitmap, items: list, size: state.Sprite.Size, sizeInWorldSpace: true);   // DrawSprites re-sorts the draw-list by the pipeline camera direction internally (CRhinoDisplayPipeline_GetCameraDirection)
             }));
     }
     private static Unit Polyline(DisplayPipeline display, Seq<System.Drawing.PointF> pts, UiStroke stroke, bool closed) =>
@@ -516,8 +515,8 @@ public sealed class UiCanvas<TState> : Eto.Forms.Drawable {
     private readonly UiSpriteAtlas atlas = new();
     private readonly Atom<TState> state;
     private readonly Func<TState, Eto.Drawing.Size, Fin<UiHud>> paint;
-    private readonly Func<UiInputEvent<TState>, Fin<MouseDecision<TState>>>? input;
-    private readonly Func<Eto.Drawing.Size, Fin<Unit>>? resize;
+    private readonly Option<Func<UiInputEvent<TState>, Fin<MouseDecision<TState>>>> input;
+    private readonly Option<Func<Eto.Drawing.Size, Fin<Unit>>> resize;
     private readonly UiRenderHint hint;
 
     public UiCanvas(
@@ -535,10 +534,10 @@ public sealed class UiCanvas<TState> : Eto.Forms.Drawable {
         UiRenderHint hint = default) {
         this.state = state;   // share caller's atom so sibling-field commits repaint live — snapshot overload froze state at build time
         this.paint = paint;
-        this.input = input;
-        this.resize = resize;
+        this.input = Optional(input);
+        this.resize = Optional(resize);
         this.hint = hint;
-        CanFocus = input is not null;
+        CanFocus = this.input.IsSome;
         global::Rhino.UI.EtoExtensions.UseRhinoStyle(this);
     }
 
@@ -551,15 +550,15 @@ public sealed class UiCanvas<TState> : Eto.Forms.Drawable {
         _ = RhinoUi.Protect(valid: () => { _ = hint.Apply(g: e.Graphics); return paint(arg1: state.Value, arg2: Size).Bind(hud => hud.Render(surface: new UiSurface.Canvas(Graphics: e.Graphics, Atlas: atlas))); });
 
     protected override void OnMouseDown(Eto.Forms.MouseEventArgs e) {
-        _ = Optional(input).Iter(_ => Focus());
+        _ = input.Iter(_ => Focus());
         _ = Pointer(phase: MousePhase.Down, args: e);
     }
     protected override void OnMouseMove(Eto.Forms.MouseEventArgs e) => _ = Pointer(phase: MousePhase.Move, args: e);
     protected override void OnMouseUp(Eto.Forms.MouseEventArgs e) => _ = Pointer(phase: MousePhase.Up, args: e);
     protected override void OnMouseDoubleClick(Eto.Forms.MouseEventArgs e) => _ = Pointer(phase: MousePhase.DoubleClick, args: e);
     protected override void OnMouseWheel(Eto.Forms.MouseEventArgs e) => _ = Pointer(phase: MousePhase.Wheel, args: e);
-    protected override void OnKeyDown(Eto.Forms.KeyEventArgs e) => _ = Optional(input).Iter(handler => Commit(() => handler(new UiInputEvent<TState>.CanvasKey(Value: new UiCanvasKey<TState>(Phase: KeyPhase.Down, State: state.Value, Args: e))), handled: cancel => e.Handled = cancel));
-    protected override void OnKeyUp(Eto.Forms.KeyEventArgs e) => _ = Optional(input).Iter(handler => Commit(() => handler(new UiInputEvent<TState>.CanvasKey(Value: new UiCanvasKey<TState>(Phase: KeyPhase.Up, State: state.Value, Args: e))), handled: cancel => e.Handled = cancel));
+    protected override void OnKeyDown(Eto.Forms.KeyEventArgs e) => _ = input.Iter(handler => Commit(() => handler(new UiInputEvent<TState>.CanvasKey(Value: new UiCanvasKey<TState>(Phase: KeyPhase.Down, State: state.Value, Args: e))), handled: cancel => e.Handled = cancel));
+    protected override void OnKeyUp(Eto.Forms.KeyEventArgs e) => _ = input.Iter(handler => Commit(() => handler(new UiInputEvent<TState>.CanvasKey(Value: new UiCanvasKey<TState>(Phase: KeyPhase.Up, State: state.Value, Args: e))), handled: cancel => e.Handled = cancel));
     protected override void OnGotFocus(EventArgs e) {
         base.OnGotFocus(e);
         _ = FocusEvent(phase: KeyPhase.FocusGain);
@@ -568,12 +567,12 @@ public sealed class UiCanvas<TState> : Eto.Forms.Drawable {
         base.OnLostFocus(e);
         _ = FocusEvent(phase: KeyPhase.FocusLost);
     }
-    protected override void OnSizeChanged(EventArgs e) => _ = Optional(resize).Iter(handler => _ = RhinoUi.Protect(valid: () => handler(Size)));
+    protected override void OnSizeChanged(EventArgs e) => _ = resize.Iter(handler => _ = RhinoUi.Protect(valid: () => handler(Size)));
 
     private Unit Pointer(MousePhase phase, Eto.Forms.MouseEventArgs args) =>
-        Optional(input).Iter(handler => Commit(() => handler(new UiInputEvent<TState>.CanvasPointer(Value: new UiCanvasContext<TState>(Phase: phase, State: state.Value, Args: args))), handled: cancel => args.Handled = cancel));
+        input.Iter(handler => Commit(() => handler(new UiInputEvent<TState>.CanvasPointer(Value: new UiCanvasContext<TState>(Phase: phase, State: state.Value, Args: args))), handled: cancel => args.Handled = cancel));
     private Unit FocusEvent(KeyPhase phase) =>   // focus events have no e.Handled surface — the synthetic KeyEventArgs only satisfies the CanvasKey shape
-        Optional(input).Iter(handler => Commit(() => handler(new UiInputEvent<TState>.CanvasKey(Value: new UiCanvasKey<TState>(Phase: phase, State: state.Value, Args: new Eto.Forms.KeyEventArgs(Eto.Forms.Keys.None, Eto.Forms.KeyEventType.KeyDown)))), handled: static _ => { }));
+        input.Iter(handler => Commit(() => handler(new UiInputEvent<TState>.CanvasKey(Value: new UiCanvasKey<TState>(Phase: phase, State: state.Value, Args: new Eto.Forms.KeyEventArgs(Eto.Forms.Keys.None, Eto.Forms.KeyEventType.KeyDown)))), handled: static _ => { }));
     private Unit Commit(Func<Fin<MouseDecision<TState>>> run, Action<bool> handled) =>
         RhinoUi.Deliver(
             state: state,
@@ -589,7 +588,9 @@ public sealed class UiCanvas<TState> : Eto.Forms.Drawable {
 }
 
 public sealed class UiSpriteAtlas : IDisposable {
+    // BOUNDARY ADAPTER — DisplayBitmap is IDisposable native sprite-decode interop; an Atom.Swap retry under contention would leak the undisposed bitmap, so the cache stays a ConcurrentDictionary (D6)
     private readonly System.Collections.Concurrent.ConcurrentDictionary<SpriteSource, DisplayBitmap> cache = new();
+    // BOUNDARY ADAPTER — Eto.Drawing.Bitmap is IDisposable; same swap-retry leak hazard as cache, so this stays a ConcurrentDictionary (D6)
     private readonly System.Collections.Concurrent.ConcurrentDictionary<SpriteSource, Eto.Drawing.Bitmap> etoCache = new();
     private int disposed;
 

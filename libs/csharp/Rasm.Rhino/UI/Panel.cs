@@ -22,7 +22,8 @@ public sealed partial class PanelEventKind {
     internal partial Fin<Unit> Emit(Guid panelId, Option<uint> documentSerial);
 }
 
-public abstract record PanelIcon {
+[Union(SwitchMapStateParameterName = "context")]
+public abstract partial record PanelIcon {
     private PanelIcon() { }
     public virtual string? ResourceName => null;
     public sealed record Native(DrawingIcon Value) : PanelIcon;
@@ -33,25 +34,19 @@ public abstract record PanelIcon {
         assembly is ReflectionAssembly active ? new AssemblyResource(Name: name, Assembly: active) : new StandardResource(Name: name);
     public static PanelIcon Embedded<TAnchor>(string name) => new AssemblyResource(Name: name, Assembly: typeof(TAnchor).Assembly);
     public static PanelIcon CallingAssembly(string name) => new AssemblyResource(Name: name, Assembly: ReflectionAssembly.GetCallingAssembly());
-    internal Fin<Unit> Register(global::Rhino.PlugIns.PlugIn plugin, Type type, string caption, global::Rhino.UI.PanelType mode) {
-        Op op = Op.Of(name: nameof(Register));
-        return this switch {
-            Native icon => op.Need(icon.Value).Bind(value => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.RegisterPanel(plugin, type, caption, value, mode); return Fin.Succ(value: unit); })),
-            AssemblyResource resource => op.AcceptText(value: resource.Name).MapFail(_ => op.InvalidInput()).Bind(name => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.RegisterPanel(plugin, type, caption, resource.Assembly, name, mode); return Fin.Succ(value: unit); })),
-            StandardResource resource => op.AcceptText(value: resource.Name).MapFail(_ => op.InvalidInput()).Bind(name => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.RegisterPanel(plugIn: plugin, type: type, caption: caption, iconAssembly: null, iconResourceId: name, panelType: mode); return Fin.Succ(value: unit); })),
-            _ => Fin.Fail<Unit>(error: op.InvalidInput()),
-        };
-    }
+    internal Fin<Unit> Register(global::Rhino.PlugIns.PlugIn plugin, Type type, string caption, global::Rhino.UI.PanelType mode) =>
+        Switch(
+            context: (Plugin: plugin, Type: type, Caption: caption, Mode: mode),
+            native: static (context, icon) => Op.Of(name: nameof(Native)).Need(icon.Value).Bind(value => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.RegisterPanel(context.Plugin, context.Type, context.Caption, value, context.Mode); return Fin.Succ(value: unit); })),
+            standardResource: static (context, resource) => Op.Of(name: nameof(StandardResource)).AcceptText(value: resource.Name).MapFail(static _ => Op.Of(name: nameof(StandardResource)).InvalidInput()).Bind(name => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.RegisterPanel(plugIn: context.Plugin, type: context.Type, caption: context.Caption, iconAssembly: null, iconResourceId: name, panelType: context.Mode); return Fin.Succ(value: unit); })),
+            assemblyResource: static (context, resource) => Op.Of(name: nameof(AssemblyResource)).AcceptText(value: resource.Name).MapFail(static _ => Op.Of(name: nameof(AssemblyResource)).InvalidInput()).Bind(name => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.RegisterPanel(context.Plugin, context.Type, context.Caption, resource.Assembly, name, context.Mode); return Fin.Succ(value: unit); })));
 
-    internal Fin<Unit> Change(Type type) {
-        Op op = Op.Of(name: nameof(Change));
-        return this switch {
-            Native icon => op.Need(icon.Value).Bind(value => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.ChangePanelIcon(type, value); return Fin.Succ(value: unit); })),
-            AssemblyResource or StandardResource => op.AcceptText(value: ResourceName!).MapFail(_ => op.InvalidInput())
-                .Bind(name => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.ChangePanelIcon(type, name); return Fin.Succ(value: unit); })),
-            _ => Fin.Fail<Unit>(error: op.InvalidInput()),
-        };
-    }
+    internal Fin<Unit> Change(Type type) =>
+        Switch(
+            context: type,
+            native: static (context, icon) => Op.Of(name: nameof(Native)).Need(icon.Value).Bind(value => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.ChangePanelIcon(context, value); return Fin.Succ(value: unit); })),
+            standardResource: static (context, resource) => Op.Of(name: nameof(StandardResource)).AcceptText(value: resource.Name).MapFail(static _ => Op.Of(name: nameof(StandardResource)).InvalidInput()).Bind(name => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.ChangePanelIcon(context, name); return Fin.Succ(value: unit); })),
+            assemblyResource: static (context, resource) => Op.Of(name: nameof(AssemblyResource)).AcceptText(value: resource.Name).MapFail(static _ => Op.Of(name: nameof(AssemblyResource)).InvalidInput()).Bind(name => RhinoUi.Protect(valid: () => { global::Rhino.UI.Panels.ChangePanelIcon(context, name); return Fin.Succ(value: unit); })));
 }
 
 [Union(SwitchMapStateParameterName = "context")]
@@ -304,20 +299,22 @@ public sealed record UiAction(
     public UiAction Radio(Func<RhinoDoc, Fin<PanelMenuState>> state) =>
         this with { Kind = UiActionKind.Radio, State = Some(state) };
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Eto menu owns item disposal after attachment.")]
     internal Fin<Seq<MenuItem>> ToMenuItems(RhinoDoc document) =>
         Kind switch {
-            UiActionKind.Separator => Fin.Succ(value: MenuSeparator()),
+            UiActionKind.Separator => Fin.Succ(value: Seq<MenuItem>(new SeparatorMenuItem())),
             UiActionKind.Submenu => ToSubMenu(document: document).Map(OneMenu),
             UiActionKind.Toggle => ToCheckMenu(document: document, radio: false).Map(OneMenu),
             UiActionKind.Radio => ToCheckMenu(document: document, radio: true).Map(OneMenu),
             _ => ToCommand(document: document).Map(command => Seq(command.CreateMenuItem())),
         };
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Eto toolbar owns item disposal after attachment.")]
     internal Fin<Seq<ToolItem>> ToToolItems(RhinoDoc document) =>
         Kind switch {
-            UiActionKind.Separator => Fin.Succ(value: ToolSeparator()),
+            UiActionKind.Separator => Fin.Succ(value: Seq<ToolItem>(new SeparatorToolItem())),
             UiActionKind.Submenu => Children.TraverseM(child => child.ToToolItems(document: document)).As().Map(static groups => groups.Bind(static item => item)),
-            UiActionKind.Toggle or UiActionKind.Radio => ToCheckTool(document: document).Map(OneTool),
+            UiActionKind.Toggle or UiActionKind.Radio => ToCheckTool(document: document).Map(static item => Seq(item)),
             _ => ToCommand(document: document).Map(command => Seq(command.CreateToolItem())),
         };
 
@@ -395,14 +392,6 @@ public sealed record UiAction(
     }
 
     private static Seq<MenuItem> OneMenu(MenuItem item) => Seq(item);
-
-    private static Seq<ToolItem> OneTool(ToolItem item) => Seq(item);
-
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Eto menu owns item disposal after attachment.")]
-    private static Seq<MenuItem> MenuSeparator() => Seq<MenuItem>(new SeparatorMenuItem());
-
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Eto toolbar owns item disposal after attachment.")]
-    private static Seq<ToolItem> ToolSeparator() => Seq<ToolItem>(new SeparatorToolItem());
 }
 
 // --- [SERVICES] ---------------------------------------------------------------------------

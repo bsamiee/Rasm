@@ -163,9 +163,7 @@ public sealed partial record FileFormat {
         select format;
 
     private static Option<FileFormat> CustomFormat(string key, string extension) =>
-        CustomCell.Value.Find(key: key).Match(
-            Some: Some,
-            None: () => CustomByExtension(extension: extension));
+        CustomCell.Value.Find(key: key) | CustomByExtension(extension: extension);
 
     private static Option<FileFormat> CustomByExtension(string extension) =>
         toSeq(CustomCell.Value.Values).Find(format => format.Extensions.Exists(value => string.Equals(a: value, b: extension, comparisonType: StringComparison.OrdinalIgnoreCase)));

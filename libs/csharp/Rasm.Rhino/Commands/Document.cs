@@ -236,17 +236,20 @@ public abstract partial record DocumentTarget {
         guard(!color.IsEmpty, Op.Of(name: nameof(DrawColor)).InvalidInput()).ToFin()
             .Map(_ => (DocumentTarget)new PredicateCase(QuerySettings(), Attribute(test: (attributes, document) => attributes.DrawColor(document: document) == color)));
 
-    public static Fin<DocumentTarget> Region(BoundingBox bounds, bool fullyInside = false, bool accurate = true) =>
-        guard(bounds.IsValid, Op.Of(name: nameof(Region)).InvalidInput()).ToFin()
-            .Map(_ => (DocumentTarget)new PredicateCase(QuerySettings(), (document, native) =>
-                Optional(native.Geometry)
+    public static Fin<DocumentTarget> Region(BoundingBox bounds, bool fullyInside = false, bool accurate = true, double tolerance = 0.0) =>
+        guard(bounds.IsValid && RhinoMath.IsValidDouble(x: tolerance) && tolerance >= 0.0, Op.Of(name: nameof(Region)).InvalidInput()).ToFin()
+            .Map(_ => (DocumentTarget)new PredicateCase(QuerySettings(), (document, native) => {
+                BoundingBox region = bounds;
+                _ = tolerance > 0.0 ? Op.Side(() => region.Inflate(amount: tolerance)) : unit;
+                return Optional(native.Geometry)
                     .Map(geometry => geometry.GetBoundingBox(accurate: accurate))
                     .Filter(static box => box.IsValid)
                     .Map(box => fullyInside
-                        ? box.Min.X >= bounds.Min.X && box.Min.Y >= bounds.Min.Y && box.Min.Z >= bounds.Min.Z
-                          && box.Max.X <= bounds.Max.X && box.Max.Y <= bounds.Max.Y && box.Max.Z <= bounds.Max.Z
-                        : BoundingBox.Intersection(a: bounds, b: box).IsValid)
-                    .IfNone(noneValue: false)));
+                        ? box.Min.X >= region.Min.X && box.Min.Y >= region.Min.Y && box.Min.Z >= region.Min.Z
+                          && box.Max.X <= region.Max.X && box.Max.Y <= region.Max.Y && box.Max.Z <= region.Max.Z
+                        : BoundingBox.Intersection(a: region, b: box).IsValid)
+                    .IfNone(noneValue: false);
+            }));
 
     public static Fin<DocumentTarget> ClippingPlanes() =>
         Filter(settings: QuerySettings(configure: s => s.ObjectTypeFilter = ObjectType.ClipPlane));
@@ -403,8 +406,6 @@ internal abstract record GeometrySource {
             _ => Fin.Fail<GeometrySource>(error: op.InvalidInput()),
         });
     }
-
-    internal static GeometrySource Own(GeometryBase geometry) => new Owned(() => geometry);
 
     private sealed record Borrowed(GeometryBase Geometry) : GeometrySource {
         internal override Fin<T> Use<T>(Op op, Func<GeometryBase, Fin<T>> use) =>
@@ -607,10 +608,7 @@ public sealed record DocumentEdit {
                from label in NonBlank(value: name, op: op)
                from active in Optional(run).ToFin(Fail: Op.Of(name: label).InvalidInput())
                from receipt in Mutate(document: document, name: label, recordsUndo: undoRecorded, suppressRedraw: redraw.SuppressDuringCommit, run: () => active(arg1: document, arg2: Domain, arg3: Op.Of(name: label)))
-               from _ in redraw.Enabled switch {
-                   true => Redraw(),
-                   false => Fin.Succ(value: unit),
-               }
+               from _ in redraw.Enabled ? Redraw() : Fin.Succ(value: unit)
                select receipt;
     }
 
@@ -657,14 +655,10 @@ public sealed record DocumentEdit {
                 // BOUNDARY ADAPTER — RhinoDoc.Views.EnableRedraw returns void and UndoScope is a ref struct, so redraw toggling and Seal stay as statements outside any capturing lambda.
                 Op op = Op.Of(name: name);
                 bool priorRedraw = document.Views.RedrawEnabled;
-                Unit toggle(bool enable) {
-                    document.Views.EnableRedraw(enable: enable, redrawDocument: enable, redrawLayers: enable);
-                    return unit;
-                }
-                _ = suppressRedraw switch { true => toggle(enable: false), false => unit };
+                _ = Op.SideWhen(suppressRedraw, () => document.Views.EnableRedraw(enable: false, redrawDocument: false, redrawLayers: false));
                 using UndoScope undo = UndoScope.Begin(document: document, name: name, recordsUndo: recordsUndo);
                 Fin<DocumentReceipt> inner = valid();
-                _ = suppressRedraw switch { true => toggle(priorRedraw), false => unit };
+                _ = Op.SideWhen(suppressRedraw, () => document.Views.EnableRedraw(enable: priorRedraw, redrawDocument: priorRedraw, redrawLayers: priorRedraw));
                 return inner.IsSucc
                     ? undo.Seal(receipt: inner.IfFail(DocumentReceipt.Empty), op: op)
                     : inner;

@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Eto.Forms;
+using StatusBar = Rhino.UI.StatusBar;
 
 namespace Rasm.Rhino.UI;
 
@@ -59,13 +60,16 @@ public readonly record struct UiStatus(
                 _ => unit,
             };
             _ = status.CommandMessage.Iter(static value => RhinoApp.SetCommandPromptMessage(prompt: value));
-            _ = Op.SideWhen(status.ClearMessage, static () => global::Rhino.UI.StatusBar.ClearMessagePane());
-            _ = status.Message.Iter(static value => global::Rhino.UI.StatusBar.SetMessagePane(message: value));
-            _ = status.Distance.Iter(static value => global::Rhino.UI.StatusBar.SetDistancePane(distance: value));
-            _ = status.Number.Iter(static value => global::Rhino.UI.StatusBar.SetNumberPane(number: value));
-            _ = status.Point.Iter(static value => global::Rhino.UI.StatusBar.SetPointPane(point: value));
-            _ = Op.SideWhen(status.HideProgress, static () => global::Rhino.UI.StatusBar.HideProgressMeter());
-            return status.Toasts.TraverseM(static value => value.Apply()).As().Map(static _ => unit);
+            _ = Op.SideWhen(status.ClearMessage, static () => StatusBar.ClearMessagePane());
+            _ = status.Message.Iter(static value => StatusBar.SetMessagePane(message: value));
+            _ = status.Distance.Iter(static value => StatusBar.SetDistancePane(distance: value));
+            _ = status.Number.Iter(static value => StatusBar.SetNumberPane(number: value));
+            _ = status.Point.Iter(static value => StatusBar.SetPointPane(point: value));
+            _ = Op.SideWhen(status.HideProgress, static () => StatusBar.HideProgressMeter());
+            // best-effort toasts: each is recovered to success so one failed notification does not cross-cancel the rest
+            return status.Toasts
+                .TraverseM(static value => value.Apply() | Fin.Succ(value: unit))
+                .As().Map(static _ => unit);
         });
     }
 }
@@ -197,8 +201,8 @@ public sealed class UiProgress : IDisposable {
         int Commit(int value) { current = value; return value; }
         Fin<int> Drive(int target, int rawPosition, string? label) {
             _ = label switch {
-                string text => Op.Side(() => global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: text, position: rawPosition, absolute: step.Absolute)),
-                _ => Op.Side(() => global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, position: rawPosition, absolute: step.Absolute)),
+                string text => Op.Side(() => StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: text, position: rawPosition, absolute: step.Absolute)),
+                _ => Op.Side(() => StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, position: rawPosition, absolute: step.Absolute)),
             };
             return Fin.Succ(value: Commit(target));
         }
@@ -207,7 +211,7 @@ public sealed class UiProgress : IDisposable {
             false => (step.Position.Map(position => step.Absolute ? position : current + position).Case, step.Position.Case, step.Label.Case) switch {
                 (int position, _, _) when position < lower || position > upper => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
                 (int target, int position, string label) => Drive(target, position, label),
-                (_, _, string label) => Op.Side(() => global::Rhino.UI.StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: RhinoMath.UnsetIntIndex, absolute: true)) switch { _ => Fin.Succ(value: current) },
+                (_, _, string label) => (Op.Side(() => StatusBar.UpdateProgressMeter(docSerialNumber: documentSerialNumber, label: label, position: RhinoMath.UnsetIntIndex, absolute: true)), Fin.Succ(value: current)).Item2,   // position = UnsetIntIndex → label-only update (native contract)
                 (int target, int position, _) => Drive(target, position, label: null),
                 _ => Fin.Fail<int>(error: Op.Of(name: nameof(Update)).InvalidInput()),
             },
@@ -234,7 +238,7 @@ public sealed class UiProgress : IDisposable {
     public void Dispose() {
         _ = disposed switch {
             true => unit,
-            false => Op.Side(() => global::Rhino.UI.StatusBar.HideProgressMeter(docSerialNumber: documentSerialNumber)),
+            false => Op.Side(() => StatusBar.HideProgressMeter(docSerialNumber: documentSerialNumber)),
         };
         disposed = true;
         GC.SuppressFinalize(obj: this);
@@ -252,7 +256,7 @@ public sealed class UiProgress : IDisposable {
         from validDocument in Op.Of(name: nameof(UiProgress)).Need(document)
         from label in Op.Of(name: nameof(UiProgress)).Need(spec.Label)
         from _ in guard(spec.Upper >= spec.Lower, Op.Of(name: nameof(UiProgress)).InvalidInput())
-        from created in global::Rhino.UI.StatusBar.ShowProgressMeter(
+        from created in StatusBar.ShowProgressMeter(
             docSerialNumber: validDocument.RuntimeSerialNumber,
             lowerLimit: spec.Lower,
             upperLimit: spec.Upper,

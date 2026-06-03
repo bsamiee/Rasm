@@ -124,16 +124,14 @@ No dedicated `.mdc` for: root `package.json`, `pyproject.toml`, `Workspace.slnx`
 | :-----: | ------------------------------------------------ |
 |   [1]   | `.cursor/BUGBOT.md`                              |
 |   [2]   | `.cursor/bugbot/stale-rejections.md`             |
-|   [3]   | Nested `.cursor/BUGBOT.md`                       |
-|   [4]   | `.cursor/plans/`                                 |
-|   [5]   | `.cursor/research/rasm-cursor-infrastructure.md` |
+|   [3]   | `.cursor/plans/`                                 |
+|   [4]   | `.cursor/research/rasm-cursor-infrastructure.md` |
 
 [ROLE]
-- [1] PR review hub — severity, tone, links
+- [1] PR review hub — severity, tone, scoped `AGENTS.md` / `.mdc` owners
 - [2] Canonical stale-pattern list
-- [3] Walk-up merge under `tools/rhino-bridge/`, `tests/csharp/`, `libs/csharp/Rasm.Rhino/`, `libs/csharp/Rasm.Grasshopper/`
-- [4] Optional Plan Mode artifacts after Save to workspace
-- [5] Source-grounded synthesis for this rule pack
+- [3] Optional Plan Mode artifacts after Save to workspace
+- [4] Source-grounded synthesis for this rule pack
 
 Bugbot does **not** auto-load `.mdc` rules — link from `BUGBOT.md` when PR review needs them.
 

@@ -193,6 +193,28 @@ public readonly record struct FileResourceGraph(
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
+public readonly record struct FileArchiveDiff(
+    Seq<FileResourceEntry> Added,
+    Seq<FileResourceEntry> Removed,
+    Seq<FileResourceEntry> Changed) {
+    // structural delta of two archives' resource graphs; changed = same key, different entry value.
+    internal static FileArchiveDiff Of(Seq<FileResourceEntry> before, Seq<FileResourceEntry> after) {
+        // id-first so duplicate kind+name resources with distinct ids stay distinct slots; kind:name only when no id exists.
+        static string Key(FileResourceEntry entry) => entry.Id.Map(static id => id.ToString()).IfNone($"{entry.Kind}:{entry.Name.IfNone(string.Empty)}");
+        // why: Source (free-text provenance tag) and Count (manifest volume) are non-structural drift, excluded so a re-read-path or count-delta yields no spurious Changed entry.
+        static bool StructurallyEqual(FileResourceEntry a, FileResourceEntry b) =>
+            a.Kind == b.Kind && a.Name == b.Name && a.Path == b.Path && a.Id == b.Id
+            && a.Value == b.Value && a.TypeId == b.TypeId && a.PlugInId == b.PlugInId
+            && a.RenderEngineId == b.RenderEngineId && a.GroupId == b.GroupId;
+        HashMap<string, FileResourceEntry> priors = before.Fold(HashMap<string, FileResourceEntry>(), (acc, entry) => acc.AddOrUpdate(key: Key(entry: entry), value: entry));
+        HashMap<string, FileResourceEntry> nexts = after.Fold(HashMap<string, FileResourceEntry>(), (acc, entry) => acc.AddOrUpdate(key: Key(entry: entry), value: entry));
+        return new(
+            Added: after.Filter(entry => !priors.ContainsKey(key: Key(entry: entry))),
+            Removed: before.Filter(entry => !nexts.ContainsKey(key: Key(entry: entry))),
+            Changed: after.Filter(entry => priors.Find(key: Key(entry: entry)).Map(prior => !StructurallyEqual(a: prior, b: entry)).IfNone(noneValue: false)));
+    }
+}
+
 internal static class FileArchiveOps {
     internal static Fin<FileReport> Read(FileArchiveSource source, ArchiveProfile profile) =>
         from archive in UseArchive(source: source, profile: profile, op: Op.Of(name: nameof(Read)), use: (endpoint, model, log) => Snapshot(source: source, model: model, profile: profile).Map(result => (Endpoint: endpoint, result.Archive, result.Issues, Log: log)))
@@ -353,6 +375,23 @@ internal static class FileArchiveOps {
             use: (_, model, _) => Metadata(source: new FileArchiveSource.Path(Value: path), model: model, layouts: ReadLayouts(source: new FileArchiveSource.Path(Value: path))))
         select metadata;
 
+    internal static Fin<FileArchiveDiff> Diff(FileEndpoint source, FileEndpoint other) =>
+        from before in GraphOf(endpoint: source, op: Op.Of(name: nameof(Diff)))
+        from after in GraphOf(endpoint: other, op: Op.Of(name: nameof(Diff)))
+        select FileArchiveDiff.Of(before: before.Entries, after: after.Entries);
+
+    private static Fin<FileResourceGraph> GraphOf(FileEndpoint endpoint, Op op) =>
+        from path in endpoint.Input(op: op)
+        from graph in UseArchive(
+            source: new FileArchiveSource.Path(Value: path),
+            profile: ArchiveProfile.Full with { Slice = ArchiveSlice.Resources, Projection = FileArchiveProjection.Graph },
+            op: op,
+            use: (_, model, _) => Snapshot(
+                source: new FileArchiveSource.Path(Value: path),
+                model: model,
+                profile: ArchiveProfile.Full with { Slice = ArchiveSlice.Resources, Projection = FileArchiveProjection.Graph }).Map(static result => result.Archive.Resources))
+        select graph;
+
     internal static Fin<FileQueryResult> Query(FileArchiveSource source, FileArchiveQuery query, Op op) =>
         query.Switch(
             (Source: source, Op: op),
@@ -467,31 +506,29 @@ internal static class FileArchiveOps {
             // "3dm" is a guaranteed builtin key; the fail rail is unreachable but keeps FormatOf total.
             _ => FileFormat.KnownFormat(key: "3dm", op: Op.Of(name: nameof(FormatOf))).ToOption(),
         };
-    private static Fin<(Blocks.Archive.Graph Graph, Seq<string> Linked, Seq<FileIssue> Issues)> BlockArchiveResources(File3dmModel model, Option<string> archivePath, Op key) =>
-        from graph in archivePath
-            .Map(path => Blocks.Archive.From(model: model, archivePath: Some(path), key: key))
-            .IfNone(() => Blocks.Archive.From(model: model, key: key))
-        from closure in archivePath.Case switch {
-            string path => Blocks.Archive.ValidateArchiveClosure(root: model, rootPath: path, key: key)
-                .Map(report => (
-                    Linked: report.Edges.Map(static edge => edge.Link.Full.Value).Distinct(),
-                    Issues: report.Valid
-                        ? Seq<FileIssue>()
-                        : report.Broken.Map(static path => FileIssue.Of(code: FileIssueCode.BrokenLink, message: $"broken linked archive: {path.Value}"))
-                          + report.Cycles.Map(static cycle => FileIssue.Native(message: $"linked archive cycle: {string.Join(separator: " -> ", values: cycle.Map(static path => path.Value).AsIterable())}"))
-                          + report.Truncated.Map(static path => FileIssue.Native(message: $"linked archive validation truncated: {path.Value}")))),
-            _ => Fin.Succ(value: (
-                Linked: toSeq(graph.LinkedArchives.AsEnumerable()).Map(static link => link.Stored),
-                Issues: Seq<FileIssue>())),
-        }
-        select (graph, closure.Linked, closure.Issues);
     private static Fin<(FileResourceGraph Graph, Seq<FileIssue> Issues)> Resources(File3dmModel model, FileArchiveSource source, Seq<(string Name, Guid Id)> layouts) {
         Op key = Op.Of(name: nameof(Resources));
         Option<string> archivePath = source switch {
             FileArchiveSource.Path path => Some(path.Value.Path),
             _ => Option<string>.None,
         };
-        return BlockArchiveResources(model: model, archivePath: archivePath, key: key)
+        return (from graph in archivePath
+                .Map(path => Blocks.Archive.From(model: model, archivePath: Some(path), key: key))
+                .IfNone(() => Blocks.Archive.From(model: model, key: key))
+                from closure in archivePath.Case switch {
+                    string path => Blocks.Archive.ValidateArchiveClosure(root: model, rootPath: path, key: key)
+                        .Map(report => (
+                            Linked: report.Edges.Map(static edge => edge.Link.Full.Value).Distinct(),
+                            Issues: report.Valid
+                                ? Seq<FileIssue>()
+                                : report.Broken.Map(static path => FileIssue.Of(code: FileIssueCode.BrokenLink, message: $"broken linked archive: {path.Value}"))
+                                  + report.Cycles.Map(static cycle => FileIssue.Native(message: $"linked archive cycle: {string.Join(separator: " -> ", values: cycle.Map(static path => path.Value).AsIterable())}"))
+                                  + report.Truncated.Map(static path => FileIssue.Native(message: $"linked archive validation truncated: {path.Value}")))),
+                    _ => Fin.Succ(value: (
+                        Linked: toSeq(graph.LinkedArchives.AsEnumerable()).Map(static link => link.Stored),
+                        Issues: Seq<FileIssue>())),
+                }
+                select (Graph: graph, closure.Linked, closure.Issues))
             .BiBind(
                 Succ: resources => key.Catch(() => Fin.Succ(value: (
                     ResourceGraphOf(model: model, blockGraph: resources.Graph, linked: resources.Linked, layouts: layouts),
@@ -787,16 +824,10 @@ internal static class FileArchiveOps {
             });
 
     private static Seq<FileIssue> IssueLog(string log) =>
-        string.IsNullOrWhiteSpace(value: log) switch {
-            false => Seq(FileIssue.Native(message: log)),
-            true => Seq<FileIssue>(),
-        };
+        string.IsNullOrWhiteSpace(value: log) ? Seq<FileIssue>() : Seq(FileIssue.Native(message: log));
 
     private static Option<string> LogOption(string log) =>
-        string.IsNullOrWhiteSpace(value: log) switch {
-            false => Some(log),
-            true => Option<string>.None,
-        };
+        string.IsNullOrWhiteSpace(value: log) ? Option<string>.None : Some(log);
 
     internal static Option<string> TextOption(string? value) =>
         Optional(value).Filter(static text => !string.IsNullOrWhiteSpace(value: text)).Map(static text => text.Trim());

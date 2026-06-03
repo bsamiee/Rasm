@@ -3,33 +3,33 @@
 
 <br>
 
-`Rasm.Compute` is the planned measured-compute platform for future long-running, tensor, model, and remote execution lanes. It is docs-only today: no `.csproj`, no production C# files, no active package references, and no runtime surface.
+`Rasm.Compute` is the measured-compute platform for long-running, tensor, model, and remote execution lanes. It wraps the existing `Rasm.Vectors` tensor/numeric substrate in `Eff<RT,ExecutionReceipt>` — adding timing, allocation, cancellation, substrate selection, and progress — without duplicating a single `TensorPrimitives` kernel that `Rasm.Vectors` already owns.
 
 ---
 ## [1][PURPOSE]
->**Dictum:** *Compute starts from existing Rasm numerics.*
+>**Dictum:** *Compute wraps; Rasm.Vectors computes.*
 
 <br>
 
-`Rasm.Compute` will coordinate substrate selection, cancellation/progress, benchmark receipts, model lifecycle, remote dispatch, and failure taxonomy for work that outgrows direct `Rasm` operations. Existing `Rasm` + MathNet + CSparse algorithms remain the default substrate.
+`Rasm.Compute` coordinates substrate selection, cancellation/progress, benchmark receipts, model lifecycle, remote dispatch, and failure taxonomy for work that outgrows direct `Rasm` operations. `Rasm.Vectors` tensor/numeric algorithms are the default substrate; Compute calls them and does not re-implement them.
 
-It is not a tensor wrapper, ML.NET wrapper, gRPC wrapper, job framework, acceleration claim, or replacement for existing `Rasm` numerics.
+It is not a tensor wrapper, ONNX Runtime wrapper, gRPC wrapper, job framework, acceleration claim, or replacement for existing `Rasm`/`Rasm.Vectors` numerics.
 
 ---
 ## [2][STATUS]
->**Dictum:** *No source means no acceleration claim.*
+>**Dictum:** *Measured execution, built fully from the default substrate.*
 
 <br>
 
-| [INDEX] | [SURFACE] | [STATE] |
-| :-----: | --------- | ------- |
-|   [1]   | Project file | Not created |
-|   [2]   | Production API | Not created |
-|   [3]   | Package references | None |
-|   [4]   | Compute substrate | Rasm/MathNet/CSparse first |
-|   [5]   | Performance proof | Pending future implementation |
+| [INDEX] | [SURFACE]            | [STATE]                                                          |
+| :-----: | -------------------- | ---------------------------------------------------------------- |
+|   [1]   | Project file         | Create in Phase 0                                                |
+|   [2]   | Production API       | In progress                                                      |
+|   [3]   | Package references   | Add centrally in Phase 0                                         |
+|   [4]   | Compute substrate    | Rasm.Vectors default; ONNX Runtime model lane; gRPC remote lane  |
+|   [5]   | Performance evidence | Per measured input class                                         |
 
-Candidate package versions must be refreshed from latest stable sources immediately before a real consumer lands.
+Add packages centrally at the newest viable versions during Phase 0. Do not pin version numbers in documentation.
 
 ---
 ## [3][MANUAL]
@@ -37,19 +37,21 @@ Candidate package versions must be refreshed from latest stable sources immediat
 
 <br>
 
-| [INDEX] | [FILE] | [READ_FOR] |
-| :-----: | ------ | ---------- |
-|   [1]   | `_ARCHITECTURE.md` | Substrate selection, candidates, failure model, benchmark proof |
-|   [2]   | `AGENTS.md` | Future-agent rules and package rejections |
-|   [3]   | `ROADMAP.md` | First measured slice and deferred candidates |
+| [INDEX] | [FILE]             | [READ_FOR]                                                                              |
+| :-----: | ------------------ | --------------------------------------------------------------------------------------- |
+|   [1]   | `_ARCHITECTURE.md` | Type shapes, substrate selection, packages, boundary rules, failure model, measurement  |
+|   [2]   | `AGENTS.md`        | Build rules, boundary enforcement, and package rejections                               |
+|   [3]   | `ROADMAP.md`       | Build sequence and scoped lanes                                                         |
 
 ---
-## [4][NON_CLAIMS]
->**Dictum:** *Compute docs do not imply speed.*
+## [4][CONSTRAINTS]
+>**Dictum:** *Compute owns evidence, not domain meaning.*
 
 <br>
 
-- No package is active.
-- No tensor/model/remote rail exists.
-- No performance improvement is claimed.
-- No native asset behavior is proven.
+- Substrate choice stays internal to Compute operations; `Rasm.Vectors` owns algorithm bodies.
+- Speed and allocation claims carry benchmark evidence under `.artifacts/compute/benchmarks/`.
+- Models enter only as named, versioned, lifecycle-managed assets keyed by `ModelKey`.
+- Remote compute runs only through an out-of-process companion contract.
+- `ComputeRequest` is defined in the shared-contracts project, not here.
+- `IObservable<ComputeProgress>` is cold; `Subject` is internal; `OnCompleted` fires on success and cancel; `OnError` never fires — faults surface via receipt only. GH2 components with no subscriber incur zero cost. AppUi consumes via `ObserveOn(RasmUiScheduler.RxScheduler)`; Compute never calls `ObserveOn`.

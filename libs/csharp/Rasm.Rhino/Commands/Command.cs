@@ -233,10 +233,8 @@ public sealed record PromptStage<TState, TValue>(
 
     private Seq<CommandInputPolicy> GumballPolicy(CommandStageContext<TState> context, Atom<Option<PromptTransition<TState>>> transition) =>
         Optional(Gumball)
-            .Map(project => Seq(CommandInputPolicy.PointEvents(pointEvent => project(arg: new PromptEventContext<TState>(Stage: context, Event: pointEvent)).Map(next => next.Iter(value => {
-                _ = transition.Swap(_ => Some(value));
-                _ = pointEvent.Getter.InterruptMouseMove();
-            })))))
+            // the recorded transition is consumed first in Run (Command.cs:199); GetPoint has no public mid-get abort, so the Atom — not InterruptMouseMove — ends the prompt
+            .Map(project => Seq(CommandInputPolicy.PointEvents(pointEvent => project(arg: new PromptEventContext<TState>(Stage: context, Event: pointEvent)).Map(next => next.Iter(value => _ = transition.Swap(_ => Some(value)))))))
             .IfNone(Seq<CommandInputPolicy>());
 }
 

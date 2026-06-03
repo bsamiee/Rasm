@@ -29,7 +29,7 @@ public abstract partial record BlockAttributeTask {
 [Union(SwitchMapStateParameterName = "owner")]
 public abstract partial record BlockInstanceTask {
     private BlockInstanceTask() { }
-    public sealed record Place(DefinitionRef Ref, Seq<Placement> At, BatchPolicy? Policy = null) : BlockInstanceTask;
+    public sealed record Place(DefinitionRef Ref, Seq<Placement> At, BatchPolicy? Policy = null, Option<Func<Placement, bool>> Where = default) : BlockInstanceTask;
     public sealed record ReplaceDefinition(
         Guid InstanceId,
         DefinitionRef NewRef,
@@ -240,7 +240,7 @@ internal static partial class Operations {
     private static BlockRunPlan InstancePlan(RhinoBlocks owner, BlockInstanceTask task) =>
         task.Switch(
             owner: owner,
-            place: static (owner, x) => MutPlan(name: nameof(BlockInstanceTask.Place), ui: true, body: k => PerformPlace(owner: owner, refer: x.Ref, at: x.At, policy: x.Policy ?? BatchPolicy.Default, key: k)),
+            place: static (owner, x) => MutPlan(name: nameof(BlockInstanceTask.Place), ui: true, body: k => PerformPlace(owner: owner, refer: x.Ref, at: x.At, policy: x.Policy ?? BatchPolicy.Default, predicate: x.Where, key: k)),
             replaceDefinition: static (owner, x) => MutPlan(name: nameof(BlockInstanceTask.ReplaceDefinition), ui: true, body: k => PerformReplaceDefinition(owner: owner, instanceId: x.InstanceId, newRef: x.NewRef, oldRef: x.OldRef, basePoint: x.BasePoint ?? BasePointPolicy.Default, key: k)),
             transform: static (owner, x) => MutPlan(name: nameof(BlockInstanceTask.Transform), ui: true, body: k => PerformTransformInstance(owner: owner, instanceId: x.InstanceId, xform: x.Xform, mode: x.Mode ?? TransformPolicy.Copy, key: k)),
             explode: static (owner, x) => MutPlan(name: nameof(BlockInstanceTask.Explode), ui: true, body: k => PerformExplodeIntoDocument(owner: owner, instanceId: x.InstanceId, policy: x.Policy, key: k)),
@@ -620,14 +620,18 @@ internal static partial class Operations {
             _ = ContentIndex.EvictDoc(serial: owner.Document.RuntimeSerialNumber);
             return Fin.Succ(value: MutationReceipt.Empty);
         });
-    private static Fin<MutationReceipt> PerformPlace(RhinoBlocks owner, DefinitionRef refer, Seq<Placement> at, BatchPolicy policy, Op key) =>
+    private static Fin<MutationReceipt> PerformPlace(RhinoBlocks owner, DefinitionRef refer, Seq<Placement> at, BatchPolicy policy, Option<Func<Placement, bool>> predicate, Op key) =>
         from snap in ResolveSnap(table: owner.Document.InstanceDefinitions, refer: refer, key: key)
         from live in snap.Live.ToFin(Fail: key.InvalidInput())
         from idx in RequireIndex(snap: snap, key: key)
         from admitted in at.TraverseM(placement => placement.Admit(live: live, key: key)).As()
-        from receipts in PlaceInBatch(doc: owner.Document, index: idx, at: admitted, policy: policy, key: key)
-        from _ in key.Confirm(success: !receipts.IsEmpty)
-        select MutationReceipt.Objects(slot: DocumentReceiptSlot.Created, ids: receipts, kind: DocumentResourceKind.Block, name: snap.Name.Value);
+        let selected = predicate.Case switch { Func<Placement, bool> keep => admitted.Filter(p => keep(arg: p)), _ => admitted }
+        from placed in predicate.IsSome && selected.IsEmpty
+            ? Fin.Succ(value: MutationReceipt.Objects(slot: DocumentReceiptSlot.Created, ids: Seq<Guid>(), kind: DocumentResourceKind.Block, name: snap.Name.Value))
+            : from receipts in PlaceInBatch(doc: owner.Document, index: idx, at: selected, policy: policy, key: key)
+              from _ in key.Confirm(success: !receipts.IsEmpty)
+              select MutationReceipt.Objects(slot: DocumentReceiptSlot.Created, ids: receipts, kind: DocumentResourceKind.Block, name: snap.Name.Value)
+        select placed;
 
     private static Fin<Guid> AddInstance(
         ObjectTable table, int index, Placement placement, Op key) {
@@ -1209,11 +1213,13 @@ internal static partial class Operations {
                 key: key))
             .Map(static provided => (Members)provided);
     private static Fin<MutationReceipt> BakeArchiveInstances(RhinoBlocks owner, Archive.Graph graph, Op key) {
-        System.Collections.Generic.HashSet<Guid> nested = [.. toSeq(graph.Definitions).Bind(static d => toSeq(d.MemberIds))];
+        LanguageExt.HashSet<Guid> nested = toSeq(graph.Definitions)
+            .Bind(static d => toSeq(d.MemberIds))
+            .Fold(LanguageExt.HashSet<Guid>.Empty, static (acc, id) => acc.Add(key: id));
         return graph.Instances.IsEmpty
             ? Fin.Succ(value: MutationReceipt.Empty)
             : toSeq(graph.Instances)
-                .Filter(instance => !nested.Contains(instance.ObjectId))
+                .Filter(instance => !nested.Contains(key: instance.ObjectId))
                 .Map(instance =>
                     from archiveDef in toSeq(graph.Definitions).Find(d => d.Id == instance.ParentDefId).ToFin(Fail: key.InvalidInput())
                     from live in Optional(owner.Document.InstanceDefinitions.Find(instanceDefinitionName: archiveDef.Name.Value)).ToFin(Fail: key.InvalidInput())
@@ -1231,10 +1237,11 @@ internal static partial class Operations {
             .TraverseM(identity).As();
     }
     private static Seq<Member> ProjectMembers(DefinitionId defId, InstanceDefinition live, Option<Seq<ExplodedPiece>> pieces) =>
-        pieces.Match(
-            Some: exploded => toSeq(exploded).Map(p => new Member(DefId: defId, MemberId: p.Piece.Id, Attrs: Some(p.Attrs))),
-            None: () => VisitDefinitionMembers(def: live, composed: Transform.Identity)
-                .Map(visit => new Member(DefId: defId, MemberId: visit.ObjectId, Attrs: Optional(visit.Attributes))));
+        pieces.Case switch {
+            Seq<ExplodedPiece> exploded => exploded.Map(p => new Member(DefId: defId, MemberId: p.Piece.Id, Attrs: Some(value: p.Attrs))),
+            _ => VisitDefinitionMembers(def: live, composed: Transform.Identity)
+                .Map(visit => new Member(DefId: defId, MemberId: visit.ObjectId, Attrs: Optional(visit.Attributes))),
+        };
 
     private static Fin<BlockOutcome> PerformExplodeInspect(RhinoBlocks owner, Guid instanceId, ExplodePolicy policy, Op key) =>
         from instance in AsInstance(objects: owner.Document.Objects, instanceId: instanceId, key: key)
@@ -1264,16 +1271,16 @@ internal static partial class Operations {
             depends: static (ctx, d) => PerformDependsOn(owner: ctx.Owner, refer: d.Ref, target: d.Target, key: ctx.Key),
             audit: static (ctx, _) => PerformDependencyAudit(owner: ctx.Owner, key: ctx.Key),
             plan: static (ctx, p) => PerformGraphPlan(owner: ctx.Owner, root: p.Root, key: ctx.Key),
+            cycles: static (ctx, c) => PerformGraphCycles(owner: ctx.Owner, root: c.Root, key: ctx.Key),
             stats: static (ctx, _) => PerformStats(owner: ctx.Owner, key: ctx.Key),
             health: static (ctx, h) => PerformLinkedHealth(owner: ctx.Owner, filter: h.Filter ?? BlockFilter.All, key: ctx.Key),
             reach: static (ctx, r) => PerformGraphReach(owner: ctx.Owner, refer: r.Ref, scope: r.Scope, policy: r.Policy, key: ctx.Key),
-            ensureIndexed: static (ctx, e) => PerformGraphEnsureIndexed(owner: ctx.Owner, refer: e.Ref, key: ctx.Key))
-        .Map(result => (BlockOutcome)new BlockOutcome.GraphResult(Query: query, Value: result));
+            ensureIndexed: static (ctx, e) => PerformGraphEnsureIndexed(owner: ctx.Owner, refer: e.Ref, key: ctx.Key));
 
     private static Fin<BlockOutcome> PerformStats(RhinoBlocks owner, Op key) {
         InstanceDefinitionTable table = owner.Document.InstanceDefinitions;
         return key.Catch(() => Fin.Succ(value: (BlockOutcome)new BlockOutcome.TableStats(
-            Count: table.ActiveCount,
+            Count: table.Count,
             ActiveCount: table.ActiveCount)));
     }
 
@@ -1300,6 +1307,14 @@ internal static partial class Operations {
         from graph in Archive.LiveGraph(table: owner.Document.InstanceDefinitions, anchor: anchor, key: key)
         select (BlockOutcome)new BlockOutcome.Plan(
             Order: Archive.BakePlan(graph: graph).Map(definition => definition.Id));
+
+    private static Fin<BlockOutcome> PerformGraphCycles(RhinoBlocks owner, Option<DefinitionRef> root, Op key) =>
+        from anchor in root.Case switch {
+            DefinitionRef refer => ResolveSnap(table: owner.Document.InstanceDefinitions, refer: refer, key: key).Map(Some),
+            _ => Fin.Succ(Option<Definition>.None),
+        }
+        from graph in Archive.LiveGraph(table: owner.Document.InstanceDefinitions, anchor: anchor, key: key)
+        select (BlockOutcome)new BlockOutcome.CycleGroups(Groups: Archive.FindCircularLinks(graph: graph));
 
     private static Fin<BlockOutcome> PerformGraphReach(RhinoBlocks owner, DefinitionRef refer, ReferenceScope scope, DepthPolicy? policy, Op key) =>
         from admitted in (policy ?? DepthPolicy.Reach).Admit(key: key)

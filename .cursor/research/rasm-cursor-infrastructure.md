@@ -25,7 +25,7 @@ CLAUDE.md (always on in Cursor)
     → nearest nested AGENTS.md
       → matched .cursor/rules/*.mdc (Agent chat only)
         → .claude/skills/ by file type
-PR review: .cursor/BUGBOT.md tree (separate merge order; does not read .mdc unless linked)
+PR review: .cursor/BUGBOT.md (separate merge order; does not read .mdc unless linked)
 ```
 
 ## Rule pack decisions
@@ -43,27 +43,23 @@ Bugbot is Cursor’s **PR review product** — not IDE Agent rules.
 | :-----: | ------------------------- |
 |   [1]   | `tools/cs-analyzer` (CSP) |
 |   [2]   | `tools.quality` / CI      |
-|   [3]   | `.cursor/BUGBOT.md` tree  |
+|   [3]   | `.cursor/BUGBOT.md`       |
 
 [OWNS]
 - [1] Style, FP law, analyzer violations
 - [2] Build, test, bridge verify
 - [3] Behavioral regressions, stale vocabulary, rail misuse, host mistakes
 
-**Merge order:** Team Rules → dashboard learned/manual → root `.cursor/BUGBOT.md` (always) → nested `.cursor/BUGBOT.md` (walk-up from each changed file) → User Rules.
+**Merge order:** Team Rules → dashboard learned/manual → `.cursor/BUGBOT.md` → User Rules.
 
 **Repo layout:**
 
 ```text
-.cursor/BUGBOT.md                    # Hub: severity, tone, leave-alone, links
+.cursor/BUGBOT.md                    # Hub: severity, tone, scoped owners, links
 .cursor/bugbot/stale-rejections.md    # Single canonical stale list
-tools/rhino-bridge/.cursor/BUGBOT.md
-tests/csharp/.cursor/BUGBOT.md
-libs/csharp/Rasm.Rhino/.cursor/BUGBOT.md
-libs/csharp/Rasm.Grasshopper/.cursor/BUGBOT.md
 ```
 
-Nested files are **delta-only** (~25 lines) to limit context on wide PRs. Link to `.mdc` owners; do not duplicate full rule bodies.
+Scoped PR areas map to nearest `AGENTS.md` and glob `.mdc` owners listed in `BUGBOT.md`; do not duplicate full rule bodies.
 
 ## Explicitly deferred
 

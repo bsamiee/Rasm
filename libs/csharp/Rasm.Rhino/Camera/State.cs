@@ -429,21 +429,24 @@ public sealed record CameraSnapshot : IDisposable {
         Op op = Op.Of(name: nameof(Depth));
         return Optional(source).ToFin(Fail: op.InvalidInput())
             .Bind(valid => valid.BoundsOf(op: op))
-            .Bind(bounds => guard(bounds.IsValid, op.InvalidResult()).ToFin().Map(_ => DepthOf(frame: frame, bounds: bounds)))
+            .Bind(bounds => guard(bounds.IsValid, op.InvalidResult()).ToFin().Map(_ => toSeq(bounds.GetCorners())
+                .Map(corner => (corner - frame.Location) * frame.Direction)
+                .Fold((Near: double.MaxValue, Far: double.MinValue), static (acc, depth) => (Near: Math.Min(val1: acc.Near, val2: depth), Far: Math.Max(val1: acc.Far, val2: depth)))))
             // Far <= 0 means the whole box sits behind the camera plane — no valid clipping range,
             // matching the live CameraSubject.Depth failure semantics for the behind-camera case.
-            .Bind(depth => guard(depth.Far > 0.0, op.InvalidResult()).ToFin().Map(_ => depth));
+            .Bind(depth => guard(depth.Far > 0.0, op.InvalidResult()).ToFin().Map(_ => new CameraDepth(Near: depth.Near, Far: depth.Far)));
     }
     public Fin<bool> IsVisible(BoundingBox box) {
         ViewportInfo captured = Projection;
         Op op = Op.Of(name: nameof(IsVisible));
         return from _ in guard(box.IsValid, op.InvalidInput())
                from result in op.Catch(() => {
-                   // Inward-pointing frustum planes (GetPlane 0-5): a corner inside the truncated
-                   // pyramid satisfies DistanceTo >= 0 against all six. Strict 6-plane test avoids the
+                   // FrustumNearPlane's normal points OUT of the frustum (toward the camera) while Far and the
+                   // four sides point INTO it; a corner inside the truncated pyramid is therefore on near's
+                   // negative side and the other five planes' positive side. The strict 6-plane test avoids the
                    // perspective false positives the AABB-of-frustum produced in the pyramid corners.
-                   Plane[] planes = [
-                       captured.FrustumNearPlane,
+                   Plane near = captured.FrustumNearPlane;
+                   Plane[] inward = [
                        captured.FrustumFarPlane,
                        captured.FrustumLeftPlane,
                        captured.FrustumRightPlane,
@@ -451,8 +454,10 @@ public sealed record CameraSnapshot : IDisposable {
                        captured.FrustumTopPlane,
                    ];
                    return Fin.Succ(value:
-                       planes.All(static plane => plane.IsValid) &&
-                       box.GetCorners().Any(corner => planes.All(plane => plane.DistanceTo(testPoint: corner) >= 0.0)));
+                       near.IsValid && inward.All(static plane => plane.IsValid) &&
+                       box.GetCorners().Any(corner =>
+                           near.DistanceTo(testPoint: corner) <= 0.0
+                           && inward.All(plane => plane.DistanceTo(testPoint: corner) >= 0.0)));
                })
                select result;
     }
@@ -484,13 +489,6 @@ public sealed record CameraSnapshot : IDisposable {
                 self.Scope.Viewport.LockedProjection = self.LockedProjection;
             }))
             select CameraScope.RedrawFor(scope: self.Scope));
-    }
-
-    private static CameraDepth DepthOf(CameraFrame frame, BoundingBox bounds) {
-        (double near, double far) = toSeq(bounds.GetCorners())
-            .Map(corner => (corner - frame.Location) * frame.Direction)
-            .Fold((Near: double.MaxValue, Far: double.MinValue), static (acc, depth) => (Near: Math.Min(val1: acc.Near, val2: depth), Far: Math.Max(val1: acc.Far, val2: depth)));
-        return new CameraDepth(Near: near, Far: far);
     }
 
     public void Dispose() {
