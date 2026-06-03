@@ -1,18 +1,23 @@
-# Quality operator
+# [H1][QUALITY_OPERATOR]
+>**Dictum:** *Independent rails make each quality claim explicit.*
 
-Typed CLI for three independent gates: **static** (managed C# cleanup and compile proof), **test** (MTP unit tests and optional Stryker), and **bridge** (live RhinoWIP plus Yak packaging). The **api** sub-rail reads host assemblies and XML without launching Rhino.
+<br>
 
-Run from the directory that contains `Workspace.slnx` (or any subdirectory—the operator walks parents to find it).
+[IMPORTANT] `tools.quality` is an agent-only CLI contract. Select one rail, run one proof, and report only evidence that rail owns.
+
+Prefix all commands:
 
 ```bash
-uv run python -m tools.quality <rail> <verb> [args…]
+uv run python -m tools.quality <rail> <verb> [args]
 ```
 
-Rails do not call each other: `static` never runs tests; `test` never opens Rhino; `bridge verify` does not replace `static build` for compile proof.
+Rails stay orthogonal: `static` never runs tests, `test` never opens Rhino, `bridge verify` never replaces `static build`, and `api` never launches Rhino.
 
 ---
+## [1][RAIL_MAP]
+>**Dictum:** *Rail ownership prevents false proof claims.*
 
-## Architecture
+<br>
 
 ```mermaid
 ---
@@ -20,415 +25,325 @@ config:
   layout: elk
   look: neo
   theme: base
-  elk:
-    mergeEdges: false
-    nodePlacementStrategy: BRANDES_KOEPF
-    cycleBreakingStrategy: GREEDY_MODEL_ORDER
-    layering: LONGEST_PATH
-    edgeRouting: SPLINES
-    spacing:
-      nodeNode: 72
-      edgeNode: 48
-      edgeEdge: 32
-      componentComponent: 56
-    padding: "[top=64,left=64,bottom=64,right=64]"
-    hierarchyHandling: INCLUDE_CHILDREN
-    separateConnectedComponents: true
-    aspectRatio: 1.4
   themeVariables:
     background: "#282a36"
     fontFamily: "JetBrains Mono, monospace"
     fontSize: "14px"
     primaryColor: "#44475a"
     primaryTextColor: "#f8f8f2"
-    primaryBorderColor: "#bd93f9"
-    lineColor: "#6272a4"
-    secondaryColor: "#50fa7b"
-    tertiaryColor: "#282a36"
+    primaryBorderColor: "#8be9fd"
+    lineColor: "#8be9fd"
     clusterBkg: "#21222c"
     clusterBorder: "#6272a4"
-    edgeLabelBackground: "#282a36"
-    defaultLinkColor: "#8be9fd"
 ---
-flowchart TB
-  accTitle: Quality operator architecture
-  accDescr: Cyclopts entry dispatches four orthogonal rails through rail and ArtifactScope. Shared settings and process modules supply scoped dotnet, git, and fd. Bridge and package verbs alone reach RhinoWIP through RhinoBridge.Client; api reads the host bundle without launching Rhino.
+flowchart LR
+  accTitle: Quality operator rail map
+  accDescr: Agent command enters Cyclopts, opens a per-rail artifact scope, then routes to one independent quality rail. Static owns C# cleanup and compile proof. Test owns MTP and explicit mutation. Bridge and package own live Rhino and Yak. API reads host bundle metadata only.
 
-  entry["uv run python -m tools.quality"]:::entry --> cli["__main__.py<br/>Cyclopts tree"]:::entry
-  cli --> rail_wrap["rail()<br/>ArtifactScope<br/>.artifacts/quality/&lt;rail&gt;/&lt;run_id&gt;/"]:::scope
+  agent["Agent command"]:::entry -->|dispatch| cli["__main__.py<br/>Cyclopts + rail()"]:::entry
+  cli -->|opens| scope["ArtifactScope<br/>.artifacts/quality/&lt;rail&gt;/&lt;run_id&gt;"]:::shared
 
-  subgraph rails["Orthogonal rails — no cross-calls"]
-    direction LR
-    static_rail["static<br/>git route · format · build"]:::rail
-    test_rail["test<br/>MTP · optional Stryker"]:::rail
-    bridge_rail["bridge · package<br/>verify · Yak · client"]:::rail
-    api_rail["api<br/>bundle XML · ILSpy · rg"]:::rail
-  end
+  scope -->|format/build| static_rail["static<br/>changed route + project closure"]:::rail
+  scope -->|MTP/mutation| test_rail["test<br/>results + Stryker lock"]:::rail
+  scope -->|client/Yak| bridge_rail["bridge/package<br/>Rhino single-flight"]:::rail
+  scope -->|XML/ILSpy| api_rail["api<br/>read-only host surface"]:::rail
 
-  rail_wrap --> static_rail
-  rail_wrap --> test_rail
-  rail_wrap --> bridge_rail
-  rail_wrap --> api_rail
+  static_rail -->|git/fd/dotnet| process_node["process.py<br/>Workspace + subprocess"]:::shared
+  test_rail -->|dotnet test| process_node
+  bridge_rail -->|dotnet run| process_node
+  api_rail -->|rg/ilspycmd| process_node
+  process_node -->|QUALITY_*| settings_node["settings.py<br/>frozen paths + env"]:::shared
 
-  subgraph core["Shared modules"]
-    direction LR
-    cfg["settings.py<br/>QualitySettings · paths"]:::shared
-    proc["process.py<br/>anyio · dotnet · git"]:::shared
-  end
-
-  rail_wrap --> cfg
-  static_rail --> proc
-  test_rail --> proc
-  bridge_rail --> proc
-  api_rail --> proc
-  cfg --> proc
-
-  subgraph tools["Host tools"]
-    direction LR
-    dotnet_node["dotnet<br/>scoped MSBuild verbs"]:::tool
-    vcs_node["git · fd<br/>changed-path routing"]:::tool
-  end
-
-  proc --> dotnet_node
-  proc --> vcs_node
-
-  subgraph rhino["Live host — single-flight"]
-    direction LR
-    client_node["RhinoBridge.Client"]:::host
-    rhino_node["RhinoWIP.app"]:::host
-  end
-
-  bridge_rail --> client_node
-  client_node --> rhino_node
-
-  subgraph bundle["Read-only host surface"]
-    direction LR
-    host_node["Rhino.app bundle<br/>ilspycmd · rg"]:::host
-  end
-
-  api_rail --> host_node
+  static_rail -->|compile/analyzers| sln_node["Workspace.slnx<br/>routed csproj set"]:::evidence
+  test_rail -->|test artifacts| mtp_node[".artifacts/test<br/>minimum expected tests"]:::evidence
+  test_rail -->|exclusive flock| mutation_node[".artifacts/locks<br/>mutation.lock"]:::evidence
+  bridge_rail -->|named pipe| rhino_node["RhinoWIP.app<br/>runtime evidence"]:::host
+  bridge_rail -->|yak build/install/push| yak_node["Contents/Resources/bin/yak"]:::host
+  api_rail -->|assembly/XML paths| bundle_node["Rhino.app bundle<br/>Resources"]:::host
 
   classDef entry fill:#50fa7b,stroke:#50fa7b,color:#282a36,font-weight:bold
-  classDef scope fill:#bd93f9,stroke:#bd93f9,color:#f8f8f2
-  classDef rail fill:#44475a,stroke:#8be9fd,color:#f8f8f2
   classDef shared fill:#6272a4,stroke:#6272a4,color:#f8f8f2
-  classDef tool fill:#44475a,stroke:#ffb86c,color:#f8f8f2
+  classDef rail fill:#44475a,stroke:#8be9fd,color:#f8f8f2
+  classDef evidence fill:#282a36,stroke:#f1fa8c,color:#f8f8f2
   classDef host fill:#282a36,stroke:#ff79c6,color:#f8f8f2
 ```
 
-**Modules** (`rails/` has no `__init__.py`):
+<br>
 
-- `__main__.py` — Cyclopts tree, `rail()`, stderr logs vs stdout payloads
-- `settings.py` — root anchor, `QUALITY_*` env, Rhino bundle, paths
-- `process.py` — `anyio` subprocesses, scoped `dotnet`, git index
-- `rails/static.py` — changed-path routing, format or build
-- `rails/test.py` — MTP, optional Stryker
-- `rails/bridge.py` — client, verify, bridge JSON
-- `rails/package.py` — Yak stage, install, push
-- `rails/api.py` — ILSpy, `rg`, bundle metadata
-
----
-
-## Commands
-
-### Static
-
-`static check` · `build` · `full` — positional mode (`--mode` in Cyclopts).
-
-### Test
-
-`test run` · `list` · `coverage`
-
-Flags: `--target <csproj>`, `--all`, `--mutation off|changed|full`, optional `--filter-expr`.
-
-`pnpm test:cs` → `test run`.
-
-### Bridge
-
-`build-bridge` · `doctor` · `launch` · `quit` · `check` · `clean` · `verify` · `package` · `deploy` · `publish`
-
-Package verbs take `<slug>` and `<version>`. `pnpm verify:rhino` → `bridge verify` (you still pass a pattern).
-
-### API
-
-`api doctor` · `path` · `xml` · `types` · `decompile`
-
-Flags: `--key`, `--kind`, `--pattern`, `--type-name`.
-
-### Preflight
-
-`self-test` — PATH tools, manifest files, executable `yak`.
-
-**References:** scenario wire contract — `tools/rhino-bridge/README.md`; gate policy — `CLAUDE.md` §5.2.
+| [INDEX] | [MODULE]           | [OWNERSHIP]                                            |
+| :-----: | ------------------ | ------------------------------------------------------ |
+|   [1]   | `__main__.py`      | Cyclopts tree, `rail()`, stdout payload/stderr log cut |
+|   [2]   | `settings.py`      | `QualitySettings`, root anchor, env, artifact paths    |
+|   [3]   | `process.py`       | `anyio` process execution, `dotnet`, `fd`, `git` index |
+|   [4]   | `rails/static.py`  | changed-file route, C# whitespace, build proof         |
+|   [5]   | `rails/test.py`    | MTP run/list/coverage, explicit Stryker mutation       |
+|   [6]   | `rails/bridge.py`  | bridge client, scenario verify, bridge result decoding |
+|   [7]   | `rails/package.py` | Yak metadata, atomic stage, deploy, publish            |
+|   [8]   | `rails/api.py`     | Rhino bundle path, XML search, ILSpy type/decompile    |
 
 ---
+## [2][COMMAND_SURFACE]
+>**Dictum:** *Command syntax mirrors Cyclopts help output.*
 
-## Configuration
+<br>
 
-`QualitySettings` is frozen, `QUALITY_*` only (`extra=forbid`). Root: walk parents for `Workspace.slnx`.
+Run from any path under the worktree. `QualitySettings.anchor()` walks parents until `Workspace.slnx`.
 
-Rhino bundle: `RHINO_WIP_APP_PATH` if set, else newest `/Applications/Rhino*.app`, else `QUALITY_RHINO_APP`. Every child `dotnet` gets `RHINO_WIP_APP_PATH` from the resolved bundle.
+| [INDEX] | [RAIL]   | [COMMANDS]                                                                               | [CLAIM]                           |
+| :-----: | -------- | ---------------------------------------------------------------------------------------- | --------------------------------- |
+|   [1]   | `static` | `static check`, `static build`, `static full`                                            | Cleanup or compile/analyzer proof |
+|   [2]   | `test`   | `test run`, `test list`, `test coverage`                                                 | Unit tests, coverage, mutation    |
+|   [3]   | `bridge` | `bridge build-bridge`, `doctor`, `launch`, `quit`, `check`, `clean`, `verify`            | Live Rhino bridge evidence        |
+|   [4]   | package  | `bridge package <slug> <version>`, `deploy <slug> <version>`, `publish <slug> <version>` | Yak package lifecycle             |
+|   [5]   | `api`    | `api doctor`, `api path`, `api xml`, `api types`, `api decompile`                        | Host bundle metadata              |
+|   [6]   | root     | `self-test`                                                                              | Tool/path preflight               |
 
-`TEST_TARGET` and other non-`QUALITY_` names do not set `test_target`.
+`static` and `test` take positional `MODE`; Cyclopts also exposes `--mode`. `api` takes positional `OP`; flags are `--key`, `--kind`, `--pattern`, and `--type-name`.
 
-### Environment
-
-**Worktree**
-
-- `QUALITY_ROOT` — anchored `cwd`
-
-**Build**
-
-- `QUALITY_CONFIGURATION` — `Release` (tests, bridge client, Yak)
-- `QUALITY_STATIC_CONFIGURATION` — `Debug` (routed `static build`)
-- `QUALITY_DOTNET_MAX_CPU` — `4`
-- `QUALITY_CONFIGURATIONS` — unset, or space-separated `Debug` / `Release` for both `static build` and `static full`
-
-**Test / mutation**
-
-- `QUALITY_TEST_TARGET` — `tests/csharp/libs/Rasm/Rasm.Tests.csproj`
-- `QUALITY_MUTATION_MAX_CPU` — `2`
-- `QUALITY_TEST_TIMEOUT_S` — `300`
-- `QUALITY_MUTATION_TIMEOUT_S` — `1200`
-
-**Bridge**
-
-- `QUALITY_RHINO_APP` — bundle override
-- `QUALITY_VERIFY_RETENTION_SECONDS` — `300`
-- `QUALITY_SCENARIO_TIMEOUT_S` — `180`
-
-**Artifacts**
-
-- `QUALITY_RUN_ID` — UTC timestamp + pid (per-invocation dir name)
-
-### MSBuild scope
-
-`rail()` creates `.artifacts/quality/<rail>/<run_id>/` and isolated `DOTNET_CLI_HOME`.
-
-**Scoped** (`restore`, `build`, `clean`, `msbuild`, `pack`, `publish`, `run`, `test`):
-
-- `static` — `--artifacts-path` only; build servers stay on
-- `test`, `bridge`, `api` — also `--disable-build-servers` and `MSBUILDDISABLENODEREUSE=1`
-
-**Not scoped** (`scoped=False`, canonical `bin/`):
-
-- `build_client`, `build_scenario_kit`, Yak `_stage`, all `client_run`
-- Ready check: `tools/rhino-bridge/client/bin/<Configuration>/*/Rasm.RhinoBridge.Client.dll`
-
-`build-bridge` uses default `scoped=True` (protocol, plugin, client under the rail artifact path). Do not use it alone to prime `dotnet run --no-build`; use paths that call `build_client` (`doctor`, `check`, `verify`, …).
-
-**Other artifact dirs**
-
-- Tests — `.artifacts/test/<slice>/<run_id>/` (`slice` = project stem or `all`)
-- Mutation — `.artifacts/mutation/<slice>/<run_id>/`
-- Verify — `.artifacts/rhino/verify/<run_id>/` (TTL prune each run)
-- Lock — `.artifacts/locks/mutation.lock` (`flock`, fail if busy)
-
-### I/O
-
-- **stderr** — structlog (`rail`, `phase`, `duration_ms`; verify scenario rows)
-- **stdout** — `verify` JSON, `api doctor` JSON, package stage path
-- Bridge stdout may forward raw bytes; decoded `BridgeResult.exit_code` wins when JSON is present
+Package scripts:
+- `pnpm test:cs` -> `uv run python -m tools.quality test run`.
+- `pnpm verify:rhino <pattern>` -> `uv run python -m tools.quality bridge verify <pattern>`.
 
 ---
+## [3][STATIC_RAIL]
+>**Dictum:** *Static rail separates cleanup from proof.*
 
-## Static rail
+<br>
 
-### Git routing
+[CRITICAL] `static check` runs whitespace format only. Analyzer and compile proof live in `static build` or `static full`.
 
-`Workspace.changed()` = unstaged diff + cached diff + untracked (honours `.gitignore`).
+| [INDEX] | [MODE]  | [BEHAVIOR]                                                                                    |
+| :-----: | ------- | --------------------------------------------------------------------------------------------- |
+|   [1]   | `check` | `dotnet format whitespace` on changed `.cs` files, grouped by owning project, no restore      |
+|   [2]   | `build` | `restore Workspace.slnx --locked-mode`, then build routed project closure in `Debug`          |
+|   [3]   | `full`  | Restore/build `Workspace.slnx`; `Debug` and `Release` unless `QUALITY_CONFIGURATIONS` narrows |
 
-- **Ignore** — `tests/tools/ast-grep/`, `tests/tools/py_analyzer/`
-- **Full solution** — `Directory.Build.props`, `Directory.Build.targets`, `Directory.Packages.props`, `Workspace.slnx`, `.editorconfig`, `global.json`, or anything under `tools/cs-analyzer/`
-- **Routed project** — suffix in `CS_SUFFIXES` with a resolvable owner (`.cs`, `.csproj`, `.props`, `.targets`, `.json`, `.resx`, `.ico`, `.ghicon`, `.yml`, `.yaml`); `.cs` also queued for whitespace format
-- **Full scope** — `.cs` / `.props` / `.targets` with no owning project
+Route changed files from unstaged diff, staged diff, and untracked files:
+- Ignore non-project fixture changes under `tests/tools/ast-grep/` and `tests/tools/py_analyzer/`.
+- Force full scope for `Directory.Build.props`, `Directory.Build.targets`, `Directory.Packages.props`, `Workspace.slnx`, `.editorconfig`, `global.json`, and `tools/cs-analyzer/**`.
+- Route `CS_SUFFIXES` by nearest owning `*.csproj`.
+- Queue `.cs` files for whitespace format.
+- Force full scope for orphan `.cs`, `.props`, and `.targets`.
 
-Lists live in `settings.py`.
+Project selection:
+- `changed` with no C#-relevant changes returns `skip` and exit `0`.
+- `changed` with seeds expands reverse `ProjectReference` closure.
+- `full` verifies `fd *.csproj` parity against `dotnet sln list`.
 
-### Project set
-
-- `changed`, no projects → skip, exit `0`
-- `changed`, with seeds → transitive `ProjectReference` closure
-- `full` → every `fd` `*.csproj` must match `dotnet sln list`
-
-### Modes
-
-**`check`** — `dotnet format whitespace` on changed `.cs` only (`--include`, `--no-restore`, `scoped=False`). No `style` or analyzer format subcommands.
-
-**`build`** — `restore Workspace.slnx --locked-mode`, then build routed projects at `QUALITY_STATIC_CONFIGURATION`. MSBuild analyzers run here.
-
-**`full`** — restore + build `Workspace.slnx`; `Debug` and `Release` unless `QUALITY_CONFIGURATIONS` narrows.
-
-### When to run
-
-- Whitespace on touched C# → `static check`
-- Compile proof for touched projects → `static build`
-- Central config / solution graph → `static full`
-- Comment-only or move-only → skip unless asked
-
-`static check` and `static build` may run in parallel (separate `run_id`).
+Run selection:
+- Whitespace-only C# edit: `static check`.
+- Semantic C# edit: `static build`.
+- Solution, central package, global analyzer, or .NET runner config edit: `static full`.
+- Comment-only or move-only edit: skip rails unless requested; prove with `git diff --check` plus movement evidence.
 
 ---
+## [4][TEST_RAIL]
+>**Dictum:** *Unit and mutation evidence stay explicit.*
 
-## Test rail
+<br>
 
-MTP via `global.json` (`"runner": "Microsoft.Testing.Platform"`).
+MTP source: `global.json` uses `"runner": "Microsoft.Testing.Platform"`.
 
-- `run` — `dotnet test`, then optional Stryker
-- `list` — `--list-tests`
-- `coverage` — coverlet flags in `rails/test.py`
+| [INDEX] | [MODE]     | [BEHAVIOR]                                                    |
+| :-----: | ---------- | ------------------------------------------------------------- |
+|   [1]   | `run`      | `dotnet test` with `--minimum-expected-tests 1`               |
+|   [2]   | `list`     | MTP `--list-tests`                                            |
+|   [3]   | `coverage` | Coverlet JSON + Cobertura with includes/excludes in `test.py` |
 
-**Targeting**
+Targeting:
+- Default project: `tests/csharp/libs/Rasm/Rasm.Tests.csproj`.
+- `--target <csproj>` replaces `QUALITY_TEST_TARGET`.
+- `--all` runs `Workspace.slnx`.
+- Results path: `.artifacts/test/<slice>/<run_id>/`.
 
-- Default — `--project <root>/<test_target>`
-- `--target` — other csproj; breaks default mutation pair
-- `--all` — `--solution Workspace.slnx`
+Filter mapping:
+- Leading `/` -> `--filter-query`.
+- Contains `=` -> `--filter-trait`.
+- Suffix `Tests`, `Laws`, `Spec`, or contains `+` -> `--filter-class`.
+- Contains `.` -> `--filter-method`.
+- Otherwise -> wildcard method filter.
 
-Always `--minimum-expected-tests 1`, `scoped=False`, results under `.artifacts/test/…`.
-
-**Filter** (first match): leading `/` → `--filter-query`; `=` → `--filter-trait`; suffix `Tests` / `Laws` / `Spec` or `+` → `--filter-class`; `.` → `--filter-method`; else wildcard method filter.
-
-**Mutation** (`--mutation off` default)
-
-- Runs only when `test_target` and `mutation_test_project` are the same path (default `Rasm.Tests` + `libs/csharp/Rasm/Rasm.csproj`)
-- `changed` — git-changed `.cs` under mutation project; skip if none
-- `full` — `**/*.cs`, exclude bin/obj
-- Tool — `dotnet-stryker` **4.14.2**, `--test-runner mtp`, thresholds 95 / 90 / 85
-- Zero tests discovered — hard fail
-
----
-
-## Bridge and package
-
-### Commands
-
-**`build-bridge`** — `dotnet_build` protocol, plugin, client; `scoped=True` (artifact path, not client `bin/`).
-
-**`doctor` · `launch` · `quit` · `check` · `clean`** — `build_client` → `client_run`; decode `BridgeResult` from stdout when JSON.
-
-**`verify <pattern>`** — prune old verify dirs → `build_client` → `build_scenario_kit` → `launch` → per-scenario `check` → stdout: one `VerifyReport` JSON.
-
-One live Rhino at a time: do not overlap `verify`, `check`, or `deploy` / `publish`.
-
-**Verify discovery** (first match)
-
-1. File or directory (cwd or `<root>/<pattern>`)
-2. `fd` `\.verify\.csx$` in a directory
-3. `root.glob(**/<pattern>)` when the pattern has no `/*?[`
-
-**Scenario project** — `tests/csharp/libs/<Name>/…/scenarios/…` → `libs/csharp/<Name>/<Name>.csproj` if it exists, else `Workspace.owner`.
-
-**Verify artifacts** — `<run_id>/<stem>.json`, `summary.json`; exit `0` iff all scenarios ok. Stdout markers: `rasm.rhino-bridge.evidence=facts=`, `rasm.rhino-bridge.capture=` (`bridge.py`; types in `tools/rhino-bridge/protocol`).
-
-**Exit codes** — `ok` / `skipped` → 0; `failed` → 1; `unsupported` → 3; `busy` / `timeout` → 5.
-
-`bridge check <file.cs>` without a scenario often exits **3** after a good build — compile proof, not failure.
-
-### Package
-
-One `.csproj` under `apps/` or `tools/` with matching `YakPackageSlug`.
-
-MSBuild properties → build `.rhp` → stage → `yak build` → atomic dir replace (fcntl).
-
-- `package` — print stage path
-- `deploy` — `yak install`; `rasm-bridge` also `quit`, `install`, `refresh` (launch + doctor)
-- `publish` — deploy + `yak push` when `YakPushSource` is set
-
-Needs executable `Contents/Resources/bin/yak`, platform `mac`, glob `*-rh9_*-mac.yak`.
+Mutation:
+- Default `--mutation off`; no implicit mutation on `test run`.
+- `changed` mutates changed `.cs` files under `libs/csharp/Rasm`.
+- `full` mutates `**/*.cs` excluding `bin/` and `obj/`.
+- Eligible only for the default `Rasm.Tests` + `libs/csharp/Rasm/Rasm.csproj` pair.
+- Tool: `dotnet-stryker` `4.14.2`, MTP runner, thresholds `95/90/85`.
+- Lock: `.artifacts/locks/mutation.lock`; live contention fails fast.
 
 ---
+## [5][BRIDGE_PACKAGE_RAIL]
+>**Dictum:** *Runtime proof requires one live Rhino boundary.*
 
-## API rail
+<br>
 
-Read-only under `Rhino.app/…/RhCore.framework/…/Resources/`.
+[CRITICAL] Serialize `bridge verify`, `bridge check`, `bridge deploy`, and `bridge publish`. Static rails and unit tests may run concurrently; live Rhino and mutation must not overlap.
 
-- `doctor` — JSON (version, ILSpy, RhinoCode, per-key assembly/XML)
-- `path` — one path (`--kind assembly|xml`)
-- `xml` — `rg` on XML (`--pattern` required)
-- `types` — ILSpy list (`--pattern` optional)
-- `decompile` — ILSpy (`--type-name` required)
+Bridge commands:
+- `build-bridge` builds protocol, plugin, and client under `ArtifactScope`; it does not prime client `bin/`.
+- `doctor`, `launch`, `quit`, `check`, and `clean` call `build_client` first, then `dotnet run --no-build`.
+- `verify <pattern>` expires old reports, builds client, builds scenario kit, launches Rhino, runs each scenario through `check`, and emits one `VerifyReport` JSON.
 
-Keys: `rhino-common`, `rhino-ui`, `rhino-code`, `rhino-code-remote`, `eto`, `gh2`, `gh2-io`.
+Verify discovery order:
+1. Direct `*.verify.csx` file.
+2. Directory containing `*.verify.csx`.
+3. Worktree glob; bare names expand as `**/<pattern>`.
 
-ILSpy uses `_dotnet_apphost_env` (`dotnet --list-runtimes`, `DOTNET_MULTILEVEL_LOOKUP=0`). `ArtifactScope` supplies `dotnet_env` only; ILSpy and `rg` are not artifact-scoped builds.
+Scenario owner rule:
+- `tests/csharp/libs/<Name>/.../scenarios/*.verify.csx` maps to `libs/csharp/<Name>/<Name>.csproj` when present.
+- Other scenarios use nearest owning project.
 
----
+Verify artifacts:
+- Reports: `.artifacts/rhino/verify/<run_id>/<scenario>.json`.
+- Summary: `.artifacts/rhino/verify/<run_id>/summary.json`.
+- Stdout JSON: one aggregate `VerifyReport`.
+- Evidence markers: `rasm.rhino-bridge.evidence=facts=` and `rasm.rhino-bridge.capture=`.
 
-## Agent routing
+Bridge exit codes:
 
-**Use**
+| [INDEX] | [STATUS]          | [EXIT] | [INTERPRETATION]                                      |
+| :-----: | ----------------- | -----: | ----------------------------------------------------- |
+|   [1]   | `ok`, `skipped`   |      0 | Valid or intentionally skipped                        |
+|   [2]   | `failed`          |      1 | Build, connect, execute, or scenario failure          |
+|   [3]   | `unsupported`     |      3 | Often valid build proof for bare `.cs` without script |
+|   [4]   | `busy`, `timeout` |      5 | Live Rhino contention or scenario timeout             |
 
-- `static check` — whitespace on changed C#
-- `static build` — compile touched projects
-- `static full` — after sln or central config edits
-- `test run` — unit tests
-- `test coverage` — coverlet via MTP
-- `test run --mutation changed` — Stryker (explicit)
-- `bridge verify <glob>` — Rhino scenarios
-- `bridge check <csproj>` — project diagnostic
-- `bridge check <file.cs>` — build proof; exit 3 without scenario is expected
-- `api xml` / `api decompile` — host API truth
-- `bridge package|deploy|publish` — Yak plugins
-
-**Avoid**
-
-- Analyzers on `static check` only
-- `bridge check` as sole compile proof
-- `static build` after graph-wide config change
-- `bridge verify` for pure unit behaviour
-- Raw `dotnet test` without this MTP mapping
-- Implicit mutation on every `test run`
-- Treating bridge exit 3 on bare `.cs` as failure
-- Manual `PlugIns` copy instead of Yak verbs
-
-**Concurrency**
-
-- Parallel: `static check`, `static build`, `test run` (different `run_id`)
-- Serialize: bridge verify/check/deploy, mutation lock
+Package commands:
+- Resolve one `*.csproj` under `apps/` or `tools/` with matching `YakPackageSlug`.
+- Validate `.rhp`, target dir, Yak platform `mac`, package glob `*-rh9_*-mac.yak`, and executable `yak`.
+- Build artifact, copy manifest/package files, exclude host assemblies, run `yak build`, then atomically replace stage dir under `fcntl`.
+- `package` prints stage path.
+- `deploy` runs `yak install`; `rasm-bridge` also `quit`, `install`, `refresh`.
+- `publish` runs deploy path plus `yak push` when `YakPushSource` exists.
 
 ---
+## [6][API_RAIL]
+>**Dictum:** *Host API truth comes from installed Rhino bundle files.*
 
-## Maintainer
+<br>
 
-Load `.claude/skills/coding-python/SKILL.md` before editing. Rail logic in `rails/<rail>.py`; subprocesses in `process.py`; settings in `settings.py`; CLI in `__main__.py`. Deps from root `pyproject.toml`.
+API root: `Rhino.app/Contents/Frameworks/RhCore.framework/Versions/Current/Resources`.
+
+| [INDEX] | [COMMAND]       | [BEHAVIOR]                                     |
+| :-----: | --------------- | ---------------------------------------------- |
+|   [1]   | `api doctor`    | JSON for Rhino version, ILSpy, RhinoCode, refs |
+|   [2]   | `api path`      | Resolved assembly or XML path                  |
+|   [3]   | `api xml`       | `rg -n -C 2` search over resolved XML          |
+|   [4]   | `api types`     | `ilspycmd -l cisde` with optional text filter  |
+|   [5]   | `api decompile` | `ilspycmd -t <type>`                           |
+
+Keys:
+
+| [INDEX] | [KEY]               | [ASSEMBLY]                                                | [XML]                                                     |
+| :-----: | ------------------- | --------------------------------------------------------- | --------------------------------------------------------- |
+|   [1]   | `rhino-common`      | `RhinoCommon.dll`                                         | `RhinoCommon.xml`                                         |
+|   [2]   | `rhino-ui`          | `Rhino.UI.dll`                                            | `Rhino.UI.xml`                                            |
+|   [3]   | `rhino-code`        | `Rhino.Runtime.Code.dll`                                  | none                                                      |
+|   [4]   | `rhino-code-remote` | `Rhino.Runtime.Code.Remote.dll`                           | none                                                      |
+|   [5]   | `eto`               | `Eto.dll`                                                 | `Eto.xml`                                                 |
+|   [6]   | `gh2`               | `ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll`  | `ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.xml`  |
+|   [7]   | `gh2-io`            | `ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.dll` | `ManagedPlugIns/Grasshopper2Plugin.rhp/GrasshopperIO.xml` |
+
+ILSpy uses `_dotnet_apphost_env`: probe `dotnet --list-runtimes`, set `DOTNET_ROOT`, and force `DOTNET_MULTILEVEL_LOOKUP=0`. This is apphost setup, not MSBuild proof.
+
+---
+## [7][SETTINGS_ARTIFACTS]
+>**Dictum:** *Environment and artifact paths define reproducibility.*
+
+<br>
+
+`QualitySettings` is frozen. It accepts `QUALITY_*` environment variables only. `QUALITY_RHINO_APP` sets the bundle directly; when unset, discovery uses `RHINO_WIP_APP_PATH`, then newest `/Applications/Rhino*.app`.
+
+| [INDEX] | [VARIABLE]                         | [DEFAULT]                                     |
+| :-----: | ---------------------------------- | --------------------------------------------- |
+|   [1]   | `QUALITY_ROOT`                     | nearest parent containing `Workspace.slnx`    |
+|   [2]   | `QUALITY_CONFIGURATION`            | `Release`                                     |
+|   [3]   | `QUALITY_STATIC_CONFIGURATION`     | `Debug`                                       |
+|   [4]   | `QUALITY_CONFIGURATIONS`           | unset; `build` uses `Debug`, `full` uses both |
+|   [5]   | `QUALITY_DOTNET_MAX_CPU`           | `4`                                           |
+|   [6]   | `QUALITY_TEST_TARGET`              | `tests/csharp/libs/Rasm/Rasm.Tests.csproj`    |
+|   [7]   | `QUALITY_TEST_TIMEOUT_S`           | `300`                                         |
+|   [8]   | `QUALITY_MUTATION_TIMEOUT_S`       | `1200`                                        |
+|   [9]   | `QUALITY_MUTATION_MAX_CPU`         | `2`                                           |
+|  [10]   | `QUALITY_SCENARIO_TIMEOUT_S`       | `180`                                         |
+|  [11]   | `QUALITY_VERIFY_RETENTION_SECONDS` | `300`                                         |
+|  [12]   | `QUALITY_RHINO_APP`                | newest `/Applications/Rhino*.app`             |
+|  [13]   | `QUALITY_RUN_ID`                   | UTC timestamp + pid                           |
+
+Artifact scope:
+- `rail()` opens `.artifacts/quality/<rail>/<run_id>/` and isolated `DOTNET_CLI_HOME`.
+- Static build verbs receive `--artifacts-path`; build servers remain enabled.
+- Non-static build verbs also receive `--disable-build-servers` and `MSBUILDDISABLENODEREUSE=1`.
+- Test results live under `.artifacts/test/<slice>/<run_id>/`.
+- Mutation output lives under `.artifacts/mutation/<slice>/<run_id>/`.
+- Verify reports live under `.artifacts/rhino/verify/<run_id>/` and expire by retention.
+
+Unscoped canonical outputs:
+- `build_client`, `build_scenario_kit`, Yak `_stage`, and `client_run` use canonical `bin/`.
+- `static check` formatting uses default `bin/` semantics with `--no-restore`.
+- `test` uses explicit result directories, not `--artifacts-path`.
+
+I/O contract:
+- `stderr`: structlog rows with `rail`, `phase`, `duration_ms`, and scenario summaries.
+- `stdout`: machine payloads only: verify JSON, `api doctor` JSON, API text/path output, package stage path.
+
+---
+## [8][AGENT_ROUTING]
+>**Dictum:** *Route by proof claim, not by habit.*
+
+<br>
+
+Use:
+- `static check` for changed C# whitespace cleanup.
+- `static build` for compile and analyzer proof on touched project closure.
+- `static full` after solution, central package, global runner, `.editorconfig`, or analyzer changes.
+- `test run [filter]` for unit proof.
+- `test coverage` for coverlet evidence.
+- `test run --mutation changed` for explicit mutation proof.
+- `bridge verify <pattern>` for Rhino scenario proof.
+- `bridge check <target> [scenario]` for live Rhino diagnostics.
+- `api xml`, `api types`, or `api decompile` for host SDK truth.
+- `bridge package|deploy|publish` for Yak plugin lifecycle.
+
+Avoid:
+- Treating `static check` as analyzer proof.
+- Treating `bridge check <file.cs>` exit `3` as failure when build phase is valid and no scenario was supplied.
+- Running `static build` after full-scope trigger files changed; use `static full`.
+- Running `bridge verify` for pure unit behavior.
+- Running raw `dotnet test` without the MTP mapping in `test.py`.
+- Running mutation implicitly on every unit test pass.
+- Copying plugins manually into `PlugIns`; use Yak package verbs.
+
+Concurrency:
+- Parallel allowed: `static check`, `static build`, `test run` with distinct `run_id`.
+- Serialize: `bridge verify`, `bridge check`, `deploy`, `publish`, and mutation.
+
+---
+## [9][MAINTENANCE]
+>**Dictum:** *Validation follows edited surface.*
+
+<br>
+
+Load `.claude/skills/coding-python/SKILL.md` before Python edits. Dependencies live in root `pyproject.toml`. Ruff/ty exception: `tools/quality/rails/package.py` ignores `possibly-missing-attribute` for POSIX `fcntl` stubs.
+
+Python edits:
 
 ```bash
 uv run pytest tests/tools/quality/test_quality.py -q
 pnpm check:py
 ```
 
-Ty: `possibly-missing-attribute` ignored for `rails/package.py` (`fcntl`).
-
-Validate diagram syntax:
+README or Mermaid edits:
 
 ```bash
+git diff --check
 pnpm exec mmdc -i tools/quality/README.md -a .artifacts/mermaid -q
 ```
 
----
-
-## Validation ladders
-
-**C#**
-
-```bash
-uv run python -m tools.quality static check
-uv run python -m tools.quality static build
-uv run python -m tools.quality test run
-```
-
-**Bridge** — full ladder in `tools/rhino-bridge/AGENTS.md`
-
-```bash
-uv run python -m tools.quality self-test
-uv run python -m tools.quality bridge doctor
-uv run python -m tools.quality bridge verify tests/csharp/libs/<Project>/…/scenarios
-```
-
-**New machine**
+Preflight:
 
 ```bash
 uv run python -m tools.quality self-test
 ```
 
-Requires on PATH: `dotnet`, `fd`, `git`, `ilspycmd`, `rg`. Requires files: `Workspace.slnx`, default test csproj, `.config/dotnet-tools.json`, executable `yak` in the bundle.
+Required tools: `dotnet`, `fd`, `git`, `ilspycmd`, `rg`. Required files: `Workspace.slnx`, default test csproj, `.config/dotnet-tools.json`, executable `Contents/Resources/bin/yak`.
