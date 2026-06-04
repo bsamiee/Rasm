@@ -1,10 +1,7 @@
 """The polyglot program table: one dense ``Tool`` row per program, one ``select`` fold.
 
-Owns ``TOOLS`` (the C#/Python/TypeScript/Bash/SQL/Docs row set), the by-reference parsers, and the
-deterministic ``select(claim, language)`` slice. Variance rides the five axis enums
-(``Runner``/``Input``/``Language``/``Mode``/``Claim``); the body is data, never control flow. Parsers
-attach as the literal ``Callable[[Completed], AnyDetail | None]`` identity, so a renamed decoder is an
-import-time type error, never a silent miss; ``parser=None`` rows ("ran, exit code N") fold via
+Parsers attach as the literal ``Callable[[Completed], AnyDetail | None]`` identity, so a renamed
+decoder is an import-time type error, never a silent miss; ``parser=None`` rows fold via
 ``RailStatus.from_returncode``.
 """
 
@@ -58,24 +55,24 @@ class _Shellcheck(msgspec.Struct, frozen=True, gc=False):
 
 
 class _Point(msgspec.Struct, frozen=True, gc=False):
-    """One ast-grep ``range.start``/``range.end`` endpoint: zero-based ``{line, column}`` (``byteOffset`` tolerated)."""
+    """One ast-grep ``range`` endpoint: zero-based ``{line, column}`` (``byteOffset`` tolerated)."""
 
     line: int = 0
     column: int = 0
 
 
 class _Range(msgspec.Struct, frozen=True, gc=False):
-    """The ast-grep match ``range``: ``start``/``end`` points; ``byteOffset`` and other keys ride through as unknowns."""
+    """The ast-grep match ``range`` ``start``/``end`` points; other keys ride through as unknowns."""
 
     start: _Point = msgspec.field(default_factory=_Point)
     end: _Point = msgspec.field(default_factory=_Point)
 
 
 class AstMatch(msgspec.Struct, frozen=True, gc=False):
-    """One ast-grep ``run --json=compact`` row: the ``code`` search/rewrite evidence the rail folds into ``Match``.
+    """One ast-grep ``run --json=compact`` row the ``code`` rail folds into ``Match``.
 
-    No ``forbid_unknown_fields`` — ast-grep emits ``charCount``/``language``/``metaVariables`` this rail
-    does not model, and rewrite mode adds ``replacement``; both shapes ride one struct, extras ignored.
+    No ``forbid_unknown_fields`` — ast-grep emits extra keys (``charCount``/``language``/
+    ``metaVariables``, and ``replacement`` in rewrite mode) that ride one struct, extras ignored.
     """
 
     text: str = ""
@@ -95,13 +92,13 @@ class Capture(msgspec.Struct, frozen=True, gc=False):
 
 
 class _RgText(msgspec.Struct, frozen=True, gc=False):
-    """One ripgrep ``--json`` ``path``/``lines`` payload: the UTF-8 ``text`` branch (a ``bytes`` branch rides through as an unknown)."""
+    """One ripgrep ``path``/``lines`` payload: the UTF-8 ``text`` branch (a ``bytes`` branch rides through)."""
 
     text: str = ""
 
 
 class _RgData(msgspec.Struct, frozen=True, gc=False):
-    """The ripgrep ``--json`` event ``data`` block; ``submatches``/``absolute_offset``/``stats`` ride through as unknowns."""
+    """The ripgrep ``--json`` event ``data`` block; other keys ride through as unknowns."""
 
     path: _RgText = msgspec.field(default_factory=_RgText)
     lines: _RgText = msgspec.field(default_factory=_RgText)
@@ -109,11 +106,11 @@ class _RgData(msgspec.Struct, frozen=True, gc=False):
 
 
 class RgEvent(msgspec.Struct, frozen=True, gc=False):
-    """One ripgrep ``--json`` NDJSON event: the ``code search`` content-mode evidence the rail folds into ``Match``.
+    """One ripgrep ``--json`` NDJSON event the ``code search`` rail folds into ``Match``.
 
-    No ``forbid_unknown_fields`` — ripgrep emits ``begin``/``end``/``summary``/``context`` events with shapes this
-    rail does not model; all ride one struct and the rail keeps only ``kind == "match"`` rows. ``kind`` maps the JSON
-    ``type`` key (the field name is renamed off the ``type`` builtin).
+    No ``forbid_unknown_fields`` — ripgrep emits ``begin``/``end``/``summary``/``context`` events that
+    ride one struct; the rail keeps only ``kind == "match"`` rows. ``kind`` is renamed off the JSON
+    ``type`` key (away from the ``type`` builtin).
     """
 
     kind: str = msgspec.field(default="", name="type")
@@ -123,38 +120,28 @@ class RgEvent(msgspec.Struct, frozen=True, gc=False):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _FINDINGS = msgspec.json.Decoder(tuple[_Finding, ...])
-_SURFACE = msgspec.json.Decoder(ApiSurface)  # decode straight into the Detail subclass (mirrors parse_verify); forbid_unknown_fields gates extras
+_SURFACE = msgspec.json.Decoder(ApiSurface)  # decode into the Detail subclass so forbid_unknown_fields gates extras
 _VERIFY = msgspec.json.Decoder(VerifySummary)
-_TESTS = msgspec.json.Decoder(TestRun)  # decode straight into the Detail subclass; an off-shape lane is caught by parse_tests' codec boundary
+_TESTS = msgspec.json.Decoder(TestRun)  # decode into the Detail subclass; off-shape lanes caught at parse_tests' codec boundary
 _SHELLCHECK = msgspec.json.Decoder(_Shellcheck)
-AST_MATCHES = msgspec.json.Decoder(tuple[AstMatch, ...])  # code search/rewrite: ast-grep run --json=compact array
-CAPTURES = msgspec.json.Decoder(tuple[Capture, ...])  # code query: the INPROC thunk's capture array
+AST_MATCHES = msgspec.json.Decoder(tuple[AstMatch, ...])
+CAPTURES = msgspec.json.Decoder(tuple[Capture, ...])
 CAPTURE_ENCODER = msgspec.json.Encoder()  # the INPROC tree-sitter thunk encodes captures onto Completed.stdout
-RG_EVENT = msgspec.json.Decoder(RgEvent)  # code search content-mode: ripgrep --json is NDJSON, decoded one event per line
+RG_EVENT = msgspec.json.Decoder(RgEvent)  # ripgrep --json is NDJSON, decoded one event per line
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def parse_findings(done: Completed) -> AnyDetail | None:
-    """Decode-validate py-analyzer ``--format json`` as a catalog schema guard (yields no ``Detail``).
-
-    ``Claim.STATIC`` is a pass/fail gate folding ``Completed.status``, so ``PYS####`` rows carry no
-    ``Detail``; per-finding evidence is the ``code``/``api`` rails' job. The decode earns its place via
-    ``_census``, which probes it on the empty receipt at preflight, so a JSON-shape drift fails at
-    self-test rather than at a live rail.
-    """
+    """Decode-validate py-analyzer ``--format json`` as a catalog schema guard (yields no ``Detail``)."""
+    # Claim.STATIC is a pass/fail gate; the decode is the census schema guard, not a Detail source.
     _FINDINGS.decode(done.stdout or b"[]")
     return None
 
 
 def parse_build(done: Completed) -> AnyDetail | None:
-    """Surface the cs-analyzer MSBuild pass: ``CSP####`` are exit-code evidence, not JSON.
-
-    ``dotnet build /clp:ErrorsOnly`` emits free-form ``CSP####`` lines; the count rides
-    ``Report.counts`` via ``fold`` and the defect status rides ``Completed.status`` via
-    ``from_returncode``, so no ``AnyDetail`` variant is constructed.
-    """
+    """Surface the cs-analyzer MSBuild pass: ``CSP####`` are exit-code evidence, not JSON (yields no ``Detail``)."""
     _ = done
     return None
 
@@ -162,10 +149,9 @@ def parse_build(done: Completed) -> AnyDetail | None:
 def parse_tests(done: Completed) -> AnyDetail | None:
     """Decode ``dotnet test`` telemetry into a ``TestRun`` evidence variant.
 
-    ``test.py`` probes this over EVERY receipt on a ``--mutation`` run, including non-JSON
-    pytest/dotnet stdout; a decode miss (non-JSON, an off-shape extra field, or an unknown
-    ``MutationLane`` token) is a defaulted ``TestRun`` (``mutation=off``) that ``_is_mutation`` rejects,
-    so the first real mutation lane still wins — not a FAULTED rail.
+    Probed over EVERY receipt on a ``--mutation`` run, including non-JSON stdout; a decode miss is a
+    defaulted ``TestRun`` (``mutation=off``) that ``_is_mutation`` rejects, so the first real mutation
+    lane still wins — not a FAULTED rail.
     """
     try:
         return _TESTS.decode(done.stdout or b"{}")  # codec boundary: a non-JSON / off-shape receipt is a defaulted no-op, not a fault
@@ -174,69 +160,46 @@ def parse_tests(done: Completed) -> AnyDetail | None:
 
 
 def parse_verify(done: Completed) -> AnyDetail | None:
-    """Decode the bridge ``verify`` JSON directly into a ``VerifySummary`` evidence variant.
+    """Decode the bridge ``verify`` JSON into a ``VerifySummary`` evidence variant.
 
     Decoding straight into the ``Detail`` subclass enforces its ``max_length=256`` bound on
-    ``first_fault_output`` at the msgspec C boundary (a field-for-field intermediate struct bypassed
-    it) and rejects unknown fields — safe because the bridge ``verify`` JSON is Rasm-owned. The empty
-    census receipt decodes to a defaulted ``VerifySummary``: the ``kind`` tag is required only for
-    union discrimination, never a concrete-type decode.
+    ``first_fault_output`` at the msgspec C boundary (an intermediate struct bypassed it) and rejects
+    unknown fields — safe because the bridge ``verify`` JSON is Rasm-owned.
     """
     return _VERIFY.decode(done.stdout or b"{}")
 
 
 def parse_search(done: Completed) -> AnyDetail | None:
-    """Decode-validate ast-grep ``run --json=compact`` as a catalog schema guard (yields no ``Detail``).
-
-    ``Claim.CODE`` evidence rides ``Report.results`` as ``Match`` rows the rail builds, so this carries no
-    ``Detail``; the decode earns its place via ``_census``, which probes it on the empty receipt at
-    preflight so an ast-grep JSON-shape drift fails at self-test. The ``code`` rail re-decodes the same
-    array to project the bounded ranked ``Match`` set.
-    """
+    """Decode-validate ast-grep ``run --json=compact`` as a catalog schema guard (yields no ``Detail``)."""
+    # Match evidence rides Report.results; the code rail re-decodes the same array for the ranked set.
     AST_MATCHES.decode(done.stdout or b"[]")
     return None
 
 
 def parse_query(done: Completed) -> AnyDetail | None:
-    """Decode-validate the tree-sitter capture array the ``Runner.INPROC`` thunk emits (a schema guard, no ``Detail``).
-
-    Mirrors ``parse_search``: ``code query`` results ride ``Report.results``; the census probes this on
-    the empty receipt so a drift in the in-process capture shape fails at preflight, not at a live query.
-    """
+    """Decode-validate the tree-sitter capture array the ``Runner.INPROC`` thunk emits (schema guard, no ``Detail``)."""
     CAPTURES.decode(done.stdout or b"[]")
     return None
 
 
 def parse_content(done: Completed) -> AnyDetail | None:
-    """Decode-validate ripgrep ``--json`` NDJSON as a catalog schema guard (yields no ``Detail``).
-
-    Mirrors ``parse_search``/``parse_query``: ``code search`` content-mode results ride ``Report.results`` as
-    ``Match`` rows the rail builds, so this carries no ``Detail``. ripgrep emits one JSON object per line, so the
-    guard decodes line-by-line (the ``code`` rail re-decodes the same stream to project the bounded ``Match`` set);
-    the census probes it on the empty receipt so a ripgrep JSON-shape drift fails at preflight, not at a live search.
-    """
-    tuple(RG_EVENT.decode(line) for line in (done.stdout or b"").splitlines() if line)  # NDJSON line-decode schema guard
+    """Decode-validate ripgrep ``--json`` NDJSON as a catalog schema guard (yields no ``Detail``)."""
+    tuple(RG_EVENT.decode(line) for line in (done.stdout or b"").splitlines() if line)  # NDJSON: one object per line, decoded line-by-line
     return None
 
 
 def parse_surface(done: Completed) -> AnyDetail | None:
-    """Decode the ``ilspycmd`` surface roster straight into an ``ApiSurface`` evidence variant.
+    """Decode the ``ilspycmd`` surface roster into an ``ApiSurface`` evidence variant.
 
-    Decoding into the ``Detail`` subclass enforces its field bounds at the msgspec C boundary and rejects
-    unknown fields (``forbid_unknown_fields``); the empty census receipt decodes to a defaulted
-    ``ApiSurface`` (the ``kind`` tag is required only for union discrimination, never a concrete decode).
+    Decoding into the ``Detail`` subclass enforces its field bounds at the msgspec C boundary and
+    rejects unknown fields (``forbid_unknown_fields``).
     """
     return _SURFACE.decode(done.stdout or b"{}")
 
 
 def parse_shellcheck(done: Completed) -> AnyDetail | None:
-    """Decode-validate ShellCheck ``-f json1`` as a catalog schema guard (yields no ``Detail``).
-
-    Like ``parse_findings``: ``Claim.STATIC`` is a pass/fail gate, so the ``comments`` rows (each with a
-    ``level`` severity + ``code``) carry no ``Detail`` and surface no ``Match`` here — per-finding evidence
-    is the ``code``/``api`` rails' job. The decode is the census schema guard: ``_census`` probes it on the
-    empty receipt so a ShellCheck JSON1-shape drift fails at preflight. ``FAILED`` rides ``Completed``.
-    """
+    """Decode-validate ShellCheck ``-f json1`` as a catalog schema guard (yields no ``Detail``)."""
+    # Claim.STATIC is a pass/fail gate; the decode is the census schema guard, FAILED rides Completed.
     _SHELLCHECK.decode(done.stdout or b'{"comments":[]}')
     return None
 
@@ -316,8 +279,8 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool("rasm-bridge", DOTNET, ("run", "--no-build", "--", "verify"), PROJECT, CS, Claim.BRIDGE, mode=Mode.VERIFY, parser=parse_verify),
     Tool("ilspycmd", DOTNET, ("tool", "run", "ilspycmd", "--", "-l", "cisde"), NONE, CS, Claim.API, mode=Mode.QUERY, parser=parse_surface),
-    # py/ts polyglot api surface+member: Runner.INPROC thunks (spliced per-call by rails/api.py via structs.replace) emit the
-    # SAME Capture array the tree-sitter code rows do, so parse_query is the census-correct decode (NOT parse_surface's ApiSurface JSON).
+    # py/ts api surface+member INPROC thunks emit the SAME Capture array as the tree-sitter code rows,
+    # so parse_query is the census-correct decode (NOT parse_surface's ApiSurface JSON).
     Tool("py-api", INPROC, ("py-api", "surface"), NONE, PY, Claim.API, mode=Mode.QUERY, parser=parse_query),
     Tool("py-api", INPROC, ("py-api", "member"), NONE, PY, Claim.API, mode=Mode.LIST, parser=parse_query),
     Tool("ts-api", INPROC, ("ts-api", "surface"), NONE, TS, Claim.API, mode=Mode.QUERY, parser=parse_query),
@@ -333,15 +296,15 @@ TOOLS: tuple[Tool, ...] = (
     Tool("squawk", UV, ("squawk",), FILES, SQL, Claim.STATIC),
     # -- Docs --------------------------------------------------------------------------------
     Tool("mmdc", PNPM, ("mmdc", "-a", ".artifacts/mermaid", "-q"), INCLUDE, DOCS, Claim.DOCS),
-    # -- Code (ast-grep `run` self-walks the target via Input.NONE+splice; tree-sitter AST query needs the file list via Runner.INPROC) --
+    # -- Code (ast-grep `run` self-walks via Input.NONE+splice; tree-sitter query needs the file list via Runner.INPROC) --
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, PY, Claim.CODE, parser=parse_search),
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, PY, Claim.CODE, mode=Mode.WRITE, parser=parse_search),
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, TS, Claim.CODE, parser=parse_search),
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, TS, Claim.CODE, mode=Mode.WRITE, parser=parse_search),
     Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, PY, Claim.CODE, mode=Mode.QUERY, parser=parse_query),
     Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, TS, Claim.CODE, mode=Mode.QUERY, parser=parse_query),
-    # ripgrep grammar-blind content search (the unified `search` non-metavar arm): ONE DIRECT self-walk, never a per-language
-    # fan — the PY language tag is inert (census/membership only); --language refines via globs spliced in the rail, not this row.
+    # ripgrep grammar-blind content search: ONE DIRECT self-walk, never a per-language fan — the PY
+    # language tag is inert (census/membership only); --language refines via globs spliced in the rail.
     Tool(
         "ripgrep",
         DIRECT,
@@ -358,10 +321,9 @@ TOOLS: tuple[Tool, ...] = (
 def select(claim: Claim, language: Language | None = None) -> tuple[Tool, ...]:
     """Filter ``TOOLS`` to one rail's slice, deterministically sorted (independent of authoring order).
 
-    The key ``(language.value, mode.value, name, command)`` groups by language for fan-out,
-    sorts the ``(name, mode)`` write/check twins adjacently, and makes execution order stable.
-    ``language=None`` is the polyglot request (``static``/``test``/``docs`` fold across every
-    language); a C#-only rail (``bridge``/``package``/``api``) passes ``Language.CSHARP``.
+    The ``(language.value, mode.value, name, command)`` key groups by language for fan-out, sorts the
+    write/check twins adjacently, and makes execution order stable. ``language=None`` is the polyglot
+    request; a C#-only rail (``bridge``/``package``/``api``) passes ``Language.CSHARP``.
     """
     return tuple(
         sorted(

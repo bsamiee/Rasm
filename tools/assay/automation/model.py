@@ -1,20 +1,8 @@
 """Automation arm shapes: two ``msgspec``-tagged unions — ``Trigger`` (what re-fires) and ``Action`` (what each fire runs).
 
-Automation is a first-class arm, **not** a ``Claim``: these shapes sit outside the six
-quality claims and the ``Detail`` tagged base, yet share the canonical ``Base`` policy and
-the status algebra from ``core/model.py`` — automation never redefines either. They are
-inert data decoded once at the loop boundary; ``automation/engine.py`` interprets them under
-one ``anyio`` task group, emitting one ``Envelope`` per fire (the documented exception to the
-one-Envelope invariant).
-
-The model imports no trigger backend (``watchfiles``/``aiocron``), no governor (``psutil``),
-and no per-verb ``Params`` dataclass: each backend choice stays in the interpreter and only
-the inert wire shape lives here. ``Watch.filter`` is a vocabulary string the interpreter
-resolves to a ``BaseFilter``, extended by ``Watch.ignore_patterns`` (inert rejection globs the
-interpreter folds into that filter); ``Schedule.cron`` is a parser-agnostic spec string;
-``cpu_threshold`` is a bare float; ``Rail.params`` is zero-copy ``msgspec.Raw`` so the
-registry decodes it late against ``Bind.params``; ``Debounce`` wraps a single inner ``Action``
-so a trigger storm coalesces to one delayed fire without a parallel execution engine.
+Inert data only — every backend choice (``watchfiles``/``aiocron``/``psutil``, the per-verb
+``Params``) stays in ``engine.py``, which interprets these shapes under one ``anyio`` task group and
+emits one ``Envelope`` per fire (the documented exception to the one-Envelope invariant).
 """
 
 from msgspec import json, Raw
@@ -28,14 +16,10 @@ from tools.assay.core.model import Base, Claim  # noqa: TC001  # tools.assay pac
 class Watch(Base, frozen=True, tag_field="kind", tag="watch", forbid_unknown_fields=True):
     """Filesystem-driven re-fire over the ``watchfiles.awatch`` seam.
 
-    ``filter`` is a vocabulary tag (``"default"`` -> ``DefaultFilter()``, ``"python"`` ->
-    ``PythonFilter()``) the interpreter resolves; the wire stays a string so no ``watchfiles``
-    type leaks onto it. ``ignore_patterns`` extends that base vocabulary tag with domain-specific
-    rejection globs (vendor dirs, build artifacts) the interpreter folds into the resolved
-    ``BaseFilter`` — inert data on the wire, no ``watchfiles`` subclass leaks. ``debounce`` is
-    the Rust-layer batching window in ms. ``cpu_threshold`` is the optional fleet-governor gate:
-    when set and ``psutil.cpu_percent`` >= it at the fire boundary, ``engine`` emits
-    ``Completed{SKIP}`` and elides the fire; ``None`` disables it.
+    ``filter`` is a vocabulary tag the interpreter resolves to a ``BaseFilter`` (the wire stays a string
+    so no ``watchfiles`` type leaks); ``ignore_patterns`` adds rejection globs folded into that filter.
+    ``cpu_threshold`` is the optional governor gate — when ``psutil.cpu_percent`` meets it at the fire
+    boundary the engine emits ``SKIP`` and elides the fire; ``None`` disables it.
     """
 
     paths: tuple[str, ...]
@@ -46,11 +30,7 @@ class Watch(Base, frozen=True, tag_field="kind", tag="watch", forbid_unknown_fie
 
 
 class Schedule(Base, frozen=True, tag_field="kind", tag="schedule", forbid_unknown_fields=True):
-    """Cron-driven re-fire over the ``aiocron.crontab`` seam, spec parsed by the interpreter.
-
-    ``cron`` is a parser-agnostic spec string (extended 6-field accepted). ``cpu_threshold``
-    mirrors ``Watch``: the same inert governor gate, never stored as an engine knob.
-    """
+    """Cron-driven re-fire over the ``aiocron.crontab`` seam; ``cron`` is a parser-agnostic spec, ``cpu_threshold`` mirrors ``Watch``."""
 
     cron: str
     cpu_threshold: float | None = None
@@ -63,11 +43,9 @@ class Manual(Base, frozen=True, tag_field="kind", tag="manual", forbid_unknown_f
 class Rail(Base, frozen=True, tag_field="kind", tag="rail", forbid_unknown_fields=True):
     """A quality-rail fire over the ``composition/registry.rail`` seam.
 
-    ``params`` is zero-copy ``msgspec.Raw`` so the action carries an opaque per-verb payload
-    without this module importing every rail's frozen ``Params`` dataclass; the registry
-    decodes it at dispatch against ``Bind.params``. The asymmetry is deliberate: an invalid
-    ``params`` payload surfaces as a ``FAULTED`` ``Fault`` at the fire boundary, not at
-    trigger-config decode.
+    ``params`` is zero-copy ``msgspec.Raw``: the registry decodes it late at dispatch against
+    ``Bind.params``, so an invalid payload surfaces as a ``FAULTED`` ``Fault`` at the fire boundary,
+    not at trigger-config decode.
     """
 
     claim: Claim
@@ -82,27 +60,16 @@ class Program(Base, frozen=True, tag_field="kind", tag="program", forbid_unknown
 
 
 class Sequence(Base, frozen=True, tag_field="kind", tag="sequence", forbid_unknown_fields=True):
-    """A recursive action fold: the third case as one row, nesting ``tuple[Action, ...]``.
-
-    The short-circuit policy is **fixed and owned by ``engine``**, never the data — the
-    recursive ``match`` over the tuple is the fold vehicle and the data stays inert. The
-    annotation is a string forward-reference because the ``Action`` alias is declared below
-    this class; msgspec resolves it lazily at ``Decoder`` construction, after the alias exists.
-    """
+    """A recursive action fold nesting ``tuple[Action, ...]``; the short-circuit policy is owned by ``engine``, never the data."""
 
     actions: tuple["Action", ...]  # noqa: UP037  # forward-ref string is load-bearing: the Action alias is declared below, __future__ annotations is forbidden here, and msgspec evals this annotation at class creation
 
 
 class Debounce(Base, frozen=True, tag_field="kind", tag="debounce", forbid_unknown_fields=True):
-    """A coalescing wrapper that throttles a fast-trigger storm down to one delayed fire.
+    """A coalescing wrapper that throttles a trigger storm to one delayed ``action`` fire per ``window_ms`` quiescence window.
 
-    ``action`` is the WRAPPED ``Action`` the engine runs once the storm settles — ``Debounce``
-    adds no execution engine of its own, it only schedules the inner action's existing seam.
-    ``window_ms`` is the quiescence window: the engine resets a per-action timer on each trigger
-    and fires ``action`` only after ``window_ms`` elapses with no new trigger. ``collapse=True``
-    drops every coalesced trigger to a single trailing fire (storm -> one run); ``collapse=False``
-    keeps the leading fire and suppresses only the trailing tail. The recursion is a string
-    forward-ref for the same reason as ``Sequence.actions``: the ``Action`` alias is declared below.
+    ``collapse=True`` drops every coalesced trigger to a single trailing fire (storm -> one run);
+    ``collapse=False`` keeps the leading fire and suppresses only the trailing tail.
     """
 
     action: "Action"  # noqa: UP037  # forward-ref string is load-bearing: the Action alias is declared below, __future__ annotations is forbidden here, and msgspec evals this annotation at class creation
@@ -133,11 +100,7 @@ _ACTION_TAGS: frozenset[str] = frozenset({"rail", "program", "sequence", "deboun
 
 
 def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912  # one return/arm per union case is the canonical total projection; counts scale with the union, not with branching complexity
-    """Render a trigger or action as a one-line human label.
-
-    One polymorphic entry point: a single ``match`` folds every ``Trigger`` and ``Action``
-    case and recurses over ``Sequence.actions``, so nesting is one ``match``, not a hierarchy.
-    """
+    """Render a trigger or action as a one-line human label, recursing over ``Sequence.actions``."""
     match node:
         case Watch(paths=p, debounce=d):
             return f"watch[{len(p)} paths @ {d}ms]"
@@ -156,11 +119,7 @@ def describe(node: Trigger | Action) -> str:  # noqa: PLR0911, PLR0912  # one re
 
 
 def decode(blob: bytes, *, trigger: bool) -> Trigger | Action:
-    """Recover a ``Trigger`` (``trigger=True``) or ``Action`` from one JSON blob in a single pass.
-
-    The explicit short ``kind`` tag recovers the case and ``forbid_unknown_fields`` makes a
-    drifting emitter fail loud at the decode boundary rather than silently dropping fields.
-    """
+    """Recover a ``Trigger`` (``trigger=True``) or ``Action`` from one JSON blob, the ``kind`` tag selecting the case."""
     match trigger:
         case True:
             return _DECODE_TRIGGER.decode(blob)

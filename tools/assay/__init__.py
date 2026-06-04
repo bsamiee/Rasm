@@ -1,30 +1,17 @@
-"""Package marker: one stderr-bound structlog pipeline and one endpoint-gated OTel provider.
+"""Package marker: a stderr-bound structlog pipeline and an endpoint-gated OTel provider, installed at import.
 
-The sole package-marker file (every other directory is a PEP 420 namespace package). Three
-import-time boundary actions, no domain logic: (1) the optional ``ASSAY_CLAW`` ``beartype``
-claw gate as the **first statement** — the claw rewrites submodules at import and must
-precede the first transitive ``import tools.assay.core.model``, since ``msgspec``
-resolves field annotations lazily at first codec build under PEP 649/749; (2) the once-only
-``structlog.configure`` call bound to ``sys.stderr`` via ``WriteLoggerFactory`` — the
-structlog default sink is ``stdout``, which would corrupt the sole-stdout ``Envelope``
-contract — paired with a process-global ``bind_contextvars`` of the settings
-``agent_context`` (``{run.id, agent.task.id}`` from ``ASSAY_RUN_ID``/``ASSAY_AGENT_TASK_ID``)
-so every log/Envelope correlates to its driving agent task with zero CLI flags; (3) the
-endpoint-gated OTel ``TracerProvider`` install whose ``Resource`` carries the same
-``agent_context`` so every span correlates too, a no-op when the endpoint is unset so the
-API's default ``NoOpTracer`` stands (zero egress, zero cost).
-
-Install only: the ``BatchSpanProcessor`` drain is owned by ``__main__`` (force_flush at
-exit). Owns no ``Tool``, no ``Rail``, no ``Envelope`` writer.
+The sole package-marker file (every other directory is a PEP 420 namespace package), running three
+import-time boundary actions in order: the optional ``ASSAY_CLAW`` beartype claw gate, the once-only
+structlog configure, and the endpoint-gated OTel ``TracerProvider`` install. Install only — the
+``BatchSpanProcessor`` drain is owned by ``__main__``.
 """
 
 # ruff: noqa: RUF067, E402  # executable package boundary: the claw gate is the FIRST statement so every import legitimately follows it (E402), and the module runs import-time side effects rather than re-exporting (RUF067)
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
-# First statement: ASSAY_CLAW amplifies beartype to every submodule + PEP 526 assignments.
-# Table-dispatch keeps `if` out of the boundary; must run BEFORE the first transitive
-# `import tools.assay.core.model` — the claw rewrites at import while msgspec resolves
-# field annotations lazily at first codec build under PEP 649/749.
+# ASSAY_CLAW beartype gate is the FIRST statement: the claw rewrites submodules at import, so it must
+# precede the first transitive `import tools.assay.core.model` (msgspec resolves field annotations
+# lazily at first codec build under PEP 649/749).
 import os
 import sys
 from typing import TYPE_CHECKING
@@ -70,23 +57,8 @@ _ENDPOINT_ENV: str = "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"  # the only network ga
 
 
 def _configure(log_format: LogFormat, agent_context: dict[str, str]) -> None:
-    """Install the once-only structlog pipeline + bind the agent-correlation tags process-globally.
-
-    Chain order is load-bearing: ``merge_contextvars`` must be first so ``@logged``'s
-    ``bound_contextvars`` state surfaces; ``dict_tracebacks`` is the structured ``exc_info``
-    bug channel, distinct from the domain ``Fault`` rail. The ``ci`` renderer routes through
-    ``msgspec.json.encode`` because ``JSONRenderer``'s default ``json.dumps`` cannot encode
-    ``msgspec`` structs or ``datetime``. ``WriteLoggerFactory`` over ``PrintLoggerFactory`` is
-    the faster variant and shares ``_get_lock_for_file`` thread-safety on the single pinned
-    ``sys.stderr`` sink, so concurrent ``fan_out`` checks are lock-coordinated for free.
-
-    The trailing ``bind_contextvars(**agent_context)`` seats the settings ``{run.id, agent.task.id}``
-    pair into the process-global ContextVar slot ``merge_contextvars`` (slot 0) drains, so EVERY
-    log line — including the engine/lease/automation seams ``logged`` never scopes — correlates to
-    its driving agent task with zero CLI flags (the tags arrive via ``ASSAY_RUN_ID``/
-    ``ASSAY_AGENT_TASK_ID`` through the pydantic boundary, never ``os.environ``).
-    """
     match log_format:
+        # CI renderer routes through msgspec.json.encode: JSONRenderer's default json.dumps cannot encode structs/datetime.
         case LogFormat.CI:
             renderer: Processor = JSONRenderer(serializer=lambda v, **_k: msgspec.json.encode(v).decode())
         case LogFormat.HUMAN:
@@ -108,27 +80,17 @@ def _configure(log_format: LogFormat, agent_context: dict[str, str]) -> None:
 
 
 def _install_tracing(endpoint: str, agent_context: dict[str, str]) -> None:
-    """Install the process-global OTel provider: build, attach BSP, set — never flush.
-
-    Three statements, never a chained one-liner (``add_span_processor`` returns ``None``).
-    Constructing the exporter does **not** connect — the first POST happens at ``__main__``'s
-    ``force_flush`` drain — so a stale endpoint surfaces as a flush timeout, never an
-    import-time failure. The ``Resource`` is built in one ``create`` over ``{_SERVICE, agent_context}``
-    (a merge would collapse ``service.name`` to ``unknown_service``), so the ``{run.id, agent.task.id}``
-    correlation rides EVERY span the provider emits — parent, child, and lease — with zero per-span
-    plumbing and zero CLI flags, beside the per-seam ``traced`` attrs that already stamp the pair.
-    """
+    # Constructing the exporter does NOT connect: the first POST is __main__'s force_flush drain, so a
+    # stale endpoint surfaces as a flush timeout, never an import-time failure. One Resource.create over
+    # {_SERVICE | agent_context} — a merge would collapse service.name to unknown_service.
     provider = TracerProvider(resource=Resource.create(_SERVICE | agent_context))
     provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint), schedule_delay_millis=_DRAIN_MS))
     set_tracer_provider(provider)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
-# Statement-form `match` is the sole dispatch: no `if` at the boundary. The sole `AssaySettings()`
-# validation seats both the log renderer AND the agent-correlation tags (`ASSAY_RUN_ID`/
-# `ASSAY_AGENT_TASK_ID` -> `agent_context`), so log/span/Envelope correlate to the agent task with
-# zero CLI flags. The first gate makes re-import a no-op (configure-once); the second is a no-op
-# when the endpoint is empty, so the default NoOpTracer stands.
+# First gate makes re-import a no-op (configure-once); the second is a no-op when the endpoint is
+# empty, so the default NoOpTracer stands.
 _SETTINGS = AssaySettings()  # validate once at the boundary; agent_context is pydantic-read, never os.environ
 
 match structlog.is_configured():

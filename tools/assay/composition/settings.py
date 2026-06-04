@@ -1,8 +1,7 @@
-"""Config surface: ``AssaySettings`` (sole ``BaseSettings``), the ``artifact`` path fold, the ``ArtifactStore``, and the dotnet ``ArtifactScope``.
+"""Config surface: ``AssaySettings``, the ``artifact`` path fold, the ``ArtifactStore``, and the dotnet ``ArtifactScope``.
 
-Env/flags validate through ``pydantic`` once at ``__init__``; ``frozen=True``
-keeps the instance hashable and STM-safe so ``model_copy(update=...)`` threads a fresh config
-through ``fan_out`` without a lock.
+Env/flags validate through ``pydantic`` once at ``__init__``; ``frozen=True`` keeps the instance
+hashable and STM-safe so ``model_copy(update=...)`` threads a fresh config through ``fan_out``.
 """
 
 from dataclasses import dataclass
@@ -30,22 +29,14 @@ if TYPE_CHECKING:
 
 
 class Configuration(StrEnum):
-    """MSBuild ``-c`` axis: the member IS the verbatim MSBuild configuration value.
-
-    A behavior-carrying ``StrEnum`` — never a ``Literal`` shard — reused unchanged as the
-    Cyclopts choice token, the ``msgspec`` wire value, and the ``match`` discriminant.
-    """
+    """MSBuild ``-c`` axis: the member IS the verbatim configuration value (Cyclopts token, wire value, discriminant)."""
 
     DEBUG = "Debug"
     RELEASE = "Release"
 
 
 class LogFormat(StrEnum):
-    """structlog renderer axis: selects the console (``HUMAN``) or JSON (``CI``) processor.
-
-    The default derives from ``sys.stderr.isatty()`` at ingress so an interactive shell renders
-    ``HUMAN`` and a pipe/CI runner renders ``CI`` with no flag.
-    """
+    """structlog renderer axis: console (``HUMAN``) or JSON (``CI``); default derives from ``sys.stderr.isatty()``."""
 
     HUMAN = "human"
     CI = "ci"
@@ -62,13 +53,8 @@ _ARTIFACTS_PATH_FLAG: Final[str] = "--artifacts-path"
 
 
 def _anchor(value: str | UPath) -> UPath:
-    """Climb from ``value`` to the nearest ancestor holding ``Workspace.slnx`` (the root anchor).
-
-    Normalizes the field once at the pydantic boundary so every post-ingress reader sees an
-    absolute, repo-anchored ``UPath`` and never a raw string. ``UPath`` is a ``pathlib`` drop-in:
-    a ``file://`` (default protocol) instance keeps the identical local-FS semantics, while the
-    same surface admits ``memory://`` test isolation and remote backends with no call-site change.
-    """
+    # Climb to the nearest ancestor holding Workspace.slnx, normalizing once at the pydantic boundary so
+    # every post-ingress reader sees an absolute repo-anchored UPath (a pathlib drop-in) never a raw string.
     cursor = UPath(value).expanduser().resolve()
     return next((p for p in (cursor, *cursor.parents) if (p / _MARKER).is_file()), cursor)
 
@@ -83,11 +69,9 @@ type ExpandedPath = Annotated[UPath, BeforeValidator(lambda v: UPath(v).expandus
 class AssaySettings(BaseSettings):
     """The sole ``pydantic-settings`` surface: env-only host/infra scalars, validated once.
 
-    ``settings_customise_sources`` collapses the ingress to ``(init_settings, env_settings)`` so
-    init kwargs (the registry/Cyclopts injection, top precedence) beat ``ASSAY_*`` env, and CLI,
-    dotenv, and secrets sources are eliminated — Cyclopts is the CLI boundary, not pydantic.
-    ``frozen=True`` makes the instance hashable and STM-safe under ``fan_out``; a per-verb
-    ``model_copy(update=...)`` yields a new immutable instance rather than mutating shared state.
+    ``settings_customise_sources`` collapses the ingress to ``(init_settings, env_settings)`` (init
+    kwargs beat ``ASSAY_*`` env; CLI/dotenv/secrets dropped — Cyclopts is the CLI boundary). ``frozen``
+    makes the instance hashable and STM-safe under ``fan_out``.
     """
 
     model_config = SettingsConfigDict(env_prefix="ASSAY_", case_sensitive=False, frozen=True, extra="forbid", populate_by_name=True)
@@ -138,14 +122,8 @@ class AssaySettings(BaseSettings):
     @field_validator("exec_target")
     @classmethod
     def _exec_target(cls, value: str) -> str:  # pydantic field_validator is cls-bound (classmethod)
-        """Admit ``""`` (local) or a well-formed ``ssh://[user@]host[:port]`` URI; reject anything else.
-
-        Validates scheme + hostname + numeric port at the pydantic boundary so ``engine._run_remote``'s
-        ``urlsplit(...).port`` can never raise a ``ValueError`` the engine's ``OSError``/``asyncssh.Error``
-        catch would miss — a malformed port faults loud here at settings construction, not mid-spawn. The
-        ``.port`` access is the numeric-port probe: a non-numeric authority raises ``ValueError`` at this
-        boundary, mapped to a descriptive pydantic error.
-        """
+        # Admit "" (local) or a well-formed ssh://[user@]host[:port] URI. Validate scheme+host+numeric port
+        # HERE so engine._run_remote's urlsplit(...).port can never raise mid-spawn past the engine's catch.
         match value:
             case "":
                 return value
@@ -179,24 +157,16 @@ class AssaySettings(BaseSettings):
     def solution(self) -> UPath:
         """The ``Workspace.slnx`` the SOLUTION arm resolves against.
 
-        Construction NEVER hard-fails on a missing ``Workspace.slnx`` (``_anchor`` falls back to
-        ``cwd``): the tool must import and run anywhere (CI bootstrap, a non-Rasm tree, a docs/py/ts
-        check) per the point-and-go contract. An absent solution is a per-operation C# concern — the
-        SOLUTION arm hands ``dotnet`` a non-existent path which exits non-zero into a clean
-        ``Completed(FAILED)``/Fault — never a settings-construction crash.
+        Construction NEVER hard-fails on a missing ``Workspace.slnx`` (``_anchor`` falls back to ``cwd``)
+        per the point-and-go contract; an absent solution is a per-operation C# concern that exits into a
+        clean ``Completed(FAILED)``/Fault, never a settings-construction crash.
         """
         return self.root / _MARKER
 
     @computed_field  # type: ignore[prop-decorator]  # pydantic computed_field over a property
     @property
     def agent_context(self) -> dict[str, str]:
-        """The fleet-correlation tag pair read once at the pydantic boundary, never from ``os.environ``.
-
-        ``run_id`` (env ``ASSAY_RUN_ID``) and ``agent_task_id`` (env ``ASSAY_AGENT_TASK_ID``) flow in
-        through the field validation aliases; this projection folds the two canonical fields into the
-        ``{run.id, agent.task.id}`` OTel-style attribute map the engine/automation seams stamp onto
-        spans and structlog context so every Envelope in a fleet correlates to its driving agent.
-        """
+        """The ``{run.id, agent.task.id}`` fleet-correlation tags, folded from the canonical fields once at the boundary (never ``os.environ``)."""
         return {"run.id": self.run_id, "agent.task.id": self.agent_task_id}
 
     @property
@@ -207,9 +177,8 @@ class AssaySettings(BaseSettings):
     def store(self, *, protocol: str = "file", **opts: object) -> ArtifactStore:
         """The backend-agnostic ``.artifacts`` I/O surface: ``file`` local, ``memory`` for tests.
 
-        ``protocol="memory"`` roots at the ``run_id``-keyed relative path so concurrent suites
-        sharing the class-global ``MemoryFileSystem`` partition the dict rather than
-        cross-contaminate; ``protocol="file"`` roots at the absolute ``store_root``.
+        ``protocol="memory"`` roots at the ``run_id``-keyed relative path so concurrent suites sharing the
+        class-global ``MemoryFileSystem`` partition the dict; ``protocol="file"`` roots at ``store_root``.
         """
         match protocol:
             case "file":
@@ -221,10 +190,8 @@ class AssaySettings(BaseSettings):
     def artifact(self, kind: ArtifactKind, *parts: str | UPath) -> UPath:
         """The sole path projector: fold ``kind`` plus ``parts`` onto ``store_root``.
 
-        Retires every ``*_lock``/``*_dir`` property of ``tools/quality``; the path namespace is
-        exactly the ``ArtifactKind`` member set, no member added or omitted. A closure build tree
-        lives in the ``SCOPE`` namespace (``artifact(ArtifactKind.SCOPE, "build", closure)``), the
-        path-fold equivalent of ``ArtifactScope.build`` — there is no ``BUILD`` kind.
+        The path namespace is exactly the ``ArtifactKind`` member set; a closure build tree lives in the
+        ``SCOPE`` namespace (``artifact(ArtifactKind.SCOPE, "build", closure)``) — there is no ``BUILD`` kind.
         """
         return self.store_root.joinpath(kind.value, *(str(p) for p in parts))
 
@@ -234,12 +201,11 @@ class AssaySettings(BaseSettings):
 
 @dataclass(frozen=True, slots=True)
 class ArtifactStore:
-    """The ``fsspec`` ``.artifacts`` backend: a ``Store`` is *where* bytes go.
+    """The ``fsspec`` ``.artifacts`` backend (the sole writer for every ``.artifacts/`` tree): a ``Store`` is *where* bytes go.
 
-    The sole writer for every ``.artifacts/`` tree — engine and rails route all artifact I/O
-    through it, never bare ``pathlib``. ``ensure`` is the only directory creator: explicit
-    ``makedirs`` is required because ``LocalFileSystem.auto_mkdir=False`` by default, so lazy
-    ``open(mode="w")`` parent creation cannot be relied upon.
+    ``ensure`` is the only directory creator — explicit ``makedirs`` is required because
+    ``LocalFileSystem.auto_mkdir=False`` by default, so lazy ``open(mode="w")`` parent creation cannot
+    be relied upon.
     """
 
     fs: AbstractFileSystem
@@ -262,13 +228,11 @@ class ArtifactStore:
 
 @dataclass(frozen=True, slots=True)
 class ArtifactScope:
-    """The dotnet-isolated tree ``run_check`` takes as ``scope``: a ``Scope`` is *which* tree.
+    """The dotnet-isolated tree ``run_check`` takes as ``scope``: a ``Scope`` is *which* tree (vs ``Store`` = the I/O backend).
 
-    Distinct from ``ArtifactStore``: the ``Store`` is the I/O backend, the ``Scope`` pairs the
-    scoped ``path`` with the ``--artifacts-path`` ``dotnet_flags`` that ``engine._splice`` splices
-    into a ``Runner.DOTNET`` argv and the ``DOTNET_CLI_HOME`` overlay ``dotnet_env``. ``open``
-    yields the per-run scope; ``build`` yields the *stable* per-closure scope (never run-scoped)
-    so the warm MSBuild/analyzer tree survives across runs.
+    Pairs the scoped ``path`` with the ``--artifacts-path`` ``dotnet_flags`` ``engine._splice`` splices
+    into a ``Runner.DOTNET`` argv. ``open`` yields the per-run scope; ``build`` yields the *stable*
+    per-closure scope (never run-scoped) so the warm MSBuild/analyzer tree survives across runs.
     """
 
     store: ArtifactStore

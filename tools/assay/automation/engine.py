@@ -1,21 +1,11 @@
-"""The automation spine: one ``anyio`` loop hosts watch + schedule over a shared stop.
+"""The automation spine: one ``anyio`` loop hosts watch + schedule over a shared stop, emitting one ``Envelope`` per fire.
 
-``drive`` is the single public surface: it discriminates the ``Trigger`` union and hosts the
-``watchfiles.awatch`` loop and the ``aiocron.crontab`` tasklet concurrently under **one** ``anyio``
-task group sharing **one** ``anyio.Event`` stop, running the bound ``Action`` on every fire through
-the same ``composition/registry`` + ``core/engine`` rails the CLI uses and emitting **one**
-``Envelope`` per fire as NDJSON. It consumes ``REGISTRY``/``rail`` and ``run_check``; it is not a
-``Claim`` and never extends them.
-
-Why the moving parts are shaped this way: ``awatch`` honors the shared ``stop_event`` natively, but
-``aiocron`` has none, so ``_schedule`` arms the sync ``cron.start()`` then waits on the same ``stop``
-and calls ``cron.stop()`` to mirror graceful shutdown across both arms. The per-drive
-``CapacityLimiter(1)`` serializes fires so a fire slower than its trigger cadence queues on the limiter
-rather than re-entering a leased ``Action`` into spurious ``BUSY`` (which ``@retried`` will not absorb).
-The CPU governor emits a ``Report{SKIP}`` (status pinned, never EMPTY-fold-masked) and elides the fire,
-never waits — automation must not block on contention. ``@retried`` lives on the woven spawn, never
-inside a fire. No inline ``break``/``while``/``for``: ``awatch`` is the generator, ``cron.start()`` arms
-one ``loop.call_at`` callback, and the ``Sequence`` fold is a recursive head/tail ``match``.
+``drive`` is the single public surface, discriminating the ``Trigger`` union and hosting the
+``watchfiles.awatch`` loop and the ``aiocron.crontab`` tasklet under one task group sharing one
+``anyio.Event`` stop, running each fire through the same ``composition/registry`` + ``core/engine`` rails
+the CLI uses. The per-drive ``CapacityLimiter(1)`` serializes fires (a fire slower than its trigger cadence
+queues rather than re-entering a leased ``Action`` into spurious ``BUSY``), and the CPU governor emits a
+``SKIP`` and elides the fire rather than blocking on contention.
 """
 
 from collections.abc import Callable, Coroutine
@@ -81,14 +71,9 @@ type Fire = Callable[[], Coroutine[None, None, None]]
 
 
 class _RunState(msgspec.Struct, frozen=True, gc=False):
-    """The scheduled-fire re-entrancy cell: one typed shape replacing two parallel 1-element list cells.
-
-    ``running`` gates re-entry (a cron tick arriving mid-fire is COALESCED, not queued); ``missed`` counts
-    the coalesced ticks the in-flight drain must catch up. The cell is single-task-loop confined — there is
-    no ``await`` between a read and the ``structs.replace`` that writes the successor — so the transition is
-    race-free without a lock, and the typed shape carries that invariant instead of two untyped lists.
-    """
-
+    # Scheduled-fire re-entrancy cell. running gates re-entry (a mid-fire cron tick is COALESCED, not queued);
+    # missed counts coalesced ticks the in-flight drain must catch up. Single-task-loop confined — no await
+    # between a read and the structs.replace that writes the successor — so the transition is race-free without a lock.
     running: bool = False
     missed: int = 0
 
@@ -110,66 +95,44 @@ _JITTER_MS: int = 100  # deterministic per-run cron jitter window: a hashlib dig
 
 
 def _emit(line: Envelope) -> None:
-    """The sole stdout writer for the automation arm: one NDJSON line per fire.
-
-    The immediate flush is load-bearing: a long-lived ``Watch`` whose stdout is piped to a consumer
-    must surface each ``Envelope`` at fire time, not batched at process exit, and per-line flushing is
-    what keeps line-framing safe under the concurrent ``cron.start`` task and the per-leaf emits of a
-    ``Sequence`` fold.
-    """
+    # Sole stdout writer for the automation arm. Per-line flush is load-bearing: a long-lived Watch piped to a
+    # consumer must surface each Envelope at fire time, not batched at exit, and keeps line-framing safe under
+    # the concurrent cron.start task and the per-leaf emits of a Sequence fold.
     sys.stdout.buffer.write(_ENCODER.encode(line) + b"\n")
     sys.stdout.buffer.flush()
 
 
 def _governed(threshold: float | None) -> bool:
-    """The CPU governor gate: trip when measured CPU meets the per-trigger ceiling, else fire.
-
-    ``None`` disables the gate. A set ceiling reads ``psutil.cpu_percent(0.1)`` — a 0.1s sample that
-    blocks the fire task briefly but never the ``awatch``/``cron`` drivers — against ``threshold*100``
-    so a fractional ceiling (``0.85``) gates at 85% measured utilization.
-    """
     match threshold:
         case None:
             return False
+        # 0.1s sample blocks the fire task briefly but never the awatch/cron drivers; threshold*100 so a
+        # fractional ceiling (0.85) gates at 85% measured utilization.
         case _:
             return psutil.cpu_percent(0.1) >= threshold * 100.0
 
 
 def _resolve(action: Rail) -> Bind | None:
-    """Resolve a ``Rail`` action to its ``REGISTRY`` row by ``(claim, verb)`` — ``None`` on an unbound verb.
-
-    The registry is the catalog-row authority: a ``Rail`` carries only the ``(claim, verb)``
-    discriminant and an opaque ``msgspec.Raw`` payload. An unresolved verb yields ``None`` so the caller
-    folds it to a ``FAULTED`` ``Fault`` at the fire boundary, never a raised ``KeyError``.
-    """
+    # None on an unbound verb so the caller folds to a FAULTED Fault at the fire boundary, never a raised KeyError.
     return next((b for b in REGISTRY if b.claim is action.claim and b.verb == action.verb), None)
 
 
 def _label(action: Action) -> tuple[Claim, str]:
-    """Project an ``Action`` to its ``(claim, verb)`` envelope label.
-
-    Only a ``Rail`` carries an explicit claim/verb pair; a ``Program`` and a ``Sequence`` have no single
-    rail identity, so both fold under ``(Claim.STATIC, "program")`` — the canonical DIRECT label every
-    non-rail fire shares. A ``Debounce`` is a pure coalescing wrapper that adds no rail identity of its
-    own, so it projects the label of the ``Action`` it wraps (recursing through nested wrappers).
-    """
+    # Project an Action to its (claim, verb) envelope label.
     match action:
         case Rail(claim=c, verb=v):
             return c, v
+        # Program/Sequence have no single rail identity: fold under the canonical DIRECT label every non-rail fire shares.
         case Program() | Sequence():
             return Claim.STATIC, "program"
         case Debounce(action=inner):
-            return _label(inner)
+            return _label(inner)  # pure wrapper: project the wrapped action's label
 
 
 def _program_check(argv: tuple[str, ...]) -> Check:
-    """Bind a raw ``argv`` to a DIRECT ``Check``: ``Runner.DIRECT`` empty prefix + ``Input.NONE`` route.
-
-    ``Runner.DIRECT`` lays the prefix as ``()`` so ``run_check`` runs ``argv`` verbatim; ``Input.NONE``
-    makes ``routing.place`` emit one empty argv tail, so no path projection bleeds into a free-form
-    program. ``Language``/``claim``/``mode`` are inert for a ``NONE`` route — the suffix sets are never
-    read — so every ``Program`` folds under ``Claim.STATIC`` with a ``RUN`` mode for live streaming.
-    """
+    # Runner.DIRECT lays the prefix as () so argv runs verbatim; Input.NONE makes routing.place emit one empty
+    # argv tail, so no path projection bleeds into a free-form program. Language/claim/mode are inert for a
+    # NONE route (suffix sets never read), so every Program folds under Claim.STATIC with RUN mode for live streaming.
     tool = Tool(
         name=argv[0] if argv else "program",
         runner=Runner.DIRECT,
@@ -183,15 +146,10 @@ def _program_check(argv: tuple[str, ...]) -> Check:
 
 
 async def _program_outcome(action: Program, settings: AssaySettings) -> Result[Report, Fault]:
-    """Run a ``Program`` fire through the woven spawn and fold its ``Completed`` into a ``Report``.
-
-    The ``checked ▷ traced ▷ retried`` seam is the same ``_spawn`` weave ``run_check`` wraps, but awaited
-    in-loop: ``run_check`` calls ``anyio.run`` unconditionally, which would nest under ``drive``'s own
-    ``anyio.run`` (``RuntimeError: Already running``), so this mirrors ``fan_out._into`` and awaits the
-    woven coroutine directly. A non-zero process exit rides the ``Ok`` channel as a ``Completed{FAILED}``;
-    only a spawn failure / timeout takes the ``Error`` channel. The ``Completed`` folds through
-    ``core/model.fold`` (the sole count-derivation site) so the engine never authors a ``Fault`` for an exit code.
-    """
+    # run_check calls anyio.run unconditionally, which would nest under drive's own anyio.run; so this mirrors
+    # fan_out._into and awaits the same checked ▷ traced ▷ retried _spawn weave directly. A non-zero process exit
+    # rides the Ok channel as Completed{FAILED}; only a spawn failure/timeout takes Error. The Completed folds
+    # through core/model.fold (the sole count-derivation site) so the engine never authors a Fault for an exit code.
     check = _program_check(action.argv)
     scope = ArtifactScope.open(settings, Claim.STATIC)
     outcome = await _spawn(check, settings)(check, settings, scope, _PROGRAM_ROUTED, None)
@@ -203,20 +161,16 @@ async def _program_outcome(action: Program, settings: AssaySettings) -> Result[R
 
 
 def _emitted(line: Envelope) -> Envelope:
-    """Write one ``Envelope`` via the sole automation writer and return it for the fold (side-effecting seam)."""
+    # Side-effecting seam: write via the sole automation writer, return the line for the fold.
     _emit(line)
     return line
 
 
 def _rail_outcome(action: Rail) -> Envelope:
-    """Run a ``Rail`` fire through the registry runner — the one path that reuses the CLI's emitter.
-
-    The opaque ``msgspec.Raw`` ``params`` decode is deferred to here (zero-copy, against the bound frozen
-    ``Params`` type). ``rail(bind)`` weaves ``checked ▷ logged ▷ traced`` and writes its OWN ``Envelope``
-    (the registry is the sole stdout writer for a rail), so the engine must NOT re-emit a rail outcome; it
-    returns the runner's ``Envelope`` for the fold. An unresolved verb or a malformed ``params`` payload
-    folds to a ``FAULTED`` ``Fault`` envelope here, written through the engine's own ``_emit``.
-    """
+    # The one path that reuses the CLI's emitter: rail(bind) writes its OWN Envelope (the registry is the sole
+    # stdout writer for a rail), so the engine must NOT re-emit — it returns the runner's Envelope for the fold.
+    # The opaque Raw params decode is deferred to here; an unresolved verb or malformed payload folds to a
+    # FAULTED Fault written through the engine's own _emit.
     bind = _resolve(action)
     match bind:
         case None:
@@ -232,12 +186,8 @@ def _rail_outcome(action: Rail) -> Envelope:
 
 
 async def _program_envelope(action: Program, settings: AssaySettings) -> Envelope:
-    """Emit one ``Envelope`` for a ``Program`` fire: project the woven-spawn outcome onto a wire line.
-
-    ``_program_outcome`` already folded a ``Completed`` (non-zero exit on the ``Ok`` channel) or a spawn
-    ``Fault``; this projects either ``Result`` channel onto the canonical ``envelope`` and writes it
-    through the engine's ``_emit`` (a ``Program`` has no registry runner to write for it).
-    """
+    # Project either _program_outcome Result channel onto the canonical envelope, written through the engine's
+    # own _emit (a Program has no registry runner to write for it).
     match await _program_outcome(action, settings):
         case Result(tag="ok", ok=report):
             payload: Report | Fault = report
@@ -247,21 +197,14 @@ async def _program_envelope(action: Program, settings: AssaySettings) -> Envelop
 
 
 async def _emit_leaf(leaf: Action, settings: AssaySettings, limiter: anyio.CapacityLimiter, cpu_threshold: float | None) -> RailStatus:
-    """Run one leaf ``Action`` to exactly one ``Envelope`` NDJSON line, returning its status for the fold.
-
-    The governor short-circuits first: a tripped CPU ceiling emits a ``SKIP`` ``Report`` and never waits.
-    The skip ``Report`` is built with ``status`` pinned to ``SKIP`` directly, NOT folded through
-    ``core/model.fold`` — that fold seeds at ``EMPTY`` (severity 1) and ``join`` is max-by-severity, so a
-    ``SKIP`` (severity 0) leaf would be masked to ``EMPTY`` on the wire. The ``Counts(1, 0, 1)`` mirrors
-    ``_count``'s ``(ok, failed)`` projection for a ``SKIP`` outcome so the rollup stays honest.
-    Otherwise the work runs under the per-drive ``CapacityLimiter(1)`` so a fire slower than its trigger
-    cadence queues on the single token rather than re-entering a leased ``Action`` into spurious ``BUSY``.
-    A ``Rail`` reuses the registry runner (which emits its own line); a ``Program`` and a nested
-    ``Sequence`` emit through the engine.
-    """
+    # Governor short-circuits first, then work runs under the per-drive limiter so a fire slower than its
+    # trigger cadence queues on the single token rather than re-entering a leased Action into spurious BUSY.
     match _governed(cpu_threshold):
         case True:
             claim, verb = _label(leaf)
+            # status pinned to SKIP directly, NOT folded through core/model.fold: that fold seeds at EMPTY
+            # (severity 1) and join is max-by-severity, so a SKIP (severity 0) leaf would be masked to EMPTY.
+            # Counts(1, 0, 1) mirrors _count's (ok, failed) projection for a SKIP so the rollup stays honest.
             skip = Report(claim, verb, RailStatus.SKIP, Counts(1, 0, 1), notes=(f"governed: cpu>={cpu_threshold or 0.0:.0%}",))
             return _emitted(envelope(skip, claim=claim, verb=verb)).status
         case False:
@@ -284,14 +227,8 @@ async def _sequence(
     cpu_threshold: float | None,
     folded: RailStatus = RailStatus.EMPTY,
 ) -> RailStatus:
-    """Fold a ``Sequence``'s leaves by ``RailStatus.join`` max-severity, halting on policy.
-
-    A recursive head/tail ``match`` is the fold vehicle (no loop control). A definitive defect
-    (``FAILED``) or any ``Fault`` leaf (``BUSY``/``TIMEOUT``/``FAULTED``) dominates and halts the fold;
-    ``SKIP``/``EMPTY``/``OK`` continue to the tail. ``join`` is the module-scope semilattice operator
-    rather than a method because ``RailStatus`` subclasses ``str``, whose own ``join`` member is
-    ``str.join`` — the algebra is lifted off the enum to avoid that collision.
-    """
+    # Fold the leaves by max-severity join, halting on a definitive defect or any Fault leaf. join is the
+    # module-scope semilattice operator, not a method: RailStatus subclasses str whose own join is str.join.
     match leaves:
         case (head, *tail):
             advanced = join(folded, await _emit_leaf(head, settings, limiter, cpu_threshold))
@@ -305,14 +242,8 @@ async def _sequence(
 
 
 def _fire(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, cpu_threshold: float | None) -> Fire:
-    """Build the per-fire closure: one ``Action`` → one ``Envelope`` per leaf, single-flight under the limiter.
-
-    The closure is generator-free, so it carries no ``@effect.result`` decoration. The limiter and
-    governor ceiling are captured once in ``drive`` and shared across every leaf so a whole ``Sequence``
-    fold stays single-flight — a fire slower than its trigger cadence cannot collide with its own next
-    batch. The closure swallows its return value because the fire's sole observable is the NDJSON it emits.
-    """
-
+    # Build the per-fire closure. The limiter and ceiling are captured once in drive and shared across every
+    # leaf so a whole Sequence fold stays single-flight — a fire cannot collide with its own next batch.
     async def fire() -> None:
         match action:
             case Sequence(actions=acts):
@@ -326,12 +257,7 @@ def _fire(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLim
 
 
 async def _quiesce(recv: MemoryObjectReceiveStream[None], window_ms: float) -> None:
-    """Drain coalesced trigger signals until ``window_ms`` elapses with no fresh signal (loop-free re-arm).
-
-    Each ``move_on_after(window)`` wraps one ``recv.receive()``: a fresh signal lands before the window and
-    re-arms by recursing; an elapsed window (``cancelled_caught``) returns, signalling quiescence to the
-    worker. The recursion is the re-arm vehicle — no inline ``while`` — mirroring the ``_sequence`` fold.
-    """
+    # Drain coalesced signals until window_ms elapses with no fresh signal; recursion is the loop-free re-arm vehicle.
     with anyio.move_on_after(window_ms / 1000.0) as scope:
         await recv.receive()
     match scope.cancelled_caught:
@@ -342,15 +268,9 @@ async def _quiesce(recv: MemoryObjectReceiveStream[None], window_ms: float) -> N
 
 
 def _debounce(inner: Fire, window_ms: int, *, collapse: bool) -> tuple[Fire, Fire]:
-    """Coalesce a trigger storm into one ``inner`` fire per quiescence ``window_ms`` (``move_on_after`` timer).
-
-    Returns ``(signal, worker)``: the trigger loop awaits ``signal`` per event (a non-blocking notify onto a
-    size-1 channel — a second pending signal collapses to a no-op, the coalescing point), and ``drive`` spawns
-    ``worker`` co-resident under the same ``tg``/``stop``. ``worker`` awaits the first signal, fires the leading
-    edge when ``collapse`` is ``False`` (leading mode suppresses only the trailing tail), then ``_quiesce``
-    settles the storm and the trailing edge fires when ``collapse`` is ``True`` (storm → one trailing run). The
-    worker recurses to await the next storm — loop-free; ``stop`` teardown rides the shared ``tg`` cancel scope.
-    """
+    # Coalesce a trigger storm into one inner fire per window_ms. Returns (signal, worker): the trigger loop
+    # awaits signal per event (non-blocking notify onto a size-1 channel, the coalescing point); drive spawns
+    # worker co-resident under the same tg/stop, recursing to await the next storm (stop teardown rides the cancel scope).
     send, recv = anyio.create_memory_object_stream[None](1)
 
     async def signal() -> None:  # noqa: RUF029  # async is load-bearing: the trigger loop awaits this as a Fire; send_nowait is the non-blocking coalescing notify
@@ -379,20 +299,13 @@ def _debounce(inner: Fire, window_ms: int, *, collapse: bool) -> tuple[Fire, Fir
 
 
 async def _watch(spec: Watch, fire: Fire, stop: anyio.Event) -> None:
-    """Host the ``watchfiles.awatch`` loop over the shared stop: each debounced batch fires once.
-
-    ``awatch`` is an ``async for`` generator (no inline ``while``/``break``): it batches filesystem
-    mutations at the Rust ``notify`` layer within ``spec.debounce`` ms *before* yield and honors the
-    shared ``stop_event`` natively, so ``stop.set()`` collapses the loop without engine machinery. The
-    ``filter`` tag resolves to a concrete ``BaseFilter`` here; an unknown tag degrades to
-    ``DefaultFilter`` rather than raising. ``spec.ignore_patterns`` (entity-name regexes — vendor dirs,
-    build artifacts) refine that base: a populated tuple constructs a ``DefaultFilter(ignore_entity_patterns=…)``
-    overriding the vocabulary tag (only ``DefaultFilter`` exposes the ctor kwarg; ``BaseFilter`` is the value
-    type), so the wire stays a string tag + glob tuple and no ``watchfiles`` subclass leaks onto it.
-    """
+    # awatch honors the shared stop_event natively, so stop.set() collapses the loop without engine machinery.
     match spec.ignore_patterns:
+        # Unknown filter tag degrades to DefaultFilter rather than raising.
         case ():
             watch_filter: BaseFilter = _FILTERS.get(spec.filter, DefaultFilter())
+        # Only DefaultFilter exposes the ctor kwarg (BaseFilter is the value type), so the wire stays a string
+        # tag + glob tuple and no watchfiles subclass leaks onto it.
         case patterns:
             watch_filter = DefaultFilter(ignore_entity_patterns=patterns)
     async for _changes in awatch(*spec.paths, watch_filter=watch_filter, debounce=spec.debounce, stop_event=stop):
@@ -400,22 +313,12 @@ async def _watch(spec: Watch, fire: Fire, stop: anyio.Event) -> None:
 
 
 def _hardened_fire(fire: Fire, settings: AssaySettings) -> Fire:
-    """Wrap a scheduled ``Fire`` with an in-flight gate + coalesced missed-tick recovery + deterministic ``run_id`` jitter.
-
-    A cron tick arriving while a fire is in-flight is COALESCED — counted in ``state.missed`` and dropped, NOT
-    queued behind the ``CapacityLimiter`` into an unbounded pile-up (which a leased ``Action`` would turn into
-    spurious ``BUSY`` storms ``@retried`` will not absorb). ``state.running`` gates re-entry; once a fire lands it
-    runs the leaf, then ONE catch-up fire if any ticks coalesced during it (cron behind-schedule semantics: run
-    once to catch up, never N), logging the coalesced count to the structlog operational rail. The leading
-    ``jitter_s`` — a ``hashlib`` digest over ``settings.run_id``, bounded to ``_JITTER_MS`` (no RNG, no wall-clock,
-    no knob) — de-syncs a fleet sharing one schedule at every leading edge.
-
-    The re-entrancy cell is ONE frozen ``_RunState`` in a single closure list-cell, advanced by ``structs.replace``.
-    Single-task event loop: there is no ``await`` between a read of ``state[0]`` and the write of its successor, so
-    the gate and the missed-count are race-free without a lock — the typed shape carries that invariant. The catch-up
-    ``fire()`` emits its OWN ``Envelope`` (the missed count is scheduling telemetry, not check evidence), which is why
-    the coalesced count rides the structlog operational rail and never ``Envelope.notes`` — the boundary is deliberate.
-    """
+    # In-flight gate + coalesced missed-tick recovery + deterministic run_id jitter. A mid-fire cron tick is
+    # COALESCED (counted in state.missed, dropped), NOT queued into an unbounded pile-up that a leased Action turns
+    # into spurious BUSY storms. Single-task loop: no await between a read of state[0] and the write of its
+    # successor, so the gate and missed-count are race-free without a lock. The leading jitter_s — a hashlib digest
+    # over run_id, no RNG/wall-clock/knob — de-syncs a fleet sharing one schedule. The coalesced count rides the
+    # structlog operational rail, never Envelope.notes (scheduling telemetry, not check evidence) — boundary is deliberate.
     state: list[_RunState] = [_RunState()]
 
     async def hardened() -> None:
@@ -439,14 +342,9 @@ def _hardened_fire(fire: Fire, settings: AssaySettings) -> Fire:
 
 
 async def _schedule(spec: str, fire: Fire, stop: anyio.Event) -> None:
-    """Host the ``aiocron.crontab`` tasklet over the shared stop: each cron tick fires once.
-
-    aiocron exposes no native ``stop_event`` (unlike ``awatch``), so the fire-and-forget ``cron.start()``
-    (a SYNC method that arms one ``loop.call_at`` callback on the running loop — never a coroutine) is
-    invoked directly, then a one-shot waiter on the shared ``stop`` parks the task: ``stop.set()`` returns
-    the waiter and ``cron.stop()`` cancels the scheduled callback, reaching the same graceful shutdown the
-    ``Watch`` arm gets natively. ``crontab(start=False)`` defers arming to this explicit ``cron.start()``.
-    """
+    # aiocron exposes no native stop_event (unlike awatch): cron.start() is a SYNC method arming one loop.call_at
+    # callback (never a coroutine), so a one-shot waiter on the shared stop parks the task — stop.set() returns the
+    # waiter and cron.stop() cancels the callback, reaching the same graceful shutdown. start=False defers arming.
     cron = aiocron.crontab(spec, func=fire, start=False)
     cron.start()
     await stop.wait()
@@ -454,16 +352,12 @@ async def _schedule(spec: str, fire: Fire, stop: anyio.Event) -> None:
 
 
 def _armed(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, ceiling: float | None) -> tuple[Fire, Fire | None]:
-    """Project a looping trigger's ``Action`` to its ``(trigger-facing fire, co-resident worker | None)`` pair.
-
-    A top-level ``Debounce`` installs the coalescer: the trigger loop awaits the ``signal`` ``Fire`` (a
-    non-blocking notify) and ``drive`` spawns the ``worker`` under the same ``tg``/``stop`` to collapse a
-    storm into one ``inner`` fire per ``window_ms`` via ``move_on_after``. Every other ``Action`` returns its
-    plain ``_fire`` closure with **no** worker — the trigger loop awaits it directly, unchanged.
-    """
+    # Project a looping trigger's Action to (trigger-facing fire, co-resident worker | None).
     match action:
+        # Top-level Debounce installs the coalescer: trigger loop awaits the signal, drive spawns the worker.
         case Debounce(action=inner, window_ms=window, collapse=coalesce):
             return _debounce(_fire(inner, settings, limiter=limiter, cpu_threshold=ceiling), window, collapse=coalesce)
+        # Every other Action returns its plain _fire closure with NO worker — the trigger loop awaits it directly.
         case Rail() | Program() | Sequence():
             return _fire(action, settings, limiter=limiter, cpu_threshold=ceiling), None
 
@@ -471,17 +365,12 @@ def _armed(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLi
 async def drive(trigger: Trigger, action: Action, settings: AssaySettings) -> None:
     """The single public surface: host one ``Trigger`` over a shared stop, firing one ``Action`` per event.
 
-    Discriminates the ``Trigger`` union: ``Manual`` bypasses both loops and awaits ``fire()`` once;
-    ``Watch`` hosts ``awatch`` and ``Schedule`` hosts the ``aiocron.crontab`` tasklet. The ``stop`` and
-    the per-drive ``CapacityLimiter(1)`` are constructed once *before* the match so a single
-    ``stop.set()`` collapses either trigger and every leaf of a ``Sequence`` shares one re-entrancy token.
-    A ``Watch``/``Schedule`` reads its own ``cpu_threshold`` governor ceiling off the trigger spec (never a
-    settings knob); ``Manual`` is ungoverned. A top-level ``Debounce`` action is armed via ``_armed``: the
-    trigger loop awaits the coalescing ``signal`` while the co-resident ``worker`` runs under the **same**
-    ``tg`` against the **same** ``stop``, and ``_co_resident`` cancels the scope on ``stop`` so the worker
-    collapses with the trigger (``Manual`` keeps the degenerate single-fire ``Debounce`` path via ``_fire``).
-    A future combined ``Watch + Schedule`` spawns both ``_watch`` and ``_schedule`` under the **same** ``tg``
-    against the **same** ``stop``. ``__main__`` enters via ``anyio.run(drive, …)`` — the single ``anyio.run``.
+    ``Manual`` bypasses both loops and awaits ``fire()`` once (ungoverned); ``Watch`` hosts ``awatch`` and
+    ``Schedule`` hosts the ``aiocron.crontab`` tasklet, each reading its own ``cpu_threshold`` ceiling off the
+    trigger spec (never a settings knob). The ``stop`` and per-drive ``CapacityLimiter(1)`` are constructed
+    once before the match so a single ``stop.set()`` collapses either trigger and every ``Sequence`` leaf
+    shares one re-entrancy token. A top-level ``Debounce`` is armed via ``_armed``, its co-resident ``worker``
+    running under the same ``tg``/``stop``.
     """
     limiter = anyio.CapacityLimiter(1)
     stop = anyio.Event()

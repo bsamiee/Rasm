@@ -1,11 +1,4 @@
-"""Status algebra: one ``StrEnum`` whose members carry exit code and fold rank.
-
-Each member rides three ``__new__`` payloads — the wire ``value``, an
-``exit_code``, and a ``severity`` fold rank forming a bounded join semilattice.
-The single member instance serves Cyclopts choice tokens, ``msgspec``
-encode/decode, and ``match`` dispatch, so the exit code lives in exactly one
-place and ``__main__`` returns ``report.status.exit_code``.
-"""
+"""Status algebra: one ``StrEnum`` carrying wire token, exit code, and severity fold rank."""
 
 from enum import StrEnum
 from functools import reduce
@@ -18,15 +11,9 @@ from typing import Self
 class RailStatus(StrEnum):
     """Status algebra: wire token, exit code, and severity fold rank.
 
-    The member IS its wire string, so one instance serves Cyclopts choices,
-    ``msgspec`` (encode-by-``_value_``, decode by value/alias via
-    ``_value2member_map_``), and ``match`` dispatch. ``FAULTED`` (severity 7) is
-    the absorbing fold top; ``EMPTY`` (severity 1) is the fold seed.
-
-    Members are ``str`` subclasses, so ``RailStatus.OK == "ok"`` holds: dispatch
-    on ``case RailStatus.OK:`` (never ``case "ok":``) and close with
-    ``assert_never`` so an added member breaks the type checker rather than
-    silently slipping through that equality footgun.
+    ``FAULTED`` (severity 7) is the absorbing fold top; ``EMPTY`` (severity 1) is the seed.
+    Members are ``str`` subclasses (``RailStatus.OK == "ok"``), so dispatch on
+    ``case RailStatus.OK:`` (never ``case "ok":``) and close with ``assert_never``.
     """
 
     exit_code: int  # annotation-only: the metaclass skips it as a member, __new__ sets it
@@ -42,7 +29,7 @@ class RailStatus(StrEnum):
     FAULTED = "faulted", 2, 7
 
     def __new__(cls, value: str, exit_code: int, severity: int, *aliases: str) -> Self:
-        """Bind the wire string as member identity and attach the payloads."""
+        """Bind the wire string as member identity and attach the exit-code/severity payloads."""
         member = str.__new__(cls, value)
         member._value_ = value
         member.exit_code = exit_code
@@ -53,11 +40,7 @@ class RailStatus(StrEnum):
 
     @classmethod
     def from_returncode(cls, rc: int) -> RailStatus:
-        """Project a process return code onto a status.
-
-        Never yields ``OK`` (only a parser affirms ``OK``) or ``UNSUPPORTED`` (a
-        routing decision, not a process outcome).
-        """
+        """Project a process return code onto a status (never ``OK``/``UNSUPPORTED``: those are non-process)."""
         match rc:
             case 0:
                 return cls.EMPTY
@@ -73,20 +56,12 @@ class RailStatus(StrEnum):
 
 
 def join(left: RailStatus, right: RailStatus) -> RailStatus:
-    """Binary max-by-severity: the higher fold rank wins, ties keep left.
-
-    Module-scoped, not a method: ``RailStatus`` is a ``str`` subclass and
-    ``str.join`` already owns the ``join`` name with an LSP-incompatible signature.
-    """
+    """Binary max-by-severity (ties keep left); module-scoped because ``str.join`` owns the method name."""
     return left if left.severity >= right.severity else right
 
 
 def fold(*members: RailStatus) -> RailStatus:
-    """Reduce members under ``join`` seeded at ``EMPTY``.
-
-    The seed is ``EMPTY`` (rank 1), not ``SKIP`` (rank 0), so a rail that ran
-    with no checks stays distinguishable from a vacuous per-check opt-out.
-    """
+    """Reduce members under ``join`` seeded at ``EMPTY`` (rank 1, not ``SKIP``: a no-check rail stays distinct)."""
     return reduce(join, members, RailStatus.EMPTY)
 
 

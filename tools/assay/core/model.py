@@ -1,6 +1,6 @@
 """Wire/evidence spine: axis enums, the ``Base`` policy, and the bounded ``Detail`` union.
 
-Owns every non-config ``msgspec`` struct that crosses a rail. Each axis ``StrEnum`` is at once
+Owns every non-config ``msgspec`` struct that crosses a rail; each axis ``StrEnum`` is at once
 the Cyclopts token, the wire value, and the ``match`` key.
 """
 
@@ -127,12 +127,7 @@ class ArtifactKind(StrEnum):
 
 
 class SourceKind(StrEnum):
-    """api source provenance: typed origin of an ``ApiSurface`` symbol, never ``str``.
-
-    One member per language family — the ``api`` rail auto-detects by key shape (C# ``ASSEMBLY``/``NUGET``
-    first, then ``PYDIST`` for an installed Python distribution, then ``TSDECL`` for an npm package's
-    ``.d.ts``), so the handlers ``match`` on this discriminant rather than proliferating per-language verbs.
-    """
+    """api source provenance: typed origin of an ``ApiSurface`` symbol, never ``str``."""
 
     ASSEMBLY = "assembly"
     NUGET = "nuget"
@@ -166,11 +161,7 @@ type InprocThunk = Callable[[Check], Completed]  # Runner.INPROC: a bound sync c
 
 
 class ResourceBusyError(Exception):
-    """Lease contention raised by ``exclusive_lease``; the rail seam maps it to ``RailStatus.BUSY``.
-
-    ``aspect._transient`` returns ``False`` for it so ``@retried`` never re-attempts a held lease —
-    a held resource is contention, not a transient fault.
-    """
+    """Lease contention from ``exclusive_lease``; mapped to ``RailStatus.BUSY``, never retried (held ≠ transient)."""
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -181,11 +172,7 @@ class Base(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, repr_omit_
 
 
 class Detail(Base, frozen=True, forbid_unknown_fields=True, tag_field="kind"):
-    """Tagged-union base; ``kind`` discriminates and ``forbid_unknown_fields`` gates extras at decode.
-
-    Variants carry algorithm-specific evidence only — never fold-derived counts, which live on
-    ``Report``.
-    """
+    """Tagged-union base; variants carry algorithm-specific evidence only, never fold-derived counts."""
 
 
 class Tool(Base, frozen=True, cache_hash=True):
@@ -227,11 +214,7 @@ class Completed(Base, frozen=True):
 
 
 class Fault(Base, frozen=True):
-    """Error receipt: ``{argv, status, message}`` ONLY — no ``returncode``/``detail``/``stderr``.
-
-    A ``Fault`` means assay could not run the check (spawn/lease/timeout/strict), not that a check
-    found defects; ``--strict`` promotion constructs one directly.
-    """
+    """Error receipt: assay could not run the check (spawn/lease/timeout/strict), not that a check found defects."""
 
     argv: tuple[str, ...]
     status: RailStatus = RailStatus.FAULTED
@@ -317,12 +300,7 @@ class ApiResolution(Detail, frozen=True, tag="resolution"):
 
 
 class Diagnostic(Detail, frozen=True, tag="diagnostic"):
-    """auto-observability evidence: the Envelope self-diagnoses on the Fault branch only.
-
-    Carries the failing step, a bounded ring of recent events, elapsed wall time, and a bounded
-    remediation hint so an agent retriages a faulted run off the wire without re-running. Rides
-    ``Envelope.error_context`` (omit_defaults keeps it OFF the success wire); never a fold-derived count.
-    """
+    """auto-observability evidence: rides ``Envelope.error_context`` on the Fault branch only (off the success wire)."""
 
     failing_step: str = ""
     recent_events: tuple[str, ...] = ()
@@ -339,13 +317,10 @@ class RunSnapshot(Base, frozen=True):
 
 
 class RunDelta(Detail, frozen=True, tag="delta"):
-    """``delta`` evidence: the two persisted-run endpoints plus the result-set drift between them.
+    """``delta`` evidence: two persisted-run endpoints plus the symmetric-difference drift of their ``Match`` sets.
 
-    Rides ``Report.detail`` for the root ``delta`` verb. ``before``/``after`` carry each run's full
-    ``(id, status, counts)`` endpoint so the count drift derives off the wire (``after.counts - before.counts``
-    per slot) without duplicated delta fields. ``added``/``removed`` are the symmetric-difference cardinalities
-    of the two runs' ``Match`` result sets (keyed by ``(id, line)``), so an agent reads what a change introduced
-    or resolved straight off the wire.
+    ``before``/``after`` carry each run's full ``(id, status, counts)`` so count drift derives off the wire
+    (``after.counts - before.counts``); ``added``/``removed`` are the result-set cardinalities keyed by ``(id, line)``.
     """
 
     before: RunSnapshot = RunSnapshot()
@@ -371,16 +346,7 @@ class Report(Base, frozen=True):
 
 
 class Envelope(Base, frozen=True, kw_only=True):
-    """Wire root: inherits ``Base``'s ``omit_defaults=True`` so the success wire stays terse.
-
-    ``schema_version`` is REQUIRED (no default), so msgspec serializes it unconditionally regardless of
-    ``omit_defaults`` — the wire version tag always emits while ``error``/``error_context``/``notes``/
-    ``truncated`` stay OFF the success wire when defaulted (the prior ``omit_defaults=False`` override
-    forced every field to emit, contradicting the discipline and the ``Diagnostic`` contract). ``claim``
-    + ``verb`` already carry the dispatched command path, so no separate ``command_path`` field rides the
-    wire. ``__cyclopts_returncode__`` feeds ``resolve_returncode`` so the exit code originates from a
-    single field aligned to ``status.exit_code``.
-    """
+    """Wire root: ``omit_defaults`` keeps the success wire terse; ``schema_version`` is required so it always emits."""
 
     schema_version: int
     claim: Claim
@@ -412,13 +378,10 @@ class Bind(Base, frozen=True):
 @Parameter(name="*")
 @dataclass(frozen=True, slots=True, kw_only=True)
 class BaseParams:
-    """Shared CLI-params leaf: the no-cycle home both rails and registry import.
+    """Shared CLI-params leaf: lives here (not in a rail) so rails and registry import it without a cycle.
 
-    Lives here, not in a rail, so rails and registry import it without a cycle. Concrete
-    ``StaticParams``/``TestParams``/... inherit it in their owning ``rails/<claim>.py``. The
-    ``@Parameter(name="*")`` decoration rides ``__cyclopts__`` and is inherited by every concrete
-    ``*Params`` subclass, so the Cyclopts leaf flattens its fields onto the CLI without a per-verb
-    ``Annotated`` wrapper — the registry ``_leaf`` reads it off the resolved type, no override hack.
+    ``@Parameter(name="*")`` is inherited by every concrete ``*Params`` subclass, flattening its fields
+    onto the CLI without a per-verb ``Annotated`` wrapper.
     """
 
     paths: tuple[str, ...] = ()
@@ -448,7 +411,7 @@ def validate_detail(detail: AnyDetail | None) -> AnyDetail | None:
 
 
 def _count(done: Completed) -> tuple[int, int]:
-    """Sole count-derivation primitive: fold one ``Completed.status`` to an ``(ok, failed)`` pair."""
+    # sole count-derivation primitive: one Completed.status -> (ok, failed)
     match done.status:
         case RailStatus.OK | RailStatus.EMPTY | RailStatus.SKIP:
             return 1, 0
