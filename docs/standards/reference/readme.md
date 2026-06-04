@@ -6,9 +6,9 @@ A README is an entry document for one boundary: repository, package, directory, 
 
 Use a README to open exactly one boundary:
 
-- repository root for users, adopters, and contributors;
-- package, library, or directory for local purpose and public entrypoints;
-- documentation corpus for routing a reader to the next page;
+- repository root for users, adopters, and contributors.
+- package, library, or directory for local purpose and public entrypoints.
+- documentation corpus for routing a reader to the next page.
 - tool, command, or local service for the first successful invocation.
 
 Route architecture structure, API or symbol catalogs, learning paths, operational recovery, future-work sequences, durable decisions, and contribution workflow to their owning standards. Keep the README to orientation, first path, and routing.
@@ -17,37 +17,7 @@ Route architecture structure, API or symbol catalogs, learning paths, operationa
 
 README conventions come from platform rendering, open-source README baselines, badge providers, and local routing policy. Use the source that owns the question.
 
-GitHub README documentation
-    Source of truth: [GitHub README documentation](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes).
-    Owns: rendering, discovery, and recognized file placement.
-    Local use: platform-visible README behavior.
-    Last verified: 2026-06-04
-    Review trigger: GitHub README rendering or placement guidance changes.
-
-standard-readme specification
-    Source of truth: [standard-readme specification](https://github.com/RichardLitt/standard-readme/blob/main/spec.md).
-    Owns: open-source project section baseline.
-    Local use: baseline narrowed by local owner routing.
-    Last verified: 2026-06-04
-    Review trigger: standard-readme baseline changes.
-
-Make a README
-    Source of truth: [Make a README](https://www.makeareadme.com/).
-    Owns: practical project README guidance.
-    Local use: background practice, not binding section order.
-    Last verified: 2026-06-04
-    Review trigger: practical README guidance changes.
-
-Shields.io documentation
-    Source of truth: [Shields.io documentation](https://shields.io/docs/).
-    Owns: badge generation surface.
-    Local use: badge rendering, not status truth.
-    Last verified: 2026-06-04
-    Review trigger: Shields.io badge model changes.
-
-Repository truth
-    Source of truth: repository source, manifests, lockfiles, generated contracts, runnable command output, and owner documents.
-    Review trigger: source, command, package, support, or owner-document change.
+Use GitHub README documentation for platform-visible rendering, discovery, and recognized file placement. Use the standard-readme specification and Make a README as background baselines narrowed by local owner routing. Use Shields.io documentation for badge rendering, not status truth. Repository source, manifests, lockfiles, generated contracts, runnable command output, and owner documents outrank generic README advice.
 
 When a README would restate a fact another document owns, link the owner and avoid a second copy. Local Rasm routing intentionally keeps API catalogs, contribution workflow bodies, roadmap sequences, runbook procedures, and architecture rationale out of README files even when a generic README baseline lists adjacent sections.
 
@@ -55,11 +25,11 @@ When a README would restate a fact another document owns, link the owner and avo
 
 Choose one primary profile by the boundary the README opens, not by the directory where it sits.
 
-| [INDEX] | [PROFILE]     | [READER]                 | [BOUNDARY]      | [SUCCESS_SIGNAL]                       |
-| :-----: | :------------ | :----------------------- | :-------------- | :------------------------------------- |
-|   [1]   | Root entry    | user or contributor      | repository      | first run plus owner-doc route         |
-|   [2]   | Package entry | package consumer or editor | package         | purpose, status, and entrypoints       |
-|   [3]   | Hub index     | corpus navigator         | docs corpus     | correct child page on first read       |
+| [INDEX] | [PROFILE]     | [READER]                    | [BOUNDARY]      | [SUCCESS_SIGNAL]                       |
+| :-----: | :------------ | :-------------------------- | :-------------- | :------------------------------------- |
+|   [1]   | Root entry    | user or contributor         | repository      | first run plus owner-doc route         |
+|   [2]   | Package entry | package consumer or editor  | package         | purpose, status, and entrypoints       |
+|   [3]   | Hub index     | corpus navigator            | docs corpus     | correct child page on first read       |
 |   [4]   | Tool entry    | command or service operator | tool or service | first command runs and verifies effect |
 
 Name the profile in the opening paragraph when the file could plausibly read as another profile.
@@ -74,13 +44,13 @@ Every README obeys one shared contract:
 - Place a one-paragraph description directly after the title, and after any badge or banner, before any other section.
 - Use relative links for repository-local targets so the README renders on the hosting platform and in a local checkout.
 - Show advertised install, setup, usage, and verification commands exactly as a reader runs them in fenced, intent-labeled code blocks.
-- Mark an unverified advertised command with `Evidence: not verified in this change` rather than implying it ran.
+- Mark an unverified advertised command as not run in the current change rather than implying it ran; [proof.md](../proof.md) owns the exact evidence details when a claim needs them.
 
 Field cardinality: file name, H1, and description are required and singular. Section-heading convention is required and singular: choose public plain headings or repo-internal bracketed headings, not both. Badges and banners are optional and repeatable. Relative links are required for every local link.
 
 ## [5][BADGES_BANNERS]
 
-Badges are status metadata, not decoration. Include a badge only when it reflects maintained automation, a release, security posture, or package metadata that a reader can verify.
+Badges are status claims, not decoration. Include a badge only when it reflects maintained automation, a release, security posture, or package fact that a reader can verify.
 
 - Keep the lead block to two to four high-value badges such as build, version, coverage, and license.
 - Link each badge to the service that produced the status.
@@ -163,7 +133,7 @@ Package entry
 
 Hub index
     Required: `Choose`, `Pages`.
-    Conditional: `Freshness`.
+    Conditional: child-set maintenance note when the page list changes outside normal review.
     Omit: install, usage, support, and command sections unless the corpus itself owns that first action.
 
 Tool entry
@@ -185,7 +155,7 @@ Section cardinality:
 - `Constraints`: conditional when a reader would otherwise assume unsupported capability.
 - `Choose`: required for hub indexes.
 - `Pages`: required and repeatable for hub indexes.
-- `Freshness`: conditional for hub indexes whose child set changes.
+- Child-set maintenance note: conditional for hub indexes whose child set changes outside normal review.
 - `Requirements`, `First command`, and `Verify`: required for tool entries.
 - `Commands`: optional for first-run-adjacent commands only; full command inventories route to [reference.md](reference.md) or [api.md](api.md).
 - `Output`: conditional when the tool writes files, captures, external state, or durable artifacts.
@@ -197,7 +167,7 @@ A README must carry the facts its profile needs and no deeper owner's body.
 
 - Boundary: name what the README opens and the nearest concern it excludes in the first paragraph.
 - First path: for root, package, and tool profiles that advertise commands, provide the shortest path to one observable result and proof status for each command.
-- Hub route: for hub indexes, route by reader need and prove child-link freshness; do not invent install or verification commands.
+- Hub route: for hub indexes, route by reader need and keep child links current; do not invent install or verification commands.
 - Owner map: include one link per owner document for deeper concerns the README only summarizes.
 - Status: source package or support claims to a manifest, lockfile, generated contract, support matrix, or current tool output.
 - License: name the SPDX identifier and owner for any published repository.
@@ -207,7 +177,7 @@ A README must carry the facts its profile needs and no deeper owner's body.
 
 Use structure where it improves scanning:
 
-- Status, maturity, and support: status-tagged record with `Status`, an exit or support-phase condition, and `Evidence:`.
+- Status, maturity, and support: status-tagged record with `Status`, an exit or support-phase condition, and a nearby verification note when the claim can drift.
 - Entrypoints, import surfaces, and command maps: lookup table or definition block, never prose that hides a key-to-effect map.
 - Documentation and child maps: definition block under eight entries; table only when entries carry comparable columns such as owner or status.
 - First-run troubleshooting: decision table only when more than one setup symptom maps to a distinct response; otherwise use one short paragraph.
@@ -221,7 +191,6 @@ Use an owner route card when a README links deeper documents that change reader 
 ```text template
 Owner: `<package, tool, corpus, or service>`
 Why linked: `<one sentence naming the reader decision this route changes>`
-Review trigger: owner document, public entrypoint, support, or roadmap change.
 Routes: `<manual, architecture, roadmap, support, how-to, tutorial, or other adjacent owner; omit untriggered routes>`
 ```
 
@@ -229,9 +198,7 @@ Use a package or tool entry card when status, entrypoints, and first proof would
 
 ```text template
 Entrypoints: `<import surface, command, executable, or public type family>`
-Verify: `<observable result, command, status check, or proof gap>`
-Evidence: `<manifest, generated contract, current tool output, or proof gap>`
-Review trigger: entrypoint, command, manifest, support, or owner-doc change.
+Verify: `<observable result, command, or status check; omit when no runnable path exists>`
 Status: `<declared local status term and source; omit when status does not change reader action>`
 First command: `<copyable command; omit when the package has no first command>`
 ```
@@ -258,7 +225,7 @@ Read by what you are doing, then open one child.
 [support-matrix.md](support-matrix.md): supported versions, platforms, and runtimes.
 ```
 
-The example is conceptual because it omits `Freshness` when the child-set trigger does not apply. It keeps one link per child and gives each child a role that separates it from siblings.
+The example is conceptual because the child set does not need a separate maintenance note. It keeps one link per child and gives each child a role that separates it from siblings.
 
 Rejected child prose:
 
@@ -282,7 +249,6 @@ Example Project provides the local service boundary for reviewed plans; architec
 example install
 ```
 
-Evidence: not verified in this change.
 
 ## Usage
 
@@ -299,7 +265,6 @@ Architecture: `docs/architecture.md`
 Roadmap: `ROADMAP.md`
 Support: `docs/support/example.md`
 Why linked: architecture owns service boundaries, roadmap owns unfinished sequence, and support owns supported runtime facts.
-Review trigger: owner document, support policy, or first-run command changes.
 ````
 
 The example is conceptual: it shows the minimum root README path with command proof and owner routing, not a universal public section set.
@@ -325,8 +290,8 @@ The example is conceptual: it shows the minimum root README path with command pr
 - [ ] Required sections for the chosen profile are present; conditional sections appear only when triggered.
 - [ ] No optional or conditional heading appears empty.
 - [ ] Runnable proof applies only to profiles and sections that advertise runnable commands.
-- [ ] Hub indexes with changing child sets prove child-link freshness and route by reader need.
-- [ ] Status and support claims use records with evidence.
+- [ ] Hub indexes with changing child sets route by reader need and keep child links current.
+- [ ] Status and support claims use records with claim-level proof delegated to [proof.md](../proof.md).
 - [ ] Entrypoints and command maps use lookup tables or definition blocks.
 - [ ] Owner route cards and package or tool entry cards appear only when they make routing denser than prose.
 - [ ] Troubleshooting stays limited to first-run setup; operational recovery links to a runbook.

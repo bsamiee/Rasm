@@ -22,21 +22,18 @@ Do not use a test strategy to list every command a contributor runs, catalog run
 
 Separate local executable truth from external testing vocabulary. Repository truth owns gate names, commands, runners, status-check identifiers, artifacts, owner roles, and release policy. External standards and practice supply reusable concepts; no produced strategy claims external compliance unless a local policy explicitly requires it.
 
-Source of truth: local gate config, CI workflow, quality command, test owner file, or release policy named by the produced strategy.
 
-| [INDEX] | [CONCEPT]            | [USE]                     | [BASIS]                                      | [BOUNDARY]        |
-| :-----: | :------------------- | :------------------------ | :------------------------------------------- | :---------------- |
-|   [1]   | documentation shape  | strategy/plan/evidence    | ISO 29119-3                                  | vocabulary only   |
-|   [2]   | strategy archetypes  | local planning labels     | ISTQB CTAL-TM                                | no compliance     |
-|   [3]   | risk-based depth     | tier-to-gate mapping      | ISTQB CTFL + CTAL-TM                         | local register    |
-|   [4]   | small-test base      | deterministic pyramid     | Google ch. 11                                | practice reference |
-|   [5]   | large-test trade-off | size, fidelity, cost      | Google ch. 14                                | concepts only     |
-|   [6]   | flaky-test pressure  | quarantine and ownership  | Google ch. 11/14 plus local truth            | local thresholds  |
+| [INDEX] | [CONCEPT]            | [USE]                    | [BASIS]                           | [BOUNDARY]         |
+| :-----: | :------------------- | :----------------------- | :-------------------------------- | :----------------- |
+|   [1]   | documentation shape  | strategy/plan/evidence   | ISO 29119-3                       | vocabulary only    |
+|   [2]   | strategy archetypes  | local planning labels    | ISTQB CTAL-TM                     | no compliance      |
+|   [3]   | risk-based depth     | tier-to-gate mapping     | ISTQB CTFL + CTAL-TM              | local register     |
+|   [4]   | small-test base      | deterministic pyramid    | Google ch. 11                     | practice reference |
+|   [5]   | large-test trade-off | size, fidelity, cost     | Google ch. 14                     | concepts only      |
+|   [6]   | flaky-test pressure  | quarantine and ownership | Google ch. 11/14 plus local truth | local thresholds   |
 
 Sources: [ISO 29119-3](https://www.iso.org/standard/79429.html), [ISTQB CTAL-TM](https://istqb.org/wp-content/uploads/2024/11/ISTQB_CTAL-TM_Syllabus_v3.0_zKjKsaN.pdf), [ISTQB CTFL](https://istqb.org/wp-content/uploads/2024/11/ISTQB_CTFL_Syllabus_v4.0.1.pdf), [Google chapter 11](https://abseil.io/resources/swe-book/html/ch11.html), and [Google chapter 14](https://abseil.io/resources/swe-book/html/ch14.html).
 
-Last verified: 2026-06-04
-Review trigger: local gate surface, ISO 29119-3, ISTQB syllabus, or maintained testing-model guidance changes.
 
 ## [3][PROFILES_ARCHETYPES]
 
@@ -68,7 +65,7 @@ Prefer `Analytical` when a risk register governs the scope. If a produced strate
 
 Repository truth owns executable details. The strategy names the level, risk, trigger, and selection rule, and it links the live source for commands, runner config, status checks, artifacts, and owner roles. When a fact can drift, prove it from repository truth before external examples.
 
-Carry local executable truth in the opening metadata `Source of truth` field. Carry external taxonomy proof only in this standard or in a produced strategy's `External basis` note when the strategy explicitly depends on external compliance.
+Carry local executable truth beside the gate, level, risk, or policy claim it proves. Carry external taxonomy proof only in this standard or in a produced strategy's `External basis` note when the strategy explicitly depends on external compliance.
 
 Produced strategies must replace every placeholder with local truth. A strategy is incomplete if it contains `LOCAL_*`, `*_GATE_NAME`, generic gate classes, or unnamed review owners in place of a source path, status check, contract, or accountable role.
 
@@ -104,10 +101,6 @@ Use this required section order. Conditional sections are omitted until their tr
 ```markdown template
 # [SCOPE_TEST_STRATEGY]
 
-Owner: <owner role or group>
-Source of truth: <path to gate config, CI workflow, quality command, or release policy>
-Review trigger: <event, for example a gate added or renamed>
-
 <Lead: name the one profile, the primary archetype, any secondary influence, and the single risk class this scope owns.>
 
 ## [1][SCOPE]
@@ -131,12 +124,12 @@ Review trigger: <event, for example a gate added or renamed>
 
 Conditional section decision table:
 
-| [INDEX] | [SECTION]                 | [TRIGGER]              | [AFTER]        | [OMIT_WHEN]              |
-| :-----: | :------------------------ | :--------------------- | :------------- | :----------------------- |
-|   [1]   | `Entry and exit criteria` | release/approval gates | Gate mapping   | no open/close criteria   |
-|   [2]   | `Flaky-test policy`       | rerun or quarantine    | Ownership      | scope cannot quarantine  |
-|   [3]   | `Metrics`                 | decision-driving metric | Flaky/Ownership | observational only       |
-|   [4]   | `Review trigger`          | multiple stale events  | before Boundaries | metadata is enough    |
+| [INDEX] | [SECTION]                 | [TRIGGER]               | [AFTER]           | [OMIT_WHEN]                 |
+| :-----: | :------------------------ | :---------------------- | :---------------- | :-------------------------- |
+|   [1]   | `Entry and exit criteria` | release/approval gates  | Gate mapping      | no open/close criteria      |
+|   [2]   | `Flaky-test policy`       | rerun or quarantine     | Ownership         | scope cannot quarantine     |
+|   [3]   | `Metrics`                 | decision-driving metric | Flaky-test policy or Ownership | observational only |
+|   [4]   | `Maintenance events`      | multiple stale events   | before Boundaries | claim-level proof is enough |
 
 Conditional addition template:
 
@@ -147,12 +140,12 @@ Conditional addition template:
 
 ## [N][METRICS]
 
-## [N][REVIEW_TRIGGER]
+## [N][MAINTENANCE_EVENTS]
 ```
 
 Section cardinality:
 
-- Opening metadata, opening paragraph, `Scope`, `Principles`, `Risk model`, `Test levels`, `Gate mapping`, `Required proof by change`, `Ownership`, `Boundaries`, and `Review checklist` are required.
+- Opening paragraph, `Scope`, `Principles`, `Risk model`, `Test levels`, `Gate mapping`, `Required proof by change`, `Ownership`, `Boundaries`, and `Review checklist` are required.
 - Conditional sections appear only when their decision-table trigger holds.
 
 ## [7][SCOPE]
@@ -181,7 +174,7 @@ The table below is a default likelihood-by-impact template, not a universal rule
 
 | [INDEX] | [TIER]  | [DEFAULT_SCORE] | [TEST_DEPTH]              | [MINIMUM_PROOF]                         |
 | :-----: | :------ | --------------: | :------------------------ | :-------------------------------------- |
-|   [1]   | Extreme |           20-25 | full plus nonfunctional   | release gate from source truth          |
+|   [1]   | Extreme |           20-25 | full plus nonfunctional   | release gate from local policy          |
 |   [2]   | High    |           13-19 | integration plus property | post-submit status check or contract    |
 |   [3]   | Medium  |            5-12 | unit plus contract        | presubmit status check or contract diff |
 |   [4]   | Low     |             1-4 | unit or review gate       | review owner or deterministic unit gate |
@@ -247,7 +240,6 @@ Gate: <local-gate-name>
 Trigger: <presubmit, post-submit, nightly, release, manual approval, or incident follow-up>
 Selection: <changed-path, risk label, release target, or full-suite cadence>
 Blocking: <blocks merge, blocks release, blocks approval, or reports only>
-Status check: <status check or artifact from source of truth>
 Escalation owner: <owner role>
 Residual risk if deferred: <risk left unproven>
 ```
@@ -302,16 +294,16 @@ Do not require pass-rate, critical-flow, defect-bound, or escape-budget fields u
 
 ## [13][REQUIRED_PROOF_CHANGE]
 
-Map each change family to the smallest sufficient proof surface. The table below is a template: produced strategies replace every proof cell with repository gate names, contracts, or review owners from source truth and link [proof.md](../proof.md) for evidence strength rather than restating the evidence hierarchy.
+Map each change family to the smallest sufficient proof surface. The table below is a template: produced strategies replace every proof cell with repository gate names, contracts, or review owners and link [proof.md](../proof.md) for evidence strength rather than restating the evidence hierarchy.
 
-| [INDEX] | [CHANGE]          | [PROOF]                    | [ESCALATE_WHEN]       |
-| :-----: | :---------------- | :------------------------- | :-------------------- |
-|   [1]   | behavior          | unit/property gate         | public contract       |
-|   [2]   | integration       | contract gate or diff      | owner boundary        |
-|   [3]   | journey/deploy    | e2e, smoke, or scenario    | critical journey      |
-|   [4]   | host runtime      | runtime/manual proof       | host output changes   |
-|   [5]   | nonfunctional     | budget gate or audit       | budget breach         |
-|   [6]   | docs/config       | review, generated, or link | documented contract   |
+| [INDEX] | [CHANGE]       | [PROOF]                    | [ESCALATE_WHEN]     |
+| :-----: | :------------- | :------------------------- | :------------------ |
+|   [1]   | behavior       | unit/property gate         | public contract     |
+|   [2]   | integration    | contract gate or diff      | owner boundary      |
+|   [3]   | journey/deploy | e2e, smoke, or scenario    | critical journey    |
+|   [4]   | host runtime   | runtime/manual proof       | host output changes |
+|   [5]   | nonfunctional  | budget gate or audit       | budget breach       |
+|   [6]   | docs/config    | review, generated, or link | documented contract |
 
 When an escalation trigger fires, the change also clears the broader gate the row escalates into. A produced strategy that leaves a placeholder, generic gate class, or unowned review path in this table is incomplete.
 
@@ -380,11 +372,11 @@ Include metrics only when each metric changes a decision. Bind every metric to t
 
 Do not publish a metric the scope cannot act on, and do not present raw coverage percentage as proof of correctness.
 
-## [17][REVIEW_TRIGGER]
+## [17][MAINTENANCE_EVENTS]
 
-Carry the dominant trigger in opening metadata. Add this section only when several triggers need explanation. Event triggers beat calendar dates unless an external standard changes on a schedule.
+Add this section only when several maintenance events need explanation. Events beat calendar dates unless an external standard changes on a schedule.
 
-Common triggers:
+Common events:
 
 - gate, runner, or status check added, renamed, or removed;
 - test level changes size, scope, or hermeticity boundary;
@@ -402,7 +394,7 @@ Common triggers:
 - Process decisions that bind gate policy or quarantine authority: [adr.md](adr.md).
 - Proposal validation plans that consume strategy gates: [design-doc.md](design-doc.md).
 - Contributor workflow and per-task commands: [contributing.md](../task/contributing.md).
-- Evidence strength, freshness fields, and verification gates: [proof.md](../proof.md).
+- Evidence strength, proof details, and verification gates: [proof.md](../proof.md).
 - Operational recovery from a failing gate in production: [runbook.md](../task/runbook.md).
 - Test-tool and framework API lookup: [reference.md](../reference/reference.md).
 - Delivery sequence and milestone exit criteria: [roadmap.md](roadmap.md).
@@ -411,7 +403,7 @@ Common triggers:
 ## [19][REVIEW_CHECKLIST]
 
 - [ ] One profile and one primary archetype are named in the opening paragraph; secondary influences are explicit and justified.
-- [ ] Opening metadata carries `Owner`, local executable `Source of truth`, and `Review trigger`.
+- [ ] Ownership names the role accountable for local executable gate truth.
 - [ ] Scope and owner boundaries are stated, and one primary risk class is owned.
 - [ ] External taxonomy is separated from local executable gate truth through the local-truth section and concept table.
 - [ ] Archetype labels are treated as local adaptations, not compliance claims.
@@ -427,5 +419,5 @@ Common triggers:
 - [ ] Every large and cross-owner test has a named diagnosis owner.
 - [ ] Flaky-test policy appears when rerun, quarantine, noisy-test, re-enable, or deletion decisions exist, and it carries the quarantine status vocabulary plus owner, duration, residual signal, and re-enable or deletion criteria.
 - [ ] Each metric binds to a named decision; raw coverage percentage is not presented as proof.
-- [ ] Review triggers use events, not calendar dates unless the external source changes on schedule.
+- [ ] Maintenance events use events, not calendar dates unless the external source changes on schedule.
 - [ ] Boundaries carry at most one link per adjacent owner.

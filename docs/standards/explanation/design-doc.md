@@ -21,8 +21,6 @@ Do not use a design document for one obvious approach with no meaningful trade-o
 This standard derives its shape from collaborative software design-doc practice and RFC-style final review, but it applies them as local documentation rules. Google's design-doc discussion supports collaborative pre-code review, goals, alternatives, trade-offs, cross-cutting concerns, and archival value. RFC 2026 supports open review, consensus, and Last Call as a final-objection pattern; local Last Call borrows only the bounded final-review pattern and does not claim to run the IETF process.
 
 External basis: [Software Engineering at Google, Design Docs](https://abseil.io/resources/swe-book/html/ch10.html), [RFC 2026 Internet Standards Process](https://www.rfc-editor.org/rfc/rfc2026), [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119.html), and [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174.html). This standard owns the enforceable local template, status vocabulary, profile model, and handoff records.
-Last verified: 2026-06-04
-Review trigger: design-doc practice, RFC Last Call process, or BCP 14 keyword guidance changes.
 
 ## [3][MODAL_LANGUAGE]
 
@@ -32,11 +30,11 @@ Use lowercase `must`, `should`, and `may` with the local craft standard's ordina
 
 Pick one profile from blast radius. The profile raises review obligations; it never removes the ambiguity gate.
 
-| [INDEX] | [PROFILE]        | [TRIGGER]                 | [REVIEW]            | [LAST_CALL]            | [ADR_HANDOFF] |
-| :-----: | :--------------- | :------------------------ | :------------------ | :--------------------- | :------------ |
-|   [1]   | Lightweight      | one owner or package      | owning reviewer     | optional               | no            |
-|   [2]   | Standard         | 2+ owners or packages     | each affected owner | local Last Call        | if policy     |
-|   [3]   | Public-contract  | runtime, contract, public | owners plus driver  | audience + channel     | yes           |
+| [INDEX] | [PROFILE]       | [TRIGGER]                 | [REVIEW]            | [LAST_CALL]        | [ADR_HANDOFF] |
+| :-----: | :-------------- | :------------------------ | :------------------ | :----------------- | :------------ |
+|   [1]   | Lightweight     | one owner or package      | owning reviewer     | optional           | no            |
+|   [2]   | Standard        | 2+ owners or packages     | each affected owner | local Last Call    | if policy     |
+|   [3]   | Public-contract | runtime, contract, public | owners plus driver  | audience + channel | yes           |
 
 `If policy` means acceptance binds durable architecture policy. `Public-contract` means the change has enough public, runtime, or contract blast radius that every concern gets an accountable owner or a stated `n/a` reason.
 
@@ -53,34 +51,16 @@ Source order decides a wording or scope question when sources disagree:
 
 A design document proposes; it never overrides an accepted decision. When a slice contradicts an accepted ADR, the design must either narrow scope or plan the ADR supersession handoff.
 
-## [6][OPENING_METADATA]
+## [6][LIFECYCLE_FIELDS]
 
-Every design document opens with one definition block, one `label: value` per line. Copy only the always-required fields first; add conditional metadata only when its trigger holds.
+Every design document states lifecycle facts where they route review obligations: status and profile in the lead, reviewer and Last Call facts in review sections, and supersession in the handoff or boundaries section.
 
-```markdown template
-Status: Draft | Discussion | Last Call | Accepted | Implemented | Abandoned
-Profile: Lightweight | Standard | Public-contract
-Date: YYYY-MM-DD
-Authors: <names or owner roles>
-```
+Lifecycle fact cardinality:
 
-Conditional metadata additions:
-
-```markdown template
-Reviewers: <consulted owners or review groups>
-Last Call deadline: YYYY-MM-DD
-Last Call channel: <notification channel or review surface>
-Supersedes design: <path to earlier design>
-Implemented evidence: <PR, ADR, roadmap milestone, release note, or validation receipt>
-```
-
-Metadata cardinality:
-
-- `Status`, `Profile`, `Date`, and `Authors` are required.
+- `Status`, `Profile`, `Date`, and `Authors` are required in the lead.
 - `Reviewers` is required at `Discussion` and later.
 - `Last Call deadline` and `Last Call channel` are required at `Last Call` and later for `Standard` and `Public-contract`.
 - `Supersedes design` appears only when this proposal replaces an earlier design.
-- `Implemented evidence` is required only at `Implemented`; it links the owning implementation, ADR, roadmap, release, or validation receipt.
 
 `Status` and `Profile` are discriminants: an agent reads them to route lifecycle obligations and conditional sections. Keep both to one value from the closed set.
 
@@ -93,7 +73,7 @@ Draft skeleton:
 ```markdown template
 # [CHANGE_NAMED_OUTCOME]
 
-<Opening metadata.>
+<Lead: name status, profile, date, authors, and the proposal outcome.>
 
 ## [1][PROBLEM]
 
@@ -111,7 +91,7 @@ Discussion and later skeleton:
 ```markdown template
 # [CHANGE_NAMED_OUTCOME]
 
-<Opening metadata.>
+<Lead: name status, profile, date, authors, reviewers when required, and the proposal outcome.>
 
 ## [1][PROBLEM]
 
@@ -159,7 +139,7 @@ Lifecycle/profile decision table:
 | [INDEX] | [CONDITION]                              | [REQUIRED_OUTPUT]                                           |
 | :-----: | :--------------------------------------- | :---------------------------------------------------------- |
 |   [1]   | `Status: Draft`                          | draft skeleton; visible gap note                            |
-|   [2]   | `Status: Discussion` or later            | discussion skeleton; reviewers metadata                     |
+|   [2]   | `Status: Discussion` or later            | discussion skeleton; reviewer lifecycle facts               |
 |   [3]   | `Profile: Standard` or `Public-contract` | review slices and cross-cutting implications                |
 |   [4]   | `Status: Last Call` or later             | Last Call record, deadline, channel, approval disposition   |
 |   [5]   | acceptance binds durable policy          | decision-record handoff                                     |
@@ -167,7 +147,7 @@ Lifecycle/profile decision table:
 
 Section cardinality:
 
-- Opening metadata, `Boundaries`, and `Review checklist` are required for every status.
+- Lifecycle facts, `Boundaries`, and `Review checklist` are required for every status.
 - `Problem`, `Rough goals`, and `Gaps` are enough for `Draft`.
 - `Goals`, `Non-goals`, `Context`, `Proposed approach`, `Alternatives considered`, `Risks and open questions`, and `Validation and proof plan` are required at `Discussion` and later.
 - `Review slices` is required for `Standard` and `Public-contract`; it is optional for `Lightweight` and appears only when separate reviewable changes are real.
@@ -180,7 +160,7 @@ State each section's controlling content first and its boundary last. Where a se
 - `Problem`: name the specific user, product, operational, or engineering pressure and who feels it. One controlling pressure per paragraph.
 - `Goals`: write each goal as a checklist item with an observable metric, threshold, or pass/fail signal.
 - `Non-goals`: name tempting scopes the proposal declines and the reason each is out of scope.
-- `Context`: link current source paths, prior accepted decisions, issues, and standards as live links. Drift-prone context claims with source, API, tool, or contract truth carry nearby `Source of truth:`, `Evidence:`, `Last verified:`, or `Review trigger:` fields.
+- `Context`: link current source paths, prior accepted decisions, issues, and standards as live links. Drift-prone context claims follow [proof.md](../proof.md).
 - `Proposed approach`: lead with the selected shape and close with the constraint a reviewer must accept to approve.
 - `Alternatives considered`: record the chosen option, strongest rejected option, and do-nothing baseline unless inaction was impossible. Every option states its deciding trade-off.
 - `Review slices`: define self-contained, ordered, revertible changes. Each slice has one reviewer focus, rollback boundary, and milestone handoff only when it becomes dated work.
@@ -207,10 +187,10 @@ Each item pairs outcome with the metric, threshold, or signal that proves it. Ca
 
 Use a comparison table when two or more options survive triage. The baseline row is mandatory when inaction was plausible. Name columns after the deciding facts reviewers need, not generic sentiment.
 
-| [INDEX] | [OPTION]            | [DRIVER]   | [COST]      | [RISK]          | [VERDICT]         |
-| :-----: | :------------------ | :--------- | :---------- | :-------------- | :---------------- |
-|   [1]   | Sharded writers     | throughput | rebalance   | shard-loss mode | selected          |
-|   [2]   | Single-writer queue | ownership  | one core    | caps throughput | rejected          |
+| [INDEX] | [OPTION]            | [DRIVER]    | [COST]      | [RISK]          | [VERDICT]         |
+| :-----: | :------------------ | :---------- | :---------- | :-------------- | :---------------- |
+|   [1]   | Sharded writers     | throughput  | rebalance   | shard-loss mode | selected          |
+|   [2]   | Single-writer queue | ownership   | one core    | caps throughput | rejected          |
 |   [3]   | Do nothing          | no new code | drift stays | misses pressure | rejected baseline |
 
 When only one option survived and the trade-off is asymmetric, a `Lightweight` design may render this section as labeled prose instead of a table. The deciding trade-off and baseline still appear inside `Alternatives considered`; do not hide them under `Proposed approach`.
@@ -269,7 +249,6 @@ Concern: security
 Applies: yes | no
 Owner: <owner role, or n/a reason when no>
 Decision: <constraint, mitigation, or n/a reason>
-Evidence: <source, review, gate, or proof gap>
 ```
 
 `Risks and open questions` carries one record per item. A live item is `open`, `assigned`, or `deferred (owner)`; a settled item is `resolved` or `accepted-as-risk`.
@@ -296,20 +275,17 @@ Tracking: issues/487 - benchmark settled per-key contention.
 
 `Validation and proof plan` carries one row per gate, with an enforcement flag that separates a real gate from review intent:
 
-| [INDEX] | [GATE]              | [COMMAND_CONTRACT]        | [ACCEPTANCE_SIGNAL] | [ENFORCEMENT] |
-| :-----: | :------------------ | :------------------------ | :------------------ | :------------ |
-|   [1]   | Unit laws           | unit test status check    | suite green         | enforced      |
-|   [2]   | Storage contract    | generated schema diff     | no breaking change  | enforced      |
-|   [3]   | Owner design review | none                      | two owner approvals | review-only   |
+| [INDEX] | [GATE]              | [COMMAND_CONTRACT]     | [ACCEPTANCE_SIGNAL] | [ENFORCEMENT] |
+| :-----: | :------------------ | :--------------------- | :------------------ | :------------ |
+|   [1]   | Unit laws           | unit test status check | suite green         | enforced      |
+|   [2]   | Storage contract    | generated schema diff  | no breaking change  | enforced      |
+|   [3]   | Owner design review | none                   | two owner approvals | review-only   |
 
 At `Accepted` and `Implemented`, add proof receipt fields beside completed gates rather than rewriting planned gates as if they already ran:
 
 ```markdown template
 Gate: <gate name>
 Owner: <owner role>
-When run: <status check, PR, local command, or not run>
-Proof receipt: <artifact, link, or proof gap>
-Last verified: YYYY-MM-DD
 ```
 
 When a design proof gate depends on an existing test strategy, name that owner instead of restating the strategy:
@@ -317,9 +293,6 @@ When a design proof gate depends on an existing test strategy, name that owner i
 ```markdown template
 Gate: <gate name from test strategy>
 Strategy gate source: <test strategy path and gate anchor>
-When run: <status check, PR, local command, or not run>
-Proof receipt: <artifact, link, or proof gap>
-Last verified: YYYY-MM-DD
 ```
 
 `Last Call record` carries sign-off readiness:
@@ -385,13 +358,13 @@ Validation receipt: <proof plan receipt, implemented evidence, or proof gap>
 
 Handoff decision table:
 
-| [INDEX] | [CONDITION]                  | [HANDOFF_OWNER]               |
-| :-----: | :--------------------------- | :---------------------------- |
-|   [1]   | durable policy accepted      | ADR                           |
-|   [2]   | current structure changes    | architecture                  |
-|   [3]   | dated or sequenced work      | roadmap                       |
-|   [4]   | proof gate changes           | test strategy                 |
-|   [5]   | implementation evidence lands | owning implementation or PR  |
+| [INDEX] | [CONDITION]                   | [HANDOFF_OWNER]             |
+| :-----: | :---------------------------- | :-------------------------- |
+|   [1]   | durable policy accepted       | ADR                         |
+|   [2]   | current structure changes     | architecture                |
+|   [3]   | dated or sequenced work       | roadmap                     |
+|   [4]   | proof gate changes            | test strategy               |
+|   [5]   | implementation evidence lands | owning implementation or PR |
 
 ## [15][BOUNDARIES]
 
@@ -405,13 +378,13 @@ Handoff decision table:
 
 - [ ] The document has real ambiguity: at least two plausible approaches, cross-boundary consequences, or unresolved trade-offs.
 - [ ] `Status` and `Profile` are single closed-set values, and profile obligations are met.
-- [ ] Opening metadata cardinality holds; conditional fields appear only when their trigger holds.
+- [ ] Lifecycle field cardinality holds; conditional fields appear only when their trigger holds.
 - [ ] A `Draft` uses the draft skeleton, and `Discussion` or later uses the full proposal skeleton without optional `Review slices` unless its trigger holds.
 - [ ] Conditional sections appear only when their trigger holds.
 - [ ] `Problem` names a specific pressure and who feels it.
 - [ ] Each goal is a checklist item naming a metric, threshold, or pass condition.
 - [ ] Each non-goal is a declined candidate scope, not a restated failure mode.
-- [ ] `Context` links live source paths, decisions, issues, and standards, with freshness fields for drift-prone claims.
+- [ ] `Context` links live source paths, decisions, issues, and standards, with proof details for drift-prone claims.
 - [ ] Reviewers or consulted owners are listed at `Discussion` and later.
 - [ ] Each alternative records its deciding trade-off, and a do-nothing baseline appears when plausible.
 - [ ] Alternatives use table form when two or more options survive and the columns name real decision axes.

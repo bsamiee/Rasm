@@ -74,11 +74,11 @@ A table and its surrounding prose each own a distinct role; neither restates the
 
 ## [6][STRUCTURED_RECORDS]
 
-Render a finite enumerable set whose items carry state as structured records, never as flat prose. Milestones, decisions, requirements, risks, tasks, and gates need status, dependency, and exit proof. Each item is a record with machine-readable fields.
+Render a finite enumerable set whose items carry state as structured records, never as flat prose. Milestones, decisions, requirements, risks, tasks, and gates need status, dependency, and completion evidence. Each item is a record with machine-readable fields.
 
 Choose the record container by field shape. Use a table while items stay homogeneous and short-celled. Switch to a per-item record block once any field needs more than a cell.
 
-Use this closed `Status` vocabulary so an agent can filter on exact strings: `PLANNED`, `IN-PROGRESS`, `BLOCKED`, `DONE`, `DROPPED`. A type standard may define a domain-specific status set in place of this default. It may also extend or rename recurring fields for its domain, such as roadmap `Exit criteria` and `Proof surface`. Each status set stays closed, each field stays one `label: value` per line, and both are defined before first use.
+Use this closed `Status` vocabulary so an agent can filter on exact strings: `PLANNED`, `IN-PROGRESS`, `BLOCKED`, `DONE`, `DROPPED`. A type standard may define a domain-specific status set in place of this default. It may also extend or rename recurring fields for its domain, such as roadmap `Exit criteria` and completion-evidence surface. Each status set stays closed, each field stays one `label: value` per line, and both are defined before first use.
 
 The recurring record fields carry fixed meanings:
 
@@ -86,7 +86,8 @@ The recurring record fields carry fixed meanings:
 - `Exit`: the single observable, falsifiable condition that moves the item to `DONE` — a shipped artifact, a merged path, or a passing gate.
 - `Depends`: the item titles or anchors whose `Status` must be `DONE` first; omit when there is no prerequisite.
 - `Owner`: the role accountable for the item; include when more than one owner exists across the set.
-- `Proof`: the artifact path, command output, or link that substantiates completion; required where `Exit` is not self-evident.
+
+Completion evidence uses the proof field label owned by [proof.md](proof.md) where `Exit` is not self-evident.
 
 A per-item record block names the item, then carries its fields one `label: value` per line:
 
@@ -96,7 +97,6 @@ A per-item record block names the item, then carries its fields one `label: valu
 Status: PLANNED
 Exit: every AST rule ships passing and failing fixtures; the suite is green.
 Depends: Design corpus
-Proof: tests/ fixture run output.
 ```
 
 Escalate from a record table to per-item record blocks when any item has more than 5 fields, when any field needs a list or code block, or when items are updated independently over the document's life.
@@ -105,18 +105,18 @@ Escalate from a record table to per-item record blocks when any item has more th
 
 A checklist is the form for items whose completion is asserted and verified. Use a checkbox list (`- [ ]` / `- [x]`), not plain bullets, for acceptance gates, release readiness, onboarding steps, and author self-checks. Three forms differ by what each item carries:
 
-- Verification checklist: an author self-check of observable, falsifiable conditions; item text only, no owner or proof. The review checklist closing each standard is this form.
-- Acceptance checklist: an external gate; each item carries an `Owner` and an `Exit` condition, with `Proof` populated on completion.
+- Verification checklist: an author self-check of observable, falsifiable conditions; item text only, no owner or completion evidence. The review checklist closing each standard is this form.
+- Acceptance checklist: an external gate; each item carries an `Owner` and an `Exit` condition, with completion evidence added on completion through the field label owned by [proof.md](proof.md).
 - Status checklist: a living tracker; each item carries a `Status` and, where they exist, `Owner` and `Depends`.
 
 The fields trail the item text after an em dash, so a checkbox item carrying them stays a single line and never widens into a record block:
 
 ```markdown template
-- [ ] Migration applied to production — Owner: Platform; Exit: schema_version = 14; Proof: `<link>`
+- [ ] Migration applied to production — Owner: Platform; Exit: schema_version = 14
 - [ ] AST tier fixtures green — Status: IN-PROGRESS; Owner: Runtime; Depends: #design-corpus
 ```
 
-The first line is an acceptance item (`Owner` + `Exit`, `Proof` on completion); the second is a status item (`Status` plus `Owner` and `Depends`). A verification item carries item text alone. A checklist item may carry at most three trailing fields, all on the same line. When proof needs several lines, an item needs a list-valued field, or fields are updated independently, promote the item to a structured record rather than adding an indented proof block below a checkbox.
+The first line is an acceptance item (`Owner` + `Exit`); the second is a status item (`Status` plus `Owner` and `Depends`). A verification item carries item text alone. A checklist item may carry at most three trailing fields, all on the same line. When completion evidence needs several lines, an item needs a list-valued field, or fields are updated independently, promote the item to a structured record rather than adding an indented evidence block below a checkbox.
 
 Whenever a document asserts that gates, steps, or criteria are complete, use a checklist rather than prose; prose cannot encode completion state, and a plain bullet cannot be checked.
 
@@ -134,7 +134,6 @@ Use one label per line when a label carries meaning a reader will scan, quote, o
 
 ```markdown conceptual
 Owner: Platform maintainers
-Review trigger: runtime version changes
 ```
 
 When several records share one schema, use a grouped definition block: a plain group-name line, then the shared `label: value` fields indented four spaces beneath it, with a blank line between groups. A list-valued field keeps the label on its own line and indents the child list four spaces beneath the label; a wrapped prose continuation also indents four spaces. Once a record exceeds 5 fields, two or more fields need continuations, or any field needs a code block, move to a subsection-per-record block — an H3 heading as the record identifier and a definition block as its body. Do not pack several labeled facts into one sentence, and do not widen a record into a one-row table.
@@ -142,7 +141,7 @@ When several records share one schema, use a grouped definition block: a plain g
 ```markdown template
 Platform maintainers
     Owner: Platform
-    Review trigger: runtime version changes
+    Lifecycle: runtime version changes
 
 Release criteria
     Exit criteria:
@@ -179,7 +178,7 @@ Every ordinary code fence carries a language tag in its info string, and the int
 
 **Reusable inputs**
 - `copy-safe`: run or paste as written. For a config or data block, use this when the block is byte-equivalent to a named source-of-truth file, and name that file in the label (`copy-safe — config.yml`).
-- `template`: copy the structure, then replace every placeholder before use. Use this for section templates, metadata blocks, and table shapes that contain placeholders.
+- `template`: copy the structure, then replace every placeholder before use. Use this for section templates, lead contexts, and table shapes that contain placeholders.
 
 **Explanatory or scoped blocks**
 - `conceptual`: an illustrative or proposed shape, not a verbatim or runnable artifact.
@@ -278,7 +277,7 @@ Text equivalent: a request passes authentication first, rejects unauthenticated 
 
 Use Mermaid when rendered structure adds value beyond bullets or monospace text. Mermaid source is compact, text-editable, and renderer-backed, so prefer it over embedded images for any diagram an agent may need to read or revise. Use an exact `mermaid` fence, not an intent-labeled fence, because Markdown renderers detect Mermaid by the language tag. State conceptual, template, generated, or rejected intent in the lead-in sentence or caption.
 
-Modern Mermaid source starts with YAML frontmatter under `config:`. Prefer `layout: elk` when the repository has Mermaid ELK support, set `look: neo`, use `theme: base` when theme variables are needed, and do not use legacy Mermaid init directives. Place `accTitle` and `accDescr` immediately after the diagram declaration when the diagram type supports them, and keep a visible text equivalent nearby because renderer metadata alone is not enough.
+Mermaid source may use the renderer `config:` block inside the diagram fence; this is diagram configuration, not document metadata. Prefer `layout: elk` when the repository has Mermaid ELK support, set `look: neo`, and use `theme: base` when theme variables are needed. Place `accTitle` and `accDescr` immediately after the diagram declaration when the diagram type supports them, and keep a visible text equivalent nearby.
 
 Map the content shape to the diagram type:
 
@@ -299,7 +298,7 @@ Three forms separate special-purpose content from the reading path. Each carries
 
 - Callouts (`> [!NOTE]`, `> [!WARNING]`, `> [!IMPORTANT]`, `> [!CAUTION]`): a single constraint, safety boundary, or non-obvious invariant that must interrupt the reader. GitHub-flavored; one callout per concern, never as decoration. Do not nest callouts or stack consecutive callouts; use a short section instead.
 - Collapsible blocks (`<details>` / `<summary>`): low-salience material referenced but off the primary path — full stack traces, exhaustive option dumps, long sample output. The summary line states what is inside. Required constraints, proof, safety warnings, and first-read procedures stay visible; do not hide them behind expansion. Put a blank line after `<summary>...</summary>` and before `</details>` so nested Markdown renders predictably.
-- Footnotes (`[^label]`): provenance attached inline to a specific claim — a version, a behavioral source, a table-cell qualification — without breaking the sentence. Prefer a visible note block when the reader must see the qualification beside a table. Use footnotes for short qualifications only, label them locally and monotonically, and keep evidence fields in the visible proof block when the claim can drift.
+- Footnotes (`[^label]`): provenance attached inline to a specific claim — a version, a behavioral source, a table-cell qualification — without breaking the sentence. Prefer a visible note block when the reader must see the qualification beside a table. Use footnotes for short qualifications only, label them locally and monotonically, and keep drift-prone claim evidence in the visible proof block.
 
 Hidden HTML comments are source-only notation, not a reader-facing container. Use the formatting standard's `<!-- source-only: ... -->` shape for author or generator hints, and never use a comment as the only intent label for a table, example, generated block, or safety constraint.
 
@@ -380,11 +379,7 @@ Treat headings as navigation and retrieval boundaries:
 
 Each H2 should carry enough context to be read out of order. When a section could be reused as a generated mirror, task template, or state artifact, state that artifact type where the distinction changes how an agent uses it.
 
-## [19][METADATA_PLACEMENT]
-
-Place metadata only when a renderer, indexer, generator, retrieval store, or review workflow consumes it. Use an in-body definition block for ordinary document metadata. Use YAML frontmatter only when a named consumer requires YAML specifically, and name that consumer in the document-type standard or generator contract. Do not add metadata for speculative ranking, fake summaries, or tooling that does not exist. This standard decides where page-level metadata sits; which fields exist and what they prove belongs to the position and evidence standards.
-
-## [20][EXAMPLES]
+## [19][EXAMPLES]
 
 Use examples to show shape, not to pad:
 
@@ -394,15 +389,15 @@ Use examples to show shape, not to pad:
 
 Do not publish interaction excerpts, nonpublic local paths, or local task notes as reusable patterns.
 
-## [21][BOUNDARIES]
+## [20][BOUNDARIES]
 
-- [agentic-documentation.md](agentic-documentation.md) owns salience and the placement of content within the containers this standard shapes, plus metadata field ownership.
+- [agentic-documentation.md](agentic-documentation.md) owns salience and the placement of content within the containers this standard shapes.
 - [formatting.md](formatting.md) owns the visual styling of these containers — table alignment, status and invocation markers, whitespace, and the heading-label idiom.
 - [style-guide.md](style-guide.md) owns the words inside every container.
 - [proof.md](proof.md) owns evidence strength and freshness for the facts a table, record, diagram, or block presents.
 - [README.md](README.md) owns document-type routing and links to type standards such as the architecture standard.
 
-## [22][REVIEW_CHECKLIST]
+## [21][REVIEW_CHECKLIST]
 
 **Page shape**
 - [ ] The page follows the prescribed anatomy: lead, use when, rules, boundaries, checklist, and examples only where misuse is likely.
@@ -411,7 +406,7 @@ Do not publish interaction excerpts, nonpublic local paths, or local task notes 
 
 **Records and tables**
 - [ ] Tables stay within column and row bounds, hold no paragraph cells beyond one trailing prose column, and decompose by the dominant violation when over.
-- [ ] A finite enumerable set of trackable items uses status-tagged records with `Status`, `Exit`, and applicable `Depends` or `Proof` fields, never flat prose.
+- [ ] A finite enumerable set of trackable items uses status-tagged records with `Status`, `Exit`, and applicable dependency or completion-evidence details, never flat prose.
 - [ ] Checklists use the checkbox form and carry the fields their checklist form requires.
 - [ ] A single record uses a definition block; record clusters use grouped or subsection-per-record blocks.
 - [ ] Decision and lookup tables are used for condition-action and key-value content respectively.
@@ -425,4 +420,4 @@ Do not publish interaction excerpts, nonpublic local paths, or local task notes 
 **Retrieval and examples**
 - [ ] Prose is not hard-wrapped; manual breaks are structural only.
 - [ ] Headings form standalone retrievable H2 units and carry no links.
-- [ ] Examples sit beside the rule they clarify; metadata is present only where a consumer reads it.
+- [ ] Examples sit beside the rule they clarify.

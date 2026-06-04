@@ -1,15 +1,15 @@
 # [API_DOCUMENTATION]
 
-API documentation is contract-backed reference for a callable surface. It names the source of truth, states what caller-facing facts prose may curate, and links generated or upstream artifacts instead of copying their catalogs. Pick one profile first, because an owned OpenAPI contract, a generated library reference, an external HTTP API fact sheet, and an external SDK or protocol fact sheet carry different structure and proof obligations.
+API documentation is contract-backed reference for a callable surface. It links the owning contract or upstream artifact, states what caller-facing facts prose may curate, and avoids copying generated catalogs. Pick one profile first, because an owned OpenAPI contract, a generated library reference, an external HTTP API fact sheet, and an external SDK or protocol fact sheet carry different structure and proof obligations.
 
 ## [1][USE_WHEN]
 
 Apply this standard to an API surface that callers, generated clients, or agents consume:
 
-- HTTP API contracts and OpenAPI descriptions the project owns;
-- generated library reference built from source, metadata, assemblies, or source documentation;
-- public symbol surfaces derived from generated reference output;
-- curated external HTTP API facts the project does not generate;
+- HTTP API contracts and OpenAPI descriptions the project owns.
+- generated library reference built from source, assemblies, XML documentation, docstrings, or source documentation.
+- public symbol surfaces derived from generated reference output.
+- curated external HTTP API facts the project does not generate.
 - curated external SDK, protocol, or vendor API facts that are not HTTP endpoint catalogs.
 
 Route source-level public symbol comment style to [code-documentation.md](code-documentation.md). Route lookup facts that are not callable API surfaces to [reference.md](reference.md), support status to [support-matrix.md](support-matrix.md), API procedures to [how-to.md](../task/how-to.md), and learning paths to [tutorial.md](../learning/tutorial.md).
@@ -19,37 +19,24 @@ Route source-level public symbol comment style to [code-documentation.md](code-d
 API prose ranks below the contract or upstream source it describes. Resolve conflicts in this order:
 
 1. Owned machine-readable contracts, generated reference output, contract tests, and generated clients.
-2. Source metadata, assemblies, XML documentation comments, generator configuration, and source code.
+2. Source comments, assemblies, XML documentation comments, generator configuration, and source code.
 3. Official specifications, standards, and vendor reference documentation.
 4. Curated prose that explains local policy, examples, migration, or caller risk.
 
 Curated prose must not fork a generated contract, generated reference model, or official external API source. If prose and the contract disagree, the contract controls and the prose is corrected or deleted.
 
-OpenAPI contract baseline
-    Source of truth: [OpenAPI Specification v3.2.0](https://spec.openapis.org/oas/v3.2.0.html).
-    Last verified: 2026-06-04
-    Review trigger: OpenAPI publishes a later stable line or a consuming toolchain pins another line.
-
-Problem Details baseline
-    Source of truth: [RFC 9457 Problem Details for HTTP APIs](https://www.rfc-editor.org/rfc/rfc9457.html).
-    Last verified: 2026-06-04
-    Review trigger: HTTP API error-format policy or RFC status changes.
-
-HTTP deprecation signals
-    Source of truth: [RFC 9745](https://www.rfc-editor.org/rfc/rfc9745) for `Deprecation` and [RFC 8594](https://www.rfc-editor.org/rfc/rfc8594.html) for `Sunset`.
-    Last verified: 2026-06-04
-    Review trigger: IETF deprecation or sunset header guidance changes.
+The baseline sources are the OpenAPI Specification for OpenAPI contracts, RFC 9457 for Problem Details, RFC 9745 for `Deprecation`, and RFC 8594 for `Sunset`. Use [proof.md](../proof.md) for claim maintenance and source-conflict handling instead of copying evidence mechanics into API templates.
 
 ## [3][PROFILES]
 
-Choose one primary profile per page. Split the page when a second profile would force a different source of truth or required structure.
+Choose one primary profile per page. Split the page when a second profile would force a different contract owner or required structure.
 
-| [INDEX] | [PROFILE]                   | [SOURCE]      | [OWNER] | [PROOF]                     |
-| :-----: | :-------------------------- | :------------ | :----: | :-------------------------- |
-|   [1]   | Owned HTTP contract         | OpenAPI       |  yes   | generated contract + tests  |
-|   [2]   | Generated library reference | source/meta   |  yes   | generated output + command  |
-|   [3]   | External HTTP API facts     | upstream docs |   no   | primary source + freshness  |
-|   [4]   | External SDK/protocol facts | upstream docs |   no   | primary source + freshness  |
+| [INDEX] | [PROFILE]                   | [PRIMARY_BODY] | [LOCAL_OWNER] |
+| :-----: | :-------------------------- | :------------- | :-----------: |
+|   [1]   | Owned HTTP contract         | OpenAPI        |      yes      |
+|   [2]   | Generated library reference | generated API  |      yes      |
+|   [3]   | External HTTP API facts     | fact groups    |      no       |
+|   [4]   | External SDK/protocol facts | fact groups    |      no       |
 
 Owned and generated profiles link the generated artifact and name the generation command. External profiles cite upstream proof beside each drift-prone fact and never imply local ownership of upstream behavior.
 
@@ -58,10 +45,7 @@ Use an API surface card when a page must anchor generated contracts, caller docu
 ```text template
 Surface: `<callable surface name>`
 Profile: Owned HTTP contract | Generated library reference | External HTTP API facts | External SDK or protocol facts
-Source of truth: `<generated contract, generated reference, official upstream source, or metadata path>`
 Why linked: `<one sentence naming the caller decision this link changes>`
-Review trigger: `<contract, generator, upstream API, support, or caller-doc change>`
-Generated from: `<generation command; omit when not generated>`
 Consumer/toolchain: `<client, renderer, validator, or SDK version constraint; omit when not constrained>`
 Routes: `<README, how-to, tutorial, support matrix, or other adjacent owner; omit untriggered routes>`
 ```
@@ -72,17 +56,17 @@ The card is optional. Add it only when two or more adjacent owner links change h
 
 Use one profile record to choose the body, then publish only the headings that the profile triggers. The profile record is the contract; do not copy an empty full skeleton and leave optional headings behind.
 
-- Owned HTTP contract: required `Contract source`, `Operations`, `Boundaries`, and `Review checklist`; conditional `Authorization`, `Conventions`, `Schemas`, `Errors`, `Async`, `Versioning`, `Examples`, and `Evidence`; omit `Symbols` and external `Facts`; prove with generated OpenAPI, contract tests, generated clients, and generation command.
-- Generated library reference: required `Contract source`, `Generation`, `Symbols`, `Boundaries`, and `Review checklist`; conditional `Versioning`, `Examples`, and `Evidence`; omit HTTP-only sections; prove with generated output plus source, metadata, assembly, XML, TSDoc, docstring, or generator input.
-- External HTTP API facts: required `Contract source`, `Facts`, `Boundaries`, and `Review checklist`; conditional `Authorization`, `Conventions`, `Errors`, `Versioning`, and `Examples`; omit owned `Operations`, generated `Schemas`, `Generation`, and `Symbols`; prove each drift-prone fact beside official upstream API, specification, version, or lifecycle truth.
-- External SDK or protocol facts: required `Contract source`, `Facts`, `Boundaries`, and `Review checklist`; conditional `Versioning` and `Examples`; omit HTTP-only sections unless the SDK or protocol exposes an HTTP contract; prove each drift-prone fact beside official upstream SDK, protocol, vendor reference, or checked-in generated metadata.
+- Owned HTTP contract: required `Contract`, `Operations`, `Boundaries`, and `Review checklist`; conditional `Authorization`, `Conventions`, `Schemas`, `Errors`, `Async`, `Versioning`, and `Examples`; omit `Symbols` and external `Facts`.
+- Generated library reference: required `Contract`, `Generation`, `Symbols`, `Boundaries`, and `Review checklist`; conditional `Versioning` and `Examples`; omit HTTP-only sections.
+- External HTTP API facts: required `Contract`, `Facts`, `Boundaries`, and `Review checklist`; conditional `Authorization`, `Conventions`, `Errors`, `Versioning`, and `Examples`; omit owned `Operations`, generated `Schemas`, `Generation`, and `Symbols`.
+- External SDK or protocol facts: required `Contract`, `Facts`, `Boundaries`, and `Review checklist`; conditional `Versioning` and `Examples`; omit HTTP-only sections unless the SDK or protocol exposes an HTTP contract.
 
 Minimal skeleton:
 
 ```markdown template
 # [API_SURFACE]
 
-<Scope: one sentence naming the surface, profile, and controlling source.>
+<Scope: one sentence naming the surface, profile, and owning contract or upstream artifact.>
 
 ## [1][CONTRACT]
 
@@ -97,7 +81,7 @@ Section cardinality:
 
 **Universal**
 - Opening scope: required, single.
-- `Contract source`: required, single; names the generated artifact, source model, or official upstream source.
+- `Contract`: required, single; links the generated artifact, source model, or official upstream source that owns the callable facts.
 - `Boundaries`: required, single.
 - `Review checklist`: required, single.
 
@@ -115,34 +99,30 @@ Section cardinality:
 - `Async`: include only when an operation is long-running.
 - `Versioning`: include for contract lifecycle, deprecation, SDK version, or upstream API version facts; route support dates to [support-matrix.md](support-matrix.md) when support policy is the subject.
 - `Examples`: include only beside a misuse-prone fact.
-- `Evidence`: use page-level evidence only when one source and one trigger cover the page; otherwise proof stays beside each drift-prone fact.
 
 ## [5][HTTP_CONTRACTS]
 
-Use OpenAPI 3.2.0 for a new owned HTTP API contract unless a named consumer toolchain requires an older supported OpenAPI line. When a consumer pins another line, record the consumer, its minimum supported version, and the freshness trigger beside the `openapi` field.
+Use OpenAPI 3.2.0 for a new owned HTTP API contract unless a named consumer toolchain requires an older supported OpenAPI line. When a consumer pins another line, record the consumer, its minimum supported version, and the pinning constraint beside the `openapi` field.
 
 An owned HTTP contract carries these caller-safe facts in the generated contract, not as a hand-written parallel catalog:
 
-- `openapi`, `info.title`, and `info.version`;
-- stable, unique `operationId` values;
-- `servers` when the base URL is not derivable from the document host;
-- `paths`, HTTP methods, and operations, including the OpenAPI 3.2 Path Item Object's `query` method or `additionalOperations` only where the operation truly uses that extension;
-- request and response schemas, parameters, request bodies, status codes, media types, and error response schemas;
-- security schemes and per-operation authorization requirements for non-public operations;
-- examples where schema alone cannot teach the shape;
+- `openapi`, `info.title`, and `info.version`.
+- stable, unique `operationId` values.
+- `servers` when the base URL is not derivable from the document host.
+- `paths`, HTTP methods, and operations, including the OpenAPI 3.2 Path Item Object's `query` method or `additionalOperations` only where the operation truly uses that extension.
+- request and response schemas, parameters, request bodies, status codes, media types, and error response schemas.
+- security schemes and per-operation authorization requirements for non-public operations.
+- examples where schema alone cannot teach the shape.
 - versioning, lifecycle, and deprecation policy.
 
 Operation descriptions state preconditions, authorization constraints, valid state transitions, idempotency, and skip conditions. Parameter and schema descriptions state units, ranges, defaults, mutually exclusive fields, required combinations, null-or-absent semantics, generated-field behavior, and unsafe values. Error descriptions state cause, repairability, and retry-or-abort guidance.
 
-Link generated operations with proof fields beside the operations section:
+Link generated operations from the operations section:
 
 ```markdown template
 ## [N][OPERATIONS]
 
-Source of truth: `<generated-openapi-path>`.
-Generated from: `<contract-generation-command>`.
 Consumer/toolchain: `<validator, client generator, or docs renderer version constraint; omit when unconstrained>`.
-Review trigger: OpenAPI source model, generator, or consumer toolchain changes.
 
 Do not hand-copy the endpoint table. Link the generated operation group that owns each callable surface.
 ```
@@ -196,11 +176,9 @@ Monitor: `<method> <monitor-path>` returns `<contract-owned status enum>`.
 Poll: client follows `<contract-owned monitor handle, header, or field>` until `<terminal statuses>`.
 Cancel: `<method> <cancel-path>` is idempotent only where the contract states it.
 Result: client fetches the resource named by the terminal success response.
-Evidence: `<generated-contract-path>#<operation-anchor>`
-Review trigger: OpenAPI generation output changes.
 ```
 
-Use a lifecycle diagram only when an async or stateful API has enough transitions that a record alone hides caller obligations. The diagram below is conceptual; keep the async record as the text source of truth and place a text equivalent after every real diagram.
+Use a lifecycle diagram only when an async or stateful API has enough transitions that a record alone hides caller obligations. The diagram below is conceptual; keep the async record as the text controlling source and place a text equivalent after every real diagram.
 
 ```mermaid
 ---
@@ -234,8 +212,8 @@ Text equivalent: the start operation returns a monitor handle, the client polls 
 
 Document the error contract as structured content because the error surface is what a caller dispatches on. For an HTTP API, `Errors` carries:
 
-- status-code-to-meaning mapping for every status the API returns;
-- machine-readable error body shape, such as RFC 9457 `application/problem+json` members `type`, `title`, `status`, `detail`, and `instance`, or a named typed envelope;
+- status-code-to-meaning mapping for every status the API returns.
+- machine-readable error body shape, such as RFC 9457 `application/problem+json` members `type`, `title`, `status`, `detail`, and `instance`, or a named typed envelope.
 - error catalog keyed by the problem `type` URI or documented local error code a caller dispatches on, with cause, repairability, and retry-or-abort guidance.
 
 For RFC 9457 bodies, `type` is the primary problem identifier. Use HTTP status for the transport class, treat the optional `status` member as advisory when it appears in the body, and never require callers to parse `detail` as machine-readable data.
@@ -252,39 +230,36 @@ The table is conceptual shape. Replace every row with owner-verified error data 
 
 ## [8][GENERATED_LIBRARY_REFERENCE]
 
-Generate library reference from source, assemblies, side-by-side XML documentation, TSDoc, Python docstrings, or equivalent language metadata. Mark generated pages or sections as generated and name the generation command. A hand edit to a generated mirror is a defect; edit the source comment or generator input instead.
+Generate library reference from source, assemblies, side-by-side XML documentation, TSDoc, Python docstrings, or equivalent source documentation. Mark generated pages or sections as generated and name the generation command. A hand edit to a generated mirror is a defect; edit the source comment or generator input instead.
 
 Use a generation record before symbol groups so an agent can refresh the page without guessing the generator:
 
 ```text template
 Generated reference: `<output path or URL>`
-Generated from: `<source path, assembly, metadata file, or documentation comments>`
-Generation command: `<exact command, or proof gap when no command exists>`
-Source comments: `<source-comment owner; omit when no source comments feed generation>`
-Proof gap: `<human-reviewed match when no generator gate exists; omit when no gap exists>`
-Review trigger: generator, source metadata, assembly, or public symbol change.
+Generation command: `<exact command; omit when generation is manual>`
+Generator input: `<source comments, assembly, schema, or other input; omit when obvious from the generated reference>`
+Manual review: `<human-reviewed match when no generator gate exists; omit when unnecessary>`
 ```
 
 Public visible types and members document the following when the symbol carries that aspect:
 
-- purpose, one statement per public symbol;
-- type parameters, one per generic parameter;
-- parameter meaning, units, or caller obligations;
-- return values, effects, typed failure channels, or observable side effects;
-- property value meaning when the value carries a caller constraint;
-- domain constraints or examples where misuse is likely;
-- thrown exceptions only where the member actually throws;
-- cross-references only when the target resolves;
+- purpose, one statement per public symbol.
+- type parameters, one per generic parameter.
+- parameter meaning, units, or caller obligations.
+- return values, effects, typed failure channels, or observable side effects.
+- property value meaning when the value carries a caller constraint.
+- domain constraints or examples where misuse is likely.
+- thrown exceptions only where the member actually throws.
+- cross-references only when the target resolves.
 - inherited contract text only when the inherited wording remains accurate.
 
 A member that returns a typed result, an effect, a validation value, or a status object documents success and failure through that return type. It must not imply a thrown exception that the type does not raise.
 
 ## [9][EXTERNAL_FACTS]
 
-Use an external profile when the project curates facts about an API, SDK, protocol, or vendor surface it does not generate. Each fact carries proof the next maintainer can refresh.
+Use an external profile when the project curates facts about an API, SDK, protocol, or vendor surface it does not generate. Cite official or generated sources beside the facts that can drift, using [proof.md](../proof.md) for exact evidence details when they are needed.
 
-- Cite the official specification, vendor docs, local generated metadata, or checked-in contract that proves the fact.
-- Record the upstream version or retrieval date for facts the upstream can change.
+- Cite the official specification, vendor docs, local generated reference, or checked-in contract that proves the fact.
 - Separate stable lookup facts from examples and migration notes.
 - Link to official or generated reference instead of copying a catalog.
 - Name the upstream owner and avoid claiming contract ownership over external behavior.
@@ -296,19 +271,16 @@ Endpoint: `POST https://api.vendor.example/v2/tokens`
 Auth: bearer service token with `tokens:mint`.
 Idempotency: `Idempotency-Key` is required by this vendor for this endpoint.
 Owner: vendor platform team.
-Evidence: `<official vendor API reference URL>`.
-Last verified: 2026-06-04
-Review trigger: vendor API version increments past `v2`.
 ```
 
 ## [10][VERSIONING]
 
 State versioning and deprecation as one explicit statement per contract, or route support dates to the support matrix. A conforming API page distinguishes:
 
-- versioning scheme, such as date-based, semantic version, path version, or header-negotiated;
-- deprecation notice, such as a `Deprecation` header or documented response field;
-- sunset timestamp or retirement signal, such as a `Sunset` header where the API emits one;
-- migration link or replacement surface;
+- versioning scheme, such as date-based, semantic version, path version, or header-negotiated.
+- deprecation notice, such as a `Deprecation` header or documented response field.
+- sunset timestamp or retirement signal, such as a `Sunset` header where the API emits one.
+- migration link or replacement surface.
 - lifecycle dates and support entitlement, which belong in [support-matrix.md](support-matrix.md) when support policy is the subject.
 
 RFC 9745 `Deprecation` communicates that the resource or feature is deprecated; it does not by itself change response behavior. RFC 8594 `Sunset` communicates a resource availability expectation or hint from the server; it is not a support guarantee unless a separate support policy says so.
@@ -329,7 +301,7 @@ Do not collapse deprecation, sunset, end of support, and removal into one status
 - [ ] The page declares exactly one profile and uses that profile's structure.
 - [ ] Generated contracts and generated reference output are linked, not transcribed.
 - [ ] API surface cards appear only when adjacent owner links change caller or agent behavior.
-- [ ] External facts cite primary upstream sources and carry freshness fields beside drift-prone claims.
+- [ ] External facts cite primary upstream sources where drift-prone claims need local curation.
 - [ ] HTTP-only sections appear only for HTTP surfaces that actually expose the concern.
 - [ ] OpenAPI pages use OpenAPI 3.2.0 or name the consumer/toolchain that pins another line.
 - [ ] Authorization, pagination, idempotency, rate limits, filtering, sorting, and async behavior name actual contract fields rather than imported provider examples.

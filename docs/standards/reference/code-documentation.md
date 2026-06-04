@@ -6,10 +6,10 @@ Code documentation is source-level reference for public symbols. It records the 
 
 Apply this standard when writing or reviewing source-level comments on:
 
-- public visible types, members, functions, methods, modules, packages, and properties;
-- public error, fault, result, validation, or effect variants and their observable channels;
-- generic type parameters whose meaning or constraint is not evident from the bound;
-- lifecycle, resource, concurrency, interop, or runtime-context obligations a caller must honor;
+- public visible types, members, functions, methods, modules, packages, and properties.
+- public error, fault, result, validation, or effect variants and their observable channels.
+- generic type parameters whose meaning or constraint is not evident from the bound.
+- lifecycle, resource, concurrency, interop, or runtime-context obligations a caller must honor.
 - inline rationale for a non-obvious implementation choice.
 
 Skip comments that restate the signature, obvious accessors, private implementation details, or names the type already makes unambiguous. Generated reference pages route through [api.md](api.md); curated lookup facts outside source route through [reference.md](reference.md); owner-local README maps route through [readme.md](readme.md); prose mechanics inside comments route through [style-guide.md](../style-guide.md).
@@ -18,29 +18,9 @@ Skip comments that restate the signature, obvious accessors, private implementat
 
 The language toolchain owns comment syntax, tag validation, reference resolution, and generated output. This standard owns semantic completeness.
 
-C# XML documentation
-    Source of truth: [Microsoft C# documentation comments](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/documentation-comments).
-    Last verified: 2026-06-04
-    Review trigger: C# documentation-comment specification or repository warning policy changes.
+Use the C# documentation-comment specification and the .NET recommended XML documentation tags for XML comment syntax, including tags such as `<inheritdoc>`. Use the TSDoc specification and tag reference for exported TypeScript API comments. Use `pyproject.toml` `[tool.ruff.lint.pydocstyle].convention = "google"` with PEP 257 and Google-style docstring guidance for Python docstrings.
 
-.NET XML documentation tags
-    Source of truth: [.NET recommended XML documentation tags](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/xmldoc/recommended-tags), including tags such as `<inheritdoc>`.
-    Last verified: 2026-06-04
-    Review trigger: Microsoft XML tag guidance or repository generator support changes.
-
-TSDoc
-    Source of truth: [TSDoc specification and tag reference](https://tsdoc.org/).
-    Last verified: 2026-06-04
-    Review trigger: TSDoc tag syntax, release modifiers, deprecation tags, or parser behavior changes.
-
-Python docstrings
-    Source of truth: `pyproject.toml` `[tool.ruff.lint.pydocstyle].convention = "google"`; [PEP 257](https://peps.python.org/pep-0257/) and [Google-style docstrings](https://google.github.io/styleguide/pyguide.html#381-docstrings) provide the external syntax baseline.
-    Last verified: 2026-06-04
-    Review trigger: `pyproject.toml` pydocstyle settings, Python docstring policy, or configured generator dialect changes.
-
-Repository semantic overlay
-    Source of truth: `CLAUDE.md`, language skills, `Directory.Build.props`, `pyproject.toml`, and this standard for `Fin<T>`, `Validation<Error,T>`, `Eff<RT,T>`, effects, validation, and typed failure-channel semantics.
-    Review trigger: repo language policy, warning policy, docstring configuration, or result and effect carrier policy changes.
+Repository semantic overlays come from `CLAUDE.md`, language skills, `Directory.Build.props`, `pyproject.toml`, and this standard for `Fin<T>`, `Validation<Error,T>`, `Eff<RT,T>`, effects, validation, and typed failure-channel semantics. Apply [proof.md](../proof.md) when a source-comment claim needs claim-level proof handling.
 
 In Rasm C# builds, documentation warnings are build-failing unless explicitly suppressed: `Directory.Build.props` sets `TreatWarningsAsErrors` and `GenerateDocumentationFile`, suppresses `CS1591`, and does not suppress unresolved `cref` diagnostics such as `CS1574`. A dangling reference in any language is still a documentation defect because it breaks generated reference trust.
 
@@ -48,11 +28,11 @@ In Rasm C# builds, documentation warnings are build-failing unless explicitly su
 
 Choose the symbol profile during authoring and review; do not emit a profile label in the source comment unless the language toolchain owns that tag. Each profile answers one question: how does the caller handle every observable outcome?
 
-| [INDEX] | [PROFILE]        | [APPLIES]                | [SEMANTICS]             | [FAILURE]              |
-| :-----: | :--------------- | :----------------------- | :---------------------- | :--------------------- |
-|   [1]   | Pure surface     | total functions, values  | purpose, obligations    | no failure channel     |
-|   [2]   | Effect surface   | result, effect, status   | success, faults, runtime | no phantom throws     |
-|   [3]   | Throwing surface | actual throws or interop | real throws             | only real thrown types |
+| [INDEX] | [PROFILE]        | [APPLIES]                | [SEMANTICS]              | [FAILURE]              |
+| :-----: | :--------------- | :----------------------- | :----------------------- | :--------------------- |
+|   [1]   | Pure surface     | total functions, values  | purpose, obligations     | no failure channel     |
+|   [2]   | Effect surface   | result, effect, status   | success, faults, runtime | no phantom throws      |
+|   [3]   | Throwing surface | actual throws or interop | real throws              | only real thrown types |
 
 A comment is complete when a caller can use the symbol correctly and handle every outcome from the signature plus comment, without reading the body.
 
@@ -80,7 +60,6 @@ Receipts: `<proof or receipt type a caller receives; omit when absent>`
 Generated reference: `<api.md-owned generated page; omit when absent>`
 Common misuse: `<one misuse the source comments do not prevent; omit when absent>`
 Route-away: `<architecture, roadmap, how-to, tutorial, or support; omit when absent>`
-Review trigger: public symbol, generated reference, owner path, or failure-carrier change.
 ```
 
 The record is a handoff. Omit absent optional fields instead of filling `none`; keep an explicit `none` value only when absence itself changes reader behavior. It does not replace symbol comments, generated reference, or architecture codemaps, and it appears only where a maintained owner document consumes it.
@@ -132,18 +111,18 @@ The example is conceptual: it shows the effect-surface channel mapping, not copy
 
 Use TSDoc for exported TypeScript APIs. The implicit summary is the text before the first block tag; `@remarks` opens detail. Block tags carry semantics only, not JSDoc type-expression braces that duplicate the TypeScript signature.
 
-| [INDEX] | [TAG]                  | [MAPS_TO]              | [TOOLCHAIN_CAVEAT]                     |
-| :-----: | :--------------------- | :--------------------- | :------------------------------------- |
-|   [1]   | Summary section        | API purpose            | text before the first block tag        |
-|   [2]   | `@remarks`             | invariant or example   | optional elaboration                   |
-|   [3]   | `@typeParam`           | generic relationship   | use TSDoc syntax, not JSDoc type forms |
-|   [4]   | `@param`               | parameter meaning      | omit type-expression braces            |
-|   [5]   | `@returns`             | value, effect, fault   | non-void surfaces only                 |
-|   [6]   | `@throws`              | actual thrown type     | throwing surfaces only                 |
-|   [7]   | `{@link ...}` / `@see` | resolvable reference   | generator must resolve the target      |
-|   [8]   | `@inheritDoc`          | inherited contract     | valid only when inherited text fits    |
-|   [9]   | release modifiers      | maturity contract      | `@alpha`, `@beta`, `@public`, and peers |
-|  [10]   | `@deprecated`          | deprecation contract   | block tag; name replacement guidance   |
+| [INDEX] | [TAG]                  | [MAPS_TO]            | [TOOLCHAIN_CAVEAT]                      |
+| :-----: | :--------------------- | :------------------- | :-------------------------------------- |
+|   [1]   | Summary section        | API purpose          | text before the first block tag         |
+|   [2]   | `@remarks`             | invariant or example | optional elaboration                    |
+|   [3]   | `@typeParam`           | generic relationship | use TSDoc syntax, not JSDoc type forms  |
+|   [4]   | `@param`               | parameter meaning    | omit type-expression braces             |
+|   [5]   | `@returns`             | value, effect, fault | non-void surfaces only                  |
+|   [6]   | `@throws`              | actual thrown type   | throwing surfaces only                  |
+|   [7]   | `{@link ...}` / `@see` | resolvable reference | generator must resolve the target       |
+|   [8]   | `@inheritDoc`          | inherited contract   | valid only when inherited text fits     |
+|   [9]   | release modifiers      | maturity contract    | `@alpha`, `@beta`, `@public`, and peers |
+|  [10]   | `@deprecated`          | deprecation contract | block tag; name replacement guidance    |
 
 Where the project gates API maturity, release modifiers such as `@alpha`, `@beta`, and `@public` are contract content. A deprecated exported surface uses `@deprecated` with replacement guidance; it is not a release-stage modifier.
 
@@ -192,7 +171,7 @@ Every effect surface states:
 
 When the surface has the shape, also state:
 
-- the interop boundary where native exceptions convert into typed failures;
+- the interop boundary where native exceptions convert into typed failures.
 - the terminal point where deferred effects execute or collapse.
 
 An effect-surface comment that says only `returns Fin<T>` or names another typed carrier without naming failure variants is incomplete. A comment that omits interop or deferral details fails only when the surface actually crosses an interop boundary or defers execution.
@@ -238,7 +217,7 @@ Reject these shapes:
 - [readme.md](readme.md) owns owner-local entry maps that point readers to public surfaces without cataloging every symbol.
 - [architecture.md](../explanation/architecture.md) owns current owner blocks, invariants, and codemaps; code comments do not carry folder architecture.
 - [style-guide.md](../style-guide.md) owns prose mechanics inside comments.
-- [proof.md](../proof.md) owns proof that source comments match source behavior and generated reference output; source comments carry no freshness fields unless a language-specific generator consumes them.
+- [proof.md](../proof.md) owns proof that source comments match source behavior and generated reference output; source comments carry no proof details unless a language-specific generator consumes them.
 - [README.md](../README.md) routes document-type, placement, and lifecycle questions.
 
 ## [12][REVIEW_CHECKLIST]

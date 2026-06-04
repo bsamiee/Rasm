@@ -19,33 +19,15 @@ Route normal repeatable work, contribution workflow, severity and command-role g
 
 Use external incident-response authorities for durable response principles, and use local operational truth for the values a responder invokes during an incident. Neither Google SRE nor PagerDuty supplies this repository's severity names, authority model, escalation thresholds, response clocks, communication cadence, or profile tie-breakers.
 
-Google SRE response shape
-    Source of truth: [Google SRE Workbook incident response](https://sre.google/workbook/incident-response/).
-    Claim: incident response needs clear roles, communication, working records, impact assessment before or alongside mitigation, and mitigation before full root cause is known.
-    Last verified: 2026-06-04
-    Review trigger: Google SRE incident-response guidance changes.
+Google SRE incident-response guidance supports clear roles, communication, working records, impact assessment before or alongside mitigation, and mitigation before full root cause is known. PagerDuty incident-response guidance separates preparation, during-incident work, after-incident work, roles, escalation, communication, and severity or process examples.
 
-PagerDuty response process
-    Source of truth: [PagerDuty incident response](https://response.pagerduty.com/).
-    Claim: incident-response practice separates preparation, during-incident work, after-incident work, roles, escalation, communication, and severity or process examples.
-    Last verified: 2026-06-04
-    Review trigger: PagerDuty incident-response guidance changes.
+PagerDuty product docs tie priority and urgency to incidents, tie severity to alerts, and document Dynamic Notifications as a severity-to-urgency mapping for alert-created incidents. A local incident process must map priority, urgency, and alert-severity behavior into any response profile it uses.
 
-PagerDuty product semantics
-    Source of truth: [PagerDuty incident priority guidance](https://support.pagerduty.com/main/docs/incident-priority), [PagerDuty incidents guidance](https://support.pagerduty.com/main/docs/incidents), and [PagerDuty dynamic notifications](https://support.pagerduty.com/main/docs/dynamic-notifications).
-    Claim: PagerDuty product docs tie priority and urgency to incidents, tie severity to alerts, and document Dynamic Notifications as a severity-to-urgency mapping for alert-created incidents. A local incident process must map priority, urgency, and alert-severity behavior into any response profile it uses.
-    Last verified: 2026-06-04
-    Review trigger: PagerDuty incident priority, urgency, or alert-severity product behavior changes.
-
-Local incident process
-    Source of truth: maintained local incident-process document, policy, or operations corpus.
-    Claim: local truth owns profile names, severity or priority terms, response clocks, acting authority, escalation thresholds, communication requirements, and evidence requirements.
-    Freshness: each published runbook names its own `Last verified` date.
-    Review trigger: local incident-process owner, policy, escalation, communication, or authority model changes.
+Local incident-process documents, policies, or operations corpora own profile names, severity or priority terms, response clocks, acting authority, escalation thresholds, communication requirements, and evidence requirements. A runbook uses those values only when the local corpus maintains them.
 
 ## [3][RESPONSE_PROFILE]
 
-A runbook declares the local response profile in `## [1][TRIGGER]`. The profile is an invocation field chosen from the maintained incident process, not a closed vocabulary from this standard. It must resolve the impact class, response clock, acting authority, escalation threshold, communication requirement, and evidence requirement before the responder mutates state.
+A runbook declares the local response profile in `## [1][TRIGGER]`. The profile comes from the maintained incident process, not from this standard's vocabulary. It must resolve the impact class, response clock, acting authority, escalation threshold, communication requirement, and evidence requirement before the responder mutates state.
 
 Profile fields:
 
@@ -128,13 +110,11 @@ Use the section set below; each `##` heading is a standalone retrieval unit a re
 ```markdown template
 # [RECOVER_OBSERVABLE_SYMPTOM]
 
+## [1][TRIGGER]
+
 Owner: <owning role or team>
 Response profile: <local incident-process profile>
 Incident-process source: <maintained local source, or `provisional: no maintained local source`>
-Last verified: YYYY-MM-DD
-Review trigger: <alert, dependency, topology, tool, owner, or incident-process change>
-
-## [1][TRIGGER]
 
 ## [2][IMPACT]
 
@@ -170,8 +150,7 @@ Conditional additions:
 Section cardinality:
 
 **Required response frame**
-- `Owner`, `Response profile`, `Incident-process source`, `Last verified`, `Review trigger` (required, one each): the metadata block, one `label: value` per line.
-- `Trigger` (required, one): the observable signal and the local response profile.
+- `Trigger` (required, one): the observable signal, owner, response profile, and incident-process source the responder uses to confirm authority and policy before mutation.
 - `Impact` (required, one): affected surface and user or business effect.
 - `Safety and prerequisites` (required, one): response-critical access, acting authority, tools, known-good restore points, and evidence-preservation constraints only.
 
@@ -179,7 +158,7 @@ Section cardinality:
 - `Triage` (required, ordered, repeatable checks): read-only observation, each check followed by its expected signal and its branch.
 - `Mitigation` (required, repeatable actions or explicit no-safe-mutation record): bounded containment or state-changing response actions, each paired with expected result and verification; when no safe mutation exists, state that and route to escalation with captured evidence.
 - `Escalation` (required for every profile): the observable threshold and owning role.
-- `Verification` (required, one): proof of recovery or containment.
+- `Verification` (required, one): recovery or containment check.
 - `Evidence capture` (required, repeatable entries): artifacts to preserve, storage or handoff path, and known gaps; depth and storage expectations may vary by local response profile.
 - `Boundaries` (required, one): one link per adjacent owner for what this runbook deliberately excludes.
 - `Review checklist` (required, one): verification gates for the published runbook.
@@ -195,7 +174,7 @@ Omit an optional section rather than publishing it empty. `Follow-up cleanup` re
 
 A runbook must carry the concrete facts a cold responder needs, not prose that gestures at them. Each base section has a minimum content bar:
 
-**Opening context**
+**Trigger context**
 - `Trigger`: the exact alert name, failed check, query, or user-impact phrasing that starts the runbook, plus the local response profile. State the observable, not the cause.
 - `Impact`: the named affected surface and the user or business effect — error rate, latency breach, tenant scope, data-integrity symptom, or security signal — in concrete terms a responder can confirm.
 - `Safety and prerequisites`: the exact access roles, acting authority, break-glass path, dashboard URLs or identifiers, diagnostic tools, known-good backup or build identifier, evidence-preservation rule, and safe execution context. List only prerequisites consumed during this response.
@@ -256,13 +235,13 @@ A `## [4][TRIAGE]` check carries the same density — command, expected signal, 
 When topology, owner boundaries, or supported-version truth changes what the responder does, carry one operational handoff record at the triage or mitigation step that consumes it:
 
 ```markdown template
-Adjacent source: <architecture, support matrix, reference, or incident-process path>
+Adjacent owner: <architecture, support matrix, reference, or incident-process path>
 Response use: <blast-radius boundary, owner route, supported target, or safe-action constraint>
 Responder action: <check, route, or mutation decision this runbook performs>
 Route-away: <topology map, lifecycle table, lookup catalog, or policy body that stays in the adjacent owner>
 ```
 
-Omit the handoff for background-only links. Include it only when the adjacent source changes triage order, safe action, escalation owner, or verification.
+Omit the handoff for background-only links. Include it only when the adjacent owner changes triage order, safe action, escalation owner, or verification.
 
 ## [8][TRIAGE_RULES]
 
@@ -328,7 +307,7 @@ Escalation criteria must be observable, and the local response profile decides t
 - primary tooling unavailable;
 - no maintained incident-process profile or tie-breaker exists;
 
-**Safety and proof**
+**Safety and verification**
 - rollback failed or is unavailable;
 - suspected security compromise;
 - data-loss risk;
@@ -380,7 +359,7 @@ Update owner: <role accountable for updates>
 - State the metric and threshold each signal must reach, so a responder reads recovery as a falsifiable fact rather than a judgment call.
 - Capture alert IDs, timeline anchors, dashboards, commands, logs, traces, deploy or change IDs, ticket or incident links, screenshots, and known gaps.
 - Name where evidence is stored when the corpus has a maintained incident record, ticket, object store, or audit path.
-- Mark unavailable proof honestly rather than implying a check ran.
+- Mark unavailable checks honestly rather than implying they ran.
 
 Render evidence capture as repeatable records so responders can hand off without reconstructing prose:
 
@@ -388,23 +367,16 @@ Render evidence capture as repeatable records so responders can hand off without
 Artifact: <alert ID, dashboard snapshot, command output, log, trace, screenshot, incident link, or ticket>
 Where stored: <incident record, object store, ticket, handoff channel, or `gap: no maintained storage path`>
 Owner: <role accountable for preserving or attaching it>
-Known gap: <none, unavailable proof, missing access, or unrun check>
-Review trigger: <alert, dashboard, storage, owner, or evidence policy change>
+Known gap: <none, unavailable check, missing access, or unrun check>
 ```
 
-A runbook claims a recovery path works, so attach claim-level evidence to drift-prone steps and name the freshness trigger:
-
-```markdown template
-Evidence: `deployctl rollback --service checkout --target last-known-good` and the checkout error-rate dashboard returning below the alert threshold.
-Last verified: 2026-06-04
-Review trigger: deploy CLI flags, rollback target alias, alert rule, acting authority, or incident-process profile change.
-```
+A runbook claims a recovery path works, so keep the verification details beside the drift-prone step under [proof.md](../proof.md) instead of adding a page-wide stamp.
 
 State an unrun or manual-only check as a review gate rather than asserting a path that was not executed during the last verification.
 
 ## [13][FORMAT_CHOICES]
 
-- Use a definition block for the metadata block, one `label: value` per line, not a one-row table.
+- Use a definition block for responder-facing context, one `label: value` per line, not a one-row table.
 - Use a numbered list for `Triage` and `Mitigation`, since order changes the result; use peer bullets only for independent observations within one check.
 - Use a decision table for a triage fork on two or more independent signals, and a lookup table only for locally supported mitigation classes; keep each within the table ceiling that [information-structure.md](../information-structure.md) owns and split by profile or system when it grows past that.
 - Fence every command, dashboard query, or copyable artifact and mark its intent: `copy-safe` for a step the responder runs as written, `template` for a fill-in template, `conceptual` for a shape the responder studies, `output-only` for an expected signal, and `rejected` for a near-miss shown to prevent a destructive mistake.
@@ -465,7 +437,7 @@ Review a runbook when its trigger, service owner, dashboard, alert rule, command
 - [architecture.md](../explanation/architecture.md) owns topology, structure, and the lookup background a runbook names but does not embed.
 
 **Standards and incident-process owners**
-- [proof.md](../proof.md) owns evidence strength and the freshness fields a verification step cites.
+- [proof.md](../proof.md) owns evidence strength, freshness, and claim-level evidence details.
 - [README.md](../README.md) owns reader-need classification, document-type choice, placement, and lifecycle; it is not an incident-process owner.
 - Maintained local incident-process, communication-policy, incident-review, and postmortem corpora own severity governance, cadence, acting authority, retrospective analysis, and postmortem templates when they exist. When no maintained local incident-process source exists, profile-dependent fields are provisional or blocked and the runbook must escalate before mutation.
 
@@ -473,7 +445,7 @@ Review a runbook when its trigger, service owner, dashboard, alert rule, command
 
 **Trigger and profile**
 - [ ] Title and `## [1][TRIGGER]` start from an observable symptom.
-- [ ] The metadata block carries `Owner`, `Response profile`, `Incident-process source`, `Last verified`, and `Review trigger`.
+- [ ] `## [1][TRIGGER]` carries `Owner`, `Response profile`, and `Incident-process source`.
 - [ ] The response profile comes from local incident-process truth and states impact class, response clock, acting authority, escalation threshold, communication requirement, and evidence requirement where they apply.
 - [ ] If no maintained incident-process source or tie-breaker exists, profile-dependent mutation is blocked or provisional and escalation is required.
 

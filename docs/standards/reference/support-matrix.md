@@ -6,9 +6,9 @@ A support matrix is policy-backed reference: it states which runtime, platform, 
 
 Use a support matrix when a reader compares support facts across rows:
 
-- product, runtime, platform, host, toolchain, browser, device, or deployment support;
-- component compatibility, version skew, dependency floors, and supported combinations;
-- feature availability by plan, edition, runtime, API version, region, or integration;
+- product, runtime, platform, host, toolchain, browser, device, or deployment support.
+- component compatibility, version skew, dependency floors, and supported combinations.
+- feature availability by plan, edition, runtime, API version, region, or integration.
 - deprecation, removal, retirement, or migration status of a named surface.
 
 Route future support intent to [roadmap.md](../explanation/roadmap.md), step-by-step migration to [how-to.md](../task/how-to.md), operational recovery to [runbook.md](../task/runbook.md), and ordinary lookup facts to [reference.md](reference.md).
@@ -17,25 +17,9 @@ Route future support intent to [roadmap.md](../explanation/roadmap.md), step-by-
 
 Map imported lifecycle or compatibility concepts to their source instead of flattening them into local vocabulary.
 
-endoflife.date lifecycle fields
-    Source of truth: [endoflife.date API documentation](https://endoflife.date/docs/api/v1/).
-    OpenAPI source: [endoflife.date API v1 OpenAPI](https://endoflife.date/docs/api/v1/openapi.yml).
-    Last verified: 2026-06-04
-    Review trigger: endoflife.date API field model or product source changes.
+Use endoflife.date API documentation and OpenAPI for imported lifecycle values. Use Microsoft Lifecycle, Modern Policy, Fixed Policy, and lifecycle definitions for Microsoft support phases. Use Kubernetes Version Skew Policy for skew-governed compatibility. Use local manifests, lockfiles, generated contracts, compatibility checks, release records, and owner-local reference documents for repository support truth.
 
-Microsoft lifecycle policy
-    Source of truth: [Microsoft Lifecycle](https://learn.microsoft.com/en-us/lifecycle/), [Modern Policy](https://learn.microsoft.com/en-us/lifecycle/policies/modern), [Fixed Policy](https://learn.microsoft.com/en-us/lifecycle/policies/fixed), and [Lifecycle definitions](https://learn.microsoft.com/en-us/lifecycle/definitions).
-    Last verified: 2026-06-04
-    Review trigger: Microsoft lifecycle policy, phase definition, or product lifecycle page changes.
-
-Kubernetes version skew
-    Source of truth: [Kubernetes Version Skew Policy](https://kubernetes.io/releases/version-skew-policy/).
-    Last verified: 2026-06-04
-    Review trigger: Kubernetes supported-version, component-skew, or upgrade-order policy changes.
-
-Local repository support truth
-    Source of truth: manifests, lockfiles, generated contracts, compatibility checks, release metadata, and owner-local reference documents.
-    Review trigger: package, runtime, host, platform, generated-contract, or compatibility-check change.
+Apply [proof.md](../proof.md) to row-level proof and source-conflict handling. Support matrices do not require a separate provenance section by default.
 
 Do not invent local lifecycle semantics where upstream policy owns phase, date, support entitlement, or compatibility. When a generated compatibility check and prose disagree, the check controls.
 
@@ -47,7 +31,7 @@ Missing-value rule: preserve omitted fields, explicit `null`, false booleans, an
 
 ## [3][PROFILES]
 
-Choose one profile per matrix. Split the page when a second profile would force a different status vocabulary, axis set, source truth, or reading rule.
+Choose one profile per matrix. Split the page when a second profile would force a different status vocabulary, axis set, source model, or reading rule.
 
 - Product lifecycle: release lines, support phases, lifecycle dates, retirement, and security posture.
 - Runtime or platform support: operating systems, language runtimes, host versions, toolchains, browsers, devices, or deployment environments.
@@ -91,24 +75,17 @@ Universal template:
 
 <Lead: name the supported surface, profile, support regime, and the single reader question the matrix answers.>
 
-Source of truth: <owning policy, generated check, manifest, or contract>
-Last verified: YYYY-MM-DD
-Review trigger: <upstream release, policy update, manifest change, or compat-check change>
-Owner: <refresh owner, when one exists>
-
 ## [1][SCOPE]
 
-## [2][CONTROL]
+## [2][STATUS_VOCABULARY]
 
-## [3][STATUS_VOCABULARY]
+## [3][MATRIX]
 
-## [4][MATRIX]
+## [4][EXCLUSIONS]
 
-## [5][EXCLUSIONS]
+## [5][BOUNDARIES]
 
-## [6][BOUNDARIES]
-
-## [7][REVIEW_CHECKLIST]
+## [6][REVIEW_CHECKLIST]
 ```
 
 Conditional insertions:
@@ -127,15 +104,13 @@ Conditional insertions:
 ## [N][DEPRECATIONS]
 
 ## [N][MIGRATION_PATHS]
-
-## [N][EVIDENCE]
 ```
 
 Section cardinality:
 
 **Required universal**
-- Opening lead and metadata: required, single; lead states the support question, and metadata carries `Source of truth`, `Last verified`, `Review trigger`, and `Owner` when one exists.
-- Required sections: `Scope`, `Source truth`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Review checklist`.
+- Opening lead: required, single; states the support question, profile, and regime.
+- Required sections: `Scope`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Review checklist`.
 - Repeatable section: `Matrix`, one table or grouped subsection per profile axis.
 
 **Conditional profile**
@@ -146,8 +121,7 @@ Section cardinality:
 - `Deprecations` and `Migration paths`: required when any row is deprecated, end-of-support, retired, removed, or has a replacement.
 - `Limitations`: optional and repeatable for limited surfaces.
 
-**Evidence and close**
-- `Evidence`: page-level only when one source and trigger prove the whole matrix; otherwise attach evidence per row.
+**Close**
 - `Boundaries`: required, single.
 - `Review checklist`: required, single.
 
@@ -187,13 +161,11 @@ Released: 2026-01
 End of active support: 2027-01
 End of life: 2028-01
 End of extended support: n/a
-Source of truth: `<vendor lifecycle page>`
-Review trigger: vendor lifecycle page changes.
 ```
 
 The record is fictional shape. Replace labels, phase grants, and dates with owner-verified lifecycle data.
 
-Use a lifecycle or deprecation diagram only when transitions change reader action and cannot be scanned as clearly from records. The diagram below is conceptual; keep records as source of truth and place a text equivalent after every real diagram.
+Use a lifecycle or deprecation diagram only when transitions change reader action and cannot be scanned as clearly from records. The diagram below is conceptual; keep records as controlling source and place a text equivalent after every real diagram.
 
 ```mermaid
 ---
@@ -236,7 +208,7 @@ Each row must stand alone. Include the applicable field set:
 - Compatibility bound, version range, or provider policy term for compatibility rows.
 - Requirement: dependency, entitlement, certification, patch, or toolchain floor.
 - Replacement: required when deprecated or removed.
-- Evidence: source path, contract, command, generated check, or official policy link.
+- Basis when needed: source path, contract, command, generated check, or official policy link.
 
 Do not copy a large generated or vendor-owned matrix when the official source is stronger. Publish only the local subset that changes reader decisions and link the controlling source.
 
@@ -251,8 +223,6 @@ Phase grants: `<fix classes or support channel>`
 Key date: `<date, not announced, still supported, or n/a>`
 Requirement: `<dependency, certification, or entitlement; omit when unconditional>`
 Replacement: `<replacement surface; omit when no replacement exists>`
-Evidence: `<manifest, generated check, official policy, or support source>`
-Review trigger: `<upstream release, policy, generated check, or owner change>`
 ```
 
 ## [10][READING_RULE]
@@ -282,22 +252,21 @@ Upgrade order: `<source-defined order>`
 Skip rule: `<source-defined skip policy, when one exists>`
 Mixed-version limit: `<source-defined rollout bound, when one exists>`
 Named unsupported combination: `<source-defined unsupported pair, when one exists>`
-Evidence: `<official skew policy or generated compatibility check>`
 ```
 
 For non-skew systems, replace skew fields with the actual controlling model:
 
-- semantic-version range such as `>=2.4 <3.0`;
-- peer dependency floor and ceiling;
-- API version window;
-- provider certification matrix;
+- semantic-version range such as `>=2.4 <3.0`.
+- peer dependency floor and ceiling.
+- API version window.
+- provider certification matrix.
 - generated compatibility-check result.
 
 Never imply bidirectional or numeric skew support when the source uses another compatibility convention.
 
 ## [12][DEPENDENCY_FLOORS]
 
-State dependency floors where support depends on an upstream runtime, OS, toolchain, host, or package. Each row names the minimum supported upstream version, any ceiling, the upstream end-of-life rule, and the controlling source. Local support never extends past the upstream's own end of life unless an explicit extended-support program is named and sourced.
+State dependency floors where support depends on an upstream runtime, OS, toolchain, host, or package. Each row names the minimum supported upstream version, any ceiling, and the upstream end-of-life rule. Local support never extends past the upstream's own end of life unless an explicit extended-support program is named and sourced.
 
 ## [13][EXCLUSIONS]
 
@@ -315,24 +284,22 @@ Distinguish `Deprecated`, `End of support`, `Retired`, and `Unsupported`; they a
 
 Required fields:
 
-- deprecated surface and first deprecated version or announcement date;
-- current availability;
-- warning signal emitted at use, where one exists;
-- replacement surface;
-- removal version or policy window;
-- behavior change a caller observes;
-- source truth for the removal decision.
+- deprecated surface and first deprecated version or announcement date.
+- current availability.
+- warning signal emitted at use, where one exists.
+- replacement surface.
+- removal version or policy window.
+- behavior change a caller observes.
+- source or policy behind the removal decision.
 
 ```text conceptual
 Surface: `legacy-example-endpoint v1`
 Status: Deprecated
 Available: still runs under `Deprecated` status.
-Warning signal: deprecation notice in response metadata.
+Warning signal: deprecation notice in response fields.
 Replacement: `example-endpoint v2`
 Removal: next major version, per documented policy window.
 Behavior change: replacement changes the response shape named by the source policy.
-Source of truth: `<vendor deprecation policy>`
-Review trigger: vendor deprecation policy or release plan changes.
 ```
 
 ## [15][MIGRATION_PATHS]
@@ -345,26 +312,12 @@ Use a migration anchor record when the support matrix links roadmap intent or a 
 Source surface: `<deprecated, limited, unsupported, or retired surface>`
 Target surface: `<replacement; omit when no replacement exists>`
 Support status: `<status vocabulary term>`
-Validation signal: `<command, generated check, owner signoff, or proof gap>`
+Validation signal: `<command, generated check, or owner signoff>`
 Why linked: `<one sentence naming the support decision this link changes>`
-Review trigger: source support status, replacement, roadmap milestone, or migration guide changes.
 Routes: `<roadmap, migration how-to, runbook, or support owner; omit untriggered routes>`
 ```
 
-## [16][EVIDENCE]
-
-Attach evidence to every support status beside the row or record it proves. Use a page-level evidence section only when one source and one trigger prove the whole matrix.
-
-Good support evidence includes:
-
-- local manifests, lockfiles, generated contracts, or compatibility-test output;
-- official lifecycle, release, deprecation, migration, compatibility, or security policy;
-- owner-maintained release notes, migration guides, security bulletins, and known limitations;
-- generated conformance or certification matrices.
-
-Use `Review trigger:` for the event that makes the fact stale. Use `Last verified:` when the source changes on a schedule or no better event exists.
-
-## [17][BOUNDARIES]
+## [16][BOUNDARIES]
 
 - [reference.md](reference.md) owns support facts when support is one lookup fact among many.
 - [api.md](api.md) owns generated or contract-backed API surface truth that support rows cite.
@@ -373,17 +326,17 @@ Use `Review trigger:` for the event that makes the fact stale. Use `Last verifie
 - [runbook.md](../task/runbook.md) owns operational recovery for support-impacting incidents.
 - [README.md](../README.md) owns document-type routing, placement, and lifecycle.
 
-## [18][REVIEW_CHECKLIST]
+## [17][REVIEW_CHECKLIST]
 
 **Source and status**
-- [ ] Opening lead and metadata carry the support question, source truth, freshness, review trigger, and owner where known.
+- [ ] Opening lead carries the support question, profile, and regime.
 - [ ] Scope names the surface, one profile, and the support regime.
 - [ ] Status vocabulary defines only used statuses and maps each to upstream phase and fix classes.
-- [ ] Imported lifecycle fields preserve upstream names, boolean and date pairs, and null or not-announced distinctions before local mapping.
+- [ ] Imported lifecycle values preserve upstream names, boolean and date pairs, and null or not-announced distinctions before local mapping.
 - [ ] Imported lifecycle rows distinguish omitted, explicit null, false, and not-announced values where the source model distinguishes them.
 
 **Matrix and bounds**
-- [ ] Matrix rows stand alone and carry evidence.
+- [ ] Matrix rows stand alone and carry claim-level proof through [proof.md](../proof.md) when needed.
 - [ ] Exclusions enumerate unsupported configurations explicitly.
 - [ ] Lifecycle profiles keep active support, end of life, extended support, retirement, discontinuation, maintained, LTS, and latest facts distinct where the source distinguishes them.
 - [ ] Compatibility profiles use the correct source model: skew, semver range, dependency bounds, API window, provider policy, or generated check.
@@ -394,6 +347,6 @@ Use `Review trigger:` for the event that makes the fact stale. Use `Last verifie
 - [ ] Lifecycle, deprecation, or compatibility diagrams appear only where transitions or edges change reader action, and each diagram has a text equivalent.
 
 **Deprecation and migration**
-- [ ] Deprecation entries distinguish current availability, warning signal, replacement, removal, behavior change, and source truth.
-- [ ] Migration anchors name source, target, roadmap or how-to owner, validation signal, and review trigger rather than embedding steps.
+- [ ] Deprecation entries distinguish current availability, warning signal, replacement, removal, behavior change, and the policy behind removal.
+- [ ] Migration anchors name source, target, roadmap or how-to owner, and validation signal rather than embedding steps.
 - [ ] Boundaries route adjacent concerns once and every relative link resolves.

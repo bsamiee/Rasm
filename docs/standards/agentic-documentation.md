@@ -29,7 +29,7 @@ Salience is relative, not a hard cutoff: the middle down-weights content, it doe
 
 Use bracketed headings, table rubrics, `[INDEX]` rows, and compact status markers as salience aids, not as decoration. They help an agent find boundaries, compare rows, and filter state; they do not replace the front-and-close rule, claim-level evidence, or precise prose.
 
-`Local rule:` this corpus uses the position ring as its normative placement rule. `Source of truth:` provider-behavior claims are proved only by the linked provider documentation in [Provider behavior](#13providerbehavior). `Last verified:` 2026-06-04.
+This corpus uses the position ring as its normative placement rule. Provider-behavior claims are proved only through the evidence labels and freshness rules owned by [proof.md](proof.md).
 
 ## [3][CONTEXT_INVARIANCE]
 
@@ -82,7 +82,7 @@ Order a task instruction as:
 6. Output contract and missing-evidence behavior.
 7. Validation and stop rule.
 
-Bind machine-consumed output to the narrowest contract the consumer actually validates: a schema, a typed tool input, a generated model, a catalog entry, or a documented field list. Close and total JSON-object schemas so the consumer validates a fully specified shape rather than a narrow-but-open one. Use `additionalProperties: false` with every property required, and represent optionality with an explicit nullable value where the provider supports it.
+Bind structured output to the narrowest contract the consumer actually validates: a schema, a typed tool input, a generated model, a catalog entry, or a documented field list. Close and total JSON-object schemas so the consumer validates a fully specified shape rather than a narrow-but-open one. Use `additionalProperties: false` with every property required, and represent optionality with an explicit nullable value where the provider supports it.
 
 Prefer provider schema enforcement over a schema described in prose where the surface supports it. Treat prompt-only JSON as a weaker fallback that requires validation and repair handling. A schema proves shape, not truth; keep semantic validation, refusal handling, and downstream suitability checks visible in the proof path. If a human reviews the contract instead of tooling enforcing it, state that proof gap.
 
@@ -96,7 +96,7 @@ Start from the section set below. It is a suggested baseline, not a closed vocab
 - `Routing`: routing to the standards and reference files that own deeper rules, and ownership of conflicting guidance;
 - `Execution rules`: build, test, and quality commands, code-style and review expectations, and commit and pull-request expectations;
 - `Exclusions`: forbidden patterns, security constraints, and known gotchas;
-- `Validation`: the gate that proves a change here, plus `Source of truth:` and `Last verified:` for any provider-behavior claim.
+- `Validation`: the gate that proves a change here, plus provider-behavior proof routed through [proof.md](proof.md) when the claim can drift.
 
 Use this heading template as the starting shape. Extend or relabel sections only when the directory needs a sharper local contract:
 
@@ -123,7 +123,7 @@ Use this heading template as the starting shape. Extend or relabel sections only
 
 ## [5][VALIDATION]
 
-<The gate that proves a change here; `Source of truth:` and `Last verified:` for any provider claim.>
+<The gate that proves a change here, with provider-behavior proof routed through `proof.md` when the claim can drift.>
 ```
 
 Exclude content that goes stale or wastes context:
@@ -136,7 +136,7 @@ Exclude content that goes stale or wastes context:
 
 Layer files by scope and keep each lean. Lower directories should carry only guidance specific to that level, and higher-level files should contribute only broad defaults. Place a file only where a directory carries guidance needed across sessions. Every word loaded costs reasoning budget, so a top-level overlay should stay near one screen.
 
-Iterate the file from observed agent failures rather than speculation. Record provider-behavior claims with `Source of truth:` and `Last verified:` beside the claim.
+Iterate the file from observed agent failures rather than speculation. Route provider-behavior evidence details to [proof.md](proof.md) instead of repeating evidence-label definitions in the instruction file.
 
 ## [9][LLMS_TXT_INDEXES]
 
@@ -157,21 +157,11 @@ Document a retrieval surface with the provenance an agent needs to trust and ref
 - the document type and owner when known;
 - generated status and the refresh owner or generation path;
 - the access class and filter rule when content is not public;
-- the review trigger for drift-prone content.
+- the drift condition for drift-prone content.
 
-Carry these as a per-chunk provenance record, one `label: value` per line, so every retrievable chunk header is a template rather than reconstructed from prose:
+Carry these only in the schema or header shape the deployed retrieval store consumes. When the provenance includes proof, source, freshness, or generation facts, use the label meanings owned by [proof.md](proof.md) instead of defining a parallel vocabulary here.
 
-```markdown template
-source_path: <repo path or URL of the source document>
-heading_path: <H1 > H2 > H3 trail, or the parent identity>
-doc_type: <reference | runbook | architecture | ...>
-owner: <accountable role or group, when known>
-generated: <true | false; generation path or workflow when true>
-access: <public | internal | restricted | secret; filter rule when not public>
-review_trigger: <event that makes the chunk stale>
-```
-
-Each retrievable chunk should carry enough context to stand alone, because retrieval strips surrounding structure. Claim hybrid retrieval, reranking, or provider-specific search only where the deployed stack supports it and the proof names the configured provider, command, or source of truth. Keep very large tables and long records chunked rather than passed whole; long-context degradation erodes oversized structured content too.
+Each retrievable chunk should carry enough context to stand alone, because retrieval strips surrounding structure. Claim hybrid retrieval, reranking, or provider-specific search only where the deployed stack supports it and the proof names the configured provider, command, or controlling source. Keep very large tables and long records chunked rather than passed whole; long-context degradation erodes oversized structured content too.
 
 ## [11][MCP_TOOL_CATALOGS]
 
@@ -185,21 +175,7 @@ For each capability, name what it is, when to inspect it, the required authoriza
 
 Detailed schemas belong in API or reference documentation. A documented tool is not safe to call merely because it is documented; safety comes from permissions, review, and runtime controls, never from the catalog entry.
 
-## [12][METADATA_GENERATED_MIRRORS]
-
-Add YAML frontmatter, sidecar metadata, or generated index fields only when a named renderer, indexer, generator, retrieval store, or review workflow consumes that exact shape. Use an in-body definition block for ordinary document metadata. Do not add YAML frontmatter as a speculative summary, fake routing layer, or authoring habit.
-
-Use snake-case field names when a machine reads the field. Durable fields may include `description`, `owner`, `source`, `source_of_truth`, `evidence`, `generated`, `generated_from`, `last_reviewed`, `last_verified`, `review_trigger`, `access`, and `parent`. Map each machine field to its human-facing proof label so the same fact reads the same way in prose and metadata; proof.md owns the proof labels.
-
-| [INDEX] | [METADATA_FIELD]  | [PROOF_LABEL]      |
-| :-----: | :---------------- | :----------------- |
-|   [1]   | `source_of_truth` | `Source of truth:` |
-|   [2]   | `evidence`        | `Evidence:`        |
-|   [3]   | `last_verified`   | `Last verified:`   |
-|   [4]   | `review_trigger`  | `Review trigger:`  |
-|   [5]   | `generated_from`  | `Generated from:`  |
-
-Fields with no proof-label counterpart — `description`, `owner`, `source`, `generated`, `last_reviewed`, `access`, `parent` — are triage or routing metadata and do not assert a claim, so they carry no prose label.
+## [12][GENERATED_MIRRORS]
 
 A generated or mirrored file must link its canonical source, name the generator or workflow where one is maintained, preserve heading hierarchy where possible, mark omissions, and exclude secrets, personal data, task notes, and private machine details. Do not hand-edit a generated mirror as independent truth.
 
@@ -217,19 +193,15 @@ Long context: keep critical constraints at the opening and closing edge; use com
 Structured output: put machine-consumed contracts in structured outputs or strict tool schemas where the API supports them; prose may steer JSON shape, but it does not enforce it.
 State and caching: keep `AGENTS.md` lean and scoped because Codex loads the instruction chain from global guidance through the working directory and closer files override earlier conflicting guidance. Use prompt caching only for stable prefixes and treat it as latency and cost optimization, not state or correctness proof.
 Output control: control answer length with explicit word, section, or verbosity contracts; do not treat verbosity as hidden reasoning control.
-Source of truth: [OpenAI prompting guide](https://developers.openai.com/api/docs/guides/prompting), [Structured Outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs), [Prompt caching guide](https://developers.openai.com/api/docs/guides/prompt-caching), and [Codex `AGENTS.md` documentation](https://developers.openai.com/codex/guides/agents-md).
-Last verified: 2026-06-04
 
 ### [13.2][CLAUDE_CODE]
 
 Preferred structure: separate instructions, context, examples, documents, and variable inputs when the prompt mixes those concerns.
 Delimiter: use XML-style tags for complex prompts, with descriptive names and nesting only where hierarchy is real.
-Long context: place source documents near the top and the query or task at the end; wrap multi-document inputs with source and content metadata.
+Long context: place source documents near the top and the query or task at the end; identify each source and content block explicitly.
 Structured output: state the exact output fields, formats, and missing-data behavior; use schema enforcement where the surface supplies it.
 Claude Code files: `CLAUDE.md`, skills, commands, and task prompts use Markdown structure. XML tags are a prompt-clarity tool inside complex prompt content, not a Claude Code file-format requirement. `AGENTS.md` affects Claude Code only when `CLAUDE.md` imports or links it.
 Output control: ask for evidence, quoted or cited source spans within access and copyright limits, and final answer shape before synthesis when factual grounding matters.
-Source of truth: [Anthropic prompting best practices](https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/claude-prompting-best-practices), [Claude Code memory documentation](https://docs.anthropic.com/en/docs/claude-code/memory), and [extended thinking documentation](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking).
-Last verified: 2026-06-04
 
 ### [13.3][GEMINI]
 
@@ -239,18 +211,16 @@ Long context: place source material before the specific question or instruction 
 Structured output: prefer schema-backed structured output for extraction, classification, JSON payloads, and agent-to-agent exchange, but keep semantic validation in application or review logic.
 Verification split: when source availability or capability is uncertain, verify the relevant information exists first, then answer only inside the verified scope.
 Output control: state the desired length, sections, and refusal or missing-data behavior explicitly.
-Source of truth: [Gemini prompt design strategies](https://ai.google.dev/gemini-api/docs/prompting-strategies), [Gemini long context guide](https://ai.google.dev/gemini-api/docs/long-context), and [Gemini structured output guide](https://ai.google.dev/gemini-api/docs/structured-output).
-Last verified: 2026-06-04
 
 Do not require exposed chain-of-thought in published prompt standards. Ask for evidence, checks, summaries, or a decision trail the consumer can inspect, and rely on provider reasoning controls where the runtime exposes them. Use examples only when they materially teach format, tone, edge handling, or tool choice; remove examples that merely repeat the rule.
 
-`Source of truth:` the linked provider sources named beside each provider rule above. `Last verified:` 2026-06-04. `Review trigger:` provider prompt-engineering, structured-output, memory, or context guidance changes.
+Provider-specific behavior uses the linked provider sources named beside each provider rule above, and freshness follows [proof.md](proof.md) when the claim can drift.
 
 ## [14][BOUNDARIES]
 
 - [information-structure.md](information-structure.md) owns container form, diagrams, page anatomy, and chunk shape; this standard owns where high-value content sits within them.
 - [style-guide.md](style-guide.md) owns sentence and word craft; this standard owns the cognition rationale for positive, imperative framing.
-- [proof.md](proof.md) owns evidence strength, freshness fields, and the evaluation discipline for machine-facing surfaces.
+- [proof.md](proof.md) owns evidence strength, proof details, and the evaluation discipline for machine-facing surfaces.
 - [formatting.md](formatting.md) owns the markers and styling that render the constraints this standard places.
 - [README.md](README.md) owns document-type routing and is the single index that links across standards.
 
@@ -263,13 +233,12 @@ Do not require exposed chain-of-thought in published prompt standards. Ask for e
 - [ ] Instructions are positive imperatives with ranked constraints.
 
 **Provider and agent surfaces**
-- [ ] Provider claims carry a current primary source and `Last verified` date.
+- [ ] Provider claims carry current primary proof when they can drift.
 - [ ] `AGENTS.md` files are behavioral, lean, and free of change-prone enumeration.
 - [ ] Provider-specific prompt rules remain preferred patterns and do not claim enforcement, correctness, or universal superiority.
 - [ ] Indexes link to canonical docs; `llms.txt` is treated as a map.
 - [ ] Retrieval chunks carry source, heading path, owner, access, and freshness.
 - [ ] MCP resources, prompts, and tools are separated before schemas.
-- [ ] Metadata exists only where a consumer reads it.
 - [ ] Generated mirrors identify source and generation status.
 
 **Safety**

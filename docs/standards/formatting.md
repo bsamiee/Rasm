@@ -103,7 +103,7 @@ Treat heading anchors and hidden Markdown comments as source-level notation. Anc
 - Duplicate headings: do not create duplicate bracket-heading anchors in one file. Rename the semantic label rather than relying on renderer-specific duplicate suffixes.
 - Renumbering: renumber headings only when the document structure changes; cosmetic rewrites preserve existing heading numbers so links stay stable.
 - Hidden comments: use HTML comments only for source-view authoring hints, generator hints, or maintenance notes that should not render: `<!-- source-only: <short reason> -->`.
-- Comment placement: put a hidden comment immediately before the block it annotates, separated by the same blank-line rules as the surrounding block. Keep comments one line when possible; multi-line comments are allowed only for generated/source-only metadata that would be noisy when rendered.
+- Comment placement: put a hidden comment immediately before the block it annotates, separated by the same blank-line rules as the surrounding block. Keep comments one line when possible; multi-line comments are allowed only for generated source-view notes that would be noisy when rendered.
 - Comment limits: never use a hidden comment as the only carrier of safety, proof, intent, "replace with verified data," or required constraints. Do not put comments inside table rows or cells; use visible prose, a table note, or a definition block instead.
 
 ## [8][BOUNDARIES]
@@ -111,7 +111,7 @@ Treat heading anchors and hidden Markdown comments as source-level notation. Anc
 - [information-structure.md](information-structure.md) owns container choice, table construction, code-block intent labels, and structured-record fields; this standard styles what it builds.
 - [style-guide.md](style-guide.md) owns sentence mechanics, terminology, and requirement modals.
 - [agentic-documentation.md](agentic-documentation.md) owns salience and where a marked constraint sits in a unit.
-- [proof.md](proof.md) owns evidence strength and freshness; this standard renders the result and status markers that present an evidence table or status field.
+- [proof.md](proof.md) owns evidence strength, freshness, and proof label meanings; this standard renders the result and status markers that present evidence or status.
 - [README.md](README.md) owns document-type routing and cross-standard links.
 
 ## [9][REVIEW_CHECKLIST]

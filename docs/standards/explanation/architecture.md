@@ -22,19 +22,16 @@ This standard defines local architecture-document profiles grounded in arc42 and
 - Structurizr DSL owns authored-model consistency only when repository tooling or an existing architecture corpus already uses it.
 - Mermaid C4 and Mermaid architecture syntax are renderer sources, not architecture models. Mermaid C4 is acceptable only with an explicit renderer-stability proof gap; Mermaid `architecture-beta` is for deployment or resource topology, not a generic substitute for C4.
 
-Source of truth: [arc42 template overview](https://arc42.org/overview), [C4 diagram model](https://c4model.com/diagrams), [C4 Container abstraction](https://c4model.com/abstractions/container), [C4 notation guidance](https://c4model.com/diagrams/notation), [Structurizr DSL](https://docs.structurizr.com/dsl), [Mermaid C4 diagrams](https://mermaid.js.org/syntax/c4), and [Mermaid architecture diagrams](https://mermaid.js.org/syntax/architecture).
-Last verified: 2026-06-04
-Review trigger: arc42 section set, C4 diagram semantics, Structurizr DSL, Mermaid C4, or Mermaid architecture syntax changes.
 
 ## [3][SCALE_PROFILES]
 
 Select one profile by the scope the document governs. A profile fixes placement, minimum structural proof, and diagram floor. Use one architecture owner per scope; subordinate architecture scopes live in child directories or link clearly from the parent rather than competing at the same level.
 
-| [INDEX] | [PROFILE]      | [SCOPE]                         | [FILE_NAME]            | [DIAGRAM_FLOOR]                         | [PROOF_FLOOR]       |
-| :-----: | :------------- | :------------------------------ | :--------------------- | :-------------------------------------- | :------------------ |
-|   [1]   | Landscape      | system, tool, host, or runtime  | `ARCHITECTURE.md`      | C4 Context + Container                  | codemap + diagrams  |
-|   [2]   | Owner-contract | package or sub-concern boundary | `_ARCHITECTURE.md`     | none; C4 Component only inside runtime  | codemap + contracts |
-|   [3]   | Embedded       | single directory, one entry     | section in `README.md` | none; codemap text only                 | local paths         |
+| [INDEX] | [PROFILE]      | [SCOPE]                         | [FILE_NAME]            | [DIAGRAM_FLOOR]                        | [PROOF_FLOOR]       |
+| :-----: | :------------- | :------------------------------ | :--------------------- | :------------------------------------- | :------------------ |
+|   [1]   | Landscape      | system, tool, host, or runtime  | `ARCHITECTURE.md`      | C4 Context + Container                 | codemap + diagrams  |
+|   [2]   | Owner-contract | package or sub-concern boundary | `_ARCHITECTURE.md`     | none; C4 Component only inside runtime | codemap + contracts |
+|   [3]   | Embedded       | single directory, one entry     | section in `README.md` | none; codemap text only                | local paths         |
 
 Profile selection rules:
 
@@ -44,21 +41,14 @@ Profile selection rules:
 
 ## [4][REQUIRED_STRUCTURE]
 
-Use the required template for the selected profile as the base heading set. The opening definition block makes profile selection, ownership, source paths, and proof freshness visible before a reader sees diagrams or codemaps. Add conditional sections only from the addition blocks when their trigger holds, then renumber headings in document order.
+Use the required template for the selected profile as the base heading set. Name the selected profile and scope in the lead, then let the body sections carry ownership, codemap, diagram, and proof details where those facts are used. Add conditional sections only from the addition blocks when their trigger holds, then renumber headings in document order.
 
 Landscape template:
 
 ```markdown template
 # [SCOPE_ARCHITECTURE]
 
-Profile: Landscape
-Scope: <system, tool, host, or runtime boundary>
-Owner: <owner role or group>
-Source paths: <repo paths, manifests, or generated contracts>
-Diagram floor: C4 Context + Container
-Proof floor: codemap + diagrams
-Last verified: YYYY-MM-DD
-Review trigger: <event that makes the architecture stale>
+<Lead: name the `Landscape` profile and the system, tool, host, or runtime boundary.>
 
 ## [1][SCOPE_GOALS]
 
@@ -98,14 +88,7 @@ Owner-contract template:
 ```markdown template
 # [PACKAGE_ARCHITECTURE]
 
-Profile: Owner-contract
-Scope: <package or sub-concern boundary>
-Owner: <owner role or group>
-Source paths: <repo paths, manifests, or generated contracts>
-Diagram floor: none, or C4 Component inside <runtime container>
-Proof floor: codemap + contracts
-Last verified: YYYY-MM-DD
-Review trigger: <event that makes the architecture stale>
+<Lead: name the `Owner-contract` profile and the package or sub-concern boundary.>
 
 ## [1][PURPOSE_BOUNDARY]
 
@@ -147,13 +130,7 @@ Embedded template inside an owner README:
 ```markdown template
 ## [N][ARCHITECTURE]
 
-Profile: Embedded
-Scope: <single-directory concern>
-Owner: <owner role or group>
-Source paths: <local paths>
-Proof floor: local paths
-Last verified: YYYY-MM-DD
-Review trigger: <event that makes the section stale>
+<Lead: name the `Embedded` profile and the single-directory concern.>
 
 ### [N.1][PURPOSE_BOUNDARY]
 
@@ -164,17 +141,16 @@ Review trigger: <event that makes the section stale>
 Rule: <observable architectural rule>
 Forbids: <direct dependency, ownership leak, or shape this rule rejects>
 Check: <path check, contract gate, review gate, or proof gap>
-Proof: <current evidence path, command, or owner-reviewed source>
 Linked gate: <test strategy gate, or none>
 ```
 
 Section cardinality:
 
-| [INDEX] | [PROFILE]      | [REQUIRED]                                                                                                      | [CONDITIONAL]                                                   |
-| :-----: | :------------- | :-------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------- |
-|   [1]   | Landscape      | metadata, scope, context, strategy, blocks, invariants, proof, boundaries, checklist                             | runtime, deployment, risks, glossary                            |
-|   [2]   | Owner-contract | metadata, purpose, contracts, owned blocks, invariants, proof, boundaries, checklist                             | build/support, capability catalog, glossary, C4 Component view  |
-|   [3]   | Embedded       | metadata, purpose, codemap, invariants                                                                          | glossary only when the parent README can carry it without noise |
+| [INDEX] | [PROFILE]      | [REQUIRED]                                                                       | [CONDITIONAL]                                                   |
+| :-----: | :------------- | :------------------------------------------------------------------------------- | :-------------------------------------------------------------- |
+|   [1]   | Landscape      | lead, scope, context, strategy, blocks, invariants, proof, boundaries, checklist | runtime, deployment, risks, glossary                            |
+|   [2]   | Owner-contract | lead, purpose, contracts, owned blocks, invariants, proof, boundaries, checklist | build/support, capability catalog, glossary, C4 Component view  |
+|   [3]   | Embedded       | lead, purpose, codemap, invariants                                               | glossary only when the parent README can carry it without noise |
 
 ## [5][LANDSCAPE_SECTIONS]
 
@@ -202,7 +178,7 @@ Use the compact profile for a package or sub-concern boundary:
 4. Invariants: use the same observable rule and rejected-shape contract as the landscape profile.
 5. Diagram and codemap proof: name how paths, contracts, and any optional diagram were refreshed.
 
-Future contracts and sequencing belong in design documents or roadmaps. A current provisional contract may appear only when the architecture already exposes it and the record carries evidence plus a review trigger.
+Future contracts and sequencing belong in design documents or roadmaps. A current provisional contract may appear only when the architecture already exposes it and the record carries evidence plus a drift condition.
 
 For `Embedded`, the parent README owns document-level boundaries and review checklist unless the embedded architecture section becomes large enough to promote to its own architecture file.
 
@@ -230,7 +206,6 @@ Render open risks with the shared `Status` vocabulary (`PLANNED`, `IN-PROGRESS`,
 Status: IN-PROGRESS
 Exit: checkpoint headers carry a version byte; the loader rejects unknown versions.
 Owner: runtime maintainers
-Proof: loader fixture output.
 ```
 
 When three or more external actors cross a boundary, use an actor record table; when one actor needs proof or caveats, use a grouped definition block instead:
@@ -246,11 +221,11 @@ When three or more external actors cross a boundary, use an actor record table; 
 Render runtime containers only for deployable or executable runtime units, and keep this table aligned with the Container view:
 
 ```markdown conceptual
-| [INDEX] | [CONTAINER] | [RUNTIME_UNIT]       | [OWNS]                  | [SOURCE_PATH]       |
-| :-----: | :---------- | :------------------- | :---------------------- | :------------------ |
-|   [1]   | API         | service process      | request admission       | `service/api/`      |
-|   [2]   | Worker      | background process   | async policy execution  | `service/worker/`   |
-|   [3]   | Store       | database schema      | durable state contract  | `service/storage/`  |
+| [INDEX] | [CONTAINER] | [RUNTIME_UNIT]     | [OWNS]                 | [SOURCE_PATH]      |
+| :-----: | :---------- | :----------------- | :--------------------- | :----------------- |
+|   [1]   | API         | service process    | request admission      | `service/api/`     |
+|   [2]   | Worker      | background process | async policy execution | `service/worker/`  |
+|   [3]   | Store       | database schema    | durable state contract | `service/storage/` |
 ```
 
 Render owner contracts and owner blocks as field records when proof or rejected shape matters:
@@ -260,9 +235,7 @@ Render owner contracts and owner blocks as field records when proof or rejected 
 
 Contract: <signature, schema, generated reference, or documented surface>
 Consumer: <owner or boundary that depends on it>
-Source path: <current path or generated contract>
 Boundary: <what this contract admits or rejects>
-Evidence: <path, command, generated reference, or proof gap>
 Linked block: <block path and invariant served, or none>
 Rejected shape: <adjacent concern or direct dependency this contract must not own>
 ```
@@ -273,15 +246,14 @@ Render invariants as records by default. Use the compact table only when every i
 Invariant: every cross-owner call enters through `api/`.
 Forbids: direct `domain/ -> storage/` dependency.
 Check: configured dependency check fails on `domain/ -> storage/`.
-Proof: dependency-check output or proof gap.
 Linked gate: test strategy gate, or none.
 ```
 
 ```markdown conceptual
-| [INDEX] | [RULE]       | [FORBIDS]          | [CHECK]          | [PROOF]       | [GATE] |
-| :-----: | :----------- | :----------------- | :--------------- | :------------ | :----- |
-|   [1]   | enter `api/` | direct persistence | dependency check | gate output   | TS-1   |
-|   [2]   | isolate jobs | sync caller wait   | scenario review  | proof gap     | none   |
+| [INDEX] | [RULE]       | [FORBIDS]          | [CHECK]          | [PROOF]     | [GATE] |
+| :-----: | :----------- | :----------------- | :--------------- | :---------- | :----- |
+|   [1]   | enter `api/` | direct persistence | dependency check | gate output | TS-1   |
+|   [2]   | isolate jobs | sync caller wait   | scenario review  | proof gap   | none   |
 ```
 
 The rejected shape states intent with no observable check:
@@ -306,18 +278,18 @@ Why linked: <one sentence naming the architecture fact the adjacent document own
 
 C4 owns diagram semantics; the renderer does not. Select the diagram type from the reader question, and cap each top-level view at 7 boxes as a local readability and maintenance rule, not as a C4 requirement. Split a crowded view into a parent view and a drill-down rather than crowding one canvas. Keep level consistency: every element inside a Component view belongs to the container it drills into.
 
-| [INDEX] | [READER_QUESTION]                     | [C4_VIEW]  | [WHEN_IT_IS_USED]                                            |
-| :-----: | :------------------------------------ | :--------- | :----------------------------------------------------------- |
-|   [1]   | Who and what does the system talk to? | Context    | `Landscape` profile                                          |
-|   [2]   | What deployable units are inside?     | Container  | `Landscape` profile only                                     |
-|   [3]   | How do parts of one container fit?    | Component  | `Owner-contract` only inside a named runtime container       |
-|   [4]   | In what order does a flow execute?    | Dynamic    | flow order proves a current invariant                        |
-|   [5]   | Where do units run and connect?       | Deployment | topology or placement proves an invariant                    |
-|   [6]   | What code implements a component?     | Code       | generated reference or codemap, not hand-drawn architecture  |
+| [INDEX] | [READER_QUESTION]                     | [C4_VIEW]  | [WHEN_IT_IS_USED]                                           |
+| :-----: | :------------------------------------ | :--------- | :---------------------------------------------------------- |
+|   [1]   | Who and what does the system talk to? | Context    | `Landscape` profile                                         |
+|   [2]   | What deployable units are inside?     | Container  | `Landscape` profile only                                    |
+|   [3]   | How do parts of one container fit?    | Component  | `Owner-contract` only inside a named runtime container      |
+|   [4]   | In what order does a flow execute?    | Dynamic    | flow order proves a current invariant                       |
+|   [5]   | Where do units run and connect?       | Deployment | topology or placement proves an invariant                   |
+|   [6]   | What code implements a component?     | Code       | generated reference or codemap, not hand-drawn architecture |
 
 Code-level diagrams stay out of hand-written architecture documents by local maintainability rule. When class or call structure is the subject, generated symbol reference or codemap proof carries it; hand-drawn code diagrams go stale too quickly.
 
-Use a checked-in architecture model when repository tooling, a manifest, or the existing architecture corpus configures one. When no model tool is configured, authored Mermaid source is acceptable as a lightweight sketch only if the proof record names the source, renderer, source of truth, and proof gap. Mermaid C4 is renderer syntax with experimental-status risk; Mermaid `architecture-beta` is appropriate for deployment or resource topology, not generic component modeling.
+Use a checked-in architecture model when repository tooling, a manifest, or the existing architecture corpus configures one. When no model tool is configured, authored Mermaid source is acceptable as a lightweight sketch only if the proof record follows [proof.md](../proof.md). Mermaid C4 is renderer syntax with experimental-status risk; Mermaid `architecture-beta` is appropriate for deployment or resource topology, not generic component modeling.
 
 Treat generated SVG, PNG, PlantUML, exported Mermaid, and static-site output as generated artifacts: edit the model or authored source, not the export.
 
@@ -374,12 +346,10 @@ C4Container
 Text equivalent: the Container view drills into the maintained system as API, Worker, and Store runtime units, matching the runtime-container table and codemap.
 
 ```markdown template
-Model/source: authored Mermaid C4 source in this document.
+Model: authored Mermaid C4 source in this document.
 Renderer: Mermaid C4 rendered by `pnpm exec mmdc -i <markdown-file> -a .artifacts/mermaid -q`, or proof gap when that command is not run.
 Codemap source: `service/api/`, `service/worker/`, `service/storage/`, and audit contract path.
 Result: diagram, text equivalent, and codemap describe the same boundary.
-Last verified: YYYY-MM-DD
-Review trigger: boundary path, actor contract, renderer, or architecture model change.
 ```
 
 ## [9][CODEMAP]
@@ -397,18 +367,18 @@ service/
 When path state matters, pair the tree with a compact path-state table rather than expanding tree comments:
 
 ```markdown conceptual
-| [INDEX] | [PATH]      | [STATE]       | [OWNS]          | [PROOF]     | [ANCHOR] |
-| :-----: | :---------- | :------------ | :-------------- | :---------- | :------- |
-|   [1]   | `api/`      | [DONE]        | admission       | path check  | ADR-7    |
-|   [2]   | `worker/`   | [IN-PROGRESS] | async execution | issue/112   | M2       |
-|   [3]   | `legacy/`   | [DROPPED]     | migration reads | support row | none     |
+| [INDEX] | [PATH]    | [STATE]       | [OWNS]          | [PROOF]     | [ANCHOR] |
+| :-----: | :-------- | :------------ | :-------------- | :---------- | :------- |
+|   [1]   | `api/`    | [DONE]        | admission       | path check  | ADR-7    |
+|   [2]   | `worker/` | [IN-PROGRESS] | async execution | issue/112   | M2       |
+|   [3]   | `legacy/` | [DROPPED]     | migration reads | support row | none     |
 ```
 
 A codemap entry that no longer resolves to a current path is a defect. Fix the path or remove the entry in the same change. For `Landscape`, the codemap and Container view must describe the same runtime decomposition; for `Owner-contract`, the codemap and public-contract records must describe the same owner boundary.
 
 ## [10][DIAGRAM_CODEMAP_PROOF]
 
-Architecture proof is claim-level: name how each drift-prone fact was refreshed against repository truth beside the fact. Use one proof receipt for the document, and add claim-level evidence fields near any fact that needs stronger local proof.
+Architecture proof is claim-level: place evidence beside each drift-prone diagram, codemap, path, contract, or renderer claim, and use page-level proof only when [proof.md](../proof.md) allows the page-level exception.
 
 ```markdown template
 Model/source: <checked-in model, authored diagram source, or none>
@@ -418,11 +388,9 @@ Path check: <command, local review, or proof gap>
 Element match: <how diagram elements match codemap paths and contracts>
 Result: <what was verified>
 Proof gap: <none, or human-reviewed path match when no tool gate exists>
-Last verified: YYYY-MM-DD
-Review trigger: <source path, model, renderer, contract, or owner-boundary change>
 ```
 
-Do not claim a diagram reflects the system unless its elements were checked against current paths during the change. When that check is human review rather than a tool gate, state the proof gap. Use `Evidence:`, `Last verified:`, `Review trigger:`, `Generated from:`, and `Source of truth:` only where the claim needs them, and place them beside the claim rather than in a page footer.
+Do not claim a diagram reflects the system unless its elements were checked against current paths during the change. When that check is human review rather than a tool gate, state the proof gap beside the claim rather than in a page footer.
 
 ## [11][BOUNDARIES]
 
@@ -437,7 +405,7 @@ Do not claim a diagram reflects the system unless its elements were checked agai
 
 ## [12][REVIEW_CHECKLIST]
 
-- [ ] Exactly one architecture profile is named in metadata, and placement matches the profile.
+- [ ] Exactly one architecture profile is named in the lead, and placement matches the profile.
 - [ ] One architecture owner governs the scope; subordinate scopes live in child directories or link clearly.
 - [ ] The document's headings match the selected profile and omit conditional sections whose triggers do not hold, including `Risks` when no open architectural risk exists.
 - [ ] Quality goals are falsifiable, and each solution-strategy choice binds to one.
@@ -449,4 +417,4 @@ Do not claim a diagram reflects the system unless its elements were checked agai
 - [ ] Every codemap path resolves to a current repository path, and codemap proof matches diagrams or contracts.
 - [ ] Each invariant is observable and falsifiable with the check that proves it.
 - [ ] Future work, proposal review, release sequence, and test-gate ownership are routed through relationship records to their owning documents.
-- [ ] Drift-prone facts carry claim-level evidence and freshness fields.
+- [ ] Drift-prone facts carry claim-level evidence and proof details.

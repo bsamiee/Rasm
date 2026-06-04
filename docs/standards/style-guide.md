@@ -17,7 +17,7 @@ Salience and ordering, container form, and evidence strength belong to the posit
 
 Use the first source that decides a naming or wording question:
 
-1. Current repository source, manifests, generated contracts, API metadata, and verified product or package names.
+1. Current repository source, manifests, generated contracts, API fields, and verified product or package names.
 2. The active document-type standard for the document being written.
 3. Official vendor documentation for external product names, UI labels, APIs, commands, and support status.
 4. This guide for local prose and notation rules.

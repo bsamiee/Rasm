@@ -6,11 +6,11 @@ Reference documentation is lookup truth for a reader who already knows the domai
 
 Route a page to this standard when the reader extracts a fact rather than follows a path:
 
-- external product, library, SDK, protocol, host, runtime, or package facts;
-- command, flag, argument, environment variable, error code, status, and configuration lookup;
-- terminology glossaries, abbreviation lists, preferred terms, rejected terms, and aliases;
-- data dictionaries, schema dictionaries, field catalogs, and value-domain catalogs;
-- capability and limitation facts when support status is one lookup fact among many;
+- external product, library, SDK, protocol, host, runtime, or package facts.
+- command, flag, argument, environment variable, error code, status, and configuration lookup.
+- terminology glossaries, abbreviation lists, preferred terms, rejected terms, and aliases.
+- data dictionaries, schema dictionaries, field catalogs, and value-domain catalogs.
+- capability and limitation facts when support status is one lookup fact among many.
 - short examples that illustrate one fact without becoming a procedure.
 
 Route HTTP contracts and generated API surfaces to [api.md](api.md), broad support policy to [support-matrix.md](support-matrix.md), procedures to [how-to.md](../task/how-to.md), operational recovery to [runbook.md](../task/runbook.md), and rationale to explanation documents.
@@ -19,34 +19,12 @@ Route HTTP contracts and generated API surfaces to [api.md](api.md), broad suppo
 
 Reference prose ranks below machine-readable and official truth:
 
-1. Repository source, generated output, contracts, manifests, schemas, metadata, lockfiles, and runnable command output.
+1. Repository source, generated output, contracts, manifests, schemas, source comments, lockfiles, and runnable command output.
 2. Official specifications, standards, vendor reference docs, release notes, and support policies.
 3. Maintainer-controlled examples, migration notes, issue records, or known-limitation pages.
 4. Curated reference prose in the document.
 
-Reference quadrant
-    Source of truth: [Diátaxis Reference](https://diataxis.fr/reference/).
-    Last verified: 2026-06-04
-    Review trigger: Diátaxis reference guidance changes.
-
-Data definitions
-    Source of truth: [ISO/IEC 11179-4:2004](https://www.iso.org/standard/35346.html) for data-definition formulation.
-    Last verified: 2026-06-04
-    Review trigger: ISO 11179-4 status or replacement changes.
-
-Data naming
-    Source of truth: [ISO/IEC 11179-5:2015](https://www.iso.org/standard/60341.html) for naming principles; ISO currently marks the publication as published and to be revised.
-    Last verified: 2026-06-04
-    Review trigger: ISO 11179-5 revision publishes or status changes.
-
-Local glossary policy
-    Source of truth: this standard for local term statuses such as `preferred`, `admitted`, `deprecated`, and `rejected`.
-    Review trigger: local terminology policy or status vocabulary changes.
-
-SKOS label mapping
-    Source of truth: [SKOS](https://www.w3.org/TR/skos-reference/) preferred, alternate, and hidden lexical labels.
-    Last verified: 2026-06-04
-    Review trigger: SKOS Recommendation or local terminology-status vocabulary changes.
+Use Diátaxis Reference for the reference quadrant. ISO/IEC 11179-4:2004 informs data-definition formulation, and ISO/IEC 11179-5:2015 informs naming principles. This standard owns local term statuses such as `preferred`, `admitted`, `deprecated`, and `rejected`; SKOS preferred, alternate, and hidden lexical labels can support that local mapping.
 
 When a generated contract or official source changes, re-derive the local summary from the source rather than editing prose in isolation.
 
@@ -54,17 +32,17 @@ ISO 11179 informs data-dictionary definitions and naming. Do not claim ISO confo
 
 ## [3][PROFILES]
 
-Choose one primary profile per reference leaf. Split the leaf when a second profile changes source truth, entry fields, or lookup order.
+Choose one primary profile per reference leaf. Split the leaf when a second profile changes source model, entry fields, or lookup order.
 
 Fact catalog
     Owns: grouped facts about one external dependency, runtime, host, product, or local tool surface.
-    Required groups: scope, source truth, one or more fact groups.
+    Required groups: scope and one or more fact groups.
     Entry shape: fact card or homogeneous lookup table.
     Route-away: procedures, support policy, generated API catalogs, and architecture rationale.
 
 Command reference
     Owns: command names, flags, arguments, defaults, output shape, exit behavior, side effects, and short misuse examples.
-    Required groups: scope, source truth, one group per command or command family.
+    Required groups: scope and one group per command or command family.
     Entry shape: command family card plus keyed flag or exit-code mappings.
     Route-away: step-by-step task execution and operational recovery.
 
@@ -76,13 +54,13 @@ Glossary
 
 Data dictionary
     Owns: data elements with definition, type, value domain, nullability, provenance, ownership, and source schema.
-    Required groups: scope, source truth, element entries.
+    Required groups: scope and element entries.
     Entry shape: data element card or schema-owned generated table.
     Route-away: schema files, migrations, generated API contracts, and warehouse catalogs.
 
 Capability reference
     Owns: supported features, limitations, status vocabulary, version constraints, and evidence where support is one fact among many.
-    Required groups: scope, status vocabulary, capability entries, source truth.
+    Required groups: scope, status vocabulary, and capability entries.
     Entry shape: status-tagged capability records.
     Route-away: broad support matrices and future roadmap intent.
 
@@ -97,9 +75,7 @@ Required core:
 
 <One-sentence scope.>
 
-## [1][CONTROL]
-
-## [2][LOOKUP_GROUP]
+## [1][LOOKUP_GROUP]
 
 ## [N][BOUNDARIES]
 
@@ -112,18 +88,14 @@ Conditional additions:
 ## [N][STATUS_VOCABULARY]
 
 ## [N][EXAMPLES]
-
-## [N][EVIDENCE]
 ```
 
 Section cardinality:
 
 - Opening scope: required, single.
-- `Source truth`: required for fact catalogs, command references, data dictionaries, capability references, and any drift-prone glossary; glossaries backed only by stable local policy may inline source truth in entries.
 - `Status vocabulary`: required for capability references; absent otherwise.
 - Lookup group: required; one or more, named for the subject being cataloged.
 - `Examples`: optional; include only beside a likely misuse.
-- `Evidence`: page-level only when every fact shares one source and trigger; otherwise omit and attach proof beside each fact.
 - `Boundaries`: required, single.
 - `Review checklist`: required, single.
 
@@ -131,12 +103,11 @@ Section cardinality:
 
 State only fields a reader needs to use the fact:
 
-- name or canonical term;
-- kind, type, category, or owner;
-- definition or concise description;
-- allowed values, units, defaults, constraints, lifecycle status, or support status when the fact constrains a caller;
-- source truth or evidence when the fact can drift;
-- `Last verified: YYYY-MM-DD` or `Review trigger:` when the fact can drift;
+- name or canonical term.
+- kind, type, category, or owner.
+- definition or concise description.
+- allowed values, units, defaults, constraints, lifecycle status, or support status when the fact constrains a caller.
+- source, command, official link, or generated artifact when the fact can drift, following [proof.md](../proof.md).
 - related entries or canonical external links where useful.
 
 Choose the container by how the reader reads the entry. A single record read by field belongs in a definition block. Homogeneous peer entries compared across the same columns belong in a table within the shared table ceiling. Sparse, heterogeneous, or independently updated entries belong in per-entry definition blocks or subsection records, not a table with many empty cells. Mark absent table values with an em-dash so blanks never read as unknown.
@@ -148,14 +119,11 @@ Name: `<canonical fact, term, command, field, or capability>`
 Kind: `<runtime | host | package | command | field | status | ...>`
 Definition: `<one factual statement>`
 Constraint: `<allowed values, unit, default, or lifecycle; omit when unconstrained>`
-Source of truth: `<source path, generated contract, official source, or command>`
-Evidence: `<exact proof; omit only for stable local term policy>`
-Review trigger: `<source, generated output, command help, or owner change>`
 Route-away: `<api | support matrix | how-to | runbook | architecture; omit when absent>`
 Use: `<one sentence naming the reader action this fact changes>`
 ```
 
-Omit fields that do not apply, except `Name`, `Definition`, `Source truth`, and `Review trigger` when the fact can drift.
+Omit fields that do not apply, except `Name` and `Definition`.
 
 ## [6][CAPABILITY_ENTRIES]
 
@@ -166,8 +134,7 @@ Capability entry fields:
 - `Capability`: feature, limit, or behavior.
 - `Status`: support state from the declared vocabulary.
 - `Constraint`: version, platform, environment, entitlement, or flag when status is conditional.
-- `Evidence`: source, command output, or official link proving the status.
-- `Review trigger:` or `Last verified:`: event or date that makes the fact stale.
+- source, command output, or official link when the support fact can drift, with exact evidence details owned by [proof.md](../proof.md).
 
 When status maps deterministically to caller decision, include a compact lookup table keyed by status:
 
@@ -189,14 +156,11 @@ Use a command family card before flag, argument, or exit-code tables:
 
 ```text template
 Command family: `<command or subcommand>`
-Source of truth: `<source path, generated command reference, or --help output>`
-Refresh command: `<command that prints current help; omit when unavailable>`
 Invocation pattern: `<command> <required-args> [optional-flags]`
 Output shape: `<stdout, JSON schema, files, artifacts, or external state>`
 Mutation: `<none, filesystem, network, service state, or other>`
 Exit behavior: `<exit codes or status contract>`
 Route-away: `<how-to for normal task or runbook for recovery; omit when absent>`
-Review trigger: command implementation, help output, schema, or side-effect path changes.
 ```
 
 ## [8][GLOSSARIES]
@@ -220,8 +184,6 @@ Sense: `<one bounded-context meaning>`
 Status: preferred | admitted | deprecated | rejected
 Preferred term: `<preferred term; required for non-preferred entries>`
 Related: `<term anchors; omit when unrelated>`
-Source of truth: `<local policy, official vocabulary, or source path>`
-Review trigger: local terminology policy or owning vocabulary changes.
 ```
 
 ## [9][DATA_DICTIONARIES]
@@ -230,14 +192,14 @@ A data dictionary describes data elements against their owning schema. ISO/IEC 1
 
 Per element, include the subset that applies:
 
-- canonical name and aliases;
-- semantic definition;
-- owner or source system;
-- data type, format, unit, precision, or encoding;
-- value domain, enumerated values, ranges, nullability, uniqueness, and cardinality when they constrain a writer;
-- required status when the element may not be blank or null;
-- key, relationship, partition, or lineage facts;
-- sensitivity, access class, retention, provenance, quality, and freshness facts when applicable;
+- canonical name and aliases.
+- semantic definition.
+- owner or source system.
+- data type, format, unit, precision, or encoding.
+- value domain, enumerated values, ranges, nullability, uniqueness, and cardinality when they constrain a writer.
+- required status when the element may not be blank or null.
+- key, relationship, partition, or lineage facts.
+- sensitivity, access class, retention, provenance, quality, and recency facts when applicable.
 - source schema, contract, query, generated catalog, or official data standard.
 
 Define every coded value's meaning, not just its name. Link the machine-readable schema rather than copying it. Split dictionaries with more than 20 elements by source system or subject area before the table exceeds the row ceiling.
@@ -252,8 +214,6 @@ Value domain: `<enum, range, pattern, nullability, or required state>`
 Owner/source system: `<owner, schema, table, contract, or generator>`
 Aliases/lineage: `<aliases, prior names, or source mapping; omit when absent>`
 Sensitivity/access: `<classification; omit when unrestricted or not classified>`
-Evidence: `<schema path, generated catalog, query, or official data standard>`
-Review trigger: schema, generator, source-system, or data-contract change.
 ```
 
 ## [10][EXAMPLES_WARNINGS]
@@ -267,11 +227,9 @@ Invocation: `example-tool plan --dry-run`
 Flag: `--dry-run`
 Effect: reports planned changes.
 Side effect: mutates nothing.
-Evidence: `<tool help output or command reference path>`.
-Review trigger: command help or implementation changes.
 ```
 
-Replace the evidence placeholder with exact command help, a source path, or a generated command reference before publishing a real command reference.
+Replace placeholders with exact command help, a source path, or a generated command reference before publishing a real command reference.
 
 Rejected prose-only warning:
 
@@ -279,7 +237,7 @@ Rejected prose-only warning:
 This tool has a dry-run mode that can be safer in some cases.
 ```
 
-The accepted shape gives the reader one lookup fact plus proof. The rejected shape hides the invocation, effect, side effect, and refresh trigger.
+The accepted shape gives the reader one lookup fact plus the information needed to refresh it. The rejected shape hides the invocation, effect, and side effect.
 
 ## [11][BOUNDARIES]
 
@@ -297,8 +255,8 @@ The accepted shape gives the reader one lookup fact plus proof. The rejected sha
 - [ ] The page describes facts rather than teaching a path or arguing a rationale.
 - [ ] One primary profile is chosen and its lookup groups are present.
 - [ ] Lookup groups mirror the subject's shape.
-- [ ] Fact cards carry source truth, evidence or proof gap, review trigger, route-away, and use fields where they change maintenance behavior.
-- [ ] Command family cards name invocation pattern, output shape, mutation, exit behavior, and refresh command where available.
+- [ ] Fact cards carry source guidance, route-away, and use fields where they change maintenance behavior.
+- [ ] Command family cards name invocation pattern, output shape, mutation, and exit behavior.
 - [ ] Glossary entries carry one sense each and redirect non-preferred terms.
 - [ ] Data-dictionary elements cite exact source schemas and treat ISO 11179 as informing guidance unless exact standard text is verified.
 - [ ] Capability sets use status-tagged records from a declared vocabulary.

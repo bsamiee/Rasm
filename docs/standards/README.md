@@ -30,7 +30,7 @@ Read order is workflow order; owner precedence still decides conflicts.
 
 1. Use the reader-need map and type chooser below to pick one document type.
 2. Apply the five shared standards: position, form, craft, evidence, and notation.
-3. Apply exactly one type standard when the artifact is a Diátaxis document. Shared standards, instruction files, generated mirrors, indexes, retrieval chunks, metadata records, MCP catalogs, and structured-output contracts route through the shared owner instead.
+3. Apply exactly one type standard when the artifact is a Diátaxis document. Shared standards, instruction files, generated mirrors, indexes, retrieval chunks, MCP catalogs, and structured-output contracts route through the shared owner instead.
 
 ## [4][READER_NEED_MAP]
 
@@ -71,7 +71,7 @@ If no quadrant fits cleanly, reduce the scope until one reader outcome is primar
 
 Every document obeys five shared owners; each rule has exactly one of them:
 
-- [agentic-documentation.md](agentic-documentation.md): position and agent cognition — salience and ordering within a unit, artifact separation, provider behavior, instruction files, indexes, retrieval, metadata, and catalogs.
+- [agentic-documentation.md](agentic-documentation.md): position and agent cognition — salience and ordering within a unit, artifact separation, provider behavior, instruction files, indexes, retrieval, and catalogs.
 - [information-structure.md](information-structure.md): form — container selection, tables, structured records, lists, diagrams, code blocks, page anatomy, line wrapping, and chunks.
 - [style-guide.md](style-guide.md): craft — sentences, terminology, punctuation, links, examples, code-safe Markdown, and accessibility.
 - [proof.md](proof.md): evidence — strength, freshness, source conflicts, verification, agent-surface evaluation, and preservation under refactor.
@@ -108,9 +108,9 @@ After splitting, add the smallest useful cross-link and do not leave a summary c
 Maintain documentation like code:
 
 - Create the smallest useful document that answers the reader need.
-- Update docs in the same change that alters the source truth they describe.
+- Update docs in the same change that alters the controlling source they describe.
 - Delete or replace dead documentation when it is known to be wrong.
-- Add a review trigger for a drift-prone claim, and prefer an explicit stale marker over silent uncertainty when a claim cannot be verified during maintenance.
+- Add a drift condition for a drift-prone claim, and prefer an explicit stale marker over silent uncertainty when a claim cannot be verified during maintenance.
 
 Unless live product support and evidence justify them, do not preserve old paths, terminology, commands, or product claims as compatibility notes.
 

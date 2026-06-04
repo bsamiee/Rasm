@@ -14,7 +14,7 @@ Apply this standard when documentation states:
 - machine-facing indexes, retrieval metadata, generated mirrors, tool catalogs, or other agent surfaces whose behavior is the claim;
 - current external-provider behavior.
 
-Add proof fields only when a claim can drift or a reader needs the source to trust it, and never use evidence fields as page decoration.
+Add metadata or proof fields only when the project has an actual need: a drift-prone claim, a reader trust need, or a named tool, renderer, generator, retrieval index, or review workflow that consumes the field. Never use evidence fields as page decoration.
 
 ## [2][EVIDENCE_HIERARCHY]
 
@@ -41,15 +41,17 @@ When sources disagree, use the source closest to the executing system:
 
 If a lower source remains useful, cite it as background and state which higher source controls the claim.
 
-## [4][FRESHNESS_FIELDS]
+## [4][PROOF_FIELDS]
 
-Use the smallest field that keeps the claim maintainable:
+This standard is the single owner of proof, source, freshness, and generated-artifact field labels. Use the smallest field set that keeps the claim maintainable:
 
 - `Evidence:` names the source or command that proves the claim.
 - `Last verified: YYYY-MM-DD` records observed behavior.
 - `Review trigger:` names the event that makes the claim stale.
 - `Generated from:` names the source model, contract, command, or workflow.
 - `Source of truth:` names the owning contract, manifest, model, or path.
+
+Use these labels exactly when a human-readable field is needed. Machine-consumed metadata may map to these facts only when the consuming tool, renderer, generator, retrieval index, or review workflow names the exact shape it reads; the machine schema owns its own field casing, and this standard owns the human-facing labels and proof meaning.
 
 Prefer an event trigger over a calendar review date. Use a calendar date only when the external source changes on a schedule or no better trigger exists.
 
@@ -194,7 +196,7 @@ The table names the distinct proof surface only. The type standard owns the full
 
 ## [13][BOUNDARIES]
 
-- [agentic-documentation.md](agentic-documentation.md) owns where evidence sits in a unit and the metadata fields that carry proof to machines.
+- [agentic-documentation.md](agentic-documentation.md) owns machine-facing surface placement and evaluation posture; this standard owns proof field labels and proof meaning.
 - [information-structure.md](information-structure.md) owns the container that presents an evidence table, caption, or labeled block.
 - [style-guide.md](style-guide.md) owns the phrasing of a claim and the removal of filler hedging.
 - [formatting.md](formatting.md) owns the markers and styling that present an evidence table or status field.

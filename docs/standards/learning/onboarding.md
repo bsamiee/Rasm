@@ -6,9 +6,9 @@ An onboarding document prepares one person to hold one role through guided readi
 
 Use onboarding when a named person must become ready to hold a role that carries standing responsibility:
 
-- contribution authority on a subsystem;
-- maintainership, review, or merge authority;
-- operational or on-call production responsibility;
+- contribution authority on a subsystem.
+- maintainership, review, or merge authority.
+- operational or on-call production responsibility.
 - support or cross-functional review authority over work they do not own.
 
 Route a single product lesson to tutorial, a one-time competent-reader task to how-to, incident recovery to runbook, the shared contribution workflow to contributing, and standalone facts to reference. When a draft needs two separate readiness targets, split it by role ramp before writing.
@@ -24,15 +24,12 @@ Use the first source that decides a readiness claim. Repository truth owns every
 
 Keep each external source scoped to the behavior it supports:
 
-- External evidence: [Google SRE on-call onboarding](https://sre.google/sre-book/accelerating-sre-on-call/) supports ordered learning, on-call learning checklists, `Know before moving on` gates, comprehension questions, shadow and reverse-shadow practice, mentor review, and documentation apprenticeship.
-- External evidence: [SHRM onboarding success metrics](https://www.shrm.org/topics-tools/topics/onboarding/measuring-success) supports feedback and success measures such as time to productivity, retention, new-hire surveys, employee satisfaction and engagement, performance measures, and informal feedback.
+- [Google SRE on-call onboarding](https://sre.google/sre-book/accelerating-sre-on-call/) supports ordered learning, on-call learning checklists, `Know before moving on` gates, comprehension questions, shadow and reverse-shadow practice, mentor review, and documentation apprenticeship.
+- [SHRM onboarding success metrics](https://www.shrm.org/topics-tools/topics/onboarding/measuring-success) supports feedback and success measures such as time to productivity, retention, new-hire surveys, employee satisfaction and engagement, performance measures, and informal feedback.
 - Local rule: 30/60/90-style cadence is a scheduling convention for checkpoints and phase labels, not source authority for engineering readiness.
-- Local rule: role profiles, proof fields, access progression, and sign-off policy come from this standard and the instantiated repository source of truth, not from external onboarding practice.
+- Local rule: role profiles, access progression, readiness gates, and sign-off policy come from this standard and the instantiated repository owner records, not from external onboarding practice.
 - [DORA metrics](https://dora.dev/guides/dora-metrics/) apply only when the ramp uses application or service delivery-flow measures such as change lead time, deployment frequency, failed deployment recovery time, change fail rate, or deployment rework rate. DORA is not a general readiness model, and first merge, first supervised production action, gate completion, and owner sign-off are local onboarding outcome metrics.
 
-Source of truth: repository source, access records, commands, permission grants, and recorded sign-off for instantiated ramps; linked external sources for ramp-shape evidence only.
-Last verified: 2026-06-04.
-Review trigger: Google SRE onboarding guidance, SHRM onboarding measurement guidance, DORA metric definitions, or local access/sign-off policy changes.
 
 ## [3][ROLE_RAMP_PROFILES]
 
@@ -45,7 +42,7 @@ Pick exactly one primary ramp; each ramp changes the readiness target, the acces
 |   [3]   | Operator         | scoped production action   | shadow, reverse-shadow  | observe access to action grant  | on-call lead    |
 |   [4]   | Cross-functional | bounded support or review  | review tasks, triage    | read access to task-tool action | reviewing owner |
 
-These access stages are abstract. An instantiated ramp replaces them with current permission records, access surfaces, and sign-off sources in opening metadata and provisioning records. A ramp that grants production action or merge rights must define supervised practice before that grant. A cross-functional ramp must name the single review or support task it ends on, so readiness stays bounded.
+These access stages are abstract. An instantiated ramp replaces them with current permission records, access surfaces, and sign-off records in the lead and provisioning records. A ramp that grants production action or merge rights must define supervised practice before that grant. A cross-functional ramp must name the single review or support task it ends on, so readiness stays bounded.
 
 ## [4][PLACEMENT]
 
@@ -58,14 +55,7 @@ Copy only the required skeleton below. Add conditional sections after the requir
 ```markdown template
 # [ROLE_ONBOARDING]
 
-Role: <single role this ramp confers>
-Owner: <refresh owner role>
-Ramp horizon: <expected duration>
-Source of truth: <role, access, and sign-off record path or owner-maintained source>
-Last reviewed: YYYY-MM-DD
-Review trigger: <event that makes this ramp stale>
-
-<Lead: the role, readiness target, ramp horizon, authority transition, and remaining limits.>
+<Lead: name the role, refresh owner, ramp horizon, readiness target, authority transition, and remaining limits in prose.>
 
 ## [1][AUDIENCE]
 
@@ -73,7 +63,7 @@ Review trigger: <event that makes this ramp stale>
 
 ## [3][PROVISIONING_PREREQUISITES]
 
-## [4][LEARNING_PRACTICE]
+## [4][LEARNING_CHECKLIST]
 
 ## [5][READINESS_CRITERIA]
 
@@ -87,7 +77,7 @@ Review trigger: <event that makes this ramp stale>
 Section cardinality:
 
 **Identity and setup**
-- Opening metadata: required, one; holds `Role`, `Owner`, `Ramp horizon`, `Source of truth`, `Last reviewed`, and `Review trigger`.
+- Lead: required, one; holds the role, refresh owner, ramp horizon, readiness target, authority transition, and remaining limits.
 - Audience: required, one; holds the single role and prior knowledge assumed before opening the ramp.
 - Readiness target: required, one; holds the observable end-state and ramp horizon.
 - Provisioning and prerequisites: required, one; holds status-tracked, dated access gates plus reading needed before item one.
@@ -103,7 +93,7 @@ Section cardinality:
 
 Conditional additions:
 
-- `Role-learning map`: required when the role crosses multiple owner boundaries, external systems, failure modes, or critical-path components. Omit only when source paths and learning items already make the role boundary obvious.
+- `Role-learning map`: required when the role crosses multiple owner boundaries, external systems, failure modes, or critical-path components. Omit only when repository paths and learning items already make the role boundary obvious.
 - `Ramp phases`: required when the ramp lasts longer than one review cycle, has staged access, or uses 30/60/90-style checkpoints.
 - `First safe tasks`: required when readiness depends on supervised work, fresh-eyes documentation stewardship, or a low-blast-radius ownership trial.
 - `Shadowing and review path`: required when elevated authority, production access, user impact, merge rights, release authority, or cross-functional review authority transfers. Omit only when first safe tasks provide the complete supervised-practice gate and no elevated authority transfers.
@@ -124,7 +114,7 @@ Sign-off gate: owner records that the trace and reviewed task passed, with remai
 
 ## [6][AUDIENCE]
 
-Name the single role this ramp confers, matching opening metadata `Role` and the readiness-target end-state. Then list only the prior knowledge the reader is assumed to hold before opening the document, using canonical repository source paths where they exist. Reading required before learning-checklist item one belongs in `Provisioning and prerequisites`.
+Name the single role this ramp confers, matching the lead and the readiness-target end-state. Then list only the prior knowledge the reader is assumed to hold before opening the document, using canonical repository source paths where they exist. Reading required before learning-checklist item one belongs in `Provisioning and prerequisites`.
 
 ```markdown template
 This ramp confers: Contributor on <subsystem>.
@@ -135,7 +125,7 @@ Assumes prior knowledge:
 
 ## [7][READINESS_TARGET]
 
-State the readiness target as the observable end-state that confers authority, paired with opening metadata `Ramp horizon` so the ramp is time-boxed rather than open-ended. Measure the ramp by outcomes such as time to first owner-reviewed merge, time to first supervised production action, gate completion, or owner-recorded sign-off. Do not use activity metrics such as commit count, message volume, or hours logged as readiness proof.
+State the readiness target as the observable end-state that confers authority, paired with the lead's ramp horizon so the ramp is time-boxed rather than open-ended. Measure the ramp by outcomes such as time to first owner-reviewed merge, time to first supervised production action, gate completion, or owner-recorded sign-off. Do not use activity metrics such as commit count, message volume, or hours logged as readiness proof.
 
 ## [8][PROVISIONING_PREREQUISITES]
 
@@ -152,42 +142,41 @@ Due before: <YYYY-MM-DD or ramp day>
 Completed: <YYYY-MM-DD or n/a>
 Unlocks: learning-checklist item one
 Owner: <grant owner role>
-Source of truth: <permission, access, or owner record path>
 ```
 
 List prerequisite reading as canonical repository source paths, not prose summaries. A missing source path is a documentation gap; do not fill it with an invented path.
 
 ## [9][ROLE_LEARNING_MAP]
 
-Add a role-learning map when the learner must understand owner edges, failure modes, external systems, or critical-path components before practice is safe. The map is a learning aid over existing architecture and source truth; it does not create architecture truth, C4 modeling, or current system structure. Each critical-path component named here anchors a mandatory comprehension question in the learning checklist, so the facts must be recoverable even when no diagram is present.
+Add a role-learning map when the learner must understand owner edges, failure modes, external systems, or critical-path components before practice is safe. The map is a learning aid over existing architecture and owner-maintained paths; it does not create architecture truth, C4 modeling, or current system structure. Each critical-path component named here anchors a mandatory comprehension question in the learning checklist, so the facts must be recoverable even when no diagram is present.
 
-Render role-learning map entries as records when each edge needs owner, source, failure, and comprehension fields:
+Render role-learning map entries as records when each edge needs owner, learning input, failure, and comprehension fields:
 
 ```markdown template
 ### [N.M][BOUNDARY_EDGE]
 
 Role edge: <boundary or responsibility the learner must hold>
-Architecture/source: <existing architecture, README, source path, or none>
+Learning input: <existing architecture, README, source path, or none>
 Owner: <role that owns the edge>
 Failure mode: <observable way this edge fails or escalates>
 Critical component: <component, path, or workflow the learner must explain>
 Comprehension gate: <question or trace-aloud prompt used in the learning checklist>
 ```
 
-Use a small table only when three or more edges share short fields. Use a diagram only when it helps a learner see already-owned relationships that records obscure. A local onboarding diagram must name its architecture/source input and include a text equivalent; it must not introduce C4 levels, deployment topology, or component truth that the architecture owner has not already published.
+Use a small table only when three or more edges share short fields. Use a diagram only when it helps a learner see already-owned relationships that records obscure. A local onboarding diagram must name its architecture input and include a text equivalent; it must not introduce C4 levels, deployment topology, or component truth that the architecture owner has not already published.
 
-The accepted shape ties source truth to a gate the learner must pass:
+The accepted shape ties an owner-maintained path to a gate the learner must pass:
 
 ```markdown conceptual
 Role edge: request admission crosses from `apps/api/` into `libs/policy/`.
-Architecture/source: `apps/api/ARCHITECTURE.md`; `libs/policy/_ARCHITECTURE.md`
+Learning input: `apps/api/ARCHITECTURE.md`; `libs/policy/_ARCHITECTURE.md`
 Owner: API owner for admission; policy owner for decision rules.
 Failure mode: invalid requests bypass policy or policy errors lack admission evidence.
 Critical component: admission envelope and policy result boundary.
 Comprehension gate: trace one request from admission to policy result and explain where evidence is recorded.
 ```
 
-The rejected shape names parts without owner, failure, or learning proof:
+The rejected shape names parts without owner, failure, or observable learner check:
 
 ```markdown rejected
 Components: API, policy, storage.
@@ -210,7 +199,7 @@ Adapt the phase names to the role, but keep the required shape: outcome, cadence
 
 Order checklist items by how understanding builds, not by file tree: request flow, dependency chain, lifecycle stage, escalation path, or maintainer responsibility. Use file-tree order only when the tree is the learning path.
 
-Default to 3-5 learning items. Add more only when the role-learning map proves more distinct owner edges or critical components; otherwise combine adjacent readings into one item and keep the proof observable.
+Default to 3-5 learning items. Add more only when the role-learning map proves more distinct owner edges or critical components; otherwise combine adjacent readings into one item and keep the learner check observable.
 
 Render each learning item as an H3 record block because it carries more than 5 fields and is updated independently:
 
@@ -218,33 +207,32 @@ Render each learning item as an H3 record block because it carries more than 5 f
 ### [N.M][ITEM_LABEL]
 
 Scope: <boundary, subsystem, workflow, or responsibility being learned>
-Source: <canonical repository source path>
+Reading: <canonical repository path>
+Know before moving on: <observable comprehension question, review task, or trace-aloud>
 Understanding: <concept or behavior to hold before the next item>
-Proof: <observable exercise, comprehension question, review task, or trace-aloud>
 Owner: <role for questions and review>
 Access: <permission level this item needs, or n/a>
 Status: <PLANNED | IN-PROGRESS | BLOCKED | DONE | DROPPED>
-Sign-off: <evidence that closes the item, naming who recorded closure>
+Sign-off: <who recorded closure and where>
 ```
 
-Carry at least one observable comprehension question in the `Proof` field for every critical-path component named in the role-learning map, in the `Know before moving on` form. A checklist item proves nothing until `Proof` names something a reviewer can observe and `Sign-off` names who recorded closure.
+Carry at least one observable comprehension question for every critical-path component named in the role-learning map, in the `Know before moving on` form. A checklist item does not close until it names something a reviewer can observe and `Sign-off` names who recorded closure.
 
 The rejected shape below fails because its proof is unobservable:
 
 ```markdown rejected
 Scope: request lifecycle through <subsystem>
 Understanding: how the request reaches the runtime
-Proof: read the module and feel comfortable with it
 Sign-off: done
 ```
 
-The accepted shape names source truth, an observable proof, an owner, state, and sign-off:
+The accepted shape names the reading path, an observable comprehension gate, an owner, state, and sign-off:
 
 ```markdown conceptual
 Scope: request lifecycle through `<subsystem-path>`
-Source: <subsystem-path>/README.md
+Reading: <subsystem-path>/README.md
+Know before moving on: trace one request path aloud to the owner and answer two follow-ups
 Understanding: how a request reaches the runtime and returns evidence
-Proof: trace one request path aloud to the owner and answer two follow-ups
 Owner: <subsystem owner role>
 Access: read-only repository access
 Status: IN-PROGRESS
@@ -257,7 +245,7 @@ A first safe task gives the learner real ownership while keeping its blast radiu
 
 Default to 1-3 first safe tasks. Add more only when each task exercises a different readiness criterion or authority boundary.
 
-Render selected tasks as H3 records so the learner, reviewer, exit gate, and proof stay together:
+Render selected tasks as H3 records so the learner, reviewer, exit gate, and closure stay together:
 
 ```markdown template
 ### [N.M][TASK_LABEL]
@@ -265,29 +253,28 @@ Render selected tasks as H3 records so the learner, reviewer, exit gate, and pro
 Task: <supervised low-blast-radius task>
 Scope: <single reviewed unit and forbidden blast radius>
 Procedure owner: <how-to, contributing, runbook, reference, or n/a>
-Source: <canonical policy, guide, issue, or source path>
+Input: <canonical policy, guide, issue, or source path>
 Reviewer: <owner role gating the result>
 Exit: <observable accepted result>
-Proof: <link, command result, review note, or artifact that closes the task>
 Status: <PLANNED | IN-PROGRESS | BLOCKED | DONE | DROPPED>
 Fresh-eyes: <yes/no; if yes, name the documentation deliverable>
 ```
 
 Draw first safe tasks from this set. Select a fresh-eyes documentation task when the ramp owns documentation stewardship or exposes a likely documentation gap; otherwise capture the learner's fresh perspective in `Feedback and refresh` instead of forcing a documentation deliverable into the task set.
 
-- correct a stale onboarding or reference section, with owner review and `Fresh-eyes: yes`;
-- draw the role-learning map from existing architecture/source truth and have an owner review it, with `Fresh-eyes: yes` when the map documents a current gap;
-- answer one bounded comprehension question from source truth;
-- reproduce one documented local verification path end to end;
-- triage one non-urgent issue against existing policy;
-- review one low-risk change behind a maintainer's second review;
+- correct a stale onboarding or reference section, with owner review and `Fresh-eyes: yes`.
+- draw the role-learning map from existing architecture or owner-maintained paths and have an owner review it, with `Fresh-eyes: yes` when the map documents a current gap.
+- answer one bounded comprehension question from an owner-maintained path.
+- reproduce one documented local verification path end to end.
+- triage one non-urgent issue against existing policy.
+- review one low-risk change behind a maintainer's second review.
 - observe one operational event and write an owner-reviewed summary.
 
 This section names supervised practice only. A task qualifies as first safe only when it touches no users, production state, release authority, or repository-wide risk without a named reviewer gating the result. Task procedure routes to how-to, contribution mechanics route to contributing, operational response routes to runbook, and lookup facts route to reference. If a task needs the actual steps, link the procedure owner; do not embed the procedure.
 
 ## [13][SHADOWING_REVIEW_PATH]
 
-Add this section when elevated authority, production access, user impact, merge rights, release authority, or cross-functional review authority transfers. Define, per shadowed activity, what the learner observes, what the mentor does, the abort signal, and the debrief artifact that closes every session. Shadowing and reverse-shadowing come from onboarding practice; debrief artifacts and abort signals are local proof and risk controls.
+Add this section when elevated authority, production access, user impact, merge rights, release authority, or cross-functional review authority transfers. Define, per shadowed activity, what the learner observes, what the mentor does, the abort signal, and the debrief artifact that closes every session. Shadowing and reverse-shadowing come from onboarding practice; debrief artifacts and abort signals are local closure and risk controls.
 
 Use one shadow/reverse-shadow path per authority type unless the role boundary proves that separate activities carry separate risk. A shadowing record routes the procedure it observes; it does not duplicate review, release, support, runbook, or incident-response steps.
 
@@ -298,7 +285,7 @@ Render each activity as an H3 record:
 
 Activity: <review, triage, release, support, incident response, or on-call>
 Procedure owner: <contributing, how-to, runbook, support policy, or n/a>
-Source: <canonical policy, runbook, guide, or source path>
+Procedure input: <canonical policy, runbook, guide, or source path>
 Prerequisite: <what the learner completes before the first session>
 Artifact: <debrief notes, questions, or summary produced every session>
 Mentor: <owner role responsible for feedback>
@@ -312,7 +299,7 @@ Follow shadow then reverse-shadow ordering, and produce a debrief artifact after
 
 ## [14][READINESS_CRITERIA]
 
-State readiness criteria as observable, role-specific gates an owner can confirm, rendered as a checklist when each gate is short and proof-light. A criterion that an owner cannot observe is not a gate. The closing criterion is always the recorded authority transition with the owner's recorded remaining limits.
+State readiness criteria as observable, role-specific gates an owner can confirm, rendered as a checklist when each gate is short. A criterion that an owner cannot observe is not a gate. The closing criterion is always the recorded authority transition with the owner's recorded remaining limits.
 
 Gate the transition on this ordered set:
 
@@ -334,23 +321,18 @@ Promote a proof-heavy gate to an H3 record so the gate and its proof read as one
 
 Status: PLANNED
 Exit: sign-off owner approved the authority transition and recorded the remaining limits.
-Evidence: <maintained sign-off record or review artifact>
 Access: <granted authority and remaining limits>
-Source of truth: <access table, owner record, or permission source>
-Last verified: <YYYY-MM-DD or n/a for conceptual example>
-Review trigger: <event that makes the grant stale>
 ```
 
-Attach proof beside the gate it closes: the source path or maintained document, the exact command or exercise when runnable behavior is the gate, the owner sign-off, the access boundary when authority changes, and the freshness field for any drift-prone section. Use evidence fields from the evidence standard; do not invent new staleness machinery.
+Close each gate beside the fact it verifies: name the maintained document, exact command or exercise when runnable behavior is the gate, owner sign-off, access boundary when authority changes, and any drift-prone detail. Generic claim-support field mechanics route to [proof.md](../proof.md); do not invent parallel machinery here.
 
-Reject status-complete theater: a readiness record that says `Status: DONE` without sign-off, source truth, and remaining limits is not proof.
+Reject status-complete theater: a readiness record that says `Status: DONE` without sign-off, maintained input, and remaining limits is not proof.
 
 ```markdown rejected
 ### [N.M][SIGN_OFF_AUTHORITY]
 
 Status: DONE
 Exit: learner is ready.
-Evidence: all checklist items complete.
 ```
 
 ## [15][OWNER_ROLES]
@@ -374,7 +356,6 @@ Feedback point: <week one, mid-ramp, completion, or named checkpoint>
 Captures: <learner pain points, stale source paths, missing permission, unclear owner, or readiness-gap signal>
 Refresh owner: <role that updates the ramp>
 Drift check: <role, source path, access grant, tool, or sign-off policy that makes this ramp stale>
-Source of truth: <maintained checklist or ramp source, or n/a>
 ```
 
 State the refresh as a named maintained checklist where one already owns it, naming that checklist where the section would otherwise stand rather than dropping the section. Do not invent retention, satisfaction, or delivery-flow metrics unless a current owner already measures them.
@@ -409,7 +390,7 @@ stateDiagram-v2
 
 Text equivalent: provisioning precedes orientation, orientation precedes contribution, contribution precedes supervised practice, supervised practice precedes authority transition, and the owner records the final grant and limits before the ramp closes.
 
-The diagram proves only gate order. Optional shadowing and reverse-shadowing fit inside `SupervisedPractice` when authority transfer requires them. Access widens only as the prior gate closes; no transition skips a state. The instantiated role, access, sign-off, and remaining-limit records remain the source of truth for the authority transition.
+The diagram proves only gate order. Optional shadowing and reverse-shadowing fit inside `SupervisedPractice` when authority transfer requires them. Access widens only as the prior gate closes; no transition skips a state. The instantiated role, access, sign-off, and remaining-limit records control the authority transition.
 
 ## [18][BOUNDARIES]
 
@@ -420,32 +401,32 @@ The diagram proves only gate order. Optional shadowing and reverse-shadowing fit
 - [how-to.md](../task/how-to.md) owns repeatable competent-reader tasks; onboarding may assign a supervised practice task but does not embed the procedure.
 - [runbook.md](../task/runbook.md) owns operational symptom response, mitigation, rollback, escalation, and verification.
 - [contributing.md](../task/contributing.md) owns shared contribution workflow, pull-request evidence, and review mechanics.
-- [reference.md](../reference/reference.md) owns standalone lookup facts, command catalogs, status vocabularies, and source-of-truth tables.
+- [reference.md](../reference/reference.md) owns standalone lookup facts, command catalogs, status vocabularies, and controlling lookup tables.
 - [README.md](../README.md) owns document-type routing, placement, lifecycle, split/link decisions, and adjacent-type selection.
 
 ## [19][REVIEW_CHECKLIST]
 
-**Identity and source**
-- [ ] Opening metadata carries `Role`, `Owner`, `Ramp horizon`, `Source of truth`, `Last reviewed`, and `Review trigger`.
+**Identity and setup**
+- [ ] The lead names the role, refresh owner, ramp horizon, readiness target, authority transition, and remaining limits.
 - [ ] Audience names exactly one role and the prior knowledge assumed.
 - [ ] One primary ramp profile is chosen and its readiness target is observable and time-boxed.
 - [ ] Readiness target uses outcome metrics, never activity metrics.
-- [ ] Provisioning grants are dated H3 records with `Access`, `Status`, `Due before`, `Completed`, `Unlocks`, `Owner`, and `Source of truth`.
-- [ ] Role-learning map appears only when the ramp needs it and names owner edges, source truth, failure modes, critical components, and comprehension gates.
-- [ ] Diagrams summarize already-owned architecture/source truth only when records are insufficient, and architecture owns C4 modeling rules.
+- [ ] Provisioning grants are dated H3 records with `Access`, `Status`, `Due before`, `Completed`, `Unlocks`, and `Owner`.
+- [ ] Role-learning map appears only when the ramp needs it and names owner edges, learning inputs, failure modes, critical components, and comprehension gates.
+- [ ] Diagrams summarize already-owned architecture or owner-maintained paths only when records are insufficient, and architecture owns C4 modeling rules.
 
 **Learning and practice**
 - [ ] Ramp phases appear only when staged access, ramp length, or checkpoint cadence requires them, and each phase names a measurable outcome, a check-in cadence, and an exit criterion.
 - [ ] Learning checklist is ordered by how understanding builds and defaults to 3-5 items unless the role-learning map proves more.
-- [ ] Each learning item carries scope, source, understanding, proof, owner, status, and sign-off, with access where it matters.
+- [ ] Each learning item carries scope, reading path, understanding, observable learner check, owner, status, and sign-off, with access where it matters.
 - [ ] At least one comprehension question exists per critical-path component named in the role-learning map.
 - [ ] First safe tasks default to 1-3, carry real ownership behind a named reviewer, stay inside the blast-radius boundary, route procedure owners, and mark any selected fresh-eyes deliverable.
 - [ ] Shadowing appears only when authority transfers, follows shadow then reverse-shadow, routes the observed procedure owner, carries debrief artifacts, and names abort signals where production or users are reachable.
 
-**Proof and closure**
+**Closure**
 - [ ] Readiness criteria are observable gates ending in a recorded transition with remaining limits.
 - [ ] Authority-transfer readiness gates appear only when shadowing or elevated authority applies.
 - [ ] Owner roles name the buddy, reviewer, and sign-off owner distinctly.
 - [ ] Feedback-capture point and drift check are both named when the ramp is reused or feedback changes future ramp quality.
-- [ ] Proof beside each gate names evidence and sign-off; authority-changing gates also name the access boundary and freshness field.
+- [ ] Each gate closes with an observable result and sign-off; authority-changing gates also name the access boundary and remaining limits.
 - [ ] Boundaries route tutorial, architecture, roadmap, code-documentation, how-to, runbook, contributing, reference, and README content away from onboarding.

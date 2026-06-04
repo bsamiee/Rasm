@@ -19,9 +19,6 @@ Do not use an ADR to run a proposal review. While an option is still under debat
 
 Use ADR community sources for vocabulary and lifecycle anchors, then apply the local hardening rules in this file. MADR supplies the Markdown ADR section model and `Confirmation` vocabulary, Michael Nygard's ADR practice supplies small records, one significant decision, monotonic numbering, and supersession, and the Y-statement supplies a compact rationale field set. These sources do not own this repository's placement, decision-class taxonomy, accepted-record immutability, required downside field, status-specific proof receipts, or conditional-section discipline; those are local hardening rules.
 
-Source of truth: [MADR 4.0.0 release](https://github.com/adr/madr/releases/tag/4.0.0), [MADR 4.0.0 templates](https://github.com/adr/madr/tree/4.0.0/template), [Michael Nygard's ADR practice](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions), and [Y-statement form](https://socadk.github.io/design-practice-repository/artifact-templates/DPR-ArchitecturalDecisionRecordYForm.html).
-Last verified: 2026-06-04
-Review trigger: MADR section model, ADR lifecycle practice, or Y-statement source changes.
 
 ## [3][DECISION_CLASSES]
 
@@ -56,7 +53,7 @@ The decision-log index is a finite enumerable set of trackable records, so rende
 |   [1]   | `0001`   | Adopt event envelope    | `accepted`   | contract   | 2026-01-12 | none         | none            |
 |   [2]   | `0007`   | Replace plugin boundary | `superseded` | structural | 2026-03-04 | none         | `0023`          |
 
-Keep ADR metadata status in the lowercase vocabulary below. Use bracketed lifecycle markers only in compact indexes when filtering helps: `accepted` maps to `[DONE]`, and `rejected`, `deprecated`, and `superseded` map to `[DROPPED]`.
+Keep ADR status in the lowercase vocabulary below. Use bracketed lifecycle markers only in compact indexes when filtering helps: `accepted` maps to `[DONE]`, and `rejected`, `deprecated`, and `superseded` map to `[DROPPED]`.
 
 ## [5][STATUS_LIFECYCLE]
 
@@ -98,25 +95,18 @@ Text equivalent: an ADR enters only as `accepted`, `rejected`, `deprecated`, or 
 
 An accepted ADR body is immutable except for typo fixes, broken-link repairs, or context clarifications that leave the decision, drivers, and outcome unchanged. Change a decision by superseding it: the superseded record links forward through `Superseded by`, and the replacing record links back through `Supersedes`.
 
-Do not retrofit old accepted ADRs into a newer template. Existing records may receive lifecycle metadata, forward or back links, broken-link repairs, typo fixes, and non-semantic clarification only; new structure belongs in the replacing ADR or in a current architecture document.
+Do not retrofit old accepted ADRs into a newer template. Existing records may receive lifecycle facts, forward or back links, broken-link repairs, typo fixes, and non-semantic clarification only; new structure belongs in the replacing ADR or in a current architecture document.
 
 Distinguish supersession from amendment. A supersession replaces the decision and flips the original to `superseded`; an amendment extends the original with a new record while the original stays `accepted`. Record amendment links in `More information`, not in `Status`.
 
 ## [6][REQUIRED_STRUCTURE]
 
-Use the metadata block and heading set below for every new ADR. Copy the required headings, replace placeholders, and add conditional sections only when their trigger holds.
+Use the heading set below for every new ADR. State status, class, supersession links, date, decision makers, consulted owners, and informed owners in the lead or lifecycle/status sections; add conditional sections only when their trigger holds.
 
 ```markdown template
 # [DECISION_TITLE]
 
-Status: accepted | rejected | deprecated | superseded
-Class: structural | contract | dependency | process | cross-cutting
-Supersedes: <NNNN list, or none>
-Superseded by: <NNNN, or none>
-Date: YYYY-MM-DD
-Decision makers: <names, teams, or owner roles>
-Consulted: <reviewed owners, or none>
-Informed: <affected owners, or none>
+<Lead: name the decision status, class, supersession links, date, decision makers, consulted owners, and informed owners.>
 
 ## [1][CONTEXT_PROBLEM]
 
@@ -147,7 +137,7 @@ Conditional additions:
 <Insert before `Boundaries` only for external links, amendment records, supersession chains, or source contracts that govern the decision.>
 ```
 
-Metadata cardinality:
+Lifecycle fact cardinality:
 
 - `Status`, `Class`, `Date`, `Decision makers`, `Consulted`, and `Informed` are required.
 - `Supersedes` is required and names every replaced ADR or `none`.
@@ -206,38 +196,26 @@ Accepted receipt:
 
 ```markdown template
 Surface: <diagram, codemap, generated contract, manifest, gate, command, measurement, or audit>
-Evidence: <source path, command, generated artifact, or status check>
-Last verified: YYYY-MM-DD
-Review trigger: <event that can make the evidence stale>
 ```
 
 Rejected, deprecated, and superseded receipts replace `Surface` with the disposition-specific field:
 
 ```markdown template
 Disposition evidence: <review record, removal proof, supersession link, or governing source>
-Evidence: <source path, command, generated artifact, or status check>
-Last verified: YYYY-MM-DD
-Review trigger: <event that can make the disposition stale>
 ```
 
-For `superseded`, `Evidence` names both directions: this record's `Superseded by` value and the replacing record's `Supersedes` value. A one-way link is an incomplete supersession.
+For `superseded`, the disposition proof names both directions: this record's `Superseded by` value and the replacing record's `Supersedes` value. A one-way link is an incomplete supersession.
 
 Rejected evidence example:
 
 ```markdown template
 Disposition evidence: review declined direct storage access because it bypasses the owner boundary.
-Evidence: design review record and rejected option in `docs/design/<proposal>.md`.
-Last verified: YYYY-MM-DD
-Review trigger: storage owner boundary or rejected option returns.
 ```
 
 Superseded evidence example:
 
 ```markdown template
 Disposition evidence: ADR `0023` replaces this boundary decision.
-Evidence: this record says `Superseded by: 0023`; ADR `0023` says `Supersedes: 0007`.
-Last verified: YYYY-MM-DD
-Review trigger: replacement ADR, decision-log index, or owner boundary changes.
 ```
 
 ## [9][OPTION_COMPARISON]

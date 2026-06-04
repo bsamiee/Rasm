@@ -8,9 +8,6 @@ These instructions govern `docs/standards/**` only. They extend `CLAUDE.md` and 
 
 For Codex, closer files override earlier project guidance, and resolution loads nested project instruction files from the repository root toward the current directory.
 
-Source of truth: [OpenAI Codex `AGENTS.md` guide](https://developers.openai.com/codex/guides/agents-md)
-Last verified: 2026-06-04
-Review trigger: OpenAI Codex project-instruction guidance changes.
 
 ## [2][READ_ORDER]
 
@@ -23,7 +20,7 @@ Review trigger: OpenAI Codex project-instruction guidance changes.
 ## [3][ROUTING]
 
 - Reader need, document type, placement, lifecycle, and split/link: the index in `README.md`.
-- Salience and ordering within a unit, artifact separation, provider behavior, instruction files, indexes, generated mirrors, retrieval, metadata, MCP catalogs, and structured outputs: `agentic-documentation.md`.
+- Salience and ordering within a unit, artifact separation, provider behavior, instruction files, indexes, generated mirrors, retrieval, MCP catalogs, and structured outputs: `agentic-documentation.md`.
 - Container choice, tables, structured records, lists, diagrams, code blocks, line wrapping, and chunks: `information-structure.md`.
 - Prose, terminology, punctuation, links, examples, code-safe Markdown, and accessibility: `style-guide.md`.
 - Evidence, freshness, source conflicts, verification, agent-surface evaluation, and preservation under refactor: `proof.md`.
@@ -35,10 +32,11 @@ Review trigger: OpenAI Codex project-instruction guidance changes.
 - Pick one primary reader need before editing.
 - Apply standards implicitly in the rewritten prose.
 - Link adjacent standards instead of copying their bodies.
-- Put source of truth, scope, and high-risk constraints early.
+- Put controlling source, scope, and high-risk constraints early.
 - Close each major section with the boundary, proof, or next action that keeps the rule usable.
 - Split a section that mixes concept, task, reference, process, and proof, or make the chooser explicit.
 - Delete stale commands, removed tool names, legacy aliases, placeholders, and duplicated external-standard summaries.
+- Never add document-level YAML frontmatter metadata blocks to standards files; keep document facts in the rendered body and route claim evidence through `proof.md`.
 
 ## [5][STYLE_DISCIPLINE]
 
