@@ -18,7 +18,7 @@ Build Claude Code hooks—shell commands, prompt evaluations, or multi-turn agen
 4. (scripting) Read [scripting.md](./references/scripting.md) — Python standards, security patterns
 5. (recipes) Read [recipes.md](./references/recipes.md) — Proven implementation patterns
 6. (troubleshooting) Read [troubleshooting.md](./references/troubleshooting.md) — Known issues, platform workarounds
-7. (prose) Load `style-standards` skill — Voice, formatting, constraints
+7. (prose) Apply `docs/standards` — Style, evidence, constraints
 8. Validate — Quality gate; see §VALIDATION
 
 **Scope:**

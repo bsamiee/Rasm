@@ -37,7 +37,7 @@
 
 **Adoption in production `libs/`:** Numerics via `Vectors/Matrix.cs`, `Cloud.cs`, and `Mesh.cs` (CSparse hybrid); detail in `rasm.md`. Symbolics, Optimization, Integration, and Interpolation are pinned but **not referenced** in production `.cs` files.
 
-Host geometry and GH2 data-access boundaries: `../../host/rhino.md`, `../../host/gh2.md`.
+Host geometry and GH2 data-access boundaries: `../../usage.md` §1, local RhinoWIP/GH2 XML, and nested host `AGENTS.md`.
 
 ---
 ## [3][CONSTRUCTION]

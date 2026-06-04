@@ -36,8 +36,7 @@ After editing `.mdc` frontmatter, open the fixture file and confirm active glob 
 |   [7]   | `tests/csharp/**/scenarios/*.verify.csx` |
 |   [8]   | `tools/rhino-bridge/**/*.cs`             |
 |   [9]   | `tools/quality/**/*.py`                  |
-|  [10]   | `docs/external-libs/**/*.md`             |
-|  [11]   | `Directory.Packages.props`               |
+|  [10]   | `Directory.Packages.props`               |
 
 [RULES]
 - [1] `rasm-core` only
@@ -49,8 +48,7 @@ After editing `.mdc` frontmatter, open the fixture file and confirm active glob 
 - [7] `rasm-csharp-tests`, `rasm-bridge-scenarios`
 - [8] `rasm-csharp-production`, `rasm-rhino-bridge`
 - [9] `rasm-quality-operator`
-- [10] `rasm-docs-reference`, `rasm-prose`
-- [11] `rasm-dependencies`
+- [10] `rasm-dependencies`
 
 ## Intentional glob overlap
 
@@ -58,12 +56,10 @@ After editing `.mdc` frontmatter, open the fixture file and confirm active glob 
 | :-----: | ------------------------------------------------------------ |
 |   [1]   | `rasm-csharp-production` + domain rules                      |
 |   [2]   | `tools/rhino-bridge/` (recursive) + `rasm-csharp-production` |
-|   [3]   | `docs/` (recursive) + `rasm-prose` + `rasm-docs-*`           |
 
 [REASON]
 - [1] Production C# baseline plus folder-specific invariants
 - [2] Bridge C# shares production C# law
-- [3] Prose boundaries plus doc-type routing
 
 Rules merge; they are not deduplicated. Keep each file focused to limit token load.
 
@@ -72,66 +68,52 @@ Rules merge; they are not deduplicated. Keep each file focused to limit token lo
 | [INDEX] | [FILE]                       |
 | :-----: | ---------------------------- |
 |   [1]   | `rasm-core.mdc`              |
-|   [2]   | `rasm-prose.mdc`             |
-|   [3]   | `rasm-csharp-production.mdc` |
-|   [4]   | `rasm-csharp-specs.mdc`      |
-|   [5]   | `rasm-csharp-tests.mdc`      |
-|   [6]   | `rasm-testkit.mdc`           |
-|   [7]   | `rasm-bridge-scenarios.mdc`  |
-|   [8]   | `rasm-rhino-bridge.mdc`      |
-|   [9]   | `rasm-quality-operator.mdc`  |
-|  [10]   | `rasm-docs-markdown.mdc`     |
-|  [11]   | `rasm-docs-reference.mdc`    |
-|  [12]   | `rasm-docs-architecture.mdc` |
-|  [13]   | `rasm-dependencies.mdc`      |
-|  [14]   | `rasm-analysis-domain.mdc`   |
-|  [15]   | `rasm-vectors.mdc`           |
-|  [16]   | `rasm-materials.mdc`         |
-|  [17]   | `rasm-grasshopper.mdc`       |
-|  [18]   | `rasm-rhino-ui.mdc`          |
-|  [19]   | `rasm-rhino-categories.mdc`  |
+|   [2]   | `rasm-csharp-production.mdc` |
+|   [3]   | `rasm-csharp-specs.mdc`      |
+|   [4]   | `rasm-csharp-tests.mdc`      |
+|   [5]   | `rasm-testkit.mdc`           |
+|   [6]   | `rasm-bridge-scenarios.mdc`  |
+|   [7]   | `rasm-rhino-bridge.mdc`      |
+|   [8]   | `rasm-quality-operator.mdc`  |
+|   [9]   | `rasm-dependencies.mdc`      |
+|  [10]   | `rasm-analysis-domain.mdc`   |
+|  [11]   | `rasm-vectors.mdc`           |
+|  [12]   | `rasm-materials.mdc`         |
+|  [13]   | `rasm-grasshopper.mdc`       |
+|  [14]   | `rasm-rhino-ui.mdc`          |
+|  [15]   | `rasm-rhino-categories.mdc`  |
 
 [SCOPE]
 - [1] Always-on router (~18 lines).
-- [2] Prose boundaries for docs, manifests, `.mdc`.
-- [3] Production C# under `libs/`, `apps/`, `tools/`.
-- [4] xUnit/CsCheck law-matrix specs.
-- [5] Test project and spec-folder guidance.
-- [6] Shared `Rasm.TestKit` generators, oracles, and scenario harness.
-- [7] Rhino/GH2 `*.verify.csx` runtime scenarios.
-- [8] Bridge operator and runtime command routes.
-- [9] `tools/quality` operator rails.
-- [10] Markdown and Cursor docs hygiene.
-- [11] System, external library, testing library, usage, and host reference docs.
-- [12] Architecture, ADR, README, and changelog docs.
-- [13] Package manifests and build props.
-- [14] `Rasm/Analysis` plus `Rasm/Domain`.
-- [15] `Rasm/Vectors`.
-- [16] Host-free material catalogues.
-- [17] GH2 components and UI boundary.
-- [18] Rhino/GH2/Eto UI rails.
-- [19] Rhino Commands, Capture, Construction, Exchange, Camera, Blocks.
+- [2] Production C# under `libs/`, `apps/`, `tools/`.
+- [3] xUnit/CsCheck law-matrix specs.
+- [4] Test project and spec-folder guidance.
+- [5] Shared `Rasm.TestKit` generators, oracles, and scenario harness.
+- [6] Rhino/GH2 `*.verify.csx` runtime scenarios.
+- [7] Bridge operator and runtime command routes.
+- [8] `tools/quality` operator rails.
+- [9] Package manifests and build props.
+- [10] `Rasm/Analysis` plus `Rasm/Domain`.
+- [11] `Rasm/Vectors`.
+- [12] Host-free material catalogues.
+- [13] GH2 components and UI boundary.
+- [14] Rhino/GH2/Eto UI rails.
+- [15] Rhino Commands, Capture, Construction, Exchange, Camera, Blocks.
 
-**Count:** 19 `.mdc` files — 1 `alwaysApply`, 18 glob-scoped, 0 intelligent (description-only) rules.
+**Count:** 15 `.mdc` files — 1 `alwaysApply`, 14 glob-scoped, 0 intelligent (description-only) rules.
 
 ## Unscoped paths (intentional)
 
-No dedicated `.mdc` for: root `package.json`, `pyproject.toml`, `Workspace.slnx`, `.github/**` — use `CLAUDE.md`, root `AGENTS.md`, and domain rules when editing adjacent code. Add a glob rule only when repeated agent mistakes justify it.
+No dedicated `.mdc` for: `docs/**`, `**/*.md`, root `package.json`, `pyproject.toml`, `Workspace.slnx`, `.github/**` — use `CLAUDE.md`, root `AGENTS.md` §5, `docs/standards/README.md`, and domain rules when editing adjacent code. Add a glob rule only when repeated agent mistakes justify it.
 
 ## Non-Rule Artifacts
 
-| [INDEX] | [PATH]                                           |
-| :-----: | ------------------------------------------------ |
-|   [1]   | `.cursor/BUGBOT.md`                              |
-|   [2]   | `.cursor/bugbot/stale-rejections.md`             |
-|   [3]   | `.cursor/plans/`                                 |
-|   [4]   | `.cursor/research/rasm-cursor-infrastructure.md` |
+| [INDEX] | [PATH]              |
+| :-----: | ------------------- |
+|   [1]   | `.cursor/BUGBOT.md` |
 
 [ROLE]
-- [1] PR review hub — severity, tone, scoped `AGENTS.md` / `.mdc` owners
-- [2] Canonical stale-pattern list
-- [3] Optional Plan Mode artifacts after Save to workspace
-- [4] Source-grounded synthesis for this rule pack
+- [1] PR review hub — severity, tone, stale rejections, scoped `AGENTS.md` / `.mdc` owners
 
 Bugbot does **not** auto-load `.mdc` rules — link from `BUGBOT.md` when PR review needs them.
 

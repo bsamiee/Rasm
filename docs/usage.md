@@ -23,8 +23,8 @@
 |   [8]   | Composition root   | Scrutor, EF, Serilog, OTel, Http.Resilience — bootstrap only           |
 
 [READ]
-- [1] `host/rhino.md`, local RhinoWIP XML
-- [2] `host/gh2.md`, local GH2 XML
+- [1] Local RhinoWIP XML; `uv run python -m tools.quality api query rhino-common <symbol>`
+- [2] Local GH2 XML; `uv run python -m tools.quality api query gh2 <symbol>`
 - [3] `external-libs/mathnet/*.md`; CSparse at sparse direct boundary
 - [4] `system-api-map/bcl.md`, `replacements.md`, `meta.md`, `packages.md`
 - [5] `external-libs/languageext/*.md`
@@ -86,7 +86,7 @@
 |   [4]   | RhinoWIP XML / decompile                    | RhinoCommon, GH2, Rhino.UI, Eto compile truth.                   |
 |   [5]   | `docs/system-api-map`, `docs/external-libs` | BCL and product-library policy after local proof.                |
 |   [6]   | `docs/testing-libs`                         | Test-rail API surfaces (xUnit, CsCheck, Verify, …).              |
-|   [7]   | `docs/standards`                            | Markdown voice and structure authority.                          |
+|   [7]   | `docs/standards`                            | Doc-type structure, technical style, proof, and retrieval shape. |
 |   [8]   | Owner-local platform manuals                | Future App UI, AppHost, Persistence, and Compute intent.         |
 |   [9]   | Official docs                               | Current context only when local proof is silent.                 |
 

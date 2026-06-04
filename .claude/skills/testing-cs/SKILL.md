@@ -13,7 +13,7 @@ description: >-
 
 <br>
 
-Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` for scripts, and `docgen` + `style-standards` for Markdown. The canonical unit rail is xUnit v3/MTP + CsCheck + `Rasm.TestKit`; native Rhino/GH runtime behavior belongs in `*.verify.csx` bridge scenarios. Managed tests attempt falsification through independent oracles, mutation-visible rows, failure categories, model/metamorphic relations, receipt tampering, and raw-payload laws.
+Use this skill with `coding-csharp` for `.cs` specs/testkit code, `coding-bash` for scripts, and `docs/standards` for Markdown. The canonical unit rail is xUnit v3/MTP + CsCheck + `Rasm.TestKit`; native Rhino/GH runtime behavior belongs in `*.verify.csx` bridge scenarios. Managed tests attempt falsification through independent oracles, mutation-visible rows, failure categories, model/metamorphic relations, receipt tampering, and raw-payload laws.
 
 ---
 ## [1][WORKFLOW]

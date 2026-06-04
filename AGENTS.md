@@ -16,7 +16,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - Python: `coding-python`
 - Bash/sh: `coding-bash`
 - SQL: `coding-pg`
-- Markdown/docs: `docgen` + `style-standards`
+- Markdown/docs: `docs/standards`
 
 ## [2][NAVIGATION_CONTEXT]
 - Cross-stack owner precedence and proof order: `docs/usage.md` §1 and §5 before leaf API docs.
@@ -25,7 +25,7 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - Use Nx topology (`nx graph`, affected commands, `nx-mcp`) before broad scans.
 - Read minimal file slices necessary for the current task.
 - Check `docs/system-api-map` before `System.*`, global using, or host-reference changes. `global.json` is present and owns .NET 10 MTP runner selection; treat edits as full-static triggers.
-- Read `docs/external-libs` and `docs/host` before adding packages or host SDK assumptions.
+- Read `docs/external-libs` and `docs/usage.md` §1 before adding packages or host SDK assumptions.
 - Navigation helpers:
   - `fd -H .`
   - `rg -n --hidden --glob '!.git' --glob '!node_modules' "<pattern>" <path>`
@@ -40,12 +40,11 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 |   [4]   | `tests/csharp`                 | xUnit, CsCheck, testkit, bridge scenarios                         |
 |   [5]   | `tools/rhino-bridge`           | Live RhinoWIP runtime verification                                |
 |   [6]   | `docs/usage.md`                | Cross-stack owner ladder and proof hierarchy                      |
-|   [7]   | `docs/host/`                   | RhinoCommon and GH2 native SDK boundaries                         |
-|   [8]   | `docs/host-libraries.md`       | Composition-root packages — doc pins; not-in-graph until consumer |
-|   [9]   | `docs/system-api-map`          | BCL, `System.*`, package and host reference policy                |
-|  [10]   | `docs/external-libs`           | Approved product libraries                                        |
-|  [11]   | `docs/testing-libs`            | Test library APIs                                                 |
-|  [12]   | `docs/standards`               | Documentation voice and structure                                 |
+|   [7]   | `docs/host-libraries.md`       | Composition-root packages — doc pins; not-in-graph until consumer |
+|   [8]   | `docs/system-api-map`          | BCL, `System.*`, package and host reference policy                |
+|   [9]   | `docs/external-libs`           | Approved product libraries                                        |
+|  [10]   | `docs/testing-libs`            | Test library APIs                                                 |
+|  [11]   | `docs/standards`               | Doc-type, style, evidence, and agentic-documentation standards    |
 
 ## [3][LANGUAGE_POLICY]
 - ALWAYS: follow `CLAUDE.md` Effect-first approach.
@@ -65,12 +64,12 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - Avoid verbosity spam in plans or explanations; keep detail high and signal-focused.
 
 ## [5][DOCUMENTATION_POLICY]
-- Route README, ADR, changelog, architecture, code documentation, and standards changes through `docgen`.
-- Route Markdown structure, headers, lists, tables, diagrams, separators, and voice changes through `style-standards`.
+- Route README, ADR, architecture, code documentation, and doc-type standards through `docs/standards/README.md`.
+- Route Markdown structure, headers, lists, tables, diagrams, prose, and evidence through `docs/standards`.
 - Keep documentation rooted in existing paths, commands, and configured tooling; remove invented or stale paths.
 - Cross-stack owner precedence: `docs/usage.md` §1 and §5.
 - Product library API truth: `docs/external-libs`.
-- Host SDK boundaries: `docs/host/` (`README.md` → `rhino.md`, `gh2.md`).
+- Host SDK boundaries: local RhinoWIP/GH2 XML and `uv run python -m tools.quality api query`; owner ladder in `docs/usage.md` §1; nested host `AGENTS.md` under `libs/csharp/Rasm.Rhino` and `libs/csharp/Rasm.Grasshopper`.
 - Host composition adoption (Scrutor, EF, OTel…): `docs/host-libraries.md` — not-in-graph until a bootstrap consumer exists. AppUi is now an active direct package consumer; pin truth lives in `Directory.Packages.props` and `docs/system-api-map/packages.md` §2.
 - BCL, packages, host references: `docs/system-api-map`.
 - Test-tool APIs: `docs/testing-libs`.

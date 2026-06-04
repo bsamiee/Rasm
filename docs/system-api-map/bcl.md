@@ -126,7 +126,7 @@ Collection expressions (`[]`, spread) are a C# owner (`../external-libs/csharp/l
 |   [9]   | MathNet                     | Matrices, solvers, statistics, symbolic math                                                           |
 
 [USE]
-- [1] Model-space truth — see `../host/rhino.md`.
+- [1] Model-space truth — see `../usage.md` §1 and local RhinoWIP XML.
 - [2] Scalar math; `Half` for compact wire/GPU interchange at boundary.
 - [3] Double complex scalar; bridge to MathNet at algorithm boundary.
 - [4] Narrowest generic-math constraint that admits required static members.
