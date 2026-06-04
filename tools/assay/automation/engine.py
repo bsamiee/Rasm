@@ -77,6 +77,22 @@ if TYPE_CHECKING:
 type Fire = Callable[[], Coroutine[None, None, None]]
 
 
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class _RunState(msgspec.Struct, frozen=True, gc=False):
+    """The scheduled-fire re-entrancy cell: one typed shape replacing two parallel 1-element list cells.
+
+    ``running`` gates re-entry (a cron tick arriving mid-fire is COALESCED, not queued); ``missed`` counts
+    the coalesced ticks the in-flight drain must catch up. The cell is single-task-loop confined — there is
+    no ``await`` between a read and the ``structs.replace`` that writes the successor — so the transition is
+    race-free without a lock, and the typed shape carries that invariant instead of two untyped lists.
+    """
+
+    running: bool = False
+    missed: int = 0
+
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 # The wire carries a string filter tag and ``engine`` resolves the ``BaseFilter`` here, so the model
@@ -348,14 +364,14 @@ def _debounce(inner: Fire, window_ms: int, *, collapse: bool) -> tuple[Fire, Fir
         await recv.receive()
         match collapse:
             case False:
-                await inner()  # leading edge: fire on the first signal of the storm
-            case True:
+                await inner()  # leading edge: fire on the first signal of the storm (collapse=True suppresses the leading edge)
+            case _:
                 pass
         await _quiesce(recv, window_ms)
         match collapse:
             case True:
-                await inner()  # trailing edge: fire once the storm settles
-            case False:
+                await inner()  # trailing edge: fire once the storm settles (collapse=False already fired the leading edge)
+            case _:
                 pass
         await worker()  # await the next storm — recursion is the loop-free re-arm vehicle
 
@@ -383,53 +399,43 @@ async def _watch(spec: Watch, fire: Fire, stop: anyio.Event) -> None:
         await fire()
 
 
-def _jitter(run_id: str) -> float:
-    """Deterministic per-run cron jitter in seconds (0 to ``_JITTER_MS``), from a hashlib digest over ``run_id`` — no RNG, no knob.
-
-    A fleet of agents sharing one cron schedule each derives a STABLE small offset from its ``run_id``,
-    de-syncing the thundering herd at the leading edge of every fire without a seed parameter or a wall-clock read.
-    """
-    return (int.from_bytes(hashlib.sha256(run_id.encode()).digest()[:4], "big") % _JITTER_MS) / 1000.0
-
-
 def _hardened_fire(fire: Fire, settings: AssaySettings) -> Fire:
     """Wrap a scheduled ``Fire`` with an in-flight gate + coalesced missed-tick recovery + deterministic ``run_id`` jitter.
 
-    A cron tick arriving while a fire is in-flight is COALESCED — counted in the ``missed`` cell and dropped,
-    NOT queued behind the ``CapacityLimiter`` into an unbounded pile-up (which a leased ``Action`` would turn into
-    spurious ``BUSY`` storms ``@retried`` will not absorb). The ``running`` cell gates re-entry; ``_drain`` runs the
-    fire then ONE catch-up fire if any ticks were missed (cron behind-schedule semantics: run once to catch up,
-    never N), logging the coalesced count to the structlog operational rail. The leading ``_jitter`` (a hashlib
-    digest over ``settings.run_id``, bounded — no RNG, no wall-clock, no knob) de-syncs a fleet sharing one schedule.
-    Single-task event loop: there is no ``await`` between the read and the write of ``running``, so the cells are race-free.
+    A cron tick arriving while a fire is in-flight is COALESCED — counted in ``state.missed`` and dropped, NOT
+    queued behind the ``CapacityLimiter`` into an unbounded pile-up (which a leased ``Action`` would turn into
+    spurious ``BUSY`` storms ``@retried`` will not absorb). ``state.running`` gates re-entry; once a fire lands it
+    runs the leaf, then ONE catch-up fire if any ticks coalesced during it (cron behind-schedule semantics: run
+    once to catch up, never N), logging the coalesced count to the structlog operational rail. The leading
+    ``jitter_s`` — a ``hashlib`` digest over ``settings.run_id``, bounded to ``_JITTER_MS`` (no RNG, no wall-clock,
+    no knob) — de-syncs a fleet sharing one schedule at every leading edge.
+
+    The re-entrancy cell is ONE frozen ``_RunState`` in a single closure list-cell, advanced by ``structs.replace``.
+    Single-task event loop: there is no ``await`` between a read of ``state[0]`` and the write of its successor, so
+    the gate and the missed-count are race-free without a lock — the typed shape carries that invariant. The catch-up
+    ``fire()`` emits its OWN ``Envelope`` (the missed count is scheduling telemetry, not check evidence), which is why
+    the coalesced count rides the structlog operational rail and never ``Envelope.notes`` — the boundary is deliberate.
     """
-    running: list[bool] = [False]
-    missed: list[int] = [0]
-    jitter_s = _jitter(settings.run_id)
+    state: list[_RunState] = [_RunState()]
 
     async def hardened() -> None:
-        match running[0]:
+        match state[0].running:
             case True:
-                missed[0] += 1
+                state[0] = msgspec.structs.replace(state[0], missed=state[0].missed + 1)  # coalesce one mid-fire tick
             case False:
-                running[0] = True
-                await anyio.sleep(jitter_s)
-                await _drain(fire, missed)
-                running[0] = False
+                state[0] = msgspec.structs.replace(state[0], running=True)
+                await anyio.sleep((int.from_bytes(hashlib.sha256(settings.run_id.encode()).digest()[:4], "big") % _JITTER_MS) / 1000.0)
+                await fire()
+                match state[0].missed:  # ONE catch-up fire if any ticks coalesced during the leaf (cron behind-schedule: run once, never N)
+                    case missed if missed:
+                        _LOG.warning("schedule.coalesced", missed=missed)
+                        state[0] = msgspec.structs.replace(state[0], missed=0)
+                        await fire()  # single catch-up; ticks during it fold into the next natural tick's drain
+                    case _:
+                        pass
+                state[0] = msgspec.structs.replace(state[0], running=False)
 
     return hardened
-
-
-async def _drain(fire: Fire, missed: list[int]) -> None:
-    """Fire once, then ONE behind-schedule catch-up fire if ticks coalesced during it, logging the missed count."""
-    await fire()
-    match missed[0]:
-        case 0:
-            return
-        case count:
-            _LOG.warning("schedule.coalesced", missed=count)
-            missed[0] = 0
-            await fire()  # single catch-up; ticks during it fold into the next natural tick's drain
 
 
 async def _schedule(spec: str, fire: Fire, stop: anyio.Event) -> None:

@@ -330,21 +330,26 @@ class Diagnostic(Detail, frozen=True, tag="diagnostic"):
     hint: Annotated[str, msgspec.Meta(max_length=256)] = ""
 
 
-class RunDelta(Detail, frozen=True, tag="delta"):
-    """``delta`` evidence: the before/after run identity plus the status/count/result drift of two persisted Envelopes.
+class RunSnapshot(Base, frozen=True):
+    """One side of a ``delta``: a persisted run's ``(id, status, counts)`` endpoint, bundled so ``RunDelta`` pairs two."""
 
-    Rides ``Report.detail`` for the root ``delta`` verb. ``added``/``removed`` are the symmetric-difference
-    cardinalities of the two runs' ``Match`` result sets (keyed by ``(id, line)``), so an agent reads what a
-    change introduced or resolved between two runs straight off the wire without re-diffing the raw reports.
+    id: str = ""
+    status: RailStatus = RailStatus.EMPTY
+    counts: Counts = Counts()
+
+
+class RunDelta(Detail, frozen=True, tag="delta"):
+    """``delta`` evidence: the two persisted-run endpoints plus the result-set drift between them.
+
+    Rides ``Report.detail`` for the root ``delta`` verb. ``before``/``after`` carry each run's full
+    ``(id, status, counts)`` endpoint so the count drift derives off the wire (``after.counts - before.counts``
+    per slot) without duplicated delta fields. ``added``/``removed`` are the symmetric-difference cardinalities
+    of the two runs' ``Match`` result sets (keyed by ``(id, line)``), so an agent reads what a change introduced
+    or resolved straight off the wire.
     """
 
-    before_run: str = ""
-    after_run: str = ""
-    before_status: RailStatus = RailStatus.EMPTY
-    after_status: RailStatus = RailStatus.EMPTY
-    ok_delta: int = 0
-    failed_delta: int = 0
-    total_delta: int = 0
+    before: RunSnapshot = RunSnapshot()
+    after: RunSnapshot = RunSnapshot()
     added: int = 0
     removed: int = 0
 
@@ -513,6 +518,7 @@ __all__ = [
     "Report",
     "ResourceBusyError",
     "RunDelta",
+    "RunSnapshot",
     "Runner",
     "SourceKind",
     "SymbolShape",

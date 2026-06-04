@@ -14,17 +14,23 @@ bare mtime: a RhinoWIP reinstall preserves mtime on unchanged DLLs, so a content
 correctness boundary against a stale surface silently misreporting ``[Obsolete]`` markers.
 """
 
+import annotationlib  # PEP 749 (3.14): get_annotations(format=STRING) surfaces a signature WITHOUT evaluating unresolvable forward refs
 from dataclasses import dataclass
 import hashlib
+import importlib
+import importlib.metadata
+import inspect
 from pathlib import Path
 import re
-from typing import assert_never
+from typing import assert_never, TYPE_CHECKING
 import xml.etree.ElementTree as ET  # noqa: S405  # trusted local Directory.Packages.props XML, never network-sourced
 
 from expression import Error, Ok, Result
 import msgspec
+from tree_sitter import Language as TSLanguage, Parser as TSParser, Query as TSQuery, QueryCursor
+import tree_sitter_typescript  # the SAME grammar binding code.py parses .d.ts with; never a second import surface
 
-from tools.assay.composition.catalog import select  # intra-package import; tools.assay is the package root
+from tools.assay.composition.catalog import Capture, CAPTURE_ENCODER, CAPTURES, select  # intra-package import; tools.assay is the package root
 from tools.assay.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # registry passes both at runtime
 from tools.assay.core.engine import run_check  # intra-package import; tools.assay is the package root
 from tools.assay.core.model import (  # intra-package import; tools.assay is the package root
@@ -38,8 +44,11 @@ from tools.assay.core.model import (  # intra-package import; tools.assay is the
     Completed,
     Fault,
     fold,
+    InprocThunk,  # noqa: TC001  # unconditional so beartype @checked resolves the thunk-builder return forward-ref under PEP 649
     Language,
     Match,
+    Mode,
+    receipt,
     Report,  # noqa: TC001  # unconditional so beartype @checked resolves the rail's -> Result[Report, Fault] forward-ref under PEP 649
     SourceKind,
     SymbolShape,
@@ -47,6 +56,12 @@ from tools.assay.core.model import (  # intra-package import; tools.assay is the
 )
 from tools.assay.core.routing import Routed, Scope  # intra-package import; tools.assay is the package root
 from tools.assay.core.status import RailStatus  # intra-package import; tools.assay is the package root
+
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from tree_sitter import Node
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -158,6 +173,39 @@ _CANDIDATE_CAP: int = 8  # ApiResolution.candidates bound on a miss: the top-N n
 _DEPS_PARTS: frozenset[str] = frozenset(("build", "buildTransitive", "analyzers", "tools", "runtimes"))
 _DECOMPILE_FLAGS: tuple[str, ...] = ("--no-dead-code", "--no-dead-stores")
 _ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")  # content-addressable wire order for report artifacts
+_NODE_MODULES: str = "node_modules"
+_PNPM_STORE: str = "node_modules/.pnpm"  # pnpm store: <mangled>@<ver>[+peer]/node_modules/<pkg>; @scope/pkg → @scope+pkg in dir name
+_DTS_GLOB: str = "*.d.ts"
+_DTS_ENTRY: str = "index.d.ts"  # entrypoint fallback when package.json declares no types/typings
+_TS_DECL_QUERY: str = (  # the .d.ts roster S-expr: every exported declaration name → one @type capture (INDEX/NAMESPACE/SEARCH)
+    "(class_declaration name: (type_identifier) @type)"
+    " (abstract_class_declaration name: (type_identifier) @type)"
+    " (interface_declaration name: (type_identifier) @type)"
+    " (type_alias_declaration name: (type_identifier) @type)"
+    " (enum_declaration name: (identifier) @type)"
+    " (function_signature name: (identifier) @type)"
+    " (module name: (identifier) @type)"
+)
+_TS_GRAMMAR: Callable[[], object] = tree_sitter_typescript.language_typescript  # shared with code.py's _GRAMMARS[Language.TYPESCRIPT]
+_DECL_NODES: frozenset[str] = frozenset(  # the .d.ts declaration node kinds a member lookup anchors a full signature on
+    (
+        "class_declaration",
+        "abstract_class_declaration",
+        "interface_declaration",
+        "type_alias_declaration",
+        "enum_declaration",
+        "function_signature",
+        "method_signature",
+        "property_signature",
+        "public_field_definition",
+    )
+)
+_INSPECT_KINDS: tuple[tuple[str, Callable[[object], bool]], ...] = (  # the pydist roster predicates: one @type capture per class/function/submodule
+    ("type", inspect.isclass),
+    ("type", inspect.isfunction),
+)
+_NAME_CAP: int = 320  # per-capture text bound, mirroring code._TEXT_CAP
+_SIG_CAP: int = 480  # signature/doc slice bound, mirroring _xml_doc's 480
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -334,19 +382,353 @@ def _nuget_source(settings: AssaySettings, package: str, version: str) -> _Sourc
     )
 
 
-def _source(settings: AssaySettings, key: str) -> Result[_Source, ApiResolution]:
-    """Resolve one source key to its typed ``_Source``: host bundle first, else fuzzy NuGet.
+def _pydist_names() -> tuple[str, ...]:
+    """The installed Python distribution roster (``importlib.metadata`` names) for doctor + cross-kind miss candidates."""
+    return tuple(sorted({dist.metadata["Name"] for dist in importlib.metadata.distributions() if dist.metadata["Name"]}))
 
-    A miss rides the ``Error`` channel as a typed ``ApiResolution`` (nearest scored candidates + reason),
-    which the ``resolve``/``query`` handlers fold onto an ``UNSUPPORTED`` ``Report`` — the richer-on-failure
-    contract: the agent gets the next-step disambiguation, never a bare empty result or a broken-operation 2.
+
+def _pydist_source(key: str) -> _Source | None:
+    """Build a PYDIST ``_Source`` from ``importlib.metadata``, or ``None`` when the dist is not installed.
+
+    ``asset_paths`` projects the dist's recorded files to absolute paths (``.files`` may be ``None`` →
+    ``()``); ``package_root`` is the site-packages anchor (``locate_file('')``). No assemblies — the
+    roster/decompile rides the INPROC ``inspect`` thunk, not ilspycmd.
     """
-    match _host_source(settings, key):
-        case _Source() as host:
-            return Ok(host)
+    try:
+        dist = importlib.metadata.distribution(key)  # codec boundary: an uninstalled key raises PackageNotFoundError → None (fall through)
+    except importlib.metadata.PackageNotFoundError:
+        return None
+    root = Path(str(dist.locate_file("")))
+    match dist.files:
         case None:
-            packages = _packages(settings)
-            return _resolve_key(packages, key).map(lambda package: _nuget_source(settings, package, packages[package]))
+            assets: tuple[Path, ...] = ()
+        case files:
+            assets = tuple(Path(str(dist.locate_file(f))) for f in files)
+    return _Source(
+        key=dist.metadata["Name"] or key,
+        kind=SourceKind.PYDIST,
+        version=dist.version or "",
+        package_root=root if root.is_dir() else None,
+        asset_paths=assets,
+    )
+
+
+def _pydist_modules(key: str) -> tuple[str, ...]:
+    """The dist's import-root module names: ``top_level.txt`` first, else the ``packages_distributions`` reverse map.
+
+    ``top_level.txt`` is the declared truth but often absent (modern wheels omit it); the fallback inverts
+    ``packages_distributions()`` (module → dists) to recover the real import roots — e.g. ``Pygments`` →
+    ``pygments`` — where the casefolded key alone would miss the case-fold. A final ``key`` normalization
+    seeds a single candidate when both metadata sources are silent.
+    """
+    try:
+        text = importlib.metadata.distribution(key).read_text("top_level.txt")
+    except importlib.metadata.PackageNotFoundError:
+        return ()
+    declared = tuple(line.strip() for line in (text or "").splitlines() if line.strip())
+    casefold = key.casefold()
+    mapped = tuple(module for module, dists in importlib.metadata.packages_distributions().items() if any(d.casefold() == casefold for d in dists))
+    return declared or mapped or (key.replace("-", "_"),)
+
+
+def _tsdecl_names(settings: AssaySettings) -> tuple[str, ...]:
+    """The npm package roster under the worktree ``node_modules`` (hoisted + scoped), bounded for doctor + miss candidates."""
+    base = Path(str(settings.root)) / _NODE_MODULES
+    match base.is_dir():
+        case False:
+            return ()
+        case True:
+            top = tuple(d.name for d in base.iterdir() if d.is_dir() and not d.name.startswith((".", "@")))
+            scoped = tuple(
+                f"{scope.name}/{pkg.name}"
+                for scope in base.iterdir()
+                if scope.is_dir() and scope.name.startswith("@")
+                for pkg in scope.iterdir()
+                if pkg.is_dir()
+            )
+            return tuple(sorted((*top, *scoped)))
+
+
+def _tsdecl_dir(settings: AssaySettings, key: str) -> Path | None:
+    """Resolve the ``node_modules/<pkg>`` dir: hoisted first, else the pnpm store (``@scope/pkg`` → ``@scope+pkg``)."""
+    base = Path(str(settings.root)) / _NODE_MODULES
+    hoisted = base / key
+    mangled = key.replace("/", "+")
+    pnpm = tuple(sorted((Path(str(settings.root)) / _PNPM_STORE).glob(f"{mangled}@*/{_NODE_MODULES}/{key}")))
+    candidates = (hoisted, *pnpm)
+    return next((c for c in candidates if (c / "package.json").is_file() or any(c.glob(_DTS_GLOB))), None)
+
+
+def _tsdecl_source(settings: AssaySettings, key: str) -> _Source | None:
+    """Build a TSDECL ``_Source`` from a resolved ``node_modules`` package, or ``None`` when unresolvable.
+
+    The entrypoint prefers ``package.json`` ``types``/``typings`` else ``index.d.ts``; ``asset_paths``
+    is the entrypoint plus its sibling ``.d.ts`` set (one-level glob). A package with NO ``.d.ts`` folds
+    to ``asset_paths=()`` so ``_surface`` yields EMPTY (exit 0) — never FAULTED.
+    """
+    match _tsdecl_dir(settings, key):
+        case None:
+            return None
+        case pkg_dir:
+            version = _tsdecl_version(settings, key)
+            entry = _tsdecl_entry(pkg_dir)
+            siblings = tuple(sorted((entry.parent if entry is not None else pkg_dir).glob(_DTS_GLOB)))
+            assets = tuple(dict.fromkeys((*((entry,) if entry is not None else ()), *siblings)))
+            return _Source(key=key, kind=SourceKind.TSDECL, version=version, package_root=pkg_dir, asset_paths=assets)
+
+
+def _tsdecl_entry(pkg_dir: Path) -> Path | None:
+    """Project the package's typings entrypoint: ``package.json`` ``types``/``typings`` else ``index.d.ts`` (extant only)."""
+    manifest = pkg_dir / "package.json"
+    declared = _json_field(manifest, "types") or _json_field(manifest, "typings")
+    target = (pkg_dir / declared) if declared else (pkg_dir / _DTS_ENTRY)
+    return target if target.is_file() else None
+
+
+def _tsdecl_version(settings: AssaySettings, key: str) -> str:
+    """Parse the package version off the pnpm store dir tail (``<pkg>@<ver>[+peer]``), else the hoisted ``package.json``."""
+    mangled = key.replace("/", "+")
+    pnpm = tuple(sorted((Path(str(settings.root)) / _PNPM_STORE).glob(f"{mangled}@*")))
+    tail = next((d.name.removeprefix(f"{mangled}@").split("+", 1)[0].split("_", 1)[0] for d in pnpm), "")
+    return tail or _json_field((Path(str(settings.root)) / _NODE_MODULES / key) / "package.json", "version")
+
+
+def _json_field(path: Path, field: str) -> str:
+    """Read one top-level string field from a JSON manifest at the marked codec boundary (missing/malformed/non-string → ``""``)."""
+    try:
+        data = msgspec.json.decode(path.read_bytes(), type=dict[str, msgspec.Raw])  # codec boundary: a missing/malformed package.json folds to ""
+        return msgspec.json.decode(data[field], type=str) if field in data else ""  # nested codec boundary: a non-string value folds to ""
+    except OSError, KeyError, msgspec.DecodeError:
+        return ""
+
+
+def _source(settings: AssaySettings, key: str) -> Result[_Source, ApiResolution]:
+    """Resolve one source key to its typed ``_Source`` across all kinds: host bundle ▷ NuGet ▷ PYDIST ▷ TSDECL.
+
+    An ordered resolver fold (cheapest, side-effect-free origins first): a host bundle, then a fuzzy
+    central NuGet pin, then an installed Python distribution, then an npm ``.d.ts`` package. The first
+    non-``None`` resolver wins; only the NuGet arm governs fuzzy resolution, so its miss reason rides
+    through. A total miss rides the ``Error`` channel as a typed ``ApiResolution`` whose ``candidates``
+    aggregate across NuGet + PyPI + npm names — the richer-on-failure contract generalizes: an agent sees
+    the nearest dist/package, not just a NuGet pin, never a bare empty result or a broken-operation 2.
+    """
+    packages = _packages(settings)
+    resolvers: tuple[Callable[[], _Source | None], ...] = (
+        lambda: _host_source(settings, key),
+        lambda: _resolve_key(packages, key).map(lambda package: _nuget_source(settings, package, packages[package])).default_value(None),
+        lambda: _pydist_source(key),
+        lambda: _tsdecl_source(settings, key),
+    )
+    match next((source for resolver in resolvers if (source := resolver()) is not None), None):
+        case _Source() as source:
+            return Ok(source)
+        case None:
+            names = (*tuple(packages), *_pydist_names(), *_tsdecl_names(settings))
+            return Error(ApiResolution(candidates=_candidates(names, key), reason="unknown"))
+
+
+def _module_members(module: object, prefix: str, *, depth: int = 1) -> tuple[Capture, ...]:
+    """Roster a module's classes/functions into ``@type`` captures, descending one level into same-prefix submodules.
+
+    ``depth`` gates the single recursion into same-prefix submodules (``1`` at the import root, ``0`` inside
+    a submodule), so the roster never walks the transitive module graph — one level is the roster breadth.
+    """
+    name = getattr(module, "__name__", prefix)
+    file = str(getattr(module, "__file__", "") or "")
+    own = tuple(
+        Capture(name=cap, text=f"{name}.{ident}"[:_NAME_CAP], file=file, line=0)
+        for cap, predicate in _INSPECT_KINDS
+        for ident, obj in inspect.getmembers(module, predicate)
+        if not ident.startswith("_") and getattr(obj, "__module__", prefix).startswith(prefix)
+    )
+    submodules = (
+        tuple(
+            obj
+            for ident, obj in inspect.getmembers(module, inspect.ismodule)
+            if getattr(obj, "__name__", "").startswith(f"{name}.") and not ident.startswith("_")
+        )
+        if depth > 0
+        else ()
+    )
+    return (*own, *(cap for sub in submodules for cap in _module_members(sub, prefix, depth=depth - 1)))
+
+
+def _import(name: str) -> object | None:
+    """Import one module at the marked spawn boundary; an unimportable module (C-ext / missing dep) degrades to ``None`` (never raises)."""
+    try:
+        return importlib.import_module(name)  # spawn boundary: an unresolvable transitive dep degrades to metadata-only, never crashes
+    except Exception:  # noqa: BLE001  # INPROC defensive: per-module import fault → drop that module, the thunk still surfaces the rest
+        return None
+
+
+def _pydist_thunk(key: str, symbol: str) -> InprocThunk:
+    """The PYDIST surface/member thunk (symmetric with ``_tsdecl_thunk``): empty ``symbol`` rosters ``@type`` captures, else member captures.
+
+    Empty ``symbol`` imports each top-level module (defensively via ``_import`` → ``None`` on a
+    C-ext/missing-dep fault) and rosters its classes/functions into ``@type`` captures. A non-empty
+    ``symbol`` resolves it via import + ``getattr`` walk and emits ``@signature``/``@doc``/``@full``
+    captures (``inspect``/PEP 749 ``annotationlib``). Captures ride ``CAPTURE_ENCODER`` — the identical
+    wire code.py's ``_ts_thunk`` rides, so the api fold decodes them through the same ``CAPTURES`` codec.
+    """
+
+    def run(_check: Check) -> Completed:
+        match symbol:
+            case "":
+                modules = tuple((name, _import(name)) for name in _pydist_modules(key))
+                captures = tuple(cap for name, module in modules if module is not None for cap in _module_members(module, name))
+                return receipt(("py-api", "surface", key), 0, stdout=CAPTURE_ENCODER.encode(captures))
+            case _:
+                obj = _resolve_symbol(key, symbol)
+                member = _member_captures(obj, symbol) if obj is not None else ()
+                return receipt(("py-api", "member", key, symbol), 0, stdout=CAPTURE_ENCODER.encode(member))
+
+    return run
+
+
+def _inproc_thunk(source: _Source, symbol: str) -> InprocThunk:
+    """Pick the PYDIST/TSDECL surface (empty ``symbol``) or member thunk — the sole kind→thunk dispatch both INPROC arms share."""
+    return _pydist_thunk(source.key, symbol) if source.kind is SourceKind.PYDIST else _tsdecl_thunk(source, symbol)
+
+
+def _resolve_symbol(key: str, symbol: str) -> object | None:
+    """Resolve ``symbol`` to its object: import the longest dotted module prefix under a dist root, then ``getattr``-walk the tail.
+
+    ``msgspec.json.Decoder`` imports ``msgspec.json`` then ``getattr``s ``Decoder``; ``msgspec.Struct``
+    imports ``msgspec`` then ``getattr``s ``Struct``; a bare ``Struct`` walks off each top-level root. Each
+    candidate qualified name is rooted at a ``top_level.txt`` module, so an arbitrary token never imports an
+    unrelated installed package; the longest importable module prefix wins (``range`` descends).
+    """
+    roots = _pydist_modules(key)
+    qualified = tuple(dict.fromkeys((symbol, *(f"{root}.{symbol}" for root in roots if not symbol.startswith(f"{root}.") and symbol != root))))
+    return next((resolved for qname in qualified for resolved in (_resolve_qualified(qname, roots),) if resolved is not None), None)
+
+
+def _resolve_qualified(qname: str, roots: tuple[str, ...]) -> object | None:
+    """Import the longest dist-rooted dotted prefix of ``qname`` as a module, then ``getattr``-walk the remaining tail."""
+    parts = tuple(qname.split("."))
+    splits = tuple((parts[:i], parts[i:]) for i in range(len(parts), 0, -1) if parts[0] in roots)
+    return next(
+        (
+            resolved
+            for head, tail in splits
+            for module in (_import(".".join(head)),)
+            if module is not None
+            for resolved in (_getattr_walk(module, tail),)
+            if resolved is not None
+        ),
+        None,
+    )
+
+
+def _getattr_walk(root: object, parts: tuple[str, ...]) -> object | None:
+    """Fold ``getattr`` over the dotted segments, short-circuiting to ``None`` on the first missing attribute."""
+    match parts:
+        case (head, *tail):
+            attr = getattr(root, head, None)
+            return _getattr_walk(attr, tuple(tail)) if attr is not None else None
+        case _:
+            return root
+
+
+def _member_captures(obj: object, symbol: str) -> tuple[Capture, ...]:
+    """Project a resolved object into the ``@signature``/``@doc``/``@full`` captures the member decode reads."""
+    return (
+        Capture(name="signature", text=f"{symbol}{_signature(obj)}"[:_SIG_CAP], file=str(getattr(obj, "__module__", "")), line=0),
+        Capture(name="doc", text=(inspect.getdoc(obj) or "")[:_SIG_CAP], file="", line=0),
+        Capture(name="full", text=_object_source(obj)[: _NAME_CAP * 8], file="", line=0),
+    )
+
+
+def _signature(obj: object) -> str:
+    """Project a callable's signature with stringized annotations, falling back to PEP 749 ``annotationlib`` on a C-builtin reject.
+
+    ``inspect.signature(eval_str=False)`` keeps annotations as their source strings so an unresolvable
+    forward ref never evaluates. When ``inspect`` itself rejects the object (a C builtin / a default it
+    cannot repr), ``annotationlib.get_annotations(format=STRING)`` (PEP 749) still surfaces the
+    parameter→type map without evaluation — the verified lever for a dist with unresolvable deps; a final
+    annotation fault folds to ``(...)``.
+    """
+    try:
+        return str(inspect.signature(obj, eval_str=False))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]  # any resolved symbol; non-callable → TypeError arm
+    except ValueError, TypeError:
+        annotations = _annotations(obj)
+        params = tuple(f"{name}: {kind}" for name, kind in annotations.items() if name != "return")
+        return f"({', '.join(params)})" if params else "(...)"
+
+
+def _annotations(obj: object) -> dict[str, str]:
+    """PEP 749 stringized annotations at the marked boundary; a C-builtin / unresolvable object folds to ``{}`` (no raise)."""
+    try:
+        return annotationlib.get_annotations(obj, format=annotationlib.Format.STRING)
+    except TypeError, NameError:
+        return {}
+
+
+def _object_source(obj: object) -> str:
+    """Read an object's source slice at the marked codec boundary; a C-builtin / unreadable object folds to ``""`` (no raise)."""
+    try:
+        return inspect.getsource(obj)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]  # any resolved symbol; a C-builtin / unreadable object → TypeError arm
+    except OSError, TypeError:
+        return ""
+
+
+def _tsdecl_thunk(source: _Source, symbol: str) -> InprocThunk:
+    """The TSDECL surface/member thunk: tree-sitter-parse each ``.d.ts`` and emit ``@type`` roster or a member signature.
+
+    Empty ``symbol`` runs the roster query (``_TS_DECL_QUERY``) over every ``.d.ts`` → one ``@type``
+    capture per exported declaration name (INDEX/NAMESPACE/SEARCH). A non-empty ``symbol`` anchors the
+    matching declaration node and emits one ``@signature`` capture (TYPE/MEMBER). REUSES code.py's TS
+    grammar binding; captures ride the same ``CAPTURE_ENCODER`` wire — the api fold decodes them identically.
+    """
+
+    def run(_check: Check) -> Completed:
+        ts_lang = TSLanguage(_TS_GRAMMAR())
+        parser = TSParser(ts_lang)
+        captures = tuple(cap for path in source.asset_paths for cap in _ts_captures(parser, ts_lang, path, symbol))
+        return receipt(("ts-api", "member" if symbol else "surface", source.key, symbol), 0, stdout=CAPTURE_ENCODER.encode(captures))
+
+    return run
+
+
+def _ts_captures(parser: TSParser, language: TSLanguage, path: Path, symbol: str) -> tuple[Capture, ...]:
+    """Read+parse one ``.d.ts`` (unreadable → ``()``): the roster when ``symbol`` is empty, else the matched declaration's signature."""
+    try:
+        src = path.read_bytes()  # FS boundary: an unreadable .d.ts drops out of the roster, never faults the thunk
+    except OSError:
+        return ()
+    root = parser.parse(src).root_node
+    match symbol:
+        case "":
+            query = TSQuery(language, _TS_DECL_QUERY)
+            return tuple(
+                Capture(name="type", text=_node_text(node)[:_NAME_CAP], file=path.name, line=node.start_point.row + 1)
+                for nodes in QueryCursor(query).captures(root).values()
+                for node in nodes
+            )
+        case _:
+            return _ts_member(root, symbol, path)
+
+
+def _ts_member(root: Node, symbol: str, path: Path) -> tuple[Capture, ...]:
+    """Anchor the named declaration node (``name:`` field == the symbol tail) and emit its ``@signature`` capture; first match wins."""
+    target = symbol.rsplit(".", 1)[-1]
+    match next((n for n in _walk_decls(root) if (name := n.child_by_field_name("name")) is not None and _node_text(name) == target), None):
+        case None:
+            return ()
+        case node:
+            return (Capture(name="signature", text=_node_text(node)[:_SIG_CAP], file=path.name, line=node.start_point.row + 1),)
+
+
+def _walk_decls(node: Node) -> tuple[Node, ...]:
+    """Flatten the declaration nodes (``_DECL_NODES`` kinds) reachable from ``node`` via a depth-first child fold."""
+    own = (node,) if node.type in _DECL_NODES else ()
+    return (*own, *(d for child in node.children for d in _walk_decls(child)))
+
+
+def _node_text(node: Node) -> str:
+    """Decode a tree-sitter node's source slice (``Node.text`` is ``bytes | None``; an absent source folds to ``""``)."""
+    raw = node.text
+    return raw.decode(errors="replace") if raw is not None else ""
 
 
 def _invoke(settings: AssaySettings, scope: ArtifactScope, tool: Tool, *args: str) -> Completed:
@@ -372,13 +754,28 @@ def _invoke(settings: AssaySettings, scope: ArtifactScope, tool: Tool, *args: st
 
 
 def _surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> Result[_Surface, Fault]:
-    """Resolve the type/namespace roster, cache-first by content fingerprint.
+    """Resolve the type/namespace roster, polymorphic on ``source.kind``: ilspycmd for C#, INPROC for PYDIST/TSDECL.
 
-    A cache hit skips ilspycmd entirely; a miss runs ``-l cisde`` over each assembly. An
-    assembly-empty source folds ``EMPTY`` (off-host / unrestored) so a speculative poll exits 0. A
-    non-zero exit on a *present* assembly is a tool fault (``FAULTED``, exit 2): assay could not surface
-    the API, so the stderr rides the ``Fault`` message on the ``Error`` channel — distinct (per the
-    ``Fault`` contract) from a check that ran and found defects (``FAILED``, exit 1, the success channel).
+    The C# arm (``ASSEMBLY``/``NUGET``) is byte-unchanged: cache-first by content fingerprint, ``-l cisde``
+    on a miss. The PYDIST/TSDECL arm runs the bound ``inspect``/tree-sitter roster thunk through ``Runner.INPROC``
+    and decodes the ``Capture`` array into the SAME ``_Surface`` shape — so ``_query_shape``/``_resolve_report``
+    need zero change. An empty source folds ``EMPTY`` (off-host / no ``.d.ts``) so a speculative poll exits 0.
+    """
+    match source.kind:
+        case SourceKind.ASSEMBLY | SourceKind.NUGET:
+            return _cs_surface(settings, scope, source)
+        case SourceKind.PYDIST | SourceKind.TSDECL:
+            return _inproc_surface(settings, source)
+        case _:  # pragma: no cover  # SourceKind.TOOL never resolves through _source
+            return Ok(_Surface(source, (), (), {}, _cache_path(settings, source, ""), ""))
+
+
+def _cs_surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> Result[_Surface, Fault]:
+    """The C# ilspycmd roster: cache-first by content fingerprint, ``-l cisde`` over each assembly on a miss.
+
+    A non-zero exit on a *present* assembly is a tool fault (``FAULTED``, exit 2): assay could not surface
+    the API, so the stderr rides the ``Fault`` message on the ``Error`` channel — distinct (per the ``Fault``
+    contract) from a check that ran and found defects (``FAILED``, exit 1, the success channel).
     """
     assemblies = source.assemblies
     match next((t for t in select(Claim.API, Language.CSHARP)), None):
@@ -393,6 +790,41 @@ def _surface(settings: AssaySettings, scope: ArtifactScope, source: _Source) -> 
                     return Ok(_parse_surface(source, cache, cache.read_text(encoding="utf-8", errors="replace")))
                 case False:
                     return _run_surface(settings, scope, source, tool, assemblies, cache)
+
+
+def _inproc_check(settings: AssaySettings, source: _Source, mode: Mode, thunk: InprocThunk) -> Result[Completed, Fault]:
+    """Splice ``thunk`` onto the ``(Claim.API, language, mode)`` INPROC catalog row and run it through the engine.
+
+    Mirrors ``_invoke`` but on the INPROC splice axis (``tool.thunk`` rather than ``tool.command``): selects
+    the surface (``Mode.QUERY``) or member (``Mode.LIST``) row, binds the thunk, and runs one ``Check`` so the
+    in-process ``inspect``/tree-sitter roster rides the same deadline, CapacityLimiter, and traced span as a
+    subprocess spawn. A spawn fault rides the ``Error`` channel; a thunk fault is a non-zero ``Completed``.
+    """
+    language = Language.PYTHON if source.kind is SourceKind.PYDIST else Language.TYPESCRIPT
+    match next((t for t in select(Claim.API, language) if t.mode is mode), None):
+        case None:
+            return Error(Fault(("api", "surface", source.key), status=RailStatus.FAULTED, message=f"no {language.value} INPROC api row"))
+        case Tool() as tool:
+            check = Check(tool=msgspec.structs.replace(tool, thunk=thunk))
+            routed = Routed(language=language, scope=Scope.CHANGED)
+            return run_check(check, settings=settings, scope=None, routed=routed)
+
+
+def _inproc_surface(settings: AssaySettings, source: _Source) -> Result[_Surface, Fault]:
+    """Run the PYDIST/TSDECL roster thunk and fold the decoded ``Capture`` array into the ``_Surface`` shape.
+
+    An empty ``asset_paths`` (a dist with no importable module, an npm package with no ``.d.ts``) folds to an
+    empty ``_Surface`` (EMPTY, exit 0) — never FAULTED. The decoded ``@type`` captures' ``text`` are the
+    fully-qualified type names ``_parse_inproc`` folds into the namespace index, identical to ``_parse_surface``.
+    """
+    cache = _cache_path(settings, source, _fingerprint(source.asset_paths))
+    return _inproc_check(settings, source, Mode.QUERY, _inproc_thunk(source, "")).map(lambda done: _parse_inproc(source, cache, done))
+
+
+def _parse_inproc(source: _Source, cache: Path, done: Completed) -> _Surface:
+    """Decode the INPROC ``@type`` capture array into the type/namespace roster (the PYDIST/TSDECL INDEX/NAMESPACE model)."""
+    types = tuple(dict.fromkeys(cap.text for cap in CAPTURES.decode(done.stdout or b"[]") if cap.name == "type" and cap.text))
+    return _roster(source, cache, types, done.stdout.decode(errors="replace"))
 
 
 def _cache_path(settings: AssaySettings, source: _Source, fingerprint: str) -> Path:
@@ -435,17 +867,16 @@ def _parse_surface(source: _Source, cache: Path, text: str) -> _Surface:
             if len(parts) == 2 and parts[0] in _SURFACE_KINDS
         )
     )
+    return _roster(source, cache, types, text)
+
+
+def _roster(source: _Source, cache: Path, types: tuple[str, ...], raw: str) -> _Surface:
+    """Fold a flat type bag into the ``_Surface`` namespace index — the sole roster projection both the ilspy and INPROC parsers share."""
     type_set = frozenset(types)
     namespace_of = {fqn: _namespace_of(fqn, type_set) for fqn in types}
     namespaces = tuple(sorted({ns for ns in namespace_of.values() if ns}))
-    return _Surface(
-        source=source,
-        types=types,
-        namespaces=namespaces,
-        by_namespace={ns: tuple(fqn for fqn in types if namespace_of[fqn] == ns) for ns in namespaces},
-        cache=cache,
-        raw=text,
-    )
+    by_namespace = {ns: tuple(fqn for fqn in types if namespace_of[fqn] == ns) for ns in namespaces}
+    return _Surface(source=source, types=types, namespaces=namespaces, by_namespace=by_namespace, cache=cache, raw=raw)
 
 
 def _rank_type(types: tuple[str, ...], needle: str) -> str:
@@ -490,13 +921,25 @@ def _xml_members(path: Path) -> tuple[ET.Element, ...]:
 
 
 def _decompile(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, symbol: str, p: ApiParams) -> Result[_Body, Fault]:
-    """Decompile one type via ``ilspycmd -t <type>`` and anchor the member signature.
+    """Project one type/member to a ``_Body``, polymorphic on ``source.kind``: ilspycmd ``-t`` for C#, INPROC for PYDIST/TSDECL.
 
-    Member tokens drop their final segment to find the owning type. ``signature`` anchors on the
-    modifier-prefixed declaration line of the simple identifier — never a ``///`` doc-comment
-    occurrence, which a bare word boundary over-matches into a sibling overload. An unresolvable type
-    or empty decompile yields an empty ``signature`` so the ``query`` fold falls through to SEARCH.
+    The C# arm (``ASSEMBLY``/``NUGET``) is byte-unchanged: drop a member token's final segment to find
+    the owning type, decompile via ``-t <type>``, anchor the signature on the modifier-prefixed declaration
+    line (never a ``///`` occurrence). The PYDIST/TSDECL arm runs the bound member thunk and projects its
+    single ``@signature``/``@doc``/``@full`` captures into the same ``_Body``. An unresolvable symbol yields
+    an empty ``signature`` so the ``query`` fold falls through to SEARCH.
     """
+    match surface.source.kind:
+        case SourceKind.ASSEMBLY | SourceKind.NUGET:
+            return _cs_decompile(settings, scope, surface, symbol, p)
+        case SourceKind.PYDIST | SourceKind.TSDECL:
+            return _inproc_decompile(settings, surface, symbol, p)
+        case _:  # pragma: no cover  # SourceKind.TOOL never resolves through _source
+            return Ok(_Body(signature="", xml="", window="", full="", selected=0, truncated=False))
+
+
+def _cs_decompile(settings: AssaySettings, scope: ArtifactScope, surface: _Surface, symbol: str, p: ApiParams) -> Result[_Body, Fault]:
+    """The C# ilspycmd ``-t <type>`` decompile: anchor the member signature on the declaration line, doc from the sidecar XML."""
     head, _, tail = symbol.rpartition(".")
     fqn = _rank_type(surface.types, symbol) or _rank_type(surface.types, head)
     match next((t for t in select(Claim.API, Language.CSHARP)), None):
@@ -506,7 +949,36 @@ def _decompile(settings: AssaySettings, scope: ArtifactScope, surface: _Surface,
             return Ok(_Body(signature="", xml="", window="", full="", selected=0, truncated=False))
         case Tool() as tool:
             done = _run_decompile(settings, scope, tool, fqn, surface.source.assemblies)
-            return Ok(_body(done, tail or symbol.rsplit(".", 1)[-1], symbol, surface.source, p))
+            return Ok(_body(done, tail or symbol.rsplit(".", 1)[-1], p, doc=_xml_doc(surface.source, symbol)))
+
+
+def _inproc_decompile(settings: AssaySettings, surface: _Surface, symbol: str, p: ApiParams) -> Result[_Body, Fault]:
+    """The PYDIST/TSDECL member decompile: run the bound member thunk and project its captures into ``_Body``.
+
+    PYDIST emits ``@signature`` (inspect/annotationlib), ``@doc`` (``inspect.getdoc``), ``@full``
+    (``inspect.getsource``); TSDECL emits the matching declaration's ``@signature`` (the JSDoc-adjacent
+    doc rides ``""`` — a ``.d.ts`` declaration is the signature). The doc rides the thunk's captures, never
+    ``_xml_doc`` (which is XMLDoc-specific), so ``_body`` takes the pre-resolved doc as a param.
+    """
+    source = surface.source
+    return _inproc_check(settings, source, Mode.LIST, _inproc_thunk(source, symbol)).map(lambda done: _inproc_body(done, p))
+
+
+def _inproc_body(done: Completed, p: ApiParams) -> _Body:
+    """Fold the member thunk's ``@signature``/``@doc``/``@full`` captures into a windowed ``_Body``."""
+    captured = {cap.name: cap.text for cap in CAPTURES.decode(done.stdout or b"[]")}
+    signature = captured.get("signature", "")
+    full = captured.get("full", "") or signature
+    lines = tuple(line for line in full.splitlines() if not p.grep or p.grep.casefold() in line.casefold())
+    window = lines if p.full else lines[: p.max_lines]
+    return _Body(
+        signature=signature,
+        xml=captured.get("doc", ""),
+        window="\n".join(window),
+        full=full,
+        selected=len(lines),
+        truncated=not p.full and len(lines) > len(window),
+    )
 
 
 def _run_decompile(settings: AssaySettings, scope: ArtifactScope, tool: Tool, fqn: str, assemblies: tuple[Path, ...]) -> Completed:
@@ -517,8 +989,13 @@ def _run_decompile(settings: AssaySettings, scope: ArtifactScope, tool: Tool, fq
     return next((d for d in attempts if d.returncode == 0 and d.stdout), attempts[0] if attempts else Completed(("ilspycmd",), 1))
 
 
-def _body(done: Completed, simple: str, symbol: str, source: _Source, p: ApiParams) -> _Body:
-    """Window the decompiled text and anchor the signature on the declaration line (excluding doc comments)."""
+def _body(done: Completed, simple: str, p: ApiParams, *, doc: str) -> _Body:
+    """Window the decompiled text and anchor the signature on the declaration line (excluding doc comments).
+
+    ``doc`` is the pre-resolved prose slot the caller owns (the C# arm passes ``_xml_doc(source, symbol)``,
+    so the XMLDoc lookup never mis-fires on a non-C# source); ``simple`` anchors the modifier-prefixed
+    declaration line of the member identifier, never a ``///`` doc-comment occurrence.
+    """
     text = done.stdout.decode(errors="replace")
     lines = tuple(line for line in text.splitlines() if not p.grep or p.grep.casefold() in line.casefold())
     boundary = re.compile(rf"\b{re.escape(simple)}\b", re.IGNORECASE)
@@ -528,7 +1005,7 @@ def _body(done: Completed, simple: str, symbol: str, source: _Source, p: ApiPara
     signature = next((lines[off].strip() for off in declared), next(iter(window), "").strip())
     return _Body(
         signature=signature if done.returncode == 0 and text else "",
-        xml=_xml_doc(source, symbol),
+        xml=doc,
         window="\n".join(window),
         full=text,
         selected=len(lines),
@@ -580,14 +1057,18 @@ def doctor(settings: AssaySettings, scope: ArtifactScope, p: ApiParams) -> Resul
 
 
 def _inventory(settings: AssaySettings, app: Path | None, version: Completed) -> tuple[tuple[bool, str], ...]:
-    """Fold the host bundle, ilspycmd version, and central package map into ``(ok, note)`` inventory rows."""
+    """Fold the host bundle, ilspycmd version, central packages, Python dists, and npm ``.d.ts`` into ``(ok, note)`` rows."""
     packages = _packages(settings)
     host_keys = tuple(k for k in _HOST_SPECS if (src := _host_source(settings, k)) is not None and src.assemblies)
+    pydists = _pydist_names()
+    tsdecls = _tsdecl_names(settings)
     return (
         _present("rhino-app", app is not None and app.is_dir(), str(app) if app is not None else ""),
         _present("ilspycmd", version.returncode == 0, version.stdout.decode(errors="replace").strip() or "unavailable"),
         _present("host-sources", bool(host_keys), ",".join(host_keys)),
         _present("nuget-sources", bool(packages), str(len(packages))),
+        _present("python-dists", bool(pydists), str(len(pydists))),
+        _present("ts-decls", bool(tsdecls), str(len(tsdecls))),
     )
 
 
@@ -669,7 +1150,9 @@ def _query_shape(settings: AssaySettings, scope: ArtifactScope, surface: _Surfac
     """The single polymorphic ``SymbolShape`` dispatch: one ``match`` arm per shape, ``assert_never`` closed."""
     match shape_of(p.symbol):
         case SymbolShape.INDEX:
-            return Ok(_roster_report(settings, surface, SymbolShape.INDEX, surface.namespaces, "namespace", p))
+            # a namespace-less surface (a flat .d.ts export set) rosters its types directly; a namespaced surface (C#) rosters namespaces
+            rows, kind = (surface.namespaces, "namespace") if surface.namespaces else (surface.types, "type")
+            return Ok(_roster_report(settings, surface, SymbolShape.INDEX, rows, kind, p))
         case SymbolShape.NAMESPACE:
             owned = surface.by_namespace.get(_rank_namespace(surface, p.symbol), ())
             return Ok(_roster_report(settings, surface, SymbolShape.NAMESPACE, owned, "type", p))

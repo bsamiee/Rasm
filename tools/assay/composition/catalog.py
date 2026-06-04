@@ -316,6 +316,12 @@ TOOLS: tuple[Tool, ...] = (
     ),
     Tool("rasm-bridge", DOTNET, ("run", "--no-build", "--", "verify"), PROJECT, CS, Claim.BRIDGE, mode=Mode.VERIFY, parser=parse_verify),
     Tool("ilspycmd", DOTNET, ("tool", "run", "ilspycmd", "--", "-l", "cisde"), NONE, CS, Claim.API, mode=Mode.QUERY, parser=parse_surface),
+    # py/ts polyglot api surface+member: Runner.INPROC thunks (spliced per-call by rails/api.py via structs.replace) emit the
+    # SAME Capture array the tree-sitter code rows do, so parse_query is the census-correct decode (NOT parse_surface's ApiSurface JSON).
+    Tool("py-api", INPROC, ("py-api", "surface"), NONE, PY, Claim.API, mode=Mode.QUERY, parser=parse_query),
+    Tool("py-api", INPROC, ("py-api", "member"), NONE, PY, Claim.API, mode=Mode.LIST, parser=parse_query),
+    Tool("ts-api", INPROC, ("ts-api", "surface"), NONE, TS, Claim.API, mode=Mode.QUERY, parser=parse_query),
+    Tool("ts-api", INPROC, ("ts-api", "member"), NONE, TS, Claim.API, mode=Mode.LIST, parser=parse_query),
     Tool("yak", DIRECT, ("yak", "build"), NONE, CS, Claim.PACKAGE, mode=Mode.STAGE),
     # -- Bash (config-pending day-one rows; linters not yet configured in-repo) --------------
     Tool("shellcheck", DIRECT, ("shellcheck", "-f", "json1"), FILES, BASH, Claim.STATIC, parser=parse_shellcheck),

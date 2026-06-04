@@ -10,7 +10,7 @@ from collections import deque
 from collections.abc import Callable
 from contextvars import ContextVar
 from functools import reduce
-from itertools import count, groupby, starmap
+from itertools import count, groupby
 from operator import attrgetter
 import sys
 import time
@@ -43,6 +43,7 @@ from tools.assay.core.model import (  # intra-package import; tools.assay is the
     Report,
     RunDelta,
     Runner,
+    RunSnapshot,
     Tool,
     validate_detail,
 )
@@ -91,10 +92,6 @@ _LOG: Final = structlog.get_logger("assay.registry")  # best-effort run-history 
 _PROBE_ROUTED: Final[Routed] = Routed(language=Language.PYTHON, scope=Scope.CHANGED)  # Input.NONE probe seed: place emits one empty tail
 _PROBE_TIMEOUT: Final = 8.0  # per `--version`/git probe deadline so a hung tool never strands self-test
 _ENVELOPE_DECODER: Final[msgspec.json.Decoder[Envelope]] = msgspec.json.Decoder(Envelope)  # run-history read-back
-_GIT_PROBES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
-    ("git-head", ("git", "rev-parse", "--short", "HEAD")),
-    ("git-dirty", ("git", "status", "--porcelain")),
-)
 
 
 def _identity_hom(*_a: object, **_k: object) -> Result[Report, Fault]:
@@ -413,23 +410,19 @@ def _delta_report(before_id: str, after_id: str, before: Envelope | None, after:
     Results are keyed by ``(id, line)`` so ``added``/``removed`` are the symmetric-difference cardinalities — what
     the after-run introduced vs what it resolved. An error-channel Envelope (no ``report``) contributes zero counts.
     """
+
+    def snapshot(
+        run_id: str, env: Envelope
+    ) -> tuple[RunSnapshot, frozenset[tuple[str, int]]]:  # one projection per endpoint: no per-field None cascade
+        report = env.report
+        counts = report.counts if report is not None else Counts()
+        keys = frozenset((m.id, m.line) for m in (report.results if report is not None else ()))
+        return RunSnapshot(id=run_id, status=env.status, counts=counts), keys
+
     match (before, after):
         case (Envelope() as b, Envelope() as a):
-            bc = b.report.counts if b.report is not None else Counts()
-            ac = a.report.counts if a.report is not None else Counts()
-            before_keys = frozenset((m.id, m.line) for m in (b.report.results if b.report is not None else ()))
-            after_keys = frozenset((m.id, m.line) for m in (a.report.results if a.report is not None else ()))
-            detail = RunDelta(
-                before_run=before_id,
-                after_run=after_id,
-                before_status=b.status,
-                after_status=a.status,
-                ok_delta=ac.ok - bc.ok,
-                failed_delta=ac.failed - bc.failed,
-                total_delta=ac.total - bc.total,
-                added=len(after_keys - before_keys),
-                removed=len(before_keys - after_keys),
-            )
+            (before_snap, before_keys), (after_snap, after_keys) = snapshot(before_id, b), snapshot(after_id, a)
+            detail = RunDelta(before=before_snap, after=after_snap, added=len(after_keys - before_keys), removed=len(before_keys - after_keys))
             note = f"delta {before_id} -> {after_id}: {b.status.value} -> {a.status.value}, +{detail.added}/-{detail.removed} results"
             return fold(Claim.STATIC, "delta", (Completed(("delta", after_id), 0, status=RailStatus.OK, notes=(note,)),), detail=detail)
         case _:
@@ -508,7 +501,7 @@ def _health(settings: AssaySettings) -> tuple[str, ...]:
     surfaced-but-not-fatal — a MISSING tool rides a note, never the self-test OK/FAILED contract, so self-test stays
     a wiring check that ALSO reports the live toolchain inventory + whether the worktree is dirty.
     """
-    probes = (*_tool_probes(), *starmap(_probe, _GIT_PROBES))
+    probes = (*_tool_probes(), _GIT_HEAD, _GIT_DIRTY)
     results = fan_out(probes, settings=settings, scope=None, routed=_PROBE_ROUTED)
     return tuple(map(_probe_note, probes, results, strict=True))
 
@@ -519,61 +512,43 @@ def _probe(name: str, argv: tuple[str, ...]) -> Check:
     return Check(tool=tool)
 
 
+_GIT_HEAD: Final = _probe("git-head", ("git", "rev-parse", "--short", "HEAD"))  # worktree HEAD short-sha probe (read-only, no lease)
+_GIT_DIRTY: Final = _probe("git-dirty", ("git", "status", "--porcelain"))  # worktree clean/dirty probe (read-only, no lease)
+
+
 def _tool_probes() -> tuple[Check, ...]:
-    """One ``--version`` probe per DISTINCT program in ``TOOLS`` (dedup by launcher+program; DOTNET → SDK; INPROC skipped)."""
-    keyed = {_probe_key(t): _probe_argv(t) for t in TOOLS if t.runner is not Runner.INPROC}
-    return tuple(_probe(argv[-2], argv) for argv in keyed.values())
+    """One ``--version`` probe per DISTINCT program in ``TOOLS`` (dedup by launcher+program; DOTNET → one SDK probe; INPROC skipped)."""
 
+    def keyed(tool: Tool) -> tuple[str, tuple[str, ...]]:  # one match per tool: the dedup key plus the version-probe argv
+        match tool.runner:
+            case Runner.DOTNET:
+                return "dotnet", ("dotnet", "--version")  # every DOTNET tool shares the one SDK probe
+            case _:
+                return f"{tool.runner.value}:{tool.command[0]}", (*tool.runner.prefix, tool.command[0], "--version")
 
-def _probe_key(tool: Tool) -> str:
-    """Dedup key: every DOTNET tool shares the ``dotnet`` SDK; every other launcher keys by ``(runner, program)``."""
-    match tool.runner:
-        case Runner.DOTNET:
-            return "dotnet"
-        case _:
-            return f"{tool.runner.value}:{tool.command[0]}"
-
-
-def _probe_argv(tool: Tool) -> tuple[str, ...]:
-    """The version-probe argv: the DOTNET SDK once, else the launcher prefix + program + ``--version``."""
-    match tool.runner:
-        case Runner.DOTNET:
-            return ("dotnet", "--version")
-        case _:
-            return (*tool.runner.prefix, tool.command[0], "--version")
+    deduped = dict(keyed(t) for t in TOOLS if t.runner is not Runner.INPROC)
+    return tuple(_probe(argv[-2], argv) for argv in deduped.values())
 
 
 def _probe_note(check: Check, result: Result[Completed, Fault]) -> str:
-    """Project one probe ``Result`` to a note: git head/dirty status, else a tool version/present/MISSING line."""
-    done = result.ok if result.is_ok() else None
-    match check.tool.name:
-        case "git-head" | "git-dirty" as kind:
-            return _git_note(kind, done)
-        case prog:
-            return _tool_note(prog, done)
+    """Project one probe ``Result`` to a note: git head/dirty status, else a tool version/present/MISSING line.
 
-
-def _git_note(kind: str, done: Completed | None) -> str:
-    """A git probe note: HEAD short-sha (``git-head``), clean/dirty worktree (``git-dirty``), or unavailable."""
-    match done:
-        case Completed() if kind == "git-head":
-            return f"git: HEAD {done.stdout.decode(errors='replace').strip()[:40] or 'unknown'}"
-        case Completed():
-            return f"git: {'dirty' if done.stdout.strip() else 'clean'}"
+    A nested ``match`` discriminates the probe family (git vs tool) on ``tool.name``, then the resolved
+    ``Completed`` (or ``None`` on a spawn fault) onto the note string — one surface, no per-family helper.
+    """
+    name = check.tool.name
+    match result.ok if result.is_ok() else None:  # outer = the Completed|None spawn result (ty-total in two cases); inner = the probe family
         case None:
-            return f"git: {kind.removeprefix('git-')} unavailable"
-
-
-def _tool_note(prog: str, done: Completed | None) -> str:
-    """A tool version-probe note: the first ``--version`` line, present-with-exit, or MISSING (spawn failure)."""
-    match done:
-        case Completed() if done.returncode == 0:
-            lines = done.stdout.decode(errors="replace").strip().splitlines()
-            return f"tool {prog}: {lines[0][:80] if lines else 'present'}"
-        case Completed():
-            return f"tool {prog}: present (exit {done.returncode})"
-        case None:
-            return f"tool {prog}: MISSING"
+            return f"git: {name.removeprefix('git-')} unavailable" if name in {"git-head", "git-dirty"} else f"tool {name}: MISSING"
+        case Completed() as d if name == "git-head":
+            return f"git: HEAD {d.stdout.decode(errors='replace').strip()[:40] or 'unknown'}"
+        case Completed() as d if name == "git-dirty":
+            return f"git: {'dirty' if d.stdout.strip() else 'clean'}"
+        case Completed(returncode=0) as d:
+            lines = d.stdout.decode(errors="replace").strip().splitlines()
+            return f"tool {name}: {lines[0][:80] if lines else 'present'}"
+        case Completed() as d:
+            return f"tool {name}: present (exit {d.returncode})"
 
 
 def _census() -> bool:
