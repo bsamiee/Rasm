@@ -10,7 +10,7 @@ Use a roadmap when readers need planned sequence across milestones, the outcome 
 
 Route elsewhere when the reader needs current structure, durable decision rationale, pre-code proposal review, test taxonomy, supported-version lifecycle, command or API lookup, release history, or a repeatable procedure.
 
-## [2][SOURCE_ORDER]
+## [2][PLANNING_PRECEDENCE]
 
 Use the nearest live source for mutable planning facts and this standard for local roadmap shape:
 
@@ -34,11 +34,21 @@ Pick exactly one real profile and name it in the opening metadata block and lead
 | :-----: | :---------------- | :--------------- | :---------------- | :------------- | :---------------- | :------------------------------ |
 |   [1]   | Phased build      | builders         | capability layer  | phased         | path, build, test | internal                        |
 |   [2]   | Concern spec      | concern owners   | scoped outcome    | phased         | contract/scenario | internal                        |
-|   [3]   | Foundation status | extension owners | extension point   | snapshot       | invariant/codemap | internal                        |
+|   [3]   | Foundation status | extension owners | extension sequence | snapshot       | invariant/codemap | internal                        |
 |   [4]   | Release train     | release owners   | release/iteration | release cycle  | check/artifact/PR | internal or external            |
 |   [5]   | Public product    | external readers | theme             | Now/Next/Later | release evidence  | directional, committed, history |
 
-If architecture and ADRs already carry the truth, do not author a roadmap. Record the `No roadmap` verdict in the owner's README index with links to the controlling architecture and ADRs.
+If architecture and ADRs already carry the truth, do not author a roadmap. Record the `No roadmap` verdict in the owner's README index with links to the controlling architecture and ADRs:
+
+```markdown template
+Roadmap: none.
+Reason: current architecture and accepted ADRs already carry the active owner truth.
+Architecture: `<architecture path>`
+Decision source: `<ADR path or none>`
+Review trigger: owner sequence, milestone, or planned capability appears.
+```
+
+`Foundation status` is valid only when the extension point still has a coordinated sequence to close. A pure support snapshot routes to support matrix, and a current structural snapshot routes to architecture.
 
 ## [4][PLACEMENT]
 
@@ -62,22 +72,38 @@ Default status set:
 - `Deferred`: intentionally moved outside the current sequence.
 - `Cancelled`: removed from the plan, with the reason stated.
 
-The `Release train` and `Public product` profiles may add exploration, design, preview, and general-availability stages only when the product or release process already assigns those meanings. The status lifecycle is a state subject, so a state diagram is appropriate when the instance uses most transitions.
+The `Release train` and `Public product` profiles may add exploration, design, preview, and general-availability stages only when the product or release process already assigns those meanings. The status lifecycle is a state subject, so a conceptual state diagram is appropriate when the instance uses most transitions.
 
-```mermaid conceptual
+```mermaid
+---
+config:
+  layout: elk
+  look: neo
+  theme: base
+  elk:
+    mergeEdges: false
+    nodePlacementStrategy: BRANDES_KOEPF
+    cycleBreakingStrategy: GREEDY_MODEL_ORDER
+---
 stateDiagram-v2
+    accTitle: Roadmap status lifecycle
+    accDescr: Roadmap items move from planned to active, deferred, blocked, complete, or cancelled, with dependencies clearing blocked work, deferred work returning to planned, and blocked or deferred work removable with a reason.
     [*] --> Planned
     Planned --> Active: sequencing starts
     Planned --> Deferred: moved out of sequence
     Planned --> Cancelled: removed with reason
     Active --> Blocked: named dependency or decision
     Blocked --> Active: dependency cleared
+    Blocked --> Cancelled: removed with reason
     Active --> Complete: exit criteria and proof agree
     Active --> Cancelled: removed with reason
     Deferred --> Planned: returned to sequence
+    Deferred --> Cancelled: removed with reason
     Complete --> [*]
     Cancelled --> [*]
 ```
+
+Text equivalent: roadmap items start as `Planned`, move to `Active` when sequencing starts, may become `Blocked`, `Deferred`, or `Cancelled`, return from `Blocked` or `Deferred` only when the named dependency or sequencing decision changes, may be cancelled from blocked or deferred with a stated reason, and reach `Complete` only when exit criteria and proof agree.
 
 ## [6][REQUIRED_STRUCTURE]
 
@@ -86,7 +112,7 @@ Use this required heading order. Omit conditional sections until their trigger h
 ```markdown template
 # [SCOPE_ROADMAP]
 
-Status: Planned | Active | Blocked | Complete | Deferred | Cancelled
+Roadmap state: Planned | Active | Blocked | Complete | Deferred | Cancelled
 Profile: Phased build | Concern spec | Foundation status | Release train | Public product
 Owner: <owner role or group>
 Source of truth: <live planning source, or owner-maintained Markdown>
@@ -135,7 +161,7 @@ Conditional additions:
 
 Metadata cardinality:
 
-- `Status`, `Profile`, `Owner`, `Source of truth`, `Last reviewed`, and `Review trigger` are required.
+- `Roadmap state`, `Profile`, `Owner`, `Source of truth`, `Last reviewed`, and `Review trigger` are required.
 - `Framing` is required for public or external roadmaps and optional for internal roadmaps.
 - `Id` is optional and appears only when a named index, generator, retrieval store, or review workflow consumes it.
 - `Horizon axis` is optional and appears only when a machine consumer reads it; otherwise profile and lead prose carry the horizon.
@@ -153,12 +179,24 @@ Section cardinality:
 
 Render current status as a snapshot table only when the table adds a useful cross-milestone scan. The table links live source per row; it never copies a mutable date or status without `Last reviewed` beside it.
 
+Open the section with one sentence explaining why this snapshot adds value over the live planner. If the live planner already gives the same cross-milestone scan, omit this section and link the planner from `Scope`.
+
 | [INDEX] | [MILESTONE] | [STATUS] | [OUTCOME_IT_SERVES] | [LIVE_SOURCE] | [LAST_REVIEWED] |
 | :-----: | :---------- | :------- | :------------------ | :------------ | --------------: |
 |   [1]   | M1          | Complete | reduce contract drift | issue/101     |      2026-05-20 |
 |   [2]   | M2          | Active   | shorten review cycle  | issue/112     |      2026-06-04 |
 
 If a planning system already gives the same view, link it from the lead or `Scope` section and omit this section.
+
+When the live planning system uses a different vocabulary, map it before first milestone use:
+
+```markdown template
+| [INDEX] | [LIVE_STATUS] | [ROADMAP_STATUS] | [RULE]                                      |
+| :-----: | :------------ | :--------------- | :------------------------------------------ |
+|   [1]   | `Todo`        | Planned          | accepted but not executing                  |
+|   [2]   | `Doing`       | Active           | owner is executing inside milestone scope   |
+|   [3]   | `Done`        | Complete         | exit criteria and proof surface both agree  |
+```
 
 ## [8][MILESTONES]
 
@@ -181,6 +219,11 @@ Conditional fields:
 - `Off-ramp`: required for experiments or exploratory milestones; state the criterion that ends the experiment and the action taken when it fails.
 - `Owner`: include when the milestone owner differs from the roadmap owner.
 - `Deferred work`: include when the milestone intentionally excludes a related outcome; state `Reason`, `Successor`, and `Review trigger` when the deferred work is not self-evident.
+- `Architecture fact`: include when current structure, path state, or an invariant controls the milestone boundary.
+- `Decision source`: include when an ADR controls the milestone boundary or exit.
+- `Design source`: include when an accepted design defines the selected approach.
+- `Proof gate`: include when a test strategy, quality gate, or review gate owns milestone proof.
+- `Support record`: include when supported-version, lifecycle, or compatibility truth controls the milestone.
 
 Separate intent from proof. A milestone reaches `Complete` only when every exit-criterion checkbox is checked, its proof surface agrees, and completed proof carries `Last verified:` beside the milestone. A passing build with an unchecked criterion, or all criteria met with no linked proof, leaves the milestone `Active`.
 
@@ -200,6 +243,10 @@ Exit criteria:
     - [ ] downstream owner review is approved
 Proof surface: `contracts/events.schema.json` generated diff and owner review link.
 Dependencies: blocked by M1 (`issue/101`)
+Architecture fact: API boundary codemap, or none
+Decision source: ADR `0007`, or none
+Design source: accepted design doc, or none
+Proof gate: contract compatibility gate in test strategy, or none
 ```
 
 The next block collapses goal into proof and omits outcome and exit criteria:
@@ -226,6 +273,29 @@ Expose sequencing risk as a dependency edge table that links live source, not as
 - State each external dependency by owner, contract, or vendor source.
 - Record a go/no-go decision point when the next milestone depends on evidence.
 - Move tactical subtasks to the tracker or design document; a roadmap holds the dependency edge, not task breakdown.
+
+Use a dependency flow diagram only when three or more dependency edges are easier to scan visually than the table. Keep the edge table as the text equivalent and source of truth for owner and live-source fields.
+
+```mermaid
+---
+config:
+  layout: elk
+  look: neo
+  theme: base
+  elk:
+    mergeEdges: false
+    nodePlacementStrategy: BRANDES_KOEPF
+    cycleBreakingStrategy: GREEDY_MODEL_ORDER
+---
+flowchart LR
+    accTitle: Roadmap dependency edges
+    accDescr: Foundation milestone M1 unblocks contract milestone M2, and M2 plus an external API go/no-go decision unblock release milestone M3.
+    M1["M1 foundation proof"] -->|blocks| M2["M2 contract freeze"]
+    M2 -->|blocks| M3["M3 release candidate"]
+    ExternalApi["external API go/no-go"] -->|go/no-go| M3
+```
+
+Text equivalent: M1 blocks M2; M2 blocks M3; the external API go/no-go also blocks M3. The dependency edge table carries the live source and gate decision for each edge.
 
 ## [10][DEFERRED_OUT_SCOPE]
 
@@ -283,6 +353,34 @@ Rules:
 - When a project adopts Common Changelog, `CHANGELOG.md` release entries are sorted SemVer-latest first and use `VERSION - YYYY-MM-DD`; otherwise the project release mechanism owns history.
 - Move supported-version and end-of-life truth to a support matrix once those facts outgrow one milestone note.
 
+Public roadmap horizon example:
+
+```markdown template
+### [N.M][NOW_CONTRACT_STABILITY]
+
+Status: Active
+Goal: stabilize the public event contract for the current release cycle.
+Outcome: downstream integration failures from contract drift drop to zero.
+Deliverables: generated event reference and owner approval.
+Exit criteria:
+    - [ ] generated reference is published
+    - [ ] downstream owner review is approved
+Proof surface: release PR and generated reference link.
+Framing: committed
+
+### [N.M][NEXT_ONBOARDING_FLOW]
+
+Status: Planned
+Goal: reduce first integration setup time.
+Outcome: new integrator setup completes inside the target onboarding window.
+Deliverables: maintained tutorial and support-matrix link.
+Exit criteria:
+    - [ ] tutorial path is verified
+    - [ ] support status is linked
+Proof surface: tutorial verification receipt.
+Framing: directional
+```
+
 ## [13][BOUNDARIES]
 
 - [architecture.md](architecture.md) owns current structure, invariants, and owner boundaries.
@@ -297,12 +395,12 @@ Rules:
 ## [14][REVIEW_CHECKLIST]
 
 - [ ] Exactly one real profile is named in metadata and the lead; `No roadmap` is used only as a route-away verdict.
-- [ ] Opening metadata carries `Status`, `Profile`, `Owner`, `Source of truth`, `Last reviewed`, and `Review trigger`; optional machine fields exist only when consumed.
+- [ ] Opening metadata carries `Roadmap state`, `Profile`, `Owner`, `Source of truth`, `Last reviewed`, and `Review trigger`; optional machine fields exist only when consumed.
 - [ ] Scope states what the sequence covers and excludes.
-- [ ] Current status appears only when it adds value over the live planner and links live source per milestone.
+- [ ] Current status appears only when a lead sentence explains its value over the live planner and each row links live source.
 - [ ] Status values come from the roadmap vocabulary or are mapped from the live system.
 - [ ] Every milestone names a measurable outcome or OKR it serves.
-- [ ] Every milestone record carries `Status`, `Goal`, `Outcome`, `Deliverables`, an exit-criteria checklist, and a proof surface.
+- [ ] Every milestone record carries `Status`, `Goal`, `Outcome`, `Deliverables`, an exit-criteria checklist, and a proof surface, plus conditional anchor fields where adjacent owners apply.
 - [ ] Each exit criterion is binary, and the proof surface is one openable artifact or runnable command.
 - [ ] A milestone is `Complete` only when every exit checkbox is checked, linked proof agrees, and `Last verified` appears beside completed proof.
 - [ ] Dependencies use the dependency edge table, name the relationship, and link live source.

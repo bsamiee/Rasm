@@ -20,8 +20,6 @@ Review trigger: OpenAI Codex project-instruction guidance changes.
 4. If the change involves a document type, read exactly one matching type standard under `explanation/`, `reference/`, `task/`, or `learning/`.
 5. Read the target standards file fully before rewriting it.
 
-`docs/standards/_TMP/**` is inactive source material. Use it only when the user explicitly asks to integrate it.
-
 ## [3][ROUTING]
 
 - Reader need, document type, placement, lifecycle, and split/link: the index in `README.md`.

@@ -12,8 +12,6 @@ Use this index when:
 - splitting, merging, moving, or deleting a document;
 - checking whether a standard is active.
 
-Unless the user explicitly asks to integrate it, do not use inactive material in `_TMP/`.
-
 ## [2][OWNER_PRECEDENCE]
 
 Use the strongest applicable owner:
@@ -123,7 +121,6 @@ Unless live product support and evidence justify them, do not preserve old paths
 - `reference/` holds entry, lookup, API, code-documentation, and support-matrix standards.
 - `task/` holds normal-task, operational-recovery, and contribution standards.
 - `learning/` holds tutorial and onboarding standards.
-- `_TMP/` holds inactive source material outside the active standard set.
 
 ## [11][ANTI_PATTERNS]
 
@@ -161,5 +158,4 @@ Unless live product support and evidence justify them, do not preserve old paths
 - [ ] Each shared standard has one clear owner role.
 - [ ] Each type standard appears in exactly one family.
 - [ ] The reader-need map and type chooser route to a single primary type.
-- [ ] `_TMP/` is described as inactive.
 - [ ] This index routes readers instead of restating standard bodies.

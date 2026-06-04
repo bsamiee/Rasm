@@ -175,7 +175,7 @@ A lookup table is a single key column mapping to its value, read by key rather t
 
 ## [11][CODE_BLOCKS]
 
-Every fence carries a language tag in its info string, and the intent label follows the language. Fence every command, literal file, config, schema, or copyable snippet. Mark exactly one intent label so a reader knows whether the block is safe to run, study, fill in, or avoid.
+Every ordinary code fence carries a language tag in its info string, and the intent label follows the language. Fence every command, literal file, config, schema, or copyable snippet. Mark exactly one intent label so a reader knows whether the block is safe to run, study, fill in, or avoid. Renderer-owned fences use the exact renderer tag and carry intent in nearby visible prose instead of in the info string; Mermaid fences are `mermaid`, not `mermaid conceptual`.
 
 **Reusable inputs**
 - `copy-safe`: run or paste as written. For a config or data block, use this when the block is byte-equivalent to a named source-of-truth file, and name that file in the label (`copy-safe — config.yml`).
@@ -247,10 +247,22 @@ Request
           no --> fetch origin, then serve
 ```
 
-The same multi-branch flow renders cleanly as a Mermaid `flowchart`, which is where it belongs:
+The same conceptual multi-branch flow renders cleanly as a Mermaid `flowchart`, which is where it belongs:
 
-```mermaid conceptual
+```mermaid
+---
+config:
+  layout: elk
+  look: neo
+  theme: base
+  elk:
+    mergeEdges: false
+    nodePlacementStrategy: BRANDES_KOEPF
+    cycleBreakingStrategy: GREEDY_MODEL_ORDER
+---
 flowchart TD
+    accTitle: Authentication and quota branch
+    accDescr: Request flow branches through authentication, quota, cache, and origin fetch states before serving or rejecting the request.
     Request --> Auth{"Authenticated?"}
     Auth -->|no| Reject["401 reject"]
     Auth -->|yes| Quota{"Quota remaining?"}
@@ -260,22 +272,26 @@ flowchart TD
     Cache -->|no| Origin["Fetch origin, then serve"]
 ```
 
+Text equivalent: a request passes authentication first, rejects unauthenticated callers, throttles callers without quota, serves cached content on a cache hit, and fetches origin content only after authentication, quota, and cache checks pass.
+
 ## [13][MERMAID_C4]
 
-Use Mermaid when rendered structure adds value beyond bullets or monospace text. Mermaid source is compact, text-editable, and renderer-backed, so prefer it over embedded images for any diagram an agent may need to read or revise. Map the content shape to the diagram type:
+Use Mermaid when rendered structure adds value beyond bullets or monospace text. Mermaid source is compact, text-editable, and renderer-backed, so prefer it over embedded images for any diagram an agent may need to read or revise. Use an exact `mermaid` fence, not an intent-labeled fence, because Markdown renderers detect Mermaid by the language tag. State conceptual, template, generated, or rejected intent in the lead-in sentence or caption.
+
+Modern Mermaid source starts with YAML frontmatter under `config:`. Prefer `layout: elk` when the repository has Mermaid ELK support, set `look: neo`, use `theme: base` when theme variables are needed, and do not use legacy Mermaid init directives. Place `accTitle` and `accDescr` immediately after the diagram declaration when the diagram type supports them, and keep a visible text equivalent nearby because renderer metadata alone is not enough.
+
+Map the content shape to the diagram type:
 
 - `flowchart`: branching workflow or data movement.
 - `sequenceDiagram`: actor-to-actor interaction over time.
 - `stateDiagram-v2`: lifecycle, statuses, or transitions.
 - `erDiagram`: entities and relationships.
 - `classDiagram`: type relationships when names alone are insufficient.
-- `quadrantChart`, `sankey`, `architecture`, and C4 views: comparative positioning, flow volume, or system structure when a simpler type loses meaning.
+- `quadrantChart`, `sankey-beta`, `architecture-beta`, and C4 views: comparative positioning, flow volume, deployment or resource topology, or system structure when a simpler type loses meaning.
 
 Keep diagrams small enough to review in source. Use stable semantic node IDs (`Request`, `Quota`, `Recovery`) instead of one-letter IDs except in tiny examples where the rendered label is the whole subject. Keep IDs ASCII-safe and distinct from Mermaid keywords. Quote labels containing punctuation, parentheses, or reserved words inside the node label, not by making the node ID a sentence.
 
-Add renderer-supported accessible titles and descriptions when available, but do not depend on renderer metadata alone. Every diagram, screenshot, badge cluster, or banner that carries meaning needs nearby visible text stating what the visual proves.
-
-For architecture, a C4 Context and Container pair is the baseline. Add deeper Component, dynamic, or deployment views only where internal structure or runtime behavior is the subject. Choosing whether a diagram is needed is this standard's call; how an architecture model is structured belongs to the architecture type standard.
+For architecture, use [architecture.md](explanation/architecture.md) to choose the C4 profile floor, static Context and Container semantics, Component drill-down rules, and deployment or resource-topology cases. Choosing whether a diagram is needed is this standard's call; how an architecture model is structured belongs to the architecture type standard.
 
 ## [14][CALLOUTS_COLLAPSIBLE_FOOTNOTES]
 
@@ -317,8 +333,6 @@ Render the page shape as a template heading set, not a narrated list of section 
 Conditional additions:
 
 ```markdown template
-## [N][SOURCE_AUTHORITY]
-
 ## [N][EXAMPLES]
 
 ```
@@ -326,7 +340,6 @@ Conditional additions:
 Section cardinality:
 
 - `Lead`, `Use when`, the rules section(s), `Boundaries`, `Review checklist` — required.
-- `Source or authority` — conditional; include only where source order changes behavior.
 - `Examples` — conditional; include only where misuse is likely.
 
 Every long standard needs a chooser, boundaries, and a checklist. A type standard additionally carries a required-structure section: a template heading set plus a section-cardinality block. The cardinality block makes required, conditional, optional, and repeatable sections explicit.
@@ -404,7 +417,7 @@ Do not publish interaction excerpts, nonpublic local paths, or local task notes 
 - [ ] Decision and lookup tables are used for condition-action and key-value content respectively.
 
 **Literal and visual forms**
-- [ ] Code blocks carry exactly one intent label, and placeholder templates use `template`, not `copy-safe`.
+- [ ] Ordinary code blocks carry exactly one intent label, renderer-owned fences use exact language tags, and placeholder templates use `template`, not `copy-safe`.
 - [ ] Monospace text is short and raw-Markdown readable; Mermaid is used only when rendering adds value.
 - [ ] Callouts, collapsible blocks, and footnotes are used for their purpose and the renderer supports them.
 - [ ] Hidden comments are source-only hints, and any reader-facing safety, proof, or intent text is visible.

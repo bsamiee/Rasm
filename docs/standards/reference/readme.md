@@ -13,7 +13,7 @@ Use a README to open exactly one boundary:
 
 Route architecture structure, API or symbol catalogs, learning paths, operational recovery, future-work sequences, durable decisions, and contribution workflow to their owning standards. Keep the README to orientation, first path, and routing.
 
-## [2][SOURCE_AUTHORITY]
+## [2][README_BASELINES]
 
 README conventions come from platform rendering, open-source README baselines, badge providers, and local routing policy. Use the source that owns the question.
 
@@ -102,6 +102,12 @@ Root entry:
 # <Repository display name>
 
 <One-paragraph description naming purpose and boundary.>
+
+## Install
+
+## Usage
+
+## Documentation
 ```
 
 Package entry:
@@ -210,6 +216,28 @@ Use structure where it improves scanning:
 
 Troubleshooting in a README is limited to reaching the first successful path. Ongoing incidents, triage, rollback, and recovery belong to a runbook.
 
+Use an owner route card when a README links deeper documents that change reader action. Keep one card per owner boundary, not one card per link:
+
+```text template
+Owner: `<package, tool, corpus, or service>`
+Why linked: `<one sentence naming the reader decision this route changes>`
+Review trigger: owner document, public entrypoint, support, or roadmap change.
+Routes: `<manual, architecture, roadmap, support, how-to, tutorial, or other adjacent owner; omit untriggered routes>`
+```
+
+Use a package or tool entry card when status, entrypoints, and first proof would otherwise scatter across several short sections:
+
+```text template
+Entrypoints: `<import surface, command, executable, or public type family>`
+Verify: `<observable result, command, status check, or proof gap>`
+Evidence: `<manifest, generated contract, current tool output, or proof gap>`
+Review trigger: entrypoint, command, manifest, support, or owner-doc change.
+Status: `<declared local status term and source; omit when status does not change reader action>`
+First command: `<copyable command; omit when the package has no first command>`
+```
+
+The card does not replace `Architecture`, `Roadmap`, `Support`, or task documents. It gives the README one dense route into those owners without copying their bodies.
+
 ## [9][EXAMPLES]
 
 A hub index example teaches routing by reader need rather than a flat link dump:
@@ -241,15 +269,40 @@ structure, boundaries, invariants, and related details.
 
 The rejected shape buries the route and duplicates the child page's content.
 
-Package status record:
+Root first path example:
 
-```markdown template
-## [1][STATUS]
+````markdown conceptual
+# Example Project
 
-Status: IN-PROGRESS
-Exit: public API frozen and package published to the registry.
-Evidence: `<manifest-or-contract>`; `<verification-command-or-proof-gap>`.
+Example Project provides the local service boundary for reviewed plans; architecture, support, and contribution workflow live in owner documents linked below.
+
+## Install
+
+```bash copy-safe
+example install
 ```
+
+Evidence: not verified in this change.
+
+## Usage
+
+```bash copy-safe
+example run --plan ./plan.lock
+```
+
+Verify: command prints the reviewed plan ID and writes no external state.
+
+## Documentation
+
+Owner: `example service`
+Architecture: `docs/architecture.md`
+Roadmap: `ROADMAP.md`
+Support: `docs/support/example.md`
+Why linked: architecture owns service boundaries, roadmap owns unfinished sequence, and support owns supported runtime facts.
+Review trigger: owner document, support policy, or first-run command changes.
+````
+
+The example is conceptual: it shows the minimum root README path with command proof and owner routing, not a universal public section set.
 
 ## [10][BOUNDARIES]
 
@@ -272,9 +325,10 @@ Evidence: `<manifest-or-contract>`; `<verification-command-or-proof-gap>`.
 - [ ] Required sections for the chosen profile are present; conditional sections appear only when triggered.
 - [ ] No optional or conditional heading appears empty.
 - [ ] Runnable proof applies only to profiles and sections that advertise runnable commands.
-- [ ] Hub indexes prove child-link freshness and route by reader need.
+- [ ] Hub indexes with changing child sets prove child-link freshness and route by reader need.
 - [ ] Status and support claims use records with evidence.
 - [ ] Entrypoints and command maps use lookup tables or definition blocks.
+- [ ] Owner route cards and package or tool entry cards appear only when they make routing denser than prose.
 - [ ] Troubleshooting stays limited to first-run setup; operational recovery links to a runbook.
 - [ ] Badges are linked, maintained, high-value status claims, and banners are not the only carrier of meaning.
 - [ ] Every deeper concern links to its owner instead of duplicating owner content.

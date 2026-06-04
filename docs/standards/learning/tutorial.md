@@ -1,6 +1,6 @@
 # [TUTORIAL_STANDARDS]
 
-A tutorial teaches one learner outcome by guiding the learner through concrete action, visible results, and a primary path the author executed end to end before publication. The author owns reliability: a published lesson must be reproducible from the stated start state, and any unverified dependency must stay outside the core success path or mark the lesson as draft or blocked. A learning path orders three or more tested lessons so each later lesson reuses skill, vocabulary, or artifacts established earlier. This standard owns lesson shape, learner-path ordering, and execution proof; it does not own task procedure for a competent reader, role readiness, incident recovery, lookup facts, or conceptual explanation.
+A tutorial teaches one learner outcome by guiding the learner through concrete action, visible results, and a primary path the author executed end to end before publication. The author owns reliability: a published lesson must be reproducible from the stated start state, and any unverified dependency must stay outside the core success path or mark the lesson as draft or blocked. A learning path orders three or more tested lessons so each later lesson reuses skill, vocabulary, or artifacts established earlier. The three-lesson threshold is a local taxonomy rule, not a Diátaxis requirement. This standard owns lesson shape, learner-path ordering, and execution proof; it does not own task procedure for a competent reader, role readiness, incident recovery, lookup facts, or conceptual explanation.
 
 ## [1][USE_WHEN]
 
@@ -11,15 +11,15 @@ Use a tutorial when every condition holds:
 - one document can carry a complete first success;
 - the exercise is repeatable, reversible, or disposable.
 
-Use a learning path when three or more tested lessons build toward one broader skill and later lessons depend on earlier completion proof.
+Use a learning path when three or more tested lessons build toward one broader skill and later lessons depend on earlier completion proof. Local rule: two related lessons can link to each other, but they are not a learning-path index until a third tested lesson makes ordered path maintenance useful.
 
 Route elsewhere by topic when the reader is a competent operator completing a known task, a person becoming ready for a role, an operator recovering from an incident trigger, a reader looking up facts, or a reader seeking concepts and trade-offs.
 
 ## [2][AUTHORING_DOCTRINE]
 
-External tutorial doctrine supplies the learning posture; this standard adds local proof and artifact rules. [Diátaxis tutorial doctrine](https://diataxis.fr/tutorials/) owns the tutorial type: guided action, visible progress, a concrete destination, few choices, minimal explanation, and reliability. [Refactoring English, "Rules for Writing Software Tutorials"](https://refactoringenglish.com/chapters/rules-for-software-tutorials/) supplies software-tutorial craft: beginner-safe language, clear outcomes, early end-state preview, copyable examples, long flags, working-state checkpoints, one lesson focus, and demonstrable proof.
+External tutorial doctrine supplies the learning posture; this standard adds local structure, proof, and artifact rules. [Diátaxis tutorial doctrine](https://diataxis.fr/tutorials/) owns the tutorial type: guided action, visible progress, a concrete destination, few choices, minimal explanation, and reliability. [Refactoring English, "Rules for Writing Software Tutorials"](https://refactoringenglish.com/chapters/rules-for-software-tutorials/) supplies craft evidence for software tutorials: beginner-safe language, clear outcomes, early end-state preview, copyable examples, long flags, working-state checkpoints, one lesson focus, and demonstrable proof.
 
-Source of truth: Diátaxis for tutorial doctrine; Refactoring English tutorial rules, published 2025-01-02 and last revised 2025-01-31, for software-tutorial craft.
+Source of truth: Diátaxis for tutorial type doctrine; this standard for required structure, local taxonomy, and proof obligations; Refactoring English tutorial rules, published 2025-01-02 and last revised 2025-01-31, for software-tutorial craft evidence.
 Last verified: 2026-06-04.
 Review trigger: Diátaxis tutorial guidance or named tutorial-writing guidance changes.
 
@@ -31,9 +31,10 @@ Review trigger: Diátaxis tutorial guidance or named tutorial-writing guidance c
 - Give the learner meaningful work before abstract explanation: the learner acts and sees a result, then any explanation follows.
 
 **Scope discipline**
-- Flag known learner traps inline at the step where they happen; consolidate only observed or source-backed recoverable failures into troubleshooting.
+- Flag known learner traps inline at the step where they happen; consolidate only observed or source-backed recoverable failures into learner-trap recovery.
 - Minimize explanation and options: one concrete path, with branches linked out after completion.
 - Permit repetition: keep inputs reproducible, repeatable, and disposable so a learner can rerun from a clean start.
+- Keep short lessons compact: for a lesson under about 15 minutes, keep `What we will build`, `Learning outcome`, `Prerequisites`, and `Start state` to one short block each unless proof requires more.
 
 ## [3][STRUCTURAL_CHOICES]
 
@@ -86,7 +87,7 @@ The first is accepted because it names an artifact the lesson can produce. The s
 
 ## [6][REQUIRED_STRUCTURE]
 
-A single tutorial uses this spine. `Troubleshooting` appears only when the author observed recoverable failures or can cite a source-backed learner trap that does not fit a step-local `If wrong` field.
+A single tutorial uses this spine. `Learner-trap recovery` appears only when the author observed recoverable failures or can cite a source-backed learner trap that does not fit a step-local `If wrong` field.
 
 ```markdown template
 # [BUILD_OBSERVABLE_ARTIFACT]
@@ -129,8 +130,8 @@ Review trigger: <event that makes this lesson stale>
 - `Steps`: required; an ordered list of 3 to 12 numbered checkpoint records with indented `label: value` continuation lines.
 - `Result`: required; the final observable artifact compared against the stated end-state proof, plus a `Done when` exit gate.
 - `What to notice`: required; 1 to 5 observations the learner should register after key results.
-- `Troubleshooting`: conditional; add after `What to notice` only for observed recoverable failures or source-backed traps that cannot fit step-local `If wrong`.
-- `Next steps`: required; one reinforcement exercise that reuses the new skill, plus maintained adjacent links only when they exist.
+- `Learner-trap recovery`: conditional; add after `What to notice` only for observed recoverable failures or source-backed traps that cannot fit step-local `If wrong`.
+- `Next steps`: required; one reinforcement exercise that reuses the new skill without introducing a new tool, subsystem, or second artifact, plus maintained adjacent links only when they exist.
 
 **Routing and review**
 - `Boundaries`: required; adjacent owners and route-away rules, one link per adjacent owner.
@@ -187,7 +188,39 @@ Conditional additions:
 
 - `Related`: add only when maintained adjacent documents exist after completion; omit when no maintained adjacent document exists.
 
-Generated documents must not include empty conditional headings. If no observed or source-backed troubleshooting condition exists, omit `Troubleshooting`; if no maintained adjacent document exists, omit `Related` or the adjacent link instead of creating a placeholder.
+Generated documents must not include empty conditional headings. If no observed or source-backed learner-trap condition exists, omit `Learner-trap recovery`; if no maintained adjacent document exists, omit `Related` or the adjacent link instead of creating a placeholder.
+
+An end-state preview must prove the final artifact, not decorate the opening. An exact output block is enough when the result is textual:
+
+```text conceptual
+id,name,status
+1,alpha,active
+2,beta,inactive
+```
+
+For a relationship-shaped artifact, use a small Mermaid diagram with a visible text equivalent:
+
+```mermaid
+---
+config:
+  layout: elk
+  look: neo
+  theme: base
+  elk:
+    mergeEdges: false
+    nodePlacementStrategy: BRANDES_KOEPF
+    cycleBreakingStrategy: GREEDY_MODEL_ORDER
+---
+flowchart LR
+    accTitle: CSV export end-state preview
+    accDescr: The finished tutorial produces a seeded export file from a fixture through the export command.
+    Fixture["Seeded fixture"] --> Command["Export command"]
+    Command --> Csv["sample.csv (12 rows)"]
+```
+
+Text equivalent: the seeded fixture feeds the export command, and the command produces `sample.csv` with 12 data rows.
+
+The rejected preview is any generic success diagram that does not prove the artifact the learner will produce.
 
 ## [7][STEP_RECORDS]
 
@@ -198,11 +231,11 @@ Use numbered checkpoint records by default. Add H3 milestone groups inside `Step
 Each step carries:
 
 - `Operation`: required; the exact command, file edit, UI action, fixture use, or captured interaction. For commands, state the copy-safe command first, then its expected signal.
-- `Expected`: required; the exact output, a named file change with content or row count, a specific UI state, or a captured screenshot path. Never `it should work` or `you should see something`.
+- `Expected`: required; the exact output, a named file change with content or row count, a specific UI state, a captured screenshot path, or another observable signal. Never paraphrase success as `it should work`, `you should see something`, or `the result is correct`.
 - `Working state`: required; what now compiles, runs, renders, or passes so the learner is provably not broken. Name stub or placeholder content where full implementation is deferred.
 - `Action`: optional; present only when the numbered checkpoint title cannot carry the imperative clearly.
 - `Execution`: optional; present only for optional side effects outside the core success path, or for draft/blocked lessons. Published tutorial primary paths carry no unverified execution tag.
-- `Notice`: optional; what the learner should register at this step.
+- `Notice`: conditional; required when the learner must observe this result before the next step makes sense, optional when the observation is reinforcing rather than gating.
 - `If wrong`: optional; the inline failure flag for this step's known trap, naming the cause and fix.
 
 State each term in the step that first needs it, in one sentence, not in a glossary the learner must hold. Use fixed inputs, sample data, deterministic commands, and realistic unambiguous placeholder data. Defer variants to adjacent how-to or reference documents linked after completion.
@@ -256,16 +289,16 @@ State `Result` as the final artifact compared against the stated end-state proof
 `sample.csv` matches the stated end-state proof: one header line and 12 data rows.
 
 Done when:
-- [ ] the artifact matches the expected output shown in `What we will build`;
-- [ ] `npm run build` exits 0 from a clean checkout;
+- [ ] the artifact matches the expected output shown in `What we will build`
+- [ ] `npm run build` exits 0 from a clean checkout
 - [ ] you can run the export and reproduce the result without the author present.
 ```
 
 Each `Done when` item is observable and falsifiable, and the final item proves the learning outcome capability, not just the last step.
 
-## [10][TROUBLESHOOTING]
+## [10][LEARNER_TRAP_RECOVERY]
 
-Add troubleshooting only for observed recoverable failures from front-to-back execution or source-backed learner traps that cannot fit in a step-local `If wrong` field. Do not invent symptom-cause-fix rows because a step could theoretically fail. Operational recovery routes to runbook, and routine task repair routes to how-to.
+Add learner-trap recovery only for observed recoverable failures from front-to-back execution or source-backed learner traps that cannot fit in a step-local `If wrong` field. Do not invent symptom-cause-fix rows because a step could theoretically fail. Operational recovery routes to runbook, and routine task repair routes to how-to.
 
 | [INDEX] | [SYMPTOM]                | [LIKELY_CAUSE]             | [FIX]                                 |
 | :-----: | :----------------------- | :------------------------- | :------------------------------------ |
@@ -283,23 +316,89 @@ Close a tutorial with one reinforcement exercise that reuses the new skill witho
 - explanation for concepts, trade-offs, and architecture;
 - onboarding only when the tutorial is part of a role-readiness ramp.
 
+The reinforcement exercise fails when it introduces a new tool, subsystem, account, deployment surface, or second artifact. Move that work to another tutorial, a learning-path entry, or a how-to guide, then link it only if the adjacent document exists.
+
 Do not invent links to satisfy a quadrant checklist. Missing adjacent content is a documentation gap, not a reason to embed another document type in the tutorial.
 
 ## [12][EXECUTION_PROOF]
 
-Execute the primary path as written before publishing a tutorial as available. Proof is claim-level and attaches to the drift-prone fact, not the page footer.
+Execute the primary path as written before publishing a tutorial as available. Proof is claim-level and attaches to the drift-prone fact, not the page footer. Use the evidence standard for `Evidence:`, `Last verified:`, and `Review trigger:` mechanics; this section names only tutorial-specific proof obligations.
 
 Required proof surfaces:
 
 - exact operations the path uses: commands, UI actions, repository paths, fixtures, or captured interactions;
 - final observable result and its stated end-state proof;
 - expected intermediate signals at any step where a learner could lose confidence;
-- `Evidence:` and `Last verified: YYYY-MM-DD` for any external command, version, fixture, account, or service the lesson depends on;
-- `Review trigger:` for versioned stacks, generated fixtures, external services, prior lessons, and maintained reference artifacts.
+- grouped metadata proof for shared stack, toolchain, or fixture dependencies;
+- step-local proof for any unique drift-prone command, fixture, account, service, captured interaction, or generated artifact.
 
 A learning path additionally proves lesson order and composed capability: prerequisites exist, each lesson is independently testable from its own start state, no later lesson relies on unexplained state, an earlier lesson's completion proof feeds the next lesson wherever the path claims it does, and the final lesson proves the composed skill rather than only its own local step.
 
 Learner-facing first person such as `We will build` is correct because the document tutors. Author notes, task history, interaction fragments, and local machine paths are not.
+
+The minimal complete shape below is intentionally compact; it proves the section interlock without becoming a second lesson:
+
+```markdown conceptual
+# [BUILD_SAMPLE_EXPORT]
+
+Description: create a CSV export from a seeded fixture
+Difficulty: beginner
+Estimated time: 10 minutes
+Version: Node 22.11.0; export CLI 1.4.0
+Last verified: 2026-06-04
+Review trigger: export CLI flags, fixture shape, or CSV output contract changes.
+
+## [1][WHAT_WE_WILL_BUILD]
+
+We will build `sample.csv` with one header line and 12 data rows.
+
+## [2][LEARNING_OUTCOME]
+
+- You can generate a CSV export from one seeded fixture.
+
+## [3][PREREQUISITES]
+
+- Node 22.11.0 and export CLI 1.4.0 are installed.
+
+## [4][START_STATE]
+
+Start from the seeded fixture at `fixtures/export/basic.json`.
+
+## [5][STEPS]
+
+1. Generate the export.
+   Operation: `npm run export -- --fixture fixtures/export/basic.json --output sample.csv`
+   Expected: `sample.csv` exists with one header line and 12 data rows.
+   Working state: `npm run build` exits 0.
+2. Inspect the header.
+   Operation: open `sample.csv`.
+   Expected: the first line is `id,name,status`.
+   Working state: the file still has 12 data rows.
+   Notice: the header appears before data rows because consumers parse columns first.
+3. Re-run from a clean output.
+   Operation: remove `sample.csv`, then run the export command again.
+   Expected: the regenerated file matches the first output.
+   Working state: the export is repeatable from the stated fixture.
+
+## [6][RESULT]
+
+Done when:
+- [ ] `sample.csv` matches the previewed row count
+- [ ] the build still exits 0
+- [ ] the export can be regenerated from the stated fixture.
+
+## [8][NEXT_STEPS]
+
+Reinforcement: change one fixture row value and regenerate the same artifact.
+
+## [9][BOUNDARIES]
+
+Use a how-to for production export variants, and use reference for CLI option lookup.
+
+## [10][REVIEW_CHECKLIST]
+
+- [ ] The three steps reproduce `sample.csv` from the stated fixture.
+```
 
 ## [13][BOUNDARIES]
 
@@ -308,7 +407,9 @@ Learner-facing first person such as `We will build` is correct because the docum
 - One repeatable task for a competent reader routes to the how-to owner: [how-to.md](../task/how-to.md).
 - Role readiness, shadowing, and readiness gates route to the onboarding owner: [onboarding.md](onboarding.md).
 - Concepts, trade-offs, and architecture the lesson references route to the explanation owner: [architecture.md](../explanation/architecture.md).
+- Planned lesson sequence, milestone order, and future learning work route to the roadmap owner when a maintained roadmap exists: [roadmap.md](../explanation/roadmap.md).
 - Lookup facts, command catalogs, option tables, and status vocabularies route to the reference owner: [reference.md](../reference/reference.md).
+- Public-symbol comments and generated source-reference contracts route to the code-documentation owner: [code-documentation.md](../reference/code-documentation.md).
 
 **Shared standards**
 - Container choice, code-block intent labels, table decomposition, and diagram type route to the form owner: [information-structure.md](../information-structure.md).
@@ -323,13 +424,15 @@ Learner-facing first person such as `We will build` is correct because the docum
 - [ ] The title names the observable artifact or skill outcome, not an internal abstraction.
 - [ ] The learning outcome states a specific capability, not a vague aspiration.
 - [ ] `What we will build` shows the end state via screenshot plus text equivalent, exact output, or diagram plus caption before step one.
+- [ ] Any end-state diagram proves the final artifact and has a visible text equivalent; decorative diagrams are absent.
 - [ ] Prerequisites and start state are explicit and reproducible from a named fixture, branch, commit, account state, or prior lesson.
-- [ ] The required spine is present and conditional troubleshooting appears only when observed or source-backed.
+- [ ] The required spine is present and conditional learner-trap recovery appears only when observed or source-backed.
 
 **Step quality**
 - [ ] `Steps` holds 3 to 12 numbered checkpoint records, with H3 milestone groups only when they improve skimming.
 - [ ] Each step record carries `Operation`, exact `Expected` signal, and verified `Working state`, with `Action` only where the numbered checkpoint title cannot carry the imperative.
-- [ ] Known learner traps are captured as `If wrong` fields or troubleshooting rows.
+- [ ] `Notice` appears when the learner must observe a result before the next step makes sense.
+- [ ] Known learner traps are captured as `If wrong` fields or learner-trap recovery rows.
 - [ ] Commands are copy-safe: no prompt, long flags, full paths where needed, realistic placeholders.
 - [ ] Terminology is introduced at first use, beside the step that needs it.
 - [ ] Inputs are fixed, deterministic, repeatable, or intentionally disposable.
@@ -337,8 +440,9 @@ Learner-facing first person such as `We will build` is correct because the docum
 
 **Proof and routing**
 - [ ] The published primary path was executed front to back; unverified tags appear only on draft/blocked lessons or optional side effects outside the core path.
-- [ ] `Next steps` includes one reinforcement exercise and only links maintained adjacent content.
+- [ ] Shared stack or toolchain proof is grouped in metadata, and unique drift-prone step facts carry local proof.
+- [ ] `Next steps` includes one reinforcement exercise, introduces no new tool, subsystem, or second artifact, and only links maintained adjacent content.
 - [ ] Path indexes carry three or more entries, and each entry has `Outcome`, `Prerequisite`, `Proof`, `Availability`, and `Estimated time`.
 - [ ] `Related` appears only when maintained adjacent learning-path documents exist.
 - [ ] Later path lessons consume earlier proof, each lesson is independently testable from its own start state, and the final lesson proves the composed skill; unordered lesson hubs route to README instead.
-- [ ] How-to, reference, onboarding, and explanation material is linked after completion or from `Related`, not embedded.
+- [ ] How-to, reference, onboarding, roadmap, code-documentation, and explanation material is linked after completion or from `Related`, not embedded.

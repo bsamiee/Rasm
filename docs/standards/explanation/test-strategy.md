@@ -18,20 +18,22 @@ Use a test strategy when a maintained scope must state any of these:
 
 Do not use a test strategy to list every command a contributor runs, catalog runner flags or framework APIs, record milestone sequence, or prescribe incident recovery from a failing production gate.
 
-## [2][EXTERNAL_BASIS]
+## [2][LOCAL_TRUTH]
 
 Separate local executable truth from external testing vocabulary. Repository truth owns gate names, commands, runners, status-check identifiers, artifacts, owner roles, and release policy. External standards and practice supply reusable concepts; no produced strategy claims external compliance unless a local policy explicitly requires it.
 
 Source of truth: local gate config, CI workflow, quality command, test owner file, or release policy named by the produced strategy.
 
-| [INDEX] | [CONCEPT]                  | [LOCAL_USE]                              | [PRIMARY_SOURCE]                                                                                                                                 | [BOUNDARY]                       |
-| :-----: | :------------------------- | :--------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------- |
-|   [1]   | test documentation shape   | strategy, plan, and evidence separation  | [ISO/IEC/IEEE 29119-3:2021](https://www.iso.org/standard/79429.html)                                                                             | template vocabulary only         |
-|   [2]   | test approach and strategy | archetype and planning vocabulary        | [ISTQB CTAL-TM v3.0 syllabus](https://istqb.org/wp-content/uploads/2024/11/ISTQB_CTAL-TM_Syllabus_v3.0_zKjKsaN.pdf)                              | local adaptation, no compliance  |
-|   [3]   | risk-based testing         | tier-to-depth and risk traceability      | [ISTQB CTFL v4.0.1 syllabus](https://istqb.org/wp-content/uploads/2024/11/ISTQB_CTFL_Syllabus_v4.0.1.pdf) and CTAL-TM v3.0                       | local risk register controls     |
-|   [4]   | small-test portfolio       | deterministic base and test pyramid      | [Software Engineering at Google chapter 11](https://abseil.io/resources/swe-book/html/ch11.html)                                                 | practice reference, not mandate  |
-|   [5]   | larger-test trade-offs     | size, scope, hermeticity, fidelity, cost | [Software Engineering at Google chapter 14](https://abseil.io/resources/swe-book/html/ch14.html)                                                 | concepts only                    |
-|   [6]   | flaky-test pressure        | quarantine and ownership requirements    | Google chapters 11 and 14 plus local gate truth                                                                                                  | local policy sets thresholds     |
+| [INDEX] | [CONCEPT]            | [USE]                     | [BASIS]                                      | [BOUNDARY]        |
+| :-----: | :------------------- | :------------------------ | :------------------------------------------- | :---------------- |
+|   [1]   | documentation shape  | strategy/plan/evidence    | ISO 29119-3                                  | vocabulary only   |
+|   [2]   | strategy archetypes  | local planning labels     | ISTQB CTAL-TM                                | no compliance     |
+|   [3]   | risk-based depth     | tier-to-gate mapping      | ISTQB CTFL + CTAL-TM                         | local register    |
+|   [4]   | small-test base      | deterministic pyramid     | Google ch. 11                                | practice reference |
+|   [5]   | large-test trade-off | size, fidelity, cost      | Google ch. 14                                | concepts only     |
+|   [6]   | flaky-test pressure  | quarantine and ownership  | Google ch. 11/14 plus local truth            | local thresholds  |
+
+Sources: [ISO 29119-3](https://www.iso.org/standard/79429.html), [ISTQB CTAL-TM](https://istqb.org/wp-content/uploads/2024/11/ISTQB_CTAL-TM_Syllabus_v3.0_zKjKsaN.pdf), [ISTQB CTFL](https://istqb.org/wp-content/uploads/2024/11/ISTQB_CTFL_Syllabus_v4.0.1.pdf), [Google chapter 11](https://abseil.io/resources/swe-book/html/ch11.html), and [Google chapter 14](https://abseil.io/resources/swe-book/html/ch14.html).
 
 Last verified: 2026-06-04
 Review trigger: local gate surface, ISO 29119-3, ISTQB syllabus, or maintained testing-model guidance changes.
@@ -48,7 +50,7 @@ Pick one profile for scope and one primary archetype for depth selection. Split 
 |   [4]   | Host runtime        | unit, scenario, visual              | manual approval, release | host or device behavior drift |
 |   [5]   | Nonfunctional       | load, soak, security, accessibility | nightly, release         | budget or compliance breach   |
 
-Use the archetype vocabulary below as local adaptations of ISTQB test-approach vocabulary. These labels are selection aids; they are not external compliance claims.
+Use the archetype vocabulary below as local strategy labels adapted from testing-practice vocabulary. These labels are selection aids; they are not a claimed current ISTQB closed set and are not external compliance claims.
 
 | [INDEX] | [ARCHETYPE]                    | [DEPTH_DRIVER]          | [DECLARE_WHEN]                     |
 | :-----: | :----------------------------- | :---------------------- | :--------------------------------- |
@@ -62,11 +64,13 @@ Use the archetype vocabulary below as local adaptations of ISTQB test-approach v
 
 Prefer `Analytical` when a risk register governs the scope. If a produced strategy combines archetypes, declare one primary archetype and list secondary influences in `Principles` with the gate-selection rule they change.
 
-## [4][SOURCE_TRUTH]
+## [4][FIELD_VOCABULARIES]
 
 Repository truth owns executable details. The strategy names the level, risk, trigger, and selection rule, and it links the live source for commands, runner config, status checks, artifacts, and owner roles. When a fact can drift, prove it from repository truth before external examples.
 
 Carry local executable truth in the opening metadata `Source of truth` field. Carry external taxonomy proof only in this standard or in a produced strategy's `External basis` note when the strategy explicitly depends on external compliance.
+
+Produced strategies must replace every placeholder with local truth. A strategy is incomplete if it contains `LOCAL_*`, `*_GATE_NAME`, generic gate classes, or unnamed review owners in place of a source path, status check, contract, or accountable role.
 
 External testing vocabulary supplies these concepts:
 
@@ -78,6 +82,12 @@ External testing vocabulary supplies these concepts:
 - Risk tier is the likelihood-by-impact or locally defined risk score that selects test depth and minimum gate.
 - Entry criteria open a gate; exit criteria close a release, approval, or manually accepted class.
 - Flaky-test policy requires detection, measurement, mitigation, owner-backed quarantine, and repair or deletion criteria when the scope can quarantine tests.
+
+Closed field vocabularies:
+
+- `Trigger`: `presubmit`, `post-submit`, `nightly`, `release`, `manual approval`, `incident follow-up`.
+- `Blocking`: `blocks merge`, `blocks release`, `blocks approval`, `reports only`.
+- `Quarantine status`: `suspected`, `quarantined`, `repairing`, `re-enabled`, `deleted`.
 
 ## [5][PLACEMENT]
 
@@ -121,12 +131,12 @@ Review trigger: <event, for example a gate added or renamed>
 
 Conditional section decision table:
 
-| [INDEX] | [SECTION]                  | [TRIGGER]                                                        | [INSERT_AFTER]  | [OMIT_WHEN]                              |
-| :-----: | :------------------------- | :--------------------------------------------------------------- | :-------------- | :--------------------------------------- |
-|   [1]   | `Entry and exit criteria`  | release, approval, manual runtime, regulated, or hotfix gates    | Gate mapping    | no gate has explicit open/close criteria |
-|   [2]   | `Flaky-test policy`        | reruns, quarantine, noisy tests, or deletion/re-enable decisions | Ownership       | scope cannot quarantine or rerun tests   |
-|   [3]   | `Metrics`                  | each metric drives a named decision                              | Flaky policy or Ownership | metrics are observational only  |
-|   [4]   | `Review trigger`           | several triggers need explanation beyond metadata                | before Boundaries | one metadata trigger is enough        |
+| [INDEX] | [SECTION]                 | [TRIGGER]              | [AFTER]        | [OMIT_WHEN]              |
+| :-----: | :------------------------ | :--------------------- | :------------- | :----------------------- |
+|   [1]   | `Entry and exit criteria` | release/approval gates | Gate mapping   | no open/close criteria   |
+|   [2]   | `Flaky-test policy`       | rerun or quarantine    | Ownership      | scope cannot quarantine  |
+|   [3]   | `Metrics`                 | decision-driving metric | Flaky/Ownership | observational only       |
+|   [4]   | `Review trigger`          | multiple stale events  | before Boundaries | metadata is enough    |
 
 Conditional addition template:
 
@@ -167,14 +177,14 @@ State the trade-off rules the portfolio obeys. Required rules:
 
 Bind test depth and gate selection to an auditable risk tier. State the scoring model the scope actually uses, the tier buckets, and the rule mapping each tier to test depth and minimum gate. Use a decision table so an agent resolves a tier deterministically.
 
-The table below is a default likelihood-by-impact template, not a universal rule. Replace ranges when the local risk register uses a different scale, and replace gate classes with real local gate names in produced strategies.
+The table below is a default likelihood-by-impact template, not a universal rule. Replace ranges when the local risk register uses a different scale, and replace every proof cell with a real local gate, contract, status check, or review owner in produced strategies.
 
-| [INDEX] | [TIER]  | [DEFAULT_SCORE] | [TEST_DEPTH]              | [MINIMUM_GATE]    |
-| :-----: | :------ | --------------: | :------------------------ | :---------------- |
-|   [1]   | Extreme |           20-25 | full plus nonfunctional   | RELEASE_GATE_NAME |
-|   [2]   | High    |           13-19 | integration plus property | POSTSUBMIT_GATE   |
-|   [3]   | Medium  |            5-12 | unit plus contract        | PRESUBMIT_GATE    |
-|   [4]   | Low     |             1-4 | unit or review gate       | REVIEW_OR_UNIT    |
+| [INDEX] | [TIER]  | [DEFAULT_SCORE] | [TEST_DEPTH]              | [MINIMUM_PROOF]                         |
+| :-----: | :------ | --------------: | :------------------------ | :-------------------------------------- |
+|   [1]   | Extreme |           20-25 | full plus nonfunctional   | release gate from source truth          |
+|   [2]   | High    |           13-19 | integration plus property | post-submit status check or contract    |
+|   [3]   | Medium  |            5-12 | unit plus contract        | presubmit status check or contract diff |
+|   [4]   | Low     |             1-4 | unit or review gate       | review owner or deterministic unit gate |
 
 Define likelihood and impact scales before using numeric scores. Link the risk register from repository truth, and name at least the High and Extreme risks currently owned. Require traceability: each High or Extreme risk back-links to the level or gate that covers it through a register field or `Covered-by:` line.
 
@@ -221,7 +231,7 @@ The rejected form names a framework and omits risk, tier, size, hermeticity, and
 
 ## [11][GATE_MAPPING]
 
-A gate map connects a level to automation without becoming a runner manual. Render each gate as a definition block with these fields:
+A gate map connects a level to automation without becoming a runner manual. Link commands, status checks, and runner configuration; do not list runnable command recipes. Render each gate as a definition block with these fields:
 
 - `Gate`: gate name from repository truth.
 - `Trigger`: presubmit, post-submit, nightly, release, manual approval, or incident follow-up.
@@ -246,19 +256,29 @@ Order gates by trigger latency. Fast deterministic gates block early. Slower or 
 
 The diagram below is conceptual, not universal:
 
-```mermaid conceptual
-stateDiagram-v2
-    [*] --> Presubmit: changed-path impact
-    Presubmit --> PostSubmit: unit + contract green
-    PostSubmit --> Nightly: full integration green
-    Nightly --> Release: e2e + nonfunctional green
-    Release --> [*]: approve, merge, or ship
-    Presubmit --> [*]: block on failure
-    note right of PostSubmit
-        residual risk until Nightly:
-        slow integration seams unproven
-    end note
+```mermaid
+---
+config:
+  layout: elk
+  look: neo
+  theme: base
+  elk:
+    mergeEdges: false
+    nodePlacementStrategy: BRANDES_KOEPF
+    cycleBreakingStrategy: GREEDY_MODEL_ORDER
+---
+flowchart LR
+    accTitle: Test gate latency order
+    accDescr: Testing gates move from presubmit through post-submit, nightly, and release gates, with failures blocking early and later gates adding broader proof before approval or release.
+    Change["changed-path impact"] --> Presubmit["presubmit gate"]
+    Presubmit -->|unit and contract proof| PostSubmit["post-submit gate"]
+    PostSubmit -->|integration proof| Nightly["nightly gate"]
+    Nightly -->|journey and nonfunctional proof| Release["release gate"]
+    Release --> Decision["approval or release decision"]
+    Presubmit -->|failure| Block["block early"]
 ```
+
+Text equivalent: changed-path impact selects the presubmit gate first; unit and contract proof can defer broader integration to post-submit and nightly gates; release approval waits for high-fidelity and nonfunctional proof; presubmit failure blocks early, and any deferred gate must state residual risk in the gate record.
 
 ## [12][ENTRY_EXIT_CRITERIA]
 
@@ -282,18 +302,18 @@ Do not require pass-rate, critical-flow, defect-bound, or escape-budget fields u
 
 ## [13][REQUIRED_PROOF_CHANGE]
 
-Map each change family to the smallest sufficient proof surface. The table below is a template: produced strategies replace generic placeholders with repository gate names, contracts, or review owners from source truth.
+Map each change family to the smallest sufficient proof surface. The table below is a template: produced strategies replace every proof cell with repository gate names, contracts, or review owners from source truth and link [proof.md](../proof.md) for evidence strength rather than restating the evidence hierarchy.
 
-| [INDEX] | [CHANGE_FAMILY]            | [SMALLEST_SUFFICIENT_PROOF] | [ESCALATION_TRIGGER]          |
-| :-----: | :------------------------- | :-------------------------- | :---------------------------- |
-|   [1]   | Behavior or algorithm      | LOCAL_UNIT_OR_PROPERTY      | touches a public contract     |
-|   [2]   | Integration or contract    | LOCAL_CONTRACT_GATE         | crosses an owner boundary     |
-|   [3]   | User journey or deployment | LOCAL_E2E_OR_SMOKE          | alters a critical journey     |
-|   [4]   | Host-runtime change        | LOCAL_RUNTIME_PROOF         | changes host or device output |
-|   [5]   | Nonfunctional risk         | LOCAL_BUDGET_GATE           | breaches a stated budget      |
-|   [6]   | Docs-only or config-only   | REVIEW_OR_GENERATED_PROOF   | changes a documented contract |
+| [INDEX] | [CHANGE]          | [PROOF]                    | [ESCALATE_WHEN]       |
+| :-----: | :---------------- | :------------------------- | :-------------------- |
+|   [1]   | behavior          | unit/property gate         | public contract       |
+|   [2]   | integration       | contract gate or diff      | owner boundary        |
+|   [3]   | journey/deploy    | e2e, smoke, or scenario    | critical journey      |
+|   [4]   | host runtime      | runtime/manual proof       | host output changes   |
+|   [5]   | nonfunctional     | budget gate or audit       | budget breach         |
+|   [6]   | docs/config       | review, generated, or link | documented contract   |
 
-When an escalation trigger fires, the change also clears the broader gate the row escalates into. A produced strategy that leaves a placeholder or generic class in this table is incomplete.
+When an escalation trigger fires, the change also clears the broader gate the row escalates into. A produced strategy that leaves a placeholder, generic gate class, or unowned review path in this table is incomplete.
 
 ## [14][OWNERSHIP]
 
@@ -325,18 +345,38 @@ Policy fields:
 
 Thresholds such as retry-pass rate or maximum quarantine duration are examples until a local strategy adopts them from policy. Quarantine suppresses signal; it is never repair. A quarantined test past its maximum duration escalates to the owner named in `Ownership`.
 
+Policy record:
+
+```markdown template
+Detection: <signal and threshold from local gate history>
+Severity: <class and rerun policy>
+Quarantine criteria: <conditions that permit quarantine>
+Quarantine owner: <owner role accountable for repair>
+Quarantine status: suspected | quarantined | repairing | re-enabled | deleted
+Maximum duration: <local threshold>
+Residual signal lost: <risk no longer proven while quarantined>
+Re-enable criteria: <green runs or source fix required>
+Deletion criteria: <duplicated stronger coverage or retired behavior>
+```
+
+Rejected:
+
+```text rejected
+Flaky tests can be quarantined until they are fixed.
+```
+
+The rejected form has no detection threshold, owner, status, maximum duration, residual risk, or re-enable rule.
+
 ## [16][METRICS]
 
 Include metrics only when each metric changes a decision. Bind every metric to the named decision it drives:
 
-| [INDEX] | [METRIC]                                                       | [DECISION_IT_DRIVES]                                     |
-| :-----: | :------------------------------------------------------------- | :------------------------------------------------------- |
-|   [1]   | Pass, fail, flake, retry, quarantine, re-enable rate per level | portfolio rebalance and level retirement                 |
-|   [2]   | Gate duration and queue time per trigger                       | gate placement and trigger latency                       |
-|   [3]   | Failure-localization quality                                   | level granularity and artifact requirements              |
-|   [4]   | Risk-weighted and critical-journey coverage                    | test depth per risk tier                                 |
-|   [5]   | Behavior-level coverage per named risk                         | risk-to-test traceability completeness and gap detection |
-|   [6]   | Defect-escape evidence from production or release feedback     | gate sufficiency and entry or exit thresholds            |
+- pass, fail, flake, retry, quarantine, and re-enable rate per level: portfolio rebalance and level retirement;
+- gate duration and queue time per trigger: gate placement and trigger latency;
+- failure-localization quality: level granularity and artifact requirements;
+- risk-weighted or critical-journey coverage: test depth per risk tier;
+- behavior-level coverage per named risk: traceability completeness and gap detection;
+- defect-escape evidence from production or release feedback: gate sufficiency and entry or exit thresholds.
 
 Do not publish a metric the scope cannot act on, and do not present raw coverage percentage as proof of correctness.
 
@@ -358,6 +398,9 @@ Common triggers:
 
 ## [18][BOUNDARIES]
 
+- Architecture topology, runtime boundaries, and invariant checks that select test levels: [architecture.md](architecture.md).
+- Process decisions that bind gate policy or quarantine authority: [adr.md](adr.md).
+- Proposal validation plans that consume strategy gates: [design-doc.md](design-doc.md).
 - Contributor workflow and per-task commands: [contributing.md](../task/contributing.md).
 - Evidence strength, freshness fields, and verification gates: [proof.md](../proof.md).
 - Operational recovery from a failing gate in production: [runbook.md](../task/runbook.md).
@@ -370,18 +413,19 @@ Common triggers:
 - [ ] One profile and one primary archetype are named in the opening paragraph; secondary influences are explicit and justified.
 - [ ] Opening metadata carries `Owner`, local executable `Source of truth`, and `Review trigger`.
 - [ ] Scope and owner boundaries are stated, and one primary risk class is owned.
-- [ ] External taxonomy is separated from local executable gate truth through the source-authority table.
+- [ ] External taxonomy is separated from local executable gate truth through the local-truth section and concept table.
 - [ ] Archetype labels are treated as local adaptations, not compliance claims.
+- [ ] Produced strategies contain no placeholder proof cells, generic gate classes, or unnamed review owners.
 - [ ] Conditional sections appear only when their decision-table trigger holds.
 - [ ] The risk model states the scoring scale in use, tier buckets, tier-to-gate mapping, and risk-register link.
 - [ ] Each High or Extreme register risk back-links to the level or gate that covers it.
 - [ ] Each test level carries purpose, risk, size, scope, hermeticity and CI eligibility, owner, budget, isolation, artifacts, and trigger.
-- [ ] Each gate carries trigger, selection rule, blocking behavior, status check or artifact, escalation owner, and residual risk.
+- [ ] Each gate carries closed-vocabulary trigger, selection rule, blocking behavior, status check or artifact, escalation owner, and residual risk.
 - [ ] Deferred gates state the risk that remains unproven.
 - [ ] Entry and exit criteria appear only when the strategy owns release, approval, manual runtime, regulated, or hotfix gates.
 - [ ] Each change family maps to a local gate, contract, or review owner, not a generic gate class.
 - [ ] Every large and cross-owner test has a named diagnosis owner.
-- [ ] Flaky-test policy appears when rerun, quarantine, noisy-test, re-enable, or deletion decisions exist.
+- [ ] Flaky-test policy appears when rerun, quarantine, noisy-test, re-enable, or deletion decisions exist, and it carries the quarantine status vocabulary plus owner, duration, residual signal, and re-enable or deletion criteria.
 - [ ] Each metric binds to a named decision; raw coverage percentage is not presented as proof.
 - [ ] Review triggers use events, not calendar dates unless the external source changes on schedule.
 - [ ] Boundaries carry at most one link per adjacent owner.

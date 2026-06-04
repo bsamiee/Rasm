@@ -12,9 +12,9 @@ Apply this standard when writing or reviewing source-level comments on:
 - lifecycle, resource, concurrency, interop, or runtime-context obligations a caller must honor;
 - inline rationale for a non-obvious implementation choice.
 
-Skip comments that restate the signature, obvious accessors, private implementation details, or names the type already makes unambiguous. Generated reference pages route through [api.md](api.md); curated lookup facts outside source route through [reference.md](reference.md); prose mechanics inside comments route through [style-guide.md](../style-guide.md).
+Skip comments that restate the signature, obvious accessors, private implementation details, or names the type already makes unambiguous. Generated reference pages route through [api.md](api.md); curated lookup facts outside source route through [reference.md](reference.md); owner-local README maps route through [readme.md](readme.md); prose mechanics inside comments route through [style-guide.md](../style-guide.md).
 
-## [2][SOURCE_AUTHORITY]
+## [2][TOOLCHAIN_BASELINES]
 
 The language toolchain owns comment syntax, tag validation, reference resolution, and generated output. This standard owns semantic completeness.
 
@@ -34,7 +34,7 @@ TSDoc
     Review trigger: TSDoc tag syntax, release modifiers, deprecation tags, or parser behavior changes.
 
 Python docstrings
-    Source of truth: `pyproject.toml` Ruff pydocstyle settings select Google-style docstrings; [PEP 257](https://peps.python.org/pep-0257/) and [Google-style docstrings](https://google.github.io/styleguide/pyguide.html#381-docstrings) provide the external syntax baseline.
+    Source of truth: `pyproject.toml` `[tool.ruff.lint.pydocstyle].convention = "google"`; [PEP 257](https://peps.python.org/pep-0257/) and [Google-style docstrings](https://google.github.io/styleguide/pyguide.html#381-docstrings) provide the external syntax baseline.
     Last verified: 2026-06-04
     Review trigger: `pyproject.toml` pydocstyle settings, Python docstring policy, or configured generator dialect changes.
 
@@ -48,11 +48,11 @@ In Rasm C# builds, documentation warnings are build-failing unless explicitly su
 
 Choose the symbol profile during authoring and review; do not emit a profile label in the source comment unless the language toolchain owns that tag. Each profile answers one question: how does the caller handle every observable outcome?
 
-| [INDEX] | [PROFILE]        | [APPLIES]                           | [REQUIRED_SEMANTICS]                  | [FAILURE_RULE]         |
-| :-----: | :--------------- | :---------------------------------- | :------------------------------------ | :--------------------- |
-|   [1]   | Pure surface     | total functions, values, properties | purpose, obligations, return meaning  | no failure channel     |
-|   [2]   | Effect surface   | result, effect, validation, status  | success, faults, runtime requirements | no phantom throws      |
-|   [3]   | Throwing surface | actual throws or interop exceptions | purpose, obligations, real throws     | only real thrown types |
+| [INDEX] | [PROFILE]        | [APPLIES]                | [SEMANTICS]             | [FAILURE]              |
+| :-----: | :--------------- | :----------------------- | :---------------------- | :--------------------- |
+|   [1]   | Pure surface     | total functions, values  | purpose, obligations    | no failure channel     |
+|   [2]   | Effect surface   | result, effect, status   | success, faults, runtime | no phantom throws     |
+|   [3]   | Throwing surface | actual throws or interop | real throws             | only real thrown types |
 
 A comment is complete when a caller can use the symbol correctly and handle every outcome from the signature plus comment, without reading the body.
 
@@ -69,6 +69,21 @@ Render the semantic contract through the toolchain's syntax. The field set is th
 - Inline comments: optional; state why a non-obvious implementation choice exists, never what the next line does.
 
 A parameter entry that says only `A string`, a return entry that restates `Fin<T>` or another carrier name, or a summary that echoes the symbol name fails this cardinality model.
+
+Folder-level code catalogs and "mini API" pages are not source comments. They aggregate current public surface for agents and maintainers, so they belong in the owner README, a generated API reference, or a reference leaf. When a folder catalog is useful, it may carry this record shape:
+
+```text template
+Public surface: `<entrypoint, type family, command family, or generated reference anchor>`
+Owner paths: `<current paths that implement the surface>`
+Failure carriers: `<typed result, fault, receipt, or status; omit when absent>`
+Receipts: `<proof or receipt type a caller receives; omit when absent>`
+Generated reference: `<api.md-owned generated page; omit when absent>`
+Common misuse: `<one misuse the source comments do not prevent; omit when absent>`
+Route-away: `<architecture, roadmap, how-to, tutorial, or support; omit when absent>`
+Review trigger: public symbol, generated reference, owner path, or failure-carrier change.
+```
+
+The record is a handoff. Omit absent optional fields instead of filling `none`; keep an explicit `none` value only when absence itself changes reader behavior. It does not replace symbol comments, generated reference, or architecture codemaps, and it appears only where a maintained owner document consumes it.
 
 ## [4][LEAD_SHAPE]
 
@@ -131,6 +146,22 @@ Use TSDoc for exported TypeScript APIs. The implicit summary is the text before 
 |  [10]   | `@deprecated`          | deprecation contract   | block tag; name replacement guidance   |
 
 Where the project gates API maturity, release modifiers such as `@alpha`, `@beta`, and `@public` are contract content. A deprecated exported surface uses `@deprecated` with replacement guidance; it is not a release-stage modifier.
+
+```typescript conceptual
+/**
+ * Runs the checked plan against the active target.
+ *
+ * @param plan - Reviewed plan whose target matches the active workspace.
+ * @returns Success with an execution receipt, or `TargetMismatch` when the plan
+ * target does not match the active workspace. Does not throw for validation
+ * failure.
+ */
+export declare const applyPlan: (
+  plan: Plan,
+) => Effect.Effect<Receipt, TargetMismatch>;
+```
+
+The example is conceptual: it shows a TypeScript effect surface documenting the success receipt and typed failure instead of restating `Effect` generics or adding a phantom `@throws`.
 
 ## [7][PYTHON_DOCSTRINGS]
 
@@ -204,6 +235,8 @@ Reject these shapes:
 
 - [api.md](api.md) owns generated and contract-backed API reference, including generated mirrors of source comments.
 - [reference.md](reference.md) owns curated lookup facts that live outside source.
+- [readme.md](readme.md) owns owner-local entry maps that point readers to public surfaces without cataloging every symbol.
+- [architecture.md](../explanation/architecture.md) owns current owner blocks, invariants, and codemaps; code comments do not carry folder architecture.
 - [style-guide.md](../style-guide.md) owns prose mechanics inside comments.
 - [proof.md](../proof.md) owns proof that source comments match source behavior and generated reference output; source comments carry no freshness fields unless a language-specific generator consumes them.
 - [README.md](../README.md) routes document-type, placement, and lifecycle questions.
@@ -220,4 +253,5 @@ Reject these shapes:
 - [ ] C# reference-resolution language reflects Rasm's warning-as-error and documentation-generation settings.
 - [ ] Cross-references resolve through the owning toolchain.
 - [ ] Inline comments state a reason, not narration.
+- [ ] Folder-level public-surface catalogs route to README, generated API reference, architecture, or reference leaves instead of leaking into source comments.
 - [ ] No anti-pattern remains.

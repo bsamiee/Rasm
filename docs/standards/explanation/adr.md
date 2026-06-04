@@ -15,9 +15,9 @@ Use an ADR when a decision meets at least one trigger:
 
 Do not use an ADR to run a proposal review. While an option is still under debate, use a design document; when the decision becomes durable policy, derive the ADR from the selected option, rejected alternatives, consequences, and status-specific evidence.
 
-## [2][SOURCE_ORDER]
+## [2][ADR_BASELINES]
 
-Use ADR community sources for vocabulary and lifecycle anchors, then apply the local hardening rules in this file. MADR supplies the Markdown ADR section model and `Confirmation` vocabulary, Michael Nygard's ADR practice supplies small records, one significant decision, monotonic numbering, and supersession, and the Y-statement supplies a compact rationale field set. This local standard adds immutability for accepted records, one decision class, required downside for accepted choices, status-specific proof, and conditional-section discipline.
+Use ADR community sources for vocabulary and lifecycle anchors, then apply the local hardening rules in this file. MADR supplies the Markdown ADR section model and `Confirmation` vocabulary, Michael Nygard's ADR practice supplies small records, one significant decision, monotonic numbering, and supersession, and the Y-statement supplies a compact rationale field set. These sources do not own this repository's placement, decision-class taxonomy, accepted-record immutability, required downside field, status-specific proof receipts, or conditional-section discipline; those are local hardening rules.
 
 Source of truth: [MADR 4.0.0 release](https://github.com/adr/madr/releases/tag/4.0.0), [MADR 4.0.0 templates](https://github.com/adr/madr/tree/4.0.0/template), [Michael Nygard's ADR practice](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions), and [Y-statement form](https://socadk.github.io/design-practice-repository/artifact-templates/DPR-ArchitecturalDecisionRecordYForm.html).
 Last verified: 2026-06-04
@@ -67,18 +67,34 @@ Set `Status` to exactly one lowercase value from the fixed set below:
 - `deprecated`: no longer relevant, with no replacement.
 - `superseded`: replaced by a newer ADR named in `Superseded by`.
 
-The lifecycle is intentionally post-review. Drafts and proposed options belong in design documents; ADRs begin when a decision has a durable disposition.
+The lifecycle is intentionally post-review. Drafts and proposed options belong in design documents; ADRs begin when a decision has a durable disposition. The conceptual diagram shows the permitted status transitions.
 
-```mermaid conceptual
+```mermaid
+---
+config:
+  layout: elk
+  look: neo
+  theme: base
+  elk:
+    mergeEdges: false
+    nodePlacementStrategy: BRANDES_KOEPF
+    cycleBreakingStrategy: GREEDY_MODEL_ORDER
+---
 stateDiagram-v2
+    accTitle: ADR status lifecycle
+    accDescr: ADR records enter accepted, rejected, deprecated, or superseded states, with accepted records later able to become deprecated or superseded.
     [*] --> accepted: review chooses this option
     [*] --> rejected: review declines this option
+    [*] --> deprecated: existing decision retired with no replacement
+    [*] --> superseded: existing decision replaced by newer ADR
     accepted --> deprecated: decision no longer applies
     accepted --> superseded: newer ADR replaces it
     rejected --> [*]
     deprecated --> [*]
     superseded --> [*]
 ```
+
+Text equivalent: an ADR enters only as `accepted`, `rejected`, `deprecated`, or `superseded`; only `accepted` can later become `deprecated` or `superseded`; rejected, deprecated, and superseded records are terminal except for link repair and non-semantic clarification.
 
 An accepted ADR body is immutable except for typo fixes, broken-link repairs, or context clarifications that leave the decision, drivers, and outcome unchanged. Change a decision by superseding it: the superseded record links forward through `Superseded by`, and the replacing record links back through `Supersedes`.
 
@@ -122,7 +138,7 @@ Informed: <affected owners, or none>
 Conditional additions:
 
 ```markdown template
-## [N][PROS_CONS_OPTIONS]
+## [N][DECISION_BASIS_MATRIX]
 
 <Insert after `Considered options` only when a matrix clarifies comparison better than the required options section.>
 
@@ -140,7 +156,7 @@ Metadata cardinality:
 Section cardinality:
 
 - `Context and problem`, `Decision drivers`, `Considered options`, `Decision outcome`, `Consequences`, `Status evidence`, `Boundaries`, and `Review checklist` are required.
-- `Pros and cons of options` and `More information` are conditional and appear only from the conditional additions block.
+- `Decision basis matrix` and `More information` are conditional and appear only from the conditional additions block.
 
 ## [7][SECTION_RULES]
 
@@ -149,18 +165,30 @@ Each section carries specific facts, not generic prose:
 - `Context and problem`: name the forces that make a decision necessary and stay value-neutral. A context with no tension does not justify an ADR.
 - `Decision drivers`: list criteria the selected or rejected option was judged against. A driver is never a restatement of the outcome.
 - `Considered options`: name at least two concrete choices a current owner could defend, unless the ADR records a single rejected proposal; include a do-nothing baseline when inaction was plausible.
-- `Decision outcome`: name the selected, rejected, deprecated, or superseding disposition and state the rationale with the Y-statement field set: context, concern, chosen or rejected option, alternatives, quality sought, and downside accepted or reason declined. Render it as one sentence only when readability holds; otherwise keep the same fields in two or three adjacent sentences.
+- `Decision outcome`: name the selected, rejected, deprecated, or superseding disposition and state the rationale with the Y-statement field set: context, concern, chosen or rejected option, alternatives, quality sought, and downside accepted or reason declined. Render it as one sentence only when readability holds; otherwise use the field-block shape below. Full option-analysis history remains in the design document; the ADR carries only the final decision basis.
 - `Consequences`: record at least one positive and one negative effect for `accepted` and `superseded` decisions; for `rejected` and `deprecated`, record the avoided downside and any residual cost of the disposition.
 - `Status evidence`: use the status-specific receipt shape below.
 - `Boundaries`: link adjacent document types instead of copying their rules.
 - `More information`: link only sources that explain or govern the decision.
 
-The consequence shape is deliberately small:
+The decision-outcome field block is the safer shape when one sentence would become overloaded:
 
 ```markdown template
-- Good: <effect> (driver: <driver name>)
-- Bad: <effect> (driver: <driver name>)
-- Neutral: <effect, only when real> (driver: <driver name>)
+Context: <force or constraint that made the decision necessary>
+Concern: <quality, boundary, contract, or risk being optimized>
+Disposition: <accepted | rejected | deprecated | superseded> <option>
+Alternatives: <other defensible options or rejected proposal>
+Quality sought: <quality goal or policy served>
+Accepted downside: <cost accepted, or reason declined for non-accepted statuses>
+```
+
+The consequence shape is deliberately small and status-aware:
+
+```markdown template
+- Benefit: <effect> (driver: <driver name>)
+- Accepted downside: <cost or constraint> (driver: <driver name>)
+- Residual cost: <cost that remains after rejection, deprecation, or supersession> (driver: <driver name>)
+- Avoided downside: <cost avoided by rejection or retirement> (driver: <driver name>)
 ```
 
 ## [8][STATUS_EVIDENCE]
@@ -194,17 +222,37 @@ Review trigger: <event that can make the disposition stale>
 
 For `superseded`, `Evidence` names both directions: this record's `Superseded by` value and the replacing record's `Supersedes` value. A one-way link is an incomplete supersession.
 
+Rejected evidence example:
+
+```markdown template
+Disposition evidence: review declined direct storage access because it bypasses the owner boundary.
+Evidence: design review record and rejected option in `docs/design/<proposal>.md`.
+Last verified: YYYY-MM-DD
+Review trigger: storage owner boundary or rejected option returns.
+```
+
+Superseded evidence example:
+
+```markdown template
+Disposition evidence: ADR `0023` replaces this boundary decision.
+Evidence: this record says `Superseded by: 0023`; ADR `0023` says `Supersedes: 0007`.
+Last verified: YYYY-MM-DD
+Review trigger: replacement ADR, decision-log index, or owner boundary changes.
+```
+
 ## [9][OPTION_COMPARISON]
 
-Use a pros/cons matrix only when it improves comparison. Two or three options with parallel facts compare cleanly in a table; asymmetric trade-offs read better as labeled prose under `Considered options`.
+Use a decision-basis matrix only when it improves final-decision reconstruction. Two or three options with parallel facts compare cleanly in a table; asymmetric trade-offs read better as labeled prose under `Considered options`. The matrix is not a proposal-review transcript and must not reopen design discussion.
 
 ```markdown conceptual
-| [INDEX] | [OPTION]        | [GOOD]                     | [NEUTRAL]             | [BAD]          |
-| :-----: | :-------------- | :------------------------- | :-------------------- | :------------- |
-|   [1]   | Adopt library A | First-class schema support | Adds one dependency   | Larger binary  |
-|   [2]   | Build in-house  | No new dependency          | Owns full maintenance | Slower to ship |
-|   [3]   | Defer           | Zero cost now              | Decision stays open   | Risk compounds |
+| [INDEX] | [OPTION]        | [DRIVER]        | [ACCEPTED_COST]  | [REJECTED_RISK] | [VERDICT] |
+| :-----: | :-------------- | :-------------- | :--------------- | :-------------- | :-------- |
+|   [1]   | Adopt library A | schema contract | larger binary    | —               | selected  |
+|   [2]   | Build in-house  | ownership       | maintenance load | slower delivery | rejected  |
+|   [3]   | Defer           | short-term cost | decision remains | risk compounds  | rejected  |
 ```
+
+The columns name the decision facts an ADR preserves: the driver served, the cost the selected option accepts, the risk a rejected option leaves, and the final verdict.
 
 The rejected shape below hides the decision basis inside prose:
 
@@ -216,11 +264,23 @@ Option A is good because it has schema support but it adds a dependency, and opt
 
 Promote a design document to an ADR only when an accepted decision becomes durable architecture policy. Derive the ADR from the final drivers, selected option, rejected alternatives, consequences, and status evidence. Do not copy the full design body; the design retains proposal and review history while the ADR owns the durable decision.
 
+Use this handoff record when a produced ADR is derived from an accepted design:
+
+```markdown template
+Origin design: <path, or none>
+Accepted direction: <selected option from final design review>
+Target ADR: <this ADR path or number>
+Architecture fact: <codemap, diagram proof, generated contract, or none>
+Roadmap milestone: <milestone anchor, or none>
+```
+
+Omit a field only when it is genuinely inapplicable and would not help a future maintainer trace the decision.
+
 ## [11][BOUNDARIES]
 
-- [design-doc.md](design-doc.md) owns proposal discussion and review history before acceptance.
-- [architecture.md](architecture.md) owns current structure and invariants.
-- [roadmap.md](roadmap.md) owns build sequence and milestone exit proof.
+- [design-doc.md](design-doc.md) owns proposal discussion and review history before acceptance; link it when an ADR derives from a reviewed design.
+- [architecture.md](architecture.md) owns current structure and invariants; link it when the ADR confirms, changes, or supersedes a structural boundary.
+- [roadmap.md](roadmap.md) owns build sequence and milestone exit proof; link it only when implementation sequencing remains active.
 - [runbook.md](../task/runbook.md) owns symptom-to-fix operational recovery.
 - [README.md](../README.md) owns document-type routing, placement, and lifecycle.
 
@@ -236,5 +296,6 @@ Promote a design document to an ADR only when an accepted decision becomes durab
 - [ ] Consequences include the disposition's positive, negative, or avoided effects without pretending every status is accepted.
 - [ ] Status evidence uses the receipt shape for `accepted`, `rejected`, `deprecated`, or `superseded`.
 - [ ] Supersession links are bidirectional through `Supersedes` and `Superseded by`.
-- [ ] Conditional `More information` and `Pros and cons` sections appear only when their triggers hold.
+- [ ] Conditional `More information` and `Decision basis matrix` sections appear only when their triggers hold.
 - [ ] The decision-log index is a status-tagged record table, not flat prose.
+- [ ] Option matrices use decision-specific fields, not generic praise or criticism columns.

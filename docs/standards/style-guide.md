@@ -13,7 +13,7 @@ Apply this standard when writing or reviewing:
 
 Salience and ordering, container form, and evidence strength belong to the position, form, and evidence standards.
 
-## [2][SOURCE_ORDER]
+## [2][WORDING_PRECEDENCE]
 
 Use the first source that decides a naming or wording question:
 

@@ -13,12 +13,12 @@ Write a how-to guide when every condition holds:
 
 Route a first-success learning path, an operational symptom response, a contribution workflow, an API surface, supported-version facts, or a conceptual explanation to its own type. The README corpus map resolves the reader need to a type; this standard owns the how-to type only.
 
-## [2][CANONICAL_SOURCE]
+## [2][HOW_TO_BASELINE]
 
 This standard operationalizes the Diataxis how-to guide. A how-to is goal-oriented action for an already-competent user who knows what they want to achieve. Its structure follows the user's work, keeps focus on one goal, links explanation and reference instead of embedding them, and phrases unavoidable branches as conditional imperatives. The rules below add agent-facing structure, conditional section discipline, and claim-level proof.
 
 Source of truth: [Diataxis how-to guide documentation](https://diataxis.fr/how-to-guides/).
-Last verified: 2026-06-04.
+Last verified: 2026-06-04
 Review trigger: Diataxis how-to guidance changes.
 
 ## [3][SECTION_RULES]
@@ -38,7 +38,6 @@ Do not classify guides by project maturity, product size, or broad task family. 
 Use the section set below; each `##` heading is a standalone retrieval unit a reader may open out of order. The base template includes only universal sections, so agents do not publish empty conditional headings. Add conditional sections from the second template only when their trigger applies, and renumber headings in document order.
 
 ```markdown template
-<!-- source-only: how-to base template; add conditional sections only when their triggers apply -->
 # [HOW_TASK]
 
 Last verified: YYYY-MM-DD
@@ -84,6 +83,36 @@ Section cardinality:
 
 Omit a conditional section when the condition is absent. Do not publish empty placeholders, generic readiness text, reference inventories, broad recovery branches, or author-review scaffolding to make the template look complete.
 
+A minimal how-to still carries the full outcome path. Use a compact skeleton when the task is small rather than adding placeholder sections:
+
+```markdown conceptual
+# [EXPORT_APPROVED_PLAN]
+
+Last verified: 2026-06-04
+Review trigger: export command, plan schema, or target-state check changes.
+
+## [1][GOAL]
+
+Export the reviewed plan so the release owner has one approved artifact at `./dist/plan.json`.
+
+## [2][PROCEDURE]
+
+1. In the repository root, run the export command.
+   Operation: `planctl export --plan ./deploy-plan.lock --out ./dist/plan.json`
+   Expected result: `./dist/plan.json` exists and reports the plan ID from `./deploy-plan.lock`.
+   If the file is absent, stop and inspect the command output before rerunning.
+2. Open the exported artifact and confirm the target field.
+   Operation: inspect `./dist/plan.json`.
+   Expected result: `target` equals the reviewed target in `./deploy-plan.lock`.
+
+## [3][VERIFICATION]
+
+- [ ] `./dist/plan.json` exists and contains the reviewed plan ID — Evidence: `planctl export --plan ./deploy-plan.lock --out ./dist/plan.json`
+- [ ] The exported `target` equals the reviewed target — Evidence: local artifact inspection
+
+Proof gap: none; the exported artifact and target field were checked against the documented input.
+```
+
 ## [5][SCOPE_RULES]
 
 - Solve one task per guide and state its outcome in the title and `Goal`.
@@ -91,6 +120,17 @@ Omit a conditional section when the condition is absent. Do not publish empty pl
 - List only prerequisites this task consumes; name broader environment setup by topic and route it elsewhere.
 - Keep action and necessary judgment in the guide; move concepts, API catalogs, option inventories, broad failure analysis, and support facts to their owning types and name them by topic.
 - Carry one primary successful path. Add branches only for unavoidable judgment points, state the decision condition, and rejoin when possible; split broad variants into separate guides.
+
+When a procedure depends on adjacent truth to choose a target, branch, artifact, or boundary, carry one task-specific handoff record at the first point of use. Do not copy the adjacent document's map, roadmap, catalog, or lesson:
+
+```markdown template
+Adjacent source: <architecture, roadmap, reference, runbook, tutorial, or support-matrix path>
+Task use: <specific decision, target, artifact, or boundary this procedure consumes>
+Reader action: <what the reader does with that adjacent fact in this guide>
+Route-away: <concept, lookup, recovery, learning, or status fact that stays in the adjacent owner>
+```
+
+Omit the handoff when the guide merely links further reading after completion. Include it only when the procedure would be unsafe, ambiguous, or incomplete without the adjacent source.
 
 ## [6][PREREQUISITES_RULES]
 
@@ -124,6 +164,15 @@ Prepared artifact: reviewed deployment plan at `./deploy-plan.lock`
 - State a gating condition before the action it controls as a conditional imperative: `If <signal>, <action>`.
 - State the expected result of a step when the reader needs that signal to proceed, so the reader confirms progress without running the full `Verification` block.
 - Mark an optional step with a leading `Optional:` and mark an irreversible step with a leading `Irreversible:` so the reader sees the stakes before acting.
+
+A step that uses a command should bind operation, expected result, and next condition in the same record so an agent does not leave the reader with a command-only instruction:
+
+```markdown conceptual
+1. In the repository root, apply the reviewed plan.
+   Operation: `deployctl apply --target staging --plan ./deploy-plan.lock`
+   Expected result: deployment status changes to `applying` for the reviewed plan ID.
+   If the status remains `pending`, stop and confirm the plan target before rerunning.
+```
 
 When the task uses a command, show the accepted command in a fenced block with an intent label. Include a rejected near-miss only when it prevents a likely, material error. A real guide uses `copy-safe` only for a command that runs as written; the illustrative accepted shape below is `conceptual`, and the near-miss is `rejected`:
 
@@ -161,6 +210,16 @@ Render `Verification` as a checklist when the outcome carries several independen
 - [ ] State check reports the checkout service at the requested revision — Evidence: `deployctl status --service checkout --target staging`
 - [ ] Readiness probe returns ready within the rollout window — Evidence: checkout readiness dashboard
 ```
+
+Reject verification that proves only command completion:
+
+```markdown rejected
+## [3][VERIFICATION]
+
+- [ ] `deployctl apply` exited 0.
+```
+
+The rejected form omits the requested revision, target state, and readiness outcome, so it cannot prove the `Goal`.
 
 For a state-changing task, give `Rollback` the reverse action, its expected result, and its own check. When no reverse exists, say so and route recovery to a runbook by topic:
 
@@ -224,24 +283,33 @@ A symptom-to-recovery set with three or more entries is a lookup the reader scan
 
 ## [10][FORMAT_CHOICES]
 
-- Use a numbered list for the procedure, peer bullets only for independent observations inside a step, and a fenced labeled block for every command or copyable artifact.
-- Use a definition block for the metadata block and for `Prerequisites` records that a reader scans or updates per line, not a one-row table.
-- Use a checklist for multi-condition verification and keep inline proof fields after an em dash.
-- Use a table only for genuine row-and-column lookup such as signal-to-recovery entries; the table ceiling lives in [information-structure.md](../information-structure.md), and an oversized lookup splits by natural axis.
-- For a forking procedure, choose between prose, a decision table, and a Mermaid `flowchart` by the triggers [information-structure.md](../information-structure.md) owns; keep a linear procedure as a numbered list.
+Choose forms by the reader action this how-to requires. Use numbered procedure steps for the normal path, definition blocks for metadata and prerequisites, checklists for multi-condition verification, and signal-keyed records or lookup tables for task-local troubleshooting. Route general table limits, record escalation, and code-block intent labels to [information-structure.md](../information-structure.md).
 
-A forking procedure renders its decision and rejoin as a flowchart only when the branch is easier to follow visually than as steps or a decision table:
+For a forking procedure, choose prose or a numbered branch first. Use a decision table when independent conditions jointly choose an action, and use Mermaid only when the branch and rejoin are easier to follow visually than as steps or a decision table.
 
-```mermaid conceptual
-%% branch-and-rejoin shape for a guide with multiple dependent signals
+A forking procedure renders its conceptual decision and rejoin as a flowchart only when the branch is easier to follow visually than as steps or a decision table:
+
+```mermaid
+---
+config:
+  layout: elk
+  look: neo
+  theme: base
+  elk:
+    mergeEdges: false
+    nodePlacementStrategy: BRANDES_KOEPF
+    cycleBreakingStrategy: GREEDY_MODEL_ORDER
+---
 flowchart TD
+    accTitle: How-to branch and rejoin
+    accDescr: A state check branches on drift and plan validity, reconciles or regenerates when needed, rejoins at apply, and ends by verifying target state.
     StateCheck["Run state check"] --> Drift{"Drift detected?"}
-    Drift -- "No" --> Plan{"Plan valid?"}
-    Drift -- "Yes" --> Reconcile["Reconcile drift"]
+    Drift -->|no| Plan{"Plan valid?"}
+    Drift -->|yes| Reconcile["Reconcile drift"]
     Reconcile --> Plan
-    Plan -- "Yes" --> Apply["Apply reviewed plan"]
-    Plan -- "No" --> Regenerate["Regenerate plan"]
-    Regenerate --> Apply
+    Plan -->|yes| Apply["Apply reviewed plan"]
+    Plan -->|no| Regenerate["Regenerate plan"]
+    Regenerate --> Plan
     Apply --> Verify["Verify target state"]
 ```
 
@@ -268,12 +336,13 @@ The text equivalent is the same branch: run a state check, reconcile drift only 
 - [ ] The metadata block carries `Last verified` and `Review trigger`.
 - [ ] Conditional sections appear only when the task consumes their facts or actions.
 - [ ] Adjacent owners are named by topic in prose and linked once each only in `Boundaries` when adjacent maintained owners exist.
+- [ ] Adjacent-source handoff records appear only when adjacent truth controls a procedure decision, target, artifact, or boundary.
 
 **Procedure**
 - [ ] Prerequisites are a definition block of checkable access, context, versioned-tool, or prepared-artifact records, listing only what this task consumes.
 - [ ] Procedure steps are imperative, input-neutral, ordered by reader flow, condition-first, and place-clear.
 - [ ] Optional and irreversible steps carry their leading markers when present.
-- [ ] Every fenced block carries one intent label.
+- [ ] Every ordinary fenced block carries one intent label.
 
 **Proof**
 - [ ] Verification proves the outcome, states each expected result, and cites claim-level evidence.

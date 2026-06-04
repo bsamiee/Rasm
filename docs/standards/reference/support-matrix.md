@@ -13,12 +13,13 @@ Use a support matrix when a reader compares support facts across rows:
 
 Route future support intent to [roadmap.md](../explanation/roadmap.md), step-by-step migration to [how-to.md](../task/how-to.md), operational recovery to [runbook.md](../task/runbook.md), and ordinary lookup facts to [reference.md](reference.md).
 
-## [2][SOURCE_MODELS]
+## [2][LIFECYCLE_BASELINES]
 
 Map imported lifecycle or compatibility concepts to their source instead of flattening them into local vocabulary.
 
 endoflife.date lifecycle fields
     Source of truth: [endoflife.date API documentation](https://endoflife.date/docs/api/v1/).
+    OpenAPI source: [endoflife.date API v1 OpenAPI](https://endoflife.date/docs/api/v1/openapi.yml).
     Last verified: 2026-06-04
     Review trigger: endoflife.date API field model or product source changes.
 
@@ -38,7 +39,11 @@ Local repository support truth
 
 Do not invent local lifecycle semantics where upstream policy owns phase, date, support entitlement, or compatibility. When a generated compatibility check and prose disagree, the check controls.
 
-When importing endoflife.date data, preserve the upstream field names and paired boolean and date semantics before mapping them to local display labels. Keep pairs such as `isEoas`/`eoasFrom`, `isEol`/`eolFrom`, `isEoes`/`eoesFrom`, `isDiscontinued`/`discontinuedFrom`, plus fields such as `isLts`, `ltsFrom`, `isMaintained`, `latest`, and `custom` when they affect a row. Preserve null, missing, and not-announced states distinctly; do not flatten them into one local unknown value.
+When importing endoflife.date data, preserve upstream field names before mapping them to local display labels:
+
+Boolean/date pairs: `isEoas`/`eoasFrom`, `isEol`/`eolFrom`, `isEoes`/`eoesFrom`, and `isDiscontinued`/`discontinuedFrom`.
+Related fields: `isLts`, `ltsFrom`, `isMaintained`, `latest`, and `custom` when they affect a row.
+Missing-value rule: preserve omitted fields, explicit `null`, false booleans, and not-announced dates as distinct facts.
 
 ## [3][PROFILES]
 
@@ -84,6 +89,8 @@ Universal template:
 ```markdown template
 # [SURFACE_SUPPORT]
 
+<Lead: name the supported surface, profile, support regime, and the single reader question the matrix answers.>
+
 Source of truth: <owning policy, generated check, manifest, or contract>
 Last verified: YYYY-MM-DD
 Review trigger: <upstream release, policy update, manifest change, or compat-check change>
@@ -91,7 +98,7 @@ Owner: <refresh owner, when one exists>
 
 ## [1][SCOPE]
 
-## [2][SOURCE_TRUTH]
+## [2][CONTROL]
 
 ## [3][STATUS_VOCABULARY]
 
@@ -127,21 +134,17 @@ Conditional insertions:
 Section cardinality:
 
 **Required universal**
-- Opening metadata: required, single; carries `Source of truth`, `Last verified`, `Review trigger`, and `Owner` when one exists.
-- `Scope`: required; names supported surface, profile, and support regime.
-- `Source truth`: required; orders the proof sources for this matrix.
-- `Status vocabulary`: required; defines only statuses used and maps each to upstream phase and exact fix classes.
-- `Matrix`: required and repeatable; one table or grouped subsection per profile axis.
-- `Exclusions`: required; enumerates unsupported configurations explicitly.
+- Opening lead and metadata: required, single; lead states the support question, and metadata carries `Source of truth`, `Last verified`, `Review trigger`, and `Owner` when one exists.
+- Required sections: `Scope`, `Source truth`, `Status vocabulary`, `Matrix`, `Exclusions`, `Boundaries`, and `Review checklist`.
+- Repeatable section: `Matrix`, one table or grouped subsection per profile axis.
 
 **Conditional profile**
-- `Lifecycle dates`: required for product-lifecycle and deprecation profiles; optional otherwise.
+- `Lifecycle dates`: required for product-lifecycle and deprecation profiles.
 - `Reading rule`: required for two-axis, intersection, or derived cells.
 - `Compatibility bounds`: required for compatibility profiles.
 - `Dependency floors`: required when support depends on upstream runtime, OS, toolchain, or host support.
+- `Deprecations` and `Migration paths`: required when any row is deprecated, end-of-support, retired, removed, or has a replacement.
 - `Limitations`: optional and repeatable for limited surfaces.
-- `Deprecations`: required when any row is deprecated, end-of-support, retired, or removed.
-- `Migration paths`: required when a deprecation has a replacement; link the how-to for steps.
 
 **Evidence and close**
 - `Evidence`: page-level only when one source and trigger prove the whole matrix; otherwise attach evidence per row.
@@ -190,6 +193,34 @@ Review trigger: vendor lifecycle page changes.
 
 The record is fictional shape. Replace labels, phase grants, and dates with owner-verified lifecycle data.
 
+Use a lifecycle or deprecation diagram only when transitions change reader action and cannot be scanned as clearly from records. The diagram below is conceptual; keep records as source of truth and place a text equivalent after every real diagram.
+
+```mermaid
+---
+config:
+  layout: elk
+  look: neo
+  theme: base
+  elk:
+    mergeEdges: false
+    nodePlacementStrategy: BRANDES_KOEPF
+    cycleBreakingStrategy: GREEDY_MODEL_ORDER
+---
+stateDiagram-v2
+    accTitle: Support lifecycle transition
+    accDescr: A surface moves from supported to maintenance or directly to deprecation, then end of support and retirement; migration guidance is recorded beside deprecated surfaces.
+    [*] --> Supported
+    Supported --> Maintenance: upstream phase changes
+    Supported --> Deprecated: replacement announced
+    Maintenance --> Deprecated: replacement announced
+    state "End of support" as EndOfSupport
+    Deprecated --> EndOfSupport: fixes stop
+    EndOfSupport --> Retired: surface removed
+    Retired --> [*]
+```
+
+Text equivalent: the support row remains `Supported` until the source phase changes, moves through `Maintenance` only when the source grants reduced fix classes, may move directly to `Deprecated` when a replacement or removal policy exists, reaches `End of support` when ordinary fixes stop, and becomes `Retired` only when the surface is unavailable. Migration guidance belongs in deprecated records, not in a lifecycle state.
+
 ## [9][MATRIX]
 
 Use a table when row-and-column scanning is the clearest comparison and keep it inside the shared table ceiling. Use a definition block when one surface is read by field. Use grouped subsections when a row needs paragraph detail, nested proof, or migration explanation.
@@ -208,6 +239,21 @@ Each row must stand alone. Include the applicable field set:
 - Evidence: source path, contract, command, generated check, or official policy link.
 
 Do not copy a large generated or vendor-owned matrix when the official source is stronger. Publish only the local subset that changes reader decisions and link the controlling source.
+
+When a table row needs proof, replacement, or migration detail too large for a cell, move that row to a record:
+
+```text template
+Surface: `<product, component, feature, runtime, platform, API, or plan>`
+Version or scope: `<release line, version range, entitlement, or environment>`
+Status: `<status vocabulary term>`
+Upstream phase: `<source phase; omit when no upstream phase exists>`
+Phase grants: `<fix classes or support channel>`
+Key date: `<date, not announced, still supported, or n/a>`
+Requirement: `<dependency, certification, or entitlement; omit when unconditional>`
+Replacement: `<replacement surface; omit when no replacement exists>`
+Evidence: `<manifest, generated check, official policy, or support source>`
+Review trigger: `<upstream release, policy, generated check, or owner change>`
+```
 
 ## [10][READING_RULE]
 
@@ -258,9 +304,7 @@ State dependency floors where support depends on an upstream runtime, OS, toolch
 Enumerate unsupported configurations explicitly. The absence of a row is not proof of support or lack of support.
 
 ```text conceptual
-- `example-server 3.6` paired with any client older than `3.4`.
-- Bundled runtime on an OS past that OS's own end of life.
-- Cross-region deployment under the single-region plan.
+Unsupported: `example-server 3.6` with clients older than `3.4`; bundled runtime on an end-of-life operating system; cross-region deployment under a single-region plan.
 ```
 
 The examples are fictional unsupported cases. Replace them with owner-verified exclusions.
@@ -295,6 +339,18 @@ Review trigger: vendor deprecation policy or release plan changes.
 
 Keep migration guidance decision-oriented. For each migration, name source surface, target surface, direct or staged path, prerequisites, known breaking changes, validation signal, and owning how-to. Put the step-by-step work in [how-to.md](../task/how-to.md) and operational recovery in [runbook.md](../task/runbook.md).
 
+Use a migration anchor record when the support matrix links roadmap intent or a how-to without embedding the sequence:
+
+```text template
+Source surface: `<deprecated, limited, unsupported, or retired surface>`
+Target surface: `<replacement; omit when no replacement exists>`
+Support status: `<status vocabulary term>`
+Validation signal: `<command, generated check, owner signoff, or proof gap>`
+Why linked: `<one sentence naming the support decision this link changes>`
+Review trigger: source support status, replacement, roadmap milestone, or migration guide changes.
+Routes: `<roadmap, migration how-to, runbook, or support owner; omit untriggered routes>`
+```
+
 ## [16][EVIDENCE]
 
 Attach evidence to every support status beside the row or record it proves. Use a page-level evidence section only when one source and one trigger prove the whole matrix.
@@ -320,10 +376,11 @@ Use `Review trigger:` for the event that makes the fact stale. Use `Last verifie
 ## [18][REVIEW_CHECKLIST]
 
 **Source and status**
-- [ ] Opening metadata carries source truth, freshness, review trigger, and owner where known.
+- [ ] Opening lead and metadata carry the support question, source truth, freshness, review trigger, and owner where known.
 - [ ] Scope names the surface, one profile, and the support regime.
 - [ ] Status vocabulary defines only used statuses and maps each to upstream phase and fix classes.
 - [ ] Imported lifecycle fields preserve upstream names, boolean and date pairs, and null or not-announced distinctions before local mapping.
+- [ ] Imported lifecycle rows distinguish omitted, explicit null, false, and not-announced values where the source model distinguishes them.
 
 **Matrix and bounds**
 - [ ] Matrix rows stand alone and carry evidence.
@@ -334,8 +391,9 @@ Use `Review trigger:` for the event that makes the fact stale. Use `Last verifie
 - [ ] Dependency-floor rows state the upstream minimum and support ceiling.
 - [ ] Unknown dates or undecided statuses are encoded explicitly.
 - [ ] Conditional support uses visible notes or footnotes, never paragraph cells.
+- [ ] Lifecycle, deprecation, or compatibility diagrams appear only where transitions or edges change reader action, and each diagram has a text equivalent.
 
 **Deprecation and migration**
 - [ ] Deprecation entries distinguish current availability, warning signal, replacement, removal, behavior change, and source truth.
-- [ ] Migration entries name a target and link the owning how-to rather than embedding steps.
+- [ ] Migration anchors name source, target, roadmap or how-to owner, validation signal, and review trigger rather than embedding steps.
 - [ ] Boundaries route adjacent concerns once and every relative link resolves.
