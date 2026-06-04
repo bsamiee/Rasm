@@ -4,7 +4,6 @@
 Root `AGENTS.md`/`CLAUDE.md` own universal policy; this file is assay-specific.
 `coding-python` skill is required before any `.py` edit.
 
----
 ## [1][ARCHITECTURE_IN_ONE_BREATH]
 
 One **Engine** (`core/engine.run_check`/`fan_out`) runs every program in every language.
@@ -21,7 +20,6 @@ Cross-cutting behavior attaches **only** as a slot-ordered aspect stack at **two
 `Slot(IntEnum){checked=0, logged=1, traced=2, retried=3}` — `compose` sorts and rejects inversions as a decoration-time `TypeError`.
 The automation arm (`automation/`) shares Engine, leases, settings, and `_emit`; it is a first-class arm, not a `Claim`.
 
----
 ## [2][POLYMORPHIC_ADT_AND_AOT_DISCIPLINE]
 
 **Axis `StrEnum`s carry behavior payloads** — `Runner.prefix`, `Input.flag`/`scoped`, `Language.strategy`/`suffixes`, `Mode.stream`/`writes`.
@@ -40,7 +38,6 @@ One member instance serves Cyclopts token, `msgspec` wire value, and `match` key
 **Never** add a parallel type, a parallel param, a second rail shape, a new module for a program, or a helper file for indirection.
 Functionality is never removed to reduce LOC — density is concept count, not byte count.
 
----
 ## [3][DEEP_EXTERNAL_LIB_STACK_AS_A_DISCIPLINE]
 
 Use every library **at its intended power**. Hand-rolling a lower-level reimplementation is a first-class defect.
@@ -63,7 +60,6 @@ Use every library **at its intended power**. Hand-rolling a lower-level reimplem
 | `asyncssh` | adopted | `_run_remote` backend in `core/engine`; `conn.run`/`create_process` for `exec_target=ssh://…`. |
 | `tree-sitter` (+py/ts grammars) | adopted | `code query` AST search via `Runner.INPROC`; `Language(capsule)`/`Parser`/`Query(lang, src)`/`QueryCursor` — 0.25.x captures live on `QueryCursor`, not `Query`. |
 
----
 ## [4][HARD_ANTI-SPAM_DOCTRINE]
 
 Stop and collapse before merging any of these:
@@ -82,7 +78,6 @@ Stop and collapse before merging any of these:
 - `worst(…)` — the fold is `RailStatus.join` (max-by-severity) + module `fold`.
 - Parallel types modeling one concept (≥3 triggers the collapse).
 
----
 ## [5][LOCKED_ENGINEERING_PRINCIPLES]
 
 *Absorb these as durable principles; do not re-litigate.*
@@ -107,7 +102,6 @@ Stop and collapse before merging any of these:
 
 **(j) Tree-walking tools self-walk via `Input.NONE`.** ast-grep `run`/`scan` and biome `ci` walk a tree themselves (respecting `.gitignore`); they take a directory/file PATH, never a `**/*.py` glob (ast-grep rejects a glob as a path → ENOENT → silent zero matches — this once made the static ast-grep lint inert). Splice the target paths into `tool.command` with `Input.NONE`; only a tool consuming an explicit file list (tree-sitter INPROC) takes `Input.FILES`. Add `--no-ignore hidden` where one tool's walk must cover the same tree as another's `fd` file list.
 
----
 ## [6][HOW_TO_CHECK_FOR_REAL_BUGS]
 
 The static gate is necessary but not sufficient. A tool that passes every static check — `ruff check`, `ruff format --check`, `ty check`, `mypy --strict`, `import tools.assay.__main__` — can still crash on every invocation due to beartype forward-ref shadowing, async-span wrapping, or nested-anyio defects. These only surface at runtime.
@@ -124,7 +118,6 @@ uv run python -m tools.assay code search --pattern '<pat>' --language python   #
 
 Inspect the single stdout Envelope; structlog diagnostics ride stderr. The success wire is **terse** (`Envelope` `omit_defaults=True`) — `status`/`exit_code` are omitted on a clean OK run, so decode via the typed `Envelope` (or `.get(...)`), never assume a raw `dict["status"]`. A `faulted` Envelope's `error_context.failing_step`/`hint` names the failing stage. Treat every "all green" static claim as a hypothesis to re-verify at runtime — and run `uv run ruff clean` before an authoritative gate: a warm ruff cache silently masked ~9 real D-rule/E501 violations during this tool's promotion.
 
----
 ## [7][OWNERSHIP_TABLE]
 
 | [PATH] | [OWNS] | [NEVER] |
@@ -143,7 +136,6 @@ Inspect the single stdout Envelope; structlog diagnostics ride stderr. The succe
 | `automation/model.py` | `Trigger`/`Action` tagged unions | Treating automation as a `Claim` |
 | `automation/engine.py` | One anyio task-group drive loop (watchfiles/aiocron), one Envelope per fire | A second `_emit`, per-fire `BUSY` retry |
 
----
 ## [8][VALIDATION_LADDER]
 
 After any `.py` change (from the repo root — a wrong cwd reports phantom errors):

@@ -8,15 +8,12 @@ uv run python -m tools.assay self-test                     # composition + catal
 uv run python -m tools.assay watch <paths> --on <action>   # NDJSON stream (automation arm)
 ```
 
-Dictum: *Tools are data; one Engine runs them all; one rail folds a claim; one Envelope carries the result; one Trigger drives them on change.* The **executor** (launch/capture/scope/lease/fold) is separate from the **tool** (which program, which args, which language): a program is a `Tool` data row, not a module; a language is one `Language` member + one routing arm, not a folder.
+The **executor** (launch/capture/scope/lease/fold) is separate from the **tool** (which program, which args, which language): a program is a `Tool` data row, not a module; a language is one `Language` member + one routing arm, not a folder.
 
----
 ## [1][ARCHITECTURE]
 
 ```mermaid
----
 config: { layout: elk, look: neo, theme: base }
----
 flowchart LR
   accTitle: Assay orchestration boundary
   accDescr: CLI routes claim and verb to a rail handler; the engine fans Tool rows into Completed outcomes; one Envelope is emitted to stdout.
@@ -62,7 +59,6 @@ flowchart LR
 8. Cross-cutting behavior exists only as aspect layers at two seams — no inline structlog/otel/stamina, no `Engine`/`Parser` `Protocol`.
 9. Output is never silently truncated: a capped inline list sets `truncated=true` AND writes the full set to an on-disk artifact.
 
----
 ## [2][ENVELOPE_CONTRACT]
 
 Every invocation writes one JSON `Envelope` line to `stdout.buffer`. `Envelope` inherits `Base`'s `omit_defaults=True`, so the **success wire is terse** — only non-default fields emit. `schema_version` is required (no default), so the wire version tag always appears; `error`/`error_context`/`status`/`exit_code`/`notes`/`truncated`/`command_path` are omitted on a clean OK run and present (non-default) on a fault.
@@ -84,7 +80,6 @@ Every invocation writes one JSON `Envelope` line to `stdout.buffer`. `Envelope` 
 
 `report.counts` = `Counts(ok, failed, total)`, derived in the fold only. `report.detail` is a `msgspec` tagged union keyed by `kind` (`verify`/`test`/`package`/`api`/`resolution`/`diagnostic`) with `forbid_unknown_fields`. `report.artifacts` = `tuple[Artifact{id, kind, path, bytes, lines}]`. `report.results` = `tuple[Match{id, kind, text, line, score, severity, confidence}]`. `Envelope.__cyclopts_returncode__` returns `exit_code` — the single exit-code source.
 
----
 ## [3][RAILSTATUS_ALGEBRA]
 
 `RailStatus` is the only status type. Fold = `reduce(join, statuses, EMPTY)`, `join` = max-by-severity. `faulted`/`busy`/`timeout` ride the `Result` Error channel and never enter the success fold.
@@ -102,7 +97,6 @@ Every invocation writes one JSON `Envelope` line to `stdout.buffer`. `Envelope` 
 
 `from_returncode`: `0→empty`, `5→busy`, `124→timeout`, else `failed`. `--strict` on `api`/`docs` promotes `empty`/`skip` to a `faulted` Fault — a flag, not a status member. On a Fault, `error_context.failing_step` names the stage structurally from `(status, argv, message-prefix)`: `timeout` / `lease_busy` / `strict` / `validation` / `spawn`.
 
----
 ## [4][CLAIM_VERB_MAP]
 
 `Bind(claim, verb, handler, params, help)`; `build_app` groups by `claim` into nested Cyclopts apps. Polyglot `static`/`code`/`test`/`docs` handlers `select(claim, language)` rows and fold; C#-only `bridge`/`package`/`api` emit a bespoke `detail`. Verb names encode cost/mutability — `fix`/`rewrite --apply` mutate, `report`/`search`/`query` never do, `full` is the expensive parity rail.
@@ -120,7 +114,6 @@ Every invocation writes one JSON `Envelope` line to `stdout.buffer`. `Envelope` 
 
 Polyglot reach: `static`/`test`/`docs` span C#/Python/TypeScript/Bash/SQL; `code` is grammar-backed (Python + TypeScript today, data-driven off the catalog); `bridge`/`package`/`api` are C#-only bespoke folds. The thin-rail families share one `thin_rail(settings, scope, params, *, claim, verb, mode)`; per-verb behavior is `Mode` + `Params`, not separate functions. Per-verb `Params` inherit `BaseParams{paths, language}` (flattened onto the CLI via an inherited `@Parameter(name="*")`); `api`/`docs` add `strict`.
 
----
 ## [5][AXES_AND_SHAPES]
 
 Variance rides five behavior-carrying `StrEnum` axes (payload via `__new__`), never per-program code:
@@ -137,7 +130,6 @@ The load-bearing reuse: one `StrEnum` instance is simultaneously the Cyclopts to
 
 **Type-system stack (no overlap):** `msgspec` owns wire/evidence structs; `pydantic-settings` owns `AssaySettings` scalars; frozen `@dataclass` owns per-verb `Params`; `ty` + `beartype` own static proof + the two runtime seam boundaries. `match` + `assert_never` is the exhaustive-dispatch form; PEP 695 generics throughout; the sole `Protocol` is `Source` (the git/fd/fsspec change-set provider).
 
----
 ## [6][ASPECT_WEAVE]
 
 Cross-cutting behavior attaches only as slot-ordered decorators at **two seams** — never inline. `compose` sorts by `Slot` (`IntEnum`, `checked=0` outermost), raises `TypeError` on inversion at decoration time, and is idempotent via an `id(dec)` guard.
@@ -153,7 +145,6 @@ The rail seam (`registry.rail`) weaves `checked ▷ logged ▷ traced` (a rail i
 
 > **Runtime invariant (load-bearing):** any type in a `@checked` signature must be imported **unconditionally** — a type stranded under `if TYPE_CHECKING:` silently disarms beartype's first-call forward-ref resolution and crashes every invocation while passing all static gates. Verify a new rail/arm with a real runtime invocation, not just the gate.
 
----
 ## [7][CONCURRENCY_LEASE_ISOLATION]
 
 Isolation by path; exclusivity by liveness-checked fail-fast lease; fan-out bounded by `CapacityLimiter(max_checks)`. Each run opens `.artifacts/assay/<claim>/<run_id>/` with an isolated `DOTNET_CLI_HOME`; closure builds use a **stable** `.artifacts/assay/build/<closure>/` (closure = `sha256(sorted-projects)[:16]`) so the warm MSBuild/analyzer tree survives across runs. `run_check` calls `anyio.run` exactly once — `fan_out` never nests loops.
@@ -171,7 +162,6 @@ Leases: `fcntl.flock(LOCK_EX\|LOCK_NB)`, owner block `{resource, run_id, pid, cr
 
 **Environment knobs (pydantic-settings, `ASSAY_*`, read once):** `ASSAY_ROOT` (root; anchors to `Workspace.slnx`, falls back to `cwd` — never crashes on a missing solution); `ASSAY_EXEC_TARGET` (`""`=local, `ssh://[user@]host[:port]`=remote via asyncssh — every rail inherits remote-exec through the single `_run_process_backend` seam); `ASSAY_EXEC_KNOWN_HOSTS`; `ASSAY_RUN_ID`; `ASSAY_AGENT_TASK_ID` (fleet correlation onto every log/span/Envelope). `universal-pathlib` `UPath` is the path type throughout — point-and-go I/O on any fsspec backend; only process execution stays local-or-ssh.
 
----
 ## [8][AUTOMATION_ARM]
 
 A first-class arm (not a `Claim`) sharing the Engine, leases, settings, and `_emit`. `drive(trigger, action, settings)` hosts watch + schedule under one `anyio` task group sharing one stop `Event`, emitting one Envelope per fire (NDJSON — the documented exception to the one-Envelope invariant).
@@ -183,7 +173,6 @@ A first-class arm (not a `Claim`) sharing the Engine, leases, settings, and `_em
 
 A leased `Action` is gated by a per-drive `CapacityLimiter(1)` so a slow fire never re-enters into `busy`; `cpu_threshold` emits `Completed{SKIP}` when `psutil.cpu_percent ≥ threshold`. `Sequence` folds by `RailStatus.join`: a `FAILED` leaf halts (exit 1), any Fault leaf dominates, `SKIP`/`EMPTY`/`OK` continue.
 
----
 ## [9][AGENT_ROUTING] — which gate when
 
 Route by **proof claim**, not habit. One claim per concern: lint never type-checks, type-check never tests, test never opens a runtime host.
@@ -208,7 +197,6 @@ Route by **proof claim**, not habit. One claim per concern: lint never type-chec
 | Treating `empty` as an error | `empty` (exit 0) = ran clean / nothing matched; distinct from `failed` (exit 1) and `unsupported` (exit 3). |
 | Parsing stderr for results | Results are on stdout's single `Envelope`; stderr is diagnostics only. |
 
----
 ## [10][CODEMAP_AND_DEPS]
 
 ```
@@ -223,7 +211,6 @@ tools/assay/
 
 Load-bearing deps (`requires-python >=3.14`): `msgspec` (wire), `pydantic-settings` (config), `expression` (`Result`/`Block.fold`/`@effect.result`), `anyio` (single loop + `to_thread` for INPROC), `cyclopts` (CLI), `beartype`/`structlog`/`opentelemetry-*`/`stamina` (the four aspect slots), `psutil` (lease liveness + CPU governor), `watchfiles`+`aiocron` (automation), `fsspec`+`universal-pathlib` (artifacts/UPath), `asyncssh` (remote exec), `tree-sitter`+`tree-sitter-python`+`tree-sitter-typescript` (`code query`). Orchestrated programs are catalog rows, not deps: `dotnet`/`dotnet-stryker`/`ilspycmd`/`yak`, `ruff`/`ty`/`mypy`/`pytest`/`coverage`/`mutmut`/`ast-grep`, `tsc`/`biome`/`knip`/`sherif`/`vitest`, `shellcheck`/`shfmt`, `sqlfluff`/`squawk`, `mmdc`.
 
----
 ## [11][MAINTENANCE]
 
 Gate every change from the **repo root** (a wrong cwd reports phantom errors), with a **cleared ruff cache** for an authoritative result:

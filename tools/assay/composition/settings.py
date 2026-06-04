@@ -11,6 +11,7 @@ from enum import StrEnum
 import os
 import sys
 from typing import Annotated, Final, override, TYPE_CHECKING
+from urllib.parse import urlsplit
 
 import fsspec  # type: ignore[import-untyped]  # fsspec ships no py.typed marker
 from pydantic import AliasChoices, BeforeValidator, computed_field, Field, field_validator
@@ -136,15 +137,28 @@ class AssaySettings(BaseSettings):
     @field_validator("exec_target")
     @classmethod
     def _exec_target(cls, value: str) -> str:  # pydantic field_validator is cls-bound (classmethod)
-        """Admit ``""`` (local) or an ``ssh://`` URI (remote); reject any other process-exec target."""
+        """Admit ``""`` (local) or a well-formed ``ssh://[user@]host[:port]`` URI; reject anything else.
+
+        Validates scheme + hostname + numeric port at the pydantic boundary so ``engine._run_remote``'s
+        ``urlsplit(...).port`` can never raise a ``ValueError`` the engine's ``OSError``/``asyncssh.Error``
+        catch would miss — a malformed port faults loud here at settings construction, not mid-spawn. The
+        ``.port`` access is the numeric-port probe: a non-numeric authority raises ``ValueError`` at this
+        boundary, mapped to a descriptive pydantic error.
+        """
         match value:
             case "":
                 return value
-            case str() if value.startswith("ssh://"):
-                return value
             case _:
-                msg = f"exec_target must be '' (local) or 'ssh://[user@]host[:port]' (remote): {value!r}"
-                raise ValueError(msg)
+                parts = urlsplit(value)
+                match (parts.scheme, parts.hostname):
+                    case ("ssh", str() as host) if host:
+                        try:
+                            _ = parts.port  # numeric-port probe: a non-numeric authority raises ValueError HERE, at the boundary
+                        except ValueError as exc:
+                            raise ValueError(f"exec_target has a non-numeric ssh port: {value!r}") from exc
+                        return value
+                    case _:
+                        raise ValueError(f"exec_target must be '' (local) or 'ssh://[user@]host[:port]' (remote): {value!r}")
 
     @override
     @classmethod

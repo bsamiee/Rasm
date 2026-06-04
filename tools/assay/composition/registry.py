@@ -107,7 +107,7 @@ REGISTRY: Final[tuple[Bind, ...]] = (  # binds the per-verb ADAPTERS (static_rai
     Bind(Claim.STATIC, "build", static_rail.build, StaticParams, "Closure-leased restore + build + analyzers."),
     Bind(Claim.STATIC, "full", static_rail.full, StaticParams, "Workspace.slnx parity; Debug+Release."),
     Bind(Claim.STATIC, "plan", static_rail.plan, StaticParams, "Owners, triggers, closure into notes."),
-    Bind(Claim.CODE, "search", code_rail.search, CodeParams, "Structural pattern search (ast-grep run)."),
+    Bind(Claim.CODE, "search", code_rail.search, CodeParams, "Search: $-metavar -> ast-grep structural; literal -> ripgrep content."),
     Bind(Claim.CODE, "rewrite", code_rail.rewrite, CodeParams, "Structural rewrite preview; --apply writes under lease."),
     Bind(Claim.CODE, "query", code_rail.query, CodeParams, "AST query via tree-sitter (in-process)."),
     Bind(Claim.TEST, "run", test_rail.run, TestParams, "Unit + coverage + mutation fold."),

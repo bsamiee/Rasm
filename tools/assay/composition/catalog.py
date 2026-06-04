@@ -19,8 +19,6 @@ from tools.assay.core.model import (  # intra-package import; tools.assay is the
     Language,
     Mode,
     Runner,
-    SourceKind,
-    SymbolShape,
     TestRun,
     Tool,
     VerifySummary,
@@ -41,28 +39,6 @@ class _Finding(msgspec.Struct, frozen=True, gc=False):
     message: str = ""
     path: str = ""
     line: int = 0
-
-
-class _Surface(msgspec.Struct, frozen=True, gc=False):
-    """The ``ilspycmd`` surface roster (``parse_surface``): source provenance + symbol shape evidence."""
-
-    source_kind: SourceKind = SourceKind.TOOL
-    source_id: str = ""
-    version: str = ""
-    shape: SymbolShape = SymbolShape.SEARCH
-    signature: str = ""
-    doc: str = ""
-    preview: str = ""
-
-
-class _TestTelemetry(msgspec.Struct, frozen=True, gc=False):
-    """The ``dotnet test --list-tests`` JSON (``parse_tests``): flat mutation/coverage scalars."""
-
-    mutation: str = "off"
-    coverage: float | None = None
-    killed: int = 0
-    survived: int = 0
-    selected: int = 0
 
 
 class _ShellMessage(msgspec.Struct, frozen=True, gc=False):
@@ -118,16 +94,43 @@ class Capture(msgspec.Struct, frozen=True, gc=False):
     line: int = 0
 
 
+class _RgText(msgspec.Struct, frozen=True, gc=False):
+    """One ripgrep ``--json`` ``path``/``lines`` payload: the UTF-8 ``text`` branch (a ``bytes`` branch rides through as an unknown)."""
+
+    text: str = ""
+
+
+class _RgData(msgspec.Struct, frozen=True, gc=False):
+    """The ripgrep ``--json`` event ``data`` block; ``submatches``/``absolute_offset``/``stats`` ride through as unknowns."""
+
+    path: _RgText = msgspec.field(default_factory=_RgText)
+    lines: _RgText = msgspec.field(default_factory=_RgText)
+    line_number: int = 0
+
+
+class RgEvent(msgspec.Struct, frozen=True, gc=False):
+    """One ripgrep ``--json`` NDJSON event: the ``code search`` content-mode evidence the rail folds into ``Match``.
+
+    No ``forbid_unknown_fields`` — ripgrep emits ``begin``/``end``/``summary``/``context`` events with shapes this
+    rail does not model; all ride one struct and the rail keeps only ``kind == "match"`` rows. ``kind`` maps the JSON
+    ``type`` key (the field name is renamed off the ``type`` builtin).
+    """
+
+    kind: str = msgspec.field(default="", name="type")
+    data: _RgData = msgspec.field(default_factory=_RgData)
+
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _FINDINGS = msgspec.json.Decoder(tuple[_Finding, ...])
-_SURFACE = msgspec.json.Decoder(_Surface)
+_SURFACE = msgspec.json.Decoder(ApiSurface)  # decode straight into the Detail subclass (mirrors parse_verify); forbid_unknown_fields gates extras
 _VERIFY = msgspec.json.Decoder(VerifySummary)
-_TESTS = msgspec.json.Decoder(_TestTelemetry)
+_TESTS = msgspec.json.Decoder(TestRun)  # decode straight into the Detail subclass; an off-shape lane is caught by parse_tests' codec boundary
 _SHELLCHECK = msgspec.json.Decoder(_Shellcheck)
 AST_MATCHES = msgspec.json.Decoder(tuple[AstMatch, ...])  # code search/rewrite: ast-grep run --json=compact array
 CAPTURES = msgspec.json.Decoder(tuple[Capture, ...])  # code query: the INPROC thunk's capture array
 CAPTURE_ENCODER = msgspec.json.Encoder()  # the INPROC tree-sitter thunk encodes captures onto Completed.stdout
+RG_EVENT = msgspec.json.Decoder(RgEvent)  # code search content-mode: ripgrep --json is NDJSON, decoded one event per line
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -160,14 +163,14 @@ def parse_tests(done: Completed) -> AnyDetail | None:
     """Decode ``dotnet test`` telemetry into a ``TestRun`` evidence variant.
 
     ``test.py`` probes this over EVERY receipt on a ``--mutation`` run, including non-JSON
-    pytest/dotnet stdout; a decode miss is a defaulted ``TestRun`` (``mutation="off"``) that
-    ``_is_mutation`` rejects, so the first real mutation lane still wins — not a FAULTED rail.
+    pytest/dotnet stdout; a decode miss (non-JSON, an off-shape extra field, or an unknown
+    ``MutationLane`` token) is a defaulted ``TestRun`` (``mutation=off``) that ``_is_mutation`` rejects,
+    so the first real mutation lane still wins — not a FAULTED rail.
     """
     try:
-        t = _TESTS.decode(done.stdout or b"{}")  # codec boundary: non-JSON stdout is a no-op default, not a fault
+        return _TESTS.decode(done.stdout or b"{}")  # codec boundary: a non-JSON / off-shape receipt is a defaulted no-op, not a fault
     except msgspec.DecodeError:
         return TestRun()
-    return TestRun(mutation=t.mutation, coverage=t.coverage, killed=t.killed, survived=t.survived, selected=t.selected)
 
 
 def parse_verify(done: Completed) -> AnyDetail | None:
@@ -204,12 +207,26 @@ def parse_query(done: Completed) -> AnyDetail | None:
     return None
 
 
+def parse_content(done: Completed) -> AnyDetail | None:
+    """Decode-validate ripgrep ``--json`` NDJSON as a catalog schema guard (yields no ``Detail``).
+
+    Mirrors ``parse_search``/``parse_query``: ``code search`` content-mode results ride ``Report.results`` as
+    ``Match`` rows the rail builds, so this carries no ``Detail``. ripgrep emits one JSON object per line, so the
+    guard decodes line-by-line (the ``code`` rail re-decodes the same stream to project the bounded ``Match`` set);
+    the census probes it on the empty receipt so a ripgrep JSON-shape drift fails at preflight, not at a live search.
+    """
+    tuple(RG_EVENT.decode(line) for line in (done.stdout or b"").splitlines() if line)  # NDJSON line-decode schema guard
+    return None
+
+
 def parse_surface(done: Completed) -> AnyDetail | None:
-    """Decode the ``ilspycmd`` surface roster into an ``ApiSurface`` evidence variant."""
-    s = _SURFACE.decode(done.stdout or b"{}")
-    return ApiSurface(
-        source_kind=s.source_kind, source_id=s.source_id, version=s.version, shape=s.shape, signature=s.signature, doc=s.doc, preview=s.preview
-    )
+    """Decode the ``ilspycmd`` surface roster straight into an ``ApiSurface`` evidence variant.
+
+    Decoding into the ``Detail`` subclass enforces its field bounds at the msgspec C boundary and rejects
+    unknown fields (``forbid_unknown_fields``); the empty census receipt decodes to a defaulted
+    ``ApiSurface`` (the ``kind`` tag is required only for union discrimination, never a concrete decode).
+    """
+    return _SURFACE.decode(done.stdout or b"{}")
 
 
 def parse_shellcheck(done: Completed) -> AnyDetail | None:
@@ -317,6 +334,18 @@ TOOLS: tuple[Tool, ...] = (
     Tool("ast-grep", PNPM, ("ast-grep", "run"), NONE, TS, Claim.CODE, mode=Mode.WRITE, parser=parse_search),
     Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, PY, Claim.CODE, mode=Mode.QUERY, parser=parse_query),
     Tool("tree-sitter", INPROC, ("tree-sitter", "query"), FILES, TS, Claim.CODE, mode=Mode.QUERY, parser=parse_query),
+    # ripgrep grammar-blind content search (the unified `search` non-metavar arm): ONE DIRECT self-walk, never a per-language
+    # fan — the PY language tag is inert (census/membership only); --language refines via globs spliced in the rail, not this row.
+    Tool(
+        "ripgrep",
+        DIRECT,
+        ("rg", "--json", "-U", "--multiline-dotall", "-P", "--hidden", "--glob", "!.git"),
+        NONE,
+        PY,
+        Claim.CODE,
+        mode=Mode.CONTENT,
+        parser=parse_content,
+    ),
 )
 
 
@@ -342,10 +371,13 @@ __all__ = [
     "AST_MATCHES",
     "CAPTURES",
     "CAPTURE_ENCODER",
+    "RG_EVENT",
     "AstMatch",
     "Capture",
+    "RgEvent",
     "TOOLS",
     "parse_build",
+    "parse_content",
     "parse_findings",
     "parse_query",
     "parse_search",

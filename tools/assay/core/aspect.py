@@ -263,6 +263,10 @@ def logged[**P, T](*, event: str, keys: Bind[P]) -> Layer[P, T]:
                 res = fn(*a, **k)
                 match res:
                     case Result(tag="ok", ok=done):
+                        # ``done: T`` is the GENERIC Hom payload (Report at the rail seam, Completed at the
+                        # engine seam): both carry ``.status``, but ``T`` is unbounded, so a bare ``done.status``
+                        # is a mypy --strict ``attr-defined`` (ty passes). getattr is the precise generic
+                        # projection here, not dead code — the default is the correct fallback for a status-less payload.
                         _LOG.info(f"{event}.finish", status=getattr(done, "status", RailStatus.OK))
                     case Result(error=f):
                         getattr(_LOG, _TERMINAL[f.status.severity >= RailStatus.FAILED.severity])(
@@ -279,7 +283,7 @@ def _stamp[T](s: Span, res: Result[T, Fault]) -> Result[T, Fault]:
     """Map the awaited/returned ``Result`` onto the live span's attributes + status; returns ``res`` unchanged."""
     match res:
         case Result(tag="ok", ok=done):
-            s.set_attribute("assay.status", str(getattr(done, "status", RailStatus.OK)))
+            s.set_attribute("assay.status", str(getattr(done, "status", RailStatus.OK)))  # generic Hom payload T is unbounded; see logged's note
             s.set_status(Status(StatusCode.OK))
         case Result(error=f):
             s.set_attributes({"assay.status": f.status, "assay.message": f.message[:_ATTR_CAP]})

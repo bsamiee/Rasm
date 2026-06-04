@@ -1,7 +1,4 @@
 # [H1][QUALITY_OPERATOR]
->**Dictum:** *One rail owns one proof claim.*
-
-<br>
 
 [IMPORTANT] `tools.quality` is an agent-only CLI. Run the narrowest rail that owns the claim. Report command, exit, and evidence path.
 
@@ -13,14 +10,9 @@ Rails stay orthogonal: `static` never runs tests, `test` never opens Rhino, `bri
 
 [CRITICAL] Output contract: every verb writes exactly ONE JSON `Envelope` object to stdout — fields `rail`, `verb`, `status`, `exit_code`, `run_id`, `evidence`, `data`, `error`, `truncated`, `notes`. `status` is one of `ok | empty | skip | busy | timeout | unsupported | failed`. The per-verb payload (static plan, test summary, verify report, api query result) nests verbatim under `data`. Streamed `dotnet` build/test/run bytes and all structlog diagnostics go to STDERR only — never stdout. There is no raw-text passthrough and no World-A/World-B duality; stdout is always the single Envelope.
 
----
 ## [1][RAIL_MAP]
->**Dictum:** *Graph highlights routing and contention only.*
-
-<br>
 
 ```mermaid
----
 config:
   layout: elk
   look: neo
@@ -34,25 +26,24 @@ config:
     lineColor: "#8be9fd"
     clusterBkg: "#21222c"
     clusterBorder: "#6272a4"
----
 flowchart LR
   accTitle: Quality operator routing
   accDescr: Static fixes and builds CSharp projects. Test runs MTP and explicit mutation. Bridge owns live Rhino. Package owns Yak staging. API reads host metadata.
 
-  cli["quality CLI"] --> scope["ArtifactScope<br/>run_id + DOTNET_CLI_HOME"]
-  scope --> static["static<br/>fix report build full plan"]
-  scope --> test["test<br/>MTP + coverage + mutation"]
-  scope --> bridge["bridge<br/>Rhino client + verify"]
-  scope --> package["package<br/>Yak stage deploy publish"]
-  scope --> api["api<br/>ilspy surface + decompile"]
+  cli["quality CLI"] --> scope["ArtifactScope run_id + DOTNET_CLI_HOME"]
+  scope --> static["static fix report build full plan"]
+  scope --> test["test MTP + coverage + mutation"]
+  scope --> bridge["bridge Rhino client + verify"]
+  scope --> package["package Yak stage deploy publish"]
+  scope --> api["api ilspy surface + decompile"]
 
-  static --> slnx["Workspace.slnx<br/>full/parity only"]
-  static --> csproj["owner csproj closure<br/>path or git changes"]
-  test --> mtp["global.json<br/>MTP runner"]
-  test --> mutation["mutation.lock<br/>fail fast"]
-  bridge --> rhino["bridge.lock<br/>fail fast"]
-  package --> yak["stage lock<br/>fail fast"]
-  api --> bundle["Rhino bundle<br/>read only"]
+  static --> slnx["Workspace.slnx full/parity only"]
+  static --> csproj["owner csproj closure path or git changes"]
+  test --> mtp["global.json MTP runner"]
+  test --> mutation["mutation.lock fail fast"]
+  bridge --> rhino["bridge.lock fail fast"]
+  package --> yak["stage lock fail fast"]
+  api --> bundle["Rhino bundle read only"]
 
   classDef rail fill:#44475a,stroke:#8be9fd,color:#f8f8f2
   classDef proof fill:#282a36,stroke:#f1fa8c,color:#f8f8f2
@@ -61,9 +52,6 @@ flowchart LR
   class slnx,csproj,mtp,bundle proof
   class mutation,rhino,yak exclusive
 ```
-
-<br>
-
 | [INDEX] | [MODULE]           | [OWNERSHIP]                                      |
 | :-----: | ------------------ | ------------------------------------------------ |
 |   [1]   | `__main__.py`      | Cyclopts tree, `rail()`, single-Envelope stdout contract. |
@@ -75,11 +63,7 @@ flowchart LR
 |   [7]   | `rails/package.py` | Yak metadata, atomic stage, stage lease.         |
 |   [8]   | `rails/api.py`     | Host and NuGet API resolver; ilspy surface + decompile. |
 
----
 ## [2][COMMAND_SURFACE]
->**Dictum:** *Verb names encode cost and mutability.*
-
-<br>
 
 Run from any path under the worktree. `QualitySettings.anchor()` walks parents until `Workspace.slnx`.
 
@@ -94,11 +78,7 @@ Run from any path under the worktree. `QualitySettings.anchor()` walks parents u
 
 Use the Python module entrypoint directly. Do not add package-manager aliases for this operator.
 
----
 ## [3][STATIC_RAIL]
->**Dictum:** *Fix before proof; build owns remaining diagnostics.*
-
-<br>
 
 [CRITICAL] `static fix` mutates files. `static report`, `static build`, `static full`, and `static plan` do not intentionally mutate tracked source.
 
@@ -137,11 +117,7 @@ Closure isolation:
 - A non-blocking `build-<closure>.lock` lease guards each closure. Busy returns `busy` with owner text and exit `5`; it never hangs.
 - Distinct closures build concurrently; the same closure twice returns instant `busy`.
 
----
 ## [4][TEST_RAIL]
->**Dictum:** *MTP execution stays explicit and target-bound.*
-
-<br>
 
 MTP source: `global.json` uses `"runner": "Microsoft.Testing.Platform"`.
 
@@ -168,11 +144,7 @@ Mutation:
 - Tool: `dotnet-stryker`, MTP runner, thresholds `95/90/85`; version lives in `.config/dotnet-tools.json` as the source of truth.
 - Lock: `.artifacts/locks/mutation.lock`; live contention fails fast.
 
----
 ## [5][BRIDGE_PACKAGE_RAIL]
->**Dictum:** *Runtime and package rails own exclusive resources.*
-
-<br>
 
 [CRITICAL] Live Rhino and package staging never wait. Contention returns `busy` with owner text and exit `5`.
 
@@ -205,11 +177,7 @@ Bridge `Envelope.status` → `exit_code`:
 |   [3]   | `unsupported`     |      3 | Build proof valid; no scenario path supplied. |
 |   [4]   | `busy`, `timeout` |      5 | Exclusive resource busy or scenario timeout. |
 
----
 ## [6][API_RAIL]
->**Dictum:** *API truth returns clean reports and stores full evidence.*
-
-<br>
 
 API evidence root: `.artifacts/quality/api/<run-id>/`. Default commands emit compact JSON only. Full raw stdout/stderr, the type/namespace surface, decompiled source, and final `report.json` are stored in the run artifact directory. Four verbs own the rail; `query` replaces the former members, source, types, decompile, and xml-search probes.
 
@@ -268,11 +236,7 @@ Observed gotchas:
 - Multi-assembly packages stay bounded by the preview cap; compact JSON keeps stdout bounded and stores full files on disk.
 - A central package with no owning `.csproj` shows in `api doctor` with empty `owners`; treat such an entry as a pre-consumer pin, not active API surface.
 
----
 ## [7][ARTIFACTS_CONCURRENCY]
->**Dictum:** *Artifact isolation replaces static locks.*
-
-<br>
 
 Artifact scope:
 - `rail()` opens `.artifacts/quality/<rail>/<run_id>/` and isolated `DOTNET_CLI_HOME`.
@@ -287,11 +251,7 @@ Concurrency:
 - Exclusive fail-fast: mutation, live Rhino bridge commands, `bridge verify`, bridge package live steps, and package staging from cleanup through commit.
 - Lease files remain stable and are truncated after release; do not delete lock files as stale cleanup.
 
----
 ## [8][AGENT_ROUTING]
->**Dictum:** *Route by proof claim, not habit.*
-
-<br>
 
 Use:
 - `static fix` before `static build` for C# edits.
@@ -313,11 +273,7 @@ Avoid:
 - Running mutation implicitly on every unit test pass.
 - Waiting on locks; busy means choose another proof or retry later.
 
----
 ## [9][MAINTENANCE]
->**Dictum:** *Validation follows edited surface.*
-
-<br>
 
 Load `.claude/skills/coding-python/SKILL.md` before Python edits. Dependencies live in root `pyproject.toml`.
 

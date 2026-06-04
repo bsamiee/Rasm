@@ -442,13 +442,21 @@ async def _inproc(check: Check) -> Completed:
     same per-spawn deadline, ``CapacityLimiter`` token, and ``traced`` child span as a subprocess spawn.
     A thunk-less INPROC row is a wiring defect surfaced as a non-zero ``Completed`` (the fold reads it as
     FAILED), never a raise across the spawn seam — ``abandon_on_cancel`` defaults False so a deadline
-    cancels the awaiter (``TimeoutError`` → ``Fault(TIMEOUT)``) while the worker thread drains.
+    cancels the awaiter (``TimeoutError`` → ``Fault(TIMEOUT)``) while the worker thread drains. The
+    ``try/except`` is the INPROC resilience boundary: an untrusted thunk (a malformed tree-sitter query
+    raising ``QueryError``, an ``importlib`` metadata-api lookup failure) folds to a FAILED ``Completed``
+    carrying the exception text, NEVER an uncaught raise that escapes ``_guarded``'s spawn-fault catch and
+    crashes the fan — so an agent's bad pattern is a clean FAILED row, not a traceback. ``Exception`` (not
+    ``BaseException``) is caught so a ``CancelledError``/deadline still propagates to ``fail_after``.
     """
     match check.tool.thunk:
         case None:
             return receipt((check.tool.name,), 1, stderr=b"INPROC tool carries no thunk")
         case thunk:
-            return await to_thread.run_sync(thunk, check)
+            try:
+                return await to_thread.run_sync(thunk, check)
+            except Exception as exc:  # noqa: BLE001  # INPROC resilience boundary: any thunk fault → FAILED receipt, never an uncaught raise across the fan
+                return receipt((check.tool.name, *check.paths), 1, stderr=f"{type(exc).__name__}: {exc}".encode()[:1024])
 
 
 def _spawn(check: Check, settings: AssaySettings) -> _Woven:
@@ -574,10 +582,12 @@ def _claim(fd: int, resource: str, *, run_id: str, tolerance: float, target: str
     """Acquire the fcntl lock non-blocking, stealing a stale holder; return ``None`` only on live contention.
 
     A clean ``flock(LOCK_EX|LOCK_NB)`` wins immediately. A ``BlockingIOError`` decodes the held owner
-    block, stamps it as ``holder.*`` span attributes (``pid``/``create_time``/``run_id``), and tests
-    liveness within ``tolerance``: a stale (or empty) holder is logged then stolen with a second
-    ``LOCK_NB`` acquire — the before/after holder rail (``_LOG``) records who lost and who won the
-    steal; a *live* holder yields ``None``, which the caller maps to ``ResourceBusyError`` (exit 5).
+    block (``_decode_owner`` projects an empty OR corrupt/partial lock to ``None``, a steal-able stale
+    holder, so a holder that crashed mid-write never FAULTs a contending acquirer), stamps it as
+    ``holder.*`` span attributes (``pid``/``create_time``/``run_id``), and tests liveness within
+    ``tolerance``: a stale (or empty/corrupt) holder is logged then stolen with a second ``LOCK_NB``
+    acquire — the before/after holder rail (``_LOG``) records who lost and who won the steal; a *live*
+    holder yields ``None``, which the caller maps to ``ResourceBusyError`` (exit 5).
     ``target`` (``settings.exec_target``) is stamped onto the written owner block. Never blocks (LOCK_NB).
     """
     try:
@@ -585,7 +595,7 @@ def _claim(fd: int, resource: str, *, run_id: str, tolerance: float, target: str
         return _write_owner(fd, resource, run_id=run_id, target=target)
     except BlockingIOError:
         held = os.read(fd, 4096)
-        owner = _DECODER.decode(held) if held else None
+        owner = _decode_owner(held)
         _stamp_holder(owner, run_id=run_id)
         match owner is not None and not _stale(owner, tolerance):
             case True:
@@ -621,6 +631,45 @@ def _stamp_holder(owner: _LeaseOwner | None, *, run_id: str) -> None:
     span.set_attributes({"assay.run_id": run_id, **{f"holder.{k}": str(v) for k, v in _holder(owner).items()}})
 
 
+def _decode_owner(held: bytes) -> _LeaseOwner | None:
+    """Decode the held owner block; empty OR corrupt/partial lock bytes project to ``None`` — a steal-able stale holder.
+
+    A truncated or non-JSON lock file (a holder that crashed mid-write, a manually corrupted lock) is NOT
+    a live owner: a ``msgspec.DecodeError`` folds to ``None`` so ``_claim`` treats it as stale and steals
+    it, rather than letting the decode raise across the lease seam and FAULT every contending acquirer.
+    """
+    match held:
+        case b"":
+            return None
+        case _:
+            try:
+                return _DECODER.decode(held)
+            except msgspec.DecodeError:
+                return None
+
+
+def _write_all(fd: int, payload: bytes) -> None:
+    """Loop ``os.write`` until ``payload`` is fully written — a POSIX ``write(2)`` may short-write a large buffer.
+
+    Recursion threads the unwritten tail; each partial write advances the fd position, so the remainder
+    appends at the right offset with no ``lseek`` — the loop-free vehicle the module's folds already use.
+    """
+    written = os.write(fd, payload)
+    match written >= len(payload):
+        case True:
+            return
+        case False:
+            _write_all(fd, payload[written:])
+
+
+def _write_block(fd: int, block: _LeaseOwner) -> _LeaseOwner:
+    """Truncate the lock file and write ``block`` as msgspec JSON via the looped ``os.write`` seam (short-write safe)."""
+    os.ftruncate(fd, 0)
+    os.lseek(fd, 0, os.SEEK_SET)
+    _write_all(fd, msgspec.json.encode(block))
+    return block
+
+
 def _write_owner(fd: int, resource: str, *, run_id: str, target: str) -> _LeaseOwner:
     """Stamp this process as the holder: truncate the lock file and write a fresh ``_LeaseOwner`` block.
 
@@ -630,10 +679,7 @@ def _write_owner(fd: int, resource: str, *, run_id: str, target: str) -> _LeaseO
     proc = psutil.Process(os.getpid())
     with proc.oneshot():
         block = _LeaseOwner(resource=resource, run_id=run_id, pid=proc.pid, create_time=proc.create_time(), started_at=time.time(), target=target)
-    os.ftruncate(fd, 0)
-    os.lseek(fd, 0, os.SEEK_SET)
-    os.write(fd, msgspec.json.encode(block))
-    return block
+    return _write_block(fd, block)
 
 
 @contextlib.contextmanager
@@ -662,9 +708,7 @@ def exclusive_lease(
                 yield Error(Fault((), status=RailStatus.BUSY, message=f"{resource} held by a live process"))
             case _:
                 stamped = msgspec.structs.replace(owner, run_id=run_id, cwd=str(settings.root), project=project, mode=mode)
-                os.ftruncate(fd, 0)
-                os.lseek(fd, 0, os.SEEK_SET)
-                os.write(fd, msgspec.json.encode(stamped))
+                _write_block(fd, stamped)
                 yield Ok(_Held(stamped))
     finally:
         match owner:

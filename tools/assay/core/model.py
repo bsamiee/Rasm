@@ -89,6 +89,7 @@ class Mode(StrEnum):
     CLIENT = "client", False, False
     VERIFY = "verify", True, False
     QUERY = "query", False, False
+    CONTENT = "content", False, False  # ripgrep grammar-blind content search: one self-walk, no per-language fan
     STAGE = "stage", False, False
     DEPLOY = "deploy", False, False
     PUBLISH = "publish", False, False
@@ -130,6 +131,14 @@ class SourceKind(StrEnum):
     ASSEMBLY = "assembly"
     NUGET = "nuget"
     TOOL = "tool"
+
+
+class MutationLane(StrEnum):
+    """test mutation lane: typed Stryker/``mutmut`` selection, never ``str``; a decode miss is loud (no ``UNKNOWN``)."""
+
+    OFF = "off"
+    STRYKER = "stryker"
+    MUTMUT = "mutmut"
 
 
 class SymbolShape(StrEnum):
@@ -276,7 +285,7 @@ class VerifySummary(Detail, frozen=True, tag="verify"):
 class TestRun(Detail, frozen=True, tag="test"):
     """test evidence: raw mutation telemetry; ``killed``/``survived``/``selected`` are flat scalars, not a rollup."""
 
-    mutation: str = "off"
+    mutation: MutationLane = MutationLane.OFF
     coverage: Annotated[float, msgspec.Meta(ge=0, le=100)] | None = None
     killed: int = 0
     survived: int = 0
@@ -334,16 +343,16 @@ class Envelope(Base, frozen=True, kw_only=True):
 
     ``schema_version`` is REQUIRED (no default), so msgspec serializes it unconditionally regardless of
     ``omit_defaults`` — the wire version tag always emits while ``error``/``error_context``/``notes``/
-    ``truncated``/``command_path`` stay OFF the success wire when defaulted (the prior
-    ``omit_defaults=False`` override forced every field to emit, contradicting the discipline and the
-    ``Diagnostic`` contract). ``__cyclopts_returncode__`` feeds ``resolve_returncode`` so the exit code
-    originates from a single field aligned to ``status.exit_code``.
+    ``truncated`` stay OFF the success wire when defaulted (the prior ``omit_defaults=False`` override
+    forced every field to emit, contradicting the discipline and the ``Diagnostic`` contract). ``claim``
+    + ``verb`` already carry the dispatched command path, so no separate ``command_path`` field rides the
+    wire. ``__cyclopts_returncode__`` feeds ``resolve_returncode`` so the exit code originates from a
+    single field aligned to ``status.exit_code``.
     """
 
     schema_version: int
     claim: Claim
     verb: str
-    command_path: tuple[str, ...] = ()
     status: RailStatus = RailStatus.OK
     exit_code: int = 0
     run_id: str = ""
@@ -420,7 +429,7 @@ def _count(done: Completed) -> tuple[int, int]:
 def fold(claim: Claim, verb: str, outcomes: tuple[Completed, ...], *, detail: AnyDetail | None = None) -> Report:
     """Fold many ``Completed`` into one ``Report``: the SOLE count-derivation site."""
     pairs = tuple(map(_count, outcomes))
-    ok_n, fail_n = (sum(a) for a in zip(*pairs, strict=False)) if pairs else (0, 0)
+    ok_n, fail_n = (sum(a) for a in zip(*pairs, strict=True)) if pairs else (0, 0)
     return Report(
         claim,
         verb,
@@ -471,6 +480,7 @@ __all__ = [
     "Language",
     "Match",
     "Mode",
+    "MutationLane",
     "PackageRun",
     "Parser",
     "Report",

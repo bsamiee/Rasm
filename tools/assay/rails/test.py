@@ -2,23 +2,26 @@
 
 Owns ``Claim.TEST`` across three runner families (C# ``dotnet test`` MTP + Coverlet + ``dotnet-stryker``;
 Python ``pytest`` + ``coverage`` + ``mutmut`` + ``pytest-benchmark``; TypeScript ``vitest`` only) as
-adapters over the shared ``thin_rail`` — no executor logic lives here.
+adapters over the shared ``thin_rail`` — no executor logic lives here. Polyglot like ``rails/static.py``:
+``language=None`` fans every ``Claim.TEST`` language through its OWN ``route`` (``_routed``), so each
+language's eligible rows bind to that language's routed files — never a single shared route that would
+strand the C#/TS rows on an empty Python file set.
 
 Invariants the rail does not re-implement: counts derive only in ``core/model.fold``, while
 ``killed``/``survived``/``coverage`` ride the ``TestRun`` detail via the catalog ``parse_tests`` Parser;
 the ``mutation.lock`` lease is acquired inside the Engine. The mutation eligibility guard runs before
 any ``Check`` is built so an overridden-target row never strands the global lane on a guaranteed-reject
 lease acquire (busy-storm avoidance). The TypeScript mutation gap is structural: no ``vitest`` row
-carries ``Mode.MUTATION``, so ``--mutation`` on a TS-only ``Routed`` folds to ``EMPTY`` (exit 0, valid
+carries ``Mode.MUTATION``, so ``--mutation`` on a TS-only request folds to ``EMPTY`` (exit 0, valid
 precondition but inapplicable) recorded by a logged parity note, not dropped silently.
 """
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-# ``Ok``/``Error`` are factory functions, not match classes: match arms narrow on the tagged-union
-# shape ``Result(tag="error", error=…)``, never ``Error(x)`` as a class pattern.
-from expression import Error, Ok, Result
+from expression import Result  # noqa: TC002  # unconditional: beartype @checked resolves the handler forward-ref (PEP 649)
+from expression.collections import block
+from expression.extra.result import sequence
 import structlog
 
 from tools.assay.composition.catalog import parse_tests, select  # intra-package import; tools.assay is the package root
@@ -28,23 +31,23 @@ from tools.assay.core.model import (  # intra-package import; tools.assay is the
     BaseParams,
     Check,
     Claim,
-    Fault,  # noqa: TC001  # unconditional so beartype @checked resolves the rail's -> Result[Report, Fault] forward-ref under PEP 649
+    Fault,  # noqa: TC001  # unconditional: beartype @checked resolves the rail's forward-ref (PEP 649)
     fold,
-    Language,
     Mode,
-    Report,  # noqa: TC001  # unconditional so beartype @checked resolves the rail's -> Result[Report, Fault] forward-ref under PEP 649
+    MutationLane,
+    Report,  # noqa: TC001  # unconditional: beartype @checked resolves the rail's forward-ref (PEP 649)
     TestRun,
 )
-from tools.assay.core.routing import (  # intra-package import; tools.assay is the package root
-    route,
-    Routed,  # noqa: TC001  # unconditional so beartype @checked resolves _weave's ``routed: Routed`` annotation under PEP 649
-)
+from tools.assay.core.routing import route  # intra-package import; tools.assay is the package root
 
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from tools.assay.core.model import AnyDetail, Completed, Tool  # intra-package import; tools.assay is the package root
+    from expression.collections import Block
+
+    from tools.assay.core.model import AnyDetail, Completed, Language, Tool  # intra-package import; tools.assay is the package root
+    from tools.assay.core.routing import Routed  # intra-package import; tools.assay is the package root
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -81,6 +84,20 @@ _LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.test")
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def _languages(selected: Language | None) -> tuple[Language, ...]:
+    """The languages to fan: one explicit member, or every language the ``Claim.TEST`` catalog rows back.
+
+    Derived from ``select(Claim.TEST)`` (mirrors ``code._languages``) so the supported set is data-driven —
+    adding a test runner's rows auto-extends the fan, and the polyglot request never routes a language
+    that carries no ``test`` row and would only waste a route.
+    """
+    match selected:
+        case None:
+            return tuple(sorted({t.language for t in select(Claim.TEST)}, key=lambda member: member.value))
+        case language:
+            return (language,)
+
+
 def _eligible(tool: Tool, params: TestParams) -> bool:
     """Pre-fan-out eligibility gate: keep ``tool`` for one verb's fan-out.
 
@@ -105,10 +122,10 @@ def _eligible(tool: Tool, params: TestParams) -> bool:
             return (tool.name != "coverage" or params.coverage) and (tool.name != "pytest-benchmark" or params.benchmark)
 
 
-def _rows(claim: Claim, params: TestParams, mode: Mode) -> tuple[Tool, ...]:
-    """The eligible catalog slice for one verb: verb-``mode`` rows plus the restore/build/mutation prelude, ``_eligible``-gated."""
+def _rows(language: Language, params: TestParams, mode: Mode) -> tuple[Tool, ...]:
+    """The eligible ``Claim.TEST`` slice for one language+verb: verb-``mode`` rows plus the restore/build/mutation prelude, ``_eligible``-gated."""
     return tuple(
-        t for t in select(claim, params.language) if (t.mode is mode or t.mode in {Mode.RESTORE, Mode.BUILD, Mode.MUTATION}) and _eligible(t, params)
+        t for t in select(Claim.TEST, language) if (t.mode is mode or t.mode in {Mode.RESTORE, Mode.BUILD, Mode.MUTATION}) and _eligible(t, params)
     )
 
 
@@ -121,13 +138,40 @@ def _mutation_gap(params: TestParams, rows: tuple[Tool, ...]) -> bool:
     return params.mutation and not any(t.mode is Mode.MUTATION for t in rows)
 
 
-def _checks(rows: tuple[Tool, ...], routed: Routed) -> tuple[Check, ...]:
-    """Bind each eligible ``Tool`` row to the routed scope: ``routed.files`` flow as ``Check.paths``.
+def _checks(routed: Routed, params: TestParams, mode: Mode) -> tuple[Check, ...]:
+    """Bind each eligible ``Tool`` row of the routed language to the routed scope: ``routed.files`` flow as ``Check.paths``.
 
     A pure projection — no scope is embedded in the ``Check``; ``routed``/``scope``/``deadline`` reach
     the executor as ``fan_out`` parameters, never as ``Check`` fields.
     """
-    return tuple(Check(tool=t, paths=routed.files) for t in rows)
+    return tuple(Check(tool=t, paths=routed.files) for t in _rows(routed.language, params, mode))
+
+
+def _routed(languages: tuple[Language, ...], paths: tuple[str, ...]) -> Result[Block[Routed], Fault]:
+    """Route every requested language through one ``route`` each, sequencing the per-language rail (mirrors ``static._routed``).
+
+    ``route`` resolves one ``Language`` per call, so the polyglot request fans each member through its own
+    ``route`` and ``sequence`` collapses the ``Block[Result[Routed, Fault]]`` into one ``Result[Block[Routed],
+    Fault]``: the first routing ``Fault`` (a git/``fd`` spawn failure at the ``LOCAL`` boundary) short-circuits the fan.
+    """
+    return sequence(block.of_seq(route(language, paths) for language in languages))
+
+
+def _dispatch(
+    routed: Routed, params: TestParams, *, settings: AssaySettings, scope: ArtifactScope, mode: Mode
+) -> tuple[Result[Completed, Fault], ...]:
+    """Fan one routed language's eligible rows through the Engine under its OWN ``Routed`` context (mirrors ``static._dispatch``).
+
+    Each language's argv tail is projected from its own ``Routed`` — the per-slot ``Result``s are returned
+    flat so the caller concatenates every language's outcomes into one fold; a language with no eligible
+    ``mode``-matching rows produces an empty fan and contributes nothing rather than a phantom ``EMPTY`` slot.
+    """
+    checks = _checks(routed, params, mode)
+    match checks:
+        case ():
+            return ()
+        case _:
+            return fan_out(checks, settings=settings, scope=scope, routed=routed)
 
 
 def _detail(done: tuple[Completed, ...], params: TestParams) -> AnyDetail | None:
@@ -136,9 +180,9 @@ def _detail(done: tuple[Completed, ...], params: TestParams) -> AnyDetail | None
     ``killed``/``survived``/``coverage`` are Parser-derived, never fold-derived — conflating mutant
     kill-ratio into ``Counts`` would re-introduce the per-rail count struct the design retired. On a
     non-mutation run the detail is ``None``. The subtlety on a mutation run: ``parse_tests`` decodes
-    every receipt to a defaulted ``TestRun`` (an empty stdout yields ``TestRun(mutation="off")``), so
-    the verb's evidence is the FIRST decode that actually carries a mutation lane (``mutation != "off"``)
-    — otherwise a barren ``pytest``/``dotnet test`` receipt would mask the Stryker/``mutmut`` row that ran.
+    every receipt to a defaulted ``TestRun`` (an empty stdout yields ``TestRun(mutation=off)``), so the
+    verb's evidence is the FIRST decode that actually carries a mutation lane (``mutation != off``) —
+    otherwise a barren ``pytest``/``dotnet test`` receipt would mask the Stryker/``mutmut`` row that ran.
     """
     match params.mutation:
         case False:
@@ -150,83 +194,58 @@ def _detail(done: tuple[Completed, ...], params: TestParams) -> AnyDetail | None
 def _is_mutation(detail: AnyDetail) -> bool:
     """Discriminate a real mutation ``TestRun`` decode from a defaulted/off one.
 
-    Narrows the ``AnyDetail`` union to a ``TestRun`` whose ``mutation`` field names an actual lane
-    (Stryker/``mutmut``), rejecting the ``"off"`` default a barren ``pytest``/``dotnet test`` receipt
-    decodes to, and any non-``TestRun`` variant.
+    Narrows the ``AnyDetail`` union to a ``TestRun`` whose ``mutation`` lane names an actual runner
+    (``MutationLane.STRYKER``/``MUTMUT``), rejecting the ``OFF`` default a barren ``pytest``/``dotnet
+    test`` receipt decodes to, and any non-``TestRun`` variant.
     """
     match detail:
-        case TestRun(mutation=m) if m != "off":
+        case TestRun(mutation=lane) if lane is not MutationLane.OFF:
             return True
         case _:
             return False
 
 
-def _completeds(slots: tuple[Result[Completed, Fault], ...]) -> Result[tuple[Completed, ...], Fault]:
-    """Collapse the per-slot ``fan_out`` results into one channel: any ``Fault`` slot dominates.
-
-    A single error slot (``BUSY``/``TIMEOUT``/``FAULTED`` riding ``Envelope.error``) short-circuits the
-    whole verb to its ``Fault``; otherwise every slot is on the success channel and the ``Completed``
-    receipts flow to ``fold`` — note a non-zero process exit is still an ``Ok(Completed)``, not an error
-    slot. The match narrows on ``Result(tag="error", error=…)``, never an ``Error(x)`` class pattern.
-    An empty ``slots`` (the TS mutation gap routed zero checks) folds to ``Ok(())`` → ``EMPTY``.
-    """
-    match next((s for s in slots if s.is_error()), None):
-        case Result(tag="error", error=fault):
-            return Error(fault)
-        case _:
-            return Ok(tuple(s.ok for s in slots))
-
-
 def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: TestParams, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
-    """The one fold every ``test`` verb shares: route once, gate, fan out, collapse, fold.
+    """The one fold every ``test`` verb shares: gate, route per language, fan out per language, fold.
 
     NOT a ``Handler`` — the per-verb adapters close over ``(verb, mode)`` and are the bound ``Handler``s.
-    The flow: route runs exactly once (``Routed`` carries a singular ``language``, so a polyglot request
-    still routes one shared file set), the eligible ``Claim.TEST`` slice is selected and mutation-gated
-    before any ``Check`` is built, the gap parity note is logged when a requested mutation lane was
-    structurally inapplicable, and the ``fan_out`` + collapse + fold weave runs under one event loop.
-    When the eligible slice carries any ``Mode.MUTATION`` row the whole weave is held under the
+    The flow: the eligible ``Claim.TEST`` slice is computed per language and mutation-gated before any
+    ``Check`` is built (the gap parity note is logged when a requested mutation lane was structurally
+    inapplicable); then each language routes through its own ``route`` (``_routed``) and its eligible rows
+    fan out under that language's ``Routed`` (``_dispatch``), so a polyglot request binds the C#/TS rows to
+    the C#/TS file sets — never a single shared Python route. ``sequence`` collapses the per-language route
+    rail and per-slot ``fan_out`` rail into one ``Result``; a routing/spawn/timeout ``Fault`` short-circuits
+    to the registry seam while a non-zero exit already rode the success channel as a ``Completed``. When any
+    eligible row carries ``Mode.MUTATION`` the whole multi-language weave runs under the single
     global-exclusive ``mutation.lock`` lease (``leased('mutation', …, mode='exclusive')``): a busy lock
-    short-circuits to ``Fault(BUSY)`` (exit 5) without spawning, otherwise the work runs once under the
-    lease and releases on exit. ``_completeds`` short-circuits on the first ``Fault`` slot, and ``fold``
-    derives counts and status onto one ``Report``. ``thin_rail`` returns a plain ``Result`` and so is
-    never ``@effect.result``-wrapped (that decorator wraps generators only).
+    short-circuits to ``Fault(BUSY)`` (exit 5) without spawning. ``fold`` derives counts/status onto one
+    ``Report`` carrying the ``_detail`` evidence. ``thin_rail`` returns a plain ``Result`` (never yields),
+    so it is never ``@effect.result``-wrapped.
     """
-    rows = _rows(claim, params, mode)
-    match _mutation_gap(params, rows):
+    languages = _languages(params.language)
+    eligible = tuple(t for language in languages for t in _rows(language, params, mode))
+    match _mutation_gap(params, eligible):
         case True:
             _LOG.warning(_GAP_NOTE, claim=claim.value, verb=verb, language=params.language)
         case False:
             pass
 
-    def _weave(routed: Routed) -> Result[Report, Fault]:
-        def _work(_held: object = None) -> Result[Report, Fault]:
-            return _completeds(fan_out(_checks(rows, routed), settings=settings, scope=scope, routed=routed)).map(
-                lambda done: fold(claim, verb, done, detail=_detail(done, params))
+    def _work(_held: object = None) -> Result[Report, Fault]:
+        def _settle(done: Block[Completed]) -> Report:
+            outcomes = tuple(done)
+            return fold(claim, verb, outcomes, detail=_detail(outcomes, params))
+
+        return _routed(languages, params.paths).bind(
+            lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch(r, params, settings=settings, scope=scope, mode=mode)))).map(
+                _settle
             )
+        )
 
-        match any(t.mode is Mode.MUTATION for t in rows):
-            case True:
-                return leased("mutation", _work, settings=settings, run_id=settings.run_id, project="mutation", mode="exclusive")
-            case False:
-                return _work()
-
-    return route(_route_language(params.language), params.paths).bind(_weave)
-
-
-def _route_language(language: Language | None) -> Language:
-    """Resolve the single routing ``Language``: a concrete request routes verbatim; ``None`` defaults to ``PYTHON``.
-
-    ``route`` is singular (one ``Language``, one ``Routed``), so a polyglot ``language=None`` request —
-    which still ``select``s rows across every TEST language — must collapse to ONE routing language.
-    ``Language.PYTHON`` carries the ``glob`` strategy, so ``routed.files`` is the suffix-projected
-    change-set the fanned checks consume; per-language routing stays a routing concern, not a rail one.
-    """
-    match language:
-        case None:
-            return Language.PYTHON
-        case _:
-            return language
+    match any(t.mode is Mode.MUTATION for t in eligible):
+        case True:
+            return leased("mutation", _work, settings=settings, run_id=settings.run_id, project="mutation", mode="exclusive")
+        case False:
+            return _work()
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

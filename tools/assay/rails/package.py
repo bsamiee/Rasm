@@ -21,6 +21,8 @@ from tempfile import mkdtemp
 from typing import Final, TYPE_CHECKING
 
 from expression import Error, Ok, Result
+from expression.collections import block
+from expression.extra.result import sequence
 import msgspec
 
 from tools.assay.composition.catalog import select  # intra-package import; tools.assay is the package root
@@ -213,14 +215,19 @@ _DECODER: Final[msgspec.json.Decoder[_MsbuildProps]] = msgspec.json.Decoder(_Msb
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _yak_tool(meta: YakMeta, command: _Step, mode: Mode) -> Tool:
-    """Build one ``DIRECT`` yak ``Tool`` whose ``command`` head is the resolved ``YakPath`` and tail is the full step argv.
+def _yak_tool(meta: YakMeta, command: _Step, mode: Mode) -> Result[Tool, Fault]:
+    """Resolve the ``Claim.PACKAGE`` yak ``Tool`` row and splice the full step argv onto its ``command``.
 
     Yak verbs are ``Tool`` rows, never inline argv builders: the ``command`` carries the complete invocation so the
     engine's ``Input.NONE`` ``place`` projection appends one empty tail and the spawned argv is exactly ``command``.
+    A missing catalog row faults (rather than ``IndexError``-ing on an empty slice); ``select`` is keyed by the
+    canonical ``Language.CSHARP`` the row carries, never a doctrinally-wrong ``None`` language.
     """
-    base = select(Claim.PACKAGE, None)  # the catalog yak row asserts Claim.PACKAGE owns the program; DIRECT/NONE axes ride through
-    return msgspec.structs.replace(base[0], command=(str(meta.yak_path), *command), mode=mode)
+    match select(Claim.PACKAGE, Language.CSHARP):
+        case (base, *_):
+            return Ok(msgspec.structs.replace(base, command=(str(meta.yak_path), *command), mode=mode))
+        case _:
+            return Error(Fault(("yak", *command), message="no yak catalog row for Claim.PACKAGE"))
 
 
 def _yak_build_tail(meta: YakMeta, version: str) -> _Step:
@@ -243,12 +250,12 @@ def _run_yak(meta: YakMeta, command: _Step, mode: Mode, *, cwd: Path, settings: 
     """Run one yak step as a ``Check`` through the engine: an ``Input.NONE`` ``DIRECT`` spawn under ``cwd``.
 
     The ``Routed`` is the minimal C#/``CHANGED`` shape ``place`` needs for an ``Input.NONE`` tool (one empty tail); the
-    full yak argv lives in ``_yak_tool``'s ``command``. A non-zero exit rides ``Ok(Completed(FAILED))``; only a
-    spawn/timeout failure takes the ``Error(Fault)`` channel at the engine boundary.
+    full yak argv lives in ``_yak_tool``'s ``command``. A missing catalog row short-circuits to ``Fault`` before the
+    spawn; a non-zero exit rides ``Ok(Completed(FAILED))``; only a spawn/timeout failure takes the ``Error(Fault)`` channel.
     """
-    check = Check(tool=_yak_tool(meta, command, mode), cwd=cwd)
-    routed = Routed(language=check.tool.language, scope=Scope.CHANGED)
-    return run_check(check, settings=settings, scope=scope, routed=routed)
+    return _yak_tool(meta, command, mode).bind(
+        lambda tool: run_check(Check(tool=tool, cwd=cwd), settings=settings, scope=scope, routed=Routed(language=tool.language, scope=Scope.CHANGED))
+    )
 
 
 def evaluate_meta(settings: AssaySettings, scope: ArtifactScope, project: str, slug: str, version: str) -> Result[YakMeta, Fault]:
@@ -293,9 +300,10 @@ def _decode_props(project: str, done: Completed) -> Result[dict[str, str], Fault
 def _resolve_project(settings: AssaySettings, slug: str) -> Result[str, Fault]:
     """Resolve the single ``*.csproj`` whose ``YakPackageSlug`` equals ``slug`` — by slug, never by changed-set.
 
-    Zero matches or a duplicate slug is a ``Fault(FAULTED)`` so the lifecycle never operates on an ambiguous target.
+    Zero matches or a duplicate slug is a ``Fault(FAULTED)`` so the lifecycle never operates on an ambiguous target;
+    a non-absence ``.csproj`` read fault (permission/IO) short-circuits before the lone-match fold.
     """
-    return _package_projects(settings).bind(lambda projects: _select_by_slug(settings, slug, projects))
+    return _package_projects(settings).bind(lambda projects: _slugged(settings, projects)).bind(lambda pairs: _lone_match(slug, pairs))
 
 
 def _package_projects(settings: AssaySettings) -> Result[tuple[str, ...], Fault]:
@@ -306,9 +314,19 @@ def _package_projects(settings: AssaySettings) -> Result[tuple[str, ...], Fault]
     return Ok(found)
 
 
-def _select_by_slug(settings: AssaySettings, slug: str, projects: tuple[str, ...]) -> Result[str, Fault]:
-    """Fold the project set to the lone ``YakPackageSlug == slug`` match; zero or duplicate matches fault."""
-    matched = tuple(p for p in projects if _csproj_slug(settings, p) == slug)
+def _slugged(settings: AssaySettings, projects: tuple[str, ...]) -> Result[tuple[tuple[str, str], ...], Fault]:
+    """Pair every project with its declared ``YakPackageSlug``, short-circuiting on a non-absence read fault.
+
+    ``sequence`` collapses the per-project ``Result[str, Fault]`` slugs into one rail — a permission/IO read
+    error on any ``.csproj`` dominates — then zips them with ``projects`` 1:1; absence already projected to
+    ``""`` inside ``_csproj_slug`` so a non-yak project rides through as an empty slug, not a fault.
+    """
+    return sequence(block.of_seq(_csproj_slug(settings, p) for p in projects)).map(lambda slugs: tuple(zip(projects, tuple(slugs), strict=True)))
+
+
+def _lone_match(slug: str, pairs: tuple[tuple[str, str], ...]) -> Result[str, Fault]:
+    """Fold the ``(project, slug)`` pairs to the lone ``slug`` match; zero or duplicate matches fault."""
+    matched = tuple(project for project, project_slug in pairs if project_slug == slug)
     match matched:
         case (only,):
             return Ok(only)
@@ -318,21 +336,28 @@ def _select_by_slug(settings: AssaySettings, slug: str, projects: tuple[str, ...
             return Error(Fault(("package", slug), message=f"expected one package project for {slug}, found {len(matched)} duplicates"))
 
 
-def _csproj_slug(settings: AssaySettings, project: str) -> str:
+def _csproj_slug(settings: AssaySettings, project: str) -> Result[str, Fault]:
     """Read one project's declared ``YakPackageSlug`` from its ``.csproj`` XML via a lightweight element walk.
 
-    A direct XML read, never a full MSBuild evaluation; absence returns ``""`` so a non-yak project drops out of the
-    slug match.
+    A direct XML read, never a full MSBuild evaluation; absence projects to ``""`` so a non-yak project drops out
+    of the slug match, while a real IO/permission fault rides the ``Error`` channel.
     """
-    return _slug_from_bytes(_read_bytes(Path(str(settings.root / project))))  # .csproj XML read is local; UPath → Path
+    return _read_bytes(Path(str(settings.root / project))).map(_slug_from_bytes)  # .csproj XML read is local; UPath → Path
 
 
-def _read_bytes(path: Path) -> bytes:
-    """Read project bytes at the marked filesystem boundary; an ``OSError`` degrades to empty bytes rather than raising."""
+def _read_bytes(path: Path) -> Result[bytes, Fault]:
+    """Read project bytes at the marked filesystem boundary; absence yields ``b""``, any other ``OSError`` faults.
+
+    Absence (``FileNotFoundError``) is the non-yak/removed-project case, projected to empty bytes; a permission
+    or IO error is a genuine fault propagated via the Result rail rather than masked as "no slug" (which would
+    silently drop a real yak project from slug resolution).
+    """
     try:
-        return path.read_bytes()
-    except OSError:
-        return b""
+        return Ok(path.read_bytes())
+    except FileNotFoundError:
+        return Ok(b"")
+    except OSError as exc:
+        return Error(Fault(("read", str(path)), message=str(exc)[:1024]))
 
 
 def _slug_from_bytes(raw: bytes) -> str:
@@ -612,14 +637,16 @@ def list(settings: AssaySettings, scope: ArtifactScope, params: PackageParams) -
     """``package list``: a zero-side-effect read folding every ``(slug, project)`` pair into ``Report.notes``.
 
     Short-circuits before any lease, MSBuild, or yak invocation. ``params`` is unused — ``list`` enumerates the whole
-    package set, not one slug. No ``PackageRun`` detail.
+    package set, not one slug. No ``PackageRun`` detail. A non-absence ``.csproj`` read fault short-circuits the fold.
     """
     _ = (scope, params)
-    return _package_projects(settings).map(
-        lambda projects: msgspec.structs.replace(
-            fold(Claim.PACKAGE, "list", ()),
-            status=RailStatus.OK,
-            notes=tuple(f"{slug}={project}" for project in projects for slug in (_csproj_slug(settings, project),) if slug),
+    return (
+        _package_projects(settings)
+        .bind(lambda projects: _slugged(settings, projects))
+        .map(
+            lambda pairs: msgspec.structs.replace(
+                fold(Claim.PACKAGE, "list", ()), status=RailStatus.OK, notes=tuple(f"{slug}={project}" for project, slug in pairs if slug)
+            )
         )
     )
 

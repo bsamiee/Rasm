@@ -21,6 +21,7 @@ import xml.etree.ElementTree as ET  # noqa: S405  # trusted local .csproj XML fr
 
 import anyio
 from expression import Error, Ok, Result
+import structlog
 from upath import UPath
 
 from tools.assay.composition.settings import AssaySettings  # intra-package import; tools.assay is the package root
@@ -116,6 +117,7 @@ _CACHED: tuple[str, ...] = ("git", "diff", "--cached", "--name-only", "--diff-fi
 _UNTRACKED: tuple[str, ...] = ("git", "ls-files", "--others", "--exclude-standard")
 _FD: tuple[str, ...] = ("fd", "-H", "-t", "f", ".")
 _FD_EXCLUDE: tuple[str, ...] = ("--exclude", ".git", "--exclude", "bin", "--exclude", "obj")
+_LOG: structlog.stdlib.BoundLogger = structlog.get_logger("assay.routing")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -350,11 +352,15 @@ class _LocalSource:
 
 
 def _expand(target: str, *, root: UPath) -> Result[tuple[str, ...], Fault]:
-    """Expand one explicit ``paths`` entry: a dir → ``fd`` recursive scan, a file → verbatim, missing → ``Fault``.
+    """Expand one explicit ``paths`` entry: a dir → ``fd`` recursive scan, a file → verbatim, missing → skip + warn.
 
     The ``is_dir``/``is_file`` probe is the only place ``LOCAL`` touches the concrete filesystem for
     shape (not contents); contents still flow through the marked ``_git`` boundary. ``root`` is a
-    ``UPath`` so the shape probe targets the same backend the change-set reads.
+    ``UPath`` so the shape probe targets the same backend the change-set reads. A missing path is the
+    resilience boundary: rather than a hard ``Fault`` that ``sequence`` short-circuits — nuking every other
+    valid path and language of the request — it logs one ``route.path_missing`` warning to stderr and
+    contributes ZERO rows, so an agent's typo'd or stale path degrades to partial results (or an honest
+    ``EMPTY``), never an opaque whole-request failure.
     """
     absolute = root / target
     match (absolute.is_dir(), absolute.is_file()):
@@ -363,7 +369,8 @@ def _expand(target: str, *, root: UPath) -> Result[tuple[str, ...], Fault]:
         case (_, True):
             return Ok((PurePosixPath(target).as_posix(),))
         case _:
-            return Error(Fault(("enumerate", target), RailStatus.FAULTED, f"path not found: {target}"))
+            _LOG.warning("route.path_missing", target=target)
+            return Ok(())
 
 
 LOCAL: Source = _LocalSource()
