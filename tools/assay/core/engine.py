@@ -103,10 +103,16 @@ _FLOCK, _LOCK_EX, _LOCK_NB, _LOCK_UN = fcntl.flock, fcntl.LOCK_EX, fcntl.LOCK_NB
 
 
 def _splice(runner: Runner, command: tuple[str, ...], scope: ArtifactScope | None, scoped_verbs: frozenset[str]) -> tuple[str, ...]:
+    """Inject dotnet ``--artifacts-path`` flags as ONE ``match`` arm.
+
+    Only a ``Runner.DOTNET`` build-graph verb (``settings.scoped_verbs``) under a present ``scope``
+    receives the artifact flags, spliced *before* any ``--`` argument boundary so the scope reaches
+    MSBuild while the post-``--`` tail (test-runner args, msbuild props) stays untouched. Tool-driver
+    verbs (``format``, ``tool``) are absent from ``scoped_verbs``, so artifact flags never reach a
+    verb that rejects them. Every other shape passes ``command`` verbatim — the single arm is the
+    whole scope axis, no per-verb branching.
+    """
     match (runner, command, scope):
-        # Splice artifact flags BEFORE any `--` boundary so the scope reaches MSBuild while the
-        # post-`--` tail (test-runner args, msbuild props) stays untouched. Tool-driver verbs
-        # (format, tool) are absent from scoped_verbs, so the flags never reach a verb that rejects them.
         case (Runner.DOTNET, (verb, *_), ArtifactScope() as s) if verb in scoped_verbs:
             cut = command.index("--") if "--" in command else len(command)
             return (*command[:cut], *s.dotnet_flags, *command[cut:])
@@ -115,6 +121,14 @@ def _splice(runner: Runner, command: tuple[str, ...], scope: ArtifactScope | Non
 
 
 def _overlay(scope: ArtifactScope | None) -> Mapping[str, str]:
+    """Build the per-spawn ``env`` overlay: inherited environment plus scope isolation vars.
+
+    Never mutates the host environment: clones the read-only parent ``os.environ`` mapping into a
+    fresh dict at this marked spawn boundary, then folds the ``ArtifactScope.dotnet_env`` isolation
+    overlay (``DOTNET_CLI_HOME`` + ``MSBUILDDISABLENODEREUSE``) on top when a scope is present.
+    ``PATH`` and the rest of the host environment ride through unchanged so the resolved launcher
+    (``uv``/``dotnet``/``pnpm``) is still found; the overlay only *adds* scope keys, never strips them.
+    """
     base: MutableMapping[str, str] = dict(os.environ)  # noqa: TID251  # marked spawn boundary: clone (never mutate) the host launch environment
     match scope:
         case ArtifactScope() as s:
@@ -133,8 +147,14 @@ def _argv(check: Check, routed: Routed, *, settings: AssaySettings, scope: Artif
 
 
 async def _drain(stream: ByteReceiveStream | None, *, tail_cap: int, chunk: int) -> bytes:
-    # Roll a bounded tail capped at tail_cap so a chatty child (dotnet restore, Stryker) cannot
-    # exhaust memory; None stream (child inherited the parent fd) yields empty bytes.
+    """Tee a process byte stream to a bounded tail (streaming ``Mode.stream`` rows).
+
+    Folds successive ``receive`` chunks into a rolling bytestring capped at ``tail_cap``
+    (``settings.stream_tail_bytes``) so a chatty child (dotnet restore, Stryker) cannot exhaust
+    memory. The fold recurses on the ``EndOfStream`` sentinel rather than looping — the no-``while``
+    rule makes recursion the loop vehicle. A ``None`` stream (the child inherited the parent fd)
+    short-circuits to empty bytes.
+    """
     match stream:
         case None:
             return b""
@@ -291,10 +311,15 @@ def _diagnose(exc: BaseException) -> None:
 async def _guarded(
     check: Check, settings: AssaySettings, scope: ArtifactScope | None, routed: Routed, deadline: float | None
 ) -> Result[Completed, Fault]:
-    # The inner async spawn the traced layer wraps with a tool.name child span, and the SOLE try/except
-    # boundary in the executor: a fail_after budget elapse → Fault(TIMEOUT), an OSError (spawn failure
-    # after retried exhausts) → Fault(FAULTED). Every other outcome — including a non-zero process
-    # exit — rides the Ok channel as a Completed, so _into never raises and the fan-out exits clean.
+    """The inner async spawn and the SOLE ``try/except`` boundary of the executor.
+
+    The ``traced`` layer wraps this with a ``tool.name`` child span; ``retried`` wraps the spawn for
+    transient-OSError recovery. A ``fail_after`` budget elapse becomes ``Fault(TIMEOUT)``; an
+    ``OSError`` (spawn failure after ``retried`` exhausts) becomes ``Fault(FAULTED)``. Both Fault
+    paths run ``_diagnose`` first so the Fault auto-carries a resource snapshot. Every other outcome —
+    including a non-zero process exit — rides the ``Ok`` channel as a ``Completed`` (via ``receipt`` +
+    ``from_returncode``), so ``_into`` never raises and the fan-out exits clean.
+    """
     argv = _argv(check, routed, settings=settings, scope=scope)
     budget = deadline - time.monotonic() if deadline is not None else check.tool.timeout
     cwd = str(UPath(check.cwd or settings.root).path)  # LOCAL path: the child always roots in the real local FS regardless of settings.root protocol

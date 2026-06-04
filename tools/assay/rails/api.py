@@ -427,7 +427,7 @@ def _json_field(path: Path, field: str) -> str:
     try:
         data = msgspec.json.decode(path.read_bytes(), type=dict[str, msgspec.Raw])  # codec boundary: a missing/malformed package.json folds to ""
         return msgspec.json.decode(data[field], type=str) if field in data else ""  # nested codec boundary: a non-string value folds to ""
-    except OSError, KeyError, msgspec.DecodeError:
+    except OSError, msgspec.DecodeError:  # `field in data` guards the access, so KeyError is unreachable
         return ""
 
 

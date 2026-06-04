@@ -84,8 +84,12 @@ def _outcomes(routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, 
     # mmdc renders ONE -i <input> at a time and engine._argv projects tool.command (never a Check path field), so the input must
     # ride the command, spliced once per routed file. The walrus guard keeps only Completed slots so the Error channel never enters
     # the success monoid fold reduces — a contended or timed-out slot cannot mask a clean diagram.
-    rows = tuple(t for t in select(claim, routed.language) if t.mode is mode)
-    checks = tuple(Check(tool=msgspec.structs.replace(t, command=(*t.command, "-i", f))) for t in rows for f in routed.files)
+    checks = tuple(
+        Check(tool=msgspec.structs.replace(t, command=(*t.command, "-i", f)))
+        for t in select(claim, routed.language)
+        if t.mode is mode
+        for f in routed.files
+    )
     slots = fan_out(checks, settings=settings, scope=scope, routed=routed)
     return fold(claim, verb, tuple(done for slot in slots if (done := _done(slot)) is not None))
 
