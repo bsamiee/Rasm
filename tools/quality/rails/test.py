@@ -224,8 +224,6 @@ def _filter_args(filter_expr: str) -> tuple[str, ...]:
             return ("--filter-trait", trait)
         case class_name if class_name.endswith(("Tests", "Laws", "Spec")) or "+" in class_name:
             return ("--filter-class", f"*{class_name}*")
-        case method if "." in method:
-            return ("--filter-method", f"*{method}*")
         case method:
             return ("--filter-method", f"*{method}*")
 

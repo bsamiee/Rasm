@@ -3,10 +3,8 @@ name = "workspace-foundation-python"
 version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
-    "aenum",
-    "algorithms",
     "anyio",
-    "beartype",
+    "beartype>=0.22.2",
     "cyclopts",
     "msgspec",
     "opentelemetry-api",
@@ -19,14 +17,15 @@ dependencies = [
     "expression",
     "stamina",
     "structlog",
-    "suitkaise",
     "httpx",
 ]
 
 [dependency-groups]
 dev = [
     "coverage>=7.14.1",
+    "dirty-equals",
     "hypothesis>=6.155.1",
+    "inline-snapshot",
     "libcst",
     "mutmut>=3.5.0",
     "mypy",
@@ -153,6 +152,7 @@ timeout = "30"
 required_plugins = [
     "anyio",
     "hypothesis>=6.155.1",
+    "inline-snapshot",
     "pytest-benchmark>=5.2.3",
     "pytest-cov>=7.1.0",
     "pytest-randomly>=4.1.0",
@@ -169,6 +169,13 @@ markers = [
     "serial: tests that must not run concurrently",
     "slow: long-running validation tests",
 ]
+
+# --- [INLINE_SNAPSHOT] -----------------------------------------------------
+
+[tool.inline-snapshot]
+# CI-safe default (short-report: fails on mismatch, never mutates files); external snapshot storage routed under cache.
+default-flags = ["short-report"]
+storage-dir =   ".cache/inline-snapshot"
 
 # --- [COVERAGE] ------------------------------------------------------------
 
@@ -212,6 +219,8 @@ output = ".artifacts/python/coverage/coverage.lcov"
 
 [tool.mutmut]
 paths_to_mutate = ["tools/quality"]
+# Cheap pre-filter: ty checks the mutated copy (cwd=mutants/) and kills type-invalid mutants before any test runs; gitlab JSON is mutmut-native.
+type_check_command = ["uv", "run", "ty", "check", "--output-format", "gitlab", "tools/quality"]
 pytest_add_cli_args_test_selection = ["tests/tools/quality"]
 pytest_add_cli_args = [
     "-x",
@@ -219,6 +228,7 @@ pytest_add_cli_args = [
     "--disable-socket",
     "--allow-unix-socket",
     "--import-mode=importlib",
+    "--hypothesis-profile=rasm-mutation",
     "--randomly-dont-reorganize",
     "--randomly-dont-reset-seed",
     "-p",
@@ -362,7 +372,7 @@ parametrize-names-type =          "csv"
 raises-extend-require-match-for = ["AttributeError", "KeyError", "RuntimeError", "TypeError", "msgspec.ValidationError", "pydantic.ValidationError",]
 
 [tool.ruff.lint.flake8-self]
-extend-ignore-names = ["_validate", "_disc", "_check"]
+extend-ignore-names = ["_validate", "_disc", "_check", "_value_"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports =        "all"

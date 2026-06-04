@@ -1,5 +1,5 @@
 ---
-name: cs-testing
+name: testing-cs
 description: >-
   Builds and reviews dense adversarial law-matrix C# specs for Rasm using xUnit v3, CsCheck,
   Rasm.TestKit, coverlet, Stryker, Verify, ArchUnitNET, BenchmarkDotNet,
@@ -8,7 +8,7 @@ description: >-
   bridge-owned runtime verification for Rasm.
 ---
 
-# [H1][CS_TESTING]
+# [H1][TESTING_CS]
 >**Dictum:** *A test is an adversarial law with an independent oracle, not confirmation of current output.*
 
 <br>

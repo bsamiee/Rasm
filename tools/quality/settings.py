@@ -249,8 +249,7 @@ class QualitySettings(BaseSettings):
     def version_props(version: str = "") -> tuple[str, ...]:
         return (f"/p:Version={version}", f"/p:InformationalVersion={version}") if version else ()
 
-    def dotnet_env(self, scope_path: Path, *, rail: str = "") -> dict[str, str]:
-        _ = rail
+    def dotnet_env(self, scope_path: Path) -> dict[str, str]:
         overlay = {"DOTNET_CLI_HOME": str(scope_path / _DOTNET_CLI), "MSBUILDDISABLENODEREUSE": "1"}
         rhino = {"RHINO_WIP_APP_PATH": str(self.rhino_app)} if self.rhino_app is not None else {}
         return {**os.environ, **overlay, **rhino}  # noqa: TID251
@@ -283,7 +282,7 @@ class ArtifactScope:
     def open(cls, settings: QualitySettings, rail: str) -> Iterator[ArtifactScope]:
         scope_path = settings.artifact_root / _QUALITY / rail / settings.run_id
         (scope_path / _DOTNET_CLI).mkdir(parents=True, exist_ok=True)
-        yield ArtifactScope(root=settings.root, rail=rail, scope_path=scope_path, dotnet_env=settings.dotnet_env(scope_path, rail=rail))
+        yield ArtifactScope(root=settings.root, rail=rail, scope_path=scope_path, dotnet_env=settings.dotnet_env(scope_path))
 
     @classmethod
     def build(cls, settings: QualitySettings, closure: str) -> ArtifactScope:
@@ -291,4 +290,4 @@ class ArtifactScope:
         # obj output is isolated per closure; concurrency is governed by the build-<closure> lease, not path uniqueness.
         scope_path = settings.artifact_root / _QUALITY / "build" / closure
         (scope_path / _DOTNET_CLI).mkdir(parents=True, exist_ok=True)
-        return cls(root=settings.root, rail="build", scope_path=scope_path, dotnet_env=settings.dotnet_env(scope_path, rail="build"))
+        return cls(root=settings.root, rail="build", scope_path=scope_path, dotnet_env=settings.dotnet_env(scope_path))

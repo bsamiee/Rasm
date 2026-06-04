@@ -12,7 +12,7 @@
 If reviewing, refining, editing, creating, or modifying X file type, use skill Y (required):
 - Typescript: `coding-ts`
 - C#: `coding-csharp`
-- C# tests (`.spec.cs`, `.verify.csx`, testkit): `cs-testing`
+- C# tests (`.spec.cs`, `.verify.csx`, testkit): `testing-cs`
 - Python: `coding-python`
 - Bash/sh: `coding-bash`
 - SQL: `coding-pg`
@@ -80,4 +80,4 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 - Quality operator truth: `tools/quality/README.md`.
 - Runtime evidence and bridge operator routes: `CLAUDE.md` §5.2 and `tools/rhino-bridge/README.md`.
 - Canonical bridge agent deltas: `tools/rhino-bridge/AGENTS.md`.
-- Scenario authoring: `tests/csharp/AGENTS.md` §7 and `.claude/skills/cs-testing/references/bridge-runtime.md`.
+- Scenario authoring: `tests/csharp/AGENTS.md` §7 and `.claude/skills/testing-cs/references/bridge-runtime.md`.

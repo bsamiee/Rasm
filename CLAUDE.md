@@ -18,8 +18,8 @@ If reviewing, refining, editing, creating, or modifying X file type, use skill Y
 | :-----: | ----------------------------------- | --------------------------- |
 |   [1]   | TypeScript (`.ts`, `.tsx`)          | `coding-ts`                 |
 |   [2]   | C# production (`.cs`)               | `coding-csharp`             |
-|   [3]   | C# tests (`.spec.cs`)               | `cs-testing`                |
-|   [4]   | RhinoCode scenarios (`.verify.csx`) | `cs-testing`                |
+|   [3]   | C# tests (`.spec.cs`)               | `testing-cs`                |
+|   [4]   | RhinoCode scenarios (`.verify.csx`) | `testing-cs`                |
 |   [5]   | Python (`.py`)                      | `coding-python`             |
 |   [6]   | Bash/sh (`.sh`, `.bash`)            | `coding-bash`               |
 |   [7]   | SQL (`.sql`)                        | `coding-pg`                 |
@@ -131,7 +131,7 @@ Three orthogonal rails: static analysis, unit tests, runtime verification. Each 
 4. [ALWAYS] **Full static** — `uv run python -m tools.quality static full`. Runs `Workspace.slnx` parity plus full-solution restore/build/analyzers. Required only when trigger files change (`.config/dotnet-tools.json`, `Directory.Build.props`, `Directory.Build.targets`, `Directory.Packages.props`, `Workspace.slnx`, `.editorconfig`, `global.json`, `tools/cs-analyzer/**`).
 5. [ALWAYS] **Unit tests** — `uv run python -m tools.quality test run [<filter>]`. Runs .NET 10 MTP against the library tests target (`tests/csharp/libs/Rasm/Rasm.Tests.csproj` by default; override via `--target <csproj>` or use `--all`). Mutation is explicit via `--mutation changed|full`; default test runs are unit-only.
 6. [ALWAYS] **Metadata/API lookup** — `uv run python -m tools.quality api doctor|resolve|query|show`. Use before relying on RhinoWIP, GH2, Eto, or central package APIs.
-7. [ALWAYS] **Rhino runtime verification** — `uv run python -m tools.quality bridge verify <path-or-glob>`. Routes scenarios through the in-process bridge against running `RhinoWIP.app`. Outputs JSON evidence and PNG captures under `.artifacts/rhino/verify/`. See the `cs-testing` skill.
+7. [ALWAYS] **Rhino runtime verification** — `uv run python -m tools.quality bridge verify <path-or-glob>`. Routes scenarios through the in-process bridge against running `RhinoWIP.app`. Outputs JSON evidence and PNG captures under `.artifacts/rhino/verify/`. See the `testing-cs` skill.
 8. [ALWAYS] **Trust the analyzer**: 80+ CSP descriptors (`tools/cs-analyzer/Kernel/RuleCatalog.cs`) enforce coding-csharp standards. When CSP#### fires, fix the architecture; do not suppress.
 9. [NEVER] Re-introduce a `test` mode into the static rail. Tests are a separate gate.
 10. [ALWAYS] **Parallel agents** — `quality static fix`, `quality static report`, `quality static build`, and unit test runs isolate scratch under `.artifacts/quality/<rail>/<run-id>/` and may run concurrently. Stryker mutation is opt-in and fail-fast on `.artifacts/locks/mutation.lock`. Live Rhino bridge commands, bridge verify, bridge package live steps, and package staging use fail-fast leases; lock files remain stable and are truncated after release.

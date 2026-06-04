@@ -23,12 +23,9 @@ from tools.quality.settings import ArtifactScope, QualitySettings
 
 # --- [TYPES] ---------------------------------------------------------------------------
 
-type ApiCliOp = Literal["doctor", "resolve", "query", "show"]
-type ApiShowPolicy = Literal["current", "latest"]
 type JsonPrimitive = str | int | float | bool | None
 type JsonValue = JsonPrimitive | tuple[JsonValue, ...] | dict[str, JsonValue]
 type QualityPayload = bytes | str | msgspec.Struct | Completed | None
-type StaticCliOp = Literal["fix", "report", "build", "full", "plan"]
 type TestListFormat = Literal["text", "json"]
 
 
@@ -38,13 +35,6 @@ _BRIDGE_VERBS: Final[tuple[str, ...]] = ("doctor", "launch", "quit")
 _PACKAGE: Final[tuple[bridge_package.PackageMode, ...]] = ("deploy", "publish")
 _PARAMETER = Parameter(show_default=False)
 _SELF_CLI: Final[tuple[str, ...]] = ("dotnet", "fd", "git", "rg")
-_STATIC: Final[dict[StaticCliOp, tuple[str, static_rail.StaticMode]]] = {
-    "fix": ("fix", "fix"),
-    "report": ("report", "report"),
-    "build": ("build", "build"),
-    "full": ("full", "full"),
-    "plan": ("plan", "plan"),
-}
 api = App(name="api", help="RhinoWIP API metadata.", default_parameter=_PARAMETER)
 app = App(name="quality", help="Rasm typed quality operator.", default_parameter=_PARAMETER, result_action="return_value")
 bridge = App(name="bridge", help="Rhino bridge gate.", default_parameter=_PARAMETER)
@@ -84,7 +74,7 @@ class Envelope(msgspec.Struct, frozen=True, gc=False, kw_only=True):
     rail: str
     verb: str
     command_path: tuple[str, ...] = ()
-    status: RailStatus = "ok"
+    status: RailStatus = RailStatus.OK
     exit_code: int = 0
     run_id: str = ""
     duration_ms: float = 0.0
@@ -148,7 +138,7 @@ _API_PATH_KIND: Final[dict[str, api_rail.ApiPathKind]] = {
 
 @api.default
 def api_gate(
-    op: ApiCliOp,
+    op: api_rail.ApiOp,
     key: str = "rhino-common",
     value: str = "",
     *,
@@ -163,7 +153,7 @@ def api_gate(
     # `value` discriminates by verb: resolve kind, query symbol, otherwise unused; `key` is the source key (or show token).
     kind = _API_PATH_KIND.get(value, "all") if op == "resolve" else "all"
     symbol = value if op == "query" else ""
-    show_policy: ApiShowPolicy = "latest" if latest is True else "current"
+    show_policy: api_rail.ApiShowPolicy = "latest" if latest is True else "current"
     return rail(
         "api",
         op,
@@ -234,16 +224,15 @@ def self_test_cmd(rhino: Annotated[bool | None, Parameter(name="--rhino")] = Non
 
 
 @static.default
-def static_gate(mode: StaticCliOp, paths: tuple[Path, ...] = ()) -> int:
-    phase, rail_mode = _STATIC[mode]
-    match rail_mode:
+def static_gate(mode: static_rail.StaticMode, paths: tuple[Path, ...] = ()) -> int:
+    match mode:
         case "plan":
-            return rail("static", phase, lambda s, sc: static_rail.plan_payload(s, sc, paths), command_path=("static", mode))
+            return rail("static", mode, lambda s, sc: static_rail.plan_payload(s, sc, paths), command_path=("static", mode))
         case _:
             return rail(
                 "static",
-                phase,
-                lambda s, sc: static_rail.run_static_rail(s, sc, rail_mode, paths),
+                mode,
+                lambda s, sc: static_rail.run_static_rail(s, sc, mode, paths),
                 command_path=("static", mode),
                 status=static_status,
                 notes=static_notes,
@@ -252,7 +241,7 @@ def static_gate(mode: StaticCliOp, paths: tuple[Path, ...] = ()) -> int:
 
 @test_app.default
 def unit_gate(
-    mode: Literal["run", "list", "coverage"],
+    mode: test_rail.TestMode,
     filter_expr: str = "",
     target: Path | None = None,
     *,
@@ -308,7 +297,7 @@ def verify(pattern: str) -> int:
         "verify",
         lambda s, sc: bridge_rail.run_verify(s, sc, pattern),
         command_path=("bridge", "verify"),
-        status=lambda summary: "ok" if summary.failed == 0 else "failed",
+        status=lambda summary: RailStatus.OK if summary.failed == 0 else RailStatus.FAILED,
         exit_code=lambda summary: 0 if summary.failed == 0 else 1,
     )
 
@@ -341,8 +330,8 @@ def emit_success[T](
     exit_code: Callable[[T], int] | None,
     notes: Callable[[T], tuple[str, ...]] | None,
 ) -> int:
-    resolved_status = status(value) if status is not None else "ok"
-    code = exit_code(value) if exit_code is not None else _status_exit(resolved_status)
+    resolved_status = status(value) if status is not None else RailStatus.OK
+    code = exit_code(value) if exit_code is not None else resolved_status.exit_code
     payload = data(value) if data is not None else quality_payload(value)
     return emit_envelope(
         Envelope(
@@ -360,7 +349,7 @@ def emit_success[T](
 
 
 def emit_fault(rail_name: str, phase: str, settings: QualitySettings, started: float, fault: ProcessFault, *, command_path: tuple[str, ...]) -> int:
-    code = fault.returncode or _status_exit(fault.status)
+    code = fault.returncode or fault.status.exit_code
     sys.stderr.write(f"{fault.message}\n")
     return emit_envelope(
         Envelope(
@@ -430,8 +419,8 @@ def bridge_status(completed: Completed) -> RailStatus:
     return (
         bridge_rail
         .try_decode_bridge(completed.stdout)
-        .map(lambda result: bridge_result_status(result.status))
-        .default_value("ok" if completed.returncode == 0 else "failed")
+        .map(lambda result: result.status)
+        .default_value(RailStatus.OK if completed.returncode == 0 else RailStatus.FAILED)
     )
 
 
@@ -439,45 +428,29 @@ def bridge_exit_code(completed: Completed) -> int:
     return bridge_rail.try_decode_bridge(completed.stdout).map(lambda result: result.exit_code).default_value(completed.returncode)
 
 
-def bridge_result_status(status: bridge_rail.BridgeStatus) -> RailStatus:
-    match status:
-        case "skipped":
-            return "skip"
-        case "ok":
-            return "ok"
-        case "unsupported":
-            return "unsupported"
-        case "failed":
-            return "failed"
-        case "timeout":
-            return "timeout"
-        case "busy":
-            return "busy"
-
-
 def api_status(payload: bytes | str) -> RailStatus:
     match payload_json(payload):
         case {"status": "ok"}:
-            return "ok"
+            return RailStatus.OK
         case {"status": "empty"}:
-            return "empty"
+            return RailStatus.EMPTY
         case {"status": "missing" | "failed"}:
-            return "failed"
+            return RailStatus.FAILED
         case _:
-            return "ok"
+            return RailStatus.OK
 
 
 def api_exit_code(payload: bytes | str, *, strict: bool) -> int:
     status = api_status(payload)
-    return 2 if strict and status == "failed" else 0
+    return 2 if strict and status == RailStatus.FAILED else 0
 
 
 def static_status(outcome: static_rail.StaticOutcome) -> RailStatus:
     match outcome:
         case "done":
-            return "ok"
+            return RailStatus.OK
         case "skip" | "full-trigger-skip":
-            return "skip"
+            return RailStatus.SKIP
 
 
 def static_notes(outcome: static_rail.StaticOutcome) -> tuple[str, ...]:
@@ -488,18 +461,6 @@ def static_notes(outcome: static_rail.StaticOutcome) -> tuple[str, ...]:
             return ("no C#-relevant changes",)
         case "done":
             return ()
-
-
-def _status_exit(status: RailStatus) -> int:
-    match status:
-        case "ok" | "empty" | "skip":
-            return 0
-        case "unsupported":
-            return 3
-        case "busy" | "timeout":
-            return 5
-        case "failed":
-            return 1
 
 
 # --- [COMPOSITION] -----------------------------------------------------------------------

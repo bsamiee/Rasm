@@ -10,8 +10,10 @@ import tempfile
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
+from dirty_equals import IsFloat, IsPartialDict
 from expression import Error, Ok, Result
 from hypothesis import given, strategies as st
+from inline_snapshot import snapshot
 import msgspec
 import pytest
 
@@ -26,14 +28,13 @@ from tests.tools.quality.conftest import (
     TARGET_LAWS,
 )
 from tools.quality import __main__ as quality_cli, process as process_mod
-from tools.quality.process import Completed, dotnet_args, dotnet_build_invocations, DotnetInvocation, fold, ProcessFault, run, Workspace
+from tools.quality.process import Completed, dotnet_args, dotnet_build_invocations, DotnetInvocation, fold, ProcessFault, RailStatus, run, Workspace
 from tools.quality.rails import api as api_rail, bridge as bridge_rail, package as package_rail, static as static_rail, test as test_rail
 from tools.quality.settings import QualitySettings
 
 
 if TYPE_CHECKING:
     from tests.tools.quality.conftest import CliLaw, TargetLaw
-    from tools.quality.process import RailStatus
 
 
 # --- [OPERATIONS] ----------------------------------------------------------------------
@@ -43,7 +44,7 @@ def _patch_settings(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness) ->
     monkeypatch.setattr(quality_cli, "QualitySettings", lambda: quality.settings)
 
 
-def _bridge_completed(status: bridge_rail.BridgeStatus) -> Completed:
+def _bridge_completed(status: RailStatus) -> Completed:
     return Completed(("bridge",), 0, msgspec.json.encode(bridge_rail.BridgeResult(status=status)), b"")
 
 
@@ -61,11 +62,14 @@ def test_cli_verbs_emit_one_json_envelope(
     assert quality_cli.main(list(law.argv)) == 0
     envelope = quality.envelope(capsys)
 
-    assert envelope["rail"] == law.rail
-    assert envelope["verb"] == law.verb
-    assert envelope["command_path"] == list(law.command_path)
-    assert envelope["status"] == "ok"
-    assert envelope["exit_code"] == 0
+    assert envelope == IsPartialDict(
+        rail=law.rail,
+        verb=law.verb,
+        command_path=list(law.command_path),
+        status="ok",
+        exit_code=0,
+        duration_ms=IsFloat(ge=0),
+    )
     assert envelope["data"] is not None
     assert probe.calls
     assert probe.calls[0][0] == law.member
@@ -86,7 +90,7 @@ def test_cli_remaining_verbs_emit_total_status_envelopes(
     monkeypatch.setattr(quality_cli, "dotnet_build", lambda *_args, **_kwargs: Ok(None))
     monkeypatch.setattr(bridge_rail, "with_bridge_lease", lambda _settings, action: action())
     monkeypatch.setattr(bridge_rail, "build_client", lambda *_args: Ok(None))
-    monkeypatch.setattr(bridge_rail, "client_run", lambda *_args, **_kwargs: Ok(_bridge_completed("skipped")))
+    monkeypatch.setattr(bridge_rail, "client_run", lambda *_args, **_kwargs: Ok(_bridge_completed(RailStatus.SKIP)))
     monkeypatch.setattr(static_rail, "run_static_rail", lambda *_args, **_kwargs: Ok("full-trigger-skip"))
     monkeypatch.setattr(
         test_rail, "run_test_rail", lambda *_args, **_kwargs: Ok(test_rail.TestRunReport(query={"op": "run"}, status="ok", artifact_paths={}))
@@ -112,23 +116,21 @@ def test_cli_remaining_verbs_emit_total_status_envelopes(
         (("bridge", "package", "rasm-bridge", "1.0.0"), "package", "ok", 0),
     ):
         assert quality_cli.main(list(argv)) == code
-        envelope = quality.envelope(capsys)
-        assert envelope["rail"] == rail
-        assert envelope["status"] == status
+        assert quality.envelope(capsys) == IsPartialDict(rail=rail, status=status, exit_code=code)
 
 
 def test_cli_projection_laws() -> None:
     status_laws: tuple[tuple[RailStatus, int], ...] = (
-        ("ok", 0),
-        ("empty", 0),
-        ("skip", 0),
-        ("unsupported", 3),
-        ("busy", 5),
-        ("timeout", 5),
-        ("failed", 1),
+        (RailStatus.OK, 0),
+        (RailStatus.EMPTY, 0),
+        (RailStatus.SKIP, 0),
+        (RailStatus.UNSUPPORTED, 3),
+        (RailStatus.BUSY, 5),
+        (RailStatus.TIMEOUT, 5),
+        (RailStatus.FAILED, 1),
     )
     for status, code in status_laws:
-        assert quality_cli._status_exit(status) == code
+        assert status.exit_code == code
     assert quality_cli.api_status(msgspec.json.encode({"status": "empty"})) == "empty"
     assert quality_cli.api_status(msgspec.json.encode({"status": "missing"})) == "failed"
     assert quality_cli.api_status(b"not-json") == "ok"
@@ -149,8 +151,16 @@ def test_cli_projection_laws() -> None:
     assert quality_cli.bridge_status(Completed(("bridge",), 0, b"not-json", b"")) == "ok"
     assert quality_cli.bridge_status(Completed(("bridge",), 9, b"not-json", b"")) == "failed"
     assert quality_cli.bridge_exit_code(Completed(("bridge",), 9, b"not-json", b"")) == 9
-    for bridge_status in ("ok", "unsupported", "failed", "timeout", "busy"):
-        assert quality_cli.bridge_result_status(bridge_status) == bridge_status
+    wire_laws: tuple[tuple[bytes, RailStatus], ...] = (
+        (b'{"status":"ok"}', RailStatus.OK),
+        (b'{"status":"skipped"}', RailStatus.SKIP),
+        (b'{"status":"unsupported"}', RailStatus.UNSUPPORTED),
+        (b'{"status":"failed"}', RailStatus.FAILED),
+        (b'{"status":"timeout"}', RailStatus.TIMEOUT),
+        (b'{"status":"busy"}', RailStatus.BUSY),
+    )
+    for wire, rail in wire_laws:
+        assert bridge_rail.try_decode_bridge(wire).default_value(bridge_rail.BridgeResult()).status is rail
 
 
 # --- [PROCESS AND SETTINGS LAWS] -------------------------------------------------------
@@ -195,14 +205,14 @@ def test_process_stream_timeout_settings_and_dotnet_laws(quality: QualityHarness
     assert DotnetInvocation(("tool", "restore")).argv(scope) == ("dotnet", "tool", "restore")
     assert DotnetInvocation(("build", "App.csproj"), mode="stream").artifact_dir(scope) == scope.path / "process"
     assert DotnetInvocation(("build", "App.csproj")).env() is None
-    assert dotnet_args("restore", "App.csproj", disable_parallel=True) == ("restore", "App.csproj", "--locked-mode", "--disable-parallel")
+    assert dotnet_args("restore", "App.csproj", disable_parallel=True) == snapshot(("restore", "App.csproj", "--locked-mode", "--disable-parallel"))
     assert "-maxcpucount:1" in dotnet_args("build", "App.csproj", configuration="Release", serial=True, quiet=True)
     assert tuple(item.argv(scope)[1] for item in dotnet_build_invocations(quality.settings, targets=("App.csproj",), restore="App.csproj")) == (
         "restore",
         "build",
     )
     assert fold((1, 2, 3), 0, lambda acc, item: Ok(acc + item)).default_value(0) == 6
-    assert process_mod._fault_status(5) == "busy"
+    assert process_mod.RailStatus.from_returncode(5) == "busy"
 
 
 def test_workspace_xml_and_apphost_laws(monkeypatch: pytest.MonkeyPatch, quality: QualityHarness, tmp_path: Path) -> None:
@@ -540,12 +550,12 @@ def test_bridge_payload_verify_client_and_discovery_laws(monkeypatch: pytest.Mon
     quality.project("libs/csharp/Rasm/Rasm.csproj")
     payload = bridge_rail.BridgeResult(
         command="check",
-        status="failed",
+        status=RailStatus.FAILED,
         report_path=str(scenario),
         phases=(
             bridge_rail.BridgePhase(
                 phase="execute",
-                status="failed",
+                status=RailStatus.FAILED,
                 data={"diagnostics": {"exceptionReports": [{"message": "boom"}]}},
                 outputs=(
                     bridge_rail.BridgeOutput(
@@ -576,7 +586,7 @@ def test_bridge_payload_verify_client_and_discovery_laws(monkeypatch: pytest.Mon
     monkeypatch.setattr(
         bridge_rail,
         "dotnet",
-        lambda *args, **_kwargs: Ok(Completed(("dotnet", *args), 0, msgspec.json.encode(bridge_rail.BridgeResult(status="ok")), b"")),
+        lambda *args, **_kwargs: Ok(Completed(("dotnet", *args), 0, msgspec.json.encode(bridge_rail.BridgeResult(status=RailStatus.OK)), b"")),
     )
     assert bridge_rail.client_run(quality.settings, scope, "doctor").is_ok()
     assert bridge_rail.client_quit(quality.settings, scope).is_ok()
@@ -587,7 +597,7 @@ def test_bridge_payload_verify_client_and_discovery_laws(monkeypatch: pytest.Mon
     monkeypatch.setattr(bridge_rail, "_verify_discover", lambda *_args: Ok((scenario,)))
     monkeypatch.setattr(bridge_rail, "_verify_resolve", lambda *_args: Ok(quality.settings.bridge_client))
     monkeypatch.setattr(
-        bridge_rail, "_verify_invoke", lambda *_args: bridge_rail.BridgeResult(command="check", status="ok", report_path=str(scenario))
+        bridge_rail, "_verify_invoke", lambda *_args: bridge_rail.BridgeResult(command="check", status=RailStatus.OK, report_path=str(scenario))
     )
     assert (
         bridge_rail

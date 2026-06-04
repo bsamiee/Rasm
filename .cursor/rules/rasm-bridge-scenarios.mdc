@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Rasm Bridge Scenarios
 
-Read `.claude/skills/cs-testing/SKILL.md`, `tools/rhino-bridge/README.md`, `tools/rhino-bridge/AGENTS.md`, and nearest test `AGENTS.md`.
+Read `.claude/skills/testing-cs/SKILL.md`, `tools/rhino-bridge/README.md`, `tools/rhino-bridge/AGENTS.md`, and nearest test `AGENTS.md`.
 
 ## Shape
 

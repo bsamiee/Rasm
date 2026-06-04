@@ -55,6 +55,17 @@ hyp_settings.register_profile(
     phases=(Phase.explicit, Phase.reuse, Phase.generate),
     suppress_health_check=_SUPPRESSIONS,
 )
+hyp_settings.register_profile(
+    # Mutation runs: no shared example DB (cached examples must not mask mutants), derandomized for stable kill verdicts,
+    # explicit+generate only (shrinking a survivor wastes the mutation budget; a single killing example suffices).
+    "rasm-mutation",
+    database=None,
+    deadline=None,
+    derandomize=True,
+    max_examples=50,
+    phases=(Phase.explicit, Phase.generate),
+    suppress_health_check=_SUPPRESSIONS,
+)
 
 
 # --- [EXPORTS] -------------------------------------------------------------------------

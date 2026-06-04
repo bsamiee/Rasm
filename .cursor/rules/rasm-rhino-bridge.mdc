@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Rasm Rhino Bridge
 
-Read `tools/rhino-bridge/README.md`, `tools/rhino-bridge/AGENTS.md`, and `.claude/skills/cs-testing/references/bridge-runtime.md`. Quality rails: `rasm-quality-operator.mdc`.
+Read `tools/rhino-bridge/README.md`, `tools/rhino-bridge/AGENTS.md`, and `.claude/skills/testing-cs/references/bridge-runtime.md`. Quality rails: `rasm-quality-operator.mdc`.
 
 ## Current Routes
 

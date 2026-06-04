@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Rasm C# Testing
 
-Read `.claude/skills/cs-testing/SKILL.md`, `tests/csharp/AGENTS.md`, and nearest test `AGENTS.md`. File-specific rules own `*.spec.cs`, `_testkit`, and `*.verify.csx`.
+Read `.claude/skills/testing-cs/SKILL.md`, `tests/csharp/AGENTS.md`, and nearest test `AGENTS.md`. File-specific rules own `*.spec.cs`, `_testkit`, and `*.verify.csx`.
 
 ## Rail split
 

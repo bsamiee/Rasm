@@ -82,7 +82,7 @@ class ApiMatch(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
     score: int = 0
 
 
-class ApiQueryReport(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
+class ApiQueryReport(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, tag="query"):
     query: dict[str, str]
     source: dict[str, str]
     status: ApiStatus
@@ -98,7 +98,7 @@ class ApiQueryReport(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
     truncated: bool = False
 
 
-class ApiDoctorReport(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
+class ApiDoctorReport(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, tag="doctor"):
     query: dict[str, str]
     status: ApiStatus
     rhino: dict[str, str]
@@ -122,7 +122,6 @@ class ApiShowReport(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
 
 
 type ApiStoredReport = ApiQueryReport | ApiDoctorReport
-type ApiReport = ApiStoredReport | ApiShowReport
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
@@ -907,11 +906,9 @@ def _slice_text(text: str, *, lines: str, grep: str, max_lines: int) -> tuple[st
 
 
 def _show_report(path: Path) -> ApiStoredReport:
-    payload = path.read_bytes()
-    try:
-        return msgspec.json.decode(payload, type=ApiQueryReport)
-    except msgspec.DecodeError:
-        return msgspec.json.decode(payload, type=ApiDoctorReport)
+    # ApiStoredReport is a msgspec tagged union ("type" discriminant): one decode dispatches to the stored variant.
+    report: ApiStoredReport = msgspec.json.decode(path.read_bytes(), type=ApiStoredReport)
+    return report
 
 
 def _show(

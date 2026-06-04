@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Rasm TestKit
 
-Read `.claude/skills/cs-testing/SKILL.md`, `tests/csharp/AGENTS.md`, and `docs/testing-libs/*/api.md` before changing shared test infrastructure.
+Read `.claude/skills/testing-cs/SKILL.md`, `tests/csharp/AGENTS.md`, and `docs/testing-libs/*/api.md` before changing shared test infrastructure.
 
 ## Ownership
 

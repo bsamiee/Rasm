@@ -11,7 +11,7 @@ from expression import Error, Ok, Result
 import msgspec
 import pytest
 
-from tools.quality.process import ProcessFault, Workspace
+from tools.quality.process import ProcessFault, RailStatus, Workspace
 from tools.quality.rails import api as api_rail, bridge as bridge_rail, package as package_rail, static as static_rail, test as test_rail
 from tools.quality.settings import ArtifactScope, QualitySettings
 
@@ -297,7 +297,8 @@ CLI_LAWS: tuple[CliLaw, ...] = (
         bridge_rail,
         "run_verify",
         bridge_rail.VerifyReport(
-            summary=bridge_rail.VerifySummaryCounts(ok=1, failed=0, total=1), scenarios=(bridge_rail.VerifyScenario(name="scenario", status="ok"),)
+            summary=bridge_rail.VerifySummaryCounts(ok=1, failed=0, total=1),
+            scenarios=(bridge_rail.VerifyScenario(name="scenario", status=RailStatus.OK),),
         ),
     ),
     CliLaw(

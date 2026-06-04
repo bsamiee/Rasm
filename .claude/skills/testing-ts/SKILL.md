@@ -1,5 +1,5 @@
 ---
-name: ts-testing
+name: testing-ts
 description: >-
   Generates dense law-driven test suites for Effect modules via algebraic PBT
   using Vitest, @effect/vitest, fast-check. Enforces 175 LOC cap, 95% per-file
@@ -8,7 +8,7 @@ description: >-
   scaffolding unit/integration/E2E tests from templates.
 ---
 
-# [H1][TS-TESTING]
+# [H1][TESTING_TS]
 >**Dictum:** *Algebraic property-based testing eliminates circular AI-generated tests by construction.*
 
 <br>

@@ -63,7 +63,7 @@ it.effect.prop('hash/compare laws', { x: _nonempty, y: _nonempty }, ({ x, y }) =
             Module.hash(x), Module.hash(x),
             Module.compare(x, x), Module.compare(x, y), Module.compare(y, x),
         ]);
-        expect(h1).toBe(h2);           // Determinism
+        expect(h1).toBe(h2);            // Determinism
         expect(eqSelf).toBe(true);      // Reflexivity
         expect(eqXY).toBe(x === y);     // Equivalence
         expect(eqXY).toBe(eqYX);        // Symmetry

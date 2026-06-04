@@ -7,19 +7,26 @@ from pathlib import Path
 import re
 import shutil
 import time
-from typing import Final, Literal
+from typing import Final
 
 from beartype import beartype
 from expression import Error, Ok, Result
 import msgspec
 
-from tools.quality.process import Completed, decode_json, dotnet, dotnet_build, fd_args, fold, leased, ProcessFault, ProjectIndex, Workspace
+from tools.quality.process import (
+    Completed,
+    decode_json,
+    dotnet,
+    dotnet_build,
+    fd_args,
+    fold,
+    leased,
+    ProcessFault,
+    ProjectIndex,
+    RailStatus,
+    Workspace,
+)
 from tools.quality.settings import ArtifactScope, QualitySettings
-
-
-# --- [TYPES] ---------------------------------------------------------------------------
-
-type BridgeStatus = Literal["ok", "skipped", "unsupported", "failed", "timeout", "busy"]
 
 
 # --- [MODELS] ----------------------------------------------------------------------------
@@ -56,7 +63,7 @@ class BridgeOutput(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, re
 
 class BridgePhase(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
     phase: str
-    status: BridgeStatus
+    status: RailStatus
     duration_ms: float = 0.0
     data: dict[str, object] | None = None
     outputs: tuple[BridgeOutput, ...] = ()
@@ -65,18 +72,18 @@ class BridgePhase(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, ren
 
 class BridgeResult(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, rename="camel"):
     command: str = ""
-    status: BridgeStatus = "failed"
+    status: RailStatus = RailStatus.FAILED
     report_path: str = ""
     phases: tuple[BridgePhase, ...] = ()
     fault: BridgeFault | None = None
 
     @staticmethod
     def from_process_fault(fault: ProcessFault) -> BridgeResult:
-        return BridgeResult(status="timeout" if fault.returncode == 124 else "failed", fault=BridgeFault(message=fault.message))
+        return BridgeResult(status=fault.status, fault=BridgeFault(message=fault.message))
 
     @property
     def exit_code(self) -> int:
-        return _BRIDGE_EXIT[self.status]
+        return self.status.exit_code
 
     @property
     def diagnostics(self) -> BridgeRuntimeDiagnostics | None:
@@ -114,7 +121,7 @@ class VerifySummaryCounts(msgspec.Struct, frozen=True, gc=False, omit_defaults=T
 
 class VerifyScenario(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
     name: str
-    status: BridgeStatus
+    status: RailStatus
     report_path: str = ""
     facts: tuple[dict[str, object], ...] = ()
     captures: tuple[dict[str, object], ...] = ()
@@ -150,8 +157,6 @@ class VerifyReport(msgspec.Struct, frozen=True, gc=False, omit_defaults=True):
 
 
 # --- [CONSTANTS] -----------------------------------------------------------------------
-
-_BRIDGE_EXIT: Final[dict[BridgeStatus, int]] = {"busy": 5, "failed": 1, "ok": 0, "skipped": 0, "timeout": 5, "unsupported": 3}
 
 # Canonical scenario evidence markers (BridgeMarker.Prefix) emitted on scenario stdout by Scenario.Run / Capture.
 _EVIDENCE_RE: Final[re.Pattern[str]] = re.compile(r"rasm\.rhino-bridge\.evidence=facts=(\{.*\})")
@@ -223,13 +228,13 @@ def _verify_resolve(settings: QualitySettings, workspace: Workspace, index: Proj
 
 def _verify_summary(report_dir: Path, results: tuple[BridgeResult, ...], ttl_seconds: float) -> Result[VerifyReport, ProcessFault]:
     scenarios = tuple(VerifyScenario.of(result) for result in results)
-    ok = sum(_BRIDGE_EXIT[scenario.status] == 0 for scenario in scenarios)
+    ok = sum(scenario.status.exit_code == 0 for scenario in scenarios)
     reports = sum(len(scenario.exception_reports) for scenario in scenarios)
     payload = VerifyReport(
         summary=VerifySummaryCounts(ok=ok, failed=len(scenarios) - ok, total=len(scenarios), exception_reports=reports),
         report_dir=str(report_dir),
         expires_in_seconds=ttl_seconds,
-        first_failure=next((scenario for scenario in scenarios if _BRIDGE_EXIT[scenario.status] != 0), None),
+        first_failure=next((scenario for scenario in scenarios if scenario.status.exit_code != 0), None),
         scenarios=scenarios,
     )
     # RASM_BOUNDARY_EXEMPTION: rule=PYS0001 reason=artifact-write
@@ -304,7 +309,7 @@ def client_quit(settings: QualitySettings, scope: ArtifactScope) -> Result[None,
         lambda completed: (
             try_decode_bridge(completed.stdout)
             .filter_with(
-                lambda decoded: decoded.status == "ok",
+                lambda decoded: decoded.status == RailStatus.OK,
                 lambda decoded: ProcessFault.fail(
                     "quit", returncode=1, detail=completed.stderr or (decoded.fault.message.encode() if decoded.fault else b"quit refused")
                 ),

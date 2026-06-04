@@ -7,6 +7,7 @@ from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, UTC
+from enum import StrEnum
 from functools import cache, reduce
 from importlib import import_module
 import os
@@ -14,7 +15,7 @@ from pathlib import Path
 import shutil
 import sys
 from types import ModuleType
-from typing import assert_never, Final, Literal, Protocol
+from typing import assert_never, Final, Literal, Protocol, Self
 import xml.etree.ElementTree as ET  # noqa: S405
 
 import anyio
@@ -32,7 +33,6 @@ type DotnetOp = Literal["restore", "build"]
 type FdExtension = Literal["csproj", "csx"]
 type ProcessMode = Literal["capture", "stream"]
 type ProjectIndex = Mapping[Path, Path]
-type RailStatus = Literal["ok", "empty", "skip", "busy", "timeout", "unsupported", "failed"]
 
 
 class ByteWriter(Protocol):
@@ -58,6 +58,40 @@ _POSIX_MODULE: Final = import_module("fcntl")
 # --- [MODELS] ----------------------------------------------------------------------------
 
 
+class RailStatus(StrEnum):
+    # Canonical envelope status. Each member carries its exit_code and any boundary wire-spelling aliases
+    # (e.g. the bridge emits "skipped" for SKIP); msgspec decodes aliases to the member and encodes the canonical value.
+    exit_code: int
+
+    OK = "ok", 0
+    EMPTY = "empty", 0
+    SKIP = "skip", 0, "skipped"
+    UNSUPPORTED = "unsupported", 3
+    BUSY = "busy", 5
+    TIMEOUT = "timeout", 5
+    FAILED = "failed", 1
+
+    def __new__(cls, value: str, exit_code: int, *aliases: str) -> Self:
+        member = str.__new__(cls, value)
+        member._value_ = value
+        member.exit_code = exit_code
+        for alias in aliases:
+            member._add_value_alias_(alias)
+        return member
+
+    @classmethod
+    def from_returncode(cls, returncode: int) -> RailStatus:
+        match returncode:
+            case 0:
+                return cls.EMPTY
+            case 5:
+                return cls.BUSY
+            case 124:
+                return cls.TIMEOUT
+            case _:
+                return cls.FAILED
+
+
 @dataclass(frozen=True, slots=True)
 class Completed:
     argv: tuple[str, ...]
@@ -78,7 +112,7 @@ class ProcessFault:
     argv: tuple[str, ...]
     returncode: int
     stderr: bytes
-    status: RailStatus = "failed"
+    status: RailStatus = RailStatus.FAILED
 
     @staticmethod
     def fail(*argv: str, detail: str | bytes, returncode: int = 2, status: RailStatus | None = None) -> ProcessFault:
@@ -87,7 +121,7 @@ class ProcessFault:
                 pass
             case text:
                 stderr = text.encode()
-        return ProcessFault(argv=argv, returncode=returncode, stderr=stderr, status=status or _fault_status(returncode))
+        return ProcessFault(argv=argv, returncode=returncode, stderr=stderr, status=status or RailStatus.from_returncode(returncode))
 
     @property
     def message(self) -> str:
@@ -266,7 +300,9 @@ def leased[T](
         with exclusive_lease(lock, lease_owner(settings, resource, project=project, mode=mode)):
             return action()
     except ResourceBusyError as exc:
-        return Error(ProcessFault.fail(resource, "busy", detail=f"{resource} is busy: {exc.lock} held by\n{exc.owner}", returncode=5, status="busy"))
+        return Error(
+            ProcessFault.fail(resource, "busy", detail=f"{resource} is busy: {exc.lock} held by\n{exc.owner}", returncode=5, status=RailStatus.BUSY)
+        )
     except (OSError, RuntimeError) as exc:
         return Error(ProcessFault.fail(resource, "lock", detail=str(exc)))
 
@@ -496,7 +532,7 @@ def run(
                         return await _exec()
                 except TimeoutError:
                     detail = f"timed out after {limit:g}s".encode()
-                    return Error(ProcessFault.fail(*argv, detail=detail, returncode=124, status="timeout"))
+                    return Error(ProcessFault.fail(*argv, detail=detail, returncode=124, status=RailStatus.TIMEOUT))
 
     return anyio.run(_guarded)
 
@@ -546,15 +582,3 @@ def _process_dir(argv: tuple[str, ...], artifact_dir: Path | None) -> Path:
     text = "-".join("".join(character if character.isalnum() else "-" for character in part).strip("-").lower() for part in argv[:6] if part.strip())
     command_id = text[:96] or "command"
     return base / command_id
-
-
-def _fault_status(returncode: int) -> RailStatus:
-    match returncode:
-        case 0:
-            return "empty"
-        case 5:
-            return "busy"
-        case 124:
-            return "timeout"
-        case _:
-            return "failed"

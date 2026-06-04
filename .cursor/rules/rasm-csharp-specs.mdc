@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Rasm C# Specs
 
-Read `.claude/skills/cs-testing/SKILL.md`, `tests/csharp/AGENTS.md`, nearest test `AGENTS.md`, and relevant `docs/testing-libs/<tool>/api.md`.
+Read `.claude/skills/testing-cs/SKILL.md`, `tests/csharp/AGENTS.md`, nearest test `AGENTS.md`, and relevant `docs/testing-libs/<tool>/api.md`.
 
 ## Ownership
 

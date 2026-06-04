@@ -2,7 +2,7 @@
 
 Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal policy; this file adds subtree deltas only.
 
-[REQUIRED]: Follow `CLAUDE.md`, `cs-testing`, and `coding-csharp` for every `.spec.cs` change.
+[REQUIRED]: Follow `CLAUDE.md`, `testing-cs`, and `coding-csharp` for every `.spec.cs` change.
 
 [CRITICAL]:
 - Build adversarial laws, not confirmation checks. Expected values come from independent math, smaller models, metamorphic relations, failure categories, or bridge evidence.
@@ -103,7 +103,7 @@ Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal poli
 
 ## [7][BRIDGE_RAIL_OPERATIONS]
 
-Canonical routes: `tools/rhino-bridge/AGENTS.md` and `.claude/skills/cs-testing/references/bridge-runtime.md`.
+Canonical routes: `tools/rhino-bridge/AGENTS.md` and `.claude/skills/testing-cs/references/bridge-runtime.md`.
 
 - Each `uv run python -m tools.quality bridge verify <scenario>` invocation pays a 3-8s Rhino handshake. Group thematically related scenarios per `.verify.csx` file to amortize the handshake.
 - Populate runtime evidence inside `Scenario.Run` via `facts.Add(string key, object value);` — do not call `BridgeMarker.EmitFact`/`EmitScenarioHeader`.
