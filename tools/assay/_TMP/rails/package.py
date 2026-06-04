@@ -1,15 +1,13 @@
-"""The yak lifecycle rail: one ``Claim.PACKAGE`` owner staging, deploying, and publishing ``.yak`` distributions.
+"""The ``Claim.PACKAGE`` yak lifecycle rail: ``stage``/``deploy``/``publish``/``list``/``plan`` of ``.yak`` distributions.
 
-The five verbs ``stage``/``deploy``/``publish``/``list``/``plan`` resolve a package project by ``YakPackageSlug``, evaluate
-MSBuild yak metadata, stage the distribution under a *per-dir* lease (keyed on the package directory, never the slug — two
-slugs sharing one ``YakPackageDirectory`` must serialize), run ``yak build``/``install``/``push`` as catalog ``Tool`` rows,
-and commit the staged tree atomically (temp → rotate → swap, restore-on-``OSError``).
+Resolves a project by ``YakPackageSlug``, evaluates MSBuild yak metadata, stages under a per-dir lease (keyed on the package
+directory, never the slug — two slugs sharing one ``YakPackageDirectory`` serialize), runs ``yak build``/``install``/``push``
+as catalog ``Tool`` rows, and commits the staged tree atomically (temp → rotate → swap, restore-on-``OSError``).
 
-The ``rasm-bridge`` slug is the single lifecycle special-case: its ``deploy``/``publish`` prepends ``quit`` and appends
-``refresh`` and runs the whole step sequence inside the shared ``bridge.lock`` so the live host quits, the package installs,
-and the plugin refreshes atomically under one lease. A non-executable ``YakPath`` or slug/``.rhp``/platform mismatch is a
-precondition fault surfaced as ``FAULTED`` *before* the lease is taken, while a ``yak build`` defect rides the success
-channel as ``Completed(FAILED)``; counts derive solely in ``model.fold`` — this rail never sums an outcome.
+Invariants: the ``rasm-bridge`` slug is the lone lifecycle special-case — its ``deploy``/``publish`` brackets the steps with
+``quit``/``refresh`` inside the shared ``bridge.lock`` so host-quit, install, and plugin-refresh are atomic under one lease.
+A slug/``.rhp``/platform mismatch or non-executable ``YakPath`` faults as ``FAULTED`` *before* the lease; a ``yak build``
+defect rides the success channel as ``Completed(FAILED)``. Counts derive solely in ``model.fold`` — this rail never sums.
 """
 
 from dataclasses import dataclass
@@ -26,6 +24,7 @@ from expression import Error, Ok, Result
 import msgspec
 
 from tools.assay._TMP.composition.catalog import select  # noqa: PLC2701  # intra-staging import; _TMP is the package root
+from tools.assay._TMP.composition.settings import ArtifactScope, AssaySettings  # noqa: TC001  # unconditional for beartype runtime
 from tools.assay._TMP.core.engine import leased, run_check  # noqa: PLC2701  # intra-staging import; _TMP is the package root
 from tools.assay._TMP.core.model import (  # noqa: PLC2701  # intra-staging import; _TMP is the package root
     Base,
@@ -46,11 +45,12 @@ from tools.assay._TMP.core.model import (  # noqa: PLC2701  # intra-staging impo
 from tools.assay._TMP.core.routing import Routed, Scope  # noqa: PLC2701  # intra-staging import; _TMP is the package root
 from tools.assay._TMP.core.status import RailStatus  # noqa: PLC2701  # intra-staging import; _TMP is the package root
 
+# canonical Claim.BRIDGE Mode.CLIENT seam for the rasm-bridge quit/refresh lifecycle steps
+from tools.assay._TMP.rails.bridge import _client_run as _bridge_client_run  # noqa: PLC2701  # intra-staging import; _TMP is the package root
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
-
-    from tools.assay._TMP.composition.settings import ArtifactScope, AssaySettings  # intra-staging import; _TMP is the package root
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -63,10 +63,9 @@ type _Step = tuple[str, ...]  # one resolved yak/bridge argv tail (the command m
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class PackageParams(BaseParams):
-    """Per-verb params selecting one yak project.
+    """Per-verb params: ``slug`` keys ``YakPackageSlug`` resolution, ``version`` stamps ``YakVersion`` and ``yak build --version``.
 
-    ``slug`` keys ``YakPackageSlug`` project resolution, ``version`` stamps the MSBuild ``YakVersion`` property and the
-    ``yak build --version`` tail. ``deploy``/``publish``/``stage``/``plan`` require a ``slug``; ``list`` ignores both.
+    ``stage``/``deploy``/``publish``/``plan`` require a ``slug``; ``list`` ignores both.
     """
 
     slug: str = ""
@@ -256,8 +255,9 @@ def evaluate_meta(settings: AssaySettings, scope: ArtifactScope, project: str, s
     """Evaluate and validate the yak metadata under one ``dotnet msbuild`` ``Mode.QUERY`` row (fail-fast before any lease).
 
     Validation precedes any lease or stage so a slug/``.rhp``/platform/glob/executable mismatch faults at exit 2 before a
-    live package directory is touched. A non-zero MSBuild exit surfaces as a ``Fault`` via the decode of an empty envelope
-    failing the required-property gate, rather than a silent empty meta.
+    live package directory is touched. A non-zero MSBuild exit emits an error line (not the JSON envelope) on ``stdout``;
+    ``_decode_props`` is the marked codec boundary that projects that malformed output to a contextful ``Fault`` carrying
+    the MSBuild tail, rather than letting a raw ``msgspec.DecodeError`` escape mid-rail.
     """
     query: _Step = (
         "msbuild",
@@ -271,8 +271,23 @@ def evaluate_meta(settings: AssaySettings, scope: ArtifactScope, project: str, s
     check = Check(tool=tool, cwd=Path(str(settings.root)))  # subprocess cwd is inherently local
     routed = Routed(language=tool.language, scope=Scope.CHANGED)
     return run_check(check, settings=settings, scope=scope, routed=routed).bind(
-        lambda done: YakMeta.from_props(project, _DECODER.decode(done.stdout or b"{}").Properties, settings, slug)
+        lambda done: _decode_props(project, done).bind(lambda props: YakMeta.from_props(project, props, settings, slug))
     )
+
+
+def _decode_props(project: str, done: Completed) -> Result[dict[str, str], Fault]:
+    """Decode the MSBuild ``-getProperty`` JSON envelope at the codec boundary; non-JSON output → a contextful ``Fault``.
+
+    A non-zero MSBuild exit emits an error line (``MSB####``/restore noise) on ``stdout``, never the JSON envelope, so a
+    bare ``_DECODER.decode`` raises ``msgspec.DecodeError`` mid-rail. The try/except is the marked codec boundary: a
+    malformed envelope surfaces as ``Fault(("dotnet","msbuild",project))`` carrying the bounded MSBuild tail so the
+    operator sees *what* failed, never a context-free ``JSON is malformed`` swallowed at a distant seam.
+    """
+    try:
+        return Ok(_DECODER.decode(done.stdout or b"{}").Properties)
+    except msgspec.DecodeError:
+        tail = (done.stdout or done.stderr or b"").decode(errors="replace").strip()[:512]
+        return Error(Fault(("dotnet", "msbuild", project), message=f"msbuild metadata evaluation failed (exit {done.returncode}): {tail}"))
 
 
 def _resolve_project(settings: AssaySettings, slug: str) -> Result[str, Fault]:
@@ -459,17 +474,18 @@ def _run_step(settings: AssaySettings, scope: ArtifactScope, meta: YakMeta, pack
 
 
 def _run_bridge_client(settings: AssaySettings, scope: ArtifactScope, verb: str) -> Result[Completed, Fault]:
-    """Drive one ``rasm-bridge`` ``Mode.CLIENT`` lifecycle verb (``quit``/``refresh``) through the bridge client row.
+    """Drive one ``rasm-bridge`` ``Mode.CLIENT`` lifecycle verb (``quit``/``refresh``) through the canonical bridge seam.
 
     ``quit`` tears down the running host before the ``.rhp`` swap and ``refresh`` reloads the live plugin after install,
-    the whole sequence under the shared ``bridge.lock`` so it is atomic under one lease. A ``refresh`` fault after
-    ``install`` leaves the new ``.rhp`` on disk while the host is down — recoverable by a bare ``bridge launch``, so it
-    rides ``Completed(FAILED)`` rather than a rollback.
+    the whole sequence under the shared ``bridge.lock`` so it is atomic under one lease. The invocation routes through
+    ``rails.bridge._client_run`` — the single ``dotnet run --no-build --project <client> --configuration <conf> -- <verb>``
+    surface — so the client project is resolved by ``--project`` (a bare ``dotnet run`` from the repo root finds no
+    project) and the client stays on its canonical ``bin/`` output (no ``--artifacts-path`` splice). A ``refresh`` fault
+    after ``install`` leaves the new ``.rhp`` on disk while the host is down — recoverable by a bare ``bridge launch``, so
+    it rides ``Completed(FAILED)`` rather than a rollback.
     """
-    tool = Tool(f"rasm-bridge-{verb}", Runner.DOTNET, ("run", "--no-build", "--", verb), Input.NONE, Language.CSHARP, Claim.BRIDGE, mode=Mode.CLIENT)
-    check = Check(tool=tool, cwd=Path(str(settings.root)))  # subprocess cwd is inherently local
-    routed = Routed(language=tool.language, scope=Scope.CHANGED)
-    return run_check(check, settings=settings, scope=scope, routed=routed)
+    _ = scope  # the bridge client must stay on its canonical bin/ output; _client_run pins scope=None internally
+    return _bridge_client_run(settings, verb)
 
 
 def _resolve_package_file(meta: YakMeta) -> Result[Path, Fault]:

@@ -1,8 +1,7 @@
-"""Wire/evidence spine: five axis enums, one ``Base`` policy, one bounded ``Detail`` union.
+"""Wire/evidence spine: axis enums, the ``Base`` policy, and the bounded ``Detail`` union.
 
-Owns the axis vocabulary and every non-config ``msgspec`` struct that crosses a rail; imports
-``RailStatus`` from ``core/status.py`` and adds nothing status-shaped. Each axis ``StrEnum`` is
-simultaneously the Cyclopts token, the wire value, and the ``match`` key.
+Owns every non-config ``msgspec`` struct that crosses a rail. Each axis ``StrEnum`` is at once
+the Cyclopts token, the wire value, and the ``match`` key.
 """
 
 from collections.abc import Callable
@@ -142,11 +141,10 @@ type Parser = Callable[[Completed], AnyDetail | None]
 
 
 class ResourceBusyError(Exception):
-    """Sole exception this module owns.
+    """Lease contention raised by ``exclusive_lease``; the rail seam maps it to ``RailStatus.BUSY``.
 
-    ``exclusive_lease`` raises it on lease contention; the rail seam maps it to
-    ``RailStatus.BUSY``; ``aspect._transient`` returns ``False`` for it so ``@retried``
-    never re-attempts a held lease — a held resource is contention, not a transient fault.
+    ``aspect._transient`` returns ``False`` for it so ``@retried`` never re-attempts a held lease —
+    a held resource is contention, not a transient fault.
     """
 
 
@@ -158,11 +156,10 @@ class Base(msgspec.Struct, frozen=True, gc=False, omit_defaults=True, repr_omit_
 
 
 class Detail(Base, frozen=True, forbid_unknown_fields=True, tag_field="kind"):
-    """Tagged-union base: rejects unknown wire keys at decode; ``kind`` discriminates.
+    """Tagged-union base; ``kind`` discriminates and ``forbid_unknown_fields`` gates extras at decode.
 
-    External bridge/C# JSON may carry extras, so ``forbid_unknown_fields`` gates the schema at
-    the decode boundary; variants carry algorithm-specific evidence only — never fold-derived
-    counts, which live on ``Report``.
+    Variants carry algorithm-specific evidence only — never fold-derived counts, which live on
+    ``Report``.
     """
 
 
@@ -206,9 +203,8 @@ class Completed(Base, frozen=True):
 class Fault(Base, frozen=True):
     """Error receipt: ``{argv, status, message}`` ONLY — no ``returncode``/``detail``/``stderr``.
 
-    Distinct from ``Completed``: a ``Fault`` means assay could not run the check (spawn/lease/
-    timeout/strict), not that a check found defects. ``--strict`` promotion constructs one directly.
-    ``message`` is length-bounded so the wire stays small.
+    A ``Fault`` means assay could not run the check (spawn/lease/timeout/strict), not that a check
+    found defects; ``--strict`` promotion constructs one directly.
     """
 
     argv: tuple[str, ...]
@@ -388,17 +384,6 @@ def receipt(
     return Completed(argv, rc, stdout, stderr, duration_ms, status or RailStatus.from_returncode(rc), notes)
 
 
-def detail_type(tool: Tool, fields: tuple[tuple[str, type, object], ...]) -> type[Detail]:
-    """Catalog escape hatch: generate an irregular ``Detail`` variant tagged by ``tool.name``.
-
-    Inherits ``Detail`` config (``forbid_unknown_fields``, ``tag_field="kind"``) so generated
-    evidence shapes need no per-row struct inflation.
-    """
-    generated = msgspec.defstruct(f"{tool.name}_detail", fields, bases=(Detail,), tag=tool.name)
-    assert issubclass(generated, Detail)  # noqa: S101  # narrows the lib-stubbed type[Struct] to type[Detail] (bases=(Detail,))
-    return generated
-
-
 def validate_detail(detail: AnyDetail | None) -> AnyDetail | None:
     """Round-trip a parser ``Detail`` through the cached tagged-union codec so malformity fails loud at fold."""
     return _DETAIL_DECODER.decode(_ENCODER.encode(detail))
@@ -477,7 +462,6 @@ __all__ = [
     "TestRun",
     "Tool",
     "VerifySummary",
-    "detail_type",
     "envelope",
     "fold",
     "receipt",

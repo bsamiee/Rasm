@@ -1,19 +1,17 @@
-"""The bespoke C#-only ``api`` rail: one ilspycmd surface, one fingerprint cache, one shape fold.
+"""The C#-only ``api`` rail: one ilspycmd surface, one fingerprint cache, one shape fold.
 
-Owns the four read-only host/NuGet metadata verbs ``doctor | resolve | query | show``. Unlike the
-thin polyglot rails it emits one hand-shaped ``ApiSurface`` and shares only the engine ``run_check``
-spawn, the ``model.fold`` count derivation, and the artifact cache seam. The single ilspycmd catalog
-row drives ``-l cisde`` (surface) and ``-t <type> --no-dead-code --no-dead-stores`` (decompile); the
-per-call assembly tail splices onto ``tool.command`` via ``msgspec.structs.replace`` so the engine
-projector stays generic. The index/namespace/type/member/search distinction is computed once from the
-*shape of the symbol token* (``shape_of``), never from a verb proliferation.
+Owns the four read-only host/NuGet metadata verbs ``doctor | resolve | query | show`` over a single
+hand-shaped ``ApiSurface``. One ilspycmd catalog row drives both ``-l cisde`` (surface) and
+``-t <type> --no-dead-code --no-dead-stores`` (decompile); the per-call assembly tail splices onto
+``tool.command`` via ``msgspec.structs.replace`` so the engine projector stays generic. The
+index/namespace/type/member/search distinction is computed once from the symbol-token shape
+(``shape_of``), never from verb proliferation.
 
-Read-only throughout: no ``dotnet build``, no source mutation, no exclusive lease. A non-zero ilspycmd
-exit rides ``Completed(FAILED)``, never a ``Fault``; only a spawn/no-process failure or
-``doctor --strict`` promotion takes the ``Error`` channel. The cache fingerprint hashes the *assembly
-content* (size + mtime_ns + a SHA-256 of the bytes), not bare mtime — a RhinoWIP reinstall preserves
-mtime on unchanged DLLs and a stale surface silently misreports ``[Obsolete]`` markers and return-type
-asymmetries.
+Read-only throughout — no ``dotnet build``, no mutation, no exclusive lease. A non-zero ilspycmd exit
+rides ``Completed(FAILED)``; only a spawn failure or ``doctor --strict`` promotion takes the ``Error``
+channel. The cache fingerprint hashes assembly *content* (size + mtime_ns + SHA-256 of the bytes), not
+bare mtime: a RhinoWIP reinstall preserves mtime on unchanged DLLs, so a content hash is the
+correctness boundary against a stale surface silently misreporting ``[Obsolete]`` markers.
 """
 
 from dataclasses import dataclass
@@ -63,8 +61,8 @@ type _PathKind = str  # resolve kind token: all | assembly | xml | nuspec | deps
 class ApiParams(BaseParams):
     """The ``api`` per-verb CLI params: one frozen dataclass covering all four verbs.
 
-    ``key``/``symbol`` drive ``query``, ``key``/``kind`` drive ``resolve``, ``token``/``latest``/
-    ``lines`` drive ``show``, ``strict`` drives ``doctor``'s ``EMPTY``→``FAULTED`` promotion.
+    ``key``/``symbol`` drive ``query``; ``key``/``kind`` drive ``resolve``; ``token``/``latest``/
+    ``lines`` drive ``show``; ``strict`` drives ``doctor``'s ``EMPTY``→``FAULTED`` promotion.
     ``max_lines``/``full``/``grep`` bound the decompile/preview window; ``restore`` forces a
     ``dotnet tool restore`` of ilspycmd.
     """
@@ -87,9 +85,9 @@ class _Source:
     """The resolved metadata origin: typed provenance plus the on-disk asset projection.
 
     A host assembly (``SourceKind.ASSEMBLY``) carries a Rhino-bundle ``.dll``/``.xml`` pair; a NuGet
-    package (``SourceKind.NUGET``) adds a restored package root, ``.nuspec``, and asset tree. The rail
-    never threads a ``dict`` — every downstream verb reads this typed shape, and ``ApiSurface`` mints
-    its ``source_kind``/``source_id``/``version`` directly off it.
+    package (``SourceKind.NUGET``) adds a restored package root, ``.nuspec``, and asset tree. Every
+    downstream verb reads this typed shape; ``ApiSurface`` mints its ``source_kind``/``source_id``/
+    ``version`` directly off it.
     """
 
     key: str
@@ -107,7 +105,7 @@ class _Surface:
     """The parsed ilspycmd ``-l cisde`` roster: the INDEX/NAMESPACE/SEARCH evidence.
 
     ``types`` is the fully-qualified type set; ``namespaces`` the distinct owning namespaces;
-    ``by_namespace`` the namespace→types index the NAMESPACE shape lists. ``cache`` is the
+    ``by_namespace`` the namespace→types index the NAMESPACE shape lists; ``cache`` the
     content-addressed ``<key>.<fingerprint>.txt`` artifact the surface decoded from.
     """
 
@@ -121,12 +119,12 @@ class _Surface:
 
 @dataclass(frozen=True, slots=True)
 class _Body:
-    """The decompiled type/member projection: the anchored signature, xml doc, and bounded window.
+    """The decompiled type/member projection: anchored signature, xml doc, bounded window.
 
-    ``signature`` is the declaration line anchored on the modifier-prefixed identifier — never a
-    ``///`` doc-comment line, since a bare word boundary on the simple name over-matches the
-    doc-comment occurrence and returns a sibling overload. ``window`` is the ``--max-lines`` slice of
-    the grep-filtered body; ``full`` is the whole decompiled text the ``Artifact`` carries on truncation.
+    ``signature`` anchors on the modifier-prefixed declaration line, never a ``///`` doc-comment line
+    (a bare word boundary on the simple name over-matches the doc-comment occurrence and returns a
+    sibling overload). ``window`` is the ``--max-lines`` slice of the grep-filtered body; ``full`` the
+    whole decompiled text the ``Artifact`` carries on truncation.
     """
 
     signature: str
@@ -357,11 +355,16 @@ def _spawn(settings: AssaySettings, scope: ArtifactScope, tool: Tool, *args: str
     The per-call assembly path (and ``-t <type>`` / decompile flags) splice onto ``tool.command`` via
     ``structs.replace`` so the engine projector stays generic and ``Input.NONE`` appends no routing
     tail. A spawn fault degrades to a synthetic non-zero ``Completed`` so the caller's surface fold
-    reads exit code uniformly — the rail reserves the ``Error`` rail for ``--strict`` alone.
+    reads exit code uniformly — the rail reserves the ``Error`` rail for ``--strict`` alone. ``scope`` is
+    bound here (cache-path namespace) but the engine spawn runs ``scope=None``: the engine ``_overlay``
+    folds the ``DOTNET_CLI_HOME`` isolation env for ANY scope, which redirects the dotnet CLI home away
+    from the real ``dotnet-tools.json`` manifest and breaks ``dotnet tool run ilspycmd`` — this rail needs
+    the real CLI home, so the dotnet env isolation is suppressed at the ilspycmd spawn boundary.
     """
+    _ = scope
     routed = Routed(language=Language.CSHARP, scope=Scope.CHANGED)
     check = Check(tool=msgspec.structs.replace(tool, command=(*tool.command, *args)))
-    match run_check(check, settings=settings, scope=scope, routed=routed):
+    match run_check(check, settings=settings, scope=None, routed=routed):
         case Result(tag="ok", ok=done):
             return done
         case Result(error=fault):
@@ -453,7 +456,15 @@ def _rank_type(types: tuple[str, ...], needle: str) -> str:
 
 
 def _xml_doc(source: _Source, symbol: str) -> str:
-    """Extract the ``///`` prose for a symbol from the sidecar ``.xml`` doc (first matching ``member`` summary)."""
+    """Extract the ``///`` prose for a symbol, anchored on the .NET XMLDoc member-ID grammar.
+
+    A ``<member name="X:Ns.Type.Member(params)">`` id is stripped of its ``X:`` kind prefix and the
+    ``(`` param list, leaving the fully-qualified dotted name; the simple symbol token anchors on a
+    dotted-segment boundary (``== name`` for an FQN token, else ``name.endswith("." + symbol)``) — a
+    suffix on the segment grammar, never an unanchored substring. ``Point3d`` resolves the ``T:`` type
+    summary, ``Point3d.X`` the ``P:`` property, ``Mesh.Weld`` the ``M:`` method — and a sibling whose
+    signature merely mentions the name (a parameter type) no longer steals the lookup.
+    """
     needle = symbol.casefold()
     return next(
         (
@@ -461,7 +472,8 @@ def _xml_doc(source: _Source, symbol: str) -> str:
             for path in source.xmls
             if path.is_file()
             for member in (_xml_members(path))
-            if needle in member.get("name", "").casefold() or needle in "".join(member.itertext()).casefold()
+            for name in (member.get("name", "").split(":", 1)[-1].split("(", 1)[0].casefold(),)
+            if name == needle or name.endswith("." + needle)
         ),
         "",
     )
@@ -723,7 +735,7 @@ def _decompile_report(settings: AssaySettings, surface: _Surface, shape: SymbolS
             artifact = _artifact(settings, source, "decompile.cs", body.full)
             done = Completed(("api", "query", source.key), 0, status=RailStatus.OK, notes=(f"{body.selected} selected lines",))
             report = fold(Claim.API, "query", (done,), detail=detail)
-            return msgspec.structs.replace(report, artifacts=(artifact,) if body.truncated else (), truncated=body.truncated)
+            return msgspec.structs.replace(report, artifacts=(artifact,) if body.truncated else ())
 
 
 def _api_detail(source: _Source, shape: SymbolShape, *, signature: str = "", doc: str = "", preview: str = "") -> ApiSurface:
@@ -770,7 +782,8 @@ def _show_report(path: Path, p: ApiParams) -> Report:
     artifact = Artifact(id=digest, kind=ArtifactKind.SCOPE, path=str(path), bytes=path.stat().st_size, lines=text.count("\n"))
     detail = ApiSurface(source_kind=SourceKind.TOOL, source_id=p.token, shape=SymbolShape.SEARCH, preview=window)
     done = Completed(("api", "show", p.token), 0, status=RailStatus.OK, notes=(f"{total} selected lines",))
-    return msgspec.structs.replace(fold(Claim.API, "show", (done,), detail=detail), artifacts=(artifact,), truncated=truncated)
+    _ = truncated  # Envelope.truncated derives in registry._emit from the saturated results/artifacts bounds, not from Report
+    return msgspec.structs.replace(fold(Claim.API, "show", (done,), detail=detail), artifacts=(artifact,))
 
 
 def _show_target(base: Path, p: ApiParams) -> Path | None:

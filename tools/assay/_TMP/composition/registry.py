@@ -1,16 +1,14 @@
-"""The composition root: one ``Bind`` table, one ``rail`` runner, one ``_emit`` stdout writer.
+"""Composition root: one ``Bind`` table, one ``rail`` runner, one ``_emit`` stdout writer.
 
-The runner stack carries **no** ``@retried`` — a rail is a ``Hom``, not a ``Spawn``: ``_RAIL_LAYERS``
-is ``checked ▷ logged ▷ traced``, folded by ``Slot`` rank in ``compose`` so a ``Slot`` inversion is a
-decoration-time ``TypeError``, never a runtime surprise. ``_emit`` is the sole stdout writer: the
-cached ``_ENCODER`` writes one ``Envelope`` per branch to ``stdout.buffer``; ``structlog`` lines,
-``Fault.message`` egress, and the truncation note ride stderr. ``Report`` carries no ``truncated``
-field, so ``_emit`` reads saturation off the capped ``results``/``artifacts`` lengths the
-``core/model.fold`` cap produced and writes the stderr pointer at the run's scope dir.
+The runner stack is ``checked ▷ logged ▷ traced`` (no ``@retried`` — a rail is a ``Hom``, not a
+``Spawn``), folded by ``Slot`` rank in ``compose`` so a ``Slot`` inversion is a decoration-time
+``TypeError``. ``_emit`` alone writes stdout (one ``Envelope`` via the cached ``_ENCODER``);
+``structlog`` lines, ``Fault.message`` egress, and truncation notes ride stderr.
 """
 
 from collections import deque
 from collections.abc import Callable
+from contextvars import ContextVar
 from functools import reduce
 from itertools import count, groupby
 from operator import attrgetter
@@ -56,7 +54,7 @@ from tools.assay._TMP.rails.test import TestParams  # noqa: PLC2701  # intra-sta
 
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterator, Mapping
 
     from tools.assay._TMP.core.aspect import Layer  # intra-staging import; _TMP is the package root
 
@@ -72,26 +70,24 @@ type Handler[P] = Callable[[AssaySettings, ArtifactScope, P], Result[Report, Fau
 
 _RESULT_CAP: Final = 1000  # the Report.results bound the fold saturates; a saturated collection signals truncation to _emit
 _ARTIFACT_CAP: Final = 100  # the Report.artifacts bound the fold saturates; the full output rides the run's scope dir
-_WRITES: Final = count()  # process-static one-Envelope guard (Invariant 1): _emit reads next() — rank 0 writes stdout, later ranks fault to stderr
+# PER-INVOCATION one-Envelope guard (Invariant 1), seeded fresh in rail.run: a process-static
+# count() would fault every fire after the first in the long-lived automation loop.
+_WRITES: ContextVar[Iterator[int]] = ContextVar("assay_writes")
 
 
 def _identity_hom(*_a: object, **_k: object) -> Result[Report, Fault]:
-    """The identity ``Hom`` ``_composes`` probes: weaving it raises ``TypeError`` on a ``Slot`` inversion."""
+    """Identity ``Hom`` that ``_composes`` weaves to probe the decoration-time ``Slot`` inversion."""
     return Ok(None)  # type: ignore[arg-type]  # ty: ignore[invalid-return-type]  # the probe never inspects the value; Ok(None) stands in for any Report
 
 
 def _correlate(settings: AssaySettings, _scope: ArtifactScope, params: object) -> Mapping[str, object]:
-    """Project the rail call args + fleet ``agent_context`` onto the one structlog/baggage map.
+    """Project rail args + ``agent_context`` onto the one map both ``logged`` and ``traced`` bind.
 
-    The single correlation projector both ``logged`` and ``traced`` bind, so the map is authored
-    once: ``run_id``/``strict`` plus the ``settings.agent_context`` (``{run.id, agent.task.id}``)
-    pair are folded in here. ``logged`` binds the whole map into ``structlog`` context-vars and
-    ``traced`` mirrors + namespace-normalizes it (dotted ``run.id``/``agent.task.id`` →
-    ``run_id``/``agent_task_id``) into OTel baggage, so the parent rail span and each ``run_check``
-    child span correlate on ``run_id`` and the agent task id. ``strict`` is read via ``getattr`` so
-    it is inert on any ``Params`` lacking the field; an unset ``agent_task_id`` drops out in
-    ``traced``'s ``_correlate`` normalizer, so absent agent context binds nothing extra. The
-    ``claim``/``verb`` discriminants are not visible at this arity — they ride the ``Envelope``.
+    Carries ``run_id``/``strict`` plus the ``settings.agent_context`` (``{run.id, agent.task.id}``)
+    pair. ``logged`` binds it into ``structlog`` context-vars; ``traced`` mirrors and
+    namespace-normalizes it (dotted ``run.id``/``agent.task.id`` → ``run_id``/``agent_task_id``) into
+    OTel baggage, correlating the parent rail span with each ``run_check`` child span. ``strict`` is
+    read via ``getattr`` so it stays inert on any ``Params`` lacking the field.
     """
     return {"run_id": settings.run_id, "strict": getattr(params, "strict", False), **settings.agent_context}
 
@@ -218,7 +214,7 @@ def _emit(bind: Bind, settings: AssaySettings, started: float, outcome: Result[R
                 error=fault,
                 error_context=_distill(fault, ms),
             )
-    match next(_WRITES):
+    match next(_WRITES.get()):
         case 0:
             sys.stdout.buffer.write(_ENCODER.encode(envelope) + b"\n")
             return envelope
@@ -250,13 +246,14 @@ def rail(bind: Bind) -> Callable[[object], Envelope]:
         settings = AssaySettings()
         started = time.perf_counter()
         scope = ArtifactScope.open(settings, bind.claim)
-        # invocation-scoped ring; ring_processor appends the SAME deque in place across the engine's anyio.run so _distill reads it at _emit
-        token = _RING.set(deque(maxlen=16))
+        # invocation-scoped ring + one-Envelope counter; both reset in finally so the automation loop reuses rail() per fire
+        ring_token, writes_token = _RING.set(deque(maxlen=16)), _WRITES.set(count())
         try:
             outcome = _guard(lambda: _validated(_strict(handler(settings, scope, params), params)))
             return _emit(bind, settings, started, outcome)
         finally:
-            _RING.reset(token)
+            _WRITES.reset(writes_token)
+            _RING.reset(ring_token)
 
     run.__name__ = bind.verb
     return run
@@ -333,7 +330,11 @@ def self_test(*, rhino: bool = False) -> Envelope:
     status = RailStatus.OK if healthy else RailStatus.FAILED
     note = f"rows={len(REGISTRY)} claims={len(claims)} tools={len(TOOLS)} rhino={'probed' if rhino else 'skipped'}"
     report = fold(Claim.STATIC, "self-test", (receipt(("assay", "self-test"), 0 if healthy else 1, status=status, notes=(note,)),))
-    return Envelope(claim=Claim.STATIC, verb="self-test", status=report.status, exit_code=report.status.exit_code, report=report, notes=report.notes)
+    envelope = Envelope(
+        claim=Claim.STATIC, verb="self-test", status=report.status, exit_code=report.status.exit_code, report=report, notes=report.notes
+    )
+    sys.stdout.buffer.write(_ENCODER.encode(envelope) + b"\n")  # root command: write the Envelope through the wire so census evidence is visible
+    return envelope
 
 
 def _census() -> bool:

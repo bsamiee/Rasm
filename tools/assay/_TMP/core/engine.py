@@ -42,7 +42,10 @@ import psutil  # type: ignore[import-untyped]  # psutil ships no py.typed marker
 import structlog
 from upath import UPath  # pathlib.Path drop-in: .path yields the LOCAL filesystem string for child cwd
 
-from tools.assay._TMP.composition.settings import ArtifactScope  # noqa: PLC2701  # intra-staging import; _TMP is the package root
+from tools.assay._TMP.composition.settings import (  # noqa: PLC2701  # AssaySettings unconditional: @checked beartype resolves the _guarded forward-refs at runtime (PEP 649 + TYPE_CHECKING hides them otherwise)
+    ArtifactScope,
+    AssaySettings,
+)
 from tools.assay._TMP.core.aspect import (  # noqa: PLC2701  # intra-staging import; _TMP is the package root
     checked,
     compose,
@@ -52,12 +55,17 @@ from tools.assay._TMP.core.aspect import (  # noqa: PLC2701  # intra-staging imp
 )
 from tools.assay._TMP.core.model import (  # noqa: PLC2701  # intra-staging import; _TMP is the package root
     ArtifactKind,
+    Check,  # unconditional: @checked beartype resolves the _guarded(check: Check) forward-ref at call time
+    Completed,  # unconditional: @checked beartype resolves the -> Result[Completed, Fault] forward-ref
     Fault,
     receipt,
     ResourceBusyError,
     Runner,
 )
-from tools.assay._TMP.core.routing import place  # noqa: PLC2701  # intra-staging import; _TMP is the package root
+from tools.assay._TMP.core.routing import (  # noqa: PLC2701  # Routed unconditional: @checked beartype resolves the _guarded(routed: Routed) forward-ref
+    place,
+    Routed,
+)
 from tools.assay._TMP.core.status import RailStatus  # noqa: PLC2701  # intra-staging import; _TMP is the package root
 
 
@@ -66,10 +74,7 @@ if TYPE_CHECKING:
 
     from anyio.abc import ByteReceiveStream, Process
 
-    from tools.assay._TMP.composition.settings import AssaySettings  # intra-staging import; _TMP is the package root
     from tools.assay._TMP.core.aspect import Spawn  # intra-staging import; _TMP is the package root
-    from tools.assay._TMP.core.model import Check, Completed  # intra-staging import; _TMP is the package root
-    from tools.assay._TMP.core.routing import Routed  # intra-staging import; _TMP is the package root
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -116,13 +121,13 @@ _LOCK_MODE: int = 0o644
 _FAULT_SNAPSHOT: str = "fault.resource_snapshot"  # OTel event name: psutil oneshot stamped at every Fault
 _DECODER: msgspec.json.Decoder[_LeaseOwner] = msgspec.json.Decoder(_LeaseOwner)  # one-pass cached owner decode
 _LOG = structlog.get_logger("assay.engine")  # lease stale-steal before/after holder rail
+_TRACER = trace.get_tracer("assay.engine")  # D50: the bounded fan-out parent span the per-tool child spans nest under
 
-# POSIX-only fcntl members bound at one boundary (ports process.py _posix_flag); the single-site
-# bind keeps the platform-conditional surface off ty's static analysis for the lease seam.
-_FLOCK: Callable[[int, int], None] = fcntl.flock  # ty: ignore[possibly-missing-attribute]  # POSIX-only; resolved at module load
-_LOCK_EX: int = fcntl.LOCK_EX  # ty: ignore[possibly-missing-attribute]  # POSIX-only fcntl flag
-_LOCK_NB: int = fcntl.LOCK_NB  # ty: ignore[possibly-missing-attribute]  # POSIX-only fcntl flag
-_LOCK_UN: int = fcntl.LOCK_UN  # ty: ignore[possibly-missing-attribute]  # POSIX-only fcntl flag
+# POSIX-only fcntl members bound at one boundary (ports process.py _posix_flag). ty's
+# python-platform="all" flags every member as possibly-missing on the Windows leg; the lease seam is
+# POSIX-only, the no-`if` rule bars sys.platform narrowing, and ty does not narrow `match`, so the
+# floor is one irreducible suppression — the single tuple-bind carries it, never a per-member spread.
+_FLOCK, _LOCK_EX, _LOCK_NB, _LOCK_UN = fcntl.flock, fcntl.LOCK_EX, fcntl.LOCK_NB, fcntl.LOCK_UN  # ty: ignore[possibly-missing-attribute]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -432,7 +437,10 @@ async def _guarded(
     except TimeoutError as exc:
         _diagnose(exc)
         return Error(Fault(argv, status=RailStatus.TIMEOUT, message="deadline exceeded"))
-    except OSError as exc:
+    except (
+        OSError,
+        asyncssh.Error,
+    ) as exc:  # asyncssh.Error descends from Exception (not OSError): remote-exec failures must take the Fault rail, not escape the group
         _diagnose(exc)
         return Error(Fault(argv, status=RailStatus.FAULTED, message=str(exc)))
 
@@ -453,16 +461,20 @@ def _spawn(check: Check, settings: AssaySettings) -> _Woven:
     own ``anyio.run``) and ``_into`` (awaited directly inside the one ``fan_out`` loop) consume
     verbatim, so there is never a second event loop.
     """
-    # ``compose`` is typed for the synchronous ``Hom``; the engine seam threads the async ``_Woven``
-    # spawn through it, which both checkers flag as a Spawn↔Hom re-scope. The composition is transparent
-    # at runtime (the Hom layers wrap the coroutine-returning call), so the woven value IS the ``_Woven``.
     span = traced(
         span=check.tool.name,
         attrs=lambda *_a, **_k: {"assay.run_id": settings.run_id, "assay.tool": check.tool.name},
         agent=lambda *_a, **_k: settings.agent_context,  # {run.id, agent.task.id}: agent_task_id into _on_retry + child spans
     )
-    layered: Spawn[..., Result[Completed, Fault]] = compose_spawn(retried())(_guarded)  # type: ignore[arg-type]  # retried()'s **P,T infer Never; _guarded binds them at the engine seam
-    weave: Callable[[_Woven], _Woven] = compose(checked(), span)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # Hom→_Woven re-scope; the woven Hom view IS the runtime _Woven
+    # mypy eagerly binds ``retried()``'s **P/T to Never (a no-arg generic factory offers no argument to
+    # solve from), so the woven spawn types as ``(*Never) -> Coroutine[None, None, Never]``; the two-step
+    # form is ty-clean (ty specializes at the ``_guarded`` apply) but mypy cannot, so this lone [arg-type]
+    # is the floor — an explicit ``compose_spawn(layer, fn)`` only relocates it (ty then rejects instead).
+    layered: Spawn[..., Result[Completed, Fault]] = compose_spawn(retried())(_guarded)  # type: ignore[arg-type]  # mypy-only: retried() infers Never; _guarded binds **P/T at the apply
+    # ``compose`` is Hom-typed (sync ``Result`` return); threading the async ``_Woven`` through it is the one
+    # irreducible re-scope — the same @wraps-induced Hom view ``logged``/``traced`` carry — because ``Hom``'s
+    # ``Result[T, Fault]`` return can never unify with ``_Woven``'s ``Coroutine``. One suppression per checker.
+    weave: Callable[[_Woven], _Woven] = compose(checked(), span)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     return weave(layered)
 
 
@@ -493,6 +505,9 @@ def fan_out(
     (never raising, so ``__aexit__`` runs and slots stay total); any slot still ``None`` is back-filled
     with ``Fault(TIMEOUT)`` — best-effort partial results, never a stranded loop. ``_into`` cannot
     raise (``_guarded`` converts every spawn failure to a ``Result`` value), so the group exits clean.
+    The task group runs inside one ``assay.fan_out`` parent span (``checks_total=N``, D50); each per-tool
+    child span nests under it through anyio's context copy at ``start_soon``, so the batch causality is
+    structural — an explicit OTel ``Link`` is redundant where the parent context already propagates.
     """
     spawn = _spawn
 
@@ -504,10 +519,12 @@ def fan_out(
             async with limiter:
                 slots[i] = await spawn(check, settings)(check, settings, scope, routed, deadline)
 
-        with anyio.move_on_after(deadline - time.monotonic() if deadline is not None else None):
-            async with anyio.create_task_group() as tg:
-                for i, check in enumerate(checks):
-                    tg.start_soon(_into, i, check)
+        with _TRACER.start_as_current_span("assay.fan_out") as parent:
+            parent.set_attribute("assay.checks_total", len(checks))
+            with anyio.move_on_after(deadline - time.monotonic() if deadline is not None else None):
+                async with anyio.create_task_group() as tg:
+                    for i, check in enumerate(checks):
+                        tg.start_soon(_into, i, check)
         return tuple(_total(slot) for slot in slots)
 
     return anyio.run(_run)
@@ -574,10 +591,18 @@ def _claim(fd: int, resource: str, *, run_id: str, tolerance: float, target: str
                 return None
             case False:
                 _LOG.warning("lease.steal", resource=resource, run_id=run_id, lost=_holder(owner))
-                _FLOCK(fd, _LOCK_EX | _LOCK_NB)
-                won = _write_owner(fd, resource, run_id=run_id, target=target)
-                _LOG.info("lease.stolen", resource=resource, run_id=run_id, lost=_holder(owner), won=_holder(won))
-                return won
+                return _steal(fd, resource, run_id=run_id, target=target, owner=owner)
+
+
+def _steal(fd: int, resource: str, *, run_id: str, target: str, owner: _LeaseOwner | None) -> _LeaseOwner | None:
+    """Re-acquire a freed-stale lock and stamp ownership; a lost TOCTOU race (a second ``BlockingIOError``) yields ``None`` → BUSY, never FAULTED."""
+    try:
+        _FLOCK(fd, _LOCK_EX | _LOCK_NB)
+    except BlockingIOError:
+        return None
+    won = _write_owner(fd, resource, run_id=run_id, target=target)
+    _LOG.info("lease.stolen", resource=resource, run_id=run_id, lost=_holder(owner), won=_holder(won))
+    return won
 
 
 def _holder(owner: _LeaseOwner | None) -> dict[str, object]:
@@ -628,6 +653,7 @@ def exclusive_lease(
     path = settings.artifact(ArtifactKind.LOCKS, f"{resource}.lock")
     path.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(str(path), _LOCKS_OPEN_FLAGS, _LOCK_MODE)
+    owner: _LeaseOwner | None = None
     try:
         owner = _claim(fd, resource, run_id=run_id, tolerance=settings.lease_drift_tolerance, target=settings.exec_target)
         match owner:
@@ -640,9 +666,13 @@ def exclusive_lease(
                 os.write(fd, msgspec.json.encode(stamped))
                 yield Ok(_Held(stamped))
     finally:
-        os.ftruncate(fd, 0)
-        _FLOCK(fd, _LOCK_UN)
-        os.close(fd)
+        match owner:
+            case None:  # never acquired the flock (live contention / claim error): release our fd only — never truncate the live holder's block
+                os.close(fd)
+            case _:
+                os.ftruncate(fd, 0)
+                _FLOCK(fd, _LOCK_UN)
+                os.close(fd)
 
 
 def leased[T](

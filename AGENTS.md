@@ -9,14 +9,7 @@
 
 ## [1][REQUIRED_STANDARDS]
 
-If reviewing, refining, editing, creating, or modifying X file type, use skill Y (required):
-- Typescript: `coding-ts`
-- C#: `coding-csharp`
-- C# tests (`.spec.cs`, `.verify.csx`, testkit): `testing-cs`
-- Python: `coding-python`
-- Bash/sh: `coding-bash`
-- SQL: `coding-pg`
-- Markdown/docs: `docs/standards`
+Skill-per-file-type routing lives in `CLAUDE.md` §1 and is loaded before this file; do not duplicate it here. This manifest adds operating deltas on top of that table. The one extension worth stating: `.verify.csx` scenarios and the testkit also route to `testing-cs`.
 
 ## [2][NAVIGATION_CONTEXT]
 - Cross-stack owner precedence and proof order: `docs/usage.md` §1 and §5 before leaf API docs.

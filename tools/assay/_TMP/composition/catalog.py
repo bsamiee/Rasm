@@ -1,13 +1,11 @@
 """The polyglot program table: one dense ``Tool`` row per program, one ``select`` fold.
 
-Owns ``TOOLS`` — the full C#/Python/TypeScript/Bash/SQL/Docs row set — plus the by-reference
-parsers and the deterministic ``select(claim, language)`` slice. Variance is carried entirely by
-the five axis enums (``Runner``/``Input``/``Language``/``Mode``/``Claim``); the catalog body is
-data, never control flow. A new program is one literal row; a new language is one ``Language``
-member plus one ``core/routing.py`` arm plus rows. Parsers attach as the actual
-``Callable[[Completed], AnyDetail | None]`` identity — a renamed decoder is an import-time type
-error, never a silent miss; rows whose evidence is "ran, exit code N" carry ``parser=None`` and
-fold via ``RailStatus.from_returncode``.
+Owns ``TOOLS`` (the C#/Python/TypeScript/Bash/SQL/Docs row set), the by-reference parsers, and the
+deterministic ``select(claim, language)`` slice. Variance rides the five axis enums
+(``Runner``/``Input``/``Language``/``Mode``/``Claim``); the body is data, never control flow. Parsers
+attach as the literal ``Callable[[Completed], AnyDetail | None]`` identity, so a renamed decoder is an
+import-time type error, never a silent miss; ``parser=None`` rows ("ran, exit code N") fold via
+``RailStatus.from_returncode``.
 """
 
 from typing import TYPE_CHECKING
@@ -39,7 +37,7 @@ if TYPE_CHECKING:
 class _Finding(msgspec.Struct, frozen=True, gc=False):
     """One py-analyzer diagnostic (``parse_findings``)."""
 
-    rule: str
+    rule_id: str
     message: str = ""
     path: str = ""
     line: int = 0
@@ -106,11 +104,12 @@ _SHELLCHECK = msgspec.json.Decoder(_Shellcheck)
 
 
 def parse_findings(done: Completed) -> AnyDetail | None:
-    """Decode py-analyzer ``--format json`` into validated ``_Finding`` rows.
+    """Decode-validate py-analyzer ``--format json`` as a catalog schema guard (yields no ``Detail``).
 
-    The per-rule ``PYS####`` rows are ``Match`` evidence the rail projects onto ``Report.results``;
-    no ``AnyDetail`` variant models per-finding rows, so the decode validates but returns ``None``
-    and the ``FAILED`` status rides ``Completed`` via ``from_returncode``.
+    ``Claim.STATIC`` is a pass/fail gate folding ``Completed.status``, so ``PYS####`` rows carry no
+    ``Detail``; per-finding evidence is the ``code``/``api`` rails' job. The decode earns its place via
+    ``_census``, which probes it on the empty receipt at preflight, so a JSON-shape drift fails at
+    self-test rather than at a live rail.
     """
     _FINDINGS.decode(done.stdout or b"[]")
     return None
@@ -128,8 +127,16 @@ def parse_build(done: Completed) -> AnyDetail | None:
 
 
 def parse_tests(done: Completed) -> AnyDetail | None:
-    """Decode ``dotnet test`` telemetry into a ``TestRun`` evidence variant."""
-    t = _TESTS.decode(done.stdout or b"{}")
+    """Decode ``dotnet test`` telemetry into a ``TestRun`` evidence variant.
+
+    ``test.py`` probes this over EVERY receipt on a ``--mutation`` run, including non-JSON
+    pytest/dotnet stdout; a decode miss is a defaulted ``TestRun`` (``mutation="off"``) that
+    ``_is_mutation`` rejects, so the first real mutation lane still wins — not a FAULTED rail.
+    """
+    try:
+        t = _TESTS.decode(done.stdout or b"{}")  # codec boundary: non-JSON stdout is a no-op default, not a fault
+    except msgspec.DecodeError:
+        return TestRun()
     return TestRun(mutation=t.mutation, coverage=t.coverage, killed=t.killed, survived=t.survived, selected=t.selected)
 
 
@@ -154,11 +161,12 @@ def parse_surface(done: Completed) -> AnyDetail | None:
 
 
 def parse_shellcheck(done: Completed) -> AnyDetail | None:
-    """Decode ShellCheck ``-f json1`` into validated ``_ShellMessage`` rows.
+    """Decode-validate ShellCheck ``-f json1`` as a catalog schema guard (yields no ``Detail``).
 
-    The ``comments`` rows are ``Match`` evidence the rail projects onto ``Report.results``; no
-    ``AnyDetail`` variant models per-comment rows, so the decode validates but returns ``None``
-    and the ``FAILED`` status rides ``Completed`` via ``from_returncode``.
+    Like ``parse_findings``: ``Claim.STATIC`` is a pass/fail gate, so the ``comments`` rows (each with a
+    ``level`` severity + ``code``) carry no ``Detail`` and surface no ``Match`` here — per-finding evidence
+    is the ``code``/``api`` rails' job. The decode is the census schema guard: ``_census`` probes it on the
+    empty receipt so a ShellCheck JSON1-shape drift fails at preflight. ``FAILED`` rides ``Completed``.
     """
     _SHELLCHECK.decode(done.stdout or b'{"comments":[]}')
     return None

@@ -1,31 +1,27 @@
 """The sole live-Rhino lane: one ``bridge.lock`` lease, seven verbs, one ``VerifySummary``.
 
-Owns the ``bridge`` claim — the lone C#-only rail that drives a *running* ``RhinoWIP.app`` through
-the in-process bridge client (``dotnet run --no-build``). Its seven verbs share one exclusive
+Owns the ``bridge`` claim — the lone C#-only rail driving a running ``RhinoWIP.app`` through the
+in-process bridge client (``dotnet run --no-build``). The seven verbs share one exclusive
 ``bridge.lock`` lease so the fleet runs exactly one live-Rhino proof lane; ``build`` alone is
-lease-free because it compiles the client + plugin closure without touching the live host. A
-non-zero client exit is a ``Completed(FAILED)`` value, never a ``Fault`` — only a held lease /
-spawn failure / timeout rides the ``Error(Fault)`` channel. The registry opens the
-``ArtifactScope`` and threads it in as the second handler argument, so the lease guards the work
-window and ``report_dir`` is ``scope.path / "verify"``.
-
-The bridge-domain constants (client/plugin project paths, scenario timeout, retention TTL) are
-this rail's own vocabulary rooted at ``settings.root``: a C#-only project anchor lives with its
-owning rail, never inflated into the polyglot ``AssaySettings`` config surface.
+lease-free as it compiles the client + plugin closure without touching the live host. A non-zero
+client exit is a ``Completed(FAILED)`` value, never a ``Fault`` — only a held lease, spawn failure,
+or timeout rides the ``Error(Fault)`` channel. The registry opens the ``ArtifactScope`` and threads
+it as the second handler argument, so ``report_dir`` is ``scope.path / "verify"``. Bridge-domain
+constants (project paths, timeout, retention TTL) root at ``settings.root`` and live with this rail,
+never inflated into the polyglot ``AssaySettings`` surface.
 """
 
 from dataclasses import dataclass
 from pathlib import Path
-import re
 import shutil
 import time
-from typing import Final, TYPE_CHECKING
+from typing import Final
 
 from expression import Error, Ok, Result
 import msgspec
 
 from tools.assay._TMP.composition.catalog import select  # noqa: PLC2701  # intra-staging import; _TMP is the package root
-from tools.assay._TMP.composition.settings import ArtifactScope  # noqa: PLC2701  # intra-staging import; _TMP is the package root
+from tools.assay._TMP.composition.settings import ArtifactScope, AssaySettings  # noqa: PLC2701, TC001  # unconditional for beartype runtime
 from tools.assay._TMP.core.engine import leased, run_check  # noqa: PLC2701  # intra-staging import; _TMP is the package root
 from tools.assay._TMP.core.model import (  # noqa: PLC2701  # intra-staging import; _TMP is the package root
     BaseParams,
@@ -47,37 +43,28 @@ from tools.assay._TMP.core.routing import Routed, Scope  # noqa: PLC2701  # intr
 from tools.assay._TMP.core.status import RailStatus  # noqa: PLC2701  # intra-staging import; _TMP is the package root
 
 
-if TYPE_CHECKING:
-    from tools.assay._TMP.composition.settings import AssaySettings  # intra-staging import; _TMP is the package root
-
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class BridgeParams(BaseParams):
-    """The ``bridge`` verb params: one ``pattern`` discriminant the registry flattens.
+    """The ``bridge`` verb params: ``BaseParams`` plus the sole ``pattern`` scenario selector.
 
-    Inherits ``paths``/``language`` from ``BaseParams`` and adds the sole bridge field —
-    ``pattern``, the scenario selector for ``verify`` (direct ``*.verify.csx`` path, a directory
-    of them, or a worktree glob token). The lifecycle verbs ignore ``pattern`` entirely; one param
-    shape serves all seven so a new verb is one ``Bind`` row, never a parallel dataclass.
+    ``pattern`` selects ``verify`` scenarios (direct ``*.verify.csx`` path, a directory of them, or a
+    worktree glob token); lifecycle verbs ignore it. One param shape serves all seven, so a new verb
+    is one ``Bind`` row, never a parallel dataclass.
     """
 
     pattern: str = ""
 
 
 class _Scenario(msgspec.Struct, frozen=True, gc=False):
-    """One folded scenario row: the per-``*.verify.csx`` outcome ``verify`` reduces into a summary.
+    """One folded per-``*.verify.csx`` row: the throwaway carrier ``verify`` reduces into a summary.
 
-    A throwaway carrier internal to the fold. ``stem`` is retained only because ``first_failure``
-    is an ordering fact the order-insensitive status fold erases, so it must be captured here
-    before the fold runs. ``fault_phase``/``fault_output`` are the same ordering facts for the
-    earliest *failing* phase (``launch``/``execute``/``check``/``cleanup``) and its first diagnostic
-    snippet, captured per-row so the fold can lift them off the first non-zero-exit scenario without
-    re-decoding the report dir. ``exceptions`` is summed independently of ``counts.failed`` — a
-    scenario can pass its assertion yet still surface in-Rhino exception reports, so the two never
-    collapse.
+    ``stem``/``fault_phase``/``fault_output`` are ordering facts captured per-row because the
+    order-insensitive status fold erases them, letting the fold lift them off the first non-zero-exit
+    scenario without re-decoding the report dir. ``exceptions`` is summed independently of
+    ``counts.failed`` — a scenario can pass its assertion yet still surface in-Rhino exceptions.
     """
 
     status: RailStatus
@@ -150,20 +137,15 @@ _EXECUTE_PHASE: Final[str] = "execute"
 _STDOUT_SOURCE: Final[str] = "stdout"
 _STDERR_SOURCE: Final[str] = "stderr"
 
-# Canonical scenario evidence markers (BridgeMarker.Prefix) emitted on scenario stdout by Scenario.Run / Capture.
-_EVIDENCE_RE: Final[re.Pattern[str]] = re.compile(r"rasm\.rhino-bridge\.evidence=facts=(\{.*\})")
-_CAPTURE_RE: Final[re.Pattern[str]] = re.compile(r"rasm\.rhino-bridge\.capture=(\{.*\})")
-
 _RESULT_DECODER: Final[msgspec.json.Decoder[_BridgeResult]] = msgspec.json.Decoder(_BridgeResult, strict=False)
-_DIAGNOSTICS_DECODER: Final[msgspec.json.Decoder[_BridgeDiagnostics]] = msgspec.json.Decoder(_BridgeDiagnostics, strict=False)
-_BLOCK_DECODER: Final[msgspec.json.Decoder[dict[str, object]]] = msgspec.json.Decoder(dict[str, object], strict=False)
 
-# `dotnet run --no-build --project <client> -- <args>`: per-verb argv is this command plus the verb tail, projected through one Check.
+# `dotnet run --no-build --project <client> -- <args>`: project + conf + verb tail fold into command
+# via structs.replace; Input.NONE appends one empty routing tail.
 _CLIENT_TOOL: Final[Tool] = Tool(
     name="rasm-bridge",
     runner=Runner.DOTNET,
     command=("run", "--no-build", "--project"),
-    input=Input.FILES,
+    input=Input.NONE,
     language=Language.CSHARP,
     claim=Claim.BRIDGE,
     mode=Mode.VERIFY,
@@ -198,14 +180,15 @@ def _client_check(settings: AssaySettings, *args: str) -> Check:
     """Bind the bridge client ``Tool`` to a concrete invocation: ``-- <verb> <args>`` tail.
 
     The projected argv is ``dotnet run --no-build --project <client> --configuration <conf> --
-    <args>`` — the client project and configuration ride ``Check.paths``, the post-``--`` verb tail
-    follows. The ``Check`` carries no scope so the client stays on its canonical ``bin/`` output: a
-    present scope would splice ``--artifacts-path`` and relocate the build output the ``--no-build``
-    client reads from.
+    <args>``. The client project + configuration + post-``--`` verb tail fold into ``tool.command``
+    via ``structs.replace`` (mirroring ``api.py`` ``_spawn``) — an empty ``Routed`` would never reach
+    argv as ``Check.paths``, so the full invocation must ride the ``Input.NONE`` command body. The
+    ``Check`` carries no scope so the client stays on its canonical ``bin/`` output: a present scope
+    would splice ``--artifacts-path`` and relocate the build output the ``--no-build`` client reads.
     """
-    client = str(settings.root / _CLIENT_PROJECT)
-    tail = ("--configuration", settings.configuration.value, "--", *args)
-    return Check(tool=_CLIENT_TOOL, paths=(client, *tail), cwd=Path(str(settings.root)))  # subprocess cwd is inherently local; project UPath → Path
+    tail = (str(settings.root / _CLIENT_PROJECT), "--configuration", settings.configuration.value, "--", *args)
+    tool = msgspec.structs.replace(_CLIENT_TOOL, command=(*_CLIENT_TOOL.command, *tail))
+    return Check(tool=tool, cwd=Path(str(settings.root)))  # subprocess cwd is inherently local; project UPath → Path
 
 
 def _client_run(settings: AssaySettings, *args: str, timeout: float | None = None) -> Result[Completed, Fault]:
@@ -221,30 +204,6 @@ def _client_run(settings: AssaySettings, *args: str, timeout: float | None = Non
 
 
 # --- [GROUPS] ---------------------------------------------------------------------------
-
-
-def _scan(pattern: re.Pattern[str], text: str) -> tuple[dict[str, object], ...]:
-    """Fold every marker line of scenario stdout into decoded evidence blocks (facts/captures).
-
-    A malformed capture is silently dropped: evidence is best-effort telemetry, never a ``Fault``,
-    so a chatty scenario that interleaves diagnostics into the marker stream never poisons it.
-    """
-    return tuple(
-        block for line in text.splitlines() if (matched := pattern.search(line)) is not None if (block := _decode_block(matched.group(1))) is not None
-    )
-
-
-def _decode_block(raw: str) -> dict[str, object] | None:
-    """Decode one marker capture to a ``dict`` evidence block; a malformed capture degrades to ``None``."""
-    try:
-        return _BLOCK_DECODER.decode(raw)
-    except msgspec.DecodeError:
-        return None
-
-
-def _execute_stdout(result: _BridgeResult) -> str:
-    """Project the ``execute`` phase stdout — the facts/captures + structlog evidence stream."""
-    return next((out.text for phase in result.phases if phase.phase == _EXECUTE_PHASE for out in phase.outputs if out.source == _STDOUT_SOURCE), "")
 
 
 def _exceptions(result: _BridgeResult) -> int:
@@ -452,7 +411,7 @@ def _verify_locked(settings: AssaySettings, scope: ArtifactScope, params: Bridge
     """
     report_dir = Path(scope.path) / _VERIFY_DIR
     _expire_stale(report_dir, _VERIFY_TTL_S)
-    prelude = _ensure_dir(report_dir).bind(lambda _: _build_closure(settings)).bind(lambda _: _client_run(settings, "launch").map(lambda _run: None))
+    prelude = _ensure_dir(report_dir).bind(lambda _: _build_closure(settings)).bind(lambda _: _affirm(_client_run(settings, "launch")))
     match prelude:
         case Result(tag="ok"):
             return _fold_scenarios(settings, report_dir, _discover(settings, params.pattern), argv)

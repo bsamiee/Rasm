@@ -1,20 +1,13 @@
-"""The one language-specific surface: a single ``Source`` feeds a uniform ``Routed``.
+"""Route a git change-set through a single ``Source`` into a uniform ``Routed`` per ``Language``.
 
-Owns the sole ``Source`` ``Protocol`` in the corpus and the entire strategy asymmetry — C#
-resolves owning-``.csproj`` reverse-dependency closures from the project graph;
-Python/TypeScript/Bash/SQL/Docs resolve suffix globs from the change-set — keyed by
-``Language.strategy`` (``"closure"`` | ``"glob"``) so a sixth ``Language`` adds no arm and a
-sixth filesystem is a new ``Source`` injected at ``route(..., source=)``, never a new ``route``.
-The ``CLOSURE`` arm parses every ``.csproj`` through ``source.read`` (never ``Path.read_bytes``),
-so the graph algorithm is filesystem-blind — an ``FsspecSource`` over ``memory://`` resolves the
-same closure with zero IO.
-
-The ``LOCAL`` ``Source`` binds git + ``fd`` + ``upath.UPath`` at one marked subprocess boundary
-where ``OSError``/``TimeoutError`` map to a ``Fault`` value, never raised across the rail. ``UPath``
-is a ``pathlib`` drop-in, so a plain root yields a ``PosixUPath`` byte-identical to ``Path`` while a
-``memory://``/remote root reads and enumerates the same change-set with zero local IO (zero-IO tests,
-archived worktrees). ``place`` is the sole argv-tail projector, keyed by the ``Input`` axis (never by
-``Language``).
+Owns the corpus's sole ``Source`` ``Protocol`` and the whole strategy asymmetry, keyed by
+``Language.strategy``: C# (``"closure"``) resolves owning-``.csproj`` reverse-dependency closures from
+the project graph; every glob language resolves suffix globs from the change-set. A sixth ``Language``
+adds no arm; a sixth filesystem is a new ``Source`` injected at ``route(..., source=)``. The closure
+arm reads every ``.csproj`` through ``source.read`` (never ``Path.read_bytes``), so the graph algorithm
+is filesystem-blind — a ``memory://`` ``Source`` resolves the same closure with zero IO. ``LOCAL`` binds
+git + ``fd`` + ``upath.UPath`` at one marked subprocess boundary mapping ``OSError``/``TimeoutError`` to a
+``Fault`` value. ``place`` is the sole argv-tail projector, keyed by the ``Input`` axis, never ``Language``.
 """
 
 from collections.abc import Mapping
@@ -22,7 +15,7 @@ from enum import StrEnum
 from functools import reduce
 from pathlib import PurePosixPath
 from posixpath import normpath
-from subprocess import CalledProcessError, TimeoutExpired  # noqa: S404  # exception types only; anyio.run_process owns the spawn
+from subprocess import CalledProcessError  # noqa: S404  # exception type only; anyio.run_process owns the spawn
 from typing import assert_never, Protocol, runtime_checkable
 import xml.etree.ElementTree as ET  # noqa: S405  # trusted local .csproj XML from source.read, never network-sourced
 
@@ -49,11 +42,10 @@ type ProjectIndex = Mapping[str, str]  # owner-dir -> root-relative .csproj
 
 
 class Scope(StrEnum):
-    """The route-scope axis (``Routed.scope``): owned here, imported by ``model``/``engine`` for ``Check`` context.
+    """Route-scope axis (``Routed.scope``): Cyclopts choice token, ``msgspec`` wire value, and ``match`` discriminant.
 
-    A behavior-free ``StrEnum`` reused unchanged as the Cyclopts choice token, the ``msgspec`` wire
-    value, and the ``match`` discriminant. ``CHANGED`` grows a dependents closure off the change-set;
-    ``FULL`` lists the whole target (``place`` reads ``SOLUTION``).
+    ``CHANGED`` grows a dependents closure off the change-set; ``FULL`` lists the whole target
+    (``place`` reads ``SOLUTION``).
     """
 
     CHANGED = "changed"
@@ -62,14 +54,11 @@ class Scope(StrEnum):
 
 @runtime_checkable
 class Source(Protocol):
-    """The SOLE ``Protocol`` in assay: a change-set + enumeration + read provider.
+    """Assay's sole ``Protocol``: change-set + enumeration + read provider, keeping routing filesystem-blind.
 
-    ``changed`` is the language-agnostic git change-set; ``enumerate`` expands an explicit
+    ``changed`` yields the language-agnostic git change-set; ``enumerate`` expands an explicit
     ``paths`` selection (dir → ``fd`` scan, file verbatim, missing → ``Fault``); ``read`` fetches
-    ``.csproj`` XML for the ``CLOSURE`` arm. ``LOCAL`` binds git + ``fd`` + ``upath.UPath`` (a
-    ``pathlib`` drop-in whose root selects the backend: a plain path stays local, a ``memory://`` root
-    enumerates and reads with zero local IO); routing is filesystem-blind by construction and a new
-    backend is one implementation, never a new ``route`` signature.
+    ``.csproj`` XML for the closure arm. A new backend is one implementation, never a new ``route`` signature.
     """
 
     def changed(self) -> Result[tuple[str, ...], Fault]: ...
@@ -81,13 +70,16 @@ class Source(Protocol):
 
 
 class Routed(Base, frozen=True):
-    """One uniform routed-input shape across every ``Language``: each strategy arm fills a subset.
+    """One uniform routed-input shape across every ``Language``; each strategy arm fills a subset.
 
-    The ``CLOSURE`` arm populates ``projects``/``groups`` and leaves the GLOB-only fields empty; the
-    ``GLOB`` arm leaves ``projects``/``groups`` ``()``. ``files`` is the sorted root-relative source
-    for the ``FILES``/``INCLUDE``/``GLOB`` projections; ``groups`` is the ``owner -> changed-files``
-    pairing the ``dotnet format --include`` arm fans over; ``full_triggers`` records the change-set
-    rows that escalated ``scope`` to ``FULL`` on the fast path (skipping closure resolution).
+    The closure arm populates ``projects``/``groups`` and leaves the glob-only fields ``()``; the glob
+    arm does the inverse.
+
+    Attributes:
+        files: Sorted root-relative source for the ``FILES``/``INCLUDE``/``GLOB`` projections.
+        groups: ``owner -> changed-files`` pairing the ``dotnet format --include`` arm fans over.
+        full_triggers: Change-set rows that escalated ``scope`` to ``FULL`` on the fast path,
+            skipping closure resolution.
     """
 
     language: Language
@@ -149,7 +141,7 @@ def _git(argv: tuple[str, ...], *, root: UPath) -> Result[tuple[str, ...], Fault
         return Error(Fault(argv, RailStatus.TIMEOUT, f"timeout after {_TIMEOUT}s"))
     except CalledProcessError as exc:
         return Error(Fault(argv, RailStatus.FAULTED, (exc.stderr or b"").decode(errors="replace")[:1024]))
-    except (OSError, TimeoutExpired) as exc:
+    except OSError as exc:
         return Error(Fault(argv, RailStatus.FAULTED, str(exc)[:1024]))
     return Ok(tuple(line for line in raw.decode(errors="replace").splitlines() if line))
 
@@ -253,7 +245,7 @@ def _closure(language: Language, files: tuple[str, ...], source: Source, setting
     triggers = _escalate(files, settings)
     match triggers:
         case ():
-            return source.enumerate(()).bind(lambda all_files: _resolve(language, files, all_files, source))
+            return source.enumerate((".",)).bind(lambda all_files: _resolve(language, files, all_files, source))
         case _:
             return Ok(Routed(language=language, scope=Scope.FULL, files=_norm(files), full_triggers=_norm(triggers)))
 

@@ -8,14 +8,14 @@ the same ``composition/registry`` + ``core/engine`` rails the CLI uses and emitt
 ``Claim`` and never extends them.
 
 Why the moving parts are shaped this way: ``awatch`` honors the shared ``stop_event`` natively, but
-``aiocron`` has none, so ``_schedule`` waits on the same ``stop`` then ``cron.stop()`` + scope cancel
-to mirror graceful shutdown across both arms. The per-drive ``CapacityLimiter(1)`` serializes fires
-so a fire slower than its trigger cadence queues on the limiter rather than re-entering a leased
-``Action`` into spurious ``BUSY`` (which ``@retried`` will not absorb). The CPU governor emits
-``Completed{SKIP}`` and elides the fire, never waits — automation must not block on contention.
-``@retried`` lives on ``run_check``, never inside a fire. No inline ``break``/``while``/``for``:
-``awatch`` is the generator, ``cron.start`` is loop-resident, and the ``Sequence`` fold is a
-recursive head/tail ``match``.
+``aiocron`` has none, so ``_schedule`` arms the sync ``cron.start()`` then waits on the same ``stop``
+and calls ``cron.stop()`` to mirror graceful shutdown across both arms. The per-drive
+``CapacityLimiter(1)`` serializes fires so a fire slower than its trigger cadence queues on the limiter
+rather than re-entering a leased ``Action`` into spurious ``BUSY`` (which ``@retried`` will not absorb).
+The CPU governor emits a ``Report{SKIP}`` (status pinned, never EMPTY-fold-masked) and elides the fire,
+never waits — automation must not block on contention. ``@retried`` lives on the woven spawn, never
+inside a fire. No inline ``break``/``while``/``for``: ``awatch`` is the generator, ``cron.start()`` arms
+one ``loop.call_at`` callback, and the ``Sequence`` fold is a recursive head/tail ``match``.
 """
 
 from collections.abc import Callable, Coroutine
@@ -40,17 +40,18 @@ from tools.assay._TMP.automation.model import (  # noqa: PLC2701  # intra-stagin
 )
 from tools.assay._TMP.composition.registry import rail, REGISTRY  # noqa: PLC2701  # intra-staging import; _TMP is the package root
 from tools.assay._TMP.composition.settings import ArtifactScope  # noqa: PLC2701  # intra-staging import; _TMP is the package root
-from tools.assay._TMP.core.engine import run_check  # noqa: PLC2701  # intra-staging import; _TMP is the package root
+from tools.assay._TMP.core.engine import _spawn  # noqa: PLC2701  # intra-staging woven spawn; run_check's anyio.run would nest under drive's
 from tools.assay._TMP.core.model import (  # noqa: PLC2701  # intra-staging import; _TMP is the package root
     Check,
     Claim,
-    Completed,
+    Counts,
     envelope,
     Fault,
     fold,
     Input,
     Language,
     Mode,
+    Report,
     Runner,
     Tool,
 )
@@ -65,7 +66,7 @@ if TYPE_CHECKING:
 
     from tools.assay._TMP.automation.model import Action, Trigger  # intra-staging import; _TMP is the package root — annotation-only (TC001)
     from tools.assay._TMP.composition.settings import AssaySettings  # intra-staging import; _TMP is the package root — annotation-only (TC001)
-    from tools.assay._TMP.core.model import Bind, Envelope, Report  # intra-staging import; _TMP is the package root — annotation-only (TC001)
+    from tools.assay._TMP.core.model import Bind, Envelope  # intra-staging import; _TMP is the package root — annotation-only (TC001)
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -161,16 +162,19 @@ def _program_check(argv: tuple[str, ...]) -> Check:
     return Check(tool=tool, paths=argv)
 
 
-def _program_outcome(action: Program, settings: AssaySettings) -> Result[Report, Fault]:
-    """Run a ``Program`` fire through ``run_check`` and fold its ``Completed`` into a ``Report``.
+async def _program_outcome(action: Program, settings: AssaySettings) -> Result[Report, Fault]:
+    """Run a ``Program`` fire through the woven spawn and fold its ``Completed`` into a ``Report``.
 
-    The ``checked ▷ traced ▷ retried`` seam is owned by ``run_check``, not here. A non-zero process exit
-    rides the ``Ok`` channel as a ``Completed{FAILED}``; only a spawn failure / timeout takes the
-    ``Error`` channel. The ``Completed`` folds through ``core/model.fold`` (the sole count-derivation
-    site) so the engine never authors a ``Fault`` for an exit code.
+    The ``checked ▷ traced ▷ retried`` seam is the same ``_spawn`` weave ``run_check`` wraps, but awaited
+    in-loop: ``run_check`` calls ``anyio.run`` unconditionally, which would nest under ``drive``'s own
+    ``anyio.run`` (``RuntimeError: Already running``), so this mirrors ``fan_out._into`` and awaits the
+    woven coroutine directly. A non-zero process exit rides the ``Ok`` channel as a ``Completed{FAILED}``;
+    only a spawn failure / timeout takes the ``Error`` channel. The ``Completed`` folds through
+    ``core/model.fold`` (the sole count-derivation site) so the engine never authors a ``Fault`` for an exit code.
     """
+    check = _program_check(action.argv)
     scope = ArtifactScope.open(settings, Claim.STATIC)
-    outcome = run_check(_program_check(action.argv), settings=settings, scope=scope, routed=_PROGRAM_ROUTED, deadline=None)
+    outcome = await _spawn(check, settings)(check, settings, scope, _PROGRAM_ROUTED, None)
     match outcome:
         case Result(tag="ok", ok=done):
             return Ok(fold(Claim.STATIC, "program", (done,)))
@@ -207,14 +211,14 @@ def _rail_outcome(action: Rail) -> Envelope:
             return rail(bind)(params)
 
 
-def _program_envelope(action: Program, settings: AssaySettings) -> Envelope:
-    """Emit one ``Envelope`` for a ``Program`` fire: project the ``run_check`` outcome onto a wire line.
+async def _program_envelope(action: Program, settings: AssaySettings) -> Envelope:
+    """Emit one ``Envelope`` for a ``Program`` fire: project the woven-spawn outcome onto a wire line.
 
     ``_program_outcome`` already folded a ``Completed`` (non-zero exit on the ``Ok`` channel) or a spawn
     ``Fault``; this projects either ``Result`` channel onto the canonical ``envelope`` and writes it
     through the engine's ``_emit`` (a ``Program`` has no registry runner to write for it).
     """
-    match _program_outcome(action, settings):
+    match await _program_outcome(action, settings):
         case Result(tag="ok", ok=report):
             payload: Report | Fault = report
         case Result(error=fault):
@@ -225,7 +229,11 @@ def _program_envelope(action: Program, settings: AssaySettings) -> Envelope:
 async def _emit_leaf(leaf: Action, settings: AssaySettings, limiter: anyio.CapacityLimiter, cpu_threshold: float | None) -> RailStatus:
     """Run one leaf ``Action`` to exactly one ``Envelope`` NDJSON line, returning its status for the fold.
 
-    The governor short-circuits first: a tripped CPU ceiling emits ``Completed{SKIP}`` and never waits.
+    The governor short-circuits first: a tripped CPU ceiling emits a ``SKIP`` ``Report`` and never waits.
+    The skip ``Report`` is built with ``status`` pinned to ``SKIP`` directly, NOT folded through
+    ``core/model.fold`` — that fold seeds at ``EMPTY`` (severity 1) and ``join`` is max-by-severity, so a
+    ``SKIP`` (severity 0) leaf would be masked to ``EMPTY`` on the wire. The ``Counts(1, 0, 1)`` mirrors
+    ``_count``'s ``(ok, failed)`` projection for a ``SKIP`` outcome so the rollup stays honest.
     Otherwise the work runs under the per-drive ``CapacityLimiter(1)`` so a fire slower than its trigger
     cadence queues on the single token rather than re-entering a leased ``Action`` into spurious ``BUSY``.
     A ``Rail`` reuses the registry runner (which emits its own line); a ``Program`` and a nested
@@ -234,15 +242,15 @@ async def _emit_leaf(leaf: Action, settings: AssaySettings, limiter: anyio.Capac
     match _governed(cpu_threshold):
         case True:
             claim, verb = _label(leaf)
-            skipped = Completed(argv=(), returncode=0, status=RailStatus.SKIP, notes=(f"governed: cpu>={cpu_threshold or 0.0:.0%}",))
-            return _emitted(envelope(fold(claim, verb, (skipped,)), claim=claim, verb=verb)).status
+            skip = Report(claim, verb, RailStatus.SKIP, Counts(1, 0, 1), notes=(f"governed: cpu>={cpu_threshold or 0.0:.0%}",))
+            return _emitted(envelope(skip, claim=claim, verb=verb)).status
         case False:
             async with limiter:
                 match leaf:
                     case Rail() as r:
                         return _rail_outcome(r).status
                     case Program() as p:
-                        return _program_envelope(p, settings).status
+                        return (await _program_envelope(p, settings)).status
                     case Sequence() as s:
                         return await _sequence(s.actions, settings, limiter, cpu_threshold)
                     case Debounce(action=inner):
@@ -374,18 +382,16 @@ async def _watch(spec: Watch, fire: Fire, stop: anyio.Event) -> None:
 async def _schedule(spec: str, fire: Fire, stop: anyio.Event) -> None:
     """Host the ``aiocron.crontab`` tasklet over the shared stop: each cron tick fires once.
 
-    aiocron exposes no native ``stop_event`` (unlike ``awatch``), so the loop-resident ``cron.start`` is
-    launched alongside a one-shot waiter on the shared ``stop``: when ``stop.set()`` arrives the waiter
-    returns, ``cron.stop()`` cancels the scheduled callback, and the inner group's ``cancel_scope``
-    collapses ``cron.start`` — this is how the ``Schedule`` arm reaches the same graceful shutdown the
-    ``Watch`` arm gets natively. ``crontab(start=False)`` defers launch to ``tg.start_soon(cron.start)``.
+    aiocron exposes no native ``stop_event`` (unlike ``awatch``), so the fire-and-forget ``cron.start()``
+    (a SYNC method that arms one ``loop.call_at`` callback on the running loop — never a coroutine) is
+    invoked directly, then a one-shot waiter on the shared ``stop`` parks the task: ``stop.set()`` returns
+    the waiter and ``cron.stop()`` cancels the scheduled callback, reaching the same graceful shutdown the
+    ``Watch`` arm gets natively. ``crontab(start=False)`` defers arming to this explicit ``cron.start()``.
     """
     cron = aiocron.crontab(spec, func=fire, start=False)
-    async with anyio.create_task_group() as tg:
-        tg.start_soon(cron.start)
-        await stop.wait()
-        cron.stop()
-        tg.cancel_scope.cancel()
+    cron.start()
+    await stop.wait()
+    cron.stop()
 
 
 def _armed(action: Action, settings: AssaySettings, *, limiter: anyio.CapacityLimiter, ceiling: float | None) -> tuple[Fire, Fire | None]:

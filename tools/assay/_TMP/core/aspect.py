@@ -1,19 +1,16 @@
-"""Aspect-oriented composition spine: four slot-ordered weave factories and three weavers.
+"""Aspect-oriented composition spine: the sole seam where rail/engine touch structlog, opentelemetry, stamina, beartype.
 
-The only seams through which the rail and engine touch ``structlog``/``opentelemetry``/
-``stamina``/``beartype`` — no consumer constructs those libraries directly. ``assemble`` folds
-``Layer``s into a monotonic-``Slot`` chain; ``compose`` builds the rail-facing ``Hom -> Hom``
-stack and rejects ``retried``; ``compose_spawn`` lifts the engine-only ``retried``
-``Spawn -> Spawn`` layer and rejects ``logged``.
+Four slot-ordered weave factories (``checked``/``logged``/``traced``/``retried``) feed three
+weavers: ``assemble`` folds ``Layer``s into a monotonic-``Slot`` chain, ``compose`` builds the
+rail-facing ``Hom -> Hom`` stack (rejects ``retried``), and ``compose_spawn`` lifts the
+engine-only ``retried`` ``Spawn -> Spawn`` layer (rejects ``logged``).
 
-One correlation context threads end to end: ``logged`` binds it on the rail, and ``traced`` —
-running at *both* seams and outside the engine-seam ``retried`` loop — re-binds the same context
-from its projected attrs so the engine seam (which forbids ``logged``) still carries ``run_id``
-*and* the fleet ``agent_task_id`` (the ``agent_context`` task tag) when present, then mirrors that
-bound context into OTel baggage so downstream spans link automatically. The module-scope
-``stamina`` retry hook reads it back through the populated context-vars, closing the
-baggage <-> contextvars <-> hook loop at the engine seam, not only the rail — so each scheduled
-retry and every child span carries both the run and the driving-agent task id.
+One correlation context threads end to end: ``logged`` binds it on the rail; ``traced`` runs at
+both seams and outside the engine ``retried`` loop, re-binding ``run_id`` plus the fleet
+``agent_task_id`` so the engine seam (which forbids ``logged``) still carries both, then mirrors
+the bound context into OTel baggage. The module-scope ``stamina`` hook reads it back through the
+populated context-vars, closing the baggage <-> contextvars <-> hook loop at the engine seam so
+every scheduled retry and child span carries the run and driving-agent task id.
 """
 
 from collections import deque
@@ -22,6 +19,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import IntEnum
 from functools import wraps
+import inspect
 from operator import itemgetter
 from typing import assert_never, TYPE_CHECKING
 
@@ -41,6 +39,7 @@ from tools.assay._TMP.core.status import RailStatus  # noqa: PLC2701  # intra-st
 
 if TYPE_CHECKING:
     from expression.collections import Block
+    from opentelemetry.trace import Span
     from stamina.instrumentation import RetryDetails
     from structlog.typing import EventDict
 
@@ -72,9 +71,9 @@ class Slot(IntEnum):
 class Inversion(Exception):  # noqa: N818  # surfaced via TypeError, not an *Error leaf
     """A non-monotonic ``assemble`` fold or a mis-slotted ``compose_spawn``.
 
-    ``outer`` already wove at ``depth``; ``inner`` would weave at an equal-or-lower slot, so the
-    runtime order would invert. Raised as the cause of a decoration-time ``TypeError`` — never
-    crosses a runtime seam as a ``Result`` value.
+    ``outer`` already wove at ``depth``; ``inner`` would weave at an equal-or-lower slot, inverting
+    runtime order. Surfaced as the cause of a decoration-time ``TypeError`` — never crosses a
+    runtime seam as a ``Result`` value.
     """
 
     outer: Slot
@@ -88,7 +87,10 @@ _CONF = BeartypeConf(is_pep484_tower=True, strategy=BeartypeStrategy.O1)
 _TRACER = trace.get_tracer("assay.core")
 _LOG = structlog.get_logger("assay")
 _ATTR_CAP = 256
-_TERMINAL: dict[bool, Callable[..., object]] = {True: _LOG.error, False: _LOG.info}
+# method NAME, resolved per-call via getattr so the lazy proxy binds the CONFIGURED chain: capturing
+# _LOG.error/.info here would freeze the import-time default (stdout/ConsoleRenderer) before
+# __init__._configure runs — corrupting the sole-stdout wire and starving ring_processor on the Fault terminal.
+_TERMINAL: dict[bool, str] = {True: "error", False: "info"}
 _RING: ContextVar[deque[str] | None] = ContextVar(
     "assay_ring", default=None
 )  # invocation-scoped recent-events ring; set ONCE by registry.rail, appended in place so it survives the anyio.run boundary, read by registry._emit
@@ -100,8 +102,8 @@ _RING: ContextVar[deque[str] | None] = ContextVar(
 def _transient(exc: Exception) -> bool:
     """Retry predicate: transport faults retry, a held lease never does.
 
-    A contended lease (``ResourceBusyError`` -> ``BUSY``) is a routing fact, not a flaky
-    transport, so it short-circuits to ``False`` before the transport arm.
+    A contended lease (``ResourceBusyError`` -> ``BUSY``) is a routing fact, not flaky transport,
+    so it short-circuits to ``False`` before the transport arm.
     """
     match exc:
         case ResourceBusyError():
@@ -230,7 +232,9 @@ def compose_spawn[**P, T](layer: SpawnLayer[P, T]) -> Callable[[Spawn[P, T]], Sp
     """Lift the engine-only ``retried`` ``Spawn -> Spawn`` layer; rejects any other slot.
 
     A non-``retried`` slot is a decoration-time ``TypeError`` carrying the offending slot, so the
-    inversion fails loud at wiring time.
+    inversion fails loud at wiring time. Returns the deferred weaver (not ``layer[1](fn)``) because
+    only the two-step application lets ty specialize ``retried()``'s **P/T from the concrete spawn —
+    ty resolves a no-arg generic factory at the *application* site, never against a declared target.
     """
     match layer[0]:
         case Slot.retried:
@@ -261,7 +265,9 @@ def logged[**P, T](*, event: str, keys: Bind[P]) -> Layer[P, T]:
                     case Result(tag="ok", ok=done):
                         _LOG.info(f"{event}.finish", status=getattr(done, "status", RailStatus.OK))
                     case Result(error=f):
-                        _TERMINAL[f.status.severity >= RailStatus.FAILED.severity](f"{event}.finish", status=f.status, message=f.message, argv=f.argv)
+                        getattr(_LOG, _TERMINAL[f.status.severity >= RailStatus.FAILED.severity])(
+                            f"{event}.finish", status=f.status, message=f.message, argv=f.argv
+                        )
                 return res  # ty: ignore[invalid-return-type]  # mypy strict needs the Result[T] annotation; @wraps re-scopes that T under ty — the rail is identical
 
         return woven  # ty: ignore[invalid-return-type]  # @wraps over expression.Result yields ty's _Wrapped re-scope; mypy --strict accepts the Hom passthrough
@@ -269,24 +275,32 @@ def logged[**P, T](*, event: str, keys: Bind[P]) -> Layer[P, T]:
     return (Slot.logged, dec)
 
 
-def traced[**P, T](*, span: str, attrs: Callable[P, Attrs], agent: Callable[P, Attrs] | None = None) -> Layer[P, T]:
-    """Slot 2 (opentelemetry, both seams): one span per call, status mapped from the ``Result``.
+def _stamp[T](s: Span, res: Result[T, Fault]) -> Result[T, Fault]:
+    """Map the awaited/returned ``Result`` onto the live span's attributes + status; returns ``res`` unchanged."""
+    match res:
+        case Result(tag="ok", ok=done):
+            s.set_attribute("assay.status", str(getattr(done, "status", RailStatus.OK)))
+            s.set_status(Status(StatusCode.OK))
+        case Result(error=f):
+            s.set_attributes({"assay.status": f.status, "assay.message": f.message[:_ATTR_CAP]})
+            s.set_status(Status(StatusCode.ERROR, f.status))
+    return res
 
-    Establishes correlation context at *both* seams: the projected ``attrs`` (and, when present, the
-    fleet ``agent`` projection — the settings ``agent_context`` ``{run.id, agent.task.id}`` pair) are
-    merged, namespace-normalized by ``_correlate`` (the ``assay.`` wire prefix stripped and dotted
-    OTel keys folded to ``run_id``/``agent_task_id``), and bound into ``structlog`` context-vars
-    *around* the wrapped call. Because ``traced`` runs outside the engine-seam ``retried`` loop, the
-    ``stamina`` ``_on_retry`` hook fires inside this bound scope and reads a populated ``run_id`` and
-    ``agent_task_id`` even where ``logged`` is forbidden — binding a context-var is context, never an
-    event emission. The same context is mirrored into OTel baggage so downstream child spans link
-    (and inherit the agent task id) without manual propagation. ``start_as_current_span`` makes this
-    span the *current* span for the call's dynamic extent, so the engine's ``_diagnose`` enriches it
-    in place via ``trace.get_current_span().record_exception(exc)`` + a resource-snapshot event at
-    each fault site — ``traced`` owns the span lifecycle and status mapping; the engine owns the
-    in-hand-``BaseException`` fault enrichment, with no parallel span body. ``RailStatus`` is a
-    ``StrEnum`` so it serializes as its wire token directly into span attributes and the
-    ``Status`` description.
+
+def traced[**P, T](*, span: str, attrs: Callable[P, Attrs], agent: Callable[P, Attrs] | None = None) -> Layer[P, T]:
+    """Slot 2 (opentelemetry, both seams): one span per call, status mapped from the awaited/returned ``Result``.
+
+    ``dec`` discriminates on ``inspect.iscoroutinefunction(fn)`` — one factory owning both modalities. The
+    rail's synchronous ``Hom`` returns its ``Result`` inside the span; the engine seam's async ``Spawn`` is
+    *awaited* inside the span, so the span lifetime, the contextvar/baggage bind, and the ``_stamp`` status
+    mapping wrap the real work — not coroutine creation — and the engine's ``_diagnose`` enriches THIS span
+    via ``get_current_span``. The projected ``attrs`` (and the optional fleet ``agent`` ``{run.id,
+    agent.task.id}`` pair) are merged, ``_correlate``-normalized, and bound into ``structlog`` context-vars +
+    OTel baggage around the call, so downstream child spans link and ``stamina``'s ``_on_retry`` reads a
+    populated ``run_id``/``agent_task_id`` during the await even where ``logged`` is forbidden.
+    ``context.detach`` runs in a ``finally`` *after* the span context-manager exits: the span's ``__exit__``
+    re-installs the context captured on entry, so a detach nested inside it would violate strict-LIFO and
+    leak baggage. ``RailStatus`` is a ``StrEnum`` so it serializes as its wire token into span attributes.
     """
 
     def dec(fn: Hom[P, T]) -> Hom[P, T]:
@@ -298,20 +312,30 @@ def traced[**P, T](*, span: str, attrs: Callable[P, Attrs], agent: Callable[P, A
                     lambda c, kv: baggage.set_baggage(kv[0], kv[1], context=c), context.get_current()
                 )
                 token = context.attach(ctx)
-                with _TRACER.start_as_current_span(span) as s:
-                    s.set_attributes({key: str(val) for key, val in projected.items()})
-                    res = fn(*a, **k)
-                    match res:
-                        case Result(tag="ok", ok=done):
-                            s.set_attribute("assay.status", str(getattr(done, "status", RailStatus.OK)))
-                            s.set_status(Status(StatusCode.OK))
-                        case Result(error=f):
-                            s.set_attributes({"assay.status": f.status, "assay.message": f.message[:_ATTR_CAP]})
-                            s.set_status(Status(StatusCode.ERROR, f.status))
+                try:
+                    with _TRACER.start_as_current_span(span) as s:
+                        s.set_attributes({key: str(val) for key, val in projected.items()})
+                        return _stamp(s, fn(*a, **k))  # ty: ignore[invalid-return-type]  # ty re-scopes nested _stamp[T] vs traced's T; mypy unifies them
+                finally:
                     context.detach(token)
-                    return res  # ty: ignore[invalid-return-type]  # mypy strict needs the Result[T] annotation; @wraps re-scopes that T under ty — the rail is identical
 
-        return woven  # ty: ignore[invalid-return-type]  # @wraps over expression.Result yields ty's _Wrapped re-scope; mypy --strict accepts the Hom passthrough
+        @wraps(fn)
+        async def awoven(*a: P.args, **k: P.kwargs) -> Result[T, Fault]:
+            projected = {**attrs(*a, **k), **(agent(*a, **k) if agent is not None else {})}
+            with bound_contextvars(**_correlate(projected)):
+                ctx = block.of_seq(tuple(get_contextvars().items())).fold(
+                    lambda c, kv: baggage.set_baggage(kv[0], kv[1], context=c), context.get_current()
+                )
+                token = context.attach(ctx)
+                try:
+                    with _TRACER.start_as_current_span(span) as s:
+                        s.set_attributes({key: str(val) for key, val in projected.items()})
+                        return _stamp(s, await fn(*a, **k))  # type: ignore[misc]  # ty: ignore[invalid-await]
+                finally:
+                    context.detach(token)
+
+        # awoven is the async Spawn woven (engine seam); both wovens are the @wraps Hom re-scope compose already suppresses.
+        return awoven if inspect.iscoroutinefunction(fn) else woven  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
 
     return (Slot.traced, dec)
 

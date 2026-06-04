@@ -1,6 +1,6 @@
 # [TESTING_MANIFEST]
 
-Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal policy; this file adds subtree deltas only.
+Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal policy; this file adds subtree deltas only. Library-spec deltas live in `tests/csharp/libs/AGENTS.md` (ownership, density LOC bands, default-struct laws); read it before editing any `libs/**/*.spec.cs`.
 
 [REQUIRED]: Follow `CLAUDE.md`, `testing-cs`, and `coding-csharp` for every `.spec.cs` change.
 
@@ -21,7 +21,7 @@ Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal poli
   - `docs/testing-libs/archunit/api.md`
   - `docs/testing-libs/benchmarkdotnet/api.md`
   - `docs/testing-libs/sharpfuzz/api.md`
-- Read `docs/system-api-map/README.md` before changing serializers, fuzz parsers, bridge probes, host loaders, filesystem evidence, capture code, or System API usage in tests.
+- `docs/system-api-map` gates serializer/fuzz-parser/bridge-probe/host-loader/filesystem/capture/`System.*` changes (root `AGENTS.md` §2). The test-local delta: those boundary exceptions are file-scoped (see [3]); a domain `*.spec.cs` never inherits them.
 - Keep specs law-matrix shaped: each test should cover a behavior family, oracle, failure rail, or metamorphic relation.
 - Build dense laws before adding facts: one generated sample should attack construction, projection, unsupported output, category, receipt, and an independent oracle when the owner exposes those axes.
 - Static xUnit owns pure-managed behavior; native Rhino/GH behavior belongs in `*.verify.csx` bridge scenarios.
@@ -65,13 +65,16 @@ Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal poli
 
 ## [4][TEST_RAILS]
 
-| Rail            | Path                         | Owns                                   |
-| :-------------- | :--------------------------- | :------------------------------------- |
-| `_testkit`      | `tests/csharp/_testkit`      | Spec, Gens, Numeric, scenario capsules |
-| `_architecture` | `tests/csharp/_architecture` | ArchUnitNET dependency laws            |
-| `_tooling`      | `tests/csharp/_tooling`      | Verify snapshot rail                   |
-| `_benchmarks`   | `tests/csharp/_benchmarks`   | BenchmarkDotNet hot-path measurement   |
-| `_fuzz`         | `tests/csharp/_fuzz`         | SharpFuzz parser/token harnesses       |
+| Rail            | Path                          | Owns                                                   |
+| :-------------- | :---------------------------- | :----------------------------------------------------- |
+| `_testkit`      | `tests/csharp/_testkit`       | Spec, Gens, Numeric, scenario capsules                 |
+| `_architecture` | `tests/csharp/_architecture`  | ArchUnitNET dependency laws                            |
+| `_tooling`      | `tests/csharp/_tooling`       | Verify snapshot rail                                   |
+| `_benchmarks`   | `tests/csharp/_benchmarks`    | BenchmarkDotNet hot-path measurement                   |
+| `_fuzz`         | `tests/csharp/_fuzz`          | SharpFuzz parser/token harnesses                       |
+| `libs/*`        | `tests/csharp/libs/<Project>` | Source-mirrored xUnit specs + `*.verify.csx` scenarios |
+
+Managed-spec library targets (each its own `--target`): `libs/Rasm`, `libs/Rasm.Rhino`, `libs/Rasm.Grasshopper`, `libs/Rasm.Materials`. `libs/Rasm` is the default `test run` target; the other three never run under the default invocation, so changes there are invisible without their explicit `--target`.
 
 ## [5][SUPPRESSIONS_AND_GATES]
 
@@ -83,6 +86,7 @@ Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal poli
   - `uv run python -m tools.quality test run`
   - `uv run python -m tools.quality test run --target tests/csharp/libs/Rasm.Grasshopper/Rasm.Grasshopper.Tests.csproj` when GH2 managed specs changed.
   - `uv run python -m tools.quality test run --target tests/csharp/libs/Rasm.Rhino/Rasm.Rhino.Tests.csproj` when Rhino managed specs changed.
+  - `uv run python -m tools.quality test run --target tests/csharp/libs/Rasm.Materials/Rasm.Materials.Tests.csproj` when Materials managed specs (`Bricks/*`) changed.
   - `uv run python -m tools.quality test run --target tests/csharp/_architecture/Rasm.Architecture.Tests.csproj` when architecture laws changed.
   - `uv run python -m tools.quality test run --target tests/csharp/_tooling/Rasm.TestingTools.Tests.csproj` when stable testing-rail snapshots changed.
   - `dotnet run --project tests/csharp/_benchmarks/Rasm.Benchmarks.csproj --configuration Release -- --list flat` when benchmark projects or config changed.
@@ -105,6 +109,7 @@ Scope: `tests/csharp/` only. Root `AGENTS.md` and `CLAUDE.md` own universal poli
 
 Canonical routes: `tools/rhino-bridge/AGENTS.md` and `.claude/skills/testing-cs/references/bridge-runtime.md`.
 
+- `bridge verify <scenario-or-glob>` proves scenarios; `bridge check <source.cs|.csproj>` (owned by `tools/rhino-bridge/AGENTS.md`) returns real host diagnostics and `unsupported`/exit 3 when no scenario is paired. Do not conflate the two verbs.
 - Each `uv run python -m tools.quality bridge verify <scenario>` invocation pays a 3-8s Rhino handshake. Group thematically related scenarios per `.verify.csx` file to amortize the handshake.
 - Populate runtime evidence inside `Scenario.Run` via `facts.Add(string key, object value);` — do not call `BridgeMarker.EmitFact`/`EmitScenarioHeader`.
 - Grasshopper-aware scenarios receive bridge-owned `ScenarioHostUsings` (`Eto.Drawing` only). Drive GH2 through `Rasm.Grasshopper.UI` wrapper types — raw `Grasshopper2.*` in isolated bridge scenarios binds a separate GH2 instance.

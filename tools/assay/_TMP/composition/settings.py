@@ -1,15 +1,8 @@
-"""The sole config surface: one ``pydantic-settings`` consumer, one path fold, one I/O backend.
+"""Config surface: ``AssaySettings`` (sole ``BaseSettings``), the ``artifact`` path fold, the ``ArtifactStore``, and the dotnet ``ArtifactScope``.
 
-Owns ``AssaySettings`` (the only ``BaseSettings`` in the assay), the ``artifact(kind, *parts)``
-path fold that retires every ``*_lock``/``*_dir`` property of ``tools/quality``, the
-``fsspec``-backed ``ArtifactStore``, and ``ArtifactScope`` (the per-run/per-closure
-dotnet-isolated tree ``run_check`` takes as ``scope`` and ``engine._splice`` pattern-matches).
-``ArtifactKind`` and ``Claim`` are imported from ``core/model.py`` rather than re-modelled, and
-nothing here is ``msgspec``-shaped: env/flag is validated by ``pydantic`` exactly once at
-``__init__``, after which every attribute is a plain primitive the engine, routing, and rails
-consume unchecked. ``frozen=True`` makes the instance hashable and STM-safe, so
-``model_copy(update=...)`` yields a fresh immutable config threadable through ``fan_out``
-without a lock.
+Env/flags validate through ``pydantic`` once at ``__init__``; ``frozen=True``
+keeps the instance hashable and STM-safe so ``model_copy(update=...)`` threads a fresh config
+through ``fan_out`` without a lock.
 """
 
 from dataclasses import dataclass
@@ -123,20 +116,20 @@ class AssaySettings(BaseSettings):
     log_format: LogFormat = Field(default_factory=lambda: LogFormat.HUMAN if sys.stderr.isatty() else LogFormat.CI)
     run_id: str = Field(
         default_factory=lambda: f"{datetime.now(tz=UTC):%Y-%m-%dT%H-%M-%S.%f}-{os.getpid()}",
-        validation_alias=AliasChoices("ASSAY_RUN_ID", "run_id"),  # init/registry override; canonical name internal
+        validation_alias=AliasChoices("ASSAY_RUN_ID"),  # prefixed-only; populate_by_name keeps init-by-canonical
     )
     agent_task_id: str = Field(
         default="",
-        validation_alias=AliasChoices("ASSAY_AGENT_TASK_ID", "agent_task_id"),  # fleet correlation; pydantic-read, never os.environ
+        validation_alias=AliasChoices("ASSAY_AGENT_TASK_ID"),  # prefixed-only; no bare-env leak
     )
     exec_target: str = Field(
         default="",
-        validation_alias=AliasChoices("ASSAY_EXEC_TARGET", "exec_target"),  # '' = local, ssh://[user@]host[:port] = remote process-exec
+        validation_alias=AliasChoices("ASSAY_EXEC_TARGET"),  # prefixed-only; '' = local, ssh:// = remote
         description="execution target; '' = local, ssh://[user@]host[:port] = remote",
     )
     exec_known_hosts: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("ASSAY_EXEC_KNOWN_HOSTS", "exec_known_hosts"),  # asyncssh known_hosts; None disables the host-key check
+        validation_alias=AliasChoices("ASSAY_EXEC_KNOWN_HOSTS"),  # prefixed-only; no bare-env host-key leak
         description="asyncssh known_hosts path for ssh:// exec_target; None disables the host-key check",
     )
 

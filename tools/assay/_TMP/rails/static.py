@@ -1,19 +1,17 @@
-"""The thinnest polyglot fold: five static verbs are one ``Mode``-filtered, language-routed fold.
+"""Static rail: five verbs as one ``Mode``-filtered, language-routed fold over ``Claim.STATIC``.
 
-Owns ``Claim.STATIC`` across every orchestrated language and carries **no** ``Detail`` variant: every
-outcome collapses into the canonical ``Report``. The rail never builds argv, never spawns, never leases
-— it ``select``s ``Tool`` rows, ``route``s the change-set, hands ``Check``s to the ``Engine``, and folds
-the ``Completed`` outcomes through ``core.model.fold`` (the sole count-derivation site). The five
-per-verb adapters (``fix``/``report``/``build``/``full``/``plan``) **are** the ``Handler``s ``REGISTRY``
-binds; four delegate to one ``thin_rail`` and ``plan`` short-circuits before the Engine. Every adapter
-is a plain function (returns, never yields), so ``@effect.result`` is deliberately absent.
+Carries no ``Detail`` variant; every outcome collapses into ``Report``. The rail never builds argv,
+spawns, or leases — it ``select``s ``Tool`` rows, ``route``s the change-set, hands ``Check``s to the
+Engine, and folds the ``Completed`` outcomes through ``core.model.fold`` (the sole count-derivation
+site). The five adapters (``fix``/``report``/``build``/``full``/``plan``) are the ``Handler``s
+``REGISTRY`` binds; four delegate to ``thin_rail``, ``plan`` short-circuits before the Engine. Every
+adapter is a plain function (returns, never yields), so ``@effect.result`` is deliberately absent.
 
-``route`` resolves one ``Language`` per call, so a ``language=None`` request fans every member through
-its own ``route``, sequences the rows, and concatenates their ``Check``s into one bounded ``fan_out``.
-``sequence`` collapses both the per-language route rail and the per-slot ``fan_out`` rail into one
-``Result``: a timeout/spawn ``Fault`` short-circuits to the registry seam, while a non-zero process exit
-already rode the success channel as ``Completed{status=FAILED}``, so the fold never sees a ``Fault`` for
-it — the fold only ever consumes successes.
+``route`` resolves one ``Language`` per call: a ``language=None`` request fans every member through its
+own ``route``. ``sequence`` collapses both the per-language route rail and the per-slot ``fan_out`` rail
+into one ``Result`` — a timeout/spawn ``Fault`` short-circuits to the registry seam, while a non-zero
+exit already rode the success channel as ``Completed{status=FAILED}``, so the fold consumes successes
+only and never sees a ``Fault`` for it.
 """
 
 from dataclasses import dataclass
@@ -26,6 +24,7 @@ from expression.extra.result import sequence
 import msgspec
 
 from tools.assay._TMP.composition.catalog import select  # noqa: PLC2701  # intra-staging import; _TMP is the package root
+from tools.assay._TMP.composition.settings import ArtifactScope, AssaySettings  # noqa: PLC2701, TC001  # unconditional for beartype runtime
 from tools.assay._TMP.core.engine import fan_out  # noqa: PLC2701  # intra-staging import; _TMP is the package root
 from tools.assay._TMP.core.model import (  # noqa: PLC2701  # intra-staging import; _TMP is the package root
     Artifact,
@@ -45,7 +44,6 @@ from tools.assay._TMP.core.routing import route, Routed  # noqa: PLC2701  # intr
 if TYPE_CHECKING:
     from expression.collections import Block
 
-    from tools.assay._TMP.composition.settings import ArtifactScope, AssaySettings  # intra-staging import; _TMP is the package root
     from tools.assay._TMP.core.model import Completed  # intra-staging import; _TMP is the package root
 
 
@@ -54,12 +52,11 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class StaticParams(BaseParams):
-    """The static rail's CLI params: inherits ``paths``/``language`` from ``BaseParams``, adds nothing.
+    """Static rail CLI params: inherits ``paths``/``language`` from ``BaseParams``, adds nothing.
 
-    The static rail carries **no** ``strict`` field — only ``api``/``docs`` Params add ``strict``, so an
-    empty static slice can never be hardened into a fault. ``language=None`` selects every language slice.
-    ``registry`` imports this and flattens its fields onto the CLI via ``cyclopts`` ``Parameter(name="*")``,
-    never re-declaring it.
+    Carries no ``strict`` field (only ``api``/``docs`` Params do), so an empty static slice can never be
+    hardened into a fault; ``language=None`` selects every slice. ``registry`` flattens these fields onto
+    the CLI via ``cyclopts`` ``Parameter(name="*")``.
     """
 
 
@@ -67,11 +64,10 @@ class StaticParams(BaseParams):
 
 
 def _languages(selected: Language | None) -> tuple[Language, ...]:
-    """The languages to fan over: one explicit member, or every member for the polyglot request.
+    """Languages to fan over: one explicit member, or every member for the polyglot request.
 
-    ``DOCS`` rides the polyglot fan even though its ``Claim`` is ``DOCS``, not ``STATIC`` —
-    ``select(Claim.STATIC, …)`` simply yields no ``DOCS`` row, so the empty slice folds to an honest
-    ``EMPTY`` without a per-language guard.
+    ``DOCS`` rides the fan despite its ``Claim`` being ``DOCS``: ``select(Claim.STATIC, …)`` yields no
+    ``DOCS`` row, so the empty slice folds to an honest ``EMPTY`` without a per-language guard.
     """
     match selected:
         case None:
@@ -83,9 +79,8 @@ def _languages(selected: Language | None) -> tuple[Language, ...]:
 def _checks(routed: Routed, mode: Mode) -> tuple[Check, ...]:
     """Bind every ``Mode``-matching ``Tool`` of the routed language to the routed file scope.
 
-    Discriminates the catalog slice twice: ``select(Claim.STATIC, language)`` yields the language slice,
-    then ``t.mode is mode`` keeps only the rows the verb owns. ``paths`` flow as a ``Check`` field; only
-    ``scope``/``routed`` reach the Engine as parameters.
+    ``select(Claim.STATIC, language)`` yields the language slice; ``t.mode is mode`` keeps only the rows
+    the verb owns. ``paths`` ride as a ``Check`` field; only ``scope``/``routed`` reach the Engine.
     """
     return tuple(Check(tool=t, paths=routed.files) for t in select(Claim.STATIC, routed.language) if t.mode is mode)
 
@@ -112,7 +107,7 @@ def thin_rail(settings: AssaySettings, scope: ArtifactScope, params: StaticParam
     promotion to harden it).
     """
     return _routed(_languages(params.language), params.paths).bind(
-        lambda routed: sequence(block.of_seq(slot for r in routed for slot in _dispatch(r, settings=settings, scope=scope, mode=mode))).map(
+        lambda routed: sequence(routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode)))).map(
             lambda done: fold(claim, verb, tuple(done))
         )
     )
@@ -205,7 +200,7 @@ def _plan_artifacts(routed: tuple[Routed, ...], settings: AssaySettings) -> tupl
     ``build`` leases. A glob-only language (no ``projects``) plans no warm tree and contributes no row.
     """
     return tuple(
-        Artifact(id=f"build-{(sha := _closure_sha(r))}", kind=ArtifactKind.SCOPE, path=str(settings.artifact(ArtifactKind.SCOPE, "build", sha)))
+        Artifact(id=f"build-{(sha := _closure_sha(r))}", kind=ArtifactKind.SCOPE, path=ArtifactScope.build(settings, sha).path)
         for r in routed
         if r.projects
     )
@@ -225,9 +220,11 @@ def _routed_notes(routed: Routed) -> tuple[str, ...]:
     """The note rows of one routed slice: scope + closure-sha for C#, file count for a glob language."""
     match routed:
         case Routed(projects=projects) if projects:
+            return (f"{routed.language.value}: scope={routed.scope.value} closure={_closure_sha(routed)} projects={len(projects)}",)
+        case Routed(full_triggers=triggers) if triggers:
             return (
-                f"{routed.language.value}: scope={routed.scope.value} closure={_closure_sha(routed)} projects={len(projects)}",
-                *(f"{routed.language.value}: full-trigger {t}" for t in routed.full_triggers),
+                f"{routed.language.value}: scope={routed.scope.value} files={len(routed.files)}",
+                *(f"{routed.language.value}: full-trigger {t}" for t in triggers),
             )
         case _:
             return (f"{routed.language.value}: scope={routed.scope.value} files={len(routed.files)}",)

@@ -1,171 +1,84 @@
 ---
-description: Standards for agent-facing documents, indexes, retrieval, and generated mirrors
+description: Position, agent cognition, and machine-facing publication surfaces
 ---
 
 # Agentic documentation
 
-Agent-facing documentation helps tools and maintainers find, trust, retrieve,
-reuse, and refresh canonical repository truth. It does not make model output
-trustworthy, enforce authorization, or replace the source documents it points
-to.
+This standard owns position and agent cognition: where controlling content sits inside a unit, how serial-position salience governs that placement, and how machine-facing surfaces publish repository truth so agents can find, trust, and refresh it. It does not decide container form, sentence craft, or evidence strength. It also does not make model output trustworthy, authorize access, or sanitize untrusted content; documentation reduces ambiguity, never enforces it.
 
 ## Use when
 
-Use this standard for:
+Apply this standard when a document or surface must place high-value content for an agent reader, or when publishing a machine-facing surface:
 
-- local instruction files such as `AGENTS.md`;
-- `llms.txt`, `llms-full.txt`, generated mirrors, and machine-readable indexes;
-- retrieval stores, chunk metadata, and source provenance rules;
-- MCP catalogs, resource catalogs, tool catalogs, and structured output
-  contracts;
-- durable handoff or state artifacts that record validated progress;
-- evaluation notes that prove a machine-facing surface works as intended.
+- ordering a unit so the controlling rule leads and the binding constraint closes;
+- writing or revising local instruction files such as `AGENTS.md`;
+- publishing `llms.txt`, generated mirrors, or machine-readable indexes;
+- defining retrieval stores, chunk provenance, or access boundaries;
+- cataloging MCP resources, prompts, and tools, or specifying structured-output contracts;
+- separating durable documentation from task prompts and state artifacts.
 
-Do not use it as a general prose guide, task guide, or product API reference.
-Use [style-guide.md](style-guide.md), [documentation-system.md](documentation-system.md),
-and [api.md](reference/api.md) for those concerns.
+Container choice, sentence mechanics, and evidence strength belong to the form, craft, and evidence standards. Document-type routing belongs to the index.
 
-## Source order
+## Serial-position salience
 
-Use this source order for agent-facing surfaces:
+Place the controlling rule first and the binding constraint last in every unit, because attention is non-uniform across position. Models recall content near the start and end of a context more reliably than content in the middle, and that bias persists in current long-context frontier models rather than disappearing as windows grow. Treat the advertised context window as an upper bound, not a working budget: effective working context is roughly 60-70% of the nominal window, and the middle of a long unit is where high-value content is lost.
 
-1. Current repository source, manifests, contracts, generated output, and
-   maintained product documentation.
-2. Official protocols, specifications, and vendor documentation for the surface
-   being published.
-3. Active local standards for document type, structure, style, and proof.
-4. Local generated mirrors, indexes, summaries, or hints.
+Apply the pattern recursively at every scale:
 
-Do not claim crawler adoption, ranking, answer correctness, access control, or
-injection resistance from documentation alone. State only what the repository
-publishes and how it is refreshed.
+- Document: lead with scope and the highest-risk constraint; close with boundaries and the proof or route that makes the document safe to reuse.
+- Section: open with what the section controls; end on its boundary or owner.
+- Paragraph: state the point first; qualify in the middle; close on the term, action, or constraint to retain.
+- Sentence: put the condition before the action it governs.
 
-For `AGENTS.md` format context, use [agents.md](https://agents.md/) as
-open-format background. For Codex discovery, precedence, fallback filename, and
-byte-limit behavior, use the official OpenAI Codex documentation.
+Salience is relative, not a hard cutoff: middle content is down-weighted, not erased. When a constraint is load-bearing and the unit is long, restate it in compact form at the close, near where an agent acts on it. Keep low-value inventories, history, and incidental detail out of the lead, and never bury a high-risk constraint, exception, or route-away rule mid-unit.
 
-## Artifact boundaries
+`Source of truth:` Anthropic, OpenAI, and Google prompt-engineering documentation; "Lost in the Middle" (Liu et al., 2023) and RULER (NVIDIA, 2024). `Last verified:` 2026-06-04.
 
-Keep durable docs, task instructions, and state artifacts separate.
+## Context invariance
 
-- Durable docs contain stable policy, repo conventions, reusable examples,
-  canonical links, and tool contracts.
-- Task instructions contain the current objective, current evidence or context
-  to inspect, hard constraints, done condition, output contract, validation
-  rule, and stop rule for a specific interaction.
-- State artifacts contain validated facts, current status, unresolved
-  questions, next safe action, progress, provenance, evidence, and proof gaps.
+The position ring holds whether the unit is a durable document or a task prompt. A standard, a retrieval chunk, an `AGENTS.md` overlay, and a one-shot instruction all reward the same shape: controlling content at the edges, supporting detail in the middle. Order a task prompt as high-level role and constraints first, source material and long context next, and the immediate ask plus a compact restatement of the binding constraints last. Do not rewrite an ordinary durable document into task-prompt shape, and do not bury a durable rule inside transient task framing.
 
-Do not publish task-specific interaction material as durable docs. Convert only
-stable rules into the owning standard.
+## Constraint stacking
 
-## Publication surfaces
+Rank instructions so an agent resolves conflicts deterministically. State the rank, not just the rule:
 
-- `AGENTS.md`: scoped operating instructions for agents working in a directory.
-- `llms.txt`: curated map to canonical docs for a published site or corpus.
-- `llms-full.txt`: expanded context only when generated from canonical docs,
-  reviewed, and marked as generated.
-- Markdown or MDX mirrors: allowed when they preserve canonical meaning and
-  identify the source page.
-- Retrieval indexes or vector stores: allowed when source, refresh path,
-  chunking policy, and access boundary are documented.
-- MCP catalogs: list resources, prompts, and tools before detailed schemas.
+- Invariants: rules that must never break. State them first and absolutely.
+- Preferences: defaults that hold unless a stated condition overrides them.
+- Defaults: starting choices an agent may replace when evidence is stronger.
 
-Keep indexes shallow. Link to canonical README, architecture, API, reference,
-how-to, runbook, support, and standards pages instead of copying their bodies.
+Remove contradictory instructions rather than layering a caveat on top of a conflicting rule; unresolved contradiction degrades instruction-following more than any single weak rule. When two rules can both apply, name which controls.
 
-## Instruction files
+## Framing for instruction-following
 
-Instruction files are local operating overlays. They should be short,
-scope-bound, and delta-only: tell the agent what changes in this directory,
-which standards to read, which commands or proof gates apply, and which patterns
-are forbidden.
+Write instructions as positive imperatives that name the action to take, because agents follow an explicit target more reliably than a prohibition. Convert "do not leave the constraint implicit" into "state the constraint first." Reserve negative form for genuine hard boundaries, and pair each prohibition with the positive action that replaces it. Keep guidance clear, consistent, and in a high-salience position; current models are comparatively strong at following clear instructions and comparatively weak at reconciling vague or contradicted ones.
 
-Use this shape when a directory needs an instruction file:
+When factual grounding matters, require evidence extraction before synthesis: have the agent quote or cite the source spans first, then reason from them. This quote-before-synthesis order reduces unsupported claims and keeps the proof trail inspectable.
 
-1. Scope.
-2. Read order.
-3. Routing or ownership rules.
-4. Execution or rewrite rules.
-5. Exclusions.
-6. Validation.
+## Artifact separation
 
-Do not use an instruction file as a style guide, architecture document, command
-catalog, or task diary. If the instruction depends on provider behavior, include
-`Source of truth:`, `Last verified:`, and `Review trigger:` beside the claim.
+Keep durable documentation, task instructions, and state artifacts in distinct artifacts; each has a different lifetime and reader contract.
 
-## Retrieval and chunks
+- Durable documentation holds stable policy, conventions, reusable examples, canonical links, and tool contracts. It outlives any single interaction.
+- Task instructions hold one objective, the done condition, the current evidence to inspect, hard constraints, the output contract, and the stop rule for one interaction, in the canonical field order the Task and output contracts section owns.
+- State artifacts hold validated facts, current status, the next safe action, open questions, provenance, and known proof gaps for resumable work.
 
-Use [information-structure.md](information-structure.md) for source-shaped
-headings, examples, tables, diagrams, and chunk boundaries. This standard adds
-machine-facing provenance and safety rules.
+Do not publish task-specific interaction material as durable documentation. Promote only the stable rule into its owning standard, and leave the transient context in the artifact that owns the interaction.
 
-Retrieval documentation must state:
+## Provider behavior
 
-- canonical corpus or source documents;
-- source path or URL;
-- heading path or parent document identity;
-- document type and owner when known;
-- generated status;
-- refresh owner or generation path;
-- access class and filtering rule when content is not public;
-- review trigger for drift-prone content.
+Treat provider-specific guidance as preferred patterns within a converging ecosystem, not as iron laws, and adjust for model class: reasoning-tuned models want leaner prompts with fewer in-prompt examples, while standard models benefit from explicit few-shot structure.
 
-Use hybrid retrieval, reranking, or provider-specific search only when the
-actual stack supports it and proof names the configured provider, command, or
-source of truth.
+- Claude: structure prompts with explicit sections and XML-style tags marking instructions, context, and inputs; place high-level instructions early, long source documents in the middle, and the immediate task plus the critical reminder at the end. Favor durable workspace norms in `CLAUDE.md` or `AGENTS.md`.
+- GPT and Codex: state the outcome and success criteria first, remove conflicting instructions, and control length with an explicit verbosity or word budget. Move output schemas out of the prose and into the provider's structured-output mechanism wherever the result feeds a tool.
+- Gemini: give direct, task-oriented instructions with an explicit output specification, use schema-backed structured output for extraction and agent-to-agent exchange, and run verification as a distinct step after generation rather than folding it into the same call.
 
-## MCP and tool catalogs
+`Source of truth:` current Anthropic, OpenAI, and Google prompt-engineering and structured-output documentation. `Last verified:` 2026-06-04. `Review trigger:` provider prompt-engineering guidance changes.
 
-Document MCP surfaces by control type:
+## Task and output contracts
 
-- Resources are passive data or content the client reads as context.
-- Prompts are reusable interaction templates.
-- Tools are executable operations with typed inputs and outputs.
+When assembling a context-heavy task instruction, order it to the position ring and bound it to a contract the consumer can check.
 
-Catalog first. Name the capability, when to inspect it, required authorization
-or local setup, and the canonical reference location. Detailed schemas belong in
-API or reference docs. A documented tool is not safe to call merely because it
-is documented; safety comes from permissions, review, and runtime controls.
-
-## Metadata and generated content
-
-Use front matter or sidecar metadata only when a renderer, indexer, generator,
-retrieval store, or review workflow consumes it.
-
-Durable fields may include:
-
-- `description`;
-- `owner`;
-- `source`;
-- `source_of_truth`;
-- `evidence`;
-- `generated`;
-- `generated_from`;
-- `last_reviewed`;
-- `last_verified`;
-- `review_trigger`;
-- `access`;
-- `parent`.
-
-Use snake-case field names when a machine reads the metadata. Map
-`source_of_truth`, `evidence`, `last_verified`, and `generated_from` to the
-human-facing proof labels `Source of truth:`, `Evidence:`, `Last verified:`,
-and `Generated from:`.
-
-Generated or mirrored files must link the canonical source, state the generator
-or workflow when maintained, preserve heading hierarchy where possible, mark
-omissions, and exclude secrets, personal data, task-specific notes, and private
-machine details. Do not hand-edit generated mirrors as independent truth.
-
-## Long context and structured outputs
-
-When assembling context-heavy task instructions, put durable source material
-before the specific ask and require evidence extraction before synthesis when
-factual grounding matters. Do not rewrite ordinary docs into task-instruction
-shape.
-
-Task-facing templates may use this order:
+Order a task instruction as:
 
 1. Objective.
 2. Done condition.
@@ -174,62 +87,134 @@ Task-facing templates may use this order:
 5. Output contract.
 6. Validation and stop rule.
 
-Machine-consumed outputs should use the narrowest contract that the consumer
-actually validates: schema, typed tool input, generated model, catalog entry,
-or documented field list. State proof gaps when a contract is reviewed by a
-human rather than enforced by tooling.
+Bind machine-consumed output to the narrowest contract the consumer actually validates: a schema, a typed tool input, a generated model, a catalog entry, or a documented field list. Prefer a provider's schema-enforced structured output over a schema described in prose when the surface supports it, and treat output format as a tunable choice rather than a fixed default. When a human reviews the contract instead of tooling enforcing it, state that proof gap.
 
-## Evaluation and safety
+## AGENTS.md authoring
 
-Treat agent-facing surfaces like machine-readable contracts when they affect
-retrieval, generated mirrors, tool use, or structured outputs.
+Write `AGENTS.md` as a durable, behavioral overlay for one directory: what changes here, which standards and commands apply, and which patterns are forbidden. It complements the human-facing README; it does not duplicate it.
 
-Useful proof includes:
+Use a recommended minimal section set as the starting point, shared by both the include-list below and the rendered skeleton so the bullets and the skeleton headings line up. This set is the suggested baseline, not a closed vocabulary: a directory may extend it with additional bracketed sections (for example load order, navigation context, routing tables, or rewrite rules) or relabel a section when a clearer name fits its needs. What binds is the include/exclude content rule below, not the exact section names. Whatever sections you keep, include only stable, universal, behavioral content an agent acts on:
 
-- representative questions or tasks from real maintenance failures;
-- baseline comparison against the previous surface, manual route, or known
-  failure;
-- repeated trials when stochastic output, retrieval ranking, or tool selection
-  is the claim;
-- exact checks for format and link correctness;
-- source trace review for retrieved or generated answers;
-- unsupported-claim review;
-- tool-call failure review;
-- model or provider version, configured tool set, token or context budget,
-  latency, tool errors, and trace ID when the evaluation surface owns those
-  facts;
-- latency, cost, and context-budget signals when the surface owns them.
+- `Scope`: directory scope and purpose, and the read order an agent follows into the deeper rules;
+- `Routing`: routing to the standards and reference files that own deeper rules, and ownership of conflicting guidance;
+- `Execution rules`: build, test, and quality commands, code-style and review expectations, and commit and pull-request expectations;
+- `Exclusions`: forbidden patterns, security constraints, and known gotchas;
+- `Validation`: the gate that proves a change here, plus `Source of truth:` and `Last verified:` for any provider-behavior claim.
 
-Separate public, internal, restricted, and secret material into distinct corpora
-or enforce equivalent filters. Documentation can reduce ambiguity, but it
-cannot authorize access or sanitize untrusted content by itself.
+Render the overlay from this copy-safe heading skeleton, treated as an illustrative template rather than a fixed set, so an author copies the shape rather than reconstructing it from prose and then extends or relabels sections as the directory requires:
+
+```markdown conceptual
+# <Directory> agents
+
+<Lead: what changes in this directory and the one rule an agent must not break.>
+
+## Scope
+<What this directory owns; the read order into the standards and reference files below.>
+
+## Routing
+<Which standards and reference files own the deeper rules; which file wins on conflict.>
+
+## Execution rules
+<Build, test, and quality commands; code-style, review, and commit or pull-request expectations.>
+
+## Exclusions
+<Forbidden patterns, security constraints, and known gotchas for this directory.>
+
+## Validation
+<The gate that proves a change here; `Source of truth:` and `Last verified:` for any provider claim.>
+```
+
+Exclude content that rots or wastes context:
+
+- full README or marketing copy;
+- exhaustive path or file enumerations that change with the tree;
+- large auto-generated reference dumps;
+- logs, transient state, or per-session task notes.
+
+Layer files by scope and keep each lean. Resolution concatenates from repository root toward the edited file, so the closest file wins on conflict while higher-level files contribute non-conflicting defaults. Place a file only where a directory carries guidance specific to that level and needed across sessions; every word loaded costs reasoning budget, so a top-level overlay should stay near one screen. Start from the recommended `Scope`, `Routing`, `Execution rules`, `Exclusions`, `Validation` skeleton above, and extend or relabel its sections where the directory needs more. Iterate the file from observed agent failures rather than from speculation, and record provider-behavior claims with `Source of truth:` and `Last verified:` beside the claim.
+
+## llms.txt and indexes
+
+Keep machine-readable indexes shallow and curated. Link to the canonical README, architecture, API, reference, how-to, runbook, support, and standards pages; do not copy their bodies into the index.
+
+- `llms.txt`: a curated map to canonical documents for a published corpus, treated as a routing map and never as an enforcement or ranking mechanism.
+- `llms-full.txt`: expanded context only when generated from canonical documents, reviewed, and marked as generated.
+- Markdown or MDX mirrors: allowed when they preserve canonical meaning and name their source page.
+
+Claim only what the repository publishes and how it is refreshed. Do not claim crawler adoption, ranking, answer correctness, access control, or injection resistance from documentation alone.
+
+## Retrieval and provenance
+
+Document a retrieval surface with the provenance an agent needs to trust and refresh a chunk. State, per corpus or chunk:
+
+- the canonical corpus or source documents;
+- the source path or URL and the heading path or parent identity;
+- the document type and owner when known;
+- generated status and the refresh owner or generation path;
+- the access class and filter rule when content is not public;
+- the review trigger for drift-prone content.
+
+Carry these as a per-chunk provenance record, one `label: value` per line, so every retrievable chunk header is copy-safe rather than reconstructed from prose:
+
+```markdown conceptual
+source_path: <repo path or URL of the source document>
+heading_path: <H1 > H2 > H3 trail, or the parent identity>
+doc_type: <reference | runbook | architecture | ...>
+owner: <accountable role or group, when known>
+generated: <true | false; generation path or workflow when true>
+access: <public | internal | restricted | secret; filter rule when not public>
+review_trigger: <event that makes the chunk stale>
+```
+
+Each retrievable chunk should carry enough context to stand alone, because retrieval strips surrounding structure. Claim hybrid retrieval, reranking, or provider-specific search only when the deployed stack supports it and the proof names the configured provider, command, or source of truth. Keep very large tables and long records chunked rather than passed whole, since the same long-context degradation that erodes prose erodes oversized structured content.
+
+## MCP and tool catalogs
+
+Catalog MCP surfaces by control type before detailing any schema:
+
+- Resources: passive data or content the client reads as context.
+- Prompts: reusable interaction templates.
+- Tools: executable operations with typed inputs and outputs.
+
+For each capability, name what it is, when to inspect it, the required authorization or local setup, and where its canonical reference lives. Detailed schemas belong in API or reference documentation. A documented tool is not safe to call merely because it is documented; safety comes from permissions, review, and runtime controls, not from the catalog entry.
+
+## Metadata and generated mirrors
+
+Add front matter or sidecar metadata only when a renderer, indexer, generator, retrieval store, or review workflow consumes it. Use snake-case field names when a machine reads the field. Durable fields may include `description`, `owner`, `source`, `source_of_truth`, `evidence`, `generated`, `generated_from`, `last_reviewed`, `last_verified`, `review_trigger`, `access`, and `parent`. Map each machine field to its human-facing proof label so the same fact reads the same way in prose and in metadata; the proof labels are the ones proof.md owns.
+
+| Frontmatter field | Proof label        |
+| ----------------- | ------------------ |
+| `source_of_truth` | `Source of truth:` |
+| `evidence`        | `Evidence:`        |
+| `last_verified`   | `Last verified:`   |
+| `review_trigger`  | `Review trigger:`  |
+| `generated_from`  | `Generated from:`  |
+
+Fields with no proof-label counterpart — `description`, `owner`, `source`, `generated`, `last_reviewed`, `access`, `parent` — are triage or routing metadata and do not assert a claim, so they carry no prose label.
+
+A generated or mirrored file must link its canonical source, name the generator or workflow when one is maintained, preserve heading hierarchy where possible, mark omissions, and exclude secrets, personal data, task notes, and private machine details. Do not hand-edit a generated mirror as independent truth.
+
+Separate public, internal, restricted, and secret material into distinct corpora or enforce equivalent filters at the boundary. Documentation can describe an access class; it cannot enforce one.
 
 ## Boundaries
 
-- `README.md` and hub pages route readers to canonical docs.
-- Reference docs own lookup facts and catalogs.
-- API docs own generated and contract-backed API truth.
-- Proof standards own evidence strength and freshness.
-- Information structure owns page shape and chunk boundaries.
-- This standard owns machine-facing publication, retrieval, metadata, and
-  generated mirror safety.
+- [information-structure.md](information-structure.md) owns container form, diagrams, page anatomy, and chunk shape; this standard owns where high-value content sits within them.
+- [style-guide.md](style-guide.md) owns sentence and word craft; this standard owns the cognition rationale for positive, imperative framing.
+- [proof.md](proof.md) owns evidence strength, freshness fields, and the evaluation discipline for machine-facing surfaces.
+- [formatting.md](formatting.md) owns the markers and styling that render the constraints this standard places.
+- [README.md](README.md) owns document-type routing and is the single index that links across standards.
 
 ## Review checklist
 
-- [ ] Indexes link to canonical docs instead of copying them.
-- [ ] Optional context is marked as optional.
-- [ ] `llms.txt` is treated as a map, not an enforcement mechanism.
-- [ ] MCP resources, prompts, and tools are separated.
-- [ ] Retrieval metadata preserves source, heading path, owner, access, and
-      freshness when those facts matter.
-- [ ] Generated mirrors identify source and generation status.
+- [ ] The controlling rule leads each unit and the binding constraint closes it.
+- [ ] Load-bearing constraints in long units are restated near the close.
+- [ ] Durable docs, task instructions, and state artifacts stay separate.
+- [ ] Instructions are positive imperatives with ranked constraints.
+- [ ] Provider claims carry a current primary source and `Last verified` date.
+- [ ] `AGENTS.md` files are behavioral, lean, and free of rot-prone enumeration.
+- [ ] Indexes link to canonical docs; `llms.txt` is treated as a map.
+- [ ] Retrieval chunks carry source, heading path, owner, access, and freshness.
+- [ ] MCP resources, prompts, and tools are separated before schemas.
 - [ ] Metadata exists only where a consumer reads it.
-- [ ] Task-instruction contracts include objective, done condition, context,
-      constraints, output contract, validation, and stop rule.
-- [ ] State artifacts separate validated facts, status, next action, evidence,
-      and proof gaps.
-- [ ] Evaluations include baseline, repeated trials when needed, source trace,
-      tool errors, and unsupported-claim review.
-- [ ] Provider-specific claims have current primary-source proof.
-- [ ] No secrets, private machine details, task-specific interaction material,
-      or unverified provider-behavior claims are exposed.
+- [ ] Generated mirrors identify source and generation status.
+- [ ] No secrets, private paths, or unverified provider claims are exposed.

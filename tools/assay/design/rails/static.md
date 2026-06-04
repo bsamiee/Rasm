@@ -53,7 +53,7 @@ def _routed(languages: tuple[Language, ...], paths: tuple[str, ...]) -> Result[B
 def thin_rail(settings, scope, params, *, claim: Claim, verb: str, mode: Mode) -> Result[Report, Fault]:
     return _routed(_languages(params.language), params.paths).bind(            # plain fn folds Result; NOT @effect.result
         lambda routed: sequence(
-            block.of_seq(slot for r in routed for slot in _dispatch(r, settings=settings, scope=scope, mode=mode))
+            routed.collect(lambda r: block.of_seq(_dispatch(r, settings=settings, scope=scope, mode=mode)))  # Block.collect = native concatMap, not a hand-rolled flatten
         ).map(lambda done: fold(claim, verb, tuple(done)))                     # fold(claim, verb, outcomes) — no parser kwarg
     )
 
